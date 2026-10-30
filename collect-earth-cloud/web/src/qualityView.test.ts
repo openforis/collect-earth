@@ -13,15 +13,18 @@ import {
   marginRows,
   marginsToSave,
   parseMargin,
+  answerText,
   pollDelay,
   problemMessageKey,
   rateText,
+  reloadOnShow,
   splitWeek,
   weekChart,
   weekRateText,
   weekText,
   withDecision,
   withNote,
+  withQuestionLabels,
 } from "./qualityView";
 
 const question = (key: string, label: string, kind: "choice" | "number", margin: number | null = null): QuestionAgreement => ({
@@ -149,8 +152,11 @@ describe("the week chart", () => {
   it("gives every week its share, saying when it has few checks", () => {
     const t = translator("en");
     expect(weekText(t, { week: "2026-W44", compared: 50, agreeing: 41 }, "en")).toBe("Week 44, 2026: 82% agree (41 of 50 checks)");
-    expect(weekText(t, { week: "2026-W45", compared: 4, agreeing: 4 }, "en")).toBe("Week 45, 2026: 100% agree (4 of 4 checks) (few checks)");
-    expect(weekRateText(translator("es"), { compared: 19, agreeing: 19 }, "es")).toMatch(/\(19 de 19 controles\) \(pocos controles\)$/);
+    expect(weekText(t, { week: "2026-W45", compared: 4, agreeing: 4 }, "en")).toBe("Week 45, 2026: 100% agree (4 of 4 checks, few checks)");
+    expect(weekRateText(t, { compared: 10, agreeing: 7 }, "en")).toBe("70% agree (7 of 10 checks, few checks)");
+    expect(weekRateText(translator("es"), { compared: 19, agreeing: 19 }, "es")).toMatch(/\(19 de 19 controles, pocos controles\)$/);
+    expect(weekRateText(translator("fr"), { compared: 10, agreeing: 7 }, "fr")).toMatch(/\(7 contrôles sur 10, peu de contrôles\)$/);
+    expect(weekRateText(translator("pt"), { compared: 10, agreeing: 7 }, "pt")).toMatch(/\(7 de 10 controles, poucos controles\)$/);
   });
 
   it("names weeks", () => {
@@ -233,6 +239,73 @@ describe("asking again for newer figures", () => {
     expect(ask({ stale: true, hidden: true })).toBeNull();
     expect(ask({ stale: true, failed: true })).toBeNull();
     expect(ask({})).toBeNull();
+  });
+});
+
+describe("asking again when the page is shown", () => {
+  it("only for stale or busy figures, or after a minute since the last load", () => {
+    expect(reloadOnShow({ stale: true, busy: false, sinceLoad: 0 })).toBe(true);
+    expect(reloadOnShow({ stale: false, busy: true, sinceLoad: 0 })).toBe(true);
+    expect(reloadOnShow({ stale: false, busy: false, sinceLoad: 59_000 })).toBe(false);
+    expect(reloadOnShow({ stale: false, busy: false, sinceLoad: 61_000 })).toBe(true);
+  });
+});
+
+describe("answers by their label", () => {
+  const options = {
+    collect_code_land_use: [
+      { code: "F", label: "Forest" },
+      { code: "C", label: "Cropland" },
+      { code: "S", label: "Settlement" },
+      { code: "X", label: "" },
+    ],
+    collect_code_twins: [
+      { code: "a", label: "Same" },
+      { code: "b", label: "same " },
+      { code: "c", label: "Other" },
+    ],
+    collect_boolean_changed: [
+      { code: "true", label: "Yes" },
+      { code: "false", label: "No" },
+    ],
+  };
+  const en = translator("en");
+
+  it("shows the option's label, the code when it has none or is not in the list, and (no answer) for a blank", () => {
+    expect(answerText(en, "collect_code_land_use", "C", options)).toBe("Cropland");
+    expect(answerText(en, "collect_code_land_use", "X", options)).toBe("X");
+    expect(answerText(en, "collect_code_land_use", "Q", options)).toBe("Q");
+    expect(answerText(en, "collect_code_unknown", "C", options)).toBe("C");
+    expect(answerText(en, "collect_code_land_use", "", options)).toBe("(no answer)");
+  });
+
+  it("gives several answers each by its label, and the code in brackets only where two options read the same", () => {
+    expect(answerText(en, "collect_code_land_use", "F, S", options)).toBe("Forest, Settlement");
+    expect(answerText(en, "collect_code_twins", "a", options)).toBe("Same (a)");
+    expect(answerText(en, "collect_code_twins", "c", options)).toBe("Other");
+  });
+
+  it("says yes and no in the dashboard's language for a yes/no question, also without options", () => {
+    expect(answerText(en, "collect_boolean_changed", "true", options)).toBe("Yes");
+    expect(answerText(en, "collect_boolean_changed", "false", options)).toBe("No");
+    expect(answerText(translator("es"), "collect_boolean_changed", "true", {})).toBe("Sí");
+    expect(answerText(translator("fr"), "collect_entity_lu[F].boolean_ok", "false", {})).toBe("Non");
+    expect(answerText(translator("pt"), "collect_boolean_changed", "true", {})).toBe("Sim");
+    expect(answerText(en, "collect_code_boolean_like", "true", {})).toBe("true");
+  });
+});
+
+describe("question keys in texts", () => {
+  it("are shown as the question's label: exact keys only, longest first, never inside a longer word", () => {
+    const labels = new Map([
+      ["collect_code_land_use", "Land use"],
+      ["collect_code_land_use_category", "Land use category"],
+      ["collect_entity_tree[1].real_height", "Tree 1: Height"],
+    ]);
+    expect(withQuestionLabels("Before you answer collect_code_land_use_category, read collect_code_land_use. Also collect_entity_tree[1].real_height; xcollect_code_land_use", labels)).toBe(
+      "Before you answer Land use category, read Land use. Also Tree 1: Height; xcollect_code_land_use",
+    );
+    expect(withQuestionLabels("plain", new Map())).toBe("plain");
   });
 });
 

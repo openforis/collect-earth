@@ -246,6 +246,12 @@ export interface GuidanceNote extends GuidanceNoteInput {
   updatedAt: number | null;
 }
 
+/**
+ * The answer options of choice questions, by question key, from the survey: to show an
+ * answer by its label ("Forest") instead of its code ("F").
+ */
+export type AnswerOptions = Record<string, { code: string; label: string }[]>;
+
 /** The Quality tab's figures (GET /quality). Counts are checks, except plotsChecked and plotsDiffering. */
 export interface QualityData {
   plotsChecked: number;
@@ -262,6 +268,8 @@ export interface QualityData {
   notes: GuidanceNote[];
   /** Number margins in percent, by margin key (an indexed entity's question as [*]). */
   margins: Record<string, number>;
+  /** The answer options of the choice questions shown. */
+  options: AnswerOptions;
   /** When the figures' records were read (ms). */
   computedAt: number | null;
   /** Older figures, given while newer ones are worked out. */
@@ -991,6 +999,16 @@ function toMargins(value: unknown): Record<string, number> {
 }
 
 /** The Quality tab's figures from the server's answer, with every list present. */
+/** Answer options as sent (a list of { code, label } per key); anything else is left out. */
+function toOptions(value: unknown): AnswerOptions {
+  const out: AnswerOptions = {};
+  for (const [key, options] of Object.entries(obj(value))) {
+    if (!Array.isArray(options)) continue;
+    out[key] = options.filter((o) => o && typeof o === "object" && typeof (o as { code?: unknown }).code === "string").map((o) => ({ code: text(o.code), label: text(o.label) }));
+  }
+  return out;
+}
+
 export function toQualityData(body: unknown): QualityData {
   const b = obj(body);
   const beyond = obj(b.beyondOutline);
@@ -1033,6 +1051,7 @@ export function toQualityData(body: unknown): QualityData {
     decisions: list(b.decisions).map(toDecision),
     notes: list(b.notes).map(toNote),
     margins: toMargins(obj(b.settings).margins),
+    options: toOptions(b.options),
     computedAt: toMillis(b.computedAt),
     stale: b.stale === true,
   };
@@ -1322,6 +1341,8 @@ export interface MyQuality {
   minChecks: number;
   asFirst: Rate;
   confusions: ReportConfusion[];
+  /** The answer options of the questions of the mix-ups. */
+  options: AnswerOptions;
   computedAt: number | null;
   stale: boolean;
 }
@@ -1334,6 +1355,8 @@ export interface TeamReport {
   questions: QuestionAgreement[];
   confusions: ReportConfusion[];
   notes: ReportNote[];
+  /** The answer options of the report's choice questions. */
+  options: AnswerOptions;
   computedAt: number | null;
   stale: boolean;
 }
@@ -1369,6 +1392,7 @@ export async function getMyQuality(projectId: string): Promise<MyQuality> {
     minChecks: toCount(b.minChecks),
     asFirst: toReportRate(b.asFirst),
     confusions: list(b.confusions).map(toReportConfusion),
+    options: toOptions(b.options),
     computedAt: toMillis(b.computedAt),
     stale: b.stale === true,
   };
@@ -1389,6 +1413,7 @@ export async function getTeamReport(projectId: string): Promise<TeamReport> {
     })),
     confusions: list(b.confusions).map(toReportConfusion),
     notes: list(b.notes).map(toReportNote),
+    options: toOptions(b.options),
     computedAt: toMillis(b.computedAt),
     stale: b.stale === true,
   };

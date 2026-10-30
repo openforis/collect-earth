@@ -15,27 +15,28 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Add from "@mui/icons-material/Add";
 import { useState } from "react";
-import { createGuidanceNote, deleteGuidanceNote, updateGuidanceNote, type GuidanceNote, type GuidanceNoteInput, type QualityData } from "../api";
+import { createGuidanceNote, deleteGuidanceNote, updateGuidanceNote, type AnswerOptions, type GuidanceNote, type GuidanceNoteInput, type QualityData } from "../api";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { useT } from "../i18n";
-import { labelMap } from "../qualityView";
+import { answerText, labelMap, labelsOf, withQuestionLabels } from "../qualityView";
 
 /** A note being written: a new one (no id) or an existing one. */
 export type NoteDraft = GuidanceNoteInput & { id?: string };
 
 const MAX_NOTE = 2000;
 
-/** What a note is about: the question and, for a mix-up, "first → check". */
-function NoteAbout({ note, label }: { note: GuidanceNoteInput; label: (key: string) => string }) {
+/** What a note is about: the question and, for a mix-up, "first → check" (answers by their label). */
+function NoteAbout({ note, label, options }: { note: GuidanceNoteInput; label: (key: string) => string; options: AnswerOptions }) {
   const t = useT();
   const pair = note.firstValue !== null || note.checkValue !== null;
+  const answer = (value: string | null) => (value === null ? t("quality.anyAnswer") : answerText(t, note.questionKey, value, options));
   return (
     <Typography sx={{ fontWeight: 500, wordBreak: "break-word" }}>
       {label(note.questionKey)}
       {pair && (
         <Box component="span" sx={{ fontWeight: 400, color: "text.secondary" }}>
           {" · "}
-          {t("quality.noteAbout", { first: note.firstValue ?? t("quality.anyAnswer"), check: note.checkValue ?? t("quality.anyAnswer") })}
+          {t("quality.noteAbout", { first: answer(note.firstValue), check: answer(note.checkValue) })}
         </Box>
       )}
     </Typography>
@@ -143,12 +144,16 @@ function NoteItem({
   projectId,
   note,
   label,
+  labels,
+  options,
   onEdit,
   onDeleted,
 }: {
   projectId: string;
   note: GuidanceNote;
   label: (key: string) => string;
+  labels: ReadonlyMap<string, string>;
+  options: AnswerOptions;
   onEdit: (draft: NoteDraft) => void;
   onDeleted: (id: string) => void;
 }) {
@@ -170,8 +175,9 @@ function NoteItem({
   return (
     <Paper variant="outlined" component="li" sx={{ p: { xs: 1.5, sm: 2 }, listStyle: "none" }}>
       <Stack spacing={1}>
-        <NoteAbout note={note} label={label} />
-        <Typography sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{note.text}</Typography>
+        <NoteAbout note={note} label={label} options={options} />
+        {/* Shown with question labels for keys (a draft of the assistant may hold one); edited as written. */}
+        <Typography sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{withQuestionLabels(note.text, labels)}</Typography>
         {confirm ? (
           <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
             <Typography variant="body2">{t("quality.noteDeleteConfirm")}</Typography>
@@ -212,6 +218,7 @@ export function QualityNotes({
 }) {
   const t = useT();
   const label = labelMap(data.questions);
+  const labels = labelsOf(data.questions);
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section">
       <Stack spacing={2}>
@@ -222,7 +229,7 @@ export function QualityNotes({
         ) : (
           <Stack component="ul" spacing={1.5} sx={{ m: 0, p: 0 }}>
             {data.notes.map((note) => (
-              <NoteItem key={note.id} projectId={projectId} note={note} label={label} onEdit={onEdit} onDeleted={onDeleted} />
+              <NoteItem key={note.id} projectId={projectId} note={note} label={label} labels={labels} options={data.options} onEdit={onEdit} onDeleted={onDeleted} />
             ))}
           </Stack>
         )}

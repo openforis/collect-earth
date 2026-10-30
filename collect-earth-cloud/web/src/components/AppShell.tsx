@@ -136,8 +136,10 @@ function Footer() {
   );
 }
 
-/** Printed pages (the reports): no app bar, footer or buttons, on white. */
+/** Printed pages (the reports): no app bar, footer or buttons, on white, with margins on the paper. */
 const PRINT_STYLES = {
+  // Space between the paper's edge and the cards, whatever the browser's own margins.
+  "@page": { margin: "15mm 12mm" },
   "@media print": {
     ".MuiAppBar-root, footer, .MuiButton-root, .MuiIconButton-root, .no-print": { display: "none !important" },
     "body, .app-page": { background: "#fff !important" },

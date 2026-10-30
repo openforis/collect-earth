@@ -31,6 +31,35 @@ export function landed<T>(fresh: T, prev: T | null, changedSince: boolean, merge
   return merge ? merge(fresh, prev) : prev;
 }
 
+/**
+ * The local changes (setData) counted for the loads: a load compares the count at its
+ * start and at its end. When the deps change (another project...), the count starts
+ * again: changes made to the data of before are not about what is loaded now. A reload
+ * (same deps) keeps counting.
+ */
+export class LocalChanges {
+  count = 0;
+  private deps: readonly unknown[] | null = null;
+
+  /** At a load's start: the count to compare with at its end. */
+  start(deps: readonly unknown[]): number {
+    if (this.deps === null || this.deps.length !== deps.length || this.deps.some((d, i) => !Object.is(d, deps[i]))) {
+      this.deps = [...deps];
+      this.count = 0;
+    }
+    return this.count;
+  }
+
+  change(): void {
+    this.count += 1;
+  }
+
+  /** Whether the data was changed here since a load that started at `start`. */
+  since(start: number): boolean {
+    return this.count !== start;
+  }
+}
+
 /** Loads data when the page opens (and when deps change); the latest call wins. */
 export function useLoad<T>(load: () => Promise<T>, deps: readonly unknown[], options: LoadOptions<T> = {}): Loaded<T> {
   const [data, setState] = useState<T | null>(null);
@@ -39,7 +68,7 @@ export function useLoad<T>(load: () => Promise<T>, deps: readonly unknown[], opt
   const [tick, setTick] = useState(0);
   const latest = useRef(0);
   /** Local changes so far: a load compares the count at its start and at its end. */
-  const changes = useRef(0);
+  const changes = useRef(new LocalChanges());
   const loadRef = useRef(load);
   loadRef.current = load;
   const mergeRef = useRef(options.merge);
@@ -47,13 +76,13 @@ export function useLoad<T>(load: () => Promise<T>, deps: readonly unknown[], opt
 
   useEffect(() => {
     const call = ++latest.current;
-    const changesAtStart = changes.current;
+    const changesAtStart = changes.current.start(deps);
     setLoading(true);
     setError(null);
     loadRef.current().then(
       (result) => {
         if (call !== latest.current) return;
-        const changedSince = changes.current !== changesAtStart;
+        const changedSince = changes.current.since(changesAtStart);
         setState((prev) => landed(result, prev, changedSince, mergeRef.current));
         setLoading(false);
       },
@@ -68,7 +97,7 @@ export function useLoad<T>(load: () => Promise<T>, deps: readonly unknown[], opt
 
   const reload = useCallback(() => setTick((n) => n + 1), []);
   const setData = useCallback((next: T | ((prev: T) => T)) => {
-    changes.current += 1;
+    changes.current.change();
     setState((prev) => (typeof next === "function" ? (prev === null ? prev : (next as (prev: T) => T)(prev)) : next));
   }, []);
   return { data, error, loading, reload, setData };

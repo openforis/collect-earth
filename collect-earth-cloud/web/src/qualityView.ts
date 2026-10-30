@@ -2,7 +2,7 @@
 // geometry, the Google Earth link, the differences grouped by plot, local changes and
 // when to ask for newer figures.
 
-import type { DataProblemKind, Difference, GuidanceNote, QualityData, QualityDecision, QuestionAgreement, Rate, WeekAgreement } from "./api";
+import type { AnswerOptions, DataProblemKind, Difference, GuidanceNote, QualityData, QualityDecision, QuestionAgreement, Rate, WeekAgreement } from "./api";
 import type { MessageKey, Translate } from "./i18n";
 
 /** Below this many checks a rate is not given (the server's MIN_PLOTS). */
@@ -113,12 +113,14 @@ export function splitWeek(week: string): { year: string; week: string } {
 }
 
 /**
- * A week's share as text: every week gets one, even under MIN_CHECKS, then marked
- * "(few checks)": "82% agree (41 of 50 checks)", "100% agree (4 of 4 checks) (few checks)".
+ * A week's share as text: every week gets one, even under MIN_CHECKS, then marked:
+ * "82% agree (41 of 50 checks)", "70% agree (7 of 10 checks, few checks)".
  */
 export function weekRateText(t: Translate, w: { compared: number; agreeing: number }, language: string): string {
-  const text = rateText(t, { compared: w.compared, agreeing: w.agreeing, rate: w.compared > 0 ? w.agreeing / w.compared : null }, language);
-  return w.compared > 0 && w.compared < MIN_CHECKS ? `${text} ${t("quality.fewChecks")}` : text;
+  if (w.compared > 0 && w.compared < MIN_CHECKS) {
+    return t("quality.agreeFew", { pct: formatRate(w.agreeing / w.compared, language), agreeing: w.agreeing, count: w.compared });
+  }
+  return rateText(t, { compared: w.compared, agreeing: w.agreeing, rate: w.compared > 0 ? w.agreeing / w.compared : null }, language);
 }
 
 /** A week and its share: "Week 44, 2026: 82% agree (41 of 50 checks)". */
@@ -206,6 +208,17 @@ export function keepLocalChanges(fresh: QualityData, prev: QualityData): Quality
   return { ...fresh, decisions: prev.decisions, notes: prev.notes, margins: prev.margins };
 }
 
+/** Shown again after this long, the page asks for the figures again even when they were fresh. */
+export const RELOAD_ON_SHOW_AFTER_MS = 60_000;
+
+/**
+ * Whether to ask for the figures again when the page is shown again: when they were
+ * stale or busy, or the last answer is more than a minute old (not at every tab switch).
+ */
+export function reloadOnShow(state: { stale: boolean; busy: boolean; sinceLoad: number }): boolean {
+  return state.stale || state.busy || state.sinceLoad > RELOAD_ON_SHOW_AFTER_MS;
+}
+
 /** How long to wait before asking again while the figures stay stale: 5, 10, 20 s, then every 60 s. */
 export const STALE_BACKOFF_MS = [5_000, 10_000, 20_000, 60_000] as const;
 /** The Retry-After of a "busy" answer. */
@@ -221,6 +234,58 @@ export function pollDelay(state: { stale: boolean; busy: boolean; failed: boolea
   if (state.hidden || state.failed || !(state.stale || state.busy)) return null;
   const backoff = STALE_BACKOFF_MS[Math.min(state.round, STALE_BACKOFF_MS.length - 1)];
   return state.busy ? Math.max(BUSY_RETRY_MS, backoff) : backoff;
+}
+
+/** A yes/no question's key: the desktop app's summary prefix for a boolean, at the root or in an entity. */
+const BOOLEAN_KEY = /(?:^collect_|\.)boolean_/;
+
+/** The label of one answer code: the option's (with the code when another option reads the same), else the code. */
+function codeText(t: Translate, key: string, code: string, options: AnswerOptions): string {
+  if (BOOLEAN_KEY.test(key) && (code === "true" || code === "false")) return t(code === "true" ? "common.yes" : "common.no");
+  const list = Object.hasOwn(options, key) ? options[key] : [];
+  const option = list.find((o) => o.code === code);
+  const label = option?.label.trim() ?? "";
+  if (!label) return code;
+  const same = (o: { label: string }) => o.label.trim().toLocaleLowerCase() === label.toLocaleLowerCase();
+  return list.some((o) => o !== option && same(o)) ? `${label} (${code})` : label;
+}
+
+/**
+ * An answer as shown: the option's label in the survey ("Forest", not "F"), Yes or No in
+ * the dashboard's language for a yes/no question, "(no answer)" for a blank one. Several
+ * answers ("F, S") are each shown by their label. The code is added in brackets only when
+ * two options of the question read the same, and shown alone when it has no label.
+ */
+export function answerText(t: Translate, key: string, value: string, options: AnswerOptions): string {
+  if (value === "") return t("quality.blank");
+  const list = Object.hasOwn(options, key) ? options[key] : [];
+  if (list.some((o) => o.code === value) || !value.includes(", ")) return codeText(t, key, value, options);
+  return value
+    .split(", ")
+    .map((code) => codeText(t, key, code, options))
+    .join(", ");
+}
+
+const KEY_BEFORE = "(?<![\\p{L}\\p{N}_])";
+const KEY_AFTER = "(?![\\p{L}\\p{N}_])";
+
+/**
+ * A text with the exact question keys in it shown as the questions' labels (a note the
+ * assistant drafted earlier may hold "collect_code_land_use"), longest key first, never
+ * inside a longer word.
+ */
+export function withQuestionLabels(text: string, labels: ReadonlyMap<string, string>): string {
+  const keys = [...labels].filter(([key, label]) => key !== "" && label.trim() !== "" && label !== key).map(([key]) => key);
+  if (keys.length === 0) return text;
+  keys.sort((a, b) => b.length - a.length);
+  const escaped = keys.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const pattern = new RegExp(`${KEY_BEFORE}(?:${escaped.join("|")})${KEY_AFTER}`, "gu");
+  return text.replace(pattern, (key) => labels.get(key) ?? key);
+}
+
+/** The questions' labels by key, as the figures give them. */
+export function labelsOf(questions: readonly QuestionAgreement[]): Map<string, string> {
+  return new Map(questions.map((q) => [q.key, q.label]));
 }
 
 /** The checks of each plot together (a plot checked twice has two), in the figures' plot order. */

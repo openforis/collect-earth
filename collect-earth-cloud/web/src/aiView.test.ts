@@ -5,15 +5,22 @@ import {
   causeMessageKey,
   failureMessageKey,
   findingFigures,
+  followedKind,
   followUpsOf,
+  limitTexts,
+  LOST_CONTACT_AFTER,
   MAX_QUESTION_CHARS,
   parseLimit,
   plotLinks,
   progressMessageKey,
   questionCounter,
+  runPollFailure,
+  runRetryDelay,
+  runToFollow,
   shouldPollRun,
   startErrorText,
   toolMessageKey,
+  withRunState,
 } from "./aiView";
 import { CATALOGUES, translator } from "./i18n";
 
@@ -95,14 +102,84 @@ describe("why a run did not start", () => {
       "Follow-ups and questions are not allowed on this server. The server owner can change this in Server settings.",
     );
     expect(startErrorText(t, new ApiError(429, "ai_monthly_limit", "x", { resetsAt: null }), "en")).toBe(
-      "The AI assistant is not allowed on this server this month. The server owner can change this in Server settings.",
+      "The AI assistant is not allowed on this server. The server owner can change this in Server settings.",
     );
+    // A limit of 0 is not about this month, in any language.
+    for (const lang of ["es", "fr", "pt"] as const) {
+      expect(translator(lang)("ai.limit.monthNone")).not.toMatch(/este mes|ce mois|neste mês|este mês/i);
+    }
   });
 
   it("busy is the assistant's own sentence, other errors are left to the error box", () => {
     expect(startErrorText(t, new ApiError(409, "busy", "x"), "en")).toBe("The assistant is already working for this project. Wait until it has finished.");
     expect(startErrorText(t, new ApiError(409, "ai_not_enabled", "x"), "en")).toBeNull();
     expect(startErrorText(t, new Error("x"), "en")).toBeNull();
+  });
+});
+
+const summary = (id: string, over: Partial<AiRunSummary> = {}): AiRunSummary => ({
+  id,
+  kind: "report",
+  status: "running",
+  startedAt: 0,
+  finishedAt: null,
+  startedBy: "ana",
+  tokens: 0,
+  parentRunId: null,
+  findingIndex: null,
+  action: null,
+  errorCode: null,
+  ...over,
+});
+
+describe("following a run", () => {
+  it("puts a finished run's state in the list at once, so it is not followed again before the list is loaded", () => {
+    const list = [summary("r2"), summary("r1", { status: "done" })];
+    const done = withRunState(list, summary("r2", { status: "done", finishedAt: 9, tokens: 40 }));
+    expect(done[0]).toMatchObject({ id: "r2", status: "done", finishedAt: 9, tokens: 40 });
+    expect(done[1]).toBe(list[1]);
+    expect(runToFollow(done, null, new Set())).toBeNull();
+    // A run not in the list (yet) is left as the list has it.
+    expect(withRunState(list, summary("r9", { status: "done" }))).toEqual(list);
+  });
+
+  it("follows the run it follows, else a running one it is not done with", () => {
+    const list = [summary("r2"), summary("r1", { status: "done" })];
+    expect(runToFollow(list, "r7", new Set())).toBe("r7");
+    expect(runToFollow(list, null, new Set())).toBe("r2");
+    // Finished here, or given up on: not followed again, even while the list still says running.
+    expect(runToFollow(list, null, new Set(["r2"]))).toBeNull();
+  });
+
+  it("knows the kind of the run followed at once: as started here, else from the list or its details", () => {
+    const list = [summary("q1", { kind: "question" })];
+    expect(followedKind({ id: "new", kind: "report" }, [], new Map())).toBe("report");
+    expect(followedKind({ id: "q1" }, list, new Map())).toBe("question");
+    expect(followedKind({ id: "x" }, [], new Map([["x", { kind: "follow_up" }]]))).toBe("follow_up");
+    expect(followedKind({ id: "x" }, [], new Map())).toBeNull();
+    expect(followedKind(null, list, new Map())).toBeNull();
+  });
+
+  it("after a failed ask: stops for a run gone, stops and says why for another refusal, tries again for the server or the network", () => {
+    expect(runPollFailure(new ApiError(404, "not_found"))).toBe("gone");
+    for (const status of [400, 401, 403, 409, 429]) expect(runPollFailure(new ApiError(status, "x")), String(status)).toBe("stop");
+    for (const status of [500, 502, 503]) expect(runPollFailure(new ApiError(status, "x")), String(status)).toBe("retry");
+    expect(runPollFailure(new ApiError(0, "network"))).toBe("retry");
+    expect(runPollFailure(new Error("offline"))).toBe("retry");
+  });
+
+  it("waits longer after each failure: 2, 4, 8, 16, then 30 seconds, and says contact is lost after 3", () => {
+    expect([1, 2, 3, 4, 5, 6, 20].map(runRetryDelay)).toEqual([2_000, 4_000, 8_000, 16_000, 30_000, 30_000, 30_000]);
+    expect(LOST_CONTACT_AFTER).toBe(3);
+  });
+});
+
+describe("the AI limits on the server's page", () => {
+  const settings = { aiReportsPerDay: 5, aiFollowUpsPerDay: 50, aiMonthlyTokens: 2_000_000 };
+  it("show the server's values, and what is being typed over them until it is saved", () => {
+    expect(limitTexts(settings, {})).toEqual({ aiReportsPerDay: "5", aiFollowUpsPerDay: "50", aiMonthlyTokens: "2000000" });
+    expect(limitTexts({ ...settings, aiReportsPerDay: 7 }, {})).toMatchObject({ aiReportsPerDay: "7" });
+    expect(limitTexts({ ...settings, aiReportsPerDay: 7 }, { aiReportsPerDay: "9" })).toMatchObject({ aiReportsPerDay: "9", aiFollowUpsPerDay: "50" });
   });
 });
 

@@ -40,7 +40,7 @@ import {
   type ResetLink,
   type ServerSettings,
 } from "../api";
-import { AI_LIMIT_MAX, parseLimit } from "../aiView";
+import { AI_LIMIT_MAX, limitTexts, parseLimit } from "../aiView";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { CopyField } from "../components/CopyField";
@@ -133,11 +133,10 @@ const AI_LIMIT_FIELDS: { key: AiLimitKey; label: MessageKey; help: MessageKey }[
 function AiSettings({ settings, onSave }: { settings: ServerSettings; onSave: (changes: Partial<ServerSettings>) => Promise<void> }) {
   const t = useT();
   const { language } = useApp();
-  const [texts, setTexts] = useState<Record<AiLimitKey, string>>(() => ({
-    aiReportsPerDay: String(settings.aiReportsPerDay),
-    aiFollowUpsPerDay: String(settings.aiFollowUpsPerDay),
-    aiMonthlyTokens: String(settings.aiMonthlyTokens),
-  }));
+  // What is typed and not saved yet; the other fields show the server's values, also
+  // after the settings are loaded again.
+  const [typed, setTyped] = useState<Partial<Record<AiLimitKey, string>>>({});
+  const texts = limitTexts(settings, typed);
   const [busy, setBusy] = useState(false);
   const values = Object.fromEntries(AI_LIMIT_FIELDS.map(({ key }) => [key, parseLimit(texts[key], AI_LIMIT_MAX[key])])) as Record<AiLimitKey, number | null>;
   const invalid = AI_LIMIT_FIELDS.some(({ key }) => values[key] === null);
@@ -149,6 +148,7 @@ function AiSettings({ settings, onSave }: { settings: ServerSettings; onSave: (c
     setBusy(true);
     try {
       await onSave(Object.fromEntries(AI_LIMIT_FIELDS.map(({ key }) => [key, values[key]])) as Partial<ServerSettings>);
+      setTyped({});
     } finally {
       setBusy(false);
     }
@@ -189,7 +189,7 @@ function AiSettings({ settings, onSave }: { settings: ServerSettings; onSave: (c
             key={key}
             label={t(label)}
             value={texts[key]}
-            onChange={(e) => setTexts({ ...texts, [key]: e.target.value })}
+            onChange={(e) => setTyped({ ...typed, [key]: e.target.value })}
             error={values[key] === null}
             helperText={values[key] === null ? t("server.aiLimitInvalid", { max }) : t(help, { max })}
             slotProps={{ htmlInput: { inputMode: "numeric" } }}

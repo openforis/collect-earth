@@ -2,7 +2,7 @@
 // tool names and failure codes in words, why a run did not start (with the local time a
 // limit resets), which plots can be linked, the server's own figures for a finding.
 
-import { ApiError, type AiRunStatus, type AiRunSummary, type FindingCause, type QuestionAgreement, type Rate } from "./api";
+import { ApiError, type AiRunKind, type AiRunStatus, type AiRunSummary, type FindingCause, type QuestionAgreement, type Rate } from "./api";
 import { formatDate } from "./format";
 import type { MessageKey, Translate } from "./i18n";
 
@@ -83,6 +83,62 @@ export function startErrorText(t: Translate, error: unknown, language: string): 
 /** A run is asked for its progress while it runs, and only while the page is visible. */
 export function shouldPollRun(status: AiRunStatus, hidden: boolean): boolean {
   return status === "running" && !hidden;
+}
+
+/** After this many failed asks in a row, the panel says it has lost contact (and keeps trying). */
+export const LOST_CONTACT_AFTER = 3;
+/** The longest wait between asks after failures. */
+export const RUN_RETRY_MAX_MS = 30_000;
+
+/**
+ * What to do after asking for a run's progress failed: the run is gone (404), so stop
+ * following it; another refusal (signed out, no right to it...) will not pass by
+ * itself, so stop and say why; the server or the connection failing may pass, so try
+ * again a little later.
+ */
+export function runPollFailure(error: unknown): "gone" | "stop" | "retry" {
+  if (!(error instanceof ApiError) || error.status === 0 || error.status >= 500) return "retry";
+  return error.status === 404 ? "gone" : "stop";
+}
+
+/** The wait before asking again after `failures` failures in a row: 2, 4, 8, 16, then 30 s at most. */
+export function runRetryDelay(failures: number): number {
+  return Math.min(RUN_RETRY_MAX_MS, RUN_POLL_MS * 2 ** Math.max(0, failures - 1));
+}
+
+/** The runs list with a run's newer state (a run not in it is left out), so a finished run is not followed again before the list comes back. */
+export function withRunState(runs: readonly AiRunSummary[], run: AiRunSummary): AiRunSummary[] {
+  return runs.map((r) =>
+    r.id === run.id ? { ...r, status: run.status, finishedAt: run.finishedAt, tokens: run.tokens, errorCode: run.errorCode } : r,
+  );
+}
+
+/**
+ * The run the panel follows: the one it follows already, else one the list says is
+ * running and the panel is not done with (finished here, or given up on).
+ */
+export function runToFollow(runs: readonly AiRunSummary[], activeId: string | null, done: ReadonlySet<string>): string | null {
+  if (activeId !== null) return activeId;
+  return runs.find((r) => r.status === "running" && !done.has(r.id))?.id ?? null;
+}
+
+/** The kind of the run followed: as started here (known at once), else from the list or its details. */
+export function followedKind(
+  active: { id: string; kind?: AiRunKind } | null,
+  runs: readonly AiRunSummary[],
+  details: ReadonlyMap<string, { kind: AiRunKind }>,
+): AiRunKind | null {
+  if (!active) return null;
+  return active.kind ?? runs.find((r) => r.id === active.id)?.kind ?? details.get(active.id)?.kind ?? null;
+}
+
+/** The AI limits as their fields show them: what is typed (not saved yet) over the server's values. */
+export function limitTexts(
+  settings: Readonly<Record<keyof typeof AI_LIMIT_MAX, number>>,
+  typed: Readonly<Partial<Record<keyof typeof AI_LIMIT_MAX, string>>>,
+): Record<keyof typeof AI_LIMIT_MAX, string> {
+  const keys = Object.keys(AI_LIMIT_MAX) as (keyof typeof AI_LIMIT_MAX)[];
+  return Object.fromEntries(keys.map((key) => [key, typed[key] ?? String(settings[key])])) as Record<keyof typeof AI_LIMIT_MAX, string>;
 }
 
 /** The plots of a finding or an answer: a link only for a plot in the differences list. */

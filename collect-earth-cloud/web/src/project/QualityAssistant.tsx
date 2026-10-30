@@ -12,7 +12,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AutoAwesome from "@mui/icons-material/AutoAwesome";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   ApiError,
   getAiRun,
@@ -22,6 +22,7 @@ import {
   type AiAnswer,
   type AiFinding,
   type AiRun,
+  type AiRunKind,
   type AiRunSummary,
   type AiStart,
   type FollowUpAction,
@@ -31,21 +32,27 @@ import {
   causeMessageKey,
   failureMessageKey,
   findingFigures,
+  followedKind,
   followUpsOf,
+  LOST_CONTACT_AFTER,
   MAX_QUESTION_CHARS,
   plotLinks,
   progressMessageKey,
   questionCounter,
   RUN_POLL_MS,
+  runPollFailure,
+  runRetryDelay,
+  runToFollow,
   shouldPollRun,
   startErrorText,
+  withRunState,
 } from "../aiView";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { formatDate } from "../format";
 import { useT, type MessageKey } from "../i18n";
-import { labelMap, rateText } from "../qualityView";
+import { labelMap, labelsOf, rateText, withQuestionLabels } from "../qualityView";
 import { linkProps, pathFor } from "../router";
 import { useLoad } from "../useLoad";
 import type { NoteDraft } from "./QualityNotes";
@@ -67,11 +74,24 @@ const STATUS_LABEL: Record<AiRunSummary["status"], MessageKey> = {
   refused: "ai.status.refused",
 };
 
+/**
+ * The questions' labels by key: a question key in the model's text is shown as its label
+ * (a review written before the server replaced them may still hold one).
+ */
+const QuestionLabels = createContext<ReadonlyMap<string, string>>(new Map());
+
+/** The model's text with question keys shown as labels (still plain text). */
+function useModelText(): (text: string) => string {
+  const labels = useContext(QuestionLabels);
+  return (text) => withQuestionLabels(text, labels);
+}
+
 /** Model text as plain text: its line breaks kept, nothing else read into it. */
 function ModelText({ text, variant = "body1" }: { text: string; variant?: "body1" | "body2" }) {
+  const shown = useModelText();
   return (
     <Typography variant={variant} sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
-      {text}
+      {shown(text)}
     </Typography>
   );
 }
@@ -234,13 +254,14 @@ function Finding({
 }) {
   const t = useT();
   const { language } = useApp();
+  const shown = useModelText();
   const figures = findingFigures(finding.questions, data.questions);
   return (
     <Paper variant="outlined" component="article" sx={{ p: { xs: 1.5, sm: 2 } }}>
       <Stack spacing={1.5}>
         <div>
           <Typography variant="h3" sx={{ wordBreak: "break-word" }}>
-            {finding.title}
+            {shown(finding.title)}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {t(causeMessageKey(finding.cause))}
@@ -359,11 +380,13 @@ function Report({
 }) {
   const t = useT();
   const { language } = useApp();
+  const shown = useModelText();
   const existing = useMemo(() => new Set(data.differences.map((d) => d.plot)), [data.differences]);
   const label = labelMap(data.questions);
   const { byFinding, questions } = useMemo(() => followUpsOf(runs, summary.id), [runs, summary.id]);
+  // A draft becomes a note with question labels, not keys: collectors read it.
   const noteFor = (text: string, finding?: AiFinding) =>
-    onWriteNote({ questionKey: finding?.questions.find((k) => data.questions.some((q) => q.key === k)) ?? "", firstValue: null, checkValue: null, text });
+    onWriteNote({ questionKey: finding?.questions.find((k) => data.questions.some((q) => q.key === k)) ?? "", firstValue: null, checkValue: null, text: shown(text) });
 
   const heading = (
     <div>
@@ -430,7 +453,7 @@ function Report({
           <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
             {report.surveyChanges.map((c, i) => (
               <Box component="li" key={i} sx={{ whiteSpace: "pre-line", wordBreak: "break-word", mb: 0.5 }}>
-                {t("ai.surveyChange", { label: label(c.question), suggestion: c.suggestion })}
+                {t("ai.surveyChange", { label: label(c.question), suggestion: shown(c.suggestion) })}
               </Box>
             ))}
           </Box>
@@ -477,13 +500,22 @@ export function QualityAssistant({
   const hidden = usePageHidden();
   const [details, setDetails] = useState<Map<string, AiRun>>(new Map());
   const [selected, setSelected] = useState<string | null>(null);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  /** The run followed, with its kind when it was started here (so its progress shows at once). */
+  const [active, setActive] = useState<{ id: string; kind?: AiRunKind } | null>(null);
+  const activeId = active?.id ?? null;
   const [pollTick, setPollTick] = useState(0);
+  /** Asks for the progress that failed in a row (the server or the connection): the wait grows with them. */
+  const [failures, setFailures] = useState(0);
+  /** Why the progress can no longer be asked for (signed out, no right to it...). */
+  const [pollError, setPollError] = useState<unknown>(null);
   const [startError, setStartError] = useState<unknown>(null);
   const [starting, setStarting] = useState(false);
   /** A draft_note follow-up started from "Draft a guidance note": its note opens the editor when it is done. */
   const draftFor = useRef<{ runId: string; finding: AiFinding } | null>(null);
   const asked = useRef(new Set<string>());
+  /** Runs finished here or given up on: never followed again, even while the list still says running. */
+  const done = useRef(new Set<string>());
+  const labels = useMemo(() => labelsOf(data.questions), [data.questions]);
 
   const list = runs.data ?? [];
   const reports = list.filter((r) => r.kind === "report");
@@ -492,13 +524,15 @@ export function QualityAssistant({
   const running = list.find((r) => r.status === "running") ?? null;
   const canRun = ai.data?.enabled === true && ai.data.available;
   const busy = starting || activeId !== null || running !== null;
+  const toFollow = runToFollow(list, activeId, done.current);
 
   // A run that is running (started here, elsewhere, or before a reload) is followed.
   useEffect(() => {
-    if (running && activeId === null) setActiveId(running.id);
-  }, [running, activeId]);
+    if (activeId === null && toFollow !== null) setActive({ id: toFollow });
+  }, [activeId, toFollow]);
 
-  // Its progress, every 2 s while the page is visible.
+  // Its progress, every 2 s while the page is visible; after a failure of the server or
+  // the connection, a little later each time (2, 4, 8... up to 30 s).
   useEffect(() => {
     if (!activeId || !shouldPollRun("running", hidden)) return;
     let cancelled = false;
@@ -506,12 +540,16 @@ export function QualityAssistant({
       getAiRun(projectId, activeId).then(
         (run) => {
           if (cancelled) return;
+          setFailures(0);
           setDetails((old) => new Map(old).set(run.id, run));
           if (run.status === "running") {
             setPollTick((n) => n + 1);
             return;
           }
-          setActiveId(null);
+          // Finished: the list says so at once (before it is loaded again), so the run is not followed again.
+          done.current.add(run.id);
+          runs.setData((prev) => withRunState(prev, run));
+          setActive(null);
           runs.reload();
           if (run.kind === "report" && run.status === "done") setSelected(run.id);
           const draft = draftFor.current;
@@ -522,24 +560,33 @@ export function QualityAssistant({
                 questionKey: draft.finding.questions.find((k) => data.questions.some((q) => q.key === k)) ?? "",
                 firstValue: null,
                 checkValue: null,
-                text: run.answer.note,
+                text: withQuestionLabels(run.answer.note, labels),
               });
             }
           }
         },
         (err: unknown) => {
           if (cancelled) return;
-          if (err instanceof ApiError && err.status === 404) setActiveId(null);
-          else setPollTick((n) => n + 1);
+          const next = runPollFailure(err);
+          if (next === "retry") {
+            setFailures((n) => n + 1);
+            return;
+          }
+          // Gone, or refused (signed out, no right to it): it is not asked for again.
+          done.current.add(activeId);
+          setActive(null);
+          setFailures(0);
+          if (next === "stop") setPollError(err);
+          runs.reload();
         },
       );
-    }, RUN_POLL_MS);
+    }, failures === 0 ? RUN_POLL_MS : runRetryDelay(failures));
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, activeId, hidden, pollTick]);
+  }, [projectId, activeId, hidden, pollTick, failures]);
 
   // The shown review and its follow-ups and questions, once each (finished runs do not change).
   const wanted = shown ? [shown, ...list.filter((r) => r.parentRunId === shown.id)] : [];
@@ -562,7 +609,10 @@ export function QualityAssistant({
     try {
       const runId = await startAiRun(projectId, body, language);
       if (finding) draftFor.current = { runId, finding };
-      setActiveId(runId);
+      setPollError(null);
+      setFailures(0);
+      // Its kind is known now: a review's progress shows at once, not after the first answer.
+      setActive({ id: runId, kind: body.kind });
       runs.reload();
       return true;
     } catch (err) {
@@ -576,87 +626,94 @@ export function QualityAssistant({
 
   const startText = startError ? startErrorText(t, startError, language) : null;
   const activeRun = activeId ? details.get(activeId) : undefined;
-  const activeSummary = activeId ? list.find((r) => r.id === activeId) : undefined;
-  const reportRunning = (activeSummary?.kind ?? activeRun?.kind) === "report";
+  const reportRunning = followedKind(active, list, details) === "report";
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="ai-title">
-      <Stack spacing={2}>
-        <Typography variant="h2" id="ai-title">
-          {t("ai.title")}
-        </Typography>
-        <Typography color="text.secondary">{t("ai.explain")}</Typography>
-        {ai.error ? (
-          <ErrorAlert error={ai.error} onRetry={ai.reload} />
-        ) : !ai.data ? (
-          <Loading />
-        ) : !ai.data.available ? (
-          <Alert severity="info">{t("ai.notSetUp")}</Alert>
-        ) : !ai.data.enabled ? (
-          <Alert
-            severity="info"
-            action={
-              <Button color="inherit" size="small" {...linkProps(pathFor({ name: "project", projectId, tab: "settings" }))}>
-                {t("ai.openSettings")}
+    <QuestionLabels.Provider value={labels}>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="ai-title">
+        <Stack spacing={2}>
+          <Typography variant="h2" id="ai-title">
+            {t("ai.title")}
+          </Typography>
+          <Typography color="text.secondary">{t("ai.explain")}</Typography>
+          {ai.error ? (
+            <ErrorAlert error={ai.error} onRetry={ai.reload} />
+          ) : !ai.data ? (
+            <Loading />
+          ) : !ai.data.available ? (
+            <Alert severity="info">{t("ai.notSetUp")}</Alert>
+          ) : !ai.data.enabled ? (
+            <Alert
+              severity="info"
+              action={
+                <Button color="inherit" size="small" {...linkProps(pathFor({ name: "project", projectId, tab: "settings" }))}>
+                  {t("ai.openSettings")}
+                </Button>
+              }
+            >
+              {t("ai.switchedOff")}
+            </Alert>
+          ) : (
+            <Box>
+              <Button variant="contained" startIcon={<AutoAwesome />} disabled={busy} onClick={() => void start({ kind: "report" })}>
+                {reports.length > 0 ? t("ai.startAgain") : t("ai.start")}
               </Button>
-            }
-          >
-            {t("ai.switchedOff")}
-          </Alert>
-        ) : (
-          <Box>
-            <Button variant="contained" startIcon={<AutoAwesome />} disabled={busy} onClick={() => void start({ kind: "report" })}>
-              {reports.length > 0 ? t("ai.startAgain") : t("ai.start")}
-            </Button>
-          </Box>
-        )}
-        {(activeId !== null || running !== null) && reportRunning && <Progress run={activeRun} hidden={hidden} />}
-        {startText ? <Alert severity="warning">{startText}</Alert> : <ErrorAlert error={startError} />}
-        {runs.error ? <ErrorAlert error={runs.error} onRetry={runs.reload} /> : null}
-        {shown && (
-          <Report
-            summary={shown}
-            run={details.get(shown.id)}
-            runs={list}
-            details={details}
-            data={data}
-            hidden={hidden}
-            canRun={canRun}
-            busy={busy}
-            onStart={start}
-            onWriteNote={onWriteNote}
-            onShowPlot={onShowPlot}
-          />
-        )}
-        {reports.length > 0 && (
-          <Box>
-            <Typography variant="h3" sx={{ mb: 0.5 }}>
-              {t("ai.pastTitle")}
-            </Typography>
-            <List disablePadding>
-              {reports.map((r) => (
-                <ListItem key={r.id} divider disableGutters sx={{ gap: 1, flexWrap: "wrap" }}>
-                  <ListItemText
-                    primary={formatDate(r.startedAt, language)}
-                    secondary={r.startedBy ?? t("ai.deletedAccount")}
-                    sx={{ flex: "1 1 160px", wordBreak: "break-word" }}
-                  />
-                  <Chip size="small" label={t(STATUS_LABEL[r.status])} color={r.status === "done" ? "success" : r.status === "running" ? "info" : "default"} variant="outlined" />
-                  {r.status === "running" ? null : r.id === shownId ? (
-                    <Typography variant="body2" color="text.secondary">
-                      {t("ai.pastShowing")}
-                    </Typography>
-                  ) : (
-                    <Button size="small" onClick={() => setSelected(r.id)}>
-                      {t("ai.pastShow")}
-                    </Button>
-                  )}
-                </ListItem>
-              ))}
-            </List>
-          </Box>
-        )}
-      </Stack>
-    </Paper>
+            </Box>
+          )}
+          {activeId !== null && reportRunning && <Progress run={activeRun} hidden={hidden} />}
+          {activeId !== null && failures >= LOST_CONTACT_AFTER && (
+            <Alert severity="warning" role="status">
+              {t("ai.lostContact")}
+            </Alert>
+          )}
+          <ErrorAlert error={pollError} />
+          {startText ? <Alert severity="warning">{startText}</Alert> : <ErrorAlert error={startError} />}
+          {runs.error ? <ErrorAlert error={runs.error} onRetry={runs.reload} /> : null}
+          {shown && (
+            <Report
+              summary={shown}
+              run={details.get(shown.id)}
+              runs={list}
+              details={details}
+              data={data}
+              hidden={hidden}
+              canRun={canRun}
+              busy={busy}
+              onStart={start}
+              onWriteNote={onWriteNote}
+              onShowPlot={onShowPlot}
+            />
+          )}
+          {reports.length > 0 && (
+            <Box>
+              <Typography variant="h3" sx={{ mb: 0.5 }}>
+                {t("ai.pastTitle")}
+              </Typography>
+              <List disablePadding>
+                {reports.map((r) => (
+                  <ListItem key={r.id} divider disableGutters sx={{ gap: 1, flexWrap: "wrap" }}>
+                    <ListItemText
+                      primary={formatDate(r.startedAt, language)}
+                      secondary={r.startedBy ?? t("ai.deletedAccount")}
+                      sx={{ flex: "1 1 160px", wordBreak: "break-word" }}
+                    />
+                    <Chip size="small" label={t(STATUS_LABEL[r.status])} color={r.status === "done" ? "success" : r.status === "running" ? "info" : "default"} variant="outlined" />
+                    {r.status === "running" ? null : r.id === shownId ? (
+                      <Typography variant="body2" color="text.secondary">
+                        {t("ai.pastShowing")}
+                      </Typography>
+                    ) : (
+                      <Button size="small" onClick={() => setSelected(r.id)}>
+                        {t("ai.pastShow")}
+                      </Button>
+                    )}
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
+          )}
+        </Stack>
+      </Paper>
+    </QuestionLabels.Provider>
   );
 }

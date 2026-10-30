@@ -22,13 +22,14 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
-import { ApiError, getQuality, saveQualityMargins, type GuidanceNote, type QualityData, type Rate } from "../api";
+import { ApiError, getQuality, saveQualityMargins, type AnswerOptions, type GuidanceNote, type QualityData, type Rate } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
 import {
+  answerText,
   barPercent,
   canWriteNote,
   formatRate,
@@ -40,6 +41,7 @@ import {
   pollDelay,
   problemMessageKey,
   rateText,
+  reloadOnShow,
   splitWeek,
   weekChart,
   weekRateText,
@@ -257,11 +259,11 @@ function Questions({ projectId, data, onMargins }: { projectId: string; data: Qu
   );
 }
 
-/** An answer as shown: "(no answer)" for a blank one. */
-function Answer({ value }: { value: string }) {
+/** An answer as shown: the option's label ("Forest", Yes/No), "(no answer)" for a blank one. */
+function Answer({ questionKey, value, options }: { questionKey: string; value: string; options: AnswerOptions }) {
   const t = useT();
   return value ? (
-    <>{value}</>
+    <>{answerText(t, questionKey, value, options)}</>
   ) : (
     <Box component="span" sx={{ color: "text.secondary", fontStyle: "italic" }}>
       {t("quality.blank")}
@@ -316,10 +318,10 @@ function Confusions({ data, onWriteNote }: { data: QualityData; onWriteNote: (dr
                   return (
                     <TableRow key={id} sx={{ verticalAlign: "top" }}>
                       <TableCell sx={{ wordBreak: "break-word" }}>
-                        <Answer value={c.first} />
+                        <Answer questionKey={c.key} value={c.first} options={data.options} />
                       </TableCell>
                       <TableCell sx={{ wordBreak: "break-word" }}>
-                        <Answer value={c.check} />
+                        <Answer questionKey={c.key} value={c.check} options={data.options} />
                       </TableCell>
                       <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>
                         {formatNumber(c.count, language)}
@@ -664,13 +666,21 @@ export function QualityTab({ projectId }: { projectId: string }) {
   const rounds = useRef(0);
   const loadingRef = useRef(loading);
   loadingRef.current = loading;
+  /** When the last answer came (figures or an error), and whether it was stale or busy: for asking again when shown. */
+  const lastLoad = useRef({ at: 0, stale: false, busy: false });
+  useEffect(() => {
+    if (!loading) lastLoad.current = { at: Date.now(), stale: data?.stale === true, busy };
+  }, [loading, data?.stale, busy]);
 
-  // Nothing is asked while the page is hidden; shown again, it asks at once.
+  // Nothing is asked while the page is hidden. Shown again, it asks at once when the
+  // figures were stale or busy, or the last answer is over a minute old (not at every
+  // switch between tabs).
   useEffect(() => {
     const changed = () => {
       const nowHidden = document.visibilityState === "hidden";
       setHidden(nowHidden);
-      if (!nowHidden && !loadingRef.current) reload();
+      const last = lastLoad.current;
+      if (!nowHidden && !loadingRef.current && reloadOnShow({ stale: last.stale, busy: last.busy, sinceLoad: Date.now() - last.at })) reload();
     };
     document.addEventListener("visibilitychange", changed);
     return () => document.removeEventListener("visibilitychange", changed);

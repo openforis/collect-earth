@@ -12,30 +12,31 @@ import Typography from "@mui/material/Typography";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import Print from "@mui/icons-material/Print";
 import { useEffect, type ReactNode } from "react";
-import { getMyQuality, getProject, getTeamReport, type ReportConfusion, type ReportNote } from "../api";
+import { getMyQuality, getProject, getTeamReport, type AnswerOptions, type ReportConfusion, type ReportNote } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
-import { rateText } from "../qualityView";
+import { answerText, rateText } from "../qualityView";
 import { linkProps, pathFor, type ProjectTab } from "../router";
 import { useLoad, type Loaded } from "../useLoad";
+import { onceVisibleAfter } from "../visibility";
 
 /** How long to wait before asking again for figures that were stale. */
 const STALE_RETRY_MS = 10_000;
 
-/** Stale figures (newer ones being worked out): asked for again after a while, while the page is visible. */
+/**
+ * Stale figures (newer ones being worked out): asked for again after a while, only while
+ * the page is visible; hidden when the wait ends, as soon as it is shown again.
+ */
 function useRefreshWhileStale<T extends { stale: boolean }>(loaded: Loaded<T>) {
   const stale = loaded.data?.stale === true && !loaded.loading;
   const { reload } = loaded;
   useEffect(() => {
     if (!stale) return;
-    const id = window.setTimeout(() => {
-      if (document.visibilityState !== "hidden") reload();
-    }, STALE_RETRY_MS);
-    return () => window.clearTimeout(id);
+    return onceVisibleAfter(STALE_RETRY_MS, document, reload);
   }, [stale, reload]);
 }
 
@@ -104,21 +105,22 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** An answer code, "(no answer)" for a blank one. */
-function answer(t: ReturnType<typeof useT>, value: string): string {
-  return value || t("quality.blank");
+/** An answer by its label in the survey ("Forest", Yes/No), "(no answer)" for a blank one. */
+function answer(t: ReturnType<typeof useT>, key: string, value: string, options: AnswerOptions): string {
+  return answerText(t, key, value, options);
 }
 
-function NoteText({ note, label }: { note: ReportNote; label?: string }) {
+function NoteText({ note, label, options }: { note: ReportNote; label?: string; options: AnswerOptions }) {
   const t = useT();
   const pair = note.firstValue !== null || note.checkValue !== null;
+  const value = (v: string | null) => (v === null ? t("quality.anyAnswer") : answer(t, note.questionKey, v, options));
   return (
     <Box component="li" sx={{ mb: 1, breakInside: "avoid" }}>
       {(label || pair) && (
         <Typography variant="body2" color="text.secondary" sx={{ wordBreak: "break-word" }}>
           {label}
           {label && pair && " · "}
-          {pair && t("quality.noteAbout", { first: note.firstValue ?? t("quality.anyAnswer"), check: note.checkValue ?? t("quality.anyAnswer") })}
+          {pair && t("quality.noteAbout", { first: value(note.firstValue), check: value(note.checkValue) })}
         </Typography>
       )}
       <Typography sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{note.text}</Typography>
@@ -126,7 +128,7 @@ function NoteText({ note, label }: { note: ReportNote; label?: string }) {
   );
 }
 
-function ConfusionItem({ confusion, text, plots }: { confusion: ReportConfusion; text: string; plots: string }) {
+function ConfusionItem({ confusion, text, plots, options }: { confusion: ReportConfusion; text: string; plots: string; options: AnswerOptions }) {
   const t = useT();
   return (
     <Box sx={{ borderTop: 1, borderColor: "divider", pt: 1.5, breakInside: "avoid" }}>
@@ -142,7 +144,7 @@ function ConfusionItem({ confusion, text, plots }: { confusion: ReportConfusion;
       {confusion.notes.length > 0 && (
         <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2.5 }} aria-label={t("myQuality.notes")}>
           {confusion.notes.map((note) => (
-            <NoteText key={note.id} note={note} />
+            <NoteText key={note.id} note={note} options={options} />
           ))}
         </Box>
       )}
@@ -179,7 +181,12 @@ export function MyQualityPage({ projectId }: { projectId: string }) {
                 <ConfusionItem
                   key={`${c.key}\u0000${c.first}\u0000${c.check}`}
                   confusion={c}
-                  text={t(c.checks === 1 ? "myQuality.confusionOnce" : "myQuality.confusion", { first: answer(t, c.first), check: answer(t, c.check), count: formatNumber(c.checks, language) })}
+                  options={data.options}
+                  text={t(c.checks === 1 ? "myQuality.confusionOnce" : "myQuality.confusion", {
+                    first: answer(t, c.key, c.first, data.options),
+                    check: answer(t, c.key, c.check, data.options),
+                    count: formatNumber(c.checks, language),
+                  })}
                   plots={t("quality.plotsList", { plots: c.plots.join("; ") })}
                 />
               ))}
@@ -257,7 +264,12 @@ export function TeamReportPage({ projectId }: { projectId: string }) {
                   <ConfusionItem
                     key={`${c.key}\u0000${c.first}\u0000${c.check}`}
                     confusion={c}
-                    text={t(c.checks === 1 ? "teamReport.confusionOnce" : "teamReport.confusion", { first: answer(t, c.first), check: answer(t, c.check), count: formatNumber(c.checks, language) })}
+                    options={data.options}
+                    text={t(c.checks === 1 ? "teamReport.confusionOnce" : "teamReport.confusion", {
+                      first: answer(t, c.key, c.first, data.options),
+                      check: answer(t, c.key, c.check, data.options),
+                      count: formatNumber(c.checks, language),
+                    })}
                     plots={t("teamReport.examples", { plots: c.plots.join("; ") })}
                   />
                 ))}
@@ -270,7 +282,7 @@ export function TeamReportPage({ projectId }: { projectId: string }) {
             ) : (
               <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
                 {data.notes.map((note) => (
-                  <NoteText key={note.id} note={note} label={labels.get(note.questionKey) ?? note.questionKey} />
+                  <NoteText key={note.id} note={note} label={labels.get(note.questionKey) ?? note.questionKey} options={data.options} />
                 ))}
               </Box>
             )}

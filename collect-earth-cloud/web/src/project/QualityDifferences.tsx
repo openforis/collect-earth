@@ -22,6 +22,7 @@ import {
   deleteQualityDecision,
   getPlotPlaces,
   setQualityDecision,
+  type AnswerOptions,
   type DecisionKind,
   type Difference,
   type PlotPlace,
@@ -32,7 +33,7 @@ import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { formatDate, formatNumber } from "../format";
 import { useT, type MessageKey } from "../i18n";
-import { googleEarthUrl, groupDifferences, labelMap } from "../qualityView";
+import { answerText, googleEarthUrl, groupDifferences, labelMap } from "../qualityView";
 
 /** Plots per page: each shows its differing answers, so a page stays short on a phone. */
 export const DIFFERENCES_PAGE = 10;
@@ -56,9 +57,9 @@ const DECISION_LABEL: Record<DecisionKind, MessageKey> = {
   recheck: "quality.decision.recheck",
 };
 
-function CheckAnswers({ difference, label }: { difference: Difference; label: (key: string) => string }) {
+function CheckAnswers({ difference, label, options }: { difference: Difference; label: (key: string) => string; options: AnswerOptions }) {
   const t = useT();
-  const blank = (value: string) => value || t("quality.blank");
+  const blank = (key: string, value: string) => answerText(t, key, value, options);
   return (
     <Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1, wordBreak: "break-word" }}>
@@ -80,8 +81,8 @@ function CheckAnswers({ difference, label }: { difference: Difference; label: (k
                 <TableCell component="th" scope="row" sx={{ wordBreak: "break-word", minWidth: 120 }}>
                   {label(field.key)}
                 </TableCell>
-                <TableCell sx={{ wordBreak: "break-word" }}>{blank(field.first)}</TableCell>
-                <TableCell sx={{ wordBreak: "break-word" }}>{blank(field.check)}</TableCell>
+                <TableCell sx={{ wordBreak: "break-word" }}>{blank(field.key, field.first)}</TableCell>
+                <TableCell sx={{ wordBreak: "break-word" }}>{blank(field.key, field.check)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -98,6 +99,7 @@ function PlotDifferences({
   place,
   decision,
   label,
+  options,
   onDecision,
 }: {
   projectId: string;
@@ -106,6 +108,7 @@ function PlotDifferences({
   place: PlotPlace | undefined;
   decision: QualityDecision | undefined;
   label: (key: string) => string;
+  options: AnswerOptions;
   onDecision: (plot: string, decision: QualityDecision | null) => void;
 }) {
   const t = useT();
@@ -165,7 +168,7 @@ function PlotDifferences({
           )}
         </Stack>
         {checks.map((d) => (
-          <CheckAnswers key={d.check.recordKey + "\u0000" + d.check.operator} difference={d} label={label} />
+          <CheckAnswers key={d.check.recordKey + "\u0000" + d.check.operator} difference={d} label={label} options={options} />
         ))}
         {decision ? (
           <Stack spacing={1}>
@@ -315,6 +318,7 @@ export function QualityDifferences({
                 place={places.get(g.plot) ?? undefined}
                 decision={decisions.get(g.plot)}
                 label={label}
+                options={data.options}
                 onDecision={onDecision}
               />
             ))}

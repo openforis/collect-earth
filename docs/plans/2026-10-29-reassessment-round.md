@@ -2412,6 +2412,64 @@ Commit: "Collect Earth Cloud dashboard: the AI assistant panel, printable report
   print rules applied (no app bar or buttons); no page-wide horizontal scroll; no console errors. Not
   seen in the browser (the fake always gives a draft note, and the server ran with the fake): the
   `draft_note` follow-up opening the editor, and the "Not set up on this server" state.
+- **Review fixes (2026-10-30).**
+  - *Questions by their label, not their key* (the fake's findings said
+    "collect_code_land_use_category"). The system instruction has a rule: "Name a question by its
+    label, never by its key, in every text (titles, explanations, notes, suggestions) … Keys go only
+    in the "questions" and "question" fields and in tool arguments." `get_survey_outline` and
+    `get_agreement` give `label` first, and `get_confusions` gives `{ label, question, confusions }`.
+    The validator (`KnownNames.labels`, from `ToolBox.labels`: each label as sent, usernames
+    replaced) replaces every exact known key in summary, title, explanation, suggestedNote,
+    suggestion, answer text and note by its label (`src/questionLabels.ts`,
+    `withQuestionLabels`: longest key first, no letter, digit or `_` touching it; a key whose
+    label is itself or empty is left), after the number check and the draft-note person check;
+    the `questions`/`question` fields keep keys. The fake writes labels too. Notes saved before
+    with a key: the reports (`qualityReports.ts`) send note texts with keys replaced (labels of
+    the outline's choice and number questions, then the figures'); the Quality tab shows its
+    notes, and the panel its model texts, with keys replaced (`withQuestionLabels` in
+    `qualityView.ts`, labels of `data.questions`) but edits the note as written; "Draft a
+    guidance note" and "Make it a guidance note" fill the editor with labels.
+  - *Answers by their label* ("C", "S", "true"). `GET /quality`, `/my-quality` and
+    `/quality/team-report` add `options: { [questionKey]: [{ code, label }] }`, from the served
+    survey's outline (`answerOptions`), for the choice questions shown (and the notes'
+    questions); survey texts only, no names. The dashboard (`answerText`) shows the option's
+    label, Yes/No (`common.yes`/`common.no`, four languages) for a boolean key (`collect_boolean_…`
+    or `….boolean_…`, whatever the outline's English "Yes"/"No"), each of several answers
+    ("F, S") by its label, the code in brackets only when two options of the question read the
+    same ("Same (a)"), the code alone when it has no label or is not in the list, and
+    "(no answer)" for a blank. Used in My quality, the team report, the Quality tab's mixed-up
+    answers, its differences and its notes' answer pairs.
+  - *A finished run is not followed again.* When the poll sees the end, the run's state goes into
+    the runs list at once (`withRunState`, through `setData`, before the reload), and the run joins
+    a `done` set that `runToFollow` skips. Checked in Chrome: the progress alert showed 16 ms after
+    "Review with the AI assistant" and went away when the review appeared, never back.
+  - *The progress shows at once:* the panel keeps the kind of the run it started
+    (`active: { id, kind }`, `followedKind`).
+  - *Polling errors* (`runPollFailure`): a 404 stops following; another 4xx (401, 403, 409, 429…)
+    stops and shows the error; a 5xx or no connection tries again after 2, 4, 8, 16, then 30 s
+    (`runRetryDelay`), and from the third failure in a row says "No answer from the server for a
+    while. Still trying…" (`ai.lostContact`, `LOST_CONTACT_AFTER`).
+  - *GET /ai/runs and /ai/runs/:id need a person's session* too: a project token, even the
+    admin's, gets 403 `user_session_required`.
+  - *Reports ask again when shown:* `useRefreshWhileStale` uses `onceVisibleAfter`
+    (`web/src/visibility.ts`): after 10 s, at once when visible, else as soon as the page is shown.
+  - *`useLoad`:* local changes are counted by `LocalChanges`, which starts again from 0 when the
+    deps change (not on a reload).
+  - *Quality tab shown again:* it asks again only when the figures were stale or busy, or the
+    last answer is over 60 s old (`reloadOnShow`).
+  - *Texts:* "monthNone" without "this month" in four languages; a week of few checks reads
+    "70% agree (7 of 10 checks, few checks)" (`quality.agreeFew`, which replaces
+    `quality.fewChecks`).
+  - *Server settings:* the AI limit fields show the server's values again when the settings
+    reload, except a field being typed in (`limitTexts`; what is typed is kept until saved).
+  - *Print:* `@page { margin: 15mm 12mm }`, so the cards do not touch the paper's edge.
+  - *Tests:* web 205 (was 189), server 560 (was 555; `test/ai/fake.test.ts` new).
+  - *Checked in Chrome* (memory store, `AI_FAKE=1`, the Task 17 seed, a note written with a
+    key; 390 px): the review's title, summary, survey change and draft note name "Land Use 2025";
+    the note list and the team report show the old note with the label; mixed-up answers
+    "Yes → No", differences "Cropland / Settlement"; My quality as maria: "You answered Cropland;
+    the check said Settlement (4 times)", "You answered Yes; the check said No", no other name;
+    no page-wide horizontal scroll; no console errors; the `@page` rule present.
 
 ---
 

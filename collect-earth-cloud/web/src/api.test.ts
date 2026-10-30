@@ -418,7 +418,8 @@ describe("the quality figures", () => {
   });
 
   it("gives empty lists for a server that leaves them out", () => {
-    expect(toQualityData({})).toMatchObject({ questions: [], confusions: [], people: [], weeks: [], differences: [], problems: [], decisions: [], notes: [], margins: {}, stale: false, computedAt: null });
+    expect(toQualityData({})).toMatchObject({ questions: [], confusions: [], people: [], weeks: [], differences: [], problems: [], decisions: [], notes: [], margins: {}, options: {}, stale: false, computedAt: null });
+    expect(toQualityData({ options: { q: [{ code: "true", label: "Yes" }] } }).options).toEqual({ q: [{ code: "true", label: "Yes" }] });
   });
 
   it("says the figures are busy or failed in plain words", () => {
@@ -699,9 +700,12 @@ describe("the AI assistant and the reports", () => {
         confusions: [{ key: "q1", label: "Land use", first: "F", check: "G", checks: 3, plots: ["1", 2], notes: [{ id: "n1", questionKey: "q1", firstValue: "F", checkValue: null, text: "Look" }] }],
         computedAt: 5000,
         stale: false,
+        options: { q1: [{ code: "F", label: "Forest" }, { code: "G" }, "junk"], bad: "x" },
       }),
     );
     const mine = await getMyQuality("p1");
+    // The answer options of the choice questions, to show labels instead of codes.
+    expect(mine.options).toEqual({ q1: [{ code: "F", label: "Forest" }, { code: "G", label: "" }] });
     expect(call(0).url).toBe("/v1/projects/p1/my-quality");
     expect(mine.asFirst).toEqual({ compared: 30, agreeing: 24, rate: 0.8 });
     expect(mine.confusions[0]).toEqual({
@@ -727,9 +731,11 @@ describe("the AI assistant and the reports", () => {
         notes: [{ id: "n1", questionKey: "q1", firstValue: null, checkValue: null, text: "Look" }],
         computedAt: 5000,
         stale: true,
+        options: { q1: [{ code: "F", label: "Forest" }] },
       }),
     );
     const team = await getTeamReport("p1");
+    expect(team.options).toEqual({ q1: [{ code: "F", label: "Forest" }] });
     expect(call(1).url).toBe("/v1/projects/p1/quality/team-report");
     expect(team.questions[1]).toEqual({ key: "q2", label: "q2", kind: "number", compared: 3, agreeing: 3, rate: null, margin: 5 });
     expect(team).toMatchObject({ plotsChecked: 40, plotsDiffering: 6, stale: true, computedAt: 5000 });
