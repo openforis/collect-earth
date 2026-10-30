@@ -184,6 +184,52 @@ describe('cross-tenant isolation', () => {
     expect((await ctx.store.listQualityDecisions(b.projectId)).map((d) => [d.plot, d.decision])).toEqual([['17', 'first']]);
   });
 
+  // The reports, the places of differing plots and the AI assistant: aimed at B with A's
+  // project token or A's signed-in coordinator, and B's AI run through A's own path.
+  it("A's admin gets 404 on every report, place and AI route aimed at B, and on B's run through A's path", async () => {
+    const user = await ctx.store.createUser({ username: 'coord_a', passwordHash: 'x', email: null });
+    await ctx.store.addMembership(a.projectId, user.id, 'admin');
+    const session = await ctx.store.createSession(user.id);
+    const other = await ctx.store.createUser({ username: 'coord_b', passwordHash: 'x', email: null });
+    await ctx.store.addMembership(b.projectId, other.id, 'admin');
+    const started = await ctx.store.startAiRun(
+      b.projectId,
+      { kind: 'report', startedBy: other.id, model: 'm' },
+      { now: Date.now(), staleBefore: 0, dayStart: 0, monthStart: 0, reportsPerDay: 10, followUpsPerDay: 10, monthlyTokens: 1_000_000 },
+    );
+    if (!started.ok) throw new Error(`no run: ${started.limit}`);
+    const runB = started.run.id;
+    const unknown = '00000000-0000-0000-0000-000000000000';
+    const cases = [
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/my-quality` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/quality/team-report` },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/quality/places`, payload: { plots: ['17'] } },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/ai` },
+      { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/ai`, payload: { enabled: true } },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/ai/runs`, payload: { kind: 'report' } },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/ai/runs` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/ai/runs/${runB}` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/ai/runs/${unknown}` },
+    ];
+    for (const auth of [{ authorization: `Bearer ${a.adminToken}` }, { authorization: `Bearer ${session}` }]) {
+      for (const c of cases) {
+        const res = await ctx.app.inject({ method: c.method, url: c.url, headers: auth, payload: c.payload });
+        expect(res.statusCode, `${c.method} ${c.url}`).toBe(404);
+      }
+    }
+    // B's run through A's path, as A's coordinator (a person: runs need one).
+    const through = await ctx.app.inject({
+      method: 'GET',
+      url: `/v1/projects/${a.projectId}/ai/runs/${runB}`,
+      headers: { authorization: `Bearer ${session}` },
+    });
+    expect(through.statusCode).toBe(404);
+    const listA = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${a.projectId}/ai/runs`, headers: { authorization: `Bearer ${session}` } });
+    expect(listA.statusCode).toBe(200);
+    expect(JSON.stringify(listA.json())).not.toContain(runB);
+    expect(await ctx.store.isAiEnabled(b.projectId)).toBe(false);
+  });
+
   it("deleting A leaves B whole, and A's admin cannot delete B even with B's name", async () => {
     await batchRequest(ctx.app, b.projectId, b.projectToken, [{ recordKey: '1', surveyUri: 'x', operator: 'o' }]);
     const cross = await ctx.app.inject({
