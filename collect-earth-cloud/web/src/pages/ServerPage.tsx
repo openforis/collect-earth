@@ -393,7 +393,7 @@ function UsersCard() {
                     {user.isPlatformAdmin && <Chip size="small" color="primary" label={t("server.adminBadge")} />}
                   </Stack>
                 }
-                secondary={t("server.userProjects", { count: user.projects, coordinated: user.coordinatedProjects })}
+                secondary={t(user.projects === 1 ? "server.userProjectsOne" : "server.userProjects", { count: user.projects, coordinated: user.coordinatedProjects })}
                 sx={{ flex: "1 1 200px" }}
               />
               <Button variant="outlined" startIcon={<Key />} onClick={() => void makeLink(user)} disabled={busy === user.userId}>
