@@ -2650,6 +2650,49 @@ This follows the self-testing memory rules.
 If the hidden key still shows anywhere, stop and report: blind checks depend on
 it, and the fix may need the HTML-UI branch rather than this one.
 
+**As built (2026-10-30): stopped at step 3. The hidden key shows in the plots map.**
+- **Setup:** the profile backed up to `%APPDATA%\CollectEarth-backup-2026-10-30-task21`
+  (6,536 files, 3,103,342,706 bytes, copy checked). A memory-store server with the
+  `idOnlyCep` fixture, renamed to its own survey (`t21_round_check`, only the uri and
+  `survey_name` changed, so it could not touch the owner's demo survey): `added`, keys
+  `[id, round]`. 8 plots in Spain, divided evenly between anna and ben with 50 % copies;
+  anna got 101-104 as round 1 and 105, 107 as round 2, the checksums equal the bytes served.
+- **The desktop app** (built from this branch, `viewerType=google_earth_web`), as anna:
+  `earth.properties` set as the join flow sets it (`db_driver=CLOUD`, `cloud_*`,
+  `operator`), the served CEP opened as a double-clicked file (`loadCompressedProjectFile`),
+  then anna's my-assignment file saved in `<project>/assignments/` and set as `csv`, as the
+  plot settings do. Cloud sync started.
+- **Fine:** coordinates land where the plot file says (the round column does not shift them,
+  every plot's square is centred on its own latitude/longitude); the form has no round
+  field; the KML folder name is blind ("5 - ID# : 105"). Opening the copy plot 105 made
+  an in-progress record "105,2" that synced, and `export.csv` shows it as
+  `105, 2, check` with operator anna.
+- **Not blind:** the plots map (`/earth/map`, the HTML map of the desktop app) shows the
+  whole key:
+  - the plot list: "101,1" … "104,1", "105,2", "107,2", so every copy is told apart;
+  - the form heading "Plot 105,2", and the submitted toasts (`form.title`,
+    `toast.submitted` use the same id);
+  - the Google Earth Web status button "Google Earth Web: moving to plot 105,2…";
+  - the form URL `form?id=105%2C2` and the `/plotsGeoJson` properties (`id: "105,2"`,
+    `round: "2"`), which a collector does not normally see.
+  The map's GeoJSON gives `plot.getPlacemarkId()` (all keys) as `id`; it has no visible id.
+  `KmlGenerator` already builds `visiblePlacemarkId` without the keys marked
+  `hideinrecordlist`, and the KML's folder name uses it. The fix is in the desktop map
+  (give the GeoJSON a visible id and show that in the list, the heading, the toasts and the
+  GEW status), which belongs to the HTML-UI work, not to the server. Also seen: the KML's
+  inner `<Placemark>` is named `${placemark.placemarkId}` ("105,2") in the demo template
+  itself, which Google Earth desktop shows in its Places panel.
+- **Not done, as the task says to stop here:** saving a main and a copy through the form,
+  the XML export and import, and the IPCC/Saiku counts. By reading the code: the IPCC
+  exports and the sampling uncertainty filter `round = 1` (`AbstractIPCCDataExport.getPlotFilterClause`
+  and the other `ROUND_ATTRIBUTE_NAME` queries), and the served survey's attribute is named
+  `round`, so they would count round 1 only; Saiku has an "Assessment phase" dimension
+  (`round_code_id`) but does not filter it.
+- **Restored:** Collect Earth, its Selenium browser and chromedriver, and the server stopped;
+  the profile mirrored back from the backup: 6,536 files, 3,103,342,706 bytes, no path or
+  size difference, `earth.properties` and `collectEarthDatabase.db` sha256 equal to the backup.
+  The backup is kept. Screenshots in the scratchpad's `t21/` folder.
+
 ### Task 22: one real Gemini run (only after the owner has set up Vertex)
 
 The owner sets the `AI_*` variables. Then:
