@@ -126,9 +126,10 @@ describe('aiAvailable in server-info', () => {
 
 describe('the AI switch of a project', () => {
   let ctx: TestContext;
-  let owner: { token: string };
+  let owner: { token: string; userId: string };
   let pid: string;
   let adminToken: string;
+  let projectAdminToken: string;
   let operatorToken: string;
   const project = (method: 'GET' | 'PUT', payload?: unknown, token = adminToken, id = pid) =>
     ctx.app.inject({ method, url: `/v1/projects/${id}/ai`, headers: bearer(token), payload: payload as object });
@@ -138,7 +139,10 @@ describe('the AI switch of a project', () => {
     owner = await setupPlatformAdmin(ctx.app);
     const p = await createProject(ctx.app);
     pid = p.projectId;
-    adminToken = p.adminToken;
+    // The coordinator signs in: the owner's account is made the project's admin.
+    await ctx.store.addMembership(pid, owner.userId, 'admin');
+    adminToken = owner.token;
+    projectAdminToken = p.adminToken;
     operatorToken = p.projectToken;
   }
   afterEach(async () => {
@@ -180,6 +184,12 @@ describe('the AI switch of a project', () => {
       expect(res.statusCode, JSON.stringify(payload)).toBe(400);
     }
     expect((await project('PUT', { enabled: true }, operatorToken)).statusCode).toBe(403);
+    // The project's admin token is no person: a coordinator signs in to decide.
+    const byToken = await project('PUT', { enabled: true }, projectAdminToken);
+    expect(byToken.statusCode).toBe(403);
+    expect(byToken.json()).toMatchObject({ error: 'user_session_required' });
+    expect(await ctx.store.isAiEnabled(pid)).toBe(false);
+    expect((await project('GET', undefined, projectAdminToken)).json()).toEqual({ enabled: false, available: true });
     expect((await project('GET', undefined, operatorToken)).statusCode).toBe(403);
     const other = await createProject(ctx.app, 'Other');
     expect((await project('PUT', { enabled: true }, adminToken, other.projectId)).statusCode).toBe(404);
@@ -193,14 +203,15 @@ describe('the Vertex API key is never shown', () => {
     try {
       const owner = await setupPlatformAdmin(ctx.app);
       const p = await createProject(ctx.app);
+      await ctx.store.addMembership(p.projectId, owner.userId, 'admin');
       const responses = [
         await ctx.app.inject({ method: 'GET', url: '/v1/server-info' }),
         await ctx.app.inject({ method: 'GET', url: '/v1/admin/settings', headers: bearer(owner.token) }),
         await putSettings(ctx.app, owner.token, { aiEnabled: true }),
         await putSettings(ctx.app, owner.token, { aiEnabled: 'bad' }),
         await ctx.app.inject({ method: 'GET', url: `/v1/projects/${p.projectId}/ai`, headers: bearer(p.adminToken) }),
-        await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${p.projectId}/ai`, headers: bearer(p.adminToken), payload: { enabled: true } }),
-        await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${p.projectId}/ai`, headers: bearer(p.adminToken), payload: { enabled: 'x' } }),
+        await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${p.projectId}/ai`, headers: bearer(owner.token), payload: { enabled: true } }),
+        await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${p.projectId}/ai`, headers: bearer(owner.token), payload: { enabled: 'x' } }),
         await ctx.app.inject({ method: 'GET', url: '/v1/server-info' }),
       ];
       for (const res of responses) {

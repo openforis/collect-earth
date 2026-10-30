@@ -40,6 +40,7 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store): 
         sessionUsername = user.username;
       }
       let warned = false;
+      let memberNames: Set<string> | undefined;
       const body = (request.body ?? {}) as BatchBody;
       const envelopes = Array.isArray(body.records) ? body.records : [];
 
@@ -58,7 +59,18 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store): 
               warned = true;
               request.log.warn({ sent: envelope.operator, username: sessionUsername }, 'records stored under the signed-in username, not the operator sent');
             }
+            const sent = envelope.operator;
             envelope.operator = sessionUsername;
+            // Before records went by the username, a session upload was stored under the
+            // operator name Collect Earth sent ("Juan Perez" for the account juan). Its
+            // next save moves that row to the username, so the record is not counted twice
+            // and a deletion reaches it. Never a row that is another member's own.
+            if (sent !== null && sent !== '') {
+              memberNames ??= new Set((await store.listMembers(projectId)).map((m) => m.username));
+              if (!memberNames.has(sent)) {
+                await store.renameRecordOperator(projectId, envelope.recordKey, sent, sessionUsername);
+              }
+            }
           }
           const operator = envelope.operator ?? '';
           const existing = await store.getRecord(projectId, envelope.recordKey, operator);

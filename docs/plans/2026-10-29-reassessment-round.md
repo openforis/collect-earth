@@ -1304,7 +1304,9 @@ Commit: "Collect Earth Cloud: the AI assistant can be set up and switched on, by
   and `PUT` `{ enabled }` → the same. Switching on while not available is 409
   `ai_unavailable`; **switching off is always allowed**. When the owner switches the
   server off, each project keeps its choice but `available` is false. Store:
-  `isAiEnabled` / `setAiEnabled` (Postgres through `withProject`).
+  `isAiEnabled` / `setAiEnabled` (Postgres through `withProject`). After the review,
+  `PUT` needs a user session: a project token gets 403 `user_session_required`, since
+  the runs it allows are kept under who started them. `GET` still takes a token.
 - **Migration 011** (`011_ai.sql`): `projects.ai_enabled` and `ai_runs` as above, with
   `status` defaulting to `running`, tokens `BIGINT` default 0, `tool_calls` default
   `[]`, `model` NOT NULL, `started_by` `ON DELETE SET NULL`, `parent_run` referencing
@@ -1325,12 +1327,44 @@ Commit: "Collect Earth Cloud: the AI assistant can be set up and switched on, by
     in place: 009 is not on master);
   - every project policy reads the setting as
     `NULLIF(current_setting('app.current_project', true), '')::uuid`, so `''` means no
-    project (no rows, writes refused) instead of an error. 006, 008 and 011 are edited
-    in place; the policies of 001-003, which are on master and may already be in a
-    database, are replaced by a new `012_rls_empty_project.sql`.
+    project (no rows, writes refused) instead of an error. Every migration is edited in
+    place, 001-003 too: `runMigrations` runs every file on every boot (no ledger), so a
+    later migration replacing them would leave the old policies in force on each boot
+    until it ran, for the other instances too.
   - Checked on postgres:16 as a non-superuser: `deleteUser` of an account in no project
-    and of a member; all 9 policies with `''` (no error, no rows, a write refused); the
-    Task 10 trigger script (`pgfix10.mts`) and the Task 12 script unchanged.
+    and of a member; all 9 policies with `''` (no error, no rows, a write refused);
+    re-running 001 alone keeps them; the Task 10 trigger script (`pgfix10.mts`) and the
+    Task 12 script unchanged.
+- **RLS in production** (DEPLOY.md, "Row-Level Security and the database role"): the
+  policies bind only a role that neither owns the tables nor is a superuser (no `FORCE
+  ROW LEVEL SECURITY`). `deploy.sh` connects as `ce`, the owner that runs the
+  migrations, so RLS is not enforced there. A separate app role is not supported yet:
+  `createProject`, `listMemberships` (project names) and the invite lookups use
+  `projects` with no project set.
+- **After the review: legacy rows under Collect Earth's operator name**
+  (`routes/records.ts`). Before session uploads went by the username, a session upload
+  was stored under the operator sent ("Juan Perez" for juan). With a session, when the
+  sent operator is not empty, differs from the username and is not the username of a
+  member of the project, the row (recordKey, sent operator) is first moved to the
+  username: `renameRecordOperator(projectId, recordKey, from, to)`, one transaction (in
+  Postgres through `withProject`, both rows locked; the 009 trigger bumps the version).
+  If the username has a row too, the newer (`modifiedOn`; the username's on a tie) is
+  kept and the other deleted. Then last-write-wins runs as before, in its own steps, so
+  a tombstone sent under the old name deletes the moved row. Operator names of people
+  who are not members (a project-token upload under a name) can be taken over this
+  way; that is the accepted cost.
+- **After the review: the username lock** (`postgres.ts`, `lockUsername`):
+  `pg_advisory_xact_lock(hashtext('collect-earth-cloud:username:' || name))` in
+  `createUser` (now a transaction), `createFirstPlatformAdmin` and `deleteUser`. Without
+  it, an account created during the deletion of one of the same name checked
+  `retired_usernames` before the name was retired. 30 racing pairs: never a retired name
+  that is also a live account.
+- **After the review: `idx_records_project_operator`** on `records(project_id,
+  operator)`, in 010 (branch-only). `deleteUser`'s check for records under the username
+  read a whole project when it had none: a sequential scan of 100k records, about 8 ms
+  per project; with the index, an index-only scan of 0.03 ms.
+- **After the review: `deleteProject`** waits 10-50 ms (random) before retrying a
+  deadlock.
 
 ### Task 13: the AI client interface and the Gemini implementation
 

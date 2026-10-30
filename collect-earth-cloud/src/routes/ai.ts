@@ -20,6 +20,13 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
 
   app.put('/v1/projects/:pid/ai', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
+    // A person decides, not a project token: the runs it allows are kept under who started them.
+    if (!request.membership!.userId) {
+      return reply.code(403).send({
+        error: 'user_session_required',
+        reason: 'Sign in to the dashboard with your account to switch the AI assistant on or off.',
+      });
+    }
     const enabled = ((request.body ?? {}) as { enabled?: unknown }).enabled;
     if (typeof enabled !== 'boolean') {
       return reply.code(400).send({ error: 'bad_request', reason: 'enabled must be true or false' });

@@ -125,4 +125,95 @@ describe('records:batch — gzip, LWW and tombstones', () => {
     await batchRequest(ctx.app, project.projectId, project.projectToken, [envelope({ recordKey: '4', operator: 'juan' })]);
     expect((await ctx.store.listRecords(project.projectId)).find((r) => r.recordKey === '4')!.operator).toBe('juan');
   });
+
+  describe('a record stored under the operator name before records went by the username', () => {
+    async function member(username: string): Promise<string> {
+      const invite = await ctx.app.inject({
+        method: 'POST',
+        url: `/v1/projects/${project.projectId}/invites`,
+        headers: bearer(project.adminToken),
+        payload: { role: 'operator', maxUses: 1 },
+      });
+      const reg = await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username, password: 'password12', inviteToken: invite.json().inviteToken } });
+      return reg.json().token as string;
+    }
+    async function legacy(recordKey: string, operator: string, modifiedOn: number, xml: string) {
+      await ctx.store.putRecord({
+        projectId: project.projectId,
+        recordKey,
+        operator,
+        modifiedOn,
+        receivedAt: modifiedOn,
+        activelySaved: true,
+        step: 1,
+        xml,
+        summary: { a: xml },
+        deleted: false,
+        deletedOn: null,
+      });
+    }
+    const rows = async () =>
+      (await ctx.store.listRecords(project.projectId, true))
+        .map((r) => [r.recordKey, r.operator, r.xml, r.deleted])
+        .sort((a, b) => `${a[0]} ${a[1]}`.localeCompare(`${b[0]} ${b[1]}`));
+
+    it('moves to the username on its next save', async () => {
+      const juan = await member('juan');
+      await legacy('7', 'Juan Perez', 1000, '<old/>');
+      const res = await batchRequest(ctx.app, project.projectId, juan, [envelope({ recordKey: '7', operator: 'Juan Perez', modifiedOn: 2000, xml: '<new/>' })]);
+      expect((res.json() as BatchResponse).results[0].status).toBe('stored');
+      expect(await rows()).toEqual([['7', 'juan', '<new/>', false]]);
+    });
+
+    it('is deleted by a deletion sent with the old name', async () => {
+      const juan = await member('juan');
+      await legacy('7', 'Juan Perez', 1000, '<old/>');
+      await batchRequest(ctx.app, project.projectId, juan, [envelope({ recordKey: '7', operator: 'Juan Perez', modifiedOn: 2000, xml: null, deleted: true })]);
+      expect(await rows()).toEqual([['7', 'juan', '<old/>', true]]);
+    });
+
+    it('when the username has a row too, the newer is kept', async () => {
+      const juan = await member('juan');
+      await legacy('7', 'Juan Perez', 3000, '<legacy-newer/>');
+      await legacy('7', 'juan', 2000, '<mine/>');
+      // An older save than the legacy row: the legacy row wins, the save is stale.
+      const res = await batchRequest(ctx.app, project.projectId, juan, [envelope({ recordKey: '7', operator: 'Juan Perez', modifiedOn: 2500, xml: '<late/>' })]);
+      expect((res.json() as BatchResponse).results[0].status).toBe('stale');
+      expect(await rows()).toEqual([['7', 'juan', '<legacy-newer/>', false]]);
+
+      await legacy('8', 'Juan Perez', 1000, '<legacy-older/>');
+      await legacy('8', 'juan', 2000, '<mine/>');
+      await batchRequest(ctx.app, project.projectId, juan, [envelope({ recordKey: '8', operator: 'Juan Perez', modifiedOn: 2500, xml: '<latest/>' })]);
+      expect((await rows()).filter((r) => r[0] === '8')).toEqual([['8', 'juan', '<latest/>', false]]);
+    });
+
+    it("never takes another member's own record", async () => {
+      await member('maria');
+      const bob = await member('bob');
+      await legacy('9', 'maria', 1000, '<maria/>');
+      await batchRequest(ctx.app, project.projectId, bob, [envelope({ recordKey: '9', operator: 'maria', modifiedOn: 2000, xml: '<bob/>' })]);
+      expect(await rows()).toEqual([
+        ['9', 'bob', '<bob/>', false],
+        ['9', 'maria', '<maria/>', false],
+      ]);
+    });
+  });
+});
+
+describe('renameRecordOperator (memory store)', () => {
+  it('is false without a row under the old name, and bumps the quality version when it moves one', async () => {
+    const ctx = await makeContext();
+    try {
+      const p = await createProject(ctx.app);
+      expect(await ctx.store.renameRecordOperator(p.projectId, '1', 'a', 'b')).toBe(false);
+      await ctx.store.putRecord({ projectId: p.projectId, recordKey: '1', operator: 'a', modifiedOn: 1, receivedAt: 1, activelySaved: true, step: 1, xml: '<a/>', summary: {}, deleted: false, deletedOn: null });
+      const before = await ctx.store.qualityVersion(p.projectId);
+      expect(await ctx.store.renameRecordOperator(p.projectId, '1', 'a', 'a')).toBe(false);
+      expect(await ctx.store.renameRecordOperator(p.projectId, '1', 'a', 'b')).toBe(true);
+      expect(await ctx.store.qualityVersion(p.projectId)).not.toBe(before);
+      expect((await ctx.store.listRecords(p.projectId)).map((r) => r.operator)).toEqual(['b']);
+    } finally {
+      await ctx.app.close();
+    }
+  });
 });
