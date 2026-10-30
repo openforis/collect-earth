@@ -448,6 +448,24 @@ public class EarthApp {
 		earthApp.simulateClickKmz(false);
 	}
 
+	/**
+	 * Regenerates the KML and opens the plots again, on a thread of its own: what applying the Swing properties dialog
+	 * did (executeKmlLoadAsynchronously), for the settings page, without the dialogs. A failure is logged, and so
+	 * reported to Sentry.
+	 */
+	public static void reloadPlots() {
+		new Thread("Reload plots") { //$NON-NLS-1$
+			@Override
+			public void run() {
+				try {
+					loadKmlInGoogleEarth(true);
+				} catch (Exception e) {
+					logger.error("Error reloading the plots after the settings changed", e); //$NON-NLS-1$
+				}
+			}
+		}.start();
+	}
+
 	public static void restart() {
 		try {
 
