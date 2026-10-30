@@ -1,19 +1,27 @@
 import { describe, expect, it } from "vitest";
-import type { Difference, QuestionAgreement } from "./api";
+import type { Difference, GuidanceNote, QualityData, QualityDecision, QuestionAgreement } from "./api";
 import { translator } from "./i18n";
 import {
   barPercent,
+  canWriteNote,
   formatRate,
   googleEarthUrl,
   groupDifferences,
+  keepLocalChanges,
   labelMap,
   marginKey,
   marginRows,
+  marginsToSave,
   parseMargin,
+  pollDelay,
   problemMessageKey,
   rateText,
   splitWeek,
   weekChart,
+  weekRateText,
+  weekText,
+  withDecision,
+  withNote,
 } from "./qualityView";
 
 const question = (key: string, label: string, kind: "choice" | "number", margin: number | null = null): QuestionAgreement => ({
@@ -39,8 +47,10 @@ describe("rates as text", () => {
   });
 
   it("says there are too few checks when the rate is null", () => {
-    expect(rateText(translator("en"), { compared: 12, agreeing: 12, rate: null }, "en")).toBe("Too few checks to judge (12 of 20)");
-    expect(rateText(translator("es"), { compared: 0, agreeing: 0, rate: null }, "es")).toBe("Muy pocos controles para juzgar (0 de 20)");
+    expect(rateText(translator("en"), { compared: 12, agreeing: 12, rate: null }, "en")).toBe("Too few checks to judge (12 checks, 20 needed)");
+    expect(rateText(translator("es"), { compared: 0, agreeing: 0, rate: null }, "es")).toBe("Muy pocos controles para juzgar (0 controles, se necesitan 20)");
+    expect(rateText(translator("fr"), { compared: 3, agreeing: 3, rate: null }, "fr")).toBe("Trop peu de contrôles pour juger (3 contrôles, 20 nécessaires)");
+    expect(rateText(translator("pt"), { compared: 3, agreeing: 3, rate: null }, "pt")).toBe("Poucos controles para julgar (3 controles, são necessários 20)");
   });
 
   it("gives a bar only for a rate", () => {
@@ -71,6 +81,15 @@ describe("margins", () => {
     ]);
   });
 
+  it("saves the margins not on screen too: the server replaces the whole set", () => {
+    // A margin saved for a question no longer compared (so not listed) is kept.
+    expect(marginsToSave({ collect_real_old: 7, collect_real_canopy: 15 }, { collect_real_canopy: 20, "collect_entity_tree[*].real_height": 5 })).toEqual({
+      collect_real_old: 7,
+      collect_real_canopy: 20,
+      "collect_entity_tree[*].real_height": 5,
+    });
+  });
+
   it("reads a typed margin from 0 to 100, with a decimal comma too", () => {
     expect(parseMargin("12,5")).toBe(12.5);
     expect(parseMargin(" 0 ")).toBe(0);
@@ -97,7 +116,9 @@ describe("the week chart", () => {
       ["2026-W53", 0.5, 165, 60],
       ["2027-W01", 1, 290, 10],
     ]);
-    expect(chart.path).toBe("M40,110 L165,60 L290,10");
+    // Every week here has fewer than 20 checks: all dashed.
+    expect(chart.path).toBe("");
+    expect(chart.fewPath).toBe("M40,110 L165,60 M165,60 L290,10");
     expect(chart.ticks).toEqual([
       { value: 0, y: 110 },
       { value: 0.5, y: 60 },
@@ -105,9 +126,31 @@ describe("the week chart", () => {
     ]);
   });
 
+  it("marks weeks under 20 checks, and dashes the lines that touch them", () => {
+    const chart = weekChart(
+      [
+        { week: "2026-W40", compared: 20, agreeing: 20 },
+        { week: "2026-W41", compared: 40, agreeing: 20 },
+        { week: "2026-W42", compared: 19, agreeing: 19 },
+        { week: "2026-W43", compared: 30, agreeing: 0 },
+      ],
+      { width: 340, height: 120, left: 40, right: 0, top: 10, bottom: 10 },
+    );
+    expect(chart.points.map((p) => p.few)).toEqual([false, false, true, false]);
+    expect(chart.path).toBe("M40,10 L140,60");
+    expect(chart.fewPath).toBe("M140,60 L240,10 M240,10 L340,110");
+  });
+
   it("puts a single week in the middle, and draws nothing without checks", () => {
     expect(weekChart([{ week: "2026-W44", compared: 4, agreeing: 3 }], box).points[0]).toMatchObject({ x: 165, y: 35 });
-    expect(weekChart([], box)).toMatchObject({ points: [], path: "" });
+    expect(weekChart([], box)).toMatchObject({ points: [], path: "", fewPath: "" });
+  });
+
+  it("gives every week its share, saying when it has few checks", () => {
+    const t = translator("en");
+    expect(weekText(t, { week: "2026-W44", compared: 50, agreeing: 41 }, "en")).toBe("Week 44, 2026: 82% agree (41 of 50 checks)");
+    expect(weekText(t, { week: "2026-W45", compared: 4, agreeing: 4 }, "en")).toBe("Week 45, 2026: 100% agree (4 of 4 checks) (few checks)");
+    expect(weekRateText(translator("es"), { compared: 19, agreeing: 19 }, "es")).toMatch(/\(19 de 19 controles\) \(pocos controles\)$/);
   });
 
   it("names weeks", () => {
@@ -117,8 +160,34 @@ describe("the week chart", () => {
 });
 
 describe("the differences", () => {
-  it("links a plot to Google Earth on the web", () => {
-    expect(googleEarthUrl(-12.5, 30.25)).toBe("https://earth.google.com/web/search/-12.5,30.25");
+  it("links a plot to Google Earth on the web, to six decimals (about 10 cm)", () => {
+    expect(googleEarthUrl(-12.5, 30.25)).toBe("https://earth.google.com/web/search/-12.500000,30.250000");
+    expect(googleEarthUrl(1e-7, 179.1234567)).toBe("https://earth.google.com/web/search/0.000000,179.123457");
+  });
+
+  it("can write a note only for a pair of answers: a blank would mean any answer", () => {
+    expect(canWriteNote("F", "G")).toBe(true);
+    expect(canWriteNote("", "G")).toBe(false);
+    expect(canWriteNote("F", "")).toBe(false);
+  });
+
+  it("puts a decision in place of the plot's earlier one, or takes it away", () => {
+    const decision = (plot: string, kind: "first" | "check"): QualityDecision => ({ plot, decision: kind, comment: null, decidedBy: "x", decidedAt: 1 });
+    const list = [decision("1", "first"), decision("2", "first")];
+    expect(withDecision(list, "1", decision("1", "check"))).toEqual([decision("2", "first"), decision("1", "check")]);
+    expect(withDecision(list, "2", null)).toEqual([decision("1", "first")]);
+  });
+
+  it("keeps the notes in the server's order: by question, then the pair", () => {
+    const note = (id: string, questionKey: string, firstValue: string | null): GuidanceNote => ({
+      id, questionKey, firstValue, checkValue: null, text: id, updatedBy: null, updatedAt: null,
+    });
+    const notes = [note("a", "q1", null), note("b", "q2", "F")];
+    expect(withNote(notes, note("c", "q1", "G")).map((n) => n.id)).toEqual(["a", "c", "b"]);
+    expect(withNote(notes, { ...note("b", "q0", null), text: "changed" }).map((n) => [n.id, n.text])).toEqual([
+      ["b", "changed"],
+      ["a", "a"],
+    ]);
   });
 
   it("groups the checks of a plot checked twice", () => {
@@ -146,5 +215,32 @@ describe("the differences", () => {
       "Plot 3: two people did the first assessment, one of them ana. The latest one is compared.",
     );
     expect(problemMessageKey("something_new")).toBe("quality.problem.other");
+  });
+});
+
+describe("asking again for newer figures", () => {
+  const ask = (over: Partial<Parameters<typeof pollDelay>[0]>) => pollDelay({ stale: false, busy: false, failed: false, hidden: false, round: 0, ...over });
+
+  it("backs off while the figures stay stale: 5, 10, 20, then every 60 seconds", () => {
+    expect([0, 1, 2, 3, 4, 10].map((round) => ask({ stale: true, round }))).toEqual([5_000, 10_000, 20_000, 60_000, 60_000, 60_000]);
+  });
+
+  it("waits at least the Retry-After of a busy answer", () => {
+    expect([0, 1, 2, 3].map((round) => ask({ busy: true, round }))).toEqual([10_000, 10_000, 20_000, 60_000]);
+  });
+
+  it("does not ask while the page is hidden, after another error, or when the figures are fresh", () => {
+    expect(ask({ stale: true, hidden: true })).toBeNull();
+    expect(ask({ stale: true, failed: true })).toBeNull();
+    expect(ask({})).toBeNull();
+  });
+});
+
+describe("a load that started before a change made here", () => {
+  const prev = { decisions: ["mine"], notes: ["mine"], margins: { a: 1 }, plotsChecked: 1 } as unknown as QualityData;
+  const fresh = { decisions: [], notes: [], margins: {}, plotsChecked: 2 } as unknown as QualityData;
+
+  it("keeps the decisions, notes and margins changed here, and takes the rest", () => {
+    expect(keepLocalChanges(fresh, prev)).toEqual({ decisions: ["mine"], notes: ["mine"], margins: { a: 1 }, plotsChecked: 2 });
   });
 });

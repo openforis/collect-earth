@@ -273,6 +273,12 @@ export interface PlotPlace {
   lon: number;
 }
 
+/** The places asked for; none, with the system's id, when the survey's coordinates are not latitude and longitude. */
+export interface PlotPlaces {
+  places: PlotPlace[];
+  unsupportedSrs: string | null;
+}
+
 export interface ServerSettings {
   signupOpen: boolean;
   projectCreation: ProjectCreation;
@@ -1061,12 +1067,13 @@ export async function deleteGuidanceNote(projectId: string, id: string): Promise
 }
 
 /** Where some plots are (the ones in no plot file are left out). */
-export async function getPlotPlaces(projectId: string, plots: string[]): Promise<PlotPlace[]> {
-  if (plots.length === 0) return [];
-  const body = await request<{ places?: unknown }>("POST", `${p(projectId)}/quality/places`, { json: { plots } });
-  return list(body?.places)
+export async function getPlotPlaces(projectId: string, plots: string[]): Promise<PlotPlaces> {
+  if (plots.length === 0) return { places: [], unsupportedSrs: null };
+  const body = await request<{ places?: unknown; unsupportedSrs?: unknown }>("POST", `${p(projectId)}/quality/places`, { json: { plots } });
+  const places = list(body?.places)
     .map((place) => ({ plot: text(place.plot), lat: Number(place.lat), lon: Number(place.lon) }))
     .filter((place) => Number.isFinite(place.lat) && Number.isFinite(place.lon));
+  return { places, unsupportedSrs: typeof body?.unsupportedSrs === "string" && body.unsupportedSrs !== "" ? body.unsupportedSrs : null };
 }
 
 // --- data ------------------------------------------------------------------------------------

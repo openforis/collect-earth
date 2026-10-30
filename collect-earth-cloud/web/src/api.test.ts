@@ -441,10 +441,15 @@ describe("the quality figures", () => {
     expect(call(5)).toMatchObject({ url: "/v1/projects/p1/quality/notes/n2", method: "PUT" });
     await deleteGuidanceNote("p1", "n2");
     expect(call(6)).toMatchObject({ url: "/v1/projects/p1/quality/notes/n2", method: "DELETE" });
-    expect(await getPlotPlaces("p1", ["1", "2"])).toEqual([{ plot: "1", lat: -12.5, lon: 30 }]);
+    expect(await getPlotPlaces("p1", ["1", "2"])).toEqual({ places: [{ plot: "1", lat: -12.5, lon: 30 }], unsupportedSrs: null });
     expect(call(7)).toEqual({ url: "/v1/projects/p1/quality/places", method: "POST", body: { plots: ["1", "2"] } });
-    expect(await getPlotPlaces("p1", [])).toEqual([]);
+    expect(await getPlotPlaces("p1", [])).toEqual({ places: [], unsupportedSrs: null });
     expect(fetchMock).toHaveBeenCalledTimes(8);
+  });
+
+  it("says when the survey's coordinates are not latitude and longitude", async () => {
+    fetchMock.mockImplementation(async () => jsonResponse(200, { places: [], unsupportedSrs: "EPSG:32633" }));
+    expect(await getPlotPlaces("p1", ["1"])).toEqual({ places: [], unsupportedSrs: "EPSG:32633" });
   });
 });
 

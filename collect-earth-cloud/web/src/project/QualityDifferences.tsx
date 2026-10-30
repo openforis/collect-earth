@@ -17,7 +17,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import OpenInNew from "@mui/icons-material/OpenInNew";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   deleteQualityDecision,
   getPlotPlaces,
@@ -104,6 +104,8 @@ function PlotDifferences({
 }) {
   const t = useT();
   const { language } = useApp();
+  // The decision buttons say which plot they decide: "First is right", for "Plot 12".
+  const headingId = useId();
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -134,7 +136,7 @@ function PlotDifferences({
     <Paper variant="outlined" component="article" sx={{ p: { xs: 1.5, sm: 2 } }}>
       <Stack spacing={1.5}>
         <Stack direction="row" spacing={2} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
-          <Typography variant="h3" sx={{ wordBreak: "break-word" }}>
+          <Typography variant="h3" id={headingId} sx={{ wordBreak: "break-word" }}>
             {t("quality.plot", { plot })}
           </Typography>
           {place && (
@@ -156,7 +158,7 @@ function PlotDifferences({
           <Stack spacing={1}>
             <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
               <Chip color="primary" variant="outlined" label={t("quality.decided", { decision: t(DECISION_LABEL[decision.decision]) })} />
-              <Button size="small" onClick={() => void undo()} disabled={busy}>
+              <Button size="small" onClick={() => void undo()} disabled={busy} aria-describedby={headingId}>
                 {t("quality.undo")}
               </Button>
             </Stack>
@@ -181,7 +183,7 @@ function PlotDifferences({
             />
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
               {DECISIONS.map((d) => (
-                <Button key={d.kind} variant="outlined" onClick={() => void decide(d.kind)} disabled={busy}>
+                <Button key={d.kind} variant="outlined" onClick={() => void decide(d.kind)} disabled={busy} aria-describedby={headingId}>
                   {t(d.label)}
                 </Button>
               ))}
@@ -198,11 +200,12 @@ function PlotDifferences({
 export function QualityDifferences({
   projectId,
   data,
-  onDecisions,
+  onDecision,
 }: {
   projectId: string;
   data: QualityData;
-  onDecisions: (decisions: QualityDecision[]) => void;
+  /** A plot's decision was made (or undone, with null). */
+  onDecision: (plot: string, decision: QualityDecision | null) => void;
 }) {
   const t = useT();
   const { language } = useApp();
@@ -211,24 +214,33 @@ export function QualityDifferences({
   const groups = useMemo(() => groupDifferences(data.differences), [data.differences]);
   const [hideDecided, setHideDecided] = useState(false);
   const [page, setPage] = useState(1);
-  const [places, setPlaces] = useState<Map<string, PlotPlace>>(new Map());
+  // Where each plot asked about is, kept while the tab is open: null for a plot with no place.
+  const [places, setPlaces] = useState<Map<string, PlotPlace | null>>(new Map());
+  // The survey's coordinate system when it is not latitude and longitude: no links then.
+  const [unsupportedSrs, setUnsupportedSrs] = useState<string | null>(null);
   const top = useRef<HTMLElement | null>(null);
 
   const listed = hideDecided ? groups.filter((g) => !decisions.has(g.plot)) : groups;
   const pages = Math.max(1, Math.ceil(listed.length / DIFFERENCES_PAGE));
   const current = Math.min(page, pages);
   const shown = listed.slice((current - 1) * DIFFERENCES_PAGE, current * DIFFERENCES_PAGE);
-  const missing = shown.map((g) => g.plot).filter((plot) => !places.has(plot));
+  const missing = unsupportedSrs === null ? shown.map((g) => g.plot).filter((plot) => !places.has(plot)) : [];
   const missingKey = missing.join("\u0000");
 
   // Where the plots of this page are, for their Google Earth links (no link when that fails).
   useEffect(() => {
     if (!missingKey) return;
     let cancelled = false;
-    getPlotPlaces(projectId, missingKey.split("\u0000")).then(
-      (found) => {
-        if (cancelled || found.length === 0) return;
-        setPlaces((old) => new Map([...old, ...found.map((place) => [place.plot, place] as const)]));
+    const asked = missingKey.split("\u0000");
+    getPlotPlaces(projectId, asked).then(
+      (answer) => {
+        if (cancelled) return;
+        if (answer.unsupportedSrs !== null) {
+          setUnsupportedSrs(answer.unsupportedSrs);
+          return;
+        }
+        const found = new Map(answer.places.map((place) => [place.plot, place]));
+        setPlaces((old) => new Map([...old, ...asked.map((plot) => [plot, found.get(plot) ?? null] as const)]));
       },
       () => undefined,
     );
@@ -236,11 +248,6 @@ export function QualityDifferences({
       cancelled = true;
     };
   }, [projectId, missingKey]);
-
-  const changed = (plot: string, decision: QualityDecision | null) => {
-    const others = data.decisions.filter((d) => d.plot !== plot);
-    onDecisions(decision ? [...others, decision] : others);
-  };
 
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, scrollMarginTop: 72 }} component="section" ref={top}>
@@ -255,6 +262,7 @@ export function QualityDifferences({
               control={<Switch checked={hideDecided} onChange={(e) => (setHideDecided(e.target.checked), setPage(1))} />}
               label={t("quality.hideDecided")}
             />
+            {unsupportedSrs !== null && <Alert severity="info">{t("quality.placesUnsupported", { srs: unsupportedSrs })}</Alert>}
             {listed.length === 0 && <Alert severity="success">{t("quality.allDecided")}</Alert>}
             {shown.map((g) => (
               <PlotDifferences
@@ -262,10 +270,10 @@ export function QualityDifferences({
                 projectId={projectId}
                 plot={g.plot}
                 checks={g.checks}
-                place={places.get(g.plot)}
+                place={places.get(g.plot) ?? undefined}
                 decision={decisions.get(g.plot)}
                 label={label}
-                onDecision={changed}
+                onDecision={onDecision}
               />
             ))}
             {pages > 1 && (

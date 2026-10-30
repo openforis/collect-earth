@@ -1,7 +1,8 @@
 // Pure helpers of the Quality tab: rates as text, the margins list, the week chart's
-// geometry, the Google Earth link and the differences grouped by plot.
+// geometry, the Google Earth link, the differences grouped by plot, local changes and
+// when to ask for newer figures.
 
-import type { DataProblemKind, Difference, QuestionAgreement, Rate, WeekAgreement } from "./api";
+import type { DataProblemKind, Difference, GuidanceNote, QualityData, QualityDecision, QuestionAgreement, Rate, WeekAgreement } from "./api";
 import type { MessageKey, Translate } from "./i18n";
 
 /** Below this many checks a rate is not given (the server's MIN_PLOTS). */
@@ -88,6 +89,15 @@ export function marginRows(questions: readonly QuestionAgreement[], margins: Rea
   return rows;
 }
 
+/**
+ * The margins to send when saving: the saved ones with those edited on screen over
+ * them. The server replaces the whole set, and the screen lists only the questions
+ * compared so far, so a margin saved for another question must be sent too.
+ */
+export function marginsToSave(saved: Readonly<Record<string, number>>, edited: Readonly<Record<string, number>>): Record<string, number> {
+  return { ...saved, ...edited };
+}
+
 /** A margin typed by the coordinator: a number from 0 to 100 (a decimal comma is fine), or null. */
 export function parseMargin(text: string): number | null {
   const trimmed = text.trim().replace(",", ".");
@@ -102,20 +112,38 @@ export function splitWeek(week: string): { year: string; week: string } {
   return m ? { year: m[1], week: String(Number(m[2])) } : { year: "", week };
 }
 
+/**
+ * A week's share as text: every week gets one, even under MIN_CHECKS, then marked
+ * "(few checks)": "82% agree (41 of 50 checks)", "100% agree (4 of 4 checks) (few checks)".
+ */
+export function weekRateText(t: Translate, w: { compared: number; agreeing: number }, language: string): string {
+  const text = rateText(t, { compared: w.compared, agreeing: w.agreeing, rate: w.compared > 0 ? w.agreeing / w.compared : null }, language);
+  return w.compared > 0 && w.compared < MIN_CHECKS ? `${text} ${t("quality.fewChecks")}` : text;
+}
+
+/** A week and its share: "Week 44, 2026: 82% agree (41 of 50 checks)". */
+export function weekText(t: Translate, w: { week: string; compared: number; agreeing: number }, language: string): string {
+  return `${t("quality.week", splitWeek(w.week))}: ${weekRateText(t, w, language)}`;
+}
+
 export interface WeekPoint {
   week: string;
   compared: number;
   agreeing: number;
   /** agreeing / compared, 0..1. */
   rate: number;
+  /** Fewer than MIN_CHECKS checks: the share can swing a lot (drawn hollow, its lines dashed). */
+  few: boolean;
   x: number;
   y: number;
 }
 
 export interface WeekChart {
   points: WeekPoint[];
-  /** The SVG path of the line through the points ("" for none). */
+  /** The SVG path of the solid lines: between two weeks of MIN_CHECKS checks or more ("" for none). */
   path: string;
+  /** The SVG path of the dashed lines: those touching a week of fewer checks ("" for none). */
+  fewPath: string;
   /** Horizontal gridlines: the share each marks and its y. */
   ticks: { value: number; y: number }[];
 }
@@ -135,17 +163,64 @@ export function weekChart(
   const points = sorted.map((w, i) => {
     const rate = w.agreeing / w.compared;
     const x = sorted.length === 1 ? box.left + plotWidth / 2 : box.left + (i * plotWidth) / (sorted.length - 1);
-    return { week: w.week, compared: w.compared, agreeing: w.agreeing, rate, x, y: yOf(rate) };
+    return { week: w.week, compared: w.compared, agreeing: w.agreeing, rate, few: w.compared < MIN_CHECKS, x, y: yOf(rate) };
   });
   const round = (n: number) => Math.round(n * 10) / 10;
-  const path = points.map((pt, i) => `${i === 0 ? "M" : "L"}${round(pt.x)},${round(pt.y)}`).join(" ");
+  const solid: string[] = [];
+  const dashed: string[] = [];
+  for (let i = 1; i < points.length; i++) {
+    const [a, b] = [points[i - 1], points[i]];
+    (a.few || b.few ? dashed : solid).push(`M${round(a.x)},${round(a.y)} L${round(b.x)},${round(b.y)}`);
+  }
   const ticks = [0, 0.5, 1].map((value) => ({ value, y: yOf(value) }));
-  return { points, path, ticks };
+  return { points, path: solid.join(" "), fewPath: dashed.join(" "), ticks };
 }
 
-/** Opens a place in Google Earth on the web. */
+/** Opens a place in Google Earth on the web (six decimals: about 10 cm). */
 export function googleEarthUrl(lat: number, lon: number): string {
-  return `https://earth.google.com/web/search/${lat},${lon}`;
+  return `https://earth.google.com/web/search/${lat.toFixed(6)},${lon.toFixed(6)}`;
+}
+
+/** Whether "Write a note" can name this pair: a blank answer in a note means "any answer". */
+export function canWriteNote(first: string, check: string): boolean {
+  return first !== "" && check !== "";
+}
+
+/** The decisions with the plot's one replaced (or taken away, with null). */
+export function withDecision(decisions: readonly QualityDecision[], plot: string, decision: QualityDecision | null): QualityDecision[] {
+  const others = decisions.filter((d) => d.plot !== plot);
+  return decision ? [...others, decision] : others;
+}
+
+/** The notes with a saved one in place of its earlier version, in the server's order: by question, then the pair. */
+export function withNote(notes: readonly GuidanceNote[], saved: GuidanceNote): GuidanceNote[] {
+  const order = (n: GuidanceNote) => [n.questionKey, n.firstValue ?? "", n.checkValue ?? ""].join("\u0000");
+  return [...notes.filter((n) => n.id !== saved.id), saved].sort((a, b) => (order(a) < order(b) ? -1 : order(a) > order(b) ? 1 : 0));
+}
+
+/**
+ * For a load that started before a change made on this page: the loaded figures, with
+ * the decisions, notes and margins as changed here (the load may have read them before).
+ */
+export function keepLocalChanges(fresh: QualityData, prev: QualityData): QualityData {
+  return { ...fresh, decisions: prev.decisions, notes: prev.notes, margins: prev.margins };
+}
+
+/** How long to wait before asking again while the figures stay stale: 5, 10, 20 s, then every 60 s. */
+export const STALE_BACKOFF_MS = [5_000, 10_000, 20_000, 60_000] as const;
+/** The Retry-After of a "busy" answer. */
+export const BUSY_RETRY_MS = 10_000;
+
+/**
+ * When to ask for the figures again, or null not to. Stale figures (newer ones are being
+ * worked out) and busy answers are asked again, backing off with each `round` (the answers
+ * in a row that were not fresh). Never while the page is hidden (it asks again when shown),
+ * nor after any other error (the person retries).
+ */
+export function pollDelay(state: { stale: boolean; busy: boolean; failed: boolean; hidden: boolean; round: number }): number | null {
+  if (state.hidden || state.failed || !(state.stale || state.busy)) return null;
+  const backoff = STALE_BACKOFF_MS[Math.min(state.round, STALE_BACKOFF_MS.length - 1)];
+  return state.busy ? Math.max(BUSY_RETRY_MS, backoff) : backoff;
 }
 
 /** The checks of each plot together (a plot checked twice has two), in the figures' plot order. */

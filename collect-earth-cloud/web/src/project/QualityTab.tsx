@@ -21,14 +21,33 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import ExpandMore from "@mui/icons-material/ExpandMore";
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { ApiError, getQuality, saveQualityMargins, type GuidanceNote, type QualityData, type Rate } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
-import { barPercent, formatRate, labelMap, marginRows, parseMargin, problemMessageKey, rateText, splitWeek, weekChart, type WeekPoint } from "../qualityView";
+import {
+  barPercent,
+  canWriteNote,
+  formatRate,
+  keepLocalChanges,
+  labelMap,
+  marginRows,
+  marginsToSave,
+  parseMargin,
+  pollDelay,
+  problemMessageKey,
+  rateText,
+  splitWeek,
+  weekChart,
+  weekRateText,
+  weekText,
+  withDecision,
+  withNote,
+  type WeekPoint,
+} from "../qualityView";
 import { useLoad } from "../useLoad";
 import { QualityDifferences } from "./QualityDifferences";
 import { NoteDialog, QualityNotes, type NoteDraft } from "./QualityNotes";
@@ -43,10 +62,6 @@ const TRACK = "#dcebe0";
 
 /** Tables fit a phone: they scroll inside their own frame. */
 const tableFrame = { border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto" } as const;
-
-/** Re-fetch figures given as stale after this long, and after a "busy" answer after Retry-After. */
-const STALE_RETRY_MS = 5_000;
-const BUSY_RETRY_MS = 10_000;
 
 function Section({ title, explain, children }: { title: string; explain?: string; children: ReactNode }) {
   return (
@@ -91,7 +106,7 @@ function Figure({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Counts({ data }: { data: QualityData }) {
+function Counts({ data, stillWorking }: { data: QualityData; stillWorking: boolean }) {
   const t = useT();
   const { language } = useApp();
   return (
@@ -100,6 +115,12 @@ function Counts({ data }: { data: QualityData }) {
         <Alert severity="info" role="status">
           {t("quality.stale", { time: formatDate(data.computedAt, language) })}
         </Alert>
+      )}
+      {/* Busy asking for newer figures, with these on screen: a quiet line, not an error. */}
+      {stillWorking && (
+        <Typography variant="body2" color="text.secondary" role="status">
+          {t("quality.stillWorking")}
+        </Typography>
       )}
       {data.plotsChecked === 0 ? (
         <Alert severity="info">{t("quality.none")}</Alert>
@@ -131,9 +152,9 @@ function Margins({ projectId, data, onSaved }: { projectId: string; data: Qualit
     setError(null);
     setSaved(false);
     try {
-      // Every margin shown is sent: the server replaces the whole set.
-      const margins = Object.fromEntries(parsed.map((p) => [p.row.key, p.value as number]));
-      onSaved(await saveQualityMargins(projectId, margins));
+      // The server replaces the whole set: the saved margins are sent too, those shown over them.
+      const shown = Object.fromEntries(parsed.map((p) => [p.row.key, p.value as number]));
+      onSaved(await saveQualityMargins(projectId, marginsToSave(data.margins, shown)));
       setTexts({});
       setSaved(true);
     } catch (err) {
@@ -285,9 +306,11 @@ function Confusions({ data, onWriteNote }: { data: QualityData; onWriteNote: (dr
                 </TableRow>
               </TableHead>
               <TableBody>
-                {rows.map((c) => {
+                {rows.map((c, index) => {
                   const id = `${c.first}\u0000${c.check}`;
-                  const note = noteFor(c.first, c.check);
+                  const noteable = canWriteNote(c.first, c.check);
+                  const note = noteable ? noteFor(c.first, c.check) : undefined;
+                  const whyNot = `confusion-no-note-${index}`;
                   return (
                     <TableRow key={id} sx={{ verticalAlign: "top" }}>
                       <TableCell sx={{ wordBreak: "break-word" }}>
@@ -306,16 +329,22 @@ function Confusions({ data, onWriteNote }: { data: QualityData; onWriteNote: (dr
                           </Button>
                           <Button
                             size="small"
-                            onClick={() =>
-                              onWriteNote(note ? { ...note } : { questionKey: c.key, firstValue: c.first || null, checkValue: c.check || null, text: "" })
-                            }
+                            // A blank answer in a note means "any answer": not what this row is about.
+                            disabled={!noteable}
+                            aria-describedby={noteable ? undefined : whyNot}
+                            onClick={() => onWriteNote(note ? { ...note } : { questionKey: c.key, firstValue: c.first, checkValue: c.check, text: "" })}
                           >
                             {note ? t("quality.editNote") : t("quality.writeNote")}
                           </Button>
+                          {!noteable && (
+                            <Typography id={whyNot} variant="body2" color="text.secondary" sx={{ maxWidth: 220 }}>
+                              {t("quality.noteNeedsAnswers")}
+                            </Typography>
+                          )}
                         </Stack>
                         {open === id && (
                           <Typography variant="body2" sx={{ mt: 1, wordBreak: "break-word" }}>
-                            {t("quality.plotsList", { plots: c.plots.join(", ") })}
+                            {t("quality.plotsList", { plots: c.plots.join("; ") })}
                           </Typography>
                         )}
                       </TableCell>
@@ -331,6 +360,20 @@ function Confusions({ data, onWriteNote }: { data: QualityData; onWriteNote: (dr
   );
 }
 
+/**
+ * The person column stays in view while the wide table scrolls sideways on a phone: on
+ * the left, over a background so the other columns pass under it.
+ */
+const stickyFirst = {
+  position: { xs: "sticky", sm: "static" },
+  left: 0,
+  zIndex: 1,
+  bgcolor: "background.paper",
+  borderRight: { xs: 1, sm: 0 },
+  borderRightColor: "divider",
+  minWidth: 96,
+} as const;
+
 function People({ data }: { data: QualityData }) {
   const t = useT();
   const label = labelMap(data.questions);
@@ -343,7 +386,7 @@ function People({ data }: { data: QualityData }) {
           <Table size="small" sx={{ minWidth: 680 }}>
             <TableHead>
               <TableRow>
-                <TableCell>{t("quality.person")}</TableCell>
+                <TableCell sx={stickyFirst}>{t("quality.person")}</TableCell>
                 <TableCell>{t("quality.asFirst")}</TableCell>
                 <TableCell>{t("quality.asChecker")}</TableCell>
                 <TableCell>{t("quality.weakest")}</TableCell>
@@ -352,7 +395,7 @@ function People({ data }: { data: QualityData }) {
             <TableBody>
               {data.people.map((person) => (
                 <TableRow key={person.username} sx={{ verticalAlign: "top" }}>
-                  <TableCell component="th" scope="row" sx={{ wordBreak: "break-word" }}>
+                  <TableCell component="th" scope="row" sx={{ ...stickyFirst, wordBreak: "break-word" }}>
                     {person.username}
                   </TableCell>
                   <TableCell>
@@ -404,24 +447,60 @@ function WeekLineChart({ data }: { data: QualityData }) {
   const box = { width: Math.max(width, 200), height: CHART_HEIGHT, left: 44, right: 16, top: 12, bottom: 28 };
   const chart = weekChart(data.weeks, box);
   const weekName = (week: string) => t("quality.week", splitWeek(week));
-  const pointText = (pt: WeekPoint) => `${weekName(pt.week)}: ${rateText(t, { compared: pt.compared, agreeing: pt.agreeing, rate: pt.rate }, language)}`;
-  const shown = active !== null ? chart.points[active] : chart.points[chart.points.length - 1];
+  const pointText = (pt: WeekPoint) => weekText(t, pt, language);
+  const count = chart.points.length;
+  const shown = active !== null ? chart.points[active] : chart.points[count - 1];
   const first = chart.points[0];
-  const last = chart.points[chart.points.length - 1];
+  const last = chart.points[count - 1];
   // The hit area of each week: the band around it, wider than the dot.
-  const band = chart.points.length > 1 ? (box.width - box.left - box.right) / (chart.points.length - 1) : box.width - box.left - box.right;
+  const band = count > 1 ? (box.width - box.left - box.right) / (count - 1) : box.width - box.left - box.right;
+  const readout = useId();
+
+  // One stop for the keyboard: the arrow keys move from week to week, Home and End to the ends.
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (count === 0) return;
+    const at = active ?? count - 1;
+    const next =
+      e.key === "ArrowLeft" || e.key === "ArrowDown"
+        ? Math.max(0, at - 1)
+        : e.key === "ArrowRight" || e.key === "ArrowUp"
+          ? Math.min(count - 1, at + 1)
+          : e.key === "Home"
+            ? 0
+            : e.key === "End"
+              ? count - 1
+              : null;
+    if (next === null) return;
+    e.preventDefault();
+    setActive(next);
+  };
 
   return (
     <Box ref={ref} sx={{ width: "100%" }}>
-      <Typography variant="body2" sx={{ minHeight: "1.5em", fontVariantNumeric: "tabular-nums" }} aria-live="polite">
+      <Typography id={readout} variant="body2" sx={{ minHeight: "1.5em", fontVariantNumeric: "tabular-nums" }} aria-live="polite">
         {shown ? pointText(shown) : ""}
       </Typography>
+      <Box
+        role="group"
+        tabIndex={0}
+        aria-label={`${first && last ? t("quality.chartLabel", { from: weekName(first.week), to: weekName(last.week) }) : t("quality.weeksTitle")} ${t("quality.chartKeys")}`}
+        aria-describedby={readout}
+        onKeyDown={onKeyDown}
+        onFocus={() => setActive((a) => a ?? count - 1)}
+        onBlur={() => setActive(null)}
+        sx={{
+          width: "fit-content",
+          maxWidth: "100%",
+          borderRadius: 1,
+          outline: "none",
+          "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 2 },
+        }}
+      >
       {width > 0 && (
         <svg
           width={box.width}
           height={box.height}
-          role="img"
-          aria-label={first && last ? t("quality.chartLabel", { from: weekName(first.week), to: weekName(last.week) }) : t("quality.weeksTitle")}
+          aria-hidden
           style={{ display: "block", overflow: "visible" }}
           onMouseLeave={() => setActive(null)}
         >
@@ -434,10 +513,17 @@ function WeekLineChart({ data }: { data: QualityData }) {
             </g>
           ))}
           {shown && active !== null && <line x1={shown.x} x2={shown.x} y1={box.top} y2={box.height - box.bottom} stroke="#bdbdbd" strokeWidth={1} />}
-          <path d={chart.path} fill="none" stroke={MARK} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-          {chart.points.map((pt, i) => (
-            <circle key={pt.week} cx={pt.x} cy={pt.y} r={active === i ? 5 : 4} fill={MARK} stroke="#fff" strokeWidth={2} />
-          ))}
+          {chart.path && <path d={chart.path} fill="none" stroke={MARK} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />}
+          {/* Lines touching a week of few checks: dashed, as that week's share can swing a lot. */}
+          {chart.fewPath && <path d={chart.fewPath} fill="none" stroke={MARK} strokeWidth={2} strokeDasharray="4 4" strokeLinecap="butt" />}
+          {chart.points.map((pt, i) =>
+            pt.few ? (
+              // Few checks: a hollow dot.
+              <circle key={pt.week} cx={pt.x} cy={pt.y} r={active === i ? 5 : 4} fill="#fff" stroke={MARK} strokeWidth={2} />
+            ) : (
+              <circle key={pt.week} cx={pt.x} cy={pt.y} r={active === i ? 5 : 4} fill={MARK} stroke="#fff" strokeWidth={2} />
+            ),
+          )}
           {first && (
             <text x={first.x} y={box.height - 8} textAnchor={chart.points.length === 1 ? "middle" : "start"} fontSize={12} fill="rgba(0,0,0,0.6)">
               {weekName(first.week)}
@@ -456,20 +542,15 @@ function WeekLineChart({ data }: { data: QualityData }) {
               width={Math.max(band, 24)}
               height={box.height - box.top - box.bottom}
               fill="transparent"
-              tabIndex={0}
-              aria-label={pointText(pt)}
               onMouseEnter={() => setActive(i)}
-              onFocus={() => setActive(i)}
-              onBlur={() => setActive(null)}
-              style={{ outline: "none" }}
             />
           ))}
         </svg>
       )}
+      </Box>
     </Box>
   );
 }
-
 function Weeks({ data }: { data: QualityData }) {
   const t = useT();
   const { language } = useApp();
@@ -503,7 +584,7 @@ function Weeks({ data }: { data: QualityData }) {
                         {t("quality.week", splitWeek(w.week))}
                       </TableCell>
                       <TableCell sx={{ fontVariantNumeric: "tabular-nums" }}>
-                        {rateText(t, { compared: w.compared, agreeing: w.agreeing, rate: w.agreeing / w.compared }, language)}
+                        {weekRateText(t, w, language)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -524,9 +605,17 @@ function Problems({ data }: { data: QualityData }) {
   return (
     // In a Box: the page's Stack spacing does not reach an Accordion's own margins.
     <Box>
-      <Accordion variant="outlined" disableGutters sx={{ borderRadius: 1, "&::before": { display: "none" } }}>
+      <Accordion
+        variant="outlined"
+        disableGutters
+        // The heading around the summary's button is the section's h2 (an h3 by default), level with the others.
+        slotProps={{ heading: { component: "h2" } }}
+        sx={{ borderRadius: 1, "&::before": { display: "none" } }}
+      >
         <AccordionSummary expandIcon={<ExpandMore />} aria-controls="quality-problems" id="quality-problems-title" sx={{ px: { xs: 2, sm: 3 }, py: 1 }}>
-          <Typography variant="h2">{t("quality.problemsTitle", { count: formatNumber(count, language) })}</Typography>
+          <Typography variant="h2" component="span">
+            {t("quality.problemsTitle", { count: formatNumber(count, language) })}
+          </Typography>
         </AccordionSummary>
         <AccordionDetails id="quality-problems" sx={{ px: { xs: 2, sm: 3 }, pb: 3 }}>
           <Stack spacing={1.5}>
@@ -561,17 +650,45 @@ function Problems({ data }: { data: QualityData }) {
  */
 export function QualityTab({ projectId }: { projectId: string }) {
   const t = useT();
-  const quality = useLoad(() => getQuality(projectId), [projectId]);
-  const { data, error, loading, reload } = quality;
+  // A load that started before a decision, a note or margins were saved here keeps those as saved.
+  const quality = useLoad(() => getQuality(projectId), [projectId], { merge: keepLocalChanges });
+  const { data, error, loading, reload, setData } = quality;
   const [note, setNote] = useState<NoteDraft | null>(null);
   const busy = error instanceof ApiError && error.code === "busy";
+  const [hidden, setHidden] = useState(() => typeof document !== "undefined" && document.visibilityState === "hidden");
+  /** Answers in a row that were stale or busy: the wait before asking again grows with them. */
+  const rounds = useRef(0);
+  const loadingRef = useRef(loading);
+  loadingRef.current = loading;
 
-  // Stale figures: newer ones are being worked out, so ask again in a moment. Busy: after Retry-After.
+  // Nothing is asked while the page is hidden; shown again, it asks at once.
   useEffect(() => {
-    if (loading || !(data?.stale || busy)) return;
-    const id = window.setTimeout(reload, busy ? BUSY_RETRY_MS : STALE_RETRY_MS);
+    const changed = () => {
+      const nowHidden = document.visibilityState === "hidden";
+      setHidden(nowHidden);
+      if (!nowHidden && !loadingRef.current) reload();
+    };
+    document.addEventListener("visibilitychange", changed);
+    return () => document.removeEventListener("visibilitychange", changed);
+  }, [reload]);
+
+  // Stale figures (newer ones are being worked out) or busy: ask again, less often the
+  // longer it lasts. The server's CPU only runs during requests, so this asking is also
+  // what lets the newer figures be worked out. Not after any other error.
+  useEffect(() => {
+    if (loading) return;
+    const failed = error !== null && !busy;
+    const delay = pollDelay({ stale: data?.stale === true, busy, failed, hidden, round: rounds.current });
+    if (delay === null) {
+      if (!hidden && !failed) rounds.current = 0;
+      return;
+    }
+    const id = window.setTimeout(() => {
+      rounds.current += 1;
+      reload();
+    }, delay);
     return () => window.clearTimeout(id);
-  }, [data, busy, loading, reload]);
+  }, [data?.stale, error, busy, loading, hidden, reload]);
 
   if (!data) {
     if (loading) return <Loading />;
@@ -592,28 +709,34 @@ export function QualityTab({ projectId }: { projectId: string }) {
     );
   }
 
-  const update = (patch: Partial<QualityData>) => quality.setData({ ...data, ...patch });
-  const savedNote = (saved: GuidanceNote) => {
-    const others = data.notes.filter((n) => n.id !== saved.id);
-    // In the server's order: by question, then the pair.
-    const order = (n: GuidanceNote) => [n.questionKey, n.firstValue ?? "", n.checkValue ?? ""].join("\u0000");
-    update({ notes: [...others, saved].sort((a, b) => (order(a) < order(b) ? -1 : order(a) > order(b) ? 1 : 0)) });
-  };
+  // Changes made here apply to the data as it is when they land (not as it was when they
+  // started), so a load or another change in between is not undone.
+  const update = (change: (prev: QualityData) => Partial<QualityData>) => setData((prev) => ({ ...prev, ...change(prev) }));
+  const savedNote = (saved: GuidanceNote) => update((prev) => ({ notes: withNote(prev.notes, saved) }));
 
   return (
     <Stack spacing={3}>
-      <Counts data={data} />
+      <Counts data={data} stillWorking={busy} />
       {error !== null && !busy && <ErrorAlert error={error} onRetry={reload} />}
       {data.plotsChecked > 0 && (
         <>
-          <Questions projectId={projectId} data={data} onMargins={(margins) => (update({ margins }), reload())} />
+          <Questions projectId={projectId} data={data} onMargins={(margins) => (update(() => ({ margins })), reload())} />
           <Confusions data={data} onWriteNote={setNote} />
           <People data={data} />
           <Weeks data={data} />
-          <QualityDifferences projectId={projectId} data={data} onDecisions={(decisions) => update({ decisions })} />
+          <QualityDifferences
+            projectId={projectId}
+            data={data}
+            onDecision={(plot, decision) => update((prev) => ({ decisions: withDecision(prev.decisions, plot, decision) }))}
+          />
         </>
       )}
-      <QualityNotes projectId={projectId} data={data} onEdit={setNote} onDeleted={(id) => update({ notes: data.notes.filter((n) => n.id !== id) })} />
+      <QualityNotes
+        projectId={projectId}
+        data={data}
+        onEdit={setNote}
+        onDeleted={(id) => update((prev) => ({ notes: prev.notes.filter((n) => n.id !== id) }))}
+      />
       <Problems data={data} />
       {/* Task 18: the AI assistant's section goes here. */}
       {note && (

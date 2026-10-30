@@ -2247,6 +2247,41 @@ Commit: "Collect Earth Cloud dashboard: a Quality tab for following agreement, m
   (the figures came back with the new margin), the pager, Spanish texts, no page-wide
   horizontal scroll and no console errors. The dashboard has no dark theme; the colours were
   checked on the light one only.
+- **Review fixes (2026-10-30).**
+  - *Margins:* saving sends the saved margins with those on screen over them
+    (`marginsToSave`), so a margin of a question not compared yet is no longer wiped.
+  - *Asking again:* only while the page is visible (shown again, it asks at once). While
+    the figures stay stale it waits 5, 10, 20, then 60 s (`pollDelay`, `STALE_BACKOFF_MS`),
+    back to 5 s after a fresh answer; a busy answer waits at least 10 s; no asking by
+    itself after any other error. Some asking is kept on purpose: with request-based
+    billing it is what gives the server CPU (Task 19). A busy answer with figures on
+    screen shows a quiet "Still working on newer figures." The server starts at most one
+    computation per project every 30 s (`MIN_COMPUTE_INTERVAL_MS`; a request in between
+    gets the last figures with `stale: true`; a computation refused as busy does not
+    count; `Config.qualityMinIntervalMs`, 0 in the tests' `makeContext`).
+  - *Local changes kept:* `useLoad` takes `setData(prev => ...)`, and a load that started
+    before a local change keeps that change (`landed`; the Quality tab merges with
+    `keepLocalChanges`: decisions, notes and margins as changed here). Decisions and
+    notes update from the data as it is then (`withDecision`, `withNote`).
+  - *Weeks under 20 checks:* hollow dots and dashed lines (`WeekPoint.few`,
+    `WeekChart.fewPath`), "(few checks)" in the readout and the table (`weekRateText`),
+    and one sentence in the explanation. The chart is one focusable group (left/right,
+    Home/End; a visible focus ring; the readout is its description and `aria-live`).
+  - *Places:* `src/routes/plotPlaces.ts` reads the served project file's first spatial
+    reference system, as `KmlGenerator` does: unless it is one `GeoUtils.isUsingWGS84`
+    takes as latitude and longitude ("", LATLONG, WGS84, EPSG:4326), the answer is
+    `{ places: [], unsupportedSrs }` and the tab says the links are not available for
+    that system (Collect Earth transforms such coordinates; the server does not). The
+    places of each plot file are kept by checksum (`PlotPlaceReader`: 8 files, 250,000
+    places), the system by the project file's size and time; the dashboard keeps every
+    plot it asked about, misses included, while the tab is open. Links use six decimals.
+  - *Smaller:* "Write a note" is disabled, with a line saying why, for a pair with a
+    blank answer (a blank in a note means any answer). The Problems heading is the
+    Accordion's heading slot (`h2`). Decision and Undo buttons are described by the
+    plot's heading. The person column of the people table stays in view on a phone.
+    "Too few checks to judge (12 checks, 20 needed)"; the checker column says "Checks
+    they made"; PT "da pessoa"; ES and FR "distintos"/"différents"; plot lists joined
+    with "; ".
 
 ### Task 18: AI assistant panel, reports pages, settings
 
