@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FinishReason, FunctionCallingConfigMode, type GenerateContentParameters } from '@google/genai';
+import { FinishReason, FunctionCallingConfigMode, ThinkingLevel, type GenerateContentParameters } from '@google/genai';
 import type { AiRequest } from '../../src/ai/client.js';
 import { AiError, modelTurn } from '../../src/ai/client.js';
 import {
@@ -141,6 +141,42 @@ describe('toGeminiRequest', () => {
     expect(p.config).not.toHaveProperty('tools');
   });
 
+  it('sends the tool mode, the thinking level and the per-call timeout', () => {
+    const base = { system: 's', turns: [{ role: 'user' as const, text: 'q' }], tools: [TOOL], maxOutputTokens: 1 };
+    expect(toGeminiRequest('m', { ...base, toolMode: 'validated' }).config!.toolConfig).toEqual({
+      functionCallingConfig: { mode: FunctionCallingConfigMode.VALIDATED },
+    });
+    const final = toGeminiRequest('m', { ...base, toolMode: 'none', responseSchema: { type: 'object' }, thinking: 'low', timeoutMs: 170_000 }).config!;
+    expect(final.toolConfig).toEqual({ functionCallingConfig: { mode: FunctionCallingConfigMode.NONE } });
+    expect(final.tools).toHaveLength(1);
+    expect(final.responseJsonSchema).toEqual({ type: 'object' });
+    expect(final.thinkingConfig).toEqual({ thinkingLevel: ThinkingLevel.LOW });
+    expect(final.httpOptions).toEqual({ timeout: 170_000 });
+    expect(toGeminiRequest('m', { ...base, thinking: 'minimal' }).config!.thinkingConfig).toEqual({ thinkingLevel: ThinkingLevel.MINIMAL });
+    expect(toGeminiRequest('m', base).config).not.toHaveProperty('httpOptions');
+    expect(toGeminiRequest('m', base).config).not.toHaveProperty('thinkingConfig');
+  });
+
+  it('never sends two user contents in a row: a text after the tool results joins their content', () => {
+    const p = toGeminiRequest('m', {
+      system: 's',
+      maxOutputTokens: 1,
+      turns: [
+        { role: 'user', text: 'go' },
+        { role: 'model', calls: [{ id: 'c1', name: 'get_people', args: {} }] },
+        { role: 'tool', results: [{ id: 'c1', name: 'get_people', result: { a: 1 } }] },
+        { role: 'user', text: 'Now the report.' },
+        { role: 'user', text: 'And in JSON.' },
+      ],
+    });
+    expect((p.contents as { role: string }[]).map((c) => c.role)).toEqual(['user', 'model', 'user']);
+    expect((p.contents as { parts: unknown[] }[])[2].parts).toEqual([
+      { functionResponse: { id: 'c1', name: 'get_people', response: { a: 1 } } },
+      { text: 'Now the report.' },
+      { text: 'And in JSON.' },
+    ]);
+  });
+
   it('keeps a model turn with text and calls in that order, and sends call ids only when known', () => {
     const p = toGeminiRequest('m', {
       system: 's',
@@ -191,6 +227,14 @@ describe('fromGeminiResponse', () => {
     expect(r.blocked).toBe(false);
     // The run turns the response into the next model turn, signatures included.
     expect(modelTurn(r)).toEqual({ role: 'model', calls: r.calls, raw: parts });
+  });
+
+  it('is blocked as empty when it finished with nothing but thoughts, or no parts at all', () => {
+    for (const parts of [[], [{ text: 'hmm', thought: true }], [{ text: '' }]]) {
+      const r = fromGeminiResponse(response({ candidates: [{ finishReason: FinishReason.STOP, content: { role: 'model', parts } }] }));
+      expect(r).toMatchObject({ text: null, calls: [], blocked: true, blockReason: 'empty', inputTokens: 1200 });
+    }
+    expect(fromGeminiResponse(response({ candidates: [{ finishReason: FinishReason.STOP }] }))).toMatchObject({ blocked: true, blockReason: 'empty' });
   });
 
   it('adds tool-use prompt tokens to the input and treats missing counts as 0', () => {
@@ -254,5 +298,7 @@ describe('GeminiClient', () => {
     const e = await client.generate({ system: 's', turns: [], maxOutputTokens: 1 }).catch((x: unknown) => x);
     expect(e).toBeInstanceOf(AiError);
     expect((e as AiError).timeout).toBe(true);
+    const long = await client.generate({ system: 's', turns: [], maxOutputTokens: 1, timeoutMs: 170_000 }).catch((x: unknown) => x);
+    expect((long as AiError).message).toContain('170 s');
   });
 });

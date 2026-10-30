@@ -1479,6 +1479,21 @@ Commit: "Collect Earth Cloud: a small interface to the AI model, with Gemini on 
   the client options, the request mapping, the response mapping with recorded SDK-shaped
   responses, and `GeminiClient` with an injected `models` (errors, the key, the timeout).
   No network.
+- **After the review** (read from the 2.30.0 `genai.d.ts` and `index.mjs`):
+  - `AiRequest.toolMode` (`auto` default, `validated`, `none`) →
+    `functionCallingConfig.mode` `AUTO` / `VALIDATED` / `NONE`. `none` keeps the tools
+    declared but uncallable, so the final structured call can carry the same tools as the
+    history (Task 14).
+  - `AiRequest.thinking` (`minimal` | `low`) → `thinkingConfig: { thinkingLevel:
+    ThinkingLevel.MINIMAL | LOW }`; not set = the model's default.
+  - `AiRequest.timeoutMs` → `config.httpOptions: { timeout }`. The SDK merges a request's
+    `httpOptions` over the client's (`patchedHttpOptions`) and arms its abort timer per
+    attempt, so this is that call's limit; the timeout message names it.
+  - **Roles alternate:** consecutive user contents (a tool turn's function responses, then a
+    text turn) are joined into one content, parts in order. Model contents are never joined.
+  - **A `STOP` with nothing in it** (no parts, only thoughts, or empty text) is
+    `blocked: true, blockReason: 'empty'`, so no empty model turn is ever sent back.
+  - Tests: 30 in `gemini.test.ts`.
 
 ### Task 14: the assistant's tools and its run
 
@@ -1863,7 +1878,10 @@ Commit: "Collect Earth Cloud dashboard: the AI assistant panel, printable report
      with "Vertex AI User" plus `AI_VERTEX_PROJECT` and `AI_VERTEX_REGION`;
   3. `AI_MODEL`;
   4. a billing budget alert;
-  5. switch it on in Server settings, then in each project.
+  5. switch it on in Server settings, then in each project;
+  6. `GOOGLE_VERTEX_BASE_URL` (and `GOOGLE_GEMINI_BASE_URL`) must **not** be set in the
+     server's environment: the SDK sends its requests, with the key, to that address
+     (`getBaseUrl` in `@google/genai` reads them).
 - **DEPLOY.md:** what "round" means for coordinators, in a few lines.
 - **`.env.example`:** the four `AI_*` variables, commented out, and
   `QUALITY_WORKER_MAX_MB` (default 512, already there since Task 10), commented out.

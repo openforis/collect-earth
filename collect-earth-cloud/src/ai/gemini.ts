@@ -15,6 +15,7 @@ import {
   FinishReason,
   FunctionCallingConfigMode,
   GoogleGenAI,
+  ThinkingLevel,
   type Content,
   type GenerateContentConfig,
   type GenerateContentParameters,
@@ -74,16 +75,16 @@ export class GeminiClient implements AiClient {
     try {
       res = await this.models.generateContent(toGeminiRequest(this.model, req));
     } catch (e) {
-      throw this.toAiError(e);
+      throw this.toAiError(e, req.timeoutMs ?? AI_TIMEOUT_MS);
     }
     return fromGeminiResponse(res);
   }
 
   /** A new error with the status and a short message, without the key and without the SDK's error object. */
-  private toAiError(e: unknown): AiError {
+  private toAiError(e: unknown, timeoutMs: number): AiError {
     const err = e as { name?: unknown; message?: unknown; status?: unknown } | null;
     if (err && (err.name === 'AbortError' || err.name === 'TimeoutError')) {
-      return new AiError(`The AI model did not answer within ${AI_TIMEOUT_MS / 1000} s.`, { timeout: true });
+      return new AiError(`The AI model did not answer within ${Math.round(timeoutMs / 1000)} s.`, { timeout: true });
     }
     let message = typeof err?.message === 'string' ? err.message : 'The call to the AI model failed.';
     if (this.apiKey) message = message.split(this.apiKey).join('[key]');
@@ -106,13 +107,43 @@ export function toGeminiRequest(model: string, req: AiRequest): GenerateContentP
     config.tools = [{
       functionDeclarations: req.tools.map((t) => ({ name: t.name, description: t.description, parametersJsonSchema: t.parameters })),
     }];
-    config.toolConfig = { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } };
+    config.toolConfig = { functionCallingConfig: { mode: TOOL_MODES[req.toolMode ?? 'auto'] } };
   }
   if (req.responseSchema) {
     config.responseMimeType = 'application/json';
     config.responseJsonSchema = req.responseSchema;
   }
-  return { model, contents: req.turns.map(toContent), config };
+  if (req.thinking) {
+    config.thinkingConfig = { thinkingLevel: req.thinking === 'minimal' ? ThinkingLevel.MINIMAL : ThinkingLevel.LOW };
+  }
+  if (req.timeoutMs !== undefined) {
+    config.httpOptions = { timeout: req.timeoutMs };
+  }
+  return { model, contents: joinUserContents(req.turns.map(toContent)), config };
+}
+
+const TOOL_MODES: Record<NonNullable<AiRequest['toolMode']>, FunctionCallingConfigMode> = {
+  auto: FunctionCallingConfigMode.AUTO,
+  validated: FunctionCallingConfigMode.VALIDATED,
+  none: FunctionCallingConfigMode.NONE,
+};
+
+/**
+ * Two user contents in a row (a tool turn's function responses, then a text turn) become
+ * one, parts in order: the roles must alternate. Model contents are never joined (their
+ * signed parts must stay as they came).
+ */
+function joinUserContents(contents: Content[]): Content[] {
+  const out: Content[] = [];
+  for (const c of contents) {
+    const last = out.at(-1);
+    if (last && last.role === 'user' && c.role === 'user') {
+      out[out.length - 1] = { role: 'user', parts: [...(last.parts ?? []), ...(c.parts ?? [])] };
+    } else {
+      out.push(c);
+    }
+  }
+  return out;
 }
 
 function toContent(turn: AiTurn): Content {
@@ -160,6 +191,8 @@ export function fromGeminiResponse(res: GeminiResponseShape): AiResponse {
     }
   }
   if (text === '') text = null;
+  // Finished, but nothing in it: never an answer, and never a model turn to send back.
+  if (text === null && calls.length === 0) return blocked('empty');
   return { text, calls, inputTokens, outputTokens, blocked: false, raw: parts };
 }
 

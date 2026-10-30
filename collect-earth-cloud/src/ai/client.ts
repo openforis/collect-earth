@@ -50,6 +50,16 @@ export interface AiRequest {
   /** A JSON schema: the answer is JSON text that should follow it (always check it). */
   responseSchema?: object;
   maxOutputTokens: number;
+  /**
+   * With tools: `auto` (the model calls them or answers), `validated` (the same, with
+   * calls checked against the declarations by the service) or `none` (they are declared
+   * but cannot be called, e.g. for a final structured answer). Default `auto`.
+   */
+  toolMode?: 'auto' | 'validated' | 'none';
+  /** How much the model may think before answering. Default: the model's own. */
+  thinking?: 'minimal' | 'low';
+  /** This call's time limit; default the client's (60 s). */
+  timeoutMs?: number;
 }
 
 export interface AiResponse {
