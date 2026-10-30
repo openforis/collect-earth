@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { bearer, createProject, makeContext, type TestContext } from './helpers.js';
-import { idOnlyCep } from './fixtures/cep.js';
+import { strFromU8, strToU8, unzipSync } from 'fflate';
+import { cepWith, idOnlyCep } from './fixtures/cep.js';
 import { MAX_PLACES } from '../src/routes/plotPlaces.js';
 
 describe('POST /quality/places', () => {
@@ -63,6 +64,40 @@ describe('POST /quality/places', () => {
     for (const plots of [undefined, 'one', [1], [''], ['x'.repeat(1001)], Array.from({ length: MAX_PLACES + 1 }, (_, i) => String(i))]) {
       expect((await places(plots)).statusCode, JSON.stringify(plots)?.slice(0, 40)).toBe(400);
     }
+  });
+
+  it("gives no places when the survey's coordinates are not latitude and longitude (its first spatial reference system)", async () => {
+    // The demo survey with its spatial reference system changed to UTM 33N, as Collect Earth would transform.
+    const files = unzipSync(idOnlyCep());
+    const survey = strFromU8(files['placemark.idm.xml']);
+    expect(survey).toContain('<spatialReferenceSystem srid="EPSG:4326">');
+    files['placemark.idm.xml'] = strToU8(survey.replace('<spatialReferenceSystem srid="EPSG:4326">', '<spatialReferenceSystem srid="EPSG:32633">'));
+    const put = await ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${project.projectId}/cep`,
+      headers: { ...bearer(project.adminToken), 'content-type': 'application/zip' },
+      payload: cepWith(Object.entries(files).map(([path, data]): [string, Buffer] => [path, Buffer.from(data)])),
+    });
+    expect(put.statusCode, put.body).toBe(200);
+    await upload('a.csv', 'id,x,y\n1,500000,4649776\n');
+    expect((await places(['1'])).json()).toEqual({ places: [], unsupportedSrs: 'EPSG:32633' });
+  });
+
+  it('reads each plot file once while it does not change, plots not found included', async () => {
+    await upload('a.csv', 'id,lat,lon\n1,1,2\n2,3,4\n');
+    let reads = 0;
+    const getCsvFile = ctx.store.getCsvFile.bind(ctx.store);
+    ctx.store.getCsvFile = async (...args) => {
+      reads += 1;
+      return getCsvFile(...args);
+    };
+    expect((await places(['1'])).json()).toEqual({ places: [{ plot: '1', lat: 1, lon: 2 }] });
+    expect((await places(['2', 'nope'])).json()).toEqual({ places: [{ plot: '2', lat: 3, lon: 4 }] });
+    expect(reads).toBe(1);
+    // A changed file is read again.
+    await upload('a.csv', 'id,lat,lon\n1,5,6\n');
+    expect((await places(['1'])).json()).toEqual({ places: [{ plot: '1', lat: 5, lon: 6 }] });
+    expect(reads).toBe(2);
   });
 
   it('is for coordinators of the project only', async () => {

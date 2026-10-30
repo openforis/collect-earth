@@ -351,6 +351,12 @@ const sha256 = (data: string | Uint8Array) => createHash('sha256').update(data).
 
 /** A report served younger than this, when its inputs have changed since, is served as it is (stale) while a new one is computed. */
 export const STALE_MS = 2 * 60_000;
+/**
+ * At most one computation is started per project in this long: a request in between,
+ * when there is a report to show, gets it as stale. With request-based billing a page
+ * that polls is what gives the server CPU, so this bounds the work polling can cause.
+ */
+export const MIN_COMPUTE_INTERVAL_MS = 30_000;
 /** A computation that failed is not tried again for the same inputs for this long (the error is given again, or a stale report). */
 export const FAILURE_MEMO_MS = 2 * 60_000;
 
@@ -410,7 +416,10 @@ export class QualityService {
   private readonly outlines = new Map<string, ReadonlyMap<string, Question> | null>();
   /** The last failed computation of each project, by the version of its inputs. */
   private readonly failures = new Map<string, { version: string; error: unknown; at: number }>();
+  /** When each project's last computation started (cleared when it was refused as busy or restarted). */
+  private readonly lastStarts = new Map<string, number>();
   private readonly now: () => number;
+  private readonly minIntervalMs: number;
   private warnedUnavailable = false;
   /** How many reports were computed (for tests). */
   computed = 0;
@@ -418,9 +427,10 @@ export class QualityService {
   constructor(
     private readonly store: Store,
     private readonly runner: QualityRunner | null = new QualityWorker(),
-    options: { now?: () => number } = {},
+    options: { now?: () => number; minIntervalMs?: number } = {},
   ) {
     this.now = options.now ?? Date.now;
+    this.minIntervalMs = options.minIntervalMs ?? MIN_COMPUTE_INTERVAL_MS;
   }
 
   async report(projectId: string, log: Log): Promise<ServedReport> {
@@ -438,7 +448,10 @@ export class QualityService {
       }
       throw failure.error;
     }
-    const pending = this.schedule(projectId, log, snapshot);
+    const pending = this.schedule(projectId, log, snapshot, cached !== undefined);
+    if (pending === null) {
+      return { report: cached!.report, computedAt: cached!.computedAt, stale: true };
+    }
     if (cached && this.now() - cached.computedAt < STALE_MS) {
       pending.catch((err: unknown) => log.warn({ err }, 'quality: the figures could not be brought up to date'));
       return { report: cached.report, computedAt: cached.computedAt, stale: true };
@@ -447,18 +460,26 @@ export class QualityService {
     return { report: fresh.report, computedAt: fresh.computedAt, stale: false };
   }
 
-  /** The computation that will answer this snapshot: the running one for its version, or the one follow-up. */
-  private schedule(projectId: string, log: Log, snapshot: Snapshot): Promise<CachedReport> {
+  /**
+   * The computation that will answer this snapshot: the running one for its version, or
+   * the one follow-up. Null when there is a report to show and a computation of this
+   * project started under minIntervalMs ago: none is started (nor queued) now.
+   */
+  private schedule(projectId: string, log: Log, snapshot: Snapshot, hasReport: boolean): Promise<CachedReport> | null {
     let runs = this.runs.get(projectId);
+    if (runs?.running && runs.running.version === snapshot.version) {
+      return runs.running.promise;
+    }
+    const lastStart = this.lastStarts.get(projectId);
+    if (hasReport && lastStart !== undefined && this.now() - lastStart < this.minIntervalMs) {
+      return null;
+    }
     if (!runs) {
       runs = { running: null, followUp: null };
       this.runs.set(projectId, runs);
     }
     if (!runs.running) {
       return this.start(projectId, runs, log, snapshot);
-    }
-    if (runs.running.version === snapshot.version) {
-      return runs.running.promise;
     }
     if (runs.followUp) {
       runs.followUp.log = log;
@@ -479,6 +500,8 @@ export class QualityService {
   /** Runs one computation (reading the inputs first when no snapshot is given), then the follow-up if one waits. */
   private start(projectId: string, runs: ProjectRuns, log: Log, snapshot: Snapshot | null): Promise<CachedReport> {
     const running: NonNullable<ProjectRuns['running']> = { version: snapshot?.version ?? null, promise: null as unknown as Promise<CachedReport> };
+    const startedAt = this.now();
+    remember(this.lastStarts, projectId, startedAt, MAX_CACHED_REPORTS * 4);
     running.promise = (async () => {
       const s = snapshot ?? (await this.snapshot(projectId));
       running.version = s.version;
@@ -490,9 +513,12 @@ export class QualityService {
       try {
         report = await this.compute(projectId, log, s.known);
       } catch (err) {
-        // Busy or restarted is no fault of these inputs: tried again on the next request.
+        // Busy or restarted is no fault of these inputs, and nothing was computed: tried
+        // again on the next request, interval or not.
         if (!(err instanceof WorkerBusyError || err instanceof WorkerRestartedError)) {
           remember(this.failures, projectId, { version: s.version, error: err, at: this.now() }, MAX_CACHED_REPORTS * 4);
+        } else if (this.lastStarts.get(projectId) === startedAt) {
+          this.lastStarts.delete(projectId);
         }
         throw err;
       }

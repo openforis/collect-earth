@@ -28,6 +28,8 @@ export async function makeContext(
     storeBackend: 'memory',
     setupCode: TEST_SETUP_CODE,
     rateLimitPerMinute: 0,
+    // The figures are brought up to date at once, so a test does not wait 30 s for them.
+    qualityMinIntervalMs: 0,
     ...overrides,
   };
   const app = await buildServer({ store, config, webDir: options.webDir ?? null, ...(options.ai ? { ai: options.ai } : {}) });

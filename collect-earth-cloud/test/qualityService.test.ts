@@ -3,6 +3,7 @@ import type { RoundInfo } from '../src/cep.js';
 import { qualityReport, type QualityRecord } from '../src/quality.js';
 import {
   FAILURE_MEMO_MS,
+  MIN_COMPUTE_INTERVAL_MS,
   QualityService,
   QualityWorker,
   STALE_MS,
@@ -333,6 +334,74 @@ describe('QualityService', () => {
     expect((await waiting).stale).toBe(false);
   });
 
+  it('starts at most one computation per project every 30 s: a request in between gets the last report as stale', async () => {
+    const t = await gated();
+    const first = t.service.report(t.projectId, t.log);
+    await t.settle();
+    t.gates[0]();
+    await first;
+    expect(t.runs()).toBe(1);
+
+    // A new record 10 s later: within the interval, served stale, nothing started.
+    await t.addRecord();
+    t.clock.now += 10_000;
+    expect(await t.service.report(t.projectId, t.log)).toMatchObject({ stale: true, computedAt: 1_000_000 });
+    await t.settle();
+    expect(t.runs()).toBe(1);
+    t.clock.now += MIN_COMPUTE_INTERVAL_MS - 10_000 - 1;
+    expect((await t.service.report(t.projectId, t.log)).stale).toBe(true);
+    await t.settle();
+    expect(t.runs()).toBe(1);
+
+    // 30 s after the last start: a new computation, behind the stale report.
+    t.clock.now += 1;
+    expect((await t.service.report(t.projectId, t.log)).stale).toBe(true);
+    await t.settle();
+    expect(t.runs()).toBe(2);
+    t.gates[1]();
+    await t.settle();
+    expect((await t.service.report(t.projectId, t.log)).stale).toBe(false);
+  });
+
+  it('the interval does not hold back a project with no report yet, nor a computation refused as busy', async () => {
+    const store = new SourcedStore();
+    const { projectId } = await store.createProject({ name: 'p' });
+    let busy = true;
+    let runs = 0;
+    const runner: QualityRunner = {
+      async run(job) {
+        runs += 1;
+        if (busy) {
+          throw new WorkerBusyError();
+        }
+        return qualityReport({ ...job.input, records: [] });
+      },
+      async close() {},
+    };
+    let t = 0;
+    const service = new QualityService(store, runner, { now: () => t });
+    const log = { warn() {}, error() {} };
+    // No report yet: each request may start one, however close together.
+    await expect(service.report(projectId, log)).rejects.toBeInstanceOf(WorkerBusyError);
+    busy = false;
+    const first = await service.report(projectId, log);
+    expect(first.stale).toBe(false);
+    expect(runs).toBe(2);
+    // A refresh refused as busy computed nothing: the next request may start one at once.
+    await store.putRecord(record(projectId, '1'));
+    t += MIN_COMPUTE_INTERVAL_MS;
+    busy = true;
+    expect((await service.report(projectId, log)).stale).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(runs).toBe(3);
+    busy = false;
+    t += 1000;
+    expect((await service.report(projectId, log)).stale).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(runs).toBe(4);
+    expect((await service.report(projectId, log)).stale).toBe(false);
+  });
+
   it('a refresh behind a stale report that fails is logged, and the stale report still served', async () => {
     const store = new SourcedStore();
     const { projectId } = await store.createProject({ name: 'p' });
@@ -347,11 +416,13 @@ describe('QualityService', () => {
       async close() {},
     };
     const warned: unknown[] = [];
-    const service = new QualityService(store, runner, { now: () => 0 });
+    let t = 0;
+    const service = new QualityService(store, runner, { now: () => t });
     const log = { warn: (o: unknown) => warned.push(o), error() {} };
     await service.report(projectId, log);
     fail = true;
     await store.setQualitySettings(projectId, { margins: { x: 5 } });
+    t += MIN_COMPUTE_INTERVAL_MS;
     expect((await service.report(projectId, log)).stale).toBe(true);
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(warned).toHaveLength(1);
@@ -442,6 +513,8 @@ describe('QualityService', () => {
     expect(runs).toBe(2);
 
     for (const err of [new WorkerBusyError(), new WorkerRestartedError('another job took too long')]) {
+      // Past the interval since the last computation that ran.
+      t += MIN_COMPUTE_INTERVAL_MS;
       await store.putRecord(record(projectId, `${runs + 10}`));
       failWith = err;
       await expect(service.report(projectId, log)).rejects.toBe(err);

@@ -36,6 +36,11 @@ export interface Config {
   /** The quality worker's heap in MB (QUALITY_WORKER_MAX_MB); undefined = the default (512). */
   qualityWorkerMaxMb?: number;
   /**
+   * The shortest time between two computations of a project's quality figures, in ms;
+   * undefined = MIN_COMPUTE_INTERVAL_MS (30 s). Not read from the environment: tests set 0.
+   */
+  qualityMinIntervalMs?: number;
+  /**
    * A Vertex AI API key for the AI assistant (AI_VERTEX_API_KEY). A secret: it is
    * never sent in a response nor written to the log.
    */

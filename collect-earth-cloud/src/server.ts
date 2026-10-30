@@ -111,7 +111,9 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerProjectRoutes(app, store, config);
   await registerPlatformRoutes(app, store, config);
   await registerAssignmentRoutes(app, store, config);
-  const quality = new QualityService(store, new QualityWorker({ maxOldGenerationSizeMb: config.qualityWorkerMaxMb }));
+  const quality = new QualityService(store, new QualityWorker({ maxOldGenerationSizeMb: config.qualityWorkerMaxMb }), {
+    minIntervalMs: config.qualityMinIntervalMs,
+  });
   await registerQualityRoutes(app, store, quality);
   await registerRecordRoutes(app, store);
   const runs = new AiRunService(store, quality, app.log, {
