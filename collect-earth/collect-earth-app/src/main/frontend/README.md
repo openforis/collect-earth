@@ -22,6 +22,14 @@ with a home page instead of the map. The app bar talks to the JSON API under `/e
 does. Its texts are those of the Swing UI (`Messages*.properties`), read from `/earth/api/messages`
 (`serverTexts.ts`).
 
+The Settings entry of the app bar opens the settings page (`src/components/settings/`), which replaces
+the Swing properties dialog. It draws itself from `GET /earth/api/settings` (`SettingsModel` in Java
+describes every setting, its type, when it is shown and its texts), validates what the user types through
+`POST /earth/api/settings/validate` while typing, and saves only the changes with `POST /earth/api/settings`,
+which restarts Collect Earth when a setting needs it. `src/settings.ts` holds the pure logic (the
+visibility conditions, the changes, the search), `src/plotPreview.ts` the drawing of the plot, and
+`src/settingsApi.ts` the calls.
+
 ## Build
 
 The Maven build of `collect-earth-app` builds it automatically (`frontend-maven-plugin`
@@ -49,6 +57,8 @@ npm run build      # rebuilds target/classes/leafletmap (refresh the map window 
   (`AppBar.tsx`) and home page (`HomePage.tsx`)
 - `src/apiClient.ts`, `src/serverTexts.ts`, `src/appInfo.ts`, `src/menus.ts`, `src/appBar.ts`,
   `src/home.ts` - the API client, the Swing texts, `/api/app`, the menus and their pure logic
+- `src/settings.ts`, `src/settingsApi.ts`, `src/plotPreview.ts`, `src/components/settings/` - the
+  settings page: its model, its calls, the plot preview and its components
 - `src/form/` - the generated data entry form: `model.ts` (pure protocol logic: value
   formats, response merges, hierarchical codes, errors), `store.ts` (server traffic, serialized
   autosave, submit), `FormApp.tsx` / `fields.tsx` (UI)

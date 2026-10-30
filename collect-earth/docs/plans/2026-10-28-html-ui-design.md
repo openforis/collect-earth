@@ -140,8 +140,8 @@ All under `/earth/api`, JSON in and out:
 
 1. **Foundation** (done): `/earth/api` controllers behind the header check, `/app`, `/messages`, `/files/choose`, `JobService`; the app bar
    in the plots map and the home page; tray icon and Quit. `EarthApp` opens the page instead of the Swing window.
-2. **Settings:** section descriptions, server-side validation, the new settings page with plot preview and sample
-   file check.
+2. **Settings** (done, `2026-10-30-html-ui-stage-2.md`): section descriptions, server-side validation, the new
+   settings page with plot preview and sample file check.
 3. **Data:** export dialog, imports, job panel.
 4. **Tools and Utilities:** Saiku, IPCC, KML load, divide CSV, delete plots, missing plots report.
 5. **Project, Help and notices:** CEP import, cloud join and sync, help items, announcements, updates.
@@ -161,3 +161,14 @@ merged:
 - **Without a system tray** (some Linux desktops) a closed home page cannot be opened again: a second start of
   Collect Earth should then open it.
 - The Swing dialogs still used have no parent window, so they can open behind the browser, until they move to pages.
+
+### Left by stage 2 for the later stages
+
+- **Cloud** (stage 5): the cloud assignments of the sample file (the Swing Sample data tab listed them in cloud mode) and
+  the cloud "Log in…" button of the Database tab. The Collaboration section keeps the URL, project id, token and Test
+  connection.
+- **Import CEP** from the Project section (stage 5, with the Project menu and the job panel of stage 3).
+- **The reload of the plots after applying** runs on a thread of the server and only logs a failure (`EarthApp.reloadPlots`);
+  with the job panel of stage 3 it can run as a job, so the page shows a KML that could not be generated.
+- **The connection tests** still answer the English texts of `CollectEarthUtils.testPostgreSQLConnection` and
+  `testCloudConnection`, as the dialogs did.
