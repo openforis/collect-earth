@@ -64,6 +64,21 @@ Schema lives in `migrations/*.sql`, each idempotent (`IF NOT EXISTS`). Apply the
   STORE_BACKEND=postgres DATABASE_URL='postgres://…' npm run migrate
   ```
 
+**Row-Level Security and the database role.** The project policies (RLS) apply only
+when the server connects as a role that does not own the tables and is not a
+superuser: the migrations do not use `FORCE ROW LEVEL SECURITY`, so the owner
+bypasses them. What is true today:
+- `deploy.sh` and the Option B examples use one role, `ce`, which runs the
+  migrations on boot and so owns the tables. RLS is therefore **not enforced** in
+  these deployments; the membership checks of every route (see the README, "Tenancy &
+  isolation") are what keep projects apart.
+- A separate app role (`NOSUPERUSER NOBYPASSRLS`, with `SELECT, INSERT, UPDATE,
+  DELETE` on the tables, migrations run as the owner) is **not supported yet**: as
+  such a role, creating a project, the list of one's projects (with their names) and
+  invite lookups read or write `projects` without a project set, and the policy
+  refuses or hides those rows. The project-scoped data is checked under such a role in
+  the Postgres test scripts; making the whole server run under one is a later step.
+
 ---
 
 ## Option A: Google Cloud (script)

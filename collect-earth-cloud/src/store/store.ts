@@ -203,6 +203,12 @@ export interface Store {
 
   getRecord(projectId: string, recordKey: string, operator: string): Promise<RecordRow | null>;
   putRecord(row: RecordRow): Promise<void>;
+  /**
+   * Moves the record (recordKey, from) to (recordKey, to), in one transaction. When
+   * (recordKey, to) exists too, the newer one (modifiedOn; the `to` row on a tie) is
+   * kept under `to` and the other deleted. False when there is no (recordKey, from).
+   */
+  renameRecordOperator(projectId: string, recordKey: string, from: string, to: string): Promise<boolean>;
 
   /** All records for a project (deleted excluded unless includeDeleted). For stats/export/tests. */
   listRecords(projectId: string, includeDeleted?: boolean): Promise<RecordRow[]>;

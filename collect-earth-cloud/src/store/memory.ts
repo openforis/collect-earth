@@ -253,6 +253,21 @@ export class InMemoryStore implements Store {
     entry.recordsGeneration += 1;
   }
 
+  async renameRecordOperator(projectId: string, recordKey: string, from: string, to: string): Promise<boolean> {
+    const entry = this.projects.get(projectId);
+    const old = entry?.records.get(InMemoryStore.recordId(recordKey, from));
+    if (!entry || !old || from === to) {
+      return false;
+    }
+    const current = entry.records.get(InMemoryStore.recordId(recordKey, to));
+    entry.records.delete(InMemoryStore.recordId(recordKey, from));
+    if (!current || old.modifiedOn > current.modifiedOn) {
+      entry.records.set(InMemoryStore.recordId(recordKey, to), { ...old, operator: to });
+    }
+    entry.recordsGeneration += 1;
+    return true;
+  }
+
   async listRecords(projectId: string, includeDeleted = false): Promise<RecordRow[]> {
     const entry = this.projects.get(projectId);
     if (!entry) {

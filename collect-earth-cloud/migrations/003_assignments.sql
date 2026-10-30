@@ -27,10 +27,10 @@ ALTER TABLE assignments ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS csv_files_isolation ON csv_files;
 CREATE POLICY csv_files_isolation ON csv_files
-  USING (project_id = current_setting('app.current_project', true)::uuid)
-  WITH CHECK (project_id = current_setting('app.current_project', true)::uuid);
+  USING (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid)
+  WITH CHECK (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid);
 
 DROP POLICY IF EXISTS assignments_isolation ON assignments;
 CREATE POLICY assignments_isolation ON assignments
-  USING (project_id = current_setting('app.current_project', true)::uuid)
-  WITH CHECK (project_id = current_setting('app.current_project', true)::uuid);
+  USING (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid)
+  WITH CHECK (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid);

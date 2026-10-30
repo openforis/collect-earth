@@ -165,6 +165,8 @@ export class PostgresStore implements Store {
         if ((err as { code?: string }).code !== '40P01' || attempt >= 3) {
           throw err;
         }
+        // A random pause (10-50 ms), so the two do not meet again at once.
+        await new Promise((resolve) => setTimeout(resolve, 10 + Math.floor(Math.random() * 41)));
       }
     }
   }
@@ -283,6 +285,35 @@ export class PostgresStore implements Store {
     });
   }
 
+  async renameRecordOperator(projectId: string, recordKey: string, from: string, to: string): Promise<boolean> {
+    if (from === to) {
+      return false;
+    }
+    return this.withProject(projectId, async (client) => {
+      // Both rows locked, in a fixed order (by operator), so two uploads of the record cannot cross.
+      const res = await client.query(
+        `SELECT operator, modified_on FROM records
+          WHERE project_id = $1 AND record_key = $2 AND operator = ANY($3::text[])
+          ORDER BY operator COLLATE "C" FOR UPDATE`,
+        [projectId, recordKey, [from, to]],
+      );
+      const old = res.rows.find((r) => r.operator === from);
+      if (!old) {
+        return false;
+      }
+      const current = res.rows.find((r) => r.operator === to);
+      if (current && (old.modified_on as Date).getTime() <= (current.modified_on as Date).getTime()) {
+        await client.query('DELETE FROM records WHERE project_id = $1 AND record_key = $2 AND operator = $3', [projectId, recordKey, from]);
+        return true;
+      }
+      if (current) {
+        await client.query('DELETE FROM records WHERE project_id = $1 AND record_key = $2 AND operator = $3', [projectId, recordKey, to]);
+      }
+      await client.query('UPDATE records SET operator = $4 WHERE project_id = $1 AND record_key = $2 AND operator = $3', [projectId, recordKey, from, to]);
+      return true;
+    });
+  }
+
   async listRecords(projectId: string, includeDeleted = false): Promise<RecordRow[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
@@ -385,9 +416,12 @@ export class PostgresStore implements Store {
   }): Promise<User> {
     const id = randomUUID();
     const termsAcceptedAt = input.termsAcceptedAt ?? null;
+    const client = await this.pool.connect();
     try {
+      await client.query('BEGIN');
+      await lockUsername(client, input.username);
       // A deleted account's username is retired (migration 010): taken, as a live one.
-      const res = await this.pool.query(
+      const res = await client.query(
         `INSERT INTO users (id, username, password_hash, email, terms_accepted_at)
          SELECT $1, $2, $3, $4, $5 WHERE NOT EXISTS (SELECT 1 FROM retired_usernames WHERE username = $2)`,
         [id, input.username, input.passwordHash, input.email, termsAcceptedAt === null ? null : new Date(termsAcceptedAt)],
@@ -395,11 +429,15 @@ export class PostgresStore implements Store {
       if (res.rowCount === 0) {
         throw new UsernameTakenError(input.username);
       }
+      await client.query('COMMIT');
     } catch (err) {
+      await client.query('ROLLBACK');
       if ((err as { code?: string }).code === '23505') {
         throw new UsernameTakenError(input.username);
       }
       throw err;
+    } finally {
+      client.release();
     }
     return {
       id,
@@ -473,6 +511,9 @@ export class PostgresStore implements Store {
       const projects = await client.query('SELECT project_id FROM project_members WHERE user_id = $1', [userId]);
       const named = await client.query('SELECT username FROM users WHERE id = $1', [userId]);
       const username = named.rows[0]?.username as string | undefined;
+      if (username !== undefined) {
+        await lockUsername(client, username);
+      }
       let hasRecords = false;
       for (const r of projects.rows) {
         await client.query('SELECT set_config($1, $2, true)', ['app.current_project', r.project_id]);
@@ -528,6 +569,7 @@ export class PostgresStore implements Store {
         await client.query('ROLLBACK');
         return null;
       }
+      await lockUsername(client, input.username);
       const res = await client.query(
         `INSERT INTO users (id, username, password_hash, email, is_platform_admin)
          SELECT $1, $2, $3, NULL, true WHERE NOT EXISTS (SELECT 1 FROM retired_usernames WHERE username = $2)`,
@@ -1220,4 +1262,14 @@ function mapRecord(r: Record<string, unknown>): RecordRow {
     deleted: r.deleted as boolean,
     deletedOn: r.deleted_on === null ? null : (r.deleted_on as Date).getTime(),
   };
+}
+
+/**
+ * Serialises the creation and the deletion of accounts with one username, until the
+ * transaction ends. Without it, an account created while one of the same name is being
+ * deleted checks retired_usernames before the deletion retires the name, waits on the
+ * unique username, and is then created under a retired name with its figures.
+ */
+async function lockUsername(client: pg.PoolClient, username: string): Promise<void> {
+  await client.query("SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:username:' || $1))", [username]);
 }

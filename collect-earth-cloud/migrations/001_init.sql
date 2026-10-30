@@ -43,14 +43,16 @@ CREATE INDEX IF NOT EXISTS idx_records_project ON records(project_id) WHERE NOT 
 -- app.current_project. projects.id is compared to the GUC; child tables to their
 -- project_id. project_tokens is intentionally NOT under RLS — it is the auth index
 -- consulted before any project is known, and only ever queried by exact hash.
+-- An empty setting means no project (NULLIF): after a transaction-local set_config
+-- the setting stays '' on that pooled connection, and ''::uuid is an error.
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE records  ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS projects_isolation ON projects;
 CREATE POLICY projects_isolation ON projects
-  USING (id = current_setting('app.current_project', true)::uuid);
+  USING (id = NULLIF(current_setting('app.current_project', true), '')::uuid);
 
 DROP POLICY IF EXISTS records_isolation ON records;
 CREATE POLICY records_isolation ON records
-  USING (project_id = current_setting('app.current_project', true)::uuid)
-  WITH CHECK (project_id = current_setting('app.current_project', true)::uuid);
+  USING (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid)
+  WITH CHECK (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid);

@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // query run on its clients, in order.
 const pools: { options: Record<string, unknown>; listeners: Map<string, (err: Error) => void> }[] = [];
 const queries: { sql: string; params?: unknown[] }[] = [];
+// Queries containing `match` throw a Postgres error with `code`, `times` times.
+const failing: { match: string; code: string; times: number } = { match: '', code: '', times: 0 };
 
 vi.mock('pg', () => {
   class Pool {
@@ -19,6 +21,10 @@ vi.mock('pg', () => {
       return {
         async query(sql: string, params?: unknown[]) {
           queries.push({ sql, params });
+          if (failing.times > 0 && failing.match && sql.includes(failing.match)) {
+            failing.times -= 1;
+            throw Object.assign(new Error('deadlock detected'), { code: failing.code });
+          }
           return { rows: sql.includes('records_version') ? [{ records_version: '7' }] : [], rowCount: 0 };
         },
         release() {},
@@ -66,6 +72,28 @@ describe('PostgresStore pool', () => {
     queries.length = 0;
     await new PostgresStore('postgres://x').qualityVersion(PROJECT);
     expect(queries.some((q) => q.sql.includes('statement_timeout'))).toBe(false);
+  });
+
+  it('deleteProject retries a deadlock after a random pause of 10-50 ms, at most three times', async () => {
+    const pauses: number[] = [];
+    const realSetTimeout = globalThis.setTimeout;
+    vi.spyOn(globalThis, 'setTimeout').mockImplementation(((fn: () => void, ms?: number) => {
+      pauses.push(ms ?? 0);
+      return realSetTimeout(fn, 0);
+    }) as typeof setTimeout);
+    Object.assign(failing, { match: 'FOR UPDATE', code: '40P01', times: 2 });
+    await new PostgresStore('postgres://x').deleteProject(PROJECT);
+    expect(pauses).toHaveLength(2);
+    expect(pauses.every((ms) => ms >= 10 && ms <= 50)).toBe(true);
+    expect(queries.filter((q) => q.sql.startsWith('DELETE FROM projects'))).toHaveLength(1);
+
+    Object.assign(failing, { match: 'FOR UPDATE', code: '40P01', times: 3 });
+    await expect(new PostgresStore('postgres://x').deleteProject(PROJECT)).rejects.toMatchObject({ code: '40P01' });
+    Object.assign(failing, { match: 'FOR UPDATE', code: '23505', times: 1 });
+    pauses.length = 0;
+    await expect(new PostgresStore('postgres://x').deleteProject(PROJECT)).rejects.toMatchObject({ code: '23505' });
+    expect(pauses).toHaveLength(0);
+    failing.times = 0;
   });
 
   it('reads the quality version from the project counter the triggers bump', async () => {
