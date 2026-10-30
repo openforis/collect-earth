@@ -2053,7 +2053,7 @@ Commit: "Collect Earth Cloud: the assistant runs in the background, one at a tim
 - **Not done here, for Task 19 (DEPLOY.md):** on Cloud Run with request-based billing, CPU is
   throttled between requests, and a run works between them. The dashboard's polling (every
   2 s) gives it some CPU, but a run can be slow or reach its 9 minutes; instance-based billing
-  (`--no-cpu-throttling`) avoids that. To decide with the owner.
+  (`--no-cpu-throttling`) avoids that. Decided by the owner on 2026-10-30: keep request-based billing (see Task 19).
 - **Tests:** `test/ai.runs.test.ts` (16): the fake end to end through the routes (report,
   follow-ups, a draft note in Spanish, off-topic questions refused in two languages, an
   on-topic question, the list); real names in responses and pseudonyms in `ai_runs` (results
@@ -2300,6 +2300,13 @@ Commit: "Collect Earth Cloud dashboard: the AI assistant panel, printable report
 
 ### Task 19: DEPLOY.md, .env.example, Postgres smoke
 
+- **Cloud Run billing (owner decision, 2026-10-30): keep request-based billing.** DEPLOY.md
+  must say plainly that, with it, the CPU is slowed between requests: an AI review keeps
+  going only while a coordinator has the Quality tab open (its polling gives it CPU), and
+  fresh quality figures likewise. A tab closed during a review can leave it "interrupted"
+  after its tokens were billed. Mention `--no-cpu-throttling` (instance-based billing, about
+  free to $2/month at light use, up to about $45/month with one instance always up) as the
+  way to remove this, and Cloud Tasks as a later option. Do not change deploy.sh.
 - **DEPLOY.md:** an "AI assistant (optional)" section, following the design's
   setup steps:
   1. enable the Vertex AI API (billed per use);
@@ -2345,7 +2352,7 @@ disagreements. Then in Chrome (chrome-devtools MCP):
   `AI_FAKE=1`, a development-only switch that is accepted only with the memory
   store and wires the scripted fake, refused otherwise, so the panel can be seen
   with no Vertex;
-- phone width (390 px) and dark mode;
+- phone width (390 px) (no dark-mode check: the dashboard has no dark theme, left for later by the owner on 2026-10-30);
 - the console has no errors.
 
 Fix what's wrong and commit.
