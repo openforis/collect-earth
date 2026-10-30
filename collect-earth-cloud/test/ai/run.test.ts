@@ -689,7 +689,8 @@ describe('follow-ups', () => {
 
     it('fails a question that is too long or empty without calling the model', async () => {
       const client = scripted([]);
-      expect(await runQuestion(context(client), parent(), 'x'.repeat(301))).toMatchObject({ status: 'failed', code: 'bad_question' });
+      // The route allows 300 typed characters; pseudonyms can make the question longer.
+      expect(await runQuestion(context(client), parent(), 'x'.repeat(1001))).toMatchObject({ status: 'failed', code: 'bad_question' });
       expect(await runQuestion(context(client), parent(), '  ​ ')).toMatchObject({ status: 'failed', code: 'bad_question' });
       expect(client.requests).toHaveLength(0);
     });

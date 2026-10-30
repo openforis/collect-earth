@@ -962,6 +962,7 @@ export class InMemoryStore implements Store {
       result: null,
       error: null,
       question: start.question ?? null,
+      questionNames: start.questionNames ?? null,
     };
     runs.push(run);
     return { ok: true, run: this.aiRunOf(run) };
@@ -983,9 +984,9 @@ export class InMemoryStore implements Store {
     return true;
   }
 
-  async failStaleAiRuns(projectId: string | null, before: number, code: string, message: string, now: number): Promise<number> {
-    const entries = projectId === null ? [...this.projects.values()] : [this.projects.get(projectId)].filter((e) => e !== undefined);
-    return entries.reduce((n, e) => n + InMemoryStore.failStale(e, before, code, message, now), 0);
+  async failStaleAiRuns(projectId: string, before: number, code: string, message: string, now: number): Promise<number> {
+    const entry = this.projects.get(projectId);
+    return entry ? InMemoryStore.failStale(entry, before, code, message, now) : 0;
   }
 
   async listAiRuns(projectId: string, limit: number): Promise<AiRunSummary[]> {
@@ -995,7 +996,7 @@ export class InMemoryStore implements Store {
       .reverse()
       .slice(0, limit)
       .map((r) => {
-        const { toolCalls: _t, result: _r, error: _e, question: _q, ...summary } = this.aiRunOf(r);
+        const { toolCalls: _t, result: _r, error: _e, question: _q, questionNames: _n, ...summary } = this.aiRunOf(r);
         return summary;
       });
   }

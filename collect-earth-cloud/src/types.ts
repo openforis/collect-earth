@@ -70,7 +70,10 @@ export interface ServerSettings {
   aiReportsPerDay: number;
   /** AI follow-ups and questions per project per UTC day; 0 = none allowed. */
   aiFollowUpsPerDay: number;
-  /** AI tokens (input + output) per project per calendar month; 0 = none allowed. */
+  /**
+   * AI tokens (input + output) per project per calendar month (UTC); 0 = none allowed.
+   * Per project: the server's total can reach this times the number of projects.
+   */
   aiMonthlyTokens: number;
 }
 
@@ -293,7 +296,10 @@ export interface AiRunRow extends AiRunSummary {
   result: unknown | null;
   /** The failure's plain English text, or the refusal shown to the coordinator. */
   error: string | null;
+  /** A free question, with the usernames in it replaced by pseudonyms (see questionNames). */
   question: string | null;
+  /** The pseudonyms of the question (pseudonym -> username), to show it back with real names. */
+  questionNames: Record<string, string> | null;
 }
 
 export interface AiRunStart {
@@ -305,6 +311,7 @@ export interface AiRunStart {
   findingIndex?: number | null;
   action?: string | null;
   question?: string | null;
+  questionNames?: Record<string, string> | null;
 }
 
 /**

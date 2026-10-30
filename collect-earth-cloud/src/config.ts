@@ -107,6 +107,10 @@ function aiConfigOf(
   if (aiFake && storeBackend !== 'memory') {
     throw new Error('AI_FAKE=1 is for development only and needs STORE_BACKEND=memory');
   }
+  // Never on a real deployment: Cloud Run sets K_SERVICE, and production NODE_ENV=production.
+  if (aiFake && (nonEmpty(env.K_SERVICE?.trim()) !== undefined || env.NODE_ENV?.trim() === 'production')) {
+    throw new Error('AI_FAKE=1 is for development only: it is refused on Cloud Run (K_SERVICE) and with NODE_ENV=production');
+  }
   return {
     aiVertexApiKey,
     aiVertexProject,

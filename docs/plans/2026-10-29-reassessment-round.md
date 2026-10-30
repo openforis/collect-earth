@@ -1345,12 +1345,14 @@ Commit: "Collect Earth Cloud: the AI assistant can be set up and switched on, by
     (`PostgresStore.rowLevelSecurity()`); set, it says that RLS binds the role.
   - **The app role** is the user that `DATABASE_URL` names (no fixed name; `deploy.sh`
     uses `ce_app`). After the migrations, on every boot, `prepareAppRole`
-    (`migrate.ts`) creates it if missing, with the URL's password and only `LOGIN`
-    (built with `format('%I', '%L')`, never logged). It refuses a role RLS would not
-    bind, and grants it `USAGE` on the schema, `SELECT, INSERT, UPDATE, DELETE` on all
-    tables and `USAGE, SELECT` on all sequences. Creating it from the server, as `ce`
-    (Cloud SQL users have `CREATEROLE`), rather than with `gcloud sql users create`,
-    keeps it out of `cloudsqlsuperuser`. An existing role keeps its password.
+    (`migrate.ts`) creates it if missing, with only `LOGIN`, refuses a role RLS would
+    not bind, and grants it `USAGE` on the schema, `SELECT, INSERT, UPDATE, DELETE` on
+    all tables and `USAGE, SELECT` on all sequences. Creating it from the server, as
+    `ce` (Cloud SQL users have `CREATEROLE`), rather than with `gcloud sql users
+    create`, keeps it out of `cloudsqlsuperuser`. Changed after the review of 134c3c69
+    (Task 15, "After the review"): Postgres gets a SCRAM verifier, never the password;
+    an existing role gets its password set again; more roles are refused; default
+    privileges.
   - **No `FORCE ROW LEVEL SECURITY`**: it would bind the owner too, so a hand fix with
     `psql` as the owner would see no rows without saying so. It adds nothing once the
     server is not the owner, and the owner can turn it off again anyway.
@@ -1365,8 +1367,10 @@ Commit: "Collect Earth Cloud: the AI assistant can be set up and switched on, by
     its next run). The service gets `DATABASE_URL=ce-app-database-url` and
     `MIGRATION_DATABASE_URL=ce-database-url`, and the service account may read the
     three secrets. Nothing else is created. Secret Manager bills per active secret
-    version, a few cents a month at most, with some versions free. Going back to an older image needs `DATABASE_URL` pointed
-    back at `ce-database-url`.
+    version, a few cents a month at most, with some versions free. Going back: traffic
+    to an older revision is fine (it keeps its own configuration); an older image
+    deployed onto the current configuration needs `DATABASE_URL` pointed back at
+    `ce-database-url` (DEPLOY.md, "Going back").
   - **Checked** (postgres:16, owner `ce` without superuser):
     - The whole server suite ran with every `InMemoryStore` replaced by a
       `PostgresStore`: as the owner, 9 failures, all memory-store specifics (shared
@@ -1906,7 +1910,10 @@ Commit: "Collect Earth Cloud: the assistant runs in the background, one at a tim
      owner's bill. A failed run does not use up a daily report, but it does use the budget.
   - `0` allows none for each (0 ≥ 0). The order is busy, then daily, then monthly.
   - **Accepted:** the budget is checked before a run starts, so the last run of the month can
-    go past it by at most one run (≤ 200k input tokens, the run's own cap, plus its output).
+    go past it by at most one run: its input, which can pass the run's own 200k cap by the
+    one call that crosses it (the cap is checked before each call and after it), plus its
+    output. The budget is **per project**: the server's total can reach the budget times
+    the number of projects, each with that one run over.
 - **Running:** the row is inserted `running` (`started_at` = the clock), then `setImmediate`
   runs it in this process. It loads the cached `QualityReport` (waiting 5 s and trying again
   while the worker is busy with other projects), the served CEP's outline
@@ -1926,11 +1933,12 @@ Commit: "Collect Earth Cloud: the assistant runs in the background, one at a tim
     than the 10-minute stale rule (then `ai_timeout`);
   - `app.close()` (SIGTERM) fails this process's runs in flight as `interrupted`; a late end
     changes nothing;
-  - **at boot** (`onReady`, in the background; `onClose` waits for it) every project's running
-    rows **older than 10 minutes** become `interrupted`. Newer ones are left alone: with up to
-    4 Cloud Run instances, another instance may still be running them. So a run of a crashed
-    process shows `running`, and the project is busy, for up to 10 minutes after it started;
-    then the next start, list or read of that project (each runs the same cleanup) fails it.
+  - ~~at boot every project's running rows older than 10 minutes become `interrupted`~~
+    (dropped after the review: see below). A run of a crashed process shows `running`, and
+    the project is busy, for up to 10 minutes after it started; then the next start, list or
+    read of that project (each runs the cleanup, of that project only) fails it. Rows newer
+    than that are left alone: with up to 4 Cloud Run instances, another instance may still
+    be running them.
 - **Reading** (both run the stale cleanup first):
   - `GET /v1/projects/:pid/ai/runs?limit=` (1-200, default 50), newest first →
     `{ runs: [{ id, kind, status, startedAt, finishedAt, startedBy (username, null once the
@@ -1950,13 +1958,13 @@ Commit: "Collect Earth Cloud: the assistant runs in the background, one at a tim
   the project inside `withProject`; stale cleanup, counts, insert), `updateAiRun`,
   `finishAiRun` (false when no longer running), `failStaleAiRuns(projectId | null, …)`,
   `listAiRuns`, `getAiRun`, `aiUsageSince(from)`.
-- **Across projects under RLS** (boot cleanup and the usage route): the app role sees one
-  project's runs at a time, so `eachProject` opens one transaction (read-only for the usage),
+- **Across projects under RLS** (the usage route; the boot cleanup used it too until the
+  review): the app role sees one project's runs at a time, so `eachProject` opens one
+  read-only transaction,
   reads the project ids from `project_tokens` (not under RLS; every project has its two tokens
   from `createProject` until `deleteProject`), and for each sets `app.current_project` and runs
   its query, as `listMemberships` does. Nothing bypasses RLS (no SECURITY DEFINER, no owner
-  connection). Cost: two small queries per project; the usage page is rare and the boot
-  cleanup does not hold up the boot.
+  connection). Cost: two small queries per project; the usage page is rare.
 - **Platform admin** `GET /v1/admin/ai-usage` (platform admin session; others 403, no session
   or a project token 401) → `{ month: 'YYYY-MM', from, until, projects: [{ projectId, runs,
   reports, followUps, questions, failed, refused, inputTokens, outputTokens, tokens }],
@@ -1973,6 +1981,75 @@ Commit: "Collect Earth Cloud: the assistant runs in the background, one at a tim
   the report has no findings. Follow-ups call `get_confusions` and answer by action; a
   question passes its topic check unless it asks for poems, code, jokes, translations… Texts
   start "Test assistant (no AI model):" and are in English only.
+- **After the review of 134c3c69** (fixes I-1, M-1 to M-13):
+  - **The app role's password never reaches Postgres** (`src/store/scram.ts`): the server
+    computes the SCRAM-SHA-256 verifier (16 random bytes of salt, 4096 iterations,
+    `SCRAM-SHA-256$4096:<salt>$<StoredKey>:<ServerKey>`) and `CREATE ROLE ... PASSWORD %L`
+    gets that, so a failed statement in the Postgres log holds no password. Checked against
+    RFC 7677's example (the server signature and the client proof). Only ASCII passwords
+    (Postgres would SASLprep others; `deploy.sh`'s are letters and digits).
+  - **An existing role gets its password set again** (`ALTER ROLE %I PASSWORD %L`, a fresh
+    verifier), after the checks: the secret is the source of truth. If the owner may not
+    change the role (on PG 16, one a superuser made), the boot fails saying so.
+  - **More roles are refused** (in `prepareAppRole` and in `rowLevelSecurity()`): also
+    `CREATEROLE`, and members (directly or not, `pg_has_role(..., 'MEMBER')`) of a superuser or
+    `BYPASSRLS` role.
+  - **CREATE on schema public** (the default up to PG 14): refused, with the fix in the
+    message (`REVOKE CREATE ON SCHEMA public FROM PUBLIC` as the schema's owner, then, if
+    needed, `GRANT CREATE ON SCHEMA public TO` the tables' owner). Not added to migration
+    001: the owner is often not the schema's owner (Cloud SQL), so the `REVOKE` would do
+    nothing, and where it is not, its own right to create tables may come from that same
+    grant to `PUBLIC`, which the `REVOKE` would take away and break the migrations.
+  - **Default privileges:** `ALTER DEFAULT PRIVILEGES FOR ROLE <owner> IN SCHEMA public` grants
+    the app role the tables and sequences the owner creates later.
+  - **URLs are read with `pg-connection-string`** (now a direct dependency, the version pg
+    already had, 2.14.0), so `?user=...&password=...` counts as pg reads it.
+  - **The boot** (`src/index.ts`, `src/boot.ts`): after the migrations
+    `MIGRATION_DATABASE_URL` is deleted from `process.env` and from the config object. Before
+    listening the store's role is checked: with `MIGRATION_DATABASE_URL` set and RLS not
+    binding the role, the server does not start (also without `MIGRATE_ON_BOOT`); with one
+    URL it only warns, as before.
+  - **No boot cleanup.** Start, list and read already fail a project's stale rows first, so
+    a stale row changes nothing before its project is used; the usage page shows it
+    `running` instead of `failed` until then, which is accepted. `failStaleAiRuns` takes one
+    project only; `eachProject` is read-only and only for the usage page. `deleteProjectOnce`
+    says that it is the only place `project_tokens` rows are deleted and that every project
+    must keep one; `test/projectTokens.test.ts` checks that every way of creating a project
+    (admin key, session, dev server) makes both tokens.
+  - **The run's time limit cancels the call:** `AiRequest.signal`; `withDeadline` aborts it at
+    the deadline, and the Gemini client passes it as `config.abortSignal` (in 2.30.0
+    `generateContent` hands it to `fetch` with the timeout's signal). Vertex may still finish,
+    and bill, a call it had begun.
+  - **A limit of 0:** the 429 has `resetsAt: null` and a reason saying it is not allowed on
+    this server ("... the daily limit is 0." / "... its monthly limit is 0.").
+  - **`AI_FAKE=1`** is also refused when `K_SERVICE` is set (Cloud Run) or `NODE_ENV=production`.
+  - **Usernames in a free question:** before it is stored or sent, the usernames of the
+    project's members, and those the parent report has pseudonyms for, are replaced by
+    pseudonyms, ignoring case, as whole words (`Pseudonyms.scrub`, the note rule of Task
+    14): `questionWithPseudonyms`. The parent's pseudonyms are kept and new members named
+    after them; the run takes that mapping as its parent's, so its answer maps back the same
+    way. `ai_runs.question_names` (JSONB, migration 011) keeps the mapping, and `GET
+    /ai/runs/:id` shows the question with the usernames (`questionWithRealNames`), also for
+    refused and failed runs. The typed question is still 1-300 characters (route); stored,
+    it may be longer (`MAX_STORED_QUESTION_CHARS` 1000, the column's check, edited in place:
+    a database that ran 011 before keeps the 300 check).
+  - **Tests:** 550 (was 529): `test/scram.test.ts`, `test/boot.test.ts`,
+    `test/projectTokens.test.ts`, `test/ai/deadline.test.ts`, and more in `migrate.test.ts`,
+    `ai.runs.test.ts`, `ai/gemini.test.ts`.
+  - **Postgres** (postgres:16, owner with `CREATEROLE`, `log_statement = all`,
+    `log_min_error_statement = error`): `pgfix15.mts`, 30 checks: the role created with a
+    4096-iteration verifier, the password logs in and a wrong one does not; on the next boot a
+    new password gets a new verifier (the old one no longer logs in); a failed `CREATE ROLE`
+    (owner without `CREATEROLE`) and a failed `ALTER ROLE` (a role the superuser made) are in
+    the Postgres log with the verifier, and no password is anywhere in that log; a member of a
+    superuser role and a `CREATEROLE` role refused, unchanged; CREATE on public refused with
+    the fix, then accepted after the `REVOKE`; a query-string user; a table created later is
+    usable by the app role, which still cannot create tables; `createProject` makes both token
+    rows; the real boot (`src/index.ts`) with both URLs says RLS binds the role and prints no
+    password, and with a member of a superuser role it exits 1, also without
+    `MIGRATE_ON_BOOT`. `pgtask15.mts` (34, the boot cleanup checks replaced by per-project
+    ones, plus a question with a username and a limit of 0) and `pgrls.mts` (59; the owner's
+    reason is now `CREATEROLE`) pass.
 - **Not done here, for Task 19 (DEPLOY.md):** on Cloud Run with request-based billing, CPU is
   throttled between requests, and a run works between them. The dashboard's polling (every
   2 s) gives it some CPU, but a run can be slow or reach its 9 minutes; instance-based billing
@@ -2204,6 +2281,13 @@ Commit: "Collect Earth Cloud dashboard: a Quality tab for following agreement, m
   appears. Check `ProjectPage` for non-admin handling and follow what exists.
 - **Team report** `/projects/:pid/quality/team-report`: printable.
 - **Printing:** print CSS hides the app bar and the buttons.
+
+- **From the review of Task 15 (server side done):** the limits are **per project**: the
+  Server settings page should say so ("per project per day", "per project per month"),
+  with the monthly one noting that the server's total can be that times the projects. A
+  429 can have `resetsAt: null` (a limit of 0: not allowed on this server); say that
+  instead of a reset time. `GET /ai/runs/:id`'s `question` is already shown with real
+  names.
 
 Add tests for the helpers (tool name → words, limit message) and the router
 paths.

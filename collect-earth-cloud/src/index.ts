@@ -1,3 +1,4 @@
+import { forgetMigrationUrl, rowLevelSecurityAtBoot } from './boot.js';
 import { loadConfig } from './config.js';
 import { buildServer } from './server.js';
 import { InMemoryStore } from './store/memory.js';
@@ -21,11 +22,24 @@ async function main(): Promise<void> {
       appDatabaseUrl: config.migrationDatabaseUrl ? config.databaseUrl : undefined,
     });
   }
+  // The owner's URL is not needed past this point: nothing else may read or log it.
+  const separateRole = forgetMigrationUrl(config);
 
   const store: Store =
     config.storeBackend === 'postgres'
       ? new PostgresStore(config.databaseUrl!)
       : new InMemoryStore();
+
+  // Before listening: with a separate app role asked for, a role RLS does not bind stops the start.
+  let rlsLog: ReturnType<typeof rowLevelSecurityAtBoot> | null = null;
+  if (store instanceof PostgresStore) {
+    try {
+      rlsLog = rowLevelSecurityAtBoot(await store.rowLevelSecurity(), separateRole);
+    } catch (err) {
+      await store.close();
+      throw err;
+    }
+  }
 
   const app = await buildServer({ store, config, logger: true });
 
@@ -45,15 +59,8 @@ async function main(): Promise<void> {
   if (config.aiFake) {
     app.log.warn('AI_FAKE=1: the AI assistant is a scripted fake for development, not Gemini; it never calls Vertex AI');
   }
-  if (store instanceof PostgresStore) {
-    const rls = await store.rowLevelSecurity();
-    if (rls.enforced) {
-      app.log.info(`Row-Level Security binds the database role ${rls.role}`);
-    } else {
-      app.log.warn(
-        `Row-Level Security does not bind the database role ${rls.role} (${rls.reason}); only the route checks keep projects apart. See "Row-Level Security and the database role" in DEPLOY.md`,
-      );
-    }
+  if (rlsLog) {
+    app.log[rlsLog.level](rlsLog.message);
   }
 }
 

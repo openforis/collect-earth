@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid } from '../accountRules.js';
 import { aiAvailable } from '../ai/available.js';
 import { AI_LANGUAGES, FOLLOW_UP_ACTIONS, type AiLanguage, type FollowUpAction } from '../ai/prompts.js';
-import { MAX_QUESTION_CHARS, withRealNames, type AiReport, type StoredResult } from '../ai/run.js';
+import { MAX_QUESTION_CHARS, questionWithRealNames, withRealNames, type AiReport, type StoredResult } from '../ai/run.js';
 import type { AiRunService, RunRequest } from '../ai/service.js';
 import type { Config } from '../config.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
@@ -53,7 +53,8 @@ function summaryOf(r: AiRunSummary) {
 function runOf(r: AiRunRow) {
   return {
     ...summaryOf(r),
-    question: r.question,
+    // Stored with pseudonyms for the usernames in it: shown with the real names.
+    question: r.question !== null && r.questionNames ? questionWithRealNames(r.question, r.questionNames) : r.question,
     progress: { tools: r.toolCalls.map((c) => c.name) },
     result: r.status === 'done' && r.result !== null ? withRealNames(r.result as StoredResult<unknown>) : null,
     error: r.status === 'failed' ? { code: r.errorCode ?? 'server_error', message: r.error ?? '' } : null,
@@ -75,19 +76,11 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
   const { runs } = options;
 
-  // Runs a crashed process left running are failed once they are past the time limit:
-  // here at boot, and on every start or read of a project's runs. Newer ones may belong
-  // to another instance that is still running them, so they are left alone.
-  // It goes over every project, so the server does not wait for it to start listening.
-  let recovery: Promise<unknown> = Promise.resolve();
-  app.addHook('onReady', async () => {
-    recovery = runs.failStale(null).then(
-      (n) => n > 0 && app.log.warn(`ai: ${n} run(s) left running by a stopped server were marked interrupted`),
-      (err: unknown) => app.log.error({ err }, 'ai: could not check for interrupted runs'),
-    );
-  });
+  // Runs a crashed process left running are failed once they are past the time limit,
+  // on every start, list or read of that project's runs (newer ones may belong to
+  // another instance still running them). Nothing goes over every project at boot: a
+  // stale row changes nothing until its project is used, and then it is failed first.
   app.addHook('onClose', async () => {
-    await recovery;
     await runs.close();
   });
 
@@ -141,22 +134,30 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     if (started.limit === 'busy') {
       return reply.code(409).send({ error: 'busy', reason: 'The assistant is already working for this project. Wait until it has finished.' });
     }
+    // A limit of 0 allows none at all: it never resets, so no resetsAt.
     if (started.limit === 'daily') {
       const which = parsed.kind === 'report' ? 'reports' : 'follow_ups';
+      const none = (which === 'reports' ? settings.aiReportsPerDay : settings.aiFollowUpsPerDay) === 0;
       return reply.code(429).send({
         error: 'ai_daily_limit',
         limit: which,
-        resetsAt: started.resetsAt,
-        reason:
-          which === 'reports'
+        resetsAt: none ? null : started.resetsAt,
+        reason: none
+          ? which === 'reports'
+            ? 'AI reports are not allowed on this server: the daily limit is 0.'
+            : 'Follow-ups and questions to the AI assistant are not allowed on this server: the daily limit is 0.'
+          : which === 'reports'
             ? 'This project has used all its AI reports for today.'
             : 'This project has used all its follow-ups and questions to the AI assistant for today.',
       });
     }
+    const none = settings.aiMonthlyTokens === 0;
     return reply.code(429).send({
       error: 'ai_monthly_limit',
-      resetsAt: started.resetsAt,
-      reason: 'This project has used all the AI assistant time it may use this month.',
+      resetsAt: none ? null : started.resetsAt,
+      reason: none
+        ? 'The AI assistant is not allowed on this server: its monthly limit is 0.'
+        : 'This project has used all the AI assistant time it may use this month.',
     });
   });
 

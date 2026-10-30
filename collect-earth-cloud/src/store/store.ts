@@ -269,9 +269,9 @@ export interface Store {
   finishAiRun(projectId: string, runId: string, end: AiRunEnd): Promise<boolean>;
   /**
    * Fails the runs still running that started before `before` (crashed or cut off) with
-   * `code` and `message`: of one project, or of every project with null. How many.
+   * `code` and `message`, of one project. How many.
    */
-  failStaleAiRuns(projectId: string | null, before: number, code: string, message: string, now: number): Promise<number>;
+  failStaleAiRuns(projectId: string, before: number, code: string, message: string, now: number): Promise<number>;
   /** The project's runs, newest first, at most `limit`. */
   listAiRuns(projectId: string, limit: number): Promise<AiRunSummary[]>;
   /** Null when the project has no run with that id. */

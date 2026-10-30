@@ -69,6 +69,12 @@ export const DEFAULT_AI_LIMITS: AiRunLimits = {
 /** Output tokens of a topic check (thinking is minimal, but not nothing). */
 export const TOPIC_CHECK_OUTPUT_TOKENS = 1024;
 export const MAX_QUESTION_CHARS = 300;
+/**
+ * A question as runQuestion takes it and ai_runs stores it: the typed question (at most
+ * MAX_QUESTION_CHARS) with its usernames replaced by pseudonyms, which are longer (a
+ * username has at least 3 characters, a pseudonym at most 10: under 3 times as long).
+ */
+export const MAX_STORED_QUESTION_CHARS = 1000;
 
 /** One tool call of a run, as it may be stored (`ai_runs.tool_calls`): the name and the validated arguments. */
 export interface ToolCallRecord {
@@ -684,10 +690,13 @@ export function runFollowUp(
  * A short free question about a report. A topic check comes first (no tools, only
  * `{ on_topic }`); off topic, the run is refused and nothing more is sent. The answer is
  * checked the same way before it is given: off topic, the run is refused too.
+ *
+ * The question comes with the usernames in it already replaced by pseudonyms
+ * (`questionWithPseudonyms`), and `parent` with those pseudonyms: it is sent as it is.
  */
 export function runQuestion(ctx: AiRunContext, parent: StoredResult<AiReport>, question: string): Promise<RunOutcome<AiAnswer>> {
   const q = typeof question === 'string' ? question.replace(INVISIBLE, '').trim() : '';
-  if (q === '' || q.length > MAX_QUESTION_CHARS) return failedEarly('bad_question');
+  if (q === '' || q.length > MAX_STORED_QUESTION_CHARS) return failedEarly('bad_question');
   const run = newRun(ctx, parent);
   run.box.addSeenPlots(parentPlots(parent.result));
   const refusal = new Refusal(OFF_TOPIC_MESSAGE[ctx.language] ?? OFF_TOPIC_MESSAGE.en);
@@ -699,4 +708,25 @@ export function runQuestion(ctx: AiRunContext, parent: StoredResult<AiReport>, q
     if (!(await run.onTopic(ANSWER_CHECK_SYSTEM, answerCheckTurn({ text: answer.text, note: answer.note })))) return refusal;
     return answer;
   });
+}
+
+/**
+ * A typed free question with the usernames of the project's members in it, and those
+ * the parent report has pseudonyms for, replaced by pseudonyms (ignoring case, as whole
+ * words: Pseudonyms.scrub). The parent's pseudonyms are kept, and members who have none
+ * yet are named after them. Returns the question to store and send, and the mapping
+ * (pseudonym -> username) to show it back and to run with (as the parent's).
+ */
+export function questionWithPseudonyms(
+  question: string,
+  members: readonly string[],
+  parentPseudonyms: Readonly<Record<string, string>>,
+): { question: string; names: Record<string, string> } {
+  const names = Pseudonyms.of(members, parentPseudonyms);
+  return { question: names.scrub(question), names: names.toJSON() };
+}
+
+/** A stored question as typed, but with the usernames for its pseudonyms (for the dashboard only). */
+export function questionWithRealNames(question: string, names: Readonly<Record<string, string>>): string {
+  return withRealNames({ result: question, pseudonyms: { ...names }, plots: {} });
 }

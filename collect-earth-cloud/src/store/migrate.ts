@@ -1,8 +1,10 @@
 import pg from 'pg';
+import { parse as parseConnectionString } from 'pg-connection-string';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { loadConfig } from '../config.js';
+import { scramSha256Verifier } from './scram.js';
 
 /**
  * Key of the Postgres advisory lock held while migrating. Any fixed 64-bit value
@@ -52,26 +54,49 @@ export async function runMigrations(
   }
 }
 
-/** The user and password a postgres:// URL names (also with an empty host, as Cloud SQL's socket URLs have). */
+/**
+ * The user and password a Postgres connection string names, read as pg reads it
+ * (pg-connection-string): `postgres://USER:PASSWORD@host/db`, an empty host as in Cloud
+ * SQL's socket URLs, or `?user=...&password=...` in the query string. Null when it names
+ * no user (pg would then use PGUSER or the system's user, which we cannot check).
+ */
 export function credentialsOf(url: string): { user: string; password: string | null } | null {
-  const m = /^postgres(?:ql)?:\/\/([^:@/?#]+)(?::([^@/?#]*))?@/.exec(url);
-  if (!m) {
+  if (!/^postgres(?:ql)?:\/\//.test(url)) {
     return null;
   }
-  return { user: decodeURIComponent(m[1]), password: m[2] === undefined ? null : decodeURIComponent(m[2]) };
+  let parsed: ReturnType<typeof parseConnectionString>;
+  try {
+    parsed = parseConnectionString(url);
+  } catch {
+    return null;
+  }
+  if (!parsed.user) {
+    return null;
+  }
+  return { user: parsed.user, password: parsed.password ? parsed.password : null };
 }
 
 function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
 }
 
+/** The fix for a role that may create objects in schema public (Postgres 14 and older grant it to everyone). */
+export const PUBLIC_SCHEMA_FIX =
+  'REVOKE CREATE ON SCHEMA public FROM PUBLIC (as the schema\'s owner, e.g. postgres; if the tables\' owner then cannot create tables, also GRANT CREATE ON SCHEMA public TO it)';
+
 /**
- * With a separate app role (MIGRATION_DATABASE_URL set): creates the role DATABASE_URL
- * names if it is missing (LOGIN, with that URL's password; no other right), refuses a
- * role that would not be bound by Row-Level Security (a superuser, BYPASSRLS, or the
- * tables' owner or a member of it), and grants it the use of every table. Idempotent;
- * run as the owner after the migrations, on every boot, so new tables are covered. The
- * password is never logged.
+ * With a separate app role (MIGRATION_DATABASE_URL set), run as the owner after the
+ * migrations, on every boot, so new tables are covered. Idempotent.
+ * - Creates the role DATABASE_URL names if it is missing (LOGIN, no other right), or
+ *   sets its password again if it exists, so the URL (the secret) is the source of
+ *   truth. Postgres gets only a SCRAM-SHA-256 verifier of the password, never the
+ *   password itself: a statement that fails is written to Postgres's log as it is.
+ * - Refuses, before changing anything, a role Row-Level Security would not bind or that
+ *   could get out of it: a superuser, BYPASSRLS, CREATEROLE, a member (directly or not)
+ *   of a superuser or BYPASSRLS role, the tables' owner or a member of it, or a role
+ *   that may create objects in schema public.
+ * - Grants it the use of every table and sequence, now and (default privileges) those
+ *   the owner creates later.
  */
 export async function prepareAppRole(client: pg.Client, appDatabaseUrl: string, log: (msg: string) => void): Promise<void> {
   const app = credentialsOf(appDatabaseUrl);
@@ -83,19 +108,37 @@ export async function prepareAppRole(client: pg.Client, appDatabaseUrl: string, 
     log(`DATABASE_URL and MIGRATION_DATABASE_URL use the same role (${owner}): Row-Level Security does not bind the server.`);
     return;
   }
-  const role = await client.query('SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = $1', [app.user]);
+  const role = await client.query(
+    `SELECT r.rolsuper, r.rolbypassrls, r.rolcreaterole,
+            EXISTS (SELECT 1 FROM pg_roles m
+                     WHERE m.oid <> r.oid AND (m.rolsuper OR m.rolbypassrls) AND pg_has_role(r.oid, m.oid, 'MEMBER')) AS member_of_privileged
+       FROM pg_roles r WHERE r.rolname = $1`,
+    [app.user],
+  );
   if (role.rowCount === 0) {
     if (!app.password) {
       throw new Error(`The database role ${app.user} does not exist, and DATABASE_URL has no password to create it with`);
     }
     const create = await client.query(
       "SELECT format('CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE', $1::text, $2::text) AS sql",
-      [app.user, app.password],
+      [app.user, scramSha256Verifier(app.password)],
     );
     await client.query(create.rows[0].sql as string);
     log(`Database role ${app.user} created.`);
-  } else if (role.rows[0].rolsuper || role.rows[0].rolbypassrls) {
-    throw new Error(`The database role ${app.user} is a superuser or may bypass Row-Level Security; use a plain role for DATABASE_URL`);
+  } else {
+    const r = role.rows[0];
+    if (r.rolsuper) {
+      throw new Error(`The database role ${app.user} is a superuser, so Row-Level Security would not bind it; use a plain role for DATABASE_URL`);
+    }
+    if (r.rolbypassrls) {
+      throw new Error(`The database role ${app.user} may bypass Row-Level Security; use a plain role for DATABASE_URL`);
+    }
+    if (r.rolcreaterole) {
+      throw new Error(`The database role ${app.user} has CREATEROLE, so it could give itself other roles' rights; use a plain role for DATABASE_URL`);
+    }
+    if (r.member_of_privileged) {
+      throw new Error(`The database role ${app.user} is a member of a role that is a superuser or may bypass Row-Level Security; use a plain role for DATABASE_URL`);
+    }
   }
   const owning = await client.query(
     "SELECT COALESCE(bool_or(pg_has_role($1, tableowner, 'USAGE')), false) AS owns FROM pg_tables WHERE schemaname = 'public'",
@@ -104,10 +147,32 @@ export async function prepareAppRole(client: pg.Client, appDatabaseUrl: string, 
   if (owning.rows[0].owns) {
     throw new Error(`The database role ${app.user} owns the tables (or is a member of their owner), so Row-Level Security would not bind it; use a role that does not`);
   }
+  const creating = await client.query("SELECT has_schema_privilege($1, 'public', 'CREATE') AS can_create", [app.user]);
+  if (creating.rows[0].can_create) {
+    throw new Error(`The database role ${app.user} may create objects in schema public (the default up to Postgres 14). Fix it with: ${PUBLIC_SCHEMA_FIX}`);
+  }
+  if (role.rowCount !== 0 && app.password) {
+    const alter = await client.query("SELECT format('ALTER ROLE %I PASSWORD %L', $1::text, $2::text) AS sql", [
+      app.user,
+      scramSha256Verifier(app.password),
+    ]);
+    try {
+      await client.query(alter.rows[0].sql as string);
+    } catch (err) {
+      throw new Error(
+        `Could not set the password of the database role ${app.user} from DATABASE_URL (${(err as Error).message}). ` +
+          'The tables\' owner must be allowed to change that role: create it as the owner, or let the server create it.',
+      );
+    }
+    log(`Database role ${app.user}: password set from DATABASE_URL.`);
+  }
   const r = quoteIdent(app.user);
+  const o = quoteIdent(owner);
   await client.query(`GRANT USAGE ON SCHEMA public TO ${r}`);
   await client.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${r}`);
   await client.query(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ${r}`);
+  await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${o} IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${r}`);
+  await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${o} IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO ${r}`);
   log(`Database role ${app.user} may use the tables; Row-Level Security binds it.`);
 }
 

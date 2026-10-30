@@ -54,7 +54,7 @@ function limitSetting(name: string, value: unknown): SettingResult<number> {
   return { ok: true, value };
 }
 
-/** The AI limits and their largest value; 0 = none allowed. */
+/** The AI limits (each per project: a day's reports, a day's follow-ups and questions, a month's tokens) and their largest value; 0 = none allowed. */
 const AI_LIMITS = { aiReportsPerDay: 1000, aiFollowUpsPerDay: 10_000, aiMonthlyTokens: 10_000_000_000 } as const;
 
 /** A whole number 0..max, where 0 allows none (the AI limits). */

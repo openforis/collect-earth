@@ -157,6 +157,13 @@ describe('toGeminiRequest', () => {
     expect(toGeminiRequest('m', base).config).not.toHaveProperty('thinkingConfig');
   });
 
+  it('passes the abort signal to the SDK, which cancels the HTTP call with it', () => {
+    const base = { system: 's', turns: [{ role: 'user' as const, text: 'q' }], maxOutputTokens: 1 };
+    const signal = new AbortController().signal;
+    expect(toGeminiRequest('m', { ...base, signal }).config!.abortSignal).toBe(signal);
+    expect(toGeminiRequest('m', base).config).not.toHaveProperty('abortSignal');
+  });
+
   it('never sends two user contents in a row: a text after the tool results joins their content', () => {
     const p = toGeminiRequest('m', {
       system: 's',
@@ -300,5 +307,23 @@ describe('GeminiClient', () => {
     expect((e as AiError).timeout).toBe(true);
     const long = await client.generate({ system: 's', turns: [], maxOutputTokens: 1, timeoutMs: 170_000 }).catch((x: unknown) => x);
     expect((long as AiError).message).toContain('170 s');
+  });
+
+  it('stops the call when the signal is aborted, as a timeout', async () => {
+    const client = new GeminiClient(
+      {
+        generateContent: (params) =>
+          new Promise((_, reject) => {
+            params.config!.abortSignal!.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+          }),
+      },
+      'm',
+    );
+    const controller = new AbortController();
+    const pending = client.generate({ system: 's', turns: [], maxOutputTokens: 1, signal: controller.signal }).catch((x: unknown) => x);
+    controller.abort();
+    const e = await pending;
+    expect(e).toBeInstanceOf(AiError);
+    expect((e as AiError).timeout).toBe(true);
   });
 });

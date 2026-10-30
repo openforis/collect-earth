@@ -11,6 +11,7 @@ import { AiError, type AiClient, type AiResponse } from './client.js';
 import type { AiLanguage, FollowUpAction } from './prompts.js';
 import {
   FAILURE_MESSAGES,
+  questionWithPseudonyms,
   runFollowUp,
   runQuestion,
   runReport,
@@ -73,8 +74,12 @@ export interface AiRunServiceOptions {
   contextRetryMs?: number;
 }
 
-/** A client whose calls never start after `deadline` (real time) nor last past it. */
-function withDeadline(client: AiClient, deadline: number): AiClient {
+/**
+ * A client whose calls never start after `deadline` (real time) nor last past it: at the
+ * deadline the call's signal is aborted, which cancels its HTTP request, and the run
+ * goes on at once without waiting for it.
+ */
+export function withDeadline(client: AiClient, deadline: number): AiClient {
   return {
     async generate(req): Promise<AiResponse> {
       const left = deadline - Date.now();
@@ -82,12 +87,17 @@ function withDeadline(client: AiClient, deadline: number): AiClient {
         throw new AiError('The run reached its time limit.', { timeout: true });
       }
       const timeoutMs = Math.min(req.timeoutMs ?? DEFAULT_CALL_TIMEOUT_MS, left);
+      const controller = new AbortController();
+      const signal = req.signal ? AbortSignal.any([req.signal, controller.signal]) : controller.signal;
       let timer: NodeJS.Timeout | undefined;
       const late = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new AiError('The run reached its time limit.', { timeout: true })), left);
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new AiError('The run reached its time limit.', { timeout: true }));
+        }, left);
       });
       try {
-        return await Promise.race([client.generate({ ...req, timeoutMs }), late]);
+        return await Promise.race([client.generate({ ...req, timeoutMs, signal }), late]);
       } finally {
         clearTimeout(timer);
       }
@@ -137,6 +147,13 @@ export class AiRunService {
       throw new Error('the AI assistant is not set up');
     }
     const w = this.window(settings);
+    if (req.kind === 'question') {
+      // The usernames in a free question become pseudonyms before it is stored or sent;
+      // the run keeps those pseudonyms (as its parent's), so its answer maps back the same way.
+      const members = (await this.store.listMembers(projectId)).map((m) => m.username);
+      const named = questionWithPseudonyms(req.question, members, req.parent.pseudonyms);
+      req = { ...req, question: named.question, parent: { ...req.parent, pseudonyms: named.names } };
+    }
     const started = await this.store.startAiRun(
       projectId,
       {
@@ -147,6 +164,7 @@ export class AiRunService {
         findingIndex: req.kind === 'follow_up' ? req.findingIndex : null,
         action: req.kind === 'follow_up' ? req.action : null,
         question: req.kind === 'question' ? req.question : null,
+        questionNames: req.kind === 'question' ? req.parent.pseudonyms : null,
       },
       w,
     );
@@ -169,8 +187,8 @@ export class AiRunService {
     return { ok: true, runId };
   }
 
-  /** Fails the runs left running too long, of one project (or of all, at boot). */
-  failStale(projectId: string | null): Promise<number> {
+  /** Fails the project's runs left running too long (on every start, list and read). */
+  failStale(projectId: string): Promise<number> {
     const now = this.now();
     return this.store.failStaleAiRuns(projectId, now - RUN_STALE_MS, AI_INTERRUPTED.code, AI_INTERRUPTED.message, now);
   }

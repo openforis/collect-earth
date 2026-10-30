@@ -2,6 +2,7 @@ import pg from 'pg';
 import { randomUUID } from 'node:crypto';
 import { isUuid } from '../accountRules.js';
 import { generateToken, hashToken } from '../auth.js';
+import { PUBLIC_SCHEMA_FIX } from './migrate.js';
 import {
   AI_INTERRUPTED,
   aiLimitReached,
@@ -200,6 +201,9 @@ export class PostgresStore implements Store {
       await client.query('DELETE FROM project_ceps WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM invites WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM project_members WHERE project_id = $1', [projectId]);
+      // The only place project_tokens rows are deleted, with the project itself: every
+      // project keeps at least one token row while it exists, or eachProject (the AI usage
+      // page) would not see it. Anything else that deletes token rows must keep one.
       await client.query('DELETE FROM project_tokens WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM projects WHERE id = $1', [projectId]);
     });
@@ -1270,8 +1274,8 @@ export class PostgresStore implements Store {
       }
       const ins = await client.query(
         `WITH a AS (
-           INSERT INTO ai_runs (project_id, kind, started_by, started_at, model, parent_run, finding_index, action, question)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           INSERT INTO ai_runs (project_id, kind, started_by, started_at, model, parent_run, finding_index, action, question, question_names)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
            RETURNING *)
          SELECT a.*, u.username FROM a LEFT JOIN users u ON u.id = a.started_by`,
         [
@@ -1284,6 +1288,7 @@ export class PostgresStore implements Store {
           start.findingIndex ?? null,
           start.action ?? null,
           start.question ?? null,
+          start.questionNames ? JSON.stringify(start.questionNames) : null,
         ],
       );
       return { ok: true, run: mapAiRun(ins.rows[0]) } as const;
@@ -1329,14 +1334,8 @@ export class PostgresStore implements Store {
     });
   }
 
-  async failStaleAiRuns(projectId: string | null, before: number, code: string, message: string, now: number): Promise<number> {
-    if (projectId !== null) {
-      return this.withProject(projectId, (client) => failStaleRuns(client, projectId, before, code, message, now));
-    }
-    // Every project: the app role sees one project's runs at a time (RLS), so each is
-    // updated under its own project setting, in one transaction.
-    const counts = await this.eachProject(false, (client, id) => failStaleRuns(client, id, before, code, message, now));
-    return counts.reduce((a, b) => a + b, 0);
+  async failStaleAiRuns(projectId: string, before: number, code: string, message: string, now: number): Promise<number> {
+    return this.withProject(projectId, (client) => failStaleRuns(client, projectId, before, code, message, now));
   }
 
   async listAiRuns(projectId: string, limit: number): Promise<AiRunSummary[]> {
@@ -1371,7 +1370,7 @@ export class PostgresStore implements Store {
     // Totals across projects for the server owner. The app role sees one project's
     // runs at a time (RLS), so each project is read under its own setting, in one
     // read-only transaction, as listMemberships does: nothing bypasses RLS.
-    const rows = await this.eachProject(true, async (client, projectId) => {
+    const rows = await this.eachProject(async (client, projectId) => {
       const res = await client.query(
         `SELECT count(*)::int AS runs,
                 count(*) FILTER (WHERE kind = 'report')::int AS reports,
@@ -1404,14 +1403,16 @@ export class PostgresStore implements Store {
 
   /**
    * Runs `fn` for every project, each under its own `app.current_project`, in one
-   * transaction (read-only when asked), in id order. The ids come from project_tokens,
-   * which is not under RLS (the auth index): every project has its two tokens from
-   * createProject until deleteProject.
+   * read-only transaction, in id order (the AI usage page). The ids come from
+   * project_tokens, which is not under RLS (the auth index): every project has its two
+   * tokens from createProject until deleteProject (test/projectTokens.test.ts). A
+   * project without a token row would be left out here, so whatever deletes
+   * project_tokens rows must leave each project at least one (see deleteProjectOnce).
    */
-  private async eachProject<T>(readOnly: boolean, fn: (client: pg.PoolClient, projectId: string) => Promise<T>): Promise<T[]> {
+  private async eachProject<T>(fn: (client: pg.PoolClient, projectId: string) => Promise<T>): Promise<T[]> {
     const client = await this.pool.connect();
     try {
-      await client.query(readOnly ? 'BEGIN READ ONLY' : 'BEGIN');
+      await client.query('BEGIN READ ONLY');
       const ids = await client.query('SELECT DISTINCT project_id FROM project_tokens ORDER BY project_id');
       const out: T[] = [];
       for (const { project_id: projectId } of ids.rows as { project_id: string }[]) {
@@ -1429,17 +1430,34 @@ export class PostgresStore implements Store {
   }
 
   /**
-   * Whether Row-Level Security binds the role this store connects as: not when it is a
-   * superuser, may bypass RLS, or owns the tables (or is a member of their owner).
+   * Whether Row-Level Security binds the role this store connects as, with the same
+   * rules as prepareAppRole (migrate.ts): not when it is a superuser, may bypass RLS, is
+   * a member of a role that is or may, has CREATEROLE, owns the tables (or is a member
+   * of their owner), or may create objects in schema public.
    */
   async rowLevelSecurity(): Promise<{ role: string; enforced: boolean; reason: string | null }> {
     const res = await this.pool.query(
-      `SELECT current_user AS role, r.rolsuper, r.rolbypassrls,
-              COALESCE((SELECT bool_or(pg_has_role(current_user, tableowner, 'USAGE')) FROM pg_tables WHERE schemaname = 'public'), false) AS owns
+      `SELECT current_user AS role, r.rolsuper, r.rolbypassrls, r.rolcreaterole,
+              EXISTS (SELECT 1 FROM pg_roles m
+                       WHERE m.oid <> r.oid AND (m.rolsuper OR m.rolbypassrls) AND pg_has_role(r.oid, m.oid, 'MEMBER')) AS member_of_privileged,
+              COALESCE((SELECT bool_or(pg_has_role(current_user, tableowner, 'USAGE')) FROM pg_tables WHERE schemaname = 'public'), false) AS owns,
+              has_schema_privilege('public', 'CREATE') AS can_create
          FROM pg_roles r WHERE r.rolname = current_user`,
     );
     const r = res.rows[0];
-    const reason = r.rolsuper ? 'a superuser' : r.rolbypassrls ? 'it may bypass RLS' : r.owns ? 'it owns the tables' : null;
+    const reason = r.rolsuper
+      ? 'a superuser'
+      : r.rolbypassrls
+        ? 'it may bypass RLS'
+        : r.member_of_privileged
+          ? 'it is a member of a superuser or BYPASSRLS role'
+          : r.rolcreaterole
+            ? 'it has CREATEROLE'
+            : r.owns
+              ? 'it owns the tables'
+              : r.can_create
+                ? `it may create objects in schema public; fix: ${PUBLIC_SCHEMA_FIX}`
+                : null;
     return { role: r.role as string, enforced: reason === null, reason };
   }
 
@@ -1483,6 +1501,7 @@ function mapAiRun(r: Record<string, unknown>): AiRunRow {
     result: r.result ?? null,
     error: (r.error as string | null) ?? null,
     question: (r.question as string | null) ?? null,
+    questionNames: (r.question_names as Record<string, string> | null) ?? null,
   };
 }
 

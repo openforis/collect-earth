@@ -60,6 +60,11 @@ export interface AiRequest {
   thinking?: 'minimal' | 'low';
   /** This call's time limit; default the client's (60 s). */
   timeoutMs?: number;
+  /**
+   * Cancels the call when aborted (the run's time limit): the client stops waiting and
+   * closes the HTTP request. The service may still finish, and bill, a call it had begun.
+   */
+  signal?: AbortSignal;
 }
 
 export interface AiResponse {

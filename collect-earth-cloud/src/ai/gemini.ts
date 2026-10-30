@@ -119,6 +119,10 @@ export function toGeminiRequest(model: string, req: AiRequest): GenerateContentP
   if (req.timeoutMs !== undefined) {
     config.httpOptions = { timeout: req.timeoutMs };
   }
+  if (req.signal) {
+    // The SDK (2.30.0) passes config.abortSignal to fetch with the timeout's own signal.
+    config.abortSignal = req.signal;
+  }
   return { model, contents: joinUserContents(req.turns.map(toContent)), config };
 }
 

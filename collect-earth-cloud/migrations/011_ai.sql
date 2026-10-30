@@ -30,7 +30,11 @@ CREATE INDEX IF NOT EXISTS idx_ai_runs_project_started ON ai_runs(project_id, st
 -- question's text. Added here too for a database that ran this file before them.
 ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS error_code TEXT;
 ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS action TEXT CHECK (action IS NULL OR action IN ('explain', 'draft_note', 'recheck'));
-ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS question TEXT CHECK (question IS NULL OR char_length(question) <= 300);
+-- The question is stored with the usernames in it replaced by pseudonyms ("Person A"),
+-- which can make it longer than the 300 characters typed (MAX_STORED_QUESTION_CHARS);
+-- question_names maps them back (pseudonym -> username) to show it.
+ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS question TEXT CHECK (question IS NULL OR char_length(question) <= 1000);
+ALTER TABLE ai_runs ADD COLUMN IF NOT EXISTS question_names JSONB;
 -- One running run per project, whatever the server does (it also checks under a lock).
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_runs_one_running ON ai_runs(project_id) WHERE status = 'running';
 

@@ -4,6 +4,7 @@ import { createFakeClient } from '../src/ai/fake.js';
 import { OFF_TOPIC_MESSAGE } from '../src/ai/prompts.js';
 import { limitWindows, RUN_STALE_MS } from '../src/ai/service.js';
 import { loadConfig } from '../src/config.js';
+import { buildServer } from '../src/server.js';
 import { AI_INTERRUPTED } from '../src/types.js';
 import { idOnlyCep } from './fixtures/cep.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
@@ -190,6 +191,32 @@ describe('AI runs', () => {
     for (const bad of ['0', '201', 'x', '1.5']) expect((await get(`/ai/runs?limit=${bad}`)).statusCode).toBe(400);
   });
 
+  it('a free question has the usernames in it replaced by pseudonyms before it is stored or sent, and is shown back with them', async () => {
+    await setUp();
+    const parent = await report();
+    // carla joins after the report: she has no pseudonym in it yet.
+    await person('carla', 'operator');
+    const requests: string[] = [];
+    const fake = createFakeClient();
+    client = { generate: (req) => (requests.push(JSON.stringify(req)), fake.generate(req)) };
+    const typed = 'Does Carla, OWNER or ana mix up land use? Not banana or carlas.';
+    const why = await run({ kind: 'question', parentRunId: parent.id, question: typed });
+    expect(why.status, JSON.stringify(why)).toBe('done');
+    expect(why.question).toBe('Does carla, owner or ana mix up land use? Not banana or carlas.');
+    const stored = (await ctx.store.getAiRun(pid, why.id))!;
+    expect(stored.question).toMatch(/^Does Person [A-Z]+, Person [A-Z]+ or Person A mix up land use\? Not banana or carlas\.$/);
+    expect(requests.length).toBeGreaterThan(0);
+    for (const r of requests) expect(r).not.toMatch(/\b(carla|owner|ana)\b/i);
+    expect(requests.some((r) => r.includes('Not banana or carlas'))).toBe(true);
+    // The run keeps the names it was given, so its answer maps back the same way.
+    const kept = stored.result as { pseudonyms: Record<string, string> };
+    expect(Object.values(kept.pseudonyms)).toEqual(expect.arrayContaining(['ana', 'carla', 'owner']));
+    // A refused question is shown back with real names too.
+    const poem = await run({ kind: 'question', parentRunId: parent.id, question: 'Write a poem for carla' });
+    expect(poem).toMatchObject({ status: 'refused', question: 'Write a poem for carla' });
+    expect((await ctx.store.getAiRun(pid, poem.id))!.question).not.toMatch(/carla/i);
+  });
+
   it('is for a coordinator signed in, of this project, with the assistant available and on', async () => {
     await setUp();
     expect((await post({ kind: 'report' }, project.projectToken)).statusCode).toBe(403);
@@ -286,7 +313,7 @@ describe('AI runs', () => {
     expect((await get('/ai/runs')).json().runs.map((r: { status: string }) => r.status)).toEqual(['done', 'done']);
   });
 
-  it('a run left running too long (a crashed server) is failed as interrupted, on start, on read and at boot', async () => {
+  it('a run left running too long (a crashed server) is failed as interrupted, on start, on list and on read', async () => {
     await setUp();
     const window = (now: number) => ({ ...ctx.app.aiRuns.window({ aiReportsPerDay: 5, aiFollowUpsPerDay: 30, aiMonthlyTokens: 2_000_000 } as never), now });
     const crashed = await ctx.store.startAiRun(pid, { kind: 'report', startedBy: owner.userId, model: 'm' }, { ...window(clock - RUN_STALE_MS - MINUTE), staleBefore: 0 });
@@ -310,13 +337,33 @@ describe('AI runs', () => {
     const listed = (await get('/ai/runs')).json().runs.find((r: { id: string }) => r.id === againId);
     expect(listed).toMatchObject({ status: 'failed', errorCode: 'interrupted' });
 
-    // At boot (every project), only runs past the limit: newer ones may be another instance's.
+    // Only runs past the limit, and only of that project: newer ones may be another instance's.
     const other = await createProject(ctx.app, 'Other');
+    await ctx.store.addMembership(other.projectId, owner.userId, 'admin');
     const old = await ctx.store.startAiRun(other.projectId, { kind: 'report', startedBy: owner.userId, model: 'm' }, { ...window(clock - RUN_STALE_MS - 1), staleBefore: 0 });
     const recent = await ctx.store.startAiRun(pid, { kind: 'report', startedBy: owner.userId, model: 'm' }, { ...window(clock - MINUTE), staleBefore: 0 });
-    expect(await ctx.app.aiRuns.failStale(null)).toBe(1);
-    expect((await ctx.store.getAiRun(other.projectId, old.ok ? old.run.id : ''))!.status).toBe('failed');
+    expect(await ctx.app.aiRuns.failStale(pid)).toBe(0);
+    expect((await ctx.store.getAiRun(other.projectId, old.ok ? old.run.id : ''))!.status).toBe('running');
+    expect((await get('/ai/runs', owner.token, other.projectId)).json().runs[0]).toMatchObject({ status: 'failed', errorCode: 'interrupted' });
     expect((await ctx.store.getAiRun(pid, recent.ok ? recent.run.id : ''))!.status).toBe('running');
+  });
+
+  it('a new server does not go over every project at start: a stale run is failed when its project is next used', async () => {
+    await setUp();
+    const window = ctx.app.aiRuns.window({ aiReportsPerDay: 5, aiFollowUpsPerDay: 30, aiMonthlyTokens: 2_000_000 } as never);
+    const stale = await ctx.store.startAiRun(pid, { kind: 'report', startedBy: owner.userId, model: 'm' }, { ...window, now: clock - RUN_STALE_MS - 1, staleBefore: 0 });
+    const staleId = stale.ok ? stale.run.id : '';
+    // A second server on the same store starts and stops: it leaves the run alone.
+    const second = await buildServer({
+      store: ctx.store,
+      config: { port: 0, host: '127.0.0.1', storeBackend: 'memory', rateLimitPerMinute: 0, aiVertexApiKey: 'test-key', aiConfigured: true },
+      webDir: null,
+      ai: { client: delegating, now: () => clock },
+    });
+    await second.ready();
+    await second.close();
+    expect((await ctx.store.getAiRun(pid, staleId))!.status).toBe('running');
+    expect((await get(`/ai/runs/${staleId}`)).json()).toMatchObject({ status: 'failed', errorCode: 'interrupted' });
   });
 
   it('a server that stops fails its running runs as interrupted, and their late end is not stored', async () => {
@@ -360,7 +407,7 @@ describe('AI runs', () => {
     clock = Date.UTC(2026, 9, 16);
     expect((await run({ kind: 'report' })).status).toBe('done');
     await settings({ aiReportsPerDay: 0 });
-    expect((await post({ kind: 'report' })).json()).toMatchObject({ error: 'ai_daily_limit', resetsAt: Date.UTC(2026, 9, 17) });
+    expect((await post({ kind: 'report' })).json()).toMatchObject({ error: 'ai_daily_limit', resetsAt: null });
   });
 
   it('follow-ups and questions per UTC day, together: refused questions count, failed ones do not', async () => {
@@ -401,8 +448,34 @@ describe('AI runs', () => {
     await settings({ aiReportsPerDay: 5 });
     clock = Date.UTC(2026, 10, 1);
     expect((await run({ kind: 'report' })).status).toBe('done');
+    // A limit of 0 never resets: none are allowed on this server.
     await settings({ aiMonthlyTokens: 0 });
-    expect((await post({ kind: 'report' })).json()).toMatchObject({ error: 'ai_monthly_limit', resetsAt: Date.UTC(2026, 11, 1) });
+    expect((await post({ kind: 'report' })).json()).toEqual({
+      error: 'ai_monthly_limit',
+      resetsAt: null,
+      reason: 'The AI assistant is not allowed on this server: its monthly limit is 0.',
+    });
+    await settings({ aiMonthlyTokens: 2_000_000, aiReportsPerDay: 0 });
+    expect((await post({ kind: 'report' })).json()).toEqual({
+      error: 'ai_daily_limit',
+      limit: 'reports',
+      resetsAt: null,
+      reason: 'AI reports are not allowed on this server: the daily limit is 0.',
+    });
+  });
+
+  it('a limit of 0 for follow-ups and questions never resets either', async () => {
+    await setUp();
+    const parent = await report();
+    await settings({ aiFollowUpsPerDay: 0 });
+    const res = await post({ kind: 'question', parentRunId: parent.id, question: 'Why do the land use answers differ?' });
+    expect(res.statusCode).toBe(429);
+    expect(res.json()).toEqual({
+      error: 'ai_daily_limit',
+      limit: 'follow_ups',
+      resetsAt: null,
+      reason: 'Follow-ups and questions to the AI assistant are not allowed on this server: the daily limit is 0.',
+    });
   });
 
   it('the server owner sees each project\'s use this month by id only: no names, no content', async () => {
@@ -467,6 +540,13 @@ describe('AI_FAKE', () => {
     expect(loadConfig({ AI_FAKE: '0' }).aiConfigured).toBe(false);
     expect(() => loadConfig({ AI_FAKE: '1', STORE_BACKEND: 'postgres', DATABASE_URL: 'postgres://x' })).toThrow(/memory/);
     expect(() => loadConfig({ AI_FAKE: 'yes' })).toThrow(/AI_FAKE/);
+  });
+
+  it('is refused on Cloud Run (K_SERVICE) and with NODE_ENV=production, even with the memory store', () => {
+    expect(() => loadConfig({ AI_FAKE: '1', K_SERVICE: 'collect-earth-cloud' })).toThrow(/development only/);
+    expect(() => loadConfig({ AI_FAKE: '1', NODE_ENV: 'production' })).toThrow(/development only/);
+    expect(loadConfig({ AI_FAKE: '0', K_SERVICE: 'collect-earth-cloud' }).aiFake).toBeUndefined();
+    expect(loadConfig({ AI_FAKE: '1', NODE_ENV: 'development' }).aiFake).toBe(true);
   });
 
   it('a server with AI_FAKE=1 answers with the fake, under the model name "fake"', async () => {

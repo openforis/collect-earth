@@ -70,15 +70,36 @@ role that does not own the tables (nor is a member of their owner), is not a sup
 and has no `BYPASSRLS`. So the server should run as its own role, not as the owner:
 - `MIGRATION_DATABASE_URL` is the owner (`ce`): it applies the migrations, and with it
   `runMigrations` prepares the app role that `DATABASE_URL` names (`ce_app` in
-  `deploy.sh`): it creates it if missing (`LOGIN`, with the password in `DATABASE_URL`,
-  no other attribute; this needs `CREATEROLE`, which Cloud SQL's users have), refuses a
-  role RLS would not bind, and grants it `USAGE` on the schema, `SELECT, INSERT,
-  UPDATE, DELETE` on every table and `USAGE, SELECT` on every sequence. It runs after
-  the migrations on every boot, so new tables are covered. An existing role is used as
-  it is (its password is not changed).
-- `DATABASE_URL` is the app role: the server runs every query as it. At start the log
-  says whether RLS binds it ("Row-Level Security binds the database role ...") or
-  warns that it does not.
+  `deploy.sh`; the user may also be given as `?user=...&password=...`):
+  - it creates the role if missing (`LOGIN`, no other attribute; this needs
+    `CREATEROLE`, which Cloud SQL's users have), or sets its password again if it
+    exists, so the URL (the secret) is the source of truth. The owner must be allowed
+    to change that role: on Postgres 16 and later, a role it created (or the server
+    created) is; one a superuser made by hand is not, and the boot then fails saying so;
+  - Postgres only ever gets a SCRAM-SHA-256 verifier of the password, computed by the
+    server, never the password itself, so it is not in the Postgres log even when the
+    statement fails. The password must be ASCII (`deploy.sh` makes 32 letters and
+    digits);
+  - it refuses, before changing anything, a role RLS would not bind or that could get
+    out of it: a superuser, `BYPASSRLS`, `CREATEROLE`, a member (directly or not) of a
+    superuser or `BYPASSRLS` role, the tables' owner or a member of it, or a role that
+    may create objects in schema `public`;
+  - it grants it `USAGE` on the schema, `SELECT, INSERT, UPDATE, DELETE` on every table
+    and `USAGE, SELECT` on every sequence, and the same as default privileges for what
+    the owner creates later. It runs after the migrations on every boot.
+- **Postgres 14 and older** let every role create objects in schema `public`. The
+  server then refuses to start, with the fix in the message: as the schema's owner
+  (e.g. `postgres`), `REVOKE CREATE ON SCHEMA public FROM PUBLIC`, and, if the tables'
+  owner then cannot create tables, `GRANT CREATE ON SCHEMA public TO ce`. The
+  migrations do not do this themselves: the owner is often not the schema's owner
+  (then the `REVOKE` does nothing), and when it is not, its own right to create tables
+  may come from that same grant to everyone. Postgres 15 and later (and `deploy.sh`'s
+  Cloud SQL instance) need nothing.
+- `DATABASE_URL` is the app role: the server runs every query as it. Before it starts
+  listening it checks the role with the same rules. With `MIGRATION_DATABASE_URL` set,
+  a role RLS does not bind stops the start; with only `DATABASE_URL` the log warns.
+  After the migrations the server drops `MIGRATION_DATABASE_URL` from its environment
+  and its configuration, so nothing it runs later can read the owner's password.
 - With only `DATABASE_URL` (one role, as before), everything works, but RLS does not
   bind the server: the membership checks of every route (README, "Tenancy &
   isolation") are then the only fence.
@@ -88,9 +109,13 @@ and has no `BYPASSRLS`. So the server should run as its own role, not as the own
 - `deploy.sh` does this since the RLS update: the secret `ce-app-database-url` holds
   the app role's URL (`DATABASE_URL`) and `ce-database-url` the owner's
   (`MIGRATION_DATABASE_URL`). Re-running it on an older deployment adds the secret and
-  switches the service; the role is created when the new version starts. Going back
-  to an older server version afterwards needs `DATABASE_URL` set back to
-  `ce-database-url`, since older versions migrate with `DATABASE_URL`.
+  switches the service; the role is created when the new version starts.
+- **Going back.** Sending traffic back to an older *revision* (Cloud Run's
+  "Manage traffic", or `gcloud run services update-traffic --to-revisions`) is fine:
+  each revision keeps the configuration it was deployed with. Deploying an older
+  *image* onto the current configuration is not: older versions migrate with
+  `DATABASE_URL`, which is now the app role, so first point `DATABASE_URL` back at
+  `ce-database-url` (and remove `MIGRATION_DATABASE_URL`).
 - By hand (Option B), as the owner:
   `CREATE ROLE ce_app LOGIN PASSWORD '...'`, then start the server with both URLs and
   `MIGRATE_ON_BOOT=true` (or run `npm run migrate` with both set).
