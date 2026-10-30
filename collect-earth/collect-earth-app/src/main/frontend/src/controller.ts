@@ -5,6 +5,7 @@ import { GoogleEngine } from "./engines/GoogleEngine";
 import { LeafletEngine } from "./engines/LeafletEngine";
 import { NoMapEngine } from "./engines/NoMapEngine";
 import { IN_PANEL } from "./panel";
+import { IN_HOME } from "./home";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
 import { byId, footprintCorners, indexPlots, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsGone, plotsNear, plotToRestore, surveyView,
   sameView, visibleIds, withoutPlotParam } from "./plots";
@@ -127,7 +128,7 @@ export class MapController {
   }
 
   // ---------- start-up ----------
-  /** Called once the map container is in the DOM; with none in Google Earth Web's panel (see panel.ts), which has no map. */
+  /** Called once the map container is in the DOM; with none in Google Earth Web's panel (panel.ts) and on the home page (home.ts), which have no map. */
   async start(container: HTMLElement | null): Promise<void> {
     if (this.started) return;
     this.started = true;
@@ -154,7 +155,8 @@ export class MapController {
   // Google only when requested AND a key is present; otherwise Leaflet, with a notice
   // when we fell back from an explicit google_maps request.
   private createEngine(config: MapConfig): MessageKey | null {
-    if (IN_PANEL || !this.container) {
+    // Neither Google Earth Web's panel nor the home page of the Google Earth Pro viewer (home.ts) has a map
+    if (IN_PANEL || IN_HOME || !this.container) {
       this.engine = new NoMapEngine();
       return null;
     }

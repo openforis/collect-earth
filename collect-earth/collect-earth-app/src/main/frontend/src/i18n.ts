@@ -138,6 +138,7 @@ const en = {
   "appBar.comingSoon": "Coming soon",
   "appBar.cancel": "Cancel",
   "appBar.closed": "Collect Earth has been closed. You can close this window.",
+  "home.hint": "The plots are open in Google Earth Pro: click a plot there to enter its data. This page shows how the work is going.",
 };
 
 export type MessageKey = keyof typeof en;
@@ -277,6 +278,7 @@ const es: Catalogue = {
   "appBar.comingSoon": "Próximamente",
   "appBar.cancel": "Cancelar",
   "appBar.closed": "Collect Earth se ha cerrado. Puede cerrar esta ventana.",
+  "home.hint": "Las parcelas están abiertas en Google Earth Pro: haga clic en una parcela allí para introducir sus datos. Esta página muestra cómo avanza el trabajo.",
 };
 
 const fr: Catalogue = {
@@ -413,6 +415,7 @@ const fr: Catalogue = {
   "appBar.comingSoon": "Bientôt disponible",
   "appBar.cancel": "Annuler",
   "appBar.closed": "Collect Earth a été fermé. Vous pouvez fermer cette fenêtre.",
+  "home.hint": "Les parcelles sont ouvertes dans Google Earth Pro : cliquez sur une parcelle pour en saisir les données. Cette page montre où en est le travail.",
 };
 
 const pt: Catalogue = {
@@ -549,6 +552,7 @@ const pt: Catalogue = {
   "appBar.comingSoon": "Em breve",
   "appBar.cancel": "Cancelar",
   "appBar.closed": "O Collect Earth foi fechado. Pode fechar esta janela.",
+  "home.hint": "As parcelas estão abertas no Google Earth Pro: clique numa parcela para introduzir os seus dados. Esta página mostra o andamento do trabalho.",
 };
 
 export const CATALOGUES: Record<string, Catalogue> = { en, es, fr, pt };

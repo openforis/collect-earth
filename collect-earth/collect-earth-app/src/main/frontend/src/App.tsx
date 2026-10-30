@@ -14,6 +14,8 @@ import { IN_PANEL } from "./panel";
 import { useAppInfo } from "./appInfo";
 import { AppBar } from "./components/AppBar";
 import { useServerTexts } from "./serverTexts";
+import { IN_HOME } from "./home";
+import { HomePage } from "./components/HomePage";
 
 /**
  * Narrower than this, the map is not worth its room next to the form or the list: the window shows one pane at a
@@ -38,9 +40,12 @@ export function App({ controller }: { controller: MapController }) {
   const [listShown, setListShown] = useState(false);
   useEffect(() => setListShown(false), [state.activeId, onePane]);
   const listPane = onePane && (!formOpen || listShown);
-  useFollowedByGoogleEarthWeb(!IN_PANEL);
-  useEffect(() => { if (IN_PANEL) controller.start(null); }, [controller]);
-  useShortcuts(controller, onePane ? () => setListShown(true) : () => controller.setSidebarCollapsed(false));
+  // The home page is no window next to Google Earth Web, and has no list or form for the shortcuts to act on
+  useFollowedByGoogleEarthWeb(!IN_PANEL && !IN_HOME);
+  // With no map, nothing else starts the controller (MapArea does, once its container is there): the home page needs it
+  // for the statuses, which it polls from then on
+  useEffect(() => { if (IN_PANEL || IN_HOME) controller.start(null); }, [controller]);
+  useShortcuts(controller, onePane ? () => setListShown(true) : () => controller.setSidebarCollapsed(false), !IN_HOME);
   const t = useMemo(() => translator(state.language), [state.language]);
   useEffect(() => { document.documentElement.lang = state.language; }, [state.language]);
   const [info, reloadInfo] = useAppInfo();
@@ -52,6 +57,7 @@ export function App({ controller }: { controller: MapController }) {
     {/* Once /api/app is read: until then the bar would have no project, operator or menus to show */}
     {info && <AppBar info={info} texts={texts} reload={reloadInfo} compact={IN_PANEL || width < COMPACT_BAR_WIDTH * scale} />}
     <Box sx={{ flex: 1, minHeight: 0 }}>
+    {IN_HOME ? <HomePage info={info} state={state} /> : (
     <Box sx={{ display: "flex", height: "100%", overflow: "hidden" }}>
       <GlobalStyles styles={{
         ".leaflet-container": { fontFamily: "inherit" },
@@ -87,6 +93,7 @@ export function App({ controller }: { controller: MapController }) {
         </Snackbar>
       )}
     </Box>
+    )}
     </Box>
     </Box>
     </I18nContext.Provider>
@@ -94,8 +101,9 @@ export function App({ controller }: { controller: MapController }) {
 }
 
 /** "/" search, "N" next unfinished, "Esc" close the form (ignored while typing). */
-function useShortcuts(controller: MapController, showList: () => void) {
+function useShortcuts(controller: MapController, showList: () => void, enabled: boolean) {
   useEffect(() => {
+    if (!enabled) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
@@ -116,7 +124,7 @@ function useShortcuts(controller: MapController, showList: () => void) {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [controller, showList]);
+  }, [controller, showList, enabled]);
 }
 
 /**
