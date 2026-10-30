@@ -21,6 +21,11 @@ ALTER TABLE projects ADD COLUMN IF NOT EXISTS records_version BIGINT NOT NULL DE
 CREATE OR REPLACE FUNCTION bump_records_version_new() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
+  -- A statement that changed no rows (a cascade from a deleted account in no project)
+  -- touches no project: without this, the UPDATE still runs under the projects policy.
+  IF NOT EXISTS (SELECT 1 FROM changed_rows) THEN
+    RETURN NULL;
+  END IF;
   UPDATE projects SET records_version = records_version + 1
    WHERE id IN (SELECT DISTINCT project_id FROM changed_rows);
   RETURN NULL;
@@ -30,6 +35,11 @@ $$;
 CREATE OR REPLACE FUNCTION bump_records_version_old() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
+  -- A statement that changed no rows (a cascade from a deleted account in no project)
+  -- touches no project: without this, the UPDATE still runs under the projects policy.
+  IF NOT EXISTS (SELECT 1 FROM removed_rows) THEN
+    RETURN NULL;
+  END IF;
   UPDATE projects SET records_version = records_version + 1
    WHERE id IN (SELECT DISTINCT project_id FROM removed_rows);
   RETURN NULL;

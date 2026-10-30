@@ -1315,12 +1315,22 @@ Commit: "Collect Earth Cloud: the AI assistant can be set up and switched on, by
   the settings and the switch through the routes; a run of another project can't be
   written, read or updated; a deleted account leaves its runs with `started_by` NULL;
   `deleteProject` removes only that project's runs.
-- **Found, not fixed (older than this task):** as a non-superuser, `deleteUser` of an
+- **Found, and fixed in its own commit (older than this task):** as a non-superuser, `deleteUser` of an
   account in **no** project fails with `invalid input syntax for type uuid: ""` on a
   pooled connection that served a project before (`app.current_project` is then `''`).
   Deleting `users` cascades to `plot_assignments`, whose statement-level trigger (009)
   runs `UPDATE projects` even for zero rows, and the projects policy casts `''`. Fine
-  as a superuser and on a fresh connection.
+  as a superuser and on a fresh connection. The fix:
+  - 009's trigger functions return early when their transition table is empty (edited
+    in place: 009 is not on master);
+  - every project policy reads the setting as
+    `NULLIF(current_setting('app.current_project', true), '')::uuid`, so `''` means no
+    project (no rows, writes refused) instead of an error. 006, 008 and 011 are edited
+    in place; the policies of 001-003, which are on master and may already be in a
+    database, are replaced by a new `012_rls_empty_project.sql`.
+  - Checked on postgres:16 as a non-superuser: `deleteUser` of an account in no project
+    and of a member; all 9 policies with `''` (no error, no rows, a write refused); the
+    Task 10 trigger script (`pgfix10.mts`) and the Task 12 script unchanged.
 
 ### Task 13: the AI client interface and the Gemini implementation
 

@@ -19,5 +19,5 @@ ALTER TABLE plot_assignments ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS plot_assignments_isolation ON plot_assignments;
 CREATE POLICY plot_assignments_isolation ON plot_assignments
-  USING (project_id = current_setting('app.current_project', true)::uuid)
-  WITH CHECK (project_id = current_setting('app.current_project', true)::uuid);
+  USING (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid)
+  WITH CHECK (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid);

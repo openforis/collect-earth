@@ -30,5 +30,5 @@ ALTER TABLE ai_runs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS ai_runs_isolation ON ai_runs;
 CREATE POLICY ai_runs_isolation ON ai_runs
-  USING (project_id = current_setting('app.current_project', true)::uuid)
-  WITH CHECK (project_id = current_setting('app.current_project', true)::uuid);
+  USING (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid)
+  WITH CHECK (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid);

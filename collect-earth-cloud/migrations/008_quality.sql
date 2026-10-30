@@ -32,10 +32,10 @@ ALTER TABLE guidance_notes ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS quality_decisions_isolation ON quality_decisions;
 CREATE POLICY quality_decisions_isolation ON quality_decisions
-  USING (project_id = current_setting('app.current_project', true)::uuid)
-  WITH CHECK (project_id = current_setting('app.current_project', true)::uuid);
+  USING (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid)
+  WITH CHECK (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid);
 
 DROP POLICY IF EXISTS guidance_notes_isolation ON guidance_notes;
 CREATE POLICY guidance_notes_isolation ON guidance_notes
-  USING (project_id = current_setting('app.current_project', true)::uuid)
-  WITH CHECK (project_id = current_setting('app.current_project', true)::uuid);
+  USING (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid)
+  WITH CHECK (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid);
