@@ -5,6 +5,8 @@ import java.awt.GraphicsEnvironment;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -53,6 +55,21 @@ public class SwingNativeFileChooser implements NativeFileChooser {
 
 	@Override
 	public String choose(Mode mode, List<String> extensions, String suggested) {
+		List<File> chosen = showOnce(mode, extensions, suggested, false);
+		return chosen.isEmpty() ? null : chosen.get(0).getAbsolutePath();
+	}
+
+	@Override
+	public List<String> chooseMany(List<String> extensions, String suggested) {
+		List<String> paths = new ArrayList<>();
+		for (File file : showOnce(Mode.OPEN, extensions, suggested, true)) {
+			paths.add(file.getAbsolutePath());
+		}
+		return paths;
+	}
+
+	/** One dialog at a time; the files chosen, none when cancelled; the folder of the choice remembered for the next. */
+	private List<File> showOnce(Mode mode, List<String> extensions, String suggested, boolean multiple) {
 		if (GraphicsEnvironment.isHeadless()) {
 			throw new NoDisplayException();
 		}
@@ -61,23 +78,23 @@ public class SwingNativeFileChooser implements NativeFileChooser {
 		}
 		// The flag is cleared by the task on the event thread, once the dialog is gone: cleared here, a request whose
 		// wait was interrupted would let a second dialog open while the first is still on screen
-		File chosen = onEventThread(() -> {
+		List<File> chosen = onEventThread(() -> {
 			try {
-				return show(mode, extensions, suggested);
+				return show(mode, extensions, suggested, multiple);
 			} finally {
 				open.set(false);
 			}
 		});
-		if (chosen == null) {
-			return null;
+		if (chosen.isEmpty()) {
+			return chosen;
 		}
-		File folder = folderToRemember(mode, chosen);
+		File folder = folderToRemember(mode, chosen.get(0));
 		if (folder != null) {
 			// This runs on an HTTP thread, not the event thread: its observers are notified here, and no observer of
 			// LAST_USED_FOLDER touches Swing (LocalPropertiesService has none registered)
 			localPropertiesService.setValue(EarthProperty.LAST_USED_FOLDER, folder.getPath());
 		}
-		return chosen.getAbsolutePath();
+		return chosen;
 	}
 
 	/**
@@ -88,7 +105,7 @@ public class SwingNativeFileChooser implements NativeFileChooser {
 		return mode == Mode.FOLDER ? chosen : chosen.getParentFile();
 	}
 
-	private File show(Mode mode, List<String> extensions, String suggested) {
+	private List<File> show(Mode mode, List<String> extensions, String suggested, boolean multiple) {
 		// The parent of the dialog: on top of every window and in the middle of the screen, so the dialog comes up in
 		// front of the browser the user is looking at, and not behind it as a dialog of a window-less process would.
 		// Titled and with the icon, so its taskbar entry is not blank, and excluded from the modality of the Swing
@@ -120,6 +137,7 @@ public class SwingNativeFileChooser implements NativeFileChooser {
 				chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
 			} else {
 				chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+				chooser.setMultiSelectionEnabled(multiple);
 				FileFilter filter = filter(extensions);
 				if (filter != null) {
 					chooser.addChoosableFileFilter(filter);
@@ -130,7 +148,10 @@ public class SwingNativeFileChooser implements NativeFileChooser {
 			int answer = ShellFolderFallback.showDialog(chooser,
 					c -> mode == Mode.SAVE ? c.showSaveDialog(parent) : c.showOpenDialog(parent));
 			if (answer != JFileChooser.APPROVE_OPTION) {
-				return null;
+				return Collections.emptyList();
+			}
+			if (multiple) {
+				return new ArrayList<>(Arrays.asList(chooser.getSelectedFiles()));
 			}
 			File chosen = chooser.getSelectedFile();
 			if (chosen == null && mode == Mode.FOLDER) {
@@ -141,7 +162,7 @@ public class SwingNativeFileChooser implements NativeFileChooser {
 				// OverwriteAwareChooser has done this for the name typed; this covers the other ways in
 				chosen = withExtension(chosen, extensions);
 			}
-			return chosen;
+			return chosen == null ? Collections.emptyList() : Collections.singletonList(chosen);
 		} finally {
 			parent.dispose();
 		}
@@ -183,14 +204,14 @@ public class SwingNativeFileChooser implements NativeFileChooser {
 	}
 
 	private interface DialogCall {
-		File show();
+		List<File> show();
 	}
 
-	private static File onEventThread(DialogCall call) {
+	private static List<File> onEventThread(DialogCall call) {
 		if (SwingUtilities.isEventDispatchThread()) {
 			return call.show();
 		}
-		AtomicReference<File> chosen = new AtomicReference<>();
+		AtomicReference<List<File>> chosen = new AtomicReference<>();
 		try {
 			SwingUtilities.invokeAndWait(() -> chosen.set(call.show()));
 		} catch (InvocationTargetException e) {

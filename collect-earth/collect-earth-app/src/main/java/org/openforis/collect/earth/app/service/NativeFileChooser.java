@@ -18,6 +18,16 @@ public interface NativeFileChooser {
 	 */
 	String choose(Mode mode, List<String> extensions, String suggested);
 
+	/**
+	 * Several files to open, for the imports. An implementation that cannot offer that answers the one file chosen.
+	 *
+	 * @return the absolute paths chosen, empty when the user cancelled
+	 */
+	default List<String> chooseMany(List<String> extensions, String suggested) {
+		String path = choose(Mode.OPEN, extensions, suggested);
+		return path == null ? java.util.Collections.emptyList() : java.util.Collections.singletonList(path);
+	}
+
 	/** Collect Earth runs without a screen (headless), so no dialog can be shown. */
 	class NoDisplayException extends RuntimeException {
 		private static final long serialVersionUID = 1L;
