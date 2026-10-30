@@ -131,6 +131,10 @@ describe('AI runs', () => {
     expect([...finding.plots].sort()).toEqual(['21', '22', '23', '24', '25']);
     expect([...body.result.recheckPlots].sort()).toEqual(['21', '22', '23', '24', '25']);
     expect(finding.explanation).toBe('5 of 25 checks of this question give another answer than the first assessment.');
+    // Questions are named by their label in every text, never by their key.
+    expect(finding.title).toBe('Checks often disagree on Land Use 2025');
+    expect(finding.suggestedNote).toContain('Land Use 2025');
+    expect(JSON.stringify({ ...body.result, findings: body.result.findings.map((f: { questions: unknown }) => ({ ...f, questions: [] })), surveyChanges: [] })).not.toContain(LAND_USE);
 
     // Stored: the pseudonymous result, with its mappings; tool arguments pseudonymous too.
     const stored = (await ctx.store.getAiRun(pid, runId))!;
@@ -153,13 +157,15 @@ describe('AI runs', () => {
     const parent = await report();
     const explain = await run({ kind: 'follow_up', parentRunId: parent.id, findingIndex: 0, action: 'explain' });
     expect(explain).toMatchObject({ kind: 'follow_up', status: 'done', parentRunId: parent.id, findingIndex: 0, action: 'explain' });
-    expect(explain.result.text).toContain(LAND_USE);
+    expect(explain.result.text).toContain('Land Use 2025');
+    expect(explain.result.text).not.toContain(LAND_USE);
     expect([...explain.result.plots].sort()).toEqual(['21', '22', '23', '24', '25']);
     expect(explain.progress.tools).toEqual(['get_confusions']);
 
     const note = await run({ kind: 'follow_up', parentRunId: parent.id, findingIndex: 0, action: 'draft_note', language: 'es' });
     expect(note.status).toBe('done');
-    expect(note.result.note).toContain(LAND_USE);
+    expect(note.result.note).toContain('Land Use 2025');
+    expect(note.result.note).not.toContain(LAND_USE);
 
     const poem = await run({ kind: 'question', parentRunId: parent.id, question: 'Write a poem about the forest' });
     expect(poem).toMatchObject({ kind: 'question', status: 'refused', refusal: OFF_TOPIC_MESSAGE.en, result: null, error: null, question: 'Write a poem about the forest' });
@@ -237,8 +243,14 @@ describe('AI runs', () => {
     expect((await get(`/ai/runs/${parent.id}`, dora.token, other.projectId)).statusCode).toBe(404);
     expect((await get('/ai/runs/not-a-uuid')).statusCode).toBe(404);
     expect((await get('/ai/runs/00000000-0000-4000-8000-000000000000')).statusCode).toBe(404);
-    // Reading takes the project's admin token too.
-    expect((await get(`/ai/runs/${parent.id}`, project.adminToken)).json().status).toBe('done');
+    // Reading needs a person too: a project token, even the admin's, is refused.
+    for (const path of ['/ai/runs', `/ai/runs/${parent.id}`]) {
+      const read = await get(path, project.adminToken);
+      expect(read.statusCode).toBe(403);
+      expect(read.json().error).toBe('user_session_required');
+      expect((await get(path, project.projectToken)).statusCode).toBe(403);
+    }
+    expect((await get(`/ai/runs/${parent.id}`)).json().status).toBe('done');
 
     // The project's switch off, then the server's.
     await ctx.app.inject({ method: 'PUT', url: url('/ai'), headers: bearer(owner.token), payload: { enabled: false } });

@@ -23,6 +23,7 @@ const PREFIX = 'Test assistant (no AI model): ';
 
 interface AgreementQuestion {
   key: string;
+  label?: string;
   checks: number;
   agreeing: number;
 }
@@ -117,20 +118,22 @@ function report(req: AiRequest) {
       surveyChanges: [],
     };
   }
+  // Questions are named by their label in texts (as the system instruction asks), the key only in the lists.
+  const name = typeof worst.label === 'string' && worst.label !== '' ? worst.label : worst.key;
   const ofWorst = differences.filter((d) => (d.answers ?? []).some((a) => a.question === worst.key));
   const plots = ofWorst.map((d) => d.plot).slice(0, 5);
   const persons = [...new Set(ofWorst.map((d) => d.firstAssessor).filter((p): p is string => typeof p === 'string' && p.length > 0))].slice(0, 2);
   return {
-    summary: `${PREFIX}${differing} of ${checked} checked plots have an answer that differs between the first assessment and the check. The question that differs most is ${worst.key}.`,
+    summary: `${PREFIX}${differing} of ${checked} checked plots have an answer that differs between the first assessment and the check. The question that differs most is ${name}.`,
     findings: [
       {
-        title: `Checks often disagree on ${worst.key}`,
+        title: `Checks often disagree on ${name}`,
         explanation: `${worst.checks - worst.agreeing} of ${worst.checks} checks of this question give another answer than the first assessment.`,
         cause: 'unclear_question',
         questions: [worst.key],
         persons,
         plots,
-        suggestedNote: `Before you answer ${worst.key}, read its help text and compare the options with what you see on the plot.`,
+        suggestedNote: `Before you answer ${name}, read its help text and compare the options with what you see on the plot.`,
       },
     ],
     recheckPlots: plots,
@@ -144,7 +147,9 @@ function answer(req: AiRequest) {
   if (!finding) {
     return { text: `${PREFIX}the agreement figures were read to answer this question. Look at the findings of the report for the details.`, plots: [], note: null };
   }
-  const question = finding.questions[0] ?? 'this question';
+  // The question by its label, as get_confusions gave it (the key only when it gave none).
+  const confusions = toolData(req, 'get_confusions');
+  const question = typeof confusions?.label === 'string' && confusions.label !== '' ? confusions.label : (finding.questions[0] ?? 'this question');
   if (first.includes('Draft a guidance note')) {
     return {
       text: `${PREFIX}a short note can help collectors tell the options apart.`,

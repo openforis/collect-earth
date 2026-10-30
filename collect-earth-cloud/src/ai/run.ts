@@ -27,6 +27,7 @@ import {
   type AiLanguage,
   type FollowUpAction,
 } from './prompts.js';
+import { withQuestionLabels } from '../questionLabels.js';
 import { AI_INTERRUPTED } from '../types.js';
 import { PlotNames, Pseudonyms, ToolBox, TOOL_NAMES, TOOLS, usernamesOf, type ToolData } from './tools.js';
 
@@ -288,6 +289,20 @@ export interface KnownNames {
   plots: { has(plot: string): boolean };
   /** The numbers of the tool results sent (ToolBox.numbers); without it numbers are not checked. */
   numbers?: readonly number[];
+  /**
+   * The questions' labels by key (as the tools sent them): a known key the model wrote in a
+   * text is replaced by its label, so coordinators read "Land use", not the key.
+   */
+  labels?: ReadonlyMap<string, string>;
+}
+
+/** A checked text with the known question keys in it replaced by their labels. */
+function labelled(text: string, known: KnownNames): string {
+  return known.labels ? withQuestionLabels(text, known.labels) : text;
+}
+
+function labelledOrNull(text: string | null, known: KnownNames): string | null {
+  return text === null ? null : labelled(text, known);
 }
 
 // Control characters but \n, and \p{Cf} (bidi overrides, zero-width characters...).
@@ -373,13 +388,13 @@ function findingOf(v: unknown, known: KnownNames): AiFinding | null {
   }
   if (known.numbers && !numbersKnown(`${title}\n${explanation}`, known.numbers)) return null;
   return {
-    title,
-    explanation,
+    title: labelled(title, known),
+    explanation: labelled(explanation, known),
     cause: FINDING_CAUSES.includes(v.cause as FindingCause) ? (v.cause as FindingCause) : 'other',
     questions: questions.slice(0, REPORT_LIMITS.questions),
     persons: persons.slice(0, REPORT_LIMITS.persons),
     plots: plots.slice(0, REPORT_LIMITS.plots),
-    suggestedNote: noteOf(v.suggestedNote, REPORT_LIMITS.suggestedNote),
+    suggestedNote: labelledOrNull(noteOf(v.suggestedNote, REPORT_LIMITS.suggestedNote), known),
   };
 }
 
@@ -401,10 +416,10 @@ export function validateReport(v: unknown, known: KnownNames): AiReport | null {
   for (const c of changes) {
     if (!isObject(c) || typeof c.question !== 'string' || !known.questions.has(c.question)) continue;
     const suggestion = textOf(c.suggestion, REPORT_LIMITS.suggestion);
-    if (suggestion) surveyChanges.push({ question: c.question, suggestion });
+    if (suggestion) surveyChanges.push({ question: c.question, suggestion: labelled(suggestion, known) });
   }
   return {
-    summary,
+    summary: labelled(summary, known),
     findings: findings.slice(0, REPORT_LIMITS.findings),
     recheckPlots: recheck.slice(0, REPORT_LIMITS.recheckPlots),
     surveyChanges: surveyChanges.slice(0, REPORT_LIMITS.surveyChanges),
@@ -417,9 +432,9 @@ export function validateAnswer(v: unknown, known: KnownNames): AiAnswer | null {
   const text = textOf(v.text, ANSWER_LIMITS.text);
   if (!text) return null;
   return {
-    text,
+    text: labelled(text, known),
     plots: someStrings(v.plots, plotKey).filter((p) => known.plots.has(p)).slice(0, ANSWER_LIMITS.plots),
-    note: noteOf(v.note, ANSWER_LIMITS.note),
+    note: labelledOrNull(noteOf(v.note, ANSWER_LIMITS.note), known),
   };
 }
 
@@ -502,7 +517,13 @@ class Run {
   }
 
   known(checkNumbers: boolean): KnownNames {
-    return { questions: this.box.questions, persons: this.pseudonyms, plots: this.box.seenPlots, ...(checkNumbers ? { numbers: this.box.numbers } : {}) };
+    return {
+      questions: this.box.questions,
+      persons: this.pseudonyms,
+      plots: this.box.seenPlots,
+      labels: this.box.labels,
+      ...(checkNumbers ? { numbers: this.box.numbers } : {}),
+    };
   }
 
   private async report(): Promise<void> {

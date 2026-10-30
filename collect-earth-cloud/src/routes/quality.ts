@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { checkMargins, type QualityReport } from '../quality.js';
-import { personalReport, teamReport } from '../qualityReports.js';
+import { answerOptions, personalReport, teamReport } from '../qualityReports.js';
 import { registerPlotPlaceRoutes } from './plotPlaces.js';
 import { QualityService, WorkerBusyError, WorkerRestartedError, type ServedReport } from '../qualityService.js';
 import type { Store } from '../store/store.js';
@@ -138,16 +138,19 @@ export async function registerQualityRoutes(
 
   app.get('/v1/projects/:pid/quality', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
-    const [figures, decisions, notes, settings] = await Promise.all([
+    const [figures, decisions, notes, settings, outline] = await Promise.all([
       served(quality, projectId, request, reply),
       store.listQualityDecisions(projectId),
       store.listGuidanceNotes(projectId),
       store.getQualitySettings(projectId),
+      quality.outline(projectId, request.log),
     ]);
     if (!figures) {
       return reply;
     }
-    return reply.send({ ...figures.report, computedAt: figures.computedAt, stale: figures.stale, decisions, notes, settings });
+    // The answer options of the questions shown, so the tab shows "Forest", not "F".
+    const options = answerOptions(outline, [...figures.report.questions.map((q) => q.key), ...notes.map((n) => n.questionKey)]);
+    return reply.send({ ...figures.report, computedAt: figures.computedAt, stale: figures.stale, decisions, notes, settings, options });
   });
 
   // The overlap report of before, kept for the dashboard's Data tab: same shape, now
@@ -168,21 +171,29 @@ export async function registerQualityRoutes(
     if (!user) {
       return reply.code(403).send({ error: 'forbidden', reason: 'the personal report needs a signed-in person, not a project token' });
     }
-    const [figures, notes] = await Promise.all([served(quality, projectId, request, reply), store.listGuidanceNotes(projectId)]);
+    const [figures, notes, outline] = await Promise.all([
+      served(quality, projectId, request, reply),
+      store.listGuidanceNotes(projectId),
+      quality.outline(projectId, request.log),
+    ]);
     if (!figures) {
       return reply;
     }
-    return reply.send({ ...personalReport(figures.report, user.username, notes), computedAt: figures.computedAt, stale: figures.stale });
+    return reply.send({ ...personalReport(figures.report, user.username, notes, outline), computedAt: figures.computedAt, stale: figures.stale });
   });
 
   // The team report for training (admin): mix-ups, examples, notes and agreement, no names.
   app.get('/v1/projects/:pid/quality/team-report', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
-    const [figures, notes] = await Promise.all([served(quality, projectId, request, reply), store.listGuidanceNotes(projectId)]);
+    const [figures, notes, outline] = await Promise.all([
+      served(quality, projectId, request, reply),
+      store.listGuidanceNotes(projectId),
+      quality.outline(projectId, request.log),
+    ]);
     if (!figures) {
       return reply;
     }
-    return reply.send({ ...teamReport(figures.report, notes), computedAt: figures.computedAt, stale: figures.stale });
+    return reply.send({ ...teamReport(figures.report, notes, outline), computedAt: figures.computedAt, stale: figures.stale });
   });
 
   // Number margins (percent, 0-100), only for the number questions of the served survey.

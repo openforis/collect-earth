@@ -11,6 +11,7 @@ import {
   runFollowUp,
   runQuestion,
   runReport,
+  validateAnswer,
   validateReport,
   withRealNames,
   type AiReport,
@@ -19,6 +20,7 @@ import {
   type StoredResult,
 } from '../../src/ai/run.js';
 import { MAX_LABEL_CHARS, MAX_OPTIONS, MAX_RESULT_CHARS, NOT_IN_LIST, PlotNames, Pseudonyms, TOOLS, pseudonymName } from '../../src/ai/tools.js';
+import { withQuestionLabels } from '../../src/questionLabels.js';
 import { qualityReport, recordsOfPlot, type QualityRecord } from '../../src/quality.js';
 import type { Question } from '../../src/surveyOutline.js';
 import type { GuidanceNote } from '../../src/types.js';
@@ -325,6 +327,12 @@ describe('runReport', () => {
     // The outline: choice and number questions only, no latitude, usernames replaced.
     const outlined = dataOf(third, 'get_survey_outline').questions;
     expect(outlined.map((q: { key: string }) => q.key)).toEqual([LAND_USE, CANOPY]);
+    // Questions lead with their label: the model is to name them by it.
+    expect(Object.keys(outlined[0])[0]).toBe('label');
+    expect(Object.keys(dataOf(third, 'get_agreement').questions[0])[0]).toBe('label');
+    expect(dataOf(third, 'get_confusions')).toMatchObject({ label: 'Land use', question: LAND_USE });
+    expect(Object.keys(dataOf(third, 'get_confusions'))[0]).toBe('label');
+    expect(first.system).toContain('Name a question by its label, never by its key');
     expect(outlined[0].help).toBe(`The main land use of the plot. Ask ${P_FIRST} when unsure.`);
     expect(dataOf(third, 'get_people').people.map((p: { person: string }) => p.person).sort()).toEqual([P_CHECKER, P_FIRST]);
     // Confusions: a code not in the list is never sent, a qualifier is cut off, plots are names.
@@ -577,6 +585,56 @@ describe('validateReport', () => {
     expect(numbersKnown('a mean of 0.83', numbers)).toBe(false);
     const r = validateReport({ summary: 's', findings: [f({ explanation: '99 plots differ' }), f({ explanation: '16 plots differ' })] }, { ...known, numbers });
     expect(r!.findings.map((x) => x.explanation)).toEqual(['16 plots differ']);
+  });
+  it('names questions by their label in every text: a known key the model wrote is replaced, the lists keep keys', () => {
+    const labels = new Map([
+      [LAND_USE, 'Land use'],
+      [`${LAND_USE}_category`, 'Land use category'],
+    ]);
+    const withLabels = { ...known, questions: new Set([LAND_USE, `${LAND_USE}_category`]), labels };
+    const r = validateReport(
+      {
+        summary: `Checks disagree on ${LAND_USE} and on "${LAND_USE}_category".`,
+        findings: [
+          f({
+            title: `Mix-ups on ${LAND_USE}_category`,
+            explanation: `${LAND_USE}: forest or grassland? (collect_code_land_user is not a key.)`,
+            suggestedNote: `Before you answer ${LAND_USE}, read its help.`,
+          }),
+        ],
+        surveyChanges: [{ question: LAND_USE, suggestion: `Reword ${LAND_USE}.` }],
+      },
+      withLabels,
+    );
+    expect(r!.summary).toBe('Checks disagree on Land use and on "Land use category".');
+    expect(r!.findings[0]).toMatchObject({
+      title: 'Mix-ups on Land use category',
+      explanation: 'Land use: forest or grassland? (collect_code_land_user is not a key.)',
+      suggestedNote: 'Before you answer Land use, read its help.',
+      questions: [LAND_USE],
+    });
+    expect(r!.surveyChanges).toEqual([{ question: LAND_USE, suggestion: 'Reword Land use.' }]);
+    const a = validateAnswer({ text: `About ${LAND_USE}.`, plots: [], note: `When you answer ${LAND_USE}, look twice.` }, withLabels);
+    expect(a).toEqual({ text: 'About Land use.', plots: [], note: 'When you answer Land use, look twice.' });
+  });
+});
+
+describe('withQuestionLabels', () => {
+  it('replaces exact known keys, longest first, never inside a longer word, and leaves a key whose label is itself', () => {
+    const labels = new Map([
+      ['collect_code_land_use', 'Land use'],
+      ['collect_code_land_use_category', 'Land use category'],
+      ['collect_entity_tree[1].real_height', 'Tree 1: Height'],
+      ['collect_real_x', 'collect_real_x'],
+      ['collect_real_empty', ''],
+    ]);
+    expect(
+      withQuestionLabels(
+        'collect_code_land_use, collect_code_land_use_category; xcollect_code_land_use; collect_entity_tree[1].real_height. collect_real_x collect_real_empty',
+        labels,
+      ),
+    ).toBe('Land use, Land use category; xcollect_code_land_use; Tree 1: Height. collect_real_x collect_real_empty');
+    expect(withQuestionLabels('nothing here', new Map())).toBe('nothing here');
   });
 });
 

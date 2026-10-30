@@ -13,6 +13,15 @@ const REVIEWER = 'xanthippereview';
 const COORDINATOR = 'wilhelminacoord';
 const SECOND_CHECKER = 'ottokarcheck';
 const NAMES = [FIRST, CHECKER, REVIEWER, COORDINATOR, SECOND_CHECKER];
+/** The demo survey's land use options, as the reports give them for showing answers. */
+const LAND_USE_OPTIONS = [
+  { code: 'F', label: 'Forest' },
+  { code: 'C', label: 'Cropland' },
+  { code: 'G', label: 'Grassland' },
+  { code: 'S', label: 'Settlement' },
+  { code: 'W', label: 'Wetland' },
+  { code: 'O', label: 'Otherland' },
+];
 /** When the checks were made: must not appear in the personal report. */
 const CHECK_TIME = Date.UTC(2026, 9, 28, 13, 37, 42, 123);
 
@@ -119,7 +128,25 @@ describe('quality reports for collectors and the team', () => {
       { key: LAND_USE, label: 'Land Use 2025', first: 'F', check: 'G', checks: 6, plots: ['21', '22', '23', '24'], notes: [stripped(general), stripped(fg)] },
       { key: LAND_USE, label: 'Land Use 2025', first: 'F', check: 'C', checks: 2, plots: ['1', '2'], notes: [stripped(general)] },
     ]);
-    expect(Object.keys(body).sort()).toEqual(['asFirst', 'computedAt', 'confusions', 'minChecks', 'stale', 'username']);
+    expect(Object.keys(body).sort()).toEqual(['asFirst', 'computedAt', 'confusions', 'minChecks', 'options', 'stale', 'username']);
+    // The answer options of the questions shown, from the survey, to show labels instead of codes.
+    expect(body.options).toEqual({ [LAND_USE]: LAND_USE_OPTIONS });
+  });
+
+  it('notes are shown with question labels in place of question keys (a draft of the assistant could hold one)', async () => {
+    await collect();
+    const keyed = await note({ questionKey: LAND_USE, firstValue: 'F', checkValue: 'G', text: `Before you answer ${LAND_USE}, compare ${FOREST} with the plot.` });
+    const labelled = 'Before you answer Land Use 2025, compare Land cover - Percentage of Forest with the plot.';
+    const mine = (await get('/my-quality', users[FIRST].token)).json();
+    expect(mine.confusions[0].notes).toEqual([{ id: keyed.id, questionKey: LAND_USE, firstValue: 'F', checkValue: 'G', text: labelled }]);
+    const team = (await get('/quality/team-report', users[COORDINATOR].token)).json();
+    expect(team.notes.map((n: { text: string }) => n.text)).toEqual([labelled]);
+    expect(team.confusions[0].notes.map((n: { text: string }) => n.text)).toEqual([labelled]);
+    expect(team.options).toEqual({ [LAND_USE]: LAND_USE_OPTIONS });
+    // The Quality tab gets the note as written (it is edited there), and the options too.
+    const quality = (await get('/quality', users[COORDINATOR].token)).json();
+    expect(quality.notes.map((n: { text: string }) => n.text)).toEqual([keyed.text]);
+    expect(quality.options).toEqual({ [LAND_USE]: LAND_USE_OPTIONS });
   });
 
   it('my-quality for a checker shows only their own first assessments, and for every member with a session', async () => {

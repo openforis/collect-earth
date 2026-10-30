@@ -293,6 +293,8 @@ export class ToolBox {
   readonly numbers: number[] = [];
   /** The question keys a finding may name: the outline's choice and number questions, and the report's. */
   readonly questions: ReadonlyMap<string, ShownQuestion>;
+  /** Each question's label as the tools send it (usernames replaced, cut): what a key in the model's text becomes. */
+  readonly labels: ReadonlyMap<string, string>;
 
   constructor(
     private readonly data: ToolData,
@@ -317,6 +319,7 @@ export class ToolBox {
       }
     }
     this.questions = questions;
+    this.labels = new Map([...questions.values()].map((q) => [q.key, this.text(q.label)]));
   }
 
   async call(name: string, rawArgs: unknown): Promise<ToolOutcome> {
@@ -417,9 +420,10 @@ export class ToolBox {
 
   private surveyOutline(): Record<string, unknown> {
     return {
+      // The label first: the model is to name a question by it; the key is for the tools' arguments.
       questions: [...this.questions.values()].map((q) => ({
-        key: q.key,
         label: this.text(q.label),
+        key: q.key,
         kind: q.kind,
         options: q.options ? q.options.slice(0, MAX_OPTIONS).map((o) => ({ code: this.safeCode(q, o.code), label: this.text(o.label) })) : null,
         ...(q.options && q.options.length > MAX_OPTIONS ? { moreOptions: q.options.length - MAX_OPTIONS } : {}),
@@ -436,8 +440,8 @@ export class ToolBox {
       questions: r.questions
         .filter((q) => this.questions.has(q.key))
         .map((q) => ({
-          key: q.key,
           label: this.text(this.questions.get(q.key)!.label),
+          key: q.key,
           kind: q.kind,
           checks: q.compared,
           agreeing: q.agreeing,
@@ -456,7 +460,7 @@ export class ToolBox {
       if (c.key !== question) continue;
       confusions.push({ first: this.safeCodes(q, c.first).text, check: this.safeCodes(q, c.check).text, checks: c.count, plots: this.safePlots(c.plots) });
     }
-    return { question, confusions };
+    return { label: this.text(q.label), question, confusions };
   }
 
   private people(): Record<string, unknown> {

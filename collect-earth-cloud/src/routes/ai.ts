@@ -70,7 +70,8 @@ export interface AiRouteOptions {
  * The AI assistant's project routes (admin): its switch, and its runs. The switch is
  * off by default, and can only be switched on while the assistant is available on the
  * server (Vertex configured and switched on by the server owner); switching it off is
- * always allowed. Runs start with POST and run in the background; GET reads them.
+ * always allowed. Runs start with POST and run in the background; GET reads them. Both need a
+ * person's session (403 user_session_required for a project token).
  */
 export async function registerAiRoutes(app: FastifyInstance, store: Store, config: Config, options: AiRouteOptions): Promise<void> {
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
@@ -161,8 +162,13 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     });
   });
 
+  // Reading the runs needs a person too, as starting them: a project token is no one, and
+  // the results name the project's people.
   app.get('/v1/projects/:pid/ai/runs', admin, async (request: FastifyRequest, reply: FastifyReply) => {
-    const projectId = request.membership!.projectId;
+    const { projectId, userId } = request.membership!;
+    if (!userId) {
+      return reply.code(403).send(SESSION_REQUIRED);
+    }
     const raw = (request.query as { limit?: string }).limit;
     const limit = raw === undefined ? DEFAULT_LISTED_RUNS : Number(raw);
     if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LISTED_RUNS) {
@@ -173,7 +179,10 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
   });
 
   app.get('/v1/projects/:pid/ai/runs/:id', admin, async (request: FastifyRequest, reply: FastifyReply) => {
-    const projectId = request.membership!.projectId;
+    const { projectId, userId } = request.membership!;
+    if (!userId) {
+      return reply.code(403).send(SESSION_REQUIRED);
+    }
     const id = (request.params as { id: string }).id;
     if (!isUuid(id)) {
       return reply.code(404).send({ error: 'not_found' });
