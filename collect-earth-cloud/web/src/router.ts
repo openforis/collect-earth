@@ -4,7 +4,7 @@ import { useSyncExternalStore, type MouseEvent } from "react";
 // path <-> route table is all it needs. The server returns index.html for every
 // app path (/join/<token>, /projects/..., /setup, /reset/<token>), so deep links work.
 
-export const PROJECT_TABS = ["overview", "file", "people", "plots", "data", "settings"] as const;
+export const PROJECT_TABS = ["overview", "file", "people", "plots", "data", "quality", "settings"] as const;
 export type ProjectTab = (typeof PROJECT_TABS)[number];
 
 export type Route =

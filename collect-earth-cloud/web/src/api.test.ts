@@ -11,7 +11,15 @@ import {
   getAccountDeletion,
   getCsvColumns,
   getDistribution,
-  getOverlap,
+  getQuality,
+  toQualityData,
+  saveQualityMargins,
+  setQualityDecision,
+  deleteQualityDecision,
+  createGuidanceNote,
+  updateGuidanceNote,
+  deleteGuidanceNote,
+  getPlotPlaces,
   moveUnfinished,
   saveDistribution,
   getOverview,
@@ -343,21 +351,100 @@ describe("dividing plots", () => {
     expect(await moveUnfinished("p1", "f1", "u1", "u2")).toMatchObject({ moved: 5, plotCount: 3 });
     expect(call(3)).toEqual({ url: "/v1/projects/p1/csv-files/f1/move-unfinished", method: "POST", body: { fromUserId: "u1", toUserId: "u2" } });
   });
+});
 
-  it("reads the quality check", async () => {
+describe("the quality figures", () => {
+  const call = (i = 0) => {
+    const [url, init] = fetchMock.mock.calls[i];
+    return { url, method: init?.method, body: init?.body ? JSON.parse(init.body as string) : undefined };
+  };
+
+  it("reads the figures with decisions, notes, margins and whether they are stale", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(200, {
-        plots: 12,
-        differing: 1,
-        items: [{ recordKey: "17", operators: ["maria", "jose"], fields: [{ key: "land_use", values: { maria: "forest", jose: null } }] }],
+        plotsChecked: 25,
+        plotsDiffering: 5,
+        questions: [
+          { key: "collect_integer_forest", label: "Forest %", kind: "number", compared: 25, agreeing: 25, rate: 1, margin: 10 },
+          { key: "collect_code_land_use", label: "", kind: "choice", compared: 12, agreeing: 10, rate: null },
+        ],
+        confusions: [{ key: "collect_code_land_use", first: "F", check: "G", count: 5, plots: ["21", 22] }],
+        people: [
+          {
+            username: "ana",
+            asFirst: { compared: 25, agreeing: 20, rate: 0.8 },
+            asChecker: { compared: 0, agreeing: 0, rate: null },
+            weakest: [{ key: "collect_code_land_use", rate: null, compared: 12, differing: 2 }],
+            personal: { asFirst: { compared: 1, agreeing: 1, rate: null }, confusions: [] },
+          },
+        ],
+        weeks: [{ week: "2026-W44", compared: 25, agreeing: 20 }],
+        differences: [{ plot: "21", first: { operator: "ana", recordKey: "21,1" }, check: { operator: "ben", recordKey: "21,2" }, fields: [{ key: "k", first: "F", check: null }] }],
+        problems: [{ kind: "two_main", plot: "3", recordKey: "3,1", operator: "ana" }],
+        problemsTotal: 1,
+        beyondOutline: { count: 0, keys: [] },
+        decisions: [{ plot: "21", decision: "check", comment: null, decidedBy: "boss", decidedAt: 1000 }],
+        notes: [{ id: "n1", questionKey: "collect_code_land_use", firstValue: "F", checkValue: null, text: "Look at the canopy", updatedBy: null, updatedAt: 2000 }],
+        settings: { margins: { "collect_entity_tree[*].real_height": 5, bad: "x" } },
+        computedAt: 3000,
+        stale: true,
       }),
     );
-    expect(await getOverlap("p1")).toEqual({
-      plots: 12,
-      differing: 1,
-      items: [{ recordKey: "17", operators: ["maria", "jose"], fields: [{ key: "land_use", values: { maria: "forest", jose: "" } }] }],
+    const data = await getQuality("p1");
+    expect(call().url).toBe("/v1/projects/p1/quality");
+    expect(data.questions[1]).toEqual({ key: "collect_code_land_use", label: "collect_code_land_use", kind: "choice", compared: 12, agreeing: 10, rate: null, margin: null });
+    expect(data.confusions[0].plots).toEqual(["21", "22"]);
+    expect(data.people[0]).toEqual({
+      username: "ana",
+      asFirst: { compared: 25, agreeing: 20, rate: 0.8 },
+      asChecker: { compared: 0, agreeing: 0, rate: null },
+      weakest: [{ key: "collect_code_land_use", rate: null, compared: 12, differing: 2 }],
     });
-    expect(call().url).toBe("/v1/projects/p1/overlap");
+    expect(data.differences[0].fields).toEqual([{ key: "k", first: "F", check: "" }]);
+    expect(data.decisions).toEqual([{ plot: "21", decision: "check", comment: null, decidedBy: "boss", decidedAt: 1000 }]);
+    expect(data.notes[0]).toMatchObject({ id: "n1", firstValue: "F", checkValue: null, updatedAt: 2000 });
+    expect(data.margins).toEqual({ "collect_entity_tree[*].real_height": 5 });
+    expect(data).toMatchObject({ plotsChecked: 25, plotsDiffering: 5, problemsTotal: 1, computedAt: 3000, stale: true });
+  });
+
+  it("gives empty lists for a server that leaves them out", () => {
+    expect(toQualityData({})).toMatchObject({ questions: [], confusions: [], people: [], weeks: [], differences: [], problems: [], decisions: [], notes: [], margins: {}, stale: false, computedAt: null });
+  });
+
+  it("says the figures are busy or failed in plain words", () => {
+    expect(errorMessageKey(apiErrorFrom(503, { error: "busy" }))).toBe("quality.busy");
+    expect(errorMessageKey(apiErrorFrom(500, { error: "quality_failed", reason: "The quality figures..." }))).toBe("quality.failed");
+  });
+
+  it("saves margins, decisions and notes, and asks where plots are", async () => {
+    fetchMock.mockImplementation(async (_url, init) => {
+      if (init?.method === "DELETE") return new Response(null, { status: 404 });
+      const url = String(_url);
+      if (url.endsWith("/settings")) return jsonResponse(200, { margins: { a: 5 } });
+      if (url.includes("/decisions/")) return jsonResponse(200, { plot: "1,2", decision: "recheck", comment: "look", decidedBy: null, decidedAt: 5 });
+      if (url.endsWith("/places")) return jsonResponse(200, { places: [{ plot: "1", lat: -12.5, lon: 30 }, { plot: "2", lat: "x", lon: 1 }] });
+      return jsonResponse(201, { id: "n2", questionKey: "q", firstValue: null, checkValue: null, text: "t" });
+    });
+    expect(await saveQualityMargins("p1", { a: 5 })).toEqual({ a: 5 });
+    expect(call(0)).toEqual({ url: "/v1/projects/p1/quality/settings", method: "PUT", body: { margins: { a: 5 } } });
+    expect(await setQualityDecision("p1", "1,2", "recheck", "  look ")).toMatchObject({ plot: "1,2", decision: "recheck", comment: "look" });
+    expect(call(1)).toEqual({ url: "/v1/projects/p1/quality/decisions/1%2C2", method: "PUT", body: { decision: "recheck", comment: "look" } });
+    await setQualityDecision("p1", "3", "first", " ");
+    expect(call(2).body).toEqual({ decision: "first" });
+    // A decision or note already gone counts as removed.
+    await deleteQualityDecision("p1", "1,2");
+    expect(call(3)).toMatchObject({ url: "/v1/projects/p1/quality/decisions/1%2C2", method: "DELETE" });
+    const note = { questionKey: "q", firstValue: null, checkValue: null, text: "t" };
+    expect(await createGuidanceNote("p1", note)).toMatchObject({ id: "n2", text: "t" });
+    expect(call(4)).toEqual({ url: "/v1/projects/p1/quality/notes", method: "POST", body: note });
+    await updateGuidanceNote("p1", "n2", note);
+    expect(call(5)).toMatchObject({ url: "/v1/projects/p1/quality/notes/n2", method: "PUT" });
+    await deleteGuidanceNote("p1", "n2");
+    expect(call(6)).toMatchObject({ url: "/v1/projects/p1/quality/notes/n2", method: "DELETE" });
+    expect(await getPlotPlaces("p1", ["1", "2"])).toEqual([{ plot: "1", lat: -12.5, lon: 30 }]);
+    expect(call(7)).toEqual({ url: "/v1/projects/p1/quality/places", method: "POST", body: { plots: ["1", "2"] } });
+    expect(await getPlotPlaces("p1", [])).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(8);
   });
 });
 

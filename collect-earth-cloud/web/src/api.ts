@@ -166,11 +166,111 @@ export interface DistributionState {
   people: PersonShare[];
 }
 
-/** Plots collected by two or more people, and where their answers differ. */
-export interface OverlapReport {
-  plots: number;
-  differing: number;
-  items: { recordKey: string; operators: string[]; fields: { key: string; values: Record<string, string> }[] }[];
+/** Agreement over some checks; rate (0..1) is null when there are too few checks to judge. */
+export interface Rate {
+  compared: number;
+  agreeing: number;
+  rate: number | null;
+}
+
+export interface QuestionAgreement extends Rate {
+  key: string;
+  label: string;
+  kind: "choice" | "number";
+  /** The margin used (percent), for a number question. */
+  margin: number | null;
+}
+
+/** How often a first answer was met by another answer in the check. */
+export interface Confusion {
+  key: string;
+  first: string;
+  check: string;
+  count: number;
+  plots: string[];
+}
+
+export interface PersonQuality {
+  username: string;
+  asFirst: Rate;
+  asChecker: Rate;
+  weakest: { key: string; rate: number | null; compared: number; differing: number }[];
+}
+
+export interface WeekAgreement {
+  /** ISO week, yyyy-Www. */
+  week: string;
+  compared: number;
+  agreeing: number;
+}
+
+/** One check of a plot whose answers differ from the first assessment. */
+export interface Difference {
+  plot: string;
+  first: { operator: string; recordKey: string };
+  check: { operator: string; recordKey: string };
+  fields: { key: string; first: string; check: string }[];
+}
+
+export type DataProblemKind = "no_plot" | "unknown_round" | "two_main" | "extra_key_parts";
+
+export interface DataProblem {
+  kind: DataProblemKind | string;
+  plot: string;
+  recordKey: string;
+  operator: string;
+}
+
+export type DecisionKind = "first" | "check" | "recheck";
+
+export interface QualityDecision {
+  plot: string;
+  decision: DecisionKind;
+  comment: string | null;
+  decidedBy: string | null;
+  decidedAt: number | null;
+}
+
+export interface GuidanceNoteInput {
+  questionKey: string;
+  firstValue: string | null;
+  checkValue: string | null;
+  text: string;
+}
+
+export interface GuidanceNote extends GuidanceNoteInput {
+  id: string;
+  updatedBy: string | null;
+  updatedAt: number | null;
+}
+
+/** The Quality tab's figures (GET /quality). Counts are checks, except plotsChecked and plotsDiffering. */
+export interface QualityData {
+  plotsChecked: number;
+  plotsDiffering: number;
+  questions: QuestionAgreement[];
+  confusions: Confusion[];
+  people: PersonQuality[];
+  weeks: WeekAgreement[];
+  differences: Difference[];
+  problems: DataProblem[];
+  problemsTotal: number;
+  beyondOutline: { count: number; keys: string[] };
+  decisions: QualityDecision[];
+  notes: GuidanceNote[];
+  /** Number margins in percent, by margin key (an indexed entity's question as [*]). */
+  margins: Record<string, number>;
+  /** When the figures' records were read (ms). */
+  computedAt: number | null;
+  /** Older figures, given while newer ones are worked out. */
+  stale: boolean;
+}
+
+/** Where a plot is, from the plot files. */
+export interface PlotPlace {
+  plot: string;
+  lat: number;
+  lon: number;
 }
 
 export interface ServerSettings {
@@ -294,6 +394,9 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   key_shape_changed: "error.keyShapeChanged",
   plots_divided: "error.plotsDivided",
   too_large: "error.cepTooLarge",
+  // The quality figures (GET /quality and the reports).
+  busy: "quality.busy",
+  quality_failed: "quality.failed",
 };
 
 /** The sentence (message key) to show a person for any error thrown by this module. */
@@ -823,26 +926,147 @@ export async function moveUnfinished(
   return { ...toDistributionState(body), moved: toCount(body?.moved) };
 }
 
-export async function getOverlap(projectId: string): Promise<OverlapReport> {
-  const body = await request<Record<string, unknown>>("GET", `${p(projectId)}/overlap`);
-  const items = Array.isArray(body?.items) ? (body.items as Record<string, unknown>[]) : [];
+// --- quality ---------------------------------------------------------------------------------
+
+const text = (value: unknown): string => (value == null ? "" : String(value));
+const nullableText = (value: unknown): string | null => (typeof value === "string" && value !== "" ? value : null);
+const list = (value: unknown): Record<string, unknown>[] =>
+  Array.isArray(value) ? value.filter((v): v is Record<string, unknown> => !!v && typeof v === "object") : [];
+const obj = (value: unknown): Record<string, unknown> => (value && typeof value === "object" ? (value as Record<string, unknown>) : {});
+
+function toRate(value: unknown): Rate {
+  const r = obj(value);
+  return { compared: toCount(r.compared), agreeing: toCount(r.agreeing), rate: typeof r.rate === "number" && Number.isFinite(r.rate) ? r.rate : null };
+}
+
+export function toDecision(value: unknown): QualityDecision {
+  const d = obj(value);
+  const decision = d.decision === "check" || d.decision === "recheck" ? d.decision : "first";
+  return { plot: text(d.plot), decision, comment: nullableText(d.comment), decidedBy: nullableText(d.decidedBy), decidedAt: toMillis(d.decidedAt) };
+}
+
+export function toNote(value: unknown): GuidanceNote {
+  const n = obj(value);
   return {
-    plots: toCount(body?.plots),
-    differing: toCount(body?.differing),
-    items: items.map((item) => ({
-      recordKey: String(item.recordKey ?? ""),
-      operators: strings(item.operators),
-      fields: Array.isArray(item.fields)
-        ? item.fields.map((field: Record<string, unknown>) => {
-            const values = field?.values && typeof field.values === "object" ? (field.values as Record<string, unknown>) : {};
-            return {
-              key: String(field?.key ?? ""),
-              values: Object.fromEntries(Object.entries(values).map(([who, v]) => [who, v == null ? "" : String(v)])),
-            };
-          })
-        : [],
-    })),
+    id: text(n.id),
+    questionKey: text(n.questionKey),
+    firstValue: nullableText(n.firstValue),
+    checkValue: nullableText(n.checkValue),
+    text: text(n.text),
+    updatedBy: nullableText(n.updatedBy),
+    updatedAt: toMillis(n.updatedAt),
   };
+}
+
+function toMargins(value: unknown): Record<string, number> {
+  const margins: Record<string, number> = {};
+  for (const [key, v] of Object.entries(obj(value))) {
+    if (typeof v === "number" && Number.isFinite(v)) margins[key] = v;
+  }
+  return margins;
+}
+
+/** The Quality tab's figures from the server's answer, with every list present. */
+export function toQualityData(body: unknown): QualityData {
+  const b = obj(body);
+  const beyond = obj(b.beyondOutline);
+  return {
+    plotsChecked: toCount(b.plotsChecked),
+    plotsDiffering: toCount(b.plotsDiffering),
+    questions: list(b.questions).map((q) => ({
+      ...toRate(q),
+      key: text(q.key),
+      label: text(q.label) || text(q.key),
+      kind: q.kind === "number" ? "number" : "choice",
+      margin: typeof q.margin === "number" && Number.isFinite(q.margin) ? q.margin : null,
+    })),
+    confusions: list(b.confusions).map((c) => ({ key: text(c.key), first: text(c.first), check: text(c.check), count: toCount(c.count), plots: strings(c.plots) })),
+    people: list(b.people).map((person) => ({
+      username: text(person.username),
+      asFirst: toRate(person.asFirst),
+      asChecker: toRate(person.asChecker),
+      weakest: list(person.weakest).map((w) => ({
+        key: text(w.key),
+        rate: typeof w.rate === "number" && Number.isFinite(w.rate) ? w.rate : null,
+        compared: toCount(w.compared),
+        differing: toCount(w.differing),
+      })),
+    })),
+    weeks: list(b.weeks).map((w) => ({ week: text(w.week), compared: toCount(w.compared), agreeing: toCount(w.agreeing) })),
+    differences: list(b.differences).map((d) => {
+      const first = obj(d.first);
+      const check = obj(d.check);
+      return {
+        plot: text(d.plot),
+        first: { operator: text(first.operator), recordKey: text(first.recordKey) },
+        check: { operator: text(check.operator), recordKey: text(check.recordKey) },
+        fields: list(d.fields).map((f) => ({ key: text(f.key), first: text(f.first), check: text(f.check) })),
+      };
+    }),
+    problems: list(b.problems).map((pr) => ({ kind: text(pr.kind), plot: text(pr.plot), recordKey: text(pr.recordKey), operator: text(pr.operator) })),
+    problemsTotal: toCount(b.problemsTotal ?? b.problems),
+    beyondOutline: { count: toCount(beyond.count), keys: strings(beyond.keys) },
+    decisions: list(b.decisions).map(toDecision),
+    notes: list(b.notes).map(toNote),
+    margins: toMargins(obj(b.settings).margins),
+    computedAt: toMillis(b.computedAt),
+    stale: b.stale === true,
+  };
+}
+
+/** The quality figures. A 503 "busy" (other projects' figures being worked out) is thrown as ApiError code "busy". */
+export async function getQuality(projectId: string): Promise<QualityData> {
+  return toQualityData(await request<unknown>("GET", `${p(projectId)}/quality`));
+}
+
+/** Replaces the number margins (percent, by margin key); returns them as saved. */
+export async function saveQualityMargins(projectId: string, margins: Record<string, number>): Promise<Record<string, number>> {
+  const body = await request<{ margins?: unknown }>("PUT", `${p(projectId)}/quality/settings`, { json: { margins } });
+  return toMargins(body?.margins);
+}
+
+const decisionPath = (projectId: string, plot: string) => `${p(projectId)}/quality/decisions/${encodeURIComponent(plot)}`;
+
+export async function setQualityDecision(projectId: string, plot: string, decision: DecisionKind, comment: string): Promise<QualityDecision> {
+  const json = comment.trim() ? { decision, comment: comment.trim() } : { decision };
+  return toDecision(await request<unknown>("PUT", decisionPath(projectId, plot), { json }));
+}
+
+/** Undoes a decision (a decision already gone counts as undone). */
+export async function deleteQualityDecision(projectId: string, plot: string): Promise<void> {
+  try {
+    await send("DELETE", decisionPath(projectId, plot));
+  } catch (error) {
+    if (!(error instanceof ApiError && error.status === 404)) throw error;
+  }
+}
+
+const notesPath = (projectId: string) => `${p(projectId)}/quality/notes`;
+
+export async function createGuidanceNote(projectId: string, note: GuidanceNoteInput): Promise<GuidanceNote> {
+  return toNote(await request<unknown>("POST", notesPath(projectId), { json: note }));
+}
+
+export async function updateGuidanceNote(projectId: string, id: string, note: GuidanceNoteInput): Promise<GuidanceNote> {
+  return toNote(await request<unknown>("PUT", `${notesPath(projectId)}/${encodeURIComponent(id)}`, { json: note }));
+}
+
+/** Deletes a note (one already gone counts as deleted). */
+export async function deleteGuidanceNote(projectId: string, id: string): Promise<void> {
+  try {
+    await send("DELETE", `${notesPath(projectId)}/${encodeURIComponent(id)}`);
+  } catch (error) {
+    if (!(error instanceof ApiError && error.status === 404)) throw error;
+  }
+}
+
+/** Where some plots are (the ones in no plot file are left out). */
+export async function getPlotPlaces(projectId: string, plots: string[]): Promise<PlotPlace[]> {
+  if (plots.length === 0) return [];
+  const body = await request<{ places?: unknown }>("POST", `${p(projectId)}/quality/places`, { json: { plots } });
+  return list(body?.places)
+    .map((place) => ({ plot: text(place.plot), lat: Number(place.lat), lon: Number(place.lon) }))
+    .filter((place) => Number.isFinite(place.lat) && Number.isFinite(place.lon));
 }
 
 // --- data ------------------------------------------------------------------------------------

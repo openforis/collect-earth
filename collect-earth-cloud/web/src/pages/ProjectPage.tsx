@@ -16,6 +16,7 @@ import { OverviewTab } from "../project/OverviewTab";
 import { PeopleTab } from "../project/PeopleTab";
 import { PlotFilePage } from "../project/PlotFilePage";
 import { PlotsTab } from "../project/PlotsTab";
+import { QualityTab } from "../project/QualityTab";
 import { SettingsTab } from "../project/SettingsTab";
 import { linkProps, navigate, pathFor, PROJECT_TABS, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
@@ -26,6 +27,7 @@ const TAB_LABELS = {
   people: "tab.people",
   plots: "tab.plots",
   data: "tab.data",
+  quality: "tab.quality",
   settings: "tab.settings",
 } as const;
 
@@ -83,7 +85,8 @@ export function ProjectPage({ projectId, tab, fileId }: { projectId: string; tab
     file: <FileTab projectId={projectId} />,
     people: <PeopleTab projectId={projectId} />,
     plots: fileId ? <PlotFilePage key={fileId} projectId={projectId} fileId={fileId} onGo={go} /> : <PlotsTab projectId={projectId} onGo={go} />,
-    data: <DataTab projectId={projectId} />,
+    data: <DataTab projectId={projectId} onGo={go} />,
+    quality: <QualityTab projectId={projectId} />,
     settings: <SettingsTab projectId={projectId} name={info.name} onRenamed={(name) => project.setData({ ...info, name })} />,
   }[tab];
 

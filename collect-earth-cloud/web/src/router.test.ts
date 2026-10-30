@@ -14,6 +14,7 @@ describe("matchRoute", () => {
     ["/server", { name: "server" }],
     ["/projects/p-1", { name: "project", projectId: "p-1", tab: "overview" }],
     ["/projects/p-1/people", { name: "project", projectId: "p-1", tab: "people" }],
+    ["/projects/p-1/quality", { name: "project", projectId: "p-1", tab: "quality" }],
     ["/projects/p-1/plots?x=1", { name: "project", projectId: "p-1", tab: "plots" }],
     ["/projects/p-1/plots/f-9", { name: "plotFile", projectId: "p-1", fileId: "f-9" }],
     ["/join/AbC_123", { name: "join", token: "AbC_123" }],

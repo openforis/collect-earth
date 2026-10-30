@@ -2100,6 +2100,77 @@ Google Earth link.
 
 Commit: "Collect Earth Cloud dashboard: a Quality tab for following agreement, mixed-up answers and differences".
 
+**As built (differs from the above)**
+- **Files.** `web/src/project/QualityTab.tsx` (load, stale/busy, sections 1-5 and 8),
+  `QualityDifferences.tsx` (6), `QualityNotes.tsx` (7 and the note editor), pure helpers
+  in `web/src/qualityView.ts` (tested in `qualityView.test.ts`). API functions in `api.ts`:
+  `getQuality` (`toQualityData`: every list present, `settings.margins` as `margins`),
+  `saveQualityMargins`, `setQualityDecision`, `deleteQualityDecision`,
+  `createGuidanceNote`, `updateGuidanceNote`, `deleteGuidanceNote`, `getPlotPlaces`.
+  A 404 on deleting a decision or note counts as done. `busy` and `quality_failed` have
+  their own sentences (`errorMessageKey`). `getOverlap` and its test are gone from the
+  dashboard (the server's `GET /overlap` is still there, unused by the dashboard now).
+- **Stale and busy.** `stale: true` shows "Figures from <computedAt>; newer ones are being
+  worked out" and fetches again after 5 s (keeping the page as it is); a 503 `busy` with no
+  figures yet says "being worked out for other projects" with a "Try again", and retries
+  by itself after 10 s (the Retry-After). Saving the margins fetches the figures again.
+- **The Data tab** keeps a "Quality check" card with one sentence and an "Open the Quality
+  tab" button; its old `data.check*` texts were removed.
+- **Counts are checks.** "82% agree (41 of 50 checks)"; below 20, "Too few checks to judge
+  (12 of 20)" (`rateText`, `MIN_CHECKS`). Only the two headline figures count plots.
+- **Agreement by question:** a table, with the text and a bar under it in each row. One
+  hue (`#2f7d4a`, a step of the theme green: the theme's `#2e6b3f` fails the dataviz
+  validator's chroma floor as a mark) on a light track of the same hue, square at the
+  baseline and rounded at the end; no bar when there is no rate. A number row says "Numbers
+  agree within 10%". **Margins** are a small list under the table (`marginRows`): one row per
+  `marginKey`, so an indexed entity's question is shown once, labelled without its number
+  ("Tree: Height") and "One margin for every entry of Tree", with its value read from
+  `settings.margins` under the `[*]` key, then the margin the figures used, then 10. Saving
+  sends every margin shown (the server replaces the set). The demo survey has no indexed
+  entity, so that path is covered by the helper tests only.
+- **Mixed-up answers:** a question select (questions with mix-ups, most frequent first),
+  then First assessment / Check / Times, with "Show plots" and "Write a note" (or "Edit the
+  note" when a note already names that question and pair). Answers are codes, as the
+  figures give them (no code labels are sent); blank is "(no answer)".
+- **Agreement by person:** a table at least 680 px wide, so it scrolls inside its frame on a
+  phone, with the rate and bar for both roles and the weakest questions as
+  "Land Use 2025: 9 of 40 different" (both roles counted, as the server does).
+- **Over time:** a line chart drawn at the container's real width (`ResizeObserver`), so its
+  12 px text stays readable on a phone: 0/50/100 % gridlines, first and last week labelled,
+  a readout line above the chart (the last week, or the hovered/focused one, with a
+  crosshair), hit areas of a whole week band, and a "Chart / Table" switch. Weeks show their
+  share even below 20 checks (the table gives the counts); geometry in `weekChart`.
+- **Differences:** grouped by plot (`groupDifferences`: a plot checked twice is one card with
+  both checks), 10 plots a page with a pager (the page moves to the section's top), and
+  "Hide the plots already decided". Each card: "Plot <unit>", "Open in Google Earth"
+  (`https://earth.google.com/web/search/<lat>,<lon>`), who did the first assessment and
+  the check, a fixed-width Question / First / Check table, and either a comment field with
+  the three decision buttons or the decision, its comment, who and when, and "Undo".
+- **Coordinates: a new server route.** No route gave a plot's place, so
+  `src/routes/plotPlaces.ts` adds `POST /v1/projects/:pid/quality/places`
+  `{ plots: string[] }` (admin; 1-200 ids of 1-1000 characters) →
+  `{ places: [{ plot, lat, lon }] }`, read-only from the plot files through `plotFileOf`
+  (no store change; it works under RLS as the app role, as `listCsvFiles`/`getCsvFile`
+  do). As Collect Earth reads them (`KmlGenerator.getPlotObject`): latitude in the column
+  after the `fileKeyCount` key columns, longitude in the next, a decimal comma read as a
+  point, kept only when both are numbers within ±90/±180. A plot in several files takes
+  the first file listed; plots in no file are left out. It is registered from
+  `registerQualityRoutes` (one line in `routes/quality.ts`), so `server.ts` is unchanged.
+  Tests: `test/plotPlaces.test.ts`. The dashboard asks for the plots of the page shown.
+- **Guidance notes:** a list (question label, "first → check" or "any answer"), Edit, and
+  Delete with an inline confirmation; "Add a note" opens the editor (question select,
+  optional answers, text up to 2000). Saved notes are kept in the server's order.
+- **Data problems:** an accordion, closed, titled with `problemsTotal`; one plain sentence
+  per kind (`problemMessageKey`, a general one for a kind the dashboard does not know),
+  "Only the first N of M", and the `beyondOutline` count.
+- **AI assistant:** only a placeholder comment where Task 18's section goes.
+- **Checked in Chrome** (memory store, the id-only demo CEP, 3 collectors, 120 plots
+  divided with 50 % copies, 180 records and one for a plot in no file) at 390 px and
+  1280 px: every section, a decision and its undo, a note from a mix-up, saving a margin
+  (the figures came back with the new margin), the pager, Spanish texts, no page-wide
+  horizontal scroll and no console errors. The dashboard has no dark theme; the colours were
+  checked on the light one only.
+
 ### Task 18: AI assistant panel, reports pages, settings
 
 - **Quality tab, AI section** (only when `aiAvailable` and the project's AI is
