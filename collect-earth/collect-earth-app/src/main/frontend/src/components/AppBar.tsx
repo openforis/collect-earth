@@ -11,6 +11,7 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
 import ListSubheader from "@mui/material/ListSubheader";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
@@ -21,9 +22,9 @@ import Typography from "@mui/material/Typography";
 import MenuIcon from "@mui/icons-material/Menu";
 import PersonIcon from "@mui/icons-material/Person";
 import logo from "../form/collect-earth-logo.png";
-import { ApiError, apiPut } from "../apiClient";
+import { apiPut } from "../apiClient";
 import type { AppInfo } from "../appInfo";
-import { actionOf, comingSoon, operatorRequired, quitServer, type AppAction } from "../appBar";
+import { actionOf, comingSoon, errorText, operatorRequired, quitServer, type AppAction } from "../appBar";
 import { useT } from "../i18n";
 import { appMenus, type MenuItem as AppMenuItem } from "../menus";
 import { serverText, type Texts } from "../serverTexts";
@@ -37,9 +38,6 @@ interface Props {
   compact: boolean;
 }
 
-/** The message of an error as the user should see it: the API's own (already in the UI language), or the error's. */
-const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
 /**
  * The bar over the page: the menus of the Swing window (menus.ts), the operator and Quit. It also asks for the operator
  * when there is none, as the Swing window did at start-up, and once Collect Earth quits it covers the page, which can
@@ -52,11 +50,13 @@ export function AppBar({ info, texts, reload, compact }: Props) {
   // The menu open and the button it hangs from; the id is null for the single menu of the compact bar
   const [open, setOpen] = useState<{ anchor: HTMLElement; id: string | null } | null>(null);
   const [operatorOpen, setOperatorOpen] = useState(false);
-  // Saved, the operator is no longer missing, even before /api/app is read again: the dialog closes at once
-  const [operatorSaved, setOperatorSaved] = useState(false);
+  // The operator just saved, shown (and no longer missing) at once, until /api/app is read again
+  const [savedOperator, setSavedOperator] = useState<string | null>(null);
+  useEffect(() => setSavedOperator(null), [info]);
+  const operator = savedOperator ?? info.operator;
   const [quitOpen, setQuitOpen] = useState(false);
   const [closed, setClosed] = useState(false);
-  const forced = operatorRequired(info) && !operatorSaved;
+  const forced = operatorRequired({ ...info, operator });
 
   // What each action does; typed by AppAction, so an action added to appBar.ts and not handled here does not compile
   const actions: Record<AppAction, () => void> = { quit: () => setQuitOpen(true) };
@@ -68,18 +68,15 @@ export function AppBar({ info, texts, reload, compact }: Props) {
 
   const entry = (item: AppMenuItem): ReactNode => {
     if (!comingSoon(item)) return <MenuItem key={item.id} onClick={() => run(item)}>{s(item.label)}</MenuItem>;
-    // A disabled entry gets no pointer events, so the tooltip hangs from a wrapper around it
+    // "Coming soon" is written under the entry, not in a tooltip: a disabled entry gets no pointer events, and a
+    // tooltip would need a wrapper, which is no item of the list for the keyboard or a screen reader
     return (
-      <Tooltip key={item.id} title={t("appBar.comingSoon")} placement="right">
-        <Box component="span" sx={{ display: "block" }}>
-          <MenuItem disabled>
-            {item.kind === "toggle" && (
-              <ListItemIcon><Checkbox disabled size="small" sx={{ p: 0 }} /></ListItemIcon>
-            )}
-            {s(item.label)}
-          </MenuItem>
-        </Box>
-      </Tooltip>
+      <MenuItem key={item.id} disabled>
+        {item.kind === "toggle" && (
+          <ListItemIcon><Checkbox disabled size="small" sx={{ p: 0 }} /></ListItemIcon>
+        )}
+        <ListItemText primary={s(item.label)} secondary={t("appBar.comingSoon")} />
+      </MenuItem>
     );
   };
 
@@ -89,7 +86,9 @@ export function AppBar({ info, texts, reload, compact }: Props) {
     <MuiAppBar position="static" color="default" elevation={1}>
       <Toolbar variant="dense" sx={{ gap: 1, px: { xs: 1, sm: 1.5 } }}>
         {compact && (
-          <IconButton edge="start" aria-label={t("appBar.menu")} onClick={(e) => setOpen({ anchor: e.currentTarget, id: null })}>
+          <IconButton edge="start" aria-label={t("appBar.menu")} id="app-menu-button-all" aria-haspopup="menu"
+            aria-controls={open?.id === null ? "app-menu" : undefined} aria-expanded={open?.id === null}
+            onClick={(e) => setOpen({ anchor: e.currentTarget, id: null })}>
             <MenuIcon />
           </IconButton>
         )}
@@ -103,6 +102,8 @@ export function AppBar({ info, texts, reload, compact }: Props) {
         )}
         {!compact && menus.map((menu) => (
           <Button key={menu.id} color="inherit" size="small" sx={{ flexShrink: 0 }} aria-haspopup="menu"
+            id={"app-menu-button-" + menu.id} aria-controls={open?.id === menu.id ? "app-menu" : undefined}
+            aria-expanded={open?.id === menu.id}
             onClick={(e) => setOpen({ anchor: e.currentTarget, id: menu.id })}>
             {s(menu.label)}
           </Button>
@@ -110,19 +111,20 @@ export function AppBar({ info, texts, reload, compact }: Props) {
         <Box sx={{ flex: 1 }} />
         <Tooltip title={s("CollectEarthWindow.66")}>
           <Chip icon={<PersonIcon />} size="small" variant="outlined" onClick={() => setOperatorOpen(true)}
-            label={info.operator || s("CollectEarthWindow.26")} sx={{ maxWidth: compact ? 140 : 240 }} />
+            label={operator || s("CollectEarthWindow.26")} sx={{ maxWidth: compact ? 140 : 240 }} />
         </Tooltip>
       </Toolbar>
 
-      <Menu anchorEl={open?.anchor} open={open !== null} onClose={() => setOpen(null)}>
+      <Menu id="app-menu" anchorEl={open?.anchor} open={open !== null} onClose={() => setOpen(null)}
+        slotProps={{ list: { "aria-labelledby": "app-menu-button-" + (open?.id ?? "all") } }}>
         {open?.id == null
           ? menus.flatMap((menu) => [<ListSubheader key={"menu." + menu.id}>{s(menu.label)}</ListSubheader>, ...menu.items.map(entry)])
           : menus.find((m) => m.id === open.id)?.items.map(entry)}
       </Menu>
 
-      <OperatorDialog open={forced || operatorOpen} forced={forced} info={info} texts={texts}
+      <OperatorDialog open={forced || operatorOpen} forced={forced} operator={operator} texts={texts}
         onCancel={() => setOperatorOpen(false)}
-        onSaved={() => { setOperatorSaved(true); setOperatorOpen(false); reload(); }}
+        onSaved={(name) => { setSavedOperator(name); setOperatorOpen(false); reload(); }}
         onQuit={() => setQuitOpen(true)} />
       <QuitDialog open={quitOpen} texts={texts} onKeepOpen={() => setQuitOpen(false)} onClosed={() => setClosed(true)} />
     </MuiAppBar>
@@ -133,9 +135,9 @@ export function AppBar({ info, texts, reload, compact }: Props) {
  * The operator, written in each record. Without one (forced) the dialog cannot be closed: it takes a valid name, or
  * Quit, as the Swing window could not be used before.
  */
-function OperatorDialog({ open, forced, info, texts, onCancel, onSaved, onQuit }: {
-  open: boolean; forced: boolean; info: AppInfo; texts: Texts | null;
-  onCancel: () => void; onSaved: () => void; onQuit: () => void;
+function OperatorDialog({ open, forced, operator, texts, onCancel, onSaved, onQuit }: {
+  open: boolean; forced: boolean; operator: string | null; texts: Texts | null;
+  onCancel: () => void; onSaved: (operator: string) => void; onQuit: () => void;
 }) {
   const t = useT();
   const s = (key: string) => serverText(texts, key);
@@ -144,17 +146,18 @@ function OperatorDialog({ open, forced, info, texts, onCancel, onSaved, onQuit }
   const [saving, setSaving] = useState(false);
   // Each opening starts from the operator there is
   useEffect(() => {
-    if (open) { setValue(info.operator ?? ""); setError(null); }
-  }, [open, info.operator]);
+    if (open) { setValue(operator ?? ""); setError(null); }
+  }, [open, operator]);
 
   const save = (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError(null);
-    apiPut("app/operator", { operator: value.trim() })
-      .then(onSaved)
+    const name = value.trim();
+    apiPut("app/operator", { operator: name })
+      .then(() => onSaved(name))
       // The API's refusals (operator.length, operator.cloud) come with their message in the UI language
-      .catch((err) => setError(err instanceof ApiError ? err.message : messageOf(err)))
+      .catch((err) => setError(errorText(err, t("appBar.unreachable"))))
       .finally(() => setSaving(false));
   };
 
@@ -194,7 +197,7 @@ function QuitDialog({ open, texts, onKeepOpen, onClosed }: {
 
   const quit = () => {
     setQuitting(true);
-    quitServer().then(onClosed, (e) => { setError(messageOf(e)); setQuitting(false); });
+    quitServer().then(onClosed, (e) => { setError(errorText(e, "")); setQuitting(false); });
   };
 
   return (

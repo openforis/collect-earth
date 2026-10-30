@@ -138,6 +138,7 @@ const en = {
   "appBar.comingSoon": "Coming soon",
   "appBar.cancel": "Cancel",
   "appBar.closed": "Collect Earth has been closed. You can close this window.",
+  "appBar.unreachable": "Collect Earth could not be reached. Check that it is still running and try again.",
   "home.hint": "The plots are open in Google Earth Pro: click a plot there to enter its data. This page shows how the work is going.",
 };
 
@@ -278,6 +279,7 @@ const es: Catalogue = {
   "appBar.comingSoon": "Próximamente",
   "appBar.cancel": "Cancelar",
   "appBar.closed": "Collect Earth se ha cerrado. Puede cerrar esta ventana.",
+  "appBar.unreachable": "No se pudo contactar con Collect Earth. Compruebe que sigue en marcha e inténtelo de nuevo.",
   "home.hint": "Las parcelas están abiertas en Google Earth Pro: haga clic en una parcela allí para introducir sus datos. Esta página muestra cómo avanza el trabajo.",
 };
 
@@ -415,6 +417,7 @@ const fr: Catalogue = {
   "appBar.comingSoon": "Bientôt disponible",
   "appBar.cancel": "Annuler",
   "appBar.closed": "Collect Earth a été fermé. Vous pouvez fermer cette fenêtre.",
+  "appBar.unreachable": "Impossible de joindre Collect Earth. Vérifiez qu'il est toujours ouvert et réessayez.",
   "home.hint": "Les parcelles sont ouvertes dans Google Earth Pro : cliquez sur une parcelle pour en saisir les données. Cette page montre où en est le travail.",
 };
 
@@ -552,6 +555,7 @@ const pt: Catalogue = {
   "appBar.comingSoon": "Em breve",
   "appBar.cancel": "Cancelar",
   "appBar.closed": "O Collect Earth foi fechado. Pode fechar esta janela.",
+  "appBar.unreachable": "Não foi possível contactar o Collect Earth. Verifique se continua em execução e tente novamente.",
   "home.hint": "As parcelas estão abertas no Google Earth Pro: clique numa parcela para introduzir os seus dados. Esta página mostra o andamento do trabalho.",
 };
 

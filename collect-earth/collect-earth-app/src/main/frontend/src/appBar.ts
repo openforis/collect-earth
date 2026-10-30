@@ -38,3 +38,12 @@ export async function quitServer(post: () => Promise<unknown> = () => apiPost("a
     throw e;
   }
 }
+
+/**
+ * The message of an error as the user should see it: the API's own, already in the UI language, or, for a server that
+ * could not be reached, the text given (the browser's "Failed to fetch" says nothing to the user).
+ */
+export function errorText(e: unknown, unreachable: string): string {
+  if (e instanceof ApiError && e.code === "network" && unreachable) return unreachable;
+  return e instanceof Error ? e.message : String(e);
+}

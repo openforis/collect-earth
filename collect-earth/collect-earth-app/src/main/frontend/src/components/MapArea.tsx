@@ -97,7 +97,7 @@ function MapButton({ title, onClick, disabled, testId, children }: {
 }
 
 /** Banner text: a translated key (params that are keys are translated too), or a server text. */
-function bannerText(banner: NonNullable<UiState["banner"]>, t: Translate): string {
+export function bannerText(banner: NonNullable<UiState["banner"]>, t: Translate): string {
   if (!banner.key) return banner.text ?? "";
   const params: Record<string, string> = {};
   for (const [name, value] of Object.entries(banner.params ?? {})) params[name] = isMessageKey(value) ? t(value) : value;

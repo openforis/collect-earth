@@ -1,6 +1,8 @@
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import LinearProgress from "@mui/material/LinearProgress";
 import Paper from "@mui/material/Paper";
+import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { UiState } from "../controller";
@@ -9,6 +11,7 @@ import { statusCounts } from "../home";
 import { useT } from "../i18n";
 import type { PlotStatus } from "../types";
 import { StatusDot } from "./common";
+import { bannerText } from "./MapArea";
 
 /**
  * The page without a map, for the Google Earth Pro viewer: the plots are in Google Earth Pro, where their data is
@@ -24,13 +27,17 @@ export function HomePage({ info, state }: { info: AppInfo | null; state: UiState
     <Box sx={{ height: "100%", overflow: "auto", display: "flex", justifyContent: "center", alignItems: "flex-start", p: { xs: 2, sm: 4 } }}>
       <Stack spacing={3} sx={{ width: "100%", maxWidth: 720, mt: { xs: 2, sm: 6 } }} data-testid="home">
         <Box>
-          <Typography variant="h4" component="h1" sx={{ fontWeight: 600, wordBreak: "break-word" }}>
-            {info?.project ?? ""}
-          </Typography>
+          {info
+            ? <Typography variant="h4" component="h1" sx={{ fontWeight: 600, wordBreak: "break-word" }}>{info.project}</Typography>
+            : <Skeleton variant="text" width="60%" sx={{ fontSize: "2.125rem" }} />}
           {info?.operator && <Typography variant="subtitle1" color="text.secondary">{info.operator}</Typography>}
         </Box>
+        {/* Why there are no plots: no survey loaded, or a load that failed and is tried again (the controller's banner) */}
+        {state.banner && (
+          <Alert severity={state.banner.severity} role="status" data-testid="banner">{bannerText(state.banner, t)}</Alert>
+        )}
         <Paper variant="outlined" sx={{ p: 3 }}>
-          {state.loaded ? (
+          {state.loaded && state.order.length > 0 ? (
             <Stack spacing={2}>
               <Typography variant="body1">{t("progress", { saved: counts.saved, total: counts.total, pct })}</Typography>
               <LinearProgress variant="determinate" value={pct} aria-label={t("completedPlots")}
@@ -47,6 +54,8 @@ export function HomePage({ info, state }: { info: AppInfo | null; state: UiState
                 ))}
               </Stack>
             </Stack>
+          ) : state.loaded || state.banner ? (
+            <Typography variant="body2" color="text.secondary">{t("noPlots")}</Typography>
           ) : (
             <Stack spacing={1}>
               <Typography variant="body2" color="text.secondary">{t("loading")}</Typography>

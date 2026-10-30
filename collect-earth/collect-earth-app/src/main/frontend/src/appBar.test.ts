@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "./apiClient";
-import { actionOf, comingSoon, operatorRequired, quitServer } from "./appBar";
+import { actionOf, comingSoon, errorText, operatorRequired, quitServer } from "./appBar";
 import type { AppInfo } from "./appInfo";
 import { appMenus } from "./menus";
 
@@ -35,5 +35,13 @@ describe("app bar", () => {
     await expect(quitServer(() => Promise.resolve(undefined))).resolves.toBeUndefined();
     await expect(quitServer(() => Promise.reject(new ApiError("network", "Failed to fetch", 0)))).resolves.toBeUndefined();
     await expect(quitServer(() => Promise.reject(new ApiError("http.500", "Boom", 500)))).rejects.toThrow("Boom");
+  });
+});
+
+describe("errorText", () => {
+  it("says the server could not be reached, rather than the browser's words", () => {
+    expect(errorText(new ApiError("network", "Failed to fetch", 0), "Unreachable")).toBe("Unreachable");
+    expect(errorText(new ApiError("operator.length", "Too short", 400), "Unreachable")).toBe("Too short");
+    expect(errorText(new Error("Boom"), "Unreachable")).toBe("Boom");
   });
 });

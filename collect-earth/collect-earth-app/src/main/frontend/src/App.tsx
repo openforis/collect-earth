@@ -54,8 +54,8 @@ export function App({ controller }: { controller: MapController }) {
   return (
     <I18nContext.Provider value={t}>
     <Box sx={{ display: "flex", flexDirection: "column", height: "100vh", bgcolor: "background.default" }}>
-    {/* Once /api/app is read: until then the bar would have no project, operator or menus to show */}
-    {info && <AppBar info={info} texts={texts} reload={reloadInfo} compact={IN_PANEL || width < COMPACT_BAR_WIDTH * scale} />}
+    {/* Once /api/app and the texts are read: until then the bar would have no project or operator, and no labels */}
+    {info && texts && <AppBar info={info} texts={texts} reload={reloadInfo} compact={IN_PANEL || width < COMPACT_BAR_WIDTH * scale} />}
     <Box sx={{ flex: 1, minHeight: 0 }}>
     {IN_HOME ? <HomePage info={info} state={state} /> : (
     <Box sx={{ display: "flex", height: "100%", overflow: "hidden" }}>
@@ -107,6 +107,8 @@ function useShortcuts(controller: MapController, showList: () => void, enabled: 
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
+      // Nor in a dialog of the app bar, whose keys are its own
+      if (target?.closest?.("[role=\"dialog\"]")) return;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
         if (e.key === "Escape") target.blur();
         return;
