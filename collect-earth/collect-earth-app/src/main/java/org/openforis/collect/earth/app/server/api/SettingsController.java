@@ -10,6 +10,7 @@ import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.BackupSqlLiteService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.settings.SampleFileCheck;
 import org.openforis.collect.earth.app.service.settings.SettingsService;
 import org.openforis.collect.earth.app.service.settings.SettingsService.InvalidSettingsException;
 import org.openforis.collect.earth.app.view.Messages;
@@ -50,24 +51,30 @@ public class SettingsController {
 		public String token;
 	}
 
+	public static class FileRequest {
+		public String path;
+	}
+
 	private final SettingsService settings;
+	private final SampleFileCheck sampleFile;
 	private final Supplier<String> backupFolder;
 	private final Supplier<String> computerIp;
 	private final Function<DatabaseRequest, String> testDatabase;
 	private final Function<CloudRequest, String> testCloud;
 
 	@Autowired
-	public SettingsController(SettingsService settings, BackupSqlLiteService backup) {
-		this(settings, () -> backup.getAutomaticBackUpFolder().getAbsolutePath(), CollectEarthUtils::getComputerIp,
+	public SettingsController(SettingsService settings, SampleFileCheck sampleFile, BackupSqlLiteService backup) {
+		this(settings, sampleFile, () -> backup.getAutomaticBackUpFolder().getAbsolutePath(), CollectEarthUtils::getComputerIp,
 				request -> CollectEarthUtils.testPostgreSQLConnection(request.host, request.port, request.name, request.username,
 						request.password),
 				request -> CollectEarthUtils.testCloudConnection(request.url, request.projectId, request.token));
 	}
 
 	/** For the tests: the folder, the address and the connection tests stood in for. */
-	SettingsController(SettingsService settings, Supplier<String> backupFolder, Supplier<String> computerIp,
+	SettingsController(SettingsService settings, SampleFileCheck sampleFile, Supplier<String> backupFolder, Supplier<String> computerIp,
 			Function<DatabaseRequest, String> testDatabase, Function<CloudRequest, String> testCloud) {
 		this.settings = settings;
+		this.sampleFile = sampleFile;
 		this.backupFolder = backupFolder;
 		this.computerIp = computerIp;
 		this.testDatabase = testDatabase;
@@ -110,6 +117,12 @@ public class SettingsController {
 			answer.put("errors", e.getErrors());
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(answer);
 		}
+	}
+
+	/** The plots file the user picked, checked before it is applied (see SampleFileCheck). */
+	@PostMapping("/api/settings/sampleFile")
+	public Map<String, Object> sampleFile(@RequestBody FileRequest request) {
+		return sampleFile.check(request.path == null ? "" : request.path);
 	}
 
 	/** Tries the PostgreSQL connection with the values typed, not the stored ones, as the dialog's button did. */

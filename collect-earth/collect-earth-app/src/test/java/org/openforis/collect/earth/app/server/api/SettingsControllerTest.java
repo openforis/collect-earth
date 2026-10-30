@@ -11,7 +11,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -22,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.openforis.collect.earth.app.server.api.SettingsController.CloudRequest;
 import org.openforis.collect.earth.app.server.api.SettingsController.DatabaseRequest;
+import org.openforis.collect.earth.app.service.settings.SampleFileCheck;
 import org.openforis.collect.earth.app.service.settings.SettingsModel;
 import org.openforis.collect.earth.app.service.settings.SettingsService;
 import org.openforis.collect.earth.app.service.settings.SettingsService.InvalidSettingsException;
@@ -49,7 +54,8 @@ public class SettingsControllerTest {
 		current.put("csv", "C:/plots.csv");
 		current.put("db_driver", "SQLITE");
 		when(settings.current()).thenReturn(current);
-		SettingsController controller = new SettingsController(settings, () -> "C:/backup", () -> "192.168.1.5", request -> {
+		SampleFileCheck sampleFile = new SampleFileCheck(file -> null, () -> Arrays.asList("id", "YCoordinate", "XCoordinate"));
+		SettingsController controller = new SettingsController(settings, sampleFile, () -> "C:/backup", () -> "192.168.1.5", request -> {
 			databaseTested = request;
 			return connectionAnswer;
 		}, request -> {
@@ -124,6 +130,20 @@ public class SettingsControllerTest {
 		mvc.perform(post("/api/settings").contentType(MediaType.APPLICATION_JSON).content("{}"))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.restart").value(false));
 		verify(settings).save(Collections.emptyMap());
+	}
+
+	@Test
+	public void checksThePlotsFile() throws Exception {
+		File csv = File.createTempFile("plots", ".csv");
+		csv.deleteOnExit();
+		Files.write(csv.toPath(), Arrays.asList("id,YCoordinate,XCoordinate", "1,41.5,2.1", "2,41.6,2.2"), StandardCharsets.UTF_8);
+		mvc.perform(post("/api/settings/sampleFile").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"path\":" + "\"" + csv.getAbsolutePath().replace("\\", "\\\\") + "\"}"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.exists").value(true)).andExpect(jsonPath("$.plots").value(2))
+				.andExpect(jsonPath("$.foundColumns[1]").value("YCoordinate")).andExpect(jsonPath("$.expectedColumns", hasSize(3)))
+				.andExpect(jsonPath("$.problems", hasSize(0)));
+		mvc.perform(post("/api/settings/sampleFile").contentType(MediaType.APPLICATION_JSON).content("{\"path\":\"\"}"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.exists").value(false)).andExpect(jsonPath("$.problems[0].code").value("missing"));
 	}
 
 	@Test
