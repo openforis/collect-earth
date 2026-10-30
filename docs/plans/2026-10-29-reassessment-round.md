@@ -2762,6 +2762,54 @@ server's quality figures.**
   difference, `earth.properties` and `collectEarthDatabase.db` sha256 equal to the backup.
   Both backups are kept. Screenshots in the scratchpad's `t21b/` folder.
 
+**Fixed after the second run (2026-10-30):**
+- **The answers reach the server (13a388db).** `routes/records.ts` keeps a summary's string values
+  and leaves out, key by key, a null (an empty attribute: no answer) or any other non-string; a
+  summary that is not an object (an array included, which used to pass) is stored empty; the record
+  is always kept. `getValuesByHtmlParameters` is a `Map<String, String>`, so Collect Earth sends
+  strings and nulls only: nothing to convert. New caps (there were none but the 32 MB body limit):
+  2,000 keys, keys of 200 characters, values of 10,000 characters; what goes past a cap is left
+  out, never cut. Tests: a batch with nulls keeps the string answers, `/quality` then compares
+  them, `export.csv` has their columns. `quality.ts`, `export.ts` and the AI tools read
+  `Record<string, string>` and needed no change.
+- **What was lost, and how it comes back.** Every desktop upload before this fix whose record had
+  an empty attribute (in practice all of them) is stored with an empty summary `{}`; its XML is
+  complete. Collect Earth does **not** resend an unchanged record: `CloudSyncService` enqueues a
+  record when it is saved (the record-saved listener) and, every few minutes, the records saved
+  since the last reconciliation (`getRecordSummariesSavedSince(watermark)`, the watermark a row
+  `__reconciliation_watermark__` of `ce_cloud_sync_queue`). So a record gets its answers on the
+  server only when it is saved again. There is no "resend all" in the desktop. One is possible
+  without code: deleting the watermark row of the survey from `ce_cloud_sync_queue` makes the next
+  reconciliation enqueue every record (from the epoch), and the server overwrites on an equal
+  `modifiedOn` (`lww.ts`: an idempotent re-send), so the summaries are filled. Otherwise the server
+  could rebuild the summaries from the stored XML. The servers of this plan's checks held seeded or
+  test data only; any server that took real desktop uploads before this fix has these empty
+  summaries until each record is saved again or resent.
+- **Earth Map and the Earth Engine App are blind (f78e6eb2).** `BrowserService.openEarthMapURL`
+  names the polygon, and `openGEEAppURL` sets `plotId`, with the visible id
+  (`visiblePlotIdOf`: the placemark's visible id, else `KmlGenerator.getVisiblePlacemarkIdOf`;
+  "" without an id), so copy 101 is "Select a boundary: 101" and `plotId=101`. Nothing comes back
+  into Collect Earth from these windows (no endpoint reads an id from them; `/openAuxiliaryWindows`
+  and the Google Earth Web endpoints are called by Collect Earth's own pages with the full id), so
+  they need no more. The URLs are built by pure static helpers (`earthMapUrl`, `geeAppUrl`) tested
+  in `AuxiliaryWindowUrlTest`; the polygon's name is now escaped as a JSON string. `openExtraMap`'s
+  `PLOT_ID` still takes the first key value (`split(",")[0]`), which is the visible id for the
+  `[id, round]` keys, and was left as it was.
+- **The copy that could not be submitted: not about round.** Reproduced with Collect alone (a
+  scratch program on the served survey, `scratchpad/degr/Degr.java`): on a plot with land use F,
+  choosing forest dynamics "Degradation" makes `previous_tree_cover` and `degradation_year`
+  relevant and required, and the in-memory record's `getMissingErrors()` goes from 9 to 11; choosing
+  "No Changes" makes them not relevant again (their min count is OK) but the count stays at 11.
+  Collect's `RecordUpdater` does not take back the missing errors of nodes that stop being relevant;
+  a full `RecordUpdater.validate(record)` brings it back to 9. Since 0770ad00 (in master, 2026-10-28)
+  `AbstractEarthSurveyService.isComplete` counts `getMissingErrors()`, so the submit is refused,
+  while the form lists only visible fields in error and finds none: Submit does nothing, no error
+  shown. The stored XML of 105,2 is the same as 107,2's (submitted), and opening "No Changes"
+  directly works, which is why 107 and the main plots passed. It happens on any plot, main or copy,
+  in any survey with relevance like this; the working record stays wrong until it is reloaded.
+  Likely fix (not done here): revalidate the whole record (`recordUpdater.validate(record)`) before
+  `isComplete` in both save paths of `AbstractEarthSurveyService`.
+
 ### Task 22: one real Gemini run (only after the owner has set up Vertex)
 
 The owner sets the `AI_*` variables. Then:
