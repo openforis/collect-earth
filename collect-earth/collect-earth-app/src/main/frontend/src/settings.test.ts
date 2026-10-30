@@ -108,10 +108,14 @@ describe("search", () => {
     expect(matches(sections[1].fields[1], texts, "esri")).toBe(true);
     expect(matches(field("csv"), texts, "  ")).toBe(true);
   });
-  it("keeps only the sections with a field that matches", () => {
-    expect(sectionsMatching(sections, texts, "port").map((s) => [s.id, s.fields.map((f) => f.key)])).toEqual([["advanced", ["port"]]]);
-    expect(sectionsMatching(sections, texts, "")).toBe(sections);
-    expect(sectionsMatching(sections, texts, "nothing like it")).toEqual([]);
+  it("keeps only the sections with a shown field that matches", () => {
+    expect(sectionsMatching(sections, texts, "port", {}).map((s) => [s.id, s.fields.map((f) => f.key)])).toEqual([["advanced", ["port"]]]);
+    expect(sectionsMatching(sections, texts, "", {})).toBe(sections);
+    expect(sectionsMatching(sections, texts, "nothing like it", {})).toEqual([]);
+    // A field hidden for the values is not found: the section would show its title over nothing
+    const hidden: Section[] = [{ id: "storage", label: "Section.plot", hint: null, fields: [field("port", { visible: { key: "db_driver", in: ["POSTGRESQL"] } })] }];
+    expect(sectionsMatching(hidden, texts, "port", { db_driver: "SQLITE" })).toEqual([]);
+    expect(sectionsMatching(hidden, texts, "port", { db_driver: "POSTGRESQL" })).toHaveLength(1);
   });
 });
 

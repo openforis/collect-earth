@@ -145,7 +145,7 @@ export function SettingsPage({ texts, compact, onClose, onApplied }: Props) {
   const visibleErrors = fields.some((f) => isVisible(f, values) && errors[f.key] !== undefined);
   const fileBlocked = fileCheck !== null && !!values.csv && fileCheck.problems.some((p) => p.blocking);
   const restart = restartNeeded(fields, changed);
-  const matching = useMemo(() => sectionsMatching(sections, texts, query), [sections, texts, query]);
+  const matching = useMemo(() => sectionsMatching(sections, texts, query, values), [sections, texts, query, values]);
   const searching = query.trim() !== "";
 
   const apply = () => {
@@ -171,13 +171,13 @@ export function SettingsPage({ texts, compact, onClose, onApplied }: Props) {
 
   const renderField = (field: Field): ReactNode => {
     const props = {
-      key: field.key, field, value: values[field.key] ?? "", values, texts, error: errors[field.key], warning: validation?.warnings[field.key],
+      field, value: values[field.key] ?? "", values, texts, error: errors[field.key], warning: validation?.warnings[field.key],
       changed: isChanged(stored, values, field.key), onChange: (v: string) => change(field.key, v),
     };
     if (field.key === "csv") {
-      return <SampleFileCard {...props} check={fileCheck} checking={checkingFile} checkError={fileCheckError} />;
+      return <SampleFileCard key={field.key} {...props} check={fileCheck} checking={checkingFile} checkError={fileCheckError} />;
     }
-    return <SettingField {...props} />;
+    return <SettingField key={field.key} {...props} />;
   };
 
   const renderSection = (section: Section, withTitle: boolean) => {

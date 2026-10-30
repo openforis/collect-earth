@@ -130,11 +130,11 @@ export function matches(field: Field, texts: Texts | null, query: string): boole
   return [...labels, tooltip, ...(field.choices ?? []).map((c) => choiceLabel(c, texts))].some((t) => fold(t).includes(q));
 }
 
-/** The sections with only the fields that match the query; a section with none is left out. */
-export function sectionsMatching(sections: Section[], texts: Texts | null, query: string): Section[] {
+/** The sections with only the fields shown for the values that match the query; a section with none is left out. */
+export function sectionsMatching(sections: Section[], texts: Texts | null, query: string, values: Values): Section[] {
   if (!query.trim()) return sections;
   return sections
-    .map((s) => ({ ...s, fields: s.fields.filter((f) => matches(f, texts, query)) }))
+    .map((s) => ({ ...s, fields: s.fields.filter((f) => isVisible(f, values) && matches(f, texts, query)) }))
     .filter((s) => s.fields.length > 0);
 }
 

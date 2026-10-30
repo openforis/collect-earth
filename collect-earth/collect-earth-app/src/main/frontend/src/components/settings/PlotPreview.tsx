@@ -62,7 +62,7 @@ export function PlotPreview({ values, plot, texts }: { values: Values; plot: Plo
       {plot && (
         <Typography variant="body2">
           {s("OptionWizard.131")} {HECTARES.format(plot.plotAreaHa)}
-          {plot.referenceAreaHa != null && <>{"   "}{s("OptionWizard.1026")} {HECTARES.format(plot.referenceAreaHa)}</>}
+          {plot.referenceAreaHa != null && <>{" \u00b7 "}{s("OptionWizard.1026")} {HECTARES.format(plot.referenceAreaHa)}</>}
         </Typography>
       )}
       {drawing.randomPoints > 0 && (
