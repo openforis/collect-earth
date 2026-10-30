@@ -36,6 +36,8 @@ interface Props {
   reload: () => void;
   /** A narrow window, or Google Earth Web's panel: the menus go under one button, and the project name goes. */
   compact: boolean;
+  /** Opens the settings page (the Settings menu). */
+  onSettings: () => void;
 }
 
 /**
@@ -43,7 +45,7 @@ interface Props {
  * when there is none, as the Swing window did at start-up, and once Collect Earth quits it covers the page, which can
  * do nothing more.
  */
-export function AppBar({ info, texts, reload, compact }: Props) {
+export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const t = useT();
   const s = (key: string) => serverText(texts, key);
   const menus = useMemo(() => appMenus({ plotsMap: info.plotsMap }), [info.plotsMap]);
@@ -59,7 +61,7 @@ export function AppBar({ info, texts, reload, compact }: Props) {
   const forced = operatorRequired({ ...info, operator });
 
   // What each action does; typed by AppAction, so an action added to appBar.ts and not handled here does not compile
-  const actions: Record<AppAction, () => void> = { quit: () => setQuitOpen(true) };
+  const actions: Record<AppAction, () => void> = { quit: () => setQuitOpen(true), settings: onSettings };
   const run = (item: AppMenuItem) => {
     setOpen(null);
     const action = actionOf(item);

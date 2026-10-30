@@ -6,7 +6,7 @@ export interface MenuItem { id: string; label: string; enabled: boolean; kind?: 
 export interface Menu { id: string; label: string; items: MenuItem[] }
 
 // The entries built so far: the others show, disabled, until their stage of docs/plans/2026-10-28-html-ui-design.md
-const BUILT = new Set(["quit"]);
+const BUILT = new Set(["quit", "properties"]);
 
 const item = (id: string, label: string): MenuItem => ({ id, label, enabled: BUILT.has(id) });
 const toggle = (id: string, label: string): MenuItem => ({ ...item(id, label), kind: "toggle" });

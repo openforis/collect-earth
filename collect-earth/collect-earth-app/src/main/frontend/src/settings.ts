@@ -173,3 +173,8 @@ export function defaultsOf(section: Section, values: Values): Values {
 export function isChanged(stored: Values, current: Values, key: string): boolean {
   return (current[key] ?? "") !== (stored[key] ?? "");
 }
+
+/** A server text with its {0}, {1}... replaced, as MessageFormat would. */
+export function formatText(text: string, ...args: (string | number)[]): string {
+  return text.replace(/\{(\d+)\}/g, (match, i: string) => (args[Number(i)] === undefined ? match : String(args[Number(i)])));
+}

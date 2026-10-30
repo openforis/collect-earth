@@ -3,10 +3,10 @@ import type { AppInfo } from "./appInfo";
 import type { MenuItem } from "./menus";
 
 /** What an entry of the menus does. Each stage of the HTML UI adds its own here, as it builds them. */
-export type AppAction = "quit";
+export type AppAction = "quit" | "settings";
 
 // A Map, not an object: an entry called "constructor" would find a property of every object
-const ACTIONS = new Map<string, AppAction>([["quit", "quit"]]);
+const ACTIONS = new Map<string, AppAction>([["quit", "quit"], ["properties", "settings"]]);
 
 /** The action of an entry of the menus, or null for one that does nothing yet. */
 export function actionOf(item: MenuItem): AppAction | null {

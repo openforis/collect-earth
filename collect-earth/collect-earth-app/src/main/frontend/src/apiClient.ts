@@ -6,7 +6,8 @@ import { earthBase } from "./api";
  * pages can tell it from a refusal of the API; a success whose body is not JSON is the code "parse".
  */
 export class ApiError extends Error {
-  constructor(readonly code: string, message: string, readonly status: number) {
+  /** @param body what the server answered, for the errors some answers carry beyond the message (settings.invalid) */
+  constructor(readonly code: string, message: string, readonly status: number, readonly body?: Record<string, unknown>) {
     super(message);
     this.name = "ApiError";
   }
@@ -43,7 +44,7 @@ async function call<T>(method: string, path: string, body?: unknown, signal?: Ab
   const data = parse(await r.text());
   if (!r.ok) {
     const json = data !== null && typeof data === "object" ? data : {};
-    throw new ApiError(json.error ?? "http." + r.status, json.message ?? json.details ?? (r.statusText || "HTTP " + r.status), r.status);
+    throw new ApiError(json.error ?? "http." + r.status, json.message ?? json.details ?? (r.statusText || "HTTP " + r.status), r.status, json);
   }
   if (data === NOT_JSON) throw new ApiError("parse", "The answer of " + path + " is not JSON", r.status);
   return data as T;

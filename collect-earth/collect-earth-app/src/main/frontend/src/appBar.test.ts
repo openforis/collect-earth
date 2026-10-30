@@ -10,7 +10,7 @@ const info = (operator: string | null): AppInfo =>
 describe("app bar", () => {
   it("shows every entry that does nothing yet as coming soon", () => {
     const items = appMenus({ plotsMap: false }).flatMap((m) => m.items);
-    expect(items.filter((i) => !comingSoon(i)).map((i) => i.id)).toEqual(["quit"]);
+    expect(items.filter((i) => !comingSoon(i)).map((i) => i.id)).toEqual(["quit", "properties"]);
     // An entry enabled by menus.ts but with no action here yet is not offered either
     expect(comingSoon({ id: "about", label: "x", enabled: true })).toBe(true);
     expect(comingSoon({ id: "quit", label: "x", enabled: false })).toBe(true);
@@ -18,6 +18,7 @@ describe("app bar", () => {
 
   it("dispatches an entry to its action, and nothing for the others", () => {
     expect(actionOf({ id: "quit", label: "x", enabled: true })).toBe("quit");
+    expect(actionOf({ id: "properties", label: "x", enabled: true })).toBe("settings");
     expect(actionOf({ id: "about", label: "x", enabled: false })).toBeNull();
     // Not a property of every object
     expect(actionOf({ id: "constructor", label: "x", enabled: true })).toBeNull();

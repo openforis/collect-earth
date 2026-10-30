@@ -10,7 +10,7 @@ describe("appMenus", () => {
 
   it("only enables what is built", () => {
     const enabled = appMenus({ plotsMap: true }).flatMap((m) => m.items).filter((i) => i.enabled).map((i) => i.id);
-    expect(enabled).toEqual(["quit"]);
+    expect(enabled).toEqual(["quit", "properties"]);
   });
 
   it("offers to open the plots map only with the Google Earth Pro viewer", () => {

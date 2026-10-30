@@ -16,6 +16,7 @@ import { AppBar } from "./components/AppBar";
 import { useServerTexts } from "./serverTexts";
 import { IN_HOME } from "./home";
 import { HomePage } from "./components/HomePage";
+import { SettingsPage } from "./components/settings/SettingsPage";
 
 /**
  * Narrower than this, the map is not worth its room next to the form or the list: the window shows one pane at a
@@ -45,7 +46,10 @@ export function App({ controller }: { controller: MapController }) {
   // With no map, nothing else starts the controller (MapArea does, once its container is there): the home page needs it
   // for the statuses, which it polls from then on
   useEffect(() => { if (IN_PANEL || IN_HOME) controller.start(null); }, [controller]);
-  useShortcuts(controller, onePane ? () => setListShown(true) : () => controller.setSidebarCollapsed(false), !IN_HOME);
+  // The settings page over the map or the home page: the map stays laid out under it, so it needs no resize when it
+  // comes back, and the controller keeps its state
+  const [page, setPage] = useState<"main" | "settings">("main");
+  useShortcuts(controller, onePane ? () => setListShown(true) : () => controller.setSidebarCollapsed(false), !IN_HOME && page === "main");
   const t = useMemo(() => translator(state.language), [state.language]);
   useEffect(() => { document.documentElement.lang = state.language; }, [state.language]);
   const [info, reloadInfo] = useAppInfo();
@@ -55,8 +59,14 @@ export function App({ controller }: { controller: MapController }) {
     <I18nContext.Provider value={t}>
     <Box sx={{ display: "flex", flexDirection: "column", height: "100vh", bgcolor: "background.default" }}>
     {/* Once /api/app and the texts are read: until then the bar would have no project or operator, and no labels */}
-    {info && texts && <AppBar info={info} texts={texts} reload={reloadInfo} compact={IN_PANEL || width < COMPACT_BAR_WIDTH * scale} />}
-    <Box sx={{ flex: 1, minHeight: 0 }}>
+    {info && texts && <AppBar info={info} texts={texts} reload={reloadInfo} compact={IN_PANEL || width < COMPACT_BAR_WIDTH * scale}
+      onSettings={() => setPage("settings")} />}
+    <Box sx={{ flex: 1, minHeight: 0, position: "relative" }}>
+    {page === "settings" && (
+      <Box sx={{ position: "absolute", inset: 0, zIndex: 2, bgcolor: "background.default" }}>
+        <SettingsPage texts={texts} compact={width < COMPACT_BAR_WIDTH * scale} onClose={() => setPage("main")} onApplied={reloadInfo} />
+      </Box>
+    )}
     {IN_HOME ? <HomePage info={info} state={state} /> : (
     <Box sx={{ display: "flex", height: "100%", overflow: "hidden" }}>
       <GlobalStyles styles={{
