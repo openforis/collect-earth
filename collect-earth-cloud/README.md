@@ -192,7 +192,10 @@ The project is the tenant boundary. See §4b of the platform plan. Enforcement:
    `:pid` — a non-member cannot even confirm the project exists.
 2. **Postgres Row-Level Security** (`migrations/001_init.sql`): a second fence —
    each project-scoped query runs with `app.current_project` set, so even a query
-   that forgot its `project_id` filter cannot cross tenants.
+   that forgot its `project_id` filter cannot cross tenants. It binds the server only
+   when it runs as its own role, not the tables' owner (`MIGRATION_DATABASE_URL` for
+   the owner, as `deploy.sh` sets up; DEPLOY.md, "Row-Level Security and the database
+   role").
 3. **Isolation test gate** (`test/isolation.test.ts`): logs in as project A and
    asserts 404 against project B for every endpoint. New endpoints add a case here.
 

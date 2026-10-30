@@ -1336,11 +1336,49 @@ Commit: "Collect Earth Cloud: the AI assistant can be set up and switched on, by
     re-running 001 alone keeps them; the Task 10 trigger script (`pgfix10.mts`) and the
     Task 12 script unchanged.
 - **RLS in production** (DEPLOY.md, "Row-Level Security and the database role"): the
-  policies bind only a role that neither owns the tables nor is a superuser (no `FORCE
-  ROW LEVEL SECURITY`). `deploy.sh` connects as `ce`, the owner that runs the
-  migrations, so RLS is not enforced there. A separate app role is not supported yet:
-  `createProject`, `listMemberships` (project names) and the invite lookups use
-  `projects` with no project set.
+  policies bind only a role that neither owns the tables (nor is a member of their
+  owner), nor is a superuser, nor has BYPASSRLS. Until this review `deploy.sh` ran the
+  server as `ce`, the owner, so RLS bound nothing. Now:
+  - **Two URLs.** `MIGRATION_DATABASE_URL` (the owner) is used only by `runMigrations`;
+    `DATABASE_URL` is the app role the server runs as. Unset, one role does both, as
+    before, and the boot log warns that RLS does not bind it
+    (`PostgresStore.rowLevelSecurity()`); set, it says that RLS binds the role.
+  - **The app role** is the user that `DATABASE_URL` names (no fixed name; `deploy.sh`
+    uses `ce_app`). After the migrations, on every boot, `prepareAppRole`
+    (`migrate.ts`) creates it if missing, with the URL's password and only `LOGIN`
+    (built with `format('%I', '%L')`, never logged). It refuses a role RLS would not
+    bind, and grants it `USAGE` on the schema, `SELECT, INSERT, UPDATE, DELETE` on all
+    tables and `USAGE, SELECT` on all sequences. Creating it from the server, as `ce`
+    (Cloud SQL users have `CREATEROLE`), rather than with `gcloud sql users create`,
+    keeps it out of `cloudsqlsuperuser`. An existing role keeps its password.
+  - **No `FORCE ROW LEVEL SECURITY`**: it would bind the owner too, so a hand fix with
+    `psql` as the owner would see no rows without saying so. It adds nothing once the
+    server is not the owner, and the owner can turn it off again anyway.
+  - **Store fixes for the app role.** `createProject` sets the new id as
+    `app.current_project` in its transaction before the insert (no SECURITY DEFINER
+    function, nothing that bypasses RLS). `listMemberships` reads each project's name
+    under that project's setting, in one read-only transaction, and sorts by name in JS.
+    `getInvite` reads the invite, then the name under its project. These were the only
+    queries on RLS tables outside a project setting.
+  - **`deploy.sh`.** New secret `ce-app-database-url` (the app role's URL, a new
+    32-character password; created only if missing, so an older deployment gets it on
+    its next run). The service gets `DATABASE_URL=ce-app-database-url` and
+    `MIGRATION_DATABASE_URL=ce-database-url`, and the service account may read the
+    three secrets. Nothing else is created. Secret Manager bills per active secret
+    version, a few cents a month at most, with some versions free. Going back to an older image needs `DATABASE_URL` pointed
+    back at `ce-database-url`.
+  - **Checked** (postgres:16, owner `ce` without superuser):
+    - The whole server suite ran with every `InMemoryStore` replaced by a
+      `PostgresStore`: as the owner, 9 failures, all memory-store specifics (shared
+      fixtures, byte counts, the worker); as the app role, the same 9 and no other.
+      Against the store before these fixes, the app role failed 30 of 51 tests in three
+      files.
+    - A script on a fresh database: the role created once and reused, with no password
+      in the log. Every route works as the app role. With a forged project id in SQL,
+      another project's rows are not read, changed or deleted in any of the 9 RLS
+      tables, and writing one is refused. The app role cannot disable RLS, drop a
+      policy, create a table or truncate. The real boot (`src/index.ts`) with both URLs
+      logs "Row-Level Security binds the database role", and with one URL it warns.
 - **After the review: legacy rows under Collect Earth's operator name**
   (`routes/records.ts`). Before session uploads went by the username, a session upload
   was stored under the operator sent ("Juan Perez" for juan). With a session, when the

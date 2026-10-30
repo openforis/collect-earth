@@ -18,8 +18,10 @@ set -Eeuo pipefail
 SERVICE=collect-earth-cloud          # Cloud Run service
 SQL_INSTANCE=ce-cloud-db             # Cloud SQL instance
 DB_NAME=collect_earth_cloud          # database inside it
-DB_USER=ce                           # database user the server logs in as
-SECRET_DB=ce-database-url            # Secret Manager: DATABASE_URL
+DB_USER=ce                           # database user that owns the tables and migrates
+DB_APP_USER=ce_app                   # database role the server runs as (bound by RLS)
+SECRET_DB=ce-database-url            # Secret Manager: MIGRATION_DATABASE_URL (owner, ce)
+SECRET_DB_APP=ce-app-database-url    # Secret Manager: DATABASE_URL (the app role, ce_app)
 SECRET_SETUP=ce-setup-code           # Secret Manager: SETUP_CODE
 SA_NAME=ce-cloud-run                 # service account the server runs as
 REPO=ce                              # Artifact Registry repository
@@ -518,7 +520,7 @@ secret_exists() {
 }
 
 create_secrets() {
-  step "storing the database password and the setup code safely (Secret Manager)"
+  step "storing the database passwords and the setup code safely (Secret Manager)"
   CONNECTION_NAME="$PROJECT:$REGION:$SQL_INSTANCE"
   if ! $DRY_RUN; then
     local conn; conn="$(gq sql instances describe "$SQL_INSTANCE" --format='value(connectionName)' || true)"
@@ -538,6 +540,21 @@ create_secrets() {
     url="postgres://$DB_USER:$password@/$DB_NAME?host=/cloudsql/$CONNECTION_NAME"
     gc_stdin "$url" secrets create "$SECRET_DB" --replication-policy=automatic --data-file=- --labels="$LABEL"
     ok "Database user '$DB_USER' and its password are ready."
+  fi
+
+  # The server itself logs in as a second role that does not own the tables, so the
+  # database's own project rules (Row-Level Security) apply to it. Only its password is
+  # made here: the server creates the role (as '$DB_USER', when it migrates on start),
+  # because a user made with 'gcloud sql users create' joins cloudsqlsuperuser. Servers
+  # deployed before this step get it on their next update.
+  if secret_exists "$SECRET_DB_APP"; then
+    ok "The server's own database password is already stored; it is kept."
+  else
+    local app_password app_url
+    if $DRY_RUN; then app_password="GENERATED_PASSWORD"; else app_password="$(generate_password)"; fi
+    app_url="postgres://$DB_APP_USER:$app_password@/$DB_NAME?host=/cloudsql/$CONNECTION_NAME"
+    gc_stdin "$app_url" secrets create "$SECRET_DB_APP" --replication-policy=automatic --data-file=- --labels="$LABEL"
+    ok "The server's own database role '$DB_APP_USER' will be created by the server when it starts."
   fi
 
   if secret_exists "$SECRET_SETUP"; then
@@ -562,11 +579,11 @@ create_service_account() {
   gc_retry projects add-iam-policy-binding "$PROJECT" \
     --member="serviceAccount:$SA_EMAIL" --role=roles/cloudsql.client --condition=None --quiet >/dev/null
   local secret
-  for secret in "$SECRET_DB" "$SECRET_SETUP"; do
+  for secret in "$SECRET_DB" "$SECRET_DB_APP" "$SECRET_SETUP"; do
     gc_retry secrets add-iam-policy-binding "$secret" \
       --member="serviceAccount:$SA_EMAIL" --role=roles/secretmanager.secretAccessor --condition=None --quiet >/dev/null
   done
-  ok "It may connect to the database and read its two secrets, nothing else."
+  ok "It may connect to the database and read its three secrets, nothing else."
 
   # Cloud Build builds the server image with the project's default build account.
   # In projects created since 2024 that account may have no permissions at all.
@@ -621,7 +638,7 @@ deploy_service() {
     --platform=managed \
     --service-account="$SA_EMAIL" \
     --add-cloudsql-instances="$CONNECTION_NAME" \
-    --update-secrets="DATABASE_URL=$SECRET_DB:latest,SETUP_CODE=$SECRET_SETUP:latest" \
+    --update-secrets="DATABASE_URL=$SECRET_DB_APP:latest,MIGRATION_DATABASE_URL=$SECRET_DB:latest,SETUP_CODE=$SECRET_SETUP:latest" \
     --update-env-vars="$env_vars" \
     --allow-unauthenticated \
     --port=8080 \

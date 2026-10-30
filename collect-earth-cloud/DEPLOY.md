@@ -17,7 +17,8 @@ managed Postgres (Option B).
 | Var | Required | Example | Purpose |
 | --- | --- | --- | --- |
 | `STORE_BACKEND` | yes (prod) | `postgres` | `memory` = no persistence; use `postgres` in production |
-| `DATABASE_URL` | when postgres | `postgres://ce:pw@host:5432/collect_earth_cloud` | Postgres connection string. On Cloud Run with the Cloud SQL connector: `postgres://ce:pw@/collect_earth_cloud?host=/cloudsql/PROJECT:REGION:INSTANCE` |
+| `DATABASE_URL` | when postgres | `postgres://ce_app:pw@host:5432/collect_earth_cloud` | Postgres connection string the server runs with. On Cloud Run with the Cloud SQL connector: `postgres://ce_app:pw@/collect_earth_cloud?host=/cloudsql/PROJECT:REGION:INSTANCE`. With `MIGRATION_DATABASE_URL` set, it names the app role (see "Row-Level Security and the database role") |
+| `MIGRATION_DATABASE_URL` | advised with postgres | `postgres://ce:pw@host:5432/collect_earth_cloud` | The tables' owner, used only to apply the migrations (on boot or `npm run migrate`). When set, the migrations also create the role `DATABASE_URL` names if missing and grant it the tables, so Row-Level Security binds the server. Unset: one role does both, and RLS does not bind it |
 | `SETUP_CODE` | advised | `K7QX-M3TB-WN` | Asked for once by the dashboard's first-run setup, which creates the platform admin. If unset, a random code is generated at boot and printed in the log (`Setup code: XXXX-XXXX-XX …`) while no platform admin exists. Set it when running more than one instance: each would otherwise generate its own. Case, spaces and hyphens are ignored when it is typed |
 | `ADMIN_API_KEY` | optional | `<random 32+ chars>` | Lets scripts provision projects with `x-admin-key` (returns the Phase-0 project tokens). Dashboard users create projects with their session instead. Without it, anonymous provisioning works **only** with `STORE_BACKEND=memory`; on Postgres it is refused (401) |
 | `PUBLIC_BASE_URL` | advised with a custom domain | `https://ce-cloud.example.org` | Base of the `/join/<token>` and `/reset/<token>` links. If unset: `RENDER_EXTERNAL_URL`, else the request's `x-forwarded-proto` + host (correct on Cloud Run's own `*.run.app` address) |
@@ -64,20 +65,35 @@ Schema lives in `migrations/*.sql`, each idempotent (`IF NOT EXISTS`). Apply the
   STORE_BACKEND=postgres DATABASE_URL='postgres://…' npm run migrate
   ```
 
-**Row-Level Security and the database role.** The project policies (RLS) apply only
-when the server connects as a role that does not own the tables and is not a
-superuser: the migrations do not use `FORCE ROW LEVEL SECURITY`, so the owner
-bypasses them. What is true today:
-- `deploy.sh` and the Option B examples use one role, `ce`, which runs the
-  migrations on boot and so owns the tables. RLS is therefore **not enforced** in
-  these deployments; the membership checks of every route (see the README, "Tenancy &
-  isolation") are what keep projects apart.
-- A separate app role (`NOSUPERUSER NOBYPASSRLS`, with `SELECT, INSERT, UPDATE,
-  DELETE` on the tables, migrations run as the owner) is **not supported yet**: as
-  such a role, creating a project, the list of one's projects (with their names) and
-  invite lookups read or write `projects` without a project set, and the policy
-  refuses or hides those rows. The project-scoped data is checked under such a role in
-  the Postgres test scripts; making the whole server run under one is a later step.
+**Row-Level Security and the database role.** The project policies (RLS) bind only a
+role that does not own the tables (nor is a member of their owner), is not a superuser
+and has no `BYPASSRLS`. So the server should run as its own role, not as the owner:
+- `MIGRATION_DATABASE_URL` is the owner (`ce`): it applies the migrations, and with it
+  `runMigrations` prepares the app role that `DATABASE_URL` names (`ce_app` in
+  `deploy.sh`): it creates it if missing (`LOGIN`, with the password in `DATABASE_URL`,
+  no other attribute; this needs `CREATEROLE`, which Cloud SQL's users have), refuses a
+  role RLS would not bind, and grants it `USAGE` on the schema, `SELECT, INSERT,
+  UPDATE, DELETE` on every table and `USAGE, SELECT` on every sequence. It runs after
+  the migrations on every boot, so new tables are covered. An existing role is used as
+  it is (its password is not changed).
+- `DATABASE_URL` is the app role: the server runs every query as it. At start the log
+  says whether RLS binds it ("Row-Level Security binds the database role ...") or
+  warns that it does not.
+- With only `DATABASE_URL` (one role, as before), everything works, but RLS does not
+  bind the server: the membership checks of every route (README, "Tenancy &
+  isolation") are then the only fence.
+- `FORCE ROW LEVEL SECURITY` is not used: it would bind the owner too, so a hand fix
+  with `psql` as the owner would silently see no rows, and it adds nothing once the
+  server is not the owner (the owner can always turn it off again).
+- `deploy.sh` does this since the RLS update: the secret `ce-app-database-url` holds
+  the app role's URL (`DATABASE_URL`) and `ce-database-url` the owner's
+  (`MIGRATION_DATABASE_URL`). Re-running it on an older deployment adds the secret and
+  switches the service; the role is created when the new version starts. Going back
+  to an older server version afterwards needs `DATABASE_URL` set back to
+  `ce-database-url`, since older versions migrate with `DATABASE_URL`.
+- By hand (Option B), as the owner:
+  `CREATE ROLE ce_app LOGIN PASSWORD '...'`, then start the server with both URLs and
+  `MIGRATE_ON_BOOT=true` (or run `npm run migrate` with both set).
 
 ---
 
@@ -116,13 +132,15 @@ explanation; re-running continues.
 | Cloud SQL instance | `ce-cloud-db` | `POSTGRES_16`, edition `enterprise`, tier `db-f1-micro` (shared core, 0.6 GB), zonal, 10 GB SSD with auto-increase, daily backups at 02:00 UTC keeping 7, point-in-time recovery with 7 days of logs, deletion protection, `max_connections=50`. Created only if missing (10 to 15 minutes); an existing instance is never modified |
 | Database | `collect_earth_cloud` | in `ce-cloud-db` |
 | Database user | `ce` | 32-character alphanumeric password, generated only when the secret `ce-database-url` does not exist yet (then created, or its password reset) |
-| Secret | `ce-database-url` | `postgres://ce:<password>@/collect_earth_cloud?host=/cloudsql/<PROJECT>:<REGION>:ce-cloud-db`. Created only if missing |
+| Secret | `ce-database-url` | `postgres://ce:<password>@/collect_earth_cloud?host=/cloudsql/<PROJECT>:<REGION>:ce-cloud-db`, the owner, given to the server as `MIGRATION_DATABASE_URL`. Created only if missing |
+| Database role | `ce_app` | the role the server runs as, bound by RLS. Created by the server itself (as `ce`, when it migrates on start), not with `gcloud sql users create`, which would make it a member of `cloudsqlsuperuser` |
+| Secret | `ce-app-database-url` | `postgres://ce_app:<password>@/collect_earth_cloud?host=/cloudsql/...`, a new 32-character password, given to the server as `DATABASE_URL`. Created only if missing (also on an older deployment, on its next update) |
 | Secret | `ce-setup-code` | `XXXX-XXXX-XX` from the alphabet `ABCDEFGHJKMNPQRSTUVWXYZ23456789`, the same shape as `generateSetupCode()` in `src/accountRules.ts`. Created only if missing |
-| Service account | `ce-cloud-run@<PROJECT>.iam.gserviceaccount.com` | `roles/cloudsql.client` on the project; `roles/secretmanager.secretAccessor` on the two secrets only |
+| Service account | `ce-cloud-run@<PROJECT>.iam.gserviceaccount.com` | `roles/cloudsql.client` on the project; `roles/secretmanager.secretAccessor` on the three secrets only |
 | IAM for builds | the project's default Cloud Build service account (`gcloud builds get-default-service-account`) | `roles/cloudbuild.builds.builder` (projects created since 2024 give the default compute account no roles) |
 | Artifact Registry | `ce` (docker, in the region) | cleanup policy `deploy/gcp/cleanup-policy.json`: keep the 5 newest images, delete others older than 30 days |
 | Image | `<REGION>-docker.pkg.dev/<PROJECT>/ce/collect-earth-cloud:<git-sha>-<timestamp>` | built by Cloud Build from `collect-earth-cloud/` (the Dockerfile context), uploading what `deploy/gcp/build.gcloudignore` does not exclude |
-| Cloud Run service | `collect-earth-cloud` | the dedicated service account, Cloud SQL connector to `ce-cloud-db`, secrets `DATABASE_URL=ce-database-url:latest` and `SETUP_CODE=ce-setup-code:latest`, env `STORE_BACKEND=postgres`, `MIGRATE_ON_BOOT=true` (+ `PUBLIC_BASE_URL` with `--domain`), public (`--allow-unauthenticated`), port 8080, 1 vCPU, 512 MiB, 0 to 4 instances, concurrency 80, timeout 300 s, startup CPU boost |
+| Cloud Run service | `collect-earth-cloud` | the dedicated service account, Cloud SQL connector to `ce-cloud-db`, secrets `DATABASE_URL=ce-app-database-url:latest`, `MIGRATION_DATABASE_URL=ce-database-url:latest` and `SETUP_CODE=ce-setup-code:latest`, env `STORE_BACKEND=postgres`, `MIGRATE_ON_BOOT=true` (+ `PUBLIC_BASE_URL` with `--domain`), public (`--allow-unauthenticated`), port 8080, 1 vCPU, 512 MiB, 0 to 4 instances, concurrency 80, timeout 300 s, startup CPU boost |
 | Domain mapping (with `--domain`) | the domain | `gcloud beta run domain-mappings create`; the script prints the DNS records to add |
 
 Env vars and secrets are applied with `--update-env-vars` / `--update-secrets`,
@@ -184,7 +202,8 @@ cd collect-earth-cloud
 docker build -t collect-earth-cloud .
 docker run -d --name ce-cloud -p 8080:8080 \
   -e STORE_BACKEND=postgres \
-  -e DATABASE_URL='postgres://ce:<pw>@db-host:5432/collect_earth_cloud' \
+  -e MIGRATION_DATABASE_URL='postgres://ce:<pw>@db-host:5432/collect_earth_cloud' \
+  -e DATABASE_URL='postgres://ce_app:<app pw>@db-host:5432/collect_earth_cloud' \
   -e SETUP_CODE='<setup code>' \
   -e PUBLIC_BASE_URL='https://ce-cloud.example.org' \
   -e MIGRATE_ON_BOOT=true \
@@ -276,6 +295,9 @@ gcloud sql users create ce --instance=ce-cloud-db --password="$DB_PW" --project=
 # Secrets
 printf '%s' "postgres://ce:$DB_PW@/collect_earth_cloud?host=/cloudsql/$CONN" |
   gcloud secrets create ce-database-url --replication-policy=automatic --data-file=- --project=$P
+APP_PW=$(head -c 512 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-32)
+printf '%s' "postgres://ce_app:$APP_PW@/collect_earth_cloud?host=/cloudsql/$CONN" |
+  gcloud secrets create ce-app-database-url --replication-policy=automatic --data-file=- --project=$P
 printf '%s' "<XXXX-XXXX-XX>" |
   gcloud secrets create ce-setup-code --replication-policy=automatic --data-file=- --project=$P
 
@@ -283,7 +305,7 @@ printf '%s' "<XXXX-XXXX-XX>" |
 gcloud iam service-accounts create ce-cloud-run --display-name="Collect Earth Cloud server" --project=$P
 gcloud projects add-iam-policy-binding $P --member=serviceAccount:$SA \
   --role=roles/cloudsql.client --condition=None
-for s in ce-database-url ce-setup-code; do
+for s in ce-database-url ce-app-database-url ce-setup-code; do
   gcloud secrets add-iam-policy-binding $s --member=serviceAccount:$SA \
     --role=roles/secretmanager.secretAccessor --condition=None --project=$P
 done
@@ -298,7 +320,7 @@ gcloud builds submit . --tag=$IMAGE --ignore-file=deploy/gcp/build.gcloudignore 
 # Service
 gcloud run deploy collect-earth-cloud --project=$P --region=$R --image=$IMAGE \
   --service-account=$SA --add-cloudsql-instances=$CONN \
-  --update-secrets=DATABASE_URL=ce-database-url:latest,SETUP_CODE=ce-setup-code:latest \
+  --update-secrets=DATABASE_URL=ce-app-database-url:latest,MIGRATION_DATABASE_URL=ce-database-url:latest,SETUP_CODE=ce-setup-code:latest \
   --update-env-vars=STORE_BACKEND=postgres,MIGRATE_ON_BOOT=true \
   --allow-unauthenticated --port=8080 --cpu=1 --memory=512Mi \
   --min-instances=0 --max-instances=4 --concurrency=80 --timeout=300 --cpu-boost
@@ -308,4 +330,4 @@ gcloud run services describe collect-earth-cloud --region=$R --project=$P --form
 To run migrations from your own machine instead of on boot, start the
 [Cloud SQL Auth Proxy](https://cloud.google.com/sql/docs/postgres/sql-proxy)
 (`cloud-sql-proxy $CONN`, which exposes `localhost:5432`) and run
-`STORE_BACKEND=postgres DATABASE_URL='postgres://ce:<pw>@localhost:5432/collect_earth_cloud' npm run migrate`.
+`STORE_BACKEND=postgres MIGRATION_DATABASE_URL='postgres://ce:<pw>@localhost:5432/collect_earth_cloud' DATABASE_URL='postgres://ce_app:<app pw>@localhost:5432/collect_earth_cloud' npm run migrate`.

@@ -3,6 +3,12 @@ export interface Config {
   host: string;
   storeBackend: 'memory' | 'postgres';
   databaseUrl?: string;
+  /**
+   * The owner's connection (MIGRATION_DATABASE_URL), used only to apply the migrations.
+   * When set, DATABASE_URL names a separate app role, which the migrations create if
+   * missing and grant table rights to, so Row-Level Security binds the server.
+   */
+  migrationDatabaseUrl?: string;
   /** When set, POST /v1/projects requires header `x-admin-key` to match. */
   adminApiKey?: string;
   /** Public base URL (e.g. https://ce-cloud.example.org) for building invite/join links. */
@@ -66,6 +72,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     host: env.HOST ?? '0.0.0.0',
     storeBackend,
     databaseUrl: env.DATABASE_URL,
+    migrationDatabaseUrl: nonEmpty(env.MIGRATION_DATABASE_URL?.trim()),
     adminApiKey: env.ADMIN_API_KEY && env.ADMIN_API_KEY.length > 0 ? env.ADMIN_API_KEY : undefined,
     publicBaseUrl: env.PUBLIC_BASE_URL && env.PUBLIC_BASE_URL.length > 0 ? env.PUBLIC_BASE_URL : undefined,
     migrateOnBoot: env.MIGRATE_ON_BOOT === 'true' || env.MIGRATE_ON_BOOT === '1',

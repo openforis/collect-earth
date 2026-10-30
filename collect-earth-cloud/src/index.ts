@@ -15,7 +15,11 @@ async function main(): Promise<void> {
     if (config.storeBackend !== 'postgres' || !config.databaseUrl) {
       throw new Error('MIGRATE_ON_BOOT requires STORE_BACKEND=postgres and DATABASE_URL');
     }
-    await runMigrations(config.databaseUrl, (msg) => process.stdout.write(`${msg}\n`));
+    // With MIGRATION_DATABASE_URL, the owner migrates and prepares the app role that
+    // DATABASE_URL names; the server then runs as that role, bound by Row-Level Security.
+    await runMigrations(config.migrationDatabaseUrl ?? config.databaseUrl, (msg) => process.stdout.write(`${msg}\n`), {
+      appDatabaseUrl: config.migrationDatabaseUrl ? config.databaseUrl : undefined,
+    });
   }
 
   const store: Store =
@@ -37,6 +41,16 @@ async function main(): Promise<void> {
   await app.listen({ port: config.port, host: config.host });
   if (config.storeBackend === 'memory') {
     app.log.warn('STORE_BACKEND=memory: data is not persisted across restarts');
+  }
+  if (store instanceof PostgresStore) {
+    const rls = await store.rowLevelSecurity();
+    if (rls.enforced) {
+      app.log.info(`Row-Level Security binds the database role ${rls.role}`);
+    } else {
+      app.log.warn(
+        `Row-Level Security does not bind the database role ${rls.role} (${rls.reason}); only the route checks keep projects apart. See "Row-Level Security and the database role" in DEPLOY.md`,
+      );
+    }
   }
 }
 

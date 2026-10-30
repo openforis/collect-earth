@@ -108,6 +108,8 @@ export class PostgresStore implements Store {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
+      // The new project's own id, so its row passes the projects policy (RLS).
+      await client.query('SELECT set_config($1, $2, true)', ['app.current_project', projectId]);
       await client.query('INSERT INTO projects (id, name) VALUES ($1, $2)', [projectId, input.name]);
       await client.query(
         'INSERT INTO project_tokens (token_hash, project_id, role) VALUES ($1, $2, $3), ($4, $2, $5)',
@@ -692,14 +694,28 @@ export class PostgresStore implements Store {
   }
 
   async listMemberships(userId: string): Promise<Membership[]> {
-    const res = await this.pool.query(
-      `SELECT m.project_id, p.name, m.role
-         FROM project_members m JOIN projects p ON p.id = m.project_id
-        WHERE m.user_id = $1
-        ORDER BY p.name`,
-      [userId],
-    );
-    return res.rows.map((r) => ({ projectId: r.project_id, projectName: r.name, role: r.role }));
+    // The memberships are global (002); each project's name is read under its own
+    // project setting, so RLS lets this read only the caller's projects' rows.
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN READ ONLY');
+      const members = await client.query('SELECT project_id, role FROM project_members WHERE user_id = $1', [userId]);
+      const out: Membership[] = [];
+      for (const m of members.rows) {
+        await client.query('SELECT set_config($1, $2, true)', ['app.current_project', m.project_id]);
+        const p = await client.query('SELECT name FROM projects WHERE id = $1', [m.project_id]);
+        if (p.rowCount !== 0) {
+          out.push({ projectId: m.project_id, projectName: p.rows[0].name, role: m.role });
+        }
+      }
+      await client.query('COMMIT');
+      return out.sort((a, b) => a.projectName.localeCompare(b.projectName));
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   async listMembers(projectId: string): Promise<Member[]> {
@@ -763,16 +779,34 @@ export class PostgresStore implements Store {
   }
 
   async getInvite(token: string): Promise<Invite | null> {
-    const res = await this.pool.query(
-      `SELECT i.project_id, p.name, i.role, i.max_uses, i.used_count, i.expires_at, i.revoked_at
-         FROM invites i JOIN projects p ON p.id = i.project_id
-        WHERE i.token_hash = $1`,
-      [hashToken(token)],
-    );
-    if (res.rowCount === 0) {
-      return null;
+    // Invites are global (002); the project's name is read under the invite's project.
+    const client = await this.pool.connect();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let r: Record<string, any>;
+    try {
+      await client.query('BEGIN READ ONLY');
+      const res = await client.query(
+        'SELECT project_id, role, max_uses, used_count, expires_at, revoked_at FROM invites WHERE token_hash = $1',
+        [hashToken(token)],
+      );
+      if (res.rowCount === 0) {
+        await client.query('COMMIT');
+        return null;
+      }
+      r = res.rows[0];
+      await client.query('SELECT set_config($1, $2, true)', ['app.current_project', r.project_id]);
+      const p = await client.query('SELECT name FROM projects WHERE id = $1', [r.project_id]);
+      await client.query('COMMIT');
+      if (p.rowCount === 0) {
+        return null;
+      }
+      r.name = p.rows[0].name;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
-    const r = res.rows[0];
     return {
       projectId: r.project_id,
       projectName: r.name,
@@ -1198,6 +1232,21 @@ export class PostgresStore implements Store {
       const res = await client.query('DELETE FROM guidance_notes WHERE project_id = $1 AND id = $2', [projectId, id]);
       return (res.rowCount ?? 0) > 0;
     });
+  }
+
+  /**
+   * Whether Row-Level Security binds the role this store connects as: not when it is a
+   * superuser, may bypass RLS, or owns the tables (or is a member of their owner).
+   */
+  async rowLevelSecurity(): Promise<{ role: string; enforced: boolean; reason: string | null }> {
+    const res = await this.pool.query(
+      `SELECT current_user AS role, r.rolsuper, r.rolbypassrls,
+              COALESCE((SELECT bool_or(pg_has_role(current_user, tableowner, 'USAGE')) FROM pg_tables WHERE schemaname = 'public'), false) AS owns
+         FROM pg_roles r WHERE r.rolname = current_user`,
+    );
+    const r = res.rows[0];
+    const reason = r.rolsuper ? 'a superuser' : r.rolbypassrls ? 'it may bypass RLS' : r.owns ? 'it owns the tables' : null;
+    return { role: r.role as string, enforced: reason === null, reason };
   }
 
   async close(): Promise<void> {
