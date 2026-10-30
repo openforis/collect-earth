@@ -2650,7 +2650,7 @@ This follows the self-testing memory rules.
 If the hidden key still shows anywhere, stop and report: blind checks depend on
 it, and the fix may need the HTML-UI branch rather than this one.
 
-**As built (2026-10-30): stopped at step 3. The hidden key shows in the plots map.**
+**As built, first run (2026-10-30, before d61bf232): stopped at step 3. The hidden key shows in the plots map.**
 - **Setup:** the profile backed up to `%APPDATA%\CollectEarth-backup-2026-10-30-task21`
   (6,536 files, 3,103,342,706 bytes, copy checked). A memory-store server with the
   `idOnlyCep` fixture, renamed to its own survey (`t21_round_check`, only the uri and
@@ -2692,6 +2692,75 @@ it, and the fix may need the HTML-UI branch rather than this one.
   the profile mirrored back from the backup: 6,536 files, 3,103,342,706 bytes, no path or
   size difference, `earth.properties` and `collectEarthDatabase.db` sha256 equal to the backup.
   The backup is kept. Screenshots in the scratchpad's `t21/` folder.
+
+**As built, second run (2026-10-30, after d61bf232 and 2a145ce3): the map, the form and
+Google Earth Web are blind; Earth Map is not, and the desktop's answers do not reach the
+server's quality figures.**
+- **Setup as in the first run**, with a new backup (`%APPDATA%\CollectEarth-backup-2026-10-30-task21b`,
+  3,240 files, 2,719,440,430 bytes, copy checked), Collect Earth rebuilt from the branch, and a
+  fresh memory-store server: `added`, the served template names the inner `<Placemark>`
+  `${placemark.visiblePlacemarkId!""}`. Same division: anna 101-104 main, 105 and 107 copies;
+  ben 105-108 main, 101 and 103 copies. The desktop ran as anna, then as ben on the same
+  local database (token, operator and his my-assignment file swapped, as a second join does).
+- **Blind (pass):**
+  - plot list "101" … "104", "105", "107" for anna; "101", "103", "105" … "108" for ben, with
+    his copy 101 "Not started" although anna's 101 was submitted in the same database;
+  - search: ",2" finds nothing ("No plots match."), "2" finds only 102;
+  - form heading "Plot 105", toasts "Plot 107 submitted successfully. Moving to plot 102";
+  - Google Earth Web status "Google Earth Web: moving to plot 105…" / "plot 107", and its
+    outline title "Collect Earth · Plot 101" on ben's copy 101 (read over CDP, and on screen);
+  - the generated KML: folders "N - ID# : 105" and placemarks named "105" etc., no ",1" or ",2";
+  - `/plotsGeoJson` has `visibleId` "105" beside `id` "105,2"; the form has no round field;
+  - coordinates: every plot's square centred on its own latitude/longitude.
+- **Not blind (fail), the auxiliary windows:** `BrowserService.openEarthMapURL` names the
+  polygon `placemark.getPlacemarkId()`, so Earth Map shows **"Select a boundary: 101,2"** on
+  ben's copy 101 (screenshot `11-earthmap-copy-101-2.png`), and its URL has `boundary=101,2`;
+  `openGEEAppURL` puts `plotId=101,2` in the GEE app's URL (the app did not show it on screen
+  while loading). Both need the visible id. Earth Map is on in the demo project
+  (`open_earth_map=true`).
+- **Saving (pass):** anna submitted main 101 (toast, "Completed") and copy 107; ben submitted
+  main 107 with another answer (evergreen conifers against anna's evergreen broadleaf). The
+  local SQLite records have `key1, key2` = 101/1, 107/2, 107/1 and the drafts below; 101/1
+  and 101/2, 107/1 and 107/2 are separate records. They synced: `export.csv` gives
+  `"101,1",101,1,main,,anna,true`, `"107,2",107,2,check,,anna,true`,
+  `"107,1",107,1,main,,ben,true`.
+- **Drafts:** opening any plot, main or copy, saves an in-progress record at once
+  (`actively_saved` false) and it syncs: "102,1", "108,1" (main) and "101,2", "103,2", "105,2"
+  (copies) are in `export.csv` as `false`. `/quality` leaves them out (`quality.ts` skips
+  `!activelySaved`): it counts 1 plot checked (107), and the people table compares anna only
+  as checker and ben only as first.
+- **Found: the desktop's answers do not reach the server.** `export.csv` has no answer
+  columns at all, and `/quality` compared no question (`questions: []`, 0 differing,
+  although 107's subdivision differs). `CloudRecordSerializer` sends
+  `BalloonInputFieldsUtils.getValuesByHtmlParameters`, which puts null for every empty
+  attribute; Jackson writes `null`; the server's `isStringMap` (`routes/records.ts`) then
+  drops the WHOLE summary. Checked on the server: a batch of two records, one with a
+  null value, keeps the other's summary and loses all of the null one's
+  (`collect_code_land_use_category` gone). The Task 19 smoke and the Task 17/20 seeds used
+  all-string summaries, so they did not see it. A desktop record almost always has an empty
+  attribute, so quality figures, the export's answer columns and the AI see nothing from
+  real collectors. Fix on the server (keep string values, drop nulls) — no Java change needed.
+- **Seen, not about round:** on anna's copy 105, choosing "Degradation" then "No Changes"
+  left the plot impossible to submit: Submit did nothing, no error listed, while the server
+  answered `validData: true, activelySaved: false` (`isComplete` false on a node the form
+  does not show). Its visible fields were the same as copy 107, which submitted. Not
+  reproduced on a main plot.
+- **Export / import (pass):** a scratch program (`t21b/tool/T21Tool.java`, run on the built
+  jars, outside the repo) started Collect Earth's own context without its window and called
+  `DataImportExportService.exportSurveyAsZipWithXml` on the owner's profile: 8 records
+  (101,1 101,2 102,1 103,2 105,2 107,1 107,2 108,1). With `APPDATA` pointed at a new folder
+  (the installer's `earth.properties_initial`), it loaded the served CEP, ran
+  `getImportSummary` + `importRecordsFrom`: "to import 8, conflicting 0", 8 records after.
+- **IPCC (pass):** the same program ran `IPCCGenerator.generateRDB` and
+  `IPCCDataExportPerPlotCSV`: the IPCC database holds all 8 records with their round
+  (107 round 2 actively saved by anna among them), and the per-plot CSV has two rows only,
+  101 (broadleaf, anna's main) and 107 (coniferous, ben's main): round 2 and drafts left out.
+  Saiku was not run (it needs its server); its cube has the "Assessment phase" dimension.
+- **Restored:** the Collect Earth JVMs, their own chromedriver and browsers (matched by parent
+  process; no other chromedriver touched), and the server stopped; the profile mirrored back
+  from the task21b backup: 3,240 files, 2,719,440,430 bytes, 394 folders, no path or size
+  difference, `earth.properties` and `collectEarthDatabase.db` sha256 equal to the backup.
+  Both backups are kept. Screenshots in the scratchpad's `t21b/` folder.
 
 ### Task 22: one real Gemini run (only after the owner has set up Vertex)
 
