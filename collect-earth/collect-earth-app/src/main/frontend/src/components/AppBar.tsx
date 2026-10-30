@@ -28,6 +28,9 @@ import { actionOf, comingSoon, errorText, operatorRequired, quitServer, type App
 import { useT } from "../i18n";
 import { appMenus, type MenuItem as AppMenuItem } from "../menus";
 import { serverText, type Texts } from "../serverTexts";
+import { ExportDialog } from "./data/ExportDialog";
+import { ImportZipDialog } from "./data/ImportZipDialog";
+import { UpdateCsvDialog } from "./data/UpdateCsvDialog";
 
 interface Props {
   info: AppInfo;
@@ -58,10 +61,15 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const operator = savedOperator ?? info.operator;
   const [quitOpen, setQuitOpen] = useState(false);
   const [closed, setClosed] = useState(false);
+  // The dialog of the Data menu that is open
+  const [dataDialog, setDataDialog] = useState<"export" | "importZip" | "updateCsv" | null>(null);
   const forced = operatorRequired({ ...info, operator });
 
   // What each action does; typed by AppAction, so an action added to appBar.ts and not handled here does not compile
-  const actions: Record<AppAction, () => void> = { quit: () => setQuitOpen(true), settings: onSettings };
+  const actions: Record<AppAction, () => void> = {
+    quit: () => setQuitOpen(true), settings: onSettings,
+    export: () => setDataDialog("export"), importZip: () => setDataDialog("importZip"), updateCsv: () => setDataDialog("updateCsv"),
+  };
   const run = (item: AppMenuItem) => {
     setOpen(null);
     const action = actionOf(item);
@@ -129,6 +137,9 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
         onSaved={(name) => { setSavedOperator(name); setOperatorOpen(false); reload(); }}
         onQuit={() => setQuitOpen(true)} />
       <QuitDialog open={quitOpen} texts={texts} onKeepOpen={() => setQuitOpen(false)} onClosed={() => setClosed(true)} />
+      <ExportDialog open={dataDialog === "export"} texts={texts} language={info.language} onClose={() => setDataDialog(null)} />
+      <ImportZipDialog open={dataDialog === "importZip"} texts={texts} language={info.language} onClose={() => setDataDialog(null)} />
+      <UpdateCsvDialog open={dataDialog === "updateCsv"} texts={texts} onClose={() => setDataDialog(null)} />
     </MuiAppBar>
   );
 }
