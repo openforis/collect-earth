@@ -4,6 +4,15 @@
   <uri>http://www.openforis.org/idm/collect_earth_relevance_test</uri>
   <cycle>2026</cycle>
   <language>en</language>
+  <applicationOptions>
+    <options type="ui">
+<n0:tabSet name="plot_tab_set" xmlns:n0="http://www.openforis.org/collect/3.0/ui">
+  <n0:tab name="plot_tab">
+    <n0:label>Plot</n0:label>
+  </n0:tab>
+</n0:tabSet>
+    </options>
+  </applicationOptions>
   <codeLists>
     <list id="10" name="land_use">
       <items>
@@ -31,7 +40,7 @@
     </list>
   </codeLists>
   <schema>
-    <entity id="1" name="plot">
+    <entity id="1" name="plot" ui:tab="plot_tab" ui:tabSet="plot_tab_set">
       <label type="instance">Plot</label>
       <text id="2" name="id" required="true" key="true" type="short">
         <label type="instance">Id</label>
