@@ -108,9 +108,12 @@ All under `/earth/api`, JSON in and out:
   the services do not change. One job of each kind at a time, as the blocking Swing dialogs did.
 - **Status.** The app bar polls `/app` the way the page already polls plot statuses and Google Earth Web: no
   websockets.
-- **Who can call it.** Jetty listens on `127.0.0.1` only, and the API requires a token handed to the page when Collect
-  Earth opens it, so another site the user visits cannot drive `localhost:8028`: the API can export, delete plots and
-  change settings.
+- **Who can call it.** The API can export, delete plots and change settings, so another site the user visits must not
+  be able to drive `localhost:8028`. Rather than a token handed to the page (decided while planning stage 1), `/api/*`
+  is guarded the way `/googleEarthWeb/*` already was: `OwnPagesOnlyFilter` (`Sec-Fetch-Site`, `Origin`, `Host`), and
+  `ApiHeaderFilter`, which requires an `X-Collect-Earth: 1` header. A page of another site cannot send that header
+  without a CORS preflight, and both filters refuse the preflight before the cross-origin filter sees it. That protects
+  as well as a token, with no secret to hand out.
 
 ## Errors
 
@@ -135,7 +138,7 @@ All under `/earth/api`, JSON in and out:
 
 ## Stages
 
-1. **Foundation:** `/earth/api` controllers, token, `/app`, `/messages`, `/files/choose`, `JobService`; the app bar
+1. **Foundation** (done): `/earth/api` controllers behind the header check, `/app`, `/messages`, `/files/choose`, `JobService`; the app bar
    in the plots map and the home page; tray icon and Quit. `EarthApp` opens the page instead of the Swing window.
 2. **Settings:** section descriptions, server-side validation, the new settings page with plot preview and sample
    file check.
@@ -144,3 +147,17 @@ All under `/earth/api`, JSON in and out:
 5. **Project, Help and notices:** CEP import, cloud join and sync, help items, announcements, updates.
 6. **Removal:** delete `view/*` and the other Swing classes, FlatLaf and Swing-only dependencies; update `CLAUDE.md`,
    and the installers if what they ship changes.
+
+### Left by stage 1 for the later stages
+
+What the Swing main window did at startup and the pages do not do yet. Each must be in place before the branch is
+merged:
+
+- **Cloud login** when cloud sync is on and nobody is logged in (`CollectEarthWindow.promptCloudLogin`), stage 5. The
+  operator chip refuses changes in cloud mode, so until then a cloud user with no operator has no way in.
+- **Window title** with the project name and the cloud suffix, and the **drag and drop** of files onto the window.
+- **Logged errors** are still shown in a Swing dialog (`JSwingAppender`), set up by `AppShell`; they move to the
+  pages' notices in stage 5, along with the "Show exception errors" toggle (Help).
+- **Without a system tray** (some Linux desktops) a closed home page cannot be opened again: a second start of
+  Collect Earth should then open it.
+- The Swing dialogs still used have no parent window, so they can open behind the browser, until they move to pages.

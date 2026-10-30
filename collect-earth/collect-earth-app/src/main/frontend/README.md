@@ -14,6 +14,14 @@ and the data goes through the balloon endpoints (`/placemark-info-expanded`,
 `earth.properties` the map shows the CEP balloon (`/balloon`) instead. See
 `docs/plans/2026-10-20-generated-web-form.md`.
 
+On the `feature/html-ui` branch this app replaces the Swing main window (see
+`docs/plans/2026-10-28-html-ui-design.md`). Collect Earth opens the map page with an app bar
+(menus, operator, Quit) on top; with the Google Earth Pro viewer it opens `map?home`, the same app
+with a home page instead of the map. The app bar talks to the JSON API under `/earth/api`
+(`server.api` in the Java code): every call must send `X-Collect-Earth: 1`, which `apiClient.ts`
+does. Its texts are those of the Swing UI (`Messages*.properties`), read from `/earth/api/messages`
+(`serverTexts.ts`).
+
 ## Build
 
 The Maven build of `collect-earth-app` builds it automatically (`frontend-maven-plugin`
@@ -37,7 +45,10 @@ npm run build      # rebuilds target/classes/leafletmap (refresh the map window 
 - `src/engines/` - `LeafletEngine` (ESRI imagery) and `GoogleEngine` (Maps JS API, needs
   `GOOGLE_MAPS_API_KEY`) behind the `MapEngine` interface; a Google failure falls back to Leaflet
 - `src/plots.ts` - pure list logic (filter, next unfinished, neighbours, counts)
-- `src/components/` - sidebar with the virtualized plot list, map area, form panel
+- `src/components/` - sidebar with the virtualized plot list, map area, form panel, app bar
+  (`AppBar.tsx`) and home page (`HomePage.tsx`)
+- `src/apiClient.ts`, `src/serverTexts.ts`, `src/appInfo.ts`, `src/menus.ts`, `src/appBar.ts`,
+  `src/home.ts` - the API client, the Swing texts, `/api/app`, the menus and their pure logic
 - `src/form/` - the generated data entry form: `model.ts` (pure protocol logic: value
   formats, response merges, hierarchical codes, errors), `store.ts` (server traffic, serialized
   autosave, submit), `FormApp.tsx` / `fields.tsx` (UI)
