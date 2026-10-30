@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { checkMargins, type QualityReport } from '../quality.js';
 import { personalReport, teamReport } from '../qualityReports.js';
+import { registerPlotPlaceRoutes } from './plotPlaces.js';
 import { QualityService, WorkerBusyError, WorkerRestartedError, type ServedReport } from '../qualityService.js';
 import type { Store } from '../store/store.js';
 import type { DecisionKind, GuidanceNoteInput } from '../types.js';
@@ -132,6 +133,8 @@ export async function registerQualityRoutes(
   app.addHook('onClose', async () => {
     await quality.close();
   });
+  // Where the differing plots are, for the Quality tab's Google Earth links.
+  await registerPlotPlaceRoutes(app, store);
 
   app.get('/v1/projects/:pid/quality', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
