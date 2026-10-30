@@ -1375,6 +1375,77 @@ records each request, so tests can assert what was sent.
 
 Commit: "Collect Earth Cloud: a small interface to the AI model, with Gemini on Vertex AI behind it".
 
+**As built**
+- **SDK:** `@google/genai` **2.30.0**, pinned exactly (published 15 October 2026; 2.31 and
+  2.32 were under two weeks old). It brings `google-auth-library`, `p-retry`, `protobufjs`
+  and `ws`; `@modelcontextprotocol/sdk` is an optional peer and is not installed.
+  `npm audit`: the same 14 advisories as before (fastify, vitest and their trees), none in
+  the SDK or anything it brought. Written from its README, `dist/genai.d.ts` and
+  `dist/node/index.mjs`.
+- **The interface** (`src/ai/client.ts`) is the one above, plus:
+  - `AiTurn.raw` and `AiResponse.raw`: the model's answer parts as they came. A model turn
+    with `raw` is sent back exactly as it is instead of `text`/`calls`. **Thought
+    signatures:** Vertex's page says Gemini 3 puts a `thoughtSignature` on the first
+    `functionCall` part of each step, and answers **400** when a required one is not sent
+    back; signed parts must not be merged or split. Keeping the parts whole does that.
+    Task 14 adds the model's turn with `modelTurn(response)`, which copies `raw`.
+  - `AiResponse.blockReason` (e.g. `MAX_TOKENS`, `prompt:SAFETY`, `safety:<category>`), for
+    the run's `error` text.
+  - `AiError` (`status`, `timeout`): every failed call, with a message cut to 500
+    characters, the key replaced by `[key]`, and no `cause` (the SDK's error object is not
+    kept).
+- **The client** (`createGeminiClient(config)`, undefined when not configured):
+  - `new GoogleGenAI({ enterprise: true, apiKey, httpOptions: { timeout: 60000 } })` when
+    there is a key (Vertex AI "express" mode on `aiplatform.googleapis.com`; the SDK sends
+    the key in the `x-goog-api-key` header, not the URL). **The key wins** when both a key
+    and a project are set.
+  - Otherwise `{ enterprise: true, project, location: aiVertexRegion, httpOptions }`:
+    Application Default Credentials (on Cloud Run, the service account).
+    `enterprise` is the README's name for what was `vertexai`.
+  - Explicit options also beat any `GOOGLE_API_KEY` / `GOOGLE_CLOUD_*` in the environment
+    (the SDK's constructor rules).
+  - **No retries:** the SDK retries only when `httpOptions.retryOptions` is set, and we
+    never set it. **One HTTP call per `generate`:** `automaticContinuation: false`, and
+    automatic function calling runs only for SDK "callable tools", which we never pass.
+    The 60 s timeout is per call (an `AbortError` → `AiError` with `timeout: true`).
+- **The request** (`toGeminiRequest(model, req)`, pure) for `ai.models.generateContent`:
+  - `contents`: user turn → `{role:'user', parts:[{text}]}`; model turn → its `raw` parts,
+    or `[{text}, {functionCall:{id?, name, args}}…]`; tool turn → **one** `{role:'user'}`
+    content with a `functionResponse: {id?, name, response}` part per result, in order (the
+    docs: all calls first, then all responses; interleaving is a 400). `response` must be
+    an object, so a result that is not one is sent as `{ output: <value> }` (the SDK's
+    documented key).
+  - `config`: `systemInstruction` (the string), `temperature: 0.2`, `maxOutputTokens`,
+    `candidateCount: 1`, `automaticContinuation: false`; with tools,
+    `tools: [{ functionDeclarations: [{ name, description, parametersJsonSchema }] }]` (one
+    entry, nothing else: no `googleSearch`, `codeExecution` or `urlContext`) and
+    `toolConfig: { functionCallingConfig: { mode: AUTO } }`; with a schema,
+    `responseMimeType: 'application/json'` and `responseJsonSchema`.
+  - **For Task 14:** `responseJsonSchema` supports only some keywords (`type`, `enum`,
+    `items`, `minItems`/`maxItems`, `minimum`/`maximum`, `properties`, `required`,
+    `anyOf`…), and **not `maxLength`**, so lengths are kept only by the run's own checker.
+    Thinking is left at the model's default and thoughts are not asked for.
+- **The response** (`fromGeminiResponse`, pure):
+  - `inputTokens = promptTokenCount + toolUsePromptTokenCount`;
+    `outputTokens = candidatesTokenCount + thoughtsTokenCount`. Missing counts are 0, and
+    the tokens are counted even when blocked.
+  - Text is the first candidate's text parts that are not `thought`, joined (null when
+    none); calls are its `functionCall` parts.
+  - **`blocked: true`**, with no text and no calls, when:
+    - `promptFeedback.blockReason` is set;
+    - there is no candidate;
+    - `finishReason` is anything but `STOP`, or missing. That includes `MAX_TOKENS`: the
+      answer is cut off (half a JSON, or a turn that did not finish), so it is not used.
+      It also includes `MALFORMED_FUNCTION_CALL`, `TOO_MANY_TOOL_CALLS` and `CONTINUATION`
+      (continuation is off);
+    - a candidate safety rating has `blocked: true`.
+- **Fake:** `test/ai/fakeClient.ts`: `scripted(responses)` (a deep copy of each request in
+  `.requests`; it throws when it runs out) and `aiResponse(over)`.
+- **Tests:** `test/ai/gemini.test.ts` (27) and `test/ai/fakeClient.test.ts` (3). They cover
+  the client options, the request mapping, the response mapping with recorded SDK-shaped
+  responses, and `GeminiClient` with an injected `models` (errors, the key, the timeout).
+  No network.
+
 ### Task 14: the assistant's tools and its run
 
 **Files:**
