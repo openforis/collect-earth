@@ -2587,6 +2587,49 @@ disagreements. Then in Chrome (chrome-devtools MCP):
 
 Fix what's wrong and commit.
 
+**As built**
+- **Seed:** a memory-store server with `AI_FAKE=1` and the Task 17 seed (`q17_seed.mjs`: the
+  id-only CEP, 3 collectors, 120 plots divided with 50 % copies, 180 records with
+  disagreements, one record for a plot in no file). In the dashboard, a second plot file
+  (`extra.csv`, 40 plots) was uploaded and divided evenly between the 3 collectors with 20 %
+  copies (3 copies each).
+- **The browser:** the chrome-devtools MCP's browser was restarted from outside three times
+  during the run (every page closed), so after the first part (project file, division, the
+  Quality tab, a decision, a note, the server's AI switch, the project's AI switch, a review,
+  an explanation, the draft note editor) the run was done again as a Playwright script
+  (`t20/run.mjs`, headless Chromium) at 1280 × 900 and 390 × 844: 62 checks, all passed, and
+  no console error, warning or page error.
+  - Project file page: the "added" text, and "Download the file you uploaded" saves
+    "Quality demo.cep".
+  - The divided file shows "Copies to compare: 3" for each person.
+  - Quality tab: every section; data problems opened (the plot in no file); weeks as a table;
+    a decision with a comment, kept after a reload; a note from a mix-up.
+  - AI (the fake): a review with its progress and the keep-open line, "Explain in more
+    detail", "Which plots should be checked again?", "Draft a guidance note" saved as a real
+    note, "Write me a poem about forests" refused with the dashboard's sentence, an on-topic
+    question answered, no raw question key in any model text, and a plot link focusing its
+    card.
+  - Team report: no username; with print media, no app bar, no visible button, white page.
+  - Server settings: the AI switch on, the usage table with the project id and no names.
+  - My quality as maria: her mix-ups by label ("You answered Cropland; the check said
+    Settlement (4 times)"), the coordinator's notes, no other name; as a collector the
+    project page has no Quality tab and has a "My quality" link.
+  - No page-wide horizontal scroll on any page after the fix below.
+- **Fixed:**
+  - *The divide page scrolled sideways* (2038 px wide at 1280, 749 at 390): the hidden header
+    label of the "Move unfinished plots to…" column had `width: 1` in MUI's `sx`, which MUI
+    reads as 100 %, so the absolutely placed label was as wide as the page from the column's
+    left edge. Now `"1px"` (`PlotFilePage.tsx`).
+  - *The copies' help text* on the divide page said "The Data page shows the plots where the
+    two answers differ"; it now names the Quality tab, in the four languages.
+- **Seen, left as they are:**
+  - The note editor opened from a boolean mix-up shows the codes ("true", "false") in its
+    answer fields, while the list shows "Yes → No" (the editor edits the note as written,
+    Task 18).
+  - The Server page says "In 1 projects" (an older text, singular not handled).
+- Web 205 tests, typecheck and build fine after the fixes. Screenshots in the scratchpad's
+  `t20/` folder.
+
 ### Task 21: real Collect Earth check (the person running the plan does this, with the owner's go-ahead)
 
 This follows the self-testing memory rules.

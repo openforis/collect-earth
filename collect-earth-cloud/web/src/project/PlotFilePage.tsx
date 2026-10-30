@@ -583,10 +583,12 @@ function CurrentDivision({
   );
 }
 
+// Pixel sizes as strings: in MUI's sx a number of 1 or less is a fraction (width: 1 is 100%),
+// which made this hidden label as wide as the page and gave the page a horizontal scroll.
 const visuallyHidden = {
   position: "absolute",
-  width: 1,
-  height: 1,
+  width: "1px",
+  height: "1px",
   overflow: "hidden",
   clip: "rect(0 0 0 0)",
   whiteSpace: "nowrap",
