@@ -104,24 +104,6 @@ describe('quality routes', () => {
     expect(body.computedAt).toBeLessThanOrEqual(Date.now());
   });
 
-  it('GET /overlap lists each differing plot once, with every check of it', async () => {
-    await collect(3, 1);
-    // Plot 3 has a second check, by carl, and plot 2 one by ana herself.
-    await batchRequest(ctx.app, pid, project.projectToken, [
-      envelope({ recordKey: '3,2', operator: 'carl', modifiedOn: Date.UTC(2026, 9, 29), summary: { [LAND_USE]: 'C', [FOREST]: '10', collect_code_round: '2' } }),
-      envelope({ recordKey: '2,2', operator: 'ana', modifiedOn: Date.UTC(2026, 9, 29), summary: { [LAND_USE]: 'S', [FOREST]: '10', collect_code_round: '2' } }),
-    ]);
-    const res = await get('/overlap');
-    expect(res.statusCode, res.body).toBe(200);
-    const body = res.json();
-    expect(body.differing).toBe(2);
-    expect(body.items.length).toBeLessThanOrEqual(body.differing);
-    expect(body.items).toEqual([
-      { recordKey: '2', operators: ['ana', 'ana (check)'], fields: [{ key: LAND_USE, values: { ana: 'F', 'ana (check)': 'S' } }] },
-      { recordKey: '3', operators: ['ana', 'ben', 'carl'], fields: [{ key: LAND_USE, values: { ana: 'F', ben: 'G', carl: 'C' } }] },
-    ]);
-  });
-
   it('data problems: a plot in no file, a key with more parts than the survey, two main assessments', async () => {
     await batchRequest(ctx.app, pid, project.projectToken, [
       envelope({ recordKey: '99,1', operator: 'ana', summary: {} }),
@@ -316,7 +298,6 @@ describe('quality routes', () => {
     const op = bearer(project.projectToken);
     const cases: ['GET' | 'PUT' | 'POST' | 'DELETE', string, unknown][] = [
       ['GET', '/quality', undefined],
-      ['GET', '/overlap', undefined],
       ['PUT', '/quality/settings', { margins: {} }],
       ['PUT', '/quality/decisions/1', { decision: 'first' }],
       ['DELETE', '/quality/decisions/1', undefined],
@@ -340,7 +321,7 @@ describe('quality routes', () => {
     ctx.store.listRecordSummaries = async () => {
       throw leaky;
     };
-    for (const path of ['/quality', '/overlap', '/quality/team-report']) {
+    for (const path of ['/quality', '/quality/team-report']) {
       const res = await get(path);
       expect(res.statusCode, path).toBe(500);
       expect(res.json()).toEqual({ error: 'quality_failed', reason: 'The quality figures could not be worked out. Try again in a few minutes.' });

@@ -130,7 +130,6 @@ describe('cross-tenant isolation', () => {
       { method: 'GET' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/content` },
       { method: 'GET' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/content?mine=1` },
     ]);
-    cases.push({ method: 'GET' as const, url: `/v1/projects/${b.projectId}/overlap` });
     for (const c of cases) {
       const res = await ctx.app.inject({ method: c.method, url: c.url, headers: auth, payload: c.payload });
       expect(res.statusCode, `${c.method} ${c.url}`).toBe(404);
@@ -161,7 +160,6 @@ describe('cross-tenant isolation', () => {
     const note = { questionKey: 'collect_code_land_use', text: 'x' };
     const cases = [
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/quality` },
-      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/overlap` },
       { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/quality/settings`, payload: { margins: {} } },
       { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/quality/decisions/17`, payload: { decision: 'check' } },
       { method: 'DELETE' as const, url: `/v1/projects/${b.projectId}/quality/decisions/17` },

@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
-import { checkMargins, type QualityReport } from '../quality.js';
+import { checkMargins } from '../quality.js';
 import { answerOptions, personalReport, teamReport } from '../qualityReports.js';
 import { registerPlotPlaceRoutes } from './plotPlaces.js';
 import { QualityService, WorkerBusyError, WorkerRestartedError, type ServedReport } from '../qualityService.js';
@@ -48,48 +48,6 @@ function noteInput(body: unknown): GuidanceNoteInput | BadRequest {
 function plotOf(request: FastifyRequest): string | null {
   const plot = (request.params as { plot: string }).plot;
   return plot && plot.length <= MAX_NAME ? plot : null;
-}
-
-/**
- * The overlap report's old shape (the dashboard's Data tab reads it until the Quality
- * tab replaces it), from the quality figures: plots checked, plots differing, and each
- * differing plot once, with the first assessment and every check that differs from it
- * (answers by operator; someone checking their own plot is "name (check)").
- */
-function overlapShape(report: QualityReport) {
-  const items = new Map<string, { recordKey: string; operators: string[]; fields: Map<string, Record<string, string>> }>();
-  for (const d of report.differences) {
-    let item = items.get(d.plot);
-    if (!item) {
-      item = { recordKey: d.plot, operators: [], fields: new Map() };
-      items.set(d.plot, item);
-    }
-    const first = d.first.operator;
-    const check = d.check.operator === first ? `${first} (check)` : d.check.operator;
-    for (const who of [first, check]) {
-      if (!item.operators.includes(who)) {
-        item.operators.push(who);
-      }
-    }
-    for (const f of d.fields) {
-      let values = item.fields.get(f.key);
-      if (!values) {
-        values = {};
-        item.fields.set(f.key, values);
-      }
-      values[first] = f.first;
-      values[check] = f.check;
-    }
-  }
-  return {
-    plots: report.plotsChecked,
-    differing: report.plotsDiffering,
-    items: [...items.values()].map((item) => ({
-      recordKey: item.recordKey,
-      operators: item.operators,
-      fields: [...item.fields].map(([key, values]) => ({ key, values })),
-    })),
-  };
 }
 
 /** What a client is told when the figures fail: the details (a stack, a query) are only logged. */
@@ -151,16 +109,6 @@ export async function registerQualityRoutes(
     // The answer options of the questions shown, so the tab shows "Forest", not "F".
     const options = answerOptions(outline, [...figures.report.questions.map((q) => q.key), ...notes.map((n) => n.questionKey)]);
     return reply.send({ ...figures.report, computedAt: figures.computedAt, stale: figures.stale, decisions, notes, settings, options });
-  });
-
-  // The overlap report of before, kept for the dashboard's Data tab: same shape, now
-  // from the quality figures (first assessment against check, by plot unit).
-  app.get('/v1/projects/:pid/overlap', admin, async (request: FastifyRequest, reply: FastifyReply) => {
-    const figures = await served(quality, request.membership!.projectId, request, reply);
-    if (!figures) {
-      return reply;
-    }
-    return reply.send(overlapShape(figures.report));
   });
 
   // A collector's own report (any member signed in as a person; a project token is no

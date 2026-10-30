@@ -151,7 +151,6 @@ other `GET` that accepts HTML and is not under `/v1/` or `/health` returns its
 | `GET`  | `/v1/projects/:pid/csv-files/:id/distribution` | admin | `{distribution \| null, plotCount, unassigned, people: [{userId, username, plots, overlap, submitted}]}` (`plots` includes the `overlap` copies) |
 | `PUT`  | `/v1/projects/:pid/csv-files/:id/distribution` | admin | `{mode: 'whole'}` \| `{mode: 'even', people, order: 'file'\|'mixed', overlapPercent?, seed?}` \| `{mode: 'column', column, groups: [{value, people}], order, overlapPercent?, seed?}`, optional `dryRun: true` → the GET shape (the `seed` used is in `distribution`); 400 `bad_request` `{reason}` |
 | `POST` | `/v1/projects/:pid/csv-files/:id/move-unfinished` | admin | `{fromUserId, toUserId}` → the GET shape + `moved`, `notMoved`, `droppedChecks`; plots `from` has done stay (a main plot when they did its main assessment, a copy when they did its check); a copy `to` holds becomes their main plot unless `to` already checked it (then it stays, `notMoved`); `from`'s copies of `to`'s main plots go (`droppedChecks`); a whole file is divided first (mode `manual`) |
-| `GET`  | `/v1/projects/:pid/overlap` | admin | `{plots, differing, items: [{recordKey, operators, fields: [{key, values: {operator: value}}]}]}` — built from the quality figures (first assessment against check, one item per plot); kept for older dashboards, the Quality tab uses `/quality` |
 
 **Quality, reports and the AI assistant** (see `docs/plans/2026-10-29-reassessment-round.md`)
 
