@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { generateToken, hashToken } from '../auth.js';
+import { legacyRoundInfo } from '../cep.js';
 import { checksumOf, plotCountOf } from '../csv.js';
+import { fileKeyCount } from '../rounds.js';
 import {
   AI_INTERRUPTED,
   aiLimitReached,
@@ -227,7 +229,16 @@ export class InMemoryStore implements Store {
   }
 
   async getRoundInfo(projectId: string): Promise<RoundInfo | null> {
-    const info = this.projects.get(projectId)?.roundInfo;
+    const entry = this.projects.get(projectId);
+    if (entry && !entry.roundInfo && entry.cep) {
+      // A project file stored before round info was kept: read it once, as postgres.ts does.
+      const info = legacyRoundInfo(entry.cep);
+      if (info) {
+        entry.roundInfo = info;
+        if (fileKeyCount(info) !== 1) await this.recountPlots(projectId, fileKeyCount(info));
+      }
+    }
+    const info = entry?.roundInfo;
     return info ? structuredClone(info) : null;
   }
 

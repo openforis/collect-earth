@@ -240,6 +240,38 @@ describe('project file and round routes', () => {
     expect(again.json().round.reassessmentCode).toBe('1');
   });
 
+  it('a project file stored before round info existed (master) is read for round on first use', async () => {
+    const pid = project.projectId;
+    // As master left it: the demo survey ([id, round]) and a plot file counted with one key column,
+    // and no round info.
+    await ctx.store.putCsvFile(pid, 'plots.csv', Buffer.from('id,round,lat,lon\n17,1,0,0\n18,1,0,0\n18,3,0,0\n'));
+    await ctx.store.putCep(pid, demoCep(), { state: 'none', refusal: null, keyCount: 0, roundIndex: null, roundCodes: [], reassessmentCode: null }, null);
+    (ctx.store as unknown as { projects: Map<string, { roundInfo: RoundInfo | null }> }).projects.get(pid)!.roundInfo = null;
+    expect((await ctx.store.listCsvFiles(pid))[0].plotCount).toBe(2);
+    await batchRequest(ctx.app, pid, project.projectToken, [
+      envelope({ recordKey: '17,1', operator: 'ana', summary: {} }),
+      envelope({ recordKey: '17,2', operator: 'ben', summary: {} }),
+    ]);
+
+    const round = await get('/round');
+    expect(round.statusCode).toBe(200);
+    expect(round.json()).toMatchObject({ state: 'own', refusal: null, keyCount: 2, roundIndex: 1, reassessmentCode: '2' });
+    // Saved, and the plot file counted again with the round column.
+    expect((ctx.store as unknown as { projects: Map<string, { roundInfo: RoundInfo | null }> }).projects.get(pid)!.roundInfo).toMatchObject({ state: 'own' });
+    expect((await ctx.store.listCsvFiles(pid))[0].plotCount).toBe(3);
+
+    const exported = await get('/export.csv');
+    const lines = exported.rawPayload.subarray(3).toString('utf8').split('\r\n').filter((l) => l !== '');
+    expect(lines.slice(1).map((l) => l.split(',').slice(0, 7).join(','))).toEqual([
+      '"17,1",17,1,main,,ana',
+      '"17,2",17,2,check,,ben',
+    ]);
+    const quality = (await get('/quality')).json();
+    expect(quality.problems).toEqual([]);
+    expect(quality.plotsChecked).toBe(1);
+    expect((await putRound({ reassessmentCode: '1' })).statusCode).toBe(200);
+  });
+
   it('has no round info and no original before any upload', async () => {
     expect((await get('/round')).json()).toBeNull();
     expect((await get('/cep/original')).statusCode).toBe(404);

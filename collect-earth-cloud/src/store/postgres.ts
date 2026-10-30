@@ -43,6 +43,8 @@ import {
 import type { CreateInviteInput, CreateProjectResult, Store, TokenMembership, UserPlots } from './store.js';
 import { UsernameTakenError } from './memory.js';
 import { checksumOf, plotCountOf } from '../csv.js';
+import { legacyRoundInfo } from '../cep.js';
+import { fileKeyCount } from '../rounds.js';
 
 const { Pool } = pg;
 
@@ -383,8 +385,38 @@ export class PostgresStore implements Store {
 
   async getRoundInfo(projectId: string): Promise<RoundInfo | null> {
     return this.withProject(projectId, async (client) => {
-      const res = await client.query('SELECT round_info FROM project_ceps WHERE project_id = $1', [projectId]);
-      return res.rowCount === 0 ? null : ((res.rows[0].round_info as RoundInfo | null) ?? null);
+      // The file's bytes only when there is no round info yet (a project file stored before it was kept).
+      const res = await client.query(
+        'SELECT round_info, CASE WHEN round_info IS NULL THEN data END AS data FROM project_ceps WHERE project_id = $1',
+        [projectId],
+      );
+      if (res.rowCount === 0) {
+        return null;
+      }
+      const stored = res.rows[0].round_info as RoundInfo | null;
+      if (stored) {
+        return stored;
+      }
+      // Read it once and keep it. Under the row lock of the UPDATE, only the first of two
+      // concurrent readers (or an upload that came first) writes it; the others read what
+      // was written. Plot counts follow, in the same transaction, when the file reads plots
+      // with other than one key column.
+      const info = res.rows[0].data ? legacyRoundInfo(res.rows[0].data as Buffer) : null;
+      if (!info) {
+        return null;
+      }
+      const updated = await client.query(
+        'UPDATE project_ceps SET round_info = $2 WHERE project_id = $1 AND round_info IS NULL',
+        [projectId, JSON.stringify(info)],
+      );
+      if (updated.rowCount === 0) {
+        const now = await client.query('SELECT round_info FROM project_ceps WHERE project_id = $1', [projectId]);
+        return (now.rows[0]?.round_info as RoundInfo | null) ?? null;
+      }
+      if (fileKeyCount(info) !== 1) {
+        await this.recountPlotsWith(client, projectId, fileKeyCount(info));
+      }
+      return info;
     });
   }
 
@@ -917,16 +949,18 @@ export class PostgresStore implements Store {
   }
 
   async recountPlots(projectId: string, keyCount: number): Promise<void> {
-    await this.withProject(projectId, async (client) => {
-      const res = await client.query('SELECT id, data FROM csv_files WHERE project_id = $1', [projectId]);
-      for (const row of res.rows as { id: string; data: Buffer }[]) {
-        await client.query('UPDATE csv_files SET plot_count = $3 WHERE project_id = $1 AND id = $2', [
-          projectId,
-          row.id,
-          plotCountOf(row.data, keyCount),
-        ]);
-      }
-    });
+    await this.withProject(projectId, (client) => this.recountPlotsWith(client, projectId, keyCount));
+  }
+
+  private async recountPlotsWith(client: pg.PoolClient, projectId: string, keyCount: number): Promise<void> {
+    const res = await client.query('SELECT id, data FROM csv_files WHERE project_id = $1', [projectId]);
+    for (const row of res.rows as { id: string; data: Buffer }[]) {
+      await client.query('UPDATE csv_files SET plot_count = $3 WHERE project_id = $1 AND id = $2', [
+        projectId,
+        row.id,
+        plotCountOf(row.data, keyCount),
+      ]);
+    }
   }
 
   async getCsvFile(projectId: string, csvFileId: string): Promise<(CsvFile & { data: Buffer }) | null> {

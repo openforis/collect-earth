@@ -789,6 +789,20 @@ export function roundInfoOf(zip: Buffer): RoundInfo {
   );
 }
 
+/**
+ * The round info of a project file stored before the server kept one (a project from
+ * before the round work, whose `round_info` is empty): what the file says, `own` or
+ * `none`, never `added` (that file was served as it was uploaded). Null when the file
+ * is too large to read; the caller then leaves the info empty, as before.
+ */
+export function legacyRoundInfo(zip: Buffer): RoundInfo | null {
+  try {
+    return roundInfoOf(zip);
+  } catch {
+    return null;
+  }
+}
+
 function balloonRefusal(html: string): RefusalCode | null {
   if (!html.includes(BALLOON_MARKER)) return 'balloon_marker_missing';
   const ids = EXTRA_ID_ATTRIBUTES.exec(html);
