@@ -824,6 +824,10 @@ function addRoundToBalloon(html: string): string {
 }
 
 function addRoundToTemplate(template: string): string {
+  return blindPlacemarkNames(addRoundDataToTemplate(template));
+}
+
+function addRoundDataToTemplate(template: string): string {
   // An EXTRA_round already there is left alone. Surveys whose template has one normally
   // have a non-key round too, and were refused (round_not_key) before getting here.
   if (template.includes('<Data name="EXTRA_round">')) return template;
@@ -836,6 +840,24 @@ function addRoundToTemplate(template: string): string {
   const close = template.indexOf('</Data>', idData);
   const indent = indentAt(template, idData);
   return insertLinesAfter(template, close + '</Data>'.length, ROUND_TEMPLATE_LINES.map((l) => indent + l));
+}
+
+/**
+ * Google Earth Pro shows a plot by the <name> of its Placemark, which the demo template fills with
+ * ${placemark.placemarkId}: every key, round too, so a check copy would show as "105,2". Collect Earth
+ * gives the template the id without the keys hidden from the collector as
+ * ${placemark.visiblePlacemarkId} (SimplePlacemarkObject), which its folder names already use. Only the
+ * first <name> of each Placemark, when it holds plain text, is changed; the rest of the template, such
+ * as the ids of elements and the URLs, keeps the whole id.
+ */
+const PLACEMARK_NAME = /(<Placemark\b[^>]*>(?:(?!<\/?Placemark\b|<name>)[\s\S])*<name>)([^<]*)(<\/name>)/g;
+const PLACEMARK_ID = '${placemark.placemarkId}';
+const VISIBLE_PLACEMARK_ID = '${placemark.visiblePlacemarkId!""}';
+
+function blindPlacemarkNames(template: string): string {
+  return template.replace(PLACEMARK_NAME, (_all, open: string, name: string, close: string) =>
+    open + name.split(PLACEMARK_ID).join(VISIBLE_PLACEMARK_ID) + close,
+  );
 }
 
 /** Adds the round key, and its code list when needed, to an id-only survey. */

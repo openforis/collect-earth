@@ -881,6 +881,38 @@ describe('addRound', () => {
     );
   });
 
+  it('names the Placemarks of the demo template by the visible id, so Google Earth does not show round', () => {
+    const before = text(idOnlyCep(), 'kml_template.fmt');
+    expect(before).toContain('<Placemark id="${placemark.placemarkId}">\n\t\t<name>${placemark.placemarkId}</name>');
+    const template = text(addRound(idOnlyCep()).cep, 'kml_template.fmt');
+    expect(template).toContain(
+      '<Placemark id="${placemark.placemarkId}">\n\t\t<name>${placemark.visiblePlacemarkId!""}</name>',
+    );
+    expect(template).not.toMatch(/<name>[^<]*\$\{placemark\.placemarkId\}[^<]*<\/name>/);
+    // Everything else keeps the whole id: the element ids, the icon URL, the folder name's own fallback
+    expect(count(template, '${placemark.placemarkId}')).toBe(count(before, '${placemark.placemarkId}') - 1);
+    expect(template).toContain('placemarkIconExtd?id=${placemark.placemarkId}');
+  });
+
+  it('changes only the plain-text name of a Placemark', () => {
+    const template = miniTemplate().replace(
+      '</ExtendedData></kml>',
+      [
+        '</ExtendedData>',
+        '<Folder><name>${placemark.placemarkId}</name></Folder>',
+        '<Placemark id="p_${placemark.placemarkId}">\r\n  <name>Plot ${placemark.placemarkId}</name></Placemark>',
+        '<Placemark><styleUrl>#s</styleUrl><name>${placemark.placemarkId}</name></Placemark>',
+        '</kml>',
+      ].join('\n'),
+    );
+    const served = text(addRound(miniCep({ 'kml_template.fmt': template })).cep, 'kml_template.fmt');
+    expect(served).toContain(
+      '<Placemark id="p_${placemark.placemarkId}">\r\n  <name>Plot ${placemark.visiblePlacemarkId!""}</name>',
+    );
+    expect(served).toContain('<Folder><name>${placemark.placemarkId}</name></Folder>');
+    expect(served).toContain('<styleUrl>#s</styleUrl><name>${placemark.visiblePlacemarkId!""}</name>');
+  });
+
   const idmWith = (children: string) => miniIdm({ children });
   const refusals: Array<[string, () => Buffer]> = [
     ['not_a_zip', () => Buffer.from('plain text')],
