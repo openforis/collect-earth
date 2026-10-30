@@ -1893,6 +1893,33 @@ Add helper tests for the code → message mapping.
 
 Commit: "Collect Earth Cloud dashboard: the project file page says what the server did about round".
 
+**As built (differs from the above)**
+- **An "Assessment round" section** under the file's status, shown once `GET /round`
+  returns an info (nothing before any upload). It is rebuilt after each upload from
+  the `round` of the PUT answer, so a new file starts from what the server says.
+- **Messages in `web/src/roundText.ts`** (pure, tested): `refusalMessageKey` gives one
+  sentence per server `RefusalCode` (12, an unknown code gets a general one), and
+  `roundMessage(info)` the sentences, severity, download and choice for a state.
+  `none` with no refusal (the file came after data was collected, from
+  `roundInfoOf`) says the server left the survey as it was. Refusals where the
+  file itself looks wrong (`not_a_zip`, `too_large`, `no_survey`,
+  `survey_unreadable`) say "check that this is the .cep file of your survey"
+  instead of suggesting a `round` key in the designer, as a warning.
+- **The download** uses `downloadOriginalCep`: `/cep/original`, and on 404 the
+  served `/cep` (the server keeps no separate original when the served file is the
+  upload, e.g. its own version uploaded back). Saved as "<project name>.cep";
+  `saveBlob` moved out of `DataTab.tsx` into `web/src/saveBlob.ts`.
+- **Own round:** the list shows "code – label" and "None..." last; Save is enabled
+  only on a change. With None the help text says a record counts as a check when
+  its person had the plot as a quality-check copy (what `recordRound` does).
+- **Upload errors** go through `errorMessageKey` (`CODE_MESSAGES`): `round_removed`,
+  `round_codes_changed`, `key_shape_changed`, `plots_divided` (409) and
+  `too_large` (413) each get a sentence; the server's English `reason` is not shown.
+- The existing "Project file uploaded" text already says that people who joined
+  before must join again with a new invitation link (Collect Earth downloads the
+  CEP only in File → Join cloud project…), so it was left as it is.
+- The dashboard has no dark theme yet: dark-mode screenshots look like the light ones.
+
 ### Task 17: the Quality tab
 
 Add `"quality"` to `PROJECT_TABS` in `router.ts` and to `ProjectPage.tsx`, and

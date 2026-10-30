@@ -214,6 +214,27 @@ export interface ResetLink {
   expiresAt: number | null;
 }
 
+/** added: the server added a hidden round key; own: the survey has one; none: no round. */
+export type RoundState = "added" | "own" | "none";
+
+/** A code of the round key's list, with its label in the survey's default language. */
+export interface RoundCode {
+  code: string;
+  label: string;
+}
+
+/** What the server did about the round key of the project file (GET /round). */
+export interface RoundInfo {
+  state: RoundState;
+  /** Why the server did not add round (state none before collection), e.g. "several_keys". */
+  refusal: string | null;
+  keyCount: number;
+  roundIndex: number | null;
+  roundCodes: RoundCode[];
+  /** The code that marks re-assessments; null for none (or not chosen yet). */
+  reassessmentCode: string | null;
+}
+
 /** A failed call. status 0 means the server could not be reached at all. */
 export class ApiError extends Error {
   readonly status: number;
@@ -267,6 +288,12 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   sole_coordinator: "error.soleCoordinator",
   last_platform_admin: "error.lastPlatformAdmin",
   terms_not_accepted: "error.termsNotAccepted",
+  // Project file uploads (PUT /cep) refused once data exists or plots are divided.
+  round_removed: "error.roundRemoved",
+  round_codes_changed: "error.roundCodesChanged",
+  key_shape_changed: "error.keyShapeChanged",
+  plots_divided: "error.plotsDivided",
+  too_large: "error.cepTooLarge",
 };
 
 /** The sentence (message key) to show a person for any error thrown by this module. */
@@ -583,8 +610,51 @@ export async function getOverview(projectId: string): Promise<Overview> {
   };
 }
 
-export async function uploadCep(projectId: string, file: Blob, onProgress?: Progress): Promise<void> {
-  await upload("PUT", `${p(projectId)}/cep`, file, "application/zip", onProgress);
+/** What the server did about round, from a server answer; null when absent or not an object. */
+export function toRoundInfo(body: unknown): RoundInfo | null {
+  if (!body || typeof body !== "object") return null;
+  const record = body as Record<string, unknown>;
+  const state: RoundState = record.state === "added" || record.state === "own" ? record.state : "none";
+  const codes = Array.isArray(record.roundCodes) ? (record.roundCodes as Record<string, unknown>[]) : [];
+  return {
+    state,
+    refusal: typeof record.refusal === "string" && record.refusal ? record.refusal : null,
+    keyCount: toCount(record.keyCount),
+    roundIndex: typeof record.roundIndex === "number" ? record.roundIndex : null,
+    roundCodes: codes
+      .filter((c) => c && (typeof c.code === "string" || typeof c.code === "number"))
+      .map((c) => ({ code: String(c.code), label: typeof c.label === "string" ? c.label : "" })),
+    reassessmentCode: typeof record.reassessmentCode === "string" ? record.reassessmentCode : null,
+  };
+}
+
+/** Uploads the project file; returns what the server did about round (null from older servers). */
+export async function uploadCep(projectId: string, file: Blob, onProgress?: Progress): Promise<RoundInfo | null> {
+  const body = await upload<Record<string, unknown> | null>("PUT", `${p(projectId)}/cep`, file, "application/zip", onProgress);
+  return toRoundInfo(body?.round);
+}
+
+/** What the server did about round in the current project file; null before any upload. */
+export async function getRoundInfo(projectId: string): Promise<RoundInfo | null> {
+  return toRoundInfo(await request<unknown>("GET", `${p(projectId)}/round`));
+}
+
+/** Which code of the survey's own round marks re-assessments (null: none). */
+export async function setReassessmentCode(projectId: string, reassessmentCode: string | null): Promise<RoundInfo | null> {
+  return toRoundInfo(await request<unknown>("PUT", `${p(projectId)}/round`, { json: { reassessmentCode } }));
+}
+
+/**
+ * The project file as the coordinator uploaded it. When the server serves the upload
+ * unchanged it keeps no separate original (404), and the served file is the upload.
+ */
+export async function downloadOriginalCep(projectId: string): Promise<Blob> {
+  try {
+    return await (await send("GET", `${p(projectId)}/cep/original`)).blob();
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 404) throw error;
+    return await (await send("GET", `${p(projectId)}/cep`)).blob();
+  }
 }
 
 // --- invites ------------------------------------------------------------------------------

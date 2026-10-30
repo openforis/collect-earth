@@ -18,18 +18,8 @@ import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
 import { useT } from "../i18n";
+import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
-
-function saveBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
-}
 
 /** Plots submitted by two or more people, and where their answers differ. */
 function QualityCheck({ projectId }: { projectId: string }) {

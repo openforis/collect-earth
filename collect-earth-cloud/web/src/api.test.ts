@@ -26,6 +26,11 @@ import {
   toMillis,
   toServerSettings,
   DEFAULT_SERVER_SETTINGS,
+  downloadOriginalCep,
+  getRoundInfo,
+  setReassessmentCode,
+  toRoundInfo,
+  uploadCep,
 } from "./api";
 import { CATALOGUES } from "./i18n";
 import { setToken } from "./storage";
@@ -353,5 +358,108 @@ describe("dividing plots", () => {
       items: [{ recordKey: "17", operators: ["maria", "jose"], fields: [{ key: "land_use", values: { maria: "forest", jose: "" } }] }],
     });
     expect(call().url).toBe("/v1/projects/p1/overlap");
+  });
+});
+
+describe("the project file and round", () => {
+  const added = { state: "added", refusal: null, keyCount: 2, roundIndex: 1, roundCodes: [{ code: "1", label: "First assessment" }, { code: "2", label: "Re-assessment" }], reassessmentCode: "2" };
+
+  /** A minimal XMLHttpRequest that answers every upload with one status and body. */
+  function fakeXhr(status: number, body: unknown) {
+    const sent: { method: string; url: string; headers: Record<string, string> }[] = [];
+    class FakeXhr {
+      status = 0;
+      responseText = "";
+      upload: { onprogress: ((e: { lengthComputable: boolean; loaded: number; total: number }) => void) | null } = { onprogress: null };
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      private request = { method: "", url: "", headers: {} as Record<string, string> };
+      open(method: string, url: string) {
+        this.request.method = method;
+        this.request.url = url;
+      }
+      setRequestHeader(name: string, value: string) {
+        this.request.headers[name] = value;
+      }
+      send() {
+        sent.push(this.request);
+        this.status = status;
+        this.responseText = JSON.stringify(body);
+        this.onload?.();
+      }
+    }
+    vi.stubGlobal("XMLHttpRequest", FakeXhr);
+    return sent;
+  }
+
+  it("an upload returns what the server did about round", async () => {
+    const sent = fakeXhr(200, { ok: true, bytes: 10, round: added });
+    expect(await uploadCep("p 1", new Blob(["zip"]))).toEqual(added);
+    expect(sent[0]).toMatchObject({ method: "PUT", url: "/v1/projects/p%201/cep", headers: { "content-type": "application/zip" } });
+  });
+
+  it("an older server's upload answer has no round", async () => {
+    fakeXhr(200, { ok: true, bytes: 10 });
+    expect(await uploadCep("p1", new Blob(["zip"]))).toBeNull();
+  });
+
+  it.each([
+    [409, "round_removed", "error.roundRemoved"],
+    [409, "round_codes_changed", "error.roundCodesChanged"],
+    [409, "key_shape_changed", "error.keyShapeChanged"],
+    [409, "plots_divided", "error.plotsDivided"],
+    [413, "too_large", "error.cepTooLarge"],
+    [413, "storage_limit_reached", "error.storageLimitReached"],
+  ])("a %i %s upload becomes its own sentence", async (status, code, key) => {
+    fakeXhr(status, { error: code, reason: "in English" });
+    const error = await uploadCep("p1", new Blob(["zip"])).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).reason).toBe("in English");
+    expect(errorMessageKey(error)).toBe(key);
+    expect(CATALOGUES.en[errorMessageKey(error)]).toBeTruthy();
+  });
+
+  it("reads the round info, or null before any upload", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, added)).mockResolvedValueOnce(jsonResponse(200, null));
+    expect(await getRoundInfo("p1")).toEqual(added);
+    expect(await getRoundInfo("p1")).toBeNull();
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/projects/p1/round");
+  });
+
+  it("normalises a round info", () => {
+    expect(toRoundInfo({ state: "odd", roundCodes: [{ code: 2020 }, { label: "no code" }], keyCount: "2", roundIndex: 1 })).toEqual({
+      state: "none",
+      refusal: null,
+      keyCount: 2,
+      roundIndex: 1,
+      roundCodes: [{ code: "2020", label: "" }],
+      reassessmentCode: null,
+    });
+    expect(toRoundInfo({ state: "none", refusal: "several_keys" })?.refusal).toBe("several_keys");
+    expect(toRoundInfo("nope")).toBeNull();
+  });
+
+  it("saves the re-assessment code, or none", async () => {
+    const own = { ...added, state: "own", reassessmentCode: "3" };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, own)).mockResolvedValueOnce(jsonResponse(200, { ...own, reassessmentCode: null }));
+    expect((await setReassessmentCode("p1", "3"))?.reassessmentCode).toBe("3");
+    expect((await setReassessmentCode("p1", null))?.reassessmentCode).toBeNull();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect([url, init?.method, JSON.parse(init?.body as string)]).toEqual(["/v1/projects/p1/round", "PUT", { reassessmentCode: "3" }]);
+    expect(JSON.parse(fetchMock.mock.calls[1][1]?.body as string)).toEqual({ reassessmentCode: null });
+  });
+
+  it("downloads the uploaded file, or the served one when the server kept no separate original", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("original", { status: 200 }));
+    expect(await (await downloadOriginalCep("p1")).text()).toBe("original");
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/projects/p1/cep/original");
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(404, { error: "not_found" })).mockResolvedValueOnce(new Response("served", { status: 200 }));
+    expect(await (await downloadOriginalCep("p1")).text()).toBe("served");
+    expect(fetchMock.mock.calls[2][0]).toBe("/v1/projects/p1/cep");
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(403, { error: "forbidden" }));
+    await expect(downloadOriginalCep("p1")).rejects.toMatchObject({ status: 403 });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });
