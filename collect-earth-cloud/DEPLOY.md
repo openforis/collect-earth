@@ -28,6 +28,12 @@ managed Postgres (Option B).
 | `MIGRATE_ON_BOOT` | optional | `true` | Apply pending migrations on startup (see below) |
 | `PORT` | no | `8080` | Listen port (Cloud Run injects `8080`) |
 | `HOST` | no | `0.0.0.0` | Bind address |
+| `QUALITY_WORKER_MAX_MB` | no | `512` | Memory (MB, at least 64) the thread that works out the quality figures may use on Postgres. A project too big for it gets a plain error instead of the figures. Keep it below the container's memory (see "Quality figures and memory") |
+| `AI_VERTEX_API_KEY` | no | (secret) | Optional AI assistant: a Vertex AI API key, restricted to the Vertex AI API. Wins over `AI_VERTEX_PROJECT` when both are set. See "AI assistant (optional)" |
+| `AI_VERTEX_PROJECT` | no | `my-project` | Optional AI assistant without a key: the Google Cloud project whose Vertex AI the server's service account calls |
+| `AI_VERTEX_REGION` | no | `global` | Vertex AI location, used with `AI_VERTEX_PROJECT` (default `global`) |
+| `AI_MODEL` | no | `gemini-3.8-flash` | The Gemini model id on Vertex AI (default `gemini-3.8-flash`) |
+| `AI_FAKE` | never in production | `1` | Development only: a scripted stand-in for the model, so the AI panel can be tried without Vertex. Refused unless `STORE_BACKEND=memory`, and refused on Cloud Run (`K_SERVICE`) or with `NODE_ENV=production` |
 
 Generate a good admin key: `openssl rand -base64 32`.
 
@@ -115,7 +121,15 @@ and has no `BYPASSRLS`. So the server should run as its own role, not as the own
   each revision keeps the configuration it was deployed with. Deploying an older
   *image* onto the current configuration is not: older versions migrate with
   `DATABASE_URL`, which is now the app role, so first point `DATABASE_URL` back at
-  `ce-database-url` (and remove `MIGRATION_DATABASE_URL`).
+  `ce-database-url` (and remove `MIGRATION_DATABASE_URL`). Going back to a version
+  from before the re-assessment round (migrations 007 to 011) keeps every record and
+  file: the new columns and tables are only added to, and the older server ignores
+  them. But its dashboard has no Quality tab, its export has no `plot`, `round`,
+  `assessment` and `final` columns, and it serves the project file and plot files as
+  they are stored, so records keep arriving with keys like "17,1" and "17,2" that it
+  does not tell apart. Its own migrations also put back the older project policies
+  (without the `NULLIF` of the empty setting); the next boot of a newer version
+  replaces them again.
 - By hand (Option B), as the owner:
   `CREATE ROLE ce_app LOGIN PASSWORD '...'`, then start the server with both URLs and
   `MIGRATE_ON_BOOT=true` (or run `npm run migrate` with both set).
@@ -287,6 +301,149 @@ must be the address people really use.
   To rotate the database password: set a new one with
   `gcloud sql users set-password ce --instance=ce-cloud-db`, add it as a new
   version of `ce-database-url`, and redeploy (re-run the script).
+
+---
+
+## What "round" means for coordinators
+
+- Every record now has a **plot** and a **round**: round 1 is the main assessment
+  of a plot, round 2 a quality check, where another collector assesses the same
+  plot again without seeing the first answers.
+- When the survey's only key is the plot `id` and no data has been collected yet,
+  the server adds a hidden key called `round` to the project file it hands out.
+  Collectors get that version when they join (people who joined before the upload
+  must join again). The Project file page says so, and the file you uploaded can
+  still be downloaded from there.
+- In a divided plot file, the plots a person gets as quality-check copies come with
+  round 2, the others with round 1. Collect Earth saves them as separate records
+  ("17,1" and "17,2"), so a check never overwrites the first assessment. Collectors
+  do not see the round.
+- A survey that already has `round` keeps it: pick on the Project file page which
+  code marks a re-assessment, or "None" when round means something else (a year).
+  Where the server could not add it (the page says why), round 1 or 2 is worked out
+  from who held the plot as a quality-check copy.
+- The Quality tab compares first assessments with checks. The data download has the
+  columns `plot`, `round`, `assessment` (`main`, `check` or `other`) and `final`
+  (`yes` for the answer you chose for a plot, `no` for the other, `recheck`).
+
+## AI assistant (optional)
+
+An optional assistant on the Quality tab reviews a project's quality figures with
+Gemini on Google's Vertex AI and suggests guidance notes and plots to check again.
+It is off unless the server owner sets it up; without the settings below, the
+dashboard says it is not set up and nothing is ever sent to Google.
+
+**Setting it up** (Option A's names; replace `<PROJECT>` and `<REGION>`):
+1. **Enable the Vertex AI API.** Gemini is billed per use (tokens), on the project's
+   billing account:
+   `gcloud services enable aiplatform.googleapis.com --project=<PROJECT>`.
+2. **Choose how the server logs in to Vertex AI**, one of:
+   - **An API key, restricted to the Vertex AI API.** Create it in the console
+     (*APIs & Services* → *Credentials* → *Create credentials* → *API key*, then
+     *API restrictions* → *Vertex AI API*), or
+     `gcloud services api-keys create --display-name="Collect Earth Cloud AI" --api-target=service=aiplatform.googleapis.com --project=<PROJECT>`.
+     Keep it in Secret Manager and give it to the service as `AI_VERTEX_API_KEY`:
+     ```bash
+     printf '%s' '<the key>' | gcloud secrets create ce-ai-vertex-key \
+       --replication-policy=automatic --data-file=- --project=<PROJECT>
+     gcloud secrets add-iam-policy-binding ce-ai-vertex-key --project=<PROJECT> \
+       --member=serviceAccount:ce-cloud-run@<PROJECT>.iam.gserviceaccount.com \
+       --role=roles/secretmanager.secretAccessor --condition=None
+     gcloud run services update collect-earth-cloud --region=<REGION> --project=<PROJECT> \
+       --update-secrets=AI_VERTEX_API_KEY=ce-ai-vertex-key:latest
+     ```
+   - **Or the service account, without a key.** Give the Cloud Run service account
+     the "Vertex AI User" role and tell the server the project and location:
+     ```bash
+     gcloud projects add-iam-policy-binding <PROJECT> --condition=None \
+       --member=serviceAccount:ce-cloud-run@<PROJECT>.iam.gserviceaccount.com \
+       --role=roles/aiplatform.user
+     gcloud run services update collect-earth-cloud --region=<REGION> --project=<PROJECT> \
+       --update-env-vars=AI_VERTEX_PROJECT=<PROJECT>,AI_VERTEX_REGION=global
+     ```
+   When both are set, the key is used.
+3. **`AI_MODEL`** is optional: the default is `gemini-3.8-flash` (Gemini 3.8 Flash,
+   available in Vertex AI's `global`, `us` and `eu` locations).
+4. **Set a billing budget alert** (*Billing* → *Budgets & alerts*), e.g. a few
+   dollars a month with alerts at 50 % and 90 %, so an unexpected bill is seen
+   early. The server's own limits (below) cap use per project, but only Google's
+   bill shows what was spent.
+5. **Switch it on:** the platform admin turns on "Allow the AI assistant on this
+   server" in the dashboard's Server settings, then each coordinator who wants it
+   turns it on in their project's Settings tab. Both are off by default.
+6. **`GOOGLE_VERTEX_BASE_URL` and `GOOGLE_GEMINI_BASE_URL` must not be set** in the
+   server's environment. The Google SDK sends its requests, with the key, to the
+   address they name.
+
+`deploy.sh` keeps these variables and secrets when it is run again (it uses
+`--update-env-vars` / `--update-secrets`), and it creates none of them: nothing
+billable for the AI is switched on by the script.
+
+**What is sent to Google:** answers to choice and number questions, the survey's
+questions, answer options and help texts, the quality figures and the
+coordinator's guidance notes. People's names are replaced by "Person A",
+"Person B", and plot ids by "Plot 1", "Plot 2"; the dashboard puts the real ones
+back. Coordinates, comments, other text answers, record keys and plot ids are never
+sent. The assistant only reads; it changes nothing.
+
+**Limits** (Server settings; each **per project**, so the server's total can be
+the limit times the number of projects):
+- AI reviews per project per day (default 5) and follow-ups and questions per
+  project per day (default 30), by UTC day. Failed runs do not count; refused
+  questions do;
+- AI tokens per project per month (default 2,000,000), counting every run, failed
+  ones too, since their tokens were billed. The last run of a month can go past it
+  by that one run;
+- one run at a time per project, at most 20 tool calls and 200,000 input tokens per
+  run, and 9 minutes per run.
+
+`0` allows none. The Server settings page also shows this month's use per project
+(project ids, runs, refusals and tokens; never names or content).
+
+## Cloud Run billing: work done between requests
+
+`deploy.sh` keeps Cloud Run's **request-based billing**: an instance's CPU is
+slowed down between requests, which keeps a quiet server almost free. The owner
+decided (30 October 2026) to keep it. What it means:
+- **An AI review runs only while a coordinator has the Quality tab open.** The
+  page asks for the review's progress every 2 seconds, and those requests give the
+  server the CPU to go on. A tab closed (or hidden) during a review pauses it; if it
+  is not shown again it fails as "interrupted" or "took too long", **after its
+  tokens were billed**. The panel says "Keep this page open until it has finished".
+- **Fresh quality figures likewise** are worked out while the Quality tab or a
+  report is open and asking for them; otherwise the figures shown are the last ones,
+  with their time.
+
+To remove this, switch the service to **instance-based billing**:
+`gcloud run services update collect-earth-cloud --region=<REGION> --no-cpu-throttling`.
+With up to 4 instances scaling to zero, that is about free to US$2 a month at light
+use, and up to about US$45 a month with one instance always up. `deploy.sh` does
+not change this setting. A later option is to hand AI runs to Cloud Tasks, so that
+each runs inside a request of its own.
+
+**Quality figures and memory.** On Postgres the figures are worked out in a
+separate thread of the server, with at most `QUALITY_WORKER_MAX_MB` (default 512)
+of memory. `deploy.sh` gives each instance 512 MiB in all, so for large projects
+(tens of thousands of records) set `QUALITY_WORKER_MAX_MB` lower (e.g. 256) or give
+the service more memory (`gcloud run services update ... --memory=1Gi`); otherwise
+the container itself may run out of memory before the thread's limit is reached.
+
+## Known limitations
+
+- **Plot ids are read as UTF-8.** In a plot file saved as Latin-1 (ISO-8859-1), an
+  id with an accented letter does not match the record key Collect Earth sends, so
+  its records are listed as "plot in no file". Save plot files as UTF-8.
+- **A header row whose names all look like numbers** (for example "2020") is taken
+  for a data row, as Collect Earth itself does.
+- **Blind checks depend on Collect Earth hiding the `round` key** from collectors;
+  it is checked with the desktop app, not by the server.
+- **"Open in Google Earth" links** on the Quality tab only work for plot files in
+  latitude/longitude (WGS 84); for other coordinate systems the tab says they are
+  not available.
+- **Personal reports name no one,** but when a single person checks a collector's
+  plots, the collector can tell who that is.
+- **AI limits are per project** and checked before a run starts, so the server's
+  monthly total can reach the limit times the number of projects, plus one run each.
 
 ---
 

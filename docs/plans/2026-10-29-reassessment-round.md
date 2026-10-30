@@ -2516,6 +2516,59 @@ Commit: "Collect Earth Cloud dashboard: the AI assistant panel, printable report
 
 Commit: "Collect Earth Cloud: how to set up the AI assistant, and what round means for coordinators".
 
+**As built**
+- **DEPLOY.md:**
+  - the environment table gains `QUALITY_WORKER_MAX_MB`, the four `AI_*` variables and
+    `AI_FAKE` (development only, and refused where it is);
+  - new sections: "What "round" means for coordinators", "AI assistant (optional)" (the six
+    setup steps, with `gcloud` commands for the key in Secret Manager or the service account
+    with `roles/aiplatform.user`; what is sent; the limits, per project), "Cloud Run billing:
+    work done between requests" (the owner's decision; `--no-cpu-throttling` with its cost;
+    Cloud Tasks later; `deploy.sh` unchanged), "Quality figures and memory", and "Known
+    limitations" (Latin-1 ids, numeric-looking headers, blind checks depend on the desktop
+    app, Google Earth links for latitude/longitude only, elimination in personal reports,
+    per-project AI limits);
+  - "Going back" says what an older version does with the new data (the columns and tables
+    are only added; its migrations put the older policies back until a newer boot).
+- **Found while writing it, not fixed (deploy.sh is not changed):** `deploy.sh` gives the
+  service 512 MiB in all, and `QUALITY_WORKER_MAX_MB` defaults to 512, so on a very large
+  project the container can run out of memory before the worker's own limit. DEPLOY.md
+  says to set the variable lower (e.g. 256) or give the service `--memory=1Gi`.
+- **README:** the CEP, round, quality, report, AI and AI-usage routes; the new fields of
+  `/v1/server-info`, `/v1/admin/settings` and the export; the layout and migrations lists.
+- **`.env.example`:** the `AI_*` variables and `QUALITY_WORKER_MAX_MB` were already there,
+  commented out; added the warning about `GOOGLE_VERTEX_BASE_URL` /
+  `GOOGLE_GEMINI_BASE_URL` and a commented-out `AI_FAKE=1`.
+- **Postgres smoke** (`pgtask19.mts`, throwaway `postgres:16` container `ce-pg-task19`,
+  removed afterwards): 195 checks, all passed, through the real server process (`npm
+  start` with `MIGRATION_DATABASE_URL` = the owner, with `CREATEROLE`, and `DATABASE_URL` =
+  the app role, `MIGRATE_ON_BOOT=true`), on two databases:
+  - **fresh**, and **upgraded from master**: master's 001-003 (`git show master:...`) run
+    as the owner, with a master-era project (Phase-0 tokens, an id-only CEP, a plot file,
+    two one-part records, a member), then the server's boot runs 001-011;
+  - the boot log says RLS binds the app role, with no password in it; a second boot of
+    each database starts again;
+  - `idOnlyCep` is `added`, `/cep/original` is the upload byte for byte, `GET /round`;
+    two plot files, one divided between two collectors with 20 % copies, the other whole
+    and assigned; every my-assignment checksum is the sha256 of the bytes `content`
+    serves (and its `x-checksum-sha256`), with `id,round,...` headers and round 2 on copies;
+  - records through `records:batch` with sessions, "17,1" by the holder of 17 and "17,2"
+    by the other collector; `/quality` (computed by the worker thread as the app role)
+    pairs them, with no data problems and text answers not compared; a decision, a note,
+    a margin, `/quality/places`; `/my-quality` names no one else; the team report has no
+    usernames and is refused to a collector; `export.csv` has
+    `record_key, plot, round, assessment, final, ...`, "17,1" → `17, 1, main, no` and
+    "17,2" → `17, 2, check, yes`;
+  - the master-era project after the upgrade: its CEP and plot file as stored, `/round`,
+    the export (virtual round 1, main), `/quality` and the overview;
+  - RLS on all 9 tables with RLS (found from `pg_class.relrowsecurity`), with rows of
+    project B in each: as the app role with A set, none of B's rows seen, updated or
+    deleted, A's rows cannot be moved into B, writing B rows refused (records, notes,
+    decisions, AI runs, projects), no rows with no project set, B's rows all still there;
+    the app role cannot disable RLS, drop a policy, create a table or truncate; all 9
+    policies use `NULLIF` on the upgraded database too; the 6 version triggers exist.
+- **Suites:** server 560 tests in 34 files, web 205 in 11, typecheck clean, web build fine.
+
 ### Task 20: Chrome run of the dashboard
 
 Seed a memory-store server with a project that uses `idOnlyCep`, three

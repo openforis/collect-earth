@@ -74,8 +74,11 @@ session tokens** (from login, access via `project_members`).
 | `GET`  | `/v1/projects` | session | The caller's projects (only) |
 | `POST` | `/v1/projects/:pid/invites` | admin | Mint a join invite `{role?, maxUses?, expiresInDays?}` → `{inviteToken, joinPath, joinUrl, role, maxUses, expiresAt}` (`joinUrl` always absolute, see below) |
 | `GET`  | `/v1/join/:token` | none | Invite preview `{projectId, projectName, role, valid}` (`valid:false` when expired, used up or revoked) |
-| `PUT`  | `/v1/projects/:pid/cep` | admin | Upload the CEP zip (raw `application/zip` body); 413 `storage_limit_reached` over the project's space limit |
-| `GET`  | `/v1/projects/:pid/cep` | member | Download the CEP zip (join bootstrap) |
+| `PUT`  | `/v1/projects/:pid/cep` | admin | Upload the CEP zip (raw `application/zip` body) → `{ok, bytes, round}` (`round`: what the server did about round, see `GET /round`). With no records yet, an id-only survey gets a hidden `round` key added and the upload is kept as the original. 413 `storage_limit_reached` over the project's space limit, 413 `too_large` for a zip that unzips too big; 409 `round_removed` / `round_codes_changed` / `key_shape_changed` when records exist and the new file would change the key shape they were collected with, 409 `plots_divided` when it would change how divided plot files are read |
+| `GET`  | `/v1/projects/:pid/cep` | member | Download the CEP zip (join bootstrap): the served version, with `round` when the server added it |
+| `GET`  | `/v1/projects/:pid/cep/original` | admin | The CEP as uploaded (404 when the served file is the upload) |
+| `GET`  | `/v1/projects/:pid/round` | admin | `{state: 'added' \| 'own' \| 'none', refusal, keyCount, roundIndex, roundCodes, reassessmentCode}`, or `null` before any upload |
+| `PUT`  | `/v1/projects/:pid/round` | admin | `{reassessmentCode: code \| null}`: which code of a survey's own round marks a re-assessment (400 unless `state` is `own` and the code is one of its codes) |
 | `GET`  | `/v1/projects/:pid/members` | admin | List members |
 | `PUT`  | `/v1/projects/:pid/members/:uid` | admin | Change role (last-admin demotion refused) |
 | `DELETE` | `/v1/projects/:pid/members/:uid` | admin | Remove member (last-admin removal refused) |
@@ -84,7 +87,7 @@ session tokens** (from login, access via `project_members`).
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
-| `GET`  | `/v1/server-info` | none | `{needsSetup, signupOpen, projectCreation, version, termsUrl, contactEmail, serverName}` (the last three `null` when not set) |
+| `GET`  | `/v1/server-info` | none | `{needsSetup, signupOpen, projectCreation, version, termsUrl, contactEmail, serverName, aiAvailable}` (`termsUrl`, `contactEmail`, `serverName` `null` when not set; `aiAvailable`: the AI assistant is configured and allowed on this server) |
 | `POST` | `/v1/setup` | setup code in body | `{setupCode, username, password}` → 201 `{token, userId, username}` (the platform admin, logged in); 403 `bad_setup_code`; 409 `already_set_up` / `username_taken`; 400 `bad_username` / `weak_password` |
 | `POST` | `/v1/auth/signup` | none | `{username, password, email?, acceptTerms?}` → 201 `{token, userId, username}`; 403 `signup_closed`; 409 `username_taken`; 400 `bad_username` / `weak_password` / `terms_not_accepted` (when `termsUrl` is set and `acceptTerms` is not `true`; the acceptance time is stored as `users.terms_accepted_at`) |
 | `POST` | `/v1/auth/reset` | reset token in body | `{token, newPassword}` → 204, revokes all the user's sessions; 410 `invalid_reset_token` (unknown, used or expired); 400 `weak_password` |
@@ -97,10 +100,11 @@ session tokens** (from login, access via `project_members`).
 | `GET`  | `/v1/projects/:pid/overview` | admin | `{name, cep: {bytes, updatedAt} \| null, members, csvFiles, plots, records: {total, submitted, byOperator: [{operator, total, submitted, lastModifiedOn}]}, storage: {usedBytes, limitBytes \| null}}` — deleted records excluded from the counts, times in epoch ms; `storage` = CEP + CSV bytes + stored record xml/summary bytes |
 | `GET`  | `/v1/projects/:pid/invites` | admin | Open invites (not revoked, expired or used up) `{invites: [{id, role, maxUses, usedCount, expiresAt, createdAt}]}` — the token is only shown at creation |
 | `DELETE` | `/v1/projects/:pid/invites/:id` | admin | Revoke → 204 (404 if not an open invite of this project) |
-| `GET`  | `/v1/projects/:pid/export.csv` | admin | One row per non-deleted `(recordKey, operator)`: `record_key, plot, round, assessment, operator, actively_saved, modified_on` (ISO 8601; `assessment` is `main`, `check` or `other`; without `round` in the key, round is 1 or 2 from who holds the plot as a quality-check copy) + the sorted union of summary keys; RFC 4180, UTF-8 BOM, `content-disposition: attachment` |
-| `GET` / `PUT` | `/v1/admin/settings` | platform admin | `{signupOpen, projectCreation: "anyone" \| "platform-admins", maxProjectsPerUser, maxProjectStorageMb, termsUrl, contactEmail, serverName}` — limits are whole numbers, 0 = no limit; `termsUrl` http(s) only; text fields `null`/`""` clear them. PUT takes any subset, 400 `bad_request` on a bad value, returns the result |
+| `GET`  | `/v1/projects/:pid/export.csv` | admin | One row per non-deleted `(recordKey, operator)`: `record_key, plot, round, assessment, final, operator, actively_saved, modified_on` (ISO 8601; `assessment` is `main`, `check` or `other`; without `round` in the key, round is 1 or 2 from who holds the plot as a quality-check copy; `final` is `yes`/`no` for the answer a coordinator's decision accepted, `recheck`, or empty) + the sorted union of summary keys; RFC 4180, UTF-8 BOM, `content-disposition: attachment` |
+| `GET` / `PUT` | `/v1/admin/settings` | platform admin | `{signupOpen, projectCreation: "anyone" \| "platform-admins", maxProjectsPerUser, maxProjectStorageMb, termsUrl, contactEmail, serverName, aiEnabled, aiReportsPerDay, aiFollowUpsPerDay, aiMonthlyTokens, aiConfigured}` (`aiConfigured` read-only: the server has its AI settings; never the key; the AI limits are per project, 0 = none allowed) — limits are whole numbers, 0 = no limit; `termsUrl` http(s) only; text fields `null`/`""` clear them. PUT takes any subset, 400 `bad_request` on a bad value, returns the result |
 | `GET`  | `/v1/admin/users` | platform admin | `{users: [{userId, username, isPlatformAdmin, projects, coordinatedProjects}]}` — project **counts** (any role / as coordinator), no names (§4b) |
 | `POST` | `/v1/admin/users/:uid/password-reset` | platform admin | 201 `{resetUrl, expiresAt}` — single use, 7 days |
+| `GET`  | `/v1/admin/ai-usage` | platform admin | This UTC month's AI use per project: `{month, from, until, projects: [{projectId, runs, reports, followUps, questions, failed, refused, inputTokens, outputTokens, tokens}], totals}` — project ids only, no names or content |
 
 `GET /v1/me` also returns `isPlatformAdmin`. A platform admin owns the server
 (created by the first-run setup) but is **not** a member of any project and sees
@@ -147,7 +151,24 @@ other `GET` that accepts HTML and is not under `/v1/` or `/health` returns its
 | `GET`  | `/v1/projects/:pid/csv-files/:id/distribution` | admin | `{distribution \| null, plotCount, unassigned, people: [{userId, username, plots, overlap, submitted}]}` (`plots` includes the `overlap` copies) |
 | `PUT`  | `/v1/projects/:pid/csv-files/:id/distribution` | admin | `{mode: 'whole'}` \| `{mode: 'even', people, order: 'file'\|'mixed', overlapPercent?, seed?}` \| `{mode: 'column', column, groups: [{value, people}], order, overlapPercent?, seed?}`, optional `dryRun: true` → the GET shape (the `seed` used is in `distribution`); 400 `bad_request` `{reason}` |
 | `POST` | `/v1/projects/:pid/csv-files/:id/move-unfinished` | admin | `{fromUserId, toUserId}` → the GET shape + `moved`, `notMoved`, `droppedChecks`; plots `from` has done stay (a main plot when they did its main assessment, a copy when they did its check); a copy `to` holds becomes their main plot unless `to` already checked it (then it stays, `notMoved`); `from`'s copies of `to`'s main plots go (`droppedChecks`); a whole file is divided first (mode `manual`) |
-| `GET`  | `/v1/projects/:pid/overlap` | admin | `{plots, differing, items: [{recordKey, operators, fields: [{key, values: {operator: value}}]}]}` — submitted plots of ≥ 2 operators, metadata keys ignored, at most 500 items |
+| `GET`  | `/v1/projects/:pid/overlap` | admin | `{plots, differing, items: [{recordKey, operators, fields: [{key, values: {operator: value}}]}]}` — built from the quality figures (first assessment against check, one item per plot); kept for older dashboards, the Quality tab uses `/quality` |
+
+**Quality, reports and the AI assistant** (see `docs/plans/2026-10-29-reassessment-round.md`)
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `GET`  | `/v1/projects/:pid/quality` | admin | The quality figures: `plotsChecked`, `plotsDiffering`, agreement by `questions`, `confusions`, `people`, `weeks`, `differences` (≤ 500), `problems` (≤ 500, `problemsTotal`), plus `decisions`, `notes`, `settings: {margins}`, `options` (answer labels), `computedAt`, `stale`. Counts are checks; rates are null below 20 checks. 503 `busy` (`Retry-After: 10`) while the figures are worked out for other projects; 500 `quality_failed` |
+| `PUT`  | `/v1/projects/:pid/quality/settings` | admin | `{margins: {questionKey: percent 0–100}}` for number questions (replaces the set) |
+| `PUT` / `DELETE` | `/v1/projects/:pid/quality/decisions/:plot` | admin | `{decision: 'first' \| 'check' \| 'recheck', comment?}`: which answer is right for a plot (the export's `final`); DELETE undoes it |
+| `GET` / `POST` | `/v1/projects/:pid/quality/notes` | admin | Guidance notes `{questionKey, firstValue?, checkValue?, text (≤ 2000)}` |
+| `PUT` / `DELETE` | `/v1/projects/:pid/quality/notes/:id` | admin | Edit or delete a note |
+| `POST` | `/v1/projects/:pid/quality/places` | admin | `{plots: [ids]}` (1–200) → `{places: [{plot, lat, lon}]}` from the plot files (latitude/longitude only; otherwise `{places: [], unsupportedSrs}`) |
+| `GET`  | `/v1/projects/:pid/my-quality` | member with a session | The caller's own figures as first assessor and up to 3 mix-ups with the matching notes; no other person's name |
+| `GET`  | `/v1/projects/:pid/quality/team-report` | admin | Agreement by question, the 10 most mixed-up answers with example plots, the notes; no names |
+| `GET` / `PUT` | `/v1/projects/:pid/ai` | admin (PUT: with a session) | `{enabled, available}`; PUT `{enabled}` (409 `ai_unavailable` to switch on when the server does not allow it; switching off always works) |
+| `POST` | `/v1/projects/:pid/ai/runs` | admin with a session | `{kind: 'report'}`, `{kind: 'follow_up', parentRunId, findingIndex, action: 'explain' \| 'draft_note' \| 'recheck'}` or `{kind: 'question', parentRunId, question (≤ 300)}`, optional `language` → 202 `{runId}`. 409 `busy` / `ai_unavailable` / `ai_not_enabled`; 429 `ai_daily_limit` / `ai_monthly_limit` with `resetsAt` (null when the limit is 0) |
+| `GET`  | `/v1/projects/:pid/ai/runs` | admin with a session | The runs, newest first (`?limit=` 1–200), without results |
+| `GET`  | `/v1/projects/:pid/ai/runs/:id` | admin with a session | One run: status, progress (tool names), the result with real names, the error code or the refusal |
 
 The record batch body is **gzip-compressed** (the Java `CloudApiClient` sends
 `Content-Encoding: gzip`); the server gunzips it in a `preParsing` hook.
@@ -213,7 +234,7 @@ src/
   rateLimit.ts         in-memory per-IP limiter for the auth endpoints
   export.ts            records -> CSV
   plots.ts             plot file parser (as Collect Earth reads it) + one person's own file
-  division.ts          dividing a file's plots between people, move-unfinished, overlap report
+  division.ts          dividing a file's plots between people, move-unfinished
   limits.ts            per-project storage limit checks (projects-per-account is in routes/projects.ts)
   plugins/projectAuth  membership / session / platform-admin preHandlers (401 / 404 / 403)
   routes/projects.ts   provision, ping, survey upload, rename, overview, export
@@ -221,10 +242,18 @@ src/
   routes/admin.ts      server info, setup, signup, reset, /v1/admin/*
   routes/auth.ts       register, login, logout, /me, password change
   routes/assignments.ts plot CSVs and assignments
-  routes/division.ts   columns, distribution, move-unfinished, overlap
+  routes/division.ts   columns, distribution, move-unfinished
   routes/records.ts    records:batch intake
+  routes/quality.ts    quality figures, settings, decisions, notes, reports, overlap (plot places in plotPlaces.ts)
+  routes/ai.ts         the AI switch and runs
+  cep.ts               reading a CEP and adding the hidden round key
+  rounds.ts            each record's plot and round
+  surveyOutline.ts     the survey's questions, answer options and help texts
+  quality.ts           agreement figures (qualityService.ts, qualityWorker.ts: cache and worker thread)
+  qualityReports.ts    the personal and team reports
+  ai/                  the AI assistant: client (Gemini on Vertex AI), tools, runs, limits, development fake
   store/               Store interface + InMemoryStore + PostgresStore + migrate
-migrations/*.sql       schema + RLS (004: platform admin, settings, resets, invite revocation; 005: terms_accepted_at; 006: plot_assignments, csv_files.distribution)
+migrations/*.sql       schema + RLS (004: platform admin, settings, resets, invite revocation; 005: terms_accepted_at; 006: plot_assignments, csv_files.distribution; 007: rounds; 008: quality decisions and notes; 009: quality version counter; 010: retired usernames; 011: AI runs)
 test/                  isolation, sync, accounts, dashboard (in-memory store)
 web/                   the React dashboard (own package.json; built into web/dist)
 ```
