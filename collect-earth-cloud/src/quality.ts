@@ -574,6 +574,35 @@ export function finalAnswers(
   return (r) => answers.get(id(r)) ?? '';
 }
 
+/** A submitted record of one plot, as the figures pair it: the first (main) assessment or a check. */
+export interface PlotRecord {
+  assessment: 'main' | 'check';
+  operator: string;
+  modifiedOn: number;
+  summary: Record<string, string>;
+}
+
+/**
+ * The submitted, not deleted records of one plot (the unit, as `Difference.plot`), resolved
+ * as the figures pair them (recordResolver), oldest first. Records of an unknown round are
+ * left out. For the AI assistant's get_plot tool (Task 14), which sends only safe answers.
+ */
+export function recordsOfPlot(input: ResolverInput & { records: readonly QualityRecord[] }, plot: string): PlotRecord[] {
+  const resolve = recordResolver(input);
+  const out: PlotRecord[] = [];
+  for (const r of input.records) {
+    if (!r.activelySaved || r.deleted) {
+      continue;
+    }
+    const { round, group } = resolve(r);
+    if (group !== plot || round.assessment === 'other') {
+      continue;
+    }
+    out.push({ assessment: round.assessment, operator: r.operator, modifiedOn: r.modifiedOn, summary: r.summary });
+  }
+  return out.sort((a, b) => a.modifiedOn - b.modifiedOn || Number(a.assessment === 'check') - Number(b.assessment === 'check'));
+}
+
 /**
  * An answer as it may be shown to the AI assistant (Task 14): never free text, names
  * or record keys. A choice gives its codes without qualifiers (the qualifier is free

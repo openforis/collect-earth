@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RoundInfo } from '../src/cep.js';
-import { aiSafeValue, checkMargins, finalAnswers, marginKey, isoWeek, MIN_PLOTS, qualityReport, type QualityInput, type QualityRecord } from '../src/quality.js';
+import { aiSafeValue, checkMargins, finalAnswers, marginKey, isoWeek, MIN_PLOTS, qualityReport, recordsOfPlot, type QualityInput, type QualityRecord } from '../src/quality.js';
 import type { Question } from '../src/surveyOutline.js';
 
 const added: RoundInfo = {
@@ -642,5 +642,22 @@ describe('finalAnswers: the final column of the export', () => {
     );
     expect(final({ recordKey: '7', operator: 'ana' })).toBe('no');
     expect(final({ recordKey: '7', operator: 'ben' })).toBe('yes');
+  });
+});
+
+describe('recordsOfPlot: the records of one plot, for the AI assistant', () => {
+  it('gives the submitted main and check records of the plot, oldest first, without drafts, deleted or other plots', () => {
+    const records = [
+      rec('3,2', 'ben', { collect_code_land_use: 'grassland' }, { modifiedOn: day + 2 }),
+      rec('3,1', 'ana', { collect_code_land_use: 'forest' }, { modifiedOn: day + 1 }),
+      rec('3,2', 'cid', { collect_code_land_use: 'x' }, { activelySaved: false }),
+      rec('3,2', 'dan', { collect_code_land_use: 'x' }, { deleted: true }),
+      rec('4,1', 'ana', { collect_code_land_use: 'forest' }),
+    ];
+    expect(recordsOfPlot(input(records), '3')).toEqual([
+      { assessment: 'main', operator: 'ana', modifiedOn: day + 1, summary: { collect_code_land_use: 'forest' } },
+      { assessment: 'check', operator: 'ben', modifiedOn: day + 2, summary: { collect_code_land_use: 'grassland' } },
+    ]);
+    expect(recordsOfPlot(input(records), '9')).toEqual([]);
   });
 });
