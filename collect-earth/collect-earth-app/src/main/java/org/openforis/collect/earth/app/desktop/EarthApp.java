@@ -18,8 +18,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.net.MalformedURLException;
 import java.net.Socket;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
@@ -47,9 +45,9 @@ import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
+import org.openforis.collect.earth.app.service.notices.Notice;
+import org.openforis.collect.earth.app.service.notices.NoticeService;
 import org.openforis.collect.earth.app.service.WindowLayoutService;
-import org.openforis.collect.earth.app.view.AnnouncementManager;
-import org.openforis.collect.earth.app.view.CheckForUpdatesListener;
 import org.openforis.collect.earth.app.view.CollectEarthWindow;
 import org.openforis.collect.earth.app.view.DataFormat;
 import org.openforis.collect.earth.app.view.Messages;
@@ -364,12 +362,32 @@ public class EarthApp {
 		} catch (final KmlGenerationException e) {
 			logger.error("Problems while generating the KML file ", e); //$NON-NLS-1$
 			// An exception with no message used to throw here, so the failure of the KML was never reported
-			showMessage("<html>Problems while generating the KML file: <br/> " //$NON-NLS-1$
-					+ (e.getCause() != null ? (e.getCause() + "<br/>") : "")
-					+ StringUtils.abbreviate(StringUtils.defaultString(e.getMessage(), e.toString()), 300) + "</html>");
+			notify(Notice.ERROR, Messages.getString("NoticesPage.server.kml") + "<br/>" //$NON-NLS-1$ //$NON-NLS-2$
+					+ (e.getCause() != null ? (e.getCause() + "<br/>") : "") //$NON-NLS-1$ //$NON-NLS-2$
+					+ StringUtils.abbreviate(StringUtils.defaultString(e.getMessage(), e.toString()), 300));
 		} catch (final Exception e) {
 			logger.error("Could not generate KML file", e); //$NON-NLS-1$
-			showMessage("<html>Error generating KML file : <br/> " + e.getMessage()); //$NON-NLS-1$
+			notify(Notice.ERROR, Messages.getString("NoticesPage.server.kml") + "<br/>" + e.getMessage()); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+	}
+
+	/**
+	 * What the Swing window showed in a dialog of its own, as a notice of the pages (NoticeService), through the context
+	 * that is running; a Swing dialog when there is none yet, as before.
+	 */
+	static void notify(String severity, String htmlMessage) {
+		NoticeService notices = null;
+		try {
+			if (serverController != null && serverController.getContext() != null) {
+				notices = serverController.getContext().getBean(NoticeService.class);
+			}
+		} catch (RuntimeException e) {
+			logger.warn("No notice service to show the message with: {}", e.getMessage()); //$NON-NLS-1$
+		}
+		if (notices != null) {
+			notices.post(new Notice("server", severity, "Collect Earth", htmlMessage).html()); //$NON-NLS-1$ //$NON-NLS-2$
+		} else {
+			showMessage("<html>" + htmlMessage + "</html>"); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 	}
 
@@ -744,18 +762,17 @@ public class EarthApp {
 				serverController = null;
 			}
 
-			if (initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT)
-					|| initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)) {
-
-				showMessage(initializationEvent.toString());
+			if (initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT)) {
+				notify(Notice.WARNING, Messages.getString("NoticesPage.server.dbFallback")); //$NON-NLS-1$
+			} else if (initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)) {
+				notify(Notice.ERROR, Messages.getString("NoticesPage.server.noDb")); //$NON-NLS-1$
 			}
 
 			if (!initializationEvent.equals(ServerInitializationEvent.SERVER_STOPPED_EVENT)) {
 				try {
 					earthApp.generateKml();
 					earthApp.simulateClickKmz(true);
-					earthApp.checkForAnnouncements();
-					earthApp.checkForUpdates();
+					// The announcements and the update offer are StartupNotices' now, a bean of the context
 					closeSplash();
 				} catch (final Exception e) {
 					logger.error("Error generating KML file", e); //$NON-NLS-1$
@@ -785,108 +802,6 @@ public class EarthApp {
 		}
 	}
 	
-	private void checkForAnnouncements() {
-		new Thread("Check for new Collect Earth versions on the server") {
-			@Override
-			public void run() {
-
-				// Wait a few seconds before checking for updates
-				try {
-					Thread.sleep(5000);
-				} catch (InterruptedException e1) {
-					logger.error("Error while waiting", e1); //$NON-NLS-1$
-				}
-				try {
-					AnnouncementManager announcementManager = new AnnouncementManager();
-					announcementManager.checkAnnouncements();
-				} catch (Exception e) {
-					logger.error("Error checking for announcements", e); //$NON-NLS-1$
-				}
-			}
-		}.start();
-
-	}
-	
-	
-	private void checkForUpdates() {
-		new Thread("Check for new Collect Earth versions on the server") {
-			@Override
-			public void run() {
-
-				// Wait a few seconds before checking for updates
-				try {
-					Thread.sleep(20000);
-				} catch (InterruptedException e1) {
-					logger.error("Error while waiting", e1); //$NON-NLS-1$
-				}
-
-				final UpdateIniUtils updateIniUtils = new UpdateIniUtils();
-
-				if (updateIniUtils.shouldWarnUser(getLocalProperties()) ) {
-
-					javax.swing.SwingUtilities.invokeLater(() -> {
-
-						try {
-							Object[] possibleValues = new Object[3];
-							String newestVersionOnline = updateIniUtils.getVersionAvailableOnline();
-							if (StringUtils.isNotBlank(newestVersionOnline)) {
-								String remindLater = Messages.getString("EarthApp.3"); //$NON-NLS-1$
-								String doNotBother = Messages.getString("EarthApp.5"); //$NON-NLS-1$
-								String downloadInstaller = Messages.getString("EarthApp.51"); //$NON-NLS-1$
-								String doItNow = Messages.getString("EarthApp.4"); //$NON-NLS-1$
-
-								possibleValues[0] = remindLater;
-								possibleValues[2] = doNotBother;
-
-								// The updater does not work any more on Mac, instead of updating we ask the
-								// user to download the installer full!
-								if (SystemUtils.IS_OS_MAC) {
-									possibleValues[1] = downloadInstaller;
-								} else {
-									possibleValues[1] = doItNow;
-								}
-								String versionDate = StringUtils.isNotBlank(newestVersionOnline)?updateIniUtils.convertToDate(newestVersionOnline):"XXX";
-								int chosenOption = JOptionPane.showOptionDialog(null, Messages.getString("EarthApp.57"),//$NON-NLS-1$
-										Messages.getString("EarthApp.58") + Messages.getString("EarthApp.6") //$NON-NLS-1$ //$NON-NLS-2$
-												+ versionDate,
-										JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, possibleValues,
-										possibleValues[0]);
-								
-								if (chosenOption != JOptionPane.CLOSED_OPTION) {
-									if (possibleValues[chosenOption].equals(downloadInstaller)) { // For Mac
-										try {
-											CollectEarthUtils.openUrl( new URI("https://ossrh-staging-api.central.sonatype.com/service/local/artifact/maven/redirect?r=releases&g=org.openforis.collect.earth&a=collect-earth-installer&v=LATEST&c=osx&e=dmg"));
-										} catch (URISyntaxException e) {
-											logger.error("Error getting installer", e );
-										}
-									} else if (possibleValues[chosenOption].equals(doItNow)) { // For Linux and Windows
-										CheckForUpdatesListener checkForUpdatesListener = new CheckForUpdatesListener();
-										checkForUpdatesListener.actionPerformed(null);
-									} else if (possibleValues[chosenOption].equals(doNotBother)) {
-										getLocalProperties().setValue(EarthProperty.LAST_IGNORED_UPDATE,
-												newestVersionOnline);
-									}
-								}
-
-							}
-						} catch (HeadlessException e) {
-							logger.error( "Error checking for updates",  e);
-						}
-					});
-				}
-			}
-		}.start();
-
-	}
-
-	/**
-	 * If Collect Earth is started by double clicking on a ".cep" file ( Collect
-	 * Earth Project file ) Then it should open directly with that project in focus
-	 *
-	 * @param doubleClickedProjecFile The path to the CEP file that was
-	 *                                double-clicked
-	 *
-	 */
 	private void loadProjectIfDoubleClicked(String doubleClickedProjectFile) {
 		try {
 			if (doubleClickedProjectFile != null) {

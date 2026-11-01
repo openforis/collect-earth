@@ -31,6 +31,9 @@ public class ActionsControllerTest {
 		actions.put("broken", () -> {
 			throw new IllegalStateException("the folder cannot be opened");
 		});
+		actions.put("runUpdater", () -> {
+			throw new ApiException("help.updaterMissing", "The updater (autoupdate.run) was not found next to Collect Earth");
+		});
 		mvc = TemplateWiring.mockMvc(new ActionsController(actions), new ApiExceptionHandler());
 	}
 
@@ -51,6 +54,13 @@ public class ActionsControllerTest {
 		mvc.perform(post("/api/actions/openDataFolder")).andExpect(status().isOk());
 		mvc.perform(post("/api/actions/openPlotsMap")).andExpect(status().isOk());
 		assertEquals(List.of("openDataFolder", "openPlotsMap"), run);
+	}
+
+	@Test
+	public void anActionThatRefusesSaysWhy() throws Exception {
+		mvc.perform(post("/api/actions/runUpdater")).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.error").value("help.updaterMissing"))
+				.andExpect(jsonPath("$.message").value("The updater (autoupdate.run) was not found next to Collect Earth"));
 	}
 
 	@Test

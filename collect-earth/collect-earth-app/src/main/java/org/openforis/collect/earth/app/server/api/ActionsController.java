@@ -11,6 +11,8 @@ import org.openforis.collect.earth.app.service.BackupSqlLiteService;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.QuitService;
+import org.openforis.collect.earth.app.service.notices.UpdateService;
+import org.openforis.collect.earth.app.service.notices.UpdateService.UpdaterMissingException;
 import org.openforis.collect.earth.app.view.Messages;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -28,17 +30,27 @@ public class ActionsController {
 	private final Map<String, Runnable> actions;
 
 	@Autowired
-	public ActionsController(QuitService quit, BackupSqlLiteService backup, BrowserService browser) {
-		this(actions(quit, backup, browser));
+	public ActionsController(QuitService quit, BackupSqlLiteService backup, BrowserService browser, UpdateService updates) {
+		this(actions(quit, backup, browser, updates));
 	}
 
 	ActionsController(Map<String, Runnable> actions) {
 		this.actions = actions;
 	}
 
-	private static Map<String, Runnable> actions(QuitService quit, BackupSqlLiteService backup, BrowserService browser) {
+	private static Map<String, Runnable> actions(QuitService quit, BackupSqlLiteService backup, BrowserService browser, UpdateService updates) {
 		Map<String, Runnable> actions = new LinkedHashMap<>();
 		actions.put("quit", quit);
+		// Check for updates (Help): the updater of the platform, which says when it is not there
+		actions.put("runUpdater", () -> {
+			try {
+				updates.runUpdater();
+			} catch (UpdaterMissingException e) {
+				throw new ApiException("help.updaterMissing", e.getMessage());
+			} catch (IOException e) {
+				throw new IllegalStateException(e.getMessage(), e);
+			}
+		});
 		// The Open data folder entry of the Tools menu
 		actions.put("openDataFolder", () -> {
 			String folder = FolderFinder.getCollectEarthDataFolder();
