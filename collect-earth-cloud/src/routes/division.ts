@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid } from '../accountRules.js';
+import { audit } from '../activity.js';
 import {
   divide,
   hasSubmitted,
@@ -181,6 +182,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
     if (parsed.mode === 'whole') {
       if (!dryRun && file.distribution) {
         await store.setDivision(projectId, file.id, null, []);
+        await audit(store, request, 'division.applied', { csvFileId: file.id, mode: 'whole', people: 0, plots: plotFile.plotIds.length });
       }
       // A divided file has no grid assignments: whole again, it starts with nobody.
       const assignees = file.distribution ? [] : await wholeFileAssignees(store, projectId, file.id);
@@ -190,6 +192,8 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
     const plots = divide(parsed, plotFile.plotIds, values, submitted, plotOf);
     if (!dryRun) {
       await store.setDivision(projectId, file.id, parsed, plots);
+      const people = new Set(plots.map((a) => a.userId)).size;
+      await audit(store, request, 'division.applied', { csvFileId: file.id, mode: parsed.mode, people, plots: plotFile.plotIds.length });
     }
     return reply.send(summarize(parsed, plotFile.plotIds, plots, submitted, usernames));
   });
@@ -230,6 +234,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
     const result = moveUnfinished(holdings, from, to, submitted, plotOf);
     const distribution = { mode: 'manual' as const };
     await store.setDivision(projectId, file.id, distribution, result.plots);
+    await audit(store, request, 'plots.moved', { csvFileId: file.id, fromUserId: from, toUserId: to, moved: result.moved });
     return reply.send({
       ...summarize(distribution, plotFile.plotIds, result.plots, submitted, usernames),
       moved: result.moved,

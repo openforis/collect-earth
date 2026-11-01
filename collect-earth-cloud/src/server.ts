@@ -5,6 +5,7 @@ import { createGunzip } from 'node:zlib';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { generateSetupCode } from './accountRules.js';
+import { ActivityRecorder, registerActivity } from './activity.js';
 import type { AiClient } from './ai/client.js';
 import { createFakeClient } from './ai/fake.js';
 import { createGeminiClient } from './ai/gemini.js';
@@ -104,6 +105,9 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const limiter = new RateLimiter(config.rateLimitPerMinute ?? DEFAULT_RATE_LIMIT_PER_MINUTE);
   const loginFailures = new RateLimiter(config.rateLimitPerMinute === 0 ? 0 : LOGIN_FAILURES_PER_MINUTE);
   const setupCode = config.setupCode ?? generateSetupCode();
+
+  // Members' activity (member_activity), coalesced; written when the app closes too.
+  registerActivity(app, new ActivityRecorder(store, { onError: (err) => app.log.error({ err }, 'member activity write failed') }));
 
   await registerAuthRoutes(app, store, limiter, loginFailures);
   const now = options.ai?.now ?? Date.now;

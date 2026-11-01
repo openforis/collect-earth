@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { publicBaseUrl } from '../accountRules.js';
+import { audit, noteActivity } from '../activity.js';
 import { addRound, CepError, roundInfoOf, type RefusalCode } from '../cep.js';
 import type { Config } from '../config.js';
 import { checkUploadFits } from '../limits.js';
@@ -142,6 +143,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         // A Phase-0 project admin token has no user behind it: made by nobody.
         createdBy: request.userId ?? null,
       });
+      await audit(store, request, 'invite.created', { role, maxUses });
       const joinPath = `/join/${token}`;
       return reply.code(201).send({
         inviteToken: token,
@@ -173,6 +175,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       if (!(await store.revokeInvite(request.membership!.projectId, id))) {
         return reply.code(404).send({ error: 'not_found' });
       }
+      await audit(store, request, 'invite.revoked', { inviteId: id });
       return reply.code(204).send();
     },
   );
@@ -271,6 +274,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       if (keyCountBefore !== keyCountAfter) {
         await store.recountPlots(projectId, keyCountAfter);
       }
+      await audit(store, request, 'cep.replaced', { bytes: cep.length });
       return reply.send({ ok: true, bytes: cep.length, round: info });
     },
   );
@@ -320,6 +324,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         return reply.code(400).send({ error: 'bad_request', reason: 'reassessmentCode is not one of the round codes' });
       }
       await store.setReassessmentCode(projectId, code);
+      await audit(store, request, 'settings.changed', { setting: 'round' });
       return reply.send({ ...info, reassessmentCode: code });
     },
   );
@@ -333,6 +338,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       if (!cep) {
         return reply.code(404).send({ error: 'not_found' });
       }
+      noteActivity(request, { cepDownload: true }, { desktop: true });
       return reply.header('content-type', 'application/zip').send(cep);
     },
   );
@@ -366,6 +372,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         return reply.code(409).send({ error: 'last_admin' });
       }
       await store.setMemberRole(projectId, uid, body.role);
+      await audit(store, request, 'member.role', { userId: uid, role: body.role });
       return reply.send({ ok: true });
     },
   );
@@ -385,6 +392,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         return reply.code(409).send({ error: 'last_admin' });
       }
       await store.removeMember(projectId, uid);
+      await audit(store, request, 'member.removed', { userId: uid });
       return reply.code(204).send();
     },
   );

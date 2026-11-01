@@ -379,3 +379,130 @@ export function aiLimitReached(kind: AiRunKind, counts: AiRunCounts, w: AiRunWin
 
 /** The failure of a run that was still running when its server stopped, or long past its time limit. */
 export const AI_INTERRUPTED = { code: 'interrupted', message: 'The assistant stopped before it finished: the server restarted, or the run took too long.' } as const;
+
+// --- Activity data (record_events, member_activity, audit_log) ---
+
+/**
+ * What one stored upload did to a record, from the stored row before it and the new
+ * one: `submitted` when it is now actively saved and was not (or did not exist),
+ * `unsubmitted` the other way, `deleted` for a tombstone, `created` for a first (or
+ * revived) record not yet submitted, and `updated` for anything else (a draft saved
+ * again, or a submitted plot saved again).
+ */
+export type RecordChange = 'created' | 'updated' | 'submitted' | 'unsubmitted' | 'deleted';
+
+/** One stored upload of a record (record_events). No XML; the answers only on `submitted`. */
+export interface RecordEvent {
+  /** Increasing; with modifiedOn the cursor of a page (EventCursor). */
+  id: string;
+  projectId: string;
+  recordKey: string;
+  operator: string;
+  modifiedOn: number;
+  receivedAt: number;
+  activelySaved: boolean;
+  step: number;
+  deleted: boolean;
+  change: RecordChange;
+  /** The record's summary when change is `submitted`, else null. */
+  summary: Record<string, string> | null;
+}
+
+export type RecordEventInput = Omit<RecordEvent, 'id'>;
+
+/** Where a newest-first page ended: the time (modifiedOn or at) and id of its last row. */
+export interface EventCursor {
+  at: number;
+  id: string;
+}
+
+export interface RecordEventQuery {
+  /** modifiedOn >= from and < to (epoch ms). */
+  from: number;
+  to: number;
+  operator?: string;
+  limit: number;
+  /** Rows after this one in the order (modifiedOn, id) newest first. */
+  before?: EventCursor;
+}
+
+/** When a member last used the project, and how much (member_activity). */
+export interface MemberActivity {
+  userId: string;
+  /** Any authenticated call to the project. */
+  lastSeenAt: number | null;
+  /** records:batch. */
+  lastSyncAt: number | null;
+  /** my-assignment or a plot file's content. */
+  lastPlotsDownloadAt: number | null;
+  lastCepDownloadAt: number | null;
+  syncsCount: number;
+  /** Records stored from this member's syncs (stale ones not counted). */
+  recordsReceived: number;
+  /** The raw User-Agent of the member's last Collect Earth call (at most 200 characters). */
+  clientAgent: string | null;
+}
+
+/**
+ * What to add to a member's activity: each time is kept when later than the stored
+ * one, counters are added, and a client agent replaces the stored one.
+ */
+export interface MemberActivityPatch {
+  lastSeenAt?: number;
+  lastSyncAt?: number;
+  lastPlotsDownloadAt?: number;
+  lastCepDownloadAt?: number;
+  syncs?: number;
+  recordsReceived?: number;
+  clientAgent?: string;
+}
+
+/** The coordinator actions the audit log keeps (some written by later tasks). */
+export const AUDIT_ACTIONS = [
+  'invite.created',
+  'invite.revoked',
+  'member.removed',
+  'member.role',
+  'cep.replaced',
+  'csv.uploaded',
+  'assignments.set',
+  'division.applied',
+  'plots.moved',
+  'decision.set',
+  'decision.deleted',
+  'settings.changed',
+  'export.downloaded',
+  'sampling.drawn',
+  'reference.changed',
+  'link.created',
+  'link.revoked',
+] as const;
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+/** Ids and counts only, never answers. */
+export type AuditDetails = Record<string, string | number | boolean | null>;
+
+export interface AuditInput {
+  /** Null for a project token (no person). */
+  actorUserId: string | null;
+  action: AuditAction;
+  details: AuditDetails;
+}
+
+/** One entry of the audit log (audit_log). */
+export interface AuditEntry extends AuditInput {
+  id: string;
+  projectId: string;
+  at: number;
+  /** The actor's username; null for a project token or an account since deleted. */
+  actor: string | null;
+}
+
+export interface AuditQuery {
+  limit: number;
+  /** Rows after this one in the order (at, id) newest first. */
+  before?: EventCursor;
+  /** Only this actor's (a user id). */
+  actor?: string;
+  action?: AuditAction;
+}

@@ -1,4 +1,4 @@
-import type { RecordEnvelope, RecordRow, StoreStatus } from './types.js';
+import type { RecordChange, RecordEnvelope, RecordEventInput, RecordRow, StoreStatus } from './types.js';
 
 /**
  * Applies last-write-wins for one incoming envelope against the currently stored
@@ -38,4 +38,50 @@ export function applyLww(
     deletedOn: envelope.deleted ? modifiedOn : null,
   };
   return { row, status: 'stored' };
+}
+
+/**
+ * What storing `row` over `existing` (null when there was none) does to the record
+ * (RecordChange), or null when it is the same save sent again (a retried batch: same
+ * modifiedOn, deleted and actively saved), which changes nothing worth logging.
+ */
+export function recordChange(existing: RecordRow | null, row: RecordRow): RecordChange | null {
+  if (
+    existing &&
+    existing.modifiedOn === row.modifiedOn &&
+    existing.deleted === row.deleted &&
+    existing.activelySaved === row.activelySaved
+  ) {
+    return null;
+  }
+  if (row.deleted) {
+    return 'deleted';
+  }
+  if (!existing || existing.deleted) {
+    return row.activelySaved ? 'submitted' : 'created';
+  }
+  if (row.activelySaved !== existing.activelySaved) {
+    return row.activelySaved ? 'submitted' : 'unsubmitted';
+  }
+  return 'updated';
+}
+
+/** The record_events row of a stored upload (recordChange), or null when there is none to log. */
+export function recordEventOf(existing: RecordRow | null, row: RecordRow): RecordEventInput | null {
+  const change = recordChange(existing, row);
+  if (change === null) {
+    return null;
+  }
+  return {
+    projectId: row.projectId,
+    recordKey: row.recordKey,
+    operator: row.operator,
+    modifiedOn: row.modifiedOn,
+    receivedAt: row.receivedAt,
+    activelySaved: row.activelySaved,
+    step: row.step,
+    deleted: row.deleted,
+    change,
+    summary: change === 'submitted' ? { ...row.summary } : null,
+  };
 }

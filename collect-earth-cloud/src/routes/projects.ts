@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { secretsEqual } from '../accountRules.js';
+import { audit } from '../activity.js';
 import { bearerToken } from '../auth.js';
 import type { Config } from '../config.js';
 import { exportRoundOf, recordsCsv } from '../export.js';
@@ -122,6 +123,7 @@ export async function registerProjectRoutes(
         return reply.code(400).send({ error: 'bad_request', reason: 'name must be 1-200 characters' });
       }
       await store.renameProject(request.membership!.projectId, name);
+      await audit(store, request, 'settings.changed', { setting: 'name' });
       return reply.send({ projectId: request.membership!.projectId, name });
     },
   );
@@ -214,6 +216,7 @@ export async function registerProjectRoutes(
       const { info, units, copyHolders } = context;
       const finalOf = finalAnswers({ records, info, units, copyHolders }, new Map(decisions.map((d) => [d.plot, d.decision])));
       const csv = recordsCsv(records, exportRoundOf(info, units, copyHolders), finalOf);
+      await audit(store, request, 'export.downloaded', { records: records.length });
       return reply
         .header('content-type', 'text/csv; charset=utf-8')
         .header('content-disposition', contentDisposition(project.name))

@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { audit } from '../activity.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { checkMargins } from '../quality.js';
 import { answerOptions, personalReport, teamReport } from '../qualityReports.js';
@@ -153,6 +154,7 @@ export async function registerQualityRoutes(
       return reply.code(400).send(bad(checked.reason));
     }
     await store.setQualitySettings(projectId, { margins: checked.margins });
+    await audit(store, request, 'settings.changed', { setting: 'quality' });
     return reply.send({ margins: checked.margins });
   });
 
@@ -174,6 +176,7 @@ export async function registerQualityRoutes(
       comment = body.comment.trim() || null;
     }
     const decision = await store.setQualityDecision(projectId, plot, body.decision as DecisionKind, comment, request.membership!.userId ?? null);
+    await audit(store, request, 'decision.set', { plot, decision: decision.decision });
     return reply.send(decision);
   });
 
@@ -183,6 +186,9 @@ export async function registerQualityRoutes(
       return reply.code(400).send(bad(`the plot must be 1-${MAX_NAME} characters`));
     }
     const deleted = await store.deleteQualityDecision(request.membership!.projectId, plot);
+    if (deleted) {
+      await audit(store, request, 'decision.deleted', { plot });
+    }
     return deleted ? reply.code(204).send() : reply.code(404).send({ error: 'not_found' });
   });
 

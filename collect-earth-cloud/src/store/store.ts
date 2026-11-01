@@ -9,6 +9,9 @@ import type {
   AiUsage,
   Assignment,
   AssignmentDetail,
+  AuditEntry,
+  AuditInput,
+  AuditQuery,
   CepInfo,
   CsvFile,
   DecisionKind,
@@ -17,12 +20,17 @@ import type {
   Invite,
   InviteSummary,
   Member,
+  MemberActivity,
+  MemberActivityPatch,
   Membership,
   PlotAssignment,
   ProjectRow,
   ProjectStorage,
   QualityDecision,
   QualitySettings,
+  RecordEvent,
+  RecordEventInput,
+  RecordEventQuery,
   RecordRow,
   RoundInfo,
   Role,
@@ -71,7 +79,7 @@ export interface Store {
   renameProject(projectId: string, name: string): Promise<void>;
   /**
    * Deletes a project and everything in it: records, CEP, plot files, assignments,
-   * invites, memberships and its Phase-0 tokens. One transaction (Postgres).
+   * invites, memberships, activity data and its Phase-0 tokens. One transaction (Postgres).
    */
   deleteProject(projectId: string): Promise<void>;
   /** Bytes the project uses (CEP, plot files, stored records). */
@@ -120,8 +128,9 @@ export interface Store {
   /** Also cancels every reset link of the user: an older, leaked one must not work afterwards. */
   setPassword(userId: string, passwordHash: string): Promise<void>;
   /**
-   * Deletes an account: its sessions, memberships, assignments and reset links.
-   * Records it uploaded stay in their projects (they belong to the project).
+   * Deletes an account: its sessions, memberships, assignments, activity and reset
+   * links. Records it uploaded (and their events) stay in their projects (they belong
+   * to the project); its audit entries stay with no actor.
    */
   deleteUser(userId: string): Promise<void>;
 
@@ -151,7 +160,10 @@ export interface Store {
   listMemberships(userId: string): Promise<Membership[]>;
   listMembers(projectId: string): Promise<Member[]>;
   setMemberRole(projectId: string, userId: string, role: Role): Promise<void>;
-  /** Also drops the member's assignments and plot holdings in the project. */
+  /**
+   * Also drops the member's assignments, plot holdings and activity in the project;
+   * its audit entries there stay with no actor.
+   */
   removeMember(projectId: string, userId: string): Promise<void>;
   countAdmins(projectId: string): Promise<number>;
   /** How many projects the user coordinates (admin role). */
@@ -278,6 +290,24 @@ export interface Store {
   getAiRun(projectId: string, runId: string): Promise<AiRunRow | null>;
   /** Every project's AI use for runs started at or after `from`, by project id only; projects without runs are left out. */
   aiUsageSince(from: number): Promise<AiUsage[]>;
+
+  // --- Activity data (record_events, member_activity, audit_log) ---
+
+  /** Logs one stored upload of a record. */
+  appendRecordEvent(event: RecordEventInput): Promise<void>;
+  /** The project's record events in the query's window, newest first (modifiedOn, then id). */
+  listRecordEvents(projectId: string, query: RecordEventQuery): Promise<RecordEvent[]>;
+  /**
+   * Adds to a member's activity (MemberActivityPatch), creating the row on first use.
+   * Nothing for a user who is not a member of the project (removed meanwhile).
+   */
+  touchMemberActivity(projectId: string, userId: string, patch: MemberActivityPatch): Promise<void>;
+  /** The activity of the project's members who have any, by user id. */
+  listMemberActivity(projectId: string): Promise<MemberActivity[]>;
+  /** Logs a coordinator action at the current time. */
+  appendAudit(projectId: string, entry: AuditInput): Promise<void>;
+  /** The project's audit log, newest first (at, then id). */
+  listAudit(projectId: string, query: AuditQuery): Promise<AuditEntry[]>;
 
   close(): Promise<void>;
 }

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid } from '../accountRules.js';
+import { audit, noteActivity } from '../activity.js';
 import type { RoundInfo } from '../cep.js';
 import type { Config } from '../config.js';
 import { checksumOf } from '../csv.js';
@@ -56,6 +57,7 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
       const projectId = request.membership!.projectId;
       const keyCount = fileKeyCount(await store.getRoundInfo(projectId));
       const meta = await store.putCsvFile(projectId, filename, data, parsePlotFile(data, keyCount).plotIds);
+      await audit(store, request, 'csv.uploaded', { csvFileId: meta.id, plots: meta.plotCount });
       return reply.code(201).send(meta);
     },
   );
@@ -125,6 +127,7 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
           reason: 'This plot file changed after the list of your plot files was read. Press Refresh to get the new list, then download it again.',
         });
       }
+      noteActivity(request, { plotsDownload: true }, { desktop: true });
       return reply
         .header('content-type', 'text/csv')
         .header('x-checksum-sha256', checksum)
@@ -147,6 +150,7 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
         }
       }
       await store.setAssignments(request.membership!.projectId, assignments);
+      await audit(store, request, 'assignments.set', { count: assignments.length });
       return reply.send({ ok: true, count: assignments.length });
     },
   );
@@ -239,6 +243,7 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
           assignments.push(built(meta, own));
         }
       }
+      noteActivity(request, { plotsDownload: true }, { desktop: true });
       return reply.send({ assignments });
     },
   );

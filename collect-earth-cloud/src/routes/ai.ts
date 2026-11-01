@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid } from '../accountRules.js';
+import { audit } from '../activity.js';
 import { aiAvailable } from '../ai/available.js';
 import { AI_LANGUAGES, FOLLOW_UP_ACTIONS, type AiLanguage, type FollowUpAction } from '../ai/prompts.js';
 import { MAX_QUESTION_CHARS, questionWithRealNames, withRealNames, type AiReport, type StoredResult } from '../ai/run.js';
@@ -109,6 +110,7 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
       return reply.code(409).send(UNAVAILABLE);
     }
     await store.setAiEnabled(projectId, enabled);
+    await audit(store, request, 'settings.changed', { setting: 'ai', enabled });
     return reply.send({ enabled, available });
   });
 

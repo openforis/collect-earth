@@ -18,6 +18,11 @@ import {
   type AiUsage,
   type Assignment,
   type AssignmentDetail,
+  type AuditAction,
+  type AuditDetails,
+  type AuditEntry,
+  type AuditInput,
+  type AuditQuery,
   type CepInfo,
   type CsvFile,
   type DecisionKind,
@@ -26,12 +31,18 @@ import {
   type Invite,
   type InviteSummary,
   type Member,
+  type MemberActivity,
+  type MemberActivityPatch,
   type Membership,
   type PlotAssignment,
   type ProjectRow,
   type ProjectStorage,
   type QualityDecision,
   type QualitySettings,
+  type RecordChange,
+  type RecordEvent,
+  type RecordEventInput,
+  type RecordEventQuery,
   type RecordRow,
   type RoundInfo,
   type ServerSettings,
@@ -194,6 +205,9 @@ export class PostgresStore implements Store {
       // round deadlocked. Now the sync mostly waits for the deletion, or the deletion for it.
       await client.query('SELECT 1 FROM projects WHERE id = $1 FOR UPDATE', [projectId]);
       await client.query('DELETE FROM ai_runs WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM record_events WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM member_activity WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM audit_log WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM quality_decisions WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM guidance_notes WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM plot_assignments WHERE project_id = $1', [projectId]);
@@ -572,11 +586,13 @@ export class PostgresStore implements Store {
         }
         await client.query('DELETE FROM assignments WHERE project_id = $1 AND user_id = $2', [r.project_id, userId]);
         await client.query('DELETE FROM plot_assignments WHERE project_id = $1 AND user_id = $2', [r.project_id, userId]);
+        await client.query('DELETE FROM member_activity WHERE project_id = $1 AND user_id = $2', [r.project_id, userId]);
       }
       await client.query('DELETE FROM sessions WHERE user_id = $1', [userId]);
       await client.query('DELETE FROM password_resets WHERE user_id = $1', [userId]);
       await client.query('DELETE FROM project_members WHERE user_id = $1', [userId]);
-      // invites.created_by is ON DELETE SET NULL; records keep the operator name, so
+      // invites.created_by and audit_log.actor_user_id (in every project, also those
+      // the account left) are ON DELETE SET NULL; records keep the operator name, so
       // with records in one of the account's projects the username is retired: a new
       // account under it would inherit their figures.
       if (hasRecords) {
@@ -787,6 +803,8 @@ export class PostgresStore implements Store {
     await this.withProject(projectId, async (client) => {
       await client.query('DELETE FROM assignments WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
       await client.query('DELETE FROM plot_assignments WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
+      await client.query('DELETE FROM member_activity WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
+      await client.query('UPDATE audit_log SET actor_user_id = NULL WHERE project_id = $1 AND actor_user_id = $2', [projectId, userId]);
       await client.query('DELETE FROM project_members WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
     });
   }
@@ -1443,6 +1461,146 @@ export class PostgresStore implements Store {
    * project without a token row would be left out here, so whatever deletes
    * project_tokens rows must leave each project at least one (see deleteProjectOnce).
    */
+  // --- Activity data (record_events, member_activity, audit_log), RLS-fenced. ---
+
+  async appendRecordEvent(e: RecordEventInput): Promise<void> {
+    await this.withProject(e.projectId, async (client) => {
+      await client.query(
+        `INSERT INTO record_events (project_id, record_key, operator, modified_on, received_at, actively_saved, step,
+                                    deleted, change, summary)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [
+          e.projectId,
+          e.recordKey,
+          e.operator,
+          new Date(e.modifiedOn),
+          new Date(e.receivedAt),
+          e.activelySaved,
+          e.step,
+          e.deleted,
+          e.change,
+          e.summary === null ? null : JSON.stringify(e.summary),
+        ],
+      );
+    });
+  }
+
+  async listRecordEvents(projectId: string, q: RecordEventQuery): Promise<RecordEvent[]> {
+    return this.withProject(projectId, async (client) => {
+      const params: unknown[] = [projectId, new Date(q.from), new Date(q.to), q.limit];
+      let where = '';
+      if (q.operator !== undefined) {
+        params.push(q.operator);
+        where += ` AND operator = $${params.length}`;
+      }
+      if (q.before !== undefined) {
+        params.push(new Date(q.before.at), q.before.id);
+        where += ` AND (modified_on, id) < ($${params.length - 1}::timestamptz, $${params.length}::bigint)`;
+      }
+      const res = await client.query(
+        `SELECT id, project_id, record_key, operator, modified_on, received_at, actively_saved, step, deleted, change, summary
+           FROM record_events
+          WHERE project_id = $1 AND modified_on >= $2 AND modified_on < $3${where}
+          ORDER BY modified_on DESC, id DESC
+          LIMIT $4`,
+        params,
+      );
+      return res.rows.map(mapRecordEvent);
+    });
+  }
+
+  async touchMemberActivity(projectId: string, userId: string, patch: MemberActivityPatch): Promise<void> {
+    if (!isUuid(userId)) {
+      return;
+    }
+    const at = (ms: number | undefined) => (ms === undefined ? null : new Date(ms));
+    await this.withProject(projectId, async (client) => {
+      // Only for a member (removed meanwhile: nothing). The times only move forward
+      // (GREATEST skips NULL), the counters add up, a client agent replaces the old one.
+      await client.query(
+        `INSERT INTO member_activity (project_id, user_id, last_seen_at, last_sync_at, last_plots_download_at,
+                                      last_cep_download_at, syncs_count, records_received, client_agent)
+         SELECT $1::uuid, $2::uuid, $3::timestamptz, $4::timestamptz, $5::timestamptz, $6::timestamptz,
+                $7::bigint, $8::bigint, $9::text
+          WHERE EXISTS (SELECT 1 FROM project_members WHERE project_id = $1 AND user_id = $2)
+         ON CONFLICT (project_id, user_id) DO UPDATE SET
+           last_seen_at = GREATEST(member_activity.last_seen_at, EXCLUDED.last_seen_at),
+           last_sync_at = GREATEST(member_activity.last_sync_at, EXCLUDED.last_sync_at),
+           last_plots_download_at = GREATEST(member_activity.last_plots_download_at, EXCLUDED.last_plots_download_at),
+           last_cep_download_at = GREATEST(member_activity.last_cep_download_at, EXCLUDED.last_cep_download_at),
+           syncs_count = member_activity.syncs_count + EXCLUDED.syncs_count,
+           records_received = member_activity.records_received + EXCLUDED.records_received,
+           client_agent = COALESCE(EXCLUDED.client_agent, member_activity.client_agent)`,
+        [
+          projectId,
+          userId,
+          at(patch.lastSeenAt),
+          at(patch.lastSyncAt),
+          at(patch.lastPlotsDownloadAt),
+          at(patch.lastCepDownloadAt),
+          patch.syncs ?? 0,
+          patch.recordsReceived ?? 0,
+          patch.clientAgent ?? null,
+        ],
+      );
+    });
+  }
+
+  async listMemberActivity(projectId: string): Promise<MemberActivity[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT user_id, last_seen_at, last_sync_at, last_plots_download_at, last_cep_download_at, syncs_count,
+                records_received, client_agent
+           FROM member_activity
+          WHERE project_id = $1
+          ORDER BY user_id`,
+        [projectId],
+      );
+      return res.rows.map(mapMemberActivity);
+    });
+  }
+
+  async appendAudit(projectId: string, entry: AuditInput): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query(
+        // The server's clock, as the record events' received_at.
+        'INSERT INTO audit_log (project_id, at, actor_user_id, action, details) VALUES ($1, $2, $3, $4, $5)',
+        [projectId, new Date(), entry.actorUserId, entry.action, JSON.stringify(entry.details)],
+      );
+    });
+  }
+
+  async listAudit(projectId: string, q: AuditQuery): Promise<AuditEntry[]> {
+    if (q.actor !== undefined && !isUuid(q.actor)) {
+      return [];
+    }
+    return this.withProject(projectId, async (client) => {
+      const params: unknown[] = [projectId, q.limit];
+      let where = '';
+      if (q.actor !== undefined) {
+        params.push(q.actor);
+        where += ` AND a.actor_user_id = $${params.length}`;
+      }
+      if (q.action !== undefined) {
+        params.push(q.action);
+        where += ` AND a.action = $${params.length}`;
+      }
+      if (q.before !== undefined) {
+        params.push(new Date(q.before.at), q.before.id);
+        where += ` AND (a.at, a.id) < ($${params.length - 1}::timestamptz, $${params.length}::bigint)`;
+      }
+      const res = await client.query(
+        `SELECT a.id, a.project_id, a.at, a.actor_user_id, u.username, a.action, a.details
+           FROM audit_log a LEFT JOIN users u ON u.id = a.actor_user_id
+          WHERE a.project_id = $1${where}
+          ORDER BY a.at DESC, a.id DESC
+          LIMIT $2`,
+        params,
+      );
+      return res.rows.map(mapAudit);
+    });
+  }
+
   private async eachProject<T>(fn: (client: pg.PoolClient, projectId: string) => Promise<T>): Promise<T[]> {
     const client = await this.pool.connect();
     try {
@@ -1536,6 +1694,51 @@ function mapAiRun(r: Record<string, unknown>): AiRunRow {
     error: (r.error as string | null) ?? null,
     question: (r.question as string | null) ?? null,
     questionNames: (r.question_names as Record<string, string> | null) ?? null,
+  };
+}
+
+function timeOrNull(v: unknown): number | null {
+  return v === null || v === undefined ? null : (v as Date).getTime();
+}
+
+function mapRecordEvent(r: Record<string, unknown>): RecordEvent {
+  return {
+    id: String(r.id),
+    projectId: r.project_id as string,
+    recordKey: r.record_key as string,
+    operator: r.operator as string,
+    modifiedOn: (r.modified_on as Date).getTime(),
+    receivedAt: (r.received_at as Date).getTime(),
+    activelySaved: r.actively_saved as boolean,
+    step: r.step as number,
+    deleted: r.deleted as boolean,
+    change: r.change as RecordChange,
+    summary: (r.summary as Record<string, string> | null) ?? null,
+  };
+}
+
+function mapMemberActivity(r: Record<string, unknown>): MemberActivity {
+  return {
+    userId: r.user_id as string,
+    lastSeenAt: timeOrNull(r.last_seen_at),
+    lastSyncAt: timeOrNull(r.last_sync_at),
+    lastPlotsDownloadAt: timeOrNull(r.last_plots_download_at),
+    lastCepDownloadAt: timeOrNull(r.last_cep_download_at),
+    syncsCount: Number(r.syncs_count),
+    recordsReceived: Number(r.records_received),
+    clientAgent: (r.client_agent as string | null) ?? null,
+  };
+}
+
+function mapAudit(r: Record<string, unknown>): AuditEntry {
+  return {
+    id: String(r.id),
+    projectId: r.project_id as string,
+    at: (r.at as Date).getTime(),
+    actorUserId: (r.actor_user_id as string | null) ?? null,
+    actor: (r.username as string | null) ?? null,
+    action: r.action as AuditAction,
+    details: (r.details as AuditDetails | null) ?? {},
   };
 }
 

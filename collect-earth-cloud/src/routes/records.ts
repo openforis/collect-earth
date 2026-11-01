@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Store } from '../store/store.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
-import { applyLww } from '../lww.js';
+import { noteActivity } from '../activity.js';
+import { applyLww, recordEventOf } from '../lww.js';
 import type { BatchItemResult, RecordEnvelope } from '../types.js';
 
 interface BatchBody {
@@ -20,6 +21,10 @@ interface BatchBody {
  * Collect Earth's settings, and refusing would lose their work); it is logged once per
  * request. Collect Earth matches the results by recordKey only. A project token is no
  * person: its envelopes keep their operator.
+ *
+ * Each stored upload is logged in record_events (what it changed: recordEventOf);
+ * stale ones and the same save sent again are not. The sync counts in the member's
+ * activity, with the records stored.
  *
  * The request body is gzip-compressed by the Java client; the gunzip preParsing
  * hook in buildServer() decompresses it before this handler runs. The route path
@@ -46,6 +51,7 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store): 
 
       const receivedAt = Date.now();
       const results: BatchItemResult[] = [];
+      let storedCount = 0;
 
       for (const raw of envelopes) {
         const envelope = normalizeEnvelope(raw);
@@ -76,7 +82,15 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store): 
           const existing = await store.getRecord(projectId, envelope.recordKey, operator);
           const { row, status } = applyLww(envelope, existing, receivedAt);
           if (status === 'stored') {
-            await store.putRecord({ ...row, projectId });
+            const stored = { ...row, projectId };
+            await store.putRecord(stored);
+            storedCount += 1;
+            const event = recordEventOf(existing, stored);
+            // The record is stored: a failed log line is logged, not reported as a
+            // failed record (its retry would be the same save, which logs nothing).
+            if (event) {
+              await store.appendRecordEvent(event).catch((err) => request.log.error({ err, recordKey: envelope.recordKey }, 'record event write failed'));
+            }
           }
           results.push({ recordKey: envelope.recordKey, status });
         } catch (err) {
@@ -85,6 +99,7 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store): 
         }
       }
 
+      noteActivity(request, { sync: { records: storedCount } }, { desktop: true });
       return reply.send({ results });
     },
   );

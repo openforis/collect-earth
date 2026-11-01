@@ -96,6 +96,37 @@ describe('PostgresStore pool', () => {
     failing.times = 0;
   });
 
+  it("deleteProject deletes the activity data under the project's setting, member_activity before the members", async () => {
+    await new PostgresStore('postgres://x').deleteProject(PROJECT);
+    const deleted = queries.filter((q) => q.sql.startsWith('DELETE FROM')).map((q) => q.sql.split(' ')[2]);
+    for (const table of ['record_events', 'member_activity', 'audit_log']) {
+      expect(deleted).toContain(table);
+    }
+    expect(deleted.indexOf('member_activity')).toBeLessThan(deleted.indexOf('project_members'));
+  });
+
+  it('removeMember drops their activity and keeps their audit entries with no actor', async () => {
+    await new PostgresStore('postgres://x').removeMember(PROJECT, '00000000-0000-0000-0000-0000000000aa');
+    const sqls = queries.map((q) => q.sql);
+    expect(sqls.some((s) => s.startsWith('DELETE FROM member_activity'))).toBe(true);
+    expect(sqls.some((s) => s.startsWith('UPDATE audit_log SET actor_user_id = NULL'))).toBe(true);
+    expect(sqls.findIndex((s) => s.startsWith('DELETE FROM member_activity'))).toBeLessThan(
+      sqls.findIndex((s) => s.startsWith('DELETE FROM project_members')),
+    );
+  });
+
+  it('writes member activity only for a member, and pages events by (time, id)', async () => {
+    const store = new PostgresStore('postgres://x');
+    await store.touchMemberActivity(PROJECT, '00000000-0000-0000-0000-0000000000aa', { lastSeenAt: 1 });
+    expect(queries.find((q) => q.sql.includes('INSERT INTO member_activity'))!.sql).toContain('WHERE EXISTS (SELECT 1 FROM project_members');
+    await store.touchMemberActivity(PROJECT, 'not-a-uuid', { lastSeenAt: 1 });
+    expect(queries.filter((q) => q.sql.includes('INSERT INTO member_activity'))).toHaveLength(1);
+    await store.listRecordEvents(PROJECT, { from: 0, to: 10, limit: 5, operator: 'maria', before: { at: 5, id: '7' } });
+    const list = queries.find((q) => q.sql.includes('FROM record_events'))!;
+    expect(list.sql).toContain('(modified_on, id) < ($6::timestamptz, $7::bigint)');
+    expect(list.params).toEqual([PROJECT, new Date(0), new Date(10), 5, 'maria', new Date(5), '7']);
+  });
+
   it('reads the quality version from the project counter the triggers bump', async () => {
     await new PostgresStore('postgres://x').qualityVersion(PROJECT);
     const read = queries.find((q) => q.sql.includes('records_version'))!;

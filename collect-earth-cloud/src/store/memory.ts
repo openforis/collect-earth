@@ -17,7 +17,11 @@ import {
   type AiUsage,
   type Assignment,
   type AssignmentDetail,
+  type AuditEntry,
+  type AuditInput,
+  type AuditQuery,
   type CepInfo,
+  type EventCursor,
   type CsvFile,
   type DecisionKind,
   type GuidanceNote,
@@ -25,12 +29,17 @@ import {
   type Invite,
   type InviteSummary,
   type Member,
+  type MemberActivity,
+  type MemberActivityPatch,
   type Membership,
   type PlotAssignment,
   type ProjectRow,
   type ProjectStorage,
   type QualityDecision,
   type QualitySettings,
+  type RecordEvent,
+  type RecordEventInput,
+  type RecordEventQuery,
   type RecordRow,
   type RoundInfo,
   type Role,
@@ -66,6 +75,11 @@ interface ProjectEntry {
   aiRuns: AiRunRow[];
   decisions: Map<string, StoredDecision>; // key = plot
   notes: Map<string, StoredNote>; // key = id
+  /** Oldest first (by id). */
+  recordEvents: RecordEvent[];
+  memberActivity: Map<string, MemberActivity>; // key = userId
+  /** Oldest first (by id); `actorUserId` is set to null when the actor leaves (removeMember, deleteUser). */
+  audit: Omit<AuditEntry, 'actor'>[];
 }
 
 interface StoredDecision {
@@ -116,6 +130,8 @@ export class InMemoryStore implements Store {
   private readonly invites = new Map<string, InviteEntry>(); // invite token hash -> entry
   private readonly resets = new Map<string, ResetEntry>(); // reset token hash -> entry
   private settings: ServerSettings = { ...DEFAULT_SETTINGS };
+  /** Ids of record events and audit entries: increasing, as Postgres's BIGSERIAL. */
+  private nextEventId = 1;
 
   private static recordId(recordKey: string, operator: string): string {
     return `${recordKey} ${operator}`;
@@ -151,6 +167,9 @@ export class InMemoryStore implements Store {
       aiRuns: [],
       decisions: new Map(),
       notes: new Map(),
+      recordEvents: [],
+      memberActivity: new Map(),
+      audit: [],
     });
 
     const adminToken = generateToken();
@@ -390,6 +409,8 @@ export class InMemoryStore implements Store {
         }
       }
       InMemoryStore.dropPlotAssignments(entry, userId);
+      // member_activity goes with the account; audit_log.actor_user_id is ON DELETE SET NULL.
+      InMemoryStore.dropActivity(entry, userId);
       // decided_by / updated_by are ON DELETE SET NULL.
       for (const d of entry.decisions.values()) {
         if (d.decidedBy === userId) d.decidedBy = null;
@@ -529,6 +550,15 @@ export class InMemoryStore implements Store {
         }
       }
       InMemoryStore.dropPlotAssignments(entry, userId);
+      InMemoryStore.dropActivity(entry, userId);
+    }
+  }
+
+  /** The member's activity goes; their audit entries stay, with no actor. */
+  private static dropActivity(entry: ProjectEntry, userId: string): void {
+    entry.memberActivity.delete(userId);
+    for (const e of entry.audit) {
+      if (e.actorUserId === userId) e.actorUserId = null;
     }
   }
 
@@ -1039,6 +1069,86 @@ export class InMemoryStore implements Store {
     return out.sort((a, b) => (a.projectId < b.projectId ? -1 : a.projectId > b.projectId ? 1 : 0));
   }
 
+  // --- Activity data ---
+
+  async appendRecordEvent(event: RecordEventInput): Promise<void> {
+    const entry = this.requireProject(event.projectId);
+    entry.recordEvents.push({ ...event, summary: event.summary ? { ...event.summary } : null, id: String(this.nextEventId++) });
+  }
+
+  async listRecordEvents(projectId: string, q: RecordEventQuery): Promise<RecordEvent[]> {
+    const events = this.projects.get(projectId)?.recordEvents ?? [];
+    return events
+      .filter(
+        (e) =>
+          e.modifiedOn >= q.from &&
+          e.modifiedOn < q.to &&
+          (q.operator === undefined || e.operator === q.operator) &&
+          (q.before === undefined || isBefore(e.modifiedOn, e.id, q.before)),
+      )
+      .sort((x, y) => y.modifiedOn - x.modifiedOn || Number(y.id) - Number(x.id))
+      .slice(0, q.limit)
+      .map((e) => ({ ...e, summary: e.summary ? { ...e.summary } : null }));
+  }
+
+  async touchMemberActivity(projectId: string, userId: string, patch: MemberActivityPatch): Promise<void> {
+    const entry = this.projects.get(projectId);
+    if (!entry || !this.memberships.has(InMemoryStore.memberId(projectId, userId))) {
+      return;
+    }
+    const a: MemberActivity = entry.memberActivity.get(userId) ?? {
+      userId,
+      lastSeenAt: null,
+      lastSyncAt: null,
+      lastPlotsDownloadAt: null,
+      lastCepDownloadAt: null,
+      syncsCount: 0,
+      recordsReceived: 0,
+      clientAgent: null,
+    };
+    const later = (stored: number | null, given: number | undefined) =>
+      given === undefined ? stored : stored === null ? given : Math.max(stored, given);
+    a.lastSeenAt = later(a.lastSeenAt, patch.lastSeenAt);
+    a.lastSyncAt = later(a.lastSyncAt, patch.lastSyncAt);
+    a.lastPlotsDownloadAt = later(a.lastPlotsDownloadAt, patch.lastPlotsDownloadAt);
+    a.lastCepDownloadAt = later(a.lastCepDownloadAt, patch.lastCepDownloadAt);
+    a.syncsCount += patch.syncs ?? 0;
+    a.recordsReceived += patch.recordsReceived ?? 0;
+    if (patch.clientAgent !== undefined) a.clientAgent = patch.clientAgent;
+    entry.memberActivity.set(userId, a);
+  }
+
+  async listMemberActivity(projectId: string): Promise<MemberActivity[]> {
+    const activity = this.projects.get(projectId)?.memberActivity ?? new Map<string, MemberActivity>();
+    return [...activity.values()].map((a) => ({ ...a })).sort((x, y) => (x.userId < y.userId ? -1 : x.userId > y.userId ? 1 : 0));
+  }
+
+  async appendAudit(projectId: string, input: AuditInput): Promise<void> {
+    const entry = this.requireProject(projectId);
+    entry.audit.push({
+      id: String(this.nextEventId++),
+      projectId,
+      at: Date.now(),
+      actorUserId: this.requireUserOrNull(input.actorUserId),
+      action: input.action,
+      details: { ...input.details },
+    });
+  }
+
+  async listAudit(projectId: string, q: AuditQuery): Promise<AuditEntry[]> {
+    const audit = this.projects.get(projectId)?.audit ?? [];
+    return audit
+      .filter(
+        (e) =>
+          (q.actor === undefined || e.actorUserId === q.actor) &&
+          (q.action === undefined || e.action === q.action) &&
+          (q.before === undefined || isBefore(e.at, e.id, q.before)),
+      )
+      .sort((x, y) => y.at - x.at || Number(y.id) - Number(x.id))
+      .slice(0, q.limit)
+      .map((e) => ({ ...e, details: { ...e.details }, actor: this.usernameOf(e.actorUserId) }));
+  }
+
   private static failStale(entry: ProjectEntry, before: number, code: string, message: string, now: number): number {
     let n = 0;
     for (const r of entry.aiRuns) {
@@ -1094,6 +1204,11 @@ export class InMemoryStore implements Store {
     }
     return entry;
   }
+}
+
+/** Whether (at, id) comes after the cursor in a newest-first list (as Postgres's row comparison). */
+function isBefore(at: number, id: string, cursor: EventCursor): boolean {
+  return at < cursor.at || (at === cursor.at && Number(id) < Number(cursor.id));
 }
 
 /** An invite still usable: not revoked, not expired, uses left. */
