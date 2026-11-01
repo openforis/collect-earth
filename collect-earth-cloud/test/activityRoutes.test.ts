@@ -155,7 +155,8 @@ describe('activity data written by the routes', () => {
       const activity = await ctx.store.listMemberActivity(pid);
       expect(activity.find((a) => a.userId === maria.userId)).toMatchObject({ clientAgent: 'CollectEarth/1.24.3 cloud-sync' });
       expect(activity.find((a) => a.userId === owner.userId)).toMatchObject({ clientAgent: null });
-      expect(activity.find((a) => a.userId === owner.userId)!.lastCepDownloadAt).toBeGreaterThan(0);
+      // A CEP downloaded in a browser is no project file in Collect Earth: only Collect Earth's downloads count (the old-file card).
+      expect(activity.find((a) => a.userId === owner.userId)!.lastCepDownloadAt).toBeNull();
 
       // The agent of the releases before the version was sent is kept too.
       expect((await call('GET', '/my-assignment', maria.token, undefined, { 'user-agent': 'CollectEarth-cloud-sync' })).statusCode).toBe(200);

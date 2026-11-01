@@ -455,6 +455,26 @@ describe('QualityService', () => {
     expect(service.computed).toBe(2);
   });
 
+  it('peek: never computes without a report; serves the cached one, and an out-of-date one stale while it is refreshed behind', async () => {
+    const store = new InMemoryStore();
+    const { projectId } = await store.createProject({ name: 'p' });
+    await store.putCsvFile(projectId, 'plots.csv', Buffer.from('id,lat,lon\n1,0,0\n2,0,0\n'), ['1', '2']);
+    const service = new QualityService(store, null, { minIntervalMs: 0 });
+    const log = { warn() {}, error() {} };
+    expect(await service.peek(projectId, log)).toBeNull();
+    expect(service.computed).toBe(0);
+    const first = await service.report(projectId, log);
+    expect(await service.peek(projectId, log)).toEqual({ ...first, stale: false });
+    expect(service.computed).toBe(1);
+    await store.putRecord({ projectId, recordKey: '1', operator: 'ana', modifiedOn: 1, receivedAt: 1, activelySaved: true, step: 1, xml: null, summary: {}, deleted: false, deletedOn: null });
+    const peeked = await service.peek(projectId, log);
+    expect(peeked).toMatchObject({ stale: true, computedAt: first.computedAt });
+    // The refresh behind it ends; the next peek has the new figures.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(service.computed).toBe(2);
+    expect((await service.peek(projectId, log))?.stale).toBe(false);
+  });
+
   const record = (projectId: string, recordKey: string) => ({
     projectId, recordKey, operator: 'ana', modifiedOn: 1, receivedAt: 1, activelySaved: true, step: 1, xml: null, summary: {}, deleted: false, deletedOn: null,
   });

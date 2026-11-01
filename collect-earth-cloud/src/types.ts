@@ -225,8 +225,12 @@ export interface RecordRow {
   deletedOn: number | null;
 }
 
-/** A record without its answers: listRecordStates. */
-export type RecordState = Pick<RecordRow, 'recordKey' | 'operator' | 'activelySaved' | 'deleted'>;
+/**
+ * A record without its answers (listRecordStates), and when it was first submitted: the
+ * modifiedOn of its record event `submitted` (null when it never was, or was stored
+ * before record events were kept and the backfill did not see it).
+ */
+export type RecordState = Pick<RecordRow, 'recordKey' | 'operator' | 'activelySaved' | 'deleted' | 'modifiedOn'> & { firstSubmittedOn: number | null };
 
 /** A project's quality-review settings: number margins (percent) by question key. */
 export interface QualitySettings {
@@ -454,6 +458,7 @@ export interface MemberActivity {
   lastSyncAt: number | null;
   /** my-assignment or a plot file's content. */
   lastPlotsDownloadAt: number | null;
+  /** GET /cep by Collect Earth (its User-Agent); a browser's download does not count. */
   lastCepDownloadAt: number | null;
   syncsCount: number;
   /** Records stored from this member's syncs (stale ones not counted). */

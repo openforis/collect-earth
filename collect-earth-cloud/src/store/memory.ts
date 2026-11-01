@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { generateToken, hashToken } from '../auth.js';
 import { legacyRoundInfo } from '../cep.js';
 import { checksumOf, plotCountOf } from '../csv.js';
-import { localDate } from '../days.js';
 import { fileKeyCount } from '../rounds.js';
 import {
   AI_INTERRUPTED,
@@ -330,7 +329,21 @@ export class InMemoryStore implements Store {
   }
 
   async listRecordStates(projectId: string): Promise<RecordState[]> {
-    return (await this.listRecords(projectId)).map((r) => ({ recordKey: r.recordKey, operator: r.operator, activelySaved: r.activelySaved, deleted: r.deleted }));
+    const first = new Map<string, number>();
+    for (const e of this.projects.get(projectId)?.recordEvents ?? []) {
+      if (e.change === 'submitted') {
+        const key = `${e.recordKey} ${e.operator}`;
+        first.set(key, Math.min(first.get(key) ?? Infinity, e.modifiedOn));
+      }
+    }
+    return (await this.listRecords(projectId)).map((r) => ({
+      recordKey: r.recordKey,
+      operator: r.operator,
+      activelySaved: r.activelySaved,
+      deleted: r.deleted,
+      modifiedOn: r.modifiedOn,
+      firstSubmittedOn: first.get(`${r.recordKey} ${r.operator}`) ?? null,
+    }));
   }
 
   // --- Users & sessions ---
@@ -1157,17 +1170,6 @@ export class InMemoryStore implements Store {
   async listMemberActivity(projectId: string): Promise<MemberActivity[]> {
     const activity = this.projects.get(projectId)?.memberActivity ?? new Map<string, MemberActivity>();
     return [...activity.values()].map((a) => ({ ...a })).sort((x, y) => (x.userId < y.userId ? -1 : x.userId > y.userId ? 1 : 0));
-  }
-
-  async countSubmittedByDay(projectId: string, q: { from: number; to: number; timeZone: string }): Promise<{ date: string; count: number }[]> {
-    const counts = new Map<string, number>();
-    for (const e of this.projects.get(projectId)?.recordEvents ?? []) {
-      if (e.change === 'submitted' && e.modifiedOn >= q.from && e.modifiedOn < q.to) {
-        const date = localDate(e.modifiedOn, q.timeZone);
-        counts.set(date, (counts.get(date) ?? 0) + 1);
-      }
-    }
-    return [...counts].sort(([a], [b]) => (a < b ? -1 : 1)).map(([date, count]) => ({ date, count }));
   }
 
   async unsentDelays(projectId: string, since: number): Promise<{ operator: string; medianMs: number; uploads: number }[]> {

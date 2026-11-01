@@ -8,6 +8,8 @@ import type { CepInfo, Member, MemberActivity, ProgressSettings } from './types.
 /**
  * The Progress tab's figures (monitoring Phase 2), pure: the totals per plot unit, the
  * plots submitted per day, the forecast, and what needs the coordinator's attention.
+ * Every figure counts the same thing: plot units of the plot files whose first
+ * assessment (round 1, not a check) is submitted now.
  */
 
 const DAY_MS = 86_400_000;
@@ -20,11 +22,15 @@ export const NEARLY_FULL = 0.9;
 /** At most this many people are named in a card (its count says how many there are). */
 export const MAX_ATTENTION_PEOPLE = 50;
 
+/** A record as listRecordStates gives it. */
 export interface ProgressRecord {
   recordKey: string;
   operator: string;
   activelySaved: boolean;
   deleted: boolean;
+  modifiedOn: number;
+  /** Its first submission (record event `submitted`); null when none is known. */
+  firstSubmittedOn: number | null;
 }
 
 /** One operator's median of received_at − modified_on over their recent uploads. */
@@ -40,7 +46,7 @@ export interface AttentionInput {
   unsentDelays: readonly UnsentDelay[];
   cep: CepInfo | null;
   storage: { usedBytes: number; limitBytes: number | null } | null;
-  /** Differing plots without a decision; null when the project has no checks or the figures could not be had. */
+  /** Differing plots without a decision; null when the project has no checks or no figures are at hand. */
   differencesWaiting: number | null;
 }
 
@@ -49,7 +55,7 @@ export interface ProgressInput {
   timeZone: string;
   /** Days in `daily`, today included. */
   days: number;
-  /** Every record of the project (listRecordSummaries). */
+  /** Every record of the project (listRecordStates). */
   records: readonly ProgressRecord[];
   info: RoundInfo | null;
   /** The plot ids (units) of every plot file (loadPlotContext). */
@@ -62,8 +68,6 @@ export interface ProgressInput {
   fileUnits: ReadonlyMap<string, readonly string[]>;
   /** Whole files given to people (the assignment grid). */
   assignments: readonly { csvFileId: string; username: string }[];
-  /** First submissions (record_events `submitted`) per local day, as the store counts them. */
-  submittedByDay: readonly { date: string; count: number }[];
   settings: ProgressSettings;
   /** Absent for a reviewer: the cards name people. */
   attention?: AttentionInput;
@@ -83,9 +87,9 @@ export interface ProgressTotals {
 
 export interface ProgressDay {
   date: string;
-  /** Records submitted for the first time that day (checks included). */
+  /** Plots (submitted now) whose first assessment was first submitted that day. */
   submitted: number;
-  /** Plots submitted by the end of the day, as things are now (see dailyOf). */
+  /** Plots submitted by the end of the day, of those submitted now. */
   cumulative: number;
 }
 
@@ -94,8 +98,9 @@ export interface Forecast {
   /** Where the target comes from: the project setting, or every assigned plot. */
   targetFrom: 'setting' | 'assigned';
   remaining: number;
-  /** Plots a day over the last PACE_DAYS days. */
+  /** Plots a day over the last paceDays days. */
   pacePerDay: number;
+  /** PACE_DAYS, or fewer when the first plot was submitted less than PACE_DAYS days ago. */
   paceDays: number;
   /** Days until the rest is done at that pace; 0 when done; null without a pace. */
   daysLeft: number | null;
@@ -112,8 +117,9 @@ export interface Forecast {
 
 export interface AttentionPerson {
   username: string;
-  /** quiet: their last sync (or plot download when they never synced). */
+  /** quiet: their last sync and their last plot download (the later one is what counts). */
   lastSyncAt?: number | null;
+  lastPlotsDownloadAt?: number | null;
   /** oldUnsentWork: the median wait between saving and the server receiving it. */
   medianDelayMs?: number;
 }
@@ -143,13 +149,22 @@ export function progressReport(input: ProgressInput): Progress {
   const today = localDate(input.now, input.timeZone);
   const plotsOf = plotUnits(input);
   const totals = plotsOf.totals;
-  const daily = dailyOf(input.submittedByDay, today, input.days, totals.submitted);
+  // Each plot submitted now, once, on the local day of its first submission.
+  const dayOf = dayInZone(input.timeZone);
+  const byDay = new Map<string, number>();
+  let firstDate: string | null = null;
+  for (const ms of plotsOf.firstSubmitted.values()) {
+    const date = dayOf(ms);
+    byDay.set(date, (byDay.get(date) ?? 0) + 1);
+    if (firstDate === null || date < firstDate) firstDate = date;
+  }
+  const daily = dailyOf(byDay, today, input.days);
   return {
     timeZone: input.timeZone,
     today,
     totals,
     daily,
-    forecast: forecastOf(totals, daily, today, input.settings),
+    forecast: forecastOf(totals, daily, today, input.settings, firstDate),
     attention: input.attention ? attentionOf(input, input.attention, plotsOf) : null,
     settings: input.settings,
   };
@@ -157,9 +172,20 @@ export function progressReport(input: ProgressInput): Progress {
 
 interface PlotUnits {
   totals: ProgressTotals;
-  submitted: ReadonlySet<string>;
+  /** Each plot submitted now -> the earliest first submission among its submitted first assessments. */
+  firstSubmitted: ReadonlyMap<string, number>;
   /** username -> the plots they hold as main plots (whole files and divided ones). */
   held: Map<string, string[]>;
+  /** username -> the plots they hold as quality-check copies. */
+  copies: Map<string, string[]>;
+  /** `${operator}\n${unit}`: a check submitted now by that person on that plot. */
+  checksDone: ReadonlySet<string>;
+}
+
+function push(map: Map<string, string[]>, key: string, value: string): void {
+  const list = map.get(key);
+  if (list) list.push(value);
+  else map.set(key, [value]);
 }
 
 function plotUnits(input: ProgressInput): PlotUnits {
@@ -174,97 +200,126 @@ function plotUnits(input: ProgressInput): PlotUnits {
   }
 
   const held = new Map<string, string[]>();
-  const hold = (username: string, unit: string) => {
-    let list = held.get(username);
-    if (!list) {
-      list = [];
-      held.set(username, list);
-    }
-    list.push(unit);
-  };
   const assigned = new Set<string>();
   for (const a of input.assignments) {
     for (const unit of input.fileUnits.get(a.csvFileId) ?? []) {
       if (plots.has(unit)) {
         assigned.add(unit);
-        hold(a.username, unit);
+        push(held, a.username, unit);
       }
     }
   }
   for (const [unit, users] of input.mainHolders) {
     if (users.size === 0 || !plots.has(unit)) continue;
     assigned.add(unit);
-    for (const u of users) hold(u, unit);
+    for (const u of users) push(held, u, unit);
+  }
+  const copies = new Map<string, string[]>();
+  for (const [unit, users] of input.copyHolders) {
+    for (const u of users) push(copies, u, unit);
   }
 
   // Each record resolved as the quality figures and the export do; only first
   // assessments of the files' plots count (checks, unknown rounds and records of plots
   // in no file do not).
   const resolve = recordResolver({ info, units, copyHolders: input.copyHolders });
-  const submitted = new Set<string>();
+  const firstSubmitted = new Map<string, number>();
   const saved = new Set<string>();
+  const checksDone = new Set<string>();
   for (const r of input.records) {
     if (r.deleted) continue;
     const { unit, round } = resolve(r);
-    if (unit === null || round.assessment !== 'main' || !plots.has(unit)) continue;
-    (r.activelySaved ? submitted : saved).add(unit);
+    if (unit === null) continue;
+    if (round.assessment === 'check') {
+      if (r.activelySaved) checksDone.add(`${r.operator}\n${unit}`);
+      continue;
+    }
+    if (round.assessment !== 'main' || !plots.has(unit)) continue;
+    if (r.activelySaved) {
+      // A submitted record with no event `submitted` (stored before events were kept): its time.
+      const at = r.firstSubmittedOn ?? r.modifiedOn;
+      firstSubmitted.set(unit, Math.min(firstSubmitted.get(unit) ?? Infinity, at));
+    } else {
+      saved.add(unit);
+    }
   }
   let started = 0;
   for (const unit of saved) {
-    if (!submitted.has(unit)) started += 1;
+    if (!firstSubmitted.has(unit)) started += 1;
   }
   return {
     totals: {
       plots: plots.size,
       assigned: assigned.size,
       notAssigned: plots.size - assigned.size,
-      submitted: submitted.size,
+      submitted: firstSubmitted.size,
       started,
-      notStarted: plots.size - submitted.size - started,
+      notStarted: plots.size - firstSubmitted.size - started,
     },
-    submitted,
+    firstSubmitted,
     held,
+    copies,
+    checksDone,
+  };
+}
+
+const SLOT_MS = 15 * 60_000;
+
+/**
+ * localDate in a time zone, cached per quarter of an hour: zone offsets and their
+ * changes are whole quarters of an hour, so a local day never starts inside one. 100,000
+ * plots cost a few thousand Intl calls.
+ */
+function dayInZone(timeZone: string): (ms: number) => string {
+  const cache = new Map<number, string>();
+  return (ms) => {
+    const slot = Math.floor(ms / SLOT_MS);
+    let date = cache.get(slot);
+    if (date === undefined) {
+      date = localDate(slot * SLOT_MS, timeZone);
+      cache.set(slot, date);
+    }
+    return date;
   };
 }
 
 /**
- * The last `days` days, today included. Days after today (a collector's clock ahead)
- * count as today.
- *
- * `submitted` counts the record events `submitted` of the day: each record's first
- * submission, checks included. The cumulative line is worked out backwards from the
- * plots submitted now (totals.submitted): each day ends at that total less what was
- * submitted after it. So it always ends at the headline number; the days before the
- * window, plots submitted again after being changed (`resubmitted`), plots taken back
- * or deleted since, checks and records of plots in no file are what makes the sum of
- * the bars differ from it, and they are absorbed in its start (never below 0).
+ * The last `days` days, today included, from the plots submitted now counted on the day
+ * of their first submission. Days after today (a collector's clock ahead) count as
+ * today. The cumulative line starts with the plots first submitted before the window,
+ * so it ends at the plots submitted now (totals.submitted).
  */
-export function dailyOf(byDay: readonly { date: string; count: number }[], today: string, days: number, submittedNow: number): ProgressDay[] {
+export function dailyOf(byDay: ReadonlyMap<string, number>, today: string, days: number): ProgressDay[] {
   const first = addDays(today, -(days - 1));
   const counts = new Map<string, number>();
-  for (const { date, count } of byDay) {
-    if (date < first) continue;
+  let total = 0;
+  for (const [date, count] of byDay) {
+    if (date < first) {
+      total += count;
+      continue;
+    }
     const day = date > today ? today : date;
     counts.set(day, (counts.get(day) ?? 0) + count);
   }
   const result: ProgressDay[] = [];
   for (let i = 0; i < days; i++) {
     const date = addDays(first, i);
-    result.push({ date, submitted: counts.get(date) ?? 0, cumulative: 0 });
-  }
-  let total = submittedNow;
-  for (let i = result.length - 1; i >= 0; i--) {
-    result[i].cumulative = Math.max(0, total);
-    total -= result[i].submitted;
+    const submitted = counts.get(date) ?? 0;
+    total += submitted;
+    result.push({ date, submitted, cumulative: total });
   }
   return result;
 }
 
-export function forecastOf(totals: ProgressTotals, daily: readonly ProgressDay[], today: string, settings: ProgressSettings): Forecast {
+/**
+ * `firstDate`: the day the first plot was first submitted (null for none). A collection
+ * that started less than PACE_DAYS days ago has its pace over the days since.
+ */
+export function forecastOf(totals: ProgressTotals, daily: readonly ProgressDay[], today: string, settings: ProgressSettings, firstDate: string | null): Forecast {
   const target = settings.targetPlots ?? totals.assigned;
   const remaining = Math.max(0, target - totals.submitted);
-  const recent = daily.slice(-PACE_DAYS);
-  const pacePerDay = recent.reduce((sum, d) => sum + d.submitted, 0) / PACE_DAYS;
+  const paceDays = firstDate === null ? PACE_DAYS : Math.min(PACE_DAYS, Math.max(1, daysBetween(firstDate, today) + 1));
+  const pacePerDay = daily.slice(-paceDays).reduce((sum, d) => sum + d.submitted, 0) / paceDays;
   const daysLeft = remaining === 0 ? 0 : pacePerDay > 0 ? Math.ceil(remaining / pacePerDay) : null;
   const endDate = daysLeft === null ? null : addDays(today, daysLeft);
   const deadline = settings.deadline;
@@ -274,7 +329,7 @@ export function forecastOf(totals: ProgressTotals, daily: readonly ProgressDay[]
     targetFrom: settings.targetPlots !== null ? 'setting' : 'assigned',
     remaining,
     pacePerDay,
-    paceDays: PACE_DAYS,
+    paceDays,
     daysLeft,
     endDate,
     deadline,
@@ -291,38 +346,44 @@ const capped = (people: AttentionPerson[]) => people.sort(byName).slice(0, MAX_A
 function attentionOf(input: ProgressInput, a: AttentionInput, plotsOf: PlotUnits): AttentionItem[] {
   const items: AttentionItem[] = [];
   const activity = new Map(a.activity.map((x) => [x.userId, x]));
-  const { held, submitted } = plotsOf;
+  const { held, copies, checksDone, firstSubmitted } = plotsOf;
   const quietDays = input.settings.quietDays;
+  const usesChecks = input.copyHolders.size > 0;
 
   const quiet: AttentionPerson[] = [];
   const never: AttentionPerson[] = [];
   const oldFile: AttentionPerson[] = [];
   const oldCe: AttentionPerson[] = [];
   let unknownVersion = 0;
-  // Who holds plots at all (main plots or quality-check copies): the people Collect Earth's version matters for.
-  const holdsAny = new Set(held.keys());
-  for (const users of input.copyHolders.values()) for (const u of users) holdsAny.add(u);
-  const usesChecks = input.copyHolders.size > 0;
 
   for (const m of a.members) {
     const act = activity.get(m.userId);
-    const plots = held.get(m.username) ?? [];
+    const mains = held.get(m.username) ?? [];
+    const checks = copies.get(m.username) ?? [];
+    const holdsPlots = mains.length > 0 || checks.length > 0;
     const downloaded = act?.lastPlotsDownloadAt ?? null;
     const synced = act?.lastSyncAt ?? null;
-    if (plots.length > 0 && downloaded === null && synced === null) {
+    const left = mains.some((u) => !firstSubmitted.has(u)) || checks.some((u) => !checksDone.has(`${m.username}\n${u}`));
+    if (holdsPlots && downloaded === null && synced === null) {
       never.push({ username: m.username });
-    } else if (plots.some((u) => !submitted.has(u))) {
-      // Plots left to do, and no sync for quietDays (or, never synced, since the plots came).
-      const last = synced ?? downloaded;
-      if (last !== null && input.now - last > quietDays * DAY_MS) {
-        quiet.push({ username: m.username, lastSyncAt: last });
+    } else if (left) {
+      // Plots left to do, and neither a sync nor a plot download for quietDays. When
+      // plots were given is not stored for divided files, so their download (Collect
+      // Earth gets new plots that way) stands for it: someone given plots after their
+      // last sync is not quiet until quietDays after they downloaded them.
+      const last = Math.max(synced ?? -Infinity, downloaded ?? -Infinity);
+      if (input.now - last > quietDays * DAY_MS) {
+        quiet.push({ username: m.username, lastSyncAt: synced, lastPlotsDownloadAt: downloaded });
       }
     }
+    // The project file and Collect Earth's version matter for people who collect: who
+    // holds plots or has synced (a coordinator's own use of the dashboard does not count).
+    if (!holdsPlots && synced === null) continue;
     if (a.cep && act?.lastCepDownloadAt != null && act.lastCepDownloadAt < a.cep.updatedAt) {
       oldFile.push({ username: m.username });
     }
     const usedCollectEarth = act !== undefined && (synced !== null || downloaded !== null || act.lastCepDownloadAt !== null);
-    if (usesChecks && holdsAny.has(m.username) && usedCollectEarth) {
+    if (usesChecks && holdsPlots && usedCollectEarth) {
       const kind = parseClientAgent(act.clientAgent).kind;
       if (kind === 'old-collect-earth') oldCe.push({ username: m.username });
       else if (kind === 'unknown') unknownVersion += 1;

@@ -140,6 +140,7 @@ export function attentionText(t: Translate, item: AttentionItem, language: strin
   switch (item.kind) {
     case "quiet": {
       const days = item.quietDays ?? 3;
+      if (days === 1) return { title: t("attention.quietTitleDay"), text: [t(one ? "attention.quietOneDay" : "attention.quietDay", { count })] };
       return { title: t("attention.quietTitle", { days }), text: [t(one ? "attention.quietOne" : "attention.quiet", { count, days })] };
     }
     case "neverDownloaded":
@@ -168,9 +169,10 @@ export function attentionText(t: Translate, item: AttentionItem, language: strin
   }
 }
 
-/** What is said next to a person in a card: their last sync, how late their work arrives. */
+/** What is said next to a person in a card: their last sync (or, never synced, when they got their plots), how late their work arrives. */
 export function personDetail(t: Translate, item: AttentionItem, person: AttentionItem["people"][number], language: string, formatDate: (ms: number) => string): string | null {
-  if (item.kind === "quiet" && person.lastSyncAt !== null) return t("attention.lastSent", { date: formatDate(person.lastSyncAt) });
+  if (item.kind === "quiet" && person.lastSyncAt !== null) return t("attention.lastSync", { date: formatDate(person.lastSyncAt) });
+  if (item.kind === "quiet" && person.lastPlotsDownloadAt !== null) return t("attention.lastDownload", { date: formatDate(person.lastPlotsDownloadAt) });
   if (item.kind === "oldUnsentWork" && person.medianDelayMs !== null) {
     return t("attention.daysLate", { n: formatNumber(Math.round((person.medianDelayMs / DAY_MS) * 10) / 10, language) });
   }
@@ -246,12 +248,14 @@ export interface ProgressDraft {
   deadline: string;
   targetPlots: string;
   quietDays: string;
+  /** The date box holds a date typed only in part (it then gives ""): not an empty deadline. */
+  deadlineUnfinished: boolean;
 }
 
 export type ProgressProblems = Partial<Record<keyof ProgressDraft, MessageKey>>;
 
 export function progressDraftOf(s: ProgressSettings): ProgressDraft {
-  return { deadline: s.deadline ?? "", targetPlots: s.targetPlots === null ? "" : String(s.targetPlots), quietDays: String(s.quietDays) };
+  return { deadline: s.deadline ?? "", targetPlots: s.targetPlots === null ? "" : String(s.targetPlots), quietDays: String(s.quietDays), deadlineUnfinished: false };
 }
 
 const MAX_TARGET = 10_000_000;
@@ -267,10 +271,12 @@ export function isDate(text: string): boolean {
 export function readProgressDraft(d: ProgressDraft): { settings: ProgressSettings; problems: ProgressProblems } {
   const problems: ProgressProblems = {};
   const deadline = d.deadline.trim();
-  if (deadline && !isDate(deadline)) {
+  if (d.deadlineUnfinished || (deadline && !isDate(deadline))) {
     problems.deadline = "progressSettings.badDeadline";
   }
-  const target = d.targetPlots.trim().replace(/[\s.,'’]/g, "");
+  // Digits, with separators only between groups of three ("1,200", "1.200", "1 200"): "12.5" is no whole number.
+  const typed = d.targetPlots.trim();
+  const target = /^\d{1,3}([\s.,'\u2019\u00a0\u202f]\d{3})+$/.test(typed) ? typed.replace(/\D/g, "") : typed;
   let targetPlots: number | null = null;
   if (target) {
     targetPlots = /^\d+$/.test(target) ? Number(target) : NaN;
@@ -279,5 +285,5 @@ export function readProgressDraft(d: ProgressDraft): { settings: ProgressSetting
   const quiet = d.quietDays.trim();
   const quietDays = /^\d+$/.test(quiet) ? Number(quiet) : NaN;
   if (!(quietDays >= 1 && quietDays <= 365)) problems.quietDays = "progressSettings.badQuiet";
-  return { problems, settings: { deadline: deadline || null, targetPlots: problems.targetPlots ? null : targetPlots, quietDays: problems.quietDays ? 3 : quietDays } };
+  return { problems, settings: { deadline: problems.deadline ? null : deadline || null, targetPlots: problems.targetPlots ? null : targetPlots, quietDays: problems.quietDays ? 3 : quietDays } };
 }

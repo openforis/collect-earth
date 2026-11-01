@@ -74,7 +74,8 @@ export function matchRoute(pathname: string): Route {
   }
   if (first === "projects" && (parts.length === 2 || parts.length === 3)) {
     const projectId = decode(second);
-    const tab = (third ?? "progress") as ProjectTab;
+    // "overview" is Setup's old name: old links still open it.
+    const tab = (third === "overview" ? "setup" : (third ?? "progress")) as ProjectTab;
     if (projectId && PROJECT_TABS.includes(tab)) return { name: "project", projectId, tab };
   }
   if (first === "projects" && parts.length === 4 && third === "plots") {

@@ -396,8 +396,31 @@ export class PostgresStore implements Store {
 
   async listRecordStates(projectId: string): Promise<RecordState[]> {
     return this.withProject(projectId, async (client) => {
-      const res = await client.query('SELECT record_key, operator, actively_saved FROM records WHERE project_id = $1 AND NOT deleted', [projectId]);
-      return res.rows.map((r) => ({ recordKey: String(r.record_key), operator: String(r.operator), activelySaved: r.actively_saved === true, deleted: false }));
+      // A record's first submission: its event `submitted` (one per record; min() to be
+      // safe). Rows as arrays and times as epoch ms (float8): for 100,000 records the
+      // parsing costs more than the query.
+      const res = await client.query({
+        text: `SELECT r.record_key, r.operator, r.actively_saved,
+                      floor(EXTRACT(EPOCH FROM r.modified_on) * 1000)::float8,
+                      floor(EXTRACT(EPOCH FROM e.first_submitted_on) * 1000)::float8
+                 FROM records r
+                 LEFT JOIN (SELECT record_key, operator, min(modified_on) AS first_submitted_on
+                              FROM record_events
+                             WHERE project_id = $1 AND change = 'submitted'
+                             GROUP BY record_key, operator) e
+                   ON e.record_key = r.record_key AND e.operator = r.operator
+                WHERE r.project_id = $1 AND NOT r.deleted`,
+        values: [projectId],
+        rowMode: 'array',
+      });
+      return (res.rows as [string, string, boolean, number, number | null][]).map(([recordKey, operator, activelySaved, modifiedOn, first]) => ({
+        recordKey,
+        operator,
+        activelySaved,
+        deleted: false,
+        modifiedOn,
+        firstSubmittedOn: first,
+      }));
     });
   }
 
@@ -1572,30 +1595,6 @@ export class PostgresStore implements Store {
       );
       return res.rows.map(mapMemberActivity);
     });
-  }
-
-  async countSubmittedByDay(projectId: string, q: { from: number; to: number; timeZone: string }): Promise<{ date: string; count: number }[]> {
-    const count = (timeZone: string) =>
-      this.withProject(projectId, async (client) => {
-        const res = await client.query(
-          `SELECT to_char(modified_on AT TIME ZONE $4, 'YYYY-MM-DD') AS day, count(*)::int AS n
-             FROM record_events
-            WHERE project_id = $1 AND change = 'submitted' AND modified_on >= $2 AND modified_on < $3
-            GROUP BY 1
-            ORDER BY 1`,
-          [projectId, new Date(q.from), new Date(q.to), timeZone],
-        );
-        return res.rows.map((r) => ({ date: String(r.day), count: Number(r.n) }));
-      });
-    try {
-      return await count(q.timeZone);
-    } catch (err) {
-      // A name Intl knows and this database's time zone data does not: the days of UTC.
-      if ((err as { code?: string }).code === '22023' && q.timeZone !== 'UTC') {
-        return count('UTC');
-      }
-      throw err;
-    }
   }
 
   async unsentDelays(projectId: string, since: number): Promise<{ operator: string; medianMs: number; uploads: number }[]> {

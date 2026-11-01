@@ -112,8 +112,13 @@ describe("attention cards", () => {
     expect(attentionAction(t, "storage").tab).toBe("setup");
   });
 
-  it("one and many", () => {
+  it("one and many, people and days", () => {
     expect(attentionText(t, item({ count: 1 }), "en").text[0]).toBe("One person with plots left has not sent anything for 3 days or more.");
+    expect(attentionText(t, item({ count: 1, quietDays: 1 }), "en")).toEqual({
+      title: "Quiet for a day or more",
+      text: ["One person with plots left has not sent anything for a day or more."],
+    });
+    expect(attentionText(t, item({ count: 2, quietDays: 1 }), "en").text[0]).toBe("2 people with plots left have not sent anything for a day or more.");
     expect(attentionText(t, item({ count: 1200, kind: "notAssigned" }), "en").text[0]).toBe("1,200 plots are not given to anyone, so nobody will collect them.");
   });
 
@@ -127,10 +132,13 @@ describe("attention cards", () => {
 
   it("what is said by each person", () => {
     const quiet = item({});
-    expect(personDetail(t, quiet, { username: "ana", lastSyncAt: 5, medianDelayMs: null }, "en", () => "Oct 28")).toBe("last sent Oct 28");
+    expect(personDetail(t, quiet, { username: "ana", lastSyncAt: 5, lastPlotsDownloadAt: 9, medianDelayMs: null }, "en", () => "Oct 28")).toBe("last sync Oct 28");
+    expect(personDetail(t, quiet, { username: "ana", lastSyncAt: null, lastPlotsDownloadAt: 9, medianDelayMs: null }, "en", () => "Oct 28")).toBe(
+      "never synced; plots downloaded Oct 28",
+    );
     const late = item({ kind: "oldUnsentWork" });
-    expect(personDetail(t, late, { username: "ana", lastSyncAt: null, medianDelayMs: 3.26 * 86_400_000 }, "en", String)).toBe("about 3.3 days late");
-    expect(personDetail(t, item({ kind: "neverDownloaded" }), { username: "ana", lastSyncAt: null, medianDelayMs: null }, "en", String)).toBeNull();
+    expect(personDetail(t, late, { username: "ana", lastSyncAt: null, lastPlotsDownloadAt: null, medianDelayMs: 3.26 * 86_400_000 }, "en", String)).toBe("about 3.3 days late");
+    expect(personDetail(t, item({ kind: "neverDownloaded" }), { username: "ana", lastSyncAt: null, lastPlotsDownloadAt: null, medianDelayMs: null }, "en", String)).toBeNull();
   });
 });
 
@@ -171,21 +179,35 @@ describe("the chart", () => {
 
 describe("the settings form", () => {
   it("reads what is typed, as the server checks it", () => {
-    expect(readProgressDraft({ deadline: "2026-12-31", targetPlots: "1,200", quietDays: "5" })).toEqual({
+    expect(readProgressDraft({ deadline: "2026-12-31", targetPlots: "1,200", quietDays: "5", deadlineUnfinished: false })).toEqual({
       problems: {},
       settings: { deadline: "2026-12-31", targetPlots: 1200, quietDays: 5 },
     });
-    expect(readProgressDraft({ deadline: "", targetPlots: "", quietDays: "3" }).settings).toEqual({ deadline: null, targetPlots: null, quietDays: 3 });
-    expect(readProgressDraft({ deadline: "2026-02-30", targetPlots: "0", quietDays: "0" }).problems).toEqual({
+    expect(readProgressDraft({ deadline: "", targetPlots: "", quietDays: "3", deadlineUnfinished: false }).settings).toEqual({ deadline: null, targetPlots: null, quietDays: 3 });
+    expect(readProgressDraft({ deadline: "2026-02-30", targetPlots: "0", quietDays: "0", deadlineUnfinished: false }).problems).toEqual({
       deadline: "progressSettings.badDeadline",
       targetPlots: "progressSettings.badTarget",
       quietDays: "progressSettings.badQuiet",
     });
-    expect(readProgressDraft({ deadline: "", targetPlots: "12a", quietDays: "400" }).problems).toEqual({
+    expect(readProgressDraft({ deadline: "", targetPlots: "12a", quietDays: "400", deadlineUnfinished: false }).problems).toEqual({
       targetPlots: "progressSettings.badTarget",
       quietDays: "progressSettings.badQuiet",
     });
-    expect(progressDraftOf({ deadline: null, targetPlots: 40, quietDays: 3 })).toEqual({ deadline: "", targetPlots: "40", quietDays: "3" });
+    expect(progressDraftOf({ deadline: null, targetPlots: 40, quietDays: 3 })).toEqual({ deadline: "", targetPlots: "40", quietDays: "3", deadlineUnfinished: false });
+  });
+
+  it("never reads a decimal as a whole number; group separators only in groups of three", () => {
+    const target = (text: string) => readProgressDraft({ deadline: "", targetPlots: text, quietDays: "3", deadlineUnfinished: false });
+    expect(target("12.5").problems.targetPlots).toBe("progressSettings.badTarget");
+    expect(target("12,5").problems.targetPlots).toBe("progressSettings.badTarget");
+    expect(target("1.200").settings.targetPlots).toBe(1200);
+    expect(target("1 200 000").settings.targetPlots).toBe(1_200_000);
+    expect(target(" 40 ").settings.targetPlots).toBe(40);
+  });
+
+  it("a date box left half filled is a problem, not an empty deadline", () => {
+    const read = readProgressDraft({ deadline: "", targetPlots: "", quietDays: "3", deadlineUnfinished: true });
+    expect(read.problems.deadline).toBe("progressSettings.badDeadline");
   });
 });
 
@@ -200,7 +222,7 @@ describe("toProgressData", () => {
     expect(d.totals).toEqual({ plots: 4, assigned: 0, notAssigned: 0, submitted: 2, started: 0, notStarted: 0 });
     expect(d.daily).toEqual([{ date: "2026-11-01", submitted: 2, cumulative: 2 }]);
     expect(d.attention).toHaveLength(1);
-    expect(d.attention![0].people[0]).toEqual({ username: "ana", lastSyncAt: 5, medianDelayMs: null });
+    expect(d.attention![0].people[0]).toEqual({ username: "ana", lastSyncAt: 5, lastPlotsDownloadAt: null, medianDelayMs: null });
     expect(d.settings).toEqual({ deadline: "2026-12-31", targetPlots: null, quietDays: 3 });
     expect(toProgressData({ attention: null }).attention).toBeNull();
     expect(toProgressData({}).forecast.paceDays).toBe(14);

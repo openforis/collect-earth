@@ -56,8 +56,9 @@ describe('GET /progress and the progress settings', () => {
     expect(body.daily).toHaveLength(30);
     expect(body.daily.at(-1).cumulative).toBe(2);
     expect(body.daily.reduce((s: number, d: { submitted: number }) => s + d.submitted, 0)).toBe(2);
-    expect(body.forecast).toMatchObject({ target: 4, targetFrom: 'assigned', remaining: 2, paceDays: 14 });
-    expect(body.forecast.pacePerDay).toBeCloseTo(2 / 14);
+    // The first plot was submitted two days ago: the pace is over those three days.
+    expect(body.forecast).toMatchObject({ target: 4, targetFrom: 'assigned', remaining: 2, paceDays: 3 });
+    expect(body.forecast.pacePerDay).toBeCloseTo(2 / 3);
     expect(body.settings).toEqual({ deadline: null, targetPlots: null, quietDays: 3 });
     expect(Array.isArray(body.attention)).toBe(true);
   });
@@ -90,12 +91,26 @@ describe('GET /progress and the progress settings', () => {
     const audit = await ctx.store.listAudit(pid, { limit: 10, action: 'settings.changed' });
     expect(audit.map((a) => a.details)).toEqual([{ setting: 'progress' }]);
 
+    for (const body of ['x', [1], 'null']) {
+      expect((await call('PUT', '/progress/settings', owner.token, body, { 'content-type': 'application/json' })).statusCode, String(body)).toBe(400);
+    }
     for (const bad of [{ deadline: '2026-02-30' }, { deadline: 5 }, { targetPlots: 0 }, { targetPlots: 1.5 }, { quietDays: 0 }, { quietDays: '3' }]) {
       expect((await call('PUT', '/progress/settings', owner.token, bad)).statusCode, JSON.stringify(bad)).toBe(400);
     }
     // Empty: back to the defaults.
     expect((await call('PUT', '/progress/settings', owner.token, {})).json()).toEqual({ deadline: null, targetPlots: null, quietDays: 3 });
     expect((await call('PUT', '/progress/settings', rita.token, {})).statusCode).toBe(403);
+  });
+
+  it("the differences card comes from figures already at hand: it never waits for them nor starts them", async () => {
+    const LAND_USE = 'collect_code_land_use_category';
+    await batchRequest(ctx.app, pid, maria.token, [envelope({ recordKey: '4,1', operator: 'maria', summary: { [LAND_USE]: 'F' } })]);
+    await batchRequest(ctx.app, pid, rita.token, [envelope({ recordKey: '4,2', operator: 'rita', summary: { [LAND_USE]: 'G' } })]);
+    const kinds = async () => ((await call('GET', '/progress', owner.token)).json().attention as { kind: string; count: number }[]);
+    expect((await kinds()).find((i) => i.kind === 'differencesWaiting')).toBeUndefined();
+    const quality = await call('GET', '/quality', owner.token);
+    expect(quality.json().plotsDiffering).toBe(1);
+    expect((await kinds()).find((i) => i.kind === 'differencesWaiting')).toEqual({ kind: 'differencesWaiting', count: 1 });
   });
 
   it('cards: never downloaded, and a project file replaced since a download', async () => {
@@ -118,8 +133,8 @@ describe('GET /progress and the progress settings', () => {
   });
 });
 
-describe('the memory store: submissions per day and unsent delays', () => {
-  it('counts first submissions per local day across a DST change, and the median wait per operator', async () => {
+describe('the memory store: unsent delays', () => {
+  it('the median wait per operator', async () => {
     const ctx = await makeContext();
     try {
       const { projectId } = await ctx.store.createProject({ name: 'p' });
@@ -147,17 +162,27 @@ describe('the memory store: submissions per day and unsent delays', () => {
       ]) {
         await ctx.store.appendRecordEvent(e);
       }
-      const q = { from: at('2026-10-20T00:00:00Z'), to: at('2026-10-30T00:00:00Z') };
-      expect(await ctx.store.countSubmittedByDay(projectId, { ...q, timeZone: 'Europe/Rome' })).toEqual([
-        { date: '2026-10-25', count: 2 },
-        { date: '2026-10-26', count: 1 },
-      ]);
-      expect(await ctx.store.countSubmittedByDay(projectId, { ...q, timeZone: 'UTC' })).toEqual([
-        { date: '2026-10-24', count: 1 },
-        { date: '2026-10-25', count: 2 },
-      ]);
       const delays = await ctx.store.unsentDelays(projectId, at('2026-10-20T00:00:00Z'));
       expect(delays).toEqual([{ operator: 'ana', medianMs: DAY, uploads: 3 }]);
+    } finally {
+      await ctx.app.close();
+    }
+  });
+});
+
+describe('listRecordStates', () => {
+  it("gives each record's first submission, kept through a resubmission; null for a draft", async () => {
+    const ctx = await makeContext();
+    try {
+      const { projectId, projectToken } = await ctx.store.createProject({ name: 'p' });
+      await batchRequest(ctx.app, projectId, projectToken, [envelope({ recordKey: '1', modifiedOn: 1000 }), envelope({ recordKey: '2', modifiedOn: 1500, activelySaved: false })]);
+      await batchRequest(ctx.app, projectId, projectToken, [envelope({ recordKey: '1', modifiedOn: 2000, activelySaved: false })]);
+      await batchRequest(ctx.app, projectId, projectToken, [envelope({ recordKey: '1', modifiedOn: 3000 })]);
+      const states = (await ctx.store.listRecordStates(projectId)).sort((a, b) => (a.recordKey < b.recordKey ? -1 : 1));
+      expect(states).toEqual([
+        { recordKey: '1', operator: 'maria', activelySaved: true, deleted: false, modifiedOn: 3000, firstSubmittedOn: 1000 },
+        { recordKey: '2', operator: 'maria', activelySaved: false, deleted: false, modifiedOn: 1500, firstSubmittedOn: null },
+      ]);
     } finally {
       await ctx.app.close();
     }

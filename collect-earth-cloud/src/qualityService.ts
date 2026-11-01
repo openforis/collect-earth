@@ -466,6 +466,33 @@ export class QualityService {
   }
 
   /**
+   * The cached figures, without ever waiting for a computation: null when this instance
+   * holds none for the project (none is started then). A cached report whose inputs
+   * changed is served stale, and brought up to date behind it as report() would (one
+   * computation at a time per project, at most one start per minIntervalMs, not again
+   * soon after a failure). For pages that only glance at the figures (the Progress tab).
+   */
+  async peek(projectId: string, log: Log): Promise<ServedReport | null> {
+    if (!this.reports.has(projectId)) {
+      return null;
+    }
+    const snapshot = await this.snapshot(projectId);
+    const cached = this.reports.get(projectId);
+    if (!cached) {
+      return null;
+    }
+    if (cached.version === snapshot.version) {
+      return { report: cached.report, computedAt: cached.computedAt, stale: false };
+    }
+    const failure = this.failures.get(projectId);
+    const failedLately = failure !== undefined && failure.version === snapshot.version && this.now() - failure.at < FAILURE_MEMO_MS;
+    if (!failedLately) {
+      this.schedule(projectId, log, snapshot, true)?.catch((err: unknown) => log.warn({ err }, 'quality: the figures could not be brought up to date'));
+    }
+    return { report: cached.report, computedAt: cached.computedAt, stale: true };
+  }
+
+  /**
    * The computation that will answer this snapshot: the running one for its version, or
    * the one follow-up. Null when there is a report to show and a computation of this
    * project started under minIntervalMs ago: none is started (nor queued) now.

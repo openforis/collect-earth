@@ -9,6 +9,7 @@ import {
   progressReport,
   type AttentionInput,
   type ProgressInput,
+  type ProgressRecord,
   type ProgressTotals,
 } from '../src/progress.js';
 import type { MemberActivity, ProgressSettings } from '../src/types.js';
@@ -41,13 +42,20 @@ function input(over: Partial<ProgressInput> = {}): ProgressInput {
     mainHolders: new Map(),
     fileUnits: new Map(),
     assignments: [],
-    submittedByDay: [],
     settings: defaults,
     ...over,
   };
 }
 
-const rec = (recordKey: string, operator: string, activelySaved = true, deleted = false) => ({ recordKey, operator, activelySaved, deleted });
+/** A record; submitted ones were first submitted at `first` (default: a day before NOW). */
+const rec = (recordKey: string, operator: string, activelySaved = true, deleted = false, first: number | null = NOW - DAY): ProgressRecord => ({
+  recordKey,
+  operator,
+  activelySaved,
+  deleted,
+  modifiedOn: NOW - DAY,
+  firstSubmittedOn: activelySaved ? first : null,
+});
 
 function activity(userId: string, over: Partial<MemberActivity> = {}): MemberActivity {
   return {
@@ -150,57 +158,107 @@ describe('totals per plot unit', () => {
 });
 
 describe('daily buckets', () => {
-  it('fills every day of the window, folds days after today into today, ends at the plots submitted now', () => {
+  it('fills every day of the window, folds days after today into today; the line starts with the days before', () => {
     const days = dailyOf(
-      [
-        { date: '2026-10-01', count: 9 }, // before the window
-        { date: '2026-10-30', count: 2 },
-        { date: '2026-11-01', count: 3 },
-        { date: '2026-11-02', count: 1 }, // a clock ahead
-      ],
+      new Map([
+        ['2026-10-01', 9], // before the window
+        ['2026-10-30', 2],
+        ['2026-11-01', 3],
+        ['2026-11-02', 1], // a clock ahead
+      ]),
       '2026-11-01',
       7,
-      10,
     );
     expect(days.map((d) => d.date)).toEqual(['2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01']);
     expect(days.map((d) => d.submitted)).toEqual([0, 0, 0, 0, 2, 0, 4]);
-    expect(days.map((d) => d.cumulative)).toEqual([4, 4, 4, 4, 6, 6, 10]);
+    expect(days.map((d) => d.cumulative)).toEqual([9, 9, 9, 9, 11, 11, 15]);
   });
 
-  it('never goes below 0 when more was submitted than is submitted now (taken back, checks)', () => {
-    const days = dailyOf([{ date: '2026-11-01', count: 5 }], '2026-11-01', 3, 2);
-    expect(days.map((d) => d.cumulative)).toEqual([0, 0, 2]);
+  it('plots submitted now, once each, on the day of the earliest first submission of a first assessment; checks never', () => {
+    const at = (iso: string) => Date.parse(iso);
+    const p = progressReport(
+      input({
+        info: added,
+        days: 14,
+        units: new Set(['1', '2', '3', '4']),
+        records: [
+          rec('1,1', 'ana', true, false, at('2026-10-28T10:00:00Z')),
+          rec('1,1', 'bo', true, false, at('2026-10-30T10:00:00Z')), // the same plot again: counted once, on the 28th
+          rec('1,2', 'cy', true, false, at('2026-10-31T10:00:00Z')), // a check: no bar
+          rec('2,1', 'ana', true, false, null), // no event known: its modifiedOn (31 Oct)
+          rec('3,1', 'ana', false), // a draft
+          rec('4,1', 'ana', true, true, at('2026-10-29T10:00:00Z')), // deleted
+        ],
+      }),
+    );
+    expect(p.totals.submitted).toBe(2);
+    expect(p.daily.filter((d) => d.submitted > 0).map((d) => [d.date, d.submitted])).toEqual([
+      ['2026-10-28', 1],
+      ['2026-10-31', 1],
+    ]);
+    expect(p.daily.reduce((s, d) => s + d.submitted, 0)).toBe(p.totals.submitted);
+    expect(p.daily.at(-1)!.cumulative).toBe(p.totals.submitted);
+  });
+
+  it('a plot first submitted before the window is in the line from its start', () => {
+    const p = progressReport(input({ days: 14, units: new Set(['1', '2']), records: [rec('1', 'ana', true, false, NOW - 40 * DAY), rec('2', 'ana')] }));
+    expect(p.daily[0].cumulative).toBe(1);
+    expect(p.daily.at(-1)!.cumulative).toBe(2);
   });
 
   it('days across a DST change are calendar days of the time zone', () => {
-    // In Rome the 25th of October 2026 has 25 hours; the window is still one entry per day.
-    const p = progressReport(input({ now: Date.parse('2026-10-26T10:00:00Z'), timeZone: 'Europe/Rome', days: 3 }));
+    // In Rome the 25th of October 2026 has 25 hours.
+    const at = (iso: string) => Date.parse(iso);
+    const p = progressReport(
+      input({
+        now: at('2026-10-26T10:00:00Z'),
+        timeZone: 'Europe/Rome',
+        days: 3,
+        units: new Set(['1', '2', '3']),
+        records: [
+          rec('1', 'ana', true, false, at('2026-10-24T22:30:00Z')), // the 25th in Rome
+          rec('2', 'ana', true, false, at('2026-10-25T22:30:00Z')), // still the 25th
+          rec('3', 'ana', true, false, at('2026-10-25T23:30:00Z')), // the 26th
+        ],
+      }),
+    );
     expect(p.today).toBe('2026-10-26');
-    expect(p.daily.map((d) => d.date)).toEqual(['2026-10-24', '2026-10-25', '2026-10-26']);
+    expect(p.daily).toEqual([
+      { date: '2026-10-24', submitted: 0, cumulative: 0 },
+      { date: '2026-10-25', submitted: 2, cumulative: 2 },
+      { date: '2026-10-26', submitted: 1, cumulative: 3 },
+    ]);
   });
 });
 
 describe('forecast', () => {
   const totals = (over: Partial<ProgressTotals>): ProgressTotals => ({ plots: 1000, assigned: 800, notAssigned: 200, submitted: 100, started: 0, notStarted: 900, ...over });
-  const pace = (perDay: number) => dailyOf([...Array(14)].map((_, i) => ({ date: addDays('2026-11-01', -i), count: perDay })), '2026-11-01', 30, 100);
+  const pace = (perDay: number) => dailyOf(new Map([...Array(14)].map((_, i) => [addDays('2026-11-01', -i), perDay] as [string, number])), '2026-11-01', 30);
 
   it('the pace of the last 14 days, the days left and the end date; the target is every assigned plot', () => {
-    const f = forecastOf(totals({}), pace(10), '2026-11-01', defaults);
+    const f = forecastOf(totals({}), pace(10), '2026-11-01', defaults, '2026-09-01');
     expect(f).toMatchObject({ target: 800, targetFrom: 'assigned', remaining: 700, pacePerDay: 10, paceDays: 14, daysLeft: 70, endDate: '2027-01-10' });
     expect(f).toMatchObject({ deadline: null, daysToDeadline: null, daysOver: null, neededPerDay: null });
   });
 
+  it('a collection younger than 14 days: the pace over the days since its first plot', () => {
+    const daily = dailyOf(new Map([['2026-10-29', 6], ['2026-11-01', 2]]), '2026-11-01', 30);
+    expect(forecastOf(totals({}), daily, '2026-11-01', defaults, '2026-10-29')).toMatchObject({ paceDays: 4, pacePerDay: 2 });
+    expect(forecastOf(totals({}), daily, '2026-11-01', defaults, '2026-11-03')).toMatchObject({ paceDays: 1 });
+    expect(forecastOf(totals({}), pace(0), '2026-11-01', defaults, null)).toMatchObject({ paceDays: 14, pacePerDay: 0 });
+  });
+
   it('with a deadline: days over and plots a day needed', () => {
-    const f = forecastOf(totals({}), pace(10), '2026-11-01', { ...defaults, deadline: '2026-12-31', targetPlots: 500 });
+    const f = forecastOf(totals({}), pace(10), '2026-11-01', { ...defaults, deadline: '2026-12-31', targetPlots: 500 }, '2026-09-01');
     expect(f).toMatchObject({ target: 500, targetFrom: 'setting', remaining: 400, daysLeft: 40, endDate: '2026-12-11', daysToDeadline: 60 });
     expect(f.daysOver).toBe(-20);
     expect(f.neededPerDay).toBe(Math.ceil(400 / 61));
   });
 
   it('no pace: no end date; done: 0 days left; a deadline passed needs nothing a day', () => {
-    expect(forecastOf(totals({}), pace(0), '2026-11-01', defaults)).toMatchObject({ daysLeft: null, endDate: null });
-    expect(forecastOf(totals({ submitted: 800 }), pace(0), '2026-11-01', defaults)).toMatchObject({ remaining: 0, daysLeft: 0, endDate: '2026-11-01' });
-    expect(forecastOf(totals({}), pace(10), '2026-11-01', { ...defaults, deadline: '2026-10-01' })).toMatchObject({ daysToDeadline: -31, neededPerDay: null });
+    expect(forecastOf(totals({}), pace(0), '2026-11-01', defaults, '2026-09-01')).toMatchObject({ daysLeft: null, endDate: null });
+    expect(forecastOf(totals({ submitted: 800 }), pace(0), '2026-11-01', defaults, '2026-09-01')).toMatchObject({ remaining: 0, daysLeft: 0, endDate: '2026-11-01' });
+    expect(forecastOf(totals({}), pace(10), '2026-11-01', { ...defaults, deadline: '2026-10-01' }, '2026-09-01')).toMatchObject({ daysToDeadline: -31, neededPerDay: null });
   });
 });
 
@@ -239,7 +297,12 @@ describe('needs attention', () => {
         activity('u-di', { lastSyncAt: NOW - 30 * DAY }), // no plots
       ],
     });
-    expect(items.find((i) => i.kind === 'quiet')).toEqual({ kind: 'quiet', count: 1, quietDays: 3, people: [{ username: 'ana', lastSyncAt: NOW - 4 * DAY }] });
+    expect(items.find((i) => i.kind === 'quiet')).toEqual({
+      kind: 'quiet',
+      count: 1,
+      quietDays: 3,
+      people: [{ username: 'ana', lastSyncAt: NOW - 4 * DAY, lastPlotsDownloadAt: NOW - 10 * DAY }],
+    });
     expect(items.find((i) => i.kind === 'neverDownloaded')).toEqual({ kind: 'neverDownloaded', count: 1, people: [{ username: 'cy' }] });
     expect(items.find((i) => i.kind === 'notAssigned')).toEqual({ kind: 'notAssigned', count: 1 });
 
@@ -250,12 +313,27 @@ describe('needs attention', () => {
     expect(done.find((i) => i.kind === 'quiet')).toBeUndefined();
   });
 
-  it('the quiet days come from the settings; someone who downloaded and never synced is quiet from the download', () => {
+  it('quiet counts from the later of the last sync and the last plot download (plots given after the last sync)', () => {
     const items = base(
-      { activity: [activity('u-ana', { lastPlotsDownloadAt: NOW - 6 * DAY }), activity('u-bo', { lastSyncAt: NOW - 4 * DAY }), activity('u-cy', { lastSyncAt: NOW })] },
+      {
+        activity: [
+          activity('u-ana', { lastPlotsDownloadAt: NOW - 6 * DAY }), // never synced
+          activity('u-bo', { lastSyncAt: NOW - 9 * DAY, lastPlotsDownloadAt: NOW - DAY }), // new plots yesterday
+          activity('u-cy', { lastSyncAt: NOW }),
+        ],
+      },
       { settings: { ...defaults, quietDays: 5 } },
     );
-    expect(items.find((i) => i.kind === 'quiet')).toMatchObject({ quietDays: 5, people: [{ username: 'ana', lastSyncAt: NOW - 6 * DAY }] });
+    expect(items.find((i) => i.kind === 'quiet')).toMatchObject({ quietDays: 5, people: [{ username: 'ana', lastSyncAt: null, lastPlotsDownloadAt: NOW - 6 * DAY }] });
+  });
+
+  it('people holding only quality-check copies: never downloaded, quiet, and done when their checks are in', () => {
+    const over = { assignments: [], copyHolders: new Map([['1', new Set(['bo'])], ['2', new Set(['cy'])]]) };
+    const items = base({ activity: [activity('u-bo', { lastSyncAt: NOW - 5 * DAY })] }, over);
+    expect(items.find((i) => i.kind === 'neverDownloaded')).toMatchObject({ people: [{ username: 'cy' }] });
+    expect(items.find((i) => i.kind === 'quiet')).toMatchObject({ people: [{ username: 'bo' }] });
+    const checked = base({ activity: [activity('u-bo', { lastSyncAt: NOW - 5 * DAY })] }, { ...over, records: [rec('1', 'bo')] });
+    expect(checked.find((i) => i.kind === 'quiet')).toBeUndefined();
   });
 
   it('old unsent work: a median wait over 2 days', () => {
@@ -277,10 +355,14 @@ describe('needs attention', () => {
     expect(base({ storage: { usedBytes: 1e12, limitBytes: null } }).find((i) => i.kind === 'storage')).toBeUndefined();
   });
 
-  it('an old project file: the CEP downloaded before it was last replaced', () => {
+  it('an old project file: downloaded before it was last replaced, by people who hold plots or have synced', () => {
     const items = base({
       cep: { bytes: 10, updatedAt: NOW - DAY },
-      activity: [activity('u-ana', { lastCepDownloadAt: NOW - 2 * DAY }), activity('u-bo', { lastCepDownloadAt: NOW })],
+      activity: [
+        activity('u-ana', { lastCepDownloadAt: NOW - 2 * DAY }),
+        activity('u-bo', { lastCepDownloadAt: NOW }),
+        activity('u-di', { lastCepDownloadAt: NOW - 2 * DAY }), // a coordinator with no plots who never synced
+      ],
     });
     expect(items.find((i) => i.kind === 'oldProjectFile')).toEqual({ kind: 'oldProjectFile', count: 1, people: [{ username: 'ana' }] });
   });

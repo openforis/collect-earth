@@ -146,9 +146,12 @@ function ProgressLineChart({ data }: { data: ProgressData }) {
   const theme = useTheme();
   const [ref, width] = useWidth<HTMLDivElement>();
   const [active, setActive] = useState<number | null>(null);
+  // The readout is announced only while the chart has the keyboard (not on every reload or hover).
+  const [focused, setFocused] = useState(false);
   const readout = useId();
   const target = data.forecast.deadline !== null || data.forecast.targetFrom === "setting" ? data.forecast.target : null;
-  const box = { width: Math.max(width, 240), height: CHART_HEIGHT, left: 48, right: 12, top: 14, bottom: 28 };
+  // Drawn at the width it has, however narrow (a very small phone): it never overflows.
+  const box = { width: Math.max(width, 120), height: CHART_HEIGHT, left: 48, right: 12, top: 14, bottom: 28 };
   const chart = progressChart(data.daily, box, target);
   const count = chart.points.length;
   const shown = active !== null ? chart.points[active] : chart.points[count - 1];
@@ -181,7 +184,7 @@ function ProgressLineChart({ data }: { data: ProgressData }) {
 
   return (
     <Box ref={ref} sx={{ width: "100%" }}>
-      <Typography id={readout} variant="body2" sx={{ minHeight: "1.5em", fontVariantNumeric: "tabular-nums" }} aria-live="polite">
+      <Typography id={readout} variant="body2" sx={{ minHeight: "1.5em", fontVariantNumeric: "tabular-nums" }} aria-live={focused ? "polite" : "off"}>
         {shown ? t("progress.point", { date: dayText(shown.date, language), total: n(shown.cumulative), day: n(shown.submitted) }) : ""}
       </Typography>
       <Box
@@ -190,8 +193,14 @@ function ProgressLineChart({ data }: { data: ProgressData }) {
         aria-label={`${first && last ? t("progress.chartLabel", { from: dayText(first.date, language), to: dayText(last.date, language) }) : t("progress.chartTitle")} ${t("progress.chartKeys")}`}
         aria-describedby={readout}
         onKeyDown={onKeyDown}
-        onFocus={() => setActive((a) => a ?? count - 1)}
-        onBlur={() => setActive(null)}
+        onFocus={() => {
+          setFocused(true);
+          setActive((a) => a ?? count - 1);
+        }}
+        onBlur={() => {
+          setFocused(false);
+          setActive(null);
+        }}
         sx={{ maxWidth: "100%", borderRadius: 1, outline: "none", "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 2 } }}
       >
         {width > 0 && (

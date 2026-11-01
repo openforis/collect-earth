@@ -90,8 +90,8 @@ function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string
   const [error, setError] = useState<unknown>(null);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
-  const change = (field: keyof ProgressDraft) => (value: string) => {
-    setDraft((d) => ({ ...d, [field]: value }));
+  const change = (field: "deadline" | "targetPlots" | "quietDays") => (value: string, unfinished = false) => {
+    setDraft((d) => ({ ...d, [field]: value, ...(field === "deadline" ? { deadlineUnfinished: unfinished } : {}) }));
     setProblems((p) => ({ ...p, [field]: undefined }));
     setDone(false);
   };
@@ -122,7 +122,8 @@ function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string
         type="date"
         label={t("progressSettings.deadline")}
         value={draft.deadline}
-        onChange={(e) => change("deadline")(e.target.value)}
+        // A date typed only in part reads as "" (badInput): said, not saved as no deadline.
+        onChange={(e) => change("deadline")(e.target.value, e.target.validity?.badInput === true)}
         error={problems.deadline !== undefined}
         helperText={problems.deadline ? t(problems.deadline) : t("progressSettings.deadlineHelp")}
         slotProps={{ inputLabel: { shrink: true } }}

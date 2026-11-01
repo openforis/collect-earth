@@ -1523,7 +1523,7 @@ export interface ProgressTotals {
 
 export interface ProgressDay {
   date: string;
-  /** Records submitted for the first time that day (checks included). */
+  /** Plots (submitted now) first submitted that day; checks are not counted. */
   submitted: number;
   /** Plots submitted by the end of the day, as things are now. */
   cumulative: number;
@@ -1546,6 +1546,7 @@ export interface Forecast {
 export interface AttentionPerson {
   username: string;
   lastSyncAt: number | null;
+  lastPlotsDownloadAt: number | null;
   medianDelayMs: number | null;
 }
 
@@ -1650,6 +1651,7 @@ export function toProgressData(body: unknown): ProgressData {
               people: (Array.isArray(a.people) ? (a.people as Record<string, unknown>[]) : []).map((person) => ({
                 username: String(person.username ?? ""),
                 lastSyncAt: toMillis(person.lastSyncAt),
+                lastPlotsDownloadAt: toMillis(person.lastPlotsDownloadAt),
                 medianDelayMs: toNumberOrNull(person.medianDelayMs),
               })),
               quietDays: toNumberOrNull(a.quietDays),

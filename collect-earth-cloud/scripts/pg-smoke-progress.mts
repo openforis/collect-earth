@@ -1,9 +1,10 @@
 // Smoke test of the Progress tab (migration 013 and GET /progress) on a THROWAWAY
 // PostgreSQL (it drops and creates the database `ceprog` and the role `ce_prog_app`):
 // the migration, the server as a NOSUPERUSER NOBYPASSRLS app role through the routes,
-// the days counted by Postgres (GROUP BY in the time zone, across a DST change) equal to
-// the memory store's, the median waits, the settings, a time zone Postgres does not know,
-// RLS between two projects, and GET /progress on a project of 100,000 records.
+// the first submissions read with the records (kept through a resubmission), the days of
+// the bars in five time zones (Rome across a DST change), the median waits as the memory
+// store's, the settings, RLS between two projects, and GET /progress on a project of
+// 100,000 records of which 20,000 checks.
 //
 //   docker run -d --rm --name ce-pg-smoke -e POSTGRES_PASSWORD=pw -p 55481:5432 postgres:16
 //   npm run smoke:pg:progress -- 55481        (the superuser is postgres / pw on localhost)
@@ -12,6 +13,7 @@ import { PostgresStore } from '../src/store/postgres.js';
 import { InMemoryStore } from '../src/store/memory.js';
 import { runMigrations } from '../src/store/migrate.js';
 import { buildServer } from '../src/server.js';
+import { localDate } from '../src/days.js';
 import type { RecordEventInput } from '../src/types.js';
 import { batchRequest, envelope } from '../test/helpers.js';
 import { idOnlyCep } from '../test/fixtures/cep.js';
@@ -93,15 +95,37 @@ await batchRequest(app, a, maria.token, [
   envelope({ recordKey: '3', modifiedOn: at('2026-10-25T23:30:00Z') }), // the 26th in Rome
   envelope({ recordKey: '4', modifiedOn: at('2026-10-26T10:00:00Z'), activelySaved: false }),
 ]);
+// Plot 1 taken back and submitted again: it stays on the day of its first submission.
+await batchRequest(app, a, maria.token, [envelope({ recordKey: '1', modifiedOn: at('2026-10-28T10:00:00Z'), activelySaved: false })]);
+await batchRequest(app, a, maria.token, [envelope({ recordKey: '1', modifiedOn: at('2026-10-29T10:00:00Z') })]);
 await batchRequest(app, b, pedro.token, [envelope({ recordKey: '1', operator: 'pedro', modifiedOn: at('2026-10-25T12:00:00Z') })]);
 
-const window = { from: at('2026-10-20T00:00:00Z'), to: at('2026-10-30T00:00:00Z') };
-const rome = await store.countSubmittedByDay(a, { ...window, timeZone: 'Europe/Rome' });
-check('days in Rome, across the DST change (GROUP BY in Postgres)', JSON.stringify(rome) === JSON.stringify([{ date: '2026-10-25', count: 2 }, { date: '2026-10-26', count: 1 }]), rome);
-const utc = await store.countSubmittedByDay(a, { ...window, timeZone: 'UTC' });
-check('days in UTC', JSON.stringify(utc) === JSON.stringify([{ date: '2026-10-24', count: 1 }, { date: '2026-10-25', count: 2 }]), utc);
+const states = (await store.listRecordStates(a)).sort((x, y) => (x.recordKey < y.recordKey ? -1 : 1));
+check(
+  'listRecordStates: the first submission from the events, kept through a resubmission; null for a draft',
+  JSON.stringify(states.map((s) => [s.recordKey, s.activelySaved, s.modifiedOn, s.firstSubmittedOn])) ===
+    JSON.stringify([
+      ['1', true, at('2026-10-29T10:00:00Z'), at('2026-10-24T22:30:00Z')],
+      ['2', true, at('2026-10-25T22:30:00Z'), at('2026-10-25T22:30:00Z')],
+      ['3', true, at('2026-10-25T23:30:00Z'), at('2026-10-25T23:30:00Z')],
+      ['4', false, at('2026-10-26T10:00:00Z'), null],
+    ]),
+  states,
+);
+const bars = async (tz: string) =>
+  ((await call('GET', a, `/progress?days=366&tz=${encodeURIComponent(tz)}`)).json().daily as { date: string; submitted: number }[])
+    .filter((d) => d.submitted > 0)
+    .map((d) => [d.date, d.submitted]);
+check('days in Rome, across the DST change', JSON.stringify(await bars('Europe/Rome')) === JSON.stringify([['2026-10-25', 2], ['2026-10-26', 1]]), await bars('Europe/Rome'));
+check('days in UTC', JSON.stringify(await bars('UTC')) === JSON.stringify([['2026-10-24', 1], ['2026-10-25', 2]]), await bars('UTC'));
+for (const tz of ['America/Sao_Paulo', 'Asia/Kolkata', 'Australia/Lord_Howe']) {
+  const want = new Map<string, number>();
+  for (const s of states) if (s.firstSubmittedOn !== null) want.set(localDate(s.firstSubmittedOn, tz), (want.get(localDate(s.firstSubmittedOn, tz)) ?? 0) + 1);
+  const expected = [...want].sort(([x], [y]) => (x < y ? -1 : 1));
+  check(`${tz}: the bars are the local days of the first submissions`, JSON.stringify(await bars(tz)) === JSON.stringify(expected), { got: await bars(tz), expected });
+}
 
-// The same events in the memory store give the same days.
+// Median waits: Postgres's percentile_cont and the memory store's, over the same events.
 const events = (await store.listRecordEvents(a, { from: 0, to: 1e13, limit: 100 })).reverse();
 const memory = new InMemoryStore();
 const { projectId: m } = await memory.createProject({ name: 'mirror' });
@@ -109,18 +133,10 @@ for (const e of events) {
   const { id: _id, ...rest } = e;
   await memory.appendRecordEvent({ ...(rest as RecordEventInput), projectId: m });
 }
-for (const tz of ['Europe/Rome', 'UTC', 'America/Sao_Paulo', 'Asia/Kolkata', 'Australia/Lord_Howe']) {
-  const p = await store.countSubmittedByDay(a, { ...window, timeZone: tz });
-  const mem = await memory.countSubmittedByDay(m, { ...window, timeZone: tz });
-  check(`${tz}: Postgres and the memory store count the same days`, JSON.stringify(p) === JSON.stringify(mem), { p, mem });
-}
-check('a time zone Postgres does not know: the days of UTC, no error', JSON.stringify(await store.countSubmittedByDay(a, { ...window, timeZone: 'Mars/Olympus' })) === JSON.stringify(utc));
-
-// Median waits: Postgres's percentile_cont and the memory store's.
 const pDelays = await store.unsentDelays(a, 0);
 const mDelays = await memory.unsentDelays(m, 0);
 check('median waits as the memory store', JSON.stringify(pDelays.map((d) => [d.operator, Math.round(d.medianMs), d.uploads])) === JSON.stringify(mDelays.map((d) => [d.operator, Math.round(d.medianMs), d.uploads])), { pDelays, mDelays });
-check('... per operator, only A', pDelays.length === 1 && pDelays[0].operator === 'maria' && pDelays[0].uploads === 4, pDelays);
+check('... per operator, only A', pDelays.length === 1 && pDelays[0].operator === 'maria' && pDelays[0].uploads === 6, pDelays);
 
 // The route.
 res = await call('GET', a, '/progress?days=30&tz=Europe/Rome');
@@ -155,20 +171,38 @@ const bEvents = (await c.query("SELECT count(*)::int AS n FROM record_events WHE
 check("with A set: B's events not counted", bEvents === 0);
 await c.query('COMMIT');
 await c.end();
-check('B counts only its own day', JSON.stringify(await store.countSubmittedByDay(b, { ...window, timeZone: 'UTC' })) === JSON.stringify([{ date: '2026-10-25', count: 1 }]));
 
-// --- 100,000 records: GET /progress. ---
+// --- 100,000 records, 20 % of the plots checked: GET /progress. ---
 const big = await project('Big');
 const N = 100_000;
 const csv = ['id,lat,lon', ...Array.from({ length: N }, (_, i) => `${i + 1},0,0`)].join('\n') + '\n';
 res = await call('PUT', big, '/csv-files/big.csv', csv, { 'content-type': 'text/csv' });
 check('a plot file of 100,000 plots', res.statusCode === 201, res.body);
+const bigFile = res.json().id as string;
 const now = Date.now();
+// 40 collectors; the file divided between them (op<i % 40> holds plot i), and every fifth
+// plot also given as a quality-check copy to the next one, who submitted the check.
+await owner.query(
+  `INSERT INTO users (id, username, password_hash) SELECT gen_random_uuid(), 'op' || k, 'x' FROM generate_series(0, 39) k`,
+);
+await owner.query(`INSERT INTO project_members (project_id, user_id, role) SELECT $1, id, 'operator' FROM users WHERE username LIKE 'op%'`, [big]);
+await owner.query(`UPDATE csv_files SET distribution = '{"mode": "manual"}' WHERE id = $1`, [bigFile]);
+await owner.query(
+  `INSERT INTO plot_assignments (project_id, csv_file_id, plot_key, user_id, overlap)
+   SELECT $1::uuid, $2::uuid, i::text, u.id, false FROM generate_series(1, $3::int) i JOIN users u ON u.username = 'op' || (i % 40)
+   UNION ALL
+   SELECT $1::uuid, $2::uuid, i::text, u.id, true FROM generate_series(1, $3::int) i JOIN users u ON u.username = 'op' || ((i + 1) % 40) WHERE i % 5 = 0`,
+  [big, bigFile, N],
+);
 await owner.query(
   `INSERT INTO records (project_id, record_key, operator, modified_on, received_at, actively_saved, step, xml, summary, deleted, deleted_on)
-   SELECT $1, i::text, 'op' || (i % 40), to_timestamp(($2::bigint - (i % 90) * $3::bigint - (i % 1000) * 1000) / 1000.0), to_timestamp(($2::bigint - (i % 90) * $3::bigint) / 1000.0),
-          i % 10 <> 0, 1, '<r/>', jsonb_build_object('land_use', 'forest', 'trees', (i % 30)::text), false, NULL
-     FROM generate_series(1, $4::int) i`,
+   SELECT $1::uuid, i::text, 'op' || (i % 40), to_timestamp(($2::bigint - (i % 90) * $3::bigint - (i % 1000) * 1000) / 1000.0), to_timestamp(($2::bigint - (i % 90) * $3::bigint) / 1000.0),
+          i % 10 <> 0, 1, '<r/>', jsonb_build_object('land_use', 'forest', 'trees', (i % 30)::text), false, NULL::timestamptz
+     FROM generate_series(1, $4::int) i
+   UNION ALL
+   SELECT $1::uuid, i::text, 'op' || ((i + 1) % 40), to_timestamp(($2::bigint - (i % 60) * $3::bigint) / 1000.0), to_timestamp(($2::bigint - (i % 60) * $3::bigint) / 1000.0),
+          true, 1, '<r/>', jsonb_build_object('land_use', 'forest', 'trees', (i % 30)::text), false, NULL::timestamptz
+     FROM generate_series(1, $4::int) i WHERE i % 5 = 0`,
   [big, now, DAY, N],
 );
 await owner.query(
@@ -178,7 +212,7 @@ await owner.query(
      FROM records WHERE project_id = $1`,
   [big],
 );
-await owner.query('ANALYZE records; ANALYZE record_events');
+await owner.query('ANALYZE records; ANALYZE record_events; ANALYZE plot_assignments');
 const times: number[] = [];
 let last: any = null;
 for (let i = 0; i < 3; i++) {
@@ -187,12 +221,15 @@ for (let i = 0; i < 3; i++) {
   times.push(Math.round(performance.now() - t0));
   last = res.json();
 }
-check('100,000 records: GET /progress answers', res.statusCode === 200 && last.totals.plots === N && last.totals.submitted === N - N / 10, last?.totals);
-check('100,000 records: the cumulative line ends at the plots submitted', last.daily.at(-1).cumulative === last.totals.submitted);
-console.log(`     GET /progress on 100,000 records: ${times.join(' ms, ')} ms`);
+// Every tenth plot is a draft; the 20,000 checks are not counted.
+check('100,000 records and 20,000 checks: GET /progress counts the plots only', res.statusCode === 200 && last.totals.plots === N && last.totals.submitted === N - N / 10, last?.totals);
+const sum = last.daily.reduce((s: number, d: { submitted: number }) => s + d.submitted, 0);
+check('... the bars add up to the plots submitted (all were first submitted in the last 90 days)', sum === last.totals.submitted, { sum, submitted: last.totals.submitted });
+check('... the cumulative line ends at the plots submitted', last.daily.at(-1).cumulative === last.totals.submitted);
+console.log(`     GET /progress on 100,000 records with 20,000 checks: ${times.join(' ms, ')} ms`);
 const t1 = performance.now();
-await store.countSubmittedByDay(big, { from: now - 91 * DAY, to: now + DAY, timeZone: 'Europe/Rome' });
-console.log(`     the GROUP BY of the days alone: ${Math.round(performance.now() - t1)} ms`);
+await store.listRecordStates(big);
+console.log(`     listRecordStates alone (with the first submissions): ${Math.round(performance.now() - t1)} ms`);
 
 await app.close();
 await store.close();

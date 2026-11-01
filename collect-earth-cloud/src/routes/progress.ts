@@ -21,7 +21,10 @@ const bad = (reason: string): BadRequest => ({ error: 'bad_request', reason });
 
 /** The settings of a PUT body, or why they are refused. Missing fields are null (quietDays: 3). */
 export function settingsInput(body: unknown): ProgressSettings | BadRequest {
-  const b = (body ?? {}) as Record<string, unknown>;
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    return bad('the body must be an object: { deadline, targetPlots, quietDays }');
+  }
+  const b = body as Record<string, unknown>;
   const deadline = b.deadline === undefined || b.deadline === null || b.deadline === '' ? null : b.deadline;
   if (deadline !== null && !isDate(deadline)) {
     return bad('deadline must be a date written YYYY-MM-DD, or null');
@@ -54,17 +57,12 @@ export async function registerProgressRoutes(app: FastifyInstance, store: Store,
     const days = Number.isInteger(asked) ? Math.min(MAX_DAYS, Math.max(PACE_DAYS, asked)) : DEFAULT_DAYS;
     const timeZone = isTimeZone(query.tz) ? query.tz : 'UTC';
     const at = now();
-    // The window and a day more on each side (a day can be 25 hours, a clock can be ahead);
-    // progressReport keeps the window's days and folds later ones into today.
-    const from = at - (days + 1) * DAY_MS;
-    const to = at + 2 * DAY_MS;
     const coordinator = role === 'admin';
 
-    const [records, context, assignments, submittedByDay, settings] = await Promise.all([
+    const [records, context, assignments, settings] = await Promise.all([
       store.listRecordStates(projectId),
       loadPlotContext(store, projectId, request.log),
       store.listAssignments(projectId),
-      store.countSubmittedByDay(projectId, { from, to, timeZone }),
       store.getProgressSettings(projectId),
     ]);
     let attention: AttentionInput | undefined;
@@ -91,7 +89,6 @@ export async function registerProgressRoutes(app: FastifyInstance, store: Store,
         mainHolders: context.mainHolders,
         fileUnits: context.fileUnits,
         assignments,
-        submittedByDay,
         settings,
         attention,
       }),
@@ -114,13 +111,18 @@ export async function registerProgressRoutes(app: FastifyInstance, store: Store,
 }
 
 /**
- * Differing plots without a decision, from the quality figures (cached; computed when
- * out of date). Null when they cannot be had now (busy, failed): the card is left out
- * and the rest of the tab is served.
+ * Differing plots without a decision, from the quality figures this server has at hand
+ * (QualityService.peek): the Progress tab never waits for them nor starts them; an
+ * out-of-date report is refreshed behind as the Quality tab would. Null when there are
+ * none yet (nobody opened the Quality tab) or they cannot be had: the card is left out.
  */
 async function waitingDecisions(store: Store, quality: QualityService, projectId: string, request: FastifyRequest): Promise<number | null> {
   try {
-    const [served, decisions] = await Promise.all([quality.report(projectId, request.log), store.listQualityDecisions(projectId)]);
+    const served = await quality.peek(projectId, request.log);
+    if (!served) {
+      return null;
+    }
+    const decisions = await store.listQualityDecisions(projectId);
     return differencesWaiting(served.report, new Set(decisions.map((d) => d.plot)));
   } catch (err) {
     request.log.warn({ err, projectId }, 'progress: the quality figures could not be had for the differences card');

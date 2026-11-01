@@ -209,17 +209,19 @@ declare module 'fastify' {
 /**
  * Says what a request did for its member's activity. With `desktop` the request is
  * one Collect Earth makes, and its User-Agent is kept when it is Collect Earth's (the
- * dashboard calls some of those routes too: a plot file's content, the CEP).
+ * dashboard calls some of those routes too: a plot file's content, the CEP). A CEP
+ * download counts only when Collect Earth makes it.
  */
 export function noteActivity(request: FastifyRequest, note: Omit<ActivityNote, 'clientAgent'>, options: { desktop?: boolean } = {}): void {
   const merged: ActivityNote = { ...request.activityNote };
   if (note.sync) merged.sync = { records: (merged.sync?.records ?? 0) + note.sync.records };
   if (note.plotsDownload) merged.plotsDownload = true;
-  if (note.cepDownload) merged.cepDownload = true;
-  if (options.desktop) {
-    const agent = clientAgentOf(request.headers['user-agent']);
-    if (isCollectEarthAgent(agent)) merged.clientAgent = agent;
-  }
+  const agent = options.desktop ? clientAgentOf(request.headers['user-agent']) : null;
+  const collectEarth = isCollectEarthAgent(agent);
+  // Only Collect Earth's download is the project file it works with (a CEP downloaded in
+  // a browser is not): the Progress tab's "old project file" card compares this time.
+  if (note.cepDownload && collectEarth) merged.cepDownload = true;
+  if (collectEarth) merged.clientAgent = agent;
   request.activityNote = merged;
 }
 
