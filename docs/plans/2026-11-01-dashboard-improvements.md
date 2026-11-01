@@ -368,6 +368,103 @@ desktop.
 - Role checks.
 - A collector cannot read another person's data.
 
+**As built** (1fbcb1e7; differs from the above where it says so)
+- **One count:** `plotUnits` (`src/progress.ts`, now exported) takes `perOperator` and also
+  gives each operator's records resolved by the same `recordResolver`: main plots submitted
+  (with their first submission) and drafts, checks submitted and drafts, the first
+  submissions known from the events (for the speed) and the plot groups of their records
+  (for the decisions). `/progress` does not ask for it. A person's **submitted** = plots
+  whose first assessment by them is submitted (held now or not), so the people's sum is the
+  Progress tab's `submitted` (smoke, 100k); **assigned** = plots they hold (whole files and
+  divided holdings); **remaining** = plots they hold that *nobody* submitted (as the quiet
+  rule counts); **started** = their drafts not submitted by them; checks apart (copies held,
+  checks submitted, copies left). The quiet rule is `isQuiet` (shared with the card).
+- **Routes** (`src/routes/people.ts`, one load per request: records' states, plot context
+  with the members/files/info read once, assignments, settings, activity, open invites,
+  CEP info, decisions, `QualityService.peek` — never a computation, a failing peek is
+  null):
+  - `GET /people?tz=` (admin) → `{ timeZone, today, quietDays, quality: { available,
+    computedAt, stale }, people: PersonRow[], invites, week }`. `PersonRow` = `{ userId,
+    username, role, plots: { assigned, submitted, started, remaining, done }, checks: {
+    assigned, submitted, remaining }, submittedLast7, medianPerDay, lastSyncAt,
+    lastPlotsDownloadAt, lastSubmittedAt, agreement: Rate | null, status }`; `status` is
+    `noPlots | finished | neverStarted | quiet {days, level amber|red} | working` (order:
+    no plots, finished, never downloaded nor synced → never started, quiet (amber after N
+    days, red after 2N), nothing sent → never started, working). `agreement` is the
+    report's `asFirst` (null without figures at hand; `{0,0,null}` for someone not in it).
+    `week` = Phase 2's "This week" (put here, coordinators only, since reviewers see
+    Progress): the last 7 days' plots a day (as Progress's bars) and up to 3 most active
+    (≥1 plot) and 3 least active (people with plots or checks left, not among the most).
+  - `GET /people/:userId?tz=` (admin; 404 for a non-member) → `{ …, person, calendar:
+    [{date, plots, checks}] (days with any, local), hours[24], files: [{csvFileId, filename,
+    divided, plots: {total, submitted, doneByOther, started, notStarted}, checks: {total,
+    submitted, started, notStarted}, list (file order, ≤ 1000), truncated}], speed: {
+    submissions, sessions, gaps, medianGapMs, veryFast, buckets: [{upToMs, count}] }, sync:
+    { lastSeenAt, lastSyncAt, lastPlotsDownloadAt, lastCepDownloadAt, syncsCount,
+    recordsReceived, cepUpdatedAt, oldProjectFile, collectEarth: {kind, version} | null },
+    quality: { available, computedAt, stale, asFirst, asChecker, sentBack: [{plot, comment,
+    decidedAt, decidedBy}] } }`.
+  - `GET /my-work?tz=` (any member with a session; a project token 403) → the same page of
+    the signed-in person only (no userId is read from the request): `asFirst` is the
+    report's `personal.asFirst` (plots certainly theirs, as My quality), no `asChecker`, no
+    `decidedBy`.
+  - Reviewers and collectors get 403 on `/people*` (`requireProjectMembership('admin')`).
+- **Speed:** consecutive first submissions (event times; main plots and checks) less than
+  30 min apart are gaps; a gap of 30 min or more starts a session; median, 7 bins (<15 s,
+  15-30 s, 30 s-1 min, 1-2, 2-5, 5-10, 10-30 min), "very fast" < 15 s (`VERY_FAST_MS`, a
+  constant, not a setting). Labelled an estimate.
+- **Calendar and hours** in the viewer's zone (`dayInZone`, new `localHour` in `days.ts`,
+  both cached per quarter of an hour), from the first submission of each plot/check by them
+  (as Progress, `modifiedOn` for records older than the events).
+- **Plots sent back** = decisions `recheck` (Task 12 has not built sending back yet) whose
+  plot group is one of the person's records' groups, with the comment.
+- **Required answers left empty: left out.** The survey outline (`src/surveyOutline.ts`)
+  does not read `required`, and counting them would need the answers (summaries), which
+  these pages do not load. Task 5 (flags) can add both.
+- **Web:** `PeopleTab.tsx` keeps the invitation form, open links and the members list
+  (role, remove) below two new sections: "This week" (a 7-column chart with a table view,
+  the most and least active linked to their page) and "How each person is doing" (sortable
+  columns: name, status chip, plots done with a bar and "N left"/checks, last 7 days with
+  "usually N a day", last sync with an amber/red warning icon, last plot submitted,
+  agreement; filter by name and status; the open links as "Invited, not joined" rows;
+  "Download as CSV" built in the browser by `peopleCsv`: cells starting with = + - @ tab
+  or CR get a `'`, times in the browser's zone, a BOM for spreadsheets). Agreement "—"
+  with a note and a link to the Quality tab when no figures are at hand.
+  `pages/PersonPage.tsx` (`/projects/<id>/people/<userId>`, under the People tab): status,
+  numbers, actions (role, remove — saying their plots become given to nobody —, a new
+  one-person 7-day invitation link with the join steps), files and plots ("Move unfinished
+  plots to…" calls `move-unfinished`; for a whole file the dialog says it is divided as it
+  is; the plots list behind "Show the plots"), the calendar heat map and the hours (one
+  hue from the theme's primary, 4 shades, table views), the speed bins (the <15 s bin in
+  the warning colour), sync health, quality. `MyWorkPage` (`/projects/<id>/my-work`, in
+  `ReportPages.tsx`) reuses those sections with the sentence "Coordinators of this project
+  see these numbers too…"; My work and My quality link to each other, and collectors and
+  reviewers get both buttons. `peopleView.ts` (pure): chips, sync level, "N days ago",
+  sorting/filtering, CSV, calendar weeks and shades, durations. `components/PeopleCharts.tsx`:
+  `ColumnChart`, `CalendarHeatMap`, `ChartOrTable`, `ValuesTable`. 163 new keys × 4
+  languages (i18n.ts written with CRLF kept).
+- **Tests:** server 670 (was 650: `test/people.test.ts` 14 — chips at N and 2N, speed and
+  sessions at 15 s / 30 min, counts against `/progress`'s totals, week, calendar and hours
+  across zones, files and statuses, the 1000 cap, sync health, quality and My work's
+  privacy; `test/people.routes.test.ts` 6 — role checks, a collector only ever gets their
+  own My work, the figures never computed by these pages), web 237 (was 224:
+  `peopleView.test.ts` 11, router cases), tsc clean in both.
+- **Postgres smoke** (`npm run smoke:pg:progress`, now also the People tab): 41 people on
+  100,000 records with 20,000 checks: the people's plots add up to `/progress`'s, checks
+  20,000 apart, op1's 2,500 plots and 2,500 copies, op1's page and calendar, a collector
+  403 and their own My work. **GET /people 487-653 ms, GET /people/:userId 512-563 ms**
+  (GET /progress 500-640 ms in the same run; listRecordStates ~300 ms of each), Postgres
+  16 in Docker on Windows: Task 22's 300 ms is not met, as for `/progress`. ALL OK; the
+  Task 1 smoke too.
+- **Chrome** (seeded memory server, built dashboard): desktop (1366) and phone (390) for
+  the People tab, a person's page (a move of unfinished plots done from it) and My work as
+  a collector and a reviewer; no page-wide horizontal scroll (the table scrolls inside its
+  box on a phone), no console errors; a reviewer gets 403 from `/people` and their own My
+  work. No dark theme exists yet (as Task 2 found).
+- **Open:** the table is a full load per visit (no auto refresh); a person's activity is
+  coalesced up to a minute (Task 1); `remaining` counts plots someone else submitted as
+  done for the holder too (whole files given to several people).
+
 ## Part B: quality without checks
 
 ### Task 4: Answers per person (improvement 8)
