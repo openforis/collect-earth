@@ -178,4 +178,16 @@ public class FilesControllerTest {
 				.andExpect(status().isConflict()).andExpect(jsonPath("$.error").value("files.busy"))
 				.andExpect(jsonPath("$.message").value(not(startsWith("!"))));
 	}
+
+	@Test
+	public void aDroppedFileIsKeptInTheTemporaryFolderUnderItsName() throws Exception {
+		String answer = mvc.perform(post("/api/files/upload").param("name", "C:\\Users\\me\\kenya.cep").content(new byte[] { 80, 75, 3, 4 }))
+				.andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+		String path = new com.fasterxml.jackson.databind.ObjectMapper().readTree(answer).get("path").asText();
+		File file = new File(path);
+		assertTrue(file.getName().equals("kenya.cep"), path);
+		assertTrue(file.toPath().startsWith(new File(System.getProperty("java.io.tmpdir")).getCanonicalFile().toPath()) || file.toPath().startsWith(new File(System.getProperty("java.io.tmpdir")).toPath()), path);
+		org.junit.jupiter.api.Assertions.assertArrayEquals(new byte[] { 80, 75, 3, 4 }, java.nio.file.Files.readAllBytes(file.toPath()));
+		mvc.perform(post("/api/files/upload").param("name", " ").content(new byte[] { 1 })).andExpect(status().isBadRequest());
+	}
 }

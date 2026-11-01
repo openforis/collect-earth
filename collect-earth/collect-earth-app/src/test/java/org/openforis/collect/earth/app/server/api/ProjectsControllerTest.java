@@ -121,4 +121,27 @@ public class ProjectsControllerTest {
 		verify(projects, never()).loadProjectInFolder(any());
 		assertEquals(false, restarted.get());
 	}
+
+	@Test
+	public void aProjectFileIsImportedAndTheServerRestarted() throws Exception {
+		File cep = new File(folder, "kenya.cep");
+		Files.write(cep.toPath(), new byte[] { 1 });
+		mvc.perform(post("/api/projects/import").contentType(MediaType.APPLICATION_JSON).content("{\"path\":\"" + cep.getAbsolutePath().replace("\\", "\\\\") + "\"}"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.restart").value(true));
+		verify(projects).loadCompressedProjectFile(cep);
+		assertTrue(restarted.get());
+	}
+
+	@Test
+	public void aFileThatIsNoProjectIsRefusedWithTheReason() throws Exception {
+		File cep = new File(folder, "notes.cep");
+		Files.write(cep.toPath(), new byte[] { 1 });
+		when(projects.loadCompressedProjectFile(cep)).thenThrow(new IOException("project_definition.properties not found in the zip"));
+		mvc.perform(post("/api/projects/import").contentType(MediaType.APPLICATION_JSON).content("{\"path\":\"" + cep.getAbsolutePath().replace("\\", "\\\\") + "\"}"))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("projects.import"))
+				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.endsWith("project_definition.properties not found in the zip")));
+		assertFalse(restarted.get());
+		mvc.perform(post("/api/projects/import").contentType(MediaType.APPLICATION_JSON).content("{\"path\":\"/nowhere/x.cep\"}"))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("projects.import"));
+	}
 }

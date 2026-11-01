@@ -2,10 +2,15 @@ package org.openforis.collect.earth.app.server.api;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
@@ -18,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -133,6 +139,25 @@ public class FilesController {
 		File to = new File(request.to.trim());
 		org.apache.commons.io.FileUtils.copyFile(from, to);
 		return done(to);
+	}
+
+	/**
+	 * A file dropped on the page: the browser gives the page its bytes and its name, not its path, so the page sends
+	 * them here, and gets the path of the copy in the temporary folder to import or load as if it had been chosen.
+	 */
+	@PostMapping("/api/files/upload")
+	public Map<String, Object> upload(@RequestParam("name") String name, HttpServletRequest request) throws IOException {
+		// The name only, wherever it came from (a Windows path on a Linux server too): no folder of the user's choosing
+		String base = StringUtils.trimToEmpty(name).replaceAll("^.*[\\\\/]", "");
+		if (StringUtils.isBlank(base)) {
+			throw new ApiException("files.noName", Messages.getString("FilesController.missing"));
+		}
+		File folder = Files.createTempDirectory("collect-earth-dropped").toFile();
+		File file = new File(folder, base);
+		try (InputStream in = request.getInputStream()) {
+			Files.copy(in, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+		}
+		return done(file);
 	}
 
 	private static File existing(PathRequest request) {

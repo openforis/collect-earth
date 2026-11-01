@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -33,6 +34,10 @@ public class ProjectsController {
 
 	public static class LoadRequest {
 		public String folder;
+	}
+
+	public static class ImportRequest {
+		public String path;
 	}
 
 	private final Logger logger = LoggerFactory.getLogger(ProjectsController.class);
@@ -76,6 +81,31 @@ public class ProjectsController {
 			logger.warn("The checksum of the project folder {} could not be computed", folder, e);
 			return false;
 		}
+	}
+
+	/**
+	 * Import CEP file (the Project menu, a dropped file): the project unzipped into the projects folder and loaded, then
+	 * the restart, as CollectEarthMenu did. A file that is no project is a bad request with the reason, as the dialog
+	 * said it.
+	 */
+	@PostMapping("/api/projects/import")
+	public Map<String, Object> importProject(@RequestBody ImportRequest request) {
+		File file = new File(StringUtils.trimToEmpty(request == null ? null : request.path));
+		if (request == null || StringUtils.isBlank(request.path) || !file.isFile() || !file.canRead()) {
+			throw new ApiException("projects.import", Messages.getString("OptionWizard.51") + ": " + Messages.getString("FilesController.missing"));
+		}
+		try {
+			projects.loadCompressedProjectFile(file);
+		} catch (IOException e) {
+			// A file that is not a valid project: the user is told why, it is not a fault
+			logger.warn("The project file {} could not be imported : {}", file, e.getMessage());
+			throw new ApiException("projects.import", Messages.getString("OptionWizard.51") + ": " + e.getMessage());
+		} catch (RuntimeException e) {
+			logger.error("Error importing project file {}", file, e);
+			throw new ApiException("projects.import", Messages.getString("OptionWizard.51") + ": " + e.getMessage());
+		}
+		restart.run();
+		return Collections.singletonMap("restart", true);
 	}
 
 	/**
