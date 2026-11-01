@@ -4,13 +4,18 @@ import type { MenuItem } from "./menus";
 
 /** What an entry of the menus does. Each stage of the HTML UI adds its own here, as it builds them. */
 export type AppAction = "quit" | "settings" | "export" | "importZip" | "updateCsv"
-  | "saiku" | "saikuTool" | "lulucf" | "loadKml" | "dataFolder" | "openPlotsMap" | "missingPlots" | "divideCsv" | "deletePlots";
+  | "saiku" | "saikuTool" | "lulucf" | "loadKml" | "dataFolder" | "openPlotsMap" | "missingPlots" | "divideCsv" | "deletePlots"
+  | "importCep" | "joinCloud" | "cloudStatus" | "language"
+  | "surveyGuide" | "manual" | "support" | "log" | "showExceptions" | "updates" | "disclaimer" | "about";
 
 // A Map, not an object: an entry called "constructor" would find a property of every object
 const ACTIONS = new Map<string, AppAction>([
   ["quit", "quit"], ["properties", "settings"], ["export", "export"], ["importZip", "importZip"], ["updateCsv", "updateCsv"],
   ["saiku", "saiku"], ["saikuTool", "saikuTool"], ["lulucf", "lulucf"], ["loadKml", "loadKml"], ["dataFolder", "dataFolder"], ["openPlotsMap", "openPlotsMap"],
   ["missingPlots", "missingPlots"], ["divideCsv", "divideCsv"], ["deletePlots", "deletePlots"],
+  ["importCep", "importCep"], ["joinCloud", "joinCloud"], ["cloudStatus", "cloudStatus"], ["language", "language"],
+  ["surveyGuide", "surveyGuide"], ["manual", "manual"], ["support", "support"], ["log", "log"], ["showExceptions", "showExceptions"],
+  ["updates", "updates"], ["disclaimer", "disclaimer"], ["about", "about"],
 ]);
 
 /** The action of an entry of the menus, or null for one that does nothing yet. */
@@ -25,10 +30,17 @@ export function comingSoon(item: MenuItem): boolean {
 
 /**
  * Whether the operator has to be given before anything else, as the Swing window asked for it: only once the app is
- * known to have none (a name of spaces is none), so the dialog does not flash while /api/app loads.
+ * known to have none (a name of spaces is none), so the dialog does not flash while /api/app loads. Not in cloud mode,
+ * where the operator is the user of the cloud login (cloudLoginNeeded), which the window asked for instead.
  */
 export function operatorRequired(info: AppInfo | null): boolean {
-  return info !== null && !info.operator?.trim();
+  return info !== null && !info.cloud && !info.operator?.trim();
+}
+
+/** The title of the window, as the Swing window set it: the app, the project, and the cloud suffix in cloud mode. */
+export function windowTitle(info: AppInfo | null, texts: { app: string; noSurvey: string; cloud: string }): string {
+  if (!info) return texts.app;
+  return texts.app + (info.project ? " - " + info.project : texts.noSurvey) + (info.cloud ? texts.cloud : "");
 }
 
 /**

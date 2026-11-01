@@ -15,13 +15,13 @@ import { kmlCsvName } from "../../tools";
 import { loadKml } from "../../toolsApi";
 import { RestartingOverlay } from "../settings/RestartingOverlay";
 
-interface Props { open: boolean; texts: Texts | null; onClose: () => void }
+interface Props { open: boolean; texts: Texts | null; onClose: () => void; /** A KML dropped on the page, already on the server */ kml?: string | null }
 
 /**
  * Load points from KML: the KML, where to save the plots file made from it, then the one call that writes it, makes
  * it the plots file and restarts Collect Earth, under the restart overlay of the settings.
  */
-export function LoadKmlDialog({ open, texts, onClose }: Props) {
+export function LoadKmlDialog({ open, texts, onClose, kml: given }: Props) {
   const t = useT();
   const s = (key: string) => serverText(texts, key);
   const [kml, setKml] = useState("");
@@ -31,8 +31,8 @@ export function LoadKmlDialog({ open, texts, onClose }: Props) {
   const [restarting, setRestarting] = useState(false);
 
   useEffect(() => {
-    if (open) { setKml(""); setCsv(""); setError(null); setBusy(false); }
-  }, [open]);
+    if (open) { setKml(given ?? ""); setCsv(""); setError(null); setBusy(false); }
+  }, [open, given]);
 
   const fail = (e: unknown) => { setError(errorText(e, t("appBar.unreachable"))); setBusy(false); };
   const chooseKml = () => chooseFile("OPEN", ["kml", "kmz"]).then((chosen) => { if (chosen) setKml(chosen); }, fail);

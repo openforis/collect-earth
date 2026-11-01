@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import MuiAppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -26,9 +26,13 @@ import logo from "../form/collect-earth-logo.png";
 import { apiPut } from "../apiClient";
 import type { AppInfo } from "../appInfo";
 import { actionOf, comingSoon, errorText, operatorRequired, quitServer, type AppAction } from "../appBar";
+import { droppedKind } from "../project";
+import { cloudLogin, setErrorsShown as setErrorsShown_, uploadFile } from "../projectApi";
+import { saveSettings } from "../settingsApi";
 import { useT } from "../i18n";
 import { appMenus, type MenuItem as AppMenuItem } from "../menus";
 import { serverText, type Texts } from "../serverTexts";
+import { formatText } from "../settings";
 import { ExportDialog } from "./data/ExportDialog";
 import { ImportZipDialog } from "./data/ImportZipDialog";
 import { UpdateCsvDialog } from "./data/UpdateCsvDialog";
@@ -40,6 +44,15 @@ import { LoadKmlDialog } from "./tools/LoadKmlDialog";
 import { MissingPlotsDialog } from "./tools/MissingPlotsDialog";
 import { SaikuDialog } from "./tools/SaikuDialog";
 import { SaikuToolDialog } from "./tools/SaikuToolDialog";
+import { NoticeDialog } from "./notices/NoticeDialog";
+import { CloudLoginDialog } from "./project/CloudLoginDialog";
+import { CloudStatusDialog } from "./project/CloudStatusDialog";
+import { ImportCepDialog } from "./project/ImportCepDialog";
+import { JoinCloudDialog } from "./project/JoinCloudDialog";
+import { LanguageDialog } from "./project/LanguageDialog";
+import { AboutDialog } from "./help/AboutDialog";
+import { TextDialog } from "./help/TextDialog";
+import { RestartingOverlay } from "./settings/RestartingOverlay";
 
 interface Props {
   info: AppInfo;
@@ -60,7 +73,7 @@ interface Props {
 export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const t = useT();
   const s = (key: string) => serverText(texts, key);
-  const menus = useMemo(() => appMenus({ plotsMap: info.plotsMap }), [info.plotsMap]);
+  const menus = useMemo(() => appMenus({ plotsMap: info.plotsMap, surveyGuide: info.surveyGuide, client: info.client }), [info.plotsMap, info.surveyGuide, info.client]);
   // The menu open and the button it hangs from; the id is null for the single menu of the compact bar
   const [open, setOpen] = useState<{ anchor: HTMLElement; id: string | null } | null>(null);
   const [operatorOpen, setOperatorOpen] = useState(false);
@@ -70,11 +83,33 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const operator = savedOperator ?? info.operator;
   const [quitOpen, setQuitOpen] = useState(false);
   const [closed, setClosed] = useState(false);
-  // The dialog of the Data, Tools or Utilities menu that is open
-  const [dialog, setDialog] = useState<Exclude<AppAction, "quit" | "settings" | "dataFolder" | "openPlotsMap"> | null>(null);
-  // What a quick action (open the data folder, open the plots map) answered when it could not be done
+  // The dialog of a menu that is open
+  const [dialog, setDialog] = useState<Exclude<AppAction, "quit" | "settings" | "dataFolder" | "openPlotsMap" | "surveyGuide" | "manual" | "support" | "updates" | "showExceptions"> | null>(null);
+  // What a quick action (open the data folder, the manual...) answered when it could not be done
   const [actionError, setActionError] = useState<string | null>(null);
   const forced = operatorRequired({ ...info, operator });
+  // Help > Show exception errors: the setting, flipped here as the server is told
+  const [errorsShown, setErrorsShown] = useState(info.errorsShown);
+  useEffect(() => setErrorsShown(info.errorsShown), [info.errorsShown]);
+  // Cloud mode with nobody logged in: the question, then the login (CollectEarthWindow.promptCloudLogin)
+  const [cloudPrompt, setCloudPrompt] = useState<"ask" | "login" | "done">("ask");
+  useEffect(() => { if (info.cloudLoginNeeded) setCloudPrompt("ask"); }, [info.cloudLoginNeeded]);
+  // A file dropped on the page, once the server has it: a project to import, a KML to load, a plots file to use
+  const [dropped, setDropped] = useState<{ kind: "cep" | "kml" | "plots"; path: string } | null>(null);
+  const [restarting, setRestarting] = useState(false);
+  useDroppedFiles((file) => {
+    const kind = droppedKind(file.name);
+    if (!kind) { setActionError(s("ProjectPage.drop.unknown")); return; }
+    uploadFile(file).then((r) => {
+      setDropped({ kind, path: r.path });
+      setDialog(kind === "cep" ? "importCep" : kind === "kml" ? "loadKml" : null);
+    }, (e) => setActionError(errorText(e, t("appBar.unreachable"))));
+  });
+  const usePlotsFile = () => {
+    if (!dropped) return;
+    setDropped(null);
+    saveSettings({ csv: dropped.path }).then((r) => { if (r.restart) setRestarting(true); else reload(); }, (e) => setActionError(errorText(e, t("appBar.unreachable"))));
+  };
 
   // What each action does; typed by AppAction, so an action added to appBar.ts and not handled here does not compile
   const quick = (name: string) => () => runAction(name).catch((e) => setActionError(errorText(e, t("appBar.unreachable"))));
@@ -84,8 +119,17 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
     saiku: () => setDialog("saiku"), saikuTool: () => setDialog("saikuTool"), lulucf: () => setDialog("lulucf"), loadKml: () => setDialog("loadKml"),
     dataFolder: quick("openDataFolder"), openPlotsMap: quick("openPlotsMap"),
     missingPlots: () => setDialog("missingPlots"), divideCsv: () => setDialog("divideCsv"), deletePlots: () => setDialog("deletePlots"),
+    importCep: () => { setDropped(null); setDialog("importCep"); }, joinCloud: () => setDialog("joinCloud"), cloudStatus: () => setDialog("cloudStatus"), language: () => setDialog("language"),
+    surveyGuide: quick("openSurveyGuide"), manual: quick("openManual"), support: quick("openSupport"), updates: quick("runUpdater"),
+    log: () => setDialog("log"), disclaimer: () => setDialog("disclaimer"), about: () => setDialog("about"),
+    showExceptions: () => {
+      const shown = !errorsShown;
+      setErrorsShown(shown);
+      setErrorsShown_(shown).catch((e) => { setErrorsShown(!shown); setActionError(errorText(e, t("appBar.unreachable"))); });
+    },
   };
-  const close = () => setDialog(null);
+  const close = () => { setDialog(null); setDropped(null); };
+  const toggles: Record<string, boolean> = { showExceptions: errorsShown };
   const run = (item: AppMenuItem) => {
     setOpen(null);
     const action = actionOf(item);
@@ -93,6 +137,14 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   };
 
   const entry = (item: AppMenuItem): ReactNode => {
+    if (!comingSoon(item) && item.kind === "toggle") {
+      return (
+        <MenuItem key={item.id} onClick={() => run(item)} role="menuitemcheckbox" aria-checked={toggles[item.id] ?? false}>
+          <ListItemIcon><Checkbox size="small" checked={toggles[item.id] ?? false} tabIndex={-1} disableRipple sx={{ p: 0 }} /></ListItemIcon>
+          <ListItemText primary={s(item.label)} />
+        </MenuItem>
+      );
+    }
     if (!comingSoon(item)) return <MenuItem key={item.id} onClick={() => run(item)}>{s(item.label)}</MenuItem>;
     // "Coming soon" is written under the entry, not in a tooltip: a disabled entry gets no pointer events, and a
     // tooltip would need a wrapper, which is no item of the list for the keyboard or a screen reader
@@ -107,6 +159,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   };
 
   if (closed) return <ClosedOverlay text={t("appBar.closed")} />;
+  if (restarting) return <RestartingOverlay text={s("SettingsPage.restarting")} />;
 
   return (
     <MuiAppBar position="static" color="default" elevation={1}>
@@ -159,10 +212,38 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
       <SaikuDialog open={dialog === "saiku"} texts={texts} onClose={close} />
       <SaikuToolDialog open={dialog === "saikuTool"} texts={texts} onClose={close} />
       <IpccDialog open={dialog === "lulucf"} texts={texts} onClose={close} />
-      <LoadKmlDialog open={dialog === "loadKml"} texts={texts} onClose={close} />
+      <LoadKmlDialog open={dialog === "loadKml"} texts={texts} onClose={close} kml={dropped?.kind === "kml" ? dropped.path : null} />
       <MissingPlotsDialog open={dialog === "missingPlots"} texts={texts} onClose={close} />
       <DivideCsvDialog open={dialog === "divideCsv"} texts={texts} onClose={close} />
       <DeletePlotsDialog open={dialog === "deletePlots"} texts={texts} onClose={close} />
+      <ImportCepDialog open={dialog === "importCep"} texts={texts} onClose={close} path={dropped?.kind === "cep" ? dropped.path : null} />
+      <JoinCloudDialog open={dialog === "joinCloud"} texts={texts} onClose={close} />
+      <CloudStatusDialog open={dialog === "cloudStatus"} texts={texts} language={info.language} onClose={close} />
+      <LanguageDialog open={dialog === "language"} texts={texts} languages={info.languages} current={info.language} onClose={close} />
+      <AboutDialog open={dialog === "about"} texts={texts} info={info} onClose={close} />
+      <TextDialog open={dialog === "disclaimer"} texts={texts} name="disclaimer" onClose={close} />
+      <TextDialog open={dialog === "log"} texts={texts} name="log" onClose={close} />
+      {/* Cloud mode with nobody logged in: the question, then the login; Cancel leaves it, as the Swing window did */}
+      <Dialog open={info.cloudLoginNeeded && cloudPrompt === "ask"} maxWidth="xs" data-testid="cloud-prompt">
+        <DialogTitle>{s("CloudLoginDialog.title")}</DialogTitle>
+        <DialogContent><DialogContentText>{s("CollectEarthWindow.cloudNotLoggedIn")}</DialogContentText></DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCloudPrompt("done")}>{s("CloudLoginDialog.cancelButton")}</Button>
+          <Button variant="contained" onClick={() => setCloudPrompt("login")} autoFocus>{s("CloudLoginDialog.loginButton")}</Button>
+        </DialogActions>
+      </Dialog>
+      <CloudLoginDialog open={info.cloudLoginNeeded && cloudPrompt === "login"} texts={texts} onCancel={() => setCloudPrompt("done")}
+        onSubmit={(c) => cloudLogin(c.username, c.password).then((r) => { setSavedOperator(r.operator); setCloudPrompt("done"); reload(); })} />
+      {/* A dropped plots file: use it as the project's plots file? */}
+      <Dialog open={dropped?.kind === "plots" && dialog === null} maxWidth="sm" onClose={() => setDropped(null)} data-testid="drop-plots">
+        <DialogTitle>{s("ProjectPage.drop.plotsTitle")}</DialogTitle>
+        <DialogContent><DialogContentText sx={{ wordBreak: "break-all" }}>{formatText(s("ProjectPage.drop.plots"), dropped?.path ?? "")}</DialogContentText></DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDropped(null)}>{t("appBar.cancel")}</Button>
+          <Button variant="contained" onClick={usePlotsFile}>{s("ProjectPage.drop.use")}</Button>
+        </DialogActions>
+      </Dialog>
+      <NoticeDialog />
       <Snackbar open={actionError !== null} autoHideDuration={6000} onClose={() => setActionError(null)} message={actionError} />
     </MuiAppBar>
   );
@@ -263,4 +344,25 @@ function ClosedOverlay({ text }: { text: string }) {
       <Typography variant="h6">{text}</Typography>
     </Box>
   );
+}
+
+/**
+ * A file dropped anywhere on the page, as the Swing window took one dropped on it (CollectEarthTransferHandler): one
+ * file at a time. The browser would otherwise open the file in place of the page.
+ */
+function useDroppedFiles(onFile: (file: File) => void) {
+  const handler = useRef(onFile);
+  handler.current = onFile;
+  useEffect(() => {
+    const over = (e: DragEvent) => { if (e.dataTransfer?.types.includes("Files")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } };
+    const drop = (e: DragEvent) => {
+      const file = e.dataTransfer?.files?.[0];
+      if (!file) return;
+      e.preventDefault();
+      handler.current(file);
+    };
+    window.addEventListener("dragover", over);
+    window.addEventListener("drop", drop);
+    return () => { window.removeEventListener("dragover", over); window.removeEventListener("drop", drop); };
+  }, []);
 }

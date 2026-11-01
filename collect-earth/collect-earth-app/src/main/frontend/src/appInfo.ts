@@ -9,6 +9,24 @@ export interface AppInfo {
   viewer: string;
   plotsMap: boolean;
   version: string | null;
+  /** Cloud sync is on: the operator is the user logged in, and the title says so */
+  cloud: boolean;
+  /** Cloud sync is on and nobody is logged in: the page asks for the login first, as the Swing window did */
+  cloudLoginNeeded: boolean;
+  /** The errors logged are shown as notices (Help > Show exception errors) */
+  errorsShown: boolean;
+  /** The survey has a guide (Help > Survey guide) */
+  surveyGuide: boolean;
+  /** The user manual is installed next to Collect Earth */
+  manual: boolean;
+  /** The build date, for About */
+  build: string | null;
+  /** The Java version, for About */
+  java: string | null;
+  /** The UI languages, for the Language entry */
+  languages: { code: string; label: string }[];
+  /** Collect Earth acts as a client of another instance: the entries that act on the data go */
+  client: boolean;
 }
 
 /** How long after a failed read of /api/app it is tried again: without it the bar, and Quit, would never show. */

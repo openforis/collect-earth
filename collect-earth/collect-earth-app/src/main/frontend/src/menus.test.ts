@@ -10,7 +10,11 @@ describe("appMenus", () => {
 
   it("only enables what is built", () => {
     const enabled = appMenus({ plotsMap: true }).flatMap((m) => m.items).filter((i) => i.enabled).map((i) => i.id);
-    expect(enabled).toEqual(["quit", "export", "importZip", "updateCsv", "saiku", "saikuTool", "lulucf", "loadKml", "dataFolder", "missingPlots", "divideCsv", "deletePlots", "properties"]);
+    expect(enabled).toEqual(["importCep", "joinCloud", "cloudStatus", "language", "quit", "export", "importZip", "updateCsv",
+      "saiku", "saikuTool", "lulucf", "loadKml", "dataFolder", "missingPlots", "divideCsv", "deletePlots", "properties",
+      "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
+    // The survey guide only when the survey has one, as the Swing menu showed it
+    expect(appMenus({ plotsMap: true, surveyGuide: true }).find((m) => m.id === "help")?.items[0].id).toBe("surveyGuide");
   });
 
   it("offers to open the plots map only with the Google Earth Pro viewer", () => {
@@ -23,7 +27,7 @@ describe("appMenus", () => {
     const help = appMenus({ plotsMap: true }).find((m) => m.id === "help")!;
     const toggles = appMenus({ plotsMap: true }).flatMap((m) => m.items).filter((i) => i.kind === "toggle");
     expect(toggles.map((i) => i.id)).toEqual(["showExceptions"]);
-    expect(help.items).toContainEqual({ id: "showExceptions", label: "CollectEarthMenu.9", enabled: false, kind: "toggle" });
+    expect(help.items).toContainEqual({ id: "showExceptions", label: "CollectEarthMenu.9", enabled: true, kind: "toggle" });
   });
 
   it("opens the properties from the Settings menu", () => {
@@ -42,5 +46,13 @@ describe("appMenus", () => {
     const keys = new Set([...readFileSync(file, "latin1").matchAll(/^([^#!\s=:][^\s=:]*)\s*[=:]/gm)].map((m) => m[1]));
     const labels = appMenus({ plotsMap: false }).flatMap((m) => [m.label, ...m.items.map((i) => i.label)]);
     expect(labels.filter((label) => !keys.has(label))).toEqual([]);
+  });
+});
+
+describe("client mode", () => {
+  it("drops the entries that act on the data of this instance, as the Swing window disabled them", () => {
+    const menus = appMenus({ plotsMap: false, client: true });
+    expect(menus.map((m) => m.id)).toEqual(["project", "tools", "settings", "help"]);
+    expect(menus.find((m) => m.id === "tools")?.items.map((i) => i.id)).toEqual(["saiku", "saikuTool", "lulucf"]);
   });
 });

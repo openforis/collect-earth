@@ -12,6 +12,8 @@ import { useUiScale } from "./uiScale";
 import { gewFollowFormWindow } from "./api";
 import { IN_PANEL } from "./panel";
 import { useAppInfo } from "./appInfo";
+import { windowTitle } from "./appBar";
+import { serverText } from "./serverTexts";
 import { AppBar } from "./components/AppBar";
 import { useServerTexts } from "./serverTexts";
 import { IN_HOME } from "./home";
@@ -54,6 +56,11 @@ export function App({ controller }: { controller: MapController }) {
   useEffect(() => { document.documentElement.lang = state.language; }, [state.language]);
   const [info, reloadInfo] = useAppInfo();
   const texts = useServerTexts(state.language);
+  // The title of the window, as the Swing window set it
+  useEffect(() => {
+    if (!texts) return;
+    document.title = windowTitle(info, { app: serverText(texts, "CollectEarthWindow.19"), noSurvey: " - No survey loaded", cloud: serverText(texts, "CollectEarthWindow.cloudTitleSuffix") });
+  }, [info, texts]);
 
   return (
     <I18nContext.Provider value={t}>

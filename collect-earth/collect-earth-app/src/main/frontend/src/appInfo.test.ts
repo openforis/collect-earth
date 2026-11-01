@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readAppInfo, type AppInfo } from "./appInfo";
 
-const INFO: AppInfo = { project: "p", operator: "Jane Doe", language: "en", viewer: "plots_map", plotsMap: true, version: null };
+const INFO: AppInfo = { project: "p", operator: "Jane Doe", language: "en", viewer: "plots_map", plotsMap: true, version: null, cloud: false, cloudLoginNeeded: false, errorsShown: false, surveyGuide: false, manual: false, build: null, java: null, languages: [], client: false };
 
 describe("readAppInfo", () => {
   beforeEach(() => { vi.useFakeTimers(); });

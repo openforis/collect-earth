@@ -29,11 +29,13 @@ function parse(text: string): any {
 
 async function call<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   let r: Response;
+  // A file goes as it is (a dropped file, uploaded); anything else as JSON
+  const raw = body instanceof Blob;
   try {
     r = await fetch(earthBase() + "api/" + path, {
       method,
-      headers: body === undefined ? HEADERS : { ...HEADERS, "Content-Type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: body === undefined ? HEADERS : raw ? { ...HEADERS, "Content-Type": "application/octet-stream" } : { ...HEADERS, "Content-Type": "application/json" },
+      body: body === undefined ? undefined : raw ? body : JSON.stringify(body),
       signal,
     });
   } catch (e) {
