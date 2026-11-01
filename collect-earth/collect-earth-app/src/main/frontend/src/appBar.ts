@@ -40,7 +40,8 @@ export function operatorRequired(info: AppInfo | null): boolean {
 /** The title of the window, as the Swing window set it: the app, the project, and the cloud suffix in cloud mode. */
 export function windowTitle(info: AppInfo | null, texts: { app: string; noSurvey: string; cloud: string }): string {
   if (!info) return texts.app;
-  return texts.app + (info.project ? " - " + info.project : texts.noSurvey) + (info.cloud ? texts.cloud : "");
+  // The suffix is written with a leading space, which the properties file loses (the Swing title had none)
+  return texts.app + (info.project ? " - " + info.project : texts.noSurvey) + (info.cloud ? " " + texts.cloud.trim() : "");
 }
 
 /**

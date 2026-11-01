@@ -47,6 +47,18 @@ to generate the dataset again when `GET /earth/api/tools/analysis` says one exis
 `POST /earth/api/tools/deletePlots/check`). Open data folder and Open plots map are quick actions
 (`POST /earth/api/actions/openDataFolder`, `openPlotsMap`).
 
+The Project menu (`src/components/project/`) imports a CEP (`POST /earth/api/projects/import`, then the restart
+overlay), joins a cloud project in the steps of the Swing menu (`POST /earth/api/cloud/preview`, `join`), shows the
+cloud sync status (`GET /earth/api/cloud/status`, polled while open) and changes the language
+(`PUT /earth/api/app/language`, then the page reloads). In cloud mode with nobody logged in the app bar asks for the
+cloud login first (`POST /earth/api/cloud/login`). The Help menu (`src/components/help/`) opens the survey guide, the
+manual, the support site and the updater as actions, shows the disclaimer and the log (`GET /earth/api/help/text`),
+About (from `/earth/api/app`) and switches the showing of the errors logged (`PUT /earth/api/help/errorsShown`).
+The notices of the server (`src/components/notices/NoticeDialog.tsx`: announcements, the update offer, the errors
+logged, the server's warnings) are polled from `GET /earth/api/notices` every few seconds and answered with
+`POST /earth/api/notices/{id}/answer`. A file dropped on the page is uploaded (`POST /earth/api/files/upload`) and
+then imported (a `.cep`), loaded (a KML) or offered as the plots file (a `.csv`/`.ced`).
+
 ## Build
 
 The Maven build of `collect-earth-app` builds it automatically (`frontend-maven-plugin`
@@ -80,6 +92,8 @@ npm run build      # rebuilds target/classes/leafletmap (refresh the map window 
   the jobs, the Data menu's calls and dialogs, and the job panel
 - `src/tools.ts`, `src/toolsApi.ts`, `src/components/tools/` - the Tools and Utilities menus: the LULUCF
   form's logic, the calls, the dialogs
+- `src/project.ts`, `src/projectApi.ts`, `src/notices.ts`, `src/noticesApi.ts`, `src/components/project/`,
+  `src/components/help/`, `src/components/notices/` - the Project and Help menus and the notices of the server
 - `src/form/` - the generated data entry form: `model.ts` (pure protocol logic: value
   formats, response merges, hierarchical codes, errors), `store.ts` (server traffic, serialized
   autosave, submit), `FormApp.tsx` / `fields.tsx` (UI)

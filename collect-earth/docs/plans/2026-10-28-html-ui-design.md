@@ -145,7 +145,9 @@ All under `/earth/api`, JSON in and out:
 3. **Data** (done, `2026-10-30-html-ui-stage-3.md`): export dialog, imports, job panel.
 4. **Tools and Utilities** (done, `2026-11-01-html-ui-stage-4.md`): Saiku, the stand-alone tool and the LULUCF
    package as jobs with the wizard as a form, KML load, divide CSV, delete plots, missing plots report.
-5. **Project, Help and notices:** CEP import, cloud join and sync, help items, announcements, updates.
+5. **Project, Help and notices** (done, `2026-11-01-html-ui-stage-5.md`): CEP import, cloud join, login and sync
+   status, language, the Help entries, the notices (announcements, updates, errors logged, server warnings), dropped
+   files, the window title, client mode.
 6. **Removal:** delete `view/*` and the other Swing classes, FlatLaf and Swing-only dependencies; update `CLAUDE.md`,
    and the installers if what they ship changes.
 
@@ -181,6 +183,26 @@ merged:
 - **The KML export** reports no progress: `KmlGeneratorService.exportToKml` is one call.
 - **Client mode:** the Swing menu hid the Data Import/Export submenu when Collect Earth acts as a client of another
   instance (`serverMenuItems`); the app bar does not yet, nor do the tools and utilities of stage 4.
+
+### Left by stage 5 for stage 6
+
+Every entry of the Swing menu bar is built now, and what the Swing window showed by itself reaches the pages as
+notices. Stage 6 deletes the Swing classes; what it should know:
+
+- **`JSwingAppender`**, `AnnouncementManager`, `CheckForUpdatesListener`, `CloudLoginDialog`, `CloudSyncStatusDialog`,
+  `AboutDialog`, `OpenTextFileListener` and the rest of `view/*` are no longer used by the pages; `AppShell` installs
+  `NoticeAppender` instead of `JSwingAppender`. `log4j2.xml` never named either appender: nothing to change there.
+- **`EarthApp.showMessage`** still shows a Swing dialog for the restart failure (`handleFatalRestartFailure`) and when
+  there is no context yet to post a notice through (`EarthApp.notify`): with no page open, a dialog is all there is.
+- **The language change reloads the page**: the plots map's config, the texts and the form's language all come from
+  the server, as the Swing window was opened again. The KML of Google Earth keeps its language until the next restart,
+  as before.
+- **A dropped plots file** is applied through the settings (`SAMPLE_FILE`), so it goes through the same check and
+  restart as one chosen in the settings page; the Swing transfer handler loaded it directly.
+- **The drag and drop of a folder**, and of more than one file, is refused, as the Swing window refused them.
+- **The announcements' HTML** is rendered as it comes from the Open Foris server, as the Swing dialog rendered it.
+- **The second start of Collect Earth without a system tray** (left by stage 1) is still open: the home page cannot be
+  opened again once closed on a desktop with no tray.
 
 ### Left by stage 4 for the later stages
 
