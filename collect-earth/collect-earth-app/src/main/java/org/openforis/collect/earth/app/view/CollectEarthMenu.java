@@ -684,7 +684,7 @@ public class CollectEarthMenu extends JMenuBar implements InitializingBean {
 	}
 	
 	private ActionListener getSaikuToolExportActionListener() {
-		return new SaikuToolExportListener(getFrame(), new GenerateDatabaseStarter(analysisSaikuService, getFrame() ), localPropertiesService);
+		return new SaikuToolExportListener(getFrame(), new GenerateDatabaseStarter(analysisSaikuService, getFrame() ), localPropertiesService, analysisSaikuService);
 	}
 	
 

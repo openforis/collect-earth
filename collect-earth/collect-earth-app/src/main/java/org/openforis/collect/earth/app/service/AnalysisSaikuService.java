@@ -41,6 +41,8 @@ import org.springframework.stereotype.Component;
 import com.opencsv.CSVReader;
 
 import freemarker.template.TemplateException;
+import net.lingala.zip4j.model.ZipParameters;
+import net.lingala.zip4j.ZipFile;
 
 @Component
 public class AnalysisSaikuService extends GenerateDatabase implements DisposableBean{
@@ -484,6 +486,41 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 		regionCalculation.handleRegionCalculation( ExportType.SAIKU, rdbExporter.getJdbcTemplate() );
 		progressListener.progressMade(new Progress(100, 100));
 
+	}
+
+	/** The folder of the stand-alone tool inside its ZIP */
+	private static final String STANDALONE_FOLDER = "saiku-server_2.6"; //$NON-NLS-1$
+
+	/**
+	 * The stand-alone Saiku tool: a ZIP with the Saiku server, the database and cube just generated, the Java next to
+	 * Saiku, and the scripts and README of resources/, as SaikuToolExportListener built it. The database must have been
+	 * prepared first (prepareDataForAnalysis with startSaikuAfterDBExport false).
+	 */
+	public void buildStandaloneTool(File zipFileOutput) throws IOException {
+		try (ZipFile outputSaikuZip = new ZipFile(zipFileOutput)) {
+			File saikuFolder = new File(localPropertiesService.getSaikuFolder());
+			// The Java and Saiku folders are on the same level
+			File javaFolder = new File(saikuFolder.getAbsolutePath() + "/../java"); //$NON-NLS-1$
+			ZipParameters zipParameters = new ZipParameters();
+			// no log files, no temp folder
+			zipParameters.setExcludeFileFilter(file -> file.getName().endsWith("log") || file.getParent().endsWith("temp")); //$NON-NLS-1$ //$NON-NLS-2$
+			outputSaikuZip.addFolder(saikuFolder, zipParameters);
+			// The Saiku DB to DB/collectEarthDatabase.dbSaiku
+			zipParameters.setFileNameInZip(STANDALONE_FOLDER + "/DB/" + EarthConstants.COLLECT_EARTH_DATABASE_FILE_NAME + EarthConstants.SAIKU_RDB_SUFFIX); //$NON-NLS-1$
+			outputSaikuZip.addFile(new File(COLLECT_EARTH_DATABASE_RDB_DB), zipParameters);
+			// The Mondrian cube XML to DB/collectEarthCubes.xml
+			zipParameters = new ZipParameters();
+			zipParameters.setFileNameInZip(STANDALONE_FOLDER + "/DB/" + MDX_XML); //$NON-NLS-1$
+			outputSaikuZip.addFile(new File(localPropertiesService.getProjectFolder() + File.separatorChar + MDX_XML), zipParameters);
+			// Java next to the tool
+			zipParameters = new ZipParameters();
+			zipParameters.setRootFolderNameInZip(STANDALONE_FOLDER);
+			outputSaikuZip.addFolder(javaFolder, zipParameters);
+			// The scripts and the README at the root
+			outputSaikuZip.addFile(new File("resources/START SAIKU.bat")); //$NON-NLS-1$
+			outputSaikuZip.addFile(new File("resources/TERMINATE SAIKU.bat")); //$NON-NLS-1$
+			outputSaikuZip.addFile(new File("resources/README - INSTALLATION AND RUNNING.txt")); //$NON-NLS-1$
+		}
 	}
 
 	public static boolean surveyContains(String nodeName, CollectSurvey survey) {
