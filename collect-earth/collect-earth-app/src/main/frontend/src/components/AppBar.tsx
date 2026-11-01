@@ -15,6 +15,7 @@ import ListItemText from "@mui/material/ListItemText";
 import ListSubheader from "@mui/material/ListSubheader";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
+import Snackbar from "@mui/material/Snackbar";
 import TextField from "@mui/material/TextField";
 import Toolbar from "@mui/material/Toolbar";
 import Tooltip from "@mui/material/Tooltip";
@@ -31,6 +32,14 @@ import { serverText, type Texts } from "../serverTexts";
 import { ExportDialog } from "./data/ExportDialog";
 import { ImportZipDialog } from "./data/ImportZipDialog";
 import { UpdateCsvDialog } from "./data/UpdateCsvDialog";
+import { runAction } from "../toolsApi";
+import { DeletePlotsDialog } from "./tools/DeletePlotsDialog";
+import { DivideCsvDialog } from "./tools/DivideCsvDialog";
+import { IpccDialog } from "./tools/IpccDialog";
+import { LoadKmlDialog } from "./tools/LoadKmlDialog";
+import { MissingPlotsDialog } from "./tools/MissingPlotsDialog";
+import { SaikuDialog } from "./tools/SaikuDialog";
+import { SaikuToolDialog } from "./tools/SaikuToolDialog";
 
 interface Props {
   info: AppInfo;
@@ -61,15 +70,22 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const operator = savedOperator ?? info.operator;
   const [quitOpen, setQuitOpen] = useState(false);
   const [closed, setClosed] = useState(false);
-  // The dialog of the Data menu that is open
-  const [dataDialog, setDataDialog] = useState<"export" | "importZip" | "updateCsv" | null>(null);
+  // The dialog of the Data, Tools or Utilities menu that is open
+  const [dialog, setDialog] = useState<Exclude<AppAction, "quit" | "settings" | "dataFolder" | "openPlotsMap"> | null>(null);
+  // What a quick action (open the data folder, open the plots map) answered when it could not be done
+  const [actionError, setActionError] = useState<string | null>(null);
   const forced = operatorRequired({ ...info, operator });
 
   // What each action does; typed by AppAction, so an action added to appBar.ts and not handled here does not compile
+  const quick = (name: string) => () => runAction(name).catch((e) => setActionError(errorText(e, t("appBar.unreachable"))));
   const actions: Record<AppAction, () => void> = {
     quit: () => setQuitOpen(true), settings: onSettings,
-    export: () => setDataDialog("export"), importZip: () => setDataDialog("importZip"), updateCsv: () => setDataDialog("updateCsv"),
+    export: () => setDialog("export"), importZip: () => setDialog("importZip"), updateCsv: () => setDialog("updateCsv"),
+    saiku: () => setDialog("saiku"), saikuTool: () => setDialog("saikuTool"), lulucf: () => setDialog("lulucf"), loadKml: () => setDialog("loadKml"),
+    dataFolder: quick("openDataFolder"), openPlotsMap: quick("openPlotsMap"),
+    missingPlots: () => setDialog("missingPlots"), divideCsv: () => setDialog("divideCsv"), deletePlots: () => setDialog("deletePlots"),
   };
+  const close = () => setDialog(null);
   const run = (item: AppMenuItem) => {
     setOpen(null);
     const action = actionOf(item);
@@ -137,9 +153,17 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
         onSaved={(name) => { setSavedOperator(name); setOperatorOpen(false); reload(); }}
         onQuit={() => setQuitOpen(true)} />
       <QuitDialog open={quitOpen} texts={texts} onKeepOpen={() => setQuitOpen(false)} onClosed={() => setClosed(true)} />
-      <ExportDialog open={dataDialog === "export"} texts={texts} language={info.language} onClose={() => setDataDialog(null)} />
-      <ImportZipDialog open={dataDialog === "importZip"} texts={texts} language={info.language} onClose={() => setDataDialog(null)} />
-      <UpdateCsvDialog open={dataDialog === "updateCsv"} texts={texts} onClose={() => setDataDialog(null)} />
+      <ExportDialog open={dialog === "export"} texts={texts} language={info.language} onClose={close} />
+      <ImportZipDialog open={dialog === "importZip"} texts={texts} language={info.language} onClose={close} />
+      <UpdateCsvDialog open={dialog === "updateCsv"} texts={texts} onClose={close} />
+      <SaikuDialog open={dialog === "saiku"} texts={texts} onClose={close} />
+      <SaikuToolDialog open={dialog === "saikuTool"} texts={texts} onClose={close} />
+      <IpccDialog open={dialog === "lulucf"} texts={texts} onClose={close} />
+      <LoadKmlDialog open={dialog === "loadKml"} texts={texts} onClose={close} />
+      <MissingPlotsDialog open={dialog === "missingPlots"} texts={texts} onClose={close} />
+      <DivideCsvDialog open={dialog === "divideCsv"} texts={texts} onClose={close} />
+      <DeletePlotsDialog open={dialog === "deletePlots"} texts={texts} onClose={close} />
+      <Snackbar open={actionError !== null} autoHideDuration={6000} onClose={() => setActionError(null)} message={actionError} />
     </MuiAppBar>
   );
 }

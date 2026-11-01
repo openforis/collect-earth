@@ -10,7 +10,7 @@ const info = (operator: string | null): AppInfo =>
 describe("app bar", () => {
   it("shows every entry that does nothing yet as coming soon", () => {
     const items = appMenus({ plotsMap: false }).flatMap((m) => m.items);
-    expect(items.filter((i) => !comingSoon(i)).map((i) => i.id)).toEqual(["quit", "export", "importZip", "updateCsv", "properties"]);
+    expect(items.filter((i) => !comingSoon(i)).map((i) => i.id)).toEqual(["quit", "export", "importZip", "updateCsv", "saiku", "saikuTool", "lulucf", "loadKml", "dataFolder", "openPlotsMap", "missingPlots", "divideCsv", "deletePlots", "properties"]);
     // An entry enabled by menus.ts but with no action here yet is not offered either
     expect(comingSoon({ id: "about", label: "x", enabled: true })).toBe(true);
     expect(comingSoon({ id: "quit", label: "x", enabled: false })).toBe(true);

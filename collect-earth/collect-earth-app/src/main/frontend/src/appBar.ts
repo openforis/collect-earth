@@ -3,10 +3,15 @@ import type { AppInfo } from "./appInfo";
 import type { MenuItem } from "./menus";
 
 /** What an entry of the menus does. Each stage of the HTML UI adds its own here, as it builds them. */
-export type AppAction = "quit" | "settings" | "export" | "importZip" | "updateCsv";
+export type AppAction = "quit" | "settings" | "export" | "importZip" | "updateCsv"
+  | "saiku" | "saikuTool" | "lulucf" | "loadKml" | "dataFolder" | "openPlotsMap" | "missingPlots" | "divideCsv" | "deletePlots";
 
 // A Map, not an object: an entry called "constructor" would find a property of every object
-const ACTIONS = new Map<string, AppAction>([["quit", "quit"], ["properties", "settings"], ["export", "export"], ["importZip", "importZip"], ["updateCsv", "updateCsv"]]);
+const ACTIONS = new Map<string, AppAction>([
+  ["quit", "quit"], ["properties", "settings"], ["export", "export"], ["importZip", "importZip"], ["updateCsv", "updateCsv"],
+  ["saiku", "saiku"], ["saikuTool", "saikuTool"], ["lulucf", "lulucf"], ["loadKml", "loadKml"], ["dataFolder", "dataFolder"], ["openPlotsMap", "openPlotsMap"],
+  ["missingPlots", "missingPlots"], ["divideCsv", "divideCsv"], ["deletePlots", "deletePlots"],
+]);
 
 /** The action of an entry of the menus, or null for one that does nothing yet. */
 export function actionOf(item: MenuItem): AppAction | null {

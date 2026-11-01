@@ -10,7 +10,7 @@ describe("appMenus", () => {
 
   it("only enables what is built", () => {
     const enabled = appMenus({ plotsMap: true }).flatMap((m) => m.items).filter((i) => i.enabled).map((i) => i.id);
-    expect(enabled).toEqual(["quit", "export", "importZip", "updateCsv", "properties"]);
+    expect(enabled).toEqual(["quit", "export", "importZip", "updateCsv", "saiku", "saikuTool", "lulucf", "loadKml", "dataFolder", "missingPlots", "divideCsv", "deletePlots", "properties"]);
   });
 
   it("offers to open the plots map only with the Google Earth Pro viewer", () => {
