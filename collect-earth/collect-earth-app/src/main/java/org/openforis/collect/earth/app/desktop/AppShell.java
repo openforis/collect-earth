@@ -9,7 +9,8 @@ import java.awt.Toolkit;
 import java.awt.TrayIcon;
 import java.net.URL;
 
-import org.openforis.collect.earth.app.logging.JSwingAppender;
+import org.openforis.collect.earth.app.logging.NoticeAppender;
+import org.openforis.collect.earth.app.service.notices.NoticeService;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.QuitService;
@@ -56,6 +57,9 @@ public class AppShell implements InitializingBean, DisposableBean {
 	@Autowired
 	private QuitService quitService;
 
+	@Autowired
+	private NoticeService noticeService;
+
 	// Set on the thread that creates the context, taken out on the one that closes it
 	private volatile TrayIcon trayIcon;
 
@@ -77,13 +81,13 @@ public class AppShell implements InitializingBean, DisposableBean {
 		// The Swing window did this first: the texts of the dialogs that still are Swing, and of the tray menu, are in
 		// the UI language of the settings, which may have changed since the previous context
 		Messages.setLocale(localPropertiesService.getUiLanguage().getLocale());
+		// The errors logged reach the pages as notices, as they reached the Swing window as dialogs; whether they do is
+		// the exception-shown setting, which the Help menu switches
+		NoticeAppender.install(noticeService, () -> Boolean.TRUE.equals(localPropertiesService.isExceptionShown()));
 		if (GraphicsEnvironment.isHeadless()) {
-			logger.info("Headless: no error dialog and no tray icon"); //$NON-NLS-1$
+			logger.info("Headless: no tray icon"); //$NON-NLS-1$
 			return;
 		}
-		// The errors logged are shown in a dialog, as they were since the Swing menu set this up; whether it opens is
-		// the exception-shown setting, which the Help menu of the Swing window used to switch
-		JSwingAppender.ensureInstalled();
 		if (!SystemTray.isSupported()) {
 			logger.info("No system tray: Collect Earth has no icon to open its window again or to quit"); //$NON-NLS-1$
 			return;
