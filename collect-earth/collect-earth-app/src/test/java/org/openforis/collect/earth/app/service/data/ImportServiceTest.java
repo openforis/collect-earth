@@ -32,7 +32,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.openforis.collect.earth.app.service.DataImportExportService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.data.ImportService.ExpiredImportException;
-import org.openforis.collect.earth.app.service.data.ProcessJobsTest.RecordingContext;
+import org.openforis.collect.earth.app.service.jobs.RecordingContext;
 import org.openforis.collect.io.ReferenceDataImportStatus;
 import org.openforis.collect.io.data.CSVDataImportProcess;
 import org.openforis.collect.io.data.DataImportState;

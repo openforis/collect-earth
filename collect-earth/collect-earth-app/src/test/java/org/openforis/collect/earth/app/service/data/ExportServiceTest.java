@@ -32,7 +32,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.data.ExportRequest.Format;
 import org.openforis.collect.earth.app.service.data.ExportRequest.Records;
 import org.openforis.collect.earth.app.service.data.ExportService.InvalidExportException;
-import org.openforis.collect.earth.app.service.data.ProcessJobsTest.RecordingContext;
+import org.openforis.collect.earth.app.service.jobs.RecordingContext;
 import org.openforis.collect.io.data.CSVDataExportProcess;
 import org.openforis.collect.io.data.DataExportStatus;
 import org.openforis.collect.manager.process.AbstractProcess;

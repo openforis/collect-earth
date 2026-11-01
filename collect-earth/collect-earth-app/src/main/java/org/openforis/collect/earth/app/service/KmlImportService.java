@@ -177,6 +177,14 @@ public class KmlImportService {
 		return coordinates;
 	}
 
+	/**
+	 * The placemarks of the KML as a plots CSV, in a temporary file: what the Swing entry wrote before asking where to
+	 * save it, for the pages (ToolsService.loadKml).
+	 */
+	public File extractPointsToCsv(File kmlFile) throws ParserConfigurationException, SAXException, IOException {
+		return createTempCsv(kmlFile);
+	}
+
 	public boolean prompToOpenKml( JFrame frame) throws ParserConfigurationException, SAXException, IOException{
 		this.frame = frame;
 		// Choose the file in the file system

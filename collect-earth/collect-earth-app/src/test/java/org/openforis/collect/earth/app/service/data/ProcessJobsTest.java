@@ -7,11 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.junit.jupiter.api.Test;
 import org.openforis.collect.earth.app.service.data.ProcessJobs.ProcessFailedException;
-import org.openforis.collect.earth.app.service.jobs.JobContext;
+import org.openforis.collect.earth.app.service.jobs.RecordingContext;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.io.ReferenceDataImportStatus;
 import org.openforis.collect.io.metadata.parsing.ParsingError;
@@ -21,28 +20,6 @@ import org.openforis.collect.manager.process.ProcessStatus;
 
 /** A process of Collect run as a job, with a process whose status the test moves. */
 public class ProcessJobsTest {
-
-	/** What the job saw */
-	static final class RecordingContext implements JobContext {
-		final List<String> progress = new CopyOnWriteArrayList<>();
-		final List<String> messages = new CopyOnWriteArrayList<>();
-		volatile boolean cancelled;
-
-		@Override
-		public void progress(int percent, String step) {
-			progress.add(percent + " " + step);
-		}
-
-		@Override
-		public void message(String line) {
-			messages.add(line);
-		}
-
-		@Override
-		public boolean isCancelled() {
-			return cancelled;
-		}
-	}
 
 	/** A process that processes `total` items, one every 60 ms, unless cancelled or told to fail. */
 	static final class SlowProcess extends AbstractProcess<Void, ProcessStatus> {
