@@ -37,6 +37,16 @@ run as jobs of the server (`POST /earth/api/jobs/export`, `importSummary`, `impo
 Open file / Open folder (`POST /earth/api/files/open`, `reveal`). The ZIP import reads the files first and
 asks about the records already in the database before importing (`src/importDialog.ts`).
 
+The Tools and Utilities menus (`src/components/tools/`) run Saiku, the stand-alone Saiku tool and the LULUCF
+package as jobs (`POST /earth/api/jobs/saiku`, `saikuTool`, `ipccPrepare`, `ipccOutputs`), asking first whether
+to generate the dataset again when `GET /earth/api/tools/analysis` says one exists; the LULUCF form of
+`IpccDialog.tsx` replaces the Swing wizard (`src/tools.ts` holds its logic). Load points from KML
+(`POST /earth/api/tools/loadKml`) restarts Collect Earth under the restart overlay. The utilities are jobs too
+(`missingPlots`, `divideCsv`, `deletePlots`), with the checks of the Swing dialogs made by the server first
+(`GET /earth/api/tools/divideCsv/columns`, `POST /earth/api/settings/sampleFile`,
+`POST /earth/api/tools/deletePlots/check`). Open data folder and Open plots map are quick actions
+(`POST /earth/api/actions/openDataFolder`, `openPlotsMap`).
+
 ## Build
 
 The Maven build of `collect-earth-app` builds it automatically (`frontend-maven-plugin`
@@ -68,6 +78,8 @@ npm run build      # rebuilds target/classes/leafletmap (refresh the map window 
   settings page: its model, its calls, the plot preview and its components
 - `src/jobs.ts`, `src/dataApi.ts`, `src/exportDialog.ts`, `src/importDialog.ts`, `src/components/data/` -
   the jobs, the Data menu's calls and dialogs, and the job panel
+- `src/tools.ts`, `src/toolsApi.ts`, `src/components/tools/` - the Tools and Utilities menus: the LULUCF
+  form's logic, the calls, the dialogs
 - `src/form/` - the generated data entry form: `model.ts` (pure protocol logic: value
   formats, response merges, hierarchical codes, errors), `store.ts` (server traffic, serialized
   autosave, submit), `FormApp.tsx` / `fields.tsx` (UI)

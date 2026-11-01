@@ -143,7 +143,8 @@ All under `/earth/api`, JSON in and out:
 2. **Settings** (done, `2026-10-30-html-ui-stage-2.md`): section descriptions, server-side validation, the new
    settings page with plot preview and sample file check.
 3. **Data** (done, `2026-10-30-html-ui-stage-3.md`): export dialog, imports, job panel.
-4. **Tools and Utilities:** Saiku, IPCC, KML load, divide CSV, delete plots, missing plots report.
+4. **Tools and Utilities** (done, `2026-11-01-html-ui-stage-4.md`): Saiku, the stand-alone tool and the LULUCF
+   package as jobs with the wizard as a form, KML load, divide CSV, delete plots, missing plots report.
 5. **Project, Help and notices:** CEP import, cloud join and sync, help items, announcements, updates.
 6. **Removal:** delete `view/*` and the other Swing classes, FlatLaf and Swing-only dependencies; update `CLAUDE.md`,
    and the installers if what they ship changes.
@@ -180,3 +181,19 @@ merged:
 - **The KML export** reports no progress: `KmlGeneratorService.exportToKml` is one call.
 - **Client mode:** the Swing menu hid the Data Import/Export submenu when Collect Earth acts as a client of another
   instance (`serverMenuItems`); the app bar does not yet, nor do the tools and utilities of stage 4.
+
+### Left by stage 4 for the later stages
+
+- **The Swing wizard of the LULUCF package** (`AssignSubdivisionTypesWizard`, `IPCCGeneratorListener`) and the Swing
+  dialogs of the utilities (`MissingPlotsDialog`, `DivideCSVFilesDialog`, `DeletePlotsFromDBDialog`) still exist for
+  the Swing menu until stage 6; `IPCCGeneratorService.prepareDataForAnalysis` keeps the wizard path for them.
+- **`InfiniteProgressMonitor`** still implements `AnalysisProgress` for the Swing menu; stage 6 removes it and leaves
+  `JobProgress` as the only implementation.
+- **The LULUCF package is not opened** when generated, unlike the Swing entry which opened the ZIP's folder: the
+  panel offers Open file and Open folder instead.
+- **The stand-alone Saiku tool** is still Windows only (`SaikuToolExportListener` wrote a Windows launcher); the
+  dialog says so on the other platforms.
+- **Load points from KML restarts** at once after writing the plots file, as the Swing entry did; it could become a
+  reload of the plots without a restart once the reload is a job (left by stage 3).
+- **Open plots map** stays in the Tools menu only when the viewer is Google Earth; it opens the map page in a new
+  browser window through the server (`BrowserService.openLeafletMap`), not in the page itself.
