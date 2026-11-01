@@ -25,6 +25,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.openforis.collect.earth.app.service.cloud.CloudRecordSerializer.RecordEnvelope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +52,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 public class CloudApiClient {
 
 	private static final int TIMEOUT_MS = 30_000;
-	private static final String USER_AGENT = "CollectEarth-cloud-sync";
+	/**
+	 * Sent on every call: "CollectEarth/&lt;version&gt; cloud-sync". The server reads the
+	 * version from it (the coordinators' dashboard shows who runs an old Collect Earth).
+	 * Computed once, from update.ini.
+	 */
+	private static final String USER_AGENT = userAgentFor(installedVersion());
+	private static final String UNKNOWN_VERSION = "unknown";
 	private static final int ERROR_BODY_EXCERPT = 500;
 
 	private final Logger logger = LoggerFactory.getLogger(CloudApiClient.class);
@@ -392,6 +399,27 @@ public class CloudApiClient {
 				throw errorFor(operation, status, responseBody);
 			}
 			return objectMapper.readTree(responseBody.isEmpty() ? "{}" : responseBody);
+		}
+	}
+
+	/**
+	 * The User-Agent for a version name: "CollectEarth/&lt;version&gt; cloud-sync", with the
+	 * version's whitespace removed so that it is one token, and "unknown" when there is
+	 * no version.
+	 */
+	static String userAgentFor(String versionName) {
+		String version = versionName == null ? "" : versionName.replaceAll("\\s+", "");
+		if (version.isEmpty()) {
+			version = UNKNOWN_VERSION;
+		}
+		return "CollectEarth/" + version + " cloud-sync";
+	}
+
+	private static String installedVersion() {
+		try {
+			return UpdateIniUtils.getVersionNameInstalled();
+		} catch (RuntimeException e) {
+			return null;
 		}
 	}
 

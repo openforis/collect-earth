@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { isCollectEarthAgent } from './clientVersion.js';
 import type { Store } from './store/store.js';
 import type { AuditAction, AuditDetails, MemberActivityPatch } from './types.js';
 
@@ -16,7 +17,10 @@ export interface ActivityNote {
   sync?: { records: number };
   plotsDownload?: boolean;
   cepDownload?: boolean;
-  /** The raw User-Agent, from the routes Collect Earth calls only (a browser's would replace it). */
+  /**
+   * The raw User-Agent, from the routes Collect Earth calls only, and only when it is
+   * Collect Earth's (a coordinator's browser downloading from the dashboard would replace it).
+   */
   clientAgent?: string | null;
 }
 
@@ -186,7 +190,7 @@ function mergePatch(a: MemberActivityPatch | null, b: MemberActivityPatch): Memb
   return out;
 }
 
-/** The raw User-Agent header, cut at MAX_CLIENT_AGENT_CHARS; null when none. Parsed later (Task 21). */
+/** The raw User-Agent header, cut at MAX_CLIENT_AGENT_CHARS; null when none. Parsed by clientVersion.ts. */
 export function clientAgentOf(header: string | string[] | undefined): string | null {
   const value = Array.isArray(header) ? header[0] : header;
   return value ? value.slice(0, MAX_CLIENT_AGENT_CHARS) : null;
@@ -204,14 +208,18 @@ declare module 'fastify' {
 
 /**
  * Says what a request did for its member's activity. With `desktop` the request is
- * one Collect Earth makes, and its User-Agent is kept.
+ * one Collect Earth makes, and its User-Agent is kept when it is Collect Earth's (the
+ * dashboard calls some of those routes too: a plot file's content, the CEP).
  */
 export function noteActivity(request: FastifyRequest, note: Omit<ActivityNote, 'clientAgent'>, options: { desktop?: boolean } = {}): void {
   const merged: ActivityNote = { ...request.activityNote };
   if (note.sync) merged.sync = { records: (merged.sync?.records ?? 0) + note.sync.records };
   if (note.plotsDownload) merged.plotsDownload = true;
   if (note.cepDownload) merged.cepDownload = true;
-  if (options.desktop) merged.clientAgent = clientAgentOf(request.headers['user-agent']);
+  if (options.desktop) {
+    const agent = clientAgentOf(request.headers['user-agent']);
+    if (isCollectEarthAgent(agent)) merged.clientAgent = agent;
+  }
   request.activityNote = merged;
 }
 

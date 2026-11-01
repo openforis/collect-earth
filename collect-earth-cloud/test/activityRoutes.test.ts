@@ -138,6 +138,33 @@ describe('activity data written by the routes', () => {
       expect(activity.find((a) => a.userId === jose.userId)).toBeUndefined();
     });
 
+    it("a download from the dashboard's browser keeps Collect Earth's User-Agent (only Collect Earth's agents are kept)", async () => {
+      await call('PUT', '/cep', owner.token, idOnlyCep(), { 'content-type': 'application/zip' });
+      const csv = await call('PUT', '/csv-files/plots.csv', owner.token, 'id,lat,lon\n1,0,0\n', { 'content-type': 'text/csv' });
+      await call('PUT', '/assignments', owner.token, { assignments: [{ userId: maria.userId, csvFileId: csv.json().id }] });
+      const ua = { 'user-agent': 'CollectEarth/1.24.3 cloud-sync' };
+      expect((await call('GET', '/my-assignment', maria.token, undefined, ua)).statusCode).toBe(200);
+      await ctx.app.activity.flush();
+      // maria, then the owner, download the plot file and the CEP from the dashboard.
+      for (const token of [maria.token, owner.token]) {
+        const browser = { 'user-agent': BROWSER };
+        expect((await call('GET', `/csv-files/${csv.json().id}/content`, token, undefined, browser)).statusCode).toBe(200);
+        expect((await call('GET', '/cep', token, undefined, browser)).statusCode).toBe(200);
+      }
+      await ctx.app.activity.flush();
+      const activity = await ctx.store.listMemberActivity(pid);
+      expect(activity.find((a) => a.userId === maria.userId)).toMatchObject({ clientAgent: 'CollectEarth/1.24.3 cloud-sync' });
+      expect(activity.find((a) => a.userId === owner.userId)).toMatchObject({ clientAgent: null });
+      expect(activity.find((a) => a.userId === owner.userId)!.lastCepDownloadAt).toBeGreaterThan(0);
+
+      // The agent of the releases before the version was sent is kept too.
+      expect((await call('GET', '/my-assignment', maria.token, undefined, { 'user-agent': 'CollectEarth-cloud-sync' })).statusCode).toBe(200);
+      await ctx.app.activity.flush();
+      expect((await ctx.store.listMemberActivity(pid)).find((a) => a.userId === maria.userId)).toMatchObject({
+        clientAgent: 'CollectEarth-cloud-sync',
+      });
+    });
+
     it("a member's first call of the minute is written before the answer is sent (no flush, no timer)", async () => {
       const res = await batchRequest(ctx.app, pid, maria.token, [envelope()]);
       expect(res.statusCode).toBe(200);
