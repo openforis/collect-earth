@@ -231,6 +231,40 @@ const t1 = performance.now();
 await store.listRecordStates(big);
 console.log(`     listRecordStates alone (with the first submissions): ${Math.round(performance.now() - t1)} ms`);
 
+// --- The People tab on the same project (Task 3): GET /people and a person's page. ---
+const peopleTimes: number[] = [];
+let people: any = null;
+for (let i = 0; i < 3; i++) {
+  const t0 = performance.now();
+  res = await call('GET', big, '/people?tz=Europe/Rome');
+  peopleTimes.push(Math.round(performance.now() - t0));
+  people = res.json();
+}
+const rows = people?.people ?? [];
+const sumSubmitted = rows.reduce((s: number, r: any) => s + r.plots.submitted, 0);
+const sumChecks = rows.reduce((s: number, r: any) => s + r.checks.submitted, 0);
+check('GET /people: one row per person (40 collectors and the owner)', res.statusCode === 200 && rows.length === 41, { status: res.statusCode, rows: rows.length });
+check("... the plots submitted per person add up to the Progress tab's", sumSubmitted === last.totals.submitted, { sumSubmitted, submitted: last.totals.submitted });
+check('... the 20,000 checks are counted apart, as checks', sumChecks === N / 5, sumChecks);
+check('... op1 holds 2,500 plots and 2,500 copies', rows.find((r: any) => r.username === 'op1')?.plots.assigned === N / 40 && rows.find((r: any) => r.username === 'op1')?.checks.assigned === N / 40, rows.find((r: any) => r.username === 'op1'));
+console.log(`     GET /people on 100,000 records with 20,000 checks: ${peopleTimes.join(' ms, ')} ms`);
+const op1 = rows.find((r: any) => r.username === 'op1')?.userId as string;
+const personTimes: number[] = [];
+for (let i = 0; i < 3; i++) {
+  const t0 = performance.now();
+  res = await call('GET', big, `/people/${op1}?tz=Europe/Rome`);
+  personTimes.push(Math.round(performance.now() - t0));
+}
+const person = res.json();
+check("GET /people/:userId: op1's page, their file and plots", res.statusCode === 200 && person.files.length === 1 && person.files[0].plots.total === N / 40 && person.files[0].checks.total === N / 40, { status: res.statusCode, files: person.files?.map((f: any) => ({ ...f, list: f.list.length })) });
+check('... the calendar adds up to their plots and checks submitted', person.calendar.reduce((s: number, d: any) => s + d.plots + d.checks, 0) === person.person.plots.submitted + person.person.checks.submitted);
+console.log(`     GET /people/:userId on the same project: ${personTimes.join(' ms, ')} ms`);
+// Coordinators only; a collector of the project gets 403 (and sees only their own My work).
+const collector = await join(big, 'collector1');
+check('a collector: 403 on /people and /people/:userId', (await call('GET', big, '/people', undefined, {}, collector.token)).statusCode === 403 && (await call('GET', big, `/people/${op1}`, undefined, {}, collector.token)).statusCode === 403);
+res = await call('GET', big, '/my-work', undefined, {}, collector.token);
+check('... and their own My work', res.statusCode === 200 && res.json().person.username === 'collector1');
+
 await app.close();
 await store.close();
 await owner.end();

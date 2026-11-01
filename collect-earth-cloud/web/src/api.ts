@@ -1677,3 +1677,268 @@ export async function getProgressSettings(projectId: string): Promise<ProgressSe
 export async function saveProgressSettings(projectId: string, settings: ProgressSettings): Promise<ProgressSettings> {
   return toProgressSettings(await request<unknown>("PUT", `${p(projectId)}/progress/settings`, { json: settings }));
 }
+
+// --- people (the People tab, a person's page, My work) ------------------------------
+
+export type PersonStatusKind = "noPlots" | "finished" | "neverStarted" | "quiet" | "working";
+
+export interface PersonStatus {
+  kind: PersonStatusKind;
+  /** quiet: whole days since their last sync or plot download. */
+  days: number | null;
+  /** quiet: amber from the project's quiet days on, red from twice that. */
+  level: "amber" | "red" | null;
+}
+
+export interface PersonRow {
+  userId: string;
+  username: string;
+  role: Role;
+  plots: { assigned: number; submitted: number; started: number; remaining: number; done: number | null };
+  checks: { assigned: number; submitted: number; remaining: number };
+  submittedLast7: number;
+  medianPerDay: number | null;
+  lastSyncAt: number | null;
+  lastPlotsDownloadAt: number | null;
+  lastSubmittedAt: number | null;
+  /** Null when the quality figures are not at hand. */
+  agreement: Rate | null;
+  status: PersonStatus;
+}
+
+export interface QualityAtHand {
+  available: boolean;
+  computedAt: number | null;
+  stale: boolean;
+}
+
+export interface WeekPerson {
+  userId: string;
+  username: string;
+  submitted: number;
+}
+
+export interface PeopleData {
+  timeZone: string;
+  today: string;
+  quietDays: number;
+  quality: QualityAtHand;
+  people: PersonRow[];
+  invites: Invite[];
+  week: { days: { date: string; submitted: number }[]; mostActive: WeekPerson[]; leastActive: WeekPerson[] };
+}
+
+export type PlotStatus = "submitted" | "doneByOther" | "started" | "notStarted";
+
+export interface PersonFile {
+  csvFileId: string;
+  filename: string;
+  divided: boolean;
+  plots: { total: number; submitted: number; doneByOther: number; started: number; notStarted: number };
+  checks: { total: number; submitted: number; started: number; notStarted: number };
+  list: { plot: string; kind: "main" | "check"; status: PlotStatus }[];
+  truncated: boolean;
+}
+
+export interface Speed {
+  submissions: number;
+  sessions: number;
+  gaps: number;
+  medianGapMs: number | null;
+  veryFast: number;
+  buckets: { upToMs: number; count: number }[];
+}
+
+export interface SyncHealth {
+  lastSeenAt: number | null;
+  lastSyncAt: number | null;
+  lastPlotsDownloadAt: number | null;
+  lastCepDownloadAt: number | null;
+  syncsCount: number;
+  recordsReceived: number;
+  cepUpdatedAt: number | null;
+  oldProjectFile: boolean;
+  collectEarth: { kind: "collect-earth" | "old-collect-earth" | "unknown"; version: string | null } | null;
+}
+
+export interface SentBack {
+  plot: string;
+  comment: string | null;
+  decidedAt: number | null;
+  decidedBy: string | null;
+}
+
+export interface PersonData {
+  timeZone: string;
+  today: string;
+  quietDays: number;
+  person: PersonRow;
+  calendar: { date: string; plots: number; checks: number }[];
+  hours: number[];
+  files: PersonFile[];
+  speed: Speed;
+  sync: SyncHealth;
+  quality: QualityAtHand & { asFirst: Rate | null; asChecker: Rate | null; sentBack: SentBack[] };
+}
+
+const STATUS_KINDS: readonly PersonStatusKind[] = ["noPlots", "finished", "neverStarted", "quiet", "working"];
+const PLOT_STATUSES: readonly PlotStatus[] = ["submitted", "doneByOther", "started", "notStarted"];
+const toRole = (value: unknown): Role => (value === "admin" || value === "reviewer" ? value : "operator");
+const toRateOrNull = (value: unknown): Rate | null => (value && typeof value === "object" ? toRate(value) : null);
+
+function toQualityAtHand(value: unknown): QualityAtHand {
+  const q = obj(value);
+  return { available: q.available === true, computedAt: toMillis(q.computedAt), stale: q.stale === true };
+}
+
+export function toPersonRow(value: unknown): PersonRow {
+  const r = obj(value);
+  const plots = obj(r.plots);
+  const checks = obj(r.checks);
+  const status = obj(r.status);
+  const kind = STATUS_KINDS.includes(status.kind as PersonStatusKind) ? (status.kind as PersonStatusKind) : "working";
+  return {
+    userId: text(r.userId),
+    username: text(r.username),
+    role: toRole(r.role),
+    plots: {
+      assigned: toCount(plots.assigned),
+      submitted: toCount(plots.submitted),
+      started: toCount(plots.started),
+      remaining: toCount(plots.remaining),
+      done: toNumberOrNull(plots.done),
+    },
+    checks: { assigned: toCount(checks.assigned), submitted: toCount(checks.submitted), remaining: toCount(checks.remaining) },
+    submittedLast7: toCount(r.submittedLast7),
+    medianPerDay: toNumberOrNull(r.medianPerDay),
+    lastSyncAt: toMillis(r.lastSyncAt),
+    lastPlotsDownloadAt: toMillis(r.lastPlotsDownloadAt),
+    lastSubmittedAt: toMillis(r.lastSubmittedAt),
+    agreement: toRateOrNull(r.agreement),
+    status: {
+      kind,
+      days: kind === "quiet" ? toNumberOrNull(status.days) : null,
+      level: kind === "quiet" ? (status.level === "red" ? "red" : "amber") : null,
+    },
+  };
+}
+
+const toWeekPerson = (value: unknown): WeekPerson => {
+  const w = obj(value);
+  return { userId: text(w.userId), username: text(w.username), submitted: toCount(w.submitted) };
+};
+
+export function toPeopleData(body: unknown): PeopleData {
+  const b = obj(body);
+  const week = obj(b.week);
+  return {
+    timeZone: typeof b.timeZone === "string" ? b.timeZone : "UTC",
+    today: toDate(b.today) ?? new Date().toISOString().slice(0, 10),
+    quietDays: toCount(b.quietDays) || 3,
+    quality: toQualityAtHand(b.quality),
+    people: list(b.people).map(toPersonRow),
+    invites: list(b.invites).map((i) => ({
+      id: text(i.id),
+      role: toRole(i.role),
+      maxUses: toCount(i.maxUses),
+      usedCount: toCount(i.usedCount),
+      expiresAt: toMillis(i.expiresAt),
+      createdAt: toMillis(i.createdAt),
+    })),
+    week: {
+      days: list(week.days)
+        .filter((d) => toDate(d.date) !== null)
+        .map((d) => ({ date: String(d.date), submitted: toCount(d.submitted) })),
+      mostActive: list(week.mostActive).map(toWeekPerson),
+      leastActive: list(week.leastActive).map(toWeekPerson),
+    },
+  };
+}
+
+export function toPersonData(body: unknown): PersonData {
+  const b = obj(body);
+  const sync = obj(b.sync);
+  const speed = obj(b.speed);
+  const quality = obj(b.quality);
+  const ce = sync.collectEarth && typeof sync.collectEarth === "object" ? obj(sync.collectEarth) : null;
+  const hours = Array.isArray(b.hours) ? b.hours.map(toCount) : [];
+  return {
+    timeZone: typeof b.timeZone === "string" ? b.timeZone : "UTC",
+    today: toDate(b.today) ?? new Date().toISOString().slice(0, 10),
+    quietDays: toCount(b.quietDays) || 3,
+    person: toPersonRow(b.person),
+    calendar: list(b.calendar)
+      .filter((d) => toDate(d.date) !== null)
+      .map((d) => ({ date: String(d.date), plots: toCount(d.plots), checks: toCount(d.checks) })),
+    hours: Array.from({ length: 24 }, (_, i) => hours[i] ?? 0),
+    files: list(b.files).map((f) => {
+      const plots = obj(f.plots);
+      const checks = obj(f.checks);
+      return {
+        csvFileId: text(f.csvFileId),
+        filename: text(f.filename),
+        divided: f.divided === true,
+        plots: {
+          total: toCount(plots.total),
+          submitted: toCount(plots.submitted),
+          doneByOther: toCount(plots.doneByOther),
+          started: toCount(plots.started),
+          notStarted: toCount(plots.notStarted),
+        },
+        checks: { total: toCount(checks.total), submitted: toCount(checks.submitted), started: toCount(checks.started), notStarted: toCount(checks.notStarted) },
+        list: list(f.list).map((x) => ({
+          plot: text(x.plot),
+          kind: x.kind === "check" ? "check" : "main",
+          status: PLOT_STATUSES.includes(x.status as PlotStatus) ? (x.status as PlotStatus) : "notStarted",
+        })),
+        truncated: f.truncated === true,
+      };
+    }),
+    speed: {
+      submissions: toCount(speed.submissions),
+      sessions: toCount(speed.sessions),
+      gaps: toCount(speed.gaps),
+      medianGapMs: toNumberOrNull(speed.medianGapMs),
+      veryFast: toCount(speed.veryFast),
+      buckets: list(speed.buckets).map((x) => ({ upToMs: toCount(x.upToMs), count: toCount(x.count) })),
+    },
+    sync: {
+      lastSeenAt: toMillis(sync.lastSeenAt),
+      lastSyncAt: toMillis(sync.lastSyncAt),
+      lastPlotsDownloadAt: toMillis(sync.lastPlotsDownloadAt),
+      lastCepDownloadAt: toMillis(sync.lastCepDownloadAt),
+      syncsCount: toCount(sync.syncsCount),
+      recordsReceived: toCount(sync.recordsReceived),
+      cepUpdatedAt: toMillis(sync.cepUpdatedAt),
+      oldProjectFile: sync.oldProjectFile === true,
+      collectEarth:
+        ce === null
+          ? null
+          : {
+              kind: ce.kind === "collect-earth" || ce.kind === "old-collect-earth" ? ce.kind : "unknown",
+              version: nullableText(ce.version),
+            },
+    },
+    quality: {
+      ...toQualityAtHand(quality),
+      asFirst: toRateOrNull(quality.asFirst),
+      asChecker: toRateOrNull(quality.asChecker),
+      sentBack: list(quality.sentBack).map((s) => ({ plot: text(s.plot), comment: nullableText(s.comment), decidedAt: toMillis(s.decidedAt), decidedBy: nullableText(s.decidedBy) })),
+    },
+  };
+}
+
+/** The People tab's table (coordinators), with the days in the browser's time zone. */
+export async function getPeople(projectId: string, timeZone: string): Promise<PeopleData> {
+  return toPeopleData(await request<unknown>("GET", `${p(projectId)}/people?${new URLSearchParams({ tz: timeZone })}`));
+}
+
+/** One person's page (coordinators). */
+export async function getPerson(projectId: string, userId: string, timeZone: string): Promise<PersonData> {
+  return toPersonData(await request<unknown>("GET", `${p(projectId)}/people/${encodeURIComponent(userId)}?${new URLSearchParams({ tz: timeZone })}`));
+}
+
+/** The signed-in person's own page ("My work", any member). */
+export async function getMyWork(projectId: string, timeZone: string): Promise<PersonData> {
+  return toPersonData(await request<unknown>("GET", `${p(projectId)}/my-work?${new URLSearchParams({ tz: timeZone })}`));
+}

@@ -16,8 +16,12 @@ export type Route =
   | { name: "project"; projectId: string; tab: ProjectTab }
   /** One plot file of a project, where its plots are divided between people (under the Plot files tab). */
   | { name: "plotFile"; projectId: string; fileId: string }
+  /** One person's page (under the People tab, coordinators). */
+  | { name: "person"; projectId: string; userId: string }
   /** A member's own quality report (any member with an account), printable. */
   | { name: "myQuality"; projectId: string }
+  /** A member's own work: the numbers the coordinators see about them (any member with an account). */
+  | { name: "myWork"; projectId: string }
   /** The coordinators' printable team report, for training (no names). */
   | { name: "teamReport"; projectId: string }
   | { name: "join"; token: string }
@@ -68,6 +72,15 @@ export function matchRoute(pathname: string): Route {
     const projectId = decode(second);
     if (projectId) return { name: "myQuality", projectId };
   }
+  if (first === "projects" && parts.length === 3 && third === "my-work") {
+    const projectId = decode(second);
+    if (projectId) return { name: "myWork", projectId };
+  }
+  if (first === "projects" && parts.length === 4 && third === "people") {
+    const projectId = decode(second);
+    const userId = decode(fourth);
+    if (projectId && userId) return { name: "person", projectId, userId };
+  }
   if (first === "projects" && parts.length === 4 && third === "quality" && fourth === "team-report") {
     const projectId = decode(second);
     if (projectId) return { name: "teamReport", projectId };
@@ -95,8 +108,12 @@ export function pathFor(route: Route): string {
       return `/projects/${encodeURIComponent(route.projectId)}${route.tab === "progress" ? "" : `/${route.tab}`}`;
     case "plotFile":
       return `/projects/${encodeURIComponent(route.projectId)}/plots/${encodeURIComponent(route.fileId)}`;
+    case "person":
+      return `/projects/${encodeURIComponent(route.projectId)}/people/${encodeURIComponent(route.userId)}`;
     case "myQuality":
       return `/projects/${encodeURIComponent(route.projectId)}/my-quality`;
+    case "myWork":
+      return `/projects/${encodeURIComponent(route.projectId)}/my-work`;
     case "teamReport":
       return `/projects/${encodeURIComponent(route.projectId)}/quality/team-report`;
     case "join":

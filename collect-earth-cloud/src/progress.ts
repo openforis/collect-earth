@@ -170,7 +170,23 @@ export function progressReport(input: ProgressInput): Progress {
   };
 }
 
-interface PlotUnits {
+/** One person's records, resolved as the totals count them (plotUnits with perOperator). */
+export interface OperatorWork {
+  /** Plots (units of the files) whose first assessment by them is submitted -> its first submission. */
+  mainSubmitted: Map<string, number>;
+  /** Plots whose first assessment by them is saved and not submitted. */
+  mainDrafts: Set<string>;
+  /** Units they checked (a check by them submitted) -> its first submission. */
+  checkSubmitted: Map<string, number>;
+  /** Units with a check by them saved and not submitted. */
+  checkDrafts: Set<string>;
+  /** The first submissions of their records known from the record events (main and checks), unsorted. */
+  submissionTimes: number[];
+  /** The plot groups of their records (as the quality decisions are keyed). */
+  groups: Set<string>;
+}
+
+export interface PlotUnits {
   totals: ProgressTotals;
   /** Each plot submitted now -> the earliest first submission among its submitted first assessments. */
   firstSubmitted: ReadonlyMap<string, number>;
@@ -180,6 +196,8 @@ interface PlotUnits {
   copies: Map<string, string[]>;
   /** `${operator}\n${unit}`: a check submitted now by that person on that plot. */
   checksDone: ReadonlySet<string>;
+  /** operator -> their records, resolved as the totals count them (only when asked for: the People tab). */
+  byOperator: Map<string, OperatorWork>;
 }
 
 function push(map: Map<string, string[]>, key: string, value: string): void {
@@ -188,7 +206,24 @@ function push(map: Map<string, string[]>, key: string, value: string): void {
   else map.set(key, [value]);
 }
 
-function plotUnits(input: ProgressInput): PlotUnits {
+/** What plotUnits reads of the Progress input. */
+export type PlotUnitsInput = Pick<ProgressInput, 'info' | 'units' | 'copyHolders' | 'mainHolders' | 'fileUnits' | 'assignments' | 'records'>;
+
+function workOf(byOperator: Map<string, OperatorWork>, operator: string): OperatorWork {
+  let work = byOperator.get(operator);
+  if (!work) {
+    work = { mainSubmitted: new Map(), mainDrafts: new Set(), checkSubmitted: new Map(), checkDrafts: new Set(), submissionTimes: [], groups: new Set() };
+    byOperator.set(operator, work);
+  }
+  return work;
+}
+
+/**
+ * The plots of the files, who holds which, and each plot's state, counted per plot unit
+ * (the Progress tab's totals). With `perOperator`, also each person's records resolved
+ * the same way (the People tab), so a person's numbers and the totals never disagree.
+ */
+export function plotUnits(input: PlotUnitsInput, perOperator = false): PlotUnits {
   const { info, units } = input;
   const shape = keyShape(info);
   const code = info?.state === 'own' && shape.roundIndex !== null ? info.reassessmentCode : null;
@@ -226,21 +261,37 @@ function plotUnits(input: ProgressInput): PlotUnits {
   const firstSubmitted = new Map<string, number>();
   const saved = new Set<string>();
   const checksDone = new Set<string>();
+  const byOperator = new Map<string, OperatorWork>();
   for (const r of input.records) {
     if (r.deleted) continue;
-    const { unit, round } = resolve(r);
+    const { unit, round, group } = resolve(r);
+    const work = perOperator ? workOf(byOperator, r.operator) : null;
+    work?.groups.add(group);
     if (unit === null) continue;
+    // A submitted record with no event `submitted` (stored before events were kept): its time.
+    const at = r.firstSubmittedOn ?? r.modifiedOn;
     if (round.assessment === 'check') {
-      if (r.activelySaved) checksDone.add(`${r.operator}\n${unit}`);
+      if (r.activelySaved) {
+        checksDone.add(`${r.operator}\n${unit}`);
+        if (work) {
+          work.checkSubmitted.set(unit, Math.min(work.checkSubmitted.get(unit) ?? Infinity, at));
+          if (r.firstSubmittedOn !== null) work.submissionTimes.push(r.firstSubmittedOn);
+        }
+      } else {
+        work?.checkDrafts.add(unit);
+      }
       continue;
     }
     if (round.assessment !== 'main' || !plots.has(unit)) continue;
     if (r.activelySaved) {
-      // A submitted record with no event `submitted` (stored before events were kept): its time.
-      const at = r.firstSubmittedOn ?? r.modifiedOn;
       firstSubmitted.set(unit, Math.min(firstSubmitted.get(unit) ?? Infinity, at));
+      if (work) {
+        work.mainSubmitted.set(unit, Math.min(work.mainSubmitted.get(unit) ?? Infinity, at));
+        if (r.firstSubmittedOn !== null) work.submissionTimes.push(r.firstSubmittedOn);
+      }
     } else {
       saved.add(unit);
+      work?.mainDrafts.add(unit);
     }
   }
   let started = 0;
@@ -260,6 +311,7 @@ function plotUnits(input: ProgressInput): PlotUnits {
     held,
     copies,
     checksDone,
+    byOperator,
   };
 }
 
@@ -270,7 +322,7 @@ const SLOT_MS = 15 * 60_000;
  * changes are whole quarters of an hour, so a local day never starts inside one. 100,000
  * plots cost a few thousand Intl calls.
  */
-function dayInZone(timeZone: string): (ms: number) => string {
+export function dayInZone(timeZone: string): (ms: number) => string {
   const cache = new Map<number, string>();
   return (ms) => {
     const slot = Math.floor(ms / SLOT_MS);
@@ -340,6 +392,16 @@ export function forecastOf(totals: ProgressTotals, daily: readonly ProgressDay[]
   };
 }
 
+/**
+ * Someone with plots left is quiet when neither a sync nor a plot download (the later
+ * one) came for more than quietDays days. Never either: not quiet (they never
+ * downloaded their plots; the cards say that apart).
+ */
+export function isQuiet(now: number, quietDays: number, lastSyncAt: number | null, lastPlotsDownloadAt: number | null): boolean {
+  const last = Math.max(lastSyncAt ?? -Infinity, lastPlotsDownloadAt ?? -Infinity);
+  return last > -Infinity && now - last > quietDays * DAY_MS;
+}
+
 const byName = (a: AttentionPerson, b: AttentionPerson) => (a.username < b.username ? -1 : a.username > b.username ? 1 : 0);
 const capped = (people: AttentionPerson[]) => people.sort(byName).slice(0, MAX_ATTENTION_PEOPLE);
 
@@ -371,8 +433,7 @@ function attentionOf(input: ProgressInput, a: AttentionInput, plotsOf: PlotUnits
       // plots were given is not stored for divided files, so their download (Collect
       // Earth gets new plots that way) stands for it: someone given plots after their
       // last sync is not quiet until quietDays after they downloaded them.
-      const last = Math.max(synced ?? -Infinity, downloaded ?? -Infinity);
-      if (input.now - last > quietDays * DAY_MS) {
+      if (isQuiet(input.now, quietDays, synced, downloaded)) {
         quiet.push({ username: m.username, lastSyncAt: synced, lastPlotsDownloadAt: downloaded });
       }
     }

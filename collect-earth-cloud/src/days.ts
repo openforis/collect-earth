@@ -46,6 +46,19 @@ export function localDate(ms: number, timeZone: string): string {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+const hourFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/** The hour of the day (0-23) of an instant in a time zone. */
+export function localHour(ms: number, timeZone: string): number {
+  let format = hourFormatters.get(timeZone);
+  if (!format) {
+    format = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', hourCycle: 'h23' });
+    hourFormatters.set(timeZone, format);
+  }
+  const hour = Number(format.formatToParts(new Date(ms)).find((p) => p.type === 'hour')?.value);
+  return Number.isInteger(hour) ? hour % 24 : 0;
+}
+
 /** Whether `text` is a real calendar day written YYYY-MM-DD. */
 export function isDate(text: unknown): text is string {
   if (typeof text !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(text)) {

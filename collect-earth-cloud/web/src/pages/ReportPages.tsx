@@ -12,7 +12,7 @@ import Typography from "@mui/material/Typography";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import Print from "@mui/icons-material/Print";
 import { useEffect, type ReactNode } from "react";
-import { getMyQuality, getProject, getTeamReport, type AnswerOptions, type ReportConfusion, type ReportNote } from "../api";
+import { getMyQuality, getMyWork, getProject, getTeamReport, type AnswerOptions, type ReportConfusion, type ReportNote } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
@@ -23,6 +23,8 @@ import { answerText, rateText } from "../qualityView";
 import { linkProps, pathFor, type ProjectTab } from "../router";
 import { useLoad, type Loaded } from "../useLoad";
 import { onceVisibleAfter } from "../visibility";
+import { browserTimeZone } from "../progressView";
+import { ActivitySection, FilesSection, PersonHeading, PersonNumbers, QualitySection, SpeedSection, SyncSection } from "./PersonPage";
 
 /** How long to wait before asking again for figures that were stale. */
 const STALE_RETRY_MS = 10_000;
@@ -162,6 +164,11 @@ export function MyQualityPage({ projectId }: { projectId: string }) {
   return (
     <ReportFrame projectId={projectId} title={t("myQuality.title")} back="progress">
       <Typography color="text.secondary">{t("myQuality.intro")}</Typography>
+      <Box className="no-print">
+        <Button variant="outlined" {...linkProps(pathFor({ name: "myWork", projectId }))}>
+          {t("myWork.link")}
+        </Button>
+      </Box>
       {!data ? (
         mine.loading ? <Loading /> : <ErrorAlert error={mine.error} onRetry={mine.reload} />
       ) : (
@@ -192,6 +199,41 @@ export function MyQualityPage({ projectId }: { projectId: string }) {
               ))}
             </Block>
           )}
+        </>
+      )}
+    </ReportFrame>
+  );
+}
+
+/**
+ * "My work": the numbers the coordinators see about the person looking (their plots,
+ * days and hours, speed, syncs, agreement and the plots to look at again), and the
+ * sentence saying so. Own data only: the server answers with the signed-in person's.
+ */
+export function MyWorkPage({ projectId }: { projectId: string }) {
+  const t = useT();
+  const timeZone = browserTimeZone();
+  const mine = useLoad(() => getMyWork(projectId, timeZone), [projectId, timeZone]);
+  const data = mine.data;
+  return (
+    <ReportFrame projectId={projectId} title={t("myWork.title")} back="progress">
+      <Alert severity="info">{t("myWork.coordinatorsSee")}</Alert>
+      <Box className="no-print">
+        <Button variant="outlined" {...linkProps(pathFor({ name: "myQuality", projectId }))}>
+          {t("myQuality.link")}
+        </Button>
+      </Box>
+      {!data ? (
+        mine.loading ? <Loading /> : <ErrorAlert error={mine.error} onRetry={mine.reload} />
+      ) : (
+        <>
+          <PersonHeading data={data} />
+          <PersonNumbers data={data} />
+          <FilesSection data={data} projectId={projectId} />
+          <ActivitySection data={data} />
+          <SpeedSection data={data} />
+          <SyncSection data={data} self />
+          <QualitySection data={data} self projectId={projectId} />
         </>
       )}
     </ReportFrame>

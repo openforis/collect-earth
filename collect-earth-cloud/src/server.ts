@@ -19,6 +19,7 @@ import { registerAiRoutes } from './routes/ai.js';
 import { registerAssignmentRoutes } from './routes/assignments.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerPlatformRoutes } from './routes/platform.js';
+import { registerPeopleRoutes } from './routes/people.js';
 import { registerProgressRoutes } from './routes/progress.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerQualityRoutes } from './routes/quality.js';
@@ -121,6 +122,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   });
   await registerQualityRoutes(app, store, quality);
   await registerProgressRoutes(app, store, quality, now);
+  await registerPeopleRoutes(app, store, quality, now);
   await registerRecordRoutes(app, store);
   const runs = new AiRunService(store, quality, app.log, {
     client: options.ai?.client !== undefined ? options.ai.client : aiClientOf(config),

@@ -15,6 +15,7 @@ import { DataTab } from "../project/DataTab";
 import { FileTab } from "../project/FileTab";
 import { OverviewTab } from "../project/OverviewTab";
 import { PeopleTab } from "../project/PeopleTab";
+import { PersonPage } from "./PersonPage";
 import { PlotFilePage } from "../project/PlotFilePage";
 import { PlotsTab } from "../project/PlotsTab";
 import { ProgressTab } from "../project/ProgressTab";
@@ -34,8 +35,8 @@ const TAB_LABELS = {
   settings: "tab.settings",
 } as const;
 
-/** fileId: one plot file's page, shown under the Plot files tab. */
-export function ProjectPage({ projectId, tab, fileId }: { projectId: string; tab: ProjectTab; fileId?: string }) {
+/** fileId: one plot file's page, shown under the Plot files tab; personId: one person's page, under the People tab. */
+export function ProjectPage({ projectId, tab, fileId, personId }: { projectId: string; tab: ProjectTab; fileId?: string; personId?: string }) {
   const t = useT();
   const project = useLoad(() => getProject(projectId), [projectId]);
 
@@ -77,7 +78,10 @@ export function ProjectPage({ projectId, tab, fileId }: { projectId: string; tab
         <Typography variant="h1" sx={{ mb: 1, wordBreak: "break-word" }}>
           {info.name}
         </Typography>
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ mb: 3, display: "flex", gap: 1, flexWrap: "wrap" }}>
+          <Button variant="outlined" {...linkProps(pathFor({ name: "myWork", projectId }))}>
+            {t("myWork.link")}
+          </Button>
           <Button variant="outlined" {...linkProps(pathFor({ name: "myQuality", projectId }))}>
             {t("myQuality.link")}
           </Button>
@@ -94,8 +98,11 @@ export function ProjectPage({ projectId, tab, fileId }: { projectId: string; tab
             <span style={{ display: "block", marginBottom: 12 }}>{t("member.text", { role: t(`role.${info.role}`) })}</span>
             <span style={{ display: "block" }}>{t("member.notThere")}</span>
           </EmptyState>
-          <Box sx={{ textAlign: "center", pb: 4 }}>
-            <Button variant="contained" {...linkProps(pathFor({ name: "myQuality", projectId }))}>
+          <Box sx={{ pb: 4, display: "flex", gap: 1, flexWrap: "wrap", justifyContent: "center" }}>
+            <Button variant="contained" {...linkProps(pathFor({ name: "myWork", projectId }))}>
+              {t("myWork.link")}
+            </Button>
+            <Button variant="outlined" {...linkProps(pathFor({ name: "myQuality", projectId }))}>
               {t("myQuality.link")}
             </Button>
           </Box>
@@ -108,7 +115,7 @@ export function ProjectPage({ projectId, tab, fileId }: { projectId: string; tab
     progress: <ProgressTab projectId={projectId} onGo={go} />,
     setup: <OverviewTab projectId={projectId} onGo={go} />,
     file: <FileTab projectId={projectId} />,
-    people: <PeopleTab projectId={projectId} />,
+    people: personId ? <PersonPage key={personId} projectId={projectId} userId={personId} onGo={go} /> : <PeopleTab projectId={projectId} />,
     plots: fileId ? <PlotFilePage key={fileId} projectId={projectId} fileId={fileId} onGo={go} /> : <PlotsTab projectId={projectId} onGo={go} />,
     data: <DataTab projectId={projectId} onGo={go} />,
     quality: <QualityTab projectId={projectId} />,
@@ -137,7 +144,7 @@ export function ProjectPage({ projectId, tab, fileId }: { projectId: string; tab
             id={`tab-${id}`}
             aria-controls={`panel-${id}`}
             // On a plot file's page the Plot files tab is already selected: clicking it goes back to the list.
-            onClick={fileId && id === tab ? () => go(id) : undefined}
+            onClick={(fileId || personId) && id === tab ? () => go(id) : undefined}
           />
         ))}
       </Tabs>

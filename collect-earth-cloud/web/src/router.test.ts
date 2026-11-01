@@ -26,12 +26,14 @@ describe("matchRoute", () => {
     ["/projects/p-1/my-quality", { name: "myQuality", projectId: "p-1" }],
     ["/projects/p%201/my-quality", { name: "myQuality", projectId: "p 1" }],
     ["/projects/p-1/quality/team-report", { name: "teamReport", projectId: "p-1" }],
+    ["/projects/p-1/people/u-7", { name: "person", projectId: "p-1", userId: "u-7" }],
+    ["/projects/p-1/my-work", { name: "myWork", projectId: "p-1" }],
   ])("%s", (path, route) => {
     expect(matchRoute(path)).toEqual(route);
   });
 
   it("anything else is not found", () => {
-    for (const path of ["/projects/p/nope", "/projects/p/people/x", "/projects/p/plots/f/x", "/projects/p/my-quality/x", "/projects/p/quality/other", "/projects/p/quality/team-report/x", "/join", "/join/a/b", "/whatever", "/reset/%E0%A4%A"]) {
+    for (const path of ["/projects/p/nope", "/projects/p/people/x/y", "/projects/p/my-work/x", "/projects/p/plots/f/x", "/projects/p/my-quality/x", "/projects/p/quality/other", "/projects/p/quality/team-report/x", "/join", "/join/a/b", "/whatever", "/reset/%E0%A4%A"]) {
       expect(matchRoute(path).name, path).toBe("notFound");
     }
   });
@@ -48,6 +50,8 @@ describe("matchRoute", () => {
       { name: "reset", token: "r" },
       { name: "plotFile", projectId: "p 1", fileId: "f/2" },
       { name: "myQuality", projectId: "p/1" },
+      { name: "myWork", projectId: "p/1" },
+      { name: "person", projectId: "p 1", userId: "u/2" },
       { name: "teamReport", projectId: "p?1" },
       ...PROJECT_TABS.map((tab) => ({ name: "project" as const, projectId: "id with space", tab })),
     ];
