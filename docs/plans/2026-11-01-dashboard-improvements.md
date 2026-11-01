@@ -571,6 +571,112 @@ desktop.
 - Number quartiles.
 - The text built from figures.
 
+**As built** (1ea26ac2; differs from the above where it says so)
+- **What is counted:** the submitted, not deleted first assessments (`assessment` main by the
+  quality figures' `recordResolver`) of plots in a plot file: checks, drafts, unknown rounds
+  and plots in no file never. Two main assessments of one plot (a whole file given to
+  several people) count as each person's plot. A question is one the report compares
+  (`keyRule`, now exported: an outline question with choices or a number, not excluded;
+  without an outline, by its key's name). Choices: codes without qualifiers; a multiple
+  answer counts once per code (shares can add up to over 100 %, the page says so); shares
+  are of the plots *answering* the question (blank ones counted apart: entity questions are
+  shown on few plots). Yes/No in the viewer's language for a boolean.
+- **Two steps** (`src/answerStats.ts`):
+  - `answerTable(input)`: one row per first assessment (person index, plot index,
+    `modifiedOn`) and per question typed arrays: a `Uint16Array` code index per choice
+    (dense, or sparse rows + codes when under a third of the rows answer; several codes in a
+    side list), number rows + `Float64Array` values and the rows whose answer is not one
+    number (text, several values). Built by the **quality worker in the same job as the
+    report** (`qualityFigures`), from the same read of the records: the worker's reply is now
+    `{ report, answers }`, the table's buffers transferred, not copied (`tableBuffers`).
+    `QualityRunner.run` gives `QualityFigures`; the cache entry (same version, same
+    stale-while-refresh, same busy / failure rules) holds the table and `answerStats`, an LRU
+    of 8 filter results; `ServedReport` carries both. Progress, People and My work never
+    touch it (`peek` returns it but they read only `report`).
+  - `answerStats(table, filter)`: one pass to keep rows (plots, days), then per question a
+    count per person × code, per number each person's values sorted. **Filters decided:
+    computed on the server from the table per request, not precomputed per file / person,
+    nor in the worker per filter.** A cube of per-file × person × day aggregates cannot answer
+    a plot-file column value (any column, any value) nor medians, and a worker job per filter
+    would read the 100k summaries again (~2 s). The table is small (11.2 MB for 90,000 rows,
+    25 choices and 5 numbers) and a filter's figures take 15-90 ms on the event loop on
+    100,000 records; repeated filters are answered from the LRU.
+- **Filters** (`GET /quality/answers?person=&file=&column=&value=&from=&to=&tz=`):
+  - `person`: whose rows and flags are shown; **the team stays everyone** (with only that
+    person, the team's share would be theirs). The page then draws that person against the
+    rest of the team.
+  - `file`: the plots of a plot file (`plotIdsOf`); `column` + `value` (with `file`): the
+    plots with that value in a column of it (`plotsWithValue`). Columns and their values come
+    from `GET /quality/answers/columns?file=` (reviewers too: the plot file page's
+    `csv-files/:id/columns` is coordinators only); the listing is now `src/plotColumns.ts`,
+    shared with the division routes. A column of over 200 values cannot be chosen (as for
+    dividing).
+  - `from` / `to`: local days (`tz`) of when the plot was **last saved** (`modifiedOn`; the
+    summaries carry no first-submission time; the page says so).
+  - Refused with 400: an unknown or malformed file, a column out of range or the id column,
+    a column without value or file, a bad date, over-long texts.
+  - The answer also gives `filters: { people (everyone with a first assessment), files }`,
+    `computedAt`, `stale`, `timeZone`.
+- **The flag:** a two-proportion z-test (pooled) of the person's share of an answer against
+  **the rest of the team** (everyone in the filter but them; said in a code comment: the
+  person's own plots would pull the team's share towards theirs). |z| ≥ 3 (`FLAG_Z`), the
+  person with **at least 20 plots answering** (`FLAG_MIN_PLOTS` = the report's `MIN_PLOTS`)
+  and, added, the rest of the team with at least 20 too. Both sides of one difference are
+  listed (Forest less often, Cropland more often). Up to 100, largest |z| first, with the
+  total. The web's sentence: "Ana: cropland on 41 % of 64 plots; **the rest of the team**:
+  22 %." (the plan wrote "the team"; the figure is the rest of the team's, so the text says
+  so). The spec's own example (41 % of 64 against 22 %) is *not* flagged against a team of
+  200 (z 2.94); it is against 900 (test).
+- **Numbers:** per person and for the whole team (in the filter) the median, Q1 and Q3 by
+  linear interpolation (R type 7 / QUARTILE.INC), plots with a number and plots with
+  something else (counted, not used).
+- **Who:** coordinators and **reviewers** (`requireProjectMembership('reviewer')`);
+  collectors 403. Reviewers had only the Progress page: they now get two tabs, Progress and
+  Quality, the Quality one with this section alone and a line saying the rest is the
+  coordinators'. Nothing in My work or the personal report (test).
+- **Web:** `project/QualityAnswers.tsx`, a section of the Quality tab after the agreement
+  figures: filters in one row (person, plot file, its column, the value, saved from / until,
+  clear), the plots counted and when the figures are from (stale: newer being worked out,
+  asked again after 20 s; busy: 15 s), "Worth a look" (8, then all) with a "Show" that
+  opens the question for that person, a question picker (flag counts in it), and per
+  question a chart or a table: choices as horizontal bars per answer (the team; with a
+  person, the person and the rest of the team, two series with a legend), numbers as the
+  middle half as a bar with the median as a mark, team and each person, the scale's ends
+  written. Charts are HTML (fit any width), focusable, arrow keys / Home / End step through
+  the rows with a readout announced only while focused, hover shows the same; values at the
+  bar ends in text colours. Colours: the team `#2a6fb0`, a person `#2f7d4a` (the Quality
+  tab's mark), checked with the dataviz validator (lightness, chroma, CVD ΔE 16.9, normal
+  17.7, 3:1); the dashboard still has no dark theme. Tables scroll inside their frame on a
+  phone. `answersView.ts` (pure, tested): flag text, rows with the rest of the team, the
+  question shown, spreads, scale. 57 keys × 4 languages (i18n.ts written with CRLF kept;
+  `api.ts` and `ProjectPage.tsx` too).
+- **Tests:** server 701 (was 681: `test/answerStats.test.ts` 14 — distributions, checks /
+  drafts / deleted / no file left out, multiple and qualifiers, sparse columns, no outline,
+  filters by plots and days across zones, the person filter, z, the |z| 3 boundary from both
+  sides, 19 vs 20 plots, quartiles, numbers with non-numbers; `test/answers.routes.test.ts`
+  6 — figures, filters, refused filters, columns, roles, My work; the worker test now checks
+  the table crosses the thread), web 244 (was 239: `answersView.test.ts` 5), tsc clean in
+  both, web build ok.
+- **Postgres smoke** (`npm run smoke:pg:progress`, no new SQL; now also the answers):
+  100,000 records + 20,000 checks rewritten with 40 answers each (25 choices, 5 numbers, 10
+  texts), op3 answering q0 apart: 90,000 first assessments counted, 25 + 5 questions, only
+  op3 flagged, ALL OK. **Worker job cold (read 100,000 summaries, report + answer table,
+  hand over): 3.25 s** for `GET /quality/answers` on a fresh server; on the main thread for
+  the record: reading the summaries 1.97 s, plot context 0.23 s, report 0.16 s, answer table
+  0.19 s (so the table adds about 0.2 s to the worker's job). Then: no filter (kept) 16 ms,
+  a person 43 ms, the plot file 92 ms, days 69 / 74 ms, a person again (kept) 13 ms;
+  `GET /quality` from the same cache 26 ms. Postgres 16 in Docker on Windows.
+- **Chrome** (seeded memory server, built dashboard; 5 collectors, 396 plots, diego and
+  bruno answering apart): desktop (1366) and phone (390, emulated): flags, "Show" for a
+  person (two series and legend), the number chart, the table view, a plot file → region →
+  north filter (99 plots), keyboard readout; a reviewer gets Progress and Quality tabs with
+  the section; no page-wide horizontal scroll, no console errors. Fixed after looking: the
+  count no longer says "match the filters" for the person filter alone, and "0 plots have no
+  answer" is not said.
+- **Open:** the date filter is by the last save, not the first submission; a filter's
+  figures (up to ~90 ms at 100k) run on the event loop on a cache miss; a project whose
+  plot ids repeat across files counts a plot once per first assessment, not per file.
+
 ### Task 5: Pattern flags (improvement 9 and monitoring Phase 4 flags)
 
 **Files:**
