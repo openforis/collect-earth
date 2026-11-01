@@ -12,7 +12,8 @@ describe("matchRoute", () => {
     ["/signup", { name: "signup" }],
     ["/account", { name: "account" }],
     ["/server", { name: "server" }],
-    ["/projects/p-1", { name: "project", projectId: "p-1", tab: "overview" }],
+    ["/projects/p-1", { name: "project", projectId: "p-1", tab: "progress" }],
+    ["/projects/p-1/setup", { name: "project", projectId: "p-1", tab: "setup" }],
     ["/projects/p-1/people", { name: "project", projectId: "p-1", tab: "people" }],
     ["/projects/p-1/quality", { name: "project", projectId: "p-1", tab: "quality" }],
     ["/projects/p-1/plots?x=1", { name: "project", projectId: "p-1", tab: "plots" }],
@@ -28,7 +29,7 @@ describe("matchRoute", () => {
   });
 
   it("anything else is not found", () => {
-    for (const path of ["/projects/p/nope", "/projects/p/people/x", "/projects/p/plots/f/x", "/projects/p/my-quality/x", "/projects/p/quality/other", "/projects/p/quality/team-report/x", "/join", "/join/a/b", "/whatever", "/reset/%E0%A4%A"]) {
+    for (const path of ["/projects/p/nope", "/projects/p/overview", "/projects/p/people/x", "/projects/p/plots/f/x", "/projects/p/my-quality/x", "/projects/p/quality/other", "/projects/p/quality/team-report/x", "/join", "/join/a/b", "/whatever", "/reset/%E0%A4%A"]) {
       expect(matchRoute(path).name, path).toBe("notFound");
     }
   });
@@ -49,7 +50,8 @@ describe("matchRoute", () => {
       ...PROJECT_TABS.map((tab) => ({ name: "project" as const, projectId: "id with space", tab })),
     ];
     for (const route of routes) expect(matchRoute(pathFor(route))).toEqual(route);
-    expect(pathFor({ name: "project", projectId: "p", tab: "overview" })).toBe("/projects/p");
+    expect(pathFor({ name: "project", projectId: "p", tab: "progress" })).toBe("/projects/p");
+    expect(pathFor({ name: "project", projectId: "p", tab: "setup" })).toBe("/projects/p/setup");
     expect(pathFor({ name: "myQuality", projectId: "p" })).toBe("/projects/p/my-quality");
     expect(pathFor({ name: "teamReport", projectId: "p" })).toBe("/projects/p/quality/team-report");
   });

@@ -6,6 +6,7 @@ import { PUBLIC_SCHEMA_FIX } from './migrate.js';
 import {
   AI_INTERRUPTED,
   aiLimitReached,
+  DEFAULT_PROGRESS_SETTINGS,
   DEFAULT_SETTINGS,
   type AiRunEnd,
   type AiRunProgress,
@@ -35,6 +36,7 @@ import {
   type MemberActivityPatch,
   type Membership,
   type PlotAssignment,
+  type ProgressSettings,
   type ProjectRow,
   type ProjectStorage,
   type QualityDecision,
@@ -44,6 +46,7 @@ import {
   type RecordEventInput,
   type RecordEventQuery,
   type RecordRow,
+  type RecordState,
   type RoundInfo,
   type ServerSettings,
   type StoredDistribution,
@@ -388,6 +391,13 @@ export class PostgresStore implements Store {
         [projectId],
       );
       return res.rows.map(mapRecord);
+    });
+  }
+
+  async listRecordStates(projectId: string): Promise<RecordState[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT record_key, operator, actively_saved FROM records WHERE project_id = $1 AND NOT deleted', [projectId]);
+      return res.rows.map((r) => ({ recordKey: String(r.record_key), operator: String(r.operator), activelySaved: r.actively_saved === true, deleted: false }));
     });
   }
 
@@ -1561,6 +1571,60 @@ export class PostgresStore implements Store {
         [projectId],
       );
       return res.rows.map(mapMemberActivity);
+    });
+  }
+
+  async countSubmittedByDay(projectId: string, q: { from: number; to: number; timeZone: string }): Promise<{ date: string; count: number }[]> {
+    const count = (timeZone: string) =>
+      this.withProject(projectId, async (client) => {
+        const res = await client.query(
+          `SELECT to_char(modified_on AT TIME ZONE $4, 'YYYY-MM-DD') AS day, count(*)::int AS n
+             FROM record_events
+            WHERE project_id = $1 AND change = 'submitted' AND modified_on >= $2 AND modified_on < $3
+            GROUP BY 1
+            ORDER BY 1`,
+          [projectId, new Date(q.from), new Date(q.to), timeZone],
+        );
+        return res.rows.map((r) => ({ date: String(r.day), count: Number(r.n) }));
+      });
+    try {
+      return await count(q.timeZone);
+    } catch (err) {
+      // A name Intl knows and this database's time zone data does not: the days of UTC.
+      if ((err as { code?: string }).code === '22023' && q.timeZone !== 'UTC') {
+        return count('UTC');
+      }
+      throw err;
+    }
+  }
+
+  async unsentDelays(projectId: string, since: number): Promise<{ operator: string; medianMs: number; uploads: number }[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT operator,
+                percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM received_at - modified_on) * 1000) AS median,
+                count(*)::int AS n
+           FROM record_events
+          WHERE project_id = $1 AND change <> 'deleted' AND received_at >= $2
+          GROUP BY operator
+          ORDER BY operator COLLATE "C"`,
+        [projectId, new Date(since)],
+      );
+      return res.rows.map((r) => ({ operator: String(r.operator), medianMs: Number(r.median), uploads: Number(r.n) }));
+    });
+  }
+
+  async getProgressSettings(projectId: string): Promise<ProgressSettings> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT progress_settings FROM projects WHERE id = $1', [projectId]);
+      const stored = res.rows[0]?.progress_settings as Partial<ProgressSettings> | null | undefined;
+      return { ...DEFAULT_PROGRESS_SETTINGS, ...(stored ?? {}) };
+    });
+  }
+
+  async setProgressSettings(projectId: string, settings: ProgressSettings): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('UPDATE projects SET progress_settings = $2 WHERE id = $1', [projectId, JSON.stringify(settings)]);
     });
   }
 

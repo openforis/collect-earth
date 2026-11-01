@@ -45,7 +45,8 @@ function NewProjectDialog({ open, onClose }: { open: boolean; onClose: () => voi
     try {
       const created = await createProject(name.trim());
       await refreshMe();
-      navigate(pathFor({ name: "project", projectId: created.projectId, tab: "overview" }));
+      // A new project starts on its getting-started checklist.
+      navigate(pathFor({ name: "project", projectId: created.projectId, tab: "setup" }));
     } catch (err) {
       setError(err);
     } finally {
@@ -117,7 +118,7 @@ export function ProjectsPage() {
           {projects.data?.map((p) => (
             <Grid key={p.projectId} size={{ xs: 12, sm: 6 }}>
               <Card variant="outlined" sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-                <CardActionArea {...linkProps(pathFor({ name: "project", projectId: p.projectId, tab: "overview" }))} sx={{ flex: 1 }}>
+                <CardActionArea {...linkProps(pathFor({ name: "project", projectId: p.projectId, tab: "progress" }))} sx={{ flex: 1 }}>
                   <CardContent>
                     <Typography variant="h3" component="h2" gutterBottom sx={{ wordBreak: "break-word" }}>
                       {p.projectName}

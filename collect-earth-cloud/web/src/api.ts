@@ -1501,3 +1501,177 @@ export async function makeResetLink(userId: string): Promise<ResetLink> {
   const body = await request<{ resetUrl?: string; expiresAt?: unknown }>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/password-reset`);
   return { resetUrl: absoluteUrl(body?.resetUrl ?? null, "/"), expiresAt: toMillis(body?.expiresAt) };
 }
+
+// --- progress (the Progress tab) -----------------------------------------------------
+
+export interface ProgressSettings {
+  /** YYYY-MM-DD, or null. */
+  deadline: string | null;
+  /** null: every assigned plot. */
+  targetPlots: number | null;
+  quietDays: number;
+}
+
+export interface ProgressTotals {
+  plots: number;
+  assigned: number;
+  notAssigned: number;
+  submitted: number;
+  started: number;
+  notStarted: number;
+}
+
+export interface ProgressDay {
+  date: string;
+  /** Records submitted for the first time that day (checks included). */
+  submitted: number;
+  /** Plots submitted by the end of the day, as things are now. */
+  cumulative: number;
+}
+
+export interface Forecast {
+  target: number;
+  targetFrom: "setting" | "assigned";
+  remaining: number;
+  pacePerDay: number;
+  paceDays: number;
+  daysLeft: number | null;
+  endDate: string | null;
+  deadline: string | null;
+  daysToDeadline: number | null;
+  daysOver: number | null;
+  neededPerDay: number | null;
+}
+
+export interface AttentionPerson {
+  username: string;
+  lastSyncAt: number | null;
+  medianDelayMs: number | null;
+}
+
+export type AttentionKind =
+  | "quiet"
+  | "neverDownloaded"
+  | "notAssigned"
+  | "oldUnsentWork"
+  | "differencesWaiting"
+  | "storage"
+  | "oldProjectFile"
+  | "oldCollectEarth";
+
+export const ATTENTION_KINDS: readonly AttentionKind[] = [
+  "quiet",
+  "neverDownloaded",
+  "notAssigned",
+  "oldUnsentWork",
+  "differencesWaiting",
+  "storage",
+  "oldProjectFile",
+  "oldCollectEarth",
+];
+
+export interface AttentionItem {
+  kind: AttentionKind;
+  count: number;
+  people: AttentionPerson[];
+  /** quiet */
+  quietDays: number | null;
+  /** oldCollectEarth: people whose Collect Earth could not be told. */
+  unknownVersion: number;
+  /** storage */
+  level: "nearlyFull" | "over" | null;
+  usedBytes: number | null;
+  limitBytes: number | null;
+}
+
+export interface ProgressData {
+  timeZone: string;
+  today: string;
+  totals: ProgressTotals;
+  daily: ProgressDay[];
+  forecast: Forecast;
+  /** Null for a reviewer. */
+  attention: AttentionItem[] | null;
+  settings: ProgressSettings;
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const toDate = (value: unknown): string | null => (typeof value === "string" && DATE_RE.test(value) ? value : null);
+const toNumberOrNull = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
+
+export function toProgressSettings(value: unknown): ProgressSettings {
+  const s = (value ?? {}) as Record<string, unknown>;
+  const target = toNumberOrNull(s.targetPlots);
+  const quiet = toNumberOrNull(s.quietDays);
+  return { deadline: toDate(s.deadline), targetPlots: target !== null && target > 0 ? target : null, quietDays: quiet !== null && quiet > 0 ? quiet : 3 };
+}
+
+export function toProgressData(body: unknown): ProgressData {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const t = (b.totals ?? {}) as Record<string, unknown>;
+  const f = (b.forecast ?? {}) as Record<string, unknown>;
+  const daily = Array.isArray(b.daily) ? (b.daily as Record<string, unknown>[]) : [];
+  const attention = Array.isArray(b.attention) ? (b.attention as Record<string, unknown>[]) : null;
+  return {
+    timeZone: typeof b.timeZone === "string" ? b.timeZone : "UTC",
+    today: toDate(b.today) ?? new Date().toISOString().slice(0, 10),
+    totals: {
+      plots: toCount(t.plots),
+      assigned: toCount(t.assigned),
+      notAssigned: toCount(t.notAssigned),
+      submitted: toCount(t.submitted),
+      started: toCount(t.started),
+      notStarted: toCount(t.notStarted),
+    },
+    daily: daily
+      .filter((d) => toDate(d.date) !== null)
+      .map((d) => ({ date: String(d.date), submitted: toCount(d.submitted), cumulative: toCount(d.cumulative) })),
+    forecast: {
+      target: toCount(f.target),
+      targetFrom: f.targetFrom === "setting" ? "setting" : "assigned",
+      remaining: toCount(f.remaining),
+      pacePerDay: toNumberOrNull(f.pacePerDay) ?? 0,
+      paceDays: toCount(f.paceDays) || 14,
+      daysLeft: toNumberOrNull(f.daysLeft),
+      endDate: toDate(f.endDate),
+      deadline: toDate(f.deadline),
+      daysToDeadline: toNumberOrNull(f.daysToDeadline),
+      daysOver: toNumberOrNull(f.daysOver),
+      neededPerDay: toNumberOrNull(f.neededPerDay),
+    },
+    attention:
+      attention === null
+        ? null
+        : attention
+            .filter((a) => ATTENTION_KINDS.includes(a.kind as AttentionKind))
+            .map((a) => ({
+              kind: a.kind as AttentionKind,
+              count: toCount(a.count),
+              people: (Array.isArray(a.people) ? (a.people as Record<string, unknown>[]) : []).map((person) => ({
+                username: String(person.username ?? ""),
+                lastSyncAt: toMillis(person.lastSyncAt),
+                medianDelayMs: toNumberOrNull(person.medianDelayMs),
+              })),
+              quietDays: toNumberOrNull(a.quietDays),
+              unknownVersion: toCount(a.unknownVersion),
+              level: a.level === "over" || a.level === "nearlyFull" ? a.level : null,
+              usedBytes: toNumberOrNull(a.usedBytes),
+              limitBytes: toNumberOrNull(a.limitBytes),
+            })),
+    settings: toProgressSettings(b.settings),
+  };
+}
+
+/** The Progress tab's figures, with the days in the browser's time zone. */
+export async function getProgress(projectId: string, timeZone: string, days = 90): Promise<ProgressData> {
+  const query = new URLSearchParams({ days: String(days), tz: timeZone });
+  return toProgressData(await request<unknown>("GET", `${p(projectId)}/progress?${query}`));
+}
+
+export async function getProgressSettings(projectId: string): Promise<ProgressSettings> {
+  return toProgressSettings(await request<unknown>("GET", `${p(projectId)}/progress/settings`));
+}
+
+export async function saveProgressSettings(projectId: string, settings: ProgressSettings): Promise<ProgressSettings> {
+  return toProgressSettings(await request<unknown>("PUT", `${p(projectId)}/progress/settings`, { json: settings }));
+}

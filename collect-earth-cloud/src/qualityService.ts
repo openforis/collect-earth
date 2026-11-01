@@ -36,6 +36,8 @@ export interface PlotContext {
   copyHolders: Map<string, Set<string>>;
   /** unit -> usernames holding it as a main plot, for every plot of a divided file (empty when no one does). */
   mainHolders: Map<string, Set<string>>;
+  /** csv file id -> its units (files that could not be read are left out). */
+  fileUnits: Map<string, readonly string[]>;
 }
 
 /**
@@ -58,6 +60,7 @@ export async function loadPlotContext(
   const keyCount = fileKeyCount(info);
   const units = new Set<string>();
   const mainHolders = new Map<string, Set<string>>();
+  const fileUnits = new Map<string, readonly string[]>();
   for (const meta of files) {
     try {
       const file = await store.getCsvFile(projectId, meta.id);
@@ -65,7 +68,9 @@ export async function loadPlotContext(
         continue;
       }
       const divided = meta.distribution != null;
-      for (const id of plotIdsOf(file, keyCount)) {
+      const ids = plotIdsOf(file, keyCount);
+      fileUnits.set(meta.id, ids);
+      for (const id of ids) {
         units.add(id);
         if (divided && !mainHolders.has(id)) {
           mainHolders.set(id, new Set());
@@ -89,7 +94,7 @@ export async function loadPlotContext(
       set.add(username);
     }
   }
-  return { info, units, copyHolders: copyHoldersOf(holdings, usernames), mainHolders };
+  return { info, units, copyHolders: copyHoldersOf(holdings, usernames), mainHolders, fileUnits };
 }
 
 /** Thrown by QualityWorker.run when no worker can be started (the job never ran). */

@@ -25,6 +25,7 @@ import type {
   MemberActivityPatch,
   Membership,
   PlotAssignment,
+  ProgressSettings,
   ProjectRow,
   ProjectStorage,
   QualityDecision,
@@ -33,6 +34,7 @@ import type {
   RecordEventInput,
   RecordEventQuery,
   RecordRow,
+  RecordState,
   RoundInfo,
   Role,
   ServerSettings,
@@ -237,6 +239,9 @@ export interface Store {
   /** As listRecords without deleted ones and with xml left null: for the overview and the export. */
   listRecordSummaries(projectId: string): Promise<RecordRow[]>;
 
+  /** Which records there are and whether each is submitted (deleted ones left out): no answers, for the Progress tab. */
+  listRecordStates(projectId: string): Promise<RecordState[]>;
+
   // --- Quality review (decisions, notes, margins) ---
 
   /**
@@ -322,6 +327,21 @@ export interface Store {
   touchMemberActivity(projectId: string, userId: string, patch: MemberActivityPatch): Promise<void>;
   /** The activity of the project's members who have any, by user id. */
   listMemberActivity(projectId: string): Promise<MemberActivity[]>;
+  /**
+   * First submissions (record events `submitted`) with modifiedOn in [from, to), counted
+   * per calendar day (YYYY-MM-DD) of `timeZone` (an IANA name checked by isTimeZone);
+   * days without any are left out. Postgres groups them itself.
+   */
+  countSubmittedByDay(projectId: string, query: { from: number; to: number; timeZone: string }): Promise<{ date: string; count: number }[]>;
+  /**
+   * Per operator, the median of receivedAt − modifiedOn over their record events
+   * received at or after `since` (deletions left out): how long saved work waits before
+   * it reaches the server.
+   */
+  unsentDelays(projectId: string, since: number): Promise<{ operator: string; medianMs: number; uploads: number }[]>;
+  /** The progress settings; DEFAULT_PROGRESS_SETTINGS when none were saved. */
+  getProgressSettings(projectId: string): Promise<ProgressSettings>;
+  setProgressSettings(projectId: string, settings: ProgressSettings): Promise<void>;
   /** Logs a coordinator action at the current time. */
   appendAudit(projectId: string, entry: AuditInput): Promise<void>;
   /** The project's audit log, newest first (at, then id). Throws InvalidCursorError as listRecordEvents. */

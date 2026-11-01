@@ -17,13 +17,15 @@ import { OverviewTab } from "../project/OverviewTab";
 import { PeopleTab } from "../project/PeopleTab";
 import { PlotFilePage } from "../project/PlotFilePage";
 import { PlotsTab } from "../project/PlotsTab";
+import { ProgressTab } from "../project/ProgressTab";
 import { QualityTab } from "../project/QualityTab";
 import { SettingsTab } from "../project/SettingsTab";
 import { linkProps, navigate, pathFor, PROJECT_TABS, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 
 const TAB_LABELS = {
-  overview: "tab.overview",
+  progress: "tab.progress",
+  setup: "tab.setup",
   file: "tab.file",
   people: "tab.people",
   plots: "tab.plots",
@@ -67,6 +69,23 @@ export function ProjectPage({ projectId, tab, fileId }: { projectId: string; tab
   }
 
   const info = project.data;
+  const go = (next: ProjectTab) => navigate(pathFor({ name: "project", projectId, tab: next }));
+  // A reviewer follows the progress (without the cards that name people); the other tabs are the coordinators'.
+  if (info.role === "reviewer" && tab === "progress") {
+    return (
+      <AppShell>
+        <Typography variant="h1" sx={{ mb: 1, wordBreak: "break-word" }}>
+          {info.name}
+        </Typography>
+        <Box sx={{ mb: 3 }}>
+          <Button variant="outlined" {...linkProps(pathFor({ name: "myQuality", projectId }))}>
+            {t("myQuality.link")}
+          </Button>
+        </Box>
+        <ProgressTab projectId={projectId} onGo={go} />
+      </AppShell>
+    );
+  }
   if (info.role !== "admin") {
     return (
       <AppShell>
@@ -85,9 +104,9 @@ export function ProjectPage({ projectId, tab, fileId }: { projectId: string; tab
     );
   }
 
-  const go = (next: ProjectTab) => navigate(pathFor({ name: "project", projectId, tab: next }));
   const content = {
-    overview: <OverviewTab projectId={projectId} onGo={go} />,
+    progress: <ProgressTab projectId={projectId} onGo={go} />,
+    setup: <OverviewTab projectId={projectId} onGo={go} />,
     file: <FileTab projectId={projectId} />,
     people: <PeopleTab projectId={projectId} />,
     plots: fileId ? <PlotFilePage key={fileId} projectId={projectId} fileId={fileId} onGo={go} /> : <PlotsTab projectId={projectId} onGo={go} />,

@@ -10,11 +10,12 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import DeleteForever from "@mui/icons-material/DeleteForever";
 import { useState, type FormEvent } from "react";
-import { deleteProject, getProjectAi, renameProject, setProjectAi } from "../api";
+import { deleteProject, getProgressSettings, getProjectAi, renameProject, saveProgressSettings, setProjectAi, type ProgressSettings } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { useT } from "../i18n";
+import { progressDraftOf, readProgressDraft, type ProgressDraft, type ProgressProblems } from "../progressView";
 import { linkProps, navigate, pathFor } from "../router";
 import { useLoad } from "../useLoad";
 
@@ -76,6 +77,104 @@ function RenameCard({ projectId, name, onRenamed }: { projectId: string; name: s
             {t("common.save")}
           </Button>
         </Box>
+      </Stack>
+    </Paper>
+  );
+}
+
+/** The Progress tab's settings: an optional deadline and target, and when someone counts as quiet. */
+function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string; saved: ProgressSettings; onSaved: (s: ProgressSettings) => void }) {
+  const t = useT();
+  const [draft, setDraft] = useState<ProgressDraft>(() => progressDraftOf(saved));
+  const [problems, setProblems] = useState<ProgressProblems>({});
+  const [error, setError] = useState<unknown>(null);
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const change = (field: keyof ProgressDraft) => (value: string) => {
+    setDraft((d) => ({ ...d, [field]: value }));
+    setProblems((p) => ({ ...p, [field]: undefined }));
+    setDone(false);
+  };
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setDone(false);
+    const read = readProgressDraft(draft);
+    setProblems(read.problems);
+    if (Object.keys(read.problems).length > 0) return;
+    setBusy(true);
+    try {
+      const next = await saveProgressSettings(projectId, read.settings);
+      onSaved(next);
+      setDraft(progressDraftOf(next));
+      setDone(true);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Stack component="form" spacing={2} onSubmit={submit} noValidate>
+      <TextField
+        type="date"
+        label={t("progressSettings.deadline")}
+        value={draft.deadline}
+        onChange={(e) => change("deadline")(e.target.value)}
+        error={problems.deadline !== undefined}
+        helperText={problems.deadline ? t(problems.deadline) : t("progressSettings.deadlineHelp")}
+        slotProps={{ inputLabel: { shrink: true } }}
+      />
+      <TextField
+        label={t("progressSettings.target")}
+        value={draft.targetPlots}
+        onChange={(e) => change("targetPlots")(e.target.value)}
+        error={problems.targetPlots !== undefined}
+        helperText={problems.targetPlots ? t(problems.targetPlots) : t("progressSettings.targetHelp")}
+        slotProps={{ htmlInput: { inputMode: "numeric" } }}
+      />
+      <TextField
+        label={t("progressSettings.quietDays")}
+        value={draft.quietDays}
+        onChange={(e) => change("quietDays")(e.target.value)}
+        error={problems.quietDays !== undefined}
+        helperText={problems.quietDays ? t(problems.quietDays) : t("progressSettings.quietDaysHelp")}
+        slotProps={{ htmlInput: { inputMode: "numeric" } }}
+      />
+      {done && (
+        <Alert severity="success" role="status">
+          {t("progressSettings.saved")}
+        </Alert>
+      )}
+      <ErrorAlert error={error} />
+      <Box>
+        <Button type="submit" variant="contained" disabled={busy}>
+          {t("common.save")}
+        </Button>
+      </Box>
+    </Stack>
+  );
+}
+
+function ProgressCard({ projectId }: { projectId: string }) {
+  const t = useT();
+  const settings = useLoad(() => getProgressSettings(projectId), [projectId]);
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="settings-progress">
+      <Stack spacing={2}>
+        <Typography variant="h2" id="settings-progress">
+          {t("progressSettings.title")}
+        </Typography>
+        <Typography>{t("progressSettings.intro")}</Typography>
+        {settings.loading && !settings.data ? (
+          <Loading />
+        ) : settings.error || !settings.data ? (
+          <ErrorAlert error={settings.error} onRetry={settings.reload} />
+        ) : (
+          <ProgressSettingsForm projectId={projectId} saved={settings.data} onSaved={settings.setData} />
+        )}
       </Stack>
     </Paper>
   );
@@ -201,6 +300,7 @@ export function SettingsTab({ projectId, name, onRenamed }: { projectId: string;
   return (
     <Stack spacing={3}>
       <RenameCard projectId={projectId} name={name} onRenamed={onRenamed} />
+      <ProgressCard projectId={projectId} />
       <AiCard projectId={projectId} />
       <DeleteCard projectId={projectId} name={name} />
     </Stack>

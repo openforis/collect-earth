@@ -160,7 +160,7 @@ export function MyQualityPage({ projectId }: { projectId: string }) {
   useRefreshWhileStale(mine);
   const data = mine.data;
   return (
-    <ReportFrame projectId={projectId} title={t("myQuality.title")} back="overview">
+    <ReportFrame projectId={projectId} title={t("myQuality.title")} back="progress">
       <Typography color="text.secondary">{t("myQuality.intro")}</Typography>
       {!data ? (
         mine.loading ? <Loading /> : <ErrorAlert error={mine.error} onRetry={mine.reload} />

@@ -2,10 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { generateToken, hashToken } from '../auth.js';
 import { legacyRoundInfo } from '../cep.js';
 import { checksumOf, plotCountOf } from '../csv.js';
+import { localDate } from '../days.js';
 import { fileKeyCount } from '../rounds.js';
 import {
   AI_INTERRUPTED,
   aiLimitReached,
+  DEFAULT_PROGRESS_SETTINGS,
   DEFAULT_SETTINGS,
   type AiRunEnd,
   type AiRunProgress,
@@ -33,6 +35,7 @@ import {
   type MemberActivityPatch,
   type Membership,
   type PlotAssignment,
+  type ProgressSettings,
   type ProjectRow,
   type ProjectStorage,
   type QualityDecision,
@@ -41,6 +44,7 @@ import {
   type RecordEventInput,
   type RecordEventQuery,
   type RecordRow,
+  type RecordState,
   type RoundInfo,
   type Role,
   type ServerSettings,
@@ -70,6 +74,7 @@ interface ProjectEntry {
   recordsGeneration: number;
   holdingsGeneration: number;
   qualitySettings: QualitySettings | null;
+  progressSettings: ProgressSettings | null;
   aiEnabled: boolean;
   /** Oldest first; `startedBy` holds the user id (the username is read when listed). */
   aiRuns: AiRunRow[];
@@ -163,6 +168,7 @@ export class InMemoryStore implements Store {
       recordsGeneration: 0,
       holdingsGeneration: 0,
       qualitySettings: null,
+      progressSettings: null,
       aiEnabled: false,
       aiRuns: [],
       decisions: new Map(),
@@ -321,6 +327,10 @@ export class InMemoryStore implements Store {
 
   async listRecordSummaries(projectId: string): Promise<RecordRow[]> {
     return (await this.listRecords(projectId)).map((r) => ({ ...r, xml: null }));
+  }
+
+  async listRecordStates(projectId: string): Promise<RecordState[]> {
+    return (await this.listRecords(projectId)).map((r) => ({ recordKey: r.recordKey, operator: r.operator, activelySaved: r.activelySaved, deleted: r.deleted }));
   }
 
   // --- Users & sessions ---
@@ -1147,6 +1157,44 @@ export class InMemoryStore implements Store {
   async listMemberActivity(projectId: string): Promise<MemberActivity[]> {
     const activity = this.projects.get(projectId)?.memberActivity ?? new Map<string, MemberActivity>();
     return [...activity.values()].map((a) => ({ ...a })).sort((x, y) => (x.userId < y.userId ? -1 : x.userId > y.userId ? 1 : 0));
+  }
+
+  async countSubmittedByDay(projectId: string, q: { from: number; to: number; timeZone: string }): Promise<{ date: string; count: number }[]> {
+    const counts = new Map<string, number>();
+    for (const e of this.projects.get(projectId)?.recordEvents ?? []) {
+      if (e.change === 'submitted' && e.modifiedOn >= q.from && e.modifiedOn < q.to) {
+        const date = localDate(e.modifiedOn, q.timeZone);
+        counts.set(date, (counts.get(date) ?? 0) + 1);
+      }
+    }
+    return [...counts].sort(([a], [b]) => (a < b ? -1 : 1)).map(([date, count]) => ({ date, count }));
+  }
+
+  async unsentDelays(projectId: string, since: number): Promise<{ operator: string; medianMs: number; uploads: number }[]> {
+    const waits = new Map<string, number[]>();
+    for (const e of this.projects.get(projectId)?.recordEvents ?? []) {
+      if (e.change !== 'deleted' && e.receivedAt >= since) {
+        const list = waits.get(e.operator) ?? [];
+        list.push(e.receivedAt - e.modifiedOn);
+        waits.set(e.operator, list);
+      }
+    }
+    // As Postgres's percentile_cont(0.5): the middle one, or halfway between the two middle ones.
+    return [...waits]
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([operator, list]) => {
+        list.sort((a, b) => a - b);
+        const mid = (list.length - 1) / 2;
+        return { operator, medianMs: (list[Math.floor(mid)] + list[Math.ceil(mid)]) / 2, uploads: list.length };
+      });
+  }
+
+  async getProgressSettings(projectId: string): Promise<ProgressSettings> {
+    return { ...(this.projects.get(projectId)?.progressSettings ?? DEFAULT_PROGRESS_SETTINGS) };
+  }
+
+  async setProgressSettings(projectId: string, settings: ProgressSettings): Promise<void> {
+    this.requireProject(projectId).progressSettings = { ...settings };
   }
 
   async appendAudit(projectId: string, input: AuditInput): Promise<void> {

@@ -4,7 +4,8 @@ import { useSyncExternalStore, type MouseEvent } from "react";
 // path <-> route table is all it needs. The server returns index.html for every
 // app path (/join/<token>, /projects/..., /setup, /reset/<token>), so deep links work.
 
-export const PROJECT_TABS = ["overview", "file", "people", "plots", "data", "quality", "settings"] as const;
+// Progress is the first tab (its path is the project's own); Setup is the getting-started checklist.
+export const PROJECT_TABS = ["progress", "setup", "file", "people", "plots", "data", "quality", "settings"] as const;
 export type ProjectTab = (typeof PROJECT_TABS)[number];
 
 export type Route =
@@ -73,7 +74,7 @@ export function matchRoute(pathname: string): Route {
   }
   if (first === "projects" && (parts.length === 2 || parts.length === 3)) {
     const projectId = decode(second);
-    const tab = (third ?? "overview") as ProjectTab;
+    const tab = (third ?? "progress") as ProjectTab;
     if (projectId && PROJECT_TABS.includes(tab)) return { name: "project", projectId, tab };
   }
   if (first === "projects" && parts.length === 4 && third === "plots") {
@@ -90,7 +91,7 @@ export function pathFor(route: Route): string {
     case "home":
       return "/";
     case "project":
-      return `/projects/${encodeURIComponent(route.projectId)}${route.tab === "overview" ? "" : `/${route.tab}`}`;
+      return `/projects/${encodeURIComponent(route.projectId)}${route.tab === "progress" ? "" : `/${route.tab}`}`;
     case "plotFile":
       return `/projects/${encodeURIComponent(route.projectId)}/plots/${encodeURIComponent(route.fileId)}`;
     case "myQuality":

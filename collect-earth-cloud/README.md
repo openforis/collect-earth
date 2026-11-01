@@ -51,6 +51,7 @@ and drops its own database and roles, so never point it at a real server.
 ```bash
 docker run -d --rm --name ce-pg-smoke -e POSTGRES_PASSWORD=pw -p 55481:5432 postgres:16
 npm run smoke:pg -- 55481      # the port; prints one line per check, then ALL OK
+npm run smoke:pg:progress -- 55481   # the Progress tab (migration 013), with GET /progress on 100,000 records
 docker stop ce-pg-smoke
 ```
 
@@ -107,6 +108,8 @@ session tokens** (from login, access via `project_members`).
 | `PATCH` | `/v1/projects/:pid` | admin | `{name}` → `{projectId, name}` |
 | `DELETE` | `/v1/projects/:pid` | admin | `{confirmName}` (must equal the project name, else 400 `confirm_mismatch`) → 204: deletes the project and all its data — records, CEP, plot CSVs, assignments, invites, memberships, Phase-0 tokens — in one transaction. Cannot be undone |
 | `GET`  | `/v1/projects/:pid/overview` | admin | `{name, cep: {bytes, updatedAt} \| null, members, csvFiles, plots, records: {total, submitted, byOperator: [{operator, total, submitted, lastModifiedOn}]}, storage: {usedBytes, limitBytes \| null}}` — deleted records excluded from the counts, times in epoch ms; `storage` = CEP + CSV bytes + stored record xml/summary bytes |
+| `GET`  | `/v1/projects/:pid/progress?days=90&tz=Europe/Rome` | admin, reviewer | The Progress tab: `{timeZone, today, totals: {plots, assigned, notAssigned, submitted, started, notStarted}, daily: [{date, submitted, cumulative}], forecast, attention: [...] \| null, settings}` — totals per plot unit (first assessments only), `daily.submitted` = first submissions that day in `tz` (checked against the IANA list, else UTC), `days` 14-366; `attention` (the cards that name people) is null for a reviewer |
+| `GET`/`PUT` | `/v1/projects/:pid/progress/settings` | admin | `{deadline: "YYYY-MM-DD" \| null, targetPlots: 1-10000000 \| null, quietDays: 1-365}` (defaults null, null, 3); a change is audited as `settings.changed` |
 | `GET`  | `/v1/projects/:pid/invites` | admin | Open invites (not revoked, expired or used up) `{invites: [{id, role, maxUses, usedCount, expiresAt, createdAt}]}` — the token is only shown at creation |
 | `DELETE` | `/v1/projects/:pid/invites/:id` | admin | Revoke → 204 (404 if not an open invite of this project) |
 | `GET`  | `/v1/projects/:pid/export.csv` | admin | One row per non-deleted `(recordKey, operator)`: `record_key, plot, round, assessment, final, operator, actively_saved, modified_on` (ISO 8601; `assessment` is `main`, `check` or `other`; without `round` in the key, round is 1 or 2 from who holds the plot as a quality-check copy; `final` is `yes`/`no` for the answer a coordinator's decision accepted, `recheck`, or empty) + the sorted union of summary keys; RFC 4180, UTF-8 BOM, `content-disposition: attachment` |

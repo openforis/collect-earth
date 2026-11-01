@@ -225,10 +225,26 @@ export interface RecordRow {
   deletedOn: number | null;
 }
 
+/** A record without its answers: listRecordStates. */
+export type RecordState = Pick<RecordRow, 'recordKey' | 'operator' | 'activelySaved' | 'deleted'>;
+
 /** A project's quality-review settings: number margins (percent) by question key. */
 export interface QualitySettings {
   margins: Record<string, number>;
 }
+
+/**
+ * A project's progress settings (the Progress tab): an optional deadline (a calendar
+ * day, YYYY-MM-DD), an optional target in plots (null: every assigned plot), and after
+ * how many days without a sync someone with plots left counts as quiet.
+ */
+export interface ProgressSettings {
+  deadline: string | null;
+  targetPlots: number | null;
+  quietDays: number;
+}
+
+export const DEFAULT_PROGRESS_SETTINGS: ProgressSettings = { deadline: null, targetPlots: null, quietDays: 3 };
 
 /** Which answer of a differing plot is right: the first assessment, the check, or neither (look again). */
 export type DecisionKind = 'first' | 'check' | 'recheck';

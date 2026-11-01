@@ -164,7 +164,7 @@ const act = await store.listMemberActivity(a);
 const m = act.find((x) => x.userId === maria.userId);
 check(
   "maria's activity: syncs, records, downloads, the desktop's agent",
-  !!m && m.syncsCount === 7 && m.recordsReceived === 8 && m.lastCepDownloadAt !== null && m.lastPlotsDownloadAt !== null && m.lastSyncAt !== null && m.clientAgent === 'lightMyRequest' /* the last desktop call: batchRequest sends inject's default agent */,
+  !!m && m.syncsCount === 7 && m.recordsReceived === 8 && m.lastCepDownloadAt !== null && m.lastPlotsDownloadAt !== null && m.lastSyncAt !== null && m.clientAgent === 'CollectEarth/1.22.0 (smoke)' /* only Collect Earth's agent is kept (Task 21): batchRequest's inject default agent is not */,
   act,
 );
 await store.touchMemberActivity(a, maria.userId, { lastSeenAt: 1, syncs: 1, recordsReceived: 1, clientAgent: 'later' });

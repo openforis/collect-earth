@@ -511,7 +511,7 @@ type ResolverInput = Pick<QualityInput, 'info' | 'units' | 'copyHolders'>;
  * (its round tells the plots apart, and the reassessment code cannot be matched to a
  * unit). Decisions are keyed by that group.
  */
-function recordResolver({ info, units, copyHolders }: ResolverInput) {
+export function recordResolver({ info, units, copyHolders }: ResolverInput) {
   const shape = keyShape(info);
   const copyUnits = copyUnitsByUser(copyHolders);
   const ownRound = info?.state === 'own' && shape.roundIndex !== null;
