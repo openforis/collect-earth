@@ -13,7 +13,7 @@ import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.SchemaService;
 import org.openforis.collect.earth.app.view.DataFormat;
-import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
+import org.openforis.collect.earth.app.service.AnalysisProgress;
 import org.openforis.collect.earth.app.view.FileChooserUtils;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.controller.StratumUtils;
@@ -73,7 +73,7 @@ public class IPCCGenerator {
 												// current year
 	public static final int START_YEAR = 2000; // Assume start year at 2000
 
-	public File generateRDB(Survey survey, InfiniteProgressMonitor progressListener) throws IPCCGeneratorException {
+	public File generateRDB(Survey survey, AnalysisProgress progressListener) throws IPCCGeneratorException {
 
 		ipccSurveyAdapter = new IPCCSurveyAdapter( landUses );
 		
@@ -94,7 +94,7 @@ public class IPCCGenerator {
 		return null;
 	}
 
-	public void produceOutputs(Survey survey, InfiniteProgressMonitor progressListener) {
+	public void produceOutputs(Survey survey, AnalysisProgress progressListener) {
 
 		progressListener.hide();
 

@@ -15,7 +15,6 @@ import javax.swing.SwingUtilities;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
-import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.collect.earth.core.rdb.RelationalSchemaContext;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.relational.CollectRDBPublisher;
@@ -155,7 +154,7 @@ public class RDBExporter extends RDBConnector{
 	public boolean exportDataToRDB(
 			Survey survey, 
 			ExportType exportType, 
-			InfiniteProgressMonitor progressListener,
+			AnalysisProgress progressListener,
 			RDBPostProcessor callbackProcessor ) throws CollectRdbException {
 		
 		setExportTypeUsed(exportType);

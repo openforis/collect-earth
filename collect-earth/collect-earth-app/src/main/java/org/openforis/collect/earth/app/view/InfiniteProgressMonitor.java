@@ -10,9 +10,9 @@ import javax.swing.SwingUtilities;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.concurrency.Progress;
-import org.openforis.concurrency.ProgressListener;
+import org.openforis.collect.earth.app.service.AnalysisProgress;
 
-public class InfiniteProgressMonitor implements ProgressListener {
+public class InfiniteProgressMonitor implements AnalysisProgress {
 
 	JDialog infiniteWaitingDialog;
 

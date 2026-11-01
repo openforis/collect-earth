@@ -25,7 +25,6 @@ import org.openforis.collect.earth.app.model.AspectCode;
 import org.openforis.collect.earth.app.model.DynamicsCode;
 import org.openforis.collect.earth.app.model.SlopeCode;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
-import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.relational.CollectRDBPublisher;
@@ -384,7 +383,7 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 	}
 
 
-	public void prepareDataForAnalysis(InfiniteProgressMonitor progressListener, boolean startSaikuAfterDBExport) throws SaikuExecutionException {
+	public void prepareDataForAnalysis(AnalysisProgress progressListener, boolean startSaikuAfterDBExport) throws SaikuExecutionException {
 
 		try {
 
@@ -451,7 +450,7 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 		}
 	}
 
-	private void processQuantityData(InfiniteProgressMonitor progressListener) {
+	private void processQuantityData(AnalysisProgress progressListener) {
 
 		SwingUtilities.invokeLater( () ->  progressListener.setMessage("Preparing Saiku data for analysis") );
 
