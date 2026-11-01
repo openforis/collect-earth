@@ -108,6 +108,47 @@ desktop.
 - An audit entry per action.
 - Isolation between two projects in both stores, plus the Postgres smoke.
 
+**As built** (a05cd9dc; differs from the above)
+- **`change`** (`recordChange`, `src/lww.ts`): a first upload already actively saved is
+  `submitted`, not `created` (Collect Earth mostly syncs after Save, and Task 2 counts
+  `submitted`); a record coming back after a tombstone is `created`/`submitted` again; a
+  submitted plot saved again is `updated` (so re-saves do not count as new submissions;
+  Task 12 can find them as `updated` with `activelySaved`). **The same save sent again**
+  (same `modifiedOn`, `deleted` and actively saved: a retried batch) logs nothing.
+- **The backfill** gives each record the change a first upload would have had
+  (`submitted` with its summary, `created`, or `deleted`), not always `created`. It runs
+  only while `record_events` is empty (migrations run on every boot): records written by
+  an older instance during a rolling deploy, after it ran, get no event.
+- **The event is written after the record, in its own transaction**; a failed event write
+  is logged and the record still answered `stored`.
+- **`member_activity`** also references `project_members` (ON DELETE CASCADE), and the
+  upsert writes only for a member, so a coalesced write after a removal adds nothing.
+  `last_seen_at` is any answered request of a member with a session (an `onResponse`
+  hook), not only the four routes; `client_agent` is taken only from those four
+  (`records:batch`, `my-assignment`, a plot file's content, `GET /cep`), so the dashboard's
+  browser does not replace Collect Earth's. A coordinator downloading a plot file or the
+  CEP from the dashboard still sets it. `records_received` counts the records stored.
+  The coalescer (`ActivityRecorder`, `app.activity`) writes a member's first call at once
+  and the rest a minute after that write; `flush()` for tests, written on close.
+- **Audit actions:** added `assignments.set` (the whole-file assignment grid), not in the
+  list. `settings.changed` has `{ setting: 'quality' | 'round' | 'ai' | 'name' }`.
+  Guidance notes are not audited. The `CHECK` lists every action of the plan (later tasks'
+  too), named `audit_log_action_check` to widen later. `at` is the server's clock, as
+  `received_at`.
+- **Store:** `listRecordEvents(projectId, { from, to, operator?, limit, before? })`,
+  `listAudit(projectId, { limit, before?, actor?, action? })`, newest first; `before` is a
+  cursor `{ at, id }` (ids are BIGSERIAL, as strings), so rows at the same time are
+  neither lost nor repeated between pages. `listAudit` gives the actor's username too.
+  `appendAudit(projectId, { actorUserId, action, details })`.
+- **No grants in 012:** `prepareAppRole` grants every table and sequence on each boot.
+- **Postgres** (throwaway `postgres:16`, the server as a NOSUPERUSER NOBYPASSRLS app role;
+  the repository has no smoke script, so it is a scratch script like the earlier tasks'):
+  the backfill on a 001-011 database with records, once; the grants; every route; events,
+  activity and audit read back with paging and filters; `removeMember`, `deleteUser` and
+  `deleteProject`; with A set, B's rows not read, changed or deleted and B rows refused;
+  with `''`, no rows and no error. 52 checks, all ok. The whole suite on that store (as
+  the app role) fails only the tests that reach into the memory store or set up twice.
+
 ### Task 2: Progress tab (monitoring Phase 2)
 
 **Files:**
