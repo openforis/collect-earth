@@ -5,9 +5,10 @@
 -- Project data, RLS-fenced on app.current_project like records (001). Kept for the
 -- life of the project. Idempotent.
 
--- One row per stored upload of a record; stale uploads (last-write-wins) and the same
--- save sent again are not logged. `change` is derived from the row before and the new
--- one (recordChange, src/lww.ts).
+-- One row per stored upload of a record, written in the same transaction as the record;
+-- stale uploads (last-write-wins) and the same save sent again are not logged. `change`
+-- is derived from the row before, the new one and whether the record was submitted
+-- before (recordChange, src/lww.ts): `submitted` is a record's first submission.
 CREATE TABLE IF NOT EXISTS record_events (
   id             BIGSERIAL PRIMARY KEY,
   project_id     UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -18,11 +19,13 @@ CREATE TABLE IF NOT EXISTS record_events (
   actively_saved BOOLEAN NOT NULL DEFAULT false,
   step           INTEGER NOT NULL DEFAULT 0,
   deleted        BOOLEAN NOT NULL DEFAULT false,
-  change         TEXT NOT NULL CHECK (change IN ('created', 'updated', 'submitted', 'unsubmitted', 'deleted')),
-  summary        JSONB CHECK (summary IS NULL OR change = 'submitted')
+  change         TEXT NOT NULL CHECK (change IN ('created', 'updated', 'submitted', 'resubmitted', 'unsubmitted', 'deleted')),
+  summary        JSONB CHECK (summary IS NULL OR change IN ('submitted', 'resubmitted'))
 );
 CREATE INDEX IF NOT EXISTS idx_record_events_project_modified ON record_events(project_id, modified_on);
 CREATE INDEX IF NOT EXISTS idx_record_events_project_operator_modified ON record_events(project_id, operator, modified_on);
+-- Was the record submitted before (each upload asks).
+CREATE INDEX IF NOT EXISTS idx_record_events_record ON record_events(project_id, record_key, operator);
 
 -- Backfill: one event per record stored before this table, at its modified_on, with
 -- the change a first upload of it would have had (so a submitted plot counts as
@@ -66,11 +69,13 @@ CREATE TABLE IF NOT EXISTS audit_log (
   action         TEXT NOT NULL CONSTRAINT audit_log_action_check CHECK (action IN (
                    'invite.created', 'invite.revoked', 'member.removed', 'member.role', 'cep.replaced',
                    'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'decision.set',
-                   'decision.deleted', 'settings.changed', 'export.downloaded', 'sampling.drawn',
+                   'decision.deleted', 'settings.changed', 'export.downloaded', 'survey.replaced', 'sampling.drawn',
                    'reference.changed', 'link.created', 'link.revoked')),
   details        JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 CREATE INDEX IF NOT EXISTS idx_audit_log_project_at ON audit_log(project_id, at);
+-- An actor who leaves (removeMember) or whose account goes (ON DELETE SET NULL).
+CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor_user_id);
 
 ALTER TABLE record_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE member_activity ENABLE ROW LEVEL SECURITY;

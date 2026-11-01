@@ -135,7 +135,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         typeof body.expiresInDays === 'number' && body.expiresInDays > 0
           ? Date.now() + body.expiresInDays * 24 * 60 * 60 * 1000
           : null;
-      const token = await store.createInvite({
+      const { token, id: inviteId } = await store.createInvite({
         projectId: request.membership!.projectId,
         role,
         maxUses,
@@ -143,7 +143,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         // A Phase-0 project admin token has no user behind it: made by nobody.
         createdBy: request.userId ?? null,
       });
-      await audit(store, request, 'invite.created', { role, maxUses });
+      await audit(store, request, 'invite.created', { inviteId, role, maxUses });
       const joinPath = `/join/${token}`;
       return reply.code(201).send({
         inviteToken: token,
@@ -391,8 +391,9 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       if (current.role === 'admin' && (await store.countAdmins(projectId)) <= 1) {
         return reply.code(409).send({ error: 'last_admin' });
       }
-      await store.removeMember(projectId, uid);
+      // Logged first: removeMember sets the actor of the member's own entries to null.
       await audit(store, request, 'member.removed', { userId: uid });
+      await store.removeMember(projectId, uid);
       return reply.code(204).send();
     },
   );

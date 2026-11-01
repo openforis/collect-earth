@@ -383,15 +383,18 @@ export const AI_INTERRUPTED = { code: 'interrupted', message: 'The assistant sto
 // --- Activity data (record_events, member_activity, audit_log) ---
 
 /**
- * What one stored upload did to a record, from the stored row before it and the new
- * one: `submitted` when it is now actively saved and was not (or did not exist),
- * `unsubmitted` the other way, `deleted` for a tombstone, `created` for a first (or
- * revived) record not yet submitted, and `updated` for anything else (a draft saved
- * again, or a submitted plot saved again).
+ * What one stored upload did to a record (recordChange, src/lww.ts), from the stored
+ * row before it and whether the record (key, operator) was ever submitted:
+ * - `submitted`: actively saved (Submit and validate), the record's first submission;
+ * - `resubmitted`: actively saved again, after an earlier submission;
+ * - `unsubmitted`: a draft save (an autosave) onto a submitted plot;
+ * - `deleted`: a tombstone;
+ * - `created`: a first (or revived) record, not submitted;
+ * - `updated`: a draft saved again.
  */
-export type RecordChange = 'created' | 'updated' | 'submitted' | 'unsubmitted' | 'deleted';
+export type RecordChange = 'created' | 'updated' | 'submitted' | 'resubmitted' | 'unsubmitted' | 'deleted';
 
-/** One stored upload of a record (record_events). No XML; the answers only on `submitted`. */
+/** One stored upload of a record (record_events). No XML; the answers only on a (re)submission. */
 export interface RecordEvent {
   /** Increasing; with modifiedOn the cursor of a page (EventCursor). */
   id: string;
@@ -404,7 +407,7 @@ export interface RecordEvent {
   step: number;
   deleted: boolean;
   change: RecordChange;
-  /** The record's summary when change is `submitted`, else null. */
+  /** The record's summary when change is `submitted` or `resubmitted`, else null. */
   summary: Record<string, string> | null;
 }
 
@@ -472,6 +475,7 @@ export const AUDIT_ACTIONS = [
   'decision.deleted',
   'settings.changed',
   'export.downloaded',
+  'survey.replaced',
   'sampling.drawn',
   'reference.changed',
   'link.created',

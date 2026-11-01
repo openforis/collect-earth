@@ -25,7 +25,10 @@ vi.mock('pg', () => {
             failing.times -= 1;
             throw Object.assign(new Error('deadlock detected'), { code: failing.code });
           }
-          return { rows: sql.includes('records_version') ? [{ records_version: '7' }] : [], rowCount: 0 };
+          if (sql.includes('records_version')) return { rows: [{ records_version: '7' }], rowCount: 1 };
+          // Was the record submitted before (asked by itself when it has no row yet).
+          if (sql.includes('AS submitted_before') && !sql.includes('FROM records')) return { rows: [{ submitted_before: true }], rowCount: 1 };
+          return { rows: [], rowCount: 0 };
         },
         release() {},
       };
@@ -36,6 +39,7 @@ vi.mock('pg', () => {
 });
 
 const { PostgresStore } = await import('../src/store/postgres.js');
+const { InvalidCursorError } = await import('../src/store/store.js');
 const PROJECT = '00000000-0000-0000-0000-000000000001';
 
 describe('PostgresStore pool', () => {
@@ -125,6 +129,37 @@ describe('PostgresStore pool', () => {
     const list = queries.find((q) => q.sql.includes('FROM record_events'))!;
     expect(list.sql).toContain('(modified_on, id) < ($6::timestamptz, $7::bigint)');
     expect(list.params).toEqual([PROJECT, new Date(0), new Date(10), 5, 'maria', new Date(5), '7']);
+  });
+
+  it('putRecordWithEvent stores the record and its event in one transaction, after the record lock and the locked read', async () => {
+    const store = new PostgresStore('postgres://x');
+    const seen: unknown[] = [];
+    const stored = await store.putRecordWithEvent(PROJECT, 'k', 'maria', (existing, submittedBefore) => {
+      seen.push([existing, submittedBefore]);
+      const row = { projectId: PROJECT, recordKey: 'k', operator: 'maria', modifiedOn: 1, receivedAt: 2, activelySaved: true, step: 1, xml: null, summary: {}, deleted: false, deletedOn: null };
+      return { row, event: { ...row, change: 'resubmitted' as const, summary: {} } };
+    });
+    expect(stored).toBe(true);
+    expect(seen).toEqual([[null, true]]);
+    const sqls = queries.map((q) => q.sql.trim().split(/\s+/).slice(0, 3).join(' '));
+    expect(sqls.filter((q) => q === 'BEGIN')).toHaveLength(1);
+    const at = (prefix: string) => queries.findIndex((q) => q.sql.trim().startsWith(prefix));
+    expect(queries[at('SELECT pg_advisory_xact_lock')].params).toEqual([PROJECT, 'k', 'maria']);
+    expect(queries.find((q) => q.sql.includes('FROM records'))!.sql).toContain('FOR UPDATE');
+    expect(at('SELECT pg_advisory_xact_lock')).toBeLessThan(at('SELECT project_id, record_key'));
+    expect(at('INSERT INTO records')).toBeLessThan(at('INSERT INTO record_events'));
+    expect(at('INSERT INTO record_events')).toBeLessThan(at('COMMIT'));
+
+    queries.length = 0;
+    expect(await store.putRecordWithEvent(PROJECT, 'k', 'maria', () => null)).toBe(false);
+    expect(queries.some((q) => q.sql.includes('INSERT INTO'))).toBe(false);
+  });
+
+  it('refuses a cursor that is no cursor before querying, as the memory store does', async () => {
+    const store = new PostgresStore('postgres://x');
+    await expect(store.listRecordEvents(PROJECT, { from: 0, to: 1, limit: 1, before: { at: 1, id: '1; DROP' } })).rejects.toThrow(InvalidCursorError);
+    await expect(store.listAudit(PROJECT, { limit: 1, before: { at: 1, id: '99999999999999999999' } })).rejects.toThrow(InvalidCursorError);
+    expect(queries).toHaveLength(0);
   });
 
   it('reads the quality version from the project counter the triggers bump', async () => {

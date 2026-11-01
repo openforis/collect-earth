@@ -45,6 +45,15 @@ STORE_BACKEND=postgres DATABASE_URL=postgres://ce:ce@localhost:5432/collect_eart
 STORE_BACKEND=postgres DATABASE_URL=postgres://ce:ce@localhost:5432/collect_earth_cloud npm run dev
 ```
 
+Smoke test of the activity data (migration 012) on a throwaway PostgreSQL: it creates
+and drops its own database and roles, so never point it at a real server.
+
+```bash
+docker run -d --rm --name ce-pg-smoke -e POSTGRES_PASSWORD=pw -p 55481:5432 postgres:16
+npm run smoke:pg -- 55481      # the port; prints one line per check, then ALL OK
+docker stop ce-pg-smoke
+```
+
 ## API (v1)
 
 All project-scoped routes require `Authorization: Bearer <token>`.

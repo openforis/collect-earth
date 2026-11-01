@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "migrate": "tsx src/store/migrate.ts"
+    "migrate": "tsx src/store/migrate.ts",
+    "smoke:pg": "tsx scripts/pg-smoke-activity.mts"
   },
   "dependencies": {
     "@fastify/static": "7.0.4",

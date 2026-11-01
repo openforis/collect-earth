@@ -8,7 +8,7 @@ export const MAX_CLIENT_AGENT_CHARS = 200;
 /** At most one write of a member's activity per this long (per server instance). */
 export const ACTIVITY_WRITE_INTERVAL_MS = 60_000;
 
-/** Members kept in memory before the idle ones are forgotten. */
+/** Members kept in memory before the idle ones are forgotten (at most one scan a minute). */
 const PRUNE_ABOVE = 1000;
 
 /** What one request did, besides being seen. */
@@ -29,34 +29,46 @@ interface Pending {
 }
 
 /**
- * Keeps member_activity up to date without a database write per request: the first
- * call of a member is written at once, and the calls of the next minute are added up
- * in memory (latest times, summed counters, the last client agent) and written once,
- * a minute after that write. Each server instance coalesces its own calls; the
- * store's upsert adds them up, so several instances still count right.
+ * Keeps member_activity up to date without a database write per request: a member's
+ * first call of the minute is written during the call (note() is awaited before the
+ * answer is sent), and the calls of the minute after it are added up in memory
+ * (latest times, summed counters, the last client agent) and written by the member's
+ * first call once the minute is over. Each server instance coalesces its own calls;
+ * the store's upsert adds them up, so several instances still count right.
  *
- * A write never fails a request: errors go to `onError`. What is pending when the
- * server stops is written by close() (the app's onClose); a crash loses at most a
- * minute of it.
+ * On Cloud Run (request-based billing) the CPU is throttled once an answer is sent, so
+ * nothing relies on work after it: a timer also writes what is pending a minute after
+ * the last write, but only as a best effort, and close() (the app's onClose) writes
+ * what is left. A member who stops calling may leave up to a minute unwritten until
+ * then.
+ *
+ * A write never fails a request: errors go to `onError`, and the patch is kept for the
+ * next write.
  */
 export class ActivityRecorder {
   private readonly pending = new Map<string, Pending>();
   private readonly writes = new Set<Promise<void>>();
   private readonly intervalMs: number;
+  private readonly pruneAbove: number;
   private readonly now: () => number;
   private readonly onError: (err: unknown) => void;
+  private lastPruneAt = -Infinity;
 
   constructor(
     private readonly store: Pick<Store, 'touchMemberActivity'>,
-    options: { intervalMs?: number; now?: () => number; onError?: (err: unknown) => void } = {},
+    options: { intervalMs?: number; pruneAbove?: number; now?: () => number; onError?: (err: unknown) => void } = {},
   ) {
     this.intervalMs = options.intervalMs ?? ACTIVITY_WRITE_INTERVAL_MS;
+    this.pruneAbove = options.pruneAbove ?? PRUNE_ABOVE;
     this.now = options.now ?? (() => Date.now());
     this.onError = options.onError ?? (() => {});
   }
 
-  /** A member's call to the project (any authenticated call), and what it did. */
-  note(projectId: string, userId: string, note: ActivityNote = {}): void {
+  /**
+   * A member's call to the project (any authenticated call), and what it did. Resolves
+   * once the write that is due, if any, is done (it never rejects).
+   */
+  async note(projectId: string, userId: string, note: ActivityNote = {}): Promise<void> {
     const key = `${projectId} ${userId}`;
     const now = this.now();
     let entry = this.pending.get(key);
@@ -66,43 +78,27 @@ export class ActivityRecorder {
       this.pending.set(key, entry);
     }
     entry.patch = mergePatch(entry.patch, patchOf(note, now));
-    if (entry.timer !== null) {
-      return;
-    }
     const wait = entry.lastWriteAt + this.intervalMs - now;
     if (wait <= 0) {
-      this.write(entry);
+      await this.write(entry);
       return;
     }
-    entry.timer = setTimeout(() => {
-      entry.timer = null;
-      this.write(entry);
-    }, wait);
-    entry.timer.unref?.();
+    if (entry.timer === null) {
+      const due = entry;
+      due.timer = setTimeout(() => {
+        due.timer = null;
+        void this.write(due);
+      }, wait);
+      due.timer.unref?.();
+    }
   }
 
   /** Writes everything pending now and waits for every write under way. */
   async flush(): Promise<void> {
     for (const entry of this.pending.values()) {
-      if (entry.timer !== null) {
-        clearTimeout(entry.timer);
-        entry.timer = null;
-      }
-      this.write(entry);
+      void this.write(entry);
     }
     await Promise.all([...this.writes]);
-  }
-
-  /** Forgets members with nothing pending whose last write is over a minute old (as if never seen). */
-  private prune(now: number): void {
-    if (this.pending.size < PRUNE_ABOVE) {
-      return;
-    }
-    for (const [key, entry] of this.pending) {
-      if (entry.patch === null && entry.timer === null && entry.lastWriteAt + this.intervalMs <= now) {
-        this.pending.delete(key);
-      }
-    }
   }
 
   async close(): Promise<void> {
@@ -110,18 +106,48 @@ export class ActivityRecorder {
     this.pending.clear();
   }
 
-  private write(entry: Pending): void {
+  /** How many members are held in memory (for tests). */
+  size(): number {
+    return this.pending.size;
+  }
+
+  /**
+   * Forgets members with nothing pending whose last write is over a minute old (as if
+   * never seen), when many are held: one scan a minute at most, not one per new member.
+   */
+  private prune(now: number): void {
+    if (this.pending.size < this.pruneAbove || now - this.lastPruneAt < this.intervalMs) {
+      return;
+    }
+    this.lastPruneAt = now;
+    for (const [key, entry] of this.pending) {
+      if (entry.patch === null && entry.timer === null && entry.lastWriteAt + this.intervalMs <= now) {
+        this.pending.delete(key);
+      }
+    }
+  }
+
+  private write(entry: Pending): Promise<void> {
+    if (entry.timer !== null) {
+      clearTimeout(entry.timer);
+      entry.timer = null;
+    }
     const patch = entry.patch;
     if (patch === null) {
-      return;
+      return Promise.resolve();
     }
     entry.patch = null;
     entry.lastWriteAt = this.now();
     const write = this.store
       .touchMemberActivity(entry.projectId, entry.userId, patch)
-      .catch((err) => this.onError(err))
+      .catch((err) => {
+        // Kept, under what came meanwhile, for the next write.
+        entry.patch = entry.patch === null ? patch : mergePatch(patch, entry.patch);
+        this.onError(err);
+      })
       .finally(() => this.writes.delete(write));
     this.writes.add(write);
+    return write;
   }
 }
 
@@ -171,7 +197,7 @@ declare module 'fastify' {
     activity: ActivityRecorder;
   }
   interface FastifyRequest {
-    /** What this request did, written when it has been answered (registerActivity). */
+    /** What this request did, written before it is answered (registerActivity). */
     activityNote?: ActivityNote;
   }
 }
@@ -190,16 +216,18 @@ export function noteActivity(request: FastifyRequest, note: Omit<ActivityNote, '
 }
 
 /**
- * Every answered request of a project member (a user session, not a project token)
- * counts as seen, with what the route noted. Pending activity is written on close.
+ * Every request of a project member (a user session, not a project token) counts as
+ * seen, with what the route noted. Written before the answer is sent (onSend), not
+ * after it (see ActivityRecorder); pending activity is written on close.
  */
 export function registerActivity(app: FastifyInstance, recorder: ActivityRecorder): void {
   app.decorate('activity', recorder);
-  app.addHook('onResponse', async (request) => {
+  app.addHook('onSend', async (request, _reply, payload) => {
     const m = request.membership;
     if (m?.userId) {
-      recorder.note(m.projectId, m.userId, request.activityNote ?? {});
+      await recorder.note(m.projectId, m.userId, request.activityNote ?? {});
     }
+    return payload;
   });
   app.addHook('onClose', async () => {
     await recorder.close();

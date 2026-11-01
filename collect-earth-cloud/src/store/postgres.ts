@@ -51,7 +51,7 @@ import {
   type User,
   type UserSummary,
 } from '../types.js';
-import type { CreateInviteInput, CreateProjectResult, Store, TokenMembership, UserPlots } from './store.js';
+import { checkCursor, type CreateInviteInput, type CreateProjectResult, type Store, type TokenMembership, type UserPlots } from './store.js';
 import { UsernameTakenError } from './memory.js';
 import { checksumOf, plotCountOf } from '../csv.js';
 import { legacyRoundInfo } from '../cep.js';
@@ -288,33 +288,51 @@ export class PostgresStore implements Store {
 
   async putRecord(row: RecordRow): Promise<void> {
     await this.withProject(row.projectId, async (client) => {
-      await client.query(
-        `INSERT INTO records (project_id, record_key, operator, modified_on, received_at, actively_saved, step,
-                              xml, summary, deleted, deleted_on)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-         ON CONFLICT (project_id, record_key, operator) DO UPDATE SET
-           modified_on = EXCLUDED.modified_on,
-           received_at = EXCLUDED.received_at,
-           actively_saved = EXCLUDED.actively_saved,
-           step = EXCLUDED.step,
-           xml = EXCLUDED.xml,
-           summary = EXCLUDED.summary,
-           deleted = EXCLUDED.deleted,
-           deleted_on = EXCLUDED.deleted_on`,
-        [
-          row.projectId,
-          row.recordKey,
-          row.operator,
-          new Date(row.modifiedOn),
-          new Date(row.receivedAt),
-          row.activelySaved,
-          row.step,
-          row.xml,
-          JSON.stringify(row.summary),
-          row.deleted,
-          row.deletedOn === null ? null : new Date(row.deletedOn),
-        ],
+      await upsertRecord(client, row);
+    });
+  }
+
+  async putRecordWithEvent(
+    projectId: string,
+    recordKey: string,
+    operator: string,
+    apply: (existing: RecordRow | null, submittedBefore: boolean) => { row: RecordRow; event: RecordEventInput | null } | null,
+  ): Promise<boolean> {
+    return this.withProject(projectId, async (client) => {
+      // Uploads of one record one after the other, also when it does not exist yet (no
+      // row to lock): two retries at once log one event, not two. Its own statement, so
+      // the read below sees what the one before committed.
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('collect-earth-cloud:record:' || $1 || ' ' || $2 || ' ' || $3, 0))", [
+        projectId,
+        recordKey,
+        operator,
+      ]);
+      const submittedSql = `EXISTS (SELECT 1 FROM record_events e
+                                     WHERE e.project_id = $1 AND e.record_key = $2 AND e.operator = $3
+                                       AND e.change IN ('submitted', 'resubmitted'))`;
+      // FOR UPDATE as well: renameRecordOperator locks the rows, not the record.
+      const res = await client.query(
+        `SELECT project_id, record_key, operator, modified_on, received_at, actively_saved, step, xml, summary,
+                deleted, deleted_on, ${submittedSql} AS submitted_before
+           FROM records
+          WHERE project_id = $1 AND record_key = $2 AND operator = $3
+            FOR UPDATE`,
+        [projectId, recordKey, operator],
       );
+      const existing = res.rowCount === 0 ? null : mapRecord(res.rows[0]);
+      const submittedBefore =
+        res.rowCount === 0
+          ? ((await client.query(`SELECT ${submittedSql} AS submitted_before`, [projectId, recordKey, operator])).rows[0].submitted_before as boolean)
+          : (res.rows[0].submitted_before as boolean);
+      const out = apply(existing, submittedBefore);
+      if (out === null) {
+        return false;
+      }
+      await upsertRecord(client, { ...out.row, projectId });
+      if (out.event) {
+        await insertRecordEvent(client, { ...out.event, projectId });
+      }
+      return true;
     });
   }
 
@@ -825,13 +843,14 @@ export class PostgresStore implements Store {
     return res.rows[0].n as number;
   }
 
-  async createInvite(input: CreateInviteInput): Promise<string> {
+  async createInvite(input: CreateInviteInput): Promise<{ token: string; id: string }> {
     const token = generateToken();
+    const id = randomUUID();
     await this.pool.query(
       `INSERT INTO invites (id, token_hash, project_id, role, max_uses, expires_at, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
-        randomUUID(),
+        id,
         hashToken(token),
         input.projectId,
         input.role,
@@ -840,7 +859,7 @@ export class PostgresStore implements Store {
         input.createdBy,
       ],
     );
-    return token;
+    return { token, id };
   }
 
   async getInvite(token: string): Promise<Invite | null> {
@@ -1465,27 +1484,12 @@ export class PostgresStore implements Store {
 
   async appendRecordEvent(e: RecordEventInput): Promise<void> {
     await this.withProject(e.projectId, async (client) => {
-      await client.query(
-        `INSERT INTO record_events (project_id, record_key, operator, modified_on, received_at, actively_saved, step,
-                                    deleted, change, summary)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [
-          e.projectId,
-          e.recordKey,
-          e.operator,
-          new Date(e.modifiedOn),
-          new Date(e.receivedAt),
-          e.activelySaved,
-          e.step,
-          e.deleted,
-          e.change,
-          e.summary === null ? null : JSON.stringify(e.summary),
-        ],
-      );
+      await insertRecordEvent(client, e);
     });
   }
 
   async listRecordEvents(projectId: string, q: RecordEventQuery): Promise<RecordEvent[]> {
+    checkCursor(q.before);
     return this.withProject(projectId, async (client) => {
       const params: unknown[] = [projectId, new Date(q.from), new Date(q.to), q.limit];
       let where = '';
@@ -1571,6 +1575,7 @@ export class PostgresStore implements Store {
   }
 
   async listAudit(projectId: string, q: AuditQuery): Promise<AuditEntry[]> {
+    checkCursor(q.before);
     if (q.actor !== undefined && !isUuid(q.actor)) {
       return [];
     }
@@ -1695,6 +1700,57 @@ function mapAiRun(r: Record<string, unknown>): AiRunRow {
     question: (r.question as string | null) ?? null,
     questionNames: (r.question_names as Record<string, string> | null) ?? null,
   };
+}
+
+/** Stores the row (insert, or replace the one with its key). */
+async function upsertRecord(client: pg.PoolClient, row: RecordRow): Promise<void> {
+  await client.query(
+    `INSERT INTO records (project_id, record_key, operator, modified_on, received_at, actively_saved, step,
+                          xml, summary, deleted, deleted_on)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     ON CONFLICT (project_id, record_key, operator) DO UPDATE SET
+       modified_on = EXCLUDED.modified_on,
+       received_at = EXCLUDED.received_at,
+       actively_saved = EXCLUDED.actively_saved,
+       step = EXCLUDED.step,
+       xml = EXCLUDED.xml,
+       summary = EXCLUDED.summary,
+       deleted = EXCLUDED.deleted,
+       deleted_on = EXCLUDED.deleted_on`,
+    [
+      row.projectId,
+      row.recordKey,
+      row.operator,
+      new Date(row.modifiedOn),
+      new Date(row.receivedAt),
+      row.activelySaved,
+      row.step,
+      row.xml,
+      JSON.stringify(row.summary),
+      row.deleted,
+      row.deletedOn === null ? null : new Date(row.deletedOn),
+    ],
+  );
+}
+
+async function insertRecordEvent(client: pg.PoolClient, e: RecordEventInput): Promise<void> {
+  await client.query(
+    `INSERT INTO record_events (project_id, record_key, operator, modified_on, received_at, actively_saved, step,
+                                deleted, change, summary)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [
+      e.projectId,
+      e.recordKey,
+      e.operator,
+      new Date(e.modifiedOn),
+      new Date(e.receivedAt),
+      e.activelySaved,
+      e.step,
+      e.deleted,
+      e.change,
+      e.summary === null ? null : JSON.stringify(e.summary),
+    ],
+  );
 }
 
 function timeOrNull(v: unknown): number | null {

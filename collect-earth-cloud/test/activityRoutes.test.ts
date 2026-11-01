@@ -42,43 +42,53 @@ describe('activity data written by the routes', () => {
   });
 
   describe('record events', () => {
-    it('logs each stored upload with what it changed; the answers only when submitted', async () => {
-      await sync(maria.token, [envelope({ recordKey: '1', modifiedOn: 1000, activelySaved: false, summary: { a: 'draft' } })]);
-      await sync(maria.token, [envelope({ recordKey: '1', modifiedOn: 2000, activelySaved: false })]);
-      await sync(maria.token, [envelope({ recordKey: '1', modifiedOn: 3000, activelySaved: true, summary: { a: 'final' } })]);
-      await sync(maria.token, [envelope({ recordKey: '1', modifiedOn: 4000, activelySaved: false })]);
-      await sync(maria.token, [envelope({ recordKey: '1', modifiedOn: 5000, deleted: true })]);
-      await sync(maria.token, [envelope({ recordKey: '2', modifiedOn: 6000, activelySaved: true, summary: { a: 'x' } })]);
+    // As Collect Earth sends them: every save has a new modifiedOn (Collect's
+    // RecordManager.save sets it to now); autosaves are activelySaved false, also onto a
+    // submitted plot; Submit and validate is activelySaved true.
+    it('a plot answered, submitted, edited and submitted again: each save with what it changed', async () => {
+      await sync(maria.token, [envelope({ recordKey: '1', modifiedOn: 1000, activelySaved: false, summary: { a: 'x' } })]);
+      await sync(maria.token, [envelope({ recordKey: '1', modifiedOn: 2000, activelySaved: false, summary: { a: 'y' } })]);
+      await sync(maria.token, [envelope({ recordKey: '1', modifiedOn: 3000, activelySaved: true, summary: { a: 'y' } })]);
+      await sync(maria.token, [envelope({ recordKey: '1', modifiedOn: 4000, activelySaved: false, summary: { a: 'z' } })]);
+      await sync(maria.token, [envelope({ recordKey: '1', modifiedOn: 5000, activelySaved: true, summary: { a: 'z' } })]);
+      await sync(maria.token, [envelope({ recordKey: '1', modifiedOn: 6000, deleted: true })]);
+      await sync(maria.token, [envelope({ recordKey: '2', modifiedOn: 7000, activelySaved: true, summary: { a: 'w' } })]);
       const list = (await events()).reverse();
       expect(list.map((e) => [e.recordKey, e.change, e.modifiedOn])).toEqual([
         ['1', 'created', 1000],
         ['1', 'updated', 2000],
         ['1', 'submitted', 3000],
         ['1', 'unsubmitted', 4000],
-        ['1', 'deleted', 5000],
-        ['2', 'submitted', 6000],
+        ['1', 'resubmitted', 5000],
+        ['1', 'deleted', 6000],
+        ['2', 'submitted', 7000],
       ]);
-      expect(list.map((e) => e.summary)).toEqual([null, null, { a: 'final' }, null, null, { a: 'x' }]);
+      expect(list.map((e) => e.summary)).toEqual([null, null, { a: 'y' }, null, { a: 'z' }, null, { a: 'w' }]);
       expect(list.every((e) => e.operator === 'maria' && e.projectId === pid && e.receivedAt > 0)).toBe(true);
       expect(list[2]).toMatchObject({ activelySaved: true, step: 1, deleted: false });
     });
 
-    it('logs nothing for a stale upload or the same save sent again', async () => {
-      await sync(maria.token, [envelope({ modifiedOn: 2000 })]);
+    it('logs nothing for a stale upload or the same save sent again; the same time with other answers is stored and logged', async () => {
+      await sync(maria.token, [envelope({ modifiedOn: 2000, activelySaved: false, summary: { a: '1' } })]);
       const stale = await sync(maria.token, [envelope({ modifiedOn: 1000 })]);
       expect(stale.json().results[0].status).toBe('stale');
-      const again = await sync(maria.token, [envelope({ modifiedOn: 2000 })]);
+      const again = await sync(maria.token, [envelope({ modifiedOn: 2000, activelySaved: false, summary: { a: '1' } })]);
       expect(again.json().results[0].status).toBe('stored');
-      expect((await events()).map((e) => e.change)).toEqual(['submitted']);
+      const other = await sync(maria.token, [envelope({ modifiedOn: 2000, activelySaved: false, summary: { a: '2' } })]);
+      expect(other.json().results[0].status).toBe('stored');
+      expect((await ctx.store.getRecord(pid, '1', 'maria'))!.summary).toEqual({ a: '2' });
+      expect((await events()).map((e) => e.change)).toEqual(['updated', 'created']);
     });
 
-    it('a failed event write still answers the record as stored', async () => {
-      ctx.store.appendRecordEvent = async () => {
-        throw new Error('db down');
+    it('a record whose store write fails is answered error, and the next one in the batch still goes', async () => {
+      const real = ctx.store.putRecordWithEvent.bind(ctx.store);
+      ctx.store.putRecordWithEvent = async (p, key, op, apply) => {
+        if (key === 'bad') throw new Error('db down');
+        return real(p, key, op, apply);
       };
-      const res = await sync(maria.token, [envelope()]);
-      expect(res.json().results[0].status).toBe('stored');
-      expect(await ctx.store.listRecords(pid)).toHaveLength(1);
+      const res = await sync(maria.token, [envelope({ recordKey: 'bad' }), envelope({ recordKey: 'good' })]);
+      expect(res.json().results.map((r: { status: string }) => r.status)).toEqual(['error', 'stored']);
+      expect((await events()).map((e) => e.recordKey)).toEqual(['good']);
     });
 
     it("logs a project token's uploads under the operator they name", async () => {
@@ -128,6 +138,15 @@ describe('activity data written by the routes', () => {
       expect(activity.find((a) => a.userId === jose.userId)).toBeUndefined();
     });
 
+    it("a member's first call of the minute is written before the answer is sent (no flush, no timer)", async () => {
+      const res = await batchRequest(ctx.app, pid, maria.token, [envelope()]);
+      expect(res.statusCode).toBe(200);
+      expect((await ctx.store.listMemberActivity(pid)).find((a) => a.userId === maria.userId)).toMatchObject({
+        syncsCount: 1,
+        recordsReceived: 1,
+      });
+    });
+
     it('counts only the records stored, and a project token is nobody', async () => {
       await sync(maria.token, [envelope({ modifiedOn: 2000 })]);
       await sync(maria.token, [envelope({ modifiedOn: 1000 }), envelope({ recordKey: '9' })]);
@@ -164,11 +183,12 @@ describe('activity data written by the routes', () => {
       expect((await call('PATCH', '', owner.token, { name: 'Renamed' })).statusCode).toBe(200);
       expect((await call('GET', '/export.csv', owner.token)).statusCode).toBe(200);
       expect((await call('DELETE', `/members/${jose.userId}`, owner.token)).statusCode).toBe(204);
+      expect((await call('PUT', '/survey', owner.token, { surveyUri: 'http://x', idmlBase64: 'eA==' })).statusCode).toBe(200);
 
       const log = await audit();
       // The two invites made in beforeEach to let maria and jose join come first.
       expect(log.slice(2).map((e) => [e.action, e.details])).toEqual([
-        ['invite.created', { role: 'reviewer', maxUses: 3 }],
+        ['invite.created', { inviteId: open.id, role: 'reviewer', maxUses: 3 }],
         ['invite.revoked', { inviteId: open.id }],
         ['member.role', { userId: jose.userId, role: 'reviewer' }],
         ['cep.replaced', { bytes: idOnlyCep().length }],
@@ -183,6 +203,7 @@ describe('activity data written by the routes', () => {
         ['settings.changed', { setting: 'name' }],
         ['export.downloaded', { records: 0 }],
         ['member.removed', { userId: jose.userId }],
+        ['survey.replaced', { bytes: 1 }],
       ]);
       expect(log.every((e) => e.actorUserId === owner.userId && e.actor === 'owner')).toBe(true);
       // Never an answer or a comment.

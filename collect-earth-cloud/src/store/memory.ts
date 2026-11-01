@@ -48,7 +48,7 @@ import {
   type User,
   type UserSummary,
 } from '../types.js';
-import type { CreateInviteInput, CreateProjectResult, Store, TokenMembership, UserPlots } from './store.js';
+import { checkCursor, type CreateInviteInput, type CreateProjectResult, type Store, type TokenMembership, type UserPlots } from './store.js';
 
 interface CsvFileEntry extends CsvFile {
   data: Buffer;
@@ -591,14 +591,15 @@ export class InMemoryStore implements Store {
 
   // --- Invites ---
 
-  async createInvite(input: CreateInviteInput): Promise<string> {
+  async createInvite(input: CreateInviteInput): Promise<{ token: string; id: string }> {
     // As Postgres' invites.created_by REFERENCES users(id): a user, or nobody.
     if (input.createdBy !== null && !this.users.has(input.createdBy)) {
       throw new Error('invites.created_by must be a user id or null');
     }
     const token = generateToken();
+    const id = randomUUID();
     this.invites.set(hashToken(token), {
-      id: randomUUID(),
+      id,
       projectId: input.projectId,
       role: input.role,
       maxUses: input.maxUses,
@@ -607,7 +608,7 @@ export class InMemoryStore implements Store {
       createdAt: Date.now(),
       revokedAt: null,
     });
-    return token;
+    return { token, id };
   }
 
   async getInvite(token: string): Promise<Invite | null> {
@@ -1071,12 +1072,37 @@ export class InMemoryStore implements Store {
 
   // --- Activity data ---
 
+  async putRecordWithEvent(
+    projectId: string,
+    recordKey: string,
+    operator: string,
+    apply: (existing: RecordRow | null, submittedBefore: boolean) => { row: RecordRow; event: RecordEventInput | null } | null,
+  ): Promise<boolean> {
+    // No await between the read and the writes: atomic, as the transaction in Postgres.
+    const entry = this.requireProject(projectId);
+    const existing = entry.records.get(InMemoryStore.recordId(recordKey, operator)) ?? null;
+    const submittedBefore = entry.recordEvents.some(
+      (e) => e.recordKey === recordKey && e.operator === operator && (e.change === 'submitted' || e.change === 'resubmitted'),
+    );
+    const out = apply(existing ? { ...existing } : null, submittedBefore);
+    if (out === null) {
+      return false;
+    }
+    entry.records.set(InMemoryStore.recordId(out.row.recordKey, out.row.operator), { ...out.row, projectId });
+    entry.recordsGeneration += 1;
+    if (out.event) {
+      entry.recordEvents.push({ ...out.event, summary: out.event.summary ? { ...out.event.summary } : null, id: String(this.nextEventId++) });
+    }
+    return true;
+  }
+
   async appendRecordEvent(event: RecordEventInput): Promise<void> {
     const entry = this.requireProject(event.projectId);
     entry.recordEvents.push({ ...event, summary: event.summary ? { ...event.summary } : null, id: String(this.nextEventId++) });
   }
 
   async listRecordEvents(projectId: string, q: RecordEventQuery): Promise<RecordEvent[]> {
+    checkCursor(q.before);
     const events = this.projects.get(projectId)?.recordEvents ?? [];
     return events
       .filter(
@@ -1136,6 +1162,7 @@ export class InMemoryStore implements Store {
   }
 
   async listAudit(projectId: string, q: AuditQuery): Promise<AuditEntry[]> {
+    checkCursor(q.before);
     const audit = this.projects.get(projectId)?.audit ?? [];
     return audit
       .filter(

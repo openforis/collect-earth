@@ -306,8 +306,18 @@ must be the address people really use.
 
 ## Upgrading from master
 
-The new migrations run at boot as usual. Three things to know about the data a
+The new migrations run at boot as usual. Four things to know about the data a
 server from master already holds:
+
+- **The first boot fills the activity log once (migration 012).** Every record the
+  server holds gets one event in `record_events` (submitted, created or deleted, at
+  its modification time), in one `INSERT ... SELECT` over `records` while the
+  migration lock is held. It reads every record's summary (not the XML): about a
+  second per 100,000 records on PostgreSQL 16 in Docker on a laptop (allow several
+  on a small Cloud SQL instance), so that first boot is slower to answer, and the
+  table grows by one row per record (plus its answers for submitted ones). Later boots skip it (the table is no longer empty). Uploads from
+  an instance still running the old version while the new one starts (a rolling
+  deploy) get no event: their plots count again from their next save.
 
 - **Records synced before the summary fix have empty answers on the server.**
   Until commit 13a388db, a record that had any empty attribute (in practice every

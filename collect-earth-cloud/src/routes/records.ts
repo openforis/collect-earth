@@ -79,20 +79,21 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store): 
             }
           }
           const operator = envelope.operator ?? '';
-          const existing = await store.getRecord(projectId, envelope.recordKey, operator);
-          const { row, status } = applyLww(envelope, existing, receivedAt);
-          if (status === 'stored') {
-            const stored = { ...row, projectId };
-            await store.putRecord(stored);
-            storedCount += 1;
-            const event = recordEventOf(existing, stored);
-            // The record is stored: a failed log line is logged, not reported as a
-            // failed record (its retry would be the same save, which logs nothing).
-            if (event) {
-              await store.appendRecordEvent(event).catch((err) => request.log.error({ err, recordKey: envelope.recordKey }, 'record event write failed'));
+          // The record and its event in one transaction, decided on the row stored
+          // before, read under the record's lock: a crash cannot keep one without the
+          // other, and two uploads of the record at once cannot both log the same change.
+          const stored = await store.putRecordWithEvent(projectId, envelope.recordKey, operator, (existing, submittedBefore) => {
+            const { row, status } = applyLww(envelope, existing, receivedAt);
+            if (status !== 'stored') {
+              return null;
             }
+            const next = { ...row, projectId };
+            return { row: next, event: recordEventOf(existing, next, submittedBefore) };
+          });
+          if (stored) {
+            storedCount += 1;
           }
-          results.push({ recordKey: envelope.recordKey, status });
+          results.push({ recordKey: envelope.recordKey, status: stored ? 'stored' : 'stale' });
         } catch (err) {
           request.log.error({ err, recordKey: envelope.recordKey }, 'record store failed');
           results.push({ recordKey: envelope.recordKey, status: 'error', reason: 'internal error' });

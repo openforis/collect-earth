@@ -15,6 +15,7 @@ import type {
   CepInfo,
   CsvFile,
   DecisionKind,
+  EventCursor,
   GuidanceNote,
   GuidanceNoteInput,
   Invite,
@@ -171,7 +172,8 @@ export interface Store {
 
   // --- Invites (Phase A) ---
 
-  createInvite(input: CreateInviteInput): Promise<string>;
+  /** The new invite's token (shown once) and id (in listings). */
+  createInvite(input: CreateInviteInput): Promise<{ token: string; id: string }>;
   getInvite(token: string): Promise<Invite | null>;
   /** Open invites of one project: not revoked, not expired, not exhausted. */
   listInvites(projectId: string, now: number): Promise<InviteSummary[]>;
@@ -293,9 +295,25 @@ export interface Store {
 
   // --- Activity data (record_events, member_activity, audit_log) ---
 
-  /** Logs one stored upload of a record. */
+  /**
+   * Stores an upload of the record (projectId, recordKey, operator) and its event in one
+   * transaction. Uploads of the same record are serialised: `apply` gets the row stored
+   * before (read under a lock) and whether the record was ever submitted (an event
+   * `submitted` or `resubmitted`), and gives the row to store with its event (null for
+   * none), or null to store nothing (stale). True when stored.
+   */
+  putRecordWithEvent(
+    projectId: string,
+    recordKey: string,
+    operator: string,
+    apply: (existing: RecordRow | null, submittedBefore: boolean) => { row: RecordRow; event: RecordEventInput | null } | null,
+  ): Promise<boolean>;
+  /** Logs one record event by itself (putRecordWithEvent is the intake's way). */
   appendRecordEvent(event: RecordEventInput): Promise<void>;
-  /** The project's record events in the query's window, newest first (modifiedOn, then id). */
+  /**
+   * The project's record events in the query's window, newest first (modifiedOn, then
+   * id). Throws InvalidCursorError for a `before` that is no cursor (checkCursor).
+   */
   listRecordEvents(projectId: string, query: RecordEventQuery): Promise<RecordEvent[]>;
   /**
    * Adds to a member's activity (MemberActivityPatch), creating the row on first use.
@@ -306,8 +324,23 @@ export interface Store {
   listMemberActivity(projectId: string): Promise<MemberActivity[]>;
   /** Logs a coordinator action at the current time. */
   appendAudit(projectId: string, entry: AuditInput): Promise<void>;
-  /** The project's audit log, newest first (at, then id). */
+  /** The project's audit log, newest first (at, then id). Throws InvalidCursorError as listRecordEvents. */
   listAudit(projectId: string, query: AuditQuery): Promise<AuditEntry[]>;
 
   close(): Promise<void>;
+}
+
+/** A page cursor that is not one: its id is not a whole number, or its time not a number. */
+export class InvalidCursorError extends Error {
+  constructor() {
+    super('invalid cursor');
+    this.name = 'InvalidCursorError';
+  }
+}
+
+/** Both stores check a cursor the same way before using it (ids are BIGSERIAL). */
+export function checkCursor(cursor: EventCursor | undefined): void {
+  if (cursor !== undefined && (!/^\d{1,18}$/.test(cursor.id) || !Number.isFinite(cursor.at))) {
+    throw new InvalidCursorError();
+  }
 }

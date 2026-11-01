@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActivityRecorder, clientAgentOf, MAX_CLIENT_AGENT_CHARS } from '../src/activity.js';
 import { recordChange, recordEventOf } from '../src/lww.js';
 import { InMemoryStore } from '../src/store/memory.js';
-import type { MemberActivityPatch, RecordEventInput, RecordRow } from '../src/types.js';
+import { InvalidCursorError } from '../src/store/store.js';
+import { AUDIT_ACTIONS, type MemberActivityPatch, type RecordEventInput, type RecordRow } from '../src/types.js';
 
 function row(overrides: Partial<RecordRow> = {}): RecordRow {
   return {
@@ -22,51 +23,69 @@ function row(overrides: Partial<RecordRow> = {}): RecordRow {
   };
 }
 
+// Collect Earth's saves, as they reach the server (AbstractEarthSurveyService and
+// Collect's RecordManager.save, which sets modifiedDate to now on every save): each
+// autosave of the balloon has a new modifiedOn and activelySaved false, also onto a
+// submitted plot; Submit and validate sends activelySaved true. A retried batch sends
+// the same save again.
 describe('recordChange: what a stored upload did', () => {
-  it('a first upload is created, or submitted when already actively saved', () => {
-    expect(recordChange(null, row())).toBe('created');
-    expect(recordChange(null, row({ activelySaved: true }))).toBe('submitted');
+  const autosave1 = row({ modifiedOn: 1000, summary: { a: '1' } });
+  const autosave2 = row({ modifiedOn: 2000, summary: { a: '2' } });
+  const submit = row({ modifiedOn: 3000, activelySaved: true, summary: { a: '2' } });
+  const editAfterSubmit = row({ modifiedOn: 4000, activelySaved: false, summary: { a: '3' } });
+  const submitAgain = row({ modifiedOn: 5000, activelySaved: true, summary: { a: '3' } });
+
+  it('a plot opened and answered, then submitted, then edited and submitted again', () => {
+    expect(recordChange(null, autosave1, false)).toBe('created');
+    expect(recordChange(autosave1, autosave2, false)).toBe('updated');
+    expect(recordChange(autosave2, submit, false)).toBe('submitted');
+    expect(recordChange(submit, editAfterSubmit, true)).toBe('unsubmitted');
+    expect(recordChange(editAfterSubmit, submitAgain, true)).toBe('resubmitted');
   });
 
-  it('a draft saved again is updated; saving it actively submits it', () => {
-    expect(recordChange(row(), row({ modifiedOn: 2000 }))).toBe('updated');
-    expect(recordChange(row(), row({ modifiedOn: 2000, activelySaved: true }))).toBe('submitted');
+  it('only the first submission of a record is submitted; a later one is resubmitted', () => {
+    expect(recordChange(null, submit, false)).toBe('submitted');
+    expect(recordChange(null, submit, true)).toBe('resubmitted');
+    // Submit pressed again on a submitted plot (an edit inside the write-behind window
+    // reaches the server with the submit): every actively saved upload is a submission.
+    expect(recordChange(submit, submitAgain, true)).toBe('resubmitted');
   });
 
-  it('a submitted plot saved again is updated, and saved as a draft is unsubmitted', () => {
-    const submitted = row({ activelySaved: true });
-    expect(recordChange(submitted, row({ modifiedOn: 2000, activelySaved: true }))).toBe('updated');
-    expect(recordChange(submitted, row({ modifiedOn: 2000, activelySaved: false }))).toBe('unsubmitted');
-  });
-
-  it('a tombstone is deleted; a record coming back after one is created (or submitted) again', () => {
-    expect(recordChange(row(), row({ modifiedOn: 2000, deleted: true }))).toBe('deleted');
-    expect(recordChange(null, row({ deleted: true }))).toBe('deleted');
-    const gone = row({ deleted: true, activelySaved: true });
-    expect(recordChange(gone, row({ modifiedOn: 2000 }))).toBe('created');
-    expect(recordChange(gone, row({ modifiedOn: 2000, activelySaved: true }))).toBe('submitted');
+  it('a tombstone is deleted; a record coming back after one is created, or (re)submitted', () => {
+    const gone = row({ modifiedOn: 6000, deleted: true, activelySaved: true });
+    expect(recordChange(submitAgain, gone, true)).toBe('deleted');
+    expect(recordChange(null, gone, false)).toBe('deleted');
+    expect(recordChange(gone, row({ modifiedOn: 7000 }), true)).toBe('created');
+    expect(recordChange(gone, row({ modifiedOn: 7000, activelySaved: true }), true)).toBe('resubmitted');
   });
 
   it('the same save sent again (a retried batch) changes nothing: no event', () => {
-    expect(recordChange(row({ activelySaved: true }), row({ activelySaved: true, receivedAt: 9000 }))).toBeNull();
-    expect(recordChange(row({ deleted: true }), row({ deleted: true }))).toBeNull();
+    expect(recordChange(submit, { ...submit, receivedAt: 9000 }, true)).toBeNull();
+    const gone = row({ deleted: true });
+    expect(recordChange(gone, { ...gone }, false)).toBeNull();
   });
 
-  it('the event keeps the answers only when submitted, and never the XML', () => {
-    const submitted = recordEventOf(null, row({ activelySaved: true }))!;
+  it('a save with the same time but other answers or XML is not a retry', () => {
+    expect(recordChange(autosave2, { ...autosave2, summary: { a: 'other' } }, false)).toBe('updated');
+    expect(recordChange(autosave2, { ...autosave2, xml: '<other/>' }, false)).toBe('updated');
+  });
+
+  it('the event keeps the answers only when (re)submitted, and never the XML', () => {
+    const submitted = recordEventOf(null, submit, false)!;
     expect(submitted).toEqual({
       projectId: 'p',
       recordKey: '1',
       operator: 'maria',
-      modifiedOn: 1000,
+      modifiedOn: 3000,
       receivedAt: 5000,
       activelySaved: true,
       step: 1,
       deleted: false,
       change: 'submitted',
-      summary: { a: '1' },
+      summary: { a: '2' },
     });
-    expect(recordEventOf(null, row())!.summary).toBeNull();
+    expect(recordEventOf(editAfterSubmit, submitAgain, true)!.summary).toEqual({ a: '3' });
+    expect(recordEventOf(null, autosave1, false)!.summary).toBeNull();
     expect('xml' in submitted).toBe(false);
   });
 });
@@ -81,7 +100,9 @@ describe('clientAgentOf', () => {
   });
 });
 
-describe('ActivityRecorder: at most one write per member per minute', () => {
+// Cloud Run (request-based billing) throttles the CPU once a response is sent: the
+// write that is due is made inside the request, and timers are only a best effort.
+describe('ActivityRecorder: at most one write per member per minute, inside the request', () => {
   const writes: { projectId: string; userId: string; patch: MemberActivityPatch }[] = [];
   const store = {
     async touchMemberActivity(projectId: string, userId: string, patch: MemberActivityPatch) {
@@ -102,27 +123,25 @@ describe('ActivityRecorder: at most one write per member per minute', () => {
     vi.useRealTimers();
   });
 
-  it('writes the first call at once', async () => {
-    recorder.note('p', 'u', {});
-    await vi.advanceTimersByTimeAsync(0);
+  it("the member's first call of the minute is written before note() returns", async () => {
+    await recorder.note('p', 'u', {});
     expect(writes).toEqual([{ projectId: 'p', userId: 'u', patch: { lastSeenAt: 1_000_000 } }]);
   });
 
-  it('adds up the calls of the next minute in memory and writes them once, a minute after the first write', async () => {
-    recorder.note('p', 'u', {});
-    await vi.advanceTimersByTimeAsync(10_000);
-    recorder.note('p', 'u', { sync: { records: 3 }, clientAgent: 'CE/1' });
-    await vi.advanceTimersByTimeAsync(10_000);
-    recorder.note('p', 'u', { sync: { records: 2 } });
-    await vi.advanceTimersByTimeAsync(10_000);
-    recorder.note('p', 'u', { plotsDownload: true, cepDownload: true, clientAgent: 'CE/2' });
+  it('calls within the minute are added up in memory, and written by the first call after it, with no timer', async () => {
+    await recorder.note('p', 'u', {});
+    vi.setSystemTime(1_010_000); // the clock moves, but no timer runs (a throttled instance)
+    await recorder.note('p', 'u', { sync: { records: 3 }, clientAgent: 'CE/1' });
+    vi.setSystemTime(1_020_000);
+    await recorder.note('p', 'u', { sync: { records: 2 } });
+    vi.setSystemTime(1_030_000);
+    await recorder.note('p', 'u', { plotsDownload: true, cepDownload: true, clientAgent: 'CE/2' });
     expect(writes).toHaveLength(1);
-    await vi.advanceTimersByTimeAsync(29_999);
-    expect(writes).toHaveLength(1);
-    await vi.advanceTimersByTimeAsync(1);
+    vi.setSystemTime(1_070_000);
+    await recorder.note('p', 'u', {});
     expect(writes).toHaveLength(2);
     expect(writes[1].patch).toEqual({
-      lastSeenAt: 1_030_000,
+      lastSeenAt: 1_070_000,
       lastSyncAt: 1_020_000,
       syncs: 2,
       recordsReceived: 5,
@@ -130,31 +149,32 @@ describe('ActivityRecorder: at most one write per member per minute', () => {
       lastCepDownloadAt: 1_030_000,
       clientAgent: 'CE/2',
     });
-    // Nothing pending: no more writes.
+  });
+
+  it('a timer writes what is pending a minute after the last write, as a best effort', async () => {
+    await recorder.note('p', 'u', {});
+    await vi.advanceTimersByTimeAsync(10_000);
+    await recorder.note('p', 'u', { sync: { records: 1 } });
+    await vi.advanceTimersByTimeAsync(49_999);
+    expect(writes).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(writes).toHaveLength(2);
+    expect(writes[1].patch).toMatchObject({ syncs: 1, lastSeenAt: 1_010_000 });
     await vi.advanceTimersByTimeAsync(120_000);
     expect(writes).toHaveLength(2);
   });
 
-  it('writes at once again when the last write is more than a minute old', async () => {
-    recorder.note('p', 'u', {});
-    await vi.advanceTimersByTimeAsync(61_000);
-    recorder.note('p', 'u', {});
-    await vi.advanceTimersByTimeAsync(0);
-    expect(writes.map((w) => w.patch.lastSeenAt)).toEqual([1_000_000, 1_061_000]);
-  });
-
   it('keeps each member of each project apart', async () => {
-    recorder.note('p', 'u', {});
-    recorder.note('p', 'v', {});
-    recorder.note('q', 'u', {});
-    await vi.advanceTimersByTimeAsync(0);
+    await recorder.note('p', 'u', {});
+    await recorder.note('p', 'v', {});
+    await recorder.note('q', 'u', {});
     expect(writes.map((w) => `${w.projectId} ${w.userId}`)).toEqual(['p u', 'p v', 'q u']);
   });
 
   it('flush and close write what is pending at once', async () => {
-    recorder.note('p', 'u', {});
-    await vi.advanceTimersByTimeAsync(5_000);
-    recorder.note('p', 'u', { sync: { records: 1 } });
+    await recorder.note('p', 'u', {});
+    vi.setSystemTime(1_005_000);
+    await recorder.note('p', 'u', { sync: { records: 1 } });
     await recorder.close();
     expect(writes).toHaveLength(2);
     expect(writes[1].patch).toMatchObject({ syncs: 1, recordsReceived: 1 });
@@ -162,16 +182,41 @@ describe('ActivityRecorder: at most one write per member per minute', () => {
     expect(writes).toHaveLength(2);
   });
 
-  it('a failed write is reported and does not throw into the request', async () => {
+  it('a failed write is reported, does not throw, and its patch is written with the next one', async () => {
     const errors: unknown[] = [];
-    const failing = new ActivityRecorder(
-      { touchMemberActivity: async () => Promise.reject(new Error('db down')) },
+    const patches: MemberActivityPatch[] = [];
+    let fail = true;
+    const flaky = new ActivityRecorder(
+      {
+        touchMemberActivity: async (_p, _u, patch) => {
+          if (fail) throw new Error('db down');
+          patches.push(patch);
+        },
+      },
       { onError: (err) => errors.push(err) },
     );
-    failing.note('p', 'u', {});
-    await failing.flush();
+    await flaky.note('p', 'u', { sync: { records: 2 }, clientAgent: 'CE/1' });
     expect(String(errors[0])).toContain('db down');
-    await failing.close();
+    fail = false;
+    vi.setSystemTime(1_090_000);
+    await flaky.note('p', 'u', { sync: { records: 1 } });
+    expect(patches).toEqual([{ lastSeenAt: 1_090_000, lastSyncAt: 1_090_000, syncs: 2, recordsReceived: 3, clientAgent: 'CE/1' }]);
+    await flaky.close();
+  });
+
+  it('forgets idle members once it holds many, scanning at most once a minute', async () => {
+    const small = new ActivityRecorder(store, { pruneAbove: 3 });
+    for (const u of ['a', 'b', 'c']) await small.note('p', u, {});
+    expect(small.size()).toBe(3);
+    await small.note('p', 'd', {}); // nobody idle for a minute yet: nothing forgotten
+    expect(small.size()).toBe(4);
+    vi.setSystemTime(1_061_000);
+    await small.note('p', 'e', {}); // a, b, c, d idle over a minute: forgotten
+    expect(small.size()).toBe(1);
+    vi.setSystemTime(1_062_000);
+    for (const u of ['f', 'g', 'h']) await small.note('p', u, {});
+    expect(small.size()).toBe(4); // scanned at 1_061_000: not again within the minute
+    await small.close();
   });
 });
 
@@ -205,6 +250,33 @@ describe('the memory store: record events, member activity and the audit log', (
     await store.addMembership(a, maria, 'operator');
     await store.addMembership(a, jose, 'admin');
     await store.addMembership(b, maria, 'operator');
+  });
+
+  it('putRecordWithEvent stores the record and its event together, from the row before it and whether it was submitted', async () => {
+    const seen: [RecordRow | null, boolean][] = [];
+    const upload = (r: RecordRow) =>
+      store.putRecordWithEvent(a, r.recordKey, r.operator, (existing, submittedBefore) => {
+        seen.push([existing, submittedBefore]);
+        if (existing && r.modifiedOn < existing.modifiedOn) return null; // stale
+        return { row: r, event: recordEventOf(existing, r, submittedBefore) };
+      });
+    const draft = row({ projectId: a, modifiedOn: 1000 });
+    const submitted = row({ projectId: a, modifiedOn: 2000, activelySaved: true });
+    expect(await upload(draft)).toBe(true);
+    expect(await upload(submitted)).toBe(true);
+    expect(await upload({ ...submitted })).toBe(true); // a retry: stored, no event
+    expect(await upload(row({ projectId: a, modifiedOn: 500 }))).toBe(false);
+    expect(await upload(row({ projectId: a, modifiedOn: 3000, activelySaved: true }))).toBe(true);
+    expect(seen.map(([e, s]) => [e?.modifiedOn ?? null, s])).toEqual([[null, false], [1000, false], [2000, true], [2000, true], [2000, true]]);
+    const list = (await store.listRecordEvents(a, { from: 0, to: 10_000, limit: 10 })).reverse();
+    expect(list.map((e) => e.change)).toEqual(['created', 'submitted', 'resubmitted']);
+    expect((await store.getRecord(a, '1', 'maria'))!.modifiedOn).toBe(3000);
+  });
+
+  it('refuses a cursor whose id is not a whole number, in both lists', async () => {
+    await expect(store.listRecordEvents(a, { from: 0, to: 10, limit: 1, before: { at: 1, id: 'x' } })).rejects.toThrow(InvalidCursorError);
+    await expect(store.listAudit(a, { limit: 1, before: { at: 1, id: '1.5' } })).rejects.toThrow(InvalidCursorError);
+    await expect(store.listAudit(a, { limit: 1, before: { at: Number.NaN, id: '1' } })).rejects.toThrow(InvalidCursorError);
   });
 
   it('lists record events newest first, in the window, by operator, paged by cursor', async () => {
@@ -329,5 +401,18 @@ describe('migration 012', () => {
           "  WITH CHECK (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid);",
       );
     }
+  });
+
+  it('allows exactly the changes and audit actions the code has', () => {
+    const listed = (constraint: string) =>
+      [...sql.slice(sql.indexOf(constraint)).split('))')[0].matchAll(/'([a-z.]+)'/g)].map((m) => m[1]).sort();
+    expect(listed('change         TEXT')).toEqual(['created', 'deleted', 'resubmitted', 'submitted', 'unsubmitted', 'updated']);
+    expect(listed('audit_log_action_check')).toEqual([...AUDIT_ACTIONS].sort());
+    expect(AUDIT_ACTIONS).toContain('survey.replaced');
+  });
+
+  it('indexes what the deletions and the first-submission lookup search by', () => {
+    expect(sql).toContain('ON record_events(project_id, record_key, operator)');
+    expect(sql).toContain('ON audit_log(actor_user_id)');
   });
 });

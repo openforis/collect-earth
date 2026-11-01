@@ -108,6 +108,7 @@ export async function registerProjectRoutes(
         body.surveyName ?? null,
         body.idmlBase64,
       );
+      await audit(store, request, 'survey.replaced', { bytes: Buffer.byteLength(body.idmlBase64, 'base64') });
       return reply.send({ ok: true });
     },
   );
