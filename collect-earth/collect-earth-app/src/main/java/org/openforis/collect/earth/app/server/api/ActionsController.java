@@ -2,6 +2,7 @@ package org.openforis.collect.earth.app.server.api;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.io.UncheckedIOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -10,6 +11,7 @@ import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.service.BackupSqlLiteService;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.FolderFinder;
+import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.QuitService;
 import org.openforis.collect.earth.app.service.notices.UpdateService;
 import org.openforis.collect.earth.app.service.notices.UpdateService.UpdaterMissingException;
@@ -27,20 +29,50 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class ActionsController {
 
+	static final String SUPPORT_URL = "https://www.openforis.support";
+
 	private final Map<String, Runnable> actions;
 
 	@Autowired
-	public ActionsController(QuitService quit, BackupSqlLiteService backup, BrowserService browser, UpdateService updates) {
-		this(actions(quit, backup, browser, updates));
+	public ActionsController(QuitService quit, BackupSqlLiteService backup, BrowserService browser, UpdateService updates,
+			EarthSurveyService surveys) {
+		this(actions(quit, backup, browser, updates, surveys));
+	}
+
+	private static void openFile(File file) {
+		if (!CollectEarthUtils.openFile(file)) {
+			throw new IllegalStateException("The file could not be opened: " + file.getAbsolutePath());
+		}
 	}
 
 	ActionsController(Map<String, Runnable> actions) {
 		this.actions = actions;
 	}
 
-	private static Map<String, Runnable> actions(QuitService quit, BackupSqlLiteService backup, BrowserService browser, UpdateService updates) {
+	private static Map<String, Runnable> actions(QuitService quit, BackupSqlLiteService backup, BrowserService browser, UpdateService updates,
+			EarthSurveyService surveys) {
 		Map<String, Runnable> actions = new LinkedHashMap<>();
 		actions.put("quit", quit);
+		// The Help menu's files and pages (CollectEarthMenu.getHelpMenu)
+		actions.put("openSurveyGuide", () -> {
+			File guide = surveys.getSurveyGuide();
+			if (guide == null || !guide.exists() || !guide.canRead()) {
+				throw new ApiException("help.guideMissing", Messages.getString("HelpPage.guideMissing"));
+			}
+			openFile(guide);
+		});
+		actions.put("openManual", () -> {
+			File manual = new File(AppInfoController.USER_MANUAL);
+			if (!manual.exists() || !manual.canRead()) {
+				throw new ApiException("help.manualMissing", String.format(Messages.getString("CollectEarthMenu.userManualNotFound"), AppInfoController.USER_MANUAL));
+			}
+			openFile(manual);
+		});
+		actions.put("openSupport", () -> {
+			if (!CollectEarthUtils.openUrl(URI.create(SUPPORT_URL))) {
+				throw new IllegalStateException("The browser could not open " + SUPPORT_URL);
+			}
+		});
 		// Check for updates (Help): the updater of the platform, which says when it is not there
 		actions.put("runUpdater", () -> {
 			try {

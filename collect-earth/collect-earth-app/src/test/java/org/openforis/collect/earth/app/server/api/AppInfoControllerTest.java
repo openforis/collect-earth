@@ -14,6 +14,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import org.junit.jupiter.api.io.TempDir;
+import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -31,14 +36,20 @@ public class AppInfoControllerTest {
 
 	private final LocalPropertiesService properties = mock(LocalPropertiesService.class);
 	private final AtomicInteger versionReads = new AtomicInteger();
-	private final AppInfoController controller = new AppInfoController(properties, () -> "Sierra Leone 2026", () -> {
-		versionReads.incrementAndGet();
-		return "1.23.20";
-	});
+	@TempDir
+	File folder;
+	private File guide;
+	private AppInfoController controller;
 	private MockMvc mvc;
 
 	@BeforeEach
 	public void wire() throws Exception {
+		when(properties.getUiLanguage()).thenReturn(UI_LANGUAGE.EN);
+		when(properties.getOperationMode()).thenReturn(OperationMode.SERVER_MODE);
+		controller = new AppInfoController(properties, () -> "Sierra Leone 2026", () -> {
+			versionReads.incrementAndGet();
+			return "1.23.20";
+		}, () -> guide, () -> "2026-10-31", new File(folder, "UserManual.pdf"));
 		mvc = TemplateWiring.mockMvc(controller, new ApiExceptionHandler());
 	}
 
@@ -54,7 +65,46 @@ public class AppInfoControllerTest {
 				.andExpect(jsonPath("$.language").value("es"))
 				.andExpect(jsonPath("$.viewer").value("google_earth_web"))
 				.andExpect(jsonPath("$.plotsMap").value(true))
-				.andExpect(jsonPath("$.version").value("1.23.20"));
+				.andExpect(jsonPath("$.version").value("1.23.20"))
+				.andExpect(jsonPath("$.cloud").value(false))
+				.andExpect(jsonPath("$.cloudLoginNeeded").value(false))
+				.andExpect(jsonPath("$.errorsShown").value(false))
+				.andExpect(jsonPath("$.surveyGuide").value(false))
+				.andExpect(jsonPath("$.manual").value(false))
+				.andExpect(jsonPath("$.build").value("2026-10-31"))
+				.andExpect(jsonPath("$.java").isNotEmpty())
+				.andExpect(jsonPath("$.languages[0].code").value("FR"))
+				.andExpect(jsonPath("$.languages[0].label").value("Français"))
+				.andExpect(jsonPath("$.client").value(false));
+	}
+
+	@Test
+	public void saysWhatTheHelpMenuAndTheCloudLoginNeed() throws Exception {
+		guide = new File(folder, "guide.pdf");
+		Files.write(guide.toPath(), "guide".getBytes(StandardCharsets.UTF_8));
+		Files.write(new File(folder, "UserManual.pdf").toPath(), "manual".getBytes(StandardCharsets.UTF_8));
+		when(properties.isCloudSyncEnabled()).thenReturn(true);
+		when(properties.getOperator()).thenReturn(" ");
+		when(properties.isExceptionShown()).thenReturn(true);
+		when(properties.getOperationMode()).thenReturn(OperationMode.CLIENT_MODE);
+		mvc.perform(get("/api/app")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.cloud").value(true))
+				.andExpect(jsonPath("$.cloudLoginNeeded").value(true))
+				.andExpect(jsonPath("$.errorsShown").value(true))
+				.andExpect(jsonPath("$.surveyGuide").value(true))
+				.andExpect(jsonPath("$.manual").value(true))
+				.andExpect(jsonPath("$.client").value(true));
+	}
+
+	@Test
+	public void theLanguageIsSavedAndAnUnknownOneRefused() throws Exception {
+		mvc.perform(put("/api/app/language").contentType(MediaType.APPLICATION_JSON).content("{\"language\":\"es\"}"))
+				.andExpect(status().isOk());
+		verify(properties).setUiLanguage(UI_LANGUAGE.ES);
+		mvc.perform(put("/api/app/language").contentType(MediaType.APPLICATION_JSON).content("{\"language\":\"xx\"}"))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("language.unknown"));
+		// Back to English for the other tests: the texts of the server are set by it
+		Messages.setLocale(UI_LANGUAGE.EN.getLocale());
 	}
 
 	@Test

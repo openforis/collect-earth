@@ -32,6 +32,8 @@ public class NoticeAppender extends AbstractAppender {
 
 	public static final String NAME = "notice-log";
 
+	private static volatile NoticeAppender installed;
+
 	private final NoticeService notices;
 	private final BooleanSupplier shownSetting;
 	private volatile Boolean shown;
@@ -59,6 +61,7 @@ public class NoticeAppender extends AbstractAppender {
 		config.addAppender(appender);
 		config.getRootLogger().addAppender(appender, Level.ERROR, null);
 		ctx.updateLoggers();
+		installed = appender;
 		return appender;
 	}
 
@@ -67,6 +70,11 @@ public class NoticeAppender extends AbstractAppender {
 		super(NAME, filter, layout, true, Property.EMPTY_ARRAY);
 		this.notices = notices;
 		this.shownSetting = shownSetting;
+	}
+
+	/** The appender installed, for the Help menu's switch; null before the first context, as in the tests */
+	public static NoticeAppender installed() {
+		return installed;
 	}
 
 	/** The setting as the Help menu just set it, so the file is not read again */

@@ -1,10 +1,16 @@
 package org.openforis.collect.earth.app.server.api;
 
+import java.io.File;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
 
 import org.apache.commons.lang3.StringUtils;
+import org.openforis.collect.earth.app.EarthConstants.OperationMode;
+import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
@@ -21,12 +27,20 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class AppInfoController {
 
+	/** The user manual the installer puts next to Collect Earth (CollectEarthMenu) */
+	static final String USER_MANUAL = "UserManual.pdf";
+
 	private final LocalPropertiesService properties;
 	/** The project name, from the survey: a supplier, as the survey changes when another project is loaded */
 	private final Supplier<String> projectName;
 	/** Where the installed version is read from, once (see version()) */
 	private final Supplier<String> installedVersion;
 	private volatile String version;
+	/** The survey's guide, if it has one: a supplier, as the survey changes */
+	private final Supplier<File> surveyGuide;
+	private final Supplier<String> buildDate;
+	private volatile String build;
+	private final File manual;
 
 	@Autowired
 	public AppInfoController(LocalPropertiesService properties, EarthSurveyService surveys) {
@@ -34,14 +48,18 @@ public class AppInfoController {
 			CollectSurvey survey = surveys.getCollectSurvey();
 			// the UI language is only read when there is a survey, as before
 			return survey == null ? null : projectName(survey, properties.getUiLanguage().getLocale().getLanguage());
-		}, UpdateIniUtils::getVersionNameInstalled);
+		}, UpdateIniUtils::getVersionNameInstalled, surveys::getSurveyGuide, () -> new UpdateIniUtils().getBuildDate(), new File(USER_MANUAL));
 	}
 
 	/** For the tests, which have no survey to load nor update.ini to read */
-	AppInfoController(LocalPropertiesService properties, Supplier<String> projectName, Supplier<String> installedVersion) {
+	AppInfoController(LocalPropertiesService properties, Supplier<String> projectName, Supplier<String> installedVersion,
+			Supplier<File> surveyGuide, Supplier<String> buildDate, File manual) {
 		this.properties = properties;
 		this.projectName = projectName;
 		this.installedVersion = installedVersion;
+		this.surveyGuide = surveyGuide;
+		this.buildDate = buildDate;
+		this.manual = manual;
 	}
 
 	/**
@@ -67,12 +85,59 @@ public class AppInfoController {
 	public Map<String, Object> app() {
 		Map<String, Object> app = new LinkedHashMap<>();
 		app.put("project", projectName.get());
-		app.put("operator", properties.getOperator());
+		String operator = properties.getOperator();
+		app.put("operator", operator);
 		app.put("language", properties.getUiLanguage().getLocale().getLanguage());
 		app.put("viewer", properties.getValue(EarthProperty.VIEWER_TYPE));
 		app.put("plotsMap", properties.isPlotsMapViewer());
 		app.put("version", version());
+		// Stage 5: the title, the Help menu and the About dialog, the cloud login
+		boolean cloud = properties.isCloudSyncEnabled();
+		app.put("cloud", cloud);
+		// In cloud mode the operator is the user logged in (CollectEarthWindow.promptCloudLogin): none means not logged in
+		app.put("cloudLoginNeeded", cloud && StringUtils.isBlank(operator));
+		app.put("errorsShown", Boolean.TRUE.equals(properties.isExceptionShown()));
+		File guide = surveyGuide.get();
+		app.put("surveyGuide", guide != null && guide.exists() && guide.canRead());
+		app.put("manual", manual.exists() && manual.canRead());
+		app.put("build", build());
+		app.put("java", System.getProperty("java.version"));
+		app.put("languages", languages());
+		// A client of another Collect Earth has no data of its own: the Swing window disabled the entries that act on it
+		app.put("client", properties.getOperationMode() == OperationMode.CLIENT_MODE);
 		return app;
+	}
+
+	private static List<Map<String, String>> languages() {
+		List<Map<String, String>> languages = new ArrayList<>();
+		for (UI_LANGUAGE language : UI_LANGUAGE.values()) {
+			Map<String, String> entry = new LinkedHashMap<>();
+			entry.put("code", language.name());
+			entry.put("label", language.getLabel());
+			languages.add(entry);
+		}
+		return languages;
+	}
+
+	/** The build date, read once as the version is */
+	private String build() {
+		if (build == null) {
+			build = buildDate.get();
+		}
+		return build;
+	}
+
+	/** The Language menu: the setting, and the texts of the dialogs that are still Swing; the page then reloads itself. */
+	@PutMapping("/api/app/language")
+	public void language(@RequestBody Map<String, String> body) {
+		UI_LANGUAGE language;
+		try {
+			language = UI_LANGUAGE.valueOf(body.getOrDefault("language", "").trim().toUpperCase(Locale.ROOT));
+		} catch (IllegalArgumentException e) {
+			throw new ApiException("language.unknown", Messages.getString("AppInfoController.languageUnknown"));
+		}
+		properties.setUiLanguage(language);
+		Messages.setLocale(language.getLocale());
 	}
 
 	/**
