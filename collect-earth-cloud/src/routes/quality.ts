@@ -1,10 +1,16 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { isUuid } from '../accountRules.js';
 import { audit } from '../activity.js';
+import { answerStats, type AnswerFilter } from '../answerStats.js';
+import { isDate, isTimeZone } from '../days.js';
+import { plotColumns, plotsWithValue } from '../plotColumns.js';
+import { plotFileOf, plotIdsOf } from '../plotFileCache.js';
+import { fileKeyCount } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { checkMargins } from '../quality.js';
 import { answerOptions, personalReport, teamReport } from '../qualityReports.js';
 import { registerPlotPlaceRoutes } from './plotPlaces.js';
-import { QualityService, WorkerBusyError, WorkerRestartedError, type ServedReport } from '../qualityService.js';
+import { MAX_CACHED_ANSWER_FILTERS, QualityService, remember, WorkerBusyError, WorkerRestartedError, type ServedReport } from '../qualityService.js';
 import type { Store } from '../store/store.js';
 import type { DecisionKind, GuidanceNoteInput } from '../types.js';
 
@@ -88,6 +94,7 @@ export async function registerQualityRoutes(
   quality: QualityService = new QualityService(store),
 ): Promise<void> {
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
+  const reviewer = { preHandler: requireProjectMembership(store, 'reviewer') };
   const member = { preHandler: requireProjectMembership(store) };
   app.addHook('onClose', async () => {
     await quality.close();
@@ -110,6 +117,82 @@ export async function registerQualityRoutes(
     // The answer options of the questions shown, so the tab shows "Forest", not "F".
     const options = answerOptions(outline, [...figures.report.questions.map((q) => q.key), ...notes.map((n) => n.questionKey)]);
     return reply.send({ ...figures.report, computedAt: figures.computedAt, stale: figures.stale, decisions, notes, settings, options });
+  });
+
+  // Answers per person (Task 4), for coordinators and reviewers (never collectors, never
+  // My work): the first assessments' answers by question, for the team and each person,
+  // with the shares far from the rest of the team. Filters: person, file (a plot file),
+  // column + value (the plots with that value in a column of that file), from / to
+  // (days, in tz, of when the plot was last saved). The answer table comes with the
+  // quality figures (same worker job, same cache and version, stale while refreshed);
+  // the figures for a filter are worked out here from it and kept for a few filters.
+  app.get('/v1/projects/:pid/quality/answers', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
+    const q = (request.query ?? {}) as Record<string, unknown>;
+    const text = (name: string): string | null => (typeof q[name] === 'string' && q[name] !== '' ? (q[name] as string) : null);
+    const person = text('person');
+    const fileId = text('file');
+    const columnText = text('column');
+    const value = typeof q.value === 'string' ? q.value : null;
+    const from = text('from');
+    const to = text('to');
+    const timeZone = isTimeZone(q.tz) ? q.tz : 'UTC';
+    if (person !== null && person.length > MAX_NAME) return reply.code(400).send(bad(`person must be at most ${MAX_NAME} characters`));
+    if ((from !== null && !isDate(from)) || (to !== null && !isDate(to))) return reply.code(400).send(bad('from and to must be days written YYYY-MM-DD'));
+    if ((columnText !== null) !== (value !== null)) return reply.code(400).send(bad('column and value go together'));
+    if (columnText !== null && fileId === null) return reply.code(400).send(bad('a column needs its plot file (file)'));
+    if (value !== null && value.length > MAX_NAME) return reply.code(400).send(bad(`value must be at most ${MAX_NAME} characters`));
+    const [files, info] = await Promise.all([store.listCsvFiles(projectId), store.getRoundInfo(projectId)]);
+    let units: Set<string> | null = null;
+    let column: number | null = null;
+    if (fileId !== null) {
+      const meta = isUuid(fileId) ? files.find((f) => f.id === fileId) : undefined;
+      const file = meta ? await store.getCsvFile(projectId, meta.id) : null;
+      if (!file) return reply.code(400).send(bad('no such plot file in this project'));
+      const keyCount = fileKeyCount(info);
+      if (columnText === null) {
+        units = new Set(plotIdsOf(file, keyCount));
+      } else {
+        const plotFile = plotFileOf(file, keyCount);
+        column = /^\d{1,4}$/.test(columnText) ? Number(columnText) : -1;
+        // The id column (0) gives every plot its own value: no filter.
+        if (column < 1 || column >= plotFile.columnCount) return reply.code(400).send(bad(`column must be a column of the plot file, 1 to ${plotFile.columnCount - 1}`));
+        units = plotsWithValue(plotFile, column, value!);
+      }
+    }
+    const figures = await served(quality, projectId, request, reply);
+    if (!figures) {
+      return reply;
+    }
+    const key = JSON.stringify([person, fileId, column, value, from, to, from !== null || to !== null ? timeZone : null]);
+    let stats = figures.answerStats.get(key);
+    if (!stats) {
+      const filter: AnswerFilter = { person, units, from, to, timeZone };
+      stats = answerStats(figures.answers, filter);
+    }
+    remember(figures.answerStats, key, stats, MAX_CACHED_ANSWER_FILTERS);
+    return reply.send({
+      ...stats,
+      computedAt: figures.computedAt,
+      stale: figures.stale,
+      timeZone,
+      filters: {
+        people: [...figures.answers.operators].sort(),
+        files: files.map((f) => ({ id: f.id, filename: f.filename })).sort((a, b) => a.filename.localeCompare(b.filename)),
+      },
+    });
+  });
+
+  // The columns of a plot file and their values, to filter the answers by one (reviewers too).
+  app.get('/v1/projects/:pid/quality/answers/columns', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
+    const id = (request.query as { file?: unknown } | undefined)?.file;
+    const file = typeof id === 'string' && isUuid(id) ? await store.getCsvFile(projectId, id) : null;
+    if (!file) {
+      return reply.code(404).send({ error: 'not_found' });
+    }
+    const plotFile = plotFileOf(file, fileKeyCount(await store.getRoundInfo(projectId)));
+    return reply.send({ hasHeader: plotFile.header !== null, columns: plotColumns(plotFile).filter((c) => c.index > 0) });
   });
 
   // A collector's own report (any member signed in as a person; a project token is no

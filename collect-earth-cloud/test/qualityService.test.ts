@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { RoundInfo } from '../src/cep.js';
+import { qualityFigures } from '../src/answerStats.js';
 import { qualityReport, type QualityRecord } from '../src/quality.js';
 import {
   FAILURE_MEMO_MS,
@@ -54,10 +55,14 @@ describe('QualityWorker', () => {
     const input = { info: added, units: new Set(Array.from({ length: 40 }, (_, i) => String(i + 1))), copyHolders: new Map(), outline, margins: {} };
     const recs = records(40);
     const [a, b] = await Promise.all([worker.run({ input, records: recs }), worker.run({ input, records: recs.slice(0, 40) })]);
-    expect(a).toEqual(qualityReport({ ...input, records: recs }));
-    expect(a.plotsChecked).toBe(40);
-    expect(a.plotsDiffering).toBe(10);
-    expect(b.plotsChecked).toBe(20);
+    expect(a).toEqual(qualityFigures({ ...input, records: recs }));
+    expect(a.report).toEqual(qualityReport({ ...input, records: recs }));
+    expect(a.report.plotsChecked).toBe(40);
+    expect(a.report.plotsDiffering).toBe(10);
+    expect(b.report.plotsChecked).toBe(20);
+    // The answer table's arrays came over from the worker thread.
+    expect(a.answers.size).toBe(40);
+    expect(a.answers.choices[0].values).toBeInstanceOf(Uint16Array);
   }, 30_000);
 
   it('a failing job fails alone, and the worker goes on', async () => {
@@ -69,8 +74,8 @@ describe('QualityWorker', () => {
     // Only a short message comes back: the stack stays in the worker's log.
     expect((failed as Error).message).not.toMatch(/\n|\s+at\s|\.ts|node_modules/);
     expect((failed as Error).message.length).toBeLessThanOrEqual(301);
-    const report = await worker.run({ input, records: records(2) });
-    expect(report.plotsChecked).toBe(2);
+    const figures = await worker.run({ input, records: records(2) });
+    expect(figures.report.plotsChecked).toBe(2);
   }, 30_000);
 });
 
@@ -88,9 +93,9 @@ describe('QualityWorker limits', () => {
 
   it('a job that never answers fails after the time limit, and the next job gets a fresh worker', async () => {
     worker = new QualityWorker({ url: FAKE_WORKER, timeoutMs: 1500 });
-    const first = (await worker.run(fake('echo'))) as unknown as Echo;
+    const first = (await worker.run(fake('echo'))).report as unknown as Echo;
     await expect(worker.run(fake('hang'))).rejects.toThrow(/took longer than 1.5 s/);
-    const next = (await worker.run(fake('echo'))) as unknown as Echo;
+    const next = (await worker.run(fake('echo'))).report as unknown as Echo;
     expect(next.echo).toBe('echo');
     expect(next.threadId).not.toBe(first.threadId);
   }, 30_000);
@@ -98,7 +103,7 @@ describe('QualityWorker limits', () => {
   it('a job that holds its thread in a loop fails after the time limit too', async () => {
     worker = new QualityWorker({ url: FAKE_WORKER, timeoutMs: 1500 });
     await expect(worker.run(fake('busy'))).rejects.toThrow(/took longer than/);
-    expect(((await worker.run(fake('echo'))) as unknown as Echo).echo).toBe('echo');
+    expect(((await worker.run(fake('echo'))).report as unknown as Echo).echo).toBe('echo');
   }, 30_000);
 
   it('takes at most two jobs at a time', async () => {
@@ -127,7 +132,7 @@ describe('QualityWorker limits', () => {
     await new Promise((resolve) => setTimeout(resolve, 300));
     const innocent = worker.run(fake('echo'));
     await Promise.all([expect(slow).rejects.toThrow(/took longer than/), expect(innocent).rejects.toBeInstanceOf(WorkerRestartedError)]);
-    expect(((await worker.run(fake('echo'))) as unknown as Echo).echo).toBe('echo');
+    expect(((await worker.run(fake('echo'))).report as unknown as Echo).echo).toBe('echo');
   }, 30_000);
 
   it('when a job runs out of memory, the one beside it fails as restarted, not out of memory', async () => {
@@ -138,7 +143,7 @@ describe('QualityWorker limits', () => {
       expect(hungry).rejects.toThrow('the quality figures needed more memory than the 32 MB allowed (QUALITY_WORKER_MAX_MB)'),
       expect(innocent).rejects.toBeInstanceOf(WorkerRestartedError),
     ]);
-    expect(((await worker.run(fake('echo'))) as unknown as Echo).echo).toBe('echo');
+    expect(((await worker.run(fake('echo'))).report as unknown as Echo).echo).toBe('echo');
   }, 60_000);
 
   it('says whether it has room for another job', async () => {
@@ -155,7 +160,7 @@ describe('QualityWorker limits', () => {
   it('a job that runs out of memory fails with a plain message, and the next one runs', async () => {
     worker = new QualityWorker({ url: FAKE_WORKER, timeoutMs: 60_000, maxOldGenerationSizeMb: 32 });
     await expect(worker.run(fake('oom'))).rejects.toThrow('the quality figures needed more memory than the 32 MB allowed (QUALITY_WORKER_MAX_MB)');
-    expect(((await worker.run(fake('echo'))) as unknown as Echo).echo).toBe('echo');
+    expect(((await worker.run(fake('echo'))).report as unknown as Echo).echo).toBe('echo');
   }, 60_000);
 });
 
@@ -180,7 +185,7 @@ describe('QualityService', () => {
     const runner: QualityRunner = {
       async run(job) {
         jobs.push(job);
-        return qualityReport({ ...job.input, records: [] });
+        return qualityFigures({ ...job.input, records: [] });
       },
       async close() {},
     };
@@ -228,7 +233,7 @@ describe('QualityService', () => {
       async run(job) {
         runs += 1;
         await gate;
-        return qualityReport({ ...job.input, records: [] });
+        return qualityFigures({ ...job.input, records: [] });
       },
       async close() {},
     };
@@ -253,7 +258,7 @@ describe('QualityService', () => {
       async run(job) {
         runs += 1;
         await new Promise<void>((resolve) => gates.push(resolve));
-        return qualityReport({ ...job.input, records: [] });
+        return qualityFigures({ ...job.input, records: [] });
       },
       async close() {},
     };
@@ -374,7 +379,7 @@ describe('QualityService', () => {
         if (busy) {
           throw new WorkerBusyError();
         }
-        return qualityReport({ ...job.input, records: [] });
+        return qualityFigures({ ...job.input, records: [] });
       },
       async close() {},
     };
@@ -411,7 +416,7 @@ describe('QualityService', () => {
         if (fail) {
           throw new WorkerBusyError();
         }
-        return qualityReport({ ...job.input, records: [] });
+        return qualityFigures({ ...job.input, records: [] });
       },
       async close() {},
     };
@@ -518,7 +523,7 @@ describe('QualityService', () => {
         if (failWith) {
           throw failWith;
         }
-        return qualityReport({ ...job.input, records: [] });
+        return qualityFigures({ ...job.input, records: [] });
       },
       async close() {},
     };
@@ -529,7 +534,7 @@ describe('QualityService', () => {
     await store.putRecord(record(projectId, '1'));
     failWith = new Error('boom');
     await expect(service.report(projectId, log)).rejects.toThrow('boom');
-    expect(await service.report(projectId, log)).toEqual({ report: first.report, computedAt: first.computedAt, stale: true });
+    expect(await service.report(projectId, log)).toEqual({ ...first, stale: true });
     expect(runs).toBe(2);
 
     for (const err of [new WorkerBusyError(), new WorkerRestartedError('another job took too long')]) {
@@ -573,7 +578,7 @@ describe('QualityService', () => {
     const runner: QualityRunner = {
       async run(job) {
         t = 9000;
-        return qualityReport({ ...job.input, records: [] });
+        return qualityFigures({ ...job.input, records: [] });
       },
       async close() {},
     };

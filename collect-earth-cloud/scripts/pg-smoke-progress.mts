@@ -4,7 +4,8 @@
 // the first submissions read with the records (kept through a resubmission), the days of
 // the bars in five time zones (Rome across a DST change), the median waits as the memory
 // store's, the settings, RLS between two projects, and GET /progress on a project of
-// 100,000 records of which 20,000 checks, then the People tab and My work on it, cold and warm.
+// 100,000 records of which 20,000 checks, then the People tab and My work on it, cold and warm,
+// and the Quality tab's answers per person (Task 4) on it.
 //
 //   docker run -d --rm --name ce-pg-smoke -e POSTGRES_PASSWORD=pw -p 55481:5432 postgres:16
 //   npm run smoke:pg:progress -- 55481        (the superuser is postgres / pw on localhost)
@@ -298,6 +299,73 @@ const routes = [
 check('cold and warm: every route answers 200', routes.every((r) => r.status === 200), routes.map((r) => r.status));
 res = await call('GET', big, '/my-work?tz=UTC', undefined, {}, op1Session);
 check("My work of op1 (2,500 plots, 2,500 copies) never says which are checks", res.statusCode === 200 && !/check|cop(y|ies)|overlap|"kind":"main"/i.test(res.body) && res.json().person.plots.assigned === N / 20, res.json().person?.plots);
+
+// --- Answers per person (Task 4) on the same 100,000 records: 40 answers each (25
+// choices of 4-8 codes, 5 numbers, 10 texts), the quality worker computing the report and
+// the answer table from one read, then the answers for a few filters. ---
+const answerKeys: string[] = [];
+// Plot i is op(i % 40)'s; k = i / 40 runs through each person's plots, so everyone answers
+// alike, except op3, who answers q0 "a" on half of their plots.
+const k = '(record_key::int / 40)';
+answerKeys.push(`'collect_code_q0', CASE WHEN record_key::int % 80 = 3 THEN 'a' ELSE (ARRAY['a','b','c','d'])[1 + (${k} * 7) % 4] END`);
+for (let q = 1; q < 25; q++) answerKeys.push(`'collect_code_q${q}', (ARRAY['a','b','c','d','e','f','g','h'])[1 + (${k} * ${q + 7}) % ${4 + (q % 5)}]`);
+for (let q = 0; q < 5; q++) answerKeys.push(`'collect_real_n${q}', ((${k} * ${q + 3}) % 97)::text`);
+for (let q = 0; q < 10; q++) answerKeys.push(`'collect_text_t${q}', 'some words ' || record_key`);
+// jsonb_build_object takes at most 100 arguments: chunks of 20 pairs, merged.
+const chunks: string[] = [];
+for (let c = 0; c < answerKeys.length; c += 20) chunks.push(`jsonb_build_object(${answerKeys.slice(c, c + 20).join(', ')})`);
+await owner.query(`UPDATE records SET summary = ${chunks.join(' || ')} WHERE project_id = $1`, [big]);
+await owner.query('ANALYZE records');
+{
+  const fresh = await buildServer({
+    store,
+    config: { port: 0, host: '127.0.0.1', storeBackend: 'postgres', adminApiKey: 'k', setupCode: 'X', rateLimitPerMinute: 0 } as any,
+    webDir: null,
+  });
+  const get = async (path: string) => {
+    const t0 = performance.now();
+    const r = await fresh.inject({ method: 'GET', url: `/v1/projects/${big}${path}`, headers: bearer(ownerToken) });
+    return { ms: Math.round(performance.now() - t0), res: r };
+  };
+  const cold = await get('/quality/answers');
+  const body = cold.res.json();
+  check('GET /quality/answers on 100,000 records: 90,000 first assessments, 25 choices and 5 numbers', cold.res.statusCode === 200 && body.plots === N - N / 10 && body.choices.length === 25 && body.numbers.length === 5, { status: cold.res.statusCode, plots: body.plots, choices: body.choices?.length, numbers: body.numbers?.length });
+  check('... op3 answers q0 apart from the rest (flagged), the others not', body.flags.some((f: any) => f.username === 'op3') && body.flags.every((f: any) => f.username === 'op3'), body.flags?.slice(0, 3));
+  check('... the checks are not counted: each choice has at most the plots', body.choices.every((c: any) => c.answered <= N - N / 10));
+  console.log(`     GET /quality/answers cold (worker: read 100,000 records, report + answer table, hand over): ${cold.ms} ms`);
+  const warm: string[] = [];
+  for (const [label, path] of [
+    ['no filter, kept', '/quality/answers'],
+    ['person', '/quality/answers?person=op1'],
+    ['plot file', `/quality/answers?file=${bigFile}`],
+    ['days', '/quality/answers?from=2000-01-01&to=2100-01-01&tz=Europe/Rome'],
+    ['days, other zone', '/quality/answers?from=2000-01-01&to=2100-01-01&tz=America/Lima'],
+    ['person, kept', '/quality/answers?person=op1'],
+  ] as const) {
+    const r = await get(path);
+    if (r.res.statusCode !== 200) check(`answers ${label}`, false, r.res.body.slice(0, 300));
+    warm.push(`${label} ${r.ms} ms`);
+  }
+  console.log(`     GET /quality/answers then: ${warm.join(', ')}`);
+  const report = await get('/quality');
+  console.log(`     GET /quality (same figures, kept): ${report.ms} ms`);
+  await fresh.close();
+  // The worker's two parts on this thread, for the record.
+  const { answerTable } = await import('../src/answerStats.js');
+  const { qualityReport } = await import('../src/quality.js');
+  const { loadPlotContext } = await import('../src/qualityService.js');
+  const t2 = performance.now();
+  const summaries = await store.listRecordSummaries(big);
+  const t3 = performance.now();
+  const context = await loadPlotContext(store, big, { warn() {}, error() {} });
+  const t4 = performance.now();
+  qualityReport({ ...context, records: summaries, outline: null, margins: {} });
+  const t5 = performance.now();
+  const table = answerTable({ ...context, records: summaries, outline: null, margins: {} });
+  const t6 = performance.now();
+  const bytes = table.choices.reduce((s2, c) => s2 + c.values.byteLength + (c.rows?.byteLength ?? 0), 0) + table.numbers.reduce((s2, c) => s2 + c.values.byteLength + c.rows.byteLength, 0) + table.operator.byteLength + table.unit.byteLength + table.time.byteLength;
+  console.log(`     on this thread: read summaries ${Math.round(t3 - t2)} ms, plot context ${Math.round(t4 - t3)} ms, report ${Math.round(t5 - t4)} ms, answer table ${Math.round(t6 - t5)} ms (${(bytes / 1e6).toFixed(1)} MB of arrays)`);
+}
 
 await app.close();
 await store.close();

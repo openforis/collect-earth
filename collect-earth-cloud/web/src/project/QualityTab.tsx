@@ -52,6 +52,7 @@ import {
 } from "../qualityView";
 import { linkProps, pathFor } from "../router";
 import { useLoad } from "../useLoad";
+import { QualityAnswers } from "./QualityAnswers";
 import { QualityAssistant } from "./QualityAssistant";
 import { QualityDifferences, type PlotFocus } from "./QualityDifferences";
 import { NoteDialog, QualityNotes, type NoteDraft } from "./QualityNotes";
@@ -754,6 +755,7 @@ export function QualityTab({ projectId }: { projectId: string }) {
           />
         </>
       )}
+      <QualityAnswers projectId={projectId} />
       <QualityNotes
         projectId={projectId}
         data={data}

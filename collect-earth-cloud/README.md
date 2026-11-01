@@ -51,7 +51,7 @@ and drops its own database and roles, so never point it at a real server.
 ```bash
 docker run -d --rm --name ce-pg-smoke -e POSTGRES_PASSWORD=pw -p 55481:5432 postgres:16
 npm run smoke:pg -- 55481      # the port; prints one line per check, then ALL OK
-npm run smoke:pg:progress -- 55481   # the Progress and People tabs (migration 013), with GET /progress, /people and /people/:userId on 100,000 records and 20,000 checks
+npm run smoke:pg:progress -- 55481   # the Progress and People tabs (migration 013), with GET /progress, /people and /people/:userId on 100,000 records and 20,000 checks, then the Quality tab's answers per person on them
 docker stop ce-pg-smoke
 ```
 

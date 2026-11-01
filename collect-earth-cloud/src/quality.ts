@@ -146,7 +146,7 @@ export interface QualityReport {
 }
 
 type Kind = 'choice' | 'number';
-type KeyRule = { compare: false; beyond: boolean } | { compare: true; kind: Kind; label: string };
+export type KeyRule = { compare: false; beyond: boolean } | { compare: true; kind: Kind; label: string };
 
 /**
  * One summary key, looked up once per pair key: its rule and, for a compared key, its
@@ -700,7 +700,7 @@ export function isoWeek(time: number): string {
  *   METADATA_KEY_PARTS part; else by its prefix, code_ and boolean_ as a choice,
  *   integer_ and real_ (not ranges) as a number, and never anything else (free text).
  */
-function keyRule(key: string, outline: ReadonlyMap<string, Question> | null): KeyRule {
+export function keyRule(key: string, outline: ReadonlyMap<string, Question> | null): KeyRule {
   const q = outline?.get(key);
   if (q) {
     return !q.excluded && (q.kind === 'choice' || q.kind === 'number')

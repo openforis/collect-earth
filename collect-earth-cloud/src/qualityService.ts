@@ -9,7 +9,8 @@ import { Worker } from 'node:worker_threads';
 import { readCep, type RoundInfo } from './cep.js';
 import { copyHoldersOf } from './division.js';
 import { plotIdsOf } from './plotFileCache.js';
-import { qualityReport, type QualityInput, type QualityReport } from './quality.js';
+import { qualityFigures, type AnswerStats, type AnswerTable, type QualityFigures } from './answerStats.js';
+import type { QualityInput, QualityReport } from './quality.js';
 import type { WorkerJob, WorkerReply } from './qualityWorker.js';
 import { fileKeyCount } from './rounds.js';
 import { type Holders } from './holders.js';
@@ -162,7 +163,7 @@ export interface QualityWorkerOptions {
 }
 
 interface PendingJob {
-  resolve: (r: QualityReport) => void;
+  resolve: (r: QualityFigures) => void;
   reject: (e: unknown) => void;
   timer: NodeJS.Timeout;
   /** Its records are read and the figures (which hold the worker's thread) are being computed. */
@@ -200,7 +201,7 @@ export class QualityWorker {
     return this.unavailable !== null || this.closed || this.pending.size < MAX_WORKER_JOBS;
   }
 
-  run(job: WorkerJob): Promise<QualityReport> {
+  run(job: WorkerJob): Promise<QualityFigures> {
     if (this.unavailable !== null) {
       return Promise.reject(new WorkerUnavailableError(this.unavailable));
     }
@@ -218,7 +219,7 @@ export class QualityWorker {
       return Promise.reject(new WorkerUnavailableError(err));
     }
     const id = this.nextId++;
-    return new Promise<QualityReport>((resolve, reject) => {
+    return new Promise<QualityFigures>((resolve, reject) => {
       const timer = setTimeout(() => this.timedOut(worker, id), this.timeoutMs);
       timer.unref();
       this.pending.set(id, { resolve, reject, timer, computing: false });
@@ -263,7 +264,7 @@ export class QualityWorker {
       if ('error' in message) {
         job.reject(new Error(message.error));
       } else {
-        job.resolve(message.report);
+        job.resolve({ report: message.report, answers: message.answers });
       }
     });
     worker.on('error', (err: Error & { code?: string }) => {
@@ -341,7 +342,7 @@ export class QualityWorker {
 
 /** What a QualityService needs of a worker (QualityWorker, or a stand-in in tests). */
 export interface QualityRunner {
-  run(job: WorkerJob): Promise<QualityReport>;
+  run(job: WorkerJob): Promise<QualityFigures>;
   /** Whether a job would be taken now; when false the service answers busy before loading anything. Absent: always. */
   hasRoom?(): boolean;
   close(): Promise<void>;
@@ -369,9 +370,16 @@ export const MIN_COMPUTE_INTERVAL_MS = 30_000;
 /** A computation that failed is not tried again for the same inputs for this long (the error is given again, or a stale report). */
 export const FAILURE_MEMO_MS = 2 * 60_000;
 
+/** Answer figures kept per filter, for each cached report. */
+export const MAX_CACHED_ANSWER_FILTERS = 8;
+
 /** The figures as served: when they were computed, and whether the inputs have changed since. */
 export interface ServedReport {
   report: QualityReport;
+  /** The first assessments' answers, from the same records (Task 4). */
+  answers: AnswerTable;
+  /** answerStats already worked out from `answers`, by filter (at most MAX_CACHED_ANSWER_FILTERS; use remember()). */
+  answerStats: Map<string, AnswerStats>;
   /** ms since the epoch: when the inputs it was computed from were read. */
   computedAt: number;
   /** True when records (or other inputs) changed after computedAt; newer figures are being computed. */
@@ -381,6 +389,8 @@ export interface ServedReport {
 interface CachedReport {
   version: string;
   report: QualityReport;
+  answers: AnswerTable;
+  answerStats: Map<string, AnswerStats>;
   computedAt: number;
 }
 
@@ -447,26 +457,25 @@ export class QualityService {
     const cached = this.reports.get(projectId);
     if (cached?.version === snapshot.version) {
       remember(this.reports, projectId, cached, MAX_CACHED_REPORTS);
-      return { report: cached.report, computedAt: cached.computedAt, stale: false };
+      return served(cached, false);
     }
     // The same inputs failed a moment ago: not tried again yet.
     const failure = this.failures.get(projectId);
     if (failure && failure.version === snapshot.version && this.now() - failure.at < FAILURE_MEMO_MS) {
       if (cached) {
-        return { report: cached.report, computedAt: cached.computedAt, stale: true };
+        return served(cached, true);
       }
       throw failure.error;
     }
     const pending = this.schedule(projectId, log, snapshot, cached !== undefined);
     if (pending === null) {
-      return { report: cached!.report, computedAt: cached!.computedAt, stale: true };
+      return served(cached!, true);
     }
     if (cached && this.now() - cached.computedAt < STALE_MS) {
       pending.catch((err: unknown) => log.warn({ err }, 'quality: the figures could not be brought up to date'));
-      return { report: cached.report, computedAt: cached.computedAt, stale: true };
+      return served(cached, true);
     }
-    const fresh = await pending;
-    return { report: fresh.report, computedAt: fresh.computedAt, stale: false };
+    return served(await pending, false);
   }
 
   /**
@@ -486,14 +495,14 @@ export class QualityService {
       return null;
     }
     if (cached.version === snapshot.version) {
-      return { report: cached.report, computedAt: cached.computedAt, stale: false };
+      return served(cached, false);
     }
     const failure = this.failures.get(projectId);
     const failedLately = failure !== undefined && failure.version === snapshot.version && this.now() - failure.at < FAILURE_MEMO_MS;
     if (!failedLately) {
       this.schedule(projectId, log, snapshot, true)?.catch((err: unknown) => log.warn({ err }, 'quality: the figures could not be brought up to date'));
     }
-    return { report: cached.report, computedAt: cached.computedAt, stale: true };
+    return served(cached, true);
   }
 
   /**
@@ -545,9 +554,9 @@ export class QualityService {
       if (cached?.version === s.version) {
         return cached;
       }
-      let report: QualityReport;
+      let figures: QualityFigures;
       try {
-        report = await this.compute(projectId, log, s.known);
+        figures = await this.compute(projectId, log, s.known);
       } catch (err) {
         // Busy or restarted is no fault of these inputs, and nothing was computed: tried
         // again on the next request, interval or not.
@@ -559,7 +568,7 @@ export class QualityService {
         throw err;
       }
       this.failures.delete(projectId);
-      const entry = { version: s.version, report, computedAt: s.at };
+      const entry: CachedReport = { version: s.version, ...figures, answerStats: new Map(), computedAt: s.at };
       remember(this.reports, projectId, entry, MAX_CACHED_REPORTS);
       return entry;
     })();
@@ -636,7 +645,7 @@ export class QualityService {
     projectId: string,
     log: Log,
     known: { info: RoundInfo | null; files: CsvFile[]; members: Member[]; settings: QualitySettings },
-  ): Promise<QualityReport> {
+  ): Promise<QualityFigures> {
     const source = this.store.recordsSource();
     // No room on the worker: say so before reading the plot files.
     if (source && this.runner?.hasRoom && !this.runner.hasRoom()) {
@@ -661,6 +670,10 @@ export class QualityService {
     const records = await this.store.listRecordSummaries(projectId);
     // Let what is waiting run first: the figures then hold the loop for a while.
     await new Promise((resolve) => setImmediate(resolve));
-    return qualityReport({ ...input, records });
+    return qualityFigures({ ...input, records });
   }
+}
+
+function served(c: CachedReport, stale: boolean): ServedReport {
+  return { report: c.report, answers: c.answers, answerStats: c.answerStats, computedAt: c.computedAt, stale };
 }

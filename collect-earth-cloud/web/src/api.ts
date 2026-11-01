@@ -1971,3 +1971,173 @@ export async function getPerson(projectId: string, userId: string, timeZone: str
 export async function getMyWork(projectId: string, timeZone: string): Promise<PersonData> {
   return toPersonData(await request<unknown>("GET", `${p(projectId)}/my-work?${new URLSearchParams({ tz: timeZone })}`));
 }
+
+// --- answers per person (the Quality tab's Answers section, Task 4) -------------------
+
+/** Which first assessments the answers count; null or "" for no filter. */
+export interface AnswersFilter {
+  person: string | null;
+  file: string | null;
+  /** A column of `file` (1 or more) and the value the plots have in it. */
+  column: number | null;
+  value: string | null;
+  /** Days (YYYY-MM-DD) of when the plots were last saved, both included. */
+  from: string | null;
+  to: string | null;
+}
+
+export const NO_ANSWERS_FILTER: AnswersFilter = { person: null, file: null, column: null, value: null, from: null, to: null };
+
+export interface AnswerCode {
+  code: string;
+  label: string;
+  count: number;
+}
+
+export interface ChoiceAnswers {
+  key: string;
+  label: string;
+  multiple: boolean;
+  answered: number;
+  blank: number;
+  codes: AnswerCode[];
+  /** counts in the order of codes. */
+  people: { username: string; answered: number; counts: number[] }[];
+}
+
+export interface NumberSpread {
+  values: number;
+  nonNumeric: number;
+  median: number | null;
+  q1: number | null;
+  q3: number | null;
+}
+
+export interface NumberAnswers {
+  key: string;
+  label: string;
+  team: NumberSpread;
+  people: ({ username: string } & NumberSpread)[];
+}
+
+export interface AnswerFlag {
+  key: string;
+  label: string;
+  username: string;
+  code: string;
+  codeLabel: string;
+  plots: number;
+  count: number;
+  share: number;
+  others: { plots: number; count: number; share: number };
+  z: number;
+}
+
+export interface AnswersData {
+  plots: number;
+  person: string | null;
+  people: { username: string; plots: number }[];
+  choices: ChoiceAnswers[];
+  numbers: NumberAnswers[];
+  flags: AnswerFlag[];
+  flagsTotal: number;
+  computedAt: number | null;
+  stale: boolean;
+  timeZone: string;
+  filters: { people: string[]; files: { id: string; filename: string }[] };
+}
+
+const counts = (value: unknown): number[] => (Array.isArray(value) ? value.map(toCount) : []);
+
+function toSpread(value: unknown): NumberSpread {
+  const v = obj(value);
+  return { values: toCount(v.values), nonNumeric: toCount(v.nonNumeric), median: toNumberOrNull(v.median), q1: toNumberOrNull(v.q1), q3: toNumberOrNull(v.q3) };
+}
+
+export function toAnswersData(body: unknown): AnswersData {
+  const b = obj(body);
+  const filters = obj(b.filters);
+  return {
+    plots: toCount(b.plots),
+    person: nullableText(b.person),
+    people: list(b.people).map((p) => ({ username: text(p.username), plots: toCount(p.plots) })),
+    choices: list(b.choices).map((c) => ({
+      key: text(c.key),
+      label: text(c.label) || text(c.key),
+      multiple: c.multiple === true,
+      answered: toCount(c.answered),
+      blank: toCount(c.blank),
+      codes: list(c.codes).map((code) => ({ code: text(code.code), label: text(code.label) || text(code.code), count: toCount(code.count) })),
+      people: list(c.people).map((p) => ({ username: text(p.username), answered: toCount(p.answered), counts: counts(p.counts) })),
+    })),
+    numbers: list(b.numbers).map((n) => ({
+      key: text(n.key),
+      label: text(n.label) || text(n.key),
+      team: toSpread(n.team),
+      people: list(n.people).map((p) => ({ username: text(p.username), ...toSpread(p) })),
+    })),
+    flags: list(b.flags).map((f) => {
+      const others = obj(f.others);
+      return {
+        key: text(f.key),
+        label: text(f.label) || text(f.key),
+        username: text(f.username),
+        code: text(f.code),
+        codeLabel: text(f.codeLabel) || text(f.code),
+        plots: toCount(f.plots),
+        count: toCount(f.count),
+        share: toNumberOrNull(f.share) ?? 0,
+        others: { plots: toCount(others.plots), count: toCount(others.count), share: toNumberOrNull(others.share) ?? 0 },
+        z: toNumberOrNull(f.z) ?? 0,
+      };
+    }),
+    flagsTotal: toCount(b.flagsTotal),
+    computedAt: toMillis(b.computedAt),
+    stale: b.stale === true,
+    timeZone: text(b.timeZone) || "UTC",
+    filters: {
+      people: strings(filters.people),
+      files: list(filters.files).map((f) => ({ id: text(f.id), filename: text(f.filename) })),
+    },
+  };
+}
+
+/** The query of a filter: only what is set, a column only with its file and value. */
+export function answersQuery(filter: AnswersFilter, timeZone: string): URLSearchParams {
+  const query = new URLSearchParams();
+  if (filter.person) query.set("person", filter.person);
+  if (filter.file) {
+    query.set("file", filter.file);
+    if (filter.column !== null && filter.value !== null) {
+      query.set("column", String(filter.column));
+      query.set("value", filter.value);
+    }
+  }
+  if (filter.from) query.set("from", filter.from);
+  if (filter.to) query.set("to", filter.to);
+  query.set("tz", timeZone);
+  return query;
+}
+
+/** The first assessments' answers, by person (coordinators and reviewers). A 503 "busy" is thrown as ApiError code "busy". */
+export async function getAnswers(projectId: string, filter: AnswersFilter, timeZone: string): Promise<AnswersData> {
+  return toAnswersData(await request<unknown>("GET", `${p(projectId)}/quality/answers?${answersQuery(filter, timeZone)}`));
+}
+
+export interface AnswerColumn {
+  index: number;
+  name: string | null;
+  distinctCount: number;
+  values: { value: string; count: number }[] | null;
+}
+
+/** A plot file's columns (not the id) and their values, to filter the answers by one. */
+export async function getAnswerColumns(projectId: string, fileId: string): Promise<AnswerColumn[]> {
+  const body = obj(await request<unknown>("GET", `${p(projectId)}/quality/answers/columns?${new URLSearchParams({ file: fileId })}`));
+  return list(body.columns).map((c) => ({
+    index: toCount(c.index),
+    name: typeof c.name === "string" ? c.name : null,
+    distinctCount: toCount(c.distinctCount),
+    values: Array.isArray(c.values) ? list(c.values).map((v) => ({ value: text(v.value), count: toCount(v.count) })) : null,
+  }));
+}

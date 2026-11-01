@@ -11,27 +11,13 @@ import {
   summarize,
   type DistributionSummary,
 } from '../division.js';
+import { columnValues, plotColumns } from '../plotColumns.js';
 import { plotFileOf } from '../plotFileCache.js';
 import { loadPlotContext, type Log } from '../qualityService.js';
-import type { PlotFile } from '../plots.js';
 import { fileKeyCount, keyShape, splitKey } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { PlotAssignment } from '../types.js';
-
-/** Most distinct values a column may have for them to be listed (dividing by column). */
-export const MAX_LISTED_VALUES = 200;
-
-/** Each plot's value in a column (of its first row), in plotIds order. */
-function columnValues(file: PlotFile, column: number): string[] {
-  const valueOf = new Map<string, string>();
-  for (const row of file.rows) {
-    if (!valueOf.has(row.id)) {
-      valueOf.set(row.id, row.fields[column] ?? '');
-    }
-  }
-  return file.plotIds.map((id) => valueOf.get(id) ?? '');
-}
 
 /** Everything a division route needs about one file and the people of the project. */
 async function loadFile(store: Store, projectId: string, csvFileId: string, log: Log) {
@@ -125,27 +111,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
       return reply.code(404).send({ error: 'not_found' });
     }
     const plotFile = plotFileOf(file, fileKeyCount(await store.getRoundInfo(projectId)));
-    const columns = [];
-    for (let index = 0; index < plotFile.columnCount; index += 1) {
-      const counts = new Map<string, number>();
-      for (const value of columnValues(plotFile, index)) {
-        counts.set(value, (counts.get(value) ?? 0) + 1);
-      }
-      // The id column is never listed: every plot has its own.
-      const listed = index > 0 && counts.size <= MAX_LISTED_VALUES;
-      columns.push({
-        index,
-        name: plotFile.header ? plotFile.header.fields[index] ?? '' : null,
-        distinctCount: counts.size,
-        values: listed
-          ? [...counts.entries()]
-              .map(([value, count]) => ({ value, count }))
-              // By value, the empty value last.
-              .sort((a, b) => (a.value === '') !== (b.value === '') ? (a.value === '' ? 1 : -1)
-                : a.value.localeCompare(b.value, undefined, { numeric: true }))
-          : null,
-      });
-    }
+    const columns = plotColumns(plotFile);
     return reply.send({
       plotCount: plotFile.plotIds.length,
       hasHeader: plotFile.header !== null,

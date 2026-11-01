@@ -1,6 +1,7 @@
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
@@ -19,6 +20,7 @@ import { PersonPage } from "./PersonPage";
 import { PlotFilePage } from "../project/PlotFilePage";
 import { PlotsTab } from "../project/PlotsTab";
 import { ProgressTab } from "../project/ProgressTab";
+import { QualityAnswers } from "../project/QualityAnswers";
 import { QualityTab } from "../project/QualityTab";
 import { SettingsTab } from "../project/SettingsTab";
 import { linkProps, navigate, pathFor, PROJECT_TABS, type ProjectTab } from "../router";
@@ -34,6 +36,9 @@ const TAB_LABELS = {
   quality: "tab.quality",
   settings: "tab.settings",
 } as const;
+
+/** The tabs a reviewer has. */
+const REVIEWER_TABS = ["progress", "quality"] as const satisfies readonly ProjectTab[];
 
 /** fileId: one plot file's page, shown under the Plot files tab; personId: one person's page, under the People tab. */
 export function ProjectPage({ projectId, tab, fileId, personId }: { projectId: string; tab: ProjectTab; fileId?: string; personId?: string }) {
@@ -71,8 +76,9 @@ export function ProjectPage({ projectId, tab, fileId, personId }: { projectId: s
 
   const info = project.data;
   const go = (next: ProjectTab) => navigate(pathFor({ name: "project", projectId, tab: next }));
-  // A reviewer follows the progress (without the cards that name people); the other tabs are the coordinators'.
-  if (info.role === "reviewer" && tab === "progress") {
+  // A reviewer follows the progress (without the cards that name people) and the answers per
+  // person (the Quality tab's Answers section); the other tabs are the coordinators'.
+  if (info.role === "reviewer" && (tab === "progress" || tab === "quality")) {
     return (
       <AppShell>
         <Typography variant="h1" sx={{ mb: 1, wordBreak: "break-word" }}>
@@ -86,7 +92,21 @@ export function ProjectPage({ projectId, tab, fileId, personId }: { projectId: s
             {t("myQuality.link")}
           </Button>
         </Box>
-        <ProgressTab projectId={projectId} onGo={go} />
+        <Tabs value={tab} onChange={(_, value: ProjectTab) => go(value)} aria-label={t("project.sections")} sx={{ mb: 3, borderBottom: 1, borderColor: "divider" }}>
+          {REVIEWER_TABS.map((id) => (
+            <Tab key={id} value={id} label={t(TAB_LABELS[id])} id={`tab-${id}`} aria-controls={`panel-${id}`} />
+          ))}
+        </Tabs>
+        <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+          {tab === "progress" ? (
+            <ProgressTab projectId={projectId} onGo={go} />
+          ) : (
+            <Stack spacing={2}>
+              <Typography color="text.secondary">{t("quality.reviewerNote")}</Typography>
+              <QualityAnswers projectId={projectId} />
+            </Stack>
+          )}
+        </div>
       </AppShell>
     );
   }
