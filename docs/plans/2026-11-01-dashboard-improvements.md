@@ -108,46 +108,75 @@ desktop.
 - An audit entry per action.
 - Isolation between two projects in both stores, plus the Postgres smoke.
 
-**As built** (a05cd9dc; differs from the above)
-- **`change`** (`recordChange`, `src/lww.ts`): a first upload already actively saved is
-  `submitted`, not `created` (Collect Earth mostly syncs after Save, and Task 2 counts
-  `submitted`); a record coming back after a tombstone is `created`/`submitted` again; a
-  submitted plot saved again is `updated` (so re-saves do not count as new submissions;
-  Task 12 can find them as `updated` with `activelySaved`). **The same save sent again**
-  (same `modifiedOn`, `deleted` and actively saved: a retried batch) logs nothing.
+**As built** (a05cd9dc, after the review e6177708; differs from the above)
+- **How Collect Earth's saves arrive** (checked in the code): Collect's
+  `RecordManager.save(record, sessionId)` (collect-core 4.0.110) calls
+  `save(..., updateDateAndUser = true)`, which sets `modifiedDate` to now on every save,
+  autosaves (the write-behind flush) included; the envelope sends that date. So each
+  save has a new `modifiedOn`, and last-write-wins loses no autosave (a same-time upload
+  is stored anyway: `applyLww` keeps newer *or equal*). Autosaves send `activelySaved`
+  false, also onto a submitted plot.
+- **`change`** (`recordChange(existing, row, submittedBefore)`, `src/lww.ts`):
+  - every actively saved upload is a submission: `submitted` for the record's (key,
+    operator) first one, **`resubmitted`** after (a kind added to the plan's list);
+    so editing a submitted plot and submitting it again is `unsubmitted`, then
+    `resubmitted`. Task 2 counts `submitted`;
+  - `created` for a first or revived record not submitted, `updated` for a draft saved
+    again, `deleted` for a tombstone;
+  - **the same save sent again** (same `modifiedOn`, flags, step, XML and answers: a
+    retried batch) logs nothing; the same time with other content is `updated`.
+  - The answers are kept on `submitted` and `resubmitted`.
 - **The backfill** gives each record the change a first upload would have had
   (`submitted` with its summary, `created`, or `deleted`), not always `created`. It runs
   only while `record_events` is empty (migrations run on every boot): records written by
-  an older instance during a rolling deploy, after it ran, get no event.
-- **The event is written after the record, in its own transaction**; a failed event write
-  is logged and the record still answered `stored`.
+  an older instance during a rolling deploy, after it ran, get no event. Its cost is in
+  DEPLOY.md's upgrade section (about 1 s per 100,000 records on Postgres 16 in Docker).
+- **One transaction per record:** `putRecordWithEvent(projectId, recordKey, operator,
+  apply)` takes a transaction advisory lock on the record (it may not exist yet), reads
+  the row `FOR UPDATE` with whether it was submitted before, lets `apply` (LWW +
+  `recordEventOf`) decide, and stores the row and its event together. Round trips per
+  record go from 12 to 7 or 8. Three racing uploads of one save log one event (smoke).
+  One transaction per batch was not done: a failing record would undo the others.
+  `appendRecordEvent` stays for tests and later use. `renameRecordOperator` runs before,
+  outside that lock, as before; its events keep the old operator.
 - **`member_activity`** also references `project_members` (ON DELETE CASCADE), and the
-  upsert writes only for a member, so a coalesced write after a removal adds nothing.
-  `last_seen_at` is any answered request of a member with a session (an `onResponse`
-  hook), not only the four routes; `client_agent` is taken only from those four
-  (`records:batch`, `my-assignment`, a plot file's content, `GET /cep`), so the dashboard's
-  browser does not replace Collect Earth's. A coordinator downloading a plot file or the
-  CEP from the dashboard still sets it. `records_received` counts the records stored.
-  The coalescer (`ActivityRecorder`, `app.activity`) writes a member's first call at once
-  and the rest a minute after that write; `flush()` for tests, written on close.
-- **Audit actions:** added `assignments.set` (the whole-file assignment grid), not in the
-  list. `settings.changed` has `{ setting: 'quality' | 'round' | 'ai' | 'name' }`.
-  Guidance notes are not audited. The `CHECK` lists every action of the plan (later tasks'
-  too), named `audit_log_action_check` to widen later. `at` is the server's clock, as
-  `received_at`.
+  upsert writes only for a member. `last_seen_at` is any request of a member with a
+  session; `client_agent` comes only from the four Collect Earth routes (`records:batch`,
+  `my-assignment`, a plot file's content, `GET /cep`), so the dashboard's browser does not
+  replace it (a coordinator downloading a plot file or the CEP from the dashboard still
+  sets it). `records_received` counts the records stored.
+- **The coalescer and Cloud Run** (CPU throttled once the answer is sent): written in an
+  `onSend` hook, awaited before the answer. A member's first call of the minute writes;
+  the calls in the minute after it add up in memory and are written by the member's
+  first call once the minute is over. A timer a minute after the last write is only a
+  best effort; `close()` writes the rest. A failed write keeps its patch for the next
+  one. Idle members are forgotten when over 1000 are held, at most one scan a minute.
+- **Audit actions:** added `assignments.set` (the whole-file assignment grid) and
+  `survey.replaced` (`PUT /survey`, `{ bytes }`). `invite.created` has the invite's id
+  (`createInvite` returns `{ token, id }`). `member.removed` is written before the
+  removal. `settings.changed` has `{ setting: 'quality' | 'round' | 'ai' | 'name' }`.
+  Guidance notes are not audited. The `CHECK` lists every action of the plan (later
+  tasks' too), named `audit_log_action_check` to widen later; a test checks it against
+  `AUDIT_ACTIONS`. `at` is the server's clock, as `received_at`.
+- **Indexes** besides the plan's: `record_events(project_id, record_key, operator)` (was
+  the record submitted before) and `audit_log(actor_user_id)`.
 - **Store:** `listRecordEvents(projectId, { from, to, operator?, limit, before? })`,
   `listAudit(projectId, { limit, before?, actor?, action? })`, newest first; `before` is a
   cursor `{ at, id }` (ids are BIGSERIAL, as strings), so rows at the same time are
-  neither lost nor repeated between pages. `listAudit` gives the actor's username too.
-  `appendAudit(projectId, { actorUserId, action, details })`.
+  neither lost nor repeated between pages. Both stores throw `InvalidCursorError`
+  (`checkCursor`, `src/store/store.ts`) for an id that is not 1-18 digits or a time that
+  is not a number; the routes of later tasks turn it into a 400. `listAudit` gives the
+  actor's username too. `appendAudit(projectId, { actorUserId, action, details })`.
 - **No grants in 012:** `prepareAppRole` grants every table and sequence on each boot.
-- **Postgres** (throwaway `postgres:16`, the server as a NOSUPERUSER NOBYPASSRLS app role;
-  the repository has no smoke script, so it is a scratch script like the earlier tasks'):
-  the backfill on a 001-011 database with records, once; the grants; every route; events,
-  activity and audit read back with paging and filters; `removeMember`, `deleteUser` and
-  `deleteProject`; with A set, B's rows not read, changed or deleted and B rows refused;
-  with `''`, no rows and no error. 52 checks, all ok. The whole suite on that store (as
-  the app role) fails only the tests that reach into the memory store or set up twice.
+- **Postgres smoke:** `scripts/pg-smoke-activity.mts` (`npm run smoke:pg -- <port>`,
+  README "With PostgreSQL"), on a throwaway `postgres:16`, the server as a NOSUPERUSER
+  NOBYPASSRLS app role: the backfill on a 001-011 database with records, once; the
+  grants; every route; events, activity and audit read back with paging, filters and a
+  refused cursor; racing uploads; the first activity write inside the request;
+  `removeMember`, `deleteUser` and `deleteProject`; with A set, B's rows not read,
+  changed or deleted and B rows refused; with `''`, no rows and no error. 57 checks, all
+  ok. The whole suite on that store (as the app role) fails only the 12 tests that reach
+  into the memory store or set up twice.
 
 ### Task 2: Progress tab (monitoring Phase 2)
 
