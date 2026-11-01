@@ -223,6 +223,79 @@ desktop.
 - The route against the memory store.
 - The web helpers.
 
+**As built** (05fd9b70; differs from the above where it says so)
+- **Route:** `GET /v1/projects/:pid/progress?days=90&tz=` for coordinators and reviewers
+  (collectors 403) gives `{ timeZone, today, totals, daily, forecast, attention, settings }`.
+  `days` is kept between 14 (the pace's days) and 366. `tz` passes `isTimeZone`
+  (`src/days.ts`): the `Intl.supportedValuesOf('timeZone')` list, `UTC`, or another IANA
+  name Intl knows (a browser's alias); offsets such as `+05:30` are refused (Postgres reads
+  them with the opposite sign); else UTC. A name Postgres does not know falls back to UTC
+  days there (error 22023).
+- **Reviewers** get the totals, the chart and the forecast, and `attention: null` (the
+  cards name people). The web shows them the Progress page alone (with their "My quality"
+  link); the other tabs stay the coordinators'.
+- **Totals** (`src/progress.ts`, pure) per plot unit of the plot files, each record resolved
+  by the quality figures' `recordResolver` (now exported): only first assessments
+  (`assessment` main) of the files' plots count; checks, unknown rounds and plots in no file
+  do not. An own round's file units whose round is the reassessment code are checks, not
+  plots. Assigned = a unit of a whole file given to someone (the grid) or with a main
+  holder in a divided file (`loadPlotContext` now also gives `fileUnits`). Submitted = a
+  unit with a main record actively saved now; started = with a main record, none submitted.
+  The records are read by a new `listRecordStates` (key, operator, submitted; no answers):
+  with `listRecordSummaries` `/progress` took ~500 ms on 100k records, with it ~200-300 ms.
+- **Days:** `countSubmittedByDay(projectId, { from, to, timeZone })` counts the events
+  `submitted` (first submissions, checks included) per local day; Postgres groups them
+  (`to_char(modified_on AT TIME ZONE $tz, 'YYYY-MM-DD')`, ~50 ms on 100k events), the memory
+  store in JS. Days after today (a clock ahead) count as today. **The cumulative line is
+  worked out backwards from `totals.submitted`**, so it always ends at the headline number;
+  what makes the bars' sum differ (days before the window, plots taken back or deleted,
+  checks, plots in no file) is absorbed in its start, never below 0 (`dailyOf`).
+- **Forecast:** pace = submissions of the last 14 days / 14; `daysLeft` = ceil(remaining /
+  pace), `endDate` = today + daysLeft; with a deadline `daysToDeadline`, `daysOver` (endDate −
+  deadline) and `neededPerDay` = ceil(remaining / (daysToDeadline + 1)) (the deadline day
+  counts), null once it passed. The web builds the sentences (`forecastSentences`).
+- **Settings:** a `progress_settings JSONB` column on `projects` next to `quality_settings`
+  (migration 013, which also indexes `record_events(project_id, received_at)`).
+  `GET`/`PUT /progress/settings` (admin), validated (`deadline` a real date, `targetPlots`
+  1..10,000,000, `quietDays` 1..365, missing = null/null/3), audited as `settings.changed`
+  `{ setting: 'progress' }`. A "Progress" card in the Settings tab edits them.
+- **Cards** (coordinators; only those with something to say; at most 50 people named, the
+  count says how many): `quiet` (plots left, and no sync, or never synced: no plot download,
+  for `quietDays`), `neverDownloaded` (plots, and neither a plot download nor a sync),
+  `notAssigned`, `oldUnsentWork` (`unsentDelays`: per operator the median of received −
+  modified over the events received in the last 14 days, deletions left out; Postgres
+  `percentile_cont`, the memory store the same), `differencesWaiting` (from the quality
+  figures, only when the project has copies or a reassessment code: differing plots less
+  the listed ones decided; when the figures are busy or fail the card is left out),
+  `storage` (90 % as the Setup tab), `oldProjectFile` (`last_cep_download_at` before the
+  CEP's `updatedAt`), `oldCollectEarth` (only with copy holdings, among people holding
+  plots who used Collect Earth: `parseClientAgent` old counted, `unknown` given apart as
+  `unknownVersion`, never as old). Links: People, Plot files, Quality, Setup.
+- **Web:** `PROJECT_TABS` starts `progress, setup` (`/projects/<id>` is Progress,
+  `/projects/<id>/setup` the old Overview); a new project opens on Setup, the project list
+  and the "My quality" back link on Progress. `ProgressTab.tsx`: five headline cards with
+  bars, the cards, the forecast, and a chart of the plots submitted in total (one line,
+  the target dashed when a deadline or target is set, keyboard and pointer readout of the
+  day, a table view; colours from the MUI theme). Reloads 60 s after each load once the
+  page is visible (`onceVisibleAfter`), "Updated 20 s ago" ticks every 5 s.
+  `progressView.ts` holds the pure helpers.
+- **Tests:** server 644 (was 617: 21 in `test/progress.test.ts`, 6 in
+  `test/progress.routes.test.ts`), web 221 (15 in `progressView.test.ts`, router cases),
+  tsc clean in both. **Postgres smoke** `npm run smoke:pg:progress -- <port>`
+  (`scripts/pg-smoke-progress.mts`, README): 34 checks, all ok: 013 twice, Rome days
+  across the DST change, Postgres and the memory store giving the same days in five zones
+  (Lord Howe's half-hour DST included) and the same medians, an unknown zone, the route as
+  coordinator/reviewer/collector, settings and audit, RLS between two projects, and
+  `/progress` on 100,000 records in 200-350 ms. The Task 1 smoke expected the inject
+  agent to be stored, which Task 21 stopped; it now expects Collect Earth's (ALL OK).
+- **Chrome** (seeded dev server, memory store): phone width (390 px) and desktop look
+  right, no console errors; the reviewer sees the figures without the cards. The dashboard
+  has no dark theme (`theme.ts` is light only), so with the browser in dark mode it stays
+  light; the chart takes its colours from the theme and would follow one.
+- **Open:** the member activity is coalesced (Task 1), so a sync is seen by the cards up
+  to a minute late (a person just synced can show as "not downloaded" until it is
+  written). Phase 2's "This week" (most and least active people) is left to Task 3.
+
 ### Task 3: People table, person page, My work (monitoring Phase 3)
 
 **Files:**
