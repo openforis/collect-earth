@@ -45,12 +45,13 @@ import {
 } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
-import { JoinSteps } from "../components/JoinSteps";
+import { CopyField } from "../components/CopyField";
+import { JOIN_MENU_ITEM } from "../components/JoinSteps";
 import { Loading } from "../components/Loading";
-import { CalendarHeatMap, ChartOrTable, ColumnChart, ValuesTable } from "../components/PeopleCharts";
+import { AsOf, CalendarHeatMap, ChartOrTable, ColumnChart, ValuesTable } from "../components/PeopleCharts";
 import { formatDate, formatNumber } from "../format";
 import { useT, type Translate } from "../i18n";
-import { agoText, bucketLabel, durationText, perDayText, statusChip, syncLevel } from "../peopleView";
+import { agoText, bucketLabel, durationText, perDayText, removalText, statusChip, statusSyncLevel } from "../peopleView";
 import { browserTimeZone, dayText, percentText } from "../progressView";
 import { rateText } from "../qualityView";
 import { linkProps, navigate, pathFor, type ProjectTab } from "../router";
@@ -87,7 +88,7 @@ function Figure({ label, value, help }: { label: string; value: string; help?: s
 }
 
 /** The headline numbers: plots given, submitted, started, left; checks; the last 7 days; the pace. */
-export function PersonNumbers({ data }: { data: PersonData }) {
+export function PersonNumbers({ data, self = false }: { data: PersonData; self?: boolean }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -99,7 +100,7 @@ export function PersonNumbers({ data }: { data: PersonData }) {
           <Figure label={t("person.given")} value={n(r.plots.assigned)} />
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
-          <Figure label={t("person.submitted")} value={n(r.plots.submitted)} help={t("person.submittedHelp")} />
+          <Figure label={t("person.submitted")} value={n(r.plots.submitted)} help={t(self ? "person.submittedHelpSelf" : "person.submittedHelp")} />
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
           <Figure label={t("person.started")} value={n(r.plots.started)} />
@@ -107,7 +108,8 @@ export function PersonNumbers({ data }: { data: PersonData }) {
         <Grid size={{ xs: 6, md: 3 }}>
           <Figure label={t("person.left")} value={n(r.plots.remaining)} help={t("person.leftHelp")} />
         </Grid>
-        {r.checks.assigned + r.checks.submitted > 0 && (
+        {/* Never on My work: checks are blind (copies are counted as plots there). */}
+        {r.checks && r.checks.assigned + r.checks.submitted > 0 && (
           <Grid size={{ xs: 12, md: 4 }}>
             <Figure label={t("person.checks")} value={`${n(r.checks.submitted)} / ${n(r.checks.assigned)}`} help={t("person.checksHelp")} />
           </Grid>
@@ -134,7 +136,7 @@ export function PersonNumbers({ data }: { data: PersonData }) {
 const plural = (t: Translate, count: number, one: Parameters<Translate>[0], many: Parameters<Translate>[0], language: string) => t(count === 1 ? one : many, { n: formatNumber(count, language) });
 
 /** The activity calendar and the hours of the day. */
-export function ActivitySection({ data }: { data: PersonData }) {
+export function ActivitySection({ data, self = false }: { data: PersonData; self?: boolean }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -149,7 +151,7 @@ export function ActivitySection({ data }: { data: PersonData }) {
             {t("person.calendarTitle")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            {t("person.calendarExplain", { zone: data.timeZone })}
+            {t(self ? "person.calendarExplainSelf" : "person.calendarExplain", { zone: data.timeZone })}
           </Typography>
           {data.calendar.length === 0 ? (
             <Typography>{t("person.nothingYet")}</Typography>
@@ -190,7 +192,7 @@ export function ActivitySection({ data }: { data: PersonData }) {
               {t("person.hoursTitle")}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              {t("person.hoursExplain", { zone: data.timeZone })}
+              {t(self ? "person.hoursExplainSelf" : "person.hoursExplain", { zone: data.timeZone })}
             </Typography>
             <ChartOrTable
               label={t("person.hoursTitle")}
@@ -280,7 +282,8 @@ export function SyncSection({ data, self }: { data: PersonData; self: boolean })
   const s = data.sync;
   const now = Date.now();
   const when = (ms: number | null) => (ms === null ? t("peopleTable.never") : `${formatDate(ms, language)} (${agoText(t, ms, now)})`);
-  const level = syncLevel(s.lastSyncAt, now, data.quietDays);
+  // As the status chip says it: quiet for the project's quiet days (red after twice that).
+  const level = statusSyncLevel(data.person.status);
   const ce = s.collectEarth;
   return (
     <Section title={t("person.syncTitle")} id="person-sync">
@@ -291,7 +294,9 @@ export function SyncSection({ data, self }: { data: PersonData; self: boolean })
         </Stack>
         {level && (
           <Typography variant="body2" color="text.secondary">
-            {t(level === "red" ? "person.syncRed" : "person.syncAmber", { days: data.quietDays, twice: data.quietDays * 2 })}
+            {self
+              ? t("person.syncQuietSelf", { days: data.quietDays })
+              : t(level === "red" ? "person.syncRed" : "person.syncAmber", { days: data.quietDays, twice: data.quietDays * 2 })}
           </Typography>
         )}
       </Line>
@@ -397,6 +402,8 @@ const STATUS_KEY = { submitted: "person.plotSubmitted", doneByOther: "person.plo
 function FilePlots({ file }: { file: PersonFile }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  // My work never says which plots are checks (the server leaves the kind out there).
+  const showKind = file.list.some((p) => p.kind !== null);
   return (
     <Box>
       <Button size="small" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
@@ -408,7 +415,7 @@ function FilePlots({ file }: { file: PersonFile }) {
             <TableHead>
               <TableRow>
                 <TableCell>{t("person.plotColumn")}</TableCell>
-                <TableCell>{t("person.kindColumn")}</TableCell>
+                {showKind && <TableCell>{t("person.kindColumn")}</TableCell>}
                 <TableCell>{t("peopleTable.status")}</TableCell>
               </TableRow>
             </TableHead>
@@ -418,7 +425,7 @@ function FilePlots({ file }: { file: PersonFile }) {
                   <TableCell component="th" scope="row" sx={{ wordBreak: "break-word" }}>
                     {p.plot}
                   </TableCell>
-                  <TableCell>{t(p.kind === "check" ? "person.kindCheck" : "person.kindMain")}</TableCell>
+                  {showKind && <TableCell>{t(p.kind === "check" ? "person.kindCheck" : "person.kindMain")}</TableCell>}
                   <TableCell>
                     <Chip size="small" variant="outlined" color={STATUS_COLOR[p.status]} label={t(STATUS_KEY[p.status])} />
                   </TableCell>
@@ -497,7 +504,7 @@ export function FilesSection({
                   {file.plots.doneByOther > 0 && ` ${t("person.fileDoneByOther", { n: n(file.plots.doneByOther) })}`}
                 </Typography>
               )}
-              {file.checks.total > 0 && <Typography>{t("person.fileChecks", { total: n(file.checks.total), submitted: n(file.checks.submitted) })}</Typography>}
+              {file.checks && file.checks.total > 0 && <Typography>{t("person.fileChecks", { total: n(file.checks.total), submitted: n(file.checks.submitted) })}</Typography>}
               {members && unfinished > 0 && others.length > 0 && (
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 1, alignItems: { sm: "center" } }}>
                   <FormControl size="small" sx={{ minWidth: 200 }}>
@@ -548,7 +555,7 @@ export function FilesSection({
 /** Change their role, remove them, or make them a new invitation link (to join again with the new project file). */
 function PersonActions({ projectId, data, onChanged }: { projectId: string; data: PersonData; onChanged: () => void }) {
   const t = useT();
-  const { me } = useApp();
+  const { me, language } = useApp();
   const person = data.person;
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -582,6 +589,11 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
                 void run(async () => {
                   const role = e.target.value as Role;
                   await setMemberRole(projectId, person.userId, role);
+                  if (person.userId === me?.userId && role !== "admin") {
+                    // No longer a coordinator: this page is not theirs to see any more.
+                    navigate(pathFor({ name: "project", projectId, tab: "progress" }));
+                    return;
+                  }
                   setNotice(t("people.roleChanged", { name: person.username, role: t(`role.${role}`) }));
                   onChanged();
                 })
@@ -600,7 +612,9 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
             disabled={busy}
             onClick={() =>
               void run(async () => {
-                setInvite(await createInvite(projectId, { role: person.role, maxUses: 1, expiresInDays: 7 }));
+                // A link for them only: Collect Earth gets the project file as it is now when they join with
+                // it and log in with their account (the server makes it a one-person, one-week collector link).
+                setInvite(await createInvite(projectId, { role: "operator", maxUses: 1, expiresInDays: 7, forUserId: person.userId }));
               })
             }
           >
@@ -620,7 +634,9 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
             <Alert severity="success" role="status" sx={{ mb: 2 }}>
               <strong>{t("people.linkReady")}</strong> {t("person.newLinkReady", { name: person.username })}
             </Alert>
-            <JoinSteps link={invite.joinUrl} />
+            {/* Not the join steps of a new person: they already have an account, and must log in with it. */}
+            <CopyField value={invite.joinUrl} label={t("join.linkLabel")} />
+            <Typography sx={{ mt: 1 }}>{t("person.newLinkSteps", { menu: `${t("join.menuFile")} → ${JOIN_MENU_ITEM}` })}</Typography>
           </Box>
         )}
         {notice && (
@@ -634,7 +650,11 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
         <DialogTitle>{t("people.removeTitle", { name: person.username })}</DialogTitle>
         <DialogContent>
           <DialogContentText>{t("people.removeText", { name: person.username })}</DialogContentText>
-          {person.plots.remaining > 0 && <DialogContentText sx={{ mt: 1 }}>{t("person.removePlots", { n: person.plots.remaining })}</DialogContentText>}
+          {removalText(t, data.removal, language).map((line) => (
+            <DialogContentText key={line} sx={{ mt: 1 }}>
+              {line}
+            </DialogContentText>
+          ))}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setRemoving(false)}>{t("common.cancel")}</Button>
@@ -700,6 +720,7 @@ export function PersonPage({ projectId, userId, onGo }: { projectId: string; use
       ) : (
         <>
           <PersonHeading data={data} title={data.person.username} />
+          <AsOf asOf={data.asOf} />
           <PersonNumbers data={data} />
           <PersonActions projectId={projectId} data={data} onChanged={state.reload} />
           <FilesSection data={data} projectId={projectId} members={members.data ?? []} onMoved={state.reload} />

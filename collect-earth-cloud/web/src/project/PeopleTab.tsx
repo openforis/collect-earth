@@ -58,10 +58,10 @@ import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { JoinSteps } from "../components/JoinSteps";
 import { Loading } from "../components/Loading";
-import { ChartOrTable, ColumnChart, ValuesTable } from "../components/PeopleCharts";
+import { AsOf, ChartOrTable, ColumnChart, ValuesTable } from "../components/PeopleCharts";
 import { formatDate, formatDay, formatNumber } from "../format";
 import { useT, type MessageKey } from "../i18n";
-import { agoText, csvTime, filterPeople, peopleCsv, perDayText, sortPeople, statusChip, syncLevel, type SortKey, type StatusFilter } from "../peopleView";
+import { agoText, csvTime, filterPeople, peopleCsv, perDayText, sortPeople, statusChip, statusSyncLevel, type SortKey, type StatusFilter } from "../peopleView";
 import { browserTimeZone, dayText, percentText } from "../progressView";
 import { formatRate } from "../qualityView";
 import { linkProps, pathFor } from "../router";
@@ -360,8 +360,9 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
   const now = Date.now();
   const n = (v: number) => formatNumber(v, language);
   const rows = sortPeople(filterPeople(data.people, text, status), sort.key, sort.direction);
+  const showInvites = status === "all" && !text.trim();
   const download = () => {
-    const csv = peopleCsv(t, sortPeople(data.people, "username", "asc"), csvTime);
+    const csv = peopleCsv(t, sortPeople(data.people, "username", "asc"), csvTime, language);
     saveBlob(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }), `people-${data.today}.csv`);
   };
   const onSort = (key: SortKey) => setSort((s) => ({ key, direction: s.key === key && s.direction === "asc" ? "desc" : "asc" }));
@@ -378,6 +379,7 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
       <Typography color="text.secondary" sx={{ mb: 2 }}>
         {t("peopleTable.explain", { days: data.quietDays, zone: data.timeZone })}
       </Typography>
+      <AsOf asOf={data.asOf} />
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2, alignItems: { sm: "center" } }}>
         <TextField size="small" label={t("peopleTable.search")} value={text} onChange={(e) => setText(e.target.value)} sx={{ maxWidth: { sm: 260 } }} />
         <FormControl size="small" sx={{ minWidth: 200 }}>
@@ -417,7 +419,8 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
           <TableBody>
             {rows.map((r) => {
               const chip = statusChip(t, r.status);
-              const level = r.plots.assigned + r.checks.assigned > 0 ? syncLevel(r.lastSyncAt, now, data.quietDays) : null;
+              // The warning follows the status: quiet (amber, red after twice the quiet days), never for finished people.
+              const level = statusSyncLevel(r.status);
               const done = r.plots.assigned - r.plots.remaining;
               const doneText =
                 r.plots.assigned > 0 ? t("peopleTable.plotsOf", { done: n(done), assigned: n(r.plots.assigned), percent: percentText(done, r.plots.assigned, language) }) : "—";
@@ -443,7 +446,7 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
                         {t("peopleTable.leftCount", { n: n(r.plots.remaining) })}
                       </Typography>
                     )}
-                    {r.checks.assigned > 0 && (
+                    {r.checks && r.checks.assigned > 0 && (
                       <Typography variant="body2" color="text.secondary">
                         {t("peopleTable.checksOf", { submitted: n(r.checks.assigned - r.checks.remaining), assigned: n(r.checks.assigned) })}
                       </Typography>
@@ -472,18 +475,23 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
                 </TableRow>
               );
             })}
-            {status === "all" &&
-              !text.trim() &&
+            {showInvites &&
               data.invites.map((invite) => (
                 <TableRow key={`invite-${invite.id}`}>
                   <TableCell component="th" scope="row" sx={{ minWidth: 120 }}>
-                    <Typography variant="body2">{t("peopleTable.inviteRow", { role: t(`role.${invite.role}`) })}</Typography>
+                    <Typography variant="body2">
+                      {invite.forUsername !== null
+                        ? t("peopleTable.fileLinkRow", { name: invite.forUsername })
+                        : t("peopleTable.inviteRow", { role: t(`role.${invite.role}`) })}
+                    </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {t("peopleTable.invitePlaces", { left: n(Math.max(0, invite.maxUses - invite.usedCount)), max: n(invite.maxUses) })}
+                      {invite.forUsername !== null
+                        ? t("peopleTable.fileLinkHelp")
+                        : t("peopleTable.invitePlaces", { left: n(Math.max(0, invite.maxUses - invite.usedCount)), max: n(invite.maxUses) })}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Chip size="small" variant="outlined" label={t("peopleTable.statusInvited")} />
+                    <Chip size="small" variant="outlined" label={t(invite.forUsername !== null ? "peopleTable.statusFileLink" : "peopleTable.statusInvited")} />
                   </TableCell>
                   <TableCell colSpan={COLUMNS.length - 2}>
                     <Typography variant="body2" color="text.secondary">
@@ -492,7 +500,7 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
                   </TableCell>
                 </TableRow>
               ))}
-            {rows.length === 0 && (
+            {rows.length === 0 && !(showInvites && data.invites.length > 0) && (
               <TableRow>
                 <TableCell colSpan={COLUMNS.length}>
                   <Typography color="text.secondary">{t("peopleTable.noneMatch")}</Typography>

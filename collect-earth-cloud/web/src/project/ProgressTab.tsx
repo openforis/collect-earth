@@ -23,6 +23,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode,
 import { getProgress, type AttentionItem, type ProgressData } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { AsOf } from "../components/PeopleCharts";
 import { Loading } from "../components/Loading";
 import { formatDay, formatNumber } from "../format";
 import { useT } from "../i18n";
@@ -422,6 +423,7 @@ export function ProgressTab({ projectId, onGo }: { projectId: string; onGo: (tab
         </Button>
       </Stack>
       {state.error !== null && state.error !== undefined && <ErrorAlert error={state.error} onRetry={reload} />}
+      <AsOf asOf={data.asOf} />
       {data.totals.plots === 0 ? (
         // Only coordinators can open Setup (reviewers get no cards either).
         <Alert severity="info" action={data.attention !== null ? <Button onClick={() => onGo("setup")}>{t("progress.goSetup")}</Button> : undefined}>

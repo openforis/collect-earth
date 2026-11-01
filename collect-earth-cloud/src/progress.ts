@@ -1,4 +1,5 @@
 import type { RoundInfo } from './cep.js';
+import { holderCount, holderList, type Holders } from './holders.js';
 import { parseClientAgent } from './clientVersion.js';
 import { addDays, daysBetween, localDate } from './days.js';
 import { recordResolver } from './quality.js';
@@ -63,7 +64,7 @@ export interface ProgressInput {
   /** unit -> usernames holding it only as a quality-check copy. */
   copyHolders: ReadonlyMap<string, ReadonlySet<string>>;
   /** unit -> usernames holding it as a main plot, for every plot of a divided file. */
-  mainHolders: ReadonlyMap<string, ReadonlySet<string>>;
+  mainHolders: ReadonlyMap<string, Holders>;
   /** csv file id -> its units. */
   fileUnits: ReadonlyMap<string, readonly string[]>;
   /** Whole files given to people (the assignment grid). */
@@ -71,6 +72,8 @@ export interface ProgressInput {
   settings: ProgressSettings;
   /** Absent for a reviewer: the cards name people. */
   attention?: AttentionInput;
+  /** The records already resolved (ProjectStateCache); else worked out here from `records`. */
+  prepared?: PlotUnits;
 }
 
 export interface ProgressTotals {
@@ -147,7 +150,7 @@ export interface Progress {
 
 export function progressReport(input: ProgressInput): Progress {
   const today = localDate(input.now, input.timeZone);
-  const plotsOf = plotUnits(input);
+  const plotsOf = input.prepared ?? plotUnits(input);
   const totals = plotsOf.totals;
   // Each plot submitted now, once, on the local day of its first submission.
   const dayOf = dayInZone(input.timeZone);
@@ -182,8 +185,8 @@ export interface OperatorWork {
   checkDrafts: Set<string>;
   /** The first submissions of their records known from the record events (main and checks), unsorted. */
   submissionTimes: number[];
-  /** The plot groups of their records (as the quality decisions are keyed). */
-  groups: Set<string>;
+  /** The plot groups (as the quality decisions are keyed) of their first assessments: the plots where they are the main assessor. */
+  mainGroups: Set<string>;
 }
 
 export interface PlotUnits {
@@ -212,7 +215,7 @@ export type PlotUnitsInput = Pick<ProgressInput, 'info' | 'units' | 'copyHolders
 function workOf(byOperator: Map<string, OperatorWork>, operator: string): OperatorWork {
   let work = byOperator.get(operator);
   if (!work) {
-    work = { mainSubmitted: new Map(), mainDrafts: new Set(), checkSubmitted: new Map(), checkDrafts: new Set(), submissionTimes: [], groups: new Set() };
+    work = { mainSubmitted: new Map(), mainDrafts: new Set(), checkSubmitted: new Map(), checkDrafts: new Set(), submissionTimes: [], mainGroups: new Set() };
     byOperator.set(operator, work);
   }
   return work;
@@ -245,9 +248,9 @@ export function plotUnits(input: PlotUnitsInput, perOperator = false): PlotUnits
     }
   }
   for (const [unit, users] of input.mainHolders) {
-    if (users.size === 0 || !plots.has(unit)) continue;
+    if (holderCount(users) === 0 || !plots.has(unit)) continue;
     assigned.add(unit);
-    for (const u of users) push(held, u, unit);
+    for (const u of holderList(users)) push(held, u, unit);
   }
   const copies = new Map<string, string[]>();
   for (const [unit, users] of input.copyHolders) {
@@ -266,7 +269,7 @@ export function plotUnits(input: PlotUnitsInput, perOperator = false): PlotUnits
     if (r.deleted) continue;
     const { unit, round, group } = resolve(r);
     const work = perOperator ? workOf(byOperator, r.operator) : null;
-    work?.groups.add(group);
+    if (round.assessment === 'main') work?.mainGroups.add(group);
     if (unit === null) continue;
     // A submitted record with no event `submitted` (stored before events were kept): its time.
     const at = r.firstSubmittedOn ?? r.modifiedOn;

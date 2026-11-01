@@ -10,9 +10,10 @@ import {
   filterPeople,
   heatLevel,
   peopleCsv,
+  removalText,
   sortPeople,
   statusChip,
-  syncLevel,
+  statusSyncLevel,
 } from "./peopleView";
 
 const t = translator("en");
@@ -46,12 +47,11 @@ describe("status chips and the last sync", () => {
     expect(statusChip(t, { kind: "finished", days: null, level: null }).color).toBe("success");
   });
 
-  it("a last sync is amber after N days, red after 2N", () => {
-    expect(syncLevel(null, NOW, 3)).toBeNull();
-    expect(syncLevel(NOW - 3 * DAY, NOW, 3)).toBeNull();
-    expect(syncLevel(NOW - 3 * DAY - 1, NOW, 3)).toBe("amber");
-    expect(syncLevel(NOW - 6 * DAY, NOW, 3)).toBe("amber");
-    expect(syncLevel(NOW - 6 * DAY - 1, NOW, 3)).toBe("red");
+  it("the last sync's warning follows the status: quiet amber, then red; never for finished people", () => {
+    expect(statusSyncLevel({ kind: "quiet", days: 4, level: "amber" })).toBe("amber");
+    expect(statusSyncLevel({ kind: "quiet", days: 7, level: "red" })).toBe("red");
+    expect(statusSyncLevel({ kind: "finished", days: null, level: null })).toBeNull();
+    expect(statusSyncLevel({ kind: "working", days: null, level: null })).toBeNull();
   });
 
   it("how long ago", () => {
@@ -94,10 +94,32 @@ describe("the CSV", () => {
 
   it("a header in the person's language, one row per person", () => {
     const csv = peopleCsv(t, [row("=cmd", { agreement: { compared: 30, agreeing: 27, rate: 0.9 } })], () => "2026-10-31 13:00");
-    const lines = csv.trimEnd().split("\r\n");
+    const lines = csv.trimEnd().split(/\r?\n/);
     expect(lines).toHaveLength(2);
     expect(lines[0].startsWith("Name,Role,Status,Plots given")).toBe(true);
     expect(lines[1]).toBe("'=cmd,Collector,Working,10,4,1,6,40,0,0,2,2,2026-10-31 13:00,2026-10-31 13:00,90,30");
+  });
+});
+
+describe("the CSV in other languages, and the remove dialog", () => {
+  it("Spanish, French, Portuguese: a semicolon between cells and a decimal comma; My work rows have no checks", () => {
+    const es = translator("es");
+    const csv = peopleCsv(es, [row("ana;b", { medianPerDay: 2.5, checks: null, plots: { assigned: 3, submitted: 1, started: 0, remaining: 2, done: 1 / 3 } })], () => "t", "es");
+    const [head, line] = csv.trimEnd().split(/\r?\n/);
+    expect(head.split(";")[0]).toBe("Nombre");
+    expect(line.startsWith('"ana;b";Recolector;')).toBe(true);
+    expect(line).toContain(";33,3;;;2;2,5;");
+    expect(csvCell("1,5", { separator: ";", decimal: "," })).toBe("1,5");
+    expect(csvCell("a;b", { separator: ";", decimal: "," })).toBe('"a;b"');
+  });
+
+  it("what removing someone leaves, one or many, numbers in the person's language", () => {
+    expect(removalText(t, null, "en")).toEqual([]);
+    expect(removalText(t, { plots: 0, copies: 0 }, "en")).toEqual([]);
+    const [plots, copies] = removalText(t, { plots: 1200, copies: 1 }, "en");
+    expect(plots.startsWith("1,200 plots that only they hold")).toBe(true);
+    expect(copies.startsWith("1 copy to compare")).toBe(true);
+    expect(removalText(translator("fr"), { plots: 1, copies: 0 }, "fr")[0].startsWith("1 parcelle")).toBe(true);
   });
 });
 

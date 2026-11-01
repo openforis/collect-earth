@@ -796,10 +796,12 @@ export async function downloadOriginalCep(projectId: string): Promise<Blob> {
 
 export async function createInvite(
   projectId: string,
-  options: { role: Role; maxUses: number; expiresInDays: number | null },
+  options: { role: Role; maxUses: number; expiresInDays: number | null; forUserId?: string },
 ): Promise<NewInvite> {
   const json: Record<string, unknown> = { role: options.role, maxUses: options.maxUses };
   if (options.expiresInDays) json.expiresInDays = options.expiresInDays;
+  // A link for someone already in the project: the server makes it a one-person, one-week collector link.
+  if (options.forUserId) json.forUserId = options.forUserId;
   const body = await request<Record<string, unknown>>("POST", `${p(projectId)}/invites`, { json });
   const inviteToken = String(body.inviteToken ?? "");
   const joinPath = typeof body.joinPath === "string" && body.joinPath ? body.joinPath : `/join/${encodeURIComponent(inviteToken)}`;
@@ -1588,6 +1590,8 @@ export interface AttentionItem {
 export interface ProgressData {
   timeZone: string;
   today: string;
+  /** When the figures are older than the records: the time they are from (newer ones are being worked out). */
+  asOf: number | null;
   totals: ProgressTotals;
   daily: ProgressDay[];
   forecast: Forecast;
@@ -1616,6 +1620,7 @@ export function toProgressData(body: unknown): ProgressData {
   return {
     timeZone: typeof b.timeZone === "string" ? b.timeZone : "UTC",
     today: toDate(b.today) ?? new Date().toISOString().slice(0, 10),
+    asOf: toMillis(b.asOf),
     totals: {
       plots: toCount(t.plots),
       assigned: toCount(t.assigned),
@@ -1695,7 +1700,8 @@ export interface PersonRow {
   username: string;
   role: Role;
   plots: { assigned: number; submitted: number; started: number; remaining: number; done: number | null };
-  checks: { assigned: number; submitted: number; remaining: number };
+  /** Null on My work: checks are blind there (copies are counted as plots). */
+  checks: { assigned: number; submitted: number; remaining: number } | null;
   submittedLast7: number;
   medianPerDay: number | null;
   lastSyncAt: number | null;
@@ -1718,13 +1724,20 @@ export interface WeekPerson {
   submitted: number;
 }
 
+/** An open invitation link; `forUsername`: made for someone already in the project, to get the new project file. */
+export interface PeopleInvite extends Invite {
+  forUsername: string | null;
+}
+
 export interface PeopleData {
   timeZone: string;
   today: string;
   quietDays: number;
+  /** When the figures are older than the records: the time they are from (newer ones are being worked out). */
+  asOf: number | null;
   quality: QualityAtHand;
   people: PersonRow[];
-  invites: Invite[];
+  invites: PeopleInvite[];
   week: { days: { date: string; submitted: number }[]; mostActive: WeekPerson[]; leastActive: WeekPerson[] };
 }
 
@@ -1735,8 +1748,10 @@ export interface PersonFile {
   filename: string;
   divided: boolean;
   plots: { total: number; submitted: number; doneByOther: number; started: number; notStarted: number };
-  checks: { total: number; submitted: number; started: number; notStarted: number };
-  list: { plot: string; kind: "main" | "check"; status: PlotStatus }[];
+  /** Null on My work (copies are counted as plots there). */
+  checks: { total: number; submitted: number; started: number; notStarted: number } | null;
+  /** `kind` null on My work. */
+  list: { plot: string; kind: "main" | "check" | null; status: PlotStatus }[];
   truncated: boolean;
 }
 
@@ -1772,8 +1787,12 @@ export interface PersonData {
   timeZone: string;
   today: string;
   quietDays: number;
+  asOf: number | null;
   person: PersonRow;
+  /** `checks` 0 on My work (`plots` counts both there). */
   calendar: { date: string; plots: number; checks: number }[];
+  /** What removing them leaves behind (coordinators); null on My work. */
+  removal: { plots: number; copies: number } | null;
   hours: number[];
   files: PersonFile[];
   speed: Speed;
@@ -1808,7 +1827,10 @@ export function toPersonRow(value: unknown): PersonRow {
       remaining: toCount(plots.remaining),
       done: toNumberOrNull(plots.done),
     },
-    checks: { assigned: toCount(checks.assigned), submitted: toCount(checks.submitted), remaining: toCount(checks.remaining) },
+    checks:
+      r.checks && typeof r.checks === "object"
+        ? { assigned: toCount(checks.assigned), submitted: toCount(checks.submitted), remaining: toCount(checks.remaining) }
+        : null,
     submittedLast7: toCount(r.submittedLast7),
     medianPerDay: toNumberOrNull(r.medianPerDay),
     lastSyncAt: toMillis(r.lastSyncAt),
@@ -1835,6 +1857,7 @@ export function toPeopleData(body: unknown): PeopleData {
     timeZone: typeof b.timeZone === "string" ? b.timeZone : "UTC",
     today: toDate(b.today) ?? new Date().toISOString().slice(0, 10),
     quietDays: toCount(b.quietDays) || 3,
+    asOf: toMillis(b.asOf),
     quality: toQualityAtHand(b.quality),
     people: list(b.people).map(toPersonRow),
     invites: list(b.invites).map((i) => ({
@@ -1844,6 +1867,7 @@ export function toPeopleData(body: unknown): PeopleData {
       usedCount: toCount(i.usedCount),
       expiresAt: toMillis(i.expiresAt),
       createdAt: toMillis(i.createdAt),
+      forUsername: nullableText(i.forUsername),
     })),
     week: {
       days: list(week.days)
@@ -1866,10 +1890,12 @@ export function toPersonData(body: unknown): PersonData {
     timeZone: typeof b.timeZone === "string" ? b.timeZone : "UTC",
     today: toDate(b.today) ?? new Date().toISOString().slice(0, 10),
     quietDays: toCount(b.quietDays) || 3,
+    asOf: toMillis(b.asOf),
     person: toPersonRow(b.person),
     calendar: list(b.calendar)
       .filter((d) => toDate(d.date) !== null)
       .map((d) => ({ date: String(d.date), plots: toCount(d.plots), checks: toCount(d.checks) })),
+    removal: b.removal && typeof b.removal === "object" ? { plots: toCount(obj(b.removal).plots), copies: toCount(obj(b.removal).copies) } : null,
     hours: Array.from({ length: 24 }, (_, i) => hours[i] ?? 0),
     files: list(b.files).map((f) => {
       const plots = obj(f.plots);
@@ -1885,10 +1911,13 @@ export function toPersonData(body: unknown): PersonData {
           started: toCount(plots.started),
           notStarted: toCount(plots.notStarted),
         },
-        checks: { total: toCount(checks.total), submitted: toCount(checks.submitted), started: toCount(checks.started), notStarted: toCount(checks.notStarted) },
+        checks:
+          f.checks && typeof f.checks === "object"
+            ? { total: toCount(checks.total), submitted: toCount(checks.submitted), started: toCount(checks.started), notStarted: toCount(checks.notStarted) }
+            : null,
         list: list(f.list).map((x) => ({
           plot: text(x.plot),
-          kind: x.kind === "check" ? "check" : "main",
+          kind: x.kind === "check" ? "check" : x.kind === "main" ? "main" : null,
           status: PLOT_STATUSES.includes(x.status as PlotStatus) ? (x.status as PlotStatus) : "notStarted",
         })),
         truncated: f.truncated === true,

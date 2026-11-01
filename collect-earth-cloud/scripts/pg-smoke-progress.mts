@@ -4,7 +4,7 @@
 // the first submissions read with the records (kept through a resubmission), the days of
 // the bars in five time zones (Rome across a DST change), the median waits as the memory
 // store's, the settings, RLS between two projects, and GET /progress on a project of
-// 100,000 records of which 20,000 checks.
+// 100,000 records of which 20,000 checks, then the People tab and My work on it, cold and warm.
 //
 //   docker run -d --rm --name ce-pg-smoke -e POSTGRES_PASSWORD=pw -p 55481:5432 postgres:16
 //   npm run smoke:pg:progress -- 55481        (the superuser is postgres / pw on localhost)
@@ -264,6 +264,40 @@ const collector = await join(big, 'collector1');
 check('a collector: 403 on /people and /people/:userId', (await call('GET', big, '/people', undefined, {}, collector.token)).statusCode === 403 && (await call('GET', big, `/people/${op1}`, undefined, {}, collector.token)).statusCode === 403);
 res = await call('GET', big, '/my-work', undefined, {}, collector.token);
 check('... and their own My work', res.statusCode === 200 && res.json().person.username === 'collector1');
+
+// --- Cold and warm: each route on a fresh server (an empty project state cache), then
+// asked again (the state kept; activity, settings and the time zone read each time). ---
+const op1Session = await store.createSession(op1);
+const timed = async (label: string, paths: string[], token = ownerToken) => {
+  const fresh = await buildServer({
+    store,
+    config: { port: 0, host: '127.0.0.1', storeBackend: 'postgres', adminApiKey: 'k', setupCode: 'X', rateLimitPerMinute: 0 } as any,
+    webDir: null,
+  });
+  const ms: number[] = [];
+  let status = 0;
+  for (const path of paths) {
+    const t0 = performance.now();
+    const r = await fresh.inject({ method: 'GET', url: `/v1/projects/${big}${path}`, headers: bearer(token) });
+    ms.push(Math.round(performance.now() - t0));
+    status = r.statusCode;
+  }
+  await fresh.close();
+  const warm = ms.slice(1);
+  console.log(`     ${label}: cold ${ms[0]} ms, warm ${warm.join(', ')} ms (median ${[...warm].sort((a, b) => a - b)[warm.length >> 1]} ms)`);
+  return { status, warm };
+};
+// Other time zones each time, so My work's 5-second answer cache is not what is measured.
+const zones = ['Europe/Rome', 'UTC', 'America/Lima', 'Asia/Kolkata', 'Africa/Nairobi', 'Australia/Lord_Howe'];
+const routes = [
+  await timed('GET /progress', zones.map((z) => `/progress?days=90&tz=${z}`)),
+  await timed('GET /people', zones.map((z) => `/people?tz=${z}`)),
+  await timed('GET /people/:userId', zones.map((z) => `/people/${op1}?tz=${z}`)),
+  await timed('GET /my-work (op1)', zones.map((z) => `/my-work?tz=${z}`), op1Session),
+];
+check('cold and warm: every route answers 200', routes.every((r) => r.status === 200), routes.map((r) => r.status));
+res = await call('GET', big, '/my-work?tz=UTC', undefined, {}, op1Session);
+check("My work of op1 (2,500 plots, 2,500 copies) never says which are checks", res.statusCode === 200 && !/check|cop(y|ies)|overlap|"kind":"main"/i.test(res.body) && res.json().person.plots.assigned === N / 20, res.json().person?.plots);
 
 await app.close();
 await store.close();

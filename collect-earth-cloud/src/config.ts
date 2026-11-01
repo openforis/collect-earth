@@ -41,6 +41,12 @@ export interface Config {
    */
   qualityMinIntervalMs?: number;
   /**
+   * How long the Progress and People pages may serve a project's state whose records
+   * changed, while a newer one is built, in ms; undefined = STATE_STALE_MS (30 s). Not
+   * read from the environment: tests set 0.
+   */
+  stateStaleMs?: number;
+  /**
    * A Vertex AI API key for the AI assistant (AI_VERTEX_API_KEY). A secret: it is
    * never sent in a response nor written to the log.
    */

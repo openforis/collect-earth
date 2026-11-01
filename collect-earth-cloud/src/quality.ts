@@ -2,6 +2,7 @@
 // same plots agree, by question, by person and by week, with the plots that differ and
 // the records that do not fit. Pure functions; the routes (Task 10) load the inputs.
 import type { RoundInfo } from './cep.js';
+import { holderHas, type Holders } from './holders.js';
 import { METADATA_KEY_PARTS } from './division.js';
 import { copyUnitsByUser, keyShape, recordRound, unitOfRecord, type RecordRound } from './rounds.js';
 import { BOOKKEEPING_KEYS, MAX_INDEXED_ENTITIES, QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR, type Question } from './surveyOutline.js';
@@ -46,7 +47,7 @@ export interface QualityInput {
    * empty set for a plot no one holds). Only the personal figures use it: a plot of a
    * divided file whose first assessor is not its main holder is left out of them.
    */
-  mainHolders?: ReadonlyMap<string, ReadonlySet<string>>;
+  mainHolders?: ReadonlyMap<string, Holders>;
   /** Number margins in percent, by question key; DEFAULT_MARGIN for the others and for any that is no number >= 0. */
   margins?: Readonly<Record<string, number>>;
 }
@@ -288,7 +289,7 @@ export function qualityReport(input: QualityInput): QualityReport {
     const firstKeys = Object.keys(fs);
     const fi = personIndex.get(first.operator)!;
     const holders = mainHolders?.get(plot);
-    const own = g.main.length === 1 && (holders === undefined || holders.has(first.operator));
+    const own = g.main.length === 1 && (holders === undefined || holderHas(holders, first.operator));
     for (const check of g.check) {
       const cs = check.summary;
       const ci = personIndex.get(check.operator)!;

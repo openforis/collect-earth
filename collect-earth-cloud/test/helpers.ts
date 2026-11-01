@@ -30,6 +30,8 @@ export async function makeContext(
     rateLimitPerMinute: 0,
     // The figures are brought up to date at once, so a test does not wait 30 s for them.
     qualityMinIntervalMs: 0,
+    // Pages always see the records just sent.
+    stateStaleMs: 0,
     ...overrides,
   };
   const app = await buildServer({ store, config, webDir: options.webDir ?? null, ...(options.ai ? { ai: options.ai } : {}) });

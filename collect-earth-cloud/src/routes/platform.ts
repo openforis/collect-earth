@@ -13,6 +13,14 @@ interface InviteBody {
   role?: Role;
   maxUses?: number;
   expiresInDays?: number;
+  /**
+   * A link for someone already in the project, so Collect Earth downloads the project
+   * file as it is now (File > Join cloud project..., then Log in: the link is not used
+   * up and their role does not change). Such a link joins as a collector, for one
+   * person, for a week, whatever else the body says: anyone else who opened it would
+   * join as a collector.
+   */
+  forUserId?: string;
 }
 
 interface RoleBody {
@@ -129,12 +137,18 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
     { preHandler: requireProjectMembership(store, 'admin') },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const body = (request.body ?? {}) as InviteBody;
-      const role: Role = body.role && VALID_ROLES.includes(body.role) ? body.role : 'operator';
-      const maxUses = Number.isInteger(body.maxUses) && body.maxUses! > 0 ? body.maxUses! : 1;
-      const expiresAt =
-        typeof body.expiresInDays === 'number' && body.expiresInDays > 0
-          ? Date.now() + body.expiresInDays * 24 * 60 * 60 * 1000
-          : null;
+      let forUserId: string | null = null;
+      if (body.forUserId !== undefined) {
+        const members = await store.listMembers(request.membership!.projectId);
+        if (typeof body.forUserId !== 'string' || !members.some((m) => m.userId === body.forUserId)) {
+          return reply.code(400).send({ error: 'bad_request', reason: 'forUserId must be a member of the project' });
+        }
+        forUserId = body.forUserId;
+      }
+      const role: Role = forUserId !== null ? 'operator' : body.role && VALID_ROLES.includes(body.role) ? body.role : 'operator';
+      const maxUses = forUserId !== null ? 1 : Number.isInteger(body.maxUses) && body.maxUses! > 0 ? body.maxUses! : 1;
+      const days = forUserId !== null ? 7 : body.expiresInDays;
+      const expiresAt = typeof days === 'number' && days > 0 ? Date.now() + days * 24 * 60 * 60 * 1000 : null;
       const { token, id: inviteId } = await store.createInvite({
         projectId: request.membership!.projectId,
         role,
@@ -143,7 +157,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         // A Phase-0 project admin token has no user behind it: made by nobody.
         createdBy: request.userId ?? null,
       });
-      await audit(store, request, 'invite.created', { inviteId, role, maxUses });
+      await audit(store, request, 'invite.created', forUserId !== null ? { inviteId, role, maxUses, forUserId } : { inviteId, role, maxUses });
       const joinPath = `/join/${token}`;
       return reply.code(201).send({
         inviteToken: token,

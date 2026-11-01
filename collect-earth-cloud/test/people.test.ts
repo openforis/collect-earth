@@ -193,13 +193,20 @@ describe('the people table', () => {
     const table = peopleTable(
       project(records, {
         quality: { report, computedAt: NOW - MIN, stale: true },
-        invites: [{ id: 'i1', role: 'operator', usedCount: 1, maxUses: 5, expiresAt: null, createdAt: NOW - DAY }],
+        invites: [
+          { id: 'i1', role: 'operator', usedCount: 1, maxUses: 5, expiresAt: null, createdAt: NOW - DAY },
+          { id: 'i2', role: 'operator', usedCount: 0, maxUses: 1, expiresAt: null, createdAt: NOW },
+        ],
+        inviteFor: new Map([['i2', 'bo']]),
       }),
     );
     expect(table.people.find((r) => r.username === 'ana')!.agreement).toEqual({ compared: 25, agreeing: 20, rate: 0.8 });
     expect(table.people.find((r) => r.username === 'bo')!.agreement).toEqual({ compared: 0, agreeing: 0, rate: null });
     expect(table.quality).toEqual({ available: true, computedAt: NOW - MIN, stale: true });
-    expect(table.invites).toEqual([{ id: 'i1', role: 'operator', usedCount: 1, maxUses: 5, expiresAt: null, createdAt: NOW - DAY }]);
+    expect(table.invites).toEqual([
+      { id: 'i1', role: 'operator', usedCount: 1, maxUses: 5, expiresAt: null, createdAt: NOW - DAY, forUsername: null },
+      { id: 'i2', role: 'operator', usedCount: 0, maxUses: 1, expiresAt: null, createdAt: NOW, forUsername: 'bo' },
+    ]);
   });
 });
 
@@ -297,6 +304,53 @@ describe("a person's page", () => {
     expect('asChecker' in mine.quality).toBe(false);
     expect(mine.quality.sentBack).toEqual([{ plot: '1', comment: 'Look at the trees', decidedAt: NOW - DAY }]);
     expect(personDetail(project(records), 'u-ana', { self: true })!.quality.asFirst).toBeNull();
+  });
+
+  it('the plots to look at again are only those where they made the first assessment', () => {
+    const decisions = [
+      { plot: '5', decision: 'recheck' as const, comment: 'edge', decidedBy: 'coord', decidedAt: NOW }, // bo first, ana's check
+      { plot: '7', decision: 'recheck' as const, comment: null, decidedBy: 'coord', decidedAt: NOW }, // ana holds 7, bo assessed it
+    ];
+    const ana = personDetail(project(records, { decisions }), 'u-ana', { self: false })!;
+    expect(ana.quality.sentBack).toEqual([]);
+    expect(personDetail(project(records, { decisions }), 'u-ana', { self: true })!.quality.sentBack).toEqual([]);
+    const bo = personDetail(project([...records, rec('5', 'bo', true, NOW - DAY)], { decisions }), 'u-bo', { self: false })!;
+    expect(bo.quality.sentBack.map((d) => d.plot).sort()).toEqual(['5', '7']);
+  });
+
+  it('what removing them leaves behind: plots they alone hold, not submitted, and copies not checked', () => {
+    expect(personDetail(project(records), 'u-ana', { self: false })!.removal).toEqual({ plots: 2, copies: 0 });
+    // bo holds 5 and 6; ana holds 5 as a copy, not checked yet without her record.
+    const noCheck = records.filter((r) => !(r.recordKey === '5' && r.operator === 'ana'));
+    expect(personDetail(project(noCheck), 'u-ana', { self: false })!.removal).toEqual({ plots: 2, copies: 1 });
+    expect(personDetail(project(noCheck), 'u-bo', { self: false })!.removal).toEqual({ plots: 2, copies: 0 });
+    expect(personDetail(project(records), 'u-ana', { self: true })!.removal).toBeUndefined();
+  });
+
+  it('My work never tells which plots are quality checks: copies are counted, listed and drawn as plots', () => {
+    const over = { quality: null, decisions: [{ plot: '1', decision: 'recheck' as const, comment: 'x', decidedBy: 'coord', decidedAt: NOW }] };
+    const mine = personDetail(project(records, over), 'u-ana', { self: true })!;
+    const text = JSON.stringify(mine);
+    expect(text).not.toMatch(/check|cop(y|ies)|overlap|"kind":"main"/i);
+    // ana holds 1-4 and 7 as plots and 5 as a copy (checked): 6 plots, 3 submitted (1, 2 and 5).
+    expect(mine.person.plots).toEqual({ assigned: 6, submitted: 3, started: 1, remaining: 2, done: 4 / 6 });
+    expect('checks' in mine.person).toBe(false);
+    expect(mine.calendar).toEqual([
+      { date: '2026-10-30', plots: 2 },
+      { date: '2026-10-31', plots: 1 },
+    ]);
+    const d = mine.files.find((f) => f.csvFileId === 'd')!;
+    expect(d.plots).toEqual({ total: 2, submitted: 1, doneByOther: 1, started: 0, notStarted: 0 });
+    expect(d.list).toEqual([
+      { plot: '5', status: 'submitted' },
+      { plot: '7', status: 'doneByOther' },
+    ]);
+    expect('checks' in d).toBe(false);
+    expect(mine.speed.submissions).toBe(3);
+    // The coordinator's page does tell them apart.
+    const theirs = personDetail(project(records, over), 'u-ana', { self: false })!;
+    expect(theirs.person.checks).toEqual({ assigned: 1, submitted: 1, remaining: 0 });
+    expect(theirs.files.find((f) => f.csvFileId === 'd')!.list[0]).toEqual({ plot: '5', kind: 'check', status: 'submitted' });
   });
 
   it('null for someone who is not a member', () => {

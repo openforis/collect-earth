@@ -1,12 +1,13 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
 import { isDate, isTimeZone } from '../days.js';
-import { storageSummary } from '../limits.js';
+import { storageLimitBytes } from '../limits.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { differencesWaiting, PACE_DAYS, progressReport, type AttentionInput } from '../progress.js';
-import { loadPlotContext, type QualityService } from '../qualityService.js';
+import type { ProjectStateCache } from '../projectState.js';
+import { remember, type QualityService } from '../qualityService.js';
 import type { Store } from '../store/store.js';
-import type { ProgressSettings } from '../types.js';
+import { totalStorageBytes, type ProgressSettings } from '../types.js';
 
 const DAY_MS = 86_400_000;
 export const DEFAULT_DAYS = 90;
@@ -45,8 +46,27 @@ export function settingsInput(body: unknown): ProgressSettings | BadRequest {
  * coordinators and reviewers (reviewers without the cards that name people), and the
  * progress settings for coordinators.
  */
-export async function registerProgressRoutes(app: FastifyInstance, store: Store, quality: QualityService, now: () => number = Date.now): Promise<void> {
+export async function registerProgressRoutes(
+  app: FastifyInstance,
+  store: Store,
+  quality: QualityService,
+  states: ProjectStateCache,
+  now: () => number = Date.now,
+): Promise<void> {
   const reviewer = { preHandler: requireProjectMembership(store, 'reviewer') };
+  // The bytes a project uses (summing its records takes tens of ms on a large project),
+  // kept while the project's state and its project file are the same; the limit is read each time.
+  const used = new Map<string, { key: string; bytes: number }>();
+  const storageOf = async (projectId: string, version: string) => {
+    const [cep, settings] = await Promise.all([store.getCepInfo(projectId), store.getSettings()]);
+    const key = `${version} ${cep?.bytes ?? ''} ${cep?.updatedAt ?? ''}`;
+    let hit = used.get(projectId);
+    if (hit?.key !== key) {
+      hit = { key, bytes: totalStorageBytes(await store.getProjectStorage(projectId)) };
+    }
+    remember(used, projectId, hit, 16);
+    return { usedBytes: hit.bytes, limitBytes: storageLimitBytes(settings) };
+  };
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
 
   app.get('/v1/projects/:pid/progress', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -59,30 +79,29 @@ export async function registerProgressRoutes(app: FastifyInstance, store: Store,
     const at = now();
     const coordinator = role === 'admin';
 
-    const [records, context, assignments, settings] = await Promise.all([
-      store.listRecordStates(projectId),
-      loadPlotContext(store, projectId, request.log),
-      store.listAssignments(projectId),
-      store.getProgressSettings(projectId),
-    ]);
+    // The plots and the records resolved come from the project's state (kept between
+    // requests); only the settings and the cards' inputs are read each time.
+    const [served, settings] = await Promise.all([states.get(projectId, request.log), store.getProgressSettings(projectId)]);
+    const { context, assignments, units } = served.state;
     let attention: AttentionInput | undefined;
     if (coordinator) {
       const [members, activity, unsentDelays, cep, storage, waiting] = await Promise.all([
-        store.listMembers(projectId),
+        Promise.resolve(served.members),
         store.listMemberActivity(projectId),
         store.unsentDelays(projectId, at - UNSENT_WINDOW_DAYS * DAY_MS),
         store.getCepInfo(projectId),
-        storageSummary(store, projectId),
+        storageOf(projectId, served.state.version),
         context.copyHolders.size > 0 || (context.info?.reassessmentCode ?? null) !== null ? waitingDecisions(store, quality, projectId, request) : null,
       ]);
       attention = { members, activity, unsentDelays, cep, storage, differencesWaiting: waiting };
     }
-    return reply.send(
-      progressReport({
+    return reply.send({
+      ...progressReport({
         now: at,
         timeZone,
         days,
-        records,
+        records: [],
+        prepared: units,
         info: context.info,
         units: context.units,
         copyHolders: context.copyHolders,
@@ -92,7 +111,9 @@ export async function registerProgressRoutes(app: FastifyInstance, store: Store,
         settings,
         attention,
       }),
-    );
+      // When the figures are older than the records (a newer state is being worked out).
+      asOf: served.stale ? served.state.builtAt : null,
+    });
   });
 
   app.get('/v1/projects/:pid/progress/settings', admin, async (request: FastifyRequest, reply: FastifyReply) => {

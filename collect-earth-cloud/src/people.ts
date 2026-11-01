@@ -1,4 +1,5 @@
 import { parseClientAgent } from './clientVersion.js';
+import { holderHas } from './holders.js';
 import { addDays, localDate, localHour } from './days.js';
 import { dailyOf, dayInZone, isQuiet, plotUnits, type OperatorWork, type PlotUnits, type PlotUnitsInput } from './progress.js';
 import type { QualityReport, Rate } from './quality.js';
@@ -54,7 +55,8 @@ export interface PersonRow {
     /** (assigned − remaining) / assigned, 0..1; null without plots. */
     done: number | null;
   };
-  checks: {
+  /** Left out on My work: checks are blind, and a collector is never told which plots are checks. */
+  checks?: {
     /** Quality-check copies they hold. */
     assigned: number;
     /** Checks by them submitted now. */
@@ -62,7 +64,7 @@ export interface PersonRow {
     /** Copies they hold without their submitted check. */
     remaining: number;
   };
-  /** Plots (not checks) first submitted in the last 7 days, today included, in the viewer's time zone. */
+  /** Plots (not checks; on My work, plots and checks alike) first submitted in the last 7 days, today included, in the viewer's time zone. */
   submittedLast7: number;
   /** The median of plots a day over the days they submitted any; null for none. */
   medianPerDay: number | null;
@@ -82,6 +84,8 @@ export interface InviteRow {
   maxUses: number;
   expiresAt: number | null;
   createdAt: number;
+  /** Made from a person's page for someone already in the project (to get the new project file): their name. */
+  forUsername: string | null;
 }
 
 export interface WeekSummary {
@@ -118,9 +122,10 @@ export interface PersonFile {
   filename: string;
   divided: boolean;
   plots: { total: number; submitted: number; doneByOther: number; started: number; notStarted: number };
-  checks: { total: number; submitted: number; started: number; notStarted: number };
-  /** Their plots and copies in file order, at most MAX_LISTED_PLOTS. */
-  list: { plot: string; kind: 'main' | 'check'; status: PlotStatus }[];
+  /** Left out on My work (checks are blind there: copies are counted as plots). */
+  checks?: { total: number; submitted: number; started: number; notStarted: number };
+  /** Their plots and copies in file order, at most MAX_LISTED_PLOTS; `kind` left out on My work. */
+  list: { plot: string; kind?: 'main' | 'check'; status: PlotStatus }[];
   truncated: boolean;
 }
 
@@ -165,19 +170,24 @@ export interface PersonDetail {
   today: string;
   quietDays: number;
   person: PersonRow;
-  /** Days with a submission, oldest first: plots and checks first submitted that day. */
-  calendar: { date: string; plots: number; checks: number }[];
+  /** Days with a submission, oldest first: plots and checks first submitted that day (on My work, `plots` counts both and `checks` is left out). */
+  calendar: { date: string; plots: number; checks?: number }[];
   /** Plots and checks first submitted in each hour of the day (0-23), in the viewer's time zone. */
   hours: number[];
   files: PersonFile[];
   speed: Speed;
   sync: SyncHealth;
+  /**
+   * What removing them leaves behind (not on My work): plots they alone hold that nobody
+   * submitted yet (given to nobody after), and their copies not checked yet (dropped).
+   */
+  removal?: { plots: number; copies: number };
   quality: QualityAtHand & {
     /** Their plots as first assessor compared by a check (on My work: only plots certainly theirs). */
     asFirst: Rate | null;
     /** The plots they checked (not on My work). */
     asChecker?: Rate | null;
-    /** Plots of theirs the coordinator asked to look at again (decision "recheck"), newest first. */
+    /** Plots where they are the main assessor that the coordinator asked to look at again (decision "recheck"), newest first. */
     sentBack: SentBack[];
   };
 }
@@ -194,6 +204,10 @@ export interface PeopleInput extends PlotUnitsInput {
   /** The quality figures at hand (QualityService.peek), or null. */
   quality: { report: QualityReport; computedAt: number; stale: boolean } | null;
   decisions: readonly QualityDecision[];
+  /** The records already resolved (ProjectStateCache); else worked out here from `records`. */
+  prepared?: PlotUnits;
+  /** invite id -> the member it was made for (a new project file link). */
+  inviteFor?: ReadonlyMap<string, string>;
 }
 
 const EMPTY_WORK: OperatorWork = {
@@ -202,7 +216,7 @@ const EMPTY_WORK: OperatorWork = {
   checkSubmitted: new Map(),
   checkDrafts: new Set(),
   submissionTimes: [],
-  groups: new Set(),
+  mainGroups: new Set(),
 };
 
 function median(values: number[]): number | null {
@@ -287,7 +301,7 @@ function prepare(input: PeopleInput): Prepared {
   const today = localDate(input.now, input.timeZone);
   return {
     input,
-    units: plotUnits(input, true),
+    units: input.prepared ?? plotUnits(input, true),
     today,
     dayOf: dayInZone(input.timeZone),
     weekStart: addDays(today, -(WEEK_DAYS - 1)),
@@ -295,7 +309,11 @@ function prepare(input: PeopleInput): Prepared {
   };
 }
 
-function rowOf(p: Prepared, m: Member, agreement: Rate | null): PersonRow {
+/**
+ * One person's row. `fold` (My work): their quality-check copies are counted as plots
+ * like any other (checks are blind: a collector is never told which plots are checks).
+ */
+function rowOf(p: Prepared, m: Member, agreement: Rate | null, fold = false): PersonRow {
   const { input, units } = p;
   const work = units.byOperator.get(m.username) ?? EMPTY_WORK;
   const held = new Set(units.held.get(m.username) ?? []);
@@ -308,39 +326,42 @@ function rowOf(p: Prepared, m: Member, agreement: Rate | null): PersonRow {
   for (const unit of copies) {
     if (work.checkSubmitted.has(unit)) checksDone += 1;
   }
+  const checksLeft = copies.size - checksDone;
   let started = 0;
   for (const unit of work.mainDrafts) {
     if (!work.mainSubmitted.has(unit)) started += 1;
   }
+  let checksStarted = 0;
+  for (const unit of work.checkDrafts) {
+    if (!work.checkSubmitted.has(unit)) checksStarted += 1;
+  }
+  // The days count plots; on My work, checks too (they are plots there).
   const perDay = new Map<string, number>();
   let last7 = 0;
   let lastSubmittedAt: number | null = null;
-  for (const at of work.mainSubmitted.values()) {
-    const date = p.dayOf(at);
+  const day = (at: number) => {
+    const raw = p.dayOf(at);
+    // A collector's clock ahead: today, as the Progress tab counts it.
+    const date = raw > p.today ? p.today : raw;
     perDay.set(date, (perDay.get(date) ?? 0) + 1);
     if (date >= p.weekStart) last7 += 1;
+  };
+  for (const at of work.mainSubmitted.values()) {
+    day(at);
     if (lastSubmittedAt === null || at > lastSubmittedAt) lastSubmittedAt = at;
   }
   for (const at of work.checkSubmitted.values()) {
+    if (fold) day(at);
     if (lastSubmittedAt === null || at > lastSubmittedAt) lastSubmittedAt = at;
   }
   const act = p.activity.get(m.userId);
   const lastSyncAt = act?.lastSyncAt ?? null;
   const lastPlotsDownloadAt = act?.lastPlotsDownloadAt ?? null;
-  const checksLeft = copies.size - checksDone;
   const sentAnything = work.mainSubmitted.size + work.mainDrafts.size + work.checkSubmitted.size + work.checkDrafts.size > 0;
-  return {
+  const common = {
     userId: m.userId,
     username: m.username,
     role: m.role,
-    plots: {
-      assigned: held.size,
-      submitted: work.mainSubmitted.size,
-      started,
-      remaining,
-      done: held.size > 0 ? (held.size - remaining) / held.size : null,
-    },
-    checks: { assigned: copies.size, submitted: work.checkSubmitted.size, remaining: checksLeft },
     submittedLast7: last7,
     medianPerDay: median([...perDay.values()]),
     lastSyncAt,
@@ -356,6 +377,31 @@ function rowOf(p: Prepared, m: Member, agreement: Rate | null): PersonRow {
       lastSyncAt,
       lastPlotsDownloadAt,
     }),
+  };
+  if (fold) {
+    const assigned = held.size + copies.size;
+    const left = remaining + checksLeft;
+    return {
+      ...common,
+      plots: {
+        assigned,
+        submitted: work.mainSubmitted.size + work.checkSubmitted.size,
+        started: started + checksStarted,
+        remaining: left,
+        done: assigned > 0 ? (assigned - left) / assigned : null,
+      },
+    };
+  }
+  return {
+    ...common,
+    plots: {
+      assigned: held.size,
+      submitted: work.mainSubmitted.size,
+      started,
+      remaining,
+      done: held.size > 0 ? (held.size - remaining) / held.size : null,
+    },
+    checks: { assigned: copies.size, submitted: work.checkSubmitted.size, remaining: checksLeft },
   };
 }
 
@@ -391,7 +437,7 @@ export function peopleTable(input: PeopleInput): PeopleTable {
     .slice(0, WEEK_PEOPLE);
   const named = new Set(most.map((r) => r.userId));
   const least = people
-    .filter((r) => !named.has(r.userId) && (r.plots.remaining > 0 || r.checks.remaining > 0))
+    .filter((r) => !named.has(r.userId) && (r.plots.remaining > 0 || (r.checks?.remaining ?? 0) > 0))
     .sort((a, b) => a.submittedLast7 - b.submittedLast7 || byUsername(a, b))
     .slice(0, WEEK_PEOPLE);
   return {
@@ -400,7 +446,15 @@ export function peopleTable(input: PeopleInput): PeopleTable {
     quietDays: input.settings.quietDays,
     quality: qualityAtHand(input),
     people,
-    invites: input.invites.map((i) => ({ id: i.id, role: i.role, usedCount: i.usedCount, maxUses: i.maxUses, expiresAt: i.expiresAt, createdAt: i.createdAt })),
+    invites: input.invites.map((i) => ({
+      id: i.id,
+      role: i.role,
+      usedCount: i.usedCount,
+      maxUses: i.maxUses,
+      expiresAt: i.expiresAt,
+      createdAt: i.createdAt,
+      forUsername: input.inviteFor?.get(i.id) ?? null,
+    })),
     week: {
       days: dailyOf(byDay, p.today, WEEK_DAYS).map((d) => ({ date: d.date, submitted: d.submitted })),
       mostActive: most.map(brief),
@@ -409,7 +463,7 @@ export function peopleTable(input: PeopleInput): PeopleTable {
   };
 }
 
-function filesOf(p: Prepared, username: string, work: OperatorWork): PersonFile[] {
+function filesOf(p: Prepared, username: string, work: OperatorWork, fold: boolean): PersonFile[] {
   const { input, units } = p;
   const whole = new Set(input.assignments.filter((a) => a.username === username).map((a) => a.csvFileId));
   const result: PersonFile[] = [];
@@ -423,14 +477,14 @@ function filesOf(p: Prepared, username: string, work: OperatorWork): PersonFile[
       filename: file.filename,
       divided,
       plots: { total: 0, submitted: 0, doneByOther: 0, started: 0, notStarted: 0 },
-      checks: { total: 0, submitted: 0, started: 0, notStarted: 0 },
       list: [],
       truncated: false,
     };
+    const checks = { total: 0, submitted: 0, started: 0, notStarted: 0 };
     for (const unit of fileUnits) {
       let kind: 'main' | 'check' | null = null;
       if (!divided) kind = 'main';
-      else if (input.mainHolders.get(unit)?.has(username)) kind = 'main';
+      else if (holderHas(input.mainHolders.get(unit), username)) kind = 'main';
       else if (input.copyHolders.get(unit)?.has(username)) kind = 'check';
       if (kind === null) continue;
       let status: PlotStatus;
@@ -445,31 +499,39 @@ function filesOf(p: Prepared, username: string, work: OperatorWork): PersonFile[
         entry.plots.total += 1;
         entry.plots[status] += 1;
       } else {
-        status = work.checkSubmitted.has(unit) ? 'submitted' : work.checkDrafts.has(unit) ? 'started' : 'notStarted';
-        entry.checks.total += 1;
-        entry.checks[status as 'submitted' | 'started' | 'notStarted'] += 1;
+        const checkStatus = work.checkSubmitted.has(unit) ? 'submitted' : work.checkDrafts.has(unit) ? 'started' : 'notStarted';
+        status = checkStatus;
+        // On My work a copy is a plot like any other.
+        const counts = fold ? entry.plots : checks;
+        counts.total += 1;
+        counts[checkStatus] += 1;
       }
-      if (entry.list.length < MAX_LISTED_PLOTS) entry.list.push({ plot: unit, kind, status });
+      if (entry.list.length < MAX_LISTED_PLOTS) entry.list.push(fold ? { plot: unit, status } : { plot: unit, kind, status });
       else entry.truncated = true;
     }
-    if (entry.plots.total + entry.checks.total > 0) result.push(entry);
+    if (!fold) entry.checks = checks;
+    if (entry.plots.total + checks.total > 0) result.push(entry);
   }
   return result;
 }
 
 /**
  * One person's page, or null when they are not a member. `self`: the person's own "My
- * work" page: their agreement only over plots certainly theirs (as "My quality"), and
- * neither the plots they checked nor who decided.
+ * work" page: nothing tells which of their plots are quality checks (checks are blind:
+ * copies are counted, listed and drawn as plots), their agreement only over plots
+ * certainly theirs (as "My quality"), and neither who decided nor what removing them
+ * would leave.
  */
 export function personDetail(input: PeopleInput, userId: string, options: { self: boolean }): PersonDetail | null {
   const member = input.members.find((m) => m.userId === userId);
   if (!member) return null;
+  const self = options.self;
   const p = prepare(input);
   const quality = input.quality?.report.people.find((q) => q.username === member.username) ?? null;
-  const asFirst = input.quality ? ((options.self ? quality?.personal.asFirst : quality?.asFirst) ?? NO_RATE) : null;
-  const person = rowOf(p, member, asFirst);
+  const asFirst = input.quality ? ((self ? quality?.personal.asFirst : quality?.asFirst) ?? NO_RATE) : null;
+  const person = rowOf(p, member, asFirst, self);
   const work = p.units.byOperator.get(member.username) ?? EMPTY_WORK;
+  const held = new Set(p.units.held.get(member.username) ?? []);
 
   const days = new Map<string, { plots: number; checks: number }>();
   const hours = new Array<number>(24).fill(0);
@@ -483,8 +545,10 @@ export function personDetail(input: PeopleInput, userId: string, options: { self
     hours[hourOf(at)] += 1;
   };
   for (const at of work.mainSubmitted.values()) count(at, 'plots');
-  for (const at of work.checkSubmitted.values()) count(at, 'checks');
-  const calendar = [...days.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([date, d]) => ({ date, ...d }));
+  for (const at of work.checkSubmitted.values()) count(at, self ? 'plots' : 'checks');
+  const calendar = [...days.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([date, d]) => (self ? { date, plots: d.plots } : { date, plots: d.plots, checks: d.checks }));
 
   const act = p.activity.get(userId);
   const agent = act && act.clientAgent !== null ? parseClientAgent(act.clientAgent) : null;
@@ -507,26 +571,53 @@ export function personDetail(input: PeopleInput, userId: string, options: { self
           : { kind: 'collect-earth', version: agent.version },
   };
 
+  // Only plots where they made the first assessment (a check of theirs is never "theirs" to look at again).
   const sentBack: SentBack[] = input.decisions
-    .filter((d) => d.decision === 'recheck' && work.groups.has(d.plot))
+    .filter((d) => d.decision === 'recheck' && work.mainGroups.has(d.plot))
     .sort((a, b) => b.decidedAt - a.decidedAt)
-    .map((d) => (options.self ? { plot: d.plot, comment: d.comment, decidedAt: d.decidedAt } : { plot: d.plot, comment: d.comment, decidedAt: d.decidedAt, decidedBy: d.decidedBy }));
+    .map((d) => (self ? { plot: d.plot, comment: d.comment, decidedAt: d.decidedAt } : { plot: d.plot, comment: d.comment, decidedAt: d.decidedAt, decidedBy: d.decidedBy }));
 
-  return {
+  const detail: PersonDetail = {
     timeZone: input.timeZone,
     today: p.today,
     quietDays: input.settings.quietDays,
     person,
     calendar,
     hours,
-    files: filesOf(p, member.username, work),
+    files: filesOf(p, member.username, work, self),
     speed: speedOf(work.submissionTimes),
     sync,
     quality: {
       ...qualityAtHand(input),
       asFirst,
-      ...(options.self ? {} : { asChecker: input.quality ? (quality?.asChecker ?? NO_RATE) : null }),
+      ...(self ? {} : { asChecker: input.quality ? (quality?.asChecker ?? NO_RATE) : null }),
       sentBack,
     },
   };
+  if (!self) detail.removal = removalOf(p, member.username, work, held);
+  return detail;
+}
+
+/**
+ * What removeMember leaves behind: their whole-file assignments and divided holdings
+ * (main and copies) go. Plots nobody else holds and nobody submitted are then given to
+ * nobody; their copies without their check are dropped (that check will not be made).
+ */
+function removalOf(p: Prepared, username: string, work: OperatorWork, held: ReadonlySet<string>): { plots: number; copies: number } {
+  const others = new Set<string>();
+  for (const [name, list] of p.units.held) {
+    if (name === username) continue;
+    for (const unit of list) {
+      if (held.has(unit)) others.add(unit);
+    }
+  }
+  let plots = 0;
+  for (const unit of held) {
+    if (!others.has(unit) && !p.units.firstSubmitted.has(unit)) plots += 1;
+  }
+  let copies = 0;
+  for (const unit of new Set(p.units.copies.get(username) ?? [])) {
+    if (!work.checkSubmitted.has(unit)) copies += 1;
+  }
+  return { plots, copies };
 }

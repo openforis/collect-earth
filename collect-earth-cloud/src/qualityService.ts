@@ -12,6 +12,8 @@ import { plotIdsOf } from './plotFileCache.js';
 import { qualityReport, type QualityInput, type QualityReport } from './quality.js';
 import type { WorkerJob, WorkerReply } from './qualityWorker.js';
 import { fileKeyCount } from './rounds.js';
+import { type Holders } from './holders.js';
+export { holderCount, holderHas, holderList, type Holders } from './holders.js';
 import type { Store } from './store/store.js';
 import { surveyOutline, type Question } from './surveyOutline.js';
 import type { CsvFile, Member, QualitySettings } from './types.js';
@@ -34,8 +36,8 @@ export interface PlotContext {
   units: Set<string>;
   /** unit -> usernames holding it only as a quality-check copy, across the divided files. */
   copyHolders: Map<string, Set<string>>;
-  /** unit -> usernames holding it as a main plot, for every plot of a divided file (empty when no one does). */
-  mainHolders: Map<string, Set<string>>;
+  /** unit -> who holds it as a main plot, for every plot of a divided file (null when no one does). */
+  mainHolders: Map<string, Holders>;
   /** csv file id -> its units (files that could not be read are left out). */
   fileUnits: Map<string, readonly string[]>;
 }
@@ -59,7 +61,7 @@ export async function loadPlotContext(
   ]);
   const keyCount = fileKeyCount(info);
   const units = new Set<string>();
-  const mainHolders = new Map<string, Set<string>>();
+  const mainHolders = new Map<string, Holders>();
   const fileUnits = new Map<string, readonly string[]>();
   for (const meta of files) {
     try {
@@ -73,7 +75,7 @@ export async function loadPlotContext(
       for (const id of ids) {
         units.add(id);
         if (divided && !mainHolders.has(id)) {
-          mainHolders.set(id, new Set());
+          mainHolders.set(id, null);
         }
       }
     } catch (err) {
@@ -86,12 +88,14 @@ export async function loadPlotContext(
   for (const a of holdings) {
     const username = usernames.get(a.userId);
     if (!a.overlap && username !== undefined) {
-      let set = mainHolders.get(a.plotKey);
-      if (!set) {
-        set = new Set();
-        mainHolders.set(a.plotKey, set);
+      const held = mainHolders.get(a.plotKey) ?? null;
+      if (held === null) {
+        mainHolders.set(a.plotKey, username);
+      } else if (typeof held === 'string') {
+        if (held !== username) mainHolders.set(a.plotKey, new Set([held, username]));
+      } else {
+        (held as Set<string>).add(username);
       }
-      set.add(username);
     }
   }
   return { info, units, copyHolders: copyHoldersOf(holdings, usernames), mainHolders, fileUnits };
@@ -344,7 +348,7 @@ export interface QualityRunner {
 }
 
 /** Least recently used out first. */
-function remember<K, V>(map: Map<K, V>, key: K, value: V, max: number): void {
+export function remember<K, V>(map: Map<K, V>, key: K, value: V, max: number): void {
   map.delete(key);
   map.set(key, value);
   while (map.size > max) {
@@ -352,7 +356,7 @@ function remember<K, V>(map: Map<K, V>, key: K, value: V, max: number): void {
   }
 }
 
-const sha256 = (data: string | Uint8Array) => createHash('sha256').update(data).digest('hex');
+export const sha256 = (data: string | Uint8Array) => createHash('sha256').update(data).digest('hex');
 
 /** A report served younger than this, when its inputs have changed since, is served as it is (stale) while a new one is computed. */
 export const STALE_MS = 2 * 60_000;

@@ -135,6 +135,52 @@ describe('GET /people, /people/:userId and /my-work', () => {
     expect((await call('GET', '/my-work', owner.token)).json().person.username).toBe('owner');
   });
 
+  it("My work of a collector holding quality-check copies never tells which plots are checks", async () => {
+    // A divided file: jose holds 7 and 8, maria holds 7 as a copy and checked it.
+    const div = (await call('PUT', '/csv-files/div.csv', owner.token, ['id,lat,lon', '7,0,0', '8,0,0', ''].join('\n'), { 'content-type': 'text/csv' })).json().id;
+    await ctx.store.setDivision(pid, div, { mode: 'manual' }, [
+      { plotKey: '7', userId: jose.userId, overlap: false },
+      { plotKey: '8', userId: jose.userId, overlap: false },
+      { plotKey: '7', userId: maria.userId, overlap: true },
+    ]);
+    await batchRequest(ctx.app, pid, jose.token, [envelope({ recordKey: '7', operator: 'jose', modifiedOn: Date.now() - 1000, activelySaved: true })]);
+    await batchRequest(ctx.app, pid, maria.token, [envelope({ recordKey: '7', operator: 'maria', modifiedOn: Date.now(), activelySaved: true })]);
+    const mine = await call('GET', '/my-work?tz=UTC', maria.token);
+    expect(mine.statusCode).toBe(200);
+    expect(mine.body).not.toMatch(/check|cop(y|ies)|overlap|"kind":"main"/i);
+    const body = mine.json();
+    // 4 plots of plots.csv and the copy of 7, counted as a plot: 3 submitted (1, 2 and 7).
+    expect(body.person.plots).toMatchObject({ assigned: 5, submitted: 3 });
+    expect(body.files.find((f: { filename: string }) => f.filename === 'div.csv').list).toEqual([{ plot: '7', status: 'submitted' }]);
+    // The coordinator sees it as a check.
+    const theirs = (await call('GET', `/people/${maria.userId}`, owner.token)).json();
+    expect(theirs.person.checks).toEqual({ assigned: 1, submitted: 1, remaining: 0 });
+    expect(theirs.person.plots.submitted).toBe(2);
+  });
+
+  it('a link for someone already in the project: a collector link for one person, a week, labelled with their name', async () => {
+    const res = await call('POST', '/invites', owner.token, { role: 'admin', maxUses: 50, forUserId: rita.userId });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({ role: 'operator', maxUses: 1 });
+    expect(res.json().expiresAt).toBeGreaterThan(Date.now() + 6 * 86_400_000);
+    const entry = (await ctx.store.listAudit(pid, { limit: 1, action: 'invite.created' }))[0];
+    expect(entry.details).toMatchObject({ role: 'operator', maxUses: 1, forUserId: rita.userId });
+    const invites = (await call('GET', '/people', owner.token)).json().invites;
+    expect(invites.map((i: { forUsername: string | null }) => i.forUsername).sort()).toEqual([null, 'rita']);
+    expect((await call('POST', '/invites', owner.token, { forUserId: '00000000-0000-4000-8000-000000000000' })).statusCode).toBe(400);
+    expect((await call('POST', '/invites', owner.token, { forUserId: 5 })).statusCode).toBe(400);
+  });
+
+  it('asked again within 5 s, My work gives its last answer; a person page says what removing them leaves', async () => {
+    const first = (await call('GET', '/my-work', maria.token)).json();
+    await batchRequest(ctx.app, pid, maria.token, [envelope({ recordKey: '4', operator: 'maria', modifiedOn: Date.now(), activelySaved: true })]);
+    expect((await call('GET', '/my-work', maria.token)).json()).toEqual(first);
+    const page = (await call('GET', `/people/${maria.userId}`, owner.token)).json();
+    expect(page.person.plots.submitted).toBe(3);
+    expect(page.removal).toEqual({ plots: 1, copies: 0 });
+    expect(page.asOf).toBeNull();
+  });
+
   it('My work needs someone signed in and a member', async () => {
     expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/my-work` })).statusCode).toBe(401);
     const other = await setupOtherProjectMember();

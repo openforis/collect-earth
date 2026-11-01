@@ -24,6 +24,7 @@ import { linkProps, pathFor, type ProjectTab } from "../router";
 import { useLoad, type Loaded } from "../useLoad";
 import { onceVisibleAfter } from "../visibility";
 import { browserTimeZone } from "../progressView";
+import { AsOf } from "../components/PeopleCharts";
 import { ActivitySection, FilesSection, PersonHeading, PersonNumbers, QualitySection, SpeedSection, SyncSection } from "./PersonPage";
 
 /** How long to wait before asking again for figures that were stale. */
@@ -228,9 +229,10 @@ export function MyWorkPage({ projectId }: { projectId: string }) {
       ) : (
         <>
           <PersonHeading data={data} />
-          <PersonNumbers data={data} />
+          <AsOf asOf={data.asOf} />
+          <PersonNumbers data={data} self />
           <FilesSection data={data} projectId={projectId} />
-          <ActivitySection data={data} />
+          <ActivitySection data={data} self />
           <SpeedSection data={data} />
           <SyncSection data={data} self />
           <QualitySection data={data} self projectId={projectId} />

@@ -2,87 +2,164 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isTimeZone } from '../days.js';
 import { peopleTable, personDetail, type PeopleInput } from '../people.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
-import { loadPlotContext, type QualityService } from '../qualityService.js';
+import type { ProjectStateCache, ServedState } from '../projectState.js';
+import { remember, type QualityService } from '../qualityService.js';
 import type { Store } from '../store/store.js';
+import type { InviteSummary, MemberActivity } from '../types.js';
+
+/** My work is worked out at most once in this long per person; asked again sooner, the last answer is given. */
+export const MY_WORK_MIN_INTERVAL_MS = 5_000;
+/** How many people's last My work answer are kept for that. */
+const MAX_MY_WORK_ANSWERS = 1000;
+/** The invitation links made for a member (to get the new project file) are found among this many latest invite.created entries. */
+const INVITE_AUDIT_LOOKBACK = 500;
+
+function timeZoneOf(request: FastifyRequest): string {
+  const query = (request.query ?? {}) as { tz?: string };
+  return isTimeZone(query.tz) ? query.tz : 'UTC';
+}
+
+/** The quality figures at hand (never computed here, never waited for); null when none or they cannot be had. */
+async function peek(quality: QualityService, projectId: string, request: FastifyRequest) {
+  try {
+    return await quality.peek(projectId, request.log);
+  } catch (err) {
+    request.log.warn({ err, projectId }, 'people: the quality figures could not be had');
+    return null;
+  }
+}
+
+/** invite id -> the member it was made for (invite.created with forUserId, from a person's page). */
+async function invitesFor(store: Store, projectId: string, invites: readonly InviteSummary[], usernames: ReadonlyMap<string, string>): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (invites.length === 0) return result;
+  const open = new Set(invites.map((i) => i.id));
+  const entries = await store.listAudit(projectId, { limit: INVITE_AUDIT_LOOKBACK, action: 'invite.created' });
+  for (const e of entries) {
+    const details = (e.details ?? {}) as { inviteId?: unknown; forUserId?: unknown };
+    if (typeof details.inviteId === 'string' && open.has(details.inviteId) && typeof details.forUserId === 'string') {
+      const name = usernames.get(details.forUserId);
+      if (name !== undefined) result.set(details.inviteId, name);
+    }
+  }
+  return result;
+}
 
 /**
- * Everything the People tab works from, read once per request: the records' states (no
- * answers), the plot files and who holds what, the members, their activity, the open
- * invitation links, the project file's date, and the quality figures this server has
- * at hand (QualityService.peek: never computed for these pages, never waited for).
+ * The page's input: the project's state (ProjectStateCache: the plots and the records
+ * resolved, kept between requests), then what is cheap and changes on its own clock,
+ * read for each request: activity, settings, the project file's date, decisions, the
+ * quality figures at hand, and (for coordinators) the open invitation links.
  */
-async function loadPeople(store: Store, quality: QualityService, request: FastifyRequest, now: number): Promise<PeopleInput> {
+async function loadPeople(
+  store: Store,
+  quality: QualityService,
+  served: ServedState,
+  request: FastifyRequest,
+  now: number,
+  options: { activityOf?: string; invites: boolean },
+): Promise<PeopleInput> {
   const projectId = request.membership!.projectId;
-  const query = (request.query ?? {}) as { tz?: string };
-  const timeZone = isTimeZone(query.tz) ? query.tz : 'UTC';
-  const [info, files, members] = await Promise.all([store.getRoundInfo(projectId), store.listCsvFiles(projectId), store.listMembers(projectId)]);
-  const [records, context, assignments, settings, activity, invites, cep, decisions, served] = await Promise.all([
-    store.listRecordStates(projectId),
-    loadPlotContext(store, projectId, request.log, { info, files, members }),
-    store.listAssignments(projectId),
+  const { state, members } = served;
+  const [settings, activity, invites, cep, decisions, figures] = await Promise.all([
     store.getProgressSettings(projectId),
     store.listMemberActivity(projectId),
-    store.listInvites(projectId, now),
+    options.invites ? store.listInvites(projectId, now) : Promise.resolve([] as InviteSummary[]),
     store.getCepInfo(projectId),
     store.listQualityDecisions(projectId),
-    quality.peek(projectId, request.log).catch((err: unknown) => {
-      request.log.warn({ err, projectId }, 'people: the quality figures could not be had');
-      return null;
-    }),
+    peek(quality, projectId, request),
   ]);
+  const usernames = new Map(members.map((m) => [m.userId, m.username]));
+  const inviteFor = options.invites ? await invitesFor(store, projectId, invites, usernames) : undefined;
+  // My work: only the person's own activity is kept.
+  const own: MemberActivity[] = options.activityOf === undefined ? activity : activity.filter((a) => a.userId === options.activityOf);
   return {
     now,
-    timeZone,
+    timeZone: timeZoneOf(request),
     settings,
-    records,
-    info: context.info,
-    units: context.units,
-    copyHolders: context.copyHolders,
-    mainHolders: context.mainHolders,
-    fileUnits: context.fileUnits,
-    assignments,
+    records: [],
+    prepared: state.units,
+    info: state.context.info,
+    units: state.context.units,
+    copyHolders: state.context.copyHolders,
+    mainHolders: state.context.mainHolders,
+    fileUnits: state.context.fileUnits,
+    assignments: state.assignments,
     members,
-    activity,
+    activity: own,
     invites,
-    files,
+    files: state.files,
     cep,
-    quality: served,
+    quality: figures,
     decisions,
+    inviteFor,
   };
 }
+
+/** When the figures are older than the records: the time they are from (a newer state is being worked out). */
+const asOf = (served: ServedState) => (served.stale ? served.state.builtAt : null);
 
 /**
  * The People tab (monitoring Phase 3): `GET /people?tz=` (the table, the open invitation
  * links and the week) and `GET /people/:userId?tz=` (one person's page), for coordinators
  * only: reviewers and collectors get 403 (decision 3). `GET /my-work?tz=`: the same page
- * of the person asking, for any member signed in as a person (never anyone else's).
+ * of the person asking, for any member signed in as a person (never anyone else's, and
+ * nothing that tells which of their plots are quality checks).
  */
-export async function registerPeopleRoutes(app: FastifyInstance, store: Store, quality: QualityService, now: () => number = Date.now): Promise<void> {
+export async function registerPeopleRoutes(
+  app: FastifyInstance,
+  store: Store,
+  quality: QualityService,
+  states: ProjectStateCache,
+  now: () => number = Date.now,
+): Promise<void> {
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
   const member = { preHandler: requireProjectMembership(store) };
+  /** `${projectId} ${userId} ${tz}` -> the last My work answer and when it was made. */
+  const myWork = new Map<string, { at: number; body: unknown }>();
 
   app.get('/v1/projects/:pid/people', admin, async (request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(peopleTable(await loadPeople(store, quality, request, now())));
+    const projectId = request.membership!.projectId;
+    const at = now();
+    const served = await states.get(projectId, request.log);
+    const input = await loadPeople(store, quality, served, request, at, { invites: true });
+    return reply.send({ ...peopleTable(input), asOf: asOf(served) });
   });
 
   app.get('/v1/projects/:pid/people/:userId', admin, async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
     const { userId } = request.params as { userId: string };
-    const detail = personDetail(await loadPeople(store, quality, request, now()), userId, { self: false });
+    const at = now();
+    const served = await states.get(projectId, request.log);
+    if (!served.members.some((m) => m.userId === userId)) {
+      return reply.code(404).send({ error: 'not_found', reason: 'no such person in this project' });
+    }
+    const detail = personDetail(await loadPeople(store, quality, served, request, at, { invites: false }), userId, { self: false });
     if (!detail) {
       return reply.code(404).send({ error: 'not_found', reason: 'no such person in this project' });
     }
-    return reply.send(detail);
+    return reply.send({ ...detail, asOf: asOf(served) });
   });
 
   app.get('/v1/projects/:pid/my-work', member, async (request: FastifyRequest, reply: FastifyReply) => {
-    const { userId } = request.membership!;
+    const { projectId, userId } = request.membership!;
     if (!userId) {
       return reply.code(403).send({ error: 'forbidden', reason: 'My work needs a signed-in person, not a project token' });
     }
-    const detail = personDetail(await loadPeople(store, quality, request, now()), userId, { self: true });
+    const at = now();
+    // Asked again within a few seconds (a reload, a page left open): the last answer.
+    const key = `${projectId} ${userId} ${timeZoneOf(request)}`;
+    const last = myWork.get(key);
+    if (last && at - last.at < MY_WORK_MIN_INTERVAL_MS) {
+      return reply.send(last.body);
+    }
+    const served = await states.get(projectId, request.log);
+    const detail = personDetail(await loadPeople(store, quality, served, request, at, { activityOf: userId, invites: false }), userId, { self: true });
     if (!detail) {
       return reply.code(404).send({ error: 'not_found' });
     }
-    return reply.send(detail);
+    const body = { ...detail, asOf: asOf(served) };
+    remember(myWork, key, { at, body }, MAX_MY_WORK_ANSWERS);
+    return reply.send(body);
   });
 }

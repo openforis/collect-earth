@@ -1,4 +1,5 @@
 import type { PersonRow, PersonStatus } from "./api";
+import { formatNumber } from "./format";
 import type { MessageKey, Translate } from "./i18n";
 
 // The People tab's words and numbers, pure: the status chips, how late a last sync is,
@@ -27,13 +28,13 @@ export function statusChip(t: Translate, status: PersonStatus): { label: string;
   }
 }
 
-/** How late a last sync is: null (fine, or never), amber after quietDays days, red after twice that. */
-export function syncLevel(lastSyncAt: number | null, now: number, quietDays: number): "amber" | "red" | null {
-  if (lastSyncAt === null) return null;
-  const since = now - lastSyncAt;
-  if (since > 2 * quietDays * DAY_MS) return "red";
-  if (since > quietDays * DAY_MS) return "amber";
-  return null;
+/**
+ * The warning next to a last sync: it follows the status, so it means the same as the
+ * chip: quiet (neither a sync nor a plot download for the quiet days; red after twice
+ * that). Finished people, people without plots or who never started get none.
+ */
+export function statusSyncLevel(status: PersonStatus): "amber" | "red" | null {
+  return status.kind === "quiet" ? (status.level ?? "amber") : null;
 }
 
 /** "just now", "3 hours ago", "2 days ago" (how long ago a time was, in plain words). */
@@ -108,20 +109,31 @@ export function filterPeople(rows: readonly PersonRow[], text: string, status: S
 // --- CSV ------------------------------------------------------------------------------
 
 /**
- * One CSV cell. Text that a spreadsheet would run as a formula (starting with = + - @,
- * a tab or a carriage return) gets a ' in front; cells with a comma, quote or line
- * break are quoted. Numbers are written as they are.
+ * How a spreadsheet in the person's language reads a CSV: in English a comma between
+ * cells and a point in numbers; in Spanish, French and Portuguese (where the comma is the
+ * decimal separator) a semicolon between cells and a comma in numbers.
  */
-export function csvCell(value: string | number | null): string {
-  if (value === null) return "";
-  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
-  let text = value;
-  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
-  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+export function csvFormat(language: string): { separator: string; decimal: string } {
+  return language.toLowerCase().startsWith("en") ? { separator: ",", decimal: "." } : { separator: ";", decimal: "," };
 }
 
-/** The people table as CSV (a header row in the person's language, then one row per person). */
-export function peopleCsv(t: Translate, rows: readonly PersonRow[], formatTime: (ms: number) => string): string {
+/**
+ * One CSV cell. Text that a spreadsheet would run as a formula (starting with = + - @,
+ * a tab or a carriage return) gets a ' in front; cells with the separator, a quote or a
+ * line break are quoted. Numbers are written with the decimal separator given.
+ */
+export function csvCell(value: string | number | null, format: { separator: string; decimal: string } = { separator: ",", decimal: "." }): string {
+  if (value === null) return "";
+  if (typeof value === "number") return Number.isFinite(value) ? String(value).replace(".", format.decimal) : "";
+  let text = value;
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  const special = format.separator === ";" ? /[";\r\n]/ : /[",\r\n]/;
+  return special.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/** The people table as CSV in the person's language (a header row, then one row per person). */
+export function peopleCsv(t: Translate, rows: readonly PersonRow[], formatTime: (ms: number) => string, language = "en"): string {
+  const format = csvFormat(language);
   const header: MessageKey[] = [
     "peopleTable.name",
     "peopleTable.role",
@@ -140,11 +152,12 @@ export function peopleCsv(t: Translate, rows: readonly PersonRow[], formatTime: 
     "peopleTable.agreementPercent",
     "peopleTable.agreementCompared",
   ];
-  const lines = [header.map((k) => csvCell(t(k))).join(",")];
+  const cells = (values: (string | number | null)[]) => values.map((v) => csvCell(v, format)).join(format.separator);
+  const lines = [cells(header.map((k) => t(k)))];
   const percent = (v: number | null) => (v === null ? null : Math.round(v * 1000) / 10);
   for (const r of rows) {
     lines.push(
-      [
+      cells([
         r.username,
         t(`role.${r.role}`),
         statusChip(t, r.status).label,
@@ -153,17 +166,15 @@ export function peopleCsv(t: Translate, rows: readonly PersonRow[], formatTime: 
         r.plots.started,
         r.plots.remaining,
         percent(r.plots.done),
-        r.checks.assigned,
-        r.checks.submitted,
+        r.checks?.assigned ?? null,
+        r.checks?.submitted ?? null,
         r.submittedLast7,
         r.medianPerDay,
         r.lastSyncAt === null ? null : formatTime(r.lastSyncAt),
         r.lastSubmittedAt === null ? null : formatTime(r.lastSubmittedAt),
         percent(r.agreement?.rate ?? null),
         r.agreement?.compared ?? null,
-      ]
-        .map(csvCell)
-        .join(","),
+      ]),
     );
   }
   return `${lines.join("\r\n")}\r\n`;
@@ -260,4 +271,14 @@ export function perDayText(value: number | null, language: string): string {
   } catch {
     return String(Math.round(value * 10) / 10);
   }
+}
+
+/** What the remove dialog says removing someone leaves behind (removeMember drops their plots and copies). */
+export function removalText(t: Translate, removal: { plots: number; copies: number } | null, language: string): string[] {
+  if (!removal) return [];
+  const out: string[] = [];
+  const n = (v: number) => formatNumber(v, language);
+  if (removal.plots > 0) out.push(t(removal.plots === 1 ? "person.removePlotsOne" : "person.removePlots", { n: n(removal.plots) }));
+  if (removal.copies > 0) out.push(t(removal.copies === 1 ? "person.removeCopiesOne" : "person.removeCopies", { n: n(removal.copies) }));
+  return out;
 }
