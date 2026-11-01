@@ -367,8 +367,11 @@ desktop.
 - Speed gaps, with sessions split at 30 min.
 - Role checks.
 - A collector cannot read another person's data.
+- **Checks stay blind on My work:** a test fails if anything in a My work response
+  (serialized and searched, plus structural asserts) says which of the person's plots are
+  quality checks or copies: no `checks`, no `kind`, copies counted as plots.
 
-**As built** (1fbcb1e7; differs from the above where it says so)
+**As built** (1fbcb1e7, then the review 9ed9de89; differs from the above where it says so)
 - **One count:** `plotUnits` (`src/progress.ts`, now exported) takes `perOperator` and also
   gives each operator's records resolved by the same `recordResolver`: main plots submitted
   (with their first submission) and drafts, checks submitted and drafts, the first
@@ -464,6 +467,82 @@ desktop.
 - **Open:** the table is a full load per visit (no auto refresh); a person's activity is
   coalesced up to a minute (Task 1); `remaining` counts plots someone else submitted as
   done for the holder too (whole files given to several people).
+- **Where the people's sum and the Progress total can drift** (by design, both small):
+  (1) a whole file given to several people, where two of them submit the same plot: the
+  plot counts once in Progress and once for each of them on People; (2) records of people
+  removed from the project: their plots count in Progress but have no row on People.
+- **Review (9ed9de89):**
+  - **Blind checks on My work.** `personDetail(…, { self: true })` folds the copies into
+    the plots: `person.plots` counts held plots and copies alike (assigned, submitted,
+    started, remaining, done; `submittedLast7` and the pace too), there is no `checks`,
+    the calendar has `plots` only, the files list plots with no `kind` and no `checks`
+    counts, no `asChecker`, no `removal`. Tests serialize a My work answer and fail on
+    `check`, `copy`/`copies`, `overlap` or a `kind` of a plot (unit test, route test with a
+    collector holding a checked copy, and the 100k smoke for op1). The web hides every
+    check figure and column when they are absent, and says "plots you submitted" there.
+  - **Plots to look at again** come only from the groups of the person's first assessments
+    (`OperatorWork.mainGroups`, replacing `groups`), on both pages: a `recheck` on a plot
+    they only checked, or hold but someone else assessed, is not theirs.
+  - **The new project file, checked in the desktop code:** Collect Earth downloads the
+    project file only in its join flow (`CollectEarthMenu.joinCloudProject`: the link's
+    preview, then `CloudLoginDialog`, then `CloudApiClient.downloadCep`). "Log in" in that
+    dialog (`apiClient.login`, no invite token) does not use the invite up, and the server
+    does not touch the membership, so an existing member keeps their role; the other two
+    login paths (`CollectEarthWindow.promptCloudLogin`, the Database settings' login
+    button) only refresh the session and never download the project file. So a link is
+    needed, and the person presses "Log in", not Register. `POST /invites` takes
+    `forUserId` (a member, else 400): always a collector link (anyone else who opened it
+    would join as a collector), 1 use, 7 days, audited `invite.created` with `forUserId`;
+    the People table names such links "Link for the new project file: <name>" (chip "New
+    project file") instead of "Invited, not joined" (`GET /people` finds them in the last
+    500 `invite.created` entries). The person page shows the link with its own steps (not
+    the new-person join steps), and the texts of the Progress old-file card, `file.uploaded`,
+    the person page and My work say exactly that.
+  - **Remove dialog:** `removal: { plots, copies }` on the coordinator's page: plots only
+    they hold that nobody submitted (given to nobody after `removeMember`) and copies not
+    checked (dropped), one/many wording, numbers in the person's language.
+  - **The last sync's warning** comes from the status (quiet amber / red), not from the
+    sync time alone; on My work it says "You have not synced nor downloaded plots for more
+    than N days, and you have plots left to do".
+  - **`ProjectStateCache`** (`src/projectState.ts`), one per server, used by `/progress`,
+    `/people`, `/people/:id` and `/my-work`: per project `{ context, units (plotUnits
+    perOperator), files, members, assignments }`, versioned by sha256 of the records
+    version, the round info, the files (id, checksum, division), the members (id, username)
+    and the whole-file assignments (a few small queries, no records); roles are read each
+    time (not in the version). One build at a time per project (concurrent first requests
+    share it); a state under 30 s old whose inputs changed is served at once with `asOf`
+    (the pages say "Figures as of …: newer ones are being worked out") while a new one is
+    built behind it; older, the request waits. 6 projects kept (LRU), dropped after 10 min
+    idle. Activity, invites, settings, decisions, the CEP date, the quality figures and the
+    time zone are applied after, uncached. Tests set `stateStaleMs: 0` (config). The
+    project's used bytes for the storage card are kept per state version and project file
+    (summing 120,000 records took ~40 ms); the limit is read each time.
+  - **Smaller maps:** `PlotContext.mainHolders` holds `null`, one username, or a Set only
+    when several people hold the plot (`src/holders.ts`: `holderCount/Has/List`).
+  - **My work** reads no invitation links nor audit entries, keeps only the person's own
+    activity row, and answers again from its last answer within 5 s (per person, project
+    and time zone; 1000 kept).
+  - **Minor:** `submittedLast7` and the pace count a day ahead of today as today; the
+    table says "quiet after N days without syncing or downloading plots"; the CSV uses `,`
+    and `.` in English and `;` and a decimal comma in Spanish, French and Portuguese (BOM
+    `﻿` kept); the "nobody matches" row only when nothing at all is listed; the
+    calendar box is focusable with a label, arrow keys/Home/End step through the days (and
+    the column charts' columns), the readout is announced only while focused; its lightest
+    shade is 3:1 against an empty day (alpha 0.7, 0.82, 1, then primary.dark); demoting
+    yourself on your own page goes back to the project.
+  - **Tests:** server 681 (`test/projectState.test.ts` 5; people 17 and routes 9), web 239
+    (CSV in Spanish, the remove texts, the warning from the status), tsc clean.
+  - **Postgres smoke** (Docker, Windows; 100,000 records + 20,000 checks; each route first
+    on a fresh server, then in five other time zones so My work's 5 s answer is not what is
+    measured): **/progress cold 901-1032 ms, warm median 40 ms; /people cold 626-667 ms,
+    warm 37-51 ms; /people/:userId cold 509-648 ms, warm 25-28 ms; /my-work cold 539-554 ms,
+    warm 25-28 ms.** Warm /people is at the 50 ms target (37 and 51 ms medians in two runs).
+    Cold stays ~0.5-1 s (listRecordStates ~300 ms, the plot context ~200 ms). ALL OK; the
+    Task 1 smoke ALL OK.
+  - **Chrome:** My work as a collector holding 6 copies (bruno), phone and desktop: no
+    check is named anywhere (no copies line, no kind column, plots counted 54 with the
+    copies), the plot to look at again shown; the person page's link card and remove
+    dialog; the table's labelled link row; no console errors.
 
 ## Part B: quality without checks
 
