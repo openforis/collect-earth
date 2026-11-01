@@ -678,6 +678,27 @@ and its test.
 **Tests:** desktop unit test of the header, server tests of the parsing, and the
 desktop suites green (core 40, app 210+).
 
+**As built** (cd121399)
+- **Desktop:** `CloudApiClient.USER_AGENT` is computed once, when the class loads, by
+  `userAgentFor(UpdateIniUtils.getVersionNameInstalled())`. That method never throws: it
+  gives `unknown` when `update.ini` cannot be read (logged as an error, as before) and
+  null when the file has no `version`; a dev build run from `collect-earth-app` reads that
+  folder's `update.ini`, `0.00.00`. Whitespace is removed from the version, so it is one
+  token; null or blank gives `unknown`. A RuntimeException also gives `unknown`.
+  `CloudApiClientUserAgentTest` checks the formatting and that a real request (to a local
+  `HttpServer`, `getJoinPreview`) carries it. No Swing class changed.
+- **Server:** `src/clientVersion.ts`: `parseClientAgent(agent)` gives
+  `{ kind: 'collect-earth', version, hidesChecks: true }` for an agent starting with
+  `CollectEarth/<v>` (`version` null for `unknown`), `{ kind: 'old-collect-earth' }` for
+  exactly `CollectEarth-cloud-sync`, and `{ kind: 'unknown' }` for anything else (a
+  browser, none, `CollectEarth/` alone, other casing). `isCollectEarthAgent` is true for the
+  first two.
+- **Only Collect Earth's agent is kept:** `noteActivity` (`desktop` routes) sets
+  `client_agent` only when `isCollectEarthAgent`, so a coordinator downloading a plot file
+  or the CEP from the dashboard no longer replaces it (the download still counts).
+- **Tests:** server 617 (was 611: 5 parser tests, 1 route test), typecheck clean; desktop
+  core 40, app 214 (4 new).
+
 ### Task 22: Final review and real runs
 
 - **A Chrome run of every new page,** with seeded data, at phone width and in dark
