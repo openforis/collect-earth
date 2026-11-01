@@ -72,6 +72,11 @@ public class FilesController {
 		public String path;
 	}
 
+	public static class CopyRequest {
+		public String from;
+		public String to;
+	}
+
 	@PostMapping("/api/files/choose")
 	public Map<String, Object> choose(@RequestBody Request request) {
 		// "mode": null and "extensions": null set the fields to null, over their defaults
@@ -106,6 +111,28 @@ public class FilesController {
 		File folder = file.isDirectory() ? file : file.getParentFile();
 		openFolder.open(folder != null ? folder : file);
 		return done(file);
+	}
+
+	/**
+	 * Saves a file the server wrote in the temporary folder (the missing plots) where the user chose, as the Save as
+	 * button of the Swing dialog did. Only from the temporary folder: the pages are not handed a way to copy any file.
+	 */
+	@PostMapping("/api/files/copy")
+	public Map<String, Object> copy(@RequestBody CopyRequest request) throws IOException {
+		File from = new File(StringUtils.trimToEmpty(request == null ? null : request.from));
+		if (request == null || StringUtils.isBlank(request.from) || !from.isFile()) {
+			throw new ApiException(HttpStatus.NOT_FOUND, "files.missing", Messages.getString("FilesController.missing"));
+		}
+		File temp = new File(System.getProperty("java.io.tmpdir")).getCanonicalFile();
+		if (!from.getCanonicalFile().toPath().startsWith(temp.toPath())) {
+			throw new ApiException(HttpStatus.FORBIDDEN, "files.notTemporary", Messages.getString("FilesController.notTemporary"));
+		}
+		if (StringUtils.isBlank(request.to)) {
+			throw new ApiException("files.noDestination", Messages.getString("DataPage.export.noPath"));
+		}
+		File to = new File(request.to.trim());
+		org.apache.commons.io.FileUtils.copyFile(from, to);
+		return done(to);
 	}
 
 	private static File existing(PathRequest request) {

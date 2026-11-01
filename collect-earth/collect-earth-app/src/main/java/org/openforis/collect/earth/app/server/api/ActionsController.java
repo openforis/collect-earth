@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app.server.api;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.LinkedHashMap;
@@ -7,7 +8,10 @@ import java.util.Map;
 
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.service.BackupSqlLiteService;
+import org.openforis.collect.earth.app.service.BrowserService;
+import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.QuitService;
+import org.openforis.collect.earth.app.view.Messages;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,17 +28,31 @@ public class ActionsController {
 	private final Map<String, Runnable> actions;
 
 	@Autowired
-	public ActionsController(QuitService quit, BackupSqlLiteService backup) {
-		this(actions(quit, backup));
+	public ActionsController(QuitService quit, BackupSqlLiteService backup, BrowserService browser) {
+		this(actions(quit, backup, browser));
 	}
 
 	ActionsController(Map<String, Runnable> actions) {
 		this.actions = actions;
 	}
 
-	private static Map<String, Runnable> actions(QuitService quit, BackupSqlLiteService backup) {
+	private static Map<String, Runnable> actions(QuitService quit, BackupSqlLiteService backup, BrowserService browser) {
 		Map<String, Runnable> actions = new LinkedHashMap<>();
 		actions.put("quit", quit);
+		// The Open data folder entry of the Tools menu
+		actions.put("openDataFolder", () -> {
+			String folder = FolderFinder.getCollectEarthDataFolder();
+			if (folder == null || !new File(folder).isDirectory()) {
+				throw new ApiException("folder.missing", String.format(Messages.getString("CollectEarthMenu.dataFolderNotFound"), folder));
+			}
+			try {
+				CollectEarthUtils.openFolderInExplorer(folder);
+			} catch (IOException e) {
+				throw new UncheckedIOException(e);
+			}
+		});
+		// The Open plots map entry, with the Google Earth Pro viewer: a browser takes seconds, so on a thread as before
+		actions.put("openPlotsMap", () -> new Thread(browser::openLeafletMap, "Open Leaflet plots map").start());
 		// The Open backup folder button of the storage section of the settings
 		actions.put("openBackupFolder", () -> {
 			try {

@@ -55,7 +55,11 @@ public class FilesControllerTest {
 	}
 
 	private static String json(String path) {
-		return "{\"path\":\"" + path.replace("\\", "\\\\") + "\"}";
+		return "{\"path\":" + quoted(path) + "}";
+	}
+
+	private static String quoted(String path) {
+		return "\"" + path.replace("\\", "\\\\") + "\"";
 	}
 
 	@Test
@@ -84,6 +88,27 @@ public class FilesControllerTest {
 		mvc.perform(post("/api/files/reveal").contentType(MediaType.APPLICATION_JSON).content(json(file.getPath()))).andExpect(status().isOk());
 		mvc.perform(post("/api/files/reveal").contentType(MediaType.APPLICATION_JSON).content(json(folder.getPath()))).andExpect(status().isOk());
 		assertEquals(List.of(folder.getName(), folder.getName()), revealed);
+	}
+
+	@Test
+	public void aTemporaryFileIsCopiedWhereTheUserSaid() throws Exception {
+		File temp = File.createTempFile("missingPlots", ".csv");
+		temp.deleteOnExit();
+		Files.write(temp.toPath(), "id\n7".getBytes(StandardCharsets.UTF_8));
+		File to = new File(folder, "plotsWithMissingInfo.csv");
+		mvc.perform(post("/api/files/copy").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"from\":" + quoted(temp.getPath()) + ",\"to\":" + quoted(to.getPath()) + "}"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.path").value(to.getAbsolutePath()));
+		assertEquals("id\n7", new String(Files.readAllBytes(to.toPath()), StandardCharsets.UTF_8));
+		// A file of the user's own folders is not for the pages to copy around (the test's temporary folder is under the
+		// temporary folder too, so the module's pom stands for a file of the user's)
+		File elsewhere = new File("pom.xml");
+		assertTrue(elsewhere.isFile());
+		mvc.perform(post("/api/files/copy").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"from\":" + quoted(elsewhere.getPath()) + ",\"to\":" + quoted(to.getPath()) + "}"))
+				.andExpect(status().isForbidden()).andExpect(jsonPath("$.error").value("files.notTemporary"));
+		mvc.perform(post("/api/files/copy").contentType(MediaType.APPLICATION_JSON).content("{\"from\":\"/nowhere/x.csv\",\"to\":\"y\"}"))
+				.andExpect(status().isNotFound());
 	}
 
 	@Test

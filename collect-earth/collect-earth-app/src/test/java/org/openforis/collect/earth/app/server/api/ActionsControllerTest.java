@@ -26,6 +26,8 @@ public class ActionsControllerTest {
 		Map<String, Runnable> actions = new LinkedHashMap<>();
 		actions.put("quit", () -> run.add("quit"));
 		actions.put("openBackupFolder", () -> run.add("openBackupFolder"));
+		actions.put("openDataFolder", () -> run.add("openDataFolder"));
+		actions.put("openPlotsMap", () -> run.add("openPlotsMap"));
 		actions.put("broken", () -> {
 			throw new IllegalStateException("the folder cannot be opened");
 		});
@@ -42,6 +44,13 @@ public class ActionsControllerTest {
 	public void theBackupFolderIsOpened() throws Exception {
 		mvc.perform(post("/api/actions/openBackupFolder")).andExpect(status().isOk());
 		assertEquals(List.of("openBackupFolder"), run);
+	}
+
+	@Test
+	public void theDataFolderAndThePlotsMapAreOpened() throws Exception {
+		mvc.perform(post("/api/actions/openDataFolder")).andExpect(status().isOk());
+		mvc.perform(post("/api/actions/openPlotsMap")).andExpect(status().isOk());
+		assertEquals(List.of("openDataFolder", "openPlotsMap"), run);
 	}
 
 	@Test
