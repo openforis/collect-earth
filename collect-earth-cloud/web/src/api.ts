@@ -371,6 +371,10 @@ export interface AdminUser {
   projects: number;
   /** Projects the person coordinates (what the per-account project limit counts). */
   coordinatedProjects: number;
+  /** When a server administrator disabled the account, or null. */
+  disabledAt: number | null;
+  /** Who disabled it, or null. */
+  disabledBy: string | null;
 }
 
 export interface ProjectRef {
@@ -468,6 +472,9 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   confirm_mismatch: "error.confirmMismatch",
   sole_coordinator: "error.soleCoordinator",
   last_platform_admin: "error.lastPlatformAdmin",
+  last_enabled_admin: "error.lastEnabledAdmin",
+  own_account: "error.ownAccount",
+  account_disabled: "error.accountDisabled",
   terms_not_accepted: "error.termsNotAccepted",
   // Project file uploads (PUT /cep) refused once data exists or plots are divided.
   round_removed: "error.roundRemoved",
@@ -1561,15 +1568,95 @@ export async function saveServerSettings(current: ServerSettings, changes: Parti
   return toServerSettings(body, { ...current, ...changes });
 }
 
-export async function listUsers(): Promise<AdminUser[]> {
-  const body = await request<{ users?: Record<string, unknown>[] }>("GET", "/v1/admin/users");
-  return (body?.users ?? []).map((u) => ({
+function toAdminUser(u: Record<string, unknown>): AdminUser {
+  return {
     userId: String(u.userId ?? ""),
     username: String(u.username ?? ""),
     isPlatformAdmin: u.isPlatformAdmin === true,
     projects: toCount(u.projects),
     coordinatedProjects: toCount(u.coordinatedProjects),
-  }));
+    disabledAt: toMillis(u.disabledAt),
+    disabledBy: typeof u.disabledBy === "string" ? u.disabledBy : null,
+  };
+}
+
+export async function listUsers(): Promise<AdminUser[]> {
+  const body = await request<{ users?: Record<string, unknown>[] }>("GET", "/v1/admin/users");
+  return (body?.users ?? []).map(toAdminUser);
+}
+
+/** Disables an account (it cannot log in; its sessions end) or enables it again; the account as it is now. */
+export async function setUserDisabled(userId: string, disabled: boolean): Promise<AdminUser> {
+  const body = await request<{ user?: Record<string, unknown> }>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/${disabled ? "disable" : "enable"}`);
+  return toAdminUser(body?.user ?? {});
+}
+
+/** The server owner's panel: totals only, projects by id (never names, people or answers). */
+export interface ServerOverview {
+  asOf: number;
+  users: { total: number; disabled: number; platformAdmins: number; active: number; signupsByWeek: { week: string; start: number; count: number }[] };
+  projects: { total: number; active: number; storageBytes: number; largest: { projectId: string; storageBytes: number }[] };
+  records: { received: number; receivedByDay: { day: number; count: number }[] };
+  database: {
+    backend: "memory" | "postgres";
+    sizeBytes: number | null;
+    version: string | null;
+    migrations: { applied: number; shipped: number; latest: string | null; lastAppliedAt: number | null; missing: string[] } | null;
+  };
+  server: { version: string; startedAt: number };
+  security: { since: number; totals: { failedLogins: number; rateLimited: number }; hours: { hour: number; failedLogins: number; rateLimited: number }[] };
+}
+
+const countOrNull = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null);
+
+export async function getServerOverview(): Promise<ServerOverview> {
+  const b = obj(await request<unknown>("GET", "/v1/admin/overview"));
+  const users = obj(b.users);
+  const projects = obj(b.projects);
+  const records = obj(b.records);
+  const database = obj(b.database);
+  const server = obj(b.server);
+  const security = obj(b.security);
+  const totals = obj(security.totals);
+  const m = database.migrations && typeof database.migrations === "object" ? obj(database.migrations) : null;
+  return {
+    asOf: toMillis(b.asOf) ?? Date.now(),
+    users: {
+      total: toCount(users.total),
+      disabled: toCount(users.disabled),
+      platformAdmins: toCount(users.platformAdmins),
+      active: toCount(users.active),
+      signupsByWeek: list(users.signupsByWeek).map((w) => ({ week: text(w.week), start: toMillis(w.start) ?? 0, count: toCount(w.count) })),
+    },
+    projects: {
+      total: toCount(projects.total),
+      active: toCount(projects.active),
+      storageBytes: toCount(projects.storageBytes),
+      largest: list(projects.largest).map((p) => ({ projectId: text(p.projectId), storageBytes: toCount(p.storageBytes) })),
+    },
+    records: {
+      received: toCount(records.received),
+      receivedByDay: list(records.receivedByDay).map((d) => ({ day: toMillis(d.day) ?? 0, count: toCount(d.count) })),
+    },
+    database: {
+      backend: database.backend === "postgres" ? "postgres" : "memory",
+      sizeBytes: countOrNull(database.sizeBytes),
+      version: typeof database.version === "string" ? database.version : null,
+      migrations: m && {
+        applied: toCount(m.applied),
+        shipped: toCount(m.shipped),
+        latest: typeof m.latest === "string" ? m.latest : null,
+        lastAppliedAt: toMillis(m.lastAppliedAt),
+        missing: Array.isArray(m.missing) ? m.missing.filter((x): x is string => typeof x === "string") : [],
+      },
+    },
+    server: { version: text(server.version), startedAt: toMillis(server.startedAt) ?? 0 },
+    security: {
+      since: toMillis(security.since) ?? 0,
+      totals: { failedLogins: toCount(totals.failedLogins), rateLimited: toCount(totals.rateLimited) },
+      hours: list(security.hours).map((h) => ({ hour: toMillis(h.hour) ?? 0, failedLogins: toCount(h.failedLogins), rateLimited: toCount(h.rateLimited) })),
+    },
+  };
 }
 
 export async function makeResetLink(userId: string): Promise<ResetLink> {

@@ -26,12 +26,20 @@ vi.mock('pg', () => {
             throw Object.assign(new Error('deadlock detected'), { code: failing.code });
           }
           if (sql.includes('records_version')) return { rows: [{ records_version: '7' }], rowCount: 1 };
+          if (sql.includes('FROM project_tokens')) return { rows: [{ project_id: PROJECT }, { project_id: PROJECT_B }], rowCount: 2 };
+          if (sql.includes('FROM records WHERE')) return { rows: [{ bytes: '10' }], rowCount: 1 };
           // Was the record submitted before (asked by itself when it has no row yet).
           if (sql.includes('AS submitted_before') && !sql.includes('FROM records')) return { rows: [{ submitted_before: true }], rowCount: 1 };
           return { rows: [], rowCount: 0 };
         },
         release() {},
       };
+    }
+    // Global tables (users, sessions) are read on the pool itself, with no project setting.
+    async query(sql: string, params?: unknown[]) {
+      queries.push({ sql: `POOL ${sql}`, params });
+      if (sql.includes('AS admins')) return { rows: [{ total: 3, disabled: 1, admins: 1 }], rowCount: 1 };
+      return { rows: [], rowCount: 0 };
     }
     async end() {}
   }
@@ -41,6 +49,7 @@ vi.mock('pg', () => {
 const { PostgresStore } = await import('../src/store/postgres.js');
 const { InvalidCursorError } = await import('../src/store/store.js');
 const PROJECT = '00000000-0000-0000-0000-000000000001';
+const PROJECT_B = '00000000-0000-0000-0000-000000000002';
 
 describe('PostgresStore pool', () => {
   afterEach(() => {
@@ -174,5 +183,40 @@ describe('PostgresStore pool', () => {
     await new PostgresStore('postgres://x').qualityVersion(PROJECT);
     const read = queries.find((q) => q.sql.includes('records_version'))!;
     expect(read.sql).not.toMatch(/hashtextextended|count\(/);
+  });
+
+  it("platformStats reads each project's data under that project's setting, read-only, and accounts as counts", async () => {
+    const stats = await new PostgresStore('postgres://x').platformStats({ activeSince: 0, signupsFrom: 0, receivedFrom: 0 });
+    expect(stats).toMatchObject({ users: 3, disabledUsers: 1, platformAdmins: 1, activeUsers: 0 });
+    expect(stats.projects).toEqual([
+      { projectId: PROJECT, storageBytes: 10, active: false },
+      { projectId: PROJECT_B, storageBytes: 10, active: false },
+    ]);
+    const sqls = queries.map((q) => q.sql);
+    expect(sqls[sqls.findIndex((s) => !s.startsWith('POOL'))]).toBe('BEGIN READ ONLY');
+    // Every project-scoped read comes after its own project's setting.
+    let current: unknown = null;
+    for (const q of queries) {
+      if (q.params?.[0] === 'app.current_project') current = q.params[1];
+      for (const table of ['member_activity', 'record_events', 'records', 'csv_files', 'project_ceps']) {
+        if (q.sql.includes(`FROM ${table} WHERE`)) {
+          expect(q.params![0]).toBe(current);
+        }
+      }
+    }
+    // users and sessions only on the pool, as counts or ids that never leave the store.
+    expect(sqls.filter((s) => /FROM (users|sessions)/.test(s)).every((s) => s.startsWith('POOL'))).toBe(true);
+  });
+
+  it('disableUser takes the platform admins lock before reading the account, and stops at an unknown one', async () => {
+    const store = new PostgresStore('postgres://x');
+    expect(await store.disableUser('not-a-uuid', PROJECT)).toBe('not_found');
+    expect(queries).toHaveLength(0);
+    expect(await store.disableUser('00000000-0000-0000-0000-0000000000aa', PROJECT)).toBe('not_found');
+    const sqls = queries.map((q) => q.sql);
+    expect(sqls[0]).toBe('BEGIN');
+    expect(sqls[1]).toContain('pg_advisory_xact_lock');
+    expect(sqls[2]).toContain('FOR UPDATE');
+    expect(sqls.at(-1)).toBe('ROLLBACK');
   });
 });

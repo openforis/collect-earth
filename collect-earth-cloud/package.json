@@ -16,7 +16,8 @@
     "migrate": "tsx src/store/migrate.ts",
     "smoke:pg": "tsx scripts/pg-smoke-activity.mts",
     "smoke:pg:progress": "tsx scripts/pg-smoke-progress.mts",
-    "smoke:pg:activity": "tsx scripts/pg-smoke-activity-log.mts"
+    "smoke:pg:activity": "tsx scripts/pg-smoke-activity-log.mts",
+    "smoke:pg:panel": "tsx scripts/pg-smoke-server-panel.mts"
   },
   "dependencies": {
     "@fastify/static": "7.0.4",

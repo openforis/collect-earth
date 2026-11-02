@@ -13,6 +13,7 @@ import { AiRunService, type AiRunServiceOptions } from './ai/service.js';
 import { DEFAULT_AI_MODEL, type Config } from './config.js';
 import { QualityService, QualityWorker } from './qualityService.js';
 import { RateLimiter } from './rateLimit.js';
+import { ServerCounters } from './serverCounters.js';
 import type { Store } from './store/store.js';
 import { registerActivityRoutes } from './routes/activity.js';
 import { registerAdminRoutes } from './routes/admin.js';
@@ -58,6 +59,8 @@ function aiClientOf(config: Config): AiClient | null {
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_WEB_DIR = join(PACKAGE_ROOT, 'web', 'dist');
 const VERSION = readVersion();
+/** When this process started (the server owner's panel). */
+const STARTED_AT = Date.now();
 // Per client IP. A training room joins from one office IP, so this is generous;
 // password guessing is held back per account by LOGIN_FAILURES_PER_MINUTE instead.
 const DEFAULT_RATE_LIMIT_PER_MINUTE = 60;
@@ -109,16 +112,20 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
 
   app.get('/health', async () => ({ status: 'ok' }));
 
-  const limiter = new RateLimiter(config.rateLimitPerMinute ?? DEFAULT_RATE_LIMIT_PER_MINUTE);
+  // Failed logins and refused requests by hour since this process started (the server owner's panel).
+  const counters = new ServerCounters();
+  const limiter = new RateLimiter(config.rateLimitPerMinute ?? DEFAULT_RATE_LIMIT_PER_MINUTE, Date.now, {
+    onRefused: () => counters.count('rateLimited'),
+  });
   const loginFailures = new RateLimiter(config.rateLimitPerMinute === 0 ? 0 : LOGIN_FAILURES_PER_MINUTE);
   const setupCode = config.setupCode ?? generateSetupCode();
 
   // Members' activity (member_activity), coalesced; written when the app closes too.
   registerActivity(app, new ActivityRecorder(store, { onError: (err) => app.log.error({ err }, 'member activity write failed') }));
 
-  await registerAuthRoutes(app, store, limiter, loginFailures);
+  await registerAuthRoutes(app, store, limiter, loginFailures, counters);
   const now = options.ai?.now ?? Date.now;
-  await registerAdminRoutes(app, store, config, limiter, { setupCode, version: VERSION, now });
+  await registerAdminRoutes(app, store, config, limiter, { setupCode, version: VERSION, now, counters, startedAt: STARTED_AT });
   await registerProjectRoutes(app, store, config);
   await registerPlatformRoutes(app, store, config);
   await registerAssignmentRoutes(app, store, config);

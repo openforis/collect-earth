@@ -354,8 +354,8 @@ describe('password change and reset', () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/v1/admin/users', headers: bearer(owner.token) });
     expect(res.json()).toEqual({
       users: [
-        { userId: maria.userId, username: 'maria', isPlatformAdmin: false, projects: 0, coordinatedProjects: 0 },
-        { userId: owner.userId, username: 'owner', isPlatformAdmin: true, projects: 1, coordinatedProjects: 1 },
+        { userId: maria.userId, username: 'maria', isPlatformAdmin: false, projects: 0, coordinatedProjects: 0, disabledAt: null, disabledBy: null },
+        { userId: owner.userId, username: 'owner', isPlatformAdmin: true, projects: 1, coordinatedProjects: 1, disabledAt: null, disabledBy: null },
       ],
     });
 

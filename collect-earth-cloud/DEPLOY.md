@@ -297,6 +297,23 @@ must be the address people really use.
   the Cloud SQL console (*Backups* → *Restore*, or *Point-in-time recovery*, which
   creates a clone to switch to).
 - **Logs:** `gcloud run services logs read collect-earth-cloud --region <REGION> --limit 50`.
+- **The server owner's panel** (the Server page, "How the server is doing"): totals only.
+  Projects appear by id with their size, never by name (a platform admin is not a member of
+  any project). Failed logins and requests refused by the rate limiter are counted in
+  memory by each instance since it started, so they start again from zero on a restart and
+  each Cloud Run instance shows its own. "Migrations applied" comes from
+  `schema_migrations` (migration 018), filled by every migration run from then on.
+- **Disabling an account** (Server page, Accounts): the account cannot log in, its
+  sessions (Collect Earth's included) and reset links are deleted, and its name stays
+  taken; enabling it lets it log in again. A server administrator cannot disable their own
+  account, and the last enabled one cannot be disabled. Each disable and enable is written
+  to the server log (`account.disabled` / `account.enabled` with both account ids); the
+  account list shows who disabled it and when. A disabled collector's Collect Earth gets
+  401 on its next sync and keeps the unsent plots in its queue, retrying with its usual
+  back-off (up to once an hour); once the account is enabled, the collector logs in again
+  from Collect Earth's cloud settings and the plots go. Its login dialog shows the
+  server's sentence ("This account has been disabled by the administrator of this
+  server...").
 - **Passwords:** hashed with scrypt (`node:crypto`, no native deps). For a
   hardened deployment swap `src/password.ts` for argon2id; only that module
   changes (the stored-hash string shape is private to it).
@@ -310,8 +327,12 @@ must be the address people really use.
 
 ## Upgrading from master
 
-The new migrations run at boot as usual. Four things to know about the data a
+The new migrations run at boot as usual. Five things to know about the data a
 server from master already holds:
+
+- **Migration 018 builds an index on `record_events (project_id, received_at)`** for the
+  server owner's panel, while the migration lock is held: a fraction of a second per
+  100,000 events, during which uploads wait.
 
 - **The first boot fills the activity log once (migration 012).** Every record the
   server holds gets one event in `record_events` (submitted, created or deleted, at

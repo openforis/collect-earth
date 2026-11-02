@@ -8,6 +8,7 @@ import {
   aiLimitReached,
   DEFAULT_PROGRESS_SETTINGS,
   DEFAULT_SETTINGS,
+  totalStorageBytes,
   type AiRunEnd,
   type AiRunProgress,
   type AiRunRow,
@@ -26,6 +27,7 @@ import {
   type AuditQuery,
   type CepInfo,
   type CsvFile,
+  type DatabaseHealth,
   type DecisionKind,
   type GuidanceNote,
   type GuidanceNoteInput,
@@ -35,6 +37,7 @@ import {
   type MemberActivity,
   type MemberActivityPatch,
   type Membership,
+  type PlatformStats,
   type PlotAssignment,
   type ProgressSettings,
   type ProjectRow,
@@ -231,31 +234,7 @@ export class PostgresStore implements Store {
   }
 
   async getProjectStorage(projectId: string): Promise<ProjectStorage> {
-    return this.withProject(projectId, async (client) => {
-      const cep = await client.query(
-        `SELECT (octet_length(data) + COALESCE(octet_length(cep_original), 0))::bigint AS bytes
-           FROM project_ceps WHERE project_id = $1`,
-        [projectId],
-      );
-      const csv = await client.query(
-        'SELECT filename, octet_length(data)::bigint AS bytes FROM csv_files WHERE project_id = $1',
-        [projectId],
-      );
-      const rec = await client.query(
-        `SELECT COALESCE(SUM(COALESCE(octet_length(xml), 0) + octet_length(summary::text)), 0)::bigint AS bytes
-           FROM records WHERE project_id = $1`,
-        [projectId],
-      );
-      const csvBytesByFilename: Record<string, number> = {};
-      for (const r of csv.rows) {
-        csvBytesByFilename[r.filename as string] = Number(r.bytes);
-      }
-      return {
-        cepBytes: cep.rowCount === 0 ? 0 : Number(cep.rows[0].bytes),
-        csvBytesByFilename,
-        recordBytes: Number(rec.rows[0].bytes),
-      };
-    });
+    return this.withProject(projectId, async (client) => storageOf(client, projectId));
   }
 
   async resolveToken(token: string): Promise<TokenMembership | null> {
@@ -617,7 +596,7 @@ export class PostgresStore implements Store {
 
   async getUserByUsername(username: string): Promise<User | null> {
     const res = await this.pool.query(
-      'SELECT id, username, password_hash, email, is_platform_admin, terms_accepted_at FROM users WHERE username = $1',
+      'SELECT id, username, password_hash, email, is_platform_admin, terms_accepted_at, disabled_at FROM users WHERE username = $1',
       [username],
     );
     return res.rowCount === 0 ? null : mapUser(res.rows[0]);
@@ -625,7 +604,7 @@ export class PostgresStore implements Store {
 
   async getUserById(userId: string): Promise<User | null> {
     const res = await this.pool.query(
-      'SELECT id, username, password_hash, email, is_platform_admin, terms_accepted_at FROM users WHERE id = $1',
+      'SELECT id, username, password_hash, email, is_platform_admin, terms_accepted_at, disabled_at FROM users WHERE id = $1',
       [userId],
     );
     return res.rowCount === 0 ? null : mapUser(res.rows[0]);
@@ -638,8 +617,10 @@ export class PostgresStore implements Store {
   }
 
   async resolveSession(token: string): Promise<{ userId: string } | null> {
+    // A disabled account's sessions are deleted; the join also refuses one made meanwhile.
     const res = await this.pool.query(
-      'SELECT user_id FROM sessions WHERE token_hash = $1 AND (expires_at IS NULL OR expires_at > now())',
+      `SELECT s.user_id FROM sessions s JOIN users u ON u.id = s.user_id
+        WHERE s.token_hash = $1 AND (s.expires_at IS NULL OR s.expires_at > now()) AND u.disabled_at IS NULL`,
       [hashToken(token)],
     );
     return res.rowCount === 0 ? null : { userId: res.rows[0].user_id };
@@ -721,8 +702,132 @@ export class PostgresStore implements Store {
   }
 
   async countPlatformAdmins(): Promise<number> {
-    const res = await this.pool.query('SELECT COUNT(*)::int AS n FROM users WHERE is_platform_admin');
+    const res = await this.pool.query('SELECT COUNT(*)::int AS n FROM users WHERE is_platform_admin AND disabled_at IS NULL');
     return res.rows[0].n as number;
+  }
+
+  async disableUser(userId: string, disabledBy: string): Promise<'ok' | 'last_platform_admin' | 'not_found'> {
+    if (!isUuid(userId)) {
+      return 'not_found';
+    }
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Two admins disabling each other at once: the second waits and then sees the first's change.
+      await client.query(PLATFORM_ADMINS_LOCK);
+      const res = await client.query('SELECT is_platform_admin, disabled_at FROM users WHERE id = $1 FOR UPDATE', [userId]);
+      if (res.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return 'not_found';
+      }
+      const { is_platform_admin: isAdmin, disabled_at: disabledAt } = res.rows[0];
+      if (isAdmin && disabledAt === null) {
+        const others = await client.query(
+          'SELECT COUNT(*)::int AS n FROM users WHERE is_platform_admin AND disabled_at IS NULL AND id <> $1',
+          [userId],
+        );
+        if (others.rows[0].n === 0) {
+          await client.query('ROLLBACK');
+          return 'last_platform_admin';
+        }
+      }
+      await client.query(
+        'UPDATE users SET disabled_at = now(), disabled_by = $2 WHERE id = $1 AND disabled_at IS NULL',
+        [userId, disabledBy],
+      );
+      await client.query('DELETE FROM sessions WHERE user_id = $1', [userId]);
+      await client.query('DELETE FROM password_resets WHERE user_id = $1', [userId]);
+      await client.query('COMMIT');
+      return 'ok';
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  async enableUser(userId: string): Promise<'ok' | 'not_found'> {
+    if (!isUuid(userId)) {
+      return 'not_found';
+    }
+    const res = await this.pool.query('UPDATE users SET disabled_at = NULL, disabled_by = NULL WHERE id = $1', [userId]);
+    return res.rowCount === 0 ? 'not_found' : 'ok';
+  }
+
+  async platformStats(q: { activeSince: number; signupsFrom: number; receivedFrom: number }): Promise<PlatformStats> {
+    // Accounts and sessions are global tables (002): counts only leave these queries.
+    const users = await this.pool.query(
+      `SELECT COUNT(*)::int AS total,
+              (COUNT(*) FILTER (WHERE disabled_at IS NOT NULL))::int AS disabled,
+              (COUNT(*) FILTER (WHERE is_platform_admin AND disabled_at IS NULL))::int AS admins
+         FROM users`,
+    );
+    const signups = await this.pool.query(
+      `SELECT floor(extract(epoch FROM created_at) / 86400)::bigint AS d, COUNT(*)::int AS n
+         FROM users WHERE created_at >= $1 GROUP BY d ORDER BY d`,
+      [new Date(q.signupsFrom)],
+    );
+    const loggedIn = await this.pool.query('SELECT DISTINCT user_id FROM sessions WHERE created_at >= $1', [new Date(q.activeSince)]);
+    const active = new Set<string>(loggedIn.rows.map((r) => r.user_id as string));
+    const received = new Map<number, number>();
+    // Project data (member_activity, record_events, records, files): each project read under
+    // its own app.current_project, so RLS holds for this cross-project total too.
+    const projects = await this.eachProject(async (client, projectId) => {
+      const seen = await client.query(
+        'SELECT user_id FROM member_activity WHERE project_id = $1 AND last_seen_at >= $2',
+        [projectId, new Date(q.activeSince)],
+      );
+      for (const r of seen.rows) {
+        active.add(r.user_id as string);
+      }
+      const days = await client.query(
+        `SELECT floor(extract(epoch FROM received_at) / 86400)::bigint AS d, COUNT(*)::int AS n
+           FROM record_events WHERE project_id = $1 AND received_at >= $2 GROUP BY d`,
+        [projectId, new Date(q.receivedFrom)],
+      );
+      for (const r of days.rows) {
+        const day = Number(r.d) * 86_400_000;
+        received.set(day, (received.get(day) ?? 0) + Number(r.n));
+      }
+      const recent = await client.query('SELECT 1 FROM record_events WHERE project_id = $1 AND received_at >= $2 LIMIT 1', [
+        projectId,
+        new Date(q.activeSince),
+      ]);
+      return {
+        projectId,
+        storageBytes: totalStorageBytes(await storageOf(client, projectId)),
+        active: seen.rows.length > 0 || (recent.rowCount ?? 0) > 0,
+      };
+    });
+    // Users seen in a project but deleted since are not counted (member_activity goes with them).
+    const u = users.rows[0];
+    return {
+      users: u.total,
+      disabledUsers: u.disabled,
+      platformAdmins: u.admins,
+      activeUsers: active.size,
+      signupsByDay: signups.rows.map((r) => ({ day: Number(r.d) * 86_400_000, count: Number(r.n) })),
+      projects,
+      receivedByDay: [...received].map(([day, count]) => ({ day, count })).sort((a, b) => a.day - b.day),
+    };
+  }
+
+  async databaseHealth(): Promise<DatabaseHealth> {
+    const res = await this.pool.query(
+      `SELECT pg_database_size(current_database())::bigint AS size, current_setting('server_version') AS version`,
+    );
+    let migrations: DatabaseHealth['migrations'] = null;
+    try {
+      const m = await this.pool.query('SELECT name, first_applied_at FROM schema_migrations ORDER BY name');
+      migrations = m.rows.map((r) => ({ name: r.name as string, firstAppliedAt: (r.first_applied_at as Date).getTime() }));
+    } catch (err) {
+      // Before migration 018 (or without the grant): say nothing rather than fail the page.
+      if ((err as { code?: string }).code !== '42P01' && (err as { code?: string }).code !== '42501') {
+        throw err;
+      }
+    }
+    return { sizeBytes: Number(res.rows[0].size), version: res.rows[0].version as string, migrations };
   }
 
   async createFirstPlatformAdmin(input: { username: string; passwordHash: string }): Promise<User | null> {
@@ -809,10 +914,12 @@ export class PostgresStore implements Store {
   async listUsers(): Promise<UserSummary[]> {
     // project_members is a global table (002); only a COUNT leaves this query.
     const res = await this.pool.query(
-      `SELECT u.id, u.username, u.is_platform_admin, COUNT(m.project_id)::int AS projects,
+      `SELECT u.id, u.username, u.is_platform_admin, u.disabled_at, b.username AS disabled_by,
+              COUNT(m.project_id)::int AS projects,
               (COUNT(m.project_id) FILTER (WHERE m.role = 'admin'))::int AS coordinated
          FROM users u LEFT JOIN project_members m ON m.user_id = u.id
-        GROUP BY u.id, u.username, u.is_platform_admin
+              LEFT JOIN users b ON b.id = u.disabled_by
+        GROUP BY u.id, u.username, u.is_platform_admin, u.disabled_at, b.username
         ORDER BY u.username`,
     );
     return res.rows.map((r) => ({
@@ -821,6 +928,8 @@ export class PostgresStore implements Store {
       isPlatformAdmin: r.is_platform_admin,
       projects: r.projects,
       coordinatedProjects: r.coordinated,
+      disabledAt: r.disabled_at === null ? null : (r.disabled_at as Date).getTime(),
+      disabledBy: r.disabled_at === null ? null : ((r.disabled_by as string | null) ?? null),
     }));
   }
 
@@ -2074,6 +2183,36 @@ function mapUser(r: Record<string, unknown>): User {
     email: (r.email as string | null) ?? null,
     isPlatformAdmin: r.is_platform_admin === true,
     termsAcceptedAt: r.terms_accepted_at ? (r.terms_accepted_at as Date).getTime() : null,
+    disabledAt: r.disabled_at ? (r.disabled_at as Date).getTime() : null,
+  };
+}
+
+/** Advisory lock taken while disabling an account: the last enabled platform admin stays. */
+const PLATFORM_ADMINS_LOCK = "SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:platform-admins'))";
+
+/** A project's bytes as the storage limit counts them; the caller has set app.current_project. */
+async function storageOf(client: pg.PoolClient, projectId: string): Promise<ProjectStorage> {
+  const cep = await client.query(
+    `SELECT (octet_length(data) + COALESCE(octet_length(cep_original), 0))::bigint AS bytes
+       FROM project_ceps WHERE project_id = $1`,
+    [projectId],
+  );
+  const csv = await client.query('SELECT filename, octet_length(data)::bigint AS bytes FROM csv_files WHERE project_id = $1', [
+    projectId,
+  ]);
+  const rec = await client.query(
+    `SELECT COALESCE(SUM(COALESCE(octet_length(xml), 0) + octet_length(summary::text)), 0)::bigint AS bytes
+       FROM records WHERE project_id = $1`,
+    [projectId],
+  );
+  const csvBytesByFilename: Record<string, number> = {};
+  for (const r of csv.rows) {
+    csvBytesByFilename[r.filename as string] = Number(r.bytes);
+  }
+  return {
+    cepBytes: cep.rowCount === 0 ? 0 : Number(cep.rows[0].bytes),
+    csvBytesByFilename,
+    recordBytes: Number(rec.rows[0].bytes),
   };
 }
 

@@ -21,10 +21,14 @@ interface Window {
 export class RateLimiter {
   private readonly windows = new Map<string, Window>();
 
-  /** @param perMinute requests allowed per minute per key; 0 disables the limiter. */
+  /**
+   * @param perMinute requests allowed per minute per key; 0 disables the limiter.
+   * @param options.onRefused told of each request `guard` refuses (the server owner's counters).
+   */
   constructor(
     private readonly perMinute: number,
     private readonly now: () => number = Date.now,
+    private readonly options: { onRefused?: () => void } = {},
   ) {}
 
   /** Counts one hit; returns false when the key is over its limit for this window. */
@@ -62,6 +66,7 @@ export class RateLimiter {
   guard(bucket: string): preHandlerHookHandler {
     return async (request: FastifyRequest, reply: FastifyReply) => {
       if (!this.hit(`${bucket} ${request.ip}`)) {
+        this.options.onRefused?.();
         return reply
           .code(429)
           .header('retry-after', String(WINDOW_MS / 1000))

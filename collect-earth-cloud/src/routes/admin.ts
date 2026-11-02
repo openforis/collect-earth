@@ -6,6 +6,9 @@ import { OSM_TILES, type Config } from '../config.js';
 import { hashPassword } from '../password.js';
 import { requirePlatformAdmin } from '../plugins/projectAuth.js';
 import type { RateLimiter } from '../rateLimit.js';
+import type { ServerCounters } from '../serverCounters.js';
+import { buildOverview, statsWindow } from '../serverPanel.js';
+import { migrationFiles } from '../store/migrate.js';
 import { UsernameTakenError } from '../store/memory.js';
 import type { Store } from '../store/store.js';
 import type { ProjectCreation, ServerSettings } from '../types.js';
@@ -81,15 +84,20 @@ export interface AdminRouteOptions {
   /** The setup code in force (SETUP_CODE, or the one generated at boot). */
   setupCode: string;
   version: string;
-  /** The clock of the AI usage month; Date.now by default. */
+  /** The clock of the AI usage month and of the server owner's panel; Date.now by default. */
   now?: () => number;
+  /** Failed logins and refused requests (the server owner's panel); none counted when absent. */
+  counters?: ServerCounters;
+  /** When this process started (epoch ms). */
+  startedAt?: number;
 }
 
 /**
  * Server-level routes for the web dashboard: server info, first-run setup, open
  * sign-up, password reset, and the platform admin's settings/users pages. None of
  * these is project-scoped and none returns project data: a platform admin is not a
- * member of any project and sees only accounts and project COUNTS (§4b).
+ * member of any project and sees only accounts, project COUNTS and, on the panel, project
+ * ids with their sizes (§4b).
  */
 export async function registerAdminRoutes(
   app: FastifyInstance,
@@ -313,6 +321,68 @@ export async function registerAdminRoutes(
     },
   );
 
+  // The server owner's panel (Task 11): totals across projects, never a project's name, a
+  // person's name or an answer; projects appear by id with their size only (§4b).
+  app.get(
+    '/v1/admin/overview',
+    { preHandler: requirePlatformAdmin(store) },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      const now = (options.now ?? Date.now)();
+      const [stats, health] = await Promise.all([store.platformStats(statsWindow(now)), store.databaseHealth()]);
+      return reply.send(
+        buildOverview({
+          now,
+          stats,
+          health,
+          backend: config.storeBackend,
+          shippedMigrations: migrationFiles(),
+          version: options.version,
+          startedAt: options.startedAt ?? now,
+          security: options.counters?.snapshot() ?? { since: options.startedAt ?? now, totals: { failedLogins: 0, rateLimited: 0 }, hours: [] },
+        }),
+      );
+    },
+  );
+
+  // Disable an account: it cannot log in, its sessions (Collect Earth's too) and reset links
+  // go. Not yourself, not the last enabled platform admin. Written to the server log (there is
+  // no project to hold it in audit_log); who and when stay on the account (disabledAt/By).
+  app.post(
+    '/v1/admin/users/:uid/disable',
+    { preHandler: requirePlatformAdmin(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const uid = (request.params as { uid: string }).uid;
+      if (!isUuid(uid)) {
+        return reply.code(404).send({ error: 'not_found' });
+      }
+      if (uid === request.userId) {
+        return reply.code(409).send({ error: 'own_account', reason: 'you cannot disable your own account' });
+      }
+      const result = await store.disableUser(uid, request.userId!);
+      if (result === 'not_found') {
+        return reply.code(404).send({ error: 'not_found' });
+      }
+      if (result === 'last_platform_admin') {
+        return reply.code(409).send({ error: 'last_enabled_admin', reason: 'the server must keep one enabled platform admin' });
+      }
+      request.log.info({ action: 'account.disabled', actorUserId: request.userId, userId: uid }, 'platform admin disabled an account');
+      return reply.send({ user: (await store.listUsers()).find((u) => u.userId === uid) });
+    },
+  );
+
+  app.post(
+    '/v1/admin/users/:uid/enable',
+    { preHandler: requirePlatformAdmin(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const uid = (request.params as { uid: string }).uid;
+      if (!isUuid(uid) || (await store.enableUser(uid)) === 'not_found') {
+        return reply.code(404).send({ error: 'not_found' });
+      }
+      request.log.info({ action: 'account.enabled', actorUserId: request.userId, userId: uid }, 'platform admin enabled an account');
+      return reply.send({ user: (await store.listUsers()).find((u) => u.userId === uid) });
+    },
+  );
+
   // Issue a reset link. Platform admin only: a project admin resetting a user who
   // also belongs to another project would reach across the tenant boundary.
   app.post(
@@ -323,6 +393,9 @@ export async function registerAdminRoutes(
       const user = isUuid(uid) ? await store.getUserById(uid) : null;
       if (!user) {
         return reply.code(404).send({ error: 'not_found' });
+      }
+      if (user.disabledAt) {
+        return reply.code(409).send({ error: 'account_disabled', reason: 'enable the account first' });
       }
       const expiresAt = Date.now() + RESET_TTL_MS;
       const token = await store.createPasswordReset(user.id, expiresAt);

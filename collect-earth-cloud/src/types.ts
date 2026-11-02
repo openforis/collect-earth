@@ -10,6 +10,8 @@ export interface User {
   isPlatformAdmin: boolean;
   /** When the account accepted the terms of use at sign-up (epoch ms); null if never asked. */
   termsAcceptedAt?: number | null;
+  /** When a platform admin disabled the account (epoch ms): it cannot log in. Null or absent: enabled. */
+  disabledAt?: number | null;
 }
 
 /** A user's membership of one project, with the project name for listings. */
@@ -100,6 +102,43 @@ export interface UserSummary {
   projects: number;
   /** Projects the account coordinates (admin role): what maxProjectsPerUser counts. */
   coordinatedProjects: number;
+  /** When the account was disabled (epoch ms), or null. */
+  disabledAt: number | null;
+  /** Who disabled it (a username), or null (enabled, or that account was deleted since). */
+  disabledBy: string | null;
+}
+
+/** A count for one UTC day (epoch ms of its midnight). */
+export interface DayCount {
+  day: number;
+  count: number;
+}
+
+/**
+ * The server owner's panel's figures from the store (Task 11). Totals only: no names, no
+ * answers; a project appears by its id with its size and whether it was active (§4b).
+ */
+export interface PlatformStats {
+  users: number;
+  disabledUsers: number;
+  /** Enabled platform admins. */
+  platformAdmins: number;
+  /** Accounts seen in a project (member_activity.last_seen_at) or that logged in (a session created) since `activeSince`. */
+  activeUsers: number;
+  /** Accounts created per UTC day since `signupsFrom` (days with none left out). */
+  signupsByDay: DayCount[];
+  /** Every project: its id, its bytes (as the storage limit counts them), and whether it was active since `activeSince`. */
+  projects: { projectId: string; storageBytes: number; active: boolean }[];
+  /** Records stored per UTC day since `receivedFrom` (record_events.received_at), all projects added up. */
+  receivedByDay: DayCount[];
+}
+
+/** The database's health for the server owner's panel; nulls on the memory store. */
+export interface DatabaseHealth {
+  sizeBytes: number | null;
+  version: string | null;
+  /** The migrations recorded as applied (schema_migrations, migration 018), in name order. */
+  migrations: { name: string; firstAppliedAt: number }[] | null;
 }
 
 /** Bytes a project uses, by kind. Records count their XML and summary JSON. */

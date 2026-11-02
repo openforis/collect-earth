@@ -14,6 +14,7 @@ import type {
   AuditQuery,
   CepInfo,
   CsvFile,
+  DatabaseHealth,
   DecisionKind,
   EventCursor,
   GuidanceNote,
@@ -24,6 +25,7 @@ import type {
   MemberActivity,
   MemberActivityPatch,
   Membership,
+  PlatformStats,
   PlotAssignment,
   ProgressSettings,
   ProjectRow,
@@ -124,7 +126,7 @@ export interface Store {
 
   /** Issues an opaque session token for a user and returns the plaintext token. */
   createSession(userId: string): Promise<string>;
-  /** Resolves a session token to its user id, or null if unknown/expired. */
+  /** Resolves a session token to its user id, or null if unknown/expired or the account is disabled. */
   resolveSession(token: string): Promise<{ userId: string } | null>;
   deleteSession(token: string): Promise<void>;
   /** Revokes every session of a user (password reset). */
@@ -141,8 +143,25 @@ export interface Store {
   // --- Platform administration (dashboard) ---
   // Global, not project-scoped: none of these return project data.
 
+  /** Whether a platform admin exists, enabled or not (first-run setup never opens again). */
   hasPlatformAdmin(): Promise<boolean>;
+  /** Enabled platform admins: those who can still run the server. */
   countPlatformAdmins(): Promise<number>;
+  /**
+   * Disables an account (`disabledBy` = the platform admin doing it): it can no longer log in
+   * and its sessions and reset links go. Refused, changing nothing, when it is the last
+   * enabled platform admin (checked atomically). 'not_found' for an unknown id.
+   */
+  disableUser(userId: string, disabledBy: string): Promise<'ok' | 'last_platform_admin' | 'not_found'>;
+  /** Enables a disabled account again (it logs in anew). */
+  enableUser(userId: string): Promise<'ok' | 'not_found'>;
+  /**
+   * The server owner's figures (Task 11): totals across projects, each project read under its
+   * own RLS setting; projects by id only (§4b).
+   */
+  platformStats(q: { activeSince: number; signupsFrom: number; receivedFrom: number }): Promise<PlatformStats>;
+  /** The database's size, version and the migrations recorded as applied. */
+  databaseHealth(): Promise<DatabaseHealth>;
   /**
    * Creates the first platform admin atomically: returns null (and creates nothing)
    * if a platform admin already exists. Throws UsernameTakenError on a duplicate.

@@ -60,6 +60,8 @@ import {
   listAiRuns,
   getAiRun,
   getAiUsage,
+  getServerOverview,
+  setUserDisabled,
   getMyQuality,
   getTeamReport,
 } from "./api";
@@ -897,6 +899,38 @@ describe("the AI assistant and the reports", () => {
     expect(usage.month).toBe("2026-10");
     expect(usage.projects[0]).toEqual({ projectId: "p1", runs: 3, reports: 1, followUps: 1, questions: 1, failed: 0, refused: 1, tokens: 15 });
     expect(usage.totals.tokens).toBe(15);
+  });
+
+  it("reads the server owner's panel, and disables and enables an account", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        asOf: 5,
+        users: { total: 3, disabled: 1, platformAdmins: 1, active: 2, signupsByWeek: [{ week: "2026-W45", start: 1, count: 2 }] },
+        projects: { total: 2, active: 1, storageBytes: 30, largest: [{ projectId: "p1", storageBytes: 20, name: "never shown" }] },
+        records: { received: 4, receivedByDay: [{ day: 0, count: 4 }] },
+        database: { backend: "postgres", sizeBytes: 9000, version: "16.4", migrations: { applied: 18, shipped: 18, latest: "018_platform.sql", lastAppliedAt: 7, missing: [] } },
+        server: { version: "0.1.0", startedAt: 3 },
+        security: { since: 3, totals: { failedLogins: 2, rateLimited: 1 }, hours: [{ hour: 0, failedLogins: 2, rateLimited: 1 }] },
+      }),
+    );
+    const o = await getServerOverview();
+    expect(call().url).toBe("/v1/admin/overview");
+    expect(o.projects.largest).toEqual([{ projectId: "p1", storageBytes: 20 }]);
+    expect(o.database).toEqual({ backend: "postgres", sizeBytes: 9000, version: "16.4", migrations: { applied: 18, shipped: 18, latest: "018_platform.sql", lastAppliedAt: 7, missing: [] } });
+    expect(o.security.totals).toEqual({ failedLogins: 2, rateLimited: 1 });
+    // The memory store has no database figures.
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { database: { backend: "memory", sizeBytes: null, version: null, migrations: null } }));
+    expect((await getServerOverview()).database).toEqual({ backend: "memory", sizeBytes: null, version: null, migrations: null });
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { user: { userId: "u1", username: "maria", disabledAt: 100, disabledBy: "owner" } }));
+    expect(await setUserDisabled("u1", true)).toMatchObject({ userId: "u1", disabledAt: 100, disabledBy: "owner" });
+    expect(call(2)).toEqual({ url: "/v1/admin/users/u1/disable", method: "POST", body: undefined });
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { user: { userId: "u1", username: "maria", disabledAt: null, disabledBy: null } }));
+    expect(await setUserDisabled("u1", false)).toMatchObject({ disabledAt: null, disabledBy: null });
+    expect(call(3).url).toBe("/v1/admin/users/u1/enable");
+    for (const [code, key] of [["own_account", "error.ownAccount"], ["last_enabled_admin", "error.lastEnabledAdmin"], ["account_disabled", "error.accountDisabled"]]) {
+      expect(errorMessageKey(new ApiError(409, code, null, {}))).toBe(key);
+    }
   });
 
   it("reads a member's own report and the team report", async () => {

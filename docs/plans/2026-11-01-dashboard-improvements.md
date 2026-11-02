@@ -1852,6 +1852,105 @@ with `'`), and the read state.
 
 **Tests:** no project data leaks into the responses; disabling an account.
 
+**As built** (differs from the above where it says so)
+- **§4b decides the names: none.** The task allowed project names "since the server owner
+  already lists projects", but they do not: §4b (platform plan) and the dashboard plan say a
+  platform admin is not a member of any project and sees accounts and project *counts* only,
+  and `/v1/admin/ai-usage` already lists projects by id. So the panel shows the largest projects
+  **by id and size only**; no project name, no person's name, no answer, no file name.
+- **`GET /v1/admin/overview`** (platform admin; 401 / 403 otherwise) → `{ asOf, users { total,
+  disabled, platformAdmins (enabled), active, signupsByWeek [12 ISO weeks, UTC, empty ones too:
+  { week "2026-W45", start, count }] }, projects { total, active, storageBytes, largest [10 × {
+  projectId, storageBytes }] }, records { received, receivedByDay [30 UTC days, today included] },
+  database { backend, sizeBytes, version, migrations { applied, shipped, latest, lastAppliedAt,
+  missing } | null }, server { version, startedAt }, security { since, totals { failedLogins,
+  rateLimited }, hours [{ hour, failedLogins, rateLimited }] } }`. Pure assembly in
+  `src/serverPanel.ts` (`buildOverview`, `statsWindow`, ISO weeks); the route is thin.
+  - **Active** = in the last 30 days. An account: a session created (logged in) or
+    `member_activity.last_seen_at` in any project. A project: a member seen or a record event
+    received. **Records received** = `record_events` by `received_at` (stored uploads; a plot
+    saved 3 times counts 3, the page says so). **Storage** = what the storage limit counts
+    (`getProjectStorage`: CEP, plot files, records' XML and summary).
+  - **RLS is not weakened.** `store.platformStats` reads the global tables (users, sessions) on
+    the pool as counts, and each project's data under its own `app.current_project` in one
+    read-only transaction (`eachProject`, as `aiUsageSince`); `storageOf(client, pid)` is shared
+    with `getProjectStorage`. No SECURITY DEFINER function, no owner pool.
+  - **Database:** `pg_database_size`, `server_version`; **migrations applied** from a new
+    `schema_migrations (name, first_applied_at, last_applied_at)` (018): there was no migrations
+    table (the files are idempotent and run every boot), so `runMigrations` now records every file
+    after running them (`migrationFiles()` exported), and the panel compares with the files the
+    server ships (`missing`). Before 018 runs, "not recorded yet"; the memory store: nulls ("data
+    in memory").
+  - **Failed logins and refusals per hour:** `src/serverCounters.ts` (`ServerCounters`, in
+    memory, hours of the last 7 days kept, totals since start). Failed logins counted in the
+    login route (wrong username or password); refusals = the rate limiter's 429s
+    (`RateLimiter` got `options.onRefused`, called by `guard`) plus the login-failure lock's 429s.
+    Per instance and since its start; the page says so.
+- **Disabling an account:** `POST /v1/admin/users/:uid/disable` and `/enable` → `{ user }` (the
+  account list's row). **Migration 018:** `users.disabled_at`, `users.disabled_by` (FK, ON DELETE
+  SET NULL); users stay a global table (002/004: not under RLS, read by key or as counts).
+  - Disabling deletes the account's sessions and reset links in one transaction; login with the
+    right password answers **403 `account_disabled`** with a sentence ("This account has been
+    disabled by the administrator of this server. Ask them to enable it again."); a wrong
+    password still answers 401 as before (no hint without the password). `resolveSession` also
+    refuses a disabled account's session (joined with users), so a session made in a race does
+    not pass. Register/sign-up with its name: `username_taken` as before (the name stays taken);
+    there is no "join with an existing account" route. A reset link for a disabled account: 409
+    `account_disabled`.
+  - Refused: yourself (409 `own_account`), the last enabled platform admin (409
+    `last_enabled_admin`; `disableUser` checks it under an advisory lock and `FOR UPDATE`, so two
+    admins disabling each other at once leave one: smoke). `countPlatformAdmins` now counts
+    enabled ones, so deleting your account while the only other admin is disabled is refused.
+  - **Audit: the server log, not a table.** `audit_log` is per project and RLS-bound; an account
+    is global. A platform table for two actions would be one more thing to clean in
+    `deleteUser` and to show; instead each disable / enable is a structured server-log line
+    (`account.disabled` / `account.enabled`, actor and target ids; Cloud Logging keeps it) and the
+    account row keeps who and when (`disabledAt`, `disabledBy` in the list). Password resets were
+    not audited either.
+  - **Collect Earth (checked in the code, no change):** there is no re-login prompt on a sync
+    401. `CloudSyncService.uploadAndApply` takes a 401 as a whole-batch failure: logged once as
+    "offline", each record marked failed with exponential back-off up to 1 hour, so it does not
+    loop; the plots stay in the queue. The collector logs in again from the cloud settings
+    (`CloudLoginDialog`, Swing, untouched), which shows the exception text: "Login failed with
+    HTTP 403: {"error":"account_disabled","reason":"This account has been disabled…"}" (the
+    server's sentence is readable inside it). After enabling and logging in, the queue goes.
+- **Web (`ServerPage.tsx`):** a "How the server is doing" card first: five figures (accounts with
+  disabled and administrators, active accounts, projects with active ones, space, saves received),
+  saves per UTC day and new accounts per week (the People pages' `ColumnChart` with a Chart / Table
+  switch), largest projects by id, the database, failed logins and refusals (totals and a table of
+  the hours that had any). Accounts: a "Disabled" chip with who and when, Disable (confirm dialog
+  saying what happens, Collect Earth included) / Enable, not on your own row; no reset link for a
+  disabled account. `api.ts`: `getServerOverview`, `setUserDisabled`, `AdminUser.disabledAt/By`,
+  three error codes. 53 keys × 4 languages (`i18n.ts`, `api.ts`, `api.test.ts` CRLF kept).
+- **Tests:** server 914 (was 899): `serverPanel.test.ts` 10 (platform admin only; no project name,
+  username, answer or XML in the answer; counts, sign-ups by ISO week, active accounts and projects
+  with a fake clock; database on memory; failed logins; rate-limit refusals; disable → sync 401,
+  `/me` 401, login 403 with the sentence, wrong password 401, no reset link, listed with who,
+  enable → login and sync; own account, unknown, non-admin; another admin yes, the last never; ISO
+  weeks over year ends), `serverCounters.test.ts` 3, `migrate.test.ts` (schema_migrations
+  recorded under the lock), `postgresStore.test.ts` 2 (each project's reads under its own setting,
+  read-only; the lock before the account read), `dashboard.test.ts` (the new fields). Web 302 (api
+  test of the overview, disable/enable and the codes). tsc clean in both; web build ok.
+- **Postgres smoke** `npm run smoke:pg:panel -- <port>` (`scripts/pg-smoke-server-panel.mts`,
+  README): 018 twice, `schema_migrations` with all 18 files; **the overview on 100,000 records and
+  their events in 5 projects: 109-125 ms** (5 runs); received and storage equal to SQL, no project
+  name, username or answer in the body, the per-day query on the new `(project_id, received_at)`
+  index; the app role still bound by RLS (with B set none of A's records or events; with '' none);
+  disable/enable through the server; a raced session refused; two admins disabling each other at
+  once leave one. ALL OK; the Task 1 and Task 10 smokes ALL OK. Docker stopped after, port free.
+- **Chrome** (memory server, built dashboard, 2 projects, 4 collectors, 355 saves): the panel at
+  1400 px and at 500 px (no page-wide horizontal scroll once laid out), Disable ben through the
+  dialog → chip "Disabled", "Disabled on … by owner", Enable button, status message; ben's login
+  then 403 with the sentence. Fixed after looking: "1 server administrators" (now "Server
+  administrators: 1"). The page has no dark theme of its own (as before).
+- **Open:** counters are per instance and lost on restart (by design; no table); the panel is
+  read on demand (no cache): about 110 ms at 100,000 records, it reads every record's size per
+  project, so a server with millions would want the sizes cached; `schema_migrations` knows
+  only runs from 018 on (the first records all files at once); Collect Earth shows the 403 inside
+  its generic "Login failed with HTTP 403: {json}" text: parsing `reason` in `CloudApiClient`
+  (not Swing) would read better, left for a desktop task; Task 22's real run should check that
+  logging in again from Collect Earth's settings lets the queued plots go.
+
 ## Part D: re-assessments that come by themselves
 
 ### Task 12: Send back for another look ("To check again" plot file)

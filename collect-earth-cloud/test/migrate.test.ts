@@ -29,7 +29,7 @@ vi.mock('pg', () => {
   return { default: { Client } };
 });
 
-const { credentialsOf, runMigrations } = await import('../src/store/migrate.js');
+const { credentialsOf, migrationFiles, runMigrations } = await import('../src/store/migrate.js');
 
 describe('runMigrations', () => {
   beforeEach(() => {
@@ -52,6 +52,12 @@ describe('runMigrations', () => {
     // The migrations themselves sit between lock and unlock.
     expect(sql.slice(2, -2).length).toBeGreaterThanOrEqual(4);
     expect(logged[0]).toBe('Migration 001_init.sql applied.');
+    // Then what ran is recorded (schema_migrations), still under the lock, with every file.
+    const recorded = calls.at(-3)!;
+    expect(recorded.sql).toContain('INSERT INTO schema_migrations');
+    expect(recorded.params![0]).toEqual(migrationFiles());
+    expect(migrationFiles()[0]).toBe('001_init.sql');
+    expect(migrationFiles()).toContain('018_platform.sql');
   });
 
   it('releases the lock and closes the connection when a migration fails', async () => {

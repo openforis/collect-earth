@@ -53,6 +53,7 @@ docker run -d --rm --name ce-pg-smoke -e POSTGRES_PASSWORD=pw -p 55481:5432 post
 npm run smoke:pg -- 55481      # the port; prints one line per check, then ALL OK
 npm run smoke:pg:progress -- 55481   # the Progress and People tabs (migration 013), with GET /progress, /people and /people/:userId on 100,000 records and 20,000 checks, then the Quality tab's answers per person and pattern flags on them
 npm run smoke:pg:activity -- 55481   # the Activity tab (migration 017): the bell's read state with RLS, the log on 100,000 record events paged by cursor (timings), the weekly summary and the daily activity download
+npm run smoke:pg:panel -- 55481      # the server owner's panel (migration 018): GET /v1/admin/overview on 100,000 records in 5 projects (totals against SQL, no names, timings), RLS still binding the app role, disabling and enabling an account, two admins disabling each other at once
 docker stop ce-pg-smoke
 ```
 

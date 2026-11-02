@@ -8,6 +8,7 @@ import {
   aiLimitReached,
   DEFAULT_PROGRESS_SETTINGS,
   DEFAULT_SETTINGS,
+  totalStorageBytes,
   type AiRunEnd,
   type AiRunProgress,
   type AiRunRow,
@@ -24,6 +25,7 @@ import {
   type CepInfo,
   type EventCursor,
   type CsvFile,
+  type DatabaseHealth,
   type DecisionKind,
   type GuidanceNote,
   type GuidanceNoteInput,
@@ -33,6 +35,7 @@ import {
   type MemberActivity,
   type MemberActivityPatch,
   type Membership,
+  type PlatformStats,
   type PlotAssignment,
   type ProgressSettings,
   type ProjectRow,
@@ -53,6 +56,8 @@ import {
   type UserSummary,
 } from '../types.js';
 import { checkCursor, type CreateInviteInput, type CreateProjectResult, type Store, type TokenMembership, type UserPlots } from './store.js';
+
+const DAY_MS = 86_400_000;
 
 interface CsvFileEntry extends CsvFile {
   data: Buffer;
@@ -135,6 +140,11 @@ export class InMemoryStore implements Store {
   /** Usernames of deleted accounts with records in one of their projects: never given out again (records keep the name). */
   private readonly retiredUsernames = new Set<string>();
   private readonly sessions = new Map<string, string>(); // session token hash -> userId
+  /** When each session was made (active accounts on the server owner's panel). */
+  private readonly sessionCreatedAt = new Map<string, number>(); // session token hash -> epoch ms
+  /** When each account was made (sign-ups per week) and who disabled it. */
+  private readonly userCreatedAt = new Map<string, number>();
+  private readonly userDisabledBy = new Map<string, string>();
   private readonly memberships = new Map<string, Role>(); // `${projectId} ${userId}` -> role
   private readonly invites = new Map<string, InviteEntry>(); // invite token hash -> entry
   private readonly resets = new Map<string, ResetEntry>(); // reset token hash -> entry
@@ -398,8 +408,9 @@ export class InMemoryStore implements Store {
     if (this.usersByName.has(input.username) || this.retiredUsernames.has(input.username)) {
       throw new UsernameTakenError(input.username);
     }
-    const user: User = { id: randomUUID(), ...input };
+    const user: User = { id: randomUUID(), disabledAt: null, ...input };
     this.users.set(user.id, user);
+    this.userCreatedAt.set(user.id, Date.now());
     this.usersByName.set(user.username, user.id);
     return user;
   }
@@ -416,22 +427,26 @@ export class InMemoryStore implements Store {
   async createSession(userId: string): Promise<string> {
     const token = generateToken();
     this.sessions.set(hashToken(token), userId);
+    this.sessionCreatedAt.set(hashToken(token), Date.now());
     return token;
   }
 
   async resolveSession(token: string): Promise<{ userId: string } | null> {
     const userId = this.sessions.get(hashToken(token));
-    return userId ? { userId } : null;
+    // A disabled account's sessions are deleted; this also covers one made meanwhile.
+    return userId && !this.users.get(userId)?.disabledAt ? { userId } : null;
   }
 
   async deleteSession(token: string): Promise<void> {
     this.sessions.delete(hashToken(token));
+    this.sessionCreatedAt.delete(hashToken(token));
   }
 
   async deleteUserSessions(userId: string): Promise<void> {
     for (const [hash, owner] of this.sessions) {
       if (owner === userId) {
         this.sessions.delete(hash);
+        this.sessionCreatedAt.delete(hash);
       }
     }
   }
@@ -489,6 +504,8 @@ export class InMemoryStore implements Store {
       this.retiredUsernames.add(user.username);
     }
     this.users.delete(userId);
+    this.userCreatedAt.delete(userId);
+    this.userDisabledBy.delete(userId);
   }
 
   // --- Platform administration ---
@@ -498,7 +515,91 @@ export class InMemoryStore implements Store {
   }
 
   async countPlatformAdmins(): Promise<number> {
-    return [...this.users.values()].filter((u) => u.isPlatformAdmin).length;
+    return [...this.users.values()].filter((u) => u.isPlatformAdmin && !u.disabledAt).length;
+  }
+
+  async disableUser(userId: string, disabledBy: string): Promise<'ok' | 'last_platform_admin' | 'not_found'> {
+    const user = this.users.get(userId);
+    if (!user) {
+      return 'not_found';
+    }
+    if (user.isPlatformAdmin && !user.disabledAt && (await this.countPlatformAdmins()) <= 1) {
+      return 'last_platform_admin';
+    }
+    if (!user.disabledAt) {
+      user.disabledAt = Date.now();
+      this.userDisabledBy.set(userId, disabledBy);
+    }
+    await this.deleteUserSessions(userId);
+    for (const [hash, entry] of this.resets) {
+      if (entry.userId === userId) {
+        this.resets.delete(hash);
+      }
+    }
+    return 'ok';
+  }
+
+  async enableUser(userId: string): Promise<'ok' | 'not_found'> {
+    const user = this.users.get(userId);
+    if (!user) {
+      return 'not_found';
+    }
+    user.disabledAt = null;
+    this.userDisabledBy.delete(userId);
+    return 'ok';
+  }
+
+  async platformStats(q: { activeSince: number; signupsFrom: number; receivedFrom: number }): Promise<PlatformStats> {
+    const users = [...this.users.values()];
+    const active = new Set<string>();
+    for (const [hash, userId] of this.sessions) {
+      if ((this.sessionCreatedAt.get(hash) ?? 0) >= q.activeSince) {
+        active.add(userId);
+      }
+    }
+    const signups = new Map<number, number>();
+    for (const u of users) {
+      const at = this.userCreatedAt.get(u.id) ?? 0;
+      if (at >= q.signupsFrom) {
+        const day = Math.floor(at / DAY_MS) * DAY_MS;
+        signups.set(day, (signups.get(day) ?? 0) + 1);
+      }
+    }
+    const received = new Map<number, number>();
+    const projects: PlatformStats['projects'] = [];
+    for (const [projectId, entry] of this.projects) {
+      let isActive = false;
+      for (const a of entry.memberActivity.values()) {
+        if (a.lastSeenAt !== null && a.lastSeenAt >= q.activeSince) {
+          active.add(a.userId);
+          isActive = true;
+        }
+      }
+      for (const e of entry.recordEvents) {
+        if (e.receivedAt >= q.activeSince) {
+          isActive = true;
+        }
+        if (e.receivedAt >= q.receivedFrom) {
+          const day = Math.floor(e.receivedAt / DAY_MS) * DAY_MS;
+          received.set(day, (received.get(day) ?? 0) + 1);
+        }
+      }
+      projects.push({ projectId, storageBytes: totalStorageBytes(await this.getProjectStorage(projectId)), active: isActive });
+    }
+    const byDay = (m: Map<number, number>) => [...m].map(([day, count]) => ({ day, count })).sort((a, b) => a.day - b.day);
+    return {
+      users: users.length,
+      disabledUsers: users.filter((u) => u.disabledAt).length,
+      platformAdmins: await this.countPlatformAdmins(),
+      activeUsers: [...active].filter((id) => this.users.has(id)).length,
+      signupsByDay: byDay(signups),
+      projects: projects.sort((a, b) => (a.projectId < b.projectId ? -1 : a.projectId > b.projectId ? 1 : 0)),
+      receivedByDay: byDay(received),
+    };
+  }
+
+  async databaseHealth(): Promise<DatabaseHealth> {
+    return { sizeBytes: null, version: null, migrations: null };
   }
 
   async createFirstPlatformAdmin(input: { username: string; passwordHash: string }): Promise<User | null> {
@@ -535,6 +636,8 @@ export class InMemoryStore implements Store {
         isPlatformAdmin: u.isPlatformAdmin,
         projects: counts.get(u.id) ?? 0,
         coordinatedProjects: coordinated.get(u.id) ?? 0,
+        disabledAt: u.disabledAt ?? null,
+        disabledBy: u.disabledAt ? (this.users.get(this.userDisabledBy.get(u.id) ?? '')?.username ?? null) : null,
       }))
       .sort((a, b) => a.username.localeCompare(b.username));
   }
@@ -1371,6 +1474,9 @@ export class InMemoryStore implements Store {
     this.users.clear();
     this.usersByName.clear();
     this.sessions.clear();
+    this.sessionCreatedAt.clear();
+    this.userCreatedAt.clear();
+    this.userDisabledBy.clear();
     this.memberships.clear();
     this.invites.clear();
     this.resets.clear();

@@ -4,6 +4,7 @@ import { hashPassword, verifyPassword } from '../password.js';
 import { checkPassword } from '../accountRules.js';
 import { requireSession } from '../plugins/projectAuth.js';
 import { RATE_LIMITED, type RateLimiter } from '../rateLimit.js';
+import type { ServerCounters } from '../serverCounters.js';
 import { UsernameTakenError } from '../store/memory.js';
 import type { Store } from '../store/store.js';
 
@@ -57,6 +58,12 @@ async function accountDeletionPlan(store: Store, userId: string, isPlatformAdmin
   return plan;
 }
 
+/** What a disabled account's login answers (403), shown as it is by Collect Earth's login dialog. */
+export const ACCOUNT_DISABLED = {
+  error: 'account_disabled',
+  reason: 'This account has been disabled by the administrator of this server. Ask them to enable it again.',
+};
+
 /**
  * Account registration (invite-gated), login, logout, the /me profile and password
  * change. register/login are what the desktop client calls: their contract
@@ -68,6 +75,7 @@ export async function registerAuthRoutes(
   store: Store,
   limiter: RateLimiter,
   loginFailures: RateLimiter,
+  counters?: ServerCounters,
 ): Promise<void> {
   app.post('/v1/auth/register', { preHandler: limiter.guard('register') }, async (request: FastifyRequest, reply: FastifyReply) => {
     const body = (request.body ?? {}) as RegisterBody;
@@ -128,12 +136,18 @@ export async function registerAuthRoutes(
     // stops, while someone else's wrong guesses never lock the real user out.
     const failureKey = `${username.toLowerCase()} ${request.ip}`;
     if (loginFailures.blocked(failureKey)) {
+      counters?.count('rateLimited');
       return reply.code(429).header('retry-after', '60').send(RATE_LIMITED);
     }
     const user = await store.getUserByUsername(username);
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
       loginFailures.hit(failureKey);
+      counters?.count('failedLogin');
       return reply.code(401).send({ error: 'invalid_credentials' });
+    }
+    // Said only to someone who knows the password: a wrong one answers as above.
+    if (user.disabledAt) {
+      return reply.code(403).send(ACCOUNT_DISABLED);
     }
     const token = await store.createSession(user.id);
     return reply.send({ token, userId: user.id, username: user.username });

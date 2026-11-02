@@ -13,6 +13,15 @@ import { scramSha256Verifier } from './scram.js';
  */
 export const MIGRATION_LOCK_KEY = '4846419847';
 
+const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'migrations');
+
+/** The migrations this server ships (migrations/*.sql), in the order they run. */
+export function migrationFiles(): string[] {
+  return readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
+}
+
 /**
  * Applies every migrations/*.sql file in name order. Each is idempotent
  * (IF NOT EXISTS), so running this repeatedly on an already-migrated database
@@ -29,10 +38,7 @@ export async function runMigrations(
   log: (msg: string) => void = () => {},
   options: { appDatabaseUrl?: string } = {},
 ): Promise<void> {
-  const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'migrations');
-  const files = readdirSync(migrationsDir)
-    .filter((f) => f.endsWith('.sql'))
-    .sort();
+  const files = migrationFiles();
 
   const client = new pg.Client({ connectionString: databaseUrl });
   await client.connect();
@@ -40,9 +46,16 @@ export async function runMigrations(
     await client.query('SELECT pg_advisory_lock($1::bigint)', [MIGRATION_LOCK_KEY]);
     try {
       for (const file of files) {
-        await client.query(readFileSync(join(migrationsDir, file), 'utf8'));
+        await client.query(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'));
         log(`Migration ${file} applied.`);
       }
+      // What ran, for the server owner's panel (schema_migrations, migration 018): the first
+      // time each one ran and the last. Files before 018 are recorded on the first boot with it.
+      await client.query(
+        `INSERT INTO schema_migrations (name) SELECT unnest($1::text[])
+         ON CONFLICT (name) DO UPDATE SET last_applied_at = now()`,
+        [files],
+      );
       if (options.appDatabaseUrl !== undefined) {
         await prepareAppRole(client, options.appDatabaseUrl, log);
       }
