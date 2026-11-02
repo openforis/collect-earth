@@ -308,6 +308,11 @@ function overlapCount(count: number, percent: number): number {
  * plot that already has a copy gets no other one, and counts towards the overlap
  * share. Plots kept with people outside the division, and plots everyone of their
  * group checked (left unassigned), are in nobody's list and get no new copies.
+ *
+ * `drawn` are the copies the check sampling drew (sampledAt) held now: they are kept, after
+ * what is dealt and before any new pick, so they count towards the overlap share and their
+ * plots get no other copy. One whose holder is now dealt the plot as main goes (nobody
+ * checks their own plot); those of plots no longer in the file go.
  */
 export function divide(
   d: Exclude<StoredDistribution, { mode: 'manual' }>,
@@ -315,6 +320,7 @@ export function divide(
   values: readonly string[] | null,
   submittedBy: SubmittedBy,
   plotOf: (unit: string) => string = (unit) => unit,
+  drawn: readonly PlotAssignment[] = [],
 ): PlotAssignment[] {
   const position = new Map(plotIds.map((id, i) => [id, i]));
   const order = d.order === 'mixed' ? shuffled(plotIds, d.seed ?? 0) : [...plotIds];
@@ -380,6 +386,17 @@ export function divide(
     kept.filter((a) => !a.overlap).forEach((a) => add(a));
     kept.filter((a) => a.overlap).forEach((a) => add(a));
     copies.forEach((a) => add(a));
+  }
+  for (const a of drawn) {
+    if (!a.overlap || a.sampledAt === undefined || !position.has(a.plotKey)) {
+      continue;
+    }
+    add({ plotKey: a.plotKey, userId: a.userId, overlap: true });
+    // Kept (or already kept as the copy of a check its holder submitted): it stays drawn.
+    const row = result.get(`${a.plotKey}\u0000${a.userId}`);
+    if (row?.overlap) {
+      row.sampledAt = a.sampledAt;
+    }
   }
   for (const { group, lists } of dealt) {
     lists.forEach((list, i) => {
@@ -477,7 +494,7 @@ export function moveUnfinished(
         notMoved += 1;
         continue;
       }
-      const row = { plotKey: a.plotKey, userId: to, overlap: a.overlap };
+      const row: PlotAssignment = { ...a, userId: to };
       toRows.set(a.plotKey, row);
       if (row.overlap) {
         addCopyUnit(row.plotKey);
@@ -492,6 +509,7 @@ export function moveUnfinished(
         notMoved += 1;
       } else {
         theirs.overlap = false;
+        delete theirs.sampledAt;
         toCopyUnits.get(plotOf(a.plotKey))?.delete(a.plotKey);
         moved += 1;
       }
@@ -599,6 +617,8 @@ export interface PersonShare {
   /** Includes the overlap copies. */
   plots: number;
   overlap: number;
+  /** Of the copies, those the check sampling drew (Task 13); the others came with the division. */
+  sampled: number;
   submitted: number;
 }
 
@@ -627,7 +647,7 @@ export function summarize(
   const share = (userId: string): PersonShare => {
     let s = people.get(userId);
     if (!s) {
-      s = { userId, username: usernames.get(userId) ?? userId, plots: 0, overlap: 0, submitted: 0 };
+      s = { userId, username: usernames.get(userId) ?? userId, plots: 0, overlap: 0, sampled: 0, submitted: 0 };
       people.set(userId, s);
     }
     return s;
@@ -646,6 +666,9 @@ export function summarize(
     s.plots += 1;
     if (a.overlap) {
       s.overlap += 1;
+      if (a.sampledAt !== undefined) {
+        s.sampled += 1;
+      }
     }
     if (holdingDone(submittedBy, a)) {
       s.submitted += 1;

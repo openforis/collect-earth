@@ -112,7 +112,7 @@ describe('PostgresStore pool', () => {
   it("deleteProject deletes the activity data under the project's setting, member_activity before the members", async () => {
     await new PostgresStore('postgres://x').deleteProject(PROJECT);
     const deleted = queries.filter((q) => q.sql.startsWith('DELETE FROM')).map((q) => q.sql.split(' ')[2]);
-    for (const table of ['record_events', 'member_activity', 'audit_log', 'attention_reads']) {
+    for (const table of ['record_events', 'member_activity', 'audit_log', 'attention_reads', 'sampling_rules']) {
       expect(deleted).toContain(table);
     }
     expect(deleted.indexOf('member_activity')).toBeLessThan(deleted.indexOf('project_members'));

@@ -111,7 +111,7 @@ describe('dividing plots between people', () => {
     });
     const whole = await getDistribution();
     expect(whole).toMatchObject({ distribution: null, plotCount: 10, unassigned: 0 });
-    expect(whole.people).toEqual([{ userId: maria.userId, username: 'maria', plots: 10, overlap: 0, submitted: 0 }]);
+    expect(whole.people).toEqual([{ userId: maria.userId, username: 'maria', plots: 10, overlap: 0, sampled: 0, submitted: 0 }]);
 
     const dry = await divideFile({ mode: 'even', people: [maria.userId, jose.userId, ana.userId], order: 'file', dryRun: true });
     expect(dry.statusCode).toBe(200);

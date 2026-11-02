@@ -40,6 +40,10 @@ import type {
   RecordState,
   RoundInfo,
   Role,
+  SampledCopy,
+  SamplingDraw,
+  SamplingRule,
+  SamplingState,
   ServerSettings,
   StoredDistribution,
   User,
@@ -230,8 +234,33 @@ export interface Store {
    * assignments are deleted. With null the file is whole again and its holdings go.
    */
   setDivision(projectId: string, csvFileId: string, distribution: StoredDistribution | null, plots: PlotAssignment[]): Promise<void>;
-  /** Who holds which plot of a file. */
+  /** Who holds which plot of a file (a copy drawn by the check sampling with its sampledAt). */
   listPlotAssignments(projectId: string, csvFileId: string): Promise<PlotAssignment[]>;
+
+  // --- Check sampling (Task 13: sampling_rules, plot_assignments.sampled_at) ---
+
+  /** The project's sampling rule and its draws' state (nothing stored: no rule). */
+  getSampling(projectId: string): Promise<SamplingState>;
+  /**
+   * Stores the rule (`active`: it can draw something). A draw due stays due while it is
+   * active; saving makes none due ("Draw now" applies it to the plots already submitted).
+   */
+  setSamplingRule(projectId: string, rule: SamplingRule, active: boolean): Promise<void>;
+  /**
+   * The intake's coalescing, in one statement: with `markDue`, a draw becomes due (when the
+   * rule is active and none is due yet). Claims the automatic draw (true) when one is due and
+   * the last automatic one is at least `minIntervalMs` old, and records it as started now; so
+   * at most one automatic draw per project per interval, across server instances.
+   */
+  claimSamplingDraw(projectId: string, q: { now: number; markDue: boolean; minIntervalMs: number }): Promise<boolean>;
+  /**
+   * Adds drawn copies (overlap, sampled_at = draw.at) in one transaction, under the project's
+   * sampling lock, each only while its file is divided, its holder a member, the plot has no
+   * copy in the file and the holder does not hold it yet; then keeps the draw (its counts are
+   * those of the copies added) and ends a due draw that started at or before `dueBefore`.
+   * Gives the copies added.
+   */
+  addSampledCopies(projectId: string, copies: readonly SampledCopy[], draw: SamplingDraw, dueBefore: number): Promise<SampledCopy[]>;
   /**
    * The divided files where the user holds plots, with those plots, by filename.
    * `copyKeys` are the ones among them given as quality-check copies (overlap).

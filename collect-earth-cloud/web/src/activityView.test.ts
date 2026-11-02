@@ -60,6 +60,9 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("export.downloaded", { records: 50 }), page, "en")).toBe("ana downloaded the data (50 records)");
     expect(logSentence(t, audit("cep.replaced", {}, null), page, "en")).toBe("Someone no longer in the project uploaded a new project file");
     expect(logSentence(t, audit("link.created", {}), page, "en")).toBe("ana: link.created");
+    expect(logSentence(t, audit("sampling.drawn", { automatic: false, drawn: 1200 }), page, "en")).toBe("ana drew plots for checks (1,200 plots)");
+    expect(logSentence(t, audit("sampling.drawn", { automatic: true, drawn: 3 }, null), page, "en")).toBe("Plots drawn automatically for checks (3 plots)");
+    expect(logSentence(t, audit("settings.changed", { setting: "sampling" }), page, "en")).toBe("ana changed the automatic checks settings");
   });
 
   it("es, fr and pt: a plot's sentence agrees with the plot, a check's with the check", () => {
@@ -75,7 +78,7 @@ describe("the log's sentences", () => {
   it("every language has every sentence (no key shown as is)", () => {
     for (const lang of ["es", "fr", "pt"]) {
       const tr = translator(lang);
-      for (const item of [record("submitted", "check"), audit("plots.moved", { csvFileId: "f1", fromUserId: "u2", toUserId: "u1", moved: 4 }), audit("settings.changed", { setting: "progress" })]) {
+      for (const item of [record("submitted", "check"), audit("plots.moved", { csvFileId: "f1", fromUserId: "u2", toUserId: "u1", moved: 4 }), audit("settings.changed", { setting: "progress" }), audit("settings.changed", { setting: "sampling" }), audit("sampling.drawn", { automatic: true, drawn: 2 }), audit("sampling.drawn", { drawn: 2 })]) {
         const s = logSentence(tr, item, page, lang);
         expect(s, lang).not.toMatch(/activity\.|\{/);
       }

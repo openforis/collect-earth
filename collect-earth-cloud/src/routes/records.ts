@@ -3,6 +3,7 @@ import type { Store } from '../store/store.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { noteActivity } from '../activity.js';
 import { applyLww, recordEventOf } from '../lww.js';
+import type { SamplingService } from '../samplingService.js';
 import type { BatchItemResult, RecordEnvelope } from '../types.js';
 
 interface BatchBody {
@@ -30,7 +31,7 @@ interface BatchBody {
  * hook in buildServer() decompresses it before this handler runs. The route path
  * contains a literal ':batch' segment (Collect Earth posts to `records:batch`).
  */
-export async function registerRecordRoutes(app: FastifyInstance, store: Store): Promise<void> {
+export async function registerRecordRoutes(app: FastifyInstance, store: Store, sampling?: SamplingService): Promise<void> {
   app.post(
     '/v1/projects/:pid/records:batch',
     { preHandler: requireProjectMembership(store) },
@@ -52,6 +53,8 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store): 
       const receivedAt = Date.now();
       const results: BatchItemResult[] = [];
       let storedCount = 0;
+      // A first submission stored: the check sampling may draw (coalesced, SamplingService).
+      let firstSubmission = false;
 
       for (const raw of envelopes) {
         const envelope = normalizeEnvelope(raw);
@@ -82,16 +85,20 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store): 
           // The record and its event in one transaction, decided on the row stored
           // before, read under the record's lock: a crash cannot keep one without the
           // other, and two uploads of the record at once cannot both log the same change.
+          let submitted = false;
           const stored = await store.putRecordWithEvent(projectId, envelope.recordKey, operator, (existing, submittedBefore) => {
             const { row, status } = applyLww(envelope, existing, receivedAt);
             if (status !== 'stored') {
               return null;
             }
             const next = { ...row, projectId };
-            return { row: next, event: recordEventOf(existing, next, submittedBefore) };
+            const event = recordEventOf(existing, next, submittedBefore);
+            submitted = event?.change === 'submitted';
+            return { row: next, event };
           });
           if (stored) {
             storedCount += 1;
+            firstSubmission ||= submitted;
           }
           results.push({ recordKey: envelope.recordKey, status: stored ? 'stored' : 'stale' });
         } catch (err) {
@@ -101,6 +108,11 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store): 
       }
 
       noteActivity(request, { sync: { records: storedCount } }, { desktop: true });
+      if (firstSubmission && sampling) {
+        // Before the answer (Cloud Run gives no CPU after it), never failing the batch, waited
+        // for at most SAMPLING_INLINE_MS; at most once per project per 10 min.
+        await sampling.afterSubmission(projectId, request.log);
+      }
       return reply.send({ results });
     },
   );

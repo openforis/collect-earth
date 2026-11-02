@@ -2214,6 +2214,138 @@ with `'`), and the read state.
 - The intake trigger is coalesced.
 - Records then pair as round 1 and round 2 in `qualityReport`.
 
+**As built** (differs from the above where it says so)
+- **Storage (migration 019):** `sampling_rules` (one row per project: `rule JSONB` = `{ checkers,
+  firstN, percent, seed, files }` with ids and numbers only, `active`, `updated_at`, `due_since`,
+  `last_auto_draw_at`, `last_draw JSONB`), RLS with the NULLIF policy of 001, deleted by
+  `deleteProject`; and **`plot_assignments.sampled_at`**: a copy a draw added carries the time of
+  its draw, every other holding null (`PlotAssignment.sampledAt`, absent when null). Store:
+  `getSampling`, `setSamplingRule(projectId, rule, active)`, `claimSamplingDraw(projectId, { now,
+  markDue, minIntervalMs })` (one `UPDATE … RETURNING`: marks a draw due and claims the automatic
+  draw when the last one is ≥ 10 min old; a row is written only when something changes),
+  `addSampledCopies(projectId, copies, draw, dueBefore)` (one transaction under a per-project
+  advisory lock; each copy only while its file is divided, its holder a member, the plot has no
+  copy in the file and the holder does not hold it; keeps `last_draw` with the counts of what was
+  added; ends a due draw marked at or before `dueBefore`). Inserting holdings bumps
+  `records_version` (009's trigger), so the project state, the quality figures and the served
+  files follow.
+- **The rule** (`src/sampling.ts`, pure): per project, and per divided file `{ use: 'off' }` or
+  `{ use: 'own', checkers, firstN, percent }` (a file on the project's rule is not stored).
+  `checkers` null = every collector and reviewer (never a disabled account); a chosen list may
+  name coordinators. `firstN` 1-1000, `percent` 1-100 (whole numbers), null = off; both off =
+  inactive (kept). The seed is made once (`randomInt`) and kept when the rule is saved again.
+  **Saving draws nothing by itself and makes nothing due** ("Draw now" applies it to the plots
+  already submitted; the first version made a draw due on save, and the next plot list then drew
+  nothing and used up the 10 minutes before the first submission).
+- **The draw** (`drawChecks`): plots = units of the divided files in scope whose first assessment
+  is submitted (the project state's `byOperator.mainSubmitted`: earliest first submission; the
+  rule's scope = the files on the project's rule together, each own-rule file apart; a plot in
+  several files once, in the first). A plot is *covered* when it has a copy holder in any divided
+  file or a check record (submitted or not). First N: each person's first N plots by first
+  submission, those not covered. X %: per person and **ISO week (UTC)** of the first submission,
+  `round(n × X / 100)` (a half up) must be covered, those covered (first N included) count, the
+  rest is taken in the order of a 32-bit FNV-1a hash of (seed, plot): the same draw again picks
+  the same plots, and a plot added later moves no other. Each pick goes to the checker with the
+  **fewest open checks** (copies held, each unit once, whose check by them is not submitted, plus
+  this draw's), ties by a hash of (seed, plot, user): never the assessor, anyone with any record
+  of the plot (any round, drafts), anyone holding it in the file (main or copy) or as main
+  elsewhere (whole files too), nor (own round) anyone with a copy of another round of the plot.
+  A plot nobody can take is counted (`noChecker`) and tried again next time. Copies go in the file
+  the plot was found in, as `overlap` holdings: the checker's served file (`ownFile`) gives them
+  round 2 / the reassessment code as for any copy, so the checksum changes and the next
+  my-assignment (Refresh, or opening the plot settings) lists it; without a round the copy holder
+  tells the check apart, as before. **Load = open checks**: checks already done do not count (in
+  the smoke, the 8 people holding the division's 20,000 checked copies got the same share of the
+  draw as the others).
+- **When** (`src/samplingService.ts`): `records:batch`, after the loop and before answering, when a
+  stored upload's event was `submitted` (a first submission), calls `claimSamplingDraw(markDue)`;
+  claimed, the draw runs **inline, awaited up to 5 s** (`SAMPLING_INLINE_MS`; past that the request
+  answers and the draw goes on; its copies are one transaction). `my-assignment` calls the claim
+  without `markDue` first, so a draw put off by the 10 minutes is made at the latest when someone
+  next asks for their plot files, a checker's Refresh included. Why: Cloud Run gives a request CPU
+  only until its answer (Task 1), so nothing runs after it; the batch is Collect Earth's background
+  sync (30 s timeout), and a draw costs about 1 s on 100,000 plots at most once per project per 10
+  min, across instances (the claim is in the database). A coordinator's page never draws by
+  itself (only "Draw now"), so a project nobody opens still gets its checks. A failed draw leaves
+  the draw due. One draw at a time per project per server (`running`), the advisory lock across
+  servers. A draw reads the project state **fresh** (`ProjectStateCache.get(…, { fresh: true })`
+  never serves a stale state and builds again when a build from older inputs was running) and the
+  holdings as stored now. `config.samplingIntervalMs` (tests); the clock is the server's `now`.
+- **Audit:** `sampling.drawn` (already in 012's CHECK list) `{ automatic, drawn, firstN, percent,
+  noChecker, checkers }`: always for "Draw now" (actor = the coordinator), for an automatic draw only
+  when it added copies (actor null). The rule's save: `settings.changed` `{ setting: 'sampling',
+  active, firstN, percent }`. The activity log lists `sampling.drawn` under "Project file and plot
+  files" ("ana drew plots for checks (12 plots)", "Plots drawn automatically for checks (3 plots)").
+- **Re-division and moves (decided):** a new division of the file (`PUT /distribution`, any mode but
+  whole) **keeps the drawn copies**: `divide(…, drawn)` adds them after what is dealt and before the
+  new overlap picks, so they count towards the overlap share and their plots get no other copy;
+  one whose holder is now dealt the plot as main goes (nobody checks their own plot), and a copy
+  kept for a check its holder submitted stays marked drawn. **Whole again drops them** with every
+  holding (whole files hold no copies). `move-unfinished` moves a drawn copy as any copy and keeps
+  it drawn; a drawn copy made the receiver's main plot loses the mark. Replacing a file's content
+  keeps the holdings of the plots it still has, drawn ones too.
+- **Routes** (`src/routes/sampling.ts`, coordinators only; reviewers, collectors 403):
+  `GET /v1/projects/:pid/sampling` → `{ rule, active, intervalMinutes, due, dueSince,
+  nextAutomaticAt, lastDraw (+ by: username), pending: { drawn, firstN, percent, noChecker } (what a
+  draw now would add: the draw computed, not stored), files: [{ csvFileId, filename, use, own, plots,
+  submitted, sampledCopies, divisionCopies, pending }], wholeFiles, checkers: [{ userId, username,
+  role, eligible, disabled, open, done, sampled }], members, noCheckers, asOf }`; `PUT` the rule
+  (400 `bad_request` with a reason: unknown people, a whole or unknown file, out of range); `POST
+  /sampling/draw` → `{ draw, view }`, 409 `no_rule` when nothing is on. The distribution summary's
+  `PersonShare` gains `sampled` (of the copies, those drawn).
+- **Web:** an "Automatic checks" section on the **Quality tab** (after the review queue), chosen
+  over the plot file page because the rule is the project's and spans files, and its outcome (the
+  agreement, the queue) is on that tab; the plot file page shows each person's drawn copies apart
+  ("Drawn for checks: N" under the copies). `QualityChecks.tsx`: the two switches with their numbers
+  (10 suggested), who may check (all / ticked people), a table of the divided files (follows the
+  project's rule / no checks / its own first N and %, with submitted, drawn and division copies),
+  the whole files listed ("give their plots one by one (divide them) to use checks"), no checkers
+  said, the last draw (when, automatic or by whom, how many, plots nobody could take), "Draw now"
+  with what it would add, the next automatic draw's time while one is due, and the checks per
+  person (to do, done, of them drawn). `checksView.ts` (pure, tested): form ↔ rule, whole numbers.
+  51 keys × 4 languages (`checks.*`, `divide.drawnCopies`, `activity.audit.sampled[Auto]`,
+  `activity.setting.sampling`); `api.ts`, `i18n.ts`, `config.ts`, `server.ts` written with CRLF kept.
+- **Blindness:** nothing in a collector's answers says a plot was drawn: `listPlotHoldings` /
+  my-assignment never carry `sampledAt`, the entry of a checker's file looks like any other, My work
+  folds copies into plots (Task 3); route test serializes ana's and maria's My work and fails on
+  check/copy/overlap/sampl.
+- **Tests:** server 960 (was 938: `test/sampling.test.ts` 14 — no rule, repeatable/seeded, % per
+  person and ISO week with rounding, first N by first submission, no self-check (assessor, records,
+  holders, main elsewhere), no double copies (a copy or a check record covers), load balance by open
+  checks, default/chosen/disabled checkers, per-file off/own, own round's plots, the drawn copies
+  paired as round 1/round 2 in `qualityReport` with the added round and without one, migration 019,
+  `parseSamplingRule`; `test/sampling.routes.test.ts` 6 — roles, validation, seed kept, audit, the
+  first submission draws at once, coalesced within 10 min (fake clock), the next plot list after
+  them draws, the checker's file with round 2 and a new checksum, the assessor's file unchanged,
+  "Draw now" repeats nothing, blindness, the figures pair the checks, re-division keeps / whole
+  drops, per-file rules and nobody to check, isolation; `division.test.ts` 2 — divide keeps drawn
+  copies, move and summary; existing expectations given `sampled: 0`), web 309 (was 304:
+  `checksView.test.ts` 5, the activity sentences), tsc clean in both, web build ok.
+- **Postgres smoke** (`npm run smoke:pg:sampling -- <port>`, `scripts/pg-smoke-sampling.mts`, README):
+  019 twice; the app role (NOBYPASSRLS); a first submission's batch drew 2 copies in **69 ms**,
+  audited, the checkers' files with round 2, ana's list changed; within 10 min a batch with first
+  submissions **20 ms** (claim refused), due; after them a plot list drew (**43 ms**); two "Draw now"
+  at once: no plot with two copies; RLS: with B set, A's rule neither read, inserted nor updated,
+  `''` no rows, `addSampledCopies` under B adds nothing. **100,000 plots** (40 collectors, 20 %
+  copied and checked, 30 % a week + first 10): `GET /sampling` cold (state built) **910-1015 ms**;
+  **"Draw now" 2.5-2.9 s** for 23,904 copies (the draw with the fresh state and the insert ~1.5 s,
+  then the view again); drawn copies per collector 597-598; no double copies, no checker with a
+  record of the plot; drawing again 0 in 0.8-1.0 s; an automatic draw from a first submission
+  after 10 min inside records:batch **~1.0 s** (under the 5 s bound). ALL OK; Docker stopped after.
+- **Chrome** (seeded memory server, built dashboard): the section at desktop and 500 px (the
+  narrowest window here; no page-wide horizontal scroll, tables scroll in their frame), "Draw now"
+  (2 added, then "A draw now would add nothing"), a file's own rule refused at 150 % and saved at
+  50 %, the per-file selects named "Checks: <file>", no console errors.
+- **Open:** a draw that finds nothing still uses up the 10 minutes; the week is UTC, not the
+  viewer's zone; "Draw now" on a large project takes seconds (the coordinator waits, the button is
+  disabled meanwhile); a draw put off is made only on a later first submission or plot list (a
+  checker who never refreshes gets nothing anyway); the per-file own rule takes the project's
+  checkers in the web (the API takes its own list); a concurrent re-division and draw could leave
+  a drawn copy the new division did not plan (valid: never its main holder's, by the PK); no Spanish
+  /French/Portuguese Chrome pass (texts only); `sendBack.test.ts`'s "loads the plot context" test
+  failed once under the full parallel run and passed alone and in the next full run (not touched
+  here).
+
 ### Task 14: Reference plots (improvement 3)
 
 **Files:**

@@ -510,6 +510,11 @@ function CurrentDivision({
                           {t("divide.copies")}: {formatNumber(person.overlap, language)}
                         </Typography>
                       )}
+                      {person.sampled > 0 && (
+                        <Typography variant="body2" color="text.secondary" component="span" sx={{ display: "block" }}>
+                          {t("divide.drawnCopies")}: {formatNumber(person.sampled, language)}
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">{formatNumber(person.submitted, language)}</Typography>

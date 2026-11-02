@@ -180,7 +180,7 @@ describe("server answers", () => {
       distribution: { mode: "even", people: ["u1"], order: "mixed", seed: 3 },
       plotCount: 120,
       unassigned: 2,
-      people: [{ userId: "u1", username: "ana", plots: 40, overlap: 4, submitted: 0 }],
+      people: [{ userId: "u1", username: "ana", plots: 40, overlap: 4, sampled: 0, submitted: 0 }],
     });
   });
   it("unknown or whole modes are a whole file", () => {

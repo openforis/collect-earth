@@ -52,6 +52,10 @@ import {
   type RecordRow,
   type RecordState,
   type RoundInfo,
+  type SampledCopy,
+  type SamplingDraw,
+  type SamplingRule,
+  type SamplingState,
   type ServerSettings,
   type StoredDistribution,
   type Role,
@@ -218,6 +222,7 @@ export class PostgresStore implements Store {
       await client.query('DELETE FROM audit_log WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM quality_decisions WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM guidance_notes WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM sampling_rules WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM plot_assignments WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM assignments WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM csv_files WHERE project_id = $1', [projectId]);
@@ -1316,11 +1321,18 @@ export class PostgresStore implements Store {
       for (let i = 0; i < plots.length; i += PLOT_INSERT_CHUNK) {
         const chunk = plots.slice(i, i + PLOT_INSERT_CHUNK);
         await client.query(
-          `INSERT INTO plot_assignments (project_id, csv_file_id, plot_key, user_id, overlap)
-           SELECT $1, $2, t.plot_key, t.user_id, t.overlap
-             FROM unnest($3::text[], $4::uuid[], $5::boolean[]) AS t(plot_key, user_id, overlap)
+          `INSERT INTO plot_assignments (project_id, csv_file_id, plot_key, user_id, overlap, sampled_at)
+           SELECT $1, $2, t.plot_key, t.user_id, t.overlap, t.sampled_at
+             FROM unnest($3::text[], $4::uuid[], $5::boolean[], $6::timestamptz[]) AS t(plot_key, user_id, overlap, sampled_at)
            ON CONFLICT DO NOTHING`,
-          [projectId, csvFileId, chunk.map((a) => a.plotKey), chunk.map((a) => a.userId), chunk.map((a) => a.overlap)],
+          [
+            projectId,
+            csvFileId,
+            chunk.map((a) => a.plotKey),
+            chunk.map((a) => a.userId),
+            chunk.map((a) => a.overlap),
+            chunk.map((a) => (a.overlap && a.sampledAt !== undefined ? new Date(a.sampledAt) : null)),
+          ],
         );
       }
     });
@@ -1332,10 +1344,107 @@ export class PostgresStore implements Store {
     }
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        'SELECT plot_key, user_id, overlap FROM plot_assignments WHERE project_id = $1 AND csv_file_id = $2',
+        'SELECT plot_key, user_id, overlap, sampled_at FROM plot_assignments WHERE project_id = $1 AND csv_file_id = $2',
         [projectId, csvFileId],
       );
-      return res.rows.map((r) => ({ plotKey: r.plot_key, userId: r.user_id, overlap: r.overlap }));
+      return res.rows.map((r) => ({
+        plotKey: r.plot_key,
+        userId: r.user_id,
+        overlap: r.overlap,
+        ...(r.sampled_at ? { sampledAt: (r.sampled_at as Date).getTime() } : {}),
+      }));
+    });
+  }
+
+  async getSampling(projectId: string): Promise<SamplingState> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT rule, due_since, last_auto_draw_at, last_draw FROM sampling_rules WHERE project_id = $1', [projectId]);
+      const r = res.rows[0];
+      if (!r) {
+        return { rule: null, dueSince: null, lastAutoDrawAt: null, lastDraw: null };
+      }
+      return {
+        rule: r.rule as SamplingRule,
+        dueSince: r.due_since ? (r.due_since as Date).getTime() : null,
+        lastAutoDrawAt: r.last_auto_draw_at ? (r.last_auto_draw_at as Date).getTime() : null,
+        lastDraw: (r.last_draw as SamplingDraw | null) ?? null,
+      };
+    });
+  }
+
+  async setSamplingRule(projectId: string, rule: SamplingRule, active: boolean): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query(
+        `INSERT INTO sampling_rules (project_id, rule, active, updated_at)
+         VALUES ($1, $2, $3, now())
+         ON CONFLICT (project_id) DO UPDATE SET
+           rule = EXCLUDED.rule, active = EXCLUDED.active, updated_at = EXCLUDED.updated_at,
+           due_since = CASE WHEN EXCLUDED.active THEN sampling_rules.due_since END`,
+        [projectId, JSON.stringify(rule), active],
+      );
+    });
+  }
+
+  async claimSamplingDraw(projectId: string, q: { now: number; markDue: boolean; minIntervalMs: number }): Promise<boolean> {
+    return this.withProject(projectId, async (client) => {
+      // One statement: mark the draw due (with markDue) and claim it when the last automatic
+      // draw is old enough; a row is written only when one of the two changes something.
+      const claim = `((due_since IS NOT NULL OR $3) AND (last_auto_draw_at IS NULL OR last_auto_draw_at <= $4))`;
+      const res = await client.query(
+        `UPDATE sampling_rules SET
+           due_since = COALESCE(due_since, CASE WHEN $3 THEN $2::timestamptz END),
+           last_auto_draw_at = CASE WHEN ${claim} THEN $2 ELSE last_auto_draw_at END
+         WHERE project_id = $1 AND active AND (($3 AND due_since IS NULL) OR ${claim})
+         RETURNING last_auto_draw_at = $2 AS claimed`,
+        [projectId, new Date(q.now), q.markDue, new Date(q.now - q.minIntervalMs)],
+      );
+      return res.rows[0]?.claimed === true;
+    });
+  }
+
+  async addSampledCopies(projectId: string, copies: readonly SampledCopy[], draw: SamplingDraw, dueBefore: number): Promise<SampledCopy[]> {
+    return this.withProject(projectId, async (client) => {
+      // One draw at a time per project: two cannot both give the same plot a copy.
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:sampling:' || $1))", [projectId]);
+      const added: SampledCopy[] = [];
+      for (let i = 0; i < copies.length; i += PLOT_INSERT_CHUNK) {
+        const chunk = copies.slice(i, i + PLOT_INSERT_CHUNK);
+        const res = await client.query(
+          `INSERT INTO plot_assignments (project_id, csv_file_id, plot_key, user_id, overlap, sampled_at)
+           SELECT $1, t.csv_file_id, t.plot_key, t.user_id, true, $5
+             FROM unnest($2::uuid[], $3::text[], $4::uuid[], $6::text[]) AS t(csv_file_id, plot_key, user_id, reason)
+             JOIN csv_files c ON c.project_id = $1 AND c.id = t.csv_file_id AND c.distribution IS NOT NULL
+             JOIN project_members m ON m.project_id = $1 AND m.user_id = t.user_id
+            WHERE NOT EXISTS (
+              SELECT 1 FROM plot_assignments p
+               WHERE p.project_id = $1 AND p.csv_file_id = t.csv_file_id AND p.plot_key = t.plot_key
+                 AND (p.overlap OR p.user_id = t.user_id))
+           ON CONFLICT DO NOTHING
+           RETURNING csv_file_id, plot_key, user_id`,
+          [
+            projectId,
+            chunk.map((c) => c.csvFileId),
+            chunk.map((c) => c.plotKey),
+            chunk.map((c) => c.userId),
+            new Date(draw.at),
+            chunk.map((c) => c.reason),
+          ],
+        );
+        const reasons = new Map(chunk.map((c) => [`${c.csvFileId} ${c.userId} ${c.plotKey}`, c.reason]));
+        for (const r of res.rows) {
+          const reason = reasons.get(`${r.csv_file_id} ${r.user_id} ${r.plot_key}`) ?? 'percent';
+          added.push({ csvFileId: r.csv_file_id as string, plotKey: r.plot_key as string, userId: r.user_id as string, reason });
+        }
+      }
+      const count = (reason: SampledCopy['reason']) => added.filter((c) => c.reason === reason).length;
+      const kept: SamplingDraw = { ...draw, drawn: added.length, firstN: count('firstN'), percent: count('percent') };
+      await client.query(
+        `UPDATE sampling_rules SET last_draw = $2,
+           due_since = CASE WHEN due_since <= $3 THEN NULL ELSE due_since END
+         WHERE project_id = $1`,
+        [projectId, JSON.stringify(kept), new Date(dueBefore)],
+      );
+      return added;
     });
   }
 

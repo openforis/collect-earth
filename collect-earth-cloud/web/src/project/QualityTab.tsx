@@ -53,6 +53,7 @@ import {
 import { linkProps, pathFor } from "../router";
 import { useLoad } from "../useLoad";
 import { QualityAnswers } from "./QualityAnswers";
+import { QualityChecks } from "./QualityChecks";
 import { QualityFlags } from "./QualityFlags";
 import { QualitySurvey } from "./QualitySurvey";
 import { QualityAssistant } from "./QualityAssistant";
@@ -750,6 +751,7 @@ export function QualityTab({ projectId }: { projectId: string }) {
         onDecision={(plot, decision) => update((prev) => ({ decisions: withDecision(prev.decisions, plot, decision) }))}
         onBulk={reload}
       />
+      <QualityChecks projectId={projectId} />
       {data.plotsChecked > 0 && (
         <>
           <Questions projectId={projectId} data={data} onMargins={(margins) => (update(() => ({ margins })), reload())} />

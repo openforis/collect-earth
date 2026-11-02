@@ -47,6 +47,11 @@ export interface Config {
    */
   stateStaleMs?: number;
   /**
+   * The shortest time between two automatic check draws of a project, in ms; undefined =
+   * SAMPLING_INTERVAL_MS (10 min). Not read from the environment: tests set it.
+   */
+  samplingIntervalMs?: number;
+  /**
    * A Vertex AI API key for the AI assistant (AI_VERTEX_API_KEY). A secret: it is
    * never sent in a response nor written to the log.
    */

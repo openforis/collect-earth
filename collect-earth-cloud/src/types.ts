@@ -192,11 +192,69 @@ export type StoredDistribution =
     }
   | { mode: 'manual' };
 
-/** One plot of a divided file held by one person; overlap = given as a quality-check copy. */
+/**
+ * One plot of a divided file held by one person; overlap = given as a quality-check copy.
+ * `sampledAt` (a copy only): drawn by the check sampling at that time (epoch ms), not dealt
+ * by the division; absent for every other holding.
+ */
 export interface PlotAssignment {
   plotKey: string;
   userId: string;
   overlap: boolean;
+  sampledAt?: number;
+}
+
+/**
+ * What the automatic check sampling does (Task 13), for the project or one divided file.
+ * - `checkers`: the user ids who may receive checks; null = every collector and reviewer.
+ * - `firstN`: check the first N plots each person submits; null = off.
+ * - `percent`: check this share of each person's plots of each ISO week; null = off.
+ */
+export interface SamplingCore {
+  checkers: string[] | null;
+  firstN: number | null;
+  percent: number | null;
+}
+
+/** One divided file's own rule: the project's (the default, not stored), none, or its own. */
+export type SamplingFileRule = { use: 'off' } | ({ use: 'own' } & SamplingCore);
+
+/** The project's rule; `seed` makes every draw repeatable; `files` only the files that do not use the project's rule. */
+export interface SamplingRule extends SamplingCore {
+  seed: number;
+  files: Record<string, SamplingFileRule>;
+}
+
+/** One draw, as kept for the Checks section (counts and ids only). */
+export interface SamplingDraw {
+  at: number;
+  /** Who pressed "Draw now"; null for an automatic draw. */
+  byUserId: string | null;
+  automatic: boolean;
+  /** Copies added, and of them for each rule. */
+  drawn: number;
+  firstN: number;
+  percent: number;
+  /** Plots due for a check that no checker could take (all of them assessed or hold it). */
+  noChecker: number;
+}
+
+/** The project's sampling state (sampling_rules). */
+export interface SamplingState {
+  rule: SamplingRule | null;
+  /** The earliest first submission not drawn yet, while a draw is due; else null. */
+  dueSince: number | null;
+  lastAutoDrawAt: number | null;
+  lastDraw: SamplingDraw | null;
+}
+
+/** A copy a draw adds: the plot of a divided file, to a checker. */
+export interface SampledCopy {
+  csvFileId: string;
+  plotKey: string;
+  userId: string;
+  /** Which rule asked for it. */
+  reason: 'firstN' | 'percent';
 }
 
 /** One csv-file ↔ user assignment. */

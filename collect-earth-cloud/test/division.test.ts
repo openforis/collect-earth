@@ -407,6 +407,47 @@ describe('divide: copies kept for what people submitted', () => {
   });
 });
 
+describe('copies drawn for checks (Task 13) through a new division and a move', () => {
+  it('a new division keeps the drawn copies (counted towards the overlap share), unless their holder now holds the plot as main', () => {
+    const drawn: PlotAssignment[] = [
+      { plotKey: '2', userId: 'cai', overlap: true, sampledAt: 5 },
+      { plotKey: '7', userId: 'ana', overlap: true, sampledAt: 5 },
+    ];
+    // ana and ben share 10 plots: plot 7 becomes ben's (ana's copy stays), plot 2 ana's
+    // (cai is not in the division: the copy stays all the same).
+    const plots = divide(even(['ana', 'ben'], { overlapPercent: 20 }), ids(10), null, none, undefined, drawn);
+    expect(plots.filter((a) => a.sampledAt !== undefined)).toEqual(drawn.slice().sort((x, y) => Number(x.plotKey) - Number(y.plotKey)));
+    // The plots with a drawn copy get no other, and count: each list of 5 needs one copy, and has it.
+    expect(plots.filter((a) => a.overlap)).toEqual(plots.filter((a) => a.sampledAt !== undefined));
+    // A drawn copy whose holder is now dealt the plot as main goes.
+    const mine = divide(even(['cai', 'ben']), ids(4), null, none, undefined, drawn);
+    expect(mine.filter((a) => a.plotKey === '2')).toEqual([{ plotKey: '2', userId: 'cai', overlap: false }]);
+    // A copy kept for a check its holder submitted remembers it was drawn.
+    const checked = new Map([['7', { main: new Set<string>(), check: new Set(['ana']) }]]);
+    const kept = divide(even(['ana', 'ben']), ids(10), null, checked, undefined, drawn);
+    expect(kept.filter((a) => a.plotKey === '7')).toEqual([
+      { plotKey: '7', userId: 'ana', overlap: true, sampledAt: 5 },
+      { plotKey: '7', userId: 'ben', overlap: false },
+    ]);
+  });
+
+  it('a move keeps a drawn copy drawn; the summary counts them apart', () => {
+    const holdings: PlotAssignment[] = [
+      { plotKey: '1', userId: 'ana', overlap: false },
+      { plotKey: '2', userId: 'ben', overlap: false },
+      { plotKey: '2', userId: 'ana', overlap: true, sampledAt: 9 },
+      { plotKey: '1', userId: 'ben', overlap: true },
+    ];
+    const { plots } = moveUnfinished(holdings, 'ana', 'cai', none);
+    expect(plots).toContainEqual({ plotKey: '2', userId: 'cai', overlap: true, sampledAt: 9 });
+    const summary = summarize({ mode: 'manual' }, ids(2), holdings, none, new Map([['ana', 'ana'], ['ben', 'ben']]));
+    expect(summary.people.map((p) => [p.username, p.plots, p.overlap, p.sampled])).toEqual([
+      ['ana', 2, 1, 1],
+      ['ben', 2, 1, 0],
+    ]);
+  });
+});
+
 describe('submittedByPlot', () => {
   it('counts submitted, non-deleted records by members, matched to their plot', () => {
     const map = submittedByPlot(

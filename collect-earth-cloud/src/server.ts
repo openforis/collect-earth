@@ -30,6 +30,8 @@ import { registerProgressRoutes } from './routes/progress.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerQualityRoutes } from './routes/quality.js';
 import { registerRecordRoutes } from './routes/records.js';
+import { registerSamplingRoutes } from './routes/sampling.js';
+import { SamplingService } from './samplingService.js';
 
 export interface BuildServerOptions {
   store: Store;
@@ -133,9 +135,11 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   });
   // The Progress and People pages' project state, worked out once per project and kept.
   const states = new ProjectStateCache(store, { staleMs: config.stateStaleMs });
+  // The automatic check sampling: drawn after first submissions and before a plot list, at most once per 10 min.
+  const sampling = new SamplingService(store, states, { intervalMs: config.samplingIntervalMs, now });
   // The plots sent back for another look compare answers as the figures do (by the survey's
   // outline) and resolve records with the project state's plot context.
-  await registerAssignmentRoutes(app, store, config, { outline: (projectId, log) => quality.outline(projectId, log), states });
+  await registerAssignmentRoutes(app, store, config, { outline: (projectId, log) => quality.outline(projectId, log), states, sampling });
   // Where plots are and what the project file says of them, shared by the quality routes and plot search.
   const places = new PlotPlaceReader(store);
   await registerQualityRoutes(app, store, quality, places);
@@ -144,7 +148,8 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerPeopleRoutes(app, store, quality, states, now);
   await registerPlotsGeoRoutes(app, store, quality, states, places);
   await registerActivityRoutes(app, store, quality, states, places, now);
-  await registerRecordRoutes(app, store);
+  await registerRecordRoutes(app, store, sampling);
+  await registerSamplingRoutes(app, store, sampling);
   const runs = new AiRunService(store, quality, app.log, {
     client: options.ai?.client !== undefined ? options.ai.client : aiClientOf(config),
     model: config.aiFake ? 'fake' : (config.aiModel ?? DEFAULT_AI_MODEL),

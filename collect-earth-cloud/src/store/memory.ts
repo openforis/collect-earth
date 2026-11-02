@@ -50,6 +50,10 @@ import {
   type RecordState,
   type RoundInfo,
   type Role,
+  type SampledCopy,
+  type SamplingDraw,
+  type SamplingRule,
+  type SamplingState,
   type ServerSettings,
   type StoredDistribution,
   type User,
@@ -92,6 +96,8 @@ interface ProjectEntry {
   audit: Omit<AuditEntry, 'actor'>[];
   /** userId -> the keys of the bell's items they have read. */
   attentionReads: Map<string, Set<string>>;
+  /** The check sampling (sampling_rules); null until a rule is saved. */
+  sampling: (SamplingState & { active: boolean }) | null;
 }
 
 interface StoredDecision {
@@ -191,6 +197,7 @@ export class InMemoryStore implements Store {
       memberActivity: new Map(),
       audit: [],
       attentionReads: new Map(),
+      sampling: null,
     });
 
     const adminToken = generateToken();
@@ -995,6 +1002,63 @@ export class InMemoryStore implements Store {
 
   async listPlotAssignments(projectId: string, csvFileId: string): Promise<PlotAssignment[]> {
     return (this.projects.get(projectId)?.plotAssignments.get(csvFileId) ?? []).map((a) => ({ ...a }));
+  }
+
+  async getSampling(projectId: string): Promise<SamplingState> {
+    const s = this.projects.get(projectId)?.sampling;
+    if (!s) {
+      return { rule: null, dueSince: null, lastAutoDrawAt: null, lastDraw: null };
+    }
+    return structuredClone({ rule: s.rule, dueSince: s.dueSince, lastAutoDrawAt: s.lastAutoDrawAt, lastDraw: s.lastDraw });
+  }
+
+  async setSamplingRule(projectId: string, rule: SamplingRule, active: boolean): Promise<void> {
+    const entry = this.requireProject(projectId);
+    const s = entry.sampling ?? { rule: null, dueSince: null, lastAutoDrawAt: null, lastDraw: null, active: false };
+    entry.sampling = { ...s, rule: structuredClone(rule), active, dueSince: active ? s.dueSince : null };
+  }
+
+  async claimSamplingDraw(projectId: string, q: { now: number; markDue: boolean; minIntervalMs: number }): Promise<boolean> {
+    const s = this.projects.get(projectId)?.sampling;
+    if (!s?.active) {
+      return false;
+    }
+    const claim = (s.dueSince !== null || q.markDue) && (s.lastAutoDrawAt === null || s.lastAutoDrawAt <= q.now - q.minIntervalMs);
+    if (q.markDue && s.dueSince === null) {
+      s.dueSince = q.now;
+    }
+    if (claim) {
+      s.lastAutoDrawAt = q.now;
+    }
+    return claim;
+  }
+
+  async addSampledCopies(projectId: string, copies: readonly SampledCopy[], draw: SamplingDraw, dueBefore: number): Promise<SampledCopy[]> {
+    const entry = this.requireProject(projectId);
+    const added: SampledCopy[] = [];
+    for (const c of copies) {
+      const file = entry.csvFiles.get(c.csvFileId);
+      const list = entry.plotAssignments.get(c.csvFileId);
+      if (!file?.distribution || !list || !this.memberships.has(InMemoryStore.memberId(projectId, c.userId))) {
+        continue;
+      }
+      if (list.some((a) => a.plotKey === c.plotKey && (a.overlap || a.userId === c.userId))) {
+        continue;
+      }
+      list.push({ plotKey: c.plotKey, userId: c.userId, overlap: true, sampledAt: draw.at });
+      added.push({ ...c });
+    }
+    if (added.length > 0) {
+      entry.holdingsGeneration += 1;
+    }
+    const s = entry.sampling ?? { rule: null, dueSince: null, lastAutoDrawAt: null, lastDraw: null, active: false };
+    const count = (reason: SampledCopy['reason']) => added.filter((c) => c.reason === reason).length;
+    entry.sampling = {
+      ...s,
+      lastDraw: { ...draw, drawn: added.length, firstN: count('firstN'), percent: count('percent') },
+      dueSince: s.dueSince !== null && s.dueSince <= dueBefore ? null : s.dueSince,
+    };
+    return added;
   }
 
   async listPlotHoldings(projectId: string, userId: string): Promise<({ csvFileId: string } & UserPlots)[]> {

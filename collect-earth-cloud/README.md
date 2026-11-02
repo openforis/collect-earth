@@ -54,6 +54,7 @@ npm run smoke:pg -- 55481      # the port; prints one line per check, then ALL O
 npm run smoke:pg:progress -- 55481   # the Progress and People tabs (migration 013), with GET /progress, /people and /people/:userId on 100,000 records and 20,000 checks, then the Quality tab's answers per person and pattern flags on them
 npm run smoke:pg:activity -- 55481   # the Activity tab (migration 017): the bell's read state with RLS, the log on 100,000 record events paged by cursor (timings), the weekly summary and the daily activity download
 npm run smoke:pg:panel -- 55481      # the server owner's panel (migration 018): GET /v1/admin/overview on 100,000 records in 5 projects (totals against SQL, no names, timings), RLS still binding the app role, disabling and enabling an account, two admins disabling each other at once
+npm run smoke:pg:sampling -- 55481   # the automatic checks (migration 019): a first submission draws, the 10 minutes' coalescing, the checker's round-2 file, two draws at once, RLS of sampling_rules, a draw on 100,000 plots timed
 docker stop ce-pg-smoke
 ```
 
@@ -168,6 +169,9 @@ other `GET` that accepts HTML and is not under `/v1/` or `/health` returns its
 | `GET`  | `/v1/projects/:pid/csv-files/:id/distribution` | admin | `{distribution \| null, plotCount, unassigned, people: [{userId, username, plots, overlap, submitted}]}` (`plots` includes the `overlap` copies) |
 | `PUT`  | `/v1/projects/:pid/csv-files/:id/distribution` | admin | `{mode: 'whole'}` \| `{mode: 'even', people, order: 'file'\|'mixed', overlapPercent?, seed?}` \| `{mode: 'column', column, groups: [{value, people}], order, overlapPercent?, seed?}`, optional `dryRun: true` → the GET shape (the `seed` used is in `distribution`); 400 `bad_request` `{reason}` |
 | `POST` | `/v1/projects/:pid/csv-files/:id/move-unfinished` | admin | `{fromUserId, toUserId}` → the GET shape + `moved`, `notMoved`, `droppedChecks`; plots `from` has done stay (a main plot when they did its main assessment, a copy when they did its check); a copy `to` holds becomes their main plot unless `to` already checked it (then it stays, `notMoved`); `from`'s copies of `to`'s main plots go (`droppedChecks`); a whole file is divided first (mode `manual`) |
+| `GET` | `/v1/projects/:pid/sampling` | admin | the automatic checks (Task 13): `{rule, active, intervalMinutes, due, nextAutomaticAt, lastDraw, pending, files, wholeFiles, checkers, members, noCheckers}` |
+| `PUT` | `/v1/projects/:pid/sampling` | admin | `{checkers: [userId] \| null, firstN: 1-1000 \| null, percent: 1-100 \| null, files?: {<divided file id>: {use: 'project' \| 'off' \| 'own', ...}}}` → the GET shape; the seed is kept; audited `settings.changed` `{setting: 'sampling'}`; draws nothing by itself |
+| `POST` | `/v1/projects/:pid/sampling/draw` | admin | "Draw now" → `{draw, view}`; 409 `no_rule` when no rule is on; audited `sampling.drawn` with its counts |
 
 **Quality, reports and the AI assistant** (see `docs/plans/2026-10-29-reassessment-round.md`)
 

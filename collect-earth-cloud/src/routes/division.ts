@@ -70,6 +70,7 @@ function wholeSummary(loaded: Loaded, assignees: string[]): DistributionSummary 
       username: usernames.get(userId) ?? userId,
       plots: plotFile.plotIds.length,
       overlap: 0,
+      sampled: 0,
       submitted: done,
     };
   });
@@ -155,7 +156,10 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
       return reply.send(wholeSummary(loaded, assignees));
     }
     const values = parsed.mode === 'column' ? columnValues(plotFile, parsed.column) : null;
-    const plots = divide(parsed, plotFile.plotIds, values, submitted, plotOf);
+    // The copies the check sampling drew stay with their checkers (Task 13); going back to
+    // the whole file (above) drops them with every other holding.
+    const drawn = file.distribution ? (await store.listPlotAssignments(projectId, file.id)).filter((a) => a.sampledAt !== undefined) : [];
+    const plots = divide(parsed, plotFile.plotIds, values, submitted, plotOf, drawn);
     if (!dryRun) {
       await store.setDivision(projectId, file.id, parsed, plots);
       const people = new Set(plots.map((a) => a.userId)).size;

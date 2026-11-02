@@ -15,6 +15,7 @@ import type { Store, UserPlots } from '../store/store.js';
 import type { Assignment, RecordRow } from '../types.js';
 import { plotFileOf } from '../plotFileCache.js';
 import type { ProjectStateCache } from '../projectState.js';
+import type { SamplingService } from '../samplingService.js';
 import { loadPlotContext, type Log } from '../qualityService.js';
 import { recheckFileId, sentBackTo, type RecheckFile } from '../sendBack.js';
 import type { Question } from '../surveyOutline.js';
@@ -50,6 +51,8 @@ export async function registerAssignmentRoutes(
     outline?: (projectId: string, log: Log) => Promise<ReadonlyMap<string, Question> | null>;
     /** The Progress and People pages' project state: its plot context is shared (else loaded each time). */
     states?: ProjectStateCache;
+    /** The check sampling: a due draw is made before a plot list is answered. */
+    sampling?: SamplingService;
   } = {},
 ): Promise<void> {
   /**
@@ -216,6 +219,8 @@ export async function registerAssignmentRoutes(
       // A user session yields request.userId; a bare project (operator) token has no
       // user, so it has no personal assignment — return an empty list rather than 404.
       const userId = request.userId;
+      // A check draw put off by its 10 minutes is made now, so a checker's Refresh gets its copies.
+      await deps.sampling?.runIfDue(projectId, request.log);
       const files = userId ? await store.listAssignmentsForUser(projectId, userId) : [];
       const base = config.publicBaseUrl ? config.publicBaseUrl.replace(/\/+$/, '') : '';
       const entry = (f: { id: string; filename: string; checksum: string; plotCount: number }, query = '') => {

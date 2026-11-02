@@ -191,6 +191,8 @@ export interface PersonShare {
   plots: number;
   /** Quality-check copies: plots someone else also has. */
   overlap: number;
+  /** Of the copies, those drawn by the automatic checks (the others came with the division). */
+  sampled: number;
   /** Plots this person has submitted, among the ones they hold. */
   submitted: number;
 }
@@ -982,6 +984,7 @@ export function toDistributionState(body: unknown): DistributionState {
       username: String(person.username ?? ""),
       plots: toCount(person.plots),
       overlap: toCount(person.overlap),
+      sampled: toCount(person.sampled),
       submitted: toCount(person.submitted),
     })),
   };
@@ -2419,6 +2422,153 @@ export async function getFlags(projectId: string, filter: FlagsFilter): Promise<
   if (filter.kind) query.set("kind", filter.kind);
   const q = query.toString();
   return toFlagsData(await request<unknown>("GET", `${p(projectId)}/quality/flags${q ? `?${q}` : ""}`));
+}
+
+// --- automatic checks (Task 13) --------------------------------------------------
+
+/** What a sampling rule asks: who may check (null = every collector and reviewer), the first N plots, X % a week (null = off). */
+export interface SamplingCoreRule {
+  checkers: string[] | null;
+  firstN: number | null;
+  percent: number | null;
+}
+
+export type SamplingFileRule = { use: "off" } | ({ use: "own" } & SamplingCoreRule);
+
+/** The rule as saved (PUT /sampling): the project's, and the divided files that do not follow it. */
+export interface SamplingRuleInput extends SamplingCoreRule {
+  files: Record<string, SamplingFileRule>;
+}
+
+export interface SamplingDraw {
+  at: number;
+  /** Who pressed "Draw now"; null for an automatic draw (or one made with a project token). */
+  by: string | null;
+  automatic: boolean;
+  drawn: number;
+  firstN: number;
+  percent: number;
+  noChecker: number;
+}
+
+export interface SamplingFile {
+  csvFileId: string;
+  filename: string;
+  use: "project" | "off" | "own";
+  own: SamplingCoreRule | null;
+  plots: number;
+  submitted: number;
+  sampledCopies: number;
+  divisionCopies: number;
+  pending: number;
+}
+
+export interface SamplingChecker {
+  userId: string;
+  username: string;
+  role: Role;
+  eligible: boolean;
+  disabled: boolean;
+  open: number;
+  done: number;
+  sampled: number;
+}
+
+export interface SamplingView {
+  rule: (SamplingRuleInput & { seed: number }) | null;
+  active: boolean;
+  intervalMinutes: number;
+  due: boolean;
+  nextAutomaticAt: number | null;
+  lastDraw: SamplingDraw | null;
+  pending: { drawn: number; firstN: number; percent: number; noChecker: number };
+  files: SamplingFile[];
+  wholeFiles: { csvFileId: string; filename: string }[];
+  checkers: SamplingChecker[];
+  members: { userId: string; username: string; role: Role; disabled: boolean }[];
+  noCheckers: boolean;
+}
+
+const toLimit = (value: unknown): number | null => (typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null);
+
+function toCoreRule(value: unknown): SamplingCoreRule {
+  const r = obj(value);
+  return { checkers: Array.isArray(r.checkers) ? strings(r.checkers) : null, firstN: toLimit(r.firstN), percent: toLimit(r.percent) };
+}
+
+export function toSamplingView(body: unknown): SamplingView {
+  const b = obj(body);
+  let rule: SamplingView["rule"] = null;
+  if (b.rule && typeof b.rule === "object") {
+    const r = obj(b.rule);
+    const files: Record<string, SamplingFileRule> = {};
+    for (const [id, f] of Object.entries(obj(r.files))) {
+      const use = obj(f).use;
+      if (use === "off") files[id] = { use: "off" };
+      else if (use === "own") files[id] = { use: "own", ...toCoreRule(f) };
+    }
+    rule = { ...toCoreRule(r), seed: typeof r.seed === "number" ? r.seed : 0, files };
+  }
+  const draw = b.lastDraw && typeof b.lastDraw === "object" ? obj(b.lastDraw) : null;
+  const pending = obj(b.pending);
+  const list = (value: unknown) => (Array.isArray(value) ? value.map(obj) : []);
+  return {
+    rule,
+    active: b.active === true,
+    intervalMinutes: toCount(b.intervalMinutes) || 10,
+    due: b.due === true,
+    nextAutomaticAt: toMillis(b.nextAutomaticAt),
+    lastDraw: draw
+      ? {
+          at: toMillis(draw.at) ?? 0,
+          by: typeof draw.by === "string" ? draw.by : null,
+          automatic: draw.automatic === true,
+          drawn: toCount(draw.drawn),
+          firstN: toCount(draw.firstN),
+          percent: toCount(draw.percent),
+          noChecker: toCount(draw.noChecker),
+        }
+      : null,
+    pending: { drawn: toCount(pending.drawn), firstN: toCount(pending.firstN), percent: toCount(pending.percent), noChecker: toCount(pending.noChecker) },
+    files: list(b.files).map((f) => ({
+      csvFileId: String(f.csvFileId ?? ""),
+      filename: String(f.filename ?? ""),
+      use: f.use === "off" || f.use === "own" ? f.use : "project",
+      own: f.own && typeof f.own === "object" ? toCoreRule(f.own) : null,
+      plots: toCount(f.plots),
+      submitted: toCount(f.submitted),
+      sampledCopies: toCount(f.sampledCopies),
+      divisionCopies: toCount(f.divisionCopies),
+      pending: toCount(f.pending),
+    })),
+    wholeFiles: list(b.wholeFiles).map((f) => ({ csvFileId: String(f.csvFileId ?? ""), filename: String(f.filename ?? "") })),
+    checkers: list(b.checkers).map((c) => ({
+      userId: String(c.userId ?? ""),
+      username: String(c.username ?? ""),
+      role: toRole(c.role),
+      eligible: c.eligible === true,
+      disabled: c.disabled === true,
+      open: toCount(c.open),
+      done: toCount(c.done),
+      sampled: toCount(c.sampled),
+    })),
+    members: list(b.members).map((m) => ({ userId: String(m.userId ?? ""), username: String(m.username ?? ""), role: toRole(m.role), disabled: m.disabled === true })),
+    noCheckers: b.noCheckers === true,
+  };
+}
+
+export async function getSampling(projectId: string): Promise<SamplingView> {
+  return toSamplingView(await request<unknown>("GET", `${p(projectId)}/sampling`));
+}
+
+export async function saveSampling(projectId: string, rule: SamplingRuleInput): Promise<SamplingView> {
+  return toSamplingView(await request<unknown>("PUT", `${p(projectId)}/sampling`, { json: rule }));
+}
+
+/** "Draw now": the draw's counts and the section as it is after it. */
+export async function drawSamplingNow(projectId: string): Promise<{ drawn: number; view: SamplingView }> {
+  const body = obj(await request<unknown>("POST", `${p(projectId)}/sampling/draw`));
+  return { drawn: toCount(obj(body.draw).drawn), view: toSamplingView(body.view) };
 }
 
 // --- the review queue (Task 7) ----------------------------------------------------

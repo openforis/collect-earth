@@ -82,7 +82,8 @@ export class ProjectStateCache {
     this.idleMs = options.idleMs ?? STATE_IDLE_MS;
   }
 
-  async get(projectId: string, log: Log): Promise<ServedState> {
+  /** With `fresh`, a state whose inputs changed is never served stale: the request waits for the new one (the check sampling). */
+  async get(projectId: string, log: Log, options: { fresh?: boolean } = {}): Promise<ServedState> {
     this.sweep();
     const inputs = await this.inputs(projectId);
     let entry = this.entries.get(projectId);
@@ -95,11 +96,15 @@ export class ProjectStateCache {
     if (state && state.version === inputs.version) {
       return { state, stale: false, members: inputs.members };
     }
-    if (state && inputs.at - state.builtAt < this.staleMs) {
+    if (state && !options.fresh && inputs.at - state.builtAt < this.staleMs) {
       this.build(projectId, entry, inputs, log).catch((err: unknown) => log.warn({ err, projectId }, 'project state: could not be brought up to date'));
       return { state, stale: true, members: inputs.members };
     }
-    const fresh = await this.build(projectId, entry, inputs, log);
+    let fresh = await this.build(projectId, entry, inputs, log);
+    if (options.fresh && fresh.version !== inputs.version) {
+      // A build from older inputs was running: build once more from these.
+      fresh = await this.build(projectId, entry, inputs, log);
+    }
     return { state: fresh, stale: fresh.version !== inputs.version, members: inputs.members };
   }
 

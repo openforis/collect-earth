@@ -59,6 +59,7 @@ const SETTING_KEYS: Record<string, MessageKey> = {
   ai: "activity.setting.ai",
   name: "activity.setting.name",
   progress: "activity.setting.progress",
+  sampling: "activity.setting.sampling",
 };
 
 const EXPORT_KEYS: Record<string, MessageKey> = {
@@ -131,6 +132,9 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
     case "settings.changed":
       if (d.setting === "ai") return t(d.enabled === true ? "activity.audit.aiOn" : "activity.audit.aiOff", { actor });
       return t("activity.audit.settings", { actor, what: t(SETTING_KEYS[String(d.setting)] ?? "activity.setting.other") });
+    case "sampling.drawn":
+      if (d.automatic === true) return t("activity.audit.sampledAuto", { count: num(d.drawn, language) });
+      return t("activity.audit.sampled", { actor, count: num(d.drawn, language) });
     case "export.downloaded":
       if (typeof d.kind === "string" && EXPORT_KEYS[d.kind]) return t("activity.audit.download", { actor, what: t(EXPORT_KEYS[d.kind]) });
       return t("activity.audit.downloadData", { actor, count: num(d.records, language) });
