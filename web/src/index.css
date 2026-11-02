@@ -10,3 +10,11 @@ html, body, #root { margin: 0; height: 100%; font-family: system-ui, sans-serif;
   .map-pane { height: 50vh; flex: none; }
   .side-pane { width: auto; border-left: 0; border-top: 1px solid #ddd; }
 }
+.chart-card { border: 1px solid #ddd; border-radius: 6px; margin-bottom: 12px; background: #fff; }
+.chart-card-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-bottom: 1px solid #eee; }
+.chart-card-header h3 { margin: 0; font-size: 14px; }
+.chart-card-actions { display: flex; gap: 6px; align-items: center; }
+.chart-placeholder { height: 220px; display: flex; gap: 8px; align-items: center; justify-content: center; color: #666; font-size: 13px; }
+.chart-error { color: #b00020; flex-direction: column; }
+.spinner { width: 14px; height: 14px; border: 2px solid #ccc; border-top-color: #333; border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
