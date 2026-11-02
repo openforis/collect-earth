@@ -10,6 +10,7 @@ import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.BackupSqlLiteService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.settings.ConnectionTest;
 import org.openforis.collect.earth.app.service.settings.SampleFileCheck;
 import org.openforis.collect.earth.app.service.settings.SettingsService;
 import org.openforis.collect.earth.app.service.settings.SettingsService.InvalidSettingsException;
@@ -30,8 +31,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class SettingsController {
 
 	/** What CollectEarthUtils' connection tests answer when the connection works */
-	static final String CONNECTION_OK = "Connection OK!";
-
 	/** The body of validate and save: the values by key. */
 	public static class Values {
 		public Map<String, String> values;
@@ -59,8 +58,8 @@ public class SettingsController {
 	private final SampleFileCheck sampleFile;
 	private final Supplier<String> backupFolder;
 	private final Supplier<String> computerIp;
-	private final Function<DatabaseRequest, String> testDatabase;
-	private final Function<CloudRequest, String> testCloud;
+	private final Function<DatabaseRequest, ConnectionTest> testDatabase;
+	private final Function<CloudRequest, ConnectionTest> testCloud;
 
 	@Autowired
 	public SettingsController(SettingsService settings, SampleFileCheck sampleFile, BackupSqlLiteService backup) {
@@ -72,7 +71,7 @@ public class SettingsController {
 
 	/** For the tests: the folder, the address and the connection tests stood in for. */
 	SettingsController(SettingsService settings, SampleFileCheck sampleFile, Supplier<String> backupFolder, Supplier<String> computerIp,
-			Function<DatabaseRequest, String> testDatabase, Function<CloudRequest, String> testCloud) {
+			Function<DatabaseRequest, ConnectionTest> testDatabase, Function<CloudRequest, ConnectionTest> testCloud) {
 		this.settings = settings;
 		this.sampleFile = sampleFile;
 		this.backupFolder = backupFolder;
@@ -136,10 +135,10 @@ public class SettingsController {
 		return connection(testCloud.apply(request));
 	}
 
-	private static Map<String, Object> connection(String message) {
+	private static Map<String, Object> connection(ConnectionTest test) {
 		Map<String, Object> answer = new LinkedHashMap<>();
-		answer.put("ok", CONNECTION_OK.equals(message));
-		answer.put("message", message);
+		answer.put("ok", test.isOk());
+		answer.put("message", test.getMessage());
 		return answer;
 	}
 

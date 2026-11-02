@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.openforis.collect.earth.app.server.api.SettingsController.CloudRequest;
 import org.openforis.collect.earth.app.server.api.SettingsController.DatabaseRequest;
+import org.openforis.collect.earth.app.service.settings.ConnectionTest;
 import org.openforis.collect.earth.app.service.settings.SampleFileCheck;
 import org.openforis.collect.earth.app.service.settings.SettingsModel;
 import org.openforis.collect.earth.app.service.settings.SettingsService;
@@ -44,7 +45,7 @@ public class SettingsControllerTest {
 	private final SettingsService settings = mock(SettingsService.class);
 	private DatabaseRequest databaseTested;
 	private CloudRequest cloudTested;
-	private String connectionAnswer = SettingsController.CONNECTION_OK;
+	private ConnectionTest connectionAnswer = ConnectionTest.ok();
 	private MockMvc mvc;
 
 	@BeforeEach
@@ -151,16 +152,16 @@ public class SettingsControllerTest {
 		mvc.perform(post("/api/settings/testDatabase").contentType(MediaType.APPLICATION_JSON)
 				.content("{\"host\":\"db.example.org\",\"port\":\"5432\",\"name\":\"collect\",\"username\":\"earth\",\"password\":\"pw\"}"))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.ok").value(true))
-				.andExpect(jsonPath("$.message").value(SettingsController.CONNECTION_OK));
+				.andExpect(jsonPath("$.message").value(Messages.getString("SettingsPage.connection.ok")));
 		assertEquals("db.example.org", databaseTested.host);
 		assertEquals("5432", databaseTested.port);
 		assertEquals("collect", databaseTested.name);
 		assertEquals("earth", databaseTested.username);
 		assertEquals("pw", databaseTested.password);
-		connectionAnswer = "Connection refused";
+		connectionAnswer = ConnectionTest.ofException("SettingsPage.connection.dbFailed", new java.sql.SQLException("Connection refused"));
 		mvc.perform(post("/api/settings/testDatabase").contentType(MediaType.APPLICATION_JSON).content("{\"host\":\"nowhere\"}"))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.ok").value(false))
-				.andExpect(jsonPath("$.message").value("Connection refused"));
+				.andExpect(jsonPath("$.message").value("Could not connect to the database: Connection refused"));
 	}
 
 	@Test

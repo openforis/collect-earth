@@ -29,6 +29,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
+import org.openforis.collect.earth.app.service.settings.ConnectionTest;
 import org.openforis.collect.earth.app.view.Messages;
 import org.postgresql.Driver;
 import org.slf4j.Logger;
@@ -234,11 +235,11 @@ public class CollectEarthUtils {
 	/**
 	 * Tests whether a Collect Earth cloud project is reachable and the token accepted,
 	 * by issuing a GET to {@code {baseUrl}/v1/projects/{projectId}}. Returns a
-	 * human-readable message suitable for a dialog.
+	 * whether it works and, in the UI language, why not.
 	 */
-	public static String testCloudConnection(String baseUrl, String projectId, String token) {
+	public static ConnectionTest testCloudConnection(String baseUrl, String projectId, String token) {
 		if (baseUrl == null || baseUrl.trim().isEmpty()) {
-			return "Please enter the cloud server URL";
+			return ConnectionTest.failed("SettingsPage.connection.cloudNoUrl", "");
 		}
 		String url = baseUrl.trim();
 		while (url.endsWith("/")) {
@@ -255,22 +256,14 @@ public class CollectEarthUtils {
 			}
 			int status = connection.getResponseCode();
 			connection.disconnect();
-			if (status >= 200 && status < 300) {
-				return "Connection OK!";
-			} else if (status == 401 || status == 403) {
-				return "The server was reached but the token was rejected (HTTP " + status
-						+ "). Please log in again.";
-			} else if (status == 404) {
-				return "The server was reached but the project was not found (HTTP 404). Check the project id.";
-			}
-			return "Unexpected response from the cloud server: HTTP " + status;
+			return ConnectionTest.ofCloudStatus(status);
 		} catch (Exception e) {
 			logger.error("Error testing the cloud connection", e);
-			return "Could not reach the cloud server: " + e.getMessage();
+			return ConnectionTest.ofException("SettingsPage.connection.cloudUnreachable", e);
 		}
 	}
 
-	public static String testPostgreSQLConnection(String host, String port, String dbName, String username,
+	public static ConnectionTest testPostgreSQLConnection(String host, String port, String dbName, String username,
 			String password) {
 		try {
 			// The driver registers itself, the extra registration only made the list of drivers grow on every click
@@ -281,12 +274,12 @@ public class CollectEarthUtils {
 				boolean valid = conn.isValid(10);// 10 sec
 				logger.debug("PostgreSQL Connection is valid! {}", valid );
 				// This used to answer "Connection OK!" even when the connection was not valid
-				return valid ? "Connection OK!" : "The database answered but the connection is not usable";
+				return valid ? ConnectionTest.ok() : ConnectionTest.failed("SettingsPage.connection.dbNotUsable", "");
 			}
 		} catch (Exception e) {
 			logger.error("Error connecting to DB while testing", e);
 			// Some failures carry no message, and the dialog was then empty
-			return StringUtils.defaultIfBlank(e.getMessage(), e.toString());
+			return ConnectionTest.ofException("SettingsPage.connection.dbFailed", e);
 		}
 	}
 	
