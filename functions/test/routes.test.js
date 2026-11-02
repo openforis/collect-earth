@@ -108,3 +108,15 @@ test("POST /api/series/modis with a valid plot but no EE_KEY reaches the auth st
   const { res, logged } = await postWithoutKey("/api/series/modis", { plot: belize, start: "2020-01-01", end: "2021-01-01" });
   assertEeKeyMissing500(res, logged);
 });
+
+test("POST /api/series/landsat without a body is a 400 bad_request", async () => {
+  const res = await request(createApp(registerRoutes)).post("/api/series/landsat");
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error.code, "bad_request");
+  assert.match(res.body.error.message, /plot is required/);
+});
+
+test("POST /api/series/landsat with a valid plot but no EE_KEY reaches the auth step and fails as JSON 500", async () => {
+  const { res, logged } = await postWithoutKey("/api/series/landsat", { plot: belize, start: "2012-01-01", end: "2016-01-01" });
+  assertEeKeyMissing500(res, logged);
+});
