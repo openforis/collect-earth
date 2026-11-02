@@ -38,12 +38,20 @@ function errorOf(body: unknown): ApiError | undefined {
 
 const NOT_JSON = Symbol("not json");
 
+/**
+ * Prefix for API URLs. Empty in dev and tests, where `/api/...` is served same-origin (Vite proxy,
+ * Hosting emulator rewrite, jsdom fetch mocks). `web/.env.production` sets `VITE_API_BASE` to the
+ * function's own URL so production requests bypass Hosting's 60 s proxy limit; the Express app
+ * mounts its routes under `/api`, so the final URL has that segment twice (`.../api/api/ccdc`).
+ */
+export const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
+
 export async function postApi<T>(
   path: string,
   body: PlotBody & Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<T> {
-  const res = await fetch(`/api/${path}`, {
+  const res = await fetch(`${API_BASE}/api/${path}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),

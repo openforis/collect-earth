@@ -77,3 +77,41 @@ describe("isRetryable", () => {
     expect(isRetryable(undefined)).toBe(true);
   });
 });
+
+describe("API_BASE", () => {
+  const fetchMock = vi.fn();
+  beforeEach(() => {
+    vi.resetModules();
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue(json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("is empty and postApi uses the relative /api path when VITE_API_BASE is not set", async () => {
+    vi.stubEnv("VITE_API_BASE", "");
+    const mod = await import("./api");
+    expect(mod.API_BASE).toBe("");
+    await mod.postApi("ccdc", body);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/ccdc");
+  });
+
+  it("prefixes the path with VITE_API_BASE when set", async () => {
+    vi.stubEnv("VITE_API_BASE", "https://x/api");
+    const mod = await import("./api");
+    expect(mod.API_BASE).toBe("https://x/api");
+    await mod.postApi("ccdc", body);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://x/api/api/ccdc");
+  });
+
+  it("strips one trailing slash from VITE_API_BASE", async () => {
+    vi.stubEnv("VITE_API_BASE", "https://x/api/");
+    const mod = await import("./api");
+    expect(mod.API_BASE).toBe("https://x/api");
+    await mod.postApi("tiles/sentinel2", body);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://x/api/api/tiles/sentinel2");
+  });
+});

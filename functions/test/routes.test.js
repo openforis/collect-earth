@@ -258,3 +258,26 @@ test("registerRoutes without options uses the default (Firestore) cache lazily, 
   createApp(registerRoutes);
   assert.equal(getApps().length, 0);
 });
+
+test("tiles/sentinel2 and tiles/scene drop start from the cache key (their computation ignores it); series/modis keeps it", async () => {
+  const canned = { tileUrl: "https://example/{z}/{x}/{y}", label: "x" };
+  const body = { plot: belize, start: "2020-01-01", end: "2021-01-01" };
+
+  let cache = fakeCache(canned);
+  let res = await request(appWith(cache)).post("/api/tiles/sentinel2").send(body);
+  assert.equal(res.status, 200);
+  assert.equal(cache.calls[0].parsed.start, null);
+  assert.equal(cache.calls[0].parsed.end, "2021-01-01");
+  assert.deepEqual(cache.calls[0].parsed.plot, belize);
+
+  cache = fakeCache(canned);
+  res = await request(appWith(cache)).post("/api/tiles/scene").send({ ...body, sensor: "landsat", timeStart: 1609459200000 });
+  assert.equal(res.status, 200);
+  assert.equal(cache.calls[0].parsed.start, null);
+  assert.equal(cache.calls[0].parsed.end, "2021-01-01");
+
+  cache = fakeCache({ series: [] });
+  res = await request(appWith(cache)).post("/api/series/modis").send(body);
+  assert.equal(res.status, 200);
+  assert.equal(cache.calls[0].parsed.start, "2020-01-01");
+});

@@ -116,3 +116,60 @@ test("index handler responds 500 internal when routes fail to load", () => {
   assert.deepEqual(res.body, { error: { code: "internal", message: "API failed to load", retryable: false } });
   assert.equal(logged.length, 1);
 });
+
+const CORS_ENV = { GCLOUD_PROJECT: "ce-earth-viewer" };
+const ALLOWED = "https://ce-earth-viewer.web.app";
+const echoRoutes = (a) => a.post("/api/echo", (req, res) => res.json(req.body));
+
+test("OPTIONS preflight from an allowed origin answers 204 with the CORS headers and no body", async () => {
+  const res = await request(createApp(undefined, { env: CORS_ENV }))
+    .options("/api/ccdc")
+    .set("Origin", ALLOWED)
+    .set("Access-Control-Request-Method", "POST")
+    .set("Access-Control-Request-Headers", "content-type");
+  assert.equal(res.status, 204);
+  assert.equal(res.headers["access-control-allow-origin"], ALLOWED);
+  assert.equal(res.headers["access-control-allow-methods"], "POST, GET, OPTIONS");
+  assert.equal(res.headers["access-control-allow-headers"], "content-type");
+  assert.equal(res.headers["access-control-max-age"], "3600");
+  assert.equal(res.headers["vary"], "Origin");
+  assert.equal(res.text, "");
+});
+
+test("OPTIONS preflight from a disallowed origin is still 204 but carries no Access-Control-Allow-Origin", async () => {
+  const res = await request(createApp(undefined, { env: CORS_ENV })).options("/api/ccdc").set("Origin", "https://evil.example");
+  assert.equal(res.status, 204);
+  assert.equal(res.headers["access-control-allow-origin"], undefined);
+  assert.equal(res.headers["vary"], "Origin");
+});
+
+test("POST from an allowed origin is processed and echoes the origin in Access-Control-Allow-Origin", async () => {
+  const res = await request(createApp(echoRoutes, { env: CORS_ENV })).post("/api/echo").set("Origin", ALLOWED).send({ hello: 1 });
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body, { hello: 1 });
+  assert.equal(res.headers["access-control-allow-origin"], ALLOWED);
+  assert.equal(res.headers["vary"], "Origin");
+});
+
+test("POST from a disallowed origin is still processed but gets no Access-Control-Allow-Origin", async () => {
+  const res = await request(createApp(echoRoutes, { env: CORS_ENV })).post("/api/echo").set("Origin", "https://evil.example").send({ hello: 2 });
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body, { hello: 2 });
+  assert.equal(res.headers["access-control-allow-origin"], undefined);
+  assert.equal(res.headers["vary"], "Origin");
+});
+
+test("ALLOWED_ORIGINS in the app env overrides the project defaults", async () => {
+  const app = createApp(undefined, { env: { GCLOUD_PROJECT: "ce-earth-viewer", ALLOWED_ORIGINS: "https://custom.example" } });
+  const custom = await request(app).get("/api/health").set("Origin", "https://custom.example");
+  assert.equal(custom.headers["access-control-allow-origin"], "https://custom.example");
+  const def = await request(app).get("/api/health").set("Origin", ALLOWED);
+  assert.equal(def.headers["access-control-allow-origin"], undefined);
+});
+
+test("a same-origin request (no Origin header) gets no CORS headers beyond Vary", async () => {
+  const res = await request(createApp(undefined, { env: CORS_ENV })).get("/api/health");
+  assert.equal(res.status, 200);
+  assert.equal(res.headers["access-control-allow-origin"], undefined);
+  assert.equal(res.headers["vary"], "Origin");
+});

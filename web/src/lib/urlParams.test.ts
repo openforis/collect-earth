@@ -26,3 +26,26 @@ describe("parsePlotUrl", () => {
     expect(poly.coordinates[0].length).toBe(5);
   });
 });
+
+describe("toPolygon", () => {
+  it("buffers a Point into the backend's 0.0005-degree square, closed and counter-clockwise", () => {
+    const poly = toPolygon({ type: "Point", coordinates: [30.17, -2.07] });
+    expect(poly.type).toBe("Polygon");
+    const d = 0.0005;
+    expect(poly.coordinates).toEqual([[
+      [30.17 - d, -2.07 - d],
+      [30.17 + d, -2.07 - d],
+      [30.17 + d, -2.07 + d],
+      [30.17 - d, -2.07 + d],
+      [30.17 - d, -2.07 - d],
+    ]]);
+  });
+  it("parses a Point geoJson from the URL without an error", () => {
+    const point = JSON.stringify({ type: "Point", coordinates: [30.17, -2.07] });
+    const p = parsePlotUrl(`?geoJson=${encodeURIComponent(point)}`, new Date("2026-11-01"));
+    expect(p.plot.coordinates[0]).toHaveLength(5);
+  });
+  it("still rejects unsupported geometries", () => {
+    expect(() => toPolygon({ type: "MultiPolygon", coordinates: [] })).toThrow(/unsupported geometry MultiPolygon/);
+  });
+});

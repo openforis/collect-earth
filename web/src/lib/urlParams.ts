@@ -16,6 +16,12 @@ export function toPolygon(g: AnyGeometry): Polygon {
     const closed = first[0] === last[0] && first[1] === last[1] ? ring : [...ring, first];
     return { type: "Polygon", coordinates: [closed] };
   }
+  if (g.type === "Point") {
+    // Same ~55 m half-side square the backend's toPolygon builds, so the map and the API agree.
+    const [x, y] = g.coordinates as number[];
+    const d = 0.0005;
+    return { type: "Polygon", coordinates: [[[x - d, y - d], [x + d, y - d], [x + d, y + d], [x - d, y + d], [x - d, y - d]]] };
+  }
   throw new Error(`unsupported geometry ${g.type}`);
 }
 
