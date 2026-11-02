@@ -14,6 +14,7 @@ import java.util.function.Consumer;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.Socket;
 import java.net.URL;
@@ -36,6 +37,7 @@ import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
 import org.openforis.collect.earth.app.logging.GAlogger;
 import org.openforis.collect.earth.app.server.LoadProjectFileServlet;
+import org.openforis.collect.earth.app.server.OpenWindowServlet;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.FolderFinder;
@@ -354,6 +356,22 @@ public class EarthApp {
 		}
 	}
 
+	/** Asks the running Collect Earth to open its window (OpenWindowServlet), as its tray icon would. */
+	static void openWindowInRunningCollectEarth() throws IOException {
+		String hostAddress = ServerController.getHostAddress(getLocalProperties().getHost(), getLocalProperties().getPort());
+		HttpURLConnection connection = (HttpURLConnection) new URL(hostAddress + OpenWindowServlet.SERVLET_NAME).openConnection();
+		connection.setConnectTimeout(5000);
+		connection.setReadTimeout(5000);
+		try {
+			int status = connection.getResponseCode();
+			if (status != HttpURLConnection.HTTP_ACCEPTED) {
+				throw new IOException("The running Collect Earth answered HTTP " + status); //$NON-NLS-1$
+			}
+		} finally {
+			connection.disconnect();
+		}
+	}
+
 	private static boolean isAnotherCollectEarthRunning(LocalPropertiesService localProperties) {
 		boolean alreadyRunning = false;
 		try {
@@ -599,11 +617,19 @@ public class EarthApp {
 					System.exit(1);
 				}
 			} else {
-				JOptionPane.showMessageDialog(null, Messages.getString("EarthApp.11"), "Collect Earth",
-						JOptionPane.WARNING_MESSAGE);
-				// showMessage(Messages.getString("EarthApp.11")); //$NON-NLS-1$
-				logger.warn("Closing CE - port already in use");
-				System.exit(1);
+				// Started again: the running Collect Earth opens its window, which is how it is got back on a desktop
+				// with no tray icon. Only when it does not answer is the user told it is running
+				try {
+					openWindowInRunningCollectEarth();
+					logger.info("Collect Earth is already running: its window was opened"); //$NON-NLS-1$
+					System.exit(0);
+				} catch (IOException e) {
+					logger.warn("Port in use, but the window of the running Collect Earth could not be opened : {}", e.getMessage()); //$NON-NLS-1$
+					JOptionPane.showMessageDialog(null, Messages.getString("EarthApp.11"), "Collect Earth",
+							JOptionPane.WARNING_MESSAGE);
+					logger.warn("Closing CE - port already in use");
+					System.exit(1);
+				}
 			}
 		} else {
 

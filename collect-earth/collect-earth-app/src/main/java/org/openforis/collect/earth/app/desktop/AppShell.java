@@ -132,7 +132,7 @@ public class AppShell implements InitializingBean, DisposableBean {
 	 * Opens the main window, on a thread of its own: the listeners of the icon run on the AWT event thread, and a browser
 	 * takes seconds to start or to answer, which would freeze the tray menu and every Swing dialog meanwhile.
 	 */
-	private void openInBackground() {
+	public void openInBackground() {
 		Thread thread = new Thread(() -> {
 			try {
 				open();

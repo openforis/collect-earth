@@ -2,9 +2,6 @@ package org.openforis.collect.earth.app.server;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.Enumeration;
 import java.util.Locale;
 
 import javax.servlet.http.HttpServletRequest;
@@ -56,7 +53,7 @@ public class LoadProjectFileServlet {
 
 		// This servlet loads a file from the local disk and restarts the application, and the server has no authentication.
 		// The only legitimate caller is a second Collect Earth instance started in this same computer ( see EarthApp.openProjectFileInRunningCollectEarth )
-		if (!isLoopbackRequest(request) || isSentByBrowser(request)) {
+		if (!LocalClients.isOtherCollectEarth(request)) {
 			logger.warn("Rejected a request from {} to load the project file {}", request.getRemoteAddr(), projectFilePath); //$NON-NLS-1$
 			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
 			return;
@@ -95,33 +92,6 @@ public class LoadProjectFileServlet {
 		loading.setDaemon(true);
 		loading.start();
 
-	}
-
-	private boolean isLoopbackRequest(HttpServletRequest request) {
-		try {
-			return InetAddress.getByName(request.getRemoteAddr()).isLoopbackAddress();
-		} catch (UnknownHostException e) {
-			logger.warn("Could not resolve the remote address " + request.getRemoteAddr(), e); //$NON-NLS-1$
-			return false;
-		}
-	}
-
-	/**
-	 * A web page opened in this computer could also fire this request ( it is a plain GET ). Browsers identify themselves with
-	 * these headers, the Java client used by Collect Earth sends none of them.
-	 *
-	 * The headers are read with getHeaders and not with getHeader because GoogleEarthHeaderFilter wraps every request and
-	 * answers "*" to getHeader("Origin") when the request carries no Origin of its own, for the balloons of Google Earth.
-	 * Through getHeader every request looks like it came from a browser, and no project file could ever be loaded.
-	 */
-	private boolean isSentByBrowser(HttpServletRequest request) {
-		return hasHeader(request, "Origin") || hasHeader(request, "Sec-Fetch-Site") //$NON-NLS-1$ //$NON-NLS-2$
-				|| hasHeader(request, "Referer"); //$NON-NLS-1$
-	}
-
-	private boolean hasHeader(HttpServletRequest request, String name) {
-		Enumeration<String> values = request.getHeaders(name);
-		return values != null && values.hasMoreElements();
 	}
 
 }
