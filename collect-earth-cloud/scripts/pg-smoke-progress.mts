@@ -58,6 +58,8 @@ const index = (await owner.query("SELECT 1 FROM pg_indexes WHERE indexname = 'id
 check('013: the received_at index', index === 1);
 const auditCheck = (await owner.query("SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = 'audit_log_action_check'")).rows;
 check('015: the audit actions allow decision.bulk (one constraint, after two runs)', auditCheck.length === 1 && auditCheck[0].def.includes('decision.bulk') && auditCheck[0].def.includes('link.revoked'), auditCheck);
+const batchColumn = (await owner.query("SELECT data_type FROM information_schema.columns WHERE table_name = 'quality_decisions' AND column_name = 'decided_batch'")).rows[0];
+check('016: quality_decisions.decided_batch (uuid)', batchColumn?.data_type === 'uuid', batchColumn);
 
 // --- The server as the app role. ---
 const store = new PostgresStore(appUrl);
@@ -328,10 +330,13 @@ await owner.query(
 );
 await owner.query(`UPDATE project_members SET role = 'reviewer' WHERE project_id = $1 AND user_id = (SELECT id FROM users WHERE username = 'op6')`, [big]);
 let differing = 0;
+/** The 3,000th differing plot: the queue's page after it reads its records (beyond the 500 listed). */
+let plot3000 = '';
 let byReviewer = 0;
 for (let i = 1; i <= N; i++) {
   if (i % 15 !== 0 || i % 10 === 0) continue;
   differing += 1;
+  if (differing === 3000) plot3000 = String(i);
   if ((i + 1) % 40 === 6) byReviewer += 1;
 }
 await owner.query('ANALYZE records');
@@ -398,11 +403,11 @@ await owner.query('ANALYZE records');
   const qb = queue.res.json();
   const queueFields = (items: any[]) => items.filter((i) => i.section === 'difference').every((i) => i.differences.length > 0 && i.differences.every((d: any) => d.fields.length > 0 && d.fields.some((f: any) => f.key === 'collect_code_q1' && f.check === 'zz')));
   check(`GET /quality/queue: the ${differing} differing plots first (none decided), 100 listed with their answers`, queue.res.statusCode === 200 && qb.counts.difference === differing && qb.items.length === 100 && qb.items[0].section === 'difference' && queueFields(qb.items) && qb.computedAt === fb.computedAt, { status: queue.res.statusCode, counts: qb.counts, items: qb.items?.length, first: qb.items?.[0] });
-  const beyond = await get('/quality/queue?offset=3000');
-  check('... beyond the listed differences (offset 3,000): the answers read from the records', beyond.res.statusCode === 200 && beyond.res.json().items.length === 100 && queueFields(beyond.res.json().items), beyond.res.json().items?.[0]);
+  const beyond = await get(`/quality/queue?after=difference::${plot3000}`);
+  check('... beyond the listed differences (after the 3,000th): the answers read from the records at once', beyond.res.statusCode === 200 && beyond.res.json().items.length === 100 && queueFields(beyond.res.json().items), beyond.res.json().items?.[0]);
   const queueAgain = await get('/quality/queue');
   const queuePerson = await get('/quality/queue?person=op6');
-  console.log(`     GET /quality/queue: ${queue.ms} ms, again ${queueAgain.ms} ms, a person ${queuePerson.ms} ms, offset 3,000 (200 records read) ${beyond.ms} ms`);
+  console.log(`     GET /quality/queue: ${queue.ms} ms, again ${queueAgain.ms} ms, a person ${queuePerson.ms} ms, after the 3,000th (200 records read in one query) ${beyond.ms} ms`);
   const bulkCall = (query: string) => {
     const t0 = performance.now();
     return fresh.inject({ method: 'POST', url: `/v1/projects/${big}/quality/decisions:bulk${query}`, headers: bearer(ownerToken), payload: { rule: 'check_by_reviewer' } }).then((r) => ({ ms: Math.round(performance.now() - t0), res: r }));
@@ -412,7 +417,7 @@ await owner.query('ANALYZE records');
   const bulk = await bulkCall('');
   const decisionsAfter = await store.listQualityDecisions(big);
   const bulkAudit = await store.listAudit(big, { limit: 5, action: 'decision.bulk' });
-  check('... then decided in one transaction, each with what it saw, one audit entry', bulk.res.statusCode === 200 && bulk.res.json().count === byReviewer && decisionsAfter.length === 1 + byReviewer && decisionsAfter.filter((d) => d.decision === 'check').every((d) => Array.isArray(d.seen) && d.seen.length === 2) && bulkAudit.length === 1 && bulkAudit[0].details.count === byReviewer, { body: bulk.res.body.slice(0, 300), decisions: decisionsAfter.length, audit: bulkAudit });
+  check('... then decided in one transaction, each with what it saw, one audit entry', bulk.res.statusCode === 200 && bulk.res.json().count === byReviewer && decisionsAfter.length === 1 + byReviewer && decisionsAfter.filter((d) => d.decision === 'check').every((d) => Array.isArray(d.seen) && d.seen.length === 2) && bulkAudit.length === 1 && bulkAudit[0].details.count === byReviewer && decisionsAfter.filter((d) => d.decision === 'check').every((d) => d.batch === bulkAudit[0].details.batch) && decisionsAfter.find((d) => d.plot === '1')?.batch === null, { body: bulk.res.body.slice(0, 300), decisions: decisionsAfter.length, audit: bulkAudit });
   const again = await bulkCall('');
   check('... and again: nothing left for the rule, no audit entry', again.res.json().count === 0 && (await store.listAudit(big, { limit: 5, action: 'decision.bulk' })).length === 1, again.res.body.slice(0, 200));
   const queueAfter = await get('/quality/queue');

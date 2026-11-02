@@ -92,6 +92,7 @@ interface StoredDecision {
   decidedBy: string | null; // user id
   decidedAt: number;
   seen: { operator: string; hash: number }[] | null;
+  batch: string | null;
 }
 
 interface StoredNote extends GuidanceNoteInput {
@@ -330,6 +331,17 @@ export class InMemoryStore implements Store {
     if (!options.firstSubmissions) return rows;
     const first = this.firstSubmissions(projectId);
     return rows.map((r) => ({ ...r, firstSubmittedOn: first.get(`${r.recordKey} ${r.operator}`) ?? null }));
+  }
+
+  async getRecordSummaries(projectId: string, keys: readonly { recordKey: string; operator: string }[]): Promise<RecordRow[]> {
+    const entry = this.projects.get(projectId);
+    if (!entry) return [];
+    const out: RecordRow[] = [];
+    for (const k of keys) {
+      const r = entry.records.get(InMemoryStore.recordId(k.recordKey, k.operator));
+      if (r) out.push({ ...r, xml: null });
+    }
+    return out;
   }
 
   /** `${recordKey} ${operator}` -> the modifiedOn of its first event `submitted`. */
@@ -957,7 +969,7 @@ export class InMemoryStore implements Store {
     seen: { operator: string; hash: number }[] | null = null,
   ): Promise<QualityDecision> {
     const entry = this.requireProject(projectId);
-    const stored: StoredDecision = { decision, comment, decidedBy: this.requireUserOrNull(userId), decidedAt: Date.now(), seen: seen ? structuredClone(seen) : null };
+    const stored: StoredDecision = { decision, comment, decidedBy: this.requireUserOrNull(userId), decidedAt: Date.now(), seen: seen ? structuredClone(seen) : null, batch: null };
     entry.decisions.set(plot, stored);
     return this.decisionOf(plot, stored);
   }
@@ -967,6 +979,7 @@ export class InMemoryStore implements Store {
     decisions: readonly { plot: string; decision: DecisionKind; seen: { operator: string; hash: number }[] | null }[],
     comment: string | null,
     userId: string | null,
+    batch: string,
   ): Promise<string[]> {
     const entry = this.requireProject(projectId);
     const decidedBy = this.requireUserOrNull(userId);
@@ -974,7 +987,7 @@ export class InMemoryStore implements Store {
     const added: string[] = [];
     for (const d of decisions) {
       if (entry.decisions.has(d.plot)) continue;
-      entry.decisions.set(d.plot, { decision: d.decision, comment, decidedBy, decidedAt, seen: d.seen ? structuredClone(d.seen) : null });
+      entry.decisions.set(d.plot, { decision: d.decision, comment, decidedBy, decidedAt, seen: d.seen ? structuredClone(d.seen) : null, batch });
       added.push(d.plot);
     }
     return added;
@@ -1278,7 +1291,7 @@ export class InMemoryStore implements Store {
   }
 
   private decisionOf(plot: string, d: StoredDecision): QualityDecision {
-    return { plot, decision: d.decision, comment: d.comment, decidedBy: this.usernameOf(d.decidedBy), decidedAt: d.decidedAt, seen: d.seen ? structuredClone(d.seen) : null };
+    return { plot, decision: d.decision, comment: d.comment, decidedBy: this.usernameOf(d.decidedBy), decidedAt: d.decidedAt, seen: d.seen ? structuredClone(d.seen) : null, batch: d.batch ?? null };
   }
 
   private noteOf(n: StoredNote): GuidanceNote {

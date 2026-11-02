@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Flag, Resubmitted } from '../src/flags.js';
-import type { DifferingPairRef } from '../src/quality.js';
-import { bulkPlots, QUEUE_KINDS, reviewQueue, type QueueInput } from '../src/reviewQueue.js';
+import { packPairs, pairAt, type DifferingPairRef } from '../src/quality.js';
+import { bulkPlots, itemsAfter, parseCursor, QUEUE_KINDS, queueCursor, reviewQueue, type QueueInput } from '../src/reviewQueue.js';
 import type { DecisionKind } from '../src/types.js';
 
 const pair = (plot: string, first: string, check: string, latest = true): DifferingPairRef => ({
@@ -19,9 +19,10 @@ const flag = (plot: string, operator: string, kind: Flag['kind'], at: number): F
 });
 const back = (plot: string, operator: string, at: number): Resubmitted => ({ plot, operator, at, decidedAt: 1 });
 
-function input(extra: Partial<QueueInput> & { decisions?: [string, DecisionKind][] } = {}): QueueInput {
+function input(extra: Partial<Omit<QueueInput, 'pairs'>> & { pairs?: DifferingPairRef[]; decisions?: [string, DecisionKind][] } = {}): QueueInput {
   return {
-    pairs: extra.pairs ?? [],
+    pairs: packPairs(extra.pairs ?? []),
+    everyonesFlags: extra.everyonesFlags,
     flags: extra.flags ?? [],
     resubmitted: extra.resubmitted ?? [],
     decided: new Map(extra.decisions ?? []),
@@ -61,7 +62,7 @@ describe('reviewQueue: one queue', () => {
     ]);
     expect(queue.counts).toEqual({ difference: 3, flag: 3, resubmitted: 1 });
     const two = queue.items[1];
-    expect(two.pairs.map((p) => p.check.operator)).toEqual(['ben', 'carl']);
+    expect(two.pairs.map((i) => pairAt(all.pairs, i).check.operator)).toEqual(['ben', 'carl']);
     expect(two.flags.map((f) => f.kind)).toEqual(['very_fast']);
     expect(two.people).toEqual(['ana', 'ben', 'carl']);
     expect(queue.items[3].flags.map((f) => f.kind)).toEqual(['very_fast', 'required_empty']);
@@ -80,6 +81,32 @@ describe('reviewQueue: one queue', () => {
     // The person menu lists everyone in the whole queue.
     expect(filtered.people).toEqual(['ana', 'ben', 'carl', 'dan']);
     expect(QUEUE_KINDS).toContain('very_fast');
+  });
+
+  it('the person menu names everyone in the queue, whatever the filters (the flags asked for one person are not all)', () => {
+    const forAna = { ...all, flags: all.flags.filter((f) => f.operator === 'ana'), everyonesFlags: all.flags };
+    expect(reviewQueue(forAna, { person: 'ana' }).people).toEqual(['ana', 'ben', 'carl', 'dan']);
+    // A flag on a decided plot does not put its person in the menu.
+    const decidedOnly = input({ flags: [flag('7', 'erin', 'very_fast', 5)], decisions: [['7', 'first']] });
+    expect(reviewQueue(decidedOnly, {}).people).toEqual([]);
+  });
+
+  it('pages by cursor: plots decided by someone else meanwhile make no plot skipped', () => {
+    const many = input({ pairs: Array.from({ length: 12 }, (_, i) => pair(String(i + 1), 'ana', 'ben')), flags: [flag('20', 'ana', 'very_fast', 50), flag('21', 'ana', 'very_fast', 40)], resubmitted: [back('30', 'ben', 9)], decisions: [['30', 'recheck']] });
+    const first = reviewQueue(many, {}).items;
+    expect(first.map((i) => i.plot)).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '20', '21', '30']);
+    // The first page ends at plot 5; meanwhile plots 1-5 and 20 are decided by someone else.
+    const cursor = queueCursor(first[4]);
+    expect(cursor).toBe('difference::5');
+    const now = reviewQueue({ ...many, decided: new Map([...many.decided, ...['1', '2', '3', '4', '5', '20'].map((p) => [p, 'first'] as [string, DecisionKind])]) }, {}).items;
+    expect(itemsAfter(now, parseCursor(cursor)!).map((i) => i.plot)).toEqual(['6', '7', '8', '9', '10', '11', '12', '21', '30']);
+    // Across parts, and from a flag whose plot was decided since.
+    expect(queueCursor(first[12])).toBe('flag:50:20');
+    expect(itemsAfter(now, parseCursor('flag:50:20')!).map((i) => i.plot)).toEqual(['21', '30']);
+    expect(itemsAfter(now, parseCursor('resubmitted:9:30')!)).toEqual([]);
+    for (const bad of ['', 'x:1:2', 'difference:', 'flag:abc:1', 'difference::']) expect(parseCursor(bad), bad).toBeNull();
+    // A plot id with colons.
+    expect(parseCursor('difference::a:b')).toEqual({ section: 0, at: null, plot: 'a:b' });
   });
 
   it('an empty queue', () => {
@@ -104,12 +131,12 @@ describe('bulkPlots: the two bulk rules', () => {
 
   it('first where the first assessment is a reviewer\'s and no differing check is; check where the latest check is and the first is not; only plots without a decision', () => {
     const decided = new Map<string, DecisionKind>([['5', 'recheck']]);
-    expect(bulkPlots(pairs, decided, reviewers, 'first_by_reviewer')).toEqual([{ plot: '1', decision: 'first' }]);
-    expect(bulkPlots(pairs, decided, reviewers, 'check_by_reviewer')).toEqual([
+    expect(bulkPlots(packPairs(pairs), decided, reviewers, 'first_by_reviewer')).toEqual([{ plot: '1', decision: 'first' }]);
+    expect(bulkPlots(packPairs(pairs), decided, reviewers, 'check_by_reviewer')).toEqual([
       { plot: '2', decision: 'check' },
       { plot: '7', decision: 'check' },
     ]);
-    expect(bulkPlots(pairs, new Map(), reviewers, 'first_by_reviewer').map((p) => p.plot)).toEqual(['1', '5']);
-    expect(bulkPlots(pairs, new Map(), new Set(), 'first_by_reviewer')).toEqual([]);
+    expect(bulkPlots(packPairs(pairs), new Map(), reviewers, 'first_by_reviewer').map((p) => p.plot)).toEqual(['1', '5']);
+    expect(bulkPlots(packPairs(pairs), new Map(), new Set(), 'first_by_reviewer')).toEqual([]);
   });
 });

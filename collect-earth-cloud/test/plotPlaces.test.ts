@@ -4,6 +4,9 @@ import { strFromU8, strToU8, unzipSync } from 'fflate';
 import { cepWith, idOnlyCep } from './fixtures/cep.js';
 import { MAX_PLACES } from '../src/routes/plotPlaces.js';
 
+/** The demo survey's plot outline. */
+const SQUARE = { kind: 'square', sideMeters: 70 };
+
 describe('POST /quality/places', () => {
   let ctx: TestContext;
   let project: Awaited<ReturnType<typeof createProject>>;
@@ -43,21 +46,23 @@ describe('POST /quality/places', () => {
     expect(res.statusCode, res.body).toBe(200);
     expect(res.json()).toEqual({
       places: [
-        { plot: '3', lat: 10.5, lon: -70.125 },
-        { plot: '1', lat: -12.5, lon: 30.25 },
-        { plot: '2', lat: 40, lon: -3.7 },
+        { plot: '3', lat: 10.5, lon: -70.125, name: '3' },
+        { plot: '1', lat: -12.5, lon: 30.25, name: '1' },
+        { plot: '2', lat: 40, lon: -3.7, name: '2' },
       ],
+      // The demo survey's plots: 49 points 10 m apart, 5 m from the border (SquareKmlGenerator).
+      outline: SQUARE,
     });
   });
 
   it('leaves out a plot whose coordinates are not numbers or out of range', async () => {
     await upload('a.csv', 'id,lat,lon\n1,north,3\n2,95,3\n3,1,200\n4,1,2\n');
-    expect((await places(['1', '2', '3', '4'])).json()).toEqual({ places: [{ plot: '4', lat: 1, lon: 2 }] });
+    expect((await places(['1', '2', '3', '4'])).json()).toEqual({ places: [{ plot: '4', lat: 1, lon: 2, name: '4' }], outline: SQUARE });
   });
 
   it('answers an empty list with no places, and with no plot file too', async () => {
-    expect((await places([])).json()).toEqual({ places: [] });
-    expect((await places(['1'])).json()).toEqual({ places: [] });
+    expect((await places([])).json()).toEqual({ places: [], outline: SQUARE });
+    expect((await places(['1'])).json()).toEqual({ places: [], outline: SQUARE });
   });
 
   it('refuses a list that is not one of up to MAX_PLACES plot ids', async () => {
@@ -80,7 +85,7 @@ describe('POST /quality/places', () => {
     });
     expect(put.statusCode, put.body).toBe(200);
     await upload('a.csv', 'id,x,y\n1,500000,4649776\n');
-    expect((await places(['1'])).json()).toEqual({ places: [], unsupportedSrs: 'EPSG:32633' });
+    expect((await places(['1'])).json()).toEqual({ places: [], outline: { kind: 'place' }, unsupportedSrs: 'EPSG:32633' });
   });
 
   it('reads each plot file once while it does not change, plots not found included', async () => {
@@ -91,21 +96,42 @@ describe('POST /quality/places', () => {
       reads += 1;
       return getCsvFile(...args);
     };
-    expect((await places(['1'])).json()).toEqual({ places: [{ plot: '1', lat: 1, lon: 2 }] });
-    expect((await places(['2', 'nope'])).json()).toEqual({ places: [{ plot: '2', lat: 3, lon: 4 }] });
+    expect((await places(['1'])).json()).toEqual({ places: [{ plot: '1', lat: 1, lon: 2, name: '1' }], outline: SQUARE });
+    expect((await places(['2', 'nope'])).json()).toEqual({ places: [{ plot: '2', lat: 3, lon: 4, name: '2' }], outline: SQUARE });
     expect(reads).toBe(1);
     // A changed file is read again.
     await upload('a.csv', 'id,lat,lon\n1,5,6\n');
-    expect((await places(['1'])).json()).toEqual({ places: [{ plot: '1', lat: 5, lon: 6 }] });
+    expect((await places(['1'])).json()).toEqual({ places: [{ plot: '1', lat: 5, lon: 6, name: '1' }], outline: SQUARE });
     expect(reads).toBe(2);
   });
 
-  it('is for coordinators of the project only', async () => {
+  it('is for coordinators and reviewers of the project only', async () => {
     await upload('a.csv', 'id,lat,lon\n1,1,2\n');
     expect((await places(['1'], bearer(project.projectToken))).statusCode).toBe(403);
     const other = await createProject(ctx.app, 'Other');
     expect((await places(['1'], bearer(other.adminToken))).statusCode).toBe(404);
     // The other project's coordinator asking about their own project sees nothing of this one.
-    expect((await places(['1'], bearer(other.adminToken), other.projectId)).json()).toEqual({ places: [] });
+    expect((await places(['1'], bearer(other.adminToken), other.projectId)).json()).toEqual({ places: [], outline: { kind: 'place' } });
+  });
+});
+
+describe('POST /quality/places: the plot as Collect Earth draws it', () => {
+  it('a plot file with polygons gives only the place; the name leaves out the keys hidden from the record list', async () => {
+    const ctx = await makeContext();
+    try {
+      const project = await createProject(ctx.app, 'Shapes');
+      const auth = bearer(project.adminToken);
+      // The survey with the round key added (hidden from the record list), as the dashboard adds it.
+      await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${project.projectId}/cep`, headers: { ...auth, 'content-type': 'application/zip' }, payload: idOnlyCep() });
+      const upload = (name: string, csv: string) =>
+        ctx.app.inject({ method: 'PUT', url: `/v1/projects/${project.projectId}/csv-files/${name}`, headers: { ...auth, 'content-type': 'text/csv' }, payload: csv });
+      await upload('a.csv', ['id,lat,lon', '1,1,2', ''].join('\n'));
+      const ask = async () => (await ctx.app.inject({ method: 'POST', url: `/v1/projects/${project.projectId}/quality/places`, headers: auth, payload: { plots: ['1'] } })).json();
+      expect(await ask()).toEqual({ places: [{ plot: '1', lat: 1, lon: 2, name: '1' }], outline: SQUARE });
+      await upload('a.csv', ['id,lat,lon,shape', '1,1,2,"POLYGON((2 1, 2.001 1, 2.001 1.001, 2 1))"', ''].join('\n'));
+      expect((await ask()).outline).toEqual({ kind: 'place' });
+    } finally {
+      await ctx.app.close();
+    }
   });
 });

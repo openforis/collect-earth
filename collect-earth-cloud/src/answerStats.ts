@@ -7,7 +7,7 @@
 //   table's rows, cheap enough to be done per request and kept for a few filters.
 import { flagBuffers, flagTable, type FlagTable } from './flags.js';
 import { dayInZone } from './progress.js';
-import { keyRule, MIN_PLOTS, qualityReport, recordResolver, type QualityInput, type QualityReport } from './quality.js';
+import { keyRule, MIN_PLOTS, pairBuffers, qualityReport, recordResolver, type DifferingPairs, type QualityInput, type QualityReport } from './quality.js';
 import { QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR } from './surveyOutline.js';
 import { checkedPlots, healthBuffers, healthTable, type HealthTable } from './surveyHealth.js';
 
@@ -164,13 +164,14 @@ export function qualityFigures(input: QualityInput): QualityFigures {
 }
 
 /** The typed arrays of the tables, to hand them over between threads without copying. */
-export function tableBuffers(t: AnswerTable, f?: FlagTable, h?: HealthTable): ArrayBuffer[] {
+export function tableBuffers(t: AnswerTable, f?: FlagTable, h?: HealthTable, pairs?: DifferingPairs): ArrayBuffer[] {
   const out: ArrayBuffer[] = [];
   const add = (a: ArrayBufferView | null) => {
     if (a && a.byteLength > 0 && !out.includes(a.buffer as ArrayBuffer)) out.push(a.buffer as ArrayBuffer);
   };
   if (f) for (const a of flagBuffers(f)) add(a);
   if (h) for (const a of healthBuffers(h)) add(a);
+  if (pairs) for (const a of pairBuffers(pairs)) add(a);
   add(t.operator);
   add(t.unit);
   add(t.time);

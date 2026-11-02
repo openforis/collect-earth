@@ -29,6 +29,7 @@ import {
   type BulkResult,
   type BulkRule,
   type DecisionKind,
+  type PlotOutline,
   type PlotPlace,
   type QualityDecision,
   type QueueFilter,
@@ -138,6 +139,7 @@ function Bulk({ projectId, onDone }: { projectId: string; onDone: (count: number
           <DialogContent>
             <Stack spacing={1.5}>
               <Typography id="bulk-text">{count === 0 ? t("queue.bulkNone") : t(BULK_CONFIRM[dry.rule], { decision: t(DECISION_LABEL[dry.result.decision]) })}</Typography>
+              <Typography variant="body2">{t("queue.bulkRoles")}</Typography>
               {count > 0 && (
                 <Typography variant="body2" color="text.secondary" sx={{ wordBreak: "break-word" }}>
                   {t("queue.bulkPlots", { plots: dry.result.plots.join(", ") })}
@@ -170,6 +172,7 @@ function QueueCard({
   total,
   decision,
   place,
+  outline,
   labels,
   data,
   busy,
@@ -188,6 +191,7 @@ function QueueCard({
   total: number;
   decision: QualityDecision | null;
   place: PlotPlace | null | undefined;
+  outline: PlotOutline;
   labels: (key: string) => string;
   data: ReviewQueueData;
   busy: boolean;
@@ -231,18 +235,24 @@ function QueueCard({
               {t("quality.googleEarth")}
               <OpenInNew fontSize="small" aria-hidden />
             </Link>
-            <Link href={earthMapUrl(item.plot, place.lat, place.lon)} target="_blank" rel="noopener noreferrer" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
-              {t("queue.earthMap")}
+            <Link
+              href={earthMapUrl(place.name, place.lat, place.lon, outline)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={outline.kind === "place" ? t("queue.earthMapPlaceTitle") : undefined}
+              sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
+            >
+              {t(outline.kind === "place" ? "queue.earthMapPlace" : "queue.earthMap")}
               <OpenInNew fontSize="small" aria-hidden />
             </Link>
           </Stack>
         )}
         {item.differences.map((d) =>
-          d.fields.length > 0 ? (
+          d.fields.length > 0 && !d.changed ? (
             <CheckAnswers key={`${d.check.operator}\u0000${d.check.recordKey}`} difference={d} label={labels} options={data.options} />
           ) : (
             <Alert key={`${d.check.operator}\u0000${d.check.recordKey}`} severity="info">
-              {t("queue.answersMissing", { first: d.first.operator, check: d.check.operator })}
+              {t("queue.answersChanged", { first: d.first.operator, check: d.check.operator })}
             </Alert>
           ),
         )}
@@ -278,6 +288,11 @@ function QueueCard({
             {(decision.decidedBy || decision.decidedAt !== null) && (
               <Typography variant="body2" color="text.secondary">
                 {decision.decidedBy ? t("quality.decidedBy", { name: decision.decidedBy, time: formatDate(decision.decidedAt, language) }) : formatDate(decision.decidedAt, language)}
+              </Typography>
+            )}
+            {decision.byAssessor && (
+              <Typography variant="body2" color="text.secondary">
+                {t("quality.byAssessor")}
               </Typography>
             )}
             <Button size="small" onClick={onUndo} disabled={busy} aria-describedby={headingId}>
@@ -363,10 +378,20 @@ export function ReviewQueue({
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const [announce, setAnnounce] = useState("");
+  const [announce, setAnnouncement] = useState("");
+  const announceTimer = useRef<number | undefined>(undefined);
+  /** Says a text to screen readers; the region is emptied first, so the same text twice is said twice. */
+  const setAnnounce = useCallback((text: string) => {
+    setAnnouncement("");
+    window.clearTimeout(announceTimer.current);
+    announceTimer.current = window.setTimeout(() => setAnnouncement(text), 60);
+  }, []);
+  useEffect(() => () => window.clearTimeout(announceTimer.current), []);
   /** What the last bulk decision did (shown, and announced by the alert's status role). */
   const [bulkDone, setBulkDone] = useState<string | null>(null);
   const [places, setPlaces] = useState<Map<string, PlotPlace | null>>(new Map());
+  /** The outline Collect Earth draws around each plot (the same for every plot of the survey). */
+  const [outline, setOutline] = useState<PlotOutline>({ kind: "place" });
   const [unsupportedSrs, setUnsupportedSrs] = useState<string | null>(null);
   const cardRef = useRef<HTMLElement | null>(null);
   const commentRef = useRef<HTMLTextAreaElement | null>(null);
@@ -374,20 +399,20 @@ export function ReviewQueue({
   const focusCard = useRef(false);
 
   const load = useCallback(
-    (offset: number) => {
+    (after: string | null) => {
       const call = ++latest.current;
       setLoading(true);
       setLoadError(null);
-      getReviewQueue(projectId, filter, offset).then(
+      getReviewQueue(projectId, filter, after).then(
         (answer) => {
           if (call !== latest.current) return;
           setData(answer);
           setItems((prev) => {
-            if (offset === 0) return answer.items;
+            if (after === null) return answer.items;
             const known = new Set(prev.map((i) => i.plot));
             return [...prev, ...answer.items.filter((i) => !known.has(i.plot))];
           });
-          if (offset === 0) {
+          if (after === null) {
             setIndex(0);
             setLocal(new Map());
             setDecidedHere(new Set());
@@ -404,7 +429,7 @@ export function ReviewQueue({
     },
     [projectId, filter],
   );
-  useEffect(() => load(0), [load]);
+  useEffect(() => load(null), [load]);
 
   const current = items[Math.min(index, Math.max(0, items.length - 1))] as QueueItem | undefined;
   const decisionOf = (item: QueueItem): QualityDecision | null => (local.has(item.plot) ? local.get(item.plot)! : item.decision);
@@ -424,6 +449,7 @@ export function ReviewQueue({
           return;
         }
         const found = new Map(answer.places.map((place) => [place.plot, place]));
+        setOutline(answer.outline);
         setPlaces((old) => new Map([...old, ...asked.map((plot) => [plot, found.get(plot) ?? null] as const)]));
       },
       () => undefined,
@@ -518,6 +544,10 @@ export function ReviewQueue({
       ctrlKey: e.ctrlKey,
       metaKey: e.metaKey,
       altKey: e.altKey,
+      repeat: e.repeat,
+      composing: e.nativeEvent.isComposing,
+      // React sends a portal's keys (the bulk dialog's) up its tree: only those pressed in the section count.
+      inside: e.target instanceof Node && e.currentTarget.contains(e.target),
       target: target && { tagName: target.tagName, type: (target as HTMLInputElement).type, isContentEditable: target.isContentEditable, getAttribute: (n) => target.getAttribute(n) },
     });
     if (action === null) return;
@@ -559,11 +589,11 @@ export function ReviewQueue({
         </Box>
         {!data && loading && <Loading />}
         {busyFigures && (
-          <Alert severity="info" role="status" action={<Button color="inherit" size="small" onClick={() => load(0)}>{t("common.retry")}</Button>}>
+          <Alert severity="info" role="status" action={<Button color="inherit" size="small" onClick={() => load(null)}>{t("common.retry")}</Button>}>
             {t("quality.busy")}
           </Alert>
         )}
-        {loadError !== null && !busyFigures && <ErrorAlert error={loadError} onRetry={() => load(0)} />}
+        {loadError !== null && !busyFigures && <ErrorAlert error={loadError} onRetry={() => load(null)} />}
         {data && (
           <Stack spacing={2} sx={{ opacity: loading ? 0.6 : 1, transition: "opacity 120ms" }} aria-busy={loading}>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
@@ -601,7 +631,7 @@ export function ReviewQueue({
             </Typography>
             {data.stale && (
               <Box>
-                <Button size="small" variant="outlined" onClick={() => load(0)}>
+                <Button size="small" variant="outlined" onClick={() => load(null)}>
                   {t("queue.refresh")}
                 </Button>
               </Box>
@@ -617,7 +647,7 @@ export function ReviewQueue({
                 projectId={projectId}
                 onDone={(count) => {
                   setBulkDone(t("queue.bulkDone", { n: formatNumber(count, language) }));
-                  load(0);
+                  load(null);
                   onBulk?.();
                 }}
               />
@@ -633,6 +663,7 @@ export function ReviewQueue({
                   total={data.total}
                   decision={decisionOf(current)}
                   place={places.get(current.plot)}
+                  outline={outline}
                   labels={labels}
                   data={data}
                   busy={busy}
@@ -649,9 +680,9 @@ export function ReviewQueue({
               )
             )}
             {error !== null && <ErrorAlert error={error} />}
-            {items.length > 0 && items.length < data.total && index >= items.length - 1 && (
+            {items.length > 0 && data.next !== null && index >= items.length - 1 && (
               <Box>
-                <Button variant="outlined" size="small" onClick={() => load(Math.max(0, items.length - decidedHere.size))} disabled={loading}>
+                <Button variant="outlined" size="small" onClick={() => load(data.next)} disabled={loading || data.next === null}>
                   {t("queue.loadMore", { loaded: formatNumber(items.length, language), total: formatNumber(data.total, language) })}
                 </Button>
               </Box>

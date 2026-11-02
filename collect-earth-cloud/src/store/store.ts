@@ -242,6 +242,12 @@ export interface Store {
    * (firstSubmittedOn, as listRecordStates): for the quality figures' pattern flags.
    */
   listRecordSummaries(projectId: string, options?: { firstSubmissions?: boolean }): Promise<RecordRow[]>;
+  /**
+   * Some records by key and operator, with their summaries and without XML (deleted ones
+   * too; those that do not exist are left out): the review queue's plots beyond the listed
+   * differences, in one read.
+   */
+  getRecordSummaries(projectId: string, keys: readonly { recordKey: string; operator: string }[]): Promise<RecordRow[]>;
 
   /**
    * Which records there are, whether each is submitted and when it was first submitted
@@ -289,6 +295,7 @@ export interface Store {
     decisions: readonly { plot: string; decision: DecisionKind; seen: { operator: string; hash: number }[] | null }[],
     comment: string | null,
     userId: string | null,
+    batch: string,
   ): Promise<string[]>;
   /** False when the plot had no decision. */
   deleteQualityDecision(projectId: string, plot: string): Promise<boolean>;

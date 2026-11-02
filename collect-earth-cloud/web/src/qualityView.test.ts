@@ -178,7 +178,7 @@ describe("the differences", () => {
   });
 
   it("puts a decision in place of the plot's earlier one, or takes it away", () => {
-    const decision = (plot: string, kind: "first" | "check"): QualityDecision => ({ plot, decision: kind, comment: null, decidedBy: "x", decidedAt: 1 });
+    const decision = (plot: string, kind: "first" | "check"): QualityDecision => ({ plot, decision: kind, comment: null, decidedBy: "x", decidedAt: 1, byAssessor: false });
     const list = [decision("1", "first"), decision("2", "first")];
     expect(withDecision(list, "1", decision("1", "check"))).toEqual([decision("2", "first"), decision("1", "check")]);
     expect(withDecision(list, "2", null)).toEqual([decision("1", "first")]);

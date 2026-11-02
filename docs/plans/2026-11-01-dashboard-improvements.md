@@ -59,6 +59,10 @@ desktop.
    neither `GET /quality` (the whole report), the notes, the team report nor the AI
    assistant: the queue (`GET /quality/queue`) gives them each plot's two answers, its
    flags and its decision, and where it is (`POST /quality/places`).
+   **Not their own plots:** a reviewer may not decide (nor undo the decision of) a plot of
+   which they made the first assessment or a check (409 `own_plot`, "someone else decides
+   it"); a coordinator may, and the decision then says "Decided by someone who assessed this
+   plot" (`byAssessor`).
 4. **Collectors are told** on the join page and on "My work" that coordinators see
    when and how much they work (as the monitoring plan says).
 5. **Email** is built behind a transport that is off unless SMTP is configured; the
@@ -1238,6 +1242,78 @@ keyboard handling helper.
   "saved again" are not in the queue; reviewers trusted for the bulk rules include coordinators;
   a decision made in the differences list reaches the queue only on reload; a save received in
   the same millisecond as the decision is not "after" it (as Task 5).
+
+- **Review (after 8a96aa44; supersedes the above where it says so):**
+  - **Keys from the bulk dialog** (an MUI portal: React sends its keys up the component tree to
+    the section) no longer decide the plot behind it: `QueueKey.inside` (the DOM target inside
+    the section, `currentTarget.contains`) must hold. **A held key** decides once: 1/2/3 and C
+    are ignored when `repeat` (J/K repeat). **IME:** nothing while `isComposing`. An
+    announcement the same as the last is said again (the live region is emptied first).
+  - **Earth Map draws the plot as Collect Earth does** (`src/plotShape.ts`, from the CEP's
+    `project_definition.properties`, read with the survey's facts and cached per served file):
+    SQUARE and SQUARE_CIRCLE a square of side `distance × ((int)√points + 1 − 2) + 2 ×
+    boundary` (SquareKmlGenerator; the demo survey 49 points, 10 m, 5 m: 70 m), top-left first,
+    clockwise; CIRCLE 130 vertices and HEXAGON 6 at `distance + 5 m` (CircleKmlGenerator's
+    margin), each offset rounded to whole metres. Metres to degrees on the WGS84 ellipsoid
+    (`outlineRing`, web; tests against the Java numbers). NFMA, the NFI circles and plot files
+    with a polygon column (KML, WKT, GeoJSON in the first row, as KmlGeneratorService decides)
+    give only the place: the 100 m marker square, and the link says "Open in Earth Map (the place
+    only)" with a tooltip that it marks the place, not the plot's shape. (Drawing the file's own
+    polygons was left out: their geometry would have to be kept per plot.) The feature is named
+    by the id the collector sees (`visibleId`: the keys hidden from the record list left out, as
+    KmlGenerator.getVisiblePlacemarkId; a unit already without its hidden round part stays as
+    it is). `POST /quality/places` → `{ places: [{ plot, lat, lon, name }], outline,
+    unsupportedSrs? }`.
+  - **Pages by cursor:** `GET /quality/queue?after=<part>:<time>:<plot>` (the answer's `next`,
+    null on the last page) replaces `offset`: the plots after that place in the order (plot
+    order for differences, newest first then plot for the others), so plots decided meanwhile
+    by someone else make none skipped (route test with two people deciding; unit tests across
+    parts and from a cursor whose plot was decided). 400 for a cursor that is not one.
+  - **Plots beyond the 500 listed** are read in one query (`store.getRecordSummaries(projectId,
+    keys)`, summaries without XML, deleted ones too; both stores; Postgres a join on unnest):
+    68 ms for 200 records in the smoke (was 212-272 ms with 200 `getRecord`). A pair whose
+    records no longer differ (or one is gone) comes with `changed: true` and the page says the
+    records changed since the figures and to show the newer ones.
+  - **Pairs compact:** `DifferingPairs` (plot, first and check record keys as string arrays, a
+    people table, `first`/`check` Uint32Array, `latest` Uint8Array), built without an object per
+    pair, its arrays handed over from the worker like the flag table's (`tableBuffers`). At
+    200,000 pairs (`MAX_PAIRS`, kept) about 22 MB of heap, against 53 MB as objects (measured with
+    `--expose-gc`, strings copied as after a structured clone). The queue items keep pair indexes;
+    objects are made only for the page shown.
+  - **The person menu** names everyone in the queue whatever the filters (everyone's flags are
+    worked out too when a person or a flag kind is asked for; flags of decided plots do not add
+    their person).
+  - **Bulk runs found as a whole:** migration **016** adds `quality_decisions.decided_batch
+    UUID` (indexed); each bulk run has an id kept on its decisions and in its `decision.bulk`
+    audit entry (`{ rule, decision, count, batch }`) and in the answer (`batch`). A single
+    decision made afterwards clears it. Undoing a run is not built.
+  - **Own plots** (Decision 3): a reviewer gets 409 `own_plot` deciding or undoing a plot of which
+    they have a saved record (first assessment or check, drafts too, as the figures hold them;
+    the figures are worked out for a reviewer when none are at hand); a coordinator may, and
+    decisions carry `byAssessor` (GET /quality, the queue, the PUT answer), shown as "Decided by
+    someone who assessed this plot" in the queue and the differences list. Limit: a record sent
+    after the figures were worked out is not known yet.
+  - **The bulk confirmation** says that reviewers and coordinators are counted by their role in
+    the project now and that someone removed never counts.
+  - **Texts:** 6 keys × 4 languages (`quality.ownPlot`, `quality.byAssessor`,
+    `queue.answersChanged` in place of `queue.answersMissing`, `queue.earthMapPlace`,
+    `queue.earthMapPlaceTitle`, `queue.bulkRoles`).
+  - **Tests:** server 839 (was 829: `plotShape.test.ts` 5 — the square and circle numbers, the
+    shapes given only as a place, polygon columns, visible ids; queue unit 6 (cursor, person
+    menu); queue routes 6 (cursor with two deciders, own plot 409 / byAssessor, a changed pair
+    with the figures kept, batch ids); places with outline and name), web 267 (was 262: keys
+    held / IME / outside the section, the outline ring in metres for a square, a circle and a
+    hexagon, the URL; the api's cursor, changed, byAssessor, outline, batch), tsc clean in both,
+    web build ok.
+  - **Postgres smoke:** 015 and **016** applied twice; the queue 41-51 ms, after the 3,000th
+    differing plot (200 records in one query) 68 ms; bulk 833 plots in 42 ms, each with the
+    run's id, the earlier single decision without one. ALL OK; the Task 1 smoke ALL OK.
+  - **Chrome** (seeded memory server, built dashboard): 1, J and Escape pressed in the bulk
+    dialog did not decide or move the plot behind it; a held 1 (repeat) did not decide, a held J
+    moved, a plain 1 decided and the announcement said so; the Earth Map polygon of the demo
+    survey 70 m wide; the reviewer pressing 2 on a plot she checked got "You made the first
+    assessment or a check of this plot, so someone else decides it." No console errors besides
+    that 409.
 
 ## Part C: following the work
 

@@ -1105,7 +1105,6 @@ const en = {
   "queue.resubmittedBy": "{name} submitted it again on {time} (decided on {decided}).",
   "queue.noCheck": "This plot has no check: “First is right” keeps its assessment as it is.",
   "queue.checkNotApplicable": "Plot {plot} has no check, so “Check is right” does not apply.",
-  "queue.answersMissing": "The answers of {first} and {check} could not be read: one of the records may have been deleted.",
   "queue.decidedAnnounce": "Plot {plot}: {decision}.",
   "queue.nowAnnounce": "Now plot {plot}, {n} of {total}.",
   "queue.undoneAnnounce": "Plot {plot}: the decision was undone.",
@@ -1127,6 +1126,12 @@ const en = {
   "queue.bulkNone": "No plot to decide: none without a decision fits this rule.",
   "queue.bulkDo": "Decide them ({n})",
   "queue.bulkDone": "Plots decided: {n}.",
+  "quality.ownPlot": "You made the first assessment or a check of this plot, so someone else decides it.",
+  "quality.byAssessor": "Decided by someone who assessed this plot.",
+  "queue.answersChanged": "The records of {first} and {check} changed since these figures were worked out (their answers no longer differ, or one was deleted): show the newer figures.",
+  "queue.earthMapPlace": "Open in Earth Map (the place only)",
+  "queue.earthMapPlaceTitle": "Earth Map shows a square marking where the plot is, not the plot’s own shape.",
+  "queue.bulkRoles": "Reviewers and coordinators are counted by their role in the project now; someone removed from the project never counts.",
 };
 
 export type MessageKey = keyof typeof en;
@@ -2232,7 +2237,6 @@ const es: Catalogue = {
   "queue.resubmittedBy": "{name} la envió de nuevo el {time} (decidida el {decided}).",
   "queue.noCheck": "Esta parcela no tiene control: «La primera es correcta» deja su evaluación como está.",
   "queue.checkNotApplicable": "La parcela {plot} no tiene control, así que «El control es correcto» no se aplica.",
-  "queue.answersMissing": "No se pudieron leer las respuestas de {first} y {check}: puede que uno de los registros se haya borrado.",
   "queue.decidedAnnounce": "Parcela {plot}: {decision}.",
   "queue.nowAnnounce": "Ahora la parcela {plot}, {n} de {total}.",
   "queue.undoneAnnounce": "Parcela {plot}: se deshizo la decisión.",
@@ -2254,6 +2258,12 @@ const es: Catalogue = {
   "queue.bulkNone": "Ninguna parcela por decidir: ninguna sin decisión cumple esta regla.",
   "queue.bulkDo": "Decidirlas ({n})",
   "queue.bulkDone": "Parcelas decididas: {n}.",
+  "quality.ownPlot": "Usted hizo la primera evaluación o un control de esta parcela, así que la decide otra persona.",
+  "quality.byAssessor": "Decidida por alguien que evaluó esta parcela.",
+  "queue.answersChanged": "Los registros de {first} y {check} cambiaron desde que se calcularon estas cifras (sus respuestas ya no difieren, o uno se borró): muestre las cifras más nuevas.",
+  "queue.earthMapPlace": "Abrir en Earth Map (solo el lugar)",
+  "queue.earthMapPlaceTitle": "Earth Map muestra un cuadrado que marca dónde está la parcela, no la forma de la parcela.",
+  "queue.bulkRoles": "Los revisores y coordinadores se cuentan por su rol actual en el proyecto; quien fue quitado del proyecto nunca cuenta.",
 };
 
 const fr: Catalogue = {
@@ -3356,7 +3366,6 @@ const fr: Catalogue = {
   "queue.resubmittedBy": "{name} l’a envoyée de nouveau le {time} (décidée le {decided}).",
   "queue.noCheck": "Cette parcelle n’a pas de contrôle : « La première est juste » garde son évaluation telle quelle.",
   "queue.checkNotApplicable": "La parcelle {plot} n’a pas de contrôle : « Le contrôle est juste » ne s’applique pas.",
-  "queue.answersMissing": "Les réponses de {first} et de {check} n’ont pas pu être lues : l’un des enregistrements a peut-être été supprimé.",
   "queue.decidedAnnounce": "Parcelle {plot} : {decision}.",
   "queue.nowAnnounce": "Maintenant la parcelle {plot}, {n} sur {total}.",
   "queue.undoneAnnounce": "Parcelle {plot} : la décision a été annulée.",
@@ -3378,6 +3387,12 @@ const fr: Catalogue = {
   "queue.bulkNone": "Aucune parcelle à décider : aucune sans décision ne correspond à cette règle.",
   "queue.bulkDo": "Les décider ({n})",
   "queue.bulkDone": "Parcelles décidées : {n}.",
+  "quality.ownPlot": "Vous avez fait la première évaluation ou un contrôle de cette parcelle : quelqu’un d’autre la décide.",
+  "quality.byAssessor": "Décidée par quelqu’un qui a évalué cette parcelle.",
+  "queue.answersChanged": "Les enregistrements de {first} et de {check} ont changé depuis le calcul de ces chiffres (leurs réponses ne diffèrent plus, ou l’un a été supprimé) : affichez les chiffres plus récents.",
+  "queue.earthMapPlace": "Ouvrir dans Earth Map (le lieu seulement)",
+  "queue.earthMapPlaceTitle": "Earth Map montre un carré qui marque où est la parcelle, pas la forme de la parcelle.",
+  "queue.bulkRoles": "Les réviseurs et coordinateurs sont comptés selon leur rôle actuel dans le projet ; une personne retirée du projet ne compte jamais.",
 };
 
 const pt: Catalogue = {
@@ -4480,7 +4495,6 @@ const pt: Catalogue = {
   "queue.resubmittedBy": "{name} a enviou de novo em {time} (decidida em {decided}).",
   "queue.noCheck": "Esta parcela não tem controle: “A primeira está certa” mantém a avaliação como está.",
   "queue.checkNotApplicable": "A parcela {plot} não tem controle, então “O controle está certo” não se aplica.",
-  "queue.answersMissing": "Não foi possível ler as respostas de {first} e {check}: um dos registros pode ter sido apagado.",
   "queue.decidedAnnounce": "Parcela {plot}: {decision}.",
   "queue.nowAnnounce": "Agora a parcela {plot}, {n} de {total}.",
   "queue.undoneAnnounce": "Parcela {plot}: a decisão foi desfeita.",
@@ -4502,6 +4516,12 @@ const pt: Catalogue = {
   "queue.bulkNone": "Nenhuma parcela para decidir: nenhuma sem decisão se encaixa nesta regra.",
   "queue.bulkDo": "Decidi-las ({n})",
   "queue.bulkDone": "Parcelas decididas: {n}.",
+  "quality.ownPlot": "Você fez a primeira avaliação ou um controle desta parcela, então outra pessoa a decide.",
+  "quality.byAssessor": "Decidida por alguém que avaliou esta parcela.",
+  "queue.answersChanged": "Os registros de {first} e {check} mudaram desde que estes números foram calculados (as respostas não diferem mais, ou um foi apagado): mostre os números mais novos.",
+  "queue.earthMapPlace": "Abrir no Earth Map (só o lugar)",
+  "queue.earthMapPlaceTitle": "O Earth Map mostra um quadrado que marca onde está a parcela, não a forma da parcela.",
+  "queue.bulkRoles": "Revisores e coordenadores contam pelo papel que têm agora no projeto; quem foi removido do projeto nunca conta.",
 };
 
 export const CATALOGUES = { en, es, fr, pt } satisfies Record<string, Catalogue>;

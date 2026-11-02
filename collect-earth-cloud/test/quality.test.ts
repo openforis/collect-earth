@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RoundInfo } from '../src/cep.js';
-import { aiSafeValue, checkMargins, finalAnswers, marginKey, isoWeek, MIN_PLOTS, pairFields, qualityReport, recordsOfPlot, type QualityInput, type QualityRecord } from '../src/quality.js';
+import { answerTable, tableBuffers } from '../src/answerStats.js';
+import { aiSafeValue, checkMargins, finalAnswers, marginKey, isoWeek, MIN_PLOTS, pairAt, pairFields, qualityReport, recordsOfPlot, type QualityInput, type QualityRecord } from '../src/quality.js';
 import type { Question } from '../src/surveyOutline.js';
 
 const added: RoundInfo = {
@@ -427,14 +428,18 @@ describe('qualityReport: every differing pair, for the review queue (Task 7)', (
     const units = new Set(Array.from({ length: 900 }, (_, i) => String(i + 1)));
     const report = qualityReport(input(records, { units }));
     expect(report.differences).toHaveLength(500);
-    expect(report.pairs).toHaveLength(601);
-    expect(report.pairs.map((p) => p.plot).slice(0, 6)).toEqual(['1', '2', '4', '5', '7', '7']);
-    expect(report.pairs.filter((p) => p.plot === '7')).toEqual([
+    const all = report.pairs.plot.map((_, i) => pairAt(report.pairs, i));
+    expect(all).toHaveLength(601);
+    expect(all.map((p) => p.plot).slice(0, 6)).toEqual(['1', '2', '4', '5', '7', '7']);
+    expect(all.filter((p) => p.plot === '7')).toEqual([
       { plot: '7', first: { operator: 'ana', recordKey: '7,1' }, check: { operator: 'ben', recordKey: '7,2' }, latest: false },
       { plot: '7', first: { operator: 'ana', recordKey: '7,1' }, check: { operator: 'carl', recordKey: '7,2' }, latest: true },
     ]);
-    expect(report.pairs.at(-1)).toMatchObject({ plot: '899', latest: true });
-    expect(Object.keys(report.pairs[0]).sort()).toEqual(['check', 'first', 'latest', 'plot']);
+    expect(all.at(-1)).toMatchObject({ plot: '899', latest: true });
+    // Compact: a table of the people named, typed arrays handed over between threads.
+    expect(report.pairs.people).toEqual(['ana', 'ben', 'carl']);
+    expect(report.pairs.first).toBeInstanceOf(Uint32Array);
+    expect(tableBuffers(answerTable(input(records, { units })), undefined, undefined, report.pairs)).toContain(report.pairs.check.buffer);
   });
 
   it('pairFields gives the differing answers of a pair as the report does (blanks on both sides, excluded keys, margins, several values)', () => {

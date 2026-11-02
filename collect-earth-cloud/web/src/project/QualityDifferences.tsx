@@ -25,6 +25,7 @@ import {
   type AnswerOptions,
   type DecisionKind,
   type Difference,
+  type PlotOutline,
   type PlotPlace,
   type QualityData,
   type QualityDecision,
@@ -99,6 +100,7 @@ function PlotDifferences({
   plot,
   checks,
   place,
+  outline,
   decision,
   label,
   options,
@@ -108,6 +110,7 @@ function PlotDifferences({
   plot: string;
   checks: Difference[];
   place: PlotPlace | undefined;
+  outline: PlotOutline;
   decision: QualityDecision | undefined;
   label: (key: string) => string;
   options: AnswerOptions;
@@ -170,12 +173,13 @@ function PlotDifferences({
           )}
           {place && (
             <Link
-              href={earthMapUrl(plot, place.lat, place.lon)}
+              href={earthMapUrl(place.name, place.lat, place.lon, outline)}
+              title={outline.kind === "place" ? t("queue.earthMapPlaceTitle") : undefined}
               target="_blank"
               rel="noopener noreferrer"
               sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
             >
-              {t("queue.earthMap")}
+              {t(outline.kind === "place" ? "queue.earthMapPlace" : "queue.earthMap")}
               <OpenInNew fontSize="small" aria-hidden />
             </Link>
           )}
@@ -197,6 +201,11 @@ function PlotDifferences({
                 {decision.decidedBy
                   ? t("quality.decidedBy", { name: decision.decidedBy, time: formatDate(decision.decidedAt, language) })
                   : formatDate(decision.decidedAt, language)}
+              </Typography>
+            )}
+            {decision.byAssessor && (
+              <Typography variant="body2" color="text.secondary">
+                {t("quality.byAssessor")}
               </Typography>
             )}
           </Stack>
@@ -250,6 +259,8 @@ export function QualityDifferences({
   const [places, setPlaces] = useState<Map<string, PlotPlace | null>>(new Map());
   // The survey's coordinate system when it is not latitude and longitude: no links then.
   const [unsupportedSrs, setUnsupportedSrs] = useState<string | null>(null);
+  /** The outline Collect Earth draws around each plot, for the Earth Map links. */
+  const [outline, setOutline] = useState<PlotOutline>({ kind: "place" });
   const top = useRef<HTMLElement | null>(null);
 
   const listed = hideDecided ? groups.filter((g) => !decisions.has(g.plot)) : groups;
@@ -298,6 +309,7 @@ export function QualityDifferences({
           return;
         }
         const found = new Map(answer.places.map((place) => [place.plot, place]));
+        setOutline(answer.outline);
         setPlaces((old) => new Map([...old, ...asked.map((plot) => [plot, found.get(plot) ?? null] as const)]));
       },
       () => undefined,
@@ -329,6 +341,7 @@ export function QualityDifferences({
                 plot={g.plot}
                 checks={g.checks}
                 place={places.get(g.plot) ?? undefined}
+                outline={outline}
                 decision={decisions.get(g.plot)}
                 label={label}
                 options={data.options}

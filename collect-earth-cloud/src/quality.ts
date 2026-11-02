@@ -133,6 +133,78 @@ export interface DifferingPairRef {
   latest: boolean;
 }
 
+/** Differing pairs, compactly: pair i is plot[i], its first and check records by person index and key. */
+export interface DifferingPairs {
+  plot: string[];
+  firstKey: string[];
+  checkKey: string[];
+  /** The people named, by index. */
+  people: string[];
+  first: Uint32Array;
+  check: Uint32Array;
+  /** 1 when the check is the plot's latest. */
+  latest: Uint8Array;
+}
+
+/** Builds the compact pairs one by one (no object per pair). */
+export function pairBuilder() {
+  const people: string[] = [];
+  const index = new Map<string, number>();
+  const of = (name: string) => {
+    let i = index.get(name);
+    if (i === undefined) {
+      i = people.length;
+      people.push(name);
+      index.set(name, i);
+    }
+    return i;
+  };
+  const plot: string[] = [];
+  const firstKey: string[] = [];
+  const checkKey: string[] = [];
+  const first: number[] = [];
+  const check: number[] = [];
+  const latest: number[] = [];
+  return {
+    get size() {
+      return plot.length;
+    },
+    add(r: DifferingPairRef): void {
+      plot.push(r.plot);
+      firstKey.push(r.first.recordKey);
+      checkKey.push(r.check.recordKey);
+      first.push(of(r.first.operator));
+      check.push(of(r.check.operator));
+      latest.push(r.latest ? 1 : 0);
+    },
+    done(): DifferingPairs {
+      return { plot, firstKey, checkKey, people, first: Uint32Array.from(first), check: Uint32Array.from(check), latest: Uint8Array.from(latest) };
+    },
+  };
+}
+
+/** Packs differing pairs (in their order). */
+export function packPairs(refs: readonly DifferingPairRef[]): DifferingPairs {
+  const b = pairBuilder();
+  for (const r of refs) b.add(r);
+  return b.done();
+}
+
+/** Pair i as an object. */
+export function pairAt(p: DifferingPairs, i: number): DifferingPairRef {
+  return {
+    plot: p.plot[i],
+    first: { operator: p.people[p.first[i]], recordKey: p.firstKey[i] },
+    check: { operator: p.people[p.check[i]], recordKey: p.checkKey[i] },
+    latest: p.latest[i] === 1,
+  };
+}
+
+/** The typed arrays of the pairs, to hand them over between threads without copying. */
+export function pairBuffers(p: DifferingPairs): ArrayBufferView[] {
+  return [p.first, p.check, p.latest];
+}
+
 export type DataProblemKind = 'no_plot' | 'unknown_round' | 'two_main' | 'extra_key_parts';
 
 export interface DataProblem {
@@ -155,9 +227,11 @@ export interface QualityReport {
   /**
    * Every differing pair (up to MAX_PAIRS), in the same order, without the answers: for the
    * review queue (a plot beyond the listed differences has its answers read when shown) and
-   * the bulk decisions. Not sent with GET /quality.
+   * the bulk decisions. Not sent with GET /quality. Kept as string tables and typed arrays
+   * (handed over from the worker without copying): 200,000 pairs hold about 22 MB, against
+   * 53 MB as objects.
    */
-  pairs: DifferingPairRef[];
+  pairs: DifferingPairs;
   /** Up to MAX_PROBLEMS, in plot order. */
   problems: DataProblem[];
   problemsTotal: number;
@@ -412,13 +486,13 @@ export function qualityReport(input: QualityInput, onCheckedPlot?: (plot: string
   differingPairs.sort((x, y) => plotOrder(x.plot, y.plot) || order(x.check.operator, y.check.operator));
   const confusions: Confusion[] = [];
   const differences: Difference[] = [];
-  const pairs: DifferingPairRef[] = [];
+  const pairs = pairBuilder();
   // Each first assessor's share of each confusion (same key, answers), by person index.
   const personConfusions = new Map<number, Map<Confusion, Confusion>>();
   for (const pair of differingPairs) {
     const { first, check, plot } = pair;
-    if (pairs.length < MAX_PAIRS) {
-      pairs.push({ plot, first: { operator: first.operator, recordKey: first.recordKey }, check: { operator: check.operator, recordKey: check.recordKey }, latest: pair.latest });
+    if (pairs.size < MAX_PAIRS) {
+      pairs.add({ plot, first: { operator: first.operator, recordKey: first.recordKey }, check: { operator: check.operator, recordKey: check.recordKey }, latest: pair.latest });
     }
     const fi = personIndex.get(first.operator)!;
     const fs = first.summary;
@@ -536,7 +610,7 @@ export function qualityReport(input: QualityInput, onCheckedPlot?: (plot: string
       }),
     weeks: [...weeks].sort(([a], [b]) => order(a, b)).map(([week, t]) => ({ week, compared: t.compared, agreeing: t.agreeing })),
     differences,
-    pairs,
+    pairs: pairs.done(),
     problems: problems.slice(0, MAX_PROBLEMS),
     problemsTotal: problems.length,
     problemsByPerson: problemCounts(problems),
@@ -911,7 +985,8 @@ function rateOf(t: Tally): number | null {
 
 const plotCollator = new Intl.Collator('en', { numeric: true });
 
-function plotOrder(a: string, b: string): number {
+/** The order plots are listed in: numbers as numbers, then code points. */
+export function plotOrder(a: string, b: string): number {
   return plotCollator.compare(a, b) || order(a, b);
 }
 

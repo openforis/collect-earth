@@ -231,6 +231,8 @@ export interface QualityDecision {
   comment: string | null;
   decidedBy: string | null;
   decidedAt: number | null;
+  /** Whoever decided has a record of the plot (a coordinator may decide their own plot). */
+  byAssessor: boolean;
 }
 
 export interface GuidanceNoteInput {
@@ -283,12 +285,28 @@ export interface PlotPlace {
   plot: string;
   lat: number;
   lon: number;
+  /** The plot id as the collector sees it (keys hidden from the record list left out). */
+  name: string;
 }
+
+/** The outline Collect Earth draws around a plot (from the project file), or only its place. */
+export type PlotOutline = { kind: "square"; sideMeters: number } | { kind: "circle"; radiusMeters: number; vertices: number } | { kind: "place" };
 
 /** The places asked for; none, with the system's id, when the survey's coordinates are not latitude and longitude. */
 export interface PlotPlaces {
   places: PlotPlace[];
+  outline: PlotOutline;
   unsupportedSrs: string | null;
+}
+
+function toOutline(value: unknown): PlotOutline {
+  const o = obj(value);
+  const positive = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n) && n > 0;
+  if (o.kind === "square" && positive(o.sideMeters)) return { kind: "square", sideMeters: o.sideMeters };
+  if (o.kind === "circle" && positive(o.radiusMeters) && positive(o.vertices) && Number.isInteger(o.vertices) && o.vertices >= 3 && o.vertices <= 400) {
+    return { kind: "circle", radiusMeters: o.radiusMeters, vertices: o.vertices };
+  }
+  return { kind: "place" };
 }
 
 export interface ServerSettings {
@@ -393,6 +411,7 @@ export function apiErrorFrom(status: number, body: unknown): ApiError {
 const CODE_MESSAGES: Record<string, MessageKey> = {
   [NETWORK_ERROR]: "error.network",
   invalid_credentials: "error.invalidCredentials",
+  own_plot: "quality.ownPlot",
   wrong_password: "error.wrongPassword",
   username_taken: "error.usernameTaken",
   signup_closed: "error.signupClosed",
@@ -978,7 +997,7 @@ function toRate(value: unknown): Rate {
 export function toDecision(value: unknown): QualityDecision {
   const d = obj(value);
   const decision = d.decision === "check" || d.decision === "recheck" ? d.decision : "first";
-  return { plot: text(d.plot), decision, comment: nullableText(d.comment), decidedBy: nullableText(d.decidedBy), decidedAt: toMillis(d.decidedAt) };
+  return { plot: text(d.plot), decision, comment: nullableText(d.comment), decidedBy: nullableText(d.decidedBy), decidedAt: toMillis(d.decidedAt), byAssessor: d.byAssessor === true };
 }
 
 export function toNote(value: unknown): GuidanceNote {
@@ -1125,12 +1144,12 @@ export async function deleteGuidanceNote(projectId: string, id: string): Promise
 
 /** Where some plots are (the ones in no plot file are left out). */
 export async function getPlotPlaces(projectId: string, plots: string[]): Promise<PlotPlaces> {
-  if (plots.length === 0) return { places: [], unsupportedSrs: null };
-  const body = await request<{ places?: unknown; unsupportedSrs?: unknown }>("POST", `${p(projectId)}/quality/places`, { json: { plots } });
+  if (plots.length === 0) return { places: [], outline: { kind: "place" }, unsupportedSrs: null };
+  const body = await request<{ places?: unknown; outline?: unknown; unsupportedSrs?: unknown }>("POST", `${p(projectId)}/quality/places`, { json: { plots } });
   const places = list(body?.places)
-    .map((place) => ({ plot: text(place.plot), lat: Number(place.lat), lon: Number(place.lon) }))
+    .map((place) => ({ plot: text(place.plot), lat: Number(place.lat), lon: Number(place.lon), name: typeof place.name === "string" ? place.name : text(place.plot) }))
     .filter((place) => Number.isFinite(place.lat) && Number.isFinite(place.lon));
-  return { places, unsupportedSrs: typeof body?.unsupportedSrs === "string" && body.unsupportedSrs !== "" ? body.unsupportedSrs : null };
+  return { places, outline: toOutline(body?.outline), unsupportedSrs: typeof body?.unsupportedSrs === "string" && body.unsupportedSrs !== "" ? body.unsupportedSrs : null };
 }
 
 // --- the AI assistant -------------------------------------------------------------------
@@ -2290,8 +2309,8 @@ export interface QueueItem {
   section: QueueSection;
   /** Everyone whose record is shown. */
   people: string[];
-  /** Its checks that differ from the first assessment, with the answers. */
-  differences: Difference[];
+  /** Its checks that differ from the first assessment, with the answers; `changed`: the records changed since the figures (their answers no longer differ, or one is gone). */
+  differences: (Difference & { changed: boolean })[];
   flags: PatternFlag[];
   resubmitted: Resubmission[];
   decision: QualityDecision | null;
@@ -2299,7 +2318,8 @@ export interface QueueItem {
 
 export interface ReviewQueueData {
   items: QueueItem[];
-  offset: number;
+  /** The cursor of the next page (null: none after these). */
+  next: string | null;
   /** Plots in the queue (with the filters), listed or not. */
   total: number;
   counts: Record<QueueSection, number>;
@@ -2348,14 +2368,14 @@ export function toReviewQueue(body: unknown): ReviewQueueData {
           plot: text(i.plot),
           section,
           people: Array.isArray(i.people) ? i.people.filter((v): v is string => typeof v === "string") : [],
-          differences: list(i.differences).map(toDifference),
+          differences: list(i.differences).map((d) => ({ ...toDifference(d), changed: d.changed === true })),
           flags: list(i.flags).flatMap(toPatternFlags),
           resubmitted: list(i.resubmitted).map((r) => ({ operator: text(r.operator), at: toMillis(r.at), decidedAt: toMillis(r.decidedAt) })),
           decision: i.decision && typeof i.decision === "object" ? toDecision(i.decision) : null,
         },
       ];
     }),
-    offset: toCount(b.offset),
+    next: typeof b.next === "string" && b.next !== "" ? b.next : null,
     total: toCount(b.total),
     counts: { difference: toCount(counts.difference), flag: toCount(counts.flag), resubmitted: toCount(counts.resubmitted) },
     people: strings(b.people),
@@ -2367,12 +2387,12 @@ export function toReviewQueue(body: unknown): ReviewQueueData {
   };
 }
 
-/** The review queue (coordinators and reviewers), from the `offset`th plot. A 503 "busy" is thrown as ApiError code "busy". */
-export async function getReviewQueue(projectId: string, filter: QueueFilter, offset: number): Promise<ReviewQueueData> {
+/** The review queue (coordinators and reviewers), after the cursor `after` (a page's `next`). A 503 "busy" is thrown as ApiError code "busy". */
+export async function getReviewQueue(projectId: string, filter: QueueFilter, after: string | null): Promise<ReviewQueueData> {
   const query = new URLSearchParams();
   if (filter.person) query.set("person", filter.person);
   if (filter.kind) query.set("kind", filter.kind);
-  if (offset > 0) query.set("offset", String(offset));
+  if (after) query.set("after", after);
   const q = query.toString();
   return toReviewQueue(await request<unknown>("GET", `${p(projectId)}/quality/queue${q ? `?${q}` : ""}`));
 }
@@ -2385,12 +2405,14 @@ export interface BulkResult {
   count: number;
   /** The first of them (up to 20). */
   plots: string[];
+  /** The run's id, kept with its decisions and in its audit entry (null for a dry run or nothing decided). */
+  batch: string | null;
 }
 
 /** Bulk decisions (coordinators): `dryRun` only counts the plots the rule would decide. */
 export async function bulkDecisions(projectId: string, rule: BulkRule, dryRun: boolean): Promise<BulkResult> {
   const body = obj(await request<unknown>("POST", `${p(projectId)}/quality/decisions:bulk${dryRun ? "?dryRun=1" : ""}`, { json: { rule } }));
-  return { decision: toDecision({ decision: body.decision }).decision, count: toCount(body.count), plots: strings(body.plots) };
+  return { decision: toDecision({ decision: body.decision }).decision, count: toCount(body.count), plots: strings(body.plots), batch: typeof body.batch === "string" ? body.batch : null };
 }
 
 // --- survey health (Task 6) -----------------------------------------------------

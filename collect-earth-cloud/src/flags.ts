@@ -323,6 +323,15 @@ export function seenOf(f: FlagTable, plot: string): DecisionSeen[] | null {
   return out;
 }
 
+/** Who has a saved record of a plot (first assessment or check, drafts too), as the figures hold them. */
+export function plotOperators(f: FlagTable, plot: string): Set<string> {
+  const out = new Set<string>();
+  const g = groupIndexOf(f).get(plot);
+  if (g === undefined) return out;
+  for (let i = f.saved.start[g]; i < f.saved.start[g + 1]; i++) out.add(f.saved.operators[f.saved.operator[i]]);
+  return out;
+}
+
 /** The typed arrays of a flag table, to hand it over between threads without copying. */
 export function flagBuffers(f: FlagTable): ArrayBufferView[] {
   return [f.submitted, f.order, f.same, f.answers, f.empty.rows, f.empty.offsets, f.empty.keys, f.saved.start, f.saved.operator, f.saved.time, f.saved.received, f.saved.hash, f.saved.submitted];

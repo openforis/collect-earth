@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { attr, childrenOf, elements, parseSurvey, readCep } from '../cep.js';
+import { attr, cepProperties, childrenOf, elements, hiddenKeys, parseSurvey, readCep } from '../cep.js';
+import { hasPolygonColumn, plotOutline, visibleId, type PlotOutline } from '../plotShape.js';
 import { plotFileOf } from '../plotFileCache.js';
 import { isNumber } from '../plots.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
@@ -14,17 +15,28 @@ const MAX_PLOT = 1000;
 export const MAX_CACHED_FILES = 8;
 /** ...holding this many places together at most (a file with more is read each time). */
 export const MAX_CACHED_PLACES = 250_000;
-/** Served project files whose spatial reference system is kept. */
+/** What is read once from a served project file: its first spatial reference system, its plot shape's properties, its hidden keys. */
+interface SurveyFacts {
+  srid: string;
+  properties: Map<string, string> | null;
+  hidden: boolean[] | null;
+}
+
+/** Served project files whose facts are kept. */
 const MAX_CACHED_SRS = 16;
 
 export interface PlotPlace {
   plot: string;
   lat: number;
   lon: number;
+  /** The plot id as the collector sees it (keys hidden from the record list left out). */
+  name: string;
 }
 
 export interface PlotPlaces {
   places: PlotPlace[];
+  /** The outline Collect Earth draws around each plot, or only the place (plotShape.ts). */
+  outline: PlotOutline;
   /**
    * Set when the survey's coordinates are not latitude and longitude (its first spatial
    * reference system, e.g. "EPSG:32633"): Collect Earth transforms them, this server does
@@ -59,6 +71,12 @@ export function firstSrid(idmXml: string): string {
   return (first && attr(first, 'srid')) ?? '';
 }
 
+/** The places of one plot file, and whether its rows hold polygons. */
+interface FilePlaces {
+  places: ReadonlyMap<string, readonly [number, number]>;
+  polygons: boolean;
+}
+
 /** Least recently used out first. */
 function touch<K, V>(map: Map<K, V>, key: K, value: V): void {
   map.delete(key);
@@ -72,9 +90,9 @@ function touch<K, V>(map: Map<K, V>, key: K, value: V): void {
  * each served project file.
  */
 export class PlotPlaceReader {
-  private readonly files = new Map<string, ReadonlyMap<string, readonly [number, number]>>();
+  private readonly files = new Map<string, FilePlaces>();
   private cachedPlaces = 0;
-  private readonly srids = new Map<string, string>();
+  private readonly facts = new Map<string, SurveyFacts>();
 
   constructor(private readonly store: Store) {}
 
@@ -88,58 +106,63 @@ export class PlotPlaceReader {
    */
   async places(projectId: string, plots: readonly string[], log: FastifyRequest['log']): Promise<PlotPlaces> {
     const wanted = new Set(plots);
+    const facts = await this.surveyFacts(projectId, log);
     if (wanted.size === 0) {
-      return { places: [] };
+      return { places: [], outline: plotOutline(facts.properties) };
     }
-    const srid = await this.srid(projectId, log);
-    if (!isWgs84(srid)) {
-      return { places: [], unsupportedSrs: srid };
+    if (!isWgs84(facts.srid)) {
+      return { places: [], outline: { kind: 'place' }, unsupportedSrs: facts.srid };
     }
     const [info, files] = await Promise.all([this.store.getRoundInfo(projectId), this.store.listCsvFiles(projectId)]);
     const keyCount = fileKeyCount(info);
     const found = new Map<string, PlotPlace>();
+    // A plot file with polygons: Collect Earth draws those, not the survey's shape.
+    let polygons = false;
     for (const meta of files) {
       if (found.size === wanted.size) {
         break;
       }
-      const placesOf = await this.placesOfFile(projectId, meta.id, meta.checksum, keyCount, log);
+      const file = await this.placesOfFile(projectId, meta.id, meta.checksum, keyCount, log);
+      polygons ||= file?.polygons ?? false;
       for (const plot of wanted) {
-        const at = found.has(plot) ? undefined : placesOf?.get(plot);
+        const at = found.has(plot) ? undefined : file?.places.get(plot);
         if (at) {
-          found.set(plot, { plot, lat: at[0], lon: at[1] });
+          found.set(plot, { plot, lat: at[0], lon: at[1], name: visibleId(plot, facts.hidden) });
         }
       }
     }
-    return { places: [...wanted].flatMap((plot) => found.get(plot) ?? []) };
+    return { places: [...wanted].flatMap((plot) => found.get(plot) ?? []), outline: plotOutline(facts.properties, polygons) };
   }
 
-  /** The first spatial reference system of the served project file's survey ("" without a readable one). */
-  private async srid(projectId: string, log: FastifyRequest['log']): Promise<string> {
+  /** What the served project file says of its plots ("" srid, no properties, no keys when it has none or cannot be read). */
+  private async surveyFacts(projectId: string, log: FastifyRequest['log']): Promise<SurveyFacts> {
+    const none: SurveyFacts = { srid: '', properties: null, hidden: null };
     const info = await this.store.getCepInfo(projectId);
     if (!info) {
-      return '';
+      return none;
     }
     const key = `${projectId}\u0000${info.bytes}\u0000${info.updatedAt}`;
-    const hit = this.srids.get(key);
+    const hit = this.facts.get(key);
     if (hit !== undefined) {
-      touch(this.srids, key, hit);
+      touch(this.facts, key, hit);
       return hit;
     }
-    let srid = '';
+    let facts = none;
     try {
       const cep = await this.store.getCep(projectId);
       if (cep) {
         const files = readCep(cep);
-        srid = firstSrid(new TextDecoder().decode(files.entries.get(files.surveyPath)!));
+        const idm = new TextDecoder().decode(files.entries.get(files.surveyPath)!);
+        facts = { srid: firstSrid(idm), properties: cepProperties(files), hidden: hiddenKeys(idm) };
       }
     } catch (err) {
-      log.warn({ err }, 'could not read the spatial reference system of the project file');
+      log.warn({ err }, 'could not read the plot shape of the project file');
     }
-    touch(this.srids, key, srid);
-    while (this.srids.size > MAX_CACHED_SRS) {
-      this.srids.delete(this.srids.keys().next().value as string);
+    touch(this.facts, key, facts);
+    while (this.facts.size > MAX_CACHED_SRS) {
+      this.facts.delete(this.facts.keys().next().value as string);
     }
-    return srid;
+    return facts;
   }
 
   /** Every place of one plot file (the first row giving a plot a place wins), or null when it cannot be read. */
@@ -149,7 +172,7 @@ export class PlotPlaceReader {
     checksum: string,
     keyCount: number,
     log: FastifyRequest['log'],
-  ): Promise<ReadonlyMap<string, readonly [number, number]> | null> {
+  ): Promise<FilePlaces | null> {
     const key = `${checksum}\u0000${keyCount}`;
     const hit = this.files.get(key);
     if (hit) {
@@ -162,7 +185,10 @@ export class PlotPlaceReader {
         return null;
       }
       const places = new Map<string, readonly [number, number]>();
-      for (const row of plotFileOf(file, keyCount).rows) {
+      const rows = plotFileOf(file, keyCount).rows;
+      // As Collect Earth: a polygon column in the (first) row means the plots are those polygons.
+      const polygons = rows.length > 0 && hasPolygonColumn(rows[0].fields);
+      for (const row of rows) {
         if (places.has(row.id)) {
           continue;
         }
@@ -172,24 +198,25 @@ export class PlotPlaceReader {
           places.set(row.id, [lat, lon]);
         }
       }
-      this.keep(key, places);
-      return places;
+      const result: FilePlaces = { places, polygons };
+      this.keep(key, result);
+      return result;
     } catch (err) {
       log.error({ err, csvFileId: fileId }, 'could not read the plot file');
       return null;
     }
   }
 
-  private keep(key: string, places: ReadonlyMap<string, readonly [number, number]>): void {
-    if (places.size > MAX_CACHED_PLACES) {
+  private keep(key: string, file: FilePlaces): void {
+    if (file.places.size > MAX_CACHED_PLACES) {
       return;
     }
-    this.files.set(key, places);
-    this.cachedPlaces += places.size;
+    this.files.set(key, file);
+    this.cachedPlaces += file.places.size;
     while (this.files.size > MAX_CACHED_FILES || this.cachedPlaces > MAX_CACHED_PLACES) {
-      const [oldest, entry] = this.files.entries().next().value as [string, ReadonlyMap<string, unknown>];
+      const [oldest, entry] = this.files.entries().next().value as [string, FilePlaces];
       this.files.delete(oldest);
-      this.cachedPlaces -= entry.size;
+      this.cachedPlaces -= entry.places.size;
     }
   }
 }

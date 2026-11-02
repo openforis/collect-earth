@@ -455,6 +455,24 @@ export function parseSurvey(idmXml: string): ParsedSurvey {
   return { survey, surveyChildren, rootEntities, root, rootEntity, languages, pickLabel };
 }
 
+/** project_definition.properties of an opened project file (empty when it has none). */
+export function cepProperties(files: CepFiles): Map<string, string> {
+  const bytes = files.entries.get(PROPERTIES_PATH);
+  return bytes ? parseProperties(decodeUtf8(bytes)) : new Map<string, string>();
+}
+
+/** For each key of the survey's root entity, in order: whether it is hidden from Collect Earth's record list. */
+export function hiddenKeys(idmXml: string): boolean[] {
+  const { root } = parseSurvey(idmXml);
+  const out: boolean[] = [];
+  for (const child of childrenOf(root)) {
+    const type = tagOf(child);
+    if (!type || type.startsWith('#') || attr(child, 'key') !== 'true') continue;
+    out.push(attr(child, 'collectearth:hideinrecordlist') === 'true');
+  }
+  return out;
+}
+
 /** Reads what the server needs to know about a survey (placemark.idm.xml). */
 export function surveyInfo(idmXml: string): SurveyInfo {
   const { survey, surveyChildren, rootEntities, root, rootEntity, languages, pickLabel } = parseSurvey(idmXml);

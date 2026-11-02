@@ -410,6 +410,24 @@ export class PostgresStore implements Store {
     });
   }
 
+  async getRecordSummaries(projectId: string, keys: readonly { recordKey: string; operator: string }[]): Promise<RecordRow[]> {
+    if (keys.length === 0) {
+      return [];
+    }
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT r.project_id, r.record_key, r.operator, r.modified_on, r.received_at, r.actively_saved, r.step, NULL AS xml, r.summary,
+                r.deleted, r.deleted_on
+           FROM records r
+           JOIN (SELECT DISTINCT * FROM unnest($2::text[], $3::text[])) AS k(record_key, operator)
+             ON k.record_key = r.record_key AND k.operator = r.operator
+          WHERE r.project_id = $1`,
+        [projectId, keys.map((k) => k.recordKey), keys.map((k) => k.operator)],
+      );
+      return res.rows.map(mapRecord);
+    });
+  }
+
   async listRecordStates(projectId: string): Promise<RecordState[]> {
     return this.withProject(projectId, async (client) => {
       // A record's first submission: its event `submitted` (one per record; min() to be
@@ -1287,7 +1305,7 @@ export class PostgresStore implements Store {
   async listQualityDecisions(projectId: string): Promise<QualityDecision[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        `SELECT d.plot, d.decision, d.comment, u.username, d.decided_at, d.seen
+        `SELECT d.plot, d.decision, d.comment, u.username, d.decided_at, d.seen, d.decided_batch
            FROM quality_decisions d LEFT JOIN users u ON u.id = d.decided_by
           WHERE d.project_id = $1
           ORDER BY d.plot COLLATE "C"`,
@@ -1312,9 +1330,9 @@ export class PostgresStore implements Store {
            VALUES ($1, $2, $3, $4, $5, now(), $6)
            ON CONFLICT (project_id, plot) DO UPDATE SET
              decision = EXCLUDED.decision, comment = EXCLUDED.comment,
-             decided_by = EXCLUDED.decided_by, decided_at = EXCLUDED.decided_at, seen = EXCLUDED.seen
-           RETURNING plot, decision, comment, decided_by, decided_at, seen)
-         SELECT d.plot, d.decision, d.comment, u.username, d.decided_at, d.seen FROM d LEFT JOIN users u ON u.id = d.decided_by`,
+             decided_by = EXCLUDED.decided_by, decided_at = EXCLUDED.decided_at, seen = EXCLUDED.seen, decided_batch = NULL
+           RETURNING plot, decision, comment, decided_by, decided_at, seen, decided_batch)
+         SELECT d.plot, d.decision, d.comment, u.username, d.decided_at, d.seen, d.decided_batch FROM d LEFT JOIN users u ON u.id = d.decided_by`,
         [projectId, plot, decision, comment, userId, seen === null ? null : JSON.stringify(seen)],
       );
       return mapDecision(res.rows[0]);
@@ -1326,6 +1344,7 @@ export class PostgresStore implements Store {
     decisions: readonly { plot: string; decision: DecisionKind; seen: { operator: string; hash: number }[] | null }[],
     comment: string | null,
     userId: string | null,
+    batch: string,
   ): Promise<string[]> {
     if (decisions.length === 0) {
       return [];
@@ -1333,8 +1352,8 @@ export class PostgresStore implements Store {
     return this.withProject(projectId, async (client) => {
       // One statement in the transaction: a plot decided meanwhile keeps its decision.
       const res = await client.query(
-        `INSERT INTO quality_decisions (project_id, plot, decision, comment, decided_by, decided_at, seen)
-         SELECT $1, d.plot, d.decision, $5, $6, now(), d.seen::jsonb
+        `INSERT INTO quality_decisions (project_id, plot, decision, comment, decided_by, decided_at, seen, decided_batch)
+         SELECT $1, d.plot, d.decision, $5, $6, now(), d.seen::jsonb, $7::uuid
            FROM unnest($2::text[], $3::text[], $4::text[]) AS d(plot, decision, seen)
          ON CONFLICT (project_id, plot) DO NOTHING
          RETURNING plot`,
@@ -1345,6 +1364,7 @@ export class PostgresStore implements Store {
           decisions.map((d) => (d.seen === null ? null : JSON.stringify(d.seen))),
           comment,
           userId,
+          batch,
         ],
       );
       return res.rows.map((r) => r.plot as string);
@@ -1930,6 +1950,7 @@ function mapDecision(r: Record<string, unknown>): QualityDecision {
     decidedBy: (r.username as string | null) ?? null,
     decidedAt: (r.decided_at as Date).getTime(),
     seen: (r.seen as { operator: string; hash: number }[] | null | undefined) ?? null,
+    batch: (r.decided_batch as string | null | undefined) ?? null,
   };
 }
 

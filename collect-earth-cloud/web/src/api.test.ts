@@ -415,7 +415,8 @@ describe("the quality figures", () => {
       weakest: [{ key: "collect_code_land_use", rate: null, compared: 12, differing: 2 }],
     });
     expect(data.differences[0].fields).toEqual([{ key: "k", first: "F", check: "" }]);
-    expect(data.decisions).toEqual([{ plot: "21", decision: "check", comment: null, decidedBy: "boss", decidedAt: 1000 }]);
+    // Without byAssessor (an older server): not said.
+    expect(data.decisions).toEqual([{ plot: "21", decision: "check", comment: null, decidedBy: "boss", decidedAt: 1000, byAssessor: false }]);
     expect(data.notes[0]).toMatchObject({ id: "n1", firstValue: "F", checkValue: null, updatedAt: 2000 });
     expect(data.margins).toEqual({ "collect_entity_tree[*].real_height": 5 });
     expect(data).toMatchObject({ plotsChecked: 25, plotsDiffering: 5, problemsTotal: 1, computedAt: 3000, stale: true });
@@ -448,21 +449,21 @@ describe("the quality figures", () => {
   it("asks for the review queue with its filters and reads it; bulk decisions with a dry run first", async () => {
     fetchMock.mockImplementation(async (_url) => {
       const url = String(_url);
-      if (url.includes("decisions:bulk")) return jsonResponse(200, { rule: "first_by_reviewer", decision: "first", count: 3, plots: ["1", "2", "3"], dryRun: url.includes("dryRun") });
+      if (url.includes("decisions:bulk")) return jsonResponse(200, { rule: "first_by_reviewer", decision: "first", count: 3, plots: ["1", "2", "3"], dryRun: url.includes("dryRun"), batch: url.includes("dryRun") ? null : "b-1" });
       return jsonResponse(200, {
         items: [
           {
             plot: "7",
             section: "resubmitted",
             people: ["ana", 5],
-            differences: [{ plot: "7", first: { operator: "ana", recordKey: "7,1" }, check: { operator: "ben", recordKey: "7,2" }, fields: [{ key: "q", first: "F", check: "G" }] }],
+            differences: [{ plot: "7", first: { operator: "ana", recordKey: "7,1" }, check: { operator: "ben", recordKey: "7,2" }, fields: [{ key: "q", first: "F", check: "G" }] }, { plot: "7", first: { operator: "ana", recordKey: "7,1" }, check: { operator: "cy", recordKey: "7,2" }, fields: [], changed: true }],
             flags: [{ kind: "very_fast", plot: "7", operator: "ana", at: 5, details: { gapMs: 3000, previousPlot: "6" } }, { kind: "unknown", plot: "7" }],
             resubmitted: [{ plot: "7", operator: "ana", at: 9, decidedAt: 8 }],
-            decision: { plot: "7", decision: "recheck", comment: null, decidedBy: "rita", decidedAt: 8 },
+            decision: { plot: "7", decision: "recheck", comment: null, decidedBy: "rita", decidedAt: 8, byAssessor: true },
           },
           { plot: "8", section: "odd" },
         ],
-        offset: 0,
+        next: "flag:5:8",
         total: 2,
         counts: { difference: 0, flag: 0, resubmitted: 1 },
         people: ["ana"],
@@ -473,8 +474,9 @@ describe("the quality figures", () => {
         stale: false,
       });
     });
-    const queue = await getReviewQueue("p1", { person: "ana b", kind: "very_fast" }, 100);
-    expect(call(0).url).toBe("/v1/projects/p1/quality/queue?person=ana+b&kind=very_fast&offset=100");
+    const queue = await getReviewQueue("p1", { person: "ana b", kind: "very_fast" }, "difference::12");
+    expect(call(0).url).toBe("/v1/projects/p1/quality/queue?person=ana+b&kind=very_fast&after=difference%3A%3A12");
+    expect(queue.next).toBe("flag:5:8");
     expect(queue.items).toHaveLength(1);
     expect(queue.items[0]).toMatchObject({
       plot: "7",
@@ -485,12 +487,15 @@ describe("the quality figures", () => {
       decision: { decision: "recheck", decidedBy: "rita" },
     });
     expect(queue.items[0].differences[0].fields).toEqual([{ key: "q", first: "F", check: "G" }]);
+    expect(queue.items[0].differences[1]).toMatchObject({ fields: [], changed: true });
+    expect(queue.items[0].differences[0].changed).toBe(false);
+    expect(queue.items[0].decision?.byAssessor).toBe(true);
     expect(queue).toMatchObject({ total: 2, counts: { resubmitted: 1 }, flagsCapped: true, labels: { q: "Land use" }, options: { q: [{ code: "F", label: "Forest" }] } });
-    await getReviewQueue("p1", { person: null, kind: null }, 0);
+    await getReviewQueue("p1", { person: null, kind: null }, null);
     expect(call(1).url).toBe("/v1/projects/p1/quality/queue");
-    expect(await bulkDecisions("p1", "first_by_reviewer", true)).toEqual({ decision: "first", count: 3, plots: ["1", "2", "3"] });
+    expect(await bulkDecisions("p1", "first_by_reviewer", true)).toEqual({ decision: "first", count: 3, plots: ["1", "2", "3"], batch: null });
     expect(call(2)).toEqual({ url: "/v1/projects/p1/quality/decisions:bulk?dryRun=1", method: "POST", body: { rule: "first_by_reviewer" } });
-    await bulkDecisions("p1", "first_by_reviewer", false);
+    expect((await bulkDecisions("p1", "first_by_reviewer", false)).batch).toBe("b-1");
     expect(call(3)).toEqual({ url: "/v1/projects/p1/quality/decisions:bulk", method: "POST", body: { rule: "first_by_reviewer" } });
   });
 
@@ -500,7 +505,7 @@ describe("the quality figures", () => {
       const url = String(_url);
       if (url.endsWith("/settings")) return jsonResponse(200, { margins: { a: 5 } });
       if (url.includes("/decisions/")) return jsonResponse(200, { plot: "1,2", decision: "recheck", comment: "look", decidedBy: null, decidedAt: 5 });
-      if (url.endsWith("/places")) return jsonResponse(200, { places: [{ plot: "1", lat: -12.5, lon: 30 }, { plot: "2", lat: "x", lon: 1 }] });
+      if (url.endsWith("/places")) return jsonResponse(200, { places: [{ plot: "1", lat: -12.5, lon: 30, name: "1" }, { plot: "2", lat: "x", lon: 1 }], outline: { kind: "square", sideMeters: 70 } });
       return jsonResponse(201, { id: "n2", questionKey: "q", firstValue: null, checkValue: null, text: "t" });
     });
     expect(await saveQualityMargins("p1", { a: 5 })).toEqual({ a: 5 });
@@ -519,15 +524,15 @@ describe("the quality figures", () => {
     expect(call(5)).toMatchObject({ url: "/v1/projects/p1/quality/notes/n2", method: "PUT" });
     await deleteGuidanceNote("p1", "n2");
     expect(call(6)).toMatchObject({ url: "/v1/projects/p1/quality/notes/n2", method: "DELETE" });
-    expect(await getPlotPlaces("p1", ["1", "2"])).toEqual({ places: [{ plot: "1", lat: -12.5, lon: 30 }], unsupportedSrs: null });
+    expect(await getPlotPlaces("p1", ["1", "2"])).toEqual({ places: [{ plot: "1", lat: -12.5, lon: 30, name: "1" }], outline: { kind: "square", sideMeters: 70 }, unsupportedSrs: null });
     expect(call(7)).toEqual({ url: "/v1/projects/p1/quality/places", method: "POST", body: { plots: ["1", "2"] } });
-    expect(await getPlotPlaces("p1", [])).toEqual({ places: [], unsupportedSrs: null });
+    expect(await getPlotPlaces("p1", [])).toEqual({ places: [], outline: { kind: "place" }, unsupportedSrs: null });
     expect(fetchMock).toHaveBeenCalledTimes(8);
   });
 
   it("says when the survey's coordinates are not latitude and longitude", async () => {
     fetchMock.mockImplementation(async () => jsonResponse(200, { places: [], unsupportedSrs: "EPSG:32633" }));
-    expect(await getPlotPlaces("p1", ["1"])).toEqual({ places: [], unsupportedSrs: "EPSG:32633" });
+    expect(await getPlotPlaces("p1", ["1"])).toEqual({ places: [], outline: { kind: "place" }, unsupportedSrs: "EPSG:32633" });
   });
 });
 

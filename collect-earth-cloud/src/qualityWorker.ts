@@ -66,7 +66,7 @@ if (port) {
         port.postMessage({ id: message.id, computing: true } satisfies WorkerReply);
         const figures = qualityFigures({ ...message.job.input, records });
         reply = { id: message.id, ...figures };
-        transfer = tableBuffers(figures.answers, figures.flags, figures.health);
+        transfer = tableBuffers(figures.answers, figures.flags, figures.health, figures.report.pairs);
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('quality worker: a job failed:', err);

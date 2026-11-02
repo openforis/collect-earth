@@ -1,17 +1,18 @@
+import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid } from '../accountRules.js';
 import { audit } from '../activity.js';
 import { answerStats, type AnswerFilter } from '../answerStats.js';
 import { isDate, isTimeZone } from '../days.js';
-import { FLAG_KINDS, fastSecondsOf, MAX_FAST_SECONDS, MIN_FAST_SECONDS, patternFlags, resubmittedAfterRecheck, seenOf, type DecisionSeen, type FlagKind } from '../flags.js';
+import { FLAG_KINDS, fastSecondsOf, MAX_FAST_SECONDS, MIN_FAST_SECONDS, patternFlags, plotOperators, resubmittedAfterRecheck, seenOf, type DecisionSeen, type FlagKind, type FlagTable } from '../flags.js';
 import { columnValues, MAX_LISTED_VALUES, plotColumns, plotsWithValue } from '../plotColumns.js';
 import { plotFileOf, plotIdsOf } from '../plotFileCache.js';
 import { fileKeyCount } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
-import { checkMargins, pairFields, type Difference, type DifferingPairRef } from '../quality.js';
+import { checkMargins, pairAt, pairFields, type Difference, type DifferingPairRef } from '../quality.js';
 import { answerOptions, personalReport, teamReport } from '../qualityReports.js';
 import { registerPlotPlaceRoutes } from './plotPlaces.js';
-import { BULK_RULES, bulkPlots, QUEUE_KINDS, reviewQueue, type BulkRule, type QueueKind } from '../reviewQueue.js';
+import { BULK_RULES, bulkPlots, itemsAfter, parseCursor, QUEUE_KINDS, queueCursor, reviewQueue, type BulkRule, type QueueKind } from '../reviewQueue.js';
 import { surveyHealth } from '../surveyHealth.js';
 import { MAX_CACHED_ANSWER_FILTERS, QualityService, remember, WorkerBusyError, WorkerRestartedError, type ServedReport } from '../qualityService.js';
 import type { Store } from '../store/store.js';
@@ -62,11 +63,21 @@ function noteInput(body: unknown): GuidanceNoteInput | BadRequest {
   return { questionKey, firstValue: firstValue as string | null, checkValue: checkValue as string | null, text };
 }
 
-/** A decision as clients get it: without what it saw of the records (only the flags read that). */
-function publicDecision(d: QualityDecision): Omit<QualityDecision, 'seen'> {
+/**
+ * A decision as clients get it: without what it saw of the records (only the flags read that),
+ * and whether whoever decided has a record of the plot (a coordinator may decide their own
+ * plot; the page says so). `byAssessor` is false when the figures are not at hand.
+ */
+function publicDecision(d: QualityDecision, flags?: FlagTable | null): Omit<QualityDecision, 'seen'> & { byAssessor: boolean } {
   const { seen: _seen, ...rest } = d;
-  return rest;
+  return { ...rest, byAssessor: !!flags && d.decidedBy !== null && plotOperators(flags, d.plot).has(d.decidedBy) };
 }
+
+/** What a reviewer is told when deciding a plot they assessed. */
+const OWN_PLOT = {
+  error: 'own_plot',
+  reason: 'You made the first assessment or a check of this plot, so someone else decides it.',
+} as const;
 
 /** The plot of a decision route, or null when it is not 1-MAX_NAME characters. */
 function plotOf(request: FastifyRequest): string | null {
@@ -135,7 +146,7 @@ export async function registerQualityRoutes(
     const options = answerOptions(outline, [...figures.report.questions.map((q) => q.key), ...notes.map((n) => n.questionKey)]);
     // Every differing pair is for the review queue and the bulk decisions only.
     const { pairs: _pairs, ...report } = figures.report;
-    return reply.send({ ...report, computedAt: figures.computedAt, stale: figures.stale, decisions: decisions.map(publicDecision), notes, settings, options });
+    return reply.send({ ...report, computedAt: figures.computedAt, stale: figures.stale, decisions: decisions.map((d) => publicDecision(d, figures.flags)), notes, settings, options });
   });
 
   // Answers per person (Task 4), for coordinators and reviewers (never collectors, never
@@ -246,18 +257,19 @@ export async function registerQualityRoutes(
   // The review queue (Task 7), for coordinators and reviewers (never collectors): differences
   // without a decision, then plots with flags, then plots submitted again after "both need
   // another look", each plot once with what is known of it. Filters: person (anyone whose
-  // record is shown), kind (a part or a kind of flag); offset for the next plots. A plot
-  // beyond the report's listed differences has its two records read here for its answers.
+  // record is shown), kind (a part or a kind of flag); `after` (the cursor `next` of the page
+  // before) for the next plots, so plots decided meanwhile make none skipped. A plot beyond the
+  // report's listed differences has its two records read here (one read) for its answers.
   app.get('/v1/projects/:pid/quality/queue', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
     const q = (request.query ?? {}) as Record<string, unknown>;
     const person = typeof q.person === 'string' && q.person !== '' ? q.person : null;
     const kind = typeof q.kind === 'string' && q.kind !== '' ? q.kind : null;
-    const offsetText = typeof q.offset === 'string' && q.offset !== '' ? q.offset : '0';
+    const afterText = typeof q.after === 'string' && q.after !== '' ? q.after : null;
     if (person !== null && person.length > MAX_NAME) return reply.code(400).send(bad(`person must be at most ${MAX_NAME} characters`));
     if (kind !== null && !(QUEUE_KINDS as readonly string[]).includes(kind)) return reply.code(400).send(bad(`kind must be one of ${QUEUE_KINDS.join(', ')}`));
-    if (!/^\d{1,7}$/.test(offsetText)) return reply.code(400).send(bad('offset must be a whole number of plots'));
-    const offset = Number(offsetText);
+    const after = afterText === null ? null : afterText.length <= MAX_NAME + 40 ? parseCursor(afterText) : null;
+    if (afterText !== null && after === null) return reply.code(400).send(bad('after must be the cursor "next" of a page of the queue'));
     const [figures, decisions, settings, outline] = await Promise.all([
       served(quality, projectId, request, reply),
       store.listQualityDecisions(projectId),
@@ -267,30 +279,40 @@ export async function registerQualityRoutes(
     if (!figures) {
       return reply;
     }
+    const fastSeconds = fastSecondsOf(settings);
     const flagKind = kind !== null && (FLAG_KINDS as readonly string[]).includes(kind) ? (kind as FlagKind) : null;
-    const flags = patternFlags(figures, decisions, { fastSeconds: fastSecondsOf(settings), person, kind: flagKind });
+    const flags = patternFlags(figures, decisions, { fastSeconds, person, kind: flagKind });
+    // The person menu names everyone, whatever the filters: everyone's flags when filtered.
+    const everyones = person !== null || flagKind !== null ? patternFlags(figures, decisions, { fastSeconds }).flags : flags.flags;
     const queue = reviewQueue(
       {
         pairs: figures.report.pairs,
         flags: flags.flags,
+        everyonesFlags: everyones,
         resubmitted: resubmittedAfterRecheck(figures.flags, decisions),
         decided: new Map(decisions.map((d) => [d.plot, d.decision])),
       },
       { person, kind: kind as QueueKind | null },
     );
-    const page = queue.items.slice(offset, offset + MAX_QUEUE_ITEMS);
-    // The answers of each pair shown: the report's listed difference, else its two records as they are now.
-    const listed = new Map(figures.report.differences.map((d) => [pairId(d), d]));
-    const margins = settings.margins ?? {};
-    const toRead = page.flatMap((item) => item.pairs).filter((p) => !listed.has(pairId(p)));
-    const read = await Promise.all(
-      toRead.map(async (p): Promise<Difference> => {
-        const [first, check] = await Promise.all([store.getRecord(projectId, p.first.recordKey, p.first.operator), store.getRecord(projectId, p.check.recordKey, p.check.operator)]);
+    const rest = after === null ? queue.items : itemsAfter(queue.items, after);
+    const page = rest.slice(0, MAX_QUEUE_ITEMS);
+    const pairs = figures.report.pairs;
+    // The answers of each pair shown: the report's listed difference, else its two records as
+    // they are now, read at once. A pair whose answers no longer differ (or a record gone) is
+    // said to have changed since the figures were worked out.
+    const listed = new Map<string, Difference & { changed?: boolean }>(figures.report.differences.map((d) => [pairId(d), d]));
+    const toRead = page.flatMap((item) => item.pairs.map((i) => pairAt(pairs, i))).filter((p) => !listed.has(pairId(p)));
+    if (toRead.length > 0) {
+      const rows = await store.getRecordSummaries(projectId, toRead.flatMap((p) => [p.first, p.check].map((r) => ({ recordKey: r.recordKey, operator: r.operator }))));
+      const byId = new Map(rows.map((r) => [`${r.recordKey}\u0000${r.operator}`, r]));
+      const margins = settings.margins ?? {};
+      for (const p of toRead) {
+        const first = byId.get(`${p.first.recordKey}\u0000${p.first.operator}`);
+        const check = byId.get(`${p.check.recordKey}\u0000${p.check.operator}`);
         const fields = first && check && !first.deleted && !check.deleted ? pairFields(first.summary, check.summary, outline, margins) : [];
-        return { plot: p.plot, first: p.first, check: p.check, fields };
-      }),
-    );
-    for (const d of read) listed.set(pairId(d), d);
+        listed.set(pairId(p), { plot: p.plot, first: p.first, check: p.check, fields, ...(fields.length === 0 ? { changed: true } : {}) });
+      }
+    }
     const byPlot = new Map(decisions.map((d) => [d.plot, d]));
     const items = page.map((item) => {
       const decision = byPlot.get(item.plot);
@@ -298,10 +320,10 @@ export async function registerQualityRoutes(
         plot: item.plot,
         section: item.section,
         people: item.people,
-        differences: item.pairs.map((p) => listed.get(pairId(p))!),
+        differences: item.pairs.map((i) => listed.get(pairId(pairAt(pairs, i)))!),
         flags: item.flags,
         resubmitted: item.resubmitted,
-        decision: decision ? publicDecision(decision) : null,
+        decision: decision ? publicDecision(decision, figures.flags) : null,
       };
     });
     // The questions shown, by their labels and answer options ("Forest", not "F").
@@ -311,7 +333,8 @@ export async function registerQualityRoutes(
     for (const key of keys) labels[key] = outline?.get(key)?.label ?? known.get(key) ?? key;
     return reply.send({
       items,
-      offset,
+      // The cursor of the next page (null: no more plots after this page).
+      next: rest.length > page.length && page.length > 0 ? queueCursor(page[page.length - 1]) : null,
       total: queue.items.length,
       counts: queue.counts,
       people: queue.people,
@@ -326,9 +349,11 @@ export async function registerQualityRoutes(
 
   // Bulk decisions (Task 7, coordinators): every differing plot without a decision where
   // the first assessment (first_by_reviewer) or the latest check (check_by_reviewer) is a
-  // reviewer's or a coordinator's, and the other side is not (bulkPlots). ?dryRun=1 only
-  // counts them (the confirmation's number). In one transaction; a plot decided meanwhile
-  // keeps its decision. Each keeps what it saw of the plot's records, as a single decision.
+  // reviewer's or a coordinator's, by the members' roles now (someone removed never counts),
+  // and the other side is not (bulkPlots). ?dryRun=1 only counts them (the confirmation's
+  // number). In one transaction; a plot decided meanwhile keeps its decision. Each keeps what
+  // it saw of the plot's records, as a single decision, and the run's id (decided_batch, also
+  // in its audit entry), so a run can be found as a whole.
   app.post('/v1/projects/:pid/quality/decisions:bulk', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
     const rule = ((request.body ?? {}) as { rule?: unknown }).rule;
@@ -349,18 +374,20 @@ export async function registerQualityRoutes(
     const plots = bulkPlots(figures.report.pairs, new Map(decisions.map((d) => [d.plot, d.decision])), trusted, rule as BulkRule);
     const decision: DecisionKind = rule === 'first_by_reviewer' ? 'first' : 'check';
     if (dryRun) {
-      return reply.send({ rule, decision, count: plots.length, plots: plots.slice(0, MAX_BULK_LISTED).map((p) => p.plot), dryRun: true });
+      return reply.send({ rule, decision, count: plots.length, plots: plots.slice(0, MAX_BULK_LISTED).map((p) => p.plot), dryRun: true, batch: null });
     }
+    const batch = randomUUID();
     const added = await store.addQualityDecisions(
       projectId,
       plots.map((p) => ({ plot: p.plot, decision: p.decision, seen: seenOf(figures.flags, p.plot) })),
       null,
       request.membership!.userId ?? null,
+      batch,
     );
     if (added.length > 0) {
-      await audit(store, request, 'decision.bulk', { rule, decision, count: added.length });
+      await audit(store, request, 'decision.bulk', { rule, decision, count: added.length, batch });
     }
-    return reply.send({ rule, decision, count: added.length, plots: added.slice(0, MAX_BULK_LISTED), dryRun: false });
+    return reply.send({ rule, decision, count: added.length, plots: added.slice(0, MAX_BULK_LISTED), dryRun: false, batch: added.length > 0 ? batch : null });
   });
 
   // The columns of a plot file and their values, to filter the answers by one (reviewers too).
@@ -457,23 +484,52 @@ export async function registerQualityRoutes(
       comment = body.comment.trim() || null;
     }
     // What the coordinator or reviewer decided on: the plot's records as the figures at hand show them
-    // (never computed here), for "saved again after a decision" (pattern flags).
-    let seen: DecisionSeen[] | null = null;
+    // (never computed here for a coordinator), for "saved again after a decision" (pattern flags).
+    const figures = await figuresForDecision(request, reply);
+    if (figures === undefined) {
+      return reply;
+    }
+    const seen: DecisionSeen[] | null = figures ? seenOf(figures.flags, plot) : null;
+    const decision = await store.setQualityDecision(projectId, plot, body.decision as DecisionKind, comment, request.membership!.userId ?? null, seen);
+    await audit(store, request, 'decision.set', { plot, decision: decision.decision });
+    return reply.send(publicDecision(decision, figures?.flags));
+  });
+
+  /**
+   * The figures a decision route works with: those at hand (null when none). A reviewer may not
+   * decide (or undo) a plot they assessed (Decision 3): for them the figures are worked out when
+   * none are at hand, and a plot of theirs is a 409. Undefined when the answer was sent.
+   */
+  async function figuresForDecision(request: FastifyRequest, reply: FastifyReply): Promise<ServedReport | null | undefined> {
+    const { projectId, role, userId } = request.membership!;
+    let figures: ServedReport | null = null;
     try {
-      const figures = await quality.peek(projectId, request.log);
-      seen = figures ? seenOf(figures.flags, plot) : null;
+      figures = await quality.peek(projectId, request.log);
     } catch (err) {
       request.log.warn({ err, projectId }, 'quality: the figures at hand could not be read for a decision');
     }
-    const decision = await store.setQualityDecision(projectId, plot, body.decision as DecisionKind, comment, request.membership!.userId ?? null, seen);
-    await audit(store, request, 'decision.set', { plot, decision: decision.decision });
-    return reply.send(publicDecision(decision));
-  });
+    if (role === 'admin') {
+      return figures;
+    }
+    figures ??= await served(quality, projectId, request, reply);
+    if (!figures) {
+      return undefined;
+    }
+    const user = userId ? await store.getUserById(userId) : null;
+    if (user && plotOperators(figures.flags, plotOf(request)!).has(user.username)) {
+      void reply.code(409).send(OWN_PLOT);
+      return undefined;
+    }
+    return figures;
+  }
 
   app.delete('/v1/projects/:pid/quality/decisions/:plot', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
     const plot = plotOf(request);
     if (plot === null) {
       return reply.code(400).send(bad(`the plot must be 1-${MAX_NAME} characters`));
+    }
+    if ((await figuresForDecision(request, reply)) === undefined) {
+      return reply;
     }
     const deleted = await store.deleteQualityDecision(request.membership!.projectId, plot);
     if (deleted) {

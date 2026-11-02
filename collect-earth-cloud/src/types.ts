@@ -271,6 +271,8 @@ export interface QualityDecision {
    * For the pattern flags only: the routes do not send it.
    */
   seen?: { operator: string; hash: number }[] | null;
+  /** The bulk run that made it (its audit entry has the same id); null for a decision made alone. */
+  batch?: string | null;
 }
 
 /** What a guidance note is about: a question and, for a mixed-up pair, both answers. */
