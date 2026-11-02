@@ -56,6 +56,7 @@ import { QualityAnswers } from "./QualityAnswers";
 import { QualityChecks } from "./QualityChecks";
 import { QualityFlags } from "./QualityFlags";
 import { QualitySurvey } from "./QualitySurvey";
+import { QualityReference } from "./QualityReference";
 import { QualityAssistant } from "./QualityAssistant";
 import { QualityDifferences, type PlotFocus } from "./QualityDifferences";
 import { NoteDialog, QualityNotes, type NoteDraft } from "./QualityNotes";
@@ -752,6 +753,7 @@ export function QualityTab({ projectId }: { projectId: string }) {
         onBulk={reload}
       />
       <QualityChecks projectId={projectId} />
+      <QualityReference projectId={projectId} canEdit />
       {data.plotsChecked > 0 && (
         <>
           <Questions projectId={projectId} data={data} onMargins={(margins) => (update(() => ({ margins })), reload())} />

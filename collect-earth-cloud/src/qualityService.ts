@@ -12,6 +12,7 @@ import { plotIdsOf } from './plotFileCache.js';
 import { qualityFigures, type AnswerStats, type AnswerTable, type QualityFigures } from './answerStats.js';
 import type { FlagTable } from './flags.js';
 import type { HealthTable } from './surveyHealth.js';
+import type { ReferenceFigures } from './reference.js';
 import type { QualityInput, QualityReport } from './quality.js';
 import type { WorkerJob, WorkerReply } from './qualityWorker.js';
 import { fileKeyCount } from './rounds.js';
@@ -43,6 +44,8 @@ export interface PlotContext {
   mainHolders: Map<string, Holders>;
   /** csv file id -> its units (files that could not be read are left out). */
   fileUnits: Map<string, readonly string[]>;
+  /** Reference plots (Task 14): unit -> the username of its reference assessor. */
+  reference: Map<string, string>;
 }
 
 /**
@@ -56,11 +59,12 @@ export async function loadPlotContext(
   log: Log,
   known: { info?: RoundInfo | null; files?: CsvFile[]; members?: Member[] } = {},
 ): Promise<PlotContext> {
-  const [info, files, members, holdings] = await Promise.all([
+  const [info, files, members, holdings, references] = await Promise.all([
     known.info !== undefined ? known.info : store.getRoundInfo(projectId),
     known.files ?? store.listCsvFiles(projectId),
     known.members ?? store.listMembers(projectId),
     store.listDividedHoldings(projectId),
+    store.listReferencePlots(projectId),
   ]);
   const keyCount = fileKeyCount(info);
   const units = new Set<string>();
@@ -101,7 +105,8 @@ export async function loadPlotContext(
       }
     }
   }
-  return { info, units, copyHolders: copyHoldersOf(holdings, usernames), mainHolders, fileUnits };
+  const reference = new Map(references.map((r) => [r.plotKey, r.assessor]));
+  return { info, units, copyHolders: copyHoldersOf(holdings, usernames), mainHolders, fileUnits, reference };
 }
 
 /** Thrown by QualityWorker.run when no worker can be started (the job never ran). */
@@ -266,7 +271,7 @@ export class QualityWorker {
       if ('error' in message) {
         job.reject(new Error(message.error));
       } else {
-        job.resolve({ report: message.report, answers: message.answers, flags: message.flags, health: message.health });
+        job.resolve({ report: message.report, answers: message.answers, flags: message.flags, health: message.health, reference: message.reference });
       }
     });
     worker.on('error', (err: Error & { code?: string }) => {
@@ -386,6 +391,8 @@ export interface ServedReport {
   flags: FlagTable;
   /** What survey health is worked out from (Task 6), from the same records. */
   health: HealthTable;
+  /** The accuracy against the reference plots (Task 14), from the same records. */
+  reference: ReferenceFigures;
   /** ms since the epoch: when the inputs it was computed from were read. */
   computedAt: number;
   /** True when records (or other inputs) changed after computedAt; newer figures are being computed. */
@@ -404,6 +411,7 @@ interface CachedReport {
   answerStats: Map<string, AnswerStats>;
   flags: FlagTable;
   health: HealthTable;
+  reference: ReferenceFigures;
   computedAt: number;
   margins: Readonly<Record<string, number>>;
 }
@@ -690,5 +698,5 @@ export class QualityService {
 }
 
 function served(c: CachedReport, stale: boolean): ServedReport {
-  return { report: c.report, answers: c.answers, answerStats: c.answerStats, flags: c.flags, health: c.health, computedAt: c.computedAt, stale, margins: c.margins };
+  return { report: c.report, answers: c.answers, answerStats: c.answerStats, flags: c.flags, health: c.health, reference: c.reference, computedAt: c.computedAt, stale, margins: c.margins };
 }

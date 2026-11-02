@@ -9,7 +9,8 @@ import { copiesSubmittedAsMain } from '../division.js';
 import { attachment } from '../download.js';
 import { checkUploadFits } from '../limits.js';
 import { buildPlotFile, parsePlotFile, type RoundColumn } from '../plots.js';
-import { fileKeyCount, keyShape } from '../rounds.js';
+import { referenceCopyPlan } from '../reference.js';
+import { fileKeyCount, keyShape, recordKeysOfUnit } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store, UserPlots } from '../store/store.js';
 import type { Assignment, RecordRow } from '../types.js';
@@ -221,6 +222,13 @@ export async function registerAssignmentRoutes(
       const userId = request.userId;
       // A check draw put off by its 10 minutes is made now, so a checker's Refresh gets its copies.
       await deps.sampling?.runIfDue(projectId, request.log);
+      // A collector without a copy of a reference plot yet (joined since it was marked, or a
+      // collector since) gets it now, so it is in the plot list below (Task 14).
+      if (userId && request.membership!.role === 'operator') {
+        await addOwnReferenceCopies(store, projectId, userId).catch((err: unknown) =>
+          request.log.error({ err, projectId }, 'my-assignment: could not add the reference plots'),
+        );
+      }
       const files = userId ? await store.listAssignmentsForUser(projectId, userId) : [];
       const base = config.publicBaseUrl ? config.publicBaseUrl.replace(/\/+$/, '') : '';
       const entry = (f: { id: string; filename: string; checksum: string; plotCount: number }, query = '') => {
@@ -389,12 +397,40 @@ function copiesServedAsMain(
       if (!user) {
         return null;
       }
-      const records = (await store.listRecordSummaries(projectId)).filter((r) => r.operator === user.username);
+      // Only the records the copies' plots can have (every collector holds copies once there are
+      // reference plots, Task 14: reading every record of the project for each plot list would not do).
+      const keys = new Set<string>();
+      for (const unit of plots.copyKeys) for (const k of recordKeysOfUnit(unit, info)) keys.add(k);
+      const records = (await store.listRecordsByKeys(projectId, [...keys])).filter((r) => r.operator === user.username);
       return { username: user.username, records };
     })();
     const loaded = await mine;
     return loaded ? copiesSubmittedAsMain(loaded.records, userId, loaded.username, plots, info) : new Set();
   };
+}
+
+/**
+ * The reference copies a collector does not hold yet (Task 14): added in one transaction, only
+ * while each plot is still a reference plot of a divided file (changeReferencePlots).
+ */
+async function addOwnReferenceCopies(store: Store, projectId: string, userId: string): Promise<void> {
+  const references = await store.listReferencePlots(projectId);
+  if (references.length === 0) return;
+  const holdings = new Map<string, { plotKey: string; userId: string; overlap: boolean }[]>(references.map((r) => [r.csvFileId, []]));
+  for (const h of await store.listPlotHoldings(projectId, userId)) {
+    const copies = new Set(h.copyKeys);
+    holdings.set(h.csvFileId, h.plotKeys.map((plotKey) => ({ plotKey, userId, overlap: copies.has(plotKey) })));
+  }
+  const plan = referenceCopyPlan({
+    references,
+    members: [{ userId, username: '', role: 'operator' }],
+    holdings,
+    hasRecord: () => false,
+    only: userId,
+  });
+  if (plan.add.length > 0) {
+    await store.changeReferencePlots(projectId, { unmark: [], dropCopies: [], mark: [], addCopies: plan.add, at: Date.now(), by: null });
+  }
 }
 
 interface ServedFile {

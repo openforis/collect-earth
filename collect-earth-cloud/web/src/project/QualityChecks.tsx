@@ -81,7 +81,14 @@ function FileRow({ file, form, error, idBase, onChange }: { file: SamplingView["
       </TableCell>
       <TableCell align="right">{formatNumber(file.submitted, language)}</TableCell>
       <TableCell align="right">{formatNumber(file.sampledCopies, language)}</TableCell>
-      <TableCell align="right">{formatNumber(file.divisionCopies, language)}</TableCell>
+      <TableCell align="right">
+        {formatNumber(file.divisionCopies, language)}
+        {file.referenceCopies > 0 && (
+          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "normal", minWidth: 140 }}>
+            {t("checks.referenceCopies", { count: formatNumber(file.referenceCopies, language) })}
+          </Typography>
+        )}
+      </TableCell>
     </TableRow>
   );
 }

@@ -1970,7 +1970,7 @@ export interface PersonData {
   speed: Speed;
   sync: SyncHealth;
   /** `flags`: their pattern flags by kind (coordinators' page, from the figures at hand); null on My work or without figures. */
-  quality: QualityAtHand & { asFirst: Rate | null; asChecker: Rate | null; sentBack: SentBack[]; flags: FlagCounts | null };
+  quality: QualityAtHand & { asFirst: Rate | null; asChecker: Rate | null; sentBack: SentBack[]; flags: FlagCounts | null; reference: ReferencePerson | null };
 }
 
 const STATUS_KINDS: readonly PersonStatusKind[] = ["noPlots", "finished", "neverStarted", "quiet", "working", "disabled"];
@@ -2127,6 +2127,7 @@ export function toPersonData(body: unknown): PersonData {
       asChecker: toRateOrNull(quality.asChecker),
       sentBack: list(quality.sentBack).map((s) => ({ plot: text(s.plot), comment: nullableText(s.comment), decidedAt: toMillis(s.decidedAt), decidedBy: nullableText(s.decidedBy), submittedAgain: s.submittedAgain === true, file: nullableText(s.file) })),
       flags: quality.flags && typeof quality.flags === "object" ? toFlagCounts(quality.flags) : null,
+      reference: quality.reference && typeof quality.reference === "object" ? toReferencePerson(quality.reference) : null,
     },
   };
 }
@@ -2460,6 +2461,8 @@ export interface SamplingFile {
   submitted: number;
   sampledCopies: number;
   divisionCopies: number;
+  /** Copies of reference plots (every collector has one of each). */
+  referenceCopies: number;
   pending: number;
 }
 
@@ -2542,6 +2545,7 @@ export function toSamplingView(body: unknown): SamplingView {
       submitted: toCount(f.submitted),
       sampledCopies: toCount(f.sampledCopies),
       divisionCopies: toCount(f.divisionCopies),
+      referenceCopies: toCount(f.referenceCopies),
       pending: toCount(f.pending),
     })),
     wholeFiles: list(b.wholeFiles).map((f) => ({ csvFileId: String(f.csvFileId ?? ""), filename: String(f.filename ?? "") })),
@@ -2572,6 +2576,122 @@ export async function saveSampling(projectId: string, rule: SamplingRuleInput): 
 export async function drawSamplingNow(projectId: string): Promise<{ drawn: number; view: SamplingView }> {
   const body = obj(await request<unknown>("POST", `${p(projectId)}/sampling/draw`));
   return { drawn: toCount(obj(body.draw).drawn), view: toSamplingView(body.view) };
+}
+
+// --- reference plots (Task 14) ----------------------------------------------------
+
+/** One person's accuracy against the reference: plots where every answer matched, and per question. */
+export interface ReferencePerson {
+  username: string;
+  plots: Rate;
+  questions: { key: string; label: string; compared: number; agreeing: number; rate: number | null }[];
+}
+
+export interface ReferenceFiguresView {
+  /** Reference plots, those whose reference assessment is submitted, and the checks measured. */
+  plots: number;
+  assessed: number;
+  checks: number;
+  questions: (Rate & { key: string; label: string; kind: "choice" | "number" })[];
+  people: ReferencePerson[];
+  computedAt: number | null;
+  stale: boolean;
+}
+
+export interface ReferencePlotRow {
+  csvFileId: string;
+  filename: string;
+  plot: string;
+  assessor: string;
+  assessorUserId: string;
+  /** The assessor is still a member of the project. */
+  assessorInProject: boolean;
+  addedAt: number | null;
+  /** The reference assessment is submitted. */
+  assessed: boolean;
+  /** Collectors holding a copy, and of them those who submitted their check. */
+  copies: number;
+  checked: number;
+}
+
+/** What GET /reference answers: the figures; for coordinators also the reference set and what it can be built from. */
+export interface ReferenceView {
+  coordinator: boolean;
+  count: number;
+  figures: ReferenceFiguresView | null;
+  max: number;
+  plots: ReferencePlotRow[];
+  files: { csvFileId: string; filename: string; plots: number; reference: number }[];
+  wholeFiles: { csvFileId: string; filename: string }[];
+  assessors: { userId: string; username: string; role: Role }[];
+  collectors: number;
+  people: { userId: string; username: string; copies: number; checked: number }[];
+}
+
+export function toReferencePerson(value: unknown): ReferencePerson {
+  const p = obj(value);
+  return {
+    username: text(p.username),
+    plots: toRate(p.plots),
+    questions: list(p.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key), ...toRate(q) })),
+  };
+}
+
+export function toReferenceView(body: unknown): ReferenceView {
+  const b = obj(body);
+  const f = b.figures && typeof b.figures === "object" ? obj(b.figures) : null;
+  return {
+    coordinator: b.coordinator === true,
+    count: toCount(b.count),
+    figures: f
+      ? {
+          plots: toCount(f.plots),
+          assessed: toCount(f.assessed),
+          checks: toCount(f.checks),
+          questions: list(f.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key), kind: q.kind === "number" ? "number" : "choice", ...toRate(q) })),
+          people: list(f.people).map(toReferencePerson),
+          computedAt: toMillis(f.computedAt),
+          stale: f.stale === true,
+        }
+      : null,
+    max: toCount(b.max) || 500,
+    plots: list(b.plots).map((r) => ({
+      csvFileId: text(r.csvFileId),
+      filename: text(r.filename),
+      plot: text(r.plot),
+      assessor: text(r.assessor),
+      assessorUserId: text(r.assessorUserId),
+      assessorInProject: r.assessorInProject !== false,
+      addedAt: toMillis(r.addedAt),
+      assessed: r.assessed === true,
+      copies: toCount(r.copies),
+      checked: toCount(r.checked),
+    })),
+    files: list(b.files).map((x) => ({ csvFileId: text(x.csvFileId), filename: text(x.filename), plots: toCount(x.plots), reference: toCount(x.reference) })),
+    wholeFiles: list(b.wholeFiles).map((x) => ({ csvFileId: text(x.csvFileId), filename: text(x.filename) })),
+    assessors: list(b.assessors).map((a) => ({ userId: text(a.userId), username: text(a.username), role: toRole(a.role) })),
+    collectors: toCount(b.collectors),
+    people: list(b.people).map((x) => ({ userId: text(x.userId), username: text(x.username), copies: toCount(x.copies), checked: toCount(x.checked) })),
+  };
+}
+
+export async function getReference(projectId: string): Promise<ReferenceView> {
+  return toReferenceView(await request<unknown>("GET", `${p(projectId)}/reference`));
+}
+
+/** Marks plots of a divided file as reference plots: the ids given, or `random` plots nobody has assessed. */
+export async function markReference(
+  projectId: string,
+  body: { csvFileId: string; assessorUserId: string; plots: string[] } | { csvFileId: string; assessorUserId: string; random: number },
+): Promise<{ marked: number; view: ReferenceView }> {
+  const res = obj(await request<unknown>("POST", `${p(projectId)}/reference/plots`, { json: body }));
+  return { marked: toCount(obj(res.result).marked), view: toReferenceView({ ...res, coordinator: true }) };
+}
+
+/** No longer reference plots: the copies of those who did not check them go. */
+export async function unmarkReference(projectId: string, plots: { csvFileId: string; plot: string }[] | "all"): Promise<{ unmarked: number; view: ReferenceView }> {
+  const res = obj(await request<unknown>("POST", `${p(projectId)}/reference/remove`, { json: plots === "all" ? { all: true } : { plots } }));
+  return { unmarked: toCount(obj(res.result).unmarked), view: toReferenceView({ ...res, coordinator: true }) };
 }
 
 // --- the review queue (Task 7) ----------------------------------------------------
@@ -2894,6 +3014,8 @@ export interface PlotPageData {
   decision: QualityDecision | null;
   /** The reviewer asking made a record of it: someone else decides it. */
   ownPlot: boolean;
+  /** A reference plot (its checks are measured against it, never compared as differences); the assessor for coordinators. */
+  reference: { assessor: string | null } | null;
   /** From the quality figures at hand; null when there are none (the Quality tab works them out). */
   flags: PatternFlag[] | null;
   differences: (Difference & { changed: boolean })[] | null;
@@ -2939,6 +3061,7 @@ export function toPlotPage(body: unknown): PlotPageData {
     options: toOptions(b.options),
     decision: b.decision && typeof b.decision === "object" ? toDecision(b.decision) : null,
     ownPlot: b.ownPlot === true,
+    reference: b.reference && typeof b.reference === "object" ? { assessor: nullableText(obj(b.reference).assessor) } : null,
     flags: Array.isArray(b.flags) ? list(b.flags).flatMap(toPatternFlags) : null,
     differences: Array.isArray(b.differences) ? list(b.differences).map((d) => ({ ...toDifference(d), changed: d.changed === true })) : null,
     figures: figures ? { computedAt: toMillis(figures.computedAt), stale: figures.stale === true } : null,

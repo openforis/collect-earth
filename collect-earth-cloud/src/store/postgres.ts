@@ -51,6 +51,9 @@ import {
   type RecordEventQuery,
   type RecordRow,
   type RecordState,
+  type ReferenceChange,
+  type ReferenceChangeResult,
+  type ReferencePlot,
   type RoundInfo,
   type SampledCopy,
   type SamplingDraw,
@@ -225,6 +228,7 @@ export class PostgresStore implements Store {
       await client.query('DELETE FROM quality_decisions WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM guidance_notes WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM sampling_rules WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM reference_plots WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM plot_assignments WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM assignments WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM csv_files WHERE project_id = $1', [projectId]);
@@ -1195,6 +1199,11 @@ export class PostgresStore implements Store {
             WHERE project_id = $1 AND csv_file_id = $2 AND NOT (plot_key = ANY($3::text[]))`,
           [projectId, meta.id, plotKeys],
         );
+        await client.query(
+          `DELETE FROM reference_plots
+            WHERE project_id = $1 AND csv_file_id = $2 AND NOT (plot_key = ANY($3::text[]))`,
+          [projectId, meta.id, plotKeys],
+        );
       }
       return meta;
     });
@@ -1319,6 +1328,8 @@ export class PostgresStore implements Store {
       ]);
       await client.query('DELETE FROM plot_assignments WHERE project_id = $1 AND csv_file_id = $2', [projectId, csvFileId]);
       if (distribution === null) {
+        // Whole files hold no copies: their reference plots go too.
+        await client.query('DELETE FROM reference_plots WHERE project_id = $1 AND csv_file_id = $2', [projectId, csvFileId]);
         return;
       }
       await client.query('DELETE FROM assignments WHERE project_id = $1 AND csv_file_id = $2', [projectId, csvFileId]);
@@ -1469,6 +1480,107 @@ export class PostgresStore implements Store {
         [projectId, JSON.stringify(kept), new Date(dueBefore), added.length > 0, new Date(draw.at)],
       );
       return added;
+    });
+  }
+
+  async listReferencePlots(projectId: string): Promise<ReferencePlot[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT r.csv_file_id, r.plot_key, r.assessor_user_id, u.username, r.added_at, r.added_by
+           FROM reference_plots r
+           JOIN csv_files c ON c.project_id = r.project_id AND c.id = r.csv_file_id AND c.distribution IS NOT NULL
+           JOIN users u ON u.id = r.assessor_user_id
+          WHERE r.project_id = $1`,
+        [projectId],
+      );
+      return res.rows.map((r) => ({
+        csvFileId: r.csv_file_id as string,
+        plotKey: r.plot_key as string,
+        assessorUserId: r.assessor_user_id as string,
+        assessor: r.username as string,
+        addedAt: (r.added_at as Date).getTime(),
+        addedBy: (r.added_by as string | null) ?? null,
+      }));
+    });
+  }
+
+  async changeReferencePlots(projectId: string, change: ReferenceChange): Promise<ReferenceChangeResult> {
+    return this.withProject(projectId, async (client) => {
+      // The check sampling's lock: no draw nor division adds holdings of these plots meanwhile.
+      await client.query(SAMPLING_LOCK, [projectId]);
+      const result: ReferenceChangeResult = { unmarked: 0, marked: 0, copiesAdded: 0, copiesDropped: 0 };
+      if (change.unmark.length > 0) {
+        const res = await client.query(
+          `DELETE FROM reference_plots r USING unnest($2::uuid[], $3::text[]) AS t(csv_file_id, plot_key)
+            WHERE r.project_id = $1 AND r.csv_file_id = t.csv_file_id AND r.plot_key = t.plot_key`,
+          [projectId, change.unmark.map((u) => u.csvFileId), change.unmark.map((u) => u.plotKey)],
+        );
+        result.unmarked = res.rowCount ?? 0;
+      }
+      if (change.dropCopies.length > 0) {
+        const res = await client.query(
+          `DELETE FROM plot_assignments p USING unnest($2::uuid[], $3::text[], $4::uuid[]) AS t(csv_file_id, plot_key, user_id)
+            WHERE p.project_id = $1 AND p.csv_file_id = t.csv_file_id AND p.plot_key = t.plot_key AND p.user_id = t.user_id AND p.overlap`,
+          [projectId, change.dropCopies.map((d) => d.csvFileId), change.dropCopies.map((d) => d.plotKey), change.dropCopies.map((d) => d.userId)],
+        );
+        result.copiesDropped = res.rowCount ?? 0;
+      }
+      if (change.mark.length > 0) {
+        const marked = await client.query(
+          `INSERT INTO reference_plots (project_id, csv_file_id, plot_key, assessor_user_id, added_at, added_by)
+           SELECT $1, t.csv_file_id, t.plot_key, t.assessor_user_id, $5::timestamptz, $6::uuid
+             FROM unnest($2::uuid[], $3::text[], $4::uuid[]) AS t(csv_file_id, plot_key, assessor_user_id)
+             JOIN csv_files c ON c.project_id = $1 AND c.id = t.csv_file_id AND c.distribution IS NOT NULL
+             JOIN project_members m ON m.project_id = $1 AND m.user_id = t.assessor_user_id
+           ON CONFLICT (project_id, csv_file_id, plot_key) DO UPDATE SET assessor_user_id = EXCLUDED.assessor_user_id
+           RETURNING csv_file_id, plot_key, assessor_user_id`,
+          [
+            projectId,
+            change.mark.map((m) => m.csvFileId),
+            change.mark.map((m) => m.plotKey),
+            change.mark.map((m) => m.assessorUserId),
+            new Date(change.at),
+            change.by,
+          ],
+        );
+        result.marked = marked.rowCount ?? 0;
+        const files = marked.rows.map((r) => r.csv_file_id as string);
+        const keys = marked.rows.map((r) => r.plot_key as string);
+        const assessors = marked.rows.map((r) => r.assessor_user_id as string);
+        // Everyone else holding a marked plot in its file keeps a copy of it (no longer drawn) ...
+        await client.query(
+          `UPDATE plot_assignments p SET overlap = true, sampled_at = NULL
+             FROM unnest($2::uuid[], $3::text[], $4::uuid[]) AS t(csv_file_id, plot_key, assessor_user_id)
+            WHERE p.project_id = $1 AND p.csv_file_id = t.csv_file_id AND p.plot_key = t.plot_key
+              AND p.user_id <> t.assessor_user_id AND (NOT p.overlap OR p.sampled_at IS NOT NULL)`,
+          [projectId, files, keys, assessors],
+        );
+        // ... and the assessor holds it as main.
+        await client.query(
+          `INSERT INTO plot_assignments (project_id, csv_file_id, plot_key, user_id, overlap, sampled_at)
+           SELECT $1, t.csv_file_id, t.plot_key, t.assessor_user_id, false, NULL
+             FROM unnest($2::uuid[], $3::text[], $4::uuid[]) AS t(csv_file_id, plot_key, assessor_user_id)
+           ON CONFLICT (project_id, csv_file_id, plot_key, user_id) DO UPDATE SET overlap = false, sampled_at = NULL
+            WHERE plot_assignments.overlap OR plot_assignments.sampled_at IS NOT NULL`,
+          [projectId, files, keys, assessors],
+        );
+      }
+      for (let i = 0; i < change.addCopies.length; i += PLOT_INSERT_CHUNK) {
+        const chunk = change.addCopies.slice(i, i + PLOT_INSERT_CHUNK);
+        const res = await client.query(
+          `INSERT INTO plot_assignments (project_id, csv_file_id, plot_key, user_id, overlap)
+           SELECT $1, t.csv_file_id, t.plot_key, t.user_id, true
+             FROM unnest($2::uuid[], $3::text[], $4::uuid[]) AS t(csv_file_id, plot_key, user_id)
+             JOIN reference_plots r ON r.project_id = $1 AND r.csv_file_id = t.csv_file_id AND r.plot_key = t.plot_key
+             JOIN csv_files c ON c.project_id = $1 AND c.id = t.csv_file_id AND c.distribution IS NOT NULL
+             JOIN project_members m ON m.project_id = $1 AND m.user_id = t.user_id
+            WHERE r.assessor_user_id <> t.user_id
+           ON CONFLICT DO NOTHING`,
+          [projectId, chunk.map((c) => c.csvFileId), chunk.map((c) => c.plotKey), chunk.map((c) => c.userId)],
+        );
+        result.copiesAdded += res.rowCount ?? 0;
+      }
+      return result;
     });
   }
 

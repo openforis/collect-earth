@@ -143,6 +143,7 @@ export class SamplingService {
     const usernames = new Map(members.map((m) => [m.userId, m.username]));
     const rule = sampling.rule;
     const subs = submittedOf(state);
+    const reference = state.context.reference;
     const files = divided.map((f) => {
       const held = holdings.get(f.id) ?? [];
       const units = state.context.fileUnits.get(f.id) ?? [];
@@ -155,15 +156,17 @@ export class SamplingService {
         plots: units.length,
         submitted: units.filter((u) => subs.has(u)).length,
         sampledCopies: held.filter((a) => a.overlap && a.sampledAt !== undefined).length,
-        divisionCopies: held.filter((a) => a.overlap && a.sampledAt === undefined).length,
+        divisionCopies: held.filter((a) => a.overlap && a.sampledAt === undefined && !reference.has(a.plotKey)).length,
+        referenceCopies: held.filter((a) => a.overlap && reference.has(a.plotKey)).length,
         pending: preview.copies.filter((c) => c.csvFileId === f.id).length,
       };
     });
-    // Each person's checks: copies held in the divided files, done (their check submitted), of them drawn.
+    // Each person's checks: copies held in the divided files, done (their check submitted), of them
+    // drawn. Reference copies (every collector has them) are not counted: they are no check load.
     const people = new Map<string, { open: number; done: number; sampled: number }>();
     for (const list of holdings.values()) {
       for (const a of list) {
-        if (!a.overlap) continue;
+        if (!a.overlap || reference.has(a.plotKey)) continue;
         const username = usernames.get(a.userId);
         if (username === undefined) continue;
         const p = people.get(a.userId) ?? { open: 0, done: 0, sampled: 0 };
@@ -241,7 +244,10 @@ export interface SamplingView {
     plots: number;
     submitted: number;
     sampledCopies: number;
+    /** The division's copies (reference copies apart). */
     divisionCopies: number;
+    /** Copies of reference plots (Task 14). */
+    referenceCopies: number;
     pending: number;
   }[];
   /** Whole files cannot hold checks: assign them by plot to use checks. */
@@ -307,12 +313,19 @@ export function drawInputOf(
   }
   const all = [...holdings.values()].flat().filter((a) => !isStale(a));
   const copyHolders = copyHoldersOf(all, usernames);
+  // Reference plots (Task 14) are never drawn: every collector checks them already, they are not
+  // among anyone's plots for the share, and their copies are no open checks (every collector has them).
+  const reference = state.context.reference;
   const files: DrawFile[] = divided
     .filter((f) => coreOf(rule, f.id) !== null)
-    .map((f) => ({ id: f.id, units: state.context.fileUnits.get(f.id) ?? [], holdings: holdings.get(f.id) ?? [] }));
+    .map((f) => {
+      const units = state.context.fileUnits.get(f.id) ?? [];
+      return { id: f.id, units: reference.size > 0 ? units.filter((u) => !reference.has(u)) : units, holdings: holdings.get(f.id) ?? [] };
+    });
   // Open checks: copies held (each unit once) whose check by them is not submitted.
   const openChecks = new Map<string, number>();
   for (const [unit, users] of copyHolders) {
+    if (reference.has(unit)) continue;
     for (const u of users) {
       if (!state.units.checksDone.has(`${u}\n${unit}`)) openChecks.set(u, (openChecks.get(u) ?? 0) + 1);
     }
@@ -334,7 +347,7 @@ export function drawInputOf(
     rule,
     files,
     members,
-    submitted: submittedOf(state),
+    submitted: reference.size > 0 ? new Map([...submittedOf(state)].filter(([unit]) => !reference.has(unit))) : submittedOf(state),
     assessedBy,
     checked,
     copyHolders,

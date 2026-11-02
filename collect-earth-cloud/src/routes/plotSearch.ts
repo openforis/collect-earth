@@ -12,7 +12,7 @@ import { recordResolver } from '../quality.js';
 import { remember, sha256, type Log, type QualityService, type ServedReport } from '../qualityService.js';
 import { fileKeyCount, keyShape, recordKeysOfUnit, type Assessment } from '../rounds.js';
 import type { Store } from '../store/store.js';
-import type { RecordRow } from '../types.js';
+import type { RecordRow, ReferencePlot } from '../types.js';
 import { PlotPlaceReader } from './plotPlaces.js';
 import { MAX_NAME, publicDecision } from './quality.js';
 
@@ -148,7 +148,7 @@ export async function registerPlotSearchRoutes(
     const units = unitsOfPlot(index, plot);
     const unitFiles = [...new Set(units.flatMap((unit) => filesOfUnit(index, unitIndex(index, unit)).map((f) => f.id)))];
 
-    const [metas, members, assignments, holdings, rows, decisions, settings, outline, where, user] = await Promise.all([
+    const [metas, members, assignments, holdings, rows, decisions, settings, outline, where, user, references] = await Promise.all([
       store.listCsvFiles(projectId),
       store.listMembers(projectId),
       store.listAssignments(projectId),
@@ -159,6 +159,7 @@ export async function registerPlotSearchRoutes(
       quality.outline(projectId, request.log),
       places.places(projectId, [plot], request.log),
       userId ? store.getUserById(userId) : Promise.resolve(null),
+      store.listReferencePlots(projectId),
     ]);
     // The figures at hand (peek, never awaited): the flags and the differing pairs come from them.
     let figures: ServedReport | null = null;
@@ -266,6 +267,10 @@ export async function registerPlotSearchRoutes(
       options: answerOptions(outline, Object.keys(labels)),
       decision,
       ownPlot,
+      // A reference plot (Task 14): its checks are measured against its reference assessment
+      // ("Reference plots" on the Quality tab), never compared as a difference. Who the reference
+      // assessor is: coordinators only.
+      reference: referenceOf(references, plot, coordinator),
       flags,
       differences,
       figures: figures ? { computedAt: figures.computedAt, stale: figures.stale } : null,
@@ -273,6 +278,12 @@ export async function registerPlotSearchRoutes(
       outline: outlineOf,
       ...(where.unsupportedSrs ? { unsupportedSrs: where.unsupportedSrs } : {}),
     });
+  }
+
+  /** Whether the plot is a reference plot (null: no), with its assessor for coordinators. */
+  function referenceOf(references: readonly ReferencePlot[], plot: string, coordinator: boolean): { assessor?: string } | null {
+    const r = references.find((x) => x.plotKey === plot);
+    return r ? (coordinator ? { assessor: r.assessor } : {}) : null;
   }
 
   // "/plots/search" with q searches; without it, it is the page of a plot named "search".

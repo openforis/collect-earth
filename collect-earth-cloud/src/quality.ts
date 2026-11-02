@@ -56,6 +56,12 @@ export interface QualityInput {
   mainHolders?: ReadonlyMap<string, Holders>;
   /** Number margins in percent, by question key; DEFAULT_MARGIN for the others and for any that is no number >= 0. */
   margins?: Readonly<Record<string, number>>;
+  /**
+   * Reference plots (Task 14): unit -> the username of its reference assessor. Their checks are
+   * measured against the reference (src/reference.ts) and left out of every agreement figure,
+   * difference and pair here, so they are not counted twice.
+   */
+  reference?: ReadonlyMap<string, string>;
 }
 
 export interface Rate {
@@ -241,7 +247,7 @@ export interface QualityReport {
   beyondOutline: { count: number; keys: string[] };
 }
 
-type Kind = 'choice' | 'number';
+export type Kind = 'choice' | 'number';
 export type KeyRule = { compare: false; beyond: boolean } | { compare: true; kind: Kind; label: string };
 
 /**
@@ -382,7 +388,7 @@ export function qualityReport(input: QualityInput, onCheckedPlot?: (plot: string
         problems.push({ kind: 'two_main', plot, recordKey: m.recordKey, operator: m.operator });
       }
     }
-    if (g.main.length === 0 || g.check.length === 0) {
+    if (g.main.length === 0 || g.check.length === 0 || input.reference?.has(plot)) {
       continue;
     }
     plotsChecked += 1;
@@ -646,6 +652,30 @@ export function pairFields(
   return fields;
 }
 
+/**
+ * Compares two records' answers as qualityReport compares a pair (the same questions, rules,
+ * margins and blanks: a question blank on both sides is not compared), calling `each` once per
+ * compared question with whether the two agree. `rules` caches keyRule per key.
+ */
+export function compareAnswers(
+  first: Readonly<Record<string, string>>,
+  check: Readonly<Record<string, string>>,
+  rules: (key: string) => KeyRule,
+  margins: Readonly<Record<string, number>>,
+  each: (key: string, kind: Kind, agrees: boolean) => void,
+): void {
+  const compare = (key: string) => {
+    const a = text(Object.hasOwn(first, key) ? first[key] : undefined);
+    const b = text(Object.hasOwn(check, key) ? check[key] : undefined);
+    if (isBlankAnswer(a) && isBlankAnswer(b)) return;
+    const rule = rules(key);
+    if (!rule.compare) return;
+    each(key, rule.kind, a === b || (rule.kind === 'choice' ? choiceText(a) === choiceText(b) : numbersAgree(a, b, marginOf(margins, key))));
+  };
+  for (const key of Object.keys(first)) compare(key);
+  for (const key of Object.keys(check)) if (!Object.hasOwn(first, key)) compare(key);
+}
+
 function problemCounts(problems: readonly DataProblem[]): QualityReport['problemsByPerson'] {
   const counts = new Map<string, { operator: string; kind: DataProblemKind; count: number }>();
   for (const p of problems) {
@@ -788,7 +818,7 @@ export function marginKey(key: string): string {
 }
 
 /** The margin of a number question: the one set (under its marginKey) when it is a number >= 0, else DEFAULT_MARGIN. */
-function marginOf(margins: Readonly<Record<string, number>>, key: string): number {
+export function marginOf(margins: Readonly<Record<string, number>>, key: string): number {
   const m: unknown = margins[marginKey(key)];
   return typeof m === 'number' && Number.isFinite(m) && m >= 0 ? m : DEFAULT_MARGIN;
 }
@@ -823,7 +853,7 @@ function withinMargin(a: number, b: number, margin: number): boolean {
 }
 
 /** Whether record a is taken over b (main, or check for a decision): the latest modifiedOn, then the lowest key, then operator. */
-function later(a: QualityRecord, b: QualityRecord): boolean {
+export function later(a: QualityRecord, b: QualityRecord): boolean {
   if (a.modifiedOn !== b.modifiedOn) {
     return a.modifiedOn > b.modifiedOn;
   }

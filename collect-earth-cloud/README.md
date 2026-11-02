@@ -55,6 +55,7 @@ npm run smoke:pg:progress -- 55481   # the Progress and People tabs (migration 0
 npm run smoke:pg:activity -- 55481   # the Activity tab (migration 017): the bell's read state with RLS, the log on 100,000 record events paged by cursor (timings), the weekly summary and the daily activity download
 npm run smoke:pg:panel -- 55481      # the server owner's panel (migration 018): GET /v1/admin/overview on 100,000 records in 5 projects (totals against SQL, no names, timings), RLS still binding the app role, disabling and enabling an account, two admins disabling each other at once
 npm run smoke:pg:sampling -- 55481   # the automatic checks (migration 019): a first submission draws, the 10 minutes' coalescing, the checker's round-2 file, two draws at once, RLS of sampling_rules, a draw on 100,000 plots timed
+npm run smoke:pg:reference -- 55482  # reference plots (migration 020): marking, every collector's copy, the worker's accuracy, removing, a newcomer's copies, RLS of reference_plots, 50 reference plots × 40 collectors on 100,000 plots timed
 docker stop ce-pg-smoke
 ```
 
@@ -172,6 +173,9 @@ other `GET` that accepts HTML and is not under `/v1/` or `/health` returns its
 | `GET` | `/v1/projects/:pid/sampling` | admin | the automatic checks (Task 13): `{rule, active, intervalMinutes, due, nextAutomaticAt, lastDraw, pending, files, wholeFiles, checkers, members, noCheckers}` |
 | `PUT` | `/v1/projects/:pid/sampling` | admin | `{checkers: [userId] \| null, firstN: 1-1000 \| null, percent: 1-100 \| null, files?: {<divided file id>: {use: 'project' \| 'off' \| 'own', ...}}}` → the GET shape; the seed is kept; audited `settings.changed` `{setting: 'sampling'}`; draws nothing by itself |
 | `POST` | `/v1/projects/:pid/sampling/draw` | admin | "Draw now" → `{draw, view}`; 409 `no_rule` when no rule is on; audited `sampling.drawn` with its counts |
+| `GET` | `/v1/projects/:pid/reference` | reviewer | reference plots (Task 14): `{coordinator, count, figures: {plots, assessed, checks, questions, people, computedAt, stale}}`; coordinators also `{max, plots, files, wholeFiles, assessors, collectors, people}` and `figures.byPlot` |
+| `POST` | `/v1/projects/:pid/reference/plots` | admin | `{csvFileId, assessorUserId, plots: [id]}` or `{…, random: 1-500}` → `{result, …view}`: the assessor (a coordinator or reviewer) holds them as main, every collector a copy; 400 `bad_request` with `code` (`whole_file`, `unknown_plots`, `not_a_plot`, `in_other_file`, `assessed_by_others`, `too_many`, `bad_assessor`, `none_free`); audited `reference.changed` |
+| `POST` | `/v1/projects/:pid/reference/remove` | admin | `{plots: [{csvFileId, plot}]}` or `{all: true}` → `{result, …view}`; copies whose holder has no record of the plot go; audited `reference.changed` |
 
 **Quality, reports and the AI assistant** (see `docs/plans/2026-10-29-reassessment-round.md`)
 

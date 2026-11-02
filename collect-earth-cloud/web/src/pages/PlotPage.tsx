@@ -196,6 +196,10 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
         <Link {...linkProps(quality)}>{t("plot.openQuality")}</Link>
       </Stack>
 
+      {data.reference && (
+        <Alert severity="info">{data.reference.assessor ? t("plot.reference", { assessor: data.reference.assessor }) : t("plot.referenceNoName")}</Alert>
+      )}
+
       <Section title={t("plot.decisionHeading")}>
         <Decision key={data.plot} projectId={projectId} data={data} onChange={(next) => loaded.setData(next)} />
       </Section>

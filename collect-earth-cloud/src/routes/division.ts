@@ -157,9 +157,18 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
     }
     const values = parsed.mode === 'column' ? columnValues(plotFile, parsed.column) : null;
     // The copies the check sampling drew stay with their checkers (Task 13); going back to
-    // the whole file (above) drops them with every other holding.
-    const drawn = file.distribution ? (await store.listPlotAssignments(projectId, file.id)).filter((a) => a.sampledAt !== undefined) : [];
-    const plots = divide(parsed, plotFile.plotIds, values, submitted, plotOf, drawn);
+    // the whole file (above) drops them with every other holding. Reference plots (Task 14) are
+    // not dealt again: they keep their assessor and their copies as they are (the whole file
+    // again unmarks them).
+    const held = file.distribution ? await store.listPlotAssignments(projectId, file.id) : [];
+    const drawn = held.filter((a) => a.sampledAt !== undefined);
+    const reference = file.distribution ? new Set((await store.listReferencePlots(projectId)).filter((r) => r.csvFileId === file.id).map((r) => r.plotKey)) : new Set<string>();
+    const dealt = reference.size === 0 ? plotFile.plotIds : plotFile.plotIds.filter((id) => !reference.has(id));
+    const dealtValues = reference.size === 0 || values === null ? values : values.filter((_, i) => !reference.has(plotFile.plotIds[i]));
+    const plots = [
+      ...divide(parsed, dealt, dealtValues, submitted, plotOf, drawn.filter((a) => !reference.has(a.plotKey))),
+      ...held.filter((a) => reference.has(a.plotKey)),
+    ];
     if (!dryRun) {
       await store.setDivision(projectId, file.id, parsed, plots);
       const people = new Set(plots.map((a) => a.userId)).size;
@@ -198,10 +207,15 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
     }
     const inFile = new Set(plotFile.plotIds);
     holdings = holdings.filter((a) => inFile.has(a.plotKey));
+    // Reference plots (Task 14) never move: their assessor keeps them, every collector their copy.
+    const reference = file.distribution ? new Set((await store.listReferencePlots(projectId)).filter((r) => r.csvFileId === file.id).map((r) => r.plotKey)) : new Set<string>();
+    const kept = holdings.filter((a) => reference.has(a.plotKey));
+    holdings = holdings.filter((a) => !reference.has(a.plotKey));
     if (!holdings.some((a) => a.userId === from)) {
       return reply.send({ ...(await currentSummary(store, projectId, loaded)), moved: 0, notMoved: 0, droppedChecks: 0 });
     }
     const result = moveUnfinished(holdings, from, to, submitted, plotOf);
+    result.plots.push(...kept);
     const distribution = { mode: 'manual' as const };
     await store.setDivision(projectId, file.id, distribution, result.plots);
     await audit(store, request, 'plots.moved', { csvFileId: file.id, fromUserId: from, toUserId: to, moved: result.moved });

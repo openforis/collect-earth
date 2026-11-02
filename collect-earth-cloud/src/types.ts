@@ -260,6 +260,53 @@ export interface SampledCopy {
   reason: 'firstN' | 'percent';
 }
 
+/**
+ * A reference plot (Task 14, reference_plots): a plot of a divided file whose first assessment,
+ * by its reference assessor (its main holder there), every collector checks blind (a copy each).
+ */
+export interface ReferencePlot {
+  csvFileId: string;
+  plotKey: string;
+  assessorUserId: string;
+  /** The assessor's username (records are kept by it), also once they left the project. */
+  assessor: string;
+  addedAt: number;
+  /** Who marked it (a user id), null when unknown. */
+  addedBy: string | null;
+}
+
+/** One holding of a divided file's plot, for the reference copies. */
+export interface PlotHoldingKey {
+  csvFileId: string;
+  plotKey: string;
+  userId: string;
+}
+
+/** What changeReferencePlots does, in this order, in one transaction. */
+export interface ReferenceChange {
+  /** No longer reference plots (their holdings stay, unless `dropCopies` names them). */
+  unmark: readonly { csvFileId: string; plotKey: string }[];
+  /** Copies (only copies) to drop. */
+  dropCopies: readonly PlotHoldingKey[];
+  /**
+   * Plots to mark (only in a divided file, the assessor a member): the assessor becomes their
+   * main holder there; every other holding of them in the file becomes a copy (no longer drawn).
+   */
+  mark: readonly { csvFileId: string; plotKey: string; assessorUserId: string }[];
+  /** Copies to add: only of a reference plot of a divided file, to a member other than its assessor who does not hold it there. */
+  addCopies: readonly PlotHoldingKey[];
+  at: number;
+  by: string | null;
+}
+
+/** What changeReferencePlots did. */
+export interface ReferenceChangeResult {
+  unmarked: number;
+  marked: number;
+  copiesAdded: number;
+  copiesDropped: number;
+}
+
 /** One csv-file ↔ user assignment. */
 export interface Assignment {
   userId: string;

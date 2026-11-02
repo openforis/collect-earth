@@ -135,6 +135,9 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
     case "sampling.drawn":
       if (d.automatic === true) return t("activity.audit.sampledAuto", { count: num(d.drawn, language) });
       return t("activity.audit.sampled", { actor, count: num(d.drawn, language) });
+    case "reference.changed":
+      if (Number(d.removed) > 0 && !(Number(d.added) > 0)) return t("activity.audit.referenceRemoved", { actor, count: num(d.removed, language) });
+      return t("activity.audit.referenceAdded", { actor, count: num(d.added, language), file: fileOf(t, page, d.csvFileId) });
     case "export.downloaded":
       if (typeof d.kind === "string" && EXPORT_KEYS[d.kind]) return t("activity.audit.download", { actor, what: t(EXPORT_KEYS[d.kind]) });
       return t("activity.audit.downloadData", { actor, count: num(d.records, language) });

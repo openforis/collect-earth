@@ -55,6 +55,7 @@ import { useT, type Translate } from "../i18n";
 import { agoText, bucketLabel, durationText, perDayText, removalText, statusChip, statusSyncLevel } from "../peopleView";
 import { browserTimeZone, dayText, percentText } from "../progressView";
 import { rateText } from "../qualityView";
+import { accuracyText, weakestQuestions } from "../referenceView";
 import { linkProps, navigate, pathFor, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 
@@ -365,6 +366,22 @@ export function QualitySection({ data, self, projectId }: { data: PersonData; se
                   {totalOf(q.flags) > 0 ? countsText(t, q.flags, language) : t("person.flagsNone")}{" "}
                   <Link {...linkProps(pathFor({ name: "project", projectId, tab: "quality" }))}>{t("person.flagsLink")}</Link>
                 </Typography>
+              </Line>
+            )}
+            {!self && (
+              <Line label={t("person.referenceTitle")}>
+                {q.reference ? (
+                  <Box>
+                    <Typography>{accuracyText(t, q.reference.plots, language)}</Typography>
+                    {weakestQuestions(q.reference).map((w) => (
+                      <Typography key={w.key} variant="body2" color="text.secondary">
+                        {t("reference.missed", { label: w.label, missed: formatNumber(w.compared - w.agreeing, language), count: formatNumber(w.compared, language) })}
+                      </Typography>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography>{t("person.referenceNone")}</Typography>
+                )}
               </Line>
             )}
             {q.computedAt !== null && (

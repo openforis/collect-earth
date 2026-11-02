@@ -96,7 +96,7 @@ export const QUALITY_FAILED = {
  * restarted under this job because of another; or a 500 with a plain message when
  * they failed (logged with the details).
  */
-async function served(quality: QualityService, projectId: string, request: FastifyRequest, reply: FastifyReply): Promise<ServedReport | null> {
+export async function served(quality: QualityService, projectId: string, request: FastifyRequest, reply: FastifyReply): Promise<ServedReport | null> {
   try {
     return await quality.report(projectId, request.log);
   } catch (err) {

@@ -2433,6 +2433,141 @@ with `'`), and the read state.
 - Reference plots are excluded from agreement.
 - A collector joining later gets the copies.
 
+**As built** (differs from the above where it says so)
+- **Storage (migration 020):** `reference_plots` (`project_id, csv_file_id, plot_key, assessor_user_id,
+  added_at, added_by`, PK per file and plot; RLS with the NULLIF policy of 001; the 009 version
+  triggers, so marking bumps `records_version` and the figures, the project state and the served
+  files follow; `deleteProject`, whole again and a replaced file that lost the plot delete rows;
+  the assessor's account deleted cascades). **No new column on `plot_assignments`:** a copy of a
+  plot listed there *is* a reference copy (told apart from the division's copies and the drawn
+  ones, `sampled_at`, by the table). Store: `listReferencePlots` (with the assessor's username, also
+  once they left the project; divided files only) and `changeReferencePlots(projectId, { unmark,
+  dropCopies, mark, addCopies, at, by })`, one transaction under the check sampling's advisory lock
+  (no draw nor division in between): marking makes the assessor the plot's main holder in the file
+  and every other holding of it there a copy (no longer drawn); copies are added only for a
+  reference plot of a divided file, to a member other than its assessor who does not hold it.
+- **Who assesses (decided):** the coordinator picks a **reference assessor** among the project's
+  coordinators and reviewers (not disabled), themselves by default; refused for a collector (400
+  `bad_assessor`). **Who gets copies:** every collector (role operator, not disabled), never the
+  assessor; reviewers do not (they review, and may be assessors).
+- **Which plots can be marked** (`checkMark`, 400 with a `code` and up to 20 plots): plots of a
+  divided file (`whole_file`), in the file (`unknown_plots`), not an own round's re-assessment unit
+  (`not_a_plot`), in no other plot file (`in_other_file`: records are paired by unit across files),
+  with no first assessment (submitted or a draft) by anyone but the assessor
+  (`assessed_by_others`: the reference must be the only first assessment); at most
+  `MAX_REFERENCE_PLOTS` 500 per project (`too_many`; 500 × the collectors are copies). A collector's
+  existing check of the plot (a division or drawn copy) stays and is measured. **At random:**
+  `random: N` picks N plots nobody has any record of, in a seeded order (`pickReference`; `none_free`
+  when none). The copies go out at once (blind anyway); only plots whose reference assessment is
+  submitted are measured, the page says how many.
+- **Keeping the copies right** (`referenceCopyPlan`, pure): every mark and removal also adds the
+  copies missing and drops those of someone who would not get one now (no longer a collector,
+  disabled) **unless they have a record of the plot** (without its copy, a record without a round
+  would be taken for a second first assessment). **A collector who joins later** (or becomes one)
+  gets theirs in `my-assignment` before the list is built (adds only, their own; one
+  `listReferencePlots` per plot list, nothing written when nothing is missing), so on their next
+  Refresh. A removed member's holdings already go with `removeMember`.
+- **Removing** (`POST /reference/remove`, plots or all): the plot is no longer a reference plot; the
+  copies whose holder has no record of it go, checks made stay (and then count as ordinary checks
+  in the agreement figures: the dialog says so); the assessor keeps the plot. A previous main
+  holder is not given it back.
+- **Divisions:** a new division (`PUT /distribution`) does not deal the reference plots again: they
+  keep their assessor and copies (left out of `divide`, added back); `move-unfinished` never moves
+  them; whole again unmarks them with every holding.
+- **The figures** (`src/reference.ts` `referenceFigures`, in the quality worker's job, cached with
+  the report: `QualityFigures.reference`, `ServedReport.reference`): `QualityInput.reference` (unit →
+  assessor username, from `loadPlotContext` → `PlotContext.reference`). For each reference plot the
+  assessor's latest submitted first assessment is the reference; each other person's latest
+  submitted check is compared question by question by `compareAnswers` (new in `quality.ts`: the
+  pair rule of `qualityReport`: same questions, margins, blanks on both sides not compared). Per
+  person: plots where every compared answer matches (`plots: Rate`) and per question (`label`
+  included); per question for everyone; `byPlot` (assessed, checks). Rates under `MIN_PLOTS` 20 are
+  null ("Too few plots to judge"). Only records whose key can be a reference plot's are resolved
+  (`recordKeysOfUnit`), so the cost is the reference records only.
+- **Left out of (not counted twice):** `qualityReport` skips reference groups when pairing
+  (agreement by question/person/week, confusions, differences, `pairs` → the review queue's
+  differences, the bulk decisions, the map's "disagreement", plot search's differences, survey
+  health's agreement and "changed by decisions" via `onCheckedPlot`, the AI's figures); two
+  first assessments are still a data problem. The check sampling never draws a reference plot (its
+  units leave the draw's files and each person's share) and reference copies are no open checks
+  (load); the Checks section counts them apart ("Reference plots: N copies"). **Kept (decided):**
+  the reference assessments stay in the answers per person, the pattern flags and survey health's
+  empty/other shares: they are first assessments of the project's data (exported, the most
+  trusted), and leaving them out would make the answers per person describe less than the data;
+  the collectors' reference checks are checks and were never in those. People/Progress count
+  reference copies as checks to do (they are work).
+- **Routes** (`src/routes/reference.ts`): `GET /v1/projects/:pid/reference` (coordinators and
+  **reviewers**; collectors 403; figures worked out when needed, 503 busy as the other sections):
+  `{ coordinator, count, figures: { plots, assessed, checks, questions, people, computedAt, stale } }`;
+  coordinators also `{ max, plots: [{ csvFileId, filename, plot, assessor, assessorInProject, addedAt,
+  assessed, copies, checked }], files, wholeFiles, assessors, collectors, people: [{ username, copies,
+  checked }] }` and `figures.byPlot`. **Reviewers get the accuracy, never which plots are reference
+  plots** (no list, no `byPlot`) and cannot change the set. `POST /reference/plots` `{ csvFileId,
+  assessorUserId, plots | random }` and `POST /reference/remove` `{ plots: [{csvFileId, plot}] | all }`
+  (coordinators): `{ result: { unmarked, marked, copiesAdded, copiesDropped }, …view }`, audited
+  **`reference.changed`** (already in 012/015's CHECK list: verified) `{ csvFileId, added, removed,
+  assessorUserId, random, copiesAdded, copiesDropped }`; the activity log lists it under "Project file
+  and plot files" ("ana marked plots of north.csv as reference plots (20 plots)").
+- **Plot page:** `reference: { assessor } | {} | null` (the assessor for coordinators only); the
+  page says it is a reference plot measured on the Quality tab, not listed as differences.
+- **Person page (coordinators):** `quality.reference` (their accuracy, weakest questions), from the
+  figures at hand (peek). **Never on My work nor the personal report, and nothing tells a
+  collector which plots are reference plots:** their file entry and rows are those of any copy
+  (round 2), My work folds copies into plots (route test and smoke search My work and the plot
+  lists for "referen"/"accura"). **Later option, not built:** a collector's own accuracy against
+  the reference on My work (useful feedback, but it says reference plots exist and, plot by plot,
+  could reveal them; the owner decides).
+- **`my-assignment` and copies:** `copiesServedAsMain` read *every* record summary of the project
+  for any copy holder (with a round column) on each plot list; with reference plots every collector
+  holds copies, so it now reads only the records the copies' plots can have (`listRecordsByKeys`
+  of `recordKeysOfUnit`). Smoke: the old read was 442-492 ms on 120,050 small records; op10's whole
+  plot list (5,050 holdings) is now 160 ms, 61 ms again.
+- **Web:** `project/QualityReference.tsx`, "Reference plots" on the coordinator's Quality tab (after
+  Automatic checks) and the reviewer's (last, read-only, the reviewer note says so): explanation and
+  the blindness note, the count and figures' time (stale/busy asked again as the other sections),
+  "Accuracy against the reference" (people lowest first, too few last, "Differs most on" the 3
+  weakest questions; by question for everyone), the reference plots (link to the plot page,
+  assessor, reference submitted or not, "submitted by collectors N of M", Remove / Remove all with
+  a confirmation dialog), each collector's progress (a `<details>`), and "Add reference plots" (a
+  divided file, the assessor, at random N or ids one per line; refusals as sentences naming the
+  plots, the field focused). `referenceView.ts` (pure, tested), api types and calls, the person
+  page line, the plot page note, the Checks section's reference copies, the activity sentences. 67
+  keys × 4 languages and the reviewer note (`i18n.ts`, `api.ts`, `ProjectPage.tsx`, `server.ts`
+  written with CRLF kept).
+- **Tests:** server 994 (was 969: `test/reference.test.ts` 19 — accuracy per person/question with
+  margins and the 20-plot rule, only submitted references, drafts/deleted, one check per person,
+  never against someone else's first assessment, checks by copy without a round, left out of
+  `qualityReport` and survey health while the answers keep them, the copy plan (collectors only,
+  drops without a record, one person only), `checkMark` codes, `pickReference`, `parsePlotList`,
+  migration 020; `test/reference.routes.test.ts` 6 — roles and blindness (round 2 file, My work,
+  reviewer without plots), refusals and at random, accuracy and exclusion from /quality, the queue,
+  the plot page and person page, a newcomer's copies and a demoted collector's, removal, re-division,
+  move and whole again, the sampling never drawing them; isolation list), web 314 (was 309:
+  `referenceView.test.ts` 5, activity sentences), tsc clean in both, web build ok.
+- **Postgres smoke** (`npm run smoke:pg:reference -- <port>`, `scripts/pg-smoke-reference.mts`,
+  README): 020 twice with RLS, policy and triggers; the app role (NOBYPASSRLS); marking 2 plots
+  69 ms, holdings as expected, version bumped, audited; ana's file with round 2; the accuracy
+  through the worker; /quality without them; a reviewer without the plots; a newcomer's first plot
+  list adding the copies 42 ms; removing keeps a check made; RLS (with B set A's rows neither read,
+  inserted, changed nor deleted; `''` no rows; the store under B changes nothing); whole again and
+  deleteProject empty the table. **100,000 plots, 40 collectors:** 50 random reference plots
+  marked in **1.5 s** (fresh state, 1,900 copies added, 100 converted), 2,000 checks measured by the
+  worker: `GET /reference` cold **2.4 s** (the whole worker job), warm **17 ms**; /quality 19,000
+  checked plots (the 2,000 reference checks out); a plot list adding 50 copies **64 ms**; "Draw now"
+  2.6 s drawing none of them; remove all 0.8 s. ALL OK; Docker stopped after.
+- **Chrome** (seeded memory server, built dashboard): the coordinator's section (accuracy 64 % /
+  95 % / too few, 22 of 25 measured), ids already assessed refused with their names, two plots
+  added, one removed through the dialog; the plot page's note; jose's person page line; the
+  reviewer at the narrowest window (500 px): figures only, no page-wide horizontal scroll (tables
+  scroll in their frame). No console errors besides the intended 400s.
+- **Open:** a record arriving between the check and the mark (someone's first assessment of a plot
+  just marked) is not refused (two first assessments, shown as a data problem); a demoted or
+  disabled collector's untouched copies are dropped only at the next mark/removal; the reference
+  plot of a removed assessor stays (the page says they left) and is measured against their
+  records; removing does not give the plot back to its previous holder; per-person "mix-ups"
+  (which answer instead of the reference's) not built; the week/day of the checks is not shown;
+  no Spanish/French/Portuguese Chrome pass (texts only).
+
 ### Task 15: Plots in an order that keeps neighbours together (improvement 4)
 
 **Files:** `src/division.ts` (`DivisionOrder` gains `'nearby'`), the division UI,

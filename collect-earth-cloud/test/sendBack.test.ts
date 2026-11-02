@@ -99,7 +99,7 @@ describe('the plots sent back: who, which round, submitted again (pure)', () => 
       waitingOnly,
       context: async () => {
         loads.context += 1;
-        return { info: null, units: new Set(['1', '2']), copyHolders: new Map(), mainHolders: new Map(), fileUnits: new Map() };
+        return { info: null, units: new Set(['1', '2']), copyHolders: new Map(), mainHolders: new Map(), fileUnits: new Map(), reference: new Map() };
       },
       outline: async () => {
         loads.outline += 1;

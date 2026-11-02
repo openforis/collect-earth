@@ -38,6 +38,9 @@ import type {
   RecordEventQuery,
   RecordRow,
   RecordState,
+  ReferenceChange,
+  ReferenceChangeResult,
+  ReferencePlot,
   RoundInfo,
   Role,
   SampledCopy,
@@ -215,7 +218,7 @@ export interface Store {
   /**
    * Stores (or replaces, by filename) a plot CSV and returns its metadata. A replaced
    * file keeps its division; given `plotKeys` (the new content's plot ids), holdings
-   * of plots no longer in it are dropped.
+   * of plots no longer in it are dropped, and so are its reference plots that are gone.
    */
   putCsvFile(projectId: string, filename: string, data: Buffer, plotKeys?: string[]): Promise<CsvFile>;
   listCsvFiles(projectId: string): Promise<CsvFile[]>;
@@ -231,7 +234,8 @@ export interface Store {
 
   /**
    * Divides a file (distribution set): its holdings become `plots` and its whole-file
-   * assignments are deleted. With null the file is whole again and its holdings go.
+   * assignments are deleted. With null the file is whole again and its holdings go, with its
+   * reference plots (whole files hold no copies).
    */
   setDivision(projectId: string, csvFileId: string, distribution: StoredDistribution | null, plots: PlotAssignment[]): Promise<void>;
   /** Who holds which plot of a file (a copy drawn by the check sampling with its sampledAt). */
@@ -270,6 +274,15 @@ export interface Store {
     draw: SamplingDraw,
     dueBefore: number,
   ): Promise<SampledCopy[]>;
+  // --- Reference plots (Task 14: reference_plots) ---
+
+  /** The project's reference plots, with their assessors' usernames (whole files hold none). */
+  listReferencePlots(projectId: string): Promise<ReferencePlot[]>;
+  /**
+   * Marks and unmarks reference plots and adds or drops their copies (ReferenceChange, in that
+   * order), in one transaction under the check sampling's lock (no draw nor division meanwhile).
+   */
+  changeReferencePlots(projectId: string, change: ReferenceChange): Promise<ReferenceChangeResult>;
   /**
    * The divided files where the user holds plots, with those plots, by filename.
    * `copyKeys` are the ones among them given as quality-check copies (overlap).

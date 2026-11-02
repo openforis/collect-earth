@@ -48,6 +48,9 @@ import {
   type RecordEventQuery,
   type RecordRow,
   type RecordState,
+  type ReferenceChange,
+  type ReferenceChangeResult,
+  type ReferencePlot,
   type RoundInfo,
   type Role,
   type SampledCopy,
@@ -98,6 +101,16 @@ interface ProjectEntry {
   attentionReads: Map<string, Set<string>>;
   /** The check sampling (sampling_rules); null until a rule is saved. */
   sampling: (SamplingState & { active: boolean; lastMarkedAt: number | null }) | null;
+  /** Reference plots (reference_plots), key = `${csvFileId} ${plotKey}`. */
+  references: Map<string, StoredReference>;
+}
+
+interface StoredReference {
+  csvFileId: string;
+  plotKey: string;
+  assessorUserId: string;
+  addedAt: number;
+  addedBy: string | null;
 }
 
 interface StoredDecision {
@@ -198,6 +211,7 @@ export class InMemoryStore implements Store {
       audit: [],
       attentionReads: new Map(),
       sampling: null,
+      references: new Map(),
     });
 
     const adminToken = generateToken();
@@ -503,6 +517,13 @@ export class InMemoryStore implements Store {
       }
       for (const n of entry.notes.values()) {
         if (n.updatedBy === userId) n.updatedBy = null;
+      }
+      // reference_plots: assessor_user_id is ON DELETE CASCADE, added_by ON DELETE SET NULL.
+      for (const [key, r] of entry.references) {
+        if (r.assessorUserId === userId) {
+          entry.references.delete(key);
+          entry.holdingsGeneration += 1;
+        } else if (r.addedBy === userId) r.addedBy = null;
       }
     }
     for (const [hash, reset] of this.resets) {
@@ -884,6 +905,9 @@ export class InMemoryStore implements Store {
     if (held && plotKeys) {
       const keep = new Set(plotKeys);
       entry.plotAssignments.set(id, held.filter((a) => keep.has(a.plotKey)));
+      for (const [key, r] of entry.references) {
+        if (r.csvFileId === id && !keep.has(r.plotKey)) entry.references.delete(key);
+      }
       entry.holdingsGeneration += 1;
     }
     return InMemoryStore.csvMeta(meta);
@@ -997,6 +1021,10 @@ export class InMemoryStore implements Store {
       }
     } else {
       entry.plotAssignments.delete(csvFileId);
+      // Whole files hold no copies: their reference plots go too.
+      for (const [key, r] of entry.references) {
+        if (r.csvFileId === csvFileId) entry.references.delete(key);
+      }
     }
   }
 
@@ -1079,6 +1107,67 @@ export class InMemoryStore implements Store {
       dueSince: s.dueSince !== null && (s.lastMarkedAt ?? s.dueSince) <= dueBefore ? null : s.dueSince,
     };
     return added;
+  }
+
+  async listReferencePlots(projectId: string): Promise<ReferencePlot[]> {
+    const entry = this.projects.get(projectId);
+    const result: ReferencePlot[] = [];
+    for (const r of entry?.references.values() ?? []) {
+      const user = this.users.get(r.assessorUserId);
+      if (entry!.csvFiles.get(r.csvFileId)?.distribution && user) result.push({ ...r, assessor: user.username });
+    }
+    return result;
+  }
+
+  async changeReferencePlots(projectId: string, change: ReferenceChange): Promise<ReferenceChangeResult> {
+    const entry = this.requireProject(projectId);
+    const key = (csvFileId: string, plotKey: string) => `${csvFileId} ${plotKey}`;
+    const isMember = (userId: string) => this.memberships.has(InMemoryStore.memberId(projectId, userId));
+    const result: ReferenceChangeResult = { unmarked: 0, marked: 0, copiesAdded: 0, copiesDropped: 0 };
+    for (const u of change.unmark) {
+      if (entry.references.delete(key(u.csvFileId, u.plotKey))) result.unmarked += 1;
+    }
+    for (const d of change.dropCopies) {
+      const list = entry.plotAssignments.get(d.csvFileId);
+      const i = list?.findIndex((a) => a.plotKey === d.plotKey && a.userId === d.userId && a.overlap) ?? -1;
+      if (list && i >= 0) {
+        list.splice(i, 1);
+        result.copiesDropped += 1;
+      }
+    }
+    for (const m of change.mark) {
+      const list = entry.plotAssignments.get(m.csvFileId);
+      if (!entry.csvFiles.get(m.csvFileId)?.distribution || !list || !isMember(m.assessorUserId)) continue;
+      const k = key(m.csvFileId, m.plotKey);
+      const before = entry.references.get(k);
+      entry.references.set(k, {
+        csvFileId: m.csvFileId,
+        plotKey: m.plotKey,
+        assessorUserId: m.assessorUserId,
+        addedAt: before?.addedAt ?? change.at,
+        addedBy: before?.addedBy ?? change.by,
+      });
+      result.marked += 1;
+      // The assessor holds it as main; everyone else holding it there keeps a copy (no longer drawn).
+      let held = false;
+      for (const a of list) {
+        if (a.plotKey !== m.plotKey) continue;
+        a.overlap = a.userId !== m.assessorUserId;
+        held ||= a.userId === m.assessorUserId;
+        delete a.sampledAt;
+      }
+      if (!held) list.push({ plotKey: m.plotKey, userId: m.assessorUserId, overlap: false });
+    }
+    for (const c of change.addCopies) {
+      const ref = entry.references.get(key(c.csvFileId, c.plotKey));
+      const list = entry.plotAssignments.get(c.csvFileId);
+      if (!ref || !list || !entry.csvFiles.get(c.csvFileId)?.distribution || ref.assessorUserId === c.userId || !isMember(c.userId)) continue;
+      if (list.some((a) => a.plotKey === c.plotKey && a.userId === c.userId)) continue;
+      list.push({ plotKey: c.plotKey, userId: c.userId, overlap: true });
+      result.copiesAdded += 1;
+    }
+    if (result.unmarked + result.marked + result.copiesAdded + result.copiesDropped > 0) entry.holdingsGeneration += 1;
+    return result;
   }
 
   async listPlotHoldings(projectId: string, userId: string): Promise<({ csvFileId: string } & UserPlots)[]> {

@@ -28,6 +28,7 @@ import { ProgressTab } from "../project/ProgressTab";
 import { QualityAnswers } from "../project/QualityAnswers";
 import { QualityFlags } from "../project/QualityFlags";
 import { QualitySurvey } from "../project/QualitySurvey";
+import { QualityReference } from "../project/QualityReference";
 import { QualityTab } from "../project/QualityTab";
 import { ReviewQueue } from "../project/ReviewQueue";
 import { SettingsTab } from "../project/SettingsTab";
@@ -138,6 +139,7 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
               <QualityFlags projectId={projectId} canEdit={false} />
               <QualityAnswers projectId={projectId} />
               <QualitySurvey projectId={projectId} />
+              <QualityReference projectId={projectId} canEdit={false} />
             </Stack>
           )}
         </div>

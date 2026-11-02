@@ -4,6 +4,7 @@ import { addDays, localDate, localHour } from './days.js';
 import { dailyOf, dayInZone, isQuiet, plotUnits, type OperatorWork, type PlotUnits, type PlotUnitsInput } from './progress.js';
 import type { FlagCounts } from './flags.js';
 import type { QualityReport, Rate } from './quality.js';
+import { personAccuracy, type ReferenceFigures, type ReferencePerson } from './reference.js';
 import type { SentBackPlot } from './sendBack.js';
 import type { CepInfo, CsvFile, InviteSummary, Member, MemberActivity, ProgressSettings, QualityDecision, Role } from './types.js';
 
@@ -203,6 +204,12 @@ export interface PersonDetail {
     sentBack: SentBack[];
     /** Their pattern flags by kind (Task 5), from the figures at hand; null without them. Never on My work. */
     flags?: FlagCounts | null;
+    /**
+     * Their accuracy against the reference plots (Task 14), from the figures at hand: null without
+     * figures or without a check of theirs measured. Never on My work (nothing tells a collector
+     * which plots are reference plots).
+     */
+    reference?: ReferencePerson | null;
   };
 }
 
@@ -215,8 +222,8 @@ export interface PeopleInput extends PlotUnitsInput {
   invites: readonly InviteSummary[];
   files: readonly CsvFile[];
   cep: CepInfo | null;
-  /** The quality figures at hand (QualityService.peek), or null. */
-  quality: { report: QualityReport; computedAt: number; stale: boolean } | null;
+  /** The quality figures at hand (QualityService.peek), or null; `reference`: the accuracy against the reference plots. */
+  quality: { report: QualityReport; computedAt: number; stale: boolean; reference?: ReferenceFigures } | null;
   decisions: readonly QualityDecision[];
   /** The records already resolved (ProjectStateCache); else worked out here from `records`. */
   prepared?: PlotUnits;
@@ -628,6 +635,7 @@ export function personDetail(input: PeopleInput, userId: string, options: { self
       ...(self ? {} : { asChecker: input.quality ? (quality?.asChecker ?? NO_RATE) : null }),
       sentBack,
       ...(self ? {} : { flags: input.flagCounts?.(member.username) ?? null }),
+      ...(self ? {} : { reference: input.quality ? personAccuracy(input.quality.reference, member.username) : null }),
     },
   };
   if (!self) detail.removal = removalOf(p, member.username, work, held);
