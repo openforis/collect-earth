@@ -477,6 +477,7 @@ describe("the quality figures", () => {
             flags: [{ kind: "very_fast", plot: "7", operator: "ana", at: 5, details: { gapMs: 3000, previousPlot: "6" } }, { kind: "unknown", plot: "7" }],
             resubmitted: [{ plot: "7", operator: "ana", at: 9, decidedAt: 8 }],
             waiting: ["ben", 3],
+            left: ["cy"],
             decision: { plot: "7", decision: "recheck", comment: null, decidedBy: "rita", decidedAt: 8, byAssessor: true },
           },
           { plot: "8", section: "odd" },
@@ -504,6 +505,7 @@ describe("the quality figures", () => {
       flags: [{ kind: "very_fast", gapMs: 3000, previousPlot: "6" }],
       resubmitted: [{ operator: "ana", at: 9, decidedAt: 8 }],
       waiting: ["ben"],
+      left: ["cy"],
       decision: { decision: "recheck", decidedBy: "rita" },
     });
     expect(queue.items[0].differences[0].fields).toEqual([{ key: "q", first: "F", check: "G" }]);

@@ -271,15 +271,18 @@ export async function registerQualityRoutes(
     if (kind !== null && !(QUEUE_KINDS as readonly string[]).includes(kind)) return reply.code(400).send(bad(`kind must be one of ${QUEUE_KINDS.join(', ')}`));
     const after = afterText === null ? null : afterText.length <= MAX_NAME + 40 ? parseCursor(afterText) : null;
     if (afterText !== null && after === null) return reply.code(400).send(bad('after must be the cursor "next" of a page of the queue'));
-    const [figures, decisions, settings, outline] = await Promise.all([
+    const [figures, decisions, settings, outline, members] = await Promise.all([
       served(quality, projectId, request, reply),
       store.listQualityDecisions(projectId),
       store.getQualitySettings(projectId),
       quality.outline(projectId, request.log),
+      store.listMembers(projectId),
     ]);
     if (!figures) {
       return reply;
     }
+    // Who can still submit a plot sent back: members now, not disabled.
+    const active = new Set(members.filter((m) => !m.disabled).map((m) => m.username));
     const fastSeconds = fastSecondsOf(settings);
     const flagKind = kind !== null && (FLAG_KINDS as readonly string[]).includes(kind) ? (kind as FlagKind) : null;
     const flags = patternFlags(figures, decisions, { fastSeconds, person, kind: flagKind });
@@ -323,9 +326,11 @@ export async function registerQualityRoutes(
     const items = page.map((item) => {
       const decision = byPlot.get(item.plot);
       // Sent back: everyone with a record of the plot gets it again (src/sendBack.ts); those who
-      // have not submitted it again yet are waited for.
+      // have not submitted it again yet are waited for, if they are still in the project (and not
+      // disabled); the others are named apart (`left`) and wait for nothing.
       const again = new Set(item.resubmitted.map((r) => r.operator));
-      const waiting = decision?.decision === 'recheck' ? { waiting: [...plotOperators(figures.flags, item.plot)].filter((o) => !again.has(o)).sort() } : {};
+      const notAgain = decision?.decision === 'recheck' ? [...plotOperators(figures.flags, item.plot)].filter((o) => !again.has(o)).sort() : null;
+      const waiting = notAgain ? { waiting: notAgain.filter((o) => active.has(o)), left: notAgain.filter((o) => !active.has(o)) } : {};
       return {
         plot: item.plot,
         section: item.section,

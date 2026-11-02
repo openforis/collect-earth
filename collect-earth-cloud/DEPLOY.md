@@ -566,6 +566,13 @@ container's memory: the whole container would run out first and restart.
   dashboard's components set.
 - **AI limits are per project** and checked before a run starts, so the server's
   monthly total can reach the limit times the number of projects, plus one run each.
+- **Check the plot file before pressing Apply in Collect Earth's plot settings.** When the
+  settings open (or on Refresh), Collect Earth downloads the first plot file of the list and
+  also the one in use, at the same time, and shows whichever download ends last. Someone
+  working on a file that is not first in the list, such as "To check again – north.csv"
+  (plots sent back for another look, always listed after the others), can find "north.csv"
+  shown instead. Tell collectors to look at the plot file field and choose the file again
+  from the list if it is not the one they want, before pressing Apply.
 
 ---
 

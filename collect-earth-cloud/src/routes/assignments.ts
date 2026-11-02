@@ -6,6 +6,7 @@ import type { RoundInfo } from '../cep.js';
 import type { Config } from '../config.js';
 import { checksumOf } from '../csv.js';
 import { copiesSubmittedAsMain } from '../division.js';
+import { attachment } from '../download.js';
 import { checkUploadFits } from '../limits.js';
 import { buildPlotFile, parsePlotFile, type RoundColumn } from '../plots.js';
 import { fileKeyCount, keyShape } from '../rounds.js';
@@ -13,6 +14,7 @@ import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store, UserPlots } from '../store/store.js';
 import type { Assignment, RecordRow } from '../types.js';
 import { plotFileOf } from '../plotFileCache.js';
+import type { ProjectStateCache } from '../projectState.js';
 import { loadPlotContext, type Log } from '../qualityService.js';
 import { recheckFileId, sentBackTo, type RecheckFile } from '../sendBack.js';
 import type { Question } from '../surveyOutline.js';
@@ -44,16 +46,24 @@ export async function registerAssignmentRoutes(
   app: FastifyInstance,
   store: Store,
   config: Config,
-  deps: { outline?: (projectId: string, log: Log) => Promise<ReadonlyMap<string, Question> | null> } = {},
+  deps: {
+    outline?: (projectId: string, log: Log) => Promise<ReadonlyMap<string, Question> | null>;
+    /** The Progress and People pages' project state: its plot context is shared (else loaded each time). */
+    states?: ProjectStateCache;
+  } = {},
 ): Promise<void> {
-  /** The person's "To check again" files (none for a project token). */
+  /**
+   * The person's "To check again" files (none for a project token). The plot context is read
+   * only when a plot of theirs may still be waiting (sentBackTo's waitingOnly).
+   */
   const recheckFilesFor = async (projectId: string, userId: string | undefined, info: RoundInfo | null, log: Log): Promise<RecheckFile[]> => {
     if (!userId) return [];
     const user = await store.getUserById(userId);
     if (!user) return [];
     const sent = await sentBackTo(store, projectId, { userId, username: user.username }, {
       info,
-      context: () => loadPlotContext(store, projectId, log, { info }),
+      waitingOnly: true,
+      context: async () => (deps.states ? (await deps.states.get(projectId, log)).state.context : loadPlotContext(store, projectId, log, { info })),
       outline: () => (deps.outline ? deps.outline(projectId, log) : Promise.resolve(null)),
     });
     return sent.files;
@@ -137,6 +147,12 @@ export async function registerAssignmentRoutes(
         const sourceFile = recheck ? await store.getCsvFile(projectId, source.id) : null;
         const built = recheck && sourceFile ? recheckServed(sourceFile, recheck, info) : null;
         if (!recheck || !built) {
+          // Listed a moment ago (?v= comes from my-assignment) and emptied since (submitted again,
+          // the decision undone): 409 changed, Refresh, as any file that changed. Someone with no
+          // plot of that plot file never had it: 404.
+          if (expected !== null && userId && (await holdsPlotsOf(store, projectId, source.id, userId))) {
+            return changed(reply);
+          }
           return reply.code(404).send({ error: 'not_found' });
         }
         return sendPlotFile(request, reply, recheck.filename, built, expected);
@@ -291,6 +307,19 @@ export async function registerAssignmentRoutes(
   await registerDivisionRoutes(app, store);
 }
 
+/** 409: the file changed (or emptied) after my-assignment listed it. */
+function changed(reply: FastifyReply) {
+  return reply.code(409).send({
+    error: 'changed',
+    reason: 'This plot file changed after the list of your plot files was read. Press Refresh to get the new list, then download it again.',
+  });
+}
+
+/** Whether a person is given a plot file whole or holds a plot of it (divided). */
+async function holdsPlotsOf(store: Store, projectId: string, csvFileId: string, userId: string): Promise<boolean> {
+  return (await store.isAssigned(projectId, csvFileId, userId)) || (await store.listUserPlots(projectId, csvFileId, userId)).plotKeys.length > 0;
+}
+
 /**
  * Sends a plot file as served (its checksum in a header), or 409 when my-assignment listed
  * another checksum (?v=): the file changed in between, and the desktop app would refuse it.
@@ -303,10 +332,7 @@ function sendPlotFile(
   expected: string | null,
 ) {
   if (expected !== null && expected !== served.checksum) {
-    return reply.code(409).send({
-      error: 'changed',
-      reason: 'This plot file changed after the list of your plot files was read. Press Refresh to get the new list, then download it again.',
-    });
+    return changed(reply);
   }
   noteActivity(request, { plotsDownload: true }, { desktop: true });
   return reply
@@ -314,16 +340,6 @@ function sendPlotFile(
     .header('x-checksum-sha256', served.checksum)
     .header('content-disposition', attachment(filename))
     .send(served.data);
-}
-
-/**
- * A Content-Disposition for a file name: an ASCII name for old clients and the real one
- * (RFC 5987). A header may hold no character beyond Latin-1 ("–" of "To check again – …").
- */
-export function attachment(filename: string): string {
-  const ascii = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_') || 'plots.csv';
-  const encoded = encodeURIComponent(filename).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
-  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 }
 
 /**

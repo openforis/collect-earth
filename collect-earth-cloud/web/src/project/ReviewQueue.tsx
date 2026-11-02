@@ -287,6 +287,11 @@ function QueueCard({
             {item.waiting.length > 0 ? t("queue.waitingFor", { names: item.waiting.join(", ") }) : t("queue.allSubmittedAgain")}
           </Typography>
         )}
+        {decision?.decision === "recheck" && item.left.length > 0 && (
+          <Typography variant="body2" color="text.secondary">
+            {t("queue.leftProject", { names: item.left.join(", ") })}
+          </Typography>
+        )}
         {decision && (
           <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
             <Chip color="primary" variant="outlined" label={t("quality.decided", { decision: t(DECISION_LABEL[decision.decision]) })} />

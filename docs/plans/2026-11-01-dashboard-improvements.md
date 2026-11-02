@@ -2056,10 +2056,16 @@ with `'`), and the read state.
     desktop calls it: the file appears on the next Refresh or the next time the settings are
     opened, never by itself.
   - `populateAssignments` selects the entry whose `filename` the path of the plot file in use ends
-    with, the **last** such entry, else the first entry; the combo's listener then downloads the
-    selected entry at once. "…/To check again – north.csv" also ends with "north.csv", so the
-    generated file is listed after the others: then each of the two stays selected when it is in
-    use. The person chooses the "To check again" entry and presses Apply, as for any plot file.
+    with, the **last** such entry, else the first entry. "…/To check again – north.csv" also ends
+    with "north.csv", so the generated file is listed after the others: then the right entry is the
+    one *selected*. **But two downloads race (corrected in the review below):** `removeAllItems`
+    then the first `addItem` into the empty combo selects entry 0 by itself
+    (`DefaultComboBoxModel.addElement`), which fires the listener and starts its download; then
+    `setSelectedItem` (or `setSelectedIndex(0)`) fires it again for the entry chosen. Whichever
+    download ends last sets the plot file field. So someone on "To check again – north.csv"
+    (listed last) can find the field showing "north.csv" after reopening the settings, likely when
+    north.csv is the bigger file. The person chooses the entry and presses Apply, as for any plot
+    file.
   - `downloadAssignedCsv` writes it to `<project folder>/assignments/<filename>` (`new
     File(filename).getName()`, refused outside that folder) and checks its sha256 against the
     listed checksum. **It never deletes a file**: a file that leaves the list (all its plots
@@ -2114,6 +2120,56 @@ with `'`), and the read state.
   now), so they can differ until the figures catch up; the comment shown to both people is the
   coordinator's text (the field says not to name the check); no Chrome run of the three small page
   changes (lines of text).
+
+- **Review (after c6f3902b; supersedes the above where it says so):**
+  - **The desktop's two downloads (not changed: Swing).** See the corrected bullet above. This
+    race is Collect Earth's for anyone whose plot file in use is not first in the list (two
+    divided files already showed it); when the entry chosen *is* entry 0, both downloads write the
+    same file at once. **No server-side mitigation found:** listing the generated file first would
+    make the right entry 0 for someone on it, but then "…/To check again – north.csv" ends with
+    "north.csv" listed after it, so the *last* match is north.csv and the wrong entry is selected
+    outright; and someone on north.csv would race against the generated file instead. The order
+    stays (generated files last). DEPLOY.md's known limitations now tell coordinators and
+    collectors to look at the plot file field before pressing Apply; Task 22 checks it.
+  - **The project state's plot context** (`ProjectStateCache`, now passed into
+    `registerAssignmentRoutes` as `states`; created before it in `server.ts`) for my-assignment
+    and the download, as My work and the person page already used it; `loadPlotContext` only when
+    no cache is given. **Nothing is loaded when nothing can be waiting:** `sentBackTo({ waitingOnly
+    })` (my-assignment, the download) first looks at the person's records of the recheck plots
+    (not deleted), matched to the decisions by `recordKeysOfUnit`: a record submitted, received
+    and saved after the decision is submitted again whatever its answers; only another case reads
+    the outline and hashes (`mayWait`), and only a record that may still wait loads the context and
+    the person's holdings. My work and the person page keep the whole list (submitted again too).
+    Unit test with a counting `context`/`outline`: no decision, all submitted again, someone
+    else's records only: 0 loads.
+  - **`waiting` names only members now and not disabled** (`listMembers`); the others are
+    `left` ("No longer in the project, not waited for: …") and never block "Everyone in the
+    project it was sent back to has submitted it again." (route test: disabled, enabled again,
+    removed).
+  - **A generated file emptied between the list and the download** (submitted again, decision
+    undone) is **409 `changed`** when the request has `?v=` (only my-assignment gives it) and the
+    person is given the plot file whole or holds a plot of it; else 404 (someone who never had it;
+    test with a person holding nothing in it). Limit: a person sent back a plot of a file in which
+    they hold nothing (it came from the first file that has it) gets 404 there.
+  - **One Content-Disposition helper** (`src/download.ts` `attachment(name, fallback)`) for the
+    export (`routes/projects.ts`, its own copy removed) and every plot file: the plain name keeps
+    letters, digits, `.`, `_`, `-` and makes every other character one `_` (a space too, as the
+    export did; an emoji one `_`, not two); `filename*` has the real name; a lone surrogate becomes
+    U+FFFD instead of making `encodeURIComponent` throw. Tested with quotes, a backslash, CR/LF,
+    beyond Latin-1, emoji, `'()*` and an empty name.
+  - `test/auth.test.ts`: the CEP stand-in's bytes 0x03 0x04 are written as `\x03\x04` escapes (was
+    raw control bytes in the source).
+  - **Tests:** server 938 (was 932: download 4; sendBack 2 — the loads, `left`; the emptied 409 and
+    the 404 in the existing test), web 304 (`left` read), tsc clean in both, web build ok.
+  - **Postgres smoke** (`npm run smoke:pg:progress`): **GET /my-assignment** with a plot sent back
+    **680 ms on a fresh server** (the project state built: every record's state, as /progress
+    cold), **then 56 ms, and 91 ms for op16**; op17 (no record of it) 47 ms; op15 after submitting
+    it again (nothing waiting, no context) 27 ms; after the undo 23 ms. ALL OK; Docker stopped
+    after. The state is shared with the Progress and People pages, so it is usually warm; a state
+    older than 30 s whose records changed is built again before answering, as for those pages.
+  - **Open (added):** the desktop race above (Swing, not changed here); records saved from the
+    generated file carry `plot_file` "…/To check again – north.csv" (Task 22 checks exports, the
+    KML description and the balloon with the "–").
 
 ### Task 13: Automatic check sampling (improvements 1 and 2)
 
@@ -2357,6 +2413,10 @@ desktop suites green (core 40, app 210+).
   300 ms.
 - **Real Collect Earth,** on a backed-up profile:
   - the "To check again" file arrives;
+  - reopen the plot settings while on the "To check again" file; confirm which file the plot
+    file field shows (Task 12's review: two downloads race in `populateAssignments`);
+  - records saved from the generated file carry `plot_file` "…/To check again – …": check the
+    exports, and the KML description and the balloon with the "–";
   - a sampled check arrives blind;
   - the note shows (Task 16);
   - the backup imports with 0 conflicts (Task 17);

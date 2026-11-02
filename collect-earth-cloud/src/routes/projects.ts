@@ -3,6 +3,7 @@ import { secretsEqual } from '../accountRules.js';
 import { audit } from '../activity.js';
 import { bearerToken } from '../auth.js';
 import type { Config } from '../config.js';
+import { attachment } from '../download.js';
 import { exportRoundOf, recordsCsv } from '../export.js';
 import { storageSummary } from '../limits.js';
 import { finalAnswers } from '../quality.js';
@@ -220,15 +221,8 @@ export async function registerProjectRoutes(
       await audit(store, request, 'export.downloaded', { records: records.length });
       return reply
         .header('content-type', 'text/csv; charset=utf-8')
-        .header('content-disposition', contentDisposition(project.name))
+        .header('content-disposition', attachment(`${project.name}-data.csv`, 'export.csv'))
         .send(csv);
     },
   );
-}
-
-/** `attachment` with an ASCII fallback name plus the UTF-8 name (RFC 6266 / 5987). */
-function contentDisposition(projectName: string): string {
-  const base = `${projectName}-data.csv`;
-  const ascii = base.replace(/[^A-Za-z0-9._ -]+/g, '_').replace(/\s+/g, '_') || 'export.csv';
-  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(base).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}`;
 }

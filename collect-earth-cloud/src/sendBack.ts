@@ -168,12 +168,18 @@ export interface SentBackDeps {
   outline: () => Promise<ReadonlyMap<string, Question> | null>;
   /** The round info, when the caller has it already. */
   info?: RoundInfo | null;
+  /**
+   * Only the files matter (my-assignment, the download): when none of the person's records of a
+   * plot sent back can still be waiting, nothing more is read (no outline, no plot context).
+   */
+  waitingOnly?: boolean;
 }
 
 /**
  * The plots sent back to one member and their "To check again" files. Reads the decisions, then
  * only the records of the plots decided recheck (by their keys); the plot files' plots and the
- * person's holdings only when some of those records are theirs.
+ * person's holdings only when some of those records are theirs (and, with `waitingOnly`, when one
+ * of them may still be waiting).
  */
 export async function sentBackTo(
   store: Store,
@@ -185,19 +191,56 @@ export async function sentBackTo(
   const decisions = (await store.listQualityDecisions(projectId)).filter((d) => d.decision === 'recheck');
   if (decisions.length === 0) return none;
   const info = deps.info !== undefined ? deps.info : await store.getRoundInfo(projectId);
-  const keys = [...new Set(decisions.flatMap((d) => recordKeysOfUnit(d.plot, info)))];
-  const records = await store.listRecordsByKeys(projectId, keys);
-  if (!records.some((r) => r.operator === user.username)) return none;
-  const [context, outline, files, wholeFiles, holdings] = await Promise.all([
+  // record key -> the decisions whose plot it can be a record of.
+  const byKey = new Map<string, QualityDecision[]>();
+  for (const d of decisions) {
+    for (const key of recordKeysOfUnit(d.plot, info)) {
+      const list = byKey.get(key);
+      if (list) list.push(d);
+      else byKey.set(key, [d]);
+    }
+  }
+  const records = await store.listRecordsByKeys(projectId, [...byKey.keys()]);
+  const mine = records.filter((r) => r.operator === user.username && !r.deleted);
+  if (mine.length === 0) return none;
+  let outline: ReadonlyMap<string, Question> | null | undefined;
+  if (deps.waitingOnly && !(await mayWait(mine, byKey, async () => (outline = await deps.outline())))) return none;
+  const [context, outlineRead, files, wholeFiles, holdings] = await Promise.all([
     deps.context(),
-    deps.outline(),
+    outline !== undefined ? outline : deps.outline(),
     store.listCsvFiles(projectId),
     store.listAssignmentsForUser(projectId, user.userId),
     store.listPlotHoldings(projectId, user.userId),
   ]);
-  const plots = sentBackOf({ username: user.username, decisions, records, context, outline });
+  const plots = sentBackOf({ username: user.username, decisions, records, context, outline: outlineRead });
   if (plots.length === 0) return none;
   const whole = new Set(wholeFiles.map((f) => f.id));
   const divided = new Map(holdings.map((h) => [h.csvFileId, new Set(h.plotKeys)]));
   return recheckFilesOf(plots, files, context.fileUnits, (csvFileId, plot) => whole.has(csvFileId) || divided.get(csvFileId)?.has(plot) === true);
+}
+
+/**
+ * Whether some of the person's records (not deleted) may still be waiting: not submitted again
+ * after a decision its key can belong to (countsAsSavedAgain). Submitted, received and saved after
+ * the decision is submitted again whatever the answers, so the outline (for the answers' hashes)
+ * is read only when a record is not that plain case. Erring towards "may": the caller then works it
+ * out exactly (a record of an unknown round, or of another plot of an own round, is left out there).
+ */
+async function mayWait(
+  mine: readonly RecordRow[],
+  byKey: ReadonlyMap<string, readonly QualityDecision[]>,
+  outline: () => Promise<ReadonlyMap<string, Question> | null>,
+): Promise<boolean> {
+  const unclear: [RecordRow, QualityDecision][] = [];
+  for (const r of mine) {
+    for (const d of byKey.get(r.recordKey) ?? []) {
+      if (!(r.activelySaved && r.receivedAt > d.decidedAt && r.modifiedOn > d.decidedAt)) unclear.push([r, d]);
+    }
+  }
+  if (unclear.length === 0) return false;
+  const digest = answerDigests(await outline(), mine);
+  return unclear.some(([r, d]) => {
+    const { hash, full } = digest(r.summary);
+    return !countsAsSavedAgain({ operator: r.operator, time: r.modifiedOn, received: r.receivedAt, hash, full, submitted: r.activelySaved }, d, true);
+  });
 }

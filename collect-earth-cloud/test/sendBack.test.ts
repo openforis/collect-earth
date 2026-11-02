@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { parsePlotFile } from '../src/plots.js';
 import { fileKeyCount } from '../src/rounds.js';
-import { recheckFileId, recheckFilename, recheckFilesOf, sentBackOf } from '../src/sendBack.js';
+import { recheckFileId, recheckFilename, recheckFilesOf, sentBackOf, sentBackTo } from '../src/sendBack.js';
+import { InMemoryStore } from '../src/store/memory.js';
 import type { QualityDecision, RecordRow } from '../src/types.js';
 import { demoCep, idOnlyCep } from './fixtures/cep.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
@@ -88,6 +89,52 @@ describe('the plots sent back: who, which round, submitted again (pure)', () => 
     expect(recheckFileId('f1')).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     expect(recheckFileId('f1')).toBe(recheckFileId('f1'));
     expect(recheckFileId('f2')).not.toBe(recheckFileId('f1'));
+  });
+
+  it('sentBackTo loads the plot context (and the outline) only when a plot of theirs may still be waiting', async () => {
+    const store = new InMemoryStore();
+    const { projectId } = await store.createProject({ name: 'p' });
+    const loads = { context: 0, outline: 0 };
+    const deps = (waitingOnly: boolean) => ({
+      waitingOnly,
+      context: async () => {
+        loads.context += 1;
+        return { info: null, units: new Set(['1', '2']), copyHolders: new Map(), mainHolders: new Map(), fileUnits: new Map() };
+      },
+      outline: async () => {
+        loads.outline += 1;
+        return null;
+      },
+    });
+    const user = { userId: 'u-maria', username: 'maria' };
+    // No recheck decision: nothing read.
+    expect(await sentBackTo(store, projectId, user, deps(true))).toEqual({ plots: [], files: [] });
+    await store.putRecord(row('1', 'maria', { projectId, modifiedOn: 100, receivedAt: 100 }));
+    await store.putRecord(row('2', 'maria', { projectId, modifiedOn: 100, receivedAt: 100 }));
+    const decided = await store.setQualityDecision(projectId, '1', 'recheck', null, null, null);
+    await store.setQualityDecision(projectId, '2', 'recheck', null, null, [{ operator: 'maria', hash: 1, full: 1 }]);
+    // Waiting (records from before the decisions): the context is loaded.
+    expect((await sentBackTo(store, projectId, user, deps(true))).plots.map((p) => [p.plot, p.submittedAgain])).toEqual([
+      ['1', false],
+      ['2', false],
+    ]);
+    expect(loads.context).toBe(1);
+    // Both submitted again (received and saved after): neither the outline nor the context for the files.
+    const later = decided.decidedAt + 1000;
+    await store.putRecord(row('1', 'maria', { projectId, modifiedOn: later, receivedAt: later }));
+    await store.putRecord(row('2', 'maria', { projectId, modifiedOn: later, receivedAt: later }));
+    loads.context = 0;
+    loads.outline = 0;
+    expect(await sentBackTo(store, projectId, user, deps(true))).toEqual({ plots: [], files: [] });
+    expect(loads).toEqual({ context: 0, outline: 0 });
+    // Someone else's records only: nothing loaded either.
+    expect(await sentBackTo(store, projectId, { userId: 'u-jose', username: 'jose' }, deps(true))).toEqual({ plots: [], files: [] });
+    expect(loads).toEqual({ context: 0, outline: 0 });
+    // My work and the person page want every plot sent back, submitted again too.
+    expect((await sentBackTo(store, projectId, user, deps(false))).plots.map((p) => [p.plot, p.submittedAgain])).toEqual([
+      ['1', true],
+      ['2', true],
+    ]);
   });
 });
 
@@ -204,7 +251,7 @@ describe('"To check again" plot files in my-assignment', () => {
     const keyCount = fileKeyCount(await ctx.store.getRoundInfo(pid)) + 1;
     expect(parsePlotFile(m.raw, keyCount).plotIds).toEqual(['2,1']);
     // The header can carry the name (beyond Latin-1).
-    expect(m.headers['content-disposition']).toBe(`attachment; filename="To check again _ North _and_.csv"; filename*=UTF-8''${encodeURIComponent(name)}`);
+    expect(m.headers['content-disposition']).toBe(`attachment; filename="To_check_again___North__and_.csv"; filename*=UTF-8''${encodeURIComponent(name)}`);
 
     // jose's check comes back as a check: round 2, the key of his record. Blind: the same name,
     // the same id, the same kind of entry, nothing of maria's.
@@ -241,12 +288,19 @@ describe('"To check again" plot files in my-assignment', () => {
     expect(await recheck(maria.token)).not.toBeNull();
     // Saved again (going through the tabs) but not submitted: still waiting.
     await send([envelope({ recordKey: '2,1', operator: 'maria', modifiedOn: decidedAt + 1000, activelySaved: false, summary: summary('F', '1') })]);
-    expect(await recheck(maria.token)).not.toBeNull();
+    const listed = (await recheck(maria.token))!;
+    expect(listed).not.toBeNull();
     // Submitted again: gone from maria's file (and the download), still in jose's.
     await send([envelope({ recordKey: '2,1', operator: 'maria', modifiedOn: decidedAt + 2000, summary: summary('F', '1') })]);
     const m = await myAssignment(maria.token);
     expect(m.map((e) => e.filename)).toEqual(['North Ñandú.csv']);
     expect((await call('GET', `/csv-files/${recheckFileId(fileId)}/content?mine=1`, maria.token)).statusCode).toBe(404);
+    // The file listed a moment ago emptied before its download: 409 changed (Refresh), as any file that changed.
+    const emptied = await ctx.app.inject({ method: 'GET', url: listed.entry.downloadPath, headers: bearer(maria.token) });
+    expect(emptied.statusCode).toBe(409);
+    expect(emptied.json().error).toBe('changed');
+    // Someone who never had it (holding no plot of the plot file) still gets 404 with the same path.
+    expect((await ctx.app.inject({ method: 'GET', url: listed.entry.downloadPath, headers: bearer(ana.token) })).statusCode).toBe(404);
     expect(await recheck(jose.token)).not.toBeNull();
     let queue = await fresh();
     expect(queue.items.find((i: { plot: string }) => i.plot === '2')).toMatchObject({ section: 'resubmitted', resubmitted: [{ operator: 'maria' }], waiting: ['jose'] });
@@ -259,6 +313,22 @@ describe('"To check again" plot files in my-assignment', () => {
     expect((await call('PUT', '/quality/decisions/2', owner.token, { decision: 'recheck' })).statusCode).toBe(200);
     expect(await recheck(maria.token)).not.toBeNull();
     expect(await recheck(jose.token)).not.toBeNull();
+  });
+
+  it('the queue waits only for people still in the project: someone removed or disabled is named apart and does not block', async () => {
+    await addedRound();
+    const decided = await call('PUT', '/quality/decisions/2', owner.token, { decision: 'recheck' });
+    const decidedAt = decided.json().decidedAt as number;
+    await send([envelope({ recordKey: '2,1', operator: 'maria', modifiedOn: decidedAt + 2000, summary: summary('F', '1') })]);
+    expect((await fresh()).items.find((i: { plot: string }) => i.plot === '2')).toMatchObject({ waiting: ['jose'], left: [] });
+    // jose disabled by the server owner: no longer waited for.
+    expect(await ctx.store.disableUser(jose.userId, owner.userId)).toBe('ok');
+    expect((await fresh()).items.find((i: { plot: string }) => i.plot === '2')).toMatchObject({ waiting: [], left: ['jose'] });
+    // Enabled again and then removed from the project: the same.
+    await ctx.store.enableUser(jose.userId);
+    expect((await fresh()).items.find((i: { plot: string }) => i.plot === '2')).toMatchObject({ waiting: ['jose'], left: [] });
+    await ctx.store.removeMember(pid, jose.userId);
+    expect((await fresh()).items.find((i: { plot: string }) => i.plot === '2')).toMatchObject({ waiting: [], left: ['jose'] });
   });
 
   it('undoing or changing the decision takes the plots out of the files', async () => {

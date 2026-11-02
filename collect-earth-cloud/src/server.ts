@@ -131,14 +131,15 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const quality = new QualityService(store, new QualityWorker({ maxOldGenerationSizeMb: config.qualityWorkerMaxMb }), {
     minIntervalMs: config.qualityMinIntervalMs,
   });
-  // The plots sent back for another look compare answers as the figures do: by the survey's outline.
-  await registerAssignmentRoutes(app, store, config, { outline: (projectId, log) => quality.outline(projectId, log) });
+  // The Progress and People pages' project state, worked out once per project and kept.
+  const states = new ProjectStateCache(store, { staleMs: config.stateStaleMs });
+  // The plots sent back for another look compare answers as the figures do (by the survey's
+  // outline) and resolve records with the project state's plot context.
+  await registerAssignmentRoutes(app, store, config, { outline: (projectId, log) => quality.outline(projectId, log), states });
   // Where plots are and what the project file says of them, shared by the quality routes and plot search.
   const places = new PlotPlaceReader(store);
   await registerQualityRoutes(app, store, quality, places);
   await registerPlotSearchRoutes(app, store, quality, places);
-  // The Progress and People pages' project state, worked out once per project and kept.
-  const states = new ProjectStateCache(store, { staleMs: config.stateStaleMs });
   await registerProgressRoutes(app, store, quality, states, now);
   await registerPeopleRoutes(app, store, quality, states, now);
   await registerPlotsGeoRoutes(app, store, quality, states, places);

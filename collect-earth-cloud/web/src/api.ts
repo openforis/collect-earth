@@ -2445,8 +2445,10 @@ export interface QueueItem {
   differences: (Difference & { changed: boolean })[];
   flags: PatternFlag[];
   resubmitted: Resubmission[];
-  /** Decided "Both need another look": who it went back to and has not submitted it again yet (null for other decisions). */
+  /** Decided "Both need another look": who it went back to and has not submitted it again yet, still in the project (null for other decisions). */
   waiting: string[] | null;
+  /** Those of them no longer in the project or disabled: named apart, waited for by nobody. */
+  left: string[];
   decision: QualityDecision | null;
 }
 
@@ -2508,6 +2510,7 @@ export function toReviewQueue(body: unknown): ReviewQueueData {
           flags: list(i.flags).flatMap(toPatternFlags),
           resubmitted: list(i.resubmitted).map((r) => ({ operator: text(r.operator), at: toMillis(r.at), decidedAt: toMillis(r.decidedAt) })),
           waiting: Array.isArray(i.waiting) ? i.waiting.filter((v): v is string => typeof v === "string") : null,
+          left: Array.isArray(i.left) ? i.left.filter((v): v is string => typeof v === "string") : [],
           decision: i.decision && typeof i.decision === "object" ? toDecision(i.decision) : null,
         },
       ];

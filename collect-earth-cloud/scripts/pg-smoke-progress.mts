@@ -475,7 +475,7 @@ await owner.query('ANALYZE records');
   const undo = await fresh.inject({ method: 'DELETE', url: `/v1/projects/${big}/quality/decisions/15`, headers: bearer(ownerToken) });
   const r16undone = await assignmentOf(op16s);
   check('... the decision undone: gone from op16\'s too', undo.statusCode === 204 && r16undone.entry === undefined, r16undone.entry);
-  console.log(`     GET /my-assignment with a plot sent back: op15 ${r15.ms} ms, again ${r15again.ms} ms, op16 ${r16.ms} ms; op17 (no record of it) ${r17.ms} ms; after the undo ${r16undone.ms} ms`);
+  console.log(`     GET /my-assignment with a plot sent back (the project state's plot context): op15 ${r15.ms} ms, again ${r15again.ms} ms, op16 ${r16.ms} ms; op17 (no record of it) ${r17.ms} ms; op15 after submitting it again (nothing waiting: no context) ${r15after.ms} ms; after the undo ${r16undone.ms} ms`);
   await fresh.close();
   // The worker's two parts on this thread, for the record.
   const { answerTable } = await import('../src/answerStats.js');
