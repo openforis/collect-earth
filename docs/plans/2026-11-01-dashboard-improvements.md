@@ -51,6 +51,8 @@ desktop.
    extra plot file in Collect Earth's plot settings.
 3. **Reviewers** see the Quality tab, the review queue, the map and plot search, but
    not the People and Activity pages.
+   Working the review queue, they also read who made each record of a flagged plot (two
+   first assessments, a plot in no file) and which way a plot was decided (Task 5's flags).
 4. **Collectors are told** on the join page and on "My work" that coordinators see
    when and how much they work (as the monitoring plan says).
 5. **Email** is built behind a transport that is off unless SMTP is configured; the
@@ -847,6 +849,89 @@ desktop.
   not calculated; the flag list is worked out per request (not cached; ~10 ms at 100k); the
   required rule leaves out entity attributes and conditional questions by design; Task 7 builds
   its queue from `GET /quality/flags`.
+
+- **Review (after c08df499; supersedes the above where it says so):**
+  - **Empty answers reach the server.** Collect Earth sends every empty root question as
+    JSON null (checked: `AbstractAttributeHandler.getValueFromParameter` and the handlers'
+    `getParameterValue` give null for no value, `BalloonInputFieldsUtils.getHTMLParameterName`
+    puts it in the map, `CloudApiClient.toJson` writes it with `summary.put(key, null)`), and
+    `summaryOf` (`routes/records.ts`) dropped it, so a blank required question was *absent*
+    and `required_empty` never fired on real data. Chosen: **(a) a null is kept as ''**.
+    Checked every reader: the answer table (`codesOf` / `numberOf`: no answer), the flags
+    (`answerValue`), the AI tools (`aiSafeValue('')` is left out), the differences (blank
+    values left out), the export CSV (an absent key was already written as ''), the personal
+    and team reports (from the report only). The one change of meaning was the quality
+    figures, which compared a question present on either side and counted two blanks as
+    agreeing: **a question blank on both sides is no longer compared** (`isBlankAnswer`), so
+    the agreement of real data is unchanged (before, both were absent and not compared); the
+    two unit tests that encoded "two blanks agree" now say so. Not (b): which survey version
+    a record was saved with cannot be told from its summary (a record of an older survey
+    shares most keys), nor from when the CEP was uploaded (collectors keep the old file until
+    they join again). **Records stored before this keep no key for their blanks**: they are
+    judged once saved again; an absent key is still not counted (a survey that gained the
+    question later is thus never blamed on its older records). `lww.sameSummary` sees the
+    new blank keys of a retried batch as other content once (an `updated` event, no harm).
+  - **"Very fast" by first submission.** `listRecordSummaries(projectId, { firstSubmissions:
+    true })` (both stores; Postgres the same LEFT JOIN of min(modified_on) of `submitted`
+    events as `listRecordStates`, only for the quality worker and the memory path) gives
+    `QualityRecord.firstSubmittedOn` (and `receivedAt`). The flag table orders each person's
+    rows by `firstSubmittedOn ?? modifiedOn` (`FlagTable.submitted`), and `very_fast` /
+    `same_as_before` take their `at` from it; a plot corrected and submitted again 8 s after
+    another one is no longer flagged (test). The answers' days filter stays on the last save.
+  - **The person page's speed agrees with the flags:** for the coordinator's page,
+    `speedOf(work.mainSubmissionTimes, fastSeconds)`: the first assessments only (each
+    record's first submission, or its modifiedOn when older than the events, as the flags),
+    with the project's threshold (`PeopleInput.fastSeconds`, read with the quality
+    settings). My work keeps plots and copies alike (checks stay blind; a count of first
+    assessments only would let a collector work out how many copies they hold) with the
+    same threshold. Tests: unit (10 / 11 s around a 10 s gap) and route (1 at 15 s, 2 at
+    25 s, on both the speed and the flags).
+  - **Saved again after a decision, from what the decision saw.** Checked in the desktop
+    code: opening a plot does not save it (`checkIfPlacemarkAlreadyFilled` fills the fields
+    with `val()`, which fires no change), but **going to another tab of the form does**
+    (`onStepChanged` → `ajaxDataUpdate`, which also sets the plot not submitted;
+    `updatePlacemarkDataExistingRecord` then persists the record and `RecordManager.save`
+    gives it a new `modifiedOn`) and so does any answer clicked. So a new `modifiedOn` does
+    not mean new answers. **Migration 014** adds `quality_decisions.seen JSONB`: when a
+    decision is set, the route keeps the plot's records as the figures at hand show them
+    (`QualityService.peek`, never computed; `seenOf`: each record's person and a 32-bit FNV
+    hash of its answers, the same answers "same as before" compares, several values as a
+    set). The flag table keeps each saved record's `received` time and answers' `hash`. A
+    record is flagged when **the server received it after the decision and** its answers
+    are not among those seen (a record of the plot the decision did not see counts too).
+    Decisions without `seen` (no figures at hand then, or made before 014): received after
+    and `modifiedOn` after. Tests: changed after; **offline edit** (saved before the
+    decision, synced after: flagged, the decision was made on other answers); **clock
+    ahead** (a `modifiedOn` after the decision but received before: never flagged, with or
+    without `seen`); same answers saved again (tabs): not; several values in another order:
+    not; a new record of the plot: flagged; through the route, a decision then a draft save
+    with the same answers: not. `seen` is never sent to clients (`publicDecision`, GET
+    /quality and PUT decision). Limit: when the figures at hand are older than a change
+    made and synced before the decision, a later save with those answers is flagged once.
+    Task 7's bulk decisions should keep `seen` the same way.
+  - **Reviewers** read the two_main / no_plot rows (with the person) and `details.decision`
+    of the flags: kept, and said in Decision 3 (they work the review queue).
+  - **Settings in one write:** `patchQualitySettings` (Postgres: one `UPDATE … SET
+    quality_settings = COALESCE(quality_settings, '{}') || $2` with RETURNING; memory the
+    same merge), so a margins save and a threshold save at the same time both stay (test).
+  - **Web:** "Show the 500 latest of 1,234" when the server lists fewer than it counts (else
+    "Show all N", the total), "Only the 500 latest of 1,234 are listed."; the note on data
+    problems says they are all counted but only those among the report's first 500 (in plot
+    order) can be listed; the order note says which time each kind shows (first submission
+    or last save). One question left empty and a 1-second threshold have their own texts
+    (`flags.text.required_emptyOne`, `flags.fastReadOnlyOne`); es "Muy rápida: menos de
+    (segundos)"; pt "Ver na aba Qualidade".
+  - **Speed of the flag table:** each record's answers are digested once (hash and count),
+    and "same as before" compares the answers only when the hashes are equal; without an
+    outline the answer keys are gathered once across the records (sorting each summary's
+    own keys took about 2.5 s on 100,000 records). 0.2-0.6 s on 100,000 records with 40
+    answers (noisy machine).
+  - **Tests:** server 729 (was 722: flags 18, flags routes 6, people, quality, records), web 250,
+    tsc clean in both. **Postgres smoke** (`npm run smoke:pg:progress`, now also a decision's
+    `seen` stored and not sent, and the first submissions read with the summaries): ALL OK;
+    the Task 1 smoke ALL OK. On a slower run of the machine (reading the summaries 3.2 s,
+    was 1.9 s): cold worker job 7.1 s, flag table 0.64 s on the main thread (answer table
+    0.70 s, report 0.56 s), GET /quality/flags 79-244 ms.
 
 ### Task 6: Survey health (improvement 10)
 

@@ -185,6 +185,11 @@ export interface OperatorWork {
   checkDrafts: Set<string>;
   /** The first submissions of their records known from the record events (main and checks), unsorted. */
   submissionTimes: number[];
+  /**
+   * Each submitted first assessment of theirs: its first submission, or for a record older
+   * than the events its modifiedOn (as the pattern flags order them), unsorted.
+   */
+  mainSubmissionTimes: number[];
   /** The plot groups (as the quality decisions are keyed) of their first assessments: the plots where they are the main assessor. */
   mainGroups: Set<string>;
 }
@@ -215,7 +220,7 @@ export type PlotUnitsInput = Pick<ProgressInput, 'info' | 'units' | 'copyHolders
 function workOf(byOperator: Map<string, OperatorWork>, operator: string): OperatorWork {
   let work = byOperator.get(operator);
   if (!work) {
-    work = { mainSubmitted: new Map(), mainDrafts: new Set(), checkSubmitted: new Map(), checkDrafts: new Set(), submissionTimes: [], mainGroups: new Set() };
+    work = { mainSubmitted: new Map(), mainDrafts: new Set(), checkSubmitted: new Map(), checkDrafts: new Set(), submissionTimes: [], mainSubmissionTimes: [], mainGroups: new Set() };
     byOperator.set(operator, work);
   }
   return work;
@@ -291,6 +296,7 @@ export function plotUnits(input: PlotUnitsInput, perOperator = false): PlotUnits
       if (work) {
         work.mainSubmitted.set(unit, Math.min(work.mainSubmitted.get(unit) ?? Infinity, at));
         if (r.firstSubmittedOn !== null) work.submissionTimes.push(r.firstSubmittedOn);
+        work.mainSubmissionTimes.push(at);
       }
     } else {
       saved.add(unit);

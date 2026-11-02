@@ -381,8 +381,24 @@ export class PostgresStore implements Store {
     });
   }
 
-  async listRecordSummaries(projectId: string): Promise<RecordRow[]> {
+  async listRecordSummaries(projectId: string, options: { firstSubmissions?: boolean } = {}): Promise<RecordRow[]> {
     return this.withProject(projectId, async (client) => {
+      if (options.firstSubmissions) {
+        // The first submission as listRecordStates reads it (its event `submitted`).
+        const res = await client.query(
+          `SELECT r.project_id, r.record_key, r.operator, r.modified_on, r.received_at, r.actively_saved, r.step, NULL AS xml, r.summary,
+                  r.deleted, r.deleted_on, floor(EXTRACT(EPOCH FROM e.first_submitted_on) * 1000)::float8 AS first_submitted_on
+             FROM records r
+             LEFT JOIN (SELECT record_key, operator, min(modified_on) AS first_submitted_on
+                          FROM record_events
+                         WHERE project_id = $1 AND change = 'submitted'
+                         GROUP BY record_key, operator) e
+               ON e.record_key = r.record_key AND e.operator = r.operator
+            WHERE r.project_id = $1 AND NOT r.deleted`,
+          [projectId],
+        );
+        return res.rows.map((r) => ({ ...mapRecord(r), firstSubmittedOn: (r.first_submitted_on as number | null) ?? null }));
+      }
       const res = await client.query(
         `SELECT project_id, record_key, operator, modified_on, received_at, actively_saved, step, NULL AS xml, summary,
                 deleted, deleted_on
@@ -1236,6 +1252,19 @@ export class PostgresStore implements Store {
     });
   }
 
+  async patchQualitySettings(projectId: string, patch: Partial<QualitySettings>): Promise<QualitySettings> {
+    return this.withProject(projectId, async (client) => {
+      // One statement: two saves at once (margins and the threshold) never undo each other.
+      const res = await client.query(
+        `UPDATE projects SET quality_settings = COALESCE(quality_settings, '{}'::jsonb) || $2::jsonb WHERE id = $1 RETURNING quality_settings`,
+        [projectId, JSON.stringify(patch)],
+      );
+      const stored = res.rows[0]?.quality_settings as QualitySettings | null | undefined;
+      const fastSeconds = stored?.fastSeconds;
+      return { margins: { ...(stored?.margins ?? {}) }, ...(typeof fastSeconds === 'number' ? { fastSeconds } : {}) };
+    });
+  }
+
   async setQualitySettings(projectId: string, settings: QualitySettings): Promise<void> {
     await this.withProject(projectId, async (client) => {
       await client.query('UPDATE projects SET quality_settings = $2 WHERE id = $1', [projectId, JSON.stringify(settings)]);
@@ -1258,7 +1287,7 @@ export class PostgresStore implements Store {
   async listQualityDecisions(projectId: string): Promise<QualityDecision[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        `SELECT d.plot, d.decision, d.comment, u.username, d.decided_at
+        `SELECT d.plot, d.decision, d.comment, u.username, d.decided_at, d.seen
            FROM quality_decisions d LEFT JOIN users u ON u.id = d.decided_by
           WHERE d.project_id = $1
           ORDER BY d.plot COLLATE "C"`,
@@ -1274,18 +1303,19 @@ export class PostgresStore implements Store {
     decision: DecisionKind,
     comment: string | null,
     userId: string | null,
+    seen: { operator: string; hash: number }[] | null = null,
   ): Promise<QualityDecision> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
         `WITH d AS (
-           INSERT INTO quality_decisions (project_id, plot, decision, comment, decided_by, decided_at)
-           VALUES ($1, $2, $3, $4, $5, now())
+           INSERT INTO quality_decisions (project_id, plot, decision, comment, decided_by, decided_at, seen)
+           VALUES ($1, $2, $3, $4, $5, now(), $6)
            ON CONFLICT (project_id, plot) DO UPDATE SET
              decision = EXCLUDED.decision, comment = EXCLUDED.comment,
-             decided_by = EXCLUDED.decided_by, decided_at = EXCLUDED.decided_at
-           RETURNING plot, decision, comment, decided_by, decided_at)
-         SELECT d.plot, d.decision, d.comment, u.username, d.decided_at FROM d LEFT JOIN users u ON u.id = d.decided_by`,
-        [projectId, plot, decision, comment, userId],
+             decided_by = EXCLUDED.decided_by, decided_at = EXCLUDED.decided_at, seen = EXCLUDED.seen
+           RETURNING plot, decision, comment, decided_by, decided_at, seen)
+         SELECT d.plot, d.decision, d.comment, u.username, d.decided_at, d.seen FROM d LEFT JOIN users u ON u.id = d.decided_by`,
+        [projectId, plot, decision, comment, userId, seen === null ? null : JSON.stringify(seen)],
       );
       return mapDecision(res.rows[0]);
     });
@@ -1869,6 +1899,7 @@ function mapDecision(r: Record<string, unknown>): QualityDecision {
     comment: (r.comment as string | null) ?? null,
     decidedBy: (r.username as string | null) ?? null,
     decidedAt: (r.decided_at as Date).getTime(),
+    seen: (r.seen as { operator: string; hash: number }[] | null | undefined) ?? null,
   };
 }
 

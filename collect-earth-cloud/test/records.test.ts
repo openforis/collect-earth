@@ -91,7 +91,7 @@ describe('records:batch — gzip, LWW and tombstones', () => {
     expect(body.results[1].status).toBe('stored');
   });
 
-  it('keeps the answers of a summary with empty attributes: a null is no answer, the strings stay', async () => {
+  it('keeps the answers of a summary with empty attributes: a null is kept as a blank answer, the strings stay', async () => {
     // Collect Earth's getValuesByHtmlParameters gives null for every empty attribute.
     const res = await batchRequest(ctx.app, project.projectId, project.projectToken, [
       envelope({
@@ -102,8 +102,9 @@ describe('records:batch — gzip, LWW and tombstones', () => {
     ]);
     expect((res.json() as BatchResponse).results.map((r) => r.status)).toEqual(['stored', 'stored']);
     const stored = await ctx.store.listRecords(project.projectId);
-    expect(stored.find((r) => r.recordKey === '1')!.summary).toEqual({ collect_code_land_use_category: 'F', collect_code_subdivision: 'EB' });
-    expect(stored.find((r) => r.recordKey === '2')!.summary).toEqual({});
+    // Blank, not left out: a required question left empty is then told from one the survey of the record did not have.
+    expect(stored.find((r) => r.recordKey === '1')!.summary).toEqual({ collect_code_land_use_category: 'F', collect_text_comments: '', collect_code_subdivision: 'EB' });
+    expect(stored.find((r) => r.recordKey === '2')!.summary).toEqual({ collect_code_land_use_category: '' });
   });
 
   it('a summary value that is not a string is left out, the rest of the summary is kept', async () => {

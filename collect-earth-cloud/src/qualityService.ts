@@ -672,7 +672,7 @@ export class QualityService {
         }
       }
     }
-    const records = await this.store.listRecordSummaries(projectId);
+    const records = await this.store.listRecordSummaries(projectId, { firstSubmissions: true });
     // Let what is waiting run first: the figures then hold the loop for a while.
     await new Promise((resolve) => setImmediate(resolve));
     return qualityFigures({ ...input, records });

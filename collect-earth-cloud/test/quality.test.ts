@@ -91,7 +91,7 @@ describe('qualityReport: agreement by question', () => {
     expect(report.plotsDiffering).toBe(0);
   });
 
-  it('counts a missing value as blank, two blanks agree, and a question on neither record is not compared', () => {
+  it('counts a missing value as blank; blank on both sides (as Collect Earth sends every empty question) or on neither record is not compared', () => {
     const report = qualityReport(
       input([
         rec('1,1', 'ana', { collect_code_land_use: '' }),
@@ -101,7 +101,7 @@ describe('qualityReport: agreement by question', () => {
       ]),
     );
     expect(report.questions).toHaveLength(1);
-    expect(report.questions[0]).toMatchObject({ compared: 2, agreeing: 1 });
+    expect(report.questions[0]).toMatchObject({ compared: 1, agreeing: 0 });
     expect(report.differences[0].fields).toEqual([{ key: 'collect_code_land_use', first: 'forest', check: '' }]);
   });
 
@@ -146,7 +146,8 @@ describe('qualityReport: numbers', () => {
 
   it('blank against a number disagrees; texts that are no number agree only when equal', () => {
     expect(canopy('', '5')).toMatchObject({ agreeing: 0 });
-    expect(canopy('', 'null')).toMatchObject({ agreeing: 1 });
+    // Both blank: not compared at all.
+    expect(canopy('', 'null')).toBeUndefined();
     expect(canopy('abc', 'abc')).toMatchObject({ agreeing: 1 });
     expect(canopy('abc', 'abd')).toMatchObject({ agreeing: 0 });
   });

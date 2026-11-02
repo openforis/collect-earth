@@ -27,6 +27,10 @@ describe("flagsView", () => {
       "Every answer is the same as on their previous plot (11): 4 plots in a row from plot 9.",
     );
     expect(flagText(t, flag({ kind: "required_empty", questions: [{ key: "a", label: "Land use" }, { key: "b", label: "Slope" }] }), "en")).toBe("Left empty: Land use, Slope.");
+    // One question or several (Spanish says it apart).
+    const es = translator("es");
+    expect(flagText(es, flag({ kind: "required_empty", questions: [{ key: "a", label: "Uso" }] }), "es")).toBe("Vacía: Uso.");
+    expect(flagText(es, flag({ kind: "required_empty", questions: [{ key: "a", label: "Uso" }, { key: "b", label: "Pendiente" }] }), "es")).toBe("Vacías: Uso, Pendiente.");
     expect(flagText(t, flag({ kind: "edited_after_decision", decision: "first", decidedAt: Date.UTC(2026, 10, 1, 9) }), "en")).toMatch(/^Saved again on .+, after the decision of .+\.$/);
     expect(flagText(t, flag({ kind: "two_main" }), "en")).toBe("The plot has more than one first assessment.");
     expect(flagText(t, flag({ kind: "no_plot" }), "en")).toBe("The plot is in none of the plot files.");

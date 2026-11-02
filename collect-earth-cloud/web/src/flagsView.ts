@@ -32,7 +32,7 @@ export function flagText(t: Translate, flag: PatternFlag, language: string): str
     case "same_as_before":
       return t("flags.text.same_as_before", { previous: flag.previousPlot ?? "", n: formatNumber(flag.runLength ?? 0, language), first: flag.firstPlot ?? "" });
     case "required_empty":
-      return t("flags.text.required_empty", { questions: flag.questions.map((q) => q.label).join(", ") });
+      return t(flag.questions.length === 1 ? "flags.text.required_emptyOne" : "flags.text.required_empty", { questions: flag.questions.map((q) => q.label).join(", ") });
     case "edited_after_decision":
       return t("flags.text.edited_after_decision", { at: formatDate(flag.at, language), decidedAt: formatDate(flag.decidedAt, language) });
     case "two_main":

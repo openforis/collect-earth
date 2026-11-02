@@ -3,7 +3,7 @@ import { isUuid } from '../accountRules.js';
 import { audit } from '../activity.js';
 import { answerStats, type AnswerFilter } from '../answerStats.js';
 import { isDate, isTimeZone } from '../days.js';
-import { FLAG_KINDS, fastSecondsOf, MAX_FAST_SECONDS, MIN_FAST_SECONDS, patternFlags, type FlagKind } from '../flags.js';
+import { FLAG_KINDS, fastSecondsOf, MAX_FAST_SECONDS, MIN_FAST_SECONDS, patternFlags, seenOf, type DecisionSeen, type FlagKind } from '../flags.js';
 import { columnValues, MAX_LISTED_VALUES, plotColumns, plotsWithValue } from '../plotColumns.js';
 import { plotFileOf, plotIdsOf } from '../plotFileCache.js';
 import { fileKeyCount } from '../rounds.js';
@@ -13,7 +13,7 @@ import { answerOptions, personalReport, teamReport } from '../qualityReports.js'
 import { registerPlotPlaceRoutes } from './plotPlaces.js';
 import { MAX_CACHED_ANSWER_FILTERS, QualityService, remember, WorkerBusyError, WorkerRestartedError, type ServedReport } from '../qualityService.js';
 import type { Store } from '../store/store.js';
-import type { DecisionKind, GuidanceNoteInput, QualitySettings } from '../types.js';
+import type { DecisionKind, GuidanceNoteInput, QualityDecision, QualitySettings } from '../types.js';
 
 /** Longest decision comment and guidance note, in characters (the tables check it too). */
 export const MAX_TEXT = 2000;
@@ -50,6 +50,12 @@ function noteInput(body: unknown): GuidanceNoteInput | BadRequest {
     return bad(`text must be 1-${MAX_TEXT} characters`);
   }
   return { questionKey, firstValue: firstValue as string | null, checkValue: checkValue as string | null, text };
+}
+
+/** A decision as clients get it: without what it saw of the records (only the flags read that). */
+function publicDecision(d: QualityDecision): Omit<QualityDecision, 'seen'> {
+  const { seen: _seen, ...rest } = d;
+  return rest;
 }
 
 /** The plot of a decision route, or null when it is not 1-MAX_NAME characters. */
@@ -117,7 +123,7 @@ export async function registerQualityRoutes(
     }
     // The answer options of the questions shown, so the tab shows "Forest", not "F".
     const options = answerOptions(outline, [...figures.report.questions.map((q) => q.key), ...notes.map((n) => n.questionKey)]);
-    return reply.send({ ...figures.report, computedAt: figures.computedAt, stale: figures.stale, decisions, notes, settings, options });
+    return reply.send({ ...figures.report, computedAt: figures.computedAt, stale: figures.stale, decisions: decisions.map(publicDecision), notes, settings, options });
   });
 
   // Answers per person (Task 4), for coordinators and reviewers (never collectors, never
@@ -265,25 +271,25 @@ export async function registerQualityRoutes(
     if (typeof body !== 'object' || Array.isArray(body) || (body.margins === undefined && body.fastSeconds === undefined)) {
       return reply.code(400).send(bad('send margins, fastSeconds or both'));
     }
-    const stored = await store.getQualitySettings(projectId);
-    const next: QualitySettings = { ...stored };
+    const patch: Partial<QualitySettings> = {};
     if (body.margins !== undefined) {
       const checked = checkMargins(body.margins, await quality.outline(projectId, request.log));
       if ('reason' in checked) {
         return reply.code(400).send(bad(checked.reason));
       }
-      next.margins = checked.margins;
+      patch.margins = checked.margins;
     }
     if (body.fastSeconds !== undefined) {
       const f = body.fastSeconds;
       if (typeof f !== 'number' || !Number.isInteger(f) || f < MIN_FAST_SECONDS || f > MAX_FAST_SECONDS) {
         return reply.code(400).send(bad(`fastSeconds must be whole seconds from ${MIN_FAST_SECONDS} to ${MAX_FAST_SECONDS}`));
       }
-      next.fastSeconds = f;
+      patch.fastSeconds = f;
     }
-    await store.setQualitySettings(projectId, next);
+    // One write that keeps what is not sent: a margins save and a threshold save at the same time both stay.
+    const saved = await store.patchQualitySettings(projectId, patch);
     await audit(store, request, 'settings.changed', { setting: 'quality' });
-    return reply.send(next);
+    return reply.send(saved);
   });
 
   app.put('/v1/projects/:pid/quality/decisions/:plot', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -303,9 +309,18 @@ export async function registerQualityRoutes(
       }
       comment = body.comment.trim() || null;
     }
-    const decision = await store.setQualityDecision(projectId, plot, body.decision as DecisionKind, comment, request.membership!.userId ?? null);
+    // What the coordinator decided on: the plot's records as the figures at hand show them
+    // (never computed here), for "saved again after a decision" (pattern flags).
+    let seen: DecisionSeen[] | null = null;
+    try {
+      const figures = await quality.peek(projectId, request.log);
+      seen = figures ? seenOf(figures.flags, plot) : null;
+    } catch (err) {
+      request.log.warn({ err, projectId }, 'quality: the figures at hand could not be read for a decision');
+    }
+    const decision = await store.setQualityDecision(projectId, plot, body.decision as DecisionKind, comment, request.membership!.userId ?? null, seen);
     await audit(store, request, 'decision.set', { plot, decision: decision.decision });
-    return reply.send(decision);
+    return reply.send(publicDecision(decision));
   });
 
   app.delete('/v1/projects/:pid/quality/decisions/:plot', admin, async (request: FastifyRequest, reply: FastifyReply) => {

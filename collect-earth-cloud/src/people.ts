@@ -138,7 +138,7 @@ export interface Speed {
   /** Gaps between consecutive submissions inside a session. */
   gaps: number;
   medianGapMs: number | null;
-  /** Gaps under VERY_FAST_MS. */
+  /** Gaps under the project's "very fast" threshold (fastSeconds; VERY_FAST_MS by default). */
   veryFast: number;
   /** Gaps per bin: [previous upToMs, upToMs). */
   buckets: { upToMs: number; count: number }[];
@@ -211,6 +211,8 @@ export interface PeopleInput extends PlotUnitsInput {
   prepared?: PlotUnits;
   /** invite id -> the member it was made for (a new project file link). */
   inviteFor?: ReadonlyMap<string, string>;
+  /** The project's "very fast" threshold, in seconds (quality settings); VERY_FAST_MS when absent. */
+  fastSeconds?: number;
   /** username -> their pattern flags by kind, from the figures at hand (the coordinator's person page only). */
   flagCounts?: (username: string) => FlagCounts | null;
 }
@@ -221,6 +223,7 @@ const EMPTY_WORK: OperatorWork = {
   checkSubmitted: new Map(),
   checkDrafts: new Set(),
   submissionTimes: [],
+  mainSubmissionTimes: [],
   mainGroups: new Set(),
 };
 
@@ -253,7 +256,7 @@ export function statusOf(p: {
 }
 
 /** Gaps between consecutive submissions inside working sessions (under SESSION_GAP_MS): an estimate of the time per plot. */
-export function speedOf(times: readonly number[]): Speed {
+export function speedOf(times: readonly number[], veryFastMs = VERY_FAST_MS): Speed {
   const sorted = [...times].sort((a, b) => a - b);
   const gaps: number[] = [];
   let sessions = sorted.length > 0 ? 1 : 0;
@@ -272,7 +275,7 @@ export function speedOf(times: readonly number[]): Speed {
     sessions,
     gaps: gaps.length,
     medianGapMs: median(gaps),
-    veryFast: gaps.filter((g) => g < VERY_FAST_MS).length,
+    veryFast: gaps.filter((g) => g < veryFastMs).length,
     buckets,
   };
 }
@@ -590,7 +593,10 @@ export function personDetail(input: PeopleInput, userId: string, options: { self
     calendar,
     hours,
     files: filesOf(p, member.username, work, self),
-    speed: speedOf(work.submissionTimes),
+    // The coordinator's page: the first assessments by first submission, with the
+    // project's threshold, as the pattern flags count "very fast" (the two agree). My
+    // work: plots and copies alike (checks stay blind), the same threshold.
+    speed: speedOf(self ? work.submissionTimes : work.mainSubmissionTimes, (input.fastSeconds ?? VERY_FAST_MS / 1000) * 1000),
     sync,
     quality: {
       ...qualityAtHand(input),

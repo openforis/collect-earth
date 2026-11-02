@@ -68,7 +68,7 @@ function Threshold({ projectId, data, canEdit, onSaved }: { projectId: string; d
   if (!canEdit) {
     return (
       <Typography variant="body2" color="text.secondary">
-        {t("flags.fastReadOnly", { n: data.fastSeconds })}
+        {data.fastSeconds === 1 ? t("flags.fastReadOnlyOne") : t("flags.fastReadOnly", { n: data.fastSeconds })}
       </Typography>
     );
   }
@@ -271,12 +271,16 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
                   </Stack>
                   {data.flags.length > FLAGS_SHOWN && (
                     <Button size="small" onClick={() => setAll(!all)} sx={{ mt: 0.5 }}>
-                      {all ? t("flags.showFewer") : t("flags.showAll", { n: formatNumber(data.flags.length, language) })}
+                      {all
+                        ? t("flags.showFewer")
+                        : data.total > data.flags.length
+                          ? t("flags.showListed", { n: formatNumber(data.flags.length, language), total: formatNumber(data.total, language) })
+                          : t("flags.showAll", { n: formatNumber(data.total, language) })}
                     </Button>
                   )}
                   {all && data.total > data.flags.length && (
                     <Typography variant="body2" color="text.secondary">
-                      {t("flags.capped", { n: formatNumber(data.flags.length, language) })}
+                      {t("flags.capped", { n: formatNumber(data.flags.length, language), total: formatNumber(data.total, language) })}
                     </Typography>
                   )}
                 </Box>

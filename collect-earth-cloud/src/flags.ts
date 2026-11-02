@@ -15,7 +15,7 @@
 //   without the records changing) and the filters applied to it, one pass over the rows.
 import type { AnswerTable, FirstAssessment } from './answerStats.js';
 import { keyRule, recordResolver, type QualityInput, type QualityReport } from './quality.js';
-import { BOOKKEEPING_KEYS } from './surveyOutline.js';
+import { BOOKKEEPING_KEYS, SUMMARY_VALUES_SEPARATOR } from './surveyOutline.js';
 import type { DecisionKind } from './types.js';
 
 export const FLAG_KINDS = ['very_fast', 'same_as_before', 'required_empty', 'edited_after_decision', 'two_main', 'no_plot'] as const;
@@ -67,7 +67,13 @@ export type FlagDetails =
  * table's row r: a submitted, not deleted first assessment of a plot of a plot file).
  */
 export interface FlagTable {
-  /** The rows in each person's order: by person, then modifiedOn, then record key. */
+  /**
+   * Per row: when it was first submitted (its record event `submitted`; for a record stored
+   * before events were kept, its modifiedOn). A plot corrected and submitted again later
+   * keeps its place: "very fast" is about how the plots were first done.
+   */
+  submitted: Float64Array;
+  /** The rows in each person's order: by person, then `submitted`, then record key. */
   order: Int32Array;
   /**
    * Per row: 1 when its answers are all the same as those of the same person's previous
@@ -82,12 +88,20 @@ export interface FlagTable {
   empty: { rows: Int32Array; offsets: Int32Array; keys: Uint16Array };
   /**
    * Every saved, not deleted record of a known round (drafts and checks too), by its plot
-   * group (as the decisions are keyed): the records of groups[g] are start[g]..start[g+1].
+   * group (as the decisions are keyed): the records of groups[g] are start[g]..start[g+1],
+   * each with its person, its last save (modifiedOn), when the server received it, and a
+   * hash of its answers.
    */
-  saved: { groups: string[]; start: Int32Array; operators: string[]; operator: Uint32Array; time: Float64Array };
+  saved: { groups: string[]; start: Int32Array; operators: string[]; operator: Uint32Array; time: Float64Array; received: Float64Array; hash: Uint32Array };
 }
 
-/** The keys whose answers "same as before" compares: questions, never bookkeeping, keys, plot-file values or calculated ones. */
+/** What a decision keeps of the records of its plot as the figures showed them when it was made: each one's person and answers' hash. */
+export interface DecisionSeen {
+  operator: string;
+  hash: number;
+}
+
+/** The keys whose answers are compared: questions, never bookkeeping, keys, plot-file values or calculated ones. */
 function answerKeyRule(outline: QualityInput['outline']): (key: string) => boolean {
   const memo = new Map<string, boolean>();
   return (key) => {
@@ -104,10 +118,74 @@ function answerKeyRule(outline: QualityInput['outline']): (key: string) => boole
   };
 }
 
-const isBlank = (v: string) => {
-  const t = v.trim();
-  return t === '' || t === 'null';
-};
+/**
+ * An answer as compared, or null for none: trimmed; several values (joined by "===") as
+ * a set, blank and "null" parts left out, sorted.
+ */
+export function answerValue(v: string | undefined): string | null {
+  if (typeof v !== 'string' || v.length === 0) return null;
+  if (!v.includes(SUMMARY_VALUES_SEPARATOR)) {
+    // Most answers have no spaces around them: no trim then.
+    if (v.charCodeAt(0) > 32 && v.charCodeAt(v.length - 1) > 32) return v === 'null' ? null : v;
+    const t = v.trim();
+    return t === '' || t === 'null' ? null : t;
+  }
+  const parts = [...new Set(v.split(SUMMARY_VALUES_SEPARATOR).map((p) => p.trim()).filter((p) => p !== '' && p !== 'null'))].sort();
+  return parts.length === 0 ? null : parts.join(SUMMARY_VALUES_SEPARATOR);
+}
+
+/** FNV-1a over a string, 32 bits, going on from h. */
+function fnv(text: string, h: number): number {
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+
+/**
+ * The answers of a summary, walked by the outline's answer keys in order, or (no outline)
+ * by every answer key of the records, sorted (gathered once: sorting each summary's own
+ * keys took seconds on 100,000 records).
+ */
+function answersReader(outline: QualityInput['outline'], records: readonly { summary: Record<string, string> }[]) {
+  const isAnswer = answerKeyRule(outline);
+  let keys: string[];
+  if (outline) {
+    keys = [...outline.keys()].filter(isAnswer);
+  } else {
+    const all = new Set<string>();
+    for (const r of records) for (const key in r.summary) if (!all.has(key) && Object.hasOwn(r.summary, key) && isAnswer(key)) all.add(key);
+    keys = [...all].sort();
+  }
+  const keysOf = (_summary: Record<string, string>): readonly string[] => keys;
+  // Each key's own hash, worked out once.
+  const keyHashes = keys.map((k) => fnv(k, 0x811c9dc5));
+  const get = (summary: Record<string, string>, key: string) => answerValue(Object.hasOwn(summary, key) ? summary[key] : undefined);
+  return {
+    /** Each answer of x is y's (with as many answers on both: the same answers). */
+    same(x: Record<string, string>, y: Record<string, string>): boolean {
+      for (const key of keysOf(x)) {
+        const v = get(x, key);
+        if (v !== null && v !== get(y, key)) return false;
+      }
+      return true;
+    },
+    /** In one pass: a hash of its answers (the questions answered and their answers, as compared) and how many there are. */
+    digest(summary: Record<string, string>): { hash: number; count: number } {
+      let h = 0x811c9dc5;
+      let count = 0;
+      for (let i = 0; i < keys.length; i++) {
+        const v = get(summary, keys[i]);
+        if (v !== null) {
+          h = fnv(v, Math.imul(h ^ keyHashes[i], 0x01000193) >>> 0);
+          count += 1;
+        }
+      }
+      return { hash: h, count };
+    },
+  };
+}
 
 /**
  * The flag table of a project, from the same inputs and rows as the answer table
@@ -116,69 +194,40 @@ const isBlank = (v: string) => {
 export function flagTable(input: QualityInput, kept: readonly FirstAssessment[], answers: AnswerTable): FlagTable {
   const size = kept.length;
   const outline = input.outline;
+  const reader = answersReader(outline, input.records);
+  // Each record's answers digested once (the rows and the saved records share them).
+  const digests = new Map<object, { hash: number; count: number }>();
+  for (const r of input.records) if (!r.deleted) digests.set(r, reader.digest(r.summary));
 
-  // Each person's order (by the answer table's person index: the same person, the same
-  // index; the order of the people among themselves does not matter).
+  // Each person's order, by first submission (by the answer table's person index: the
+  // same person, the same index; the order of the people among themselves does not matter).
+  const submitted = new Float64Array(size);
+  for (let row = 0; row < size; row++) submitted[row] = kept[row].r.firstSubmittedOn ?? kept[row].r.modifiedOn;
   const order = Int32Array.from({ length: size }, (_, i) => i);
-  order.sort((a, b) => answers.operator[a] - answers.operator[b] || answers.time[a] - answers.time[b] || (kept[a].r.recordKey < kept[b].r.recordKey ? -1 : kept[a].r.recordKey > kept[b].r.recordKey ? 1 : 0));
+  order.sort((a, b) => answers.operator[a] - answers.operator[b] || submitted[a] - submitted[b] || (kept[a].r.recordKey < kept[b].r.recordKey ? -1 : kept[a].r.recordKey > kept[b].r.recordKey ? 1 : 0));
 
   // Same answers as the person's previous plot: the same questions answered (blanks left
-  // out), each with the same answer.
-  const isAnswer = answerKeyRule(outline);
+  // out), each with the same answer (several values as a set).
   const same = new Uint8Array(size);
   const counts = new Uint16Array(size);
-  // With an outline, its answer keys are looked up (much faster than walking each summary).
-  const answerKeys = outline ? [...outline.keys()].filter(isAnswer) : null;
-  const value = (summary: Record<string, string>, key: string): string | null => {
-    const v = Object.hasOwn(summary, key) ? summary[key] : undefined;
-    if (typeof v !== 'string' || v.length === 0) return null;
-    // Most answers have no spaces around them: no trim then.
-    if (v.charCodeAt(0) > 32 && v.charCodeAt(v.length - 1) > 32) return v === 'null' ? null : v;
-    const t = v.trim();
-    return t === '' || t === 'null' ? null : t;
-  };
-  const answered = (summary: Record<string, string>): number => {
-    let n = 0;
-    if (answerKeys) {
-      for (let i = 0; i < answerKeys.length; i++) if (value(summary, answerKeys[i]) !== null) n += 1;
-      return n;
-    }
-    for (const key in summary) {
-      if (Object.hasOwn(summary, key) && isAnswer(key) && value(summary, key) !== null) n += 1;
-    }
-    return n;
-  };
-  /** Each answer of x is y's (with as many answers on both, the same answers). */
-  const sameAnswers = (x: Record<string, string>, y: Record<string, string>): boolean => {
-    if (answerKeys) {
-      for (let i = 0; i < answerKeys.length; i++) {
-        const v = value(x, answerKeys[i]);
-        if (v !== null && v !== value(y, answerKeys[i])) return false;
-      }
-      return true;
-    }
-    for (const key in x) {
-      if (!Object.hasOwn(x, key) || !isAnswer(key)) continue;
-      const v = value(x, key);
-      if (v !== null && v !== value(y, key)) return false;
-    }
-    return true;
-  };
   let prev = -1;
   for (let k = 0; k < size; k++) {
     const row = order[k];
-    const summary = kept[row].r.summary;
-    const n = answered(summary);
+    const r = kept[row].r;
+    const d = digests.get(r) ?? reader.digest(r.summary);
+    const n = d.count;
     counts[row] = Math.min(n, 0xffff);
-    // Each answer of this plot is the previous one's, and as many: the same answers.
-    if (prev >= 0 && answers.operator[prev] === answers.operator[row] && n >= MIN_SAME_ANSWERS && counts[prev] === counts[row] && sameAnswers(summary, kept[prev].r.summary)) {
+    const p = prev >= 0 ? kept[prev].r : null;
+    // Equal hashes first (cheap), then the answers themselves.
+    if (p !== null && answers.operator[prev] === answers.operator[row] && n >= MIN_SAME_ANSWERS && counts[prev] === counts[row] && (digests.get(p) ?? reader.digest(p.summary)).hash === d.hash && reader.same(r.summary, p.summary)) {
       same[row] = 1;
     }
     prev = row;
   }
 
-  // Required questions left blank (present in the summary: a record of a survey without
-  // the question does not have it, and is not counted).
+  // Required questions left blank. Collect Earth sends every empty root question as null
+  // (kept as ''); a key absent from the summary is a record of a survey without the
+  // question (or one stored before nulls were kept), and is not counted.
   const requiredKeys: string[] = [];
   const requiredLabels: string[] = [];
   for (const q of outline?.values() ?? []) {
@@ -195,8 +244,7 @@ export function flagTable(input: QualityInput, kept: readonly FirstAssessment[],
       const summary = kept[row].r.summary;
       const at = emptyKeys.length;
       for (let i = 0; i < requiredKeys.length; i++) {
-        const v = summary[requiredKeys[i]];
-        if (typeof v === 'string' && Object.hasOwn(summary, requiredKeys[i]) && isBlank(v)) emptyKeys.push(i);
+        if (Object.hasOwn(summary, requiredKeys[i]) && answerValue(summary[requiredKeys[i]]) === null) emptyKeys.push(i);
       }
       if (emptyKeys.length > at) {
         emptyRows.push(row);
@@ -234,6 +282,8 @@ export function flagTable(input: QualityInput, kept: readonly FirstAssessment[],
   const total = start[groups.length];
   const operator = new Uint32Array(total);
   const time = new Float64Array(total);
+  const received = new Float64Array(total);
+  const hash = new Uint32Array(total);
   input.records.forEach((r, i) => {
     const g = recordGroup[i];
     if (g < 0) return;
@@ -246,21 +296,34 @@ export function flagTable(input: QualityInput, kept: readonly FirstAssessment[],
     const at = fill[g]++;
     operator[at] = o;
     time[at] = r.modifiedOn;
+    // Not known (a store that does not give it): taken as its last save.
+    received[at] = r.receivedAt ?? r.modifiedOn;
+    hash[at] = (digests.get(r) ?? reader.digest(r.summary)).hash;
   });
 
   return {
+    submitted,
     order,
     same,
     answers: counts,
     required: { keys: requiredKeys, labels: requiredLabels },
     empty: { rows: Int32Array.from(emptyRows), offsets: Int32Array.from(emptyOffsets), keys: Uint16Array.from(emptyKeys) },
-    saved: { groups, start, operators, operator, time },
+    saved: { groups, start, operators, operator, time, received, hash },
   };
+}
+
+/** The records of a plot as the figures hold them: what a decision on it keeps (null when the figures do not have the plot). */
+export function seenOf(f: FlagTable, plot: string): DecisionSeen[] | null {
+  const g = groupIndexOf(f).get(plot);
+  if (g === undefined) return null;
+  const out: DecisionSeen[] = [];
+  for (let i = f.saved.start[g]; i < f.saved.start[g + 1]; i++) out.push({ operator: f.saved.operators[f.saved.operator[i]], hash: f.saved.hash[i] });
+  return out;
 }
 
 /** The typed arrays of a flag table, to hand it over between threads without copying. */
 export function flagBuffers(f: FlagTable): ArrayBufferView[] {
-  return [f.order, f.same, f.answers, f.empty.rows, f.empty.offsets, f.empty.keys, f.saved.start, f.saved.operator, f.saved.time];
+  return [f.submitted, f.order, f.same, f.answers, f.empty.rows, f.empty.offsets, f.empty.keys, f.saved.start, f.saved.operator, f.saved.time, f.saved.received, f.saved.hash];
 }
 
 /** group -> index in saved.groups, built once per table. */
@@ -285,6 +348,14 @@ export interface FlagOptions {
   person?: string | null;
   /** Only flags of this kind (the counts per kind are of every kind). */
   kind?: FlagKind | null;
+}
+
+/** A decision as the flags read it; `seen`: the records of its plot when it was made (null: not kept). */
+export interface FlagDecision {
+  plot: string;
+  decision: DecisionKind;
+  decidedAt: number;
+  seen?: readonly DecisionSeen[] | null;
 }
 
 export interface PatternFlags {
@@ -316,7 +387,7 @@ export interface FlagSource {
  */
 export function patternFlags(
   source: FlagSource,
-  decisions: readonly { plot: string; decision: DecisionKind; decidedAt: number }[],
+  decisions: readonly FlagDecision[],
   options: FlagOptions,
 ): PatternFlags {
   const { answers: t, flags: f, report } = source;
@@ -351,7 +422,7 @@ export function patternFlags(
           kind: 'same_as_before',
           plot: plotOf(row),
           operator: t.operators[t.operator[row]],
-          at: t.time[row],
+          at: f.submitted[row],
           details: { previousPlot: plotOf(pendingRun[i - 1]), runLength, firstPlot: plotOf(runStart), answers: f.answers[row] },
         });
       }
@@ -364,9 +435,9 @@ export function patternFlags(
     const row = f.order[k];
     const samePerson = prev >= 0 && t.operator[prev] === t.operator[row];
     if (samePerson) {
-      const gap = t.time[row] - t.time[prev];
+      const gap = f.submitted[row] - f.submitted[prev];
       if (gap < fastMs) {
-        add({ kind: 'very_fast', plot: plotOf(row), operator: t.operators[t.operator[row]], at: t.time[row], details: { gapMs: gap, previousPlot: plotOf(prev) } });
+        add({ kind: 'very_fast', plot: plotOf(row), operator: t.operators[t.operator[row]], at: f.submitted[row], details: { gapMs: gap, previousPlot: plotOf(prev) } });
       }
     }
     if (samePerson && f.same[row] === 1) {
@@ -393,17 +464,26 @@ export function patternFlags(
     add({ kind: 'required_empty', plot: plotOf(row), operator: t.operators[t.operator[row]], at: t.time[row], details: { questions } });
   }
 
-  // Saved again after a decision. Not after "both need another look": saving the plot
-  // again is then what was asked (the review queue shows those apart, Task 7).
+  // Saved again after a decision: a record of the plot the server received after the
+  // decision whose answers are not those the decision was made on (`seen`: the records
+  // as the figures showed them then). Merely going through a plot's tabs saves it again
+  // (a new modifiedOn, the same answers): not flagged. A decision made without figures at
+  // hand kept nothing: then a save made after it (modifiedOn, the collector's clock) and
+  // received after it. Not after "both need another look": saving the plot again is then
+  // what was asked (the review queue shows those apart, Task 7).
   const groups = decisions.some((d) => d.decision !== 'recheck') ? groupIndexOf(f) : null;
   for (const d of decisions) {
     if (d.decision === 'recheck' || groups === null) continue;
     const g = groups.get(d.plot);
     if (g === undefined) continue;
-    // Each person's latest save after the decision, once.
+    const seen = d.seen ?? null;
+    // Each person's latest such save, once.
     const latest = new Map<number, number>();
     for (let i = f.saved.start[g]; i < f.saved.start[g + 1]; i++) {
-      if (f.saved.time[i] > d.decidedAt && f.saved.time[i] > (latest.get(f.saved.operator[i]) ?? -Infinity)) latest.set(f.saved.operator[i], f.saved.time[i]);
+      if (f.saved.received[i] <= d.decidedAt) continue;
+      const operator = f.saved.operators[f.saved.operator[i]];
+      const changed = seen !== null ? !seen.some((x) => x.operator === operator && x.hash === f.saved.hash[i]) : f.saved.time[i] > d.decidedAt;
+      if (changed && f.saved.time[i] > (latest.get(f.saved.operator[i]) ?? -Infinity)) latest.set(f.saved.operator[i], f.saved.time[i]);
     }
     for (const [o, at] of latest) {
       add({ kind: 'edited_after_decision', plot: d.plot, operator: f.saved.operators[o], at, details: { decision: d.decision, decidedAt: d.decidedAt } });
@@ -459,7 +539,7 @@ export function patternFlags(
 /** One person's counts (the coordinator's person page: never computed there, from the figures at hand). */
 export function flagCountsOf(
   source: FlagSource,
-  decisions: readonly { plot: string; decision: DecisionKind; decidedAt: number }[],
+  decisions: readonly FlagDecision[],
   fastSeconds: number,
   username: string,
 ): FlagCounts {

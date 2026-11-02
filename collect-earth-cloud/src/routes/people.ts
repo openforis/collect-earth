@@ -69,7 +69,7 @@ async function loadPeople(
     store.getCepInfo(projectId),
     store.listQualityDecisions(projectId),
     peek(quality, projectId, request),
-    options.flags ? store.getQualitySettings(projectId) : Promise.resolve(null),
+    store.getQualitySettings(projectId),
   ]);
   const usernames = new Map(members.map((m) => [m.userId, m.username]));
   const inviteFor = options.invites ? await invitesFor(store, projectId, invites, usernames) : undefined;
@@ -95,9 +95,10 @@ async function loadPeople(
     quality: figures,
     decisions,
     inviteFor,
+    fastSeconds: fastSecondsOf(qualitySettings),
     // The person page's flag counts: from the figures at hand, worked out only when asked.
     flagCounts:
-      options.flags && figures && qualitySettings
+      options.flags && figures
         ? (username) => flagCountsOf(figures, decisions, fastSecondsOf(qualitySettings), username)
         : undefined,
   };

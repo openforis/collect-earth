@@ -30,6 +30,10 @@ export interface QualityRecord {
   activelySaved: boolean;
   deleted: boolean;
   summary: Record<string, string>;
+  /** When it was first submitted (its record event `submitted`), when the store gives it; null or absent: not known. */
+  firstSubmittedOn?: number | null;
+  /** When the server stored its last save, when the store gives it. */
+  receivedAt?: number;
 }
 
 export interface QualityInput {
@@ -183,7 +187,7 @@ interface DifferingPair {
  * its check records (all submitted): with several main records the latest is used and
  * the plot is listed as two_main. A question is compared on a pair when it is an
  * outline question (not excluded, choice or number) and at least one of the two
- * records has it in its summary; a missing value is then blank, and two blanks agree.
+ * records answers it (a blank or missing value on both sides is not compared).
  *
  * Built for 100k records of ~200 answers: the first pass over the pairs only counts,
  * with one lookup per key, and keeps the differing questions of each pair; confusions
@@ -297,6 +301,11 @@ export function qualityReport(input: QualityInput): QualityReport {
       const ci = personIndex.get(check.operator)!;
       differs.length = 0;
       const compare = (slot: Slot, a: string, b: string): void => {
+        // Blank on both sides is not compared: Collect Earth sends every empty root
+        // question (kept as ''), and two empty answers say nothing about agreement.
+        if (isBlankAnswer(a) && isBlankAnswer(b)) {
+          return;
+        }
         const rule = slot.rule;
         if (!rule.compare) {
           if (rule.beyond) {
@@ -744,6 +753,13 @@ export function keyRule(key: string, outline: ReadonlyMap<string, Question> | nu
     return { compare: true, kind: 'number', label: key };
   }
   return { compare: false, beyond: false };
+}
+
+/** No answer: blank, "null", or only blank parts. */
+function isBlankAnswer(text: string): boolean {
+  if (text === '') return true;
+  if (text.charCodeAt(0) > 32 && text !== 'null' && !text.includes(SUMMARY_VALUES_SEPARATOR)) return false;
+  return valuesOf(text).length === 0;
 }
 
 /** The values of a summary answer: several joined by "===", blank and "null" parts left out. */

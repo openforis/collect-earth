@@ -223,6 +223,8 @@ export interface RecordRow {
   summary: Record<string, string>;
   deleted: boolean;
   deletedOn: number | null;
+  /** Only from listRecordSummaries with firstSubmissions: the modifiedOn of its record event `submitted` (null: none). */
+  firstSubmittedOn?: number | null;
 }
 
 /**
@@ -263,6 +265,12 @@ export interface QualityDecision {
   /** Username of who decided; null when made with a project token or the account is gone. */
   decidedBy: string | null;
   decidedAt: number;
+  /**
+   * The records of the plot as the quality figures showed them when it was decided (each
+   * one's person and answers' hash, flags.ts DecisionSeen); null when none were at hand.
+   * For the pattern flags only: the routes do not send it.
+   */
+  seen?: { operator: string; hash: number }[] | null;
 }
 
 /** What a guidance note is about: a question and, for a mixed-up pair, both answers. */

@@ -363,6 +363,13 @@ await owner.query('ANALYZE records');
   const put = await fresh.inject({ method: 'PUT', url: `/v1/projects/${big}/quality/settings`, headers: bearer(ownerToken), payload: { fastSeconds: 40 } });
   const after = await get('/quality/flags');
   check('the threshold is stored with the margins (quality_settings) and applied without a new computation', put.statusCode === 200 && after.res.json().fastSeconds === 40 && after.res.json().computedAt === fb.computedAt && (await store.getQualitySettings(big)).fastSeconds === 40, { put: put.body.slice(0, 200), fastSeconds: after.res.json().fastSeconds });
+  // A decision keeps what the figures showed of its plot (migration 014), never sent to clients.
+  const decided = await fresh.inject({ method: 'PUT', url: `/v1/projects/${big}/quality/decisions/1`, headers: bearer(ownerToken), payload: { decision: 'first' } });
+  const kept = (await store.listQualityDecisions(big)).find((d) => d.plot === '1');
+  check('a decision keeps the records it saw (quality_decisions.seen), not in its answer', decided.statusCode === 200 && !('seen' in decided.json()) && Array.isArray(kept?.seen) && kept!.seen!.length > 0, { status: decided.statusCode, seen: kept?.seen });
+  // The first submissions come with the summaries for the worker (the events' join).
+  const withFirst = await store.listRecordSummaries(big, { firstSubmissions: true });
+  check('listRecordSummaries with firstSubmissions: every submitted record has its first submission', withFirst.filter((r) => r.activelySaved).every((r) => typeof r.firstSubmittedOn === 'number'), withFirst.slice(0, 2).map((r) => r.firstSubmittedOn));
   await fresh.close();
   // The worker's two parts on this thread, for the record.
   const { answerTable } = await import('../src/answerStats.js');

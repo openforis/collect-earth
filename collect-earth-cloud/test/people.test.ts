@@ -246,7 +246,13 @@ describe("a person's page", () => {
       { plot: '5', kind: 'check', status: 'submitted' },
       { plot: '7', kind: 'main', status: 'doneByOther' },
     ]);
-    expect(d.speed).toMatchObject({ submissions: 3, sessions: 2, gaps: 1, medianGapMs: 10_000, veryFast: 1 });
+    // The coordinator's page: first assessments only (the check is not), as the flags.
+    expect(d.speed).toMatchObject({ submissions: 2, sessions: 1, gaps: 1, medianGapMs: 10_000, veryFast: 1 });
+    // The project's threshold.
+    expect(personDetail(project(records, { fastSeconds: 10 }), 'u-ana', { self: false })!.speed.veryFast).toBe(0);
+    expect(personDetail(project(records, { fastSeconds: 11 }), 'u-ana', { self: false })!.speed.veryFast).toBe(1);
+    // My work: plots and copies alike (checks stay blind).
+    expect(personDetail(project(records), 'u-ana', { self: true })!.speed).toMatchObject({ submissions: 3, sessions: 2, gaps: 1 });
   });
 
   it('a long file lists at most MAX_LISTED_PLOTS plots, the counts are of all', () => {

@@ -236,8 +236,12 @@ export interface Store {
 
   /** All records for a project (deleted excluded unless includeDeleted). For stats/export/tests. */
   listRecords(projectId: string, includeDeleted?: boolean): Promise<RecordRow[]>;
-  /** As listRecords without deleted ones and with xml left null: for the overview and the export. */
-  listRecordSummaries(projectId: string): Promise<RecordRow[]>;
+  /**
+   * As listRecords without deleted ones and with xml left null: for the overview and the
+   * export. With firstSubmissions, each record also says when it was first submitted
+   * (firstSubmittedOn, as listRecordStates): for the quality figures' pattern flags.
+   */
+  listRecordSummaries(projectId: string, options?: { firstSubmissions?: boolean }): Promise<RecordRow[]>;
 
   /**
    * Which records there are, whether each is submitted and when it was first submitted
@@ -261,12 +265,21 @@ export interface Store {
   /** The settings, `{ margins: {} }` when none were saved. */
   getQualitySettings(projectId: string): Promise<QualitySettings>;
   setQualitySettings(projectId: string, settings: QualitySettings): Promise<void>;
+  /** Replaces the settings given (margins as a whole, fastSeconds) and keeps the others, in one write; gives them all as stored. */
+  patchQualitySettings(projectId: string, patch: Partial<QualitySettings>): Promise<QualitySettings>;
   /** The project's AI assistant switch (off by default; false for an unknown project). */
   isAiEnabled(projectId: string): Promise<boolean>;
   setAiEnabled(projectId: string, enabled: boolean): Promise<void>;
   listQualityDecisions(projectId: string): Promise<QualityDecision[]>;
   /** Sets (or replaces) the decision on a plot unit. `userId` null for a project token. */
-  setQualityDecision(projectId: string, plot: string, decision: DecisionKind, comment: string | null, userId: string | null): Promise<QualityDecision>;
+  setQualityDecision(
+    projectId: string,
+    plot: string,
+    decision: DecisionKind,
+    comment: string | null,
+    userId: string | null,
+    seen?: { operator: string; hash: number }[] | null,
+  ): Promise<QualityDecision>;
   /** False when the plot had no decision. */
   deleteQualityDecision(projectId: string, plot: string): Promise<boolean>;
   listGuidanceNotes(projectId: string): Promise<GuidanceNote[]>;

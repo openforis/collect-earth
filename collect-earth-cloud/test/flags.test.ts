@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RoundInfo } from '../src/cep.js';
 import { qualityFigures, tableBuffers } from '../src/answerStats.js';
-import { DEFAULT_FAST_SECONDS, fastSecondsOf, flagCountsOf, MAX_LISTED_FLAGS, patternFlags, type Flag, type FlagOptions } from '../src/flags.js';
+import { DEFAULT_FAST_SECONDS, fastSecondsOf, flagCountsOf, MAX_LISTED_FLAGS, patternFlags, seenOf, type Flag, type FlagOptions } from '../src/flags.js';
 import type { QualityInput, QualityRecord } from '../src/quality.js';
 import type { Question } from '../src/surveyOutline.js';
 import type { DecisionKind } from '../src/types.js';
@@ -72,6 +72,16 @@ describe('pattern flags: very fast', () => {
     expect(of(flags(records, { fastSeconds: 16 }).flags, 'very_fast').map((f) => f.plot)).toEqual(['3', '2']);
   });
 
+  it('by first submission: a plot corrected and submitted again later is not "very fast" after the plot before its correction', () => {
+    const records = [
+      rec('1,1', 'ana', t0 + s(68), answers(1), { firstSubmittedOn: t0 }), // A, corrected at 68 s
+      rec('3,1', 'ana', t0 + s(60), answers(3), { firstSubmittedOn: t0 + s(60) }), // C
+    ];
+    expect(of(flags(records).flags, 'very_fast')).toEqual([]);
+    // By the last save it would have been (8 s after C).
+    expect(of(flags(records.map((r) => ({ ...r, firstSubmittedOn: null }))).flags, 'very_fast').map((f) => f.plot)).toEqual(['1']);
+  });
+
   it('in the order the person saved them, whatever the records\' order; checks, drafts and plots in no file are not gaps', () => {
     const records = [
       rec('3,1', 'ana', t0 + s(100), answers(3)),
@@ -106,6 +116,16 @@ describe('pattern flags: same as before', () => {
     const result = of(flags(records).flags, 'same_as_before');
     expect(result.map((f) => f.plot)).toEqual(['4', '3']);
     expect(result[1]).toEqual({ kind: 'same_as_before', plot: '3', operator: 'ana', at: t0 + s(120), details: { previousPlot: '2', runLength: 3, firstPlot: '2', answers: 4 } });
+  });
+
+  it('several values are compared as a set', () => {
+    const many = { collect_code_land_use: 'F', collect_real_canopy: '40', collect_text_notes: 'a===b' };
+    const records = [
+      rec('1,1', 'ana', t0, many),
+      rec('2,1', 'ana', t0 + s(60), { ...many, collect_text_notes: 'b===a' }),
+      rec('3,1', 'ana', t0 + s(120), { ...many, collect_text_notes: 'a===null===b' }),
+    ];
+    expect(of(flags(records).flags, 'same_as_before').map((f) => f.plot)).toEqual(['3', '2']);
   });
 
   it('a different answer, another person, fewer than 3 answers, or a blank answer breaks or does not make a run; excluded and calculated keys are not compared', () => {
@@ -173,6 +193,52 @@ describe('pattern flags: edited after a decision', () => {
       { kind: 'edited_after_decision', plot: '1', operator: 'ana', at: decidedAt + 1, details: { decision: 'first', decidedAt } },
       { kind: 'edited_after_decision', plot: '1', operator: 'ben', at: decidedAt + 5, details: { decision: 'first', decidedAt } },
     ]);
+  });
+});
+
+describe('pattern flags: edited after a decision, from what the decision saw', () => {
+  const decidedAt = t0 + s(1000);
+  const before = answers(1);
+  const changed = { ...answers(1), collect_real_canopy: '99' };
+  /** The figures as the coordinator saw them when deciding on plot 1, and the decision with what it kept. */
+  const decided = (seenRecords: QualityRecord[]) => [{ plot: '1', decision: 'first' as const, decidedAt, seen: seenOf(figuresOf(seenRecords).flags, '1') }];
+
+  it('the answers changed and the server got them after the decision: flagged, even saved offline before it; the same answers saved again (going through the tabs) are not', () => {
+    const seen = decided([rec('1,1', 'ana', t0, before, { receivedAt: t0 })]);
+    expect(seen[0].seen).toHaveLength(1);
+    const now = (r: QualityRecord) => of(patternFlags(figuresOf([r]), seen, { fastSeconds: 15 }).flags, 'edited_after_decision');
+    // Changed after the decision.
+    expect(now(rec('1,1', 'ana', decidedAt + 5, changed, { receivedAt: decidedAt + 9 }))).toHaveLength(1);
+    // Changed offline before the decision, synced after: the decision was made on other answers.
+    expect(now(rec('1,1', 'ana', decidedAt - 500, changed, { receivedAt: decidedAt + 9 }))).toEqual([
+      { kind: 'edited_after_decision', plot: '1', operator: 'ana', at: decidedAt - 500, details: { decision: 'first', decidedAt } },
+    ]);
+    // Opened and its tabs gone through: saved again, same answers.
+    expect(now(rec('1,1', 'ana', decidedAt + 5, { ...before }, { receivedAt: decidedAt + 9, activelySaved: false }))).toEqual([]);
+    // Several values in another order are the same answer.
+    const multi = { ...before, collect_text_notes: 'a===b' };
+    const seenMulti = decided([rec('1,1', 'ana', t0, multi, { receivedAt: t0 })]);
+    expect(of(patternFlags(figuresOf([rec('1,1', 'ana', decidedAt + 5, { ...multi, collect_text_notes: 'b===a' }, { receivedAt: decidedAt + 9 })]), seenMulti, { fastSeconds: 15 }).flags, 'edited_after_decision')).toEqual([]);
+  });
+
+  it('a clock ahead: a save the server got before the decision is never flagged, whatever its modifiedOn', () => {
+    const records = [rec('1,1', 'ana', decidedAt + s(3600), changed, { receivedAt: decidedAt - 1 })];
+    expect(of(patternFlags(figuresOf(records), decided([rec('1,1', 'ana', t0, before)]), { fastSeconds: 15 }).flags, 'edited_after_decision')).toEqual([]);
+    // Without what the decision saw: also not.
+    expect(of(patternFlags(figuresOf(records), [{ plot: '1', decision: 'first', decidedAt }], { fastSeconds: 15 }).flags, 'edited_after_decision')).toEqual([]);
+  });
+
+  it('without what the decision saw (no figures at hand then): saved and received after it', () => {
+    const d = [{ plot: '1', decision: 'first' as const, decidedAt, seen: null }];
+    const now = (r: QualityRecord) => of(patternFlags(figuresOf([r]), d, { fastSeconds: 15 }).flags, 'edited_after_decision').length;
+    expect(now(rec('1,1', 'ana', decidedAt + 5, before, { receivedAt: decidedAt + 9 }))).toBe(1);
+    expect(now(rec('1,1', 'ana', decidedAt - 5, changed, { receivedAt: decidedAt + 9 }))).toBe(0);
+  });
+
+  it('a record the decision did not see (a new one of the plot) is flagged once received after it', () => {
+    const seen = decided([rec('1,1', 'ana', t0, before)]);
+    const result = of(patternFlags(figuresOf([rec('1,1', 'ana', t0, before), rec('1,2', 'ben', decidedAt + 3, answers(5), { receivedAt: decidedAt + 4 })]), seen, { fastSeconds: 15 }).flags, 'edited_after_decision');
+    expect(result.map((f) => f.operator)).toEqual(['ben']);
   });
 });
 

@@ -47,7 +47,10 @@ describe('GET /quality/flags, the threshold, and the person page', () => {
       envelope({ recordKey: '1', operator: 'ana', modifiedOn: at(0), summary: { [LAND_USE]: 'F', [REQUIRED]: 'FN' } }),
       envelope({ recordKey: '2', operator: 'ana', modifiedOn: at(10), summary: { [LAND_USE]: 'C', [REQUIRED]: 'CA' } }),
       envelope({ recordKey: '3', operator: 'ana', modifiedOn: at(30), summary: { [LAND_USE]: 'G', [REQUIRED]: 'GG' } }),
-      envelope({ recordKey: '4', operator: 'ana', modifiedOn: at(100), summary: { [LAND_USE]: 'F', [REQUIRED]: '' } }),
+      // As Collect Earth sends an empty question: null.
+      envelope({ recordKey: '4', operator: 'ana', modifiedOn: at(100), summary: { [LAND_USE]: 'F', [REQUIRED]: null } as never }),
+      // A record without the question at all (a survey without it, or stored before nulls were kept): not counted.
+      envelope({ recordKey: '5', operator: 'ana', modifiedOn: at(200), summary: { [LAND_USE]: 'F' } }),
     ];
     const res = await batchRequest(ctx.app, pid, ana.token, records);
     expect(res.statusCode, res.body).toBe(200);
@@ -61,7 +64,7 @@ describe('GET /quality/flags, the threshold, and the person page', () => {
     const res = await call('GET', '/quality/flags', owner.token);
     expect(res.statusCode, res.body).toBe(200);
     const body = res.json();
-    expect(body).toMatchObject({ fastSeconds: 15, plots: 4, stale: false, total: 2 });
+    expect(body).toMatchObject({ fastSeconds: 15, plots: 5, stale: false, total: 2 });
     expect(typeof body.computedAt).toBe('number');
     expect(body.counts).toEqual({ very_fast: 1, same_as_before: 0, required_empty: 1, edited_after_decision: 0, two_main: 0, no_plot: 0 });
     expect(body.flags).toEqual([
@@ -98,6 +101,12 @@ describe('GET /quality/flags, the threshold, and the person page', () => {
       expect(res.statusCode, JSON.stringify(fastSeconds)).toBe(400);
     }
     expect((await call('PUT', '/quality/settings', rita.token, { fastSeconds: 30 })).statusCode).toBe(403);
+    // A margins save and a threshold save at the same time: both stay.
+    await Promise.all([
+      call('PUT', '/quality/settings', owner.token, { margins: { collect_integer_forest_percentage: 5 } }),
+      call('PUT', '/quality/settings', owner.token, { fastSeconds: 40 }),
+    ]);
+    expect((await call('GET', '/quality', owner.token)).json().settings).toEqual({ margins: { collect_integer_forest_percentage: 5 }, fastSeconds: 40 });
   });
 
   it('edited after a decision: from the decisions as they are now', async () => {
@@ -108,6 +117,22 @@ describe('GET /quality/flags, the threshold, and the person page', () => {
     await batchRequest(ctx.app, pid, ana.token, [envelope({ recordKey: '3', operator: 'ana', modifiedOn: decidedAt + 1000, summary: { [LAND_USE]: 'C', [REQUIRED]: 'CA' } })]);
     const body = await fresh('/quality/flags?kind=edited_after_decision');
     expect(body.flags).toEqual([{ kind: 'edited_after_decision', plot: '3', operator: 'ana', at: decidedAt + 1000, details: { decision: 'first', decidedAt } }]);
+  });
+
+  it('edited after a decision: a plot only opened and gone through again (saved, same answers) is not', async () => {
+    await call('GET', '/quality/flags', owner.token);
+    const decided = await call('PUT', '/quality/decisions/2', owner.token, { decision: 'check' });
+    expect(decided.statusCode, decided.body).toBe(200);
+    // What it saw stays on the server.
+    expect('seen' in decided.json()).toBe(false);
+    expect((await ctx.store.listQualityDecisions(pid))[0].seen).toEqual([{ operator: 'ana', hash: expect.any(Number) }]);
+    expect((await call('GET', '/quality', owner.token)).json().decisions[0]).not.toHaveProperty('seen');
+    const decidedAt = decided.json().decidedAt as number;
+    await batchRequest(ctx.app, pid, ana.token, [
+      envelope({ recordKey: '2', operator: 'ana', modifiedOn: decidedAt + 1000, activelySaved: false, summary: { [LAND_USE]: 'C', [REQUIRED]: 'CA' } }),
+    ]);
+    const body = await fresh('/quality/flags?kind=edited_after_decision');
+    expect(body.flags).toEqual([]);
   });
 
   it('coordinators and reviewers see them; collectors do not, nor in My work', async () => {
@@ -130,5 +155,11 @@ describe('GET /quality/flags, the threshold, and the person page', () => {
     await call('GET', '/quality/flags', owner.token);
     const after = (await call('GET', `/people/${anaId}`, owner.token)).json();
     expect(after.quality.flags).toEqual({ very_fast: 1, same_as_before: 0, required_empty: 1, edited_after_decision: 0, two_main: 0, no_plot: 0 });
+    // The page's speed counts "very fast" as the flags do: the same plots, order and threshold.
+    expect(after.speed.veryFast).toBe(1);
+    await call('PUT', '/quality/settings', owner.token, { fastSeconds: 25 });
+    const at25 = (await call('GET', `/people/${anaId}`, owner.token)).json();
+    expect(at25.quality.flags.very_fast).toBe(2);
+    expect(at25.speed.veryFast).toBe(2);
   });
 });

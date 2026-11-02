@@ -52,7 +52,7 @@ async function recordsOf(job: WorkerJob): Promise<QualityRecord[]> {
     });
     stores.set(databaseUrl, store);
   }
-  return store.listRecordSummaries(projectId);
+  return store.listRecordSummaries(projectId, { firstSubmissions: true });
 }
 
 const port = parentPort;

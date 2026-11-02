@@ -91,6 +91,7 @@ interface StoredDecision {
   comment: string | null;
   decidedBy: string | null; // user id
   decidedAt: number;
+  seen: { operator: string; hash: number }[] | null;
 }
 
 interface StoredNote extends GuidanceNoteInput {
@@ -324,11 +325,15 @@ export class InMemoryStore implements Store {
     return [...entry.records.values()].filter((r) => includeDeleted || !r.deleted);
   }
 
-  async listRecordSummaries(projectId: string): Promise<RecordRow[]> {
-    return (await this.listRecords(projectId)).map((r) => ({ ...r, xml: null }));
+  async listRecordSummaries(projectId: string, options: { firstSubmissions?: boolean } = {}): Promise<RecordRow[]> {
+    const rows = (await this.listRecords(projectId)).map((r) => ({ ...r, xml: null }));
+    if (!options.firstSubmissions) return rows;
+    const first = this.firstSubmissions(projectId);
+    return rows.map((r) => ({ ...r, firstSubmittedOn: first.get(`${r.recordKey} ${r.operator}`) ?? null }));
   }
 
-  async listRecordStates(projectId: string): Promise<RecordState[]> {
+  /** `${recordKey} ${operator}` -> the modifiedOn of its first event `submitted`. */
+  private firstSubmissions(projectId: string): Map<string, number> {
     const first = new Map<string, number>();
     for (const e of this.projects.get(projectId)?.recordEvents ?? []) {
       if (e.change === 'submitted') {
@@ -336,6 +341,11 @@ export class InMemoryStore implements Store {
         first.set(key, Math.min(first.get(key) ?? Infinity, e.modifiedOn));
       }
     }
+    return first;
+  }
+
+  async listRecordStates(projectId: string): Promise<RecordState[]> {
+    const first = this.firstSubmissions(projectId);
     return (await this.listRecords(projectId)).map((r) => ({
       recordKey: r.recordKey,
       operator: r.operator,
@@ -917,6 +927,12 @@ export class InMemoryStore implements Store {
     this.requireProject(projectId).qualitySettings = structuredClone(settings);
   }
 
+  async patchQualitySettings(projectId: string, patch: Partial<QualitySettings>): Promise<QualitySettings> {
+    const entry = this.requireProject(projectId);
+    entry.qualitySettings = structuredClone({ margins: {}, ...(entry.qualitySettings ?? {}), ...patch });
+    return structuredClone(entry.qualitySettings);
+  }
+
   async isAiEnabled(projectId: string): Promise<boolean> {
     return this.projects.get(projectId)?.aiEnabled ?? false;
   }
@@ -938,9 +954,10 @@ export class InMemoryStore implements Store {
     decision: DecisionKind,
     comment: string | null,
     userId: string | null,
+    seen: { operator: string; hash: number }[] | null = null,
   ): Promise<QualityDecision> {
     const entry = this.requireProject(projectId);
-    const stored: StoredDecision = { decision, comment, decidedBy: this.requireUserOrNull(userId), decidedAt: Date.now() };
+    const stored: StoredDecision = { decision, comment, decidedBy: this.requireUserOrNull(userId), decidedAt: Date.now(), seen: seen ? structuredClone(seen) : null };
     entry.decisions.set(plot, stored);
     return this.decisionOf(plot, stored);
   }
@@ -1243,7 +1260,7 @@ export class InMemoryStore implements Store {
   }
 
   private decisionOf(plot: string, d: StoredDecision): QualityDecision {
-    return { plot, decision: d.decision, comment: d.comment, decidedBy: this.usernameOf(d.decidedBy), decidedAt: d.decidedAt };
+    return { plot, decision: d.decision, comment: d.comment, decidedBy: this.usernameOf(d.decidedBy), decidedAt: d.decidedAt, seen: d.seen ? structuredClone(d.seen) : null };
   }
 
   private noteOf(n: StoredNote): GuidanceNote {

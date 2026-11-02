@@ -150,12 +150,17 @@ export const MAX_SUMMARY_KEY_CHARS = 200;
 export const MAX_SUMMARY_VALUE_CHARS = 10_000;
 
 /**
- * The summary's answers: its string values only. Collect Earth sends
- * `BalloonInputFieldsUtils.getValuesByHtmlParameters`, a Map<String, String> that holds
- * null for every empty attribute, so a null is no answer and is left out. Anything else
- * that is not a string (Collect Earth sends none) is left out the same way, key by key,
- * and the rest of the summary is kept: refusing the whole summary for one empty
- * attribute lost every answer of the desktop's records.
+ * The summary's answers. Collect Earth sends `BalloonInputFieldsUtils.getValuesByHtmlParameters`,
+ * a Map<String, String> that holds null for every empty attribute of the root entity
+ * (AbstractAttributeHandler.getParameterValue gives null for no value; an entity's empty
+ * attributes are not in it at all). A null is kept as '' (a blank answer): a question the
+ * record's survey has but that was left empty is then told from one its survey does not
+ * have (the "required left empty" flag needs it; every reader of summaries takes '' as no
+ * answer, and the quality figures never compare a question blank on both sides). Records
+ * stored before this keep no key for their blanks until they are saved again. Anything
+ * else that is not a string (Collect Earth sends none) is left out, key by key, and the
+ * rest of the summary is kept: refusing the whole summary for one empty attribute lost
+ * every answer of the desktop's records.
  */
 function summaryOf(value: unknown): Record<string, string> {
   const out: Record<string, string> = {};
@@ -167,10 +172,11 @@ function summaryOf(value: unknown): Record<string, string> {
     if (kept >= MAX_SUMMARY_KEYS) {
       break;
     }
-    if (typeof v !== 'string' || key === '' || key === '__proto__' || key.length > MAX_SUMMARY_KEY_CHARS || v.length > MAX_SUMMARY_VALUE_CHARS) {
+    const value = v === null ? '' : v;
+    if (typeof value !== 'string' || key === '' || key === '__proto__' || key.length > MAX_SUMMARY_KEY_CHARS || value.length > MAX_SUMMARY_VALUE_CHARS) {
       continue;
     }
-    out[key] = v;
+    out[key] = value;
     kept++;
   }
   return out;
