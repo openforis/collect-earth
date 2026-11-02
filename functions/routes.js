@@ -1,12 +1,19 @@
 const { asyncHandler } = require("./app");
 const { parsePlotRequest } = require("./lib/plotRequest");
+const { sensorsForYear } = require("./lib/sensors");
 const { eeAuth, ee } = require("./ee/auth");
 const { sentinel2CompositeTiles } = require("./ee/sentinel2Composite");
+const { landsatCompositeTiles } = require("./ee/landsatComposite");
 
-/** Builds a POST handler: parse body, auth EE, run `compute(parsed, eeGeometry, body)`. */
-function plotRoute(compute) {
+/**
+ * Builds a POST handler: parse body, run the optional `validate(body)` hook, auth EE,
+ * then run `compute(parsed, eeGeometry, body)`. `validate` runs before eeAuth so that
+ * request errors are answered without touching Earth Engine.
+ */
+function plotRoute(compute, validate) {
   return asyncHandler(async (req, res) => {
     const parsed = parsePlotRequest(req.body);
+    if (validate) validate(req.body);
     await eeAuth();
     const geometry = ee.Geometry(parsed.plot);
     res.json(await compute(parsed, geometry, req.body));
@@ -15,6 +22,10 @@ function plotRoute(compute) {
 
 function registerRoutes(app) {
   app.post("/api/tiles/sentinel2", plotRoute((p, g) => sentinel2CompositeTiles(g, p.end)));
+  app.post(
+    "/api/tiles/landsat",
+    plotRoute((p, g, body) => landsatCompositeTiles(g, Number(body.year)), (body) => sensorsForYear(Number(body.year)))
+  );
 }
 
 module.exports = { registerRoutes, plotRoute };

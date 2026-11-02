@@ -63,3 +63,30 @@ test("POST /api/tiles/sentinel2 with a valid plot but no EE_KEY reaches the auth
   assert.equal(logged.length, 1);
   assert.match(String(logged[0][0] && logged[0][0].message), /EE_KEY secret is not set/);
 });
+
+test("POST /api/tiles/landsat with a valid plot but year 1900 is a 400 before EE auth", async () => {
+  const saved = process.env.EE_KEY;
+  delete process.env.EE_KEY;
+  let res;
+  const logged = await quietly(async () => {
+    res = await request(createApp(registerRoutes)).post("/api/tiles/landsat").send({ plot: belize, year: 1900 });
+  });
+  if (saved !== undefined) process.env.EE_KEY = saved;
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error.code, "bad_request");
+  assert.match(res.body.error.message, /1984/);
+  assert.equal(logged.length, 0, "a 400 must not reach the EE auth step or be logged as a server error");
+});
+
+test("POST /api/tiles/landsat with a non-numeric year is a 400", async () => {
+  const res = await request(createApp(registerRoutes)).post("/api/tiles/landsat").send({ plot: belize, year: "abc" });
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error.code, "bad_request");
+});
+
+test("POST /api/tiles/landsat without a body is a 400 bad_request", async () => {
+  const res = await request(createApp(registerRoutes)).post("/api/tiles/landsat");
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error.code, "bad_request");
+  assert.match(res.body.error.message, /plot is required/);
+});
