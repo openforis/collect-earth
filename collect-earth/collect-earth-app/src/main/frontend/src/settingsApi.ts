@@ -65,3 +65,12 @@ export function debounced<A extends unknown[]>(fn: (...args: A) => void, ms: num
   call.cancel = () => clearTimeout(timer);
   return call;
 }
+
+/** A plot file the cloud server assigns to the operator (cloud mode) */
+export interface CloudAssignment { id: string; filename: string; plots: number; active: boolean }
+
+export const cloudAssignments = (signal?: AbortSignal) =>
+  apiGet<{ assignments: CloudAssignment[] }>("cloud/assignments", signal).then((r) => r.assignments);
+
+/** Downloads an assigned plot file into the project; answers where, for the plots file field */
+export const downloadAssignment = (id: string) => apiPost<{ path: string }>("cloud/assignments/download", { id }).then((r) => r.path);

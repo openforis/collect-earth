@@ -79,4 +79,28 @@ public class CloudController {
 	public void syncNow() {
 		cloud.syncNow();
 	}
+
+	/** The plot files assigned to the operator, for the Project section of the settings in cloud mode */
+	@GetMapping("/api/cloud/assignments")
+	public Map<String, Object> assignments() {
+		try {
+			return Collections.singletonMap("assignments", cloud.assignments());
+		} catch (InvalidCloudRequestException e) {
+			throw new ApiException(e.getCode(), e.getMessage());
+		}
+	}
+
+	public static class AssignmentRequest {
+		public String id;
+	}
+
+	/** Downloads one of them: the page then makes it the plots file, which Apply saves */
+	@PostMapping("/api/cloud/assignments/download")
+	public Map<String, Object> download(@RequestBody AssignmentRequest request) {
+		try {
+			return Collections.singletonMap("path", cloud.downloadAssignment(request.id).getAbsolutePath());
+		} catch (InvalidCloudRequestException e) {
+			throw new ApiException(e.getCode(), e.getMessage());
+		}
+	}
 }

@@ -80,4 +80,19 @@ public class CloudControllerTest {
 		mvc.perform(post("/api/cloud/syncNow")).andExpect(status().isOk());
 		verify(cloud).syncNow();
 	}
+
+	@Test
+	public void theAssignmentsAreListedAndDownloaded() throws Exception {
+		Map<String, Object> north = new LinkedHashMap<>();
+		north.put("id", "a1");
+		north.put("filename", "north.csv");
+		when(cloud.assignments()).thenReturn(java.util.Collections.singletonList(north));
+		mvc.perform(get("/api/cloud/assignments")).andExpect(status().isOk()).andExpect(jsonPath("$.assignments[0].filename").value("north.csv"));
+		when(cloud.downloadAssignment("a1")).thenReturn(new java.io.File("/projects/p/assignments/north.csv"));
+		mvc.perform(post("/api/cloud/assignments/download").contentType(MediaType.APPLICATION_JSON).content("{\"id\":\"a1\"}"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.path").value(new java.io.File("/projects/p/assignments/north.csv").getAbsolutePath()));
+		when(cloud.downloadAssignment("zz")).thenThrow(new InvalidCloudRequestException("cloud.noAssignment", "Could not download"));
+		mvc.perform(post("/api/cloud/assignments/download").contentType(MediaType.APPLICATION_JSON).content("{\"id\":\"zz\"}"))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("cloud.noAssignment"));
+	}
 }

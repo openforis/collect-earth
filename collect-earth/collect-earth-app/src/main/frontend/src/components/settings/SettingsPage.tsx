@@ -35,6 +35,7 @@ import {
 } from "../../settingsApi";
 import { serverText, type Texts } from "../../serverTexts";
 import { PlotPreview } from "./PlotPreview";
+import { CloudAssignmentsCard } from "./CloudAssignmentsCard";
 import { ProjectsCard } from "./ProjectsCard";
 import { RestartingOverlay } from "./RestartingOverlay";
 import { SampleFileCard } from "./SampleFileCard";
@@ -175,7 +176,15 @@ export function SettingsPage({ texts, compact, onClose, onApplied }: Props) {
       changed: isChanged(stored, values, field.key), onChange: (v: string) => change(field.key, v),
     };
     if (field.key === "csv") {
-      return <SampleFileCard key={field.key} {...props} check={fileCheck} checking={checkingFile} checkError={fileCheckError} />;
+      const card = <SampleFileCard key={field.key} {...props} check={fileCheck} checking={checkingFile} checkError={fileCheckError} />;
+      // In cloud mode the server assigns the plot files: they are offered first, as the Swing Sample data tab did
+      if (!data?.info.cloudMode) return card;
+      return (
+        <Stack key={field.key} spacing={1.5}>
+          <CloudAssignmentsCard texts={texts} onChosen={(path) => change("csv", path)} />
+          {card}
+        </Stack>
+      );
     }
     return <SettingField key={field.key} {...props} />;
   };

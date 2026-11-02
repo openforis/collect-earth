@@ -2,14 +2,18 @@ package org.openforis.collect.earth.app.service.cloud;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.cloud.CloudApiClient.AssignmentInfo;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.JoinPreview;
 import org.openforis.collect.earth.app.service.cloud.CloudSyncQueueDao.QueueStatus;
 import org.openforis.collect.earth.app.view.Messages;
@@ -182,5 +186,56 @@ public class CloudService {
 
 	public void syncNow() {
 		sync.syncNowAsync();
+	}
+
+	/**
+	 * The plot files the cloud server assigns to the operator, as the Sample data tab of the Swing settings listed them in
+	 * cloud mode; the one in use (the plots file has its name) is marked.
+	 */
+	public List<Map<String, Object>> assignments() throws InvalidCloudRequestException {
+		List<Map<String, Object>> list = new ArrayList<>();
+		String current = StringUtils.defaultString(properties.getValue(EarthProperty.SAMPLE_FILE));
+		for (AssignmentInfo info : fetchAssignments()) {
+			Map<String, Object> entry = new LinkedHashMap<>();
+			entry.put("id", info.getCsvFileId());
+			entry.put("filename", info.getFilename());
+			entry.put("plots", info.getPlotCount());
+			entry.put("active", info.getFilename() != null && new File(current).getName().equals(new File(info.getFilename()).getName()));
+			list.add(entry);
+		}
+		return list;
+	}
+
+	/**
+	 * Downloads an assigned plot file into the project's assignments folder (checked against its checksum by the client),
+	 * for the settings page to use as the plots file. @return where it was written
+	 */
+	public File downloadAssignment(String id) throws InvalidCloudRequestException {
+		for (AssignmentInfo info : fetchAssignments()) {
+			if (info.getCsvFileId() != null && info.getCsvFileId().equals(id)) {
+				try {
+					return api.downloadAssignedCsv(info, assignmentsFolder());
+				} catch (IOException | RuntimeException e) {
+					logger.warn("Could not download the assigned CSV {}: {}", info.getFilename(), e.getMessage());
+					throw new InvalidCloudRequestException("cloud.download", Messages.getString("SampleDataPanel.downloadError"));
+				}
+			}
+		}
+		throw new InvalidCloudRequestException("cloud.noAssignment", Messages.getString("SampleDataPanel.downloadError"));
+	}
+
+	private List<AssignmentInfo> fetchAssignments() throws InvalidCloudRequestException {
+		try {
+			return api.getMyAssignments();
+		} catch (IOException | RuntimeException e) {
+			logger.warn("Could not load the cloud assignments: {}", e.getMessage());
+			throw new InvalidCloudRequestException("cloud.assignments", Messages.getString("SampleDataPanel.assignmentsError"));
+		}
+	}
+
+	/** {@code <project folder>/assignments}, a stable home for the downloaded files, as the Swing tab had it */
+	File assignmentsFolder() {
+		File idm = new File(properties.getImdFile()).getAbsoluteFile();
+		return new File(idm.getParentFile(), "assignments");
 	}
 }

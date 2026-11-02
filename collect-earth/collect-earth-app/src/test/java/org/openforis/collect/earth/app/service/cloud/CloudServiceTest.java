@@ -143,4 +143,37 @@ public class CloudServiceTest {
 		service.syncNow();
 		verify(sync).syncNowAsync();
 	}
+
+	@Test
+	public void theAssignmentsAreListedWithTheOneInUseMarked() throws Exception {
+		when(properties.getValue(org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty.SAMPLE_FILE))
+				.thenReturn(new File(folder, "assignments/north.csv").getPath());
+		when(api.getMyAssignments()).thenReturn(java.util.Arrays.asList(
+				new CloudApiClient.AssignmentInfo("a1", "north.csv", "c1", "/d/a1", 120),
+				new CloudApiClient.AssignmentInfo("a2", "south.csv", "c2", "/d/a2", 80)));
+		java.util.List<Map<String, Object>> list = service.assignments();
+		assertEquals(2, list.size());
+		assertEquals("a1", list.get(0).get("id"));
+		assertEquals(120, list.get(0).get("plots"));
+		assertEquals(true, list.get(0).get("active"));
+		assertEquals(false, list.get(1).get("active"));
+	}
+
+	@Test
+	public void anAssignmentIsDownloadedIntoTheProjectsAssignmentsFolder() throws Exception {
+		when(properties.getImdFile()).thenReturn(new File(folder, "project/survey.idm.xml").getPath());
+		CloudApiClient.AssignmentInfo south = new CloudApiClient.AssignmentInfo("a2", "south.csv", "c2", "/d/a2", 80);
+		when(api.getMyAssignments()).thenReturn(java.util.Collections.singletonList(south));
+		File expected = new File(new File(folder, "project/assignments"), "south.csv");
+		when(api.downloadAssignedCsv(south, new File(folder, "project/assignments").getAbsoluteFile())).thenReturn(expected);
+		assertEquals(expected, service.downloadAssignment("a2"));
+		assertEquals("cloud.noAssignment", assertThrows(InvalidCloudRequestException.class, () -> service.downloadAssignment("zz")).getCode());
+	}
+
+	@Test
+	public void aServerThatCannotListTheAssignmentsSaysSo() throws Exception {
+		when(api.getMyAssignments()).thenThrow(new IOException("HTTP 401"));
+		InvalidCloudRequestException e = assertThrows(InvalidCloudRequestException.class, service::assignments);
+		assertEquals("cloud.assignments", e.getCode());
+	}
 }
