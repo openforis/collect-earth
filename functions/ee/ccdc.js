@@ -3,6 +3,7 @@ const { evaluate } = require("./promise");
 const ts = require("./vendor/temporalSegmentation");
 const { shapeCcdc } = require("../lib/ccdcShape");
 const { BadRequest } = require("../lib/plotRequest");
+const { landsatClearMaskBits } = require("../lib/qaBits");
 
 /*
  * Port of the Collect Earth GEE script WiellTemporalSegmentation/uiChart
@@ -47,10 +48,17 @@ function toNdvi(image) {
   return ee.Image(image).normalizedDifference(["nir", "red"]).multiply(10000).rename("NDVI");
 }
 
-/** Bits 3 and 5 of QA_PIXEL are cloud shadow and cloud; both must be clear. */
+/** Every QA_PIXEL bit of the mask must be zero: see lib/qaBits.js for the Collection 2 bit layout. */
+const CLEAR_MASK = landsatClearMaskBits();
+
+/**
+ * `pixel_qa` is QA_PIXEL renamed. Collection 2 bits 1 (dilated cloud), 3
+ * (cloud), 4 (cloud shadow) and 5 (snow) must all be clear. The original
+ * uiChart tested bits 3 and 5 with Collection 1 meanings in mind, which in C2
+ * masked cloud and snow but let cloud shadow through; not reproduced here.
+ */
 function maskLandsat(image) {
-  const qa = image.select("pixel_qa");
-  return image.updateMask(qa.bitwiseAnd(1 << 3).eq(0).and(qa.bitwiseAnd(1 << 5).eq(0)));
+  return image.updateMask(image.select("pixel_qa").bitwiseAnd(CLEAR_MASK).eq(0));
 }
 
 /**

@@ -31,7 +31,14 @@ const min = (a, b) => (a < b ? a : b);
  * Differences from charts_v2: the L9 window is clipped to max(start, L9_START)
  * so a request for 2024 does not also pull late-2023 scenes, the L7 window is
  * clipped to L7_START, and a window that would be empty is left out instead of
- * being requested as an empty collection.
+ * being requested as an empty collection. Landsat 4 is dropped (the plan's
+ * decision): its C2 L2 record is sparse and Landsat 5 covers 1984 onwards.
+ *
+ * The yearly composite (lib/sensors.js sensorsForYear) uses different sensor
+ * boundaries on purpose: it picks one sensor per calendar year (L5 to 1998,
+ * L7 to 2012, L8 from 2013, L8+L9 from 2022) to get a consistent median,
+ * while this series keeps charts_v2's date cuts (L7 until 2015-01-01, then L8)
+ * so its points match the GEE chart. The two are not meant to agree.
  */
 function landsatPeriods(start, end) {
   const candidates = [

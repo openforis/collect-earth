@@ -69,6 +69,30 @@ test("errorToResponse passes through errors with status and code", () => {
   assert.equal(body.error.code, "bad_request");
 });
 
+test("errorToResponse maps a 404 not_found error to 404 without retry", () => {
+  const { NotFound } = require("../lib/errors");
+  const { status, body } = errorToResponse(new NotFound("no landsat scene at 1970-01-01T00:00:00.001Z"));
+  assert.equal(status, 404);
+  assert.deepEqual(body, { error: { code: "not_found", message: "no landsat scene at 1970-01-01T00:00:00.001Z", retryable: false } });
+});
+
+test("a route throwing NotFound answers JSON 404 and is not logged as an error", async () => {
+  const { NotFound } = require("../lib/errors");
+  const app = createApp((a) => a.get("/api/gone", asyncHandler(async () => { throw new NotFound("no Landsat scenes for 1984"); })));
+  const origError = console.error;
+  const logged = [];
+  console.error = (...args) => logged.push(args);
+  let res;
+  try {
+    res = await request(app).get("/api/gone");
+  } finally {
+    console.error = origError;
+  }
+  assert.equal(res.status, 404);
+  assert.deepEqual(res.body, { error: { code: "not_found", message: "no Landsat scenes for 1984", retryable: false } });
+  assert.equal(logged.length, 0);
+});
+
 test("async route failures become JSON 500 internal", async () => {
   const app = createApp((a) => a.get("/api/boom", asyncHandler(async () => { throw new Error("x"); })));
   const res = await request(app).get("/api/boom");

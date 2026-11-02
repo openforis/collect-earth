@@ -14,14 +14,28 @@ function clampSentinelStart(start) {
 }
 
 /**
+ * The [start, end) window actually requested from Sentinel-2 for a plot range:
+ * the start clamped to SENTINEL_START, or null when nothing of the range falls
+ * on or after the first acquisition (so callers skip Earth Engine). Pure.
+ */
+function sentinelWindow(start, end) {
+  const s = clampSentinelStart(start);
+  return s < end ? { start: s, end } : null;
+}
+
+/**
  * Per-scene mean NDVI at 10 m over `plot` from cloud-masked Sentinel-2 scenes
  * in [start, end). `ndvi` from landsat.js applies because both collections
  * rename to nir/red; copyProperties of the absent SPACECRAFT_ID is harmless.
+ * A range entirely before the first Sentinel-2 scene yields no points without
+ * an Earth Engine round trip.
  */
 async function sentinel2Series(plot, start, end) {
-  const col = sentinel2Images(plot, clampSentinelStart(start), end).map(ndvi);
+  const w = sentinelWindow(start, end);
+  if (!w) return { points: [] };
+  const col = sentinel2Images(plot, w.start, w.end).map(ndvi);
   const points = await evaluateSeries(meanSeries(col, "NDVI", plot, 10));
   return { points };
 }
 
-module.exports = { sentinel2Series, clampSentinelStart, SENTINEL_START };
+module.exports = { sentinel2Series, sentinelWindow, clampSentinelStart, SENTINEL_START };

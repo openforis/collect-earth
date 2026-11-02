@@ -35,7 +35,8 @@ test("sentinel2 series has dated, in-range NDVI points and its first scene is se
     assert.ok(p.date >= rangeStart && p.date < rangeEnd, `date ${new Date(p.date).toISOString()} outside the request`);
     assert.ok(typeof p.id === "string" && p.id.length > 0, `id ${JSON.stringify(p.id)} is not a non-empty string`);
   }
-  assert.ok(points.every((p, i) => i === 0 || p.date > points[i - 1].date), "points must be strictly increasing by date");
+  // Two Sentinel-2 granules of one orbit can share a system:time_start, so dates are non-decreasing, not strictly increasing.
+  assert.ok(points.every((p, i) => i === 0 || p.date >= points[i - 1].date), "points must be sorted by date");
 
   const clicked = points[0];
   const r = await sceneTiles(g, "2022-01-01", "2022-07-01", "sentinel2", clicked.date);
@@ -47,11 +48,21 @@ test("sentinel2 series has dated, in-range NDVI points and its first scene is se
 
 test("sentinel2 series clamps a pre-2015 start instead of failing", live, async () => {
   await eeAuth();
-  const { points } = await sentinel2Series(ee.Geometry(belize), "2000-01-01", "2015-12-31");
-  assert.ok(points.length > 0, "expected scenes between 2015-06-23 and 2015-12-31");
+  const { points } = await sentinel2Series(ee.Geometry(belize), "2000-01-01", "2017-12-31");
+  assert.ok(points.length > 0, "expected scenes between 2015-06-23 and 2017-12-31");
   for (const p of points) {
     assert.ok(p.date >= Date.UTC(2015, 5, 23), `date ${new Date(p.date).toISOString()} before the first Sentinel-2 scene`);
   }
+});
+
+test("landsat scene at a timeStart with no scene rejects with 404 not_found", live, async () => {
+  await eeAuth();
+  await assert.rejects(sceneTiles(ee.Geometry(belize), "2021-01-01", "2021-07-01", "landsat", 1), (err) => {
+    assert.equal(err.status, 404);
+    assert.equal(err.code, "not_found");
+    assert.match(err.message, /no landsat scene at 1970-01-01T00:00:00\.001Z/);
+    return true;
+  });
 });
 
 test("landsat scene from a series point is served as tiles labelled with its date", live, async () => {

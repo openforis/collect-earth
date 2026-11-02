@@ -10,7 +10,7 @@ const live = { skip: !process.env.EE_LIVE };
 test("landsat series spans sensors with dated, identified, in-range points", live, async () => {
   await eeAuth();
   const { points } = await landsatSeries(ee.Geometry(belize), "2012-01-01", "2016-01-01");
-  assert.ok(points.length >= 20, `got ${points.length}`);
+  assert.ok(points.length >= 10, `got ${points.length}`);
   const sensors = new Set(points.map((p) => p.sensor));
   assert.ok(sensors.has("LANDSAT_7") && sensors.has("LANDSAT_8"), [...sensors].join());
   const rangeStart = Date.UTC(2012, 0, 1);

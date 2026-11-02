@@ -19,6 +19,22 @@ for (const [year, sensor] of [[1990, "Landsat 5"], [2005, "Landsat 7"], [2023, "
   });
 }
 
+test("landsat composite 1984 over the plot is either served or a 404 not_found", live, async () => {
+  // Landsat 5 TM coverage of Belize in 1984 is uncertain; either outcome is valid, a 500 is not.
+  await eeAuth();
+  let r;
+  try {
+    r = await landsatCompositeTiles(ee.Geometry(belize), 1984);
+  } catch (err) {
+    assert.equal(err.status, 404, `unexpected error ${err.message}`);
+    assert.equal(err.code, "not_found");
+    assert.equal(err.message, "no Landsat scenes for 1984");
+    return;
+  }
+  assert.match(r.tileUrl, /^https:\/\/earthengine\.googleapis\.com\/.*\{z\}\/\{x\}\/\{y\}/);
+  assert.equal(r.sensor, "Landsat 5");
+});
+
 test("landsat composite 2005 has scenes over the plot", live, async () => {
   await eeAuth();
   const size = await evaluate(sensorImages("L7", ee.Geometry(belize), 2005).size());

@@ -1,13 +1,21 @@
 const { ee } = require("./auth");
 const { landsatPeriods, COLLECTIONS, HARMONIZED } = require("../lib/landsatPeriods");
+const { landsatClearMaskBits } = require("../lib/qaBits");
 
 /** Properties carried through every mapped image so the series can date, identify and label it. */
 const SCENE_PROPS = ["system:time_start", "system:index", "SPACECRAFT_ID"];
 
-/** Port of maskLandsatSR: QA_PIXEL bits 3 (cloud shadow) and 5 (cloud) must both be clear. */
+/** Every QA_PIXEL bit of the mask must be zero: see lib/qaBits.js for the Collection 2 bit layout. */
+const CLEAR_MASK = landsatClearMaskBits();
+
+/**
+ * Port of maskLandsatSR with the Collection 2 QA_PIXEL bits: dilated cloud
+ * (1), cloud (3), cloud shadow (4) and snow (5) must all be clear. charts_v2
+ * tested bits 3 and 5 with Collection 1 meanings in mind, which in C2 masked
+ * cloud and snow but let cloud shadow through; that is not reproduced.
+ */
 function clearMask(image) {
-  const qa = image.select("QA_PIXEL");
-  return qa.bitwiseAnd(1 << 3).eq(0).and(qa.bitwiseAnd(1 << 5).eq(0));
+  return image.select("QA_PIXEL").bitwiseAnd(CLEAR_MASK).eq(0);
 }
 
 /** Port of applyScaleFactors: Collection 2 Level 2 surface reflectance scaling of the SR_B* bands. */
@@ -43,7 +51,9 @@ function harmonizeOli(oli) {
  * One sensor's scenes over `plot` in [start, end) as scaled (optionally
  * harmonised, optionally cloud-masked) nir/swir/red images. After harmonizeOli
  * the OLI bands carry L7 names, so the same SR_B4/SR_B5/SR_B3 selection serves
- * every sensor.
+ * every sensor. The scaling is scaleSr's; the properties it copies are
+ * narrowed to SCENE_PROPS at the end (select keeps them, the harmonisation
+ * arithmetic drops them).
  */
 function prepared(collectionId, plot, start, end, { mask, harmonize }) {
   return ee
@@ -51,7 +61,7 @@ function prepared(collectionId, plot, start, end, { mask, harmonize }) {
     .filterBounds(plot)
     .filterDate(start, end)
     .map((img) => {
-      let sr = img.select("SR_B.").multiply(0.0000275).add(-0.2);
+      let sr = ee.Image(scaleSr(img));
       if (harmonize) sr = harmonizeOli(sr);
       let out = sr.select(["SR_B4", "SR_B5", "SR_B3"], ["nir", "swir", "red"]);
       if (mask) out = out.updateMask(clearMask(img));

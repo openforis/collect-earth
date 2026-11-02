@@ -32,19 +32,35 @@ function sentinel2Images(plot, start, end, { maxCloudyPercent = 70, mask = true 
   return mask ? maskWithCloudScore(col) : col.map(rename);
 }
 
-/** One scene by system:time_start, preferring the SR product when it exists. Port of getImageTimeStart. */
-function sentinel2Scene(plot, timeStart) {
-  const filter = ee.Filter.and(ee.Filter.bounds(plot), ee.Filter.equals("system:time_start", timeStart));
+/**
+ * The SR scenes with the given system:time_start over the plot, plus the TOA
+ * (L1C) scenes at that instant that have no SR counterpart. Port of
+ * getImageTimeStart. The 1 ms filterDate lets Earth Engine prune by the
+ * collection's date index before the exact-match filter runs; it is applied
+ * to both products through the shared filter. Empty when there is no such
+ * scene, so callers can evaluate size() and answer 404.
+ */
+function sentinel2SceneCollection(plot, timeStart) {
+  const filter = ee.Filter.and(
+    ee.Filter.bounds(plot),
+    ee.Filter.date(timeStart, timeStart + 1),
+    ee.Filter.equals("system:time_start", timeStart)
+  );
   const sr = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED").filter(filter);
   const toa = ee.ImageCollection(ee.Join.inverted().apply({
     primary: ee.ImageCollection("COPERNICUS/S2_HARMONIZED").filter(filter),
     secondary: sr,
     condition: ee.Filter.equals({ leftField: "system:index", rightField: "system:index" }),
   }));
-  return ee.Image(sr.merge(toa).first());
+  return sr.merge(toa);
+}
+
+/** One scene by system:time_start, preferring the SR product when it exists. */
+function sentinel2Scene(plot, timeStart) {
+  return ee.Image(sentinel2SceneCollection(plot, timeStart).first());
 }
 
 const SENTINEL_FALSE_COLOUR = { bands: ["B8", "B11", "B4"], min: 0, max: 3000 };
 const SENTINEL_FALSE_COLOUR_RENAMED = { bands: ["nir", "swir1", "red"], min: 0, max: 3000 };
 
-module.exports = { sentinel2Images, sentinel2Scene, SENTINEL_FALSE_COLOUR, SENTINEL_FALSE_COLOUR_RENAMED };
+module.exports = { sentinel2Images, sentinel2Scene, sentinel2SceneCollection, SENTINEL_FALSE_COLOUR, SENTINEL_FALSE_COLOUR_RENAMED };

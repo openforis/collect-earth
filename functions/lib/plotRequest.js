@@ -1,11 +1,8 @@
 const area = require("@turf/area").default;
+const { BadRequest, NotFound } = require("./errors");
 
 const MIN_DATE = "1984-01-01";
 const MAX_AREA_HA = 100;
-
-class BadRequest extends Error {
-  constructor(message) { super(message); this.status = 400; this.code = "bad_request"; }
-}
 
 function validatePosition(pos) {
   if (!Array.isArray(pos) || pos.length < 2 || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) {
@@ -88,4 +85,4 @@ function parsePlotRequest(body, now = new Date()) {
   return { plot, start, end, areaHa: ha };
 }
 
-module.exports = { parsePlotRequest, toPolygon, BadRequest, MIN_DATE };
+module.exports = { parsePlotRequest, toPolygon, BadRequest, NotFound, MIN_DATE };

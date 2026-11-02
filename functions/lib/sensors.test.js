@@ -43,3 +43,16 @@ test("every sensor id maps to a collection with three false-colour bands", () =>
     assert.equal(typeof s.name, "string");
   }
 });
+
+test("rejects years after the current UTC year as a 400 bad_request", () => {
+  assert.throws(() => sensorsForYear(2031, 2030), (err) => {
+    assert.match(err.message, /2030/);
+    assert.equal(err.status, 400);
+    assert.equal(err.code, "bad_request");
+    return true;
+  });
+  assert.deepEqual(sensorsForYear(2030, 2030), ["L8", "L9"]);
+  const thisYear = new Date().getUTCFullYear();
+  assert.throws(() => sensorsForYear(thisYear + 1), /bad_request|year/);
+  assert.deepEqual(sensorsForYear(thisYear), ["L8", "L9"]);
+});

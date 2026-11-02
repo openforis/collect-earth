@@ -11,10 +11,14 @@ const SENSORS = {
 
 const MIN_YEAR = 1984;
 
-/** Sensor ids used for the yearly composite of `year`; throws a 400 for years before 1984 or non-integers. */
-function sensorsForYear(year) {
-  if (!Number.isInteger(year) || year < MIN_YEAR) {
-    throw Object.assign(new Error(`year must be an integer of ${MIN_YEAR} or later`), { status: 400, code: "bad_request" });
+/**
+ * Sensor ids used for the yearly composite of `year`; throws a 400 for
+ * non-integers and years before 1984 or after `maxYear` (the current UTC year
+ * by default; injectable for tests).
+ */
+function sensorsForYear(year, maxYear = new Date().getUTCFullYear()) {
+  if (!Number.isInteger(year) || year < MIN_YEAR || year > maxYear) {
+    throw Object.assign(new Error(`year must be an integer between ${MIN_YEAR} and ${maxYear}`), { status: 400, code: "bad_request" });
   }
   if (year < 1999) return ["L5"];
   if (year < 2013) return ["L7"];

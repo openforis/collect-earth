@@ -10,7 +10,8 @@ const live = { skip: !process.env.EE_LIVE };
 test("modis series has ndvi points in range, sorted and dated inside the requested year", live, async () => {
   await eeAuth();
   const r = await modisSeries(ee.Geometry(belize), "2020-01-01", "2021-01-01");
-  assert.ok(r.ndvi.length >= 20, `got ${r.ndvi.length} points`);
+  // MOD13Q1 is 16-daily (23 per year); cloud-masked plot means can drop a few.
+  assert.ok(r.ndvi.length >= 15, `got ${r.ndvi.length} points`);
   const yearStart = Date.UTC(2020, 0, 1);
   const yearEnd = Date.UTC(2021, 0, 1);
   for (const p of r.ndvi) {
