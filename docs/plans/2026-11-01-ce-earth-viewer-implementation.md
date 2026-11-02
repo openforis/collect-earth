@@ -2352,3 +2352,12 @@ git add -A && git commit -m "chore: deploy scripts and collect earth hook-up not
 - Reloading the same plot returns every card from cache in under 3 s total.
 - `npm test` passes offline; `EE_LIVE=1 npm --prefix functions run test:live` passes with the service account.
 - No service-account key or `.secret.local` in git history (`git log -p | grep -c private_key` prints 0).
+
+---
+
+## Amendments made during execution
+
+Code review after each task changed the plan's code in these places. The committed code in `ce-earth-viewer` is authoritative; the task text above is kept as written for history.
+
+- **Task 1.1** (`functions/app.js`, `functions/index.js`): `errorToResponse` passes through 4xx errors that carry `status` but no `code` (body-parser errors) as that status with `code: err.type || "bad_request"`. `index.js` exports `createHandler(load)` and `handler`; the handler wraps app creation in try/catch and answers a JSON 500 "API failed to load" if `./routes` cannot be required, instead of crashing outside Express.
+- **Task 1.2** (`functions/lib/plotRequest.js`): dates are parsed with a regex capture and `Date.UTC`, so unpadded dates such as `2026-11-1` no longer drift by a day on non-UTC machines; impossible dates (`2000-02-31`) are a 400 while unparseable strings still fall back to the default. Geometry is validated before `@turf/area` runs: rings need 3 or more finite in-range positions, Polygon outer rings are closed like the line types, and malformed input is a 400 rather than a TypeError. Antimeridian-crossing plots are a documented limitation.
