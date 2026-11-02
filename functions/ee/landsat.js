@@ -81,9 +81,43 @@ function mergedLandsat(plot, start, end, mask) {
   return parts.slice(1).reduce((acc, c) => acc.merge(c), parts[0]);
 }
 
+/**
+ * Sensors consulted when resolving a Landsat scene by system:time_start, in
+ * chronological order. Every sensor, with no date window: a scene may come
+ * from a series that applied landsatPeriods windows (L7 to 2015, L8 from
+ * 2015, L9 from 2023-11) or from the CCDC collection (L7+L8+L9 over the whole
+ * range, no windows), so a 2016 L7 or 2014 L8 observation must still resolve.
+ * Pure, so the choice is unit-testable without Earth Engine.
+ */
+function landsatSceneSensors() {
+  return ["L5", "L7", "L8", "L9"];
+}
+
+/** The Collection 2 Level 2 collection ids that landsatSceneCollection consults, in sensor order. */
+function landsatSceneCollectionIds() {
+  return landsatSceneSensors().map((sensor) => COLLECTIONS[sensor]);
+}
+
+/**
+ * The unmasked, scaled (harmonised per HARMONIZED) scenes with exactly this
+ * system:time_start over the plot, from every Landsat sensor. The 1 ms date
+ * window of prepared() lets Earth Engine prune by the collection's date index
+ * before the exact-match filter runs, as in sentinel2SceneCollection. Empty
+ * when there is no such scene, so callers can evaluate size() and answer 404.
+ */
+function landsatSceneCollection(plot, timeStart) {
+  const parts = landsatSceneSensors().map((sensor) =>
+    prepared(COLLECTIONS[sensor], plot, timeStart, timeStart + 1, { mask: false, harmonize: HARMONIZED[sensor] })
+  );
+  return parts.slice(1).reduce((acc, c) => acc.merge(c), parts[0]).filter(ee.Filter.equals("system:time_start", timeStart));
+}
+
 /** NDVI from the nir/red bands, keeping the scene's date, index and sensor. */
 function ndvi(img) {
   return ee.Image(img.normalizedDifference(["nir", "red"]).rename("NDVI").copyProperties(img, SCENE_PROPS));
 }
 
-module.exports = { clearMask, scaleSr, maskAndScale, harmonizeOli, prepared, mergedLandsat, ndvi, SCENE_PROPS };
+module.exports = {
+  clearMask, scaleSr, maskAndScale, harmonizeOli, prepared, mergedLandsat, ndvi, SCENE_PROPS,
+  landsatSceneSensors, landsatSceneCollectionIds, landsatSceneCollection,
+};

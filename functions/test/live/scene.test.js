@@ -77,3 +77,21 @@ test("landsat scene from a series point is served as tiles labelled with its dat
   assert.equal(r.label, `Landsat ${isoDate(clicked.date)}`);
   await assertTileIsImage(r.tileUrl);
 });
+
+test("landsat scene from a 2016 CCDC observed point resolves even when the series windows would exclude its sensor", { ...live, timeout: 300000 }, async () => {
+  // The CCDC collection merges L7+L8+L9 over the whole range with no per-sensor windows, so a
+  // 2016 observation may be an L7 scene, which mergedLandsat's windows (L7 only before 2015)
+  // would not contain. The scene lookup must therefore span every sensor.
+  const { ccdcSeries } = require("../../ee/ccdc");
+  await eeAuth();
+  const g = ee.Geometry(belize);
+  const { observed } = await ccdcSeries(g, "2016-01-01", "2018-01-01", "NDVI");
+  const in2016 = observed.filter((p) => p.date >= Date.UTC(2016, 0, 1) && p.date < Date.UTC(2017, 0, 1));
+  assert.ok(in2016.length > 0, `expected observed CCDC points in 2016, got ${observed.length} in total`);
+  const clicked = in2016[0];
+  const r = await sceneTiles(g, "2016-01-01", "2018-01-01", "landsat", clicked.date);
+  assert.match(r.tileUrl, /^https:\/\/earthengine\.googleapis\.com\/.*\{z\}\/\{x\}\/\{y\}/);
+  assert.equal(r.sensor, "landsat");
+  assert.equal(r.label, `Landsat ${isoDate(clicked.date)}`);
+  await assertTileIsImage(r.tileUrl);
+});

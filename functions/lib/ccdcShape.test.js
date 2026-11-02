@@ -64,3 +64,16 @@ test("shapeCcdc drops tBreak values that are zero or negative (no break)", () =>
 test("shapeCcdc treats a missing tBreaks list as no breaks", () => {
   assert.deepEqual(shapeCcdc({ features: [] }, null).breaks, []);
 });
+
+test("shapeCcdc keeps the exact feature date value in milliseconds, with no rounding", () => {
+  // The scene lookup matches system:time_start exactly, so a Landsat time_start such as
+  // 1452787489237 (not a whole second) must round-trip through the observed point untouched.
+  const fc = { features: [
+    { properties: { date: { type: "Date", value: 1452787489237 }, raw: 4321 } },
+    { properties: { date: { type: "Date", value: 1452787489237 }, segments: [{ value: 4000 }] } },
+    { properties: { date: 1397487654321, raw: 1234 } },
+  ] };
+  const out = shapeCcdc(fc, []);
+  assert.deepEqual(out.observed, [{ date: 1397487654321, value: 0.1234 }, { date: 1452787489237, value: 0.4321 }]);
+  assert.deepEqual(out.segments, [[{ date: 1452787489237, value: 0.4 }]]);
+});

@@ -1,6 +1,6 @@
 const { ee } = require("./auth");
 const { getTileUrl, evaluate } = require("./promise");
-const { mergedLandsat } = require("./landsat");
+const { landsatSceneCollection } = require("./landsat");
 const { LANDSAT_VIZ } = require("./landsatComposite");
 const { sentinel2SceneCollection, SENTINEL_FALSE_COLOUR } = require("./sentinel2");
 const { BadRequest } = require("../lib/plotRequest");
@@ -24,10 +24,13 @@ function validateSceneRequest(body) {
 
 /**
  * Tile URL for one false-colour scene identified by its system:time_start, as
- * returned in the NDVI series: an unmasked Landsat scene from the merged
- * collection in [start, end), or the Sentinel-2 scene (SR when available).
- * Rejects with a 404 not_found when no scene has that system:time_start, so
- * getMap is never asked to visualise an empty first().
+ * returned in the NDVI series or the CCDC observed points: an unmasked Landsat
+ * scene from any Landsat sensor (no per-sensor date windows, since the CCDC
+ * collection has none: see landsatSceneCollection), or the Sentinel-2 scene
+ * (SR when available). `start` and `end` are not used for the lookup: the
+ * scene is identified by its instant alone. Rejects with a 404 not_found when
+ * no scene has that system:time_start, so getMap is never asked to visualise
+ * an empty first().
  */
 async function sceneTiles(plot, start, end, sensor, timeStart) {
   const v = validateSceneRequest({ sensor, timeStart });
@@ -37,7 +40,7 @@ async function sceneTiles(plot, start, end, sensor, timeStart) {
   let viz;
   let label;
   if (v.sensor === "landsat") {
-    collection = mergedLandsat(plot, start, end, false).filter(ee.Filter.equals("system:time_start", v.timeStart));
+    collection = landsatSceneCollection(plot, v.timeStart);
     viz = LANDSAT_VIZ;
     label = `Landsat ${date}`;
   } else {
