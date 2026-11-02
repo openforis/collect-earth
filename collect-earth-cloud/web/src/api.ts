@@ -173,11 +173,11 @@ export interface CsvColumns {
 /**
  * Order "nearby" needs latitude and longitude: the survey's coordinates must be in latitude
  * and longitude ("other_srs" otherwise, with its `srid`) and some plots must have them
- * ("no_places"). `withoutPlace` plots are shared out last.
+ * ("no_places"). `withoutPlace` plots are shared out last. "unknown": the server did not say.
  */
 export interface NearbyInfo {
   available: boolean;
-  reason: "other_srs" | "no_places" | null;
+  reason: "other_srs" | "no_places" | "unknown" | null;
   withPlace: number;
   withoutPlace: number;
   srid: string | null;
@@ -1028,16 +1028,22 @@ export async function getCsvColumns(projectId: string, csvFileId: string): Promi
   };
 }
 
-/** The server's answer on order "nearby"; a server that does not say offers it not. */
+/**
+ * The server's answer on order "nearby". A server that does not say (or gives no reason) does
+ * not offer it, and the reason is "unknown": nothing is claimed about the file's places.
+ */
 export function toNearbyInfo(value: unknown, plotCount: number): NearbyInfo {
   const v = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   const reason = v.reason === "other_srs" || v.reason === "no_places" ? v.reason : null;
-  const available = v.available === true;
+  if (v.available === true) {
+    return { available: true, reason: null, withPlace: toCount(v.withPlace), withoutPlace: toCount(v.withoutPlace), srid: null };
+  }
+  if (reason === null) return { available: false, reason: "unknown", withPlace: 0, withoutPlace: 0, srid: null };
   return {
-    available,
-    reason: available ? null : (reason ?? "no_places"),
-    withPlace: available ? toCount(v.withPlace) : 0,
-    withoutPlace: v.withoutPlace === undefined ? (available ? 0 : plotCount) : toCount(v.withoutPlace),
+    available: false,
+    reason,
+    withPlace: 0,
+    withoutPlace: v.withoutPlace === undefined ? plotCount : toCount(v.withoutPlace),
     srid: typeof v.srid === "string" ? v.srid : null,
   };
 }

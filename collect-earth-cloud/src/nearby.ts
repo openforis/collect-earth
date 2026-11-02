@@ -1,5 +1,5 @@
 import { plotFileOf } from './plotFileCache.js';
-import { isWgs84, placesOfPlotFile } from './routes/plotPlaces.js';
+import { isWgs84 } from './routes/plotPlaces.js';
 import type { StoredDistribution } from './types.js';
 
 /**
@@ -142,9 +142,19 @@ export function nearbyAvailability(srid: string, withPlace: number, plotCount: n
   return { available: true, reason: null, withPlace, withoutPlace: plotCount - withPlace };
 }
 
-/** The places of a file's plots as Collect Earth reads them (the two columns after the keys). */
-export function placesOf(file: { checksum: string; data: Buffer }, keyCount: number): ReadonlyMap<string, readonly [number, number]> {
-  return placesOfPlotFile(file, keyCount).places;
+/** Each plot's position in the order of the curve (nearbyOrder). */
+export function nearbyRanks(plotIds: readonly string[], places: ReadonlyMap<string, readonly [number, number]>): Map<string, number> {
+  return new Map(nearbyOrder(plotIds, places).map((id, i) => [id, i]));
+}
+
+/**
+ * The plots in the order of their rank (nearbyRanks of the whole file): a part of a file (its
+ * plots less the reference plots, Task 14) follows the same curve as the whole file, so the
+ * division and the served rows agree. Plots without a rank last, in their order.
+ */
+export function inRankOrder(plotIds: readonly string[], rank: ReadonlyMap<string, number>): string[] {
+  const of = (id: string) => rank.get(id) ?? Number.MAX_SAFE_INTEGER;
+  return [...plotIds].sort((x, y) => of(x) - of(y));
 }
 
 /** Recent rank maps, by content and key count (least recently used out first). */
@@ -152,10 +162,16 @@ const MAX_RANKS = 4;
 const ranks = new Map<string, ReadonlyMap<string, number>>();
 
 /**
- * Each plot's position in the file's 'nearby' order (cached: every person's served file of
- * one division reads the same). The served files list their rows in this order.
+ * Each plot's position in the file's 'nearby' order, the curve over all of its plots (cached by
+ * content and key count: every person's served file of one division reads the same, and the
+ * division deals along it). `places` are the file's places (PlotPlaceReader.placesOfFile, kept
+ * per checksum), read only when the ranks are not cached.
  */
-export function nearbyRanksOf(file: { checksum: string; data: Buffer }, keyCount: number): ReadonlyMap<string, number> {
+export async function nearbyRanksOf(
+  file: { checksum: string; data: Buffer },
+  keyCount: number,
+  places: () => Promise<ReadonlyMap<string, readonly [number, number]>>,
+): Promise<ReadonlyMap<string, number>> {
   const key = `${file.checksum}:${keyCount}`;
   const hit = ranks.get(key);
   if (hit) {
@@ -163,8 +179,7 @@ export function nearbyRanksOf(file: { checksum: string; data: Buffer }, keyCount
     ranks.set(key, hit);
     return hit;
   }
-  const order = nearbyOrder(plotFileOf(file, keyCount).plotIds, placesOf(file, keyCount));
-  const result = new Map(order.map((id, i) => [id, i]));
+  const result = nearbyRanks(plotFileOf(file, keyCount).plotIds, await places());
   ranks.set(key, result);
   while (ranks.size > MAX_RANKS) {
     ranks.delete(ranks.keys().next().value as string);

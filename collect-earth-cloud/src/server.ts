@@ -138,11 +138,12 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const states = new ProjectStateCache(store, { staleMs: config.stateStaleMs });
   // The automatic check sampling: drawn after first submissions and before a plot list, at most once per 10 min.
   const sampling = new SamplingService(store, states, { intervalMs: config.samplingIntervalMs, inlineMs: config.samplingInlineMs, now });
+  // Where plots are and what the project file says of them, shared by the quality routes, plot
+  // search, the map and order 'nearby' of a division (Task 15).
+  const places = new PlotPlaceReader(store);
   // The plots sent back for another look compare answers as the figures do (by the survey's
   // outline) and resolve records with the project state's plot context.
-  await registerAssignmentRoutes(app, store, config, { outline: (projectId, log) => quality.outline(projectId, log), states, sampling });
-  // Where plots are and what the project file says of them, shared by the quality routes and plot search.
-  const places = new PlotPlaceReader(store);
+  await registerAssignmentRoutes(app, store, config, { outline: (projectId, log) => quality.outline(projectId, log), states, sampling, places });
   await registerQualityRoutes(app, store, quality, places);
   await registerPlotSearchRoutes(app, store, quality, places);
   await registerProgressRoutes(app, store, quality, states, now);

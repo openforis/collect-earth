@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { hilbertIndex, nearbyAvailability, nearbyOrder, nearbyRanksOf } from '../src/nearby.js';
 import { buildPlotFile, parsePlotFile } from '../src/plots.js';
+import { placesOfPlotFile } from '../src/routes/plotPlaces.js';
 
 type Places = Map<string, readonly [number, number]>;
 
@@ -123,19 +124,26 @@ describe('a served file in the order of the curve', () => {
     '5,10,10.001,near 2';
   const file = { checksum: 'nearby-test', data: Buffer.from(csv) };
 
-  it('ranks the plots along the curve, the plots without a place last', () => {
-    const ranks = nearbyRanksOf(file, 1);
+  const places = async () => placesOfPlotFile(file, 1).places;
+
+  it('ranks the plots along the curve, the plots without a place last; the places are read once', async () => {
+    let reads = 0;
+    const ranks = await nearbyRanksOf(file, 1, async () => {
+      reads += 1;
+      return places();
+    });
     const ordered = [...ranks.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id);
     expect(ordered.slice(-1)).toEqual(['4']);
     // 1 and 3 together, 2 and 5 together.
     expect(Math.abs(ordered.indexOf('1') - ordered.indexOf('3'))).toBe(1);
     expect(Math.abs(ordered.indexOf('2') - ordered.indexOf('5'))).toBe(1);
-    expect(nearbyRanksOf(file, 1)).toBe(ranks);
+    expect(await nearbyRanksOf(file, 1, places)).toBe(ranks);
+    expect(reads).toBe(1);
   });
 
-  it('serves the rows in that order, rows of one plot together, every row with its bytes and a line break', () => {
+  it('serves the rows in that order, rows of one plot together, every row with its bytes and a line break', async () => {
     const parsed = parsePlotFile(file.data, 1);
-    const ranks = nearbyRanksOf(file, 1);
+    const ranks = await nearbyRanksOf(file, 1, places);
     const built = buildPlotFile(parsed, new Set(['1', '2', '4', '5']), undefined, ranks).toString();
     const lines = built.split('\r\n');
     expect(lines[0]).toBe('id,lat,lon,name');

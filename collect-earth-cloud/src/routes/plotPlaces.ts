@@ -184,8 +184,12 @@ export class PlotPlaceReader {
     return facts;
   }
 
-  /** Every place of one plot file (the first row giving a plot a place wins), or null when it cannot be read. */
-  private async placesOfFile(
+  /**
+   * Every place of one plot file (the first row giving a plot a place wins), or null when it
+   * cannot be read; kept by checksum and key count (a file of more than MAX_CACHED_PLACES places
+   * is read each time). Also the places of order 'nearby' (Task 15).
+   */
+  async placesOfFile(
     projectId: string,
     fileId: string,
     checksum: string,

@@ -79,6 +79,12 @@ describe("order nearby (plots close on the map together)", () => {
     expect(nearbyNote({ available: true, reason: null, withPlace: 100, withoutPlace: 20, srid: null }, t, n)).toBe(
       "20 plots of this file have no latitude and longitude: they are shared out last, in the order of the file.",
     );
+    expect(nearbyNote({ available: true, reason: null, withPlace: 100, withoutPlace: 1, srid: null }, t, n)).toBe(
+      "1 plot of this file has no latitude and longitude: it is shared out last, in the order of the file.",
+    );
+    expect(nearbyNote({ available: false, reason: "unknown", withPlace: 0, withoutPlace: 0, srid: null }, t, n)).toBe(
+      "Not available: this server does not say whether the plots of this file have a latitude and longitude.",
+    );
   });
 
   it("reads the server's answer; a server that does not say does not offer it", () => {
@@ -90,7 +96,8 @@ describe("order nearby (plots close on the map together)", () => {
       withoutPlace: 10,
       srid: "EPSG:3857",
     });
-    expect(toNearbyInfo(undefined, 10)).toEqual({ available: false, reason: "no_places", withPlace: 0, withoutPlace: 10, srid: null });
+    expect(toNearbyInfo(undefined, 10)).toEqual({ available: false, reason: "unknown", withPlace: 0, withoutPlace: 0, srid: null });
+    expect(toNearbyInfo({ available: false }, 10)).toEqual({ available: false, reason: "unknown", withPlace: 0, withoutPlace: 0, srid: null });
   });
 });
 

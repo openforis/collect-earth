@@ -11,7 +11,7 @@ import {
   summarize,
   type DistributionSummary,
 } from '../division.js';
-import { nearbyAvailability, placesOf, servedNearby, type NearbyAvailability } from '../nearby.js';
+import { nearbyAvailability, nearbyRanksOf, servedNearby, type NearbyAvailability } from '../nearby.js';
 import { columnValues, plotColumns } from '../plotColumns.js';
 import { plotFileOf } from '../plotFileCache.js';
 import { loadPlotContext, type Log } from '../qualityService.js';
@@ -53,18 +53,21 @@ async function loadFile(store: Store, projectId: string, csvFileId: string, log:
 /**
  * Whether order 'nearby' (Task 15) can be used on the file, and its plots' places: the
  * survey's first spatial reference system must be latitude and longitude, and some plots
- * must have a place (as the map reads them: the two columns after the keys).
+ * must have a place (as the map reads them: the two columns after the keys). The places are
+ * the reader's, kept per checksum (not read again on every call).
  */
 async function nearbyOf(
   reader: PlotPlaceReader,
   projectId: string,
-  file: { checksum: string; data: Buffer },
+  file: { id: string; checksum: string },
   plotCount: number,
   keyCount: number,
   log: FastifyRequest['log'],
 ): Promise<{ availability: NearbyAvailability; places: ReadonlyMap<string, readonly [number, number]> }> {
   const { srid } = await reader.surveyFacts(projectId, log);
-  const places = isWgs84(srid) ? placesOf(file, keyCount) : new Map<string, readonly [number, number]>();
+  const places = isWgs84(srid)
+    ? ((await reader.placesOfFile(projectId, file.id, file.checksum, keyCount, log))?.places ?? new Map<string, readonly [number, number]>())
+    : new Map<string, readonly [number, number]>();
   return { availability: nearbyAvailability(srid, places.size, plotCount), places };
 }
 
@@ -192,13 +195,14 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store,
       const assignees = file.distribution ? [] : await wholeFileAssignees(store, projectId, file.id);
       return reply.send(wholeSummary(loaded, assignees));
     }
-    let places: ReadonlyMap<string, readonly [number, number]> = new Map();
+    // Order 'nearby': the curve over the whole file (reference plots included), as the served rows.
+    let rank: ReadonlyMap<string, number> = new Map();
     if (parsed.order === 'nearby') {
       const nearby = await nearbyOf(placeReader, projectId, file, plotFile.plotIds.length, keyCount, request.log);
       if (!nearby.availability.available) {
         return reply.code(400).send({ error: 'bad_request', reason: nearbyRefusal(nearby.availability) });
       }
-      places = nearby.places;
+      rank = await nearbyRanksOf(file, keyCount, async () => nearby.places);
     }
     const values = parsed.mode === 'column' ? columnValues(plotFile, parsed.column) : null;
     // The copies the check sampling drew stay with their checkers (Task 13); going back to
@@ -211,7 +215,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store,
     const dealt = reference.size === 0 ? plotFile.plotIds : plotFile.plotIds.filter((id) => !reference.has(id));
     const dealtValues = reference.size === 0 || values === null ? values : values.filter((_, i) => !reference.has(plotFile.plotIds[i]));
     const plots = [
-      ...divide(parsed, dealt, dealtValues, submitted, plotOf, drawn.filter((a) => !reference.has(a.plotKey)), places),
+      ...divide(parsed, dealt, dealtValues, submitted, plotOf, drawn.filter((a) => !reference.has(a.plotKey)), rank),
       ...held.filter((a) => reference.has(a.plotKey)),
     ];
     if (!dryRun) {

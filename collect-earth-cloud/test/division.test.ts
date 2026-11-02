@@ -14,7 +14,7 @@ import {
   type SubmittedBy,
   type Submitters,
 } from '../src/division.js';
-import { nearbyOrder } from '../src/nearby.js';
+import { nearbyOrder, nearbyRanks } from '../src/nearby.js';
 import type { RoundInfo } from '../src/cep.js';
 import type { PlotAssignment, RecordRow, StoredDistribution } from '../src/types.js';
 
@@ -473,7 +473,7 @@ describe('divide: plots close on the map together (order nearby, Task 15)', () =
 
   it('gives each of four people one quarter of a square grid', () => {
     const { plotIds, places } = grid(32, 7);
-    const plots = divide(even(['a', 'b', 'c', 'd'], { order: 'nearby' }), plotIds, null, none, undefined, [], places);
+    const plots = divide(even(['a', 'b', 'c', 'd'], { order: 'nearby' }), plotIds, null, none, undefined, [], nearbyRanks(plotIds, places));
     const own = byPerson(plots);
     expect(Object.values(own).map((p) => p.own.length)).toEqual([256, 256, 256, 256]);
     // A quarter of the curve is a quadrant: 16 × 16 cells each.
@@ -483,7 +483,7 @@ describe('divide: plots close on the map together (order nearby, Task 15)', () =
   it('each share`s bounding box is smaller than with mixed (and than file order of a file not sorted by place)', () => {
     const { plotIds, places } = grid(30, 3);
     const people = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
-    const nearby = boxes(divide(even(people, { order: 'nearby' }), plotIds, null, none, undefined, [], places));
+    const nearby = boxes(divide(even(people, { order: 'nearby' }), plotIds, null, none, undefined, [], nearbyRanks(plotIds, places)));
     const mixed = boxes(divide(even(people, { order: 'mixed', seed: 11 }), plotIds, null, none));
     const file = boxes(divide(even(people), plotIds, null, none));
     for (const p of people) {
@@ -500,8 +500,8 @@ describe('divide: plots close on the map together (order nearby, Task 15)', () =
     places.delete(plotIds[0]);
     places.delete(plotIds[1]);
     const d = even(['a', 'b'], { order: 'nearby' });
-    const first = divide(d, plotIds, null, none, undefined, [], places);
-    expect(divide(d, plotIds, null, none, undefined, [], places)).toEqual(first);
+    const first = divide(d, plotIds, null, none, undefined, [], nearbyRanks(plotIds, places));
+    expect(divide(d, plotIds, null, none, undefined, [], nearbyRanks(plotIds, places))).toEqual(first);
     // The last person's share ends with the two plots without a place.
     expect(byPerson(first).b.own).toEqual(expect.arrayContaining([plotIds[0], plotIds[1]]));
   });
@@ -517,7 +517,7 @@ describe('divide: plots close on the map together (order nearby, Task 15)', () =
       order: 'nearby',
       overlapPercent: 0,
     };
-    const plots = divide(d, plotIds, values, none, undefined, [], places);
+    const plots = divide(d, plotIds, values, none, undefined, [], nearbyRanks(plotIds, places));
     const area = boxes(plots);
     // Each half (8 × 16) is split in two compact areas of 64 plots: 8 × 8.
     expect([...area.values()]).toEqual([64, 64, 64, 64]);
@@ -530,7 +530,7 @@ describe('divide: plots close on the map together (order nearby, Task 15)', () =
     const { plotIds, places } = grid(8, 2);
     const curve = nearbyOrder(plotIds, places);
     const drawn: PlotAssignment[] = [{ plotKey: curve[40], userId: 'c', overlap: true, sampledAt: 4 }];
-    const plots = divide(even(['a', 'b'], { order: 'nearby', overlapPercent: 10 }), plotIds, null, none, undefined, drawn, places);
+    const plots = divide(even(['a', 'b'], { order: 'nearby', overlapPercent: 10 }), plotIds, null, none, undefined, drawn, nearbyRanks(plotIds, places));
     expect(plots).toContainEqual({ plotKey: curve[40], userId: 'c', overlap: true, sampledAt: 4 });
     // a holds the first half of the curve, b the second.
     expect(byPerson(plots).a.own.sort()).toEqual(curve.slice(0, 32).sort());
@@ -688,7 +688,7 @@ describe('performance', () => {
     const random = shuffled(plotIds, 4);
     const places = new Map(random.map((id, i) => [id, [5 + (i % 316) * 0.01, -2 + Math.floor(i / 316) * 0.01] as const]));
     const started = performance.now();
-    const plots = divide(even(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'], { order: 'nearby', overlapPercent: 10 }), plotIds, null, none, undefined, [], places);
+    const plots = divide(even(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'], { order: 'nearby', overlapPercent: 10 }), plotIds, null, none, undefined, [], nearbyRanks(plotIds, places));
     const took = performance.now() - started;
     expect(plots.filter((p) => !p.overlap)).toHaveLength(100_000);
     console.log(`divide nearby, 100,000 plots, 8 people, 10 % overlap: ${took.toFixed(0)} ms`);

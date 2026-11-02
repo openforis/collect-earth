@@ -1,7 +1,7 @@
 import type { DivisionOrder, PlotAssignment, RecordRow, StoredDistribution } from './types.js';
 import type { RoundInfo } from './cep.js';
 import { copyUnitsByUser, recordRound, unitOfRecord } from './rounds.js';
-import { nearbyOrder } from './nearby.js';
+import { inRankOrder } from './nearby.js';
 
 /**
  * Dividing one plot file's plots between people: validating a request, computing
@@ -318,9 +318,11 @@ function overlapCount(count: number, percent: number): number {
  * plots get no other copy. One whose holder is now dealt the plot as main goes (nobody
  * checks their own plot); those of plots no longer in the file go.
  *
- * Order 'nearby' (Task 15) deals the plots along a Hilbert curve over `places` ([lat, lon]
- * of each plot that has one; those without come last, in file order), so each person's
- * chunk is a compact area; in a column division each group follows the curve. Each
+ * Order 'nearby' (Task 15) deals the plots along a Hilbert curve: `curve` is each plot's
+ * position on the curve over the WHOLE file (nearbyRanks; plots without a place last, in file
+ * order), so that plots left out of the division (reference plots) change nothing and the
+ * division follows the curve the served rows follow. Each person's chunk is a compact area; in
+ * a column division each group follows the curve. Each
  * person's list is then kept in curve order, so their overlap copies are spread over their
  * area, and go (as always) to the next person, who holds the next stretch of the curve:
  * mostly a neighbouring area.
@@ -332,11 +334,11 @@ export function divide(
   submittedBy: SubmittedBy,
   plotOf: (unit: string) => string = (unit) => unit,
   drawn: readonly PlotAssignment[] = [],
-  places: ReadonlyMap<string, readonly [number, number]> = new Map(),
+  curve: ReadonlyMap<string, number> = new Map(),
 ): PlotAssignment[] {
   const position = new Map(plotIds.map((id, i) => [id, i]));
   const order =
-    d.order === 'mixed' ? shuffled(plotIds, d.seed ?? 0) : d.order === 'nearby' ? nearbyOrder(plotIds, places) : [...plotIds];
+    d.order === 'mixed' ? shuffled(plotIds, d.seed ?? 0) : d.order === 'nearby' ? inRankOrder(plotIds, curve) : [...plotIds];
   // Each person's list is kept in file order, or along the curve for 'nearby'.
   const rank = d.order === 'nearby' ? new Map(order.map((id, i) => [id, i])) : position;
   const groups: { people: string[]; plots: string[] }[] = [];

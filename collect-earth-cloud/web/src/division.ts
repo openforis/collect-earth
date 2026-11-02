@@ -147,11 +147,11 @@ export function formProblem(form: DivisionForm, columns: CsvColumns | null): Mes
  */
 export function nearbyNote(info: NearbyInfo, t: Translate, format: (n: number) => string): string | null {
   if (!info.available) {
-    return info.reason === "other_srs" && info.srid
-      ? t("divide.orderNearbyOtherSrs", { srid: info.srid })
-      : t("divide.orderNearbyNoPlaces");
+    if (info.reason === "other_srs" && info.srid) return t("divide.orderNearbyOtherSrs", { srid: info.srid });
+    return info.reason === "no_places" ? t("divide.orderNearbyNoPlaces") : t("divide.orderNearbyUnknown");
   }
-  return info.withoutPlace > 0 ? t("divide.orderNearbyMissing", { count: format(info.withoutPlace) }) : null;
+  if (info.withoutPlace === 1) return t("divide.orderNearbyMissingOne");
+  return info.withoutPlace > 1 ? t("divide.orderNearbyMissing", { count: format(info.withoutPlace) }) : null;
 }
 
 /** The request body for a complete form (see formProblem). */

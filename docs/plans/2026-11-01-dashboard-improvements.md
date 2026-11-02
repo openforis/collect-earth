@@ -2741,6 +2741,30 @@ and `i18n.ts`.
   survey switched to another SRS after a nearby division keeps serving in the curve of whatever numbers
   read as lat/lon (others last); no Spanish/French/Portuguese Chrome pass (texts only).
 
+- **Review (after cfafb90f; supersedes the above where it says so):**
+  - **One curve for the division and the served rows:** `divide`'s 7th argument is now `curve`, each
+    plot's rank on the curve over the **whole** file (`nearbyRanks`, `inRankOrder`); the route passes
+    `nearbyRanksOf(file, …)`, the same cached ranks the served files use. Before, the route dealt the
+    curve of the file less its reference plots, whose box could be smaller, so a person's plots were not
+    the stretch their file listed. Route test with two reference plots far from the grid (red before:
+    maria's plots differed from the first 8 of the whole curve).
+  - **Places read once:** `PlotPlaceReader.placesOfFile` is public; server.ts makes the one reader before
+    the assignment routes and passes it (`deps.places`) to them and to `registerDivisionRoutes`;
+    `/columns`, a nearby `PUT` and the served ranks (`nearbyRanksOf(file, keyCount, places)`, the places
+    asked for only when the ranks are not cached) take the reader's places, kept per checksum (a file of
+    more than 250,000 places is still read each time). Route test: a later look at the columns reads the
+    file once (its columns), a nearby dry run reads no more files than one in file order. **Timing** (100,000
+    plots): `GET /columns` warm 119 ms (was 139), of which `plotColumns` is 125-150 ms measured alone
+    (the places were 33-44 ms); `PUT` nearby 506-561 ms; the first plot list after it 33 ms (was 143-150).
+  - **Texts:** "1 plot of this file has no latitude and longitude: it is shared out last…"
+    (`divide.orderNearbyMissingOne`); the help says the order goes from each plot **mostly** to a nearby
+    one; a server that does not report `nearby` gives `reason: 'unknown'` ("this server does not say
+    whether…", `divide.orderNearbyUnknown`), not "no plot has a latitude and longitude". 2 new keys and 1
+    changed × 4 languages. `buildPlotFile`'s comment says file order or rank order, and the line break of
+    the original last row.
+  - **Tests:** server 1025 (+2 route tests; the `nearby`/`division` tests pass ranks), web 319 (cases added
+    to `division.test.ts`), tsc clean in both, web build ok.
+
 ### Task 16: The coordinator's note inside the plot (improvement 5)
 
 **Files:**

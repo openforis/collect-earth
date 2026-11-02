@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
 import { strFromU8, strToU8, unzipSync } from 'fflate';
@@ -587,6 +587,60 @@ describe('dividing plots between people', () => {
       const served = await download(ana.token, entry.downloadPath);
       expect(sha256(served.rawPayload)).toBe(entry.checksum);
       expect(rowsOf(served.body)).toEqual(curve.filter((id) => id === refPlot || id === drawnPlot));
+    });
+
+    it('reads the places of a file once (the shared reader), not on every look at the columns or nearby division', async () => {
+      const reads = vi.spyOn(ctx.store, 'getCsvFile');
+      await columns(gridId);
+      const first = reads.mock.calls.length;
+      await columns(gridId);
+      await columns(gridId);
+      // Each later look reads the file once for its columns, never again for its places.
+      expect(reads.mock.calls.length - first).toBe(2);
+      expect(first).toBe(2);
+      // A nearby division reads no more than one in file order.
+      const readsOf = async (order: string) => {
+        reads.mockClear();
+        expect((await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order, dryRun: true }, gridId)).statusCode).toBe(200);
+        return reads.mock.calls.length;
+      };
+      expect(await readsOf('nearby')).toBe(await readsOf('file'));
+      reads.mockRestore();
+    });
+
+    it('deals along the curve of the whole file, the one the served rows follow, when reference plots shrink the box', async () => {
+      // Two reference plots far from the grid: without them the box is the grid's alone.
+      const far = [
+        { id: 'far1', lat: 5.5, lon: -0.6 },
+        { id: 'far2', lat: 4.7, lon: -1.3 },
+      ];
+      const all = [...scrambled, ...far];
+      const csv = `id,lat,lon,note${CRLF}${all.map((c) => `${c.id},${c.lat.toFixed(2)},${c.lon.toFixed(2)},x`).join(CRLF)}${CRLF}`;
+      const id = (await upload(csv, 'far.csv')).json().id as string;
+      await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'file' }, id);
+      await ctx.store.changeReferencePlots(pid, {
+        unmark: [],
+        dropCopies: [],
+        mark: far.map((f) => ({ csvFileId: id, plotKey: f.id, assessorUserId: ana.userId })),
+        addCopies: [],
+        at: 1,
+        by: null,
+      });
+      expect((await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'nearby' }, id)).statusCode).toBe(200);
+      const whole = nearbyOrder(all.map((c) => c.id), new Map(all.map((c) => [c.id, [c.lat, c.lon] as const])));
+      const dealt = whole.filter((p) => !p.startsWith('far'));
+      // The grid alone gives another curve: the test means something.
+      expect(dealt).not.toEqual(curve);
+      const after = await ctx.store.listPlotAssignments(pid, id);
+      const main = (userId: string) => after.filter((a) => a.userId === userId && !a.overlap).map((a) => a.plotKey).sort();
+      expect(main(maria.userId)).toEqual(dealt.slice(0, 8).sort());
+      expect(main(jose.userId)).toEqual(dealt.slice(8).sort());
+      const [entry] = (await myAssignment(maria.token)).filter((e: { csvFileId: string }) => e.csvFileId === id);
+      const served = await download(maria.token, entry.downloadPath);
+      expect(sha256(served.rawPayload)).toBe(entry.checksum);
+      // Her 8 plots and her copies of the reference plots (every collector gets them), along the one curve.
+      const hers = new Set([...dealt.slice(0, 8), 'far1', 'far2']);
+      expect(rowsOf(served.body)).toEqual(whole.filter((p) => hers.has(p)));
     });
 
     it('is refused, with the reason, for another coordinate system or a file without places', async () => {

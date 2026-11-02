@@ -230,13 +230,14 @@ function fieldText(value: string, separator: string): string {
 }
 
 /**
- * One person's file: the BOM and header row of the original (if any), then the rows
- * of the given plots (every plot with null) in file order, each with its exact bytes
- * and line break, and the round column when one is given. Linear in the file size:
- * the value of each distinct round text is encoded once, and the rows are copied
- * into one buffer of the final size. With `rank` (a division in order 'nearby', Task
- * 15) the rows come in the order of their plot's rank instead, the rows of one plot in
- * file order, a plot without a rank last.
+ * One person's file: the BOM and header row of the original (if any), then the rows of
+ * the given plots (every plot with null), each with its exact bytes and line break, and
+ * the round column when one is given. The rows are in file order, or, with `rank` (a
+ * division in order 'nearby', Task 15), in the order of their plot's rank: the rows of one
+ * plot together in file order, a plot without a rank last. A row without a line break (the
+ * original's last) gets the file's line break when rows follow it. Linear in the file size
+ * (plus the sort with `rank`): the value of each distinct round text is encoded once, and
+ * the rows are copied into one buffer of the final size.
  */
 export function buildPlotFile(
   file: PlotFile,

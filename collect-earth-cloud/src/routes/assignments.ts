@@ -22,6 +22,7 @@ import { loadPlotContext, type Log } from '../qualityService.js';
 import { recheckFileId, sentBackTo, type RecheckFile } from '../sendBack.js';
 import type { Question } from '../surveyOutline.js';
 import { registerDivisionRoutes } from './division.js';
+import { PlotPlaceReader } from './plotPlaces.js';
 
 interface AssignmentsBody {
   assignments?: { userId?: string; csvFileId?: string }[];
@@ -55,8 +56,27 @@ export async function registerAssignmentRoutes(
     states?: ProjectStateCache;
     /** The check sampling: a due draw is made before a plot list is answered. */
     sampling?: SamplingService;
+    /** Where plots are (shared with the map and the quality pages): order 'nearby' reads its places. */
+    places?: PlotPlaceReader;
   } = {},
 ): Promise<void> {
+  const placeReader = deps.places ?? new PlotPlaceReader(store);
+  /**
+   * The rows' order of a person's file of a divided file: along the curve of a 'nearby'
+   * division (Task 15), else undefined (file order).
+   */
+  const rowRank = async (
+    projectId: string,
+    file: { id: string; checksum: string; data: Buffer; distribution?: StoredDistribution | null },
+    info: RoundInfo | null,
+    log: FastifyRequest['log'],
+  ): Promise<ReadonlyMap<string, number> | undefined> => {
+    if (!servedNearby(file.distribution)) {
+      return undefined;
+    }
+    const keyCount = fileKeyCount(info);
+    return nearbyRanksOf(file, keyCount, async () => (await placeReader.placesOfFile(projectId, file.id, file.checksum, keyCount, log))?.places ?? new Map());
+  };
   /**
    * The person's "To check again" files (none for a project token). The plot context is read
    * only when a plot of theirs may still be waiting (sentBackTo's waitingOnly).
@@ -187,7 +207,7 @@ export async function registerAssignmentRoutes(
         const plots = userId ? await store.listUserPlots(projectId, id, userId) : null;
         const own =
           userId && plots && plots.plotKeys.length > 0
-            ? ownFile(file, plots, info, await copiesServedAsMain(store, projectId, userId, info)(plots))
+            ? ownFile(file, plots, info, await copiesServedAsMain(store, projectId, userId, info)(plots), await rowRank(projectId, file, info, request.log))
             : null;
         if (!own) {
           return reply.code(404).send({ error: 'not_found' });
@@ -312,7 +332,7 @@ export async function registerAssignmentRoutes(
             return cached;
           }
           const file = await store.getCsvFile(projectId, holding.csvFileId);
-          return file ? ownFile(file, holding, info, asMain) : null;
+          return file ? ownFile(file, holding, info, asMain, await rowRank(projectId, file, info, request.log)) : null;
         });
         if (own) {
           assignments.push(built(meta, own));
@@ -336,7 +356,7 @@ export async function registerAssignmentRoutes(
     },
   );
 
-  await registerDivisionRoutes(app, store);
+  await registerDivisionRoutes(app, store, placeReader);
 }
 
 /** 409: the file changed (or emptied) after my-assignment listed it. */
@@ -592,15 +612,16 @@ function recheckServed(file: { checksum: string; data: Buffer }, recheck: Rechec
  * column when the survey has one to fill in; null when none of their plots is in the
  * file (any more). The plot keys are the file's first fileKeyCount(info) columns.
  * `asMain` are the copies served with the main round (copiesServedAsMain): the value
- * 1 (added) or the file's own value, not the reassessment code. A division in order
- * 'nearby' (Task 15) lists the rows along its curve (nearbyRanksOf), copies and reference
- * or drawn copies among them; otherwise in file order.
+ * 1 (added) or the file's own value, not the reassessment code. `rank` (rowRank: a division
+ * in order 'nearby', Task 15) lists the rows along its curve, copies and reference or drawn
+ * copies among them; without it, in file order.
  */
 function ownFile(
   file: { checksum: string; data: Buffer; distribution?: StoredDistribution | null },
   plots: UserPlots,
   info: RoundInfo | null,
   asMain: ReadonlySet<string>,
+  rank?: ReadonlyMap<string, number>,
 ): ServedFile | null {
   const key = ownKey(file, plots, info, asMain);
   const cached = cacheGet(key);
@@ -613,8 +634,7 @@ function ownFile(
   let built: ServedFile | null = null;
   if (keys.size > 0) {
     const round = roundColumnOf(info, new Set(plots.copyKeys.filter((k) => !asMain.has(k)))) ?? undefined;
-    const rank = servedNearby(file.distribution) ? nearbyRanksOf(file, fileKeyCount(info)) : undefined;
-    const data = buildPlotFile(plotFile, keys, round, rank);
+    const data = buildPlotFile(plotFile, keys, round, servedNearby(file.distribution) ? rank : undefined);
     built = { data, checksum: checksumOf(data), plotCount: keys.size };
   }
   cacheSet(key, built);
