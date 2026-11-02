@@ -5,6 +5,11 @@ function errorToResponse(err) {
   if (err && err.status && err.code) {
     return { status: err.status, body: { error: { code: err.code, message: err.message, retryable: !!err.retryable } } };
   }
+  // Client errors raised by middleware such as express.json (malformed or oversized body)
+  // carry a status and a `type` but no `code`; pass them through rather than masking as 500.
+  if (err && err.status >= 400 && err.status < 500) {
+    return { status: err.status, body: { error: { code: err.type || "bad_request", message: err.message, retryable: false } } };
+  }
   const message = String((err && err.message) || err);
   const retryable = /timed out|too many concurrent|user memory limit|deadline/i.test(message);
   return {
