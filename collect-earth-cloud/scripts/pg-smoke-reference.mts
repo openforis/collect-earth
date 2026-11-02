@@ -150,7 +150,33 @@ check(
 const quality = (await call('GET', a, '/quality')).json();
 check('the reference plots are not in the agreement figures', quality.plotsChecked === 0 && quality.differences.length === 0, { plotsChecked: quality.plotsChecked });
 const forRita = (await call('GET', a, '/reference', undefined, {}, rita.token)).json();
-check('a reviewer reads the accuracy, not the plots', forRita.coordinator === false && forRita.plots === undefined && forRita.figures?.byPlot === undefined && forRita.figures?.checks === 3, forRita);
+check(
+  'a reviewer reads the accuracy per question only: no plots, no one by name',
+  forRita.coordinator === false && forRita.plots === undefined && forRita.figures?.byPlot === undefined && forRita.figures?.people === undefined && forRita.figures?.checks === 3,
+  forRita,
+);
+check('a reviewer neither opens nor finds a reference plot', (await call('GET', a, '/plots/1', undefined, {}, rita.token)).statusCode === 404 && !(await call('GET', a, '/plots/search?q=1', undefined, {}, rita.token)).json().plots.some((p: any) => p.plot === '1'));
+const decided = await call('PUT', a, '/quality/decisions/1', { decision: 'first' });
+check('a reference plot is never decided (409 reference_plot)', decided.statusCode === 409 && decided.json().error === 'reference_plot', decided.body);
+const exportLines = (await call('GET', a, '/export.csv')).rawPayload.subarray(3).toString('utf8').split(String.fromCharCode(13, 10));
+check(
+  'the export: a reference column, yes for the reference plots\' records, final blank',
+  exportLines[0].startsWith('record_key,plot,round,assessment,final,reference,operator,') && exportLines.some((l) => l.startsWith('"1,2",1,2,check,,yes,ana,')),
+  exportLines.slice(0, 4),
+);
+// A division saved from holdings read before a mark keeps the plot as marked (re-read under the lock).
+const stale = await store.listPlotAssignments(a, fileId);
+await call('POST', a, '/reference/plots', { csvFileId: fileId, assessorUserId: ownerId, plots: ['5'] });
+await store.setDivision(a, fileId, { mode: 'manual' }, stale);
+check('setDivision keeps a reference plot marked after its holdings were read', (await held(a, fileId, ['5'])).join() === '5:ana:copy,5:jose:copy,5:maria:copy,5:owner:main', await held(a, fileId, ['5']));
+const clash = await call('PUT', a, '/csv-files/other.csv', 'id;lat;lon\r\n5;-1;2\r\n', { 'content-type': 'text/csv' });
+check('a plot file holding a reference plot of another file is refused (409)', clash.statusCode === 409 && clash.json().error === 'reference_plot_in_file', clash.body);
+// A role change puts the copies right at once: ana a reviewer loses her untouched copy of 5, a collector again gets it back.
+await call('PUT', a, `/members/${ana.userId}`, { role: 'reviewer' });
+const asReviewer = await held(a, fileId, ['5']);
+await call('PUT', a, `/members/${ana.userId}`, { role: 'operator' });
+check('a role change drops and adds the untouched copies at once', !asReviewer.includes('5:ana:copy') && (await held(a, fileId, ['5'])).includes('5:ana:copy'), asReviewer);
+await call('POST', a, '/reference/remove', { plots: [{ csvFileId: fileId, plot: '5' }] });
 const anaWork = JSON.stringify((await call('GET', a, '/my-work?tz=UTC', undefined, {}, ana.token)).json());
 check("ana's My work says nothing of reference plots or accuracy", !/referen|accura/i.test(anaWork));
 

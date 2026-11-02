@@ -69,6 +69,9 @@ describe("the Reference plots section", () => {
     expect(toSamplingView({ files: [{ csvFileId: "f", referenceCopies: 6 }] }).files[0].referenceCopies).toBe(6);
     const person = toPersonData({ person: { userId: "u" }, quality: { reference: { username: "ana", plots: { compared: 3, agreeing: 2, rate: null }, questions: [] } } });
     expect(person.quality.reference).toEqual({ username: "ana", plots: { compared: 3, agreeing: 2, rate: null }, questions: [] });
-    expect(toPersonData({ person: { userId: "u" }, quality: {} }).quality.reference).toBeNull();
+    expect(toPersonData({ person: { userId: "u" }, quality: { reference: null } }).quality.reference).toBeNull();
+    // No reference plot in the project: no line at all.
+    expect(toPersonData({ person: { userId: "u" }, quality: {} }).quality.reference).toBeUndefined();
+    expect(toPersonData({ person: { userId: "u" }, plots: [] }).quality).toBeDefined();
   });
 });

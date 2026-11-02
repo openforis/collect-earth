@@ -30,7 +30,7 @@ import { registerProgressRoutes } from './routes/progress.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerQualityRoutes } from './routes/quality.js';
 import { registerRecordRoutes } from './routes/records.js';
-import { registerReferenceRoutes } from './routes/reference.js';
+import { referenceSyncer, registerReferenceRoutes } from './routes/reference.js';
 import { registerSamplingRoutes } from './routes/sampling.js';
 import { SamplingService } from './samplingService.js';
 
@@ -152,6 +152,8 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerRecordRoutes(app, store, sampling);
   await registerSamplingRoutes(app, store, sampling);
   await registerReferenceRoutes(app, store, quality, states, now);
+  // Role changes, removals and disabled accounts keep the reference copies right (Task 14).
+  app.decorate('referenceSync', referenceSyncer(store, states, now));
   const runs = new AiRunService(store, quality, app.log, {
     client: options.ai?.client !== undefined ? options.ai.client : aiClientOf(config),
     model: config.aiFake ? 'fake' : (config.aiModel ?? DEFAULT_AI_MODEL),

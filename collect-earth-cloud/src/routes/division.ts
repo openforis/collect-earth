@@ -50,6 +50,11 @@ async function loadFile(store: Store, projectId: string, csvFileId: string, log:
 
 type Loaded = NonNullable<Awaited<ReturnType<typeof loadFile>>>;
 
+/** The reference plots of one file (Task 14). */
+async function referenceOf(store: Store, projectId: string, csvFileId: string): Promise<Set<string>> {
+  return new Set((await store.listReferencePlots(projectId)).filter((r) => r.csvFileId === csvFileId).map((r) => r.plotKey));
+}
+
 /** The people a whole file is given to (the grid). */
 async function wholeFileAssignees(store: Store, projectId: string, csvFileId: string): Promise<string[]> {
   return (await store.listAssignments(projectId)).filter((a) => a.csvFileId === csvFileId).map((a) => a.userId);
@@ -71,6 +76,7 @@ function wholeSummary(loaded: Loaded, assignees: string[]): DistributionSummary 
       plots: plotFile.plotIds.length,
       overlap: 0,
       sampled: 0,
+      reference: 0,
       submitted: done,
     };
   });
@@ -89,7 +95,7 @@ async function currentSummary(store: Store, projectId: string, loaded: Loaded): 
     return wholeSummary(loaded, await wholeFileAssignees(store, projectId, file.id));
   }
   const holdings = await store.listPlotAssignments(projectId, file.id);
-  return summarize(file.distribution, plotFile.plotIds, holdings, submitted, usernames);
+  return summarize(file.distribution, plotFile.plotIds, holdings, submitted, usernames, await referenceOf(store, projectId, file.id));
 }
 
 function csvFileId(request: FastifyRequest): string {
@@ -162,7 +168,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
     // again unmarks them).
     const held = file.distribution ? await store.listPlotAssignments(projectId, file.id) : [];
     const drawn = held.filter((a) => a.sampledAt !== undefined);
-    const reference = file.distribution ? new Set((await store.listReferencePlots(projectId)).filter((r) => r.csvFileId === file.id).map((r) => r.plotKey)) : new Set<string>();
+    const reference = file.distribution ? await referenceOf(store, projectId, file.id) : new Set<string>();
     const dealt = reference.size === 0 ? plotFile.plotIds : plotFile.plotIds.filter((id) => !reference.has(id));
     const dealtValues = reference.size === 0 || values === null ? values : values.filter((_, i) => !reference.has(plotFile.plotIds[i]));
     const plots = [
@@ -174,7 +180,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
       const people = new Set(plots.map((a) => a.userId)).size;
       await audit(store, request, 'division.applied', { csvFileId: file.id, mode: parsed.mode, people, plots: plotFile.plotIds.length });
     }
-    return reply.send(summarize(parsed, plotFile.plotIds, plots, submitted, usernames));
+    return reply.send(summarize(parsed, plotFile.plotIds, plots, submitted, usernames, reference));
   });
 
   // Body: {fromUserId, toUserId}. Gives the plots `from` has not submitted to `to`.
@@ -208,7 +214,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
     const inFile = new Set(plotFile.plotIds);
     holdings = holdings.filter((a) => inFile.has(a.plotKey));
     // Reference plots (Task 14) never move: their assessor keeps them, every collector their copy.
-    const reference = file.distribution ? new Set((await store.listReferencePlots(projectId)).filter((r) => r.csvFileId === file.id).map((r) => r.plotKey)) : new Set<string>();
+    const reference = file.distribution ? await referenceOf(store, projectId, file.id) : new Set<string>();
     const kept = holdings.filter((a) => reference.has(a.plotKey));
     holdings = holdings.filter((a) => !reference.has(a.plotKey));
     if (!holdings.some((a) => a.userId === from)) {
@@ -220,7 +226,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store)
     await store.setDivision(projectId, file.id, distribution, result.plots);
     await audit(store, request, 'plots.moved', { csvFileId: file.id, fromUserId: from, toUserId: to, moved: result.moved });
     return reply.send({
-      ...summarize(distribution, plotFile.plotIds, result.plots, submitted, usernames),
+      ...summarize(distribution, plotFile.plotIds, result.plots, submitted, usernames, reference),
       moved: result.moved,
       // Plots `to` already checked (or assessed, for a copy, or holds a copy of another
       // unit of) stay with `from`; copies of `from` where `to` is the main holder are

@@ -39,7 +39,7 @@ export interface ReferenceFigures {
   /** Reference plots, and of them those whose reference assessment is submitted (only those are measured). */
   plots: number;
   assessed: number;
-  /** Checks measured: one per person and plot. */
+  /** Checks measured: one per person and plot, with at least one question compared. */
   checks: number;
   /** Per question, everyone's checks together, in the survey's order. */
   questions: ReferenceQuestion[];
@@ -104,24 +104,25 @@ export function referenceFigures(input: QualityInput): ReferenceFigures {
     if (!p.main) continue;
     assessed += 1;
     for (const [operator, check] of p.checks) {
-      checks += 1;
       let person = people.get(operator);
-      if (!person) {
-        person = { compared: 0, agreeing: 0, questions: new Map() };
-        people.set(operator, person);
-      }
       let all = true;
+      let compared = 0;
       compareAnswers(p.main.summary, check.summary, ruleOf, margins, (key, kind, agrees) => {
         let q = questions.get(key);
         if (!q) {
           q = { kind, compared: 0, agreeing: 0 };
           questions.set(key, q);
         }
-        let pq = person!.questions.get(key);
+        if (!person) {
+          person = { compared: 0, agreeing: 0, questions: new Map() };
+          people.set(operator, person);
+        }
+        let pq = person.questions.get(key);
         if (!pq) {
           pq = { compared: 0, agreeing: 0 };
-          person!.questions.set(key, pq);
+          person.questions.set(key, pq);
         }
+        compared += 1;
         q.compared += 1;
         pq.compared += 1;
         if (agrees) {
@@ -131,6 +132,9 @@ export function referenceFigures(input: QualityInput): ReferenceFigures {
           all = false;
         }
       });
+      // A check with no question compared (blank wherever the reference is) says nothing: not counted.
+      if (compared === 0 || !person) continue;
+      checks += 1;
       person.compared += 1;
       if (all) person.agreeing += 1;
     }
@@ -188,10 +192,13 @@ export interface CopyPlanInput {
 
 /**
  * The reference copies to add and drop so that every collector holds a copy of every reference
- * plot: added for each collector (getsReferenceCopy) who does not hold the plot in its file;
- * dropped for a copy holder who would not get one now (no longer a collector, disabled) and has
- * no record of the plot (a check they made stays, and so does its copy: without it, a record
- * without a round would be taken for a second first assessment).
+ * plot of a divided file: added for each collector (getsReferenceCopy) with no holding of the plot
+ * in that file (marking leaves only the assessor as its main holder there). Dropped: the copies
+ * of someone who would not get one now (no longer a collector, disabled; the assessor's own
+ * holding is never touched) and has no record of the plot. A copy whose holder has a record of
+ * the plot (any round, a draft too) is kept: it is their work in progress or done, and in a
+ * project without a round in the key the copy is what tells their record from a second first
+ * assessment (with a round, the key does). Members removed have no holdings left to drop.
  */
 export function referenceCopyPlan(input: CopyPlanInput): { add: PlotHoldingKey[]; drop: PlotHoldingKey[] } {
   const add: PlotHoldingKey[] = [];
@@ -260,14 +267,16 @@ export function checkMark(input: MarkInput): MarkRefusal | null {
 
 /**
  * `count` plots of a file picked at random (a seeded order: the same seed picks the same plots)
- * among those `free` says may be marked, in file order.
+ * among those `free` says may be marked, in file order. Those `preferred` says come first: plots
+ * whose collector has not downloaded their plots yet cannot be compared with a colleague's file
+ * already on disk (a collector who compares plot files could otherwise spot a plot that appeared).
  */
-export function pickReference(units: readonly string[], free: (unit: string) => boolean, count: number, seed: number): string[] {
+export function pickReference(units: readonly string[], free: (unit: string) => boolean, count: number, seed: number, preferred: (unit: string) => boolean = () => false): string[] {
   const candidates = units.filter(free);
   const order = new Map(units.map((u, i) => [u, i]));
   return candidates
-    .map((unit) => ({ unit, p: priority(seed, unit) }))
-    .sort((a, b) => a.p - b.p || order.get(a.unit)! - order.get(b.unit)!)
+    .map((unit) => ({ unit, first: preferred(unit) ? 0 : 1, p: priority(seed, unit) }))
+    .sort((a, b) => a.first - b.first || a.p - b.p || order.get(a.unit)! - order.get(b.unit)!)
     .slice(0, Math.max(0, count))
     .map((c) => c.unit)
     .sort((a, b) => order.get(a)! - order.get(b)!);

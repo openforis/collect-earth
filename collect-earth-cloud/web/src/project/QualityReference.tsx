@@ -61,8 +61,10 @@ function Accuracy({ figures }: { figures: ReferenceFiguresView }) {
       ) : (
         <>
           <Typography variant="body2" color="text.secondary">
-            {t("reference.accuracyExplain", { checks: n(figures.checks) })}
+            {t(figures.people.length > 0 ? "reference.accuracyExplain" : "reference.accuracyExplainQuestions", { checks: n(figures.checks) })}
           </Typography>
+          {/* Reviewers get no one's accuracy by name (Decision 3): the people's table is the coordinators'. */}
+          {figures.people.length > 0 && (
           <TableContainer sx={tableFrame}>
             <Table size="small">
               <TableHead>
@@ -94,6 +96,7 @@ function Accuracy({ figures }: { figures: ReferenceFiguresView }) {
               </TableBody>
             </Table>
           </TableContainer>
+          )}
           <Typography variant="h3" sx={{ fontSize: "1rem", fontWeight: 600 }}>
             {t("reference.questionsTitle")}
           </Typography>

@@ -42,6 +42,8 @@ export interface QueueInput {
   decided: ReadonlyMap<string, DecisionKind>;
   /** Plots left out of the queue altogether (a reviewer's own: someone else decides them). */
   excluded?: ReadonlySet<string>;
+  /** Plots never in the queue and not counted anywhere (reference plots, Task 14: never decided). */
+  hidden?: ReadonlySet<string>;
 }
 
 export interface QueueFilter {
@@ -73,7 +75,9 @@ export function reviewQueue(input: QueueInput, filter: QueueFilter): ReviewQueue
   const left = new Set<string>();
   const items = new Map<string, QueueItem & { names: Set<string> }>();
   /** Whether a plot that belongs in the queue is left out (counted once). */
+  const hidden = input.hidden ?? new Set<string>();
   const out = (plot: string) => {
+    if (hidden.has(plot)) return true;
     if (!excluded.has(plot)) return false;
     left.add(plot);
     return true;

@@ -3,12 +3,14 @@ import type { FinalAnswer } from './quality.js';
 import { copyUnitsByUser, recordRound, unitOfRecord, type RecordRound } from './rounds.js';
 import type { RecordRow } from './types.js';
 
-const FIXED_COLUMNS = ['record_key', 'plot', 'round', 'assessment', 'final', 'operator', 'actively_saved', 'modified_on'];
+const FIXED_COLUMNS = ['record_key', 'plot', 'round', 'assessment', 'final', 'reference', 'operator', 'actively_saved', 'modified_on'];
 
 /** The plot, round and assessment of a record (see exportRoundOf). */
 export type RoundOf = (r: RecordRow) => RecordRound;
 /** The coordinator's final answer for a record (finalAnswers in quality.ts). */
 export type FinalOf = (r: RecordRow) => FinalAnswer;
+/** Whether a record is of a reference plot (Task 14): its round-2 records are measurements against the reference, not checks to decide. */
+export type ReferenceOf = (r: RecordRow) => boolean;
 
 /**
  * The plot and round of each record, as the division of plots sees them: the record's
@@ -30,13 +32,14 @@ export function exportRoundOf(
 /**
  * The project's collected data as CSV, one row per non-deleted (recordKey,
  * operator): the fixed columns (with the plot, round and main / check / other
- * assessment of `roundOf`, and the yes / no / recheck / blank of `finalOf`), then the sorted union of every record's summary
+ * assessment of `roundOf`, the yes / no / recheck / blank of `finalOf`, and "yes" in `reference` for a
+ * record of a reference plot, Task 14: never decided, its checks measure the collectors), then the sorted union of every record's summary
  * keys (a record without a key leaves that cell empty). RFC 4180: CRLF line ends,
  * fields quoted when they hold a comma, quote, CR or LF. Starts with a UTF-8 BOM
  * so Excel detects the encoding (plot names and answers are often non-ASCII).
  * A value that a spreadsheet would run as a formula gets a leading apostrophe.
  */
-export function recordsCsv(records: RecordRow[], roundOf: RoundOf, finalOf: FinalOf = () => ''): string {
+export function recordsCsv(records: RecordRow[], roundOf: RoundOf, finalOf: FinalOf = () => '', referenceOf: ReferenceOf = () => false): string {
   const rows = records
     .filter((r) => !r.deleted)
     .sort((a, b) => compare(a.recordKey, b.recordKey) || compare(a.operator, b.operator));
@@ -45,7 +48,7 @@ export function recordsCsv(records: RecordRow[], roundOf: RoundOf, finalOf: Fina
   const lines = [[...FIXED_COLUMNS, ...summaryKeys].map(csvField).join(',')];
   for (const r of rows) {
     const { plot, round, assessment } = roundOf(r);
-    const fixed = [r.recordKey, plot, round, assessment, finalOf(r), r.operator, String(r.activelySaved), new Date(r.modifiedOn).toISOString()];
+    const fixed = [r.recordKey, plot, round, assessment, finalOf(r), referenceOf(r) ? 'yes' : '', r.operator, String(r.activelySaved), new Date(r.modifiedOn).toISOString()];
     const summary = summaryKeys.map((k) => r.summary[k] ?? '');
     lines.push([...fixed, ...summary].map(csvField).join(','));
   }

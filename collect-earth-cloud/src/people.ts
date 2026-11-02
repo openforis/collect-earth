@@ -205,8 +205,9 @@ export interface PersonDetail {
     /** Their pattern flags by kind (Task 5), from the figures at hand; null without them. Never on My work. */
     flags?: FlagCounts | null;
     /**
-     * Their accuracy against the reference plots (Task 14), from the figures at hand: null without
-     * figures or without a check of theirs measured. Never on My work (nothing tells a collector
+     * Their accuracy against the reference plots (Task 14), from the figures at hand: absent when the
+     * figures have no reference plot (or there are none at hand), null when none of their checks is
+     * measured yet. Never on My work (nothing tells a collector
      * which plots are reference plots).
      */
     reference?: ReferencePerson | null;
@@ -635,7 +636,8 @@ export function personDetail(input: PeopleInput, userId: string, options: { self
       ...(self ? {} : { asChecker: input.quality ? (quality?.asChecker ?? NO_RATE) : null }),
       sentBack,
       ...(self ? {} : { flags: input.flagCounts?.(member.username) ?? null }),
-      ...(self ? {} : { reference: input.quality ? personAccuracy(input.quality.reference, member.username) : null }),
+      // Only when the project has reference plots (figures at hand): null = none of theirs measured yet.
+      ...(self || !input.quality?.reference?.plots ? {} : { reference: personAccuracy(input.quality.reference, member.username) }),
     },
   };
   if (!self) detail.removal = removalOf(p, member.username, work, held);

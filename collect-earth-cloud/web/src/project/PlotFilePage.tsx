@@ -515,6 +515,11 @@ function CurrentDivision({
                           {t("divide.drawnCopies")}: {formatNumber(person.sampled, language)}
                         </Typography>
                       )}
+                      {person.reference > 0 && (
+                        <Typography variant="body2" color="text.secondary" component="span" sx={{ display: "block" }}>
+                          {t("divide.referenceCopies")}: {formatNumber(person.reference, language)}
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">{formatNumber(person.submitted, language)}</Typography>

@@ -352,6 +352,13 @@ export async function registerAdminRoutes(
     },
   );
 
+  /** The reference copies of every project of the account, after it was disabled or enabled (Task 14). */
+  async function syncProjectsOf(request: FastifyRequest, userId: string): Promise<void> {
+    const sync = request.server.referenceSync;
+    if (!sync) return;
+    for (const m of await store.listMemberships(userId)) await sync(m.projectId, request.log);
+  }
+
   // Disable an account: it cannot log in, its sessions (Collect Earth's too) and reset links
   // go. Not yourself, not the last enabled platform admin. Written to the server log (there is
   // no project to hold it in audit_log); who and when stay on the account (disabledAt/By).
@@ -375,6 +382,7 @@ export async function registerAdminRoutes(
       }
       kept = null;
       request.log.info({ action: 'account.disabled', actorUserId: request.userId, userId: uid }, 'platform admin disabled an account');
+      await syncProjectsOf(request, uid);
       return reply.send({ user: (await store.listUsers()).find((u) => u.userId === uid) });
     },
   );
@@ -389,6 +397,7 @@ export async function registerAdminRoutes(
       }
       kept = null;
       request.log.info({ action: 'account.enabled', actorUserId: request.userId, userId: uid }, 'platform admin enabled an account');
+      await syncProjectsOf(request, uid);
       return reply.send({ user: (await store.listUsers()).find((u) => u.userId === uid) });
     },
   );

@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid } from '../accountRules.js';
 import { audit } from '../activity.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
+import { holderList } from '../holders.js';
 import { isPlotUnit } from '../progress.js';
 import type { ProjectState, ProjectStateCache } from '../projectState.js';
 import type { QualityService, ServedReport } from '../qualityService.js';
@@ -45,10 +46,14 @@ function recordsOf(state: ProjectState): (username: string, unit: string) => boo
 }
 
 /** What the figures say of the reference plots, for the page: everything for coordinators, no plot list for reviewers. */
-function figuresOf(f: ServedReport | null, coordinator: boolean): (Omit<ReferenceFigures, 'byPlot'> & { byPlot?: ReferenceFigures['byPlot']; computedAt: number; stale: boolean }) | null {
+function figuresOf(
+  f: ServedReport | null,
+  coordinator: boolean,
+): (Omit<ReferenceFigures, 'byPlot' | 'people'> & Partial<Pick<ReferenceFigures, 'byPlot' | 'people'>> & { computedAt: number; stale: boolean }) | null {
   if (!f) return null;
-  const { byPlot, ...rest } = f.reference;
-  return { ...rest, ...(coordinator ? { byPlot } : {}), computedAt: f.computedAt, stale: f.stale };
+  const { byPlot, people, ...rest } = f.reference;
+  // Reviewers: the figures per question only (Decision 3: no one's accuracy by name, no plot list).
+  return { ...rest, ...(coordinator ? { byPlot, people } : {}), computedAt: f.computedAt, stale: f.stale };
 }
 
 /**
@@ -67,6 +72,38 @@ function figuresOf(f: ServedReport | null, coordinator: boolean): (Omit<Referenc
  *   `{ all: true }`: unmarks them; copies whose holder has no record of the plot go, the others
  *   (and the assessor's plot) stay, so a check already made then counts as an ordinary check.
  */
+/**
+ * Brings a project's reference copies in line with its members now (referenceCopyPlan): run after a
+ * role change, a member removed, an account disabled or enabled. Nothing is read beyond the
+ * reference plots when the project has none; a failure is logged and never fails the change that
+ * asked for it (the next mark, removal or plot list puts the copies right).
+ */
+export function referenceSyncer(store: Store, states: ProjectStateCache, now: () => number = Date.now) {
+  return async (projectId: string, log: FastifyRequest['log']): Promise<void> => {
+    try {
+      const references = await store.listReferencePlots(projectId);
+      if (references.length === 0) return;
+      const { state, members } = await states.get(projectId, log, { fresh: true });
+      const holdings = new Map<string, PlotAssignment[]>();
+      await Promise.all([...new Set(references.map((r) => r.csvFileId))].map(async (id) => holdings.set(id, await store.listPlotAssignments(projectId, id))));
+      const plan = referenceCopyPlan({ references, members, holdings, hasRecord: recordsOf(state) });
+      if (plan.add.length + plan.drop.length === 0) return;
+      await store.changeReferencePlots(projectId, { unmark: [], dropCopies: plan.drop, mark: [], addCopies: plan.add, at: now(), by: null });
+    } catch (err) {
+      log.error({ err, projectId }, 'reference plots: the copies could not be brought in line with the members');
+    }
+  };
+}
+
+export type ReferenceSync = ReturnType<typeof referenceSyncer>;
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** Reference copies in line with the members (Task 14); absent in apps built without it. */
+    referenceSync?: ReferenceSync;
+  }
+}
+
 export async function registerReferenceRoutes(app: FastifyInstance, store: Store, quality: QualityService, states: ProjectStateCache, now: () => number = Date.now): Promise<void> {
   const reviewer = { preHandler: requireProjectMembership(store, 'reviewer') };
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
@@ -188,7 +225,13 @@ export async function registerReferenceRoutes(app: FastifyInstance, store: Store
         for (const u of w.checkDrafts) touched.add(u);
       }
       const isPlot = isPlotUnit(state.info);
-      plots = pickReference(units, (u) => isPlot(u) && !marked.has(u) && !touched.has(u) && !inOtherFile(u), random as number, randomInt(0, 2 ** 31));
+      // First the plots whose main holder has never downloaded plots: no file of theirs on disk shows
+      // the plot before it is marked. (When plots were dealt is not stored, so "not downloaded since
+      // dealt" cannot be told; "never downloaded" is what is known.)
+      const activity = await store.listMemberActivity(projectId);
+      const downloaded = new Set(activity.filter((a) => a.lastPlotsDownloadAt != null).map((a) => members.find((m) => m.userId === a.userId)?.username));
+      const unseen = (u: string) => holderList(state.context.mainHolders.get(u)).every((name) => !downloaded.has(name));
+      plots = pickReference(units, (u) => isPlot(u) && !marked.has(u) && !touched.has(u) && !inOtherFile(u), random as number, randomInt(0, 2 ** 31), unseen);
       if (plots.length === 0) return reply.code(400).send({ ...bad('No plot of this file is free: every plot is assessed, started or a reference plot already.'), code: 'none_free' });
     }
     const refusal = checkMark({

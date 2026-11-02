@@ -619,6 +619,8 @@ export interface PersonShare {
   overlap: number;
   /** Of the copies, those the check sampling drew (Task 13); the others came with the division. */
   sampled: number;
+  /** Of the copies, those of reference plots (Task 14): every collector has them, they are no checks to decide. */
+  reference: number;
   submitted: number;
 }
 
@@ -639,6 +641,7 @@ export function summarize(
   holdings: readonly PlotAssignment[],
   submittedBy: SubmittedBy,
   usernames: ReadonlyMap<string, string>,
+  reference: ReadonlySet<string> = new Set(),
 ): DistributionSummary {
   const inFile = new Set(plotIds);
   // A plot is assigned when someone holds it as main: a copy alone leaves it unassigned.
@@ -647,7 +650,7 @@ export function summarize(
   const share = (userId: string): PersonShare => {
     let s = people.get(userId);
     if (!s) {
-      s = { userId, username: usernames.get(userId) ?? userId, plots: 0, overlap: 0, sampled: 0, submitted: 0 };
+      s = { userId, username: usernames.get(userId) ?? userId, plots: 0, overlap: 0, sampled: 0, reference: 0, submitted: 0 };
       people.set(userId, s);
     }
     return s;
@@ -668,6 +671,9 @@ export function summarize(
       s.overlap += 1;
       if (a.sampledAt !== undefined) {
         s.sampled += 1;
+      }
+      if (reference.has(a.plotKey)) {
+        s.reference += 1;
       }
     }
     if (holdingDone(submittedBy, a)) {

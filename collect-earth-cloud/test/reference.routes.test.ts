@@ -4,6 +4,7 @@ import { idOnlyCep } from './fixtures/cep.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 
 const LAND_USE = 'collect_code_land_use_category';
+const CRLF = String.fromCharCode(13, 10);
 const sha256 = (data: Buffer | string) => createHash('sha256').update(data).digest('hex');
 
 interface Entry {
@@ -151,6 +152,9 @@ describe('reference plots: marking, copies for every collector, accuracy against
     expect(forRita).toMatchObject({ coordinator: false, count: 2 });
     expect(forRita.plots).toBeUndefined();
     expect(forRita.figures.byPlot).toBeUndefined();
+    // Decision 3: the figures per question only, no one's accuracy by name.
+    expect(forRita.figures.people).toBeUndefined();
+    expect(Object.keys(forRita.figures).sort()).toEqual(['assessed', 'checks', 'computedAt', 'plots', 'questions', 'stale']);
   });
 
   it('refuses a collector as assessor, a whole file, unknown plots, plots someone else assessed first; picks free plots at random', async () => {
@@ -213,7 +217,13 @@ describe('reference plots: marking, copies for every collector, accuracy against
     // The plot page says it is a reference plot, and lists no difference.
     const page = await call('GET', '/plots/1', owner.token);
     expect(page.json()).toMatchObject({ reference: { assessor: 'owner' }, differences: [] });
-    expect((await call('GET', '/plots/1', people.rita.token)).json().reference).toEqual({});
+    // A reviewer neither finds nor opens a reference plot (which plots they are is the coordinators').
+    expect((await call('GET', '/plots/1', people.rita.token)).statusCode).toBe(404);
+    expect((await call('GET', '/plots/4', people.rita.token)).statusCode).toBe(200);
+    const found = (q: string, token: string) => call('GET', `/plots/search?q=${q}`, token).then((r) => r.json().plots.map((p: { plot: string }) => p.plot));
+    expect(await found('1', owner.token)).toContain('1');
+    expect(await found('1', people.rita.token)).not.toContain('1');
+    expect(await found('1', people.rita.token)).toContain('10');
     expect((await call('GET', '/plots/4', owner.token)).json().reference).toBeNull();
     // The coordinator's person page shows it; My work never.
     const person = await call('GET', `/people/${people.ana.userId}?tz=UTC`, owner.token);
@@ -242,6 +252,33 @@ describe('reference plots: marking, copies for every collector, accuracy against
     expect((await holdings()).filter((h) => h.startsWith('1:'))).toEqual(['1:bruno:copy', '1:jose:copy', '1:maria:copy', '1:owner:main']);
   });
 
+  it('a role change, a removal, an account disabled or enabled put the copies right at once; two plot lists at once add each copy once', async () => {
+    await mark({ csvFileId: fileId, assessorUserId: owner.userId, plots: ['1', '2'] });
+    await send('jose', 2, [1]);
+    const copiesOf = async (n: string) => (await holdings()).filter((h) => h.endsWith(`:${n}:copy`));
+    // ana a reviewer: her copies (untouched) go; jose a reviewer: the copy of plot 1 he checked stays.
+    expect((await call('PUT', `/members/${people.ana.userId}`, owner.token, { role: 'reviewer' })).statusCode).toBe(200);
+    expect((await call('PUT', `/members/${people.jose.userId}`, owner.token, { role: 'reviewer' })).statusCode).toBe(200);
+    expect(await copiesOf('ana')).toEqual([]);
+    expect(await copiesOf('jose')).toEqual(['1:jose:copy']);
+    // ana a collector again: both back.
+    await call('PUT', `/members/${people.ana.userId}`, owner.token, { role: 'operator' });
+    expect(await copiesOf('ana')).toEqual(['1:ana:copy', '2:ana:copy']);
+    // maria's account disabled: her untouched copies go; enabled again: back.
+    const disabled = await ctx.app.inject({ method: 'POST', url: `/v1/admin/users/${people.maria.userId}/disable`, headers: bearer(owner.token) });
+    expect(disabled.statusCode, disabled.body).toBe(200);
+    expect(await copiesOf('maria')).toEqual([]);
+    await ctx.app.inject({ method: 'POST', url: `/v1/admin/users/${people.maria.userId}/enable`, headers: bearer(owner.token) });
+    expect(await copiesOf('maria')).toEqual(['1:maria:copy', '2:maria:copy']);
+    // Removing ana: her holdings go with her.
+    expect((await call('DELETE', `/members/${people.ana.userId}`, owner.token)).statusCode).toBe(204);
+    expect(await copiesOf('ana')).toEqual([]);
+    // A newcomer's two plot lists at once (Collect Earth's Refresh twice): each copy once.
+    await join('carla');
+    await Promise.all([myAssignment(people.carla.token), myAssignment(people.carla.token)]);
+    expect(await copiesOf('carla')).toEqual(['1:carla:copy', '2:carla:copy']);
+  });
+
   it('unmarking drops the copies not done and keeps the checks made; a new division keeps the reference plots; whole again drops them', async () => {
     await mark({ csvFileId: fileId, assessorUserId: owner.userId, plots: ['1', '2'] });
     await send('ana', 2, [2]);
@@ -264,6 +301,79 @@ describe('reference plots: marking, copies for every collector, accuracy against
     await call('PUT', `/csv-files/${fileId}/distribution`, owner.token, { mode: 'whole' });
     expect((await reference()).count).toBe(0);
     expect(await ctx.store.listReferencePlots(pid)).toEqual([]);
+  });
+
+  it('reference plots are never decided (set, bulk), never in the queue; the export says reference and leaves final blank', async () => {
+    // Plot 3: the owner's first assessment and maria's check (her division copy), decided before it is marked.
+    await ctx.store.setDivision(pid, fileId, { mode: 'manual' }, [
+      ...(await ctx.store.listPlotAssignments(pid, fileId)).filter((a) => a.plotKey !== '3'),
+      { plotKey: '3', userId: owner.userId, overlap: false },
+      { plotKey: '3', userId: people.maria.userId, overlap: true },
+    ]);
+    await send('owner', 1, [3]);
+    await send('maria', 2, [3], () => 'G');
+    expect((await settled(() => call('GET', '/quality', owner.token), (b: { plotsDiffering: number }) => b.plotsDiffering === 1)).plotsDiffering).toBe(1);
+    expect((await call('PUT', '/quality/decisions/3', owner.token, { decision: 'check' })).statusCode).toBe(200);
+    expect((await mark({ csvFileId: fileId, assessorUserId: owner.userId, plots: ['1', '2', '3'] })).statusCode).toBe(200);
+    // The owner's reference assessments of 1 and 2 at the same moment: "very fast" flags them, yet the queue never lists them.
+    await send('owner', 1, [1, 2]);
+    for (const token of [owner.token, people.rita.token]) {
+      const refused = await call('PUT', '/quality/decisions/1', token, { decision: 'first' });
+      expect(refused.statusCode).toBe(409);
+      expect(refused.json().error).toBe('reference_plot');
+    }
+    const flags = await settled(() => call('GET', '/quality/flags', owner.token), (b: { flags: { plot: string }[] }) => b.flags.some((f) => f.plot === '2'));
+    expect(flags.flags.some((f: { plot: string }) => f.plot === '2')).toBe(true);
+    const queue = await call('GET', '/quality/queue', owner.token);
+    expect(queue.json().items.map((i: { plot: string }) => i.plot)).toEqual([]);
+    expect(queue.json().counts).toEqual({ difference: 0, flag: 0, resubmitted: 0 });
+    const bulk = await call('POST', '/quality/decisions:bulk?dryRun=1', owner.token, { rule: 'check_by_reviewer' });
+    expect(bulk.json().count).toBe(0);
+    // The export: reference "yes" on the reference plots' records, final blank for them (the old decision on 3 too).
+    const csv = (await call('GET', '/export.csv', owner.token)).rawPayload.subarray(3).toString('utf8').split(CRLF);
+    expect(csv[0]).toMatch(/^record_key,plot,round,assessment,final,reference,operator,/);
+    const row = (key: string, op: string) => csv.find((l) => l.startsWith(`"${key}",`) && l.includes(`,${op},`))!.split(',').slice(0, 9).join(',');
+    expect(row('3,1', 'owner')).toBe('"3,1",3,1,main,,yes,owner,true');
+    expect(row('3,2', 'maria')).toBe('"3,2",3,2,check,,yes,maria,true');
+  });
+
+  it('copies in two divided files, one submitted as main in the second: the listed checksum is the downloaded one', async () => {
+    // ana holds copies in north.csv (reference plot 1) and in west.csv (plot 22, a division copy).
+    await mark({ csvFileId: fileId, assessorUserId: owner.userId, plots: ['1'] });
+    const westRows = Array.from({ length: 4 }, (_, i) => `${21 + i};-11;${30 + i}`).join('\r\n');
+    const westId = (await call('PUT', '/csv-files/west.csv', owner.token, `id;lat;lon\r\n${westRows}\r\n`, { 'content-type': 'text/csv' })).json().id;
+    await ctx.store.setDivision(pid, westId, { mode: 'manual' }, [
+      { plotKey: '21', userId: people.ana.userId, overlap: false },
+      { plotKey: '22', userId: people.jose.userId, overlap: false },
+      { plotKey: '22', userId: people.ana.userId, overlap: true },
+    ]);
+    // ana submitted plot 22 as a first assessment (round 1): her copy of it is served as main.
+    await send('ana', 1, [22]);
+    const entries = await myAssignment(people.ana.token);
+    expect(entries.map((e) => e.filename).sort()).toEqual(['north.csv', 'west.csv']);
+    for (const entry of entries) {
+      const res = await ctx.app.inject({ method: 'GET', url: entry.downloadPath, headers: bearer(people.ana.token) });
+      expect(res.statusCode, `${entry.filename}: ${res.body}`).toBe(200);
+      expect(sha256(res.rawPayload)).toBe(entry.checksum);
+    }
+    const west = entries.find((e) => e.filename === 'west.csv')!;
+    expect(await download(west, people.ana.token)).toContain('\r\n22;1;-11;');
+  });
+
+  it('a plot file uploaded (new or replaced) that holds a reference plot of another file is refused; a division keeps a plot marked meanwhile', async () => {
+    await mark({ csvFileId: fileId, assessorUserId: owner.userId, plots: ['3'] });
+    const refused = await call('PUT', '/csv-files/south.csv', owner.token, 'id;lat;lon\r\n90;-1;1\r\n3;-1;2\r\n', { 'content-type': 'text/csv' });
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json()).toMatchObject({ error: 'reference_plot_in_file', plots: ['3'] });
+    expect((await call('PUT', '/csv-files/other.csv', owner.token, 'id;lat;lon\r\n3;-1;2\r\n', { 'content-type': 'text/csv' })).statusCode).toBe(409);
+    // The reference plot's own file may be uploaded again with it.
+    const rows = Array.from({ length: 12 }, (_, i) => `${i + 1};-10;${20 + i}`).join('\r\n');
+    expect((await call('PUT', '/csv-files/north.csv', owner.token, `id;lat;lon\r\n${rows}\r\n`, { 'content-type': 'text/csv' })).statusCode).toBe(201);
+    // A division saved with holdings read before plot 5 was marked keeps plot 5 as marked (setDivision re-reads under the lock).
+    const stale = await ctx.store.listPlotAssignments(pid, fileId);
+    await mark({ csvFileId: fileId, assessorUserId: owner.userId, plots: ['5'] });
+    await ctx.store.setDivision(pid, fileId, { mode: 'manual' }, stale);
+    expect((await holdings()).filter((h) => h.startsWith('5:'))).toEqual(['5:ana:copy', '5:jose:copy', '5:maria:copy', '5:owner:main']);
   });
 
   it('the check sampling never draws a reference plot, and its copies are no open checks', async () => {

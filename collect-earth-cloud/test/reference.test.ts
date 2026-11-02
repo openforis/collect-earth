@@ -146,6 +146,43 @@ describe('referenceFigures: accuracy against the reference', () => {
     expect(figures.people[0]).toMatchObject({ username: 'ana', plots: { compared: 1, agreeing: 1 } });
   });
 
+  it('a check with no compared question (blank where the reference is blank) is not counted, least of all as agreeing', () => {
+    const records = [
+      rec('r1,1', 'coord', { collect_code_land_use: 'forest' }),
+      rec('r1,2', 'ana', { collect_code_land_use: 'forest' }),
+      rec('r2,1', 'coord', { collect_code_land_use: '' }),
+      rec('r2,2', 'ana', { collect_code_land_use: '', collect_text_notes: 'only text' }),
+    ];
+    const figures = referenceFigures({ records, info: added, units: new Set(['r1', 'r2']), copyHolders: new Map(), outline, reference: new Map([['r1', 'coord'], ['r2', 'coord']]) });
+    expect(figures.checks).toBe(1);
+    expect(figures.people[0].plots).toEqual({ compared: 1, agreeing: 1, rate: null });
+    expect(figures.byPlot.map((p) => p.checks)).toEqual([1, 1]);
+  });
+
+  it('an own round with a reassessment code: the check under the code is measured, and left out of the agreement', () => {
+    const own: RoundInfo = { state: 'own', refusal: null, keyCount: 2, roundIndex: 1, roundCodes: [{ code: '2025', label: '2025' }, { code: 'R', label: 'R' }], reassessmentCode: 'R' };
+    const records = [
+      rec('17,2025', 'coord', { collect_code_land_use: 'forest' }),
+      rec('17,R', 'ana', { collect_code_land_use: 'grassland' }),
+      rec('18,2025', 'maria', { collect_code_land_use: 'forest' }),
+      rec('18,R', 'ben', { collect_code_land_use: 'grassland' }),
+    ];
+    const input: QualityInput = {
+      records,
+      info: own,
+      units: new Set(['17,2025', '18,2025']),
+      copyHolders: new Map([['17,2025', new Set(['ana'])], ['18,2025', new Set(['ben'])]]),
+      outline,
+      reference: new Map([['17,2025', 'coord']]),
+    };
+    const figures = referenceFigures(input);
+    expect(figures).toMatchObject({ plots: 1, assessed: 1, checks: 1 });
+    expect(figures.people).toEqual([expect.objectContaining({ username: 'ana', plots: { compared: 1, agreeing: 0, rate: null } })]);
+    const report = qualityReport(input);
+    expect(report.plotsChecked).toBe(1);
+    expect(report.differences.map((d) => d.plot)).toEqual(['18,2025']);
+  });
+
   it('is empty without reference plots', () => {
     expect(referenceFigures(project(0, 0, 3))).toEqual(NO_REFERENCE);
   });
@@ -256,6 +293,15 @@ describe('checkMark, pickReference, parsePlotList', () => {
     expect([...a].sort((x, y) => Number(x) - Number(y))).toEqual(a);
     expect(pickReference(units, () => true, 10, 43)).not.toEqual(a);
     expect(pickReference(['1', '2'], () => true, 10, 1)).toEqual(['1', '2']);
+  });
+
+  it('picks the preferred plots first (their collector has not downloaded plots), the rest only to make up the count', () => {
+    const units = Array.from({ length: 100 }, (_, i) => String(i + 1));
+    const preferred = (u: string) => Number(u) > 90;
+    expect(pickReference(units, () => true, 5, 7, preferred).every(preferred)).toBe(true);
+    const twelve = pickReference(units, () => true, 12, 7, preferred);
+    expect(twelve.filter(preferred)).toHaveLength(10);
+    expect(twelve).toHaveLength(12);
   });
 
   it('parsePlotList: distinct non-empty strings, at most 500', () => {

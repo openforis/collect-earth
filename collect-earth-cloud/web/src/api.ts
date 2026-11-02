@@ -193,6 +193,8 @@ export interface PersonShare {
   overlap: number;
   /** Of the copies, those drawn by the automatic checks (the others came with the division). */
   sampled: number;
+  /** Of the copies, those of reference plots (Task 14). */
+  reference: number;
   /** Plots this person has submitted, among the ones they hold. */
   submitted: number;
 }
@@ -453,6 +455,7 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   [NETWORK_ERROR]: "error.network",
   invalid_credentials: "error.invalidCredentials",
   own_plot: "quality.ownPlot",
+  reference_plot: "plot.referenceNoDecision",
   map_changed: "map.changed",
   wrong_password: "error.wrongPassword",
   username_taken: "error.usernameTaken",
@@ -985,6 +988,7 @@ export function toDistributionState(body: unknown): DistributionState {
       plots: toCount(person.plots),
       overlap: toCount(person.overlap),
       sampled: toCount(person.sampled),
+      reference: toCount(person.reference),
       submitted: toCount(person.submitted),
     })),
   };
@@ -1970,7 +1974,7 @@ export interface PersonData {
   speed: Speed;
   sync: SyncHealth;
   /** `flags`: their pattern flags by kind (coordinators' page, from the figures at hand); null on My work or without figures. */
-  quality: QualityAtHand & { asFirst: Rate | null; asChecker: Rate | null; sentBack: SentBack[]; flags: FlagCounts | null; reference: ReferencePerson | null };
+  quality: QualityAtHand & { asFirst: Rate | null; asChecker: Rate | null; sentBack: SentBack[]; flags: FlagCounts | null; reference?: ReferencePerson | null };
 }
 
 const STATUS_KINDS: readonly PersonStatusKind[] = ["noPlots", "finished", "neverStarted", "quiet", "working", "disabled"];
@@ -2127,7 +2131,8 @@ export function toPersonData(body: unknown): PersonData {
       asChecker: toRateOrNull(quality.asChecker),
       sentBack: list(quality.sentBack).map((s) => ({ plot: text(s.plot), comment: nullableText(s.comment), decidedAt: toMillis(s.decidedAt), decidedBy: nullableText(s.decidedBy), submittedAgain: s.submittedAgain === true, file: nullableText(s.file) })),
       flags: quality.flags && typeof quality.flags === "object" ? toFlagCounts(quality.flags) : null,
-      reference: quality.reference && typeof quality.reference === "object" ? toReferencePerson(quality.reference) : null,
+      // Absent: the project has no reference plot (the line is not shown); null: none of theirs measured yet.
+      ...(quality.reference === undefined ? {} : { reference: quality.reference && typeof quality.reference === "object" ? toReferencePerson(quality.reference) : null }),
     },
   };
 }

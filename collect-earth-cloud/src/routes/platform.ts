@@ -387,6 +387,8 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       }
       await store.setMemberRole(projectId, uid, body.role);
       await audit(store, request, 'member.role', { userId: uid, role: body.role });
+      // A new collector gets the reference copies; someone no longer one loses those not started.
+      await request.server.referenceSync?.(projectId, request.log);
       return reply.send({ ok: true });
     },
   );
@@ -408,6 +410,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       // Logged first: removeMember sets the actor of the member's own entries to null.
       await audit(store, request, 'member.removed', { userId: uid });
       await store.removeMember(projectId, uid);
+      await request.server.referenceSync?.(projectId, request.log);
       return reply.code(204).send();
     },
   );

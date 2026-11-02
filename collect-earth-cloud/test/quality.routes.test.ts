@@ -282,15 +282,15 @@ describe('quality routes', () => {
     await batchRequest(ctx.app, pid, project.projectToken, [envelope({ recordKey: '4,1', operator: 'ana', summary: {} })]);
     const res = await get('/export.csv');
     const lines = res.rawPayload.subarray(3).toString('utf8').split('\r\n').filter((l) => l !== '');
-    expect(lines[0]).toMatch(/^record_key,plot,round,assessment,final,operator,/);
-    expect(lines.slice(1).map((l) => l.split(',').slice(0, 8).join(','))).toEqual([
-      '"1,1",1,1,main,yes,ana,true',
-      '"1,2",1,2,check,no,ben,true',
-      '"2,1",2,1,main,no,ana,true',
-      '"2,2",2,2,check,yes,ben,true',
-      '"3,1",3,1,main,recheck,ana,true',
-      '"3,2",3,2,check,recheck,ben,true',
-      '"4,1",4,1,main,,ana,true',
+    expect(lines[0]).toMatch(/^record_key,plot,round,assessment,final,reference,operator,/);
+    expect(lines.slice(1).map((l) => l.split(',').slice(0, 9).join(','))).toEqual([
+      '"1,1",1,1,main,yes,,ana,true',
+      '"1,2",1,2,check,no,,ben,true',
+      '"2,1",2,1,main,no,,ana,true',
+      '"2,2",2,2,check,yes,,ben,true',
+      '"3,1",3,1,main,recheck,,ana,true',
+      '"3,2",3,2,check,recheck,,ben,true',
+      '"4,1",4,1,main,,,ana,true',
     ]);
   });
 

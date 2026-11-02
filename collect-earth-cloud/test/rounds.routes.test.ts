@@ -262,9 +262,9 @@ describe('project file and round routes', () => {
 
     const exported = await get('/export.csv');
     const lines = exported.rawPayload.subarray(3).toString('utf8').split('\r\n').filter((l) => l !== '');
-    expect(lines.slice(1).map((l) => l.split(',').slice(0, 7).join(','))).toEqual([
-      '"17,1",17,1,main,,ana',
-      '"17,2",17,2,check,,ben',
+    expect(lines.slice(1).map((l) => l.split(',').slice(0, 8).join(','))).toEqual([
+      '"17,1",17,1,main,,,ana',
+      '"17,2",17,2,check,,,ben',
     ]);
     const quality = (await get('/quality')).json();
     expect(quality.problems).toEqual([]);

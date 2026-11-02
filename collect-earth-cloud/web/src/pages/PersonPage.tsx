@@ -368,7 +368,7 @@ export function QualitySection({ data, self, projectId }: { data: PersonData; se
                 </Typography>
               </Line>
             )}
-            {!self && (
+            {!self && q.reference !== undefined && (
               <Line label={t("person.referenceTitle")}>
                 {q.reference ? (
                   <Box>

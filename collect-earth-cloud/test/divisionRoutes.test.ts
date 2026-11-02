@@ -111,7 +111,7 @@ describe('dividing plots between people', () => {
     });
     const whole = await getDistribution();
     expect(whole).toMatchObject({ distribution: null, plotCount: 10, unassigned: 0 });
-    expect(whole.people).toEqual([{ userId: maria.userId, username: 'maria', plots: 10, overlap: 0, sampled: 0, submitted: 0 }]);
+    expect(whole.people).toEqual([{ userId: maria.userId, username: 'maria', plots: 10, overlap: 0, sampled: 0, reference: 0, submitted: 0 }]);
 
     const dry = await divideFile({ mode: 'even', people: [maria.userId, jose.userId, ana.userId], order: 'file', dryRun: true });
     expect(dry.statusCode).toBe(200);
@@ -382,7 +382,7 @@ describe('dividing plots between people', () => {
     ]);
     await batchRequest(ctx.app, pid, maria.token, [envelope({ recordKey: '1', operator: 'maria' })]);
     const exported = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/export.csv`, headers: bearer(admin) });
-    expect(exported.body).toContain('\r\n1,1,1,main,,maria,');
+    expect(exported.body).toContain('\r\n1,1,1,main,,,maria,');
     // Dividing b.csv again between jose and ana: maria did the main assessment of plot 1,
     // so it stays hers (she is not among the people) and only plot 2 is dealt.
     const res = await divideFile({ mode: 'even', people: [jose.userId, ana.userId], order: 'file', dryRun: true }, fileB);

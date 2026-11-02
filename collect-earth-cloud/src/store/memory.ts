@@ -1013,6 +1013,12 @@ export class InMemoryStore implements Store {
     file.distribution = distribution ? structuredClone(distribution) : null;
     entry.holdingsGeneration += 1;
     if (distribution) {
+      // Reference plots (Task 14) keep their holdings as stored now (the Postgres store reads them under the lock).
+      const refs = new Set([...entry.references.values()].filter((r) => r.csvFileId === csvFileId).map((r) => r.plotKey));
+      if (refs.size > 0) {
+        const kept = (entry.plotAssignments.get(csvFileId) ?? []).filter((a) => refs.has(a.plotKey));
+        plots = [...plots.filter((a) => !refs.has(a.plotKey)), ...kept];
+      }
       entry.plotAssignments.set(csvFileId, plots.map((a) => ({ ...a })));
       for (const a of entry.assignments) {
         if (a.endsWith(` ${csvFileId}`)) {

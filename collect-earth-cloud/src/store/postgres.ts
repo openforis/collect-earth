@@ -1326,6 +1326,21 @@ export class PostgresStore implements Store {
         csvFileId,
         distribution === null ? null : JSON.stringify(distribution),
       ]);
+      if (distribution !== null) {
+        // Reference plots (Task 14) keep their holdings as stored now, under the lock: a plot marked
+        // after the caller read the holdings is not dealt again.
+        const kept = await client.query(
+          `SELECT p.plot_key, p.user_id, p.overlap FROM plot_assignments p
+             JOIN reference_plots r ON r.project_id = p.project_id AND r.csv_file_id = p.csv_file_id AND r.plot_key = p.plot_key
+            WHERE p.project_id = $1 AND p.csv_file_id = $2`,
+          [projectId, csvFileId],
+        );
+        const refs = (await client.query('SELECT plot_key FROM reference_plots WHERE project_id = $1 AND csv_file_id = $2', [projectId, csvFileId])).rows.map((r) => r.plot_key as string);
+        if (refs.length > 0) {
+          const ref = new Set(refs);
+          plots = [...plots.filter((a) => !ref.has(a.plotKey)), ...kept.rows.map((r) => ({ plotKey: r.plot_key as string, userId: r.user_id as string, overlap: r.overlap as boolean }))];
+        }
+      }
       await client.query('DELETE FROM plot_assignments WHERE project_id = $1 AND csv_file_id = $2', [projectId, csvFileId]);
       if (distribution === null) {
         // Whole files hold no copies: their reference plots go too.

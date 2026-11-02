@@ -96,7 +96,25 @@ export async function registerAssignmentRoutes(
       // round the server added): a divided file keeps the holdings of those.
       const projectId = request.membership!.projectId;
       const keyCount = fileKeyCount(await store.getRoundInfo(projectId));
-      const meta = await store.putCsvFile(projectId, filename, data, parsePlotFile(data, keyCount).plotIds);
+      const plotIds = parsePlotFile(data, keyCount).plotIds;
+      // A reference plot must be in one plot file only (Task 14: its records are paired by plot
+      // across files, and a second file could give it a second first assessment). Refused rather
+      // than unmarking it quietly: unmarking changes the accuracy figures and drops copies, which
+      // the coordinator decides on the Quality tab ("Remove"), then uploads again.
+      const references = await store.listReferencePlots(projectId);
+      if (references.length > 0) {
+        const existing = (await store.listCsvFiles(projectId)).find((f) => f.filename === filename);
+        const elsewhere = new Set(references.filter((r) => r.csvFileId !== existing?.id).map((r) => r.plotKey));
+        const clash = plotIds.filter((id) => elsewhere.has(id));
+        if (clash.length > 0) {
+          return reply.code(409).send({
+            error: 'reference_plot_in_file',
+            reason: 'This file holds reference plots of another plot file. Remove them as reference plots first (Quality tab), or leave them out of this file.',
+            plots: clash.slice(0, 20),
+          });
+        }
+      }
+      const meta = await store.putCsvFile(projectId, filename, data, plotIds);
       await audit(store, request, 'csv.uploaded', { csvFileId: meta.id, plots: meta.plotCount });
       return reply.code(201).send(meta);
     },
@@ -378,8 +396,8 @@ export function roundColumnOf(info: RoundInfo | null, copies: ReadonlySet<string
 /**
  * For one person: which of their copies (in a divided file) are served as main, as
  * they submitted the plot's main assessment (copiesSubmittedAsMain). Only matters
- * while files get a round column; the project's records are read once, on the first
- * call that needs them.
+ * while files get a round column; only the person's records of their copies' plots are read,
+ * each key once for all the files of one plot list.
  */
 function copiesServedAsMain(
   store: Store,
@@ -387,25 +405,33 @@ function copiesServedAsMain(
   userId: string,
   info: RoundInfo | null,
 ): (plots: UserPlots) => Promise<ReadonlySet<string>> {
-  let mine: Promise<{ username: string; records: RecordRow[] } | null> | null = null;
+  let user: Promise<{ username: string } | null> | null = null;
+  // The person's records read so far, by record key; each file's copies read the keys not read yet
+  // (one memo for every file of the list: the first file's keys alone would leave a later file's
+  // copies unread, and its listed checksum would differ from the download's).
+  const records = new Map<string, RecordRow[]>();
   return async (plots) => {
     if (plots.copyKeys.length === 0 || roundColumnOf(info, new Set()) === null) {
       return new Set();
     }
-    mine ??= (async () => {
-      const user = await store.getUserById(userId);
-      if (!user) {
-        return null;
+    user ??= store.getUserById(userId).then((u) => (u ? { username: u.username } : null));
+    const who = await user;
+    if (!who) {
+      return new Set();
+    }
+    // Only the records the copies' plots can have (every collector holds copies once there are
+    // reference plots, Task 14: reading every record of the project for each plot list would not do).
+    const keys = new Set<string>();
+    for (const unit of plots.copyKeys) for (const k of recordKeysOfUnit(unit, info)) keys.add(k);
+    const missing = [...keys].filter((k) => !records.has(k));
+    if (missing.length > 0) {
+      for (const k of missing) records.set(k, []);
+      for (const r of await store.listRecordsByKeys(projectId, missing)) {
+        if (r.operator === who.username) records.get(r.recordKey)?.push(r);
       }
-      // Only the records the copies' plots can have (every collector holds copies once there are
-      // reference plots, Task 14: reading every record of the project for each plot list would not do).
-      const keys = new Set<string>();
-      for (const unit of plots.copyKeys) for (const k of recordKeysOfUnit(unit, info)) keys.add(k);
-      const records = (await store.listRecordsByKeys(projectId, [...keys])).filter((r) => r.operator === user.username);
-      return { username: user.username, records };
-    })();
-    const loaded = await mine;
-    return loaded ? copiesSubmittedAsMain(loaded.records, userId, loaded.username, plots, info) : new Set();
+    }
+    const mine = [...keys].flatMap((k) => records.get(k) ?? []);
+    return copiesSubmittedAsMain(mine, userId, who.username, plots, info);
   };
 }
 

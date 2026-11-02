@@ -79,6 +79,12 @@ const OWN_PLOT = {
   reason: 'You made the first assessment or a check of this plot, so someone else decides it.',
 } as const;
 
+/** What anyone is told when deciding a reference plot (Task 14). */
+const REFERENCE_PLOT = {
+  error: 'reference_plot',
+  reason: 'This is a reference plot: its other assessments are measured against its reference assessment, not decided.',
+} as const;
+
 /** The plot of a decision route, or null when it is not 1-MAX_NAME characters. */
 function plotOf(request: FastifyRequest): string | null {
   const plot = (request.params as { plot: string }).plot;
@@ -299,6 +305,7 @@ export async function registerQualityRoutes(
         resubmitted: resubmittedAfterRecheck(figures.flags, decisions),
         decided: new Map(decisions.map((d) => [d.plot, d.decision])),
         ...(reviewerName !== null ? { excluded: plotsOf(figures.flags, reviewerName) } : {}),
+        hidden: new Set(figures.reference.byPlot.map((p) => p.plot)),
       },
       { person, kind: kind as QueueKind | null },
     );
@@ -389,7 +396,9 @@ export async function registerQualityRoutes(
       return reply;
     }
     const trusted = new Set(members.filter((m) => m.role === 'reviewer' || m.role === 'admin').map((m) => m.username));
-    const plots = bulkPlots(figures.report.pairs, new Map(decisions.map((d) => [d.plot, d.decision])), trusted, rule as BulkRule);
+    // Reference plots are never decided (Task 14); their checks are not in the pairs anyway.
+    const reference = new Set((await store.listReferencePlots(projectId)).map((r) => r.plotKey));
+    const plots = bulkPlots(figures.report.pairs, new Map(decisions.map((d) => [d.plot, d.decision])), trusted, rule as BulkRule).filter((p) => !reference.has(p.plot));
     const decision: DecisionKind = rule === 'first_by_reviewer' ? 'first' : 'check';
     if (dryRun) {
       return reply.send({ rule, decision, count: plots.length, plots: plots.slice(0, MAX_BULK_LISTED).map((p) => p.plot), dryRun: true, batch: null });
@@ -500,6 +509,10 @@ export async function registerQualityRoutes(
         return reply.code(400).send(bad(`comment must be text of at most ${MAX_TEXT} characters`));
       }
       comment = body.comment.trim() || null;
+    }
+    // A reference plot is never decided (Task 14): its checks measure the collectors against it.
+    if ((await store.listReferencePlots(projectId)).some((r) => r.plotKey === plot)) {
+      return reply.code(409).send(REFERENCE_PLOT);
     }
     // What the coordinator or reviewer decided on: the plot's records as the figures at hand show them
     // (never computed here for a coordinator), for "saved again after a decision" (pattern flags).

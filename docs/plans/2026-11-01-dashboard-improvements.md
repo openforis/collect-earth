@@ -90,6 +90,15 @@ desktop.
    the week with the fewest checks for its plots first, then the seeded order. So a part-time
    collector (4 plots a week at 10 %) gets checks (4 over 10 weeks), and a draw stays
    repeatable.
+8. **Reference plots (Task 14) are measured, never decided.** Setting a decision on one is
+   refused (409 `reference_plot`), bulk decisions skip them, the review queue never lists them
+   and their plot page has no Decision section. **Reviewers** (Decision 3) get the accuracy per
+   question only, never anyone's accuracy by name, and do not learn which plots are reference
+   plots: plot search does not find them for a reviewer and their plot page is a 404 for one
+   (their many checks would give them away). **Consumers of the data** (the export, Task 17's
+   Collect Earth backup) treat a reference plot's round 2 as measurement, not as checks to decide:
+   the export has a `reference` column ("yes" on every record of a reference plot) and its `final`
+   stays blank for them (a decision made before the plot was marked included).
 
 ---
 
@@ -2498,18 +2507,21 @@ with `'`), and the read state.
   reference copies as checks to do (they are work).
 - **Routes** (`src/routes/reference.ts`): `GET /v1/projects/:pid/reference` (coordinators and
   **reviewers**; collectors 403; figures worked out when needed, 503 busy as the other sections):
-  `{ coordinator, count, figures: { plots, assessed, checks, questions, people, computedAt, stale } }`;
+  `{ coordinator, count, figures: { plots, assessed, checks, questions, computedAt, stale } }`;
   coordinators also `{ max, plots: [{ csvFileId, filename, plot, assessor, assessorInProject, addedAt,
   assessed, copies, checked }], files, wholeFiles, assessors, collectors, people: [{ username, copies,
-  checked }] }` and `figures.byPlot`. **Reviewers get the accuracy, never which plots are reference
-  plots** (no list, no `byPlot`) and cannot change the set. `POST /reference/plots` `{ csvFileId,
+  checked }] }` and `figures.people` / `figures.byPlot`. **Reviewers get the accuracy per question
+  only (corrected in the review: no one's accuracy by name, Decisions item 8), never which plots
+  are reference plots** (no list, no `byPlot`) and cannot change the set. `POST /reference/plots` `{ csvFileId,
   assessorUserId, plots | random }` and `POST /reference/remove` `{ plots: [{csvFileId, plot}] | all }`
   (coordinators): `{ result: { unmarked, marked, copiesAdded, copiesDropped }, …view }`, audited
   **`reference.changed`** (already in 012/015's CHECK list: verified) `{ csvFileId, added, removed,
   assessorUserId, random, copiesAdded, copiesDropped }`; the activity log lists it under "Project file
   and plot files" ("ana marked plots of north.csv as reference plots (20 plots)").
-- **Plot page:** `reference: { assessor } | {} | null` (the assessor for coordinators only); the
-  page says it is a reference plot measured on the Quality tab, not listed as differences.
+- **Plot page:** `reference: { assessor } | null` (coordinators: corrected in the review, a reference
+  plot's page is a 404 for reviewers and search does not find it for them); the page says it is a
+  reference plot measured on the Quality tab, never decided nor listed as a difference, and has no
+  Decision section.
 - **Person page (coordinators):** `quality.reference` (their accuracy, weakest questions), from the
   figures at hand (peek). **Never on My work nor the personal report, and nothing tells a
   collector which plots are reference plots:** their file entry and rows are those of any copy
@@ -2567,6 +2579,72 @@ with `'`), and the read state.
   records; removing does not give the plot back to its previous holder; per-person "mix-ups"
   (which answer instead of the reference's) not built; the week/day of the checks is not shown;
   no Spanish/French/Portuguese Chrome pass (texts only).
+
+- **Review (after 43b5e46f; supersedes the above where it says so):**
+  - **my-assignment's copies served as main (critical):** `copiesServedAsMain` read the records of
+    the *first* divided file's copies only, then reused them for the person's other files: a later
+    file's copy whose main assessment the person had submitted was listed as a check (round 2) but
+    downloaded as main (round 1), so its listed checksum never matched and Collect Earth got a 409
+    `changed` every time. Now the person's records are kept by record key and each file reads only
+    the keys not read yet. Test: copies in north.csv and west.csv, the copy submitted as main in the
+    second; every listed checksum equals the downloaded bytes' (red before).
+  - **Never decided** (Decisions item 8): `PUT /quality/decisions/:plot` on a reference plot is 409
+    `reference_plot` (coordinators and reviewers; undoing an old decision still works); bulk
+    decisions skip them; the queue never lists them (`QueueInput.hidden`, not counted anywhere, even
+    with a flag such as "very fast" on the reference assessment); the plot page hides its Decision
+    section; the web says so (`plot.referenceNoDecision`). Test (a decision made before marking, a
+    flagged reference plot, the queue empty, bulk 0).
+  - **Reviewers** (Decision 3, Decisions item 8): `figures.people` omitted (the page shows the
+    per-question table with its own sentence); a reference plot's page is 404 and `plots/search`
+    skips reference plots for them (`searchPlots(…, skip)`, still up to 20 others). Tests on the
+    response shape, the 404 and the search.
+  - **Export:** a `reference` column after `final` ("yes" on every record of a reference plot, by the
+    figures' resolution), and `final` blank for them (decisions on reference plots are dropped from
+    the export's `finalAnswers`, so one made before marking does not come out). The column is always
+    there (blank without reference plots); the export tests now expect it. Task 17's backup must
+    treat these round-2 records the same way.
+  - **Copies kept right at once:** a role change, a member removed and an account disabled or
+    enabled (every project of the account) run the copy plan (`referenceSyncer`, decorated on the app
+    as `referenceSync`; nothing read beyond the reference list when a project has none; a failure is
+    logged, the change it follows still succeeds). Test: reviewer → untouched copies go, a checked one
+    stays; collector again → back; disabled → gone, enabled → back; removed → gone; two plot lists at
+    once of a newcomer add each copy once (memory store; Postgres has the primary key and ON CONFLICT
+    DO NOTHING).
+  - **No compared question, no count:** a check with no question compared with the reference (blank
+    wherever the reference is) is not measured (before, it counted as agreeing); `checks` counts
+    measured checks only, `byPlot.checks` stays the submitted ones. Test.
+  - **Own round:** a reference unit "17,2025" with its check under the reassessment code "17,R" is
+    measured and left out of the agreement while "18,2025"'s pair stays in (test).
+  - **Person page:** the accuracy line only when the project has reference plots (`quality.reference`
+    absent otherwise, null when none of the person's checks is measured). **Plot file page:**
+    `PersonShare.reference` counts the reference copies apart, labelled "Reference plots: N" under the
+    copies (as "Drawn for checks").
+  - **Divisions under the lock:** `setDivision` (both stores) re-reads the file's reference plots and
+    their holdings inside its transaction, after the sampling lock, and keeps them as stored: a plot
+    marked after `PUT /distribution` or `move-unfinished` read the holdings is not dealt again (test
+    with stale holdings, and the smoke on Postgres).
+  - **A plot file that would share a reference plot** (a new file, or one replaced, holding a reference
+    plot of another file) is **refused** with 409 `reference_plot_in_file` and the plots named
+    (decided over unmarking with an audit entry: unmarking changes the accuracy figures and drops the
+    collectors' copies, which the coordinator should decide on the Quality tab, then upload again; the
+    reference plot's own file may be uploaded again with it). Test and smoke.
+  - **Blindness, honestly:** collectors who compare their plot files can notice plots they all have
+    (the page says so). Random picking now prefers plots whose main holder has never downloaded
+    plots (`member_activity.last_plots_download_at` null): when plots were dealt is not stored
+    (`plot_assignments` has no time), so "not downloaded since dealt" cannot be told; "never
+    downloaded" is what is known (`pickReference(…, preferred)`, test).
+  - **The copy plan's comment** says what is kept and why (any record of the plot; the copy tells a
+    check from a second first assessment only without a round in the key).
+  - **Tests:** server 1001 (was 994: reference 22, routes 10; export, dashboard, quality, rounds and
+    division expectations given the new column / `reference: 0`), web 314 (`referenceView.test.ts`
+    extended, `division.test.ts` given `reference: 0`), tsc clean in both, web build ok.
+  - **Postgres smoke** (`npm run smoke:pg:reference`, extended: the reviewer's shape and 404, the 409
+    decision, the export column, setDivision with stale holdings, the refused upload, a role change
+    both ways): ALL OK; marking 50 at random 1.6 s, `GET /reference` cold 2.4 s / warm 19 ms, op10's
+    plot list 188 ms then 86 ms, a newcomer's 85 ms. Docker stopped after.
+  - **Open (still):** a first assessment arriving between the check and the mark; a removed
+    assessor's plots stay measured against their records; removing does not give the plot back; no
+    Chrome pass of this round's web changes (a hidden section, a line, two texts) nor in es/fr/pt.
 
 ### Task 15: Plots in an order that keeps neighbours together (improvement 4)
 

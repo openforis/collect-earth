@@ -131,8 +131,11 @@ export async function registerPlotSearchRoutes(
 
   async function search(request: FastifyRequest, reply: FastifyReply, q: string) {
     if (q.length > MAX_NAME) return reply.code(400).send(bad(`q must be at most ${MAX_NAME} characters`));
-    const { index } = await indexes.get(request.membership!.projectId, request.log);
-    return reply.send(searchPlots(index, q));
+    const { projectId, role } = request.membership!;
+    const { index } = await indexes.get(projectId, request.log);
+    // Reviewers never find a reference plot (Task 14): which plots they are is the coordinators'.
+    const hidden = role === 'admin' ? null : new Set((await store.listReferencePlots(projectId)).map((r) => r.plotKey));
+    return reply.send(searchPlots(index, q, undefined, hidden && hidden.size > 0 ? (plot) => hidden.has(plot) : undefined));
   }
 
   async function page(request: FastifyRequest, reply: FastifyReply, plot: string) {
@@ -142,6 +145,10 @@ export async function registerPlotSearchRoutes(
     const { index, info } = await indexes.get(projectId, request.log);
     const u = unitIndex(index, plot);
     if (u < 0) return reply.code(404).send({ error: 'not_found', reason: 'no plot file of this project has this plot' });
+    // A reference plot is no reviewer's (Task 14): its many checks would say which plots are reference plots.
+    if (!coordinator && (await store.listReferencePlots(projectId)).some((r) => r.plotKey === plot)) {
+      return reply.code(404).send({ error: 'not_found', reason: 'no plot file of this project has this plot' });
+    }
     const files = filesOfUnit(index, u);
 
     // An own round: the plot's other rounds are units of their own, and a check may go to any of them.
@@ -268,9 +275,8 @@ export async function registerPlotSearchRoutes(
       decision,
       ownPlot,
       // A reference plot (Task 14): its checks are measured against its reference assessment
-      // ("Reference plots" on the Quality tab), never compared as a difference. Who the reference
-      // assessor is: coordinators only.
-      reference: referenceOf(references, plot, coordinator),
+      // ("Reference plots" on the Quality tab), never compared as a difference nor decided.
+      reference: referenceOf(references, plot),
       flags,
       differences,
       figures: figures ? { computedAt: figures.computedAt, stale: figures.stale } : null,
@@ -280,10 +286,10 @@ export async function registerPlotSearchRoutes(
     });
   }
 
-  /** Whether the plot is a reference plot (null: no), with its assessor for coordinators. */
-  function referenceOf(references: readonly ReferencePlot[], plot: string, coordinator: boolean): { assessor?: string } | null {
+  /** Whether the plot is a reference plot (null: no), with its assessor (only coordinators see a reference plot's page). */
+  function referenceOf(references: readonly ReferencePlot[], plot: string): { assessor: string } | null {
     const r = references.find((x) => x.plotKey === plot);
-    return r ? (coordinator ? { assessor: r.assessor } : {}) : null;
+    return r ? { assessor: r.assessor } : null;
   }
 
   // "/plots/search" with q searches; without it, it is the page of a plot named "search".

@@ -147,7 +147,7 @@ export function unitIndex(index: PlotIndex, plot: string): number {
  * trimmed): the shortest ids first, then in text order ("1", "10" ... "19", "100"), each
  * plot once, at most `limit`. `more`: other plots match too (the person types more).
  */
-export function searchPlots(index: PlotIndex, query: string, limit = MAX_SEARCH_RESULTS): { plots: PlotMatch[]; more: boolean } {
+export function searchPlots(index: PlotIndex, query: string, limit = MAX_SEARCH_RESULTS, skip?: (plot: string) => boolean): { plots: PlotMatch[]; more: boolean } {
   const q = query.trim().toLowerCase();
   if (q === '') return { plots: [], more: false };
   const from = lowerBound(index.keys, q);
@@ -158,6 +158,8 @@ export function searchPlots(index: PlotIndex, query: string, limit = MAX_SEARCH_
   for (let i = from; i < index.keys.length && index.keys[i].startsWith(q); i++) {
     const key = index.keys[i];
     const unit = index.keyUnit[i];
+    // Plots this person may not find (a reviewer: the reference plots, Task 14).
+    if (skip?.(index.units[unit])) continue;
     // A plot matching by its unit and by its visible id is taken once, by the better of the two.
     const own = index.units[unit].toLowerCase();
     const name = index.names[unit].toLowerCase();

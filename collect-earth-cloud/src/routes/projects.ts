@@ -6,7 +6,7 @@ import type { Config } from '../config.js';
 import { attachment } from '../download.js';
 import { exportRoundOf, recordsCsv } from '../export.js';
 import { storageSummary } from '../limits.js';
-import { finalAnswers } from '../quality.js';
+import { finalAnswers, recordResolver } from '../quality.js';
 import { loadPlotContext } from '../qualityService.js';
 import type { Store } from '../store/store.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
@@ -215,9 +215,12 @@ export async function registerProjectRoutes(
         loadPlotContext(store, projectId, request.log),
         store.listQualityDecisions(projectId),
       ]);
-      const { info, units, copyHolders } = context;
-      const finalOf = finalAnswers({ records, info, units, copyHolders }, new Map(decisions.map((d) => [d.plot, d.decision])));
-      const csv = recordsCsv(records, exportRoundOf(info, units, copyHolders), finalOf);
+      const { info, units, copyHolders, reference } = context;
+      // Reference plots (Task 14) are never decided: their round 2 measures the collectors
+      // against the reference, so `final` stays blank for them and `reference` says "yes".
+      const finalOf = finalAnswers({ records, info, units, copyHolders }, new Map(decisions.filter((d) => !reference.has(d.plot)).map((d) => [d.plot, d.decision])));
+      const resolve = recordResolver({ info, units, copyHolders });
+      const csv = recordsCsv(records, exportRoundOf(info, units, copyHolders), finalOf, (r) => reference.size > 0 && reference.has(resolve(r).group));
       await audit(store, request, 'export.downloaded', { records: records.length });
       return reply
         .header('content-type', 'text/csv; charset=utf-8')

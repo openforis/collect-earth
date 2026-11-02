@@ -200,9 +200,12 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
         <Alert severity="info">{data.reference.assessor ? t("plot.reference", { assessor: data.reference.assessor }) : t("plot.referenceNoName")}</Alert>
       )}
 
-      <Section title={t("plot.decisionHeading")}>
-        <Decision key={data.plot} projectId={projectId} data={data} onChange={(next) => loaded.setData(next)} />
-      </Section>
+      {/* A reference plot is never decided: its other assessments are measured against it. */}
+      {!data.reference && (
+        <Section title={t("plot.decisionHeading")}>
+          <Decision key={data.plot} projectId={projectId} data={data} onChange={(next) => loaded.setData(next)} />
+        </Section>
+      )}
 
       <Section title={t("plot.records")}>
         {data.records.length === 0 ? (
