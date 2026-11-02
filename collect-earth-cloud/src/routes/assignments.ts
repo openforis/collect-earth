@@ -116,8 +116,20 @@ export async function registerAssignmentRoutes(
       // The new content's plot ids (as many key columns as the survey has, less the
       // round the server added): a divided file keeps the holdings of those.
       const projectId = request.membership!.projectId;
-      const keyCount = fileKeyCount(await store.getRoundInfo(projectId));
-      const plotIds = parsePlotFile(data, keyCount).plotIds;
+      const info = await store.getRoundInfo(projectId);
+      const keyCount = fileKeyCount(info);
+      const parsed = parsePlotFile(data, keyCount);
+      const plotIds = parsed.plotIds;
+      // The server puts the coordinator's note in a column of that name (Task 16): a file that has one
+      // of its own would be read two ways (by name in the web balloon, by place in the form).
+      if (noteColumn(info) !== null && parsed.header?.fields.some((f) => f.toLowerCase() === 'coordinator_note')) {
+        return reply.code(409).send({
+          error: 'note_column_in_file',
+          reason:
+            "This file has a column named coordinator_note, the column the server adds to carry the coordinator's " +
+            'note to Collect Earth. Rename that column or leave it out, then upload the file again.',
+        });
+      }
       // A reference plot must be in one plot file only (Task 14: its records are paired by plot
       // across files, and a second file could give it a second first assessment). Refused rather
       // than unmarking it quietly: unmarking changes the accuracy figures and drops copies, which

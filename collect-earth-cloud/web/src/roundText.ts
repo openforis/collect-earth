@@ -37,22 +37,43 @@ export interface RoundMessage {
 }
 
 export function roundMessage(info: RoundInfo): RoundMessage {
+  // The uploaded file differs from the served one when the server added round or the note.
+  const noteAdded = info.note?.state === "added";
   switch (info.state) {
     case "added":
       return { severity: "success", keys: ["file.round.added"], download: true, choose: false };
     case "own":
-      return { severity: "success", keys: ["file.round.own"], download: false, choose: true };
+      return { severity: "success", keys: ["file.round.own"], download: noteAdded, choose: true };
     default:
       // No refusal: the file came once data was collected, and the server left it as it was.
       return info.refusal
         ? {
             severity: BROKEN_FILE.has(info.refusal) ? "warning" : "info",
             keys: [refusalMessageKey(info.refusal), BROKEN_FILE.has(info.refusal) ? "file.round.checkFile" : "file.round.carryOn"],
-            download: false,
+            download: noteAdded,
             choose: false,
           }
-        : { severity: "info", keys: ["file.round.noneLate"], download: false, choose: false };
+        : { severity: "info", keys: ["file.round.noneLate"], download: noteAdded, choose: false };
   }
+}
+
+/** Why the server did not add the coordinator's note (NoteInfo.refusal); the file's own problems share one sentence. */
+const NOTE_REFUSAL_MESSAGES: Record<string, MessageKey> = {
+  records_exist: "file.note.refusal.recordsExist",
+  note_name_taken: "file.note.refusal.noteNameTaken",
+  nested_plot_columns: "file.note.refusal.nestedPlotColumns",
+  note_mismatch: "file.note.refusal.noteMismatch",
+};
+
+export const NOTE_REFUSAL_KEYS: MessageKey[] = [...Object.values(NOTE_REFUSAL_MESSAGES), "file.note.refusal.other"];
+
+/** What the Project file page says about the coordinator's note (Task 16); null when the server says nothing. */
+export function noteMessage(info: RoundInfo): { severity: "success" | "info"; keys: MessageKey[] } | null {
+  if (!info.note) return null;
+  if (info.note.state === "added") return { severity: "success", keys: ["file.note.added"] };
+  const refusal = info.note.refusal;
+  const key = (refusal && Object.hasOwn(NOTE_REFUSAL_MESSAGES, refusal) && NOTE_REFUSAL_MESSAGES[refusal]) || "file.note.refusal.other";
+  return { severity: "info", keys: [key, "file.note.myWork"] };
 }
 
 /** A round code as shown in the list: "2 – Re-assessment", or the code alone without a label. */

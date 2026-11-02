@@ -2929,6 +2929,51 @@ the real run is under "As built")
   grows one column (and the padding), so its checksum changes once on upgrade for projects uploaded after this — older
   projects have no note until their project file is uploaded again before collection.
 
+- **Review (after 2f4f7ca4; supersedes the above where it says so):**
+  - **Backslash:** opencsv's escape character is `\`, so a comment ending in `\"` left the quoted field open and
+    Collect Earth could not read the file ("Unterminated quoted field"). `noteText` now writes `\` as "＼" (U+FF3C),
+    and replaces C1 control characters (U+0080-U+009F) with spaces too (U+0085 as a line break).
+  - **Quoting:** the note field is quoted whenever it holds any of `, ; |` or a tab, not only the file's own
+    separator: on a file without a header an unquoted "a, b, c" in the first row made Collect Earth (and
+    `parsePlotFile`) detect "," as the separator. Checked with opencsv 5.12.0 (`earth-libs`): a comment ending in
+    `\"` now reads as 2 rows of 4 columns; a `;` file with a quoted "Look north, east, west" gives 1 column with ","
+    (under the 3 needed), so ";" is kept.
+  - **A Collect designer re-export is accepted:** a survey with our note whose template reads it at column N with
+    or without `!""`, balloons with or without the line that shows it, is `added` with its bytes unchanged. A survey
+    with our note and a template that reads another column (or none), and a template that has
+    `EXTRA_coordinator_note` while the survey has no note, are refused as **`note_mismatch`** (was
+    `note_name_taken`, and the latter a 500 from the read-back check).
+  - **The column moves once records exist** (e.g. a new attribute filled from the plot file): `PUT /cep` answers
+    `noteColumnChanged: { from, to }` and logs a warning; records are unaffected, the files served from then on
+    carry it at the new column (people Refresh their plot files).
+  - **A plot file with its own `coordinator_note` column** (any case) is refused at upload, **409
+    `note_column_in_file`**, while the project has the note (it would be read by name in one path and by place in
+    another). Not checked: plot files uploaded before the note was added.
+  - **Dashboard:** the Project file tab says whether the note reaches Collect Earth ("Your comment reaches Collect
+    Earth…") or why not (records already, a question of its own, a plot-file question in a group, survey and
+    template disagreeing, other), with "comments still reach people on My work"; the uploaded file can be downloaded
+    when only the note changed it. The send-back comment help says the comment also shows at the top of the form in
+    Collect Earth when the project file carries it. `error.noteRemoved` and `error.noteColumnInFile`. 9 new keys
+    and 1 changed × 4 languages (`i18n.ts`, `api.ts`, `api.test.ts` CRLF kept); `RoundInfo.note` / `toNoteInfo`,
+    `noteMessage` in `roundText.ts`.
+  - **Task 17** now says the backup keeps `coordinator_note` as stored (decided); **Task 22** checks a plot sent
+    back a second time and a comment with commas, a backslash and a quote.
+  - **Tests:** server 1066 (+8: `cep.test.ts` 3 — the re-export, note_mismatch twice; `plots.test.ts` 3 — the
+    backslash, C1 controls, quoting on a headerless `;` file; `rounds.routes.test.ts` 2 — the column moving, the
+    plot file with its own column), web 326 (+7: `api.test.ts` 2 rows and note parsing, `roundText.test.ts` 5), tsc
+    clean in both, web build ok. No real Collect Earth run this round.
+  - **Open (owner decision): a plot sent back a second time shows the old comment.** The form's header shows a
+    record's own value before the plot file's (`collect-earth-app/src/main/frontend/src/form/FormApp.tsx`,
+    `HeaderInfo`: `store.value(i.name) || store.plotValue(i.name)`), and the record holds the comment it was saved
+    with, so after a second "Both need another look" with a new comment the collector reads the **first** one until
+    the record is saved again from the new file. The same shows a stale note when the plot is opened from the normal
+    file. Possible fix, not made (no desktop change in this task): in `HeaderInfo`, use the plot file's value
+    whenever the plot file supplies the field (`plotValue` first for from-CSV fields). That frontend is HTML/React,
+    not Swing, but the owner's other branch may change it: **the owner decides** whether and where. Task 22 checks it.
+  - **Open (noted):** a comment that reads as WKT or GeoJSON ("POLYGON((…))") would be taken by Collect Earth's
+    polygon plot generators (`PolygonWktGenerator`/`PolygonGeojsonGenerator` scan every column of a row) as the
+    plot's shape, in projects whose plots are polygons; the note column is not excluded from that scan.
+
 ## Part E: data out and people outside
 
 ### Task 17: Collect Earth backup download (improvement 13)
@@ -2945,6 +2990,11 @@ button on the Data tab.
   - only records whose `round` key exists (otherwise imports show conflicts, as the
     Project file page already says).
 - **Audited** as `export.downloaded`, with its kind.
+- **The coordinator's note (Task 16):** decided, **keep `coordinator_note` as stored** in each record's
+  XML (the served survey has the attribute, so the import reads it, and it says which comment the
+  person saw when they saved). Not blanked: blanking would change the stored XML the backup is meant to
+  keep. Say so in the download's help text. (The dashboard's `export.csv` leaves it out: there it would
+  read as an answer.)
 - **Real Collect Earth:** import it with 0 conflicts and check the IPCC export
   counts, on the backed-up profile.
 
@@ -3062,7 +3112,11 @@ desktop suites green (core 40, app 210+).
   - records saved from the generated file carry `plot_file` "…/To check again – …": check the
     exports, and the KML description and the balloon with the "–";
   - a sampled check arrives blind;
-  - the note shows (Task 16);
+  - the note shows (Task 16); and **a plot sent back a second time with another comment**: the form's
+    header shows the comment the record was saved with, not the new one from the "To check again" file
+    (`FormApp.tsx` shows a record's value before the plot file's); record what is seen, for the owner's
+    decision in Task 16's open points; also a "To check again" file whose comment holds commas, a
+    backslash and a quote opens (opencsv);
   - the backup imports with 0 conflicts (Task 17);
   - the version reaches the dashboard.
 - **A final code review** of the whole range, then DEPLOY.md and this plan's "As

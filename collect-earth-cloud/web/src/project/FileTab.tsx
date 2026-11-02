@@ -20,7 +20,7 @@ import { FileDrop } from "../components/FileDrop";
 import { Loading } from "../components/Loading";
 import { formatBytes, formatDate } from "../format";
 import { useT } from "../i18n";
-import { originalFileName, roundCodeLabel, roundMessage } from "../roundText";
+import { noteMessage, originalFileName, roundCodeLabel, roundMessage } from "../roundText";
 import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
 
@@ -96,6 +96,7 @@ function ReassessmentChoice({ projectId, info, onSaved }: { projectId: string; i
 function RoundStatus({ projectId, projectName, info, onChange }: { projectId: string; projectName: string; info: RoundInfo; onChange: (info: RoundInfo) => void }) {
   const t = useT();
   const message = roundMessage(info);
+  const note = noteMessage(info);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [done, setDone] = useState(false);
@@ -125,6 +126,15 @@ function RoundStatus({ projectId, projectName, info, onChange }: { projectId: st
             </Typography>
           ))}
         </Alert>
+        {note && (
+          <Alert severity={note.severity} data-testid="file-note">
+            {note.keys.map((key, i) => (
+              <Typography key={key} variant="body2" sx={{ mt: i === 0 ? 0 : 1 }}>
+                {t(key)}
+              </Typography>
+            ))}
+          </Alert>
+        )}
         {message.download && (
           <Box>
             <Button variant="outlined" startIcon={<Download />} onClick={download} disabled={busy}>

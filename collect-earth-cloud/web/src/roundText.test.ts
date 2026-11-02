@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RoundInfo } from "./api";
 import { CATALOGUES, LANGUAGES } from "./i18n";
-import { originalFileName, REFUSAL_CODES, refusalMessageKey, roundCodeLabel, roundMessage } from "./roundText";
+import { NOTE_REFUSAL_KEYS, noteMessage, originalFileName, REFUSAL_CODES, refusalMessageKey, roundCodeLabel, roundMessage } from "./roundText";
 
 const info = (over: Partial<RoundInfo>): RoundInfo => ({
   state: "none",
@@ -10,6 +10,7 @@ const info = (over: Partial<RoundInfo>): RoundInfo => ({
   roundIndex: null,
   roundCodes: [],
   reassessmentCode: null,
+  note: null,
   ...over,
 });
 
@@ -83,6 +84,38 @@ describe("what the page says", () => {
 
   it("none without a refusal: uploaded once data was collected", () => {
     expect(roundMessage(info({})).keys).toEqual(["file.round.noneLate"]);
+  });
+
+  it("offers the uploaded file when only the coordinator's note changed it", () => {
+    expect(roundMessage(info({ state: "own", note: { state: "added", refusal: null, column: 9 } })).download).toBe(true);
+    expect(roundMessage(info({ state: "own", note: { state: "none", refusal: "note_name_taken", column: null } })).download).toBe(false);
+  });
+});
+
+describe("what the page says about the coordinator's note (Task 16)", () => {
+  it("added: the comment reaches Collect Earth", () => {
+    expect(noteMessage(info({ note: { state: "added", refusal: null, column: 9 } }))).toEqual({ severity: "success", keys: ["file.note.added"] });
+  });
+
+  it("not added: why, then where people read the comment", () => {
+    expect(noteMessage(info({ note: { state: "none", refusal: "records_exist", column: null } }))).toEqual({
+      severity: "info",
+      keys: ["file.note.refusal.recordsExist", "file.note.myWork"],
+    });
+    expect(noteMessage(info({ note: { state: "none", refusal: "note_name_taken", column: null } }))?.keys[0]).toBe("file.note.refusal.noteNameTaken");
+    expect(noteMessage(info({ note: { state: "none", refusal: "nested_plot_columns", column: null } }))?.keys[0]).toBe("file.note.refusal.nestedPlotColumns");
+    expect(noteMessage(info({ note: { state: "none", refusal: "note_mismatch", column: null } }))?.keys[0]).toBe("file.note.refusal.noteMismatch");
+    // The other refusals are about the file itself, as for round.
+    expect(noteMessage(info({ note: { state: "none", refusal: "balloon_marker_missing", column: null } }))?.keys[0]).toBe("file.note.refusal.other");
+  });
+
+  it("says nothing for a file stored before the note (older servers)", () => {
+    expect(noteMessage(info({}))).toBeNull();
+  });
+
+  it("every sentence exists in every language", () => {
+    const keys = ["file.note.added", "file.note.myWork", ...NOTE_REFUSAL_KEYS] as const;
+    for (const lang of LANGUAGES) for (const key of keys) expect(CATALOGUES[lang][key], `${lang} ${key}`).toBeTruthy();
   });
 });
 

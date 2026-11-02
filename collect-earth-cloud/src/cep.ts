@@ -1034,6 +1034,7 @@ export type NoteRefusal =
   | CepErrorCode
   | 'several_entities'
   | 'note_name_taken'
+  | 'note_mismatch'
   | 'nested_plot_columns'
   | 'balloon_missing'
   | 'balloon_marker_missing'
@@ -1111,17 +1112,19 @@ export function addNote(
   }
   if (shape.nested) return none('nested_plot_columns');
   const template = files.templatePath ? read(files.templatePath) : null;
+  const templateColumn = template === null ? null : noteTemplateColumn(template);
   if (shape.note) {
-    // Ours, already there (the served file uploaded again): kept as it is.
-    const balloons = [files.balloonPath, files.balloonWebPath].filter((p): p is string => p !== null);
-    const ours =
-      shape.ours &&
-      template !== null &&
-      template.includes(noteTemplateLines(shape.column)[1]) &&
-      balloons.length > 0 &&
-      balloons.every((p) => read(p).includes('id="collect_text_coordinator_note"'));
-    return ours ? { cep: zip, info: { state: 'added', refusal: null, column: shape.column } } : none('note_name_taken');
+    // The survey's own coordinator_note: not ours.
+    if (!shape.ours) return none('note_name_taken');
+    // Ours, already there (the served file uploaded again, or exported again by the Collect designer,
+    // which writes the Data without !"" and balloons without the line that shows it): kept as it is
+    // when the template reads it where the rows have it.
+    return templateColumn === shape.column
+      ? { cep: zip, info: { state: 'added', refusal: null, column: shape.column } }
+      : none('note_mismatch');
   }
+  // A template that already reads a note the survey does not have: the files do not agree.
+  if (template !== null && template.includes('<Data name="EXTRA_coordinator_note">')) return none('note_mismatch');
 
   const balloons: string[] = [];
   if (!files.balloonPath) return none('balloon_missing');
@@ -1170,6 +1173,12 @@ export function addNote(
 }
 
 const count = (haystack: string, needle: string) => haystack.split(needle).length - 1;
+
+/** The extra column the template's EXTRA_coordinator_note reads (with or without !""), else null. */
+function noteTemplateColumn(template: string): number | null {
+  const m = /<Data name="EXTRA_coordinator_note">\s*<value>\$\{placemark\.extraColumns\[(\d+)\](?:!"")?\}<\/value>/.exec(template);
+  return m ? Number(m[1]) : null;
+}
 
 /** What addNote needs of a survey, read from its text as the editor sees it. */
 interface NoteShape {

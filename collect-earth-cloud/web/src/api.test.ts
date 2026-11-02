@@ -715,7 +715,7 @@ describe("the project file and round", () => {
 
   it("an upload returns what the server did about round", async () => {
     const sent = fakeXhr(200, { ok: true, bytes: 10, round: added });
-    expect(await uploadCep("p 1", new Blob(["zip"]))).toEqual(added);
+    expect(await uploadCep("p 1", new Blob(["zip"]))).toEqual({ ...added, note: null });
     expect(sent[0]).toMatchObject({ method: "PUT", url: "/v1/projects/p%201/cep", headers: { "content-type": "application/zip" } });
   });
 
@@ -726,9 +726,11 @@ describe("the project file and round", () => {
 
   it.each([
     [409, "round_removed", "error.roundRemoved"],
+    [409, "note_removed", "error.noteRemoved"],
     [409, "round_codes_changed", "error.roundCodesChanged"],
     [409, "key_shape_changed", "error.keyShapeChanged"],
     [409, "plots_divided", "error.plotsDivided"],
+    [409, "note_column_in_file", "error.noteColumnInFile"],
     [413, "too_large", "error.cepTooLarge"],
     [413, "storage_limit_reached", "error.storageLimitReached"],
   ])("a %i %s upload becomes its own sentence", async (status, code, key) => {
@@ -742,7 +744,7 @@ describe("the project file and round", () => {
 
   it("reads the round info, or null before any upload", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(200, added)).mockResolvedValueOnce(jsonResponse(200, null));
-    expect(await getRoundInfo("p1")).toEqual(added);
+    expect(await getRoundInfo("p1")).toEqual({ ...added, note: null });
     expect(await getRoundInfo("p1")).toBeNull();
     expect(fetchMock.mock.calls[0][0]).toBe("/v1/projects/p1/round");
   });
@@ -755,9 +757,14 @@ describe("the project file and round", () => {
       roundIndex: 1,
       roundCodes: [{ code: "2020", label: "" }],
       reassessmentCode: null,
+      note: null,
     });
     expect(toRoundInfo({ state: "none", refusal: "several_keys" })?.refusal).toBe("several_keys");
     expect(toRoundInfo("nope")).toBeNull();
+    // The coordinator's note (Task 16): absent from older servers and older infos.
+    expect(toRoundInfo({ state: "added", note: { state: "added", refusal: null, column: 9 } })?.note).toEqual({ state: "added", refusal: null, column: 9 });
+    expect(toRoundInfo({ state: "added", note: { state: "odd", refusal: "records_exist", column: "9" } })?.note).toEqual({ state: "none", refusal: "records_exist", column: null });
+    expect(toRoundInfo({ state: "added", note: "nope" })?.note).toBeNull();
   });
 
   it("saves the re-assessment code, or none", async () => {

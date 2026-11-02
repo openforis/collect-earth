@@ -119,6 +119,9 @@ const CANNOT_ADD_NOTE: Record<NoteRefusal, string> = {
   survey_unreadable: 'its survey cannot be read',
   several_entities: 'its survey has more than one root entity',
   note_name_taken: 'its survey has an attribute named coordinator_note of its own',
+  note_mismatch:
+    "its survey and its KML template do not agree on the coordinator's note (the template does not read it from " +
+    'the column the plot files have it in, or reads one the survey does not have)',
   nested_plot_columns: 'its survey fills an attribute below the plot from the plot file',
   balloon_missing: 'it has no balloon',
   balloon_marker_missing: 'its balloon lacks the line where the extra plot data goes',
@@ -285,6 +288,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       let served = cep;
       let original: Buffer | null = null;
       let info: RoundInfo;
+      let noteColumnChanged: { from: number; to: number } | undefined;
       try {
         const recordsExist = await store.hasRecords(projectId);
         if (!recordsExist) {
@@ -306,6 +310,14 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
           original ??= cep;
         }
         info = { ...info, note: note.info };
+        // Records hold their note whatever its column; the files people get from now on carry it at the
+        // new one (they have to Refresh their plot files). Said in the answer, and logged.
+        const from = noteColumn(previous);
+        const to = noteColumn(info);
+        if (recordsExist && from !== null && to !== null && from !== to) {
+          noteColumnChanged = { from, to };
+          request.log.warn({ projectId, from, to }, "cep: the coordinator's note is read from another column of the plot files");
+        }
       } catch (e) {
         // The message names the limit this upload had.
         if (e instanceof CepError && e.code === 'too_large') {
@@ -345,7 +357,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         await store.recountPlots(projectId, keyCountAfter);
       }
       await audit(store, request, 'cep.replaced', { bytes: cep.length });
-      return reply.send({ ok: true, bytes: cep.length, round: info });
+      return reply.send({ ok: true, bytes: cep.length, round: info, ...(noteColumnChanged ? { noteColumnChanged } : {}) });
     },
   );
 

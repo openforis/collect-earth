@@ -244,13 +244,16 @@ export const MAX_NOTE_LENGTH = 1000;
  * A coordinator's comment as the plot file carries it to Collect Earth: one line, at most
  * MAX_NOTE_LENGTH characters, nothing Google Earth or the balloon would read as HTML or as a
  * `$[...]` to fill (it puts the value into the balloon as it is): `<` `>` `&` `"` become look-alikes,
- * line breaks " / ", other control characters spaces.
+ * line breaks " / ", other control characters (C0 and C1) spaces. A backslash becomes a look-alike
+ * too: it is opencsv's escape character, and a comment ending in a backslash and a quote left the
+ * quoted field open, so Collect Earth could not read the file at all.
  */
 export function noteText(comment: string | null | undefined): string {
   if (!comment) return '';
   let text = comment
     .replace(/\s*(?:\r\n|[\r\n\x85]|\p{Zl}|\p{Zp})+\s*/gu, ' / ')
-    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/[\x00-\x1f\x7f-\x9f]/g, ' ')
+    .replace(/\\/g, String.fromCharCode(0xff3c))
     .replace(/</g, '‹')
     .replace(/>/g, '›')
     .replace(/&/g, '＆')
@@ -266,7 +269,9 @@ export function noteText(comment: string | null | undefined): string {
 /** Where a row gets the note: [at, the text inserted there] (the original's bytes all stay). */
 function noteEdit(row: PlotRow, note: NoteColumn, lead: number, value: string, separator: string): [number, string] {
   const index = note.keyFields + lead + note.column;
-  const text = fieldText(value, separator);
+  // Quoted when it holds any separator Collect Earth tries, not only the file's: on a file without a
+  // header, an unquoted "a, b, c" in the first row would make it read the file as comma separated.
+  const text = /[,;|\t]/.test(value) ? `"${value.replace(/"/g, '""')}"` : fieldText(value, separator);
   if (row.fields.length > index) {
     return [row.fieldStarts[index], text + separator];
   }

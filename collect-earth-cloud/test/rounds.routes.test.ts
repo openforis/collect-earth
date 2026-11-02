@@ -187,6 +187,40 @@ describe('project file and round routes', () => {
       expect(surveyText((await get('/cep')).rawPayload)).toContain('name="coordinator_note"');
     });
 
+    it('says so, once records exist, when the new file reads it from another column', async () => {
+      await putCep(idOnlyCep());
+      await addRecord();
+      // One more attribute filled from the plot file: the note moves to column 10.
+      const more = withEntry(idOnlyCep(), 'placemark.idm.xml', (t) =>
+        t.replace(/(name="district"[\s\S]*?<\/text>)/, '$1\n      <text id="9999991" name="plot_area" collectearth:fromcsv="true" type="short"/>'),
+      );
+      const res = await putCep(more);
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json().round.note).toEqual({ state: 'added', refusal: null, column: 10 });
+      expect(res.json().noteColumnChanged).toEqual({ from: 9, to: 10 });
+      // The same column again: nothing to say.
+      expect((await putCep(more)).json().noteColumnChanged).toBeUndefined();
+    });
+
+    it('refuses a plot file whose header already has a coordinator_note column, while the project has the note', async () => {
+      const upload = (name: string, csv: string) =>
+        ctx.app.inject({
+          method: 'PUT',
+          url: `/v1/projects/${project.projectId}/csv-files/${name}`,
+          headers: { ...admin(), 'content-type': 'text/csv' },
+          payload: csv,
+        });
+      const csv = 'id,lat,lon,Coordinator_Note\n1,0,0,x\n';
+      // Without the note it is just a column.
+      await putCep(noNote(idOnlyCep()));
+      expect((await upload('a.csv', csv)).statusCode).toBe(201);
+      await putCep(idOnlyCep());
+      const res = await upload('b.csv', csv);
+      expect(res.statusCode).toBe(409);
+      expect(res.json()).toMatchObject({ error: 'note_column_in_file', reason: expect.stringMatching(/coordinator_note/) });
+      expect((await upload('c.csv', 'id,lat,lon,notes\n1,0,0,x\n')).statusCode).toBe(201);
+    });
+
     it('is refused, once records exist, when the file can no longer have it (note_removed); nothing changes', async () => {
       await putCep(idOnlyCep());
       await addRecord();

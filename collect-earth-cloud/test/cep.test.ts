@@ -1050,6 +1050,46 @@ describe("addNote (the coordinator's note, Task 16)", () => {
     expect(addNote(demoCep()).info).toEqual({ state: 'added', refusal: null, column: 9 });
   });
 
+  it('accepts the file as the Collect designer exports it again: the template read without !"", no shown line', () => {
+    const served = addNote(addRound(idOnlyCep()).cep).cep;
+    const entries = new Map(readCep(served).entries);
+    const edit = (path: string, change: (t: string) => string) => {
+      const before = strFromU8(entries.get(path)!);
+      const after = change(before);
+      expect(after, path).not.toBe(before);
+      entries.set(path, new TextEncoder().encode(after));
+    };
+    edit('kml_template.fmt', (t) => t.replace('${placemark.extraColumns[9]!""}', '${placemark.extraColumns[9]}'));
+    for (const balloon of ['balloon.html', 'balloon_web.html']) {
+      edit(balloon, (t) => t.replace(/[^\n]*coordinator_note_shown[^\n]*\n/g, ''));
+    }
+    const exported = zipCep(entries, FIXTURE_DATE);
+    const { cep, info } = addNote(exported);
+    expect(info).toEqual({ state: 'added', refusal: null, column: 9 });
+    expect(cep.equals(exported)).toBe(true);
+  });
+
+  it('refuses with note_mismatch a survey with the note whose template reads another column, or none', () => {
+    const served = addNote(addRound(idOnlyCep()).cep).cep;
+    const withTemplate = (change: (t: string) => string) => {
+      const entries = new Map(readCep(served).entries);
+      entries.set('kml_template.fmt', new TextEncoder().encode(change(strFromU8(entries.get('kml_template.fmt')!))));
+      return zipCep(entries, FIXTURE_DATE);
+    };
+    const other = withTemplate((t) => t.replace('extraColumns[9]!""', 'extraColumns[8]'));
+    expect(addNote(other).info).toEqual({ state: 'none', refusal: 'note_mismatch', column: null });
+    const none = withTemplate((t) => t.replace(/<Data name="EXTRA_coordinator_note">[\s\S]*?<\/Data>\n/, ''));
+    expect(addNote(none).info.refusal).toBe('note_mismatch');
+  });
+
+  it('refuses with note_mismatch, not an error, a template that has the note without the survey', () => {
+    const template = miniTemplate().replace('</ExtendedData>', '<Data name="EXTRA_coordinator_note"><value>x</value></Data>\n</ExtendedData>');
+    const original = miniCep({ 'kml_template.fmt': template });
+    const { cep, info } = addNote(original);
+    expect(info).toEqual({ state: 'none', refusal: 'note_mismatch', column: null });
+    expect(cep.equals(original)).toBe(true);
+  });
+
   it('a survey filling nothing from the plot file reads it at column 0, after its last key, with its tab', () => {
     const { cep, info } = addNote(addRound(miniCep()).cep);
     expect(info).toEqual({ state: 'added', refusal: null, column: 0 });

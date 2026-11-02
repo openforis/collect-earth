@@ -9,6 +9,7 @@ const GT = String.fromCharCode(0x203a);
 const AMP = String.fromCharCode(0xff06);
 const ELLIPSIS = String.fromCharCode(0x2026);
 const BOM = String.fromCharCode(0xfeff);
+const BACKSLASH = String.fromCharCode(0xff3c);
 
 const parse = (text: string | Buffer) => parsePlotFile(Buffer.isBuffer(text) ? text : Buffer.from(text, 'utf8'));
 const build = (text: string | Buffer, keys: string[]) =>
@@ -214,6 +215,21 @@ describe("plot files with the coordinator's note column (Task 16)", () => {
     expect(buildPlotFile(file, new Set(['1', '3']), insert, rank, note(1, { 3: 'x' })).toString()).toBe('3,1,2,2,,x\n1,1,0,0,,\n');
   });
 
+  it('quotes a note holding any separator Collect Earth tries, so a file without a header keeps its own', () => {
+    // A ; file without a header: a note with commas unquoted would make "," the separator Collect
+    // Earth (and parsePlotFile) detect on its first line.
+    const file = parse('2;-10.5;20.5;b\n');
+    expect(file.separator).toBe(';');
+    const built = buildPlotFile(file, null, insert, undefined, note(1, { 2: 'trees, grass, bare' }));
+    expect(built.toString()).toBe('2;1;-10.5;20.5;b;"trees, grass, bare"\n');
+    const back = parsePlotFile(built, 2);
+    expect(back.separator).toBe(';');
+    expect(back.rows[0].fields).toEqual(['2', '1', '-10.5', '20.5', 'b', 'trees, grass, bare']);
+    for (const s of [',', ';', '|']) {
+      expect(buildPlotFile(parse('1,0,0\n'), null, undefined, undefined, note(0, { 1: `a${s}b` })).toString()).toBe(`1,0,0,"a${s}b"\n`);
+    }
+  });
+
   it('a BOM and a quoted field with a line break keep their bytes', () => {
     const text = `${BOM}id,lat,lon,wkt\n1,0,0,"POLYGON((0 0,\n 1 1))"\n`;
     expect(buildPlotFile(parse(text), null, undefined, undefined, note(1, { 1: 'n' })).toString()).toBe(
@@ -235,6 +251,17 @@ describe("noteText: a comment as the plot file carries it (Task 16)", () => {
     expect(text).not.toMatch(/[<>&"\r\n\t]|\$\[/);
     expect(text).toBe(`Trees ${LT}b${GT}here${LT}/b${GT} / ${AMP} 'there' now $ [EXTRA_id] \${x}`);
     expect(noteText(`a${String.fromCharCode(0x2028)}b${String.fromCharCode(0)}c`)).toBe('a / b c');
+  });
+
+  it("has no backslash, opencsv's escape character (a comment ending in a backslash and a quote broke the whole file)", () => {
+    const text = noteText('see C:\\maps\\"north"\\');
+    expect(text).not.toContain('\\');
+    expect(text).toBe(`see C:${BACKSLASH}maps${BACKSLASH}'north'${BACKSLASH}`);
+  });
+
+  it('replaces the C1 control characters too (next line as a line break)', () => {
+    const c1 = (code: number) => String.fromCharCode(code);
+    expect(noteText(`a${c1(0x80)}b${c1(0x9f)}c${c1(0x85)}d`)).toBe('a b c / d');
   });
 
   it('cuts a long comment at MAX_NOTE_LENGTH characters, ending with an ellipsis, without splitting a character', () => {

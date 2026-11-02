@@ -437,6 +437,17 @@ export interface RoundInfo {
   roundCodes: RoundCode[];
   /** The code that marks re-assessments; null for none (or not chosen yet). */
   reassessmentCode: string | null;
+  /** The coordinator's note in Collect Earth (Task 16); null from older servers and older files. */
+  note: NoteInfo | null;
+}
+
+/** Whether the served project file carries the coordinator's note to Collect Earth, else why not. */
+export interface NoteInfo {
+  state: "added" | "none";
+  /** Why the server did not add it, e.g. "records_exist". */
+  refusal: string | null;
+  /** The plot file column it is read from (added). */
+  column: number | null;
 }
 
 /** A failed call. status 0 means the server could not be reached at all. */
@@ -500,6 +511,8 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   terms_not_accepted: "error.termsNotAccepted",
   // Project file uploads (PUT /cep) refused once data exists or plots are divided.
   round_removed: "error.roundRemoved",
+  note_removed: "error.noteRemoved",
+  note_column_in_file: "error.noteColumnInFile",
   round_codes_changed: "error.roundCodesChanged",
   key_shape_changed: "error.keyShapeChanged",
   plots_divided: "error.plotsDivided",
@@ -846,6 +859,18 @@ export function toRoundInfo(body: unknown): RoundInfo | null {
       .filter((c) => c && (typeof c.code === "string" || typeof c.code === "number"))
       .map((c) => ({ code: String(c.code), label: typeof c.label === "string" ? c.label : "" })),
     reassessmentCode: typeof record.reassessmentCode === "string" ? record.reassessmentCode : null,
+    note: toNoteInfo(record.note),
+  };
+}
+
+function toNoteInfo(body: unknown): NoteInfo | null {
+  if (!body || typeof body !== "object") return null;
+  const record = body as Record<string, unknown>;
+  const state = record.state === "added" ? "added" : "none";
+  return {
+    state,
+    refusal: typeof record.refusal === "string" && record.refusal ? record.refusal : null,
+    column: state === "added" && typeof record.column === "number" ? record.column : null,
   };
 }
 
