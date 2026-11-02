@@ -313,6 +313,15 @@ describe('needs attention', () => {
     expect(done.find((i) => i.kind === 'quiet')).toBeUndefined();
   });
 
+  it('a disabled member is neither quiet nor "never downloaded" (their account is disabled, the People tab says so)', () => {
+    const items = base({
+      members: members.map((m) => (m.username === 'ana' || m.username === 'cy' ? { ...m, disabled: true } : m)),
+      activity: [activity('u-ana', { lastSyncAt: NOW - 9 * DAY }), activity('u-bo', { lastSyncAt: NOW - 9 * DAY })],
+    });
+    expect(items.find((i) => i.kind === 'quiet')).toMatchObject({ count: 1, people: [{ username: 'bo' }] });
+    expect(items.find((i) => i.kind === 'neverDownloaded')).toBeUndefined();
+  });
+
   it('quiet counts from the later of the last sync and the last plot download (plots given after the last sync)', () => {
     const items = base(
       {

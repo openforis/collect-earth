@@ -26,6 +26,8 @@ export function statusChip(t: Translate, status: PersonStatus): { label: string;
     }
     case "working":
       return { label: t("peopleTable.statusWorking"), color: "primary" };
+    case "disabled":
+      return { label: t("peopleTable.statusDisabled"), color: "default" };
   }
 }
 
@@ -54,7 +56,7 @@ export function agoText(t: Translate, ms: number | null, now: number): string {
 
 export type SortKey = "username" | "role" | "status" | "assigned" | "submitted" | "remaining" | "done" | "last7" | "pace" | "lastSync" | "lastSubmitted" | "agreement";
 
-const STATUS_ORDER: Record<PersonStatus["kind"], number> = { quiet: 0, neverStarted: 1, working: 2, finished: 3, noPlots: 4 };
+const STATUS_ORDER: Record<PersonStatus["kind"], number> = { quiet: 0, neverStarted: 1, disabled: 2, working: 3, finished: 4, noPlots: 5 };
 
 function sortValue(row: PersonRow, key: SortKey): string | number | null {
   switch (key) {

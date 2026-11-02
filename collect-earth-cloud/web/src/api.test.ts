@@ -62,6 +62,8 @@ import {
   getAiUsage,
   getServerOverview,
   setUserDisabled,
+  listMembers,
+  toPersonRow,
   getMyQuality,
   getTeamReport,
 } from "./api";
@@ -901,6 +903,13 @@ describe("the AI assistant and the reports", () => {
     expect(usage.totals.tokens).toBe(15);
   });
 
+  it("reads a member disabled by the server owner: a flag in the member list, a status on the People tab", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { members: [{ userId: "u1", username: "maria", role: "operator", disabled: true }, { userId: "u2", username: "ana", role: "operator" }] }));
+    const members = await listMembers("p1");
+    expect(members.map((m) => m.disabled)).toEqual([true, false]);
+    expect(toPersonRow({ userId: "u1", username: "maria", status: { kind: "disabled" } }).status).toEqual({ kind: "disabled", days: null, level: null });
+  });
+
   it("reads the server owner's panel, and disables and enables an account", async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(200, {
@@ -908,7 +917,7 @@ describe("the AI assistant and the reports", () => {
         users: { total: 3, disabled: 1, platformAdmins: 1, active: 2, signupsByWeek: [{ week: "2026-W45", start: 1, count: 2 }] },
         projects: { total: 2, active: 1, storageBytes: 30, largest: [{ projectId: "p1", storageBytes: 20, name: "never shown" }] },
         records: { received: 4, receivedByDay: [{ day: 0, count: 4 }] },
-        database: { backend: "postgres", sizeBytes: 9000, version: "16.4", migrations: { applied: 18, shipped: 18, latest: "018_platform.sql", lastAppliedAt: 7, missing: [] } },
+        database: { backend: "postgres", sizeBytes: 9000, version: "16.4", migrations: { applied: 18, shipped: 18, latest: "018_platform.sql", newestAppliedAt: 7, missing: [] } },
         server: { version: "0.1.0", startedAt: 3 },
         security: { since: 3, totals: { failedLogins: 2, rateLimited: 1 }, hours: [{ hour: 0, failedLogins: 2, rateLimited: 1 }] },
       }),
@@ -916,7 +925,7 @@ describe("the AI assistant and the reports", () => {
     const o = await getServerOverview();
     expect(call().url).toBe("/v1/admin/overview");
     expect(o.projects.largest).toEqual([{ projectId: "p1", storageBytes: 20 }]);
-    expect(o.database).toEqual({ backend: "postgres", sizeBytes: 9000, version: "16.4", migrations: { applied: 18, shipped: 18, latest: "018_platform.sql", lastAppliedAt: 7, missing: [] } });
+    expect(o.database).toEqual({ backend: "postgres", sizeBytes: 9000, version: "16.4", migrations: { applied: 18, shipped: 18, latest: "018_platform.sql", newestAppliedAt: 7, missing: [] } });
     expect(o.security.totals).toEqual({ failedLogins: 2, rateLimited: 1 });
     // The memory store has no database figures.
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { database: { backend: "memory", sizeBytes: null, version: null, migrations: null } }));

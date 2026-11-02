@@ -47,6 +47,11 @@ describe("status chips and the last sync", () => {
     expect(statusChip(t, { kind: "finished", days: null, level: null }).color).toBe("success");
   });
 
+  it("a disabled account says so, with no sync warning", () => {
+    expect(statusChip(t, { kind: "disabled", days: null, level: null })).toEqual({ label: "Account disabled", color: "default" });
+    expect(statusSyncLevel({ kind: "disabled", days: null, level: null })).toBeNull();
+  });
+
   it("the last sync's warning follows the status: quiet amber, then red; never for finished people", () => {
     expect(statusSyncLevel({ kind: "quiet", days: 4, level: "amber" })).toBe("amber");
     expect(statusSyncLevel({ kind: "quiet", days: 7, level: "red" })).toBe("red");

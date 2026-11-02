@@ -217,10 +217,15 @@ export async function registerAuthRoutes(
       if (plan.soleCoordinator.length > 0) {
         return reply.code(409).send({ error: 'sole_coordinator', projects: plan.soleCoordinator });
       }
+      // The account first: the store counts the enabled platform admins again inside the
+      // deletion (two admins leaving at once), and nothing is deleted when it refuses.
+      if ((await store.deleteUser(user.id)) === 'last_platform_admin') {
+        return reply.code(409).send({ error: 'last_platform_admin' });
+      }
+      // Then the projects only they were in (no members left now).
       for (const p of plan.deletedWithAccount) {
         await store.deleteProject(p.projectId);
       }
-      await store.deleteUser(user.id);
       return reply.code(204).send();
     },
   );

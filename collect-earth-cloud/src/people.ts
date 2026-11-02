@@ -38,7 +38,9 @@ export type PersonStatus =
   | { kind: 'neverStarted' }
   /** Plots left, and neither a sync nor a plot download for more than quietDays days (red after twice that). */
   | { kind: 'quiet'; days: number; level: 'amber' | 'red' }
-  | { kind: 'working' };
+  | { kind: 'working' }
+  /** The server owner disabled their account: they cannot log in or sync (Task 11). */
+  | { kind: 'disabled' };
 
 export interface PersonRow {
   userId: string;
@@ -234,9 +236,14 @@ function median(values: number[]): number | null {
   return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-/** The status chip: no plots, finished, never started, quiet (amber from quietDays, red from twice that) or working. */
+/**
+ * The status chip: disabled (the server owner disabled the account), no plots, finished, never
+ * started, quiet (amber from quietDays, red from twice that) or working.
+ */
 export function statusOf(p: {
   now: number;
+  /** The account is disabled: said before anything else, so they are never called quiet. */
+  disabled?: boolean;
   quietDays: number;
   holdsPlots: boolean;
   left: boolean;
@@ -244,6 +251,7 @@ export function statusOf(p: {
   lastSyncAt: number | null;
   lastPlotsDownloadAt: number | null;
 }): PersonStatus {
+  if (p.disabled) return { kind: 'disabled' };
   if (!p.holdsPlots) return { kind: 'noPlots' };
   if (!p.left) return { kind: 'finished' };
   if (p.lastSyncAt === null && p.lastPlotsDownloadAt === null) return { kind: 'neverStarted' };
@@ -379,6 +387,7 @@ function rowOf(p: Prepared, m: Member, agreement: Rate | null, fold = false): Pe
     status: statusOf({
       now: input.now,
       quietDays: input.settings.quietDays,
+      disabled: m.disabled === true,
       holdsPlots: held.size > 0 || copies.size > 0,
       left: remaining > 0 || checksLeft > 0,
       sentAnything,

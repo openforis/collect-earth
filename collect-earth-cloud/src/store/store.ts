@@ -136,9 +136,11 @@ export interface Store {
   /**
    * Deletes an account: its sessions, memberships, assignments, activity, bell read state and reset
    * links. Records it uploaded (and their events) stay in their projects (they belong
-   * to the project); its audit entries stay with no actor.
+   * to the project); its audit entries stay with no actor. Refused, changing nothing, for the
+   * last enabled platform admin (counted again inside the deletion, under the lock disableUser
+   * takes).
    */
-  deleteUser(userId: string): Promise<void>;
+  deleteUser(userId: string): Promise<'ok' | 'last_platform_admin'>;
 
   // --- Platform administration (dashboard) ---
   // Global, not project-scoped: none of these return project data.
@@ -171,8 +173,8 @@ export interface Store {
   updateSettings(patch: Partial<ServerSettings>): Promise<ServerSettings>;
   /** All accounts with their project count (no project names: §4b). */
   listUsers(): Promise<UserSummary[]>;
-  /** Issues a single-use password-reset token and returns the plaintext token. */
-  createPasswordReset(userId: string, expiresAt: number): Promise<string>;
+  /** Issues a single-use password-reset token and returns the plaintext token; null for a disabled (or unknown) account. */
+  createPasswordReset(userId: string, expiresAt: number): Promise<string | null>;
   /** Atomically marks a reset token used; returns its user id, or null if unknown/used/expired. */
   consumePasswordReset(token: string, now: number): Promise<string | null>;
 

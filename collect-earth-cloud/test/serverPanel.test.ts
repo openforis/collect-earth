@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { isoWeekLabel, isoWeekStart } from '../src/serverPanel.js';
+import { buildOverview, isoWeekLabel, isoWeekStart } from '../src/serverPanel.js';
 import { batchRequest, bearer, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 
 const DAY = 86_400_000;
@@ -96,6 +96,41 @@ describe("the server owner's panel", () => {
     expect(o.records.receivedByDay).toHaveLength(30);
     expect(o.records.receivedByDay.at(-1)).toEqual({ day: Date.UTC(2026, 10, 4), count: 2 });
     expect(o.records.received).toBe(2);
+  });
+
+  it('keeps the overview for a minute per instance (its time says how old), fresh after a disable', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // A server made under the fake clock (it keeps the clock it was built with).
+    await ctx.app.close();
+    ctx = await makeContext();
+    owner = await setupPlatformAdmin(ctx.app);
+    const t0 = Date.now();
+    const first = (await overview(ctx.app, owner.token)).json();
+    await projectWithCollector(ctx.app, owner.token, 'Another');
+    vi.setSystemTime(t0 + 30_000);
+    const cached = (await overview(ctx.app, owner.token)).json();
+    expect(cached.asOf).toBe(first.asOf);
+    expect(cached.projects.total).toBe(0);
+    vi.setSystemTime(t0 + 61_000);
+    const fresh = (await overview(ctx.app, owner.token)).json();
+    expect(fresh.asOf).toBe(t0 + 61_000);
+    expect(fresh.projects.total).toBe(1);
+    // Disabling or enabling an account drops the kept one.
+    const maria = (await ctx.store.getUserByUsername('maria'))!;
+    await ctx.app.inject({ method: 'POST', url: `/v1/admin/users/${maria.id}/disable`, headers: bearer(owner.token) });
+    expect((await overview(ctx.app, owner.token)).json().users.disabled).toBe(1);
+  });
+
+  it('is behind the rate limiter', async () => {
+    const limited = await makeContext({ rateLimitPerMinute: 2 });
+    try {
+      const admin = await setupPlatformAdmin(limited.app);
+      const codes = [];
+      for (let i = 0; i < 3; i++) codes.push((await overview(limited.app, admin.token)).statusCode);
+      expect(codes).toEqual([200, 200, 429]);
+    } finally {
+      await limited.app.close();
+    }
   });
 
   it('says what the database and the server are', async () => {
@@ -196,6 +231,37 @@ describe('disabling an account', () => {
     expect((await ctx.app.inject({ method: 'POST', url: `/v1/admin/users/${maria.userId}/disable` })).statusCode).toBe(401);
   });
 
+  it('two admins deleting their accounts at once: one goes, the last enabled one stays', async () => {
+    (await ctx.store.getUserById(maria.userId))!.isPlatformAdmin = true;
+    const del = (token: string, password: string) =>
+      ctx.app.inject({ method: 'DELETE', url: '/v1/me', headers: bearer(token), payload: { password } });
+    const [a, b] = await Promise.all([del(owner.token, 'owner-password'), del(maria.token, 'maria-password')]);
+    expect([a.statusCode, b.statusCode].sort()).toEqual([204, 409]);
+    expect(await ctx.store.countPlatformAdmins()).toBe(1);
+    // The store refuses it whoever calls, and leaves the account as it was.
+    const left = (await ctx.store.listUsers()).find((u) => u.isPlatformAdmin)!;
+    expect(await ctx.store.deleteUser(left.userId)).toBe('last_platform_admin');
+    expect(await ctx.store.getUserById(left.userId)).not.toBeNull();
+  });
+
+  it('makes no reset link for a disabled account, in the store too', async () => {
+    await disable(maria.userId);
+    expect(await ctx.store.createPasswordReset(maria.userId, Date.now() + 60_000)).toBeNull();
+    await enable(maria.userId);
+    expect(typeof (await ctx.store.createPasswordReset(maria.userId, Date.now() + 60_000))).toBe('string');
+  });
+
+  it("marks a disabled member in the project's member list and People tab, and does not count them as active", async () => {
+    await disable(maria.userId);
+    const members = (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/members`, headers: bearer(owner.token) })).json().members;
+    expect(members.find((m: { username: string }) => m.username === 'maria')).toMatchObject({ disabled: true });
+    expect(members.find((m: { username: string }) => m.username === 'owner')).toMatchObject({ disabled: false });
+    const people = (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/people`, headers: bearer(owner.token) })).json().people;
+    expect(people.find((p: { username: string }) => p.username === 'maria').status).toEqual({ kind: 'disabled' });
+    // maria was seen in the project today, but a disabled account is not active.
+    expect((await overview(ctx.app, owner.token)).json().users.active).toBe(1);
+  });
+
   it('disables another platform admin but never the last one', async () => {
     // A second platform admin (made in the store: no route promotes an account).
     const second = await ctx.store.getUserById(maria.userId);
@@ -211,6 +277,22 @@ describe('disabling an account', () => {
     // Deleting your account as the last enabled platform admin is refused too.
     const deletion = await ctx.app.inject({ method: 'GET', url: '/v1/me/deletion', headers: bearer(owner.token) });
     expect(deletion.json().lastPlatformAdmin).toBe(true);
+  });
+});
+
+describe('the migrations figure', () => {
+  it('gives the newest first-run time of the recorded migrations and the missing files', () => {
+    const o = buildOverview({
+      now: Date.UTC(2026, 10, 4),
+      stats: { users: 0, disabledUsers: 0, platformAdmins: 0, activeUsers: 0, signupsByDay: [], projects: [], receivedByDay: [] },
+      health: { sizeBytes: 1, version: '16.4', migrations: [{ name: '001_init.sql', firstAppliedAt: 5 }, { name: '002_accounts.sql', firstAppliedAt: 9 }] },
+      backend: 'postgres',
+      shippedMigrations: ['001_init.sql', '002_accounts.sql', '003_assignments.sql'],
+      version: 'v',
+      startedAt: 0,
+      security: { since: 0, totals: { failedLogins: 0, rateLimited: 0 }, hours: [] },
+    });
+    expect(o.database.migrations).toEqual({ applied: 2, shipped: 3, latest: '002_accounts.sql', newestAppliedAt: 9, missing: ['003_assignments.sql'] });
   });
 });
 

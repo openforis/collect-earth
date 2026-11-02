@@ -186,6 +186,9 @@ export async function prepareAppRole(client: pg.Client, appDatabaseUrl: string, 
   await client.query(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ${r}`);
   await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${o} IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${r}`);
   await client.query(`ALTER DEFAULT PRIVILEGES FOR ROLE ${o} IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO ${r}`);
+  // Which migrations ran is written by runMigrations as the owner; the server only reads it.
+  // After the blanket grant above, on every boot, so it stays taken back.
+  await client.query(`REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON schema_migrations FROM ${r}`);
   log(`Database role ${app.user} may use the tables; Row-Level Security binds it.`);
 }
 

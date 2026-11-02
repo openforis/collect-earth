@@ -72,7 +72,7 @@ export interface ServerOverview {
     sizeBytes: number | null;
     version: string | null;
     /** null on the memory store. `missing`: files this server ships that are not recorded as run. */
-    migrations: { applied: number; shipped: number; latest: string | null; lastAppliedAt: number | null; missing: string[] } | null;
+    migrations: { applied: number; shipped: number; latest: string | null; newestAppliedAt: number | null; missing: string[] } | null;
   };
   server: { version: string; startedAt: number };
   /** Failed logins and refused requests by hour, counted in memory by this instance since it started. */
@@ -121,12 +121,13 @@ export function buildOverview(input: {
   let migrations: ServerOverview['database']['migrations'] = null;
   if (health.migrations !== null) {
     const applied = new Set(health.migrations.map((m) => m.name));
-    const last = health.migrations.reduce<number | null>((t, m) => (t === null || m.firstAppliedAt > t ? m.firstAppliedAt : t), null);
+    // When the newest migration first ran (the latest first_applied_at).
+    const newest = health.migrations.reduce<number | null>((t, m) => (t === null || m.firstAppliedAt > t ? m.firstAppliedAt : t), null);
     migrations = {
       applied: health.migrations.length,
       shipped: input.shippedMigrations.length,
       latest: health.migrations.length > 0 ? health.migrations[health.migrations.length - 1].name : null,
-      lastAppliedAt: last,
+      newestAppliedAt: newest,
       missing: input.shippedMigrations.filter((f) => !applied.has(f)),
     };
   }

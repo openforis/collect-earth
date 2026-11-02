@@ -208,7 +208,7 @@ describe('deleting my account', () => {
     await batchRequest(ctx.app, pid, coord.token, [envelope({ operator: 'coord' })]);
     expect((await deleteMe(ctx.app, coord.token, 'coord-password')).statusCode).toBe(204);
     expect(await ctx.store.getProject(pid)).not.toBeNull();
-    expect(await ctx.store.listMembers(pid)).toEqual([{ userId: juan.userId, username: 'juan', role: 'admin' }]);
+    expect(await ctx.store.listMembers(pid)).toEqual([{ userId: juan.userId, username: 'juan', role: 'admin', disabled: false }]);
     expect((await ctx.store.listRecords(pid)).map((r) => r.operator)).toEqual(['coord']);
   });
 
@@ -256,7 +256,7 @@ describe('deleting my account', () => {
     expect((await deleteMe(ctx.app, juan.token, 'juan-password')).statusCode).toBe(204);
     expect(await ctx.store.listAssignments(pid)).toEqual([]);
     expect(await ctx.store.listRecords(pid)).toHaveLength(1);
-    expect(await ctx.store.listMembers(pid)).toEqual([{ userId: coord.userId, username: 'coord', role: 'admin' }]);
+    expect(await ctx.store.listMembers(pid)).toEqual([{ userId: coord.userId, username: 'coord', role: 'admin', disabled: false }]);
     // Their records keep the name, so it is not given out again: a new juan would see
     // the old one's quality figures as his.
     const again = await signup(ctx.app, 'juan');

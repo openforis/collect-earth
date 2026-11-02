@@ -1862,7 +1862,7 @@ with `'`), and the read state.
   disabled, platformAdmins (enabled), active, signupsByWeek [12 ISO weeks, UTC, empty ones too:
   { week "2026-W45", start, count }] }, projects { total, active, storageBytes, largest [10 × {
   projectId, storageBytes }] }, records { received, receivedByDay [30 UTC days, today included] },
-  database { backend, sizeBytes, version, migrations { applied, shipped, latest, lastAppliedAt,
+  database { backend, sizeBytes, version, migrations { applied, shipped, latest, newestAppliedAt,
   missing } | null }, server { version, startedAt }, security { since, totals { failedLogins,
   rateLimited }, hours [{ hour, failedLogins, rateLimited }] } }`. Pure assembly in
   `src/serverPanel.ts` (`buildOverview`, `statsWindow`, ISO weeks); the route is thin.
@@ -1950,6 +1950,42 @@ with `'`), and the read state.
   its generic "Login failed with HTTP 403: {json}" text: parsing `reason` in `CloudApiClient`
   (not Swing) would read better, left for a desktop task; Task 22's real run should check that
   logging in again from Collect Earth's settings lets the queued plots go.
+
+- **Review (after fd099cc5; supersedes the above where it says so):**
+  - **The last enabled admin on deletion too:** `deleteUser` (both stores) takes the same
+    advisory lock as `disableUser`, reads the account `FOR UPDATE`, counts the other enabled
+    admins and returns `'last_platform_admin'` (changing nothing) when there are none; the memory
+    store checks and deletes with no await in between. `DELETE /v1/me` now deletes the account
+    first and only then the projects only that person was in, so a refusal deletes nothing.
+    Tests: two admins deleting their accounts at once through the route (one 204, one 409), the
+    store's refusal, the Postgres SQL order; smoke: two racing deletions leave one admin. DEPLOY.md
+    gives the SQL that enables an admin again if a database edit left none.
+  - **The overview is kept 60 s per instance** (`asOf` says when it was worked out, the card says
+    "Figures as of …", at most once a minute), dropped when an account is disabled or enabled, and
+    the route is behind the rate limiter (`admin` bucket). Smoke: 128 ms worked out, 3-4 ms kept.
+  - **Reset links only for an enabled account, in one statement:** `createPasswordReset` returns
+    null for a disabled (or unknown) account (`INSERT … SELECT … WHERE disabled_at IS NULL`; the
+    memory store the same); the route answers 409 `account_disabled`.
+  - **Projects see a flag:** `listMembers` gives `disabled` (a flag only, not when or by whom); the
+    member list shows "Disabled by the server administrator"; the People tab's status is
+    **"Account disabled"** (`{ kind: 'disabled' }`, said before anything else), and the Progress
+    tab's "quiet" and "never downloaded" leave disabled members out. Open: a project whose only
+    coordinator is disabled cannot be managed until the server owner enables them (DEPLOY.md).
+  - **Active accounts leave disabled ones out** (both stores).
+  - **`newestAppliedAt`** (was `lastAppliedAt`): when the newest recorded migration first ran.
+  - **Keyboard focus:** the Disable / Enable and confirm buttons stay enabled (a second press while
+    one is on its way does nothing); after the change, and after Cancel, the focus goes to the
+    row's Disable / Enable button; the Disable button gives up the focus before the dialog opens,
+    and the dialog does not restore it, so Chrome no longer warns about aria-hidden on a focused
+    element (checked in Chrome: focus on "Enable" after disabling, on "Disable" after enabling and
+    after Cancel, no console warning).
+  - **pt:** "próxima inicialização", "Peça ao administrador".
+  - **`schema_migrations` read-only for the app role:** `prepareAppRole` revokes INSERT, UPDATE,
+    DELETE and TRUNCATE on it after the blanket grant, on every boot (`runMigrations` writes it as
+    the owner, before). Smoke: the app role's INSERT is refused (42501), its SELECT works.
+  - **Tests:** server 924, web 304; tsc clean in both; web build ok. Panel smoke ALL OK (new: the
+    member flag, no reset link, not active, the read-only table, racing deletions); the Task 1 and
+    Task 10 smokes ALL OK. Docker stopped, ports free.
 
 ## Part D: re-assessments that come by themselves
 

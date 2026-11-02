@@ -7,7 +7,7 @@ import { hashPassword } from '../password.js';
 import { requirePlatformAdmin } from '../plugins/projectAuth.js';
 import type { RateLimiter } from '../rateLimit.js';
 import type { ServerCounters } from '../serverCounters.js';
-import { buildOverview, statsWindow } from '../serverPanel.js';
+import { buildOverview, statsWindow, type ServerOverview } from '../serverPanel.js';
 import { migrationFiles } from '../store/migrate.js';
 import { UsernameTakenError } from '../store/memory.js';
 import type { Store } from '../store/store.js';
@@ -33,6 +33,8 @@ interface ResetBody {
 
 const PROJECT_CREATION_VALUES: ProjectCreation[] = ['anyone', 'platform-admins'];
 const RESET_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** How long the server owner's panel is kept per instance. */
+const OVERVIEW_KEPT_MS = 60_000;
 const MAX_LIMIT = 1_000_000;
 const MAX_TEXT_SETTING = 500;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -322,25 +324,31 @@ export async function registerAdminRoutes(
   );
 
   // The server owner's panel (Task 11): totals across projects, never a project's name, a
-  // person's name or an answer; projects appear by id with their size only (§4b).
+  // person's name or an answer; projects appear by id with their size only (§4b). It reads
+  // every project, so it is kept a minute per instance (its asOf says how old it is),
+  // dropped when an account is disabled or enabled, and behind the rate limiter.
+  let kept: { at: number; body: ServerOverview } | null = null;
   app.get(
     '/v1/admin/overview',
-    { preHandler: requirePlatformAdmin(store) },
+    { preHandler: [limiter.guard('admin'), requirePlatformAdmin(store)] },
     async (_request: FastifyRequest, reply: FastifyReply) => {
       const now = (options.now ?? Date.now)();
+      if (kept && now >= kept.at && now - kept.at < OVERVIEW_KEPT_MS) {
+        return reply.send(kept.body);
+      }
       const [stats, health] = await Promise.all([store.platformStats(statsWindow(now)), store.databaseHealth()]);
-      return reply.send(
-        buildOverview({
-          now,
-          stats,
-          health,
-          backend: config.storeBackend,
-          shippedMigrations: migrationFiles(),
-          version: options.version,
-          startedAt: options.startedAt ?? now,
-          security: options.counters?.snapshot() ?? { since: options.startedAt ?? now, totals: { failedLogins: 0, rateLimited: 0 }, hours: [] },
-        }),
-      );
+      const body = buildOverview({
+        now,
+        stats,
+        health,
+        backend: config.storeBackend,
+        shippedMigrations: migrationFiles(),
+        version: options.version,
+        startedAt: options.startedAt ?? now,
+        security: options.counters?.snapshot() ?? { since: options.startedAt ?? now, totals: { failedLogins: 0, rateLimited: 0 }, hours: [] },
+      });
+      kept = { at: now, body };
+      return reply.send(body);
     },
   );
 
@@ -365,6 +373,7 @@ export async function registerAdminRoutes(
       if (result === 'last_platform_admin') {
         return reply.code(409).send({ error: 'last_enabled_admin', reason: 'the server must keep one enabled platform admin' });
       }
+      kept = null;
       request.log.info({ action: 'account.disabled', actorUserId: request.userId, userId: uid }, 'platform admin disabled an account');
       return reply.send({ user: (await store.listUsers()).find((u) => u.userId === uid) });
     },
@@ -378,6 +387,7 @@ export async function registerAdminRoutes(
       if (!isUuid(uid) || (await store.enableUser(uid)) === 'not_found') {
         return reply.code(404).send({ error: 'not_found' });
       }
+      kept = null;
       request.log.info({ action: 'account.enabled', actorUserId: request.userId, userId: uid }, 'platform admin enabled an account');
       return reply.send({ user: (await store.listUsers()).find((u) => u.userId === uid) });
     },
@@ -398,7 +408,11 @@ export async function registerAdminRoutes(
         return reply.code(409).send({ error: 'account_disabled', reason: 'enable the account first' });
       }
       const expiresAt = Date.now() + RESET_TTL_MS;
+      // Null when the account was disabled meanwhile: the store checks it in the same statement.
       const token = await store.createPasswordReset(user.id, expiresAt);
+      if (token === null) {
+        return reply.code(409).send({ error: 'account_disabled', reason: 'enable the account first' });
+      }
       return reply.code(201).send({ resetUrl: `${publicBaseUrl(config, request)}/reset/${token}`, expiresAt });
     },
   );

@@ -95,6 +95,11 @@ describe('runMigrations', () => {
       // Tables and sequences the owner creates later are the app role's to use too.
       expect(sql).toContain('ALTER DEFAULT PRIVILEGES FOR ROLE "ce" IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "ce_app"');
       expect(sql).toContain('ALTER DEFAULT PRIVILEGES FOR ROLE "ce" IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO "ce_app"');
+      // schema_migrations is the owner's to write: the app role only reads it, taken back after
+      // the blanket grant on every boot.
+      const revoke = sql.indexOf('REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON schema_migrations FROM "ce_app"');
+      expect(revoke).toBeGreaterThan(sql.indexOf('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "ce_app"'));
+      expect(revoke).toBeGreaterThan(sql.findIndex((q) => q.includes('ALTER DEFAULT PRIVILEGES') && q.includes('ON TABLES')));
       // Inside the lock, after the migrations.
       expect(sql.indexOf('GRANT USAGE ON SCHEMA public TO "ce_app"')).toBeLessThan(sql.findIndex((q) => q.includes('pg_advisory_unlock')));
       expect(logged.join(' ')).not.toContain('s3cr');

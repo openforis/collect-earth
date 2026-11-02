@@ -446,7 +446,10 @@ function attentionOf(input: ProgressInput, a: AttentionInput, plotsOf: PlotUnits
     const downloaded = act?.lastPlotsDownloadAt ?? null;
     const synced = act?.lastSyncAt ?? null;
     const left = mains.some((u) => !firstSubmitted.has(u)) || checks.some((u) => !checksDone.has(`${m.username}\n${u}`));
-    if (holdsPlots && downloaded === null && synced === null) {
+    if (m.disabled) {
+      // The server owner disabled the account: not quiet nor "never downloaded" (the People
+      // tab says "disabled"); their plots wait until it is enabled.
+    } else if (holdsPlots && downloaded === null && synced === null) {
       never.push({ username: m.username });
     } else if (left) {
       // Plots left to do, and neither a sync nor a plot download for quietDays. When

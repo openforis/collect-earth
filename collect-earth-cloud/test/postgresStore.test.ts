@@ -219,4 +219,19 @@ describe('PostgresStore pool', () => {
     expect(sqls[2]).toContain('FOR UPDATE');
     expect(sqls.at(-1)).toBe('ROLLBACK');
   });
+
+  it('deleteUser counts the enabled platform admins again under the same lock, before deleting anything', async () => {
+    await new PostgresStore('postgres://x').deleteUser('00000000-0000-0000-0000-0000000000aa');
+    const sqls = queries.map((q) => q.sql);
+    expect(sqls[0]).toBe('BEGIN');
+    expect(sqls[1]).toContain("hashtext('collect-earth-cloud:platform-admins')");
+    expect(sqls[2]).toContain('FOR UPDATE');
+    expect(sqls.findIndex((s) => s.startsWith('DELETE'))).toBeGreaterThan(2);
+  });
+
+  it('createPasswordReset makes a link only for an enabled account, in one statement', async () => {
+    expect(await new PostgresStore('postgres://x').createPasswordReset('00000000-0000-0000-0000-0000000000aa', 1)).toBeNull();
+    const insert = queries.find((q) => q.sql.includes('INSERT INTO password_resets'))!;
+    expect(insert.sql).toMatch(/SELECT \$1, id, \$3 FROM users WHERE id = \$2 AND disabled_at IS NULL/);
+  });
 });

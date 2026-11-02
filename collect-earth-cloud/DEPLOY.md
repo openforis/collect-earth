@@ -299,7 +299,8 @@ must be the address people really use.
 - **Logs:** `gcloud run services logs read collect-earth-cloud --region <REGION> --limit 50`.
 - **The server owner's panel** (the Server page, "How the server is doing"): totals only.
   Projects appear by id with their size, never by name (a platform admin is not a member of
-  any project). Failed logins and requests refused by the rate limiter are counted in
+  any project). The figures are kept a minute per instance (the card says their time) and
+  the page is behind the rate limiter. Failed logins and requests refused by the rate limiter are counted in
   memory by each instance since it started, so they start again from zero on a restart and
   each Cloud Run instance shows its own. "Migrations applied" comes from
   `schema_migrations` (migration 018), filled by every migration run from then on.
@@ -313,7 +314,13 @@ must be the address people really use.
   back-off (up to once an hour); once the account is enabled, the collector logs in again
   from Collect Earth's cloud settings and the plots go. Its login dialog shows the
   server's sentence ("This account has been disabled by the administrator of this
-  server...").
+  server..."). In the projects, the member list marks the person "Disabled by the server
+  administrator" and the People tab says "Account disabled" instead of "quiet". A project
+  whose only coordinator is disabled cannot be managed until the account is enabled again.
+  **No enabled administrator left** (the server refuses to disable or delete the last one,
+  but a database edit could): enable one again as the tables' owner, e.g.
+  `psql "$MIGRATION_DATABASE_URL" -c "UPDATE users SET disabled_at = NULL, disabled_by = NULL WHERE username = 'owner'"`
+  (the account then logs in as before).
 - **Passwords:** hashed with scrypt (`node:crypto`, no native deps). For a
   hardened deployment swap `src/password.ts` for argon2id; only that module
   changes (the stored-hash string shape is private to it).

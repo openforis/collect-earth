@@ -93,6 +93,12 @@ function project(records: ProgressRecord[], over: Partial<PeopleInput> = {}): Pe
 
 describe('status chips', () => {
   const base = { now: NOW, quietDays: 3, holdsPlots: true, left: true, sentAnything: true, lastSyncAt: NOW - DAY, lastPlotsDownloadAt: null };
+  it('a member whose account the server owner disabled is "disabled", not quiet nor anything else', () => {
+    expect(statusOf({ ...base, disabled: true, lastSyncAt: NOW - 30 * DAY })).toEqual({ kind: 'disabled' });
+    expect(statusOf({ ...base, disabled: true, holdsPlots: false })).toEqual({ kind: 'disabled' });
+    expect(statusOf({ ...base, disabled: false, lastSyncAt: NOW - 30 * DAY }).kind).toBe('quiet');
+  });
+
   it('no plots, finished, never started, working', () => {
     expect(statusOf({ ...base, holdsPlots: false })).toEqual({ kind: 'noPlots' });
     expect(statusOf({ ...base, left: false })).toEqual({ kind: 'finished' });

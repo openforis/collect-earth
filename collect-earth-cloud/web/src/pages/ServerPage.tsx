@@ -30,7 +30,7 @@ import Typography from "@mui/material/Typography";
 import Key from "@mui/icons-material/Key";
 import Block from "@mui/icons-material/Block";
 import CheckCircleOutline from "@mui/icons-material/CheckCircleOutlineOutlined";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import {
   getAiUsage,
   getServerOverview,
@@ -343,7 +343,7 @@ function OverviewCard() {
       ) : (
         <Stack spacing={3}>
           <Typography color="text.secondary" variant="body2">
-            {t("server.overviewIntro")}
+            {t("server.overviewIntro")} {t("server.asOf", { time: formatDate(o.asOf, language) })}
           </Typography>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
@@ -596,19 +596,30 @@ function UsersCard() {
   const [confirm, setConfirm] = useState<AdminUser | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
+  // One change at a time: the buttons stay enabled (a disabled button loses the keyboard
+  // focus), and a second press while one is on its way does nothing.
+  const changing = useRef(false);
+  /** Puts the focus back on the row's Disable / Enable button once the list shows the change. */
+  const focusToggle = (userId: string) =>
+    window.setTimeout(() => document.getElementById(`account-toggle-${userId}`)?.focus(), 0);
+
   const setDisabled = async (user: AdminUser, disabled: boolean) => {
+    if (changing.current) return;
+    changing.current = true;
     setError(null);
     setDone(null);
     setBusy(user.userId);
     try {
       const now = await setUserDisabled(user.userId, disabled);
-      users.setData((users.data ?? []).map((u) => (u.userId === now.userId ? { ...u, ...now } : u)));
+      users.setData((prev) => prev.map((u) => (u.userId === now.userId ? { ...u, ...now } : u)));
       setDone(t(disabled ? "server.disabledNow" : "server.enabledNow", { name: user.username }));
     } catch (err) {
       setError(err);
     } finally {
+      changing.current = false;
       setBusy(null);
       setConfirm(null);
+      focusToggle(user.userId);
     }
   };
 
@@ -673,11 +684,28 @@ function UsersCard() {
                 )}
                 {user.userId !== me?.userId &&
                   (user.disabledAt === null ? (
-                    <Button variant="outlined" color="warning" startIcon={<Block />} onClick={() => setConfirm(user)} disabled={busy === user.userId}>
+                    <Button
+                      id={`account-toggle-${user.userId}`}
+                      variant="outlined"
+                      color="warning"
+                      startIcon={<Block />}
+                      onClick={(e) => {
+                        // Leave the button before the dialog hides the page from assistive
+                        // technology (aria-hidden on a focused element is blocked).
+                        e.currentTarget.blur();
+                        setConfirm(user);
+                      }}
+                    >
                       {t("server.disable")}
                     </Button>
                   ) : (
-                    <Button variant="outlined" startIcon={<CheckCircleOutline />} onClick={() => void setDisabled(user, false)} disabled={busy === user.userId}>
+                    <Button
+                      id={`account-toggle-${user.userId}`}
+                      variant="outlined"
+                      startIcon={<CheckCircleOutline />}
+                      onClick={() => void setDisabled(user, false)}
+                      aria-busy={busy === user.userId}
+                    >
                       {t("server.enable")}
                     </Button>
                   ))}
@@ -692,7 +720,16 @@ function UsersCard() {
         </Alert>
       )}
       <ErrorAlert error={error} />
-      <Dialog open={confirm !== null} onClose={() => setConfirm(null)} fullWidth maxWidth="sm">
+      <Dialog
+        open={confirm !== null}
+        onClose={() => {
+          if (confirm) focusToggle(confirm.userId);
+          setConfirm(null);
+        }}
+        disableRestoreFocus
+        fullWidth
+        maxWidth="sm"
+      >
         {confirm && (
           <>
             <DialogTitle>{t("server.disableTitle", { name: confirm.username })}</DialogTitle>
@@ -700,8 +737,15 @@ function UsersCard() {
               <DialogContentText>{t("server.disableText", { name: confirm.username })}</DialogContentText>
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => setConfirm(null)}>{t("common.cancel")}</Button>
-              <Button color="warning" variant="contained" onClick={() => void setDisabled(confirm, true)} disabled={busy === confirm.userId}>
+              <Button
+                onClick={() => {
+                  focusToggle(confirm.userId);
+                  setConfirm(null);
+                }}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button color="warning" variant="contained" onClick={() => void setDisabled(confirm, true)} aria-busy={busy === confirm.userId}>
                 {t("server.disableConfirm")}
               </Button>
             </DialogActions>

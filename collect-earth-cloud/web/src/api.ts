@@ -130,6 +130,8 @@ export interface Member {
   userId: string;
   username: string;
   role: Role;
+  /** The server administrator disabled the account: it cannot log in or sync. */
+  disabled?: boolean;
 }
 
 export interface CsvFile {
@@ -904,7 +906,7 @@ export function previewInvite(token: string): Promise<JoinPreview> {
 
 export async function listMembers(projectId: string): Promise<Member[]> {
   const body = await request<{ members?: Member[] }>("GET", `${p(projectId)}/members`);
-  return (body?.members ?? []).map((m) => ({ ...m, role: asRole(m.role) }));
+  return (body?.members ?? []).map((m) => ({ ...m, role: asRole(m.role), disabled: m.disabled === true }));
 }
 
 export async function setMemberRole(projectId: string, userId: string, role: Role): Promise<void> {
@@ -1601,7 +1603,7 @@ export interface ServerOverview {
     backend: "memory" | "postgres";
     sizeBytes: number | null;
     version: string | null;
-    migrations: { applied: number; shipped: number; latest: string | null; lastAppliedAt: number | null; missing: string[] } | null;
+    migrations: { applied: number; shipped: number; latest: string | null; newestAppliedAt: number | null; missing: string[] } | null;
   };
   server: { version: string; startedAt: number };
   security: { since: number; totals: { failedLogins: number; rateLimited: number }; hours: { hour: number; failedLogins: number; rateLimited: number }[] };
@@ -1646,7 +1648,7 @@ export async function getServerOverview(): Promise<ServerOverview> {
         applied: toCount(m.applied),
         shipped: toCount(m.shipped),
         latest: typeof m.latest === "string" ? m.latest : null,
-        lastAppliedAt: toMillis(m.lastAppliedAt),
+        newestAppliedAt: toMillis(m.newestAppliedAt),
         missing: Array.isArray(m.missing) ? m.missing.filter((x): x is string => typeof x === "string") : [],
       },
     },
@@ -1848,7 +1850,7 @@ export async function saveProgressSettings(projectId: string, settings: Progress
 
 // --- people (the People tab, a person's page, My work) ------------------------------
 
-export type PersonStatusKind = "noPlots" | "finished" | "neverStarted" | "quiet" | "working";
+export type PersonStatusKind = "noPlots" | "finished" | "neverStarted" | "quiet" | "working" | "disabled";
 
 export interface PersonStatus {
   kind: PersonStatusKind;
@@ -1964,7 +1966,7 @@ export interface PersonData {
   quality: QualityAtHand & { asFirst: Rate | null; asChecker: Rate | null; sentBack: SentBack[]; flags: FlagCounts | null };
 }
 
-const STATUS_KINDS: readonly PersonStatusKind[] = ["noPlots", "finished", "neverStarted", "quiet", "working"];
+const STATUS_KINDS: readonly PersonStatusKind[] = ["noPlots", "finished", "neverStarted", "quiet", "working", "disabled"];
 const PLOT_STATUSES: readonly PlotStatus[] = ["submitted", "doneByOther", "started", "notStarted"];
 const toRole = (value: unknown): Role => (value === "admin" || value === "reviewer" ? value : "operator");
 const toRateOrNull = (value: unknown): Rate | null => (value && typeof value === "object" ? toRate(value) : null);

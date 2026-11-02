@@ -463,12 +463,16 @@ export class InMemoryStore implements Store {
     }
   }
 
-  async deleteUser(userId: string): Promise<void> {
+  async deleteUser(userId: string): Promise<'ok' | 'last_platform_admin'> {
     const user = this.users.get(userId);
     if (!user) {
-      return;
+      return 'ok';
     }
-    await this.deleteUserSessions(userId);
+    // Checked and done with no await in between, so two deletions cannot both pass the check.
+    if (user.isPlatformAdmin && !user.disabledAt && this.enabledPlatformAdmins() <= 1) {
+      return 'last_platform_admin';
+    }
+    void this.deleteUserSessions(userId); // synchronous inside
     let hasRecords = false;
     for (const key of this.memberships.keys()) {
       if (key.endsWith(` ${userId}`)) {
@@ -506,6 +510,11 @@ export class InMemoryStore implements Store {
     this.users.delete(userId);
     this.userCreatedAt.delete(userId);
     this.userDisabledBy.delete(userId);
+    return 'ok';
+  }
+
+  private enabledPlatformAdmins(): number {
+    return [...this.users.values()].filter((u) => u.isPlatformAdmin && !u.disabledAt).length;
   }
 
   // --- Platform administration ---
@@ -515,7 +524,7 @@ export class InMemoryStore implements Store {
   }
 
   async countPlatformAdmins(): Promise<number> {
-    return [...this.users.values()].filter((u) => u.isPlatformAdmin && !u.disabledAt).length;
+    return this.enabledPlatformAdmins();
   }
 
   async disableUser(userId: string, disabledBy: string): Promise<'ok' | 'last_platform_admin' | 'not_found'> {
@@ -591,7 +600,8 @@ export class InMemoryStore implements Store {
       users: users.length,
       disabledUsers: users.filter((u) => u.disabledAt).length,
       platformAdmins: await this.countPlatformAdmins(),
-      activeUsers: [...active].filter((id) => this.users.has(id)).length,
+      // Disabled accounts are not active, whatever they did before.
+      activeUsers: [...active].filter((id) => this.users.has(id) && !this.users.get(id)!.disabledAt).length,
       signupsByDay: byDay(signups),
       projects: projects.sort((a, b) => (a.projectId < b.projectId ? -1 : a.projectId > b.projectId ? 1 : 0)),
       receivedByDay: byDay(received),
@@ -642,7 +652,11 @@ export class InMemoryStore implements Store {
       .sort((a, b) => a.username.localeCompare(b.username));
   }
 
-  async createPasswordReset(userId: string, expiresAt: number): Promise<string> {
+  async createPasswordReset(userId: string, expiresAt: number): Promise<string | null> {
+    const user = this.users.get(userId);
+    if (!user || user.disabledAt) {
+      return null;
+    }
     const token = generateToken();
     this.resets.set(hashToken(token), { userId, expiresAt, usedAt: null });
     return token;
@@ -689,7 +703,7 @@ export class InMemoryStore implements Store {
       if (memberProjectId === projectId) {
         const user = this.users.get(userId);
         if (user) {
-          result.push({ userId, username: user.username, role });
+          result.push({ userId, username: user.username, role, disabled: !!user.disabledAt });
         }
       }
     }

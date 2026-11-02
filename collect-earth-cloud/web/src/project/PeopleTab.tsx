@@ -216,6 +216,7 @@ function MemberList({ projectId, members, onChanged }: { projectId: string; memb
           <ListItem key={member.userId} divider sx={{ gap: 2, flexWrap: "wrap", pr: 0 }}>
             <ListItemText
               primary={member.userId === me?.userId ? `${member.username} ${t("people.you")}` : member.username}
+              secondary={member.disabled ? <Chip component="span" size="small" label={t("people.disabledBadge")} sx={{ mt: 0.5 }} /> : undefined}
               sx={{ flex: "1 1 160px", wordBreak: "break-word" }}
             />
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>

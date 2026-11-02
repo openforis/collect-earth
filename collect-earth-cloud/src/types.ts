@@ -26,6 +26,8 @@ export interface Member {
   userId: string;
   username: string;
   role: Role;
+  /** The server owner disabled the account (a flag only: not when or by whom). */
+  disabled?: boolean;
 }
 
 export interface Invite {

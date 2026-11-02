@@ -69,6 +69,7 @@ let res = await app.inject({ method: 'POST', url: '/v1/setup', payload: { setupC
 check('setup', res.statusCode === 201, res.body);
 const ownerToken = res.json().token as string;
 const ownerId = res.json().userId as string;
+let ownerIdNow = ownerId;
 const project = async (name: string) => (await app.inject({ method: 'POST', url: '/v1/projects', headers: bearer(ownerToken), payload: { name } })).json().projectId as string;
 const call = (method: any, pid: string, path: string, payload?: unknown, token = ownerToken) =>
   app.inject({ method, url: `/v1/projects/${pid}${path}`, headers: bearer(token), payload: payload as any });
@@ -163,9 +164,40 @@ check('enable maria', res.statusCode === 200 && res.json().user.disabledAt === n
 res = await app.inject({ method: 'POST', url: '/v1/auth/login', payload: { username: 'maria', password: 'password12' } });
 check('she logs in again and syncs', res.statusCode === 200 && (await batchRequest(app, pids[0], res.json().token, [envelope({ recordKey: '2', operator: 'maria' })])).statusCode === 200, res.body);
 
-// Two platform admins disabling each other at the same time: one stays.
+// A disabled member: marked in the member list, not active; no reset link for them.
+await app.inject({ method: 'POST', url: `/v1/admin/users/${maria.userId}/disable`, headers: bearer(ownerToken) });
+const listed = (await call('GET', pids[0], '/members')).json().members;
+check('the member list marks her disabled (a flag only)', listed.find((m: any) => m.username === 'maria')?.disabled === true && listed.find((m: any) => m.username === 'owner')?.disabled === false, listed);
+check('no reset link for a disabled account (one statement)', (await store.createPasswordReset(maria.userId, Date.now() + 60_000)) === null);
+check('a disabled account is not active', (await store.platformStats({ activeSince: 0, signupsFrom: 0, receivedFrom: 0 })).activeUsers === 1);
+await app.inject({ method: 'POST', url: `/v1/admin/users/${maria.userId}/enable`, headers: bearer(ownerToken) });
+check('a reset link for her once enabled', typeof (await store.createPasswordReset(maria.userId, Date.now() + 60_000)) === 'string');
+
+// The app role reads schema_migrations but does not write it.
+const ca = new pg.Client({ connectionString: appUrl });
+await ca.connect();
+let writeRefused = false;
+try {
+  await ca.query("INSERT INTO schema_migrations (name) VALUES ('999_x.sql')");
+} catch (err) {
+  writeRefused = (err as { code?: string }).code === '42501';
+}
+check('app role: schema_migrations readable, not writable', writeRefused && (await ca.query('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n === migrationFiles().length);
+await ca.end();
+
+// Two platform admins deleting their accounts at the same time: one stays.
 await owner.query('UPDATE users SET is_platform_admin = true WHERE id = $1', [maria.userId]);
-const [x, y] = await Promise.all([store.disableUser(maria.userId, ownerId), store.disableUser(ownerId, maria.userId)]);
+const [d1, d2] = await Promise.all([store.deleteUser(maria.userId), store.deleteUser(ownerId)]);
+const stayed = (await owner.query('SELECT count(*)::int AS n FROM users WHERE is_platform_admin AND disabled_at IS NULL')).rows[0].n;
+check('racing deletions: one done, one refused, one admin left', [d1, d2].sort().join() === 'last_platform_admin,ok' && stayed === 1, { d1, d2, stayed });
+// A second admin again for the next check (the one deleted is gone).
+const survivor = d1 === 'ok' ? ownerId : maria.userId;
+const second = (await owner.query("INSERT INTO users (id, username, password_hash, is_platform_admin) VALUES (gen_random_uuid(), 'zoe', 'x', true) RETURNING id")).rows[0].id as string;
+maria.userId = second;
+ownerIdNow = survivor;
+
+// Two platform admins disabling each other at the same time: one stays.
+const [x, y] = await Promise.all([store.disableUser(maria.userId, ownerIdNow), store.disableUser(ownerIdNow, maria.userId)]);
 const left = (await owner.query('SELECT count(*)::int AS n FROM users WHERE is_platform_admin AND disabled_at IS NULL')).rows[0].n;
 check('racing disables: one done, one refused, one admin left', [x, y].sort().join() === 'last_platform_admin,ok' && left === 1, { x, y, left });
 

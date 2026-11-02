@@ -649,10 +649,24 @@ export class PostgresStore implements Store {
     }
   }
 
-  async deleteUser(userId: string): Promise<void> {
+  async deleteUser(userId: string): Promise<'ok' | 'last_platform_admin'> {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
+      // The last enabled platform admin stays: counted again under the lock disableUser
+      // takes, so two admins deleting their accounts (or disabling each other) leave one.
+      await client.query(PLATFORM_ADMINS_LOCK);
+      const me = await client.query('SELECT is_platform_admin, disabled_at FROM users WHERE id = $1 FOR UPDATE', [userId]);
+      if (me.rows[0]?.is_platform_admin && me.rows[0].disabled_at === null) {
+        const others = await client.query(
+          'SELECT COUNT(*)::int AS n FROM users WHERE is_platform_admin AND disabled_at IS NULL AND id <> $1',
+          [userId],
+        );
+        if (others.rows[0].n === 0) {
+          await client.query('ROLLBACK');
+          return 'last_platform_admin';
+        }
+      }
       // Assignments are RLS-fenced project data: delete them project by project
       // with app.current_project set, as every other project-scoped write does.
       const projects = await client.query('SELECT project_id FROM project_members WHERE user_id = $1', [userId]);
@@ -685,6 +699,7 @@ export class PostgresStore implements Store {
       }
       await client.query('DELETE FROM users WHERE id = $1', [userId]);
       await client.query('COMMIT');
+      return 'ok';
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -800,7 +815,12 @@ export class PostgresStore implements Store {
         active: seen.rows.length > 0 || (recent.rowCount ?? 0) > 0,
       };
     });
-    // Users seen in a project but deleted since are not counted (member_activity goes with them).
+    // Users seen in a project but deleted since are not counted (member_activity goes with them);
+    // disabled accounts are not active, whatever they did before.
+    const disabledIds = await this.pool.query('SELECT id FROM users WHERE disabled_at IS NOT NULL');
+    for (const r of disabledIds.rows) {
+      active.delete(r.id as string);
+    }
     const u = users.rows[0];
     return {
       users: u.total,
@@ -933,13 +953,15 @@ export class PostgresStore implements Store {
     }));
   }
 
-  async createPasswordReset(userId: string, expiresAt: number): Promise<string> {
+  async createPasswordReset(userId: string, expiresAt: number): Promise<string | null> {
     const token = generateToken();
-    await this.pool.query(
-      'INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES ($1, $2, $3)',
+    // One statement: no link for an account disabled in the meantime (or gone).
+    const res = await this.pool.query(
+      `INSERT INTO password_resets (token_hash, user_id, expires_at)
+       SELECT $1, id, $3 FROM users WHERE id = $2 AND disabled_at IS NULL`,
       [hashToken(token), userId, new Date(expiresAt)],
     );
-    return token;
+    return res.rowCount === 0 ? null : token;
   }
 
   async consumePasswordReset(token: string, now: number): Promise<string | null> {
@@ -996,13 +1018,13 @@ export class PostgresStore implements Store {
 
   async listMembers(projectId: string): Promise<Member[]> {
     const res = await this.pool.query(
-      `SELECT m.user_id, u.username, m.role
+      `SELECT m.user_id, u.username, m.role, u.disabled_at IS NOT NULL AS disabled
          FROM project_members m JOIN users u ON u.id = m.user_id
         WHERE m.project_id = $1
         ORDER BY u.username`,
       [projectId],
     );
-    return res.rows.map((r) => ({ userId: r.user_id, username: r.username, role: r.role }));
+    return res.rows.map((r) => ({ userId: r.user_id, username: r.username, role: r.role, disabled: r.disabled === true }));
   }
 
   async setMemberRole(projectId: string, userId: string, role: Role): Promise<void> {
