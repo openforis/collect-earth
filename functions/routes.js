@@ -9,42 +9,49 @@ const { landsatSeries } = require("./ee/landsatSeries");
 const { sentinel2Series } = require("./ee/sentinel2Series");
 const { sceneTiles, validateSceneRequest } = require("./ee/scene");
 const { ccdcSeries, validateCcdcRequest } = require("./ee/ccdc");
+const defaultCache = require("./cache");
+
+/** Cache lifetimes in seconds: tile URLs expire on the EE side after ~24 h, series results are stable. */
+const TTL = { tiles: 20 * 3600, series: 30 * 24 * 3600 };
 
 /**
- * Builds a POST handler: parse body, run the optional `validate(body)` hook, auth EE,
- * then run `compute(parsed, eeGeometry, body)`. `validate` runs before eeAuth so that
- * request errors are answered without touching Earth Engine.
+ * Builds a cached POST handler. Order per request:
+ *   1. parsePlotRequest(body) and the optional `validate(body)` hook: a 400 here never reaches the cache or EE;
+ *   2. `extrasOf(body)` -> endpoint-specific parameters, part of the cache key and the third argument of compute;
+ *   3. cache lookup (skipped with `?refresh=1`); on a miss: eeAuth, then `compute(parsed, eeGeometry, extras)`.
+ * `extrasOf` may itself throw a BadRequest (the scene and ccdc validators double as extras builders).
  */
-function plotRoute(compute, validate) {
+function plotRoute(endpoint, ttlSeconds, extrasOf, compute, validate, cache = defaultCache) {
   return asyncHandler(async (req, res) => {
     const parsed = parsePlotRequest(req.body);
     if (validate) validate(req.body);
-    await eeAuth();
-    const geometry = ee.Geometry(parsed.plot);
-    res.json(await compute(parsed, geometry, req.body));
+    const extras = extrasOf ? extrasOf(req.body) : {};
+    const refresh = req.query.refresh === "1";
+    const result = await cache.withCache(endpoint, parsed, extras, ttlSeconds, async () => {
+      await eeAuth();
+      return compute(parsed, ee.Geometry(parsed.plot), extras);
+    }, { refresh });
+    res.json(result);
   });
 }
 
-function registerRoutes(app) {
-  app.post("/api/tiles/sentinel2", plotRoute((p, g) => sentinel2CompositeTiles(g, p.end)));
+/** Registers the API routes; `cache` (an object with `withCache`) defaults to the Firestore-backed one. */
+function registerRoutes(app, { cache = defaultCache } = {}) {
+  const route = (endpoint, ttl, extrasOf, compute, validate) => plotRoute(endpoint, ttl, extrasOf, compute, validate, cache);
+
+  app.post("/api/tiles/sentinel2", route("tiles/sentinel2", TTL.tiles, null, (p, g) => sentinel2CompositeTiles(g, p.end)));
   app.post(
     "/api/tiles/landsat",
-    plotRoute((p, g, body) => landsatCompositeTiles(g, Number(body.year)), (body) => sensorsForYear(Number(body.year)))
+    route("tiles/landsat", TTL.tiles, (b) => ({ year: Number(b.year) }), (p, g, x) => landsatCompositeTiles(g, x.year), (b) => sensorsForYear(Number(b.year)))
   );
-  app.post("/api/series/modis", plotRoute((p, g) => modisSeries(g, p.start, p.end)));
-  app.post("/api/series/landsat", plotRoute((p, g) => landsatSeries(g, p.start, p.end)));
-  app.post("/api/series/sentinel2", plotRoute((p, g) => sentinel2Series(g, p.start, p.end)));
+  app.post("/api/series/modis", route("series/modis", TTL.series, null, (p, g) => modisSeries(g, p.start, p.end)));
+  app.post("/api/series/landsat", route("series/landsat", TTL.series, null, (p, g) => landsatSeries(g, p.start, p.end)));
+  app.post("/api/series/sentinel2", route("series/sentinel2", TTL.series, null, (p, g) => sentinel2Series(g, p.start, p.end)));
   app.post(
     "/api/tiles/scene",
-    plotRoute((p, g, body) => {
-      const { sensor, timeStart } = validateSceneRequest(body);
-      return sceneTiles(g, p.start, p.end, sensor, timeStart);
-    }, validateSceneRequest)
+    route("tiles/scene", TTL.tiles, validateSceneRequest, (p, g, x) => sceneTiles(g, p.start, p.end, x.sensor, x.timeStart))
   );
-  app.post(
-    "/api/ccdc",
-    plotRoute((p, g, body) => ccdcSeries(g, p.start, p.end, validateCcdcRequest(body).band), validateCcdcRequest)
-  );
+  app.post("/api/ccdc", route("ccdc", TTL.series, validateCcdcRequest, (p, g, x) => ccdcSeries(g, p.start, p.end, x.band)));
 }
 
-module.exports = { registerRoutes, plotRoute };
+module.exports = { registerRoutes, plotRoute, TTL };
