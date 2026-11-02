@@ -6,14 +6,9 @@ import org.openforis.collect.earth.ipcc.IPCCLandUses;
 import org.openforis.collect.earth.ipcc.RdbExportException;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
-import org.openforis.collect.earth.app.CollectEarthUtils;
-import org.openforis.collect.earth.app.view.DataFormat;
-import org.openforis.collect.earth.app.view.FileChooserUtils;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
-import org.openforis.collect.earth.ipcc.view.AssignSubdivisionTypesWizard;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.relational.CollectRDBPublisher;
 import org.openforis.collect.relational.CollectRdbException;
@@ -48,39 +43,6 @@ public class IPCCGeneratorService extends GenerateDatabase{
 	IPCCLandUses landUses;
 	
 	final Logger logger = LoggerFactory.getLogger(IPCCGeneratorService.class);
-
-	/**
-	 * The Swing entry (IPCCGeneratorListener): the database, then the wizard that assigns the management types and the
-	 * dialog that asks for the ZIP, then the outputs, which are opened. The pages do the same in two jobs
-	 * (AnalysisService.ipccPrepare and ipccOutputs), with a form between them.
-	 */
-	public void prepareDataForAnalysis(AnalysisProgress progressListener, boolean startSaikuAfterDBExport) throws RdbExportException {
-		prepareDatabase(progressListener);
-		progressListener.hide();
-		try {
-			List<String> attributeNames = new ArrayList<String>();
-			earthSurveyService.getCollectSurvey().getSchema().getFirstRootEntityDefinition().getChildDefinitions()
-					.forEach(nodeDefinition -> attributeNames.add(nodeDefinition.getName()));
-			AssignSubdivisionTypesWizard wizard = new AssignSubdivisionTypesWizard();
-			wizard.initializeTypes(getLandUseSubdivisions(), attributeNames);
-			if (!wizard.isWizardFinished()) {
-				logger.info("The user closed the wizard without finishing assigning management types");
-				return;
-			}
-			File[] exportToFile = FileChooserUtils.getFileChooserResults(DataFormat.GHGI_ZIP_FILE, true, false, "LandUseForGHGi",
-					localPropertiesService, null);
-			if (exportToFile == null || exportToFile.length != 1) {
-				logger.info("The user should choose a ZIP file to export the results to! No file chosen, aborting the rest of the execution");
-				return;
-			}
-			progressListener.show();
-			produceOutputs(wizard.getCountryCode().getCode(), wizard.getRegionAttribute(), exportToFile[0], progressListener);
-			// Open the ZIP file automatically to inspect the output
-			CollectEarthUtils.openFile(exportToFile[0]);
-		} catch (Exception e) {
-			logger.error("Error while generating GHGi tool file ", e); //$NON-NLS-1$
-		}
-	}
 
 	/** The database the package is made from: generated when asked to refresh or when there is none, else restored. */
 	public void prepareDatabase(AnalysisProgress progressListener) throws RdbExportException {

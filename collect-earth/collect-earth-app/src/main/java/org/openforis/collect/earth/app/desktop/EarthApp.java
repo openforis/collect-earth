@@ -1,9 +1,7 @@
 package org.openforis.collect.earth.app.desktop;
 
-import java.awt.HeadlessException;
 import java.awt.Image;
 import java.awt.SplashScreen;
-import java.awt.Window;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -43,23 +41,17 @@ import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
-import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.ShellFolderFallback;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.openforis.collect.earth.app.service.notices.Notice;
 import org.openforis.collect.earth.app.service.notices.NoticeService;
 import org.openforis.collect.earth.app.service.WindowLayoutService;
-import org.openforis.collect.earth.app.view.CollectEarthWindow;
-import org.openforis.collect.earth.app.view.DataFormat;
 import org.openforis.collect.earth.app.view.Messages;
-import org.openforis.collect.earth.app.view.PropertiesDialog;
-import org.openforis.collect.earth.app.view.ShellFolderFallback;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.context.WebApplicationContext;
 
-import com.formdev.flatlaf.FlatIntelliJLaf;
-import com.formdev.flatlaf.FlatLightLaf;
 import com.opencsv.exceptions.CsvValidationException;
 
 import io.sentry.Sentry;
@@ -106,60 +98,6 @@ public class EarthApp {
 	}
 
 	/**
-	 * Initialize SwingX components and UI classes early in the application lifecycle
-	 * to prevent classloading issues that can occur when components are lazily loaded later.
-	 * This pre-loads critical SwingX classes, UI components, and UIManager settings.
-	 */
-	private static void initializeSwingXComponents() {
-		try {
-			// Ensure we're using the correct classloader
-			ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();
-			try {
-				// Set the context classloader to this class's classloader to ensure
-				// proper resolution of SwingX dependencies
-				Thread.currentThread().setContextClassLoader(EarthApp.class.getClassLoader());
-
-				// Pre-load SwingX calendar handler classes to ensure they're available
-				// when date pickers are created later
-				Class.forName("org.jdesktop.swingx.plaf.basic.CalendarHeaderHandler");
-				Class.forName("org.jdesktop.swingx.plaf.basic.SpinningCalendarHeaderHandler");
-				Class.forName("org.jdesktop.swingx.JXDatePicker");
-
-				// Pre-load UI classes that are commonly used and may have classloading issues
-				Class.forName("org.openforis.collect.earth.app.view.Messages");
-				Class.forName("org.openforis.collect.earth.app.view.DataFormat");
-				Class.forName("org.openforis.collect.earth.app.view.JFileChooserExistsAware");
-
-				// Force initialization of DataFormat enum to load Messages resources early
-				// This prevents classloading issues when file choosers are opened later
-				@SuppressWarnings("unused")
-				DataFormat[] formats = DataFormat.values();
-
-				// Set the UIManager property for calendar header handler
-				// This must be done before any JXDatePicker instances are created
-				UIManager.put("CalendarHeaderHandler.uiControllerID",
-						"org.jdesktop.swingx.plaf.basic.SpinningCalendarHeaderHandler");
-
-				System.out.println("UI components pre-loaded successfully");
-			} finally {
-				// Restore original classloader
-				Thread.currentThread().setContextClassLoader(originalClassLoader);
-			}
-		} catch (ClassNotFoundException e) {
-			System.err.println("Warning: Failed to pre-load UI components. " +
-					"Some dialogs may not work correctly.");
-			System.err.println("Error: " + e.getMessage());
-			System.err.println("Missing class: " + e.getMessage());
-			System.err.println("Make sure all required JAR files are in the classpath.");
-			// Don't fail startup - just log the warning
-			// The error handling we added earlier will catch any issues when dialogs open
-		} catch (Exception e) {
-			System.err.println("Unexpected error during UI initialization: " + e.getMessage());
-			e.printStackTrace();
-		}
-	}
-
-	/**
 	 * Start the application, opening Google Earth and starting the Jetty server.
 	 *
 	 * @param args No arguments are used by this method.
@@ -170,9 +108,10 @@ public class EarthApp {
 
 			// collectEarth.userFolder is set in the static block above, before the first logger of this class is created
 
-			FlatLightLaf.setup();
+			// The system's look for the Swing that is left (the file chooser of the pages, the messages shown when there is
+			// no page): a native-looking file dialog on Windows and macOS
 			try {
-				UIManager.setLookAndFeel(new FlatIntelliJLaf());
+				UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 			} catch (Exception ex) {
 				System.err.println("Failed to initialize LaF");
 			}
@@ -181,9 +120,6 @@ public class EarthApp {
 			// OpenForis.org do not return with a 403 http error
 			System.setProperty("http.agent",
 					"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.4; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2");
-
-			// Initialize SwingX components early to prevent classloading issues
-			initializeSwingXComponents();
 
 			initializeSentry();
 			// After Sentry, whose handler it wraps : a file chooser broken by the Windows shell falls back to plain folders
@@ -921,47 +857,6 @@ public class EarthApp {
 				} catch (final Exception e) {
 					logger.error("Error opening {}", what, e); //$NON-NLS-1$
 				}
-			}
-		}.start();
-	}
-
-	public static void executeKmlLoadAsynchronously(Window windowShowingTimer) {
-		new Thread("Load KML in Google Earth") {
-			@Override
-			public void run() {
-				// Only regenerate KML and reload
-				try {
-					SwingUtilities.invokeLater(() -> {
-						if (windowShowingTimer != null) {
-							CollectEarthWindow.startWaiting(windowShowingTimer);
-						}
-					});
-
-					EarthApp.loadKmlInGoogleEarth(true);
-
-				} catch (Exception e) {
-					logger.error("Error loading the KML", e);
-					EarthApp.showMessage("<html>Problems while generating the KML file: <br/> "
-							+ (e.getCause() != null ? (e.getCause() + "<br/>") : "")
-							+ ((e.getMessage() != null && e.getMessage().length() > 300)
-									? e.getMessage().substring(0, 300)
-									: (e.getMessage() != null) ? e.getMessage() : "")
-							+ "</html>"); //$NON-NLS-1$
-				} finally {
-					if (windowShowingTimer != null) {
-						try {
-							SwingUtilities.invokeLater(() -> {
-								CollectEarthWindow.endWaiting(windowShowingTimer);
-								if (windowShowingTimer instanceof PropertiesDialog) {
-									((PropertiesDialog) windowShowingTimer).closeDialog();
-								}
-							});
-						} catch (Exception e2) {
-							logger.error("Error closing Options dialog", e2);
-						}
-					}
-				}
-
 			}
 		}.start();
 	}

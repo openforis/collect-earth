@@ -1,4 +1,4 @@
-package org.openforis.collect.earth.app.view;
+package org.openforis.collect.earth.app.service;
 
 import java.awt.Window;
 import java.io.File;
@@ -35,7 +35,10 @@ public final class ShellFolderFallback {
 	private static final Logger logger = LoggerFactory.getLogger(ShellFolderFallback.class);
 
 	static final String USE_SHELL_FOLDER = "FileChooser.useShellFolder"; //$NON-NLS-1$
-	/** Read by FlatLaf when it builds the chooser : without the shortcuts bar it does not ask the shell for its folders */
+	/**
+	 * Read by the Windows look and feel when it builds the chooser (and by FlatLaf, which Collect Earth used before) : without
+	 * the places bar it does not ask the shell for its folders
+	 */
 	static final String NO_PLACES_BAR = "FileChooser.noPlacesBar"; //$NON-NLS-1$
 
 	private static volatile boolean shellFoldersDisabled = false;

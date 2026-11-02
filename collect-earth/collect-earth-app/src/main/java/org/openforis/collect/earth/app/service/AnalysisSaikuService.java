@@ -13,8 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.swing.SwingUtilities;
-
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.commons.text.StringEscapeUtils;
 import org.openforis.collect.earth.app.EarthConstants;
@@ -454,7 +452,7 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 
 	private void processQuantityData(AnalysisProgress progressListener) {
 
-		SwingUtilities.invokeLater( () ->  progressListener.setMessage("Preparing Saiku data for analysis") );
+		progressListener.setMessage("Preparing Saiku data for analysis");
 
 		progressListener.progressMade(new Progress(0, 100));
 		createPngAluVariables();
@@ -481,7 +479,7 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 
 		assignPngAluToolDimensionValues();
 
-		SwingUtilities.invokeLater( () -> progressListener.setMessage("Calculating expansion factors") );
+		progressListener.setMessage("Calculating expansion factors");
 
 		regionCalculation.handleRegionCalculation( ExportType.SAIKU, rdbExporter.getJdbcTemplate() );
 		progressListener.progressMade(new Progress(100, 100));

@@ -6,7 +6,6 @@ import java.io.IOException;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.ipcc.RdbExportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,8 +80,6 @@ public abstract class GenerateDatabase {
 	protected boolean isUserCancelledOperation() {
 		return userCancelledOperation;
 	}
-
-	public abstract void prepareDataForAnalysis(AnalysisProgress progressListener, boolean startSaikuAfterDBExport) throws RdbExportException;
 
 	protected void replaceZippedProjectDB(ExportType type) throws IOException {
 		if ( getLocalPropertiesService().isUsingSqliteDB()) {

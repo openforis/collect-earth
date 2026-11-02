@@ -1,4 +1,4 @@
-package org.openforis.collect.earth.app.view;
+package org.openforis.collect.earth.app.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -24,7 +24,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.formdev.flatlaf.FlatLightLaf;
 
 class ShellFolderFallbackTest {
 
@@ -62,7 +61,7 @@ class ShellFolderFallbackTest {
 		assertNotSame(PlainFileSystemView.INSTANCE, viewsShown.get(0));
 		assertSame(PlainFileSystemView.INSTANCE, viewsShown.get(1));
 		assertEquals(Boolean.FALSE, chooser.getClientProperty(ShellFolderFallback.USE_SHELL_FOLDER));
-		assertTrue(UIManager.getBoolean(ShellFolderFallback.NO_PLACES_BAR), "FlatLaf would still build its shortcuts bar from the shell");
+		assertTrue(UIManager.getBoolean(ShellFolderFallback.NO_PLACES_BAR), "The Windows look would still build its places bar from the shell");
 	}
 
 	@Test
@@ -159,7 +158,7 @@ class ShellFolderFallbackTest {
 
 	private static boolean containsShortcutsBar(Container container) {
 		for (Component component : container.getComponents()) {
-			if (component.getClass().getName().endsWith("FlatShortcutsPanel")
+			if (component.getClass().getName().endsWith("PlacesBar")
 					|| (component instanceof Container && containsShortcutsBar((Container) component))) {
 				return true;
 			}
@@ -167,15 +166,15 @@ class ShellFolderFallbackTest {
 		return false;
 	}
 
-	// FlatLaf, the look and feel of Collect Earth, builds a bar of shortcuts that it gets from the shell
+	// The system look and feel, which Collect Earth uses, builds on Windows a bar of places that it gets from the shell
 	@Test
-	void withFlatLafTheFallbackRemovesTheShortcutsBar() throws Exception {
+	void withTheSystemLookTheFallbackRemovesThePlacesBar() throws Exception {
 		LookAndFeel original = UIManager.getLookAndFeel();
 		try {
-			UIManager.setLookAndFeel(new FlatLightLaf());
+			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 			JFileChooser chooser = new JFileChooser();
-			// There is a bar only where the system has shortcuts to offer, as Windows does
-			assumeTrue(containsShortcutsBar(chooser), "No shortcuts bar on this system");
+			// There is a bar only where the system has places to offer, as Windows does
+			assumeTrue(containsShortcutsBar(chooser), "No places bar on this system");
 
 			ShellFolderFallback.disableShellFolders(chooser);
 

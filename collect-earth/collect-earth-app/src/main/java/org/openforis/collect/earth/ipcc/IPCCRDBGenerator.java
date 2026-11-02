@@ -1,7 +1,5 @@
 package org.openforis.collect.earth.ipcc;
 
-import javax.swing.SwingUtilities;
-
 import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.RDBExporter;
 import org.openforis.collect.earth.app.service.RDBPostProcessor;
@@ -36,7 +34,7 @@ public class IPCCRDBGenerator  {
 		// return the implementation of a RDBPostProcessor interface (the callback when the initial RDB export is done so that we can add expansion factors )
 		return (progressMonitor) -> {
 			
-			SwingUtilities.invokeLater( () -> progressMonitor.setMessage("Calculating expansion factors") );
+			progressMonitor.setMessage("Calculating expansion factors");
 			progressMonitor.progressMade(new Progress(0, 100));
 			regionCalculation.handleRegionCalculation( ExportType.IPCC, rdbExporter.getJdbcTemplate() );
 			progressMonitor.progressMade(new Progress(100, 100));		

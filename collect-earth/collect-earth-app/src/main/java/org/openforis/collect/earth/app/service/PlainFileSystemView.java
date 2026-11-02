@@ -1,4 +1,4 @@
-package org.openforis.collect.earth.app.view;
+package org.openforis.collect.earth.app.service;
 
 import java.io.File;
 import java.io.IOException;

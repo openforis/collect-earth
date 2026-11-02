@@ -24,7 +24,6 @@ import javax.swing.filechooser.FileSystemView;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
-import org.openforis.collect.earth.app.view.ShellFolderFallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,9 +33,9 @@ import org.springframework.stereotype.Component;
  * The file dialog for the pages, made with Swing's JFileChooser. This is the one Swing class meant to outlive the Swing
  * interface: AWT's FileDialog, the alternative without Swing, cannot choose a folder on Windows.
  * <p>
- * It is set up as the choosers of the Swing interface are (FileChooserUtils): through ShellFolderFallback, which keeps
+ * It is set up as the choosers of the Swing interface were (FileChooserUtils): through ShellFolderFallback, which keeps
  * it working when the Windows shell folders fail, starting in the last folder used, and asking before a file is
- * overwritten. FileChooserUtils itself is not used as it works with a DataFormat, and the pages name extensions.
+ * overwritten.
  * <p>
  * One dialog at a time: a request that comes while one is open is refused (BusyException) rather than queued.
  */

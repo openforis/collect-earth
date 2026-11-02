@@ -1,4 +1,4 @@
-package org.openforis.collect.earth.app.view;
+package org.openforis.collect.earth.app.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

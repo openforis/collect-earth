@@ -11,18 +11,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.swing.JFrame;
-import javax.swing.JOptionPane;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.io.FileUtils;
-import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
-import org.openforis.collect.earth.app.view.DataFormat;
-import org.openforis.collect.earth.app.view.FileChooserUtils;
-import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.io.metadata.collectearth.CollectEarthGridTemplateGenerator;
 import org.openforis.collect.io.metadata.collectearth.CollectEarthProjectFileCreator;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +39,6 @@ public class KmlImportService {
 	@Autowired
 	EarthSurveyService earthSurveyService;
 
-	private JFrame frame;
 
 	/*
 	 *
@@ -184,69 +176,5 @@ public class KmlImportService {
 	public File extractPointsToCsv(File kmlFile) throws ParserConfigurationException, SAXException, IOException {
 		return createTempCsv(kmlFile);
 	}
-
-	public boolean prompToOpenKml( JFrame frame) throws ParserConfigurationException, SAXException, IOException{
-		this.frame = frame;
-		// Choose the file in the file system
-		File kmlFile = chooseKmlFile();
-		boolean kmlImported = false;
-		if( kmlFile != null ){
-			kmlImported = loadFromKml(frame, kmlFile);
-		}
-
-		return kmlImported;
-	}
-
-
-	public boolean loadFromKml( JFrame frame, File kmlFile) throws ParserConfigurationException, SAXException, IOException{
-
-			// Convert the KML into a CSV and save it into a temporary file
-			File convertedCsvFile = createTempCsv( kmlFile );
-
-			JOptionPane.showMessageDialog(frame, Messages.getString("KmlImportService.13")); //$NON-NLS-1$
-
-			// Move the temporary file to the current project folder
-			//File finalCsvFile = moveCsvToProjectFolder(convertedCsvFile, kmlFile.getName());
-			File finalCsvFile = selectAndSaveToCsv(convertedCsvFile, kmlFile.getName());
-
-			boolean loaded = false;
-			if( finalCsvFile != null ){
-				// Load the plots from the CSV
-				localPropertiesService.setValue(EarthProperty.SAMPLE_FILE, finalCsvFile.getAbsolutePath());
-				loaded = true;
-			}
-
-			return loaded;
-	}
-
-	private File selectAndSaveToCsv(File convertedCsvFile, String name) throws IOException {
-		final File[] saveToCsvFile = FileChooserUtils.getFileChooserResults(DataFormat.COLLECT_COORDS, true, false, "importedFromKml_" + name + ".csv", //$NON-NLS-1$ //$NON-NLS-2$
-				localPropertiesService, frame);
-
-		if( saveToCsvFile != null && saveToCsvFile.length == 1 ){
-			FileUtils.copyFile( convertedCsvFile, saveToCsvFile[0]);
-			return saveToCsvFile[0];
-		}else {
-			return null;
-		}
-	}
-
-/*	private File moveCsvToProjectFolder(File convertedCsvFile, String originalKmlFilename) throws IOException {
-		File destination = new File( earthProjectsService.getProjectsFolder() + File.separator + "generatedFromKml_" + originalKmlFilename + ".ced");
-		FileUtils.copyFile( convertedCsvFile, destination);
-		return destination;
-	}*/
-
-	private File chooseKmlFile() {
-		final File[] selectedPlotFiles = FileChooserUtils.getFileChooserResults(DataFormat.KML_FILE, false, false, null,
-				localPropertiesService, frame);
-
-		if( selectedPlotFiles != null && selectedPlotFiles.length == 1 ){
-			return selectedPlotFiles[0];
-		}else {
-			return null;
-		}
-	}
-
 
 }

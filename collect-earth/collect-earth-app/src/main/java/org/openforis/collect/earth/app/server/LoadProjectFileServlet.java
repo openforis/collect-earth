@@ -9,7 +9,6 @@ import java.util.Locale;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.swing.SwingUtilities;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.desktop.EarthApp;
@@ -70,11 +69,11 @@ public class LoadProjectFileServlet {
 			return;
 		}
 
-		// The project is loaded later, in the Swing thread, when this request is already finished and its response object may have been
-		// recycled by Jetty. So answer now ( 202 Accepted ) and do not touch the response from the deferred task
+		// The project is loaded later, on a thread of its own, when this request is already finished and its response object may have
+		// been recycled by Jetty. So answer now ( 202 Accepted ) and do not touch the response from the deferred task
 		response.setStatus(HttpServletResponse.SC_ACCEPTED);
 
-		SwingUtilities.invokeLater(() -> {
+		Thread loading = new Thread(() -> {
 			try {
 				if (earthProjectsService.loadCompressedProjectFile(projectZipFile)) {
 					localPropertiesService.nullifyChecksumValues();
@@ -92,7 +91,9 @@ public class LoadProjectFileServlet {
 			} catch (IllegalArgumentException | IOException e) {
 				logger.error("Error loading the project file " + projectFilePath, e); //$NON-NLS-1$
 			}
-		});
+		}, "Load the double-clicked project file"); //$NON-NLS-1$
+		loading.setDaemon(true);
+		loading.start();
 
 	}
 
