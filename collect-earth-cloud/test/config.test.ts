@@ -47,6 +47,9 @@ describe('MAP_TILE_URL and the map tiles', () => {
     expect(() => loadConfig({ MAP_TILE_URL: 'https://t.example.org/{z}/{x}/{y}.png' })).toThrow(/MAP_TILE_ATTRIBUTION/);
     expect(() => loadConfig({ MAP_TILE_URL: 'https://t.example.org/{z}/{x}/{y}.png', ...attribution, MAP_TILE_ATTRIBUTION_URL: 'ftp://x' })).toThrow(/MAP_TILE_ATTRIBUTION_URL/);
     expect(() => loadConfig({ MAP_TILE_URL: 'https://t.example.org/{z}/{x}/{y}.png', ...attribution, MAP_TILE_MAX_ZOOM: '30' })).toThrow(/MAP_TILE_MAX_ZOOM/);
+    // Only Leaflet's placeholders: {z}, {x}, {y}, {-y}, {s}, {r}.
+    expect(() => loadConfig({ MAP_TILE_URL: 'https://t.example.org/{z}/{x}/{y}.png?key={apikey}', ...attribution })).toThrow(/MAP_TILE_URL/);
+    expect(loadConfig({ MAP_TILE_URL: 'https://{s}.t.example.org/{z}/{x}/{-y}{r}.png?y={y}', ...attribution }).mapTiles?.url).toBe('https://{s}.t.example.org/{z}/{x}/{-y}{r}.png?y={y}');
     // An attribution alone changes nothing that is not set.
     expect(() => loadConfig({ MAP_TILE_ATTRIBUTION: 'A' })).toThrow(/MAP_TILE_URL/);
   });

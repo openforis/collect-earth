@@ -63,7 +63,9 @@ describe("map of progress", () => {
 
   it("a plot's popup: its id, status, its people for coordinators, and its page", () => {
     const m = map();
-    expect(plotPopup(m, 1, "p 1")).toEqual({ plot: "2", status: "submitted", people: ["ana", "ben"], path: "/projects/p%201/quality/plot/2" });
+    expect(plotPopup(m, 1, "p 1")).toEqual({ plot: "2", label: "2", status: "submitted", people: ["ana", "ben"], path: "/projects/p%201/quality/plot/2" });
+    // The id the collector sees, as plot search lists it.
+    expect(plotPopup({ ...m, plots: ["1,2025"], names: ["1"] }, 0, "p")).toMatchObject({ plot: "1,2025", label: "1,2025 (1)", path: "/projects/p/quality/plot/1%2C2025" });
     expect(plotPopup(m, 2, "p")).toMatchObject({ plot: "3", status: "differs", people: [] });
     const reviewer = { ...m, people: null, holders: null };
     expect(plotPopup(reviewer, 0, "p").people).toBeNull();

@@ -445,6 +445,7 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   [NETWORK_ERROR]: "error.network",
   invalid_credentials: "error.invalidCredentials",
   own_plot: "quality.ownPlot",
+  map_changed: "map.changed",
   wrong_password: "error.wrongPassword",
   username_taken: "error.usernameTaken",
   signup_closed: "error.signupClosed",
@@ -2700,7 +2701,7 @@ export async function getPlotPage(projectId: string, plot: string): Promise<Plot
 // --- map of progress (Task 9) -------------------------------------------------------
 
 /** A plot's status on the map, in the server's order of status codes. */
-export const MAP_STATUSES = ["notStarted", "started", "submitted", "accepted", "recheck", "differs"] as const;
+export const MAP_STATUSES = ["notStarted", "started", "submitted", "accepted", "recheck", "differs", "resubmitted"] as const;
 export type MapStatus = (typeof MAP_STATUSES)[number];
 
 export interface MapFile {
@@ -2723,6 +2724,8 @@ export interface MapPlots {
   /** Index in `holders`; -1 for nobody (always for a reviewer). */
   holder: Int32Array;
   plots: string[];
+  /** The id the collector sees of each plot (as plot search lists it); null when it is the plot id. */
+  names: string[] | null;
   /** Plots per status, those off the map included. */
   counts: Record<MapStatus, number>;
   notOnMap: number;
@@ -2743,7 +2746,7 @@ export interface MapFilters {
   person?: string | null;
 }
 
-/** Times a map is read again from the start when it changed between its pages. */
+/** Times a map is read again from the start when the server no longer has it between its pages. */
 const MAP_RESTARTS = 3;
 
 /** One page of GET /map/plots, added to the map being read (made on the first page). */
@@ -2767,6 +2770,7 @@ export function addMapPage(map: MapPlots | null, body: unknown): MapPlots {
       status: new Uint8Array(total),
       holder: new Int32Array(total).fill(-1),
       plots: new Array<string>(total).fill(""),
+      names: Array.isArray(b.names) ? new Array<string>(total).fill("") : null,
       counts,
       notOnMap: Number(b.notOnMap) || 0,
       files: list(b.files).map((f) => ({ id: text(f.id), filename: text(f.filename), plots: Number(f.plots) || 0, onMap: Number(f.onMap) || 0 })),
@@ -2780,6 +2784,7 @@ export function addMapPage(map: MapPlots | null, body: unknown): MapPlots {
   const offset = Math.max(0, Math.floor(Number(b.offset) || 0));
   const points: unknown[] = Array.isArray(b.points) ? b.points : [];
   const plots: unknown[] = Array.isArray(b.plots) ? b.plots : [];
+  const visible: unknown[] | null = Array.isArray(b.names) ? b.names : null;
   const holders = map.holders?.length ?? 0;
   for (let i = 0; i < points.length && offset + i < map.total; i++) {
     const point = Array.isArray(points[i]) ? (points[i] as unknown[]) : [];
@@ -2790,14 +2795,18 @@ export function addMapPage(map: MapPlots | null, body: unknown): MapPlots {
     const holder = Number(point[3]);
     map.holder[at] = Number.isInteger(holder) && holder >= 0 && holder < holders ? holder : -1;
     map.plots[at] = typeof plots[i] === "string" ? (plots[i] as string) : "";
+    if (map.names) map.names[at] = visible && typeof visible[i] === "string" ? (visible[i] as string) : map.plots[at];
   }
   return map;
 }
 
 /**
  * Every plot on the map (coordinators and reviewers), read page by page (20,000 a page);
- * `onProgress` says how many are read. A map that changed between its pages (its version)
- * is read again from the start. `stopped()` true stops reading (the page was left).
+ * `onProgress` says how many are read. The server builds a map on its first page and serves
+ * the next ones from that build (`version`), so the pages agree; when it no longer has it
+ * (409 map_changed), the map is read again from the start, at most MAP_RESTARTS times, then
+ * that error is thrown: a map is never returned in part. `stopped()` true stops reading (the
+ * page was left; what was read is returned and must not be shown).
  */
 export async function getMapPlots(
   projectId: string,
@@ -2813,8 +2822,18 @@ export async function getMapPlots(
       const query = new URLSearchParams({ offset: String(offset) });
       if (filters.file) query.set("file", filters.file);
       if (filters.person) query.set("person", filters.person);
-      const body = obj(await request<unknown>("GET", `${p(projectId)}/map/plots?${query.toString()}`));
+      if (map !== null) query.set("version", map.version);
+      let body: Record<string, unknown>;
+      try {
+        body = obj(await request<unknown>("GET", `${p(projectId)}/map/plots?${query.toString()}`));
+      } catch (error) {
+        if (!(error instanceof ApiError && error.code === "map_changed") || attempt >= MAP_RESTARTS) throw error;
+        changed = true;
+        break;
+      }
       if (map !== null && text(body.version) !== map.version) {
+        // A server that does not know versions: a map that changed is read again.
+        if (attempt >= MAP_RESTARTS) throw new ApiError(409, "map_changed");
         changed = true;
         break;
       }
@@ -2824,6 +2843,6 @@ export async function getMapPlots(
       onProgress?.(offset ?? map.total, map.total);
       if (stopped()) return map;
     }
-    if (!changed || attempt >= MAP_RESTARTS) return map!;
+    if (!changed) return map!;
   }
 }

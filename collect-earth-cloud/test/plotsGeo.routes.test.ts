@@ -14,6 +14,7 @@ interface GeoBody {
   next: number | null;
   points: [number, number, number, number][];
   plots: string[];
+  names: string[] | null;
   statuses: string[];
   counts: number[];
   notOnMap: number;
@@ -116,7 +117,8 @@ describe('map of progress: GET /map/plots', () => {
     expect(statusOf(body, '11')).toBe(S.notStarted);
     // No figures at hand: no disagreement yet, and the answer says so.
     expect(body.figures).toBeNull();
-    expect(body.counts).toEqual([115, 1, 5, 0, 0, 0]);
+    expect(body.counts).toEqual([115, 1, 5, 0, 0, 0, 0]);
+    expect(body.names).toBeNull();
     expect(body.notOnMap).toBe(1);
     expect(body.files).toEqual([
       { id: plotsFile, filename: 'plots.csv', plots: 120, onMap: 119 },
@@ -136,7 +138,15 @@ describe('map of progress: GET /map/plots', () => {
     body = await geo('');
     expect(statusOf(body, '1')).toBe(S.recheck);
     expect(statusOf(body, '2')).toBe(S.accepted);
-    expect(body.counts).toEqual([115, 1, 3, 1, 1, 0]);
+    expect(body.counts).toEqual([115, 1, 3, 1, 1, 0, 0]);
+
+    // Plot 1 submitted again after "both need another look" (the review queue's rule, from the figures).
+    const again = await batchRequest(ctx.app, pid, projectToken, [main(1, 'maria', 'C', { modifiedOn: Date.now() + 1000 })]);
+    expect(again.statusCode, again.body).toBe(200);
+    await figures();
+    body = await geo('');
+    expect(statusOf(body, '1')).toBe(S.resubmitted);
+    expect(body.counts).toEqual([115, 1, 3, 1, 0, 0, 1]);
   });
 
   it('pages: each plot once across the pages, with the same version, at most GEO_PAGE_SIZE a page', async () => {
@@ -144,8 +154,11 @@ describe('map of progress: GET /map/plots', () => {
     const versions = new Set<string>();
     let offset: number | null = 0;
     let pages = 0;
+    let version = '';
     while (offset !== null) {
-      const body = await geo(`?size=50&offset=${offset}`);
+      // Pages after the first name the map they belong to.
+      const body = await geo(`?size=50&offset=${offset}${version ? `&version=${version}` : ''}`);
+      version = body.version;
       expect(body.offset).toBe(offset);
       expect(body.points).toHaveLength(body.plots.length);
       seen.push(...body.plots);
@@ -164,6 +177,58 @@ describe('map of progress: GET /map/plots', () => {
     for (const bad of ['?offset=-1', '?offset=1.5', '?offset=x', '?size=0', '?size=x', `?file=${'x'.repeat(1001)}`, '?file=nope']) {
       expect((await call('GET', `/map/plots${bad}`, owner.token)).statusCode, bad).toBe(400);
     }
+  });
+
+  it('serves pages 2..n from one build: decisions made meanwhile do not change them, an unknown or expired map is a 409', async () => {
+    let reads = 0;
+    const getCsvFile = ctx.store.getCsvFile.bind(ctx.store);
+    ctx.store.getCsvFile = async (...args) => {
+      reads += 1;
+      return getCsvFile(...args);
+    };
+    const first = await geo('?size=50');
+    const afterFirst = reads;
+    expect((await call('PUT', '/quality/decisions/60', owner.token, { decision: 'first' })).statusCode).toBe(200);
+    const second = await geo(`?size=50&offset=50&version=${first.version}`);
+    // The same build: the counts of the first page, no plot file read again.
+    expect(second.counts).toEqual(first.counts);
+    expect(second.version).toBe(first.version);
+    expect(reads).toBe(afterFirst);
+    // A new map (offset 0, no version) is built again, its places kept while the files stay the same.
+    const fresh = await geo('?size=50');
+    expect(fresh.version).not.toBe(first.version);
+    expect(reads).toBe(afterFirst);
+    // A map this server does not have (expired, another instance): 409, read it again from the start.
+    const gone = await call('GET', '/map/plots?offset=50&version=nope', owner.token);
+    expect(gone.statusCode).toBe(409);
+    expect(gone.json()).toMatchObject({ error: 'map_changed' });
+    // Another person's or another filter's map is not this one.
+    expect((await call('GET', `/map/plots?offset=50&version=${first.version}&person=ben`, owner.token)).statusCode).toBe(409);
+    expect((await call('GET', `/map/plots?offset=50&version=${first.version}`, rita.token)).statusCode).toBe(409);
+  });
+
+  it("reads many plot files at once and keeps each project's places apart", async () => {
+    for (let f = 0; f < 12; f++) {
+      const rows = Array.from({ length: 30 }, (_, i) => `F${f}-${i},${f},${i / 10}`);
+      expect((await call('PUT', `/csv-files/f${f}.csv`, owner.token, ['id,lat,lon', ...rows].join('\n'), { 'content-type': 'text/csv' })).statusCode).toBe(201);
+    }
+    const body = await geo('');
+    expect(body.files).toHaveLength(14);
+    // 119 placed plots of plots.csv, 200 of south.csv, 30 in each new file.
+    expect(body.total).toBe(119 + 1 + 12 * 30);
+    let reads = 0;
+    const getCsvFile = ctx.store.getCsvFile.bind(ctx.store);
+    ctx.store.getCsvFile = async (...args) => {
+      reads += 1;
+      return getCsvFile(...args);
+    };
+    // Another project's map does not push this one's places out.
+    const other = await createProject(ctx.app, 'Other');
+    await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${other.projectId}/csv-files/o.csv`, headers: { ...bearer(other.adminToken), 'content-type': 'text/csv' }, payload: 'id,lat,lon\n1,1,1' });
+    expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${other.projectId}/map/plots`, headers: bearer(other.adminToken) })).json().total).toBe(1);
+    reads = 0;
+    expect((await geo('')).total).toBe(body.total);
+    expect(reads).toBe(0);
   });
 
   it('filters by plot file and by person; the version changes with the filters', async () => {

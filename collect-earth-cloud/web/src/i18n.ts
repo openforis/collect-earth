@@ -1210,7 +1210,7 @@ const en = {
   "map.openPlot": "Open the plot’s page",
   "map.status.notStarted": "Not started",
   "map.status.started": "Started (saved, not submitted)",
-  "map.status.submitted": "Submitted",
+  "map.status.submitted": "Submitted, no decision",
   "map.status.accepted": "Accepted (decided)",
   "map.status.recheck": "Needs another look",
   "map.status.differs": "Disagreement (differs from a check, not decided)",
@@ -1220,6 +1220,11 @@ const en = {
   "map.drawn.accepted": "Green dot, larger",
   "map.drawn.recheck": "Pink dot with a thick border",
   "map.drawn.differs": "Red, the largest, with a thick dashed border",
+  "map.changed": "The map changed while it was being read. Load it again.",
+  "map.status.resubmitted": "Submitted again, waiting for a look",
+  "map.drawn.resubmitted": "Light blue dot with a thick dotted border",
+  "map.placingStart": "Placing the plots on the map…",
+  "map.submittedNote": "Submitted with no decision, accepted, needs another look, submitted again and disagreement together are the plots the Progress tab counts as submitted.",
 };
 
 export type MessageKey = keyof typeof en;
@@ -2430,7 +2435,7 @@ const es: Catalogue = {
   "map.openPlot": "Abrir la página de la parcela",
   "map.status.notStarted": "Sin empezar",
   "map.status.started": "Empezada (guardada, sin enviar)",
-  "map.status.submitted": "Enviada",
+  "map.status.submitted": "Enviada, sin decisión",
   "map.status.accepted": "Aceptada (decidida)",
   "map.status.recheck": "Hay que mirarla otra vez",
   "map.status.differs": "Desacuerdo (difiere de un control, sin decidir)",
@@ -2440,6 +2445,11 @@ const es: Catalogue = {
   "map.drawn.accepted": "Punto verde, más grande",
   "map.drawn.recheck": "Punto rosa con borde grueso",
   "map.drawn.differs": "Rojo, el más grande, con borde grueso discontinuo",
+  "map.changed": "El mapa cambió mientras se cargaba. Cárguelo de nuevo.",
+  "map.status.resubmitted": "Enviada otra vez, esperando una revisión",
+  "map.drawn.resubmitted": "Punto celeste con borde grueso punteado",
+  "map.placingStart": "Colocando las parcelas en el mapa…",
+  "map.submittedNote": "Enviada sin decisión, aceptada, hay que mirarla otra vez, enviada otra vez y desacuerdo suman las parcelas que la pestaña Avance cuenta como enviadas.",
 };
 
 const fr: Catalogue = {
@@ -3647,7 +3657,7 @@ const fr: Catalogue = {
   "map.openPlot": "Ouvrir la page de la parcelle",
   "map.status.notStarted": "Pas commencée",
   "map.status.started": "Commencée (enregistrée, pas envoyée)",
-  "map.status.submitted": "Envoyée",
+  "map.status.submitted": "Envoyée, sans décision",
   "map.status.accepted": "Acceptée (décidée)",
   "map.status.recheck": "À revoir",
   "map.status.differs": "Désaccord (diffère d’un contrôle, pas décidé)",
@@ -3657,6 +3667,11 @@ const fr: Catalogue = {
   "map.drawn.accepted": "Point vert, plus grand",
   "map.drawn.recheck": "Point rose à bord épais",
   "map.drawn.differs": "Rouge, le plus grand, à bord épais en tirets",
+  "map.changed": "La carte a changé pendant son chargement. Rechargez-la.",
+  "map.status.resubmitted": "Envoyée à nouveau, en attente d’un regard",
+  "map.drawn.resubmitted": "Point bleu clair à bord épais en pointillés",
+  "map.placingStart": "Placement des parcelles sur la carte…",
+  "map.submittedNote": "Envoyée sans décision, acceptée, à revoir, envoyée à nouveau et désaccord font ensemble les parcelles que l’onglet Avancement compte comme envoyées.",
 };
 
 const pt: Catalogue = {
@@ -4864,7 +4879,7 @@ const pt: Catalogue = {
   "map.openPlot": "Abrir a página da parcela",
   "map.status.notStarted": "Não começada",
   "map.status.started": "Começada (salva, não enviada)",
-  "map.status.submitted": "Enviada",
+  "map.status.submitted": "Enviada, sem decisão",
   "map.status.accepted": "Aceita (decidida)",
   "map.status.recheck": "Precisa de outra olhada",
   "map.status.differs": "Desacordo (difere de um controle, sem decisão)",
@@ -4874,6 +4889,11 @@ const pt: Catalogue = {
   "map.drawn.accepted": "Ponto verde, maior",
   "map.drawn.recheck": "Ponto rosa com borda grossa",
   "map.drawn.differs": "Vermelho, o maior, com borda grossa tracejada",
+  "map.changed": "O mapa mudou enquanto era carregado. Carregue-o de novo.",
+  "map.status.resubmitted": "Enviada de novo, esperando uma olhada",
+  "map.drawn.resubmitted": "Ponto azul-claro com borda grossa pontilhada",
+  "map.placingStart": "Colocando as parcelas no mapa…",
+  "map.submittedNote": "Enviada sem decisão, aceita, precisa de outra olhada, enviada de novo e desacordo somam as parcelas que a aba Andamento conta como enviadas.",
 };
 
 export const CATALOGUES = { en, es, fr, pt } satisfies Record<string, Catalogue>;

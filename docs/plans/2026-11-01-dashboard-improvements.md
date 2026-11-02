@@ -71,6 +71,11 @@ desktop.
    files are named only (no main holders, copies or whole-file assignment lists), no deleted
    records, no time the server received each record; drafts stay (they are the queue's
    material). They decide from the page under the same rules. Coordinators see everything.
+   **Map (Task 9):** reviewers see every plot's place and status, but no names: no person
+   filter, no holders in the answer or the popups. What can still be inferred: a plot file
+   divided by area shows where each block is, and the plot page (above) names who made each
+   record, so a reviewer who opens plots one by one can work out whose they are, as plot
+   search already allows.
 4. **Collectors are told** on the join page and on "My work" that coordinators see
    when and how much they work (as the monitoring plan says).
 5. **Email** is built behind a transport that is off unless SMTP is configured; the
@@ -1587,6 +1592,60 @@ excluded.
   (no SQL added: the state and the places are the cached reads the Progress tab and plot search
   already make); checks' copies and plots in no plot file are not on the map; the per-status
   counts follow the filters, while the file list and person menu stay whole.
+
+- **Review (after c7e165b8; supersedes the above where it says so):**
+  - **One build per map, pages are its slices:** the first page (no `version`) builds the map
+    and answers its `version` (a build id); the next pages send `?version=` and are served from
+    that build (kept `GEO_BUILD_TTL_MS` 2 min, `MAX_GEO_BUILDS` 8, least recently used out), so
+    decisions or records arriving meanwhile change no page of it. A build the server no longer has
+    (expired, pushed out, another instance), or asked with other filters or another role, is 409
+    `map_changed`. `getMapPlots` then reads the map again from the start, at most 3 times, and
+    then throws that error ("The map changed while it was being read. Load it again."): a map is
+    never returned in part (api test where every later page is a 409).
+  - **Places per project, not through `PlotPlaceReader`'s shared cache** (which kept 8 files /
+    250,000 places across all projects, so 9+ files or a big project made every page read the
+    files again and pushed other projects out): `GeoPlaces` keeps each project's places of every
+    plot file under its files' ids and checksums and the key count (4 projects), reading the files
+    in parallel (`placesOfPlotFile`, now shared with the reader); a file that cannot be read is not
+    kept. Route tests: 12 more files, pages 2..n read no file, a new map with the same files reads
+    none, another project's map does not push this one out.
+  - **Placing stops when the map goes:** markercluster's chunked loading cannot be stopped once
+    started, so the plots are handed to the group 10,000 at a time (`PLACE_SLICE`), the next slice
+    only when the last is placed and the map is still shown; leaving the tab or changing the map
+    stops at the next slice. While plots are read or placed the filters, "Load again" and the status
+    switches are disabled. Checked in Chrome by counting `addLayers` calls: leaving the tab after
+    two slices, no further call and no long task. The first empty step markercluster reports when
+    the group is added to the map is ignored.
+  - **Tiles:** the map is made again only when the URL, attribution, its link or the zoom change,
+    and `ready` is reset when it is removed. `MAP_TILE_URL` may hold only Leaflet's placeholders
+    `{z} {x} {y} {-y} {s} {r}` (an unknown one such as `{apikey}` stops the boot).
+  - **Submitted again:** a plot decided "both need another look" and submitted again since, by the
+    review queue's rule (`resubmittedAfterRecheck` on the figures at hand), is status 6 "Submitted
+    again, waiting for a look" (light blue, thick dotted border); without figures it stays "Needs
+    another look". "Submitted" is now "Submitted, no decision", and a note under the table says that
+    it, accepted, needs another look, submitted again and disagreement together are the Progress
+    tab's submitted.
+  - **Popups** show the plot as plot search lists it (`17,2025 (17)` when the collector sees
+    another id): the answer has `names` (the visible ids) only when one differs from its plot id.
+  - **Announcements:** the live line says "Placing the plots on the map…" once and the result once;
+    the running count beside it is not read out.
+  - **Decision 3** has a note on what reviewers can still infer from the map. **DEPLOY.md** Known
+    limitations: no CSP header; with one, `img-src` must allow the tile host and `style-src` inline
+    styles.
+  - **Tests:** server 875 (was 872: route 2 — one build across pages with a decision made between
+    them, the 409s, 12 files read once and kept apart from another project; the resubmitted status
+    through the route; pure: resubmitted and names; config: placeholders), web 286 (was 285: the
+    map never in part; 409 restart, names, the popup label), tsc clean in both, web build ok.
+  - **Timings** (memory store, 100,000 plots in **12 plot files**, 47,000 records): first page cold
+    384 ms, a new map warm 123 ms, next pages 10-55 ms. **Chrome:** every plot placed 1.03 s after
+    opening the tab, longest task 144 ms, heap 101 MB; hiding "Not started" (45,000 left) 333 ms;
+    the switches disabled while placing and enabled after; no console errors. Seeded server
+    stopped, port free.
+  - **Open (added):** decisions made between two maps (or within a build's 2 minutes, on its later
+    pages) are not on that map: its counts can differ slightly from the Quality tab until "Load
+    again". In a route test, a plot sent again with other answers but a `modifiedOn` before the
+    decision was not counted as submitted again by the queue's rule either (the test now saves after
+    the decision); worth a look in Task 7's `savedAgain`.
 
 ### Task 10: Activity log, weekly summary, CSV downloads (monitoring Phase 6, no email)
 

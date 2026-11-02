@@ -532,6 +532,10 @@ container's memory: the whole container would run out first and restart.
   not available.
 - **Personal reports name no one,** but when a single person checks a collector's
   plots, the collector can tell who that is.
+- **No Content-Security-Policy header** is sent by the server. If you add one (in a proxy
+  in front of it), `img-src` must allow the map's tile host (`tile.openstreetmap.org`, or the
+  host of `MAP_TILE_URL`) and `style-src` must allow inline styles, which Leaflet and the
+  dashboard's components set.
 - **AI limits are per project** and checked before a run starts, so the server's
   monthly total can reach the limit times the number of projects, plus one run each.
 

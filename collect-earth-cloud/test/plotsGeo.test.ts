@@ -57,6 +57,9 @@ describe('plotsGeo: the map of progress', () => {
     // Without figures, no "differs"; decisions still count (they are kept by the server).
     expect(geoStatus('d', p, decisions, null)).toBe(S.submitted);
     expect(geoStatus('c', p, decisions, null)).toBe(S.recheck);
+    // Decided "both need another look" and submitted again since (from the figures at hand).
+    expect(geoStatus('c', p, decisions, differing, new Set(['c', 'a']))).toBe(S.resubmitted);
+    expect(geoStatus('a', p, decisions, differing, new Set(['c', 'a']))).toBe(S.accepted);
     // A decision on a plot whose first assessment is no longer submitted (taken back to edit): its own state.
     expect(geoStatus('s', p, new Map([['s', 'recheck']]), differing)).toBe(S.started);
   });
@@ -72,7 +75,7 @@ describe('plotsGeo: the map of progress', () => {
     expect(map.holders).toEqual([['maria'], ['ana', 'maria'], ['ana']]);
     expect(map.holder).toEqual([0, 0, 1, 2, -1, -1, -1]);
     // Plot 7 has no place: counted, not on the map.
-    expect(map.counts).toEqual([3, 1, 1, 1, 1, 1]);
+    expect(map.counts).toEqual([3, 1, 1, 1, 1, 1, 0]);
     expect(map.notOnMap).toBe(1);
     expect(map.files).toEqual([
       { id: 'f1', filename: 'north.csv', plots: 7, onMap: 6 },
@@ -84,7 +87,7 @@ describe('plotsGeo: the map of progress', () => {
     const south = plotsGeo(input({ file: 'f2' }));
     expect(south.plots).toEqual(['1', '8']);
     expect(south.lat).toEqual([-1, 8.123457]);
-    expect(south.counts).toEqual([2, 0, 0, 0, 0, 0]);
+    expect(south.counts).toEqual([2, 0, 0, 0, 0, 0, 0]);
     // The files list and the person menu stay whole.
     expect(south.files).toHaveLength(2);
     expect(south.people).toEqual(['ana', 'ben', 'maria']);
@@ -94,6 +97,15 @@ describe('plotsGeo: the map of progress', () => {
     expect(plotsGeo(input({ person: 'ana' })).plots).toEqual(['3', '4']);
     expect(plotsGeo(input({ person: 'maria', file: 'f2' })).plots).toEqual(['1']);
     expect(plotsGeo(input({ person: 'nobody' })).plots).toEqual([]);
+  });
+
+  it('gives the id the collector sees when it is not the plot id', () => {
+    const map = plotsGeo(input({ nameOf: (u) => `#${u}` }));
+    expect(map.names).toEqual(['#1', '#2', '#3', '#4', '#5', '#6', '#8']);
+    expect(geoPage(map, 1, 2).names).toEqual(['#2', '#3']);
+    expect(plotsGeo(input()).names).toBeNull();
+    // The same as the plot ids: none sent.
+    expect(plotsGeo(input({ nameOf: (u) => u })).names).toBeNull();
   });
 
   it('names nobody for a reviewer', () => {
@@ -127,11 +139,12 @@ describe('plotsGeo: the map of progress', () => {
         [3, 30, S.accepted, 1],
       ],
       plots: ['1', '2', '3'],
+      names: null,
       next: 3,
     });
     const last = geoPage(map, 6, 3);
-    expect(last).toEqual({ points: [[8.123457, 80.765432, S.notStarted, -1]], plots: ['8'], next: null });
-    expect(geoPage(map, 7, 3)).toEqual({ points: [], plots: [], next: null });
+    expect(last).toEqual({ points: [[8.123457, 80.765432, S.notStarted, -1]], plots: ['8'], names: null, next: null });
+    expect(geoPage(map, 7, 3)).toEqual({ points: [], plots: [], names: null, next: null });
   });
 
   it('builds 100,000 plots quickly', () => {
@@ -150,7 +163,7 @@ describe('plotsGeo: the map of progress', () => {
     }
     const ms = performance.now() - t;
     expect(pages).toHaveLength(5);
-    expect(map.counts).toEqual([40_000, 10_000, 49_997, 1, 1, 1]);
+    expect(map.counts).toEqual([40_000, 10_000, 49_997, 1, 1, 1, 0]);
     expect(ms).toBeLessThan(1500);
   });
 });

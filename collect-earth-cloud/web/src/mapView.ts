@@ -1,5 +1,6 @@
 import { MAP_STATUSES, type MapFile, type MapPlots, type MapStatus, type MapTiles } from "./api";
 import type { MessageKey } from "./i18n";
+import { matchLabel } from "./plotView";
 import { pathFor } from "./router";
 
 /** From this many plots shown, nearby plots are grouped into numbered circles (leaflet.markercluster). */
@@ -29,6 +30,8 @@ export const STATUS_STYLE: Record<MapStatus, StatusStyle> = {
   recheck: { color: "#CC79A7", fillOpacity: 0.85, weight: 3, radius: 6 },
   // A larger ring with a thick dashed outline.
   differs: { color: "#D55E00", fillOpacity: 0.5, weight: 3, dashArray: "4 2", radius: 7 },
+  // A full dot with a thick dotted outline.
+  resubmitted: { color: "#56B4E9", fillOpacity: 0.85, weight: 3, dashArray: "2 2", radius: 6 },
 };
 
 export function statusLabelKey(status: MapStatus): MessageKey {
@@ -82,6 +85,8 @@ export function boundsOf(map: MapPlots, indexes: Uint32Array): [[number, number]
 
 export interface PlotPopup {
   plot: string;
+  /** The plot as plot search lists it: its id, and the id the collector sees when that is another. */
+  label: string;
   status: MapStatus;
   /** Who holds it (coordinators; empty for nobody); null for a reviewer. */
   people: string[] | null;
@@ -95,6 +100,7 @@ export function plotPopup(map: MapPlots, index: number, projectId: string): Plot
   const holder = map.holder[index];
   return {
     plot,
+    label: matchLabel({ plot, name: map.names?.[index] || plot }),
     status: MAP_STATUSES[map.status[index]] ?? "notStarted",
     people: map.holders === null ? null : holder >= 0 ? (map.holders[holder] ?? []) : [],
     path: pathFor({ name: "plot", projectId, plot }),

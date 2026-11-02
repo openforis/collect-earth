@@ -72,9 +72,28 @@ export function firstSrid(idmXml: string): string {
 }
 
 /** The places of one plot file, and whether its rows hold polygons. */
-interface FilePlaces {
+export interface FilePlaces {
   places: ReadonlyMap<string, readonly [number, number]>;
   polygons: boolean;
+}
+
+/** Every place of a plot file's rows (the first row giving a plot a place wins), as Collect Earth reads them. */
+export function placesOfPlotFile(file: Parameters<typeof plotFileOf>[0], keyCount: number): FilePlaces {
+  const places = new Map<string, readonly [number, number]>();
+  const rows = plotFileOf(file, keyCount).rows;
+  // As Collect Earth: a polygon column in the (first) row means the plots are those polygons.
+  const polygons = rows.length > 0 && hasPolygonColumn(rows[0].fields);
+  for (const row of rows) {
+    if (places.has(row.id)) {
+      continue;
+    }
+    const lat = coordinate(row.fields[keyCount], 90);
+    const lon = coordinate(row.fields[keyCount + 1], 180);
+    if (lat !== null && lon !== null) {
+      places.set(row.id, [lat, lon]);
+    }
+  }
+  return { places, polygons };
 }
 
 /** Least recently used out first. */
@@ -165,20 +184,6 @@ export class PlotPlaceReader {
     return facts;
   }
 
-  /**
-   * Every place of one plot file (unit -> [lat, lon]; the first row giving a plot a place
-   * wins), kept as for places(); null when it cannot be read. The caller checks the survey's
-   * coordinate system (isWgs84).
-   */
-  async filePlaces(
-    projectId: string,
-    file: { id: string; checksum: string },
-    keyCount: number,
-    log: FastifyRequest['log'],
-  ): Promise<ReadonlyMap<string, readonly [number, number]> | null> {
-    return (await this.placesOfFile(projectId, file.id, file.checksum, keyCount, log))?.places ?? null;
-  }
-
   /** Every place of one plot file (the first row giving a plot a place wins), or null when it cannot be read. */
   private async placesOfFile(
     projectId: string,
@@ -198,21 +203,7 @@ export class PlotPlaceReader {
       if (!file) {
         return null;
       }
-      const places = new Map<string, readonly [number, number]>();
-      const rows = plotFileOf(file, keyCount).rows;
-      // As Collect Earth: a polygon column in the (first) row means the plots are those polygons.
-      const polygons = rows.length > 0 && hasPolygonColumn(rows[0].fields);
-      for (const row of rows) {
-        if (places.has(row.id)) {
-          continue;
-        }
-        const lat = coordinate(row.fields[keyCount], 90);
-        const lon = coordinate(row.fields[keyCount + 1], 180);
-        if (lat !== null && lon !== null) {
-          places.set(row.id, [lat, lon]);
-        }
-      }
-      const result: FilePlaces = { places, polygons };
+      const result = placesOfPlotFile(file, keyCount);
       this.keep(key, result);
       return result;
     } catch (err) {

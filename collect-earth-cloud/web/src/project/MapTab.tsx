@@ -41,7 +41,7 @@ function popupElement(t: Translate, map: MapPlots, index: number, projectId: str
   const root = document.createElement("div");
   root.style.font = "14px/1.4 Roboto, sans-serif";
   const title = document.createElement("strong");
-  title.textContent = t("map.popupPlot", { plot: popup.plot });
+  title.textContent = t("map.popupPlot", { plot: popup.label });
   root.appendChild(title);
   const status = document.createElement("div");
   status.style.display = "flex";
@@ -67,6 +67,9 @@ function popupElement(t: Translate, map: MapPlots, index: number, projectId: str
   root.appendChild(link);
   return root;
 }
+
+/** Plots handed to the cluster group at a time: between two, a map left or changed stops the placing. */
+const PLACE_SLICE = 10_000;
 
 /** The map itself: OpenStreetMap (or the server's) tiles, a circle per plot on a canvas, grouped from CLUSTER_FROM plots. */
 function PlotMap({
@@ -97,16 +100,18 @@ function PlotMap({
   // The map is fitted to the plots when they are loaded, not when a status is hidden or shown.
   const fitted = useRef<MapPlots | null>(null);
 
+  const { url, attribution, attributionUrl, maxZoom } = tiles;
   useEffect(() => {
     let gone = false;
+    const source = { url, attribution, attributionUrl, maxZoom };
     loadLeaflet().then(
       (L) => {
         if (gone || !element.current) return;
         const renderer = L.canvas({ padding: 0.5 });
-        const map = L.map(element.current, { preferCanvas: true, renderer, worldCopyJump: true, minZoom: 1, maxZoom: tiles.maxZoom });
+        const map = L.map(element.current, { preferCanvas: true, renderer, worldCopyJump: true, minZoom: 1, maxZoom });
         map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener noreferrer">Leaflet</a>');
         // OpenStreetMap's tile usage policy: its attribution shown, the browser's referrer sent, no tiles fetched ahead.
-        L.tileLayer(tiles.url, { attribution: attributionHtml(tiles), maxZoom: tiles.maxZoom, referrerPolicy: "strict-origin-when-cross-origin", keepBuffer: 1 }).addTo(map);
+        L.tileLayer(url, { attribution: attributionHtml(source), maxZoom, referrerPolicy: "strict-origin-when-cross-origin", keepBuffer: 1 }).addTo(map);
         map.setView([0, 0], 2);
         leaflet.current = { L, map, renderer };
         setReady(true);
@@ -117,8 +122,10 @@ function PlotMap({
       gone = true;
       leaflet.current?.map.remove();
       leaflet.current = null;
+      fitted.current = null;
+      setReady(false);
     };
-  }, [tiles]);
+  }, [url, attribution, attributionUrl, maxZoom]);
 
   useEffect(() => {
     const current = leaflet.current;
@@ -139,6 +146,17 @@ function PlotMap({
     }
     const clustered = indexes.length >= CLUSTER_FROM;
     let gone = false;
+    let next = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // The plots go to the group a slice at a time (it places each slice in short steps), so
+    // that leaving the map or changing what it shows stops the placing at the next slice.
+    let group: Leaflet.MarkerClusterGroup | null = null;
+    const feed = () => {
+      if (gone || !group) return;
+      const slice = markers.slice(next, next + PLACE_SLICE);
+      next += slice.length;
+      group.addLayers(slice);
+    };
     if (fitted.current !== data) {
       fitted.current = data;
       const bounds = boundsOf(data, shownIndexes(data, new Set(MAP_STATUSES)));
@@ -146,13 +164,20 @@ function PlotMap({
       else map.setView([0, 0], 2);
     }
     let layer: Leaflet.FeatureGroup;
-    let group: Leaflet.MarkerClusterGroup | null = null;
     if (clustered) {
       group = L.markerClusterGroup({
         // On the map, the plots are grouped a little at a time, so the page keeps answering.
         chunkedLoading: true,
+        // A slice done: the next one, unless the map was left or changed meanwhile.
         chunkProgress: (processed, total) => {
-          if (!gone) onProgress(indexes.length, clustered, processed >= total ? null : processed);
+          // Adding the group to the map reports an empty step first: only the slices fed count.
+          if (gone || next === 0 || processed < total) return;
+          if (next < markers.length) {
+            onProgress(indexes.length, clustered, next);
+            timer = setTimeout(feed, 0);
+          } else {
+            onProgress(indexes.length, clustered, null);
+          }
         },
         showCoverageOnHover: false,
         spiderfyOnMaxZoom: false,
@@ -187,12 +212,13 @@ function PlotMap({
     layer.addTo(map);
     if (group) {
       onProgress(indexes.length, clustered, 0);
-      group.addLayers(markers);
+      feed();
     } else {
       onProgress(indexes.length, clustered, null);
     }
     return () => {
       gone = true;
+      clearTimeout(timer);
       map.closePopup();
       layer.remove();
     };
@@ -236,6 +262,7 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
     let stopped = false;
     setLoading({ loaded: 0, total: 0 });
     setError(null);
+    setDrawn(null);
     getMapPlots(projectId, { file, person }, (loaded, total) => !stopped && setLoading({ loaded, total }), () => stopped).then(
       (map) => {
         if (stopped) return;
@@ -255,6 +282,8 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
   }, [projectId, file, person, reload]);
 
   const offMap = useMemo(() => (data ? filesOffMap(data) : []), [data]);
+  // While plots are read or placed, the filters and switches wait (each change would start again).
+  const busy = loading !== null || (drawn !== null && drawn.placed !== null);
   const toggle = (status: MapStatus) =>
     setShown((was) => {
       const next = new Set(was);
@@ -282,6 +311,7 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
             name="file"
             value={file}
             onChange={(e) => setFile(e.target.value)}
+            disabled={busy}
             slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
             sx={{ width: { xs: 1, sm: 280 } }}
           >
@@ -300,6 +330,7 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
               name="person"
               value={person}
               onChange={(e) => setPerson(e.target.value)}
+              disabled={busy}
               helperText={t("map.personHelp")}
               slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
               sx={{ width: { xs: 1, sm: 280 } }}
@@ -312,7 +343,7 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
               ))}
             </TextField>
           )}
-          <Button startIcon={<Refresh />} onClick={() => setReload((r) => r + 1)} disabled={loading !== null}>
+          <Button startIcon={<Refresh />} onClick={() => setReload((r) => r + 1)} disabled={busy}>
             {t("map.reload")}
           </Button>
         </Box>
@@ -343,11 +374,17 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
               <>
                 <PlotMap projectId={projectId} data={data} shown={shown} tiles={info.mapTiles} label={t("map.label")} onProgress={(count, clustered, placed) => setDrawn({ shown: count, clustered, placed })} />
                 {drawn && (
-                  <Typography variant="body2" color="text.secondary" role="status">
-                    {drawn.placed !== null
-                      ? t("map.placing", { placed: n(drawn.placed), total: n(drawn.shown) })
-                      : `${t("map.shown", { shown: n(drawn.shown), total: n(data.total) })}${drawn.clustered ? ` ${t("map.clustered")}` : ""}`}
-                  </Typography>
+                  <>
+                    {/* Said once when the placing starts and once when it ends; the numbers in between are not read out. */}
+                    <Typography variant="body2" color="text.secondary" role="status">
+                      {drawn.placed !== null ? t("map.placingStart") : `${t("map.shown", { shown: n(drawn.shown), total: n(data.total) })}${drawn.clustered ? ` ${t("map.clustered")}` : ""}`}
+                    </Typography>
+                    {drawn.placed !== null && (
+                      <Typography variant="body2" color="text.secondary" aria-hidden="true">
+                        {t("map.placing", { placed: n(drawn.placed), total: n(drawn.shown) })}
+                      </Typography>
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -379,6 +416,7 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
                     <TableCell padding="checkbox">
                       <Checkbox
                         checked={shown.has(status)}
+                        disabled={busy}
                         onChange={() => toggle(status)}
                         slotProps={{ input: { "aria-label": t("map.showStatus", { status: t(statusLabelKey(status)) }) } }}
                       />
@@ -408,6 +446,9 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
               </TableBody>
             </Table>
           </TableContainer>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+            {t("map.submittedNote")}
+          </Typography>
           {data.notOnMap > 0 && (
             <Typography variant="body2" sx={{ mt: 1.5 }}>
               {t("map.notOnMap", { n: n(data.notOnMap) })}

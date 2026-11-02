@@ -134,7 +134,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 /** https, or http for a tile server on this machine. */
 function isWebUrl(value: string): boolean {
   try {
-    const url = new URL(value.replace(/\{[a-z]\}/g, '0'));
+    const url = new URL(value.replace(/\{-?[a-z]\}/g, '0'));
     return url.protocol === 'https:' || (url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname));
   } catch {
     return false;
@@ -152,8 +152,9 @@ function mapTilesOf(env: NodeJS.ProcessEnv): MapTiles {
     }
     return OSM_TILES;
   }
-  if (!['{z}', '{x}', '{y}'].every((part) => url.includes(part)) || !isWebUrl(url)) {
-    throw new Error(`Invalid MAP_TILE_URL "${url}" (expected an https URL with {z}, {x} and {y}, such as https://tile.openstreetmap.org/{z}/{x}/{y}.png)`);
+  const unknown = (url.match(/\{[^}]*\}/g) ?? []).some((p) => !['{z}', '{x}', '{y}', '{-y}', '{s}', '{r}'].includes(p));
+  if (unknown || !['{z}', '{x}', '{y}'].every((part) => url.includes(part)) || !isWebUrl(url)) {
+    throw new Error(`Invalid MAP_TILE_URL "${url}" (expected an https URL with {z}, {x} and {y} and no other placeholder than {-y}, {s} or {r}, such as https://tile.openstreetmap.org/{z}/{x}/{y}.png)`);
   }
   if (attribution === undefined || attribution.length > 300) {
     throw new Error('MAP_TILE_ATTRIBUTION is needed with MAP_TILE_URL (the text the tile source asks to show, at most 300 characters)');

@@ -12,9 +12,12 @@ import type { DecisionKind } from './types.js';
  * - for a submitted plot, 3 accepted (decided "first" or "check"), 4 needs another look
  *   (decided "both need another look"): the decisions the server keeps;
  * - 5 disagreement: its answers differ from a check and nobody decided it, from the quality
- *   figures at hand only (QualityService.peek); without them, no plot has this status.
+ *   figures at hand only (QualityService.peek); without them, no plot has this status;
+ * - 6 submitted again: decided "both need another look" and submitted again since (the review
+ *   queue's rule, resubmittedAfterRecheck), from the figures at hand only (else 4).
+ * Codes 2 to 6 together are the plots the Progress tab counts as submitted.
  */
-export const GEO_STATUSES = ['notStarted', 'started', 'submitted', 'accepted', 'recheck', 'differs'] as const;
+export const GEO_STATUSES = ['notStarted', 'started', 'submitted', 'accepted', 'recheck', 'differs', 'resubmitted'] as const;
 export type GeoStatus = (typeof GEO_STATUSES)[number];
 
 /** Plots in one page of GET /map/plots. */
@@ -26,6 +29,7 @@ const SUBMITTED = 2;
 const ACCEPTED = 3;
 const RECHECK = 4;
 const DIFFERS = 5;
+const RESUBMITTED = 6;
 
 /** What the statuses are read from (ProjectStateCache's plotUnits). */
 export type GeoProgress = Pick<PlotUnits, 'firstSubmitted' | 'started' | 'held' | 'byOperator'>;
@@ -48,6 +52,10 @@ export interface GeoInput {
   decisions: ReadonlyMap<string, DecisionKind>;
   /** Plots whose answers differ from a check (the figures' pairs); null without figures at hand. */
   differing: ReadonlySet<string> | null;
+  /** Plots decided "both need another look" and submitted again since (resubmittedAfterRecheck); null without figures. */
+  resubmitted?: ReadonlySet<string> | null;
+  /** The id the collector sees (visibleId); absent when it is always the unit. */
+  nameOf?: ((unit: string) => string) | null;
   /** Whether to say who holds each plot (coordinators only). */
   people: boolean;
   /** Only this plot file's plots, placed by it. */
@@ -73,6 +81,8 @@ export interface GeoMap {
   status: number[];
   /** Index in `holders`; -1 when nobody holds it (always for a reviewer). */
   holder: number[];
+  /** The id the collector sees of each plot; null when it is the plot id for every plot. */
+  names: string[] | null;
   /** Everyone who holds a plot or made a first assessment (the person filter); null for a reviewer. */
   people: string[] | null;
   /** The different groups of people holding a plot, names sorted; null for a reviewer. */
@@ -90,12 +100,13 @@ export function geoStatus(
   progress: Pick<GeoProgress, 'firstSubmitted' | 'started'>,
   decisions: ReadonlyMap<string, DecisionKind>,
   differing: ReadonlySet<string> | null,
+  resubmitted: ReadonlySet<string> | null = null,
 ): number {
   if (!progress.firstSubmitted.has(unit)) {
     return progress.started.has(unit) ? STARTED : NOT_STARTED;
   }
   const decision = decisions.get(unit);
-  if (decision === 'recheck') return RECHECK;
+  if (decision === 'recheck') return resubmitted?.has(unit) ? RESUBMITTED : RECHECK;
   if (decision !== undefined) return ACCEPTED;
   return differing?.has(unit) ? DIFFERS : SUBMITTED;
 }
@@ -137,6 +148,7 @@ export function plotsGeo(input: GeoInput): GeoMap {
     lon: [],
     status: [],
     holder: [],
+    names: input.nameOf ? [] : null,
     people,
     holders: input.people ? [] : null,
     counts: GEO_STATUSES.map(() => 0),
@@ -175,7 +187,7 @@ export function plotsGeo(input: GeoInput): GeoMap {
       if (placed.has(unit) || (mine && !mine(unit))) continue;
       if (!seen.has(unit)) {
         seen.add(unit);
-        map.counts[geoStatus(unit, progress, input.decisions, input.differing)] += 1;
+        map.counts[geoStatus(unit, progress, input.decisions, input.differing, input.resubmitted)] += 1;
       }
       if (!at) {
         pending.push(unit);
@@ -185,8 +197,9 @@ export function plotsGeo(input: GeoInput): GeoMap {
       map.plots.push(unit);
       map.lat.push(round6(at[0]));
       map.lon.push(round6(at[1]));
-      map.status.push(geoStatus(unit, progress, input.decisions, input.differing));
+      map.status.push(geoStatus(unit, progress, input.decisions, input.differing, input.resubmitted));
       map.holder.push(groupOf(unit));
+      map.names?.push(input.nameOf!(unit));
     }
     map.files.push({ id: file.id, filename: file.filename, plots, onMap });
   }
@@ -194,6 +207,8 @@ export function plotsGeo(input: GeoInput): GeoMap {
   for (const unit of new Set(pending)) {
     if (!placed.has(unit)) map.notOnMap += 1;
   }
+  // Names only when one differs from its plot id.
+  if (map.names && map.names.every((name, i) => name === map.plots[i])) map.names = null;
   return map;
 }
 
@@ -202,6 +217,8 @@ export interface GeoPage {
   points: [number, number, number, number][];
   /** The plot (unit) of each point, for its page (GET /plots/:plot). */
   plots: string[];
+  /** The id the collector sees of each point; null when it is the plot id. */
+  names: string[] | null;
   /** The offset of the next page; null on the last. */
   next: number | null;
 }
@@ -211,5 +228,5 @@ export function geoPage(map: GeoMap, offset: number, size = GEO_PAGE_SIZE): GeoP
   const end = Math.min(map.plots.length, offset + size);
   const points: [number, number, number, number][] = [];
   for (let i = offset; i < end; i++) points.push([map.lat[i], map.lon[i], map.status[i], map.holder[i]]);
-  return { points, plots: map.plots.slice(offset, end), next: end < map.plots.length ? end : null };
+  return { points, plots: map.plots.slice(offset, end), names: map.names?.slice(offset, end) ?? null, next: end < map.plots.length ? end : null };
 }
