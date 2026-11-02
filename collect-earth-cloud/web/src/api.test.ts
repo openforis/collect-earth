@@ -50,6 +50,8 @@ import {
   toServerSettings,
   DEFAULT_SERVER_SETTINGS,
   downloadOriginalCep,
+  downloadCollectBackup,
+  getBackupSummary,
   getRoundInfo,
   setReassessmentCode,
   toRoundInfo,
@@ -1004,6 +1006,41 @@ describe("the AI assistant and the reports", () => {
     expect(team.questions[1]).toEqual({ key: "q2", label: "q2", kind: "number", compared: 3, agreeing: 3, rate: null, margin: 5 });
     expect(team).toMatchObject({ plotsChecked: 40, plotsDiffering: 6, stale: true, computedAt: 5000 });
     expect(team.notes).toHaveLength(1);
+  });
+});
+
+describe("the Collect Earth backup", () => {
+  const url = (i = 0) => String(fetchMock.mock.calls[i][0]);
+
+  it("reads what each choice would hold; all rounds is null without the round key", async () => {
+    const counts = { records: 4, drafts: 1, reference: 0, otherRounds: 1, sameKey: 2, sameKeyReference: 0, sameKeyExamples: ["1,1", 7] };
+    fetchMock.mockResolvedValue(jsonResponse(200, { projectFile: true, roundKey: true, roundState: "added", note: true, rounds: { "1": counts, all: { ...counts, records: "x" } } }));
+    const summary = await getBackupSummary("p 1");
+    expect(url()).toBe("/v1/projects/p%201/exports/collect-backup/summary");
+    expect(summary).toEqual({
+      projectFile: true,
+      roundKey: true,
+      note: true,
+      first: { ...counts, sameKeyExamples: ["1,1"] },
+      all: { ...counts, records: 0, sameKeyExamples: ["1,1"] },
+    });
+    fetchMock.mockResolvedValue(jsonResponse(200, { projectFile: true, roundKey: false, rounds: { "1": counts, all: counts } }));
+    expect((await getBackupSummary("p1")).all).toBeNull();
+  });
+
+  it("downloads the zip with the name the server gave it; a survey without round is told as such", async () => {
+    fetchMock.mockResolvedValue(
+      new Response("PK", { status: 200, headers: { "content-type": "application/zip", "content-disposition": "attachment; filename=\"a.zip\"; filename*=UTF-8''Proyecto%20%C3%B1-collect-earth-backup-all-rounds.zip" } }),
+    );
+    const { blob, filename } = await downloadCollectBackup("p1", "all");
+    expect(url()).toBe("/v1/projects/p1/exports/collect-backup?rounds=all");
+    expect(filename).toBe("Proyecto ñ-collect-earth-backup-all-rounds.zip");
+    expect(await blob.text()).toBe("PK");
+    fetchMock.mockResolvedValue(jsonResponse(409, { error: "no_round_key", reason: "no round" }));
+    const error = await downloadCollectBackup("p1", "all").catch((e: unknown) => e);
+    expect(errorMessageKey(error)).toBe("backup.noRoundKey");
+    fetchMock.mockResolvedValue(jsonResponse(409, { error: "no_project_file" }));
+    expect(errorMessageKey(await downloadCollectBackup("p1", "1").catch((e: unknown) => e))).toBe("backup.noProjectFile");
   });
 });
 

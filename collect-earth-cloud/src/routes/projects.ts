@@ -1,14 +1,17 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { Readable } from 'node:stream';
+import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { secretsEqual } from '../accountRules.js';
 import { audit } from '../activity.js';
 import { bearerToken } from '../auth.js';
 import type { Config } from '../config.js';
 import { attachment } from '../download.js';
-import { NOTE_SUMMARY_KEY, noteColumn } from '../cep.js';
+import { NOTE_SUMMARY_KEY, noteColumn, readCep } from '../cep.js';
+import { BACKUP_ROUNDS, collectBackupZip, planBackup, type BackupOutcome, type BackupPlan, type BackupRounds, type PlanInput } from '../collectBackup.js';
 import { exportRoundOf, recordsCsv } from '../export.js';
 import { storageSummary } from '../limits.js';
 import { finalAnswers, recordResolver } from '../quality.js';
 import { loadPlotContext } from '../qualityService.js';
+import { keyShape } from '../rounds.js';
 import type { Store } from '../store/store.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 
@@ -231,4 +234,112 @@ export async function registerProjectRoutes(
         .send(csv);
     },
   );
+
+  // The Collect Earth backup (Task 17): what it would hold with each choice, for the dialog.
+  app.get(
+    '/v1/projects/:pid/exports/collect-backup/summary',
+    { preHandler: requireProjectMembership(store, 'admin') },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const projectId = request.membership!.projectId;
+      const facts = await backupFacts(store, projectId, request.log);
+      return reply.send({
+        projectFile: facts.projectFile,
+        roundKey: facts.roundKey,
+        roundState: facts.roundState,
+        note: facts.note,
+        rounds: {
+          '1': planSummary(planBackup(facts.input, '1')),
+          all: facts.roundKey ? planSummary(planBackup(facts.input, 'all')) : null,
+        },
+      });
+    },
+  );
+
+  // The Collect Earth backup itself: a zip Collect Earth imports ("Import new data from ZIP"),
+  // written as it is sent. `rounds` 1 (first assessments) or all (only with the round key).
+  app.get(
+    '/v1/projects/:pid/exports/collect-backup',
+    { preHandler: requireProjectMembership(store, 'admin') },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const projectId = request.membership!.projectId;
+      const rounds = ((request.query as { rounds?: string }).rounds ?? '1') as BackupRounds;
+      if (!BACKUP_ROUNDS.includes(rounds)) {
+        return reply.code(400).send({ error: 'bad_request', reason: 'rounds is 1 or all' });
+      }
+      const project = await store.getProject(projectId);
+      if (!project) {
+        return reply.code(404).send({ error: 'not_found' });
+      }
+      const [facts, cep] = await Promise.all([backupFacts(store, projectId, request.log), store.getCep(projectId)]);
+      if (!cep) {
+        return reply.code(409).send({ error: 'no_project_file', reason: 'the backup carries the survey of the project file: upload a project file first' });
+      }
+      if (rounds === 'all' && !facts.roundKey) {
+        // Without round in the key a plot's first assessment and its check have one key, and
+        // Collect Earth keeps one record per key: only the first assessments can go.
+        return reply.code(409).send({ error: 'no_round_key', reason: 'the survey has no round key: only round 1 can be in the backup' });
+      }
+      // The survey as served (with the round and the coordinator's note the server added): the one
+      // Collect Earth has loaded, which the import finds by its URI.
+      const files = readCep(cep);
+      const survey = files.entries.get(files.surveyPath)!;
+      const plan = planBackup(facts.input, rounds);
+      await audit(store, request, 'export.downloaded', { kind: 'collect-backup', rows: plan.records.length, rounds });
+      const outcome: BackupOutcome = { written: 0, missing: 0 };
+      const stream = Readable.from(collectBackupZip(store, projectId, survey, plan, new Date(), outcome));
+      stream.on('end', () => {
+        if (outcome.missing > 0) request.log.warn({ missing: outcome.missing }, 'collect backup: records gone since the plan were left out');
+      });
+      return reply
+        .header('content-type', 'application/zip')
+        .header('content-disposition', attachment(`${project.name}-collect-earth-backup${rounds === 'all' ? '-all-rounds' : ''}.zip`, 'collect-earth-backup.zip'))
+        .send(stream);
+    },
+  );
+}
+
+/** What the backup is made of: the records with their round and whether each is of a reference plot. */
+async function backupFacts(store: Store, projectId: string, log: FastifyBaseLogger) {
+  const [records, context, cepInfo] = await Promise.all([
+    store.listRecordStates(projectId),
+    loadPlotContext(store, projectId, log),
+    store.getCepInfo(projectId),
+  ]);
+  const { info, units, copyHolders, reference } = context;
+  const resolve = recordResolver({ info, units, copyHolders });
+  const resolved = new Map<string, ReturnType<typeof resolve>>();
+  const of = (r: { recordKey: string; operator: string }) => {
+    const id = `${r.recordKey}\u0000${r.operator}`;
+    let hit = resolved.get(id);
+    if (!hit) {
+      hit = resolve(r);
+      resolved.set(id, hit);
+    }
+    return hit;
+  };
+  const input: PlanInput = {
+    records,
+    roundOf: (r) => of(r).round,
+    isReference: (r) => reference.size > 0 && reference.has(of(r).group),
+  };
+  return {
+    input,
+    projectFile: cepInfo !== null,
+    roundKey: keyShape(info).roundIndex !== null,
+    roundState: info?.state ?? null,
+    note: noteColumn(info) !== null,
+  };
+}
+
+/** A plan's counts for the dialog (not its list of records). */
+function planSummary(plan: BackupPlan) {
+  return {
+    records: plan.records.length,
+    drafts: plan.drafts,
+    reference: plan.reference,
+    otherRounds: plan.otherRounds,
+    sameKey: plan.sameKey,
+    sameKeyReference: plan.sameKeyReference,
+    sameKeyExamples: plan.sameKeyExamples,
+  };
 }

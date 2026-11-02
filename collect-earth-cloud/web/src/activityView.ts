@@ -67,6 +67,7 @@ const EXPORT_KEYS: Record<string, MessageKey> = {
   daily: "activity.export.daily",
   decisions: "activity.export.decisions",
   differences: "activity.export.differences",
+  "collect-backup": "activity.export.collectBackup",
 };
 
 /** Who did it: their name, "(no longer in the project)" after it, or someone without a name. */

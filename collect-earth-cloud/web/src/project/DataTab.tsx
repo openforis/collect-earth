@@ -16,6 +16,7 @@ import { useT } from "../i18n";
 import type { ProjectTab } from "../router";
 import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
+import { CollectBackup } from "./CollectBackup";
 
 /** The comparison of first assessments and checks moved to the Quality tab: a pointer to it. */
 function QualityCheck({ onGo }: { onGo: (tab: ProjectTab) => void }) {
@@ -89,6 +90,7 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
           <ErrorAlert error={error} />
         </Stack>
       </Paper>
+      <CollectBackup projectId={projectId} />
       <QualityCheck onGo={onGo} />
     </Stack>
   );

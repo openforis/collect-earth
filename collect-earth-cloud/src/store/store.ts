@@ -38,6 +38,7 @@ import type {
   RecordEventQuery,
   RecordRow,
   RecordState,
+  RecordXml,
   ReferenceChange,
   ReferenceChangeResult,
   ReferencePlot,
@@ -323,6 +324,12 @@ export interface Store {
    * differences, in one read.
    */
   getRecordSummaries(projectId: string, keys: readonly { recordKey: string; operator: string }[]): Promise<RecordRow[]>;
+  /**
+   * The stored XML of some records by key and operator (deleted ones too; those that do not
+   * exist are left out), in one read: the Collect Earth backup (Task 17) reads its records a
+   * page at a time, so 100,000 records' XML is never held at once.
+   */
+  getRecordXml(projectId: string, keys: readonly { recordKey: string; operator: string }[]): Promise<RecordXml[]>;
   /**
    * Every record (any operator) whose key is one of `recordKeys`, with its summary and without
    * XML, deleted ones too: one plot's records for the plot page (rounds.recordKeysOfUnit), in

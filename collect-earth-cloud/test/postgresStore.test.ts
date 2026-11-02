@@ -187,6 +187,22 @@ describe('PostgresStore pool', () => {
     expect(queries).toHaveLength(0);
   });
 
+  it("getRecordXml reads the asked records' XML in one query under the project's setting, and nothing for no keys", async () => {
+    const store = new PostgresStore('postgres://x');
+    expect(await store.getRecordXml(PROJECT, [])).toEqual([]);
+    expect(queries).toHaveLength(0);
+    await store.getRecordXml(PROJECT, [
+      { recordKey: '1,1', operator: 'ana' },
+      { recordKey: '1,2', operator: 'ben' },
+    ]);
+    const setting = queries.findIndex((q) => q.params?.[0] === 'app.current_project' && q.params[1] === PROJECT);
+    const read = queries.findIndex((q) => q.sql.includes('r.xml'));
+    expect(setting).toBeGreaterThanOrEqual(0);
+    expect(read).toBeGreaterThan(setting);
+    expect(queries[read].sql).toMatch(/SELECT r\.record_key, r\.operator, r\.step, r\.xml\s+FROM records r\s+JOIN \(SELECT DISTINCT \* FROM unnest/);
+    expect(queries[read].params).toEqual([PROJECT, ['1,1', '1,2'], ['ana', 'ben']]);
+  });
+
   it('reads the quality version from the project counter the triggers bump', async () => {
     await new PostgresStore('postgres://x').qualityVersion(PROJECT);
     const read = queries.find((q) => q.sql.includes('records_version'))!;

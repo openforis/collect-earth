@@ -58,6 +58,7 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("settings.changed", { setting: "ai", enabled: true }), page, "en")).toBe("ana turned the AI assistant on");
     expect(logSentence(t, audit("export.downloaded", { kind: "daily", rows: 3 }), page, "en")).toBe("ana downloaded the daily activity");
     expect(logSentence(t, audit("export.downloaded", { records: 50 }), page, "en")).toBe("ana downloaded the data (50 records)");
+    expect(logSentence(t, audit("export.downloaded", { kind: "collect-backup", rows: 4, rounds: "all" }), page, "en")).toBe("ana downloaded the Collect Earth backup");
     expect(logSentence(t, audit("cep.replaced", {}, null), page, "en")).toBe("Someone no longer in the project uploaded a new project file");
     expect(logSentence(t, audit("link.created", {}), page, "en")).toBe("ana: link.created");
     expect(logSentence(t, audit("sampling.drawn", { automatic: false, drawn: 1200 }), page, "en")).toBe("ana drew plots for checks (1,200 plots)");

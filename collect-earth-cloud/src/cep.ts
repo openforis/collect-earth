@@ -2,6 +2,7 @@
 // the balloons, the KML template and project_definition.properties.
 import * as zlib from 'node:zlib';
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
+import { crc32, toDosDateTime } from './zipStream.js';
 
 export interface CepFiles {
   /** Every zip entry, in zip order. */
@@ -594,38 +595,6 @@ export function zipCep(entries: Map<string, Uint8Array>, date: Date): Buffer {
   end.writeUInt32LE(centralSize, 12);
   end.writeUInt32LE(offset, 16);
   return Buffer.concat([...locals, ...centrals, end]);
-}
-
-/** A date as zip (MS-DOS) date and time fields: UTC, two-second steps, 1980-2107. */
-function toDosDateTime(date: Date): { dosDate: number; dosTime: number } {
-  if (Number.isNaN(date.getTime())) throw new Error('zipCep: invalid date');
-  const year = date.getUTCFullYear();
-  if (year < 1980) return { dosDate: (1 << 5) | 1, dosTime: 0 };
-  if (year > 2107) return { dosDate: (127 << 9) | (12 << 5) | 31, dosTime: (23 << 11) | (59 << 5) | 29 };
-  return {
-    dosDate: ((year - 1980) << 9) | ((date.getUTCMonth() + 1) << 5) | date.getUTCDate(),
-    dosTime: (date.getUTCHours() << 11) | (date.getUTCMinutes() << 5) | Math.floor(date.getUTCSeconds() / 2),
-  };
-}
-
-/** CRC-32 of zip entries: node:zlib's when it has one (Node 20.15 and 22.2 on), else ours. */
-function crc32(data: Uint8Array): number {
-  return typeof zlib.crc32 === 'function' ? zlib.crc32(data) >>> 0 : slowCrc32(data);
-}
-
-let crcTable: Uint32Array | null = null;
-function slowCrc32(data: Uint8Array): number {
-  if (!crcTable) {
-    crcTable = new Uint32Array(256);
-    for (let n = 0; n < 256; n++) {
-      let c = n;
-      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-      crcTable[n] = c >>> 0;
-    }
-  }
-  let crc = 0xffffffff;
-  for (let i = 0; i < data.length; i++) crc = crcTable[(crc ^ data[i]) & 0xff] ^ (crc >>> 8);
-  return (crc ^ 0xffffffff) >>> 0;
 }
 
 // ---------------------------------------------------------------------------------------

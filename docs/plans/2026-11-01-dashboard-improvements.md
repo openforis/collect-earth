@@ -3002,6 +3002,145 @@ button on the Data tab.
 test fixture exists, or make one with Collect Earth), the round filter, and XML
 escaping.
 
+**Spike** (2026-11-02, by reading the desktop code on this branch and Collect 4.0.110's sources,
+`collect-core-4.0.110-sources.jar`)
+- **The way in.** *Data Import/Export > Import new data from ZIP (compressed XML)*
+  (`CollectEarthMenu` l. 564, `CollectEarthWindow.46`; `DataFormat.ZIP_WITH_XML` takes `.zip` and
+  `.collect-data`) → `ImportActionListener.importDataFrom` asks "Import only fully assessed plots?"
+  → `DataImportExportService.getImportSummary(file, importNonFinished)` (Collect's deprecated
+  `XMLDataImportProcess`, `validateRecords=false`; when drafts are not wanted a predicate keeps
+  records whose `/plot/actively_saved` is true or missing) → `ImportXMLDialogProcessMonitor.startImport`:
+  a `.collect-data` file (Collect's own backup, `data/<step>/…`) is first rewritten with zip4j to the
+  Collect Earth layout; a `.zip` is read as it is; the summary is made; when it lists conflicts Collect
+  Earth asks whether to overwrite them ("Number of duplicated records: N"), else they are skipped;
+  then `importRecordsFrom` imports the records to import plus the accepted conflicts.
+- **The layout it accepts** (`XMLDataImportProcess`, `NewBackupFileExtractor`, `RecordEntry`):
+  - `java.util.zip.ZipFile` opens the file (ZIP64 is read since Java 7) and **every entry is extracted
+    to a temporary folder first** (`ZipFiles.extract`).
+  - `idml.xml` at the root (`SurveyBackupJob.SURVEY_XML_ENTRY_NAME`): the survey. Its **URI** finds the
+    survey already in Collect Earth (`surveyManager.getByUri`); the two must pass
+    `SurveyValidator.validateCompatibilityForDataImport` (the packaged survey valid, no incompatible
+    change against the one loaded), else the import stops. So the backup must carry the survey Collect
+    Earth has loaded: the **served** project file's survey (with `round` and `coordinator_note` as the
+    server added them), and Collect Earth must have that project open.
+  - **Records:** every other entry ending in `.xml` that does not start with `upload` is a record and
+    must be named exactly `<step>/<id>.xml` (two path parts, step 1-3, id an integer; `RecordEntry.parse`):
+    any other `.xml` name throws and **stops the whole summary**. So nothing else ending in `.xml` may be
+    in the zip. Other files are ignored; `info.properties` is not read by this process (it is Collect's
+    newer backup format, `DataRestoreJob`). Directory entries are not needed.
+  - **The step is the folder**, not the XML's `step` attribute (the unmarshaller does not read it).
+    Collect Earth's own export writes one entry per step up to the record's (`XMLDataExportProcess`,
+    which Collect Earth runs with `Step.ENTRY` only: folder `1`).
+  - **The id** only groups one record's entries across steps: the import gives every record a new id
+    (`recordManager.nextId`). Any distinct integers do.
+  - **Encoding:** records are read as UTF-8 (`OpenForisIOUtils.toReader`); the desktop's
+    `DataMarshaller` writes `<?xml version='1.0' standalone='yes' ?>` with non-ASCII escaped, and the
+    cloud sync stores that same XML (`CloudRecordSerializer.serialize`).
+- **Conflicts:** a record of the zip conflicts when Collect Earth already has a record with the **same
+  root key values** (`findAlreadyExistingRecordSummary`). Entries **inside the zip are never compared
+  with each other**: two with the same key are both "to import"; the second then overwrites the first
+  (when the 100-query buffer was flushed between them) or makes a second record with that key, after
+  which every lookup of the key throws "Multiple records found". **So the backup holds at most one
+  record per key.** The server keeps records per (key, person): two first assessments of one plot, and
+  the many collectors' round-2 records of a reference plot (Task 14), share a key.
+- **The desktop's own export as reference:** `t21_records.zip` of the reassessment plan's Task 21 (made
+  by `DataImportExportService.exportSurveyAsZipWithXml` on 2026-10-30): `idml.xml` first, then
+  `1/247102.xml` … `1/247109.xml`, deflated, no `info.properties`, no folders. Kept as the test fixture.
+- **Size:** 100,000 records are 100,001 entries, over the 65,535 a zip without ZIP64 can count: the
+  writer needs the ZIP64 end records. `zipCep` has no ZIP64 and builds the zip in memory, so the backup
+  gets a streaming writer of its own.
+
+**As built** (differs from the above where it says so)
+- **`src/zipStream.ts`:** `zipStream(entries, date)`, an async generator of the zip's bytes, one entry at a
+  time (only the entry being written and the central directory, ~60 bytes an entry, are held); each entry
+  deflated (level 6) or stored when that is not smaller, sizes and CRC in the local header. Entries under
+  1 MB are deflated on the main thread (a 17 KB record: 0.1 ms, against 0.2 ms through the thread pool),
+  larger ones in the pool. **ZIP64** where the plain fields do not fit: the ZIP64 end record and locator at
+  65,535 entries or more (or a directory past 4 GB), the plain end record holding 0xFFFF/0xFFFFFFFF in the
+  fields that overflow; a ZIP64 extra field with the offset for an entry starting past 4 GB; one entry of
+  4 GB or more refused. Same entries and date → the same bytes **as `zipCep`** (test); `zipCep` now uses its
+  `crc32` and `toDosDateTime` (moved there, no other change).
+- **`src/collectBackup.ts`:** `planBackup(input, rounds)` (pure): rounds `'1'` keeps the first assessments
+  (`assessment === 'main'` of `recordResolver`'s round: added round "1", an own round's other codes, the
+  holder rule without round), `'all'` every record; **one record per key** (the spike): a submitted one
+  before a draft, then the latest `modifiedOn`, then the first username; counts `drafts`, `reference`,
+  `otherRounds`, `sameKey`, `sameKeyReference` and up to 20 keys. `backupEntries` yields `idml.xml` (the
+  served CEP's survey bytes, with `round` and `coordinator_note` as the server wrote them), then each
+  record as `<step>/<n>.xml` (its stored step 1-3, else 1; n from 1 in key order) with its XML **exactly
+  as stored** (UTF-8; nothing re-escaped, `coordinator_note` kept as decided), reading 500 records at a
+  time through the new **`Store.getRecordXml(projectId, keys)`** (both stores; Postgres one `unnest` join
+  under `withProject`); a record gone since the plan is left out and logged.
+- **Routes** (`src/routes/projects.ts`, next to `export.csv`, coordinators only, another project 404):
+  `GET /v1/projects/:pid/exports/collect-backup?rounds=1|all` → `application/zip`, `<project>-collect-earth-
+  backup[-all-rounds].zip`, streamed (`Readable.from`); 400 for another `rounds`, **409 `no_project_file`**
+  without a project file, **409 `no_round_key`** for `all` when the served survey has no round key;
+  audited **`export.downloaded { kind: 'collect-backup', rows, rounds }`** before streaming ("ana downloaded
+  the Collect Earth backup" in the log). `GET …/exports/collect-backup/summary` → `{ projectFile, roundKey,
+  roundState, note, rounds: { '1': counts, all: counts | null } }` for the dialog. The static paths win over
+  `/exports/:kind`.
+- **Decided here:** without the round key only round 1 can be downloaded (the 409, and the dialog's option
+  disabled with the reason). **Reference plots (Decision 8):** their records go in as stored; in all rounds
+  their round 2 is the collectors' measurements, which share one key, so **one per plot** goes in (the rule
+  above) and the dialog counts the others (`sameKeyReference`) and points to the CSV, which has them all.
+- **Web:** "Collect Earth backup" on the Data tab (`project/CollectBackup.tsx`, new), a dialog: round 1 /
+  all rounds (help under each; all disabled with the warning without the round key), what the file will
+  hold (records, drafts — Collect Earth asks about them — checks left out, records left out for a shared
+  key with examples, reference plots in all rounds, the note kept), how to import (the menu as Collect
+  Earth names it in each language), Download. `api.ts` `getBackupSummary`, `downloadCollectBackup`,
+  `attachmentName` (shared with `downloadExport`), `no_round_key` / `no_project_file` messages; 24 keys ×
+  4 languages (`i18n.ts`, `api.ts`, `api.test.ts`, `DataTab.tsx` CRLF kept).
+- **Tests:** server 1079 (was 1066): `test/collectBackup.test.ts` 12 — zipStream equals zipCep, ZIP64 at
+  70,000 entries read by fflate and by a reader by hand, no ZIP64 when small; the plan's round filter, the
+  one-per-key rule, reference plots; `backupEntries` (pages of 500, steps, a record gone); the route: the
+  **layout against `test/fixtures/desktop-xml-export.zip`** (the desktop's own export: `idml.xml`, then
+  `<step>/<id>.xml`, the same XML declaration), the served survey byte for byte, a record's XML byte for byte
+  with `&amp; &lt; &quot; &#209;` and `ñ`, roles, 400, audit, all rounds, the summary, two records with
+  one key, reference plots, no round key (409, holders), no project file; `postgresStore.test.ts` 1
+  (`getRecordXml` under the project's setting); the isolation list. Web 328 (was 326: `api.test.ts` 2;
+  `activityView.test.ts` the sentence). tsc clean in both, web build ok.
+- **100,000 records** (17 KB of XML each, the desktop's record; a store answering pages of 500 with a 2 ms
+  wait; `scratchpad/t17/bench/bench100k.mts`): plan 40-60 ms, **stream 17.5-19 s**, zip 182 MB (1.69 GB of
+  XML), **peak heap 210-226 MB and RSS 450-610 MB with the default heap, 78 MB heap / 297 MB RSS under
+  `--max-old-space-size=128`** (31.6 s): the heap is garbage the collector has not taken, not growth (25,000
+  records: 100 MB). Yielding the body apart from its header took external memory from 433 to 113 MB.
+  `java.util.zip.ZipFile` (JDK 23) reads it: `size()` 100,001, every entry read in 2.4 s. Not measured on
+  Postgres (no Docker run this task).
+- **Real Collect Earth (2026-11-03, this branch built):** profile backed up to
+  `%APPDATA%\CollectEarth-backup-2026-11-03-task17` (3,240 files, 2,719,440,430 bytes, listing and sizes
+  equal, `earth.properties` and `collectEarthDatabase.db` sha256 equal) first. A memory-store server (8171)
+  with the id-only fixture renamed `t17_backup_check` (round and note added), 8 plots in Spain divided
+  between anna and ben, plot 104 a reference plot (assessor coord). Records: the 8 Collect Earth exported
+  itself in the reassessment plan's Task 21 (their XML as the desktop wrote it), ben's second first
+  assessment of 101, coord's 104,1 and anna's and ben's 104,2, each sent with its person's session. Summary:
+  round 1 → 5 records (2 drafts, 6 other rounds, 1 same key), all → 10 (5 drafts, 2 same key, 1 of them a
+  reference measurement). **The import** is a Swing menu, so it was run as in Task 21: a scratch program
+  (`scratchpad/t17/tool/T17Tool.java`) starts Collect Earth's own context without its window
+  (`ServerController.startServer`, the app's), loads the served CEP (`EarthProjectsService.
+  loadCompressedProjectFile`), then calls what the menu calls: `DataImportExportService.getImportSummary(zip,
+  true)` ("Import ALL plots") and `importRecordsFrom(zip, process, [])` (conflicts not taken, as "No"), then
+  `IPCCGenerator.generateRDB` and `IPCCDataExportPerPlotCSV`, with APPDATA pointed at new empty profiles:
+  - **all rounds into an empty profile: to import 10, conflicting 0, skipped 0**; 10 records after
+    (101,1 101,2 102,1 103,2 104,1 104,2 105,2 107,1 107,2 108,1, step ENTRY); **IPCC per-plot CSV: 3 rows
+    (101, 104, 107)** — round 1 submitted; round 2 and drafts left out.
+  - **round 1 into another empty profile: to import 5, conflicting 0**; IPCC the same 3 rows. Then the
+    all-rounds file into that same profile: to import 5 (the round 2 records), **conflicting 5** (the round-1
+    records already there, as the dialog says), 10 after, IPCC still 3 rows.
+  - **The 100,000-record zip** (above) with the Task 21 survey into an empty profile: **summary "to import
+    100000, conflicting 0, skipped 0"** (Collect reads the ZIP64 file); the import itself had not ended
+    after 10 minutes and was stopped (Collect's own speed; the profile was a scratch one).
+  - The dashboard (Chrome, the built web served by that server): the dialog with both choices and the
+    counts (screenshot `scratchpad/t17/01-backup-dialog-all-rounds.png`), "Download the backup" saved the
+    file and said so. Phone width not checked (the browser window could not be resized).
+  - Stopped: the server (8171), every tool JVM (none left, 8028 free). **Profile restored** with
+    `robocopy /MIR` from the backup (nothing to copy: the runs used other profiles): 3,240 files,
+    2,719,440,430 bytes, 394 folders, no path or size difference, the two sha256 equal. The backup is kept.
+- **Open:** the backup carries one record per plot and round, so two first assessments of a plot or the
+  collectors' measurements of a reference plot are not all in it (the CSV has them; the dialog says so);
+  Collect Earth must have this project's survey loaded (same URI) or the import stops — the dialog says to
+  open the project first; the app's window was not driven (the import ran through the same service from a
+  harness); the stream is audited before it is sent, so a download cut short is still logged; a stream
+  error after the headers ends the response without an error message for the browser.
+
 ### Task 18: A read-only progress link for funders (improvement 15)
 
 **Files:** create `src/routes/publicProgress.ts` and `web/src/pages/PublicProgressPage.tsx`;

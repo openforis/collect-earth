@@ -513,6 +513,9 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   round_removed: "error.roundRemoved",
   note_removed: "error.noteRemoved",
   note_column_in_file: "error.noteColumnInFile",
+  // The Collect Earth backup (GET /exports/collect-backup).
+  no_round_key: "backup.noRoundKey",
+  no_project_file: "backup.noProjectFile",
   round_codes_changed: "error.roundCodesChanged",
   key_shape_changed: "error.keyShapeChanged",
   plots_divided: "error.plotsDivided",
@@ -1576,18 +1579,89 @@ export async function getTeamReport(projectId: string): Promise<TeamReport> {
 /** The collected data as a CSV file (fetched with the session, then saved by the page). */
 export async function downloadExport(projectId: string): Promise<{ blob: Blob; filename: string }> {
   const response = await send("GET", `${p(projectId)}/export.csv`);
+  return { blob: await response.blob(), filename: attachmentName(response, "collect-earth-data.csv") };
+}
+
+/** The file name a download was sent with: the UTF-8 name (filename*) before the ASCII fallback the server sends first. */
+function attachmentName(response: Response, fallback: string): string {
   const disposition = response.headers.get("content-disposition") ?? "";
-  // Prefer the UTF-8 name (filename*) over the ASCII fallback the server sends first.
   const match = /filename\*=UTF-8''([^;]+)/i.exec(disposition) ?? /filename="?([^";]+)"?/i.exec(disposition);
-  let filename = "collect-earth-data.csv";
-  if (match) {
-    try {
-      filename = decodeURIComponent(match[1]);
-    } catch {
-      filename = match[1];
-    }
+  if (!match) return fallback;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
   }
-  return { blob: await response.blob(), filename };
+}
+
+/** Which records a Collect Earth backup holds: the first assessments (round 1), or every round. */
+export type BackupRounds = "1" | "all";
+
+/** What a Collect Earth backup would hold with one choice. */
+export interface BackupCounts {
+  /** Records in the backup (one per plot and round). */
+  records: number;
+  /** Of them, not submitted. */
+  drafts: number;
+  /** Of them, records of reference plots. */
+  reference: number;
+  /** Records of other rounds left out (the checks, with round 1 only). */
+  otherRounds: number;
+  /** Records left out because another record has the same plot and round (Collect Earth keeps one). */
+  sameKey: number;
+  /** Of those, records of reference plots (the collectors' measurements). */
+  sameKeyReference: number;
+  /** Some of the plots and rounds that had more than one record ("17,1"). */
+  sameKeyExamples: string[];
+}
+
+export interface BackupSummary {
+  /** A project file was uploaded (the backup carries its survey). */
+  projectFile: boolean;
+  /** The survey has the round key, so every round can go in the backup. */
+  roundKey: boolean;
+  /** The project file carries the coordinator's note (Task 16). */
+  note: boolean;
+  first: BackupCounts;
+  /** Null without the round key. */
+  all: BackupCounts | null;
+}
+
+function toBackupCounts(value: unknown): BackupCounts {
+  const v = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  return {
+    records: toCount(v.records),
+    drafts: toCount(v.drafts),
+    reference: toCount(v.reference),
+    otherRounds: toCount(v.otherRounds),
+    sameKey: toCount(v.sameKey),
+    sameKeyReference: toCount(v.sameKeyReference),
+    sameKeyExamples: Array.isArray(v.sameKeyExamples) ? v.sameKeyExamples.filter((k): k is string => typeof k === "string") : [],
+  };
+}
+
+export function toBackupSummary(value: unknown): BackupSummary {
+  const v = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const rounds = v.rounds && typeof v.rounds === "object" ? (v.rounds as Record<string, unknown>) : {};
+  const roundKey = v.roundKey === true;
+  return {
+    projectFile: v.projectFile === true,
+    roundKey,
+    note: v.note === true,
+    first: toBackupCounts(rounds["1"]),
+    all: roundKey && rounds.all ? toBackupCounts(rounds.all) : null,
+  };
+}
+
+/** What the Collect Earth backup would hold with each choice. */
+export async function getBackupSummary(projectId: string): Promise<BackupSummary> {
+  return toBackupSummary(await request<unknown>("GET", `${p(projectId)}/exports/collect-backup/summary`));
+}
+
+/** The Collect Earth backup: a zip of the survey and the records, for "Import new data from ZIP". */
+export async function downloadCollectBackup(projectId: string, rounds: BackupRounds): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("GET", `${p(projectId)}/exports/collect-backup?rounds=${rounds}`);
+  return { blob: await response.blob(), filename: attachmentName(response, "collect-earth-backup.zip") };
 }
 
 // --- platform admin ---------------------------------------------------------------------

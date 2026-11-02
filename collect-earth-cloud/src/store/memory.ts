@@ -48,6 +48,7 @@ import {
   type RecordEventQuery,
   type RecordRow,
   type RecordState,
+  type RecordXml,
   type ReferenceChange,
   type ReferenceChangeResult,
   type ReferencePlot,
@@ -375,6 +376,22 @@ export class InMemoryStore implements Store {
     for (const k of keys) {
       const r = entry.records.get(InMemoryStore.recordId(k.recordKey, k.operator));
       if (r) out.push({ ...r, xml: null });
+    }
+    return out;
+  }
+
+  async getRecordXml(projectId: string, keys: readonly { recordKey: string; operator: string }[]): Promise<RecordXml[]> {
+    const entry = this.projects.get(projectId);
+    if (!entry) return [];
+    const out: RecordXml[] = [];
+    const seen = new Set<string>();
+    for (const k of keys) {
+      const id = InMemoryStore.recordId(k.recordKey, k.operator);
+      const r = entry.records.get(id);
+      if (r && !seen.has(id)) {
+        seen.add(id);
+        out.push({ recordKey: r.recordKey, operator: r.operator, step: r.step, xml: r.xml });
+      }
     }
     return out;
   }
