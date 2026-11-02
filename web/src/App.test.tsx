@@ -55,15 +55,17 @@ describe("App", () => {
     expect(screen.queryByTestId("compare-map")).toBeNull();
     expect(screen.getByRole("heading", { name: "Plot demo" })).toBeTruthy();
     expect(screen.getByText(/^2000-01-01 to \d{4}-\d{2}-\d{2}$/)).toBeTruthy();
-    expect(screen.getByTestId("card-ccdc")).toBeTruthy();
+    expect(screen.getByText("Loading imagery…")).toBeTruthy();
+    // The cards are lazy-loaded: a placeholder first, then the (mocked) cards.
+    expect(screen.getByText("Loading charts…")).toBeTruthy();
+    expect(await screen.findByTestId("card-ccdc")).toBeTruthy();
     expect(screen.getByTestId("card-landsat")).toBeTruthy();
     expect(screen.getByTestId("card-sentinel2")).toBeTruthy();
     expect(screen.getByTestId("card-modis")).toBeTruthy();
-    // jsdom's innerWidth (1024) is above the collapse breakpoint: the panel is open.
+    expect(screen.queryByText("Loading charts…")).toBeNull();
+    // jsdom has no matchMedia, which the panel treats as a wide screen: the panel is open.
     expect(screen.getByRole("button", { name: "Layers" }).getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByRole("radio", { name: /Sentinel-2/ })).toBeTruthy();
-    expect(screen.getByText("Loading imagery…")).toBeTruthy();
-
     expect(await screen.findByText(TILE.label)).toBeTruthy();
     // Only the primary layer is requested while compare is off.
     expect(screen.queryByText(LANDSAT_TILE.label)).toBeNull();
@@ -76,7 +78,7 @@ describe("App", () => {
     expect(callsTo(fetchMock, "/api/tiles/landsat")).toHaveLength(0);
   });
 
-  it("shows the imagery error with a Retry button that re-requests the tiles", async () => {
+  it("shows a retryable (503) imagery error with a Retry button that re-requests the tiles", async () => {
     window.history.replaceState({}, "", PLOT_URL);
     const busy = { error: { code: "busy", message: "Earth Engine is busy", retryable: true } };
     let sentinelCalls = 0;
@@ -94,6 +96,41 @@ describe("App", () => {
     expect(await screen.findByText(TILE.label)).toBeTruthy();
     expect(callsTo(fetchMock, "/api/tiles/sentinel2")).toHaveLength(2);
     expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+
+  it("shows a non-retryable (404) imagery error without a Retry button", async () => {
+    window.history.replaceState({}, "", PLOT_URL);
+    const missing = { error: { code: "no_imagery", message: "No imagery for this plot", retryable: false } };
+    fetchMock.mockImplementation(async () => json(missing, 404));
+    render(<App />);
+
+    expect(await screen.findByText(/Imagery failed: No imagery for this plot/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(callsTo(fetchMock, "/api/tiles/sentinel2")).toHaveLength(1);
+  });
+
+  it("comparing a layer with itself reuses the left tiles for the right side instead of requesting twice", async () => {
+    window.history.replaceState({}, "", PLOT_URL);
+    render(<App />);
+    expect(await screen.findByText(TILE.label)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Compare with/ }));
+    expect(await screen.findByText(`Right: ${LANDSAT_TILE.label}`)).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // Right = Sentinel-2 = left: no third request, both sides show the same tiles and label.
+    fireEvent.change(screen.getByRole("combobox", { name: "Compare layer" }), { target: { value: "sentinel2" } });
+    expect(screen.getByText(`Left: ${TILE.label}`)).toBeTruthy();
+    expect(screen.getByText(`Right: ${TILE.label}`)).toBeTruthy();
+    const compareMap = screen.getByTestId("compare-map");
+    expect(compareMap.getAttribute("data-left")).toBe(TILE.tileUrl);
+    expect(compareMap.getAttribute("data-right")).toBe(TILE.tileUrl);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // Moving the right side back to Landsat requests it again (the hook was paused, its data kept).
+    fireEvent.change(screen.getByRole("combobox", { name: "Compare layer" }), { target: { value: "landsat" } });
+    expect(await screen.findByText(`Right: ${LANDSAT_TILE.label}`)).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("ticking Compare swaps the map for the swipe view with both layers' tiles and status lines", async () => {
@@ -114,16 +151,11 @@ describe("App", () => {
     expect(compareMap.getAttribute("data-right")).toBe(LANDSAT_TILE.tileUrl);
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
-    // Picking Sentinel-2 for the right-hand side reuses the primary layer's request kind.
-    fireEvent.change(screen.getByRole("combobox", { name: "Compare layer" }), { target: { value: "sentinel2" } });
-    expect(await screen.findByText(`Right: ${TILE.label}`)).toBeTruthy();
-    expect(callsTo(fetchMock, "/api/tiles/sentinel2")).toHaveLength(2);
-
     fireEvent.click(screen.getByRole("checkbox", { name: /Compare with/ }));
     expect(screen.getByTestId("map")).toBeTruthy();
     expect(screen.queryByTestId("compare-map")).toBeNull();
     expect(screen.queryByText(/^Right:/)).toBeNull();
     // Unticking does not request anything.
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

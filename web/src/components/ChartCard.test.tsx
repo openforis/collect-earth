@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import ChartCard from "./ChartCard";
 import type { ApiState } from "../hooks/useApi";
+import { ApiFailure } from "../lib/api";
 
 type Data = { points: number[] };
 
@@ -27,13 +28,28 @@ describe("ChartCard", () => {
     expect(screen.queryByRole("button", { name: "CSV" })).toBeNull();
   });
 
-  it("shows the error message and a Retry button that calls state.retry", () => {
+  it("shows the error message and a Retry button that calls state.retry for a plain Error", () => {
     const s = state({ status: "error", error: new Error("boom") });
     render(<ChartCard title="T" state={s}>{children}</ChartCard>);
     expect(screen.getByText(/boom/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(s.retry).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId("body")).toBeNull();
+  });
+
+  it("shows Retry for a retryable ApiFailure", () => {
+    const s = state({ status: "error", error: new ApiFailure({ code: "ee_busy", message: "busy", retryable: true }, 503) });
+    render(<ChartCard title="T" state={s}>{children}</ChartCard>);
+    expect(screen.getByText(/busy/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(s.retry).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the message without Retry for a non-retryable ApiFailure", () => {
+    const s = state({ status: "error", error: new ApiFailure({ code: "bad_plot", message: "Plot too large", retryable: false }, 400) });
+    render(<ChartCard title="T" state={s}>{children}</ChartCard>);
+    expect(screen.getByText(/Plot too large/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
   });
 
   it("renders children and the CSV button when done", () => {

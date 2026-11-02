@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { postApi, ApiFailure } from "./api";
+import { postApi, ApiFailure, isRetryable } from "./api";
 
 const body = {
   plot: { type: "Polygon" as const, coordinates: [[[30, -2], [31, -2], [31, -3], [30, -3], [30, -2]]] },
@@ -64,5 +64,16 @@ describe("postApi", () => {
     expect(f.err.retryable).toBe(true);
     expect(f.status).toBe(200);
     expect(f.message).toBeTruthy();
+  });
+});
+
+describe("isRetryable", () => {
+  it("follows the ApiFailure's retryable flag", () => {
+    expect(isRetryable(new ApiFailure({ code: "busy", message: "busy", retryable: true }, 503))).toBe(true);
+    expect(isRetryable(new ApiFailure({ code: "bad", message: "bad", retryable: false }, 400))).toBe(false);
+  });
+  it("treats any other error as retryable", () => {
+    expect(isRetryable(new Error("network"))).toBe(true);
+    expect(isRetryable(undefined)).toBe(true);
   });
 });

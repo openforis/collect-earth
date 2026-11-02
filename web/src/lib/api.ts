@@ -70,3 +70,11 @@ export interface TileResponse {
   dateRange?: { start: string; end: string };
   sensor?: string;
 }
+
+/**
+ * Whether a failed request is worth offering a Retry for: an `ApiFailure` says so
+ * itself; anything else (network error, unexpected exception) is assumed transient.
+ */
+export function isRetryable(error: unknown): boolean {
+  return error instanceof ApiFailure ? error.err.retryable : true;
+}

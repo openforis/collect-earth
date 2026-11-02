@@ -1,18 +1,21 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { PlotProvider, usePlot } from "./state/PlotContext";
 import MapView from "./components/MapView";
 import CompareMap from "./components/CompareMap";
 import LayersPanel from "./components/LayersPanel";
-import CcdcCard from "./components/charts/CcdcCard";
-import LandsatNdviCard from "./components/charts/LandsatNdviCard";
-import Sentinel2NdviCard from "./components/charts/Sentinel2NdviCard";
-import ModisCard from "./components/charts/ModisCard";
 import { useLayerTiles } from "./components/LayerSources";
 import type { ApiState } from "./hooks/useApi";
-import type { TileResponse } from "./lib/api";
+import { isRetryable, type TileResponse } from "./lib/api";
 import { parsePlotUrl, type PlotParams } from "./lib/urlParams";
 
-/** One line of the map status box: loading / error (with Retry) / the layer label. */
+// The chart cards pull in Plotly (several MB): loaded in a separate chunk after the
+// map is up, so the first paint does not wait for it.
+const CcdcCard = lazy(() => import("./components/charts/CcdcCard"));
+const LandsatNdviCard = lazy(() => import("./components/charts/LandsatNdviCard"));
+const Sentinel2NdviCard = lazy(() => import("./components/charts/Sentinel2NdviCard"));
+const ModisCard = lazy(() => import("./components/charts/ModisCard"));
+
+/** One line of the map status box: loading / error (with Retry when retryable) / the layer label. */
 function TileStatus({ side, tiles }: { side?: string; tiles: ApiState<TileResponse> }) {
   const text =
     tiles.status === "loading"
@@ -24,7 +27,7 @@ function TileStatus({ side, tiles }: { side?: string; tiles: ApiState<TileRespon
     <div>
       {side && `${side}: `}
       {text}
-      {tiles.status === "error" && <button onClick={tiles.retry}>Retry</button>}
+      {tiles.status === "error" && isRetryable(tiles.error) && <button onClick={tiles.retry}>Retry</button>}
     </div>
   );
 }
@@ -32,9 +35,13 @@ function TileStatus({ side, tiles }: { side?: string; tiles: ApiState<TileRespon
 function Viewer() {
   const { plot, plotId, start, end, activeLayer, compare, compareLayer } = usePlot();
   const tiles = useLayerTiles(activeLayer);
+  // Comparing a layer with itself (same id, and so the same request key: the
+  // Landsat year and the scene are shared state) just shows the left tiles twice.
+  const sameLayer = compare && activeLayer === compareLayer;
   // Always mounted (hooks cannot be conditional) but only requested while
-  // comparing, so a plain page load costs one tile request, not two.
-  const right = useLayerTiles(compareLayer, { enabled: compare });
+  // comparing a different layer, so a plain page load costs one tile request, not two.
+  const rightOwn = useLayerTiles(compareLayer, { enabled: compare && !sameLayer });
+  const right = sameLayer ? tiles : rightOwn;
   return (
     <div className="viewer">
       <div className="map-pane">
@@ -54,10 +61,12 @@ function Viewer() {
         <p className="dates">
           {start} to {end}
         </p>
-        <CcdcCard />
-        <LandsatNdviCard />
-        <Sentinel2NdviCard />
-        <ModisCard />
+        <Suspense fallback={<div className="chart-placeholder">Loading charts…</div>}>
+          <CcdcCard />
+          <LandsatNdviCard />
+          <Sentinel2NdviCard />
+          <ModisCard />
+        </Suspense>
       </aside>
     </div>
   );

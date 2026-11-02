@@ -19,6 +19,7 @@ function Probe() {
   return (
     <>
       <span data-testid="year">{p.landsatYear}</span>
+      <span data-testid="active-layer">{p.activeLayer}</span>
       <span data-testid="compare-layer">{p.compareLayer}</span>
       <button onClick={() => p.setScene(SCENE)}>set scene</button>
     </>
@@ -37,25 +38,51 @@ function setup() {
 const radio = (name: RegExp) => screen.getByRole("radio", { name }) as HTMLInputElement;
 const slider = () => screen.getByRole("slider") as HTMLInputElement;
 const committedYear = () => Number(screen.getByTestId("year").textContent);
+const activeLayer = () => screen.getByTestId("active-layer").textContent;
 const compareCheckbox = () => screen.getByRole("checkbox", { name: /Compare with/ }) as HTMLInputElement;
 const compareSelect = () => screen.queryByRole("combobox", { name: "Compare layer" }) as HTMLSelectElement | null;
 const compareLayer = () => screen.getByTestId("compare-layer").textContent;
 const toggleButton = () => screen.getByRole("button", { name: "Layers" });
 
-/** jsdom defaults innerWidth to 1024; set it explicitly so each test pins its own breakpoint. */
-function setInnerWidth(px: number) {
-  Object.defineProperty(window, "innerWidth", { value: px, configurable: true, writable: true });
+/**
+ * jsdom has no `window.matchMedia`. This controllable fake answers the narrow-screen
+ * query with `narrow` and lets a test flip it, as a window resize would.
+ */
+type Listener = (e: { matches: boolean }) => void;
+const media = { narrow: false, query: "", listeners: [] as Listener[] };
+function stubMatchMedia(narrow: boolean) {
+  media.narrow = narrow;
+  media.listeners = [];
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn((query: string) => {
+      media.query = query;
+      return {
+        get matches() {
+          return media.narrow;
+        },
+        media: query,
+        addEventListener: (_type: "change", l: Listener) => media.listeners.push(l),
+        removeEventListener: (_type: "change", l: Listener) => {
+          media.listeners = media.listeners.filter((x) => x !== l);
+        },
+      };
+    }),
+  );
+}
+function resizeTo(narrow: boolean) {
+  media.narrow = narrow;
+  act(() => media.listeners.forEach((l) => l({ matches: narrow })));
 }
 
 describe("LayersPanel", () => {
-  const originalInnerWidth = window.innerWidth;
   beforeEach(() => {
     vi.useFakeTimers();
-    setInnerWidth(1200);
+    stubMatchMedia(false);
   });
   afterEach(() => {
     vi.useRealTimers();
-    setInnerWidth(originalInnerWidth);
+    vi.unstubAllGlobals();
   });
 
   it("renders three radios with Sentinel-2 checked and the Scene radio disabled", () => {
@@ -174,9 +201,51 @@ describe("LayersPanel", () => {
     expect(radio(/Sentinel-2/).checked).toBe(true);
   });
 
+  describe("slider commit in compare mode", () => {
+    it("commits the year for the right-hand Landsat layer without switching the left layer", () => {
+      setup();
+      fireEvent.click(compareCheckbox());
+      expect(activeLayer()).toBe("sentinel2");
+      fireEvent.change(slider(), { target: { value: "2010" } });
+      act(() => vi.advanceTimersByTime(400));
+      expect(committedYear()).toBe(2010);
+      expect(activeLayer()).toBe("sentinel2");
+      expect(radio(/Sentinel-2/).checked).toBe(true);
+      expect(radio(/Landsat 2010/).checked).toBe(false);
+      expect(Array.from(compareSelect()!.options)[1].textContent).toBe("Landsat 2010");
+    });
+
+    it("leaves a left-hand Landsat layer selected, now at the committed year", () => {
+      setup();
+      fireEvent.click(radio(/Landsat 2024/));
+      fireEvent.click(compareCheckbox());
+      fireEvent.change(slider(), { target: { value: "1999" } });
+      act(() => vi.advanceTimersByTime(400));
+      expect(committedYear()).toBe(1999);
+      expect(activeLayer()).toBe("landsat");
+      expect(radio(/Landsat 1999/).checked).toBe(true);
+    });
+
+    it("goes back to switching the left layer once Compare is unticked", () => {
+      setup();
+      fireEvent.click(compareCheckbox());
+      fireEvent.click(compareCheckbox());
+      fireEvent.change(slider(), { target: { value: "2010" } });
+      act(() => vi.advanceTimersByTime(400));
+      expect(committedYear()).toBe(2010);
+      expect(activeLayer()).toBe("landsat");
+    });
+  });
+
   describe("collapsing on narrow screens", () => {
-    it("starts collapsed at 390 px, showing only the Layers button, and the button opens and closes it", () => {
-      setInnerWidth(390);
+    it("subscribes to the 900 px media query", () => {
+      setup();
+      expect(media.query).toBe("(max-width: 900px)");
+      expect(media.listeners).toHaveLength(1);
+    });
+
+    it("starts collapsed on a narrow screen, showing only the Layers button, and the button opens and closes it", () => {
+      stubMatchMedia(true);
       setup();
       expect(toggleButton().getAttribute("aria-expanded")).toBe("false");
       expect(screen.queryByRole("radio")).toBeNull();
@@ -193,12 +262,12 @@ describe("LayersPanel", () => {
     });
 
     it("keeps the context state while collapsed", () => {
-      setInnerWidth(390);
+      stubMatchMedia(true);
       setup();
       fireEvent.click(toggleButton());
-      fireEvent.click(compareCheckbox());
       fireEvent.change(slider(), { target: { value: "2010" } });
       act(() => vi.advanceTimersByTime(400));
+      fireEvent.click(compareCheckbox());
       fireEvent.click(toggleButton());
       expect(screen.queryByRole("checkbox")).toBeNull();
       expect(committedYear()).toBe(2010);
@@ -207,11 +276,52 @@ describe("LayersPanel", () => {
       expect(radio(/Landsat 2010/).checked).toBe(true);
     });
 
-    it("starts open at 1200 px; the toggle is still in the DOM (hidden by CSS) and reports expanded", () => {
-      setInnerWidth(1200);
+    it("starts open on a wide screen; the toggle is still in the DOM (hidden by CSS) and reports expanded", () => {
       setup();
       expect(toggleButton().getAttribute("aria-expanded")).toBe("true");
       expect(toggleButton().className).toBe("layers-toggle");
+      expect(screen.getAllByRole("radio")).toHaveLength(3);
+    });
+
+    it("collapses when the window narrows and reappears when it is widened again", () => {
+      setup();
+      expect(screen.getAllByRole("radio")).toHaveLength(3);
+
+      resizeTo(true);
+      expect(toggleButton().getAttribute("aria-expanded")).toBe("false");
+      expect(screen.queryByRole("radio")).toBeNull();
+
+      resizeTo(false);
+      expect(toggleButton().getAttribute("aria-expanded")).toBe("true");
+      expect(screen.getAllByRole("radio")).toHaveLength(3);
+    });
+
+    it("reopens a panel the user closed on a narrow screen once widened, and closes one they opened once narrowed", () => {
+      stubMatchMedia(true);
+      setup();
+      fireEvent.click(toggleButton());
+      expect(screen.getAllByRole("radio")).toHaveLength(3);
+      resizeTo(false);
+      expect(screen.getAllByRole("radio")).toHaveLength(3);
+      resizeTo(true);
+      expect(screen.queryByRole("radio")).toBeNull();
+    });
+
+    it("unsubscribes from the media query on unmount", () => {
+      const { unmount } = render(
+        <PlotProvider params={params}>
+          <LayersPanel />
+        </PlotProvider>,
+      );
+      expect(media.listeners).toHaveLength(1);
+      unmount();
+      expect(media.listeners).toHaveLength(0);
+    });
+
+    it("treats a missing window.matchMedia (e.g. jsdom) as a wide screen", () => {
+      vi.stubGlobal("matchMedia", undefined);
+      setup();
+      expect(toggleButton().getAttribute("aria-expanded")).toBe("true");
       expect(screen.getAllByRole("radio")).toHaveLength(3);
     });
   });
