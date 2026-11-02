@@ -32,6 +32,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
@@ -301,11 +302,11 @@ public class EarthApp {
 			logger.error("Problems while generating the KML file ", e); //$NON-NLS-1$
 			// An exception with no message used to throw here, so the failure of the KML was never reported
 			notify(Notice.ERROR, Messages.getString("NoticesPage.server.kml") + "<br/>" //$NON-NLS-1$ //$NON-NLS-2$
-					+ (e.getCause() != null ? (e.getCause() + "<br/>") : "") //$NON-NLS-1$ //$NON-NLS-2$
-					+ StringUtils.abbreviate(StringUtils.defaultString(e.getMessage(), e.toString()), 300));
+					+ (e.getCause() != null ? (StringEscapeUtils.escapeHtml4(String.valueOf(e.getCause())) + "<br/>") : "") //$NON-NLS-1$ //$NON-NLS-2$
+					+ StringEscapeUtils.escapeHtml4(StringUtils.abbreviate(StringUtils.defaultString(e.getMessage(), e.toString()), 300)));
 		} catch (final Exception e) {
 			logger.error("Could not generate KML file", e); //$NON-NLS-1$
-			notify(Notice.ERROR, Messages.getString("NoticesPage.server.kml") + "<br/>" + e.getMessage()); //$NON-NLS-1$ //$NON-NLS-2$
+			notify(Notice.ERROR, Messages.getString("NoticesPage.server.kml") + "<br/>" + StringEscapeUtils.escapeHtml4(String.valueOf(e.getMessage()))); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 	}
 
@@ -421,9 +422,9 @@ public class EarthApp {
 	}
 
 	/**
-	 * Regenerates the KML and opens the plots again, on a thread of its own: what applying the Swing properties dialog
-	 * did (executeKmlLoadAsynchronously), for the settings page, without the dialogs. A failure is logged, and so
-	 * reported to Sentry.
+	 * Regenerates the KML and opens the plots again, on a thread of its own, after the settings were applied, data
+	 * imported or plots deleted. A failure is logged, and so reported to Sentry, and shown on the page as a notice: the
+	 * user would otherwise see the old plots and not know why.
 	 */
 	public static void reloadPlots() {
 		new Thread("Reload plots") { //$NON-NLS-1$
@@ -432,7 +433,9 @@ public class EarthApp {
 				try {
 					loadKmlInGoogleEarth(true);
 				} catch (Exception e) {
-					logger.error("Error reloading the plots after the settings changed", e); //$NON-NLS-1$
+					logger.error("Error reloading the plots", e); //$NON-NLS-1$
+					EarthApp.notify(Notice.ERROR, Messages.getString("NoticesPage.server.kml") + "<br/>" //$NON-NLS-1$ //$NON-NLS-2$
+							+ StringEscapeUtils.escapeHtml4(StringUtils.abbreviate(StringUtils.defaultString(e.getMessage(), e.toString()), 300)));
 				}
 			}
 		}.start();
