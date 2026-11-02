@@ -1,11 +1,14 @@
 import { PlotProvider, usePlot } from "./state/PlotContext";
 import MapView from "./components/MapView";
 import LayersPanel from "./components/LayersPanel";
+import LandsatNdviCard from "./components/charts/LandsatNdviCard";
+import Sentinel2NdviCard from "./components/charts/Sentinel2NdviCard";
+import ModisCard from "./components/charts/ModisCard";
 import { useLayerTiles } from "./components/LayerSources";
 import { parsePlotUrl, type PlotParams } from "./lib/urlParams";
 
 function Viewer() {
-  const { plot, plotId, activeLayer } = usePlot();
+  const { plot, plotId, start, end, activeLayer } = usePlot();
   const tiles = useLayerTiles(activeLayer);
   const status =
     tiles.status === "loading"
@@ -22,6 +25,12 @@ function Viewer() {
       </div>
       <aside className="side-pane">
         <h2>Plot {plotId || "(no id)"}</h2>
+        <p className="dates">
+          {start} to {end}
+        </p>
+        <LandsatNdviCard />
+        <Sentinel2NdviCard />
+        <ModisCard />
       </aside>
     </div>
   );
