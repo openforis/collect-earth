@@ -4,7 +4,7 @@ import { isUuid } from '../accountRules.js';
 import { audit } from '../activity.js';
 import { answerStats, type AnswerFilter } from '../answerStats.js';
 import { isDate, isTimeZone } from '../days.js';
-import { FLAG_KINDS, fastSecondsOf, MAX_FAST_SECONDS, MIN_FAST_SECONDS, patternFlags, plotOperators, resubmittedAfterRecheck, seenOf, type DecisionSeen, type FlagKind, type FlagTable } from '../flags.js';
+import { FLAG_KINDS, fastSecondsOf, MAX_FAST_SECONDS, MIN_FAST_SECONDS, patternFlags, plotOperators, plotsOf, resubmittedAfterRecheck, seenOf, type DecisionSeen, type FlagKind, type FlagTable } from '../flags.js';
 import { columnValues, MAX_LISTED_VALUES, plotColumns, plotsWithValue } from '../plotColumns.js';
 import { plotFileOf, plotIdsOf } from '../plotFileCache.js';
 import { fileKeyCount } from '../rounds.js';
@@ -285,6 +285,9 @@ export async function registerQualityRoutes(
     const flags = patternFlags(figures, decisions, { fastSeconds, person, kind: flagKind });
     // The person menu names everyone, whatever the filters: everyone's flags when filtered.
     const everyones = person !== null || flagKind !== null ? patternFlags(figures, decisions, { fastSeconds }).flags : flags.flags;
+    // A reviewer's queue leaves out the plots they assessed: someone else decides them (the 409's rule).
+    const { role, userId } = request.membership!;
+    const reviewerName = role === 'admin' || !userId ? null : ((await store.getUserById(userId))?.username ?? null);
     const queue = reviewQueue(
       {
         pairs: figures.report.pairs,
@@ -292,6 +295,7 @@ export async function registerQualityRoutes(
         everyonesFlags: everyones,
         resubmitted: resubmittedAfterRecheck(figures.flags, decisions),
         decided: new Map(decisions.map((d) => [d.plot, d.decision])),
+        ...(reviewerName !== null ? { excluded: plotsOf(figures.flags, reviewerName) } : {}),
       },
       { person, kind: kind as QueueKind | null },
     );
@@ -339,6 +343,8 @@ export async function registerQualityRoutes(
       total: queue.items.length,
       counts: queue.counts,
       people: queue.people,
+      // A reviewer's own plots left out of the queue (0 for a coordinator).
+      excludedOwn: queue.excluded,
       // The flags looked at are the newest MAX_LISTED_FLAGS of those matching the filters.
       flagsCapped: flags.total > flags.flags.length,
       labels,

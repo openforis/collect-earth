@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPlotIndex, filesOfUnit, MAX_SEARCH_RESULTS, searchPlots, unitIndex } from '../src/plotSearch.js';
+import { buildPlotIndex, filesOfUnit, MAX_SEARCH_RESULTS, searchPlots, unitIndex, unitsOfPlot } from '../src/plotSearch.js';
 
 const ids = (n: number, from = 1) => Array.from({ length: n }, (_, i) => String(from + i));
 
@@ -66,6 +66,15 @@ describe('plot search', () => {
     ]);
     expect(filesOfUnit(index, unitIndex(index, '2'))).toEqual([{ id: 'f1', filename: 'north.csv' }]);
     expect(index.units).toEqual(['1', '2', '3']);
+  });
+
+  it('an own round: the units of each plot kept with the index (its other rounds)', () => {
+    const files = [{ id: 'f1', filename: 'a.csv', units: ['17,2025', '170,2025', '17,2026'] }, { id: 'f2', filename: 'b.csv', units: ['17,2027'] }];
+    const own = buildPlotIndex(files, null, { count: 2, roundIndex: 1 });
+    expect(unitsOfPlot(own, '17,2026')).toEqual(['17,2025', '17,2026', '17,2027']);
+    expect(unitsOfPlot(own, '170,2025')).toEqual(['170,2025']);
+    // No round in the units: each unit alone.
+    expect(unitsOfPlot(buildPlotIndex(files, null), '17,2026')).toEqual(['17,2026']);
   });
 
   it('a search over 200,000 plots takes a few milliseconds once the index is built', () => {

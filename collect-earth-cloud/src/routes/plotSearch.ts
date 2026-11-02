@@ -1,16 +1,16 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { RoundInfo } from '../cep.js';
 import { copyHoldersOf } from '../division.js';
-import { fastSecondsOf, patternFlags, type Flag } from '../flags.js';
+import { assessesPlot, fastSecondsOf, patternFlags, type Flag } from '../flags.js';
 import { plotIdsOf } from '../plotFileCache.js';
-import { buildPlotIndex, filesOfUnit, searchPlots, unitIndex, type PlotIndex, type PlotIndexFile } from '../plotSearch.js';
+import { buildPlotIndex, filesOfUnit, searchPlots, unitIndex, unitsOfPlot, type PlotIndex, type PlotIndexFile } from '../plotSearch.js';
 import type { PlotOutline } from '../plotShape.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { pairAt, pairFields, type Difference } from '../quality.js';
 import { answerOptions } from '../qualityReports.js';
 import { recordResolver } from '../quality.js';
 import { remember, sha256, type Log, type QualityService, type ServedReport } from '../qualityService.js';
-import { fileKeyCount, keyShape, recordKeysOfUnit, splitKey, type Assessment } from '../rounds.js';
+import { fileKeyCount, keyShape, recordKeysOfUnit, type Assessment } from '../rounds.js';
 import type { Store } from '../store/store.js';
 import type { RecordRow } from '../types.js';
 import { PlotPlaceReader } from './plotPlaces.js';
@@ -22,15 +22,21 @@ import { MAX_NAME, publicDecision } from './quality.js';
  * from the plot files' parsed ids (an index per version of the files, kept); GET /plots/:plot
  * gives one plot: its files and who holds it, every record of it with its round and answers
  * (read by their keys: that plot's records only), the decision, its flags from the figures at
- * hand (never worked out here) and where it is.
+ * hand (QualityService.peek, never awaited: no computation is waited for here) and where it is.
+ * Reviewers get the page trimmed (Decision 3): the files without who holds them, no deleted
+ * records, no time the server received each.
  */
 
 /** Projects whose index is kept (least recently used out first). */
 export const MAX_CACHED_INDEXES = 4;
+/** An index built while a plot file could not be read is served this long before it is built again. */
+export const INDEX_RETRY_MS = 5000;
 
 interface IndexEntry {
   version: string;
   index: PlotIndex;
+  /** Set when a plot file could not be read: the index lacks its plots and is built again after the retry wait. */
+  failedAt: number | null;
 }
 
 /** The project's plot index, built once per version of its files, survey keys and round. */
@@ -40,17 +46,24 @@ export class PlotIndexCache {
   /** How many indexes were built (for tests). */
   built = 0;
 
+  private readonly retryMs: number;
+  private readonly now: () => number;
+
   constructor(
     private readonly store: Store,
     private readonly places: PlotPlaceReader,
-  ) {}
+    options: { retryMs?: number; now?: () => number } = {},
+  ) {
+    this.retryMs = options.retryMs ?? INDEX_RETRY_MS;
+    this.now = options.now ?? Date.now;
+  }
 
   async get(projectId: string, log: Log & FastifyRequest['log']): Promise<{ index: PlotIndex; info: RoundInfo | null }> {
     const [info, files, facts] = await Promise.all([this.store.getRoundInfo(projectId), this.store.listCsvFiles(projectId), this.places.surveyFacts(projectId, log)]);
     const keyCount = fileKeyCount(info);
     const version = sha256(JSON.stringify([keyCount, facts.hidden, files.map((f) => [f.id, f.checksum, f.filename])]));
     const hit = this.entries.get(projectId);
-    if (hit && hit.version === version) {
+    if (hit && hit.version === version && (hit.failedAt === null || this.now() - hit.failedAt < this.retryMs)) {
       remember(this.entries, projectId, hit, MAX_CACHED_INDEXES);
       return { index: hit.index, info };
     }
@@ -60,16 +73,20 @@ export class PlotIndexCache {
     }
     const promise = (async (): Promise<IndexEntry> => {
       const read: PlotIndexFile[] = [];
+      let failed = false;
       for (const meta of files) {
         try {
           const file = await this.store.getCsvFile(projectId, meta.id);
           if (file) read.push({ id: meta.id, filename: meta.filename, units: plotIdsOf(file, keyCount) });
         } catch (err) {
+          failed = true;
           log.error({ err, csvFileId: meta.id }, 'plot search: could not read the plot file');
         }
       }
       this.built += 1;
-      return { version, index: buildPlotIndex(read, facts.hidden) };
+      const shape = keyShape(info);
+      const ownRound = info?.state === 'own' && shape.roundIndex !== null ? shape : null;
+      return { version, index: buildPlotIndex(read, facts.hidden, ownRound), failedAt: failed ? this.now() : null };
     })();
     this.building.set(projectId, { version, promise });
     try {
@@ -95,16 +112,22 @@ export interface PlotPageRecord {
   submitted: boolean;
   deleted: boolean;
   modifiedOn: number;
-  receivedAt: number;
+  /** Coordinators only. */
+  receivedAt?: number;
   /** Its answers to the questions listed (`questions`), as stored. */
   answers: Record<string, string>;
 }
 
 const ORDER: Record<Assessment, number> = { main: 0, check: 1, other: 2 };
 
-export async function registerPlotSearchRoutes(app: FastifyInstance, store: Store, quality: QualityService, places: PlotPlaceReader): Promise<void> {
+export async function registerPlotSearchRoutes(
+  app: FastifyInstance,
+  store: Store,
+  quality: QualityService,
+  places: PlotPlaceReader,
+  indexes: PlotIndexCache = new PlotIndexCache(store, places),
+): Promise<void> {
   const reviewer = { preHandler: requireProjectMembership(store, 'reviewer') };
-  const indexes = new PlotIndexCache(store, places);
 
   async function search(request: FastifyRequest, reply: FastifyReply, q: string) {
     if (q.length > MAX_NAME) return reply.code(400).send(bad(`q must be at most ${MAX_NAME} characters`));
@@ -115,20 +138,14 @@ export async function registerPlotSearchRoutes(app: FastifyInstance, store: Stor
   async function page(request: FastifyRequest, reply: FastifyReply, plot: string) {
     if (!plot || plot.length > MAX_NAME) return reply.code(400).send(bad(`the plot must be 1-${MAX_NAME} characters`));
     const { projectId, role, userId } = request.membership!;
+    const coordinator = role === 'admin';
     const { index, info } = await indexes.get(projectId, request.log);
     const u = unitIndex(index, plot);
     if (u < 0) return reply.code(404).send({ error: 'not_found', reason: 'no plot file of this project has this plot' });
     const files = filesOfUnit(index, u);
 
     // An own round: the plot's other rounds are units of their own, and a check may go to any of them.
-    const shape = keyShape(info);
-    const ownRound = info?.state === 'own' && shape.roundIndex !== null;
-    let units = [plot];
-    if (ownRound) {
-      const of = (unit: string) => splitKey(unit, shape.count, shape.roundIndex).plot;
-      const mine = of(plot);
-      units = index.units.filter((unit) => unit === plot || of(unit) === mine);
-    }
+    const units = unitsOfPlot(index, plot);
     const unitFiles = [...new Set(units.flatMap((unit) => filesOfUnit(index, unitIndex(index, unit)).map((f) => f.id)))];
 
     const [metas, members, assignments, holdings, rows, decisions, settings, outline, where, user] = await Promise.all([
@@ -143,7 +160,7 @@ export async function registerPlotSearchRoutes(app: FastifyInstance, store: Stor
       places.places(projectId, [plot], request.log),
       userId ? store.getUserById(userId) : Promise.resolve(null),
     ]);
-    // The figures at hand, never worked out here: the flags and the differing pairs come from them.
+    // The figures at hand (peek, never awaited): the flags and the differing pairs come from them.
     let figures: ServedReport | null = null;
     try {
       figures = await quality.peek(projectId, request.log);
@@ -157,6 +174,8 @@ export async function registerPlotSearchRoutes(app: FastifyInstance, store: Stor
     const sorted = (names: Iterable<string>) => [...new Set(names)].sort();
     const fileRows = files.map((f) => {
       const isDivided = divided.has(f.id);
+      // Reviewers: the files only, not who holds the plot (Decision 3).
+      if (!coordinator) return { id: f.id, filename: f.filename, divided: isDivided };
       const here = holdings.filter((h) => h.csvFileId === f.id && h.plotKey === plot && usernames.has(h.userId));
       return {
         id: f.id,
@@ -173,11 +192,13 @@ export async function registerPlotSearchRoutes(app: FastifyInstance, store: Stor
       usernames,
     );
     const resolve = recordResolver({ info, units: new Set(units), copyHolders });
-    const mine: { row: RecordRow; round: string; assessment: Assessment }[] = [];
+    const all: { row: RecordRow; round: string; assessment: Assessment }[] = [];
     for (const row of rows) {
       const { round, group } = resolve(row);
-      if (group === plot) mine.push({ row, round: round.round, assessment: round.assessment });
+      if (group === plot) all.push({ row, round: round.round, assessment: round.assessment });
     }
+    // Reviewers: no deleted records (drafts stay: they are the queue's material).
+    const mine = coordinator ? all : all.filter((m) => !m.row.deleted);
     mine.sort((a, b) => ORDER[a.assessment] - ORDER[b.assessment] || a.row.modifiedOn - b.row.modifiedOn || (a.row.operator < b.row.operator ? -1 : 1));
 
     // The questions answered, in the survey's order (those never compared, such as the keys and
@@ -201,16 +222,16 @@ export async function registerPlotSearchRoutes(app: FastifyInstance, store: Stor
       submitted: row.activelySaved,
       deleted: row.deleted,
       modifiedOn: row.modifiedOn,
-      receivedAt: row.receivedAt,
+      ...(coordinator ? { receivedAt: row.receivedAt } : {}),
       answers: Object.fromEntries(Object.entries(row.summary).filter(([k]) => shown.has(k))),
     }));
 
-    // The decision, and whether whoever decided has a record of the plot.
-    const operators = new Set(mine.filter((m) => !m.row.deleted).map((m) => m.row.operator));
+    // The decision, and whether whoever decided assessed the plot (the 409's rule: assessesPlot).
+    const operators = new Set(all.filter((m) => assessesPlot(m.row, m.assessment)).map((m) => m.row.operator));
     const decided = decisions.find((d) => d.plot === plot) ?? null;
     const decision = decided ? { ...publicDecision(decided), byAssessor: decided.decidedBy !== null && operators.has(decided.decidedBy) } : null;
     // A reviewer does not decide a plot they assessed (Decision 3); the decision route says so too.
-    const ownPlot = role !== 'admin' && !!user && operators.has(user.username);
+    const ownPlot = !coordinator && !!user && operators.has(user.username);
 
     // Its flags and differing pairs, from the figures at hand.
     let flags: Flag[] | null = null;

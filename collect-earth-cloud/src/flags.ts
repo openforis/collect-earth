@@ -17,6 +17,7 @@ import type { AnswerTable, FirstAssessment } from './answerStats.js';
 import { keyRule, recordResolver, type QualityInput, type QualityReport } from './quality.js';
 import { BOOKKEEPING_KEYS, SUMMARY_VALUES_SEPARATOR } from './surveyOutline.js';
 import type { DecisionKind } from './types.js';
+import type { Assessment } from './rounds.js';
 
 export const FLAG_KINDS = ['very_fast', 'same_as_before', 'required_empty', 'edited_after_decision', 'two_main', 'no_plot'] as const;
 export type FlagKind = (typeof FLAG_KINDS)[number];
@@ -265,7 +266,7 @@ export function flagTable(input: QualityInput, kept: readonly FirstAssessment[],
   input.records.forEach((r, i) => {
     if (r.deleted) return;
     const { round, group } = resolve(r);
-    if (round.assessment === 'other') return;
+    if (!assessesPlot(r, round.assessment)) return;
     let g = groupIndex.get(group);
     if (g === undefined) {
       g = groups.length;
@@ -330,6 +331,35 @@ export function plotOperators(f: FlagTable, plot: string): Set<string> {
   if (g === undefined) return out;
   for (let i = f.saved.start[g]; i < f.saved.start[g + 1]; i++) out.add(f.saved.operators[f.saved.operator[i]]);
   return out;
+}
+
+/**
+ * The plots a person assessed (a saved record: first assessment or check, drafts too), as the
+ * figures hold them: plotOperators' rule the other way round. A reviewer's review queue leaves
+ * them out (someone else decides them, Decision 3).
+ */
+export function plotsOf(f: FlagTable, username: string): Set<string> {
+  const out = new Set<string>();
+  const o = f.saved.operators.indexOf(username);
+  if (o < 0) return out;
+  for (let g = 0; g < f.saved.groups.length; g++) {
+    for (let i = f.saved.start[g]; i < f.saved.start[g + 1]; i++) {
+      if (f.saved.operator[i] === o) {
+        out.add(f.saved.groups[g]);
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Whether a record counts as someone's assessment of its plot (who may not decide it, who decided
+ * as an assessor): not deleted and of a known round, first assessment or check, drafts too. The
+ * figures' saved records (plotOperators, plotsOf) and the plot page use this one rule.
+ */
+export function assessesPlot(r: { deleted: boolean }, assessment: Assessment): boolean {
+  return !r.deleted && assessment !== 'other';
 }
 
 /** The typed arrays of a flag table, to hand it over between threads without copying. */

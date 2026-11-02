@@ -86,7 +86,7 @@ describe('the review queue: GET /quality/queue, decisions by reviewers, POST /qu
     // Received after the decision (a later millisecond).
     await new Promise((resolve) => setTimeout(resolve, 5));
     await batchRequest(ctx.app, pid, projectToken, [envelope({ ...main(7, 'maria', 0, 'G'), modifiedOn: again })]);
-    const body = await fresh('/quality/queue', rita.token);
+    const body = await fresh('/quality/queue', owner.token);
     expect(body.items.map((i: { plot: string; section: string }) => [i.plot, i.section])).toEqual([
       ['1', 'difference'],
       ['2', 'difference'],
@@ -128,6 +128,18 @@ describe('the review queue: GET /quality/queue, decisions by reviewers, POST /qu
     expect(places.statusCode, places.body).toBe(200);
     expect(places.json().places).toEqual([{ plot: '1', lat: -10, lon: 20, name: '1' }]);
     expect((await call('POST', '/quality/places', maria.token, { plots: ['1'] })).statusCode).toBe(403);
+  });
+
+  it("a reviewer's queue leaves out the plots they assessed (first assessment or check), before the counts, the people and the cursor; a coordinator's keeps them", async () => {
+    const owners = await fresh();
+    expect(owners.excludedOwn).toBe(0);
+    const ritas = await fresh('/quality/queue', rita.token);
+    expect(ritas.items.map((i: { plot: string }) => i.plot)).toEqual(['1', '4', '6']);
+    expect(ritas).toMatchObject({ total: 3, counts: { difference: 2, flag: 1, resubmitted: 0 }, excludedOwn: 2 });
+    expect(ritas.people).not.toContain('rita');
+    expect((await call('GET', '/quality/queue?person=rita', rita.token)).json().items).toEqual([]);
+    expect((await call('GET', '/quality/queue?after=difference::1', rita.token)).json().items.map((i: { plot: string }) => i.plot)).toEqual(['4', '6']);
+    expect(owners.items.map((i: { plot: string }) => i.plot)).toEqual(['1', '2', '3', '4', '6']);
   });
 
   it('reviewers decide and undo, audited with who did it; the plot leaves the queue; collectors cannot', async () => {

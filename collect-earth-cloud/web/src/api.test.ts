@@ -470,6 +470,7 @@ describe("the quality figures", () => {
         counts: { difference: 0, flag: 0, resubmitted: 1 },
         people: ["ana"],
         flagsCapped: true,
+        excludedOwn: 2,
         labels: { q: "Land use" },
         options: { q: [{ code: "F", label: "Forest" }] },
         computedAt: 3,
@@ -492,7 +493,7 @@ describe("the quality figures", () => {
     expect(queue.items[0].differences[1]).toMatchObject({ fields: [], changed: true });
     expect(queue.items[0].differences[0].changed).toBe(false);
     expect(queue.items[0].decision?.byAssessor).toBe(true);
-    expect(queue).toMatchObject({ total: 2, counts: { resubmitted: 1 }, flagsCapped: true, labels: { q: "Land use" }, options: { q: [{ code: "F", label: "Forest" }] } });
+    expect(queue).toMatchObject({ total: 2, counts: { resubmitted: 1 }, flagsCapped: true, excludedOwn: 2, labels: { q: "Land use" }, options: { q: [{ code: "F", label: "Forest" }] } });
     await getReviewQueue("p1", { person: null, kind: null }, null);
     expect(call(1).url).toBe("/v1/projects/p1/quality/queue");
     expect(await bulkDecisions("p1", "first_by_reviewer", true)).toEqual({ decision: "first", count: 3, plots: ["1", "2", "3"], batch: null });
@@ -508,7 +509,7 @@ describe("the quality figures", () => {
       return jsonResponse(200, {
         plot: "1",
         name: "1",
-        files: [{ id: "f1", filename: "a.csv", divided: true, main: ["ana"], copies: ["ben", 4] }],
+        files: [{ id: "f1", filename: "a.csv", divided: true, main: ["ana"], copies: ["ben", 4] }, { id: "f2", filename: "b.csv", divided: false }],
         records: [
           { operator: "ana", recordKey: "1,1", round: "1", assessment: "main", submitted: true, deleted: false, modifiedOn: 5, receivedAt: 6, answers: { q: "F", n: 3 } },
           { operator: "ben", recordKey: "1,2", round: "2", assessment: "odd", submitted: false, deleted: true, modifiedOn: "x" },
@@ -530,7 +531,11 @@ describe("the quality figures", () => {
     expect(found).toEqual({ plots: [{ plot: "17,2025", name: "17", files: [{ id: "f1", filename: "a.csv" }] }], more: true });
     const page = await getPlotPage("p1", "1,2025/x");
     expect(call(1).url).toBe("/v1/projects/p1/plots/1%2C2025%2Fx");
-    expect(page.files).toEqual([{ id: "f1", filename: "a.csv", divided: true, main: ["ana"], copies: ["ben"] }]);
+    expect(page.files).toEqual([
+      { id: "f1", filename: "a.csv", divided: true, main: ["ana"], copies: ["ben"] },
+      // A reviewer's page names the files only.
+      { id: "f2", filename: "b.csv", divided: false, main: null, copies: null },
+    ]);
     expect(page.records[0]).toEqual({ operator: "ana", recordKey: "1,1", round: "1", assessment: "main", submitted: true, deleted: false, modifiedOn: 5, receivedAt: 6, answers: { q: "F", n: "3" } });
     expect(page.records[1]).toMatchObject({ assessment: "other", submitted: false, deleted: true, modifiedOn: null, answers: {} });
     expect(page.questions).toEqual([{ key: "q", label: "Land use" }, { key: "n", label: "n" }]);

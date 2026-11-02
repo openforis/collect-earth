@@ -318,7 +318,7 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
         </Section>
       )}
 
-      <Section title={t("plot.files")}>
+      <Section title={t(data.files.some((f) => f.main !== null) ? "plot.files" : "tab.plots")}>
         <Stack spacing={1.5}>
           {data.files.map((f) => (
             <Box key={f.id}>
@@ -332,10 +332,12 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
                 )}
                 <Chip size="small" variant="outlined" label={t(f.divided ? "plot.fileDivided" : "plot.fileWhole")} />
               </Stack>
-              <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
-                {f.main.length > 0 ? t("plot.holders", { names: f.main.join(", ") }) : t("plot.nobody")}
-              </Typography>
-              {f.copies.length > 0 && (
+              {f.main !== null && (
+                <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+                  {f.main.length > 0 ? t("plot.holders", { names: f.main.join(", ") }) : t("plot.nobody")}
+                </Typography>
+              )}
+              {f.copies !== null && f.copies.length > 0 && (
                 <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
                   {t("plot.copies", { names: f.copies.join(", ") })}
                 </Typography>

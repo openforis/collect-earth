@@ -40,6 +40,8 @@ export interface QueueInput {
   resubmitted: readonly Resubmitted[];
   /** The decisions as they are now, by plot. */
   decided: ReadonlyMap<string, DecisionKind>;
+  /** Plots left out of the queue altogether (a reviewer's own: someone else decides them). */
+  excluded?: ReadonlySet<string>;
 }
 
 export interface QueueFilter {
@@ -56,6 +58,8 @@ export interface ReviewQueue {
   counts: QueueCounts;
   /** Everyone named in the whole queue, whatever the filters (for the person filter), sorted. */
   people: string[];
+  /** Plots of the queue left out because they were asked to be (`excluded`), whatever the filters. */
+  excluded: number;
 }
 
 const byName = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
@@ -65,7 +69,15 @@ const inQueue = (f: Flag, decided: ReadonlyMap<string, DecisionKind>) => !decide
 /** The review queue of a project, filtered. */
 export function reviewQueue(input: QueueInput, filter: QueueFilter): ReviewQueue {
   const { pairs, decided } = input;
+  const excluded = input.excluded ?? new Set<string>();
+  const left = new Set<string>();
   const items = new Map<string, QueueItem & { names: Set<string> }>();
+  /** Whether a plot that belongs in the queue is left out (counted once). */
+  const out = (plot: string) => {
+    if (!excluded.has(plot)) return false;
+    left.add(plot);
+    return true;
+  };
   const itemOf = (plot: string, section: QueueSection) => {
     let item = items.get(plot);
     if (!item) {
@@ -78,27 +90,27 @@ export function reviewQueue(input: QueueInput, filter: QueueFilter): ReviewQueue
   // 1. Differences without a decision (the pairs are in plot order).
   for (let i = 0; i < pairs.plot.length; i++) {
     const plot = pairs.plot[i];
-    if (decided.has(plot)) continue;
+    if (decided.has(plot) || out(plot)) continue;
     const item = itemOf(plot, 'difference');
     item.pairs.push(i);
     item.names.add(pairs.people[pairs.first[i]]).add(pairs.people[pairs.check[i]]);
   }
   // 2. Flags of plots without a decision, or saved again after one.
   for (const f of input.flags) {
-    if (!inQueue(f, decided)) continue;
+    if (!inQueue(f, decided) || out(f.plot)) continue;
     const item = itemOf(f.plot, 'flag');
     item.flags.push(f);
     item.names.add(f.operator);
   }
   // 3. Submitted again after "both need another look".
   for (const r of input.resubmitted) {
-    if (decided.get(r.plot) !== 'recheck') continue;
+    if (decided.get(r.plot) !== 'recheck' || out(r.plot)) continue;
     const item = itemOf(r.plot, 'resubmitted');
     item.resubmitted.push(r);
     item.names.add(r.operator);
   }
   for (const item of items.values()) for (const name of item.names) people.add(name);
-  for (const f of input.everyonesFlags ?? []) if (inQueue(f, decided)) people.add(f.operator);
+  for (const f of input.everyonesFlags ?? []) if (inQueue(f, decided) && !out(f.plot)) people.add(f.operator);
 
   const all: QueueItem[] = [];
   for (const section of SECTIONS) {
@@ -123,7 +135,7 @@ export function reviewQueue(input: QueueInput, filter: QueueFilter): ReviewQueue
   const listed = all.filter(matches);
   const counts: QueueCounts = { difference: 0, flag: 0, resubmitted: 0 };
   for (const item of listed) counts[item.section] += 1;
-  return { items: listed, counts, people: [...people].sort(byName) };
+  return { items: listed, counts, people: [...people].sort(byName), excluded: left.size };
 }
 
 /** A plot's place in the queue's order: its part, then (flags, submitted again) newest first, then the plot. */

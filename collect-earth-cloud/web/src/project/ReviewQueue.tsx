@@ -636,6 +636,11 @@ export function ReviewQueue({
                 </Button>
               </Box>
             )}
+            {data.excludedOwn > 0 && (
+              <Typography variant="body2" color="text.secondary">
+                {t("queue.ownLeftOut", { n: formatNumber(data.excludedOwn, language) })}
+              </Typography>
+            )}
             {data.flagsCapped && (
               <Typography variant="body2" color="text.secondary">
                 {t("queue.flagsCapped")}

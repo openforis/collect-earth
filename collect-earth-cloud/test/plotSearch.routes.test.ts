@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { demoCep, idOnlyCep } from './fixtures/cep.js';
+import { PlotPlaceReader } from '../src/routes/plotPlaces.js';
+import { PlotIndexCache } from '../src/routes/plotSearch.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 
 const LAND_USE = 'collect_code_land_use_category';
@@ -54,7 +56,7 @@ describe('plot search: GET /plots/search, GET /plots/:plot', () => {
       call('PUT', `/csv-files/${name}`, owner.token, ['id,lat,lon', ...ids.map((id, i) => `${id},${-10 - i / 10},${20 + i / 10}`)].join('\n'), { 'content-type': 'text/csv' });
     plotsFile = (await csv('plots.csv', Array.from({ length: 120 }, (_, i) => i + 1))).json().id;
     // Plot 1 is in both files; the second is divided: maria holds 1, ben a copy of it.
-    extraFile = (await csv('extra.csv', [1, 'A-7', 'a-8'])).json().id;
+    extraFile = (await csv('extra.csv', [1, 'A-7', 'a-8', 'search', 'a/b', 'plot 7', 'Ñandú-1'])).json().id;
     await ctx.store.setAssignments(pid, [{ userId: maria.userId, csvFileId: plotsFile }]);
     await ctx.store.setDivision(pid, extraFile, { mode: 'manual' }, [
       { plotKey: '1', userId: maria.userId, overlap: false },
@@ -152,6 +154,71 @@ describe('plot search: GET /plots/search, GET /plots/:plot', () => {
     expect((await call('PUT', '/quality/decisions/3', rita.token, { decision: 'first' })).statusCode).toBe(409);
     // A plot in no plot file is not found.
     expect((await call('GET', '/plots/999', owner.token)).statusCode).toBe(404);
+  });
+
+  it("a reviewer's page names the files only (no people), and shows no deleted record nor when the server received each", async () => {
+    // rita had saved a check of plot 1 and deleted it: not hers to keep out of deciding.
+    await batchRequest(ctx.app, pid, projectToken, [envelope({ ...check(1, 'rita', 'F'), deleted: true })]);
+    const owners = (await call('GET', '/plots/1', owner.token)).json();
+    expect(owners.records.map((r: { operator: string; deleted: boolean }) => [r.operator, r.deleted])).toEqual([
+      ['maria', false],
+      ['ben', false],
+      ['rita', true],
+    ]);
+    expect(owners.files[1]).toEqual({ id: extraFile, filename: 'extra.csv', divided: true, main: ['maria'], copies: ['ben'] });
+    const ritas = (await call('GET', '/plots/1', rita.token)).json();
+    expect(ritas.files).toEqual([
+      { id: plotsFile, filename: 'plots.csv', divided: false },
+      { id: extraFile, filename: 'extra.csv', divided: true },
+    ]);
+    expect(ritas.records.map((r: { operator: string }) => r.operator)).toEqual(['maria', 'ben']);
+    for (const r of ritas.records) expect(r).not.toHaveProperty('receivedAt');
+    // A deleted record is no assessment: she may decide it, and a decision of hers is not "by an assessor".
+    expect(ritas.ownPlot).toBe(false);
+    expect((await call('PUT', '/quality/decisions/1', rita.token, { decision: 'first' })).statusCode).toBe(200);
+    expect((await call('GET', '/plots/1', owner.token)).json().decision).toMatchObject({ decidedBy: 'rita', byAssessor: false });
+    // Drafts stay for reviewers.
+    expect((await call('GET', '/plots/10', rita.token)).json().records).toEqual([expect.objectContaining({ operator: 'maria', submitted: false })]);
+  });
+
+  it('ids with a slash, spaces and other letters, and a plot named "search"; the round the server added', async () => {
+    expect((await call('GET', '/round', owner.token)).json()).toMatchObject({ state: 'added', roundIndex: 1, reassessmentCode: '2' });
+    await batchRequest(ctx.app, pid, projectToken, [main('a/b', 'maria', 300), main('search', 'ben', 400), check('Ñandú-1', 'ana', 'G')]);
+    for (const [q, plot] of [['a/', 'a/b'], ['plot 7', 'plot 7'], ['ñandú', 'Ñandú-1'], ['sea', 'search']]) {
+      const found = (await call('GET', `/plots/search?q=${encodeURIComponent(q)}`, owner.token)).json();
+      expect(found.plots.map((p: { plot: string }) => p.plot), q).toEqual([plot]);
+      const page = await call('GET', `/plots/${encodeURIComponent(plot)}`, owner.token);
+      expect(page.statusCode, plot).toBe(200);
+      expect(page.json().plot).toBe(plot);
+    }
+    expect((await call('GET', `/plots/${encodeURIComponent('a/b')}`, owner.token)).json().records).toEqual([expect.objectContaining({ recordKey: 'a/b,1', round: '1', assessment: 'main' })]);
+    expect((await call('GET', '/plots/search', owner.token)).json().records).toEqual([expect.objectContaining({ operator: 'ben', recordKey: 'search,1' })]);
+    expect((await call('GET', `/plots/${encodeURIComponent('Ñandú-1')}`, owner.token)).json().records).toEqual([expect.objectContaining({ recordKey: 'Ñandú-1,2', round: '2', assessment: 'check' })]);
+  });
+
+  it('a plot file that cannot be read: the index is not kept, and built again after a short wait', async () => {
+    let clock = 1_000_000;
+    const log = { warn() {}, error() {} } as never;
+    const cache = new PlotIndexCache(ctx.store, new PlotPlaceReader(ctx.store), { retryMs: 5000, now: () => clock });
+    const read = ctx.store.getCsvFile.bind(ctx.store);
+    let failing = true;
+    ctx.store.getCsvFile = async (projectId, id) => {
+      if (failing && id === extraFile) throw new Error('disk');
+      return read(projectId, id);
+    };
+    const units = async () => (await cache.get(pid, log)).index.units;
+    expect(await units()).not.toContain('A-7');
+    failing = false;
+    // Within the wait, the index of before is served (no rebuild on every key).
+    clock += 1000;
+    expect(await units()).not.toContain('A-7');
+    expect(cache.built).toBe(1);
+    clock += 5000;
+    expect(await units()).toContain('A-7');
+    expect(cache.built).toBe(2);
+    clock += 60_000;
+    await units();
+    expect(cache.built).toBe(2);
   });
 
   it('collectors and project tokens get 403 on both routes; another project\'s coordinator 404', async () => {

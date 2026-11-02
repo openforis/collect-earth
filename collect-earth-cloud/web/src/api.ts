@@ -2327,6 +2327,8 @@ export interface ReviewQueueData {
   people: string[];
   /** Only the newest flags (500) were looked at. */
   flagsCapped: boolean;
+  /** A reviewer's own plots left out of the queue (someone else decides them); 0 for a coordinator. */
+  excludedOwn: number;
   labels: Record<string, string>;
   options: AnswerOptions;
   computedAt: number | null;
@@ -2380,6 +2382,7 @@ export function toReviewQueue(body: unknown): ReviewQueueData {
     counts: { difference: toCount(counts.difference), flag: toCount(counts.flag), resubmitted: toCount(counts.resubmitted) },
     people: strings(b.people),
     flagsCapped: b.flagsCapped === true,
+    excludedOwn: toCount(b.excludedOwn),
     labels,
     options: toOptions(b.options),
     computedAt: toMillis(b.computedAt),
@@ -2590,8 +2593,8 @@ export interface PlotRecordView {
 export interface PlotPageData {
   plot: string;
   name: string;
-  /** Each plot file holding it, with who holds it there (main and quality-check copies). */
-  files: { id: string; filename: string; divided: boolean; main: string[]; copies: string[] }[];
+  /** Each plot file holding it, with who holds it there (main and quality-check copies; null for a reviewer: the files only). */
+  files: { id: string; filename: string; divided: boolean; main: string[] | null; copies: string[] | null }[];
   records: PlotRecordView[];
   /** The questions answered, in the survey's order. */
   questions: { key: string; label: string }[];
@@ -2622,7 +2625,9 @@ export function toPlotPage(body: unknown): PlotPageData {
   return {
     plot: text(b.plot),
     name: text(b.name) || text(b.plot),
-    files: list(b.files).flatMap((f) => toFileRef(f).map((ref) => ({ ...ref, divided: f.divided === true, main: onlyStrings(f.main), copies: onlyStrings(f.copies) }))),
+    files: list(b.files).flatMap((f) =>
+      toFileRef(f).map((ref) => ({ ...ref, divided: f.divided === true, main: Array.isArray(f.main) ? onlyStrings(f.main) : null, copies: Array.isArray(f.copies) ? onlyStrings(f.copies) : null })),
+    ),
     records: list(b.records).map((r) => {
       const answers: Record<string, string> = {};
       for (const [key, value] of Object.entries(obj(r.answers))) if (value !== null && value !== undefined) answers[key] = String(value);

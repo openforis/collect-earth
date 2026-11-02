@@ -1170,6 +1170,10 @@ const en = {
   "plot.differencesHeading": "Answers that differ from a check",
   "plot.noDifferences": "No check of this plot differs from its first assessment.",
   "plot.openQuality": "Open the review queue and the differences",
+  "plotSearch.found": "{n} plots found.",
+  "plotSearch.foundOne": "1 plot found.",
+  "plotSearch.foundNone": "No plot found.",
+  "queue.ownLeftOut": "Plots you assessed are left out ({n}): someone else decides them.",
 };
 
 export type MessageKey = keyof typeof en;
@@ -2340,6 +2344,10 @@ const es: Catalogue = {
   "plot.differencesHeading": "Respuestas que difieren de un control",
   "plot.noDifferences": "Ningún control de esta parcela difiere de su primera evaluación.",
   "plot.openQuality": "Abrir la cola de revisión y las diferencias",
+  "plotSearch.found": "{n} parcelas encontradas.",
+  "plotSearch.foundOne": "1 parcela encontrada.",
+  "plotSearch.foundNone": "No se encontró ninguna parcela.",
+  "queue.ownLeftOut": "Se dejan fuera las parcelas que usted evaluó ({n}): las decide otra persona.",
 };
 
 const fr: Catalogue = {
@@ -3507,6 +3515,10 @@ const fr: Catalogue = {
   "plot.differencesHeading": "Réponses qui diffèrent d’un contrôle",
   "plot.noDifferences": "Aucun contrôle de cette parcelle ne diffère de sa première évaluation.",
   "plot.openQuality": "Ouvrir la file de révision et les différences",
+  "plotSearch.found": "{n} parcelles trouvées.",
+  "plotSearch.foundOne": "1 parcelle trouvée.",
+  "plotSearch.foundNone": "Aucune parcelle trouvée.",
+  "queue.ownLeftOut": "Les parcelles que vous avez évaluées sont laissées de côté ({n}) : quelqu’un d’autre les décide.",
 };
 
 const pt: Catalogue = {
@@ -4674,6 +4686,10 @@ const pt: Catalogue = {
   "plot.differencesHeading": "Respostas que diferem de um controle",
   "plot.noDifferences": "Nenhum controle desta parcela difere da primeira avaliação.",
   "plot.openQuality": "Abrir a fila de revisão e as diferenças",
+  "plotSearch.found": "{n} parcelas encontradas.",
+  "plotSearch.foundOne": "1 parcela encontrada.",
+  "plotSearch.foundNone": "Nenhuma parcela encontrada.",
+  "queue.ownLeftOut": "As parcelas que você avaliou ficam de fora ({n}): outra pessoa as decide.",
 };
 
 export const CATALOGUES = { en, es, fr, pt } satisfies Record<string, Catalogue>;

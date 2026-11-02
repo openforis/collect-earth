@@ -110,7 +110,19 @@ describe('reviewQueue: one queue', () => {
   });
 
   it('an empty queue', () => {
-    expect(reviewQueue(input(), {})).toEqual({ items: [], counts: { difference: 0, flag: 0, resubmitted: 0 }, people: [] });
+    expect(reviewQueue(input(), {})).toEqual({ items: [], counts: { difference: 0, flag: 0, resubmitted: 0 }, people: [], excluded: 0 });
+  });
+
+  it("leaves out the plots asked (a reviewer's own), before the counts, the people and the cursor, and says how many", () => {
+    const mine = { ...all, everyonesFlags: all.flags, excluded: new Set(['2', '5', '7', '99']) };
+    const queue = reviewQueue(mine, {});
+    expect(queue.items.map((i) => i.plot)).toEqual(['1', '9', '6', '8', '4']);
+    expect(queue.counts).toEqual({ difference: 2, flag: 2, resubmitted: 1 });
+    // carl is only on plot 2; plot 7 is decided and 99 not in the queue: neither counts.
+    expect(queue.people).toEqual(['ana', 'ben', 'dan']);
+    expect(queue.excluded).toBe(2);
+    expect(reviewQueue(mine, { kind: 'very_fast' }).items.map((i) => i.plot)).toEqual([]);
+    expect(reviewQueue(mine, { kind: 'very_fast' }).excluded).toBe(2);
   });
 });
 

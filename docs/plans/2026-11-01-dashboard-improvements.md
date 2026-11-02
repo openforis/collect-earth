@@ -63,6 +63,14 @@ desktop.
    which they made the first assessment or a check (409 `own_plot`, "someone else decides
    it"); a coordinator may, and the decision then says "Decided by someone who assessed this
    plot" (`byAssessor`).
+   **Their review queue leaves out the plots they assessed** (the 409's rule: a saved, not
+   deleted record of a known round, first assessment or check, drafts too), before the counts,
+   the people and the cursor; the page says how many ("Plots you assessed are left out (N):
+   someone else decides them."). Coordinators keep the full queue.
+   **Plot search (Task 8):** reviewers search plots and open a plot's page, trimmed: the plot
+   files are named only (no main holders, copies or whole-file assignment lists), no deleted
+   records, no time the server received each record; drafts stay (they are the queue's
+   material). They decide from the page under the same rules. Coordinators see everything.
 4. **Collectors are told** on the join page and on "My work" that coordinators see
    when and how much they work (as the monitoring plan says).
 5. **Email** is built behind a transport that is off unless SMTP is configured; the
@@ -1371,7 +1379,7 @@ keyboard handling helper.
   (`csv_file_id = ANY AND plot_key = ANY`, primary key). Drafts and deleted records are shown
   (marked). A record key with more parts than the survey has keys (a data problem) is not found
   this way.
-- **Flags and differences from `QualityService.peek` only** (never a computation): `patternFlags`
+- **Flags and differences from `QualityService.peek` only** (never awaited): `patternFlags`
   takes a `plot` option (that plot's flags whatever their age, beyond the newest 500; counts
   unchanged); the differing pairs are the report's `pairs` of the plot, their answers worked out
   with `pairFields` from the records just read (`changed` as in the queue). Without figures at
@@ -1420,6 +1428,54 @@ keyboard handling helper.
   project file to hash it on each page (as the other quality routes); flags of a plot are worked
   out by a full `patternFlags` pass (~10-40 ms at 100k); a plot whose id is only in a record (no
   plot file) cannot be found (the queue's "plot in no file" problems still list them).
+
+- **Review (after 8f5d9d1a; supersedes the above where it says so):**
+  - **A reviewer's queue leaves out the plots they assessed** (Task 7 follow-up, Decision 3):
+    `GET /quality/queue` gives `reviewQueue` the reviewer's plots (`plotsOf(figures.flags,
+    username)`, the same rule as the 409's `plotOperators`) as `excluded`; they are dropped before
+    the counts, the total, the person menu and the cursor, and the answer says how many
+    (`excludedOwn`, plots that would be in the queue, whatever the filters). The page says "Plots
+    you assessed are left out (N): someone else decides them." Coordinators: 0, the full queue.
+  - **One rule for "assessed this plot"**: `assessesPlot(record, assessment)` (`src/flags.ts`: not
+    deleted, a known round) builds the flag table's saved records (hence `plotOperators`, `plotsOf`
+    and the 409) and the plot page's `ownPlot` and `byAssessor`.
+  - **The reviewer's plot page is trimmed** (Decision 3): `files` = `{ id, filename, divided }`
+    only (no `main`, no `copies`, no whole-file assignment list), no deleted records, no
+    `receivedAt`; drafts stay. The page then titles the section "Plot files". Coordinators get
+    everything.
+  - **Enter never opens an older search's plot:** the box keeps each answer with the text it was
+    for, and offers matches only for what is typed now (`shownMatches`); while the new answer is on
+    its way the list is empty (loading).
+  - **"Type more" is the list's last row** (a disabled option, read out), no longer a helper text
+    that moved the header. A visually hidden live line says "N plots found." / "1 plot found." /
+    "No plot found." once a search is answered (`foundMessage`).
+  - **Shaded rows** compare only the first assessments and checks (a record of another round does
+    not shade a row).
+  - **Own round:** the index keeps each plot's units (`PlotIndex.byPlot`, built with the key
+    shape), so a plot's other rounds are a map lookup (`unitsOfPlot`), not a scan of every unit.
+  - **A plot file that cannot be read:** the index built without it is kept only `INDEX_RETRY_MS`
+    (5 s, `PlotIndexCache` options `retryMs` / `now`), then built again; a complete index is kept
+    until the files change.
+  - **Route tests:** a plot named "search" (`/plots/search` without `q`), ids with a slash, spaces
+    and non-ASCII letters (search and page), and the round the server added through the route.
+  - **Texts:** 4 keys × 4 languages (`plotSearch.found`, `plotSearch.foundOne`,
+    `plotSearch.foundNone`, `queue.ownLeftOut`); comments and the README say peek is "never
+    awaited".
+  - **Tests:** server 856 (was 850: queue unit 1 and route 1 for the left-out plots; plot search
+    unit 1 (`unitsOfPlot`), routes 3 (the reviewer's shape and the shared rule with a deleted
+    record, odd ids and "search", the index back-off)), web 276 (was 274: `shownMatches`,
+    `foundMessage`; the shading rule, the api's `excludedOwn` and files without people), tsc clean
+    in both, web build ok.
+  - **Postgres smoke** (`npm run smoke:pg:progress`): ALL OK; `GET /quality/queue` 35-48 ms (the
+    coordinator's; the smoke has no reviewer session), `GET /plots/search` 41 ms first, then 8-9 ms;
+    `GET /plots/15` 165 ms, another plot 51 ms. The Task 1 smoke ALL OK. Docker stopped after.
+  - **Chrome** (seeded memory server): the reviewer rita's queue says "Plots you assessed are left
+    out (1)" and lists only plot 1; typing "1" listed 20 plots and the disabled last row "Only the
+    first 20 are listed…", the live line said "20 plots found."; typing "2" and Enter at once did
+    not navigate (then "11 plots found."); her plot page names the two files without people. No
+    console errors.
+  - **Open:** `plotsOf` scans the flag table's saved records once per reviewer request (not
+    measured at 100k: the smoke has no reviewer session; one pass over ~120,000 entries).
 
 ### Task 9: Map of progress (monitoring Phase 5)
 

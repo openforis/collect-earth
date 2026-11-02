@@ -1,4 +1,5 @@
 import { visibleId } from './plotShape.js';
+import { splitKey, type KeyShape } from './rounds.js';
 
 /**
  * Plot search (Task 8): the plots of a project's plot files by the id the coordinator sees,
@@ -31,10 +32,18 @@ export interface PlotIndex {
   firstFile: Uint32Array;
   /** ...and the other files of the units in several, by unit index. */
   moreFiles: Map<number, number[]>;
+  /** An own round (units with their round part): each plot's units, its rounds, in the order met. Null otherwise. */
+  byPlot: Map<string, string[]> | null;
+  /** The key shape `byPlot` was built with. */
+  ownRound: KeyShape | null;
 }
 
-/** The index of some plot files' units, searched by unit and by the id the collector sees. */
-export function buildPlotIndex(files: readonly PlotIndexFile[], hidden: readonly boolean[] | null): PlotIndex {
+/**
+ * The index of some plot files' units, searched by unit and by the id the collector sees.
+ * `ownRound`: the key shape when the units carry their own round (each plot's rounds are then
+ * kept together, for its page).
+ */
+export function buildPlotIndex(files: readonly PlotIndexFile[], hidden: readonly boolean[] | null, ownRound: KeyShape | null = null): PlotIndex {
   const units: string[] = [];
   const names: string[] = [];
   const firstFile: number[] = [];
@@ -68,7 +77,19 @@ export function buildPlotIndex(files: readonly PlotIndexFile[], hidden: readonly
     }
   }
   const order = rawKeys.map((_, i) => i).sort((a, b) => (rawKeys[a] < rawKeys[b] ? -1 : rawKeys[a] > rawKeys[b] ? 1 : rawUnit[a] - rawUnit[b]));
+  let byPlot: Map<string, string[]> | null = null;
+  if (ownRound !== null && ownRound.roundIndex !== null) {
+    byPlot = new Map();
+    for (const unit of units) {
+      const plot = splitKey(unit, ownRound.count, ownRound.roundIndex).plot;
+      const list = byPlot.get(plot);
+      if (list) list.push(unit);
+      else byPlot.set(plot, [unit]);
+    }
+  }
   return {
+    byPlot,
+    ownRound: byPlot === null ? null : ownRound,
     files: files.map((f) => ({ id: f.id, filename: f.filename })),
     units,
     names,
@@ -103,6 +124,13 @@ export interface PlotMatch {
 /** The files of a unit (by its index). */
 export function filesOfUnit(index: PlotIndex, u: number): { id: string; filename: string }[] {
   return [index.firstFile[u], ...(index.moreFiles.get(u) ?? [])].sort((a, b) => a - b).map((f) => index.files[f]);
+}
+
+/** The units of a unit's plot: its other rounds too for an own round, else the unit alone. */
+export function unitsOfPlot(index: PlotIndex, unit: string): string[] {
+  if (index.byPlot === null || index.ownRound === null) return [unit];
+  const list = index.byPlot.get(splitKey(unit, index.ownRound.count, index.ownRound.roundIndex).plot);
+  return list && list.includes(unit) ? list : [unit];
 }
 
 /** The index of a unit (exactly as written), or -1. */

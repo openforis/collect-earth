@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answerRows, hasCheck, matchLabel, recordKindKey, recordStateKey } from "./plotView";
+import { answerRows, foundMessage, hasCheck, matchLabel, recordKindKey, recordStateKey, shownMatches } from "./plotView";
 
 const record = (answers: Record<string, string>, extra: { deleted?: boolean; submitted?: boolean; assessment?: "main" | "check" | "other" } = {}) => ({
   answers,
@@ -40,7 +40,22 @@ describe("the plot page", () => {
       { key: "canopy", label: "Canopy", values: ["50", "50", null], differs: false },
     ]);
     // A blank against an answer differs.
-    expect(answerRows(questions, [record({ lu: "F" }), record({ lu: "" })])[0]).toMatchObject({ differs: true, values: ["F", ""] });
+    expect(answerRows(questions, [record({ lu: "F" }), record({ lu: "" }, { assessment: "check" })])[0]).toMatchObject({ differs: true, values: ["F", ""] });
+    // Only the first assessments and the checks are compared: a record of another round does not shade the row.
+    expect(answerRows(questions, [record({ lu: "F" }), record({ lu: "F" }, { assessment: "check" }), record({ lu: "C" }, { assessment: "other" })])[0]).toMatchObject({ differs: false, values: ["F", "F", "C"] });
+  });
+
+  it("shows only the matches of what is typed now: Enter never opens an older search's plot", () => {
+    const found = { query: "1", result: { plots: [{ plot: "1", name: "1", files: [] }], more: true } };
+    expect(shownMatches(found, " 1 ")).toEqual(found.result);
+    expect(shownMatches(found, "12")).toEqual({ plots: [], more: false });
+    expect(shownMatches(null, "1")).toEqual({ plots: [], more: false });
+  });
+
+  it("says how many plots were found, for screen readers", () => {
+    expect(foundMessage(0)).toEqual({ key: "plotSearch.foundNone" });
+    expect(foundMessage(1)).toEqual({ key: "plotSearch.foundOne" });
+    expect(foundMessage(20)).toEqual({ key: "plotSearch.found", n: 20 });
   });
 
   it("offers \"Check is right\" only with a submitted check", () => {
