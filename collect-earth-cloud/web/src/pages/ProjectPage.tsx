@@ -15,6 +15,7 @@ import { PlotSearchBox } from "../components/PlotSearchBox";
 import { useT } from "../i18n";
 import { DataTab } from "../project/DataTab";
 import { FileTab } from "../project/FileTab";
+import { MapTab } from "../project/MapTab";
 import { OverviewTab } from "../project/OverviewTab";
 import { PeopleTab } from "../project/PeopleTab";
 import { PersonPage } from "./PersonPage";
@@ -37,13 +38,14 @@ const TAB_LABELS = {
   file: "tab.file",
   people: "tab.people",
   plots: "tab.plots",
+  map: "tab.map",
   data: "tab.data",
   quality: "tab.quality",
   settings: "tab.settings",
 } as const;
 
 /** The tabs a reviewer has. */
-const REVIEWER_TABS = ["progress", "quality"] as const satisfies readonly ProjectTab[];
+const REVIEWER_TABS = ["progress", "map", "quality"] as const satisfies readonly ProjectTab[];
 
 /** The project's name, with the plot search beside it (coordinators and reviewers). */
 function Header({ projectId, name }: { projectId: string; name: string }) {
@@ -96,9 +98,10 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
 
   const info = project.data;
   const go = (next: ProjectTab) => navigate(pathFor({ name: "project", projectId, tab: next }));
-  // A reviewer follows the progress (without the cards that name people) and the answers per
-  // person (the Quality tab's Answers section); the other tabs are the coordinators'.
-  if (info.role === "reviewer" && (tab === "progress" || tab === "quality")) {
+  // A reviewer follows the progress (without the cards that name people), the map (without who
+  // holds each plot) and the answers per person (the Quality tab's Answers section); the other
+  // tabs are the coordinators'.
+  if (info.role === "reviewer" && (tab === "progress" || tab === "map" || tab === "quality")) {
     return (
       <AppShell>
         <Header projectId={projectId} name={info.name} />
@@ -118,6 +121,8 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
         <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
           {tab === "progress" ? (
             <ProgressTab projectId={projectId} onGo={go} />
+          ) : tab === "map" ? (
+            <MapTab projectId={projectId} coordinator={false} />
           ) : plot ? (
             <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles={false} />
           ) : (
@@ -160,6 +165,7 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
     file: <FileTab projectId={projectId} />,
     people: personId ? <PersonPage key={personId} projectId={projectId} userId={personId} onGo={go} /> : <PeopleTab projectId={projectId} />,
     plots: fileId ? <PlotFilePage key={fileId} projectId={projectId} fileId={fileId} onGo={go} /> : <PlotsTab projectId={projectId} onGo={go} />,
+    map: <MapTab projectId={projectId} coordinator />,
     data: <DataTab projectId={projectId} onGo={go} />,
     quality: plot ? <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles /> : <QualityTab projectId={projectId} />,
     settings: <SettingsTab projectId={projectId} name={info.name} onRenamed={(name) => project.setData({ ...info, name })} />,

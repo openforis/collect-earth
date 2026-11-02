@@ -1497,6 +1497,97 @@ keyboard handling helper.
 **Tests:** the status codes, paging, and files with other coordinate systems
 excluded.
 
+**As built** (differs from the above where it says so)
+- **Route `GET /v1/projects/:pid/map/plots?file=&person=&offset=&size=`**, not `/plots/geo`:
+  `/plots/geo` would be static and shadow the page of a plot named "geo" (`GET /plots/:plot`).
+  `src/routes/plotsGeo.ts` (thin) over `src/plotsGeo.ts` (pure). `requireProjectMembership
+  ('reviewer')`: coordinators and reviewers; collectors and project tokens 403; another
+  project's member 404 (isolation list extended). Answer: `points` `[lat, lon, status, holder]`
+  and `plots` (each point's unit, for its page), at most `GEO_PAGE_SIZE` 20,000 a page (`size`
+  1..20,000, `offset`, `next` null on the last page), a `version` (state version, survey SRS,
+  filters, role) the same on every page of one map, and on every page `statuses` (the names of
+  the codes), `counts` per status (the filters' plots, those off the map included), `notOnMap`,
+  `files [{id, filename, plots, onMap}]`, `figures {computedAt, stale} | null`, `asOf` (the
+  project state's time when stale), `unsupportedSrs?`. 400 for a bad offset/size, a file id
+  not of the project, file/person over 1000 characters.
+- **Statuses** (`geoStatus`, per plot unit, from `ProjectStateCache`'s `plotUnits`, which now
+  also gives `started`, the set behind the totals' count; `isPlotUnit(info)` shared): 0 not
+  started, 1 started, 2 submitted (the Progress tab's counts); a submitted plot decided
+  first/check is 3 accepted, decided recheck 4 needs another look; else 5 disagreement when the
+  figures at hand (`QualityService.peek`, never awaited) have a differing pair of it (the
+  report's `pairs`). **Decisions come from the store, so they show without figures** (the plan
+  note said only the first three without figures): only "disagreement" needs the figures, and
+  the page says so ("Until then those plots show as submitted; decisions already made are
+  shown"). A decided plot taken back to edit shows its own state (started).
+- **Places** as `PlotPlaceReader` reads them (now `filePlaces`, kept per file checksum): the two
+  columns after the keys, decimal comma accepted, lat/lon only; a plot in several files takes
+  the first file listed that gives it a place, or the file asked for. A survey whose first SRS
+  is not WGS84 puts nothing on the map (`unsupportedSrs`, every file `onMap` 0, the counts
+  still there). Rounded to 6 decimals.
+- **People (Decision 3):** coordinators get `people` (everyone holding a plot or with a first
+  assessment: the person filter) and `holders` (distinct sorted groups of main holders, whole
+  files and divided ones; `holder` indexes it, -1 nobody). The person filter = plots they hold
+  or assessed first. Reviewers get `people`/`holders` null, every `holder` -1, and `person` is a
+  403; their popup has status and the link only. Copies (checks) are not shown on the map.
+- **Base map as a server setting:** `MAP_TILE_URL` (https with `{z}{x}{y}`, http only for
+  localhost), `MAP_TILE_ATTRIBUTION` (needed with the URL, plain text ≤ 300),
+  `MAP_TILE_ATTRIBUTION_URL`, `MAP_TILE_MAX_ZOOM` (1-22); unset = `OSM_TILES`
+  (`tile.openstreetmap.org`, "© OpenStreetMap contributors" linked to the copyright page, zoom
+  19); a bad value stops the boot with the reason. Sent as `mapTiles` in `GET /v1/server-info`;
+  the web falls back to OSM for anything unusable (`toMapTiles`). DEPLOY.md "The map's base map":
+  the tile usage policy (attribution, the browser's referrer, only tiles in view, `keepBuffer`
+  1, `referrerPolicy` strict-origin-when-cross-origin), heavy use needs another source and how
+  to set one (a key in the URL is public).
+- **Web:** a **Map** tab (`PROJECT_TABS` after Plot files; reviewers: Progress, Map, Quality),
+  `web/src/project/MapTab.tsx`. Leaflet 1.9.4 (BSD-2-Clause) and leaflet.markercluster 1.5.3
+  (MIT), exact versions, released 2023-05 and 2021-10, `@types/leaflet` 1.9.22 and
+  `@types/leaflet.markercluster` 1.5.6 (dev); bundled, loaded only on the Map tab
+  (`project/leaflet.ts`, dynamic import; markercluster extends the global `L`, set first):
+  chunks of 149 kB + 34 kB + 16 kB CSS, the main bundle unchanged. Licence texts in
+  `web/public/third-party-licenses.txt` (copied into `web/dist`, served at
+  `/third-party-licenses.txt`) and a README section (the repo kept no third-party notices
+  before). `getMapPlots` reads the pages into typed arrays (`Float64Array` lat/lon, `Uint8Array`
+  status, `Int32Array` holder), reads again from the start when a page's version differs (at most
+  3 times), reports progress. Circle markers on one canvas renderer, one options object per
+  status; from `CLUSTER_FROM` 5,000 shown plots a `markerClusterGroup` (grey numbered circles,
+  compact numbers, not a status colour; clustering off from zoom 16), added to the map before
+  `addLayers` so `chunkedLoading` keeps the page answering ("Placing the plots on the map: N of
+  M…"). Statuses: Okabe-Ito colours plus a different fill/outline/dash/size each
+  (`STATUS_STYLE`, a test checks no two differ by colour only), named in words in the legend
+  table with the symbol, how it is drawn, the count and a checkbox to hide it. Popup built as DOM
+  (no data as HTML): plot, status with its symbol, "Given to: …" (coordinators), "Open the plot's
+  page" (in-app navigation to Task 8's page). Filters: plot file, person (coordinators). Notes:
+  no figures, stale figures, as-of, other SRS, files with plots off the map (linked to the plot
+  file page for coordinators), "type its id in the search box" for one plot. Keyboard: the map
+  is a labelled region (Leaflet's arrows and +/−; the cluster circles are buttons); everything
+  else is outside it. `mapView.ts` pure. 46 keys × 4 languages (`i18n.ts`, `api.ts`,
+  `api.test.ts`, `router.ts`, `ProjectPage.tsx` written with CRLF kept).
+- **Tests:** server 872 (was 856: `plotsGeo.test.ts` 7 — statuses, order and first place,
+  holders and counts, filters, reviewer, checks and other SRS off the map, paging, 100,000 plots;
+  `plotsGeo.routes.test.ts` 5 — statuses through decisions and figures, paging with one
+  version and the 400s, filters, roles (reviewer without names, person 403, collector and project
+  token 403, other project 404), another SRS; config 3 and server-info 1 for the tiles;
+  isolation), web 285 (was 276: `mapView.test.ts` 6, api 2 — tiles, the pages into typed arrays
+  with a restart; router), tsc clean in both, web build ok.
+- **Timings** (memory store, seeded 100,000-plot divided file over Ghana, 47,000 records, 2,000
+  checks, 60 decisions): `GET /map/plots` first page 417 ms cold (the project state built), then
+  54-110 ms a page of 20,000 (~600 kB, gzip not on in the dev server). **Chrome, 100,001
+  plots**: the six pages read by 0.54 s after navigation, Leaflet loaded by 0.6 s, every plot
+  placed (clustered) at **1.13 s**; longest main-thread task 259 ms (it was a 3.4 s freeze
+  before adding the group to the map first); JS heap 93 MB; hiding "Not started" (45,000
+  left) 199 ms.
+- **Chrome** (built dashboard): coordinator at desktop width (clusters over Ghana, the legend
+  table, extra.csv's 2 plots off the map listed and linked, the file filter with one plot, its
+  popup "Plot X-3 / Not started / Given to nobody", the link opened the plot page); the reviewer
+  rita at phone width (Progress/Map/Quality tabs, no person filter, no name anywhere on the page,
+  no horizontal scroll, zoomed in through the clusters to single dots, popup without people).
+  No console errors from the page (a 401 of the login page before logging in).
+- **Open:** plots at the same place show one popup (no spiderfy; the seed's duplicate places
+  showed it); the map is reloaded by hand ("Load again"), not on a timer; Postgres not measured
+  (no SQL added: the state and the places are the cached reads the Progress tab and plot search
+  already make); checks' copies and plots in no plot file are not on the map; the per-status
+  counts follow the filters, while the file list and person menu stay whole.
+
 ### Task 10: Activity log, weekly summary, CSV downloads (monitoring Phase 6, no email)
 
 **Files:**

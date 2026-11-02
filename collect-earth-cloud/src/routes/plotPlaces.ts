@@ -165,6 +165,20 @@ export class PlotPlaceReader {
     return facts;
   }
 
+  /**
+   * Every place of one plot file (unit -> [lat, lon]; the first row giving a plot a place
+   * wins), kept as for places(); null when it cannot be read. The caller checks the survey's
+   * coordinate system (isWgs84).
+   */
+  async filePlaces(
+    projectId: string,
+    file: { id: string; checksum: string },
+    keyCount: number,
+    log: FastifyRequest['log'],
+  ): Promise<ReadonlyMap<string, readonly [number, number]> | null> {
+    return (await this.placesOfFile(projectId, file.id, file.checksum, keyCount, log))?.places ?? null;
+  }
+
   /** Every place of one plot file (the first row giving a plot a place wins), or null when it cannot be read. */
   private async placesOfFile(
     projectId: string,

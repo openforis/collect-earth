@@ -22,6 +22,39 @@ export interface ServerInfo {
   serverName: string | null;
   /** The AI assistant can be switched on for a project (set up and switched on by the server owner). */
   aiAvailable: boolean;
+  /** The map of progress's base map (OpenStreetMap unless the server sets another). */
+  mapTiles: MapTiles;
+}
+
+/** A base map's tiles: a URL with {z}/{x}/{y}, the attribution the source asks for (plain text) and where it links. */
+export interface MapTiles {
+  url: string;
+  attribution: string;
+  attributionUrl: string | null;
+  maxZoom: number;
+}
+
+/** OpenStreetMap's tiles: what a server that says nothing else uses. */
+export const OSM_TILES: MapTiles = {
+  url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  attribution: "© OpenStreetMap contributors",
+  attributionUrl: "https://www.openstreetmap.org/copyright",
+  maxZoom: 19,
+};
+
+/** The server's tiles when they are usable (an http(s) URL with {z}, {x} and {y}, an attribution), else OpenStreetMap's. */
+export function toMapTiles(value: unknown): MapTiles {
+  const m = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const url = safeUrl(m.url);
+  const attribution = optionalText(m.attribution);
+  if (!url || !attribution || !["{z}", "{x}", "{y}"].every((part) => url.includes(part))) return OSM_TILES;
+  const maxZoom = Number(m.maxZoom);
+  return {
+    url,
+    attribution,
+    attributionUrl: safeUrl(m.attributionUrl),
+    maxZoom: Number.isInteger(maxZoom) && maxZoom >= 1 && maxZoom <= 22 ? maxZoom : OSM_TILES.maxZoom,
+  };
 }
 
 export interface Session {
@@ -626,6 +659,7 @@ export async function getServerInfo(): Promise<ServerInfo> {
       contactEmail: optionalText(info?.contactEmail),
       serverName: optionalText(info?.serverName),
       aiAvailable: info?.aiAvailable === true,
+      mapTiles: toMapTiles(info?.mapTiles),
     };
   } catch (error) {
     // A server from before the dashboard existed: no setup, no sign-up.
@@ -639,6 +673,7 @@ export async function getServerInfo(): Promise<ServerInfo> {
         contactEmail: null,
         serverName: null,
         aiAvailable: false,
+        mapTiles: OSM_TILES,
       };
     }
     throw error;
@@ -2660,4 +2695,135 @@ export function toPlotPage(body: unknown): PlotPageData {
 /** One plot (coordinators and reviewers); a 404 for a plot in no plot file. */
 export async function getPlotPage(projectId: string, plot: string): Promise<PlotPageData> {
   return toPlotPage(await request<unknown>("GET", `${p(projectId)}/plots/${encodeURIComponent(plot)}`));
+}
+
+// --- map of progress (Task 9) -------------------------------------------------------
+
+/** A plot's status on the map, in the server's order of status codes. */
+export const MAP_STATUSES = ["notStarted", "started", "submitted", "accepted", "recheck", "differs"] as const;
+export type MapStatus = (typeof MAP_STATUSES)[number];
+
+export interface MapFile {
+  id: string;
+  filename: string;
+  /** Its plots, and how many of them have a latitude and longitude. */
+  plots: number;
+  onMap: number;
+}
+
+/** Every plot on the map, in typed arrays (a large project has 100,000 or more). */
+export interface MapPlots {
+  version: string;
+  /** Plots on the map. */
+  total: number;
+  lat: Float64Array;
+  lon: Float64Array;
+  /** Index in MAP_STATUSES. */
+  status: Uint8Array;
+  /** Index in `holders`; -1 for nobody (always for a reviewer). */
+  holder: Int32Array;
+  plots: string[];
+  /** Plots per status, those off the map included. */
+  counts: Record<MapStatus, number>;
+  notOnMap: number;
+  files: MapFile[];
+  /** Coordinators: everyone holding a plot or who made a first assessment; null for a reviewer. */
+  people: string[] | null;
+  holders: string[][] | null;
+  /** The quality figures the disagreements come from; null when none are at hand. */
+  figures: { computedAt: number | null; stale: boolean } | null;
+  /** Set when the plots' state is older than the records (newer figures are being worked out). */
+  asOf: number | null;
+  /** The survey's coordinate system when it is not latitude and longitude: no plot is on the map. */
+  unsupportedSrs: string | null;
+}
+
+export interface MapFilters {
+  file?: string | null;
+  person?: string | null;
+}
+
+/** Times a map is read again from the start when it changed between its pages. */
+const MAP_RESTARTS = 3;
+
+/** One page of GET /map/plots, added to the map being read (made on the first page). */
+export function addMapPage(map: MapPlots | null, body: unknown): MapPlots {
+  const b = obj(body);
+  // The server's status names, so a code is read by its name whatever their order.
+  const names: unknown[] = Array.isArray(b.statuses) ? b.statuses : [...MAP_STATUSES];
+  const codeOf = names.map((name) => Math.max(0, MAP_STATUSES.indexOf(name as MapStatus)));
+  if (map === null) {
+    const total = Math.max(0, Math.floor(Number(b.total) || 0));
+    const counts = Object.fromEntries(MAP_STATUSES.map((s) => [s, 0])) as Record<MapStatus, number>;
+    (Array.isArray(b.counts) ? b.counts : []).forEach((n: unknown, i: number) => {
+      counts[MAP_STATUSES[codeOf[i] ?? 0]] += Number(n) || 0;
+    });
+    const figures = b.figures && typeof b.figures === "object" ? obj(b.figures) : null;
+    map = {
+      version: text(b.version),
+      total,
+      lat: new Float64Array(total),
+      lon: new Float64Array(total),
+      status: new Uint8Array(total),
+      holder: new Int32Array(total).fill(-1),
+      plots: new Array<string>(total).fill(""),
+      counts,
+      notOnMap: Number(b.notOnMap) || 0,
+      files: list(b.files).map((f) => ({ id: text(f.id), filename: text(f.filename), plots: Number(f.plots) || 0, onMap: Number(f.onMap) || 0 })),
+      people: Array.isArray(b.people) ? onlyStrings(b.people) : null,
+      holders: Array.isArray(b.holders) ? b.holders.map((h: unknown) => (Array.isArray(h) ? onlyStrings(h) : [])) : null,
+      figures: figures ? { computedAt: toMillis(figures.computedAt), stale: figures.stale === true } : null,
+      asOf: toMillis(b.asOf),
+      unsupportedSrs: typeof b.unsupportedSrs === "string" && b.unsupportedSrs !== "" ? b.unsupportedSrs : null,
+    };
+  }
+  const offset = Math.max(0, Math.floor(Number(b.offset) || 0));
+  const points: unknown[] = Array.isArray(b.points) ? b.points : [];
+  const plots: unknown[] = Array.isArray(b.plots) ? b.plots : [];
+  const holders = map.holders?.length ?? 0;
+  for (let i = 0; i < points.length && offset + i < map.total; i++) {
+    const point = Array.isArray(points[i]) ? (points[i] as unknown[]) : [];
+    const at = offset + i;
+    map.lat[at] = Number(point[0]);
+    map.lon[at] = Number(point[1]);
+    map.status[at] = codeOf[Number(point[2])] ?? 0;
+    const holder = Number(point[3]);
+    map.holder[at] = Number.isInteger(holder) && holder >= 0 && holder < holders ? holder : -1;
+    map.plots[at] = typeof plots[i] === "string" ? (plots[i] as string) : "";
+  }
+  return map;
+}
+
+/**
+ * Every plot on the map (coordinators and reviewers), read page by page (20,000 a page);
+ * `onProgress` says how many are read. A map that changed between its pages (its version)
+ * is read again from the start. `stopped()` true stops reading (the page was left).
+ */
+export async function getMapPlots(
+  projectId: string,
+  filters: MapFilters,
+  onProgress?: (loaded: number, total: number) => void,
+  stopped: () => boolean = () => false,
+): Promise<MapPlots> {
+  for (let attempt = 0; ; attempt++) {
+    let map: MapPlots | null = null;
+    let offset: number | null = 0;
+    let changed = false;
+    while (offset !== null) {
+      const query = new URLSearchParams({ offset: String(offset) });
+      if (filters.file) query.set("file", filters.file);
+      if (filters.person) query.set("person", filters.person);
+      const body = obj(await request<unknown>("GET", `${p(projectId)}/map/plots?${query.toString()}`));
+      if (map !== null && text(body.version) !== map.version) {
+        changed = true;
+        break;
+      }
+      map = addMapPage(map, body);
+      const next = Number(body.next);
+      offset = body.next === null || body.next === undefined || !Number.isInteger(next) || next <= offset ? null : next;
+      onProgress?.(offset ?? map.total, map.total);
+      if (stopped()) return map;
+    }
+    if (!changed || attempt >= MAP_RESTARTS) return map!;
+  }
 }

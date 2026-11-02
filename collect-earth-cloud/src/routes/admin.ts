@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { aiAvailable } from '../ai/available.js';
 import { limitWindows } from '../ai/service.js';
 import { checkCredentials, checkPassword, isUuid, publicBaseUrl, setupCodesMatch } from '../accountRules.js';
-import type { Config } from '../config.js';
+import { OSM_TILES, type Config } from '../config.js';
 import { hashPassword } from '../password.js';
 import { requirePlatformAdmin } from '../plugins/projectAuth.js';
 import type { RateLimiter } from '../rateLimit.js';
@@ -111,6 +111,8 @@ export async function registerAdminRoutes(
       serverName: settings.serverName,
       // Whether the AI assistant can be switched on for a project. Never the key or the Vertex settings.
       aiAvailable: aiAvailable(config, settings),
+      // The map of progress's base map (OpenStreetMap unless the server sets another).
+      mapTiles: config.mapTiles ?? OSM_TILES,
     });
   });
 

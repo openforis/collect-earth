@@ -121,6 +121,7 @@ const GO: Record<ProjectTab, MessageKey> = {
   file: "tab.file",
   people: "progress.goPeople",
   plots: "progress.goPlots",
+  map: "tab.map",
   data: "tab.data",
   quality: "progress.goQuality",
   settings: "tab.settings",

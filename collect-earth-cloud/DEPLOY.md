@@ -33,6 +33,10 @@ managed Postgres (Option B).
 | `AI_VERTEX_PROJECT` | no | `my-project` | Optional AI assistant without a key: the Google Cloud project whose Vertex AI the server's service account calls |
 | `AI_VERTEX_REGION` | no | `global` | Vertex AI location, used with `AI_VERTEX_PROJECT` (default `global`) |
 | `AI_MODEL` | no | `gemini-3.8-flash` | The Gemini model id on Vertex AI (default `gemini-3.8-flash`) |
+| `MAP_TILE_URL` | no | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | The base map of the dashboard's map of progress: a tile URL with `{z}`, `{x}` and `{y}` (https). Unset: OpenStreetMap's own tiles. See "The map's base map" |
+| `MAP_TILE_ATTRIBUTION` | with `MAP_TILE_URL` | `© OpenStreetMap contributors` | The text the tile source asks to show on the map (plain text, at most 300 characters) |
+| `MAP_TILE_ATTRIBUTION_URL` | no | `https://www.openstreetmap.org/copyright` | Where that text links to (https) |
+| `MAP_TILE_MAX_ZOOM` | no | `19` | The tile source's deepest zoom (1-22) |
 | `AI_FAKE` | never in production | `1` | Development only: a scripted stand-in for the model, so the AI panel can be tried without Vertex. Refused unless `STORE_BACKEND=memory`, and refused on Cloud Run (`K_SERVICE`) or with `NODE_ENV=production` |
 
 Generate a good admin key: `openssl rand -base64 32`.
@@ -380,6 +384,31 @@ server from master already holds:
 - The Quality tab compares first assessments with checks. The data download has the
   columns `plot`, `round`, `assessment` (`main`, `check` or `other`) and `final`
   (`yes` for the answer you chose for a plot, `no` for the other, `recheck`).
+
+## The map's base map
+
+The dashboard's Map tab (coordinators and reviewers) draws every plot on OpenStreetMap's
+tiles (`tile.openstreetmap.org`) by default: no key and no billing. The browser fetches the
+tiles itself, sending the dashboard's address as its referrer, and the map shows
+"© OpenStreetMap contributors" linked to the copyright page, as the
+[tile usage policy](https://operations.osmfoundation.org/policies/tiles/) asks. The map
+fetches only the tiles in view (no tiles ahead of time, no bulk download).
+
+OpenStreetMap's tile servers are run by volunteers and donations for light use. **A server
+used heavily** (many coordinators looking at maps every day, or a public deployment for many
+projects) **should use another tile source**: a commercial provider (most have a free tier
+with a key), or your own tile server. Set:
+
+```
+MAP_TILE_URL=https://tiles.example.org/styles/basic/{z}/{x}/{y}.png?key=YOUR_KEY
+MAP_TILE_ATTRIBUTION=© Example Maps, © OpenStreetMap contributors
+MAP_TILE_ATTRIBUTION_URL=https://example.org/attribution
+MAP_TILE_MAX_ZOOM=18
+```
+
+The URL and the attribution are sent to every dashboard (`GET /v1/server-info`,
+`mapTiles`), so a key in the URL is public: use one restricted to your dashboard's address,
+as tile providers offer. A wrong value stops the server at boot with the reason.
 
 ## AI assistant (optional)
 

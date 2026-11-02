@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import { OSM_TILES } from '../src/config.js';
 import {
   batchRequest,
   bearer,
@@ -50,6 +51,15 @@ describe('first-run setup and server info', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ needsSetup: true, signupOpen: false, projectCreation: 'platform-admins' });
     expect(typeof res.json().version).toBe('string');
+    // The map's base map: OpenStreetMap unless the server sets another (MAP_TILE_URL).
+    expect(res.json().mapTiles).toEqual(OSM_TILES);
+  });
+
+  it('gives the map tiles the server sets', async () => {
+    const tiles = { url: 'https://t.example.org/{z}/{x}/{y}.png', attribution: '© Example', attributionUrl: null, maxZoom: 17 };
+    const other = await makeContext({ mapTiles: tiles });
+    expect((await other.app.inject({ method: 'GET', url: '/v1/server-info' })).json().mapTiles).toEqual(tiles);
+    await other.app.close();
   });
 
   it('rejects a wrong code, creates the admin with the right one, then refuses a second setup', async () => {

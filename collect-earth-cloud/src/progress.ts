@@ -198,6 +198,8 @@ export interface PlotUnits {
   totals: ProgressTotals;
   /** Each plot submitted now -> the earliest first submission among its submitted first assessments. */
   firstSubmitted: ReadonlyMap<string, number>;
+  /** Plots with a first assessment saved, none submitted (the totals' `started`). */
+  started: ReadonlySet<string>;
   /** username -> the plots they hold as main plots (whole files and divided ones). */
   held: Map<string, string[]>;
   /** username -> the plots they hold as quality-check copies. */
@@ -227,16 +229,24 @@ function workOf(byOperator: Map<string, OperatorWork>, operator: string): Operat
 }
 
 /**
+ * Whether a unit of the plot files is a plot: an own round's file may list the
+ * re-assessment of a plot as a unit of its own (its round is the reassessment code),
+ * which is a check, not a plot.
+ */
+export function isPlotUnit(info: RoundInfo | null): (unit: string) => boolean {
+  const shape = keyShape(info);
+  const code = info?.state === 'own' && shape.roundIndex !== null ? info.reassessmentCode : null;
+  return (unit) => code === null || splitKey(unit, shape.count, shape.roundIndex).round !== code;
+}
+
+/**
  * The plots of the files, who holds which, and each plot's state, counted per plot unit
  * (the Progress tab's totals). With `perOperator`, also each person's records resolved
  * the same way (the People tab), so a person's numbers and the totals never disagree.
  */
 export function plotUnits(input: PlotUnitsInput, perOperator = false): PlotUnits {
   const { info, units } = input;
-  const shape = keyShape(info);
-  const code = info?.state === 'own' && shape.roundIndex !== null ? info.reassessmentCode : null;
-  // An own round's file may list the re-assessment of a plot as a unit of its own: a check, not a plot.
-  const isPlot = (unit: string) => code === null || splitKey(unit, shape.count, shape.roundIndex).round !== code;
+  const isPlot = isPlotUnit(info);
   const plots = new Set<string>();
   for (const unit of units) {
     if (isPlot(unit)) plots.add(unit);
@@ -303,9 +313,9 @@ export function plotUnits(input: PlotUnitsInput, perOperator = false): PlotUnits
       work?.mainDrafts.add(unit);
     }
   }
-  let started = 0;
+  const started = new Set<string>();
   for (const unit of saved) {
-    if (!firstSubmitted.has(unit)) started += 1;
+    if (!firstSubmitted.has(unit)) started.add(unit);
   }
   return {
     totals: {
@@ -313,10 +323,11 @@ export function plotUnits(input: PlotUnitsInput, perOperator = false): PlotUnits
       assigned: assigned.size,
       notAssigned: plots.size - assigned.size,
       submitted: firstSubmitted.size,
-      started,
-      notStarted: plots.size - firstSubmitted.size - started,
+      started: started.size,
+      notStarted: plots.size - firstSubmitted.size - started.size,
     },
     firstSubmitted,
+    started,
     held,
     copies,
     checksDone,

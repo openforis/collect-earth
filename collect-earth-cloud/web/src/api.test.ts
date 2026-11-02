@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  addMapPage,
+  getMapPlots,
+  OSM_TILES,
+  toMapTiles,
   bulkDecisions,
   getFlags,
   getReviewQueue,
@@ -188,6 +192,7 @@ describe("normalising responses", () => {
       contactEmail: null,
       serverName: null,
       aiAvailable: false,
+      mapTiles: OSM_TILES,
     });
   });
 
@@ -202,6 +207,7 @@ describe("normalising responses", () => {
       contactEmail: null,
       serverName: null,
       aiAvailable: false,
+      mapTiles: OSM_TILES,
     });
   });
 
@@ -550,6 +556,60 @@ describe("the quality figures", () => {
     // Nothing typed: nothing asked.
     expect(await searchPlots("p1", "  ")).toEqual({ plots: [], more: false });
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("map tiles: the server's when usable, else OpenStreetMap's", () => {
+    const tiles = { url: "https://t.example.org/{z}/{x}/{y}.png", attribution: "© Example", attributionUrl: "https://example.org/a", maxZoom: 17 };
+    expect(toMapTiles(tiles)).toEqual(tiles);
+    expect(toMapTiles({ ...tiles, attributionUrl: "javascript:x", maxZoom: 99 })).toEqual({ ...tiles, attributionUrl: null, maxZoom: 19 });
+    for (const bad of [undefined, null, { ...tiles, url: "javascript:alert(1)/{z}/{x}/{y}" }, { ...tiles, url: "https://t.example.org/{z}/{x}.png" }, { ...tiles, attribution: " " }]) {
+      expect(toMapTiles(bad)).toEqual(OSM_TILES);
+    }
+  });
+
+  it("reads the map page by page into typed arrays, and again from the start when it changed", async () => {
+    const page = (offset: number, version = "v1") => ({
+      version,
+      offset,
+      total: 3,
+      next: offset === 0 ? 2 : null,
+      points: offset === 0 ? [[1.5, 2.5, 2, 0], [3, 4, 5, 9]] : [[-5, 6, 0, -1]],
+      plots: offset === 0 ? ["1", "2"] : ["3"],
+      statuses: ["notStarted", "started", "submitted", "accepted", "recheck", "differs"],
+      counts: [2, 0, 1, 0, 0, 1],
+      notOnMap: 1,
+      files: [{ id: "f", filename: "a.csv", plots: 5, onMap: 3 }],
+      people: ["ana"],
+      holders: [["ana"]],
+      figures: null,
+      asOf: null,
+    });
+    const answers = [page(0), page(2, "v2"), page(0, "v2"), page(2, "v2")];
+    fetchMock.mockImplementation(async () => jsonResponse(200, answers.shift()));
+    const progress: number[] = [];
+    const map = await getMapPlots("p1", { file: "f", person: "ana" }, (loaded) => progress.push(loaded));
+    expect(call(0).url).toBe("/v1/projects/p1/map/plots?offset=0&file=f&person=ana");
+    expect(call(1).url).toBe("/v1/projects/p1/map/plots?offset=2&file=f&person=ana");
+    // The second page was of another version: read again from the start.
+    expect(call(2).url).toBe("/v1/projects/p1/map/plots?offset=0&file=f&person=ana");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(progress).toEqual([2, 2, 3]);
+    expect(map.version).toBe("v2");
+    expect([...map.lat]).toEqual([1.5, 3, -5]);
+    expect([...map.lon]).toEqual([2.5, 4, 6]);
+    expect([...map.status]).toEqual([2, 5, 0]);
+    // A holder index the answer does not have is nobody.
+    expect([...map.holder]).toEqual([0, -1, -1]);
+    expect(map.plots).toEqual(["1", "2", "3"]);
+    expect(map.counts).toEqual({ notStarted: 2, started: 0, submitted: 1, accepted: 0, recheck: 0, differs: 1 });
+    expect(map).toMatchObject({ total: 3, notOnMap: 1, people: ["ana"], holders: [["ana"]], figures: null, asOf: null, unsupportedSrs: null });
+    expect(map.files).toEqual([{ id: "f", filename: "a.csv", plots: 5, onMap: 3 }]);
+    // A reviewer's map names nobody; status codes are read by their names.
+    const reviewer = addMapPage(null, { version: "x", offset: 0, total: 1, points: [[1, 2, 0, 0]], plots: ["9"], statuses: ["differs"], counts: [4], people: null, holders: null, unsupportedSrs: "EPSG:32633" });
+    expect(reviewer).toMatchObject({ people: null, holders: null, unsupportedSrs: "EPSG:32633" });
+    expect([...reviewer.status]).toEqual([5]);
+    expect([...reviewer.holder]).toEqual([-1]);
+    expect(reviewer.counts.differs).toBe(4);
   });
 
   it("saves margins, decisions and notes, and asks where plots are", async () => {

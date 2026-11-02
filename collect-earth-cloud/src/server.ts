@@ -23,6 +23,7 @@ import { ProjectStateCache } from './projectState.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import { PlotPlaceReader } from './routes/plotPlaces.js';
 import { registerPlotSearchRoutes } from './routes/plotSearch.js';
+import { registerPlotsGeoRoutes } from './routes/plotsGeo.js';
 import { registerProgressRoutes } from './routes/progress.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerQualityRoutes } from './routes/quality.js';
@@ -131,6 +132,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const states = new ProjectStateCache(store, { staleMs: config.stateStaleMs });
   await registerProgressRoutes(app, store, quality, states, now);
   await registerPeopleRoutes(app, store, quality, states, now);
+  await registerPlotsGeoRoutes(app, store, quality, states, places);
   await registerRecordRoutes(app, store);
   const runs = new AiRunService(store, quality, app.log, {
     client: options.ai?.client !== undefined ? options.ai.client : aiClientOf(config),

@@ -180,6 +180,7 @@ other `GET` that accepts HTML and is not under `/v1/` or `/health` returns its
 | `POST` | `/v1/projects/:pid/quality/places` | admin | `{plots: [ids]}` (1–200) → `{places: [{plot, lat, lon}]}` from the plot files (latitude/longitude only; otherwise `{places: [], unsupportedSrs}`) |
 | `GET`  | `/v1/projects/:pid/plots/search?q=` | reviewer | plot search: `{plots: [{plot, name, files: [{id, filename}]}] (≤ 20, ids starting with q, unit or the id the collector sees, case ignored, shortest first), more}`; from the plot files' ids (an index kept per version of the files), never the records; collectors 403 |
 | `GET`  | `/v1/projects/:pid/plots/:plot` | reviewer | one plot: `{plot, name, files: [{id, filename, divided, main, copies}], records: [{operator, recordKey, round, assessment, submitted, deleted, modifiedOn, receivedAt, answers}], questions, labels, options, decision, ownPlot, flags, differences, figures, place, outline, unsupportedSrs?}`; only that plot's records are read; flags and differences from the quality figures at hand (`QualityService.peek`, never awaited; null without); reviewers get the files without people (no `main`/`copies`), no deleted records and no `receivedAt`; 404 for a plot in no plot file; collectors 403 |
+| `GET`  | `/v1/projects/:pid/map/plots?file=&person=&offset=&size=` | reviewer | map of progress: the plots with a latitude and longitude as `points` `[lat, lon, status, holder]` and their `plots` ids, at most 20,000 a page (`offset`, `next`, one `version` for every page of a map), with `statuses` (`notStarted, started, submitted, accepted, recheck, differs`), `counts` per status (plots off the map included), `notOnMap`, `files [{id, filename, plots, onMap}]`, `figures`, `asOf`, `unsupportedSrs?`; coordinators also get `people` (the person filter: plots they hold or assessed first) and `holders` (groups of names `holder` indexes), reviewers neither (`person` is 403 for them); disagreements only from the quality figures at hand (peek, never awaited); collectors 403. Not `/plots/geo`: that is the page of a plot named "geo" |
 | `GET`  | `/v1/projects/:pid/my-quality` | member with a session | The caller's own figures as first assessor and up to 3 mix-ups with the matching notes; no other person's name |
 | `GET`  | `/v1/projects/:pid/quality/team-report` | admin | Agreement by question, the 10 most mixed-up answers with example plots, the notes; no names |
 | `GET` / `PUT` | `/v1/projects/:pid/ai` | admin (PUT: with a session) | `{enabled, available}`; PUT `{enabled}` (409 `ai_unavailable` to switch on when the server does not allow it; switching off always works) |
@@ -262,6 +263,7 @@ src/
   routes/division.ts   columns, distribution, move-unfinished
   routes/records.ts    records:batch intake
   routes/quality.ts    quality figures, settings, decisions, notes, reports, overlap (plot places in plotPlaces.ts)
+  routes/plotsGeo.ts   the map of progress (plotsGeo.ts: statuses and pages)
   routes/ai.ts         the AI switch and runs
   cep.ts               reading a CEP and adding the hidden round key
   rounds.ts            each record's plot and round
@@ -274,6 +276,17 @@ migrations/*.sql       schema + RLS (004: platform admin, settings, resets, invi
 test/                  isolation, sync, accounts, dashboard (in-memory store)
 web/                   the React dashboard (own package.json; built into web/dist)
 ```
+
+## Third-party software in the dashboard
+
+The dashboard bundles (no CDN) [Leaflet](https://leafletjs.com) 1.9.4 (BSD-2-Clause,
+© 2010-2023 Volodymyr Agafonkin, © 2010-2011 CloudMade) and
+[Leaflet.markercluster](https://github.com/Leaflet/Leaflet.markercluster) 1.5.3 (MIT,
+© 2012 David Leaver) for the map of progress, loaded only on the Map tab. Their licence
+texts are in `web/public/third-party-licenses.txt`, which the build copies into `web/dist`
+(served at `/third-party-licenses.txt`); update it with the versions in `web/package.json`.
+The base map is OpenStreetMap's tiles (© OpenStreetMap contributors, ODbL), with the
+attribution shown on the map; see DEPLOY.md, "The map's base map".
 
 ## Not yet implemented (later phases)
 

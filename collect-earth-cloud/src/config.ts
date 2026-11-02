@@ -66,7 +66,34 @@ export interface Config {
    * `aiConfigured` true and is used instead of Vertex even when a key is set.
    */
   aiFake?: boolean;
+  /**
+   * The map of progress's base map (MAP_TILE_URL, MAP_TILE_ATTRIBUTION, MAP_TILE_ATTRIBUTION_URL,
+   * MAP_TILE_MAX_ZOOM); undefined = OSM_TILES. Sent to the dashboard in server-info.
+   */
+  mapTiles?: MapTiles;
 }
+
+/** A base map's tiles, as Leaflet asks for them: `{z}/{x}/{y}` (and optionally `{s}`, `{r}`) in the URL. */
+export interface MapTiles {
+  url: string;
+  /** Shown on the map, as the tile source asks (plain text). */
+  attribution: string;
+  /** Where the attribution links to; null for none. */
+  attributionUrl: string | null;
+  maxZoom: number;
+}
+
+/**
+ * OpenStreetMap's own tiles: no key, with the attribution its tile usage policy asks for
+ * (operations.osmfoundation.org/policies/tiles). Fine for a project's coordinators; heavy
+ * use needs another tile source (DEPLOY.md).
+ */
+export const OSM_TILES: MapTiles = {
+  url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  attribution: '© OpenStreetMap contributors',
+  attributionUrl: 'https://www.openstreetmap.org/copyright',
+  maxZoom: 19,
+};
 
 /**
  * Gemini 3.8 Flash, as Vertex AI names it: "Model ID: gemini-3.8-flash", GA since
@@ -100,7 +127,45 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     trustProxyHops: trustProxyHopsOf(env.TRUST_PROXY_HOPS),
     qualityWorkerMaxMb: qualityWorkerMaxMbOf(env.QUALITY_WORKER_MAX_MB),
     ...aiConfigOf(env, storeBackend),
+    mapTiles: mapTilesOf(env),
   };
+}
+
+/** https, or http for a tile server on this machine. */
+function isWebUrl(value: string): boolean {
+  try {
+    const url = new URL(value.replace(/\{[a-z]\}/g, '0'));
+    return url.protocol === 'https:' || (url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname));
+  } catch {
+    return false;
+  }
+}
+
+function mapTilesOf(env: NodeJS.ProcessEnv): MapTiles {
+  const url = nonEmpty(env.MAP_TILE_URL?.trim());
+  const attribution = nonEmpty(env.MAP_TILE_ATTRIBUTION?.trim());
+  const attributionUrl = nonEmpty(env.MAP_TILE_ATTRIBUTION_URL?.trim());
+  const zoom = nonEmpty(env.MAP_TILE_MAX_ZOOM?.trim());
+  if (url === undefined) {
+    if (attribution !== undefined || attributionUrl !== undefined || zoom !== undefined) {
+      throw new Error('MAP_TILE_ATTRIBUTION, MAP_TILE_ATTRIBUTION_URL and MAP_TILE_MAX_ZOOM go with MAP_TILE_URL, which is not set');
+    }
+    return OSM_TILES;
+  }
+  if (!['{z}', '{x}', '{y}'].every((part) => url.includes(part)) || !isWebUrl(url)) {
+    throw new Error(`Invalid MAP_TILE_URL "${url}" (expected an https URL with {z}, {x} and {y}, such as https://tile.openstreetmap.org/{z}/{x}/{y}.png)`);
+  }
+  if (attribution === undefined || attribution.length > 300) {
+    throw new Error('MAP_TILE_ATTRIBUTION is needed with MAP_TILE_URL (the text the tile source asks to show, at most 300 characters)');
+  }
+  if (attributionUrl !== undefined && !isWebUrl(attributionUrl)) {
+    throw new Error(`Invalid MAP_TILE_ATTRIBUTION_URL "${attributionUrl}" (expected an https URL)`);
+  }
+  const maxZoom = zoom === undefined ? OSM_TILES.maxZoom : Number(zoom);
+  if (!Number.isInteger(maxZoom) || maxZoom < 1 || maxZoom > 22) {
+    throw new Error(`Invalid MAP_TILE_MAX_ZOOM "${zoom}" (expected a whole number from 1 to 22)`);
+  }
+  return { url, attribution, attributionUrl: attributionUrl ?? null, maxZoom };
 }
 
 function aiConfigOf(
