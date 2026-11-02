@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { PlotProvider, usePlot } from "./state/PlotContext";
 import MapView from "./components/MapView";
 import LayersPanel from "./components/LayersPanel";
+import CcdcCard from "./components/charts/CcdcCard";
 import LandsatNdviCard from "./components/charts/LandsatNdviCard";
 import Sentinel2NdviCard from "./components/charts/Sentinel2NdviCard";
 import ModisCard from "./components/charts/ModisCard";
@@ -32,6 +33,7 @@ function Viewer() {
         <p className="dates">
           {start} to {end}
         </p>
+        <CcdcCard />
         <LandsatNdviCard />
         <Sentinel2NdviCard />
         <ModisCard />

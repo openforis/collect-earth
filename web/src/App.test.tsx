@@ -4,6 +4,7 @@ import App from "./App";
 
 vi.mock("./components/MapView", () => ({ default: () => <div data-testid="map" /> }));
 // The series cards fetch and render Plotly; they have their own tests under components/charts.
+vi.mock("./components/charts/CcdcCard", () => ({ default: () => <div data-testid="card-ccdc" /> }));
 vi.mock("./components/charts/LandsatNdviCard", () => ({ default: () => <div data-testid="card-landsat" /> }));
 vi.mock("./components/charts/Sentinel2NdviCard", () => ({ default: () => <div data-testid="card-sentinel2" /> }));
 vi.mock("./components/charts/ModisCard", () => ({ default: () => <div data-testid="card-modis" /> }));
@@ -41,6 +42,7 @@ describe("App", () => {
     expect(screen.getByTestId("map")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Plot demo" })).toBeTruthy();
     expect(screen.getByText(/^2000-01-01 to \d{4}-\d{2}-\d{2}$/)).toBeTruthy();
+    expect(screen.getByTestId("card-ccdc")).toBeTruthy();
     expect(screen.getByTestId("card-landsat")).toBeTruthy();
     expect(screen.getByTestId("card-sentinel2")).toBeTruthy();
     expect(screen.getByTestId("card-modis")).toBeTruthy();
