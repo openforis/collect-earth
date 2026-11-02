@@ -141,6 +141,8 @@ export interface QualityReport {
   /** Up to MAX_PROBLEMS, in plot order. */
   problems: DataProblem[];
   problemsTotal: number;
+  /** How many problems of each kind name each person, over all of them (not only the listed ones); by person, then kind. */
+  problemsByPerson: { operator: string; kind: DataProblemKind; count: number }[];
   /** Answers to entities the outline does not list (e.g. tree[11]: it lists 1 to 10), never compared. */
   beyondOutline: { count: number; keys: string[] };
 }
@@ -496,11 +498,23 @@ export function qualityReport(input: QualityInput): QualityReport {
     differences,
     problems: problems.slice(0, MAX_PROBLEMS),
     problemsTotal: problems.length,
+    problemsByPerson: problemCounts(problems),
     beyondOutline: { count: beyond.size, keys: [...beyond].sort(order).slice(0, MAX_BEYOND_OUTLINE_KEYS) },
   };
 }
 
 const EMPTY = new Int32Array(0);
+
+function problemCounts(problems: readonly DataProblem[]): QualityReport['problemsByPerson'] {
+  const counts = new Map<string, { operator: string; kind: DataProblemKind; count: number }>();
+  for (const p of problems) {
+    const id = `${p.kind}\u0000${p.operator}`;
+    const c = counts.get(id);
+    if (c) c.count += 1;
+    else counts.set(id, { operator: p.operator, kind: p.kind, count: 1 });
+  }
+  return [...counts.values()].sort((a, b) => order(a.operator, b.operator) || order(a.kind, b.kind));
+}
 
 /** The records' resolution shared by the figures and the export's final column. */
 type ResolverInput = Pick<QualityInput, 'info' | 'units' | 'copyHolders'>;

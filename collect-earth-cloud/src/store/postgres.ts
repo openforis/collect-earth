@@ -1231,7 +1231,8 @@ export class PostgresStore implements Store {
     return this.withProject(projectId, async (client) => {
       const res = await client.query('SELECT quality_settings FROM projects WHERE id = $1', [projectId]);
       const stored = res.rows[0]?.quality_settings as QualitySettings | null | undefined;
-      return { margins: { ...(stored?.margins ?? {}) } };
+      const fastSeconds = stored?.fastSeconds;
+      return { margins: { ...(stored?.margins ?? {}) }, ...(typeof fastSeconds === 'number' ? { fastSeconds } : {}) };
     });
   }
 

@@ -2,6 +2,7 @@ import { parseClientAgent } from './clientVersion.js';
 import { holderHas } from './holders.js';
 import { addDays, localDate, localHour } from './days.js';
 import { dailyOf, dayInZone, isQuiet, plotUnits, type OperatorWork, type PlotUnits, type PlotUnitsInput } from './progress.js';
+import type { FlagCounts } from './flags.js';
 import type { QualityReport, Rate } from './quality.js';
 import type { CepInfo, CsvFile, InviteSummary, Member, MemberActivity, ProgressSettings, QualityDecision, Role } from './types.js';
 
@@ -189,6 +190,8 @@ export interface PersonDetail {
     asChecker?: Rate | null;
     /** Plots where they are the main assessor that the coordinator asked to look at again (decision "recheck"), newest first. */
     sentBack: SentBack[];
+    /** Their pattern flags by kind (Task 5), from the figures at hand; null without them. Never on My work. */
+    flags?: FlagCounts | null;
   };
 }
 
@@ -208,6 +211,8 @@ export interface PeopleInput extends PlotUnitsInput {
   prepared?: PlotUnits;
   /** invite id -> the member it was made for (a new project file link). */
   inviteFor?: ReadonlyMap<string, string>;
+  /** username -> their pattern flags by kind, from the figures at hand (the coordinator's person page only). */
+  flagCounts?: (username: string) => FlagCounts | null;
 }
 
 const EMPTY_WORK: OperatorWork = {
@@ -592,6 +597,7 @@ export function personDetail(input: PeopleInput, userId: string, options: { self
       asFirst,
       ...(self ? {} : { asChecker: input.quality ? (quality?.asChecker ?? NO_RATE) : null }),
       sentBack,
+      ...(self ? {} : { flags: input.flagCounts?.(member.username) ?? null }),
     },
   };
   if (!self) detail.removal = removalOf(p, member.username, work, held);

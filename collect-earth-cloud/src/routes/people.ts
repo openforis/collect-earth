@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isTimeZone } from '../days.js';
+import { fastSecondsOf, flagCountsOf } from '../flags.js';
 import { peopleTable, personDetail, type PeopleInput } from '../people.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { ProjectStateCache, ServedState } from '../projectState.js';
@@ -57,17 +58,18 @@ async function loadPeople(
   served: ServedState,
   request: FastifyRequest,
   now: number,
-  options: { activityOf?: string; invites: boolean },
+  options: { activityOf?: string; invites: boolean; flags?: boolean },
 ): Promise<PeopleInput> {
   const projectId = request.membership!.projectId;
   const { state, members } = served;
-  const [settings, activity, invites, cep, decisions, figures] = await Promise.all([
+  const [settings, activity, invites, cep, decisions, figures, qualitySettings] = await Promise.all([
     store.getProgressSettings(projectId),
     store.listMemberActivity(projectId),
     options.invites ? store.listInvites(projectId, now) : Promise.resolve([] as InviteSummary[]),
     store.getCepInfo(projectId),
     store.listQualityDecisions(projectId),
     peek(quality, projectId, request),
+    options.flags ? store.getQualitySettings(projectId) : Promise.resolve(null),
   ]);
   const usernames = new Map(members.map((m) => [m.userId, m.username]));
   const inviteFor = options.invites ? await invitesFor(store, projectId, invites, usernames) : undefined;
@@ -93,6 +95,11 @@ async function loadPeople(
     quality: figures,
     decisions,
     inviteFor,
+    // The person page's flag counts: from the figures at hand, worked out only when asked.
+    flagCounts:
+      options.flags && figures && qualitySettings
+        ? (username) => flagCountsOf(figures, decisions, fastSecondsOf(qualitySettings), username)
+        : undefined,
   };
 }
 
@@ -134,7 +141,7 @@ export async function registerPeopleRoutes(
     if (!served.members.some((m) => m.userId === userId)) {
       return reply.code(404).send({ error: 'not_found', reason: 'no such person in this project' });
     }
-    const detail = personDetail(await loadPeople(store, quality, served, request, at, { invites: false }), userId, { self: false });
+    const detail = personDetail(await loadPeople(store, quality, served, request, at, { invites: false, flags: true }), userId, { self: false });
     if (!detail) {
       return reply.code(404).send({ error: 'not_found', reason: 'no such person in this project' });
     }

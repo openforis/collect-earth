@@ -49,6 +49,7 @@ import { CopyField } from "../components/CopyField";
 import { JOIN_MENU_ITEM } from "../components/JoinSteps";
 import { Loading } from "../components/Loading";
 import { AsOf, CalendarHeatMap, ChartOrTable, ColumnChart, ValuesTable } from "../components/PeopleCharts";
+import { countsText, totalOf } from "../flagsView";
 import { formatDate, formatNumber } from "../format";
 import { useT, type Translate } from "../i18n";
 import { agoText, bucketLabel, durationText, perDayText, removalText, statusChip, statusSyncLevel } from "../peopleView";
@@ -356,6 +357,14 @@ export function QualitySection({ data, self, projectId }: { data: PersonData; se
             {!self && q.asChecker && (
               <Line label={t("person.agreementChecker")}>
                 <Typography>{q.asChecker.compared > 0 ? rateText(t, q.asChecker, language) : t("person.noChecks")}</Typography>
+              </Line>
+            )}
+            {!self && q.flags && (
+              <Line label={t("person.flagsTitle")}>
+                <Typography>
+                  {totalOf(q.flags) > 0 ? countsText(t, q.flags, language) : t("person.flagsNone")}{" "}
+                  <Link {...linkProps(pathFor({ name: "project", projectId, tab: "quality" }))}>{t("person.flagsLink")}</Link>
+                </Typography>
               </Line>
             )}
             {q.computedAt !== null && (

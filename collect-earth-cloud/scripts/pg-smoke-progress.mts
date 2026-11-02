@@ -5,7 +5,7 @@
 // the bars in five time zones (Rome across a DST change), the median waits as the memory
 // store's, the settings, RLS between two projects, and GET /progress on a project of
 // 100,000 records of which 20,000 checks, then the People tab and My work on it, cold and warm,
-// and the Quality tab's answers per person (Task 4) on it.
+// and the Quality tab's answers per person (Task 4) and pattern flags (Task 5) on it.
 //
 //   docker run -d --rm --name ce-pg-smoke -e POSTGRES_PASSWORD=pw -p 55481:5432 postgres:16
 //   npm run smoke:pg:progress -- 55481        (the superuser is postgres / pw on localhost)
@@ -349,6 +349,20 @@ await owner.query('ANALYZE records');
   console.log(`     GET /quality/answers then: ${warm.join(', ')}`);
   const report = await get('/quality');
   console.log(`     GET /quality (same figures, kept): ${report.ms} ms`);
+  // Pattern flags (Task 5): from the same worker job and cache, the threshold applied here.
+  const flags = await get('/quality/flags');
+  const fb = flags.res.json();
+  check('GET /quality/flags from the same figures: 90,000 first assessments, the counts add up', flags.res.statusCode === 200 && fb.plots === N - N / 10 && fb.total === Object.values(fb.counts as Record<string, number>).reduce((a: number, b: number) => a + b, 0) && fb.flags.length <= 500, { status: flags.res.statusCode, plots: fb.plots, counts: fb.counts });
+  const flagTimes = [`all ${flags.ms} ms`];
+  for (const [label, path] of [['again', '/quality/flags'], ['a person', '/quality/flags?person=op1'], ['a kind', '/quality/flags?kind=very_fast']] as const) {
+    const r = await get(path);
+    if (r.res.statusCode !== 200) check(`flags ${label}`, false, r.res.body.slice(0, 300));
+    flagTimes.push(`${label} ${r.ms} ms`);
+  }
+  console.log(`     GET /quality/flags: ${flagTimes.join(', ')}`);
+  const put = await fresh.inject({ method: 'PUT', url: `/v1/projects/${big}/quality/settings`, headers: bearer(ownerToken), payload: { fastSeconds: 40 } });
+  const after = await get('/quality/flags');
+  check('the threshold is stored with the margins (quality_settings) and applied without a new computation', put.statusCode === 200 && after.res.json().fastSeconds === 40 && after.res.json().computedAt === fb.computedAt && (await store.getQualitySettings(big)).fastSeconds === 40, { put: put.body.slice(0, 200), fastSeconds: after.res.json().fastSeconds });
   await fresh.close();
   // The worker's two parts on this thread, for the record.
   const { answerTable } = await import('../src/answerStats.js');
@@ -364,7 +378,13 @@ await owner.query('ANALYZE records');
   const table = answerTable({ ...context, records: summaries, outline: null, margins: {} });
   const t6 = performance.now();
   const bytes = table.choices.reduce((s2, c) => s2 + c.values.byteLength + (c.rows?.byteLength ?? 0), 0) + table.numbers.reduce((s2, c) => s2 + c.values.byteLength + c.rows.byteLength, 0) + table.operator.byteLength + table.unit.byteLength + table.time.byteLength;
-  console.log(`     on this thread: read summaries ${Math.round(t3 - t2)} ms, plot context ${Math.round(t4 - t3)} ms, report ${Math.round(t5 - t4)} ms, answer table ${Math.round(t6 - t5)} ms (${(bytes / 1e6).toFixed(1)} MB of arrays)`);
+  const { firstAssessments } = await import('../src/answerStats.js');
+  const { flagTable } = await import('../src/flags.js');
+  const flagInput = { ...context, records: summaries, outline: null, margins: {} };
+  const t7 = performance.now();
+  flagTable(flagInput, firstAssessments(flagInput), table);
+  const t8 = performance.now();
+  console.log(`     on this thread: read summaries ${Math.round(t3 - t2)} ms, plot context ${Math.round(t4 - t3)} ms, report ${Math.round(t5 - t4)} ms, answer table ${Math.round(t6 - t5)} ms (${(bytes / 1e6).toFixed(1)} MB of arrays), flag table ${Math.round(t8 - t7)} ms (first assessments resolved again)`);
 }
 
 await app.close();

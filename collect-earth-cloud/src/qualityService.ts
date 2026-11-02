@@ -10,6 +10,7 @@ import { readCep, type RoundInfo } from './cep.js';
 import { copyHoldersOf } from './division.js';
 import { plotIdsOf } from './plotFileCache.js';
 import { qualityFigures, type AnswerStats, type AnswerTable, type QualityFigures } from './answerStats.js';
+import type { FlagTable } from './flags.js';
 import type { QualityInput, QualityReport } from './quality.js';
 import type { WorkerJob, WorkerReply } from './qualityWorker.js';
 import { fileKeyCount } from './rounds.js';
@@ -264,7 +265,7 @@ export class QualityWorker {
       if ('error' in message) {
         job.reject(new Error(message.error));
       } else {
-        job.resolve({ report: message.report, answers: message.answers });
+        job.resolve({ report: message.report, answers: message.answers, flags: message.flags });
       }
     });
     worker.on('error', (err: Error & { code?: string }) => {
@@ -380,6 +381,8 @@ export interface ServedReport {
   answers: AnswerTable;
   /** answerStats already worked out from `answers`, by filter (at most MAX_CACHED_ANSWER_FILTERS; use remember()). */
   answerStats: Map<string, AnswerStats>;
+  /** What the pattern flags are worked out from (Task 5), from the same records. */
+  flags: FlagTable;
   /** ms since the epoch: when the inputs it was computed from were read. */
   computedAt: number;
   /** True when records (or other inputs) changed after computedAt; newer figures are being computed. */
@@ -391,6 +394,7 @@ interface CachedReport {
   report: QualityReport;
   answers: AnswerTable;
   answerStats: Map<string, AnswerStats>;
+  flags: FlagTable;
   computedAt: number;
 }
 
@@ -608,7 +612,8 @@ export class QualityService {
         cep,
         files.map((f) => [f.id, f.checksum, f.distribution ?? null]),
         members.map((m) => [m.userId, m.username]),
-        settings,
+        // The margins only: the "very fast" threshold is applied when the flags are served.
+        settings.margins,
       ]),
     );
     return { version, at, known: { info, files, members, settings } };
@@ -675,5 +680,5 @@ export class QualityService {
 }
 
 function served(c: CachedReport, stale: boolean): ServedReport {
-  return { report: c.report, answers: c.answers, answerStats: c.answerStats, computedAt: c.computedAt, stale };
+  return { report: c.report, answers: c.answers, answerStats: c.answerStats, flags: c.flags, computedAt: c.computedAt, stale };
 }

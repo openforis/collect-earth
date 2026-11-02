@@ -743,6 +743,111 @@ desktop.
 
 **Tests:** one per flag, its boundaries, and that the texts name no other person.
 
+**As built** (differs from the above where it says so)
+- **Two steps, as Task 4** (`src/flags.ts`):
+  - `flagTable(input, kept, answers)`, on the **quality worker in the same job** as the report
+    and the answer table (`qualityFigures` now gives `{ report, answers, flags }`; one
+    `firstAssessments(input)` resolves the rows for both tables). Its rows are the answer
+    table's (submitted, not deleted first assessments of plots in a plot file): `order` (each
+    person's rows by `modifiedOn`, then record key), `same` (all answers equal to the person's
+    previous row), `answers` (answers per row), the required questions blank (sparse), and
+    `saved`: every non-deleted record of a known round (drafts and checks too) grouped by plot
+    group, with its operator and `modifiedOn`, for the decisions. Its typed arrays are handed
+    over with the answer table's (`tableBuffers(answers, flags)`); 2.3 MB at 100k. Cached in
+    the same entry (same version, stale-while-refresh, busy / failure rules); `ServedReport`
+    carries `flags`.
+  - `patternFlags(served, decisions, { fastSeconds, person?, kind? })`, on the server per
+    request: one pass over the rows in each person's order, the decisions and threshold as they
+    are now (decisions change without the records changing, so they are not in the worker).
+    8-15 ms at 100k in memory; `GET /quality/flags` 66-89 ms on Postgres (smoke). Not cached.
+- **Order of a person's submissions: the records' `modifiedOn`**, not the events' first
+  submission times. It is in the summaries the worker already reads (the events would need
+  another read of 100k rows), it is the time on the collector's machine when they saved (not
+  when it was synced, which bunches), and the answers compared are the record's current ones,
+  so the time they were given is the one that goes with them. A plot submitted again later
+  moves to its new time (said in the code). Only first assessments: checks are not in the
+  order (a check between two plots lengthens the gap; nothing tells a collector which plots
+  are checks).
+- **The flags** (shape `{ kind, plot, operator, at, details }`, stable for Task 7; `operator`
+  is the only person a flag names):
+  - `very_fast`: under `fastSeconds` after the same person's previous first assessment
+    (strictly under; 14.999 s flagged, 15 s not); details `{ gapMs, previousPlot }`.
+  - `same_as_before`: every answer equal to the person's previous plot, in runs of
+    `MIN_SAME_RUN` 3 or more: the plots after the run's first, details `{ previousPlot,
+    runLength, firstPlot, answers }`. Answers = outline questions not excluded and not
+    calculated (any kind, text too), blanks left out; without an outline, keys `keyRule`
+    compares. **Added: at least `MIN_SAME_ANSWERS` 3 answers**, else a one- or two-question
+    survey flags every run of forests. (The demo survey's land use, forest percentage and
+    change are `calculated`: they never count.)
+  - `required_empty`: details `{ questions: [{key, label}] }`. **The outline now reads
+    `required`** (`Question.required`, `src/surveyOutline.ts`): a root attribute with
+    `required="true"` or `minCount` ≥ 1, **no `relevant` and no `requiredIf`**, not calculated,
+    not excluded. Relevance and conditions cannot be judged on the server, so a question
+    required or shown only under a condition is never counted (the page says so); nor are an
+    entity's attributes (the desktop app leaves their blanks out of the summary: an empty one
+    cannot be told from an entity that is not there). A key absent from the summary (a record
+    of a survey without the question) is not counted; blank or `null` is. The demo survey has
+    3 such questions.
+  - `edited_after_decision`: a record of the decided plot (group) whose `modifiedOn` is after
+    `decidedAt`, each person once (their latest save), drafts and checks too, deleted ones not;
+    details `{ decision, decidedAt }`. **Not after "recheck"**: saving the plot again is then
+    what was asked (Task 7's queue shows those apart). `modifiedOn` is the collector's clock,
+    `decidedAt` the server's: a clock far ahead can flag a save made before the decision.
+  - `two_main`, `no_plot`: **from the report's data problems, not worked out again**: the
+    report now also gives `problemsByPerson` (`{operator, kind, count}`, over all problems, not
+    only the 500 listed), counted per person; the flags listed are the report's listed problems
+    (their `at` the record's latest save from `saved`); details `{ recordKey }`. The page says
+    they come from "Data problems" below (coordinators) and lists them with the others.
+- **`GET /v1/projects/:pid/quality/flags?person=&kind=`** (coordinators and **reviewers**:
+  `requireProjectMembership('reviewer')`; collectors 403) → `{ fastSeconds, plots (first
+  assessments looked at), counts (by kind: everyone's, or the person's), people ([{username,
+  counts, total}], everyone with a flag, most first), total (matching the filters), flags (up to
+  500, newest first), requiredQuestions, computedAt, stale }`. 400 for an unknown kind or a
+  person over 1000 characters. Not in My work nor the personal report (route test).
+- **Threshold:** `fastSeconds` in the project's `quality_settings` JSON (no migration), whole
+  seconds 1-120, default 15 (`fastSecondsOf`). `PUT /quality/settings` now takes `margins`,
+  `fastSeconds` or both (the one left out stays; neither is a 400), audited `settings.changed
+  {setting: 'quality'}`. **The figures' version takes the margins only**, so a new threshold
+  applies at once without working the figures out again (test: same `computedAt`). The person
+  page's speed bins (Task 3) keep their fixed 15 s (`VERY_FAST_MS`).
+- **Person page** (coordinators): `quality.flags` = their counts by kind, from the figures at
+  hand (`QualityService.peek`, never computing; null without figures), worked out only for
+  `/people/:userId`. Never on My work.
+- **Web:** `project/QualityFlags.tsx`, "Plots worth a look", on the Quality tab before the
+  answers per person, and on the reviewer's Quality tab (read-only threshold; the reviewer
+  note says so). The threshold field (coordinators), the note on required questions (or that
+  the survey has none), person and kind filters (kind counts in the menu), the count and the
+  figures' time (stale: asked again after 20 s, busy 15 s), the list (20, then all; plot,
+  person, time, kind, and the reason in a sentence that names no one), a "By person" table
+  (kinds with any, the person's name filters). `flagsView.ts` (pure, tested): sentences, gaps
+  ("8.4 s"), counts text, the field's parsing. Person page: "Plots worth a look: Very fast: 8"
+  with a link to the Quality tab. 44 new keys × 4 languages, the reviewer note changed (`i18n.ts`, `api.ts`, `api.test.ts`,
+  `ProjectPage.tsx` written with CRLF kept).
+- **Tests:** server 722 (was 704: `test/flags.test.ts` 12 — each flag and its boundaries
+  (14.999 / 15 s, runs of 2 / 3, fewer than 3 answers, another person, blank, excluded and
+  calculated keys, absent vs blank required, recheck, deleted, drafts and checks after a
+  decision), the report's problems per person, filters and counts, no other person named, the
+  500 cap, the transfer buffers, the threshold; `test/flags.routes.test.ts` 5 — the route,
+  roles, My work / My quality, the threshold (audited, no recomputation), edited after a
+  decision, the person page via peek; `surveyOutline` required; isolation for the new route and
+  setting), web 250 (was 245: `flagsView.test.ts` 4, an api case), tsc clean in both, web build
+  ok.
+- **Postgres smoke** (`npm run smoke:pg:progress`, no new SQL; now also the flags): 100,000
+  records + 20,000 checks with 40 answers: `GET /quality/flags` from the same figures 82 ms,
+  again 89, a person 66, a kind 83; the threshold stored in `quality_settings` and applied with
+  the same `computedAt`; on the main thread the flag table took 301 ms (report 173, answer
+  table 207, reading the summaries 1.9 s), so the worker's job grows by about 0.3 s (cold
+  `/quality/answers` 3.8 s in this run, Docker on Windows). ALL OK; the Task 1 smoke ALL OK.
+- **Chrome** (seeded memory server, built dashboard): the coordinator's Quality tab (16 flags:
+  very fast, required empty, saved again after a decision; the by-person table; the threshold
+  saved as 30), bruno's person page ("Very fast: 8"), the reviewer at phone width (390 px, no
+  page-wide horizontal scroll, read-only threshold). No console errors. Fixed after looking: the
+  filters showed blank instead of "Everyone" / "All kinds".
+- **Open:** a run of "same as before" in the demo survey needs answers to questions that are
+  not calculated; the flag list is worked out per request (not cached; ~10 ms at 100k); the
+  required rule leaves out entity attributes and conditional questions by design; Task 7 builds
+  its queue from `GET /quality/flags`.
+
 ### Task 6: Survey health (improvement 10)
 
 **Files:**

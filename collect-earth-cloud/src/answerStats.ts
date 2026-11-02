@@ -5,6 +5,7 @@
 //   question, a number per number question), with its person, plot and time;
 // - answerStats, on the server for a filter (person, plots, days): a pass over the
 //   table's rows, cheap enough to be done per request and kept for a few filters.
+import { flagBuffers, flagTable, type FlagTable } from './flags.js';
 import { dayInZone } from './progress.js';
 import { keyRule, MIN_PLOTS, qualityReport, recordResolver, type QualityInput, type QualityReport } from './quality.js';
 import { QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR } from './surveyOutline.js';
@@ -87,19 +88,24 @@ export interface AnswerTable {
 export interface QualityFigures {
   report: QualityReport;
   answers: AnswerTable;
+  /** What the pattern flags are worked out from (Task 5), its rows those of `answers`. */
+  flags: FlagTable;
 }
 
-/** The report and the answers, from the same records. */
+/** The report, the answers and the flags' table, from the same records. */
 export function qualityFigures(input: QualityInput): QualityFigures {
-  return { report: qualityReport(input), answers: answerTable(input) };
+  const kept = firstAssessments(input);
+  const answers = answerTable(input, kept);
+  return { report: qualityReport(input), answers, flags: flagTable(input, kept, answers) };
 }
 
-/** The typed arrays of a table, to hand them over between threads without copying. */
-export function tableBuffers(t: AnswerTable): ArrayBuffer[] {
+/** The typed arrays of the tables, to hand them over between threads without copying. */
+export function tableBuffers(t: AnswerTable, f?: FlagTable): ArrayBuffer[] {
   const out: ArrayBuffer[] = [];
   const add = (a: ArrayBufferView | null) => {
-    if (a && a.byteLength > 0) out.push(a.buffer as ArrayBuffer);
+    if (a && a.byteLength > 0 && !out.includes(a.buffer as ArrayBuffer)) out.push(a.buffer as ArrayBuffer);
   };
+  if (f) for (const a of flagBuffers(f)) add(a);
   add(t.operator);
   add(t.unit);
   add(t.time);
@@ -175,21 +181,32 @@ function numberOf(text: string): number | null {
   return Number.isFinite(n) ? n : Number.NaN;
 }
 
-/**
- * The answer table of a project, from the same inputs as the quality report. A question
- * is one the report would compare (keyRule: an outline question with choices or a number,
- * not excluded; without an outline, by its name). A column answered by under a third of
- * the records is kept sparse.
- */
-export function answerTable(input: QualityInput): AnswerTable {
+/** A submitted, not deleted first assessment of a plot of a plot file, with that plot (unit). */
+export interface FirstAssessment {
+  r: QualityInput['records'][number];
+  unit: string;
+}
+
+/** The rows of the answer table (and of the flag table), in the records' order. */
+export function firstAssessments(input: QualityInput): FirstAssessment[] {
   const resolve = recordResolver(input);
-  const kept: { r: QualityInput['records'][number]; unit: string }[] = [];
+  const kept: FirstAssessment[] = [];
   for (const r of input.records) {
     if (!r.activelySaved || r.deleted) continue;
     const { unit, round } = resolve(r);
     if (unit === null || round.assessment !== 'main') continue;
     kept.push({ r, unit });
   }
+  return kept;
+}
+
+/**
+ * The answer table of a project, from the same inputs as the quality report. A question
+ * is one the report would compare (keyRule: an outline question with choices or a number,
+ * not excluded; without an outline, by its name). A column answered by under a third of
+ * the records is kept sparse.
+ */
+export function answerTable(input: QualityInput, kept: readonly FirstAssessment[] = firstAssessments(input)): AnswerTable {
   const size = kept.length;
   const operatorIndex = new Map<string, number>();
   const unitIndex = new Map<string, number>();

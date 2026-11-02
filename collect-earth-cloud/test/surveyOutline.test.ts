@@ -198,6 +198,28 @@ describe('surveyOutline: summary keys, as BalloonInputFieldsUtils.getValuesByHtm
     expect(outline.get('collect_integer_trees')!.calculated).toBe(false);
   });
 
+  it('required: only a root attribute required without condition (required="true" or minCount 1, no relevant, no requiredIf)', () => {
+    const survey = SURVEY.replace('<boolean id="17" name="changed"/>', '<boolean id="17" name="changed" required="true"/>')
+      .replace('<number id="18" name="trees" type="integer"/>', '<number id="18" name="trees" type="integer" required="true" relevant="changed"/>')
+      .replace('<number id="20" name="area"/>', '<number id="20" name="area" requiredIf="changed"/>')
+      .replace('<code id="16" name="other_uses" list="uses" multiple="true">', '<code id="16" name="other_uses" list="uses" multiple="true" minCount="1">')
+      .replace('<number id="19" name="height" type="real" calculated="true"/>', '<number id="19" name="height" type="real" calculated="true" required="true"/>')
+      .replace('<text id="28" name="notes" type="memo"/>', '<text id="28" name="notes" type="memo" required="false"/>')
+      .replace('<number id="31" name="age" type="integer">', '<number id="31" name="age" type="integer" required="true">');
+    const o = surveyOutline(survey);
+    expect(o.get('collect_boolean_changed')!.required).toBe(true);
+    expect(o.get('collect_code_other_uses')!.required).toBe(true);
+    // Shown only under a condition, or required under one: cannot be judged on the server.
+    expect(o.get('collect_integer_trees')!.required).toBe(false);
+    expect(o.get('collect_real_area')!.required).toBe(false);
+    // Calculated by Collect, written false, keys, and entity children (blanks are left out of the summary).
+    expect(o.get('collect_real_height')!.required).toBe(false);
+    expect(o.get('collect_text_notes')!.required).toBe(false);
+    expect(o.get('collect_text_id')!.required).toBe(false);
+    expect(o.get('collect_entity_stand.integer_age')!.required).toBe(false);
+    expect(o.get('collect_code_land_use')!.required).toBe(false);
+  });
+
   it('excludes a root attribute named round even when it is not a key, whatever its type', () => {
     const own = surveyOutline(SURVEY.replace('<code id="12" name="round" key="true" list="phases"/>', '<text id="12" name="round"/>'));
     expect(own.get('collect_text_round')!.excluded).toBe(true);

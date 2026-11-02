@@ -3,6 +3,7 @@ import { isUuid } from '../accountRules.js';
 import { audit } from '../activity.js';
 import { answerStats, type AnswerFilter } from '../answerStats.js';
 import { isDate, isTimeZone } from '../days.js';
+import { FLAG_KINDS, fastSecondsOf, MAX_FAST_SECONDS, MIN_FAST_SECONDS, patternFlags, type FlagKind } from '../flags.js';
 import { columnValues, MAX_LISTED_VALUES, plotColumns, plotsWithValue } from '../plotColumns.js';
 import { plotFileOf, plotIdsOf } from '../plotFileCache.js';
 import { fileKeyCount } from '../rounds.js';
@@ -12,7 +13,7 @@ import { answerOptions, personalReport, teamReport } from '../qualityReports.js'
 import { registerPlotPlaceRoutes } from './plotPlaces.js';
 import { MAX_CACHED_ANSWER_FILTERS, QualityService, remember, WorkerBusyError, WorkerRestartedError, type ServedReport } from '../qualityService.js';
 import type { Store } from '../store/store.js';
-import type { DecisionKind, GuidanceNoteInput } from '../types.js';
+import type { DecisionKind, GuidanceNoteInput, QualitySettings } from '../types.js';
 
 /** Longest decision comment and guidance note, in characters (the tables check it too). */
 export const MAX_TEXT = 2000;
@@ -187,6 +188,29 @@ export async function registerQualityRoutes(
     });
   });
 
+  // Pattern flags (Task 5), for coordinators and reviewers (never collectors, never My
+  // work): plots worth a look, found without any check. Worked out from the figures of the
+  // quality worker (same job, cache and version, stale while refreshed) with the decisions
+  // and the threshold as they are now. Filters: person (a username), kind.
+  app.get('/v1/projects/:pid/quality/flags', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
+    const q = (request.query ?? {}) as Record<string, unknown>;
+    const person = typeof q.person === 'string' && q.person !== '' ? q.person : null;
+    const kind = typeof q.kind === 'string' && q.kind !== '' ? q.kind : null;
+    if (person !== null && person.length > MAX_NAME) return reply.code(400).send(bad(`person must be at most ${MAX_NAME} characters`));
+    if (kind !== null && !(FLAG_KINDS as readonly string[]).includes(kind)) return reply.code(400).send(bad(`kind must be one of ${FLAG_KINDS.join(', ')}`));
+    const [figures, decisions, settings] = await Promise.all([
+      served(quality, projectId, request, reply),
+      store.listQualityDecisions(projectId),
+      store.getQualitySettings(projectId),
+    ]);
+    if (!figures) {
+      return reply;
+    }
+    const flags = patternFlags(figures, decisions, { fastSeconds: fastSecondsOf(settings), person, kind: kind as FlagKind | null });
+    return reply.send({ ...flags, computedAt: figures.computedAt, stale: figures.stale });
+  });
+
   // The columns of a plot file and their values, to filter the answers by one (reviewers too).
   app.get('/v1/projects/:pid/quality/answers/columns', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
@@ -232,17 +256,34 @@ export async function registerQualityRoutes(
     return reply.send({ ...teamReport(figures.report, notes, outline), computedAt: figures.computedAt, stale: figures.stale });
   });
 
-  // Number margins (percent, 0-100), only for the number questions of the served survey.
+  // Number margins (percent, 0-100), only for the number questions of the served survey,
+  // and the "very fast" flag's threshold (whole seconds, MIN_FAST_SECONDS-MAX_FAST_SECONDS).
+  // Either may be left out: the one left out stays as it is.
   app.put('/v1/projects/:pid/quality/settings', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
-    const body = (request.body ?? {}) as { margins?: unknown };
-    const checked = checkMargins(body.margins, await quality.outline(projectId, request.log));
-    if ('reason' in checked) {
-      return reply.code(400).send(bad(checked.reason));
+    const body = (request.body ?? {}) as { margins?: unknown; fastSeconds?: unknown };
+    if (typeof body !== 'object' || Array.isArray(body) || (body.margins === undefined && body.fastSeconds === undefined)) {
+      return reply.code(400).send(bad('send margins, fastSeconds or both'));
     }
-    await store.setQualitySettings(projectId, { margins: checked.margins });
+    const stored = await store.getQualitySettings(projectId);
+    const next: QualitySettings = { ...stored };
+    if (body.margins !== undefined) {
+      const checked = checkMargins(body.margins, await quality.outline(projectId, request.log));
+      if ('reason' in checked) {
+        return reply.code(400).send(bad(checked.reason));
+      }
+      next.margins = checked.margins;
+    }
+    if (body.fastSeconds !== undefined) {
+      const f = body.fastSeconds;
+      if (typeof f !== 'number' || !Number.isInteger(f) || f < MIN_FAST_SECONDS || f > MAX_FAST_SECONDS) {
+        return reply.code(400).send(bad(`fastSeconds must be whole seconds from ${MIN_FAST_SECONDS} to ${MAX_FAST_SECONDS}`));
+      }
+      next.fastSeconds = f;
+    }
+    await store.setQualitySettings(projectId, next);
     await audit(store, request, 'settings.changed', { setting: 'quality' });
-    return reply.send({ margins: checked.margins });
+    return reply.send(next);
   });
 
   app.put('/v1/projects/:pid/quality/decisions/:plot', admin, async (request: FastifyRequest, reply: FastifyReply) => {

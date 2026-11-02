@@ -21,6 +21,15 @@ export interface Question {
   multiple: boolean;
   /** Collect calculates the value from other answers (calculated="true"). */
   calculated: boolean;
+  /**
+   * An answer is needed whatever the other answers are: a root attribute with
+   * required="true" (or minCount 1), no `relevant` and no `requiredIf` expression, not
+   * calculated, not excluded. Relevance and conditions cannot be judged on the server, so
+   * a question that is required only under one, or shown only under one, is not. Nor are
+   * an entity's attributes: the desktop app leaves their blank answers out of the summary,
+   * so an empty one cannot be told from an entity that is not there. Absent: false.
+   */
+  required?: boolean;
 }
 
 /** Between the values of a multiple attribute in a summary (BalloonInputFieldsUtils.PARAMETER_SEPARATOR). */
@@ -179,18 +188,29 @@ export function surveyOutline(idmXml: string): Map<string, Question> {
   };
 
   const outline = new Map<string, Question>();
-  const add = (key: string, node: XmlNode, siblings: XmlNode[], label: string, isKey: boolean) => {
+  const add = (key: string, node: XmlNode, siblings: XmlNode[], label: string, isKey: boolean, root = false) => {
     const prefix = prefixOf(node)!;
     const kind = KIND_BY_PREFIX[prefix] ?? 'other';
+    const excluded = isKey || attr(node, 'collectearth:fromcsv') === 'true' || BOOKKEEPING_KEYS.has(key);
+    const calculated = attr(node, 'calculated') === 'true';
+    const minCount = Number(attr(node, 'minCount') ?? '0');
+    const required =
+      root &&
+      !excluded &&
+      !calculated &&
+      (attr(node, 'required') === 'true' || (Number.isFinite(minCount) && minCount >= 1)) &&
+      attr(node, 'relevant') === undefined &&
+      attr(node, 'requiredIf') === undefined;
     outline.set(key, {
       key,
       label,
       kind,
       options: prefix === 'code_' ? optionsOf(node, siblings) : prefix === 'boolean_' ? BOOLEAN_OPTIONS : null,
       help: helpOf(node),
-      excluded: isKey || attr(node, 'collectearth:fromcsv') === 'true' || BOOKKEEPING_KEYS.has(key),
+      excluded,
       multiple: attr(node, 'multiple') === 'true',
-      calculated: attr(node, 'calculated') === 'true',
+      calculated,
+      required,
     });
   };
 
@@ -199,7 +219,7 @@ export function surveyOutline(idmXml: string): Map<string, Question> {
     const name = attr(node, 'name')!;
     if (tagOf(node) !== 'entity') {
       const isKey = attr(node, 'key') === 'true' || name === ROUND_NAME;
-      add(`collect_${prefixOf(node)}${name}`, node, rootChildren, labelOf(node), isKey);
+      add(`collect_${prefixOf(node)}${name}`, node, rootChildren, labelOf(node), isKey, true);
       continue;
     }
     const base = `collect_entity_${name}`;

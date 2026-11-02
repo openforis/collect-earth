@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  getFlags,
+  saveFastSeconds,
   absoluteUrl,
   ApiError,
   apiErrorFrom,
@@ -425,6 +427,20 @@ describe("the quality figures", () => {
   it("says the figures are busy or failed in plain words", () => {
     expect(errorMessageKey(apiErrorFrom(503, { error: "busy" }))).toBe("quality.busy");
     expect(errorMessageKey(apiErrorFrom(500, { error: "quality_failed", reason: "The quality figures..." }))).toBe("quality.failed");
+  });
+
+  it("asks for the flags with their filters, and saves the very fast threshold alone", async () => {
+    fetchMock.mockImplementation(async (_url) => {
+      const url = String(_url);
+      if (url.endsWith("/settings")) return jsonResponse(200, { margins: { a: 5 }, fastSeconds: 20 });
+      return jsonResponse(200, { fastSeconds: 15, plots: 0, counts: {}, people: [], total: 0, flags: [], requiredQuestions: 0, computedAt: 1, stale: false });
+    });
+    expect(await saveFastSeconds("p1", 20)).toBe(20);
+    expect(call(0)).toEqual({ url: "/v1/projects/p1/quality/settings", method: "PUT", body: { fastSeconds: 20 } });
+    await getFlags("p1", { person: "ana b", kind: "very_fast" });
+    expect(call(1).url).toBe("/v1/projects/p1/quality/flags?person=ana+b&kind=very_fast");
+    await getFlags("p1", { person: null, kind: null });
+    expect(call(2).url).toBe("/v1/projects/p1/quality/flags");
   });
 
   it("saves margins, decisions and notes, and asks where plots are", async () => {

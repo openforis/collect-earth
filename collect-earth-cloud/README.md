@@ -51,7 +51,7 @@ and drops its own database and roles, so never point it at a real server.
 ```bash
 docker run -d --rm --name ce-pg-smoke -e POSTGRES_PASSWORD=pw -p 55481:5432 postgres:16
 npm run smoke:pg -- 55481      # the port; prints one line per check, then ALL OK
-npm run smoke:pg:progress -- 55481   # the Progress and People tabs (migration 013), with GET /progress, /people and /people/:userId on 100,000 records and 20,000 checks, then the Quality tab's answers per person on them
+npm run smoke:pg:progress -- 55481   # the Progress and People tabs (migration 013), with GET /progress, /people and /people/:userId on 100,000 records and 20,000 checks, then the Quality tab's answers per person and pattern flags on them
 docker stop ce-pg-smoke
 ```
 
@@ -172,7 +172,8 @@ other `GET` that accepts HTML and is not under `/v1/` or `/health` returns its
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
 | `GET`  | `/v1/projects/:pid/quality` | admin | The quality figures: `plotsChecked`, `plotsDiffering`, agreement by `questions`, `confusions`, `people`, `weeks`, `differences` (≤ 500), `problems` (≤ 500, `problemsTotal`), plus `decisions`, `notes`, `settings: {margins}`, `options` (answer labels), `computedAt`, `stale`. Counts are checks; rates are null below 20 checks. 503 `busy` (`Retry-After: 10`) while the figures are worked out for other projects; 500 `quality_failed` |
-| `PUT`  | `/v1/projects/:pid/quality/settings` | admin | `{margins: {questionKey: percent 0–100}}` for number questions (replaces the set) |
+| `PUT`  | `/v1/projects/:pid/quality/settings` | admin | `{margins?: {questionKey: percent 0–100}, fastSeconds?: 1–120}`: number margins (replaces the set) and the "very fast" flag's threshold; the one left out stays |
+| `GET`  | `/v1/projects/:pid/quality/flags?person=&kind=` | reviewer | Plots worth a look (Task 5): `{fastSeconds, plots, counts, people, total, flags: [{kind, plot, operator, at, details}], requiredQuestions, computedAt, stale}`; kinds `very_fast`, `same_as_before`, `required_empty`, `edited_after_decision`, `two_main`, `no_plot` |
 | `PUT` / `DELETE` | `/v1/projects/:pid/quality/decisions/:plot` | admin | `{decision: 'first' \| 'check' \| 'recheck', comment?}`: which answer is right for a plot (the export's `final`); DELETE undoes it |
 | `GET` / `POST` | `/v1/projects/:pid/quality/notes` | admin | Guidance notes `{questionKey, firstValue?, checkValue?, text (≤ 2000)}` |
 | `PUT` / `DELETE` | `/v1/projects/:pid/quality/notes/:id` | admin | Edit or delete a note |

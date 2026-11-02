@@ -21,6 +21,7 @@ import { PlotFilePage } from "../project/PlotFilePage";
 import { PlotsTab } from "../project/PlotsTab";
 import { ProgressTab } from "../project/ProgressTab";
 import { QualityAnswers } from "../project/QualityAnswers";
+import { QualityFlags } from "../project/QualityFlags";
 import { QualityTab } from "../project/QualityTab";
 import { SettingsTab } from "../project/SettingsTab";
 import { linkProps, navigate, pathFor, PROJECT_TABS, type ProjectTab } from "../router";
@@ -103,6 +104,7 @@ export function ProjectPage({ projectId, tab, fileId, personId }: { projectId: s
           ) : (
             <Stack spacing={2}>
               <Typography color="text.secondary">{t("quality.reviewerNote")}</Typography>
+              <QualityFlags projectId={projectId} canEdit={false} />
               <QualityAnswers projectId={projectId} />
             </Stack>
           )}

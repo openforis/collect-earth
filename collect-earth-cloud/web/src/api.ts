@@ -268,6 +268,8 @@ export interface QualityData {
   notes: GuidanceNote[];
   /** Number margins in percent, by margin key (an indexed entity's question as [*]). */
   margins: Record<string, number>;
+  /** The "very fast" flag's threshold, in seconds (Task 5). */
+  fastSeconds: number;
   /** The answer options of the choice questions shown. */
   options: AnswerOptions;
   /** When the figures' records were read (ms). */
@@ -1053,6 +1055,7 @@ export function toQualityData(body: unknown): QualityData {
     decisions: list(b.decisions).map(toDecision),
     notes: list(b.notes).map(toNote),
     margins: toMargins(obj(b.settings).margins),
+    fastSeconds: toFastSeconds(obj(b.settings).fastSeconds),
     options: toOptions(b.options),
     computedAt: toMillis(b.computedAt),
     stale: b.stale === true,
@@ -1062,6 +1065,21 @@ export function toQualityData(body: unknown): QualityData {
 /** The quality figures. A 503 "busy" (other projects' figures being worked out) is thrown as ApiError code "busy". */
 export async function getQuality(projectId: string): Promise<QualityData> {
   return toQualityData(await request<unknown>("GET", `${p(projectId)}/quality`));
+}
+
+/** The "very fast" threshold of a project that has not set one, and the range it may take (as the server's). */
+export const DEFAULT_FAST_SECONDS = 15;
+export const MIN_FAST_SECONDS = 1;
+export const MAX_FAST_SECONDS = 120;
+
+export function toFastSeconds(value: unknown): number {
+  return typeof value === "number" && Number.isInteger(value) && value >= MIN_FAST_SECONDS && value <= MAX_FAST_SECONDS ? value : DEFAULT_FAST_SECONDS;
+}
+
+/** Sets the "very fast" flag's threshold (whole seconds); returns it as saved. The margins stay as they are. */
+export async function saveFastSeconds(projectId: string, fastSeconds: number): Promise<number> {
+  const body = await request<{ fastSeconds?: unknown }>("PUT", `${p(projectId)}/quality/settings`, { json: { fastSeconds } });
+  return toFastSeconds(body?.fastSeconds);
 }
 
 /** Replaces the number margins (percent, by margin key); returns them as saved. */
@@ -1797,7 +1815,8 @@ export interface PersonData {
   files: PersonFile[];
   speed: Speed;
   sync: SyncHealth;
-  quality: QualityAtHand & { asFirst: Rate | null; asChecker: Rate | null; sentBack: SentBack[] };
+  /** `flags`: their pattern flags by kind (coordinators' page, from the figures at hand); null on My work or without figures. */
+  quality: QualityAtHand & { asFirst: Rate | null; asChecker: Rate | null; sentBack: SentBack[]; flags: FlagCounts | null };
 }
 
 const STATUS_KINDS: readonly PersonStatusKind[] = ["noPlots", "finished", "neverStarted", "quiet", "working"];
@@ -1953,6 +1972,7 @@ export function toPersonData(body: unknown): PersonData {
       asFirst: toRateOrNull(quality.asFirst),
       asChecker: toRateOrNull(quality.asChecker),
       sentBack: list(quality.sentBack).map((s) => ({ plot: text(s.plot), comment: nullableText(s.comment), decidedAt: toMillis(s.decidedAt), decidedBy: nullableText(s.decidedBy) })),
+      flags: quality.flags && typeof quality.flags === "object" ? toFlagCounts(quality.flags) : null,
     },
   };
 }
@@ -2148,4 +2168,101 @@ export async function getAnswerColumns(projectId: string, fileId: string): Promi
     distinctCount: toCount(c.distinctCount),
     values: Array.isArray(c.values) ? list(c.values).map((v) => ({ value: text(v.value), count: toCount(v.count) })) : null,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Pattern flags (Task 5)
+
+export const FLAG_KINDS = ["very_fast", "same_as_before", "required_empty", "edited_after_decision", "two_main", "no_plot"] as const;
+export type FlagKind = (typeof FLAG_KINDS)[number];
+export type FlagCounts = Record<FlagKind, number>;
+
+/** One plot worth a look (GET /quality/flags). Only `operator` names a person. */
+export interface PatternFlag {
+  kind: FlagKind;
+  plot: string;
+  operator: string;
+  at: number | null;
+  /** very_fast */
+  gapMs: number | null;
+  /** very_fast, same_as_before: the person's plot before it. */
+  previousPlot: string | null;
+  /** same_as_before */
+  runLength: number | null;
+  firstPlot: string | null;
+  /** required_empty */
+  questions: { key: string; label: string }[];
+  /** edited_after_decision */
+  decision: DecisionKind | null;
+  decidedAt: number | null;
+}
+
+export interface FlagsData {
+  fastSeconds: number;
+  plots: number;
+  counts: FlagCounts;
+  people: { username: string; counts: FlagCounts; total: number }[];
+  total: number;
+  flags: PatternFlag[];
+  requiredQuestions: number;
+  computedAt: number | null;
+  stale: boolean;
+}
+
+export interface FlagsFilter {
+  person: string | null;
+  kind: FlagKind | null;
+}
+
+export const NO_FLAGS_FILTER: FlagsFilter = { person: null, kind: null };
+
+export function toFlagCounts(value: unknown): FlagCounts {
+  const v = obj(value);
+  return Object.fromEntries(FLAG_KINDS.map((k) => [k, toCount(v[k])])) as FlagCounts;
+}
+
+const toFlagKind = (value: unknown): FlagKind | null => (FLAG_KINDS as readonly unknown[]).includes(value) ? (value as FlagKind) : null;
+
+export function toFlagsData(body: unknown): FlagsData {
+  const b = obj(body);
+  return {
+    fastSeconds: toFastSeconds(b.fastSeconds),
+    plots: toCount(b.plots),
+    counts: toFlagCounts(b.counts),
+    people: list(b.people).map((p) => ({ username: text(p.username), counts: toFlagCounts(p.counts), total: toCount(p.total) })),
+    total: toCount(b.total),
+    flags: list(b.flags).flatMap((f): PatternFlag[] => {
+      const kind = toFlagKind(f.kind);
+      if (kind === null) return [];
+      const d = obj(f.details);
+      const decision = d.decision === "first" || d.decision === "check" || d.decision === "recheck" ? d.decision : null;
+      return [
+        {
+          kind,
+          plot: text(f.plot),
+          operator: text(f.operator),
+          at: toMillis(f.at),
+          gapMs: toNumberOrNull(d.gapMs),
+          previousPlot: nullableText(d.previousPlot),
+          runLength: toNumberOrNull(d.runLength),
+          firstPlot: nullableText(d.firstPlot),
+          questions: list(d.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key) })),
+          decision,
+          decidedAt: toMillis(d.decidedAt),
+        },
+      ];
+    }),
+    requiredQuestions: toCount(b.requiredQuestions),
+    computedAt: toMillis(b.computedAt),
+    stale: b.stale === true,
+  };
+}
+
+/** Plots worth a look (coordinators and reviewers). A 503 "busy" is thrown as ApiError code "busy". */
+export async function getFlags(projectId: string, filter: FlagsFilter): Promise<FlagsData> {
+  const query = new URLSearchParams();
+  if (filter.person) query.set("person", filter.person);
+  if (filter.kind) query.set("kind", filter.kind);
+  const q = query.toString();
+  return toFlagsData(await request<unknown>("GET", `${p(projectId)}/quality/flags${q ? `?${q}` : ""}`));
 }

@@ -235,6 +235,8 @@ export type RecordState = Pick<RecordRow, 'recordKey' | 'operator' | 'activelySa
 /** A project's quality-review settings: number margins (percent) by question key. */
 export interface QualitySettings {
   margins: Record<string, number>;
+  /** The "very fast" flag's threshold in whole seconds (Task 5); absent: DEFAULT_FAST_SECONDS (15). */
+  fastSeconds?: number;
 }
 
 /**
