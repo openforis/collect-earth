@@ -8,6 +8,7 @@ const { modisSeries } = require("./ee/modisSeries");
 const { landsatSeries } = require("./ee/landsatSeries");
 const { sentinel2Series } = require("./ee/sentinel2Series");
 const { sceneTiles, validateSceneRequest } = require("./ee/scene");
+const { ccdcSeries, validateCcdcRequest } = require("./ee/ccdc");
 
 /**
  * Builds a POST handler: parse body, run the optional `validate(body)` hook, auth EE,
@@ -39,6 +40,10 @@ function registerRoutes(app) {
       const { sensor, timeStart } = validateSceneRequest(body);
       return sceneTiles(g, p.start, p.end, sensor, timeStart);
     }, validateSceneRequest)
+  );
+  app.post(
+    "/api/ccdc",
+    plotRoute((p, g, body) => ccdcSeries(g, p.start, p.end, validateCcdcRequest(body).band), validateCcdcRequest)
   );
 }
 

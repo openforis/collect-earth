@@ -160,3 +160,28 @@ test("POST /api/tiles/scene with a valid plot, sensor and timeStart but no EE_KE
   const { res, logged } = await postWithoutKey("/api/tiles/scene", { plot: belize, sensor: "sentinel2", timeStart: "1609459200000" });
   assertEeKeyMissing500(res, logged);
 });
+
+test("POST /api/ccdc without a body is a 400 bad_request", async () => {
+  const res = await request(createApp(registerRoutes)).post("/api/ccdc");
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error.code, "bad_request");
+  assert.match(res.body.error.message, /plot is required/);
+});
+
+test("POST /api/ccdc with an unknown band is a 400 before EE auth", async () => {
+  const { res, logged } = await postWithoutKey("/api/ccdc", { plot: belize, band: "EVI" });
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error.code, "bad_request");
+  assert.match(res.body.error.message, /NDFI or NDVI/);
+  assert.equal(logged.length, 0, "a 400 must not reach the EE auth step or be logged as a server error");
+});
+
+test("POST /api/ccdc with a valid plot but no EE_KEY reaches the auth step and fails as JSON 500", async () => {
+  const { res, logged } = await postWithoutKey("/api/ccdc", { plot: belize, start: "2010-01-01", end: "2020-01-01" });
+  assertEeKeyMissing500(res, logged);
+});
+
+test("POST /api/ccdc with band NDVI and no EE_KEY passes validation and reaches the auth step", async () => {
+  const { res, logged } = await postWithoutKey("/api/ccdc", { plot: belize, band: "NDVI" });
+  assertEeKeyMissing500(res, logged);
+});
