@@ -14,13 +14,11 @@ export interface AnswerQuestion {
   flags: number;
 }
 
-/** The questions with answers, in the survey's order (choices, then numbers, as the server lists them). */
+/** The questions with answers, in the survey's order (choices, then numbers, as the server lists them), with the server's count of flags on each (not only the listed ones). */
 export function answerQuestions(data: AnswersData): AnswerQuestion[] {
-  const flagged = new Map<string, number>();
-  for (const f of data.flags) flagged.set(f.key, (flagged.get(f.key) ?? 0) + 1);
   return [
-    ...data.choices.map((c) => ({ key: c.key, label: c.label, kind: "choice" as const, flags: flagged.get(c.key) ?? 0 })),
-    ...data.numbers.map((n) => ({ key: n.key, label: n.label, kind: "number" as const, flags: flagged.get(n.key) ?? 0 })),
+    ...data.choices.map((c) => ({ key: c.key, label: c.label, kind: "choice" as const, flags: c.flags })),
+    ...data.numbers.map((n) => ({ key: n.key, label: n.label, kind: "number" as const, flags: 0 })),
   ];
 }
 
@@ -37,11 +35,13 @@ export interface ChoiceRow {
   /** Plots holding it, and its share of the plots answering. */
   count: number;
   share: number;
-  person: { count: number; share: number } | null;
-  rest: { count: number; share: number } | null;
+  /** With a person: theirs and the rest of the team's; share null when that side has no answer to the question. */
+  person: { count: number; share: number | null } | null;
+  rest: { count: number; share: number | null } | null;
 }
 
 const share = (count: number, of: number) => (of > 0 ? count / of : 0);
+const shareOrNull = (count: number, of: number) => (of > 0 ? count / of : null);
 
 /**
  * The rows of a choice question. With `person` (a username with a row in it): their
@@ -54,11 +54,36 @@ export function choiceRows(choice: ChoiceAnswers, person: string | null): Choice
     if (mine) {
       const count = mine.counts[i] ?? 0;
       const restOf = choice.answered - mine.answered;
-      row.person = { count, share: share(count, mine.answered) };
-      row.rest = { count: code.count - count, share: share(code.count - count, restOf) };
+      row.person = { count, share: shareOrNull(count, mine.answered) };
+      row.rest = { count: code.count - count, share: shareOrNull(code.count - count, restOf) };
     }
     return row;
   });
+}
+
+/** The rest of the team's row of a choice's table (everyone answering but `person`), or null without a person in it. */
+export function restOfTeam(choice: ChoiceAnswers, person: string | null): { answered: number; counts: number[] } | null {
+  const mine = person === null ? undefined : choice.people.find((p) => p.username === person);
+  if (!mine) return null;
+  return { answered: choice.answered - mine.answered, counts: choice.codes.map((c, i) => c.count - (mine.counts[i] ?? 0)) };
+}
+
+/** Whether the days of a filter are in order (either may be missing). */
+export function datesInOrder(from: string | null, to: string | null): boolean {
+  return from === null || to === null || from <= to;
+}
+
+/** "About 0.3 of them": how many flags chance alone would give, rounded so it reads (one decimal under 10). */
+export function chanceText(t: Translate, chanceFlags: number, language: string): string {
+  if (chanceFlags < 0.05) return t("answers.chanceNone");
+  const rounded = chanceFlags < 10 ? Math.round(chanceFlags * 10) / 10 : Math.round(chanceFlags);
+  let n: string;
+  try {
+    n = new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(rounded);
+  } catch {
+    n = String(rounded);
+  }
+  return t("answers.chance", { n });
 }
 
 /** "41 %" */

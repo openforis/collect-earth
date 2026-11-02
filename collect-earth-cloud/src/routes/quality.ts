@@ -3,7 +3,7 @@ import { isUuid } from '../accountRules.js';
 import { audit } from '../activity.js';
 import { answerStats, type AnswerFilter } from '../answerStats.js';
 import { isDate, isTimeZone } from '../days.js';
-import { plotColumns, plotsWithValue } from '../plotColumns.js';
+import { columnValues, MAX_LISTED_VALUES, plotColumns, plotsWithValue } from '../plotColumns.js';
 import { plotFileOf, plotIdsOf } from '../plotFileCache.js';
 import { fileKeyCount } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
@@ -139,6 +139,7 @@ export async function registerQualityRoutes(
     const timeZone = isTimeZone(q.tz) ? q.tz : 'UTC';
     if (person !== null && person.length > MAX_NAME) return reply.code(400).send(bad(`person must be at most ${MAX_NAME} characters`));
     if ((from !== null && !isDate(from)) || (to !== null && !isDate(to))) return reply.code(400).send(bad('from and to must be days written YYYY-MM-DD'));
+    if (from !== null && to !== null && from > to) return reply.code(400).send(bad('from must not be after to'));
     if ((columnText !== null) !== (value !== null)) return reply.code(400).send(bad('column and value go together'));
     if (columnText !== null && fileId === null) return reply.code(400).send(bad('a column needs its plot file (file)'));
     if (value !== null && value.length > MAX_NAME) return reply.code(400).send(bad(`value must be at most ${MAX_NAME} characters`));
@@ -157,6 +158,9 @@ export async function registerQualityRoutes(
         column = /^\d{1,4}$/.test(columnText) ? Number(columnText) : -1;
         // The id column (0) gives every plot its own value: no filter.
         if (column < 1 || column >= plotFile.columnCount) return reply.code(400).send(bad(`column must be a column of the plot file, 1 to ${plotFile.columnCount - 1}`));
+        // As for dividing a file: a column of over MAX_LISTED_VALUES values is not offered, nor taken.
+        const distinct = new Set(columnValues(plotFile, column)).size;
+        if (distinct > MAX_LISTED_VALUES) return reply.code(400).send(bad(`that column has over ${MAX_LISTED_VALUES} different values`));
         units = plotsWithValue(plotFile, column, value!);
       }
     }

@@ -13,6 +13,23 @@ import { QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR } from './surveyOutline.j
 export const FLAG_Z = 3;
 /** A person is flagged only with at least this many plots answering the question (and so must the rest of the team). */
 export const FLAG_MIN_PLOTS = MIN_PLOTS;
+/**
+ * A flag also needs this difference between the two shares (0.10 = 10 points): with
+ * thousands of plots a small difference is "significant" but not worth a look.
+ */
+export const FLAG_MIN_DIFFERENCE = 0.1;
+/**
+ * And at least this many plots expected with and without the answer on each side (n·p̂
+ * and n·(1−p̂), p̂ the pooled share): below it the normal approximation of the z-test does
+ * not hold, and a rare answer (1 of 20 against 0 of 1000: z 7) would top the list.
+ */
+export const FLAG_MIN_EXPECTED = 5;
+/**
+ * How often a comparison with no real difference still reaches |z| >= FLAG_Z: the
+ * two-sided tail of the normal distribution at 3 (2·(1−Φ(3))). Times the comparisons made,
+ * it is about how many flags chance alone would give (AnswerStats.chanceFlags).
+ */
+export const CHANCE_PER_TEST = 0.0026997960632601866;
 /** Flags listed, the largest |z| first. */
 export const MAX_FLAGS = 100;
 /** Distinct codes a choice question may have in the table; more are left out (a code list that large is no choice). */
@@ -59,7 +76,7 @@ export interface AnswerTable {
   size: number;
   operators: string[];
   units: string[];
-  operator: Uint16Array;
+  operator: Uint32Array;
   unit: Int32Array;
   time: Float64Array;
   choices: ChoiceColumn[];
@@ -178,7 +195,7 @@ export function answerTable(input: QualityInput): AnswerTable {
   const unitIndex = new Map<string, number>();
   const operators: string[] = [];
   const units: string[] = [];
-  const operator = new Uint16Array(size);
+  const operator = new Uint32Array(size);
   const unit = new Int32Array(size);
   const time = new Float64Array(size);
   const outline = input.outline;
@@ -359,6 +376,8 @@ export interface ChoiceStats {
   codes: CodeCount[];
   /** Per person: plots answering, and plots holding each of `codes`, in that order. */
   people: { username: string; answered: number; counts: number[] }[];
+  /** Flags on this question (all of them, also those beyond MAX_FLAGS). */
+  flags: number;
 }
 
 export interface Spread {
@@ -404,6 +423,10 @@ export interface AnswerStats {
   /** Up to MAX_FLAGS, the largest |z| first. */
   flags: AnswerFlag[];
   flagsTotal: number;
+  /** Comparisons made (a person and an answer against the rest of the team, enough plots on both sides). */
+  tests: number;
+  /** About how many flags chance alone would give: tests × CHANCE_PER_TEST. */
+  chanceFlags: number;
 }
 
 /**
@@ -471,6 +494,7 @@ export function answerStats(table: AnswerTable, filter: AnswerFilter = {}): Answ
 
   const choices: ChoiceStats[] = [];
   const flags: AnswerFlag[] = [];
+  let tests = 0;
   for (const c of table.choices) {
     const k = c.codes.length;
     // counts[person * k + code], answered per person.
@@ -502,7 +526,7 @@ export function answerStats(table: AnswerTable, filter: AnswerFilter = {}): Answ
     }
     if (answered === 0) continue;
     const given = [...team.keys()].filter((code) => team[code] > 0);
-    choices.push({
+    const choice: ChoiceStats = {
       key: c.key,
       label: c.label,
       multiple: c.multiple,
@@ -510,18 +534,34 @@ export function answerStats(table: AnswerTable, filter: AnswerFilter = {}): Answ
       blank: plots - answered,
       codes: given.map((code) => ({ code: c.codes[code], label: c.codeLabels[code], count: team[code] })),
       people: shownPeople.map(({ username, i }) => ({ username, answered: answeredOf[i], counts: given.map((code) => counts[i * k + code]) })),
-    });
+      flags: 0,
+    };
+    choices.push(choice);
+    const answering: number[] = [];
+    for (let p = 0; p < people; p++) if (answeredOf[p] > 0) answering.push(p);
     // Each person against the rest of the team, NOT against the whole team: the person's
     // own plots would pull the team's share towards theirs and hide the difference.
     for (const { username, i } of shownPeople) {
       const n1 = answeredOf[i];
       const n2 = answered - n1;
       if (n1 < FLAG_MIN_PLOTS || n2 < FLAG_MIN_PLOTS) continue;
+      // Two people answering: the second against "the rest" (the first) is the first's
+      // comparison seen from the other side. Listed (and counted) once, from the first
+      // by name, unless that one is not shown (the person filter).
+      if (answering.length === 2) {
+        const other = answering[0] === i ? answering[1] : answering[0];
+        if (operators[other] < username && shown(other)) continue;
+      }
       for (const code of given) {
         const x1 = counts[i * k + code];
         const x2 = team[code] - x1;
+        const pooled = (x1 + x2) / (n1 + n2);
+        const expected = Math.min(n1 * pooled, n1 * (1 - pooled), n2 * pooled, n2 * (1 - pooled));
+        if (expected < FLAG_MIN_EXPECTED) continue;
+        tests += 1;
         const z = twoProportionZ(x1, n1, x2, n2);
-        if (z === null || Math.abs(z) < FLAG_Z) continue;
+        if (z === null || Math.abs(z) < FLAG_Z || Math.abs(x1 / n1 - x2 / n2) < FLAG_MIN_DIFFERENCE) continue;
+        choice.flags += 1;
         flags.push({
           key: c.key,
           label: c.label,
@@ -584,5 +624,7 @@ export function answerStats(table: AnswerTable, filter: AnswerFilter = {}): Answ
     numbers,
     flags: flags.slice(0, MAX_FLAGS),
     flagsTotal: flags.length,
+    tests,
+    chanceFlags: tests * CHANCE_PER_TEST,
   };
 }

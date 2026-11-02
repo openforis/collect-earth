@@ -583,7 +583,7 @@ desktop.
   shown on few plots). Yes/No in the viewer's language for a boolean.
 - **Two steps** (`src/answerStats.ts`):
   - `answerTable(input)`: one row per first assessment (person index, plot index,
-    `modifiedOn`) and per question typed arrays: a `Uint16Array` code index per choice
+    `modifiedOn`; the person index widened to 32 bits in the review) and per question typed arrays: a `Uint16Array` code index per choice
     (dense, or sparse rows + codes when under a third of the rows answer; several codes in a
     side list), number rows + `Float64Array` values and the rows whose answer is not one
     number (text, several values). Built by the **quality worker in the same job as the
@@ -676,6 +676,49 @@ desktop.
 - **Open:** the date filter is by the last save, not the first submission; a filter's
   figures (up to ~90 ms at 100k) run on the event loop on a cache miss; a project whose
   plot ids repeat across files counts a plot once per first assessment, not per file.
+- **Review (after 1ea26ac2; supersedes the above where it says so):**
+  - **Rare answers:** a flag now also needs, with the pooled share p̂, n·p̂ ≥ 5 and
+    n·(1−p̂) ≥ 5 for the person *and* the rest of the team (`FLAG_MIN_EXPECTED`), and a
+    difference of at least 10 points between the two shares (`FLAG_MIN_DIFFERENCE`). 1 of
+    20 against 0 of 1000 (z 7.07) and 2 of 20 against 1 of 1000 are no longer flagged, nor
+    26 % against 22 % on 6,000 plots (z over 3) (tests).
+  - **Many comparisons:** the server counts the comparisons it made (`tests`: a person and
+    an answer against the rest, enough plots on both sides) and gives `chanceFlags` = tests ×
+    `CHANCE_PER_TEST` (0.0027, the two-sided normal tail at |z| 3). The page says "N found in
+    T comparisons of a person with the rest of the team. Chance alone would give about X of
+    them." (or "would hardly ever give even one" under 0.05). Chosen over a Bonferroni-style
+    threshold: with 40 people and 100 answers |z| would have to reach about 5, which hides
+    real differences in small teams and is hard to explain; the expected-by-chance figure
+    keeps the plan's |z| 3 and says how much to trust the list. The help text is softer in 4
+    languages ("a difference larger than chance usually makes. With many people and
+    questions some of these are still chance, and plots in different areas can differ: look
+    at the plots before judging").
+  - **Two people answering:** the second against "the rest" (the first) is the same
+    difference, so it is listed and counted once, from the first by name, unless that one is
+    hidden by the person filter. With three or more, each keeps both codes of a difference
+    (Forest less often, Cropland more often).
+  - **Dates:** the date fields apply 600 ms after the last change or when left; a first day
+    after the last is said on the page (and not applied) and refused by the server (400).
+  - **Flags per question** come from the server (`choices[].flags`, all of them, not the
+    100 listed) for the question picker.
+  - **Columns:** the server refuses a column of over 200 different values (400), as the
+    columns listing does not offer it (the same `MAX_LISTED_VALUES` as dividing a file);
+    part of the filters decision above.
+  - **Texts:** the count says "N first assessments of plots (quality checks are not
+    counted)"; "N plots have no answer to it" says "in the filters" only with a filter; es
+    "mucho más a menudo o mucho menos a menudo".
+  - **Choice table:** a "rest of the team" row when a person is chosen; a side with no answer
+    to the question reads "No answers" (chart and table) instead of 0 % bars.
+  - **Screen readers:** only the count is a live region (the "figures of" time after it
+    changes at each reload and is not announced); the charts' readouts are always
+    `aria-live="polite"`.
+  - **Table:** the person index is a `Uint32Array` (no limit of 65,535 people). Memory: about
+    11 MB per cached report at 100,000 records with 30 questions (90,000 rows), so the 4
+    cached reports keep up to about 45 MB of answer tables, plus 8 filter results each.
+  - **Tests:** server 704 (answerStats 18: the rare answers, the 10 points, the chance count
+    and flags per question, the two-person pair; routes: from after to, a column of 201
+    values), web 245 (chance text, "No answers", the rest-of-team row, dates in order), tsc
+    clean in both, web build ok. No Docker or Chrome in this round (low memory); no new SQL.
 
 ### Task 5: Pattern flags (improvement 9 and monitoring Phase 4 flags)
 

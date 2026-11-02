@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RoundInfo } from '../src/cep.js';
-import { answerStats, answerTable, FLAG_MIN_PLOTS, FLAG_Z, quartiles, twoProportionZ, type AnswerTable } from '../src/answerStats.js';
+import { answerStats, answerTable, CHANCE_PER_TEST, FLAG_MIN_DIFFERENCE, FLAG_MIN_PLOTS, FLAG_Z, quartiles, twoProportionZ, type AnswerTable } from '../src/answerStats.js';
 import type { QualityInput, QualityRecord } from '../src/quality.js';
 import type { Question } from '../src/surveyOutline.js';
 
@@ -217,15 +217,48 @@ describe('the flag: a two-proportion z-test against the rest of the team', () =>
 
   it(`needs at least ${FLAG_MIN_PLOTS} plots of the person with an answer`, () => {
     const few = FLAG_MIN_PLOTS - 1;
-    const under = answerStats(answerTable(input([...plotsOf('ana', 1, few, few), ...plotsOf('ben', 1001, 200, 0)])));
+    // All cropland against the other's 30 %: far apart, enough of each answer on both sides.
+    const under = answerStats(answerTable(input([...plotsOf('ana', 1, few, few), ...plotsOf('ben', 1001, 200, 60)])));
     expect(under.flags).toEqual([]);
-    const enough = answerStats(answerTable(input([...plotsOf('ana', 1, FLAG_MIN_PLOTS, FLAG_MIN_PLOTS), ...plotsOf('ben', 1001, 200, 0)])));
+    const enough = answerStats(answerTable(input([...plotsOf('ana', 1, FLAG_MIN_PLOTS, FLAG_MIN_PLOTS), ...plotsOf('ben', 1001, 200, 60)])));
+    // Two people: ben against "the rest" (ana) is the same difference seen from the other
+    // side, listed once.
     expect(enough.flags.map((f) => [f.username, f.code]).sort()).toEqual([
       ['ana', 'crop'],
       ['ana', 'forest'],
+    ]);
+    // Unless ana is not shown: then ben's side is the one listed.
+    const ben = answerStats(answerTable(input([...plotsOf('ana', 1, FLAG_MIN_PLOTS, FLAG_MIN_PLOTS), ...plotsOf('ben', 1001, 200, 60)])), { person: 'ben' });
+    expect(ben.flags.map((f) => [f.username, f.code]).sort()).toEqual([
       ['ben', 'crop'],
       ['ben', 'forest'],
     ]);
+  });
+
+  it('a rare answer is not flagged: too few of it on either side (expected counts under 5)', () => {
+    // 1 of 20 against 0 of 1000 gives z 7.07, but says nothing.
+    expect(twoProportionZ(1, 20, 0, 1000)!).toBeGreaterThan(7);
+    const one = answerStats(answerTable(input([...plotsOf('ana', 1, 20, 1), ...plotsOf('ben', 1001, 1000, 0)])));
+    expect(one.flags).toEqual([]);
+    const two = answerStats(answerTable(input([...plotsOf('ana', 1, 20, 2), ...plotsOf('ben', 1001, 1000, 1)])));
+    expect(two.flags).toEqual([]);
+  });
+
+  it(`a difference under ${FLAG_MIN_DIFFERENCE * 100} points is not flagged, however many plots`, () => {
+    // 26 % against 22 % on thousands of plots: z over 3, but a small difference.
+    expect(twoProportionZ(520, 2000, 880, 4000)!).toBeGreaterThan(FLAG_Z);
+    const stats = answerStats(answerTable(input([...plotsOf('ana', 1, 2000, 520), ...plotsOf('ben', 10001, 2000, 440), ...plotsOf('carl', 20001, 2000, 440)])));
+    expect(stats.flags).toEqual([]);
+  });
+
+  it('says how many comparisons were made, how many flags chance alone would give, and the flags per question', () => {
+    const records = [...plotsOf('ana', 1, 64, 26), ...plotsOf('ben', 1001, 450, 99), ...plotsOf('carl', 2001, 450, 99)];
+    const stats = answerStats(answerTable(input(records)));
+    // Each of the three against the rest, on cropland and on forest.
+    expect(stats.tests).toBe(6);
+    expect(stats.chanceFlags).toBeCloseTo(6 * CHANCE_PER_TEST, 10);
+    expect(CHANCE_PER_TEST).toBeCloseTo(0.0027, 4);
+    expect(stats.choices[0].flags).toBe(2);
   });
 
   it('a person alone in the filter is compared with no one', () => {

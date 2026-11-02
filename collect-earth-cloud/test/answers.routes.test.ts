@@ -72,7 +72,8 @@ describe('GET /quality/answers and /quality/answers/columns', () => {
     expect(Object.fromEntries(land.codes.map((c: { code: string; count: number }) => [c.code, c.count]))).toEqual({ F: 25, C: 25 });
     // The check's G is not there.
     expect(land.codes.some((c: { code: string }) => c.code === 'G')).toBe(false);
-    expect(body.flags.map((f: { username: string; code: string }) => `${f.username}:${f.code}`).sort()).toEqual(['ana:C', 'ana:F', 'ben:C', 'ben:F']);
+    // Two people: ben against the rest (ana) is the same difference, listed once.
+    expect(body.flags.map((f: { username: string; code: string }) => `${f.username}:${f.code}`).sort()).toEqual(['ana:C', 'ana:F']);
     const forest = body.numbers.find((n: { key: string }) => n.key === FOREST);
     expect(forest.team).toMatchObject({ values: 50, median: 45 });
     expect(forest.people).toEqual([
@@ -104,7 +105,11 @@ describe('GET /quality/answers and /quality/answers/columns', () => {
   });
 
   it('refuses filters that make no sense', async () => {
-    for (const q of ['file=nope', `file=${'0'.repeat(8)}-0000-4000-8000-${'0'.repeat(12)}`, `file=${csvId}&column=9&value=x`, `file=${csvId}&column=0&value=1`, 'column=3&value=x', `file=${csvId}&column=3`, 'from=2026-13-01', 'to=yesterday']) {
+    // A column of over 200 values is not offered, nor taken (as for dividing a file).
+    const many = (await call('PUT', '/csv-files/many.csv', owner.token, ['id,lat,lon', ...Array.from({ length: 201 }, (_, i) => `${i + 101},${i},0`)].join('\n'), { 'content-type': 'text/csv' })).json().id;
+    const columns = (await call('GET', `/quality/answers/columns?file=${many}`, owner.token)).json().columns;
+    expect(columns.find((c: { index: number }) => c.index === 1).values).toBeNull();
+    for (const q of [`file=${many}&column=1&value=5`, 'from=2026-10-05&to=2026-10-01', 'file=nope', `file=${'0'.repeat(8)}-0000-4000-8000-${'0'.repeat(12)}`, `file=${csvId}&column=9&value=x`, `file=${csvId}&column=0&value=1`, 'column=3&value=x', `file=${csvId}&column=3`, 'from=2026-13-01', 'to=yesterday']) {
       const res = await call('GET', `/quality/answers?${q}`, owner.token);
       expect(res.statusCode, q).toBe(400);
     }

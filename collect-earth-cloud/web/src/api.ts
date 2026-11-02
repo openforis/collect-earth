@@ -2003,6 +2003,8 @@ export interface ChoiceAnswers {
   codes: AnswerCode[];
   /** counts in the order of codes. */
   people: { username: string; answered: number; counts: number[] }[];
+  /** Flags on this question (all, not only those listed). */
+  flags: number;
 }
 
 export interface NumberSpread {
@@ -2041,6 +2043,9 @@ export interface AnswersData {
   numbers: NumberAnswers[];
   flags: AnswerFlag[];
   flagsTotal: number;
+  /** Comparisons made, and about how many flags chance alone would give among them. */
+  tests: number;
+  chanceFlags: number;
   computedAt: number | null;
   stale: boolean;
   timeZone: string;
@@ -2069,6 +2074,7 @@ export function toAnswersData(body: unknown): AnswersData {
       blank: toCount(c.blank),
       codes: list(c.codes).map((code) => ({ code: text(code.code), label: text(code.label) || text(code.code), count: toCount(code.count) })),
       people: list(c.people).map((p) => ({ username: text(p.username), answered: toCount(p.answered), counts: counts(p.counts) })),
+      flags: toCount(c.flags),
     })),
     numbers: list(b.numbers).map((n) => ({
       key: text(n.key),
@@ -2092,6 +2098,8 @@ export function toAnswersData(body: unknown): AnswersData {
       };
     }),
     flagsTotal: toCount(b.flagsTotal),
+    tests: toCount(b.tests),
+    chanceFlags: toNumberOrNull(b.chanceFlags) ?? 0,
     computedAt: toMillis(b.computedAt),
     stale: b.stale === true,
     timeZone: text(b.timeZone) || "UTC",

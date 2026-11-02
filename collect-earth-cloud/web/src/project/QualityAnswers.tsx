@@ -32,11 +32,14 @@ import { useApp } from "../appContext";
 import {
   answerLabel,
   answerQuestions,
+  chanceText,
   choiceRows,
+  datesInOrder,
   flagText,
   hasFilter,
   numberText,
   percent,
+  restOfTeam,
   shownQuestion,
   spreadScale,
   spreadText,
@@ -95,13 +98,12 @@ function BarRows({
 }) {
   const theme = useTheme();
   const [active, setActive] = useState<number | null>(null);
-  const [focused, setFocused] = useState(false);
   const readout = useId();
   const max = Math.max(1e-9, ...rows.flatMap((r) => r.bars.map((b) => b.value)));
   const thick = rows[0]?.bars.length > 1 ? 10 : 14;
   return (
     <Box>
-      <Typography id={readout} variant="body2" sx={{ minHeight: "1.5em", fontVariantNumeric: "tabular-nums" }} aria-live={focused ? "polite" : "off"}>
+      <Typography id={readout} variant="body2" sx={{ minHeight: "1.5em", fontVariantNumeric: "tabular-nums" }} aria-live="polite">
         {active !== null ? rows[active]?.readout : ""}
       </Typography>
       <Box
@@ -110,11 +112,9 @@ function BarRows({
         aria-label={ariaLabel}
         aria-describedby={readout}
         onFocus={() => {
-          setFocused(true);
           setActive((a) => a ?? 0);
         }}
         onBlur={() => {
-          setFocused(false);
           setActive(null);
         }}
         onKeyDown={(e) => {
@@ -162,10 +162,13 @@ function BarRows({
   );
 }
 
-function ChoiceView({ choice, person }: { choice: ChoiceAnswers; person: string | null }) {
+function ChoiceView({ choice, person, narrowed }: { choice: ChoiceAnswers; person: string | null; narrowed: boolean }) {
   const t = useT();
   const { language } = useApp();
   const rows = choiceRows(choice, person);
+  const rest = restOfTeam(choice, person);
+  // A side with no answer to the question says so instead of drawing 0 % bars.
+  const pct = (share: number | null) => (share === null ? t("answers.noAnswers") : percent(share, language));
   const compared = rows.length > 0 && rows[0].person !== null;
   const label = (r: ChoiceRow) => answerLabel(t, choice.key, r.code, r.label);
   const mine = person === null ? undefined : choice.people.find((p) => p.username === person);
@@ -173,22 +176,22 @@ function ChoiceView({ choice, person }: { choice: ChoiceAnswers; person: string 
     label: label(r),
     bars: compared
       ? [
-          { color: PERSON, value: r.person!.share, text: percent(r.person!.share, language) },
-          { color: TEAM, value: r.rest!.share, text: percent(r.rest!.share, language) },
+          { color: PERSON, value: r.person!.share ?? 0, text: pct(r.person!.share) },
+          { color: TEAM, value: r.rest!.share ?? 0, text: pct(r.rest!.share) },
         ]
       : [{ color: TEAM, value: r.share, text: percent(r.share, language) }],
     readout: compared
       ? t("answers.readoutPerson", {
           answer: label(r),
           person: person!,
-          share: percent(r.person!.share, language),
+          share: pct(r.person!.share),
           count: formatNumber(r.person!.count, language),
-          team: percent(r.rest!.share, language),
+          team: pct(r.rest!.share),
           teamCount: formatNumber(r.rest!.count, language),
         })
       : t("answers.readoutTeam", { answer: label(r), share: percent(r.share, language), count: formatNumber(r.count, language) }),
   }));
-  const cell = (count: number, of: number) => `${percent(of > 0 ? count / of : 0, language)} (${formatNumber(count, language)})`;
+  const cell = (count: number, of: number) => (of > 0 ? `${percent(count / of, language)} (${formatNumber(count, language)})` : t("answers.noAnswers"));
   const table = (
     <TableContainer sx={tableFrame}>
       <Table size="small" stickyHeader>
@@ -217,6 +220,21 @@ function ChoiceView({ choice, person }: { choice: ChoiceAnswers; person: string 
               </TableCell>
             ))}
           </TableRow>
+          {rest && (
+            <TableRow>
+              <TableCell component="th" scope="row" sx={{ fontWeight: 500 }}>
+                {t("answers.restOfTeam")}
+              </TableCell>
+              <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                {formatNumber(rest.answered, language)}
+              </TableCell>
+              {rows.map((r, i) => (
+                <TableCell key={r.code} align="right" sx={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                  {cell(rest.counts[i] ?? 0, rest.answered)}
+                </TableCell>
+              ))}
+            </TableRow>
+          )}
           {choice.people.map((p) => (
             <TableRow key={p.username}>
               <TableCell component="th" scope="row">
@@ -242,7 +260,7 @@ function ChoiceView({ choice, person }: { choice: ChoiceAnswers; person: string 
         {compared && mine
           ? t("answers.choiceExplainPerson", { person: person!, plots: formatNumber(mine.answered, language), team: formatNumber(choice.answered - mine.answered, language) })
           : t("answers.choiceExplain", { plots: formatNumber(choice.answered, language) })}
-        {choice.blank > 0 ? ` ${t("answers.blank", { n: formatNumber(choice.blank, language) })}` : ""}
+        {choice.blank > 0 ? ` ${t(narrowed ? "answers.blankFiltered" : "answers.blank", { n: formatNumber(choice.blank, language) })}` : ""}
         {choice.multiple ? ` ${t("answers.multiple")}` : ""}
       </Typography>
       {compared && (
@@ -284,14 +302,13 @@ function NumberView({ numbers, person }: { numbers: NumberAnswers; person: strin
   const { language } = useApp();
   const scale = spreadScale(numbers);
   const [active, setActive] = useState<number | null>(null);
-  const [focused, setFocused] = useState(false);
   const readoutId = useId();
   const rows = [{ label: t("answers.team"), s: numbers.team, color: TEAM }, ...numbers.people.map((p) => ({ label: p.username, s: p as NumberSpread, color: PERSON }))];
   const readout = (r: (typeof rows)[number]) =>
     `${r.label}: ${spreadText(t, r.s, language)}${r.s.nonNumeric > 0 ? ` · ${t("answers.nonNumeric", { n: formatNumber(r.s.nonNumeric, language) })}` : ""}`;
   const chart = (
     <Box>
-      <Typography id={readoutId} variant="body2" sx={{ minHeight: "1.5em", fontVariantNumeric: "tabular-nums" }} aria-live={focused ? "polite" : "off"}>
+      <Typography id={readoutId} variant="body2" sx={{ minHeight: "1.5em", fontVariantNumeric: "tabular-nums" }} aria-live="polite">
         {active !== null && rows[active] ? readout(rows[active]) : ""}
       </Typography>
       <Box
@@ -300,11 +317,9 @@ function NumberView({ numbers, person }: { numbers: NumberAnswers; person: strin
         aria-label={t("answers.chartOf", { question: numbers.label })}
         aria-describedby={readoutId}
         onFocus={() => {
-          setFocused(true);
           setActive((a) => a ?? 0);
         }}
         onBlur={() => {
-          setFocused(false);
           setActive(null);
         }}
         onKeyDown={(e) => {
@@ -390,6 +405,8 @@ function SelectField({ label, value, onChange, children, minWidth = 180 }: { lab
 }
 
 const ALL = "__all__";
+/** The days typed apply this long after the last change (or when the field is left). */
+const DAYS_DELAY_MS = 600;
 
 function Filters({ projectId, data, filter, onChange }: { projectId: string; data: AnswersData | null; filter: AnswersFilter; onChange: (f: AnswersFilter) => void }) {
   const t = useT();
@@ -398,6 +415,21 @@ function Filters({ projectId, data, filter, onChange }: { projectId: string; dat
   const people = data?.filters.people ?? (filter.person ? [filter.person] : []);
   const files = data?.filters.files ?? [];
   const column = columns.data?.find((c) => c.index === filter.column) ?? null;
+  // The days as typed: applied DAYS_DELAY_MS after the last change or when the field is
+  // left, and only when in order (the server refuses a first day after the last).
+  const [days, setDays] = useState({ from: filter.from ?? "", to: filter.to ?? "" });
+  useEffect(() => setDays({ from: filter.from ?? "", to: filter.to ?? "" }), [filter.from, filter.to]);
+  const typedFrom = days.from || null;
+  const typedTo = days.to || null;
+  const inOrder = datesInOrder(typedFrom, typedTo);
+  const applyDays = () => {
+    if (inOrder && (typedFrom !== filter.from || typedTo !== filter.to)) onChange({ ...filter, from: typedFrom, to: typedTo });
+  };
+  useEffect(() => {
+    if (typedFrom === filter.from && typedTo === filter.to) return;
+    const id = window.setTimeout(applyDays, DAYS_DELAY_MS);
+    return () => window.clearTimeout(id);
+  });
   return (
     <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} useFlexGap sx={{ flexWrap: "wrap", alignItems: { sm: "center" } }}>
       <SelectField label={t("answers.filterPerson")} value={filter.person ?? ALL} onChange={(v) => onChange({ ...filter, person: v === ALL ? null : v })}>
@@ -448,8 +480,10 @@ function Filters({ projectId, data, filter, onChange }: { projectId: string; dat
         size="small"
         type="date"
         label={t("answers.from")}
-        value={filter.from ?? ""}
-        onChange={(e) => onChange({ ...filter, from: e.target.value || null })}
+        value={days.from}
+        onChange={(e) => setDays((d) => ({ ...d, from: e.target.value }))}
+        onBlur={applyDays}
+        error={!inOrder}
         slotProps={{ inputLabel: { shrink: true } }}
         sx={{ width: { xs: "100%", sm: 170 } }}
       />
@@ -457,15 +491,28 @@ function Filters({ projectId, data, filter, onChange }: { projectId: string; dat
         size="small"
         type="date"
         label={t("answers.to")}
-        value={filter.to ?? ""}
-        onChange={(e) => onChange({ ...filter, to: e.target.value || null })}
+        value={days.to}
+        onChange={(e) => setDays((d) => ({ ...d, to: e.target.value }))}
+        onBlur={applyDays}
+        error={!inOrder}
         slotProps={{ inputLabel: { shrink: true } }}
         sx={{ width: { xs: "100%", sm: 170 } }}
       />
-      {(hasFilter(filter) || filter.column !== null) && (
-        <Button size="small" onClick={() => onChange(NO_ANSWERS_FILTER)}>
+      {(hasFilter(filter) || filter.column !== null || days.from !== "" || days.to !== "") && (
+        <Button
+          size="small"
+          onClick={() => {
+            setDays({ from: "", to: "" });
+            onChange(NO_ANSWERS_FILTER);
+          }}
+        >
           {t("answers.clear")}
         </Button>
+      )}
+      {!inOrder && (
+        <Typography variant="body2" color="error" role="alert" sx={{ flexBasis: "100%" }}>
+          {t("answers.datesOrder")}
+        </Typography>
       )}
     </Stack>
   );
@@ -522,8 +569,9 @@ export function QualityAnswers({ projectId }: { projectId: string }) {
         {data && (
           <Box sx={{ opacity: loading ? 0.6 : 1, transition: "opacity 120ms" }} aria-busy={loading}>
             <Stack spacing={2}>
-              <Typography variant="body2" color="text.secondary" role="status">
-                {t(narrowed ? "answers.countFiltered" : "answers.count", { n: formatNumber(data.plots, language) })}
+              <Typography variant="body2" color="text.secondary">
+                {/* Only the count is announced, when it changes: the time after it changes at each reload. */}
+                <span aria-live="polite">{t(narrowed ? "answers.countFiltered" : "answers.count", { n: formatNumber(data.plots, language) })}</span>
                 {data.computedAt !== null && ` ${t(data.stale ? "answers.asOfStale" : "answers.asOf", { time: formatDate(data.computedAt, language) })}`}
               </Typography>
               {data.plots === 0 ? (
@@ -537,6 +585,11 @@ export function QualityAnswers({ projectId }: { projectId: string }) {
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                       {t("answers.flagsExplain")}
                     </Typography>
+                    {data.tests > 0 && data.flagsTotal > 0 && (
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        {t("answers.flagsCount", { n: formatNumber(data.flagsTotal, language), tests: formatNumber(data.tests, language) })} {chanceText(t, data.chanceFlags, language)}
+                      </Typography>
+                    )}
                     {data.flags.length === 0 ? (
                       <Typography variant="body2">{t("answers.noFlags")}</Typography>
                     ) : (
@@ -586,7 +639,7 @@ export function QualityAnswers({ projectId }: { projectId: string }) {
                           </MenuItem>
                         ))}
                       </SelectField>
-                      {choice && <ChoiceView choice={choice} person={data.person} />}
+                      {choice && <ChoiceView choice={choice} person={data.person} narrowed={narrowed} />}
                       {numbers && <NumberView numbers={numbers} person={data.person} />}
                     </Stack>
                   )}
