@@ -140,8 +140,9 @@ describe('map of progress: GET /map/plots', () => {
     expect(statusOf(body, '2')).toBe(S.accepted);
     expect(body.counts).toEqual([115, 1, 3, 1, 1, 0, 0]);
 
-    // Plot 1 submitted again after "both need another look" (the review queue's rule, from the figures).
-    const again = await batchRequest(ctx.app, pid, projectToken, [main(1, 'maria', 'C', { modifiedOn: Date.now() + 1000 })]);
+    // Plot 1 submitted again after "both need another look" (the review queue's rule, from the figures):
+    // an offline edit saved before the decision and synced after it, with another (calculated) land use.
+    const again = await batchRequest(ctx.app, pid, projectToken, [main(1, 'maria', 'C', { modifiedOn: Date.now() - 1000 })]);
     expect(again.statusCode, again.body).toBe(200);
     await figures();
     body = await geo('');

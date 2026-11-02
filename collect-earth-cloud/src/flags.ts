@@ -93,17 +93,36 @@ export interface FlagTable {
    * each with its person, its last save (modifiedOn), when the server received it, a
    * hash of its answers, and whether it is submitted (1) or a draft (0).
    */
-  saved: { groups: string[]; start: Int32Array; operators: string[]; operator: Uint32Array; time: Float64Array; received: Float64Array; hash: Uint32Array; submitted: Uint8Array };
+  saved: {
+    groups: string[];
+    start: Int32Array;
+    operators: string[];
+    operator: Uint32Array;
+    time: Float64Array;
+    received: Float64Array;
+    hash: Uint32Array;
+    /** A hash of every answer, calculated ones too (`hash` leaves them out, as "same as before" compares): what a decision saw. */
+    full: Uint32Array;
+    submitted: Uint8Array;
+  };
 }
 
-/** What a decision keeps of the records of its plot as the figures showed them when it was made: each one's person and answers' hash. */
+/**
+ * What a decision keeps of the records of its plot as the figures showed them when it was made:
+ * each one's person and answers' hashes. `full` (every answer, calculated ones too) is absent
+ * from decisions kept before it was: those compare `hash` only.
+ */
 export interface DecisionSeen {
   operator: string;
   hash: number;
+  full?: number;
 }
 
-/** The keys whose answers are compared: questions, never bookkeeping, keys, plot-file values or calculated ones. */
-function answerKeyRule(outline: QualityInput['outline']): (key: string) => boolean {
+/**
+ * The keys whose answers are compared: questions, never bookkeeping, keys, plot-file values or
+ * (unless `calculated`) calculated ones.
+ */
+function answerKeyRule(outline: QualityInput['outline'], calculated = false): (key: string) => boolean {
   const memo = new Map<string, boolean>();
   return (key) => {
     let ok = memo.get(key);
@@ -111,7 +130,7 @@ function answerKeyRule(outline: QualityInput['outline']): (key: string) => boole
       if (BOOKKEEPING_KEYS.has(key)) ok = false;
       else if (outline) {
         const q = outline.get(key);
-        ok = q !== undefined && !q.excluded && !q.calculated;
+        ok = q !== undefined && !q.excluded && (calculated || !q.calculated);
       } else ok = keyRule(key, null).compare;
       memo.set(key, ok);
     }
@@ -149,8 +168,8 @@ function fnv(text: string, h: number): number {
  * by every answer key of the records, sorted (gathered once: sorting each summary's own
  * keys took seconds on 100,000 records).
  */
-function answersReader(outline: QualityInput['outline'], records: readonly { summary: Record<string, string> }[]) {
-  const isAnswer = answerKeyRule(outline);
+function answersReader(outline: QualityInput['outline'], records: readonly { summary: Record<string, string> }[], calculated = false) {
+  const isAnswer = answerKeyRule(outline, calculated);
   let keys: string[];
   if (outline) {
     keys = [...outline.keys()].filter(isAnswer);
@@ -196,6 +215,8 @@ export function flagTable(input: QualityInput, kept: readonly FirstAssessment[],
   const size = kept.length;
   const outline = input.outline;
   const reader = answersReader(outline, input.records);
+  // What a decision saw: every answer, calculated ones too (only with an outline do any differ).
+  const fullReader = outline && [...outline.values()].some((q) => q.calculated && !q.excluded) ? answersReader(outline, input.records, true) : reader;
   // Each record's answers digested once (the rows and the saved records share them).
   const digests = new Map<object, { hash: number; count: number }>();
   for (const r of input.records) if (!r.deleted) digests.set(r, reader.digest(r.summary));
@@ -285,6 +306,7 @@ export function flagTable(input: QualityInput, kept: readonly FirstAssessment[],
   const time = new Float64Array(total);
   const received = new Float64Array(total);
   const hash = new Uint32Array(total);
+  const full = new Uint32Array(total);
   const savedSubmitted = new Uint8Array(total);
   input.records.forEach((r, i) => {
     const g = recordGroup[i];
@@ -301,6 +323,7 @@ export function flagTable(input: QualityInput, kept: readonly FirstAssessment[],
     // Not known (a store that does not give it): taken as its last save.
     received[at] = r.receivedAt ?? r.modifiedOn;
     hash[at] = (digests.get(r) ?? reader.digest(r.summary)).hash;
+    full[at] = fullReader === reader ? hash[at] : fullReader.digest(r.summary).hash;
     savedSubmitted[at] = r.activelySaved ? 1 : 0;
   });
 
@@ -311,7 +334,7 @@ export function flagTable(input: QualityInput, kept: readonly FirstAssessment[],
     answers: counts,
     required: { keys: requiredKeys, labels: requiredLabels },
     empty: { rows: Int32Array.from(emptyRows), offsets: Int32Array.from(emptyOffsets), keys: Uint16Array.from(emptyKeys) },
-    saved: { groups, start, operators, operator, time, received, hash, submitted: savedSubmitted },
+    saved: { groups, start, operators, operator, time, received, hash, full, submitted: savedSubmitted },
   };
 }
 
@@ -320,7 +343,7 @@ export function seenOf(f: FlagTable, plot: string): DecisionSeen[] | null {
   const g = groupIndexOf(f).get(plot);
   if (g === undefined) return null;
   const out: DecisionSeen[] = [];
-  for (let i = f.saved.start[g]; i < f.saved.start[g + 1]; i++) out.push({ operator: f.saved.operators[f.saved.operator[i]], hash: f.saved.hash[i] });
+  for (let i = f.saved.start[g]; i < f.saved.start[g + 1]; i++) out.push({ operator: f.saved.operators[f.saved.operator[i]], hash: f.saved.hash[i], full: f.saved.full[i] });
   return out;
 }
 
@@ -364,7 +387,7 @@ export function assessesPlot(r: { deleted: boolean }, assessment: Assessment): b
 
 /** The typed arrays of a flag table, to hand it over between threads without copying. */
 export function flagBuffers(f: FlagTable): ArrayBufferView[] {
-  return [f.submitted, f.order, f.same, f.answers, f.empty.rows, f.empty.offsets, f.empty.keys, f.saved.start, f.saved.operator, f.saved.time, f.saved.received, f.saved.hash, f.saved.submitted];
+  return [f.submitted, f.order, f.same, f.answers, f.empty.rows, f.empty.offsets, f.empty.keys, f.saved.start, f.saved.operator, f.saved.time, f.saved.received, f.saved.hash, f.saved.full, f.saved.submitted];
 }
 
 /** group -> index in saved.groups, built once per table. */
@@ -391,6 +414,11 @@ export interface FlagOptions {
   kind?: FlagKind | null;
   /** Only flags of this plot (the plot page), listed whatever their age (the counts are as without it). */
   plot?: string | null;
+  /**
+   * Only flags whose time passes this (the weekly summary's week), counted and listed; the report's
+   * data problems (two_main, no_plot), which have no time of their own, are then left out.
+   */
+  when?: ((at: number) => boolean) | null;
 }
 
 /** A decision as the flags read it; `seen`: the records of its plot when it was made (null: not kept). */
@@ -438,6 +466,7 @@ export function patternFlags(
   const person = options.person ?? null;
   const kind = options.kind ?? null;
   const onlyPlot = options.plot ?? null;
+  const when = options.when ?? null;
   const all: Flag[] = [];
   const byPerson = new Map<string, FlagCounts>();
   const countFor = (username: string): FlagCounts => {
@@ -449,6 +478,7 @@ export function patternFlags(
     return c;
   };
   const add = (flag: Flag) => {
+    if (when !== null && (flag.at === null || !when(flag.at))) return;
     countFor(flag.operator)[flag.kind] += 1;
     if ((person === null || flag.operator === person) && (kind === null || flag.kind === kind) && (onlyPlot === null || flag.plot === onlyPlot)) all.push(flag);
   };
@@ -526,7 +556,7 @@ export function patternFlags(
   }
 
   // The report's data problems: counted from all of them, listed from those it lists.
-  for (const c of report.problemsByPerson ?? []) {
+  for (const c of when === null ? (report.problemsByPerson ?? []) : []) {
     if (c.kind === 'two_main' || c.kind === 'no_plot') countFor(c.operator)[c.kind] += c.count;
   }
   const groupsForTimes = report.problems.length > 0 ? groupIndexOf(f) : null;
@@ -539,7 +569,7 @@ export function patternFlags(
     }
     return at;
   };
-  for (const p of report.problems) {
+  for (const p of when === null ? report.problems : []) {
     if (p.kind !== 'two_main' && p.kind !== 'no_plot') continue;
     if ((person !== null && p.operator !== person) || (kind !== null && p.kind !== kind) || (onlyPlot !== null && p.plot !== onlyPlot)) continue;
     all.push({ kind: p.kind, plot: p.plot, operator: p.operator, at: savedAt(p.plot, p.operator), details: { recordKey: p.recordKey } });
@@ -586,7 +616,10 @@ function savedAgain(f: FlagTable, g: number, d: FlagDecision, submitted: boolean
     if (submitted && f.saved.submitted[i] !== 1) continue;
     const operator = f.saved.operators[f.saved.operator[i]];
     const after = f.saved.time[i] > d.decidedAt;
-    const unseen = seen !== null && !seen.some((x) => x.operator === operator && x.hash === f.saved.hash[i]);
+    // Answers the decision saw: the same person's, every answer the same (calculated ones too,
+    // when the decision kept them). An offline edit synced after the decision counts whatever
+    // its modifiedOn: the decision was made on other answers.
+    const unseen = seen !== null && !seen.some((x) => x.operator === operator && x.hash === f.saved.hash[i] && (x.full === undefined || x.full === f.saved.full[i]));
     const counts = seen === null ? after : unseen || (submitted && after);
     if (counts && f.saved.time[i] > (latest.get(f.saved.operator[i]) ?? -Infinity)) latest.set(f.saved.operator[i], f.saved.time[i]);
   }

@@ -130,6 +130,21 @@ describe('the review queue: GET /quality/queue, decisions by reviewers, POST /qu
     expect((await call('POST', '/quality/places', maria.token, { plots: ['1'] })).statusCode).toBe(403);
   });
 
+  it('an offline edit synced after "both need another look" is submitted again, even saved before the decision; the same answers synced late are not', async () => {
+    await fresh();
+    const decided = await call('PUT', '/quality/decisions/7', rita.token, { decision: 'recheck' });
+    expect(decided.statusCode, decided.body).toBe(200);
+    const before = decided.json().decidedAt - 1000;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    // The answers the decision saw, saved again before it and synced after it: not back.
+    await batchRequest(ctx.app, pid, projectToken, [envelope({ ...main(7, 'maria', 0), modifiedOn: before - 10 })]);
+    expect((await fresh('/quality/queue?kind=resubmitted', owner.token)).items).toEqual([]);
+    // Changed offline before the decision (the land use, which the demo survey works out from other answers), synced after it.
+    await batchRequest(ctx.app, pid, projectToken, [envelope({ ...main(7, 'maria', 0, 'G'), modifiedOn: before })]);
+    const body = await fresh('/quality/queue?kind=resubmitted', owner.token);
+    expect(body.items.map((i: { plot: string; resubmitted: unknown }) => [i.plot, i.resubmitted])).toEqual([['7', [{ plot: '7', operator: 'maria', at: before, decidedAt: decided.json().decidedAt }]]]);
+  });
+
   it("a reviewer's queue leaves out the plots they assessed (first assessment or check), before the counts, the people and the cursor; a coordinator's keeps them", async () => {
     const owners = await fresh();
     expect(owners.excludedOwn).toBe(0);
@@ -147,7 +162,7 @@ describe('the review queue: GET /quality/queue, decisions by reviewers, POST /qu
     const put = await call('PUT', '/quality/decisions/1', rita.token, { decision: 'check', comment: 'G is right' });
     expect(put.statusCode, put.body).toBe(200);
     expect(put.json()).toMatchObject({ plot: '1', decision: 'check', comment: 'G is right', decidedBy: 'rita' });
-    expect((await ctx.store.listQualityDecisions(pid))[0].seen).toEqual(expect.arrayContaining([{ operator: 'ana', hash: expect.any(Number) }]));
+    expect((await ctx.store.listQualityDecisions(pid))[0].seen).toEqual(expect.arrayContaining([{ operator: 'ana', hash: expect.any(Number), full: expect.any(Number) }]));
     const queue = (await call('GET', '/quality/queue', rita.token)).json();
     expect(queue.items.map((i: { plot: string }) => i.plot)).not.toContain('1');
     expect((await call('DELETE', '/quality/decisions/1', rita.token)).statusCode).toBe(204);

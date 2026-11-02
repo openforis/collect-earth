@@ -61,11 +61,11 @@ import { Loading } from "../components/Loading";
 import { AsOf, ChartOrTable, ColumnChart, ValuesTable } from "../components/PeopleCharts";
 import { formatDate, formatDay, formatNumber } from "../format";
 import { useT, type MessageKey } from "../i18n";
-import { agoText, csvTime, filterPeople, peopleCsv, perDayText, sortPeople, statusChip, statusSyncLevel, type SortKey, type StatusFilter } from "../peopleView";
+import { agoText, filterPeople, perDayText, sortPeople, statusChip, statusSyncLevel, type SortKey, type StatusFilter } from "../peopleView";
 import { browserTimeZone, dayText, percentText } from "../progressView";
 import { formatRate } from "../qualityView";
 import { linkProps, pathFor } from "../router";
-import { saveBlob } from "../saveBlob";
+import { useDownload } from "./useDownload";
 import { useLoad } from "../useLoad";
 
 const EXPIRY_CHOICES = [1, 7, 30, 0] as const; // days; 0 = never
@@ -361,9 +361,16 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
   const n = (v: number) => formatNumber(v, language);
   const rows = sortPeople(filterPeople(data.people, text, status), sort.key, sort.direction);
   const showInvites = status === "all" && !text.trim();
+  // Through the server, which notes the download in the activity log (the rows are the table's).
+  const downloadKind = useDownload(projectId);
+  const [downloadError, setDownloadError] = useState<unknown>(null);
+  const [downloading, setDownloading] = useState(false);
   const download = () => {
-    const csv = peopleCsv(t, sortPeople(data.people, "username", "asc"), csvTime, language);
-    saveBlob(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }), `people-${data.today}.csv`);
+    setDownloading(true);
+    setDownloadError(null);
+    downloadKind("people")
+      .catch((err: unknown) => setDownloadError(err))
+      .finally(() => setDownloading(false));
   };
   const onSort = (key: SortKey) => setSort((s) => ({ key, direction: s.key === key && s.direction === "asc" ? "desc" : "asc" }));
   const agreement = (r: PersonRow): string => {
@@ -393,10 +400,15 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
           </Select>
         </FormControl>
         <Box sx={{ flexGrow: 1 }} />
-        <Button variant="outlined" startIcon={<Download />} onClick={download}>
+        <Button variant="outlined" startIcon={<Download />} onClick={download} disabled={downloading}>
           {t("peopleTable.csv")}
         </Button>
       </Stack>
+      {downloadError !== null && (
+        <Box sx={{ mb: 2 }}>
+          <ErrorAlert error={downloadError} onRetry={download} />
+        </Box>
+      )}
       {!data.quality.available && (
         <Alert severity="info" sx={{ mb: 2 }}>
           {t("peopleTable.agreementNotYet")}{" "}

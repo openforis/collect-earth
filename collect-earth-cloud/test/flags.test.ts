@@ -266,6 +266,26 @@ describe('plots sent back for another look and submitted again (review queue, Ta
     expect(again([rec('1,1', 'ana', decidedAt + 5, changed, { receivedAt: decidedAt + 9, deleted: true })], d)).toEqual([]);
   });
 
+  it('an offline edit synced after the decision: received after it with other answers, submitted again even saved before it', () => {
+    const d = recheck([rec('1,1', 'ana', t0, before, { receivedAt: t0 }), rec('1,2', 'ben', t0, answers(2), { receivedAt: t0 })]);
+    expect(again([rec('1,1', 'ana', decidedAt - 500, changed, { receivedAt: decidedAt + 9 })], d)).toEqual([
+      { plot: '1', operator: 'ana', at: decidedAt - 500, decidedAt },
+    ]);
+    // Only a calculated answer differs (Collect Earth works it out from the others, as the
+    // demo survey's land use): still answers the decision did not see.
+    const calc = { ...before, collect_real_area: '12' };
+    const dc = recheck([rec('1,1', 'ana', t0, calc, { receivedAt: t0 })]);
+    expect(again([rec('1,1', 'ana', decidedAt - 500, { ...calc, collect_real_area: '13' }, { receivedAt: decidedAt + 9 })], dc)).toHaveLength(1);
+    // The same answers, saved before and received after (a late sync of what the decision saw): not.
+    expect(again([rec('1,1', 'ana', decidedAt - 500, { ...calc }, { receivedAt: decidedAt + 9 })], dc)).toEqual([]);
+    // A decision kept before the calculated answers were hashed (`full` absent) compares the others only.
+    const old = [{ ...dc[0], seen: dc[0].seen!.map(({ operator, hash }) => ({ operator, hash })) }];
+    expect(again([rec('1,1', 'ana', decidedAt - 500, { ...calc, collect_real_area: '13' }, { receivedAt: decidedAt + 9 })], old)).toEqual([]);
+    // And "saved again after a decision" uses the same rule.
+    const first = [{ ...dc[0], decision: 'first' as const }];
+    expect(of(patternFlags(figuresOf([rec('1,1', 'ana', decidedAt - 500, { ...calc, collect_real_area: '13' }, { receivedAt: decidedAt + 9 })]), first, { fastSeconds: 15 }).flags, 'edited_after_decision')).toHaveLength(1);
+  });
+
   it('without what the decision saw: submitted and received after it; only "both need another look"; and never a "saved again after a decision" flag', () => {
     const records = [rec('1,1', 'ana', decidedAt + 5, before, { receivedAt: decidedAt + 9 })];
     expect(again(records, recheck(null))).toEqual([{ plot: '1', operator: 'ana', at: decidedAt + 5, decidedAt }]);
@@ -292,6 +312,16 @@ describe('pattern flags: the report\'s data problems', () => {
       { operator: 'ana', kind: 'two_main', count: 1 },
       { operator: 'carl', kind: 'two_main', count: 1 },
     ]);
+  });
+
+  it('a time window (the weekly summary) counts and lists only flags of its times, and no data problems (they have no time of their own)', () => {
+    const records = [rec('1,1', 'ana', t0, answers(1)), rec('2,1', 'ana', t0 + s(5), answers(2)), rec('3,1', 'ana', t0 + s(100), answers(3)), rec('4,1', 'ana', t0 + s(105), answers(4)), rec('1,1', 'carl', t0 + s(100), answers(2))];
+    const figures = figuresOf(records);
+    expect(patternFlags(figures, [], { fastSeconds: 15 }).counts).toMatchObject({ very_fast: 2, two_main: 2 });
+    const window = patternFlags(figures, [], { fastSeconds: 15, when: (at) => at >= t0 + s(50) });
+    expect(window.counts).toMatchObject({ very_fast: 1, two_main: 0, no_plot: 0 });
+    expect(window.total).toBe(1);
+    expect(window.flags.map((f) => [f.kind, f.plot])).toEqual([['very_fast', '4']]);
   });
 });
 

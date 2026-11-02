@@ -40,6 +40,7 @@ import {
   type QualityDecision,
   type QualitySettings,
   type RecordEvent,
+  type RecordEventCount,
   type RecordEventInput,
   type RecordEventQuery,
   type RecordRow,
@@ -84,6 +85,8 @@ interface ProjectEntry {
   memberActivity: Map<string, MemberActivity>; // key = userId
   /** Oldest first (by id); `actorUserId` is set to null when the actor leaves (removeMember, deleteUser). */
   audit: Omit<AuditEntry, 'actor'>[];
+  /** userId -> the keys of the bell's items they have read. */
+  attentionReads: Map<string, Set<string>>;
 }
 
 interface StoredDecision {
@@ -91,7 +94,7 @@ interface StoredDecision {
   comment: string | null;
   decidedBy: string | null; // user id
   decidedAt: number;
-  seen: { operator: string; hash: number }[] | null;
+  seen: { operator: string; hash: number; full?: number }[] | null;
   batch: string | null;
 }
 
@@ -177,6 +180,7 @@ export class InMemoryStore implements Store {
       recordEvents: [],
       memberActivity: new Map(),
       audit: [],
+      attentionReads: new Map(),
     });
 
     const adminToken = generateToken();
@@ -613,6 +617,7 @@ export class InMemoryStore implements Store {
   /** The member's activity goes; their audit entries stay, with no actor. */
   private static dropActivity(entry: ProjectEntry, userId: string): void {
     entry.memberActivity.delete(userId);
+    entry.attentionReads.delete(userId);
     for (const e of entry.audit) {
       if (e.actorUserId === userId) e.actorUserId = null;
     }
@@ -989,7 +994,7 @@ export class InMemoryStore implements Store {
     decision: DecisionKind,
     comment: string | null,
     userId: string | null,
-    seen: { operator: string; hash: number }[] | null = null,
+    seen: { operator: string; hash: number; full?: number }[] | null = null,
   ): Promise<QualityDecision> {
     const entry = this.requireProject(projectId);
     const stored: StoredDecision = { decision, comment, decidedBy: this.requireUserOrNull(userId), decidedAt: Date.now(), seen: seen ? structuredClone(seen) : null, batch: null };
@@ -999,7 +1004,7 @@ export class InMemoryStore implements Store {
 
   async addQualityDecisions(
     projectId: string,
-    decisions: readonly { plot: string; decision: DecisionKind; seen: { operator: string; hash: number }[] | null }[],
+    decisions: readonly { plot: string; decision: DecisionKind; seen: { operator: string; hash: number; full?: number }[] | null }[],
     comment: string | null,
     userId: string | null,
     batch: string,
@@ -1204,11 +1209,25 @@ export class InMemoryStore implements Store {
           e.modifiedOn >= q.from &&
           e.modifiedOn < q.to &&
           (q.operator === undefined || e.operator === q.operator) &&
+          (q.changes === undefined || q.changes.includes(e.change)) &&
           (q.before === undefined || isBefore(e.modifiedOn, e.id, q.before)),
       )
       .sort((x, y) => y.modifiedOn - x.modifiedOn || Number(y.id) - Number(x.id))
       .slice(0, q.limit)
       .map((e) => ({ ...e, summary: e.summary ? { ...e.summary } : null }));
+  }
+
+  async recordEventCounts(projectId: string, q: { from: number; to: number }): Promise<RecordEventCount[]> {
+    const counts = new Map<string, RecordEventCount>();
+    for (const e of this.projects.get(projectId)?.recordEvents ?? []) {
+      if (e.modifiedOn < q.from || e.modifiedOn >= q.to) continue;
+      const at = Math.floor(e.modifiedOn / QUARTER_HOUR_MS) * QUARTER_HOUR_MS;
+      const key = `${e.operator} ${e.change} ${at}`;
+      const c = counts.get(key);
+      if (c) c.count += 1;
+      else counts.set(key, { operator: e.operator, change: e.change, at, count: 1 });
+    }
+    return [...counts.values()].sort((a, b) => a.at - b.at || (a.operator < b.operator ? -1 : a.operator > b.operator ? 1 : 0) || (a.change < b.change ? -1 : a.change > b.change ? 1 : 0));
   }
 
   async touchMemberActivity(projectId: string, userId: string, patch: MemberActivityPatch): Promise<void> {
@@ -1290,11 +1309,24 @@ export class InMemoryStore implements Store {
         (e) =>
           (q.actor === undefined || e.actorUserId === q.actor) &&
           (q.action === undefined || e.action === q.action) &&
+          (q.actions === undefined || q.actions.includes(e.action)) &&
+          (q.from === undefined || e.at >= q.from) &&
+          (q.to === undefined || e.at < q.to) &&
           (q.before === undefined || isBefore(e.at, e.id, q.before)),
       )
       .sort((x, y) => y.at - x.at || Number(y.id) - Number(x.id))
       .slice(0, q.limit)
       .map((e) => ({ ...e, details: { ...e.details }, actor: this.usernameOf(e.actorUserId) }));
+  }
+
+  async listAttentionReads(projectId: string, userId: string): Promise<string[]> {
+    return [...(this.projects.get(projectId)?.attentionReads.get(userId) ?? [])].sort();
+  }
+
+  async setAttentionReads(projectId: string, userId: string, keys: readonly string[]): Promise<void> {
+    const entry = this.projects.get(projectId);
+    if (!entry || !this.memberships.has(InMemoryStore.memberId(projectId, userId))) return;
+    entry.attentionReads.set(userId, new Set(keys));
   }
 
   private static failStale(entry: ProjectEntry, before: number, code: string, message: string, now: number): number {
@@ -1355,6 +1387,9 @@ export class InMemoryStore implements Store {
 }
 
 /** Whether (at, id) comes after the cursor in a newest-first list (as Postgres's row comparison). */
+/** record_events are counted by quarter of an hour (recordEventCounts). */
+const QUARTER_HOUR_MS = 900_000;
+
 function isBefore(at: number, id: string, cursor: EventCursor): boolean {
   return at < cursor.at || (at === cursor.at && Number(id) < Number(cursor.id));
 }

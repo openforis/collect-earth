@@ -125,7 +125,7 @@ describe('GET /quality/flags, the threshold, and the person page', () => {
     expect(decided.statusCode, decided.body).toBe(200);
     // What it saw stays on the server.
     expect('seen' in decided.json()).toBe(false);
-    expect((await ctx.store.listQualityDecisions(pid))[0].seen).toEqual([{ operator: 'ana', hash: expect.any(Number) }]);
+    expect((await ctx.store.listQualityDecisions(pid))[0].seen).toEqual([{ operator: 'ana', hash: expect.any(Number), full: expect.any(Number) }]);
     expect((await call('GET', '/quality', owner.token)).json().decisions[0]).not.toHaveProperty('seen');
     const decidedAt = decided.json().decidedAt as number;
     await batchRequest(ctx.app, pid, ana.token, [

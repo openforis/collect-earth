@@ -5,7 +5,7 @@ import { useSyncExternalStore, type MouseEvent } from "react";
 // app path (/join/<token>, /projects/..., /setup, /reset/<token>), so deep links work.
 
 // Progress is the first tab (its path is the project's own); Setup is the getting-started checklist.
-export const PROJECT_TABS = ["progress", "setup", "file", "people", "plots", "map", "data", "quality", "settings"] as const;
+export const PROJECT_TABS = ["progress", "setup", "file", "people", "plots", "map", "data", "quality", "activity", "settings"] as const;
 export type ProjectTab = (typeof PROJECT_TABS)[number];
 
 export type Route =
@@ -26,6 +26,8 @@ export type Route =
   | { name: "teamReport"; projectId: string }
   /** One plot found by plot search (coordinators and reviewers), under the Quality tab. */
   | { name: "plot"; projectId: string; plot: string }
+  /** The printable weekly summary (coordinators): an ISO week (YYYY-Www), or null for this week. */
+  | { name: "weekly"; projectId: string; week: string | null }
   | { name: "join"; token: string }
   | { name: "reset"; token: string }
   | { name: "account" }
@@ -87,6 +89,11 @@ export function matchRoute(pathname: string): Route {
     const projectId = decode(second);
     if (projectId) return { name: "teamReport", projectId };
   }
+  if (first === "projects" && (parts.length === 4 || parts.length === 5) && third === "activity" && fourth === "week") {
+    const projectId = decode(second);
+    const week = parts.length === 5 ? decode(fifth) : null;
+    if (projectId && (parts.length === 4 || (week && /^\d{4}-W\d{2}$/.test(week)))) return { name: "weekly", projectId, week };
+  }
   if (first === "projects" && parts.length === 5 && third === "quality" && fourth === "plot") {
     const projectId = decode(second);
     const plot = decode(fifth);
@@ -125,6 +132,8 @@ export function pathFor(route: Route): string {
       return `/projects/${encodeURIComponent(route.projectId)}/quality/team-report`;
     case "plot":
       return `/projects/${encodeURIComponent(route.projectId)}/quality/plot/${encodeURIComponent(route.plot)}`;
+    case "weekly":
+      return `/projects/${encodeURIComponent(route.projectId)}/activity/week${route.week ? `/${encodeURIComponent(route.week)}` : ""}`;
     case "join":
       return `/join/${encodeURIComponent(route.token)}`;
     case "reset":

@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  getActivity,
+  getAttention,
+  getExport,
+  getWeekly,
+  markAttentionRead,
   addMapPage,
   getMapPlots,
   OSM_TILES,
@@ -943,5 +948,82 @@ describe("the AI assistant and the reports", () => {
     expect(team.questions[1]).toEqual({ key: "q2", label: "q2", kind: "number", compared: 3, agreeing: 3, rate: null, margin: 5 });
     expect(team).toMatchObject({ plotsChecked: 40, plotsDiffering: 6, stale: true, computedAt: 5000 });
     expect(team.notes).toHaveLength(1);
+  });
+});
+
+describe("activity: the log, the weekly summary, the downloads and the bell", () => {
+  const url = (i = 0) => String(fetchMock.mock.calls[i][0]);
+
+  it("asks for a page of the log with its filters and cursor, and reads its rows", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        items: [
+          { type: "record", id: "r2", at: 2000, receivedAt: 2500, person: "maria", change: "submitted", plot: "17", name: "17", assessment: "check", round: "2" },
+          { type: "audit", id: "a1", at: 1000, person: null, action: "member.removed", details: { userId: "u1", nested: { no: 1 } }, plotName: null },
+          { type: "other" },
+        ],
+        next: "1000.1_e",
+        people: { u1: { name: "ben", removed: true } },
+        files: { f1: "north.csv", f2: null },
+        persons: ["maria", "owner"],
+      }),
+    );
+    const page = await getActivity("p 1", { person: "maria", kind: "submitted", from: 10, to: 20.4, cursor: "s_s", limit: 50 });
+    expect(url()).toBe("/v1/projects/p%201/activity?person=maria&kind=submitted&from=10&to=20&cursor=s_s&limit=50");
+    expect(page.items).toEqual([
+      { type: "record", id: "r2", at: 2000, receivedAt: 2500, person: "maria", change: "submitted", plot: "17", name: "17", assessment: "check", round: "2" },
+      { type: "audit", id: "a1", at: 1000, person: null, action: "member.removed", details: { userId: "u1" }, plotName: null },
+    ]);
+    expect(page).toMatchObject({ next: "1000.1_e", people: { u1: { name: "ben", removed: true } }, files: { f1: "north.csv", f2: null }, persons: ["maria", "owner"] });
+    fetchMock.mockResolvedValue(jsonResponse(200, { items: [], next: null }));
+    await getActivity("p1", { kind: "all" });
+    expect(url(1)).toBe("/v1/projects/p1/activity");
+  });
+
+  it("the weekly summary of a week, or of this week", async () => {
+    fetchMock.mockImplementation(async () =>
+      jsonResponse(200, {
+        week: "2026-W44",
+        timeZone: "Europe/Rome",
+        start: "2026-10-26",
+        end: "2026-11-01",
+        current: false,
+        asOf: null,
+        progress: { days: [{ date: "2026-10-26", submitted: 2, checks: 1 }], submitted: 2, checks: 1, before: 0, byEnd: 2, totals: { plots: 30, submitted: 2 } },
+        people: [{ userId: "u1", username: "maria", role: "operator", submitted: 2, checks: 0, status: { kind: "working" }, plots: { assigned: 30, submitted: 2, started: 0, remaining: 28, done: 0.07 } }],
+        quality: { available: true, computedAt: 5, stale: false, week: { compared: 1, agreeing: 0, rate: null }, overall: null, decided: { first: 1, check: 0, recheck: 0, total: 1 }, flags: { counts: { very_fast: 2 }, total: 2 } },
+      }),
+    );
+    const w = await getWeekly("p1", "2026-W44", "Europe/Rome");
+    expect(url()).toBe("/v1/projects/p1/weekly?tz=Europe%2FRome&week=2026-W44");
+    expect(w.progress).toMatchObject({ submitted: 2, checks: 1, byEnd: 2, totals: { plots: 30, submitted: 2, assigned: 0 } });
+    expect(w.people[0]).toMatchObject({ username: "maria", submitted: 2, status: { kind: "working" }, plots: { assigned: 30, remaining: 28 } });
+    expect(w.quality).toMatchObject({ available: true, week: { compared: 1, agreeing: 0, rate: null }, overall: null, decided: { total: 1 }, flags: { total: 2, counts: { very_fast: 2 } } });
+    await getWeekly("p1", null, "UTC");
+    expect(url(1)).toBe("/v1/projects/p1/weekly?tz=UTC");
+  });
+
+  it("the rows of each download; the differences say when the figures are not at hand", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { kind: "daily", today: "2026-11-02", rows: [{ date: "2026-10-26", person: "maria", plots: 2, checks: "x", drafts: 3 }] }));
+    const daily = await getExport("p1", "daily", "UTC");
+    expect(url()).toBe("/v1/projects/p1/exports/daily?tz=UTC");
+    expect(daily).toEqual({ kind: "daily", today: "2026-11-02", rows: [{ date: "2026-10-26", person: "maria", plots: 2, checks: 0, submittedAgain: 0, drafts: 3, reopened: 0, deleted: 0 }] });
+    fetchMock.mockResolvedValue(jsonResponse(200, { today: "2026-11-02", rows: [{ plot: "1", name: "1", decision: "check", comment: null, decidedBy: "ana", decidedAt: 9, byAssessor: false, bulk: true }] }));
+    expect((await getExport("p1", "decisions", "UTC")).rows).toEqual([{ plot: "1", name: "1", decision: "check", comment: null, decidedBy: "ana", decidedAt: 9, byAssessor: false, bulk: true }]);
+    fetchMock.mockResolvedValue(jsonResponse(409, { error: "no_figures", reason: "open the Quality tab first" }));
+    await expect(getExport("p1", "differences", "UTC")).rejects.toMatchObject({ status: 409, code: "no_figures" });
+  });
+
+  it("the bell: items with their read state; marking some or all read", async () => {
+    const body = { items: [{ key: "quiet:1", read: false, item: { kind: "quiet", count: 2, quietDays: 3, people: [{ username: "ana", lastSyncAt: 5 }] } }, { key: "x:1", read: false, item: { kind: "nope", count: 1 } }] };
+    fetchMock.mockImplementation(async () => jsonResponse(200, body));
+    const bell = await getAttention("p1");
+    expect(bell.unread).toBe(1);
+    expect(bell.items[0]).toMatchObject({ key: "quiet:1", read: false, item: { kind: "quiet", count: 2, quietDays: 3, people: [{ username: "ana", lastSyncAt: 5 }] } });
+    await markAttentionRead("p1", ["quiet:1"]);
+    expect(url(1)).toBe("/v1/projects/p1/attention/read");
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]!.body))).toEqual({ keys: ["quiet:1"] });
+    await markAttentionRead("p1", "all");
+    expect(JSON.parse(String(fetchMock.mock.calls[2][1]!.body))).toEqual({ all: true });
   });
 });

@@ -103,7 +103,7 @@ describe('PostgresStore pool', () => {
   it("deleteProject deletes the activity data under the project's setting, member_activity before the members", async () => {
     await new PostgresStore('postgres://x').deleteProject(PROJECT);
     const deleted = queries.filter((q) => q.sql.startsWith('DELETE FROM')).map((q) => q.sql.split(' ')[2]);
-    for (const table of ['record_events', 'member_activity', 'audit_log']) {
+    for (const table of ['record_events', 'member_activity', 'audit_log', 'attention_reads']) {
       expect(deleted).toContain(table);
     }
     expect(deleted.indexOf('member_activity')).toBeLessThan(deleted.indexOf('project_members'));
@@ -113,6 +113,7 @@ describe('PostgresStore pool', () => {
     await new PostgresStore('postgres://x').removeMember(PROJECT, '00000000-0000-0000-0000-0000000000aa');
     const sqls = queries.map((q) => q.sql);
     expect(sqls.some((s) => s.startsWith('DELETE FROM member_activity'))).toBe(true);
+    expect(sqls.some((s) => s.startsWith('DELETE FROM attention_reads'))).toBe(true);
     expect(sqls.some((s) => s.startsWith('UPDATE audit_log SET actor_user_id = NULL'))).toBe(true);
     expect(sqls.findIndex((s) => s.startsWith('DELETE FROM member_activity'))).toBeLessThan(
       sqls.findIndex((s) => s.startsWith('DELETE FROM project_members')),

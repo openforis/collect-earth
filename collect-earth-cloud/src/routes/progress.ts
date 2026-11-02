@@ -4,7 +4,7 @@ import { isDate, isTimeZone } from '../days.js';
 import { storageLimitBytes } from '../limits.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { differencesWaiting, PACE_DAYS, progressReport, type AttentionInput } from '../progress.js';
-import type { ProjectStateCache } from '../projectState.js';
+import type { ProjectStateCache, ServedState } from '../projectState.js';
 import { remember, type QualityService } from '../qualityService.js';
 import type { Store } from '../store/store.js';
 import { totalStorageBytes, type ProgressSettings } from '../types.js';
@@ -54,19 +54,7 @@ export async function registerProgressRoutes(
   now: () => number = Date.now,
 ): Promise<void> {
   const reviewer = { preHandler: requireProjectMembership(store, 'reviewer') };
-  // The bytes a project uses (summing its records takes tens of ms on a large project),
-  // kept while the project's state and its project file are the same; the limit is read each time.
-  const used = new Map<string, { key: string; bytes: number }>();
-  const storageOf = async (projectId: string, version: string) => {
-    const [cep, settings] = await Promise.all([store.getCepInfo(projectId), store.getSettings()]);
-    const key = `${version} ${cep?.bytes ?? ''} ${cep?.updatedAt ?? ''}`;
-    let hit = used.get(projectId);
-    if (hit?.key !== key) {
-      hit = { key, bytes: totalStorageBytes(await store.getProjectStorage(projectId)) };
-    }
-    remember(used, projectId, hit, 16);
-    return { usedBytes: hit.bytes, limitBytes: storageLimitBytes(settings) };
-  };
+  const attentionOf = attentionReader(store, quality);
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
 
   app.get('/v1/projects/:pid/progress', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -83,18 +71,7 @@ export async function registerProgressRoutes(
     // requests); only the settings and the cards' inputs are read each time.
     const [served, settings] = await Promise.all([states.get(projectId, request.log), store.getProgressSettings(projectId)]);
     const { context, assignments, units } = served.state;
-    let attention: AttentionInput | undefined;
-    if (coordinator) {
-      const [members, activity, unsentDelays, cep, storage, waiting] = await Promise.all([
-        Promise.resolve(served.members),
-        store.listMemberActivity(projectId),
-        store.unsentDelays(projectId, at - UNSENT_WINDOW_DAYS * DAY_MS),
-        store.getCepInfo(projectId),
-        storageOf(projectId, served.state.version),
-        context.copyHolders.size > 0 || (context.info?.reassessmentCode ?? null) !== null ? waitingDecisions(store, quality, projectId, request) : null,
-      ]);
-      attention = { members, activity, unsentDelays, cep, storage, differencesWaiting: waiting };
-    }
+    const attention = coordinator ? await attentionOf(projectId, served, request, at) : undefined;
     return reply.send({
       ...progressReport({
         now: at,
@@ -129,6 +106,37 @@ export async function registerProgressRoutes(
     await audit(store, request, 'settings.changed', { setting: 'progress' });
     return reply.send(input);
   });
+}
+
+/**
+ * What the "needs attention" cards are worked out from (the Progress tab's and the bell's), read
+ * each time: the members' activity, the unsent work, the project file's date, the storage (its
+ * bytes kept per project state and project file: summing the records takes tens of ms on a large
+ * project) and the differences waiting (from the figures at hand only).
+ */
+export function attentionReader(store: Store, quality: QualityService) {
+  const used = new Map<string, { key: string; bytes: number }>();
+  const storageOf = async (projectId: string, version: string) => {
+    const [cep, settings] = await Promise.all([store.getCepInfo(projectId), store.getSettings()]);
+    const key = `${version} ${cep?.bytes ?? ''} ${cep?.updatedAt ?? ''}`;
+    let hit = used.get(projectId);
+    if (hit?.key !== key) {
+      hit = { key, bytes: totalStorageBytes(await store.getProjectStorage(projectId)) };
+    }
+    remember(used, projectId, hit, 16);
+    return { usedBytes: hit.bytes, limitBytes: storageLimitBytes(settings) };
+  };
+  return async (projectId: string, served: ServedState, request: FastifyRequest, at: number): Promise<AttentionInput> => {
+    const { context } = served.state;
+    const [activity, unsentDelays, cep, storage, waiting] = await Promise.all([
+      store.listMemberActivity(projectId),
+      store.unsentDelays(projectId, at - UNSENT_WINDOW_DAYS * DAY_MS),
+      store.getCepInfo(projectId),
+      storageOf(projectId, served.state.version),
+      context.copyHolders.size > 0 || (context.info?.reassessmentCode ?? null) !== null ? waitingDecisions(store, quality, projectId, request) : null,
+    ]);
+    return { members: served.members, activity, unsentDelays, cep, storage, differencesWaiting: waiting };
+  };
 }
 
 /**

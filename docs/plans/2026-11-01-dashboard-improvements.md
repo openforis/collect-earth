@@ -1666,6 +1666,137 @@ excluded.
 **Tests:** merge order and paging, CSV escaping (formula injection: prefix `= + - @`
 with `'`), and the read state.
 
+**As built** (differs from the above where it says so)
+- **Coordinators only** (Decision 3): every route below is `requireProjectMembership('admin')`;
+  reviewers and collectors 403, another project's member 404 (isolation list extended).
+  `src/routes/activity.ts` (thin) over `src/activityLog.ts` and `src/weekly.ts` (pure).
+- **The log: `GET /v1/projects/:pid/activity?person=&kind=&from=&to=&cursor=&limit=`** (limit
+  1-200, default 50) → `{ items, next, people, files, persons }`. Both lists are read newest
+  first by their own store calls and merged (`logPage`): a page takes up to `limit` rows from
+  each list after its own position, merges them by time (a coordinator's action first at the
+  same time), and the **cursor holds both positions** (`<events>_<audit>`, each `s` not started,
+  `e` read to its end, or `<at>.<id>`), so rows at the same time in either list are never lost
+  nor repeated, and rows added at the top meanwhile do not move the next pages (unit tests over
+  page sizes 1-50 with many ties; route test pages 1/2/3/5). A cursor that is not one is a 400
+  (also the store's `InvalidCursorError`).
+  - **Kinds** (`LOG_KINDS`): `all`; Collect Earth's `records`, `submitted`, `resubmitted`,
+    `draft` (created/updated), `unsubmitted`, `deleted`; the coordinators' `coordinators`,
+    `decisions`, `people` (invites, removals, roles), `files` (project file, survey, plot files,
+    assignments, division, moves), `settings`, `downloads`. **Store:** `listRecordEvents` takes
+    `changes`, `listAudit` takes `actions`, `from` and `to` (both stores; Postgres `= ANY`).
+  - **Person** = a username: their records by operator, their actions by their account (someone
+    removed has none left: `removeMember` nulls the actor). **Dates**: `from`/`to` in ms, the
+    browser's local midnights (`dayStartMs`/`dayAfterMs`). Record events are timed by
+    `modifiedOn` (the collector's clock, as the store orders them), actions by the server's `at`;
+    the page says so.
+  - **Rows:** a record event → `{ type: 'record', at, receivedAt, person, change, plot (its unit
+    for the plot page, null in no file), name (the id the collector sees: `visibleId` of the
+    record key, the added round hidden), assessment, round }` resolved with the project state's
+    `recordResolver` (coordinators only, so a check says so: "maria submitted the quality check
+    of plot 17"). An action → `{ type: 'audit', at, person (null: a project key or someone no
+    longer in the project), action, details, plotName? }`; ids in the details are named at read
+    time in `people` (`{ name, removed }`: members as now; others by their account, marked
+    removed; a deleted account has no name) and `files` (null: a file since removed).
+  - Sentences are built in the web (`activityView.logSentence`): "maria submitted plot 17",
+    "…started plot 17 (saved, not submitted)", "…saved plot 17 again, not submitted", "…submitted
+    plot 17 again", "…changed plot 17 after submitting it (not submitted now)", "…deleted plot 17";
+    "ana divided plots-north.csv between 4 people", "ana removed ben (no longer in the project)
+    from the project", "ana decided plot 18: Both need another look", "ana decided 12 plots at
+    once: First is right", "ana downloaded the daily activity"…; later tasks' actions fall back
+    to "ana: link.created".
+- **Weekly summary: `GET /weekly?week=YYYY-Www&tz=`** (no week: the viewer's current one; a week
+  that does not exist 400) → `{ week, start, end, current, progress { days [7: plots first
+  submitted and checks], submitted, checks, before, byEnd, totals (now) }, people [{ submitted,
+  checks (that week), status and plots (as the People table has them now) }], quality {
+  available, computedAt, stale, week (the report's `weeks` row of that ISO week: the check's
+  last save, in UTC), overall, decided { first, check, recheck, total } (decisions whose
+  `decidedAt` is in the week; a decision changed since keeps its last time), flags { counts,
+  total } }, asOf }`. Plots and checks by the local day of their first submission, as Progress
+  and People (`ProjectStateCache`); **the quality figures only from `QualityService.peek`**
+  (route test: never worked out by this page). The week's flags: `patternFlags` got a `when`
+  option (counts and lists only flags whose time passes it; the report's data problems, which
+  have no time, are then left out; unit test). Printable page `web/src/pages/WeeklyPage.tsx`
+  (`/projects/<id>/activity/week[/<YYYY-Www>]`, the report frame with Back and Print, week
+  before/after/this week hidden when printed): plots done with a day table, each person's week
+  (people with plots or work that week; "Done now"/"Status now" said to be today's), quality
+  (decisions, agreement of the week and so far, flags of the week by kind, or a note to open the
+  Quality tab), the zone.
+- **Downloads: `GET /exports/:kind?tz=`**, `kind` people | daily | decisions | differences
+  (else 404), each **audited `export.downloaded { kind, rows }`**. The server gives rows; the
+  **CSV is written in the browser** by one writer, `web/src/csv.ts` (`csvCell`'s formula escaping
+  of `= + - @` tab CR, the language's separators `,`/`.` or `;`/`,`, CRLF, BOM), which the people
+  CSV now uses too (`peopleCsv` → `csvText`); the People tab's "Download as CSV" now goes through
+  `GET /exports/people` so it is audited (`project/useDownload.ts`, shared).
+  - `people`: the People table's rows. `daily`: per local day and person, plots and checks first
+    submitted (the state), and from the record events submitted again, saves without submitting
+    (created/updated), changed after submitting, deleted — **`store.recordEventCounts`** counts
+    events by person, change and quarter of an hour (every zone's days start on one), the days
+    worked out in JS. `decisions`: plot (visible id), decision, comment, by, when, by someone who
+    assessed it (null without figures), decided in a bulk run. `differences`: one row per
+    differing question of every differing pair of the figures at hand (the listed differences
+    as they are, the pairs beyond them from one `listRecordSummaries` and `pairFields`), with
+    the labels and options (answers written "Forest (F)"); **409 `no_figures`** when none are at
+    hand (never computed for a download; the page says to open the Quality tab).
+- **The bell** (`components/AttentionBell.tsx`, in the project header beside plot search,
+  coordinators): `GET /attention` → `{ items: [{ key, read, item }], unread }`, the Progress
+  tab's attention items (`attentionReader`, extracted from the progress route and shared), and
+  `POST /attention/read { keys: [1-50] } | { all: true }` (a project key 403: read state is per
+  person). **Key** = kind + 16 hex of sha256 of what the item says (count, people's names, level,
+  quiet days, unknown versions; times and bytes left out), so a read item is new again when what
+  it says changes. On each write only keys of the items there now are kept. **Migration 017**
+  `attention_reads (project_id, user_id, item_key ≤ 100, read_at)`, PK of the three, FK to
+  `project_members` ON DELETE CASCADE, RLS with the NULLIF policy; `removeMember`, `deleteUser`
+  and `deleteProject` delete its rows (both stores; Postgres unit test). Store:
+  `listAttentionReads`, `setAttentionReads` (replace, members only). Badge with the unread count,
+  a popover dialog with each item's text (`attentionText`), "Go to …", "Mark as read", "Mark
+  all as read"; asked again on open and 2 min after each load while visible.
+- **Task 7 edge case fixed:** a record of a plot decided "both need another look", received after
+  the decision with answers the decision did not see, is "submitted again" even saved before it
+  (an offline edit synced later). The rule was already there; it missed answers that differ only
+  in **calculated** questions (the demo survey's land use): `seen`'s hash, shared with "same as
+  before", leaves calculated answers out. The flag table now also keeps `full` (every answer,
+  calculated ones too) and decisions keep it in `seen` (`{ operator, hash, full }`); a decision
+  kept before (no `full`) compares `hash` alone. The same rule serves `edited_after_decision`,
+  the review queue and the map. Tests: flags (an offline edit, a calculated answer only, the same
+  answers synced late, an old decision without `full`, the edited flag), the queue route (a late
+  sync of the seen answers is not back, the offline edit is), the map route (now with a
+  `modifiedOn` before the decision).
+- **Web:** an **Activity** tab (`PROJECT_TABS` before Settings; coordinators): weekly summary
+  link, the log (person, kind grouped as Collect Earth / Coordinators, from/to dates, "Show
+  older ones" by cursor with a polite announcement, "Open the plot" links), the four downloads.
+  `activityView.ts` pure (sentences, ISO weeks in the browser's calendar, day bounds, CSVs).
+  154 keys × 4 languages (French "parcelle", Spanish tab "Avance"… as the catalogue has them);
+  `i18n.ts`, `api.ts`, `api.test.ts`, `router.ts`, `App.tsx`, `ProjectPage.tsx` written with CRLF
+  kept.
+- **Tests:** server 897 (was 875: `activityLog.test.ts` 7 — merge over page sizes with ties, one
+  list, rows added meanwhile, cursors, kinds, the memory store's filters; the bell's keys;
+  `weekly.test.ts` 3; `activity.routes.test.ts` 7 — the log with names, paging/person/kind/
+  window/400s, removed people, roles, the weekly summary from figures at hand only, the four
+  downloads and their audit, the bell's read state through changes and removal; memory store
+  reads and counts; flags 2; queue route 1; isolation; Postgres unit), web 300 (was 286:
+  `activityView.test.ts` 7, api 4, router), tsc clean in both, web build ok.
+- **Postgres smoke** `npm run smoke:pg:activity -- <port>` (`scripts/pg-smoke-activity-log.mts`,
+  README): 017 twice, RLS of `attention_reads` (with B set A's rows neither read nor written; with
+  `''` none), reads gone with the member; **100,000 record events + 2,000 actions: all 102,000
+  rows read once over 510 pages of 200, a page 11-29 ms (median 13)**; a first page of 50 12 ms,
+  a person 11 ms, a rare kind (deleted, 100 of 100,000) 20 ms, decisions 11 ms, a date window
+  10 ms, person + kind 9 ms; the weekly summary 16-20 ms; the daily download 290-300 ms (4,200
+  rows, the drafts and deletions add up). ALL OK; the Task 1 and progress smokes ALL OK. Docker
+  stopped after.
+- **Chrome** (seeded memory server, built dashboard): the Activity tab at 1920 and 500 px (no
+  page-wide horizontal scroll), the log with "Show older ones" (rita's checks named as quality
+  checks, ben "no longer in the project"), the bell (4 new, one marked read → 3), the weekly
+  summary of week 44 (61 plots, 20 checks, 70 % agreement), the four downloads (the comment
+  "=look again" written "'=look again", answers "Wetland (W)") and the four "downloaded" rows in
+  the log. No console errors from the page. Fixed after looking: the filters took the whole width
+  (the theme's TextField `fullWidth`), the empty person filter showed no "Everyone", the title
+  read "Week 2026 · 44".
+- **Open:** the log's record rows are timed by the collector's clock (a clock ahead puts a save
+  above later actions); the plot and round of a record are resolved with the holdings as they
+  are now; the weekly agreement is the report's UTC week; checks of removed people are not in the
+  weekly per-day checks; the bell refreshes every 2 min, not on push; read keys of a coordinator
+  demoted to reviewer stay until they leave.
+
 ### Task 11: Server owner's panel (monitoring Phase 7)
 
 **Files:** extend `src/routes/admin.ts` and `web/src/pages/ServerPage.tsx`.

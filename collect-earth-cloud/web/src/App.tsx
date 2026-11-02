@@ -16,6 +16,7 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProjectPage } from "./pages/ProjectPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { MyQualityPage, MyWorkPage, TeamReportPage } from "./pages/ReportPages";
+import { WeeklyPage } from "./pages/WeeklyPage";
 import { ResetPage } from "./pages/ResetPage";
 import { ServerPage } from "./pages/ServerPage";
 import { SetupPage } from "./pages/SetupPage";
@@ -41,6 +42,8 @@ function RoutePage({ route }: { route: Route }) {
       return <MyWorkPage key={route.projectId} projectId={route.projectId} />;
     case "teamReport":
       return <TeamReportPage key={route.projectId} projectId={route.projectId} />;
+    case "weekly":
+      return <WeeklyPage key={`${route.projectId} ${route.week ?? ""}`} projectId={route.projectId} week={route.week} />;
     case "join":
       return <JoinPage token={route.token} />;
     case "reset":

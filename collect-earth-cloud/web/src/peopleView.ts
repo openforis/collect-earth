@@ -1,4 +1,5 @@
 import type { PersonRow, PersonStatus } from "./api";
+import { csvText } from "./csv";
 import { formatNumber } from "./format";
 import type { MessageKey, Translate } from "./i18n";
 
@@ -108,32 +109,10 @@ export function filterPeople(rows: readonly PersonRow[], text: string, status: S
 
 // --- CSV ------------------------------------------------------------------------------
 
-/**
- * How a spreadsheet in the person's language reads a CSV: in English a comma between
- * cells and a point in numbers; in Spanish, French and Portuguese (where the comma is the
- * decimal separator) a semicolon between cells and a comma in numbers.
- */
-export function csvFormat(language: string): { separator: string; decimal: string } {
-  return language.toLowerCase().startsWith("en") ? { separator: ",", decimal: "." } : { separator: ";", decimal: "," };
-}
-
-/**
- * One CSV cell. Text that a spreadsheet would run as a formula (starting with = + - @,
- * a tab or a carriage return) gets a ' in front; cells with the separator, a quote or a
- * line break are quoted. Numbers are written with the decimal separator given.
- */
-export function csvCell(value: string | number | null, format: { separator: string; decimal: string } = { separator: ",", decimal: "." }): string {
-  if (value === null) return "";
-  if (typeof value === "number") return Number.isFinite(value) ? String(value).replace(".", format.decimal) : "";
-  let text = value;
-  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
-  const special = format.separator === ";" ? /[";\r\n]/ : /[",\r\n]/;
-  return special.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
+export { csvCell, csvFormat, csvTime } from "./csv";
 
 /** The people table as CSV in the person's language (a header row, then one row per person). */
 export function peopleCsv(t: Translate, rows: readonly PersonRow[], formatTime: (ms: number) => string, language = "en"): string {
-  const format = csvFormat(language);
   const header: MessageKey[] = [
     "peopleTable.name",
     "peopleTable.role",
@@ -152,39 +131,29 @@ export function peopleCsv(t: Translate, rows: readonly PersonRow[], formatTime: 
     "peopleTable.agreementPercent",
     "peopleTable.agreementCompared",
   ];
-  const cells = (values: (string | number | null)[]) => values.map((v) => csvCell(v, format)).join(format.separator);
-  const lines = [cells(header.map((k) => t(k)))];
   const percent = (v: number | null) => (v === null ? null : Math.round(v * 1000) / 10);
-  for (const r of rows) {
-    lines.push(
-      cells([
-        r.username,
-        t(`role.${r.role}`),
-        statusChip(t, r.status).label,
-        r.plots.assigned,
-        r.plots.submitted,
-        r.plots.started,
-        r.plots.remaining,
-        percent(r.plots.done),
-        r.checks?.assigned ?? null,
-        r.checks?.submitted ?? null,
-        r.submittedLast7,
-        r.medianPerDay,
-        r.lastSyncAt === null ? null : formatTime(r.lastSyncAt),
-        r.lastSubmittedAt === null ? null : formatTime(r.lastSubmittedAt),
-        percent(r.agreement?.rate ?? null),
-        r.agreement?.compared ?? null,
-      ]),
-    );
-  }
-  return `${lines.join("\r\n")}\r\n`;
-}
-
-/** "2026-11-01 14:05" in the browser's time zone, for the CSV. */
-export function csvTime(ms: number): string {
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return csvText(
+    header.map((k) => t(k)),
+    rows.map((r) => [
+      r.username,
+      t(`role.${r.role}`),
+      statusChip(t, r.status).label,
+      r.plots.assigned,
+      r.plots.submitted,
+      r.plots.started,
+      r.plots.remaining,
+      percent(r.plots.done),
+      r.checks?.assigned ?? null,
+      r.checks?.submitted ?? null,
+      r.submittedLast7,
+      r.medianPerDay,
+      r.lastSyncAt === null ? null : formatTime(r.lastSyncAt),
+      r.lastSubmittedAt === null ? null : formatTime(r.lastSubmittedAt),
+      percent(r.agreement?.rate ?? null),
+      r.agreement?.compared ?? null,
+    ]),
+    language,
+  );
 }
 
 // --- the activity calendar ------------------------------------------------------------

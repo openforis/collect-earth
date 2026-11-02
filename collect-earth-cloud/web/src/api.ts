@@ -1684,6 +1684,25 @@ export function toProgressSettings(value: unknown): ProgressSettings {
   return { deadline: toDate(s.deadline), targetPlots: target !== null && target > 0 ? target : null, quietDays: quiet !== null && quiet > 0 ? quiet : 3 };
 }
 
+/** One "needs attention" item (the Progress tab's cards, the bell). */
+export function toAttentionItem(a: Record<string, unknown>): AttentionItem {
+  return {
+    kind: a.kind as AttentionKind,
+    count: toCount(a.count),
+    people: (Array.isArray(a.people) ? (a.people as Record<string, unknown>[]) : []).map((person) => ({
+      username: String(person.username ?? ""),
+      lastSyncAt: toMillis(person.lastSyncAt),
+      lastPlotsDownloadAt: toMillis(person.lastPlotsDownloadAt),
+      medianDelayMs: toNumberOrNull(person.medianDelayMs),
+    })),
+    quietDays: toNumberOrNull(a.quietDays),
+    unknownVersion: toCount(a.unknownVersion),
+    level: a.level === "over" || a.level === "nearlyFull" ? a.level : null,
+    usedBytes: toNumberOrNull(a.usedBytes),
+    limitBytes: toNumberOrNull(a.limitBytes),
+  };
+}
+
 export function toProgressData(body: unknown): ProgressData {
   const b = (body ?? {}) as Record<string, unknown>;
   const t = (b.totals ?? {}) as Record<string, unknown>;
@@ -1721,23 +1740,7 @@ export function toProgressData(body: unknown): ProgressData {
     attention:
       attention === null
         ? null
-        : attention
-            .filter((a) => ATTENTION_KINDS.includes(a.kind as AttentionKind))
-            .map((a) => ({
-              kind: a.kind as AttentionKind,
-              count: toCount(a.count),
-              people: (Array.isArray(a.people) ? (a.people as Record<string, unknown>[]) : []).map((person) => ({
-                username: String(person.username ?? ""),
-                lastSyncAt: toMillis(person.lastSyncAt),
-                lastPlotsDownloadAt: toMillis(person.lastPlotsDownloadAt),
-                medianDelayMs: toNumberOrNull(person.medianDelayMs),
-              })),
-              quietDays: toNumberOrNull(a.quietDays),
-              unknownVersion: toCount(a.unknownVersion),
-              level: a.level === "over" || a.level === "nearlyFull" ? a.level : null,
-              usedBytes: toNumberOrNull(a.usedBytes),
-              limitBytes: toNumberOrNull(a.limitBytes),
-            })),
+        : attention.filter((a) => ATTENTION_KINDS.includes(a.kind as AttentionKind)).map(toAttentionItem),
     settings: toProgressSettings(b.settings),
   };
 }
@@ -2845,4 +2848,357 @@ export async function getMapPlots(
     }
     if (!changed) return map!;
   }
+}
+
+// --- activity: the log, the weekly summary, the downloads and the bell (coordinators) ----
+
+export type RecordChange = "created" | "updated" | "submitted" | "resubmitted" | "unsubmitted" | "deleted";
+const RECORD_CHANGES: readonly RecordChange[] = ["created", "updated", "submitted", "resubmitted", "unsubmitted", "deleted"];
+
+/** What the log can be filtered by (the server's LOG_KINDS). */
+export const LOG_KINDS = ["all", "records", "submitted", "resubmitted", "draft", "unsubmitted", "deleted", "coordinators", "decisions", "people", "files", "settings", "downloads"] as const;
+export type LogKind = (typeof LOG_KINDS)[number];
+
+export type LogItem =
+  | {
+      type: "record";
+      id: string;
+      /** When Collect Earth saved it (the collector's clock). */
+      at: number;
+      receivedAt: number | null;
+      person: string;
+      change: RecordChange;
+      /** The plot's page id, or null for a plot in no plot file. */
+      plot: string | null;
+      /** The plot as the collector sees it. */
+      name: string;
+      assessment: "main" | "check" | "other";
+      round: string;
+    }
+  | {
+      type: "audit";
+      id: string;
+      at: number;
+      /** Null: a project key, or someone no longer in the project. */
+      person: string | null;
+      action: string;
+      details: Record<string, string | number | boolean | null>;
+      plotName: string | null;
+    };
+
+export interface ActivityPage {
+  items: LogItem[];
+  next: string | null;
+  /** user id -> their name now (null: the account is gone) and whether they left the project. */
+  people: Record<string, { name: string | null; removed: boolean }>;
+  /** plot file id -> its name, or null when it is gone. */
+  files: Record<string, string | null>;
+  /** The people the log can be filtered by. */
+  persons: string[];
+}
+
+export interface ActivityQuery {
+  person?: string | null;
+  kind?: LogKind;
+  /** ms since 1970: from (included) and to (not included). */
+  from?: number | null;
+  to?: number | null;
+  cursor?: string | null;
+  limit?: number;
+}
+
+function toDetails(value: unknown): Record<string, string | number | boolean | null> {
+  const out: Record<string, string | number | boolean | null> = {};
+  for (const [k, v] of Object.entries(obj(value))) {
+    if (typeof v === "string" || typeof v === "number" || typeof v === "boolean" || v === null) out[k] = v;
+  }
+  return out;
+}
+
+export function toActivityPage(body: unknown): ActivityPage {
+  const b = obj(body);
+  const items: LogItem[] = [];
+  for (const i of list(b.items)) {
+    if (i.type === "record") {
+      const change = RECORD_CHANGES.includes(i.change as RecordChange) ? (i.change as RecordChange) : "updated";
+      const assessment = i.assessment === "check" || i.assessment === "other" ? i.assessment : "main";
+      items.push({
+        type: "record",
+        id: text(i.id),
+        at: toMillis(i.at) ?? 0,
+        receivedAt: toMillis(i.receivedAt),
+        person: text(i.person),
+        change,
+        plot: typeof i.plot === "string" ? i.plot : null,
+        name: text(i.name),
+        assessment,
+        round: text(i.round),
+      });
+    } else if (i.type === "audit") {
+      items.push({
+        type: "audit",
+        id: text(i.id),
+        at: toMillis(i.at) ?? 0,
+        person: typeof i.person === "string" ? i.person : null,
+        action: text(i.action),
+        details: toDetails(i.details),
+        plotName: typeof i.plotName === "string" ? i.plotName : null,
+      });
+    }
+  }
+  const people: ActivityPage["people"] = {};
+  for (const [id, v] of Object.entries(obj(b.people))) {
+    const r = obj(v);
+    people[id] = { name: typeof r.name === "string" ? r.name : null, removed: r.removed === true };
+  }
+  const files: ActivityPage["files"] = {};
+  for (const [id, v] of Object.entries(obj(b.files))) files[id] = typeof v === "string" ? v : null;
+  return { items, next: typeof b.next === "string" && b.next ? b.next : null, people, files, persons: strings(b.persons) };
+}
+
+/** One page of the activity log (coordinators). */
+export async function getActivity(projectId: string, q: ActivityQuery = {}): Promise<ActivityPage> {
+  const query = new URLSearchParams();
+  if (q.person) query.set("person", q.person);
+  if (q.kind && q.kind !== "all") query.set("kind", q.kind);
+  if (q.from != null) query.set("from", String(Math.round(q.from)));
+  if (q.to != null) query.set("to", String(Math.round(q.to)));
+  if (q.cursor) query.set("cursor", q.cursor);
+  if (q.limit) query.set("limit", String(q.limit));
+  const qs = query.toString();
+  return toActivityPage(await request<unknown>("GET", `${p(projectId)}/activity${qs ? `?${qs}` : ""}`));
+}
+
+export interface WeeklyPerson {
+  userId: string;
+  username: string;
+  role: Role;
+  submitted: number;
+  checks: number;
+  status: PersonStatus;
+  plots: PersonRow["plots"];
+}
+
+export interface WeeklyData {
+  week: string;
+  timeZone: string;
+  start: string;
+  end: string;
+  current: boolean;
+  asOf: number | null;
+  progress: {
+    days: { date: string; submitted: number; checks: number }[];
+    submitted: number;
+    checks: number;
+    before: number;
+    byEnd: number;
+    totals: ProgressTotals;
+  };
+  people: WeeklyPerson[];
+  quality: {
+    available: boolean;
+    computedAt: number | null;
+    stale: boolean;
+    week: Rate | null;
+    overall: Rate | null;
+    decided: { first: number; check: number; recheck: number; total: number };
+    flags: { counts: Record<string, number>; total: number } | null;
+  };
+}
+
+export function toWeeklyData(body: unknown): WeeklyData {
+  const b = obj(body);
+  const pr = obj(b.progress);
+  const t = obj(pr.totals);
+  const q = obj(b.quality);
+  const d = obj(q.decided);
+  const flags = q.flags && typeof q.flags === "object" ? obj(q.flags) : null;
+  const counts: Record<string, number> = {};
+  for (const [k, v] of Object.entries(obj(flags?.counts))) counts[k] = toCount(v);
+  return {
+    week: text(b.week),
+    timeZone: typeof b.timeZone === "string" ? b.timeZone : "UTC",
+    start: toDate(b.start) ?? "",
+    end: toDate(b.end) ?? "",
+    current: b.current === true,
+    asOf: toMillis(b.asOf),
+    progress: {
+      days: list(pr.days)
+        .filter((x) => toDate(x.date) !== null)
+        .map((x) => ({ date: String(x.date), submitted: toCount(x.submitted), checks: toCount(x.checks) })),
+      submitted: toCount(pr.submitted),
+      checks: toCount(pr.checks),
+      before: toCount(pr.before),
+      byEnd: toCount(pr.byEnd),
+      totals: {
+        plots: toCount(t.plots),
+        assigned: toCount(t.assigned),
+        notAssigned: toCount(t.notAssigned),
+        submitted: toCount(t.submitted),
+        started: toCount(t.started),
+        notStarted: toCount(t.notStarted),
+      },
+    },
+    people: list(b.people).map((x) => {
+      const row = toPersonRow({ ...x, submittedLast7: 0 });
+      return { userId: row.userId, username: row.username, role: row.role, submitted: toCount(x.submitted), checks: toCount(x.checks), status: row.status, plots: row.plots };
+    }),
+    quality: {
+      available: q.available === true,
+      computedAt: toMillis(q.computedAt),
+      stale: q.stale === true,
+      week: q.week ? toRate(q.week) : null,
+      overall: q.overall ? toRate(q.overall) : null,
+      decided: { first: toCount(d.first), check: toCount(d.check), recheck: toCount(d.recheck), total: toCount(d.total) },
+      flags: flags ? { counts, total: toCount(flags.total) } : null,
+    },
+  };
+}
+
+/** One ISO week's summary (null: the viewer's current week), its days in the browser's time zone. */
+export async function getWeekly(projectId: string, week: string | null, timeZone: string): Promise<WeeklyData> {
+  const query = new URLSearchParams({ tz: timeZone });
+  if (week) query.set("week", week);
+  return toWeeklyData(await request<unknown>("GET", `${p(projectId)}/weekly?${query}`));
+}
+
+export type ExportKind = "people" | "daily" | "decisions" | "differences";
+
+export interface DailyRow {
+  date: string;
+  person: string;
+  plots: number;
+  checks: number;
+  submittedAgain: number;
+  drafts: number;
+  reopened: number;
+  deleted: number;
+}
+
+export interface DecisionRow {
+  plot: string;
+  name: string;
+  decision: DecisionKind;
+  comment: string | null;
+  decidedBy: string | null;
+  decidedAt: number;
+  /** Null when the figures were not at hand to tell. */
+  byAssessor: boolean | null;
+  bulk: boolean;
+}
+
+export interface DifferenceRow {
+  plot: string;
+  name: string;
+  first: string;
+  check: string;
+  latest: boolean;
+  decision: DecisionKind | null;
+  key: string;
+  firstAnswer: string;
+  checkAnswer: string;
+}
+
+export type ExportData =
+  | { kind: "people"; today: string; rows: PersonRow[] }
+  | { kind: "daily"; today: string; rows: DailyRow[] }
+  | { kind: "decisions"; today: string; rows: DecisionRow[] }
+  | { kind: "differences"; today: string; rows: DifferenceRow[]; labels: Record<string, string>; options: AnswerOptions };
+
+const asDecision = (v: unknown): DecisionKind | null => (v === "first" || v === "check" || v === "recheck" ? v : null);
+
+export function toExportData(kind: ExportKind, body: unknown): ExportData {
+  const b = obj(body);
+  const today = toDate(b.today) ?? new Date().toISOString().slice(0, 10);
+  const rows = list(b.rows);
+  switch (kind) {
+    case "people":
+      return { kind, today, rows: rows.map(toPersonRow) };
+    case "daily":
+      return {
+        kind,
+        today,
+        rows: rows.map((r) => ({
+          date: text(r.date),
+          person: text(r.person),
+          plots: toCount(r.plots),
+          checks: toCount(r.checks),
+          submittedAgain: toCount(r.submittedAgain),
+          drafts: toCount(r.drafts),
+          reopened: toCount(r.reopened),
+          deleted: toCount(r.deleted),
+        })),
+      };
+    case "decisions":
+      return {
+        kind,
+        today,
+        rows: rows.map((r) => ({
+          plot: text(r.plot),
+          name: text(r.name),
+          decision: asDecision(r.decision) ?? "recheck",
+          comment: typeof r.comment === "string" ? r.comment : null,
+          decidedBy: typeof r.decidedBy === "string" ? r.decidedBy : null,
+          decidedAt: toMillis(r.decidedAt) ?? 0,
+          byAssessor: typeof r.byAssessor === "boolean" ? r.byAssessor : null,
+          bulk: r.bulk === true,
+        })),
+      };
+    case "differences": {
+      const labels: Record<string, string> = {};
+      for (const [k, v] of Object.entries(obj(b.labels))) labels[k] = text(v);
+      return {
+        kind,
+        today,
+        labels,
+        options: toOptions(b.options),
+        rows: rows.map((r) => ({
+          plot: text(r.plot),
+          name: text(r.name),
+          first: text(r.first),
+          check: text(r.check),
+          latest: r.latest === true,
+          decision: asDecision(r.decision),
+          key: text(r.key),
+          firstAnswer: text(r.firstAnswer),
+          checkAnswer: text(r.checkAnswer),
+        })),
+      };
+    }
+  }
+}
+
+/** The rows of a download (the server notes who downloaded what). */
+export async function getExport(projectId: string, kind: ExportKind, timeZone: string): Promise<ExportData> {
+  const query = new URLSearchParams({ tz: timeZone });
+  return toExportData(kind, await request<unknown>("GET", `${p(projectId)}/exports/${kind}?${query}`));
+}
+
+export interface BellItem {
+  key: string;
+  read: boolean;
+  item: AttentionItem;
+}
+
+export interface BellData {
+  items: BellItem[];
+  unread: number;
+}
+
+export function toBellData(body: unknown): BellData {
+  const b = obj(body);
+  const items = list(b.items)
+    .filter((x) => ATTENTION_KINDS.includes(obj(x.item).kind as AttentionKind))
+    .map((x) => ({ key: text(x.key), read: x.read === true, item: toAttentionItem(obj(x.item)) }));
+  return { items, unread: items.filter((x) => !x.read).length };
+}
+
+/** The bell's "needs attention" items, with what this coordinator has read. */
+export async function getAttention(projectId: string): Promise<BellData> {
+  return toBellData(await request<unknown>("GET", `${p(projectId)}/attention`));
+}
+
+/** Marks items read (by key), or all of them. */
+export async function markAttentionRead(projectId: string, keys: string[] | "all"): Promise<BellData> {
+  return toBellData(await request<unknown>("POST", `${p(projectId)}/attention/read`, { json: keys === "all" ? { all: true } : { keys } }));
 }

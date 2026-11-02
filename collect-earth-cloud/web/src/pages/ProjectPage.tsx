@@ -13,6 +13,8 @@ import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { PlotSearchBox } from "../components/PlotSearchBox";
 import { useT } from "../i18n";
+import { ActivityTab } from "../project/ActivityTab";
+import { AttentionBell } from "../components/AttentionBell";
 import { DataTab } from "../project/DataTab";
 import { FileTab } from "../project/FileTab";
 import { MapTab } from "../project/MapTab";
@@ -41,20 +43,24 @@ const TAB_LABELS = {
   map: "tab.map",
   data: "tab.data",
   quality: "tab.quality",
+  activity: "tab.activity",
   settings: "tab.settings",
 } as const;
 
 /** The tabs a reviewer has. */
 const REVIEWER_TABS = ["progress", "map", "quality"] as const satisfies readonly ProjectTab[];
 
-/** The project's name, with the plot search beside it (coordinators and reviewers). */
-function Header({ projectId, name }: { projectId: string; name: string }) {
+/** The project's name, with the plot search beside it (coordinators and reviewers), and the bell (coordinators). */
+function Header({ projectId, name, bell = false }: { projectId: string; name: string; bell?: boolean }) {
   return (
     <Box sx={{ mb: 1, display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
       <Typography variant="h1" sx={{ wordBreak: "break-word", minWidth: 0 }}>
         {name}
       </Typography>
-      <PlotSearchBox projectId={projectId} />
+      <Box sx={{ display: "flex", gap: 1, alignItems: "center", minWidth: 0 }}>
+        {bell && <AttentionBell projectId={projectId} />}
+        <PlotSearchBox projectId={projectId} />
+      </Box>
     </Box>
   );
 }
@@ -168,12 +174,13 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
     map: <MapTab projectId={projectId} coordinator />,
     data: <DataTab projectId={projectId} onGo={go} />,
     quality: plot ? <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles /> : <QualityTab projectId={projectId} />,
+    activity: <ActivityTab projectId={projectId} />,
     settings: <SettingsTab projectId={projectId} name={info.name} onRenamed={(name) => project.setData({ ...info, name })} />,
   }[tab];
 
   return (
     <AppShell>
-      <Header projectId={projectId} name={info.name} />
+      <Header projectId={projectId} name={info.name} bell />
       <Tabs
         value={tab}
         onChange={(_, value: ProjectTab) => go(value)}

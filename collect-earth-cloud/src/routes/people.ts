@@ -52,7 +52,7 @@ async function invitesFor(store: Store, projectId: string, invites: readonly Inv
  * read for each request: activity, settings, the project file's date, decisions, the
  * quality figures at hand, and (for coordinators) the open invitation links.
  */
-async function loadPeople(
+export async function loadPeople(
   store: Store,
   quality: QualityService,
   served: ServedState,

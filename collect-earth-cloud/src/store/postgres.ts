@@ -43,6 +43,7 @@ import {
   type QualitySettings,
   type RecordChange,
   type RecordEvent,
+  type RecordEventCount,
   type RecordEventInput,
   type RecordEventQuery,
   type RecordRow,
@@ -210,6 +211,7 @@ export class PostgresStore implements Store {
       await client.query('DELETE FROM ai_runs WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM record_events WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM member_activity WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM attention_reads WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM audit_log WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM quality_decisions WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM guidance_notes WHERE project_id = $1', [projectId]);
@@ -688,6 +690,7 @@ export class PostgresStore implements Store {
         await client.query('DELETE FROM assignments WHERE project_id = $1 AND user_id = $2', [r.project_id, userId]);
         await client.query('DELETE FROM plot_assignments WHERE project_id = $1 AND user_id = $2', [r.project_id, userId]);
         await client.query('DELETE FROM member_activity WHERE project_id = $1 AND user_id = $2', [r.project_id, userId]);
+        await client.query('DELETE FROM attention_reads WHERE project_id = $1 AND user_id = $2', [r.project_id, userId]);
       }
       await client.query('DELETE FROM sessions WHERE user_id = $1', [userId]);
       await client.query('DELETE FROM password_resets WHERE user_id = $1', [userId]);
@@ -905,6 +908,7 @@ export class PostgresStore implements Store {
       await client.query('DELETE FROM assignments WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
       await client.query('DELETE FROM plot_assignments WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
       await client.query('DELETE FROM member_activity WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
+      await client.query('DELETE FROM attention_reads WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
       await client.query('UPDATE audit_log SET actor_user_id = NULL WHERE project_id = $1 AND actor_user_id = $2', [projectId, userId]);
       await client.query('DELETE FROM project_members WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
     });
@@ -1352,7 +1356,7 @@ export class PostgresStore implements Store {
     decision: DecisionKind,
     comment: string | null,
     userId: string | null,
-    seen: { operator: string; hash: number }[] | null = null,
+    seen: { operator: string; hash: number; full?: number }[] | null = null,
   ): Promise<QualityDecision> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
@@ -1372,7 +1376,7 @@ export class PostgresStore implements Store {
 
   async addQualityDecisions(
     projectId: string,
-    decisions: readonly { plot: string; decision: DecisionKind; seen: { operator: string; hash: number }[] | null }[],
+    decisions: readonly { plot: string; decision: DecisionKind; seen: { operator: string; hash: number; full?: number }[] | null }[],
     comment: string | null,
     userId: string | null,
     batch: string,
@@ -1642,6 +1646,10 @@ export class PostgresStore implements Store {
         params.push(q.operator);
         where += ` AND operator = $${params.length}`;
       }
+      if (q.changes !== undefined) {
+        params.push([...q.changes]);
+        where += ` AND change = ANY($${params.length}::text[])`;
+      }
       if (q.before !== undefined) {
         params.push(new Date(q.before.at), q.before.id);
         where += ` AND (modified_on, id) < ($${params.length - 1}::timestamptz, $${params.length}::bigint)`;
@@ -1655,6 +1663,21 @@ export class PostgresStore implements Store {
         params,
       );
       return res.rows.map(mapRecordEvent);
+    });
+  }
+
+  async recordEventCounts(projectId: string, q: { from: number; to: number }): Promise<RecordEventCount[]> {
+    return this.withProject(projectId, async (client) => {
+      // By quarter of an hour (epoch seconds / 900): the days are worked out in JS in the viewer's zone.
+      const res = await client.query(
+        `SELECT operator, change, floor(extract(epoch FROM modified_on) / 900)::bigint AS q, count(*)::int AS n
+           FROM record_events
+          WHERE project_id = $1 AND modified_on >= $2 AND modified_on < $3
+          GROUP BY operator, change, q
+          ORDER BY q, operator COLLATE "C", change COLLATE "C"`,
+        [projectId, new Date(q.from), new Date(q.to)],
+      );
+      return res.rows.map((r) => ({ operator: String(r.operator), change: r.change as RecordEventCount['change'], at: Number(r.q) * 900_000, count: Number(r.n) }));
     });
   }
 
@@ -1765,6 +1788,18 @@ export class PostgresStore implements Store {
         params.push(q.action);
         where += ` AND a.action = $${params.length}`;
       }
+      if (q.actions !== undefined) {
+        params.push([...q.actions]);
+        where += ` AND a.action = ANY($${params.length}::text[])`;
+      }
+      if (q.from !== undefined) {
+        params.push(new Date(q.from));
+        where += ` AND a.at >= $${params.length}`;
+      }
+      if (q.to !== undefined) {
+        params.push(new Date(q.to));
+        where += ` AND a.at < $${params.length}`;
+      }
       if (q.before !== undefined) {
         params.push(new Date(q.before.at), q.before.id);
         where += ` AND (a.at, a.id) < ($${params.length - 1}::timestamptz, $${params.length}::bigint)`;
@@ -1778,6 +1813,30 @@ export class PostgresStore implements Store {
         params,
       );
       return res.rows.map(mapAudit);
+    });
+  }
+
+  async listAttentionReads(projectId: string, userId: string): Promise<string[]> {
+    if (!isUuid(userId)) return [];
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT item_key FROM attention_reads WHERE project_id = $1 AND user_id = $2 ORDER BY item_key COLLATE "C"', [projectId, userId]);
+      return res.rows.map((r) => String(r.item_key));
+    });
+  }
+
+  async setAttentionReads(projectId: string, userId: string, keys: readonly string[]): Promise<void> {
+    if (!isUuid(userId)) return;
+    await this.withProject(projectId, async (client) => {
+      await client.query('DELETE FROM attention_reads WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
+      if (keys.length === 0) return;
+      // Only for a member (removed meanwhile: nothing; the foreign key would refuse it anyway).
+      await client.query(
+        `INSERT INTO attention_reads (project_id, user_id, item_key, read_at)
+         SELECT $1::uuid, $2::uuid, k, now() FROM unnest($3::text[]) AS k
+          WHERE EXISTS (SELECT 1 FROM project_members WHERE project_id = $1 AND user_id = $2)
+         ON CONFLICT DO NOTHING`,
+        [projectId, userId, [...new Set(keys)]],
+      );
     });
   }
 
@@ -1980,7 +2039,7 @@ function mapDecision(r: Record<string, unknown>): QualityDecision {
     comment: (r.comment as string | null) ?? null,
     decidedBy: (r.username as string | null) ?? null,
     decidedAt: (r.decided_at as Date).getTime(),
-    seen: (r.seen as { operator: string; hash: number }[] | null | undefined) ?? null,
+    seen: (r.seen as { operator: string; hash: number; full?: number }[] | null | undefined) ?? null,
     batch: (r.decided_batch as string | null | undefined) ?? null,
   };
 }

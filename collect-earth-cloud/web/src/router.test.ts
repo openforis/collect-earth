@@ -31,12 +31,15 @@ describe("matchRoute", () => {
     ["/projects/p-1/quality/plot/17%2C2025", { name: "plot", projectId: "p-1", plot: "17,2025" }],
     ["/projects/p-1/people/u-7", { name: "person", projectId: "p-1", userId: "u-7" }],
     ["/projects/p-1/my-work", { name: "myWork", projectId: "p-1" }],
+    ["/projects/p-1/activity", { name: "project", projectId: "p-1", tab: "activity" }],
+    ["/projects/p-1/activity/week", { name: "weekly", projectId: "p-1", week: null }],
+    ["/projects/p-1/activity/week/2026-W45", { name: "weekly", projectId: "p-1", week: "2026-W45" }],
   ])("%s", (path, route) => {
     expect(matchRoute(path)).toEqual(route);
   });
 
   it("anything else is not found", () => {
-    for (const path of ["/projects/p/nope", "/projects/p/people/x/y", "/projects/p/my-work/x", "/projects/p/plots/f/x", "/projects/p/my-quality/x", "/projects/p/quality/other", "/projects/p/quality/team-report/x", "/projects/p/quality/plot", "/projects/p/quality/plot/1/x", "/join", "/join/a/b", "/whatever", "/reset/%E0%A4%A"]) {
+    for (const path of ["/projects/p/nope", "/projects/p/people/x/y", "/projects/p/my-work/x", "/projects/p/plots/f/x", "/projects/p/my-quality/x", "/projects/p/quality/other", "/projects/p/quality/team-report/x", "/projects/p/quality/plot", "/projects/p/quality/plot/1/x", "/projects/p/activity/week/45", "/projects/p/activity/week/2026-W45/x", "/projects/p/activity/other", "/join", "/join/a/b", "/whatever", "/reset/%E0%A4%A"]) {
       expect(matchRoute(path).name, path).toBe("notFound");
     }
   });
@@ -57,6 +60,8 @@ describe("matchRoute", () => {
       { name: "person", projectId: "p 1", userId: "u/2" },
       { name: "teamReport", projectId: "p?1" },
       { name: "plot", projectId: "p 1", plot: "17,2025/a b" },
+      { name: "weekly", projectId: "p 1", week: null },
+      { name: "weekly", projectId: "p/1", week: "2026-W01" },
       ...PROJECT_TABS.map((tab) => ({ name: "project" as const, projectId: "id with space", tab })),
     ];
     for (const route of routes) expect(matchRoute(pathFor(route))).toEqual(route);

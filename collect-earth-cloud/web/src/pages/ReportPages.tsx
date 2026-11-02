@@ -44,7 +44,7 @@ function useRefreshWhileStale<T extends { stale: boolean }>(loaded: Loaded<T>) {
 }
 
 /** A printable report: the project's name, the title, Back and Print (hidden when printed), and its content. */
-function ReportFrame({
+export function ReportFrame({
   projectId,
   title,
   back,
@@ -85,7 +85,7 @@ function ReportFrame({
 }
 
 /** When the figures are from, and whether newer ones are coming. */
-function FiguresTime({ computedAt, stale }: { computedAt: number | null; stale: boolean }) {
+export function FiguresTime({ computedAt, stale }: { computedAt: number | null; stale: boolean }) {
   const t = useT();
   const { language } = useApp();
   if (computedAt === null) return null;
@@ -97,7 +97,7 @@ function FiguresTime({ computedAt, stale }: { computedAt: number | null; stale: 
   );
 }
 
-function Block({ title, children }: { title: string; children: ReactNode }) {
+export function Block({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Paper variant="outlined" component="section" sx={{ p: { xs: 2, sm: 3 }, breakInside: "avoid" }}>
       <Stack spacing={1.5}>

@@ -349,6 +349,35 @@ describe('the memory store: record events, member activity and the audit log', (
     expect(await store.listAudit(b, { limit: 10 })).toEqual([]);
   });
 
+  it("the bell's read state: per member and project, only for members, gone with the member, the account or the project", async () => {
+    await store.setAttentionReads(a, maria, ['quiet:1', 'storage:2']);
+    await store.setAttentionReads(b, maria, ['notAssigned:3']);
+    expect(await store.listAttentionReads(a, maria)).toEqual(['quiet:1', 'storage:2']);
+    expect(await store.listAttentionReads(b, maria)).toEqual(['notAssigned:3']);
+    // Replaced as a whole.
+    await store.setAttentionReads(a, maria, ['storage:2']);
+    expect(await store.listAttentionReads(a, maria)).toEqual(['storage:2']);
+    await store.setAttentionReads(b, jose, ['x:1']);
+    expect(await store.listAttentionReads(b, jose)).toEqual([]);
+    await store.removeMember(a, maria);
+    expect(await store.listAttentionReads(a, maria)).toEqual([]);
+    expect(await store.listAttentionReads(b, maria)).toEqual(['notAssigned:3']);
+    await store.deleteUser(maria);
+    expect(await store.listAttentionReads(b, maria)).toEqual([]);
+  });
+
+  it('counts record events by person, change and quarter of an hour', async () => {
+    await store.appendRecordEvent(event(a, { modifiedOn: 900_000 }));
+    await store.appendRecordEvent(event(a, { modifiedOn: 1_799_999 }));
+    await store.appendRecordEvent(event(a, { modifiedOn: 1_800_000, change: 'updated', summary: null }));
+    await store.appendRecordEvent(event(a, { modifiedOn: 1_800_001, operator: 'jose' }));
+    await store.appendRecordEvent(event(b, { modifiedOn: 900_000 }));
+    expect(await store.recordEventCounts(a, { from: 0, to: 1_800_001 })).toEqual([
+      { operator: 'maria', change: 'submitted', at: 900_000, count: 2 },
+      { operator: 'maria', change: 'updated', at: 1_800_000, count: 1 },
+    ]);
+  });
+
   it('removing a member drops their activity there; their audit entries stay with no actor', async () => {
     await store.touchMemberActivity(a, jose, { lastSeenAt: 1 });
     await store.touchMemberActivity(a, maria, { lastSeenAt: 1 });

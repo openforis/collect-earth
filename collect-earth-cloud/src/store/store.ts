@@ -31,6 +31,7 @@ import type {
   QualityDecision,
   QualitySettings,
   RecordEvent,
+  RecordEventCount,
   RecordEventInput,
   RecordEventQuery,
   RecordRow,
@@ -131,7 +132,7 @@ export interface Store {
   /** Also cancels every reset link of the user: an older, leaked one must not work afterwards. */
   setPassword(userId: string, passwordHash: string): Promise<void>;
   /**
-   * Deletes an account: its sessions, memberships, assignments, activity and reset
+   * Deletes an account: its sessions, memberships, assignments, activity, bell read state and reset
    * links. Records it uploaded (and their events) stay in their projects (they belong
    * to the project); its audit entries stay with no actor.
    */
@@ -164,7 +165,7 @@ export interface Store {
   listMembers(projectId: string): Promise<Member[]>;
   setMemberRole(projectId: string, userId: string, role: Role): Promise<void>;
   /**
-   * Also drops the member's assignments, plot holdings and activity in the project;
+   * Also drops the member's assignments, plot holdings, activity and bell read state in the project;
    * its audit entries there stay with no actor.
    */
   removeMember(projectId: string, userId: string): Promise<void>;
@@ -292,7 +293,7 @@ export interface Store {
     decision: DecisionKind,
     comment: string | null,
     userId: string | null,
-    seen?: { operator: string; hash: number }[] | null,
+    seen?: { operator: string; hash: number; full?: number }[] | null,
   ): Promise<QualityDecision>;
   /**
    * Decides several plots at once (the bulk decisions), in one transaction: each plot only
@@ -300,7 +301,7 @@ export interface Store {
    */
   addQualityDecisions(
     projectId: string,
-    decisions: readonly { plot: string; decision: DecisionKind; seen: { operator: string; hash: number }[] | null }[],
+    decisions: readonly { plot: string; decision: DecisionKind; seen: { operator: string; hash: number; full?: number }[] | null }[],
     comment: string | null,
     userId: string | null,
     batch: string,
@@ -362,6 +363,11 @@ export interface Store {
    */
   listRecordEvents(projectId: string, query: RecordEventQuery): Promise<RecordEvent[]>;
   /**
+   * The record events with modifiedOn in [from, to), counted by person, change and quarter of an
+   * hour (the daily activity download: the days are worked out in the viewer's zone from these).
+   */
+  recordEventCounts(projectId: string, query: { from: number; to: number }): Promise<RecordEventCount[]>;
+  /**
    * Adds to a member's activity (MemberActivityPatch), creating the row on first use.
    * Nothing for a user who is not a member of the project (removed meanwhile).
    */
@@ -381,6 +387,13 @@ export interface Store {
   appendAudit(projectId: string, entry: AuditInput): Promise<void>;
   /** The project's audit log, newest first (at, then id). Throws InvalidCursorError as listRecordEvents. */
   listAudit(projectId: string, query: AuditQuery): Promise<AuditEntry[]>;
+
+  // --- The bell: which "needs attention" items each coordinator has read (attention_reads) ---
+
+  /** The keys of the items the member has read (an item's key changes with its content). */
+  listAttentionReads(projectId: string, userId: string): Promise<string[]>;
+  /** Replaces the member's read keys with these (nothing for someone not a member). */
+  setAttentionReads(projectId: string, userId: string, keys: readonly string[]): Promise<void>;
 
   close(): Promise<void>;
 }

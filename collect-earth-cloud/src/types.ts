@@ -270,7 +270,7 @@ export interface QualityDecision {
    * one's person and answers' hash, flags.ts DecisionSeen); null when none were at hand.
    * For the pattern flags only: the routes do not send it.
    */
-  seen?: { operator: string; hash: number }[] | null;
+  seen?: { operator: string; hash: number; full?: number }[] | null;
   /** The bulk run that made it (its audit entry has the same id); null for a decision made alone. */
   batch?: string | null;
 }
@@ -456,9 +456,20 @@ export interface RecordEventQuery {
   from: number;
   to: number;
   operator?: string;
+  /** Only events of these changes (none given: all). */
+  changes?: readonly RecordChange[];
   limit: number;
   /** Rows after this one in the order (modifiedOn, id) newest first. */
   before?: EventCursor;
+}
+
+/** How many record events of one person and change were saved in one quarter of an hour (recordEventCounts). */
+export interface RecordEventCount {
+  operator: string;
+  change: RecordChange;
+  /** The quarter of an hour's start (epoch ms, a multiple of 900,000): every time zone's days start on one. */
+  at: number;
+  count: number;
 }
 
 /** When a member last used the project, and how much (member_activity). */
@@ -543,4 +554,9 @@ export interface AuditQuery {
   /** Only this actor's (a user id). */
   actor?: string;
   action?: AuditAction;
+  /** Only these actions (none given: all). */
+  actions?: readonly AuditAction[];
+  /** at >= from and < to (epoch ms), when given. */
+  from?: number;
+  to?: number;
 }

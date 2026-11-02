@@ -14,6 +14,7 @@ import { DEFAULT_AI_MODEL, type Config } from './config.js';
 import { QualityService, QualityWorker } from './qualityService.js';
 import { RateLimiter } from './rateLimit.js';
 import type { Store } from './store/store.js';
+import { registerActivityRoutes } from './routes/activity.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerAiRoutes } from './routes/ai.js';
 import { registerAssignmentRoutes } from './routes/assignments.js';
@@ -133,6 +134,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerProgressRoutes(app, store, quality, states, now);
   await registerPeopleRoutes(app, store, quality, states, now);
   await registerPlotsGeoRoutes(app, store, quality, states, places);
+  await registerActivityRoutes(app, store, quality, states, places, now);
   await registerRecordRoutes(app, store);
   const runs = new AiRunService(store, quality, app.log, {
     client: options.ai?.client !== undefined ? options.ai.client : aiClientOf(config),
