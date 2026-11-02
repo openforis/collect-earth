@@ -148,8 +148,29 @@ All under `/earth/api`, JSON in and out:
 5. **Project, Help and notices** (done, `2026-11-01-html-ui-stage-5.md`): CEP import, cloud join, login and sync
    status, language, the Help entries, the notices (announcements, updates, errors logged, server warnings), dropped
    files, the window title, client mode.
-6. **Removal:** delete `view/*` and the other Swing classes, FlatLaf and Swing-only dependencies; update `CLAUDE.md`,
-   and the installers if what they ship changes.
+6. **Removal** (done, `2026-11-01-html-ui-stage-6.md`): `view/*`, the IPCC wizard, `JSwingAppender` and the Swing
+   paths of the services and of `EarthApp` deleted; FlatLaf, SwingX, g-wiz and Ikonli out of the pom (the installers
+   ship `earth-libs` whole, so they lose the five jars with nothing to change); `CLAUDE.md` updated.
+
+### Before merging
+
+Every stage is done. What the "Left by" sections below still name as open, checked against the code after stage 6:
+
+- **The full build and the stage checks at home.** This environment cannot resolve GeoTools, Selenium and JAXB, so
+  each stage was checked with the API and service tests in a harness, the frontend tests and build, a browser run
+  against a mock of the API, and a comparison of the compile errors of the whole module before and after. The checks
+  that need the real application are at the end of each stage plan.
+- **Still Swing by choice:** the file dialog of `/api/files/choose` (now with the system look and feel, no longer
+  FlatLaf), the splash, the tray icon, the messages shown when there is no server, and the Google Earth Web trial
+  question at start (`EarthApp`), which is asked before any page opens.
+- **The cloud assignments of the plots file** (stage 2): the Swing Sample data tab listed them in cloud mode; the
+  settings page does not.
+- **The reload of the plots** after an import or the settings is a thread that only logs a failure (stages 2 and 3),
+  and **the KML export** reports no progress (stage 3).
+- **The connection tests** answer the English texts of `CollectEarthUtils` (stage 2).
+- **Without a system tray** a closed home page cannot be opened again; a second start should open it (stage 1).
+- **The Messages keys only the Swing UI used** are still in `Messages*.properties`; pruning them needs a check of
+  every key the pages and the services ask for.
 
 ### Left by stage 1 for the later stages
 
