@@ -8,11 +8,13 @@ import {
   overlapPicks,
   parseDivisionRequest,
   shareSizes,
+  shuffled,
   submittedByPlot,
   summarize,
   type SubmittedBy,
   type Submitters,
 } from '../src/division.js';
+import { nearbyOrder } from '../src/nearby.js';
 import type { RoundInfo } from '../src/cep.js';
 import type { PlotAssignment, RecordRow, StoredDistribution } from '../src/types.js';
 
@@ -448,6 +450,97 @@ describe('copies drawn for checks (Task 13) through a new division and a move', 
   });
 });
 
+describe('divide: plots close on the map together (order nearby, Task 15)', () => {
+  type Places = Map<string, readonly [number, number]>;
+  /** A side × side grid of plots 0.001° apart near the equator; ids 1.. in a seeded order of the file. */
+  const grid = (side: number, fileSeed: number | null = null) => {
+    const cells: { id: string; place: [number, number] }[] = [];
+    for (let r = 0; r < side; r++) for (let c = 0; c < side; c++) cells.push({ id: `${r}:${c}`, place: [r * 0.001, c * 0.001] });
+    const inFile = fileSeed === null ? cells : shuffled(cells, fileSeed);
+    return { plotIds: inFile.map((c) => c.id), places: new Map(inFile.map((c) => [c.id, c.place])) as Places };
+  };
+  /** The area of each person's bounding box (main plots), in grid cells. */
+  const boxes = (plots: PlotAssignment[]) => {
+    const extent = new Map<string, [number, number, number, number]>();
+    for (const a of plots.filter((p) => !p.overlap)) {
+      const [r, c] = a.plotKey.split(':').map(Number);
+      const e = extent.get(a.userId) ?? [r, r, c, c];
+      extent.set(a.userId, [Math.min(e[0], r), Math.max(e[1], r), Math.min(e[2], c), Math.max(e[3], c)]);
+    }
+    return new Map([...extent].map(([u, [r0, r1, c0, c1]]) => [u, (r1 - r0 + 1) * (c1 - c0 + 1)]));
+  };
+  const total = (m: Map<string, number>) => [...m.values()].reduce((s, v) => s + v, 0);
+
+  it('gives each of four people one quarter of a square grid', () => {
+    const { plotIds, places } = grid(32, 7);
+    const plots = divide(even(['a', 'b', 'c', 'd'], { order: 'nearby' }), plotIds, null, none, undefined, [], places);
+    const own = byPerson(plots);
+    expect(Object.values(own).map((p) => p.own.length)).toEqual([256, 256, 256, 256]);
+    // A quarter of the curve is a quadrant: 16 × 16 cells each.
+    expect([...boxes(plots).values()]).toEqual([256, 256, 256, 256]);
+  });
+
+  it('each share`s bounding box is smaller than with mixed (and than file order of a file not sorted by place)', () => {
+    const { plotIds, places } = grid(30, 3);
+    const people = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+    const nearby = boxes(divide(even(people, { order: 'nearby' }), plotIds, null, none, undefined, [], places));
+    const mixed = boxes(divide(even(people, { order: 'mixed', seed: 11 }), plotIds, null, none));
+    const file = boxes(divide(even(people), plotIds, null, none));
+    for (const p of people) {
+      expect(nearby.get(p)!).toBeLessThan(mixed.get(p)!);
+      expect(nearby.get(p)!).toBeLessThan(file.get(p)!);
+    }
+    // Together they cover the grid about once (900 cells), the mixed shares the whole grid each.
+    expect(total(nearby)).toBeLessThan(900 * 1.6);
+    expect(total(mixed)).toBeGreaterThan(900 * 6);
+  });
+
+  it('is the same every time; plots without a place go last, after the curve', () => {
+    const { plotIds, places } = grid(10, 5);
+    places.delete(plotIds[0]);
+    places.delete(plotIds[1]);
+    const d = even(['a', 'b'], { order: 'nearby' });
+    const first = divide(d, plotIds, null, none, undefined, [], places);
+    expect(divide(d, plotIds, null, none, undefined, [], places)).toEqual(first);
+    // The last person's share ends with the two plots without a place.
+    expect(byPerson(first).b.own).toEqual(expect.arrayContaining([plotIds[0], plotIds[1]]));
+  });
+
+  it('follows the curve within each group of a column division', () => {
+    const { plotIds, places } = grid(16, 9);
+    // Column values: the left half "W", the right half "E".
+    const values = plotIds.map((id) => (Number(id.split(':')[1]) < 8 ? 'W' : 'E'));
+    const d: StoredDistribution & { mode: 'column' } = {
+      mode: 'column',
+      column: 1,
+      groups: [{ value: 'W', people: ['a', 'b'] }, { value: 'E', people: ['c', 'd'] }],
+      order: 'nearby',
+      overlapPercent: 0,
+    };
+    const plots = divide(d, plotIds, values, none, undefined, [], places);
+    const area = boxes(plots);
+    // Each half (8 × 16) is split in two compact areas of 64 plots: 8 × 8.
+    expect([...area.values()]).toEqual([64, 64, 64, 64]);
+    const own = byPerson(plots);
+    expect(own.a.own.every((id) => Number(id.split(':')[1]) < 8)).toBe(true);
+    expect(own.c.own.every((id) => Number(id.split(':')[1]) >= 8)).toBe(true);
+  });
+
+  it('keeps the drawn copies; the overlap copies are spread through each share along the curve', () => {
+    const { plotIds, places } = grid(8, 2);
+    const curve = nearbyOrder(plotIds, places);
+    const drawn: PlotAssignment[] = [{ plotKey: curve[40], userId: 'c', overlap: true, sampledAt: 4 }];
+    const plots = divide(even(['a', 'b'], { order: 'nearby', overlapPercent: 10 }), plotIds, null, none, undefined, drawn, places);
+    expect(plots).toContainEqual({ plotKey: curve[40], userId: 'c', overlap: true, sampledAt: 4 });
+    // a holds the first half of the curve, b the second.
+    expect(byPerson(plots).a.own.sort()).toEqual(curve.slice(0, 32).sort());
+    // Each share of 32 needs ceil(3.2) = 4 copies. a's go to b, every 8th plot along the curve.
+    expect(byPerson(plots).b.copies.map((id) => curve.indexOf(id)).sort((x, y) => x - y)).toEqual([0, 8, 16, 24]);
+    // b's share has the drawn copy, which counts: 3 more go to a, spread over the other 31.
+    expect(byPerson(plots).a.copies).toHaveLength(3);
+  });
+});
+
 describe('submittedByPlot', () => {
   it('counts submitted, non-deleted records by members, matched to their plot', () => {
     const map = submittedByPlot(
@@ -565,6 +658,12 @@ describe('parseDivisionRequest', () => {
     expect(parse({ mode: 'even', people: ['a'], order: 'mixed', seed: 'x' })).toHaveProperty('reason');
     expect(parse({ mode: 'even', people: ['a'] })).not.toHaveProperty('seed');
   });
+
+  it('accepts order nearby, without a seed (the curve needs none)', () => {
+    expect(parse({ mode: 'even', people: ['a'], order: 'nearby', seed: 5 })).toEqual({ mode: 'even', people: ['a'], order: 'nearby', overlapPercent: 0 });
+    expect(parse({ mode: 'column', column: 1, groups: [{ value: 'x', people: ['b'] }], order: 'nearby' })).toMatchObject({ order: 'nearby' });
+    expect(parse({ mode: 'even', people: ['a'], order: 'map' })).toEqual({ reason: "order must be 'file', 'mixed' or 'nearby'" });
+  });
 });
 
 describe('METADATA_KEY_PARTS', () => {
@@ -581,5 +680,18 @@ describe('performance', () => {
     summarize(null, plotIds, plots, none, new Map());
     expect(plots.filter((p) => !p.overlap)).toHaveLength(100_000);
     expect(Date.now() - started).toBeLessThan(3000);
+  });
+
+  it('divides 100k plots in order nearby quickly', () => {
+    const plotIds = ids(100_000);
+    // Plots over Ghana in a seeded order of the file.
+    const random = shuffled(plotIds, 4);
+    const places = new Map(random.map((id, i) => [id, [5 + (i % 316) * 0.01, -2 + Math.floor(i / 316) * 0.01] as const]));
+    const started = performance.now();
+    const plots = divide(even(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'], { order: 'nearby', overlapPercent: 10 }), plotIds, null, none, undefined, [], places);
+    const took = performance.now() - started;
+    expect(plots.filter((p) => !p.overlap)).toHaveLength(100_000);
+    console.log(`divide nearby, 100,000 plots, 8 people, 10 % overlap: ${took.toFixed(0)} ms`);
+    expect(took).toBeLessThan(3000);
   });
 });

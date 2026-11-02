@@ -60,6 +60,7 @@ import {
   giveInTurn,
   initialForm,
   MAX_OVERLAP_PERCENT,
+  nearbyNote,
   MIN_OVERLAP_PERCENT,
   sortPeople,
   toRequest,
@@ -285,6 +286,7 @@ function DivideForm({
     { id: "column", label: t("divide.modeColumn"), help: t("divide.modeColumnHelp") },
   ];
   const percentBad = problemShown && problem === "divide.problemPercent";
+  const nearbyText = nearbyNote(columns.nearby, t, (n) => formatNumber(n, language));
 
   return (
     <Stack spacing={3}>
@@ -363,9 +365,26 @@ function DivideForm({
         <>
           <FormControl component="fieldset" variant="standard">
             <FormLabel component="legend">{t("divide.orderTitle")}</FormLabel>
-            <RadioGroup value={form.order} onChange={(e) => change({ order: e.target.value === "mixed" ? "mixed" : "file" })}>
+            <RadioGroup
+              value={form.order}
+              onChange={(e) => change({ order: e.target.value === "mixed" || e.target.value === "nearby" ? e.target.value : "file" })}
+            >
               <FormControlLabel value="file" control={<Radio />} label={t("divide.orderFile")} />
               <FormHelperText sx={{ mt: -0.5, ml: 4 }}>{t("divide.orderFileHelp")}</FormHelperText>
+              <FormControlLabel
+                value="nearby"
+                control={<Radio slotProps={{ input: { "aria-describedby": "divide-order-nearby-help" } }} />}
+                label={t("divide.orderNearby")}
+                disabled={!columns.nearby.available}
+              />
+              <FormHelperText id="divide-order-nearby-help" sx={{ mt: -0.5, ml: 4 }}>
+                {t("divide.orderNearbyHelp")}
+                {nearbyText && (
+                  <Typography variant="body2" component="span" sx={{ display: "block" }} color={columns.nearby.available ? "text.secondary" : "warning.main"}>
+                    {nearbyText}
+                  </Typography>
+                )}
+              </FormHelperText>
               <FormControlLabel value="mixed" control={<Radio />} label={t("divide.orderMixed")} />
               <FormHelperText sx={{ mt: -0.5, ml: 4 }}>{t("divide.orderMixedHelp")}</FormHelperText>
             </RadioGroup>

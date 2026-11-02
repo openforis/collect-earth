@@ -174,11 +174,18 @@ export interface CsvFile {
   distribution?: StoredDistribution | null;
 }
 
-export type DivisionOrder = 'file' | 'mixed';
+/**
+ * The order plots are dealt in: the file's, 'mixed' (a seeded shuffle) or 'nearby' (along a
+ * Hilbert curve over their latitude and longitude, Task 15: each share a compact area, and
+ * the rows of each served file in that order too).
+ */
+export type DivisionOrder = 'file' | 'mixed' | 'nearby';
 
 /**
  * A divided plot file's rule (csv_files.distribution), as last applied. `seed` is the
- * shuffle seed of order 'mixed'. 'manual' = changed by hand (move-unfinished).
+ * shuffle seed of order 'mixed'. 'manual' = changed by hand (move-unfinished); it keeps
+ * `order: 'nearby'` when the division it changed had it, so the served files keep their
+ * rows in that order.
  */
 export type StoredDistribution =
   | { mode: 'even'; people: string[]; order: DivisionOrder; overlapPercent: number; seed?: number }
@@ -190,7 +197,7 @@ export type StoredDistribution =
       overlapPercent: number;
       seed?: number;
     }
-  | { mode: 'manual' };
+  | { mode: 'manual'; order?: 'nearby' };
 
 /**
  * One plot of a divided file held by one person; overlap = given as a quality-check copy.

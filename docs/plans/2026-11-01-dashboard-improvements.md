@@ -2664,6 +2664,83 @@ and `i18n.ts`.
 - A stored distribution round-trips.
 - `parseDivisionRequest` accepts `'nearby'`.
 
+**As built** (differs from the above where it says so)
+- **The curve** (`src/nearby.ts`, pure): `hilbertIndex` (the classic xy2d on a 2^16 × 2^16 grid,
+  exact below 2^32) and `nearbyOrder(plotIds, places)`: the places normalised to the file's bounding
+  box with **one scale for both axes** (a square stays a square; the longitudes narrowed by the
+  cosine of the box's middle latitude), plots in one cell keep their file order. **Antimeridian:**
+  when the widest gap between the file's longitudes is not the one round the back of the globe, the
+  plots west of it are counted 360° further east, so plots at 179.9 and -179.9 are one area (test).
+  **Plots without a place go last, in file order** (they end up with the last person(s) of the
+  division or group). Repeatable without a seed: nothing is stored besides `order: 'nearby'`.
+- **Places** as the map reads them (Task 9's `placesOfPlotFile`: the two columns after the keys,
+  decimal comma, lat/lon ranges), **offered only when the survey's first SRS is latitude and
+  longitude** (`isWgs84`, `PlotPlaceReader.surveyFacts`) and at least one plot has a place
+  (`nearbyAvailability`). `GET /csv-files/:id/columns` gains `nearby: { available, reason:
+  null | 'other_srs' | 'no_places', withPlace, withoutPlace, srid? }`; `PUT /distribution` with
+  `order: 'nearby'` on such a file is 400 `bad_request` with the reason (naming the SRS).
+- **`divide`** gains `places` (7th argument): order `'nearby'` deals the plots in curve order the way
+  `'file'` deals file order (contiguous chunks, `shareSizes`, pinned submitted plots as before); in a
+  column division each group follows the curve. Each person's list is kept in curve order (not file
+  order) before the overlap picks, so the copies are spread over the person's area. **Overlap rule
+  kept (decided):** copies still go to the next person of the group, who holds the next stretch of
+  the curve, mostly a neighbouring area (the last person's go to the first, possibly far). Drawn copies
+  (Task 13) and reference plots (Task 14) are kept exactly as with the other orders (route test).
+  `parseDivisionRequest` accepts `'nearby'` and keeps no seed for it.
+- **Served files follow the curve** (decided: Collect Earth lists plots in file order): `ownFile`
+  passes `nearbyRanksOf(file, keyCount)` (each plot's rank in the whole file's curve, cached for 4
+  files by checksum) to `buildPlotFile(…, rank)`, which sorts the rows stably by rank (rows of one plot
+  together in file order, the header first, a line break added to the original last row when rows
+  follow it). Main plots, division copies, drawn and reference copies are all rows of the same file,
+  so they are ordered alike. The served-file cache key gains `nearby`/`file`; the checksum is of the
+  reordered bytes (my-assignment = download, tested with and without the round column). The whole file
+  as uploaded (the coordinator's download) and "To check again" files keep file order.
+- **Stored distribution:** `DivisionOrder = 'file' | 'mixed' | 'nearby'`; `{ mode: 'even' | 'column',
+  order: 'nearby', overlapPercent }` round-trips (JSONB, no migration); old rows with `'file'`/`'mixed'`
+  are unchanged and their files are served as before. **A move keeps the order:** `move-unfinished` after
+  a nearby division stores `{ mode: 'manual', order: 'nearby' }` (`servedNearby`), so nobody's served
+  file is reshuffled (and gets a new checksum) because someone else's plots moved; after a file/mixed
+  division it stays `{ mode: 'manual' }`.
+- **Web:** the order radio now reads "In the order of the file" / "Keep plots that are close on the map
+  together" / "Mix them" (the old "Keep neighbouring plots together" was the file order's label, which
+  would have been misleading next to the new one); the new option explains that each person gets one
+  area and Collect Earth lists their plots from each plot to a nearby one, says how many plots have no
+  latitude and longitude (they go last), and is disabled with the reason for another SRS or a file
+  without places (`aria-describedby` on the radio). `formProblem` refuses a stored `'nearby'` the file no
+  longer allows (`divide.problemNearby`); a manual division after nearby starts the form on evenly,
+  nearby. `api.ts` (`NearbyInfo`, `toNearbyInfo`; a server that does not say offers it not),
+  `division.ts` (`nearbyNote`). 6 new keys and 2 changed × 4 languages (`i18n.ts`, `api.ts`, `api.test.ts`
+  written with CRLF kept).
+- **Tests:** server 1023 (+21: `test/nearby.test.ts` 10 — the 4 × 4 curve, every cell once with
+  neighbouring steps for 1-4 bits, 16-bit exactness, plots without a place last and ties, repeatable,
+  antimeridian, availability, ranks and served row order; `division.test.ts` 6 — four people get the
+  four quadrants of a 32 × 32 grid, every share's bounding box smaller than with mixed and with file order
+  of a scrambled file, missing places last, column groups (8 × 8 each), drawn copies kept and copies
+  every 8th plot along the curve, `parseDivisionRequest`, and 100,000 plots; `divisionRoutes.test.ts` 5 —
+  offered and stored without a seed, dry run = apply, each person's rows along the curve with the bytes
+  and CRLF kept, a move keeping `manual`/`nearby`, file order unaffected, the round column with copies
+  as round 2, drawn copies and a reference plot kept through a nearby division, 400s for another SRS and
+  a file without places; checked red by serving without the ranks: 4 route tests fail), web 319 (+5:
+  `division.test.ts`), tsc clean in both, web build ok.
+- **Timings** (memory store): `divide()` with `'nearby'`, 100,000 plots, 8 people, 10 % overlap
+  **210 ms**. Through the route, 100,000 plots (5.1 MB, scrambled file order) between 40 people with 10 %:
+  `PUT /distribution` file 134-157 ms, mixed 354-382 ms, **nearby 438-636 ms**; mean bounding box of a
+  person's main plots **0.333 deg²** with nearby against 9.95 with file or mixed (the file 9.99, a fortieth
+  0.25); the first plot list after it 143-150 ms (the curve ranks computed once), the next 17-19 ms,
+  downloads 3 ms, checksums equal. `GET /columns` 294 ms cold, 139 ms warm.
+- **Chrome** (seeded memory server, built dashboard): a 402-plot file (2 without coordinates): the three
+  orders with the note "2 plots of this file have no latitude and longitude…", applied nearby (101/101/
+  100/100), reloaded with nearby still chosen; a names-only file at the narrowest window (500 px): the
+  option disabled with "Not available: no plot of this file has a latitude and longitude…", no page-wide
+  horizontal scroll; no console errors. Server stopped, port free. No Postgres smoke (no SQL: the order is
+  in the distribution JSONB).
+- **Open:** the places are read again on each `GET /columns` and nearby `PUT` (not cached; ~100 ms on
+  100,000 plots); a re-division keeps submitted plots with their submitters, so a person's area also has
+  the plots they already did elsewhere; the last person's overlap copies go to the first, whose area may be
+  far; plots without a place all fall to the last person(s); "To check again" files stay in file order; a
+  survey switched to another SRS after a nearby division keeps serving in the curve of whatever numbers
+  read as lat/lon (others last); no Spanish/French/Portuguese Chrome pass (texts only).
+
 ### Task 16: The coordinator's note inside the plot (improvement 5)
 
 **Files:**

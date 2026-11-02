@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
-import { demoCep, idOnlyCep } from './fixtures/cep.js';
+import { strFromU8, strToU8, unzipSync } from 'fflate';
+import { cepWith, demoCep, idOnlyCep } from './fixtures/cep.js';
+import { nearbyOrder } from '../src/nearby.js';
 
 // 10 plots: a header, a quoted WKT column holding the separator and a line break,
 // and a province column. Plot 4 has two rows.
@@ -460,5 +462,154 @@ describe('dividing plots between people', () => {
       holdings.filter((a) => a.userId === userId).map((a) => `${a.plotKey}${a.overlap ? ' copy' : ''}`).sort();
     expect(of(jose.userId)).toEqual(['17,1', '18,1 copy', '18,3']);
     expect(of(maria.userId)).toEqual(['18,1']);
+  });
+
+  describe('order nearby (Task 15)', () => {
+    // A 4 x 4 grid of plots over Ghana, 0.01 degree apart, listed in the file in a scrambled order.
+    const cells = Array.from({ length: 16 }, (_, i) => ({ id: `g${i}`, lat: 5 + Math.floor(i / 4) * 0.01, lon: -1 + (i % 4) * 0.01 }));
+    const scrambled = cells.map((_, i) => cells[(i * 5 + 3) % 16]);
+    const CRLF = String.fromCharCode(13, 10);
+    const GRID = `id,lat,lon,note${CRLF}${scrambled.map((c) => `${c.id},${c.lat.toFixed(2)},${c.lon.toFixed(2)},"a, b"`).join(CRLF)}${CRLF}`;
+    const places = new Map(cells.map((c) => [c.id, [c.lat, c.lon] as const]));
+    const curve = nearbyOrder(scrambled.map((c) => c.id), places);
+    const rowsOf = (body: string) => body.split(CRLF).slice(1).filter((l) => l !== '').map((l) => l.split(',')[0]);
+    const columns = async (id: string) =>
+      (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/csv-files/${id}/columns`, headers: bearer(admin) })).json();
+    let gridId: string;
+    beforeEach(async () => {
+      gridId = (await upload(GRID, 'grid.csv')).json().id;
+    });
+
+    it('is offered for a latitude and longitude file; each person gets a compact area, the rows of their file along the curve', async () => {
+      expect((await columns(gridId)).nearby).toEqual({ available: true, reason: null, withPlace: 16, withoutPlace: 0 });
+      const body = { mode: 'even', people: [maria.userId, jose.userId], order: 'nearby' };
+      const dry = await divideFile({ ...body, dryRun: true }, gridId);
+      expect(dry.statusCode, dry.body).toBe(200);
+      const res = await divideFile(body, gridId);
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json()).toEqual(dry.json());
+      // Stored as sent, without a seed, and read back the same.
+      const stored = (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/csv-files/${gridId}/distribution`, headers: bearer(admin) })).json();
+      expect(stored.distribution).toEqual({ mode: 'even', people: [maria.userId, jose.userId], order: 'nearby', overlapPercent: 0 });
+      // maria the first half of the curve (one half of the grid), jose the other.
+      for (const [person, half] of [[maria, curve.slice(0, 8)], [jose, curve.slice(8)]] as const) {
+        const [entry] = await myAssignment(person.token);
+        const served = await download(person.token, entry.downloadPath);
+        expect(sha256(served.rawPayload)).toBe(entry.checksum);
+        expect(rowsOf(served.body)).toEqual(half);
+        expect(served.body.startsWith(`id,lat,lon,note${CRLF}`)).toBe(true);
+        expect(served.body.endsWith(`"a, b"${CRLF}`)).toBe(true);
+      }
+      // Each half is 2 rows of the grid by 4, or 4 by 2.
+      const extent = (ids: readonly string[]) => {
+        const at = ids.map((id) => places.get(id)!);
+        return new Set(at.map((p) => p[0])).size * new Set(at.map((p) => p[1])).size;
+      };
+      expect(extent(curve.slice(0, 8))).toBe(8);
+      expect(extent(curve.slice(8))).toBe(8);
+      // The file as uploaded is unchanged for the coordinator.
+      expect((await download(admin, `/v1/projects/${pid}/csv-files/${gridId}/content`)).body).toBe(GRID);
+    });
+
+    it('a move keeps the order of the rows (manual, nearby); the file order serves the rows as the file has them', async () => {
+      await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'nearby' }, gridId);
+      const move = () =>
+        ctx.app.inject({
+          method: 'POST',
+          url: `/v1/projects/${pid}/csv-files/${gridId}/move-unfinished`,
+          headers: bearer(admin),
+          payload: { fromUserId: maria.userId, toUserId: ana.userId },
+        });
+      const moved = await move();
+      expect(moved.statusCode, moved.body).toBe(200);
+      expect(moved.json().distribution).toEqual({ mode: 'manual', order: 'nearby' });
+      const [entry] = await myAssignment(ana.token);
+      expect(rowsOf((await download(ana.token, entry.downloadPath)).body)).toEqual(curve.slice(0, 8));
+      // A division in file order serves the rows as the file has them.
+      await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'file' }, gridId);
+      const [fileOrder] = await myAssignment(maria.token);
+      expect(rowsOf((await download(maria.token, fileOrder.downloadPath)).body)).toEqual(scrambled.slice(0, 8).map((c) => c.id));
+      expect((await move()).json().distribution).toEqual({ mode: 'manual' });
+    });
+
+    it('with the round column and copies: the rows follow the curve, the copies with round 2', async () => {
+      expect((await putCep(idOnlyCep())).state).toBe('added');
+      const res = await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'nearby', overlapPercent: 25 }, gridId);
+      expect(res.statusCode, res.body).toBe(200);
+      const [entry] = await myAssignment(jose.token);
+      const served = await download(jose.token, entry.downloadPath);
+      expect(sha256(served.rawPayload)).toBe(entry.checksum);
+      const lines = served.body.split(CRLF).filter((l) => l !== '');
+      expect(lines[0]).toBe('id,round,lat,lon,note');
+      const ids = lines.slice(1).map((l) => l.split(',')[0]);
+      expect(ids).toEqual(curve.filter((id) => ids.includes(id)));
+      // 2 copies of maria's 8 plots (25 %), round 2; jose's own 8 with round 1.
+      expect(lines.slice(1).filter((l) => l.split(',')[1] === '2')).toHaveLength(2);
+      expect(lines.slice(1).filter((l) => l.split(',')[1] === '1')).toHaveLength(8);
+    });
+
+    it('keeps the drawn copies and the reference plots as they are (Tasks 13 and 14)', async () => {
+      await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'file' }, gridId);
+      const before = await ctx.store.listPlotAssignments(pid, gridId);
+      // A copy drawn for a check (ana checks one of maria's plots), and a reference plot assessed by ana.
+      const drawnPlot = before.find((a) => a.userId === maria.userId)!.plotKey;
+      const refPlot = before.find((a) => a.userId === jose.userId)!.plotKey;
+      await ctx.store.setDivision(pid, gridId, { mode: 'even', people: [maria.userId, jose.userId], order: 'file', overlapPercent: 0 }, [
+        ...before,
+        { plotKey: drawnPlot, userId: ana.userId, overlap: true, sampledAt: 1234 },
+      ]);
+      await ctx.store.changeReferencePlots(pid, {
+        unmark: [],
+        dropCopies: [],
+        mark: [{ csvFileId: gridId, plotKey: refPlot, assessorUserId: ana.userId }],
+        addCopies: [{ csvFileId: gridId, plotKey: refPlot, userId: maria.userId }],
+        at: 1,
+        by: null,
+      });
+      const refHoldings = (await ctx.store.listPlotAssignments(pid, gridId)).filter((a) => a.plotKey === refPlot);
+      expect(refHoldings).toHaveLength(3);
+      const res = await divideFile({ mode: 'even', people: [jose.userId, maria.userId], order: 'nearby' }, gridId);
+      expect(res.statusCode, res.body).toBe(200);
+      const after = await ctx.store.listPlotAssignments(pid, gridId);
+      // The drawn copy stays drawn with ana (she is not in the new division, so not its main holder).
+      expect(after).toContainEqual({ plotKey: drawnPlot, userId: ana.userId, overlap: true, sampledAt: 1234 });
+      // The reference plot keeps its assessor and its copies, and is not dealt again.
+      const sorted = (list: typeof after) => list.map((a) => `${a.userId}:${a.overlap}`).sort();
+      expect(sorted(after.filter((a) => a.plotKey === refPlot))).toEqual(sorted(refHoldings));
+      // The other 15 plots are dealt along the curve without it: jose the first 8, maria 7.
+      const others = curve.filter((id) => id !== refPlot);
+      const main = (userId: string) =>
+        after.filter((a) => a.userId === userId && !a.overlap && a.plotKey !== refPlot).map((a) => a.plotKey).sort();
+      expect(main(jose.userId)).toEqual(others.slice(0, 8).sort());
+      expect(main(maria.userId)).toEqual(others.slice(8).sort());
+      // Ana's file: the reference plot (main) and her drawn copy, in curve order.
+      const [entry] = await myAssignment(ana.token);
+      const served = await download(ana.token, entry.downloadPath);
+      expect(sha256(served.rawPayload)).toBe(entry.checksum);
+      expect(rowsOf(served.body)).toEqual(curve.filter((id) => id === refPlot || id === drawnPlot));
+    });
+
+    it('is refused, with the reason, for another coordinate system or a file without places', async () => {
+      const noPlaces = (await upload('id,a,b,c\nx1,north,,1\nx2,south,,2\n', 'names.csv')).json().id as string;
+      expect((await columns(noPlaces)).nearby).toEqual({ available: false, reason: 'no_places', withPlace: 0, withoutPlace: 2 });
+      const refused = await divideFile({ mode: 'even', people: [maria.userId], order: 'nearby' }, noPlaces);
+      expect(refused.statusCode).toBe(400);
+      expect(refused.json().reason).toContain('latitude and longitude');
+      // Some plots without a place: offered, those go last.
+      const some = (await upload(`${GRID}g99,,,"none"${CRLF}`, 'some.csv')).json().id as string;
+      expect((await columns(some)).nearby).toEqual({ available: true, reason: null, withPlace: 16, withoutPlace: 1 });
+      // The survey in another coordinate system (Collect Earth transforms it; this server does not).
+      const files = unzipSync(idOnlyCep());
+      files['placemark.idm.xml'] = strToU8(
+        strFromU8(files['placemark.idm.xml']).replace('<spatialReferenceSystem srid="EPSG:4326">', '<spatialReferenceSystem srid="EPSG:32633">'),
+      );
+      await putCep(cepWith(Object.entries(files).map(([path, data]): [string, Buffer] => [path, Buffer.from(data)])));
+      expect((await columns(gridId)).nearby).toEqual({ available: false, reason: 'other_srs', withPlace: 0, withoutPlace: 16, srid: 'EPSG:32633' });
+      const other = await divideFile({ mode: 'even', people: [maria.userId], order: 'nearby' }, gridId);
+      expect(other.statusCode).toBe(400);
+      expect(other.json().reason).toContain('EPSG:32633');
+      // The other orders still work.
+      expect((await divideFile({ mode: 'even', people: [maria.userId], order: 'file' }, gridId)).statusCode).toBe(200);
+    });
   });
 });

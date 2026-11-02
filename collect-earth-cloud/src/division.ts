@@ -1,6 +1,7 @@
 import type { DivisionOrder, PlotAssignment, RecordRow, StoredDistribution } from './types.js';
 import type { RoundInfo } from './cep.js';
 import { copyUnitsByUser, recordRound, unitOfRecord } from './rounds.js';
+import { nearbyOrder } from './nearby.js';
 
 /**
  * Dividing one plot file's plots between people: validating a request, computing
@@ -44,7 +45,9 @@ export type DivisionRequest = { mode: 'whole' } | Exclude<StoredDistribution, { 
 /**
  * Validates a PUT /distribution body. `members` are the project's user ids, and
  * `columnCount` the widest row of the file. A mixed order without a seed gets
- * `newSeed()`. Returns the request, or the reason it is refused.
+ * `newSeed()`; order 'nearby' needs none (a seed sent is not kept). Whether the file's
+ * places allow 'nearby' is the route's check. Returns the request, or the reason it is
+ * refused.
  */
 export function parseDivisionRequest(
   body: unknown,
@@ -59,9 +62,10 @@ export function parseDivisionRequest(
   if (b.mode !== 'even' && b.mode !== 'column') {
     return { reason: "mode must be 'whole', 'even' or 'column'" };
   }
-  const order: DivisionOrder | null = b.order === undefined || b.order === 'file' ? 'file' : b.order === 'mixed' ? 'mixed' : null;
+  const order: DivisionOrder | null =
+    b.order === undefined || b.order === 'file' ? 'file' : b.order === 'mixed' || b.order === 'nearby' ? b.order : null;
   if (!order) {
-    return { reason: "order must be 'file' or 'mixed'" };
+    return { reason: "order must be 'file', 'mixed' or 'nearby'" };
   }
   const overlapPercent = b.overlapPercent === undefined || b.overlapPercent === null ? 0 : b.overlapPercent;
   if (typeof overlapPercent !== 'number' || !Number.isFinite(overlapPercent) || overlapPercent < 0 || overlapPercent > MAX_OVERLAP_PERCENT) {
@@ -313,6 +317,13 @@ function overlapCount(count: number, percent: number): number {
  * what is dealt and before any new pick, so they count towards the overlap share and their
  * plots get no other copy. One whose holder is now dealt the plot as main goes (nobody
  * checks their own plot); those of plots no longer in the file go.
+ *
+ * Order 'nearby' (Task 15) deals the plots along a Hilbert curve over `places` ([lat, lon]
+ * of each plot that has one; those without come last, in file order), so each person's
+ * chunk is a compact area; in a column division each group follows the curve. Each
+ * person's list is then kept in curve order, so their overlap copies are spread over their
+ * area, and go (as always) to the next person, who holds the next stretch of the curve:
+ * mostly a neighbouring area.
  */
 export function divide(
   d: Exclude<StoredDistribution, { mode: 'manual' }>,
@@ -321,9 +332,13 @@ export function divide(
   submittedBy: SubmittedBy,
   plotOf: (unit: string) => string = (unit) => unit,
   drawn: readonly PlotAssignment[] = [],
+  places: ReadonlyMap<string, readonly [number, number]> = new Map(),
 ): PlotAssignment[] {
   const position = new Map(plotIds.map((id, i) => [id, i]));
-  const order = d.order === 'mixed' ? shuffled(plotIds, d.seed ?? 0) : [...plotIds];
+  const order =
+    d.order === 'mixed' ? shuffled(plotIds, d.seed ?? 0) : d.order === 'nearby' ? nearbyOrder(plotIds, places) : [...plotIds];
+  // Each person's list is kept in file order, or along the curve for 'nearby'.
+  const rank = d.order === 'nearby' ? new Map(order.map((id, i) => [id, i])) : position;
   const groups: { people: string[]; plots: string[] }[] = [];
   if (d.mode === 'even') {
     groups.push({ people: d.people, plots: order });
@@ -378,7 +393,7 @@ export function divide(
   const dealt = groups.map((group) => ({ group, ...deal(group.plots, group.people, submittedBy) }));
   for (const { group, lists, copies, kept } of dealt) {
     lists.forEach((list, i) => {
-      list.sort((x, y) => position.get(x)! - position.get(y)!);
+      list.sort((x, y) => rank.get(x)! - rank.get(y)!);
       for (const plot of list) {
         add({ plotKey: plot, userId: group.people[i], overlap: false });
       }

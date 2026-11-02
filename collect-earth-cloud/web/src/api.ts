@@ -166,14 +166,29 @@ export interface CsvColumns {
   hasHeader: boolean;
   separator: string;
   columns: CsvColumn[];
+  /** Whether the plots can be divided by place (order "nearby"), and why not. */
+  nearby: NearbyInfo;
 }
 
-export type DivisionOrder = "file" | "mixed";
+/**
+ * Order "nearby" needs latitude and longitude: the survey's coordinates must be in latitude
+ * and longitude ("other_srs" otherwise, with its `srid`) and some plots must have them
+ * ("no_places"). `withoutPlace` plots are shared out last.
+ */
+export interface NearbyInfo {
+  available: boolean;
+  reason: "other_srs" | "no_places" | null;
+  withPlace: number;
+  withoutPlace: number;
+  srid: string | null;
+}
+
+export type DivisionOrder = "file" | "mixed" | "nearby";
 
 /** How a plot file's plots are divided between people (what the server stores and applies). */
 export type Distribution =
   | { mode: "whole" }
-  | { mode: "manual" }
+  | { mode: "manual"; order?: "nearby" }
   | { mode: "even"; people: string[]; order: DivisionOrder; overlapPercent?: number; seed?: number }
   | {
       mode: "column";
@@ -952,13 +967,13 @@ const strings = (value: unknown): string[] => (Array.isArray(value) ? value.map(
 export function toDistribution(value: unknown): Distribution | null {
   if (!value || typeof value !== "object") return null;
   const d = value as Record<string, unknown>;
-  const order: DivisionOrder = d.order === "mixed" ? "mixed" : "file";
+  const order: DivisionOrder = d.order === "mixed" || d.order === "nearby" ? d.order : "file";
   const extra: { overlapPercent?: number; seed?: number } = {};
   if (typeof d.overlapPercent === "number" && d.overlapPercent > 0) extra.overlapPercent = d.overlapPercent;
   if (typeof d.seed === "number") extra.seed = d.seed;
   switch (d.mode) {
     case "manual":
-      return { mode: "manual" };
+      return d.order === "nearby" ? { mode: "manual", order: "nearby" } : { mode: "manual" };
     case "even":
       return { mode: "even", people: strings(d.people), order, ...extra };
     case "column":
@@ -1009,6 +1024,21 @@ export async function getCsvColumns(projectId: string, csvFileId: string): Promi
         ? c.values.map((v: Record<string, unknown>) => ({ value: String(v?.value ?? ""), count: toCount(v?.count) }))
         : null,
     })),
+    nearby: toNearbyInfo(body?.nearby, toCount(body?.plotCount)),
+  };
+}
+
+/** The server's answer on order "nearby"; a server that does not say offers it not. */
+export function toNearbyInfo(value: unknown, plotCount: number): NearbyInfo {
+  const v = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+  const reason = v.reason === "other_srs" || v.reason === "no_places" ? v.reason : null;
+  const available = v.available === true;
+  return {
+    available,
+    reason: available ? null : (reason ?? "no_places"),
+    withPlace: available ? toCount(v.withPlace) : 0,
+    withoutPlace: v.withoutPlace === undefined ? (available ? 0 : plotCount) : toCount(v.withoutPlace),
+    srid: typeof v.srid === "string" ? v.srid : null,
   };
 }
 

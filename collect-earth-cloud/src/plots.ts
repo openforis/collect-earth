@@ -234,12 +234,24 @@ function fieldText(value: string, separator: string): string {
  * of the given plots (every plot with null) in file order, each with its exact bytes
  * and line break, and the round column when one is given. Linear in the file size:
  * the value of each distinct round text is encoded once, and the rows are copied
- * into one buffer of the final size.
+ * into one buffer of the final size. With `rank` (a division in order 'nearby', Task
+ * 15) the rows come in the order of their plot's rank instead, the rows of one plot in
+ * file order, a plot without a rank last.
  */
-export function buildPlotFile(file: PlotFile, plotKeys: ReadonlySet<string> | null, round?: RoundColumn): Buffer {
+export function buildPlotFile(
+  file: PlotFile,
+  plotKeys: ReadonlySet<string> | null,
+  round?: RoundColumn,
+  rank?: ReadonlyMap<string, number>,
+): Buffer {
   const data = file.data;
   const lineEnding = Buffer.from(file.lineEnding, 'ascii');
-  const rows = plotKeys === null ? file.rows : file.rows.filter((row) => plotKeys.has(row.id));
+  let rows = plotKeys === null ? file.rows : file.rows.filter((row) => plotKeys.has(row.id));
+  if (rank) {
+    // A stable sort: rows of one plot (same rank) keep their file order.
+    const of = (id: string) => rank.get(id) ?? Number.MAX_SAFE_INTEGER;
+    rows = [...rows].sort((x, y) => of(x.id) - of(y.id));
+  }
   const all = file.header ? [file.header, ...rows] : rows;
   const encoded = new Map<string, Buffer>();
   const encode = (text: string): Buffer => {

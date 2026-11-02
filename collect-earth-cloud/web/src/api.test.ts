@@ -356,6 +356,7 @@ describe("dividing plots", () => {
           { index: 0, name: "id", distinctCount: 120, values: null },
           { index: 4, name: null, distinctCount: 1, values: [{ value: "Oruro", count: "40" }] },
         ],
+        nearby: { available: true, reason: null, withPlace: 118, withoutPlace: 2 },
       }),
     );
     expect(await getCsvColumns("p 1", "f1")).toEqual({
@@ -366,6 +367,7 @@ describe("dividing plots", () => {
         { index: 0, name: "id", distinctCount: 120, values: null },
         { index: 4, name: null, distinctCount: 1, values: [{ value: "Oruro", count: 40 }] },
       ],
+      nearby: { available: true, reason: null, withPlace: 118, withoutPlace: 2, srid: null },
     });
     expect(call()).toEqual({ url: "/v1/projects/p%201/csv-files/f1/columns", method: "GET", body: undefined });
   });

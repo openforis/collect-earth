@@ -1,4 +1,4 @@
-import type { CsvColumn, CsvColumns, Distribution, DivisionOrder, Member } from "./api";
+import type { CsvColumn, CsvColumns, Distribution, DivisionOrder, Member, NearbyInfo } from "./api";
 import type { MessageKey, Translate } from "./i18n";
 
 // The "divide the plots of a file" form: its state, from and to what the server
@@ -55,7 +55,8 @@ export function initialForm(distribution: Distribution | null, holders: string[]
   };
   if (!distribution || distribution.mode === "whole") return form;
   // Plots moved by hand: there is no rule to show, so start from an even division between the same people.
-  if (distribution.mode === "manual") return { ...form, mode: "even" };
+  // After a division by place, the same order (the served files keep it).
+  if (distribution.mode === "manual") return { ...form, mode: "even", order: distribution.order ?? form.order };
   const overlap = (distribution.overlapPercent ?? 0) > 0;
   const common = {
     order: distribution.order,
@@ -126,6 +127,7 @@ function everyone(form: DivisionForm, columns: CsvColumns | null): Set<string> {
 /** What still has to be chosen before the form can be sent; null when it is complete. */
 export function formProblem(form: DivisionForm, columns: CsvColumns | null): MessageKey | null {
   if (form.mode === "whole") return null;
+  if (form.order === "nearby" && columns && !columns.nearby.available) return "divide.problemNearby";
   if (form.mode === "even" && form.people.length === 0) return "divide.problemNoPeople";
   if (form.mode === "column") {
     if (!selectedColumn(form, columns)) return "divide.problemNoColumn";
@@ -136,6 +138,20 @@ export function formProblem(form: DivisionForm, columns: CsvColumns | null): Mes
     if (everyone(form, columns).size < 2) return "divide.problemOverlapOnePerson";
   }
   return null;
+}
+
+/**
+ * What to say under the "close on the map" order: why it cannot be chosen, or how many plots
+ * have no latitude and longitude (they are shared out last); null when nothing is to be said.
+ * `format` writes a count in the viewer's language.
+ */
+export function nearbyNote(info: NearbyInfo, t: Translate, format: (n: number) => string): string | null {
+  if (!info.available) {
+    return info.reason === "other_srs" && info.srid
+      ? t("divide.orderNearbyOtherSrs", { srid: info.srid })
+      : t("divide.orderNearbyNoPlaces");
+  }
+  return info.withoutPlace > 0 ? t("divide.orderNearbyMissing", { count: format(info.withoutPlace) }) : null;
 }
 
 /** The request body for a complete form (see formProblem). */

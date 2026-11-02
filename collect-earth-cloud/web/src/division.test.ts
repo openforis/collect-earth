@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { CsvColumns, Member } from "./api";
-import { toDistribution, toDistributionState } from "./api";
+import { toDistribution, toDistributionState, toNearbyInfo } from "./api";
 import {
   collectors,
   columnLabel,
   formProblem,
   giveInTurn,
   initialForm,
+  nearbyNote,
   sortPeople,
   toRequest,
   withSeed,
@@ -39,9 +40,59 @@ const columns: CsvColumns = {
       ],
     },
   ],
+  nearby: { available: true, reason: null, withPlace: 120, withoutPlace: 0, srid: null },
 };
 
 const base: DivisionForm = initialForm(null, [], members);
+
+describe("order nearby (plots close on the map together)", () => {
+  const even: DivisionForm = { ...base, mode: "even", order: "nearby" };
+  const otherSrs: CsvColumns = { ...columns, nearby: { available: false, reason: "other_srs", withPlace: 0, withoutPlace: 120, srid: "EPSG:32633" } };
+
+  it("is sent as it is chosen, round-trips, and needs no seed", () => {
+    expect(formProblem(even, columns)).toBeNull();
+    expect(toRequest(even, columns)).toEqual({ mode: "even", people: ["u1", "u2"], order: "nearby" });
+    const back = initialForm(toDistribution(JSON.parse(JSON.stringify(toRequest(even, columns)))), [], members);
+    expect(back).toEqual(even);
+    const request = toRequest(even, columns);
+    expect(withSeed(request, { ...request, seed: 4 } as never)).toEqual(request);
+  });
+
+  it("a move after it keeps the order: the form starts on evenly, nearby", () => {
+    expect(toDistribution({ mode: "manual", order: "nearby" })).toEqual({ mode: "manual", order: "nearby" });
+    expect(initialForm({ mode: "manual", order: "nearby" }, ["u2"], members)).toMatchObject({ mode: "even", order: "nearby", people: ["u2"] });
+  });
+
+  it("cannot be sent when the file's places do not allow it", () => {
+    expect(formProblem(even, otherSrs)).toBe("divide.problemNearby");
+    expect(formProblem({ ...even, order: "file" }, otherSrs)).toBeNull();
+    expect(formProblem({ ...even, mode: "whole" }, otherSrs)).toBeNull();
+  });
+
+  it("says why it is not available, or how many plots go last", () => {
+    const n = (value: number) => String(value);
+    expect(nearbyNote(columns.nearby, t, n)).toBeNull();
+    expect(nearbyNote(otherSrs.nearby, t, n)).toBe("Not available: the survey’s coordinates are in EPSG:32633, not in latitude and longitude.");
+    expect(nearbyNote({ available: false, reason: "no_places", withPlace: 0, withoutPlace: 3, srid: null }, t, n)).toBe(
+      "Not available: no plot of this file has a latitude and longitude (the two columns after the plot id).",
+    );
+    expect(nearbyNote({ available: true, reason: null, withPlace: 100, withoutPlace: 20, srid: null }, t, n)).toBe(
+      "20 plots of this file have no latitude and longitude: they are shared out last, in the order of the file.",
+    );
+  });
+
+  it("reads the server's answer; a server that does not say does not offer it", () => {
+    expect(toNearbyInfo({ available: true, reason: null, withPlace: "9", withoutPlace: 1 }, 10)).toEqual({ available: true, reason: null, withPlace: 9, withoutPlace: 1, srid: null });
+    expect(toNearbyInfo({ available: false, reason: "other_srs", withPlace: 0, withoutPlace: 10, srid: "EPSG:3857" }, 10)).toEqual({
+      available: false,
+      reason: "other_srs",
+      withPlace: 0,
+      withoutPlace: 10,
+      srid: "EPSG:3857",
+    });
+    expect(toNearbyInfo(undefined, 10)).toEqual({ available: false, reason: "no_places", withPlace: 0, withoutPlace: 10, srid: null });
+  });
+});
 
 describe("people", () => {
   it("collectors and reviewers first, then by name", () => {

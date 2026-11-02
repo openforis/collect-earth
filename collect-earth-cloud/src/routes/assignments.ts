@@ -8,12 +8,13 @@ import { checksumOf } from '../csv.js';
 import { copiesSubmittedAsMain } from '../division.js';
 import { attachment } from '../download.js';
 import { checkUploadFits } from '../limits.js';
+import { nearbyRanksOf, servedNearby } from '../nearby.js';
 import { buildPlotFile, parsePlotFile, type RoundColumn } from '../plots.js';
 import { referenceCopyPlan } from '../reference.js';
 import { fileKeyCount, keyShape, recordKeysOfUnit } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store, UserPlots } from '../store/store.js';
-import type { Assignment, RecordRow } from '../types.js';
+import type { Assignment, RecordRow, StoredDistribution } from '../types.js';
 import { plotFileOf } from '../plotFileCache.js';
 import type { ProjectStateCache } from '../projectState.js';
 import type { SamplingService } from '../samplingService.js';
@@ -511,11 +512,16 @@ function wholeKey(file: { checksum: string }, info: RoundInfo | null): string {
   return `whole:${roundKey(file, info)}`;
 }
 
-function ownKey(file: { checksum: string }, plots: UserPlots, info: RoundInfo | null, asMain: ReadonlySet<string>): string {
+function ownKey(
+  file: { checksum: string; distribution?: StoredDistribution | null },
+  plots: UserPlots,
+  info: RoundInfo | null,
+  asMain: ReadonlySet<string>,
+): string {
   const hash = createHash('sha256')
     .update(JSON.stringify([[...plots.plotKeys].sort(), [...plots.copyKeys].sort(), [...asMain].sort()]))
     .digest('hex');
-  return `own:${roundKey(file, info)}:${hash}`;
+  return `own:${roundKey(file, info)}:${servedNearby(file.distribution) ? 'nearby' : 'file'}:${hash}`;
 }
 
 /** The whole file with the round column inserted, when it was built recently. */
@@ -525,7 +531,7 @@ function cachedWholeFile(file: { checksum: string }, info: RoundInfo | null): Se
 
 /** One person's built file when it was built recently (null: none of their plots), else undefined. */
 function cachedOwnFile(
-  file: { checksum: string },
+  file: { checksum: string; distribution?: StoredDistribution | null },
   plots: UserPlots,
   info: RoundInfo | null,
   asMain: ReadonlySet<string>,
@@ -586,10 +592,12 @@ function recheckServed(file: { checksum: string; data: Buffer }, recheck: Rechec
  * column when the survey has one to fill in; null when none of their plots is in the
  * file (any more). The plot keys are the file's first fileKeyCount(info) columns.
  * `asMain` are the copies served with the main round (copiesServedAsMain): the value
- * 1 (added) or the file's own value, not the reassessment code.
+ * 1 (added) or the file's own value, not the reassessment code. A division in order
+ * 'nearby' (Task 15) lists the rows along its curve (nearbyRanksOf), copies and reference
+ * or drawn copies among them; otherwise in file order.
  */
 function ownFile(
-  file: { checksum: string; data: Buffer },
+  file: { checksum: string; data: Buffer; distribution?: StoredDistribution | null },
   plots: UserPlots,
   info: RoundInfo | null,
   asMain: ReadonlySet<string>,
@@ -605,7 +613,8 @@ function ownFile(
   let built: ServedFile | null = null;
   if (keys.size > 0) {
     const round = roundColumnOf(info, new Set(plots.copyKeys.filter((k) => !asMain.has(k)))) ?? undefined;
-    const data = buildPlotFile(plotFile, keys, round);
+    const rank = servedNearby(file.distribution) ? nearbyRanksOf(file, fileKeyCount(info)) : undefined;
+    const data = buildPlotFile(plotFile, keys, round, rank);
     built = { data, checksum: checksumOf(data), plotCount: keys.size };
   }
   cacheSet(key, built);
