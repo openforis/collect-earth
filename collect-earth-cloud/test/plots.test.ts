@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { buildPlotFile, parsePlotFile, type RoundColumn } from '../src/plots.js';
+import { buildPlotFile, MAX_NOTE_LENGTH, noteText, parsePlotFile, type NoteColumn, type RoundColumn } from '../src/plots.js';
 import { IdsCache, PARSED_OVERHEAD, ParsedCache, parsedFileCount, plotFileOf, plotIdsOf } from '../src/plotFileCache.js';
 import { unitOfRecord } from '../src/rounds.js';
+
+// The look-alikes noteText writes, by code point (single and fullwidth angle quotes and ampersand).
+const LT = String.fromCharCode(0x2039);
+const GT = String.fromCharCode(0x203a);
+const AMP = String.fromCharCode(0xff06);
+const ELLIPSIS = String.fromCharCode(0x2026);
+const BOM = String.fromCharCode(0xfeff);
 
 const parse = (text: string | Buffer) => parsePlotFile(Buffer.isBuffer(text) ? text : Buffer.from(text, 'utf8'));
 const build = (text: string | Buffer, keys: string[]) =>
@@ -156,6 +163,88 @@ describe('plot files with a round column', () => {
     expect(row.fields).toEqual(['1,2', '0', '0']);
     expect(row.fieldStarts).toEqual([11, 18, 21]);
     expect(row.fieldEnds).toEqual([17, 20, 22]);
+  });
+});
+
+describe("plot files with the coordinator's note column (Task 16)", () => {
+  const note = (column: number, notes: Record<string, string> = {}, keyFields = 1): NoteColumn => ({
+    keyFields,
+    column,
+    value: (id) => notes[id] ?? '',
+  });
+  const insert: RoundColumn = { kind: 'insert', value: () => '1' };
+
+  it('puts the note at its extra column: padding a row with fewer, inserting into one with more', () => {
+    // Column 2: after 2 extra columns. Plot 1 has 1 (padded), 2 has 2 (appended), 3 has 3 (inserted).
+    const file = parse('id,lat,lon,a\n1,0,0,x\n2,0,0,x,y\n3,0,0,x,y,z\n');
+    expect(buildPlotFile(file, null, undefined, undefined, note(2, { 1: 'one', 3: 'three' })).toString()).toBe(
+      'id,lat,lon,a,,coordinator_note\n1,0,0,x,,one\n2,0,0,x,y,\n3,0,0,x,y,three,z\n',
+    );
+    // Read back as Collect Earth reads a row: extra column 2 is the note, the others where they were.
+    const back = parse(buildPlotFile(file, null, undefined, undefined, note(2, { 3: 'three' })));
+    expect(back.rows.map((r) => r.fields[3 + 2])).toEqual(['', '', 'three']);
+    expect(back.rows[2].fields).toEqual(['3', '0', '0', 'x', 'y', 'three', 'z']);
+  });
+
+  it('goes after the round the server inserts, and counts the keys of the file as uploaded', () => {
+    const file = parse('id;lat;lon\r\n1;0;0\r\n2;1;1');
+    expect(buildPlotFile(file, null, insert, undefined, note(0, { 2: 'a; b "c"' })).toString()).toBe(
+      'id;round;lat;lon;coordinator_note\r\n1;1;0;0;\r\n2;1;1;1;"a; b ""c"""',
+    );
+    // A survey with its own round: two key columns, the round replaced in place.
+    const own = parsePlotFile(Buffer.from('id,round,lat,lon,e\n17,1,0,0,5\n'), 2);
+    const replace: RoundColumn = { kind: 'replace', index: 1, value: () => '2' };
+    expect(buildPlotFile(own, null, replace, undefined, note(1, { '17,1': 'n' }, 2)).toString()).toBe(
+      'id,round,lat,lon,e,coordinator_note\n17,2,0,0,5,n\n',
+    );
+  });
+
+  it('counts the latitude and longitude only when they are numbers (decimal commas too), as Collect Earth does', () => {
+    const file = parse('id;lat;lon;a\n1;0,5;-3,25;x\n2;POLYGON;-;x\n');
+    // Plot 1: coordinates, the note after a (column 1); plot 2: none, extra columns from the second.
+    expect(buildPlotFile(file, null, undefined, undefined, note(1, { 1: 'n1', 2: 'n2' })).toString()).toBe(
+      'id;lat;lon;a;coordinator_note\n1;0,5;-3,25;x;n1\n2;POLYGON;n2;-;x\n',
+    );
+  });
+
+  it('a file without a header row gets it in its data rows only; rank and plot choice as before', () => {
+    const file = parse('1,0,0\n2,1,1\n3,2,2');
+    expect(file.header).toBeNull();
+    const rank = new Map([['3', 0], ['1', 1]]);
+    expect(buildPlotFile(file, new Set(['1', '3']), insert, rank, note(1, { 3: 'x' })).toString()).toBe('3,1,2,2,,x\n1,1,0,0,,\n');
+  });
+
+  it('a BOM and a quoted field with a line break keep their bytes', () => {
+    const text = `${BOM}id,lat,lon,wkt\n1,0,0,"POLYGON((0 0,\n 1 1))"\n`;
+    expect(buildPlotFile(parse(text), null, undefined, undefined, note(1, { 1: 'n' })).toString()).toBe(
+      `${BOM}id,lat,lon,wkt,coordinator_note\n1,0,0,"POLYGON((0 0,\n 1 1))",n\n`,
+    );
+  });
+});
+
+describe("noteText: a comment as the plot file carries it (Task 16)", () => {
+  it('leaves plain text alone and gives nothing for no comment', () => {
+    expect(noteText('Look at the trees in the north corner')).toBe('Look at the trees in the north corner');
+    expect(noteText('Árbol, ñandú')).toBe('Árbol, ñandú');
+    expect(noteText(null)).toBe('');
+    expect(noteText('   ')).toBe('');
+  });
+
+  it('puts it on one line, with nothing a balloon reads as HTML or as a value to fill', () => {
+    const text = noteText('Trees <b>here</b>\r\n\n  & "there"\tnow $[EXTRA_id] ${x}');
+    expect(text).not.toMatch(/[<>&"\r\n\t]|\$\[/);
+    expect(text).toBe(`Trees ${LT}b${GT}here${LT}/b${GT} / ${AMP} 'there' now $ [EXTRA_id] \${x}`);
+    expect(noteText(`a${String.fromCharCode(0x2028)}b${String.fromCharCode(0)}c`)).toBe('a / b c');
+  });
+
+  it('cuts a long comment at MAX_NOTE_LENGTH characters, ending with an ellipsis, without splitting a character', () => {
+    const long = noteText('x'.repeat(MAX_NOTE_LENGTH + 50));
+    expect([...long]).toHaveLength(MAX_NOTE_LENGTH);
+    expect(long.endsWith(ELLIPSIS)).toBe(true);
+    const emoji = noteText(String.fromCodePoint(0x1f333).repeat(MAX_NOTE_LENGTH + 1));
+    expect([...emoji]).toHaveLength(MAX_NOTE_LENGTH);
+    expect(emoji).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])/);
+    expect(noteText('y'.repeat(MAX_NOTE_LENGTH))).toBe('y'.repeat(MAX_NOTE_LENGTH));
   });
 });
 

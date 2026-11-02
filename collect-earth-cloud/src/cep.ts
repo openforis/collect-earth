@@ -656,6 +656,11 @@ export interface RoundInfo {
   roundCodes: CodeItem[];
   /** added: "2"; own: "2" when that code exists, else null until the coordinator picks one. */
   reassessmentCode: string | null;
+  /**
+   * The coordinator's note (Task 16): whether the served survey has it and at which extra column of
+   * a served row it is read. Absent on infos stored before it (read as none).
+   */
+  note?: NoteInfo;
 }
 
 const BALLOON_MARKER = '<!-- START OF EXTRA CSV DATA -->';
@@ -678,6 +683,29 @@ const ROUND_TEXTS: Record<'name' | 'first' | 'again', Record<Lang, string>> = {
   again: { en: 'Re-assessment', es: 'Reevaluación', fr: 'Réévaluation', pt: 'Reavaliação' },
 };
 const isLang = (l: string): l is Lang => l in ROUND_TEXTS.name;
+
+/** The language a survey's unmarked labels are in, when it is one we have texts in (else English). */
+const unmarkedLang = (languages: readonly string[]): Lang => {
+  const defaultLang = languages[0] ?? 'en';
+  return isLang(defaultLang) ? defaultLang : 'en';
+};
+
+/**
+ * <label> elements for a text: unmarked in the survey's default language (English when it is not
+ * one of ours), then marked in its other declared languages we have; a survey that declares no
+ * languages gets English plus es/fr/pt.
+ */
+function labelElements(languages: readonly string[], texts: Record<Lang, string>, type: string): string[] {
+  const defaultLang = languages[0] ?? 'en';
+  const unmarked = unmarkedLang(languages);
+  const marked = (languages.length > 0 ? languages : ['en', 'es', 'fr', 'pt']).filter(
+    (l): l is Lang => isLang(l) && l !== defaultLang && l !== unmarked,
+  );
+  return [
+    `<label${type}>${xmlAscii(texts[unmarked])}</label>`,
+    ...marked.map((l) => `<label${type} xml:lang="${l}">${xmlAscii(texts[l])}</label>`),
+  ];
+}
 
 /**
  * Serves an id-only project file with a hidden `round` key added to its survey, balloons and
@@ -932,16 +960,7 @@ function addRoundToSurvey(text: string, info: SurveyInfo): { survey: string; lis
     listName = `assessment_phases_${n}`;
   }
 
-  // Labels: unmarked in the survey's default language, then its other languages we have.
-  const defaultLang = info.languages[0] ?? 'en';
-  const unmarked: Lang = isLang(defaultLang) ? defaultLang : 'en';
-  const marked = (info.languages.length > 0 ? info.languages : ['en', 'es', 'fr', 'pt']).filter(
-    (l): l is Lang => isLang(l) && l !== defaultLang && l !== unmarked,
-  );
-  const labels = (texts: Record<Lang, string>, type: string) => [
-    `<label${type}>${xmlAscii(texts[unmarked])}</label>`,
-    ...marked.map((l) => `<label${type} xml:lang="${l}">${xmlAscii(texts[l])}</label>`),
-  ];
+  const labels = (texts: Record<Lang, string>, type: string) => labelElements(info.languages, texts, type);
 
   if (!reuse) {
     const listId = lastId + 1;
@@ -1002,6 +1021,291 @@ function addRoundToSurvey(text: string, info: SurveyInfo): { survey: string; lis
   if (tagInsert) edits.push({ at: survey.attrsEnd, remove: 0, insert: tagInsert });
 
   return { survey: applyEdits(text, edits), listName };
+}
+
+// ---------------------------------------------------------------------------------------
+// The coordinator's note (Task 16)
+
+/** The note's attribute; Collect Earth sends it in a record's summary as NOTE_SUMMARY_KEY. */
+export const NOTE_NAME = 'coordinator_note';
+export const NOTE_SUMMARY_KEY = `collect_text_${NOTE_NAME}`;
+
+export type NoteRefusal =
+  | CepErrorCode
+  | 'several_entities'
+  | 'note_name_taken'
+  | 'nested_plot_columns'
+  | 'balloon_missing'
+  | 'balloon_marker_missing'
+  | 'template_missing'
+  | 'template_marker_missing'
+  | 'records_exist';
+
+export interface NoteInfo {
+  /** added: the served survey has the note (the server added it, or the upload had it). */
+  state: 'added' | 'none';
+  /** Why the server did not add it (state none), else null. */
+  refusal: NoteRefusal | null;
+  /**
+   * added: the note's place among a served row's extra columns (those after the keys and the
+   * latitude and longitude): the number of attributes the survey fills from the plot file before it.
+   */
+  column: number | null;
+}
+
+/** Whether the served survey has the note, and at which extra column (null: no note). */
+export const noteColumn = (info: { note?: NoteInfo } | null | undefined): number | null =>
+  info?.note?.state === 'added' ? info.note.column : null;
+
+const NOTE_TEXTS: Record<'name', Record<Lang, string>> = {
+  name: { en: 'Note from the coordinator', es: 'Nota del coordinador', fr: 'Note du coordinateur', pt: 'Nota do coordenador' },
+};
+const NOTE_INPUT =
+  '<input type="hidden" id="collect_text_coordinator_note" name="collect_text_coordinator_note" value="$[EXTRA_coordinator_note]" class="extra" />';
+const NOTE_SHOWN_ID = 'coordinator_note_shown';
+const noteTemplateLines = (column: number) => [
+  '<Data name="EXTRA_coordinator_note">',
+  `<value>\${placemark.extraColumns[${column}]!""}</value>`,
+  '</Data>',
+];
+/** IDML elements that are attributes (not entities, labels or the like). */
+const ATTRIBUTE_TAGS = new Set(['text', 'code', 'number', 'boolean', 'date', 'time', 'coordinate', 'range', 'taxon', 'file']);
+const isPlotColumn = (e: XmlElement) => attrOf(e, 'collectearth:fromcsv')?.value === 'true';
+const isKey = (e: XmlElement) => attrOf(e, 'key')?.value === 'true';
+
+/**
+ * Serves a project file with the coordinator's note added (Task 16): a text attribute
+ * `coordinator_note` filled from the plot file (collectearth:fromcsv) and shown in the header of
+ * Collect Earth's form only when it has a value (collectearth:includeinheader), the last of the
+ * attributes filled from the plot file, so it reads extra column N of a row, N being how many of
+ * them come before it; the balloons get its hidden input and a line that shows it, the KML template
+ * its `<Data>`. Hands back the original bytes, and why, in every other case; a file that already has
+ * the note the server adds is `added` with its bytes unchanged.
+ * `date` stamps every entry of the served zip (zipCep). A zip above the limits throws too_large.
+ */
+export function addNote(
+  zip: Buffer,
+  date: Date = new Date(),
+  limits: CepLimits = DEFAULT_CEP_LIMITS,
+): { cep: Buffer; info: NoteInfo } {
+  const none = (refusal: NoteRefusal) => ({ cep: zip, info: { state: 'none', refusal, column: null } as NoteInfo });
+  let files: CepFiles;
+  let languages: string[];
+  try {
+    files = readCep(zip, limits);
+    const parsed = parseSurvey(decodeUtf8(files.entries.get(files.surveyPath)!));
+    if (parsed.rootEntities.length > 1) return none('several_entities');
+    languages = parsed.languages;
+  } catch (e) {
+    if (e instanceof CepError && e.code !== 'too_large') return none(e.code);
+    throw e;
+  }
+  const read = (path: string) => latin1(files.entries.get(path)!);
+  const surveyText = read(files.surveyPath);
+  let shape: NoteShape;
+  try {
+    shape = noteShape(surveyText);
+  } catch (e) {
+    if (e instanceof CepError) return none('survey_unreadable');
+    throw e;
+  }
+  if (shape.nested) return none('nested_plot_columns');
+  const template = files.templatePath ? read(files.templatePath) : null;
+  if (shape.note) {
+    // Ours, already there (the served file uploaded again): kept as it is.
+    const balloons = [files.balloonPath, files.balloonWebPath].filter((p): p is string => p !== null);
+    const ours =
+      shape.ours &&
+      template !== null &&
+      template.includes(noteTemplateLines(shape.column)[1]) &&
+      balloons.length > 0 &&
+      balloons.every((p) => read(p).includes('id="collect_text_coordinator_note"'));
+    return ours ? { cep: zip, info: { state: 'added', refusal: null, column: shape.column } } : none('note_name_taken');
+  }
+
+  const balloons: string[] = [];
+  if (!files.balloonPath) return none('balloon_missing');
+  balloons.push(files.balloonPath);
+  if (files.balloonWebPath) balloons.push(files.balloonWebPath);
+  for (const path of balloons) {
+    if (!read(path).includes(BALLOON_MARKER)) return none('balloon_marker_missing');
+  }
+  if (!files.templatePath || template === null) return none('template_missing');
+  if (!template.includes(TEMPLATE_MARKER) && !template.includes('<Data name="EXTRA_id">')) {
+    return none('template_marker_missing');
+  }
+
+  let newSurvey: string;
+  try {
+    newSurvey = addNoteToSurvey(surveyText, shape, languages);
+  } catch (e) {
+    if (e instanceof CepError) return none('survey_unreadable');
+    throw e;
+  }
+  const column = shape.column;
+  const entries = new Map(files.entries);
+  entries.set(files.surveyPath, fromLatin1(newSurvey));
+  for (const path of balloons) entries.set(path, fromLatin1(addNoteToBalloon(read(path), languages)));
+  entries.set(files.templatePath, fromLatin1(addNoteToTemplate(template, column)));
+  const cep = zipCep(entries, date);
+
+  // The served file must read back with the note where the rows have it: anything else is a bug,
+  // never handed out.
+  const grown = [...entries.values()].reduce((n, d) => n + d.length, 0) -
+    [...files.entries.values()].reduce((n, d) => n + d.length, 0);
+  const served = readCepWithin(cep, limits, allowedBytes(zip.length, limits) + Math.max(grown, 0));
+  const check = noteShape(latin1(served.entries.get(served.surveyPath)!));
+  const servedTemplate = latin1(served.entries.get(served.templatePath!)!);
+  const ok =
+    check.note &&
+    check.ours &&
+    check.column === column &&
+    !check.nested &&
+    surveyInfo(decodeUtf8(served.entries.get(served.surveyPath)!)).rootEntityCount === 1 &&
+    count(servedTemplate, '<Data name="EXTRA_coordinator_note">') === 1 &&
+    servedTemplate.includes(noteTemplateLines(column)[1]) &&
+    balloons.every((p) => count(latin1(served.entries.get(p)!), 'id="collect_text_coordinator_note"') === 1);
+  if (!ok) throw new Error(`addNote produced a project file whose note is not read from extra column ${column}`);
+  return { cep, info: { state: 'added', refusal: null, column } };
+}
+
+const count = (haystack: string, needle: string) => haystack.split(needle).length - 1;
+
+/** What addNote needs of a survey, read from its text as the editor sees it. */
+interface NoteShape {
+  root: XmlElement;
+  survey: XmlElement;
+  /** The root's attributes filled from the plot file that are not keys, before the note, in order. */
+  column: number;
+  /** An attribute below the root is filled from the plot file: its place would come after the note. */
+  nested: boolean;
+  /** The root has an attribute named coordinator_note... */
+  note: boolean;
+  /** ...the one addNote adds: text, from the plot file, in the header, after every other one from it. */
+  ours: boolean;
+  /** Where the note goes: after the last root attribute filled from the plot file, else the last key. */
+  anchor: XmlElement | null;
+  firstKey: XmlElement | null;
+}
+
+function noteShape(text: string): NoteShape {
+  const unreadable = () => new CepError('survey_unreadable', 'The survey cannot be read.');
+  const survey = scanXml(text).find((e) => e.name === 'survey');
+  const schema = survey?.children.find((e) => e.name === 'schema');
+  const root = schema?.children.find((e) => e.name === 'entity');
+  if (!survey || !root) throw unreadable();
+  const nestedColumn = (e: XmlElement): boolean =>
+    e.children.some((c) => (ATTRIBUTE_TAGS.has(c.name) && isPlotColumn(c)) || (c.name === 'entity' && nestedColumn(c)));
+  let column = 0;
+  let note: XmlElement | null = null;
+  let after = 0;
+  let anchor: XmlElement | null = null;
+  let lastKey: XmlElement | null = null;
+  let firstKey: XmlElement | null = null;
+  let nested = false;
+  for (const child of root.children) {
+    if (child.name === 'entity') {
+      nested ||= nestedColumn(child);
+      continue;
+    }
+    if (!ATTRIBUTE_TAGS.has(child.name)) continue;
+    if (isKey(child)) {
+      firstKey ??= child;
+      lastKey = child;
+    }
+    if (attrOf(child, 'name')?.value === NOTE_NAME) {
+      note = child;
+      continue;
+    }
+    if (isPlotColumn(child) && !isKey(child)) {
+      if (note) after++;
+      else column++;
+      anchor = child;
+    }
+  }
+  const ours =
+    note !== null &&
+    note.name === 'text' &&
+    isPlotColumn(note) &&
+    !isKey(note) &&
+    attrOf(note, 'collectearth:includeinheader')?.value === 'true' &&
+    after === 0;
+  return { root, survey, column, nested, note: note !== null, ours, anchor: anchor ?? lastKey, firstKey };
+}
+
+/** Adds the note attribute after the root's last attribute filled from the plot file (else its last key). */
+function addNoteToSurvey(text: string, shape: NoteShape, languages: readonly string[]): string {
+  const { survey, anchor, firstKey } = shape;
+  if (!anchor) throw new CepError('survey_unreadable', 'The survey cannot be read.');
+  const edits: Edit[] = [];
+  let maxId = 0;
+  const visit = (e: XmlElement) => {
+    const id = Number(attrOf(e, 'id')?.value);
+    if (Number.isInteger(id) && id > maxId) maxId = id;
+    e.children.forEach(visit);
+  };
+  visit(survey);
+  const lastIdAttr = attrOf(survey, 'lastId');
+  const declared = Number.parseInt(lastIdAttr?.value ?? '', 10);
+  const noteId = Math.max(maxId, Number.isFinite(declared) ? declared : 0) + 1;
+
+  const tab = firstKey ? attrOf(firstKey, 'ui:tab') : null;
+  const indent = indentAt(text, anchor.start);
+  const unit = indentUnit(indentAt(text, shape.root.start), indent);
+  const lines = [
+    `${indent}<text id="${noteId}" name="${NOTE_NAME}" type="memo"${tab ? ` ui:tab="${tab.value}"` : ''} ` +
+      'collectearth:fromcsv="true" collectearth:includeinheader="true">',
+    ...labelElements(languages, NOTE_TEXTS.name, ' type="instance"').map((l) => indent + unit + l),
+    `${indent}</text>`,
+  ];
+  edits.push({ at: anchor.end, remove: 0, insert: linesAfter(text, anchor.end, lines) });
+
+  let tagInsert = lastIdAttr ? '' : ` lastId="${noteId}"`;
+  if (lastIdAttr) edits.push({ at: lastIdAttr.at, remove: lastIdAttr.value.length, insert: String(noteId) });
+  for (const [prefix, uri] of NAMESPACES) {
+    if (!attrOf(survey, `xmlns:${prefix}`)) tagInsert += ` xmlns:${prefix}="${uri}"`;
+  }
+  if (tagInsert) edits.push({ at: survey.attrsEnd, remove: 0, insert: tagInsert });
+  return applyEdits(text, edits);
+}
+
+/** A text as a CSS string's content, ASCII only: anything else as an escape. */
+const cssAscii = (s: string) =>
+  s.replace(/[\\"]/g, (c) => `\\${c}`).replace(/[^\x20-\x7e]/gu, (c) => `\\${c.codePointAt(0)!.toString(16).padStart(6, '0')}`);
+
+/**
+ * The note in a balloon: its hidden input, as the other columns of the plot file have, then a line
+ * that shows it, labelled, hidden while empty. A `$[...]` left unfilled (a plot file without the
+ * column, opened in the browser) is cleared so it never shows.
+ */
+function addNoteToBalloon(html: string, languages: readonly string[]): string {
+  if (html.includes('id="collect_text_coordinator_note"')) return html;
+  const label = cssAscii(`${NOTE_TEXTS.name[unmarkedLang(languages)]}: `);
+  const marker = html.indexOf(BALLOON_MARKER);
+  const indent = indentAt(html, marker);
+  const lines = [
+    NOTE_INPUT,
+    `<style>#${NOTE_SHOWN_ID}{margin:4px 0 8px;padding:4px 8px;border-left:3px solid #f0ad4e;background:#fcf8e3;white-space:pre-wrap}` +
+      `#${NOTE_SHOWN_ID}:empty{display:none}#${NOTE_SHOWN_ID}::before{content:"${label}";font-weight:bold}</style>`,
+    `<div id="${NOTE_SHOWN_ID}">$[EXTRA_coordinator_note]</div>`,
+    `<script>(function(){var n=document.getElementById('${NOTE_SHOWN_ID}');` +
+      `if(n&&n.textContent.indexOf('$'+'[')===0){n.textContent='';}})();</script>`,
+  ];
+  return insertLinesAfter(html, lineContentEnd(html, marker), lines.map((l) => indent + l));
+}
+
+function addNoteToTemplate(template: string, column: number): string {
+  if (template.includes('<Data name="EXTRA_coordinator_note">')) return template;
+  const lines = noteTemplateLines(column);
+  const marker = template.indexOf(TEMPLATE_MARKER);
+  if (marker >= 0) {
+    const indent = indentAt(template, marker);
+    return insertLinesAfter(template, lineContentEnd(template, marker), lines.map((l) => indent + l));
+  }
+  const idData = template.indexOf('<Data name="EXTRA_id">');
+  const close = template.indexOf('</Data>', idData);
+  const indent = indentAt(template, idData);
+  return insertLinesAfter(template, close + '</Data>'.length, lines.map((l) => indent + l));
 }
 
 // ---------------------------------------------------------------------------------------

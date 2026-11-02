@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
 import { strFromU8, strToU8, unzipSync } from 'fflate';
-import { cepWith, demoCep, idOnlyCep } from './fixtures/cep.js';
+import { cepWith, demoCep, idOnlyCep, noNote } from './fixtures/cep.js';
 import { nearbyOrder } from '../src/nearby.js';
 
 // 10 plots: a header, a quoted WKT column holding the separator and a line break,
@@ -533,7 +533,7 @@ describe('dividing plots between people', () => {
     });
 
     it('with the round column and copies: the rows follow the curve, the copies with round 2', async () => {
-      expect((await putCep(idOnlyCep())).state).toBe('added');
+      expect((await putCep(noNote(idOnlyCep()))).state).toBe('added');
       const res = await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'nearby', overlapPercent: 25 }, gridId);
       expect(res.statusCode, res.body).toBe(200);
       const [entry] = await myAssignment(jose.token);

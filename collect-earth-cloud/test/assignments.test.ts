@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
-import { demoCep, idOnlyCep } from './fixtures/cep.js';
+import { demoCep, idOnlyCep, noNote } from './fixtures/cep.js';
 
 async function createInvite(app: FastifyInstance, pid: string, adminToken: string, role: string): Promise<string> {
   const res = await app.inject({
@@ -237,7 +237,7 @@ describe('plot files served with a round column', () => {
   });
 
   it('with the round the server added, a whole file gets round 1 on every plot', async () => {
-    expect((await putCep(idOnlyCep())).state).toBe('added');
+    expect((await putCep(noNote(idOnlyCep()))).state).toBe('added');
     const csv = 'id,lat,lon,wkt\n1,0,0,"POLYGON((0 0,\n 1 1))"\n2,1,1,x\n';
     const id = await upload('north.csv', csv);
     await assign(maria.userId, id);
@@ -262,7 +262,7 @@ describe('plot files served with a round column', () => {
   });
 
   it('with the round the server added, a divided file gets round 2 on the quality-check copies', async () => {
-    expect((await putCep(idOnlyCep())).state).toBe('added');
+    expect((await putCep(noNote(idOnlyCep()))).state).toBe('added');
     const csv = 'id;lat;lon\r\n1;0;0\r\n2;0;0\r\n3;0;0\r\n4;0;0\r\n4;1;1';
     const id = await upload('plots.csv', csv);
     expect((await divide(id, [maria.userId, jose.userId], 50)).statusCode).toBe(200);
@@ -289,7 +289,7 @@ describe('plot files served with a round column', () => {
   });
 
   it('with a survey of its own round and a reassessment code, the copies get that code', async () => {
-    expect(await putCep(demoCep())).toMatchObject({ state: 'own', reassessmentCode: '2' });
+    expect(await putCep(noNote(demoCep()))).toMatchObject({ state: 'own', reassessmentCode: '2' });
     const csv = 'id,round,lat,lon\n17,1,0,0\n18,1,0,0\n19,1,0,0\n20,1,0,0\n';
     const id = await upload('own.csv', csv);
     expect((await divide(id, [maria.userId, jose.userId], 50)).statusCode).toBe(200);
@@ -312,7 +312,7 @@ describe('plot files served with a round column', () => {
   it('a project without round serves plot files exactly as uploaded (whole) or as before (divided)', async () => {
     // Records first: the server then leaves the id-only survey as it is.
     await batchRequest(ctx.app, pid, project.projectToken, [envelope()]);
-    expect((await putCep(idOnlyCep())).state).toBe('none');
+    expect((await putCep(noNote(idOnlyCep()))).state).toBe('none');
     const csv = 'id,lat,lon\n1,0,0\n2,1,1\n3,2,2\n';
     const whole = await upload('whole.csv', csv);
     await assign(maria.userId, whole);
@@ -340,7 +340,7 @@ describe('plot files served with a round column', () => {
   });
 
   it('answers 409 when the file changed after my-assignment listed it', async () => {
-    expect((await putCep(idOnlyCep())).state).toBe('added');
+    expect((await putCep(noNote(idOnlyCep()))).state).toBe('added');
     const id = await upload('plots.csv', 'id,lat,lon\n1,0,0\n2,1,1\n');
     await assign(maria.userId, id);
     const listed = (await myAssignment(maria.token))[0];
@@ -356,7 +356,7 @@ describe('plot files served with a round column', () => {
   });
 
   it('leaves out of my-assignment a file that cannot be built, and lists the others', async () => {
-    expect((await putCep(idOnlyCep())).state).toBe('added');
+    expect((await putCep(noNote(idOnlyCep()))).state).toBe('added');
     const good = await upload('good.csv', 'id,lat,lon\n1,0,0\n');
     const bad = await upload('bad.csv', 'id,lat,lon\n2,0,0\n');
     await ctx.app.inject({
@@ -376,7 +376,7 @@ describe('plot files served with a round column', () => {
   });
 
   it('serves a copy whose main assessment the person did with the main round, not as a check', async () => {
-    expect((await putCep(idOnlyCep())).state).toBe('added');
+    expect((await putCep(noNote(idOnlyCep()))).state).toBe('added');
     const id = await upload('plots.csv', 'id,lat,lon\n1,0,0\n2,1,1\n3,2,2\n');
     // maria holds 1, and 2 as a copy; jose holds 2 and 3.
     await ctx.store.setDivision(pid, id, { mode: 'manual' }, [
@@ -416,7 +416,7 @@ describe('plot files served with a round column', () => {
   });
 
   it('a survey with its own round and no reassessment code serves plot files as uploaded', async () => {
-    await putCep(demoCep());
+    await putCep(noNote(demoCep()));
     const setCode = await ctx.app.inject({
       method: 'PUT',
       url: `/v1/projects/${pid}/round`,

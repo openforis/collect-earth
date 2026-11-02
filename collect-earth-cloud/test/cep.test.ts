@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { strFromU8, unzipSync } from 'fflate';
 import * as zlib from 'node:zlib';
 import { inflateRawSync } from 'node:zlib';
-import { addRound, CepError, readCep, surveyInfo, zipCep } from '../src/cep.js';
+import { addNote, addRound, CepError, NOTE_SUMMARY_KEY, readCep, surveyInfo, zipCep } from '../src/cep.js';
+import { keyRule } from '../src/quality.js';
+import { surveyOutline } from '../src/surveyOutline.js';
 import { cepWith, demoCep, FIXTURE_DATE, idOnlyCep, realDemoCep } from './fixtures/cep.js';
 
 interface RawEntry {
@@ -980,5 +982,167 @@ describe('addRound', () => {
     );
     expect(info.keyCount).toBe(2);
     expect(addRound(Buffer.from('x')).info.keyCount).toBe(0);
+  });
+});
+
+describe("addNote (the coordinator's note, Task 16)", () => {
+  const NOTE_TAG = /<text id="(\d+)" name="coordinator_note"[^>]*>/;
+
+  it('adds a text from the plot file, shown in the form header, after the 9 attributes the demo fills from it', () => {
+    const before = addRound(idOnlyCep()).cep;
+    const { cep, info } = addNote(before);
+    expect(info).toEqual({ state: 'added', refusal: null, column: 9 });
+
+    const idmText = text(cep, 'placemark.idm.xml');
+    const tag = NOTE_TAG.exec(idmText)![0];
+    expect(tag).toBe(
+      '<text id="2013039" name="coordinator_note" type="memo" ui:tab="tab_10007" collectearth:fromcsv="true" collectearth:includeinheader="true">',
+    );
+    // Right after district, the last attribute the demo fills from the plot file, with that line's
+    // line break (the demo mixes CRLF and LF); ids above all.
+    expect(idmText).toMatch(/name="district"[\s\S]*?<\/text>\r\n      <text id="2013039" name="coordinator_note"/);
+    expect(idmText).toMatch(
+      /\r\n        <label type="instance">Note from the coordinator<\/label>\r\n        <label type="instance" xml:lang="fr">Note du coordinateur<\/label>/,
+    );
+    expect(idmText).toContain('<label type="instance" xml:lang="es">Nota del coordinador</label>');
+    expect(surveyOf(cep).lastId).toBe(2013039);
+    // The keys and lists are as they were; the outline never compares it.
+    expect(surveyOf(cep).keys).toEqual(surveyOf(before).keys);
+    const question = surveyOutline(strFromU8(readCep(cep).entries.get('placemark.idm.xml')!)).get(NOTE_SUMMARY_KEY)!;
+    expect(question).toMatchObject({ kind: 'text', excluded: true });
+    expect(keyRule(NOTE_SUMMARY_KEY, null).compare).toBe(false);
+
+    for (const balloon of ['balloon.html', 'balloon_web.html']) {
+      const html = text(cep, balloon);
+      expect(count(html, 'id="collect_text_coordinator_note"')).toBe(1);
+      // Right after the marker, with its indentation (the web balloon's is two tabs).
+      const indent = /([ \t]*)<!-- START OF EXTRA CSV DATA -->/.exec(html)![1];
+      expect(html).toContain(
+        `${BALLOON_MARKER}\n${indent}<input type="hidden" id="collect_text_coordinator_note" name="collect_text_coordinator_note" value="$[EXTRA_coordinator_note]" class="extra" />\n`,
+      );
+      expect(count(html, '<div id="coordinator_note_shown">$[EXTRA_coordinator_note]</div>')).toBe(1);
+      expect(html).toContain('#coordinator_note_shown:empty{display:none}');
+      expect(html).toContain('content:"Note from the coordinator: "');
+      // The page's own $[...] substitution never meets one in the script.
+      expect(/<script>\(function\(\)\{var n=[^\n]*<\/script>/.exec(html)![0]).not.toContain('$[');
+    }
+    const template = text(cep, 'kml_template.fmt');
+    expect(count(template, '<Data name="EXTRA_coordinator_note">')).toBe(1);
+    expect(template).toContain(`${TEMPLATE_MARKER}\n<Data name="EXTRA_coordinator_note">\n<value>\${placemark.extraColumns[9]!""}</value>\n</Data>\n`);
+    // The demo reads its 9 columns at 0..8, unchanged.
+    expect(template).toContain('<Data name="EXTRA_district">\n<value>${placemark.extraColumns[8]}</value>');
+
+    const old = readCep(before).entries;
+    const now = readCep(cep).entries;
+    expect([...now.keys()]).toEqual([...old.keys()]);
+    for (const [name, bytes] of old) {
+      if (['placemark.idm.xml', 'balloon.html', 'balloon_web.html', 'kml_template.fmt'].includes(name)) continue;
+      expect(Buffer.from(now.get(name)!).equals(Buffer.from(bytes)), name).toBe(true);
+    }
+  });
+
+  it('leaves a file that has it alone, bytes and all, and says where it is read', () => {
+    const once = addNote(addRound(idOnlyCep()).cep).cep;
+    const twice = addNote(once);
+    expect(twice.info).toEqual({ state: 'added', refusal: null, column: 9 });
+    expect(twice.cep.equals(once)).toBe(true);
+    // The demo with its own round gets it the same way.
+    expect(addNote(demoCep()).info).toEqual({ state: 'added', refusal: null, column: 9 });
+  });
+
+  it('a survey filling nothing from the plot file reads it at column 0, after its last key, with its tab', () => {
+    const { cep, info } = addNote(addRound(miniCep()).cep);
+    expect(info).toEqual({ state: 'added', refusal: null, column: 0 });
+    const idmText = text(cep, 'placemark.idm.xml');
+    // After round, the key the server added after id; before notes. The tab of the id key.
+    expect(idmText).toMatch(/name="round"[\s\S]*?<\/code>\n      <text id="45" name="coordinator_note" type="memo" ui:tab="t1" /);
+    expect(idmText.indexOf('name="coordinator_note"')).toBeLessThan(idmText.indexOf('name="notes"'));
+    // English unmarked, Spanish marked: the survey's languages.
+    expect(idmText).toContain('<label type="instance" xml:lang="es">Nota del coordinador</label>');
+    expect(idmText).not.toContain('xml:lang="fr">Note du');
+    expect(text(cep, 'kml_template.fmt')).toContain('<value>${placemark.extraColumns[0]!""}</value>');
+  });
+
+  it('counts only the root attributes filled from the plot file that are not keys, and names the label in the default language', () => {
+    const children = `<text id="2" name="id" key="true"/>
+      <text id="3" name="region" collectearth:fromcsv="true"/>
+      <number id="4" name="elevation" collectearth:fromcsv="true" type="integer"/>
+      <text id="5" name="notes"/>
+      <entity id="6" name="trees" multiple="true"><text id="7" name="species"/></entity>`;
+    const survey = miniIdm({ children, surveyAttrs: `lastId="40" ${NS} xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth"` })
+      .replace('<language>en</language>\n  <language>es</language>', '<language>es</language>');
+    const { cep, info } = addNote(miniCep({ 'placemark.idm.xml': survey }));
+    expect(info.column).toBe(2);
+    const idmText = text(cep, 'placemark.idm.xml');
+    expect(idmText).toMatch(/name="elevation"[^\n]*\n      <text id="41" name="coordinator_note" type="memo" collectearth:fromcsv/);
+    expect(idmText).toContain('<label type="instance">Nota del coordinador</label>');
+    expect(text(cep, 'balloon.html')).toContain('content:"Nota del coordinador: "');
+    expect(count(/<survey [^>]*>/.exec(idmText)![0], 'xmlns:collectearth=')).toBe(1);
+  });
+
+  it('inserts into a CRLF balloon with CRLF only, and after EXTRA_id when the template has no marker', () => {
+    const template = miniTemplate().replace(`${TEMPLATE_MARKER}\n`, '');
+    const { cep } = addNote(miniCep({ 'balloon.html': miniBalloon('\r\n'), 'kml_template.fmt': template }));
+    const html = text(cep, 'balloon.html');
+    expect(html.replace(/\r\n/g, '')).not.toMatch(/[\r\n]/);
+    expect(count(html, 'id="collect_text_coordinator_note"')).toBe(1);
+    expect(text(cep, 'kml_template.fmt')).toContain(
+      '<value>${placemark.idColumns[0]}</value>\n</Data>\n<Data name="EXTRA_coordinator_note">\n<value>${placemark.extraColumns[0]!""}</value>\n</Data>\n',
+    );
+  });
+
+  const idmWith = (children: string) => miniIdm({ children });
+  const refusals: Array<[string, () => Buffer]> = [
+    ['not_a_zip', () => Buffer.from('plain text')],
+    ['no_survey', () => miniCep({ 'placemark.idm.xml': null })],
+    ['survey_unreadable', () => miniCep({ 'placemark.idm.xml': '<survey><schema></survey>' })],
+    [
+      'several_entities',
+      () => miniCep({ 'placemark.idm.xml': miniIdm().replace('</schema>', '<entity id="9" name="other"/>\n  </schema>') }),
+    ],
+    ['note_name_taken', () => miniCep({ 'placemark.idm.xml': idmWith('<text id="2" name="id" key="true"/><text id="4" name="coordinator_note"/>') })],
+    [
+      'note_name_taken',
+      // From the plot file and in the header, but not the last one from it: not where the rows have it.
+      () =>
+        miniCep({
+          'placemark.idm.xml': idmWith(
+            '<text id="2" name="id" key="true"/><text id="4" name="coordinator_note" collectearth:fromcsv="true" collectearth:includeinheader="true"/><text id="5" name="region" collectearth:fromcsv="true"/>',
+          ),
+        }),
+    ],
+    [
+      'nested_plot_columns',
+      () =>
+        miniCep({
+          'placemark.idm.xml': idmWith('<text id="2" name="id" key="true"/><entity id="4" name="e"><text id="5" name="x" collectearth:fromcsv="true"/></entity>'),
+        }),
+    ],
+    ['balloon_missing', () => miniCep({ 'balloon.html': null })],
+    ['balloon_marker_missing', () => miniCep({ 'balloon.html': miniBalloon().replace(BALLOON_MARKER, '') })],
+    ['balloon_marker_missing', () => miniCep({ 'balloon_web.html': miniBalloon().replace(BALLOON_MARKER, '') })],
+    ['template_missing', () => miniCep({ 'kml_template.fmt': null })],
+    ['template_marker_missing', () => miniCep({ 'kml_template.fmt': '<kml><ExtendedData></ExtendedData></kml>\n' })],
+  ];
+  for (const [code, make] of refusals) {
+    it(`refuses with ${code} and hands back the original bytes`, () => {
+      const original = make();
+      const { cep, info } = addNote(original);
+      expect(info).toEqual({ state: 'none', refusal: code, column: null });
+      expect(cep.equals(original)).toBe(true);
+    });
+  }
+
+  it('throws too_large, naming the limit, rather than handing back a refusal', () => {
+    const limits = { maxEntries: 2000, maxTotalBytes: 1000, maxRatio: 20, minAllowanceBytes: 0 };
+    expect(cepErrorCode(() => addNote(miniCep(), new Date(), limits))).toBe('too_large');
+  });
+
+  it('stamps the served file with the date it is given', () => {
+    const date = new Date(Date.UTC(2026, 10, 2, 8, 0, 0));
+    const { cep } = addNote(miniCep(), date);
+    expect(addNote(miniCep(), new Date(date)).cep.equals(cep)).toBe(true);
+    const centralAt = cep.readUInt32LE(cep.length - 22 + 16);
+    expect(cep.readUInt16LE(centralAt + 14)).toBe(((2026 - 1980) << 9) | (11 << 5) | 2);
   });
 });

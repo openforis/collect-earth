@@ -4,6 +4,7 @@ import { audit } from '../activity.js';
 import { bearerToken } from '../auth.js';
 import type { Config } from '../config.js';
 import { attachment } from '../download.js';
+import { NOTE_SUMMARY_KEY, noteColumn } from '../cep.js';
 import { exportRoundOf, recordsCsv } from '../export.js';
 import { storageSummary } from '../limits.js';
 import { finalAnswers, recordResolver } from '../quality.js';
@@ -220,7 +221,9 @@ export async function registerProjectRoutes(
       // against the reference, so `final` stays blank for them and `reference` says "yes".
       const finalOf = finalAnswers({ records, info, units, copyHolders }, new Map(decisions.filter((d) => !reference.has(d.plot)).map((d) => [d.plot, d.decision])));
       const resolve = recordResolver({ info, units, copyHolders });
-      const csv = recordsCsv(records, exportRoundOf(info, units, copyHolders), finalOf, (r) => reference.size > 0 && reference.has(resolve(r).group));
+      // The coordinator's note the server added (Task 16) is the coordinator's text, not an answer.
+      const leaveOut = noteColumn(info) !== null ? new Set([NOTE_SUMMARY_KEY]) : new Set<string>();
+      const csv = recordsCsv(records, exportRoundOf(info, units, copyHolders), finalOf, (r) => reference.size > 0 && reference.has(resolve(r).group), leaveOut);
       await audit(store, request, 'export.downloaded', { records: records.length });
       return reply
         .header('content-type', 'text/csv; charset=utf-8')

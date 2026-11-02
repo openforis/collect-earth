@@ -38,12 +38,19 @@ export function exportRoundOf(
  * fields quoted when they hold a comma, quote, CR or LF. Starts with a UTF-8 BOM
  * so Excel detects the encoding (plot names and answers are often non-ASCII).
  * A value that a spreadsheet would run as a formula gets a leading apostrophe.
+ * The summary keys of `leaveOut` get no column (the coordinator's note, Task 16: not an answer).
  */
-export function recordsCsv(records: RecordRow[], roundOf: RoundOf, finalOf: FinalOf = () => '', referenceOf: ReferenceOf = () => false): string {
+export function recordsCsv(
+  records: RecordRow[],
+  roundOf: RoundOf,
+  finalOf: FinalOf = () => '',
+  referenceOf: ReferenceOf = () => false,
+  leaveOut: ReadonlySet<string> = new Set(),
+): string {
   const rows = records
     .filter((r) => !r.deleted)
     .sort((a, b) => compare(a.recordKey, b.recordKey) || compare(a.operator, b.operator));
-  const summaryKeys = [...new Set(rows.flatMap((r) => Object.keys(r.summary)))].sort(compare);
+  const summaryKeys = [...new Set(rows.flatMap((r) => Object.keys(r.summary)))].filter((k) => !leaveOut.has(k)).sort(compare);
 
   const lines = [[...FIXED_COLUMNS, ...summaryKeys].map(csvField).join(',')];
   for (const r of rows) {

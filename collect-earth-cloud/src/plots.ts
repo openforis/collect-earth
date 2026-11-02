@@ -221,6 +221,64 @@ export type RoundColumn =
   | { kind: 'insert'; value: (plotId: string) => string }
   | { kind: 'replace'; index: number; value: (plotId: string, current: string) => string };
 
+/**
+ * The coordinator's note column of a served plot file (Task 16). Collect Earth reads it as extra
+ * column `column` of a row: the columns after the keys and, when both are numbers, the latitude
+ * and longitude (KmlGenerator.getPlotObject), the i-th filling the i-th attribute filled from the
+ * plot file. So every row gets it exactly there: a row with fewer extra columns is padded with
+ * empty cells, one with more gets it inserted (the columns after it, which no attribute reads, move
+ * one to the right). The header, if any, names it "coordinator_note".
+ */
+export interface NoteColumn {
+  /** Key columns of the file as uploaded (fileKeyCount: without the round the server inserts). */
+  keyFields: number;
+  column: number;
+  /** The note of a plot ("" for none), as noteText writes it. */
+  value: (plotId: string) => string;
+}
+
+/** The longest note a plot file carries (characters); a longer comment is cut with "…". */
+export const MAX_NOTE_LENGTH = 1000;
+
+/**
+ * A coordinator's comment as the plot file carries it to Collect Earth: one line, at most
+ * MAX_NOTE_LENGTH characters, nothing Google Earth or the balloon would read as HTML or as a
+ * `$[...]` to fill (it puts the value into the balloon as it is): `<` `>` `&` `"` become look-alikes,
+ * line breaks " / ", other control characters spaces.
+ */
+export function noteText(comment: string | null | undefined): string {
+  if (!comment) return '';
+  let text = comment
+    .replace(/\s*(?:\r\n|[\r\n\x85]|\p{Zl}|\p{Zp})+\s*/gu, ' / ')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/</g, '‹')
+    .replace(/>/g, '›')
+    .replace(/&/g, '＆')
+    .replace(/"/g, "'")
+    .replace(/\$\[/g, '$ [')
+    .replace(/ {2,}/g, ' ')
+    .trim();
+  const chars = [...text];
+  if (chars.length > MAX_NOTE_LENGTH) text = `${chars.slice(0, MAX_NOTE_LENGTH - 1).join('').trimEnd()}…`;
+  return text;
+}
+
+/** Where a row gets the note: [at, the text inserted there] (the original's bytes all stay). */
+function noteEdit(row: PlotRow, note: NoteColumn, lead: number, value: string, separator: string): [number, string] {
+  const index = note.keyFields + lead + note.column;
+  const text = fieldText(value, separator);
+  if (row.fields.length > index) {
+    return [row.fieldStarts[index], text + separator];
+  }
+  return [row.end, separator.repeat(index - row.fields.length + 1) + text];
+}
+
+/** 2 when the row's latitude and longitude are numbers (decimal commas too), as Collect Earth counts them; else 0. */
+function coordinateColumns(row: PlotRow, keyFields: number): number {
+  const number = (i: number) => i < row.fields.length && isNumber(row.fields[i].replace(/,/g, '.'));
+  return number(keyFields) && number(keyFields + 1) ? 2 : 0;
+}
+
 /** A field's text as written in the file: quoted when it holds the separator, a quote or a line break. */
 function fieldText(value: string, separator: string): string {
   if (value.includes(separator) || /["\r\n]/.test(value)) {
@@ -237,13 +295,16 @@ function fieldText(value: string, separator: string): string {
  * plot together in file order, a plot without a rank last. A row without a line break (the
  * original's last) gets the file's line break when rows follow it. Linear in the file size
  * (plus the sort with `rank`): the value of each distinct round text is encoded once, and
- * the rows are copied into one buffer of the final size.
+ * the rows are copied into one buffer of the final size. With `note` (Task 16) every row
+ * gets the coordinator's note column (NoteColumn); the header's latitude and longitude are
+ * counted as its first row's.
  */
 export function buildPlotFile(
   file: PlotFile,
   plotKeys: ReadonlySet<string> | null,
   round?: RoundColumn,
   rank?: ReadonlyMap<string, number>,
+  note?: NoteColumn,
 ): Buffer {
   const data = file.data;
   const lineEnding = Buffer.from(file.lineEnding, 'ascii');
@@ -264,10 +325,14 @@ export function buildPlotFile(
     return buf;
   };
   // Per row: the bytes put in (or null), and where in the row they go, [cutStart, cutEnd)
-  // of the original being left out.
+  // of the original being left out; then the note's bytes (or null), put in at noteAts (never
+  // before the round's, which is at the first field).
   const inserts: (Buffer | null)[] = new Array(all.length).fill(null);
   const cutStarts = new Int32Array(all.length);
   const cutEnds = new Int32Array(all.length);
+  const notes: (Buffer | null)[] = new Array(all.length).fill(null);
+  const noteAts = new Int32Array(all.length);
+  const headerLead = note ? (rows.length > 0 ? coordinateColumns(rows[0], note.keyFields) : 2) : 0;
   let size = file.bom ? BOM.length : 0;
   for (let i = 0; i < all.length; i += 1) {
     const row = all[i];
@@ -275,10 +340,17 @@ export function buildPlotFile(
     if (row.next === row.end && i < all.length - 1) {
       size += lineEnding.length;
     }
+    const isHeader = row === file.header;
+    if (note) {
+      const lead = isHeader ? headerLead : coordinateColumns(row, note.keyFields);
+      const [noteAt, text] = noteEdit(row, note, lead, isHeader ? 'coordinator_note' : note.value(row.id), file.separator);
+      notes[i] = encode(text);
+      noteAts[i] = noteAt;
+      size += notes[i]!.length;
+    }
     if (!round) {
       continue;
     }
-    const isHeader = row === file.header;
     if (round.kind === 'insert') {
       const value = isHeader ? 'round' : round.value(row.id);
       inserts[i] = encode(file.separator + fieldText(value, file.separator));
@@ -306,13 +378,23 @@ export function buildPlotFile(
   for (let i = 0; i < all.length; i += 1) {
     const row = all[i];
     const insert = inserts[i];
+    const noteBytes = notes[i];
+    let from = row.start;
     if (insert) {
-      at += data.copy(out, at, row.start, cutStarts[i]);
+      at += data.copy(out, at, from, cutStarts[i]);
       at += insert.copy(out, at);
-      at += data.copy(out, at, cutEnds[i], row.next);
-    } else {
-      at += data.copy(out, at, row.start, row.next);
+      from = cutEnds[i];
     }
+    if (noteBytes) {
+      // After the keys: never before the round (the first field) nor inside the value it replaces.
+      if (noteAts[i] < from) {
+        throw new Error('buildPlotFile: the note would go before the round');
+      }
+      at += data.copy(out, at, from, noteAts[i]);
+      at += noteBytes.copy(out, at);
+      from = noteAts[i];
+    }
+    at += data.copy(out, at, from, row.next);
     // A row without a line break (the original's last) gets one if more follow.
     if (row.next === row.end && i < all.length - 1) {
       at += lineEnding.copy(out, at);

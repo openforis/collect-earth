@@ -2,14 +2,14 @@ import { createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid } from '../accountRules.js';
 import { audit, noteActivity } from '../activity.js';
-import type { RoundInfo } from '../cep.js';
+import { noteColumn, type RoundInfo } from '../cep.js';
 import type { Config } from '../config.js';
 import { checksumOf } from '../csv.js';
 import { copiesSubmittedAsMain } from '../division.js';
 import { attachment } from '../download.js';
 import { checkUploadFits } from '../limits.js';
 import { nearbyRanksOf, servedNearby } from '../nearby.js';
-import { buildPlotFile, parsePlotFile, type RoundColumn } from '../plots.js';
+import { buildPlotFile, noteText, parsePlotFile, type NoteColumn, type RoundColumn } from '../plots.js';
 import { referenceCopyPlan } from '../reference.js';
 import { fileKeyCount, keyShape, recordKeysOfUnit } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
@@ -282,7 +282,8 @@ export async function registerAssignmentRoutes(
         };
       };
       const info = await store.getRoundInfo(projectId);
-      const withRound = roundColumnOf(info, new Set()) !== null;
+      // A round column or the coordinator's note column (Task 16): every file is built.
+      const withRound = roundColumnOf(info, new Set()) !== null || noteColumnOf(info) !== undefined;
       // Built files are downloaded with ?mine=1 and the checksum listed here (?v=).
       const built = (f: Parameters<typeof entry>[0], served: ServedFile) =>
         entry({ ...f, checksum: served.checksum, plotCount: served.plotCount }, `?mine=1&v=${served.checksum}`);
@@ -415,6 +416,17 @@ export function roundColumnOf(info: RoundInfo | null, copies: ReadonlySet<string
 }
 
 /**
+ * The coordinator's note column of the files people get (Task 16), when the served survey has
+ * the note: at its extra column, empty but for the plots of `notes` (a "To check again" file's
+ * comments, already as noteText writes them). Undefined when files carry no note.
+ */
+export function noteColumnOf(info: RoundInfo | null, notes?: ReadonlyMap<string, string>): NoteColumn | undefined {
+  const column = noteColumn(info);
+  if (column === null) return undefined;
+  return { keyFields: fileKeyCount(info), column, value: (plotId) => notes?.get(plotId) ?? '' };
+}
+
+/**
  * For one person: which of their copies (in a divided file) are served as main, as
  * they submitted the plot's main assessment (copiesSubmittedAsMain). Only matters
  * while files get a round column; only the person's records of their copies' plots are read,
@@ -523,9 +535,9 @@ function cacheSet(key: string, value: ServedFile | null): void {
   }
 }
 
-/** What a built file depends on, apart from the plots: the content and the round. */
+/** What a built file depends on, apart from the plots: the content, the round and the note's column. */
 function roundKey(file: { checksum: string }, info: RoundInfo | null): string {
-  return [file.checksum, fileKeyCount(info), info?.state ?? '-', info?.roundIndex ?? '-', info?.reassessmentCode ?? '-'].join(':');
+  return [file.checksum, fileKeyCount(info), info?.state ?? '-', info?.roundIndex ?? '-', info?.reassessmentCode ?? '-', noteColumn(info) ?? '-'].join(':');
 }
 
 function wholeKey(file: { checksum: string }, info: RoundInfo | null): string {
@@ -544,9 +556,9 @@ function ownKey(
   return `own:${roundKey(file, info)}:${servedNearby(file.distribution) ? 'nearby' : 'file'}:${hash}`;
 }
 
-/** The whole file with the round column inserted, when it was built recently. */
+/** The whole file with the round column inserted (or the note's), when it was built recently. */
 function cachedWholeFile(file: { checksum: string }, info: RoundInfo | null): ServedFile | null {
-  return info?.state === 'added' ? cacheGet(wholeKey(file, info)) ?? null : null;
+  return info?.state === 'added' || noteColumn(info) !== null ? cacheGet(wholeKey(file, info)) ?? null : null;
 }
 
 /** One person's built file when it was built recently (null: none of their plots), else undefined. */
@@ -560,13 +572,14 @@ function cachedOwnFile(
 }
 
 /**
- * A whole (not divided) file as people get it. Only an inserted round changes it: a
- * whole file has no quality-check copies, so a replaced round would keep every value,
- * and the file is served as uploaded.
+ * A whole (not divided) file as people get it. Only an inserted round or the note column
+ * (Task 16) changes it: a whole file has no quality-check copies, so a replaced round would
+ * keep every value, and the file is otherwise served as uploaded.
  */
 function wholeFile(file: { checksum: string; data: Buffer; plotCount: number }, info: RoundInfo | null): ServedFile {
   const round = roundColumnOf(info, new Set());
-  if (round?.kind !== 'insert') {
+  const note = noteColumnOf(info);
+  if (round?.kind !== 'insert' && !note) {
     return { data: file.data, checksum: file.checksum, plotCount: file.plotCount };
   }
   const cached = cachedWholeFile(file, info);
@@ -574,7 +587,7 @@ function wholeFile(file: { checksum: string; data: Buffer; plotCount: number }, 
     return cached;
   }
   const plotFile = plotFileOf(file, fileKeyCount(info));
-  const data = buildPlotFile(plotFile, null, round);
+  const data = buildPlotFile(plotFile, null, round?.kind === 'insert' ? round : undefined, undefined, note);
   const built = { data, checksum: checksumOf(data), plotCount: plotFile.plotIds.length };
   cacheSet(wholeKey(file, info), built);
   return built;
@@ -584,11 +597,13 @@ function wholeFile(file: { checksum: string; data: Buffer; plotCount: number }, 
  * One person's "To check again" file (src/sendBack.ts): the header row and the rows of their
  * plots sent back, in file order, each with the round of their own record (2 or the
  * reassessment code on a check, as on the copy they were given); null when none of them is in
- * the file (any more).
+ * the file (any more). When the served survey has the coordinator's note (Task 16), each plot's
+ * row carries the decision's comment in it.
  */
 function recheckServed(file: { checksum: string; data: Buffer }, recheck: RecheckFile, info: RoundInfo | null): ServedFile | null {
+  const notes = new Map([...recheck.notes].map(([plot, comment]) => [plot, noteText(comment)]));
   const hash = createHash('sha256')
-    .update(JSON.stringify([[...recheck.plots].sort(), [...recheck.checks].sort()]))
+    .update(JSON.stringify([[...recheck.plots].sort(), [...recheck.checks].sort(), noteColumn(info) === null ? [] : [...notes].sort()]))
     .digest('hex');
   const key = `recheck:${roundKey(file, info)}:${hash}`;
   const cached = cacheGet(key);
@@ -600,7 +615,7 @@ function recheckServed(file: { checksum: string; data: Buffer }, recheck: Rechec
   let built: ServedFile | null = null;
   if (keys.size > 0) {
     const round = roundColumnOf(info, recheck.checks) ?? undefined;
-    const data = buildPlotFile(plotFile, keys, round);
+    const data = buildPlotFile(plotFile, keys, round, undefined, noteColumnOf(info, notes));
     built = { data, checksum: checksumOf(data), plotCount: keys.size };
   }
   cacheSet(key, built);
@@ -634,7 +649,7 @@ function ownFile(
   let built: ServedFile | null = null;
   if (keys.size > 0) {
     const round = roundColumnOf(info, new Set(plots.copyKeys.filter((k) => !asMain.has(k)))) ?? undefined;
-    const data = buildPlotFile(plotFile, keys, round, servedNearby(file.distribution) ? rank : undefined);
+    const data = buildPlotFile(plotFile, keys, round, servedNearby(file.distribution) ? rank : undefined, noteColumnOf(info));
     built = { data, checksum: checksumOf(data), plotCount: keys.size };
   }
   cacheSet(key, built);

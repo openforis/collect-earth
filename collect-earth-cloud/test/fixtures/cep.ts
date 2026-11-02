@@ -83,6 +83,24 @@ export function idOnlyCep(): Buffer {
 }
 
 /**
+ * The CEP with an attribute of its own named coordinator_note (not filled from the plot file), so
+ * the server adds no coordinator's note to it (Task 16, refusal note_name_taken) and serves its plot
+ * files without the note column: for the tests of what the round column alone does.
+ */
+export function noNote(cep: Buffer): Buffer {
+  const files = unzipSync(cep);
+  files['placemark.idm.xml'] = strToU8(
+    mustReplace(
+      strFromU8(files['placemark.idm.xml']),
+      /(<entity id="1" name="plot"[^>]*>)/,
+      '$1\n      <text id="9999990" name="coordinator_note" type="short"/>',
+      'root entity',
+    ),
+  );
+  return zip(files);
+}
+
+/**
  * A zip of the given entries, for small hand-made cases. Pairs keep their order exactly,
  * even for names like "1" or "__proto__" that a plain object would reorder or swallow.
  */

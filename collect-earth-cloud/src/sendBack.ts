@@ -69,6 +69,8 @@ export interface RecheckFile {
   plots: Set<string>;
   /** Those of them that are their checks (the round column of a check). */
   checks: Set<string>;
+  /** Each plot's comment, as the coordinator wrote it ("" for none): the note column (Task 16). */
+  notes: Map<string, string>;
 }
 
 type ResolverContext = Pick<PlotContext, 'info' | 'units' | 'copyHolders'>;
@@ -150,10 +152,11 @@ export function recheckFilesOf(
     if (source === null) return { ...p, sourceFileId: null, file: null };
     let file = out.get(source);
     if (!file) {
-      file = { id: recheckFileId(source), filename: recheckFilename(names.get(source)!), sourceFileId: source, plots: new Set(), checks: new Set() };
+      file = { id: recheckFileId(source), filename: recheckFilename(names.get(source)!), sourceFileId: source, plots: new Set(), checks: new Set(), notes: new Map() };
       out.set(source, file);
     }
     file.plots.add(p.plot);
+    file.notes.set(p.plot, p.comment ?? '');
     if (p.assessment === 'check') file.checks.add(p.plot);
     return { ...p, sourceFileId: source, file: file.filename };
   });

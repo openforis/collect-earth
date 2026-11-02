@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { parsePlotFile } from '../src/plots.js';
+import { NOTE_SUMMARY_KEY } from '../src/cep.js';
+import { noteText, parsePlotFile } from '../src/plots.js';
 import { fileKeyCount } from '../src/rounds.js';
 import { recheckFileId, recheckFilename, recheckFilesOf, sentBackOf, sentBackTo } from '../src/sendBack.js';
 import { InMemoryStore } from '../src/store/memory.js';
 import type { QualityDecision, RecordRow } from '../src/types.js';
-import { demoCep, idOnlyCep } from './fixtures/cep.js';
+import { demoCep, idOnlyCep, noNote } from './fixtures/cep.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 
 const LAND_USE = 'collect_code_land_use_category';
@@ -60,7 +61,7 @@ describe('the plots sent back: who, which round, submitted again (pure)', () => 
   it('one file per plot file: the first one the person holds the plot in, else the first that has it', () => {
     const plots = [
       { plot: '1', comment: null, decidedAt: 1, decidedBy: null, assessment: 'main' as const, submittedAgain: false },
-      { plot: '2', comment: null, decidedAt: 1, decidedBy: null, assessment: 'check' as const, submittedAgain: false },
+      { plot: '2', comment: 'Look at the trees', decidedAt: 1, decidedBy: null, assessment: 'check' as const, submittedAgain: false },
       { plot: '3', comment: null, decidedAt: 1, decidedBy: null, assessment: 'main' as const, submittedAgain: true },
       { plot: '9', comment: null, decidedAt: 1, decidedBy: null, assessment: 'main' as const, submittedAgain: false },
     ];
@@ -74,8 +75,15 @@ describe('the plots sent back: who, which round, submitted again (pure)', () => 
     ]);
     const { plots: listed, files: out } = recheckFilesOf(plots, files, units, (file, plot) => file === 'b' && plot === '2');
     expect(out).toEqual([
-      { id: recheckFileId('a'), filename: recheckFilename('a.csv'), sourceFileId: 'a', plots: new Set(['1']), checks: new Set() },
-      { id: recheckFileId('b'), filename: recheckFilename('b.csv'), sourceFileId: 'b', plots: new Set(['2']), checks: new Set(['2']) },
+      { id: recheckFileId('a'), filename: recheckFilename('a.csv'), sourceFileId: 'a', plots: new Set(['1']), checks: new Set(), notes: new Map([['1', '']]) },
+      {
+        id: recheckFileId('b'),
+        filename: recheckFilename('b.csv'),
+        sourceFileId: 'b',
+        plots: new Set(['2']),
+        checks: new Set(['2']),
+        notes: new Map([['2', 'Look at the trees']]),
+      },
     ]);
     expect(listed.map((p) => [p.plot, p.file])).toEqual([
       ['1', 'To check again – a.csv'],
@@ -237,18 +245,22 @@ describe('"To check again" plot files in my-assignment', () => {
     expect(decided.statusCode, decided.body).toBe(200);
 
     const name = 'To check again – North Ñandú.csv';
+    // With the coordinator's note (Task 16): the comment at the note's column, the 10th the survey
+    // fills from the plot file (the demo's 9 come first; this file has 1, so 8 empty cells between).
+    const pad = ';'.repeat(9);
+    const mine = `id;round;lat;lon;area${pad}coordinator_note\r\n2;1;-10.5;20.5;b${pad}Look at the trees\r\n`;
     const m = (await recheck(maria.token))!;
     expect(m.entry).toEqual({
       csvFileId: recheckFileId(fileId),
       filename: name,
-      checksum: sha256('id;round;lat;lon;area\r\n2;1;-10.5;20.5;b\r\n'),
+      checksum: sha256(mine),
       plotCount: 1,
       downloadPath: `/v1/projects/${pid}/csv-files/${recheckFileId(fileId)}/content?mine=1&v=${m.entry.checksum}`,
       downloadUrl: null,
     });
     // Listed after the person's other files (Collect Earth keeps the last match selected).
     expect(m.entries.map((e) => e.filename)).toEqual(['North Ñandú.csv', name]);
-    expect(m.body).toBe('id;round;lat;lon;area\r\n2;1;-10.5;20.5;b\r\n');
+    expect(m.body).toBe(mine);
     // Collect Earth reads the survey's keys (id, round) first: the key of maria's record.
     const keyCount = fileKeyCount(await ctx.store.getRoundInfo(pid)) + 1;
     expect(parsePlotFile(m.raw, keyCount).plotIds).toEqual(['2,1']);
@@ -260,7 +272,8 @@ describe('"To check again" plot files in my-assignment', () => {
     const j = (await recheck(jose.token))!;
     expect(j.entry).toMatchObject({ csvFileId: recheckFileId(fileId), filename: name, plotCount: 1 });
     expect(Object.keys(j.entry).sort()).toEqual(Object.keys(m.entry).sort());
-    expect(j.body).toBe('id;round;lat;lon;area\r\n2;2;-10.5;20.5;b\r\n');
+    // The same comment for both (the coordinator's text; the field says not to name the check).
+    expect(j.body).toBe(`id;round;lat;lon;area${pad}coordinator_note\r\n2;2;-10.5;20.5;b${pad}Look at the trees\r\n`);
     expect(parsePlotFile(j.raw, keyCount).plotIds).toEqual(['2,2']);
     expect(JSON.stringify(j.entries)).not.toMatch(/maria|\bcheck\b(?! again)|cop(y|ies)|overlap/i);
     // Someone who made no record of it gets nothing; the file is no one else's to download.
@@ -278,7 +291,47 @@ describe('"To check again" plot files in my-assignment', () => {
     expect(stale.json().error).toBe('changed');
     const two = (await recheck(maria.token))!;
     expect(two.entry).toMatchObject({ csvFileId: recheckFileId(fileId), filename: name, plotCount: 2 });
-    expect(two.body).toBe('id;round;lat;lon;area\r\n2;1;-10.5;20.5;b\r\n3;1;-11;21;"x;y"\r\n');
+    // Plot 3 was sent back without a comment: its note is empty.
+    expect(two.body).toBe(`id;round;lat;lon;area${pad}coordinator_note\r\n2;1;-10.5;20.5;b${pad}Look at the trees\r\n3;1;-11;21;"x;y"${pad}\r\n`);
+  });
+
+  it("the coordinator's note (Task 16): the comment in the plot's row, safe for the balloon; empty elsewhere; never an answer", async () => {
+    await addedRound();
+    expect((await ctx.store.getRoundInfo(pid))?.note).toEqual({ state: 'added', refusal: null, column: 9 });
+    const pad = ';'.repeat(9);
+    // Every file a person gets has the column, empty (maria's own file of the divided plot file).
+    const own = (await myAssignment(maria.token))[0];
+    const ownFile = await ctx.app.inject({ method: 'GET', url: own.downloadPath, headers: bearer(maria.token) });
+    expect(ownFile.body.split('\r\n')[0]).toBe(`id;round;lat;lon;area${pad}coordinator_note`);
+    expect(ownFile.body).toContain(`\r\n3;1;-11;21;"x;y"${pad}\r\n`);
+    expect(sha256(ownFile.rawPayload)).toBe(own.checksum);
+
+    const comment = 'Trees <b>here</b>?\r\nLook & "see"; $[EXTRA_id]';
+    expect((await call('PUT', '/quality/decisions/2', owner.token, { decision: 'recheck', comment })).statusCode).toBe(200);
+    const m = (await recheck(maria.token))!;
+    const note = noteText(comment);
+    expect(note).not.toMatch(/[<>&"\r\n]|\$\[/);
+    // Quoted: it holds the file's separator.
+    expect(m.body).toBe(`id;round;lat;lon;area${pad}coordinator_note\r\n2;1;-10.5;20.5;b${pad}"${note}"\r\n`);
+    // Read as Collect Earth reads the row: the 10th extra column after the keys and coordinates.
+    const row = parsePlotFile(m.raw, 2).rows[0];
+    expect(row.fields[2 + 2 + 9]).toBe(note);
+    expect(row.fields.slice(0, 5)).toEqual(['2', '1', '-10.5', '20.5', 'b']);
+
+    // The note Collect Earth sends back in the summary is no answer: a record of the answers the
+    // decision saw, synced late with the note, is still waiting...
+    await send([envelope({ recordKey: '2,1', operator: 'maria', modifiedOn: t0, summary: { ...summary('F', '1'), [NOTE_SUMMARY_KEY]: note } })]);
+    expect(await recheck(maria.token)).not.toBeNull();
+    // ...the plot page does not list it among the answers, and the export has no column for it.
+    const plotPage = await call('GET', `/plots/${encodeURIComponent('2')}`, owner.token);
+    expect(plotPage.statusCode, plotPage.body).toBe(200);
+    expect(plotPage.body).toContain(LAND_USE);
+    expect(plotPage.body).not.toContain(NOTE_SUMMARY_KEY);
+    const exported = await call('GET', '/export.csv', owner.token);
+    expect(exported.statusCode).toBe(200);
+    expect(exported.body).toContain(LAND_USE);
+    expect(exported.body).not.toContain(NOTE_SUMMARY_KEY);
+    expect(exported.body).not.toContain('Trees');
   });
 
   it('a plot leaves a person\'s file when they submit it again; the queue names who it is still waiting for', async () => {
@@ -348,7 +401,7 @@ describe('"To check again" plot files in my-assignment', () => {
   });
 
   it('a survey of its own round: the check comes back with the reassessment code, as the copy was served', async () => {
-    await call('PUT', '/cep', owner.token, demoCep(), { 'content-type': 'application/zip' });
+    await call('PUT', '/cep', owner.token, noNote(demoCep()), { 'content-type': 'application/zip' });
     const csv = 'id,round,lat,lon\n17,1,0,0\n18,1,1,1\n';
     fileId = (await call('PUT', '/csv-files/own.csv', owner.token, csv, { 'content-type': 'text/csv' })).json().id;
     await ctx.store.setDivision(pid, fileId, { mode: 'manual' }, [

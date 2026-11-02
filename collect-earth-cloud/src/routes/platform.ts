@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { publicBaseUrl } from '../accountRules.js';
 import { audit, noteActivity } from '../activity.js';
-import { addRound, CepError, roundInfoOf, type RefusalCode } from '../cep.js';
+import { addNote, addRound, CepError, noteColumn, roundInfoOf, type NoteInfo, type NoteRefusal, type RefusalCode } from '../cep.js';
 import type { Config } from '../config.js';
 import { checkUploadFits } from '../limits.js';
 import { fileKeyCount } from '../rounds.js';
@@ -109,6 +109,54 @@ function uploadOnceRecordsExist(cep: Buffer, previous: RoundInfo | null, date: D
     };
   }
   return { served: cep, original: null, info };
+}
+
+/** Why the server cannot add the coordinator's note, in plain words (the note_removed reason). */
+const CANNOT_ADD_NOTE: Record<NoteRefusal, string> = {
+  not_a_zip: 'it is not a zip file Collect Earth can use',
+  too_large: 'it is too large',
+  no_survey: 'it has no survey',
+  survey_unreadable: 'its survey cannot be read',
+  several_entities: 'its survey has more than one root entity',
+  note_name_taken: 'its survey has an attribute named coordinator_note of its own',
+  nested_plot_columns: 'its survey fills an attribute below the plot from the plot file',
+  balloon_missing: 'it has no balloon',
+  balloon_marker_missing: 'its balloon lacks the line where the extra plot data goes',
+  template_missing: 'it has no KML template',
+  template_marker_missing: 'its KML template lacks the line where the extra plot data goes',
+  records_exist: 'records were collected already',
+};
+
+/**
+ * The coordinator's note (Task 16) of the file about to be served: added before collection (no
+ * records); once records exist, never added, but kept when the file served so far had it (the
+ * records hold it), refused (409 note_removed) when it can no longer be. A file that has it already
+ * is kept as it is.
+ */
+function withNote(
+  served: Buffer,
+  previous: RoundInfo | null,
+  recordsExist: boolean,
+  date: Date,
+): { cep: Buffer; info: NoteInfo } | { error: 'note_removed'; reason: string } {
+  const result = addNote(served, date);
+  const hadNote = noteColumn(previous) !== null;
+  if (result.info.state === 'added') {
+    if (result.cep !== served && recordsExist && !hadNote) {
+      return { cep: served, info: { state: 'none', refusal: 'records_exist', column: null } };
+    }
+    return result;
+  }
+  if (recordsExist && hadNote) {
+    return {
+      error: 'note_removed',
+      reason:
+        "records were collected with the coordinator's note the server added, and the server cannot add it to " +
+        `this project file: ${CANNOT_ADD_NOTE[result.info.refusal ?? 'survey_unreadable']}. Upload a file the server ` +
+        'can add it to, or the project file as the server serves it',
+    };
+  }
+  return result;
 }
 
 const VALID_ROLES: Role[] = ['admin', 'reviewer', 'operator'];
@@ -238,7 +286,8 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       let original: Buffer | null = null;
       let info: RoundInfo;
       try {
-        if (!(await store.hasRecords(projectId))) {
+        const recordsExist = await store.hasRecords(projectId);
+        if (!recordsExist) {
           const result = addRound(cep, date);
           info = result.info;
           if (info.state === 'added') {
@@ -250,6 +299,13 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
           if ('error' in upload) return reply.code(409).send(upload);
           ({ served, original, info } = upload);
         }
+        const note = withNote(served, previous, recordsExist, date);
+        if ('error' in note) return reply.code(409).send(note);
+        if (note.cep !== served) {
+          served = note.cep;
+          original ??= cep;
+        }
+        info = { ...info, note: note.info };
       } catch (e) {
         // The message names the limit this upload had.
         if (e instanceof CepError && e.code === 'too_large') {

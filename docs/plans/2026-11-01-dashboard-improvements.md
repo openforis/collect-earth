@@ -2789,6 +2789,146 @@ and My work.
 **Tests:** the CEP rewrite (idempotent; skipped when records exist), the served
 columns and checksum, and the real Collect Earth form.
 
+**Spike** (2026-11-02, by reading the desktop code on this branch and Collect 4.0.110's sources;
+the real run is under "As built")
+- **(a) How the extra columns are read. Mostly by position; by name in one path only.**
+  - `KmlGenerator.getPlotObject` (collect-earth-sampler): the keys are the first `n` columns (`n` = the
+    survey's keys), latitude/longitude the next two (`leadingColumns = 2` only when both are numbers, else
+    0), and **every column after them** is `extraColumns[i]` in file order (XML-escaped; the polygon column
+    is replaced by a placeholder). `valuesByColumn` maps each **header name** to the row's value.
+  - The KML template the Collect designer writes reads them **by position**:
+    `<Data name="EXTRA_elevation"><value>${placemark.extraColumns[0]}</value>` … (demo `kml_template.fmt`
+    l. 141-167), one per `collectearth:fromcsv` non-key attribute in `CollectSurvey.getExtendedDataFields()`
+    order. The balloons have `value="$[EXTRA_<name>]"` hidden inputs that Google Earth fills from those Data.
+  - The plots map's generated form (`SurveyFormController.plotValues`, the form `/earth/form` used with
+    `google_earth_web` / `plots_map`) is **positional too**: "the i-th extra column holds the value of the
+    i-th 'from CSV' attribute" — `csvFields` = `getExtendedDataFields()` that `BalloonInputFieldsUtils`
+    can name (`SurveyFormModelBuilder.build`, `handled`).
+  - `getExtendedDataFields` walks `Schema.traverse` (`EntityDefinition.dfsTraverse`): it pushes the root
+    then `addAll`s the children at the tail of a `LinkedList` it `pop`s from the head, so the order is
+    really **breadth-first**: the root's direct children in document order, then deeper ones.
+  - **By name** only where the plots map builds its GeoJSON (`LeafletMapController` takes the first row as
+    the header, `PlotGeoJsonBuilder.properties` puts `valuesByColumn` into the feature) and the web
+    balloon (`web_form=balloon`) is filled from those properties (`BalloonServlet.buildWebSubstitutionParams`
+    aliases each as `EXTRA_<name>`; a `$[...]` with no parameter stays **literally** in the HTML).
+  - Collect's own plot file check (`CollectEarthGridTemplateGenerator.validateCSVHeaders`) wants the header
+    to **start with** keys, `lat`, `long`, then the from-CSV attributes in that order; columns after them are
+    allowed and read by no attribute.
+  - **So a column appended at the end works only when the row has exactly as many extra columns as the
+    survey has from-CSV attributes before the note** (the usual, Collect-validated file). A file with more
+    columns (allowed) would make the form read one of them as the note; a file with fewer would put the note
+    into an earlier attribute (e.g. `district`). **Decided:** the note attribute is the **last** root-level
+    from-CSV attribute (index `N` = how many root-level non-key from-CSV attributes the survey has), the
+    template reads `${placemark.extraColumns[N]!""}`, and every served row gets the note **at extra
+    column N**: rows with fewer extra columns are padded with empty cells, rows with more get it inserted
+    there (the columns no attribute reads move one to the right, the header named `coordinator_note` with
+    them, so the by-name readers follow; the polygon column is found by content per row, `PolygonKmlGenerator`).
+    No existing positional extra moves. A survey with a from-CSV attribute below the root is refused (its
+    position would come after the note). A plot file Collect Earth gets from elsewhere (not through the server)
+    with no column past the survey's is safe too: FreeMarker gives null for an index past a Java array (`ArrayModel.get`,
+    `DefaultArrayAdapter.get`), which `!""` turns into nothing, and the form sets no value it has no column for.
+  - **Without a header row** (`parsePlotFile` finds none): the positional readers work as with one; the
+    by-name readers already take the first data row as names, so only the plots map's web balloon path lacks
+    every column's `$[EXTRA_…]` (as today). The served file then gets the note in its data rows only.
+- **(b) Shown, not editable.** `SurveyFormModelBuilder.rootAttributeItem`: a from-CSV attribute with
+  `collectearth:showreadonlyfield="true"` becomes a field with `readOnly: true` (always shown, label and
+  value, empty too); with `collectearth:includeinheader="true"` instead it becomes an `info` item, which
+  `FormApp.HeaderInfo` shows at the top of the first step **only when it has a value** (`filter(i => i.value)`),
+  as a label and text, never a control. **Chosen: `includeinheader`** — a normal plot shows nothing; a plot
+  sent back shows "Note from the coordinator: …" on top. (The header shows 2 rows until "Show all", so in a
+  survey that already has header fields the note can be third.) The old balloon (`balloon.html` for Google
+  Earth Pro, `balloon_web.html` for `web_form=balloon`) is static HTML from the designer; the server inserts the
+  hidden input like `round`'s and a `<div>` that CSS hides while empty (`:empty`), labelled with `::before`.
+- **(c) Keys, summaries, exports.** Not a key: record keys stay `id,round`. The desktop sends it in the
+  summary (`getValuesByHtmlParameters`, key `collect_text_coordinator_note`); the survey outline marks every
+  from-CSV attribute `excluded` (`surveyOutline.ts`), so answers per person, flags, the review queue, survey
+  health, the "submitted again" hashes (`answerKeyRule`), the plot page and the AI never compare or show it; a
+  text key is not compared without an outline either (`keyRule`). The server's `export.csv` (union of summary
+  keys) would get a column: left out while the server added the note. In Collect Earth it is one more text
+  column (type memo: Collect's RDB keeps 2,048 characters, `RelationalSchemaConfig.memoMaxLength`, truncating
+  with a warning past it); IPCC exports filter on round and land-use attributes and do not read it; Saiku's cube
+  dimensions are named in `collectEarthCubes.xml.fmt` and this is not one.
+- **Escaping:** Google Earth puts a Data value into the balloon HTML as it is (`<`, `"` would break out of the
+  hidden input), and `BalloonServlet` replaces `$[…]` again after each substitution, so the server writes the
+  comment with `<` `>` `&` `"` replaced by look-alikes, `$[` broken, line breaks as " / ", and at most 1,000
+  characters; the CSV field is quoted when it holds the separator.
+
+**As built** (differs from the above where it says so)
+- **`addNote` (`src/cep.ts`)**, run after `addRound` on every upload: a `<text type="memo" name="coordinator_note"
+  collectearth:fromcsv="true" collectearth:includeinheader="true">` right after the root's last attribute filled
+  from the plot file (else its last key), the id key's `ui:tab`, labels "Note from the coordinator" / "Nota del
+  coordinador" / "Note du coordinateur" / "Nota do coordenador" in the survey's languages (`labelElements`, now
+  shared with round), an id above every id; in each balloon after the marker: the hidden input, a `<style>`, the
+  `<div id="coordinator_note_shown">$[EXTRA_coordinator_note]</div>` (hidden while empty, labelled in the default
+  language through `::before`) and a script that empties it when a `$[` was left unfilled; in the template
+  `<Data name="EXTRA_coordinator_note"><value>${placemark.extraColumns[N]!""}</value>`. Same edit rules as round
+  (latin1 bytes, ASCII inserted, the line's own line break, other entries byte-equal, read back or throw).
+  **Idempotent:** a file that already has the note as the server writes it (after every other plot-file attribute,
+  in the header, its Data and inputs there) is `added` with its bytes unchanged. Refusals (`NoteInfo.refusal`):
+  the zip/survey ones, `several_entities`, `note_name_taken` (a `coordinator_note` of the survey's own, or ours
+  not last), `nested_plot_columns`, `balloon_missing`, `balloon_marker_missing`, `template_missing`,
+  `template_marker_missing`, `records_exist`.
+- **Stored in `RoundInfo.note`** (`{ state, refusal, column }`, the JSONB `round_info`: no migration, infos stored
+  before read as none). **PUT /cep** (`withNote`, `routes/platform.ts`): no records → added (the upload kept as
+  `/cep/original` when only the note changed it); records and the served file had no note → not added
+  (`records_exist`), the file as uploaded; records and the served file had it → added again (or kept when the upload
+  has it), else **409 `note_removed`** with the reason, nothing stored (the records hold the note). The demo survey
+  (its own round) gets it too: `column` 9.
+- **Served rows** (`buildPlotFile(…, note)`, `NoteColumn`, `noteColumnOf` in `routes/assignments.ts`): every file a
+  person gets while the project has the note — whole, divided, "To check again" — has the column at extra column N
+  (padded / inserted as decided in the spike; coordinates counted per row as `KmlGenerator` does, decimal commas
+  too, the header's as its first row's; after an inserted round; quoted when needed); empty except in "To check
+  again" files, whose rows carry the decision's comment through `noteText` (one line, look-alikes, ≤ 1,000
+  characters with "…"; `RecheckFile.notes`). A whole file is therefore built (no longer served as uploaded) once the
+  note is added; the coordinator's own download stays the upload. Cache keys gain the note's column (and the
+  comments, for "To check again").
+- **Not an answer:** excluded through the outline (from-CSV) everywhere; `export.csv` leaves out
+  `collect_text_coordinator_note` while the project has the note (`recordsCsv(…, leaveOut)`).
+- **Tests:** server 1058 (was 1025): `cep.test.ts` +19 (`addNote`: the demo after round, column 9, every edit,
+  outline excluded; idempotent; column 0 after round with the tab; counting only root non-key plot-file attributes
+  and the default-language label; CRLF balloon and a template without the marker; 12 refusals; too_large; the
+  date), `plots.test.ts` +8 (padding/appending/inserting, after the inserted or replaced round, coordinates not
+  numbers and decimal commas, no header with rank, BOM and a quoted line break; `noteText`), `rounds.routes.test.ts`
+  +5 (added with round / with own round / refused name / kept after records / 409 `note_removed`), `sendBack.test.ts`
+  +1 route test (own file's empty column, the comment in the recheck row read back where Collect Earth reads it, a
+  late-synced record with the note still waiting, plot page and export without it; checked red by serving the export
+  without `leaveOut`) and its first test now expects the note; tests about the round column alone upload
+  `noNote(…)` (fixture: a survey with its own `coordinator_note`); `RecheckFile` gains `notes`. Web 319 (unchanged),
+  tsc clean.
+- **Real Collect Earth (2026-11-02, this branch built, `viewerType=google_earth_web`):** profile backed up to
+  `%APPDATA%\CollectEarth-backup-2026-11-02-task16` (3,240 files, 2,719,440,430 bytes, listing and sizes equal,
+  `earth.properties` and `collectEarthDatabase.db` sha256 equal) before launching. A memory-store server (8121) with
+  the id-only fixture renamed `t16_note_check`: `added` round, note column 9; 8 plots in Spain with the demo's 9
+  columns, divided between anna and ben; anna's record of 102 sent back with "Look again at the <tree> cover in the
+  north: "dense" & green?⏎Compare with the 2020 imagery.". The desktop as anna (`earth.properties` as the join flow
+  sets it, the served CEP opened as a double-clicked file, her files in `assignments/`; the "–" of the file name
+  written as a `–` escape in `earth.properties`):
+  - **"To check again – spain_plots.csv"**: the KML builds (header skipped as usual); the form of plot 102 shows on
+    top "Note from the coordinator  Look again at the ‹tree› cover in the north: 'dense' ＆ green? / Compare with the
+    2020 imagery.", as header text, no input for it; the heading stays "Plot 102" (screenshot `01-…`). The draft saved
+    and synced as **`102,1`** (keys `id,round` unchanged; `elevation` 702 still extra column 0); the local record holds
+    the note text right after `district`; the server's `export.csv` has the record and no note column.
+  - **spain_plots.csv** (the normal file): plot 101 shows no header and nothing new (`02-…`), saved and synced as
+    `101,1`. Plot 102 opened from it still shows the note: the form shows a record's own value first
+    (`store.value || store.plotValue`), and the record holds it.
+  - **`web_form=balloon`** (the CEP's web balloon): the yellow "Note from the coordinator: …" line on top, the hidden
+    input filled, no `$[…]` left unfilled (`03-…`).
+  - Stopped (the JVM on 8028, its chromedriver and Chrome; none left) and the server; **profile restored** with
+    `robocopy /MIR` from the backup: 3,240 files, 2,719,440,430 bytes, 394 folders, no path or size difference,
+    `earth.properties` and `collectEarthDatabase.db` sha256 equal to the backup; the t16 project folder gone. The
+    backup is kept. Screenshots in the session scratchpad's `t16/` folder.
+  - **Not done in the real run:** a full submit (the demo's many required questions) — saving went through the draft
+    saves; Google Earth Pro's own balloon (the static `balloon.html` path; its HTML is the same insert as the web
+    balloon's); Saiku and IPCC (read from the code only, spike (c)).
+- **Open:** a record keeps the note it was saved with, so the form keeps showing it from the normal plot file after
+  the plot left "To check again" (until the record is saved from a file whose note is empty — the form sends the plot
+  file's value with each save); the header shows two rows until "Show all", so a survey with header fields of its own
+  may hide the note behind it; the note is English-labelled where the survey's default language is not en/es/fr/pt; a
+  survey whose from-CSV attributes include types `BalloonInputFieldsUtils` cannot name would make the form's count
+  differ from the template's (pre-existing for every such column); every served file of a project with the note
+  grows one column (and the padding), so its checksum changes once on upgrade for projects uploaded after this — older
+  projects have no note until their project file is uploaded again before collection.
+
 ## Part E: data out and people outside
 
 ### Task 17: Collect Earth backup download (improvement 13)
