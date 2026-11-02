@@ -89,10 +89,10 @@ export interface FlagTable {
   /**
    * Every saved, not deleted record of a known round (drafts and checks too), by its plot
    * group (as the decisions are keyed): the records of groups[g] are start[g]..start[g+1],
-   * each with its person, its last save (modifiedOn), when the server received it, and a
-   * hash of its answers.
+   * each with its person, its last save (modifiedOn), when the server received it, a
+   * hash of its answers, and whether it is submitted (1) or a draft (0).
    */
-  saved: { groups: string[]; start: Int32Array; operators: string[]; operator: Uint32Array; time: Float64Array; received: Float64Array; hash: Uint32Array };
+  saved: { groups: string[]; start: Int32Array; operators: string[]; operator: Uint32Array; time: Float64Array; received: Float64Array; hash: Uint32Array; submitted: Uint8Array };
 }
 
 /** What a decision keeps of the records of its plot as the figures showed them when it was made: each one's person and answers' hash. */
@@ -284,6 +284,7 @@ export function flagTable(input: QualityInput, kept: readonly FirstAssessment[],
   const time = new Float64Array(total);
   const received = new Float64Array(total);
   const hash = new Uint32Array(total);
+  const savedSubmitted = new Uint8Array(total);
   input.records.forEach((r, i) => {
     const g = recordGroup[i];
     if (g < 0) return;
@@ -299,6 +300,7 @@ export function flagTable(input: QualityInput, kept: readonly FirstAssessment[],
     // Not known (a store that does not give it): taken as its last save.
     received[at] = r.receivedAt ?? r.modifiedOn;
     hash[at] = (digests.get(r) ?? reader.digest(r.summary)).hash;
+    savedSubmitted[at] = r.activelySaved ? 1 : 0;
   });
 
   return {
@@ -308,7 +310,7 @@ export function flagTable(input: QualityInput, kept: readonly FirstAssessment[],
     answers: counts,
     required: { keys: requiredKeys, labels: requiredLabels },
     empty: { rows: Int32Array.from(emptyRows), offsets: Int32Array.from(emptyOffsets), keys: Uint16Array.from(emptyKeys) },
-    saved: { groups, start, operators, operator, time, received, hash },
+    saved: { groups, start, operators, operator, time, received, hash, submitted: savedSubmitted },
   };
 }
 
@@ -323,7 +325,7 @@ export function seenOf(f: FlagTable, plot: string): DecisionSeen[] | null {
 
 /** The typed arrays of a flag table, to hand it over between threads without copying. */
 export function flagBuffers(f: FlagTable): ArrayBufferView[] {
-  return [f.submitted, f.order, f.same, f.answers, f.empty.rows, f.empty.offsets, f.empty.keys, f.saved.start, f.saved.operator, f.saved.time, f.saved.received, f.saved.hash];
+  return [f.submitted, f.order, f.same, f.answers, f.empty.rows, f.empty.offsets, f.empty.keys, f.saved.start, f.saved.operator, f.saved.time, f.saved.received, f.saved.hash, f.saved.submitted];
 }
 
 /** group -> index in saved.groups, built once per table. */
@@ -476,16 +478,7 @@ export function patternFlags(
     if (d.decision === 'recheck' || groups === null) continue;
     const g = groups.get(d.plot);
     if (g === undefined) continue;
-    const seen = d.seen ?? null;
-    // Each person's latest such save, once.
-    const latest = new Map<number, number>();
-    for (let i = f.saved.start[g]; i < f.saved.start[g + 1]; i++) {
-      if (f.saved.received[i] <= d.decidedAt) continue;
-      const operator = f.saved.operators[f.saved.operator[i]];
-      const changed = seen !== null ? !seen.some((x) => x.operator === operator && x.hash === f.saved.hash[i]) : f.saved.time[i] > d.decidedAt;
-      if (changed && f.saved.time[i] > (latest.get(f.saved.operator[i]) ?? -Infinity)) latest.set(f.saved.operator[i], f.saved.time[i]);
-    }
-    for (const [o, at] of latest) {
+    for (const [o, at] of savedAgain(f, g, d, false)) {
       add({ kind: 'edited_after_decision', plot: d.plot, operator: f.saved.operators[o], at, details: { decision: d.decision, decidedAt: d.decidedAt } });
     }
   }
@@ -534,6 +527,57 @@ export function patternFlags(
     flags: all.slice(0, MAX_LISTED_FLAGS),
     requiredQuestions: f.required.keys.length,
   };
+}
+
+/**
+ * The records of plot group g the server received after decision d, each person's latest
+ * (person index -> its modifiedOn). A record counts when its answers are not among those
+ * the decision saw (`seen`), or, without `seen`, when it was also saved after the decision
+ * (modifiedOn, the collector's clock). `submitted`: only records submitted now, and then
+ * also one saved after the decision with the same answers (it was submitted again: the
+ * answer to "both need another look"; going through a plot's tabs alone leaves it unsubmitted).
+ */
+function savedAgain(f: FlagTable, g: number, d: FlagDecision, submitted: boolean): Map<number, number> {
+  const seen = d.seen ?? null;
+  const latest = new Map<number, number>();
+  for (let i = f.saved.start[g]; i < f.saved.start[g + 1]; i++) {
+    if (f.saved.received[i] <= d.decidedAt) continue;
+    if (submitted && f.saved.submitted[i] !== 1) continue;
+    const operator = f.saved.operators[f.saved.operator[i]];
+    const after = f.saved.time[i] > d.decidedAt;
+    const unseen = seen !== null && !seen.some((x) => x.operator === operator && x.hash === f.saved.hash[i]);
+    const counts = seen === null ? after : unseen || (submitted && after);
+    if (counts && f.saved.time[i] > (latest.get(f.saved.operator[i]) ?? -Infinity)) latest.set(f.saved.operator[i], f.saved.time[i]);
+  }
+  return latest;
+}
+
+/** A plot decided "both need another look" whose record came back submitted: who, when (modifiedOn), and when it was decided. */
+export interface Resubmitted {
+  plot: string;
+  operator: string;
+  at: number;
+  decidedAt: number;
+}
+
+/**
+ * The plots decided "both need another look" that were submitted again since (the review
+ * queue's third part, Task 7): a record of the plot submitted now, received after the
+ * decision, either with answers the decision did not see or saved after it (see
+ * savedAgain); each person once. Newest first. Sending a plot back (Task 12) will bring
+ * these in by itself; until then the collector reopens the plot.
+ */
+export function resubmittedAfterRecheck(f: FlagTable, decisions: readonly FlagDecision[]): Resubmitted[] {
+  const out: Resubmitted[] = [];
+  if (!decisions.some((d) => d.decision === 'recheck')) return out;
+  const groups = groupIndexOf(f);
+  for (const d of decisions) {
+    if (d.decision !== 'recheck') continue;
+    const g = groups.get(d.plot);
+    if (g === undefined) continue;
+    for (const [o, at] of savedAgain(f, g, d, true)) out.push({ plot: d.plot, operator: f.saved.operators[o], at, decidedAt: d.decidedAt });
+  }
+  return out.sort((a, b) => b.at - a.at || (a.plot < b.plot ? -1 : a.plot > b.plot ? 1 : 0) || (a.operator < b.operator ? -1 : 1));
 }
 
 /** One person's counts (the coordinator's person page: never computed there, from the figures at hand). */

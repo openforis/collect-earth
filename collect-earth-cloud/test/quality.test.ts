@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RoundInfo } from '../src/cep.js';
-import { aiSafeValue, checkMargins, finalAnswers, marginKey, isoWeek, MIN_PLOTS, qualityReport, recordsOfPlot, type QualityInput, type QualityRecord } from '../src/quality.js';
+import { aiSafeValue, checkMargins, finalAnswers, marginKey, isoWeek, MIN_PLOTS, pairFields, qualityReport, recordsOfPlot, type QualityInput, type QualityRecord } from '../src/quality.js';
 import type { Question } from '../src/surveyOutline.js';
 
 const added: RoundInfo = {
@@ -413,6 +413,44 @@ describe('qualityReport: caps', () => {
     expect(report.differences[499].plot).toBe('500');
     expect(report.problems).toHaveLength(500);
     expect(report.problemsTotal).toBe(600);
+  });
+});
+
+describe('qualityReport: every differing pair, for the review queue (Task 7)', () => {
+  it('lists every differing pair beyond the 500 differences, in plot order, without answers, saying which check is the latest of its plot', () => {
+    const records: QualityRecord[] = [];
+    for (let i = 1; i <= 900; i++) {
+      records.push(rec(`${i},1`, 'ana', { collect_code_land_use: 'a' }), rec(`${i},2`, 'ben', { collect_code_land_use: i % 3 === 0 ? 'a' : 'b' }));
+    }
+    // Plot 7 checked twice: carl's later check differs too, ben's is not the latest.
+    records.push(rec('7,2', 'carl', { collect_code_land_use: 'c' }, { modifiedOn: day + 5 }));
+    const units = new Set(Array.from({ length: 900 }, (_, i) => String(i + 1)));
+    const report = qualityReport(input(records, { units }));
+    expect(report.differences).toHaveLength(500);
+    expect(report.pairs).toHaveLength(601);
+    expect(report.pairs.map((p) => p.plot).slice(0, 6)).toEqual(['1', '2', '4', '5', '7', '7']);
+    expect(report.pairs.filter((p) => p.plot === '7')).toEqual([
+      { plot: '7', first: { operator: 'ana', recordKey: '7,1' }, check: { operator: 'ben', recordKey: '7,2' }, latest: false },
+      { plot: '7', first: { operator: 'ana', recordKey: '7,1' }, check: { operator: 'carl', recordKey: '7,2' }, latest: true },
+    ]);
+    expect(report.pairs.at(-1)).toMatchObject({ plot: '899', latest: true });
+    expect(Object.keys(report.pairs[0]).sort()).toEqual(['check', 'first', 'latest', 'plot']);
+  });
+
+  it('pairFields gives the differing answers of a pair as the report does (blanks on both sides, excluded keys, margins, several values)', () => {
+    const first = { collect_code_land_use: 'forest', collect_real_canopy: '50', collect_text_notes: 'x', collect_code_fromcsv: 'a', collect_code_species: 'a===b', 'collect_entity_tree[1].real_height': '', other: '' } as Record<string, string>;
+    const check = { collect_code_land_use: 'grass', collect_real_canopy: '55', collect_text_notes: 'y', collect_code_fromcsv: 'b', collect_code_species: 'b===a', 'collect_entity_tree[1].real_height': '' } as Record<string, string>;
+    const checkOnly = { ...check, 'collect_entity_tree[10].real_height': '4' };
+    for (const [c, margins] of [[check, {}], [check, { collect_real_canopy: 5 }], [checkOnly, {}]] as const) {
+      const report = qualityReport(input([rec('1,1', 'ana', first), rec('1,2', 'ben', c)], { margins }));
+      expect(pairFields(first, c, outline, margins)).toEqual(report.differences[0].fields);
+    }
+    expect(pairFields(first, check, outline, {}).map((f) => f.key)).toEqual(['collect_code_land_use']);
+    expect(pairFields(first, check, outline, { collect_real_canopy: 5 })).toEqual([
+      { key: 'collect_code_land_use', first: 'forest', check: 'grass' },
+      { key: 'collect_real_canopy', first: '50', check: '55' },
+    ]);
+    expect(pairFields(first, checkOnly, outline, {}).map((f) => f.key)).toEqual(['collect_code_land_use', 'collect_entity_tree[10].real_height']);
   });
 });
 

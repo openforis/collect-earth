@@ -195,15 +195,15 @@ export class PlotPlaceReader {
 }
 
 /**
- * Where the plots of the Quality tab's differences are (admin, read-only), so the
- * dashboard can link each to Google Earth: POST { plots: [...] } -> { places: [{ plot, lat, lon }] },
+ * Where the plots of the Quality tab's differences and the review queue are (coordinators
+ * and reviewers, read-only), so the dashboard can link each to Google Earth and Earth Map: POST { plots: [...] } -> { places: [{ plot, lat, lon }] },
  * with `unsupportedSrs` (and no places) when the survey's coordinates are not latitude
  * and longitude. The plots are units as the quality figures pair them (Difference.plot).
  */
 export async function registerPlotPlaceRoutes(app: FastifyInstance, store: Store): Promise<void> {
-  const admin = { preHandler: requireProjectMembership(store, 'admin') };
+  const reviewer = { preHandler: requireProjectMembership(store, 'reviewer') };
   const reader = new PlotPlaceReader(store);
-  app.post('/v1/projects/:pid/quality/places', admin, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/v1/projects/:pid/quality/places', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
     const plots = (request.body as { plots?: unknown } | null)?.plots;
     if (
       !Array.isArray(plots) ||

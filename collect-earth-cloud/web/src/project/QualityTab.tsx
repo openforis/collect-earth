@@ -58,6 +58,7 @@ import { QualitySurvey } from "./QualitySurvey";
 import { QualityAssistant } from "./QualityAssistant";
 import { QualityDifferences, type PlotFocus } from "./QualityDifferences";
 import { NoteDialog, QualityNotes, type NoteDraft } from "./QualityNotes";
+import { ReviewQueue } from "./ReviewQueue";
 
 /**
  * The agreement colour: one series everywhere, so one hue. A step of the dashboard's
@@ -743,6 +744,12 @@ export function QualityTab({ projectId }: { projectId: string }) {
       </Stack>
       <Counts data={data} stillWorking={busy} />
       {error !== null && !busy && <ErrorAlert error={error} onRetry={reload} />}
+      <ReviewQueue
+        projectId={projectId}
+        canBulk
+        onDecision={(plot, decision) => update((prev) => ({ decisions: withDecision(prev.decisions, plot, decision) }))}
+        onBulk={reload}
+      />
       {data.plotsChecked > 0 && (
         <>
           <Questions projectId={projectId} data={data} onMargins={(margins) => (update(() => ({ margins })), reload())} />

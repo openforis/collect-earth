@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  bulkDecisions,
   getFlags,
+  getReviewQueue,
   saveFastSeconds,
   absoluteUrl,
   ApiError,
@@ -441,6 +443,55 @@ describe("the quality figures", () => {
     expect(call(1).url).toBe("/v1/projects/p1/quality/flags?person=ana+b&kind=very_fast");
     await getFlags("p1", { person: null, kind: null });
     expect(call(2).url).toBe("/v1/projects/p1/quality/flags");
+  });
+
+  it("asks for the review queue with its filters and reads it; bulk decisions with a dry run first", async () => {
+    fetchMock.mockImplementation(async (_url) => {
+      const url = String(_url);
+      if (url.includes("decisions:bulk")) return jsonResponse(200, { rule: "first_by_reviewer", decision: "first", count: 3, plots: ["1", "2", "3"], dryRun: url.includes("dryRun") });
+      return jsonResponse(200, {
+        items: [
+          {
+            plot: "7",
+            section: "resubmitted",
+            people: ["ana", 5],
+            differences: [{ plot: "7", first: { operator: "ana", recordKey: "7,1" }, check: { operator: "ben", recordKey: "7,2" }, fields: [{ key: "q", first: "F", check: "G" }] }],
+            flags: [{ kind: "very_fast", plot: "7", operator: "ana", at: 5, details: { gapMs: 3000, previousPlot: "6" } }, { kind: "unknown", plot: "7" }],
+            resubmitted: [{ plot: "7", operator: "ana", at: 9, decidedAt: 8 }],
+            decision: { plot: "7", decision: "recheck", comment: null, decidedBy: "rita", decidedAt: 8 },
+          },
+          { plot: "8", section: "odd" },
+        ],
+        offset: 0,
+        total: 2,
+        counts: { difference: 0, flag: 0, resubmitted: 1 },
+        people: ["ana"],
+        flagsCapped: true,
+        labels: { q: "Land use" },
+        options: { q: [{ code: "F", label: "Forest" }] },
+        computedAt: 3,
+        stale: false,
+      });
+    });
+    const queue = await getReviewQueue("p1", { person: "ana b", kind: "very_fast" }, 100);
+    expect(call(0).url).toBe("/v1/projects/p1/quality/queue?person=ana+b&kind=very_fast&offset=100");
+    expect(queue.items).toHaveLength(1);
+    expect(queue.items[0]).toMatchObject({
+      plot: "7",
+      section: "resubmitted",
+      people: ["ana"],
+      flags: [{ kind: "very_fast", gapMs: 3000, previousPlot: "6" }],
+      resubmitted: [{ operator: "ana", at: 9, decidedAt: 8 }],
+      decision: { decision: "recheck", decidedBy: "rita" },
+    });
+    expect(queue.items[0].differences[0].fields).toEqual([{ key: "q", first: "F", check: "G" }]);
+    expect(queue).toMatchObject({ total: 2, counts: { resubmitted: 1 }, flagsCapped: true, labels: { q: "Land use" }, options: { q: [{ code: "F", label: "Forest" }] } });
+    await getReviewQueue("p1", { person: null, kind: null }, 0);
+    expect(call(1).url).toBe("/v1/projects/p1/quality/queue");
+    expect(await bulkDecisions("p1", "first_by_reviewer", true)).toEqual({ decision: "first", count: 3, plots: ["1", "2", "3"] });
+    expect(call(2)).toEqual({ url: "/v1/projects/p1/quality/decisions:bulk?dryRun=1", method: "POST", body: { rule: "first_by_reviewer" } });
+    await bulkDecisions("p1", "first_by_reviewer", false);
+    expect(call(3)).toEqual({ url: "/v1/projects/p1/quality/decisions:bulk", method: "POST", body: { rule: "first_by_reviewer" } });
   });
 
   it("saves margins, decisions and notes, and asks where plots are", async () => {

@@ -407,7 +407,11 @@ describe('migration 012', () => {
     const listed = (constraint: string) =>
       [...sql.slice(sql.indexOf(constraint)).split('))')[0].matchAll(/'([a-z.]+)'/g)].map((m) => m[1]).sort();
     expect(listed('change         TEXT')).toEqual(['created', 'deleted', 'resubmitted', 'submitted', 'unsubmitted', 'updated']);
-    expect(listed('audit_log_action_check')).toEqual([...AUDIT_ACTIONS].sort());
+    // 012 lists the actions of the plan; 015 widens them (decision.bulk, Task 7) and is what applies.
+    const widened = readFileSync(new URL('../migrations/015_decision_bulk.sql', import.meta.url), 'utf8');
+    const actions = (text: string) => [...text.slice(text.indexOf('ADD CONSTRAINT audit_log_action_check')).split('))')[0].matchAll(/'([a-z.]+)'/g)].map((m) => m[1]).sort();
+    expect(actions(widened)).toEqual([...AUDIT_ACTIONS].sort());
+    expect(listed('audit_log_action_check')).toEqual([...AUDIT_ACTIONS].filter((a) => a !== 'decision.bulk').sort());
     expect(AUDIT_ACTIONS).toContain('survey.replaced');
   });
 

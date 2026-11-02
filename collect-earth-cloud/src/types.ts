@@ -504,6 +504,7 @@ export const AUDIT_ACTIONS = [
   'plots.moved',
   'decision.set',
   'decision.deleted',
+  'decision.bulk',
   'settings.changed',
   'export.downloaded',
   'survey.replaced',

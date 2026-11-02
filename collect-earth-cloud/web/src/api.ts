@@ -2223,6 +2223,29 @@ export function toFlagCounts(value: unknown): FlagCounts {
 
 const toFlagKind = (value: unknown): FlagKind | null => (FLAG_KINDS as readonly unknown[]).includes(value) ? (value as FlagKind) : null;
 
+/** A flag as sent, in a list of none (an unknown kind) or one. */
+function toPatternFlags(f: Record<string, unknown>): PatternFlag[] {
+  const kind = toFlagKind(f.kind);
+  if (kind === null) return [];
+  const d = obj(f.details);
+  const decision = d.decision === "first" || d.decision === "check" || d.decision === "recheck" ? d.decision : null;
+  return [
+    {
+      kind,
+      plot: text(f.plot),
+      operator: text(f.operator),
+      at: toMillis(f.at),
+      gapMs: toNumberOrNull(d.gapMs),
+      previousPlot: nullableText(d.previousPlot),
+      runLength: toNumberOrNull(d.runLength),
+      firstPlot: nullableText(d.firstPlot),
+      questions: list(d.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key) })),
+      decision,
+      decidedAt: toMillis(d.decidedAt),
+    },
+  ];
+}
+
 export function toFlagsData(body: unknown): FlagsData {
   const b = obj(body);
   return {
@@ -2231,27 +2254,7 @@ export function toFlagsData(body: unknown): FlagsData {
     counts: toFlagCounts(b.counts),
     people: list(b.people).map((p) => ({ username: text(p.username), counts: toFlagCounts(p.counts), total: toCount(p.total) })),
     total: toCount(b.total),
-    flags: list(b.flags).flatMap((f): PatternFlag[] => {
-      const kind = toFlagKind(f.kind);
-      if (kind === null) return [];
-      const d = obj(f.details);
-      const decision = d.decision === "first" || d.decision === "check" || d.decision === "recheck" ? d.decision : null;
-      return [
-        {
-          kind,
-          plot: text(f.plot),
-          operator: text(f.operator),
-          at: toMillis(f.at),
-          gapMs: toNumberOrNull(d.gapMs),
-          previousPlot: nullableText(d.previousPlot),
-          runLength: toNumberOrNull(d.runLength),
-          firstPlot: nullableText(d.firstPlot),
-          questions: list(d.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key) })),
-          decision,
-          decidedAt: toMillis(d.decidedAt),
-        },
-      ];
-    }),
+    flags: list(b.flags).flatMap(toPatternFlags),
     requiredQuestions: toCount(b.requiredQuestions),
     computedAt: toMillis(b.computedAt),
     stale: b.stale === true,
@@ -2265,6 +2268,129 @@ export async function getFlags(projectId: string, filter: FlagsFilter): Promise<
   if (filter.kind) query.set("kind", filter.kind);
   const q = query.toString();
   return toFlagsData(await request<unknown>("GET", `${p(projectId)}/quality/flags${q ? `?${q}` : ""}`));
+}
+
+// --- the review queue (Task 7) ----------------------------------------------------
+
+export type QueueSection = "difference" | "flag" | "resubmitted";
+/** What the queue can be filtered by: a part, or a kind of flag (as the server's QUEUE_KINDS). */
+export const QUEUE_KINDS = ["difference", ...FLAG_KINDS, "resubmitted"] as const;
+export type QueueKind = (typeof QUEUE_KINDS)[number];
+
+/** A plot decided "both need another look" that someone submitted again. */
+export interface Resubmission {
+  operator: string;
+  at: number | null;
+  decidedAt: number | null;
+}
+
+/** One plot of the review queue, with everything known about it. */
+export interface QueueItem {
+  plot: string;
+  section: QueueSection;
+  /** Everyone whose record is shown. */
+  people: string[];
+  /** Its checks that differ from the first assessment, with the answers. */
+  differences: Difference[];
+  flags: PatternFlag[];
+  resubmitted: Resubmission[];
+  decision: QualityDecision | null;
+}
+
+export interface ReviewQueueData {
+  items: QueueItem[];
+  offset: number;
+  /** Plots in the queue (with the filters), listed or not. */
+  total: number;
+  counts: Record<QueueSection, number>;
+  /** Everyone named in the queue, for the person filter. */
+  people: string[];
+  /** Only the newest flags (500) were looked at. */
+  flagsCapped: boolean;
+  labels: Record<string, string>;
+  options: AnswerOptions;
+  computedAt: number | null;
+  stale: boolean;
+}
+
+export interface QueueFilter {
+  person: string | null;
+  kind: QueueKind | null;
+}
+
+export const NO_QUEUE_FILTER: QueueFilter = { person: null, kind: null };
+
+const QUEUE_SECTIONS: readonly QueueSection[] = ["difference", "flag", "resubmitted"];
+
+function toDifference(value: unknown): Difference {
+  const d = obj(value);
+  const first = obj(d.first);
+  const check = obj(d.check);
+  return {
+    plot: text(d.plot),
+    first: { operator: text(first.operator), recordKey: text(first.recordKey) },
+    check: { operator: text(check.operator), recordKey: text(check.recordKey) },
+    fields: list(d.fields).map((f) => ({ key: text(f.key), first: text(f.first), check: text(f.check) })),
+  };
+}
+
+export function toReviewQueue(body: unknown): ReviewQueueData {
+  const b = obj(body);
+  const counts = obj(b.counts);
+  const labels: Record<string, string> = {};
+  for (const [key, label] of Object.entries(obj(b.labels))) if (typeof label === "string") labels[key] = label;
+  return {
+    items: list(b.items).flatMap((i): QueueItem[] => {
+      const section = QUEUE_SECTIONS.find((s) => s === i.section);
+      if (!section) return [];
+      return [
+        {
+          plot: text(i.plot),
+          section,
+          people: Array.isArray(i.people) ? i.people.filter((v): v is string => typeof v === "string") : [],
+          differences: list(i.differences).map(toDifference),
+          flags: list(i.flags).flatMap(toPatternFlags),
+          resubmitted: list(i.resubmitted).map((r) => ({ operator: text(r.operator), at: toMillis(r.at), decidedAt: toMillis(r.decidedAt) })),
+          decision: i.decision && typeof i.decision === "object" ? toDecision(i.decision) : null,
+        },
+      ];
+    }),
+    offset: toCount(b.offset),
+    total: toCount(b.total),
+    counts: { difference: toCount(counts.difference), flag: toCount(counts.flag), resubmitted: toCount(counts.resubmitted) },
+    people: strings(b.people),
+    flagsCapped: b.flagsCapped === true,
+    labels,
+    options: toOptions(b.options),
+    computedAt: toMillis(b.computedAt),
+    stale: b.stale === true,
+  };
+}
+
+/** The review queue (coordinators and reviewers), from the `offset`th plot. A 503 "busy" is thrown as ApiError code "busy". */
+export async function getReviewQueue(projectId: string, filter: QueueFilter, offset: number): Promise<ReviewQueueData> {
+  const query = new URLSearchParams();
+  if (filter.person) query.set("person", filter.person);
+  if (filter.kind) query.set("kind", filter.kind);
+  if (offset > 0) query.set("offset", String(offset));
+  const q = query.toString();
+  return toReviewQueue(await request<unknown>("GET", `${p(projectId)}/quality/queue${q ? `?${q}` : ""}`));
+}
+
+export type BulkRule = "first_by_reviewer" | "check_by_reviewer";
+
+export interface BulkResult {
+  decision: DecisionKind;
+  /** Plots decided (or, in a dry run, that would be). */
+  count: number;
+  /** The first of them (up to 20). */
+  plots: string[];
+}
+
+/** Bulk decisions (coordinators): `dryRun` only counts the plots the rule would decide. */
+export async function bulkDecisions(projectId: string, rule: BulkRule, dryRun: boolean): Promise<BulkResult> {
+  const body = obj(await request<unknown>("POST", `${p(projectId)}/quality/decisions:bulk${dryRun ? "?dryRun=1" : ""}`, { json: { rule } }));
+  return { decision: toDecision({ decision: body.decision }).decision, count: toCount(body.count), plots: strings(body.plots) };
 }
 
 // --- survey health (Task 6) -----------------------------------------------------

@@ -24,6 +24,7 @@ import { QualityAnswers } from "../project/QualityAnswers";
 import { QualityFlags } from "../project/QualityFlags";
 import { QualitySurvey } from "../project/QualitySurvey";
 import { QualityTab } from "../project/QualityTab";
+import { ReviewQueue } from "../project/ReviewQueue";
 import { SettingsTab } from "../project/SettingsTab";
 import { linkProps, navigate, pathFor, PROJECT_TABS, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
@@ -105,6 +106,7 @@ export function ProjectPage({ projectId, tab, fileId, personId }: { projectId: s
           ) : (
             <Stack spacing={2}>
               <Typography color="text.secondary">{t("quality.reviewerNote")}</Typography>
+              <ReviewQueue projectId={projectId} canBulk={false} />
               <QualityFlags projectId={projectId} canEdit={false} />
               <QualityAnswers projectId={projectId} />
               <QualitySurvey projectId={projectId} />

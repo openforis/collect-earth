@@ -34,6 +34,7 @@ import { ErrorAlert } from "../components/ErrorAlert";
 import { formatDate, formatNumber } from "../format";
 import { useT, type MessageKey } from "../i18n";
 import { answerText, googleEarthUrl, groupDifferences, labelMap } from "../qualityView";
+import { earthMapUrl } from "../reviewQueueView";
 
 /** Plots per page: each shows its differing answers, so a page stays short on a phone. */
 export const DIFFERENCES_PAGE = 10;
@@ -57,7 +58,8 @@ const DECISION_LABEL: Record<DecisionKind, MessageKey> = {
   recheck: "quality.decision.recheck",
 };
 
-function CheckAnswers({ difference, label, options }: { difference: Difference; label: (key: string) => string; options: AnswerOptions }) {
+/** One check's differing answers next to the first assessment's (also the review queue's). */
+export function CheckAnswers({ difference, label, options }: { difference: Difference; label: (key: string) => string; options: AnswerOptions }) {
   const t = useT();
   const blank = (key: string, value: string) => answerText(t, key, value, options);
   return (
@@ -163,6 +165,17 @@ function PlotDifferences({
               sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
             >
               {t("quality.googleEarth")}
+              <OpenInNew fontSize="small" aria-hidden />
+            </Link>
+          )}
+          {place && (
+            <Link
+              href={earthMapUrl(plot, place.lat, place.lon)}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
+            >
+              {t("queue.earthMap")}
               <OpenInNew fontSize="small" aria-hidden />
             </Link>
           )}

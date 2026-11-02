@@ -13,6 +13,8 @@ export const MIN_PLOTS = 20;
 /** The number margin, in percent, of a question the coordinator has not set one for. */
 export const DEFAULT_MARGIN = 10;
 export const MAX_DIFFERENCES = 500;
+/** Most differing pairs the report names without their answers (the review queue's and the bulk decisions' list). */
+export const MAX_PAIRS = 200_000;
 export const MAX_PROBLEMS = 500;
 export const MAX_CONFUSIONS = 500;
 export const MAX_CONFUSION_PLOTS = 20;
@@ -123,6 +125,14 @@ export interface Difference {
   fields: { key: string; first: string; check: string }[];
 }
 
+/** A differing pair named without its answers; `latest`: its check is the plot's latest (the one a decision for the check takes). */
+export interface DifferingPairRef {
+  plot: string;
+  first: { operator: string; recordKey: string };
+  check: { operator: string; recordKey: string };
+  latest: boolean;
+}
+
 export type DataProblemKind = 'no_plot' | 'unknown_round' | 'two_main' | 'extra_key_parts';
 
 export interface DataProblem {
@@ -142,6 +152,12 @@ export interface QualityReport {
   weeks: WeekAgreement[];
   /** Up to MAX_DIFFERENCES, in plot order. */
   differences: Difference[];
+  /**
+   * Every differing pair (up to MAX_PAIRS), in the same order, without the answers: for the
+   * review queue (a plot beyond the listed differences has its answers read when shown) and
+   * the bulk decisions. Not sent with GET /quality.
+   */
+  pairs: DifferingPairRef[];
   /** Up to MAX_PROBLEMS, in plot order. */
   problems: DataProblem[];
   problemsTotal: number;
@@ -180,6 +196,8 @@ interface DifferingPair {
   slots: Uint32Array;
   /** Whether the plot is certainly the first assessor's (see PersonQuality.personal). */
   own: boolean;
+  /** Whether the check is the plot's latest. */
+  latest: boolean;
 }
 
 /**
@@ -301,7 +319,7 @@ export function qualityReport(input: QualityInput, onCheckedPlot?: (plot: string
     const fi = personIndex.get(first.operator)!;
     const holders = mainHolders?.get(plot);
     const own = g.main.length === 1 && (holders === undefined || holderHas(holders, first.operator));
-    const latestCheck = onCheckedPlot ? g.check.reduce((a, b) => (later(b, a) ? b : a)) : null;
+    const latestCheck = g.check.length === 1 ? g.check[0] : g.check.reduce((a, b) => (later(b, a) ? b : a));
     for (const check of g.check) {
       const cs = check.summary;
       const ci = personIndex.get(check.operator)!;
@@ -354,8 +372,8 @@ export function qualityReport(input: QualityInput, onCheckedPlot?: (plot: string
           }
         }
       }
-      if (check === latestCheck) {
-        onCheckedPlot!(plot, differs.map((id) => slotList[id].key));
+      if (onCheckedPlot && check === latestCheck) {
+        onCheckedPlot(plot, differs.map((id) => slotList[id].key));
       }
       const agrees = differs.length === 0;
       firstCompared[fi] += 1;
@@ -371,7 +389,7 @@ export function qualityReport(input: QualityInput, onCheckedPlot?: (plot: string
         checkerAgreeing[ci] += 1;
       } else {
         plotDiffers = true;
-        differingPairs.push({ plot, first, check, slots: Uint32Array.from(differs), own });
+        differingPairs.push({ plot, first, check, slots: Uint32Array.from(differs), own, latest: check === latestCheck });
       }
       const day = Math.floor(check.modifiedOn / 86_400_000);
       let week = weekOfDay.get(day);
@@ -394,10 +412,14 @@ export function qualityReport(input: QualityInput, onCheckedPlot?: (plot: string
   differingPairs.sort((x, y) => plotOrder(x.plot, y.plot) || order(x.check.operator, y.check.operator));
   const confusions: Confusion[] = [];
   const differences: Difference[] = [];
+  const pairs: DifferingPairRef[] = [];
   // Each first assessor's share of each confusion (same key, answers), by person index.
   const personConfusions = new Map<number, Map<Confusion, Confusion>>();
   for (const pair of differingPairs) {
     const { first, check, plot } = pair;
+    if (pairs.length < MAX_PAIRS) {
+      pairs.push({ plot, first: { operator: first.operator, recordKey: first.recordKey }, check: { operator: check.operator, recordKey: check.recordKey }, latest: pair.latest });
+    }
     const fi = personIndex.get(first.operator)!;
     const fs = first.summary;
     const cs = check.summary;
@@ -514,6 +536,7 @@ export function qualityReport(input: QualityInput, onCheckedPlot?: (plot: string
       }),
     weeks: [...weeks].sort(([a], [b]) => order(a, b)).map(([week, t]) => ({ week, compared: t.compared, agreeing: t.agreeing })),
     differences,
+    pairs,
     problems: problems.slice(0, MAX_PROBLEMS),
     problemsTotal: problems.length,
     problemsByPerson: problemCounts(problems),
@@ -522,6 +545,32 @@ export function qualityReport(input: QualityInput, onCheckedPlot?: (plot: string
 }
 
 const EMPTY = new Int32Array(0);
+
+/**
+ * The differing answers of one pair, as qualityReport lists them in a Difference (same
+ * questions, order, margins and blanks): for a plot of the review queue beyond the listed
+ * differences, whose two records are read when it is shown.
+ */
+export function pairFields(
+  first: Readonly<Record<string, string>>,
+  check: Readonly<Record<string, string>>,
+  outline: ReadonlyMap<string, Question> | null,
+  margins: Readonly<Record<string, number>> = {},
+): Difference['fields'] {
+  const fields: Difference['fields'] = [];
+  const compare = (key: string) => {
+    const a = text(Object.hasOwn(first, key) ? first[key] : undefined);
+    const b = text(Object.hasOwn(check, key) ? check[key] : undefined);
+    if (isBlankAnswer(a) && isBlankAnswer(b)) return;
+    const rule = keyRule(key, outline);
+    if (!rule.compare) return;
+    const agrees = a === b || (rule.kind === 'choice' ? choiceText(a) === choiceText(b) : numbersAgree(a, b, marginOf(margins, key)));
+    if (!agrees) fields.push({ key, first: shownText(a), check: shownText(b) });
+  };
+  for (const key of Object.keys(first)) compare(key);
+  for (const key of Object.keys(check)) if (!Object.hasOwn(first, key)) compare(key);
+  return fields;
+}
 
 function problemCounts(problems: readonly DataProblem[]): QualityReport['problemsByPerson'] {
   const counts = new Map<string, { operator: string; kind: DataProblemKind; count: number }>();

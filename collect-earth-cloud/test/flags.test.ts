@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RoundInfo } from '../src/cep.js';
 import { qualityFigures, tableBuffers } from '../src/answerStats.js';
-import { DEFAULT_FAST_SECONDS, fastSecondsOf, flagCountsOf, MAX_LISTED_FLAGS, patternFlags, seenOf, type Flag, type FlagOptions } from '../src/flags.js';
+import { DEFAULT_FAST_SECONDS, fastSecondsOf, flagCountsOf, MAX_LISTED_FLAGS, patternFlags, resubmittedAfterRecheck, seenOf, type Flag, type FlagOptions } from '../src/flags.js';
 import type { QualityInput, QualityRecord } from '../src/quality.js';
 import type { Question } from '../src/surveyOutline.js';
 import type { DecisionKind } from '../src/types.js';
@@ -239,6 +239,38 @@ describe('pattern flags: edited after a decision, from what the decision saw', (
     const seen = decided([rec('1,1', 'ana', t0, before)]);
     const result = of(patternFlags(figuresOf([rec('1,1', 'ana', t0, before), rec('1,2', 'ben', decidedAt + 3, answers(5), { receivedAt: decidedAt + 4 })]), seen, { fastSeconds: 15 }).flags, 'edited_after_decision');
     expect(result.map((f) => f.operator)).toEqual(['ben']);
+  });
+});
+
+describe('plots sent back for another look and submitted again (review queue, Task 7)', () => {
+  const decidedAt = t0 + s(1000);
+  const before = answers(1);
+  const changed = { ...answers(1), collect_real_canopy: '99' };
+  const recheck = (seenRecords: QualityRecord[] | null) => [
+    { plot: '1', decision: 'recheck' as const, decidedAt, seen: seenRecords ? seenOf(figuresOf(seenRecords).flags, '1') : null },
+  ];
+  const again = (records: QualityRecord[], decisions: ReturnType<typeof recheck>) => resubmittedAfterRecheck(figuresOf(records).flags, decisions);
+
+  it('a record of the plot submitted again (or with other answers), received after "both need another look": each person once, their latest', () => {
+    const d = recheck([rec('1,1', 'ana', t0, before, { receivedAt: t0 }), rec('1,2', 'ben', t0, before, { receivedAt: t0 })]);
+    expect(again([rec('1,1', 'ana', decidedAt + 5, changed, { receivedAt: decidedAt + 9 }), rec('1,2', 'ben', t0, before, { receivedAt: t0 })], d)).toEqual([
+      { plot: '1', operator: 'ana', at: decidedAt + 5, decidedAt },
+    ]);
+    // Looked at again and submitted with the same answers: back too (submitting is the answer to "another look").
+    expect(again([rec('1,1', 'ana', decidedAt + 5, { ...before }, { receivedAt: decidedAt + 9 })], d)).toHaveLength(1);
+    // Its tabs gone through (saved, not submitted), a draft with new answers (not submitted yet), a save received before: not.
+    expect(again([rec('1,1', 'ana', decidedAt + 5, { ...before }, { receivedAt: decidedAt + 9, activelySaved: false })], d)).toEqual([]);
+    expect(again([rec('1,1', 'ana', decidedAt + 5, changed, { receivedAt: decidedAt + 9, activelySaved: false })], d)).toEqual([]);
+    expect(again([rec('1,1', 'ana', decidedAt + 5, changed, { receivedAt: decidedAt - 1 })], d)).toEqual([]);
+    // Deleted: not.
+    expect(again([rec('1,1', 'ana', decidedAt + 5, changed, { receivedAt: decidedAt + 9, deleted: true })], d)).toEqual([]);
+  });
+
+  it('without what the decision saw: submitted and received after it; only "both need another look"; and never a "saved again after a decision" flag', () => {
+    const records = [rec('1,1', 'ana', decidedAt + 5, before, { receivedAt: decidedAt + 9 })];
+    expect(again(records, recheck(null))).toEqual([{ plot: '1', operator: 'ana', at: decidedAt + 5, decidedAt }]);
+    expect(resubmittedAfterRecheck(figuresOf(records).flags, [{ plot: '1', decision: 'first', decidedAt }])).toEqual([]);
+    expect(of(patternFlags(figuresOf(records), recheck(null), { fastSeconds: 15 }).flags, 'edited_after_decision')).toEqual([]);
   });
 });
 

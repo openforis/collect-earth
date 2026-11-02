@@ -1321,6 +1321,36 @@ export class PostgresStore implements Store {
     });
   }
 
+  async addQualityDecisions(
+    projectId: string,
+    decisions: readonly { plot: string; decision: DecisionKind; seen: { operator: string; hash: number }[] | null }[],
+    comment: string | null,
+    userId: string | null,
+  ): Promise<string[]> {
+    if (decisions.length === 0) {
+      return [];
+    }
+    return this.withProject(projectId, async (client) => {
+      // One statement in the transaction: a plot decided meanwhile keeps its decision.
+      const res = await client.query(
+        `INSERT INTO quality_decisions (project_id, plot, decision, comment, decided_by, decided_at, seen)
+         SELECT $1, d.plot, d.decision, $5, $6, now(), d.seen::jsonb
+           FROM unnest($2::text[], $3::text[], $4::text[]) AS d(plot, decision, seen)
+         ON CONFLICT (project_id, plot) DO NOTHING
+         RETURNING plot`,
+        [
+          projectId,
+          decisions.map((d) => d.plot),
+          decisions.map((d) => d.decision),
+          decisions.map((d) => (d.seen === null ? null : JSON.stringify(d.seen))),
+          comment,
+          userId,
+        ],
+      );
+      return res.rows.map((r) => r.plot as string);
+    });
+  }
+
   async deleteQualityDecision(projectId: string, plot: string): Promise<boolean> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query('DELETE FROM quality_decisions WHERE project_id = $1 AND plot = $2', [projectId, plot]);

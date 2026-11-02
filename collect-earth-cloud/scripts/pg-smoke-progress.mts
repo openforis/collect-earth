@@ -5,8 +5,8 @@
 // the bars in five time zones (Rome across a DST change), the median waits as the memory
 // store's, the settings, RLS between two projects, and GET /progress on a project of
 // 100,000 records of which 20,000 checks, then the People tab and My work on it, cold and warm,
-// and the Quality tab's answers per person (Task 4), pattern flags (Task 5) and survey
-// health (Task 6) on it.
+// and the Quality tab's answers per person (Task 4), pattern flags (Task 5), survey
+// health (Task 6), and the review queue and bulk decisions (Task 7, migration 015) on it.
 //
 //   docker run -d --rm --name ce-pg-smoke -e POSTGRES_PASSWORD=pw -p 55481:5432 postgres:16
 //   npm run smoke:pg:progress -- 55481        (the superuser is postgres / pw on localhost)
@@ -56,6 +56,8 @@ const column = (await owner.query("SELECT data_type FROM information_schema.colu
 check('013: projects.progress_settings (twice, idempotent)', column?.data_type === 'jsonb', column);
 const index = (await owner.query("SELECT 1 FROM pg_indexes WHERE indexname = 'idx_record_events_project_received'")).rows.length;
 check('013: the received_at index', index === 1);
+const auditCheck = (await owner.query("SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = 'audit_log_action_check'")).rows;
+check('015: the audit actions allow decision.bulk (one constraint, after two runs)', auditCheck.length === 1 && auditCheck[0].def.includes('decision.bulk') && auditCheck[0].def.includes('link.revoked'), auditCheck);
 
 // --- The server as the app role. ---
 const store = new PostgresStore(appUrl);
@@ -316,6 +318,22 @@ for (let q = 0; q < 10; q++) answerKeys.push(`'collect_text_t${q}', 'some words 
 const chunks: string[] = [];
 for (let c = 0; c < answerKeys.length; c += 20) chunks.push(`jsonb_build_object(${answerKeys.slice(c, c + 20).join(', ')})`);
 await owner.query(`UPDATE records SET summary = ${chunks.join(' || ')} WHERE project_id = $1`, [big]);
+// The review queue (Task 7): the checks of every 15th plot differ on q1 (3,333 with a submitted
+// first assessment: every tenth is a draft), and op6, who checks the plots i % 40 = 5, becomes a
+// reviewer (833 of them by op6).
+await owner.query(
+  `UPDATE records SET summary = summary || '{"collect_code_q1": "zz"}'::jsonb
+    WHERE project_id = $1 AND record_key::int % 15 = 0 AND operator = 'op' || ((record_key::int + 1) % 40)`,
+  [big],
+);
+await owner.query(`UPDATE project_members SET role = 'reviewer' WHERE project_id = $1 AND user_id = (SELECT id FROM users WHERE username = 'op6')`, [big]);
+let differing = 0;
+let byReviewer = 0;
+for (let i = 1; i <= N; i++) {
+  if (i % 15 !== 0 || i % 10 === 0) continue;
+  differing += 1;
+  if ((i + 1) % 40 === 6) byReviewer += 1;
+}
 await owner.query('ANALYZE records');
 {
   const fresh = await buildServer({
@@ -374,6 +392,32 @@ await owner.query('ANALYZE records');
   check('GET /quality/survey-health from the same figures: 90,000 first assessments, a row per question, the decision counted', health.res.statusCode === 200 && hb.plots === N - N / 10 && hb.computedAt === fb.computedAt && Array.isArray(hb.questions) && hb.questions.length > 0 && typeof hb.decidedForCheck === 'number', { status: health.res.statusCode, plots: hb.plots, rows: hb.questions?.length, decided: hb.decidedForCheck });
   const healthAgain = await get('/quality/survey-health');
   console.log(`     GET /quality/survey-health: ${health.ms} ms, again ${healthAgain.ms} ms (${hb.questions?.length} questions, ${hb.questions?.filter((q: { reasons: string[] }) => q.reasons.length > 0).length} worth rewording)`);
+  // The review queue (Task 7): from the same figures, the decisions and flags as they are now;
+  // the plots beyond the 500 listed differences have their two records read when shown.
+  const queue = await get('/quality/queue');
+  const qb = queue.res.json();
+  const queueFields = (items: any[]) => items.filter((i) => i.section === 'difference').every((i) => i.differences.length > 0 && i.differences.every((d: any) => d.fields.length > 0 && d.fields.some((f: any) => f.key === 'collect_code_q1' && f.check === 'zz')));
+  check(`GET /quality/queue: the ${differing} differing plots first (none decided), 100 listed with their answers`, queue.res.statusCode === 200 && qb.counts.difference === differing && qb.items.length === 100 && qb.items[0].section === 'difference' && queueFields(qb.items) && qb.computedAt === fb.computedAt, { status: queue.res.statusCode, counts: qb.counts, items: qb.items?.length, first: qb.items?.[0] });
+  const beyond = await get('/quality/queue?offset=3000');
+  check('... beyond the listed differences (offset 3,000): the answers read from the records', beyond.res.statusCode === 200 && beyond.res.json().items.length === 100 && queueFields(beyond.res.json().items), beyond.res.json().items?.[0]);
+  const queueAgain = await get('/quality/queue');
+  const queuePerson = await get('/quality/queue?person=op6');
+  console.log(`     GET /quality/queue: ${queue.ms} ms, again ${queueAgain.ms} ms, a person ${queuePerson.ms} ms, offset 3,000 (200 records read) ${beyond.ms} ms`);
+  const bulkCall = (query: string) => {
+    const t0 = performance.now();
+    return fresh.inject({ method: 'POST', url: `/v1/projects/${big}/quality/decisions:bulk${query}`, headers: bearer(ownerToken), payload: { rule: 'check_by_reviewer' } }).then((r) => ({ ms: Math.round(performance.now() - t0), res: r }));
+  };
+  const dry = await bulkCall('?dryRun=1');
+  check(`POST /quality/decisions:bulk?dryRun=1: the ${byReviewer} plots whose latest check is the reviewer op6's, nothing stored`, dry.res.statusCode === 200 && dry.res.json().count === byReviewer && (await store.listQualityDecisions(big)).length === 1, dry.res.body.slice(0, 300));
+  const bulk = await bulkCall('');
+  const decisionsAfter = await store.listQualityDecisions(big);
+  const bulkAudit = await store.listAudit(big, { limit: 5, action: 'decision.bulk' });
+  check('... then decided in one transaction, each with what it saw, one audit entry', bulk.res.statusCode === 200 && bulk.res.json().count === byReviewer && decisionsAfter.length === 1 + byReviewer && decisionsAfter.filter((d) => d.decision === 'check').every((d) => Array.isArray(d.seen) && d.seen.length === 2) && bulkAudit.length === 1 && bulkAudit[0].details.count === byReviewer, { body: bulk.res.body.slice(0, 300), decisions: decisionsAfter.length, audit: bulkAudit });
+  const again = await bulkCall('');
+  check('... and again: nothing left for the rule, no audit entry', again.res.json().count === 0 && (await store.listAudit(big, { limit: 5, action: 'decision.bulk' })).length === 1, again.res.body.slice(0, 200));
+  const queueAfter = await get('/quality/queue');
+  check('... the queue no longer lists them', queueAfter.res.json().counts.difference === differing - byReviewer, queueAfter.res.json().counts);
+  console.log(`     POST /quality/decisions:bulk: dry run ${dry.ms} ms, ${byReviewer} plots decided ${bulk.ms} ms, nothing left ${again.ms} ms`);
   // The first submissions come with the summaries for the worker (the events' join).
   const withFirst = await store.listRecordSummaries(big, { firstSubmissions: true });
   check('listRecordSummaries with firstSubmissions: every submitted record has its first submission', withFirst.filter((r) => r.activelySaved).every((r) => typeof r.firstSubmittedOn === 'number'), withFirst.slice(0, 2).map((r) => r.firstSubmittedOn));

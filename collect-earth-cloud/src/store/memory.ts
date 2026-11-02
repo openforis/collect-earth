@@ -962,6 +962,24 @@ export class InMemoryStore implements Store {
     return this.decisionOf(plot, stored);
   }
 
+  async addQualityDecisions(
+    projectId: string,
+    decisions: readonly { plot: string; decision: DecisionKind; seen: { operator: string; hash: number }[] | null }[],
+    comment: string | null,
+    userId: string | null,
+  ): Promise<string[]> {
+    const entry = this.requireProject(projectId);
+    const decidedBy = this.requireUserOrNull(userId);
+    const decidedAt = Date.now();
+    const added: string[] = [];
+    for (const d of decisions) {
+      if (entry.decisions.has(d.plot)) continue;
+      entry.decisions.set(d.plot, { decision: d.decision, comment, decidedBy, decidedAt, seen: d.seen ? structuredClone(d.seen) : null });
+      added.push(d.plot);
+    }
+    return added;
+  }
+
   async deleteQualityDecision(projectId: string, plot: string): Promise<boolean> {
     return this.projects.get(projectId)?.decisions.delete(plot) ?? false;
   }

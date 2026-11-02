@@ -280,6 +280,16 @@ export interface Store {
     userId: string | null,
     seen?: { operator: string; hash: number }[] | null,
   ): Promise<QualityDecision>;
+  /**
+   * Decides several plots at once (the bulk decisions), in one transaction: each plot only
+   * when it has no decision yet (one made meanwhile is kept). Gives the plots decided.
+   */
+  addQualityDecisions(
+    projectId: string,
+    decisions: readonly { plot: string; decision: DecisionKind; seen: { operator: string; hash: number }[] | null }[],
+    comment: string | null,
+    userId: string | null,
+  ): Promise<string[]>;
   /** False when the plot had no decision. */
   deleteQualityDecision(projectId: string, plot: string): Promise<boolean>;
   listGuidanceNotes(projectId: string): Promise<GuidanceNote[]>;

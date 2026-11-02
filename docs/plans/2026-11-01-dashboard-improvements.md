@@ -53,6 +53,12 @@ desktop.
    not the People and Activity pages.
    Working the review queue, they also read who made each record of a flagged plot (two
    first assessments, a plot in no file) and which way a plot was decided (Task 5's flags).
+   **They decide (Task 7):** reviewers set and undo decisions (`PUT` / `DELETE
+   /quality/decisions/:plot`), from the review queue, audited with their name; the
+   decision shows who made it. Bulk decisions stay the coordinators'. Reviewers still get
+   neither `GET /quality` (the whole report), the notes, the team report nor the AI
+   assistant: the queue (`GET /quality/queue`) gives them each plot's two answers, its
+   flags and its decision, and where it is (`POST /quality/places`).
 4. **Collectors are told** on the join page and on "My work" that coordinators see
    when and how much they work (as the monitoring plan says).
 5. **Email** is built behind a transport that is off unless SMTP is configured; the
@@ -1136,6 +1142,102 @@ project scope.
 
 **Tests:** the queue order, the bulk endpoint (roles, counts, audit) and the
 keyboard handling helper.
+
+**As built** (differs from the above where it says so)
+- **A new section, not the differences list:** `web/src/project/ReviewQueue.tsx`, "Review
+  queue", one plot at a time, on the coordinator's Quality tab (after the counts, before the
+  questions; the differences list below works as before, now also with an Earth Map link) and
+  on the reviewer's (first). Decisions made in the queue update the coordinator's differences
+  list; decisions made in the list reach the queue on its next load.
+- **Every differing pair, not only the 500 listed:** the report now also gives `pairs` (every
+  differing pair up to `MAX_PAIRS` 200,000, without answers: plot, first and check
+  `{operator, recordKey}`, `latest`: the check is the plot's latest), in the same plot order;
+  stripped from `GET /quality`. A plot beyond the 500 listed differences has its two records
+  read when its page of the queue is shown (`store.getRecord`) and its differing answers worked
+  out by `pairFields` (`src/quality.ts`, the report's rule: same questions, order, margins,
+  blanks; a test compares it with the report). Without this, the plots after the first 500
+  could never be reached (the report does not depend on the decisions).
+- **The queue** (`src/reviewQueue.ts`, pure): each plot once, in the first part it belongs to,
+  with all that is known of it (its pairs, its flags, who submitted it again, its decision):
+  1. differing plots without a decision (plot order);
+  2. plots with flags (Task 5's `patternFlags`, newest first) without a decision, and, for a
+     decided plot, only `edited_after_decision` (deciding again takes it out);
+  3. **submitted again after "Both need another look"** (`resubmittedAfterRecheck`,
+     `src/flags.ts`, sharing `savedAgain` with `edited_after_decision`): a record of a plot
+     decided recheck that is **submitted now** (the flag table's `saved` now keeps
+     `submitted`), received after the decision, and either with answers the decision did not
+     see (`seen`) or saved after it (submitting again with the same answers is also an
+     answer to "another look"; going through the tabs alone leaves it unsubmitted). Without
+     `seen`: submitted and saved after. Task 12 will bring these in by itself.
+  Filters: person (anyone whose record is shown) and kind (`difference`, a flag kind,
+  `resubmitted`). The flags looked at are `patternFlags`' newest 500 for the filters
+  (`flagsCapped` says when there were more).
+- **`GET /v1/projects/:pid/quality/queue?person=&kind=&offset=`** (coordinators and
+  reviewers, collectors 403, never My work) → `{ items (100 from offset: plot, section,
+  people, differences [Difference with fields], flags, resubmitted, decision (no seen)),
+  offset, total, counts {difference, flag, resubmitted}, people, flagsCapped, labels,
+  options, computedAt, stale }`. 400 for an unknown kind, a person over 1000 characters, an
+  offset that is no whole number.
+- **Reviewers decide** (Decision 3 says so now): `PUT` / `DELETE /quality/decisions/:plot`
+  and `POST /quality/places` are `reviewer` (coordinators too); audited `decision.set` /
+  `decision.deleted` with the actor; `seen` kept as before.
+- **Bulk: `POST /v1/projects/:pid/quality/decisions:bulk` `{ rule }`** (coordinators only),
+  `?dryRun=1` only counts. `bulkPlots`: among the differing plots without a decision,
+  `first_by_reviewer` decides "first" where the first assessment is a trusted person's and no
+  differing check is (both trusted: which is right is not clear); `check_by_reviewer` decides
+  "check" where the plot's **latest** check (the one a decision for the check takes) differs and
+  is a trusted person's and the first is not. **Trusted = reviewers and coordinators** (a
+  coordinator who checks is at least a reviewer; the plan said reviewers). One statement in one
+  transaction (`store.addQualityDecisions`: Postgres `INSERT … SELECT FROM unnest … ON CONFLICT
+  DO NOTHING RETURNING plot`), so a plot decided meanwhile keeps its decision; each keeps its
+  `seen` from the figures (`seenOf`), comment null. Answer `{ rule, decision, count, plots (20),
+  dryRun }`. Audited once as **`decision.bulk` `{ rule, decision, count }`** (none when nothing
+  was decided): **migration 015** widens `audit_log_action_check` (replaced only while it lacks
+  the action; the activity test reads both 012 and 015).
+- **Keyboard** (`web/src/reviewQueueView.ts`, pure, tested): `queueKeyAction`: 1/2/3 decide,
+  J/K next/previous, C the comment, either case; nothing with Ctrl/Cmd/Alt; never while typing
+  (inputs that take text, textarea, select, contenteditable, roles textbox/combobox/listbox/
+  option/menu…), where only Escape counts (it leaves the comment for the card). The keys are
+  listened to on the queue section (they work while the focus is in it: the card is focusable,
+  with a 3 px focus outline) and written on the page; the buttons carry `aria-keyshortcuts`
+  and their key. After a decision the queue moves to the next plot without a decision made here
+  (`nextUndecided`) and focuses it; a polite live region says "Plot 12: Check is right. Now
+  plot 13, 4 of 20." (also on J/K and undo). "Check is right" is disabled for a plot without a
+  check (key 2 says so); "First is right" then keeps its assessment. Decided plots stay in the
+  loaded list (Undo works); "Load the next plots" asks for the next 100 from offset = loaded −
+  decided here. Stale figures: a "Show the newer figures" button, no automatic reload (it
+  would move the list under the reviewer).
+- **Earth Map:** as Collect Earth opens it (`BrowserService.earthMapUrl`, `earth_map_url` =
+  `https://earthmap.org`): `https://earthmap.org?polygon=<GeoJSON Feature named by the plot id>
+  &aoi=global&embed=true`. The desktop draws the plot's shape; the server knows only the
+  centre (lat/lon files only, as Google Earth), so the polygon is a 100 m square around it
+  (`earthMapUrl`, tested: ring closed, centred, a quote in the id kept valid). Next to "Open in
+  Google Earth" in the queue and in the differences list. Not opened against the live site.
+- **Texts:** 42 `queue.*` keys × 4 languages and the reviewer note (`i18n.ts` CRLF kept, as
+  `api.ts`, `api.test.ts`, `ProjectPage.tsx`, `QualityDifferences.tsx`); no plural forms
+  ("Plots to decide: 5").
+- **Tests:** server 829 (was 817: `test/reviewQueue.test.ts` 4 — order, attachments, filters,
+  the bulk rules; `test/reviewQueue.routes.test.ts` 4 — the queue through the route with a
+  resubmission, roles, places for reviewers, reviewers deciding and undoing (audited), bulk dry
+  run / apply / meanwhile decided / audit / 400 / 403, plots beyond the 500 listed read from the
+  records; quality 2 — pairs, pairFields against the report; flags 2 — resubmitted; operator 403
+  list and isolation extended), web 262 (was 254: `reviewQueueView.test.ts` 7, an api case),
+  tsc clean in both, web build ok.
+- **Postgres smoke** (`npm run smoke:pg:progress`, now also 015 and the queue): 3,333 differing
+  plots, op6 a reviewer: `GET /quality/queue` 40-68 ms, a person 20-24 ms, offset 3,000 (200
+  records read) 212-272 ms; bulk dry run 13-15 ms, 833 plots decided in 35-41 ms, `seen` kept
+  for each, one audit entry, the queue 833 shorter. ALL OK; the Task 1 smoke ALL OK. Docker
+  stopped after.
+- **Chrome** (seeded memory server, built dashboard): the reviewer at phone width (keys 2, K, C,
+  typing "1" in the comment did not decide, Esc back to the card; the announcement; J through
+  the three parts; the resubmitted plot with its decision and comment; links); the coordinator's
+  bulk dialog (5 plots) and result at phone and desktop width. No console errors. Fixed after
+  looking: the heading read "Plot 61 of 13" (now "Plot 6 (1 of 13)"); the hidden live region
+  was 100 % wide (MUI `width: 1`) and made the page scroll sideways.
+- **Open:** the Earth Map square is not the plot's shape; flags of decided plots other than
+  "saved again" are not in the queue; reviewers trusted for the bulk rules include coordinators;
+  a decision made in the differences list reaches the queue only on reload; a save received in
+  the same millisecond as the decision is not "after" it (as Task 5).
 
 ## Part C: following the work
 
