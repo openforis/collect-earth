@@ -2272,6 +2272,12 @@ export async function getFlags(projectId: string, filter: FlagsFilter): Promise<
 export type HealthReason = "low_agreement" | "often_other" | "often_empty" | "often_changed";
 export const HEALTH_REASONS: readonly HealthReason[] = ["low_agreement", "often_other", "often_empty", "often_changed"];
 
+export interface HealthCodes {
+  count: number;
+  share: number | null;
+  answers: { code: string; label: string; count: number }[];
+}
+
 /** One question of the survey, as survey health counts it (first assessments, except agreement and decisions). */
 export interface HealthRow {
   key: string;
@@ -2279,13 +2285,23 @@ export interface HealthRow {
   kind: "choice" | "number";
   calculated: boolean;
   required: boolean;
+  /** Shown only for some answers: its empty share is information, never a reason. */
+  conditional: boolean;
+  /** Inside a group of questions: whether it was left empty is never known. */
+  inGroup: boolean;
   answered: number;
   blank: number;
-  notKnown: number;
   nonNumeric: number;
-  /** blank / the plots where it is known; null under minPlots of those. */
+  /** The first assessments that say whether it was left empty, and of them those left empty; notKnown the others. */
+  emptyBase: number;
+  emptyBlank: number;
+  notKnown: number;
+  /** emptyBlank / emptyBase; null in a group or under minPlots (emptyWhy). */
   emptyShare: number | null;
-  other: { count: number; share: number | null; answers: { code: string; label: string; count: number }[] } | null;
+  emptyWhy: "group" | "few_records" | null;
+  other: HealthCodes | null;
+  /** "None" alone: an answer of its own, for information (Decision 6). */
+  none: HealthCodes | null;
   agreement: { compared: number; agreeing: number; rate: number | null } | null;
   decisions: { changed: number; share: number | null };
   reasons: HealthReason[];
@@ -2304,6 +2320,16 @@ export interface SurveyHealthData {
 
 const toShare = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
 
+const toHealthCodes = (value: unknown): HealthCodes | null => {
+  if (!value || typeof value !== "object") return null;
+  const o = obj(value);
+  return {
+    count: toCount(o.count),
+    share: toShare(o.share),
+    answers: list(o.answers).map((a) => ({ code: text(a.code), label: text(a.label) || text(a.code), count: toCount(a.count) })),
+  };
+};
+
 export function toSurveyHealth(body: unknown): SurveyHealthData {
   const b = obj(body);
   const th = obj(b.thresholds);
@@ -2313,7 +2339,6 @@ export function toSurveyHealth(body: unknown): SurveyHealthData {
     plotsChecked: toCount(b.plotsChecked),
     decidedForCheck: toCount(b.decidedForCheck),
     questions: list(b.questions).map((q): HealthRow => {
-      const other = q.other && typeof q.other === "object" ? obj(q.other) : null;
       const agreement = q.agreement && typeof q.agreement === "object" ? obj(q.agreement) : null;
       const decisions = obj(q.decisions);
       return {
@@ -2322,18 +2347,18 @@ export function toSurveyHealth(body: unknown): SurveyHealthData {
         kind: q.kind === "number" ? "number" : "choice",
         calculated: q.calculated === true,
         required: q.required === true,
+        conditional: q.conditional === true,
+        inGroup: q.inGroup === true,
         answered: toCount(q.answered),
         blank: toCount(q.blank),
-        notKnown: toCount(q.notKnown),
         nonNumeric: toCount(q.nonNumeric),
+        emptyBase: toCount(q.emptyBase),
+        emptyBlank: toCount(q.emptyBlank),
+        notKnown: toCount(q.notKnown),
         emptyShare: toShare(q.emptyShare),
-        other: other
-          ? {
-              count: toCount(other.count),
-              share: toShare(other.share),
-              answers: list(other.answers).map((a) => ({ code: text(a.code), label: text(a.label) || text(a.code), count: toCount(a.count) })),
-            }
-          : null,
+        emptyWhy: q.emptyWhy === "group" || q.emptyWhy === "few_records" ? q.emptyWhy : null,
+        other: toHealthCodes(q.other),
+        none: toHealthCodes(q.none),
         agreement: agreement ? { compared: toCount(agreement.compared), agreeing: toCount(agreement.agreeing), rate: toShare(agreement.rate) } : null,
         decisions: { changed: toCount(decisions.changed), share: toShare(decisions.share) },
         reasons: (Array.isArray(q.reasons) ? q.reasons : []).filter((r): r is HealthReason => (HEALTH_REASONS as readonly unknown[]).includes(r)),

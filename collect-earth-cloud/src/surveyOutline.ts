@@ -36,6 +36,12 @@ export interface Question {
    * "other", "unknown"... in every language of the survey with them.
    */
   optionLabels?: Record<string, string[]>;
+  /**
+   * Shown or required only under a condition: the attribute, or the entity holding it, has
+   * a `relevant` or `requiredIf` expression. The server cannot judge it, so an empty answer
+   * may be expected (survey health does not count it against the question). Absent: false.
+   */
+  conditional?: boolean;
 }
 
 /** Between the values of a multiple attribute in a summary (BalloonInputFieldsUtils.PARAMETER_SEPARATOR). */
@@ -203,7 +209,8 @@ export function surveyOutline(idmXml: string): Map<string, Question> {
   };
 
   const outline = new Map<string, Question>();
-  const add = (key: string, node: XmlNode, siblings: XmlNode[], label: string, isKey: boolean, root = false) => {
+  const hasCondition = (node: XmlNode) => attr(node, 'relevant') !== undefined || attr(node, 'requiredIf') !== undefined;
+  const add = (key: string, node: XmlNode, siblings: XmlNode[], label: string, isKey: boolean, root = false, inConditional = false) => {
     const prefix = prefixOf(node)!;
     const kind = KIND_BY_PREFIX[prefix] ?? 'other';
     const excluded = isKey || attr(node, 'collectearth:fromcsv') === 'true' || BOOKKEEPING_KEYS.has(key);
@@ -234,6 +241,7 @@ export function surveyOutline(idmXml: string): Map<string, Question> {
       calculated,
       required,
       ...(Object.keys(optionLabels).length > 0 ? { optionLabels } : {}),
+      ...(inConditional || hasCondition(node) ? { conditional: true } : {}),
     });
   };
 
@@ -257,6 +265,8 @@ export function surveyOutline(idmXml: string): Map<string, Question> {
           children,
           `${label}: ${labelOf(child)}`,
           attr(child, 'key') === 'true',
+          false,
+          hasCondition(node),
         );
       }
     };

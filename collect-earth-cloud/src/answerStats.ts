@@ -90,7 +90,58 @@ export interface AnswerTable {
    * ''). A row without the key (a record stored before blanks were kept, an entity's
    * question) is not counted here. For survey health (Task 6).
    */
-  asked: { key: string; label: string; kind: 'choice' | 'number'; blank: number }[];
+  asked: AskedQuestion[];
+  /**
+   * Rows known to keep their empty answers (see keepsBlanks): those holding a blank value
+   * of any key, and those the server received since the first such record of the project.
+   */
+  rowsKeepingBlanks: number;
+}
+
+/** A question of the answer table, as survey health counts it (Task 6). */
+export interface AskedQuestion {
+  key: string;
+  label: string;
+  kind: 'choice' | 'number';
+  /** Rows holding it with no answer. */
+  blank: number;
+  /** Rows answering only with codes beyond MAX_CODES (answered, but not in a column). */
+  overflow: number;
+  /** Among the rows keeping their empty answers: those holding it blank, and those answering it (non-numbers too). */
+  keptBlank: number;
+  keptAnswered: number;
+}
+
+/** A summary value with no answer. */
+const isBlankValue = (v: string) => v === '' || v === 'null' || v.trim() === '';
+
+/**
+ * Which rows say what was left empty. The server keeps an empty answer ('') only since
+ * Task 5's review; records stored before have no key for their blanks, and leaving them
+ * in would make a question look emptier on new records only. A row qualifies when it holds
+ * a blank value (any key: it was stored keeping them), or when the server received it at
+ * or after the first row holding one (from then on every save keeps them). Rows without
+ * a receivedAt qualify only by holding a blank. Without any blank in the project, none.
+ */
+export function keepsBlanks(rows: readonly { r: { summary: Record<string, string>; receivedAt?: number } }[]): Uint8Array {
+  const has = new Uint8Array(rows.length);
+  let since = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < rows.length; i++) {
+    const { summary, receivedAt } = rows[i].r;
+    for (const key in summary) {
+      const v = summary[key];
+      if (typeof v === 'string' && isBlankValue(v) && Object.hasOwn(summary, key)) {
+        has[i] = 1;
+        if (receivedAt !== undefined && receivedAt < since) since = receivedAt;
+        break;
+      }
+    }
+  }
+  for (let i = 0; i < rows.length; i++) {
+    const at = rows[i].r.receivedAt;
+    if (!has[i] && at !== undefined && at >= since) has[i] = 1;
+  }
+  return has;
 }
 
 /** What the quality worker computes from one read of the records. */
@@ -152,6 +203,9 @@ interface ChoiceBuild {
   severalOffsets: number[];
   severalCodes: number[];
   blank: number;
+  overflow: number;
+  keptBlank: number;
+  keptAnswered: number;
 }
 
 interface NumberBuild {
@@ -162,6 +216,9 @@ interface NumberBuild {
   present: number;
   nonNumeric: number[];
   blank: number;
+  overflow: number;
+  keptBlank: number;
+  keptAnswered: number;
 }
 
 type Build = ChoiceBuild | NumberBuild | null;
@@ -244,10 +301,10 @@ export function answerTable(input: QualityInput, kept: readonly FirstAssessment[
         const options = (q?.options ?? []).map((o) => ({ code: o.code, label: o.label }));
         b = {
           kind: 'choice', key, label: rule.label, multiple: q?.multiple === true, options,
-          index: new Map(), codes: [], values: new Uint16Array(size), present: 0, severalRows: [], severalOffsets: [], severalCodes: [], blank: 0,
+          index: new Map(), codes: [], values: new Uint16Array(size), present: 0, severalRows: [], severalOffsets: [], severalCodes: [], blank: 0, overflow: 0, keptBlank: 0, keptAnswered: 0,
         };
       } else {
-        b = { kind: 'number', key, label: rule.label, values: new Float64Array(size).fill(Number.NaN), present: 0, nonNumeric: [], blank: 0 };
+        b = { kind: 'number', key, label: rule.label, values: new Float64Array(size).fill(Number.NaN), present: 0, nonNumeric: [], blank: 0, overflow: 0, keptBlank: 0, keptAnswered: 0 };
       }
     }
     builds.set(key, b);
@@ -264,8 +321,12 @@ export function answerTable(input: QualityInput, kept: readonly FirstAssessment[
     return i;
   };
 
+  const keeping = keepsBlanks(kept);
+  let rowsKeepingBlanks = 0;
   for (let row = 0; row < size; row++) {
     const { r, unit: u } = kept[row];
+    const keeps = keeping[row] === 1;
+    if (keeps) rowsKeepingBlanks += 1;
     let oi = operatorIndex.get(r.operator);
     if (oi === undefined) {
       oi = operators.length;
@@ -292,8 +353,10 @@ export function answerTable(input: QualityInput, kept: readonly FirstAssessment[
         const n = numberOf(value);
         if (n === null) {
           b.blank += 1;
+          if (keeps) b.keptBlank += 1;
           continue;
         }
+        if (keeps) b.keptAnswered += 1;
         if (Number.isNaN(n)) {
           b.nonNumeric.push(row);
         } else {
@@ -305,15 +368,23 @@ export function answerTable(input: QualityInput, kept: readonly FirstAssessment[
       const codes = codesOf(value);
       if (codes.length === 0) {
         b.blank += 1;
+        if (keeps) b.keptBlank += 1;
         continue;
       }
+      if (keeps) b.keptAnswered += 1;
       if (codes.length === 1) {
         const i = codeIndex(b, codes[0]);
-        if (i === null) continue;
+        if (i === null) {
+          b.overflow += 1;
+          continue;
+        }
         b.values[row] = i + 1;
       } else {
         const indexes = codes.map((c) => codeIndex(b, c)).filter((i): i is number => i !== null);
-        if (indexes.length === 0) continue;
+        if (indexes.length === 0) {
+          b.overflow += 1;
+          continue;
+        }
         b.values[row] = SEVERAL;
         b.severalRows.push(row);
         b.severalOffsets.push(b.severalCodes.length);
@@ -329,7 +400,7 @@ export function answerTable(input: QualityInput, kept: readonly FirstAssessment[
   const all = [...builds.values()]
     .filter((b): b is ChoiceBuild | NumberBuild => b !== null)
     .sort((a, b) => (rank.get(a.key) ?? outlineKeys.length) - (rank.get(b.key) ?? outlineKeys.length) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
-  const asked = all.map((b) => ({ key: b.key, label: b.label, kind: b.kind, blank: b.blank }));
+  const asked = all.map((b) => ({ key: b.key, label: b.label, kind: b.kind, blank: b.blank, overflow: b.overflow, keptBlank: b.keptBlank, keptAnswered: b.keptAnswered }));
   const ordered = all.filter((b) => b.present > 0 || (b.kind === 'number' && b.nonNumeric.length > 0));
 
   const choices: ChoiceColumn[] = [];
@@ -384,7 +455,7 @@ export function answerTable(input: QualityInput, kept: readonly FirstAssessment[
     };
     choices.push({ key: b.key, label: b.label, multiple: b.multiple, codes, codeLabels, rows, values, several });
   }
-  return { size, operators, units, operator, unit, time, choices, numbers, asked };
+  return { size, operators, units, operator, unit, time, choices, numbers, asked, rowsKeepingBlanks };
 }
 
 /** Which first assessments are counted. */

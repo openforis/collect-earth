@@ -205,6 +205,18 @@ describe('surveyOutline: summary keys, as BalloonInputFieldsUtils.getValuesByHtm
     expect(outline.get('collect_integer_trees')!.calculated).toBe(false);
   });
 
+  it('conditional: relevant or requiredIf on the attribute or on the entity holding it', () => {
+    const survey = SURVEY.replace('<number id="18" name="trees" type="integer"/>', '<number id="18" name="trees" type="integer" relevant="changed"/>')
+      .replace('<number id="20" name="area"/>', '<number id="20" name="area" requiredIf="changed"/>')
+      .replace('<entity id="30" name="stand">', '<entity id="30" name="stand" relevant="changed">');
+    const o = surveyOutline(survey);
+    expect(o.get('collect_integer_trees')!.conditional).toBe(true);
+    expect(o.get('collect_real_area')!.conditional).toBe(true);
+    expect(o.get('collect_entity_stand.integer_age')!.conditional).toBe(true);
+    expect(o.get('collect_code_land_use')!.conditional).toBeUndefined();
+    expect(o.get('collect_entity_cover[trees].real_pct')!.conditional).toBeUndefined();
+  });
+
   it('required: only a root attribute required without condition (required="true" or minCount 1, no relevant, no requiredIf)', () => {
     const survey = SURVEY.replace('<boolean id="17" name="changed"/>', '<boolean id="17" name="changed" required="true"/>')
       .replace('<number id="18" name="trees" type="integer"/>', '<number id="18" name="trees" type="integer" required="true" relevant="changed"/>')

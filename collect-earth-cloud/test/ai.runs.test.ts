@@ -200,9 +200,10 @@ describe('AI runs', () => {
 
   it("survey health: the run reads its own project's, and a finding quoting its figures passes the number check", async () => {
     await setUp();
-    // Forest percentage left empty (null, as Collect Earth sends it) on ana's plots 1-8.
-    const blanks = Array.from({ length: 8 }, (_, i) =>
-      envelope({ recordKey: `${i + 1},1`, operator: 'ana', modifiedOn: Date.UTC(2026, 9, 11), summary: { [LAND_USE]: 'F', [FOREST]: null, collect_code_round: '1' } as never }),
+    // ana saves her plots again with a server keeping empty answers: forest percentage left
+    // empty (null, as Collect Earth sends it) on plots 1-8, the first ones received.
+    const blanks = Array.from({ length: 25 }, (_, i) =>
+      envelope({ recordKey: `${i + 1},1`, operator: 'ana', modifiedOn: Date.UTC(2026, 9, 11), summary: { [LAND_USE]: 'F', [FOREST]: i < 8 ? null : '10', collect_code_round: '1' } as never }),
     );
     expect((await batchRequest(ctx.app, pid, project.projectToken, blanks)).statusCode).toBe(200);
     // Another project, with records of its own: never in this run.
@@ -222,7 +223,7 @@ describe('AI runs', () => {
     expect(JSON.stringify(requests)).not.toMatch(/\bzed\b/);
     // The fake quotes "32 % of the 25 plots": checked against the numbers sent, and kept.
     const finding = r.result.findings.find((f: { title: string }) => f.title.includes('may need rewording'));
-    expect(finding).toMatchObject({ questions: [FOREST], explanation: 'It is left empty on 32 % of the 25 plots where this is known.' });
+    expect(finding).toMatchObject({ questions: [FOREST], explanation: 'It is left empty on 32 % of the 25 plots that say whether it was.' });
     expect(r.result.surveyChanges.map((c: { question: string }) => c.question)).toContain(FOREST);
   });
 

@@ -16,14 +16,14 @@ import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
-import { agreementText, changedText, emptyText, orderText, otherText, reasonText } from "../healthView";
+import { agreementText, changedText, emptyText, noneText, orderText, otherText, reasonText } from "../healthView";
 import { useT } from "../i18n";
 import { useLoad } from "../useLoad";
 
 /** Tables fit a phone: they scroll inside their own frame. */
 const tableFrame = { border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto", maxHeight: 560 } as const;
 
-function Row({ row, data }: { row: HealthRow; data: SurveyHealthData }) {
+function Row({ row, data, showNone }: { row: HealthRow; data: SurveyHealthData; showNone: boolean }) {
   const t = useT();
   const { language } = useApp();
   return (
@@ -35,6 +35,11 @@ function Row({ row, data }: { row: HealthRow; data: SurveyHealthData }) {
         {row.required && (
           <Typography variant="caption" color="text.secondary" component="div">
             {t("health.required")}
+          </Typography>
+        )}
+        {row.conditional && (
+          <Typography variant="caption" color="text.secondary" component="div">
+            {t("health.conditional")}
           </Typography>
         )}
         {row.calculated && (
@@ -58,8 +63,9 @@ function Row({ row, data }: { row: HealthRow; data: SurveyHealthData }) {
           </Stack>
         )}
       </TableCell>
-      <TableCell sx={{ minWidth: 100 }}>{emptyText(t, row, language)}</TableCell>
+      <TableCell sx={{ minWidth: 100 }}>{emptyText(t, row, data, language)}</TableCell>
       <TableCell sx={{ minWidth: 130, wordBreak: "break-word" }}>{otherText(t, row, language) || "—"}</TableCell>
+      {showNone && <TableCell sx={{ minWidth: 120, wordBreak: "break-word" }}>{noneText(t, row, language) || "—"}</TableCell>}
       <TableCell sx={{ minWidth: 110 }}>{agreementText(t, row, language)}</TableCell>
       <TableCell sx={{ minWidth: 90 }}>{changedText(t, row, data, language)}</TableCell>
     </TableRow>
@@ -87,6 +93,7 @@ export function QualitySurvey({ projectId }: { projectId: string }) {
   const worth = data ? data.questions.filter((q) => q.reasons.length > 0) : [];
   const shown = data ? (all ? data.questions : worth) : [];
   const n = (v: number) => formatNumber(v, language);
+  const showNone = data ? data.questions.some((q) => (q.none?.count ?? 0) > 0) : false;
 
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="health-title">
@@ -115,7 +122,7 @@ export function QualitySurvey({ projectId }: { projectId: string }) {
                 <>
                   {worth.length === 0 && <Typography>{t("health.none")}</Typography>}
                   {shown.length > 0 && (
-                    <TableContainer sx={tableFrame}>
+                    <TableContainer sx={tableFrame} id="health-table">
                       <Table size="small" stickyHeader aria-labelledby="health-title">
                         <TableHead>
                           <TableRow>
@@ -123,13 +130,14 @@ export function QualitySurvey({ projectId }: { projectId: string }) {
                             <TableCell>{t("health.colReasons")}</TableCell>
                             <TableCell>{t("health.colEmpty")}</TableCell>
                             <TableCell>{t("health.colOther")}</TableCell>
+                            {showNone && <TableCell>{t("health.colNone")}</TableCell>}
                             <TableCell>{t("health.colAgreement")}</TableCell>
                             <TableCell>{t("health.colChanged")}</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {shown.map((row) => (
-                            <Row key={row.key} row={row} data={data} />
+                            <Row key={row.key} row={row} data={data} showNone={showNone} />
                           ))}
                         </TableBody>
                       </Table>
@@ -137,7 +145,7 @@ export function QualitySurvey({ projectId }: { projectId: string }) {
                   )}
                   {data.questions.length > worth.length && (
                     <Box>
-                      <Button size="small" onClick={() => setAll(!all)}>
+                      <Button size="small" onClick={() => setAll(!all)} aria-expanded={all} aria-controls={shown.length > 0 ? "health-table" : undefined}>
                         {all ? t("health.showFewer") : t("health.showAll", { n: n(data.questions.length) })}
                       </Button>
                     </Box>

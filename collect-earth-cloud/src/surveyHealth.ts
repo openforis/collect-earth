@@ -15,33 +15,41 @@ import type { DecisionKind } from './types.js';
 // "Other", "unknown", "none", "no data"
 
 /**
- * Whole labels (lower case, accents left out) that say other, unknown, none or no data,
- * in en, es, fr and pt. Kept short on purpose: a label matches only when it is one of
- * these, or one of these followed by a bracket, colon, slash, comma or a spaced dash
- * ("Other (specify)", "Unknown / not visible"). "Other land" and "Other wooded land" (land
- * classes), "Otherwise forested" or "No change" do not.
+ * Whole labels (lower case, accents left out) of a catch-all answer: other, unknown, no
+ * data, not applicable, none of the above, in en, es, fr and pt. Kept short on purpose: a
+ * label matches only when it is one of these, or one of these followed by a bracket,
+ * colon, slash, comma or dash ("Other (specify)", "Other—specify", "Unknown / not
+ * visible"); a hyphen without spaces only before "specify" and its translations
+ * ("Other-specify", not "Unknown-origin plantation"). "Other land", "Otherland", "Otros usos" or "Otra cobertura" (classes of their
+ * own), "Otherwise forested" or "No change" do not.
  */
 export const OTHER_PHRASES: readonly string[] = [
   // other
   'other', 'others', 'otro', 'otra', 'otros', 'otras', 'autre', 'autres', 'outro', 'outra', 'outros', 'outras',
-  // unknown
-  'unknown', 'not known', "don't know", 'do not know', 'not sure', 'desconocido', 'desconocida', 'no se', 'no se sabe', 'no sabe',
-  'inconnu', 'inconnue', 'ne sait pas', 'je ne sais pas', 'desconhecido', 'desconhecida', 'nao sei', 'nao sabe',
-  // none
-  'none', 'none of the above', 'ninguno', 'ninguna', 'ninguno de los anteriores', 'ninguna de las anteriores', 'aucun', 'aucune',
-  'nenhum', 'nenhuma', 'nenhuma das anteriores',
-  // no data
-  'no data', 'n/a', 'not applicable', 'sin datos', 'sin informacion', 'no aplica', 'pas de donnees', 'aucune donnee', 'sans donnees',
-  'non applicable', 'sans objet', 'sem dados', 'sem informacao', 'nao se aplica',
+  // unknown, undetermined
+  'unknown', 'not known', "don't know", 'do not know', 'not sure', 'undetermined', 'indeterminate',
+  'desconocido', 'desconocida', 'no se', 'no se sabe', 'no sabe', 'indeterminado', 'indeterminada',
+  'inconnu', 'inconnue', 'ne sait pas', 'ne sais pas', 'je ne sais pas', 'indetermine', 'indeterminee',
+  'desconhecido', 'desconhecida', 'nao sei', 'nao sabe',
+  // none of the above (a catch-all; "none" alone is an answer, see NONE_PHRASES)
+  'none of the above', 'ninguno de los anteriores', 'ninguna de las anteriores', 'aucune de ces reponses', 'nenhuma das anteriores', 'nenhum dos anteriores',
+  // no data, not applicable
+  'no data', 'n/a', 'n.a', 'na', 'n/d', 'n.d', 'not applicable', 'sin datos', 'sin dato', 'sin informacion', 'no aplica',
+  'pas de donnees', 'pas de donnee', 'aucune donnee', 'sans donnees', 'non applicable', 'sans objet',
+  'sem dados', 'sem informacao', 'nao se aplica', 'nao aplicavel',
 ];
 
-/** Codes that say so by themselves, for an option without a label of its own (besides the phrases). */
-export const OTHER_CODES: readonly string[] = ['oth', 'unk', 'nodata', 'no_data', 'na', 'nd', '99', '999', '9999'];
+/**
+ * "None" alone (Decision 6): a real answer (no disturbance, no change...), never a
+ * catch-all. Survey health shows its share for information, never as a reason.
+ */
+export const NONE_PHRASES: readonly string[] = ['none', 'ninguno', 'ninguna', 'aucun', 'aucune', 'nenhum', 'nenhuma'];
 
-const PHRASES = new Set(OTHER_PHRASES);
-const CODES = new Set([...OTHER_PHRASES, ...OTHER_CODES]);
+/** Codes that say so by themselves, for an option without a label of its own (besides the phrases). */
+export const OTHER_CODES: readonly string[] = ['oth', 'unk', 'nodata', 'no_data', 'nd', '99', '999', '9999'];
+
 /** What may follow a phrase at the start of a label. */
-const AFTER_PHRASE = /^(?:\s*[([:/,]|\s+[-–—])/;
+const AFTER_PHRASE = /^(?:\s*[([:/,–—]|\s+-|-\s*(?:specify|especif|precis|please|por favor))/;
 
 /** Lower case, accents left out, one space between words, no full stop or asterisk at the end. */
 function normal(text: string): string {
@@ -55,25 +63,34 @@ function normal(text: string): string {
     .replace(/[\s.…*!]+$/, '');
 }
 
-function labelSays(label: string): boolean {
+function says(label: string, phrases: readonly string[]): boolean {
   const t = normal(label);
-  if (PHRASES.has(t)) return true;
-  for (const p of OTHER_PHRASES) {
-    if (t.startsWith(p) && AFTER_PHRASE.test(t.slice(p.length))) return true;
+  for (const p of phrases) {
+    if (t === p || (t.startsWith(p) && AFTER_PHRASE.test(t.slice(p.length)))) return true;
   }
   return false;
 }
 
+export type AnswerKind = 'catch_all' | 'none';
+
 /**
- * Whether an answer option looks like "other", "unknown", "none" or "no data". With
- * labels of its own (any language), the labels decide: code 99 labelled "Forest" does
- * not, code O labelled "Other (specify)" or "Otro" does. Without (no label, or only the
- * code itself), the code decides: "other", "unknown", "99"...
+ * What an answer option says: a catch-all ("other", "unknown", "no data", "none of the
+ * above"...), "none" alone (an answer of its own), or neither (null). With labels of its
+ * own (any language), the labels decide: code 99 labelled "Forest" is neither, code O
+ * labelled "Other (specify)" or "Otro" is a catch-all. Without (no label, or only the
+ * code itself), the code decides: "other", "unknown", "99"... A catch-all wins over none.
  */
-export function looksLikeOther(code: string, labels: readonly string[]): boolean {
+export function answerKind(code: string, labels: readonly string[]): AnswerKind | null {
   const own = labels.filter((l) => l.trim() !== '' && l.trim() !== code.trim());
-  if (own.length > 0) return own.some(labelSays);
-  return CODES.has(normal(code));
+  const texts = own.length > 0 ? own : [code];
+  if (texts.some((t) => says(t, OTHER_PHRASES)) || (own.length === 0 && OTHER_CODES.includes(normal(code)))) return 'catch_all';
+  if (texts.some((t) => says(t, NONE_PHRASES))) return 'none';
+  return null;
+}
+
+/** Whether an option is a catch-all: "other", "unknown", "no data"... (answerKind). */
+export function looksLikeOther(code: string, labels: readonly string[]): boolean {
+  return answerKind(code, labels) === 'catch_all';
 }
 
 // ---------------------------------------------------------------------------
@@ -87,16 +104,26 @@ export interface HealthQuestion {
   calculated: boolean;
   /** Required whatever the other answers are (Question.required): an empty one is not expected. */
   required: boolean;
-  /** First assessments answering it (a code, a number). */
+  /** Shown or required only under a condition (Question.conditional): an empty one may be expected. */
+  conditional: boolean;
+  /** Inside a group of questions (an entity): the desktop app leaves its empty answers out, so they are never known. */
+  inGroup: boolean;
+  /** First assessments answering it (a code, a number, or codes beyond the table's MAX_CODES). */
   answered: number;
   /** First assessments holding it with no answer ('', "null"). */
   blank: number;
   /** First assessments of a number question holding something else (text, several values). */
   nonNumeric: number;
-  /** First assessments answering it with an option that looks like other (each plot once). */
+  /** Among the first assessments that keep their empty answers (keepsBlanks): those holding it blank, and those answering it. */
+  keptBlank: number;
+  keptAnswered: number;
+  /** First assessments answering it with a catch-all option ("other", "unknown"...; each plot once). */
   other: number;
   /** Those options, with the plots holding each (a plot of a multiple question counts once per code). */
   otherAnswers: CodeCount[];
+  /** The same for "none" alone (Decision 6: an answer of its own, for information). */
+  none: number;
+  noneAnswers: CodeCount[];
 }
 
 /** The checked plots, with the questions that differ between the main record and the latest check. */
@@ -111,6 +138,8 @@ export interface CheckedPlots {
 export interface HealthTable {
   /** First assessments looked at: the answer table's rows. */
   plots: number;
+  /** Those keeping their empty answers (AnswerTable.rowsKeepingBlanks). */
+  rowsKeepingBlanks: number;
   questions: HealthQuestion[];
   checked: CheckedPlots;
 }
@@ -162,26 +191,33 @@ export function healthTable(outline: ReadonlyMap<string, Question> | null, answe
       kind: a.kind,
       calculated: q?.calculated === true,
       required: q?.required === true,
-      answered: 0,
+      conditional: q?.conditional === true,
+      inGroup: a.key.startsWith('collect_entity_'),
+      answered: a.overflow,
       blank: a.blank,
       nonNumeric: 0,
+      keptBlank: a.keptBlank,
+      keptAnswered: a.keptAnswered,
       other: 0,
       otherAnswers: [],
+      none: 0,
+      noneAnswers: [],
     };
     const n = numbers.get(a.key);
     if (n) {
-      row.answered = n.rows.length;
+      row.answered += n.rows.length;
       row.nonNumeric = n.nonNumeric.length;
     }
     const c = choices.get(a.key);
     if (c) {
       const k = c.codes.length;
-      const mask = new Uint8Array(k);
+      // 1: a catch-all, 2: none alone.
+      const kindOf = new Uint8Array(k);
       let any = false;
       for (let i = 0; i < k; i++) {
-        const more = q?.optionLabels?.[c.codes[i]] ?? [];
-        if (looksLikeOther(c.codes[i], [c.codeLabels[i], ...more])) {
-          mask[i] = 1;
+        const kind = answerKind(c.codes[i], [c.codeLabels[i], ...(q?.optionLabels?.[c.codes[i]] ?? [])]);
+        if (kind !== null) {
+          kindOf[i] = kind === 'catch_all' ? 1 : 2;
           any = true;
         }
       }
@@ -196,27 +232,29 @@ export function healthTable(outline: ReadonlyMap<string, Question> | null, answe
         if (v === 0xffff) {
           const r = c.rows ? c.rows[j] : j;
           while (c.several.rows[s] < r) s++;
-          let hit = false;
+          let hit = 0;
           for (let x = c.several.offsets[s]; x < c.several.offsets[s + 1]; x++) {
             const code = c.several.codes[x];
-            if (mask[code]) {
+            if (kindOf[code]) {
               perCode[code] += 1;
-              hit = true;
+              hit |= kindOf[code];
             }
           }
-          if (hit) row.other += 1;
-        } else if (mask[v - 1]) {
+          if (hit & 1) row.other += 1;
+          if (hit & 2) row.none += 1;
+        } else if (kindOf[v - 1]) {
           perCode[v - 1] += 1;
-          row.other += 1;
+          if (kindOf[v - 1] === 1) row.other += 1;
+          else row.none += 1;
         }
       }
       for (let i = 0; i < k; i++) {
-        if (perCode[i] > 0) row.otherAnswers.push({ code: c.codes[i], label: c.codeLabels[i], count: perCode[i] });
+        if (perCode[i] > 0) (kindOf[i] === 1 ? row.otherAnswers : row.noneAnswers).push({ code: c.codes[i], label: c.codeLabels[i], count: perCode[i] });
       }
     }
     questions.push(row);
   }
-  return { plots: answers.size, questions, checked };
+  return { plots: answers.size, rowsKeepingBlanks: answers.rowsKeepingBlanks, questions, checked };
 }
 
 // ---------------------------------------------------------------------------
@@ -243,13 +281,27 @@ export interface HealthRow {
   kind: 'choice' | 'number';
   calculated: boolean;
   required: boolean;
-  /** First assessments answering it; holding it blank; not holding it (not known); holding a non-number in a number question. */
+  /** Shown or required only under a condition: its empty share is information, never a reason. */
+  conditional: boolean;
+  /** Inside a group of questions: whether it was left empty is never known. */
+  inGroup: boolean;
+  /** First assessments answering it; holding it blank; holding a non-number in a number question. */
   answered: number;
   blank: number;
-  notKnown: number;
   nonNumeric: number;
-  /** blank / the plots where it is known (answered + blank + nonNumeric); null under MIN_PLOTS of those. */
+  /**
+   * The first assessments that say whether it was left empty (they keep their empty
+   * answers, see keepsBlanks, and hold the question): emptyBase; of them left empty:
+   * emptyBlank. notKnown: the others (plots - emptyBase).
+   */
+  emptyBase: number;
+  emptyBlank: number;
+  notKnown: number;
+  /** emptyBlank / emptyBase; null in a group, or under MIN_PLOTS of emptyBase (emptyWhy says which). */
   emptyShare: number | null;
+  emptyWhy: 'group' | 'few_records' | null;
+  /** For a choice: the plots answering "none" alone (Decision 6), for information: never a reason. */
+  none: { count: number; share: number | null; answers: CodeCount[] } | null;
   /** For a choice: the plots answering with an other-like option, its share of those answering (null under MIN_PLOTS), and the options. */
   other: { count: number; share: number | null; answers: CodeCount[] } | null;
   /** From the quality report: checks compared on it, agreeing, the rate (null under MIN_PLOTS); null when never compared. */
@@ -322,7 +374,7 @@ export function surveyHealth(
   const seen = new Set<string>();
   const add = (q: HealthQuestion) => {
     seen.add(q.key);
-    const known = q.answered + q.blank + q.nonNumeric;
+    const base = q.keptBlank + q.keptAnswered;
     const a = agreement.get(q.key);
     const c = changed.get(q.key) ?? 0;
     const row: HealthRow = {
@@ -331,19 +383,26 @@ export function surveyHealth(
       kind: q.kind,
       calculated: q.calculated,
       required: q.required,
+      conditional: q.conditional,
+      inGroup: q.inGroup,
       answered: q.answered,
       blank: q.blank,
-      notKnown: Math.max(0, health.plots - known),
       nonNumeric: q.nonNumeric,
-      emptyShare: share(q.blank, known),
+      emptyBase: base,
+      emptyBlank: q.keptBlank,
+      notKnown: Math.max(0, health.plots - base),
+      emptyShare: q.inGroup ? null : share(q.keptBlank, base),
+      emptyWhy: q.inGroup ? 'group' : base < MIN_PLOTS ? 'few_records' : null,
       other: q.kind === 'choice' ? { count: q.other, share: share(q.other, q.answered), answers: q.otherAnswers } : null,
+      none: q.kind === 'choice' && q.none > 0 ? { count: q.none, share: share(q.none, q.answered), answers: q.noneAnswers } : null,
       agreement: a ? { compared: a.compared, agreeing: a.agreeing, rate: a.rate } : null,
       decisions: { changed: c, share: decidedForCheck > 0 ? c / decidedForCheck : null },
       reasons: [],
     };
     if (row.agreement?.rate != null && row.agreement.rate < LOW_AGREEMENT) row.reasons.push('low_agreement');
     if (row.other?.share != null && row.other.share >= OFTEN_OTHER) row.reasons.push('often_other');
-    if (row.emptyShare !== null && row.emptyShare >= OFTEN_EMPTY) row.reasons.push('often_empty');
+    // Shown only under a condition: an empty answer may be what the survey asks for.
+    if (row.emptyShare !== null && row.emptyShare >= OFTEN_EMPTY && !row.conditional) row.reasons.push('often_empty');
     if (c >= MIN_CHANGED && row.decisions.share! >= OFTEN_CHANGED) row.reasons.push('often_changed');
     rows.push(row);
   };
@@ -351,7 +410,10 @@ export function surveyHealth(
   // Compared by the checks but never held by a first assessment.
   for (const a of report.questions) {
     if (seen.has(a.key)) continue;
-    add({ key: a.key, label: a.label, kind: a.kind, calculated: false, required: false, answered: 0, blank: 0, nonNumeric: 0, other: 0, otherAnswers: [] });
+    add({
+      key: a.key, label: a.label, kind: a.kind, calculated: false, required: false, conditional: false, inGroup: a.key.startsWith('collect_entity_'),
+      answered: 0, blank: 0, nonNumeric: 0, keptBlank: 0, keptAnswered: 0, other: 0, otherAnswers: [], none: 0, noneAnswers: [],
+    });
   }
   const sorted = sortRows(rows);
   return {

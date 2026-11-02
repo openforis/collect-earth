@@ -549,6 +549,16 @@ describe('runReport', () => {
   });
 });
 
+const healthRow = (over: Partial<HealthRow> = {}): HealthRow => ({
+  key: 'collect_code_q', label: 'Q', kind: 'choice', calculated: false, required: false, conditional: false, inGroup: false,
+  answered: 50, blank: 50, nonNumeric: 0, emptyBase: 100, emptyBlank: 50, notKnown: 0, emptyShare: 0.5, emptyWhy: null,
+  other: { count: 0, share: 0, answers: [] }, none: null, agreement: null, decisions: { changed: 0, share: null }, reasons: ['often_empty'], ...over,
+});
+const healthOf = (questions: HealthRow[], plots = 100): SurveyHealth => ({
+  plots, plotsChecked: 0, decidedForCheck: 0, questions, questionsTotal: questions.length,
+  thresholds: { minPlots: 20, lowAgreement: 0.8, oftenOther: 0.1, oftenEmpty: 0.2, minChanged: 5, oftenChanged: 0.25 },
+});
+
 describe('get_survey_health', () => {
   /** The fixture with land use answered "other::<poem>" on the first assessments of plots 1-6. */
   function withOther() {
@@ -569,9 +579,16 @@ describe('get_survey_health', () => {
     expect(data).toMatchObject({ firstAssessments: 25, plotsChecked: 25, plotsDecidedForCheck: 1 });
     expect(data.questions.map((q: { key: string }) => q.key)).toEqual([LAND_USE, CANOPY]);
     const land = data.questions[0];
-    expect(land).toMatchObject({ label: 'Land use', kind: 'choice', answered: 25, empty: 0, known: 25, notKnown: 0, emptyPercent: 0 });
+    // The fixture's records keep no empty answers (none is blank, no receivedAt): not known.
+    expect(land).toMatchObject({ label: 'Land use', kind: 'choice', conditional: false, inGroup: false, answered: 25, saysIfEmpty: 0, empty: 0, notKnown: 25, emptyPercent: null });
     expect(land.otherLike).toEqual({ plots: 6, percentOfAnswered: 24, answers: [{ code: 'other', label: 'Other', count: 6 }] });
-    expect(land.reasons).toEqual(['low_agreement', 'often_other']);
+    // Each reason with the thresholds it was judged by (percentages only).
+    expect(land.reasons).toEqual([
+      { reason: 'low_agreement', agreementUnderPercent: 80 },
+      { reason: 'often_other', otherAtLeastPercent: 10 },
+    ]);
+    expect(data.questionsTotal).toBe(2);
+    expect(JSON.stringify(data.about)).not.toMatch(/\d/);
     // Plot 23: forest first, grassland in the check, decided for the check.
     expect(land.changedByDecisions).toEqual({ plots: 1, percentOfDecided: 100 });
     expect(land.agreement).toMatchObject({ checks: 25 });
@@ -588,22 +605,39 @@ describe('get_survey_health', () => {
   it('sends up to 60 questions, worth rewording first, cut to 20,000 characters', async () => {
     const long = 'L'.repeat(500);
     const big = new Map<string, Question>(Array.from({ length: 100 }, (_, i) => question(`collect_code_q${i}`, 'choice', { label: long })).map((q) => [q.key, q]));
-    const row = (i: number): HealthRow => ({
-      key: `collect_code_q${i}`, label: long, kind: 'choice', calculated: false, required: false, answered: 50, blank: 50, notKnown: 0, nonNumeric: 0,
-      emptyShare: 0.5, other: { count: 0, share: 0, answers: [] }, agreement: null, decisions: { changed: 0, share: null }, reasons: ['often_empty'],
-    });
-    const health: SurveyHealth = {
-      plots: 100, plotsChecked: 0, decidedForCheck: 0, questions: Array.from({ length: 100 }, (_, i) => row(i)), questionsTotal: 100,
-      thresholds: { minPlots: 20, lowAgreement: 0.8, oftenOther: 0.1, oftenEmpty: 0.2, minChanged: 5, oftenChanged: 0.25 },
-    };
+    const health = healthOf(Array.from({ length: 100 }, (_, i) => healthRow({ key: `collect_code_q${i}`, label: long })));
     const client = scripted([calls(call('get_survey_health')), text('done'), json(EMPTY_REPORT)]);
     await runReport(context(client, { outline: big, health }));
-    const result = toolResults(client.requests[1])[0].result as { project_data: { questions: { key: string; label: string }[]; moreQuestions: number } };
+    const result = toolResults(client.requests[1])[0].result as { project_data: { questions: { key: string; label: string }[]; questionsTotal: number; truncated?: boolean } };
     expect(JSON.stringify(result).length).toBeLessThanOrEqual(MAX_RESULT_CHARS);
-    expect(result.project_data.moreQuestions).toBe(100 - MAX_HEALTH_QUESTIONS);
-    expect(result.project_data.questions.length).toBeLessThanOrEqual(MAX_HEALTH_QUESTIONS);
+    // The total stays right however many rows the cap leaves.
+    expect(result.project_data.questionsTotal).toBe(100);
+    expect(result.project_data.truncated).toBe(true);
+    expect(result.project_data.questions.length).toBeLessThan(MAX_HEALTH_QUESTIONS);
     expect(result.project_data.questions[0]).toMatchObject({ key: 'collect_code_q0' });
     expect(result.project_data.questions[0].label).toHaveLength(MAX_LABEL_CHARS);
+  });
+
+  it('the thresholds of the about text are no figures: a finding quoting "20 %" that no figure gives is dropped', async () => {
+    const Q = 'collect_code_q';
+    const health = healthOf([healthRow({ answered: 40, blank: 0, emptyBase: 40, emptyBlank: 0, emptyShare: 0, other: { count: 16, share: 0.4, answers: [] }, reasons: ['often_other'] })], 40);
+    const kept = finding({ title: 'Q answered other', explanation: 'Other is chosen on 40 % of plots.', questions: [Q], persons: [] });
+    const made = finding({ title: 'Q answered other often', explanation: 'Other is chosen on 20 % of plots.', questions: [Q], persons: [] });
+    const client = scripted([calls(call('get_survey_health')), text('done'), json(report({ findings: [kept, made] }))]);
+    const out = await runReport(context(client, { outline: new Map([[Q, question(Q, 'choice', { label: 'Q' })]]), health }));
+    expect(out).toMatchObject({ status: 'done' });
+    if (out.status !== 'done') return;
+    expect(out.result.findings.map((f) => f.title)).toEqual(['Q answered other']);
+  });
+
+  it("without an outline, the answer table's questions are sent too (by key, still checked); conditional ones say so", async () => {
+    const ONLY = 'collect_code_only_first';
+    const health = healthOf([healthRow({ key: ONLY, label: ONLY, conditional: true, reasons: [] }), healthRow({ key: 'not a key', reasons: [] })]);
+    const client = scripted([calls(call('get_survey_health')), text('done'), json(EMPTY_REPORT)]);
+    await runReport(context(client, { outline: null, health }));
+    const data = dataOf(client.requests[1], 'get_survey_health');
+    expect(data.questions.map((q: { key: string }) => q.key)).toEqual([ONLY]);
+    expect(data.questions[0]).toMatchObject({ conditional: true });
   });
 
   it('a finding may quote its percentages and counts; one with a number it did not send is dropped', async () => {

@@ -32,8 +32,8 @@ interface AgreementQuestion {
 interface HealthQuestion {
   key: string;
   label?: string;
-  reasons?: string[];
-  known?: number;
+  reasons?: { reason: string }[];
+  saysIfEmpty?: number;
   emptyPercent?: number | null;
   answered?: number;
   otherLike?: { plots: number; percentOfAnswered: number | null };
@@ -163,10 +163,10 @@ function healthFinding(req: AiRequest) {
   const rows = (toolData(req, 'get_survey_health')?.questions ?? []) as HealthQuestion[];
   for (const q of rows) {
     const name = typeof q.label === 'string' && q.label !== '' ? q.label : q.key;
-    const reasons = q.reasons ?? [];
+    const reasons = (q.reasons ?? []).map((r) => r.reason);
     let explanation: string | null = null;
     if (reasons.includes('often_empty') && typeof q.emptyPercent === 'number') {
-      explanation = `It is left empty on ${q.emptyPercent} % of the ${q.known} plots where this is known.`;
+      explanation = `It is left empty on ${q.emptyPercent} % of the ${q.saysIfEmpty} plots that say whether it was.`;
     } else if (reasons.includes('often_other') && q.otherLike && typeof q.otherLike.percentOfAnswered === 'number') {
       explanation = `${q.otherLike.plots} of ${q.answered} plots (${q.otherLike.percentOfAnswered} %) answer it with an option like "other" or "unknown".`;
     }

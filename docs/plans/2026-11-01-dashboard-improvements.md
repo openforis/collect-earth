@@ -57,6 +57,10 @@ desktop.
    when and how much they work (as the monitoring plan says).
 5. **Email** is built behind a transport that is off unless SMTP is configured; the
    weekly job is an HTTP endpoint for Cloud Scheduler, documented but not created.
+6. **“None” is an answer.** In survey health, an option labelled “None” / “Ninguno” /
+   “Aucun” / “Nenhum” alone (“None (no disturbance)”) is a real answer, not a catch-all:
+   its share is shown apart for information and is never a reason to reword. “None of the
+   above” and its translations stay catch-alls with “other”, “unknown” and “no data”.
 
 ---
 
@@ -1054,6 +1058,57 @@ project scope.
   for empty (the desktop app leaves their blanks out); the phrase list is deliberately short ("cannot
   tell", "cloud covered" are not matched); "changed by decisions" uses the latest check of a plot
   checked twice; Task 7's bulk decisions feed it as they are.
+
+- **Review (after 70154a64; supersedes the above where it says so):**
+  - **Empty share without the old records' bias.** Records stored before blanks were kept have
+    no key for them, so counting their answers made a question look less empty (900 old + 100
+    new: 30 of 700 instead of 30 of 100). Now only first assessments that **keep their empty
+    answers** count (`keepsBlanks` in `answerStats.ts`): a record holding a blank value of any key,
+    or one the server received at or after the project's first record holding one (from then on
+    every save keeps them; the time of the first boot with the Task 5 change is not known to the
+    server, this is). A record without `receivedAt` counts only by holding a blank. Rule chosen
+    over "holds a blank" alone, which would leave out fully answered new records and make every
+    question look emptier. Per question `emptyBase` (those that say) and `emptyBlank`; `notKnown`
+    = plots − emptyBase ("N do not say"); under 20 the share is null with "Not enough records
+    that say what was left empty (N; at least 20 are needed)". A question inside a group (an
+    entity) never gets a share: "Not known: inside a group of questions, empty answers are not
+    sent" (before, it showed 0 %). Limit: should a pre-Task-5 record hold a '' (a value sent
+    empty rather than null), `since` would be early and some old records would count. One extra
+    loop over the rows (stops at a row's first blank): answer table 203 ms at 100k (was 175-193).
+    Test: the 900 + 100 scenario gives 30 %, a fully answered new record counts.
+  - **Conditional questions** (`Question.conditional`, `surveyOutline.ts`: `relevant` or
+    `requiredIf` on the attribute or on the entity holding it): the empty share is shown, never
+    `often_empty`; the row says "Shown only for some answers: an empty answer may be expected";
+    the AI tool sends `conditional: true` and its `about` says an empty answer is then expected,
+    not a wording problem. Tests (outline and health).
+  - **"None" alone is an answer (Decision 6):** `answerKind(code, labels)` gives `catch_all` or
+    `none`; none / ninguno / ninguna / aucun / aucune / nenhum / nenhuma (alone or with a bracket
+    etc., "None (no disturbance)") are `none`: counted apart (`row.none`), shown in a "“None” (an
+    answer of its own)" column only when some question has it, sent to the AI as `noneAlone`,
+    never a reason. "None of the above" and its translations (and "aucune de ces réponses",
+    "nenhum dos anteriores") stay catch-alls. Code `none` alone is `none`.
+  - **More variants:** ne sais pas, pas de donnée, sin dato, não aplicável, N.A., NA, N/D, N.D,
+    undetermined, indeterminate, indeterminado/a, indéterminé/e; em and en dashes without spaces
+    ("Other—specify"), a hyphen without spaces only before specify / especif- / précis- / please /
+    por favor ("Other-specify", "Otro-especifique"; "Unknown-origin plantation" and
+    "Other-wooded land" still do not). Tests that "Otros usos", "Otra cobertura", "Aucun
+    changement", "Otherland" do not match.
+  - **The AI tool's numbers:** `collectNumbers` leaves out any `about` text (its numbers are
+    rules, not figures; the `about` of get_survey_health has none now). A reason comes as
+    `{ reason, ...thresholds }` with its percentage threshold only (`agreementUnderPercent`,
+    `otherAtLeastPercent`, `emptyAtLeastPercent`, `minPlotsChanged` + `changedAtLeastPercent`),
+    never the 20-plot minimum, so a made-up "20 %" finding is dropped (test). `moreQuestions`
+    replaced by `questionsTotal` (all the rows the tool may send), right whatever `capResult`
+    cuts (test). Field `known` is now `saysIfEmpty`, `empty` the blanks among them.
+  - **Without an outline** the answer table's question keys (`SAFE_KEY`, as the report's) are
+    in the tools' questions too (test).
+  - **Codes beyond `MAX_CODES`** count as answered (`AskedQuestion.overflow`; test with 65,003).
+  - **Web:** the toggle has `aria-expanded` / `aria-controls`; es "{n} sin información"; the
+    order note says the minimum once for every figure; the changed note says numbers within their
+    margin are not changed; the empty and other notes say the new rules (4 languages).
+  - **Tests:** server 817 (was 782: surveyHealth 77, surveyOutline conditional, AI 2 more), web
+    254, tsc clean in both, web build ok. Postgres smoke ALL OK (survey-health 16-17 ms; health
+    table 12 ms on the main thread, answer table 209 ms). No Chrome in this round.
 
 ### Task 7: Review queue and faster review (improvement 11, monitoring Phase 4 queue)
 

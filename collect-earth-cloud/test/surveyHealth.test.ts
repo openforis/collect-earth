@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { RoundInfo } from '../src/cep.js';
 import { qualityFigures, tableBuffers } from '../src/answerStats.js';
 import type { QualityInput, QualityRecord } from '../src/quality.js';
+import { answerTable, MAX_CODES } from '../src/answerStats.js';
 import {
+  answerKind,
   LOW_AGREEMENT,
   MAX_HEALTH_ROWS,
   looksLikeOther,
@@ -65,7 +67,7 @@ const outline = new Map<string, Question>(
 const day = Date.UTC(2026, 9, 28, 12);
 
 function rec(recordKey: string, operator: string, summary: Record<string, string>, extra: Partial<QualityRecord> = {}): QualityRecord {
-  return { recordKey, operator, summary, modifiedOn: day, activelySaved: true, deleted: false, ...extra };
+  return { recordKey, operator, summary, modifiedOn: day, receivedAt: day, activelySaved: true, deleted: false, ...extra };
 }
 
 function input(records: QualityRecord[]): QualityInput {
@@ -89,19 +91,32 @@ describe('looksLikeOther: labels in 4 languages and codes, conservatively', () =
     ['X', 'Otro'],
     ['X', 'Otra (especifique)'],
     ['X', 'Desconocido'],
-    ['X', 'Ninguno'],
     ['X', 'Sin datos'],
     ['X', 'No sé'],
     ['X', 'Autre'],
     ['X', 'Inconnu'],
-    ['X', 'Aucune'],
     ['X', 'Pas de données'],
     ['X', 'Outro'],
     ['X', 'Desconhecido'],
-    ['X', 'Nenhum'],
     ['X', 'Sem dados'],
     ['X', 'Não sei'],
     ['X', 'OTHER - specify'],
+    ['X', 'Other—specify'],
+    ['X', 'Other-specify'],
+    ['X', 'Otro-especifique'],
+    ['X', 'Ne sais pas'],
+    ['X', 'Pas de donnée'],
+    ['X', 'Sin dato'],
+    ['X', 'Não aplicável'],
+    ['X', 'N.A.'],
+    ['X', 'NA'],
+    ['X', 'N/D'],
+    ['X', 'Indeterminado'],
+    ['X', 'Indéterminé'],
+    ['X', 'Undetermined'],
+    ['X', 'Indeterminate'],
+    ['X', 'Ninguna de las anteriores'],
+    ['X', 'Nenhuma das anteriores'],
   ])('%s labelled %s: yes', (code, label) => {
     expect(looksLikeOther(code, [label])).toBe(true);
   });
@@ -117,6 +132,11 @@ describe('looksLikeOther: labels in 4 languages and codes, conservatively', () =
     ['X', 'No se observa cambio'],
     ['X', 'Nonetheless forest'],
     ['X', 'Unknown-origin plantation'],
+    ['X', 'Otros usos'],
+    ['X', 'Otra cobertura'],
+    ['X', 'Aucun changement'],
+    ['O', 'Otherland'],
+    ['X', 'Other-wooded land'],
     ['99', 'Forest'],
     ['other', 'Grassland'],
   ])('%s labelled %s: no', (code, label) => {
@@ -126,11 +146,25 @@ describe('looksLikeOther: labels in 4 languages and codes, conservatively', () =
   it('matches in any of the labels (other languages), and by the code only when no label is its own', () => {
     expect(looksLikeOther('O', ['Forêt', 'Bosque'])).toBe(false);
     expect(looksLikeOther('O', ['Bosque', 'Autre'])).toBe(true);
-    for (const code of ['other', 'Other', 'unknown', 'none', '99', '999', 'no_data', 'NA']) {
+    for (const code of ['other', 'Other', 'unknown', '99', '999', 'no_data', 'NA']) {
       expect(looksLikeOther(code, [''])).toBe(true);
       expect(looksLikeOther(code, [code])).toBe(true);
     }
     for (const code of ['F', '9', '98', '0', 'oth_forest']) expect(looksLikeOther(code, [])).toBe(false);
+  });
+});
+
+describe('"None" alone is an answer of its own (Decision 6)', () => {
+  it.each(['None', 'None (no disturbance)', 'Ninguno', 'Ninguna', 'Aucun', 'Aucune', 'Nenhum', 'Nenhuma'])('%s: none, not a catch-all', (label) => {
+    expect(answerKind('N', [label])).toBe('none');
+    expect(looksLikeOther('N', [label])).toBe(false);
+  });
+
+  it('"None of the above" and its translations stay catch-alls; the code none alone is none', () => {
+    expect(answerKind('X', ['None of the above'])).toBe('catch_all');
+    expect(answerKind('X', ['Ninguno de los anteriores'])).toBe('catch_all');
+    expect(answerKind('none', [''])).toBe('none');
+    expect(answerKind('X', ['Nonetheless forest'])).toBeNull();
   });
 });
 
@@ -199,6 +233,64 @@ describe('survey health', () => {
     expect(health.questions[0].key).toBe(LAND);
   });
 
+  it('the empty share counts only records that keep their empty answers: 900 old and 100 new records', () => {
+    const KEEPING = Date.UTC(2026, 10, 1);
+    const records: QualityRecord[] = [];
+    // 900 records stored before blanks were kept: land use answered on 600, no key on 300 (left empty, dropped).
+    for (let i = 1; i <= 900; i++) {
+      records.push(rec(`${i},1`, 'ana', { ...(i <= 600 ? { [LAND]: 'F' } : {}), [CANOPY]: '5' }, { receivedAt: KEEPING - 1000 * i }));
+    }
+    // 100 new ones: left empty ('') on 30, of which the first is the project's first record keeping a blank.
+    for (let i = 901; i <= 1000; i++) {
+      records.push(rec(`${i},1`, 'ben', { [LAND]: i <= 930 ? '' : 'F', [CANOPY]: '5' }, { receivedAt: KEEPING + 1000 * (i - 901) }));
+    }
+    const land = row(surveyHealth(qualityFigures(input(records)), []).questions, LAND);
+    // 30 of the 100 new ones, not 30 of 700 (old records answering it would pull it down).
+    expect(land).toMatchObject({ emptyBase: 100, emptyBlank: 30, notKnown: 900, emptyShare: 0.3, emptyWhy: null });
+    expect(land.reasons).toContain('often_empty');
+    // A new record answering everything, received after the first blank, still counts.
+    const canopy = row(surveyHealth(qualityFigures(input(records)), []).questions, CANOPY);
+    expect(canopy).toMatchObject({ emptyBase: 100, emptyBlank: 0, emptyShare: 0 });
+  });
+
+  it('with too few records that say what was left empty, or inside a group, the empty share is not given', () => {
+    const records = Array.from({ length: 30 }, (_, i) => rec(`${i + 1},1`, 'ana', { [LAND]: 'F', 'collect_entity_cover[trees].code_x': 'a' }, { receivedAt: undefined }));
+    records[0].summary[CANOPY] = '';
+    const health = surveyHealth(qualityFigures(input(records)), []);
+    // Only the record holding a blank says it (no receivedAt for the others).
+    expect(row(health.questions, LAND)).toMatchObject({ emptyBase: 1, emptyShare: null, emptyWhy: 'few_records', notKnown: 29 });
+    expect(row(health.questions, 'collect_entity_cover[trees].code_x')).toMatchObject({ inGroup: true, emptyShare: null, emptyWhy: 'group' });
+  });
+
+  it('a conditional question gets its empty share, never the reason', () => {
+    const cond = new Map(outline);
+    cond.set(LAND, { ...outline.get(LAND)!, required: false, conditional: true });
+    const records = Array.from({ length: 30 }, (_, i) => rec(`${i + 1},1`, 'ana', { [LAND]: i < 20 ? '' : 'F' }));
+    const land = row(surveyHealth(qualityFigures({ ...input(records), outline: cond }), []).questions, LAND);
+    expect(land).toMatchObject({ conditional: true, emptyShare: 20 / 30 });
+    expect(land.reasons).not.toContain('often_empty');
+  });
+
+  it('"None (no disturbance)" is counted apart, for information, never as a reason', () => {
+    const dist = new Map(outline);
+    const KEY = 'collect_code_disturbance';
+    dist.set(KEY, question(KEY, 'choice', { label: 'Disturbance', options: [{ code: 'N', label: 'None (no disturbance)' }, { code: 'F', label: 'Fire' }, { code: 'U', label: 'Unknown' }] }));
+    const records = Array.from({ length: 40 }, (_, i) => rec(`${i + 1},1`, 'ana', { [KEY]: i < 30 ? 'N' : i < 35 ? 'F' : 'U' }));
+    const d = row(surveyHealth(qualityFigures({ ...input(records), outline: dist }), []).questions, KEY);
+    expect(d.none).toEqual({ count: 30, share: 0.75, answers: [{ code: 'N', label: 'None (no disturbance)', count: 30 }] });
+    expect(d.other).toEqual({ count: 5, share: 5 / 40, answers: [{ code: 'U', label: 'Unknown', count: 5 }] });
+    expect(d.reasons).toEqual(['often_other']);
+  });
+
+  it("an answer beyond the table's codes still counts as answered", () => {
+    const many = Array.from({ length: MAX_CODES + 3 }, (_, i) => rec(`${i + 1},1`, 'ana', { collect_code_x: `c${i}` }));
+    const i = { ...input(many), outline: null };
+    const table = answerTable(i);
+    expect(table.asked[0]).toMatchObject({ key: 'collect_code_x', overflow: 3 });
+    const x = row(surveyHealth(qualityFigures(i), []).questions, 'collect_code_x');
+    expect(x.answered).toBe(MAX_CODES + 3);
+  });
+
   it('a question every first assessment left blank is still listed', () => {
     const records = Array.from({ length: 25 }, (_, i) => rec(`${i + 1},1`, 'ana', { [LAND]: '', [CANOPY]: '3' }));
     const health = surveyHealth(qualityFigures(input(records)), []);
@@ -249,8 +341,9 @@ describe('survey health', () => {
 
   it('sorts by low agreement (lowest first), then other, then empty, then changed, then the survey order', () => {
     const base = (key: string, reasons: HealthRow['reasons'], over: Partial<HealthRow> = {}): HealthRow => ({
-      key, label: key, kind: 'choice', calculated: false, required: false, answered: 100, blank: 0, notKnown: 0, nonNumeric: 0,
-      emptyShare: 0, other: { count: 0, share: 0, answers: [] }, agreement: null, decisions: { changed: 0, share: null }, reasons, ...over,
+      key, label: key, kind: 'choice', calculated: false, required: false, conditional: false, inGroup: false, answered: 100, blank: 0, nonNumeric: 0,
+      emptyBase: 100, emptyBlank: 0, notKnown: 0, emptyShare: 0, emptyWhy: null, other: { count: 0, share: 0, answers: [] }, none: null,
+      agreement: null, decisions: { changed: 0, share: null }, reasons, ...over,
     });
     const rows = [
       base('none', []),

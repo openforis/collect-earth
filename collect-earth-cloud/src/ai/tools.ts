@@ -9,7 +9,7 @@
 // cut, and any username in them is replaced by its pseudonym.
 import type { CodeItem } from '../cep.js';
 import { aiSafeValue, type PlotRecord, type QualityReport } from '../quality.js';
-import type { SurveyHealth } from '../surveyHealth.js';
+import type { HealthReason, SurveyHealth } from '../surveyHealth.js';
 import type { Question } from '../surveyOutline.js';
 import type { GuidanceNote } from '../types.js';
 import type { AiTool } from './client.js';
@@ -329,6 +329,12 @@ export class ToolBox {
         add({ key: q.key, label: q.key, kind: q.kind, options: null, help: null });
       }
     }
+    // Without an outline (or for keys it does not know): the answer table's questions too.
+    for (const q of data.health?.questions ?? []) {
+      if (!questions.has(q.key) && SAFE_KEY.test(q.key)) {
+        add({ key: q.key, label: q.key, kind: q.kind, options: null, help: null });
+      }
+    }
     this.questions = questions;
     this.labels = new Map([...questions.values()].map((q) => [q.key, this.text(q.label)]));
   }
@@ -543,11 +549,27 @@ export class ToolBox {
     }
     // Percentages rounded to one decimal, as a finding may quote them.
     const percent = (share: number | null) => (share === null ? null : Math.round(share * 1000) / 10);
+    const th = h.thresholds;
+    // A threshold is sent only next to the reason it explains, so a finding may quote it there
+    // (and the minimum of plots, the same for all, not at all: a made-up "20 %" would pass).
+    const thresholdOf: Record<HealthReason, Record<string, number>> = {
+      low_agreement: { agreementUnderPercent: percent(th.lowAgreement)! },
+      often_other: { otherAtLeastPercent: percent(th.oftenOther)! },
+      often_empty: { emptyAtLeastPercent: percent(th.oftenEmpty)! },
+      often_changed: { minPlotsChanged: th.minChanged, changedAtLeastPercent: percent(th.oftenChanged)! },
+    };
+    const choiceCounts = (c: { count: number; share: number | null; answers: { code: string; label: string; count: number }[] }, q: ShownQuestion) => ({
+      plots: c.count,
+      percentOfAnswered: percent(c.share),
+      answers: c.answers.map((a) => ({ code: this.safeCode(q, a.code), label: this.text(a.label), count: a.count })),
+    });
     const rows = h.questions.filter((r) => this.questions.has(r.key));
     return {
       firstAssessments: h.plots,
       plotsChecked: h.plotsChecked,
       plotsDecidedForCheck: h.decidedForCheck,
+      // The questions this tool may send, all of them (the list below may be cut).
+      questionsTotal: rows.length,
       questions: rows.slice(0, MAX_HEALTH_QUESTIONS).map((r) => {
         const q = this.questions.get(r.key)!;
         return {
@@ -556,28 +578,22 @@ export class ToolBox {
           kind: r.kind,
           calculated: r.calculated,
           required: r.required,
-          reasons: r.reasons,
+          conditional: r.conditional,
+          inGroup: r.inGroup,
+          reasons: r.reasons.map((reason) => ({ reason, ...thresholdOf[reason] })),
           answered: r.answered,
-          empty: r.blank,
-          known: r.answered + r.blank + r.nonNumeric,
+          saysIfEmpty: r.emptyBase,
+          empty: r.emptyBlank,
           notKnown: r.notKnown,
           emptyPercent: percent(r.emptyShare),
-          ...(r.other
-            ? {
-                otherLike: {
-                  plots: r.other.count,
-                  percentOfAnswered: percent(r.other.share),
-                  answers: r.other.answers.map((a) => ({ code: this.safeCode(q, a.code), label: this.text(a.label), count: a.count })),
-                },
-              }
-            : {}),
+          ...(r.other ? { otherLike: choiceCounts(r.other, q) } : {}),
+          ...(r.none ? { noneAlone: choiceCounts(r.none, q) } : {}),
           agreement: r.agreement ? { checks: r.agreement.compared, agreeing: r.agreement.agreeing, rate: r.agreement.rate } : null,
           changedByDecisions: { plots: r.decisions.changed, percentOfDecided: percent(r.decisions.share) },
         };
       }),
-      ...(rows.length > MAX_HEALTH_QUESTIONS ? { moreQuestions: rows.length - MAX_HEALTH_QUESTIONS } : {}),
       about:
-        'Counts are first assessments of plots (quality checks not counted), except agreement (checks) and changedByDecisions (plots decided for the check, where the answer of the check differs from that of the first assessment). empty: answered with nothing; notKnown: older records or questions inside a group that do not say; emptyPercent is of known. An empty answer may be expected when the question does not apply to the plot. emptyPercent and percentOfAnswered are null with fewer than 20 plots; percentOfDecided is null when no plot was decided for the check. Reasons: low_agreement (rate under 0.8), often_other (10 % or more), often_empty (20 % or more), often_changed (5 plots or more and 25 % or more of plotsDecidedForCheck).',
+        'Counts are first assessments of plots (quality checks not counted), except agreement (checks) and changedByDecisions (plots decided for the check, where the answer of the check differs from that of the first assessment). saysIfEmpty: first assessments that tell whether the question was left empty (older records and questions inside a group do not); empty: of those, left empty; emptyPercent is of saysIfEmpty, null when too few say it or inGroup. A conditional question is shown only for some answers: an empty answer is then expected, not a wording problem. noneAlone ("None" as an answer of its own, such as no disturbance) is information, never a problem. otherLike: options such as other, unknown, no data, none of the above. Each reason comes with the thresholds it was judged by.',
     };
   }
 
@@ -676,7 +692,7 @@ const NUMBER_IN_TEXT = /\d+(?:\.\d+)?/g;
 
 /**
  * The numbers of a result as sent, for the findings' number check: every number and every
- * number inside a text, plus what the model may fairly derive: a rate as a percentage
+ * number inside a text (but an `about` text), plus what the model may fairly derive: a rate as a percentage
  * (and its complement), and a count's differing part and share.
  */
 function collectNumbers(value: unknown, into: number[]): void {
@@ -696,6 +712,7 @@ function collectNumbers(value: unknown, into: number[]): void {
         if (checks > 0) into.push((part / checks) * 100, ((checks - part) / checks) * 100);
       }
     }
-    for (const v of Object.values(o)) collectNumbers(v, into);
+    // An `about` text explains the result: its numbers (thresholds, limits) are not figures.
+    for (const [k, v] of Object.entries(o)) if (k !== 'about') collectNumbers(v, into);
   }
 }

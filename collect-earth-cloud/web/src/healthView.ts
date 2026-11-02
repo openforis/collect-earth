@@ -1,5 +1,5 @@
 // Survey health's texts (Task 6), built from the figures the server sends: pure, tested.
-import type { HealthReason, HealthRow, SurveyHealthData } from "./api";
+import type { HealthCodes, HealthReason, HealthRow, SurveyHealthData } from "./api";
 import { formatNumber } from "./format";
 import type { MessageKey, Translate } from "./i18n";
 import { formatRate } from "./qualityView";
@@ -32,22 +32,37 @@ export function reasonText(t: Translate, reason: HealthReason, row: HealthRow, d
   }
 }
 
-/** "27 % (8 of 30)"; "Too few plots (8 of 12)"; "—" when it is never known. Plus "6 not known" when some are. */
-export function emptyText(t: Translate, row: HealthRow, language: string): string {
-  const known = row.answered + row.blank + row.nonNumeric;
-  const counts = { n: formatNumber(row.blank, language), known: formatNumber(known, language) };
-  const main = known === 0 ? "—" : row.emptyShare === null ? t("health.tooFew", counts) : t("health.share", { share: formatRate(row.emptyShare, language), ...counts });
+/**
+ * "30% (30 of 100) · 900 do not say"; "Not enough records that say what was left empty
+ * (12 of 20)"; for a question in a group, that it is never known.
+ */
+export function emptyText(t: Translate, row: HealthRow, data: SurveyHealthData, language: string): string {
+  if (row.emptyWhy === "group") return t("health.inGroup");
+  const counts = { n: formatNumber(row.emptyBlank, language), known: formatNumber(row.emptyBase, language) };
+  const main =
+    row.emptyShare === null
+      ? t("health.fewRecords", { n: formatNumber(row.emptyBase, language), min: formatNumber(data.thresholds.minPlots, language) })
+      : t("health.share", { share: formatRate(row.emptyShare, language), ...counts });
   return row.notKnown > 0 ? `${main} · ${t("health.notKnown", { n: formatNumber(row.notKnown, language) })}` : main;
 }
 
-/** "23 % (6 of 26): Other (specify)"; "None (0 of 26)"; "" for a number question. */
+/** "23% (6 of 26): Other (specify)"; "0 of 26"; "" for a number question. */
 export function otherText(t: Translate, row: HealthRow, language: string): string {
-  if (!row.other) return "";
-  const counts = { n: formatNumber(row.other.count, language), known: formatNumber(row.answered, language) };
+  return codesText(t, row, row.other, language);
+}
+
+/** The same for "None" alone (an answer of its own, Decision 6): "" when nobody chose it. */
+export function noneText(t: Translate, row: HealthRow, language: string): string {
+  return row.none && row.none.count > 0 ? codesText(t, row, row.none, language) : "";
+}
+
+function codesText(t: Translate, row: HealthRow, c: HealthCodes | null, language: string): string {
+  if (!c) return "";
+  const counts = { n: formatNumber(c.count, language), known: formatNumber(row.answered, language) };
   if (row.answered === 0) return "—";
-  if (row.other.count === 0) return t("health.counts", counts);
-  const main = row.other.share === null ? t("health.tooFew", counts) : t("health.share", { share: formatRate(row.other.share, language), ...counts });
-  return `${main}: ${otherAnswersText(row)}`;
+  if (c.count === 0) return t("health.counts", counts);
+  const main = c.share === null ? t("health.tooFew", counts) : t("health.share", { share: formatRate(c.share, language), ...counts });
+  return `${main}: ${c.answers.map((a) => a.label).join(", ")}`;
 }
 
 /** "52 % (13 of 25 checks)"; "Too few checks (5 of 12)"; "—" when never compared. */
