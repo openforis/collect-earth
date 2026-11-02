@@ -4,6 +4,7 @@ const { sensorsForYear } = require("./lib/sensors");
 const { eeAuth, ee } = require("./ee/auth");
 const { sentinel2CompositeTiles } = require("./ee/sentinel2Composite");
 const { landsatCompositeTiles } = require("./ee/landsatComposite");
+const { modisSeries } = require("./ee/modisSeries");
 
 /**
  * Builds a POST handler: parse body, run the optional `validate(body)` hook, auth EE,
@@ -26,6 +27,7 @@ function registerRoutes(app) {
     "/api/tiles/landsat",
     plotRoute((p, g, body) => landsatCompositeTiles(g, Number(body.year)), (body) => sensorsForYear(Number(body.year)))
   );
+  app.post("/api/series/modis", plotRoute((p, g) => modisSeries(g, p.start, p.end)));
 }
 
 module.exports = { registerRoutes, plotRoute };

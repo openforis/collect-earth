@@ -13,7 +13,7 @@ function sensorImages(id, plot, year) {
   const s = SENSORS[id];
   return ee.ImageCollection(s.collection)
     .filterBounds(plot)
-    .filterDate(`${year}-01-01`, `${year}-12-31`)
+    .filterDate(`${year}-01-01`, `${year + 1}-01-01`)
     .filter(ee.Filter.lt(s.cloudProperty, MAX_CLOUD_COVER))
     .map(maskAndScale)
     .select(s.falseColour, COMPOSITE_BANDS);
