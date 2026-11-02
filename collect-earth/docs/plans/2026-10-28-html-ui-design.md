@@ -163,12 +163,12 @@ Every stage is done. What the "Left by" sections below still name as open, check
 - **Still Swing by choice:** the file dialog of `/api/files/choose` (now with the system look and feel, no longer
   FlatLaf), the splash, the tray icon, the messages shown when there is no server, and the Google Earth Web trial
   question at start (`EarthApp`), which is asked before any page opens.
-- **The cloud assignments of the plots file** (stage 2): the Swing Sample data tab listed them in cloud mode; the
-  settings page does not.
-- **The reload of the plots** after an import or the settings is a thread that only logs a failure (stages 2 and 3),
-  and **the KML export** reports no progress (stage 3).
-- **The connection tests** answer the English texts of `CollectEarthUtils` (stage 2).
-- **Without a system tray** a closed home page cannot be opened again; a second start should open it (stage 1).
+- **The KML export** reports no progress (stage 3): `KmlGeneratorService.exportToKml` is one call.
+
+Done since stage 6: the cloud assignments of the plots file are offered in the Project section of the settings in
+cloud mode; a plots reload that fails is shown as a notice; the connection tests answer in the UI language
+(`ConnectionTest`); starting Collect Earth again opens the window of the one running (`OpenWindowServlet`), which
+is how a closed home page comes back on a desktop with no tray.
 - **The Messages keys only the Swing UI used** are still in `Messages*.properties`; pruning them needs a check of
   every key the pages and the services ask for.
 
