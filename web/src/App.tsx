@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { PlotProvider, usePlot } from "./state/PlotContext";
 import MapView from "./components/MapView";
 import LayersPanel from "./components/LayersPanel";
@@ -21,7 +22,10 @@ function Viewer() {
       <div className="map-pane">
         <MapView plot={plot} tileUrl={tiles.data?.tileUrl} />
         <LayersPanel />
-        <div className="map-status">{status}</div>
+        <div className="map-status">
+          {status}
+          {tiles.status === "error" && <button onClick={tiles.retry}>Retry</button>}
+        </div>
       </div>
       <aside className="side-pane">
         <h2>Plot {plotId || "(no id)"}</h2>
@@ -36,15 +40,23 @@ function Viewer() {
   );
 }
 
+type Parsed = { params: PlotParams; error?: undefined } | { params?: undefined; error: string };
+
 export default function App() {
-  let params: PlotParams;
-  try {
-    params = parsePlotUrl(window.location.search);
-  } catch (e) {
-    return <p style={{ padding: 16 }}>{(e as Error).message}. Open this page from Collect Earth.</p>;
+  const search = window.location.search;
+  // Parsed once per URL: PlotProvider memoises on the params object's identity.
+  const parsed = useMemo<Parsed>(() => {
+    try {
+      return { params: parsePlotUrl(search) };
+    } catch (e) {
+      return { error: (e as Error).message };
+    }
+  }, [search]);
+  if (parsed.error !== undefined) {
+    return <p style={{ padding: 16 }}>{parsed.error}. Open this page from Collect Earth.</p>;
   }
   return (
-    <PlotProvider params={params}>
+    <PlotProvider params={parsed.params}>
       <Viewer />
     </PlotProvider>
   );

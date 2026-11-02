@@ -5,7 +5,12 @@ import { usePlot, type LayerId } from "../state/PlotContext";
 /** Fetches the tile URL for one imagery layer; refetches when its inputs change. */
 export function useLayerTiles(layer: LayerId) {
   const { plot, start, end, landsatYear, scene } = usePlot();
-  const key = layer === "landsat" ? landsatYear : layer === "scene" ? scene?.timeStart : "fixed";
+  const key =
+    layer === "landsat"
+      ? landsatYear
+      : layer === "scene"
+        ? scene && `${scene.sensor}:${scene.timeStart}`
+        : "fixed";
   return useApi<TileResponse>(
     (signal) => {
       if (layer === "sentinel2") return postApi("tiles/sentinel2", { plot, start, end }, signal);

@@ -24,16 +24,24 @@ function Radio({ id, label, active, disabled, onSelect }: RadioProps) {
 
 export default function LayersPanel() {
   const p = usePlot();
-  const { setLandsatYear } = p;
+  const { selectLandsatYear } = p;
   const maxYear = new Date(p.end).getUTCFullYear();
-  const [draftYear, setDraftYear] = useState(p.landsatYear);
+  // A year the slider has been dragged to but that is not committed yet;
+  // null when the slider is at rest on the committed year.
+  const [pendingYear, setPendingYear] = useState<number | null>(null);
+  const draftYear = pendingYear ?? p.landsatYear;
 
-  // Debounce: the slider updates draftYear immediately; the context (and so the tile
-  // request) only sees the value once it has been stable for COMMIT_DELAY_MS.
+  // Debounce: the slider updates the label immediately; the context (year and
+  // active layer together, and so the tile request) only sees the value once it
+  // has been stable for COMMIT_DELAY_MS.
   useEffect(() => {
-    const t = setTimeout(() => setLandsatYear(draftYear), COMMIT_DELAY_MS);
+    if (pendingYear === null) return;
+    const t = setTimeout(() => {
+      selectLandsatYear(pendingYear);
+      setPendingYear(null);
+    }, COMMIT_DELAY_MS);
     return () => clearTimeout(t);
-  }, [draftYear, setLandsatYear]);
+  }, [pendingYear, selectLandsatYear]);
 
   return (
     <div className="layers-panel">
@@ -46,10 +54,7 @@ export default function LayersPanel() {
         min={MIN_YEAR}
         max={maxYear}
         value={draftYear}
-        onChange={(e) => {
-          setDraftYear(Number(e.target.value));
-          p.setActiveLayer("landsat");
-        }}
+        onChange={(e) => setPendingYear(Number(e.target.value))}
         style={{ width: "100%" }}
       />
       <Radio

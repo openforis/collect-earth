@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import App from "./App";
 
 vi.mock("./components/MapView", () => ({ default: () => <div data-testid="map" /> }));
@@ -54,5 +54,23 @@ describe("App", () => {
     const body = JSON.parse(init.body as string);
     expect(body.plot.type).toBe("Polygon");
     expect(body.start).toBe("2000-01-01");
+  });
+
+  it("shows the imagery error with a Retry button that re-requests the tiles", async () => {
+    window.history.replaceState({}, "", `/?geoJson=${encodeURIComponent(GEOJSON)}&startTime=2000-01-01&plot_id=demo`);
+    const busy = { error: { code: "busy", message: "Earth Engine is busy", retryable: true } };
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(busy), { status: 503, headers: { "content-type": "application/json" } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(TILE), { status: 200, headers: { "content-type": "application/json" } }));
+    render(<App />);
+
+    const retry = await screen.findByRole("button", { name: "Retry" });
+    expect(screen.getByText(/Imagery failed: Earth Engine is busy/)).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(retry);
+    expect(await screen.findByText(TILE.label)).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
   });
 });

@@ -23,6 +23,21 @@ export interface PlotBody {
   end: string;
 }
 
+function isApiError(v: unknown): v is ApiError {
+  if (typeof v !== "object" || v === null) return false;
+  const o = v as Record<string, unknown>;
+  return typeof o.code === "string" && typeof o.message === "string" && typeof o.retryable === "boolean";
+}
+
+/** The server's `{ error }` object when it has the ApiError shape, else undefined. */
+function errorOf(body: unknown): ApiError | undefined {
+  if (typeof body !== "object" || body === null) return undefined;
+  const err = (body as { error?: unknown }).error;
+  return isApiError(err) ? err : undefined;
+}
+
+const NOT_JSON = Symbol("not json");
+
 export async function postApi<T>(
   path: string,
   body: PlotBody & Record<string, unknown>,
@@ -34,11 +49,19 @@ export async function postApi<T>(
     body: JSON.stringify(body),
     signal,
   });
-  const json = await res
-    .json()
-    .catch(() => ({ error: { code: "bad_json", message: res.statusText, retryable: true } }));
-  if (!res.ok) throw new ApiFailure(json.error, res.status);
-  return json as T;
+  const parsed: unknown = await res.json().catch(() => NOT_JSON);
+  if (!res.ok) {
+    const err = errorOf(parsed) ?? {
+      code: `http_${res.status}`,
+      message: res.statusText || `HTTP ${res.status}`,
+      retryable: res.status >= 500,
+    };
+    throw new ApiFailure(err, res.status);
+  }
+  if (parsed === NOT_JSON) {
+    throw new ApiFailure({ code: "bad_json", message: "The server returned an unreadable response", retryable: true }, res.status);
+  }
+  return parsed as T;
 }
 
 export interface TileResponse {

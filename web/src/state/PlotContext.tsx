@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import type { PlotParams } from "../lib/urlParams";
 
 export type LayerId = "sentinel2" | "landsat" | "scene";
@@ -13,6 +13,8 @@ export interface PlotState extends PlotParams {
   setActiveLayer: (l: LayerId) => void;
   landsatYear: number;
   setLandsatYear: (y: number) => void;
+  /** Sets the Landsat year and makes Landsat the active layer in one update. */
+  selectLandsatYear: (y: number) => void;
   scene?: Scene;
   setScene: (s: Scene) => void;
   compare: boolean;
@@ -29,23 +31,32 @@ export function PlotProvider({ params, children }: { params: PlotParams; childre
   const [scene, setSceneState] = useState<Scene>();
   const [compare, setCompare] = useState(false);
   const [compareLayer, setCompareLayer] = useState<LayerId>("landsat");
-  const setScene = (s: Scene) => {
+  // React batches the two state updates below into a single render.
+  const setScene = useCallback((s: Scene) => {
     setSceneState(s);
     setActiveLayer("scene");
-  };
-  const value: PlotState = {
-    ...params,
-    activeLayer,
-    setActiveLayer,
-    landsatYear,
-    setLandsatYear,
-    scene,
-    setScene,
-    compare,
-    setCompare,
-    compareLayer,
-    setCompareLayer,
-  };
+  }, []);
+  const selectLandsatYear = useCallback((y: number) => {
+    setLandsatYear(y);
+    setActiveLayer("landsat");
+  }, []);
+  const value = useMemo<PlotState>(
+    () => ({
+      ...params,
+      activeLayer,
+      setActiveLayer,
+      landsatYear,
+      setLandsatYear,
+      selectLandsatYear,
+      scene,
+      setScene,
+      compare,
+      setCompare,
+      compareLayer,
+      setCompareLayer,
+    }),
+    [params, activeLayer, landsatYear, selectLandsatYear, scene, setScene, compare, compareLayer],
+  );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

@@ -9,7 +9,11 @@ export interface ApiState<T> {
   retry: () => void;
 }
 
-/** Runs `fn` when `deps` change; exposes status and a retry. Aborts stale runs. */
+/**
+ * Runs `fn` when `deps` change; exposes status and a retry. Aborts stale runs.
+ * While reloading, the previous `data` is kept (so consumers can keep showing it)
+ * and any previous `error` is cleared.
+ */
 export function useApi<T>(fn: (signal: AbortSignal) => Promise<T>, deps: unknown[]): ApiState<T> {
   const [state, setState] = useState<{ status: Status; data?: T; error?: Error }>({ status: "idle" });
   const [tick, setTick] = useState(0);
@@ -25,10 +29,10 @@ export function useApi<T>(fn: (signal: AbortSignal) => Promise<T>, deps: unknown
     ctrl.current?.abort();
     const c = new AbortController();
     ctrl.current = c;
-    setState({ status: "loading" });
+    setState((s) => ({ status: "loading", data: s.data }));
     fn(c.signal).then(
       (data) => !c.signal.aborted && setState({ status: "done", data }),
-      (error) => !c.signal.aborted && setState({ status: "error", error }),
+      (error) => !c.signal.aborted && setState((s) => ({ status: "error", data: s.data, error })),
     );
     return () => c.abort();
   }, [...deps, tick]);

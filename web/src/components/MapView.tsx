@@ -1,10 +1,13 @@
 import { useEffect, useRef } from "react";
-import { Map as MlMap, NavigationControl, ScaleControl, type MapOptions } from "maplibre-gl";
+import {
+  Map as MlMap,
+  NavigationControl,
+  ScaleControl,
+  type StyleSpecification,
+  type RasterTileSource,
+} from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { polygonBounds, type Polygon } from "../lib/urlParams";
-
-// maplibre-gl 6 does not re-export StyleSpecification; derive it from MapOptions.
-type StyleSpecification = Exclude<MapOptions["style"], string | undefined>;
 
 export const BASE_STYLE: StyleSpecification = {
   version: 8,
@@ -21,14 +24,32 @@ export const BASE_STYLE: StyleSpecification = {
 };
 
 export const IMAGERY_SOURCE = "imagery";
+export const IMAGERY_ATTRIBUTION = "Google Earth Engine, Copernicus Sentinel-2, USGS Landsat";
 const OUTLINE_LAYER = "plot-outline";
 
-/** Replaces the imagery raster layer with a new tile URL, keeping the plot outline on top. */
+/**
+ * Points the imagery raster layer at `tileUrl`, keeping the plot outline on top.
+ * An existing source is updated in place (so the old tiles stay visible until the
+ * new ones arrive); it is only removed when `tileUrl` is undefined and only added
+ * when missing.
+ */
 export function setImagery(map: MlMap, tileUrl: string | undefined) {
-  if (map.getLayer(IMAGERY_SOURCE)) map.removeLayer(IMAGERY_SOURCE);
-  if (map.getSource(IMAGERY_SOURCE)) map.removeSource(IMAGERY_SOURCE);
-  if (!tileUrl) return;
-  map.addSource(IMAGERY_SOURCE, { type: "raster", tiles: [tileUrl], tileSize: 256 });
+  const existing = map.getSource<RasterTileSource>(IMAGERY_SOURCE);
+  if (!tileUrl) {
+    if (map.getLayer(IMAGERY_SOURCE)) map.removeLayer(IMAGERY_SOURCE);
+    if (existing) map.removeSource(IMAGERY_SOURCE);
+    return;
+  }
+  if (existing) {
+    existing.setTiles([tileUrl]);
+    return;
+  }
+  map.addSource(IMAGERY_SOURCE, {
+    type: "raster",
+    tiles: [tileUrl],
+    tileSize: 256,
+    attribution: IMAGERY_ATTRIBUTION,
+  });
   map.addLayer({ id: IMAGERY_SOURCE, type: "raster", source: IMAGERY_SOURCE }, OUTLINE_LAYER);
 }
 
@@ -60,6 +81,7 @@ export default function MapView({ plot, tileUrl, onMap }: Props) {
   // lifetime of the viewer (they come from the URL), so they are read once here.
   /* oxlint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
+    let disposed = false;
     const map = new MlMap({
       container: el.current!,
       style: BASE_STYLE,
@@ -69,21 +91,27 @@ export default function MapView({ plot, tileUrl, onMap }: Props) {
     map.addControl(new NavigationControl(), "top-right");
     map.addControl(new ScaleControl(), "bottom-right");
     map.on("load", () => {
+      // Under StrictMode the first map is removed before its style loads; a
+      // late "load" must not touch the removed map or steal mapRef.
+      if (disposed) return;
       addPlotOutline(map, plot);
       mapRef.current = map;
       onMap?.(map);
       setImagery(map, tileUrlRef.current);
     });
     return () => {
+      disposed = true;
       mapRef.current = null;
       map.remove();
     };
   }, []);
   /* oxlint-enable react-hooks/exhaustive-deps */
 
+  // mapRef is only set from the "load" handler, so a non-null map always has
+  // its style loaded. Do not gate on isStyleLoaded(): in maplibre 6 it is false
+  // whenever any source is still fetching tiles, which would drop the swap.
   useEffect(() => {
-    const map = mapRef.current;
-    if (map?.isStyleLoaded()) setImagery(map, tileUrl);
+    if (mapRef.current) setImagery(mapRef.current, tileUrl);
   }, [tileUrl]);
 
   return <div ref={el} style={{ position: "absolute", inset: 0 }} />;

@@ -52,17 +52,21 @@ describe("LayersPanel", () => {
     expect(slider().value).toBe("2024");
   });
 
-  it("moving the slider updates the label and layer immediately and commits the year after 400 ms", () => {
+  it("moving the slider updates the label immediately and commits year + layer together after 400 ms", () => {
     setup();
     fireEvent.change(slider(), { target: { value: "2010" } });
-    expect(radio(/Landsat 2010/).checked).toBe(true);
-    expect(radio(/Sentinel-2/).checked).toBe(false);
+    // Only the label follows the drag; the layer and year are committed atomically later.
+    expect(radio(/Landsat 2010/).checked).toBe(false);
+    expect(radio(/Sentinel-2/).checked).toBe(true);
     expect(committedYear()).toBe(2024);
 
     act(() => vi.advanceTimersByTime(399));
     expect(committedYear()).toBe(2024);
+    expect(radio(/Sentinel-2/).checked).toBe(true);
     act(() => vi.advanceTimersByTime(1));
     expect(committedYear()).toBe(2010);
+    expect(radio(/Landsat 2010/).checked).toBe(true);
+    expect(radio(/Sentinel-2/).checked).toBe(false);
   });
 
   it("two quick slider changes commit only once, with the last value", () => {
@@ -70,14 +74,35 @@ describe("LayersPanel", () => {
     fireEvent.change(slider(), { target: { value: "2005" } });
     act(() => vi.advanceTimersByTime(100));
     fireEvent.change(slider(), { target: { value: "2010" } });
-    expect(radio(/Landsat 2010/).checked).toBe(true);
+    expect(radio(/Landsat 2010/)).toBeTruthy();
+    expect(radio(/Sentinel-2/).checked).toBe(true);
 
     // 400 ms after the first change: the 2005 commit must have been cancelled.
     act(() => vi.advanceTimersByTime(300));
     expect(committedYear()).toBe(2024);
+    expect(radio(/Sentinel-2/).checked).toBe(true);
     // 400 ms after the second change: 2010 is committed.
     act(() => vi.advanceTimersByTime(100));
     expect(committedYear()).toBe(2010);
+    expect(radio(/Landsat 2010/).checked).toBe(true);
+  });
+
+  it("clicking the Landsat radio selects the layer with the committed year, without a pending commit", () => {
+    setup();
+    fireEvent.click(radio(/Landsat 2024/));
+    expect(radio(/Landsat 2024/).checked).toBe(true);
+    expect(committedYear()).toBe(2024);
+    // Nothing is pending: idle time changes neither the year nor the layer.
+    act(() => vi.advanceTimersByTime(1000));
+    expect(committedYear()).toBe(2024);
+    expect(radio(/Landsat 2024/).checked).toBe(true);
+  });
+
+  it("does not switch to Landsat on its own when the slider is untouched", () => {
+    setup();
+    act(() => vi.advanceTimersByTime(1000));
+    expect(radio(/Sentinel-2/).checked).toBe(true);
+    expect(radio(/Landsat 2024/).checked).toBe(false);
   });
 
   it("enables the Scene radio and shows the scene label once a scene is set", () => {

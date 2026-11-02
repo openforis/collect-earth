@@ -13,10 +13,29 @@ describe("useApi", () => {
     const fn = vi.fn().mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce({ ok: 1 });
     const { result } = renderHook(() => useApi(fn, ["k"]));
     await waitFor(() => expect(result.current.status).toBe("error"));
+    expect(result.current.error?.message).toBe("boom");
     act(() => result.current.retry());
+    expect(result.current.status).toBe("loading");
+    expect(result.current.error).toBeUndefined();
     await waitFor(() => expect(result.current.status).toBe("done"));
     expect(result.current.data).toEqual({ ok: 1 });
     expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the previous data while a retry is loading", async () => {
+    const second = deferred<{ v: number }>();
+    const fn = vi.fn().mockResolvedValueOnce({ v: 1 }).mockReturnValueOnce(second.promise);
+    const { result } = renderHook(() => useApi(fn, ["k"]));
+    await waitFor(() => expect(result.current.status).toBe("done"));
+    expect(result.current.data).toEqual({ v: 1 });
+
+    act(() => result.current.retry());
+    expect(result.current.status).toBe("loading");
+    expect(result.current.data).toEqual({ v: 1 });
+
+    await act(async () => second.resolve({ v: 2 }));
+    expect(result.current.status).toBe("done");
+    expect(result.current.data).toEqual({ v: 2 });
   });
 
   it("ignores a stale result when deps change while a request is in flight", async () => {

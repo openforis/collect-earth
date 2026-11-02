@@ -45,6 +45,30 @@ describe("PlotProvider / usePlot", () => {
     expect(result.current.landsatYear).toBe(1999);
   });
 
+  it("selectLandsatYear sets the year and the active layer in a single render", () => {
+    let renders = 0;
+    const { result } = renderHook(
+      () => {
+        renders++;
+        return usePlot();
+      },
+      { wrapper },
+    );
+    const before = renders;
+    act(() => result.current.selectLandsatYear(2010));
+    expect(result.current.landsatYear).toBe(2010);
+    expect(result.current.activeLayer).toBe("landsat");
+    expect(renders).toBe(before + 1);
+  });
+
+  it("keeps a stable context value across re-renders when nothing changed", () => {
+    const { result, rerender } = renderHook(() => usePlot(), { wrapper });
+    const first = result.current;
+    rerender();
+    expect(result.current).toBe(first);
+    expect(result.current.setScene).toBe(first.setScene);
+  });
+
   it("throws when used outside the provider", () => {
     expect(() => renderHook(() => usePlot())).toThrow(/outside PlotProvider/);
   });
