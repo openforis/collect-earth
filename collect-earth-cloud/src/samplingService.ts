@@ -1,4 +1,5 @@
 import { copyHoldersOf } from './division.js';
+import { isPlotUnit } from './progress.js';
 import type { ProjectStateCache, ProjectState } from './projectState.js';
 import type { Log } from './qualityService.js';
 import { keyShape, splitKey } from './rounds.js';
@@ -44,6 +45,7 @@ export interface DrawOutcome {
  * only until its answer, so nothing is left to run after it.
  */
 export class SamplingService {
+  /** The draw running (or waited for) last per project: an automatic draw joins it, "Draw now" waits for it. */
   private readonly running = new Map<string, Promise<DrawOutcome | null>>();
   private readonly now: () => number;
   readonly intervalMs: number;
@@ -69,39 +71,40 @@ export class SamplingService {
     await this.automatic(projectId, log, false);
   }
 
+  /** The claim and the draw, waited for at most `inlineMs` together; never throws. */
   private async automatic(projectId: string, log: Log, markDue: boolean): Promise<void> {
-    try {
+    const work = (async () => {
       const claimed = await this.store.claimSamplingDraw(projectId, { now: this.now(), markDue, minIntervalMs: this.intervalMs });
-      if (!claimed) return;
-      const drawing = this.draw(projectId, 'automatic', log).catch((err: unknown) => {
-        log.error({ err, projectId }, 'check sampling: the automatic draw failed');
-        return null;
-      });
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      await Promise.race([drawing, new Promise((resolve) => (timer = setTimeout(resolve, this.inlineMs)))]);
-      clearTimeout(timer);
-    } catch (err) {
-      log.error({ err, projectId }, 'check sampling: could not tell whether a draw is due');
-    }
+      if (claimed) await this.draw(projectId, 'automatic', log);
+    })().catch((err: unknown) => log.error({ err, projectId }, 'check sampling: the automatic draw failed (it stays due)'));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([work, new Promise((resolve) => (timer = setTimeout(resolve, this.inlineMs)))]);
+    clearTimeout(timer);
   }
 
   /**
-   * Draws now (`by` the coordinator who pressed "Draw now", null for a project token; or automatic),
-   * one draw at a time per project on this server (the store's lock covers the others). Null
-   * when the rule draws nothing (none, or both parts off). Audited as `sampling.drawn` when
-   * pressed, and when an automatic draw added copies.
+   * Draws now (`by` the coordinator who pressed "Draw now", null for a project token; or
+   * automatic). An automatic draw joins one running on this server; "Draw now" waits for it to
+   * end and then makes its own (the store's lock covers other servers). Null when the rule draws
+   * nothing (none, or both parts off). Audited as `sampling.drawn` when pressed, always, and when
+   * an automatic draw added copies.
    */
   draw(projectId: string, by: { userId: string | null } | 'automatic', log: Log): Promise<DrawOutcome | null> {
-    const pending = this.running.get(projectId);
-    if (pending) return pending;
-    const run = this.drawOnce(projectId, by, log).finally(() => this.running.delete(projectId));
+    const current = this.running.get(projectId);
+    if (by === 'automatic' && current) return current;
+    const run = (current ?? Promise.resolve(null)).catch(() => null).then(() => this.drawOnce(projectId, by, log));
     this.running.set(projectId, run);
+    run.then(
+      () => this.running.get(projectId) === run && this.running.delete(projectId),
+      () => this.running.get(projectId) === run && this.running.delete(projectId),
+    );
     return run;
   }
 
   private async drawOnce(projectId: string, by: { userId: string | null } | 'automatic', log: Log): Promise<DrawOutcome | null> {
-    // Submissions marked due until now are in the fresh state read below.
-    const startedAt = this.now();
+    // Marks of a due draw up to now are in the fresh state read below (their records were stored
+    // before the mark); a later mark keeps the draw due (addSampledCopies).
+    const readAt = this.now();
     const loaded = await this.load(projectId, log, true);
     if (!loaded.input) return null;
     const result = drawChecks(loaded.input);
@@ -109,14 +112,22 @@ export class SamplingService {
     const automatic = by === 'automatic';
     const byUserId = automatic ? null : by.userId;
     const draw: SamplingDraw = { at, byUserId, automatic, drawn: 0, firstN: 0, percent: 0, noChecker: result.noChecker };
-    const copies = await this.store.addSampledCopies(projectId, result.copies, draw, startedAt);
+    const copies = await this.store.addSampledCopies(projectId, result.copies, result.drop, draw, readAt);
     const stored = { ...draw, drawn: copies.length, firstN: copies.filter((c) => c.reason === 'firstN').length, percent: copies.filter((c) => c.reason === 'percent').length };
     if (!automatic || copies.length > 0) {
       try {
         await this.store.appendAudit(projectId, {
           actorUserId: byUserId,
           action: 'sampling.drawn',
-          details: { automatic: stored.automatic, drawn: stored.drawn, firstN: stored.firstN, percent: stored.percent, noChecker: stored.noChecker, checkers: new Set(copies.map((c) => c.userId)).size },
+          details: {
+            automatic: stored.automatic,
+            drawn: stored.drawn,
+            firstN: stored.firstN,
+            percent: stored.percent,
+            noChecker: stored.noChecker,
+            replaced: result.drop.length,
+            checkers: new Set(copies.map((c) => c.userId)).size,
+          },
         });
       } catch (err) {
         log.error({ err, projectId }, 'audit log write failed');
@@ -128,7 +139,7 @@ export class SamplingService {
   /** What the Checks section shows: the rule, the last draw, what a draw now would add, the files and each person's checks. */
   async view(projectId: string, log: Log): Promise<SamplingView> {
     const { sampling, state, members, divided, holdings, input } = await this.load(projectId, log, false);
-    const preview: DrawResult = input ? drawChecks(input) : { copies: [], noChecker: 0 };
+    const preview: DrawResult = input ? drawChecks(input) : { copies: [], drop: [], noChecker: 0 };
     const usernames = new Map(members.map((m) => [m.userId, m.username]));
     const rule = sampling.rule;
     const subs = submittedOf(state);
@@ -177,6 +188,7 @@ export class SamplingService {
       dueSince: due ? sampling.dueSince : null,
       nextAutomaticAt: due ? Math.max(sampling.dueSince!, (sampling.lastAutoDrawAt ?? 0) + this.intervalMs) : null,
       lastDraw,
+      lastCheckedAt: sampling.lastCheckedAt,
       pending: {
         drawn: preview.copies.length,
         firstN: preview.copies.filter((c) => c.reason === 'firstN').length,
@@ -215,7 +227,10 @@ export interface SamplingView {
   dueSince: number | null;
   /** When the next automatic draw can be made (a first submission or someone's plot list then triggers it). */
   nextAutomaticAt: number | null;
+  /** The last draw that added copies. */
   lastDraw: (SamplingDraw & { by: string | null }) | null;
+  /** When a draw last looked for plots to check (one that found none included). */
+  lastCheckedAt: number | null;
   /** What a draw now would add. */
   pending: { drawn: number; firstN: number; percent: number; noChecker: number };
   files: {
@@ -261,6 +276,9 @@ export function drawInputOf(
 ): DrawInput {
   const assessedBy = new Map<string, Set<string>>();
   const checked = new Set<string>();
+  // A disabled account can no longer do a check: its drafts cover nothing, nor its drawn copies
+  // not done (stale: drawn again, the old copy dropped).
+  const disabled = new Set(members.filter((m) => m.disabled).map((m) => m.username));
   const note = (unit: string, operator: string) => {
     const set = assessedBy.get(unit) ?? new Set<string>();
     set.add(operator);
@@ -269,13 +287,25 @@ export function drawInputOf(
   for (const [operator, work] of state.units.byOperator) {
     for (const unit of work.mainSubmitted.keys()) note(unit, operator);
     for (const unit of work.mainDrafts) note(unit, operator);
-    for (const unit of [...work.checkSubmitted.keys(), ...work.checkDrafts]) {
+    for (const unit of work.checkSubmitted.keys()) {
       note(unit, operator);
       checked.add(unit);
     }
+    for (const unit of work.checkDrafts) {
+      note(unit, operator);
+      if (!disabled.has(operator)) checked.add(unit);
+    }
   }
   const usernames = new Map(members.map((m) => [m.userId, m.username]));
-  const all = [...holdings.values()].flat();
+  const stale: { csvFileId: string; plotKey: string; userId: string }[] = [];
+  const isStale = (a: PlotAssignment) => {
+    const username = usernames.get(a.userId);
+    return a.overlap && a.sampledAt !== undefined && username !== undefined && disabled.has(username) && !state.units.checksDone.has(`${username}\n${a.plotKey}`);
+  };
+  for (const [csvFileId, list] of holdings) {
+    for (const a of list) if (isStale(a)) stale.push({ csvFileId, plotKey: a.plotKey, userId: a.userId });
+  }
+  const all = [...holdings.values()].flat().filter((a) => !isStale(a));
   const copyHolders = copyHoldersOf(all, usernames);
   const files: DrawFile[] = divided
     .filter((f) => coreOf(rule, f.id) !== null)
@@ -296,6 +326,7 @@ export function drawInputOf(
     }
     return set.has(unit);
   };
+  const isPlot = isPlotUnit(state.info);
   const shape = keyShape(state.info);
   const plotOf =
     state.info?.state === 'own' && shape.roundIndex !== null ? (unit: string) => splitKey(unit, shape.count, shape.roundIndex).plot : undefined;
@@ -309,6 +340,8 @@ export function drawInputOf(
     copyHolders,
     heldMain,
     openChecks,
+    stale,
+    isCheckUnit: (unit: string) => !isPlot(unit),
     ...(plotOf ? { plotOf } : {}),
   };
 }

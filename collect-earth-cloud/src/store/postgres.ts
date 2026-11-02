@@ -72,6 +72,8 @@ const { Pool } = pg;
 
 /** Rows per INSERT when saving a division (a file can have ~100k plots). */
 const PLOT_INSERT_CHUNK = 5000;
+/** The check sampling's lock per project (addSampledCopies, setDivision). */
+const SAMPLING_LOCK = "SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:sampling:' || $1))";
 
 /**
  * PostgreSQL-backed Store. In addition to app-level project scoping (every query
@@ -1308,6 +1310,8 @@ export class PostgresStore implements Store {
     plots: PlotAssignment[],
   ): Promise<void> {
     await this.withProject(projectId, async (client) => {
+      // The check sampling's lock: a draw's copies are added before or after, never in between.
+      await client.query(SAMPLING_LOCK, [projectId]);
       await client.query('UPDATE csv_files SET distribution = $3 WHERE project_id = $1 AND id = $2', [
         projectId,
         csvFileId,
@@ -1358,16 +1362,17 @@ export class PostgresStore implements Store {
 
   async getSampling(projectId: string): Promise<SamplingState> {
     return this.withProject(projectId, async (client) => {
-      const res = await client.query('SELECT rule, due_since, last_auto_draw_at, last_draw FROM sampling_rules WHERE project_id = $1', [projectId]);
+      const res = await client.query('SELECT rule, due_since, last_auto_draw_at, last_draw, last_checked_at FROM sampling_rules WHERE project_id = $1', [projectId]);
       const r = res.rows[0];
       if (!r) {
-        return { rule: null, dueSince: null, lastAutoDrawAt: null, lastDraw: null };
+        return { rule: null, dueSince: null, lastAutoDrawAt: null, lastDraw: null, lastCheckedAt: null };
       }
       return {
         rule: r.rule as SamplingRule,
         dueSince: r.due_since ? (r.due_since as Date).getTime() : null,
         lastAutoDrawAt: r.last_auto_draw_at ? (r.last_auto_draw_at as Date).getTime() : null,
         lastDraw: (r.last_draw as SamplingDraw | null) ?? null,
+        lastCheckedAt: r.last_checked_at ? (r.last_checked_at as Date).getTime() : null,
       };
     });
   }
@@ -1387,14 +1392,15 @@ export class PostgresStore implements Store {
 
   async claimSamplingDraw(projectId: string, q: { now: number; markDue: boolean; minIntervalMs: number }): Promise<boolean> {
     return this.withProject(projectId, async (client) => {
-      // One statement: mark the draw due (with markDue) and claim it when the last automatic
-      // draw is old enough; a row is written only when one of the two changes something.
+      // One statement: mark the draw due (with markDue, each mark's time kept) and claim it when
+      // the last automatic draw is old enough; without markDue a row is written only for a claim.
       const claim = `((due_since IS NOT NULL OR $3) AND (last_auto_draw_at IS NULL OR last_auto_draw_at <= $4))`;
       const res = await client.query(
         `UPDATE sampling_rules SET
            due_since = COALESCE(due_since, CASE WHEN $3 THEN $2::timestamptz END),
+           last_marked_at = CASE WHEN $3 THEN GREATEST(COALESCE(last_marked_at, $2::timestamptz), $2::timestamptz) ELSE last_marked_at END,
            last_auto_draw_at = CASE WHEN ${claim} THEN $2 ELSE last_auto_draw_at END
-         WHERE project_id = $1 AND active AND (($3 AND due_since IS NULL) OR ${claim})
+         WHERE project_id = $1 AND active AND ($3 OR ${claim})
          RETURNING last_auto_draw_at = $2 AS claimed`,
         [projectId, new Date(q.now), q.markDue, new Date(q.now - q.minIntervalMs)],
       );
@@ -1402,10 +1408,25 @@ export class PostgresStore implements Store {
     });
   }
 
-  async addSampledCopies(projectId: string, copies: readonly SampledCopy[], draw: SamplingDraw, dueBefore: number): Promise<SampledCopy[]> {
+  async addSampledCopies(
+    projectId: string,
+    copies: readonly SampledCopy[],
+    drop: readonly { csvFileId: string; plotKey: string; userId: string }[],
+    draw: SamplingDraw,
+    dueBefore: number,
+  ): Promise<SampledCopy[]> {
     return this.withProject(projectId, async (client) => {
-      // One draw at a time per project: two cannot both give the same plot a copy.
-      await client.query("SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:sampling:' || $1))", [projectId]);
+      // One draw at a time per project (and no division meanwhile): two cannot both give the same plot a copy.
+      await client.query(SAMPLING_LOCK, [projectId]);
+      if (drop.length > 0) {
+        await client.query(
+          `DELETE FROM plot_assignments p
+            USING unnest($2::uuid[], $3::text[], $4::uuid[]) AS t(csv_file_id, plot_key, user_id)
+            WHERE p.project_id = $1 AND p.csv_file_id = t.csv_file_id AND p.plot_key = t.plot_key AND p.user_id = t.user_id
+              AND p.overlap AND p.sampled_at IS NOT NULL`,
+          [projectId, drop.map((d) => d.csvFileId), drop.map((d) => d.plotKey), drop.map((d) => d.userId)],
+        );
+      }
       const added: SampledCopy[] = [];
       for (let i = 0; i < copies.length; i += PLOT_INSERT_CHUNK) {
         const chunk = copies.slice(i, i + PLOT_INSERT_CHUNK);
@@ -1438,11 +1459,14 @@ export class PostgresStore implements Store {
       }
       const count = (reason: SampledCopy['reason']) => added.filter((c) => c.reason === reason).length;
       const kept: SamplingDraw = { ...draw, drawn: added.length, firstN: count('firstN'), percent: count('percent') };
+      // The last draw that added copies; when a draw last looked, empty ones too; the due draw
+      // ends only when nothing was marked due after the draw's inputs were read.
       await client.query(
-        `UPDATE sampling_rules SET last_draw = $2,
-           due_since = CASE WHEN due_since <= $3 THEN NULL ELSE due_since END
+        `UPDATE sampling_rules SET last_draw = CASE WHEN $4 THEN $2::jsonb ELSE last_draw END,
+           last_checked_at = $5,
+           due_since = CASE WHEN COALESCE(last_marked_at, due_since) <= $3 THEN NULL ELSE due_since END
          WHERE project_id = $1`,
-        [projectId, JSON.stringify(kept), new Date(dueBefore)],
+        [projectId, JSON.stringify(kept), new Date(dueBefore), added.length > 0, new Date(draw.at)],
       );
       return added;
     });

@@ -114,7 +114,9 @@ describe('the plots sent back: who, which round, submitted again (pure)', () => 
     const decided = await store.setQualityDecision(projectId, '1', 'recheck', null, null, null);
     await store.setQualityDecision(projectId, '2', 'recheck', null, null, [{ operator: 'maria', hash: 1, full: 1 }]);
     // Waiting (records from before the decisions): the context is loaded.
-    expect((await sentBackTo(store, projectId, user, deps(true))).plots.map((p) => [p.plot, p.submittedAgain])).toEqual([
+    // Newest decision first: two decisions in different milliseconds come in either order here.
+    const byPlot = (plots: { plot: string; submittedAgain: boolean }[]) => plots.map((p) => [p.plot, p.submittedAgain]).sort((x, y) => String(x[0]).localeCompare(String(y[0])));
+    expect(byPlot((await sentBackTo(store, projectId, user, deps(true))).plots)).toEqual([
       ['1', false],
       ['2', false],
     ]);
@@ -131,7 +133,7 @@ describe('the plots sent back: who, which round, submitted again (pure)', () => 
     expect(await sentBackTo(store, projectId, { userId: 'u-jose', username: 'jose' }, deps(true))).toEqual({ plots: [], files: [] });
     expect(loads).toEqual({ context: 0, outline: 0 });
     // My work and the person page want every plot sent back, submitted again too.
-    expect((await sentBackTo(store, projectId, user, deps(false))).plots.map((p) => [p.plot, p.submittedAgain])).toEqual([
+    expect(byPlot((await sentBackTo(store, projectId, user, deps(false))).plots)).toEqual([
       ['1', true],
       ['2', true],
     ]);

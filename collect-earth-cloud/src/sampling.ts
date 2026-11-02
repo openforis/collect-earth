@@ -10,11 +10,15 @@ import type { Member, PlotAssignment, SampledCopy, SamplingCore, SamplingFileRul
  *   holder anywhere, no check record), by either rule of its file:
  *   - "the first N plots of every person": each person's first N submitted plots (by their
  *     first submission);
- *   - "X % of submitted plots": of each person's plots first submitted in each ISO week
- *     (UTC), round(n × X / 100) (a half up) have a check; plots with a check already, the
- *     first N among them, count towards it, the others are taken in a seeded order (a hash
+ *   - "X % of submitted plots": of all of each person's submitted plots, round(n × X / 100)
+ *     (a half up) have a check; plots with a check already, the first N among them, count
+ *     towards it. The ISO weeks (UTC) of the first submissions only spread the rest: each
+ *     pick from the week with the fewest checks for its plots, then in a seeded order (a hash
  *     of the rule's seed and the plot: the same draw again picks the same plots, and a plot
- *     added later moves no other).
+ *     added later moves no other). A part-time collector (4 plots a week at 10 %) gets checks.
+ * - Covered: a copy or a check record of the unit, or (own round) of the plot's
+ *   reassessment-code unit; a drawn copy whose holder was disabled before doing it covers
+ *   nothing (`stale`) and is dropped when its plot is drawn again.
  * - Each drawn plot goes to one checker, as a copy (`overlap`) in the file: the checker with
  *   the fewest open checks (copies held and not checked yet, plus those of this draw), ties
  *   by a seeded hash. Never the person who assessed it, anyone with a record of it (any
@@ -55,10 +59,22 @@ export interface DrawInput {
   openChecks: ReadonlyMap<string, number>;
   /** An own round's plot of a unit ("18,1" and "18,3" are plot 18); the unit itself otherwise. */
   plotOf?: (unit: string) => string;
+  /**
+   * Whether a unit is a check of its plot (an own round's unit whose round is the reassessment
+   * code): a copy or check record of "18,R" covers the plot's other units ("18,1").
+   */
+  isCheckUnit?: (unit: string) => boolean;
+  /**
+   * Drawn copies whose holder can no longer do them (a disabled account) and has not: not counted
+   * as covering their plot (`copyHolders` leaves them out), and dropped when the plot is drawn again.
+   */
+  stale?: readonly { csvFileId: string; plotKey: string; userId: string }[];
 }
 
 export interface DrawResult {
   copies: SampledCopy[];
+  /** Stale drawn copies to drop: their plots were drawn again. */
+  drop: { csvFileId: string; plotKey: string; userId: string }[];
   /** Plots due for a check that no checker could take. */
   noChecker: number;
 }
@@ -117,7 +133,14 @@ export function drawChecks(input: DrawInput): DrawResult {
     scope.files.push(file);
     scopes.set(key, scope);
   }
-  const covered = (unit: string) => (input.copyHolders.get(unit)?.size ?? 0) > 0 || input.checked.has(unit);
+  const isCheckUnit = input.isCheckUnit ?? (() => false);
+  const direct = (unit: string) => (input.copyHolders.get(unit)?.size ?? 0) > 0 || input.checked.has(unit);
+  // Plots covered through a check unit of theirs (own round: "18,R" covers "18,1").
+  const coveredPlots = new Set<string>();
+  for (const unit of [...input.copyHolders.keys(), ...input.checked]) {
+    if (isCheckUnit(unit) && direct(unit)) coveredPlots.add(plotOf(unit));
+  }
+  const covered = (unit: string) => direct(unit) || coveredPlots.has(plotOf(unit));
   const picked = new Set<string>();
   const picks: { plot: Plot; reason: SampledCopy['reason']; core: SamplingCore; file: DrawFile }[] = [];
   const fileById = new Map(input.files.map((f) => [f.id, f]));
@@ -156,18 +179,37 @@ export function drawChecks(input: DrawInput): DrawResult {
           w.push(plot);
           weeks.set(week, w);
         }
-        for (const week of weeks.values()) {
-          const target = Math.floor((week.length * core.percent) / 100 + 0.5);
-          let need = target - week.filter((p) => isDone(p.unit)).length;
-          const order = week
+        // Cumulative per person: round(all their plots × X / 100) less those covered. The weeks
+        // only spread the picks: the week with the fewest checks for its plots first, then the
+        // seeded order (its best plot's hash).
+        const target = Math.floor((list.length * core.percent) / 100 + 0.5);
+        let need = target - list.filter((p) => isDone(p.unit)).length;
+        const spread = [...weeks.values()].map((w) => ({
+          plots: w.length,
+          done: w.filter((p) => isDone(p.unit)).length,
+          free: w
             .filter((p) => !isDone(p.unit))
             .map((p) => ({ p, h: priority(rule.seed, p.unit) }))
-            .sort((a, b) => a.h - b.h || (a.p.unit < b.p.unit ? -1 : 1));
-          for (const { p } of order) {
-            if (need <= 0) break;
-            pick(p, 'percent');
-            need -= 1;
+            .sort((a, b) => a.h - b.h || (a.p.unit < b.p.unit ? -1 : 1)),
+        }));
+        while (need > 0) {
+          let best: (typeof spread)[number] | null = null;
+          for (const w of spread) {
+            if (w.free.length === 0) continue;
+            if (best === null) {
+              best = w;
+              continue;
+            }
+            // done/plots smaller first (compared without division), then the better plot.
+            const diff = w.done * best.plots - best.done * w.plots;
+            if (diff < 0 || (diff === 0 && (w.free[0].h < best.free[0].h || (w.free[0].h === best.free[0].h && w.free[0].p.unit < best.free[0].p.unit)))) {
+              best = w;
+            }
           }
+          if (!best) break;
+          pick(best.free.shift()!.p, 'percent');
+          best.done += 1;
+          need -= 1;
         }
       }
     }
@@ -242,7 +284,9 @@ export function drawChecks(input: DrawInput): DrawResult {
     copyPlots.set(best.username, set);
     copies.push({ csvFileId: plot.csvFileId, plotKey: plot.unit, userId: best.userId, reason });
   }
-  return { copies, noChecker };
+  const redrawn = new Set(copies.map((c) => `${c.csvFileId}\n${c.plotKey}`));
+  const drop = (input.stale ?? []).filter((s) => redrawn.has(`${s.csvFileId}\n${s.plotKey}`)).map((s) => ({ csvFileId: s.csvFileId, plotKey: s.plotKey, userId: s.userId }));
+  return { copies, drop, noChecker };
 }
 
 type BadRequest = { reason: string };

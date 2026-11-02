@@ -136,7 +136,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   // The Progress and People pages' project state, worked out once per project and kept.
   const states = new ProjectStateCache(store, { staleMs: config.stateStaleMs });
   // The automatic check sampling: drawn after first submissions and before a plot list, at most once per 10 min.
-  const sampling = new SamplingService(store, states, { intervalMs: config.samplingIntervalMs, now });
+  const sampling = new SamplingService(store, states, { intervalMs: config.samplingIntervalMs, inlineMs: config.samplingInlineMs, now });
   // The plots sent back for another look compare answers as the figures do (by the survey's
   // outline) and resolve records with the project state's plot context.
   await registerAssignmentRoutes(app, store, config, { outline: (projectId, log) => quality.outline(projectId, log), states, sampling });

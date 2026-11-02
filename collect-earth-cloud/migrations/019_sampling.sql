@@ -18,9 +18,16 @@ CREATE TABLE IF NOT EXISTS sampling_rules (
   due_since         TIMESTAMPTZ,
   -- When the last automatic draw was claimed: at most one per project per interval.
   last_auto_draw_at TIMESTAMPTZ,
-  -- The last draw: when, by whom (a user id, or automatic), and its counts.
-  last_draw         JSONB
+  -- The last time a draw was marked due (every first submission): a draw whose inputs were read
+  -- before it leaves the draw due.
+  last_marked_at    TIMESTAMPTZ,
+  -- The last draw that added copies: when, by whom (a user id, or automatic), and its counts.
+  last_draw         JSONB,
+  -- When a draw last looked for plots to check (one that found none included).
+  last_checked_at   TIMESTAMPTZ
 );
+ALTER TABLE sampling_rules ADD COLUMN IF NOT EXISTS last_marked_at TIMESTAMPTZ;
+ALTER TABLE sampling_rules ADD COLUMN IF NOT EXISTS last_checked_at TIMESTAMPTZ;
 
 ALTER TABLE sampling_rules ENABLE ROW LEVEL SECURITY;
 

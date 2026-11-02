@@ -71,6 +71,7 @@ const bearer = (t: string) => ({ authorization: `Bearer ${t}` });
 let res = await app.inject({ method: 'POST', url: '/v1/setup', payload: { setupCode: 'X', username: 'owner', password: 'owner-password' } });
 check('setup', res.statusCode === 201, res.body);
 const ownerToken = res.json().token as string;
+const ownerId = res.json().userId as string;
 const project = async (name: string) =>
   (await app.inject({ method: 'POST', url: '/v1/projects', headers: bearer(ownerToken), payload: { name } })).json().projectId as string;
 const a = await project('Alpha');
@@ -159,8 +160,33 @@ const none = (await appClient.query('SELECT project_id FROM sampling_rules')).ro
 check("with '' set: no rows, no error", none.length === 0);
 await appClient.query('ROLLBACK');
 await appClient.end();
-const fromB = await store.addSampledCopies(b, [{ csvFileId: fileId, plotKey: '5', userId: ana.userId, reason: 'firstN' }], { at: clock, byUserId: null, automatic: true, drawn: 0, firstN: 0, percent: 0, noChecker: 0 }, clock);
+const fromB = await store.addSampledCopies(b, [{ csvFileId: fileId, plotKey: '5', userId: ana.userId, reason: 'firstN' }], [], { at: clock, byUserId: null, automatic: true, drawn: 0, firstN: 0, percent: 0, noChecker: 0 }, clock);
 check("addSampledCopies under B adds nothing to A's file", fromB.length === 0 && (await drawnOf(a, fileId)).length === 4, fromB);
+
+// --- A mark while a draw runs keeps the draw due (the SQL path of B1 / B2). ---
+const T = clock + 60 * 60_000;
+const mark = (now: number) => store.claimSamplingDraw(a, { now, markDue: true, minIntervalMs: 10 * 60_000 });
+const empty = (at: number) => ({ at, byUserId: null, automatic: true, drawn: 0, firstN: 0, percent: 0, noChecker: 0 });
+const b1 = await mark(T);
+const b2 = await mark(T + 2);
+await store.addSampledCopies(a, [], [], empty(T + 3), T + 1);
+const stillDue = (await store.getSampling(a)).dueSince;
+await store.addSampledCopies(a, [], [], empty(T + 5), T + 4);
+const after = await store.getSampling(a);
+check('B1 claims, B2 marks during its draw: still due after B1; due ends after a later read; the last draw kept', b1 && !b2 && stillDue !== null && after.dueSince === null && after.lastDraw?.drawn === 2 && after.lastCheckedAt === T + 5, { b1, b2, stillDue, after });
+
+// --- A disabled checker's drawn copies not done are drawn again, the old ones dropped. ---
+const anaCopies = (await drawnOf(a, fileId)).filter((h) => h.userId === ana.userId).map((h) => h.plotKey).sort();
+check('disable ana', (await store.disableUser(ana.userId, ownerId)) === 'ok');
+res = await call('POST', a, '/sampling/draw');
+const afterDisable = await drawnOf(a, fileId);
+check(
+  "ana's drawn copies (not done) go to others in the same draw",
+  res.statusCode === 200 && afterDisable.every((h) => h.userId !== ana.userId) && afterDisable.length === 4 && anaCopies.every((p) => afterDisable.some((h) => h.plotKey === p)),
+  { anaCopies, afterDisable, draw: res.json().draw },
+);
+const replaced = (await store.listAudit(a, { limit: 1, action: 'sampling.drawn' }))[0]?.details.replaced;
+check('audited with the copies replaced', replaced === anaCopies.length, replaced);
 
 // --- 100,000 plots: 40 collectors, every fifth plot already copied (and checked). ---
 const big = await project('Big');
@@ -201,7 +227,7 @@ await owner.query(
   [big],
 );
 await owner.query('ANALYZE records; ANALYZE record_events; ANALYZE plot_assignments');
-// 30 % a week: plots already copied (20 %) count, so about 10 % more; and the first 10 of each.
+// 30 % of each person's plots (spread over the weeks): plots already copied count; and the first 10 of each.
 res = await call('PUT', big, '/sampling', { firstN: 10, percent: 30 });
 check('the rule (big)', res.statusCode === 200, res.body);
 const preview = await timed(() => call('GET', big, '/sampling'));
@@ -233,9 +259,9 @@ const op1 = (await owner.query("SELECT id FROM users WHERE username = 'op10'")).
 // op10 holds plot 10 (a draft): submitted now through a session.
 const sessionToken = await store.createSession(op1);
 const auto = await timed(() => batchRequest(app, big, sessionToken, [envelope({ recordKey: '10,1', modifiedOn: clock, activelySaved: true, summary: { land_use: 'forest' } })]));
-const autoDraw = (await store.getSampling(big)).lastDraw;
-check('records:batch with a first submission after 10 minutes draws automatically', auto.value.statusCode === 200 && autoDraw?.automatic === true && autoDraw.at === clock, { body: auto.value.body, autoDraw });
-console.log(`     records:batch that drew on 100,000 plots: ${auto.ms} ms (the draw: ${JSON.stringify(autoDraw)})`);
+const autoState = await store.getSampling(big);
+check('records:batch with a first submission after 10 minutes draws automatically (it looked: lastCheckedAt)', auto.value.statusCode === 200 && autoState.lastCheckedAt === clock, { body: auto.value.body, autoState });
+console.log(`     records:batch that drew on 100,000 plots: ${auto.ms} ms (last draw with copies: ${JSON.stringify(autoState.lastDraw)})`);
 const isolated = (await call('GET', big, '/sampling', undefined, {}, maria.token)).statusCode;
 check("a member of another project cannot read this one's checks", isolated === 403 || isolated === 404, isolated);
 

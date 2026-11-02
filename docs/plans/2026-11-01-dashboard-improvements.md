@@ -84,6 +84,12 @@ desktop.
    “Aucun” / “Nenhum” alone (“None (no disturbance)”) is a real answer, not a catch-all:
    its share is shown apart for information and is never a reason to reword. “None of the
    above” and its translations stay catch-alls with “other”, “unknown” and “no data”.
+7. **Check sampling's share is cumulative per person (Task 13).** “Check X % of submitted
+   plots” asks round(all of a person's submitted plots × X / 100), a half up, less the plots
+   of theirs already covered (a copy or a check record); the ISO week only spreads the picks:
+   the week with the fewest checks for its plots first, then the seeded order. So a part-time
+   collector (4 plots a week at 10 %) gets checks (4 over 10 weeks), and a draw stays
+   repeatable.
 
 ---
 
@@ -2344,7 +2350,59 @@ with `'`), and the read state.
   a drawn copy the new division did not plan (valid: never its main holder's, by the PK); no Spanish
   /French/Portuguese Chrome pass (texts only); `sendBack.test.ts`'s "loads the plot context" test
   failed once under the full parallel run and passed alone and in the next full run (not touched
-  here).
+  here; fixed in the review below).
+
+- **Review (after d67da3f2; supersedes the above where it says so):**
+  - **The share is cumulative per person** (Decisions, item 7): `round(n × X / 100)` over all of
+    the person's plots in the rule's scope, less those covered; the picks go to the week with the
+    fewest checks for its plots (compared as done × plots, no division), ties by the seeded hash of
+    the week's best plot, then that plot. The per-week version gave nobody under 5 plots a week a
+    check at 10 %. Test: 4 plots a week × 10 weeks → 4 checks in 4 weeks, repeatable; 20 plots → 2.
+    In the smoke the 100,000-plot draw now adds 24,000 copies (600 per collector).
+  - **A mark during a draw is no longer lost:** `sampling_rules.last_marked_at` (019, also added
+    with `ADD COLUMN IF NOT EXISTS`) is written by every mark (`claimSamplingDraw` with `markDue`
+    now always writes, `GREATEST`); `addSampledCopies` ends the due draw only when
+    `COALESCE(last_marked_at, due_since) <= dueBefore`, the service's clock read just before the
+    draw reads its fresh state. Before, B2's mark during B1's draw left `due_since` as it was and
+    B1 cleared it. Tested in the memory store (B1 claims, B2 marks, B1 ends: still due; a later
+    read ends it; inputs read before the first mark: still due) and on Postgres (smoke).
+  - **Failures and slowness:** the claim and the draw are waited for together, at most
+    `samplingInlineMs` (config, 5 s by default); any error is logged and never reaches the
+    request. Tests: `addSampledCopies` throwing → the batch answers 200 with its results and the
+    draw stays due; a draw that never ends with 50 ms → the batch answers at once.
+  - **Disabled checkers:** a drawn copy whose holder is disabled and has not submitted its check
+    (`stale`) covers nothing (their check drafts neither) and is dropped, in the same transaction
+    (`addSampledCopies(…, drop, …)`, only `sampled_at` rows), when its plot is drawn again; audited
+    `replaced`. A removed member's holdings already go with `removeMember`, so the plot is drawn
+    again as any uncovered one. Tests: route (the copy moves to the other checker) and smoke.
+  - **Own round:** a copy or check record of a plot's reassessment-code unit ("18,R") covers its
+    other units ("18,1"): `isCheckUnit` (= not `isPlotUnit`) and `plotOf` in the input. Test.
+  - **"Draw now" never joins an automatic draw:** it waits for the one running on this server and
+    then makes its own, always audited with the coordinator as actor; an automatic draw still
+    joins whatever runs. Test with a held automatic draw (two `addSampledCopies` calls, two audit
+    entries).
+  - **`last_draw` is the last draw that added copies;** `last_checked_at` (019) is when any draw
+    last looked. The page says "Last looked for plots to check: … ; none was due then." when that
+    is newer than the last draw. `SamplingState.lastCheckedAt`, `GET /sampling` `lastCheckedAt`.
+  - **`setDivision` (so `move-unfinished` and `PUT /distribution`) takes the sampling advisory lock**
+    first (Postgres): a draw's copies land before or after a division, never in between (unit test
+    on the statements).
+  - **Web:** the form refills only when the saved rule changes by value (JSON), so "Draw now" or a
+    reload keeps what is being typed (Chrome: typed 7, pressed Draw now, still 7); the checkers'
+    radio group has `aria-labelledby`; a refused save moves the focus to the field (each number
+    field has an id; Chrome checked); the share's texts in 4 languages say it counts all of a
+    person's plots and spreads the checks over the weeks; one key more (`checks.lastChecked`).
+  - **`sendBack.test.ts`:** the flaky case compared plots in the order of `decidedAt` (newest
+    first): two decisions in different milliseconds swapped them. It now compares them sorted.
+  - **Tests:** server 969 (was 960: sampling 3 more, routes 5 more, Postgres store 1), run twice in
+    full, both green; web 309; tsc clean in both; web build ok.
+  - **Postgres smoke** (`npm run smoke:pg:sampling`, extended: the B1/B2 interleaving on the SQL
+    path, a disabled checker's copies replaced and audited): ALL OK. A first submission's batch
+    that drew 57 ms; a refused claim 25 ms; a plot list that drew 88 ms; 100,000 plots: `GET
+    /sampling` cold 1,078 ms, "Draw now" 2,948 ms (24,000 copies, the view after included),
+    again 1,044 ms, an automatic draw inside records:batch 1,209 ms. Docker stopped after.
+  - **Open (still):** the week used for spreading is UTC; "Draw now" on a large project takes ~3 s;
+    an automatic draw that finds nothing uses up the 10 minutes (it is now shown as "last looked").
 
 ### Task 14: Reference plots (improvement 3)
 

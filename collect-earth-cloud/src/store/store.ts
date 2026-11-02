@@ -248,19 +248,28 @@ export interface Store {
   setSamplingRule(projectId: string, rule: SamplingRule, active: boolean): Promise<void>;
   /**
    * The intake's coalescing, in one statement: with `markDue`, a draw becomes due (when the
-   * rule is active and none is due yet). Claims the automatic draw (true) when one is due and
+   * rule is active) and the time of the mark is kept (every mark: a draw running meanwhile then
+   * leaves the draw due). Claims the automatic draw (true) when one is due and
    * the last automatic one is at least `minIntervalMs` old, and records it as started now; so
    * at most one automatic draw per project per interval, across server instances.
    */
   claimSamplingDraw(projectId: string, q: { now: number; markDue: boolean; minIntervalMs: number }): Promise<boolean>;
   /**
-   * Adds drawn copies (overlap, sampled_at = draw.at) in one transaction, under the project's
-   * sampling lock, each only while its file is divided, its holder a member, the plot has no
-   * copy in the file and the holder does not hold it yet; then keeps the draw (its counts are
-   * those of the copies added) and ends a due draw that started at or before `dueBefore`.
+   * In one transaction, under the project's sampling lock: drops the drawn copies `drop` (stale:
+   * their holder can no longer do them, and their plots are drawn again), then adds drawn copies
+   * (overlap, sampled_at = draw.at), each only while its file is divided, its holder a member, the
+   * plot has no copy in the file and the holder does not hold it yet; keeps the draw as the last
+   * one when it added copies (its counts are those added), when it last looked in any case, and
+   * ends the due draw unless a mark came after `dueBefore` (when the draw's inputs were read).
    * Gives the copies added.
    */
-  addSampledCopies(projectId: string, copies: readonly SampledCopy[], draw: SamplingDraw, dueBefore: number): Promise<SampledCopy[]>;
+  addSampledCopies(
+    projectId: string,
+    copies: readonly SampledCopy[],
+    drop: readonly { csvFileId: string; plotKey: string; userId: string }[],
+    draw: SamplingDraw,
+    dueBefore: number,
+  ): Promise<SampledCopy[]>;
   /**
    * The divided files where the user holds plots, with those plots, by filename.
    * `copyKeys` are the ones among them given as quality-check copies (overlap).

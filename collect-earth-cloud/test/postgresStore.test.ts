@@ -87,6 +87,14 @@ describe('PostgresStore pool', () => {
     expect(queries.some((q) => q.sql.includes('statement_timeout'))).toBe(false);
   });
 
+  it('setDivision (and so move-unfinished) takes the check sampling lock before touching the holdings', async () => {
+    await new PostgresStore('postgres://x').setDivision(PROJECT, '00000000-0000-0000-0000-0000000000f1', { mode: 'manual' }, []);
+    const sqls = queries.map((q) => q.sql);
+    const lock = sqls.findIndex((s) => s.includes("'collect-earth-cloud:sampling:'"));
+    expect(lock).toBeGreaterThan(-1);
+    expect(lock).toBeLessThan(sqls.findIndex((s) => s.startsWith('DELETE FROM plot_assignments')));
+  });
+
   it('deleteProject retries a deadlock after a random pause of 10-50 ms, at most three times', async () => {
     const pauses: number[] = [];
     const realSetTimeout = globalThis.setTimeout;

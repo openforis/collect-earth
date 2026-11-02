@@ -245,7 +245,10 @@ export interface SamplingState {
   /** The earliest first submission not drawn yet, while a draw is due; else null. */
   dueSince: number | null;
   lastAutoDrawAt: number | null;
+  /** The last draw that added copies. */
   lastDraw: SamplingDraw | null;
+  /** When a draw last looked for plots to check (one that found none included). */
+  lastCheckedAt: number | null;
 }
 
 /** A copy a draw adds: the plot of a divided file, to a checker. */

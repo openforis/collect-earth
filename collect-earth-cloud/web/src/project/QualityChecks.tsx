@@ -21,7 +21,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { drawSamplingNow, getSampling, saveSampling, type SamplingView } from "../api";
 import { useApp } from "../appContext";
 import { formOf, MAX_FIRST_N, ruleOf, type ChecksForm, type FileForm, type FileUse, type FormError } from "../checksView";
@@ -34,8 +34,11 @@ import { useLoad } from "../useLoad";
 /** Tables fit a phone: they scroll inside their own frame. */
 const tableFrame = { border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto" } as const;
 
+/** The id of a number field of the form (the project's, or a file's own rule's). */
+const fieldId = (base: string, field: "firstN" | "percent", file?: string) => `${base}-${file ?? "project"}-${field}`;
+
 /** One divided file's row: what it follows, and its own rule's fields when it has one. */
-function FileRow({ file, form, error, onChange }: { file: SamplingView["files"][number]; form: FileForm; error: FormError | null; onChange: (f: FileForm) => void }) {
+function FileRow({ file, form, error, idBase, onChange }: { file: SamplingView["files"][number]; form: FileForm; error: FormError | null; idBase: string; onChange: (f: FileForm) => void }) {
   const t = useT();
   const { language } = useApp();
   return (
@@ -54,6 +57,7 @@ function FileRow({ file, form, error, onChange }: { file: SamplingView["files"][
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
               <TextField
                 size="small"
+                id={fieldId(idBase, "firstN", file.csvFileId)}
                 label={t("checks.ownFirstN")}
                 value={form.firstN}
                 onChange={(e) => onChange({ ...form, firstN: e.target.value })}
@@ -63,6 +67,7 @@ function FileRow({ file, form, error, onChange }: { file: SamplingView["files"][
               />
               <TextField
                 size="small"
+                id={fieldId(idBase, "percent", file.csvFileId)}
                 label={t("checks.ownPercent")}
                 value={form.percent}
                 onChange={(e) => onChange({ ...form, percent: e.target.value })}
@@ -84,13 +89,22 @@ function FileRow({ file, form, error, onChange }: { file: SamplingView["files"][
 /** The rule's form: the two parts, who may check, and the divided files. */
 function RuleForm({ projectId, view, onSaved }: { projectId: string; view: SamplingView; onSaved: (v: SamplingView) => void }) {
   const t = useT();
+  const idBase = useId();
   const [form, setForm] = useState<ChecksForm>(() => formOf(view));
   const [error, setError] = useState<FormError | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [failure, setFailure] = useState<unknown>(null);
   // A rule saved (here or elsewhere) refills the form.
-  useEffect(() => setForm(formOf(view)), [view.rule]);
+  // A rule saved (here or elsewhere) refills the form; a reload or "Draw now" bringing the same
+  // rule back keeps what is being typed.
+  const savedRule = JSON.stringify(view.rule);
+  const seenRule = useRef(savedRule);
+  useEffect(() => {
+    if (seenRule.current === savedRule) return;
+    seenRule.current = savedRule;
+    setForm(formOf(view));
+  }, [savedRule]);
   const change = (patch: Partial<ChecksForm>) => {
     setForm((prev) => ({ ...prev, ...patch }));
     setSaved(false);
@@ -100,6 +114,9 @@ function RuleForm({ projectId, view, onSaved }: { projectId: string; view: Sampl
     const result = ruleOf(form);
     if ("error" in result) {
       setError(result.error);
+      // The field that cannot be saved gets the focus (its message is read with it).
+      const id = fieldId(idBase, result.error.field, result.error.file);
+      window.setTimeout(() => document.getElementById(id)?.focus(), 0);
       return;
     }
     setSaving(true);
@@ -122,6 +139,7 @@ function RuleForm({ projectId, view, onSaved }: { projectId: string; view: Sampl
         {form.firstNOn && (
           <TextField
             size="small"
+            id={fieldId(idBase, "firstN")}
             label={t("checks.firstNCount")}
             value={form.firstN}
             onChange={(e) => change({ firstN: e.target.value })}
@@ -136,6 +154,7 @@ function RuleForm({ projectId, view, onSaved }: { projectId: string; view: Sampl
           <>
             <TextField
               size="small"
+              id={fieldId(idBase, "percent")}
               label={t("checks.percentCount")}
               value={form.percent}
               onChange={(e) => change({ percent: e.target.value })}
@@ -156,8 +175,8 @@ function RuleForm({ projectId, view, onSaved }: { projectId: string; view: Sampl
         )}
       </Stack>
       <FormControl>
-        <FormLabel>{t("checks.checkers")}</FormLabel>
-        <RadioGroup value={form.checkersAll ? "all" : "some"} onChange={(e) => change({ checkersAll: e.target.value === "all" })}>
+        <FormLabel id={`${idBase}-checkers`}>{t("checks.checkers")}</FormLabel>
+        <RadioGroup aria-labelledby={`${idBase}-checkers`} value={form.checkersAll ? "all" : "some"} onChange={(e) => change({ checkersAll: e.target.value === "all" })}>
           <FormControlLabel value="all" control={<Radio />} label={t("checks.checkersAll")} />
           <FormControlLabel value="some" control={<Radio />} label={t("checks.checkersSome")} />
         </RadioGroup>
@@ -199,6 +218,7 @@ function RuleForm({ projectId, view, onSaved }: { projectId: string; view: Sampl
                     file={file}
                     form={form.files[file.csvFileId] ?? { use: "project", firstN: "", percent: "" }}
                     error={error?.file === file.csvFileId ? error : null}
+                    idBase={idBase}
                     onChange={(f) => change({ files: { ...form.files, [file.csvFileId]: f } })}
                   />
                 ))}
@@ -255,6 +275,11 @@ function DrawStatus({ projectId, view, onDrawn }: { projectId: string; view: Sam
             })
           : t("checks.lastDrawNone")}
       </Typography>
+      {view.lastCheckedAt !== null && (!last || view.lastCheckedAt > last.at) && (
+        <Typography variant="body2" color="text.secondary">
+          {t("checks.lastChecked", { date: formatDate(view.lastCheckedAt, language) })}
+        </Typography>
+      )}
       {last && last.noChecker > 0 && <Alert severity="warning">{t("checks.noChecker", { count: formatNumber(last.noChecker, language) })}</Alert>}
       {view.due && view.nextAutomaticAt !== null && (
         <Typography variant="body2" color="text.secondary">

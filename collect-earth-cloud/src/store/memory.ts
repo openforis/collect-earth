@@ -97,7 +97,7 @@ interface ProjectEntry {
   /** userId -> the keys of the bell's items they have read. */
   attentionReads: Map<string, Set<string>>;
   /** The check sampling (sampling_rules); null until a rule is saved. */
-  sampling: (SamplingState & { active: boolean }) | null;
+  sampling: (SamplingState & { active: boolean; lastMarkedAt: number | null }) | null;
 }
 
 interface StoredDecision {
@@ -1004,17 +1004,18 @@ export class InMemoryStore implements Store {
     return (this.projects.get(projectId)?.plotAssignments.get(csvFileId) ?? []).map((a) => ({ ...a }));
   }
 
+  private static emptySampling(): SamplingState & { active: boolean; lastMarkedAt: number | null } {
+    return { rule: null, dueSince: null, lastAutoDrawAt: null, lastDraw: null, lastCheckedAt: null, active: false, lastMarkedAt: null };
+  }
+
   async getSampling(projectId: string): Promise<SamplingState> {
-    const s = this.projects.get(projectId)?.sampling;
-    if (!s) {
-      return { rule: null, dueSince: null, lastAutoDrawAt: null, lastDraw: null };
-    }
-    return structuredClone({ rule: s.rule, dueSince: s.dueSince, lastAutoDrawAt: s.lastAutoDrawAt, lastDraw: s.lastDraw });
+    const s = this.projects.get(projectId)?.sampling ?? InMemoryStore.emptySampling();
+    return structuredClone({ rule: s.rule, dueSince: s.dueSince, lastAutoDrawAt: s.lastAutoDrawAt, lastDraw: s.lastDraw, lastCheckedAt: s.lastCheckedAt });
   }
 
   async setSamplingRule(projectId: string, rule: SamplingRule, active: boolean): Promise<void> {
     const entry = this.requireProject(projectId);
-    const s = entry.sampling ?? { rule: null, dueSince: null, lastAutoDrawAt: null, lastDraw: null, active: false };
+    const s = entry.sampling ?? InMemoryStore.emptySampling();
     entry.sampling = { ...s, rule: structuredClone(rule), active, dueSince: active ? s.dueSince : null };
   }
 
@@ -1024,8 +1025,9 @@ export class InMemoryStore implements Store {
       return false;
     }
     const claim = (s.dueSince !== null || q.markDue) && (s.lastAutoDrawAt === null || s.lastAutoDrawAt <= q.now - q.minIntervalMs);
-    if (q.markDue && s.dueSince === null) {
-      s.dueSince = q.now;
+    if (q.markDue) {
+      s.dueSince ??= q.now;
+      s.lastMarkedAt = Math.max(s.lastMarkedAt ?? q.now, q.now);
     }
     if (claim) {
       s.lastAutoDrawAt = q.now;
@@ -1033,8 +1035,23 @@ export class InMemoryStore implements Store {
     return claim;
   }
 
-  async addSampledCopies(projectId: string, copies: readonly SampledCopy[], draw: SamplingDraw, dueBefore: number): Promise<SampledCopy[]> {
+  async addSampledCopies(
+    projectId: string,
+    copies: readonly SampledCopy[],
+    drop: readonly { csvFileId: string; plotKey: string; userId: string }[],
+    draw: SamplingDraw,
+    dueBefore: number,
+  ): Promise<SampledCopy[]> {
     const entry = this.requireProject(projectId);
+    let changed = false;
+    for (const d of drop) {
+      const list = entry.plotAssignments.get(d.csvFileId);
+      const i = list?.findIndex((a) => a.plotKey === d.plotKey && a.userId === d.userId && a.overlap && a.sampledAt !== undefined) ?? -1;
+      if (list && i >= 0) {
+        list.splice(i, 1);
+        changed = true;
+      }
+    }
     const added: SampledCopy[] = [];
     for (const c of copies) {
       const file = entry.csvFiles.get(c.csvFileId);
@@ -1048,15 +1065,18 @@ export class InMemoryStore implements Store {
       list.push({ plotKey: c.plotKey, userId: c.userId, overlap: true, sampledAt: draw.at });
       added.push({ ...c });
     }
-    if (added.length > 0) {
+    if (added.length > 0 || changed) {
       entry.holdingsGeneration += 1;
     }
-    const s = entry.sampling ?? { rule: null, dueSince: null, lastAutoDrawAt: null, lastDraw: null, active: false };
+    const s = entry.sampling ?? InMemoryStore.emptySampling();
     const count = (reason: SampledCopy['reason']) => added.filter((c) => c.reason === reason).length;
     entry.sampling = {
       ...s,
-      lastDraw: { ...draw, drawn: added.length, firstN: count('firstN'), percent: count('percent') },
-      dueSince: s.dueSince !== null && s.dueSince <= dueBefore ? null : s.dueSince,
+      // The last draw that added copies; every draw, empty ones too, is when it last looked.
+      lastDraw: added.length > 0 ? { ...draw, drawn: added.length, firstN: count('firstN'), percent: count('percent') } : s.lastDraw,
+      lastCheckedAt: draw.at,
+      // Due ends only when nothing was marked due after the draw's inputs were read.
+      dueSince: s.dueSince !== null && (s.lastMarkedAt ?? s.dueSince) <= dueBefore ? null : s.dueSince,
     };
     return added;
   }

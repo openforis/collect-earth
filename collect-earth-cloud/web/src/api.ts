@@ -2481,6 +2481,8 @@ export interface SamplingView {
   due: boolean;
   nextAutomaticAt: number | null;
   lastDraw: SamplingDraw | null;
+  /** When a draw last looked for plots to check (an empty one included). */
+  lastCheckedAt: number | null;
   pending: { drawn: number; firstN: number; percent: number; noChecker: number };
   files: SamplingFile[];
   wholeFiles: { csvFileId: string; filename: string }[];
@@ -2529,6 +2531,7 @@ export function toSamplingView(body: unknown): SamplingView {
           noChecker: toCount(draw.noChecker),
         }
       : null,
+    lastCheckedAt: toMillis(b.lastCheckedAt),
     pending: { drawn: toCount(pending.drawn), firstN: toCount(pending.firstN), percent: toCount(pending.percent), noChecker: toCount(pending.noChecker) },
     files: list(b.files).map((f) => ({
       csvFileId: String(f.csvFileId ?? ""),

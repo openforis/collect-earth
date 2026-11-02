@@ -48,6 +48,7 @@ describe("the Checks section's form", () => {
       due: true,
       nextAutomaticAt: 1000,
       lastDraw: { at: 5, by: null, automatic: true, drawn: 3, firstN: 3, percent: 0, noChecker: 1 },
+      lastCheckedAt: 9,
       pending: { drawn: 2, firstN: 2, percent: 0, noChecker: 0 },
       files: [{ csvFileId: "f1", filename: "north.csv", use: "own", own: { checkers: null, firstN: 2, percent: null }, plots: 12, submitted: 3, sampledCopies: 2, divisionCopies: 1, pending: 2 }],
       wholeFiles: [{ csvFileId: "f2", filename: "south.csv" }],
@@ -55,7 +56,7 @@ describe("the Checks section's form", () => {
       members: [{ userId: "u1", username: "ana", role: "reviewer", disabled: false }],
       noCheckers: false,
     });
-    expect(v).toMatchObject({ active: true, due: true, nextAutomaticAt: 1000, lastDraw: { automatic: true, drawn: 3, noChecker: 1 }, pending: { drawn: 2 } });
+    expect(v).toMatchObject({ active: true, due: true, nextAutomaticAt: 1000, lastCheckedAt: 9, lastDraw: { automatic: true, drawn: 3, noChecker: 1 }, pending: { drawn: 2 } });
     expect(v.files[0]).toMatchObject({ use: "own", own: { firstN: 2 }, sampledCopies: 2, divisionCopies: 1 });
     expect(v.checkers[0]).toMatchObject({ username: "ana", role: "reviewer", open: 2, done: 1, sampled: 2 });
     expect(v.wholeFiles).toEqual([{ csvFileId: "f2", filename: "south.csv" }]);

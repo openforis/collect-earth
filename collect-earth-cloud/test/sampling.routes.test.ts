@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { Config } from '../src/config.js';
 import { SAMPLING_INTERVAL_MS } from '../src/samplingService.js';
 import { idOnlyCep } from './fixtures/cep.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
@@ -60,9 +61,9 @@ describe('automatic check sampling: the rule, the draws, and what checkers get',
     return res.body;
   };
 
-  beforeEach(async () => {
+  const start = async (overrides: Partial<Config> = {}) => {
     clock = Date.UTC(2026, 9, 5, 9);
-    ctx = await makeContext({}, { ai: { now: () => clock } });
+    ctx = await makeContext(overrides, { ai: { now: () => clock } });
     owner = await setupPlatformAdmin(ctx.app);
     const created = await createProject(ctx.app, 'Sampling');
     pid = created.projectId;
@@ -77,7 +78,9 @@ describe('automatic check sampling: the rule, the draws, and what checkers get',
     // maria holds 1-6, jose 7-12.
     const put = await call('PUT', `/csv-files/${fileId}/distribution`, owner.token, { mode: 'even', people: [people.maria.userId, people.jose.userId], order: 'file' });
     expect(put.statusCode, put.body).toBe(200);
-  });
+  };
+
+  beforeEach(() => start());
 
   afterEach(async () => {
     await ctx.app.close();
@@ -161,6 +164,10 @@ describe('automatic check sampling: the rule, the draws, and what checkers get',
     expect((await drawn()).length).toBe(4);
     const manual = await ctx.store.listAudit(pid, { limit: 1, action: 'sampling.drawn' });
     expect(manual[0]).toMatchObject({ actorUserId: owner.userId, details: { automatic: false, drawn: 0 } });
+    // The last draw shown stays the last one that added copies; the empty one is when it last looked.
+    const after = await view();
+    expect(after.lastDraw).toMatchObject({ automatic: true, drawn: 2 });
+    expect(after.lastCheckedAt).toBe(clock);
   });
 
   it('the checks stay blind: My work counts the copies as plots, and the files say nothing of a check', async () => {
@@ -236,13 +243,107 @@ describe('automatic check sampling: the rule, the draws, and what checkers get',
   it('isolation: a project never reads or draws into another', async () => {
     await call('PUT', '/sampling', owner.token, { firstN: 2 });
     const other = await createProject(ctx.app, 'Other');
-    expect(await ctx.store.getSampling(other.projectId)).toEqual({ rule: null, dueSince: null, lastAutoDrawAt: null, lastDraw: null });
+    expect(await ctx.store.getSampling(other.projectId)).toEqual({ rule: null, dueSince: null, lastAutoDrawAt: null, lastDraw: null, lastCheckedAt: null });
     // A copy for a file of this project, stored "in" the other one, is refused.
-    const added = await ctx.store.addSampledCopies(other.projectId, [{ csvFileId: fileId, plotKey: '1', userId: people.ana.userId, reason: 'firstN' }], { at: clock, byUserId: null, automatic: true, drawn: 0, firstN: 0, percent: 0, noChecker: 0 }, clock);
+    const added = await ctx.store.addSampledCopies(other.projectId, [{ csvFileId: fileId, plotKey: '1', userId: people.ana.userId, reason: 'firstN' }], [], { at: clock, byUserId: null, automatic: true, drawn: 0, firstN: 0, percent: 0, noChecker: 0 }, clock);
     expect(added).toEqual([]);
     expect(await drawn()).toEqual([]);
     // Another project's coordinator cannot read this one's.
     const theirs = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/sampling`, headers: bearer(other.adminToken) });
     expect(theirs.statusCode).toBeGreaterThanOrEqual(401);
+  });
+
+  it('a mark during a draw keeps the draw due (the store: B1 claims and draws, B2 marks meanwhile)', async () => {
+    await call('PUT', '/sampling', owner.token, { firstN: 2 });
+    const q = (now: number) => ({ now, markDue: true, minIntervalMs: SAMPLING_INTERVAL_MS });
+    const draw = (at: number) => ({ at, byUserId: null, automatic: true, drawn: 0, firstN: 0, percent: 0, noChecker: 0 });
+    // B1 claims at 1000 and reads its inputs at 1001; B2 marks at 1002 (no claim: within the interval).
+    expect(await ctx.store.claimSamplingDraw(pid, q(1000))).toBe(true);
+    expect(await ctx.store.claimSamplingDraw(pid, q(1002))).toBe(false);
+    await ctx.store.addSampledCopies(pid, [], [], draw(1003), 1001);
+    expect((await ctx.store.getSampling(pid)).dueSince).toBe(1000);
+    // A draw whose inputs were read after the last mark ends it.
+    await ctx.store.addSampledCopies(pid, [], [], draw(1005), 1004);
+    expect((await ctx.store.getSampling(pid)).dueSince).toBeNull();
+    // Inputs read before the first mark: still due.
+    expect(await ctx.store.claimSamplingDraw(pid, q(2000))).toBe(false);
+    await ctx.store.addSampledCopies(pid, [], [], draw(2001), 1999);
+    expect((await ctx.store.getSampling(pid)).dueSince).toBe(2000);
+  });
+
+  it('a draw that fails never fails the batch, and stays due', async () => {
+    await call('PUT', '/sampling', owner.token, { firstN: 2 });
+    ctx.store.addSampledCopies = async () => {
+      throw new Error('the database went away');
+    };
+    const res = await batchRequest(ctx.app, pid, projectToken, [1, 2].map((p) => envelope({ recordKey: `${p},1`, operator: 'maria', modifiedOn: clock, activelySaved: true })));
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().results).toEqual([
+      { recordKey: '1,1', status: 'stored' },
+      { recordKey: '2,1', status: 'stored' },
+    ]);
+    expect((await ctx.store.getSampling(pid)).dueSince).toBe(clock);
+    expect(await drawn()).toEqual([]);
+  });
+
+  it('a draw that takes too long: the batch answers after the inline wait', async () => {
+    await ctx.app.close();
+    await start({ samplingInlineMs: 50 });
+    await call('PUT', '/sampling', owner.token, { firstN: 2 });
+    ctx.store.addSampledCopies = () => new Promise(() => {});
+    const t0 = performance.now();
+    const res = await batchRequest(ctx.app, pid, projectToken, [envelope({ recordKey: '1,1', operator: 'maria', modifiedOn: clock, activelySaved: true })]);
+    const ms = performance.now() - t0;
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().results).toEqual([{ recordKey: '1,1', status: 'stored' }]);
+    expect(ms).toBeLessThan(1000);
+  });
+
+  it('a disabled checker’s drawn copy not done is drawn again for someone else, the old one dropped', async () => {
+    await call('PUT', '/sampling', owner.token, { firstN: 1, checkers: [people.ana.userId, people.rita.userId] });
+    await submit('maria', [1]);
+    const [first] = await drawn();
+    const was = first.userId === people.ana.userId ? 'ana' : 'rita';
+    const other = was === 'ana' ? 'rita' : 'ana';
+    expect(await ctx.store.disableUser(people[was].userId, owner.userId)).toBe('ok');
+    const res = await call('POST', '/sampling/draw', owner.token);
+    expect(res.json().draw).toMatchObject({ drawn: 1 });
+    expect((await drawn()).map((a) => [a.plotKey, a.userId])).toEqual([['1', people[other].userId]]);
+    const log = await ctx.store.listAudit(pid, { limit: 1, action: 'sampling.drawn' });
+    expect(log[0].details).toMatchObject({ drawn: 1, replaced: 1 });
+    // Drawing again adds nothing: the plot has its new copy.
+    expect((await call('POST', '/sampling/draw', owner.token)).json().draw).toMatchObject({ drawn: 0 });
+  });
+
+  it('"Draw now" waits for an automatic draw running and then makes its own, audited as the coordinator’s', async () => {
+    await call('PUT', '/sampling', owner.token, { firstN: 2 });
+    const real = ctx.store.addSampledCopies.bind(ctx.store);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let calls = 0;
+    ctx.store.addSampledCopies = async (...args) => {
+      calls += 1;
+      if (calls === 1) await gate;
+      return real(...args);
+    };
+    // The batch's automatic draw is held at the gate.
+    const batch = submit('maria', [1, 2, 3]);
+    for (let i = 0; i < 200 && calls === 0; i++) await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(calls).toBe(1);
+    const manual = call('POST', '/sampling/draw', owner.token);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    // "Draw now" waits: it did not join the automatic draw, nor start its own yet.
+    expect(calls).toBe(1);
+    release();
+    await batch;
+    const res = await manual;
+    expect(res.statusCode, res.body).toBe(200);
+    expect(calls).toBe(2);
+    expect(res.json().draw).toMatchObject({ automatic: false, drawn: 0 });
+    const log = await ctx.store.listAudit(pid, { limit: 5, action: 'sampling.drawn' });
+    expect(log.map((e) => [e.actorUserId, e.details.automatic])).toEqual([
+      [owner.userId, false],
+      [null, true],
+    ]);
   });
 });

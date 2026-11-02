@@ -56,7 +56,7 @@ describe('drawChecks: which plots get a check, and who checks them (pure)', () =
   it('draws nothing while neither rule is on', () => {
     const input = setup({ n: 30, holders: () => 'ana' });
     expect(samplingActive(input.rule)).toBe(false);
-    expect(drawChecks(input)).toEqual({ copies: [], noChecker: 0 });
+    expect(drawChecks(input)).toEqual({ copies: [], drop: [], noChecker: 0 });
   });
 
   it('is repeatable: the same records, holdings and seed give the same copies; another seed others', () => {
@@ -71,8 +71,8 @@ describe('drawChecks: which plots get a check, and who checks them (pure)', () =
     expect(priority(7, '1')).not.toBe(priority(8, '1'));
   });
 
-  it('X % of each person’s plots of each ISO week, rounded to the nearest (a half up)', () => {
-    // ana: 25 plots in week 1 and 15 in week 2; ben: 4 in week 1 (10 % of 4 = 0.4: none).
+  it('X % of all of each person’s plots (rounded to the nearest, a half up), spread over the weeks', () => {
+    // ana: 25 plots in week 1 and 15 in week 2 (10 % of 40: 4); ben: 4 in week 1 (0.4: none).
     const at = (i: number) => (i < 25 ? MONDAY + i * 60_000 : i < 40 ? MONDAY + 7 * DAY + i * 60_000 : MONDAY + 2 * DAY + i);
     const input = setup({ n: 44, holders: (i) => (i < 40 ? 'ana' : 'ben'), at, rule: { percent: 10 } });
     const { copies } = drawChecks(input);
@@ -83,8 +83,48 @@ describe('drawChecks: which plots get a check, and who checks them (pure)', () =
       byGroup.set(key, (byGroup.get(key) ?? 0) + 1);
       expect(c.reason).toBe('percent');
     }
-    // 2.5 -> 3, 1.5 -> 2, 0.4 -> 0.
-    expect(Object.fromEntries(byGroup)).toEqual({ [`ana ${isoWeek(MONDAY)}`]: 3, [`ana ${isoWeek(MONDAY + 7 * DAY)}`]: 2 });
+    // The week with the fewest checks for its plots first: 2 and 2.
+    expect(Object.fromEntries(byGroup)).toEqual({ [`ana ${isoWeek(MONDAY)}`]: 2, [`ana ${isoWeek(MONDAY + 7 * DAY)}`]: 2 });
+  });
+
+  it('a part-time collector gets checks: 4 plots a week for 10 weeks at 10 % is 4 checks, in 4 weeks', () => {
+    const at = (i: number) => MONDAY + Math.floor(i / 4) * 7 * DAY + (i % 4) * 3_600_000;
+    const make = () => setup({ n: 40, holders: () => 'ana', at, rule: { percent: 10 } });
+    const input = make();
+    const { copies } = drawChecks(input);
+    expect(copies).toHaveLength(4);
+    expect(new Set(copies.map((c) => isoWeek(input.submitted.get(c.plotKey)!.at))).size).toBe(4);
+    expect(drawChecks(make())).toEqual({ copies, drop: [], noChecker: 0 });
+    // Half-way (5 weeks, 20 plots): 2 checks already; the other weeks then get the next ones.
+    const half = drawChecks(setup({ n: 40, holders: () => 'ana', at, rule: { percent: 10 }, submittedCount: 20 }));
+    expect(half.copies).toHaveLength(2);
+  });
+
+  it('own round: a check of the plot (its reassessment-code unit) covers its other units', () => {
+    const input = setup({ n: 4, holders: () => 'ana', members: [member('ana'), member('ben'), member('cai')], rule: { firstN: 4 } });
+    // Units "1".."4": 1 and 2 are plot A ("2" its reassessment unit), 3 and 4 plot B.
+    input.plotOf = (unit) => (Number(unit) <= 2 ? 'A' : 'B');
+    input.isCheckUnit = (unit) => unit === '2';
+    input.submitted = new Map([...input.submitted].filter(([u]) => u !== '2'));
+    input.checked = new Set(['2']);
+    expect(drawChecks(input).copies.map((c) => c.plotKey).sort()).toEqual(['3', '4']);
+    // Without the mapping, plot 1 would be drawn too.
+    input.isCheckUnit = undefined;
+    expect(drawChecks(input).copies.map((c) => c.plotKey).sort()).toEqual(['1', '3', '4']);
+  });
+
+  it('a drawn copy held by a disabled account and not done is drawn again, the old copy dropped', () => {
+    const members = [member('ana'), member('ben'), member('cai', 'operator', { disabled: true })];
+    const stale = { plotKey: '1', userId: 'u-cai', overlap: true, sampledAt: 1 };
+    const input = setup({ n: 2, holders: () => 'ana', members, rule: { firstN: 1 }, extraHoldings: [stale] });
+    // The service leaves the stale copy out of the coverage.
+    input.copyHolders = new Map();
+    input.stale = [{ csvFileId: 'f1', plotKey: '1', userId: 'u-cai' }];
+    expect(drawChecks(input)).toEqual({
+      copies: [{ csvFileId: 'f1', plotKey: '1', userId: 'u-ben', reason: 'firstN' }],
+      drop: [{ csvFileId: 'f1', plotKey: '1', userId: 'u-cai' }],
+      noChecker: 0,
+    });
   });
 
   it('the first N plots of every person, by when they were first submitted', () => {
@@ -153,7 +193,7 @@ describe('drawChecks: which plots get a check, and who checks them (pure)', () =
     expect(new Set(drawChecks(input).copies.map((c) => c.userId))).toEqual(new Set(['u-boss']));
     // Nobody left: every plot is due without a checker.
     input.rule = rule({ firstN: 20, checkers: ['u-ana'] });
-    expect(drawChecks(input)).toEqual({ copies: [], noChecker: 20 });
+    expect(drawChecks(input)).toEqual({ copies: [], drop: [], noChecker: 20 });
   });
 
   it('a file of its own: no checks, or its own rule; plots not submitted are never drawn', () => {
