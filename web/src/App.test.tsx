@@ -36,6 +36,7 @@ describe("App", () => {
     render(<App />);
     expect(screen.getByTestId("map")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Plot demo" })).toBeTruthy();
+    expect(screen.getByText("Layers")).toBeTruthy();
     expect(screen.getByText("Loading imagery…")).toBeTruthy();
 
     expect(await screen.findByText(TILE.label)).toBeTruthy();

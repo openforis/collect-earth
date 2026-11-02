@@ -1,5 +1,6 @@
 import { PlotProvider, usePlot } from "./state/PlotContext";
 import MapView from "./components/MapView";
+import LayersPanel from "./components/LayersPanel";
 import { useLayerTiles } from "./components/LayerSources";
 import { parsePlotUrl, type PlotParams } from "./lib/urlParams";
 
@@ -16,6 +17,7 @@ function Viewer() {
     <div className="viewer">
       <div className="map-pane">
         <MapView plot={plot} tileUrl={tiles.data?.tileUrl} />
+        <LayersPanel />
         <div className="map-status">{status}</div>
       </div>
       <aside className="side-pane">
