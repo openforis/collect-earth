@@ -191,6 +191,13 @@ describe('surveyOutline: summary keys, as BalloonInputFieldsUtils.getValuesByHtm
     expect(outline.get('collect_text_notes')!.options).toBeNull();
   });
 
+  it("optionLabels: an option's labels in the survey's other languages, by code, only when there are some", () => {
+    expect(outline.get('collect_code_land_use')!.optionLabels).toEqual({ F: ['Bosque'] });
+    expect(outline.get('collect_code_other_uses')!.optionLabels).toEqual({ F: ['Bosque'] });
+    expect(outline.get('collect_code_sub_use')!.optionLabels).toBeUndefined();
+    expect(outline.get('collect_boolean_changed')!.optionLabels).toBeUndefined();
+  });
+
   it('multiple and calculated', () => {
     expect(outline.get('collect_code_other_uses')!.multiple).toBe(true);
     expect(outline.get('collect_code_land_use')!.multiple).toBe(false);

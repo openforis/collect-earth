@@ -11,6 +11,7 @@ import { copyHoldersOf } from './division.js';
 import { plotIdsOf } from './plotFileCache.js';
 import { qualityFigures, type AnswerStats, type AnswerTable, type QualityFigures } from './answerStats.js';
 import type { FlagTable } from './flags.js';
+import type { HealthTable } from './surveyHealth.js';
 import type { QualityInput, QualityReport } from './quality.js';
 import type { WorkerJob, WorkerReply } from './qualityWorker.js';
 import { fileKeyCount } from './rounds.js';
@@ -265,7 +266,7 @@ export class QualityWorker {
       if ('error' in message) {
         job.reject(new Error(message.error));
       } else {
-        job.resolve({ report: message.report, answers: message.answers, flags: message.flags });
+        job.resolve({ report: message.report, answers: message.answers, flags: message.flags, health: message.health });
       }
     });
     worker.on('error', (err: Error & { code?: string }) => {
@@ -383,6 +384,8 @@ export interface ServedReport {
   answerStats: Map<string, AnswerStats>;
   /** What the pattern flags are worked out from (Task 5), from the same records. */
   flags: FlagTable;
+  /** What survey health is worked out from (Task 6), from the same records. */
+  health: HealthTable;
   /** ms since the epoch: when the inputs it was computed from were read. */
   computedAt: number;
   /** True when records (or other inputs) changed after computedAt; newer figures are being computed. */
@@ -395,6 +398,7 @@ interface CachedReport {
   answers: AnswerTable;
   answerStats: Map<string, AnswerStats>;
   flags: FlagTable;
+  health: HealthTable;
   computedAt: number;
 }
 
@@ -680,5 +684,5 @@ export class QualityService {
 }
 
 function served(c: CachedReport, stale: boolean): ServedReport {
-  return { report: c.report, answers: c.answers, answerStats: c.answerStats, flags: c.flags, computedAt: c.computedAt, stale };
+  return { report: c.report, answers: c.answers, answerStats: c.answerStats, flags: c.flags, health: c.health, computedAt: c.computedAt, stale };
 }

@@ -30,6 +30,12 @@ export interface Question {
    * so an empty one cannot be told from an entity that is not there. Absent: false.
    */
   required?: boolean;
+  /**
+   * For a choice: each option's labels other than `options[].label` (its other languages,
+   * a reporting label), by code; absent when the survey has none. Survey health matches
+   * "other", "unknown"... in every language of the survey with them.
+   */
+  optionLabels?: Record<string, string[]>;
 }
 
 /** Between the values of a multiple attribute in a summary (BalloonInputFieldsUtils.PARAMETER_SEPARATOR). */
@@ -129,6 +135,8 @@ export function surveyOutline(idmXml: string): Map<string, Question> {
 
   // Each list's items by level: [0] the root items, [1] their children...
   const listLevels = new Map<string, CodeItem[][]>();
+  /** Each list's items' labels other than the one picked, by code (lists without any left out). */
+  const listOtherLabels = new Map<string, Map<string, string[]>>();
   /** Lists whose items live in a lookup table (CodeList.isExternal). */
   const externalLists = new Set<string>();
   for (const codeListsNode of elements(surveyChildren, 'codeLists')) {
@@ -141,10 +149,17 @@ export function surveyOutline(idmXml: string): Map<string, Question> {
           const itemChildren = childrenOf(item);
           const code = elements(itemChildren, 'code')[0];
           if (!code) continue;
-          const label = pickLabel(elements(itemChildren, 'label'));
+          const labels = elements(itemChildren, 'label');
+          const label = pickLabel(labels);
           const level = (levels[depth] ??= []);
           const value = textOf(code);
           if (!level.some((i) => i.code === value)) level.push({ code: value, label: label ? textOf(label) : '' });
+          const others = labels.filter((l) => l !== label).map(textOf).filter((t) => t !== '');
+          if (others.length > 0) {
+            let byCode = listOtherLabels.get(name);
+            if (!byCode) listOtherLabels.set(name, (byCode = new Map()));
+            byCode.set(value, [...new Set([...(byCode.get(value) ?? []), ...others])]);
+          }
           walk(elements(itemChildren, 'item'), depth + 1);
         }
       };
@@ -201,16 +216,24 @@ export function surveyOutline(idmXml: string): Map<string, Question> {
       (attr(node, 'required') === 'true' || (Number.isFinite(minCount) && minCount >= 1)) &&
       attr(node, 'relevant') === undefined &&
       attr(node, 'requiredIf') === undefined;
+    const options = prefix === 'code_' ? optionsOf(node, siblings) : prefix === 'boolean_' ? BOOLEAN_OPTIONS : null;
+    const otherLabels = prefix === 'code_' ? listOtherLabels.get(attr(node, 'list') ?? '') : undefined;
+    const optionLabels: Record<string, string[]> = {};
+    for (const o of otherLabels ? options! : []) {
+      const more = otherLabels!.get(o.code);
+      if (more) optionLabels[o.code] = more;
+    }
     outline.set(key, {
       key,
       label,
       kind,
-      options: prefix === 'code_' ? optionsOf(node, siblings) : prefix === 'boolean_' ? BOOLEAN_OPTIONS : null,
+      options,
       help: helpOf(node),
       excluded,
       multiple: attr(node, 'multiple') === 'true',
       calculated,
       required,
+      ...(Object.keys(optionLabels).length > 0 ? { optionLabels } : {}),
     });
   };
 

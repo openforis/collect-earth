@@ -5,6 +5,7 @@
 // pseudonymous result with its mappings, a failure code, or a refusal.
 import { loadPlotContext, WorkerBusyError, WorkerRestartedError, type Log, type QualityService } from '../qualityService.js';
 import { recordsOfPlot } from '../quality.js';
+import { surveyHealth } from '../surveyHealth.js';
 import type { Store } from '../store/store.js';
 import { AI_INTERRUPTED, type AiRunWindow, type RecordRow, type ServerSettings } from '../types.js';
 import { AiError, type AiClient, type AiResponse } from './client.js';
@@ -265,13 +266,15 @@ export class AiRunService {
 
   /** The project's data for one run, read through the store (one project, under its RLS). */
   private async context(projectId: string, runId: string, language: AiLanguage, client: AiClient, deadline: number): Promise<AiRunContext> {
-    const [report, outline, notes, members, plotContext] = await Promise.all([
+    const [figures, outline, notes, members, plotContext, decisions] = await Promise.all([
       this.figures(projectId, deadline),
       this.quality.outline(projectId, this.log),
       this.store.listGuidanceNotes(projectId),
       this.store.listMembers(projectId),
       loadPlotContext(this.store, projectId, this.log),
+      this.store.listQualityDecisions(projectId),
     ]);
+    const report = figures.report;
     let records: Promise<RecordRow[]> | null = null;
     return {
       client,
@@ -281,6 +284,7 @@ export class AiRunService {
       outline,
       notes,
       plots: plotContext.units,
+      health: surveyHealth(figures, decisions),
       plotRecords: async (plot) => {
         records ??= this.store.listRecordSummaries(projectId);
         return recordsOfPlot({ records: await records, info: plotContext.info, units: plotContext.units, copyHolders: plotContext.copyHolders }, plot);
@@ -303,7 +307,7 @@ export class AiRunService {
     const retry = this.options.contextRetryMs ?? CONTEXT_RETRY_MS;
     for (;;) {
       try {
-        return (await this.quality.report(projectId, this.log)).report;
+        return await this.quality.report(projectId, this.log);
       } catch (err) {
         const busy = err instanceof WorkerBusyError || err instanceof WorkerRestartedError;
         if (!busy || Date.now() + retry > deadline - 60_000) throw err;

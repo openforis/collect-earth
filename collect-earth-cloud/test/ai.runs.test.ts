@@ -121,7 +121,7 @@ describe('AI runs', () => {
       error: null,
       refusal: null,
       question: null,
-      progress: { tools: ['get_agreement', 'get_differences'] },
+      progress: { tools: ['get_agreement', 'get_differences', 'get_survey_health'] },
     });
     expect(body.tokens).toBe(body.inputTokens + body.outputTokens);
     expect(body.tokens).toBeGreaterThan(0);
@@ -148,6 +148,7 @@ describe('AI runs', () => {
     expect(stored.toolCalls).toEqual([
       { name: 'get_agreement', args: {}, ok: true },
       { name: 'get_differences', args: { limit: 20 }, ok: true },
+      { name: 'get_survey_health', args: {}, ok: true },
     ]);
     expect(stored.model).toBe('gemini-3.8-flash');
   });
@@ -195,6 +196,34 @@ describe('AI runs', () => {
     }
     expect((await get('/ai/runs?limit=2')).json().runs).toHaveLength(2);
     for (const bad of ['0', '201', 'x', '1.5']) expect((await get(`/ai/runs?limit=${bad}`)).statusCode).toBe(400);
+  });
+
+  it("survey health: the run reads its own project's, and a finding quoting its figures passes the number check", async () => {
+    await setUp();
+    // Forest percentage left empty (null, as Collect Earth sends it) on ana's plots 1-8.
+    const blanks = Array.from({ length: 8 }, (_, i) =>
+      envelope({ recordKey: `${i + 1},1`, operator: 'ana', modifiedOn: Date.UTC(2026, 9, 11), summary: { [LAND_USE]: 'F', [FOREST]: null, collect_code_round: '1' } as never }),
+    );
+    expect((await batchRequest(ctx.app, pid, project.projectToken, blanks)).statusCode).toBe(200);
+    // Another project, with records of its own: never in this run.
+    const other = await createProject(ctx.app, 'Other');
+    const otherRecords = Array.from({ length: 3 }, (_, i) => envelope({ recordKey: `${i + 1},1`, operator: 'zed', summary: { [LAND_USE]: 'G', [FOREST]: '99' } }));
+    await batchRequest(ctx.app, other.projectId, other.projectToken, otherRecords);
+    const requests: AiRequest[] = [];
+    const fake = createFakeClient();
+    client = { generate: (req) => (requests.push(structuredClone(req)), fake.generate(req)) };
+    const r = await report();
+    const health = requests
+      .flatMap((q) => q.turns)
+      .flatMap((t) => t.results ?? [])
+      .find((x) => x.name === 'get_survey_health')!.result as { project_data: { firstAssessments: number; questions: { key: string; emptyPercent: number | null }[] } };
+    expect(health.project_data.firstAssessments).toBe(25);
+    expect(health.project_data.questions.find((q) => q.key === FOREST)!.emptyPercent).toBe(32);
+    expect(JSON.stringify(requests)).not.toMatch(/\bzed\b/);
+    // The fake quotes "32 % of the 25 plots": checked against the numbers sent, and kept.
+    const finding = r.result.findings.find((f: { title: string }) => f.title.includes('may need rewording'));
+    expect(finding).toMatchObject({ questions: [FOREST], explanation: 'It is left empty on 32 % of the 25 plots where this is known.' });
+    expect(r.result.surveyChanges.map((c: { question: string }) => c.question)).toContain(FOREST);
   });
 
   it('a free question has the usernames in it replaced by pseudonyms before it is stored or sent, and is shown back with them', async () => {

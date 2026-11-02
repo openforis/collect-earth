@@ -956,6 +956,105 @@ desktop.
 **Tests:** the rates, label matching in 4 languages, and the AI tool's cap and
 project scope.
 
+**As built** (differs from the above where it says so)
+- **Two steps, as Tasks 4 and 5** (`src/surveyHealth.ts`):
+  - `healthTable(outline, answers, checked)`, on the **quality worker in the same job**
+    (`qualityFigures` now gives `{ report, answers, flags, health }`), **from the answer table
+    and the report, no new pass over the records**: the answer table now also counts, per
+    question it looks at, the rows holding the key with no answer (`AnswerTable.asked`, also
+    for the questions every row left blank, which have no column); `qualityReport(input,
+    onCheckedPlot)` calls back once per checked plot with the compared questions that differ
+    between its main record and its **latest** check (the pair a decision for the check chooses
+    between, as `finalAnswers`), gathered into typed arrays (`checkedPlots`, handed over with the
+    other tables: `tableBuffers(answers, flags, health)`). Cached in the same entry;
+    `ServedReport.health`.
+  - `surveyHealth(figures, decisions)`, on the server per request with the decisions as they are
+    now: 2-9 ms at 100k (bench), `GET /quality/survey-health` 14-18 ms on Postgres (smoke).
+- **Questions:** those the answer table looks at (`keyRule`: outline choice and number questions
+  not excluded; by name without an outline) that a first assessment holds, plus those only the
+  checks compared. Text questions are not in it. Per row: `required` (Task 5's rule) and
+  `calculated` (the page says to reword the questions it comes from).
+- **Empty:** `blank` = first assessments holding the key with no answer ('' or "null"; Collect
+  Earth's null is kept as '' since Task 5's review); `notKnown` = those without the key (records
+  stored before that, an entity's question, a survey without it); `emptyShare` = blank / (answered
+  + blank + non-numbers), null under 20 of those. The page says older records and grouped
+  questions count as not known, and that a question shown only for some answers can be empty on
+  purpose (relevance cannot be judged on the server).
+- **"Other, unknown, none or no data"** (`looksLikeOther`): an option's labels in every language
+  of the survey decide (the outline now keeps `Question.optionLabels`: each option's other labels,
+  by code, only when there are some). A label matches when it is one of `OTHER_PHRASES` (en, es,
+  fr, pt; accents and case ignored: other/otro/autre/outro..., unknown/desconocido/inconnu/
+  desconhecido, don't know/no sé/ne sait pas/não sei, none/ninguno/aucun/nenhum, none of the
+  above, no data/n/a/sin datos/pas de données/sem dados, not applicable...), or one followed by a
+  bracket, colon, slash, comma or spaced dash ("Other (specify)", "Unknown / not visible").
+  Without a label of its own, the code decides (the phrases plus `oth`, `unk`, `nodata`,
+  `no_data`, `na`, `nd`, `99`, `999`, `9999`). Not matched: "Other land", "Other wooded land",
+  "Otherland", "Otherwise forested", "Otros bosques", "Other plantation", "No change", code 99
+  labelled "Forest", the demo's `na` "0 Points – No Coverage". On the demo survey it finds
+  exactly the subdivisions' "Other" (other_wetlands, other_otherland), aspect "N/A" and soil / GEZ
+  "No data" (test). A share of the first assessments answering; a plot with two such codes counts
+  once.
+- **Agreement:** the report's, per question (`compared`, `agreeing`, `rate`).
+- **Changed by decisions** (said exactly on the page): of the checked plots decided **for the
+  check** (`decision: 'check'`; not first, not recheck; a decided plot that is not checked is not
+  counted), those where this question's answer differs between the main record and the latest
+  check: `decidedForCheck`, and per question `{ changed, share }`.
+- **Worth rewording:** no score; reasons per row, the thresholds sent and written on the page:
+  `low_agreement` (rate under 80 % with at least 20 checks), `often_other` (10 % or more of at
+  least 20 answering), `often_empty` (20 % or more of at least 20 known), `often_changed` (5 plots
+  or more and 25 % or more of those decided for the check). Sorted: rows with a reason first,
+  among them by low agreement (lowest first), then the other share, the empty share, the changed
+  share (highest first); then the survey's order. Up to 1,000 rows (`questionsTotal`).
+- **`GET /v1/projects/:pid/quality/survey-health`** (coordinators and reviewers; collectors 403;
+  never in My work): `{ plots, plotsChecked, decidedForCheck, questions, questionsTotal,
+  thresholds, computedAt, stale }`. No names, no plots. In the isolation test.
+- **AI tool `get_survey_health`** (`src/ai/tools.ts`, the 8th, no arguments): the rows the run's
+  tools know (position questions left out, as everywhere), worth rewording first, up to
+  `MAX_HEALTH_QUESTIONS` 60 (`moreQuestions`), labels cut and scrubbed, codes through `safeCode`,
+  percentages rounded to one decimal (`emptyPercent`, `otherLike.percentOfAnswered`,
+  `changedByDecisions.percentOfDecided`) next to their counts (`answered`, `empty`, `known`,
+  `checks` / `agreeing` / `rate`), so a finding quoting them passes `numbersKnown`; then
+  `capResult`. "Not available" without the figures. The service builds it from the same served
+  figures and the project's decisions (one project, its RLS). The prompts mention it (system,
+  report start, survey changes). The development fake also calls it and adds a finding "X may need
+  rewording" quoting the empty or other share, so the number check is exercised end to end.
+- **Web:** `project/QualitySurvey.tsx`, "Survey health", on the Quality tab after the answers per
+  person and on the reviewer's Quality tab (the reviewer note says so): the count line and the
+  figures' time (stale / busy asked again as the others), a table (the question with "Required" /
+  "worked out from other answers"; the reasons as sentences; left empty with "N not known"; the
+  other-like share and its options; checks agreeing; changed by decisions), only the questions
+  worth rewording until "Show all N questions", "Nothing stands out" when none, and "How these are
+  counted" (a `<details>`: empty, other, agreement, changed, and the order with the server's
+  thresholds). `healthView.ts` (pure, tested). 35 keys × 4 languages and the reviewer note
+  (`i18n.ts`, `api.ts`, `ProjectPage.tsx` written with CRLF kept).
+- **Tests:** server 782 (was 729: `test/surveyHealth.test.ts` 45 — 24 labels that match and 12
+  that do not, in 4 languages, codes, the demo survey; empty / not known / other / agreement per
+  question, an all-blank question, the 20-plot rule, decisions for the check against first /
+  recheck / agreeing / unchecked plots, the latest check, the order, the cap, the buffers;
+  `surveyHealth.routes` 2 — the figures and decisions through the route, roles and My work;
+  isolation; `surveyOutline` optionLabels; AI: the tool's content without names, plot ids,
+  qualifiers or positions, not available, the 60 cap and 20,000 characters, a finding quoting its
+  figures kept and one with a made-up figure dropped, and through the service with the fake: its
+  own project's figures only, the fake's health finding kept), web 254 (was 250:
+  `healthView.test.ts` 4), tsc clean in both, web build ok.
+- **Cost:** bench (100,000 first assessments + 20,000 checks, 25 choices, 5 numbers, 10 texts, main
+  thread): health table 5-16 ms, the checked plots' callback within the report's noise (report
+  168-201 ms either way), `surveyHealth` 2-9 ms with 5,000 decisions. **Postgres smoke** (`npm run
+  smoke:pg:progress`, no new SQL; now also survey health): ALL OK; GET /quality/survey-health 18 ms,
+  again 14 ms, from the same figures; on the main thread the report with the checked plots 151 ms,
+  the health table 9 ms (report 161, answer table 188, reading the summaries 1,975 ms). Docker on
+  Windows, stopped after.
+- **Chrome** (seeded memory server, built dashboard; 400 plots by 5 collectors, 120 checked, 27
+  decided for the check): the coordinator's Quality tab at desktop width (Land Use Subdivision
+  first: checks agree on 79 % of 120, "Other" on 16 %, changed on 19 of 27 decided), "Show all 5
+  questions", the notes; the reviewer at phone width (390 px): the section and the new reviewer
+  note, the table scrolls inside its frame, no page-wide horizontal scroll; no console errors.
+  Fixed after looking: narrower columns, so the table needs less sideways scrolling on a desktop.
+- **Open:** text questions are not in survey health; an entity's questions are always "not known"
+  for empty (the desktop app leaves their blanks out); the phrase list is deliberately short ("cannot
+  tell", "cloud covered" are not matched); "changed by decisions" uses the latest check of a plot
+  checked twice; Task 7's bulk decisions feed it as they are.
+
 ### Task 7: Review queue and faster review (improvement 11, monitoring Phase 4 queue)
 
 **Files:**

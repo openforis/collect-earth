@@ -11,6 +11,7 @@ import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { checkMargins } from '../quality.js';
 import { answerOptions, personalReport, teamReport } from '../qualityReports.js';
 import { registerPlotPlaceRoutes } from './plotPlaces.js';
+import { surveyHealth } from '../surveyHealth.js';
 import { MAX_CACHED_ANSWER_FILTERS, QualityService, remember, WorkerBusyError, WorkerRestartedError, type ServedReport } from '../qualityService.js';
 import type { Store } from '../store/store.js';
 import type { DecisionKind, GuidanceNoteInput, QualityDecision, QualitySettings } from '../types.js';
@@ -215,6 +216,20 @@ export async function registerQualityRoutes(
     }
     const flags = patternFlags(figures, decisions, { fastSeconds: fastSecondsOf(settings), person, kind: kind as FlagKind | null });
     return reply.send({ ...flags, computedAt: figures.computedAt, stale: figures.stale });
+  });
+
+  // Survey health (Task 6), for coordinators and reviewers (never collectors): per question,
+  // how often the first assessments leave it empty or answer "other", how far the checks
+  // agree, and how often a decision for the check changed it; the questions worth
+  // rewording first. From the quality worker's figures (same job, cache and version) with
+  // the decisions as they are now.
+  app.get('/v1/projects/:pid/quality/survey-health', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
+    const [figures, decisions] = await Promise.all([served(quality, projectId, request, reply), store.listQualityDecisions(projectId)]);
+    if (!figures) {
+      return reply;
+    }
+    return reply.send({ ...surveyHealth(figures, decisions), computedAt: figures.computedAt, stale: figures.stale });
   });
 
   // The columns of a plot file and their values, to filter the answers by one (reviewers too).

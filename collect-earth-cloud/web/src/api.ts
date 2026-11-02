@@ -2266,3 +2266,94 @@ export async function getFlags(projectId: string, filter: FlagsFilter): Promise<
   const q = query.toString();
   return toFlagsData(await request<unknown>("GET", `${p(projectId)}/quality/flags${q ? `?${q}` : ""}`));
 }
+
+// --- survey health (Task 6) -----------------------------------------------------
+
+export type HealthReason = "low_agreement" | "often_other" | "often_empty" | "often_changed";
+export const HEALTH_REASONS: readonly HealthReason[] = ["low_agreement", "often_other", "often_empty", "often_changed"];
+
+/** One question of the survey, as survey health counts it (first assessments, except agreement and decisions). */
+export interface HealthRow {
+  key: string;
+  label: string;
+  kind: "choice" | "number";
+  calculated: boolean;
+  required: boolean;
+  answered: number;
+  blank: number;
+  notKnown: number;
+  nonNumeric: number;
+  /** blank / the plots where it is known; null under minPlots of those. */
+  emptyShare: number | null;
+  other: { count: number; share: number | null; answers: { code: string; label: string; count: number }[] } | null;
+  agreement: { compared: number; agreeing: number; rate: number | null } | null;
+  decisions: { changed: number; share: number | null };
+  reasons: HealthReason[];
+}
+
+export interface SurveyHealthData {
+  plots: number;
+  plotsChecked: number;
+  decidedForCheck: number;
+  questions: HealthRow[];
+  questionsTotal: number;
+  thresholds: { minPlots: number; lowAgreement: number; oftenOther: number; oftenEmpty: number; minChanged: number; oftenChanged: number };
+  computedAt: number | null;
+  stale: boolean;
+}
+
+const toShare = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
+
+export function toSurveyHealth(body: unknown): SurveyHealthData {
+  const b = obj(body);
+  const th = obj(b.thresholds);
+  const threshold = (value: unknown, fallback: number) => toShare(value) ?? fallback;
+  return {
+    plots: toCount(b.plots),
+    plotsChecked: toCount(b.plotsChecked),
+    decidedForCheck: toCount(b.decidedForCheck),
+    questions: list(b.questions).map((q): HealthRow => {
+      const other = q.other && typeof q.other === "object" ? obj(q.other) : null;
+      const agreement = q.agreement && typeof q.agreement === "object" ? obj(q.agreement) : null;
+      const decisions = obj(q.decisions);
+      return {
+        key: text(q.key),
+        label: text(q.label) || text(q.key),
+        kind: q.kind === "number" ? "number" : "choice",
+        calculated: q.calculated === true,
+        required: q.required === true,
+        answered: toCount(q.answered),
+        blank: toCount(q.blank),
+        notKnown: toCount(q.notKnown),
+        nonNumeric: toCount(q.nonNumeric),
+        emptyShare: toShare(q.emptyShare),
+        other: other
+          ? {
+              count: toCount(other.count),
+              share: toShare(other.share),
+              answers: list(other.answers).map((a) => ({ code: text(a.code), label: text(a.label) || text(a.code), count: toCount(a.count) })),
+            }
+          : null,
+        agreement: agreement ? { compared: toCount(agreement.compared), agreeing: toCount(agreement.agreeing), rate: toShare(agreement.rate) } : null,
+        decisions: { changed: toCount(decisions.changed), share: toShare(decisions.share) },
+        reasons: (Array.isArray(q.reasons) ? q.reasons : []).filter((r): r is HealthReason => (HEALTH_REASONS as readonly unknown[]).includes(r)),
+      };
+    }),
+    questionsTotal: toCount(b.questionsTotal),
+    thresholds: {
+      minPlots: threshold(th.minPlots, 20),
+      lowAgreement: threshold(th.lowAgreement, 0.8),
+      oftenOther: threshold(th.oftenOther, 0.1),
+      oftenEmpty: threshold(th.oftenEmpty, 0.2),
+      minChanged: threshold(th.minChanged, 5),
+      oftenChanged: threshold(th.oftenChanged, 0.25),
+    },
+    computedAt: toMillis(b.computedAt),
+    stale: b.stale === true,
+  };
+}
+
+/** Survey health (coordinators and reviewers). A 503 "busy" is thrown as ApiError code "busy". */
+export async function getSurveyHealth(projectId: string): Promise<SurveyHealthData> {
+  return toSurveyHealth(await request<unknown>("GET", `${p(projectId)}/quality/survey-health`));
+}

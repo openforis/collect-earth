@@ -9,6 +9,7 @@
 // cut, and any username in them is replaced by its pseudonym.
 import type { CodeItem } from '../cep.js';
 import { aiSafeValue, type PlotRecord, type QualityReport } from '../quality.js';
+import type { SurveyHealth } from '../surveyHealth.js';
 import type { Question } from '../surveyOutline.js';
 import type { GuidanceNote } from '../types.js';
 import type { AiTool } from './client.js';
@@ -24,6 +25,8 @@ export const MAX_NOTE_CHARS = 800;
 export const MAX_OPTIONS = 60;
 export const MAX_DIFFERENCES_LIMIT = 50;
 export const DEFAULT_DIFFERENCES_LIMIT = 20;
+/** Questions in get_survey_health: the worth-rewording ones come first. */
+export const MAX_HEALTH_QUESTIONS = 60;
 /** Sent instead of a code that is not in the question's list (or could be free text or a name). */
 export const NOT_IN_LIST = '(code not in the list)';
 
@@ -37,6 +40,8 @@ export interface ToolData {
   plots: ReadonlySet<string>;
   /** The records of one plot (quality.ts recordsOfPlot); without it get_plot says it is not available. */
   plotRecords?: (plot: string) => readonly PlotRecord[] | Promise<readonly PlotRecord[]>;
+  /** Survey health (surveyHealth.ts) from the same figures and the decisions; without it get_survey_health says it is not available. */
+  health?: SurveyHealth | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -246,6 +251,12 @@ export const TOOLS: readonly AiTool[] = [
     parameters: { type: 'object', properties: { plot: { type: 'string', description: 'The plot\'s name, e.g. "Plot 3".' } }, required: ['plot'] },
   },
   {
+    name: 'get_survey_health',
+    description:
+      'Survey health, for the next version of the survey: for each choice and number question, how often first assessments leave it empty, how often they choose an option that looks like other, unknown, none or no data, how far the checks agree, and how often a decision of the coordinator for the check changed it. The questions worth rewording come first, with their reasons.',
+    parameters: NO_ARGS,
+  },
+  {
     name: 'get_guidance_notes',
     description: 'The guidance notes the coordinators wrote for collectors, by question and, for a mix-up, the two answers.',
     parameters: NO_ARGS,
@@ -408,6 +419,8 @@ export class ToolBox {
         return this.differences(args as { question?: string; person?: string; limit?: number });
       case 'get_plot':
         return this.plot(args.plot as string);
+      case 'get_survey_health':
+        return this.surveyHealth();
       default:
         return this.notes();
     }
@@ -520,6 +533,51 @@ export class ToolBox {
         }
         return { assessment: r.assessment === 'main' ? 'first' : 'check', person: this.pseudonyms.of(r.operator), answers };
       }),
+    };
+  }
+
+  private surveyHealth(): Record<string, unknown> {
+    const h = this.data.health;
+    if (!h) {
+      return { error: 'Survey health is not available.' };
+    }
+    // Percentages rounded to one decimal, as a finding may quote them.
+    const percent = (share: number | null) => (share === null ? null : Math.round(share * 1000) / 10);
+    const rows = h.questions.filter((r) => this.questions.has(r.key));
+    return {
+      firstAssessments: h.plots,
+      plotsChecked: h.plotsChecked,
+      plotsDecidedForCheck: h.decidedForCheck,
+      questions: rows.slice(0, MAX_HEALTH_QUESTIONS).map((r) => {
+        const q = this.questions.get(r.key)!;
+        return {
+          label: this.text(q.label),
+          key: r.key,
+          kind: r.kind,
+          calculated: r.calculated,
+          required: r.required,
+          reasons: r.reasons,
+          answered: r.answered,
+          empty: r.blank,
+          known: r.answered + r.blank + r.nonNumeric,
+          notKnown: r.notKnown,
+          emptyPercent: percent(r.emptyShare),
+          ...(r.other
+            ? {
+                otherLike: {
+                  plots: r.other.count,
+                  percentOfAnswered: percent(r.other.share),
+                  answers: r.other.answers.map((a) => ({ code: this.safeCode(q, a.code), label: this.text(a.label), count: a.count })),
+                },
+              }
+            : {}),
+          agreement: r.agreement ? { checks: r.agreement.compared, agreeing: r.agreement.agreeing, rate: r.agreement.rate } : null,
+          changedByDecisions: { plots: r.decisions.changed, percentOfDecided: percent(r.decisions.share) },
+        };
+      }),
+      ...(rows.length > MAX_HEALTH_QUESTIONS ? { moreQuestions: rows.length - MAX_HEALTH_QUESTIONS } : {}),
+      about:
+        'Counts are first assessments of plots (quality checks not counted), except agreement (checks) and changedByDecisions (plots decided for the check, where the answer of the check differs from that of the first assessment). empty: answered with nothing; notKnown: older records or questions inside a group that do not say; emptyPercent is of known. An empty answer may be expected when the question does not apply to the plot. emptyPercent and percentOfAnswered are null with fewer than 20 plots; percentOfDecided is null when no plot was decided for the check. Reasons: low_agreement (rate under 0.8), often_other (10 % or more), often_empty (20 % or more), often_changed (5 plots or more and 25 % or more of plotsDecidedForCheck).',
     };
   }
 

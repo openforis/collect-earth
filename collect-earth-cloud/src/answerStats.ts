@@ -9,6 +9,7 @@ import { flagBuffers, flagTable, type FlagTable } from './flags.js';
 import { dayInZone } from './progress.js';
 import { keyRule, MIN_PLOTS, qualityReport, recordResolver, type QualityInput, type QualityReport } from './quality.js';
 import { QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR } from './surveyOutline.js';
+import { checkedPlots, healthBuffers, healthTable, type HealthTable } from './surveyHealth.js';
 
 /** |z| at or above this flags a person's share of an answer (two-proportion z-test). */
 export const FLAG_Z = 3;
@@ -82,6 +83,14 @@ export interface AnswerTable {
   time: Float64Array;
   choices: ChoiceColumn[];
   numbers: NumberColumn[];
+  /**
+   * Every question the table looks at that some row holds a key for, also those every row
+   * left blank (they have no column), in the survey's order: how many rows hold the key
+   * with no answer ('', "null"; Collect Earth sends an empty root question as null, kept as
+   * ''). A row without the key (a record stored before blanks were kept, an entity's
+   * question) is not counted here. For survey health (Task 6).
+   */
+  asked: { key: string; label: string; kind: 'choice' | 'number'; blank: number }[];
 }
 
 /** What the quality worker computes from one read of the records. */
@@ -90,22 +99,27 @@ export interface QualityFigures {
   answers: AnswerTable;
   /** What the pattern flags are worked out from (Task 5), its rows those of `answers`. */
   flags: FlagTable;
+  /** What survey health is worked out from (Task 6): per question counts and the checked plots' differing questions. */
+  health: HealthTable;
 }
 
-/** The report, the answers and the flags' table, from the same records. */
+/** The report, the answers, the flags' table and survey health's, from the same records. */
 export function qualityFigures(input: QualityInput): QualityFigures {
   const kept = firstAssessments(input);
   const answers = answerTable(input, kept);
-  return { report: qualityReport(input), answers, flags: flagTable(input, kept, answers) };
+  const checked = checkedPlots();
+  const report = qualityReport(input, checked.add);
+  return { report, answers, flags: flagTable(input, kept, answers), health: healthTable(input.outline, answers, checked.done()) };
 }
 
 /** The typed arrays of the tables, to hand them over between threads without copying. */
-export function tableBuffers(t: AnswerTable, f?: FlagTable): ArrayBuffer[] {
+export function tableBuffers(t: AnswerTable, f?: FlagTable, h?: HealthTable): ArrayBuffer[] {
   const out: ArrayBuffer[] = [];
   const add = (a: ArrayBufferView | null) => {
     if (a && a.byteLength > 0 && !out.includes(a.buffer as ArrayBuffer)) out.push(a.buffer as ArrayBuffer);
   };
   if (f) for (const a of flagBuffers(f)) add(a);
+  if (h) for (const a of healthBuffers(h)) add(a);
   add(t.operator);
   add(t.unit);
   add(t.time);
@@ -137,6 +151,7 @@ interface ChoiceBuild {
   severalRows: number[];
   severalOffsets: number[];
   severalCodes: number[];
+  blank: number;
 }
 
 interface NumberBuild {
@@ -146,6 +161,7 @@ interface NumberBuild {
   values: Float64Array;
   present: number;
   nonNumeric: number[];
+  blank: number;
 }
 
 type Build = ChoiceBuild | NumberBuild | null;
@@ -228,10 +244,10 @@ export function answerTable(input: QualityInput, kept: readonly FirstAssessment[
         const options = (q?.options ?? []).map((o) => ({ code: o.code, label: o.label }));
         b = {
           kind: 'choice', key, label: rule.label, multiple: q?.multiple === true, options,
-          index: new Map(), codes: [], values: new Uint16Array(size), present: 0, severalRows: [], severalOffsets: [], severalCodes: [],
+          index: new Map(), codes: [], values: new Uint16Array(size), present: 0, severalRows: [], severalOffsets: [], severalCodes: [], blank: 0,
         };
       } else {
-        b = { kind: 'number', key, label: rule.label, values: new Float64Array(size).fill(Number.NaN), present: 0, nonNumeric: [] };
+        b = { kind: 'number', key, label: rule.label, values: new Float64Array(size).fill(Number.NaN), present: 0, nonNumeric: [], blank: 0 };
       }
     }
     builds.set(key, b);
@@ -274,7 +290,10 @@ export function answerTable(input: QualityInput, kept: readonly FirstAssessment[
       if (b === null) continue;
       if (b.kind === 'number') {
         const n = numberOf(value);
-        if (n === null) continue;
+        if (n === null) {
+          b.blank += 1;
+          continue;
+        }
         if (Number.isNaN(n)) {
           b.nonNumeric.push(row);
         } else {
@@ -284,7 +303,10 @@ export function answerTable(input: QualityInput, kept: readonly FirstAssessment[
         continue;
       }
       const codes = codesOf(value);
-      if (codes.length === 0) continue;
+      if (codes.length === 0) {
+        b.blank += 1;
+        continue;
+      }
       if (codes.length === 1) {
         const i = codeIndex(b, codes[0]);
         if (i === null) continue;
@@ -304,9 +326,11 @@ export function answerTable(input: QualityInput, kept: readonly FirstAssessment[
   // Questions in the survey's order, then the others by key.
   const outlineKeys = outline ? [...outline.keys()] : [];
   const rank = new Map(outlineKeys.map((k, i) => [k, i]));
-  const ordered = [...builds.values()]
-    .filter((b): b is ChoiceBuild | NumberBuild => b !== null && (b.present > 0 || (b.kind === 'number' && b.nonNumeric.length > 0)))
+  const all = [...builds.values()]
+    .filter((b): b is ChoiceBuild | NumberBuild => b !== null)
     .sort((a, b) => (rank.get(a.key) ?? outlineKeys.length) - (rank.get(b.key) ?? outlineKeys.length) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+  const asked = all.map((b) => ({ key: b.key, label: b.label, kind: b.kind, blank: b.blank }));
+  const ordered = all.filter((b) => b.present > 0 || (b.kind === 'number' && b.nonNumeric.length > 0));
 
   const choices: ChoiceColumn[] = [];
   const numbers: NumberColumn[] = [];
@@ -360,7 +384,7 @@ export function answerTable(input: QualityInput, kept: readonly FirstAssessment[
     };
     choices.push({ key: b.key, label: b.label, multiple: b.multiple, codes, codeLabels, rows, values, several });
   }
-  return { size, operators, units, operator, unit, time, choices, numbers };
+  return { size, operators, units, operator, unit, time, choices, numbers, asked };
 }
 
 /** Which first assessments are counted. */

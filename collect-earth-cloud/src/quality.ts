@@ -192,8 +192,13 @@ interface DifferingPair {
  * Built for 100k records of ~200 answers: the first pass over the pairs only counts,
  * with one lookup per key, and keeps the differing questions of each pair; confusions
  * and differences come from those in a second pass.
+ *
+ * `onCheckedPlot`, when given, is called once per checked plot with the compared
+ * questions that differ between its main record (the one compared) and its LATEST check:
+ * the two answers a decision for the check chooses between (see finalAnswers). Survey
+ * health counts from it how often a question changed on plots decided for the check.
  */
-export function qualityReport(input: QualityInput): QualityReport {
+export function qualityReport(input: QualityInput, onCheckedPlot?: (plot: string, differing: readonly string[]) => void): QualityReport {
   const { info, outline } = input;
   const margins = input.margins ?? {};
   const shape = keyShape(info);
@@ -296,6 +301,7 @@ export function qualityReport(input: QualityInput): QualityReport {
     const fi = personIndex.get(first.operator)!;
     const holders = mainHolders?.get(plot);
     const own = g.main.length === 1 && (holders === undefined || holderHas(holders, first.operator));
+    const latestCheck = onCheckedPlot ? g.check.reduce((a, b) => (later(b, a) ? b : a)) : null;
     for (const check of g.check) {
       const cs = check.summary;
       const ci = personIndex.get(check.operator)!;
@@ -347,6 +353,9 @@ export function qualityReport(input: QualityInput): QualityReport {
             compare(slotOf(key), '', text(cs[key]));
           }
         }
+      }
+      if (check === latestCheck) {
+        onCheckedPlot!(plot, differs.map((id) => slotList[id].key));
       }
       const agrees = differs.length === 0;
       firstCompared[fi] += 1;

@@ -5,7 +5,8 @@
 // the bars in five time zones (Rome across a DST change), the median waits as the memory
 // store's, the settings, RLS between two projects, and GET /progress on a project of
 // 100,000 records of which 20,000 checks, then the People tab and My work on it, cold and warm,
-// and the Quality tab's answers per person (Task 4) and pattern flags (Task 5) on it.
+// and the Quality tab's answers per person (Task 4), pattern flags (Task 5) and survey
+// health (Task 6) on it.
 //
 //   docker run -d --rm --name ce-pg-smoke -e POSTGRES_PASSWORD=pw -p 55481:5432 postgres:16
 //   npm run smoke:pg:progress -- 55481        (the superuser is postgres / pw on localhost)
@@ -367,6 +368,12 @@ await owner.query('ANALYZE records');
   const decided = await fresh.inject({ method: 'PUT', url: `/v1/projects/${big}/quality/decisions/1`, headers: bearer(ownerToken), payload: { decision: 'first' } });
   const kept = (await store.listQualityDecisions(big)).find((d) => d.plot === '1');
   check('a decision keeps the records it saw (quality_decisions.seen), not in its answer', decided.statusCode === 200 && !('seen' in decided.json()) && Array.isArray(kept?.seen) && kept!.seen!.length > 0, { status: decided.statusCode, seen: kept?.seen });
+  // Survey health (Task 6): from the same worker job and cache, the decisions applied here.
+  const health = await get('/quality/survey-health');
+  const hb = health.res.json();
+  check('GET /quality/survey-health from the same figures: 90,000 first assessments, a row per question, the decision counted', health.res.statusCode === 200 && hb.plots === N - N / 10 && hb.computedAt === fb.computedAt && Array.isArray(hb.questions) && hb.questions.length > 0 && typeof hb.decidedForCheck === 'number', { status: health.res.statusCode, plots: hb.plots, rows: hb.questions?.length, decided: hb.decidedForCheck });
+  const healthAgain = await get('/quality/survey-health');
+  console.log(`     GET /quality/survey-health: ${health.ms} ms, again ${healthAgain.ms} ms (${hb.questions?.length} questions, ${hb.questions?.filter((q: { reasons: string[] }) => q.reasons.length > 0).length} worth rewording)`);
   // The first submissions come with the summaries for the worker (the events' join).
   const withFirst = await store.listRecordSummaries(big, { firstSubmissions: true });
   check('listRecordSummaries with firstSubmissions: every submitted record has its first submission', withFirst.filter((r) => r.activelySaved).every((r) => typeof r.firstSubmittedOn === 'number'), withFirst.slice(0, 2).map((r) => r.firstSubmittedOn));
@@ -391,7 +398,14 @@ await owner.query('ANALYZE records');
   const t7 = performance.now();
   flagTable(flagInput, firstAssessments(flagInput), table);
   const t8 = performance.now();
-  console.log(`     on this thread: read summaries ${Math.round(t3 - t2)} ms, plot context ${Math.round(t4 - t3)} ms, report ${Math.round(t5 - t4)} ms, answer table ${Math.round(t6 - t5)} ms (${(bytes / 1e6).toFixed(1)} MB of arrays), flag table ${Math.round(t8 - t7)} ms (first assessments resolved again)`);
+  const { checkedPlots, healthTable } = await import('../src/surveyHealth.js');
+  const checked = checkedPlots();
+  const t9 = performance.now();
+  qualityReport(flagInput, checked.add);
+  const t10 = performance.now();
+  healthTable(null, table, checked.done());
+  const t11 = performance.now();
+  console.log(`     on this thread: read summaries ${Math.round(t3 - t2)} ms, plot context ${Math.round(t4 - t3)} ms, report ${Math.round(t5 - t4)} ms, answer table ${Math.round(t6 - t5)} ms (${(bytes / 1e6).toFixed(1)} MB of arrays), flag table ${Math.round(t8 - t7)} ms (first assessments resolved again), report with the checked plots ${Math.round(t10 - t9)} ms, health table ${Math.round(t11 - t10)} ms`);
 }
 
 await app.close();

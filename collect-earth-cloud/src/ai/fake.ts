@@ -1,8 +1,10 @@
 // A scripted stand-in for Gemini, for development only (AI_FAKE=1 with the memory store,
 // Task 15; the dashboard's Chrome run in Task 20 uses it). It plays the model's part with
-// the real tools: in a report it calls get_agreement and get_differences, then writes a
-// report from what they returned (the question that differs most, its plots and the
-// people who assessed them), so the run's own checks accept it as they would Gemini's.
+// the real tools: in a report it calls get_agreement, get_differences and
+// get_survey_health, then writes a report from what they returned (the question that
+// differs most, its plots and the people who assessed them; the question most often left
+// empty or answered "other", with its figures), so the run's own checks accept it as they
+// would Gemini's.
 // Follow-ups and questions read the finding or the report they are given. Its texts are
 // in English only and say they come from the test assistant. It never calls the network.
 import type { AiCall, AiClient, AiRequest, AiResponse } from './client.js';
@@ -26,6 +28,15 @@ interface AgreementQuestion {
   label?: string;
   checks: number;
   agreeing: number;
+}
+interface HealthQuestion {
+  key: string;
+  label?: string;
+  reasons?: string[];
+  known?: number;
+  emptyPercent?: number | null;
+  answered?: number;
+  otherLike?: { plots: number; percentOfAnswered: number | null };
 }
 interface Difference {
   plot: string;
@@ -68,6 +79,7 @@ function respond(req: AiRequest): { text: string | null; calls: AiCall[] } {
     calls: [
       { id: 'fake-1', name: 'get_agreement', args: {} },
       { id: 'fake-2', name: 'get_differences', args: { limit: 20 } },
+      { id: 'fake-3', name: 'get_survey_health', args: {} },
     ],
   };
 }
@@ -110,12 +122,13 @@ function report(req: AiRequest) {
     .sort((a, b) => a.agreeing / a.checks - b.agreeing / b.checks || b.checks - a.checks)[0];
   const checked = typeof agreement.plotsChecked === 'number' ? agreement.plotsChecked : 0;
   const differing = typeof agreement.plotsDiffering === 'number' ? agreement.plotsDiffering : 0;
+  const health = healthFinding(req);
   if (!worst) {
     return {
       summary: `${PREFIX}${checked} plots were checked, and the checks agree with the first assessments on every question.`,
-      findings: [],
+      findings: health ? [health.finding] : [],
       recheckPlots: [],
-      surveyChanges: [],
+      surveyChanges: health ? [health.change] : [],
     };
   }
   // Questions are named by their label in texts (as the system instruction asks), the key only in the lists.
@@ -135,10 +148,35 @@ function report(req: AiRequest) {
         plots,
         suggestedNote: `Before you answer ${name}, read its help text and compare the options with what you see on the plot.`,
       },
+      ...(health ? [health.finding] : []),
     ],
     recheckPlots: plots,
-    surveyChanges: [{ question: worst.key, suggestion: 'Say more clearly in the help text how to choose between the options.' }],
+    surveyChanges: [
+      { question: worst.key, suggestion: 'Say more clearly in the help text how to choose between the options.' },
+      ...(health && health.change.question !== worst.key ? [health.change] : []),
+    ],
   };
+}
+
+/** From get_survey_health: the first question often left empty or answered "other", with its figures. */
+function healthFinding(req: AiRequest) {
+  const rows = (toolData(req, 'get_survey_health')?.questions ?? []) as HealthQuestion[];
+  for (const q of rows) {
+    const name = typeof q.label === 'string' && q.label !== '' ? q.label : q.key;
+    const reasons = q.reasons ?? [];
+    let explanation: string | null = null;
+    if (reasons.includes('often_empty') && typeof q.emptyPercent === 'number') {
+      explanation = `It is left empty on ${q.emptyPercent} % of the ${q.known} plots where this is known.`;
+    } else if (reasons.includes('often_other') && q.otherLike && typeof q.otherLike.percentOfAnswered === 'number') {
+      explanation = `${q.otherLike.plots} of ${q.answered} plots (${q.otherLike.percentOfAnswered} %) answer it with an option like "other" or "unknown".`;
+    }
+    if (explanation === null) continue;
+    return {
+      finding: { title: `${name} may need rewording`, explanation, cause: 'unclear_question', questions: [q.key], persons: [], plots: [], suggestedNote: null },
+      change: { question: q.key, suggestion: 'Check whether the options cover what collectors see, and say when the question applies.' },
+    };
+  }
+  return null;
 }
 
 function answer(req: AiRequest) {
