@@ -64,6 +64,24 @@ export default function LayersPanel() {
         disabled={!p.scene}
         onSelect={p.setActiveLayer}
       />
+      <label className="layer-row">
+        <input type="checkbox" checked={p.compare} onChange={(e) => p.setCompare(e.target.checked)} />
+        Compare with
+      </label>
+      {p.compare && (
+        <select
+          aria-label="Compare layer"
+          value={p.compareLayer}
+          onChange={(e) => p.setCompareLayer(e.target.value as LayerId)}
+        >
+          <option value="sentinel2">Sentinel-2, last 12 months</option>
+          {/* The committed year: the right-hand tiles only change when the slider commits. */}
+          <option value="landsat">Landsat {p.landsatYear}</option>
+          <option value="scene" disabled={!p.scene}>
+            {p.scene ? `Scene: ${p.scene.label}` : "Scene (click a chart point)"}
+          </option>
+        </select>
+      )}
     </div>
   );
 }

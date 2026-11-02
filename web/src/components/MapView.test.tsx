@@ -2,83 +2,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, act } from "@testing-library/react";
 import { StrictMode } from "react";
 import MapView, { IMAGERY_SOURCE } from "./MapView";
+import { FakeMap } from "../test/fakeMaplibre";
 import type { Polygon } from "../lib/urlParams";
 
-type Handler = () => void;
-
-const { FakeMap } = vi.hoisted(() => {
-  class FakeSource {
-    setTiles = vi.fn();
-  }
-  /** Records every call a MapView makes against the map, per instance. */
-  class FakeMap {
-    static instances: FakeMap[] = [];
-    calls: string[] = [];
-    callsAfterRemove: string[] = [];
-    removed = false;
-    handlers: Record<string, Handler[]> = {};
-    sources: Record<string, FakeSource> = {};
-    /** layer id -> beforeId it was inserted under */
-    layers: Record<string, string | undefined> = {};
-    addSource = vi.fn((id: string) => {
-      this.record("addSource");
-      this.sources[id] = new FakeSource();
-    });
-    addLayer = vi.fn((layer: { id: string }, before?: string) => {
-      this.record("addLayer");
-      this.layers[layer.id] = before;
-    });
-    removeLayer = vi.fn((id: string) => {
-      this.record("removeLayer");
-      delete this.layers[id];
-    });
-    removeSource = vi.fn((id: string) => {
-      this.record("removeSource");
-      delete this.sources[id];
-    });
-    getSource = vi.fn((id: string) => {
-      this.record("getSource");
-      return this.sources[id];
-    });
-    getLayer = vi.fn((id: string) => {
-      this.record("getLayer");
-      return id in this.layers ? { id } : undefined;
-    });
-    addControl = vi.fn(() => this);
-    isStyleLoaded = () => false;
-    on = vi.fn((ev: string, h: Handler) => {
-      this.record("on");
-      (this.handlers[ev] ??= []).push(h);
-      return this;
-    });
-    remove = vi.fn(() => {
-      this.removed = true;
-    });
-    constructor() {
-      FakeMap.instances.push(this);
-    }
-    record(name: string) {
-      this.calls.push(name);
-      if (this.removed) this.callsAfterRemove.push(name);
-    }
-    fire(ev: string) {
-      for (const h of this.handlers[ev] ?? []) h();
-    }
-  }
-  return { FakeMap };
+vi.mock("maplibre-gl", async () => {
+  const { fakeMaplibreModule } = await import("../test/fakeMaplibre");
+  return fakeMaplibreModule();
 });
-
-vi.mock("maplibre-gl", () => ({
-  Map: FakeMap,
-  NavigationControl: class {},
-  ScaleControl: class {},
-}));
 
 const plot: Polygon = { type: "Polygon", coordinates: [[[30, -2], [31, -2], [31, -3], [30, -3], [30, -2]]] };
 const URL_A = "https://tiles.example/a/{z}/{x}/{y}";
 const URL_B = "https://tiles.example/b/{z}/{x}/{y}";
 /** How many times the imagery source (not the plot outline source) was added. */
-const imageryAdds = (map: InstanceType<typeof FakeMap>) =>
+const imageryAdds = (map: FakeMap) =>
   map.addSource.mock.calls.filter(([id]) => id === IMAGERY_SOURCE).length;
 
 describe("MapView", () => {
