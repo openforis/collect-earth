@@ -1946,6 +1946,10 @@ export interface SentBack {
   comment: string | null;
   decidedAt: number | null;
   decidedBy: string | null;
+  /** Submitted again since: it has left their "To check again" plot file. */
+  submittedAgain: boolean;
+  /** The "To check again" plot file it is in for them in Collect Earth, while waiting. */
+  file: string | null;
 }
 
 export interface PersonData {
@@ -2118,7 +2122,7 @@ export function toPersonData(body: unknown): PersonData {
       ...toQualityAtHand(quality),
       asFirst: toRateOrNull(quality.asFirst),
       asChecker: toRateOrNull(quality.asChecker),
-      sentBack: list(quality.sentBack).map((s) => ({ plot: text(s.plot), comment: nullableText(s.comment), decidedAt: toMillis(s.decidedAt), decidedBy: nullableText(s.decidedBy) })),
+      sentBack: list(quality.sentBack).map((s) => ({ plot: text(s.plot), comment: nullableText(s.comment), decidedAt: toMillis(s.decidedAt), decidedBy: nullableText(s.decidedBy), submittedAgain: s.submittedAgain === true, file: nullableText(s.file) })),
       flags: quality.flags && typeof quality.flags === "object" ? toFlagCounts(quality.flags) : null,
     },
   };
@@ -2441,6 +2445,8 @@ export interface QueueItem {
   differences: (Difference & { changed: boolean })[];
   flags: PatternFlag[];
   resubmitted: Resubmission[];
+  /** Decided "Both need another look": who it went back to and has not submitted it again yet (null for other decisions). */
+  waiting: string[] | null;
   decision: QualityDecision | null;
 }
 
@@ -2501,6 +2507,7 @@ export function toReviewQueue(body: unknown): ReviewQueueData {
           differences: list(i.differences).map((d) => ({ ...toDifference(d), changed: d.changed === true })),
           flags: list(i.flags).flatMap(toPatternFlags),
           resubmitted: list(i.resubmitted).map((r) => ({ operator: text(r.operator), at: toMillis(r.at), decidedAt: toMillis(r.decidedAt) })),
+          waiting: Array.isArray(i.waiting) ? i.waiting.filter((v): v is string => typeof v === "string") : null,
           decision: i.decision && typeof i.decision === "object" ? toDecision(i.decision) : null,
         },
       ];

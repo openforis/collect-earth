@@ -11,7 +11,6 @@ const work = (main: [string, number][], checks: [string, number][] = []): Operat
   checkDrafts: new Set(),
   submissionTimes: [],
   mainSubmissionTimes: [],
-  mainGroups: new Set(),
 });
 const row = (userId: string, username: string): PersonRow => ({
   userId,

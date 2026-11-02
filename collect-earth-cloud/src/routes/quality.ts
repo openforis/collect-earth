@@ -322,6 +322,10 @@ export async function registerQualityRoutes(
     const byPlot = new Map(decisions.map((d) => [d.plot, d]));
     const items = page.map((item) => {
       const decision = byPlot.get(item.plot);
+      // Sent back: everyone with a record of the plot gets it again (src/sendBack.ts); those who
+      // have not submitted it again yet are waited for.
+      const again = new Set(item.resubmitted.map((r) => r.operator));
+      const waiting = decision?.decision === 'recheck' ? { waiting: [...plotOperators(figures.flags, item.plot)].filter((o) => !again.has(o)).sort() } : {};
       return {
         plot: item.plot,
         section: item.section,
@@ -329,6 +333,7 @@ export async function registerQualityRoutes(
         differences: item.pairs.map((i) => listed.get(pairId(pairAt(pairs, i)))!),
         flags: item.flags,
         resubmitted: item.resubmitted,
+        ...waiting,
         decision: decision ? publicDecision(decision, figures.flags) : null,
       };
     });

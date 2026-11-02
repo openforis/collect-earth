@@ -128,10 +128,11 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerAdminRoutes(app, store, config, limiter, { setupCode, version: VERSION, now, counters, startedAt: STARTED_AT });
   await registerProjectRoutes(app, store, config);
   await registerPlatformRoutes(app, store, config);
-  await registerAssignmentRoutes(app, store, config);
   const quality = new QualityService(store, new QualityWorker({ maxOldGenerationSizeMb: config.qualityWorkerMaxMb }), {
     minIntervalMs: config.qualityMinIntervalMs,
   });
+  // The plots sent back for another look compare answers as the figures do: by the survey's outline.
+  await registerAssignmentRoutes(app, store, config, { outline: (projectId, log) => quality.outline(projectId, log) });
   // Where plots are and what the project file says of them, shared by the quality routes and plot search.
   const places = new PlotPlaceReader(store);
   await registerQualityRoutes(app, store, quality, places);

@@ -13,6 +13,9 @@ import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store, UserPlots } from '../store/store.js';
 import type { Assignment, RecordRow } from '../types.js';
 import { plotFileOf } from '../plotFileCache.js';
+import { loadPlotContext, type Log } from '../qualityService.js';
+import { recheckFileId, sentBackTo, type RecheckFile } from '../sendBack.js';
+import type { Question } from '../surveyOutline.js';
 import { registerDivisionRoutes } from './division.js';
 
 interface AssignmentsBody {
@@ -31,8 +34,31 @@ interface AssignmentsBody {
  * and the coordinates right after them, so a file without the round column would put
  * the coordinates in the wrong place. Admins still get the uploaded file without
  * ?mine=1.
+ *
+ * Plots sent back for another look (src/sendBack.ts) come as one more file per plot
+ * file, "To check again – <file>", listed after the others, under an id worked out from
+ * the plot file's (recheckFileId): only the person's own plots sent back and not yet
+ * submitted again, each with the round of their own record.
  */
-export async function registerAssignmentRoutes(app: FastifyInstance, store: Store, config: Config): Promise<void> {
+export async function registerAssignmentRoutes(
+  app: FastifyInstance,
+  store: Store,
+  config: Config,
+  deps: { outline?: (projectId: string, log: Log) => Promise<ReadonlyMap<string, Question> | null> } = {},
+): Promise<void> {
+  /** The person's "To check again" files (none for a project token). */
+  const recheckFilesFor = async (projectId: string, userId: string | undefined, info: RoundInfo | null, log: Log): Promise<RecheckFile[]> => {
+    if (!userId) return [];
+    const user = await store.getUserById(userId);
+    if (!user) return [];
+    const sent = await sentBackTo(store, projectId, { userId, username: user.username }, {
+      info,
+      context: () => loadPlotContext(store, projectId, log, { info }),
+      outline: () => (deps.outline ? deps.outline(projectId, log) : Promise.resolve(null)),
+    });
+    return sent.files;
+  };
+
   // Upload / replace a plot CSV (admin). Raw CSV body (text/csv or octet-stream).
   app.put(
     '/v1/projects/:pid/csv-files/:filename',
@@ -101,7 +127,19 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
       const userId = request.userId;
       const file = isUuid(id) ? await store.getCsvFile(projectId, id) : null;
       if (!file) {
-        return reply.code(404).send({ error: 'not_found' });
+        // A "To check again" file: the caller's own, whatever their role.
+        const source = isUuid(id) ? (await store.listCsvFiles(projectId)).find((f) => recheckFileId(f.id) === id) : undefined;
+        if (!source) {
+          return reply.code(404).send({ error: 'not_found' });
+        }
+        const info = await store.getRoundInfo(projectId);
+        const recheck = (await recheckFilesFor(projectId, userId, info, request.log)).find((f) => f.id === id);
+        const sourceFile = recheck ? await store.getCsvFile(projectId, source.id) : null;
+        const built = recheck && sourceFile ? recheckServed(sourceFile, recheck, info) : null;
+        if (!recheck || !built) {
+          return reply.code(404).send({ error: 'not_found' });
+        }
+        return sendPlotFile(request, reply, recheck.filename, built, expected);
       }
       let data = file.data;
       let checksum = file.checksum;
@@ -121,18 +159,7 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
       } else if (mine || !isAdmin) {
         ({ data, checksum } = wholeFile(file, info));
       }
-      if (expected !== null && expected !== checksum) {
-        return reply.code(409).send({
-          error: 'changed',
-          reason: 'This plot file changed after the list of your plot files was read. Press Refresh to get the new list, then download it again.',
-        });
-      }
-      noteActivity(request, { plotsDownload: true }, { desktop: true });
-      return reply
-        .header('content-type', 'text/csv')
-        .header('x-checksum-sha256', checksum)
-        .header('content-disposition', `attachment; filename="${file.filename}"`)
-        .send(data);
+      return sendPlotFile(request, reply, file.filename, { data, checksum }, expected);
     },
   );
 
@@ -243,12 +270,60 @@ export async function registerAssignmentRoutes(app: FastifyInstance, store: Stor
           assignments.push(built(meta, own));
         }
       }
+      // The plots sent back for another look, one file per plot file, after the others: Collect
+      // Earth keeps selected the last listed file whose name ends the path of the file in use,
+      // and "To check again – north.csv" ends with "north.csv".
+      const rechecks = (await tryBuild('to-check-again', () => recheckFilesFor(projectId, userId, info, request.log))) ?? [];
+      for (const recheck of rechecks) {
+        const servedRecheck = await tryBuild(recheck.sourceFileId, async () => {
+          const file = await store.getCsvFile(projectId, recheck.sourceFileId);
+          return file ? recheckServed(file, recheck, info) : null;
+        });
+        if (servedRecheck) {
+          assignments.push(built({ id: recheck.id, filename: recheck.filename, checksum: servedRecheck.checksum, plotCount: servedRecheck.plotCount }, servedRecheck));
+        }
+      }
       noteActivity(request, { plotsDownload: true }, { desktop: true });
       return reply.send({ assignments });
     },
   );
 
   await registerDivisionRoutes(app, store);
+}
+
+/**
+ * Sends a plot file as served (its checksum in a header), or 409 when my-assignment listed
+ * another checksum (?v=): the file changed in between, and the desktop app would refuse it.
+ */
+function sendPlotFile(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  filename: string,
+  served: { data: Buffer; checksum: string },
+  expected: string | null,
+) {
+  if (expected !== null && expected !== served.checksum) {
+    return reply.code(409).send({
+      error: 'changed',
+      reason: 'This plot file changed after the list of your plot files was read. Press Refresh to get the new list, then download it again.',
+    });
+  }
+  noteActivity(request, { plotsDownload: true }, { desktop: true });
+  return reply
+    .header('content-type', 'text/csv')
+    .header('x-checksum-sha256', served.checksum)
+    .header('content-disposition', attachment(filename))
+    .send(served.data);
+}
+
+/**
+ * A Content-Disposition for a file name: an ASCII name for old clients and the real one
+ * (RFC 5987). A header may hold no character beyond Latin-1 ("–" of "To check again – …").
+ */
+export function attachment(filename: string): string {
+  const ascii = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_') || 'plots.csv';
+  const encoded = encodeURIComponent(filename).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 }
 
 /**
@@ -393,6 +468,33 @@ function wholeFile(file: { checksum: string; data: Buffer; plotCount: number }, 
   const data = buildPlotFile(plotFile, null, round);
   const built = { data, checksum: checksumOf(data), plotCount: plotFile.plotIds.length };
   cacheSet(wholeKey(file, info), built);
+  return built;
+}
+
+/**
+ * One person's "To check again" file (src/sendBack.ts): the header row and the rows of their
+ * plots sent back, in file order, each with the round of their own record (2 or the
+ * reassessment code on a check, as on the copy they were given); null when none of them is in
+ * the file (any more).
+ */
+function recheckServed(file: { checksum: string; data: Buffer }, recheck: RecheckFile, info: RoundInfo | null): ServedFile | null {
+  const hash = createHash('sha256')
+    .update(JSON.stringify([[...recheck.plots].sort(), [...recheck.checks].sort()]))
+    .digest('hex');
+  const key = `recheck:${roundKey(file, info)}:${hash}`;
+  const cached = cacheGet(key);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const plotFile = plotFileOf(file, fileKeyCount(info));
+  const keys = new Set(plotFile.plotIds.filter((id) => recheck.plots.has(id)));
+  let built: ServedFile | null = null;
+  if (keys.size > 0) {
+    const round = roundColumnOf(info, recheck.checks) ?? undefined;
+    const data = buildPlotFile(plotFile, keys, round);
+    built = { data, checksum: checksumOf(data), plotCount: keys.size };
+  }
+  cacheSet(key, built);
   return built;
 }
 

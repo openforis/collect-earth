@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RoundInfo } from '../src/cep.js';
 import { qualityFigures, tableBuffers } from '../src/answerStats.js';
-import { DEFAULT_FAST_SECONDS, fastSecondsOf, flagCountsOf, MAX_LISTED_FLAGS, patternFlags, resubmittedAfterRecheck, seenOf, type Flag, type FlagOptions } from '../src/flags.js';
+import { answerDigests, DEFAULT_FAST_SECONDS, fastSecondsOf, flagCountsOf, MAX_LISTED_FLAGS, patternFlags, resubmittedAfterRecheck, seenOf, type Flag, type FlagOptions } from '../src/flags.js';
 import type { QualityInput, QualityRecord } from '../src/quality.js';
 import type { Question } from '../src/surveyOutline.js';
 import type { DecisionKind } from '../src/types.js';
@@ -392,5 +392,27 @@ describe('pattern flags: filters, counts and what they name', () => {
     expect(fastSecondsOf({ fastSeconds: 0 })).toBe(15);
     expect(fastSecondsOf({ fastSeconds: 121 })).toBe(15);
     expect(fastSecondsOf({ fastSeconds: 2.5 })).toBe(15);
+  });
+});
+
+describe('the answers\' hashes of records read outside the figures (the plots sent back)', () => {
+  it('are those the figures keep, with or without an outline, whatever other records there are', () => {
+    const records = [
+      rec('1,1', 'ana', t0, { ...answers(1), collect_real_area: '4', collect_code_fromcsv: 'x' }),
+      rec('1,2', 'ben', t0 + s(60), { ...answers(2), collect_text_notes: 'other', extra_key: 'z' }),
+      rec('2,1', 'ana', t0 + s(90), { ...answers(3), zzz_other: 'q' }),
+    ];
+    for (const o of [outline, null]) {
+      const figures = figuresOf(records, { outline: o });
+      const seen = seenOf(figures.flags, '1')!;
+      // Only the plot's records (one person's, even), as sentBackTo reads them.
+      for (const subset of [records.slice(0, 2), [records[0]], [records[1]]]) {
+        const digest = answerDigests(o, subset);
+        for (const r of subset) {
+          const kept = seen.find((x) => x.operator === r.operator)!;
+          expect(digest(r.summary), `${r.operator} ${o ? 'outline' : 'no outline'}`).toEqual({ hash: kept.hash, full: kept.full });
+        }
+      }
+    }
   });
 });

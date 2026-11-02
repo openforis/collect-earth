@@ -207,6 +207,26 @@ function answersReader(outline: QualityInput['outline'], records: readonly { sum
   };
 }
 
+/** The reader of every answer, calculated ones too (what a decision saw): `reader` itself when no calculated question counts. */
+function fullReaderOf(outline: QualityInput['outline'], records: readonly { summary: Record<string, string> }[], reader: ReturnType<typeof answersReader>) {
+  return outline && [...outline.values()].some((q) => q.calculated && !q.excluded) ? answersReader(outline, records, true) : reader;
+}
+
+/**
+ * The hashes of a record's answers as the flag table keeps them (`hash`, `full`), for records
+ * read outside the figures (the plots sent back, src/sendBack.ts). Without an outline the
+ * answer keys are those of `records`: a summary's hash depends only on its own answers, so
+ * any set of records holding it gives the figures' hash.
+ */
+export function answerDigests(outline: QualityInput['outline'], records: readonly { summary: Record<string, string> }[]): (summary: Record<string, string>) => { hash: number; full: number } {
+  const reader = answersReader(outline, records);
+  const fullReader = fullReaderOf(outline, records, reader);
+  return (summary) => {
+    const hash = reader.digest(summary).hash;
+    return { hash, full: fullReader === reader ? hash : fullReader.digest(summary).hash };
+  };
+}
+
 /**
  * The flag table of a project, from the same inputs and rows as the answer table
  * (`kept`: firstAssessments(input); `answers`: answerTable(input, kept)).
@@ -216,7 +236,7 @@ export function flagTable(input: QualityInput, kept: readonly FirstAssessment[],
   const outline = input.outline;
   const reader = answersReader(outline, input.records);
   // What a decision saw: every answer, calculated ones too (only with an outline do any differ).
-  const fullReader = outline && [...outline.values()].some((q) => q.calculated && !q.excluded) ? answersReader(outline, input.records, true) : reader;
+  const fullReader = fullReaderOf(outline, input.records, reader);
   // Each record's answers digested once (the rows and the saved records share them).
   const digests = new Map<object, { hash: number; count: number }>();
   for (const r of input.records) if (!r.deleted) digests.set(r, reader.digest(r.summary));
@@ -609,21 +629,49 @@ export function patternFlags(
  * answer to "both need another look"; going through a plot's tabs alone leaves it unsubmitted).
  */
 function savedAgain(f: FlagTable, g: number, d: FlagDecision, submitted: boolean): Map<number, number> {
-  const seen = d.seen ?? null;
   const latest = new Map<number, number>();
   for (let i = f.saved.start[g]; i < f.saved.start[g + 1]; i++) {
-    if (f.saved.received[i] <= d.decidedAt) continue;
-    if (submitted && f.saved.submitted[i] !== 1) continue;
-    const operator = f.saved.operators[f.saved.operator[i]];
-    const after = f.saved.time[i] > d.decidedAt;
-    // Answers the decision saw: the same person's, every answer the same (calculated ones too,
-    // when the decision kept them). An offline edit synced after the decision counts whatever
-    // its modifiedOn: the decision was made on other answers.
-    const unseen = seen !== null && !seen.some((x) => x.operator === operator && x.hash === f.saved.hash[i] && (x.full === undefined || x.full === f.saved.full[i]));
-    const counts = seen === null ? after : unseen || (submitted && after);
-    if (counts && f.saved.time[i] > (latest.get(f.saved.operator[i]) ?? -Infinity)) latest.set(f.saved.operator[i], f.saved.time[i]);
+    const record: SavedRecord = {
+      operator: f.saved.operators[f.saved.operator[i]],
+      time: f.saved.time[i],
+      received: f.saved.received[i],
+      hash: f.saved.hash[i],
+      full: f.saved.full[i],
+      submitted: f.saved.submitted[i] === 1,
+    };
+    if (countsAsSavedAgain(record, d, submitted) && f.saved.time[i] > (latest.get(f.saved.operator[i]) ?? -Infinity)) latest.set(f.saved.operator[i], f.saved.time[i]);
   }
   return latest;
+}
+
+/** A saved record of a decided plot as the rule below reads it: its person, last save (modifiedOn), when the server received it, its answers' hashes, whether it is submitted. */
+export interface SavedRecord {
+  operator: string;
+  time: number;
+  received: number;
+  hash: number;
+  full: number;
+  submitted: boolean;
+}
+
+/**
+ * Whether a record of a decided plot was saved again after decision d (savedAgain's rule, one
+ * record): received after the decision, and its answers not among those the decision saw
+ * (`seen`), or without `seen` also saved after it (modifiedOn, the collector's clock).
+ * `submitted`: only a record submitted now counts, and then also one saved after the decision
+ * with the same answers (submitted again: the answer to "both need another look"). The review
+ * queue, the map and the plots sent back (src/sendBack.ts) all use this one rule.
+ */
+export function countsAsSavedAgain(r: SavedRecord, d: FlagDecision, submitted: boolean): boolean {
+  if (r.received <= d.decidedAt) return false;
+  if (submitted && !r.submitted) return false;
+  const seen = d.seen ?? null;
+  const after = r.time > d.decidedAt;
+  // Answers the decision saw: the same person's, every answer the same (calculated ones too,
+  // when the decision kept them). An offline edit synced after the decision counts whatever
+  // its modifiedOn: the decision was made on other answers.
+  const unseen = seen !== null && !seen.some((x) => x.operator === r.operator && x.hash === r.hash && (x.full === undefined || x.full === r.full));
+  return seen === null ? after : unseen || (submitted && after);
 }
 
 /** A plot decided "both need another look" whose record came back submitted: who, when (modifiedOn), and when it was decided. */
@@ -638,8 +686,8 @@ export interface Resubmitted {
  * The plots decided "both need another look" that were submitted again since (the review
  * queue's third part, Task 7): a record of the plot submitted now, received after the
  * decision, either with answers the decision did not see or saved after it (see
- * savedAgain); each person once. Newest first. Sending a plot back (Task 12) will bring
- * these in by itself; until then the collector reopens the plot.
+ * savedAgain); each person once. Newest first. Each person gets the plot back in a "To check
+ * again" plot file until they submit it again (src/sendBack.ts, the same rule).
  */
 export function resubmittedAfterRecheck(f: FlagTable, decisions: readonly FlagDecision[]): Resubmitted[] {
   const out: Resubmitted[] = [];

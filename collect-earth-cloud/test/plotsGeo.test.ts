@@ -13,7 +13,6 @@ function work(main: string[] = [], drafts: string[] = []): OperatorWork {
     checkDrafts: new Set(),
     submissionTimes: [],
     mainSubmissionTimes: [],
-    mainGroups: new Set(),
   };
 }
 

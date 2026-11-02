@@ -190,8 +190,6 @@ export interface OperatorWork {
    * than the events its modifiedOn (as the pattern flags order them), unsorted.
    */
   mainSubmissionTimes: number[];
-  /** The plot groups (as the quality decisions are keyed) of their first assessments: the plots where they are the main assessor. */
-  mainGroups: Set<string>;
 }
 
 export interface PlotUnits {
@@ -222,7 +220,7 @@ export type PlotUnitsInput = Pick<ProgressInput, 'info' | 'units' | 'copyHolders
 function workOf(byOperator: Map<string, OperatorWork>, operator: string): OperatorWork {
   let work = byOperator.get(operator);
   if (!work) {
-    work = { mainSubmitted: new Map(), mainDrafts: new Set(), checkSubmitted: new Map(), checkDrafts: new Set(), submissionTimes: [], mainSubmissionTimes: [], mainGroups: new Set() };
+    work = { mainSubmitted: new Map(), mainDrafts: new Set(), checkSubmitted: new Map(), checkDrafts: new Set(), submissionTimes: [], mainSubmissionTimes: [] };
     byOperator.set(operator, work);
   }
   return work;
@@ -282,9 +280,8 @@ export function plotUnits(input: PlotUnitsInput, perOperator = false): PlotUnits
   const byOperator = new Map<string, OperatorWork>();
   for (const r of input.records) {
     if (r.deleted) continue;
-    const { unit, round, group } = resolve(r);
+    const { unit, round } = resolve(r);
     const work = perOperator ? workOf(byOperator, r.operator) : null;
-    if (round.assessment === 'main') work?.mainGroups.add(group);
     if (unit === null) continue;
     // A submitted record with no event `submitted` (stored before events were kept): its time.
     const at = r.firstSubmittedOn ?? r.modifiedOn;

@@ -2013,6 +2013,108 @@ with `'`), and the read state.
 - Blindness: no other person's data in it.
 - The round column.
 
+**As built** (differs from the above where it says so)
+- **Nothing stored, no migration:** the files are worked out on each request from the decisions
+  and the records (`src/sendBack.ts`). Undoing the decision (`DELETE`) or changing it to first /
+  check takes the plots out at once; deciding "Both need another look" again (a new `decidedAt`)
+  sends the plot back again to everyone. The audit stays the decision's `decision.set`.
+- **Who gets it:** everyone with a record of the plot that is not deleted and of a known round,
+  first assessment or check, drafts too (`assessesPlot`, the rule of the figures' saved records
+  and of the queue's `plotOperators`): the main assessor and every checker, each only their own
+  plots. **Per person, not "once both have":** a person's plot leaves *their* file as soon as they
+  submit it again (`countsAsSavedAgain`, now exported from `src/flags.ts` and used by
+  `savedAgain` itself, so the queue, the map and the files share one rule: submitted now, received
+  after the decision, with answers the decision did not see or saved after it). The other person
+  keeps it until they submit too. Their records are read live by key (`listRecordsByKeys` of
+  `recordKeysOfUnit` for every recheck plot), not from the figures, so the file follows the
+  records at once; their answers are hashed as the flag table does (`answerDigests`, tested equal
+  to the figures' `seen` hashes with and without an outline, on a subset of the records).
+- **The file:** one per plot file, named `To check again – <file name>` (en dash, U+2013, English
+  for everyone: the server does not know the collector's language), id `recheckFileId(csvFileId)`
+  (a UUID v5-shaped sha256 of the plot file's id: the same for both people and on every call),
+  listed in `my-assignment` **after** the person's other files, with `checksum`, `plotCount` and
+  `downloadPath …/csv-files/<id>/content?mine=1&v=<checksum>` like the divided files (409
+  `changed` when it changed between the list and the download; 404 for anyone with no plot in it,
+  coordinators too: it is per person). Its rows are the plot file's header and the rows of the
+  person's plots in file order, with **the round column of their own record**
+  (`roundColumnOf(info, checks)`): the round the server adds gets 1 on a first assessment and 2 on a
+  check; an own round with a reassessment code gets that code on a check; without a round the rows
+  are as uploaded (a checker's record still resolves as a check through their copy). So a sent-back
+  check is served exactly as the copy was: blind, and its key is the checker's record key. Where a
+  plot is in several plot files, the first (files' order) in which the person holds it (a whole file
+  given to them or a holding of a divided one), else the first that has it. A plot in no plot file
+  is in no file (My work still lists it). Built files are kept in the same LRU as the divided files
+  (`recheck:` keys).
+- **Content-Disposition:** a header may hold nothing beyond Latin-1, so the "–" would have made
+  every download of the file a 500 (as any uploaded name beyond Latin-1 already did): now
+  `attachment; filename="<ASCII, others as _>"; filename*=UTF-8''<percent-encoded>` for all plot
+  files (`attachment()`); Collect Earth does not read this header.
+- **What Collect Earth does with it (checked in the desktop code; the real run is Task 22):**
+  - `CloudApiClient.getMyAssignments` reads `csvFileId, filename, checksum, downloadPath,
+    plotCount` of each entry; only the plot settings use it (`SampleDataPanel`: a combo filled on
+    opening the settings and on Refresh, label "<filename> (<plotCount>)"). Nothing else in the
+    desktop calls it: the file appears on the next Refresh or the next time the settings are
+    opened, never by itself.
+  - `populateAssignments` selects the entry whose `filename` the path of the plot file in use ends
+    with, the **last** such entry, else the first entry; the combo's listener then downloads the
+    selected entry at once. "…/To check again – north.csv" also ends with "north.csv", so the
+    generated file is listed after the others: then each of the two stays selected when it is in
+    use. The person chooses the "To check again" entry and presses Apply, as for any plot file.
+  - `downloadAssignedCsv` writes it to `<project folder>/assignments/<filename>` (`new
+    File(filename).getName()`, refused outside that folder) and checks its sha256 against the
+    listed checksum. **It never deletes a file**: a file that leaves the list (all its plots
+    submitted again, or the decision undone) stays on disk and stays the plot file in use until the
+    person picks another; its plots are then already submitted. Downloading again overwrites it.
+  - **The name on Windows:** "–" and accented letters are fine in NTFS names and in Java's `File`.
+    The plot file's path is kept in `earth.properties` (`LocalPropertiesService`: `FileReader` /
+    `FileWriter` with `Properties.load/store(Reader/Writer)`, the JVM's default charset both ways:
+    UTF-8 on JDK 18+; "–" also exists in windows-1252), the KML's description (`plotFileName`,
+    `loadApp.fmt`) and the balloon's `plot_file` parameter (`BalloonServlet`) carry it as text.
+    The same holds for any non-ASCII name a coordinator uploads.
+- **My work and the person page:** `quality.sentBack` now comes from the same function
+  (`sentBackTo`, given the project state's plot context) instead of the decisions and
+  `OperatorWork.mainGroups` (removed): the plots sent back to them, first assessments and checks
+  alike, each `{ plot, comment, decidedAt, decidedBy (coordinators only), submittedAgain, file }`
+  (`file`: the "To check again" file it is in, while waiting). Never `assessment` or anything that
+  says which is a check (route test serializes My work; smoke too). The pages add "Submitted again"
+  or "In Collect Earth: the plot file “…” in the plot settings (press Refresh there to see it)."
+  The comment reaches Collect Earth only through Task 16.
+- **The review queue** (`GET /quality/queue`): an item decided recheck has `waiting`: the people
+  with a record of the plot in the figures (`plotOperators`) who have not submitted it again
+  (`resubmittedAfterRecheck`); the card says "Still to submit it again: jose." or "Everyone it was
+  sent back to has submitted it again.". The parts of the queue are unchanged (a plot comes to
+  "submitted again" when anyone has). The comment field (queue and differences list) now says that
+  with "Both need another look" each person who assessed the plot reads the comment on My work, and
+  not to say which of them made the check.
+- **Texts:** 5 keys × 4 languages (`person.sentBackFile`, `person.sentBackAgain`,
+  `queue.waitingFor`, `queue.allSubmittedAgain`, `quality.commentSeen`); `i18n.ts`, `api.ts`,
+  `api.test.ts`, `QualityDifferences.tsx`, `server.ts` written with CRLF kept.
+- **Tests:** server 932 (was 924: `test/sendBack.test.ts` 8 — pure: who, their assessment,
+  deleted, submitted again or a draft; the file per plot file and the held file first; the id; the
+  route: both people's files parsed with `parsePlotFile` as Collect Earth reads them (keys `2,1` /
+  `2,2`, checksum, a quoted field and CRLF kept, a non-ASCII file name, the Content-Disposition), listed last,
+  stable, a second plot (the old checksum 409), nobody else's (404, coordinators too); per person
+  after submitting again (the seen answers synced late and a tabs-only draft do not count), the
+  queue's `waiting`; undo and change; an own round (the check with the reassessment code); a whole
+  file without a round, the check from its divided file, My work and the person page; flags 1 — the
+  hashes; people updated), web 304 (two cases extended: the queue's `waiting`, the sent-back fields), tsc clean in both, web
+  build ok.
+- **Postgres smoke** (`npm run smoke:pg:progress`, no new SQL; now also Task 12 on the 100,000-record
+  project): plot 15 sent back, op15 (first) and op16 (check) each get "To check again – big.csv"
+  with only plot 15 under one id, op17 nothing; op16's My work lists it with the comment and the
+  file, saying nothing of a check; op15 submits again: gone for op15 only; undone: gone for op16.
+  **GET /my-assignment 259-337 ms** for someone with a plot sent back (the plot context: the
+  100,000-plot file and 20,000 holdings read again each call), 62 ms for op17 (decisions and the
+  plot's records only), 26 ms with no recheck decision. ALL OK. Docker stopped after.
+- **Open:** my-assignment (and the download after it) loads the plot context again for a person
+  with plots sent back (~0.3 s at 100k; could share `ProjectStateCache`'s); the file's name is
+  English in every language; a coordinator's file literally named "To check again – x.csv" would
+  share the local file name with a generated one; Collect Earth keeps an emptied file on disk (it
+  never deletes); the queue's `waiting` comes from the figures at hand (the file from the records
+  now), so they can differ until the figures catch up; the comment shown to both people is the
+  coordinator's text (the field says not to name the check); no Chrome run of the three small page
+  changes (lines of text).
+
 ### Task 13: Automatic check sampling (improvements 1 and 2)
 
 **Files:**

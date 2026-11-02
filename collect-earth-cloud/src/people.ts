@@ -4,6 +4,7 @@ import { addDays, localDate, localHour } from './days.js';
 import { dailyOf, dayInZone, isQuiet, plotUnits, type OperatorWork, type PlotUnits, type PlotUnitsInput } from './progress.js';
 import type { FlagCounts } from './flags.js';
 import type { QualityReport, Rate } from './quality.js';
+import type { SentBackPlot } from './sendBack.js';
 import type { CepInfo, CsvFile, InviteSummary, Member, MemberActivity, ProgressSettings, QualityDecision, Role } from './types.js';
 
 /**
@@ -166,6 +167,10 @@ export interface SentBack {
   decidedAt: number;
   /** Who decided (left out on My work). */
   decidedBy?: string | null;
+  /** They submitted it again since: it has left their "To check again" file. */
+  submittedAgain: boolean;
+  /** The "To check again" plot file it is in for them in Collect Earth, while waiting (null: none). */
+  file: string | null;
 }
 
 export interface PersonDetail {
@@ -190,7 +195,11 @@ export interface PersonDetail {
     asFirst: Rate | null;
     /** The plots they checked (not on My work). */
     asChecker?: Rate | null;
-    /** Plots where they are the main assessor that the coordinator asked to look at again (decision "recheck"), newest first. */
+    /**
+     * Plots sent back to them for another look (decision "recheck" on a plot with a record of
+     * theirs, first assessment or check alike: src/sendBack.ts), the same plots as their "To
+     * check again" files and those submitted again since, newest first. Never says which are checks.
+     */
     sentBack: SentBack[];
     /** Their pattern flags by kind (Task 5), from the figures at hand; null without them. Never on My work. */
     flags?: FlagCounts | null;
@@ -217,6 +226,8 @@ export interface PeopleInput extends PlotUnitsInput {
   fastSeconds?: number;
   /** username -> their pattern flags by kind, from the figures at hand (the coordinator's person page only). */
   flagCounts?: (username: string) => FlagCounts | null;
+  /** The plots sent back to the person of the page (sentBackTo); none when absent. */
+  sentBack?: readonly SentBackPlot[];
 }
 
 const EMPTY_WORK: OperatorWork = {
@@ -226,7 +237,6 @@ const EMPTY_WORK: OperatorWork = {
   checkDrafts: new Set(),
   submissionTimes: [],
   mainSubmissionTimes: [],
-  mainGroups: new Set(),
 };
 
 function median(values: number[]): number | null {
@@ -588,11 +598,16 @@ export function personDetail(input: PeopleInput, userId: string, options: { self
           : { kind: 'collect-earth', version: agent.version },
   };
 
-  // Only plots where they made the first assessment (a check of theirs is never "theirs" to look at again).
-  const sentBack: SentBack[] = input.decisions
-    .filter((d) => d.decision === 'recheck' && work.mainGroups.has(d.plot))
-    .sort((a, b) => b.decidedAt - a.decidedAt)
-    .map((d) => (self ? { plot: d.plot, comment: d.comment, decidedAt: d.decidedAt } : { plot: d.plot, comment: d.comment, decidedAt: d.decidedAt, decidedBy: d.decidedBy }));
+  // The plots sent back to them, as their "To check again" files hold them: their first
+  // assessments and their checks alike, without saying which (checks are blind on My work).
+  const sentBack: SentBack[] = (input.sentBack ?? []).map((d) => ({
+    plot: d.plot,
+    comment: d.comment,
+    decidedAt: d.decidedAt,
+    ...(self ? {} : { decidedBy: d.decidedBy }),
+    submittedAgain: d.submittedAgain,
+    file: d.file,
+  }));
 
   const detail: PersonDetail = {
     timeZone: input.timeZone,

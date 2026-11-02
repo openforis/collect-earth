@@ -445,6 +445,37 @@ await owner.query('ANALYZE records');
   // The first submissions come with the summaries for the worker (the events' join).
   const withFirst = await store.listRecordSummaries(big, { firstSubmissions: true });
   check('listRecordSummaries with firstSubmissions: every submitted record has its first submission', withFirst.filter((r) => r.activelySaved).every((r) => typeof r.firstSubmittedOn === 'number'), withFirst.slice(0, 2).map((r) => r.firstSubmittedOn));
+  // "To check again" (Task 12): plot 15 sent back for another look; op15 made its first
+  // assessment and op16 its check: each gets it in a generated plot file in my-assignment.
+  const sessionOf = async (name: string) => store.createSession((await owner.query('SELECT id FROM users WHERE username = $1', [name])).rows[0].id as string);
+  const [op15s, op16s, op17s] = [await sessionOf('op15'), await sessionOf('op16'), await sessionOf('op17')];
+  const sendBack = await fresh.inject({ method: 'PUT', url: `/v1/projects/${big}/quality/decisions/15`, headers: bearer(ownerToken), payload: { decision: 'recheck', comment: 'Look again' } });
+  check('PUT /quality/decisions/15 recheck', sendBack.statusCode === 200, sendBack.body.slice(0, 200));
+  const assignmentOf = async (token: string) => {
+    const t0 = performance.now();
+    const r = await fresh.inject({ method: 'GET', url: `/v1/projects/${big}/my-assignment`, headers: bearer(token) });
+    const ms = Math.round(performance.now() - t0);
+    const entry = (r.json().assignments as { filename: string; checksum: string; downloadPath: string; csvFileId: string }[]).find((e) => e.filename.startsWith('To check again'));
+    const body = entry ? (await fresh.inject({ method: 'GET', url: entry.downloadPath, headers: bearer(token) })).body : null;
+    return { ms, status: r.statusCode, entry, body };
+  };
+  const r15 = await assignmentOf(op15s);
+  const r15again = await assignmentOf(op15s);
+  const r16 = await assignmentOf(op16s);
+  const r17 = await assignmentOf(op17s);
+  check('my-assignment: op15 and op16 each get "To check again – big.csv" with plot 15 only, under one id; op17 none', r15.status === 200 && r15.entry?.filename === 'To check again – big.csv' && r15.body === 'id,lat,lon\n15,0,0\n' && r16.entry?.csvFileId === r15.entry?.csvFileId && r16.body === r15.body && r17.status === 200 && r17.entry === undefined, { r15: [r15.status, r15.entry, r15.body], r16: [r16.entry, r16.body], r17: r17.entry });
+  const work16 = await fresh.inject({ method: 'GET', url: `/v1/projects/${big}/my-work?tz=Asia/Tokyo`, headers: bearer(op16s) });
+  const sent16 = work16.json().quality?.sentBack ?? [];
+  check("op16's My work lists plot 15 with the comment and the file, never saying it is a check", work16.statusCode === 200 && sent16.length === 1 && sent16[0].plot === '15' && sent16[0].comment === 'Look again' && sent16[0].file === 'To check again – big.csv' && !/check(?! again)|assessment|cop(y|ies)/i.test(JSON.stringify(sent16)), sent16);
+  // op15 submits it again: it leaves op15's file, not op16's.
+  await owner.query(`UPDATE records SET modified_on = now() + interval '1 minute', received_at = now() + interval '1 minute' WHERE project_id = $1 AND record_key = '15' AND operator = 'op15'`, [big]);
+  const r15after = await assignmentOf(op15s);
+  const r16after = await assignmentOf(op16s);
+  check('... op15 submits it again: gone from their list, still in op16\'s', r15after.entry === undefined && r16after.entry !== undefined, { r15: r15after.entry, r16: r16after.entry });
+  const undo = await fresh.inject({ method: 'DELETE', url: `/v1/projects/${big}/quality/decisions/15`, headers: bearer(ownerToken) });
+  const r16undone = await assignmentOf(op16s);
+  check('... the decision undone: gone from op16\'s too', undo.statusCode === 204 && r16undone.entry === undefined, r16undone.entry);
+  console.log(`     GET /my-assignment with a plot sent back: op15 ${r15.ms} ms, again ${r15again.ms} ms, op16 ${r16.ms} ms; op17 (no record of it) ${r17.ms} ms; after the undo ${r16undone.ms} ms`);
   await fresh.close();
   // The worker's two parts on this thread, for the record.
   const { answerTable } = await import('../src/answerStats.js');

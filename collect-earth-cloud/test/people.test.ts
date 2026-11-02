@@ -306,28 +306,29 @@ describe("a person's page", () => {
       { plot: '2', decision: 'first' as const, comment: null, decidedBy: 'coord', decidedAt: NOW - DAY },
       { plot: '7', decision: 'recheck' as const, comment: null, decidedBy: 'coord', decidedAt: NOW }, // bo's record
     ];
-    const over = { quality: { report, computedAt: NOW, stale: false }, decisions };
+    // The plots sent back come worked out (sentBackTo, test/sendBack.test.ts): a first assessment and a check alike.
+    const sentBack = [
+      { plot: '1', comment: 'Look at the trees', decidedAt: NOW - DAY, decidedBy: 'coord', assessment: 'main' as const, submittedAgain: false, sourceFileId: 'w', file: 'To check again – w.csv' },
+      { plot: '5', comment: null, decidedAt: NOW - 2 * DAY, decidedBy: 'coord', assessment: 'check' as const, submittedAgain: true, sourceFileId: null, file: null },
+    ];
+    const over = { quality: { report, computedAt: NOW, stale: false }, decisions, sentBack };
     const coordinator = personDetail(project(records, over), 'u-ana', { self: false })!;
     expect(coordinator.quality).toMatchObject({ available: true, asFirst: { rate: 0.8 }, asChecker: { rate: 1 } });
-    expect(coordinator.quality.sentBack).toEqual([{ plot: '1', comment: 'Look at the trees', decidedAt: NOW - DAY, decidedBy: 'coord' }]);
+    expect(coordinator.quality.sentBack).toEqual([
+      { plot: '1', comment: 'Look at the trees', decidedAt: NOW - DAY, decidedBy: 'coord', submittedAgain: false, file: 'To check again – w.csv' },
+      { plot: '5', comment: null, decidedAt: NOW - 2 * DAY, decidedBy: 'coord', submittedAgain: true, file: null },
+    ]);
     const mine = personDetail(project(records, over), 'u-ana', { self: true })!;
     expect(mine.quality.asFirst).toEqual({ compared: 21, agreeing: 17, rate: 17 / 21 });
     expect(mine.person.agreement).toEqual(mine.quality.asFirst);
     expect('asChecker' in mine.quality).toBe(false);
-    expect(mine.quality.sentBack).toEqual([{ plot: '1', comment: 'Look at the trees', decidedAt: NOW - DAY }]);
+    // My work: no name of who decided, nothing that says which is a check.
+    expect(mine.quality.sentBack).toEqual([
+      { plot: '1', comment: 'Look at the trees', decidedAt: NOW - DAY, submittedAgain: false, file: 'To check again – w.csv' },
+      { plot: '5', comment: null, decidedAt: NOW - 2 * DAY, submittedAgain: true, file: null },
+    ]);
     expect(personDetail(project(records), 'u-ana', { self: true })!.quality.asFirst).toBeNull();
-  });
-
-  it('the plots to look at again are only those where they made the first assessment', () => {
-    const decisions = [
-      { plot: '5', decision: 'recheck' as const, comment: 'edge', decidedBy: 'coord', decidedAt: NOW }, // bo first, ana's check
-      { plot: '7', decision: 'recheck' as const, comment: null, decidedBy: 'coord', decidedAt: NOW }, // ana holds 7, bo assessed it
-    ];
-    const ana = personDetail(project(records, { decisions }), 'u-ana', { self: false })!;
-    expect(ana.quality.sentBack).toEqual([]);
     expect(personDetail(project(records, { decisions }), 'u-ana', { self: true })!.quality.sentBack).toEqual([]);
-    const bo = personDetail(project([...records, rec('5', 'bo', true, NOW - DAY)], { decisions }), 'u-bo', { self: false })!;
-    expect(bo.quality.sentBack.map((d) => d.plot).sort()).toEqual(['5', '7']);
   });
 
   it('what removing them leaves behind: plots they alone hold, not submitted, and copies not checked', () => {

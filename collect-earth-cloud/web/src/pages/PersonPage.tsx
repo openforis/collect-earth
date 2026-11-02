@@ -393,8 +393,19 @@ export function QualitySection({ data, self, projectId }: { data: PersonData; se
                         {!self && s.decidedBy ? ` · ${s.decidedBy}` : ""}
                       </Box>
                     )}
+                    {s.submittedAgain && (
+                      <Box component="span" sx={{ color: "text.secondary" }}>
+                        {" "}
+                        · {t("person.sentBackAgain")}
+                      </Box>
+                    )}
                   </Typography>
                   {s.comment && <Typography sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word", color: "text.secondary" }}>{s.comment}</Typography>}
+                  {!s.submittedAgain && s.file && (
+                    <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+                      {t("person.sentBackFile", { file: s.file })}
+                    </Typography>
+                  )}
                 </Box>
               ))}
             </Box>

@@ -282,6 +282,11 @@ function QueueCard({
             {t("queue.resubmittedBy", { name: r.operator, time: formatDate(r.at, language), decided: formatDate(r.decidedAt, language) })}
           </Typography>
         ))}
+        {decision?.decision === "recheck" && item.waiting !== null && (item.resubmitted.length > 0 || item.waiting.length === 0) && (
+          <Typography variant="body2">
+            {item.waiting.length > 0 ? t("queue.waitingFor", { names: item.waiting.join(", ") }) : t("queue.allSubmittedAgain")}
+          </Typography>
+        )}
         {decision && (
           <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
             <Chip color="primary" variant="outlined" label={t("quality.decided", { decision: t(DECISION_LABEL[decision.decision]) })} />
@@ -308,6 +313,7 @@ function QueueCard({
         )}
         <TextField
           label={t("quality.comment")}
+          helperText={t("quality.commentSeen")}
           value={comment}
           onChange={(e) => onComment(e.target.value)}
           size="small"

@@ -176,10 +176,21 @@ describe("reading the server's answers", () => {
     expect(data.people[1]).toMatchObject({ role: "operator", status: { kind: "working", days: null, level: null }, agreement: { compared: 3, rate: null } });
     expect(data.invites[0]).toMatchObject({ role: "reviewer", maxUses: 2, usedCount: 1 });
     expect(data.week.days).toEqual([]);
-    const person = toPersonData({ hours: [1, 2], quality: { available: true, asFirst: null, sentBack: [{ plot: "7", comment: "x", decidedAt: 5 }] } });
+    const person = toPersonData({
+      hours: [1, 2],
+      quality: { available: true, asFirst: null, sentBack: [{ plot: "7", comment: "x", decidedAt: 5 }, { plot: "8", comment: null, decidedAt: 6, submittedAgain: false, file: "To check again – a.csv" }] },
+    });
     expect(person.hours).toHaveLength(24);
     expect(person.hours.slice(0, 3)).toEqual([1, 2, 0]);
-    expect(person.quality).toMatchObject({ available: true, asFirst: null, asChecker: null, sentBack: [{ plot: "7", comment: "x", decidedAt: 5, decidedBy: null }] });
+    expect(person.quality).toMatchObject({
+      available: true,
+      asFirst: null,
+      asChecker: null,
+      sentBack: [
+        { plot: "7", comment: "x", decidedAt: 5, decidedBy: null, submittedAgain: false, file: null },
+        { plot: "8", comment: null, decidedAt: 6, submittedAgain: false, file: "To check again – a.csv" },
+      ],
+    });
     expect(person.sync.collectEarth).toBeNull();
   });
 });

@@ -213,6 +213,7 @@ function PlotDifferences({
           <Stack spacing={1.5}>
             <TextField
               label={t("quality.comment")}
+              helperText={t("quality.commentSeen")}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               size="small"

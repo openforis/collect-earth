@@ -5,6 +5,7 @@ import { peopleTable, personDetail, type PeopleInput } from '../people.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { ProjectStateCache, ServedState } from '../projectState.js';
 import { remember, type QualityService } from '../qualityService.js';
+import { sentBackTo } from '../sendBack.js';
 import type { Store } from '../store/store.js';
 import type { InviteSummary, MemberActivity } from '../types.js';
 
@@ -58,7 +59,7 @@ export async function loadPeople(
   served: ServedState,
   request: FastifyRequest,
   now: number,
-  options: { activityOf?: string; invites: boolean; flags?: boolean },
+  options: { activityOf?: string; invites: boolean; flags?: boolean; sentBackOf?: string },
 ): Promise<PeopleInput> {
   const projectId = request.membership!.projectId;
   const { state, members } = served;
@@ -73,6 +74,18 @@ export async function loadPeople(
   ]);
   const usernames = new Map(members.map((m) => [m.userId, m.username]));
   const inviteFor = options.invites ? await invitesFor(store, projectId, invites, usernames) : undefined;
+  // A person's page: the plots sent back to them, as their "To check again" files hold them.
+  const sentBackUser = options.sentBackOf !== undefined ? usernames.get(options.sentBackOf) : undefined;
+  const sentBack =
+    options.sentBackOf !== undefined && sentBackUser !== undefined
+      ? (
+          await sentBackTo(store, projectId, { userId: options.sentBackOf, username: sentBackUser }, {
+            info: state.context.info,
+            context: async () => state.context,
+            outline: () => quality.outline(projectId, request.log),
+          })
+        ).plots
+      : undefined;
   // My work: only the person's own activity is kept.
   const own: MemberActivity[] = options.activityOf === undefined ? activity : activity.filter((a) => a.userId === options.activityOf);
   return {
@@ -101,6 +114,7 @@ export async function loadPeople(
       options.flags && figures
         ? (username) => flagCountsOf(figures, decisions, fastSecondsOf(qualitySettings), username)
         : undefined,
+    sentBack,
   };
 }
 
@@ -142,7 +156,7 @@ export async function registerPeopleRoutes(
     if (!served.members.some((m) => m.userId === userId)) {
       return reply.code(404).send({ error: 'not_found', reason: 'no such person in this project' });
     }
-    const detail = personDetail(await loadPeople(store, quality, served, request, at, { invites: false, flags: true }), userId, { self: false });
+    const detail = personDetail(await loadPeople(store, quality, served, request, at, { invites: false, flags: true, sentBackOf: userId }), userId, { self: false });
     if (!detail) {
       return reply.code(404).send({ error: 'not_found', reason: 'no such person in this project' });
     }
@@ -162,7 +176,7 @@ export async function registerPeopleRoutes(
       return reply.send(last.body);
     }
     const served = await states.get(projectId, request.log);
-    const detail = personDetail(await loadPeople(store, quality, served, request, at, { activityOf: userId, invites: false }), userId, { self: true });
+    const detail = personDetail(await loadPeople(store, quality, served, request, at, { activityOf: userId, invites: false, sentBackOf: userId }), userId, { self: true });
     if (!detail) {
       return reply.code(404).send({ error: 'not_found' });
     }
