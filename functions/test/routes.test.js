@@ -120,3 +120,43 @@ test("POST /api/series/landsat with a valid plot but no EE_KEY reaches the auth 
   const { res, logged } = await postWithoutKey("/api/series/landsat", { plot: belize, start: "2012-01-01", end: "2016-01-01" });
   assertEeKeyMissing500(res, logged);
 });
+
+test("POST /api/series/sentinel2 without a body is a 400 bad_request", async () => {
+  const res = await request(createApp(registerRoutes)).post("/api/series/sentinel2");
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error.code, "bad_request");
+  assert.match(res.body.error.message, /plot is required/);
+});
+
+test("POST /api/series/sentinel2 with a valid plot but no EE_KEY reaches the auth step and fails as JSON 500", async () => {
+  const { res, logged } = await postWithoutKey("/api/series/sentinel2", { plot: belize, start: "2022-01-01", end: "2022-07-01" });
+  assertEeKeyMissing500(res, logged);
+});
+
+test("POST /api/tiles/scene without a body is a 400 bad_request", async () => {
+  const res = await request(createApp(registerRoutes)).post("/api/tiles/scene");
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error.code, "bad_request");
+  assert.match(res.body.error.message, /plot is required/);
+});
+
+test("POST /api/tiles/scene with an unknown sensor is a 400 before EE auth", async () => {
+  const { res, logged } = await postWithoutKey("/api/tiles/scene", { plot: belize, sensor: "modis", timeStart: 1 });
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error.code, "bad_request");
+  assert.match(res.body.error.message, /landsat or sentinel2/);
+  assert.equal(logged.length, 0, "a 400 must not reach the EE auth step or be logged as a server error");
+});
+
+test("POST /api/tiles/scene with a non-numeric timeStart is a 400 before EE auth", async () => {
+  const { res, logged } = await postWithoutKey("/api/tiles/scene", { plot: belize, sensor: "landsat", timeStart: "abc" });
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error.code, "bad_request");
+  assert.match(res.body.error.message, /timeStart/);
+  assert.equal(logged.length, 0, "a 400 must not reach the EE auth step or be logged as a server error");
+});
+
+test("POST /api/tiles/scene with a valid plot, sensor and timeStart but no EE_KEY reaches the auth step and fails as JSON 500", async () => {
+  const { res, logged } = await postWithoutKey("/api/tiles/scene", { plot: belize, sensor: "sentinel2", timeStart: "1609459200000" });
+  assertEeKeyMissing500(res, logged);
+});

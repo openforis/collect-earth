@@ -6,6 +6,8 @@ const { sentinel2CompositeTiles } = require("./ee/sentinel2Composite");
 const { landsatCompositeTiles } = require("./ee/landsatComposite");
 const { modisSeries } = require("./ee/modisSeries");
 const { landsatSeries } = require("./ee/landsatSeries");
+const { sentinel2Series } = require("./ee/sentinel2Series");
+const { sceneTiles, validateSceneRequest } = require("./ee/scene");
 
 /**
  * Builds a POST handler: parse body, run the optional `validate(body)` hook, auth EE,
@@ -30,6 +32,14 @@ function registerRoutes(app) {
   );
   app.post("/api/series/modis", plotRoute((p, g) => modisSeries(g, p.start, p.end)));
   app.post("/api/series/landsat", plotRoute((p, g) => landsatSeries(g, p.start, p.end)));
+  app.post("/api/series/sentinel2", plotRoute((p, g) => sentinel2Series(g, p.start, p.end)));
+  app.post(
+    "/api/tiles/scene",
+    plotRoute((p, g, body) => {
+      const { sensor, timeStart } = validateSceneRequest(body);
+      return sceneTiles(g, p.start, p.end, sensor, timeStart);
+    }, validateSceneRequest)
+  );
 }
 
 module.exports = { registerRoutes, plotRoute };
