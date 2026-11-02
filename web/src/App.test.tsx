@@ -30,8 +30,8 @@ describe("App", () => {
   const fetchMock = vi.fn();
   beforeEach(() => {
     fetchMock.mockReset();
-    // The compare layer's tiles are requested alongside the primary layer's
-    // (useLayerTiles(compareLayer) is always mounted), so answer per endpoint.
+    // Answer per endpoint: the compare layer (Landsat by default) is only
+    // requested once Compare is ticked.
     fetchMock.mockImplementation(async (url: string) => (url === "/api/tiles/landsat" ? json(LANDSAT_TILE) : json(TILE)));
     vi.stubGlobal("fetch", fetchMock);
   });
@@ -59,20 +59,21 @@ describe("App", () => {
     expect(screen.getByTestId("card-landsat")).toBeTruthy();
     expect(screen.getByTestId("card-sentinel2")).toBeTruthy();
     expect(screen.getByTestId("card-modis")).toBeTruthy();
-    expect(screen.getByText("Layers")).toBeTruthy();
+    // jsdom's innerWidth (1024) is above the collapse breakpoint: the panel is open.
+    expect(screen.getByRole("button", { name: "Layers" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("radio", { name: /Sentinel-2/ })).toBeTruthy();
     expect(screen.getByText("Loading imagery…")).toBeTruthy();
 
     expect(await screen.findByText(TILE.label)).toBeTruthy();
-    // Only the primary layer's label is shown while compare is off, even though the
-    // compare layer (Landsat by default) was requested too.
+    // Only the primary layer is requested while compare is off.
     expect(screen.queryByText(LANDSAT_TILE.label)).toBeNull();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    const [[url, init]] = callsTo(fetchMock, "/api/tiles/sentinel2") as [string, RequestInit][];
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [[url, init]] = fetchMock.mock.calls as [string, RequestInit][];
     expect(url).toBe("/api/tiles/sentinel2");
     const body = JSON.parse(init.body as string);
     expect(body.plot.type).toBe("Polygon");
     expect(body.start).toBe("2000-01-01");
-    expect(callsTo(fetchMock, "/api/tiles/landsat")).toHaveLength(1);
+    expect(callsTo(fetchMock, "/api/tiles/landsat")).toHaveLength(0);
   });
 
   it("shows the imagery error with a Retry button that re-requests the tiles", async () => {
@@ -99,16 +100,18 @@ describe("App", () => {
     window.history.replaceState({}, "", PLOT_URL);
     render(<App />);
     expect(await screen.findByText(TILE.label)).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole("checkbox", { name: /Compare with/ }));
-    const compareMap = screen.getByTestId("compare-map");
     expect(screen.queryByTestId("map")).toBeNull();
+    expect(screen.getByText(`Left: ${TILE.label}`)).toBeTruthy();
+    // Ticking Compare is what requests the compare layer's tiles.
+    expect(screen.getByText("Right: Loading imagery…")).toBeTruthy();
+    expect(callsTo(fetchMock, "/api/tiles/landsat")).toHaveLength(1);
+    expect(await screen.findByText(`Right: ${LANDSAT_TILE.label}`)).toBeTruthy();
+    const compareMap = screen.getByTestId("compare-map");
     expect(compareMap.getAttribute("data-left")).toBe(TILE.tileUrl);
     expect(compareMap.getAttribute("data-right")).toBe(LANDSAT_TILE.tileUrl);
-    expect(screen.getByText(`Left: ${TILE.label}`)).toBeTruthy();
-    expect(screen.getByText(`Right: ${LANDSAT_TILE.label}`)).toBeTruthy();
-    // The compare layer's tiles were already fetched on load; toggling does not refetch.
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     // Picking Sentinel-2 for the right-hand side reuses the primary layer's request kind.
@@ -120,5 +123,7 @@ describe("App", () => {
     expect(screen.getByTestId("map")).toBeTruthy();
     expect(screen.queryByTestId("compare-map")).toBeNull();
     expect(screen.queryByText(/^Right:/)).toBeNull();
+    // Unticking does not request anything.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

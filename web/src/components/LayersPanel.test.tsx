@@ -40,10 +40,23 @@ const committedYear = () => Number(screen.getByTestId("year").textContent);
 const compareCheckbox = () => screen.getByRole("checkbox", { name: /Compare with/ }) as HTMLInputElement;
 const compareSelect = () => screen.queryByRole("combobox", { name: "Compare layer" }) as HTMLSelectElement | null;
 const compareLayer = () => screen.getByTestId("compare-layer").textContent;
+const toggleButton = () => screen.getByRole("button", { name: "Layers" });
+
+/** jsdom defaults innerWidth to 1024; set it explicitly so each test pins its own breakpoint. */
+function setInnerWidth(px: number) {
+  Object.defineProperty(window, "innerWidth", { value: px, configurable: true, writable: true });
+}
 
 describe("LayersPanel", () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
+  const originalInnerWidth = window.innerWidth;
+  beforeEach(() => {
+    vi.useFakeTimers();
+    setInnerWidth(1200);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    setInnerWidth(originalInnerWidth);
+  });
 
   it("renders three radios with Sentinel-2 checked and the Scene radio disabled", () => {
     setup();
@@ -159,5 +172,47 @@ describe("LayersPanel", () => {
     expect(compareSelect()!.value).toBe("sentinel2");
     // The primary layer is untouched by the compare selection.
     expect(radio(/Sentinel-2/).checked).toBe(true);
+  });
+
+  describe("collapsing on narrow screens", () => {
+    it("starts collapsed at 390 px, showing only the Layers button, and the button opens and closes it", () => {
+      setInnerWidth(390);
+      setup();
+      expect(toggleButton().getAttribute("aria-expanded")).toBe("false");
+      expect(screen.queryByRole("radio")).toBeNull();
+      expect(screen.queryByRole("slider")).toBeNull();
+
+      fireEvent.click(toggleButton());
+      expect(toggleButton().getAttribute("aria-expanded")).toBe("true");
+      expect(screen.getAllByRole("radio")).toHaveLength(3);
+      expect(radio(/Sentinel-2/).checked).toBe(true);
+
+      fireEvent.click(toggleButton());
+      expect(toggleButton().getAttribute("aria-expanded")).toBe("false");
+      expect(screen.queryByRole("radio")).toBeNull();
+    });
+
+    it("keeps the context state while collapsed", () => {
+      setInnerWidth(390);
+      setup();
+      fireEvent.click(toggleButton());
+      fireEvent.click(compareCheckbox());
+      fireEvent.change(slider(), { target: { value: "2010" } });
+      act(() => vi.advanceTimersByTime(400));
+      fireEvent.click(toggleButton());
+      expect(screen.queryByRole("checkbox")).toBeNull();
+      expect(committedYear()).toBe(2010);
+      fireEvent.click(toggleButton());
+      expect(compareCheckbox().checked).toBe(true);
+      expect(radio(/Landsat 2010/).checked).toBe(true);
+    });
+
+    it("starts open at 1200 px; the toggle is still in the DOM (hidden by CSS) and reports expanded", () => {
+      setInnerWidth(1200);
+      setup();
+      expect(toggleButton().getAttribute("aria-expanded")).toBe("true");
+      expect(toggleButton().className).toBe("layers-toggle");
+      expect(screen.getAllByRole("radio")).toHaveLength(3);
+    });
   });
 });

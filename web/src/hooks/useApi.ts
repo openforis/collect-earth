@@ -9,12 +9,27 @@ export interface ApiState<T> {
   retry: () => void;
 }
 
+export interface ApiOptions {
+  /**
+   * When false the hook does not call `fn` at all: any request in flight is
+   * aborted, `status` is "idle" and `error` is cleared, while the last `data` is
+   * retained so re-enabling can keep showing it until the fresh request lands.
+   * Turning it back on (or changing `deps` while it is on) runs `fn` as usual.
+   * Defaults to true.
+   */
+  enabled?: boolean;
+}
+
 /**
  * Runs `fn` when `deps` change; exposes status and a retry. Aborts stale runs.
  * While reloading, the previous `data` is kept (so consumers can keep showing it)
- * and any previous `error` is cleared.
+ * and any previous `error` is cleared. See `ApiOptions.enabled` to pause it.
  */
-export function useApi<T>(fn: (signal: AbortSignal) => Promise<T>, deps: unknown[]): ApiState<T> {
+export function useApi<T>(
+  fn: (signal: AbortSignal) => Promise<T>,
+  deps: unknown[],
+  { enabled = true }: ApiOptions = {},
+): ApiState<T> {
   const [state, setState] = useState<{ status: Status; data?: T; error?: Error }>({ status: "idle" });
   const [tick, setTick] = useState(0);
   const ctrl = useRef<AbortController | null>(null);
@@ -27,6 +42,11 @@ export function useApi<T>(fn: (signal: AbortSignal) => Promise<T>, deps: unknown
   /* oxlint-disable react/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
     ctrl.current?.abort();
+    if (!enabled) {
+      ctrl.current = null;
+      setState((s) => (s.status === "idle" && !s.error ? s : { status: "idle", data: s.data }));
+      return;
+    }
     const c = new AbortController();
     ctrl.current = c;
     setState((s) => ({ status: "loading", data: s.data }));
@@ -35,7 +55,7 @@ export function useApi<T>(fn: (signal: AbortSignal) => Promise<T>, deps: unknown
       (error) => !c.signal.aborted && setState((s) => ({ status: "error", data: s.data, error })),
     );
     return () => c.abort();
-  }, [...deps, tick]);
+  }, [...deps, tick, enabled]);
   /* oxlint-enable react/set-state-in-effect, react-hooks/exhaustive-deps */
 
   const retry = useCallback(() => setTick((t) => t + 1), []);

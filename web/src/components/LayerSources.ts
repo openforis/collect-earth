@@ -1,9 +1,12 @@
-import { useApi } from "../hooks/useApi";
+import { useApi, type ApiOptions } from "../hooks/useApi";
 import { postApi, type TileResponse } from "../lib/api";
 import { usePlot, type LayerId } from "../state/PlotContext";
 
-/** Fetches the tile URL for one imagery layer; refetches when its inputs change. */
-export function useLayerTiles(layer: LayerId) {
+/**
+ * Fetches the tile URL for one imagery layer; refetches when its inputs change.
+ * Pass `{ enabled: false }` to hold the request (see `ApiOptions.enabled`).
+ */
+export function useLayerTiles(layer: LayerId, options?: ApiOptions) {
   const { plot, start, end, landsatYear, scene } = usePlot();
   const key =
     layer === "landsat"
@@ -19,5 +22,6 @@ export function useLayerTiles(layer: LayerId) {
       return postApi("tiles/scene", { plot, start, end, sensor: scene.sensor, timeStart: scene.timeStart }, signal);
     },
     [layer, key, plot],
+    options,
   );
 }

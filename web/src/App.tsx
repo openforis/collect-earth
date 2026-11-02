@@ -32,9 +32,9 @@ function TileStatus({ side, tiles }: { side?: string; tiles: ApiState<TileRespon
 function Viewer() {
   const { plot, plotId, start, end, activeLayer, compare, compareLayer } = usePlot();
   const tiles = useLayerTiles(activeLayer);
-  // Always mounted (hooks cannot be conditional); the server caches tile URLs,
-  // so the extra request while compare is off is cheap.
-  const right = useLayerTiles(compareLayer);
+  // Always mounted (hooks cannot be conditional) but only requested while
+  // comparing, so a plain page load costs one tile request, not two.
+  const right = useLayerTiles(compareLayer, { enabled: compare });
   return (
     <div className="viewer">
       <div className="map-pane">
