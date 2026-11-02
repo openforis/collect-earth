@@ -43,8 +43,9 @@ describe('Activity: the log, the weekly summary, the downloads and the bell (coo
     return res.json();
   };
 
-  beforeEach(async () => {
-    ctx = await makeContext();
+  beforeEach(async ({ task }) => {
+    // "[figures kept]": the figures are not worked out again within the test (stale ones are served).
+    ctx = await makeContext(task.name.includes('[figures kept]') ? { qualityMinIntervalMs: 60_000 } : {});
     owner = await setupPlatformAdmin(ctx.app);
     pid = (await ctx.app.inject({ method: 'POST', url: '/v1/projects', headers: bearer(owner.token), payload: { name: 'Activity' } })).json().projectId;
     maria = await join('maria', 'operator');
@@ -110,7 +111,7 @@ describe('Activity: the log, the weekly summary, the downloads and the bell (coo
     expect((await log('?kind=files')).items.map((i: { action: string }) => i.action)).toEqual(['assignments.set', 'csv.uploaded', 'cep.replaced']);
     expect((await log('?kind=records&person=nobody')).items).toEqual([]);
     expect((await log(`?kind=records&from=${at(5)}&to=${at(31)}`)).items.map((i: { at: number }) => i.at)).toEqual([at(30), at(10)]);
-    for (const bad of ['?kind=nope', '?limit=0', '?limit=500', '?cursor=zz', '?cursor=1.x_s', '?from=yesterday', `?person=${'x'.repeat(1001)}`]) {
+    for (const bad of ['?kind=nope', '?limit=0', '?limit=500', '?cursor=zz', '?cursor=1.x_s', '?from=yesterday', '?cursor=9000000000000000.1_s', '?cursor=s_-300000000000000.1', '?from=9000000000000000', '?to=-8000000000000000', `?person=${'x'.repeat(1001)}`]) {
       expect((await call('GET', `/activity${bad}`, owner.token)).statusCode, bad).toBe(400);
     }
   });
@@ -181,7 +182,7 @@ describe('Activity: the log, the weekly summary, the downloads and the bell (coo
     await figures();
     expect((await call('PUT', '/quality/decisions/1', owner.token, { decision: 'recheck', comment: '=cmd' })).statusCode).toBe(200);
     const diffs = (await call('GET', '/exports/differences', owner.token)).json();
-    expect(diffs.rows).toEqual([{ plot: '1', name: '1', first: 'maria', check: 'ben', latest: true, decision: 'recheck', key: LAND_USE, firstAnswer: 'F', checkAnswer: 'C' }]);
+    expect(diffs.rows).toEqual([{ plot: '1', name: '1', first: 'maria', check: 'ben', latest: true, decision: 'recheck', key: LAND_USE, firstAnswer: 'F', checkAnswer: 'C', status: 'differs' }]);
     expect(diffs.labels[LAND_USE]).toBeTruthy();
     const decisions = (await call('GET', '/exports/decisions', owner.token)).json();
     expect(decisions.rows).toEqual([{ plot: '1', name: '1', decision: 'recheck', comment: '=cmd', decidedBy: 'owner', decidedAt: expect.any(Number), byAssessor: false, bulk: false }]);
@@ -193,6 +194,37 @@ describe('Activity: the log, the weekly summary, the downloads and the bell (coo
       { kind: 'daily', rows: 3 },
       { kind: 'people', rows: 4 },
     ]);
+  });
+
+  it('differences beyond the listed ones: compared with the margins the figures used; a pair changed or gone since says so [figures kept]', async () => {
+    const csv = ['id,lat,lon', ...Array.from({ length: 520 }, (_, i) => `${i + 1},0,0`)].join('\n');
+    await call('PUT', '/csv-files/plots.csv', owner.token, csv, { 'content-type': 'text/csv' });
+    expect((await call('PUT', '/quality/settings', owner.token, { margins: { [FOREST]: 0 } })).statusCode).toBe(200);
+    const num = (_key: string, plot: number, operator: string, forest: string, round: 1 | 2) =>
+      envelope({ recordKey: `${plot},${round}`, operator, modifiedOn: at(plot), summary: { [LAND_USE]: 'F', [FOREST]: forest, collect_code_round: String(round) } });
+    const firsts = Array.from({ length: 510 }, (_, i) => num('a', i + 1, 'maria', '50', 1));
+    const checks = Array.from({ length: 510 }, (_, i) => num('b', i + 1, 'ben', '52', 2));
+    for (const [token, list] of [[maria.token, firsts], [ben.token, checks]] as const) {
+      await batchRequest(ctx.app, pid, token, list.slice(0, 500));
+      await batchRequest(ctx.app, pid, token, list.slice(500));
+    }
+    // The figures with a margin of 0: 50 and 52 differ (each of the 510 plots, plot 1 and 2 too).
+    for (let i = 0; i < 300; i++) {
+      const res = await call('GET', '/quality', owner.token);
+      if (!res.json().stale && res.json().plotsDiffering === 510) break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    // A wider margin since (the figures kept are those of 0), plot 505's check deleted, plot 507's corrected.
+    expect((await call('PUT', '/quality/settings', owner.token, { margins: { [FOREST]: 50 } })).statusCode).toBe(200);
+    await batchRequest(ctx.app, pid, ben.token, [envelope({ ...num('b', 505, 'ben', '52', 2), modifiedOn: at(9000), deleted: true })]);
+    await batchRequest(ctx.app, pid, ben.token, [envelope({ ...num('b', 507, 'ben', '50', 2), modifiedOn: at(9000) })]);
+    const body = (await call('GET', '/exports/differences', owner.token)).json();
+    const of = (plot: string) => body.rows.filter((r: { plot: string }) => r.plot === plot);
+    expect(of('509')).toEqual([{ plot: '509', name: '509', first: 'maria', check: 'ben', latest: true, decision: null, key: FOREST, firstAnswer: '50', checkAnswer: '52', status: 'differs' }]);
+    expect(of('505')).toEqual([{ plot: '505', name: '505', first: 'maria', check: 'ben', latest: true, decision: null, key: null, firstAnswer: null, checkAnswer: null, status: 'gone' }]);
+    expect(of('507')).toEqual([{ plot: '507', name: '507', first: 'maria', check: 'ben', latest: true, decision: null, key: null, firstAnswer: null, checkAnswer: null, status: 'changed' }]);
+    expect(new Set(body.rows.map((r: { plot: string }) => r.plot)).size).toBe(510);
+    expect(body.numbers).toContain(FOREST);
   });
 
   it('the bell: the attention items, read per coordinator until what they say changes', async () => {

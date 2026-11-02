@@ -310,7 +310,8 @@ export async function registerQualityRoutes(
     if (toRead.length > 0) {
       const rows = await store.getRecordSummaries(projectId, toRead.flatMap((p) => [p.first, p.check].map((r) => ({ recordKey: r.recordKey, operator: r.operator }))));
       const byId = new Map(rows.map((r) => [`${r.recordKey}\u0000${r.operator}`, r]));
-      const margins = settings.margins ?? {};
+      // The margins the figures used (a margin changed since would make listed and read pairs disagree).
+      const margins = figures.margins ?? settings.margins ?? {};
       for (const p of toRead) {
         const first = byId.get(`${p.first.recordKey}\u0000${p.first.operator}`);
         const check = byId.get(`${p.check.recordKey}\u0000${p.check.operator}`);

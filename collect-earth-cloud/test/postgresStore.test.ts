@@ -160,6 +160,13 @@ describe('PostgresStore pool', () => {
     const store = new PostgresStore('postgres://x');
     await expect(store.listRecordEvents(PROJECT, { from: 0, to: 1, limit: 1, before: { at: 1, id: '1; DROP' } })).rejects.toThrow(InvalidCursorError);
     await expect(store.listAudit(PROJECT, { limit: 1, before: { at: 1, id: '99999999999999999999' } })).rejects.toThrow(InvalidCursorError);
+    // Times Postgres's timestamptz cannot hold (a 500 before): refused before any query.
+    const asked = queries.length;
+    await expect(store.listRecordEvents(PROJECT, { from: 0, to: 1, limit: 1, before: { at: 9e15, id: '1' } })).rejects.toThrow(InvalidCursorError);
+    await expect(store.listAudit(PROJECT, { limit: 1, before: { at: -3e14, id: '1' } })).rejects.toThrow(InvalidCursorError);
+    await expect(store.listRecordEvents(PROJECT, { from: 0, to: 9e15, limit: 1 })).rejects.toThrow(InvalidCursorError);
+    await expect(store.listAudit(PROJECT, { limit: 1, from: -8e15 })).rejects.toThrow(InvalidCursorError);
+    expect(queries.length).toBe(asked);
     expect(queries).toHaveLength(0);
   });
 

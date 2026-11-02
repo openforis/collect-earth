@@ -180,6 +180,16 @@ for (const [what, query] of [
 const deep = await call('GET', big, `/activity?kind=deleted&limit=200`);
 check('kind=deleted: only deletions, all of them (100 of 100,000)', deep.json().items.length === 100 && deep.json().items.every((i: any) => i.change === 'deleted'), deep.json().items.length);
 check('a refused cursor: 400', (await call('GET', big, '/activity?cursor=1.99999999999999999999_s')).statusCode === 400);
+for (const q of ['?cursor=9000000000000000.1_s', '?cursor=s_-300000000000000.1', '?from=9000000000000000', '?to=-8000000000000000']) {
+  check(`a time timestamptz cannot hold (${q}): 400, not 500`, (await call('GET', big, `/activity${q}`)).statusCode === 400);
+}
+let storeRefused = false;
+try {
+  await store.listRecordEvents(big, { from: 0, to: 1e13, limit: 1, before: { at: 9e15, id: '1' } });
+} catch (err) {
+  storeRefused = (err as Error).name === 'InvalidCursorError';
+}
+check('the store refuses such a cursor itself (InvalidCursorError)', storeRefused);
 
 let [r, ms] = await timed(() => call('GET', big, '/weekly?week=2026-W40&tz=Europe/Rome'));
 check(`GET /weekly on it (${ms} ms)`, r.statusCode === 200 && r.json().week === '2026-W40', r.body.slice(0, 300));

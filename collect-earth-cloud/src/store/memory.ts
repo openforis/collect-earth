@@ -1201,7 +1201,7 @@ export class InMemoryStore implements Store {
   }
 
   async listRecordEvents(projectId: string, q: RecordEventQuery): Promise<RecordEvent[]> {
-    checkCursor(q.before);
+    checkCursor(q.before, q);
     const events = this.projects.get(projectId)?.recordEvents ?? [];
     return events
       .filter(
@@ -1222,7 +1222,7 @@ export class InMemoryStore implements Store {
     for (const e of this.projects.get(projectId)?.recordEvents ?? []) {
       if (e.modifiedOn < q.from || e.modifiedOn >= q.to) continue;
       const at = Math.floor(e.modifiedOn / QUARTER_HOUR_MS) * QUARTER_HOUR_MS;
-      const key = `${e.operator} ${e.change} ${at}`;
+      const key = `${e.operator}\u0000${e.change}\u0000${at}`;
       const c = counts.get(key);
       if (c) c.count += 1;
       else counts.set(key, { operator: e.operator, change: e.change, at, count: 1 });
@@ -1302,7 +1302,7 @@ export class InMemoryStore implements Store {
   }
 
   async listAudit(projectId: string, q: AuditQuery): Promise<AuditEntry[]> {
-    checkCursor(q.before);
+    checkCursor(q.before, q);
     const audit = this.projects.get(projectId)?.audit ?? [];
     return audit
       .filter(
@@ -1386,10 +1386,10 @@ export class InMemoryStore implements Store {
   }
 }
 
-/** Whether (at, id) comes after the cursor in a newest-first list (as Postgres's row comparison). */
 /** record_events are counted by quarter of an hour (recordEventCounts). */
 const QUARTER_HOUR_MS = 900_000;
 
+/** Whether (at, id) comes after the cursor in a newest-first list (as Postgres's row comparison). */
 function isBefore(at: number, id: string, cursor: EventCursor): boolean {
   return at < cursor.at || (at === cursor.at && Number(id) < Number(cursor.id));
 }

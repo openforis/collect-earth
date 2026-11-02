@@ -25,7 +25,7 @@ import { pairAt, pairFields, recordResolver } from '../quality.js';
 import { answerOptions } from '../qualityReports.js';
 import type { QualityService, ServedReport } from '../qualityService.js';
 import type { Assessment } from '../rounds.js';
-import { InvalidCursorError, type Store } from '../store/store.js';
+import { InvalidCursorError, isStoredTime, MAX_STORED_TIME, type Store } from '../store/store.js';
 import type { AuditAction, RecordChange } from '../types.js';
 import { isIsoWeek, weekOfDate, weeklySummary } from '../weekly.js';
 import { loadPeople } from './people.js';
@@ -48,7 +48,7 @@ import { MAX_NAME, publicDecision } from './quality.js';
 export const EXPORT_KINDS = ['people', 'daily', 'decisions', 'differences'] as const;
 export type ExportKind = (typeof EXPORT_KINDS)[number];
 /** The latest time a log's window may end (the largest time a JS Date holds). */
-const END_OF_TIME = 8.64e15;
+const END_OF_TIME = MAX_STORED_TIME;
 /** At most this many keys are marked read in one request. */
 const MAX_READ_KEYS = 50;
 
@@ -122,11 +122,11 @@ export async function registerActivityRoutes(
     const time = (v: unknown, fallback: number): number | null => {
       if (v === undefined || v === '') return fallback;
       const n = Number(v);
-      return typeof v === 'string' && /^-?\d{1,16}$/.test(v) && Number.isSafeInteger(n) ? n : null;
+      return typeof v === 'string' && /^-?\d{1,16}$/.test(v) && Number.isSafeInteger(n) && isStoredTime(n) ? n : null;
     };
     const from = time(q.from, 0);
     const to = time(q.to, END_OF_TIME);
-    if (from === null || to === null) return reply.code(400).send(bad('from and to must be times in ms since 1970'));
+    if (from === null || to === null) return reply.code(400).send(bad('from and to must be times in ms since 1970, within what dates can hold'));
     const limit = q.limit === undefined ? LOG_PAGE_SIZE : Number(q.limit);
     if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LOG_PAGE_SIZE) return reply.code(400).send(bad(`limit must be a whole number from 1 to ${MAX_LOG_PAGE_SIZE}`));
     const cursor = q.cursor === undefined || q.cursor === '' ? LOG_START : decodeLogCursor(q.cursor);
@@ -428,31 +428,48 @@ async function differenceRows(store: Store, quality: QualityService, projectId: 
   if (pairs.plot.length > listed.size) {
     summaries = new Map((await store.listRecordSummaries(projectId)).map((r) => [id(r.recordKey, r.operator), r]));
   }
-  const rows: { plot: string; name: string; first: string; check: string; latest: boolean; decision: string | null; key: string; firstAnswer: string; checkAnswer: string }[] = [];
+  // The margins the figures were worked out with, so that a pair read now is judged as the listed ones were.
+  const margins = figures.margins ?? settings.margins ?? {};
+  const rows: DifferenceRow[] = [];
   for (let i = 0; i < pairs.plot.length; i++) {
     const p = pairAt(pairs, i);
+    const base = { plot: p.plot, name: visibleId(p.plot, facts.hidden), first: p.first.operator, check: p.check.operator, latest: p.latest, decision: decided.get(p.plot) ?? null };
     let fields = listed.get(`${p.plot}\u0001${id(p.first.recordKey, p.first.operator)}\u0001${id(p.check.recordKey, p.check.operator)}`);
     if (!fields && summaries) {
       const first = summaries.get(id(p.first.recordKey, p.first.operator));
       const check = summaries.get(id(p.check.recordKey, p.check.operator));
-      fields = first && check ? pairFields(first.summary, check.summary, outline, settings.margins ?? {}) : [];
+      // A record deleted since the figures, or answers that no longer differ: said, not dropped.
+      if (!first || !check) {
+        rows.push({ ...base, key: null, firstAnswer: null, checkAnswer: null, status: 'gone' });
+        continue;
+      }
+      fields = pairFields(first.summary, check.summary, outline, margins);
+      if (fields.length === 0) {
+        rows.push({ ...base, key: null, firstAnswer: null, checkAnswer: null, status: 'changed' });
+        continue;
+      }
     }
-    for (const f of fields ?? []) {
-      rows.push({
-        plot: p.plot,
-        name: visibleId(p.plot, facts.hidden),
-        first: p.first.operator,
-        check: p.check.operator,
-        latest: p.latest,
-        decision: decided.get(p.plot) ?? null,
-        key: f.key,
-        firstAnswer: f.first,
-        checkAnswer: f.check,
-      });
-    }
+    for (const f of fields ?? []) rows.push({ ...base, key: f.key, firstAnswer: f.first, checkAnswer: f.check, status: 'differs' });
   }
-  const keys = new Set(rows.map((r) => r.key));
+  const keys = new Set(rows.flatMap((r) => (r.key === null ? [] : [r.key])));
   const labels: Record<string, string> = {};
   for (const key of keys) labels[key] = outline?.get(key)?.label ?? key;
-  return { rows, labels, options: answerOptions(outline, keys) };
+  // Number questions: their answers are written as numbers in the CSV.
+  const numbers = [...keys].filter((key) => outline?.get(key)?.kind === 'number');
+  return { rows, labels, options: answerOptions(outline, keys), numbers };
+}
+
+/** One row of the differences download: a differing question of a pair, or a pair changed or gone since the figures. */
+export interface DifferenceRow {
+  plot: string;
+  name: string;
+  first: string;
+  check: string;
+  latest: boolean;
+  decision: string | null;
+  key: string | null;
+  firstAnswer: string | null;
+  checkAnswer: string | null;
+  /** differs: the answers differ as the figures found; changed: they no longer differ; gone: a record of the pair was deleted. */
+  status: 'differs' | 'changed' | 'gone';
 }

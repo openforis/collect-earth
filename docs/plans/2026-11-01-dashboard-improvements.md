@@ -1797,6 +1797,44 @@ with `'`), and the read state.
   weekly per-day checks; the bell refreshes every 2 min, not on push; read keys of a coordinator
   demoted to reviewer stay until they leave.
 
+- **Review (after 718fac88; supersedes the above where it says so):**
+  - **Line endings:** 718fac88 had turned nine LF files into CRLF (a Python script on Windows
+    writing in text mode); a separate commit put them back to LF with no other change (`git diff
+    --ignore-all-space` empty), the new files written with CRLF too. Every other file touched keeps
+    its ending (CRLF: `i18n.ts`, `api.ts`, `api.test.ts`, `router.ts`, `App.tsx`,
+    `ProjectPage.tsx`). Two literal NUL bytes in `memory.ts` (`recordEventCounts`' key) and an
+    \x01 in the differences' key are escapes again; no other control bytes in the files touched.
+  - **Times Postgres cannot hold are a 400, not a 500:** `isStoredTime` (`MIN_STORED_TIME`
+    −210,866,803,200,000 ms, timestamptz's first day; `MAX_STORED_TIME` 8.64e15, a JS Date's
+    last; a valid Date). `checkCursor(cursor, { from, to })` checks a cursor's time and a window's
+    bounds in both stores (so `listRecordEvents` / `listAudit` refuse them before any query, for
+    every caller), `decodeLogCursor` refuses such a time, and the route's `from` / `to` too.
+    Tests: the route (`?cursor=9000000000000000.1_s`, `?cursor=s_-300000000000000.1`,
+    `?from=9000000000000000`, `?to=-8000000000000000`), the memory store, the Postgres unit test
+    (no query sent) and the smoke.
+  - **A list none of whose rows a page showed** resumes below what was shown (`{ at: the last
+    row's time, id: 999999999999999999 }`, or where it was when that is further down), not from
+    its top: a row arriving there meanwhile (newer than what was shown) is no longer shown below
+    older ones (unit test).
+  - **Check sentences agree in gender** in es, fr and pt: `activity.check.*` (six sentences, "el
+    control de calidad … (guardado, sin enviar)", "le contrôle … (enregistré, pas envoyé)", "o
+    controle … sem enviá-lo") beside `activity.record.*` for plots ("la parcela … guardada");
+    `activity.plot`, `checkOf` and `plotRound` gave way to `activity.roundOf` ("17 (ronda 2025)").
+  - **Differences download:** the figures now keep the **margins they were worked out with**
+    (`ServedReport.margins`), and a pair beyond the listed differences is compared with those
+    (also in the review queue and the plot page), not with margins changed since; a pair whose
+    record was deleted since is a row `status: 'gone'`, one that no longer differs `'changed'`
+    (key and answers null), both named in the CSV's question column, instead of being left out.
+    Number questions' answers are numbers in the CSV (the language's decimal: "12,5"), not text
+    (`numbers` in the answer); other text keeps the formula escaping. Route test with 510 pairs
+    (margin 0 when worked out, 50 since; one check deleted, one corrected).
+  - **"Mark all as read"** sends the keys of the items shown, so one that arrived or changed
+    since the list was loaded stays new.
+  - The time zone fallback (UTC) stays as it is.
+  - **Tests:** server 899, web 301, tsc clean in both, web build ok. **Postgres smoke** ALL OK
+    (the four out-of-range queries 400, the store refusing the cursor itself; pages of 200 in
+    13 ms median, 33 ms max). Docker stopped after, ports free.
+
 ### Task 11: Server owner's panel (monitoring Phase 7)
 
 **Files:** extend `src/routes/admin.ts` and `web/src/pages/ServerPage.tsx`.

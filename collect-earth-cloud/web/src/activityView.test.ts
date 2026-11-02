@@ -62,6 +62,16 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("link.created", {}), page, "en")).toBe("ana: link.created");
   });
 
+  it("es, fr and pt: a plot's sentence agrees with the plot, a check's with the check", () => {
+    const es = translator("es");
+    expect(logSentence(es, record("created"), page, "es")).toBe("maria empezó la parcela 17 (guardada, sin enviar)");
+    expect(logSentence(es, record("created", "check"), page, "es")).toBe("maria empezó el control de calidad de la parcela 17 (guardado, sin enviar)");
+    expect(logSentence(fr, record("unsubmitted", "check"), page, "fr")).toBe("maria a modifié le contrôle de qualité de la parcelle 17 après l’avoir envoyé (plus envoyé)");
+    expect(logSentence(fr, record("unsubmitted"), page, "fr")).toBe("maria a modifié la parcelle 17 après l’avoir envoyée (plus envoyée)");
+    expect(logSentence(translator("pt"), record("updated", "check"), page, "pt")).toBe("maria salvou de novo o controle de qualidade da parcela 17, sem enviá-lo");
+    expect(logSentence(es, record("submitted", "other"), page, "es")).toBe("maria envió la parcela 17 (ronda 2025)");
+  });
+
   it("every language has every sentence (no key shown as is)", () => {
     for (const lang of ["es", "fr", "pt"]) {
       const tr = translator(lang);
@@ -109,7 +119,23 @@ describe("the downloads' CSV: one writer, formulas escaped, the person's separat
     const options = { lu: [{ code: "F", label: "Forest" }] };
     expect(answerLabel(options, "lu", "F")).toBe("Forest (F)");
     expect(answerLabel(options, "lu", "X")).toBe("X");
-    const diffs = differencesCsv(t, { rows: [{ plot: "1", name: "1", first: "maria", check: "ben", latest: true, decision: null, key: "lu", firstAnswer: "F", checkAnswer: "C" }], labels: { lu: "Land use" }, options }, "en");
+    const diffs = differencesCsv(t, { rows: [{ plot: "1", name: "1", first: "maria", check: "ben", latest: true, decision: null, key: "lu", firstAnswer: "F", checkAnswer: "C", status: "differs" as const }], labels: { lu: "Land use" }, options, numbers: [] }, "en");
     expect(diffs.split("\r\n")[1]).toBe("1,maria,ben,Land use,Forest (F),C,");
+    // A number question's answers are numbers (the language's decimal), text stays escaped text.
+    const data = {
+      rows: [
+        { plot: "2", name: "2", first: "ana", check: "ben", latest: true, decision: null, key: "cover", firstAnswer: "12.5", checkAnswer: "-3", status: "differs" as const },
+        { plot: "3", name: "3", first: "ana", check: "ben", latest: true, decision: null, key: "notes", firstAnswer: "-3", checkAnswer: "=x", status: "differs" as const },
+        { plot: "4", name: "4", first: "ana", check: "ben", latest: true, decision: null, key: null, firstAnswer: null, checkAnswer: null, status: "gone" as const },
+      ],
+      labels: { cover: "Cover", notes: "Notes" },
+      options: {},
+      numbers: ["cover"],
+    };
+    const es = differencesCsv(translator("es"), data, "es").split("\r\n");
+    expect(es[1]).toBe("2;ana;ben;Cover;12,5;-3;");
+    expect(es[2]).toBe("3;ana;ben;Notes;'-3;'=x;");
+    // A pair whose record is gone since the figures says so instead of being left out.
+    expect(es[3]).toBe(`4;ana;ben;${translator("es")("activity.csv.gone")};;;`);
   });
 });

@@ -3094,16 +3094,19 @@ export interface DifferenceRow {
   check: string;
   latest: boolean;
   decision: DecisionKind | null;
-  key: string;
-  firstAnswer: string;
-  checkAnswer: string;
+  /** Null for a pair changed or gone since the figures. */
+  key: string | null;
+  firstAnswer: string | null;
+  checkAnswer: string | null;
+  /** differs; changed: its answers no longer differ; gone: one of its records was deleted (both since the figures). */
+  status: "differs" | "changed" | "gone";
 }
 
 export type ExportData =
   | { kind: "people"; today: string; rows: PersonRow[] }
   | { kind: "daily"; today: string; rows: DailyRow[] }
   | { kind: "decisions"; today: string; rows: DecisionRow[] }
-  | { kind: "differences"; today: string; rows: DifferenceRow[]; labels: Record<string, string>; options: AnswerOptions };
+  | { kind: "differences"; today: string; rows: DifferenceRow[]; labels: Record<string, string>; options: AnswerOptions; numbers: string[] };
 
 const asDecision = (v: unknown): DecisionKind | null => (v === "first" || v === "check" || v === "recheck" ? v : null);
 
@@ -3152,6 +3155,7 @@ export function toExportData(kind: ExportKind, body: unknown): ExportData {
         today,
         labels,
         options: toOptions(b.options),
+        numbers: strings(b.numbers),
         rows: rows.map((r) => ({
           plot: text(r.plot),
           name: text(r.name),
@@ -3159,9 +3163,10 @@ export function toExportData(kind: ExportKind, body: unknown): ExportData {
           check: text(r.check),
           latest: r.latest === true,
           decision: asDecision(r.decision),
-          key: text(r.key),
-          firstAnswer: text(r.firstAnswer),
-          checkAnswer: text(r.checkAnswer),
+          key: typeof r.key === "string" ? r.key : null,
+          firstAnswer: typeof r.firstAnswer === "string" ? r.firstAnswer : null,
+          checkAnswer: typeof r.checkAnswer === "string" ? r.checkAnswer : null,
+          status: r.status === "changed" || r.status === "gone" ? r.status : "differs",
         })),
       };
     }

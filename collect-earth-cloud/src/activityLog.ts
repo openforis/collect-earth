@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { AttentionItem } from './progress.js';
+import { isStoredTime } from './store/store.js';
 import { AUDIT_ACTIONS, type AuditAction, type AuditEntry, type EventCursor, type RecordChange, type RecordEvent } from './types.js';
 
 /**
@@ -63,6 +64,9 @@ export interface LogCursor {
 
 export const LOG_START: LogCursor = { events: 'start', audit: 'start' };
 
+/** The largest id a cursor holds (18 digits): "after every row at this time". */
+const MAX_ID = '999999999999999999';
+
 const part = (p: ListPosition) => (p === 'start' ? 's' : p === 'end' ? 'e' : `${p.at}.${p.id}`);
 
 /** "s_1793600000000.42": the events' position, then the audit log's. */
@@ -79,7 +83,7 @@ export function decodeLogCursor(text: unknown): LogCursor | null {
     if (p === 's') return 'start';
     if (p === 'e') return 'end';
     const m = /^(-?\d{1,16})\.(\d{1,18})$/.exec(p);
-    return m ? { at: Number(m[1]), id: m[2] } : null;
+    return m && isStoredTime(Number(m[1])) ? { at: Number(m[1]), id: m[2] } : null;
   };
   const events = read(parts[0]);
   const audit = read(parts[1]);
@@ -129,7 +133,14 @@ export async function logPage(sources: LogSources, cursor: LogCursor, limit: num
   const nextPos = <T extends { id: string }>(list: T[], taken: number, at: (x: T) => number, was: EventCursor | undefined | null): ListPosition => {
     if (was === null) return 'end';
     if (taken === list.length && list.length < limit) return 'end';
-    if (taken === 0) return was ?? 'start';
+    if (taken === 0) {
+      // None of its rows shown: it resumes below what was shown (not from its top, where a row
+      // may have arrived meanwhile), or where it was when that is further down.
+      if (rows.length === 0) return was ?? 'start';
+      const below: EventCursor = { at: rows[rows.length - 1].at, id: MAX_ID };
+      if (was === undefined) return below;
+      return was.at < below.at || (was.at === below.at && BigInt(was.id) < BigInt(below.id)) ? was : below;
+    }
     const last = list[taken - 1];
     return { at: at(last), id: last.id };
   };

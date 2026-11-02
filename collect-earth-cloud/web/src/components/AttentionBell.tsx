@@ -91,7 +91,7 @@ export function AttentionBell({ projectId }: { projectId: string }) {
     };
   }, [projectId, tick]);
 
-  const mark = async (keys: string[] | "all") => {
+  const mark = async (keys: string[]) => {
     try {
       setData(await markAttentionRead(projectId, keys));
     } catch (err) {
@@ -133,7 +133,8 @@ export function AttentionBell({ projectId }: { projectId: string }) {
             {t("bell.title")}
           </Typography>
           {unread > 0 && (
-            <Button size="small" onClick={() => void mark("all")}>
+            // The items shown: one that arrived or changed since this list was loaded stays new.
+            <Button size="small" onClick={() => void mark(data!.items.filter((x) => !x.read).map((x) => x.key))}>
               {t("bell.markAll")}
             </Button>
           )}

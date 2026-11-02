@@ -277,6 +277,8 @@ describe('the memory store: record events, member activity and the audit log', (
     await expect(store.listRecordEvents(a, { from: 0, to: 10, limit: 1, before: { at: 1, id: 'x' } })).rejects.toThrow(InvalidCursorError);
     await expect(store.listAudit(a, { limit: 1, before: { at: 1, id: '1.5' } })).rejects.toThrow(InvalidCursorError);
     await expect(store.listAudit(a, { limit: 1, before: { at: Number.NaN, id: '1' } })).rejects.toThrow(InvalidCursorError);
+    await expect(store.listAudit(a, { limit: 1, before: { at: 9e15, id: '1' } })).rejects.toThrow(InvalidCursorError);
+    await expect(store.listRecordEvents(a, { from: -3e14, to: 10, limit: 1 })).rejects.toThrow(InvalidCursorError);
   });
 
   it('lists record events newest first, in the window, by operator, paged by cursor', async () => {

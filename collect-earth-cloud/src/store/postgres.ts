@@ -1638,7 +1638,7 @@ export class PostgresStore implements Store {
   }
 
   async listRecordEvents(projectId: string, q: RecordEventQuery): Promise<RecordEvent[]> {
-    checkCursor(q.before);
+    checkCursor(q.before, q);
     return this.withProject(projectId, async (client) => {
       const params: unknown[] = [projectId, new Date(q.from), new Date(q.to), q.limit];
       let where = '';
@@ -1773,7 +1773,7 @@ export class PostgresStore implements Store {
   }
 
   async listAudit(projectId: string, q: AuditQuery): Promise<AuditEntry[]> {
-    checkCursor(q.before);
+    checkCursor(q.before, q);
     if (q.actor !== undefined && !isUuid(q.actor)) {
       return [];
     }

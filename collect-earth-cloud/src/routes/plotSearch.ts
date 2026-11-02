@@ -246,7 +246,7 @@ export async function registerPlotSearchRoutes(
         const p = pairAt(pairs, i);
         const first = byId.get(`${p.first.recordKey}\u0000${p.first.operator}`);
         const check = byId.get(`${p.check.recordKey}\u0000${p.check.operator}`);
-        const fields = first && check && !first.deleted && !check.deleted ? pairFields(first.summary, check.summary, outline, settings.margins ?? {}) : [];
+        const fields = first && check && !first.deleted && !check.deleted ? pairFields(first.summary, check.summary, outline, figures.margins ?? settings.margins ?? {}) : [];
         differences.push({ plot, first: p.first, check: p.check, fields, ...(fields.length === 0 ? { changed: true } : {}) });
       }
     }

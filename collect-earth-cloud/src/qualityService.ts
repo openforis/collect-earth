@@ -390,6 +390,11 @@ export interface ServedReport {
   computedAt: number;
   /** True when records (or other inputs) changed after computedAt; newer figures are being computed. */
   stale: boolean;
+  /**
+   * The number margins the figures were worked out with: a pair beyond the listed differences is
+   * compared again with these, not with margins changed since (absent in hand-made test figures).
+   */
+  margins?: Readonly<Record<string, number>>;
 }
 
 interface CachedReport {
@@ -400,6 +405,7 @@ interface CachedReport {
   flags: FlagTable;
   health: HealthTable;
   computedAt: number;
+  margins: Readonly<Record<string, number>>;
 }
 
 interface Snapshot {
@@ -576,7 +582,7 @@ export class QualityService {
         throw err;
       }
       this.failures.delete(projectId);
-      const entry: CachedReport = { version: s.version, ...figures, answerStats: new Map(), computedAt: s.at };
+      const entry: CachedReport = { version: s.version, ...figures, answerStats: new Map(), computedAt: s.at, margins: { ...(s.known.settings.margins ?? {}) } };
       remember(this.reports, projectId, entry, MAX_CACHED_REPORTS);
       return entry;
     })();
@@ -684,5 +690,5 @@ export class QualityService {
 }
 
 function served(c: CachedReport, stale: boolean): ServedReport {
-  return { report: c.report, answers: c.answers, answerStats: c.answerStats, flags: c.flags, health: c.health, computedAt: c.computedAt, stale };
+  return { report: c.report, answers: c.answers, answerStats: c.answerStats, flags: c.flags, health: c.health, computedAt: c.computedAt, stale, margins: c.margins };
 }

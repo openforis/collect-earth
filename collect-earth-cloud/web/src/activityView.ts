@@ -37,6 +37,16 @@ const RECORD_KEYS = {
   deleted: "activity.record.deleted",
 } as const satisfies Record<string, MessageKey>;
 
+/** The same for a quality check (its own sentences: in es, fr and pt a check and a plot differ in gender). */
+const CHECK_KEYS = {
+  created: "activity.check.created",
+  updated: "activity.check.updated",
+  submitted: "activity.check.submitted",
+  resubmitted: "activity.check.resubmitted",
+  unsubmitted: "activity.check.unsubmitted",
+  deleted: "activity.check.deleted",
+} as const satisfies Record<string, MessageKey>;
+
 const DECISION_KEYS = {
   first: "quality.decision.first",
   check: "quality.decision.check",
@@ -82,13 +92,9 @@ const num = (v: unknown, language: string) => formatNumber(typeof v === "number"
 export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage, "people" | "files">, language: string): string {
   if (item.type === "record") {
     // Coordinators see which records are checks (the log is theirs only).
-    const what =
-      item.assessment === "check"
-        ? t("activity.checkOf", { plot: item.name })
-        : item.assessment === "other"
-          ? t("activity.plotRound", { plot: item.name, round: item.round })
-          : t("activity.plot", { plot: item.name });
-    return t(RECORD_KEYS[item.change], { person: item.person, what });
+    if (item.assessment === "check") return t(CHECK_KEYS[item.change], { person: item.person, plot: item.name });
+    const plot = item.assessment === "other" ? t("activity.roundOf", { plot: item.name, round: item.round }) : item.name;
+    return t(RECORD_KEYS[item.change], { person: item.person, plot });
   }
   const d = item.details;
   const actor = who(t, item.person);
@@ -225,7 +231,15 @@ export function answerLabel(options: AnswerOptions, key: string, value: string):
 }
 
 /** Differences: one row per question that differs between a first assessment and its check. */
-export function differencesCsv(t: Translate, data: { rows: readonly DifferenceRow[]; labels: Record<string, string>; options: AnswerOptions }, language: string): string {
+export function differencesCsv(
+  t: Translate,
+  data: { rows: readonly DifferenceRow[]; labels: Record<string, string>; options: AnswerOptions; numbers: readonly string[] },
+  language: string,
+): string {
+  const numbers = new Set(data.numbers);
+  // A number question's answer is written as a number (with the language's decimal), not as text.
+  const answer = (key: string, value: string): string | number =>
+    numbers.has(key) && /^-?\d+(\.\d+)?$/.test(value.trim()) ? Number(value.trim()) : answerLabel(data.options, key, value);
   const header: MessageKey[] = [
     "activity.csv.plot",
     "activity.csv.first",
@@ -241,9 +255,9 @@ export function differencesCsv(t: Translate, data: { rows: readonly DifferenceRo
       r.name,
       r.first,
       r.check,
-      data.labels[r.key] ?? r.key,
-      answerLabel(data.options, r.key, r.firstAnswer),
-      answerLabel(data.options, r.key, r.checkAnswer),
+      r.key === null ? t(r.status === "gone" ? "activity.csv.gone" : "activity.csv.changed") : (data.labels[r.key] ?? r.key),
+      r.key === null || r.firstAnswer === null ? null : answer(r.key, r.firstAnswer),
+      r.key === null || r.checkAnswer === null ? null : answer(r.key, r.checkAnswer),
       r.decision === null ? null : t(DECISION_KEYS[r.decision]),
     ]),
     language,

@@ -406,9 +406,25 @@ export class InvalidCursorError extends Error {
   }
 }
 
-/** Both stores check a cursor the same way before using it (ids are BIGSERIAL). */
-export function checkCursor(cursor: EventCursor | undefined): void {
-  if (cursor !== undefined && (!/^\d{1,18}$/.test(cursor.id) || !Number.isFinite(cursor.at))) {
+/** The earliest time Postgres's timestamptz holds (4714-11-24 BC), in ms since 1970. */
+export const MIN_STORED_TIME = -210_866_803_200_000;
+/** The latest time a JS Date holds (Postgres holds later ones). */
+export const MAX_STORED_TIME = 8.64e15;
+
+/** Whether a time (ms) is one both a JS Date and Postgres's timestamptz hold. */
+export function isStoredTime(ms: unknown): ms is number {
+  return typeof ms === 'number' && Number.isFinite(ms) && ms >= MIN_STORED_TIME && ms <= MAX_STORED_TIME && !Number.isNaN(new Date(ms).getTime());
+}
+
+/**
+ * Both stores check a cursor the same way before using it (ids are BIGSERIAL), and its time
+ * and a window's bounds against what timestamptz holds (Postgres would refuse it with a 500).
+ */
+export function checkCursor(cursor: EventCursor | undefined, window: { from?: number; to?: number } = {}): void {
+  if (cursor !== undefined && (!/^\d{1,18}$/.test(cursor.id) || !isStoredTime(cursor.at))) {
     throw new InvalidCursorError();
+  }
+  for (const t of [window.from, window.to]) {
+    if (t !== undefined && !isStoredTime(t)) throw new InvalidCursorError();
   }
 }

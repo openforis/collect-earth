@@ -86,6 +86,29 @@ describe('the activity log: both lists merged, newest first, paged by a cursor o
     expect(rest.out[0]).toBe('e20@900');
   });
 
+  it('a list none of whose rows were shown resumes below what was shown, not from its top (a row added there meanwhile)', async () => {
+    const list = [...events];
+    const src = sources(list, audit);
+    // The first page shows a16@600 alone: the events, at their start, gave rows and none was shown.
+    const first = await logPage(src, LOG_START, 1, { events: true, audit: true });
+    expect(first.rows.map((r) => r.at)).toEqual([600]);
+    expect(first.next?.events).toEqual({ at: 600, id: '999999999999999999' });
+    // An event newer than what was shown arrives: it belongs above, never below a16.
+    list.push(ev(30, 700));
+    const out: string[] = ['a16@600'];
+    let cursor = first.next;
+    while (cursor) {
+      const page = await logPage(src, decodeLogCursor(encodeLogCursor(cursor))!, 3, { events: true, audit: true });
+      out.push(...page.rows.map((r) => (r.source === 'event' ? `e${r.event.id}@${r.at}` : `a${r.entry.id}@${r.at}`)));
+      cursor = page.next;
+    }
+    expect(out).toEqual(expected);
+    // A list already further down keeps its own position.
+    const deeper = await logPage(src, { events: { at: 200, id: '9' }, audit: 'start' }, 1, { events: true, audit: true });
+    expect(deeper.rows.map((r) => r.at)).toEqual([600]);
+    expect(deeper.next?.events).toEqual({ at: 200, id: '9' });
+  });
+
   it('cursors: the text form round-trips; anything else is refused', () => {
     const c: LogCursor = { events: { at: 1_793_600_000_000, id: '42' }, audit: 'end' };
     expect(encodeLogCursor(c)).toBe('1793600000000.42_e');
