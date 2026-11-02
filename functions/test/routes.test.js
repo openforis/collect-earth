@@ -58,7 +58,8 @@ test("POST /api/tiles/sentinel2 with a valid plot but no EE_KEY reaches the auth
   if (saved !== undefined) process.env.EE_KEY = saved;
   assert.equal(res.status, 500);
   assert.equal(res.body.error.code, "internal");
-  assert.match(res.body.error.message, /EE_KEY secret is not set/);
+  assert.equal(res.body.error.message, "Internal error");
   assert.equal(res.body.error.retryable, false);
   assert.equal(logged.length, 1);
+  assert.match(String(logged[0][0] && logged[0][0].message), /EE_KEY secret is not set/);
 });

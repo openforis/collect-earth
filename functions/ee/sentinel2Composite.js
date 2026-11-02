@@ -13,12 +13,22 @@ function monthsBefore(isoDate, months) {
   return d.toISOString().slice(0, 10);
 }
 
-/** Cloud-masked median of the 12 months ending at `end`, sharpened, false colour. */
-async function sentinel2CompositeTiles(plot, end) {
+/**
+ * Cloud-masked median of the 12 months ending at `end`, sharpened, limited to the
+ * false-colour bands (selected before sharpening: identical result, fewer bands convolved).
+ * Returns the unvisualised image so callers and tests can inspect it.
+ */
+function buildComposite(plot, end) {
   const start = monthsBefore(end, 12);
-  const composite = sharpen(sentinel2Images(plot, start, end).median());
-  const tileUrl = await getTileUrl(composite.visualize(SENTINEL_FALSE_COLOUR_RENAMED));
+  const median = sentinel2Images(plot, start, end).median().select(SENTINEL_FALSE_COLOUR_RENAMED.bands);
+  return { image: sharpen(median), start };
+}
+
+/** Tile URL for the false-colour composite ending at `end`. */
+async function sentinel2CompositeTiles(plot, end) {
+  const { image, start } = buildComposite(plot, end);
+  const tileUrl = await getTileUrl(image.visualize(SENTINEL_FALSE_COLOUR_RENAMED));
   return { tileUrl, label: `Sentinel-2 composite ${start} to ${end}`, dateRange: { start, end } };
 }
 
-module.exports = { sentinel2CompositeTiles, monthsBefore };
+module.exports = { sentinel2CompositeTiles, buildComposite, monthsBefore };

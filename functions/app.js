@@ -1,5 +1,8 @@
 const express = require("express");
 
+const RETRYABLE = /timed out|too many concurrent|user memory limit|deadline|quota exceeded|too many requests|rate limit|service unavailable|internal error/i;
+const SECRETISH = /EE_KEY|private_key/;
+
 /** Maps any thrown error to the single JSON error shape of the API. */
 function errorToResponse(err) {
   if (err && err.status && err.code) {
@@ -11,11 +14,11 @@ function errorToResponse(err) {
     return { status: err.status, body: { error: { code: err.type || "bad_request", message: err.message, retryable: false } } };
   }
   const message = String((err && err.message) || err);
-  const retryable = /timed out|too many concurrent|user memory limit|deadline/i.test(message);
-  return {
-    status: retryable ? 503 : 500,
-    body: { error: { code: retryable ? "ee_busy" : "internal", message, retryable } },
-  };
+  const retryable = RETRYABLE.test(message);
+  if (retryable) return { status: 503, body: { error: { code: "ee_busy", message, retryable: true } } };
+  // Never echo messages that may carry configuration secrets; the full error is still logged server-side.
+  const safeMessage = SECRETISH.test(message) ? "Internal error" : message;
+  return { status: 500, body: { error: { code: "internal", message: safeMessage, retryable: false } } };
 }
 
 function createApp(registerRoutes) {

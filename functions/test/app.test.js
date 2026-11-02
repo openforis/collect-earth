@@ -25,11 +25,41 @@ test("malformed JSON body returns 400 entity.parse.failed", async () => {
   assert.equal(res.body.error.retryable, false);
 });
 
-test("errorToResponse maps EE busy errors to 503 ee_busy", () => {
-  const { status, body } = errorToResponse(new Error("Computation timed out."));
-  assert.equal(status, 503);
-  assert.equal(body.error.code, "ee_busy");
-  assert.equal(body.error.retryable, true);
+test("errorToResponse maps EE busy/quota errors to 503 ee_busy", () => {
+  const busy = [
+    "Computation timed out.",
+    "Too many concurrent aggregations.",
+    "User memory limit exceeded.",
+    "Quota exceeded for quota metric",
+    "Too Many Requests",
+    "Service unavailable",
+    "Rate limit exceeded",
+    "An internal error has occurred",
+  ];
+  for (const message of busy) {
+    const { status, body } = errorToResponse(new Error(message));
+    assert.equal(status, 503, message);
+    assert.equal(body.error.code, "ee_busy", message);
+    assert.equal(body.error.retryable, true, message);
+    assert.equal(body.error.message, message);
+  }
+});
+
+test("errorToResponse keeps ordinary failures as 500 internal with the message", () => {
+  const { status, body } = errorToResponse(new Error("plot ring needs at least 3 positions"));
+  assert.equal(status, 500);
+  assert.equal(body.error.code, "internal");
+  assert.equal(body.error.retryable, false);
+  assert.equal(body.error.message, "plot ring needs at least 3 positions");
+});
+
+test("errorToResponse hides messages that mention secrets", () => {
+  for (const message of ["EE_KEY secret is not set", "Unexpected token in private_key"]) {
+    const { status, body } = errorToResponse(new Error(message));
+    assert.equal(status, 500);
+    assert.equal(body.error.code, "internal");
+    assert.equal(body.error.message, "Internal error");
+  }
 });
 
 test("errorToResponse passes through errors with status and code", () => {

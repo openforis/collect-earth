@@ -27,8 +27,8 @@ function maskWithCloudScore(collection) {
 
 /** Sentinel-2 L1C harmonized scenes over the plot, bands renamed, optionally cloud-masked. */
 function sentinel2Images(plot, start, end, { maxCloudyPercent = 70, mask = true } = {}) {
-  let filter = ee.Filter.and(ee.Filter.date(start, end), ee.Filter.bounds(plot), ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE", maxCloudyPercent));
-  let col = ee.ImageCollection("COPERNICUS/S2_HARMONIZED").filter(filter).select(COMMON_BANDS);
+  const filter = ee.Filter.and(ee.Filter.date(start, end), ee.Filter.bounds(plot), ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE", maxCloudyPercent));
+  const col = ee.ImageCollection("COPERNICUS/S2_HARMONIZED").filter(filter).select(COMMON_BANDS);
   return mask ? maskWithCloudScore(col) : col.map(rename);
 }
 
