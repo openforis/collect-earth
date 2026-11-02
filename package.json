@@ -1,0 +1,12 @@
+{
+  "name": "ce-earth-viewer",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix web run build",
+    "test": "npm --prefix functions test && npm --prefix web test",
+    "test:live": "npm --prefix functions run test:live",
+    "emulate": "npm run build && firebase emulators:start",
+    "deploy": "npm test && npm run build && firebase deploy",
+    "deploy:preview": "npm run build && firebase hosting:channel:deploy preview --expires 7d"
+  }
+}
