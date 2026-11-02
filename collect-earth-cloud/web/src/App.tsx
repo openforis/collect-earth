@@ -33,6 +33,8 @@ function RoutePage({ route }: { route: Route }) {
       return <ProjectPage key={route.projectId} projectId={route.projectId} tab="plots" fileId={route.fileId} />;
     case "person":
       return <ProjectPage key={route.projectId} projectId={route.projectId} tab="people" personId={route.userId} />;
+    case "plot":
+      return <ProjectPage key={route.projectId} projectId={route.projectId} tab="quality" plot={route.plot} />;
     case "myQuality":
       return <MyQualityPage key={route.projectId} projectId={route.projectId} />;
     case "myWork":

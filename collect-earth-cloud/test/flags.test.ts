@@ -338,6 +338,17 @@ describe('pattern flags: filters, counts and what they name', () => {
     expect(result.flags[0].at).toBeGreaterThan(result.flags[1].at!);
   });
 
+  it("one plot's flags (the plot page), beyond the newest MAX_LISTED_FLAGS; the counts stay everyone's", () => {
+    const many = Array.from({ length: MAX_LISTED_FLAGS + 20 }, (_, i) => rec(`${i + 1},1`, 'ana', t0 + i * 1000, answers(i)));
+    // Plot 2 is among the oldest: not in the 500 newest listed.
+    expect(flags(many).flags.map((f) => f.plot)).not.toContain('2');
+    const one = flags(many, { plot: '2' });
+    expect(one.flags).toEqual([{ kind: 'very_fast', plot: '2', operator: 'ana', at: t0 + 1000, details: { gapMs: 1000, previousPlot: '1' } }]);
+    expect(one.total).toBe(1);
+    expect(one.counts).toEqual(flags(many).counts);
+    expect(flags(many, { plot: 'none' }).flags).toEqual([]);
+  });
+
   it('the tables cross between threads with the answer table', () => {
     const figures = figuresOf(records);
     const buffers = tableBuffers(figures.answers, figures.flags);

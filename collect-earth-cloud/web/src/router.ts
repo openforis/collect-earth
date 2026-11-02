@@ -24,6 +24,8 @@ export type Route =
   | { name: "myWork"; projectId: string }
   /** The coordinators' printable team report, for training (no names). */
   | { name: "teamReport"; projectId: string }
+  /** One plot found by plot search (coordinators and reviewers), under the Quality tab. */
+  | { name: "plot"; projectId: string; plot: string }
   | { name: "join"; token: string }
   | { name: "reset"; token: string }
   | { name: "account" }
@@ -42,7 +44,7 @@ function decode(segment: string): string | null {
 export function matchRoute(pathname: string): Route {
   const path = pathname.split(/[?#]/)[0];
   const parts = path.split("/").filter((p) => p.length > 0);
-  const [first, second, third, fourth] = parts;
+  const [first, second, third, fourth, fifth] = parts;
   if (parts.length === 0) return { name: "home" };
   if (parts.length === 1) {
     switch (first) {
@@ -85,6 +87,11 @@ export function matchRoute(pathname: string): Route {
     const projectId = decode(second);
     if (projectId) return { name: "teamReport", projectId };
   }
+  if (first === "projects" && parts.length === 5 && third === "quality" && fourth === "plot") {
+    const projectId = decode(second);
+    const plot = decode(fifth);
+    if (projectId && plot) return { name: "plot", projectId, plot };
+  }
   if (first === "projects" && (parts.length === 2 || parts.length === 3)) {
     const projectId = decode(second);
     // "overview" is Setup's old name: old links still open it.
@@ -116,6 +123,8 @@ export function pathFor(route: Route): string {
       return `/projects/${encodeURIComponent(route.projectId)}/my-work`;
     case "teamReport":
       return `/projects/${encodeURIComponent(route.projectId)}/quality/team-report`;
+    case "plot":
+      return `/projects/${encodeURIComponent(route.projectId)}/quality/plot/${encodeURIComponent(route.plot)}`;
     case "join":
       return `/join/${encodeURIComponent(route.token)}`;
     case "reset":

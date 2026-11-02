@@ -165,6 +165,8 @@ describe('cross-tenant isolation', () => {
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/quality/flags` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/quality/survey-health` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/quality/queue` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/plots/search?q=1` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/plots/17` },
       { method: 'POST' as const, url: `/v1/projects/${b.projectId}/quality/decisions:bulk?dryRun=1`, payload: { rule: 'first_by_reviewer' } },
       { method: 'POST' as const, url: `/v1/projects/${b.projectId}/quality/decisions:bulk`, payload: { rule: 'check_by_reviewer' } },
       { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/quality/decisions/17`, payload: { decision: 'check' } },

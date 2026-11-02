@@ -220,6 +220,8 @@ export interface Store {
    * one list: for copyHoldersOf across files (the export).
    */
   listDividedHoldings(projectId: string): Promise<PlotAssignment[]>;
+  /** Who holds some plots (main or copy) in some plot files, divided or not: the plot page's people. */
+  listPlotHolders(projectId: string, csvFileIds: readonly string[], plotKeys: readonly string[]): Promise<(PlotAssignment & { csvFileId: string })[]>;
   /** How many people hold at least one plot, by csv file id (divided files only). */
   countPlotHolders(projectId: string): Promise<Map<string, number>>;
   /** The user's plots of one divided file (none for a whole file), and which of them are copies. */
@@ -248,6 +250,12 @@ export interface Store {
    * differences, in one read.
    */
   getRecordSummaries(projectId: string, keys: readonly { recordKey: string; operator: string }[]): Promise<RecordRow[]>;
+  /**
+   * Every record (any operator) whose key is one of `recordKeys`, with its summary and without
+   * XML, deleted ones too: one plot's records for the plot page (rounds.recordKeysOfUnit), in
+   * one read of the primary key.
+   */
+  listRecordsByKeys(projectId: string, recordKeys: readonly string[]): Promise<RecordRow[]>;
 
   /**
    * Which records there are, whether each is submitted and when it was first submitted

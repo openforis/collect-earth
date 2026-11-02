@@ -3,6 +3,8 @@ import {
   bulkDecisions,
   getFlags,
   getReviewQueue,
+  getPlotPage,
+  searchPlots,
   saveFastSeconds,
   absoluteUrl,
   ApiError,
@@ -497,6 +499,52 @@ describe("the quality figures", () => {
     expect(call(2)).toEqual({ url: "/v1/projects/p1/quality/decisions:bulk?dryRun=1", method: "POST", body: { rule: "first_by_reviewer" } });
     expect((await bulkDecisions("p1", "first_by_reviewer", false)).batch).toBe("b-1");
     expect(call(3)).toEqual({ url: "/v1/projects/p1/quality/decisions:bulk", method: "POST", body: { rule: "first_by_reviewer" } });
+  });
+
+  it("searches plots and reads a plot's page", async () => {
+    fetchMock.mockImplementation(async (_url) => {
+      const url = String(_url);
+      if (url.includes("/plots/search")) return jsonResponse(200, { plots: [{ plot: "17,2025", name: "17", files: [{ id: "f1", filename: "a.csv" }, { id: 3 }] }, { name: "no plot" }], more: true });
+      return jsonResponse(200, {
+        plot: "1",
+        name: "1",
+        files: [{ id: "f1", filename: "a.csv", divided: true, main: ["ana"], copies: ["ben", 4] }],
+        records: [
+          { operator: "ana", recordKey: "1,1", round: "1", assessment: "main", submitted: true, deleted: false, modifiedOn: 5, receivedAt: 6, answers: { q: "F", n: 3 } },
+          { operator: "ben", recordKey: "1,2", round: "2", assessment: "odd", submitted: false, deleted: true, modifiedOn: "x" },
+        ],
+        questions: [{ key: "q", label: "Land use" }, { key: "n" }],
+        labels: { q: "Land use" },
+        options: { q: [{ code: "F", label: "Forest" }] },
+        decision: { plot: "1", decision: "check", comment: "G", decidedBy: "rita", decidedAt: 8, byAssessor: false },
+        ownPlot: true,
+        flags: [{ kind: "very_fast", plot: "1", operator: "ana", at: 5, details: { gapMs: 3000, previousPlot: "0" } }],
+        differences: [{ plot: "1", first: { operator: "ana", recordKey: "1,1" }, check: { operator: "ben", recordKey: "1,2" }, fields: [{ key: "q", first: "F", check: "G" }] }],
+        figures: { computedAt: 3, stale: true },
+        place: { lat: -10, lon: 20, name: "1" },
+        outline: { kind: "square", sideMeters: 70 },
+      });
+    });
+    const found = await searchPlots("p1", " 17 ");
+    expect(call(0).url).toBe("/v1/projects/p1/plots/search?q=17");
+    expect(found).toEqual({ plots: [{ plot: "17,2025", name: "17", files: [{ id: "f1", filename: "a.csv" }] }], more: true });
+    const page = await getPlotPage("p1", "1,2025/x");
+    expect(call(1).url).toBe("/v1/projects/p1/plots/1%2C2025%2Fx");
+    expect(page.files).toEqual([{ id: "f1", filename: "a.csv", divided: true, main: ["ana"], copies: ["ben"] }]);
+    expect(page.records[0]).toEqual({ operator: "ana", recordKey: "1,1", round: "1", assessment: "main", submitted: true, deleted: false, modifiedOn: 5, receivedAt: 6, answers: { q: "F", n: "3" } });
+    expect(page.records[1]).toMatchObject({ assessment: "other", submitted: false, deleted: true, modifiedOn: null, answers: {} });
+    expect(page.questions).toEqual([{ key: "q", label: "Land use" }, { key: "n", label: "n" }]);
+    expect(page).toMatchObject({ plot: "1", name: "1", ownPlot: true, figures: { computedAt: 3, stale: true }, place: { lat: -10, lon: 20, name: "1" }, outline: { kind: "square", sideMeters: 70 }, unsupportedSrs: null });
+    expect(page.decision).toMatchObject({ decision: "check", decidedBy: "rita", comment: "G" });
+    expect(page.flags).toEqual([expect.objectContaining({ kind: "very_fast", gapMs: 3000 })]);
+    expect(page.differences?.[0]).toMatchObject({ changed: false, fields: [{ key: "q", first: "F", check: "G" }] });
+    expect(page.options).toEqual({ q: [{ code: "F", label: "Forest" }] });
+    // No figures at hand: no flags nor differences, rather than none.
+    fetchMock.mockImplementation(async () => jsonResponse(200, { plot: "2", flags: null, differences: null, figures: null, place: null }));
+    expect(await getPlotPage("p1", "2")).toMatchObject({ flags: null, differences: null, figures: null, place: null, decision: null, records: [], files: [] });
+    // Nothing typed: nothing asked.
+    expect(await searchPlots("p1", "  ")).toEqual({ plots: [], more: false });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("saves margins, decisions and notes, and asks where plots are", async () => {

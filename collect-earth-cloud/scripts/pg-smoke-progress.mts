@@ -423,6 +423,25 @@ await owner.query('ANALYZE records');
   const queueAfter = await get('/quality/queue');
   check('... the queue no longer lists them', queueAfter.res.json().counts.difference === differing - byReviewer, queueAfter.res.json().counts);
   console.log(`     POST /quality/decisions:bulk: dry run ${dry.ms} ms, ${byReviewer} plots decided ${bulk.ms} ms, nothing left ${again.ms} ms`);
+  // Plot search (Task 8): the index of the plot file's 100,000 ids, then one plot's page from
+  // its own records (one query by key) and its holders (one query by file and key).
+  const search1 = await get('/plots/search?q=1');
+  const s1 = search1.res.json();
+  check('GET /plots/search?q=1: 20 plots, the shortest ids first, more to type', search1.res.statusCode === 200 && s1.plots.length === 20 && s1.more === true && s1.plots[0].plot === '1' && s1.plots[1].plot === '10', s1.plots?.slice(0, 3));
+  const search2 = await get('/plots/search?q=9999');
+  const search3 = await get('/plots/search?q=4');
+  check('... and a longer id: 9999 and its 10 followers', search2.res.json().plots.length === 11 && search2.res.json().more === false, search2.res.json().plots?.length);
+  const page = await get('/plots/15');
+  const pb = page.res.json();
+  check('GET /plots/15: its file divided (op15, a copy for op16), its two records, the difference and flags from the figures at hand', page.res.statusCode === 200 && pb.files.length === 1 && pb.files[0].divided === true && pb.files[0].main.join() === 'op15' && pb.files[0].copies.join() === 'op16' && pb.records.length === 2 && pb.records[0].assessment === 'main' && pb.records[1].assessment === 'check' && pb.differences.length === 1 && pb.differences[0].fields.some((f: any) => f.key === 'collect_code_q1') && Array.isArray(pb.flags), { status: page.res.statusCode, files: pb.files, records: pb.records?.map((r: any) => [r.operator, r.assessment]), differences: pb.differences?.length });
+  const pageAgain = await get('/plots/99991');
+  check('... another plot (no check)', pageAgain.res.statusCode === 200 && pageAgain.res.json().records.length === 1, pageAgain.res.json().records?.length);
+  const tq = performance.now();
+  const byKeys = await store.listRecordsByKeys(big, ['15', '30']);
+  const holders = await store.listPlotHolders(big, [bigFile], ['15']);
+  const tq2 = performance.now();
+  check('listRecordsByKeys and listPlotHolders read only those plots; nothing of another project', byKeys.length === 4 && byKeys.every((r) => r.xml === null) && holders.length === 2 && (await store.listRecordsByKeys(a, ['15'])).every((r) => r.projectId !== big) && (await store.listPlotHolders(a, [bigFile], ['15'])).length === 0, { byKeys: byKeys.length, holders: holders.length });
+  console.log(`     GET /plots/search: first (index of 100,000 ids built) ${search1.ms} ms, then ${search2.ms} ms and ${search3.ms} ms; GET /plots/15 ${page.ms} ms, /plots/99991 ${pageAgain.ms} ms; the two store reads ${Math.round(tq2 - tq)} ms`);
   // The first submissions come with the summaries for the worker (the events' join).
   const withFirst = await store.listRecordSummaries(big, { firstSubmissions: true });
   check('listRecordSummaries with firstSubmissions: every submitted record has its first submission', withFirst.filter((r) => r.activelySaved).every((r) => typeof r.firstSubmittedOn === 'number'), withFirst.slice(0, 2).map((r) => r.firstSubmittedOn));

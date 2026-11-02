@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RoundInfo } from '../src/cep.js';
 import { parsePlotFile } from '../src/plots.js';
-import { fileKeyCount, keyShape, recordRound, splitKey, unitOfRecord } from '../src/rounds.js';
+import { fileKeyCount, keyShape, recordKeysOfUnit, recordRound, splitKey, unitOfRecord } from '../src/rounds.js';
 
 const phases = [
   { code: '1', label: 'First assessment' },
@@ -155,5 +155,20 @@ describe('parsePlotFile with several key columns', () => {
     expect(file.rows.map((r) => r.id)).toEqual(['17,2020', '17,2021', '17,2020']);
     expect(file.plotIds).toEqual(['17,2020', '17,2021']);
     expect(parsePlotFile(data).plotIds).toEqual(['17']);
+  });
+});
+
+describe('recordKeysOfUnit', () => {
+  it('gives the record keys a plot unit can have, as Collect Earth writes them', () => {
+    // No round: the record key is the unit, for the first assessment and the copies alike.
+    expect(recordKeysOfUnit('17', null)).toEqual(['17']);
+    expect(recordKeysOfUnit('17,a', none)).toEqual(['17,a']);
+    // The server added the round: every round code put back in its place.
+    expect(recordKeysOfUnit('17', added)).toEqual(['17,1', '17,2']);
+    expect(recordKeysOfUnit('17', { ...added, keyCount: 3, roundIndex: 1 })).toEqual(['17,1', '17,2']);
+    // Own round: the unit, and the same plot with the reassessment code (a check).
+    expect(recordKeysOfUnit('17,2025', ownWithCode)).toEqual(['17,2025', '17,2']);
+    expect(recordKeysOfUnit('17,2', ownWithCode)).toEqual(['17,2']);
+    expect(recordKeysOfUnit('17,2025', ownYears)).toEqual(['17,2025']);
   });
 });

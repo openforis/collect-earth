@@ -205,3 +205,41 @@ export function unitOfRecord(
   }
   return null;
 }
+
+/**
+ * The record keys a plot unit (a plot id as in the plot file) can have, so that one plot's
+ * records are read without reading the others (the plot page). The inverse of unitOfRecord
+ * for keys of the survey's shape (a key with more parts than the survey has keys, a data
+ * problem, is not found this way):
+ * - no round in the key: the unit itself, for the first assessment and the copies alike;
+ * - the round the server added (the unit has no round part): the unit with each round code
+ *   put back in its place, "1" and the reassessment code first;
+ * - an own round (the unit has its round part): the unit, and the same plot with the
+ *   reassessment code (its check, whose served copy had its round replaced).
+ * The records read must still be resolved (recordResolver): a check of an own round goes
+ * to one of the plot's units only.
+ */
+export function recordKeysOfUnit(unit: string, info: RoundInfo | null): string[] {
+  const shape = keyShape(info);
+  if (!info || shape.roundIndex === null) {
+    return [unit];
+  }
+  const code = info.reassessmentCode;
+  if (info.state === 'added') {
+    const fields = unit.split(',');
+    if (shape.roundIndex > fields.length) return [unit];
+    const codes = [...new Set(['1', ...(code !== null ? [code] : []), ...info.roundCodes.map((c) => c.code)])];
+    return codes.map((round) => {
+      const parts = [...fields];
+      parts.splice(shape.roundIndex!, 0, round);
+      return parts.join(',');
+    });
+  }
+  const { plot, round } = splitKey(unit, shape.count, shape.roundIndex);
+  if (round === null || code === null || round === code) {
+    return [unit];
+  }
+  const parts = plot.split(',');
+  parts.splice(shape.roundIndex, 0, code);
+  return [unit, parts.join(',')];
+}

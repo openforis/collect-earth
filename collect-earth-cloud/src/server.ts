@@ -21,6 +21,8 @@ import { registerAuthRoutes } from './routes/auth.js';
 import { registerPlatformRoutes } from './routes/platform.js';
 import { ProjectStateCache } from './projectState.js';
 import { registerPeopleRoutes } from './routes/people.js';
+import { PlotPlaceReader } from './routes/plotPlaces.js';
+import { registerPlotSearchRoutes } from './routes/plotSearch.js';
 import { registerProgressRoutes } from './routes/progress.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerQualityRoutes } from './routes/quality.js';
@@ -121,7 +123,10 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const quality = new QualityService(store, new QualityWorker({ maxOldGenerationSizeMb: config.qualityWorkerMaxMb }), {
     minIntervalMs: config.qualityMinIntervalMs,
   });
-  await registerQualityRoutes(app, store, quality);
+  // Where plots are and what the project file says of them, shared by the quality routes and plot search.
+  const places = new PlotPlaceReader(store);
+  await registerQualityRoutes(app, store, quality, places);
+  await registerPlotSearchRoutes(app, store, quality, places);
   // The Progress and People pages' project state, worked out once per project and kept.
   const states = new ProjectStateCache(store, { staleMs: config.stateStaleMs });
   await registerProgressRoutes(app, store, quality, states, now);

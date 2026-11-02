@@ -2530,3 +2530,129 @@ export function toSurveyHealth(body: unknown): SurveyHealthData {
 export async function getSurveyHealth(projectId: string): Promise<SurveyHealthData> {
   return toSurveyHealth(await request<unknown>("GET", `${p(projectId)}/quality/survey-health`));
 }
+
+// --- plot search (Task 8) ---------------------------------------------------------
+
+/** A plot found by its id (GET /plots/search). */
+export interface PlotMatch {
+  /** The plot unit, as the review queue and the decisions name it. */
+  plot: string;
+  /** The id the collector sees. */
+  name: string;
+  /** The plot files holding it. */
+  files: { id: string; filename: string }[];
+}
+
+export interface PlotSearchResult {
+  plots: PlotMatch[];
+  /** Other plots match too: typing more narrows them. */
+  more: boolean;
+}
+
+const toFileRef = (value: unknown): { id: string; filename: string }[] => {
+  const f = obj(value);
+  return typeof f.id === "string" && f.id !== "" ? [{ id: f.id, filename: text(f.filename) }] : [];
+};
+
+const onlyStrings = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []);
+
+export function toPlotSearch(body: unknown): PlotSearchResult {
+  const b = obj(body);
+  return {
+    plots: list(b.plots).flatMap((m) => (typeof m.plot === "string" && m.plot !== "" ? [{ plot: m.plot, name: text(m.name) || m.plot, files: list(m.files).flatMap(toFileRef) }] : [])),
+    more: b.more === true,
+  };
+}
+
+/** Plots whose id starts with `query` (coordinators and reviewers); nothing is asked for an empty one. */
+export async function searchPlots(projectId: string, query: string): Promise<PlotSearchResult> {
+  const q = query.trim();
+  if (q === "") return { plots: [], more: false };
+  return toPlotSearch(await request<unknown>("GET", `${p(projectId)}/plots/search?${new URLSearchParams({ q }).toString()}`));
+}
+
+export type Assessment = "main" | "check" | "other";
+
+/** One record of a plot: whose, which round, submitted or not, and its answers. */
+export interface PlotRecordView {
+  operator: string;
+  recordKey: string;
+  round: string;
+  assessment: Assessment;
+  submitted: boolean;
+  deleted: boolean;
+  modifiedOn: number | null;
+  receivedAt: number | null;
+  answers: Record<string, string>;
+}
+
+/** One plot's page (GET /plots/:plot). */
+export interface PlotPageData {
+  plot: string;
+  name: string;
+  /** Each plot file holding it, with who holds it there (main and quality-check copies). */
+  files: { id: string; filename: string; divided: boolean; main: string[]; copies: string[] }[];
+  records: PlotRecordView[];
+  /** The questions answered, in the survey's order. */
+  questions: { key: string; label: string }[];
+  labels: Record<string, string>;
+  options: AnswerOptions;
+  decision: QualityDecision | null;
+  /** The reviewer asking made a record of it: someone else decides it. */
+  ownPlot: boolean;
+  /** From the quality figures at hand; null when there are none (the Quality tab works them out). */
+  flags: PatternFlag[] | null;
+  differences: (Difference & { changed: boolean })[] | null;
+  figures: { computedAt: number | null; stale: boolean } | null;
+  place: { lat: number; lon: number; name: string } | null;
+  outline: PlotOutline;
+  unsupportedSrs: string | null;
+}
+
+const ASSESSMENTS: readonly Assessment[] = ["main", "check", "other"];
+
+export function toPlotPage(body: unknown): PlotPageData {
+  const b = obj(body);
+  const labels: Record<string, string> = {};
+  for (const [key, label] of Object.entries(obj(b.labels))) if (typeof label === "string") labels[key] = label;
+  const place = obj(b.place);
+  const lat = Number(place.lat);
+  const lon = Number(place.lon);
+  const figures = b.figures && typeof b.figures === "object" ? obj(b.figures) : null;
+  return {
+    plot: text(b.plot),
+    name: text(b.name) || text(b.plot),
+    files: list(b.files).flatMap((f) => toFileRef(f).map((ref) => ({ ...ref, divided: f.divided === true, main: onlyStrings(f.main), copies: onlyStrings(f.copies) }))),
+    records: list(b.records).map((r) => {
+      const answers: Record<string, string> = {};
+      for (const [key, value] of Object.entries(obj(r.answers))) if (value !== null && value !== undefined) answers[key] = String(value);
+      return {
+        operator: text(r.operator),
+        recordKey: text(r.recordKey),
+        round: text(r.round),
+        assessment: ASSESSMENTS.find((a) => a === r.assessment) ?? "other",
+        submitted: r.submitted === true,
+        deleted: r.deleted === true,
+        modifiedOn: toMillis(r.modifiedOn),
+        receivedAt: toMillis(r.receivedAt),
+        answers,
+      };
+    }),
+    questions: list(b.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key) })),
+    labels,
+    options: toOptions(b.options),
+    decision: b.decision && typeof b.decision === "object" ? toDecision(b.decision) : null,
+    ownPlot: b.ownPlot === true,
+    flags: Array.isArray(b.flags) ? list(b.flags).flatMap(toPatternFlags) : null,
+    differences: Array.isArray(b.differences) ? list(b.differences).map((d) => ({ ...toDifference(d), changed: d.changed === true })) : null,
+    figures: figures ? { computedAt: toMillis(figures.computedAt), stale: figures.stale === true } : null,
+    place: b.place && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon, name: text(place.name) || text(b.plot) } : null,
+    outline: toOutline(b.outline),
+    unsupportedSrs: typeof b.unsupportedSrs === "string" && b.unsupportedSrs !== "" ? b.unsupportedSrs : null,
+  };
+}
+
+/** One plot (coordinators and reviewers); a 404 for a plot in no plot file. */
+export async function getPlotPage(projectId: string, plot: string): Promise<PlotPageData> {
+  return toPlotPage(await request<unknown>("GET", `${p(projectId)}/plots/${encodeURIComponent(plot)}`));
+}

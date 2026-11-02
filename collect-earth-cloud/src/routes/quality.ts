@@ -11,7 +11,7 @@ import { fileKeyCount } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { checkMargins, pairAt, pairFields, type Difference, type DifferingPairRef } from '../quality.js';
 import { answerOptions, personalReport, teamReport } from '../qualityReports.js';
-import { registerPlotPlaceRoutes } from './plotPlaces.js';
+import { PlotPlaceReader, registerPlotPlaceRoutes } from './plotPlaces.js';
 import { BULK_RULES, bulkPlots, itemsAfter, parseCursor, QUEUE_KINDS, queueCursor, reviewQueue, type BulkRule, type QueueKind } from '../reviewQueue.js';
 import { surveyHealth } from '../surveyHealth.js';
 import { MAX_CACHED_ANSWER_FILTERS, QualityService, remember, WorkerBusyError, WorkerRestartedError, type ServedReport } from '../qualityService.js';
@@ -68,7 +68,7 @@ function noteInput(body: unknown): GuidanceNoteInput | BadRequest {
  * and whether whoever decided has a record of the plot (a coordinator may decide their own
  * plot; the page says so). `byAssessor` is false when the figures are not at hand.
  */
-function publicDecision(d: QualityDecision, flags?: FlagTable | null): Omit<QualityDecision, 'seen'> & { byAssessor: boolean } {
+export function publicDecision(d: QualityDecision, flags?: FlagTable | null): Omit<QualityDecision, 'seen'> & { byAssessor: boolean } {
   const { seen: _seen, ...rest } = d;
   return { ...rest, byAssessor: !!flags && d.decidedBy !== null && plotOperators(flags, d.plot).has(d.decidedBy) };
 }
@@ -120,6 +120,7 @@ export async function registerQualityRoutes(
   app: FastifyInstance,
   store: Store,
   quality: QualityService = new QualityService(store),
+  places: PlotPlaceReader = new PlotPlaceReader(store),
 ): Promise<void> {
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
   const reviewer = { preHandler: requireProjectMembership(store, 'reviewer') };
@@ -128,7 +129,7 @@ export async function registerQualityRoutes(
     await quality.close();
   });
   // Where the differing plots are, for the Quality tab's Google Earth links.
-  await registerPlotPlaceRoutes(app, store);
+  await registerPlotPlaceRoutes(app, store, places);
 
   app.get('/v1/projects/:pid/quality', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;

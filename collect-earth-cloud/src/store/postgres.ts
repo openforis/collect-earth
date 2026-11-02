@@ -428,6 +428,22 @@ export class PostgresStore implements Store {
     });
   }
 
+  async listRecordsByKeys(projectId: string, recordKeys: readonly string[]): Promise<RecordRow[]> {
+    if (recordKeys.length === 0) {
+      return [];
+    }
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT r.project_id, r.record_key, r.operator, r.modified_on, r.received_at, r.actively_saved, r.step, NULL AS xml, r.summary,
+                r.deleted, r.deleted_on
+           FROM records r
+          WHERE r.project_id = $1 AND r.record_key = ANY($2::text[])`,
+        [projectId, [...new Set(recordKeys)]],
+      );
+      return res.rows.map(mapRecord);
+    });
+  }
+
   async listRecordStates(projectId: string): Promise<RecordState[]> {
     return this.withProject(projectId, async (client) => {
       // A record's first submission: its event `submitted` (one per record; min() to be
@@ -1212,6 +1228,21 @@ export class PostgresStore implements Store {
         [projectId],
       );
       return res.rows.map((r) => ({ plotKey: r.plot_key as string, userId: r.user_id as string, overlap: r.overlap as boolean }));
+    });
+  }
+
+  async listPlotHolders(projectId: string, csvFileIds: readonly string[], plotKeys: readonly string[]): Promise<(PlotAssignment & { csvFileId: string })[]> {
+    const ids = [...new Set(csvFileIds)].filter(isUuid);
+    if (ids.length === 0 || plotKeys.length === 0) {
+      return [];
+    }
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT csv_file_id, plot_key, user_id, overlap FROM plot_assignments
+          WHERE project_id = $1 AND csv_file_id = ANY($2::uuid[]) AND plot_key = ANY($3::text[])`,
+        [projectId, ids, [...new Set(plotKeys)]],
+      );
+      return res.rows.map((r) => ({ csvFileId: r.csv_file_id as string, plotKey: r.plot_key as string, userId: r.user_id as string, overlap: r.overlap as boolean }));
     });
   }
 

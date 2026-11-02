@@ -1336,6 +1336,91 @@ keyboard handling helper.
 
 **Tests:** the search limits, the role checks and that it stays inside the project.
 
+**As built** (differs from the above where it says so)
+- **Search, from the plot files only** (`src/plotSearch.ts`, pure; `src/routes/plotSearch.ts`):
+  an index per project of every plot unit of its files (`plotIdsOf`, the cache the other routes
+  use), searched by the unit **and by the id the collector sees** (`visibleId`, as Earth Map's
+  names: the keys hidden from the record list left out; an own round hidden from the list makes
+  "17,2025" findable as "17"), case ignored. Keys sorted once; a search is a binary search and
+  one pass over the ids starting with what was typed, the shortest first ("1", "10"…"19",
+  "100"), each plot once, at most 20 (`MAX_SEARCH_RESULTS`), with `more`. The index is kept
+  (`PlotIndexCache`, 4 projects) under a version of the files (id, checksum, name), the key count
+  and the hidden keys, so a change of files or survey rebuilds it; one build at a time per
+  project. Never a record read per keystroke.
+- **`GET /v1/projects/:pid/plots/search?q=`** → `{ plots: [{ plot, name, files: [{id,
+  filename}] }], more }` (400 for q over 1000 characters; blank q: none). **`GET
+  /v1/projects/:pid/plots/:plot`** (the unit, URL-encoded; `/plots/search` without `q` is the
+  page of a plot named "search") → `{ plot, name, files: [{ id, filename, divided, main,
+  copies }], records: [{ operator, recordKey, round, assessment (main|check|other), submitted,
+  deleted, modifiedOn, receivedAt, answers }], questions [{key,label}] (the survey's order,
+  `excluded` keys such as ids and plot-file columns left out, keys the survey lacks after),
+  labels, options, decision (no `seen`; `byAssessor` from the plot's records), ownPlot, flags,
+  differences, figures {computedAt, stale}, place {lat, lon, name}, outline, unsupportedSrs? }`;
+  404 for a plot in no plot file. Both `requireProjectMembership('reviewer')`: coordinators and
+  reviewers; collectors and project tokens 403 (blindness); another project's member 404.
+- **Plots in several files:** every file is listed with its people: a whole file → the people
+  given it (the assignment grid) as main; a divided file → its main holders and its quality-check
+  copies (`plot_assignments` of that plot).
+- **Only that plot's records:** `rounds.recordKeysOfUnit(unit, info)` gives the keys the unit's
+  records can have (the unit; the added round's codes put back, "1" and the reassessment code
+  first; an own round's unit and the same plot with the reassessment code), read with the new
+  **`store.listRecordsByKeys(projectId, keys)`** (any operator, summaries, no XML, deleted too;
+  Postgres `record_key = ANY` on the primary key) and resolved with the figures'
+  `recordResolver` over the plot's own units (an own round: the plot's other rounds, found in the
+  index) and copy holders from the new **`store.listPlotHolders(projectId, fileIds, plotKeys)`**
+  (`csv_file_id = ANY AND plot_key = ANY`, primary key). Drafts and deleted records are shown
+  (marked). A record key with more parts than the survey has keys (a data problem) is not found
+  this way.
+- **Flags and differences from `QualityService.peek` only** (never a computation): `patternFlags`
+  takes a `plot` option (that plot's flags whatever their age, beyond the newest 500; counts
+  unchanged); the differing pairs are the report's `pairs` of the plot, their answers worked out
+  with `pairFields` from the records just read (`changed` as in the queue). Without figures at
+  hand both are null and the page says to open the Quality tab.
+- **Deciding from the page:** coordinators and reviewers, through the same `PUT`/`DELETE
+  /quality/decisions/:plot` (own-plot 409 unchanged). `ownPlot` (a reviewer with a non-deleted
+  record of the plot) hides the buttons and says "someone else decides it". "Check is right" only
+  with a submitted check.
+- **Place:** the shared `PlotPlaceReader` (now one per server, given to the quality routes and
+  plot search; `surveyFacts` public): Google Earth and Earth Map links with the plot's outline
+  and visible name, as in the queue.
+- **Web:** `components/PlotSearchBox.tsx` (MUI Autocomplete, asks 250 ms after the last key,
+  stale answers dropped, Enter opens the first; each option says its files; "Only the first 20
+  are listed: type more of the id.") in the project header beside the name, for coordinators and
+  reviewers only (collectors' project page has no header search). `pages/PlotPage.tsx` at
+  `/projects/<id>/quality/plot/<plot>` (route `plot`, under the Quality tab for both roles; the
+  Quality tab clicked there goes back): back link, map links, a link to the Quality tab (queue
+  and differences), Decision, Records (each with kind, person, round, state, saved time by the
+  collector's clock) and an answers table with a column per record (answers by their labels,
+  differing rows shaded), Worth a look, Answers that differ from a check, Plot files and people
+  (file links to the plot file page for coordinators). `plotView.ts` (pure, tested). 38 keys × 4
+  languages (`i18n.ts`, `api.ts`, `api.test.ts`, `router.ts`, `App.tsx`, `ProjectPage.tsx`
+  written with CRLF kept).
+- **Tests:** server 850 (was 839: `plotSearch.test.ts` 5 — prefix, shortest first, the 20 cap
+  and `more`, case, visible ids and units each once, plots in several files, 200,000 ids;
+  `plotSearch.routes.test.ts` 4 — search with limits, the index rebuilt for a new file, the page
+  (files and people, records with rounds, only that plot's, no figures → null, then decision,
+  flags, difference, ownPlot and the 409, 404), roles (collectors and project token 403 on both,
+  another project 404 and nothing of this one), an own round (the check under the reassessment
+  code); `recordKeysOfUnit`; flags of one plot beyond the 500; isolation list), web 274 (was 267:
+  `plotView.test.ts` 4, the api, router cases), tsc clean in both, web build ok.
+- **Postgres smoke** (`npm run smoke:pg:progress`, now also plot search): on the 100,000-plot
+  divided file, `GET /plots/search?q=1` 47-52 ms the first time (index built; the ids already
+  parsed), then 9-11 ms; `GET /plots/15` (divided, a copy, its difference) 155-173 ms the first
+  time, another plot 48-56 ms; the two new store reads 7-10 ms; nothing of another project. ALL
+  OK; the Task 1 smoke ALL OK. Docker stopped after.
+- **Chrome** (seeded memory server, built dashboard): the coordinator typed "1" in the header
+  box (20 plots, plot 1 "In north_region_plots.csv, checks.csv", the note to type more), Enter
+  opened plot 1: both files with maria to assess and ben's copy, the two records and the answers
+  table (Land use shaded), the very-fast flag, the difference, the map links; "Check is right"
+  with a comment showed "By coord" at once. The reviewer rita at phone width: search "12", her
+  own checked plot says someone else decides it, no buttons; no page-wide horizontal scroll; no
+  console errors.
+- **Open:** the "more" note under the box moves the header down while the list is open; the plot
+  page loads the whole decision list to find one decision; `quality.outline` reads the served
+  project file to hash it on each page (as the other quality routes); flags of a plot are worked
+  out by a full `patternFlags` pass (~10-40 ms at 100k); a plot whose id is only in a record (no
+  plot file) cannot be found (the queue's "plot in no file" problems still list them).
+
 ### Task 9: Map of progress (monitoring Phase 5)
 
 **Files:**

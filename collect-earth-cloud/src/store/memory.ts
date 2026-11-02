@@ -344,6 +344,17 @@ export class InMemoryStore implements Store {
     return out;
   }
 
+  async listRecordsByKeys(projectId: string, recordKeys: readonly string[]): Promise<RecordRow[]> {
+    const entry = this.projects.get(projectId);
+    if (!entry || recordKeys.length === 0) return [];
+    const wanted = new Set(recordKeys);
+    const out: RecordRow[] = [];
+    for (const r of entry.records.values()) {
+      if (wanted.has(r.recordKey)) out.push({ ...r, xml: null });
+    }
+    return out;
+  }
+
   /** `${recordKey} ${operator}` -> the modifiedOn of its first event `submitted`. */
   private firstSubmissions(projectId: string): Map<string, number> {
     const first = new Map<string, number>();
@@ -895,6 +906,18 @@ export class InMemoryStore implements Store {
         for (const a of list) {
           result.push({ plotKey: a.plotKey, userId: a.userId, overlap: a.overlap });
         }
+      }
+    }
+    return result;
+  }
+
+  async listPlotHolders(projectId: string, csvFileIds: readonly string[], plotKeys: readonly string[]): Promise<(PlotAssignment & { csvFileId: string })[]> {
+    const entry = this.projects.get(projectId);
+    const keys = new Set(plotKeys);
+    const result: (PlotAssignment & { csvFileId: string })[] = [];
+    for (const csvFileId of new Set(csvFileIds)) {
+      for (const a of entry?.plotAssignments.get(csvFileId) ?? []) {
+        if (keys.has(a.plotKey)) result.push({ csvFileId, plotKey: a.plotKey, userId: a.userId, overlap: a.overlap });
       }
     }
     return result;

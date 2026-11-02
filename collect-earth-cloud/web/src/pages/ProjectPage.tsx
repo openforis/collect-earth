@@ -11,12 +11,14 @@ import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
+import { PlotSearchBox } from "../components/PlotSearchBox";
 import { useT } from "../i18n";
 import { DataTab } from "../project/DataTab";
 import { FileTab } from "../project/FileTab";
 import { OverviewTab } from "../project/OverviewTab";
 import { PeopleTab } from "../project/PeopleTab";
 import { PersonPage } from "./PersonPage";
+import { PlotPage } from "./PlotPage";
 import { PlotFilePage } from "../project/PlotFilePage";
 import { PlotsTab } from "../project/PlotsTab";
 import { ProgressTab } from "../project/ProgressTab";
@@ -43,8 +45,23 @@ const TAB_LABELS = {
 /** The tabs a reviewer has. */
 const REVIEWER_TABS = ["progress", "quality"] as const satisfies readonly ProjectTab[];
 
-/** fileId: one plot file's page, shown under the Plot files tab; personId: one person's page, under the People tab. */
-export function ProjectPage({ projectId, tab, fileId, personId }: { projectId: string; tab: ProjectTab; fileId?: string; personId?: string }) {
+/** The project's name, with the plot search beside it (coordinators and reviewers). */
+function Header({ projectId, name }: { projectId: string; name: string }) {
+  return (
+    <Box sx={{ mb: 1, display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+      <Typography variant="h1" sx={{ wordBreak: "break-word", minWidth: 0 }}>
+        {name}
+      </Typography>
+      <PlotSearchBox projectId={projectId} />
+    </Box>
+  );
+}
+
+/**
+ * fileId: one plot file's page, shown under the Plot files tab; personId: one person's page, under
+ * the People tab; plot: one plot's page (plot search), under the Quality tab.
+ */
+export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projectId: string; tab: ProjectTab; fileId?: string; personId?: string; plot?: string }) {
   const t = useT();
   const project = useLoad(() => getProject(projectId), [projectId]);
 
@@ -84,9 +101,7 @@ export function ProjectPage({ projectId, tab, fileId, personId }: { projectId: s
   if (info.role === "reviewer" && (tab === "progress" || tab === "quality")) {
     return (
       <AppShell>
-        <Typography variant="h1" sx={{ mb: 1, wordBreak: "break-word" }}>
-          {info.name}
-        </Typography>
+        <Header projectId={projectId} name={info.name} />
         <Box sx={{ mb: 3, display: "flex", gap: 1, flexWrap: "wrap" }}>
           <Button variant="outlined" {...linkProps(pathFor({ name: "myWork", projectId }))}>
             {t("myWork.link")}
@@ -97,12 +112,14 @@ export function ProjectPage({ projectId, tab, fileId, personId }: { projectId: s
         </Box>
         <Tabs value={tab} onChange={(_, value: ProjectTab) => go(value)} aria-label={t("project.sections")} sx={{ mb: 3, borderBottom: 1, borderColor: "divider" }}>
           {REVIEWER_TABS.map((id) => (
-            <Tab key={id} value={id} label={t(TAB_LABELS[id])} id={`tab-${id}`} aria-controls={`panel-${id}`} />
+            <Tab key={id} value={id} label={t(TAB_LABELS[id])} id={`tab-${id}`} aria-controls={`panel-${id}`} onClick={plot && id === tab ? () => go(id) : undefined} />
           ))}
         </Tabs>
         <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
           {tab === "progress" ? (
             <ProgressTab projectId={projectId} onGo={go} />
+          ) : plot ? (
+            <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles={false} />
           ) : (
             <Stack spacing={2}>
               <Typography color="text.secondary">{t("quality.reviewerNote")}</Typography>
@@ -144,15 +161,13 @@ export function ProjectPage({ projectId, tab, fileId, personId }: { projectId: s
     people: personId ? <PersonPage key={personId} projectId={projectId} userId={personId} onGo={go} /> : <PeopleTab projectId={projectId} />,
     plots: fileId ? <PlotFilePage key={fileId} projectId={projectId} fileId={fileId} onGo={go} /> : <PlotsTab projectId={projectId} onGo={go} />,
     data: <DataTab projectId={projectId} onGo={go} />,
-    quality: <QualityTab projectId={projectId} />,
+    quality: plot ? <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles /> : <QualityTab projectId={projectId} />,
     settings: <SettingsTab projectId={projectId} name={info.name} onRenamed={(name) => project.setData({ ...info, name })} />,
   }[tab];
 
   return (
     <AppShell>
-      <Typography variant="h1" sx={{ mb: 1, wordBreak: "break-word" }}>
-        {info.name}
-      </Typography>
+      <Header projectId={projectId} name={info.name} />
       <Tabs
         value={tab}
         onChange={(_, value: ProjectTab) => go(value)}
@@ -170,7 +185,7 @@ export function ProjectPage({ projectId, tab, fileId, personId }: { projectId: s
             id={`tab-${id}`}
             aria-controls={`panel-${id}`}
             // On a plot file's page the Plot files tab is already selected: clicking it goes back to the list.
-            onClick={(fileId || personId) && id === tab ? () => go(id) : undefined}
+            onClick={(fileId || personId || plot) && id === tab ? () => go(id) : undefined}
           />
         ))}
       </Tabs>

@@ -359,6 +359,8 @@ export interface FlagOptions {
   person?: string | null;
   /** Only flags of this kind (the counts per kind are of every kind). */
   kind?: FlagKind | null;
+  /** Only flags of this plot (the plot page), listed whatever their age (the counts are as without it). */
+  plot?: string | null;
 }
 
 /** A decision as the flags read it; `seen`: the records of its plot when it was made (null: not kept). */
@@ -405,6 +407,7 @@ export function patternFlags(
   const fastMs = options.fastSeconds * 1000;
   const person = options.person ?? null;
   const kind = options.kind ?? null;
+  const onlyPlot = options.plot ?? null;
   const all: Flag[] = [];
   const byPerson = new Map<string, FlagCounts>();
   const countFor = (username: string): FlagCounts => {
@@ -417,7 +420,7 @@ export function patternFlags(
   };
   const add = (flag: Flag) => {
     countFor(flag.operator)[flag.kind] += 1;
-    if ((person === null || flag.operator === person) && (kind === null || flag.kind === kind)) all.push(flag);
+    if ((person === null || flag.operator === person) && (kind === null || flag.kind === kind) && (onlyPlot === null || flag.plot === onlyPlot)) all.push(flag);
   };
   const plotOf = (row: number) => t.units[t.unit[row]];
 
@@ -508,7 +511,7 @@ export function patternFlags(
   };
   for (const p of report.problems) {
     if (p.kind !== 'two_main' && p.kind !== 'no_plot') continue;
-    if ((person !== null && p.operator !== person) || (kind !== null && p.kind !== kind)) continue;
+    if ((person !== null && p.operator !== person) || (kind !== null && p.kind !== kind) || (onlyPlot !== null && p.plot !== onlyPlot)) continue;
     all.push({ kind: p.kind, plot: p.plot, operator: p.operator, at: savedAt(p.plot, p.operator), details: { recordKey: p.recordKey } });
   }
 
@@ -524,8 +527,7 @@ export function patternFlags(
     .filter((p) => p.total > 0)
     .sort((a, b) => b.total - a.total || (a.username < b.username ? -1 : a.username > b.username ? 1 : 0));
   // Problems listed are a part of those counted: the total is the count's.
-  const total =
-    kind === null ? totalOf(counts) : counts[kind];
+  const total = onlyPlot !== null ? all.length : kind === null ? totalOf(counts) : counts[kind];
   all.sort((a, b) => (b.at ?? -Infinity) - (a.at ?? -Infinity) || (a.plot < b.plot ? -1 : a.plot > b.plot ? 1 : 0) || FLAG_KINDS.indexOf(a.kind) - FLAG_KINDS.indexOf(b.kind));
   return {
     fastSeconds: options.fastSeconds,

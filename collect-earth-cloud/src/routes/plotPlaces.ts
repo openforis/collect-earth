@@ -16,7 +16,7 @@ export const MAX_CACHED_FILES = 8;
 /** ...holding this many places together at most (a file with more is read each time). */
 export const MAX_CACHED_PLACES = 250_000;
 /** What is read once from a served project file: its first spatial reference system, its plot shape's properties, its hidden keys. */
-interface SurveyFacts {
+export interface SurveyFacts {
   srid: string;
   properties: Map<string, string> | null;
   hidden: boolean[] | null;
@@ -135,7 +135,7 @@ export class PlotPlaceReader {
   }
 
   /** What the served project file says of its plots ("" srid, no properties, no keys when it has none or cannot be read). */
-  private async surveyFacts(projectId: string, log: FastifyRequest['log']): Promise<SurveyFacts> {
+  async surveyFacts(projectId: string, log: FastifyRequest['log']): Promise<SurveyFacts> {
     const none: SurveyFacts = { srid: '', properties: null, hidden: null };
     const info = await this.store.getCepInfo(projectId);
     if (!info) {
@@ -227,9 +227,8 @@ export class PlotPlaceReader {
  * with `unsupportedSrs` (and no places) when the survey's coordinates are not latitude
  * and longitude. The plots are units as the quality figures pair them (Difference.plot).
  */
-export async function registerPlotPlaceRoutes(app: FastifyInstance, store: Store): Promise<void> {
+export async function registerPlotPlaceRoutes(app: FastifyInstance, store: Store, reader = new PlotPlaceReader(store)): Promise<void> {
   const reviewer = { preHandler: requireProjectMembership(store, 'reviewer') };
-  const reader = new PlotPlaceReader(store);
   app.post('/v1/projects/:pid/quality/places', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
     const plots = (request.body as { plots?: unknown } | null)?.plots;
     if (
