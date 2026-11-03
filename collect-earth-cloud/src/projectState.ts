@@ -27,6 +27,8 @@ export const STATE_STALE_MS = 30_000;
 export const MAX_CACHED_STATES = 6;
 /** A project not asked for in this long is dropped. */
 export const STATE_IDLE_MS = 10 * 60_000;
+/** A state built while a plot file could not be read is built again after this long (its inputs unchanged). */
+export const STATE_RETRY_MS = 5000;
 
 export interface ProjectState {
   version: string;
@@ -38,6 +40,8 @@ export interface ProjectState {
   assignments: AssignmentDetail[];
   context: PlotContext;
   units: PlotUnits;
+  /** Set when a plot file could not be read (context.failed): the state lacks its plots and is built again after STATE_RETRY_MS. */
+  failedAt?: number;
 }
 
 export interface ServedState {
@@ -93,7 +97,7 @@ export class ProjectStateCache {
     entry.lastUsed = inputs.at;
     remember(this.entries, projectId, entry, this.maxProjects);
     const state = entry.state;
-    if (state && state.version === inputs.version) {
+    if (state && state.version === inputs.version && (state.failedAt === undefined || inputs.at - state.failedAt < STATE_RETRY_MS)) {
       return { state, stale: false, members: inputs.members };
     }
     if (state && !options.fresh && inputs.at - state.builtAt < this.staleMs) {
@@ -175,6 +179,7 @@ export class ProjectStateCache {
         assignments: inputs.assignments,
         context,
         units,
+        ...(context.failed ? { failedAt: inputs.at } : {}),
       };
       entry.state = state;
       return state;

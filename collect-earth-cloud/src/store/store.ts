@@ -402,9 +402,9 @@ export interface Store {
   /**
    * Every record (any operator) whose key is one of `recordKeys`, with its summary and without
    * XML, deleted ones too: one plot's records for the plot page (rounds.recordKeysOfUnit), in
-   * one read of the primary key.
+   * one read of the primary key. With `operator`, only that person's (filtered in the query).
    */
-  listRecordsByKeys(projectId: string, recordKeys: readonly string[]): Promise<RecordRow[]>;
+  listRecordsByKeys(projectId: string, recordKeys: readonly string[], operator?: string): Promise<RecordRow[]>;
 
   /**
    * Which records there are, whether each is submitted and when it was first submitted

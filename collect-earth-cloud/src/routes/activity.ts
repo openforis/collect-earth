@@ -373,6 +373,7 @@ export async function weeklyOf(
     decisions: input.decisions,
     quality: figures,
     flags: null,
+    reference: served.state.context.reference,
   });
   if (figures) {
     // The flags of the week, from the figures at hand (never worked out for this page).

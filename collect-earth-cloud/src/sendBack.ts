@@ -191,7 +191,11 @@ export async function sentBackTo(
   deps: SentBackDeps,
 ): Promise<{ plots: SentBackPlot[]; files: RecheckFile[] }> {
   const none = { plots: [], files: [] };
-  const decisions = (await store.listQualityDecisions(projectId)).filter((d) => d.decision === 'recheck');
+  let decisions = (await store.listQualityDecisions(projectId)).filter((d) => d.decision === 'recheck');
+  if (decisions.length === 0) return none;
+  // A reference plot is measured, never decided (Decision 8): a decision made before it was marked sends nothing back.
+  const reference = new Set((await store.listReferencePlots(projectId)).map((r) => r.plotKey));
+  if (reference.size > 0) decisions = decisions.filter((d) => !reference.has(d.plot));
   if (decisions.length === 0) return none;
   const info = deps.info !== undefined ? deps.info : await store.getRoundInfo(projectId);
   // record key -> the decisions whose plot it can be a record of.

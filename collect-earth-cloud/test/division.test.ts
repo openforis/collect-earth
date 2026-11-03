@@ -3,6 +3,7 @@ import {
   copiesSubmittedAsMain,
   copyHoldersOf,
   divide,
+  keptBy,
   METADATA_KEY_PARTS,
   moveUnfinished,
   overlapPicks,
@@ -693,5 +694,38 @@ describe('performance', () => {
     expect(plots.filter((p) => !p.overlap)).toHaveLength(100_000);
     console.log(`divide nearby, 100,000 plots, 8 people, 10 % overlap: ${took.toFixed(0)} ms`);
     expect(took).toBeLessThan(3000);
+  });
+});
+
+describe('keptBy: a check begun stays with its copy when checks have no key of their own (B3)', () => {
+  const row = (recordKey: string, operator: string, activelySaved: boolean, deleted = false): RecordRow =>
+    ({ projectId: 'p', recordKey, operator, modifiedOn: 1, receivedAt: 1, activelySaved, step: 1, xml: null, summary: {}, deleted, deletedOn: null }) as RecordRow;
+  const holdings: PlotAssignment[] = [
+    { plotKey: '1', userId: 'u-ana', overlap: false },
+    { plotKey: '2', userId: 'u-ana', overlap: false },
+    { plotKey: '1', userId: 'u-ben', overlap: true },
+    { plotKey: '2', userId: 'u-ben', overlap: true },
+  ];
+  const users = new Map([['ana', 'u-ana'], ['ben', 'u-ben']]);
+  const copyHolders = copyHoldersOf(holdings, new Map([['u-ana', 'ana'], ['u-ben', 'ben']]));
+  const plots = new Set(['1', '2']);
+  // ben began the check of plot 1 (a draft "1"); plot 2's draft was deleted.
+  const records = [row('1', 'ana', true), row('2', 'ana', true), row('1', 'ben', false), row('2', 'ben', false, true)];
+
+  it('no round in the keys: the draft keeps the copy with its holder in a move; the summary counts stay those submitted', () => {
+    const submitted = submittedByPlot(records, plots, users, null, copyHolders);
+    const kept = keptBy(submitted, records, plots, users, null, copyHolders);
+    expect([...(kept.get('1')?.check ?? [])]).toEqual(['u-ben']);
+    expect(kept.get('2')?.check.size ?? 0).toBe(0);
+    expect(submitted.get('1')?.check.size ?? 0).toBe(0);
+    const moved = moveUnfinished(holdings, 'u-ben', 'u-cai', kept);
+    expect(moved.plots.filter((a) => a.overlap).map((a) => `${a.plotKey}:${a.userId}`).sort()).toEqual(['1:u-ben', '2:u-cai']);
+  });
+
+  it('a round the server added (checks keyed "1,2"): nothing more is kept', () => {
+    const added: RoundInfo = { state: 'added', refusal: null, keyCount: 2, roundIndex: 1, roundCodes: [{ code: '1', label: '1' }, { code: '2', label: '2' }], reassessmentCode: '2' };
+    const withRound = [row('1,1', 'ana', true), row('1,2', 'ben', false)];
+    const submitted = submittedByPlot(withRound, plots, users, added, copyHolders);
+    expect(keptBy(submitted, withRound, plots, users, added, copyHolders)).toBe(submitted);
   });
 });

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import { InMemoryStore } from '../src/store/memory.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 
 function signup(app: FastifyInstance, username: string) {
@@ -262,5 +263,17 @@ describe('deleting my account', () => {
     const again = await signup(ctx.app, 'juan');
     expect(again.statusCode).toBe(409);
     expect(again.json().error).toBe('username_taken');
+  });
+});
+
+describe('the memory store: two platform admins disabling each other at once', () => {
+  it('one is disabled, the other is refused as the last platform admin (counted and written with no await between)', async () => {
+    const store = new InMemoryStore();
+    const a = (await store.createFirstPlatformAdmin({ username: 'a', passwordHash: 'x' }))!;
+    const b = await store.createUser({ username: 'b', passwordHash: 'x', email: null });
+    b.isPlatformAdmin = true;
+    const results = await Promise.all([store.disableUser(a.id, b.id), store.disableUser(b.id, a.id)]);
+    expect(results.sort()).toEqual(['last_platform_admin', 'ok']);
+    expect([a, b].filter((u) => u.disabledAt === null)).toHaveLength(1);
   });
 });

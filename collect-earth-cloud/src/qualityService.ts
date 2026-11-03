@@ -46,6 +46,12 @@ export interface PlotContext {
   fileUnits: Map<string, readonly string[]>;
   /** Reference plots (Task 14): unit -> the username of its reference assessor. */
   reference: Map<string, string>;
+  /**
+   * True when a plot file could not be read (its plots are missing): whatever is worked out from
+   * this context is not kept as if it were the inputs' (the project state, the figures), but
+   * worked out again soon.
+   */
+  failed?: boolean;
 }
 
 /**
@@ -70,6 +76,7 @@ export async function loadPlotContext(
   const units = new Set<string>();
   const mainHolders = new Map<string, Holders>();
   const fileUnits = new Map<string, readonly string[]>();
+  let failed = false;
   for (const meta of files) {
     try {
       const file = await store.getCsvFile(projectId, meta.id);
@@ -86,6 +93,7 @@ export async function loadPlotContext(
         }
       }
     } catch (err) {
+      failed = true;
       log.error({ err, csvFileId: meta.id }, 'could not read the plot file');
     }
   }
@@ -106,7 +114,7 @@ export async function loadPlotContext(
     }
   }
   const reference = new Map(references.map((r) => [r.plotKey, r.assessor]));
-  return { info, units, copyHolders: copyHoldersOf(holdings, usernames), mainHolders, fileUnits, reference };
+  return { info, units, copyHolders: copyHoldersOf(holdings, usernames), mainHolders, fileUnits, reference, ...(failed ? { failed } : {}) };
 }
 
 /** Thrown by QualityWorker.run when no worker can be started (the job never ran). */
@@ -402,6 +410,11 @@ export interface ServedReport {
    * compared again with these, not with margins changed since (absent in hand-made test figures).
    */
   margins?: Readonly<Record<string, number>>;
+  /**
+   * The version of the inputs they were worked out from (the same on every server instance for the
+   * same inputs; with ":partial" when a plot file could not be read); absent in hand-made test figures.
+   */
+  version?: string;
 }
 
 interface CachedReport {
@@ -577,8 +590,9 @@ export class QualityService {
         return cached;
       }
       let figures: QualityFigures;
+      let partial = false;
       try {
-        figures = await this.compute(projectId, log, s.known);
+        ({ figures, partial } = await this.compute(projectId, log, s.known));
       } catch (err) {
         // Busy or restarted is no fault of these inputs, and nothing was computed: tried
         // again on the next request, interval or not.
@@ -590,7 +604,10 @@ export class QualityService {
         throw err;
       }
       this.failures.delete(projectId);
-      const entry: CachedReport = { version: s.version, ...figures, answerStats: new Map(), computedAt: s.at, margins: { ...(s.known.settings.margins ?? {}) } };
+      // Worked out without a plot file that could not be read: kept under a version the inputs never
+      // have, so the next request finds them out of date and they are worked out again (at most
+      // once per minIntervalMs), not kept as the inputs' figures.
+      const entry: CachedReport = { version: partial ? `${s.version}:partial` : s.version, ...figures, answerStats: new Map(), computedAt: s.at, margins: { ...(s.known.settings.margins ?? {}) } };
       remember(this.reports, projectId, entry, MAX_CACHED_REPORTS);
       // The progress link's figure (Decision 9), kept in the database for every instance; not awaited
       // for the figures, and a failure only logged.
@@ -673,18 +690,20 @@ export class QualityService {
     projectId: string,
     log: Log,
     known: { info: RoundInfo | null; files: CsvFile[]; members: Member[]; settings: QualitySettings },
-  ): Promise<QualityFigures> {
+  ): Promise<{ figures: QualityFigures; partial: boolean }> {
     const source = this.store.recordsSource();
     // No room on the worker: say so before reading the plot files.
     if (source && this.runner?.hasRoom && !this.runner.hasRoom()) {
       throw new WorkerBusyError();
     }
     const [context, outline] = await Promise.all([loadPlotContext(this.store, projectId, log, known), this.outline(projectId, log)]);
-    const input: Omit<QualityInput, 'records'> = { ...context, outline, margins: known.settings.margins };
+    const { failed, ...plots } = context;
+    const partial = failed === true;
+    const input: Omit<QualityInput, 'records'> = { ...plots, outline, margins: known.settings.margins };
     this.computed += 1;
     if (source && this.runner) {
       try {
-        return await this.runner.run({ input, source: { ...source, projectId } });
+        return { figures: await this.runner.run({ input, source: { ...source, projectId } }), partial };
       } catch (err) {
         if (!(err instanceof WorkerUnavailableError)) {
           throw err;
@@ -698,10 +717,10 @@ export class QualityService {
     const records = await this.store.listRecordSummaries(projectId, { firstSubmissions: true });
     // Let what is waiting run first: the figures then hold the loop for a while.
     await new Promise((resolve) => setImmediate(resolve));
-    return qualityFigures({ ...input, records });
+    return { figures: qualityFigures({ ...input, records }), partial };
   }
 }
 
 function served(c: CachedReport, stale: boolean): ServedReport {
-  return { report: c.report, answers: c.answers, answerStats: c.answerStats, flags: c.flags, health: c.health, reference: c.reference, computedAt: c.computedAt, stale, margins: c.margins };
+  return { report: c.report, answers: c.answers, answerStats: c.answerStats, flags: c.flags, health: c.health, reference: c.reference, computedAt: c.computedAt, stale, margins: c.margins, version: c.version };
 }

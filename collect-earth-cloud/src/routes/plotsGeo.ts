@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { resubmittedAfterRecheck } from '../flags.js';
 import { visibleId } from '../plotShape.js';
@@ -28,8 +27,10 @@ import { MAX_NAME } from './quality.js';
  *
  * A map is built once (the request without `version`) and kept a short while under its
  * `version`; the next pages name it and are slices of that build, so every page of a map
- * agrees, whatever is decided or sent meanwhile. A map this server no longer has (expired,
- * pushed out, or another instance) is a 409 `map_changed`: the dashboard reads it again.
+ * agrees, whatever is decided or sent meanwhile. The version is a hash of the map's inputs
+ * (mapVersion), so a server that does not have the build (expired, pushed out, or another
+ * instance) builds it again when its inputs still give that version; when they no longer do, the
+ * page is a 409 `map_changed`: the dashboard reads it again.
  *
  * Not `/plots/geo`: that is the page of a plot named "geo" (GET /plots/:plot).
  *
@@ -105,6 +106,16 @@ export class GeoPlaces {
   }
 }
 
+/**
+ * A map's version: a hash of what it is built from (the project state's version, the decisions,
+ * the figures at hand by their inputs' version, the survey's coordinate system and hidden keys,
+ * which files have places, and the filters and role), the same on every instance for the same
+ * inputs.
+ */
+export function mapVersion(inputs: Record<string, unknown>): string {
+  return sha256(JSON.stringify(inputs)).slice(0, 20);
+}
+
 export async function registerPlotsGeoRoutes(
   app: FastifyInstance,
   store: Store,
@@ -149,74 +160,105 @@ export async function registerPlotsGeoRoutes(
     const key = JSON.stringify([projectId, file, person, coordinator]);
     sweep();
 
-    let build: Build;
     if (version !== null) {
       // The next pages of a map: slices of the build the first page made.
       const hit = builds.get(version);
-      if (!hit || hit.key !== key) {
+      if (hit && hit.key === key) {
+        remember(builds, version, hit, MAX_GEO_BUILDS);
+        return reply.send(answer(version, hit, offset, size));
+      }
+    }
+    // A map's version is a hash of what it is built from, so any instance (or this one after the
+    // build was pushed out) builds the same map again for it: a page whose version no longer
+    // matches the inputs is a 409 `map_changed` (the dashboard reads the map again).
+    const [served, facts, decisions] = await Promise.all([
+      states.get(projectId, request.log),
+      places.surveyFacts(projectId, request.log),
+      store.listQualityDecisions(projectId),
+    ]);
+    const { state } = served;
+    if (file !== null && !state.files.some((f) => f.id === file)) return bad(reply, 'no plot file of this project has this id');
+    let figures: ServedReport | null = null;
+    try {
+      figures = await quality.peek(projectId, request.log);
+    } catch (err) {
+      request.log.warn({ err, projectId }, 'map: the figures at hand could not be read');
+    }
+    const latLon = isWgs84(facts.srid);
+    const read = latLon ? await geoPlaces.get(projectId, state.files, fileKeyCount(state.info), request.log) : null;
+    const versionWith = (f: ServedReport | null) =>
+      mapVersion({
+        key,
+        state: state.version,
+        decisions: decisions.map((d) => [d.plot, d.decision, d.decidedAt]),
+        figures: f ? (f.version ?? f.computedAt) : null,
+        srid: facts.srid,
+        hidden: facts.hidden,
+        places: state.files.map((x) => read?.get(x.id) != null),
+      });
+    let id = versionWith(figures);
+    if (version !== null && version !== id) {
+      // The instance that built it may have had other figures at hand (none, or those of the inputs
+      // now while this one holds older ones): those are tried, the computed ones only on this miss.
+      const others: (() => Promise<ServedReport | null>)[] = [async () => null, () => quality.report(projectId, request.log)];
+      for (const other of figures ? others : others.slice(1)) {
+        let f: ServedReport | null;
+        try {
+          f = await other();
+        } catch (err) {
+          request.log.warn({ err, projectId }, 'map: the figures could not be worked out for a page');
+          continue;
+        }
+        if (versionWith(f) === version) {
+          figures = f;
+          id = version;
+          break;
+        }
+      }
+      if (id !== version) {
         return reply.code(409).send({ error: 'map_changed', reason: 'this map is no longer kept: read it again from its first page' });
       }
-      remember(builds, version, hit, MAX_GEO_BUILDS);
-      build = hit;
-    } else {
-      const [served, facts, decisions] = await Promise.all([
-        states.get(projectId, request.log),
-        places.surveyFacts(projectId, request.log),
-        store.listQualityDecisions(projectId),
-      ]);
-      const { state } = served;
-      if (file !== null && !state.files.some((f) => f.id === file)) return bad(reply, 'no plot file of this project has this id');
-      let figures: ServedReport | null = null;
-      try {
-        figures = await quality.peek(projectId, request.log);
-      } catch (err) {
-        request.log.warn({ err, projectId }, 'map: the figures at hand could not be read');
-      }
-      const latLon = isWgs84(facts.srid);
-      const read = latLon ? await geoPlaces.get(projectId, state.files, fileKeyCount(state.info), request.log) : null;
-      // A reviewer's map has no reference plot, on it or in its counts (Decision 10: which plots
-      // they are is the coordinators'; a status of their many checks would say so).
-      const reference = coordinator ? null : state.context.reference;
-      const unitsOf = (id: string) => {
-        const units = state.context.fileUnits.get(id) ?? [];
-        return reference && reference.size > 0 ? units.filter((u) => !reference.has(u)) : units;
-      };
-      const files: GeoFile[] = state.files.map((meta) => ({
-        id: meta.id,
-        filename: meta.filename,
-        units: unitsOf(meta.id),
-        places: read?.get(meta.id) ?? null,
-      }));
-      const hidden = facts.hidden;
-      const map = plotsGeo({
-        files,
-        isPlot: isPlotUnit(state.info),
-        progress: state.units,
-        decisions: new Map<string, DecisionKind>(decisions.map((d) => [d.plot, d.decision])),
-        differing: figures ? new Set(figures.report.pairs.plot) : null,
-        resubmitted: figures ? new Set(resubmittedAfterRecheck(figures.flags, decisions).map((r) => r.plot)) : null,
-        nameOf: hidden && hidden.some(Boolean) ? (unit) => visibleId(unit, hidden) : null,
-        people: coordinator,
-        file,
-        person,
-      });
-      const id = sha256(`${projectId}${now()}${randomBytes(8).toString('hex')}`).slice(0, 20);
-      build = {
-        projectId,
-        key,
-        map,
-        at: now(),
-        extras: {
-          figures: figures ? { computedAt: figures.computedAt, stale: figures.stale } : null,
-          // When the plots' state is older than the records (a newer one is being worked out).
-          asOf: served.stale ? state.builtAt : null,
-          ...(latLon ? {} : { unsupportedSrs: facts.srid }),
-        },
-      };
-      remember(builds, id, build, MAX_GEO_BUILDS);
-      return reply.send(answer(id, build, offset, size));
     }
-    return reply.send(answer(version, build, offset, size));
+    // A reviewer's map has no reference plot, on it or in its counts (Decision 10: which plots
+    // they are is the coordinators'; a status of their many checks would say so).
+    const reference = coordinator ? null : state.context.reference;
+    const unitsOf = (fileId: string) => {
+      const units = state.context.fileUnits.get(fileId) ?? [];
+      return reference && reference.size > 0 ? units.filter((u) => !reference.has(u)) : units;
+    };
+    const files: GeoFile[] = state.files.map((meta) => ({
+      id: meta.id,
+      filename: meta.filename,
+      units: unitsOf(meta.id),
+      places: read?.get(meta.id) ?? null,
+    }));
+    const hidden = facts.hidden;
+    const map = plotsGeo({
+      files,
+      isPlot: isPlotUnit(state.info),
+      progress: state.units,
+      decisions: new Map<string, DecisionKind>(decisions.map((d) => [d.plot, d.decision])),
+      differing: figures ? new Set(figures.report.pairs.plot) : null,
+      resubmitted: figures ? new Set(resubmittedAfterRecheck(figures.flags, decisions).map((r) => r.plot)) : null,
+      nameOf: hidden && hidden.some(Boolean) ? (unit) => visibleId(unit, hidden) : null,
+      people: coordinator,
+      file,
+      person,
+    });
+    const build: Build = {
+      projectId,
+      key,
+      map,
+      at: now(),
+      extras: {
+        figures: figures ? { computedAt: figures.computedAt, stale: figures.stale } : null,
+        // When the plots' state is older than the records (a newer one is being worked out).
+        asOf: served.stale ? state.builtAt : null,
+        ...(latLon ? {} : { unsupportedSrs: facts.srid }),
+      },
+    };
+    remember(builds, id, build, MAX_GEO_BUILDS);
+    return reply.send(answer(id, build, offset, size));
   });
 
   function answer(version: string, build: Build, offset: number, size: number) {

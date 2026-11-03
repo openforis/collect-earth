@@ -316,6 +316,21 @@ describe('automatic check sampling: the rule, the draws, and what checkers get',
     expect((await call('POST', '/sampling/draw', owner.token)).json().draw).toMatchObject({ drawn: 0 });
   });
 
+  it('a disabled checker’s drawn copy with a check begun (a draft) stays theirs: not drawn again (B3)', async () => {
+    await call('PUT', '/sampling', owner.token, { firstN: 1, checkers: [people.ana.userId, people.jose.userId] });
+    await submit('maria', [1]);
+    const [first] = await drawn();
+    const was = first.userId === people.ana.userId ? 'ana' : 'jose';
+    // Their check of plot 1, saved, not submitted.
+    const draft = await batchRequest(ctx.app, pid, projectToken, [
+      envelope({ recordKey: '1,2', operator: was, modifiedOn: clock, activelySaved: false, summary: { [LAND_USE]: 'G', collect_code_round: '2' } }),
+    ]);
+    expect(draft.statusCode, draft.body).toBe(200);
+    expect(await ctx.store.disableUser(people[was].userId, owner.userId)).toBe('ok');
+    expect((await call('POST', '/sampling/draw', owner.token)).json().draw).toMatchObject({ drawn: 0 });
+    expect((await drawn()).map((a) => [a.plotKey, a.userId])).toEqual([['1', people[was].userId]]);
+  });
+
   it('"Draw now" waits for an automatic draw running and then makes its own, audited as the coordinator’s', async () => {
     await call('PUT', '/sampling', owner.token, { firstN: 2 });
     const real = ctx.store.addSampledCopies.bind(ctx.store);

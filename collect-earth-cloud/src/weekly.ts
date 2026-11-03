@@ -41,8 +41,10 @@ export interface WeeklyPerson {
   role: Role;
   /** Plots (not checks) first submitted in the week. */
   submitted: number;
-  /** Checks first submitted in the week. */
+  /** Checks first submitted in the week, reference plots' left out (they are measurements, Decision 8). */
   checks: number;
+  /** Their checks of reference plots first submitted in the week (measurements against the reference, counted apart). */
+  referenceMeasurements: number;
   /** As the People table has it now. */
   status: PersonStatus;
   plots: PersonRow['plots'];
@@ -57,10 +59,13 @@ export interface WeeklySummary {
   /** Whether the week is the viewer's current one (its figures are still growing). */
   current: boolean;
   progress: {
-    /** Each day of the week: plots first submitted that day (as the Progress tab's bars), and checks. */
+    /** Each day of the week: plots first submitted that day (as the Progress tab's bars), and checks (reference plots' apart). */
     days: { date: string; submitted: number; checks: number }[];
     submitted: number;
+    /** Checks of the week, reference plots' left out. */
     checks: number;
+    /** Checks of reference plots in the week: measurements against the reference, never decided (Decision 8). */
+    referenceMeasurements: number;
     /** Plots submitted before the week, and by its end (each plot once, on the day of its first submission). */
     before: number;
     byEnd: number;
@@ -77,7 +82,7 @@ export interface WeeklySummary {
     week: Rate | null;
     /** Every check so far. */
     overall: Rate | null;
-    /** Decisions made in the week, by kind (decisions changed since keep only their last time). */
+    /** Decisions made in the week, by kind (decisions changed since keep only their last time; none of a reference plot). */
     decided: Record<DecisionKind, number> & { total: number };
     /** Plots worth a look found in the week (their time in the week), by kind; null without figures. */
     flags: { counts: FlagCounts; total: number } | null;
@@ -96,6 +101,8 @@ export interface WeeklyInput {
   quality: { report: QualityReport; computedAt: number; stale: boolean } | null;
   /** The flags of the week (patternFlags with `when`); null without figures. */
   flags: { counts: FlagCounts; total: number } | null;
+  /** The reference plots (Task 14): their checks are counted apart, their decisions (made before they were marked) not at all. */
+  reference?: { has(unit: string): boolean } | null;
 }
 
 const rateOf = (compared: number, agreeing: number): Rate => ({ compared, agreeing, rate: compared >= MIN_PLOTS ? agreeing / compared : null });
@@ -117,25 +124,33 @@ export function weeklySummary(input: WeeklyInput): WeeklySummary {
     if (date <= end) byEnd += 1;
     if (inWeek(date)) plotsByDay.set(date, (plotsByDay.get(date) ?? 0) + 1);
   }
+  const reference = input.reference ?? null;
   const checksByDay = new Map<string, number>();
+  let referenceMeasurements = 0;
   const people: WeeklyPerson[] = input.people.people.map((row) => {
     const work = input.units.byOperator.get(row.username);
     let submitted = 0;
     let checks = 0;
+    let measurements = 0;
     for (const at of work?.mainSubmitted.values() ?? []) if (inWeek(dayOf(at))) submitted += 1;
-    for (const at of work?.checkSubmitted.values() ?? []) {
+    for (const [unit, at] of work?.checkSubmitted ?? []) {
       const date = dayOf(at);
-      if (inWeek(date)) {
-        checks += 1;
-        checksByDay.set(date, (checksByDay.get(date) ?? 0) + 1);
+      if (!inWeek(date)) continue;
+      if (reference?.has(unit)) {
+        measurements += 1;
+        continue;
       }
+      checks += 1;
+      checksByDay.set(date, (checksByDay.get(date) ?? 0) + 1);
     }
-    return { userId: row.userId, username: row.username, role: row.role, submitted, checks, status: row.status, plots: row.plots };
+    referenceMeasurements += measurements;
+    return { userId: row.userId, username: row.username, role: row.role, submitted, checks, referenceMeasurements: measurements, status: row.status, plots: row.plots };
   });
   people.sort((a, b) => b.submitted - a.submitted || b.checks - a.checks || (a.username < b.username ? -1 : a.username > b.username ? 1 : 0));
 
   const decided = { first: 0, check: 0, recheck: 0, total: 0 };
   for (const d of input.decisions) {
+    if (reference?.has(d.plot)) continue;
     if (inWeek(dayOf(d.decidedAt))) {
       decided[d.decision] += 1;
       decided.total += 1;
@@ -154,6 +169,7 @@ export function weeklySummary(input: WeeklyInput): WeeklySummary {
       days,
       submitted: days.reduce((s, d) => s + d.submitted, 0),
       checks: days.reduce((s, d) => s + d.checks, 0),
+      referenceMeasurements,
       before,
       byEnd,
       totals: input.units.totals,

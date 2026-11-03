@@ -104,6 +104,27 @@ describe('the weekly summary', () => {
     expect(s.quality.flags?.total).toBe(3);
   });
 
+  it('reference plots: their checks counted apart (referenceMeasurements), their decisions not at all (M-1)', () => {
+    const s = weeklySummary({
+      week: '2026-W45',
+      timeZone: 'Europe/Rome',
+      now: Date.UTC(2026, 10, 5, 12),
+      units,
+      people,
+      decisions: [
+        { plot: '1', decision: 'first', comment: null, decidedBy: 'owner', decidedAt: wednesday },
+        { plot: '3', decision: 'recheck', comment: null, decidedBy: 'owner', decidedAt: wednesday },
+      ],
+      quality: null,
+      flags: null,
+      reference: new Set(['3']),
+    });
+    expect(s.progress).toMatchObject({ checks: 0, referenceMeasurements: 1 });
+    expect(s.progress.days.every((d) => d.checks === 0)).toBe(true);
+    expect(s.people.find((p) => p.username === 'ana')).toMatchObject({ checks: 0, referenceMeasurements: 1 });
+    expect(s.quality.decided).toEqual({ first: 1, check: 0, recheck: 0, total: 1 });
+  });
+
   it('without figures at hand: no agreement nor flags, the decisions still counted; a past week is not current', () => {
     const s = weeklySummary({ week: '2026-W44', timeZone: 'UTC', now: wednesday, units, people, decisions: [], quality: null, flags: null });
     expect(s.current).toBe(false);

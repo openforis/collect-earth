@@ -433,13 +433,13 @@ export class InMemoryStore implements Store {
     return (await this.listRecords(projectId)).filter((r) => r.xml === null).map((r) => ({ recordKey: r.recordKey, operator: r.operator }));
   }
 
-  async listRecordsByKeys(projectId: string, recordKeys: readonly string[]): Promise<RecordRow[]> {
+  async listRecordsByKeys(projectId: string, recordKeys: readonly string[], operator?: string): Promise<RecordRow[]> {
     const entry = this.projects.get(projectId);
     if (!entry || recordKeys.length === 0) return [];
     const wanted = new Set(recordKeys);
     const out: RecordRow[] = [];
     for (const r of entry.records.values()) {
-      if (wanted.has(r.recordKey)) out.push({ ...r, xml: null });
+      if (wanted.has(r.recordKey) && (operator === undefined || r.operator === operator)) out.push({ ...r, xml: null });
     }
     return out;
   }
@@ -743,7 +743,9 @@ export class InMemoryStore implements Store {
     if (!user) {
       return 'not_found';
     }
-    if (user.isPlatformAdmin && !user.disabledAt && (await this.countPlatformAdmins()) <= 1) {
+    // Counted and written with no await between them: two admins disabling each other at once
+    // cannot both pass the count (Postgres holds a lock for that).
+    if (user.isPlatformAdmin && !user.disabledAt && this.enabledPlatformAdmins() <= 1) {
       return 'last_platform_admin';
     }
     if (!user.disabledAt) {

@@ -75,7 +75,8 @@ export async function registerAssignmentRoutes(
       return undefined;
     }
     const keyCount = fileKeyCount(info);
-    return nearbyRanksOf(file, keyCount, async () => (await placeReader.placesOfFile(projectId, file.id, file.checksum, keyCount, log))?.places ?? new Map());
+    // The file in hand is parsed for its places; null when they cannot be read (the ranks are then retried soon).
+    return nearbyRanksOf(file, keyCount, async () => (await placeReader.placesOfFile(projectId, file.id, file.checksum, keyCount, log, file))?.places ?? null);
   };
   /**
    * The person's "To check again" files (none for a project token). The plot context is read
@@ -471,8 +472,9 @@ function copiesServedAsMain(
     const missing = [...keys].filter((k) => !records.has(k));
     if (missing.length > 0) {
       for (const k of missing) records.set(k, []);
-      for (const r of await store.listRecordsByKeys(projectId, missing)) {
-        if (r.operator === who.username) records.get(r.recordKey)?.push(r);
+      // Only the person's records, filtered in the query (every collector's records of a reference plot are not read).
+      for (const r of await store.listRecordsByKeys(projectId, missing, who.username)) {
+        records.get(r.recordKey)?.push(r);
       }
     }
     const mine = [...keys].flatMap((k) => records.get(k) ?? []);

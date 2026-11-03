@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hilbertIndex, nearbyAvailability, nearbyOrder, nearbyRanksOf } from '../src/nearby.js';
+import { hilbertIndex, nearbyAvailability, nearbyOrder, nearbyRanksOf, RANKS_RETRY_MS } from '../src/nearby.js';
 import { buildPlotFile, parsePlotFile } from '../src/plots.js';
 import { placesOfPlotFile } from '../src/routes/plotPlaces.js';
 
@@ -138,6 +138,30 @@ describe('a served file in the order of the curve', () => {
     expect(Math.abs(ordered.indexOf('1') - ordered.indexOf('3'))).toBe(1);
     expect(Math.abs(ordered.indexOf('2') - ordered.indexOf('5'))).toBe(1);
     expect(await nearbyRanksOf(file, 1, places)).toBe(ranks);
+    expect(reads).toBe(1);
+  });
+
+  it('ranks worked out while the places could not be read are not kept: read again after RANKS_RETRY_MS (B1)', async () => {
+    const other = { checksum: 'nearby-test-failed', data: file.data };
+    let clock = 1_000_000;
+    let reads = 0;
+    const failing = async () => {
+      reads += 1;
+      return null;
+    };
+    const first = await nearbyRanksOf(other, 1, failing, () => clock);
+    // Without places: the file's order.
+    expect([...first.keys()]).toEqual(['1', '2', '3', '4', '5']);
+    clock += RANKS_RETRY_MS - 1;
+    expect(await nearbyRanksOf(other, 1, failing, () => clock)).toBe(first);
+    expect(reads).toBe(1);
+    clock += 2;
+    const good = await nearbyRanksOf(other, 1, places, () => clock);
+    expect(good).not.toBe(first);
+    expect(good.get('4')).toBe(4);
+    // Read well, kept for good.
+    clock += 10 * RANKS_RETRY_MS;
+    expect(await nearbyRanksOf(other, 1, failing, () => clock)).toBe(good);
     expect(reads).toBe(1);
   });
 

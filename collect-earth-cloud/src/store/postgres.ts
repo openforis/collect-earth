@@ -454,7 +454,7 @@ export class PostgresStore implements Store {
     });
   }
 
-  async listRecordsByKeys(projectId: string, recordKeys: readonly string[]): Promise<RecordRow[]> {
+  async listRecordsByKeys(projectId: string, recordKeys: readonly string[], operator?: string): Promise<RecordRow[]> {
     if (recordKeys.length === 0) {
       return [];
     }
@@ -463,8 +463,8 @@ export class PostgresStore implements Store {
         `SELECT r.project_id, r.record_key, r.operator, r.modified_on, r.received_at, r.actively_saved, r.step, NULL AS xml, r.summary,
                 r.deleted, r.deleted_on
            FROM records r
-          WHERE r.project_id = $1 AND r.record_key = ANY($2::text[])`,
-        [projectId, [...new Set(recordKeys)]],
+          WHERE r.project_id = $1 AND r.record_key = ANY($2::text[]) AND ($3::text IS NULL OR r.operator = $3)`,
+        [projectId, [...new Set(recordKeys)], operator ?? null],
       );
       return res.rows.map(mapRecord);
     });
@@ -1238,6 +1238,8 @@ export class PostgresStore implements Store {
 
   async removeMember(projectId: string, userId: string): Promise<void> {
     await this.withProject(projectId, async (client) => {
+      // A draw's copies land before or after the removal, never one for a person removed meanwhile.
+      await client.query(SAMPLING_LOCK, [projectId]);
       await client.query('DELETE FROM assignments WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
       await client.query('DELETE FROM plot_assignments WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
       await client.query('DELETE FROM member_activity WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
@@ -1452,6 +1454,8 @@ export class PostgresStore implements Store {
     // The route passes the plot ids it read with the survey's key count.
     const plotCount = plotKeys ? plotKeys.length : plotCountOf(data);
     return this.withProject(projectId, async (client) => {
+      // A draw's copies land before or after a replaced file drops the holdings of plots it no longer has.
+      await client.query(SAMPLING_LOCK, [projectId]);
       const res = await client.query(
         `INSERT INTO csv_files (id, project_id, filename, checksum, plot_count, data)
          VALUES ($1, $2, $3, $4, $5, $6)

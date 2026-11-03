@@ -337,6 +337,22 @@ describe('reference plots: marking, copies for every collector, accuracy against
     expect(row('3,2', 'maria')).toBe('"3,2",3,2,check,,yes,maria,true');
   });
 
+  it('a plot sent back before it was marked a reference plot is no longer sent back (M-1)', async () => {
+    await ctx.store.setDivision(pid, fileId, { mode: 'manual' }, [
+      ...(await ctx.store.listPlotAssignments(pid, fileId)).filter((a) => a.plotKey !== '3'),
+      { plotKey: '3', userId: owner.userId, overlap: false },
+      { plotKey: '3', userId: people.maria.userId, overlap: true },
+    ]);
+    await send('owner', 1, [3]);
+    await send('maria', 2, [3], () => 'G');
+    await settled(() => call('GET', '/quality', owner.token), (b: { plotsDiffering: number }) => b.plotsDiffering === 1);
+    expect((await call('PUT', '/quality/decisions/3', owner.token, { decision: 'recheck' })).statusCode).toBe(200);
+    const again = (entries: Entry[]) => entries.filter((e) => e.filename.startsWith('To check again'));
+    expect(again(await myAssignment(people.maria.token))).toHaveLength(1);
+    expect((await mark({ csvFileId: fileId, assessorUserId: owner.userId, plots: ['3'] })).statusCode).toBe(200);
+    expect(again(await myAssignment(people.maria.token))).toEqual([]);
+  });
+
   it('copies in two divided files, one submitted as main in the second: the listed checksum is the downloaded one', async () => {
     // ana holds copies in north.csv (reference plot 1) and in west.csv (plot 22, a division copy).
     await mark({ csvFileId: fileId, assessorUserId: owner.userId, plots: ['1'] });

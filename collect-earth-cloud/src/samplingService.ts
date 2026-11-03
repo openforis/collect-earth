@@ -312,9 +312,19 @@ export function drawInputOf(
   }
   const usernames = new Map(members.map((m) => [m.userId, m.username]));
   const stale: { csvFileId: string; plotKey: string; userId: string }[] = [];
+  // A check begun (a draft) is kept with its holder, as one submitted (Task 22 review, B3): enabled
+  // again they finish it, and without a round in the keys a draft left without its copy would read
+  // as a second first assessment.
   const isStale = (a: PlotAssignment) => {
     const username = usernames.get(a.userId);
-    return a.overlap && a.sampledAt !== undefined && username !== undefined && disabled.has(username) && !state.units.checksDone.has(`${username}\n${a.plotKey}`);
+    return (
+      a.overlap &&
+      a.sampledAt !== undefined &&
+      username !== undefined &&
+      disabled.has(username) &&
+      !state.units.checksDone.has(`${username}\n${a.plotKey}`) &&
+      !(state.units.byOperator.get(username)?.checkDrafts.has(a.plotKey) ?? false)
+    );
   };
   for (const [csvFileId, list] of holdings) {
     for (const a of list) if (isStale(a)) stale.push({ csvFileId, plotKey: a.plotKey, userId: a.userId });

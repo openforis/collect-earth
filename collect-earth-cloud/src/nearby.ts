@@ -159,28 +159,35 @@ export function inRankOrder(plotIds: readonly string[], rank: ReadonlyMap<string
 
 /** Recent rank maps, by content and key count (least recently used out first). */
 const MAX_RANKS = 4;
-const ranks = new Map<string, ReadonlyMap<string, number>>();
+/** Ranks worked out without the file's places (they could not be read) are worked out again after this long. */
+export const RANKS_RETRY_MS = 5000;
+const ranks = new Map<string, { ranks: ReadonlyMap<string, number>; failedAt: number | null }>();
 
 /**
  * Each plot's position in the file's 'nearby' order, the curve over all of its plots (cached by
  * content and key count: every person's served file of one division reads the same, and the
  * division deals along it). `places` are the file's places (PlotPlaceReader.placesOfFile, kept
- * per checksum), read only when the ranks are not cached.
+ * per checksum, given the file in hand), read only when the ranks are not cached; null when they
+ * could not be read: the ranks are then those of no place (the file's order) and kept only
+ * RANKS_RETRY_MS, as plot search's index (INDEX_RETRY_MS), never as if they were the file's.
  */
 export async function nearbyRanksOf(
   file: { checksum: string; data: Buffer },
   keyCount: number,
-  places: () => Promise<ReadonlyMap<string, readonly [number, number]>>,
+  places: () => Promise<ReadonlyMap<string, readonly [number, number]> | null>,
+  now: () => number = Date.now,
 ): Promise<ReadonlyMap<string, number>> {
   const key = `${file.checksum}:${keyCount}`;
   const hit = ranks.get(key);
-  if (hit) {
+  if (hit && (hit.failedAt === null || now() - hit.failedAt < RANKS_RETRY_MS)) {
     ranks.delete(key);
     ranks.set(key, hit);
-    return hit;
+    return hit.ranks;
   }
-  const result = nearbyRanks(plotFileOf(file, keyCount).plotIds, await places());
-  ranks.set(key, result);
+  const read = await places();
+  const result = nearbyRanks(plotFileOf(file, keyCount).plotIds, read ?? new Map());
+  ranks.delete(key);
+  ranks.set(key, { ranks: result, failedAt: read === null ? now() : null });
   while (ranks.size > MAX_RANKS) {
     ranks.delete(ranks.keys().next().value as string);
   }

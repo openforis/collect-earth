@@ -5,6 +5,7 @@ import { audit } from '../activity.js';
 import {
   divide,
   hasSubmitted,
+  keptBy,
   moveUnfinished,
   parseDivisionRequest,
   submittedByPlot,
@@ -40,14 +41,17 @@ async function loadFile(store: Store, projectId: string, csvFileId: string, log:
   // from every divided file, as the export and the quality figures read it, so
   // someone holding a plot as main in another file is not taken for its checker.
   const { copyHolders } = await loadPlotContext(store, projectId, log, { info, members });
-  const submitted = submittedByPlot(records, new Set(plotFile.plotIds), userIdByUsername, info, copyHolders);
+  const plotIds = new Set(plotFile.plotIds);
+  const submitted = submittedByPlot(records, plotIds, userIdByUsername, info, copyHolders);
+  // What stays with a copy's holder in a division or a move: also a check begun, when checks have no key of their own.
+  const kept = keptBy(submitted, records, plotIds, userIdByUsername, info, copyHolders);
   // A survey with its own round may have several units (rounds) of one plot.
   const shape = keyShape(info);
   const plotOf =
     info?.state === 'own' && shape.roundIndex !== null
       ? (unit: string) => splitKey(unit, shape.count, shape.roundIndex).plot
       : (unit: string) => unit;
-  return { file, plotFile, usernames, submitted, plotOf, keyCount: fileKeyCount(info) };
+  return { file, plotFile, usernames, submitted, kept, plotOf, keyCount: fileKeyCount(info) };
 }
 
 /**
@@ -59,14 +63,15 @@ async function loadFile(store: Store, projectId: string, csvFileId: string, log:
 async function nearbyOf(
   reader: PlotPlaceReader,
   projectId: string,
-  file: { id: string; checksum: string },
+  file: { id: string; checksum: string; data: Buffer },
   plotCount: number,
   keyCount: number,
   log: FastifyRequest['log'],
 ): Promise<{ availability: NearbyAvailability; places: ReadonlyMap<string, readonly [number, number]> }> {
   const { srid } = await reader.surveyFacts(projectId, log);
+  // The file in hand is parsed (not read again by id): the places are of this very content.
   const places = isWgs84(srid)
-    ? ((await reader.placesOfFile(projectId, file.id, file.checksum, keyCount, log))?.places ?? new Map<string, readonly [number, number]>())
+    ? ((await reader.placesOfFile(projectId, file.id, file.checksum, keyCount, log, file))?.places ?? new Map<string, readonly [number, number]>())
     : new Map<string, readonly [number, number]>();
   return { availability: nearbyAvailability(srid, places.size, plotCount), places };
 }
@@ -215,7 +220,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store,
     const dealt = reference.size === 0 ? plotFile.plotIds : plotFile.plotIds.filter((id) => !reference.has(id));
     const dealtValues = reference.size === 0 || values === null ? values : values.filter((_, i) => !reference.has(plotFile.plotIds[i]));
     const plots = [
-      ...divide(parsed, dealt, dealtValues, submitted, plotOf, drawn.filter((a) => !reference.has(a.plotKey)), rank),
+      ...divide(parsed, dealt, dealtValues, loaded.kept, plotOf, drawn.filter((a) => !reference.has(a.plotKey)), rank),
       ...held.filter((a) => reference.has(a.plotKey)),
     ];
     if (!dryRun) {
@@ -233,7 +238,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store,
     if (!loaded) {
       return reply.code(404).send({ error: 'not_found' });
     }
-    const { file, plotFile, usernames, submitted, plotOf } = loaded;
+    const { file, plotFile, usernames, submitted, kept: keptWith, plotOf } = loaded;
     const body = (request.body ?? {}) as { fromUserId?: unknown; toUserId?: unknown };
     const from = typeof body.fromUserId === 'string' ? body.fromUserId : '';
     const to = typeof body.toUserId === 'string' ? body.toUserId : '';
@@ -263,7 +268,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store,
     if (!holdings.some((a) => a.userId === from)) {
       return reply.send({ ...(await currentSummary(store, projectId, loaded)), moved: 0, notMoved: 0, droppedChecks: 0 });
     }
-    const result = moveUnfinished(holdings, from, to, submitted, plotOf);
+    const result = moveUnfinished(holdings, from, to, keptWith, plotOf);
     result.plots.push(...kept);
     // A move after a 'nearby' division keeps the rows of the served files in that order (Task 15).
     const distribution: StoredDistribution = servedNearby(file.distribution) ? { mode: 'manual', order: 'nearby' } : { mode: 'manual' };

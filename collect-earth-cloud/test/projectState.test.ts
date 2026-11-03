@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectStateCache } from '../src/projectState.js';
+import { ProjectStateCache, STATE_RETRY_MS } from '../src/projectState.js';
 import { InMemoryStore } from '../src/store/memory.js';
 import type { RecordRow } from '../src/types.js';
 
@@ -52,6 +52,33 @@ describe('ProjectStateCache', () => {
     const late = await cache.get(projectId, log);
     expect(late.stale).toBe(false);
     expect(late.state.units.totals.submitted).toBe(2);
+  });
+
+  it('a state built while a plot file could not be read is built again after STATE_RETRY_MS, inputs unchanged', async () => {
+    const { store, projectId } = await project();
+    let now = 1_000_000;
+    const cache = new ProjectStateCache(store, { staleMs: 0, now: () => now });
+    const getCsvFile = store.getCsvFile.bind(store);
+    let fail = true;
+    store.getCsvFile = async (...args) => {
+      if (fail) throw new Error('disk on fire');
+      return getCsvFile(...args);
+    };
+    const first = await cache.get(projectId, log);
+    expect(first.state.units.totals.plots).toBe(0);
+    expect(first.state.context.failed).toBe(true);
+    fail = false;
+    now += STATE_RETRY_MS - 1;
+    expect((await cache.get(projectId, log)).state).toBe(first.state);
+    expect(cache.built).toBe(1);
+    now += 2;
+    const again = await cache.get(projectId, log);
+    expect(cache.built).toBe(2);
+    expect(again.state.units.totals.plots).toBe(2);
+    expect(again.state.failedAt).toBeUndefined();
+    now += 60_000;
+    await cache.get(projectId, log);
+    expect(cache.built).toBe(2);
   });
 
   it('concurrent first requests share one build', async () => {

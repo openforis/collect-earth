@@ -442,6 +442,10 @@ describe('migration 012', () => {
     const widened = readFileSync(new URL('../migrations/015_decision_bulk.sql', import.meta.url), 'utf8');
     const actions = (text: string) => [...text.slice(text.indexOf('ADD CONSTRAINT audit_log_action_check')).split('))')[0].matchAll(/'([a-z.]+)'/g)].map((m) => m[1]).sort();
     expect(actions(widened)).toEqual([...AUDIT_ACTIONS].sort());
+    // Its guard looks for every action it adds (B7), not only decision.bulk.
+    const guard = [...widened.slice(widened.indexOf('wanted TEXT[]')).split('];')[0].matchAll(/'([a-z.]+)'/g)].map((m) => m[1]).sort();
+    expect(guard).toEqual([...AUDIT_ACTIONS].sort());
+    expect(widened).not.toMatch(/LIKE '%decision\.bulk%'/);
     expect(listed('audit_log_action_check')).toEqual([...AUDIT_ACTIONS].filter((a) => a !== 'decision.bulk').sort());
     expect(AUDIT_ACTIONS).toContain('survey.replaced');
   });

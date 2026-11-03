@@ -187,7 +187,8 @@ export class PlotPlaceReader {
   /**
    * Every place of one plot file (the first row giving a plot a place wins), or null when it
    * cannot be read; kept by checksum and key count (a file of more than MAX_CACHED_PLACES places
-   * is read each time). Also the places of order 'nearby' (Task 15).
+   * is read each time). Also the places of order 'nearby' (Task 15). `inHand`: the file already
+   * read (its content is parsed, not read again by id, so the places are of that very content).
    */
   async placesOfFile(
     projectId: string,
@@ -195,6 +196,7 @@ export class PlotPlaceReader {
     checksum: string,
     keyCount: number,
     log: FastifyRequest['log'],
+    inHand?: Parameters<typeof plotFileOf>[0],
   ): Promise<FilePlaces | null> {
     const key = `${checksum}\u0000${keyCount}`;
     const hit = this.files.get(key);
@@ -203,7 +205,7 @@ export class PlotPlaceReader {
       return hit;
     }
     try {
-      const file = await this.store.getCsvFile(projectId, fileId);
+      const file = inHand ?? (await this.store.getCsvFile(projectId, fileId));
       if (!file) {
         return null;
       }

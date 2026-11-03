@@ -597,7 +597,8 @@ describe('dividing plots between people', () => {
       await columns(gridId);
       // Each later look reads the file once for its columns, never again for its places.
       expect(reads.mock.calls.length - first).toBe(2);
-      expect(first).toBe(2);
+      // The places are parsed from the file read for the columns (B1): not read again by id.
+      expect(first).toBe(1);
       // A nearby division reads no more than one in file order.
       const readsOf = async (order: string) => {
         reads.mockClear();

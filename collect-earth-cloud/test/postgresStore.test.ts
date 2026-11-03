@@ -96,6 +96,27 @@ describe('PostgresStore pool', () => {
     expect(lock).toBeLessThan(sqls.findIndex((s) => s.startsWith('DELETE FROM plot_assignments')));
   });
 
+  it('removeMember and putCsvFile take the check sampling lock before touching the holdings', async () => {
+    const lockedBefore = (first: string) => {
+      const sqls = queries.map((q) => q.sql);
+      const lock = sqls.findIndex((s) => s.includes("'collect-earth-cloud:sampling:'"));
+      expect(lock).toBeGreaterThan(-1);
+      expect(lock).toBeLessThan(sqls.findIndex((s) => s.includes(first)));
+    };
+    await new PostgresStore('postgres://x').removeMember(PROJECT, '00000000-0000-0000-0000-0000000000a1');
+    lockedBefore('DELETE FROM plot_assignments');
+    queries.length = 0;
+    await new PostgresStore('postgres://x').putCsvFile(PROJECT, 'a.csv', Buffer.from('id\n1\n'), ['1']).catch(() => {});
+    lockedBefore('INSERT INTO csv_files');
+  });
+
+  it('listRecordsByKeys filters by operator in the query when one is given', async () => {
+    await new PostgresStore('postgres://x').listRecordsByKeys(PROJECT, ['1', '1'], 'ana');
+    const q = queries.find((x) => x.sql.includes('record_key = ANY'))!;
+    expect(q.sql).toContain('r.operator = $3');
+    expect(q.params).toEqual([PROJECT, ['1'], 'ana']);
+  });
+
   it('deleteProject retries a deadlock after a random pause of 10-50 ms, at most three times', async () => {
     const pauses: number[] = [];
     const realSetTimeout = globalThis.setTimeout;

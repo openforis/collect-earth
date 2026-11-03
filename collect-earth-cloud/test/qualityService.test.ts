@@ -204,6 +204,32 @@ describe('QualityService', () => {
     expect(jobs).toHaveLength(2);
   });
 
+  it('figures worked out while a plot file could not be read are not kept as the inputs\': worked out again', async () => {
+    const store = new InMemoryStore();
+    const { projectId } = await store.createProject({ name: 'p' });
+    await store.putCsvFile(projectId, 'a.csv', Buffer.from('id,lat,lon\n1,0,0\n2,0,0\n'));
+    const getCsvFile = store.getCsvFile.bind(store);
+    let fail = true;
+    store.getCsvFile = async (...args) => {
+      if (fail) throw new Error('disk on fire');
+      return getCsvFile(...args);
+    };
+    const service = new QualityService(store, null, { minIntervalMs: 0 });
+    const log = { warn() {}, error() {} };
+    const first = await service.report(projectId, log);
+    expect(first.version).toMatch(/:partial$/);
+    fail = false;
+    // The same inputs: a full computation follows (behind the stale ones, or waited for).
+    await service.report(projectId, log);
+    await new Promise((r) => setTimeout(r, 20));
+    const second = await service.report(projectId, log);
+    expect(service.computed).toBe(2);
+    expect(second.version).not.toMatch(/:partial$/);
+    expect(second.stale).toBe(false);
+    await service.report(projectId, log);
+    expect(service.computed).toBe(2);
+  });
+
   it('computes on this thread when no worker can start, and says so once', async () => {
     const store = new SourcedStore();
     const { projectId } = await store.createProject({ name: 'p' });

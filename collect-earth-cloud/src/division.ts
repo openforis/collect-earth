@@ -1,6 +1,6 @@
 import type { DivisionOrder, PlotAssignment, RecordRow, StoredDistribution } from './types.js';
 import type { RoundInfo } from './cep.js';
-import { copyUnitsByUser, recordRound, unitOfRecord } from './rounds.js';
+import { copyUnitsByUser, keyShape, recordRound, unitOfRecord } from './rounds.js';
 import { inRankOrder } from './nearby.js';
 
 /**
@@ -603,6 +603,48 @@ export function submittedByPlot(
     (assessment === 'check' ? entry.check : entry.main).add(userId);
   }
   return result;
+}
+
+/**
+ * Whether a check record has a key of its own: the files people get carry a round (the round the
+ * server added, or an own round with its reassessment code), so "17,2" is a check whoever holds
+ * the plot. Otherwise only who holds the copy tells a check from a first assessment ("17").
+ */
+export function checksHaveOwnKey(info: RoundInfo | null): boolean {
+  if (info?.state === 'added') return true;
+  return info?.state === 'own' && info.reassessmentCode !== null && keyShape(info).roundIndex !== null;
+}
+
+/**
+ * What a division and a move keep with a copy's holder (Task 22 review, B3): the plots submitted
+ * (submittedByPlot), and, when check records have no key of their own (checksHaveOwnKey), the
+ * checks a copy holder has begun (a draft, not deleted): moved or dealt to someone else, that
+ * draft would read as a second first assessment of the plot. The summaries keep counting the
+ * submitted ones only.
+ */
+export function keptBy(
+  submitted: SubmittedBy,
+  records: readonly RecordRow[],
+  plotIds: ReadonlySet<string>,
+  userIdByUsername: ReadonlyMap<string, string>,
+  info: RoundInfo | null,
+  copyHolders: ReadonlyMap<string, ReadonlySet<string>>,
+): SubmittedBy {
+  if (checksHaveOwnKey(info)) return submitted;
+  const copyUnits = copyUnitsByUser(copyHolders);
+  let result: Map<string, Submitters> | null = null;
+  for (const r of records) {
+    if (r.activelySaved || r.deleted) continue;
+    const userId = userIdByUsername.get(r.operator);
+    if (!userId) continue;
+    const plot = unitOfRecord(r.recordKey, plotIds, info, copyUnits.get(r.operator));
+    if (plot === null || recordRound(r, info, copyHolders, plot).assessment !== 'check') continue;
+    result ??= new Map(submitted);
+    const was = result.get(plot);
+    if (was?.check.has(userId)) continue;
+    result.set(plot, { main: was?.main ?? new Set(), check: new Set([...(was?.check ?? []), userId]) });
+  }
+  return result ?? submitted;
 }
 
 /**

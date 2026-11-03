@@ -53,6 +53,7 @@ export interface CoordinatorProject {
   projectId: string;
   name: string;
   submitted: number;
+  /** Checks of the week, reference plots' measurements left out (weekly's `checks`). */
   checks: number;
   /** Plots done by the end of the week, of all the plots in the plot files. */
   byEnd: number;

@@ -2,7 +2,8 @@ import { strFromU8, strToU8, unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cepWith, idOnlyCep } from './fixtures/cep.js';
 import { GEO_PAGE_SIZE, GEO_STATUSES } from '../src/plotsGeo.js';
-import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
+import { buildServer } from '../src/server.js';
+import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, TEST_SETUP_CODE, type TestContext } from './helpers.js';
 
 const LAND_USE = 'collect_code_land_use_category';
 const S = Object.fromEntries(GEO_STATUSES.map((s, i) => [s, i])) as Record<(typeof GEO_STATUSES)[number], number>;
@@ -207,6 +208,44 @@ describe('map of progress: GET /map/plots', () => {
     // Another person's or another filter's map is not this one.
     expect((await call('GET', `/map/plots?offset=50&version=${first.version}&person=ben`, owner.token)).statusCode).toBe(409);
     expect((await call('GET', `/map/plots?offset=50&version=${first.version}`, rita.token)).statusCode).toBe(409);
+  });
+
+  it('another instance sharing the store serves the next pages of a map by its version; inputs changed since, 409 (B2)', async () => {
+    const instance = () =>
+      buildServer({
+        store: ctx.store,
+        config: { port: 0, host: '127.0.0.1', storeBackend: 'memory', setupCode: TEST_SETUP_CODE, rateLimitPerMinute: 0, qualityMinIntervalMs: 0, stateStaleMs: 0 },
+        webDir: null,
+      });
+    const other = await instance();
+    try {
+      // This instance has figures at hand, the other none: it works them out for the page.
+      await figures();
+      const first = await geo('?size=50');
+      expect(first.figures).not.toBeNull();
+      const here = await geo(`?size=50&offset=50&version=${first.version}`);
+      const there = await other.inject({ method: 'GET', url: `/v1/projects/${pid}/map/plots?size=50&offset=50&version=${first.version}`, headers: bearer(owner.token) });
+      expect(there.statusCode, there.body).toBe(200);
+      expect(there.json()).toMatchObject({ version: first.version, counts: first.counts, points: here.points, plots: here.plots });
+      // The same inputs on another instance give the same version.
+      const firstThere = await other.inject({ method: 'GET', url: `/v1/projects/${pid}/map/plots?size=50`, headers: bearer(owner.token) });
+      expect(firstThere.json().version).toBe(first.version);
+      // A reviewer's map is another map.
+      const ritaThere = await other.inject({ method: 'GET', url: `/v1/projects/${pid}/map/plots?size=50&offset=50&version=${first.version}`, headers: bearer(rita.token) });
+      expect(ritaThere.statusCode).toBe(409);
+      // A decision since: a third instance (without the build) refuses the old version.
+      expect((await call('PUT', '/quality/decisions/60', owner.token, { decision: 'first' })).statusCode).toBe(200);
+      const third = await instance();
+      try {
+        const stale = await third.inject({ method: 'GET', url: `/v1/projects/${pid}/map/plots?size=50&offset=50&version=${first.version}`, headers: bearer(owner.token) });
+        expect(stale.statusCode).toBe(409);
+        expect(stale.json()).toMatchObject({ error: 'map_changed' });
+      } finally {
+        await third.close();
+      }
+    } finally {
+      await other.close();
+    }
   });
 
   it("reads many plot files at once and keeps each project's places apart", async () => {
