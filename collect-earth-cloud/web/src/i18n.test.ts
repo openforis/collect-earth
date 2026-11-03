@@ -32,14 +32,15 @@ describe("translations", () => {
     for (const text of [join, myWork]) expect(text).toContain(catalogue["role.reviewer"].toLowerCase().slice(0, 6));
   });
 
-  // The desktop's own labels (collect-earth-app Messages*.properties): Tools → Properties, the
-  // "Sample data" tab (OptionWizard.31), "Refresh assignments" (English in every language) and
-  // "Save & Apply changes" (OptionWizard.15).
+  // The desktop's own labels (collect-earth-app Messages*.properties), as its settings page shows them: the
+  // Properties menu (CollectEarthWindow.15), the "Project" section (SettingsPage.section.project), "Refresh
+  // assignments" (English in every language) and "Apply" (SettingsPage.apply). French and Portuguese have no text of
+  // their own for the section and the button yet, so the desktop shows them in English.
   const desktop = {
-    en: ["Tools → Properties", "Sample data", "Save & Apply changes"],
-    es: ["Herramientas → Propiedades", "Datos de muestra", "Guardar & aplicar cambios"],
-    fr: ["Outils → Propriétés", "Points d'échantillonnage", "Appliquer et sauvegarder les changements"],
-    pt: ["Ferramentas → Propiedades", "Dados de amostra", "Guardar & Aplicar alterações"],
+    en: ["Properties → “Project”", "Apply"],
+    es: ["Propiedades → «Proyecto»", "Aplicar"],
+    fr: ["Propriétés → « Project »", "Apply"],
+    pt: ["Propiedades → “Project”", "Apply"],
   } as const;
   it.each(LANGUAGES)("%s names the desktop's real path to a new plot file", (language) => {
     const catalogue = CATALOGUES[language];
@@ -49,7 +50,8 @@ describe("translations", () => {
       for (const label of desktop[language]) expect(text, `${language} ${key}`).toContain(label);
     }
     expect(catalogue["reference.collectors"]).toContain("Refresh assignments");
-    // No text names a plain "Refresh" in "the plot settings" any more.
+    // No text names the Swing screens the settings page replaced, nor a plain "Refresh" in "the plot settings".
+    for (const [key, text] of Object.entries(catalogue)) expect(text, `${language} ${key}`).not.toMatch(/Sample data|Datos de muestra|Points d'échantillonnage|Dados de amostra|Save & Apply|Assigned plot file:/);
     for (const [key, text] of Object.entries(catalogue)) expect(text, `${language} ${key}`).not.toMatch(/plot settings|ajustes de parcelas|configuración de parcelas|réglages des parcelles|configurações de parcelas/);
   });
 
