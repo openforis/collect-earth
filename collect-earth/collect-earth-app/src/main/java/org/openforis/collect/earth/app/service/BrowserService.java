@@ -27,6 +27,7 @@ import java.util.function.Function;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.EarthApp;
+import org.openforis.collect.earth.app.service.notices.Notice;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.imagery.BidiCommandException;
@@ -1029,14 +1030,14 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	/**
 	 * Planet is opened for every plot, so the interpreter is told once per run: a dialog on each plot would
-	 * get in the way of the assessment, and the key is entered in the options dialog, not here.
+	 * get in the way of the assessment, and the key is entered in the settings, not here. A notice of the pages.
 	 */
 	private void warnAboutMissingPlanetApiKey() {
 		logger.warn("Planet is switched on but no Planet API key is configured");
 		if (!planetApiKeyWarningShown) {
 			planetApiKeyWarningShown = true;
-			EarthApp.showMessage(Messages.getString("BrowserService.planetApiKeyMissing"), //$NON-NLS-1$
-					Messages.getString("BrowserService.planetApiKeyMissingTitle")); //$NON-NLS-1$
+			EarthApp.notify(Notice.WARNING, Messages.getString("BrowserService.planetApiKeyMissingTitle"), //$NON-NLS-1$
+					Messages.getString("BrowserService.planetApiKeyMissing")); //$NON-NLS-1$
 		}
 	}
 

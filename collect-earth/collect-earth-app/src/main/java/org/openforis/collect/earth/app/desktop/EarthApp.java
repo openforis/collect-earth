@@ -314,7 +314,16 @@ public class EarthApp {
 	 * What the Swing window showed in a dialog of its own, as a notice of the pages (NoticeService), through the context
 	 * that is running; a Swing dialog when there is none yet, as before.
 	 */
-	static void notify(String severity, String htmlMessage) {
+	public static void notify(String severity, String htmlMessage) {
+		notify(severity, "Collect Earth", htmlMessage); //$NON-NLS-1$
+	}
+
+	/**
+	 * @param htmlMessage the message, as HTML: a text of Messages written for the Swing dialogs may come wrapped in
+	 *        html tags, which are taken off
+	 */
+	public static void notify(String severity, String title, String htmlMessage) {
+		String body = htmlMessage.replaceFirst("^\\s*<html>", "").replaceFirst("</html>\\s*$", ""); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 		NoticeService notices = null;
 		try {
 			if (serverController != null && serverController.getContext() != null) {
@@ -324,9 +333,9 @@ public class EarthApp {
 			logger.warn("No notice service to show the message with: {}", e.getMessage()); //$NON-NLS-1$
 		}
 		if (notices != null) {
-			notices.post(new Notice("server", severity, "Collect Earth", htmlMessage).html()); //$NON-NLS-1$ //$NON-NLS-2$
+			notices.post(new Notice("server", severity, title, body).html()); //$NON-NLS-1$
 		} else {
-			showMessage("<html>" + htmlMessage + "</html>"); //$NON-NLS-1$ //$NON-NLS-2$
+			showMessage("<html>" + body + "</html>", title); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 	}
 
@@ -763,7 +772,8 @@ public class EarthApp {
 
 	private void openKmlOnGoogleEarth() {
 		if (!CollectEarthUtils.openFile(new File(KmlGeneratorService.KML_NETWORK_LINK_STARTER))) {
-			showMessage("The KML file cannot be open at " + KmlGeneratorService.KML_NETWORK_LINK_STARTER); //$NON-NLS-1$
+			notify(Notice.ERROR, MessageFormat.format(Messages.getString("EarthApp.kmlCannotOpen"), //$NON-NLS-1$
+					StringEscapeUtils.escapeHtml4(new File(KmlGeneratorService.KML_NETWORK_LINK_STARTER).getAbsolutePath())));
 		}
 	}
 	
@@ -791,13 +801,11 @@ public class EarthApp {
 		// Inform Mac OS users of the issues about opening CEP files in the Mac version
 		// of CE
 		if (SystemUtils.IS_OS_MAC_OSX) {
-			showMessage("<html>" //$NON-NLS-1$
-					+ "<b>" //$NON-NLS-1$
+			notify(Notice.INFO, Messages.getString("EarthApp.73"), "<b>" //$NON-NLS-1$ //$NON-NLS-2$
 					+ Messages.getString("EarthApp.70") + "</b>: " //$NON-NLS-2$
 					+ Messages.getString("EarthApp.71") + Messages.getString("EarthApp.72") + "<b>" //$NON-NLS-3$
 					+ Messages.getString("CollectEarthWindow.10") + " -> " //$NON-NLS-2$
-					+ Messages.getString("CollectEarthMenu.0") + "</b></html>", //$NON-NLS-2$
-					Messages.getString("EarthApp.73"));
+					+ Messages.getString("CollectEarthMenu.0") + "</b>"); //$NON-NLS-2$
 		}
 	}
 
@@ -851,7 +859,7 @@ public class EarthApp {
 				}
 			}
 		} catch (final Exception e) {
-			showMessage(Messages.getString("EarthApp.61")); //$NON-NLS-1$
+			notify(Notice.ERROR, Messages.getString("EarthApp.61")); //$NON-NLS-1$
 			logger.error("The KMZ file could not be found", e); //$NON-NLS-1$
 		}
 	}
