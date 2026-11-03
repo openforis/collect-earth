@@ -67,8 +67,23 @@ public class GoogleEarthWebService {
 	private static final String PANEL_TEMPLATE = "resources/javascript_plots_map_panel.fmt";
 	private static final String OVERLAY_TAG = "__collectEarthGewOverlay";
 
-	/** How long to wait for Google Earth Web to follow an in-page navigation. */
+	/**
+	 * How long to wait for Google Earth Web to follow an in-page navigation, from the first time its URL could be read
+	 * after the push: the worker of the imagery window may be busy meanwhile (opening a tab takes seconds), and a wait
+	 * spent behind it says nothing about Google Earth Web.
+	 */
 	private static final long IN_PAGE_NAVIGATION_TIMEOUT_MILLIS = 4000;
+	/** How long at most an in-page navigation is waited for whatever the worker does. */
+	private static final long IN_PAGE_NAVIGATION_MAX_MILLIS = 12000;
+	/** How often the URL is read while waiting for an in-page navigation. */
+	private static final long IN_PAGE_NAVIGATION_POLL_MILLIS = 150;
+	/**
+	 * The URL of the page and whether the overlay remembers that Google Earth Web jumps (see javascript_google_earth_web.fmt),
+	 * in one round trip: see {@link InPageNavigation#isFollowed}.
+	 */
+	private static final String IN_PAGE_PROBE_SCRIPT = "var j = window.__collectEarthGewJumps;"
+			+ " if (typeof j !== 'boolean') { try { j = localStorage.getItem('__collectEarthGewJumps') === '1'; }"
+			+ " catch (e) { j = false; } } return [location.href, j];";
 	/** Also how often the camera is read for the plots map, which follows it. */
 	private static final long WATCHDOG_PERIOD_MILLIS = 500;
 	/**
@@ -155,8 +170,8 @@ public class GoogleEarthWebService {
 	private long shownSelection = Long.MIN_VALUE;
 	/** The plot currently shown (null: overview, or nothing yet). */
 	private volatile SimplePlacemarkObject current;
-	/** Whether Google Earth Web follows in-page navigation; null until tried once. */
-	private volatile Boolean inPageNavigation;
+	/** Whether Google Earth Web follows in-page navigation, as learnt from the plots shown. */
+	private final InPageNavigation inPage = new InPageNavigation();
 
 	private volatile State state = State.CLOSED;
 	private volatile String statePlotId;
@@ -396,7 +411,7 @@ public class GoogleEarthWebService {
 
 	/** Whether the camera can follow the plots map at all: in Google Earth Web, and only by in-page navigation. */
 	private boolean canMoveCamera() {
-		return localPropertiesService.isGoogleEarthWebViewer() && !Boolean.FALSE.equals(inPageNavigation);
+		return localPropertiesService.isGoogleEarthWebViewer() && inPage.worthTrying();
 	}
 
 	/**
@@ -435,7 +450,7 @@ public class GoogleEarthWebService {
 		status.put("message", stateMessage);
 		status.put("view", view);
 		// Whether the camera can follow the plots map ( only without page loads )
-		status.put("cameraSync", !Boolean.FALSE.equals(inPageNavigation));
+		status.put("cameraSync", inPage.worthTrying());
 		return status;
 	}
 
@@ -493,7 +508,7 @@ public class GoogleEarthWebService {
 		// plots map says "opening", not "moving". A new window is laid out by WindowLayoutService when its browser starts.
 		boolean newTab = !tabOpen || (href != null && href.startsWith("about:"));
 		boolean moved = false;
-		if (tabOpen && !Boolean.FALSE.equals(inPageNavigation) && GoogleEarthWebUrls.isGoogleEarthWeb(href)) {
+		if (tabOpen && inPage.worthTrying() && GoogleEarthWebUrls.isGoogleEarthWeb(href)) {
 			setState(State.MOVING, plotId, null);
 			moved = navigateInPage(url, target);
 		}
@@ -503,6 +518,7 @@ public class GoogleEarthWebService {
 			if (!tab().load(url, false, PAGE_LOAD_TIMEOUT)) {
 				logger.warn("Google Earth Web did not load in time");
 			}
+			inPage.pageLoaded();
 		}
 		startWatchdog();
 		current = overview ? null : target;
@@ -539,32 +555,49 @@ public class GoogleEarthWebService {
 	}
 
 	/**
-	 * Moves the loaded page to the plot without reloading it (a reload costs several seconds
-	 * of WebGL start-up and imagery loading). Google Earth Web rewrites the URL while its
-	 * camera moves, so a URL that is still exactly the one pushed after a few seconds means
-	 * it ignored the request: the caller then loads the page, and this is not tried again. Unless
-	 * the tab was hidden meanwhile: a hidden Google Earth Web may not fly until it is shown, which
-	 * says nothing about whether it follows in-page navigation.
+	 * Moves the loaded page to the plot without reloading it (a reload costs several seconds of WebGL start-up, a reset
+	 * of the globe and imagery loading). Google Earth Web appends its {@code /data=} suffix to the URL as soon as it
+	 * takes the push, and rewrites the camera once it arrived: see {@link InPageNavigation#isFollowed} for what counts as
+	 * followed. Not followed in {@link #IN_PAGE_NAVIGATION_TIMEOUT_MILLIS} from the first read of the URL, the caller
+	 * loads the page; given up on for good only after a few such failures that say something (see
+	 * {@link InPageNavigation#notFollowed}): not while the tab was hidden (a hidden Google Earth Web may not fly until it
+	 * is shown), nor while the worker of the imagery window was opening tabs, which held up every read of the URL.
 	 */
 	private boolean navigateInPage(String url, SimplePlacemarkObject target) {
 		try {
-			boolean visibleThroughout = tab().isVisible();
+			long openings = imageryBrowser.tabOpenings();
+			boolean fair = tab().isVisible();
 			tab().evaluate(IN_PAGE_NAVIGATION_SCRIPT, url);
 			double latitude = Double.parseDouble(target.getCoord().getLatitude());
 			double longitude = Double.parseDouble(target.getCoord().getLongitude());
-			long end = System.currentTimeMillis() + IN_PAGE_NAVIGATION_TIMEOUT_MILLIS;
-			while (System.currentTimeMillis() < end) {
-				Thread.sleep(250);
-				visibleThroughout &= tab().isVisible();
-				String href = tab().currentUrl();
-				if (!url.equals(href) && GoogleEarthWebUrls.isCameraAt(href, latitude, longitude)) {
-					inPageNavigation = Boolean.TRUE;
+			long now = System.nanoTime();
+			long last = now + TimeUnit.MILLISECONDS.toNanos(IN_PAGE_NAVIGATION_MAX_MILLIS);
+			// Set by the first read of the URL that the worker answered
+			Long end = null;
+			while (now - last < 0 && (end == null || now - end < 0)) {
+				Thread.sleep(IN_PAGE_NAVIGATION_POLL_MILLIS);
+				fair &= tab().isVisible();
+				List<?> page = readProbe();
+				now = System.nanoTime();
+				if (page == null) {
+					continue;
+				}
+				if (end == null) {
+					end = now + TimeUnit.MILLISECONDS.toNanos(IN_PAGE_NAVIGATION_TIMEOUT_MILLIS);
+				}
+				if (InPageNavigation.isFollowed(url, String.valueOf(page.get(0)), Boolean.TRUE.equals(page.get(1)),
+						latitude, longitude)) {
+					inPage.followed();
 					return true;
 				}
 			}
-			if (inPageNavigation == null && visibleThroughout && tab().isVisible()) {
+			long openingsAfter = imageryBrowser.tabOpenings();
+			fair &= end != null && tab().isVisible() && openingsAfter == openings && openings % 2 == 0;
+			if (inPage.notFollowed(fair)) {
 				logger.info("Google Earth Web does not follow in-page navigation; plots will be loaded with a page load");
-				inPageNavigation = Boolean.FALSE;
+			} else {
+				logger.info("Google Earth Web did not follow an in-page navigation in time{}; the plot is loaded",
+						fair ? "" : " (the tab was hidden or the imagery window busy)");
 			}
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
@@ -574,6 +607,16 @@ public class GoogleEarthWebService {
 			logger.warn("In-page navigation in Google Earth Web failed: {}", e.getMessage());
 		}
 		return false;
+	}
+
+	/** The URL of the page and whether Google Earth Web jumps ({@link #IN_PAGE_PROBE_SCRIPT}); null when the page did not answer. */
+	private List<?> readProbe() {
+		try {
+			Object page = tab().evaluate(IN_PAGE_PROBE_SCRIPT);
+			return page instanceof List && ((List<?>) page).size() == 2 ? (List<?>) page : null;
+		} catch (PageScriptException e) {
+			return null; // the document being replaced, or too busy: read again
+		}
 	}
 
 	private boolean isOnGoogleEarthWeb() {
@@ -630,7 +673,7 @@ public class GoogleEarthWebService {
 			data.put("plotId", plot.getPlacemarkId() == null ? "" : plot.getPlacemarkId());
 			data.put("plotLabel", plotLabel(plot));
 			data.put("plotUrl", topDownUrl(plot));
-			data.put("inPageNavigation", String.valueOf(inPageNavigation));
+			data.put("inPageNavigation", String.valueOf(inPage.follows()));
 			data.put("flightUrl", flightUrl == null ? "" : flightUrl);
 			Map<String, String> labels = new LinkedHashMap<>();
 			for (String key : LABEL_KEYS) {
@@ -844,7 +887,7 @@ public class GoogleEarthWebService {
 		String url = plotUrl(plot, plotDistance(plot));
 		logger.info("Google Earth Web stopped the camera {} m from the ground of plot {}: flown there again aimed at {} m",
 				Math.round(GoogleEarthWebUrls.cameraDistance(href)), plot.getPlacemarkId(), Math.round(groundAltitude));
-		if (Boolean.TRUE.equals(inPageNavigation)) {
+		if (Boolean.TRUE.equals(inPage.follows())) {
 			// The overlay hides until the camera has flown there
 			tab().evaluate(CAMERA_MOVE_SCRIPT, url);
 		} else {
