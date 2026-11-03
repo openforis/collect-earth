@@ -27,6 +27,8 @@ export const MAX_NAME = 1000;
 const DECISIONS: readonly DecisionKind[] = ['first', 'check', 'recheck'];
 /** The fewest plots a reviewer's answers filter (a plot file, a column's value) may hold (Decision 10). */
 export const MIN_REVIEWER_GROUP = 5;
+/** A reviewer's filtered answers must also be more than one person's (Decision 10). */
+export const MIN_REVIEWER_PEOPLE = 2;
 /** Plots of the review queue in one answer (the next ones with ?offset=). */
 export const MAX_QUEUE_ITEMS = 100;
 /** Plots a bulk decision names in its answer (the count is of all). */
@@ -270,6 +272,15 @@ export async function registerQualityRoutes(
       stats = answerStats(figures.answers, filter);
     }
     remember(figures.answerStats, key, stats, MAX_CACHED_ANSWER_FILTERS);
+    // The same rule on what a reviewer's filter holds once its dates are applied too: a day's plots
+    // can be one collector's, which the plot file and value check above cannot see.
+    const narrowed = units !== null || from !== null || to !== null;
+    if (!coordinator && narrowed && (stats.plots < MIN_REVIEWER_GROUP || stats.people.filter((p) => p.plots > 0).length < MIN_REVIEWER_PEOPLE)) {
+      return reply.code(403).send({
+        error: 'forbidden',
+        reason: `a reviewer's filter must hold at least ${MIN_REVIEWER_GROUP} plots of at least ${MIN_REVIEWER_PEOPLE} people`,
+      });
+    }
     return reply.send({
       ...(coordinator ? stats : teamOnly(stats)),
       computedAt: figures.computedAt,

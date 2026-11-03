@@ -113,6 +113,14 @@ export function reviewQueue(input: QueueInput, filter: QueueFilter): ReviewQueue
     item.resubmitted.push(r);
     item.names.add(r.operator);
   }
+  // A plot listed for a flag or as submitted again carries its differing pairs too ("everything known
+  // about it"): without them its card said it had no check and could not take "Check is right".
+  for (let i = 0; i < pairs.plot.length; i++) {
+    const item = items.get(pairs.plot[i]);
+    if (!item || item.section === 'difference') continue;
+    item.pairs.push(i);
+    item.names.add(pairs.people[pairs.first[i]]).add(pairs.people[pairs.check[i]]);
+  }
   for (const item of items.values()) for (const name of item.names) people.add(name);
   for (const f of input.everyonesFlags ?? []) if (inQueue(f, decided) && !out(f.plot)) people.add(f.operator);
 

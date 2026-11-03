@@ -553,7 +553,7 @@ export function QualityAnswers({ projectId, teamOnly = false }: { projectId: str
   const answers = useLoad(() => getAnswers(projectId, asked, timeZone), [projectId, key, timeZone]);
   const { data, error, loading, reload } = answers;
   const busy = error instanceof ApiError && error.code === "busy";
-  // A reviewer's filter of fewer than 5 plots is refused (403): the figures of the filter before are not shown under it.
+  // A reviewer's filter of fewer than 5 plots, or of one person's plots, is refused (403): the figures of the filter before are not shown under it.
   const refused = answersRefused(teamOnly, error);
   // Newer figures are being worked out (or the server is busy): ask again in a while.
   useEffect(() => {

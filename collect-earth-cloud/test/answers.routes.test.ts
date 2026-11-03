@@ -123,6 +123,20 @@ describe('GET /quality/answers and /quality/answers/columns', () => {
     expect((await call('GET', `/quality/answers/columns?file=nope`, rita.token)).statusCode).toBe(404);
   });
 
+  it("a reviewer's filter, dates included, must hold at least 5 plots of at least 2 people", async () => {
+    // 1 October holds plots 1-10, all ana's: as many plots as needed, but one person's answers.
+    const day1 = '/quality/answers?from=2026-10-01&to=2026-10-01';
+    expect((await call('GET', day1, owner.token)).json().plots).toBe(10);
+    const refused = await call('GET', day1, rita.token);
+    expect(refused.statusCode).toBe(403);
+    expect(refused.json().reason).toMatch(/at least 5 plots of at least 2 people/);
+    // A plot file of one person's plots is refused the same way; 2 October (ana and ben) is not.
+    expect((await call('GET', `/quality/answers?file=${csvId}&column=3&value=north`, rita.token)).statusCode).toBe(403);
+    const day2 = await call('GET', '/quality/answers?from=2026-10-02&to=2026-10-02', rita.token);
+    expect(day2.statusCode).toBe(200);
+    expect(day2.json().plots).toBe(40);
+  });
+
   it('coordinators and reviewers see it; collectors do not', async () => {
     expect((await call('GET', '/quality/answers', rita.token)).statusCode).toBe(200);
     expect((await call('GET', '/quality/answers', maria.token)).statusCode).toBe(403);

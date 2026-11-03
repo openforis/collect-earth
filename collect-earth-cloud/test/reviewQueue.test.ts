@@ -70,6 +70,29 @@ describe('reviewQueue: one queue', () => {
     expect(queue.people).toEqual(['ana', 'ben', 'carl', 'dan']);
   });
 
+  it('a plot back after a decision (saved again, or submitted again after "both need another look") keeps its differing pairs', () => {
+    const queue = reviewQueue(
+      input({
+        pairs: [pair('4', 'ana', 'ben'), pair('8', 'carl', 'dan'), pair('3', 'ana', 'ben')],
+        flags: [flag('8', 'carl', 'edited_after_decision', 400)],
+        resubmitted: [back('4', 'ana', 300)],
+        decisions: [
+          ['4', 'recheck'],
+          ['8', 'first'],
+          ['3', 'first'], // decided and not back: still out of the queue
+        ],
+      }),
+      {},
+    );
+    expect(queue.items.map((i) => [i.plot, i.section, i.pairs.length])).toEqual([
+      ['8', 'flag', 1],
+      ['4', 'resubmitted', 1],
+    ]);
+    // the checker is named too, so the person filter finds the plot by them
+    expect(queue.items[0].people).toEqual(['carl', 'dan']);
+    expect(queue.items[1].people).toEqual(['ana', 'ben']);
+  });
+
   it('filters by person (anyone whose record is shown) and by kind', () => {
     expect(reviewQueue(all, { person: 'carl' }).items.map((i) => i.plot)).toEqual(['2']);
     expect(reviewQueue(all, { person: 'ben' }).items.map((i) => i.plot)).toEqual(['1', '2', '9', '6', '4']);
