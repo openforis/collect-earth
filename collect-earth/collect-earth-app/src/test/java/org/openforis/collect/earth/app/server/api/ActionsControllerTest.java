@@ -89,4 +89,17 @@ public class ActionsControllerTest {
 		assertEquals("dashboard.notReady", e.getCode());
 		assertEquals("Getting ready\u2026", e.getMessage());
 	}
+
+	@Test
+	public void aDeveloperCanHaveTheLinkLoggedInsteadOfOpened() throws Exception {
+		LocalDashboardService dashboard = mock(LocalDashboardService.class);
+		when(dashboard.newSignInUrl()).thenReturn("http://127.0.0.1:1/local-sign-in/abc");
+		System.setProperty(ActionsController.LOG_SIGN_IN_URL_PROPERTY, "true");
+		try {
+			// no browser is opened, so nothing fails in a container without one
+			ActionsController.openDashboard(dashboard);
+		} finally {
+			System.clearProperty(ActionsController.LOG_SIGN_IN_URL_PROPERTY);
+		}
+	}
 }

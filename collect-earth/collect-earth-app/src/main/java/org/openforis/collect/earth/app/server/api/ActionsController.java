@@ -17,6 +17,8 @@ import org.openforis.collect.earth.app.service.dashboard.LocalDashboardService;
 import org.openforis.collect.earth.app.service.notices.UpdateService;
 import org.openforis.collect.earth.app.service.notices.UpdateService.UpdaterMissingException;
 import org.openforis.collect.earth.app.view.Messages;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,6 +33,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class ActionsController {
 
 	static final String SUPPORT_URL = "https://www.openforis.support";
+
+	/**
+	 * For developers testing the local dashboard in a browser of their own (a test Chrome, Playwright): with
+	 * -Dcollectearth.dashboard.logSignInUrl=true, My dashboard writes its one-time sign-in link to the log instead of
+	 * opening it, as opening it would use it up in a browser they cannot drive. Off by default: the link signs in.
+	 */
+	static final String LOG_SIGN_IN_URL_PROPERTY = "collectearth.dashboard.logSignInUrl";
+	private static final Logger logger = LoggerFactory.getLogger(ActionsController.class);
 
 	private final Map<String, Runnable> actions;
 
@@ -60,6 +70,10 @@ public class ActionsController {
 		}
 		if (url == null) {
 			throw new ApiException("dashboard.notReady", dashboard.getStateText());
+		}
+		if (Boolean.getBoolean(LOG_SIGN_IN_URL_PROPERTY)) {
+			logger.info("Dashboard sign-in link (single use, 15 minutes; not opened, {} is set): {}", LOG_SIGN_IN_URL_PROPERTY, url);
+			return;
 		}
 		if (!CollectEarthUtils.openUrl(URI.create(url))) {
 			throw new IllegalStateException("The browser could not open the dashboard");
