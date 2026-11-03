@@ -99,4 +99,19 @@ public class GoogleEarthWebGroundAltitudeTest {
 		gew.learnGroundAltitude(topDown);
 		assertNull(gew.groundAltitudeNear(30, 30));
 	}
+
+	@Test
+	public void aPlotIsFlownToFromADistanceThatFitsItsSize() {
+		GoogleEarthWebService gew = new GoogleEarthWebService();
+		SimplePlacemarkObject plot = plot(8.887, -10.856, 0);
+		plot.setMultiShape(GoogleEarthWebUrlsTest.square(8.887, -10.856, 30));
+		assertEquals(127, gew.plotDistance(plot));
+		String sent = gew.plotUrl(plot, gew.plotDistance(plot));
+		assertTrue(sent.contains(",0a,127d,"));
+		// stopped short over a hill: the ground is where the camera would have been from that distance
+		assertTrue(gew.learnGroundUnderACameraStoppedShort(sent.replace(",127d,", ",9.99999552d,"), plot));
+		assertEquals(117, gew.groundAltitudeNear(8.887, -10.856), 0.01);
+		// a plot of no known outline is flown to from the distance of old
+		assertEquals(GoogleEarthWebUrls.PLOT_DISTANCE, gew.plotDistance(plot(1, 1, 0)));
+	}
 }

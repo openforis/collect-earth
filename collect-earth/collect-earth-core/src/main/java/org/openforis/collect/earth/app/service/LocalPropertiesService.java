@@ -111,6 +111,8 @@ public class LocalPropertiesService extends Observable {
 				OPEN_IN_LEAFLET_MAP("open_in_leaflet_map"),
 				VIEWER_TYPE("viewer_type"),
 				GEW_TRIAL_PROMPT_DISABLED("gew_trial_prompt_disabled"),
+				/** Share of the height of Google Earth Web's view a plot fills (0.375 when not set), see GoogleEarthWebUrls */
+				GEW_PLOT_VIEW_SHARE("gew_plot_view_share"),
 				MAP_ENGINE("map_engine"),
 				WINDOW_LAYOUT("window_layout"),
 				WEB_FORM("web_form"),

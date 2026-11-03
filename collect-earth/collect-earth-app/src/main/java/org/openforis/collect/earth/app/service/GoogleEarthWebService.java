@@ -18,6 +18,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
 import org.openforis.collect.earth.app.desktop.ServerController;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.imagery.ImageryBrowser;
 import org.openforis.collect.earth.app.service.imagery.ImagerySource;
 import org.openforis.collect.earth.app.service.imagery.ImageryTab;
@@ -185,6 +186,8 @@ public class GoogleEarthWebService {
 	private volatile double[] groundAltitudePosition;
 	/** Altitude of the last camera URL Collect Earth wrote. */
 	private volatile Double writtenAltitude;
+	/** Distance of the last camera URL of a plot Collect Earth wrote: see {@link #learnGroundUnderACameraStoppedShort}. */
+	private volatile int writtenDistance = GoogleEarthWebUrls.PLOT_DISTANCE;
 	/** Altitude of the top-down view the overlay drawn last loads with its button; see {@link #topDownUrl}. */
 	private volatile Double topDownAltitude;
 	/** A camera this near (~1 cm) the point Collect Earth sent it to is still over it: see {@link #aimAtTheGround}. */
@@ -444,7 +447,7 @@ public class GoogleEarthWebService {
 		showCount.incrementAndGet();
 		// A camera move asked for while the tab was hidden belongs to the plot shown before
 		cameraWhileHidden.set(null);
-		String url = plotUrl(target, overview ? GoogleEarthWebUrls.OVERVIEW_DISTANCE : GoogleEarthWebUrls.PLOT_DISTANCE);
+		String url = plotUrl(target, overview ? GoogleEarthWebUrls.OVERVIEW_DISTANCE : plotDistance(target));
 		try {
 			try {
 				showIn(target, overview, plotId, url);
@@ -791,7 +794,7 @@ public class GoogleEarthWebService {
 					// Through consent / sign-in: Google may have dropped the camera position
 					if (plot != null && !GoogleEarthWebUrls.isCameraAt(href, Double.parseDouble(plot.getCoord().getLatitude()),
 							Double.parseDouble(plot.getCoord().getLongitude()))) {
-						tab().load(plotUrl(plot, GoogleEarthWebUrls.PLOT_DISTANCE), false, PAGE_LOAD_TIMEOUT);
+						tab().load(plotUrl(plot, plotDistance(plot)), false, PAGE_LOAD_TIMEOUT);
 					}
 					if (plot == null || injectOverlay(plot) == Outline.DRAWN) {
 						setState(State.READY, plotId, null);
@@ -829,7 +832,7 @@ public class GoogleEarthWebService {
 			return false;
 		}
 		groundAimedFor = shown;
-		String url = plotUrl(plot, GoogleEarthWebUrls.PLOT_DISTANCE);
+		String url = plotUrl(plot, plotDistance(plot));
 		logger.info("Google Earth Web stopped the camera {} m from the ground of plot {}: flown there again aimed at {} m",
 				Math.round(GoogleEarthWebUrls.cameraDistance(href)), plot.getPlacemarkId(), Math.round(groundAltitude));
 		if (Boolean.TRUE.equals(inPageNavigation)) {
@@ -860,7 +863,7 @@ public class GoogleEarthWebService {
 		if (Math.abs(camera[0] - latitude) > EXACT_DEGREES || Math.abs(camera[1] - longitude) > EXACT_DEGREES) {
 			return false;
 		}
-		groundAltitude = isAbout(altitude, writtenAltitude) ? altitude + GoogleEarthWebUrls.PLOT_DISTANCE - distance : altitude;
+		groundAltitude = isAbout(altitude, writtenAltitude) ? altitude + writtenDistance - distance : altitude;
 		groundAltitudePosition = new double[] { latitude, longitude };
 		return true;
 	}
@@ -984,6 +987,7 @@ public class GoogleEarthWebService {
 	String plotUrl(SimplePlacemarkObject plot, int distance) {
 		int altitude = plotAltitude(plot);
 		writtenAltitude = (double) altitude;
+		writtenDistance = distance;
 		return GoogleEarthWebUrls.cameraUrl(plot.getCoord().getLatitude(), plot.getCoord().getLongitude(), altitude,
 				distance);
 	}
@@ -997,7 +1001,25 @@ public class GoogleEarthWebService {
 		int altitude = plotAltitude(plot);
 		topDownAltitude = (double) altitude;
 		return GoogleEarthWebUrls.cameraUrl(plot.getCoord().getLatitude(), plot.getCoord().getLongitude(), altitude,
-				GoogleEarthWebUrls.PLOT_DISTANCE);
+				plotDistance(plot));
+	}
+
+	/**
+	 * The camera distance that makes the plot fill the same share of the view whatever its size (see
+	 * {@link GoogleEarthWebUrls#plotDistance}), from its outline, which {@link PlotImageryService} has the KML generator
+	 * fill before showing it. The share can be set in earth.properties ({@code gew_plot_view_share}).
+	 */
+	int plotDistance(SimplePlacemarkObject plot) {
+		double share = GoogleEarthWebUrls.PLOT_VIEW_SHARE;
+		String setShare = localPropertiesService == null ? null : localPropertiesService.getValue(EarthProperty.GEW_PLOT_VIEW_SHARE);
+		if (setShare != null && !setShare.trim().isEmpty()) {
+			try {
+				share = Double.parseDouble(setShare.trim());
+			} catch (NumberFormatException e) {
+				logger.warn("Google Earth Web: {} is not a share of the view for gew_plot_view_share", setShare);
+			}
+		}
+		return GoogleEarthWebUrls.plotDistance(GoogleEarthWebUrls.extentMeters(plot.getMultiShape()), share);
 	}
 
 	/** The altitude a camera URL of the plot aims at: its elevation, or else the ground learnt nearby, or else 0. */
