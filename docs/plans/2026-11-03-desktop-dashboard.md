@@ -98,8 +98,11 @@ to bring them to the desktop are:
 - When `serverInfo.localMode` is set:
   - Tabs shown: Progress, Map, Data, Quality, Activity and Settings (progress settings only). People, Plot files
     and Setup are hidden. The project switcher and Account go, since there is one of each.
-  - **Quality:** keeps Answers, as your answers over time and by plot file (no "rest of the team"), plus Survey
-    health and Pattern flags. Checks, Reference plots, the Review queue and Differences are hidden.
+  - **Quality:** keeps Answers, as the plain distribution of your answers per question (decision 4: no "rest of the
+    team", no flags against the team), plus Survey health and Pattern flags. Checks, Reference plots, the Review
+    queue and Differences are hidden.
+  - **Settings:** the progress settings (deadline, target, quiet days) stay, and are where the forecast is set
+    (decision 3).
   - **Progress:** the "Needs attention" cards about other people are left out (quiet people, plots not given,
     old project files).
 - Texts: "you" throughout. Add new i18n keys in the 4 languages where a coordinator's wording ("each person") does
@@ -125,7 +128,7 @@ to bring them to the desktop are:
 
 ### Task 6: Opening it
 - A menu entry "My dashboard" (Tools), and a link on the home page and in the plots map's sidebar. It opens the local
-  URL with the one-time token in the user's browser, or in the plots map panel when it is open.
+  URL with the one-time token in the default browser (decision 1).
 - **Tests:** the menu entry, and the token being single use.
 
 ### Task 7: Real runs (CE OFFICE)
@@ -135,14 +138,11 @@ to bring them to the desktop are:
   - the first feed with the user's backed-up 1 GB database.
 - Check every shown page against the desktop's own figures (plots saved, per status).
 
-## Owner decisions pending
-1. **Where it opens:** in the default browser (simplest), or inside the desktop's window as a tab of the app's own
-   page (more work: the two web apps would share a shell).
-2. **Who gets it:** everyone on their own, or only after a setting is turned on, for a first release.
-3. **The forecast:** it needs a deadline and a target. Ask for them in the desktop's project settings, or in the
-   dashboard's Settings tab (local)?
-4. **Answers for a single person:** the cloud compares a person with "the rest of the team". Alone, the useful
-   comparison is with your own earlier weeks. Build that now, or ship the plain distribution first?
+## Owner decisions (taken 2026-11-03)
+1. **Where it opens:** in the default browser.
+2. **Who gets it:** everyone working on their own (no setting to turn it on); cloud projects keep the cloud dashboard.
+3. **The forecast's deadline and target:** set in the dashboard's Settings tab (local), as in the cloud.
+4. **Answers when alone:** the plain distribution of your answers (no comparison with earlier weeks for now).
 
 ## Risks
 - **Antivirus software** on Windows may flag a second process listening on a port. It binds 127.0.0.1 only, and
