@@ -79,6 +79,17 @@ public class GoogleEarthWebService {
 	/** How often the URL is read while waiting for an in-page navigation. */
 	private static final long IN_PAGE_NAVIGATION_POLL_MILLIS = 150;
 	/**
+	 * How long a page load waits for the camera to be back at the plot: Google Earth Web starting writes a globe seen from
+	 * afar (@0,0, 22,000 km) for a few seconds before it flies to the camera of the URL.
+	 */
+	private static final long CAMERA_BACK_TIMEOUT_MILLIS = 10000;
+	private static final long CAMERA_BACK_POLL_MILLIS = 250;
+	/** A camera farther than this from the ground is the globe Google Earth Web shows while it starts, not a plot. */
+	static final double GLOBE_DISTANCE_METERS = 1e6;
+	/** How many more times the URL of a page that did not answer is read before going on without it, and how often. */
+	private static final int PAGE_URL_RETRIES = 3;
+	private static final long PAGE_URL_RETRY_MILLIS = 300;
+	/**
 	 * The URL of the page and whether the overlay remembers that Google Earth Web jumps (see javascript_google_earth_web.fmt),
 	 * in one round trip: see {@link InPageNavigation#isFollowed}.
 	 */
@@ -581,8 +592,15 @@ public class GoogleEarthWebService {
 		}
 		startWatchdog();
 		current = overview ? null : target;
-		if (!isOnGoogleEarthWeb()) {
-			// Cookie consent, sign-in...: the watchdog shows the plot once the user is through
+		// Loaded, Google Earth Web resets the globe first: the outline drawn from that camera would be wrong, and READY
+		// early
+		if (!moved && !overview && !awaitCameraAt(target, superseded)) {
+			return;
+		}
+		String page = readPageUrl();
+		if (page != null && !GoogleEarthWebUrls.isGoogleEarthWeb(page)) {
+			// Cookie consent, sign-in...: the watchdog shows the plot once the user is through. Not for a page too busy
+			// to tell its URL (Google Earth Web starting): the outline is tried, and waits for the page if need be
 			setState(State.WAITING, plotId, null);
 			return;
 		}
@@ -681,6 +699,61 @@ public class GoogleEarthWebService {
 			return page instanceof List && ((List<?>) page).size() == 2 ? (List<?>) page : null;
 		} catch (PageScriptException e) {
 			return null; // the document being replaced, or too busy: read again
+		}
+	}
+
+	/**
+	 * Waits, after a page load, for the camera in the URL to be back over the plot ({@link #isCameraBackAt}), for
+	 * {@link #CAMERA_BACK_TIMEOUT_MILLIS} at most; a page that is not Google Earth Web (consent, sign-in) ends the wait.
+	 *
+	 * @return false when {@code superseded} ended it
+	 */
+	private boolean awaitCameraAt(SimplePlacemarkObject plot, BooleanSupplier superseded) {
+		double latitude = Double.parseDouble(plot.getCoord().getLatitude());
+		double longitude = Double.parseDouble(plot.getCoord().getLongitude());
+		long end = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(CAMERA_BACK_TIMEOUT_MILLIS);
+		while (System.nanoTime() - end < 0) {
+			if (superseded.getAsBoolean()) {
+				return false;
+			}
+			String href = pageUrl();
+			if (href != null && (!GoogleEarthWebUrls.isGoogleEarthWeb(href) || isCameraBackAt(href, latitude, longitude))) {
+				return true;
+			}
+			try {
+				Thread.sleep(CAMERA_BACK_POLL_MILLIS);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return true;
+			}
+		}
+		logger.info("Google Earth Web: the camera was not back at plot {} in time after the page load", plot.getPlacemarkId());
+		return true;
+	}
+
+	/** Whether the camera in the URL is over the point, and not the globe Google Earth Web shows while it starts. */
+	static boolean isCameraBackAt(String href, double latitude, double longitude) {
+		Double distance = GoogleEarthWebUrls.cameraDistance(href);
+		return GoogleEarthWebUrls.isCameraAt(href, latitude, longitude) && distance != null
+				&& distance <= GLOBE_DISTANCE_METERS;
+	}
+
+	/**
+	 * The URL of the page, read again a few times when the page does not answer (busy starting): null still then. A
+	 * null is no reason to take the page for another one.
+	 */
+	private String readPageUrl() {
+		for (int retries = 0;; retries++) {
+			String href = pageUrl();
+			if (href != null || retries >= PAGE_URL_RETRIES) {
+				return href;
+			}
+			try {
+				Thread.sleep(PAGE_URL_RETRY_MILLIS);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return null;
+			}
 		}
 	}
 

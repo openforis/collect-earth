@@ -196,10 +196,19 @@ return (function () {
         return true;
     }
 
+    // Google Earth Web starting (a page load) writes the globe seen from afar, @0,0 at 22,000 km, before it flies to
+    // the camera of the URL: until the outline was drawn once, such a camera is waited past, not drawn from
+    var drawnOnce = false;
+    function isGlobe(cam) {
+        return cam.dist > 1e6 || (cam.lat === 0 && cam.lon === 0);
+    }
+
     // From the camera in the URL, or from the one given when the URL is known to be behind (see nearCamera)
     function draw(at) {
         if (at) heldCam = { cam: at, href: window.location.href };
         var cam = at || (heldCam && heldCam.href === window.location.href ? heldCam.cam : parseCamera());
+        if (cam && !drawnOnce && isGlobe(cam)) { hide("", false); stableCount = 0; return; }
+        drawnOnce = true;
         if (!cam) { hide(LABELS.hintUnavailable, true); return; }
         if (Math.abs(cam.tilt) > 5) { hide(LABELS.hintTilted, true); return; }
         while (svg.firstChild) svg.removeChild(svg.firstChild);
@@ -359,7 +368,7 @@ return (function () {
     // Any interaction hides the overlay immediately so a stale projection is never shown
     // over moving imagery.
     var POLL_MILLIS = 200;
-    var STABLE_READS = 4;
+    var STABLE_READS = 2;
     var lastHref = null;
     var stableCount = 0;
     if (FLIGHT_URL) expectFlight(FLIGHT_URL);
