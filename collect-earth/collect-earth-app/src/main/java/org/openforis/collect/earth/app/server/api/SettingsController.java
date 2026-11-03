@@ -1,7 +1,10 @@
 package org.openforis.collect.earth.app.server.api;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -10,11 +13,14 @@ import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.BackupSqlLiteService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.settings.ConnectionTest;
 import org.openforis.collect.earth.app.service.settings.SampleFileCheck;
 import org.openforis.collect.earth.app.service.settings.SettingsService;
 import org.openforis.collect.earth.app.service.settings.SettingsService.InvalidSettingsException;
 import org.openforis.collect.earth.app.view.Messages;
+import org.openforis.collect.model.CollectSurvey;
+import org.openforis.idm.metamodel.ModelVersion;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -60,13 +66,31 @@ public class SettingsController {
 	private final Supplier<String> computerIp;
 	private final Function<DatabaseRequest, ConnectionTest> testDatabase;
 	private final Function<CloudRequest, ConnectionTest> testCloud;
+	/** The names of the versions of the survey loaded, oldest first */
+	private Supplier<List<String>> surveyVersions = Collections::emptyList;
 
 	@Autowired
-	public SettingsController(SettingsService settings, SampleFileCheck sampleFile, BackupSqlLiteService backup) {
+	public SettingsController(SettingsService settings, SampleFileCheck sampleFile, BackupSqlLiteService backup, EarthSurveyService surveys) {
 		this(settings, sampleFile, () -> backup.getAutomaticBackUpFolder().getAbsolutePath(), CollectEarthUtils::getComputerIp,
 				request -> CollectEarthUtils.testPostgreSQLConnection(request.host, request.port, request.name, request.username,
 						request.password),
 				request -> CollectEarthUtils.testCloudConnection(request.url, request.projectId, request.token));
+		this.surveyVersions = () -> {
+			CollectSurvey survey = surveys.getCollectSurvey();
+			List<String> names = new ArrayList<>();
+			if (survey != null) {
+				for (ModelVersion version : survey.getVersions()) {
+					names.add(version.getName());
+				}
+			}
+			return names;
+		};
+	}
+
+	/** For the tests: the versions of the survey */
+	SettingsController withSurveyVersions(Supplier<List<String>> versions) {
+		this.surveyVersions = versions;
+		return this;
 	}
 
 	/** For the tests: the folder, the address and the connection tests stood in for. */
@@ -88,7 +112,7 @@ public class SettingsController {
 		info.put("backupFolder", backupFolder.get());
 		info.put("cloudMode", CollectDBDriver.CLOUD.name().equals(values.get(EarthProperty.DB_DRIVER.toString())));
 		Map<String, Object> answer = new LinkedHashMap<>();
-		answer.put("sections", settings.getModel().toJson());
+		answer.put("sections", withSurveyVersions(settings.getModel().toJson(), surveyVersions.get()));
 		answer.put("values", values);
 		answer.put("info", info);
 		return answer;
@@ -133,6 +157,39 @@ public class SettingsController {
 	@PostMapping("/api/settings/testCloud")
 	public Map<String, Object> testCloud(@RequestBody CloudRequest request) {
 		return connection(testCloud.apply(request));
+	}
+
+	/**
+	 * The survey version field with the versions of the survey loaded as its choices, as the Swing dialog listed them
+	 * at start; taken out when there is nothing to choose.
+	 */
+	@SuppressWarnings("unchecked")
+	static List<Map<String, Object>> withSurveyVersions(List<Map<String, Object>> sections, List<String> versions) {
+		String key = EarthProperty.MODEL_VERSION_NAME.toString();
+		for (Map<String, Object> section : sections) {
+			List<Map<String, Object>> fields = (List<Map<String, Object>>) section.get("fields");
+			for (Iterator<Map<String, Object>> it = fields.iterator(); it.hasNext();) {
+				Map<String, Object> field = it.next();
+				if (!key.equals(field.get("key"))) {
+					continue;
+				}
+				if (versions.size() < 2) {
+					it.remove();
+				} else {
+					List<Map<String, Object>> choices = new ArrayList<>();
+					for (String version : versions) {
+						Map<String, Object> choice = new LinkedHashMap<>();
+						choice.put("value", version);
+						choice.put("text", version);
+						choices.add(choice);
+					}
+					field.put("choices", choices);
+					// The most recent, which is used when none is chosen
+					field.put("default", versions.get(versions.size() - 1));
+				}
+			}
+		}
+		return sections;
 	}
 
 	private static Map<String, Object> connection(ConnectionTest test) {

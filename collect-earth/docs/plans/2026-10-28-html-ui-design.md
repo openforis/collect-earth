@@ -163,10 +163,6 @@ Every stage is done. What the "Left by" sections below still name as open, check
 - **Still Swing by choice:** the file dialog of `/api/files/choose` (now with the system look and feel, no longer
   FlatLaf), the splash, the tray icon, the messages shown when there is no server, and the Google Earth Web trial
   question at start (`EarthApp`), which is asked before any page opens.
-- **The survey version chooser** (`AbstractEarthSurveyService`, in `collect-earth-core`) is still a Swing list: when a
-  survey has several model versions and the project names none, it asks which one to use while the survey loads at
-  start, and takes the latest when closed. A page for it needs to decide when the choice applies (a notice with the
-  versions as options and a restart, or a choice in the Project section of the settings).
 
 Done since stage 6: the cloud assignments of the plots file are offered in the Project section of the settings in
 cloud mode; a plots reload that fails is shown as a notice; the connection tests answer in the UI language
@@ -176,7 +172,9 @@ that it generates the KML (which itself stays one call of `KmlGenerator`); the 2
 Swing UI used are gone from every language (none of the sources asked for them, by name or by a prefix completed at
 run time), and `MessageKeysAskedForTest` fails if the Java or the pages ask for a key the bundle lacks. The messages the server
 showed in Swing boxes while it runs are notices: the Planet API key missing, Google Earth Pro that cannot be opened,
-the macOS note on project files, and a distance of `earth.properties` that is not a number.
+the macOS note on project files, and a distance of `earth.properties` that is not a number. The survey version is chosen in the Project section of
+the settings (a restart applies it), shown only for a survey with several versions; `collect-earth-core` asks no more
+on every start: it keeps the version set when the survey has it, else uses the most recent and the pages say so.
 
 ### Left by stage 1 for the later stages
 

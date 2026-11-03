@@ -2,6 +2,7 @@ package org.openforis.collect.earth.app.server.api;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -19,6 +20,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -172,5 +174,30 @@ public class SettingsControllerTest {
 		assertEquals("https://cloud.example.org", cloudTested.url);
 		assertEquals("p1", cloudTested.projectId);
 		assertEquals("t", cloudTested.token);
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	public void theSurveyVersionIsChosenAmongTheVersionsOfTheSurveyWhenThereAreSeveral() {
+		java.util.function.Function<List<String>, Map<String, Object>> field = versions -> {
+			for (Map<String, Object> section : SettingsController.withSurveyVersions(model.toJson(), versions)) {
+				for (Map<String, Object> f : (List<Map<String, Object>>) section.get("fields")) {
+					if ("model_version_name".equals(f.get("key"))) {
+						return f;
+					}
+				}
+			}
+			return null;
+		};
+		Map<String, Object> several = field.apply(Arrays.asList("v2024", "v2025", "v2026"));
+		List<Map<String, Object>> choices = (List<Map<String, Object>>) several.get("choices");
+		assertEquals(3, choices.size());
+		assertEquals("v2025", choices.get(1).get("value"));
+		assertEquals("v2025", choices.get(1).get("text"));
+		assertEquals("v2026", several.get("default"));
+		assertEquals(true, several.get("restart"));
+		// Nothing to choose: the field is not shown
+		assertNull(field.apply(Collections.singletonList("v1")));
+		assertNull(field.apply(Collections.emptyList()));
 	}
 }

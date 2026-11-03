@@ -4,15 +4,31 @@ import static org.openforis.collect.earth.app.EarthConstants.EARTH_SURVEY_NAME;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.text.MessageFormat;
 
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.manager.exception.SurveyValidationException;
+import org.openforis.collect.earth.app.service.notices.Notice;
+import org.openforis.collect.earth.app.service.notices.NoticeService;
+import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.model.CollectSurvey;
+import org.openforis.idm.metamodel.ModelVersion;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public class EarthSurveyService extends AbstractEarthSurveyService implements InitializingBean{
+
+	@Autowired
+	private NoticeService notices;
+
+	/** A survey with several versions and none chosen: the most recent is used, and the settings let the user change it. */
+	@Override
+	protected void versionChosenByDefault(CollectSurvey survey, ModelVersion chosen) {
+		notices.post(new Notice("survey", Notice.INFO, Messages.getString("SettingsPage.surveyVersion"), //$NON-NLS-1$ //$NON-NLS-2$
+				MessageFormat.format(Messages.getString("SettingsPage.surveyVersion.notice"), chosen.getName()))); //$NON-NLS-1$
+	}
 
 	@Override
     public void afterPropertiesSet() throws Exception {

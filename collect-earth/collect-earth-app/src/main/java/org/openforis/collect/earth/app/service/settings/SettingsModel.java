@@ -94,7 +94,11 @@ public final class SettingsModel {
 
 	private static Section project() {
 		return new Section(PROJECT, "SettingsPage.section.project",
-				Setting.file(EarthProperty.SAMPLE_FILE, "OptionWizard.49", "csv", "ced").tooltip("SettingsPage.sampleFile.tooltip"));
+				Setting.file(EarthProperty.SAMPLE_FILE, "OptionWizard.49", "csv", "ced").tooltip("SettingsPage.sampleFile.tooltip"),
+				// Its choices are the versions of the survey loaded, given with the settings (SettingsController); a survey
+				// with one version or none does not show it. The records and the form of a version differ: restart
+				Setting.choice(EarthProperty.MODEL_VERSION_NAME, "SettingsPage.surveyVersion").tooltip("SettingsPage.surveyVersion.tooltip")
+						.restart());
 	}
 
 	private static Section plot() {

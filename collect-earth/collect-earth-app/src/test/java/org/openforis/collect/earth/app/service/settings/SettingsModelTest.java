@@ -165,8 +165,9 @@ public class SettingsModelTest {
 				restart.add(setting.key());
 			}
 		}
-		assertEquals(new HashSet<>(Arrays.asList("db_driver", "db_host", "db_port", "db_name", "db_username", "db_password", "port", "use_browser")),
-				restart);
+		// The survey version too: the KML, the form and the records of the server are made for one version
+		assertEquals(new HashSet<>(Arrays.asList("db_driver", "db_host", "db_port", "db_name", "db_username", "db_password", "port", "use_browser",
+				"model_version_name")), restart);
 	}
 
 	@Test
