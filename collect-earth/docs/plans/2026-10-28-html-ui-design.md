@@ -163,14 +163,14 @@ Every stage is done. What the "Left by" sections below still name as open, check
 - **Still Swing by choice:** the file dialog of `/api/files/choose` (now with the system look and feel, no longer
   FlatLaf), the splash, the tray icon, the messages shown when there is no server, and the Google Earth Web trial
   question at start (`EarthApp`), which is asked before any page opens.
-- **The Messages keys only the Swing UI used** are still in `Messages*.properties`; pruning them needs a check of
-  every key the pages and the services ask for.
 
 Done since stage 6: the cloud assignments of the plots file are offered in the Project section of the settings in
 cloud mode; a plots reload that fails is shown as a notice; the connection tests answer in the UI language
 (`ConnectionTest`); starting Collect Earth again opens the window of the one running (`OpenWindowServlet`), which
 is how a closed home page comes back on a desktop with no tray; the KML export reports the records it exports, then
-that it generates the KML (which itself stays one call of `KmlGenerator`).
+that it generates the KML (which itself stays one call of `KmlGenerator`); the 228 keys of `Messages*.properties` that only the
+Swing UI used are gone from every language (none of the sources asked for them, by name or by a prefix completed at
+run time), and `MessageKeysAskedForTest` fails if the Java or the pages ask for a key the bundle lacks.
 
 ### Left by stage 1 for the later stages
 

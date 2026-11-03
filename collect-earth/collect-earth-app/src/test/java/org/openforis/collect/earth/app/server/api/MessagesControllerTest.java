@@ -33,7 +33,7 @@ public class MessagesControllerTest {
 	public void accentsComeOutRight() throws Exception {
 		// Messages_es.properties is ISO-8859-1, with some texts written as such and others as Unicode escapes
 		mvc.perform(get("/api/messages").param("lang", "es"))
-				.andExpect(jsonPath("$.texts['CollectEarthWindow.34']").value("Error de validación"))
+				.andExpect(jsonPath("$.texts['CollectEarthWindow.23']").value("Necesita confirmación"))
 				.andExpect(jsonPath("$.texts['ExternalServicesPanel.viewerTypeTooltip']").value(startsWith("Dónde")));
 	}
 
