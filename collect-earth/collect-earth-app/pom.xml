@@ -111,11 +111,6 @@
 			<version>2.14.0</version>
 		</dependency>
 		<dependency>
-			<groupId>org.swinglabs.swingx</groupId>
-			<artifactId>swingx-core</artifactId>
-			<version>1.6.5-1</version>
-		</dependency>
-		<dependency>
 			<groupId>net.lingala.zip4j</groupId>
 			<artifactId>zip4j</artifactId>
 			<version>2.11.6</version>
@@ -126,7 +121,7 @@
 		     the 1.7 binding in place the only registered provider was slf4j-simple,
 		     so every SLF4J call bypassed Log4j2 and log4j2.xml was never read -
 		     silently disabling the earth_error.log appender, the Sentry appender
-		     and CollectEarthMenu.ensureJSwingAppender()'s in-app error viewer.
+		     and the in-app error viewer (now NoticeAppender).
 		     Versions come from log4j-bom in the parent. -->
 		<dependency>
 			<groupId>org.apache.logging.log4j</groupId>
@@ -173,12 +168,6 @@
 		    <groupId>org.apache.poi</groupId>
 		    <artifactId>poi-ooxml</artifactId>
 		</dependency>
-		
-		<dependency>
-			<groupId>se.gustavkarlsson</groupId>
-			<artifactId>g-wiz</artifactId>
-			<version>1.0.1</version>
-		</dependency>
 		<!-- The icon of the imagery window on the Windows task bar (BrowserWindowIcon). The version docker-java
 		     brings through WebDriverManager, declared because it is now used directly. -->
 		<dependency>
@@ -186,27 +175,35 @@
 			<artifactId>jna</artifactId>
 			<version>5.18.1</version>
 		</dependency>
-		<dependency>
-	        <groupId>org.kordamp.ikonli</groupId>
-	        <artifactId>ikonli-swing</artifactId>
-	        <version>12.4.0</version>
-	    </dependency>
-		<dependency>
-		  <groupId>org.kordamp.ikonli</groupId>
-		  <artifactId>ikonli-materialdesign-pack</artifactId>
-		  <version>12.4.0</version>
-		</dependency>
-		
-		<dependency>
-		    <groupId>com.formdev</groupId>
-		    <artifactId>flatlaf</artifactId>
-		    <version>3.7.2</version>
-		</dependency>
 
 		<dependency>
 			<groupId>org.junit.jupiter</groupId>
 			<artifactId>junit-jupiter</artifactId>
 			<version>5.10.2</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.mockito</groupId>
+			<artifactId>mockito-core</artifactId>
+			<version>5.14.2</version>
+			<scope>test</scope>
+		</dependency>
+		<!-- MockMvc's jsonPath matchers need both, and spring-test does not bring them -->
+		<dependency>
+			<groupId>com.jayway.jsonpath</groupId>
+			<artifactId>json-path</artifactId>
+			<version>2.9.0</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.hamcrest</groupId>
+			<artifactId>hamcrest</artifactId>
+			<version>2.2</version>
 			<scope>test</scope>
 		</dependency>
 

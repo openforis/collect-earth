@@ -14,6 +14,51 @@ and the data goes through the balloon endpoints (`/placemark-info-expanded`,
 `earth.properties` the map shows the CEP balloon (`/balloon`) instead. See
 `docs/plans/2026-10-20-generated-web-form.md`.
 
+On the `feature/html-ui` branch this app replaces the Swing main window (see
+`docs/plans/2026-10-28-html-ui-design.md`). Collect Earth opens the map page with an app bar
+(menus, operator, Quit) on top; with the Google Earth Pro viewer it opens `map?home`, the same app
+with a home page instead of the map. The app bar talks to the JSON API under `/earth/api`
+(`server.api` in the Java code): every call must send `X-Collect-Earth: 1`, which `apiClient.ts`
+does. Its texts are those of the Swing UI (`Messages*.properties`), read from `/earth/api/messages`
+(`serverTexts.ts`).
+
+The Settings entry of the app bar opens the settings page (`src/components/settings/`), which replaces
+the Swing properties dialog. It draws itself from `GET /earth/api/settings` (`SettingsModel` in Java
+describes every setting, its type, when it is shown and its texts), validates what the user types through
+`POST /earth/api/settings/validate` while typing, and saves only the changes with `POST /earth/api/settings`,
+which restarts Collect Earth when a setting needs it. `src/settings.ts` holds the pure logic (the
+visibility conditions, the changes, the search), `src/plotPreview.ts` the drawing of the plot, and
+`src/settingsApi.ts` the calls.
+
+The Data menu (`src/components/data/`) has the export dialog (one dialog for the formats and the records
+filters of the nine Swing entries), Import new data from ZIP and Update records from CSV. The long actions
+run as jobs of the server (`POST /earth/api/jobs/export`, `importSummary`, `import`, `updateCsv`), which
+`JobPanel.tsx` follows through `GET /earth/api/jobs/{id}` (`src/jobs.ts`), with Cancel and, at the end,
+Open file / Open folder (`POST /earth/api/files/open`, `reveal`). The ZIP import reads the files first and
+asks about the records already in the database before importing (`src/importDialog.ts`).
+
+The Tools and Utilities menus (`src/components/tools/`) run Saiku, the stand-alone Saiku tool and the LULUCF
+package as jobs (`POST /earth/api/jobs/saiku`, `saikuTool`, `ipccPrepare`, `ipccOutputs`), asking first whether
+to generate the dataset again when `GET /earth/api/tools/analysis` says one exists; the LULUCF form of
+`IpccDialog.tsx` replaces the Swing wizard (`src/tools.ts` holds its logic). Load points from KML
+(`POST /earth/api/tools/loadKml`) restarts Collect Earth under the restart overlay. The utilities are jobs too
+(`missingPlots`, `divideCsv`, `deletePlots`), with the checks of the Swing dialogs made by the server first
+(`GET /earth/api/tools/divideCsv/columns`, `POST /earth/api/settings/sampleFile`,
+`POST /earth/api/tools/deletePlots/check`). Open data folder and Open plots map are quick actions
+(`POST /earth/api/actions/openDataFolder`, `openPlotsMap`).
+
+The Project menu (`src/components/project/`) imports a CEP (`POST /earth/api/projects/import`, then the restart
+overlay), joins a cloud project in the steps of the Swing menu (`POST /earth/api/cloud/preview`, `join`), shows the
+cloud sync status (`GET /earth/api/cloud/status`, polled while open) and changes the language
+(`PUT /earth/api/app/language`, then the page reloads). In cloud mode with nobody logged in the app bar asks for the
+cloud login first (`POST /earth/api/cloud/login`). The Help menu (`src/components/help/`) opens the survey guide, the
+manual, the support site and the updater as actions, shows the disclaimer and the log (`GET /earth/api/help/text`),
+About (from `/earth/api/app`) and switches the showing of the errors logged (`PUT /earth/api/help/errorsShown`).
+The notices of the server (`src/components/notices/NoticeDialog.tsx`: announcements, the update offer, the errors
+logged, the server's warnings) are polled from `GET /earth/api/notices` every few seconds and answered with
+`POST /earth/api/notices/{id}/answer`. A file dropped on the page is uploaded (`POST /earth/api/files/upload`) and
+then imported (a `.cep`), loaded (a KML) or offered as the plots file (a `.csv`/`.ced`).
+
 ## Build
 
 The Maven build of `collect-earth-app` builds it automatically (`frontend-maven-plugin`
@@ -37,7 +82,18 @@ npm run build      # rebuilds target/classes/leafletmap (refresh the map window 
 - `src/engines/` - `LeafletEngine` (ESRI imagery) and `GoogleEngine` (Maps JS API, needs
   `GOOGLE_MAPS_API_KEY`) behind the `MapEngine` interface; a Google failure falls back to Leaflet
 - `src/plots.ts` - pure list logic (filter, next unfinished, neighbours, counts)
-- `src/components/` - sidebar with the virtualized plot list, map area, form panel
+- `src/components/` - sidebar with the virtualized plot list, map area, form panel, app bar
+  (`AppBar.tsx`) and home page (`HomePage.tsx`)
+- `src/apiClient.ts`, `src/serverTexts.ts`, `src/appInfo.ts`, `src/menus.ts`, `src/appBar.ts`,
+  `src/home.ts` - the API client, the Swing texts, `/api/app`, the menus and their pure logic
+- `src/settings.ts`, `src/settingsApi.ts`, `src/plotPreview.ts`, `src/components/settings/` - the
+  settings page: its model, its calls, the plot preview and its components
+- `src/jobs.ts`, `src/dataApi.ts`, `src/exportDialog.ts`, `src/importDialog.ts`, `src/components/data/` -
+  the jobs, the Data menu's calls and dialogs, and the job panel
+- `src/tools.ts`, `src/toolsApi.ts`, `src/components/tools/` - the Tools and Utilities menus: the LULUCF
+  form's logic, the calls, the dialogs
+- `src/project.ts`, `src/projectApi.ts`, `src/notices.ts`, `src/noticesApi.ts`, `src/components/project/`,
+  `src/components/help/`, `src/components/notices/` - the Project and Help menus and the notices of the server
 - `src/form/` - the generated data entry form: `model.ts` (pure protocol logic: value
   formats, response merges, hierarchical codes, errors), `store.ts` (server traffic, serialized
   autosave, submit), `FormApp.tsx` / `fields.tsx` (UI)

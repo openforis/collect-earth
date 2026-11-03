@@ -4,17 +4,20 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.BUFFER_SHAPE;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
 import org.openforis.collect.earth.app.desktop.EarthApp;
+import org.openforis.collect.earth.app.service.notices.Notice;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
@@ -33,6 +36,8 @@ import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareWithCirclesKmlGenerator;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
+import org.openforis.collect.io.data.DataExportStatus;
+import org.openforis.collect.manager.process.AbstractProcess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -228,9 +233,7 @@ public class KmlGeneratorService {
 			distanceBetweenSamplePoints = StringUtils.isBlank(dBSP) ? 0 : Float.parseFloat(dBSP);
 		} catch (Exception e) {
 			logger.error("Error parsing distance between sample points , wrong value : " + dBSP, e);
-			EarthApp.showMessage(
-					"Attention: Check earth.properties file. The distance between sample points must be a number! You have set it to : " //$NON-NLS-1$
-							+ dBSP);
+			notANumber("KmlGeneratorService.distanceBetweenSamplePoints", dBSP);
 			return null;
 		}
 
@@ -239,9 +242,7 @@ public class KmlGeneratorService {
 			distanceToPlotBoundaries = StringUtils.isBlank(dToPlotB) ? 0 : Float.parseFloat(dToPlotB);
 		} catch (Exception e) {
 			logger.error("Error parsing distance between plots , wrong value : " + dToPlotB, e);
-			EarthApp.showMessage(
-					"Attention: Check earth.properties file. The distance between sample point and border of the plot must be a number ! You have set it to : " //$NON-NLS-1$
-							+ dToPlotB);
+			notANumber("KmlGeneratorService.distanceToPlotBoundaries", dToPlotB);
 			return null;
 		}
 		final String localPort = getLocalProperties().getLocalPort();
@@ -280,9 +281,7 @@ public class KmlGeneratorService {
 					distanceBetweenPlots = Float.parseFloat(dBP);
 				} catch (Exception e) {
 					logger.error("Error parsing distance between plots , wrong value : " + dBP, e);
-					EarthApp.showMessage(
-							"Attention: Check earth.properties file. The distance between plots must be a number! You have set it to : " //$NON-NLS-1$
-									+ dBP);
+					notANumber("KmlGeneratorService.distanceBetweenPlots", dBP);
 					return null;
 				}
 
@@ -296,9 +295,7 @@ public class KmlGeneratorService {
 					distanceBetweenPlots = Float.parseFloat(dBP);
 				} catch (Exception e) {
 					logger.error(String.format("Error parsing distance between plots , wrong value : %s", dBP), e);
-					EarthApp.showMessage(
-							"Attention: Check earth.properties file. The distance between plots must be a number! You have set it to : " //$NON-NLS-1$
-									+ dBP);
+					notANumber("KmlGeneratorService.distanceBetweenPlots", dBP);
 					return null;
 				}
 
@@ -393,7 +390,34 @@ public class KmlGeneratorService {
 
 	}
 
+	/**
+	 * Runs the export of the records to the CSV the KML is made from: with its progress, for the export job of the
+	 * pages (ExportService), or simply to the end.
+	 */
+	@FunctionalInterface
+	public interface CsvExportRunner {
+		/** @return false when the export was cancelled: no KML is generated then */
+		boolean run(AbstractProcess<Void, DataExportStatus> csvExport) throws Exception;
+	}
+
+	/**
+	 * A distance of earth.properties that is not a number, which only a file edited by hand can have now that the
+	 * settings page checks them: said as a notice of the pages.
+	 */
+	private static void notANumber(String settingKey, String value) {
+		EarthApp.notify(Notice.WARNING, MessageFormat.format(Messages.getString("KmlGeneratorService.notANumber"), //$NON-NLS-1$
+				Messages.getString(settingKey), StringEscapeUtils.escapeHtml4(String.valueOf(value))));
+	}
+
 	public void exportToKml(File exportToFile) throws Exception {
+		exportToKml(exportToFile, csvExport -> {
+			csvExport.startProcessing();
+			return true;
+		});
+	}
+
+	/** The records exported to a KML: first to a CSV, run by the runner given, then the KML generated from it. */
+	public void exportToKml(File exportToFile, CsvExportRunner csvExportRunner) throws Exception {
 
 		KmlGenerator kmlGenerator = null;
 		kmlGenerator = getKmlGenerator();
@@ -406,8 +430,10 @@ public class KmlGeneratorService {
 		File balloonFile = null;
 		try {
 			csvTempFile = File.createTempFile("surveyData",  ".csv");
-			dataImportExportService.exportSurveyAsCsv(csvTempFile, false).startProcessing(); // Get the CSV with the data
-																								// collected!
+			// The CSV with the data collected
+			if (!csvExportRunner.run(dataImportExportService.exportSurveyAsCsv(csvTempFile, false))) {
+				return;
+			}
 
 			try (BufferedReader brCsvReader = new BufferedReader(new FileReader(csvTempFile))) {
 				String headerLine = brCsvReader.readLine();

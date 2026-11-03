@@ -12,7 +12,6 @@ import static org.openforis.collect.earth.app.EarthConstants.ROOT_ENTITY_NAME;
 import static org.openforis.collect.earth.app.EarthConstants.SKIP_FILLED_PLOT_PARAMETER;
 
 import java.io.File;
-import java.awt.GraphicsEnvironment;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -27,7 +26,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import javax.swing.JOptionPane;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.CollectEarthSurveyContext;
@@ -475,41 +473,37 @@ public abstract class AbstractEarthSurveyService {
 		}
 	}
 
+	/**
+	 * The model version the records are created with: the one set before, when the survey still has it (the project's,
+	 * or the one chosen in the settings), else the most recent. A survey with several versions used to ask which one in
+	 * a dialog on every start; the choice is made in the settings now, and {@link #versionChosenByDefault} says when
+	 * none was made.
+	 */
 	protected void checkVersions(CollectSurvey loadedCollectSurvey) {
-
-		if (!loadedCollectSurvey.getVersions().isEmpty()) {
-			if (loadedCollectSurvey.getVersions().size() == 1) {
-				ModelVersion onlyModelVersion = loadedCollectSurvey.getVersions().get(0);
-				localPropertiesService.setModelVersionName(onlyModelVersion.getName());
-			}
-
-			/*
-			 * The model version name comes directly from the CEP file ( initial
-			 * earth properties )
-			 */
-			else {
-
-				// Choose one of the versions
-				List<ModelVersion> versions = loadedCollectSurvey.getVersions();
-				ModelVersion latestVersion = versions.get(versions.size() - 1);
-
-				ModelVersion chosenVersion = null;
-				// A server with no display cannot show this dialog, it would throw a HeadlessException
-				if (!GraphicsEnvironment.isHeadless()) {
-					chosenVersion = (ModelVersion) JOptionPane.showInputDialog(null,
-							"Choose one survey version to work with", "Choose version", JOptionPane.QUESTION_MESSAGE, null,
-							versions.toArray(), latestVersion);
-				}
-
-				if (chosenVersion == null) {
-					// The user closed the dialog, or there is no display : keep the survey usable with its most recent version
-					logger.warn("No survey version was chosen, using {}", latestVersion.getName());
-					chosenVersion = latestVersion;
-				}
-				localPropertiesService.setModelVersionName(chosenVersion.getName());
-
+		List<ModelVersion> versions = loadedCollectSurvey.getVersions();
+		if (versions.isEmpty()) {
+			return;
+		}
+		String current = localPropertiesService.getModelVersionName();
+		for (ModelVersion version : versions) {
+			if (version.getName().equals(current)) {
+				return;
 			}
 		}
+		ModelVersion latest = versions.get(versions.size() - 1);
+		localPropertiesService.setModelVersionName(latest.getName());
+		if (versions.size() > 1) {
+			logger.info("The survey has {} versions and none was chosen: {} is used", versions.size(), latest.getName()); //$NON-NLS-1$
+			versionChosenByDefault(loadedCollectSurvey, latest);
+		}
+	}
+
+	/**
+	 * Called when a survey with several versions had none chosen, and the most recent is used: the application tells
+	 * the user, who can choose another. Nothing by default.
+	 */
+	protected void versionChosenByDefault(CollectSurvey survey, ModelVersion chosen) {
+		// Nothing here: the application says it to the user
 	}
 
 	public boolean isPlacemarkEdited(Map<String, String> parameters) {

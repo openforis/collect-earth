@@ -1,0 +1,205 @@
+package org.openforis.collect.earth.app.server.api;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+import org.openforis.collect.earth.app.CollectEarthUtils;
+import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
+import org.openforis.collect.earth.app.service.BackupSqlLiteService;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.EarthSurveyService;
+import org.openforis.collect.earth.app.service.settings.ConnectionTest;
+import org.openforis.collect.earth.app.service.settings.SampleFileCheck;
+import org.openforis.collect.earth.app.service.settings.SettingsService;
+import org.openforis.collect.earth.app.service.settings.SettingsService.InvalidSettingsException;
+import org.openforis.collect.earth.app.view.Messages;
+import org.openforis.collect.model.CollectSurvey;
+import org.openforis.idm.metamodel.ModelVersion;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * The settings for the settings page (SettingsPage.tsx): their description and values, the check of what the page
+ * holds while the user types, the saving of the changes, and the connection tests of the storage sections.
+ */
+@RestController
+public class SettingsController {
+
+	/** What CollectEarthUtils' connection tests answer when the connection works */
+	/** The body of validate and save: the values by key. */
+	public static class Values {
+		public Map<String, String> values;
+	}
+
+	public static class DatabaseRequest {
+		public String host;
+		public String port;
+		public String name;
+		public String username;
+		public String password;
+	}
+
+	public static class CloudRequest {
+		public String url;
+		public String projectId;
+		public String token;
+	}
+
+	public static class FileRequest {
+		public String path;
+	}
+
+	private final SettingsService settings;
+	private final SampleFileCheck sampleFile;
+	private final Supplier<String> backupFolder;
+	private final Supplier<String> computerIp;
+	private final Function<DatabaseRequest, ConnectionTest> testDatabase;
+	private final Function<CloudRequest, ConnectionTest> testCloud;
+	/** The names of the versions of the survey loaded, oldest first */
+	private Supplier<List<String>> surveyVersions = Collections::emptyList;
+
+	@Autowired
+	public SettingsController(SettingsService settings, SampleFileCheck sampleFile, BackupSqlLiteService backup, EarthSurveyService surveys) {
+		this(settings, sampleFile, () -> backup.getAutomaticBackUpFolder().getAbsolutePath(), CollectEarthUtils::getComputerIp,
+				request -> CollectEarthUtils.testPostgreSQLConnection(request.host, request.port, request.name, request.username,
+						request.password),
+				request -> CollectEarthUtils.testCloudConnection(request.url, request.projectId, request.token));
+		this.surveyVersions = () -> {
+			CollectSurvey survey = surveys.getCollectSurvey();
+			List<String> names = new ArrayList<>();
+			if (survey != null) {
+				for (ModelVersion version : survey.getVersions()) {
+					names.add(version.getName());
+				}
+			}
+			return names;
+		};
+	}
+
+	/** For the tests: the versions of the survey */
+	SettingsController withSurveyVersions(Supplier<List<String>> versions) {
+		this.surveyVersions = versions;
+		return this;
+	}
+
+	/** For the tests: the folder, the address and the connection tests stood in for. */
+	SettingsController(SettingsService settings, SampleFileCheck sampleFile, Supplier<String> backupFolder, Supplier<String> computerIp,
+			Function<DatabaseRequest, ConnectionTest> testDatabase, Function<CloudRequest, ConnectionTest> testCloud) {
+		this.settings = settings;
+		this.sampleFile = sampleFile;
+		this.backupFolder = backupFolder;
+		this.computerIp = computerIp;
+		this.testDatabase = testDatabase;
+		this.testCloud = testCloud;
+	}
+
+	@GetMapping("/api/settings")
+	public Map<String, Object> settings() {
+		Map<String, String> values = settings.current();
+		Map<String, Object> info = new LinkedHashMap<>();
+		info.put("computerIp", computerIp.get());
+		info.put("backupFolder", backupFolder.get());
+		info.put("cloudMode", CollectDBDriver.CLOUD.name().equals(values.get(EarthProperty.DB_DRIVER.toString())));
+		Map<String, Object> answer = new LinkedHashMap<>();
+		answer.put("sections", withSurveyVersions(settings.getModel().toJson(), surveyVersions.get()));
+		answer.put("values", values);
+		answer.put("info", info);
+		return answer;
+	}
+
+	@PostMapping("/api/settings/validate")
+	public Map<String, Object> validate(@RequestBody Values body) {
+		return settings.validate(valuesOf(body)).toJson();
+	}
+
+	/**
+	 * Saves the changes, and answers whether Collect Earth restarts for them (RestartService, after the answer). The
+	 * changes that break a rule are refused with the errors by key, which the page shows at the fields.
+	 */
+	@PostMapping("/api/settings")
+	public ResponseEntity<Map<String, Object>> save(@RequestBody Values body) {
+		Map<String, Object> answer = new LinkedHashMap<>();
+		try {
+			answer.put("restart", settings.save(valuesOf(body)));
+			return ResponseEntity.ok(answer);
+		} catch (InvalidSettingsException e) {
+			answer.put("error", "settings.invalid");
+			answer.put("message", Messages.getString("PropertiesDialog.validationErrors"));
+			answer.put("details", null);
+			answer.put("errors", e.getErrors());
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(answer);
+		}
+	}
+
+	/** The plots file the user picked, checked before it is applied (see SampleFileCheck). */
+	@PostMapping("/api/settings/sampleFile")
+	public Map<String, Object> sampleFile(@RequestBody FileRequest request) {
+		return sampleFile.check(request.path == null ? "" : request.path);
+	}
+
+	/** Tries the PostgreSQL connection with the values typed, not the stored ones, as the dialog's button did. */
+	@PostMapping("/api/settings/testDatabase")
+	public Map<String, Object> testDatabase(@RequestBody DatabaseRequest request) {
+		return connection(testDatabase.apply(request));
+	}
+
+	@PostMapping("/api/settings/testCloud")
+	public Map<String, Object> testCloud(@RequestBody CloudRequest request) {
+		return connection(testCloud.apply(request));
+	}
+
+	/**
+	 * The survey version field with the versions of the survey loaded as its choices, as the Swing dialog listed them
+	 * at start; taken out when there is nothing to choose.
+	 */
+	@SuppressWarnings("unchecked")
+	static List<Map<String, Object>> withSurveyVersions(List<Map<String, Object>> sections, List<String> versions) {
+		String key = EarthProperty.MODEL_VERSION_NAME.toString();
+		for (Map<String, Object> section : sections) {
+			List<Map<String, Object>> fields = (List<Map<String, Object>>) section.get("fields");
+			for (Iterator<Map<String, Object>> it = fields.iterator(); it.hasNext();) {
+				Map<String, Object> field = it.next();
+				if (!key.equals(field.get("key"))) {
+					continue;
+				}
+				if (versions.size() < 2) {
+					it.remove();
+				} else {
+					List<Map<String, Object>> choices = new ArrayList<>();
+					for (String version : versions) {
+						Map<String, Object> choice = new LinkedHashMap<>();
+						choice.put("value", version);
+						choice.put("text", version);
+						choices.add(choice);
+					}
+					field.put("choices", choices);
+					// The most recent, which is used when none is chosen
+					field.put("default", versions.get(versions.size() - 1));
+				}
+			}
+		}
+		return sections;
+	}
+
+	private static Map<String, Object> connection(ConnectionTest test) {
+		Map<String, Object> answer = new LinkedHashMap<>();
+		answer.put("ok", test.isOk());
+		answer.put("message", test.getMessage());
+		return answer;
+	}
+
+	private static Map<String, String> valuesOf(Values body) {
+		return body == null || body.values == null ? Collections.emptyMap() : body.values;
+	}
+}

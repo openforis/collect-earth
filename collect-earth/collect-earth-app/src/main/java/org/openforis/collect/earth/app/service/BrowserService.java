@@ -27,6 +27,7 @@ import java.util.function.Function;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.EarthApp;
+import org.openforis.collect.earth.app.service.notices.Notice;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.imagery.BidiCommandException;
@@ -1029,14 +1030,14 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	/**
 	 * Planet is opened for every plot, so the interpreter is told once per run: a dialog on each plot would
-	 * get in the way of the assessment, and the key is entered in the options dialog, not here.
+	 * get in the way of the assessment, and the key is entered in the settings, not here. A notice of the pages.
 	 */
 	private void warnAboutMissingPlanetApiKey() {
 		logger.warn("Planet is switched on but no Planet API key is configured");
 		if (!planetApiKeyWarningShown) {
 			planetApiKeyWarningShown = true;
-			EarthApp.showMessage(Messages.getString("BrowserService.planetApiKeyMissing"), //$NON-NLS-1$
-					Messages.getString("BrowserService.planetApiKeyMissingTitle")); //$NON-NLS-1$
+			EarthApp.notify(Notice.WARNING, Messages.getString("BrowserService.planetApiKeyMissingTitle"), //$NON-NLS-1$
+					Messages.getString("BrowserService.planetApiKeyMissing")); //$NON-NLS-1$
 		}
 	}
 
@@ -1448,24 +1449,54 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		return url + "?plot=" + URLEncoder.encode(plotId, StandardCharsets.UTF_8);
 	}
 
+	/** The app without a map, for the Google Earth Pro viewer (see App.tsx, IN_HOME). */
+	static String homeUrl(String base) {
+		return base + "map?home";
+	}
+
+	/**
+	 * Opens the home page of the app in the plots map window, or loads it again there if the window is open: with the
+	 * Google Earth Pro viewer it is the main window of Collect Earth, which the plots map is with the other viewers. A
+	 * failure is logged.
+	 * <p>
+	 * Never in Google Earth Web's window ({@link #plotsMapInGoogleEarthWeb()}): there is no Google Earth Web with the
+	 * Google Earth Pro viewer. Nor does it tell the listeners of {@link #onLeafletMapOpened}: it is not the plots map,
+	 * which {@link PlotsMapKeeper} keeps open because it holds the form.
+	 */
+	public void openHomePage() {
+		try {
+			showInLeafletMapWindow(homeUrl(serverBase()));
+		} catch (final Exception e) {
+			logger.error("Problems loading the home page", e);
+		}
+	}
+
+	/** The address of the embedded server, ending with / (the base of {@link #leafletMapUrl} and {@link #homeUrl}). */
+	private String serverBase() {
+		return ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort());
+	}
+
 	private boolean showLeafletMap(String plotId) throws BrowserNotFoundException {
-		Object lock = getOrCreateLock(BrowserType.LEAFLET_MAP);
-		synchronized (lock) {
-			String url = leafletMapUrl(ServerController.getHostAddress(localPropertiesService.getHost(),
-					localPropertiesService.getLocalPort()), plotId);
-			// A window the user closed is quit and an app window opened instead, there or when the window turns out to
-			// be gone as the page is loaded: see navigateTo. No refresh after it: the page takes ?plot= out of its
-			// address as soon as it starts, so a refresh would load it again on no plot. Its address has no #fragment,
-			// so the navigation alone loads the page anew.
-			webDriverLeafletMap = navigateTo(url, webDriverLeafletMap, true, false, () -> initAppWindow(null));
-			if (webDriverLeafletMap == null) {
-				return false;
-			}
+		if (!showInLeafletMapWindow(leafletMapUrl(serverBase(), plotId))) {
+			return false;
 		}
 		for (Runnable listener : leafletMapOpenedListeners) {
 			listener.run();
 		}
 		return true;
+	}
+
+	/** Loads {@code url} in the plots map window, opened if it is not; returns whether the window is open now. */
+	private boolean showInLeafletMapWindow(String url) throws BrowserNotFoundException {
+		Object lock = getOrCreateLock(BrowserType.LEAFLET_MAP);
+		synchronized (lock) {
+			// A window the user closed is quit and an app window opened instead, there or when the window turns out to
+			// be gone as the page is loaded: see navigateTo. No refresh after it: the page takes ?plot= out of its
+			// address as soon as it starts, so a refresh would load it again on no plot. Its address has no #fragment,
+			// so the navigation alone loads the page anew.
+			webDriverLeafletMap = navigateTo(url, webDriverLeafletMap, true, false, () -> initAppWindow(null));
+			return webDriverLeafletMap != null;
+		}
 	}
 
 	/**

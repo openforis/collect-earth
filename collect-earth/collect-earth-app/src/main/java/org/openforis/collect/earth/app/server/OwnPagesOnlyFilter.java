@@ -24,7 +24,8 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
  * Lets through to the endpoints that drive the imagery window and Google Earth Web (/googleEarthWeb/*, /imagery/*, see
  * web.xml) only the requests of Collect Earth's own pages: the plots map and its form, served by this server. Those
  * endpoints are GETs that act (show a plot, move the camera, open and arrange windows), and any web page open in a
- * browser on the same computer could otherwise send them, with an image or a fetch, while Collect Earth runs.
+ * browser on the same computer could otherwise send them, with an image or a fetch, while Collect Earth runs. It
+ * guards the API (/api/*) too, ahead of ApiHeaderFilter.
  * <ul>
  * <li>{@code Sec-Fetch-Site}, which browsers send on fetches, images and navigations alike, must be {@code same-origin}
  * (the plots map's requests) or {@code none} (an address the user opened) when it is there. Not {@code same-site}: for

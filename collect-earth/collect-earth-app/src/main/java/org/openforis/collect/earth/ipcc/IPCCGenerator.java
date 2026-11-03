@@ -12,12 +12,9 @@ import java.util.List;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.SchemaService;
-import org.openforis.collect.earth.app.view.DataFormat;
-import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
-import org.openforis.collect.earth.app.view.FileChooserUtils;
+import org.openforis.collect.earth.app.service.AnalysisProgress;
 import org.openforis.collect.earth.ipcc.controller.LandUseSubdivisionUtils;
 import org.openforis.collect.earth.ipcc.controller.StratumUtils;
-import org.openforis.collect.earth.ipcc.view.AssignSubdivisionTypesWizard;
 import org.openforis.collect.manager.SurveyManager;
 import org.openforis.idm.metamodel.Survey;
 import org.slf4j.Logger;
@@ -73,7 +70,7 @@ public class IPCCGenerator {
 												// current year
 	public static final int START_YEAR = 2000; // Assume start year at 2000
 
-	public File generateRDB(Survey survey, InfiniteProgressMonitor progressListener) throws IPCCGeneratorException {
+	public File generateRDB(Survey survey, AnalysisProgress progressListener) throws IPCCGeneratorException {
 
 		ipccSurveyAdapter = new IPCCSurveyAdapter( landUses );
 		
@@ -94,33 +91,16 @@ public class IPCCGenerator {
 		return null;
 	}
 
-	public void produceOutputs(Survey survey, InfiniteProgressMonitor progressListener) {
-
-		progressListener.hide();
-
-		try {
-			List<String> attributeNames = new ArrayList<String>();
-			survey.getSchema().getFirstRootEntityDefinition().getChildDefinitions()
-					.forEach(nodeDefinition -> attributeNames.add(nodeDefinition.getName()));
-
-			// Assign Management types to the Land Use Subdivisions found in the survey data
-			AssignSubdivisionTypesWizard wizard = new AssignSubdivisionTypesWizard();
-			wizard.initializeTypes(landUses.getLandUseSubdivisions(), attributeNames);
-
-			if (!wizard.isWizardFinished()) {
-				logger.info("The user closed the wizard without finishing assigning management types");
-				return;
-			}
-
-			File[] exportToFile = FileChooserUtils.getFileChooserResults(DataFormat.GHGI_ZIP_FILE, true, false,
-					"LandUseForGHGi", localPropertiesService, null);
-			if (exportToFile == null || exportToFile.length != 1) {
-				logger.info(
-						"The user should choose a ZIP file to export the results to! No file chosen, aborting the rest of the execution");
-				return;
-			}
-
-			File destinationZip = exportToFile[0];
+	/**
+	 * The outputs of the package into the ZIP, from the subdivisions as they were assigned (LandUseSubdivisionUtils):
+	 * what the wizard and the file dialog used to be asked for comes as arguments, from the Swing path of
+	 * IPCCGeneratorService or from the form of the page.
+	 *
+	 * @param countryCode     the ISO code of the country
+	 * @param regionAttribute the attribute of the survey that holds the region
+	 */
+	public void produceOutputs(Survey survey, String countryCode, String regionAttribute, File destinationZip, AnalysisProgress progressListener)
+			throws IOException, IPCCGeneratorException {
 
 			final int STEPS = 9;
 			int currentStep = 1;
@@ -185,7 +165,7 @@ public class IPCCGenerator {
 				// Extract data from the Relational Database into an excel file of transition
 				// Matrixes per year
 				File xmlWithDataToImportGhgTool = dataExportTimeSeriesToTool.generateTimeseriesData(START_YEAR, START_YEAR,
-						END_YEAR, wizard.getCountryCode().getCode(), wizard.getRegionAttribute());
+						END_YEAR, countryCode, regionAttribute);
 				if (progressListener.isUserCancelled())
 					return;
 
@@ -206,20 +186,9 @@ public class IPCCGenerator {
 					logger.error("The sampling uncertainty analysis could not be generated, it is missing from {}", destinationZip); //$NON-NLS-1$
 				}
 
-				// Open the ZIP file automatically to inspect the output. A failure while compressing now reaches the catch below
-				// instead of being logged and opening an incomplete archive as if the export had worked
-				CollectEarthUtils.openFile(destinationZip);
-
 			} finally {
 				progressListener.hide();
 			}
-
-		} catch (IOException e) {
-			logger.error("Error generating file", e);
-		} catch (Exception e) {
-			logger.error("Error while generating GHGi tool file ", e); //$NON-NLS-1$ //$NON-NLS-2$
-		}
-
 	}
 
 }

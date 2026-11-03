@@ -1,9 +1,7 @@
 package org.openforis.collect.earth.app.desktop;
 
-import java.awt.HeadlessException;
 import java.awt.Image;
 import java.awt.SplashScreen;
-import java.awt.Window;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -12,13 +10,13 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.Socket;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
@@ -34,32 +32,29 @@ import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializationEvent;
 import org.openforis.collect.earth.app.logging.GAlogger;
 import org.openforis.collect.earth.app.server.LoadProjectFileServlet;
+import org.openforis.collect.earth.app.server.OpenWindowServlet;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
-import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.ShellFolderFallback;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
+import org.openforis.collect.earth.app.service.notices.Notice;
+import org.openforis.collect.earth.app.service.notices.NoticeService;
 import org.openforis.collect.earth.app.service.WindowLayoutService;
-import org.openforis.collect.earth.app.view.AnnouncementManager;
-import org.openforis.collect.earth.app.view.CheckForUpdatesListener;
-import org.openforis.collect.earth.app.view.CollectEarthWindow;
-import org.openforis.collect.earth.app.view.DataFormat;
 import org.openforis.collect.earth.app.view.Messages;
-import org.openforis.collect.earth.app.view.PropertiesDialog;
-import org.openforis.collect.earth.app.view.ShellFolderFallback;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.context.WebApplicationContext;
 
-import com.formdev.flatlaf.FlatIntelliJLaf;
-import com.formdev.flatlaf.FlatLightLaf;
 import com.opencsv.exceptions.CsvValidationException;
 
 import io.sentry.Sentry;
@@ -106,60 +101,6 @@ public class EarthApp {
 	}
 
 	/**
-	 * Initialize SwingX components and UI classes early in the application lifecycle
-	 * to prevent classloading issues that can occur when components are lazily loaded later.
-	 * This pre-loads critical SwingX classes, UI components, and UIManager settings.
-	 */
-	private static void initializeSwingXComponents() {
-		try {
-			// Ensure we're using the correct classloader
-			ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();
-			try {
-				// Set the context classloader to this class's classloader to ensure
-				// proper resolution of SwingX dependencies
-				Thread.currentThread().setContextClassLoader(EarthApp.class.getClassLoader());
-
-				// Pre-load SwingX calendar handler classes to ensure they're available
-				// when date pickers are created later
-				Class.forName("org.jdesktop.swingx.plaf.basic.CalendarHeaderHandler");
-				Class.forName("org.jdesktop.swingx.plaf.basic.SpinningCalendarHeaderHandler");
-				Class.forName("org.jdesktop.swingx.JXDatePicker");
-
-				// Pre-load UI classes that are commonly used and may have classloading issues
-				Class.forName("org.openforis.collect.earth.app.view.Messages");
-				Class.forName("org.openforis.collect.earth.app.view.DataFormat");
-				Class.forName("org.openforis.collect.earth.app.view.JFileChooserExistsAware");
-
-				// Force initialization of DataFormat enum to load Messages resources early
-				// This prevents classloading issues when file choosers are opened later
-				@SuppressWarnings("unused")
-				DataFormat[] formats = DataFormat.values();
-
-				// Set the UIManager property for calendar header handler
-				// This must be done before any JXDatePicker instances are created
-				UIManager.put("CalendarHeaderHandler.uiControllerID",
-						"org.jdesktop.swingx.plaf.basic.SpinningCalendarHeaderHandler");
-
-				System.out.println("UI components pre-loaded successfully");
-			} finally {
-				// Restore original classloader
-				Thread.currentThread().setContextClassLoader(originalClassLoader);
-			}
-		} catch (ClassNotFoundException e) {
-			System.err.println("Warning: Failed to pre-load UI components. " +
-					"Some dialogs may not work correctly.");
-			System.err.println("Error: " + e.getMessage());
-			System.err.println("Missing class: " + e.getMessage());
-			System.err.println("Make sure all required JAR files are in the classpath.");
-			// Don't fail startup - just log the warning
-			// The error handling we added earlier will catch any issues when dialogs open
-		} catch (Exception e) {
-			System.err.println("Unexpected error during UI initialization: " + e.getMessage());
-			e.printStackTrace();
-		}
-	}
-
-	/**
 	 * Start the application, opening Google Earth and starting the Jetty server.
 	 *
 	 * @param args No arguments are used by this method.
@@ -170,9 +111,10 @@ public class EarthApp {
 
 			// collectEarth.userFolder is set in the static block above, before the first logger of this class is created
 
-			FlatLightLaf.setup();
+			// The system's look for the Swing that is left (the file chooser of the pages, the messages shown when there is
+			// no page): a native-looking file dialog on Windows and macOS
 			try {
-				UIManager.setLookAndFeel(new FlatIntelliJLaf());
+				UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 			} catch (Exception ex) {
 				System.err.println("Failed to initialize LaF");
 			}
@@ -181,9 +123,6 @@ public class EarthApp {
 			// OpenForis.org do not return with a 403 http error
 			System.setProperty("http.agent",
 					"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.4; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2");
-
-			// Initialize SwingX components early to prevent classloading issues
-			initializeSwingXComponents();
 
 			initializeSentry();
 			// After Sentry, whose handler it wraps : a file chooser broken by the Windows shell falls back to plain folders
@@ -362,12 +301,41 @@ public class EarthApp {
 		} catch (final KmlGenerationException e) {
 			logger.error("Problems while generating the KML file ", e); //$NON-NLS-1$
 			// An exception with no message used to throw here, so the failure of the KML was never reported
-			showMessage("<html>Problems while generating the KML file: <br/> " //$NON-NLS-1$
-					+ (e.getCause() != null ? (e.getCause() + "<br/>") : "")
-					+ StringUtils.abbreviate(StringUtils.defaultString(e.getMessage(), e.toString()), 300) + "</html>");
+			notify(Notice.ERROR, Messages.getString("NoticesPage.server.kml") + "<br/>" //$NON-NLS-1$ //$NON-NLS-2$
+					+ (e.getCause() != null ? (StringEscapeUtils.escapeHtml4(String.valueOf(e.getCause())) + "<br/>") : "") //$NON-NLS-1$ //$NON-NLS-2$
+					+ StringEscapeUtils.escapeHtml4(StringUtils.abbreviate(StringUtils.defaultString(e.getMessage(), e.toString()), 300)));
 		} catch (final Exception e) {
 			logger.error("Could not generate KML file", e); //$NON-NLS-1$
-			showMessage("<html>Error generating KML file : <br/> " + e.getMessage()); //$NON-NLS-1$
+			notify(Notice.ERROR, Messages.getString("NoticesPage.server.kml") + "<br/>" + StringEscapeUtils.escapeHtml4(String.valueOf(e.getMessage()))); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+	}
+
+	/**
+	 * What the Swing window showed in a dialog of its own, as a notice of the pages (NoticeService), through the context
+	 * that is running; a Swing dialog when there is none yet, as before.
+	 */
+	public static void notify(String severity, String htmlMessage) {
+		notify(severity, "Collect Earth", htmlMessage); //$NON-NLS-1$
+	}
+
+	/**
+	 * @param htmlMessage the message, as HTML: a text of Messages written for the Swing dialogs may come wrapped in
+	 *        html tags, which are taken off
+	 */
+	public static void notify(String severity, String title, String htmlMessage) {
+		String body = htmlMessage.replaceFirst("^\\s*<html>", "").replaceFirst("</html>\\s*$", ""); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+		NoticeService notices = null;
+		try {
+			if (serverController != null && serverController.getContext() != null) {
+				notices = serverController.getContext().getBean(NoticeService.class);
+			}
+		} catch (RuntimeException e) {
+			logger.warn("No notice service to show the message with: {}", e.getMessage()); //$NON-NLS-1$
+		}
+		if (notices != null) {
+			notices.post(new Notice("server", severity, title, body).html()); //$NON-NLS-1$
+		} else {
+			showMessage("<html>" + body + "</html>", title); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 	}
 
@@ -395,6 +363,22 @@ public class EarthApp {
 				}
 			}
 
+		}
+	}
+
+	/** Asks the running Collect Earth to open its window (OpenWindowServlet), as its tray icon would. */
+	static void openWindowInRunningCollectEarth() throws IOException {
+		String hostAddress = ServerController.getHostAddress(getLocalProperties().getHost(), getLocalProperties().getPort());
+		HttpURLConnection connection = (HttpURLConnection) new URL(hostAddress + OpenWindowServlet.SERVLET_NAME).openConnection();
+		connection.setConnectTimeout(5000);
+		connection.setReadTimeout(5000);
+		try {
+			int status = connection.getResponseCode();
+			if (status != HttpURLConnection.HTTP_ACCEPTED) {
+				throw new IOException("The running Collect Earth answered HTTP " + status); //$NON-NLS-1$
+			}
+		} finally {
+			connection.disconnect();
 		}
 	}
 
@@ -442,7 +426,28 @@ public class EarthApp {
 	private static synchronized void loadKmlInGoogleEarth(boolean forceKmlRecreation)
 			throws IOException, KmlGenerationException, CsvValidationException {
 		earthApp.getKmlGeneratorService().generatePlacemarksKmzFile(forceKmlRecreation);
-		earthApp.simulateClickKmz();
+		// Not the server starting: the home page is open already, and loading it again would only make it flicker
+		earthApp.simulateClickKmz(false);
+	}
+
+	/**
+	 * Regenerates the KML and opens the plots again, on a thread of its own, after the settings were applied, data
+	 * imported or plots deleted. A failure is logged, and so reported to Sentry, and shown on the page as a notice: the
+	 * user would otherwise see the old plots and not know why.
+	 */
+	public static void reloadPlots() {
+		new Thread("Reload plots") { //$NON-NLS-1$
+			@Override
+			public void run() {
+				try {
+					loadKmlInGoogleEarth(true);
+				} catch (Exception e) {
+					logger.error("Error reloading the plots", e); //$NON-NLS-1$
+					EarthApp.notify(Notice.ERROR, Messages.getString("NoticesPage.server.kml") + "<br/>" //$NON-NLS-1$ //$NON-NLS-2$
+							+ StringEscapeUtils.escapeHtml4(StringUtils.abbreviate(StringUtils.defaultString(e.getMessage(), e.toString()), 300)));
+				}
+			}
+		}.start();
 	}
 
 	public static void restart() {
@@ -624,11 +629,19 @@ public class EarthApp {
 					System.exit(1);
 				}
 			} else {
-				JOptionPane.showMessageDialog(null, Messages.getString("EarthApp.11"), "Collect Earth",
-						JOptionPane.WARNING_MESSAGE);
-				// showMessage(Messages.getString("EarthApp.11")); //$NON-NLS-1$
-				logger.warn("Closing CE - port already in use");
-				System.exit(1);
+				// Started again: the running Collect Earth opens its window, which is how it is got back on a desktop
+				// with no tray icon. Only when it does not answer is the user told it is running
+				try {
+					openWindowInRunningCollectEarth();
+					logger.info("Collect Earth is already running: its window was opened"); //$NON-NLS-1$
+					System.exit(0);
+				} catch (IOException e) {
+					logger.warn("Port in use, but the window of the running Collect Earth could not be opened : {}", e.getMessage()); //$NON-NLS-1$
+					JOptionPane.showMessageDialog(null, Messages.getString("EarthApp.11"), "Collect Earth",
+							JOptionPane.WARNING_MESSAGE);
+					logger.warn("Closing CE - port already in use");
+					System.exit(1);
+				}
 			}
 		} else {
 
@@ -723,18 +736,17 @@ public class EarthApp {
 				serverController = null;
 			}
 
-			if (initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT)
-					|| initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)) {
-
-				showMessage(initializationEvent.toString());
+			if (initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_WITH_DATABASE_CHANGE_EVENT)) {
+				notify(Notice.WARNING, Messages.getString("NoticesPage.server.dbFallback")); //$NON-NLS-1$
+			} else if (initializationEvent.equals(ServerInitializationEvent.SERVER_STARTED_NO_DB_CONNECTION_EVENT)) {
+				notify(Notice.ERROR, Messages.getString("NoticesPage.server.noDb")); //$NON-NLS-1$
 			}
 
 			if (!initializationEvent.equals(ServerInitializationEvent.SERVER_STOPPED_EVENT)) {
 				try {
 					earthApp.generateKml();
-					earthApp.simulateClickKmz();
-					earthApp.checkForAnnouncements();
-					earthApp.checkForUpdates();
+					earthApp.simulateClickKmz(true);
+					// The announcements and the update offer are StartupNotices' now, a bean of the context
 					closeSplash();
 				} catch (final Exception e) {
 					logger.error("Error generating KML file", e); //$NON-NLS-1$
@@ -760,112 +772,11 @@ public class EarthApp {
 
 	private void openKmlOnGoogleEarth() {
 		if (!CollectEarthUtils.openFile(new File(KmlGeneratorService.KML_NETWORK_LINK_STARTER))) {
-			showMessage("The KML file cannot be open at " + KmlGeneratorService.KML_NETWORK_LINK_STARTER); //$NON-NLS-1$
+			notify(Notice.ERROR, MessageFormat.format(Messages.getString("EarthApp.kmlCannotOpen"), //$NON-NLS-1$
+					StringEscapeUtils.escapeHtml4(new File(KmlGeneratorService.KML_NETWORK_LINK_STARTER).getAbsolutePath())));
 		}
 	}
 	
-	private void checkForAnnouncements() {
-		new Thread("Check for new Collect Earth versions on the server") {
-			@Override
-			public void run() {
-
-				// Wait a few seconds before checking for updates
-				try {
-					Thread.sleep(5000);
-				} catch (InterruptedException e1) {
-					logger.error("Error while waiting", e1); //$NON-NLS-1$
-				}
-				try {
-					AnnouncementManager announcementManager = new AnnouncementManager();
-					announcementManager.checkAnnouncements();
-				} catch (Exception e) {
-					logger.error("Error checking for announcements", e); //$NON-NLS-1$
-				}
-			}
-		}.start();
-
-	}
-	
-	
-	private void checkForUpdates() {
-		new Thread("Check for new Collect Earth versions on the server") {
-			@Override
-			public void run() {
-
-				// Wait a few seconds before checking for updates
-				try {
-					Thread.sleep(20000);
-				} catch (InterruptedException e1) {
-					logger.error("Error while waiting", e1); //$NON-NLS-1$
-				}
-
-				final UpdateIniUtils updateIniUtils = new UpdateIniUtils();
-
-				if (updateIniUtils.shouldWarnUser(getLocalProperties()) ) {
-
-					javax.swing.SwingUtilities.invokeLater(() -> {
-
-						try {
-							Object[] possibleValues = new Object[3];
-							String newestVersionOnline = updateIniUtils.getVersionAvailableOnline();
-							if (StringUtils.isNotBlank(newestVersionOnline)) {
-								String remindLater = Messages.getString("EarthApp.3"); //$NON-NLS-1$
-								String doNotBother = Messages.getString("EarthApp.5"); //$NON-NLS-1$
-								String downloadInstaller = Messages.getString("EarthApp.51"); //$NON-NLS-1$
-								String doItNow = Messages.getString("EarthApp.4"); //$NON-NLS-1$
-
-								possibleValues[0] = remindLater;
-								possibleValues[2] = doNotBother;
-
-								// The updater does not work any more on Mac, instead of updating we ask the
-								// user to download the installer full!
-								if (SystemUtils.IS_OS_MAC) {
-									possibleValues[1] = downloadInstaller;
-								} else {
-									possibleValues[1] = doItNow;
-								}
-								String versionDate = StringUtils.isNotBlank(newestVersionOnline)?updateIniUtils.convertToDate(newestVersionOnline):"XXX";
-								int chosenOption = JOptionPane.showOptionDialog(null, Messages.getString("EarthApp.57"),//$NON-NLS-1$
-										Messages.getString("EarthApp.58") + Messages.getString("EarthApp.6") //$NON-NLS-1$ //$NON-NLS-2$
-												+ versionDate,
-										JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE, null, possibleValues,
-										possibleValues[0]);
-								
-								if (chosenOption != JOptionPane.CLOSED_OPTION) {
-									if (possibleValues[chosenOption].equals(downloadInstaller)) { // For Mac
-										try {
-											CollectEarthUtils.openUrl( new URI("https://ossrh-staging-api.central.sonatype.com/service/local/artifact/maven/redirect?r=releases&g=org.openforis.collect.earth&a=collect-earth-installer&v=LATEST&c=osx&e=dmg"));
-										} catch (URISyntaxException e) {
-											logger.error("Error getting installer", e );
-										}
-									} else if (possibleValues[chosenOption].equals(doItNow)) { // For Linux and Windows
-										CheckForUpdatesListener checkForUpdatesListener = new CheckForUpdatesListener();
-										checkForUpdatesListener.actionPerformed(null);
-									} else if (possibleValues[chosenOption].equals(doNotBother)) {
-										getLocalProperties().setValue(EarthProperty.LAST_IGNORED_UPDATE,
-												newestVersionOnline);
-									}
-								}
-
-							}
-						} catch (HeadlessException e) {
-							logger.error( "Error checking for updates",  e);
-						}
-					});
-				}
-			}
-		}.start();
-
-	}
-
-	/**
-	 * If Collect Earth is started by double clicking on a ".cep" file ( Collect
-	 * Earth Project file ) Then it should open directly with that project in focus
-	 *
-	 * @param doubleClickedProjecFile The path to the CEP file that was
-	 *                                double-clicked
-	 *
-	 */
 	private void loadProjectIfDoubleClicked(String doubleClickedProjectFile) {
 		try {
 			if (doubleClickedProjectFile != null) {
@@ -890,13 +801,11 @@ public class EarthApp {
 		// Inform Mac OS users of the issues about opening CEP files in the Mac version
 		// of CE
 		if (SystemUtils.IS_OS_MAC_OSX) {
-			showMessage("<html>" //$NON-NLS-1$
-					+ "<b>" //$NON-NLS-1$
+			notify(Notice.INFO, Messages.getString("EarthApp.73"), "<b>" //$NON-NLS-1$ //$NON-NLS-2$
 					+ Messages.getString("EarthApp.70") + "</b>: " //$NON-NLS-2$
 					+ Messages.getString("EarthApp.71") + Messages.getString("EarthApp.72") + "<b>" //$NON-NLS-3$
 					+ Messages.getString("CollectEarthWindow.10") + " -> " //$NON-NLS-2$
-					+ Messages.getString("CollectEarthMenu.0") + "</b></html>", //$NON-NLS-2$
-					Messages.getString("EarthApp.73"));
+					+ Messages.getString("CollectEarthMenu.0") + "</b>"); //$NON-NLS-2$
 		}
 	}
 
@@ -928,7 +837,14 @@ public class EarthApp {
 		});
 	}
 
-	private void simulateClickKmz() {
+	/**
+	 * Opens the plots in the viewer.
+	 *
+	 * @param serverStarted whether the server has just started (Collect Earth started, or the server restarted for a
+	 *                      new project or settings, with a new Spring context and so no window of its own): only then
+	 *                      is the home page opened with the Google Earth Pro viewer, not on every reload of the KML
+	 */
+	private void simulateClickKmz(boolean serverStarted) {
 		try {
 			if (getLocalProperties().isPlotsMapViewer()) {
 				// Plots map / Google Earth Web viewer: no KML handoff to Google Earth Pro;
@@ -937,70 +853,47 @@ public class EarthApp {
 			} else {
 				getKmlGeneratorService().generateLoaderKmlFile();
 				openKmlOnGoogleEarth();
+				// The main window of Collect Earth, which the Swing window was: Google Earth Pro shows the plots
+				if (serverStarted) {
+					openHomePage();
+				}
 			}
 		} catch (final Exception e) {
-			showMessage(Messages.getString("EarthApp.61")); //$NON-NLS-1$
+			notify(Notice.ERROR, Messages.getString("EarthApp.61")); //$NON-NLS-1$
 			logger.error("The KMZ file could not be found", e); //$NON-NLS-1$
 		}
 	}
 
 	private void openLeafletMap() {
-		new Thread("Open Leaflet plots map") {
-			@Override
-			public void run() {
-				try {
-					if (serverController == null || serverController.getContext() == null) {
-						logger.error("Cannot open the Leaflet plots map: the server is not initialized"); //$NON-NLS-1$
-						return;
-					}
-					BrowserService browserService = serverController.getContext().getBean(BrowserService.class);
-					browserService.openLeafletMap();
-					// Into its place next to Google Earth Web, also after the options changed the layout
-					serverController.getContext().getBean(WindowLayoutService.class).arrange();
-				} catch (final Exception e) {
-					logger.error("Error opening the Leaflet plots map", e); //$NON-NLS-1$
-				}
-			}
-		}.start();
+		inServerContext("the Leaflet plots map", context -> { //$NON-NLS-1$
+			context.getBean(BrowserService.class).openLeafletMap();
+			// Into its place next to Google Earth Web, also after the options changed the layout
+			context.getBean(WindowLayoutService.class).arrange();
+		});
 	}
 
-	public static void executeKmlLoadAsynchronously(Window windowShowingTimer) {
-		new Thread("Load KML in Google Earth") {
+	private void openHomePage() {
+		inServerContext("the home page", context -> context.getBean(BrowserService.class).openHomePage()); //$NON-NLS-1$
+	}
+
+	/**
+	 * Opens {@code what} with the beans of the server, on a thread of its own: a browser takes seconds to start, and
+	 * this runs on the thread that started the server or loaded the KML. A failure is logged.
+	 */
+	private void inServerContext(String what, Consumer<WebApplicationContext> opening) {
+		new Thread("Open " + what) { //$NON-NLS-1$
 			@Override
 			public void run() {
-				// Only regenerate KML and reload
 				try {
-					SwingUtilities.invokeLater(() -> {
-						if (windowShowingTimer != null) {
-							CollectEarthWindow.startWaiting(windowShowingTimer);
-						}
-					});
-
-					EarthApp.loadKmlInGoogleEarth(true);
-
-				} catch (Exception e) {
-					logger.error("Error loading the KML", e);
-					EarthApp.showMessage("<html>Problems while generating the KML file: <br/> "
-							+ (e.getCause() != null ? (e.getCause() + "<br/>") : "")
-							+ ((e.getMessage() != null && e.getMessage().length() > 300)
-									? e.getMessage().substring(0, 300)
-									: (e.getMessage() != null) ? e.getMessage() : "")
-							+ "</html>"); //$NON-NLS-1$
-				} finally {
-					if (windowShowingTimer != null) {
-						try {
-							SwingUtilities.invokeLater(() -> {
-								CollectEarthWindow.endWaiting(windowShowingTimer);
-								if (windowShowingTimer instanceof PropertiesDialog) {
-									((PropertiesDialog) windowShowingTimer).closeDialog();
-								}
-							});
-						} catch (Exception e2) {
-							logger.error("Error closing Options dialog", e2);
-						}
+					WebApplicationContext context = serverController == null ? null : serverController.getContext();
+					if (context == null) {
+						logger.error("Cannot open {}: the server is not initialized", what); //$NON-NLS-1$
+						return;
 					}
+					opening.accept(context);
+				} catch (final Exception e) {
+					logger.error("Error opening {}", what, e); //$NON-NLS-1$
 				}
-
 			}
 		}.start();
 	}

@@ -10,12 +10,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import javax.swing.SwingUtilities;
-
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
-import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.collect.earth.core.rdb.RelationalSchemaContext;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.relational.CollectRDBPublisher;
@@ -155,7 +152,7 @@ public class RDBExporter extends RDBConnector{
 	public boolean exportDataToRDB(
 			Survey survey, 
 			ExportType exportType, 
-			InfiniteProgressMonitor progressListener,
+			AnalysisProgress progressListener,
 			RDBPostProcessor callbackProcessor ) throws CollectRdbException {
 		
 		setExportTypeUsed(exportType);
@@ -172,7 +169,7 @@ public class RDBExporter extends RDBConnector{
 
 		final String rdbPostgreSQLSchema = getSchemaName( exportType );
 		
-		SwingUtilities.invokeLater( () -> progressListener.setMessage("Exporting collected records into Relational DB") );
+		progressListener.setMessage("Exporting collected records into Relational DB");
 
 		try( Connection connection = getJDBCConnection() ){
 			collectRDBPublisher.export( survey.getName(), 

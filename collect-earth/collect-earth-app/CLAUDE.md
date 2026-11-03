@@ -24,10 +24,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Core Components
 
-1. **Desktop Application** (Java Swing-based)
+1. **Desktop Application**
    - Entry point: `org.openforis.collect.earth.app.desktop.EarthApp`
-   - Main window: `org.openforis.collect.earth.app.view.CollectEarthWindow`
-   - Manages application lifecycle, UI, and integration with other components
+   - Main window: the web pages of `src/main/frontend` (the plots map, or the home page with the Google Earth Pro viewer), opened in the browser Collect Earth drives; a tray icon (`desktop.AppShell`) opens them again or quits
+   - The pages call the JSON API of `org.openforis.collect.earth.app.server.api`; see `docs/plans/2026-10-28-html-ui-design.md`
 
 2. **Embedded Web Server** (Jetty)
    - Managed by: `org.openforis.collect.earth.app.desktop.ServerController`
@@ -75,7 +75,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Structure
 
 - **collect-earth-app**: Main application module
-  - Java Swing UI, server controller, and service implementations
+  - Web UI (`src/main/frontend`) and its API, server controller, and service implementations
   - Entry point, configuration, and integration logic
 
 - **collect-earth-core**: Core components and utilities
@@ -100,6 +100,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Imports**: Organize by package hierarchy, avoid wildcard imports
 - **Exception Handling**: Use specific catch blocks, log errors with SLF4J logger
 - **Logging**: Use SLF4J with appropriate log levels (error, warn, info, debug)
-- **UI**: Use SwingUtilities.invokeLater() for UI updates from background threads
+- **UI**: The UI is the web pages; a long action is a job (`service.jobs.JobService`) the page follows, and a message for the user is a notice (`service.notices.NoticeService`), not a dialog
 - **Comments**: JavaDoc for public methods and classes
 - **Internationalization**: Use Messages.getString() for UI text

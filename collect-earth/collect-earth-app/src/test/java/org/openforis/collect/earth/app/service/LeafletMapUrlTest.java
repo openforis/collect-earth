@@ -20,4 +20,9 @@ public class LeafletMapUrlTest {
 		assertEquals(BASE + "map?plot=710%2C1", BrowserService.leafletMapUrl(BASE, "710,1"));
 		assertEquals(BASE + "map?plot=a+b%26c%3Dd", BrowserService.leafletMapUrl(BASE, "a b&c=d"));
 	}
+
+	@Test
+	public void theHomePageIsTheMapPageWithoutAMap() {
+		assertEquals("http://localhost:8028/earth/map?home", BrowserService.homeUrl("http://localhost:8028/earth/"));
+	}
 }

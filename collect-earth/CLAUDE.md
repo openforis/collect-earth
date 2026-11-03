@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Collect Earth is a desktop application for augmented visual interpretation that integrates with Google Earth to enable data collection through satellite imagery. It's a Maven multi-module Java project that combines a Swing desktop UI with an embedded Jetty web server to communicate with Google Earth via dynamically generated KML files.
+Collect Earth is a desktop application for augmented visual interpretation that integrates with Google Earth to enable data collection through satellite imagery. It's a Maven multi-module Java project: an embedded Jetty web server that communicates with Google Earth via dynamically generated KML files, and serves the user interface as web pages that Collect Earth opens in the browser it drives.
 
 **Key Technologies**: Java 11, Spring 5.3.39, Jetty 10.0.26, GeoTools 24.7, Collect Framework 4.0.110
 
@@ -293,7 +293,7 @@ Main desktop application and embedded web server. Contains:
 - **Server Management**: `ServerController` manages Jetty lifecycle, database connections, and Spring context initialization
 - **Spring Controllers**: `PlacemarkDataController` handles HTTP requests from Google Earth balloons
 - **Services**: `KmlGeneratorService`, `EarthProjectsService`, `DataImportExportService`, `LocalPropertiesService`
-- **UI Components**: Swing dialogs and forms in `org.openforis.collect.earth.app.view`
+- **User interface**: web pages (`src/main/frontend`, see Plots Map Web UI below) over a JSON API in `org.openforis.collect.earth.app.server.api`; a tray icon (`desktop.AppShell`). The only Swing left is the file dialog the pages ask for (`SwingNativeFileChooser`), the splash and the messages shown when there is no server to show a page
 - **IPCC Export**: Specialized IPCC report generation in `org.openforis.collect.earth.ipcc`
 - **Integrations**: Google Analytics, Sentry error tracking, Planet imagery
 
@@ -317,7 +317,7 @@ Because it is not shipped, its dependencies (Hibernate, the JDBC drivers) lag be
 ## Application Flow
 
 1. **Startup** (`EarthApp.main()`):
-   - Initializes FlatLAF Look & Feel and Sentry error tracking
+   - Sets the system look and feel (for the file dialog and the start-up messages) and Sentry error tracking
    - Loads configuration from `${collectEarth.userFolder}/earth.properties`
    - Starts embedded Jetty server via `ServerController`
 
@@ -341,7 +341,7 @@ Because it is not shipped, its dependencies (Hibernate, the JDBC drivers) lag be
 
 ## Plots Map Web UI
 
-The plots map (used instead of Google Earth Pro when `viewer_type` is `plots_map` or `google_earth_web`) is a React + MUI + Vite app in `collect-earth-app/src/main/frontend`. The `collect-earth-app` Maven build compiles it into `target/classes/leafletmap` via `frontend-maven-plugin` (skip with `-Dskip.npm`); `LeafletMapController` serves it at `/earth/map`. The data entry form next to the map (`/earth/form`, a second page of the same app) is generated at runtime from the survey by `SurveyFormModelBuilder` / `SurveyFormController` (`/surveyForm`), and saves through the balloon endpoints; `web_form=balloon` brings back the CEP balloon. See that folder's README for `npm run dev` / `npm test`.
+The plots map (used instead of Google Earth Pro when `viewer_type` is `plots_map` or `google_earth_web`) is a React + MUI + Vite app in `collect-earth-app/src/main/frontend`. The same app is the main window of Collect Earth: its app bar has the menus (Project, Data, Tools, Utilities, Settings, Help), and with the Google Earth Pro viewer it opens on a home page instead of the map (`map.html?home`). The pages call the JSON API under `/earth/api` (`server.api`), which runs the long actions as jobs (`service.jobs`) and passes the server's messages to them as notices (`service.notices`); `docs/plans/2026-10-28-html-ui-design.md` describes it. The `collect-earth-app` Maven build compiles it into `target/classes/leafletmap` via `frontend-maven-plugin` (skip with `-Dskip.npm`); `LeafletMapController` serves it at `/earth/map`. The data entry form next to the map (`/earth/form`, a second page of the same app) is generated at runtime from the survey by `SurveyFormModelBuilder` / `SurveyFormController` (`/surveyForm`), and saves through the balloon endpoints; `web_form=balloon` brings back the CEP balloon. See that folder's README for `npm run dev` / `npm test`.
 
 ## Spring Configuration
 
@@ -408,7 +408,7 @@ The application supports 9 languages through resource bundles:
 1. Create subclass of `KmlGenerator` in `collect-earth-sampler/.../processor`
 2. Implement `generatePoints()` method with geometric logic
 3. Use `GeoUtils` for coordinate transformations
-4. Add shape option to UI in `collect-earth-app/.../view`
+4. Add the shape option to `SettingsModel` (`collect-earth-app/.../service/settings`), which the settings page draws itself from
 
 ### Adding a New Attribute Handler
 1. Create class implementing appropriate handler interface in `collect-earth-core/.../handlers`
@@ -417,7 +417,7 @@ The application supports 9 languages through resource bundles:
 
 ### Adding a New Export Format
 1. Create exporter class in `collect-earth-app/.../service`
-2. Add UI trigger in `collect-earth-app/.../view`
+2. Add it to `ExportRequest`/`ExportService` (`service/data`) and to the export dialog of the pages (`src/main/frontend/src/components/data`)
 3. Use `RecordManager` from Collect framework to access data
 
 ## Logging and Error Tracking

@@ -11,6 +11,14 @@ import { PlotSidebar, RAIL_WIDTH, SIDEBAR_WIDTH } from "./components/PlotSidebar
 import { useUiScale } from "./uiScale";
 import { gewFollowFormWindow } from "./api";
 import { IN_PANEL } from "./panel";
+import { useAppInfo } from "./appInfo";
+import { windowTitle } from "./appBar";
+import { serverText } from "./serverTexts";
+import { AppBar } from "./components/AppBar";
+import { useServerTexts } from "./serverTexts";
+import { IN_HOME } from "./home";
+import { HomePage } from "./components/HomePage";
+import { SettingsPage } from "./components/settings/SettingsPage";
 
 /**
  * Narrower than this, the map is not worth its room next to the form or the list: the window shows one pane at a
@@ -18,6 +26,8 @@ import { IN_PANEL } from "./panel";
  * single screen (GoogleEarthWebService.formWindowWidth), leaving the imagery the rest of the screen.
  */
 const MIN_MAP_WIDTH = 360;
+/** Narrower than this, the menus of the app bar go under one button: their labels would not fit side by side. */
+const COMPACT_BAR_WIDTH = 760;
 /** How long the toast of a submitted plot stays. */
 const TOAST_MILLIS = 3000;
 
@@ -33,15 +43,39 @@ export function App({ controller }: { controller: MapController }) {
   const [listShown, setListShown] = useState(false);
   useEffect(() => setListShown(false), [state.activeId, onePane]);
   const listPane = onePane && (!formOpen || listShown);
-  useFollowedByGoogleEarthWeb(!IN_PANEL);
-  useEffect(() => { if (IN_PANEL) controller.start(null); }, [controller]);
-  useShortcuts(controller, onePane ? () => setListShown(true) : () => controller.setSidebarCollapsed(false));
+  // The home page is no window next to Google Earth Web, and has no list or form for the shortcuts to act on
+  useFollowedByGoogleEarthWeb(!IN_PANEL && !IN_HOME);
+  // With no map, nothing else starts the controller (MapArea does, once its container is there): the home page needs it
+  // for the statuses, which it polls from then on
+  useEffect(() => { if (IN_PANEL || IN_HOME) controller.start(null); }, [controller]);
+  // The settings page over the map or the home page: the map stays laid out under it, so it needs no resize when it
+  // comes back, and the controller keeps its state
+  const [page, setPage] = useState<"main" | "settings">("main");
+  useShortcuts(controller, onePane ? () => setListShown(true) : () => controller.setSidebarCollapsed(false), !IN_HOME && page === "main");
   const t = useMemo(() => translator(state.language), [state.language]);
   useEffect(() => { document.documentElement.lang = state.language; }, [state.language]);
+  const [info, reloadInfo] = useAppInfo();
+  const texts = useServerTexts(state.language);
+  // The title of the window, as the Swing window set it
+  useEffect(() => {
+    if (!texts) return;
+    document.title = windowTitle(info, { app: serverText(texts, "CollectEarthWindow.19"), noSurvey: " - No survey loaded", cloud: serverText(texts, "CollectEarthWindow.cloudTitleSuffix") });
+  }, [info, texts]);
 
   return (
     <I18nContext.Provider value={t}>
-    <Box sx={{ display: "flex", height: "100vh", overflow: "hidden", bgcolor: "background.default" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100vh", bgcolor: "background.default" }}>
+    {/* Once /api/app and the texts are read: until then the bar would have no project or operator, and no labels */}
+    {info && texts && <AppBar info={info} texts={texts} reload={reloadInfo} compact={IN_PANEL || width < COMPACT_BAR_WIDTH * scale}
+      onSettings={() => setPage("settings")} />}
+    <Box sx={{ flex: 1, minHeight: 0, position: "relative" }}>
+    {page === "settings" && (
+      <Box sx={{ position: "absolute", inset: 0, zIndex: 2, bgcolor: "background.default" }}>
+        <SettingsPage texts={texts} compact={width < COMPACT_BAR_WIDTH * scale} onClose={() => setPage("main")} onApplied={reloadInfo} />
+      </Box>
+    )}
+    {IN_HOME ? <HomePage info={info} state={state} /> : (
+    <Box sx={{ display: "flex", height: "100%", overflow: "hidden" }}>
       <GlobalStyles styles={{
         ".leaflet-container": { fontFamily: "inherit" },
         ".leaflet-tooltip.plot-tooltip": {
@@ -76,16 +110,22 @@ export function App({ controller }: { controller: MapController }) {
         </Snackbar>
       )}
     </Box>
+    )}
+    </Box>
+    </Box>
     </I18nContext.Provider>
   );
 }
 
 /** "/" search, "N" next unfinished, "Esc" close the form (ignored while typing). */
-function useShortcuts(controller: MapController, showList: () => void) {
+function useShortcuts(controller: MapController, showList: () => void, enabled: boolean) {
   useEffect(() => {
+    if (!enabled) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
+      // Nor in a dialog of the app bar, whose keys are its own
+      if (target?.closest?.("[role=\"dialog\"]")) return;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
         if (e.key === "Escape") target.blur();
         return;
@@ -103,7 +143,7 @@ function useShortcuts(controller: MapController, showList: () => void) {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [controller, showList]);
+  }, [controller, showList, enabled]);
 }
 
 /**

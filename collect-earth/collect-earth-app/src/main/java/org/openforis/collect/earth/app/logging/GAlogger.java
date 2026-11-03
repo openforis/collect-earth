@@ -11,14 +11,13 @@ import java.security.SecureRandom;
 import java.util.Random;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.formdev.flatlaf.util.StringUtils;
 
 public class GAlogger {
 
@@ -111,7 +110,7 @@ public class GAlogger {
 				if( clientId == null ) {
 					LocalPropertiesService props = new LocalPropertiesService();
 					String operator = props.getOperator();
-					if( StringUtils.isTrimmedEmpty(operator)) {
+					if( StringUtils.isBlank(operator)) {
 						try {
 							Random random = SecureRandom.getInstanceStrong();
 							operator  = "CollectEarth" + random.nextInt();

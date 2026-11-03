@@ -1,6 +1,5 @@
 package org.openforis.collect.earth.app.view;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,8 +22,8 @@ class MessagesBundleTest {
 	private static final String[] BUNDLES = { "Messages", "Messages_es", "Messages_fr", "Messages_hi", "Messages_lo",
 			"Messages_pt", "Messages_tr", "Messages_vi" };
 
-	/** Section.name keys, plus the few button keys of the confirmation dialogs */
-	private static final Pattern KEY = Pattern.compile("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_-]+)+|YES|NO|YES_TO_ALL|NO_TO_ALL");
+	/** Section.name keys */
+	private static final Pattern KEY = Pattern.compile("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_-]+)+");
 
 	// A line break typed into a translation instead of \n ends the value there, and the rest of the text becomes a
 	// key of its own ("Look for fields..." became the key "Look")
@@ -41,23 +40,15 @@ class MessagesBundleTest {
 		assertTrue(notKeys.isEmpty(), "Keys that are the rest of a value broken by a line break : " + notKeys);
 	}
 
-	// OptionWizard.1043-1045 were given to the Planet texts as well, so applying the settings showed the Planet API key
-	// note on the button and in the confirmation
+	// OptionWizard.1043-1045 were once given to the Planet texts as well, so the Swing settings showed the Planet API key
+	// note on their Apply button. Those keys went with that dialog; the Planet notes the settings page shows stay their own
 	@Test
-	void theOptionsDialogAndThePlanetNoteHaveTheirOwnTexts() throws IOException {
+	void thePlanetNotesHaveTheirOwnTexts() throws IOException {
 		Properties english = load("Messages");
-		assertEquals("Applying Changes...", english.getProperty("OptionWizard.1043"));
-		assertEquals("Settings have been applied successfully.", english.getProperty("OptionWizard.1044"));
-		assertEquals("The application will restart to apply some changes.", english.getProperty("OptionWizard.1045"));
-		assertEquals("Please correct the validation errors before applying changes.\n\n"
-				+ "Look for fields highlighted in red and check their tooltips for guidance.", english.getProperty("OptionWizard.1047"));
-		for (String planetKey : new String[] { "OptionWizard.1053", "OptionWizard.1054", "OptionWizard.1055" }) {
+		for (String planetKey : new String[] { "OptionWizard.1053", "OptionWizard.1055" }) {
 			assertTrue(english.getProperty(planetKey).contains("API key") || english.getProperty(planetKey).contains("own key"), planetKey);
 		}
-
 		Properties spanish = load("Messages_es");
-		assertEquals("Aplicando cambios...", spanish.getProperty("OptionWizard.1043"));
-		assertTrue(spanish.getProperty("OptionWizard.1047").contains("\n\nBusque los campos"));
 		assertTrue(spanish.getProperty("OptionWizard.1053").contains("planet.com"));
 	}
 

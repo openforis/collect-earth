@@ -21,7 +21,6 @@ import java.util.StringJoiner;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.view.InfiniteProgressMonitor;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.model.CollectRecord;
@@ -157,7 +156,7 @@ public class MissingPlotService {
 		return ArrayUtils.subarray(plotData, 0, numberOfKeys);
 	}
 
-	public Map<String, List<String[]>> getMissingPlotsByFile(Map<String, List<String[]>> plotDataByFIle, InfiniteProgressMonitor infiniteProgressMonitor) {
+	public Map<String, List<String[]>> getMissingPlotsByFile(Map<String, List<String[]>> plotDataByFIle, AnalysisProgress infiniteProgressMonitor) {
 		final Map<String, List<String[]>> missingPlotIdsByFile = new HashMap<>();
 		final Set<String> plotFiles = plotDataByFIle.keySet();
 		int i = 0;
