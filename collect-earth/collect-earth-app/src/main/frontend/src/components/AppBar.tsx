@@ -21,6 +21,8 @@ import Toolbar from "@mui/material/Toolbar";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MenuIcon from "@mui/icons-material/Menu";
+import CloudDoneOutlinedIcon from "@mui/icons-material/CloudDoneOutlined";
+import LoginOutlinedIcon from "@mui/icons-material/LoginOutlined";
 import PersonIcon from "@mui/icons-material/Person";
 import logo from "../form/collect-earth-logo.png";
 import { apiPut } from "../apiClient";
@@ -66,7 +68,7 @@ interface Props {
 }
 
 /**
- * The bar over the page: the menus of the Swing window (menus.ts), the operator and Quit. It also asks for the operator
+ * The bar over the page: the menus of the Swing window (menus.ts), you (your name, or the cloud account) and Quit. It asks for your name
  * when there is none, as the Swing window did at start-up, and once Collect Earth quits it covers the page, which can
  * do nothing more.
  */
@@ -188,10 +190,25 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
           </Button>
         ))}
         <Box sx={{ flex: 1 }} />
-        <Tooltip title={s("CollectEarthWindow.66")}>
-          <Chip icon={<PersonIcon />} size="small" variant="outlined" onClick={() => setOperatorOpen(true)}
-            label={operator || s("CollectEarthWindow.26")} sx={{ maxWidth: compact ? 140 : 240 }} />
-        </Tooltip>
+        {/* You: in a cloud project the account signed in (its sync status on click), else the name you typed */}
+        {info.cloud ? (
+          info.cloudLoginNeeded ? (
+            <Tooltip title={s("User.signInTip")}>
+              <Chip icon={<LoginOutlinedIcon />} size="small" variant="outlined" onClick={() => setCloudPrompt("login")}
+                label={s("User.signIn")} data-testid="user-chip" />
+            </Tooltip>
+          ) : (
+            <Tooltip title={formatText(s("User.cloudTip"), operator ?? "")}>
+              <Chip icon={<CloudDoneOutlinedIcon />} size="small" variant="outlined" onClick={() => setDialog("cloudStatus")}
+                label={operator} sx={{ maxWidth: compact ? 140 : 240 }} data-testid="user-chip" />
+            </Tooltip>
+          )
+        ) : (
+          <Tooltip title={s("User.nameTip")}>
+            <Chip icon={<PersonIcon />} size="small" variant="outlined" onClick={() => setOperatorOpen(true)}
+              label={operator || s("User.name")} sx={{ maxWidth: compact ? 140 : 240 }} data-testid="user-chip" />
+          </Tooltip>
+        )}
       </Toolbar>
 
       <Menu id="app-menu" anchorEl={open?.anchor} open={open !== null} onClose={() => setOpen(null)}
@@ -250,8 +267,8 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
 }
 
 /**
- * The operator, written in each record. Without one (forced) the dialog cannot be closed: it takes a valid name, or
- * Quit, as the Swing window could not be used before.
+ * Your name, written in each record you save (its operator). Without one (forced) the dialog cannot be closed: it takes a
+ * valid name, or Quit, as the Swing window could not be used before. A cloud project uses the account instead.
  */
 function OperatorDialog({ open, forced, operator, texts, onCancel, onSaved, onQuit }: {
   open: boolean; forced: boolean; operator: string | null; texts: Texts | null;
@@ -284,12 +301,10 @@ function OperatorDialog({ open, forced, operator, texts, onCancel, onSaved, onQu
     <Dialog open={open} fullWidth maxWidth="xs" onClose={forced ? undefined : onCancel}>
       {/* A form, so Enter in the field saves */}
       <Box component="form" onSubmit={save}>
-      <DialogTitle>{s("CollectEarthWindow.26")}</DialogTitle>
+      <DialogTitle>{s("User.name")}</DialogTitle>
       <DialogContent>
-        {forced && (
-          <DialogContentText sx={{ whiteSpace: "pre-line", mb: 2 }}>{s("CollectEarthWindow.35")}</DialogContentText>
-        )}
-        <TextField autoFocus fullWidth margin="dense" label={s("CollectEarthWindow.66")} value={value}
+        <DialogContentText sx={{ mb: 2 }}>{s(forced ? "User.nameAsk" : "User.nameTip")}</DialogContentText>
+        <TextField autoFocus fullWidth margin="dense" label={s("User.name")} value={value}
           onChange={(e) => setValue(e.target.value)} error={error !== null} helperText={error ?? " "}
           slotProps={{ htmlInput: { maxLength: 100 } }} />
       </DialogContent>
@@ -297,7 +312,7 @@ function OperatorDialog({ open, forced, operator, texts, onCancel, onSaved, onQu
         {forced
           ? <Button color="error" onClick={onQuit} sx={{ mr: "auto" }}>{s("CollectEarthWindow.42")}</Button>
           : <Button onClick={onCancel}>{t("appBar.cancel")}</Button>}
-        <Button type="submit" variant="contained" disabled={saving || !value.trim()}>{s("CollectEarthWindow.27")}</Button>
+        <Button type="submit" variant="contained" disabled={saving || !value.trim()}>{s("User.save")}</Button>
       </DialogActions>
       </Box>
     </Dialog>

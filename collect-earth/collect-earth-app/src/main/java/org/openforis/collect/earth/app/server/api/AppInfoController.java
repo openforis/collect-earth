@@ -160,9 +160,9 @@ public class AppInfoController {
 			throw new ApiException("operator.cloud", Messages.getString("AppInfoController.operatorCloud"));
 		}
 		String operator = body.get("operator") == null ? "" : body.get("operator").trim();
-		// The rule of the Swing main window (CollectEarthWindow.updateOperatorName), which CollectEarthWindow.33 states
+		// The rule of the Swing main window (CollectEarthWindow.updateOperatorName), which User.nameLength states
 		if (operator.length() <= 5 || operator.length() >= 50) {
-			throw new ApiException("operator.length", Messages.getString("CollectEarthWindow.33"));
+			throw new ApiException("operator.length", Messages.getString("User.nameLength"));
 		}
 		properties.saveOperator(operator);
 	}
