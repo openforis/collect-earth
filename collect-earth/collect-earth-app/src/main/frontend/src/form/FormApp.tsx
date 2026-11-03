@@ -213,6 +213,12 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
             <Alert severity="warning" icon={<CloudOffOutlinedIcon />} data-testid="entry-server-down"
               action={<Button color="inherit" size="small" onClick={store.retry}>{t("entry.retry")}</Button>}>{t("entry.serverDown")}</Alert>
           )}
+          {state.saveError != null && state.saveState === "error" && (
+            <Alert severity="error" data-testid="entry-save-failed"
+              action={<Button color="inherit" size="small" onClick={store.retry}>{t("entry.retry")}</Button>}>
+              {state.saveError ? t("entry.saveFailed", { message: state.saveError }) : t("entry.saveFailedNoReason")}
+            </Alert>
+          )}
           {state.submitErrors && state.submitErrors.length > 0 && <ErrorSummary store={store} state={state} model={model} onGo={goToField} />}
           {model.unsupported.length > 0 && state.tab === firstStep && (
             <Alert severity="warning" variant="outlined">{t("entry.unsupportedSome", { names: model.unsupported.map((u) => u.name).join(", ") })}</Alert>
@@ -239,7 +245,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
           )}
         </Box>
         <Box sx={{ flex: 1, minWidth: 0, display: "flex", justifyContent: "center" }}>
-          <SaveStatus state={state.saveState} />
+          <SaveStatus state={state.saveState} retrying={state.retrying} />
         </Box>
         <Stack direction="row" spacing={1} sx={{ flex: "none", justifyContent: "flex-end", alignItems: "center" }}>
           {(next < 0 || ready) && <SubmitButton store={store} state={state} />}
@@ -337,12 +343,14 @@ const SAVE_LABEL: Record<SaveState, MessageKey> = {
   idle: "entry.save.idle", unsaved: "entry.save.unsaved", saving: "entry.save.saving", saved: "entry.save.saved", error: "entry.save.error",
 };
 
-function SaveStatus({ state }: { state: SaveState }) {
+function SaveStatus({ state, retrying }: { state: SaveState; retrying: boolean }) {
   const t = useT();
+  // a failed save that is tried again by itself says so; the reason of the server is in the banner above the questions
+  const label = state === "error" && retrying ? t("entry.save.retrying") : t(SAVE_LABEL[state]);
   const icon = state === "saving" ? <CircularProgress size={12} sx={{ ml: "6px !important" }} />
     : state === "saved" ? <CloudDoneOutlinedIcon /> : state === "error" ? <CloudOffOutlinedIcon /> : <EditOutlinedIcon />;
   return (
-    <Chip size="small" variant="outlined" icon={icon} label={t(SAVE_LABEL[state])} data-testid="entry-save-state" data-state={state}
+    <Chip size="small" variant="outlined" icon={icon} label={label} data-testid="entry-save-state" data-state={state}
       color={state === "error" ? "error" : state === "saved" ? "success" : "default"} sx={{ maxWidth: "100%", border: 0 }} />
   );
 }

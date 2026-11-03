@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FieldInfo, FormModel } from "./model";
-import { FormStore } from "./store";
+import { CLICK_DELAY, FormStore, retryDelay } from "./store";
 
 // The store in node: the form's page and Collect Earth's answers stood in for, the saves held (fake timers)
 
@@ -116,5 +116,116 @@ describe("a plot with no record", () => {
     expect(store.getState()).toMatchObject({ phase: "ready", saveState: "idle" });
     expect(store.getState().infos).toHaveProperty("collect_code_lu");
     expect(dirty()).toEqual([]);
+  });
+});
+
+describe("a save that failed", () => {
+  /** What Collect Earth does with each save, in turn: the last one again once they are used up */
+  let saves: ("down" | "error" | "ok")[];
+  let saveRequests: number;
+
+  function serveSaves(...answers: ("down" | "error" | "ok")[]) {
+    saves = answers;
+    saveRequests = 0;
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      const path = url.replace("http://localhost:8028/earth/", "");
+      if (path === "surveyForm") return { ok: true, json: async () => model };
+      if (path.startsWith("surveyForm/plot")) return { ok: true, json: async () => ({ values: {} }) };
+      if (path.startsWith("placemark-info-expanded")) {
+        return { ok: true, json: async () => ({ success: true, activelySaved: false, inputFieldInfoByParameterName: { collect_code_lu: {}, collect_boolean_trees: {} } }) };
+      }
+      const answer = saves[Math.min(saveRequests++, saves.length - 1)];
+      if (answer === "down") throw new TypeError("Failed to fetch");
+      if (answer === "error") return { ok: false, status: 500, json: async () => ({ success: false, message: "The database is locked" }) };
+      return { ok: true, json: async () => ({ success: true, activelySaved: false, inputFieldInfoByParameterName: { collect_code_lu: { value: "F" } } }) };
+    }));
+  }
+
+  async function answered(): Promise<FormStore> {
+    const store = new FormStore("p1");
+    await store.load();
+    store.setValue("collect_code_lu", "F");
+    await vi.advanceTimersByTimeAsync(CLICK_DELAY);
+    return store;
+  }
+
+  it("waits longer before each retry: 1, 2, 4, 8, 16 s, then 30 s at most", () => {
+    expect([1, 2, 3, 4, 5, 6, 7, 20].map(retryDelay)).toEqual([1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000]);
+  });
+
+  it("is tried again by itself, later each time, until it is saved", async () => {
+    serveSaves("down", "down", "down", "ok");
+    const store = await answered();
+    expect(saveRequests).toBe(1);
+    expect(store.getState()).toMatchObject({ saveState: "error", serverDown: true, saveError: null, retrying: true });
+    await vi.advanceTimersByTimeAsync(999);
+    expect(saveRequests).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(saveRequests).toBe(2);
+    // then 2 s
+    await vi.advanceTimersByTimeAsync(1999);
+    expect(saveRequests).toBe(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(saveRequests).toBe(3);
+    // then 4 s, and saved
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(saveRequests).toBe(4);
+    expect(store.getState()).toMatchObject({ saveState: "saved", serverDown: false, saveError: null, retrying: false });
+    // nothing more is sent
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(saveRequests).toBe(4);
+  });
+
+  it("an error of Collect Earth says its reason, and is tried again too", async () => {
+    serveSaves("error", "ok");
+    const store = await answered();
+    expect(store.getState()).toMatchObject({ saveState: "error", serverDown: false, saveError: "The database is locked", retrying: true });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(saveRequests).toBe(2);
+    expect(store.getState()).toMatchObject({ saveState: "saved", saveError: null });
+  });
+
+  it("is tried again at once when the network is back or the window has the focus, never twice at a time", async () => {
+    serveSaves("down", "ok");
+    const store = await answered();
+    expect(saveRequests).toBe(1);
+    // "online" and "focus" together: one save
+    const online = store.retryNow();
+    const focus = store.retryNow();
+    await online;
+    await focus;
+    expect(saveRequests).toBe(2);
+    expect(store.getState().saveState).toBe("saved");
+    // the retry that was waiting is dropped
+    await vi.advanceTimersByTimeAsync(30000);
+    expect(saveRequests).toBe(2);
+  });
+
+  it("with nothing failed, the window's focus sends nothing", async () => {
+    serveSaves("ok");
+    const store = await answered();
+    expect(saveRequests).toBe(1);
+    await store.retryNow();
+    expect(saveRequests).toBe(1);
+  });
+
+  it("Retry tries it again at once, and the backoff starts over once saved", async () => {
+    serveSaves("down", "down", "ok", "down");
+    const store = await answered();
+    store.retry();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(saveRequests).toBe(2);
+    // the second failure waits 2 s
+    await vi.advanceTimersByTimeAsync(1999);
+    expect(saveRequests).toBe(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(saveRequests).toBe(3);
+    expect(store.getState().saveState).toBe("saved");
+    // a new failure after a save waits 1 s again
+    store.setValue("collect_code_lu", "C");
+    await vi.advanceTimersByTimeAsync(CLICK_DELAY);
+    expect(saveRequests).toBe(4);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(saveRequests).toBe(5);
   });
 });

@@ -1,6 +1,8 @@
 package org.openforis.collect.earth.app.server;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -9,6 +11,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+
+import com.google.gson.Gson;
 
 /**
  * Controller to load and store the information that is stored in Collect Earth for one placemark (plot)
@@ -25,7 +29,8 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 		try{
 			super.placemarkInfoExpanded(placemarkId, response);
 		}catch(Exception e){
-			logger.error("Error saving data" , e);
+			logger.error("Error loading the data of plot " + placemarkId, e);
+			sendError(response, e);
 		}
 	}
 
@@ -39,7 +44,28 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 			}
 		}catch(Exception e){
 			logger.error("Error saving data" , e);
+			sendError(response, e);
 		}
+	}
+
+	/**
+	 * A failure answers 500 with {@code {"success": false, "message": ...}}. It used to answer an empty 200, which the web
+	 * form took for Collect Earth not answering at all, and which the balloons could not read either (they fail on a body
+	 * that is not JSON, as on a 500). Nothing is sent once the answer has started.
+	 */
+	static void sendError(HttpServletResponse response, Exception e) throws IOException {
+		if (response.isCommitted()) {
+			return;
+		}
+		response.reset();
+		response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+		response.setContentType("application/json;charset=UTF-8"); //$NON-NLS-1$
+		response.setHeader("Cache-Control", "no-store"); //$NON-NLS-1$ //$NON-NLS-2$
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("success", false); //$NON-NLS-1$
+		body.put("message", e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()); //$NON-NLS-1$
+		response.getWriter().print(new Gson().toJson(body));
+		response.getWriter().flush();
 	}
 
 }

@@ -190,7 +190,12 @@
 		var url = LOAD_URL + '?id=' + encodeURIComponent(getPlacemarkId());
 
 		fetchWithTimeout(url, { method: 'GET', headers: { 'Accept': 'application/json' } })
-			.then(function (resp) { return resp.json(); })
+			.then(function (resp) {
+				// A failure of Collect Earth answers 500 with { success: false }: not a plot with no record yet, which
+				// would be created
+				if (!resp.ok) { throw new Error('HTTP ' + resp.status); }
+				return resp.json();
+			})
 			.then(function (json) { handleLoadResponse(json); })
 			.catch(function () {
 				// Server unreachable / aborted

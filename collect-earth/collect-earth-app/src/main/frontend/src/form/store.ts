@@ -7,6 +7,13 @@ const REQUEST_TIMEOUT = 20000;
 /** Typing is saved once the operator pauses; a click right away (the balloon uses the same delays). */
 export const TYPING_DELAY = 1500;
 export const CLICK_DELAY = 100;
+/** The longest wait before a failed save is tried again: 1, 2, 4, 8, 16 s, then every 30 s */
+export const MAX_RETRY_DELAY = 30000;
+
+/** How long to wait before the retry that follows `failures` failed saves in a row (1 for the first) */
+export function retryDelay(failures: number): number {
+  return Math.min(MAX_RETRY_DELAY, 1000 * 2 ** Math.max(0, failures - 1));
+}
 
 export type SaveState = "idle" | "unsaved" | "saving" | "saved" | "error";
 
@@ -24,6 +31,10 @@ export interface FormState {
   saveState: SaveState;
   /** the last request did not reach Collect Earth */
   serverDown: boolean;
+  /** the last save reached Collect Earth, which could not save it: its reason ("" when it gave none) */
+  saveError: string | null;
+  /** a failed save is to be tried again by itself */
+  retrying: boolean;
   /** the plot has been submitted (actively saved) and not edited since */
   submitted: boolean;
   /** opened on a plot that had already been submitted */
@@ -64,13 +75,23 @@ async function getJson<T>(url: string): Promise<T> {
   return r.json() as Promise<T>;
 }
 
+/** Collect Earth answered, with an error: not the same as a request that never reached it */
+export class ServerError extends Error {}
+
 async function postForm(path: string, body: URLSearchParams): Promise<LoadResult> {
   const r = await fetchWithTimeout(earthBase() + path, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", Accept: "application/json" },
     body: body.toString(),
   });
-  if (!r.ok) throw new Error(`${path} HTTP ${r.status}`);
+  if (!r.ok) {
+    // a failure answers 500 with { success: false, message } (PlacemarkDataController)
+    let message = "";
+    try {
+      message = String(((await r.json()) as { message?: unknown }).message ?? "");
+    } catch { /* not JSON */ }
+    throw new ServerError(message || `HTTP ${r.status}`);
+  }
   return r.json() as Promise<LoadResult>;
 }
 
@@ -90,6 +111,10 @@ export class FormStore {
   private sending = new Set<string>();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private inFlight: Promise<void> | null = null;
+  /** the retry of a failed save, waiting */
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  /** saves failed in a row */
+  private failures = 0;
   private dirtyNotified = false;
   private fields: Record<string, Field> = {};
   /** the questions the server asked an answer for, answered since or not (see unansweredRequired) */
@@ -98,7 +123,7 @@ export class FormStore {
   constructor(placemarkId: string) {
     this.state = {
       phase: "loading", failure: null, model: null, placemarkId, infos: {}, pending: {}, tab: 0, saveState: "idle",
-      serverDown: false, submitted: false, alreadyFilled: false, unsubmitted: false, submitErrors: null, submitting: false, attempted: false,
+      serverDown: false, saveError: null, retrying: false, submitted: false, alreadyFilled: false, unsubmitted: false, submitErrors: null, submitting: false, attempted: false,
       entityBusy: null, entityFailure: null, incomplete: false,
     };
   }
@@ -240,6 +265,7 @@ export class FormStore {
       clearTimeout(this.timer);
       this.timer = null;
     }
+    this.cancelRetry();
     // a submit in flight is not sent again as a plain save, which would undo it
     const names = new Set([...this.dirty, ...(this.state.submitting ? [] : this.sending)]);
     if (!names.size) return;
@@ -269,8 +295,9 @@ export class FormStore {
     const request = (async () => {
       try {
         result = await postForm("save-data-expanded", saveBody(this.state.placemarkId, values, this.state.tab, !full));
-      } catch {
-        result = null;
+      } catch (e) {
+        // Collect Earth answered with an error, or did not answer at all (null)
+        result = e instanceof ServerError ? { success: false, message: e.message } as LoadResult : null;
       }
     })();
     this.inFlight = request;
@@ -280,9 +307,13 @@ export class FormStore {
     const response = result as LoadResult | null;
     if (!response || !response.success) {
       sending.forEach((n) => this.dirty.add(n));
-      this.set({ saveState: "error", serverDown: !response });
+      this.failures++;
+      this.set({ saveState: "error", serverDown: !response, saveError: response ? response.message ?? "" : null });
+      this.scheduleRetry();
       return response;
     }
+    this.failures = 0;
+    this.cancelRetry();
     const infos = mergeInfos(this.state.infos, response, full);
     const pending = { ...this.state.pending };
     for (const name of sending) {
@@ -290,9 +321,49 @@ export class FormStore {
       if (!this.dirty.has(name) && !infos[name]?.inError) delete pending[name];
     }
     this.dirtyNotified = this.dirty.size > 0;
-    this.set({ infos, pending, serverDown: false, saveState: this.dirty.size ? "unsaved" : "saved" }, true);
+    this.set({ infos, pending, serverDown: false, saveError: null, saveState: this.dirty.size ? "unsaved" : "saved" }, true);
     return response;
   }
+
+  /** Whether a save failed and what it carried is still to be saved: the values, or the new record's first answer */
+  private hasFailedSave(): boolean {
+    return this.state.saveState === "error" && !!this.state.model
+      && (this.dirty.size > 0 || Object.keys(this.state.infos).length === 0);
+  }
+
+  /** The failed save is tried again by itself, later each time (see retryDelay); once at a time */
+  private scheduleRetry(): void {
+    if (this.retryTimer || !this.hasFailedSave()) return;
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      void this.retryNow();
+    }, retryDelay(this.failures));
+    this.set({ retrying: true });
+  }
+
+  private cancelRetry(): void {
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+    if (this.state.retrying) this.set({ retrying: false });
+  }
+
+  /**
+   * Tries a failed save again now: when its time comes, the network is back (the window's "online"), the operator comes
+   * back to the window ("focus"), or presses Retry. Nothing when no save failed. Never a second save while one is in
+   * flight: saves wait for each other, and one that finds nothing left to save sends nothing.
+   */
+  retryNow = async (): Promise<void> => {
+    if (!this.hasFailedSave()) return;
+    this.cancelRetry();
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    while (this.inFlight) await this.inFlight;
+    if (this.hasFailedSave()) await this.save(false);
+  };
 
   /**
    * Resolves once nothing typed or picked is waiting to be saved and the server's answer to it is in, with the questions
@@ -411,6 +482,8 @@ export class FormStore {
     if (this.state.phase === "failed") {
       this.set({ phase: "loading", failure: null });
       void this.load();
+    } else if (this.hasFailedSave()) {
+      void this.retryNow();
     } else {
       void this.flush();
     }

@@ -18,6 +18,9 @@ const language = params.get("lang") ?? "en";
 document.documentElement.lang = language;
 const store = new FormStore(params.get("id") ?? "");
 window.addEventListener("pagehide", store.saveOnLeave);
+// a save that failed is tried again at once when the network is back, or the operator back to the window
+window.addEventListener("online", () => void store.retryNow());
+window.addEventListener("focus", () => void store.retryNow());
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
