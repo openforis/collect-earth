@@ -13,6 +13,7 @@ import { AiRunService, type AiRunServiceOptions } from './ai/service.js';
 import { DEFAULT_AI_MODEL, type Config } from './config.js';
 import { QualityService, QualityWorker } from './qualityService.js';
 import { RateLimiter } from './rateLimit.js';
+import { requestSerializer } from './logRedact.js';
 import { ServerCounters } from './serverCounters.js';
 import type { Store } from './store/store.js';
 import { registerActivityRoutes } from './routes/activity.js';
@@ -39,7 +40,8 @@ import { SamplingService } from './samplingService.js';
 export interface BuildServerOptions {
   store: Store;
   config: Config;
-  logger?: boolean;
+  /** true: log to stdout; an object: where and from which level (tests read the lines). Addresses are logged with their tokens redacted. */
+  logger?: boolean | { stream?: NodeJS.WritableStream; level?: string };
   /**
    * Directory of the built dashboard (index.html + assets) served at `/`.
    * Defaults to `web/dist` of this package; null disables static serving. A
@@ -78,7 +80,11 @@ const LOGIN_FAILURES_PER_MINUTE = 10;
 export async function buildServer(options: BuildServerOptions): Promise<FastifyInstance> {
   const { store, config } = options;
   const app = Fastify({
-    logger: options.logger ?? false,
+    // A token in an address (progress links, invitations, reset pages, backup downloads) is never
+    // written to the server's log (src/logRedact.ts).
+    logger: options.logger
+      ? { ...(typeof options.logger === 'object' ? options.logger : {}), serializers: { req: requestSerializer } }
+      : false,
     // Record XML batches are small KBs each but a project sync can carry 50; allow headroom.
     bodyLimit: 32 * 1024 * 1024,
     // A plot id is a path parameter of the quality decisions (up to 1000 characters,
@@ -157,7 +163,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerSamplingRoutes(app, store, sampling);
   await registerReferenceRoutes(app, store, quality, states, now);
   // Read-only progress links for funders (Task 18): the public page reads the Progress tab's figures.
-  await registerPublicProgressRoutes(app, store, config, limiter, quality, states, now);
+  await registerPublicProgressRoutes(app, store, config, limiter, states, now);
   // Role changes, removals and disabled accounts keep the reference copies right (Task 14).
   app.decorate('referenceSync', referenceSyncer(store, states, now));
   const runs = new AiRunService(store, quality, app.log, {

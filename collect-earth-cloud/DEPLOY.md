@@ -298,6 +298,20 @@ must be the address people really use.
   the Cloud SQL console (*Backups* → *Restore*, or *Point-in-time recovery*, which
   creates a clone to switch to).
 - **Logs:** `gcloud run services logs read collect-earth-cloud --region <REGION> --limit 50`.
+- **Links in the logs (progress links, invitations, password resets, backup downloads):** these
+  links carry their secret token in the address. The server's own log lines write the address
+  with that part replaced by `<redacted>`, but the platform's request log does not: Cloud Run
+  records every request's full address (`httpRequest.requestUrl`), as does any proxy or load
+  balancer in front of the server. **Whoever can read those logs can open every progress link
+  (until it is revoked) and any invitation or reset link still valid.** Give log access only to
+  people who may see the projects, or lower the retention or exclude `httpRequest.requestUrl` for
+  `/p/`, `/v1/public/progress/`, `/join/`, `/v1/join/`, `/reset/` and `/v1/collect-backup/` with a
+  log exclusion filter. Revoking a progress link on the project's Settings tab ends it at once.
+- **Progress links' quality figure** (Decision 9): stored in `projects.public_quality` whenever the
+  quality figures are worked out (a coordinator or reviewer opens the Quality tab, the review queue…),
+  so every instance shows the same figure, also after a restart; a link never makes the server
+  compute. Until the figures were worked out once, the page says the figure appears once the
+  coordinators have looked at the quality checks.
 - **The server owner's panel** (the Server page, "How the server is doing"): totals only.
   Projects appear by id with their size, never by name (a platform admin is not a member of
   any project). The figures are kept a minute per instance (the card says their time) and

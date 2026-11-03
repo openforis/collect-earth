@@ -40,3 +40,7 @@ SET search_path = pg_catalog, pg_temp
 AS $$
   SELECT l.id, l.project_id FROM public.share_links l WHERE l.token_hash = hash AND l.revoked_at IS NULL
 $$;
+
+-- Only the server may call it: no right for PUBLIC (functions get EXECUTE for PUBLIC by default);
+-- prepareAppRole grants EXECUTE to the app role on every boot. Repeating the REVOKE is harmless.
+REVOKE ALL ON FUNCTION share_link_lookup(TEXT) FROM PUBLIC;

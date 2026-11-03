@@ -38,6 +38,7 @@ import {
   type PlatformStats,
   type PlotAssignment,
   type ProgressSettings,
+  type PublicQuality,
   type ProjectRow,
   type ProjectStorage,
   type QualityDecision,
@@ -89,6 +90,8 @@ interface ProjectEntry {
   holdingsGeneration: number;
   qualitySettings: QualitySettings | null;
   progressSettings: ProgressSettings | null;
+  /** The progress link's quality figure (projects.public_quality). */
+  publicQuality: PublicQuality | null;
   aiEnabled: boolean;
   /** Oldest first; `startedBy` holds the user id (the username is read when listed). */
   aiRuns: AiRunRow[];
@@ -216,6 +219,7 @@ export class InMemoryStore implements Store {
       holdingsGeneration: 0,
       qualitySettings: null,
       progressSettings: null,
+      publicQuality: null,
       aiEnabled: false,
       aiRuns: [],
       decisions: new Map(),
@@ -932,8 +936,12 @@ export class InMemoryStore implements Store {
     };
   }
 
-  async createShareLink(projectId: string, input: { label: string; createdBy: string | null }): Promise<{ token: string; link: ShareLink }> {
+  async createShareLink(projectId: string, input: { label: string; createdBy: string | null; max: number }): Promise<{ token: string; link: ShareLink } | null> {
     this.requireProject(projectId);
+    // Counted and added with no await in between: links made at once never pass the cap.
+    if ([...this.shareLinks.values()].filter((e) => e.projectId === projectId && e.revokedAt === null).length >= input.max) {
+      return null;
+    }
     // As Postgres' share_links.created_by REFERENCES users(id): a user, or nobody.
     if (input.createdBy !== null && !this.users.has(input.createdBy)) {
       throw new Error('share_links.created_by must be a user id or null');
@@ -968,6 +976,18 @@ export class InMemoryStore implements Store {
       return null;
     }
     return { linkId: e.id, projectId: e.projectId };
+  }
+
+  async setPublicQuality(projectId: string, quality: PublicQuality): Promise<void> {
+    const entry = this.requireProject(projectId);
+    if (entry.publicQuality === null || entry.publicQuality.computedAt <= quality.computedAt) {
+      entry.publicQuality = { ...quality };
+    }
+  }
+
+  async getPublicQuality(projectId: string): Promise<PublicQuality | null> {
+    const q = this.projects.get(projectId)?.publicQuality ?? null;
+    return q ? { ...q } : null;
   }
 
   async touchShareLink(projectId: string, linkId: string, at: number): Promise<void> {

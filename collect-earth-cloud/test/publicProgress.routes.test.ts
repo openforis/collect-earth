@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { idOnlyCep } from './fixtures/cep.js';
+import { buildServer } from '../src/server.js';
 import { batchRequest, bearer, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 
 const LAND_USE = 'collect_code_land_use_category';
@@ -101,12 +102,40 @@ describe('Progress links for funders (Task 18)', () => {
     expect((await call('GET', '/share-links', owner.token)).json().links[0].lastUsedAt).toEqual(expect.any(Number));
   });
 
-  it('quality agreement as one figure, from the figures at hand only', async () => {
+  it('quality agreement as one figure: stored when the figures are worked out, read from the store across a restart, never computed for the link', async () => {
     const made = await create();
-    expect((await view(made.token)).json().quality.available).toBe(false);
+    expect((await view(made.token)).json().quality).toEqual({ available: false, agreement: null, computedAt: null });
+    // The link never works the figures out.
+    expect(await ctx.store.getPublicQuality(pid)).toBeNull();
     await figures();
+    const stored = await ctx.store.getPublicQuality(pid);
+    expect(stored).toEqual({ compared: 1, agreeing: 0, rate: null, computedAt: expect.any(Number) });
     const q = (await view(made.token)).json().quality;
-    expect(q).toEqual({ available: true, agreement: { compared: 1, agreeing: 0, rate: null }, computedAt: expect.any(Number) });
+    expect(q).toEqual({ available: true, agreement: { compared: 1, agreeing: 0, rate: null }, computedAt: stored!.computedAt });
+    // A restart (or another instance): a new server on the same store has no figures in memory, and the link still has its figure.
+    const again = await buildServer({ store: ctx.store, config: { port: 0, host: '127.0.0.1', storeBackend: 'memory', rateLimitPerMinute: 0, qualityMinIntervalMs: 0, stateStaleMs: 0 }, webDir: null });
+    try {
+      const res = await again.inject({ method: 'GET', url: `/v1/public/progress/${made.token}` });
+      expect(res.json().quality).toEqual(q);
+      // Nothing was worked out there: its weekly summary has no figures at hand.
+      const weekly = await again.inject({ method: 'GET', url: `/v1/projects/${pid}/weekly`, headers: bearer(owner.token) });
+      expect(weekly.json().quality.available).toBe(false);
+    } finally {
+      await again.close();
+    }
+  });
+
+  it('the stored figure only moves forward in time', async () => {
+    await ctx.store.setPublicQuality(pid, { compared: 30, agreeing: 27, rate: 0.9, computedAt: 2000 });
+    await ctx.store.setPublicQuality(pid, { compared: 10, agreeing: 1, rate: null, computedAt: 1000 });
+    expect(await ctx.store.getPublicQuality(pid)).toEqual({ compared: 30, agreeing: 27, rate: 0.9, computedAt: 2000 });
+  });
+
+  it('at most 20 links, even made at once', async () => {
+    const results = await Promise.all(Array.from({ length: 25 }, (_, i) => call('POST', '/share-links', owner.token, { label: `l${i}` })));
+    expect(results.filter((r) => r.statusCode === 201)).toHaveLength(20);
+    expect(results.filter((r) => r.statusCode === 409).map((r) => r.json().error)).toEqual(Array(5).fill('too_many_links'));
+    expect((await call('GET', '/share-links', owner.token)).json().links).toHaveLength(20);
   });
 
   it('a revoked link and an unknown one are both 404, with the same body and headers', async () => {

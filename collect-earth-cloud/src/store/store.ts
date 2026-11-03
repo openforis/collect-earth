@@ -28,6 +28,7 @@ import type {
   PlatformStats,
   PlotAssignment,
   ProgressSettings,
+  PublicQuality,
   ProjectRow,
   ProjectStorage,
   QualityDecision,
@@ -217,8 +218,11 @@ export interface Store {
 
   // --- Progress links for funders (Task 18) ---
 
-  /** A new link of the project: its token (shown once; only its sha256 is kept) and the link as listed. */
-  createShareLink(projectId: string, input: { label: string; createdBy: string | null }): Promise<{ token: string; link: ShareLink }>;
+  /**
+   * A new link of the project: its token (shown once; only its sha256 is kept) and the link as listed;
+   * null when the project already has `max` links not revoked (counted and inserted atomically).
+   */
+  createShareLink(projectId: string, input: { label: string; createdBy: string | null; max: number }): Promise<{ token: string; link: ShareLink } | null>;
   /** The project's links not revoked, oldest first. */
   listShareLinks(projectId: string): Promise<ShareLink[]>;
   /** Revokes a link of THIS project; the revoked link as it was, or null if no such link (or revoked already) in it. */
@@ -231,6 +235,10 @@ export interface Store {
   findShareLink(token: string): Promise<{ linkId: string; projectId: string } | null>;
   /** Notes that the link was used at `at` (written at most once a minute). */
   touchShareLink(projectId: string, linkId: string, at: number): Promise<void>;
+  /** Stores the progress link's quality figure (Decision 9); one older than the stored one is ignored. */
+  setPublicQuality(projectId: string, quality: PublicQuality): Promise<void>;
+  /** The stored figure, or null when the figures were never worked out for the project. */
+  getPublicQuality(projectId: string): Promise<PublicQuality | null>;
 
   // --- CSV files & assignments (Phase B) ---
 

@@ -102,6 +102,13 @@ desktop.
    backup leaves the collectors' measurements of a reference plot (its records other than first
    assessments) out in every choice, and keeps its round 1 (the reference assessment)**; the dialog
    counts them as "measurements left out" and says the CSV has them all.
+9. **The funders' quality figure is persisted (Task 18).** Whenever the quality figures are worked out
+   for a project, the server stores the overall agreement (every check so far compared with its first
+   assessment: compared, agreeing, rate) and the time of the figures in `projects.public_quality`
+   (migration 022); an older figure never replaces a newer one. A progress link reads it from the
+   database, so it shows on every instance and after a restart, "as of" that time; with none stored the
+   page says "The quality figure appears once the coordinators have looked at the quality checks." The
+   server never computes figures for someone outside the project.
 
 ---
 
@@ -3307,6 +3314,42 @@ token is hashed.
   read of the project state, so a cold state costs one build (~350 ms at 100k records); the label is shown in
   the activity log; a removed coordinator's links keep working (they are the project's); revoked links are not
   listed (the log has them).
+
+- **Review (after 62bc5583; supersedes the above where it says so):**
+  - **Tokens in logs:** `src/logRedact.ts`; `buildServer` gives the logger a `req` serializer that writes
+    the address with the token segment of `/v1/public/progress/`, `/p/`, `/v1/join/`, `/join/`, `/reset/`
+    and `/v1/collect-backup/` (and `token`/`inviteToken`/`resetToken` query parameters) as `<redacted>`.
+    Reset tokens otherwise travel in the POST body of `/v1/auth/reset`, which is not logged. Test: the
+    log lines of real requests captured from a stream (`test/logRedact.test.ts`). DEPLOY.md (Operational
+    notes): Cloud Run's request log keeps the full address (`httpRequest.requestUrl`), so log access is
+    link access; how to limit it. The Settings card says so in one sentence (`shareLinks.logs`).
+  - **The quality figure is persisted (Decision 9):** `QualityService` stores `overallAgreement` (moved to
+    `quality.ts`) and the figures' time in `projects.public_quality` (migration 022) after every
+    computation (not awaited, a failure logged); `setPublicQuality` keeps the newer one (both stores). The
+    public route reads `getPublicQuality`; `peek`'s `refresh: false` is gone (unused). Tests: none before
+    the Quality tab; stored after; a new server on the same memory store (a restart) shows it while its own
+    weekly summary has no figures at hand; an older figure ignored; smoke: another (cold) instance on
+    Postgres shows the stored figure.
+  - **`share_link_lookup` is not PUBLIC:** 021 revokes EXECUTE from PUBLIC (repeatable); `prepareAppRole`
+    grants it to the app role on every boot (migrate test). Smoke: the app role may call it, PUBLIC and
+    another login role may not (42501).
+  - **The cap of 20 is atomic:** `createShareLink(…, { max })` counts and inserts in one statement
+    (`INSERT … SELECT … WHERE (SELECT count(*) …) < max`) under a per-project advisory lock; null at the cap
+    → 409. Tests: 25 at once through the route (memory) and on Postgres (smoke): 20 made, 5 refused.
+  - **Print:** the page sets `@page { margin: 0 }` so browsers drop their header and footer (which would
+    print the address), the page column's padding standing for the margin; `shareLinks.intro` says a
+    printed or saved page may carry the link's address.
+  - `shareLinks.never` adds that in a small team the daily chart shows when the work was done.
+  - **Focus:** the confirm button takes the focus; Cancel returns it to Revoke; after a revoke it goes to
+    the card's heading.
+  - **Tests:** server 1103, web 332; tsc clean in both; web build ok. **Postgres smoke** ALL OK (new: the
+    function's privileges, the cap at once, the stored figure on a cold instance; lookup ~0.95 ms for
+    valid, revoked and unknown alike; the page on 100,000 records 497 ms cold, then 15-27 ms). Docker
+    stopped.
+  - **Open:** with `@page { margin: 0 }` the padding applies at the top of the first printed page and the
+    bottom of the last only (page breaks within a long table touch the paper's edge); in a small team the
+    daily chart tells when the work was done (said on the card); the platform's request logs hold the
+    links (DEPLOY.md).
 
 ### Task 19: Email digests (improvement 16)
 

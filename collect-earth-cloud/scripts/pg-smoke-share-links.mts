@@ -125,6 +125,21 @@ await appClient.query('COMMIT');
 check('with no setting: no rows; share_link_lookup gives the two ids of a known hash only', none.rows[0].n === 0 && viaFn.rowCount === 1 && Object.keys(viaFn.rows[0]).join() === 'link_id,link_project' && viaFn.rows[0].link_project === a.projectId && viaFnUnknown.rowCount === 0, { none: none.rows, viaFn: viaFn.rows });
 await appClient.end();
 
+// Nobody but the app role may call the lookup (021 revokes it from PUBLIC; prepareAppRole grants it).
+const grants = (await own.query("SELECT has_function_privilege('ce_link_app', 'share_link_lookup(text)', 'EXECUTE') AS app, has_function_privilege('public', 'share_link_lookup(text)', 'EXECUTE') AS pub")).rows[0];
+await own.query("DO $$ BEGIN CREATE ROLE ce_link_other LOGIN PASSWORD 'pw'; EXCEPTION WHEN duplicate_object THEN NULL; END $$");
+await own.query('GRANT CONNECT ON DATABASE celink TO ce_link_other');
+const other = new pg.Client({ connectionString: `postgres://ce_link_other:pw@${host}/celink` });
+await other.connect();
+let otherRefused = false;
+try {
+  await other.query('SELECT * FROM public.share_link_lookup($1)', [sha(la.token)]);
+} catch (err) {
+  otherRefused = (err as { code?: string }).code === '42501';
+}
+await other.end();
+check('share_link_lookup: the app role may call it, PUBLIC and another role may not', grants.app === true && grants.pub === false && otherRefused, { grants, otherRefused });
+
 // The public route.
 res = await view(la.token);
 const body = res.json();
@@ -145,12 +160,38 @@ const unknown = await view('Q'.repeat(43));
 check('revoked and unknown: the same 404', revoked.statusCode === 404 && unknown.statusCode === 404 && revoked.body === unknown.body, [revoked.body, unknown.body]);
 const audit = (await own.query("SELECT action, details FROM audit_log WHERE project_id = $1 AND action LIKE 'link.%' ORDER BY id", [a.projectId])).rows;
 check('audited link.created and link.revoked (the CHECK allows them)', audit.map((r) => r.action).join() === 'link.created,link.revoked' && audit[1].details.label === 'For the donor', audit);
+const laToken2 = (await call('POST', a.projectId, '/share-links', { label: 'second' })).json().token as string;
+const la2 = () => laToken2;
+// At most 20 links, made at once: counted and inserted under one lock.
+const c = await project('Cap');
+const made = await Promise.all(Array.from({ length: 25 }, (_, i) => call('POST', c.projectId, '/share-links', { label: `c${i}` })));
+const capCount = (await own.query('SELECT count(*)::int AS n FROM share_links WHERE project_id = $1', [c.projectId])).rows[0].n;
+check('25 links asked at once: 20 made, 5 refused', made.filter((r) => r.statusCode === 201).length === 20 && made.filter((r) => r.statusCode === 409).length === 5 && capCount === 20, made.map((r) => r.statusCode));
+
+// The quality figure: stored when the figures are worked out, read on another instance.
+check('no figure before the Quality tab was opened', (await view(la2())).json().quality.available === false);
+for (let i = 0; i < 200; i++) {
+  const q = (await call('GET', a.projectId, '/quality')).json();
+  if (!q.stale) break;
+  await sleep(20);
+}
+let stored: any = null;
+for (let i = 0; i < 100 && !stored; i++) {
+  stored = (await own.query('SELECT public_quality FROM projects WHERE id = $1', [a.projectId])).rows[0].public_quality;
+  if (!stored) await sleep(20);
+}
+check('projects.public_quality stored after the figures were worked out', stored !== null && typeof stored.computedAt === 'number', stored);
+const second = await buildServer({ store: new PostgresStore(appUrl), config: { port: 0, host: '127.0.0.1', storeBackend: 'postgres', databaseUrl: appUrl, setupCode: 'X', rateLimitPerMinute: 0 } as any, webDir: null });
+const fromSecond = (await second.inject({ method: 'GET', url: `/v1/public/progress/${laToken2}` })).json().quality;
+await second.close();
+check('another instance (cold) shows the stored figure', fromSecond.available === true && fromSecond.computedAt === stored.computedAt && fromSecond.agreement.compared === stored.compared, fromSecond);
+
 check('project deleted: its links go', (await call('DELETE', b.projectId, '', { confirmName: 'Beta' })).statusCode === 204 && (await view(lb.token)).statusCode === 404 && (await own.query('SELECT 1 FROM share_links WHERE project_id = $1', [b.projectId])).rowCount === 0);
 
 // The lookup timed: valid, revoked and unknown tokens (100 links, 200 lookups each).
 const tokens: string[] = [];
-for (let i = 0; i < 100; i++) tokens.push((await store.createShareLink(a.projectId, { label: `l${i}`, createdBy: null })).token);
-const gone = await store.createShareLink(a.projectId, { label: 'gone', createdBy: null });
+for (let i = 0; i < 100; i++) tokens.push((await store.createShareLink(a.projectId, { label: `l${i}`, createdBy: null, max: 1000 }))!.token);
+const gone = (await store.createShareLink(a.projectId, { label: 'gone', createdBy: null, max: 1000 }))!;
 await store.revokeShareLink(a.projectId, gone.link.id);
 const time = async (token: string) => {
   const t0 = performance.now();
@@ -183,7 +224,7 @@ await own.query(
   [a.projectId, big],
 );
 console.log(`     ${big} records written in ${Math.round(performance.now() - t0)} ms`);
-const link = await store.createShareLink(a.projectId, { label: 'big', createdBy: null });
+const link = (await store.createShareLink(a.projectId, { label: 'big', createdBy: null, max: 1000 }))!;
 const runs: number[] = [];
 let last: any = null;
 for (let i = 0; i < 5; i++) {

@@ -294,4 +294,20 @@ describe('PostgresStore pool', () => {
     }
     expect(reads).toBe(3);
   });
+
+  it('a progress link is counted and inserted under the project lock, in one statement; the figure only moves forward', async () => {
+    const store = new PostgresStore('postgres://x');
+    // The mock returns no row: the cap is reached.
+    expect(await store.createShareLink(PROJECT, { label: 'x', createdBy: null, max: 20 })).toBeNull();
+    const lock = queries.findIndex((q) => q.sql.includes("collect-earth-cloud:share-links:"));
+    const insert = queries.findIndex((q) => q.sql.includes('INSERT INTO share_links'));
+    expect(lock).toBeGreaterThan(queries.findIndex((q) => q.params?.[0] === 'app.current_project'));
+    expect(insert).toBeGreaterThan(lock);
+    expect(queries[insert].sql).toMatch(/WHERE \(SELECT count\(\*\) FROM share_links WHERE project_id = \$2 AND revoked_at IS NULL\) < \$6/);
+    expect(queries[insert].params?.[5]).toBe(20);
+    queries.length = 0;
+    await store.setPublicQuality(PROJECT, { compared: 1, agreeing: 1, rate: null, computedAt: 5 });
+    const update = queries.find((q) => q.sql.includes('public_quality'))!;
+    expect(update.sql).toMatch(/public_quality IS NULL OR \(public_quality->>'computedAt'\)::bigint <= \$3/);
+  });
 });

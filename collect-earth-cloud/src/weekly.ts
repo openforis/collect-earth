@@ -2,7 +2,7 @@ import { addDays } from './days.js';
 import type { FlagCounts } from './flags.js';
 import type { PeopleTable, PersonRow, PersonStatus } from './people.js';
 import { dayInZone, type PlotUnits, type ProgressTotals } from './progress.js';
-import { isoWeek, MIN_PLOTS, type QualityReport, type Rate } from './quality.js';
+import { isoWeek, MIN_PLOTS, overallAgreement, type QualityReport, type Rate } from './quality.js';
 import type { DecisionKind, QualityDecision, Role } from './types.js';
 
 /**
@@ -99,17 +99,6 @@ export interface WeeklyInput {
 }
 
 const rateOf = (compared: number, agreeing: number): Rate => ({ compared, agreeing, rate: compared >= MIN_PLOTS ? agreeing / compared : null });
-
-/** Every check so far compared with its first assessment, as one figure (the weekly summary's "so far", the progress link's). */
-export function overallAgreement(report: Pick<QualityReport, 'weeks'>): Rate {
-  let compared = 0;
-  let agreeing = 0;
-  for (const w of report.weeks) {
-    compared += w.compared;
-    agreeing += w.agreeing;
-  }
-  return rateOf(compared, agreeing);
-}
 
 /** The week's summary. */
 export function weeklySummary(input: WeeklyInput): WeeklySummary {

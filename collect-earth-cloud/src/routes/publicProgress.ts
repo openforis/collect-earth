@@ -7,11 +7,9 @@ import { isTimeZone } from '../days.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { PACE_DAYS, progressReport, type Forecast, type ProgressDay, type ProgressTotals } from '../progress.js';
 import type { ProjectStateCache } from '../projectState.js';
-import type { QualityService } from '../qualityService.js';
 import type { Rate } from '../quality.js';
 import type { RateLimiter } from '../rateLimit.js';
 import type { Store } from '../store/store.js';
-import { overallAgreement } from '../weekly.js';
 import { DEFAULT_DAYS, MAX_DAYS } from './progress.js';
 
 /** Links not revoked a project may have at once. */
@@ -32,7 +30,7 @@ export interface PublicProgress {
   daily: ProgressDay[];
   forecast: Forecast;
   quality: {
-    /** False when this server has no quality figures at hand (nobody opened the Quality tab since it started). */
+    /** False until the quality figures were first worked out for the project (nobody opened the Quality tab yet). */
     available: boolean;
     /** Every check so far compared with its first assessment; rate null under MIN_PLOTS plots. */
     agreement: Rate | null;
@@ -68,15 +66,14 @@ const NOT_FOUND = { error: 'not_found' } as const;
  * (`/v1/projects/:pid/share-links`, audited link.created / link.revoked); anyone holding a
  * link reads `GET /v1/public/progress/:token` (no session, rate-limited per address in the
  * `public` bucket). An unknown token and a revoked one get the same 404 through the same
- * single lookup. The quality figure comes only from what this server has at hand
- * (QualityService.peek with refresh: false): the link never starts a computation.
+ * single lookup. The quality figure is the one stored when the figures were last worked out
+ * (projects.public_quality, Decision 9): the link never starts a computation.
  */
 export async function registerPublicProgressRoutes(
   app: FastifyInstance,
   store: Store,
   config: Config,
   limiter: RateLimiter,
-  quality: QualityService,
   states: ProjectStateCache,
   now: () => number = Date.now,
 ): Promise<void> {
@@ -92,11 +89,12 @@ export async function registerPublicProgressRoutes(
     if (typeof label !== 'string') {
       return reply.code(400).send(label);
     }
-    if ((await store.listShareLinks(projectId)).length >= MAX_SHARE_LINKS) {
+    // A project admin token has no person behind it: made by nobody. The cap is checked with the insert.
+    const made = await store.createShareLink(projectId, { label, createdBy: request.userId ?? null, max: MAX_SHARE_LINKS });
+    if (!made) {
       return reply.code(409).send({ error: 'too_many_links', reason: `a project has at most ${MAX_SHARE_LINKS} progress links; revoke one first` });
     }
-    // A project admin token has no person behind it: made by nobody.
-    const { token, link } = await store.createShareLink(projectId, { label, createdBy: request.userId ?? null });
+    const { token, link } = made;
     await audit(store, request, 'link.created', { linkId: link.id, label });
     const path = `/p/${token}`;
     return reply.code(201).send({ token, path, url: `${publicBaseUrl(config, request)}${path}`, link });
@@ -132,13 +130,12 @@ export async function registerPublicProgressRoutes(
       const days = Number.isInteger(asked) ? Math.min(MAX_DAYS, Math.max(PACE_DAYS, asked)) : DEFAULT_DAYS;
       const timeZone = isTimeZone(query.tz) ? query.tz : 'UTC';
       const at = now();
-      const [served, settings, figures] = await Promise.all([
+      // The quality figure as stored when the figures were last worked out (Decision 9): read from
+      // the database, so any instance has it, and the link never makes the server compute.
+      const [served, settings, figure] = await Promise.all([
         states.get(projectId, request.log),
         store.getProgressSettings(projectId),
-        quality.peek(projectId, request.log, { refresh: false }).catch((err: unknown) => {
-          request.log.warn({ err, projectId }, 'progress link: the quality figures could not be had');
-          return null;
-        }),
+        store.getPublicQuality(projectId),
       ]);
       const { context, assignments, units } = served.state;
       const progress = progressReport({
@@ -180,8 +177,8 @@ export async function registerPublicProgressRoutes(
           daysOver: f.daysOver,
           neededPerDay: f.neededPerDay,
         },
-        quality: figures
-          ? { available: true, agreement: overallAgreement(figures.report), computedAt: figures.computedAt }
+        quality: figure
+          ? { available: true, agreement: { compared: figure.compared, agreeing: figure.agreeing, rate: figure.rate }, computedAt: figure.computedAt }
           : { available: false, agreement: null, computedAt: null },
         asOf: served.stale ? served.state.builtAt : null,
       };

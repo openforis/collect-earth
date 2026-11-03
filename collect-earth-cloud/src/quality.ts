@@ -64,6 +64,20 @@ export interface QualityInput {
   reference?: ReadonlyMap<string, string>;
 }
 
+/**
+ * Every check so far compared with its first assessment, as one figure (the weekly summary's
+ * "so far", and the progress link's figure, stored when the figures are worked out).
+ */
+export function overallAgreement(report: Pick<QualityReport, 'weeks'>): Rate {
+  let compared = 0;
+  let agreeing = 0;
+  for (const w of report.weeks) {
+    compared += w.compared;
+    agreeing += w.agreeing;
+  }
+  return { compared, agreeing, rate: compared >= MIN_PLOTS ? agreeing / compared : null };
+}
+
 export interface Rate {
   compared: number;
   agreeing: number;

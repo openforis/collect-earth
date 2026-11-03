@@ -26,8 +26,18 @@ import { onceVisibleAfter } from "../visibility";
 /** A progress link's page is read again this often while it is visible (it is a page to glance at, not to watch). */
 export const PUBLIC_REFRESH_MS = 5 * 60_000;
 
-/** Printed: the chart's Chart/Table switch is left out too (the app shell already hides the buttons). */
-const PRINT = { "@media print": { ".MuiToggleButtonGroup-root": { display: "none !important" } } } as const;
+/**
+ * Printed: no page margin, so browsers leave out their header and footer (which would print the
+ * address, token included); the margin is the page column's padding instead. The chart's
+ * Chart/Table switch is left out too (the app shell already hides the buttons).
+ */
+const PRINT = {
+  "@page": { margin: 0 },
+  "@media print": {
+    ".MuiToggleButtonGroup-root": { display: "none !important" },
+    "main.MuiContainer-root": { padding: "14mm 12mm !important" },
+  },
+} as const;
 
 /** While the page is open: not indexed, no referrer (its address holds the token). The server's headers say the same. */
 function usePrivatePage(title: string | null) {

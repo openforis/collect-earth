@@ -40,6 +40,7 @@ import {
   type PlatformStats,
   type PlotAssignment,
   type ProgressSettings,
+  type PublicQuality,
   type ProjectRow,
   type ProjectStorage,
   type QualityDecision,
@@ -77,6 +78,8 @@ const { Pool } = pg;
 
 /** Rows per INSERT when saving a division (a file can have ~100k plots). */
 const PLOT_INSERT_CHUNK = 5000;
+/** The progress links' lock per project (createShareLink: the cap of links). */
+const SHARE_LINKS_LOCK = "SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:share-links:' || $1))";
 /** The check sampling's lock per project (addSampledCopies, setDivision). */
 const SAMPLING_LOCK = "SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:sampling:' || $1))";
 
@@ -1207,21 +1210,25 @@ export class PostgresStore implements Store {
 
   // --- Progress links (Task 18): share_links is project data under RLS (migration 021) ---
 
-  async createShareLink(projectId: string, input: { label: string; createdBy: string | null }): Promise<{ token: string; link: ShareLink }> {
+  async createShareLink(projectId: string, input: { label: string; createdBy: string | null; max: number }): Promise<{ token: string; link: ShareLink } | null> {
     const token = generateShareToken();
     const id = randomUUID();
     const row = await this.withProject(projectId, async (client) => {
+      // Counted and inserted under one lock per project, so links made at once never pass the cap.
+      await client.query(SHARE_LINKS_LOCK, [projectId]);
       const res = await client.query(
         `WITH l AS (
-           INSERT INTO share_links (id, project_id, token_hash, label, created_by) VALUES ($1, $2, $3, $4, $5)
+           INSERT INTO share_links (id, project_id, token_hash, label, created_by)
+           SELECT $1, $2, $3, $4, $5
+            WHERE (SELECT count(*) FROM share_links WHERE project_id = $2 AND revoked_at IS NULL) < $6
            RETURNING id, label, created_by, created_at, last_used_at
          )
          SELECT l.*, u.username FROM l LEFT JOIN users u ON u.id = l.created_by`,
-        [id, projectId, hashToken(token), input.label, input.createdBy],
+        [id, projectId, hashToken(token), input.label, input.createdBy, input.max],
       );
-      return res.rows[0];
+      return res.rows[0] ?? null;
     });
-    return { token, link: shareLinkOf(row) };
+    return row ? { token, link: shareLinkOf(row) } : null;
   }
 
   async listShareLinks(projectId: string): Promise<ShareLink[]> {
@@ -2254,6 +2261,24 @@ export class PostgresStore implements Store {
     });
   }
 
+  async setPublicQuality(projectId: string, quality: PublicQuality): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      // Two instances may finish computations out of order: an older figure never replaces a newer one.
+      await client.query(
+        `UPDATE projects SET public_quality = $2
+          WHERE id = $1 AND (public_quality IS NULL OR (public_quality->>'computedAt')::bigint <= $3)`,
+        [projectId, JSON.stringify(quality), quality.computedAt],
+      );
+    });
+  }
+
+  async getPublicQuality(projectId: string): Promise<PublicQuality | null> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT public_quality FROM projects WHERE id = $1', [projectId]);
+      return publicQualityOf(res.rows[0]?.public_quality);
+    });
+  }
+
   async appendAudit(projectId: string, entry: AuditInput): Promise<void> {
     await this.withProject(projectId, async (client) => {
       await client.query(
@@ -2481,6 +2506,13 @@ async function insertRecordEvent(client: pg.PoolClient, e: RecordEventInput): Pr
 
 function timeOrNull(v: unknown): number | null {
   return v === null || v === undefined ? null : (v as Date).getTime();
+}
+
+/** projects.public_quality as stored, or null when missing or not one. */
+function publicQualityOf(v: unknown): PublicQuality | null {
+  const q = v as Partial<PublicQuality> | null | undefined;
+  if (!q || typeof q.compared !== 'number' || typeof q.agreeing !== 'number' || typeof q.computedAt !== 'number') return null;
+  return { compared: q.compared, agreeing: q.agreeing, rate: typeof q.rate === 'number' ? q.rate : null, computedAt: q.computedAt };
 }
 
 /** A share_links row (with its maker's username joined) as coordinators list it. */

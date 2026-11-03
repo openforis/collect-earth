@@ -480,21 +480,6 @@ describe('QualityService', () => {
     expect((await service.peek(projectId, log))?.stale).toBe(false);
   });
 
-  it('peek with refresh: false serves an out-of-date report stale and never starts a computation (the progress link)', async () => {
-    const store = new InMemoryStore();
-    const { projectId } = await store.createProject({ name: 'p' });
-    await store.putCsvFile(projectId, 'plots.csv', Buffer.from('id,lat,lon\n1,0,0\n'), ['1']);
-    const service = new QualityService(store, null, { minIntervalMs: 0 });
-    const log = { warn() {}, error() {} };
-    expect(await service.peek(projectId, log, { refresh: false })).toBeNull();
-    const first = await service.report(projectId, log);
-    await store.putRecord({ projectId, recordKey: '1', operator: 'ana', modifiedOn: 1, receivedAt: 1, activelySaved: true, step: 1, xml: null, summary: {}, deleted: false, deletedOn: null });
-    expect(await service.peek(projectId, log, { refresh: false })).toMatchObject({ stale: true, computedAt: first.computedAt });
-    await new Promise((r) => setTimeout(r, 50));
-    expect(service.computed).toBe(1);
-    expect((await service.peek(projectId, log, { refresh: false }))?.stale).toBe(true);
-  });
-
   const record = (projectId: string, recordKey: string) => ({
     projectId, recordKey, operator: 'ana', modifiedOn: 1, receivedAt: 1, activelySaved: true, step: 1, xml: null, summary: {}, deleted: false, deletedOn: null,
   });

@@ -104,7 +104,7 @@ describe("forecast sentences", () => {
 
 describe("a progress link's quality figure", () => {
   it("says the agreement, or why there is none", () => {
-    expect(publicQualityText(t, { available: false, agreement: null, computedAt: null }, "en")).toBe("Not available yet.");
+    expect(publicQualityText(t, { available: false, agreement: null, computedAt: null }, "en")).toBe("The quality figure appears once the coordinators have looked at the quality checks.");
     expect(publicQualityText(t, { available: true, agreement: { compared: 0, agreeing: 0, rate: null }, computedAt: 1 }, "en")).toBe("No plot has been checked a second time yet.");
     expect(publicQualityText(t, { available: true, agreement: { compared: 5, agreeing: 4, rate: null }, computedAt: 1 }, "en")).toBe("Too few checks to judge (5 checks, 20 needed)");
     expect(publicQualityText(t, { available: true, agreement: { compared: 40, agreeing: 30, rate: 0.75 }, computedAt: 1 }, "en")).toBe("75% agree (30 of 40 checks)");

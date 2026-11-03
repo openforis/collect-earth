@@ -7,7 +7,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddLink from "@mui/icons-material/AddLink";
 import LinkOff from "@mui/icons-material/LinkOff";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createShareLink, listShareLinks, revokeShareLink, type NewShareLink, type ShareLink } from "../api";
 import { useApp } from "../appContext";
 import { CopyField } from "../components/CopyField";
@@ -25,6 +25,15 @@ function LinkRow({ link, onRevoke }: { link: ShareLink; onRevoke: (link: ShareLi
   const { language } = useApp();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  // After Cancel, the keyboard goes back to the Revoke button it came from.
+  const revokeButton = useRef<HTMLButtonElement>(null);
+  const [backToRevoke, setBackToRevoke] = useState(false);
+  useEffect(() => {
+    if (!confirming && backToRevoke) {
+      revokeButton.current?.focus();
+      setBackToRevoke(false);
+    }
+  }, [confirming, backToRevoke]);
   const made = link.createdAt !== null ? formatDate(link.createdAt, language) : "–";
   const revoke = async () => {
     if (busy) return;
@@ -49,13 +58,20 @@ function LinkRow({ link, onRevoke }: { link: ShareLink; onRevoke: (link: ShareLi
         </Box>
         {confirming ? (
           <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-            <Button color="error" variant="contained" onClick={() => void revoke()} aria-describedby={`revoke-${link.id}`}>
+            <Button color="error" variant="contained" onClick={() => void revoke()} aria-describedby={`revoke-${link.id}`} autoFocus>
               {t("shareLinks.revokeConfirm")}
             </Button>
-            <Button onClick={() => setConfirming(false)}>{t("common.cancel")}</Button>
+            <Button
+              onClick={() => {
+                setConfirming(false);
+                setBackToRevoke(true);
+              }}
+            >
+              {t("common.cancel")}
+            </Button>
           </Stack>
         ) : (
-          <Button color="error" startIcon={<LinkOff />} onClick={() => setConfirming(true)} sx={{ flexShrink: 0 }}>
+          <Button ref={revokeButton} color="error" startIcon={<LinkOff />} onClick={() => setConfirming(true)} sx={{ flexShrink: 0 }}>
             {t("shareLinks.revoke")}
           </Button>
         )}
@@ -81,6 +97,8 @@ export function ShareLinksCard({ projectId }: { projectId: string }) {
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  // After a revoke the row is gone: the keyboard goes to the card's heading.
+  const heading = useRef<HTMLHeadingElement>(null);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -106,6 +124,7 @@ export function ShareLinksCard({ projectId }: { projectId: string }) {
       await revokeShareLink(projectId, link.id);
       if (made?.link.id === link.id) setMade(null);
       setStatus(t("shareLinks.revoked", { label: link.label || t("shareLinks.noLabel") }));
+      heading.current?.focus();
       links.reload();
     } catch (err) {
       setError(err);
@@ -115,12 +134,12 @@ export function ShareLinksCard({ projectId }: { projectId: string }) {
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="share-links-title">
       <Stack spacing={2}>
-        <Typography variant="h2" id="share-links-title">
+        <Typography variant="h2" id="share-links-title" ref={heading} tabIndex={-1} sx={{ outline: "none" }}>
           {t("shareLinks.title")}
         </Typography>
         <Typography>{t("shareLinks.intro")}</Typography>
         <Typography variant="body2" color="text.secondary">
-          {t("shareLinks.never")}
+          {t("shareLinks.never")} {t("shareLinks.logs")}
         </Typography>
         <Stack component="form" direction={{ xs: "column", sm: "row" }} spacing={1} onSubmit={submit} noValidate sx={{ alignItems: { sm: "flex-start" } }}>
           <TextField

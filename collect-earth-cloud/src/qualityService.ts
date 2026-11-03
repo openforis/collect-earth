@@ -13,7 +13,7 @@ import { qualityFigures, type AnswerStats, type AnswerTable, type QualityFigures
 import type { FlagTable } from './flags.js';
 import type { HealthTable } from './surveyHealth.js';
 import type { ReferenceFigures } from './reference.js';
-import type { QualityInput, QualityReport } from './quality.js';
+import { overallAgreement, type QualityInput, type QualityReport } from './quality.js';
 import type { WorkerJob, WorkerReply } from './qualityWorker.js';
 import { fileKeyCount } from './rounds.js';
 import { type Holders } from './holders.js';
@@ -506,10 +506,8 @@ export class QualityService {
    * changed is served stale, and brought up to date behind it as report() would (one
    * computation at a time per project, at most one start per minIntervalMs, not again
    * soon after a failure). For pages that only glance at the figures (the Progress tab).
-   * With `refresh: false` nothing is ever started, not even behind (the public progress link:
-   * someone outside the project never makes this server compute).
    */
-  async peek(projectId: string, log: Log, options: { refresh?: boolean } = {}): Promise<ServedReport | null> {
+  async peek(projectId: string, log: Log): Promise<ServedReport | null> {
     if (!this.reports.has(projectId)) {
       return null;
     }
@@ -523,7 +521,7 @@ export class QualityService {
     }
     const failure = this.failures.get(projectId);
     const failedLately = failure !== undefined && failure.version === snapshot.version && this.now() - failure.at < FAILURE_MEMO_MS;
-    if (!failedLately && options.refresh !== false) {
+    if (!failedLately) {
       this.schedule(projectId, log, snapshot, true)?.catch((err: unknown) => log.warn({ err }, 'quality: the figures could not be brought up to date'));
     }
     return served(cached, true);
@@ -594,6 +592,11 @@ export class QualityService {
       this.failures.delete(projectId);
       const entry: CachedReport = { version: s.version, ...figures, answerStats: new Map(), computedAt: s.at, margins: { ...(s.known.settings.margins ?? {}) } };
       remember(this.reports, projectId, entry, MAX_CACHED_REPORTS);
+      // The progress link's figure (Decision 9), kept in the database for every instance; not awaited
+      // for the figures, and a failure only logged.
+      this.store
+        .setPublicQuality(projectId, { ...overallAgreement(figures.report), computedAt: s.at })
+        .catch((err: unknown) => log.warn({ err, projectId }, "quality: the progress link's figure could not be stored"));
       return entry;
     })();
     runs.running = running;

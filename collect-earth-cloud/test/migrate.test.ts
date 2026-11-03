@@ -100,6 +100,8 @@ describe('runMigrations', () => {
       const revoke = sql.indexOf('REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON schema_migrations FROM "ce_app"');
       expect(revoke).toBeGreaterThan(sql.indexOf('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "ce_app"'));
       expect(revoke).toBeGreaterThan(sql.findIndex((q) => q.includes('ALTER DEFAULT PRIVILEGES') && q.includes('ON TABLES')));
+      // The progress links' lookup (021, not PUBLIC) is the app role's to call.
+      expect(sql).toContain('GRANT EXECUTE ON FUNCTION share_link_lookup(TEXT) TO "ce_app"');
       // Inside the lock, after the migrations.
       expect(sql.indexOf('GRANT USAGE ON SCHEMA public TO "ce_app"')).toBeLessThan(sql.findIndex((q) => q.includes('pg_advisory_unlock')));
       expect(logged.join(' ')).not.toContain('s3cr');

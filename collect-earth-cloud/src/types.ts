@@ -66,6 +66,20 @@ export interface ShareLink {
   lastUsedAt: number | null;
 }
 
+/**
+ * The quality figure a progress link shows (Decision 9): every check so far compared with its first
+ * assessment, stored whenever the quality figures are worked out for the project, so the link reads
+ * it from the database on any instance and never makes the server compute.
+ */
+export interface PublicQuality {
+  compared: number;
+  agreeing: number;
+  /** agreeing / compared, null under MIN_PLOTS. */
+  rate: number | null;
+  /** When the inputs of the figures it comes from were read (ms). */
+  computedAt: number;
+}
+
 /** Who may create projects with a session: every logged-in user, or platform admins only. */
 export type ProjectCreation = 'anyone' | 'platform-admins';
 
