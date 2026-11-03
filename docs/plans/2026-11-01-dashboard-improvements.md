@@ -4014,6 +4014,27 @@ desktop code changed)
      "…" (MUI labels do not wrap); the weekly page's "Each person's week" table needs a sideways scroll to
      see Status; the map list's plot links are the browser's default blue, not the theme's green; on the
      person page the "· last plot submitted" line starts with the separator when it wraps.
+  **Fixed after the pass** (web only, no Swing or server change):
+  1. A refused reviewer filter (403) shows its message alone: the figures of the filter before are no longer
+     drawn under it (`answersRefused`, tested).
+  2. The header's bell and "Find a plot" take a row of their own on phones, the field all the width (its
+     results too); side by side with the project's name from `sm` up.
+  3. The file name columns of Automatic checks → Plot files and of The reference plots keep at least 160 px
+     (the tables scroll sideways inside their frame); names break only at that width.
+  4. The mail link pages: the result that replaces the button ("Done…") takes the focus; the button is no longer
+     disabled while it works.
+  5. The owner's panel: the late draws have a section and a heading of their own ("Late automatic check
+     draws"), after the failed logins, whose empty text now says "No failed logins and no refused requests in
+     the last 7 days."
+  6. Titles: from the most particular to the most general, the project included: "Plot 10 – Quality – <project>
+     – Collect Earth Cloud", "maria – People – <project> – …", "Quality – <project> – …"; a page without a
+     heading of its own says what its address does ("Plot 10 – Quality – …", "Page not found – …") instead of
+     the server alone (`pageTitleOf`, tested).
+  7. The map list's links use the theme's link colour (MUI `Link`); the server settings' labels sit above
+     their fields and wrap (es/fr no longer cut with "…"); the weekly "Each person's week" table keeps Status
+     last but its frame is a named region reachable with Tab (then the arrow keys scroll it); the person
+     page's "·" now ends the role's line instead of starting the wrapped one.
+  Tests: web 360, server 1172, tsc clean in both.
   Not issues: maria's My work counts her 13 copies and 5 reference copies as plots given (192) where her
   person page says 174 + 18 copies (blind by design); the Data tab's "347 plots submitted" counts the 28
   checks too (Progress says 319).

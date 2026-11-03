@@ -16,6 +16,15 @@ export function pageTitle(parts: readonly (string | null | undefined)[]): string
 }
 
 /**
+ * A page's title, from the most particular to the most general: its own heading (a person, a plot,
+ * a plot file) or, without one, what the address says (fallback: "Plot 10"), then the tab chosen,
+ * the page's h1 (the project's name) and the server: "Plot 10 – Quality – North survey – Our server".
+ */
+export function pageTitleOf(parts: { own: string | null; fallback: string | null; tab: string | null; h1: string | null; server: string }): string {
+  return pageTitle([parts.own ?? parts.fallback, parts.tab, parts.h1, parts.server]);
+}
+
+/**
  * The element a page names itself with: one marked data-page-heading (a person, a plot, a plot
  * file: pages inside a project's tab), else its h1; with ownHeading only the marked one.
  */
@@ -42,7 +51,10 @@ function selectedTab(root: ParentNode): string | null {
  * path (not the first load) moves the focus to that heading. Returns the text to announce in a
  * polite live region when the page has no heading to focus.
  */
-export function usePageFocus(path: string, { serverName, language, ownTitle, ownHeading }: { serverName: string; language: string; ownTitle: boolean; ownHeading: boolean }): string {
+export function usePageFocus(
+  path: string,
+  { serverName, language, ownTitle, ownHeading, fallback }: { serverName: string; language: string; ownTitle: boolean; ownHeading: boolean; fallback: string | null },
+): string {
   const shown = useRef<string | null>(null);
   const [announce, setAnnounce] = useState("");
   useEffect(() => {
@@ -56,7 +68,9 @@ export function usePageFocus(path: string, { serverName, language, ownTitle, own
       done = true;
       observer.disconnect();
       window.clearTimeout(timer);
-      const title = pageTitle([heading?.textContent, selectedTab(main), serverName]);
+      const h1 = main.querySelector("h1");
+      const own = heading && heading !== h1 ? heading.textContent : null;
+      const title = pageTitleOf({ own, fallback, tab: selectedTab(main), h1: h1?.textContent ?? null, server: serverName });
       if (!ownTitle) document.title = title || serverName;
       if (!moved) return;
       if (heading && mayMoveFocus(document.activeElement)) {
@@ -80,6 +94,6 @@ export function usePageFocus(path: string, { serverName, language, ownTitle, own
       observer.disconnect();
       window.clearTimeout(timer);
     };
-  }, [path, serverName, language, ownTitle, ownHeading]);
+  }, [path, serverName, language, ownTitle, ownHeading, fallback]);
   return announce;
 }

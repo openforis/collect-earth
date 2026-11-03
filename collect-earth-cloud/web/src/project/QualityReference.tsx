@@ -329,7 +329,7 @@ function PlotList({ projectId, view, onDone }: { projectId: string; view: Refere
                 <TableCell component="th" scope="row">
                   <Link {...linkProps(pathFor({ name: "plot", projectId, plot: p.plot }))}>{p.plot}</Link>
                 </TableCell>
-                <TableCell sx={{ wordBreak: "break-word" }}>{p.filename}</TableCell>
+                <TableCell sx={{ wordBreak: "break-word", minWidth: 160 }}>{p.filename}</TableCell>
                 <TableCell sx={{ wordBreak: "break-word" }}>{p.assessorInProject ? p.assessor : t("reference.assessorLeft", { name: p.assessor })}</TableCell>
                 <TableCell>{p.assessed ? t("reference.assessed") : t("reference.waiting")}</TableCell>
                 <TableCell sx={{ fontVariantNumeric: "tabular-nums" }}>{t("reference.checkedOf", { checked: n(p.checked), copies: n(p.copies) })}</TableCell>

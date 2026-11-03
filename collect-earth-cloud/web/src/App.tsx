@@ -94,6 +94,8 @@ export function App() {
     language,
     ownTitle: route.name === "publicProgress",
     ownHeading: route.name === "person" || route.name === "plot" || route.name === "plotFile",
+    // What the address says, for a page that shows no heading of its own (a plot one may not see, a wrong address).
+    fallback: route.name === "plot" ? t("quality.plot", { plot: route.plot }) : route.name === "notFound" ? t("notFound.title") : null,
   });
 
   // The server said our session is no longer valid: back to logging in, on the same page.

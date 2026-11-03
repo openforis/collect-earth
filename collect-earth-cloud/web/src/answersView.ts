@@ -1,9 +1,17 @@
 // The Quality tab's Answers section (Task 4): what it shows, worked out from the
 // server's figures. Pure, so it is tested on its own.
-import type { AnswerFlag, AnswersData, ChoiceAnswers, NumberAnswers, NumberSpread } from "./api";
+import { ApiError, type AnswerFlag, type AnswersData, type ChoiceAnswers, type NumberAnswers, type NumberSpread } from "./api";
 import { formatNumber } from "./format";
 import type { Translate } from "./i18n";
 import { formatRate } from "./qualityView";
+
+/**
+ * A reviewer's filter (a plot file, a column's value) of fewer than 5 plots is refused with a 403
+ * (Decision 10): the section then says so and shows no figures (not those of the filter before).
+ */
+export function answersRefused(teamOnly: boolean, error: unknown): boolean {
+  return teamOnly && error instanceof ApiError && error.status === 403;
+}
 
 /** One question to choose in the section. */
 export interface AnswerQuestion {

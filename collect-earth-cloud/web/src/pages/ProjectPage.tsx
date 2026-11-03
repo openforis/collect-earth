@@ -58,7 +58,8 @@ function Header({ projectId, name, bell = false }: { projectId: string; name: st
       <Typography variant="h1" sx={{ wordBreak: "break-word", minWidth: 0 }}>
         {name}
       </Typography>
-      <Box sx={{ display: "flex", gap: 1, alignItems: "center", minWidth: 0 }}>
+      {/* On a phone the bell and the search field take a row of their own, the field all its width. */}
+      <Box sx={{ display: "flex", gap: 1, alignItems: "center", minWidth: 0, flex: { xs: "1 1 100%", sm: "0 1 auto" }, "& > :last-child": { flex: { xs: 1, sm: "0 1 auto" }, minWidth: 0 } }}>
         {bell && <AttentionBell projectId={projectId} />}
         <PlotSearchBox projectId={projectId} />
       </Box>

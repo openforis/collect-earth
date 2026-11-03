@@ -7,7 +7,8 @@ import { notBlindText } from "./checksView";
 import { reasonText } from "./healthView";
 import { translator } from "./i18n";
 import { plotList } from "./mapView";
-import { mayMoveFocus, pageHeading, pageTitle } from "./pageFocus";
+import { mayMoveFocus, pageHeading, pageTitle, pageTitleOf } from "./pageFocus";
+import { answersRefused } from "./answersView";
 import { veryFastText } from "./peopleView";
 import { personDetail } from "./progressView";
 import { setToken } from "./storage";
@@ -82,6 +83,15 @@ describe("texts that follow what the project and the code do", () => {
   });
 });
 
+describe("a reviewer's refused answers filter", () => {
+  it("is a 403 for a reviewer only: then no figures are shown under the message", () => {
+    expect(answersRefused(true, new ApiError(403, "forbidden"))).toBe(true);
+    expect(answersRefused(false, new ApiError(403, "forbidden"))).toBe(false);
+    expect(answersRefused(true, new ApiError(500, "x"))).toBe(false);
+    expect(answersRefused(true, null)).toBe(false);
+  });
+});
+
 describe("the map's list of plots", () => {
   const map = {
     total: 3,
@@ -106,6 +116,17 @@ describe("page titles and focus", () => {
     expect(pageTitle(["Plot 17", "Quality", "North survey", "Our server"])).toBe("Plot 17 – Quality – North survey – Our server");
     expect(pageTitle([" North  survey ", null, "", "North survey", "Our server"])).toBe("North survey – Our server");
     expect(pageTitle([])).toBe("");
+  });
+
+  it("a person or plot page names the project too; a page without a heading says what its address does", () => {
+    const server = "Collect Earth Cloud";
+    expect(pageTitleOf({ own: "Plot 10", fallback: "Plot 10", tab: "Quality", h1: "Ghana", server })).toBe("Plot 10 – Quality – Ghana – Collect Earth Cloud");
+    expect(pageTitleOf({ own: "maria", fallback: null, tab: "People", h1: "Ghana", server })).toBe("maria – People – Ghana – Collect Earth Cloud");
+    // A project's tab: its h1 is the project.
+    expect(pageTitleOf({ own: null, fallback: null, tab: "Quality", h1: "Ghana", server })).toBe("Quality – Ghana – Collect Earth Cloud");
+    // A plot a reviewer may not see: no heading of its own, the address's words instead of the server alone.
+    expect(pageTitleOf({ own: null, fallback: "Plot 10", tab: "Quality", h1: "Ghana", server })).toBe("Plot 10 – Quality – Ghana – Collect Earth Cloud");
+    expect(pageTitleOf({ own: null, fallback: "Page not found", tab: null, h1: null, server })).toBe("Page not found – Collect Earth Cloud");
   });
 
   it("a page's own heading wins over the project's h1", () => {

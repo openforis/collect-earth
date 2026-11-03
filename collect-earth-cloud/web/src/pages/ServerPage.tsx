@@ -65,9 +65,18 @@ function DetailsForm({ settings, onSave }: { settings: ServerSettings; onSave: (
   const [problems, setProblems] = useState<DraftProblems>({});
   const [busy, setBusy] = useState(false);
 
+  // The label above the field, not inside it: a long label (es, fr) wraps there instead of being cut with "…".
   const field = (key: keyof SettingsDraft, label: MessageKey, help: MessageKey, extra: { type?: string; inputMode?: "numeric" } = {}) => (
+    <Stack spacing={0.75}>
+      <FormLabel htmlFor={`server-setting-${key}`} sx={{ color: "text.primary" }}>
+        {t(label)}
+      </FormLabel>
+      {textField(key, help, extra)}
+    </Stack>
+  );
+  const textField = (key: keyof SettingsDraft, help: MessageKey, extra: { type?: string; inputMode?: "numeric" }) => (
     <TextField
-      label={t(label)}
+      id={`server-setting-${key}`}
       value={draft[key]}
       onChange={(e) => {
         setDraft({ ...draft, [key]: e.target.value });
@@ -483,15 +492,6 @@ function OverviewCard() {
             </Typography>
             <Typography>{t("server.failedLogins", { count: n(o.security.totals.failedLogins) })}</Typography>
             <Typography sx={{ mb: 1 }}>{t("server.rateLimited", { count: n(o.security.totals.rateLimited) })}</Typography>
-            <Typography>
-              {t("server.lateDraws", { count: n(o.security.lateDraws) })}
-              {o.security.lastLateDrawAt !== null && ` ${t("server.lateDrawsLast", { date: formatDate(o.security.lastLateDrawAt, language) })}`}
-            </Typography>
-            {o.security.lateDraws > 0 && (
-              <Typography color="text.secondary" variant="body2" sx={{ mb: 1 }}>
-                {t("server.lateDrawsHelp")}
-              </Typography>
-            )}
             {o.security.hours.length === 0 ? (
               <Typography color="text.secondary">{t("server.securityEmpty")}</Typography>
             ) : (
@@ -521,6 +521,20 @@ function OverviewCard() {
                   </TableBody>
                 </Table>
               </TableContainer>
+            )}
+          </section>
+
+          {/* Apart from the failed logins: its own heading, so "None in the last 7 days" above is not read as about it. */}
+          <section aria-labelledby="server-late-draws">
+            {subtitle("server-late-draws", t("server.lateDrawsTitle"))}
+            <Typography>
+              {t("server.lateDraws", { count: n(o.security.lateDraws) })}
+              {o.security.lastLateDrawAt !== null && ` ${t("server.lateDrawsLast", { date: formatDate(o.security.lastLateDrawAt, language) })}`}
+            </Typography>
+            {o.security.lateDraws > 0 && (
+              <Typography color="text.secondary" variant="body2" sx={{ mb: 1 }}>
+                {t("server.lateDrawsHelp")}
+              </Typography>
             )}
           </section>
         </Stack>

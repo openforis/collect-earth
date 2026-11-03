@@ -729,8 +729,9 @@ export function PersonHeading({ data, title }: { data: PersonData; title?: strin
       )}
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
         <Chip label={chip.label} color={chip.color} size="small" />
-        <Typography color="text.secondary">{t(`role.${data.person.role}`)}</Typography>
-        <Typography color="text.secondary">· {t("person.lastSubmittedShort", { when: agoText(t, data.person.lastSubmittedAt, Date.now()) })}</Typography>
+        {/* The separator ends the role's line, so a wrapped line does not start with it. */}
+        <Typography color="text.secondary">{t(`role.${data.person.role}`)} ·</Typography>
+        <Typography color="text.secondary">{t("person.lastSubmittedShort", { when: agoText(t, data.person.lastSubmittedAt, Date.now()) })}</Typography>
       </Stack>
     </Stack>
   );

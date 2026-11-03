@@ -95,7 +95,8 @@ function People({ data }: { data: WeeklyData }) {
       {rows.length === 0 ? (
         <Typography>{t("weekly.noPeople")}</Typography>
       ) : (
-        <Box sx={{ overflowX: "auto" }}>
+        // It scrolls sideways inside its frame on a phone (Status last): reachable with Tab, then the arrow keys.
+        <Box sx={{ overflowX: "auto" }} tabIndex={0} role="region" aria-label={t("weekly.peopleTitle")}>
           <Table size="small" aria-label={t("weekly.peopleTitle")}>
             <TableHead>
               <TableRow>

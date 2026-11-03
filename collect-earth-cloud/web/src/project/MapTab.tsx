@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import LinearProgress from "@mui/material/LinearProgress";
+import Link from "@mui/material/Link";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -284,9 +285,9 @@ function PlotList({ projectId, data, shown }: { projectId: string; data: MapPlot
                   {list.rows.map((row) => (
                     <TableRow key={row.plot}>
                       <TableCell component="th" scope="row" sx={{ wordBreak: "break-word" }}>
-                        <a href={row.path} onClick={go(row.path)}>
+                        <Link href={row.path} onClick={go(row.path)}>
                           {t("map.popupPlot", { plot: row.label })}
-                        </a>
+                        </Link>
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>

@@ -43,7 +43,8 @@ function FileRow({ file, form, error, idBase, onChange }: { file: SamplingView["
   const { language } = useApp();
   return (
     <TableRow>
-      <TableCell component="th" scope="row" sx={{ wordBreak: "break-word" }}>
+      {/* A file name keeps a readable width; the table scrolls sideways in its frame on a phone. */}
+      <TableCell component="th" scope="row" sx={{ wordBreak: "break-word", minWidth: 160 }}>
         {file.filename}
       </TableCell>
       <TableCell sx={{ minWidth: 200 }}>

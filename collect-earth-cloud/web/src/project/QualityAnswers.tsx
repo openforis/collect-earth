@@ -32,6 +32,7 @@ import { useApp } from "../appContext";
 import {
   answerLabel,
   answerQuestions,
+  answersRefused,
   chanceText,
   choiceRows,
   datesInOrder,
@@ -552,6 +553,8 @@ export function QualityAnswers({ projectId, teamOnly = false }: { projectId: str
   const answers = useLoad(() => getAnswers(projectId, asked, timeZone), [projectId, key, timeZone]);
   const { data, error, loading, reload } = answers;
   const busy = error instanceof ApiError && error.code === "busy";
+  // A reviewer's filter of fewer than 5 plots is refused (403): the figures of the filter before are not shown under it.
+  const refused = answersRefused(teamOnly, error);
   // Newer figures are being worked out (or the server is busy): ask again in a while.
   useEffect(() => {
     if (loading || !(data?.stale || busy)) return;
@@ -582,7 +585,7 @@ export function QualityAnswers({ projectId, teamOnly = false }: { projectId: str
           </Alert>
         )}
         {/* A reviewer's filter must hold at least 5 plots (Decision 10): a smaller one is refused (403). */}
-        {teamOnly && error instanceof ApiError && error.status === 403 ? (
+        {refused ? (
           <Alert
             severity="info"
             role="status"
@@ -597,7 +600,7 @@ export function QualityAnswers({ projectId, teamOnly = false }: { projectId: str
         ) : (
           error !== null && !busy && <ErrorAlert error={error} onRetry={reload} />
         )}
-        {data && (
+        {data && !refused && (
           <Box sx={{ opacity: loading ? 0.6 : 1, transition: "opacity 120ms" }} aria-busy={loading}>
             <Stack spacing={2}>
               <Typography variant="body2" color="text.secondary">

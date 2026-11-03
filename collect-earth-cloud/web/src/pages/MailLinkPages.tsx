@@ -9,6 +9,9 @@ import { FormCard } from "../components/FormCard";
 import { useT, type MessageKey } from "../i18n";
 import { linkProps } from "../router";
 
+/** The result that replaces the button takes the focus (the button pressed is gone). Stable, so it runs once. */
+const focusOnMount = (element: HTMLElement | null) => element?.focus();
+
 /** A link's error as a sentence: a link that is not one (404) says so. */
 function linkError(error: unknown): MessageKey {
   return error instanceof ApiError && error.status === 404 ? "mail.linkInvalid" : errorMessageKey(error);
@@ -25,6 +28,7 @@ export function UnsubscribePage({ token }: { token: string }) {
   const [error, setError] = useState<MessageKey | null>(null);
   const [busy, setBusy] = useState(false);
   const submit = async () => {
+    if (busy) return;
     setError(null);
     setBusy(true);
     try {
@@ -39,12 +43,12 @@ export function UnsubscribePage({ token }: { token: string }) {
     <AppShell narrow bare>
       <FormCard title={t("mail.unsubscribeTitle")} intro={done ? undefined : t("mail.unsubscribeIntro")} onSubmit={() => void submit()}>
         {done ? (
-          <Alert severity="success" role="status">
+          <Alert severity="success" role="status" tabIndex={-1} ref={focusOnMount}>
             {t(done === "coordinator" ? "mail.unsubscribedCoordinator" : "mail.unsubscribedCollector")}
           </Alert>
         ) : (
           <Box>
-            <Button type="submit" variant="contained" size="large" disabled={busy}>
+            <Button type="submit" variant="contained" size="large" aria-disabled={busy}>
               {t("mail.unsubscribeSubmit")}
             </Button>
           </Box>
@@ -63,6 +67,7 @@ export function ConfirmEmailPage({ token }: { token: string }) {
   const [error, setError] = useState<MessageKey | null>(null);
   const [busy, setBusy] = useState(false);
   const submit = async () => {
+    if (busy) return;
     setError(null);
     setBusy(true);
     try {
@@ -79,7 +84,7 @@ export function ConfirmEmailPage({ token }: { token: string }) {
       <FormCard title={t("mail.confirmTitle")} intro={done ? undefined : t("mail.confirmIntro")} onSubmit={() => void submit()}>
         {done ? (
           <>
-            <Alert severity="success" role="status">
+            <Alert severity="success" role="status" tabIndex={-1} ref={focusOnMount}>
               {t("mail.confirmDone")}
             </Alert>
             <Box>
@@ -90,7 +95,7 @@ export function ConfirmEmailPage({ token }: { token: string }) {
           </>
         ) : (
           <Box>
-            <Button type="submit" variant="contained" size="large" disabled={busy}>
+            <Button type="submit" variant="contained" size="large" aria-disabled={busy}>
               {t("mail.confirmSubmit")}
             </Button>
           </Box>
