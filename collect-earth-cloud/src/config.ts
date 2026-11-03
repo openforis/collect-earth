@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { isUuid } from './accountRules.js';
 import { isMailFrom, parseSmtpUrl } from './mail.js';
 
@@ -210,7 +211,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     mapTiles: mapTilesOf(env),
     ...mailConfigOf(env),
     trustForwardedHost: env.TRUST_FORWARDED_HOST === 'true' || env.TRUST_FORWARDED_HOST === '1',
-    webDir: nonEmpty(env.WEB_DIR?.trim()),
+    webDir: webDirOf(env.WEB_DIR),
   };
 }
 
@@ -244,7 +245,7 @@ function loadLocalConfig(env: NodeJS.ProcessEnv): Config {
     localUser: nonEmpty(env.LOCAL_USER?.trim()),
     localProjectId: localProjectId?.toLowerCase(),
     localProjectName,
-    webDir: nonEmpty(env.WEB_DIR?.trim()),
+    webDir: webDirOf(env.WEB_DIR),
     qualityWorkerMaxMb: qualityWorkerMaxMbOf(env.QUALITY_WORKER_MAX_MB),
     parsedCacheMb: wholeAtLeast('PARSED_FILES_CACHE_MB', env.PARSED_FILES_CACHE_MB, 8),
     servedCacheMb: wholeAtLeast('SERVED_FILES_CACHE_MB', env.SERVED_FILES_CACHE_MB, 8),
@@ -402,4 +403,10 @@ function rateLimitOf(value: string | undefined): number | undefined {
     throw new Error(`Invalid RATE_LIMIT_PER_MINUTE "${value}" (expected a whole number, 0 = off)`);
   }
   return n;
+}
+
+/** WEB_DIR, from the working folder when relative: the static file server takes only absolute paths. */
+function webDirOf(value: string | undefined): string | undefined {
+  const dir = nonEmpty(value?.trim());
+  return dir === undefined ? undefined : resolve(dir);
 }

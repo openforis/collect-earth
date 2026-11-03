@@ -37,6 +37,16 @@ const RECORD_KEYS = {
   deleted: "activity.record.deleted",
 } as const satisfies Record<string, MessageKey>;
 
+/** The local mode's (one person): "You submitted plot 17". */
+const RECORD_KEYS_LOCAL = {
+  created: "activity.recordLocal.created",
+  updated: "activity.recordLocal.updated",
+  submitted: "activity.recordLocal.submitted",
+  resubmitted: "activity.recordLocal.resubmitted",
+  unsubmitted: "activity.recordLocal.unsubmitted",
+  deleted: "activity.recordLocal.deleted",
+} as const satisfies Record<keyof typeof RECORD_KEYS, MessageKey>;
+
 /** The same for a quality check (its own sentences: in es, fr and pt a check and a plot differ in gender). */
 const CHECK_KEYS = {
   created: "activity.check.created",
@@ -90,17 +100,26 @@ function fileOf(t: Translate, page: Pick<ActivityPage, "files">, id: unknown): s
 
 const num = (v: unknown, language: string) => formatNumber(typeof v === "number" ? v : Number(v) || 0, language);
 
-/** What a row of the log says, without its time: "maria submitted plot 17". */
-export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage, "people" | "files">, language: string): string {
+/**
+ * What a row of the log says, without its time: "maria submitted plot 17". `local`: the local mode
+ * (one person, on their own computer), where everything was done by you or sent by your Collect
+ * Earth: "You submitted plot 17", "Plot file plots.csv loaded (120 plots)".
+ */
+export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage, "people" | "files">, language: string, options: { local?: boolean } = {}): string {
+  const local = options.local === true;
   if (item.type === "record") {
     // Coordinators see which records are checks (the log is theirs only).
     if (item.assessment === "check") return t(CHECK_KEYS[item.change], { person: item.person, plot: item.name });
     const plot = item.assessment === "other" ? t("activity.roundOf", { plot: item.name, round: item.round }) : item.name;
-    return t(RECORD_KEYS[item.change], { person: item.person, plot });
+    return local ? t(RECORD_KEYS_LOCAL[item.change], { plot }) : t(RECORD_KEYS[item.change], { person: item.person, plot });
   }
   const d = item.details;
   const actor = who(t, item.person);
   const plot = item.plotName ?? (typeof d.plot === "string" ? d.plot : "");
+  if (local) {
+    const sentence = localAuditSentence(t, item.action, d, page, language);
+    if (sentence !== null) return sentence;
+  }
   switch (item.action) {
     case "invite.created":
       if (typeof d.forUserId === "string") return t("activity.audit.inviteFor", { actor, person: personOf(t, page, d.forUserId) });
@@ -154,6 +173,27 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
     }
     default:
       return t("activity.audit.other", { actor, action: item.action });
+  }
+}
+
+/** The local mode's sentences for what happens alone: the files Collect Earth sends, your settings and downloads (null: another action). */
+function localAuditSentence(t: Translate, action: string, d: Record<string, unknown>, page: Pick<ActivityPage, "files">, language: string): string | null {
+  switch (action) {
+    case "cep.replaced":
+      return t("activity.auditLocal.cep");
+    case "survey.replaced":
+      return t("activity.auditLocal.survey");
+    case "csv.uploaded":
+      return t("activity.auditLocal.csv", { file: fileOf(t, page, d.csvFileId), count: num(d.plots, language) });
+    case "settings.changed":
+      return t("activity.auditLocal.settings", { what: t(SETTING_KEYS[String(d.setting)] ?? "activity.setting.other") });
+    case "export.downloaded":
+      if (typeof d.kind === "string" && EXPORT_KEYS[d.kind]) {
+        return t(d.completed === false ? "activity.auditLocal.downloadStopped" : "activity.auditLocal.download", { what: t(EXPORT_KEYS[d.kind]) });
+      }
+      return t("activity.auditLocal.downloadData", { count: num(d.records, language) });
+    default:
+      return null;
   }
 }
 

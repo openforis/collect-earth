@@ -24,6 +24,11 @@ export interface ServerInfo {
   aiAvailable: boolean;
   /** The map of progress's base map (OpenStreetMap unless the server sets another). */
   mapTiles: MapTiles;
+  /**
+   * The dashboard runs on the person's own computer, for one person working alone (the server's
+   * LOCAL_MODE): what is about other people or the server is hidden (src/localMode.ts).
+   */
+  localMode: boolean;
 }
 
 /** A base map's tiles: a URL with {z}/{x}/{y}, the attribution the source asks for (plain text) and where it links. */
@@ -721,6 +726,7 @@ export async function getServerInfo(): Promise<ServerInfo> {
       serverName: optionalText(info?.serverName),
       aiAvailable: info?.aiAvailable === true,
       mapTiles: toMapTiles(info?.mapTiles),
+      localMode: info?.localMode === true,
     };
   } catch (error) {
     // A server from before the dashboard existed: no setup, no sign-up.
@@ -735,6 +741,7 @@ export async function getServerInfo(): Promise<ServerInfo> {
         serverName: null,
         aiAvailable: false,
         mapTiles: OSM_TILES,
+        localMode: false,
       };
     }
     throw error;

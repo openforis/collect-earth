@@ -21,12 +21,13 @@ import Refresh from "@mui/icons-material/Refresh";
 import WarningAmber from "@mui/icons-material/WarningAmber";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { getProgress, type AttentionItem, type ProgressData } from "../api";
-import { useApp } from "../appContext";
+import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { AsOf } from "../components/PeopleCharts";
 import { Loading } from "../components/Loading";
 import { formatDay, formatNumber } from "../format";
 import { useT } from "../i18n";
+import { attentionShown, totalStats, type TotalStat } from "../localMode";
 import {
   attentionAction,
   attentionText,
@@ -34,6 +35,7 @@ import {
   browserTimeZone,
   dayText,
   forecastSentences,
+  forecastTargetKey,
   percentText,
   personDetail,
   progressChart,
@@ -109,34 +111,41 @@ function Stat({ label, value, help, share }: { label: string; value: string; hel
   );
 }
 
-export function Totals({ data }: { data: ProgressFigures }) {
+/** `local`: the local mode (one person), without the plots given to someone (they are all yours). */
+export function Totals({ data, local = false }: { data: ProgressFigures; local?: boolean }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
   const { totals } = data;
   const share = (part: number) => ({ value: barValue(part, totals.plots), text: t("progress.ofPlots", { percent: percentText(part, totals.plots, language) }) });
+  const stats = totalStats(local);
+  // Five numbers: two, then three, in a row (on a desktop); four: two by two, or four in a row.
+  const size = (stat: TotalStat) =>
+    stats.length === 4 ? { xs: 12, sm: 6, md: 3 } : stat === "plots" || stat === "assigned" ? { xs: 12, sm: 6, md: 4 } : stat === "submitted" ? { xs: 12, sm: 4, md: 4 } : { xs: 12, sm: 4, md: 6 };
+  const card = (stat: TotalStat) => {
+    switch (stat) {
+      case "plots":
+        return <Stat label={t("progress.plots")} value={n(totals.plots)} help={t("progress.plotsHelp")} />;
+      case "assigned":
+        return (
+          <Stat
+            label={t("progress.assigned")}
+            value={n(totals.assigned)}
+            share={share(totals.assigned)}
+            help={totals.notAssigned > 0 ? t("progress.notAssignedHelp", { n: n(totals.notAssigned) }) : t("progress.allAssignedHelp")}
+          />
+        );
+      default:
+        return <Stat label={t(`progress.${stat}`)} value={n(totals[stat])} share={share(totals[stat])} />;
+    }
+  };
   return (
     <Grid container spacing={2}>
-      <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-        <Stat label={t("progress.plots")} value={n(totals.plots)} help={t("progress.plotsHelp")} />
-      </Grid>
-      <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-        <Stat
-          label={t("progress.assigned")}
-          value={n(totals.assigned)}
-          share={share(totals.assigned)}
-          help={totals.notAssigned > 0 ? t("progress.notAssignedHelp", { n: n(totals.notAssigned) }) : t("progress.allAssignedHelp")}
-        />
-      </Grid>
-      <Grid size={{ xs: 12, sm: 4, md: 4 }}>
-        <Stat label={t("progress.submitted")} value={n(totals.submitted)} share={share(totals.submitted)} />
-      </Grid>
-      <Grid size={{ xs: 12, sm: 4, md: 6 }}>
-        <Stat label={t("progress.started")} value={n(totals.started)} share={share(totals.started)} />
-      </Grid>
-      <Grid size={{ xs: 12, sm: 4, md: 6 }}>
-        <Stat label={t("progress.notStarted")} value={n(totals.notStarted)} share={share(totals.notStarted)} />
-      </Grid>
+      {stats.map((stat) => (
+        <Grid key={stat} size={size(stat)}>
+          {card(stat)}
+        </Grid>
+      ))}
     </Grid>
   );
 }
@@ -297,20 +306,21 @@ export function OverTime({ data }: { data: ProgressFigures }) {
   );
 }
 
-/** `publicView`: a progress link's page (no Settings tab to point to). */
-export function ForecastSection({ data, publicView }: { data: ProgressFigures; publicView?: boolean }) {
+/** `publicView`: a progress link's page (no Settings tab to point to); `local`: the local mode (one person). */
+export function ForecastSection({ data, publicView, local }: { data: ProgressFigures; publicView?: boolean; local?: boolean }) {
   const t = useT();
   const { language } = useApp();
   const f = data.forecast;
+  const targetKey = forecastTargetKey(f, { publicView, local });
   return (
     <Section title={t("progress.forecastTitle")} id="progress-forecast">
       <Stack spacing={1}>
-        {forecastSentences(t, f, language, { publicView }).map((s) => (
+        {forecastSentences(t, f, language, { publicView, local }).map((s) => (
           <Typography key={s}>{s}</Typography>
         ))}
-        {f.target > 0 && (
+        {targetKey !== null && (
           <Typography variant="body2" color="text.secondary">
-            {t(f.targetFrom === "setting" ? (publicView ? "publicProgress.forecastTargetSet" : "progress.forecastTargetSet") : "progress.forecastTarget", { target: formatNumber(f.target, language) })}
+            {t(targetKey, { target: formatNumber(f.target, language) })}
           </Typography>
         )}
       </Stack>
@@ -398,6 +408,8 @@ function Attention({ items, onGo }: { items: AttentionItem[]; onGo: (tab: Projec
  */
 export function ProgressTab({ projectId, onGo }: { projectId: string; onGo: (tab: ProjectTab) => void }) {
   const t = useT();
+  // The local mode (one person): no cards about other people, nor plots given to someone.
+  const local = useLocalMode();
   const timeZone = browserTimeZone();
   const state = useLoad(() => getProgress(projectId, timeZone), [projectId, timeZone]);
   const [loadedAt, setLoadedAt] = useState(() => Date.now());
@@ -415,6 +427,7 @@ export function ProgressTab({ projectId, onGo }: { projectId: string; onGo: (tab
 
   if (loading && !data) return <Loading />;
   if (!data) return <ErrorAlert error={state.error} onRetry={reload} />;
+  const attention = attentionShown(local, data.attention);
 
   return (
     <Stack spacing={3}>
@@ -429,15 +442,15 @@ export function ProgressTab({ projectId, onGo }: { projectId: string; onGo: (tab
       {state.error !== null && state.error !== undefined && <ErrorAlert error={state.error} onRetry={reload} />}
       <AsOf asOf={data.asOf} />
       {data.totals.plots === 0 ? (
-        // Only coordinators can open Setup (reviewers get no cards either).
-        <Alert severity="info" action={data.attention !== null ? <Button onClick={() => onGo("setup")}>{t("progress.goSetup")}</Button> : undefined}>
-          {t("progress.noPlots")}
+        // Only coordinators can open Setup (reviewers get no cards either); Collect Earth sends the local mode's plot files.
+        <Alert severity="info" action={!local && data.attention !== null ? <Button onClick={() => onGo("setup")}>{t("progress.goSetup")}</Button> : undefined}>
+          {t(local ? "progress.noPlotsLocal" : "progress.noPlots")}
         </Alert>
       ) : (
-        <Totals data={data} />
+        <Totals data={data} local={local} />
       )}
-      {data.attention !== null && <Attention items={data.attention} onGo={onGo} />}
-      <ForecastSection data={data} />
+      {attention !== null && <Attention items={attention} onGo={onGo} />}
+      <ForecastSection data={data} local={local} />
       <OverTime data={data} />
     </Stack>
   );

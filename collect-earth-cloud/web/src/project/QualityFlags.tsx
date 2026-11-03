@@ -28,7 +28,7 @@ import {
   type FlagsData,
   type FlagsFilter,
 } from "../api";
-import { useApp } from "../appContext";
+import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { FLAG_KIND_KEYS, flagText, parseSeconds, PROBLEM_KINDS } from "../flagsView";
@@ -60,6 +60,7 @@ function SelectField({ label, value, onChange, children }: { label: string; valu
 /** The "very fast" threshold: coordinators change it, reviewers read it. */
 function Threshold({ projectId, data, canEdit, onSaved }: { projectId: string; data: FlagsData; canEdit: boolean; onSaved: () => void }) {
   const t = useT();
+  const local = useLocalMode();
   const [text, setText] = useState(String(data.fastSeconds));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -98,7 +99,7 @@ function Threshold({ projectId, data, canEdit, onSaved }: { projectId: string; d
           value={text}
           onChange={(e) => (setText(e.target.value), setSaved(false))}
           error={value === null}
-          helperText={value === null ? t("flags.fastInvalid", range) : t("flags.fastHelp", range)}
+          helperText={value === null ? t("flags.fastInvalid", range) : t(local ? "flags.fastHelpLocal" : "flags.fastHelp", range)}
           slotProps={{ htmlInput: { inputMode: "numeric" } }}
           sx={{ maxWidth: { sm: 320 } }}
         />
@@ -176,6 +177,9 @@ function PeopleCounts({ data, onPerson }: { data: FlagsData; onPerson: (username
 export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdit: boolean }) {
   const t = useT();
   const { language } = useApp();
+  // The local mode (one person): every flag is yours, so no person filter, names or counts per person.
+  const local = useLocalMode();
+  const perPerson = canEdit && !local;
   const [filter, setFilter] = useState<FlagsFilter>(NO_FLAGS_FILTER);
   const [all, setAll] = useState(false);
   const key = JSON.stringify(filter);
@@ -200,7 +204,7 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
         <Typography variant="h2" id="flags-title">
           {t("flags.title")}
         </Typography>
-        <Typography color="text.secondary">{t("flags.explain")}</Typography>
+        <Typography color="text.secondary">{t(local ? "flags.explainLocal" : "flags.explain")}</Typography>
         {!data && loading && <Loading />}
         {busy && (
           <Alert severity="info" role="status" action={<Button color="inherit" size="small" onClick={reload}>{t("common.retry")}</Button>}>
@@ -217,7 +221,7 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
               </Typography>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
                 {/* Reviewers get no counts per person (Decision 10): no person filter for them. */}
-                {canEdit && (
+                {perPerson && (
                   <SelectField label={t("answers.filterPerson")} value={filter.person ?? ALL} onChange={(v) => (setFilter({ ...filter, person: v === ALL ? null : v }), setAll(false))}>
                     <MenuItem value={ALL}>{t("answers.everyone")}</MenuItem>
                     {people.map((p) => (
@@ -251,7 +255,7 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
               </Typography>
               {problems > 0 && (
                 <Typography variant="body2" color="text.secondary">
-                  {t(canEdit ? "flags.problemsNote" : "flags.problemsNoteReviewer")}
+                  {t(local ? "flags.problemsNoteLocal" : canEdit ? "flags.problemsNote" : "flags.problemsNoteReviewer")}
                 </Typography>
               )}
               {data.flags.length === 0 ? (
@@ -268,13 +272,12 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
                           {t("flags.plot", { plot: f.plot })}
                         </Typography>
                         <Typography variant="body2" component="span" color="text.secondary">
-                          {" · "}
-                          {f.operator}
+                          {local ? "" : ` · ${f.operator}`}
                           {f.at !== null ? ` · ${formatDate(f.at, language)}` : ""}
                           {" · "}
                           {t(FLAG_KIND_KEYS[f.kind])}
                         </Typography>
-                        <Typography variant="body2">{flagText(t, f, language)}</Typography>
+                        <Typography variant="body2">{flagText(t, f, language, { local })}</Typography>
                       </Box>
                     ))}
                   </Stack>
@@ -294,7 +297,7 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
                   )}
                 </Box>
               )}
-              {canEdit && <PeopleCounts data={data} onPerson={(username) => (setFilter({ ...filter, person: username }), setAll(false))} />}
+              {perPerson && <PeopleCounts data={data} onPerson={(username) => (setFilter({ ...filter, person: username }), setAll(false))} />}
             </Stack>
           </Box>
         )}

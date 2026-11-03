@@ -12,7 +12,7 @@ import Typography from "@mui/material/Typography";
 import ChevronLeft from "@mui/icons-material/ChevronLeft";
 import ChevronRight from "@mui/icons-material/ChevronRight";
 import { getWeekly, type FlagCounts, type WeeklyData } from "../api";
-import { useApp } from "../appContext";
+import { useApp, useLocalMode } from "../appContext";
 import { dayStartMs, isoWeekOf, localDay, shiftWeek } from "../activityView";
 import { AsOf } from "../components/PeopleCharts";
 import { ErrorAlert } from "../components/ErrorAlert";
@@ -20,6 +20,7 @@ import { Loading } from "../components/Loading";
 import { countsText } from "../flagsView";
 import { formatDay, formatNumber } from "../format";
 import { useT } from "../i18n";
+import { weeklyBlocks } from "../localMode";
 import { statusChip } from "../peopleView";
 import { browserTimeZone } from "../progressView";
 import { rateText } from "../qualityView";
@@ -48,7 +49,8 @@ function WeekNav({ projectId, data }: { projectId: string; data: WeeklyData }) {
   );
 }
 
-function Progress({ data }: { data: WeeklyData }) {
+/** `local`: the local mode (one person), with no quality checks to count. */
+function Progress({ data, local }: { data: WeeklyData; local: boolean }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -56,8 +58,8 @@ function Progress({ data }: { data: WeeklyData }) {
   return (
     <Block title={t("weekly.progressTitle")}>
       <Typography>{t("weekly.submitted", { n: n(p.submitted) })}</Typography>
-      {p.checks > 0 && <Typography>{t("weekly.checks", { n: n(p.checks) })}</Typography>}
-      {p.referenceMeasurements > 0 && <Typography>{t("weekly.referenceMeasurements", { n: n(p.referenceMeasurements) })}</Typography>}
+      {p.checks > 0 && !local && <Typography>{t("weekly.checks", { n: n(p.checks) })}</Typography>}
+      {p.referenceMeasurements > 0 && !local && <Typography>{t("weekly.referenceMeasurements", { n: n(p.referenceMeasurements) })}</Typography>}
       <Typography>{t("weekly.byEnd", { n: n(p.byEnd), total: n(p.totals.plots), before: n(p.before) })}</Typography>
       {data.current && <Typography color="text.secondary">{t("weekly.now", { n: n(p.totals.submitted), total: n(p.totals.plots) })}</Typography>}
       <Box sx={{ overflowX: "auto" }}>
@@ -66,7 +68,7 @@ function Progress({ data }: { data: WeeklyData }) {
             <TableRow>
               <TableCell>{t("weekly.day")}</TableCell>
               <TableCell align="right">{t("weekly.plots")}</TableCell>
-              <TableCell align="right">{t("weekly.checksCol")}</TableCell>
+              {!local && <TableCell align="right">{t("weekly.checksCol")}</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -74,7 +76,7 @@ function Progress({ data }: { data: WeeklyData }) {
               <TableRow key={d.date}>
                 <TableCell>{dayText(d.date, language)}</TableCell>
                 <TableCell align="right">{n(d.submitted)}</TableCell>
-                <TableCell align="right">{n(d.checks)}</TableCell>
+                {!local && <TableCell align="right">{n(d.checks)}</TableCell>}
               </TableRow>
             ))}
           </TableBody>
@@ -178,10 +180,43 @@ function Quality({ projectId, data }: { projectId: string; data: WeeklyData }) {
   );
 }
 
+/** The local mode's quality for the week: the plots worth a look (pattern flags) saved in it. */
+function Flags({ projectId, data }: { projectId: string; data: WeeklyData }) {
+  const t = useT();
+  const { language } = useApp();
+  const q = data.quality;
+  return (
+    <Block title={t("flags.title")}>
+      {!q.available || !q.flags ? (
+        <Alert
+          severity="info"
+          action={
+            <Button className="no-print" {...linkProps(pathFor({ name: "project", projectId, tab: "quality" }))}>
+              {t("weekly.openQuality")}
+            </Button>
+          }
+        >
+          {t("weekly.noFiguresLocal")}
+        </Alert>
+      ) : (
+        <>
+          <Typography>
+            {q.flags.total === 0 ? t("weekly.flagsNone") : t("weekly.flags", { n: formatNumber(q.flags.total, language), kinds: countsText(t, q.flags.counts as FlagCounts, language) })}
+          </Typography>
+          <FiguresTime computedAt={q.computedAt} stale={q.stale} />
+        </>
+      )}
+    </Block>
+  );
+}
+
 /** The printable weekly summary (coordinators): one ISO week of the viewer's calendar. */
 export function WeeklyPage({ projectId, week }: { projectId: string; week: string | null }) {
   const t = useT();
   const { language } = useApp();
+  // The local mode (one person): no one else's week, and the pattern flags for quality.
+  const local = useLocalMode();
+  const blocks = weeklyBlocks(local);
   const timeZone = browserTimeZone();
   const state = useLoad(() => getWeekly(projectId, week, timeZone), [projectId, week, timeZone]);
   const data = state.data;
@@ -195,9 +230,17 @@ export function WeeklyPage({ projectId, week }: { projectId: string; week: strin
           <WeekNav projectId={projectId} data={data} />
           {data.current && <Alert severity="info" role="note">{t("weekly.current")}</Alert>}
           <AsOf asOf={data.asOf} />
-          <Progress data={data} />
-          <People data={data} />
-          <Quality projectId={projectId} data={data} />
+          {blocks.map((block) =>
+            block === "progress" ? (
+              <Progress key={block} data={data} local={local} />
+            ) : block === "people" ? (
+              <People key={block} data={data} />
+            ) : block === "quality" ? (
+              <Quality key={block} projectId={projectId} data={data} />
+            ) : (
+              <Flags key={block} projectId={projectId} data={data} />
+            ),
+          )}
           <Typography variant="body2" color="text.secondary">
             {t("weekly.zone", { zone: data.timeZone })}
           </Typography>

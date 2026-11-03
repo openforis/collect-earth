@@ -11,10 +11,11 @@ import Typography from "@mui/material/Typography";
 import DeleteForever from "@mui/icons-material/DeleteForever";
 import { useState, type FormEvent } from "react";
 import { deleteProject, getProgressSettings, getProjectAi, renameProject, saveProgressSettings, setProjectAi, type ProgressSettings } from "../api";
-import { useApp } from "../appContext";
+import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { useT } from "../i18n";
+import { settingsCards } from "../localMode";
 import { progressDraftOf, readProgressDraft, type ProgressDraft, type ProgressProblems } from "../progressView";
 import { linkProps, navigate, pathFor } from "../router";
 import { useLoad } from "../useLoad";
@@ -86,6 +87,8 @@ function RenameCard({ projectId, name, onRenamed }: { projectId: string; name: s
 /** The Progress tab's settings: an optional deadline and target, and when someone counts as quiet. */
 function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string; saved: ProgressSettings; onSaved: (s: ProgressSettings) => void }) {
   const t = useT();
+  // The local mode (one person): the target is the plots you plan to do, and nobody can go quiet.
+  const local = useLocalMode();
   const [draft, setDraft] = useState<ProgressDraft>(() => progressDraftOf(saved));
   const [problems, setProblems] = useState<ProgressProblems>({});
   const [error, setError] = useState<unknown>(null);
@@ -134,7 +137,7 @@ function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string
         value={draft.targetPlots}
         onChange={(e) => change("targetPlots")(e.target.value)}
         error={problems.targetPlots !== undefined}
-        helperText={problems.targetPlots ? t(problems.targetPlots) : t("progressSettings.targetHelp")}
+        helperText={problems.targetPlots ? t(problems.targetPlots) : t(local ? "progressSettings.targetHelpLocal" : "progressSettings.targetHelp")}
         slotProps={{ htmlInput: { inputMode: "numeric" } }}
       />
       <TextField
@@ -142,7 +145,7 @@ function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string
         value={draft.quietDays}
         onChange={(e) => change("quietDays")(e.target.value)}
         error={problems.quietDays !== undefined}
-        helperText={problems.quietDays ? t(problems.quietDays) : t("progressSettings.quietDaysHelp")}
+        helperText={problems.quietDays ? t(problems.quietDays) : t(local ? "progressSettings.quietDaysHelpLocal" : "progressSettings.quietDaysHelp")}
         slotProps={{ htmlInput: { inputMode: "numeric" } }}
       />
       {done && (
@@ -162,6 +165,7 @@ function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string
 
 function ProgressCard({ projectId }: { projectId: string }) {
   const t = useT();
+  const local = useLocalMode();
   const settings = useLoad(() => getProgressSettings(projectId), [projectId]);
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="settings-progress">
@@ -169,7 +173,7 @@ function ProgressCard({ projectId }: { projectId: string }) {
         <Typography variant="h2" id="settings-progress">
           {t("progressSettings.title")}
         </Typography>
-        <Typography>{t("progressSettings.intro")}</Typography>
+        <Typography>{t(local ? "progressSettings.introLocal" : "progressSettings.intro")}</Typography>
         {settings.loading && !settings.data ? (
           <Loading />
         ) : settings.error || !settings.data ? (
@@ -298,14 +302,24 @@ function DeleteCard({ projectId, name }: { projectId: string; name: string }) {
   );
 }
 
+/** The project's settings; in the local mode (one person), the progress settings only (src/localMode.ts, settingsCards). */
 export function SettingsTab({ projectId, name, onRenamed }: { projectId: string; name: string; onRenamed: (name: string) => void }) {
+  const cards = settingsCards(useLocalMode());
   return (
     <Stack spacing={3}>
-      <RenameCard projectId={projectId} name={name} onRenamed={onRenamed} />
-      <ProgressCard projectId={projectId} />
-      <ShareLinksCard projectId={projectId} />
-      <AiCard projectId={projectId} />
-      <DeleteCard projectId={projectId} name={name} />
+      {cards.map((card) =>
+        card === "rename" ? (
+          <RenameCard key={card} projectId={projectId} name={name} onRenamed={onRenamed} />
+        ) : card === "progress" ? (
+          <ProgressCard key={card} projectId={projectId} />
+        ) : card === "shareLinks" ? (
+          <ShareLinksCard key={card} projectId={projectId} />
+        ) : card === "ai" ? (
+          <AiCard key={card} projectId={projectId} />
+        ) : (
+          <DeleteCard key={card} projectId={projectId} name={name} />
+        ),
+      )}
     </Stack>
   );
 }

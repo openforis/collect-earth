@@ -12,7 +12,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { useEffect, useState } from "react";
 import { ApiError, getSurveyHealth, type HealthRow, type SurveyHealthData } from "../api";
-import { useApp } from "../appContext";
+import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
@@ -23,7 +23,8 @@ import { useLoad } from "../useLoad";
 /** Tables fit a phone: they scroll inside their own frame. */
 const tableFrame = { border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto", maxHeight: 560 } as const;
 
-function Row({ row, data, showNone }: { row: HealthRow; data: SurveyHealthData; showNone: boolean }) {
+/** `checks`: the columns about quality checks and decisions (none in the local mode). */
+function Row({ row, data, showNone, checks }: { row: HealthRow; data: SurveyHealthData; showNone: boolean; checks: boolean }) {
   const t = useT();
   const { language } = useApp();
   return (
@@ -66,8 +67,8 @@ function Row({ row, data, showNone }: { row: HealthRow; data: SurveyHealthData; 
       <TableCell sx={{ minWidth: 100 }}>{emptyText(t, row, data, language)}</TableCell>
       <TableCell sx={{ minWidth: 130, wordBreak: "break-word" }}>{otherText(t, row, language) || "—"}</TableCell>
       {showNone && <TableCell sx={{ minWidth: 120, wordBreak: "break-word" }}>{noneText(t, row, language) || "—"}</TableCell>}
-      <TableCell sx={{ minWidth: 110 }}>{agreementText(t, row, language)}</TableCell>
-      <TableCell sx={{ minWidth: 90 }}>{changedText(t, row, data, language)}</TableCell>
+      {checks && <TableCell sx={{ minWidth: 110 }}>{agreementText(t, row, language)}</TableCell>}
+      {checks && <TableCell sx={{ minWidth: 90 }}>{changedText(t, row, data, language)}</TableCell>}
     </TableRow>
   );
 }
@@ -80,6 +81,9 @@ function Row({ row, data, showNone }: { row: HealthRow; data: SurveyHealthData; 
 export function QualitySurvey({ projectId }: { projectId: string }) {
   const t = useT();
   const { language } = useApp();
+  // The local mode (one person): no quality checks nor decisions, so no columns or notes about them.
+  const local = useLocalMode();
+  const checks = !local;
   const [all, setAll] = useState(false);
   const { data, error, loading, reload } = useLoad(() => getSurveyHealth(projectId), [projectId]);
   const busy = error instanceof ApiError && error.code === "busy";
@@ -101,7 +105,7 @@ export function QualitySurvey({ projectId }: { projectId: string }) {
         <Typography variant="h2" id="health-title">
           {t("health.title")}
         </Typography>
-        <Typography color="text.secondary">{t("health.explain")}</Typography>
+        <Typography color="text.secondary">{t(local ? "health.explainLocal" : "health.explain")}</Typography>
         {!data && loading && <Loading />}
         {busy && (
           <Alert severity="info" role="status" action={<Button color="inherit" size="small" onClick={reload}>{t("common.retry")}</Button>}>
@@ -113,7 +117,9 @@ export function QualitySurvey({ projectId }: { projectId: string }) {
           <Box sx={{ opacity: loading ? 0.6 : 1, transition: "opacity 120ms" }} aria-busy={loading}>
             <Stack spacing={2}>
               <Typography variant="body2" color="text.secondary">
-                <span aria-live="polite">{t("health.count", { plots: n(data.plots), checked: n(data.plotsChecked), decided: n(data.decidedForCheck) })}</span>
+                <span aria-live="polite">
+                  {local ? t("health.countLocal", { plots: n(data.plots) }) : t("health.count", { plots: n(data.plots), checked: n(data.plotsChecked), decided: n(data.decidedForCheck) })}
+                </span>
                 {data.computedAt !== null && ` ${t(data.stale ? "answers.asOfStale" : "answers.asOf", { time: formatDate(data.computedAt, language) })}`}
               </Typography>
               {data.questions.length === 0 ? (
@@ -131,13 +137,13 @@ export function QualitySurvey({ projectId }: { projectId: string }) {
                             <TableCell>{t("health.colEmpty")}</TableCell>
                             <TableCell>{t("health.colOther")}</TableCell>
                             {showNone && <TableCell>{t("health.colNone")}</TableCell>}
-                            <TableCell>{t("health.colAgreement")}</TableCell>
-                            <TableCell>{t("health.colChanged")}</TableCell>
+                            {checks && <TableCell>{t("health.colAgreement")}</TableCell>}
+                            {checks && <TableCell>{t("health.colChanged")}</TableCell>}
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {shown.map((row) => (
-                            <Row key={row.key} row={row} data={data} showNone={showNone} />
+                            <Row key={row.key} row={row} data={data} showNone={showNone} checks={checks} />
                           ))}
                         </TableBody>
                       </Table>
@@ -162,13 +168,13 @@ export function QualitySurvey({ projectId }: { projectId: string }) {
                   {t("health.notesTitle")}
                 </Typography>
                 <Stack spacing={1} sx={{ mt: 1 }}>
-                  {(["health.noteEmpty", "health.noteOther", "health.noteAgreement", "health.noteChanged"] as const).map((k) => (
+                  {(checks ? (["health.noteEmpty", "health.noteOther", "health.noteAgreement", "health.noteChanged"] as const) : (["health.noteEmpty", "health.noteOther"] as const)).map((k) => (
                     <Typography key={k} variant="body2" color="text.secondary">
                       {t(k)}
                     </Typography>
                   ))}
                   <Typography variant="body2" color="text.secondary">
-                    {orderText(t, data, language)}
+                    {orderText(t, data, language, { local })}
                   </Typography>
                 </Stack>
               </Box>

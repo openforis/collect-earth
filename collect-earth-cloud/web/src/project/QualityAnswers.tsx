@@ -28,7 +28,7 @@ import {
   type NumberAnswers,
   type NumberSpread,
 } from "../api";
-import { useApp } from "../appContext";
+import { useApp, useLocalMode } from "../appContext";
 import {
   answerLabel,
   answerQuestions,
@@ -163,7 +163,8 @@ function BarRows({
   );
 }
 
-function ChoiceView({ choice, person, narrowed }: { choice: ChoiceAnswers; person: string | null; narrowed: boolean }) {
+/** `local`: the local mode (one person): your plots only, no one to compare with. */
+function ChoiceView({ choice, person, narrowed, local }: { choice: ChoiceAnswers; person: string | null; narrowed: boolean; local: boolean }) {
   const t = useT();
   const { language } = useApp();
   const rows = choiceRows(choice, person);
@@ -198,7 +199,7 @@ function ChoiceView({ choice, person, narrowed }: { choice: ChoiceAnswers; perso
       <Table size="small" stickyHeader>
         <TableHead>
           <TableRow>
-            <TableCell>{t("answers.personColumn")}</TableCell>
+            <TableCell>{local ? "" : t("answers.personColumn")}</TableCell>
             <TableCell align="right">{t("answers.answeredColumn")}</TableCell>
             {rows.map((r) => (
               <TableCell key={r.code} align="right">
@@ -210,7 +211,7 @@ function ChoiceView({ choice, person, narrowed }: { choice: ChoiceAnswers; perso
         <TableBody>
           <TableRow>
             <TableCell component="th" scope="row" sx={{ fontWeight: 500 }}>
-              {t("answers.team")}
+              {t(local ? "answers.yourPlots" : "answers.team")}
             </TableCell>
             <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>
               {formatNumber(choice.answered, language)}
@@ -221,7 +222,7 @@ function ChoiceView({ choice, person, narrowed }: { choice: ChoiceAnswers; perso
               </TableCell>
             ))}
           </TableRow>
-          {rest && (
+          {rest && !local && (
             <TableRow>
               <TableCell component="th" scope="row" sx={{ fontWeight: 500 }}>
                 {t("answers.restOfTeam")}
@@ -236,7 +237,7 @@ function ChoiceView({ choice, person, narrowed }: { choice: ChoiceAnswers; perso
               ))}
             </TableRow>
           )}
-          {choice.people.map((p) => (
+          {(local ? [] : choice.people).map((p) => (
             <TableRow key={p.username}>
               <TableCell component="th" scope="row">
                 {p.username}
@@ -298,13 +299,16 @@ function SpreadRow({ label, s, color, scale, active, onEnter, readout }: { label
   );
 }
 
-function NumberView({ numbers, person }: { numbers: NumberAnswers; person: string | null }) {
+function NumberView({ numbers, person, local }: { numbers: NumberAnswers; person: string | null; local: boolean }) {
   const t = useT();
   const { language } = useApp();
   const scale = spreadScale(numbers);
   const [active, setActive] = useState<number | null>(null);
   const readoutId = useId();
-  const rows = [{ label: t("answers.team"), s: numbers.team, color: TEAM }, ...numbers.people.map((p) => ({ label: p.username, s: p as NumberSpread, color: PERSON }))];
+  // Alone: one row, your plots.
+  const rows = local
+    ? [{ label: t("answers.yourPlots"), s: numbers.team, color: TEAM }]
+    : [{ label: t("answers.team"), s: numbers.team, color: TEAM }, ...numbers.people.map((p) => ({ label: p.username, s: p as NumberSpread, color: PERSON }))];
   const readout = (r: (typeof rows)[number]) =>
     `${r.label}: ${spreadText(t, r.s, language)}${r.s.nonNumeric > 0 ? ` · ${t("answers.nonNumeric", { n: formatNumber(r.s.nonNumeric, language) })}` : ""}`;
   const chart = (
@@ -351,7 +355,7 @@ function NumberView({ numbers, person }: { numbers: NumberAnswers; person: strin
       <Table size="small" stickyHeader>
         <TableHead>
           <TableRow>
-            <TableCell>{t("answers.personColumn")}</TableCell>
+            <TableCell>{local ? "" : t("answers.personColumn")}</TableCell>
             <TableCell align="right">{t("answers.valuesColumn")}</TableCell>
             <TableCell align="right">{t("answers.medianColumn")}</TableCell>
             <TableCell align="right">{t("answers.q1Column")}</TableCell>
@@ -382,12 +386,14 @@ function NumberView({ numbers, person }: { numbers: NumberAnswers; person: strin
         {t("answers.numberExplain")}
         {numbers.team.nonNumeric > 0 ? ` ${t("answers.nonNumericTeam", { n: formatNumber(numbers.team.nonNumeric, language) })}` : ""}
       </Typography>
-      <Legend
-        items={[
-          { color: TEAM, label: t("answers.team") },
-          { color: PERSON, label: person ?? t("answers.eachPerson") },
-        ]}
-      />
+      {!local && (
+        <Legend
+          items={[
+            { color: TEAM, label: t("answers.team") },
+            { color: PERSON, label: person ?? t("answers.eachPerson") },
+          ]}
+        />
+      )}
       <ChartOrTable label={t("answers.viewOf", { question: numbers.label })} chart={chart} table={table} />
     </Stack>
   );
@@ -543,6 +549,9 @@ function Filters({
 export function QualityAnswers({ projectId, teamOnly = false }: { projectId: string; teamOnly?: boolean }) {
   const t = useT();
   const { language } = useApp();
+  // The local mode (one person, decision 4 of the plan): the plain distribution of your answers,
+  // with no person filter, no comparison with a team and no answers worth a look against one.
+  const local = useLocalMode();
   const timeZone = browserTimeZone();
   const [filter, setFilter] = useState<AnswersFilter>(NO_ANSWERS_FILTER);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -574,10 +583,10 @@ export function QualityAnswers({ projectId, teamOnly = false }: { projectId: str
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="answers-title">
       <Stack spacing={2}>
         <Typography variant="h2" id="answers-title">
-          {t("answers.title")}
+          {t(local ? "answers.titleLocal" : "answers.title")}
         </Typography>
-        <Typography color="text.secondary">{t(teamOnly ? "answers.explainTeam" : "answers.explain")}</Typography>
-        <Filters projectId={projectId} data={data} filter={filter} onChange={setFilter} teamOnly={teamOnly} />
+        <Typography color="text.secondary">{t(local ? "answers.explainLocal" : teamOnly ? "answers.explainTeam" : "answers.explain")}</Typography>
+        <Filters projectId={projectId} data={data} filter={filter} onChange={setFilter} teamOnly={teamOnly || local} />
         {!data && loading && <Loading />}
         {busy && (
           <Alert severity="info" role="status" action={<Button color="inherit" size="small" onClick={reload}>{t("common.retry")}</Button>}>
@@ -612,7 +621,7 @@ export function QualityAnswers({ projectId, teamOnly = false }: { projectId: str
                 <Typography>{t(narrowed ? "answers.noneFiltered" : "answers.none")}</Typography>
               ) : (
                 <>
-                  {!teamOnly && (
+                  {!teamOnly && !local && (
                   <Box>
                     <Typography variant="h3" sx={{ mb: 0.5 }}>
                       {t("answers.flagsTitle")}
@@ -671,12 +680,12 @@ export function QualityAnswers({ projectId, teamOnly = false }: { projectId: str
                         {questions.map((q) => (
                           <MenuItem key={q.key} value={q.key}>
                             {q.label}
-                            {q.flags > 0 ? ` (${t("answers.questionFlags", { n: formatNumber(q.flags, language) })})` : ""}
+                            {q.flags > 0 && !local ? ` (${t("answers.questionFlags", { n: formatNumber(q.flags, language) })})` : ""}
                           </MenuItem>
                         ))}
                       </SelectField>
-                      {choice && <ChoiceView choice={choice} person={data.person} narrowed={narrowed} />}
-                      {numbers && <NumberView numbers={numbers} person={data.person} />}
+                      {choice && <ChoiceView choice={choice} person={local ? null : data.person} narrowed={narrowed} local={local} />}
+                      {numbers && <NumberView numbers={numbers} person={local ? null : data.person} local={local} />}
                     </Stack>
                   )}
                 </>

@@ -21,3 +21,11 @@ export function useApp(): AppState {
   if (!state) throw new Error("useApp outside AppContext");
   return state;
 }
+
+/**
+ * The single-person view (the server's local mode, on the person's own computer): what is about
+ * other people or about the server is left out (src/localMode.ts).
+ */
+export function useLocalMode(): boolean {
+  return useApp().info.localMode === true;
+}

@@ -34,7 +34,9 @@ export const STATUS_STYLE: Record<MapStatus, StatusStyle> = {
   resubmitted: { color: "#56B4E9", fillOpacity: 0.85, weight: 3, dashArray: "2 2", radius: 6 },
 };
 
-export function statusLabelKey(status: MapStatus): MessageKey {
+/** `local`: the local mode (one person), where nothing is decided: "Submitted", not "Submitted, no decision". */
+export function statusLabelKey(status: MapStatus, local = false): MessageKey {
+  if (local && status === "submitted") return "map.status.submittedLocal";
   return `map.status.${status}` as MessageKey;
 }
 

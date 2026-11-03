@@ -23,7 +23,7 @@ import Typography from "@mui/material/Typography";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { ApiError, getQuality, saveQualityMargins, type AnswerOptions, type GuidanceNote, type QualityData, type Rate } from "../api";
-import { useApp } from "../appContext";
+import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
@@ -50,6 +50,7 @@ import {
   withNote,
   type WeekPoint,
 } from "../qualityView";
+import { qualitySections } from "../localMode";
 import { linkProps, pathFor } from "../router";
 import { useLoad } from "../useLoad";
 import { QualityAnswers } from "./QualityAnswers";
@@ -654,11 +655,38 @@ function Problems({ data }: { data: QualityData }) {
 }
 
 /**
+ * The local mode's Quality tab (one person, on their own computer): the pattern flags, the plain
+ * distribution of your answers and the survey's health (src/localMode.ts, qualitySections). No
+ * checks, reference plots, review queue, differences or comparison with anyone: those need other
+ * people, and the server answers 404 for them.
+ */
+function LocalQualityTab({ projectId }: { projectId: string }) {
+  return (
+    <Stack spacing={3}>
+      {qualitySections(true).map((section) =>
+        section === "flags" ? (
+          <QualityFlags key={section} projectId={projectId} canEdit />
+        ) : section === "answers" ? (
+          <QualityAnswers key={section} projectId={projectId} />
+        ) : section === "health" ? (
+          <QualitySurvey key={section} projectId={projectId} />
+        ) : null,
+      )}
+    </Stack>
+  );
+}
+
+/** The Quality tab; in the local mode, LocalQualityTab. */
+export function QualityTab({ projectId }: { projectId: string }) {
+  return useLocalMode() ? <LocalQualityTab projectId={projectId} /> : <TeamQualityTab projectId={projectId} />;
+}
+
+/**
  * The Quality tab (coordinators): how often the checks agree with the first
  * assessments, by question, person and week; the mixed-up answers; each difference to
  * decide; guidance notes for collectors; and records that could not be compared.
  */
-export function QualityTab({ projectId }: { projectId: string }) {
+function TeamQualityTab({ projectId }: { projectId: string }) {
   const t = useT();
   // A load that started before a decision, a note or margins were saved here keeps those as saved.
   const quality = useLoad(() => getQuality(projectId), [projectId], { merge: keepLocalChanges });

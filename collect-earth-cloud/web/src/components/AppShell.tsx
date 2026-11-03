@@ -19,7 +19,7 @@ import Person from "@mui/icons-material/Person";
 import Public from "@mui/icons-material/Public";
 import Translate from "@mui/icons-material/Translate";
 import { useState, type ReactNode } from "react";
-import { useApp } from "../appContext";
+import { useApp, useLocalMode } from "../appContext";
 import { LANGUAGES, LANGUAGE_NAMES, useT, type Language } from "../i18n";
 import { linkProps, navigate } from "../router";
 
@@ -155,6 +155,10 @@ const PRINT_STYLES = {
 export function AppShell({ children, narrow, bare }: { children: ReactNode; narrow?: boolean; bare?: boolean }) {
   const t = useT();
   const { info } = useApp();
+  // The local mode (one person, on their own computer): one account and one project, so no
+  // account menu (no other project, account page, password or log-out).
+  const local = useLocalMode();
+  const name = local ? t("app.titleLocal") : (info.serverName ?? t("app.title"));
   return (
     <Box className="app-page" sx={{ minHeight: "100vh", bgcolor: "background.default", display: "flex", flexDirection: "column" }}>
       <GlobalStyles styles={PRINT_STYLES} />
@@ -163,17 +167,17 @@ export function AppShell({ children, narrow, bare }: { children: ReactNode; narr
           {bare ? (
             <Typography component="p" noWrap sx={{ fontSize: "1.1rem", fontWeight: 500, px: 1, mr: "auto", minWidth: 0, display: "flex", alignItems: "center", gap: 1 }}>
               <Public aria-hidden />
-              {info.serverName ?? t("app.title")}
+              {name}
             </Typography>
           ) : (
             <Button color="inherit" {...linkProps("/")} startIcon={<Public />} sx={{ fontSize: "1.1rem", px: 1, mr: "auto", minWidth: 0 }}>
               <Typography component="span" variant="inherit" noWrap>
-                {info.serverName ?? t("app.title")}
+                {name}
               </Typography>
             </Button>
           )}
           <LanguageMenu />
-          {!bare && <AccountMenu />}
+          {!bare && !local && <AccountMenu />}
         </Toolbar>
       </AppBar>
       <Container component="main" maxWidth={narrow ? "sm" : "md"} sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>

@@ -18,6 +18,7 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProjectPage } from "./pages/ProjectPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { PublicProgressPage } from "./pages/PublicProgressPage";
+import { LocalSignedOutPage } from "./pages/LocalSignedOutPage";
 import { MyQualityPage, MyWorkPage, TeamReportPage } from "./pages/ReportPages";
 import { WeeklyPage } from "./pages/WeeklyPage";
 import { ResetPage } from "./pages/ResetPage";
@@ -90,7 +91,7 @@ export function App() {
   // names its project in the title itself; a person, a plot or a plot file has a heading of its own
   // under the project's.
   const announce = usePageFocus(path, {
-    serverName: info?.serverName ?? t("app.title"),
+    serverName: info?.localMode ? t("app.titleLocal") : (info?.serverName ?? t("app.title")),
     language,
     ownTitle: route.name === "publicProgress",
     ownHeading: route.name === "person" || route.name === "plot" || route.name === "plotFile",
@@ -191,7 +192,9 @@ export function App() {
       </Box>
     );
   } else {
-    const choice = choosePage(route, state.info, me !== null);
+    // The local mode has one project: home is its Progress tab.
+    const localProjectId = state.info.localMode ? (me?.memberships[0]?.projectId ?? null) : null;
+    const choice = choosePage(route, state.info, me !== null, localProjectId);
     switch (choice.kind) {
       case "setup":
         content = <SetupPage />;
@@ -199,6 +202,9 @@ export function App() {
       case "login":
       case "signup":
         content = <LoginPage key={choice.kind} mode={choice.kind} sessionEnded={sessionEnded} />;
+        break;
+      case "localSignedOut":
+        content = <LocalSignedOutPage />;
         break;
       case "redirect":
         content = <Redirect to={choice.to} />;

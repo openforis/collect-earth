@@ -19,12 +19,13 @@ import Refresh from "@mui/icons-material/Refresh";
 import type * as Leaflet from "leaflet";
 import { useEffect, useId, useMemo, useRef, useState, type MouseEvent } from "react";
 import { getMapPlots, MAP_STATUSES, type MapPlots, type MapStatus, type MapTiles } from "../api";
-import { useApp } from "../appContext";
+import { useApp, useLocalMode } from "../appContext";
 import { AsOf } from "../components/PeopleCharts";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { formatDate, formatNumber } from "../format";
 import { useT, type Translate } from "../i18n";
 import { attributionHtml, boundsOf, CLUSTER_FROM, escapeHtml, filesOffMap, LIST_PAGE, plotList, plotPopup, shownIndexes, STATUS_STYLE, statusDrawnKey, statusLabelKey, symbolSvg } from "../mapView";
+import { legendStatuses, localMapPlots } from "../localMode";
 import { navigate, pathFor } from "../router";
 import { loadLeaflet, type LeafletModule } from "./leaflet";
 
@@ -40,7 +41,7 @@ function Symbol({ status }: { status: MapStatus }) {
 }
 
 /** A plot's popup, built as DOM (no HTML from data): its id, status, people (coordinators) and a link to its page. */
-function popupElement(t: Translate, map: MapPlots, index: number, projectId: string): HTMLElement {
+function popupElement(t: Translate, map: MapPlots, index: number, projectId: string, local: boolean): HTMLElement {
   const popup = plotPopup(map, index, projectId);
   const root = document.createElement("div");
   root.style.font = "14px/1.4 Roboto, sans-serif";
@@ -53,7 +54,7 @@ function popupElement(t: Translate, map: MapPlots, index: number, projectId: str
   status.style.gap = "4px";
   const symbol = document.createElement("span");
   symbol.innerHTML = symbolSvg(popup.status, 16);
-  status.append(symbol, document.createTextNode(t(statusLabelKey(popup.status))));
+  status.append(symbol, document.createTextNode(t(statusLabelKey(popup.status, local))));
   root.appendChild(status);
   if (popup.people !== null) {
     const people = document.createElement("div");
@@ -94,13 +95,14 @@ function PlotMap({
 }) {
   const t = useT();
   const { language } = useApp();
+  const local = useLocalMode();
   const element = useRef<HTMLDivElement | null>(null);
   const leaflet = useRef<{ L: LeafletModule; map: Leaflet.Map; renderer: Leaflet.Canvas } | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState<unknown>(null);
   // The latest translation and language for popups and cluster labels made later.
-  const latest = useRef({ t, language });
-  latest.current = { t, language };
+  const latest = useRef({ t, language, local });
+  latest.current = { t, language, local };
   // The map is fitted to the plots when they are loaded, not when a status is hidden or shown.
   const fitted = useRef<MapPlots | null>(null);
 
@@ -212,7 +214,7 @@ function PlotMap({
     layer.on("click", (event: Leaflet.LeafletMouseEvent & { propagatedFrom?: PlotMarker }) => {
       const marker = (event.propagatedFrom ?? (event as unknown as { layer?: PlotMarker }).layer) as PlotMarker | undefined;
       if (!marker || typeof marker.plotIndex !== "number") return;
-      L.popup({ maxWidth: 280 }).setLatLng(marker.getLatLng()).setContent(popupElement(latest.current.t, data, marker.plotIndex, projectId)).openOn(map);
+      L.popup({ maxWidth: 280 }).setLatLng(marker.getLatLng()).setContent(popupElement(latest.current.t, data, marker.plotIndex, projectId, latest.current.local)).openOn(map);
     });
     layer.addTo(map);
     if (group) {
@@ -250,6 +252,7 @@ function PlotMap({
 function PlotList({ projectId, data, shown }: { projectId: string; data: MapPlots; shown: ReadonlySet<MapStatus> }) {
   const t = useT();
   const { language } = useApp();
+  const local = useLocalMode();
   const listId = useId();
   const [open, setOpen] = useState(false);
   const [limit, setLimit] = useState(LIST_PAGE);
@@ -292,7 +295,7 @@ function PlotList({ projectId, data, shown }: { projectId: string; data: MapPlot
                       <TableCell>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                           <Symbol status={row.status} />
-                          {t(statusLabelKey(row.status))}
+                          {t(statusLabelKey(row.status, local))}
                         </Box>
                       </TableCell>
                       {row.people !== null && <TableCell sx={{ wordBreak: "break-word" }}>{row.people.length > 0 ? row.people.join(", ") : t("map.popupNobody")}</TableCell>}
@@ -331,6 +334,8 @@ function PlotList({ projectId, data, shown }: { projectId: string; data: MapPlot
 export function MapTab({ projectId, coordinator }: { projectId: string; coordinator: boolean }) {
   const t = useT();
   const { info, language } = useApp();
+  // The local mode (one person): no one else holds plots, nothing is decided or checked.
+  const local = useLocalMode();
   const headingId = useId();
   const tableId = useId();
   const [file, setFile] = useState("");
@@ -350,8 +355,9 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
     setError(null);
     setDrawn(null);
     getMapPlots(projectId, { file, person }, (loaded, total) => !stopped && setLoading({ loaded, total }), () => stopped).then(
-      (map) => {
+      (read) => {
         if (stopped) return;
+        const map = local ? localMapPlots(read) : read;
         setData(map);
         setMenus({ files: map.files, people: map.people });
         setLoading(null);
@@ -365,7 +371,7 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
     return () => {
       stopped = true;
     };
-  }, [projectId, file, person, reload]);
+  }, [projectId, file, person, reload, local]);
 
   const offMap = useMemo(() => (data ? filesOffMap(data) : []), [data]);
   // The filters and switches stay enabled while plots are read or placed (a disabled control loses
@@ -454,7 +460,8 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
           <Stack spacing={1.5}>
             <AsOf asOf={data.asOf} />
             {data.unsupportedSrs !== null && <Alert severity="info" role="note">{t("map.unsupportedSrs", { srs: data.unsupportedSrs })}</Alert>}
-            {data.figures === null ? (
+            {/* Alone there are no checks to differ from: the quality figures do not matter here. */}
+            {local ? null : data.figures === null ? (
               <Alert severity="info" role="note">{t("map.noFigures")}</Alert>
             ) : data.figures.stale && data.figures.computedAt !== null ? (
               <Typography variant="body2" color="text.secondary">
@@ -504,19 +511,19 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
                 </TableRow>
               </TableHead>
               <TableBody>
-                {MAP_STATUSES.map((status) => (
+                {legendStatuses(local, data.counts).map((status) => (
                   <TableRow key={status}>
                     <TableCell padding="checkbox">
                       <Checkbox
                         checked={shown.has(status)}
                         onChange={() => toggle(status)}
-                        slotProps={{ input: { "aria-label": t("map.showStatus", { status: t(statusLabelKey(status)) }) } }}
+                        slotProps={{ input: { "aria-label": t("map.showStatus", { status: t(statusLabelKey(status, local)) }) } }}
                       />
                     </TableCell>
                     <TableCell component="th" scope="row">
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                         <Symbol status={status} />
-                        {t(statusLabelKey(status))}
+                        {t(statusLabelKey(status, local))}
                       </Box>
                     </TableCell>
                     <TableCell sx={{ color: "text.secondary" }}>{t(statusDrawnKey(status))}</TableCell>
@@ -538,9 +545,11 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
               </TableBody>
             </Table>
           </TableContainer>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-            {t("map.submittedNote")}
-          </Typography>
+          {!local && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+              {t("map.submittedNote")}
+            </Typography>
+          )}
           {data.notOnMap > 0 && (
             <Typography variant="body2" sx={{ mt: 1.5 }}>
               {t("map.notOnMap", { n: n(data.notOnMap) })}

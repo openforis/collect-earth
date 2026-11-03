@@ -12,12 +12,13 @@ import Download from "@mui/icons-material/Download";
 import EventNote from "@mui/icons-material/EventNote";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, getActivity, type ActivityPage, type ExportKind, type LogItem, type LogKind } from "../api";
-import { useApp } from "../appContext";
+import { useApp, useLocalMode } from "../appContext";
 import { COORDINATOR_LOG_KINDS, dayAfterMs, dayStartMs, LOG_KIND_LABELS, logSentence, RECORD_LOG_KINDS } from "../activityView";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
+import { activityDownloads, otherLogKinds } from "../localMode";
 import { linkProps, pathFor } from "../router";
 import { useDownload } from "./useDownload";
 
@@ -46,7 +47,8 @@ const NO_FILTERS: Filters = { person: "", kind: "all", from: "", to: "" };
 function LogRow({ projectId, item, page }: { projectId: string; item: LogItem; page: ActivityPage }) {
   const t = useT();
   const { language } = useApp();
-  const sentence = logSentence(t, item, page, language);
+  const local = useLocalMode();
+  const sentence = logSentence(t, item, page, language, { local });
   const plot = item.type === "record" ? item.plot : item.action.startsWith("decision.") && typeof item.details.plot === "string" ? item.details.plot : null;
   return (
     <Box component="li" sx={{ py: 1, borderBottom: 1, borderColor: "divider", display: "flex", gap: 2, flexWrap: { xs: "wrap", sm: "nowrap" } }}>
@@ -74,6 +76,9 @@ function LogRow({ projectId, item, page }: { projectId: string; item: LogItem; p
 function ActivityLog({ projectId }: { projectId: string }) {
   const t = useT();
   const { language } = useApp();
+  // The local mode (one person): no person filter, and no kinds about other people or decisions.
+  const local = useLocalMode();
+  const otherKinds = otherLogKinds(local, COORDINATOR_LOG_KINDS);
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [page, setPage] = useState<ActivityPage | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -120,17 +125,19 @@ function ActivityLog({ projectId }: { projectId: string }) {
   return (
     <Section title={t("activity.logTitle")} id="activity-log">
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {t("activity.logHelp")}
+        {t(local ? "activity.logHelpLocal" : "activity.logHelp")}
       </Typography>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} useFlexGap sx={{ mb: 2, flexWrap: "wrap" }}>
-        <TextField select label={t("activity.person")} value={filters.person} onChange={(e) => set({ person: e.target.value })} fullWidth={false} sx={{ width: { xs: "100%", sm: 200 } }} size="small" slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}>
-          <MenuItem value="">{t("activity.everyone")}</MenuItem>
-          {persons.map((p) => (
-            <MenuItem key={p} value={p}>
-              {p}
-            </MenuItem>
-          ))}
-        </TextField>
+        {!local && (
+          <TextField select label={t("activity.person")} value={filters.person} onChange={(e) => set({ person: e.target.value })} fullWidth={false} sx={{ width: { xs: "100%", sm: 200 } }} size="small" slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}>
+            <MenuItem value="">{t("activity.everyone")}</MenuItem>
+            {persons.map((p) => (
+              <MenuItem key={p} value={p}>
+                {p}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
         <TextField select label={t("activity.kind")} value={filters.kind} onChange={(e) => set({ kind: e.target.value as LogKind })} fullWidth={false} sx={{ width: { xs: "100%", sm: 260 } }} size="small">
           <MenuItem value="all">{t(LOG_KIND_LABELS.all)}</MenuItem>
           <ListSubheader>{t("activity.kindGroupRecords")}</ListSubheader>
@@ -139,8 +146,8 @@ function ActivityLog({ projectId }: { projectId: string }) {
               {t(LOG_KIND_LABELS[k])}
             </MenuItem>
           ))}
-          <ListSubheader>{t("activity.kindGroupCoordinators")}</ListSubheader>
-          {COORDINATOR_LOG_KINDS.map((k) => (
+          <ListSubheader>{t(local ? "activity.kindGroupLocal" : "activity.kindGroupCoordinators")}</ListSubheader>
+          {otherKinds.map((k) => (
             <MenuItem key={k} value={k}>
               {t(LOG_KIND_LABELS[k])}
             </MenuItem>
@@ -183,7 +190,7 @@ function ActivityLog({ projectId }: { projectId: string }) {
         </Box>
       )}
       <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-        {t("activity.timesNote")}
+        {t(local ? "activity.timesNoteLocal" : "activity.timesNote")}
       </Typography>
       <Box role="status" aria-live="polite" sx={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)" }}>
         {announce}
@@ -201,6 +208,9 @@ const DOWNLOADS: { kind: ExportKind; label: "activity.download.people" | "activi
 
 function Downloads({ projectId }: { projectId: string }) {
   const t = useT();
+  // The local mode (one person): the daily activity only (src/localMode.ts, activityDownloads).
+  const local = useLocalMode();
+  const kinds = activityDownloads(local);
   const download = useDownload(projectId);
   const [busy, setBusy] = useState<ExportKind | null>(null);
   const [error, setError] = useState<{ kind: ExportKind; error: unknown } | null>(null);
@@ -221,13 +231,13 @@ function Downloads({ projectId }: { projectId: string }) {
         {t("activity.downloadsHelp")}
       </Typography>
       <Stack spacing={2}>
-        {DOWNLOADS.map((d) => (
+        {DOWNLOADS.filter((d) => kinds.includes(d.kind)).map((d) => (
           <Box key={d.kind}>
             <Button variant="outlined" startIcon={<Download />} disabled={busy !== null} onClick={() => void run(d.kind)}>
               {t(d.label)}
             </Button>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              {t(d.help)}
+              {t(local && d.kind === "daily" ? "activity.download.dailyHelpLocal" : d.help)}
             </Typography>
             {error?.kind === d.kind &&
               (error.error instanceof ApiError && error.error.code === "no_figures" ? (
@@ -249,11 +259,12 @@ function Downloads({ projectId }: { projectId: string }) {
 /** The Activity tab (coordinators): the log, the weekly summary and the downloads. */
 export function ActivityTab({ projectId }: { projectId: string }) {
   const t = useT();
+  const local = useLocalMode();
   return (
     <Stack spacing={3}>
       <Section title={t("activity.weeklyTitle")} id="activity-weekly">
         <Typography variant="body2" sx={{ mb: 2 }}>
-          {t("activity.weeklyHelp")}
+          {t(local ? "activity.weeklyHelpLocal" : "activity.weeklyHelp")}
         </Typography>
         <Button variant="contained" startIcon={<EventNote />} {...linkProps(pathFor({ name: "weekly", projectId, week: null }))}>
           {t("activity.weeklyOpen")}

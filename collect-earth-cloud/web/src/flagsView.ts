@@ -24,18 +24,40 @@ export function gapText(t: Translate, ms: number, language: string): string {
   return t("flags.seconds", { n: formatNumber(n, language) });
 }
 
-/** Why a plot is worth a look, in a sentence that names no one. */
-export function flagText(t: Translate, flag: PatternFlag, language: string): string {
+/**
+ * Why a plot is worth a look, in a sentence that names no one. `local`: the local mode (one
+ * person), where the previous plot is "your" previous plot, not "their".
+ */
+export function flagText(t: Translate, flag: PatternFlag, language: string, options: { local?: boolean } = {}): string {
+  const local = options.local === true;
   switch (flag.kind) {
     // A previous or first plot the viewer may not see (a reviewer's held copy, a reference plot) comes as null: not named.
     case "very_fast":
-      return t(flag.previousPlot === null ? "flags.text.very_fastUnnamed" : "flags.text.very_fast", { gap: gapText(t, flag.gapMs ?? 0, language), previous: flag.previousPlot ?? "" });
+      return t(
+        flag.previousPlot === null
+          ? local
+            ? "flags.text.very_fastUnnamedLocal"
+            : "flags.text.very_fastUnnamed"
+          : local
+            ? "flags.text.very_fastLocal"
+            : "flags.text.very_fast",
+        { gap: gapText(t, flag.gapMs ?? 0, language), previous: flag.previousPlot ?? "" },
+      );
     case "same_as_before":
-      return t(flag.previousPlot === null || flag.firstPlot === null ? "flags.text.same_as_beforeUnnamed" : "flags.text.same_as_before", {
-        previous: flag.previousPlot ?? "",
-        n: formatNumber(flag.runLength ?? 0, language),
-        first: flag.firstPlot ?? "",
-      });
+      return t(
+        flag.previousPlot === null || flag.firstPlot === null
+          ? local
+            ? "flags.text.same_as_beforeUnnamedLocal"
+            : "flags.text.same_as_beforeUnnamed"
+          : local
+            ? "flags.text.same_as_beforeLocal"
+            : "flags.text.same_as_before",
+        {
+          previous: flag.previousPlot ?? "",
+          n: formatNumber(flag.runLength ?? 0, language),
+          first: flag.firstPlot ?? "",
+        },
+      );
     case "required_empty":
       return t(flag.questions.length === 1 ? "flags.text.required_emptyOne" : "flags.text.required_empty", { questions: flag.questions.map((q) => q.label).join(", ") });
     case "edited_after_decision":

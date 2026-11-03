@@ -8,11 +8,12 @@ import ArrowForward from "@mui/icons-material/ArrowForward";
 import Download from "@mui/icons-material/Download";
 import { useState } from "react";
 import { downloadExport, getOverview } from "../api";
-import { useApp } from "../appContext";
+import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
 import { useT } from "../i18n";
+import { dataSections } from "../localMode";
 import type { ProjectTab } from "../router";
 import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
@@ -39,6 +40,9 @@ function QualityCheck({ onGo }: { onGo: (tab: ProjectTab) => void }) {
 export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: ProjectTab) => void }) {
   const t = useT();
   const { language } = useApp();
+  // The local mode (one person): the data download only (src/localMode.ts, dataSections).
+  const local = useLocalMode();
+  const sections = dataSections(local);
   const overview = useLoad(() => getOverview(projectId), [projectId]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -65,13 +69,13 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack spacing={2}>
           <Typography variant="h2">{t("data.title")}</Typography>
-          <Typography color="text.secondary">{t("data.explain")}</Typography>
+          <Typography color="text.secondary">{t(local ? "data.explainLocal" : "data.explain")}</Typography>
           {overview.loading && !overview.data ? (
             <Loading />
           ) : overview.error ? (
             <ErrorAlert error={overview.error} onRetry={overview.reload} />
           ) : records && records.total === 0 ? (
-            <Alert severity="info">{t("data.empty")}</Alert>
+            <Alert severity="info">{t(local ? "data.emptyLocal" : "data.empty")}</Alert>
           ) : records ? (
             <Typography>
               {t("data.summary", { submitted: formatNumber(records.submitted, language), total: formatNumber(records.total, language) })}
@@ -90,8 +94,8 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
           <ErrorAlert error={error} />
         </Stack>
       </Paper>
-      <CollectBackup projectId={projectId} />
-      <QualityCheck onGo={onGo} />
+      {sections.includes("backup") && <CollectBackup projectId={projectId} />}
+      {sections.includes("qualityCheck") && <QualityCheck onGo={onGo} />}
     </Stack>
   );
 }

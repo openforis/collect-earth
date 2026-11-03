@@ -214,6 +214,7 @@ describe("normalising responses", () => {
       serverName: null,
       aiAvailable: false,
       mapTiles: OSM_TILES,
+      localMode: false,
     });
   });
 
@@ -229,7 +230,15 @@ describe("normalising responses", () => {
       serverName: null,
       aiAvailable: false,
       mapTiles: OSM_TILES,
+      localMode: false,
     });
+  });
+
+  it("server info in the local mode (one person, on their own computer)", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { localMode: true, needsSetup: false, signupOpen: false, projectCreation: "platform-admins", version: "1.0.0" }));
+    expect(await getServerInfo()).toMatchObject({ localMode: true, needsSetup: false, signupOpen: false });
+    fetchMock.mockResolvedValue(jsonResponse(200, { localMode: "yes" }));
+    expect((await getServerInfo()).localMode).toBe(false);
   });
 
   it("server info with terms, contact and name; only http(s) terms links get through", async () => {

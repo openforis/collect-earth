@@ -7,6 +7,7 @@ import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
 import Forest from "@mui/icons-material/Forest";
 import { ApiError, getProject } from "../api";
+import { useLocalMode } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
@@ -32,7 +33,8 @@ import { QualityReference } from "../project/QualityReference";
 import { QualityTab } from "../project/QualityTab";
 import { ReviewQueue } from "../project/ReviewQueue";
 import { SettingsTab } from "../project/SettingsTab";
-import { linkProps, navigate, pathFor, PROJECT_TABS, type ProjectTab } from "../router";
+import { projectTabs } from "../localMode";
+import { linkProps, navigate, pathFor, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 
 const TAB_LABELS = {
@@ -73,6 +75,9 @@ function Header({ projectId, name, bell = false }: { projectId: string; name: st
  */
 export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projectId: string; tab: ProjectTab; fileId?: string; personId?: string; plot?: string }) {
   const t = useT();
+  // The local mode (one person, on their own computer): no People, Plot files, Setup or project
+  // file tabs, no bell (its cards are about other people) and no plot files' pages.
+  const local = useLocalMode();
   const project = useLoad(() => getProject(projectId), [projectId]);
 
   if (project.loading && !project.data) {
@@ -174,16 +179,16 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
     file: <FileTab projectId={projectId} />,
     people: personId ? <PersonPage key={personId} projectId={projectId} userId={personId} onGo={go} /> : <PeopleTab projectId={projectId} />,
     plots: fileId ? <PlotFilePage key={fileId} projectId={projectId} fileId={fileId} onGo={go} /> : <PlotsTab projectId={projectId} onGo={go} />,
-    map: <MapTab projectId={projectId} coordinator />,
+    map: <MapTab projectId={projectId} coordinator={!local} />,
     data: <DataTab projectId={projectId} onGo={go} />,
-    quality: plot ? <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles /> : <QualityTab projectId={projectId} />,
+    quality: plot ? <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles={!local} /> : <QualityTab projectId={projectId} />,
     activity: <ActivityTab projectId={projectId} />,
     settings: <SettingsTab projectId={projectId} name={info.name} onRenamed={(name) => project.setData({ ...info, name })} />,
   }[tab];
 
   return (
     <AppShell>
-      <Header projectId={projectId} name={info.name} bell />
+      <Header projectId={projectId} name={info.name} bell={!local} />
       <Tabs
         value={tab}
         onChange={(_, value: ProjectTab) => go(value)}
@@ -193,7 +198,7 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
         aria-label={t("project.sections")}
         sx={{ mb: 3, borderBottom: 1, borderColor: "divider" }}
       >
-        {PROJECT_TABS.map((id) => (
+        {projectTabs(local).map((id) => (
           <Tab
             key={id}
             value={id}

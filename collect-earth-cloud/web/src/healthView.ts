@@ -83,9 +83,12 @@ export function changedText(t: Translate, row: HealthRow, data: SurveyHealthData
   return t("health.changed", { n: formatNumber(row.decisions.changed, language), decided: formatNumber(data.decidedForCheck, language) });
 }
 
-/** The rule of the order, with the thresholds the server used. */
-export function orderText(t: Translate, data: SurveyHealthData, language: string): string {
+/** The rule of the order, with the thresholds the server used. `local`: the local mode (no checks nor decisions to order by). */
+export function orderText(t: Translate, data: SurveyHealthData, language: string, options: { local?: boolean } = {}): string {
   const th = data.thresholds;
+  if (options.local) {
+    return t("health.noteOrderLocal", { other: formatRate(th.oftenOther, language), empty: formatRate(th.oftenEmpty, language), min: formatNumber(th.minPlots, language) });
+  }
   return t("health.noteOrder", {
     agreement: formatRate(th.lowAgreement, language),
     other: formatRate(th.oftenOther, language),

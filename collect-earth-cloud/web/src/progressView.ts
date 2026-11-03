@@ -80,13 +80,14 @@ export function paceText(pace: number, language: string): string {
  * deadline, "That is 4 days after the deadline, 6 Nov 2026." "To finish by the
  * deadline, about 110 plots a day are needed."
  */
-export function forecastSentences(t: Translate, f: Forecast, language: string, options: { publicView?: boolean } = {}): string[] {
+export function forecastSentences(t: Translate, f: Forecast, language: string, options: { publicView?: boolean; local?: boolean } = {}): string[] {
   const n = (v: number) => formatNumber(v, language);
   const deadline = f.deadline ? dayText(f.deadline, language) : null;
   const out: string[] = [];
   if (f.target === 0) {
-    // A progress link's reader has no Settings tab.
-    out.push(t(options.publicView ? "publicProgress.forecastNoTarget" : "progress.forecastNoTarget"));
+    // A progress link's reader has no Settings tab. Alone (the local mode), no plot is given to
+    // anyone: the target is the one set in the Settings tab.
+    out.push(t(options.publicView ? "publicProgress.forecastNoTarget" : options.local ? "progress.forecastNoTargetLocal" : "progress.forecastNoTarget"));
     return out;
   }
   if (f.remaining === 0) {
@@ -113,6 +114,16 @@ export function forecastSentences(t: Translate, f: Forecast, language: string, o
     }
   }
   return out;
+}
+
+/**
+ * The line under the forecast that says where its target comes from, or null for none. In the
+ * local mode a target comes from the Settings tab only (no plot is given to anyone there).
+ */
+export function forecastTargetKey(f: Pick<Forecast, "target" | "targetFrom">, options: { publicView?: boolean; local?: boolean } = {}): MessageKey | null {
+  if (f.target <= 0) return null;
+  if (f.targetFrom === "setting") return options.publicView ? "publicProgress.forecastTargetSet" : "progress.forecastTargetSet";
+  return options.local ? null : "progress.forecastTarget";
 }
 
 /** Where each card's problem is fixed. */

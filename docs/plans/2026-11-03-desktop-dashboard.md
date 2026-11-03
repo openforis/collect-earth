@@ -139,6 +139,40 @@ to bring them to the desktop are:
   not fit.
 - **Tests:** view tests per tab with `localMode`; a Chrome run at desktop and phone width, with seeded local data.
 
+**Done (2026-11-03), in `collect-earth-cloud/web` only; the cloud's view is unchanged without `localMode`.**
+- `ServerInfo.localMode` (`api.ts`), `useLocalMode()` (`appContext.ts`). `src/localMode.ts` holds every choice, pure:
+  the tabs, where each address leads, and what each tab shows.
+- **Pages:** signed out, a page says to open the dashboard again from Collect Earth (no log-in form: there is no
+  password). Home goes to the one project's Progress tab; People, Plot files, Setup, a person's or a plot file's page,
+  My work, My quality and the team report go to Progress; account, server, setup, log-in, sign-up and the links of
+  mail, invitations, resets and progress links go home. The app bar says "My Collect Earth dashboard" and has no
+  account menu (projects, account, password, log-out); no bell (its cards are about other people).
+- **Progress:** plots, submitted, started, not started (not "given to someone"); no "Needs attention" at all (every
+  card is about other people, checks or the server's storage, and points to a hidden tab). With no target, the
+  forecast asks for one in Settings.
+- **Map:** no person filter, holders or links to plot files; the legend lists not started, started and "Submitted"
+  (and any other status that has plots); no note about quality figures or decisions.
+- **Data:** the data download only, "one line for each plot" (the Collect Earth backup is left out: the desktop's
+  database already holds every record).
+- **Quality:** Plots worth a look (no person filter, names or counts per person; "your previous plot"), Your answers
+  (no person filter, no "rest of the team", no flags against the team; one row, "Your plots"), Survey health (no
+  agreement or decision columns or notes). No counts, report links, review queue, checks, reference plots,
+  comparison, differences, notes, data problems or AI (`/quality` itself is not asked for).
+- **Activity:** the weekly summary (plots done without checks, plots worth a look; no one else's week), the log
+  ("You submitted plot 17", "Collect Earth sent the plot file …"; no person filter; kinds: Collect Earth's,
+  files, settings, downloads), the daily activity download only.
+- **Settings:** the progress card only (deadline, target, quiet days), with "you" help texts.
+- **A plot's page:** no decision, differences, holders or names.
+- 45 new i18n keys in en, es, fr and pt (`…Local`, `local.*`, `answers.yourPlots`).
+- **Tests:** `localMode.test.ts` (24 tests, a describe per tab, cloud unchanged alongside) and server-info parsing in
+  `api.test.ts`; web 385 tests pass, `tsc --noEmit` clean; server tests pass but the 2 known `qualityService` worker
+  failures of this container.
+- **Chromium (Playwright), desktop 1280 and phone 390, en and es,** against `npm run build:local` + `vite build`
+  with `LOCAL_MODE=1`, fed the demo CEP, a 40-plot file, 30 records and progress settings: every tab, a plot page,
+  the weekly summary and the redirects. No API answer of 400 or more (so no off route asked for), no page error, no
+  sideways scroll. Only the map tiles failed (no internet in the container). `WEB_DIR` must be absolute (a relative
+  one stops the start: fastify-static's `root`); the README's example uses a relative one.
+
 ### Task 5: The desktop starts it and feeds it (done, see below)
 - **`LocalDashboardService` (collect-earth-app):**
   - starts `node dashboard/server.mjs` with LOCAL_MODE once the project is loaded, with a free port, and a log in
@@ -206,6 +240,13 @@ to bring them to the desktop are:
 - A menu entry "My dashboard" (Tools), and a link on the home page and in the plots map's sidebar. It opens the local
   URL with the one-time token in the default browser (decision 1).
 - **Tests:** the menu entry, and the token being single use.
+
+**Done (2026-11-03, e190be95), the menu entry only.** Tools > My dashboard (`myDashboard` in `menus.ts`), absent in a
+cloud project and as a client of another Collect Earth. It runs the `openDashboard` action (`ActionsController`):
+a new link from `LocalDashboardService.newSignInUrl()`, opened with `CollectEarthUtils.openUrl` (the default
+browser); while the dashboard cannot be opened, `dashboard.notReady` with `getStateText()` ("Getting ready…", the
+failure and its log, or not installed). The links on the home page and in the plots map's sidebar are not done: the
+plots map files are being changed by the GEW work, so they wait for it.
 
 ### Task 7: Real runs (CE OFFICE)
 - Measure on a real project:

@@ -17,12 +17,13 @@ import ArrowBack from "@mui/icons-material/ArrowBack";
 import OpenInNew from "@mui/icons-material/OpenInNew";
 import { useId, useState, type ReactNode } from "react";
 import { ApiError, deleteQualityDecision, getPlotPage, setQualityDecision, type DecisionKind, type PlotPageData } from "../api";
-import { useApp } from "../appContext";
+import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { FLAG_KIND_KEYS, flagText } from "../flagsView";
 import { formatDate } from "../format";
 import { useT, type MessageKey } from "../i18n";
+import { plotPageParts } from "../localMode";
 import { answerRows, hasCheck, recordKindKey, recordStateKey } from "../plotView";
 import { CheckAnswers } from "../project/QualityDifferences";
 import { answerText, googleEarthUrl } from "../qualityView";
@@ -138,6 +139,9 @@ function Decision({ projectId, data, onChange }: { projectId: string; data: Plot
 export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string; plot: string; canOpenFiles: boolean }) {
   const t = useT();
   const { language } = useApp();
+  // The local mode (one person): no decision, differences or holders, and every record is yours.
+  const local = useLocalMode();
+  const parts = plotPageParts(local);
   const loaded = useLoad(() => getPlotPage(projectId, plot), [projectId, plot]);
   const quality = pathFor({ name: "project", projectId, tab: "quality" });
   const back = (
@@ -193,7 +197,7 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
             {data.unsupportedSrs ? t("quality.placesUnsupported", { srs: data.unsupportedSrs }) : t("plot.noPlace")}
           </Typography>
         )}
-        <Link {...linkProps(quality)}>{t("plot.openQuality")}</Link>
+        <Link {...linkProps(quality)}>{t(local ? "activity.openQuality" : "plot.openQuality")}</Link>
       </Stack>
 
       {data.reference && (
@@ -201,7 +205,7 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
       )}
 
       {/* A reference plot is never decided: its other assessments are measured against it. */}
-      {!data.reference && (
+      {!data.reference && parts.decision && (
         <Section title={t("plot.decisionHeading")}>
           <Decision key={data.plot} projectId={projectId} data={data} onChange={(next) => loaded.setData(next)} />
         </Section>
@@ -216,14 +220,15 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
               {data.records.map((r) => (
                 <Box component="li" key={`${r.operator}\u0000${r.recordKey}`} sx={{ wordBreak: "break-word", mb: 0.5 }}>
                   <Typography component="span" sx={{ fontWeight: 500 }}>
-                    {t(recordKindKey(r.assessment))} · {r.operator}
+                    {t(recordKindKey(r.assessment))}
+                    {parts.names ? ` · ${r.operator}` : ""}
                   </Typography>
                   <Typography component="span" color="text.secondary">
                     {" · "}
                     {t("plot.round", { round: r.round })}
                     {" · "}
                     {t(recordStateKey(r))}
-                    {r.modifiedOn !== null ? ` · ${t("plot.saved", { time: formatDate(r.modifiedOn, language) })}` : ""}
+                    {r.modifiedOn !== null ? ` · ${t(local ? "plot.savedLocal" : "plot.saved", { time: formatDate(r.modifiedOn, language) })}` : ""}
                   </Typography>
                 </Box>
               ))}
@@ -246,8 +251,7 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
                             <TableCell key={`${r.operator}\u0000${r.recordKey}`} sx={{ minWidth: 100 }}>
                               {t(recordKindKey(r.assessment))}
                               <Box component="span" sx={{ display: "block", color: "text.secondary", fontWeight: 400 }}>
-                                {r.operator}
-                                {r.deleted ? ` · ${t("plot.deleted")}` : !r.submitted ? ` · ${t("plot.draft")}` : ""}
+                                {[parts.names ? r.operator : null, r.deleted ? t("plot.deleted") : !r.submitted ? t("plot.draft") : null].filter((x) => x !== null).join(" · ")}
                               </Box>
                             </TableCell>
                           ))}
@@ -275,7 +279,7 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
 
       <Section title={t("plot.flagsHeading")}>
         {data.flags === null ? (
-          <Alert severity="info" role="note">{t("plot.figuresMissing")}</Alert>
+          <Alert severity="info" role="note">{t(local ? "plot.figuresMissingLocal" : "plot.figuresMissing")}</Alert>
         ) : (
           <Stack spacing={1}>
             {data.figures?.stale && (
@@ -290,12 +294,13 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
                 {data.flags.map((f, i) => (
                   <Box component="li" key={`${f.kind} ${f.operator} ${i}`} sx={{ wordBreak: "break-word" }}>
                     <Typography variant="body2" component="span" color="text.secondary">
-                      {t(FLAG_KIND_KEYS[f.kind])} · {f.operator}
+                      {t(FLAG_KIND_KEYS[f.kind])}
+                      {parts.names ? ` · ${f.operator}` : ""}
                       {f.at !== null ? ` · ${formatDate(f.at, language)}` : ""}
                       {": "}
                     </Typography>
                     <Typography variant="body2" component="span">
-                      {flagText(t, f, language)}
+                      {flagText(t, f, language, { local })}
                     </Typography>
                   </Box>
                 ))}
@@ -305,7 +310,7 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
         )}
       </Section>
 
-      {data.differences !== null && (
+      {data.differences !== null && parts.differences && (
         <Section title={t("plot.differencesHeading")}>
           {data.differences.length === 0 ? (
             <Typography color="text.secondary">{t("plot.noDifferences")}</Typography>
@@ -325,7 +330,7 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
         </Section>
       )}
 
-      <Section title={t(data.files.some((f) => f.main !== null) ? "plot.files" : "tab.plots")}>
+      <Section title={t(parts.holders && data.files.some((f) => f.main !== null) ? "plot.files" : "tab.plots")}>
         <Stack spacing={1.5}>
           {data.files.map((f) => (
             <Box key={f.id}>
@@ -337,14 +342,14 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
                 ) : (
                   <Typography sx={{ fontWeight: 500, wordBreak: "break-word" }}>{f.filename}</Typography>
                 )}
-                <Chip size="small" variant="outlined" label={t(f.divided ? "plot.fileDivided" : "plot.fileWhole")} />
+                {parts.holders && <Chip size="small" variant="outlined" label={t(f.divided ? "plot.fileDivided" : "plot.fileWhole")} />}
               </Stack>
-              {f.main !== null && (
+              {f.main !== null && parts.holders && (
                 <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
                   {f.main.length > 0 ? t("plot.holders", { names: f.main.join(", ") }) : t("plot.nobody")}
                 </Typography>
               )}
-              {f.copies !== null && f.copies.length > 0 && (
+              {f.copies !== null && f.copies.length > 0 && parts.holders && (
                 <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
                   {t("plot.copies", { names: f.copies.join(", ") })}
                 </Typography>
