@@ -1,9 +1,10 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { publicBaseUrl } from '../accountRules.js';
 import { audit, noteActivity } from '../activity.js';
-import { addNote, addRound, CepError, noteColumn, roundInfoOf, type NoteInfo, type NoteRefusal, type RefusalCode } from '../cep.js';
+import { addNote, addRound, CepError, noteColumn, roundInfoOf, withBundledPlotFile, type NoteInfo, type NoteRefusal, type RefusalCode } from '../cep.js';
 import type { Config } from '../config.js';
 import { checkUploadFits } from '../limits.js';
+import { servedBundledPlotFile } from './assignments.js';
 import { fileKeyCount } from '../rounds.js';
 import { requireProjectMembership, requireSession } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
@@ -303,13 +304,22 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
           if ('error' in upload) return reply.code(409).send(upload);
           ({ served, original, info } = upload);
         }
+        // What this upload adds to the survey: its own plot file gets the same columns (below).
+        const roundAdded = served !== cep;
         const note = withNote(served, previous, recordsExist, date);
         if ('error' in note) return reply.code(409).send(note);
-        if (note.cep !== served) {
+        const noteAdded = note.cep !== served;
+        if (noteAdded) {
           served = note.cep;
           original ??= cep;
         }
         info = { ...info, note: note.info };
+        // The plot file the project file brings (Collect Earth opens it until an assigned one is
+        // chosen) gets the round and note columns as the served plot files have them (Task 22's real run).
+        if (roundAdded || noteAdded) {
+          const withColumns = info;
+          served = withBundledPlotFile(served, (data) => servedBundledPlotFile(data, withColumns, { round: roundAdded, note: noteAdded }), date);
+        }
         // Records hold their note whatever its column; the files people get from now on carry it at the
         // new one (they have to Refresh their plot files). Said in the answer, and logged.
         const from = noteColumn(previous);

@@ -9,7 +9,7 @@ import { copiesSubmittedAsMain } from '../division.js';
 import { attachment } from '../download.js';
 import { checkUploadFits } from '../limits.js';
 import { nearbyRanksOf, servedNearby } from '../nearby.js';
-import { buildPlotFile, noteText, parsePlotFile, type NoteColumn, type RoundColumn } from '../plots.js';
+import { buildPlotFile, isNumber, noteText, parsePlotFile, type NoteColumn, type RoundColumn } from '../plots.js';
 import { referenceCopyPlan } from '../reference.js';
 import { fileKeyCount, keyShape, recordKeysOfUnit } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
@@ -437,6 +437,43 @@ export function noteColumnOf(info: RoundInfo | null, notes?: ReadonlyMap<string,
   const column = noteColumn(info);
   if (column === null) return undefined;
   return { keyFields: fileKeyCount(info), column, value: (plotId) => notes?.get(plotId) ?? '' };
+}
+
+/**
+ * The plot file a served project file brings (its `csv`, used until an assigned file is chosen),
+ * built as a whole plot file is served (wholeFile): with the round column (every row "1") when the
+ * server added round to the survey in this upload, and the coordinator's note column (empty) when it
+ * added the note, each unless the file's header already names it. Without them Collect Earth says the
+ * columns do not match the survey the first time the plot settings open (Task 22's real run). Read
+ * back as Collect Earth reads it (keys, the latitude and longitude when both are numbers, then the
+ * extra columns): every row with round "1" after its key and the note at its extra column, else
+ * this throws (a bug, never handed out). Unchanged bytes when nothing is to add.
+ */
+export function servedBundledPlotFile(data: Buffer, info: RoundInfo, added: { round: boolean; note: boolean }): Buffer {
+  const keyFields = fileKeyCount(info);
+  const named = (name: string) => parsePlotFile(data, keyFields).header?.fields.some((f) => f.toLowerCase() === name) === true;
+  // A file that names its round column already (the survey had it once) keeps it: its keys are then one more.
+  const hasRound = info.state === 'added' && named('round');
+  const fileKeys = keyFields + (hasRound ? 1 : 0);
+  const parsed = parsePlotFile(data, fileKeys);
+  const round = added.round && !hasRound ? roundColumnOf(info, new Set()) : null;
+  const noteAt = added.note && !named('coordinator_note') ? noteColumnOf(info) : undefined;
+  const note = noteAt ? { ...noteAt, keyFields: fileKeys } : undefined;
+  if (round?.kind !== 'insert' && !note) return data;
+  const out = buildPlotFile(parsed, null, round?.kind === 'insert' ? round : undefined, undefined, note);
+  // Read back as Collect Earth reads the rows (KmlGenerator: keys, coordinates when both are numbers, extra columns).
+  const servedKeys = fileKeys + (round ? 1 : 0);
+  const check = parsePlotFile(out, servedKeys);
+  const num = (fields: readonly string[], i: number) => i < fields.length && isNumber(fields[i].replace(/,/g, '.'));
+  const coords = (fields: readonly string[]) => (num(fields, servedKeys) && num(fields, servedKeys + 1) ? 2 : 0);
+  const lead = check.rows.length > 0 ? coords(check.rows[0].fields) : 2;
+  const ok =
+    check.rows.length === parsed.rows.length &&
+    check.rows.every((row) => (!round || row.fields[keyFields] === '1') && (!note || row.fields[servedKeys + coords(row.fields) + note.column] === '')) &&
+    (!check.header ||
+      ((!round || check.header.fields[keyFields] === 'round') && (!note || check.header.fields[servedKeys + lead + note.column] === 'coordinator_note')));
+  if (!ok) throw new Error("servedBundledPlotFile: the project file's plot file does not read back with the round and the note where the survey has them");
+  return out;
 }
 
 /**

@@ -108,6 +108,34 @@ function sizeInWords(bytes: number): string {
   return `${bytes} bytes`;
 }
 
+/**
+ * The plot file a project file brings (its properties' `csv`, e.g. `${project_path}/grid/plots.csv`):
+ * its path in the zip, or null when it names none the zip has. Collect Earth opens it with the
+ * project, until an assigned plot file is chosen.
+ */
+export function bundledPlotPath(files: CepFiles): string | null {
+  const propertiesBytes = files.entries.get(PROPERTIES_PATH);
+  if (!propertiesBytes) return null;
+  const named = parseProperties(decodeUtf8(propertiesBytes)).get('csv');
+  if (named === undefined) return null;
+  const path = named.replace(PROJECT_PATH_PREFIX, '').replace(/\\/g, '/');
+  return files.entries.has(path) && path.toLowerCase().endsWith('.csv') ? path : null;
+}
+
+/**
+ * The served project file with its bundled plot file (bundledPlotPath) replaced by `rewrite`'s
+ * bytes, every entry stamped `date` (zipCep); the zip unchanged when it brings none. Only for zips
+ * the server made itself (addRound, addNote): they were read within the upload's limits already.
+ */
+export function withBundledPlotFile(zip: Buffer, rewrite: (data: Buffer, path: string) => Buffer, date: Date): Buffer {
+  const files = readCepWithin(zip, DEFAULT_CEP_LIMITS, DEFAULT_CEP_LIMITS.maxTotalBytes * 2);
+  const path = bundledPlotPath(files);
+  if (path === null) return zip;
+  const entries = new Map(files.entries);
+  entries.set(path, rewrite(asBuffer(files.entries.get(path)!), path));
+  return zipCep(entries, date);
+}
+
 /** Opens a CEP and finds its survey, balloons and KML template. */
 export function readCep(zip: Uint8Array, limits: CepLimits = DEFAULT_CEP_LIMITS): CepFiles {
   return readCepWithin(asBuffer(zip), limits, allowedBytes(zip.length, limits));

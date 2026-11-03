@@ -404,4 +404,73 @@ describe('project file and round routes', () => {
     });
     expect(put.statusCode).toBe(403);
   });
+
+  describe('the plot file the project file brings (Task 22 review)', () => {
+    const CSV_PATH = 'grid/showcase_plots.csv';
+    const textOf = (cep: Buffer, path: string) => new TextDecoder().decode(readCep(cep).entries.get(path)!);
+    /** The plot file's rows, as Collect Earth splits them (no quotes in these files). */
+    const rowsOf = (cep: Buffer) =>
+      textOf(cep, CSV_PATH)
+        .split(/\r?\n/)
+        .filter((l) => l !== '')
+        .map((l) => l.split(','));
+    /** What Collect Earth expects of the served survey: its keys, two coordinates, then the attributes filled from the plot file, in order. */
+    const expected = (cep: Buffer) => {
+      const survey = textOf(cep, readCep(cep).surveyPath);
+      const fromCsv = [...survey.matchAll(/<\w+\s[^>]*collectearth:fromcsv="true"[^>]*>/g)]
+        .map((m) => m[0])
+        .filter((tag) => !/\bkey="true"/.test(tag))
+        .map((tag) => /\bname="([^"]+)"/.exec(tag)![1]);
+      return { keys: keysOf(cep), fromCsv };
+    };
+    /** The id-only file as a real one is: its own plot file without the round column either. */
+    const idOnlyWithoutRound = () => withEntry(idOnlyCep(), CSV_PATH, (t) => t.replace(/^([^,\r\n]*),[^,\r\n]*,/gm, '$1,'));
+
+    it('gets the round and the note columns the served survey reads, as the served plot files have them', async () => {
+      const upload = idOnlyWithoutRound();
+      expect(rowsOf(upload)[0].slice(0, 2)).toEqual(['id', 'YCoordinate']);
+      expect((await putCep(upload)).statusCode).toBe(200);
+      const served = (await get('/cep', bearer(project.projectToken))).rawPayload;
+      const rows = rowsOf(served);
+      const { keys, fromCsv } = expected(served);
+      expect(keys).toEqual(['id', 'round']);
+      expect(fromCsv.at(-1)).toBe('coordinator_note');
+      // The header: the keys, the two coordinates, then exactly the attributes filled from the plot file.
+      expect(rows[0].slice(0, 2)).toEqual(keys);
+      expect(rows[0].slice(4)).toEqual(fromCsv);
+      for (const row of rows.slice(1)) {
+        expect(row.length).toBe(keys.length + 2 + fromCsv.length);
+        expect(row[1]).toBe('1');
+        expect(row.at(-1)).toBe('');
+      }
+      expect(rows.length).toBe(rowsOf(upload).length);
+      // The upload is kept as it was.
+      expect((await get('/cep/original')).rawPayload.equals(upload)).toBe(true);
+    });
+
+    it('is not given a second round or note: a file that names them already, the served file uploaded back', async () => {
+      // The fixture's own plot file kept its round column: only the note is added.
+      expect((await putCep(idOnlyCep())).statusCode).toBe(200);
+      const served = (await get('/cep', bearer(project.projectToken))).rawPayload;
+      const rows = rowsOf(served);
+      expect(rows[0].filter((f) => f === 'round')).toHaveLength(1);
+      expect(rows[0].at(-1)).toBe('coordinator_note');
+      expect(rows[0].length).toBe(rowsOf(idOnlyCep())[0].length + 1);
+      // The served file uploaded again: its plot file as it is.
+      expect((await putCep(served)).statusCode).toBe(200);
+      expect(textOf((await get('/cep', bearer(project.projectToken))).rawPayload, CSV_PATH)).toBe(textOf(served, CSV_PATH));
+    });
+
+    it('only the round when the note cannot be added; a survey with its own round gets the note column only', async () => {
+      expect((await putCep(noNote(idOnlyWithoutRound()))).statusCode).toBe(200);
+      const rows = rowsOf((await get('/cep', bearer(project.projectToken))).rawPayload);
+      expect(rows[0].slice(0, 3)).toEqual(['id', 'round', 'YCoordinate']);
+      expect(rows[0]).not.toContain('coordinator_note');
+      expect(rows[1][1]).toBe('1');
+      expect((await putCep(demoCep())).statusCode).toBe(200);
+      const demo = rowsOf((await get('/cep', bearer(project.projectToken))).rawPayload);
+      expect(demo[0].filter((f) => f === 'round')).toHaveLength(1);
+      expect(demo[0].at(-1)).toBe('coordinator_note');
+    });
+  });
 });
