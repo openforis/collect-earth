@@ -207,8 +207,12 @@ export class InMemoryStore implements Store {
     return `${projectId} ${userId}`;
   }
 
-  async createProject(input: { name: string }): Promise<CreateProjectResult> {
-    const projectId = randomUUID();
+  /** `projectId`: the local mode's stable id (src/local.ts); otherwise a new one. */
+  async createProject(input: { name: string; projectId?: string }): Promise<CreateProjectResult> {
+    const projectId = input.projectId ?? randomUUID();
+    if (this.projects.has(projectId)) {
+      throw new Error(`Project ${projectId} already exists`);
+    }
     const project: ProjectRow = {
       projectId,
       name: input.name,

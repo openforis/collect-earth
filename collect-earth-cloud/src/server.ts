@@ -40,6 +40,8 @@ import { registerRecordRoutes } from './routes/records.js';
 import { referenceSyncer, registerReferenceRoutes } from './routes/reference.js';
 import { registerSamplingRoutes } from './routes/sampling.js';
 import { SamplingService } from './samplingService.js';
+import { disableLocalOffRoutes, registerLocalRoutes, type LocalSetup } from './local.js';
+import { InMemoryStore } from './store/memory.js';
 
 export interface BuildServerOptions {
   store: Store;
@@ -60,6 +62,8 @@ export interface BuildServerOptions {
   mailLimits?: { perInstanceHour?: number };
   /** For tests: Google's keys for the weekly job's OIDC token. */
   oidcKeys?: KeySource;
+  /** The local mode's account and project (src/local.ts, startLocal): required with config.localMode. */
+  local?: LocalSetup;
 }
 
 /** How long the development fake (AI_FAKE=1) waits before each answer, so the panel's progress shows. */
@@ -67,6 +71,9 @@ const FAKE_AI_DELAY_MS = 700;
 
 /** The AI client of this server: the development fake, Gemini on Vertex AI, or none. */
 function aiClientOf(config: Config): AiClient | null {
+  if (config.localMode) {
+    return null;
+  }
   if (config.aiFake) {
     return createFakeClient({ delayMs: FAKE_AI_DELAY_MS });
   }
@@ -76,6 +83,9 @@ function aiClientOf(config: Config): AiClient | null {
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_WEB_DIR = join(PACKAGE_ROOT, 'web', 'dist');
 const VERSION = readVersion();
+
+// Set by the bundle's build (scripts/build-local.mjs), which has no package.json beside it.
+declare const __COLLECT_EARTH_CLOUD_VERSION__: string | undefined;
 /** When this process started (the server owner's panel). */
 const STARTED_AT = Date.now();
 // Per client IP. A training room joins from one office IP, so this is generous;
@@ -106,6 +116,13 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     // own proxies add are trusted; `true` would let a client pick its IP.
     trustProxy: config.trustProxyHops ?? 1,
   });
+
+  // The local mode (src/local.ts): before any route, so the routes about other people or the
+  // server are seen as they are added and answer 404.
+  const local = config.localMode ? localSetupOf(options) : null;
+  if (local) {
+    disableLocalOffRoutes(app);
+  }
 
   // The Java client gzips the records:batch body (Content-Encoding: gzip). Fastify
   // does not decompress request bodies by default, so swap in a gunzip stream
@@ -176,7 +193,8 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerPeopleRoutes(app, store, quality, states, now);
   await registerPlotsGeoRoutes(app, store, quality, states, places, config.mapBuildsKept ? { maxBuilds: config.mapBuildsKept } : {});
   await registerActivityRoutes(app, store, quality, states, places, now);
-  await registerRecordRoutes(app, store, sampling);
+  // No check sampling in the local mode: there is no one else to check.
+  await registerRecordRoutes(app, store, local ? undefined : sampling);
   await registerSamplingRoutes(app, store, sampling);
   await registerReferenceRoutes(app, store, quality, states, now);
   // Read-only progress links for funders (Task 18): the public page reads the Progress tab's figures.
@@ -195,11 +213,19 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   app.decorate('aiRuns', runs);
   await registerAiRoutes(app, store, config, { runs });
 
-  await registerDashboard(app, options.webDir === undefined ? DEFAULT_WEB_DIR : options.webDir);
+  if (local) {
+    await registerLocalRoutes(app, store as InMemoryStore, local);
+  }
+
+  await registerDashboard(app, options.webDir === undefined ? (config.webDir ?? DEFAULT_WEB_DIR) : options.webDir);
 
   // Until the first platform admin exists, say how to finish setup. A generated
   // code is only ever shown here, so it is printed once per boot.
   app.addHook('onReady', async () => {
+    if (local) {
+      // No setup in the local mode: its one account was made at start.
+      return;
+    }
     try {
       if (await store.hasPlatformAdmin()) {
         return;
@@ -248,7 +274,21 @@ async function registerDashboard(app: FastifyInstance, webDir: string | null): P
   });
 }
 
+/** The local mode's setup, checked: the memory store, and startLocal's account and project. */
+function localSetupOf(options: BuildServerOptions): LocalSetup {
+  if (!(options.store instanceof InMemoryStore)) {
+    throw new Error('LOCAL_MODE=1 runs on the memory store only');
+  }
+  if (!options.local) {
+    throw new Error('LOCAL_MODE=1 needs the local account and project (startLocal) before the server is built');
+  }
+  return options.local;
+}
+
 function readVersion(): string {
+  if (typeof __COLLECT_EARTH_CLOUD_VERSION__ === 'string') {
+    return __COLLECT_EARTH_CLOUD_VERSION__;
+  }
   try {
     const pkg = JSON.parse(readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8')) as { version?: string };
     return pkg.version ?? 'unknown';

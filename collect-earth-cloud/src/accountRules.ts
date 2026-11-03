@@ -12,13 +12,18 @@ export const MIN_PASSWORD_LENGTH = 8;
 
 /** Returns the `{error, reason}` body for a rule violation, or null if both are fine. */
 export function checkCredentials(username: string | null, password: string): { error: string; reason: string } | null {
-  if (username !== null && !USERNAME_RE.test(username)) {
+  if (username !== null && !isValidUsername(username)) {
     return {
       error: 'bad_username',
       reason: 'username must be 3-64 characters: letters, digits, dot, underscore, hyphen or @',
     };
   }
   return checkPassword(password);
+}
+
+/** Whether a username follows the rules of accounts made from the dashboard. */
+export function isValidUsername(username: string): boolean {
+  return USERNAME_RE.test(username);
 }
 
 export function checkPassword(password: string): { error: string; reason: string } | null {

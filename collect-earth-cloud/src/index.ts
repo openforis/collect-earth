@@ -1,5 +1,6 @@
 import { forgetMigrationUrl, rowLevelSecurityAtBoot } from './boot.js';
 import { loadConfig } from './config.js';
+import { readyLine, startLocal } from './local.js';
 import { buildServer } from './server.js';
 import { InMemoryStore } from './store/memory.js';
 import { PostgresStore } from './store/postgres.js';
@@ -41,7 +42,10 @@ async function main(): Promise<void> {
     }
   }
 
-  const app = await buildServer({ store, config, logger: true });
+  // The local mode (src/local.ts): its account and project first. Its log goes to stderr, so that
+  // stdout carries only the ready line the desktop reads.
+  const local = config.localMode ? await startLocal(store as InMemoryStore, config) : undefined;
+  const app = await buildServer({ store, config, logger: local ? { stream: process.stderr } : true, ...(local ? { local } : {}) });
 
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info(`Received ${signal}, shutting down`);
@@ -53,6 +57,10 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
 
   await app.listen({ port: config.port, host: config.host });
+  if (local) {
+    process.stdout.write(`${readyLine(app, local)}\n`);
+    return;
+  }
   if (config.storeBackend === 'memory') {
     app.log.warn('STORE_BACKEND=memory: data is not persisted across restarts');
   }

@@ -132,14 +132,24 @@ export class WorkerUnavailableError extends Error {
  */
 function workerExecArgv(): string[] {
   const argv = process.execArgv;
-  if (argv.some((a) => a.includes('tsx'))) {
+  if (!RUNS_TYPESCRIPT || argv.some((a) => a.includes('tsx'))) {
     return argv;
   }
   const loader = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
   return [...argv, '--import', loader];
 }
 
-const WORKER_URL = new URL(import.meta.url.endsWith('.ts') ? './qualityWorker.ts' : './qualityWorker.js', import.meta.url);
+/** Run from the sources (tsx, vitest), not from built JavaScript. */
+const RUNS_TYPESCRIPT = import.meta.url.endsWith('.ts');
+
+/**
+ * The worker's module, beside this one: the source under tsx and vitest; in the bundle
+ * (scripts/build-local.mjs: dist/server.mjs) the bundled worker, dist/qualityWorker.mjs.
+ */
+const WORKER_URL = new URL(
+  RUNS_TYPESCRIPT ? './qualityWorker.ts' : import.meta.url.endsWith('.mjs') ? './qualityWorker.mjs' : './qualityWorker.js',
+  import.meta.url,
+);
 
 /** How long one job may take before it fails and its worker is replaced. */
 export const WORKER_JOB_TIMEOUT_MS = 120_000;

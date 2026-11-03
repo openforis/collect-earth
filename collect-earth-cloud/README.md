@@ -28,6 +28,34 @@ npm test          # isolation + sync behaviour, against the in-memory store
 npm run dev       # STORE_BACKEND defaults to "memory"
 ```
 
+## Local mode (the dashboard inside Collect Earth)
+
+`LOCAL_MODE=1` runs the server for one person on their own computer: Collect Earth starts it and
+feeds it (docs/plans/2026-11-03-desktop-dashboard.md, `src/local.ts`). It listens on 127.0.0.1
+only (any other `HOST` is refused), keeps everything in memory, and makes at start one account
+(`LOCAL_USER`, the person's name; the username is made from it) and one project (`LOCAL_PROJECT_ID`,
+a uuid the desktop keeps; `LOCAL_PROJECT_NAME`) with the account as its coordinator. The routes
+about other people or the server (sign-up, invitations, roles, division, assignments, checks,
+reference plots, the review queue, progress links, mail, the AI, `/v1/admin/*`) answer 404
+(`LOCAL_OFF_ROUTES`); `/v1/server-info` says `localMode: true`. The database, mail and AI
+settings are not read in this mode.
+
+Once listening it prints one JSON line on stdout (its log goes to stderr):
+`{"ready":true,"port":…,"projectId":…,"username":…,"signInUrl":…,"apiToken":…}`. `PORT=0`
+(the default here) picks a free port. `apiToken` is the account's session: Collect Earth sends
+records:batch, the CEP and the plot files with it (`Authorization: Bearer`). `signInUrl`
+(`/local-sign-in/<token>`) opens the dashboard in the browser, signed in, once, within 15 minutes;
+`POST /v1/local/sign-in-links` (with `apiToken`) gives a new one.
+
+```bash
+npm run build:local                         # dist/server.mjs + dist/qualityWorker.mjs (esbuild)
+LOCAL_MODE=1 LOCAL_USER="Ana María" WEB_DIR=web/dist node dist/server.mjs
+```
+
+The bundle needs no node_modules: the Postgres store, the migrations, the AI client and SMTP
+mail are replaced by the stand-ins of `src/localBuild/`, so it runs the memory store only.
+`WEB_DIR` says where the built dashboard is (default: `web/dist` beside the package).
+
 ## Deployment
 
 To run your own server on Google Cloud without technical knowledge, follow
@@ -263,6 +291,8 @@ src/
   config.ts            env → Config
   server.ts            buildServer(store) — Fastify app, gunzip hook (inject-testable)
   index.ts             process entrypoint (picks store, listens, graceful shutdown)
+  local.ts             LOCAL_MODE: the one account and project, the routes off, the sign-in links
+  localBuild/          the local bundle's stand-ins for the cloud-only modules (scripts/build-local.mjs)
   auth.ts              token generate / sha256 hash / bearer parsing
   lww.ts               last-write-wins decision
   types.ts             wire + row types

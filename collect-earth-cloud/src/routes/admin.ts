@@ -115,6 +115,22 @@ export async function registerAdminRoutes(
 ): Promise<void> {
   // Public: what the dashboard needs before anyone logs in.
   app.get('/v1/server-info', async (_request: FastifyRequest, reply: FastifyReply) => {
+    if (config.localMode) {
+      // The local mode (src/local.ts): one person, signed in by the desktop. Nothing to set up,
+      // no sign-up, no new project, no AI; `localMode` tells the dashboard to hide the rest.
+      return reply.send({
+        localMode: true,
+        needsSetup: false,
+        signupOpen: false,
+        projectCreation: 'platform-admins',
+        version: options.version,
+        termsUrl: null,
+        contactEmail: null,
+        serverName: null,
+        aiAvailable: false,
+        mapTiles: config.mapTiles ?? OSM_TILES,
+      });
+    }
     const settings = await store.getSettings();
     return reply.send({
       needsSetup: !(await store.hasPlatformAdmin()),

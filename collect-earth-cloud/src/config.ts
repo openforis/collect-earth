@@ -1,3 +1,4 @@
+import { isUuid } from './accountRules.js';
 import { isMailFrom, parseSmtpUrl } from './mail.js';
 
 export interface Config {
@@ -116,7 +117,26 @@ export interface Config {
    * behind a proxy that sets it: a client can write it itself (Cloud Run passes it on). Default false.
    */
   trustForwardedHost?: boolean;
+  /**
+   * LOCAL_MODE=1: the single-person dashboard Collect Earth runs on the desktop (src/local.ts). Binds
+   * 127.0.0.1 only, memory store, one account and one project made at start; the routes about other
+   * people or the server answer 404. The cloud-only settings (database, mail, AI, setup code, admin
+   * key) are not read in this mode, so an environment variable a desktop happens to have set (such as
+   * DATABASE_URL) can never turn them on.
+   */
+  localMode?: boolean;
+  /** LOCAL_USER: the person's name, as the desktop knows it; the account's username is made from it (localUsername). */
+  localUser?: string;
+  /** LOCAL_PROJECT_ID: the project's id, a uuid the desktop keeps so the dashboard's links survive restarts. */
+  localProjectId?: string;
+  /** LOCAL_PROJECT_NAME: the project's name (default "My project"). */
+  localProjectName?: string;
+  /** WEB_DIR: the built dashboard (index.html + assets); undefined = web/dist of this package. */
+  webDir?: string;
 }
+
+/** The only address the local mode listens on. */
+export const LOCAL_HOST = '127.0.0.1';
 
 /** The shortest DIGEST_SECRET accepted. */
 export const MIN_DIGEST_SECRET_LENGTH = 32;
@@ -153,6 +173,13 @@ export const DEFAULT_AI_MODEL = 'gemini-3.8-flash';
 export const DEFAULT_AI_REGION = 'global';
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  const local = env.LOCAL_MODE?.trim() ?? '';
+  if (local !== '' && local !== '0' && local !== '1') {
+    throw new Error(`Invalid LOCAL_MODE "${env.LOCAL_MODE}" (expected 1, or 0 / unset)`);
+  }
+  if (local === '1') {
+    return loadLocalConfig(env);
+  }
   const storeBackend = (env.STORE_BACKEND ?? 'memory') as Config['storeBackend'];
   if (storeBackend !== 'memory' && storeBackend !== 'postgres') {
     throw new Error(`Invalid STORE_BACKEND "${storeBackend}" (expected "memory" or "postgres")`);
@@ -183,6 +210,48 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     mapTiles: mapTilesOf(env),
     ...mailConfigOf(env),
     trustForwardedHost: env.TRUST_FORWARDED_HOST === 'true' || env.TRUST_FORWARDED_HOST === '1',
+    webDir: nonEmpty(env.WEB_DIR?.trim()),
+  };
+}
+
+/**
+ * The local mode's settings. Only what a single-person dashboard on the desktop uses is read; the
+ * database, mail, AI, setup code and admin key are left unset whatever the environment says.
+ */
+function loadLocalConfig(env: NodeJS.ProcessEnv): Config {
+  const host = nonEmpty(env.HOST?.trim()) ?? LOCAL_HOST;
+  if (host !== LOCAL_HOST) {
+    throw new Error(`LOCAL_MODE=1 listens on ${LOCAL_HOST} only: HOST "${env.HOST}" is refused (leave HOST unset or set it to ${LOCAL_HOST})`);
+  }
+  const portText = nonEmpty(env.PORT?.trim()) ?? '0';
+  const port = Number(portText);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new Error(`Invalid PORT "${env.PORT}" (expected a port number, or 0 for a free one)`);
+  }
+  const localProjectId = nonEmpty(env.LOCAL_PROJECT_ID?.trim());
+  if (localProjectId !== undefined && !isUuid(localProjectId)) {
+    throw new Error(`Invalid LOCAL_PROJECT_ID "${env.LOCAL_PROJECT_ID}" (expected a uuid)`);
+  }
+  const localProjectName = nonEmpty(env.LOCAL_PROJECT_NAME?.trim());
+  if (localProjectName !== undefined && localProjectName.length > 200) {
+    throw new Error('LOCAL_PROJECT_NAME must be at most 200 characters');
+  }
+  return {
+    port,
+    host,
+    storeBackend: 'memory',
+    localMode: true,
+    localUser: nonEmpty(env.LOCAL_USER?.trim()),
+    localProjectId: localProjectId?.toLowerCase(),
+    localProjectName,
+    webDir: nonEmpty(env.WEB_DIR?.trim()),
+    qualityWorkerMaxMb: qualityWorkerMaxMbOf(env.QUALITY_WORKER_MAX_MB),
+    parsedCacheMb: wholeAtLeast('PARSED_FILES_CACHE_MB', env.PARSED_FILES_CACHE_MB, 8),
+    servedCacheMb: wholeAtLeast('SERVED_FILES_CACHE_MB', env.SERVED_FILES_CACHE_MB, 8),
+    mapBuildsKept: wholeAtLeast('MAP_BUILDS_KEPT', env.MAP_BUILDS_KEPT, 1),
+    projectStatesKept: wholeAtLeast('PROJECT_STATES_KEPT', env.PROJECT_STATES_KEPT, 1),
+    aiConfigured: false,
+    mapTiles: mapTilesOf(env),
   };
 }
 
