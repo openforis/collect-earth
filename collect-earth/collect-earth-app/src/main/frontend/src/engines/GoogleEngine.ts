@@ -29,7 +29,7 @@ export class GoogleEngine implements MapEngine {
   readonly name = "google" as const;
   private map: google.maps.Map | null = null;
   /** Keyed by plot id, without a prototype (see byId). */
-  private defs: Record<string, { rings: LatLng[][]; center: LatLng; color: string }> = byId();
+  private defs: Record<string, { label: string; rings: LatLng[][]; center: LatLng; color: string }> = byId();
   private layers: Record<string, { polygons: google.maps.Polygon[]; marker: google.maps.Marker }> = byId();
   private callbacks!: EngineCallbacks;
   private config!: EngineConfig;
@@ -66,10 +66,10 @@ export class GoogleEngine implements MapEngine {
     document.head.appendChild(s);
   }
 
-  addPlot(id: string, rings: LatLng[][], center: LatLng): void {
+  addPlot(id: string, label: string, rings: LatLng[][], center: LatLng): void {
     // A plot added again (the plots loaded again) replaces the one there: two would be drawn, one of them for good
     this.removeLayers(id);
-    this.defs[id] = { rings, center, color: this.config.emptyColor };
+    this.defs[id] = { label, rings, center, color: this.config.emptyColor };
     if (this.ready) this.createPlot(id);
   }
 
@@ -250,7 +250,7 @@ export class GoogleEngine implements MapEngine {
       return poly;
     });
     const marker = new google.maps.Marker({
-      position: { lat: def.center[0], lng: def.center[1] }, icon: this.markerIcon(def.color), title: id,
+      position: { lat: def.center[0], lng: def.center[1] }, icon: this.markerIcon(def.color), title: def.label,
     });
     marker.addListener("click", () => this.callbacks.onPlotClick(id));
     this.layers[id] = { polygons, marker };

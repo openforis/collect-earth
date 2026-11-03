@@ -5,6 +5,16 @@ export function generateToken(): string {
   return randomBytes(24).toString('base64url');
 }
 
+/** A progress link's token (Task 18): 32 random bytes, 43 URL-safe characters; it lives for months. */
+export function generateShareToken(): string {
+  return randomBytes(32).toString('base64url');
+}
+
+/** Whether a string can be a progress link's token (anything else is not looked up). */
+export function isShareToken(token: string): boolean {
+  return /^[A-Za-z0-9_-]{43}$/.test(token);
+}
+
 /** Deterministic hash stored at rest; the plaintext token is never persisted. */
 export function hashToken(token: string): string {
   return createHash('sha256').update(token, 'utf8').digest('hex');

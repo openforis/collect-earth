@@ -1,0 +1,71 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<survey lastId="20" collect:target="CE" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth">
+  <project>Relevance</project>
+  <uri>http://www.openforis.org/idm/collect_earth_relevance_test</uri>
+  <cycle>2026</cycle>
+  <language>en</language>
+  <applicationOptions>
+    <options type="ui">
+<n0:tabSet name="plot_tab_set" xmlns:n0="http://www.openforis.org/collect/3.0/ui">
+  <n0:tab name="plot_tab">
+    <n0:label>Plot</n0:label>
+  </n0:tab>
+</n0:tabSet>
+    </options>
+  </applicationOptions>
+  <codeLists>
+    <list id="10" name="land_use">
+      <items>
+        <item id="11">
+          <code>F</code>
+          <label>Forest</label>
+        </item>
+        <item id="12">
+          <code>G</code>
+          <label>Grassland</label>
+        </item>
+      </items>
+    </list>
+    <list id="13" name="forest_dynamics">
+      <items>
+        <item id="14">
+          <code>none</code>
+          <label>No Changes</label>
+        </item>
+        <item id="15">
+          <code>degradation</code>
+          <label>Degradation</label>
+        </item>
+      </items>
+    </list>
+  </codeLists>
+  <schema>
+    <entity id="1" name="plot" ui:tab="plot_tab" ui:tabSet="plot_tab_set">
+      <label type="instance">Plot</label>
+      <text id="2" name="id" required="true" key="true" type="short">
+        <label type="instance">Id</label>
+      </text>
+      <text id="3" name="operator" type="short">
+        <label type="instance">Operator</label>
+      </text>
+      <code id="4" name="land_use" required="true" list="land_use">
+        <label type="instance">Land use</label>
+      </code>
+      <code id="5" name="forest_dynamics" relevant="land_use = 'F'" required="true" list="forest_dynamics">
+        <label type="instance">Forest dynamics</label>
+      </code>
+      <number id="6" name="previous_tree_cover" relevant="forest_dynamics = 'degradation'" required="true" type="integer">
+        <label type="instance">Previous tree cover</label>
+      </number>
+      <number id="7" name="degradation_year" relevant="forest_dynamics = 'degradation'" required="true" type="integer">
+        <label type="instance">Degradation year</label>
+      </number>
+      <boolean id="8" name="actively_saved">
+        <label type="instance">Actively saved by user</label>
+      </boolean>
+      <date id="9" name="actively_saved_on" relevant="false()">
+        <label type="instance">Last saved on</label>
+      </date>
+    </entity>
+  </schema>
+</survey>

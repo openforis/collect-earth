@@ -1,0 +1,476 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { randomBytes } from 'node:crypto';
+import { readCep, surveyInfo, zipCep, type RoundInfo } from '../src/cep.js';
+import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
+import { demoCep, FIXTURE_DATE, idOnlyCep, noNote } from './fixtures/cep.js';
+
+const keysOf = (cep: Buffer) => {
+  const files = readCep(cep);
+  return surveyInfo(new TextDecoder().decode(files.entries.get(files.surveyPath)!)).keys.map((k) => k.name);
+};
+
+const BALLOON_MARKER = '<!-- START OF EXTRA CSV DATA -->';
+
+/** The project file with one entry's text changed (the test survey files are UTF-8). */
+const withEntry = (cep: Buffer, path: string, change: (text: string) => string) => {
+  const entries = new Map(readCep(cep).entries);
+  const before = new TextDecoder().decode(entries.get(path)!);
+  const after = change(before);
+  if (after === before) throw new Error(`withEntry: ${path} did not change`);
+  entries.set(path, new TextEncoder().encode(after));
+  return zipCep(entries, FIXTURE_DATE);
+};
+
+describe('project file and round routes', () => {
+  let ctx: TestContext;
+  let project: Awaited<ReturnType<typeof createProject>>;
+  const admin = () => bearer(project.adminToken);
+
+  const putCep = (body: Buffer) =>
+    ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${project.projectId}/cep`,
+      headers: { ...admin(), 'content-type': 'application/zip' },
+      payload: body,
+    });
+  const get = (path: string, headers = admin()) =>
+    ctx.app.inject({ method: 'GET', url: `/v1/projects/${project.projectId}${path}`, headers });
+  const putRound = (payload: unknown) =>
+    ctx.app.inject({ method: 'PUT', url: `/v1/projects/${project.projectId}/round`, headers: admin(), payload: payload as object });
+  const addRecord = async () =>
+    expect((await batchRequest(ctx.app, project.projectId, project.projectToken, [envelope()])).statusCode).toBe(200);
+
+  beforeEach(async () => {
+    ctx = await makeContext();
+    project = await createProject(ctx.app, 'Rounds');
+  });
+  afterEach(async () => {
+    await ctx.app.close();
+  });
+
+  it('adds round to an id-only upload before collection, and keeps the upload', async () => {
+    const upload = idOnlyCep();
+    const put = await putCep(upload);
+    expect(put.statusCode, put.body).toBe(200);
+    const round = put.json().round as RoundInfo;
+    expect(round).toMatchObject({ state: 'added', refusal: null, keyCount: 2, roundIndex: 1, reassessmentCode: '2' });
+    expect(put.json()).toMatchObject({ ok: true, bytes: upload.length });
+
+    const served = await get('/cep', bearer(project.projectToken));
+    expect(served.statusCode).toBe(200);
+    expect(served.rawPayload.equals(upload)).toBe(false);
+    expect(keysOf(served.rawPayload)).toEqual(['id', 'round']);
+
+    const original = await get('/cep/original');
+    expect(original.statusCode).toBe(200);
+    expect(original.headers['content-type']).toContain('application/zip');
+    expect(original.rawPayload.equals(upload)).toBe(true);
+
+    expect((await get('/round')).json()).toEqual(round);
+    // Both files count towards the project's storage.
+    const storage = await ctx.store.getProjectStorage(project.projectId);
+    expect(storage.cepBytes).toBe(served.rawPayload.length + upload.length);
+  });
+
+  it('stamps the served file with the upload time', async () => {
+    const before = Date.now();
+    await putCep(idOnlyCep());
+    const served = (await get('/cep')).rawPayload;
+    const centralAt = served.readUInt32LE(served.length - 22 + 16);
+    const dosDate = served.readUInt16LE(centralAt + 14);
+    const day = new Date(before);
+    expect(dosDate).toBe(((day.getUTCFullYear() - 1980) << 9) | ((day.getUTCMonth() + 1) << 5) | day.getUTCDate());
+  });
+
+  it('serves a survey with its own round as uploaded; /cep/original is the same file', async () => {
+    // Without room for the coordinator's note (Task 16), which would change the file.
+    const upload = noNote(demoCep());
+    const put = await putCep(upload);
+    expect(put.json().round).toMatchObject({ state: 'own', reassessmentCode: '2' });
+    expect((await get('/cep')).rawPayload.equals(upload)).toBe(true);
+    expect((await get('/cep/original')).rawPayload.equals(upload)).toBe(true);
+    expect((await ctx.store.getProjectStorage(project.projectId)).cepBytes).toBe(upload.length);
+  });
+
+  it('does not change the survey once records exist', async () => {
+    await addRecord();
+    const upload = idOnlyCep();
+    const put = await putCep(upload);
+    expect(put.statusCode).toBe(200);
+    expect(put.json().round).toEqual({
+      state: 'none',
+      refusal: null,
+      keyCount: 1,
+      roundIndex: null,
+      roundCodes: [],
+      reassessmentCode: null,
+      // Nor is the coordinator's note added (Task 16).
+      note: { state: 'none', refusal: 'records_exist', column: null },
+    });
+    expect((await get('/cep')).rawPayload.equals(upload)).toBe(true);
+  });
+
+  it('counts deleted records as records', async () => {
+    expect(await ctx.store.hasRecords(project.projectId)).toBe(false);
+    await batchRequest(ctx.app, project.projectId, project.projectToken, [envelope({ deleted: true, xml: null })]);
+    expect(await ctx.store.hasRecords(project.projectId)).toBe(true);
+  });
+
+  it('adds round again, once records exist, to an id-only file for a project the server added round to', async () => {
+    await putCep(idOnlyCep());
+    await addRecord();
+    const upload = idOnlyCep();
+    const res = await putCep(upload);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().round).toMatchObject({ state: 'added', keyCount: 2, roundIndex: 1, reassessmentCode: '2' });
+    expect(keysOf((await get('/cep')).rawPayload)).toEqual(['id', 'round']);
+    expect((await get('/cep/original')).rawPayload.equals(upload)).toBe(true);
+  });
+
+  it('keeps round as added when the coordinator uploads the served file again after records exist', async () => {
+    await putCep(idOnlyCep());
+    await addRecord();
+    const served = (await get('/cep')).rawPayload;
+    const res = await putCep(served);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().round).toMatchObject({ state: 'added', refusal: null, keyCount: 2, roundIndex: 1, reassessmentCode: '2' });
+    expect((await get('/cep')).rawPayload.equals(served)).toBe(true);
+    expect((await get('/cep/original')).rawPayload.equals(served)).toBe(true);
+    expect((await get('/round')).json().state).toBe('added');
+  });
+
+  describe("the coordinator's note (Task 16)", () => {
+    const surveyText = (cep: Buffer) => {
+      const files = readCep(cep);
+      return new TextDecoder().decode(files.entries.get(files.surveyPath)!);
+    };
+
+    it('is added before collection, with round, keeping the upload; GET /round says where it is read', async () => {
+      const upload = idOnlyCep();
+      const res = await putCep(upload);
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json().round.note).toEqual({ state: 'added', refusal: null, column: 9 });
+      const served = (await get('/cep')).rawPayload;
+      expect(keysOf(served)).toEqual(['id', 'round']);
+      expect(surveyText(served)).toMatch(/<text id="\d+" name="coordinator_note" type="memo"[^>]*collectearth:includeinheader="true">/);
+      expect((await get('/cep/original')).rawPayload.equals(upload)).toBe(true);
+      expect((await get('/round')).json().note).toEqual({ state: 'added', refusal: null, column: 9 });
+    });
+
+    it('is added to a survey with its own round too: the upload is then kept as the original', async () => {
+      const upload = demoCep();
+      const res = await putCep(upload);
+      expect(res.json().round).toMatchObject({ state: 'own', note: { state: 'added', column: 9 } });
+      const served = (await get('/cep')).rawPayload;
+      expect(served.equals(upload)).toBe(false);
+      expect(surveyText(served)).toContain('name="coordinator_note"');
+      expect((await get('/cep/original')).rawPayload.equals(upload)).toBe(true);
+    });
+
+    it('says why it is not added, and serves the file as uploaded', async () => {
+      const upload = noNote(demoCep());
+      const res = await putCep(upload);
+      expect(res.json().round.note).toEqual({ state: 'none', refusal: 'note_name_taken', column: null });
+      expect((await get('/cep')).rawPayload.equals(upload)).toBe(true);
+    });
+
+    it('stays once records exist: the served file uploaded again, or an id-only file it is added to again', async () => {
+      await putCep(idOnlyCep());
+      await addRecord();
+      const served = (await get('/cep')).rawPayload;
+      const back = await putCep(served);
+      expect(back.statusCode, back.body).toBe(200);
+      expect(back.json().round.note).toEqual({ state: 'added', refusal: null, column: 9 });
+      expect((await get('/cep')).rawPayload.equals(served)).toBe(true);
+      const again = await putCep(idOnlyCep());
+      expect(again.json().round).toMatchObject({ state: 'added', note: { state: 'added', column: 9 } });
+      expect(surveyText((await get('/cep')).rawPayload)).toContain('name="coordinator_note"');
+    });
+
+    it('says so, once records exist, when the new file reads it from another column', async () => {
+      await putCep(idOnlyCep());
+      await addRecord();
+      // One more attribute filled from the plot file: the note moves to column 10.
+      const more = withEntry(idOnlyCep(), 'placemark.idm.xml', (t) =>
+        t.replace(/(name="district"[\s\S]*?<\/text>)/, '$1\n      <text id="9999991" name="plot_area" collectearth:fromcsv="true" type="short"/>'),
+      );
+      const res = await putCep(more);
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json().round.note).toEqual({ state: 'added', refusal: null, column: 10 });
+      expect(res.json().noteColumnChanged).toEqual({ from: 9, to: 10 });
+      // The same column again: nothing to say.
+      expect((await putCep(more)).json().noteColumnChanged).toBeUndefined();
+    });
+
+    it('refuses a plot file whose header already has a coordinator_note column, while the project has the note', async () => {
+      const upload = (name: string, csv: string) =>
+        ctx.app.inject({
+          method: 'PUT',
+          url: `/v1/projects/${project.projectId}/csv-files/${name}`,
+          headers: { ...admin(), 'content-type': 'text/csv' },
+          payload: csv,
+        });
+      const csv = 'id,lat,lon,Coordinator_Note\n1,0,0,x\n';
+      // Without the note it is just a column.
+      await putCep(noNote(idOnlyCep()));
+      expect((await upload('a.csv', csv)).statusCode).toBe(201);
+      await putCep(idOnlyCep());
+      const res = await upload('b.csv', csv);
+      expect(res.statusCode).toBe(409);
+      expect(res.json()).toMatchObject({ error: 'note_column_in_file', reason: expect.stringMatching(/coordinator_note/) });
+      expect((await upload('c.csv', 'id,lat,lon,notes\n1,0,0,x\n')).statusCode).toBe(201);
+    });
+
+    it('is refused, once records exist, when the file can no longer have it (note_removed); nothing changes', async () => {
+      await putCep(idOnlyCep());
+      await addRecord();
+      const served = (await get('/cep')).rawPayload;
+      // The note made a question of the survey's own: the records hold the server's note.
+      const changed = withEntry(served, 'placemark.idm.xml', (t) => t.replace(' collectearth:includeinheader="true"', ''));
+      const res = await putCep(changed);
+      expect(res.statusCode).toBe(409);
+      expect(res.json()).toMatchObject({ error: 'note_removed', reason: expect.stringMatching(/coordinator_note of its own/) });
+      expect((await get('/cep')).rawPayload.equals(served)).toBe(true);
+      expect((await get('/round')).json().note).toEqual({ state: 'added', refusal: null, column: 9 });
+    });
+  });
+
+  it('refuses, once records exist, the added round coming back without code 1 or 2', async () => {
+    await putCep(idOnlyCep());
+    await addRecord();
+    const served = (await get('/cep')).rawPayload;
+    const codes13 = withEntry(served, 'placemark.idm.xml', (t) =>
+      t.replace(/(name="assessment_phases"[\s\S]*?<code>)2(<\/code>)/, (_, a: string, b: string) => `${a}3${b}`),
+    );
+    const res = await putCep(codes13);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe('round_codes_changed');
+    expect(res.json().reason).toMatch(/must stay 1 First assessment and 2 Re-assessment/);
+    expect((await get('/cep')).rawPayload.equals(served)).toBe(true);
+  });
+
+  it('refuses with 413 a survey above its own cap, quickly, before parsing it', async () => {
+    // 20 MB that does not compress: within the zip's own allowance, above the survey's 10 MB.
+    const survey = randomBytes(20 * 1024 * 1024);
+    const upload = zipCep(new Map([['placemark.idm.xml', new Uint8Array(survey)]]), FIXTURE_DATE);
+    const started = performance.now();
+    const res = await putCep(upload);
+    expect(performance.now() - started).toBeLessThan(5000);
+    expect(res.statusCode).toBe(413);
+    expect(res.json().reason).toMatch(/survey \(placemark\.idm\.xml\) is larger than 10 MB/);
+  });
+
+  it('refuses with 413, once records exist, a too-large upload to a project the server added round to', async () => {
+    await putCep(idOnlyCep());
+    await addRecord();
+    const bomb = zipCep(new Map([['big.bin', new Uint8Array(25 * 1024 * 1024)]]), FIXTURE_DATE);
+    const res = await putCep(bomb);
+    expect(res.statusCode).toBe(413);
+    expect(res.json()).toMatchObject({ error: 'too_large', reason: expect.stringMatching(/more than 20 MB/) });
+    expect((await get('/round')).json().state).toBe('added');
+  });
+
+  it('refuses, once records exist, a file without round the server cannot add it to', async () => {
+    await putCep(idOnlyCep());
+    await addRecord();
+    const servedBefore = (await get('/cep')).rawPayload;
+    const res = await putCep(withEntry(idOnlyCep(), 'balloon.html', (t) => t.replace(BALLOON_MARKER, '')));
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe('round_removed');
+    expect(res.json().reason).toMatch(/balloon/);
+    expect((await get('/cep')).rawPayload.equals(servedBefore)).toBe(true);
+    expect((await get('/round')).json().state).toBe('added');
+  });
+
+  it('refuses, once records exist, a file whose keys differ from the one collected with', async () => {
+    const extraKey = (cep: Buffer) =>
+      withEntry(cep, 'placemark.idm.xml', (t) =>
+        t.replace('<text id="4" name="operator" required="true"', '<text id="4" name="operator" required="true" key="true"'),
+      );
+    const refused = async (upload: Buffer) => {
+      const res = await putCep(upload);
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error).toBe('key_shape_changed');
+      expect(typeof res.json().reason).toBe('string');
+    };
+
+    // Added round, then a file with a third key.
+    await putCep(idOnlyCep());
+    await addRecord();
+    const served = (await get('/cep')).rawPayload;
+    await refused(extraKey(served));
+    expect((await get('/cep')).rawPayload.equals(served)).toBe(true);
+
+    // Its own round, then id only, or a third key; the same keys are taken.
+    project = await createProject(ctx.app, 'Own');
+    await putCep(demoCep());
+    await addRecord();
+    await refused(idOnlyCep());
+    await refused(extraKey(demoCep()));
+    expect((await putCep(demoCep())).statusCode).toBe(200);
+
+    // No round (uploaded after records), then a file with round.
+    project = await createProject(ctx.app, 'None');
+    await addRecord();
+    expect((await putCep(idOnlyCep())).json().round).toMatchObject({ state: 'none', keyCount: 1 });
+    await refused(demoCep());
+    expect((await putCep(idOnlyCep())).statusCode).toBe(200);
+  });
+
+  it('sets the re-assessment code only for an own round, and only to one of its codes', async () => {
+    await putCep(idOnlyCep());
+    expect((await putRound({ reassessmentCode: '1' })).statusCode).toBe(400);
+
+    await putCep(demoCep());
+    expect((await putRound({ reassessmentCode: '9' })).statusCode).toBe(400);
+    expect((await putRound({ reassessmentCode: 2 })).statusCode).toBe(400);
+    expect((await putRound({})).statusCode).toBe(400);
+    const ok = await putRound({ reassessmentCode: '1' });
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect((await get('/round')).json().reassessmentCode).toBe('1');
+    expect((await putRound({ reassessmentCode: null })).statusCode).toBe(200);
+    expect((await get('/round')).json().reassessmentCode).toBeNull();
+  });
+
+  it('keeps a chosen re-assessment code when the same kind of file is uploaded again', async () => {
+    await putCep(demoCep());
+    await putRound({ reassessmentCode: '1' });
+    const again = await putCep(demoCep());
+    expect(again.json().round.reassessmentCode).toBe('1');
+  });
+
+  it('a project file stored before round info existed (master) is read for round on first use', async () => {
+    const pid = project.projectId;
+    // As master left it: the demo survey ([id, round]) and a plot file counted with one key column,
+    // and no round info.
+    await ctx.store.putCsvFile(pid, 'plots.csv', Buffer.from('id,round,lat,lon\n17,1,0,0\n18,1,0,0\n18,3,0,0\n'));
+    await ctx.store.putCep(pid, demoCep(), { state: 'none', refusal: null, keyCount: 0, roundIndex: null, roundCodes: [], reassessmentCode: null }, null);
+    (ctx.store as unknown as { projects: Map<string, { roundInfo: RoundInfo | null }> }).projects.get(pid)!.roundInfo = null;
+    expect((await ctx.store.listCsvFiles(pid))[0].plotCount).toBe(2);
+    await batchRequest(ctx.app, pid, project.projectToken, [
+      envelope({ recordKey: '17,1', operator: 'ana', summary: {} }),
+      envelope({ recordKey: '17,2', operator: 'ben', summary: {} }),
+    ]);
+
+    const round = await get('/round');
+    expect(round.statusCode).toBe(200);
+    expect(round.json()).toMatchObject({ state: 'own', refusal: null, keyCount: 2, roundIndex: 1, reassessmentCode: '2' });
+    // Saved, and the plot file counted again with the round column.
+    expect((ctx.store as unknown as { projects: Map<string, { roundInfo: RoundInfo | null }> }).projects.get(pid)!.roundInfo).toMatchObject({ state: 'own' });
+    expect((await ctx.store.listCsvFiles(pid))[0].plotCount).toBe(3);
+
+    const exported = await get('/export.csv');
+    const lines = exported.rawPayload.subarray(3).toString('utf8').split('\r\n').filter((l) => l !== '');
+    expect(lines.slice(1).map((l) => l.split(',').slice(0, 8).join(','))).toEqual([
+      '"17,1",17,1,main,,,ana',
+      '"17,2",17,2,check,,,ben',
+    ]);
+    const quality = (await get('/quality')).json();
+    expect(quality.problems).toEqual([]);
+    expect(quality.plotsChecked).toBe(1);
+    expect((await putRound({ reassessmentCode: '1' })).statusCode).toBe(200);
+  });
+
+  it('has no round info and no original before any upload', async () => {
+    expect((await get('/round')).json()).toBeNull();
+    expect((await get('/cep/original')).statusCode).toBe(404);
+  });
+
+  it('refuses a zip that unzips to too much with 413 and a plain reason', async () => {
+    const bomb = zipCep(new Map([['placemark.idm.xml', new Uint8Array(25 * 1024 * 1024)]]), FIXTURE_DATE);
+    const res = await putCep(bomb);
+    expect(res.statusCode).toBe(413);
+    expect(res.json().error).toBe('too_large');
+    // The limit this upload had: a small zip may unzip to 20 MB.
+    expect(res.json().reason).toMatch(/unzips to more than 20 MB/);
+    expect(await ctx.store.getCep(project.projectId)).toBeNull();
+
+    await addRecord();
+    const again = await putCep(bomb);
+    expect(again.statusCode).toBe(413);
+    expect(again.json().reason).toMatch(/unzips to more than 20 MB/);
+  });
+
+  it('is for admins: a collector cannot read the original or the round, nor set it', async () => {
+    await putCep(demoCep());
+    const collector = bearer(project.projectToken);
+    expect((await get('/cep/original', collector)).statusCode).toBe(403);
+    expect((await get('/round', collector)).statusCode).toBe(403);
+    const put = await ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${project.projectId}/round`,
+      headers: collector,
+      payload: { reassessmentCode: '1' },
+    });
+    expect(put.statusCode).toBe(403);
+  });
+
+  describe('the plot file the project file brings (Task 22 review)', () => {
+    const CSV_PATH = 'grid/showcase_plots.csv';
+    const textOf = (cep: Buffer, path: string) => new TextDecoder().decode(readCep(cep).entries.get(path)!);
+    /** The plot file's rows, as Collect Earth splits them (no quotes in these files). */
+    const rowsOf = (cep: Buffer) =>
+      textOf(cep, CSV_PATH)
+        .split(/\r?\n/)
+        .filter((l) => l !== '')
+        .map((l) => l.split(','));
+    /** What Collect Earth expects of the served survey: its keys, two coordinates, then the attributes filled from the plot file, in order. */
+    const expected = (cep: Buffer) => {
+      const survey = textOf(cep, readCep(cep).surveyPath);
+      const fromCsv = [...survey.matchAll(/<\w+\s[^>]*collectearth:fromcsv="true"[^>]*>/g)]
+        .map((m) => m[0])
+        .filter((tag) => !/\bkey="true"/.test(tag))
+        .map((tag) => /\bname="([^"]+)"/.exec(tag)![1]);
+      return { keys: keysOf(cep), fromCsv };
+    };
+    /** The id-only file as a real one is: its own plot file without the round column either. */
+    const idOnlyWithoutRound = () => withEntry(idOnlyCep(), CSV_PATH, (t) => t.replace(/^([^,\r\n]*),[^,\r\n]*,/gm, '$1,'));
+
+    it('gets the round and the note columns the served survey reads, as the served plot files have them', async () => {
+      const upload = idOnlyWithoutRound();
+      expect(rowsOf(upload)[0].slice(0, 2)).toEqual(['id', 'YCoordinate']);
+      expect((await putCep(upload)).statusCode).toBe(200);
+      const served = (await get('/cep', bearer(project.projectToken))).rawPayload;
+      const rows = rowsOf(served);
+      const { keys, fromCsv } = expected(served);
+      expect(keys).toEqual(['id', 'round']);
+      expect(fromCsv.at(-1)).toBe('coordinator_note');
+      // The header: the keys, the two coordinates, then exactly the attributes filled from the plot file.
+      expect(rows[0].slice(0, 2)).toEqual(keys);
+      expect(rows[0].slice(4)).toEqual(fromCsv);
+      for (const row of rows.slice(1)) {
+        expect(row.length).toBe(keys.length + 2 + fromCsv.length);
+        expect(row[1]).toBe('1');
+        expect(row.at(-1)).toBe('');
+      }
+      expect(rows.length).toBe(rowsOf(upload).length);
+      // The upload is kept as it was.
+      expect((await get('/cep/original')).rawPayload.equals(upload)).toBe(true);
+    });
+
+    it('is not given a second round or note: a file that names them already, the served file uploaded back', async () => {
+      // The fixture's own plot file kept its round column: only the note is added.
+      expect((await putCep(idOnlyCep())).statusCode).toBe(200);
+      const served = (await get('/cep', bearer(project.projectToken))).rawPayload;
+      const rows = rowsOf(served);
+      expect(rows[0].filter((f) => f === 'round')).toHaveLength(1);
+      expect(rows[0].at(-1)).toBe('coordinator_note');
+      expect(rows[0].length).toBe(rowsOf(idOnlyCep())[0].length + 1);
+      // The served file uploaded again: its plot file as it is.
+      expect((await putCep(served)).statusCode).toBe(200);
+      expect(textOf((await get('/cep', bearer(project.projectToken))).rawPayload, CSV_PATH)).toBe(textOf(served, CSV_PATH));
+    });
+
+    it('only the round when the note cannot be added; a survey with its own round gets the note column only', async () => {
+      expect((await putCep(noNote(idOnlyWithoutRound()))).statusCode).toBe(200);
+      const rows = rowsOf((await get('/cep', bearer(project.projectToken))).rawPayload);
+      expect(rows[0].slice(0, 3)).toEqual(['id', 'round', 'YCoordinate']);
+      expect(rows[0]).not.toContain('coordinator_note');
+      expect(rows[1][1]).toBe('1');
+      expect((await putCep(demoCep())).statusCode).toBe(200);
+      const demo = rowsOf((await get('/cep', bearer(project.projectToken))).rawPayload);
+      expect(demo[0].filter((f) => f === 'round')).toHaveLength(1);
+      expect(demo[0].at(-1)).toBe('coordinator_note');
+    });
+  });
+});

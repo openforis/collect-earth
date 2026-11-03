@@ -53,5 +53,5 @@ CREATE TABLE IF NOT EXISTS project_ceps (
 ALTER TABLE project_ceps ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS project_ceps_isolation ON project_ceps;
 CREATE POLICY project_ceps_isolation ON project_ceps
-  USING (project_id = current_setting('app.current_project', true)::uuid)
-  WITH CHECK (project_id = current_setting('app.current_project', true)::uuid);
+  USING (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid)
+  WITH CHECK (project_id = NULLIF(current_setting('app.current_project', true), '')::uuid);

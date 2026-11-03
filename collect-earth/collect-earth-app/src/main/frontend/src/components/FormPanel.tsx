@@ -11,6 +11,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import CloseIcon from "@mui/icons-material/Close";
 import MenuIcon from "@mui/icons-material/Menu";
 import type { MapController, UiState } from "../controller";
+import { plotLabel } from "../plots";
 import { useT } from "../i18n";
 import { ImageryBar } from "./ImageryBar";
 import { useUiScale } from "../uiScale";
@@ -75,7 +76,7 @@ export function FormPanel({ controller, state, fill, hidden, onShowList }: {
           <span><IconButton size={size} onClick={() => controller.step(-1)} disabled={!prev} aria-label={t("form.prev")} data-testid="form-prev"><ChevronLeftIcon /></IconButton></span>
         </Tooltip>
         <Stack direction="row" spacing={1} sx={{ alignItems: "center", flex: 1, minWidth: 0, px: 0.5 }}>
-          <Typography variant="subtitle1" noWrap sx={{ fontWeight: 600 }} data-testid="form-title">{t("form.title", { id })}</Typography>
+          <Typography variant="subtitle1" noWrap sx={{ fontWeight: 600 }} data-testid="form-title">{t("form.title", { id: plotLabel(state.labels, id) })}</Typography>
           <Chip size="small" variant="outlined" color={STATUS_CHIP[status]} label={t(`status.${status}`)} data-testid="form-status" />
         </Stack>
         <Tooltip title={t("form.next")}>

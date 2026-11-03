@@ -69,6 +69,7 @@ public class GoogleEarthWebOverlayIT {
 		placemark.put("multiShape", Arrays.asList(ring));
 		data.put("placemark", placemark);
 		data.put("plotId", "p1");
+		data.put("plotLabel", "p1");
 		data.put("plotUrl", "https://earth.google.com/web/@1,1,0a,500d,35y,0h,0t,0r");
 		data.put("inPageNavigation", "null");
 		data.put("flightUrl", flightUrl);

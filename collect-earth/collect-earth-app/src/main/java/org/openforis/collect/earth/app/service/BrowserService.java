@@ -42,6 +42,8 @@ import org.openforis.collect.earth.app.service.imagery.TabDriver;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
+import org.openforis.collect.earth.sampler.processor.KmlGenerator;
+import org.openforis.collect.model.CollectSurvey;
 import org.openqa.selenium.By;
 import org.openqa.selenium.NoSuchSessionException;
 import org.openqa.selenium.NoSuchWindowException;
@@ -1200,7 +1202,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		}
 	}
 
-	private StringBuilder getGeoJsonSegment(List<SimpleCoordinate> coordinates) {
+	private static StringBuilder getGeoJsonSegment(List<SimpleCoordinate> coordinates) {
 		StringBuilder geoJson = new StringBuilder("[");
 		if (coordinates != null && !coordinates.isEmpty()) {
 			StringJoiner joiner = new StringJoiner(",");
@@ -1216,14 +1218,15 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 
 
-	private String getFeature(SimplePlacemarkObject placemarkObject, String shapeType, String name ) {
+	private static String getFeature(SimplePlacemarkObject placemarkObject, String shapeType, String name ) {
 		StringBuilder feature = new StringBuilder("{\"type\":\"Feature\",\"properties\":{\"name\":\"");
-		feature.append(name).append("\"},\"geometry\":");
+		// The name is a JSON string: a quote or a backslash in a plot id must not end it
+		feature.append(StringUtils.defaultString(name).replace("\\", "\\\\").replace("\"", "\\\"")).append("\"},\"geometry\":");
 		feature.append(getGeoJson(placemarkObject, shapeType)).append("}");
 		return feature.toString();
 	}
 
-	private String getGeoJson(SimplePlacemarkObject placemarkObject, String shapeType ) {
+	private static String getGeoJson(SimplePlacemarkObject placemarkObject, String shapeType ) {
 		StringBuilder geoJson = new StringBuilder("{\"type\":\"");
 		geoJson.append(shapeType).append("\",\"coordinates\":[");
 		List<SimpleCoordinate> shape = placemarkObject.getShape();
@@ -1244,40 +1247,54 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 */
 	public void openGEEAppURL(SimplePlacemarkObject placemarkObject, long selection) {
 		if (localPropertiesService.isGEEAppSupported()) {
-
 			try {
-				StringBuilder url = new StringBuilder(localPropertiesService.getGEEAppURL());
-				url = url.append("#geoJson=")
-						.append(URLEncoder.encode(getGeoJson(placemarkObject, "MultiLineString"), StandardCharsets.UTF_8.toString()))
-						.append(";");
-				// placemarkId is null when the plot was built from coordinates only
-				// (e.g. legacy /openAuxiliaryWindows callers without a plotId param)
-				String plotId = placemarkObject.getPlacemarkId() == null ? "" : placemarkObject.getPlacemarkId();
-				url = url.append("plotId=")
-						.append(URLEncoder.encode(plotId, StandardCharsets.UTF_8.toString()))
-						.append(";");
-				url = url.append("survey=")
-						.append(URLEncoder.encode( earthSurveyService.getCollectSurvey().getName() , StandardCharsets.UTF_8.toString()))
-						.append(";");
-
-				if( StringUtils.isNotBlank( localPropertiesService.getValue( EarthProperty.GEEAPP_FROM_DATE) ) ) {
-					url = url.append("startTime=")
-							.append( localPropertiesService.getValue( EarthProperty.GEEAPP_FROM_DATE) )
-							.append(";");
-				}
-				if( StringUtils.isNotBlank( localPropertiesService.getValue( EarthProperty.GEEAPP_TO_DATE) ) ) {
-					url = url.append("endTime=")
-							.append( localPropertiesService.getValue( EarthProperty.GEEAPP_TO_DATE) )
-							.append(";");
-				}
-
-				loadInTab(ImagerySource.GEE_APP, selection, url.toString());
+				CollectSurvey survey = earthSurveyService.getCollectSurvey();
+				loadInTab(ImagerySource.GEE_APP, selection, geeAppUrl(localPropertiesService.getGEEAppURL(), placemarkObject,
+						visiblePlotIdOf(placemarkObject, survey), survey.getName(),
+						localPropertiesService.getValue(EarthProperty.GEEAPP_FROM_DATE),
+						localPropertiesService.getValue(EarthProperty.GEEAPP_TO_DATE)));
 			} catch (final Exception e) {
 				logger.error("Problems loading GEE APP window", e);
 			}
 		}
 	}
 
+	/**
+	 * The address of the plot in the Earth Engine App: its outline, its id as the collector sees it ( see
+	 * {@link #visiblePlotIdOf} ), the survey name and the optional dates, in the fragment.
+	 */
+	static String geeAppUrl(String base, SimplePlacemarkObject placemarkObject, String visiblePlotId, String surveyName,
+			String fromDate, String toDate) {
+		StringBuilder url = new StringBuilder(base);
+		url.append("#geoJson=").append(URLEncoder.encode(getGeoJson(placemarkObject, "MultiLineString"), StandardCharsets.UTF_8))
+				.append(";");
+		url.append("plotId=").append(URLEncoder.encode(visiblePlotId, StandardCharsets.UTF_8)).append(";");
+		url.append("survey=").append(URLEncoder.encode(surveyName, StandardCharsets.UTF_8)).append(";");
+		if (StringUtils.isNotBlank(fromDate)) {
+			url.append("startTime=").append(fromDate).append(";");
+		}
+		if (StringUtils.isNotBlank(toDate)) {
+			url.append("endTime=").append(toDate).append(";");
+		}
+		return url.toString();
+	}
+
+	/**
+	 * The id of the plot as the collector sees it, for the windows that show it beside the plot ( Earth Map, the Earth
+	 * Engine App ): without the keys hidden from the record list, so a blind check copy "101,2" is "101" there as it is
+	 * in the plots map. Nothing comes back into Collect Earth from these windows, so they need no more than this. Empty
+	 * for a plot without an id ( legacy /openAuxiliaryWindows callers without a plotId param ).
+	 */
+	static String visiblePlotIdOf(SimplePlacemarkObject placemarkObject, CollectSurvey survey) {
+		String placemarkId = placemarkObject.getPlacemarkId();
+		if (placemarkId == null) {
+			return "";
+		}
+		if (placemarkObject.getVisiblePlacemarkId() != null) {
+			return placemarkObject.getVisiblePlacemarkId();
+		}
+		return KmlGenerator.getVisiblePlacemarkIdOf(placemarkId, survey);
+	}
 
 	/**
 	 * Shows the plot in Earth Map, in its tab of the imagery window.
@@ -1287,38 +1304,35 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 */
 	public void openEarthMapURL(SimplePlacemarkObject placemarkObject, long selection) {
 		if (localPropertiesService.isEarthMapSupported()) {
-
 			try {
-				StringBuilder url = new StringBuilder(localPropertiesService.getEarthMapURL()).append("?");
-				url = url.append("polygon=")
-						.append(URLEncoder.encode(getFeature(placemarkObject, "Polygon", placemarkObject.getPlacemarkId()), StandardCharsets.UTF_8.toString()))
-						.append("&");
-
-				if( StringUtils.isNotBlank(localPropertiesService.getEarthMapLayers()) ) {
-					url = url.append("layers=")
-							.append(URLEncoder.encode(localPropertiesService.getEarthMapLayers(), StandardCharsets.UTF_8.toString()))
-							.append("&");
-				}
-
-				if( StringUtils.isNotBlank(localPropertiesService.getEarthMapScripts()) ) {
-					url = url.append("scripts=")
-							.append(URLEncoder.encode(localPropertiesService.getEarthMapScripts(), StandardCharsets.UTF_8.toString()))
-							.append("&");
-				}
-
-				String aoi = localPropertiesService.getEarthMapAOI();
-				if( StringUtils.isBlank(aoi) ) {
-					aoi = "global";
-				}
-				url = url.append("aoi=")
-						.append(URLEncoder.encode( aoi, StandardCharsets.UTF_8.toString() ))
-						.append("&embed=true"); // Set the EMBED parameter to true so that the user does not need to log in.
-
-				loadInTab(ImagerySource.EARTH_MAP, selection, url.toString());
+				loadInTab(ImagerySource.EARTH_MAP, selection, earthMapUrl(localPropertiesService.getEarthMapURL(),
+						placemarkObject, visiblePlotIdOf(placemarkObject, earthSurveyService.getCollectSurvey()),
+						localPropertiesService.getEarthMapLayers(), localPropertiesService.getEarthMapScripts(),
+						localPropertiesService.getEarthMapAOI()));
 			} catch (final Exception e) {
 				logger.error("Problems loading Earth Map window", e);
 			}
 		}
+	}
+
+	/**
+	 * The address of the plot in Earth Map: its polygon named by its id as the collector sees it ( Earth Map shows the
+	 * name as "Select a boundary: 101" ), the optional layers and scripts, and the area of interest ( "global" if blank ).
+	 */
+	static String earthMapUrl(String base, SimplePlacemarkObject placemarkObject, String visiblePlotId, String layers,
+			String scripts, String aoi) {
+		StringBuilder url = new StringBuilder(base).append("?");
+		url.append("polygon=").append(URLEncoder.encode(getFeature(placemarkObject, "Polygon", visiblePlotId), StandardCharsets.UTF_8))
+				.append("&");
+		if (StringUtils.isNotBlank(layers)) {
+			url.append("layers=").append(URLEncoder.encode(layers, StandardCharsets.UTF_8)).append("&");
+		}
+		if (StringUtils.isNotBlank(scripts)) {
+			url.append("scripts=").append(URLEncoder.encode(scripts, StandardCharsets.UTF_8)).append("&");
+		}
+		url.append("aoi=").append(URLEncoder.encode(StringUtils.isBlank(aoi) ? "global" : aoi, StandardCharsets.UTF_8))
+				.append("&embed=true"); // Set the EMBED parameter to true so that the user does not need to log in.
+		return url.toString();
 	}
 
 	/**

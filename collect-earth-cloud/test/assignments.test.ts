@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { createProject, makeContext, type TestContext } from './helpers.js';
+import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
+import { demoCep, idOnlyCep, noNote } from './fixtures/cep.js';
 
 async function createInvite(app: FastifyInstance, pid: string, adminToken: string, role: string): Promise<string> {
   const res = await app.inject({
@@ -168,5 +170,264 @@ describe('CSV files and assignments', () => {
     });
     expect(mine.json().assignments).toHaveLength(1);
     expect(mine.json().assignments[0].filename).toBe('b.csv');
+  });
+});
+
+describe('plot files served with a round column', () => {
+  let ctx: TestContext;
+  let project: Awaited<ReturnType<typeof createProject>>;
+  let pid: string;
+  let admin: string;
+  let maria: { userId: string; token: string };
+  let jose: { userId: string; token: string };
+
+  const sha256 = (data: Buffer | string) => createHash('sha256').update(data).digest('hex');
+  const putCep = async (body: Buffer) => {
+    const res = await ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${pid}/cep`,
+      headers: { ...bearer(admin), 'content-type': 'application/zip' },
+      payload: body,
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    return res.json().round as { state: string; reassessmentCode: string | null };
+  };
+  const upload = async (filename: string, content: string) =>
+    (await uploadCsv(ctx.app, pid, admin, filename, content)).json().id as string;
+  const assign = (userId: string, csvFileId: string) =>
+    ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${pid}/assignments`,
+      headers: bearer(admin),
+      payload: { assignments: [{ userId, csvFileId }] },
+    });
+  const divide = (csvFileId: string, people: string[], overlapPercent = 0) =>
+    ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${pid}/csv-files/${csvFileId}/distribution`,
+      headers: bearer(admin),
+      payload: { mode: 'even', people, order: 'file', overlapPercent },
+    });
+  const myAssignment = async (token: string) =>
+    (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/my-assignment`, headers: bearer(token) })).json()
+      .assignments as { csvFileId: string; checksum: string; plotCount: number; downloadPath: string }[];
+  const download = (token: string, path: string) => ctx.app.inject({ method: 'GET', url: path, headers: bearer(token) });
+  const contentPath = (csvFileId: string, query = '') => `/v1/projects/${pid}/csv-files/${csvFileId}/content${query}`;
+  /** The file my-assignment lists for this person, downloaded and checked against its checksum. */
+  const served = async (token: string, csvFileId: string) => {
+    const entry = (await myAssignment(token)).find((a) => a.csvFileId === csvFileId)!;
+    const res = await download(token, entry.downloadPath);
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['x-checksum-sha256']).toBe(entry.checksum);
+    expect(sha256(res.rawPayload)).toBe(entry.checksum);
+    return { entry, body: res.body };
+  };
+
+  beforeEach(async () => {
+    ctx = await makeContext();
+    project = await createProject(ctx.app, 'Round column project');
+    pid = project.projectId;
+    admin = project.adminToken;
+    maria = await registerUser(ctx.app, pid, admin, 'operator', 'maria');
+    jose = await registerUser(ctx.app, pid, admin, 'operator', 'jose');
+  });
+
+  afterEach(async () => {
+    await ctx.app.close();
+  });
+
+  it('with the round the server added, a whole file gets round 1 on every plot', async () => {
+    expect((await putCep(noNote(idOnlyCep()))).state).toBe('added');
+    const csv = 'id,lat,lon,wkt\n1,0,0,"POLYGON((0 0,\n 1 1))"\n2,1,1,x\n';
+    const id = await upload('north.csv', csv);
+    await assign(maria.userId, id);
+    const built = 'id,round,lat,lon,wkt\n1,1,0,0,"POLYGON((0 0,\n 1 1))"\n2,1,1,1,x\n';
+
+    const { entry, body } = await served(maria.token, id);
+    expect(entry).toMatchObject({ plotCount: 2, downloadPath: contentPath(id, `?mine=1&v=${sha256(built)}`) });
+    expect(body).toBe(built);
+    // A collector gets the same file without ?mine=1.
+    const plain = await download(maria.token, contentPath(id));
+    expect(plain.body).toBe(built);
+    expect(plain.headers['x-checksum-sha256']).toBe(sha256(built));
+    // An admin gets the uploaded file, or with ?mine=1 the one collectors get.
+    const full = await download(admin, contentPath(id));
+    expect(full.body).toBe(csv);
+    expect(full.headers['x-checksum-sha256']).toBe(sha256(csv));
+    const adminMine = await download(admin, contentPath(id, '?mine=1'));
+    expect(adminMine.body).toBe(built);
+    expect(adminMine.headers['x-checksum-sha256']).toBe(sha256(built));
+    // Still nothing for someone the file is not given to.
+    expect((await download(jose.token, contentPath(id, '?mine=1'))).statusCode).toBe(404);
+  });
+
+  it('with the round the server added, a divided file gets round 2 on the quality-check copies', async () => {
+    expect((await putCep(noNote(idOnlyCep()))).state).toBe('added');
+    const csv = 'id;lat;lon\r\n1;0;0\r\n2;0;0\r\n3;0;0\r\n4;0;0\r\n4;1;1';
+    const id = await upload('plots.csv', csv);
+    expect((await divide(id, [maria.userId, jose.userId], 50)).statusCode).toBe(200);
+    const holdings = await ctx.store.listPlotAssignments(pid, id);
+    for (const person of [maria, jose]) {
+      const mine = holdings.filter((h) => h.userId === person.userId);
+      const copies = mine.filter((h) => h.overlap).map((h) => h.plotKey);
+      expect(copies.length).toBeGreaterThan(0);
+      const { entry, body } = await served(person.token, id);
+      expect(entry.plotCount).toBe(mine.length);
+      // A row that ends the file but not the upload keeps its line break.
+      const rows = body.split('\r\n').filter((r) => r.length > 0);
+      expect(rows[0]).toBe('id;round;lat;lon');
+      for (const row of rows.slice(1)) {
+        const [plot, round] = row.split(';');
+        expect(round, row).toBe(copies.includes(plot) ? '2' : '1');
+      }
+      expect(rows.slice(1).map((r) => r.split(';')[0])).toEqual(
+        ['1', '2', '3', '4', '4'].filter((p) => mine.some((h) => h.plotKey === p)),
+      );
+    }
+    // The admin's full file is the upload.
+    expect((await download(admin, contentPath(id))).body).toBe(csv);
+  });
+
+  it('with a survey of its own round and a reassessment code, the copies get that code', async () => {
+    expect(await putCep(noNote(demoCep()))).toMatchObject({ state: 'own', reassessmentCode: '2' });
+    const csv = 'id,round,lat,lon\n17,1,0,0\n18,1,0,0\n19,1,0,0\n20,1,0,0\n';
+    const id = await upload('own.csv', csv);
+    expect((await divide(id, [maria.userId, jose.userId], 50)).statusCode).toBe(200);
+    const holdings = await ctx.store.listPlotAssignments(pid, id);
+    const copies = holdings.filter((h) => h.userId === maria.userId && h.overlap).map((h) => h.plotKey);
+    expect(copies.length).toBeGreaterThan(0);
+    const { body } = await served(maria.token, id);
+    const rows = body.split('\n').slice(1, -1);
+    expect(rows).toHaveLength(holdings.filter((h) => h.userId === maria.userId).length);
+    for (const row of rows) {
+      const [plot, value] = row.split(',');
+      expect(value, row).toBe(copies.includes(`${plot},1`) ? '2' : '1');
+    }
+    // A whole file has no copies: it is served as uploaded.
+    const whole = await upload('whole.csv', csv);
+    await assign(maria.userId, whole);
+    expect((await served(maria.token, whole)).body).toBe(csv);
+  });
+
+  it('a project without round serves plot files exactly as uploaded (whole) or as before (divided)', async () => {
+    // Records first: the server then leaves the id-only survey as it is.
+    await batchRequest(ctx.app, pid, project.projectToken, [envelope()]);
+    expect((await putCep(noNote(idOnlyCep()))).state).toBe('none');
+    const csv = 'id,lat,lon\n1,0,0\n2,1,1\n3,2,2\n';
+    const whole = await upload('whole.csv', csv);
+    await assign(maria.userId, whole);
+    expect((await myAssignment(maria.token))[0]).toMatchObject({
+      checksum: sha256(csv),
+      downloadPath: contentPath(whole, `?v=${sha256(csv)}`),
+      plotCount: 3,
+    });
+    expect((await served(maria.token, whole)).body).toBe(csv);
+    // Replaced after it was listed: 409, nothing served.
+    const listed = (await myAssignment(maria.token))[0];
+    await upload('whole.csv', csv + '4,3,3\n');
+    const changed = await download(maria.token, listed.downloadPath);
+    expect(changed.statusCode).toBe(409);
+    expect(changed.json()).toMatchObject({ error: 'changed' });
+    expect((await served(maria.token, whole)).body).toBe(csv + '4,3,3\n');
+    expect((await download(admin, contentPath(whole, '?mine=1'))).body).toBe(csv + '4,3,3\n');
+
+    const divided = await upload('divided.csv', csv);
+    expect((await divide(divided, [maria.userId, jose.userId], 50)).statusCode).toBe(200);
+    const holdings = await ctx.store.listPlotAssignments(pid, divided);
+    const joseKeys = holdings.filter((h) => h.userId === jose.userId).map((h) => h.plotKey);
+    const expected = 'id,lat,lon\n' + ['1,0,0\n', '2,1,1\n', '3,2,2\n'].filter((r) => joseKeys.includes(r[0])).join('');
+    expect((await served(jose.token, divided)).body).toBe(expected);
+  });
+
+  it('answers 409 when the file changed after my-assignment listed it', async () => {
+    expect((await putCep(noNote(idOnlyCep()))).state).toBe('added');
+    const id = await upload('plots.csv', 'id,lat,lon\n1,0,0\n2,1,1\n');
+    await assign(maria.userId, id);
+    const listed = (await myAssignment(maria.token))[0];
+    // The coordinator replaces the file in between.
+    await upload('plots.csv', 'id,lat,lon\n1,0,0\n2,1,1\n3,2,2\n');
+    const res = await download(maria.token, listed.downloadPath);
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ error: 'changed' });
+    expect(res.json().reason).toContain('Refresh');
+    // Listed again, it downloads.
+    const again = await served(maria.token, id);
+    expect(again.body).toBe('id,round,lat,lon\n1,1,0,0\n2,1,1,1\n3,1,2,2\n');
+  });
+
+  it('leaves out of my-assignment a file that cannot be built, and lists the others', async () => {
+    expect((await putCep(noNote(idOnlyCep()))).state).toBe('added');
+    const good = await upload('good.csv', 'id,lat,lon\n1,0,0\n');
+    const bad = await upload('bad.csv', 'id,lat,lon\n2,0,0\n');
+    await ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${pid}/assignments`,
+      headers: bearer(admin),
+      payload: { assignments: [{ userId: maria.userId, csvFileId: good }, { userId: maria.userId, csvFileId: bad }] },
+    });
+    const getCsvFile = ctx.store.getCsvFile.bind(ctx.store);
+    ctx.store.getCsvFile = async (projectId: string, csvFileId: string) => {
+      if (csvFileId === bad) throw new Error('unreadable');
+      return getCsvFile(projectId, csvFileId);
+    };
+    const res = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/my-assignment`, headers: bearer(maria.token) });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().assignments.map((a: { csvFileId: string }) => a.csvFileId)).toEqual([good]);
+  });
+
+  it('serves a copy whose main assessment the person did with the main round, not as a check', async () => {
+    expect((await putCep(noNote(idOnlyCep()))).state).toBe('added');
+    const id = await upload('plots.csv', 'id,lat,lon\n1,0,0\n2,1,1\n3,2,2\n');
+    // maria holds 1, and 2 as a copy; jose holds 2 and 3.
+    await ctx.store.setDivision(pid, id, { mode: 'manual' }, [
+      { plotKey: '1', userId: maria.userId, overlap: false },
+      { plotKey: '2', userId: maria.userId, overlap: true },
+      { plotKey: '2', userId: jose.userId, overlap: false },
+      { plotKey: '3', userId: jose.userId, overlap: false },
+    ]);
+    expect((await served(maria.token, id)).body).toBe('id,round,lat,lon\n1,1,0,0\n2,2,1,1\n');
+    // maria did plot 2's main assessment (both had it on the whole file before): she
+    // gets it with round 1, the plot she already assessed, not a check to do again.
+    const record = (recordKey: string, operator: string) => ({
+      projectId: pid,
+      recordKey,
+      operator,
+      modifiedOn: 1,
+      receivedAt: 1,
+      activelySaved: true,
+      step: 1,
+      xml: null,
+      summary: {},
+      deleted: false,
+      deletedOn: null,
+    });
+    await ctx.store.putRecord(record('2,1', 'maria'));
+    await ctx.store.putRecord(record('3,1', 'maria'));
+    expect((await served(maria.token, id)).body).toBe('id,round,lat,lon\n1,1,0,0\n2,1,1,1\n');
+    expect((await served(jose.token, id)).body).toBe('id,round,lat,lon\n2,1,1,1\n3,1,2,2\n');
+    // A check record leaves the copy a check.
+    const other = await upload('other.csv', 'id,lat,lon\n5,0,0\n');
+    await ctx.store.setDivision(pid, other, { mode: 'manual' }, [
+      { plotKey: '5', userId: maria.userId, overlap: true },
+      { plotKey: '5', userId: jose.userId, overlap: false },
+    ]);
+    await ctx.store.putRecord(record('5,2', 'maria'));
+    expect((await served(maria.token, other)).body).toBe('id,round,lat,lon\n5,2,0,0\n');
+  });
+
+  it('a survey with its own round and no reassessment code serves plot files as uploaded', async () => {
+    await putCep(noNote(demoCep()));
+    const setCode = await ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${pid}/round`,
+      headers: bearer(admin),
+      payload: { reassessmentCode: null },
+    });
+    expect(setCode.statusCode).toBe(200);
+    const csv = 'id,round,lat,lon\n17,1,0,0\n18,1,0,0\n';
+    const id = await upload('own.csv', csv);
+    await assign(maria.userId, id);
+    expect((await myAssignment(maria.token))[0]).toMatchObject({ checksum: sha256(csv), downloadPath: contentPath(id, `?v=${sha256(csv)}`) });
+    expect((await served(maria.token, id)).body).toBe(csv);
   });
 });

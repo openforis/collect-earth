@@ -31,6 +31,8 @@ return (function () {
     var STATUS_COLORS = { empty: "#e53935", partial: "#fdd835", saved: "#43a047" };
     var PLOT_COLOR = "#ffff00";
     var PLOT_ID = "${plotId?js_string}";
+    // What the plot is called: its id without the keys hidden from the collector (blind quality control copies)
+    var PLOT_LABEL = "${(plotLabel!"")?js_string}";
     // Top-down view of the plot, used by the "Top-down view" button
     var PLOT_URL = "${plotUrl?js_string}";
     // Whether Google Earth Web follows in-page navigation: "true", "false" or "null" (not tried yet)
@@ -109,7 +111,7 @@ return (function () {
         var title = document.createElement("span");
         title.setAttribute("data-ce-title", "1");
         title.style.fontWeight = "700";
-        title.textContent = PLOT_ID ? "Collect Earth \u00b7 " + LABELS.plot + " " + PLOT_ID : "Collect Earth";
+        title.textContent = PLOT_LABEL ? "Collect Earth \u00b7 " + LABELS.plot + " " + PLOT_LABEL : "Collect Earth";
         var hint = document.createElement("span");
         hint.setAttribute("data-ce-hint", "1");
         hint.style.cssText = "color:#ffe082;display:none";

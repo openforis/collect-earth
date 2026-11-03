@@ -19,7 +19,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import SearchIcon from "@mui/icons-material/Search";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
 import type { MapController, UiState } from "../controller";
-import { countStatuses, visibleIds } from "../plots";
+import { countStatuses, plotLabel, visibleIds } from "../plots";
 import { useT } from "../i18n";
 import type { ListFilter, PlotStatus } from "../types";
 import { Kbd, StatusDot } from "./common";
@@ -40,12 +40,12 @@ export function PlotSidebar({ controller, state, collapsed, onCollapsedChange, f
 }) {
   const t = useT();
   const scale = useUiScale();
-  const { order, statuses, filter, query, activeId, loaded } = state;
+  const { order, labels, statuses, filter, query, activeId, loaded } = state;
   const sidebarCollapsed = collapsed ?? state.sidebarCollapsed;
   const setCollapsed = onCollapsedChange ?? controller.setSidebarCollapsed;
   const canCollapse = collapsed === undefined || onCollapsedChange !== undefined;
   const counts = useMemo(() => countStatuses(order, statuses), [order, statuses]);
-  const visible = useMemo(() => visibleIds(order, statuses, filter, query), [order, statuses, filter, query]);
+  const visible = useMemo(() => visibleIds(order, statuses, filter, query, labels), [order, statuses, filter, query, labels]);
 
   // Debounced search: typing stays responsive with thousands of plots
   const [text, setText] = useState(query);
@@ -123,7 +123,7 @@ export function PlotSidebar({ controller, state, collapsed, onCollapsedChange, f
       </Stack>
 
       <Divider />
-      <PlotList ids={visible} statuses={statuses} activeId={activeId} onSelect={controller.selectPlot} />
+      <PlotList ids={visible} labels={labels} statuses={statuses} activeId={activeId} onSelect={controller.selectPlot} />
       {loaded && order.length > 0 && visible.length === 0 && (
         <Typography color="text.secondary" align="center" sx={{ p: 2 }} data-testid="list-empty">{t("noMatch")}</Typography>
       )}
@@ -146,8 +146,9 @@ function Count({ n }: { n: number }) {
 }
 
 /** Virtualized list: only the rows in view are rendered, so large grids stay fast. */
-function PlotList({ ids, statuses, activeId, onSelect }: {
-  ids: string[]; statuses: Record<string, PlotStatus>; activeId: string | null; onSelect: (id: string) => void;
+function PlotList({ ids, labels, statuses, activeId, onSelect }: {
+  ids: string[]; labels: Record<string, string>; statuses: Record<string, PlotStatus>; activeId: string | null;
+  onSelect: (id: string) => void;
 }) {
   const t = useT();
   const rowHeight = Math.round(ROW_HEIGHT * useUiScale());
@@ -183,6 +184,8 @@ function PlotList({ ids, statuses, activeId, onSelect }: {
       <Box sx={{ height: virtualizer.getTotalSize(), position: "relative" }}>
         {virtualizer.getVirtualItems().map((row) => {
           const id = ids[row.index];
+          // Shown by its label, keyed by its id: the id may hold keys hidden from the collector (blind checks)
+          const label = plotLabel(labels, id);
           const status = statuses[id] ?? "empty";
           const active = id === activeId;
           return (
@@ -195,7 +198,7 @@ function PlotList({ ids, statuses, activeId, onSelect }: {
                 outline: row.index === cursor ? "1px solid" : "none", outlineColor: "primary.main", outlineOffset: -1,
               }}>
               <StatusDot status={status} />
-              <Typography noWrap sx={{ flex: 1, fontWeight: active ? 600 : 400, fontVariantNumeric: "tabular-nums" }} title={id}>{id}</Typography>
+              <Typography noWrap sx={{ flex: 1, fontWeight: active ? 600 : 400, fontVariantNumeric: "tabular-nums" }} title={label}>{label}</Typography>
               <Typography variant="caption" color="text.secondary" data-testid="plot-status">{t(`status.${status}`)}</Typography>
             </ListItemButton>
           );

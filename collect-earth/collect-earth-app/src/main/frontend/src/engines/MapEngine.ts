@@ -26,8 +26,8 @@ export interface EngineConfig {
 export interface MapEngine {
   readonly name: "leaflet" | "google" | "none";
   init(container: HTMLElement, config: EngineConfig, callbacks: EngineCallbacks): void;
-  /** rings: [lat,lng] arrays; center: [lat,lng] */
-  addPlot(id: string, rings: LatLng[][], center: LatLng): void;
+  /** label: what the plot is called on the screen (its keys the collector may see); rings: [lat,lng] arrays; center: [lat,lng] */
+  addPlot(id: string, label: string, rings: LatLng[][], center: LatLng): void;
   /** Takes the plot off the map (no longer in the plots loaded); nothing if it is not there. */
   removePlot(id: string): void;
   /** Applies to both the polygons and the dot marker. */

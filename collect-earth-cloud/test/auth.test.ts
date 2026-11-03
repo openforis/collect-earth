@@ -147,7 +147,7 @@ describe('accounts, invites and join', () => {
   });
 
   it('stores and serves the CEP zip to members', async () => {
-    const zip = Buffer.from('PK pretend zip');
+    const zip = Buffer.from('PK\x03\x04 pretend zip');
     const put = await ctx.app.inject({
       method: 'PUT',
       url: `/v1/projects/${project.projectId}/cep`,

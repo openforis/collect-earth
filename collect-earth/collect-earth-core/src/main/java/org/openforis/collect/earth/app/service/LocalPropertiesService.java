@@ -143,13 +143,28 @@ public class LocalPropertiesService extends Observable {
 	private static final String PROPERTIES_FILE_PATH_INITIAL = "earth.properties_initial";
 	private Logger logger = LoggerFactory.getLogger(LocalPropertiesService.class);;
 	private Properties properties;
+	/** False for a service made for the tests : the user's earth.properties is never written */
+	private final boolean persisted;
 
 	public LocalPropertiesService() {
+		persisted = true;
 		try {
 			init();
 		} catch (IOException e) {
 			logger.error("Error initilizeng Local Properties", e);
 		}
+	}
+
+	/**
+	 * With the properties given, for the tests : earth.properties of the user is neither read nor written
+	 */
+	LocalPropertiesService(Properties properties) {
+		this.properties = properties;
+		persisted = false;
+	}
+
+	boolean isPersisted() {
+		return persisted;
 	}
 
 	public String convertToOSPath(String path) {
@@ -853,6 +868,9 @@ public class LocalPropertiesService extends Observable {
 	}
 
 	private synchronized void storeProperties() {
+		if (!persisted) {
+			return;
+		}
 
 		File propertiesFile = new File(PROPERTIES_FILE_PATH);
 		try(FileWriter fw = new FileWriter(propertiesFile) ) {

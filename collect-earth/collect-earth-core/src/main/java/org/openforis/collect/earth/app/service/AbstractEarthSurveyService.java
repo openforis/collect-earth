@@ -711,6 +711,15 @@ public abstract class AbstractEarthSurveyService {
 		// it counts as an error
 		setPlacemarkSavedOn(record);
 
+		if (userClickOnSubmitAndValidate) {
+			// The counts of the record are updated change by change, and a question that stops being relevant does not
+			// take back its missing answer : choosing an answer that made others required and then changing it back left
+			// the plot impossible to submit, with no question in error to show. Validated again only on submit, as it
+			// goes through the whole record. With an updater that clears nothing, as when a plot is opened : the one of the
+			// service would also empty the answers of the questions that are not relevant
+			new RecordUpdater().validate(record);
+		}
+
 		// A value that could not be read left its attribute as it was, so the record alone can look valid : the plot is not
 		// submitted while one is pending
 		boolean noErrors = isComplete(record) && invalidValues.isEmpty();

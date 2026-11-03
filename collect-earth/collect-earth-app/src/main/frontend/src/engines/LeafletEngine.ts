@@ -76,7 +76,7 @@ export class LeafletEngine implements MapEngine {
     this.map = map;
   }
 
-  addPlot(id: string, rings: LatLng[][], center: LatLng): void {
+  addPlot(id: string, label: string, rings: LatLng[][], center: LatLng): void {
     // A plot added again (the plots loaded again) replaces the one there: two would be drawn, one of them for good
     this.removePlot(id);
     const group = L.featureGroup();
@@ -87,8 +87,9 @@ export class LeafletEngine implements MapEngine {
     // White outline keeps the status color readable on any imagery
     const marker = L.circleMarker(center, { radius: 6, color: "#ffffff", weight: 1.5, fillColor: this.emptyColor, fillOpacity: 1 });
     const tooltip: L.TooltipOptions = { className: "plot-tooltip", direction: "top", offset: [0, -6] };
-    group.bindTooltip(id, tooltip);
-    marker.bindTooltip(id, tooltip);
+    // Named by its label: the id may hold keys hidden from the collector (blind quality control copies)
+    group.bindTooltip(label, tooltip);
+    marker.bindTooltip(label, tooltip);
     group.on("click", () => this.callbacks.onPlotClick(id));
     marker.on("click", () => this.callbacks.onPlotClick(id));
     this.layers[id] = { group, marker };

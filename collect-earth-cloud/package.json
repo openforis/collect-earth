@@ -13,16 +13,32 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "migrate": "tsx src/store/migrate.ts"
+    "migrate": "tsx src/store/migrate.ts",
+    "smoke:pg": "tsx scripts/pg-smoke-activity.mts",
+    "smoke:pg:progress": "tsx scripts/pg-smoke-progress.mts",
+    "smoke:pg:activity": "tsx scripts/pg-smoke-activity-log.mts",
+    "smoke:pg:panel": "tsx scripts/pg-smoke-server-panel.mts",
+    "smoke:pg:sampling": "tsx scripts/pg-smoke-sampling.mts",
+    "smoke:pg:reference": "tsx scripts/pg-smoke-reference.mts",
+    "smoke:pg:backup": "tsx scripts/pg-smoke-backup.mts",
+    "smoke:pg:links": "tsx scripts/pg-smoke-share-links.mts",
+    "smoke:pg:mail": "tsx scripts/pg-smoke-mail.mts",
+    "smoke:pg:final": "tsx scripts/pg-smoke-final-review.mts"
   },
   "dependencies": {
+    "@fastify/static": "7.0.4",
+    "@google/genai": "2.30.0",
+    "fast-xml-parser": "5.11.2",
     "fastify": "^4.28.1",
+    "nodemailer": "10.1.7",
     "pg": "^8.12.0",
+    "pg-connection-string": "2.14.0",
     "tsx": "^4.19.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
     "@types/pg": "^8.11.6",
+    "fflate": "0.8.3",
     "typescript": "^5.5.4",
     "vitest": "^2.0.5"
   }
