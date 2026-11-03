@@ -1,10 +1,14 @@
 package org.openforis.collect.earth.app.server.api;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.io.IOException;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -63,6 +67,20 @@ public class ApiExceptionHandlerTest {
 		public String unknownStatus() {
 			throw new ResponseStatusException(499, "Odd", null);
 		}
+
+		@GetMapping("/api/clientGone")
+		public String clientGone() {
+			throw new IllegalStateException("writing", new AsyncRequestNotUsableException("ServletOutputStream failed to flush"));
+		}
+	}
+
+	/** Named as Spring's own (5.3.30 on), which is what the handler looks for. */
+	static class AsyncRequestNotUsableException extends RuntimeException {
+		private static final long serialVersionUID = 1L;
+
+		AsyncRequestNotUsableException(String message) {
+			super(message);
+		}
 	}
 
 	private MockMvc mvc;
@@ -97,6 +115,23 @@ public class ApiExceptionHandlerTest {
 	public void anUnexpectedOneWithoutMessageStillSaysWhatItIs() throws Exception {
 		mvc.perform(get("/api/unexpectedWithoutMessage")).andExpect(status().isInternalServerError())
 				.andExpect(jsonPath("$.details").value("java.lang.IllegalStateException"));
+	}
+
+	@Test
+	public void aPageThatWentAwayIsNotAnError() throws Exception {
+		mvc.perform(get("/api/clientGone")).andExpect(status().isOk())
+				.andExpect(content().string(""));
+	}
+
+	@Test
+	public void aDroppedConnectionIsRecognisedByNameOrMessage() {
+		assertTrue(ApiExceptionHandler.isClientGone(new AsyncRequestNotUsableException("flush")));
+		assertTrue(ApiExceptionHandler.isClientGone(new RuntimeException(new IOException("Broken pipe"))));
+		assertTrue(ApiExceptionHandler.isClientGone(new IOException("Connection reset by peer")));
+		assertTrue(ApiExceptionHandler.isClientGone(
+				new IOException("An established connection was aborted by the software in your host machine")));
+		assertFalse(ApiExceptionHandler.isClientGone(new IOException("Disk full")));
+		assertFalse(ApiExceptionHandler.isClientGone(new IllegalStateException("broken pipe")));
 	}
 
 	@Test

@@ -1,8 +1,12 @@
 package org.openforis.collect.earth.app.server.api;
 
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,12 +66,40 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(code).headers(e.getResponseHeaders()).body(body(error, e.getReason(), null));
 	}
 
+	/**
+	 * A fault, except when the page went away while the answer was being written (closed, reloaded, a request
+	 * cancelled): the response cannot be written to any more, and nothing failed, so it is not reported. Recognised by
+	 * name, as Spring 5.3.27 has no AsyncRequestNotUsableException and Jetty's and Tomcat's are not on the class path.
+	 */
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<Map<String, String>> unexpected(Exception e) {
+		if (isClientGone(e)) {
+			logger.debug("The page went away before the API answered", e);
+			return null;
+		}
 		logger.error("The API failed", e);
 		// the class says something when the exception has no message, as a NullPointerException often has not
 		String details = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body("internal", null, details));
+	}
+
+	private static final Set<String> CLIENT_GONE_CLASSES = new HashSet<>(Arrays.asList(
+			"AsyncRequestNotUsableException", "EofException", "ClientAbortException"));
+
+	static boolean isClientGone(Throwable e) {
+		for (Throwable t = e; t != null; t = t.getCause() == t ? null : t.getCause()) {
+			if (CLIENT_GONE_CLASSES.contains(t.getClass().getSimpleName())) {
+				return true;
+			}
+			if (t instanceof IOException && t.getMessage() != null) {
+				String message = t.getMessage().toLowerCase(Locale.ENGLISH);
+				if (message.contains("broken pipe") || message.contains("connection reset")
+						|| message.contains("connection was aborted")) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	private static Map<String, String> body(String error, String message, String details) {
