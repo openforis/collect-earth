@@ -185,6 +185,33 @@ describe('email digests (Task 19)', () => {
     expect((await me('POST', '/email/confirmation', owner.token)).json().error).toBe('too_many_confirmations');
   });
 
+  it('an address given at sign-up gets its confirmation link, in the page\'s language; none given, no mail; a failed send keeps the account', async () => {
+    expect((await ctx.app.inject({ method: 'PUT', url: '/v1/admin/settings', headers: bearer(owner.token), payload: { signupOpen: true } })).statusCode).toBe(200);
+    const sentBefore = mailer.sent.length;
+    const signup = (payload: Record<string, unknown>) => ctx.app.inject({ method: 'POST', url: '/v1/auth/signup', payload: { password: 'password12', ...payload } });
+    const olga = await signup({ username: 'olga', email: 'olga@example.org', language: 'es' });
+    expect(olga.statusCode, olga.body).toBe(201);
+    const mail = mailer.sent.find((m) => m.to === 'olga@example.org' && m.tag === 'email.confirm');
+    expect(mail).toBeDefined();
+    // Written in the language given (another person's, in English, reads differently).
+    expect((await signup({ username: 'rosa', email: 'rosa@example.org', language: 'en' })).statusCode).toBe(201);
+    const english = mailer.sent.find((m) => m.to === 'rosa@example.org' && m.tag === 'email.confirm');
+    expect(english).toBeDefined();
+    expect(mail!.subject).not.toBe(english!.subject);
+    const token = confirmLink('olga@example.org');
+    expect((await ctx.app.inject({ method: 'POST', url: '/v1/email/confirm', payload: { token } })).statusCode).toBe(200);
+    expect((await me('GET', '/notifications', olga.json().token)).json()).toMatchObject({ email: 'olga@example.org', emailConfirmed: true });
+    // No address: no mail.
+    const count = mailer.sent.length;
+    expect((await signup({ username: 'pavel' })).statusCode).toBe(201);
+    expect(mailer.sent.length).toBe(count);
+    // The mail server refuses: the account is made all the same, the link can be sent again later.
+    mailer.fail = (m) => m.to === 'quinn@example.org';
+    expect((await signup({ username: 'quinn', email: 'quinn@example.org' })).statusCode).toBe(201);
+    mailer.fail = null;
+    expect(mailer.sent.length).toBeGreaterThan(sentBefore);
+  });
+
   it('a stored address that is not one address (an old sign-up) is refused before any mail: re-enter it', async () => {
     expect((await ctx.app.inject({ method: 'PUT', url: '/v1/admin/settings', headers: bearer(owner.token), payload: { signupOpen: true } })).statusCode).toBe(200);
     const bad = await ctx.app.inject({ method: 'POST', url: '/v1/auth/signup', payload: { username: 'newbie', password: 'password12', email: 'a@example.org, b@example.org' } });

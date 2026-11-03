@@ -749,9 +749,11 @@ export function login(username: string, password: string): Promise<Session> {
   return request<Session>("POST", "/v1/auth/login", { json: { username, password }, noSessionEnd: true });
 }
 
-export function signup(username: string, password: string, email?: string, acceptTerms?: boolean): Promise<Session> {
+export function signup(username: string, password: string, email?: string, acceptTerms?: boolean, language?: string): Promise<Session> {
   const json: Record<string, string | boolean> = { username, password };
   if (email) json.email = email;
+  // the confirmation mail of the address is written in the page's language
+  if (email && language) json.language = language;
   if (acceptTerms) json.acceptTerms = true;
   return request<Session>("POST", "/v1/auth/signup", { json, noSessionEnd: true });
 }

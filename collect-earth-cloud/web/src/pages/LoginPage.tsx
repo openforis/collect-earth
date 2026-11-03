@@ -25,7 +25,7 @@ import { passwordProblem, usernameProblem } from "../validation";
  */
 export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; sessionEnded?: boolean }) {
   const t = useT();
-  const { info, loggedIn } = useApp();
+  const { info, loggedIn, language } = useApp();
   const signingUp = mode === "signup" && info.signupOpen;
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -49,7 +49,7 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
     setBusy(true);
     try {
       const session = signingUp
-        ? await signup(username.trim(), password, email.trim() || undefined, needsTerms && acceptTerms)
+        ? await signup(username.trim(), password, email.trim() || undefined, needsTerms && acceptTerms, language)
         : await login(username.trim(), password);
       await loggedIn(session);
     } catch (err) {

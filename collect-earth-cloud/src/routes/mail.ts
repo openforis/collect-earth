@@ -24,8 +24,15 @@ export const CONFIRMATIONS_PER_INSTANCE_HOUR = 100;
 /** Unsubscribe links that work, per address and minute (a mail program, a person pressing twice): generous, still bounded. */
 export const UNSUBSCRIBES_PER_MINUTE = 600;
 
+/** What other routes may ask of the mail routes: sign-up sends the confirmation link of the address given there. */
+export interface AccountMailHooks {
+  sendConfirmation?: (request: FastifyRequest, userId: string, email: string, language: MailLanguage) => Promise<'sent' | 'too_many'>;
+}
+
 export interface MailRouteDeps {
   mailer: Mailer;
+  /** Filled in here with sendConfirmation, for the sign-up route. */
+  accountMail?: AccountMailHooks;
   quality: QualityService;
   states: ProjectStateCache;
   now: () => number;
@@ -152,6 +159,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
     }
     return 'sent';
   };
+  if (deps.accountMail) deps.accountMail.sendConfirmation = sendConfirmation;
 
   app.get('/v1/me/notifications', session, async (request: FastifyRequest, reply: FastifyReply) => {
     const mail = await store.getAccountMail(request.userId!);

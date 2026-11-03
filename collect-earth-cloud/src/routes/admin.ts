@@ -11,7 +11,8 @@ import { buildOverview, statsWindow, type ServerOverview } from '../serverPanel.
 import { migrationFiles } from '../store/migrate.js';
 import { UsernameTakenError } from '../store/memory.js';
 import type { Store } from '../store/store.js';
-import type { ProjectCreation, ServerSettings } from '../types.js';
+import { MAIL_LANGUAGES, type MailLanguage, type ProjectCreation, type ServerSettings } from '../types.js';
+import type { AccountMailHooks } from './mail.js';
 
 interface SetupBody {
   setupCode?: string;
@@ -24,6 +25,8 @@ interface SignupBody {
   password?: string;
   email?: string;
   acceptTerms?: boolean;
+  /** The page's language, for the confirmation mail. */
+  language?: string;
 }
 
 interface ResetBody {
@@ -92,6 +95,8 @@ export interface AdminRouteOptions {
   counters?: ServerCounters;
   /** When this process started (epoch ms). */
   startedAt?: number;
+  /** The mail routes' confirmation sender, for an address given at sign-up. */
+  accountMail?: AccountMailHooks;
 }
 
 /**
@@ -194,6 +199,18 @@ export async function registerAdminRoutes(
       throw err;
     }
     const token = await store.createSession(userId);
+    // An address given here gets its confirmation link, as one given on the account page does: the
+    // account page says a link was sent. A refused or failed send leaves the account made; the
+    // person can send it again from there.
+    const sendConfirmation = options.accountMail?.sendConfirmation;
+    if (email !== null && sendConfirmation) {
+      const language: MailLanguage = (MAIL_LANGUAGES as readonly unknown[]).includes(body.language) ? (body.language as MailLanguage) : 'en';
+      try {
+        await sendConfirmation(request, userId, email, language);
+      } catch {
+        // logged by sendConfirmation
+      }
+    }
     return reply.code(201).send({ token, userId, username });
   });
 

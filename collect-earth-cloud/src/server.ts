@@ -34,7 +34,7 @@ import { registerProgressRoutes } from './routes/progress.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerPublicProgressRoutes } from './routes/publicProgress.js';
 import { registerCollectBackupRoutes } from './routes/collectBackup.js';
-import { registerMailRoutes } from './routes/mail.js';
+import { registerMailRoutes, type AccountMailHooks } from './routes/mail.js';
 import { registerQualityRoutes } from './routes/quality.js';
 import { registerRecordRoutes } from './routes/records.js';
 import { referenceSyncer, registerReferenceRoutes } from './routes/reference.js';
@@ -146,7 +146,9 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
 
   await registerAuthRoutes(app, store, limiter, loginFailures, counters);
   const now = options.ai?.now ?? Date.now;
-  await registerAdminRoutes(app, store, config, limiter, { setupCode, version: VERSION, now, counters, startedAt: STARTED_AT });
+  // The mail routes, registered later, put their confirmation sender here for sign-up.
+  const accountMail: AccountMailHooks = {};
+  await registerAdminRoutes(app, store, config, limiter, { setupCode, version: VERSION, now, counters, startedAt: STARTED_AT, accountMail });
   await registerProjectRoutes(app, store, config);
   await registerCollectBackupRoutes(app, store, config, limiter, now);
   await registerPlatformRoutes(app, store, config);
@@ -181,7 +183,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerPublicProgressRoutes(app, store, config, limiter, states, now);
   // Email digests (Task 19): SMTP only when SMTP_URL is set, else nothing is sent (the log transport).
   const mailer = options.mailer ?? mailerFrom(config, app.log);
-  await registerMailRoutes(app, store, config, limiter, { mailer, quality, states, now, limits: options.mailLimits, oidcKeys: options.oidcKeys });
+  await registerMailRoutes(app, store, config, limiter, { mailer, quality, states, now, limits: options.mailLimits, oidcKeys: options.oidcKeys, accountMail });
   // Role changes, removals and disabled accounts keep the reference copies right (Task 14).
   app.decorate('referenceSync', referenceSyncer(store, states, now));
   const runs = new AiRunService(store, quality, app.log, {
