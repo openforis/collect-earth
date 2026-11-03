@@ -7,6 +7,8 @@ import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.service.AbstractEarthSurveyService;
+import org.openforis.collect.earth.app.service.AbstractEarthSurveyService.PlotStatus;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
@@ -86,13 +88,22 @@ public class EarthDashboardFeedSource implements DashboardFeedSource {
 		CollectSurvey survey = earthSurveyService.getCollectSurvey();
 		// Not validated: the dashboard reads the answers, and validating is most of the loading time
 		CollectRecord record = recordManager.load(survey, recordId, Step.ENTRY, false);
-		return record == null ? null : serialize(record);
+		return started(record) ? serialize(record) : null;
 	}
 
 	@Override
 	public RecordEnvelope loadByKey(String recordKey) throws IOException {
 		CollectRecord record = earthSurveyService.loadRecord(recordKey.split(","), false); //$NON-NLS-1$
-		return record == null ? null : serialize(record);
+		return started(record) ? serialize(record) : null;
+	}
+
+	/**
+	 * Whether the plot of a record counts as started, by the desktop's own rule (AbstractEarthSurveyService
+	 * getPlotStatus): a record holding nothing the collector answered - one older versions stored on merely opening the
+	 * plot - is left out, so the dashboard's "not started" and "started" are the desktop's.
+	 */
+	static boolean started(CollectRecord record) {
+		return record != null && AbstractEarthSurveyService.getPlotStatus(record) != PlotStatus.NOT_STARTED;
 	}
 
 	private RecordEnvelope serialize(CollectRecord record) throws IOException {
