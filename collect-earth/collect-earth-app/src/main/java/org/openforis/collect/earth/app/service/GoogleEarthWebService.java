@@ -180,6 +180,8 @@ public class GoogleEarthWebService {
 	private volatile State state = State.CLOSED;
 	private volatile String statePlotId;
 	private volatile String stateMessage;
+	/** Notified at each change of the state; see {@link #awaitShown}. */
+	private final Object stateChanged = new Object();
 	/** Where the Google Earth Web camera looks (null when unknown or not top-down). */
 	private volatile Map<String, Object> view;
 	/**
@@ -308,6 +310,35 @@ public class GoogleEarthWebService {
 	boolean isSuperseded() {
 		Selection waiting = pending.get();
 		return waiting != null && waiting.number > shownSelection;
+	}
+
+	/**
+	 * Waits until Google Earth Web is done with the plot: shown (READY), or waiting for the user or failed (WAITING,
+	 * ERROR), for {@code timeoutMillis} at most, or until {@code stop} says so. At once when Google Earth Web is not the
+	 * viewer. For the other imagery sources, whose loads would otherwise take the worker of the imagery window and the
+	 * machine from Google Earth Web while it moves to the plot.
+	 */
+	public void awaitShown(String plotId, long timeoutMillis, BooleanSupplier stop) throws InterruptedException {
+		if (!isTheViewer()) {
+			return;
+		}
+		long end = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+		synchronized (stateChanged) {
+			while (!isDoneWith(plotId) && !stop.getAsBoolean()) {
+				long left = end - System.nanoTime();
+				if (left <= 0) {
+					return;
+				}
+				// Not only on a change of the state: stop may change at any time
+				stateChanged.wait(Math.max(1, Math.min(100, TimeUnit.NANOSECONDS.toMillis(left))));
+			}
+		}
+	}
+
+	/** Called holding {@link #stateChanged}. */
+	private boolean isDoneWith(String plotId) {
+		State now = state;
+		return plotId != null && plotId.equals(statePlotId) && now != State.OPENING && now != State.MOVING;
 	}
 
 	/**
@@ -1182,9 +1213,12 @@ public class GoogleEarthWebService {
 		return written != null && Math.abs(altitude - written) <= 0.5;
 	}
 
-	private void setState(State newState, String plotId, String message) {
-		state = newState;
-		statePlotId = plotId;
-		stateMessage = message;
+	void setState(State newState, String plotId, String message) {
+		synchronized (stateChanged) {
+			state = newState;
+			statePlotId = plotId;
+			stateMessage = message;
+			stateChanged.notifyAll();
+		}
 	}
 }

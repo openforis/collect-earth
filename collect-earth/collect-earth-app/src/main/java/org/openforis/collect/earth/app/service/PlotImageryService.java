@@ -1,6 +1,8 @@
 package org.openforis.collect.earth.app.service;
 
+import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -69,6 +71,16 @@ public class PlotImageryService {
 	private volatile String selectedPlotId;
 	/** Where Google Earth Web was opened before any plot was selected; see {@link #openOverview}. */
 	private final AtomicReference<SimplePlacemarkObject> lastOverview = new AtomicReference<>();
+	/**
+	 * How long at most the other sources wait for Google Earth Web to show the plot before they load it: see
+	 * {@link #showInOtherSources}.
+	 */
+	static final long OTHER_SOURCES_DELAY_MILLIS = 3000;
+	/**
+	 * The latest plot of each source whose tab is hidden, to load once its tab is shown (see {@link #loadInOtherSources});
+	 * guarded by itself.
+	 */
+	private final Map<ImagerySource, Shown> hiddenLoads = new EnumMap<>(ImagerySource.class);
 
 	private final ExecutorService executor = Executors.newCachedThreadPool(r -> {
 		Thread thread = new Thread(r, "Plot imagery");
@@ -95,9 +107,10 @@ public class PlotImageryService {
 	}
 
 	/**
-	 * Shows the plot in every imagery source switched on, unless it is the plot asked for last. Returns once the tabs
-	 * are open; the loads of the sources run on threads of their own. Nothing is shown when another plot is selected
-	 * while this one is filled in.
+	 * Shows the plot in every imagery source switched on, unless it is the plot asked for last. Returns once the plot is
+	 * filled in; the loads of the sources run on threads of their own, those of the other sources after Google Earth
+	 * Web's (see {@link #showInOtherSources}). Nothing is shown when another plot is selected while this one is filled
+	 * in.
 	 */
 	public void showPlot(SimplePlacemarkObject placemark, KmlGenerator kmlGenerator) {
 		long selection;
@@ -132,12 +145,41 @@ public class PlotImageryService {
 			}
 			lastShown = new Shown(placemark, selection);
 		}
-		// Google Earth Web first, so that its load is queued early; on a thread of its own, as it waits for the page and
-		// its in-page move. In a browser that starts, its tab is the first whichever comes first, its own load or
-		// openImageryTabs(), which opens the tabs one by one in the order of ImagerySource
+		// The tabs a browser that starts opens, in the order of ImagerySource, whichever command starts it
+		rememberImageryTabs();
+		// Google Earth Web first, on a thread of its own, as it waits for the page and its in-page move; the other sources
+		// after it
 		showInGoogleEarthWeb(placemark, selection);
-		openImageryTabs();
-		loadInOtherSources(placemark, selection);
+		showInOtherSources(placemark, selection);
+	}
+
+	/**
+	 * Shows the plot in the sources other than Google Earth Web once Google Earth Web has shown it, or after
+	 * {@link #OTHER_SOURCES_DELAY_MILLIS}: their page loads, and opening their missing tabs (seconds each, see
+	 * {@code BidiTabDriver.createTab}), took the one worker of the imagery window and the machine from Google Earth Web
+	 * while it moved to the plot, and got its in-page move taken as failed. Nothing for a plot the user went past
+	 * meanwhile: the newer one shows itself. Returns at once.
+	 */
+	void showInOtherSources(SimplePlacemarkObject placemark, long selection) {
+		openAsync("the other imagery sources", () -> {
+			awaitGoogleEarthWeb(placemark, selection);
+			if (!isLatest(selection)) {
+				return;
+			}
+			openImageryTabs();
+			loadInOtherSources(placemark, selection);
+		});
+	}
+
+	/** See {@link #showInOtherSources}. */
+	void awaitGoogleEarthWeb(SimplePlacemarkObject placemark, long selection) throws InterruptedException {
+		googleEarthWebService.awaitShown(placemark.getPlacemarkId(), OTHER_SOURCES_DELAY_MILLIS, () -> !isLatest(selection));
+	}
+
+	private boolean isLatest(long selection) {
+		synchronized (selectionLock) {
+			return latestSelection == selection;
+		}
 	}
 
 	/**
@@ -182,6 +224,16 @@ public class PlotImageryService {
 		browserService.showPlotsMapInGoogleEarthWebWith(plotId -> openForThePlotsMap());
 	}
 
+	/** A source whose tab is shown loads the plot it was left (see {@link #loadInOtherSources}). */
+	@PostConstruct
+	void loadTheSourcesWhenShown() {
+		imageryBrowser.onVisibilityChange((source, visible) -> {
+			if (visible && source != ImagerySource.GOOGLE_EARTH_WEB) {
+				sourceShown(source);
+			}
+		});
+	}
+
 	/**
 	 * Opens Google Earth Web for its panel to show the plots map: on the plot shown last, with the other sources, or
 	 * before any plot over the survey area, else from afar (the panel then moves it over the survey area, see panel.ts).
@@ -199,10 +251,16 @@ public class PlotImageryService {
 		return true;
 	}
 
-	/** Opens Google Earth Web over the survey area before a plot is selected (a no-op if it is open). */
+	/**
+	 * Opens Google Earth Web over the survey area before a plot is selected (a no-op if it is open), then the tabs of the
+	 * other sources: before the first plot, whose move they would hold up (see {@link #showInOtherSources}).
+	 */
 	public void openOverview(SimplePlacemarkObject center) {
 		lastOverview.set(center);
-		executor.submit(() -> googleEarthWebService.openOverview(center));
+		executor.submit(() -> {
+			googleEarthWebService.openOverview(center);
+			openImageryTabs();
+		});
 	}
 
 	/**
@@ -255,15 +313,91 @@ public class PlotImageryService {
 		googleEarthWebService.showPlot(placemark, selection);
 	}
 
-	/** Sends the plot to each source but Google Earth Web, on threads of their own: each waits for its page. */
+	/**
+	 * Sends the plot to each source but Google Earth Web, on threads of their own (each waits for its page): at once to
+	 * the source whose tab is shown, and to one whose tab cannot tell when it is shown (not opened, or never loaded: see
+	 * {@link ImageryBrowser#reportsVisibility}). The plot of a hidden tab is kept for when the user shows it (see
+	 * {@link #sourceShown}), the latest only: each of them reloaded its page on every plot, for nobody to see, while the
+	 * user waited for Google Earth Web.
+	 */
 	void loadInOtherSources(SimplePlacemarkObject placemark, long selection) {
-		openAsync("Earth Engine APP", () -> browserService.openGEEAppURL(placemark, selection));
-		openAsync("Earth Map", () -> browserService.openEarthMapURL(placemark, selection));
-		openAsync("ESRI Wayback", () -> browserService.openEsriWayback(placemark, selection));
-		openAsync("Extra Map", () -> browserService.openExtraMap(placemark, selection));
-		openAsync("Street View", () -> browserService.openStreetView(placemark, selection));
-		openAsync("Planet Maps", () -> browserService.openPlanetMaps(placemark, selection));
-		openAsync("SecureWatch", () -> browserService.openSecureWatch(placemark, selection));
+		Shown plot = new Shown(placemark, selection);
+		for (ImagerySource source : ImagerySource.values()) {
+			if (source == ImagerySource.GOOGLE_EARTH_WEB) {
+				continue;
+			}
+			if (loadsNow(source)) {
+				synchronized (hiddenLoads) {
+					hiddenLoads.remove(source);
+				}
+				loadIn(source, plot);
+				continue;
+			}
+			synchronized (hiddenLoads) {
+				Shown kept = hiddenLoads.get(source);
+				if (kept == null || kept.selection <= selection) {
+					hiddenLoads.put(source, plot);
+				}
+			}
+			// Shown between the look and the plot being kept: the listener found nothing to load
+			if (loadsNow(source)) {
+				sourceShown(source);
+			}
+		}
+	}
+
+	/** Whether the source loads a plot at once: see {@link #loadInOtherSources}. */
+	boolean loadsNow(ImagerySource source) {
+		return imageryBrowser.isShown(source) || !imageryBrowser.reportsVisibility(source);
+	}
+
+	/** The tab of the source was shown: it loads the plot kept for it, if any. */
+	void sourceShown(ImagerySource source) {
+		Shown kept;
+		synchronized (hiddenLoads) {
+			kept = hiddenLoads.remove(source);
+		}
+		if (kept != null) {
+			loadIn(source, kept);
+		}
+	}
+
+	/** Loads the plot in the source, on a thread of its own. */
+	void loadIn(ImagerySource source, SimplePlacemarkObject placemark, long selection) {
+		switch (source) {
+		case GEE_APP:
+			openAsync("Earth Engine APP", () -> browserService.openGEEAppURL(placemark, selection));
+			break;
+		case EARTH_MAP:
+			openAsync("Earth Map", () -> browserService.openEarthMapURL(placemark, selection));
+			break;
+		case ESRI_WAYBACK:
+			openAsync("ESRI Wayback", () -> browserService.openEsriWayback(placemark, selection));
+			break;
+		case EXTRA_MAP:
+			openAsync("Extra Map", () -> browserService.openExtraMap(placemark, selection));
+			break;
+		case STREET_VIEW:
+			openAsync("Street View", () -> browserService.openStreetView(placemark, selection));
+			break;
+		case PLANET:
+			openAsync("Planet Maps", () -> browserService.openPlanetMaps(placemark, selection));
+			break;
+		case SECURE_WATCH:
+			openAsync("SecureWatch", () -> browserService.openSecureWatch(placemark, selection));
+			break;
+		default:
+			break;
+		}
+	}
+
+	private void loadIn(ImagerySource source, Shown plot) {
+		loadIn(source, plot.placemark, plot.selection);
+	}
+
+	/** Tells the imagery browser which tabs a browser that starts opens: see {@link ImageryBrowser#rememberTabs}. */
+	void rememberImageryTabs() {
+		imageryBrowser.rememberTabs(browserService.enabledImagerySources());
 	}
 
 	/**

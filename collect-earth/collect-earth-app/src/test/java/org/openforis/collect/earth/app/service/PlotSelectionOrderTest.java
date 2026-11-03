@@ -85,6 +85,16 @@ public class PlotSelectionOrderTest {
 		void openImageryTabs() {
 			// no browser
 		}
+
+		@Override
+		void rememberImageryTabs() {
+			// no browser
+		}
+
+		@Override
+		void awaitGoogleEarthWeb(SimplePlacemarkObject placemark, long selection) {
+			// shown at once
+		}
 	}
 
 	static SimplePlacemarkObject plot(String id) {
