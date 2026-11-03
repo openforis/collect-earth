@@ -1,4 +1,4 @@
-import type { MouseEvent as ReactMouseEvent } from "react";
+import { type MouseEvent as ReactMouseEvent, useMemo } from "react";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
@@ -9,9 +9,10 @@ import Typography from "@mui/material/Typography";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import CloseIcon from "@mui/icons-material/Close";
+import FilterListIcon from "@mui/icons-material/FilterList";
 import MenuIcon from "@mui/icons-material/Menu";
 import type { MapController, UiState } from "../controller";
-import { plotLabel } from "../plots";
+import { countStatuses, plotLabel } from "../plots";
 import { useT } from "../i18n";
 import { ImageryBar } from "./ImageryBar";
 import { useUiScale } from "../uiScale";
@@ -34,6 +35,11 @@ export function FormPanel({ controller, state, fill, hidden, onShowList }: {
   const status = state.statuses[id] ?? "empty";
   const prev = controller.neighbourOf(id, -1);
   const next = controller.neighbourOf(id, 1);
+  // The work done, otherwise only in the list, which the one-pane layout hides while the form is shown
+  const counts = useMemo(() => countStatuses(state.order, state.statuses), [state.order, state.statuses]);
+  const pct = counts.total ? Math.round((counts.saved * 100) / counts.total) : 0;
+  // The arrows go through the list as filtered, which is remembered from one session to the next: shown, and undone here
+  const filterLabel = state.filter !== "all" ? t(`filter.${state.filter}`) : null;
   // In the one-pane layout (Google Earth Web's panel), a slimmer header leaves the room to the form
   const size = fill ? "small" : "medium";
 
@@ -78,6 +84,17 @@ export function FormPanel({ controller, state, fill, hidden, onShowList }: {
         <Stack direction="row" spacing={1} sx={{ alignItems: "center", flex: 1, minWidth: 0, px: 0.5 }}>
           <Typography variant="subtitle1" noWrap sx={{ fontWeight: 600 }} data-testid="form-title">{t("form.title", { id: plotLabel(state.labels, id) })}</Typography>
           <Chip size="small" variant="outlined" color={STATUS_CHIP[status]} label={t(`status.${status}`)} data-testid="form-status" />
+          <Tooltip title={t("progress", { saved: counts.saved, total: counts.total, pct })}>
+            <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: "none" }} data-testid="form-progress">
+              {counts.saved}/{counts.total}
+            </Typography>
+          </Tooltip>
+          {filterLabel && (
+            <Tooltip title={t("form.filtered", { filter: filterLabel })}>
+              <Chip size="small" color="primary" variant="outlined" icon={<FilterListIcon />} label={filterLabel}
+                onDelete={() => controller.setFilter("all")} data-testid="form-filter" sx={{ minWidth: 0 }} />
+            </Tooltip>
+          )}
         </Stack>
         <Tooltip title={t("form.next")}>
           <span><IconButton size={size} onClick={() => controller.step(1)} disabled={!next} aria-label={t("form.next")} data-testid="form-next"><ChevronRightIcon /></IconButton></span>
