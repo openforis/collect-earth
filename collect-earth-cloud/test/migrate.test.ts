@@ -58,7 +58,8 @@ describe('runMigrations', () => {
     expect(sql.filter((x) => files.some((f) => f.sql === x))).toEqual([edited.sql]);
     expect(logged).toEqual(['Migration 015_decision_bulk.sql applied.', `Migrations: ${files.length - 1} already applied and unchanged, skipped.`]);
     const recorded = calls.find((c) => c.sql.includes('INSERT INTO schema_migrations'))!;
-    expect(recorded.params).toEqual([['015_decision_bulk.sql'], [edited.checksum]]);
+    expect(recorded.params).toEqual(['015_decision_bulk.sql', edited.checksum]);
+    expect(calls.filter((c) => c.sql.includes('INSERT INTO schema_migrations'))).toHaveLength(1);
     expect(edited.checksum).toMatch(/^[0-9a-f]{64}$/);
 
     // Nothing changed: no file runs, nothing is recorded.
@@ -69,14 +70,28 @@ describe('runMigrations', () => {
     expect(calls.some((c) => c.sql.includes('INSERT INTO schema_migrations'))).toBe(false);
   });
 
-  it('runs every file when schema_migrations has no checksum column yet (before 024)', async () => {
-    failOn = 'SELECT name, checksum FROM schema_migrations';
+  it('runs every file when schema_migrations has no checksum column yet (before 024): those run before it are recorded once it is there', async () => {
+    // The record of each file up to 023 finds no checksum column (the read finds nothing recorded).
+    failOn = 'INSERT INTO schema_migrations (name, checksum) VALUES';
     failCode = '42703';
-    failTimes = 1;
+    const files = migrationFiles();
+    failTimes = files.indexOf('024_migration_checksums.sql');
     await runMigrations('postgres://unused');
-    const recorded = calls.find((c) => c.sql.includes('INSERT INTO schema_migrations'))!;
-    expect(recorded.params![0]).toEqual(migrationFiles());
-    expect(migrationFiles()).toContain('024_migration_checksums.sql');
+    // 024 recorded itself; then every file before it at once.
+    const batch = calls.filter((c) => c.sql.includes('INSERT INTO schema_migrations') && c.sql.includes('unnest('));
+    expect(batch).toHaveLength(1);
+    expect(batch[0].params![0]).toEqual(files.filter((f) => f !== '024_migration_checksums.sql'));
+    expect(files).toContain('024_migration_checksums.sql');
+  });
+
+  it('records each file as soon as it has run: a later one failing leaves the ones before recorded', async () => {
+    const files = readMigrations();
+    const failing = files.find((f) => f.sql.includes('ALTER TABLE users ADD COLUMN IF NOT EXISTS disabled_at'))!;
+    failOn = 'ALTER TABLE users ADD COLUMN IF NOT EXISTS disabled_at';
+    failTimes = 1;
+    await expect(runMigrations('postgres://unused', () => {}, { attempts: 1 })).rejects.toThrow('boom');
+    const recordedNames = calls.filter((c) => c.sql.includes('VALUES ($1, $2)')).map((c) => c.params![0]);
+    expect(recordedNames).toEqual(files.slice(0, files.indexOf(failing)).map((f) => f.name));
   });
 
   it('a run that meets a busy table (lock_timeout, 55P03) is tried again after a pause; other errors are not', async () => {
@@ -111,10 +126,13 @@ describe('runMigrations', () => {
     // The migrations themselves sit between lock and unlock.
     expect(sql.slice(2, -2).length).toBeGreaterThanOrEqual(4);
     expect(logged[0]).toBe('Migration 001_init.sql applied.');
-    // Then what ran is recorded (schema_migrations), still under the lock, with every file.
-    const recorded = calls.at(-3)!;
-    expect(recorded.sql).toContain('INSERT INTO schema_migrations');
-    expect(recorded.params![0]).toEqual(migrationFiles());
+    // Each file is recorded (schema_migrations) right after it ran, still under the lock.
+    const files = readMigrations();
+    for (const f of files) {
+      const at = calls.findIndex((c) => c.sql === f.sql);
+      expect(calls[at + 1].sql, f.name).toContain('INSERT INTO schema_migrations');
+      expect(calls[at + 1].params).toEqual([f.name, f.checksum]);
+    }
     expect(migrationFiles()[0]).toBe('001_init.sql');
     expect(migrationFiles()).toContain('018_platform.sql');
   });

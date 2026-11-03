@@ -314,6 +314,35 @@ describe('automatic check sampling: the rule, the draws, and what checkers get',
     expect((await call('POST', '/sampling/draw', owner.token)).json().draw).toMatchObject({ drawn: 1 });
   });
 
+  it('an automatic draw late 3 times in a row is stored the third time; the late draws are counted on the owner’s panel', async () => {
+    await ctx.app.close();
+    await start({ samplingInlineMs: 50 });
+    await call('PUT', '/sampling', owner.token, { firstN: 3 });
+    let stored = 0;
+    const add = ctx.store.addSampledCopies.bind(ctx.store);
+    ctx.store.addSampledCopies = async (...args) => {
+      stored += 1;
+      return add(...args);
+    };
+    const states = ctx.store.listRecordStates.bind(ctx.store);
+    ctx.store.listRecordStates = async (...args) => {
+      clock += 60_000;
+      return states(...args);
+    };
+    for (const plot of [1, 2, 3]) {
+      // Past the 10 minutes since the last automatic draw: each first submission claims one.
+      clock += 11 * 60_000;
+      const res = await batchRequest(ctx.app, pid, projectToken, [envelope({ recordKey: `${plot},1`, operator: 'maria', modifiedOn: clock, activelySaved: true })]);
+      expect(res.statusCode, res.body).toBe(200);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(stored, `after plot ${plot}`).toBe(plot === 3 ? 1 : 0);
+    }
+    expect((await drawn()).length).toBe(3);
+    const panel = await ctx.app.inject({ method: 'GET', url: '/v1/admin/overview', headers: bearer(owner.token) });
+    expect(panel.statusCode, panel.body).toBe(200);
+    expect(panel.json().security).toMatchObject({ lateDraws: 3, lastLateDrawAt: expect.any(Number) });
+  });
+
   it('a draw that takes too long: the batch answers after the inline wait', async () => {
     await ctx.app.close();
     await start({ samplingInlineMs: 50 });

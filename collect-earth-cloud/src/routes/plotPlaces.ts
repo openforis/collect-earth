@@ -249,6 +249,13 @@ export async function registerPlotPlaceRoutes(app: FastifyInstance, store: Store
     ) {
       return reply.code(400).send({ error: 'bad_request', reason: `plots must be a list of at most ${MAX_PLACES} plot ids of 1-${MAX_PLOT} characters` });
     }
-    return reply.send(await reader.places(request.membership!.projectId, plots, request.log));
+    const { projectId, role } = request.membership!;
+    // A reviewer is given no reference plot's place (Decision 10): the answer is as for a plot in no file.
+    let asked: readonly string[] = plots;
+    if (role !== 'admin') {
+      const reference = new Set((await store.listReferencePlots(projectId)).map((r) => r.plotKey));
+      if (reference.size > 0) asked = plots.filter((p) => !reference.has(p));
+    }
+    return reply.send(await reader.places(projectId, asked, request.log));
   });
 }

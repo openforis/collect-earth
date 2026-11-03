@@ -18,6 +18,13 @@ export interface CountersSnapshot {
   totals: { failedLogins: number; rateLimited: number };
   /** Hours with any count, oldest first, at most COUNTER_HOURS of the latest ones. */
   hours: HourCounts[];
+  /**
+   * Automatic check draws worked out after their request had answered, so not stored then (Task 22
+   * review): a project whose draws are always this slow gets its checks only from "Draw now" or a
+   * later, quicker draw. Since the process started, and when the last one was.
+   */
+  lateDraws: number;
+  lastLateDrawAt: number | null;
 }
 
 /**
@@ -29,6 +36,8 @@ export class ServerCounters {
   private readonly since: number;
   private readonly hours = new Map<number, HourCounts>();
   private readonly totals = { failedLogins: 0, rateLimited: 0 };
+  private lateDraws = 0;
+  private lastLateDrawAt: number | null = null;
 
   constructor(private readonly now: () => number = Date.now) {
     this.since = now();
@@ -57,6 +66,12 @@ export class ServerCounters {
     }
   }
 
+  /** An automatic draw past its request's wait (SamplingService). */
+  lateDraw(): void {
+    this.lateDraws += 1;
+    this.lastLateDrawAt = this.now();
+  }
+
   snapshot(): CountersSnapshot {
     const oldest = Math.floor(this.now() / HOUR_MS) * HOUR_MS - (COUNTER_HOURS - 1) * HOUR_MS;
     return {
@@ -66,6 +81,8 @@ export class ServerCounters {
         .filter((h) => h.hour >= oldest)
         .sort((a, b) => a.hour - b.hour)
         .map((h) => ({ ...h })),
+      lateDraws: this.lateDraws,
+      lastLateDrawAt: this.lastLateDrawAt,
     };
   }
 }

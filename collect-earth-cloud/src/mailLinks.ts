@@ -50,8 +50,13 @@ function read(purpose: string, token: unknown, secret: Buffer): Record<string, u
   }
 }
 
-/** The key that hides the account's id in an unsubscribe token: its own, from the mails' key. */
-const hidingKey = (secret: Buffer) => createHmac('sha256', secret).update('digest-unsubscribe:hide').digest();
+/**
+ * The key that hides the account's id in an unsubscribe token: its own, from the mails' key. A hash
+ * of a label and the key, not an HMAC of `purpose:payload` as sign() makes, so no signature a link
+ * carries can ever be this key. (Only tokens with the id readable, `{ u, k }`, were ever sent before
+ * it; they do not use it and keep working.)
+ */
+const hidingKey = (secret: Buffer) => createHash('sha256').update('collect-earth-cloud:unsubscribe-hiding-key\u0000').update(secret).digest();
 
 /** The account's id encrypted (AES-256-GCM: a random 12-byte nonce, the text, the 16-byte tag), base64url. */
 function hide(userId: string, secret: Buffer): string {

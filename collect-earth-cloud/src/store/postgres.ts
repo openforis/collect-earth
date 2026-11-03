@@ -109,9 +109,13 @@ export interface PostgresStoreOptions {
   onPoolError?: (err: Error) => void;
 }
 
+/** Clients whose connection failed while checked out: destroyed when released (PostgresStore.connect). */
+const brokenClients = new WeakMap<pg.PoolClient, Error>();
+
 export class PostgresStore implements Store {
   private readonly pool: pg.Pool;
   private readonly statementTimeout: string | null;
+  private readonly onPoolError: (err: Error) => void;
 
   constructor(
     private readonly databaseUrl: string,
@@ -131,12 +135,50 @@ export class PostgresStore implements Store {
         console.error('postgres: an idle connection of the pool failed:', err.message);
       });
     this.pool.on('error', onPoolError);
+    this.onPoolError = onPoolError;
     this.statementTimeout = options.statementTimeoutMs ? String(Math.round(options.statementTimeoutMs)) : null;
+  }
+
+  /**
+   * A client of the pool, watched while it is checked out. pg-pool removes its own 'error' listener
+   * from a client it hands out, so a connection that dies meanwhile (Postgres ending it: an idle
+   * transaction past idle_in_transaction_session_timeout, a restart, the network) would emit an
+   * uncaught 'error' and end the process. Here the error is logged and remembered, and release()
+   * then destroys the client instead of putting a broken connection back in the pool.
+   */
+  private async connect(): Promise<pg.PoolClient> {
+    const client = await this.pool.connect();
+    const onError = (err: Error) => {
+      if (!brokenClients.has(client)) brokenClients.set(client, err);
+      this.onPoolError(err);
+    };
+    client.on('error', onError);
+    // pg-pool gives the client a new release() at every checkout, so this one is for this checkout only.
+    const release = client.release.bind(client);
+    client.release = ((err?: Error | boolean) => {
+      client.removeListener('error', onError);
+      const broken = brokenClients.get(client);
+      brokenClients.delete(client);
+      release(err ?? broken);
+    }) as typeof client.release;
+    return client;
+  }
+
+  /**
+   * ROLLBACK after a failure, never masking it: on a connection that is gone it fails too, and the
+   * client is then marked broken (destroyed on release) while the caller rethrows the first error.
+   */
+  private async rollback(client: pg.PoolClient): Promise<void> {
+    try {
+      await client.query('ROLLBACK');
+    } catch (err) {
+      if (!brokenClients.has(client)) brokenClients.set(client, err as Error);
+    }
   }
 
   /** Runs fn inside a transaction scoped to a project for RLS enforcement. */
   private async withProject<T>(projectId: string, fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
-    const client = await this.pool.connect();
+    const client = await this.connect();
     try {
       await client.query('BEGIN');
       await client.query('SELECT set_config($1, $2, true)', ['app.current_project', projectId]);
@@ -147,7 +189,7 @@ export class PostgresStore implements Store {
       await client.query('COMMIT');
       return result;
     } catch (err) {
-      await client.query('ROLLBACK');
+      await this.rollback(client);
       throw err;
     } finally {
       client.release();
@@ -159,7 +201,7 @@ export class PostgresStore implements Store {
     const adminToken = generateToken();
     const projectToken = generateToken();
 
-    const client = await this.pool.connect();
+    const client = await this.connect();
     try {
       await client.query('BEGIN');
       // The new project's own id, so its row passes the projects policy (RLS).
@@ -171,7 +213,7 @@ export class PostgresStore implements Store {
       );
       await client.query('COMMIT');
     } catch (err) {
-      await client.query('ROLLBACK');
+      await this.rollback(client);
       throw err;
     } finally {
       client.release();
@@ -610,7 +652,7 @@ export class PostgresStore implements Store {
   }): Promise<User> {
     const id = randomUUID();
     const termsAcceptedAt = input.termsAcceptedAt ?? null;
-    const client = await this.pool.connect();
+    const client = await this.connect();
     try {
       await client.query('BEGIN');
       await lockUsername(client, input.username);
@@ -625,7 +667,7 @@ export class PostgresStore implements Store {
       }
       await client.query('COMMIT');
     } catch (err) {
-      await client.query('ROLLBACK');
+      await this.rollback(client);
       if ((err as { code?: string }).code === '23505') {
         throw new UsernameTakenError(input.username);
       }
@@ -684,14 +726,14 @@ export class PostgresStore implements Store {
   }
 
   async setPassword(userId: string, passwordHash: string): Promise<void> {
-    const client = await this.pool.connect();
+    const client = await this.connect();
     try {
       await client.query('BEGIN');
       await client.query('UPDATE users SET password_hash = $2 WHERE id = $1', [userId, passwordHash]);
       await client.query('DELETE FROM password_resets WHERE user_id = $1', [userId]);
       await client.query('COMMIT');
     } catch (err) {
-      await client.query('ROLLBACK');
+      await this.rollback(client);
       throw err;
     } finally {
       client.release();
@@ -699,7 +741,7 @@ export class PostgresStore implements Store {
   }
 
   async deleteUser(userId: string): Promise<'ok' | 'last_platform_admin'> {
-    const client = await this.pool.connect();
+    const client = await this.connect();
     try {
       await client.query('BEGIN');
       // The last enabled platform admin stays: counted again under the lock disableUser
@@ -751,7 +793,7 @@ export class PostgresStore implements Store {
       await client.query('COMMIT');
       return 'ok';
     } catch (err) {
-      await client.query('ROLLBACK');
+      await this.rollback(client);
       throw err;
     } finally {
       client.release();
@@ -880,7 +922,7 @@ export class PostgresStore implements Store {
 
   async reserveConfirmationSend(userId: string, at: number, limits: { perHour: number; perDay: number }): Promise<boolean> {
     // Checked and counted under a per-account lock, so two requests at once cannot both pass the cap.
-    const client = await this.pool.connect();
+    const client = await this.connect();
     try {
       await client.query('BEGIN');
       await client.query("SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:confirm:' || $1::text))", [userId]);
@@ -900,7 +942,7 @@ export class PostgresStore implements Store {
       await client.query('COMMIT');
       return true;
     } catch (err) {
-      await client.query('ROLLBACK');
+      await this.rollback(client);
       throw err;
     } finally {
       client.release();
@@ -931,7 +973,7 @@ export class PostgresStore implements Store {
     if (!isUuid(userId)) {
       return 'not_found';
     }
-    const client = await this.pool.connect();
+    const client = await this.connect();
     try {
       await client.query('BEGIN');
       // Two admins disabling each other at once: the second waits and then sees the first's change.
@@ -961,7 +1003,7 @@ export class PostgresStore implements Store {
       await client.query('COMMIT');
       return 'ok';
     } catch (err) {
-      await client.query('ROLLBACK');
+      await this.rollback(client);
       throw err;
     } finally {
       client.release();
@@ -1058,7 +1100,7 @@ export class PostgresStore implements Store {
 
   async createFirstPlatformAdmin(input: { username: string; passwordHash: string }): Promise<User | null> {
     const id = randomUUID();
-    const client = await this.pool.connect();
+    const client = await this.connect();
     try {
       await client.query('BEGIN');
       // Serialise concurrent first-run setups (several instances, double submit):
@@ -1080,7 +1122,7 @@ export class PostgresStore implements Store {
       }
       await client.query('COMMIT');
     } catch (err) {
-      await client.query('ROLLBACK');
+      await this.rollback(client);
       if ((err as { code?: string }).code === '23505') {
         throw new UsernameTakenError(input.username);
       }
@@ -1200,7 +1242,7 @@ export class PostgresStore implements Store {
   async listMemberships(userId: string): Promise<Membership[]> {
     // The memberships are global (002); each project's name is read under its own
     // project setting, so RLS lets this read only the caller's projects' rows.
-    const client = await this.pool.connect();
+    const client = await this.connect();
     try {
       await client.query('BEGIN READ ONLY');
       const members = await client.query('SELECT project_id, role FROM project_members WHERE user_id = $1', [userId]);
@@ -1215,7 +1257,7 @@ export class PostgresStore implements Store {
       await client.query('COMMIT');
       return out.sort((a, b) => a.projectName.localeCompare(b.projectName));
     } catch (err) {
-      await client.query('ROLLBACK');
+      await this.rollback(client);
       throw err;
     } finally {
       client.release();
@@ -1290,7 +1332,7 @@ export class PostgresStore implements Store {
 
   async getInvite(token: string): Promise<Invite | null> {
     // Invites are global (002); the project's name is read under the invite's project.
-    const client = await this.pool.connect();
+    const client = await this.connect();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let r: Record<string, any>;
     try {
@@ -1312,7 +1354,7 @@ export class PostgresStore implements Store {
       }
       r.name = p.rows[0].name;
     } catch (err) {
-      await client.query('ROLLBACK');
+      await this.rollback(client);
       throw err;
     } finally {
       client.release();
@@ -1721,7 +1763,9 @@ export class PostgresStore implements Store {
     return this.withProject(projectId, async (client) => {
       // A draw that outlives its request (Cloud Run then gives the instance little CPU) must not keep
       // the sampling lock and the rows: each statement, the lock's wait included, and any pause
-      // between them are bounded (B5); a draw cut short is rolled back and stays due.
+      // between them are bounded (B5); a draw cut short is rolled back and stays due. This
+      // statement_timeout replaces, for this transaction only, the store's own (statementTimeoutMs, set
+      // by withProject just before): SAMPLING_STATEMENT_TIMEOUT_MS is the draw's bound whatever that is.
       await client.query("SELECT set_config('statement_timeout', $1, true), set_config('idle_in_transaction_session_timeout', $2, true)", [
         String(SAMPLING_STATEMENT_TIMEOUT_MS),
         String(SAMPLING_IDLE_TIMEOUT_MS),
@@ -2534,7 +2578,7 @@ export class PostgresStore implements Store {
   }
 
   private async eachProject<T>(fn: (client: pg.PoolClient, projectId: string) => Promise<T>): Promise<T[]> {
-    const client = await this.pool.connect();
+    const client = await this.connect();
     try {
       await client.query('BEGIN READ ONLY');
       // The store's statement timeout here too (M-6): each statement of the walk, as in withProject.
@@ -2550,7 +2594,7 @@ export class PostgresStore implements Store {
       await client.query('COMMIT');
       return out;
     } catch (err) {
-      await client.query('ROLLBACK');
+      await this.rollback(client);
       throw err;
     } finally {
       client.release();

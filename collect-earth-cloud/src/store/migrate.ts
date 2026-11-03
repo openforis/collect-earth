@@ -92,6 +92,22 @@ async function appliedChecksums(client: pg.Client): Promise<Map<string, string>>
   }
 }
 
+/** Records one file as applied with its checksum; false when schema_migrations (018) or its checksum column (024) is not there yet. */
+async function recorded(client: pg.Client, file: MigrationFile): Promise<boolean> {
+  try {
+    await client.query(
+      `INSERT INTO schema_migrations (name, checksum) VALUES ($1, $2)
+       ON CONFLICT (name) DO UPDATE SET last_applied_at = now(), checksum = EXCLUDED.checksum`,
+      [file.name, file.checksum],
+    );
+    return true;
+  } catch (err) {
+    const code = (err as { code?: unknown }).code;
+    if (code === '42P01' || code === '42703') return false;
+    throw err;
+  }
+}
+
 async function runOnce(databaseUrl: string, log: (msg: string) => void, appDatabaseUrl: string | undefined): Promise<void> {
   const files = readMigrations();
 
@@ -101,26 +117,33 @@ async function runOnce(databaseUrl: string, log: (msg: string) => void, appDatab
     await client.query('SELECT pg_advisory_lock($1::bigint)', [MIGRATION_LOCK_KEY]);
     try {
       await client.query(`SET lock_timeout = '${MIGRATION_LOCK_TIMEOUT}'`);
-      const applied = await appliedChecksums(client);
-      const ran: MigrationFile[] = [];
+      let applied = await appliedChecksums(client);
+      let ran = 0;
       for (const file of files) {
         if (applied.get(file.name) === file.checksum) {
           continue;
         }
         await client.query(file.sql);
-        ran.push(file);
+        ran += 1;
         log(`Migration ${file.name} applied.`);
+        // What ran, recorded at once (a later file failing does not make this one run again), for the
+        // server owner's panel too (schema_migrations, 018): the first time each one ran and the last,
+        // and the checksum it ran with (024). Before 018 and 024 have run there is nowhere to write it:
+        // those files are then recorded with the others once the table and the column are there.
+        if (await recorded(client, file)) {
+          applied = new Map(applied).set(file.name, file.checksum);
+        }
       }
-      if (ran.length < files.length) {
-        log(`Migrations: ${files.length - ran.length} already applied and unchanged, skipped.`);
+      if (ran < files.length) {
+        log(`Migrations: ${files.length - ran} already applied and unchanged, skipped.`);
       }
-      // What ran, for the server owner's panel (schema_migrations, migration 018): the first
-      // time each one ran and the last, and the checksum it ran with (024).
-      if (ran.length > 0) {
+      // The files run before schema_migrations (or its checksum column) existed.
+      const unrecorded = files.filter((f) => applied.get(f.name) !== f.checksum);
+      if (unrecorded.length > 0) {
         await client.query(
           `INSERT INTO schema_migrations (name, checksum) SELECT * FROM unnest($1::text[], $2::text[])
            ON CONFLICT (name) DO UPDATE SET last_applied_at = now(), checksum = EXCLUDED.checksum`,
-          [ran.map((f) => f.name), ran.map((f) => f.checksum)],
+          [unrecorded.map((f) => f.name), unrecorded.map((f) => f.checksum)],
         );
       }
       if (appDatabaseUrl !== undefined) {

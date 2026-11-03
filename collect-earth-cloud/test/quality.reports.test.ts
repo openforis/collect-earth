@@ -196,7 +196,8 @@ describe('quality reports for collectors and the team', () => {
     expect(res.statusCode, res.body).toBe(200);
     const mine = await get('/my-quality', users[FIRST].token);
     expect(mine.statusCode, mine.body).toBe(200);
-    expect(mine.body).not.toMatch(/777|LAVA|ICE/);
+    // (computedAt left out: a time such as 1793677735717 holds "777".)
+    expect(JSON.stringify({ ...mine.json(), computedAt: 0 })).not.toMatch(/777|LAVA|ICE/);
     expect(mine.json().asFirst).toEqual({ checks: 0, agreeing: 0, rate: null });
   });
 

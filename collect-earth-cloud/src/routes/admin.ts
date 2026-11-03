@@ -349,7 +349,7 @@ export async function registerAdminRoutes(
         shippedMigrations: migrationFiles(),
         version: options.version,
         startedAt: options.startedAt ?? now,
-        security: options.counters?.snapshot() ?? { since: options.startedAt ?? now, totals: { failedLogins: 0, rateLimited: 0 }, hours: [] },
+        security: options.counters?.snapshot() ?? { since: options.startedAt ?? now, totals: { failedLogins: 0, rateLimited: 0 }, hours: [], lateDraws: 0, lastLateDrawAt: null },
       });
       kept = { at: now, body };
       return reply.send(body);

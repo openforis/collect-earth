@@ -7,8 +7,12 @@ const pools: { options: Record<string, unknown>; listeners: Map<string, (err: Er
 const queries: { sql: string; params?: unknown[] }[] = [];
 // Queries containing `match` throw a Postgres error with `code`, `times` times.
 const failing: { match: string; code: string; times: number } = { match: '', code: '', times: 0 };
+// What each checked-out client was released with, and a hook run on every query (to make a client fail).
+const releases: unknown[] = [];
+const hooks: { onQuery: ((client: import('node:events').EventEmitter, sql: string) => void) | null } = { onQuery: null };
 
-vi.mock('pg', () => {
+vi.mock('pg', async () => {
+  const { EventEmitter } = await import('node:events');
   class Pool {
     private readonly listeners = new Map<string, (err: Error) => void>();
     constructor(options: Record<string, unknown>) {
@@ -19,9 +23,10 @@ vi.mock('pg', () => {
       return this;
     }
     async connect() {
-      return {
+      const client = Object.assign(new EventEmitter(), {
         async query(sql: string, params?: unknown[]) {
           queries.push({ sql, params });
+          hooks.onQuery?.(client, sql);
           if (failing.times > 0 && failing.match && sql.includes(failing.match)) {
             failing.times -= 1;
             throw Object.assign(new Error('deadlock detected'), { code: failing.code });
@@ -33,8 +38,11 @@ vi.mock('pg', () => {
           if (sql.includes('AS submitted_before') && !sql.includes('FROM records')) return { rows: [{ submitted_before: true }], rowCount: 1 };
           return { rows: [], rowCount: 0 };
         },
-        release() {},
-      };
+        release(err?: unknown) {
+          releases.push(err);
+        },
+      });
+      return client;
     }
     // Global tables (users, sessions) are read on the pool itself, with no project setting.
     async query(sql: string, params?: unknown[]) {
@@ -94,6 +102,37 @@ describe('PostgresStore pool', () => {
     const lock = sqls.findIndex((s) => s.includes("'collect-earth-cloud:sampling:'"));
     expect(lock).toBeGreaterThan(-1);
     expect(lock).toBeLessThan(sqls.findIndex((s) => s.startsWith('DELETE FROM plot_assignments')));
+  });
+
+  it('a checked-out client that fails (Postgres ends an idle transaction) is logged, not an uncaught error; its ROLLBACK failing does not hide the first error; it is destroyed on release', async () => {
+    releases.length = 0;
+    const seen: Error[] = [];
+    const store = new PostgresStore('postgres://x', { onPoolError: (err) => seen.push(err) });
+    const fatal = new Error('terminating connection due to idle-in-transaction timeout');
+    // Between two statements the server ends the connection: an 'error' event, then every query fails.
+    let dead = false;
+    hooks.onQuery = (client, sql) => {
+      if (sql.includes('records_version')) {
+        dead = true;
+        // With no listener this would throw (an uncaught 'error' event ends the process).
+        client.emit('error', fatal);
+      }
+      if (dead && sql === 'COMMIT') throw new Error('Connection terminated');
+      if (dead && sql === 'ROLLBACK') throw new Error('Client was closed and is not queryable');
+    };
+    try {
+      await expect(store.qualityVersion(PROJECT)).rejects.toThrow('Connection terminated');
+    } finally {
+      hooks.onQuery = null;
+    }
+    expect(seen).toEqual([fatal]);
+    // Released with the error: pg-pool destroys it instead of putting it back.
+    expect(releases).toEqual([fatal]);
+
+    // A healthy client is put back (released with nothing), and no longer listened to.
+    releases.length = 0;
+    await store.qualityVersion(PROJECT);
+    expect(releases).toEqual([undefined]);
   });
 
   it('removeMember and putCsvFile take the check sampling lock before touching the holdings', async () => {

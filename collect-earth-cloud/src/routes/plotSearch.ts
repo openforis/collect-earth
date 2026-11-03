@@ -14,7 +14,7 @@ import { fileKeyCount, keyShape, recordKeysOfUnit, type Assessment } from '../ro
 import type { Store } from '../store/store.js';
 import type { RecordRow, ReferencePlot } from '../types.js';
 import { PlotPlaceReader } from './plotPlaces.js';
-import { MAX_NAME, publicDecision } from './quality.js';
+import { copiesHeld, MAX_NAME, publicDecision, unnamedFlag } from './quality.js';
 
 /**
  * Plot search (Task 8), for coordinators and reviewers (never collectors: a collector must not
@@ -58,18 +58,20 @@ export class PlotIndexCache {
     this.now = options.now ?? Date.now;
   }
 
-  async get(projectId: string, log: Log & FastifyRequest['log']): Promise<{ index: PlotIndex; info: RoundInfo | null }> {
+  /** `partial`: a plot file could not be read, so the index lacks its plots. */
+  async get(projectId: string, log: Log & FastifyRequest['log']): Promise<{ index: PlotIndex; info: RoundInfo | null; partial: boolean }> {
     const [info, files, facts] = await Promise.all([this.store.getRoundInfo(projectId), this.store.listCsvFiles(projectId), this.places.surveyFacts(projectId, log)]);
     const keyCount = fileKeyCount(info);
     const version = sha256(JSON.stringify([keyCount, facts.hidden, files.map((f) => [f.id, f.checksum, f.filename])]));
     const hit = this.entries.get(projectId);
     if (hit && hit.version === version && (hit.failedAt === null || this.now() - hit.failedAt < this.retryMs)) {
       remember(this.entries, projectId, hit, MAX_CACHED_INDEXES);
-      return { index: hit.index, info };
+      return { index: hit.index, info, partial: hit.failedAt !== null };
     }
     const running = this.building.get(projectId);
     if (running && running.version === version) {
-      return { index: (await running.promise).index, info };
+      const entry = await running.promise;
+      return { index: entry.index, info, partial: entry.failedAt !== null };
     }
     const promise = (async (): Promise<IndexEntry> => {
       const read: PlotIndexFile[] = [];
@@ -92,7 +94,7 @@ export class PlotIndexCache {
     try {
       const entry = await promise;
       remember(this.entries, projectId, entry, MAX_CACHED_INDEXES);
-      return { index: entry.index, info };
+      return { index: entry.index, info, partial: entry.failedAt !== null };
     } finally {
       if (this.building.get(projectId)?.promise === promise) this.building.delete(projectId);
     }
@@ -252,6 +254,11 @@ export async function registerPlotSearchRoutes(
     let differences: (Difference & { changed?: boolean })[] | null = null;
     if (figures) {
       flags = patternFlags(figures, decisions, { fastSeconds: fastSecondsOf(settings), plot }).flags;
+      // A reviewer: no reference plot nor copy they hold named as the previous or first plot (Decision 10).
+      if (!coordinator) {
+        const unnamed = new Set([...references.map((r) => r.plotKey), ...(userId ? await copiesHeld(store, projectId, userId, metas) : [])]);
+        if (unnamed.size > 0) flags = flags.map((f) => unnamedFlag(f, unnamed));
+      }
       differences = [];
       const pairs = figures.report.pairs;
       const byId = new Map(rows.map((r) => [`${r.recordKey}\u0000${r.operator}`, r]));

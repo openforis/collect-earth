@@ -159,7 +159,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   if (config.parsedCacheMb) setParsedCacheMb(config.parsedCacheMb);
   if (config.servedCacheMb) setServedCacheMb(config.servedCacheMb);
   // The automatic check sampling: drawn after first submissions and before a plot list, at most once per 10 min.
-  const sampling = new SamplingService(store, states, { intervalMs: config.samplingIntervalMs, inlineMs: config.samplingInlineMs, now });
+  const sampling = new SamplingService(store, states, { intervalMs: config.samplingIntervalMs, inlineMs: config.samplingInlineMs, now, onLate: () => counters.lateDraw() });
   // Where plots are and what the project file says of them, shared by the quality routes, plot
   // search, the map and order 'nearby' of a division (Task 15).
   const places = new PlotPlaceReader(store);

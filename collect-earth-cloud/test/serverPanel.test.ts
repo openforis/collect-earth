@@ -290,7 +290,7 @@ describe('the migrations figure', () => {
       shippedMigrations: ['001_init.sql', '002_accounts.sql', '003_assignments.sql'],
       version: 'v',
       startedAt: 0,
-      security: { since: 0, totals: { failedLogins: 0, rateLimited: 0 }, hours: [] },
+      security: { since: 0, totals: { failedLogins: 0, rateLimited: 0 }, hours: [], lateDraws: 0, lastLateDrawAt: null },
     });
     expect(o.database.migrations).toEqual({ applied: 2, shipped: 3, latest: '002_accounts.sql', newestAppliedAt: 9, missing: ['003_assignments.sql'] });
   });

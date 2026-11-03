@@ -7,6 +7,15 @@ import { checkersOf, coreOf, drawChecks, notBlindCheckers, samplingActive, type 
 import type { Store } from './store/store.js';
 import type { CsvFile, Member, PlotAssignment, SampledCopy, SamplingDraw, SamplingRule, SamplingState } from './types.js';
 
+/**
+ * After this many automatic draws in a row of one project worked out past their request's wait, the
+ * next one is stored even when late (the project would otherwise never get its checks). Safe since
+ * B5: a draw stored after its request runs with statement_timeout and idle_in_transaction_session_timeout,
+ * so one that Cloud Run starves of CPU is ended by Postgres and rolled back (it stays due) instead of
+ * holding the sampling lock; and the store watches the connection, so its end is no crash.
+ */
+export const MAX_LATE_DRAWS = 3;
+
 /** At most one automatic draw per project in this long. */
 export const SAMPLING_INTERVAL_MS = 10 * 60_000;
 /**
@@ -50,12 +59,16 @@ export class SamplingService {
   private readonly now: () => number;
   readonly intervalMs: number;
   private readonly inlineMs: number;
+  /** Automatic draws in a row worked out past their request's wait, per project (this instance's). */
+  private readonly late = new Map<string, number>();
+  private readonly onLate: () => void;
 
   constructor(
     private readonly store: Store,
     private readonly states: ProjectStateCache,
-    options: { now?: () => number; intervalMs?: number; inlineMs?: number } = {},
+    options: { now?: () => number; intervalMs?: number; inlineMs?: number; onLate?: () => void } = {},
   ) {
+    this.onLate = options.onLate ?? (() => {});
     this.now = options.now ?? Date.now;
     this.intervalMs = options.intervalMs ?? SAMPLING_INTERVAL_MS;
     this.inlineMs = options.inlineMs ?? SAMPLING_INLINE_MS;
@@ -113,9 +126,16 @@ export class SamplingService {
     const result = drawChecks(loaded.input);
     const at = this.now();
     if (deadline !== undefined && at > deadline) {
-      log.warn({ projectId, ms: at - readAt }, 'check sampling: the automatic draw took longer than its request; nothing stored, it stays due');
-      return null;
+      const missed = (this.late.get(projectId) ?? 0) + 1;
+      this.onLate();
+      if (missed < MAX_LATE_DRAWS) {
+        this.late.set(projectId, missed);
+        log.warn({ projectId, ms: at - readAt, missed }, 'check sampling: the automatic draw took longer than its request; nothing stored, it stays due');
+        return null;
+      }
+      log.warn({ projectId, ms: at - readAt, missed }, `check sampling: ${missed} automatic draws in a row took longer than their request; this one is stored after it`);
     }
+    if (deadline !== undefined) this.late.delete(projectId);
     const automatic = by === 'automatic';
     const byUserId = automatic ? null : by.userId;
     const draw: SamplingDraw = { at, byUserId, automatic, drawn: 0, firstN: 0, percent: 0, noChecker: result.noChecker };

@@ -52,10 +52,10 @@ export interface Flag {
 }
 
 export type FlagDetails =
-  /** very_fast: ms since the same person's previous first assessment, and its plot. */
-  | { gapMs: number; previousPlot: string }
-  /** same_as_before: the plot before it (same answers), the run's length and its first plot. */
-  | { previousPlot: string; runLength: number; firstPlot: string; answers: number }
+  /** very_fast: ms since the same person's previous first assessment, and its plot (null: a plot hidden from the viewer). */
+  | { gapMs: number; previousPlot: string | null }
+  /** same_as_before: the plot before it (same answers), the run's length and its first plot (null: hidden from the viewer). */
+  | { previousPlot: string | null; runLength: number; firstPlot: string | null; answers: number }
   /** required_empty: the questions left empty. */
   | { questions: { key: string; label: string }[] }
   /** edited_after_decision: the decision and when it was made. */
@@ -511,6 +511,11 @@ export function patternFlags(
     if ((person === null || flag.operator === person) && (kind === null || flag.kind === kind) && (onlyPlot === null || flag.plot === onlyPlot)) all.push(flag);
   };
   const plotOf = (row: number) => t.units[t.unit[row]];
+  // A plot the viewer may not see is not named in another plot's flag either (Decision 10).
+  const named = (row: number): string | null => {
+    const plot = plotOf(row);
+    return hidden !== null && hidden.has(plot) ? null : plot;
+  };
 
   // Very fast and same as before, in each person's order.
   let runStart = -1;
@@ -525,7 +530,7 @@ export function patternFlags(
           plot: plotOf(row),
           operator: t.operators[t.operator[row]],
           at: f.submitted[row],
-          details: { previousPlot: plotOf(pendingRun[i - 1]), runLength, firstPlot: plotOf(runStart), answers: f.answers[row] },
+          details: { previousPlot: named(pendingRun[i - 1]), runLength, firstPlot: named(runStart), answers: f.answers[row] },
         });
       }
     }
@@ -539,7 +544,7 @@ export function patternFlags(
     if (samePerson) {
       const gap = f.submitted[row] - f.submitted[prev];
       if (gap < fastMs) {
-        add({ kind: 'very_fast', plot: plotOf(row), operator: t.operators[t.operator[row]], at: f.submitted[row], details: { gapMs: gap, previousPlot: plotOf(prev) } });
+        add({ kind: 'very_fast', plot: plotOf(row), operator: t.operators[t.operator[row]], at: f.submitted[row], details: { gapMs: gap, previousPlot: named(prev) } });
       }
     }
     if (samePerson && f.same[row] === 1) {

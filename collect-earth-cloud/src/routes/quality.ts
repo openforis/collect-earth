@@ -4,7 +4,7 @@ import { isUuid } from '../accountRules.js';
 import { audit } from '../activity.js';
 import { answerStats, type AnswerFilter, type AnswerStats } from '../answerStats.js';
 import { isDate, isTimeZone } from '../days.js';
-import { FLAG_KINDS, fastSecondsOf, MAX_FAST_SECONDS, MIN_FAST_SECONDS, patternFlags, plotOperators, plotsOf, resubmittedAfterRecheck, seenOf, type DecisionSeen, type FlagKind, type FlagTable } from '../flags.js';
+import { FLAG_KINDS, fastSecondsOf, type Flag, MAX_FAST_SECONDS, MIN_FAST_SECONDS, patternFlags, plotOperators, plotsOf, resubmittedAfterRecheck, seenOf, type DecisionSeen, type FlagKind, type FlagTable } from '../flags.js';
 import { columnValues, MAX_LISTED_VALUES, plotColumns, plotsWithValue } from '../plotColumns.js';
 import { plotFileOf, plotIdsOf } from '../plotFileCache.js';
 import { unitIndex } from '../plotSearch.js';
@@ -25,6 +25,8 @@ export const MAX_TEXT = 2000;
 /** Longest plot id, question key or answer a decision or note may name. */
 export const MAX_NAME = 1000;
 const DECISIONS: readonly DecisionKind[] = ['first', 'check', 'recheck'];
+/** The fewest plots a reviewer's answers filter (a plot file, a column's value) may hold (Decision 10). */
+export const MIN_REVIEWER_GROUP = 5;
 /** Plots of the review queue in one answer (the next ones with ?offset=). */
 export const MAX_QUEUE_ITEMS = 100;
 /** Plots a bulk decision names in its answer (the count is of all). */
@@ -110,6 +112,15 @@ export async function copiesHeld(store: Store, projectId: string, userId: string
     for (const k of copyKeys) if (times.get(k) === 1) out.add(k);
   }
   return out;
+}
+
+/** A flag whose previous or first plot is one the viewer may not see, with that plot not named (null). */
+export function unnamedFlag(flag: Flag, hidden: ReadonlySet<string>): Flag {
+  const d = flag.details as { previousPlot?: string | null; firstPlot?: string | null };
+  const hide = (p: string | null | undefined) => p !== undefined && p !== null && hidden.has(p);
+  if (!hide(d.previousPlot) && !hide(d.firstPlot)) return flag;
+  const details = { ...d, ...(hide(d.previousPlot) ? { previousPlot: null } : {}), ...(hide(d.firstPlot) ? { firstPlot: null } : {}) };
+  return { ...flag, details: details as Flag['details'] };
 }
 
 /** The answers per person taken out (Decision 10): a reviewer gets the team's figures only. */
@@ -242,6 +253,11 @@ export async function registerQualityRoutes(
         if (distinct > MAX_LISTED_VALUES) return reply.code(400).send(bad(`that column has over ${MAX_LISTED_VALUES} different values`));
         units = plotsWithValue(plotFile, column, value!);
       }
+      // A reviewer's filter never narrows to a few plots (Decision 10): with a handful of plots the
+      // team's answers are one person's.
+      if (!coordinator && units.size < MIN_REVIEWER_GROUP) {
+        return reply.code(403).send({ error: 'forbidden', reason: `a reviewer may filter only by plot files and values of at least ${MIN_REVIEWER_GROUP} plots` });
+      }
     }
     const figures = await served(quality, projectId, request, reply);
     if (!figures) {
@@ -286,8 +302,12 @@ export async function registerQualityRoutes(
     if (!figures) {
       return reply;
     }
-    // A reviewer: no reference plot (listed or counted) and no flags per person (Decision 10).
-    const hidden = coordinator ? null : new Set(figures.reference.byPlot.map((p) => p.plot));
+    // A reviewer: no reference plot nor copy they hold to check blind (listed, counted, or named as
+    // another flag's previous plot), and no flags per person (Decision 10).
+    const { userId } = request.membership!;
+    const hidden = coordinator
+      ? null
+      : new Set([...figures.reference.byPlot.map((p) => p.plot), ...(userId ? await copiesHeld(store, projectId, userId) : [])]);
     const flags = patternFlags(figures, decisions, { fastSeconds: fastSecondsOf(settings), person, kind: kind as FlagKind | null, hidden });
     return reply.send({ ...flags, ...(coordinator ? {} : { people: [] }), computedAt: figures.computedAt, stale: figures.stale });
   });
@@ -343,7 +363,10 @@ export async function registerQualityRoutes(
     const { role, userId } = request.membership!;
     const reviewerName = role === 'admin' || !userId ? null : ((await store.getUserById(userId))?.username ?? null);
     // Their copies too, checked or not yet (Decision 10: a check to make blind is theirs).
-    const excluded = reviewerName !== null ? new Set([...plotsOf(figures.flags, reviewerName), ...(await copiesHeld(store, projectId, userId!))]) : null;
+    const copies = reviewerName !== null ? await copiesHeld(store, projectId, userId!) : new Set<string>();
+    const excluded = reviewerName !== null ? new Set([...plotsOf(figures.flags, reviewerName), ...copies]) : null;
+    // Nor is a copy of theirs or a reference plot named as another flag's previous or first plot.
+    const unnamed = reviewerName !== null ? new Set([...copies, ...figures.reference.byPlot.map((p) => p.plot)]) : null;
     const queue = reviewQueue(
       {
         pairs: figures.report.pairs,
@@ -390,7 +413,7 @@ export async function registerQualityRoutes(
         section: item.section,
         people: item.people,
         differences: item.pairs.map((i) => listed.get(pairId(pairAt(pairs, i)))!),
-        flags: item.flags,
+        flags: unnamed ? item.flags.map((f) => unnamedFlag(f, unnamed)) : item.flags,
         resubmitted: item.resubmitted,
         ...waiting,
         decision: decision ? publicDecision(decision, figures.flags) : null,
@@ -473,7 +496,11 @@ export async function registerQualityRoutes(
       return reply.code(404).send({ error: 'not_found' });
     }
     const plotFile = plotFileOf(file, fileKeyCount(await store.getRoundInfo(projectId)));
-    return reply.send({ hasHeader: plotFile.header !== null, columns: plotColumns(plotFile).filter((c) => c.index > 0) });
+    const columns = plotColumns(plotFile).filter((c) => c.index > 0);
+    // A reviewer is offered no value of fewer than MIN_REVIEWER_GROUP plots (the answers route refuses them too).
+    const offered =
+      request.membership!.role === 'admin' ? columns : columns.map((c) => ({ ...c, values: c.values && c.values.filter((v) => v.count >= MIN_REVIEWER_GROUP) }));
+    return reply.send({ hasHeader: plotFile.header !== null, columns: offered });
   });
 
   // A collector's own report (any member signed in as a person; a project token is no
@@ -611,9 +638,11 @@ export async function registerQualityRoutes(
 
   /** Whether the plot is in a plot file of the project or has records (a plot in no file is a data problem the queue lists). */
   async function plotExists(projectId: string, plot: string, log: FastifyRequest['log']): Promise<boolean> {
-    const { index, info } = await indexes.get(projectId, log);
+    const { index, info, partial } = await indexes.get(projectId, log);
     if (unitIndex(index, plot) >= 0) return true;
-    return (await store.listRecordsByKeys(projectId, recordKeysOfUnit(plot, info))).length > 0;
+    if ((await store.listRecordsByKeys(projectId, recordKeysOfUnit(plot, info))).length > 0) return true;
+    // A plot file could not be read: the plot may be in it. The decision goes through rather than a wrong 404.
+    return partial;
   }
 
   app.delete('/v1/projects/:pid/quality/decisions/:plot', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {

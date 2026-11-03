@@ -92,6 +92,15 @@ describe('reviewers (Decision 10) and decisions on plots that are not there (M-2
     expect(forRita.plots).not.toContain('2');
     if (forOwner.plots.length > 0) expect(forOwner.plots).toContain('1');
 
+    // Where plots are (the queue's map links): a reviewer is given no reference plot's place.
+    const placesOf = async (token: string) => {
+      const res = await call('POST', '/quality/places', token, { plots: ['1', '3', '2'] });
+      expect(res.statusCode, res.body).toBe(200);
+      return (res.json().places as { plot: string }[]).map((p) => p.plot).sort();
+    };
+    expect(await placesOf(owner.token)).toEqual(['1', '2', '3']);
+    expect(await placesOf(people.rita.token)).toEqual(['3']);
+
     // The flags: the coordinator's list the reference plots (very fast), the reviewer's never, nor count them.
     const ownerFlags = await settled('/quality/flags', owner.token, (b) => (b.flags as { plot: string }[]).some((f) => f.plot === '2'));
     expect((ownerFlags.flags as { plot: string }[]).some((f) => f.plot === '2')).toBe(true);
@@ -134,6 +143,18 @@ describe('reviewers (Decision 10) and decisions on plots that are not there (M-2
     expect((await call('PUT', '/quality/decisions/500', owner.token, { decision: 'first' })).statusCode).toBe(200);
   });
 
+  it('M-2: while a plot file cannot be read, a plot not found is decided rather than refused (the plot may be in that file)', async () => {
+    // A new file's content (a new checksum builds the index again), read failing.
+    const other = (await call('PUT', '/csv-files/south.csv', owner.token, 'id;lat;lon\r\n700;-1;1\r\n', { 'content-type': 'text/csv' })).json().id as string;
+    const getCsvFile = ctx.store.getCsvFile.bind(ctx.store);
+    ctx.store.getCsvFile = async (projectId, id) => {
+      if (id === other) throw new Error('disk on fire');
+      return getCsvFile(projectId, id);
+    };
+    expect((await call('PUT', '/quality/decisions/700', owner.token, { decision: 'first' })).statusCode).toBe(200);
+    ctx.store.getCsvFile = getCsvFile;
+  });
+
   it('I-2: the default checkers are collectors only; a reviewer or coordinator chosen comes with a warning', async () => {
     const view = await call('PUT', '/sampling', owner.token, { firstN: 5 });
     expect(view.statusCode, view.body).toBe(200);
@@ -168,6 +189,15 @@ describe('reviewers (Decision 10) and decisions on plots that are not there (M-2
     const refused = await call('PUT', '/quality/decisions/3', people.rita.token, { decision: 'first' });
     expect(refused.statusCode).toBe(409);
     expect(refused.json().error).toBe('own_plot');
+    // maria saved 4 a moment after 3 (very fast): the coordinator's flag names 3, the reviewer's does not, nor lists 3's flags.
+    type F = { kind: string; plot: string; details: { previousPlot?: string | null } };
+    const fast = (list: F[]) => list.find((f) => f.kind === 'very_fast' && f.plot === '4');
+    expect(fast((await settled('/quality/flags', owner.token)).flags as F[])?.details.previousPlot).toBe('3');
+    const ritaFlags = (await settled('/quality/flags', people.rita.token)).flags as F[];
+    expect(ritaFlags.some((f) => f.plot === '3')).toBe(false);
+    expect(fast(ritaFlags)?.details.previousPlot).toBeNull();
+    expect(JSON.stringify((ritaQueue.items as { flags: F[] }[]).flatMap((i) => i.flags))).not.toContain('"previousPlot":"3"');
+    expect(fast((await call('GET', '/plots/4', people.rita.token)).json().flags as F[])?.details.previousPlot).toBeNull();
 
     // A draft is not a submitted check: still no page.
     await send('rita', 2, [3], () => 'F', false);
@@ -201,6 +231,15 @@ describe('reviewers (Decision 10) and decisions on plots that are not there (M-2
       expect(c.codes).toEqual((ownerAnswers.choices as { key: string; codes: unknown[] }[]).find((o) => o.key === c.key)!.codes);
     }
     expect(JSON.stringify(ritaAnswers)).not.toMatch(/maria|jose/);
+    // A column value of fewer than 5 plots (each longitude is one plot's): not offered to a reviewer, nor taken.
+    const one = `/quality/answers?file=${fileId}&column=2&value=20`;
+    expect((await call('GET', one, owner.token)).statusCode).toBe(200);
+    expect((await call('GET', one, people.rita.token)).statusCode).toBe(403);
+    expect((await call('GET', `/quality/answers?file=${fileId}&column=1&value=-10`, people.rita.token)).statusCode).toBe(200);
+    const valuesOf = async (token: string) =>
+      ((await call('GET', `/quality/answers/columns?file=${fileId}`, token)).json().columns as { index: number; values: unknown[] | null }[]).find((c) => c.index === 2)!.values;
+    expect(await valuesOf(owner.token)).toHaveLength(12);
+    expect(await valuesOf(people.rita.token)).toEqual([]);
     expect((await call('GET', '/quality/answers?person=maria', people.rita.token)).statusCode).toBe(403);
     expect((await call('GET', '/quality/answers?person=maria', owner.token)).statusCode).toBe(200);
   });

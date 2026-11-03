@@ -316,9 +316,16 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         info = { ...info, note: note.info };
         // The plot file the project file brings (Collect Earth opens it until an assigned one is
         // chosen) gets the round and note columns as the served plot files have them (Task 22's real run).
+        // One that does not read back as it should is served as it came (logged): Collect Earth then only
+        // warns that its columns do not match until an assigned plot file is chosen, as before this
+        // rewrite existed; the survey, the balloons and every served plot file are right regardless.
         if (roundAdded || noteAdded) {
           const withColumns = info;
-          served = withBundledPlotFile(served, (data) => servedBundledPlotFile(data, withColumns, { round: roundAdded, note: noteAdded }), date);
+          try {
+            served = withBundledPlotFile(served, (data) => servedBundledPlotFile(data, withColumns, { round: roundAdded, note: noteAdded }), date);
+          } catch (err) {
+            request.log.warn({ err, projectId }, "cep: the project file's own plot file could not be given the round and note columns; served as uploaded");
+          }
         }
         // Records hold their note whatever its column; the files people get from now on carry it at the
         // new one (they have to Refresh their plot files). Said in the answer, and logged.
