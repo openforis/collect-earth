@@ -255,10 +255,10 @@ public class LeafletMapController {
 				for (CollectRecordSummary summary : summaries) {
 					List<String> keys = summary.getRootEntityKeyValues();
 					if (keys == null || keys.isEmpty() || !plotIds.contains(String.join(",", keys))) continue;
-					String[] keyArray = keys.toArray(new String[0]);
 					try {
-						// a record with nothing answered (stored by opening the plot, before) is not started
-						statuses.put(String.join(",", keys), statusName(earthSurveyService.getPlotStatus(keyArray)));
+						// a record with nothing answered (stored by opening the plot, before) is not started; loaded by the id of
+						// its summary, not looked for again by its keys
+						statuses.put(String.join(",", keys), statusName(earthSurveyService.getPlotStatus(summary)));
 					} catch (Exception e) {
 						logger.debug("Could not read status for {}", keys);
 					}

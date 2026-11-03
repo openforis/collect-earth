@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<survey lastId="30" collect:target="CE" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth">
+  <project>Row keys</project>
+  <uri>http://www.openforis.org/idm/collect_earth_row_keys_test</uri>
+  <cycle>2026</cycle>
+  <language>en</language>
+  <codeLists>
+    <list id="10" name="land_use">
+      <items>
+        <item id="11">
+          <code>F</code>
+          <label>Forest</label>
+        </item>
+      </items>
+    </list>
+  </codeLists>
+  <schema>
+    <entity id="1" name="plot">
+      <label type="instance">Plot</label>
+      <text id="2" name="id" required="true" key="true" type="short">
+        <label type="instance">Id</label>
+      </text>
+      <entity id="3" name="trees" multiple="true">
+        <label type="instance">Trees</label>
+        <text id="4" name="tree_no" key="true" type="short">
+          <label type="instance">Tree number</label>
+        </text>
+      </entity>
+      <entity id="5" name="land_cover" multiple="true" enumerable="true">
+        <label type="instance">Land cover</label>
+        <code id="6" name="cover_class" key="true" list="land_use">
+          <label type="instance">Class</label>
+        </code>
+        <number id="7" name="share" type="integer">
+          <label type="instance">Share</label>
+        </number>
+      </entity>
+    </entity>
+  </schema>
+</survey>

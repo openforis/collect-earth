@@ -542,6 +542,14 @@ public abstract class AbstractEarthSurveyService {
 		return getPlotStatus(loadRecord(keyAttributes, false));
 	}
 
+	/**
+	 * The status of the plot of a record summary already loaded: its record is loaded by its id, not looked for again by
+	 * its keys. The summary alone cannot tell it: whether it is submitted is a value of the record (actively_saved).
+	 */
+	public synchronized PlotStatus getPlotStatus(CollectRecordSummary summary) {
+		return getPlotStatus(recordManager.load(getCollectSurvey(), summary.getId(), Step.ENTRY, false));
+	}
+
 	public static PlotStatus getPlotStatus(CollectRecord record) {
 		if (record == null) {
 			return PlotStatus.NOT_STARTED;
@@ -584,12 +592,23 @@ public abstract class AbstractEarthSurveyService {
 
 	private static boolean isCollectorInput(Attribute<?, ?> attribute, CollectAnnotations annotations) {
 		AttributeDefinition def = attribute.getDefinition();
-		if (!attribute.hasData() || def.isKey() || def.isCalculated() || attribute.isDefaultValueApplied()
-				|| annotations.isFromCollectEarthCSV(def)) {
+		if (!attribute.hasData() || def.isCalculated() || attribute.isDefaultValueApplied()) {
 			return false;
 		}
 		boolean ofRootEntity = attribute.getParent() != null && attribute.getParent().getParent() == null;
-		return !(ofRootEntity && FILLED_BY_COLLECT_EARTH.contains(def.getName()));
+		return !(ofRootEntity ? isFilledByCollectEarth(def, annotations) : isEnumeratedRowKey(def));
+	}
+
+	/** An attribute of the plot whose value comes from the plot file or Collect Earth: a key, "from CSV", the operator... */
+	private static boolean isFilledByCollectEarth(AttributeDefinition rootAttribute, CollectAnnotations annotations) {
+		return rootAttribute.isKey() || annotations.isFromCollectEarthCSV(rootAttribute)
+				|| FILLED_BY_COLLECT_EARTH.contains(rootAttribute.getName());
+	}
+
+	/** The key of a row of an enumerated table, which comes with the table; the key of a row the collector adds is typed */
+	private static boolean isEnumeratedRowKey(AttributeDefinition def) {
+		EntityDefinition parent = def.getParentEntityDefinition();
+		return def.isKey() && parent != null && parent.isEnumerable();
 	}
 
 	public synchronized void setCollectSurvey(CollectSurvey collectSurvey) {
@@ -772,19 +791,57 @@ public abstract class AbstractEarthSurveyService {
 		return withInvalidValues(createPlacemarkLoadSuccessResult(record), invalidValues);
 	}
 
-	/** A record of the plot with the values received, not stored */
+	/**
+	 * A record of the plot with the values received, not stored. The values of the plot file and of Collect Earth go first,
+	 * so that the defaults and calculations that depend on them follow. Of the others, only those that differ from the new
+	 * record go: a balloon sends every field, the default values it was given back included, and setting those again
+	 * would make them the collector's (Collect clears their mark): the plot would look answered, and Collect would no
+	 * longer apply them again (when the question is asked again, for one). An empty value leaves the new record's value,
+	 * as a balloon sends empty every field it has not filled. Clearing a default value would not leave it empty anyway:
+	 * Collect applies the default value again to an empty attribute that has one (RecordUpdater.applyInitialValue), in a
+	 * stored record too.
+	 */
 	private CollectRecord createNewRecord(String[] plotKeyAttributes, Map<String, String> parameters,
 			Map<String, String> invalidValues) {
 		CollectRecord record = createRecord();
+		Entity rootEntity = record.getRootEntity();
+		updateKeyAttributeValues(record, plotKeyAttributes);
 
-		collectParametersHandler.saveToEntity(parameters, record.getRootEntity(), true, invalidValues);
+		CollectAnnotations annotations = getCollectSurvey().getAnnotations();
+		Map<String, AttributeDefinition> rootAttributes = new HashMap<>();
+		for (NodeDefinition child : getRootEntityDefinition().getChildDefinitions()) {
+			try {
+				if (child instanceof AttributeDefinition) {
+					rootAttributes.put(collectParametersHandler.getCollectBalloonParamName(child), (AttributeDefinition) child);
+				}
+			} catch (IllegalArgumentException e) {
+				// a type the forms have no field for: never received
+			}
+		}
+		// in the order received, which is the one of the survey (AbstractPlacemarkDataController.sortParameters)
+		Map<String, String> plotValues = new LinkedHashMap<>();
+		Map<String, String> answers = new LinkedHashMap<>();
+		for (Entry<String, String> parameter : parameters.entrySet()) {
+			AttributeDefinition def = rootAttributes.get(parameter.getKey());
+			(def != null && isFilledByCollectEarth(def, annotations) ? plotValues : answers).put(parameter.getKey(),
+					parameter.getValue());
+		}
+		collectParametersHandler.saveToEntity(plotValues, rootEntity, true, invalidValues);
+
+		Map<String, String> current = collectParametersHandler.getValuesByHtmlParameters(rootEntity);
+		Map<String, String> changed = new LinkedHashMap<>();
+		for (Entry<String, String> answer : answers.entrySet()) {
+			if (StringUtils.isNotBlank(answer.getValue()) && !answer.getValue().equals(current.get(answer.getKey()))) {
+				changed.put(answer.getKey(), answer.getValue());
+			}
+		}
+		collectParametersHandler.saveToEntity(changed, rootEntity, true, invalidValues);
 
 		// update actively_saved_on attribute now, otherwise if it's empty
 		// it counts as an error
 		setPlacemarkSavedOn(record);
 		setPlacemarkSavedActively(record, false);
 
-		updateKeyAttributeValues(record, plotKeyAttributes);
 		record.setModifiedDate(new Date());
 		return record;
 	}

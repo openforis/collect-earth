@@ -47,6 +47,10 @@
         <label type="instance">Region label</label>
         <default expr="concat('R-', region)"/>
       </text>
+      <text id="21" name="landmark" type="short">
+        <label type="instance">Landmark</label>
+        <default expr="concat('near ', region)"/>
+      </text>
       <code id="7" name="land_use" list="land_use">
         <label type="instance">Land use</label>
       </code>

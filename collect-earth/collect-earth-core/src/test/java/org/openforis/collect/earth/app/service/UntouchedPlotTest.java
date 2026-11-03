@@ -31,7 +31,12 @@ import org.openforis.collect.model.validation.CollectEarthValidator;
 import org.openforis.collect.model.validation.CollectValidator;
 import org.openforis.collect.persistence.xml.CollectSurveyIdmlBinder;
 import org.openforis.idm.metamodel.EntityDefinition;
+import org.openforis.idm.model.Attribute;
+import org.openforis.idm.model.Code;
+import org.openforis.idm.model.CodeAttribute;
+import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.TextAttribute;
+import org.openforis.idm.model.TextValue;
 import org.openforis.idm.model.expression.ExpressionFactory;
 
 /**
@@ -154,6 +159,96 @@ class UntouchedPlotTest {
 		assertTrue(heard.isEmpty());
 	}
 
+	@Test
+	public void aDefaultClearedComesBackAsItDoesOnAStoredRecord() {
+		// Collect applies the default again to an empty attribute that has one: cleared as the first answer, nothing is
+		// stored, and the form gets the default back
+		open();
+		PlacemarkLoadResult result = save("collect_text_assessment", "");
+		assertEquals("visual", text(result.getCollectRecord(), "assessment"));
+		assertTrue(recordManager.saved.isEmpty());
+
+		// the same once the record is stored
+		save("collect_text_assessment", "remote");
+		result = save("collect_text_assessment", "");
+		assertEquals("visual", text(result.getCollectRecord(), "assessment"));
+		assertTrue(attribute(result.getCollectRecord(), "assessment").isDefaultValueApplied());
+	}
+
+	@Test
+	public void anEmptyValueFromABalloonLeavesTheDefault() {
+		// a balloon sends every field, those it has not filled empty
+		Map<String, String> parameters = plotValues();
+		parameters.put("collect_text_assessment", "");
+		parameters.put("collect_text_notes", "");
+		PlacemarkLoadResult result = service.updatePlacemarkData(PLOT, parameters, SESSION, false);
+
+		assertEquals("visual", text(result.getCollectRecord(), "assessment"));
+		assertTrue(recordManager.saved.isEmpty());
+	}
+
+	@Test
+	public void theDefaultsABalloonSendsBackStayDefaults() {
+		open();
+		// the whole form, the defaults and calculations it was given back included, with one answer
+		Map<String, String> parameters = plotValues();
+		parameters.put("collect_text_assessment", "visual");
+		// as the open gave it back: Collect evaluated it before the region was set, and does not evaluate it again
+		parameters.put("collect_text_landmark", "near ");
+		parameters.put("collect_text_region_label", "R-north");
+		parameters.put("collect_text_notes", "");
+		parameters.put("collect_code_land_use", "F");
+		PlacemarkLoadResult result = service.updatePlacemarkData(PLOT, parameters, SESSION, true);
+
+		CollectRecord record = result.getCollectRecord();
+		assertEquals(1, recordManager.saved.size());
+		assertTrue(attribute(record, "assessment").isDefaultValueApplied());
+		assertTrue(attribute(record, "landmark").isDefaultValueApplied());
+		assertEquals(PlotStatus.IN_PROGRESS, AbstractEarthSurveyService.getPlotStatus(record));
+		assertFalse(AbstractEarthSurveyService.hasCollectorInput(withoutLandUse(record)), "the answer is the only one");
+	}
+
+	@Test
+	public void theKeyOfARowAddedIsAnAnswerNotTheKeyOfAnEnumeratedRow() throws Exception {
+		CollectSurvey survey;
+		try (InputStream idml = getClass().getResourceAsStream("/row_keys_survey.idm.xml")) {
+			survey = (CollectSurvey) new CollectSurveyIdmlBinder(
+					new CollectSurveyContext(new ExpressionFactory(), validator(), new InMemoryCodeListService())).unmarshal(idml);
+		}
+		CollectRecord record = new CollectRecord(survey, null, "plot");
+		RecordUpdater updater = new RecordUpdater();
+		updater.initializeNewRecord(record);
+		Entity root = record.getRootEntity();
+		updater.updateAttribute((TextAttribute) root.getChild("id"), new TextValue("105"));
+
+		Entity cover = (Entity) updater.addEntity(root, "land_cover").getChanges().get(0).getNode();
+		updater.updateAttribute((CodeAttribute) cover.getChild("cover_class"), new Code("F"));
+		assertFalse(AbstractEarthSurveyService.hasCollectorInput(record), "the key of an enumerated row comes with the table");
+
+		Entity tree = (Entity) updater.addEntity(root, "trees").getChanges().get(0).getNode();
+		updater.updateAttribute((TextAttribute) tree.getChild("tree_no"), new TextValue("7"));
+		assertTrue(AbstractEarthSurveyService.hasCollectorInput(record), "the key of a row added is typed");
+	}
+
+	@Test
+	public void theStatusOfARecordSummaryIsReadFromItsRecordLoadedById() {
+		open();
+		save("collect_code_land_use", "F");
+		CollectRecord stored = recordManager.saved.get(0);
+		CollectRecordSummary summary = CollectRecordSummary.fromRecord(stored);
+
+		assertEquals(PlotStatus.IN_PROGRESS, service.getPlotStatus(summary));
+		save("collect_boolean_actively_saved", "true");
+		assertEquals(PlotStatus.SUBMITTED, service.getPlotStatus(summary));
+	}
+
+	private CollectValidator validator() {
+		CollectValidator validator = new CollectValidator();
+		validator.setCodeListManager(new CodeListManager());
+		validator.setRecordManager(recordManager);
+		return validator;
+	}
+
 	/** The save the form sends when it opens a plot with no record: the values of the plot file only */
 	private PlacemarkLoadResult open() {
 		Map<String, String> parameters = plotValues();
@@ -174,6 +269,16 @@ class UntouchedPlotTest {
 		parameters.put("collect_text_id", PLOT[0]);
 		parameters.put("collect_text_region", "north");
 		return parameters;
+	}
+
+	/** The record with the answer to land use cleared */
+	private static CollectRecord withoutLandUse(CollectRecord record) {
+		new RecordUpdater().updateAttribute((CodeAttribute) record.findNodeByPath("/plot/land_use"), (Code) null);
+		return record;
+	}
+
+	private static Attribute<?, ?> attribute(CollectRecord record, String name) {
+		return record.findNodeByPath("/plot/" + name);
 	}
 
 	private static String text(CollectRecord record, String name) {
@@ -202,6 +307,12 @@ class UntouchedPlotTest {
 		@Override
 		public void save(CollectRecord record, String sessionId) {
 			saved.add(record);
+			record.setId(saved.size());
+		}
+
+		@Override
+		public CollectRecord load(CollectSurvey survey, int recordId, CollectRecord.Step step, boolean validate) {
+			return saved.get(recordId - 1);
 		}
 
 		@Override
