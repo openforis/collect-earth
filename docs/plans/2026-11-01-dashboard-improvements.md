@@ -3639,6 +3639,94 @@ desktop suites green (core 40, app 210+).
 - **A final code review** of the whole range, then DEPLOY.md and this plan's "As
   built" notes.
 
+**Real Collect Earth run — results** (2026-11-03, this branch at 1ad521ef built, `viewerType=google_earth_web`)
+- **Safety:** 9.2 GB free. Profile backed up to `%APPDATA%\CollectEarth-backup-2026-11-03-task22` before launching
+  (3,240 files, 2,719,440,430 bytes, listing and sizes equal, `earth.properties` and `collectEarthDatabase.db` sha256
+  equal). No vite process was running. Restored at the end (below). Evidence in the session scratchpad's `t22/` folder.
+- **Setup:** a memory-store server (8221) with the id-only fixture renamed `t22_real_check` (round added, note column 9),
+  8 plots in Spain divided evenly: anna 101-104, ben 105-108. ben's 4 plots submitted through the API with his session; a
+  sampling rule "first 2", anna the only checker; **"Draw now" drew 2** (105, 106 to anna as round 2). The desktop ran as
+  anna: `earth.properties` set as the join flow sets it (`db_driver=CLOUD`, `cloud_*`, `operator=anna`), the served CEP
+  opened as a double-clicked file.
+- **How the plot settings were driven:** no tool here can click a Swing window, so a scratch launcher
+  (`t22/tool/T22Driver.java`, outside the repo) runs the real app in-process (`EarthApp.main`: its window, Jetty, plots
+  map and Selenium browser) and works the real `PropertiesDialog` through Swing's component API, from commands in a
+  file: the menu item Tools → Properties (`doClick`), "Refresh assignments" (`doClick`), the plot file combo
+  (`setSelectedIndex`, which fires its listener as a choice in the list does), "Save & Apply changes" / Cancel
+  (`doClick`), and the message boxes' OK. It logs every change of the plot file field with a timestamp
+  (`t22/driver.log`) and captures the dialog (`java.awt.Robot`). No repo code changed. The forms were driven in Chrome
+  (chrome-devtools) on `http://127.0.0.1:8028/earth/map`.
+1. **The "To check again" file arrives: pass.** After 102 was sent back ("Both need another look"), opening the plot
+   settings and then Refresh listed `spain_plots.csv (6) | To check again – spain_plots.csv (1)` (`04-after-refresh.png`);
+   choosing it downloaded it (sha256 equal to the listed checksum) and Apply set `csv=…\assignments\To check again –
+   spain_plots.csv` (the "–" written to `earth.properties` as UTF-8 bytes E2 80 93) and rebuilt the KML: the map listed
+   102 only. After the second send-back, Refresh downloaded the new content (new checksum, equal).
+2. **Reopening on the "To check again" file: the field is wrong 3 times in 8.** With the generated file applied, the
+   settings were opened and cancelled 8 times. Each time the combo selected "To check again – spain_plots.csv (1)", but
+   the field ended on `…\spain_plots.csv` in **reopenings 3, 4 and 8** (the log shows the two downloads landing ~5 ms
+   apart, in either order). Pressing Apply then would switch the collector to the normal file without them choosing it.
+   **It compounds:** on the next opening the field again ended on `spain_plots.csv`, and **Refresh then selected
+   `spain_plots.csv` in the combo too** (`populateAssignments` keeps what the field ends with), so the collector's choice
+   was lost from both; the person had to choose the entry again before Apply. **Also seen (new): the race can fail a
+   download.** On the first opening (entry 0 chosen, both downloads writing the same `spain_plots.csv` at once,
+   `Files.newOutputStream` truncating) one download failed its checksum: "Could not download the assigned plot file from
+   the cloud server." (`02-settings-open.png`; log `Checksum mismatch for the downloaded CSV spain_plots.csv`; the server
+   log has the two content requests 3 ms apart). The other download then set the field and the file on disk was right.
+   Not seen in the 3 later openings with entry 0. Swing, not changed (DEPLOY.md's known limitation stands); a fix would
+   start the download only once per `populateAssignments` (e.g. a flag that mutes the listener while the combo is
+   refilled, then one `onAssignmentSelected`) and write to a temporary file then move it.
+3. **`plot_file` "…/To check again – …": pass everywhere.** 102 saved from the generated file (an answer changed in the
+   form) synced; the server's `export.csv` has `collect_text_plot_file` = `C:\…\assignments\To check again – spain_plots.csv`
+   with E2 80 93 (UTF-8); the stored record XML has `To check again &#8211; spain_plots.csv` (the Collect Earth backup's
+   `1/1.xml`). The KMZ's `plots.kml` has `<Data name="plot_file"><value>To check again – spain_plots.csv</value>` (UTF-8). The
+   web balloon (`/earth/balloon?…&web=true`, built as the map does for `web_form=balloon`) has the hidden
+   `collect_text_plot_file` with U+2013 and no `$[…]` left (`07-web-balloon-102.png`). **The KML description**
+   (`loadApp.kml`) is written only for Google Earth Pro, not with `google_earth_web`; rendered with the same code
+   (`FreemarkerTemplateUtils.applyTemplate` on `resources/loadApp.fmt` with `KmlGenerator.getCsvFileName(path)`, scratch
+   `t22/loadapp/T22LoadApp.java`): `<description>To check again – spain_plots.csv</description>`, UTF-8. Google Earth Pro
+   itself was not run.
+4. **A sampled check arrives blind: pass in the list, form, Google Earth Web and the map; NOT in the plot settings
+   table.** anna's file after "Draw now" holds 105 and 106 with round 2. Plot list "101" … "106", search ",2" → "No plots
+   match."; the form heading "Plot 105", no round field, no ",2" or "round"/"Re-Assessment" in the map or the form's text;
+   GEW status "Google Earth Web: moving to plot 105…" (`03-check-105-blind.png`). Opening it saved a draft that synced as
+   **`105,2`**, `check`, operator anna (`export.csv`). **But the plot settings dialog's preview table shows the plot file
+   with its `round` column**: 101-104 "1", 105 and 106 "2" (`04-after-refresh.png`), so a collector who opens the plot
+   settings can tell the checks apart. Swing (`JPlotCsvTable` shows every column), not changed. Also seen there: the combo
+   is a few characters wide ("spai…"), its prototype being an empty entry, so the file names cannot be read without
+   opening the list.
+5. **The note (Task 16): shows; the second send-back shows the OLD comment; the awkward comment opens.**
+   - First send-back "First look: check the tree cover in the north.": the form of 102 from the generated file shows on
+     top "Note from the coordinator — First look: …" (`06-recheck-102-note-first.png`); the record saved from it holds it
+     (the stored XML's `coordinator_note`).
+   - **Second send-back** with `Second look, please: compare 2019, 2020 and 2021 imagery; see folder C:\old\"dense" and
+     say "yes" or "no", then save\` (commas, backslashes, quotes, ending in a backslash): the served row is
+     `"Second look, please: … C:＼old＼'dense' … then save＼"` (quoted, look-alikes). Refresh + Apply: **the KML built (no
+     opencsv error), the map lists 102, `/plotsGeoJson` carries the new comment intact, and the web balloon shows the new
+     comment**. **The form's header shows the FIRST comment** ("First look: …") — the record's own value wins
+     (`FormApp.tsx` `HeaderInfo`) — while the balloon shows the second: the two views of one plot disagree
+     (`08-second-sendback-header-old-comment.png`). For the owner's decision (Task 16's open point).
+6. **The backup imports with 0 conflicts: pass (repeated, cheap).** `GET …/exports/collect-backup?rounds=all` (2 records:
+   102,1 and 105,2, both drafts) imported by the Task 17 harness into a new empty scratch profile with the served CEP:
+   **"to import 2, conflicting 0, skipped files 0"**, 2 records after; the IPCC per-plot CSV has no rows (both drafts).
+   The harness JVM did not exit by itself after the IPCC step and was stopped at its 10-minute bound (8028 free after).
+7. **The version reaches the dashboard: pass.** anna's person page, "Collect Earth and syncing": **"Collect Earth — Version
+   0.00.00"** (`09-person-anna-version.png`), the version of the `update.ini` a dev build reads in `collect-earth-app`
+   (Task 21); "2 syncs, 3 plots received".
+- **Also seen:** the CEP's own plot file (`grid/showcase_plots.csv`, used until an assigned file is chosen) has no
+  `coordinator_note` column, so the first opening of the plot settings after the project is loaded shows "Columns in CSV
+  do not match survey — The expected columns in the CSV are [id, round, …, district, coordinator_note]" before the dialog
+  (`01-settings-first-open.png`). The server adds the note (and round) to the survey but not to the plot files bundled in
+  the CEP; an id-only CEP's bundled file already lacked round. Harmless once an assigned file is chosen; it is the first
+  thing a collector sees in the plot settings.
+- **Stopped and restored:** the app's JVM and its own chromedriver/Chrome (by parent process; none left), my two Chrome
+  pages, the harness JVM, the server (8221); 8028 and 8221 free. **Profile restored** with `robocopy /MIR` from the
+  backup: 3,240 files, 2,719,440,430 bytes, 394 folders, no path or size difference, `earth.properties` and
+  `collectEarthDatabase.db` sha256 equal to the backup, the t22 project folder gone. The backup is kept.
+- **Needs the owner's hands:** clicking through the plot settings by mouse (here driven through Swing's API in the real
+  app; the same listeners fire, but a person's timing between opening and choosing differs); Google Earth Pro's own
+  balloon and `loadApp.kml` in Google Earth Pro; the owner's decisions on the stale comment (5), the round column in the
+  plot settings table (4) and the download race (2).
+
 ## Order
 
 Tasks 1 → 21 → 2 → 3, then Part B (4–7), then Part C (8–11), then Part D (12–16),
