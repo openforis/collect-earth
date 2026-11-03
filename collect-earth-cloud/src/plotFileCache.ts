@@ -24,8 +24,22 @@ export class ParsedCache {
 
   constructor(
     private readonly maxEntries: number,
-    private readonly maxBytes: number,
+    private maxBytes: number,
   ) {}
+
+  /** A new bound on the estimated memory (the server's PARSED_FILES_CACHE_MB); what is over it goes at once. */
+  setMaxBytes(bytes: number): void {
+    this.maxBytes = bytes;
+    this.trim();
+  }
+
+  private trim(): void {
+    while (this.entries.size > this.maxEntries || this.total > this.maxBytes) {
+      const [oldest, entry] = this.entries.entries().next().value as [string, { bytes: number }];
+      this.entries.delete(oldest);
+      this.total -= entry.bytes;
+    }
+  }
 
   /** The estimated memory of what is cached now. */
   get bytes(): number {
@@ -55,18 +69,26 @@ export class ParsedCache {
     }
     this.entries.set(key, { parsed, bytes });
     this.total += bytes;
-    while (this.entries.size > this.maxEntries || this.total > this.maxBytes) {
-      const [oldest, entry] = this.entries.entries().next().value as [string, { bytes: number }];
-      this.entries.delete(oldest);
-      this.total -= entry.bytes;
-    }
+    this.trim();
     return parsed;
   }
 }
 
+/**
+ * The parsed files' memory bound by default, in MB: room for a 512 MiB instance (Task 22 review,
+ * B6; was 384). A file over half of it (about 4 MB of CSV at 96) is parsed each time: raise it
+ * with the instance's memory (PARSED_FILES_CACHE_MB; DEPLOY.md, "Memory").
+ */
+export const DEFAULT_PARSED_CACHE_MB = 96;
+
 // A few recently parsed files: my-assignment and the file page read the same file
-// again and again, and a big one takes a moment to parse. At most 8, about 384 MB.
-const parsedFiles = new ParsedCache(8, 384 * 1024 * 1024);
+// again and again, and a big one takes a moment to parse. At most 8.
+const parsedFiles = new ParsedCache(8, DEFAULT_PARSED_CACHE_MB * 1024 * 1024);
+
+/** Sets the parsed files' memory bound (the server's config, PARSED_FILES_CACHE_MB). */
+export function setParsedCacheMb(mb: number): void {
+  parsedFiles.setMaxBytes(mb * 1024 * 1024);
+}
 
 const cacheKey = (file: { checksum: string }, keyCount: number) => `${file.checksum}:${keyCount}`;
 

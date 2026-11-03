@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import pg from 'pg';
 import { parse as parseConnectionString } from 'pg-connection-string';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -22,42 +23,108 @@ export function migrationFiles(): string[] {
     .sort();
 }
 
+/** How long a migration statement waits for a table's lock (a long query of the running server) before it gives up. */
+export const MIGRATION_LOCK_TIMEOUT = '3s';
+/** Runs of the migrations tried when a table stays busy (lock_timeout), with a growing pause between them. */
+export const MIGRATION_ATTEMPTS = 4;
+
+/** A migration file: its name, its SQL and the sha256 of its bytes. */
+export interface MigrationFile {
+  name: string;
+  sql: string;
+  checksum: string;
+}
+
+/** The migration files with their contents and checksums, in the order they run. */
+export function readMigrations(): MigrationFile[] {
+  return migrationFiles().map((name) => {
+    const bytes = readFileSync(join(MIGRATIONS_DIR, name));
+    return { name, sql: bytes.toString('utf8'), checksum: createHash('sha256').update(bytes).digest('hex') };
+  });
+}
+
 /**
- * Applies every migrations/*.sql file in name order. Each is idempotent
- * (IF NOT EXISTS), so running this repeatedly on an already-migrated database
- * is a no-op — safe to call on every boot. Logs via the provided sink.
+ * Applies the migrations/*.sql files in name order, skipping those already applied with the same
+ * sha256 (schema_migrations.checksum, migration 024): a file edited since runs again, a new one
+ * runs. Each file is idempotent (IF NOT EXISTS), so running one again is safe; skipping them keeps
+ * a boot from taking the tables' locks for nothing. Logs via the provided sink.
  *
  * The whole run holds a session-level advisory lock on one connection, so when
  * several instances boot at once with MIGRATE_ON_BOOT=true (Cloud Run scaling
  * out), they apply the migrations one after the other instead of racing on the
  * same CREATE statements. The lock is released at the end, and Postgres also
- * drops it if the connection dies.
+ * drops it if the connection dies. Once it holds the lock, every statement waits at most
+ * MIGRATION_LOCK_TIMEOUT for a table's lock (an ALTER TABLE queued behind a long query would
+ * otherwise stop every other query on that table meanwhile); a run that times out is rolled back
+ * (each file is one implicit transaction) and tried again, MIGRATION_ATTEMPTS runs in all.
  */
 export async function runMigrations(
   databaseUrl: string,
   log: (msg: string) => void = () => {},
-  options: { appDatabaseUrl?: string } = {},
+  options: { appDatabaseUrl?: string; attempts?: number; pauseMs?: (attempt: number) => number } = {},
 ): Promise<void> {
-  const files = migrationFiles();
+  const attempts = options.attempts ?? MIGRATION_ATTEMPTS;
+  const pause = options.pauseMs ?? ((attempt: number) => 1000 * 2 ** (attempt - 1));
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await runOnce(databaseUrl, log, options.appDatabaseUrl);
+      return;
+    } catch (err) {
+      if ((err as { code?: unknown }).code !== '55P03' || attempt >= attempts) {
+        throw err;
+      }
+      log(`Migrations: a table was busy for over ${MIGRATION_LOCK_TIMEOUT} (lock_timeout); trying again (${attempt} of ${attempts - 1}).`);
+      await new Promise((resolve) => setTimeout(resolve, pause(attempt)));
+    }
+  }
+}
+
+/** The checksums recorded for the files applied; none when schema_migrations or its checksum column is not there yet. */
+async function appliedChecksums(client: pg.Client): Promise<Map<string, string>> {
+  try {
+    const res = await client.query('SELECT name, checksum FROM schema_migrations');
+    return new Map(res.rows.filter((r) => typeof r.checksum === 'string').map((r) => [r.name as string, r.checksum as string]));
+  } catch (err) {
+    const code = (err as { code?: unknown }).code;
+    // 42P01: no schema_migrations (before 018); 42703: no checksum column (before 024).
+    if (code === '42P01' || code === '42703') return new Map();
+    throw err;
+  }
+}
+
+async function runOnce(databaseUrl: string, log: (msg: string) => void, appDatabaseUrl: string | undefined): Promise<void> {
+  const files = readMigrations();
 
   const client = new pg.Client({ connectionString: databaseUrl });
   await client.connect();
   try {
     await client.query('SELECT pg_advisory_lock($1::bigint)', [MIGRATION_LOCK_KEY]);
     try {
+      await client.query(`SET lock_timeout = '${MIGRATION_LOCK_TIMEOUT}'`);
+      const applied = await appliedChecksums(client);
+      const ran: MigrationFile[] = [];
       for (const file of files) {
-        await client.query(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'));
-        log(`Migration ${file} applied.`);
+        if (applied.get(file.name) === file.checksum) {
+          continue;
+        }
+        await client.query(file.sql);
+        ran.push(file);
+        log(`Migration ${file.name} applied.`);
+      }
+      if (ran.length < files.length) {
+        log(`Migrations: ${files.length - ran.length} already applied and unchanged, skipped.`);
       }
       // What ran, for the server owner's panel (schema_migrations, migration 018): the first
-      // time each one ran and the last. Files before 018 are recorded on the first boot with it.
-      await client.query(
-        `INSERT INTO schema_migrations (name) SELECT unnest($1::text[])
-         ON CONFLICT (name) DO UPDATE SET last_applied_at = now()`,
-        [files],
-      );
-      if (options.appDatabaseUrl !== undefined) {
-        await prepareAppRole(client, options.appDatabaseUrl, log);
+      // time each one ran and the last, and the checksum it ran with (024).
+      if (ran.length > 0) {
+        await client.query(
+          `INSERT INTO schema_migrations (name, checksum) SELECT * FROM unnest($1::text[], $2::text[])
+           ON CONFLICT (name) DO UPDATE SET last_applied_at = now(), checksum = EXCLUDED.checksum`,
+          [ran.map((f) => f.name), ran.map((f) => f.checksum)],
+        );
+      }
+      if (appDatabaseUrl !== undefined) {
+        await prepareAppRole(client, appDatabaseUrl, log);
       }
     } finally {
       await client.query('SELECT pg_advisory_unlock($1::bigint)', [MIGRATION_LOCK_KEY]);

@@ -43,6 +43,18 @@ export interface Config {
   /** The quality worker's heap in MB (QUALITY_WORKER_MAX_MB); undefined = the default (256). */
   qualityWorkerMaxMb?: number;
   /**
+   * The memory caches (Task 22 review, B6), sized for a 512 MiB instance by default; raise them
+   * with the instance's memory (DEPLOY.md, "Memory"). Undefined = the default.
+   * - parsedCacheMb: parsed plot files (PARSED_FILES_CACHE_MB, default 96);
+   * - servedCacheMb: the plot files built for people (SERVED_FILES_CACHE_MB, default 32);
+   * - mapBuildsKept: maps kept for their next pages (MAP_BUILDS_KEPT, default 4);
+   * - projectStatesKept: projects whose state the Progress and People pages keep (PROJECT_STATES_KEPT, default 3).
+   */
+  parsedCacheMb?: number;
+  servedCacheMb?: number;
+  mapBuildsKept?: number;
+  projectStatesKept?: number;
+  /**
    * The shortest time between two computations of a project's quality figures, in ms;
    * undefined = MIN_COMPUTE_INTERVAL_MS (30 s). Not read from the environment: tests set 0.
    */
@@ -163,6 +175,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     rateLimitPerMinute: rateLimitOf(env.RATE_LIMIT_PER_MINUTE),
     trustProxyHops: trustProxyHopsOf(env.TRUST_PROXY_HOPS),
     qualityWorkerMaxMb: qualityWorkerMaxMbOf(env.QUALITY_WORKER_MAX_MB),
+    parsedCacheMb: wholeAtLeast('PARSED_FILES_CACHE_MB', env.PARSED_FILES_CACHE_MB, 8),
+    servedCacheMb: wholeAtLeast('SERVED_FILES_CACHE_MB', env.SERVED_FILES_CACHE_MB, 8),
+    mapBuildsKept: wholeAtLeast('MAP_BUILDS_KEPT', env.MAP_BUILDS_KEPT, 1),
+    projectStatesKept: wholeAtLeast('PROJECT_STATES_KEPT', env.PROJECT_STATES_KEPT, 1),
     ...aiConfigOf(env, storeBackend),
     mapTiles: mapTilesOf(env),
     ...mailConfigOf(env),
@@ -277,6 +293,18 @@ function qualityWorkerMaxMbOf(value: string | undefined): number | undefined {
   const n = Number(value);
   if (!Number.isInteger(n) || n < 64) {
     throw new Error(`Invalid QUALITY_WORKER_MAX_MB "${value}" (expected a whole number of MB, at least 64)`);
+  }
+  return n;
+}
+
+/** A whole number of at least `min` from the environment; undefined when unset or empty. */
+function wholeAtLeast(name: string, value: string | undefined, min: number): number | undefined {
+  if (value === undefined || value.trim() === '') {
+    return undefined;
+  }
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < min) {
+    throw new Error(`Invalid ${name} "${value}" (expected a whole number, at least ${min})`);
   }
   return n;
 }

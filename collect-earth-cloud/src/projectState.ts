@@ -23,8 +23,8 @@ import type { AssignmentDetail, CsvFile, Member } from './types.js';
 
 /** A state younger than this is served (stale) while a newer one is built. */
 export const STATE_STALE_MS = 30_000;
-/** At most this many projects are kept. */
-export const MAX_CACHED_STATES = 6;
+/** At most this many projects are kept by default (PROJECT_STATES_KEPT; it was 6, Task 22 review B6: a state of 100,000 records is tens of MB). */
+export const MAX_CACHED_STATES = 3;
 /** A project not asked for in this long is dropped. */
 export const STATE_IDLE_MS = 10 * 60_000;
 /** A state built while a plot file could not be read is built again after this long (its inputs unchanged). */

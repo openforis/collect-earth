@@ -54,3 +54,15 @@ describe('MAP_TILE_URL and the map tiles', () => {
     expect(() => loadConfig({ MAP_TILE_ATTRIBUTION: 'A' })).toThrow(/MAP_TILE_URL/);
   });
 });
+
+describe('the memory caches (B6)', () => {
+  it('are unset (the defaults for 512 MiB) unless given; whole numbers at least 8 MB or 1 kept', () => {
+    const c = loadConfig({});
+    expect([c.parsedCacheMb, c.servedCacheMb, c.mapBuildsKept, c.projectStatesKept]).toEqual([undefined, undefined, undefined, undefined]);
+    const big = loadConfig({ PARSED_FILES_CACHE_MB: '384', SERVED_FILES_CACHE_MB: '128', MAP_BUILDS_KEPT: '8', PROJECT_STATES_KEPT: '6' });
+    expect([big.parsedCacheMb, big.servedCacheMb, big.mapBuildsKept, big.projectStatesKept]).toEqual([384, 128, 8, 6]);
+    for (const [name, value] of [['PARSED_FILES_CACHE_MB', '4'], ['SERVED_FILES_CACHE_MB', 'x'], ['MAP_BUILDS_KEPT', '0'], ['PROJECT_STATES_KEPT', '1.5']]) {
+      expect(() => loadConfig({ [name]: value }), name).toThrow(new RegExp(name));
+    }
+  });
+});

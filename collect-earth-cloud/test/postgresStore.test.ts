@@ -110,6 +110,23 @@ describe('PostgresStore pool', () => {
     lockedBefore('INSERT INTO csv_files');
   });
 
+  it("a draw's transaction bounds its statements and pauses before the sampling lock (B5); eachProject has the store's statement timeout (M-6)", async () => {
+    const draw = { at: 1, byUserId: null, automatic: true, drawn: 0, firstN: 0, percent: 0, noChecker: 0 };
+    await new PostgresStore('postgres://x').addSampledCopies(PROJECT, [], [], draw, 1).catch(() => {});
+    const sqls = queries.map((q) => q.sql);
+    const bound = sqls.findIndex((s) => s.includes("set_config('idle_in_transaction_session_timeout'"));
+    expect(bound).toBeGreaterThan(-1);
+    expect(queries[bound].params).toEqual(['30000', '10000']);
+    expect(bound).toBeLessThan(sqls.findIndex((s) => s.includes("'collect-earth-cloud:sampling:'")));
+
+    queries.length = 0;
+    await new PostgresStore('postgres://x', { statementTimeoutMs: 90_000 }).aiUsageSince(0).catch(() => {});
+    const begin = queries.findIndex((q) => q.sql === 'BEGIN READ ONLY');
+    expect(begin).toBeGreaterThan(-1);
+    expect(queries[begin + 1].sql).toContain("set_config('statement_timeout'");
+    expect(queries[begin + 1].params).toEqual(['90000']);
+  });
+
   it('listRecordsByKeys filters by operator in the query when one is given', async () => {
     await new PostgresStore('postgres://x').listRecordsByKeys(PROJECT, ['1', '1'], 'ana');
     const q = queries.find((x) => x.sql.includes('record_key = ANY'))!;

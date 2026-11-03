@@ -514,10 +514,16 @@ interface ServedFile {
 
 /**
  * Recently built files, the same for my-assignment and the download that follows it:
- * at most 32, and 128 MB in all. A null entry is a person with no plot left in the file.
+ * at most 32, and SERVED_FILES_CACHE_MB in all (default 32 MB for a 512 MiB instance; it was
+ * 128, Task 22 review B6). A null entry is a person with no plot left in the file.
  */
 const SERVED_CACHE_ENTRIES = 32;
-const SERVED_CACHE_BYTES = 128 * 1024 * 1024;
+export const DEFAULT_SERVED_CACHE_MB = 32;
+let SERVED_CACHE_BYTES = DEFAULT_SERVED_CACHE_MB * 1024 * 1024;
+/** Sets the built files' memory bound (the server's config, SERVED_FILES_CACHE_MB). */
+export function setServedCacheMb(mb: number): void {
+  SERVED_CACHE_BYTES = mb * 1024 * 1024;
+}
 const servedFiles = new Map<string, ServedFile | null>();
 let servedBytes = 0;
 

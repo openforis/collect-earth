@@ -21,7 +21,8 @@ import type { Store } from './store/store.js';
 import { registerActivityRoutes } from './routes/activity.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerAiRoutes } from './routes/ai.js';
-import { registerAssignmentRoutes } from './routes/assignments.js';
+import { registerAssignmentRoutes, setServedCacheMb } from './routes/assignments.js';
+import { setParsedCacheMb } from './plotFileCache.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerPlatformRoutes } from './routes/platform.js';
 import { ProjectStateCache } from './projectState.js';
@@ -153,7 +154,10 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     minIntervalMs: config.qualityMinIntervalMs,
   });
   // The Progress and People pages' project state, worked out once per project and kept.
-  const states = new ProjectStateCache(store, { staleMs: config.stateStaleMs });
+  const states = new ProjectStateCache(store, { staleMs: config.stateStaleMs, ...(config.projectStatesKept ? { maxProjects: config.projectStatesKept } : {}) });
+  // The plot files' caches are the process's: sized from the config when it says (DEPLOY.md, "Memory").
+  if (config.parsedCacheMb) setParsedCacheMb(config.parsedCacheMb);
+  if (config.servedCacheMb) setServedCacheMb(config.servedCacheMb);
   // The automatic check sampling: drawn after first submissions and before a plot list, at most once per 10 min.
   const sampling = new SamplingService(store, states, { intervalMs: config.samplingIntervalMs, inlineMs: config.samplingInlineMs, now });
   // Where plots are and what the project file says of them, shared by the quality routes, plot
@@ -168,7 +172,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerPlotSearchRoutes(app, store, quality, places, indexes);
   await registerProgressRoutes(app, store, quality, states, now);
   await registerPeopleRoutes(app, store, quality, states, now);
-  await registerPlotsGeoRoutes(app, store, quality, states, places);
+  await registerPlotsGeoRoutes(app, store, quality, states, places, config.mapBuildsKept ? { maxBuilds: config.mapBuildsKept } : {});
   await registerActivityRoutes(app, store, quality, states, places, now);
   await registerRecordRoutes(app, store, sampling);
   await registerSamplingRoutes(app, store, sampling);

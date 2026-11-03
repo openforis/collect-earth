@@ -44,8 +44,8 @@ import { MAX_NAME } from './quality.js';
 
 /** A built map is kept this long for its next pages. */
 export const GEO_BUILD_TTL_MS = 2 * 60_000;
-/** At most this many built maps are kept (least recently used out first). */
-export const MAX_GEO_BUILDS = 8;
+/** At most this many built maps are kept by default (least recently used out first; MAP_BUILDS_KEPT; it was 8, Task 22 review B6). */
+export const MAX_GEO_BUILDS = 4;
 /** Projects whose plot places are kept. */
 export const MAX_PLACE_PROJECTS = 4;
 
@@ -122,9 +122,10 @@ export async function registerPlotsGeoRoutes(
   quality: QualityService,
   states: ProjectStateCache,
   places: PlotPlaceReader,
-  options: { now?: () => number; geoPlaces?: GeoPlaces } = {},
+  options: { now?: () => number; geoPlaces?: GeoPlaces; maxBuilds?: number } = {},
 ): Promise<void> {
   const now = options.now ?? Date.now;
+  const maxBuilds = options.maxBuilds ?? MAX_GEO_BUILDS;
   const geoPlaces = options.geoPlaces ?? new GeoPlaces(store);
   const builds = new Map<string, Build>();
   const reviewer = { preHandler: requireProjectMembership(store, 'reviewer') };
@@ -164,7 +165,7 @@ export async function registerPlotsGeoRoutes(
       // The next pages of a map: slices of the build the first page made.
       const hit = builds.get(version);
       if (hit && hit.key === key) {
-        remember(builds, version, hit, MAX_GEO_BUILDS);
+        remember(builds, version, hit, maxBuilds);
         return reply.send(answer(version, hit, offset, size));
       }
     }
@@ -257,7 +258,7 @@ export async function registerPlotsGeoRoutes(
         ...(latLon ? {} : { unsupportedSrs: facts.srid }),
       },
     };
-    remember(builds, id, build, MAX_GEO_BUILDS);
+    remember(builds, id, build, maxBuilds);
     return reply.send(answer(id, build, offset, size));
   });
 

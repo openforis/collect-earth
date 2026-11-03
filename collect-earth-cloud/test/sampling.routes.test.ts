@@ -287,6 +287,33 @@ describe('automatic check sampling: the rule, the draws, and what checkers get',
     expect(await drawn()).toEqual([]);
   });
 
+  it('an automatic draw worked out after its request answered stores nothing and stays due (B5)', async () => {
+    await ctx.app.close();
+    await start({ samplingInlineMs: 50 });
+    await call('PUT', '/sampling', owner.token, { firstN: 2 });
+    let stored = 0;
+    const add = ctx.store.addSampledCopies.bind(ctx.store);
+    ctx.store.addSampledCopies = async (...args) => {
+      stored += 1;
+      return add(...args);
+    };
+    // Reading the project state takes past the request's wait (the clock moves on meanwhile).
+    const states = ctx.store.listRecordStates.bind(ctx.store);
+    ctx.store.listRecordStates = async (...args) => {
+      clock += 60_000;
+      return states(...args);
+    };
+    const res = await batchRequest(ctx.app, pid, projectToken, [envelope({ recordKey: '1,1', operator: 'maria', modifiedOn: clock, activelySaved: true })]);
+    expect(res.statusCode, res.body).toBe(200);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(stored).toBe(0);
+    expect(await drawn()).toEqual([]);
+    expect((await ctx.store.getSampling(pid)).dueSince).not.toBeNull();
+    // "Draw now" has no such bound.
+    ctx.store.listRecordStates = states;
+    expect((await call('POST', '/sampling/draw', owner.token)).json().draw).toMatchObject({ drawn: 1 });
+  });
+
   it('a draw that takes too long: the batch answers after the inline wait', async () => {
     await ctx.app.close();
     await start({ samplingInlineMs: 50 });

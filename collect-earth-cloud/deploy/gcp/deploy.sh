@@ -35,7 +35,13 @@ MAX_INSTANCES=4                      # Cloud Run instances at most (cost ceiling
 # minutes (100,000 records: about 180 MB, under 20 s on the server, longer on a slow connection),
 # and a request still running at the timeout is cut. Raise it to 3600 (Cloud Run's maximum) for
 # very large projects or slow connections: REQUEST_TIMEOUT=3600 ./deploy.sh ... (see DEPLOY.md).
-REQUEST_TIMEOUT="${REQUEST_TIMEOUT:-900}"
+# Each instance's memory: 512Mi, or 1Gi above about 30,000 records (MEMORY=1Gi ./deploy.sh ...;
+# DEPLOY.md, "Memory"). Unset, a server already deployed keeps the timeout and memory it has (an
+# operator may have raised them with gcloud run services update), and a new one gets the defaults.
+DEFAULT_REQUEST_TIMEOUT=900
+DEFAULT_MEMORY=512Mi
+REQUEST_TIMEOUT="${REQUEST_TIMEOUT:-}"
+MEMORY="${MEMORY:-}"
 DB_MAX_CONNECTIONS=50                # each server instance opens up to 10
 
 # Regions offered when asking (any Cloud Run + Cloud SQL region works with --region).
@@ -93,6 +99,13 @@ Options:
   --dry-run           Print every gcloud command instead of running it
                       (works without a Google Cloud project)
   --help, -h          Show this help
+
+Environment:
+  REQUEST_TIMEOUT=SECONDS  Cloud Run's request timeout (default $DEFAULT_REQUEST_TIMEOUT; up to
+                           3600 for large backups on slow connections)
+  MEMORY=SIZE              Memory of each instance (default $DEFAULT_MEMORY; 1Gi above about
+                           30,000 records)
+  Unset, an update keeps the server's current timeout and memory.
 EOF
 }
 
@@ -637,6 +650,15 @@ deploy_service() {
     "Cloud Run could not start the new version. The previous version, if any, keeps running. Its log may say why: gcloud run services logs read $SERVICE --region $REGION --project $PROJECT"
   local env_vars="STORE_BACKEND=postgres,MIGRATE_ON_BOOT=true"
   [[ -n "$DOMAIN" ]] && env_vars+=",PUBLIC_BASE_URL=https://$DOMAIN"
+  # An update keeps the memory and timeout the server has, unless MEMORY / REQUEST_TIMEOUT say otherwise.
+  local memory="$MEMORY" timeout="$REQUEST_TIMEOUT" current="" current_memory="" current_timeout=""
+  if [[ -z "$memory" || -z "$timeout" ]]; then
+    current="$(gq run services describe "$SERVICE" --region="$REGION" \
+      --format='value(spec.template.spec.containers[0].resources.limits.memory,spec.template.spec.timeoutSeconds)' || true)"
+    read -r current_memory current_timeout <<<"$current" || true
+  fi
+  memory="${memory:-${current_memory:-$DEFAULT_MEMORY}}"
+  timeout="${timeout:-${current_timeout:-$DEFAULT_REQUEST_TIMEOUT}}"
   gc run deploy "$SERVICE" \
     --image="$IMAGE" \
     --region="$REGION" \
@@ -648,11 +670,11 @@ deploy_service() {
     --allow-unauthenticated \
     --port=8080 \
     --cpu=1 \
-    --memory=512Mi \
+    --memory="$memory" \
     --min-instances=0 \
     --max-instances="$MAX_INSTANCES" \
     --concurrency=80 \
-    --timeout="$REQUEST_TIMEOUT" \
+    --timeout="$timeout" \
     --cpu-boost \
     --labels="$LABEL" \
     --quiet

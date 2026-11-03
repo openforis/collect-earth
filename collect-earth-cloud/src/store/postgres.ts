@@ -86,6 +86,10 @@ const PLOT_INSERT_CHUNK = 5000;
 const SHARE_LINKS_LOCK = "SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:share-links:' || $1))";
 /** The check sampling's lock per project (addSampledCopies, setDivision). */
 const SAMPLING_LOCK = "SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:sampling:' || $1))";
+/** The longest statement of a draw's transaction (its lock's wait included): 24,000 copies took about 1.5 s. */
+export const SAMPLING_STATEMENT_TIMEOUT_MS = 30_000;
+/** The longest pause between the statements of a draw's transaction before Postgres ends it. */
+export const SAMPLING_IDLE_TIMEOUT_MS = 10_000;
 
 /**
  * PostgreSQL-backed Store. In addition to app-level project scoping (every query
@@ -1715,6 +1719,13 @@ export class PostgresStore implements Store {
     dueBefore: number,
   ): Promise<SampledCopy[]> {
     return this.withProject(projectId, async (client) => {
+      // A draw that outlives its request (Cloud Run then gives the instance little CPU) must not keep
+      // the sampling lock and the rows: each statement, the lock's wait included, and any pause
+      // between them are bounded (B5); a draw cut short is rolled back and stays due.
+      await client.query("SELECT set_config('statement_timeout', $1, true), set_config('idle_in_transaction_session_timeout', $2, true)", [
+        String(SAMPLING_STATEMENT_TIMEOUT_MS),
+        String(SAMPLING_IDLE_TIMEOUT_MS),
+      ]);
       // One draw at a time per project (and no division meanwhile): two cannot both give the same plot a copy.
       await client.query(SAMPLING_LOCK, [projectId]);
       if (drop.length > 0) {
@@ -2526,6 +2537,10 @@ export class PostgresStore implements Store {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN READ ONLY');
+      // The store's statement timeout here too (M-6): each statement of the walk, as in withProject.
+      if (this.statementTimeout !== null) {
+        await client.query("SELECT set_config('statement_timeout', $1, true)", [this.statementTimeout]);
+      }
       const ids = await client.query('SELECT DISTINCT project_id FROM project_tokens ORDER BY project_id');
       const out: T[] = [];
       for (const { project_id: projectId } of ids.rows as { project_id: string }[]) {

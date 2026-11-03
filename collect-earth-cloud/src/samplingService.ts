@@ -73,9 +73,12 @@ export class SamplingService {
 
   /** The claim and the draw, waited for at most `inlineMs` together; never throws. */
   private async automatic(projectId: string, log: Log, markDue: boolean): Promise<void> {
+    // Past the request's answer the instance may get little CPU (Cloud Run): a draw not ready to be
+    // stored by then stores nothing and stays due (B5).
+    const deadline = this.now() + this.inlineMs;
     const work = (async () => {
       const claimed = await this.store.claimSamplingDraw(projectId, { now: this.now(), markDue, minIntervalMs: this.intervalMs });
-      if (claimed) await this.draw(projectId, 'automatic', log);
+      if (claimed) await this.draw(projectId, 'automatic', log, deadline);
     })().catch((err: unknown) => log.error({ err, projectId }, 'check sampling: the automatic draw failed (it stays due)'));
     let timer: ReturnType<typeof setTimeout> | undefined;
     await Promise.race([work, new Promise((resolve) => (timer = setTimeout(resolve, this.inlineMs)))]);
@@ -89,10 +92,10 @@ export class SamplingService {
    * nothing (none, or both parts off). Audited as `sampling.drawn` when pressed, always, and when
    * an automatic draw added copies.
    */
-  draw(projectId: string, by: { userId: string | null } | 'automatic', log: Log): Promise<DrawOutcome | null> {
+  draw(projectId: string, by: { userId: string | null } | 'automatic', log: Log, deadline?: number): Promise<DrawOutcome | null> {
     const current = this.running.get(projectId);
     if (by === 'automatic' && current) return current;
-    const run = (current ?? Promise.resolve(null)).catch(() => null).then(() => this.drawOnce(projectId, by, log));
+    const run = (current ?? Promise.resolve(null)).catch(() => null).then(() => this.drawOnce(projectId, by, log, deadline));
     this.running.set(projectId, run);
     run.then(
       () => this.running.get(projectId) === run && this.running.delete(projectId),
@@ -101,7 +104,7 @@ export class SamplingService {
     return run;
   }
 
-  private async drawOnce(projectId: string, by: { userId: string | null } | 'automatic', log: Log): Promise<DrawOutcome | null> {
+  private async drawOnce(projectId: string, by: { userId: string | null } | 'automatic', log: Log, deadline?: number): Promise<DrawOutcome | null> {
     // Marks of a due draw up to now are in the fresh state read below (their records were stored
     // before the mark); a later mark keeps the draw due (addSampledCopies).
     const readAt = this.now();
@@ -109,6 +112,10 @@ export class SamplingService {
     if (!loaded.input) return null;
     const result = drawChecks(loaded.input);
     const at = this.now();
+    if (deadline !== undefined && at > deadline) {
+      log.warn({ projectId, ms: at - readAt }, 'check sampling: the automatic draw took longer than its request; nothing stored, it stays due');
+      return null;
+    }
     const automatic = by === 'automatic';
     const byUserId = automatic ? null : by.userId;
     const draw: SamplingDraw = { at, byUserId, automatic, drawn: 0, firstN: 0, percent: 0, noChecker: result.noChecker };

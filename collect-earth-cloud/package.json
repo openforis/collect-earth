@@ -22,7 +22,8 @@
     "smoke:pg:reference": "tsx scripts/pg-smoke-reference.mts",
     "smoke:pg:backup": "tsx scripts/pg-smoke-backup.mts",
     "smoke:pg:links": "tsx scripts/pg-smoke-share-links.mts",
-    "smoke:pg:mail": "tsx scripts/pg-smoke-mail.mts"
+    "smoke:pg:mail": "tsx scripts/pg-smoke-mail.mts",
+    "smoke:pg:final": "tsx scripts/pg-smoke-final-review.mts"
   },
   "dependencies": {
     "@fastify/static": "7.0.4",

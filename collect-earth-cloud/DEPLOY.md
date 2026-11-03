@@ -30,6 +30,9 @@ managed Postgres (Option B).
 | `PORT` | no | `8080` | Listen port (Cloud Run injects `8080`) |
 | `HOST` | no | `0.0.0.0` | Bind address |
 | `QUALITY_WORKER_MAX_MB` | no | `256` | Memory (MB, at least 64) the thread that works out the quality figures may use on Postgres. A project too big for it gets a plain error instead of the figures. Keep it below the container's memory (see "Quality figures and memory") |
+| `NODE_HEAP_MB` | no | `224` | The server's heap in MB (the image passes it to Node as `--max-old-space-size`). 224 for 512 MiB, 448 for 1 GiB (see "Memory") |
+| `PARSED_FILES_CACHE_MB`, `SERVED_FILES_CACHE_MB` | no | `96`, `32` | Memory (MB, at least 8) for parsed plot files and for the plot files built for people; 384 and 128 with 1 GiB (see "Memory") |
+| `PROJECT_STATES_KEPT`, `MAP_BUILDS_KEPT` | no | `3`, `4` | Projects whose Progress state, and maps whose next pages, each instance keeps; 6 and 8 with 1 GiB (see "Memory") |
 | `AI_VERTEX_API_KEY` | no | (secret) | Optional AI assistant: a Vertex AI API key, restricted to the Vertex AI API. Wins over `AI_VERTEX_PROJECT` when both are set. See "AI assistant (optional)" |
 | `AI_VERTEX_PROJECT` | no | `my-project` | Optional AI assistant without a key: the Google Cloud project whose Vertex AI the server's service account calls |
 | `AI_VERTEX_REGION` | no | `global` | Vertex AI location, used with `AI_VERTEX_PROJECT` (default `global`) |
@@ -90,6 +93,11 @@ Schema lives in `migrations/*.sql`, each idempotent (`IF NOT EXISTS`). Apply the
   for the whole run, so instances booting at the same time migrate one after the
   other instead of racing on the same `CREATE` statements (which fails with
   `duplicate key value violates unique constraint "pg_type_typname_nsp_index"`).
+  A file already applied with the same sha256 is skipped (`schema_migrations.checksum`,
+  migration 024; an edited file runs again), and each statement waits at most 3 s for a
+  table's lock (`lock_timeout`): an `ALTER TABLE` queued behind a long query of the running
+  server would otherwise hold up every other query on that table. A run that times out is
+  rolled back and tried again, four runs in all, before the boot fails.
 - **One-off release step:**
   ```bash
   STORE_BACKEND=postgres DATABASE_URL='postgres://…' npm run migrate
@@ -179,6 +187,10 @@ Options: `--project ID`, `--region REGION` (default `europe-west1`),
 `--domain NAME` (Cloud Run domain mapping + `PUBLIC_BASE_URL`),
 `--db-tier TIER` (only when the instance is created; default `db-f1-micro`),
 `--yes` (no prompts), `--no-pull` (do not `git pull --ff-only` before building).
+Environment: `REQUEST_TIMEOUT=SECONDS` (Cloud Run's request timeout; default 900, up to 3600)
+and `MEMORY=SIZE` (each instance's memory; default `512Mi`, `1Gi` above about 30,000 records, see
+"Memory"). Unset, an update keeps the timeout and memory the server has (raised with
+`gcloud run services update`, say); a new server gets the defaults.
 
 It asks only for the region, and only once: answers are kept in
 `~/.collect-earth-cloud/deploy-<PROJECT>.conf` (`REGION`, `DOMAIN`, `DB_TIER`);
@@ -203,7 +215,7 @@ explanation; re-running continues.
 | IAM for builds | the project's default Cloud Build service account (`gcloud builds get-default-service-account`) | `roles/cloudbuild.builds.builder` (projects created since 2024 give the default compute account no roles) |
 | Artifact Registry | `ce` (docker, in the region) | cleanup policy `deploy/gcp/cleanup-policy.json`: keep the 5 newest images, delete others older than 30 days |
 | Image | `<REGION>-docker.pkg.dev/<PROJECT>/ce/collect-earth-cloud:<git-sha>-<timestamp>` | built by Cloud Build from `collect-earth-cloud/` (the Dockerfile context), uploading what `deploy/gcp/build.gcloudignore` does not exclude |
-| Cloud Run service | `collect-earth-cloud` | the dedicated service account, Cloud SQL connector to `ce-cloud-db`, secrets `DATABASE_URL=ce-app-database-url:latest`, `MIGRATION_DATABASE_URL=ce-database-url:latest` and `SETUP_CODE=ce-setup-code:latest`, env `STORE_BACKEND=postgres`, `MIGRATE_ON_BOOT=true` (+ `PUBLIC_BASE_URL` with `--domain`), public (`--allow-unauthenticated`), port 8080, 1 vCPU, 512 MiB, 0 to 4 instances, concurrency 80, timeout 900 s (`REQUEST_TIMEOUT`, see "The Collect Earth backup and its limits"), startup CPU boost |
+| Cloud Run service | `collect-earth-cloud` | the dedicated service account, Cloud SQL connector to `ce-cloud-db`, secrets `DATABASE_URL=ce-app-database-url:latest`, `MIGRATION_DATABASE_URL=ce-database-url:latest` and `SETUP_CODE=ce-setup-code:latest`, env `STORE_BACKEND=postgres`, `MIGRATE_ON_BOOT=true` (+ `PUBLIC_BASE_URL` with `--domain`), public (`--allow-unauthenticated`), port 8080, 1 vCPU, 512 MiB (`MEMORY`, see "Memory"), 0 to 4 instances, concurrency 80, timeout 900 s (`REQUEST_TIMEOUT`, see "The Collect Earth backup and its limits"); an update keeps the memory and timeout the service has unless those are set; startup CPU boost |
 | Domain mapping (with `--domain`) | the domain | `gcloud beta run domain-mappings create`; the script prints the DNS records to add |
 
 Env vars and secrets are applied with `--update-env-vars` / `--update-secrets`,
@@ -472,6 +484,12 @@ The URL and the attribution are sent to every dashboard (`GET /v1/server-info`,
 `mapTiles`), so a key in the URL is public: use one restricted to your dashboard's address,
 as tile providers offer. A wrong value stops the server at boot with the reason.
 
+**What the tile source learns.** The tiles a browser asks for are those around the plots on the
+map, at the zoom looked at, so the tile source (and anyone who can read its logs) can tell
+roughly where a project's plots are, with the dashboard's address as the referrer and the
+viewer's IP address. Nothing else (no plot ids, names or answers) is sent. When the plots'
+places are sensitive, use a tile source you trust with that, or your own tile server.
+
 ## AI assistant (optional)
 
 An optional assistant on the Quality tab reviews a project's quality figures with
@@ -695,8 +713,8 @@ separate thread of the server, with at most `QUALITY_WORKER_MAX_MB` (default 256
 of memory, which leaves room for the rest of the server in the 512 MiB that
 `deploy.sh` gives each instance. A project too big for that (tens of thousands of
 records) gets a plain "needed more memory" message instead of the figures; then give
-the service more memory (`gcloud run services update ... --memory=1Gi`) and raise
-`QUALITY_WORKER_MAX_MB` to about half of it (e.g. 512). Never set it close to the
+the service more memory (`--memory=1Gi`) with `NODE_HEAP_MB=448` and
+`QUALITY_WORKER_MAX_MB=320` (see "Memory"). Never let the two heaps together come close to the
 container's memory: the whole container would run out first and restart.
 
 **The Collect Earth backup and its limits.** The Data tab's "Collect Earth backup" streams a
@@ -712,9 +730,38 @@ told to try again in a few minutes); writing one took about 70 MB more than the 
   connections raise it to Cloud Run's maximum, `REQUEST_TIMEOUT=3600 ./deploy/gcp/deploy.sh ...`, or
   `gcloud run services update collect-earth-cloud --region=<REGION> --timeout=3600`. A download cut
   short is noted in the Activity log ("stopped before the end").
-- **Memory.** Large projects (more than about 50,000 records) need `--memory=1Gi`
-  (`gcloud run services update collect-earth-cloud --region=<REGION> --memory=1Gi`), so a backup and
-  the quality figures fit side by side.
+- **Memory.** Large projects (more than about 30,000 records) need `--memory=1Gi`
+  (`MEMORY=1Gi ./deploy/gcp/deploy.sh ...`, or `gcloud run services update collect-earth-cloud
+  --region=<REGION> --memory=1Gi` with the heap settings of "Memory" below), so a backup and the
+  quality figures fit side by side.
+- **Per instance.** Both the one-backup-at-a-time rule and the used-link memory are each
+  instance's: with 4 instances up to 4 backups may be written at once (each in its own instance's
+  memory), and a link used on one instance can be used once more on another within its minute.
+
+**Memory.** Each Cloud Run instance has 512 MiB by default. The server's own heap is capped at
+`NODE_HEAP_MB` (the image's default 224 MB), the quality worker's at `QUALITY_WORKER_MAX_MB`
+(default 256 MB, used only while figures are worked out), and the caches that make repeated pages
+fast are sized to fit beside them. Rough estimates for one large project of 100,000 records (not
+measurements of every case; the backup's figure was measured, Task 17):
+
+| What | Default (512 MiB) | With 1 GiB | Setting |
+| --- | --- | --- | --- |
+| Node, the server's code and its connections | ~100 MB | ~100 MB | |
+| The server's heap at most | 224 MB | 448 MB | `NODE_HEAP_MB` |
+| Parsed plot files (shared by the pages and the files served) | up to 96 MB | up to 384 MB | `PARSED_FILES_CACHE_MB` |
+| Plot files built for people (my-assignment and its download) | up to 32 MB | up to 128 MB | `SERVED_FILES_CACHE_MB` |
+| Projects' state for Progress and People (tens of MB each at 100,000 records) | 3 projects | 6 projects | `PROJECT_STATES_KEPT` |
+| Maps kept for their next pages (about 10 MB each at 100,000 plots) | 4 | 8 | `MAP_BUILDS_KEPT` |
+| A Collect Earth backup being written | ~70 MB | ~70 MB | one per instance |
+| The quality worker while it computes | up to 256 MB | up to 320 MB | `QUALITY_WORKER_MAX_MB` |
+
+The caches live inside the server's heap: with the defaults a plot file over about 4 MB of CSV
+(half of 96 MB at about 12 times its size once parsed) is parsed again for every request instead
+of kept, which is slower but fits. **Above about 30,000 records**, or with plot files of tens of
+MB, give the service 1 GiB and set `NODE_HEAP_MB=448` and `QUALITY_WORKER_MAX_MB=320`, and the
+caches to the 1 GiB column (`gcloud run services update collect-earth-cloud --region=<REGION>
+--memory=1Gi --update-env-vars=NODE_HEAP_MB=448,QUALITY_WORKER_MAX_MB=320,PARSED_FILES_CACHE_MB=384,SERVED_FILES_CACHE_MB=128,PROJECT_STATES_KEPT=6,MAP_BUILDS_KEPT=8`).
+`deploy.sh` keeps these on its next update.
 
 ## Known limitations
 

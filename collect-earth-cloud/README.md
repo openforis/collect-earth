@@ -59,6 +59,7 @@ npm run smoke:pg:reference -- 55482  # reference plots (migration 020): marking,
 npm run smoke:pg:backup -- 55481     # the Collect Earth backup: getRecordXml and the records without XML under RLS (another project invisible), the summary, a link used once, then 100,000 records of 17 KB streamed and timed
 npm run smoke:pg:links -- 55484      # progress links (migration 021): RLS of share_links, share_link_lookup (SECURITY DEFINER) giving only ids, the token kept hashed, the public page without names, revoked and unknown alike, the lookup and the page on 100,000 records timed
 npm run smoke:pg:mail -- 55485       # weekly emails (migration 023): the account tables global as users, the address confirmed by its link, two instances at once sending each mail once, a failed mail put back, one-click unsubscribe, a run timed over 40 subscribers of 100,000 records and 10,000 unconfirmed
+npm run smoke:pg:final -- 55486      # the final review's fixes (migration 024): migrations skipped when unchanged, an edited one run again, 015 widening an older constraint, lock_timeout on a busy table, listRecordsByKeys by operator under RLS, removeMember and putCsvFile waiting for the sampling lock, a draw's timeouts
 docker stop ce-pg-smoke
 ```
 

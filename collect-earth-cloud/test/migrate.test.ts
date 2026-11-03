@@ -4,6 +4,9 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 const calls: { client: number; sql: string; params?: unknown[] }[] = [];
 let clients = 0;
 let failOn: string | null = null;
+// The Postgres error code thrown by failOn, and how many times.
+let failCode: string | undefined;
+let failTimes = Infinity;
 // Rows answered to a query containing the key (the role checks of prepareAppRole).
 let answers: Record<string, unknown[]> = {};
 
@@ -15,8 +18,9 @@ vi.mock('pg', () => {
     }
     async query(sql: string, params?: unknown[]): Promise<{ rows: unknown[]; rowCount: number }> {
       calls.push({ client: this.id, sql, params });
-      if (failOn && sql.includes(failOn)) {
-        throw new Error('boom');
+      if (failOn && sql.includes(failOn) && failTimes > 0) {
+        failTimes -= 1;
+        throw Object.assign(new Error('boom'), failCode !== undefined ? { code: failCode } : {});
       }
       const key = Object.keys(answers).find((k) => sql.includes(k));
       const rows = key ? answers[key] : [];
@@ -29,14 +33,69 @@ vi.mock('pg', () => {
   return { default: { Client } };
 });
 
-const { credentialsOf, migrationFiles, runMigrations } = await import('../src/store/migrate.js');
+const { credentialsOf, migrationFiles, readMigrations, runMigrations } = await import('../src/store/migrate.js');
 
 describe('runMigrations', () => {
   beforeEach(() => {
     calls.length = 0;
     clients = 0;
     failOn = null;
+    failCode = undefined;
+    failTimes = Infinity;
     answers = {};
+  });
+
+  it('skips the files applied with the same sha256, runs one edited since and records it with its checksum (B4)', async () => {
+    const files = readMigrations();
+    const edited = files.find((f) => f.name === '015_decision_bulk.sql')!;
+    answers = { 'SELECT name, checksum FROM schema_migrations': files.map((f) => ({ name: f.name, checksum: f === edited ? 'old' : f.checksum })) };
+    const logged: string[] = [];
+    await runMigrations('postgres://unused', (m) => logged.push(m));
+    const sql = calls.map((c) => c.sql);
+    expect(sql).toContain("SET lock_timeout = '3s'");
+    expect(sql.indexOf("SET lock_timeout = '3s'")).toBeGreaterThan(sql.findIndex((x) => x.includes('pg_advisory_lock')));
+    // Only 015 ran.
+    expect(sql.filter((x) => files.some((f) => f.sql === x))).toEqual([edited.sql]);
+    expect(logged).toEqual(['Migration 015_decision_bulk.sql applied.', `Migrations: ${files.length - 1} already applied and unchanged, skipped.`]);
+    const recorded = calls.find((c) => c.sql.includes('INSERT INTO schema_migrations'))!;
+    expect(recorded.params).toEqual([['015_decision_bulk.sql'], [edited.checksum]]);
+    expect(edited.checksum).toMatch(/^[0-9a-f]{64}$/);
+
+    // Nothing changed: no file runs, nothing is recorded.
+    calls.length = 0;
+    answers = { 'SELECT name, checksum FROM schema_migrations': files.map((f) => ({ name: f.name, checksum: f.checksum })) };
+    await runMigrations('postgres://unused');
+    expect(calls.some((c) => files.some((f) => f.sql === c.sql))).toBe(false);
+    expect(calls.some((c) => c.sql.includes('INSERT INTO schema_migrations'))).toBe(false);
+  });
+
+  it('runs every file when schema_migrations has no checksum column yet (before 024)', async () => {
+    failOn = 'SELECT name, checksum FROM schema_migrations';
+    failCode = '42703';
+    failTimes = 1;
+    await runMigrations('postgres://unused');
+    const recorded = calls.find((c) => c.sql.includes('INSERT INTO schema_migrations'))!;
+    expect(recorded.params![0]).toEqual(migrationFiles());
+    expect(migrationFiles()).toContain('024_migration_checksums.sql');
+  });
+
+  it('a run that meets a busy table (lock_timeout, 55P03) is tried again after a pause; other errors are not', async () => {
+    failOn = 'CREATE TABLE IF NOT EXISTS projects';
+    failCode = '55P03';
+    failTimes = 2;
+    const pauses: number[] = [];
+    const logged: string[] = [];
+    await runMigrations('postgres://unused', (m) => logged.push(m), { pauseMs: (n) => (pauses.push(n), 0) });
+    expect(pauses).toEqual([1, 2]);
+    expect(logged.filter((m) => m.includes('lock_timeout'))).toHaveLength(2);
+    // Each run released the advisory lock and closed its connection.
+    expect(calls.filter((c) => c.sql.includes('pg_advisory_unlock'))).toHaveLength(3);
+    expect(calls.filter((c) => c.sql === 'END')).toHaveLength(3);
+
+    calls.length = 0;
+    failTimes = 9;
+    await expect(runMigrations('postgres://unused', () => {}, { attempts: 3, pauseMs: () => 0 })).rejects.toMatchObject({ code: '55P03' });
+    expect(calls.filter((c) => c.sql === 'END')).toHaveLength(3);
   });
 
   it('runs every migration on one connection while holding the advisory lock', async () => {
