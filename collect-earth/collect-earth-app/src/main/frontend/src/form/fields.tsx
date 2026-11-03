@@ -151,7 +151,7 @@ function ReadOnlyValue({ field, value, info, dense }: FieldProps) {
 
 /**
  * Items as chips that wrap: every option visible at once, one click to answer (the balloon's buttons). A single choice
- * stays chosen when clicked again; the × after it, or Delete or Backspace on its buttons, clears it.
+ * stays chosen when clicked again; the × after it (for the mouse), or Delete or Backspace on its buttons, clears it.
  */
 function CodeButtons({ field, value, items, parentLabel, onChange, error, describedBy }: ControlProps) {
   const t = useT();
@@ -165,29 +165,35 @@ function CodeButtons({ field, value, items, parentLabel, onChange, error, descri
     if (codes) onChange(field.name, selectCodes(value, codes));
   };
   const clearable = !field.multiple && selected.length > 0;
-  const clear = () => onChange(field.name, selectCodes(value, []));
+  // the × goes once the answer is cleared: the focus goes to the question, not to the page
+  const clear = () => {
+    onChange(field.name, selectCodes(value, []));
+    group.current?.querySelector<HTMLElement>("[role=radio]")?.focus();
+  };
+  // The × beside the answers, out of their group, and wrapping after them: it never moves them when it comes and goes
   return (
-    <Box ref={group} role={field.multiple ? "group" : "radiogroup"} aria-label={field.label} id={field.name}
-      aria-invalid={error || undefined} aria-describedby={describedBy}
+    <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0.75 }}
       onKeyDown={(e) => {
         if (clearable && (e.key === "Delete" || e.key === "Backspace")) { e.preventDefault(); clear(); }
-      }}
-      sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, ...(error && { p: 0.5, borderRadius: 2, outline: 1, outlineColor: "error.main" }) }}>
-      {items.map((item) => {
-        const on = selected.includes(item.code);
-        const chip = (
-          <Chip key={item.id} label={item.label} clickable onClick={() => toggle(item.code)}
-            icon={on ? <CheckIcon /> : undefined}
-            role={field.multiple ? "checkbox" : "radio"} aria-checked={on} data-code={item.code}
-            sx={on ? CODE_ON_SX : CODE_SX} />
-        );
-        return item.description ? <Tooltip key={item.id} title={item.description}>{chip}</Tooltip> : chip;
-      })}
-      {/* last, so that it never moves the answers when it comes and goes; the focus stays on the question once it goes */}
+      }}>
+      <Box ref={group} role={field.multiple ? "group" : "radiogroup"} aria-label={field.label} id={field.name}
+        aria-invalid={error || undefined} aria-describedby={describedBy}
+        sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, ...(error && { p: 0.5, borderRadius: 2, outline: 1, outlineColor: "error.main" }) }}>
+        {items.map((item) => {
+          const on = selected.includes(item.code);
+          const chip = (
+            <Chip key={item.id} label={item.label} clickable onClick={() => toggle(item.code)}
+              icon={on ? <CheckIcon /> : undefined}
+              role={field.multiple ? "checkbox" : "radio"} aria-checked={on} data-code={item.code}
+              sx={on ? CODE_ON_SX : CODE_SX} />
+          );
+          return item.description ? <Tooltip key={item.id} title={item.description}>{chip}</Tooltip> : chip;
+        })}
+      </Box>
+      {/* for the mouse: the keyboard has Delete on the answers, so it is not in the Tab order */}
       {clearable && (
-        <Tooltip title={`${t("entry.clear")} (Delete)`}>
-          <IconButton size="small" aria-label={t("entry.clear")} data-testid="entry-clear" sx={{ alignSelf: "center" }}
-            onClick={() => { clear(); group.current?.querySelector<HTMLElement>("[role=radio]")?.focus(); }}>
+        <Tooltip title={t("entry.clear")}>
+          <IconButton size="small" tabIndex={-1} aria-label={t("entry.clear")} data-testid="entry-clear" onClick={clear}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </Tooltip>
