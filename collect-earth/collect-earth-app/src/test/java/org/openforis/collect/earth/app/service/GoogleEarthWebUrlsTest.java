@@ -13,6 +13,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
+import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 
 public class GoogleEarthWebUrlsTest {
 
@@ -108,8 +109,48 @@ public class GoogleEarthWebUrlsTest {
 		// What Google Earth Web shows of a plot, top to bottom: ESRI Wayback is zoomed to show as much
 		Map<String, Object> view = GoogleEarthWebUrls.cameraView(GoogleEarthWebUrls.cameraUrl("-4.99", "151.35", 0,
 				GoogleEarthWebUrls.PLOT_DISTANCE), 1600, 800);
-		assertEquals((Double) view.get("heightMeters"), GoogleEarthWebUrls.plotViewHeightMeters(), 1e-9);
-		assertEquals(252.2, GoogleEarthWebUrls.plotViewHeightMeters(), 0.1);
+		assertEquals((Double) view.get("heightMeters"), GoogleEarthWebUrls.viewHeightMeters(GoogleEarthWebUrls.PLOT_DISTANCE), 1e-9);
+		assertEquals(252.2, GoogleEarthWebUrls.viewHeightMeters(GoogleEarthWebUrls.PLOT_DISTANCE), 0.1);
+	}
+
+	@Test
+	public void theOtherSourcesShowTheGroundGoogleEarthWebShowsThePlotIn() {
+		SimplePlacemarkObject plot = new SimplePlacemarkObject(new double[] { 15.97, -16.32 }, "p");
+		plot.setMultiShape(square(15.97, -16.32, 30));
+		// A plot of 30 m fills 37.5% of the height: 80 m, where the old fixed 400 m camera showed 252 m, 3.1 times more
+		int distance = GoogleEarthWebUrls.plotDistance(plot, null);
+		assertEquals(GoogleEarthWebUrls.plotDistance(30, GoogleEarthWebUrls.PLOT_VIEW_SHARE), distance, 1);
+		assertEquals(GoogleEarthWebUrls.viewHeightMeters(distance), GoogleEarthWebUrls.plotViewHeightMeters(plot, null), 1e-9);
+		assertEquals(80, GoogleEarthWebUrls.plotViewHeightMeters(plot, null), 0.5);
+		// The share set in earth.properties counts for them too
+		assertEquals(60, GoogleEarthWebUrls.plotViewHeightMeters(plot, "0.5"), 0.5);
+		// A plot of no known size: the distance of old
+		SimplePlacemarkObject point = new SimplePlacemarkObject(new double[] { 15.97, -16.32 }, "p");
+		assertEquals(252.2, GoogleEarthWebUrls.plotViewHeightMeters(point, null), 0.1);
+	}
+
+	@Test
+	public void theShareOfTheViewSetIsReadAsANumberOrElseTheDefault() {
+		assertEquals(0.5, GoogleEarthWebUrls.plotViewShare(" 0.5 "), 1e-9);
+		assertEquals(GoogleEarthWebUrls.PLOT_VIEW_SHARE, GoogleEarthWebUrls.plotViewShare(null), 1e-9);
+		assertEquals(GoogleEarthWebUrls.PLOT_VIEW_SHARE, GoogleEarthWebUrls.plotViewShare(""), 1e-9);
+		assertEquals(GoogleEarthWebUrls.PLOT_VIEW_SHARE, GoogleEarthWebUrls.plotViewShare("half"), 1e-9);
+	}
+
+	@Test
+	public void theMapZoomShowsTheViewHeightOverTheMap() {
+		// 156543 m per pixel at zoom 0: 80 m over 800 pixels is zoom 20.6 on the equator, a level less at 60 degrees
+		assertEquals(21, GoogleEarthWebUrls.mapZoom(0, 80, 800));
+		assertEquals(20, GoogleEarthWebUrls.mapZoom(60, 80, 800));
+		assertEquals(19, GoogleEarthWebUrls.mapZoom(0, 252.2, 800));
+		assertEquals(GoogleEarthWebUrls.MAX_MAP_ZOOM, GoogleEarthWebUrls.mapZoom(0, 0.001, 800));
+		assertEquals(0, GoogleEarthWebUrls.mapZoom(0, 1e9, 800));
+	}
+
+	@Test
+	public void waybackOpensAtTheZoomOfThePlotView() {
+		assertEquals("https://livingatlas.arcgis.com/wayback/#mapCenter=-16.32%2C15.97%2C21&mode=explore",
+				BrowserService.esriWaybackUrl("15.97", "-16.32", 80));
 	}
 
 	/** A square plot {@code sideMeters} across, centred on the point */

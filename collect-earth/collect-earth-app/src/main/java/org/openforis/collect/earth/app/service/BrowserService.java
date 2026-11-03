@@ -293,8 +293,29 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		data.put("latitude", placemarkObject.getCoord().getLatitude());
 		data.put("longitude", placemarkObject.getCoord().getLongitude());
 		// The scale of Google Earth Web's view of the plot: the same ground from the top to the bottom of the map
-		data.put("viewHeightMeters", String.format(Locale.ENGLISH, "%.1f", GoogleEarthWebUrls.plotViewHeightMeters()));
+		data.put("viewHeightMeters", String.format(Locale.ENGLISH, "%.1f", plotViewHeightMeters(placemarkObject)));
 		return processJavascriptTemplate(data, TEMPLATE_FOR_ESRI_WAYBACK_JS);
+	}
+
+	/**
+	 * The height of ground Google Earth Web shows the plot in (see {@link GoogleEarthWebUrls#plotViewHeightMeters}), from
+	 * its outline and the share of the view set; for the other sources to show the same ground.
+	 */
+	double plotViewHeightMeters(SimplePlacemarkObject placemarkObject) {
+		return GoogleEarthWebUrls.plotViewHeightMeters(placemarkObject,
+				localPropertiesService.getValue(EarthProperty.GEW_PLOT_VIEW_SHARE));
+	}
+
+	/**
+	 * The address of the plot in ESRI Wayback: centred on it, at the zoom that shows about the ground of Google Earth
+	 * Web's view of it (the script drawing the plot then zooms to it exactly, for the size of the map).
+	 */
+	static String esriWaybackUrl(String latitude, String longitude, double viewHeightMeters) {
+		int zoom = GoogleEarthWebUrls.mapZoom(Double.parseDouble(latitude), viewHeightMeters,
+				GoogleEarthWebUrls.DEFAULT_MAP_HEIGHT_PIXELS);
+		// URL format: https://livingatlas.arcgis.com/wayback/#mapCenter=LONGITUDE%2CLATITUDE%2C16&mode=explore
+		return "https://livingatlas.arcgis.com/wayback/#mapCenter="
+				+ URLEncoder.encode(longitude + "," + latitude + "," + zoom, StandardCharsets.UTF_8) + "&mode=explore";
 	}
 
 	String processJavascriptTemplate(final Map<String, Object> data, String templateName) {
@@ -1363,12 +1384,8 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	public void openEsriWayback(SimplePlacemarkObject placemarkObject, long selection) {
 		if (localPropertiesService.isEsriWaybackSupported()) {
 			try {
-				String longitude = placemarkObject.getCoord().getLongitude();
-				String latitude = placemarkObject.getCoord().getLatitude();
-				// URL format: https://livingatlas.arcgis.com/wayback/#mapCenter=LONGITUDE%2CLATITUDE%2C16&mode=explore
-				String url = "https://livingatlas.arcgis.com/wayback/#mapCenter=" +
-						URLEncoder.encode(longitude + "," + latitude + ",18", StandardCharsets.UTF_8.toString()) +
-						"&mode=explore";
+				String url = esriWaybackUrl(placemarkObject.getCoord().getLatitude(),
+						placemarkObject.getCoord().getLongitude(), plotViewHeightMeters(placemarkObject));
 				loadInTab(ImagerySource.ESRI_WAYBACK, selection, url, tab -> loadPlotInEsriWayback(placemarkObject, tab));
 			} catch (final Exception e) {
 				logger.error("Problems loading ESRI Wayback", e);

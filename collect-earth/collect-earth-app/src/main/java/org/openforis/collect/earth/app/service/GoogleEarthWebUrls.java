@@ -10,6 +10,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
+import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Google Earth Web keeps its camera in the page URL:
@@ -20,10 +23,7 @@ public final class GoogleEarthWebUrls {
 
 	public static final String BASE = "https://earth.google.com/web";
 
-	/**
-	 * Camera distance (metres) for a plot whose size is not known, and the one the other imagery sources take the scale of
-	 * (see {@link #plotViewHeightMeters()}). A plot of known size gets {@link #plotDistance(double, double)}.
-	 */
+	/** Camera distance (metres) for a plot whose size is not known. A plot of known size gets {@link #plotDistance(double, double)}. */
 	public static final int PLOT_DISTANCE = 400;
 	/**
 	 * Share of the view height the plot fills: 400 m showed a plot of 30 m on 12% of it (80 to 155 pixels), too small to
@@ -53,16 +53,69 @@ public final class GoogleEarthWebUrls {
 	 */
 	private static final String DEFAULT_FOV = "35";
 
+	/** Web Mercator's metres per pixel at zoom 0 on the equator (256-pixel tiles). */
+	private static final double MERCATOR_METRES_PER_PIXEL = 156543.03392804097;
+	/** The height (pixels) of a map whose window is not known yet. */
+	static final double DEFAULT_MAP_HEIGHT_PIXELS = 800;
+	static final int MAX_MAP_ZOOM = 23;
+
+	private static final Logger logger = LoggerFactory.getLogger(GoogleEarthWebUrls.class);
+
 	private GoogleEarthWebUrls() {
 	}
 
 	/**
-	 * The height of ground (metres) a plot's camera shows from the top to the bottom of the window: the camera is
-	 * {@link #PLOT_DISTANCE} above the ground, with a vertical field of view of {@link #DEFAULT_FOV}. The other sources
-	 * show the plot at this scale too (ESRI Wayback).
+	 * The height of ground (metres) a top-down camera {@code distance} metres above it shows from the top to the bottom
+	 * of the window, with a vertical field of view of {@link #DEFAULT_FOV}.
 	 */
-	public static double plotViewHeightMeters() {
-		return 2 * PLOT_DISTANCE * Math.tan(Math.toRadians(Double.parseDouble(DEFAULT_FOV)) / 2);
+	public static double viewHeightMeters(double distance) {
+		return 2 * distance * Math.tan(Math.toRadians(Double.parseDouble(DEFAULT_FOV)) / 2);
+	}
+
+	/**
+	 * The share of the view a plot fills, as set in earth.properties ({@code gew_plot_view_share}): {@link #PLOT_VIEW_SHARE}
+	 * when it is not set or not a number.
+	 */
+	public static double plotViewShare(String setShare) {
+		if (setShare == null || setShare.trim().isEmpty()) {
+			return PLOT_VIEW_SHARE;
+		}
+		try {
+			return Double.parseDouble(setShare.trim());
+		} catch (NumberFormatException e) {
+			logger.warn("Google Earth Web: {} is not a share of the view for gew_plot_view_share", setShare);
+			return PLOT_VIEW_SHARE;
+		}
+	}
+
+	/**
+	 * The camera distance of the plot in Google Earth Web: see {@link #plotDistance(double, double)}, from its outline
+	 * (which the KML generator fills before the plot is shown) and the share set ({@link #plotViewShare}).
+	 */
+	public static int plotDistance(SimplePlacemarkObject plot, String setShare) {
+		return plotDistance(extentMeters(plot.getMultiShape()), plotViewShare(setShare));
+	}
+
+	/**
+	 * The height of ground (metres) Google Earth Web shows the plot in, from the top to the bottom of its window: the
+	 * other sources show the plot at this scale too (ESRI Wayback), so that they show the same ground.
+	 */
+	public static double plotViewHeightMeters(SimplePlacemarkObject plot, String setShare) {
+		return viewHeightMeters(plotDistance(plot, setShare));
+	}
+
+	/**
+	 * The Web Mercator zoom level that shows {@code viewHeightMeters} of ground over {@code mapHeightPixels} at the
+	 * latitude: {@link #MERCATOR_METRES_PER_PIXEL} at zoom 0 on the equator, cos(latitude) times that on the ground
+	 * elsewhere, half as many at each level. Rounded to a whole level, within 0 and {@link #MAX_MAP_ZOOM}.
+	 */
+	public static int mapZoom(double latitude, double viewHeightMeters, double mapHeightPixels) {
+		double zoom = Math.log(MERCATOR_METRES_PER_PIXEL * Math.cos(Math.toRadians(latitude)) * mapHeightPixels
+				/ viewHeightMeters) / Math.log(2);
+		if (Double.isNaN(zoom)) {
+			return MAX_MAP_ZOOM;
+		}
+		return (int) Math.max(0, Math.min(MAX_MAP_ZOOM, Math.round(zoom)));
 	}
 
 	/**

@@ -1207,16 +1207,8 @@ public class GoogleEarthWebService {
 	 * fill before showing it. The share can be set in earth.properties ({@code gew_plot_view_share}).
 	 */
 	int plotDistance(SimplePlacemarkObject plot) {
-		double share = GoogleEarthWebUrls.PLOT_VIEW_SHARE;
-		String setShare = localPropertiesService == null ? null : localPropertiesService.getValue(EarthProperty.GEW_PLOT_VIEW_SHARE);
-		if (setShare != null && !setShare.trim().isEmpty()) {
-			try {
-				share = Double.parseDouble(setShare.trim());
-			} catch (NumberFormatException e) {
-				logger.warn("Google Earth Web: {} is not a share of the view for gew_plot_view_share", setShare);
-			}
-		}
-		return GoogleEarthWebUrls.plotDistance(GoogleEarthWebUrls.extentMeters(plot.getMultiShape()), share);
+		return GoogleEarthWebUrls.plotDistance(plot,
+				localPropertiesService == null ? null : localPropertiesService.getValue(EarthProperty.GEW_PLOT_VIEW_SHARE));
 	}
 
 	/** The altitude a camera URL of the plot aims at: its elevation, or else the ground learnt nearby, or else 0. */
