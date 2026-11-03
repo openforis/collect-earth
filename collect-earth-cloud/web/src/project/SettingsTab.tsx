@@ -87,7 +87,7 @@ function RenameCard({ projectId, name, onRenamed }: { projectId: string; name: s
 /** The Progress tab's settings: an optional deadline and target, and when someone counts as quiet. */
 function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string; saved: ProgressSettings; onSaved: (s: ProgressSettings) => void }) {
   const t = useT();
-  // The local mode (one person): the target is the plots you plan to do, and nobody can go quiet.
+  // The local mode (one person): the target is the plots you plan to do, and nobody can go quiet (no quiet days).
   const local = useLocalMode();
   const [draft, setDraft] = useState<ProgressDraft>(() => progressDraftOf(saved));
   const [problems, setProblems] = useState<ProgressProblems>({});
@@ -140,14 +140,15 @@ function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string
         helperText={problems.targetPlots ? t(problems.targetPlots) : t(local ? "progressSettings.targetHelpLocal" : "progressSettings.targetHelp")}
         slotProps={{ htmlInput: { inputMode: "numeric" } }}
       />
-      <TextField
+      {/* Who has gone quiet is about a team: working alone, nothing uses it */}
+      {!local && <TextField
         label={t("progressSettings.quietDays")}
         value={draft.quietDays}
         onChange={(e) => change("quietDays")(e.target.value)}
         error={problems.quietDays !== undefined}
-        helperText={problems.quietDays ? t(problems.quietDays) : t(local ? "progressSettings.quietDaysHelpLocal" : "progressSettings.quietDaysHelp")}
+        helperText={problems.quietDays ? t(problems.quietDays) : t("progressSettings.quietDaysHelp")}
         slotProps={{ htmlInput: { inputMode: "numeric" } }}
-      />
+      />}
       {done && (
         <Alert severity="success" role="status">
           {t("progressSettings.saved")}
