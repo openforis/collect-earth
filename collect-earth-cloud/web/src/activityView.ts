@@ -186,6 +186,13 @@ export function weekMonday(week: string): string {
   return new Date(jan4 + (-weekday + (n - 1) * 7) * 86_400_000).toISOString().slice(0, 10);
 }
 
+/** An ISO week as a range of days in the language: "Oct 26 – Nov 1, 2026" (en), "26 oct – 1 nov 2026" (fr). */
+export function weekRangeText(week: string, language: string): string {
+  const start = new Date(`${weekMonday(week)}T00:00:00Z`);
+  const end = new Date(start.getTime() + 6 * 86_400_000);
+  return new Intl.DateTimeFormat(language, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).formatRange(start, end);
+}
+
 /** The week `n` weeks after (before, when negative) the one given. */
 export function shiftWeek(week: string, n: number): string {
   const monday = Date.parse(`${weekMonday(week)}T00:00:00Z`) + n * 7 * 86_400_000;

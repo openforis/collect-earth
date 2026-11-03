@@ -15,6 +15,7 @@ import { FormCard } from "../components/FormCard";
 import { Loading } from "../components/Loading";
 import { isLanguage, LANGUAGE_NAMES, useT } from "../i18n";
 import { useLoad } from "../useLoad";
+import { weekRangeText } from "../activityView";
 
 /** The browser's time zone (the mails' days), or null when it cannot be had. */
 function browserTimeZone(): string | null {
@@ -48,6 +49,8 @@ export function MailCard() {
       setStatus(await action());
     } catch (err) {
       setError(err);
+      // A refusal may come after a change (an address saved, its mail not sent): show what is stored.
+      loaded.reload();
     } finally {
       setBusy(false);
     }
@@ -72,7 +75,8 @@ export function MailCard() {
 
   const toggle = (kind: DigestKind, on: boolean) =>
     run(async () => {
-      loaded.setData(await setNotifications({ [kind]: on, language, timeZone: browserTimeZone() }));
+      // No zone from the browser: none is sent, and the stored one stays.
+      loaded.setData(await setNotifications({ [kind]: on, language, timeZone: browserTimeZone() ?? undefined }));
       return t("mail.changed");
     });
 
@@ -80,7 +84,7 @@ export function MailCard() {
     { kind: "coordinator", label: t("mail.coordinator"), help: t("mail.coordinatorHelp") },
     { kind: "collector", label: t("mail.collector"), help: t("mail.collectorHelp") },
   ];
-  const shown = kinds.filter((k) => n.roles[k.kind] || n.digests[k.kind].on);
+  const shown = kinds.filter((k) => n.roles[k.kind] || n.digests[k.kind].on || n.digests[k.kind].stopped);
   const anyOn = n.digests.coordinator.on || n.digests.collector.on;
   const writtenIn = n.language && isLanguage(n.language) ? LANGUAGE_NAMES[n.language] : LANGUAGE_NAMES.en;
 
@@ -96,7 +100,8 @@ export function MailCard() {
         helperText={t("mail.emailHelp")}
         slotProps={{ htmlInput: { maxLength: 254 } }}
       />
-      {n.email !== null && address === null && (
+      {n.email !== null && address === null && !n.emailValid && <Alert severity="warning">{t("mail.invalidStored")}</Alert>}
+      {n.email !== null && address === null && n.emailValid && (
         <Alert severity={n.emailConfirmed ? "success" : "warning"}>
           {n.emailConfirmed ? t("mail.confirmed") : t("mail.notConfirmed", { email: n.email })}
         </Alert>
@@ -105,7 +110,7 @@ export function MailCard() {
         <Button type="submit" variant="contained" disabled={busy || typed.trim() === (n.email ?? "")}>
           {t("mail.save")}
         </Button>
-        {n.email !== null && !n.emailConfirmed && (
+        {n.email !== null && n.emailValid && !n.emailConfirmed && (
           <Button onClick={() => void resend()} disabled={busy}>
             {t("mail.resend")}
           </Button>
@@ -129,7 +134,7 @@ export function MailCard() {
                 control={
                   <Switch
                     checked={n.digests[kind].on}
-                    disabled={busy || (n.email === null && !n.digests[kind].on)}
+                    disabled={busy || ((n.email === null || !n.emailValid) && !n.digests[kind].on)}
                     onChange={(e) => void toggle(kind, e.target.checked)}
                     slotProps={{ input: { "aria-describedby": `mail-${kind}-help` } }}
                   />
@@ -138,8 +143,14 @@ export function MailCard() {
               />
               <FormHelperText id={`mail-${kind}-help`} sx={{ ml: 0 }}>
                 {n.email === null ? t("mail.needEmail") : help}
-                {n.digests[kind].lastSentWeek && ` ${t("mail.lastSent", { week: n.digests[kind].lastSentWeek ?? "" })}`}
+                {/* Only a week a mail actually went for (a week with nothing to tell is not one). */}
+                {n.digests[kind].lastMailedWeek && ` ${t("mail.lastSent", { range: weekRangeText(n.digests[kind].lastMailedWeek ?? "", language) })}`}
               </FormHelperText>
+              {n.digests[kind].stopped && (
+                <Alert severity="warning" sx={{ mt: 1 }}>
+                  {t("mail.stopped")}
+                </Alert>
+              )}
             </Box>
           ))}
         </Stack>
@@ -149,11 +160,10 @@ export function MailCard() {
           {t("mail.written", { language: writtenIn, zone: n.timeZone ?? "UTC" })} {t("mail.stopAny")}
         </Typography>
       )}
-      {status && (
-        <Alert severity="success" role="status">
-          {status}
-        </Alert>
-      )}
+      {/* Mounted from the start, so screen readers announce what is put in it. */}
+      <Box role="status" aria-live="polite">
+        {status && <Alert severity="success">{status}</Alert>}
+      </Box>
       <ErrorAlert error={error} />
     </FormCard>
   );

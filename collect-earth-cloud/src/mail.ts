@@ -7,6 +7,7 @@
 //   relay). Certificates are always checked. Options in the URL (?ignoreTLS=…, ?tls.…) are refused,
 //   so nothing in the environment can turn the checks off.
 // - `test`: keeps the messages in memory for the tests. No test sends real mail.
+import { isIP } from 'node:net';
 import { createTransport } from 'nodemailer';
 
 export interface MailMessage {
@@ -59,17 +60,37 @@ export class LogMailer implements Mailer {
   }
 }
 
-/** For tests: keeps every message; `fail` makes a send throw (a mail server refusing). */
+/** For tests: keeps every message; `fail` makes a send throw (a mail server refusing), with `failWith`'s fields. */
 export class TestMailer implements Mailer {
   readonly transport = 'test' as const;
   readonly delivers = true;
   readonly sent: MailMessage[] = [];
   fail: ((message: MailMessage) => boolean) | null = null;
+  failWith: { code?: string; responseCode?: number; command?: string } = {};
 
   async send(message: MailMessage): Promise<void> {
-    if (this.fail?.(message)) throw new Error('the test mail server refused the message');
+    if (this.fail?.(message)) throw Object.assign(new Error(`the test mail server refused ${message.to}`), this.failWith);
     this.sent.push(message);
   }
+}
+
+/**
+ * What the log may say of a failed send: nodemailer's error code, the SMTP reply code and the
+ * command. Never the message or the server's response, which may hold addresses.
+ */
+export function errorSummary(err: unknown): { code: string | null; responseCode: number | null; command: string | null } {
+  const e = (err ?? {}) as { code?: unknown; responseCode?: unknown; command?: unknown };
+  return {
+    code: typeof e.code === 'string' ? e.code.slice(0, 40) : null,
+    responseCode: typeof e.responseCode === 'number' ? e.responseCode : null,
+    command: typeof e.command === 'string' ? e.command.slice(0, 40) : null,
+  };
+}
+
+/** A refusal for good (an SMTP 5xx reply: no such mailbox, refused): trying again the same week does not help. */
+export function isPermanentFailure(err: unknown): boolean {
+  const code = errorSummary(err).responseCode;
+  return code !== null && code >= 500 && code < 600;
 }
 
 export interface SmtpSettings {
@@ -121,12 +142,43 @@ export function parseSmtpUrl(raw: string): SmtpSettings {
   };
 }
 
-/** A From address: `name@domain` or `Name <name@domain>`, one line. */
+/**
+ * A From address: `name@domain` or `Name <name@domain>`, one line, one address. A display name with
+ * a comma or semicolon must be quoted (`"FAO, Forestry" <…>`): unquoted, it would read as two addresses.
+ */
 export function isMailFrom(value: string): boolean {
   // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f\u007f]/.test(value)) return false;
-  const angle = /^[^<>]*<([^<>\s]+@[^<>\s]+\.[^<>\s]+)>$/.exec(value.trim());
-  return angle !== null || /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(value.trim());
+  const text = value.trim();
+  const angle = /^([^<>]*)<([^<>\s,;]+@[^<>\s,;]+\.[^<>\s,;]+)>$/.exec(text);
+  if (angle) {
+    const name = angle[1].trim();
+    if (name.startsWith('"')) return /^"[^"\\]*"$/.test(name);
+    return !/[,;"]/.test(name);
+  }
+  return /^[^\s@<>,;"]+@[^\s@<>,;"]+\.[^\s@<>,;"]+$/.test(text);
+}
+
+/** nodemailer's options for the settings: TLS required, certificates checked; the TLS name (SNI) only for a host name. */
+export function transportOptions(settings: SmtpSettings) {
+  return {
+    host: settings.host,
+    port: settings.port,
+    secure: settings.secure,
+    requireTLS: settings.requireTLS,
+    ...(settings.auth ? { auth: settings.auth } : {}),
+    tls: { rejectUnauthorized: true, minVersion: 'TLSv1.2' as const, ...(isIP(settings.host) === 0 ? { servername: settings.host } : {}) } as {
+      rejectUnauthorized: true;
+      minVersion: 'TLSv1.2';
+      servername?: string;
+    },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 30_000,
+    // Never written to the log by nodemailer (its own logger is off by default).
+    logger: false,
+    debug: false,
+  };
 }
 
 /** SMTP through nodemailer, over TLS only, certificates checked. */
@@ -139,20 +191,7 @@ export class SmtpMailer implements Mailer {
     settings: SmtpSettings,
     private readonly from: string,
   ) {
-    this.transporter = createTransport({
-      host: settings.host,
-      port: settings.port,
-      secure: settings.secure,
-      requireTLS: settings.requireTLS,
-      ...(settings.auth ? { auth: settings.auth } : {}),
-      tls: { rejectUnauthorized: true, minVersion: 'TLSv1.2', servername: settings.host },
-      connectionTimeout: 10_000,
-      greetingTimeout: 10_000,
-      socketTimeout: 30_000,
-      // Never written to the log by nodemailer (its own logger is off by default).
-      logger: false,
-      debug: false,
-    });
+    this.transporter = createTransport(transportOptions(settings));
   }
 
   async send(message: MailMessage): Promise<void> {

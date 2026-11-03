@@ -166,10 +166,13 @@ export interface Store {
   confirmEmail(userId: string, email: string, at: number): Promise<boolean>;
   /** The language and time zone the mails are written in. */
   setMailPreferences(userId: string, prefs: { language: MailLanguage | null; timeZone: string | null }): Promise<void>;
-  /** Turns a digest on (kept as it was when already on) or off; off returns whether one was on. */
-  setDigest(userId: string, kind: DigestKind, on: boolean): Promise<boolean>;
   /**
-   * The subscriptions not yet marked sent for `week` or later (last_sent_week null or before it),
+   * Turns a digest on (created `at`; one already on is kept as it was, one stopped after failures starts
+   * again) or off; off returns whether one was on.
+   */
+  setDigest(userId: string, kind: DigestKind, on: boolean, at: number): Promise<boolean>;
+  /**
+   * The subscriptions not stopped and not yet marked sent for `week` or later (last_sent_week null or before it),
    * in (user id, kind) order after `after`, at most `limit`, with what the job needs of each account.
    */
   listDueDigests(q: { before: string; after: { userId: string; kind: DigestKind } | null; limit: number }): Promise<DueDigest[]>;
@@ -178,8 +181,15 @@ export interface Store {
    * so two runs at once never both send it). False when someone else did, or the subscription is gone.
    */
   claimDigest(userId: string, kind: DigestKind, week: string, previous: string | null): Promise<boolean>;
-  /** When the claimed week's mail went out (last_sent_at). */
-  markDigestSent(userId: string, kind: DigestKind, at: number): Promise<void>;
+  /** The claimed week's mail went out: last_mailed_week, last_sent_at, and the failures start again. */
+  markDigestSent(userId: string, kind: DigestKind, week: string, at: number): Promise<void>;
+  /** A refusal for good: counted; at `max` in a row the subscription stops (`at`). Returns whether it stopped. */
+  noteDigestFailure(userId: string, kind: DigestKind, at: number, max: number): Promise<boolean>;
+  /**
+   * Counts a confirmation mail for the account when fewer than `perHour` went in the hour before `at`
+   * and fewer than `perDay` in the day before (checked and counted at once); false otherwise.
+   */
+  reserveConfirmationSend(userId: string, at: number, limits: { perHour: number; perDay: number }): Promise<boolean>;
   /** Puts back `previous` after a mail could not be sent (only if the week is still `week`), so the next run tries again. */
   releaseDigest(userId: string, kind: DigestKind, week: string, previous: string | null): Promise<void>;
 

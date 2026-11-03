@@ -21,7 +21,8 @@ managed Postgres (Option B).
 | `MIGRATION_DATABASE_URL` | advised with postgres | `postgres://ce:pw@host:5432/collect_earth_cloud` | The tables' owner, used only to apply the migrations (on boot or `npm run migrate`). When set, the migrations also create the role `DATABASE_URL` names if missing and grant it the tables, so Row-Level Security binds the server. Unset: one role does both, and RLS does not bind it |
 | `SETUP_CODE` | advised | `K7QX-M3TB-WN` | Asked for once by the dashboard's first-run setup, which creates the platform admin. If unset, a random code is generated at boot and printed in the log (`Setup code: XXXX-XXXX-XX …`) while no platform admin exists. Set it when running more than one instance: each would otherwise generate its own. Case, spaces and hyphens are ignored when it is typed |
 | `ADMIN_API_KEY` | optional | `<random 32+ chars>` | Lets scripts provision projects with `x-admin-key` (returns the Phase-0 project tokens). Dashboard users create projects with their session instead. Without it, anonymous provisioning works **only** with `STORE_BACKEND=memory`; on Postgres it is refused (401) |
-| `PUBLIC_BASE_URL` | advised with a custom domain | `https://ce-cloud.example.org` | Base of the `/join/<token>` and `/reset/<token>` links. If unset: `RENDER_EXTERNAL_URL`, else the request's `x-forwarded-proto` + host (correct on Cloud Run's own `*.run.app` address) |
+| `PUBLIC_BASE_URL` | advised with a custom domain; **required with `SMTP_URL`** | `https://ce-cloud.example.org` | Base of the `/join/<token>` and `/reset/<token>` links and of every link in an email. If unset: `RENDER_EXTERNAL_URL`, else (screens only, never emails) the request's `x-forwarded-proto` + `Host` (correct on Cloud Run's own `*.run.app` address; see below) |
+| `TRUST_FORWARDED_HOST` | no | `true` | Use `X-Forwarded-Host` instead of `Host` for links derived from a request. Only behind a proxy that sets it itself; a client can write it (see below). Default off |
 | `RENDER_EXTERNAL_URL` | no | `https://ce-cloud.onrender.com` | Honoured only as an environment fallback for the link base when `PUBLIC_BASE_URL` is unset (some hosts set it automatically) |
 | `RATE_LIMIT_PER_MINUTE` | no | `60` | Requests per minute per client IP on login, register, signup, setup and reset (429 `rate_limited` above it). Kept generous because a training room joins from one office IP; failed logins are also limited to 10 per minute per account. `0` disables both. Per instance, in memory |
 | `TRUST_PROXY_HOPS` | no | `1` | Proxies in front of the server that add to `x-forwarded-for` (see below) |
@@ -37,10 +38,11 @@ managed Postgres (Option B).
 | `MAP_TILE_ATTRIBUTION` | with `MAP_TILE_URL` | `© OpenStreetMap contributors` | The text the tile source asks to show on the map (plain text, at most 300 characters) |
 | `MAP_TILE_ATTRIBUTION_URL` | no | `https://www.openstreetmap.org/copyright` | Where that text links to (https) |
 | `MAP_TILE_MAX_ZOOM` | no | `19` | The tile source's deepest zoom (1-22) |
-| `LINK_SECRET` | advised with email | `<random 32+ chars>` | Signs the Collect Earth backup's one-minute download links and the weekly emails' unsubscribe and confirmation links. Without it the key is worked out from `DATABASE_URL` (the same on every instance), so changing the database password would break the unsubscribe links of mails already sent; with the memory store, a random key per process |
+| `LINK_SECRET` | **required with `SMTP_URL`** (32+ characters) | `<random 32+ chars>` | Signs the Collect Earth backup's one-minute download links (without it: a key worked out from `DATABASE_URL`, the same on every instance; with the memory store, a random key per process) and the weekly emails' unsubscribe and confirmation links, which never use the `DATABASE_URL` key (a database password change would break links in mails already sent): the server does not start with `SMTP_URL` and no `LINK_SECRET` |
 | `SMTP_URL` | no | `smtps://user:password@smtp.example.org:465` | The mail server for the weekly emails (see "Weekly emails (optional)"). `smtps://` (TLS) or `smtp://…:587` (STARTTLS, required); plain `smtp://` only to `localhost`. Unset: no email is sent, the log gets a line per mail instead. A secret (it holds the password) |
 | `MAIL_FROM` | with `SMTP_URL` | `Collect Earth Cloud <noreply@example.org>` | The address the emails come from; its domain must allow the mail server to send for it (SPF, DKIM) |
-| `DIGEST_SECRET` | no | `<random 32+ chars>` | What the weekly job sends in `x-digest-secret` to `POST /v1/internal/digest`. Unset: that endpoint is off (404). A secret |
+| `DIGEST_SECRET` | no | `<random 32+ chars>` | What the weekly job may send in `x-digest-secret` to `POST /v1/internal/digest`. A secret |
+| `DIGEST_OIDC_AUDIENCE`, `DIGEST_OIDC_EMAIL` | no (together) | `https://ce-cloud.example.org/v1/internal/digest`, `ce-scheduler@<PROJECT>.iam.gserviceaccount.com` | The better way for the weekly job: Cloud Scheduler's OIDC token (`Authorization: Bearer`), accepted when Google signed it for this audience and this service account. With neither this nor `DIGEST_SECRET` the endpoint is off (404) |
 | `AI_FAKE` | never in production | `1` | Development only: a scripted stand-in for the model, so the AI panel can be tried without Vertex. Refused unless `STORE_BACKEND=memory`, and refused on Cloud Run (`K_SERVICE`) or with `NODE_ENV=production` |
 
 Generate a good admin key: `openssl rand -base64 32`.
@@ -51,6 +53,20 @@ client IP used for rate limiting is the entry that many places from the right of
 `x-forwarded-for`, so an address a client writes itself does not count. Behind two
 proxies (e.g. a load balancer in front of Caddy) set it to `2`. Do not expose the
 container port directly to the internet without one.
+
+**The host in derived links (no `PUBLIC_BASE_URL`).** Join and reset links shown to
+coordinators and administrators are built from the request when no base address is
+set: its protocol (`x-forwarded-proto`, from the trusted proxies) and its **`Host`**.
+`X-Forwarded-Host` is **not** used unless `TRUST_FORWARDED_HOST=true`: Cloud Run's front
+end sets `X-Forwarded-For` and `X-Forwarded-Proto` but not `X-Forwarded-Host`, so one a
+client writes itself reaches the server unchanged and could point a link elsewhere
+(from Google's documented request headers; not checked against a live service). The
+`Host` is what Cloud Run routed the request by (the `*.run.app` address or a mapped
+domain), and Caddy passes it on as received, so the documented `*.run.app` default keeps
+working. Set `TRUST_FORWARDED_HOST=true` only behind a proxy that sets that header
+itself (overwriting what the client sent) and does not pass the original `Host`. The
+weekly emails never use any of this: their links come from `PUBLIC_BASE_URL` (or
+`RENDER_EXTERNAL_URL`) only, and a server with `SMTP_URL` does not start without it.
 
 ### First run
 
@@ -543,10 +559,15 @@ link (`List-Unsubscribe` and `List-Unsubscribe-Post`, RFC 8058) that works witho
 logging in.
 
 **The address is confirmed first.** A person gives their account an email on the
-account page; the server sends a link to it (valid 3 days) and sends nothing else to
-it until that link is opened. An address an administrator typed when making an
-account is not confirmed either. Changing the address needs a new confirmation;
-removing it turns the emails off.
+account page (or at sign-up); the server sends a link to it (valid 3 days) and sends no
+other email to it until that link is opened. The address must be one address (no
+spaces, commas or semicolons; at most 254 characters), checked at sign-up, on the
+account page and again before every mail; an address stored before this rule that is
+not one is never written to, and the account page asks to type it again. The
+confirmation mail names no account (the address may be someone else's). **At most 3
+confirmation mails an hour and 6 a day per account** (stored, so changing the address
+does not start them again), and at most 100 an hour per instance whoever asks.
+Changing the address needs a new confirmation; removing it turns the emails off.
 
 **Without `SMTP_URL` no email is sent.** The log transport writes one line per mail
 (`mail not sent: no SMTP_URL is set`, with the kind of mail, the recipient's domain and
@@ -563,63 +584,90 @@ provider's details):
    the sender domain's job:** publish the SPF record and DKIM key the provider gives
    you, and a DMARC policy, for the domain of `MAIL_FROM`, or the mails go to spam.
    Use an address nobody needs to answer (`noreply@…`); the mails say how to stop
-   them.
-2. **The secrets** in Secret Manager, given to the service:
+   them. A display name with a comma or semicolon must be in double quotes
+   (`"FAO, Forestry" <noreply@…>`).
+2. **The secrets** in Secret Manager, given to the service. `LINK_SECRET` (32+
+   characters) and `PUBLIC_BASE_URL` are required with `SMTP_URL`: the mails' links are
+   signed with `LINK_SECRET` only and start with `PUBLIC_BASE_URL` only, never with
+   anything a request carries:
    ```bash
    printf '%s' 'smtps://<user>:<password>@<smtp-host>:465' | gcloud secrets create ce-smtp-url \
      --replication-policy=automatic --data-file=- --project=<PROJECT>
-   openssl rand -base64 32 | tr -d '\n' | gcloud secrets create ce-digest-secret \
-     --replication-policy=automatic --data-file=- --project=<PROJECT>
    openssl rand -base64 32 | tr -d '\n' | gcloud secrets create ce-link-secret \
      --replication-policy=automatic --data-file=- --project=<PROJECT>
-   for s in ce-smtp-url ce-digest-secret ce-link-secret; do
+   for s in ce-smtp-url ce-link-secret; do
      gcloud secrets add-iam-policy-binding $s --project=<PROJECT> \
        --member=serviceAccount:ce-cloud-run@<PROJECT>.iam.gserviceaccount.com \
        --role=roles/secretmanager.secretAccessor --condition=None
    done
    gcloud run services update collect-earth-cloud --region=<REGION> --project=<PROJECT> \
-     --update-secrets=SMTP_URL=ce-smtp-url:latest,DIGEST_SECRET=ce-digest-secret:latest,LINK_SECRET=ce-link-secret:latest \
+     --update-secrets=SMTP_URL=ce-smtp-url:latest,LINK_SECRET=ce-link-secret:latest \
      --update-env-vars='MAIL_FROM=Collect Earth Cloud <noreply@example.org>,PUBLIC_BASE_URL=https://<your address>'
    ```
    A percent sign, `@` or `:` in the user or password is written percent-encoded
    (`%25`, `%40`, `%3A`). The URL takes no options (`?…` is refused): TLS is always
    required (STARTTLS for `smtp://` to another machine) and certificates are always
-   checked. The server refuses to start when `SMTP_URL` is set without `MAIL_FROM`,
-   or when either is malformed. `PUBLIC_BASE_URL` makes the mails' links point at
-   your address (otherwise the address Cloud Scheduler called, the `*.run.app` one).
+   checked (the TLS name is sent for a host name, not for an IP address). The server
+   refuses to start when `SMTP_URL` is set without `MAIL_FROM`, `PUBLIC_BASE_URL` (or
+   `RENDER_EXTERNAL_URL`) or `LINK_SECRET`, or when one is malformed.
 3. **The weekly job: Cloud Scheduler calls the endpoint.** This is documented, not
-   created by `deploy.sh` (Cloud Scheduler is billed per job beyond the free ones):
+   created by `deploy.sh` (Cloud Scheduler is billed per job beyond the free ones).
+   **The better way is Cloud Scheduler's OIDC token**: no shared secret is stored in
+   the job, Google signs a short-lived token for a service account, and the server
+   checks Google's signature, the audience and the account:
    ```bash
    gcloud services enable cloudscheduler.googleapis.com --project=<PROJECT>
+   gcloud iam service-accounts create ce-scheduler --project=<PROJECT> \
+     --display-name='Collect Earth Cloud weekly emails'
+   gcloud run services update collect-earth-cloud --region=<REGION> --project=<PROJECT> \
+     --update-env-vars='DIGEST_OIDC_AUDIENCE=https://<your address>/v1/internal/digest,DIGEST_OIDC_EMAIL=ce-scheduler@<PROJECT>.iam.gserviceaccount.com'
    gcloud scheduler jobs create http ce-weekly-digest --project=<PROJECT> --location=<REGION> \
      --schedule='0 6-14 * * 1' --time-zone=Etc/UTC \
      --uri='https://<your address>/v1/internal/digest' --http-method=POST \
-     --headers='x-digest-secret=<the DIGEST_SECRET value>,content-type=application/json' \
-     --message-body='{}' --attempt-deadline=900s
+     --oidc-service-account-email=ce-scheduler@<PROJECT>.iam.gserviceaccount.com \
+     --oidc-token-audience='https://<your address>/v1/internal/digest' \
+     --headers='content-type=application/json' --message-body='{}' --attempt-deadline=900s
    ```
+   The audience must be exactly the same text in both places. (The service stays public,
+   `--allow-unauthenticated`, for the dashboard and Collect Earth; the server checks the
+   token itself, reading Google's public keys from `www.googleapis.com/oauth2/v3/certs`,
+   kept for the time Google says.) **Or, with a shared secret:** store one as
+   `DIGEST_SECRET` (`openssl rand -base64 32`, Secret Manager as above) and give the
+   job `--headers='x-digest-secret=<the value>,content-type=application/json'` instead
+   of the two `--oidc-…` flags; the job's definition then holds the secret, so whoever
+   can read the job can call the endpoint (which still sends each week's mails once).
+
    Every hour from 06:00 to 14:00 UTC on Mondays: each call sends what is due and
    stops after 60 seconds or 500 mails (`{"budgetMs": …, "maxMails": …}` in the body
    change that, at most 600,000 ms), answering `{ sent, empty, skipped, done, failed,
    more }`; the next call goes on from there. A person's week is the last whole ISO
    week in **their** time zone, so people west of UTC get theirs in a later call that
-   Monday. Calls are safe to repeat or retry: each person's week is marked done before
-   its mail goes, so no week is sent twice (also with two instances at once); a mail
-   the mail server refuses is put back for the next call. A second call on the same
-   instance while one runs gets 409. Note the scheduler keeps the secret in the job's
-   definition: whoever can read the job can call the endpoint (which only sends the
-   week's mails once).
-4. **Check it** once: `curl -X POST -H 'x-digest-secret: <secret>' https://<your address>/v1/internal/digest`
-   answers with the counts; the service's log has `digest: run ended`.
+   Monday; a week that ended before someone turned the email on is never sent. Calls are
+   safe to repeat or retry: each person's week is marked done before its mail goes, so
+   no week is sent twice (also with two instances at once); a mail that could not be
+   sent (the mail server unreachable, a 4xx reply) is put back for the next call; one
+   the mail server refuses for good (a 5xx reply: no such mailbox…) is not tried again
+   that week, and after **3 such weeks in a row** the email is turned off and the
+   account page says why (turning it on again starts afresh). A second call on the same
+   instance while one runs gets 409.
+4. **Check it** once: in the console, *Cloud Scheduler* → the job → *Force run*, then
+   the service's log has `digest: run ended` with the counts (with a shared secret,
+   `curl -X POST -H 'x-digest-secret: <secret>' https://<your address>/v1/internal/digest`
+   answers with them).
 
-**What is skipped:** accounts without an email, with one not confirmed, or disabled
-by the server owner; projects a person left (only their memberships now count); a
-week with nothing to tell (no project with plots or work) is marked done without a
-mail. A deleted account takes its subscriptions with it.
+**What is skipped:** accounts without an email, with one not confirmed or not one
+address, or disabled by the server owner; projects a person left (only their
+memberships now count); a week with nothing to tell (no project with plots or work)
+is marked done without a mail (the account page's "last sent" shows only weeks a mail
+went for). A deleted account takes its subscriptions with it.
 
 **Logs:** the unsubscribe and confirmation addresses (`/v1/unsubscribe/…`,
 `/unsubscribe/…`, `/confirm-email/…`) are written to the server's log with the token
 replaced by `<redacted>`; Cloud Run's request log keeps the full address, as for the
-other links (see "Operational notes").
+other links (see "Operational notes"). A failed send is logged with nodemailer's error
+code, the SMTP reply code and the command only, never the server's message (it may
+hold addresses). Unsubscribe links that work have a generous limit of their own (600
+a minute per address); anything else there counts in the shared per-address limit.
 
 ## Cloud Run billing: work done between requests
 

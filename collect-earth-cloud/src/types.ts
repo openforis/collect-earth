@@ -767,13 +767,32 @@ export interface AccountMail {
   /** The language and time zone the mails are written in (chosen on the Account page); null: English, UTC. */
   language: MailLanguage | null;
   timeZone: string | null;
-  digests: { kind: DigestKind; createdAt: number; lastSentWeek: string | null; lastSentAt: number | null }[];
+  digests: DigestState[];
 }
+
+/** One subscription as the account page shows it. */
+export interface DigestState {
+  kind: DigestKind;
+  createdAt: number;
+  /** The latest week done (mailed, or with nothing to tell). */
+  lastSentWeek: string | null;
+  /** The latest week a mail went for, and when. */
+  lastMailedWeek: string | null;
+  lastSentAt: number | null;
+  /** Refusals for good in a row; at MAX_DIGEST_FAILURES the subscription stopped (stoppedAt). */
+  failures: number;
+  stoppedAt: number | null;
+}
+
+/** Refusals for good (SMTP 5xx) in a row after which a subscription stops. */
+export const MAX_DIGEST_FAILURES = 3;
 
 /** A subscription the digest job looks at, with what it needs of the account. */
 export interface DueDigest {
   userId: string;
   kind: DigestKind;
+  /** When it was turned on: a week that ended before is never sent. */
+  createdAt: number;
   lastSentWeek: string | null;
   username: string;
   email: string | null;

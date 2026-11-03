@@ -13,7 +13,8 @@
 import type { FastifyBaseLogger } from 'fastify';
 import { addDays, isTimeZone, localDate } from './days.js';
 import { fill, longDate, number, oneLine, renderHtml, renderText, DIGEST_WORDS, type MailLine, type WordKey } from './digestText.js';
-import type { Mailer, MailMessage } from './mail.js';
+import { isEmailAddress } from './accountRules.js';
+import { errorSummary, isPermanentFailure, type Mailer, type MailMessage } from './mail.js';
 import { writeUnsubscribeToken } from './mailLinks.js';
 import { personDetail } from './people.js';
 import { PACE_DAYS, progressReport, type AttentionItem } from './progress.js';
@@ -23,11 +24,13 @@ import { weeklyOf } from './routes/activity.js';
 import { loadPeopleFor } from './routes/people.js';
 import { attentionReader } from './routes/progress.js';
 import type { Store } from './store/store.js';
-import type { DigestKind, DueDigest, MailLanguage, Membership } from './types.js';
+import { MAX_DIGEST_FAILURES, type DigestKind, type DueDigest, type MailLanguage, type Membership } from './types.js';
 import { weekMonday, weekOfDate } from './weekly.js';
 
 /** A mail names at most this many projects (sorted by name); the rest are counted. */
 export const MAX_DIGEST_PROJECTS = 20;
+/** A project's quiet people named in a mail; the rest are counted. */
+export const MAX_QUIET_NAMED = 20;
 /** Subscriptions read from the store at a time. */
 const PAGE = 50;
 /** Defaults of one run: what Cloud Run's request timeout leaves room for. */
@@ -139,7 +142,9 @@ export function coordinatorMail(ctx: DigestContext, projects: readonly Coordinat
     lines.push({ kind: 'value', label: w('plotsAll'), value: w('ofPlots', { done: n(p.byEnd), plots: n(p.plots) }) });
     if (p.differencesWaiting !== null) lines.push({ kind: 'value', label: w('waiting'), value: n(p.differencesWaiting) });
     if (p.quiet && p.quiet.people.length > 0) {
-      lines.push({ kind: 'list', label: w('quiet', { days: p.quiet.days }), items: p.quiet.people.map(oneLine) });
+      const named = p.quiet.people.slice(0, MAX_QUIET_NAMED).map(oneLine);
+      const others = p.quiet.people.length - named.length;
+      lines.push({ kind: 'list', label: w('quiet', { days: p.quiet.days }), items: others > 0 ? [...named, w('more', { n: n(others) })] : named });
     } else if (p.quiet) {
       lines.push({ kind: 'para', text: w('quietNone', { days: p.quiet.days }) });
     }
@@ -171,14 +176,16 @@ export function collectorMail(ctx: DigestContext, projects: readonly CollectorPr
 export interface ConfirmContext {
   serverName: string;
   language: MailLanguage;
-  username: string;
   confirmUrl: string;
 }
 
-/** The mail that confirms an address (sent when someone gives their account an email). */
+/**
+ * The mail that confirms an address (sent when someone gives their account an email). It names no
+ * account: the address may be someone else's.
+ */
 export function confirmMail(ctx: ConfirmContext, to: string): MailMessage {
   const w = wordsOf(ctx.language);
-  const params = { server: oneLine(ctx.serverName), name: oneLine(ctx.username) };
+  const params = { server: oneLine(ctx.serverName) };
   const lines: MailLine[] = [
     { kind: 'para', text: w('confirmIntro', params) },
     { kind: 'link', label: w('confirmAction'), url: ctx.confirmUrl },
@@ -244,8 +251,15 @@ export async function runDigests(deps: DigestDeps, options: { baseUrl: string; b
         result.done += 1;
         continue;
       }
-      if (row.disabled || row.email === null || !row.emailConfirmed) {
+      // Checked again before every mail: an address stored before the rule (one address) is left alone.
+      if (row.disabled || row.email === null || !row.emailConfirmed || !isEmailAddress(row.email)) {
         result.skipped += 1;
+        continue;
+      }
+      // A week that ended before the subscription was made is never sent: it is passed over.
+      if (weekOfDate(localDate(row.createdAt, timeZone)) > week) {
+        if (deps.mailer.delivers) await deps.store.claimDigest(row.userId, row.kind, week, row.lastSentWeek);
+        result.done += 1;
         continue;
       }
       handled += 1;
@@ -254,19 +268,42 @@ export async function runDigests(deps: DigestDeps, options: { baseUrl: string; b
         result.done += 1;
         continue;
       }
+      const release = () => (deps.mailer.delivers ? deps.store.releaseDigest(row.userId, row.kind, week, row.lastSentWeek) : Promise.resolve());
+      let mail: MailMessage | null;
       try {
-        const mail = await buildDigest(deps, attentionOf, row, { week, timeZone, serverName, baseUrl: options.baseUrl });
-        if (mail === null) {
-          result.empty += 1;
-          continue;
-        }
+        mail = await buildDigest(deps, attentionOf, row, { week, timeZone, serverName, baseUrl: options.baseUrl });
+      } catch (err) {
+        // Nothing was sent: the next run tries again.
+        result.failed += 1;
+        await release();
+        deps.log.warn({ err: { message: (err as Error).message }, userId: row.userId, kind: row.kind, week }, 'digest: the mail could not be written; the next run tries again');
+        continue;
+      }
+      if (mail === null) {
+        result.empty += 1;
+        continue;
+      }
+      try {
         await deps.mailer.send(mail);
-        if (deps.mailer.delivers) await deps.store.markDigestSent(row.userId, row.kind, deps.now());
-        result.sent += 1;
       } catch (err) {
         result.failed += 1;
-        if (deps.mailer.delivers) await deps.store.releaseDigest(row.userId, row.kind, week, row.lastSentWeek);
-        deps.log.warn({ err: { message: (err as Error).message }, userId: row.userId, kind: row.kind, week }, 'digest: the mail could not be sent; the next run tries again');
+        const summary = errorSummary(err);
+        if (deps.mailer.delivers && isPermanentFailure(err)) {
+          // Refused for good (no such mailbox…): the week is not tried again; after a few in a row, off.
+          const stopped = await deps.store.noteDigestFailure(row.userId, row.kind, deps.now(), MAX_DIGEST_FAILURES);
+          deps.log.warn({ err: summary, userId: row.userId, kind: row.kind, week, stopped }, 'digest: the mail server refused the address');
+        } else {
+          await release();
+          deps.log.warn({ err: summary, userId: row.userId, kind: row.kind, week }, 'digest: the mail could not be sent; the next run tries again');
+        }
+        continue;
+      }
+      result.sent += 1;
+      // Sent: a failure to note it is logged, never undone (the week stays claimed: no second mail).
+      if (deps.mailer.delivers) {
+        await deps.store.markDigestSent(row.userId, row.kind, week, deps.now()).catch((err: unknown) => {
+          deps.log.warn({ err: { message: (err as Error).message }, userId: row.userId, kind: row.kind, week }, 'digest: sent, but its time could not be stored');
+        });
       }
     }
     if (page.length < PAGE) break;

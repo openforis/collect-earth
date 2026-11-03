@@ -1,13 +1,23 @@
 // The links the mails carry (Task 19): one-click unsubscribing from a digest and confirming an email
-// address. Both are signed (HMAC-SHA256) with the key the backup links use (backupLink.linkSecret:
-// LINK_SECRET, else one worked out from DATABASE_URL), each with its own purpose in the signature, so
+// address. Both are signed (HMAC-SHA256) with mailSecret (LINK_SECRET only: never a key worked out
+// from DATABASE_URL), each with its own purpose in the signature, so
 // a token of one kind is never taken for another.
 // - Unsubscribe: tied to the account and the kind of digest; it does not expire (a mail read months
 //   later still works) and needs no login. Using it turns that digest off, nothing else.
 // - Confirm: tied to the account and the address (its sha256), valid CONFIRM_TTL_MS; an address
 //   changed since makes it do nothing.
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { DIGEST_KINDS, type DigestKind } from './types.js';
+
+/**
+ * The key the mails' links are signed with: LINK_SECRET only (required with SMTP_URL), never one worked
+ * out from DATABASE_URL, which changes with the database password and would break links already sent.
+ * Without it (no SMTP: nothing reaches anyone) a random key per process.
+ */
+export function mailSecret(config: { linkSecret?: string; databaseUrl?: string }): Buffer {
+  if (config.linkSecret) return createHash('sha256').update(`collect-earth-cloud:mail:${config.linkSecret}`).digest();
+  return randomBytes(32);
+}
 
 /** How long an email confirmation link works. */
 export const CONFIRM_TTL_MS = 3 * 86_400_000;

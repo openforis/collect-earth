@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config.js';
 import { collectorMail, confirmMail, coordinatorMail, dueWeek, previousWeek, type CollectorProject, type CoordinatorProject, type DigestContext } from '../src/digest.js';
 import { DIGEST_WORDS, escapeHtml, oneLine } from '../src/digestText.js';
-import { LogMailer, mailerFrom, parseSmtpUrl, SmtpMailer } from '../src/mail.js';
-import { readConfirmToken, readUnsubscribeToken, writeConfirmToken, writeUnsubscribeToken, CONFIRM_TTL_MS } from '../src/mailLinks.js';
+import { isEmailAddress } from '../src/accountRules.js';
+import { linkSecret } from '../src/backupLink.js';
+import { errorSummary, isMailFrom, isPermanentFailure, LogMailer, mailerFrom, parseSmtpUrl, SmtpMailer, transportOptions } from '../src/mail.js';
+import { mailSecret, readConfirmToken, readUnsubscribeToken, writeConfirmToken, writeUnsubscribeToken, CONFIRM_TTL_MS } from '../src/mailLinks.js';
 import { MAIL_LANGUAGES, type MailLanguage } from '../src/types.js';
 
 const SECRET = Buffer.alloc(32, 7);
@@ -35,11 +37,61 @@ describe('the mail transport (Task 19)', () => {
     expect(() => loadConfig({ SMTP_URL: 'smtp://u:p@smtp.example.org?ignoreTLS=true', MAIL_FROM: 'a@example.org' })).toThrow(/options/);
     expect(() => loadConfig({ MAIL_FROM: 'not an address' })).toThrow(/MAIL_FROM/);
     expect(() => loadConfig({ DIGEST_SECRET: 'short' })).toThrow(/DIGEST_SECRET/);
-    expect(loadConfig({ SMTP_URL: 'smtps://u:p@smtp.example.org', MAIL_FROM: 'Collect Earth Cloud <noreply@example.org>', DIGEST_SECRET: 'x'.repeat(32) })).toMatchObject({
+    const smtp = { SMTP_URL: 'smtps://u:p@smtp.example.org', MAIL_FROM: 'Collect Earth Cloud <noreply@example.org>', PUBLIC_BASE_URL: 'https://ce.example.org', LINK_SECRET: 'L'.repeat(32) };
+    expect(loadConfig({ ...smtp, DIGEST_SECRET: 'x'.repeat(32) })).toMatchObject({
       smtpUrl: 'smtps://u:p@smtp.example.org',
       mailFrom: 'Collect Earth Cloud <noreply@example.org>',
       digestSecret: 'x'.repeat(32),
     });
+    // The mails' links never come from a request: with SMTP the base address is required.
+    expect(() => loadConfig({ ...smtp, PUBLIC_BASE_URL: '' })).toThrow(/PUBLIC_BASE_URL/);
+    expect(loadConfig({ ...smtp, PUBLIC_BASE_URL: '', RENDER_EXTERNAL_URL: 'https://ce.onrender.com' }).smtpUrl).toBeDefined();
+    // And a key of their own: never one worked out from DATABASE_URL.
+    expect(() => loadConfig({ ...smtp, LINK_SECRET: '' })).toThrow(/LINK_SECRET/);
+    expect(() => loadConfig({ ...smtp, LINK_SECRET: 'short' })).toThrow(/LINK_SECRET/);
+    // Cloud Scheduler's OIDC token: both settings or neither.
+    expect(() => loadConfig({ DIGEST_OIDC_AUDIENCE: 'https://ce.example.org/v1/internal/digest' })).toThrow(/DIGEST_OIDC_EMAIL/);
+    expect(loadConfig({ DIGEST_OIDC_AUDIENCE: 'https://a/v1/internal/digest', DIGEST_OIDC_EMAIL: 'sched@p.iam.gserviceaccount.com' })).toMatchObject({
+      digestOidc: { audience: 'https://a/v1/internal/digest', email: 'sched@p.iam.gserviceaccount.com' },
+    });
+    // X-Forwarded-Host is not trusted unless asked.
+    expect(loadConfig({}).trustForwardedHost).toBe(false);
+    expect(loadConfig({ TRUST_FORWARDED_HOST: 'true' }).trustForwardedHost).toBe(true);
+  });
+
+  it('MAIL_FROM: a display name with an unquoted comma or semicolon is refused; TLS names only for host names', () => {
+    expect(isMailFrom('noreply@example.org')).toBe(true);
+    expect(isMailFrom('Collect Earth Cloud <noreply@example.org>')).toBe(true);
+    expect(isMailFrom('"FAO, Forestry" <noreply@example.org>')).toBe(true);
+    expect(isMailFrom('FAO, Forestry <noreply@example.org>')).toBe(false);
+    expect(isMailFrom('FAO; x <noreply@example.org>')).toBe(false);
+    expect(isMailFrom('a@example.org, b@example.org')).toBe(false);
+    expect(transportOptions(parseSmtpUrl('smtps://u:p@smtp.example.org')).tls).toMatchObject({ rejectUnauthorized: true, servername: 'smtp.example.org' });
+    expect(transportOptions(parseSmtpUrl('smtp://127.0.0.1:25')).tls.servername).toBeUndefined();
+    expect(transportOptions(parseSmtpUrl('smtp://[::1]:25')).tls.servername).toBeUndefined();
+  });
+
+  it("a send's error is logged by its code only (a mail server's message may hold addresses)", () => {
+    const err = Object.assign(new Error('550 5.1.1 <maria@example.org>: Recipient address rejected'), { code: 'EENVELOPE', responseCode: 550, command: 'RCPT TO', response: '550 <maria@example.org>' });
+    expect(errorSummary(err)).toEqual({ code: 'EENVELOPE', responseCode: 550, command: 'RCPT TO' });
+    expect(JSON.stringify(errorSummary(err))).not.toContain('maria');
+    expect(errorSummary(new Error('x'))).toEqual({ code: null, responseCode: null, command: null });
+    expect(isPermanentFailure(err)).toBe(true);
+    expect(isPermanentFailure(Object.assign(new Error('x'), { responseCode: 451 }))).toBe(false);
+    expect(isPermanentFailure(new Error('timeout'))).toBe(false);
+  });
+
+  it('one address only, at most 254 characters', () => {
+    expect(isEmailAddress('maria@example.org')).toBe(true);
+    for (const bad of ['maria', 'a@b', 'a b@example.org', 'a@example.org,b@example.org', 'a@example.org;b@example.org', 'a@@example.org', 'a@b@example.org', '<a@example.org>', `${'a'.repeat(250)}@example.org`, 'a@example.org\n', ' a@example.org', 'a\\b@example.org']) {
+      expect(isEmailAddress(bad), bad).toBe(false);
+    }
+  });
+
+  it("the mails' key: LINK_SECRET only, never worked out from DATABASE_URL", () => {
+    expect(mailSecret({ linkSecret: 'L'.repeat(32) }).equals(mailSecret({ linkSecret: 'L'.repeat(32), databaseUrl: 'postgres://x' }))).toBe(true);
+    expect(mailSecret({ databaseUrl: 'postgres://x' }).equals(mailSecret({ databaseUrl: 'postgres://x' }))).toBe(false);
+    expect(mailSecret({ linkSecret: 'L'.repeat(32) }).equals(linkSecret({ linkSecret: 'L'.repeat(32) }))).toBe(false);
   });
 
   it('the log transport is the default: it writes a summary, never the body, its links or the address', async () => {
@@ -175,13 +227,40 @@ describe('the digests\' words (Task 19)', () => {
     }
   });
 
+  const intro: Record<MailLanguage, string> = {
+    en: 'an account on Cloud',
+    es: 'una cuenta en Cloud',
+    fr: 'un compte sur Cloud',
+    pt: 'uma conta em Cloud',
+  };
+  const other: Record<MailLanguage, string> = {
+    en: 'no other email goes to this address',
+    es: 'no se envía ningún otro correo a esta dirección',
+    fr: 'aucun autre courriel n’est envoyé à cette adresse',
+    pt: 'nenhum outro e-mail é enviado a este endereço',
+  };
+
   it('the confirmation mail in 4 languages', () => {
     const subjects: Record<MailLanguage, string> = { en: 'confirm your email address', es: 'confirme su dirección de correo', fr: 'confirmez votre adresse e-mail', pt: 'confirme o seu endereço de e-mail' };
     for (const language of MAIL_LANGUAGES) {
-      const mail = confirmMail({ serverName: 'Cloud', language, username: 'maria', confirmUrl: 'https://ce.example.org/confirm-email/T' }, 'maria@example.org');
+      const mail = confirmMail({ serverName: 'Cloud', language, confirmUrl: 'https://ce.example.org/confirm-email/T' }, 'someone@example.org');
       expect(mail.subject).toBe(`Cloud: ${subjects[language]}`.replace('Cloud: ', language === 'fr' ? 'Cloud : ' : 'Cloud: '));
       expect(mail.text).toContain('https://ce.example.org/confirm-email/T');
       expect(mail.html).toContain('href="https://ce.example.org/confirm-email/T"');
+      // An account on the server, never its username (the address may not be theirs).
+      expect(mail.text).toContain(intro[language]);
+      expect(mail.text).toContain(other[language]);
+    }
+  });
+
+  it('the quiet people: at most 20 named, then how many more', () => {
+    const people = Array.from({ length: 23 }, (_, i) => `person${String(i).padStart(2, '0')}`);
+    const more: Record<MailLanguage, string> = { en: 'and 3 more', es: 'y 3 más', fr: 'et 3 de plus', pt: 'e mais 3' };
+    for (const language of MAIL_LANGUAGES) {
+      const mail = coordinatorMail(ctx(language), [{ ...coordinator[0], quiet: { days: 3, people } }], 0, 'o@example.org');
+      expect(mail.text).toContain('person19');
+      expect(mail.text).not.toContain('person20');
+      expect(mail.text, language).toContain(more[language]);
     }
   });
 

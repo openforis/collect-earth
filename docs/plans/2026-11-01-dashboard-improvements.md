@@ -3392,15 +3392,15 @@ token is hashed.
   malformed `MAIL_FROM` and a `DIGEST_SECRET` under 32 characters. `TestMailer` keeps messages in memory
   (`fail` to refuse); `buildServer({ mailer })` for tests. No test or smoke sends mail.
 - **The address is confirmed by a link (decided: cheap, and without it anyone could sign a stranger's
-  address up).** Accounts had an optional `email` only an administrator could type at account creation,
-  never verified and never shown to the person. Now: `PUT /v1/me/email { email | null, language }` sets it
+  address up).** Accounts had an optional `email`, given at open sign-up (`POST /v1/auth/signup`; corrected
+  in the review: not by an administrator), checked by no rule, never verified and never shown again. Now: `PUT /v1/me/email { email | null, language }` sets it
   (≤ 254, one `@`; a new address is unconfirmed, the same one keeps its confirmation; null removes it and
   turns the digests off) and sends a confirmation mail; `POST /v1/me/email/confirmation` sends it again (429
   `too_soon` within 60 s per account and instance; 409 `no_email` / `already_confirmed`); both behind the
   rate limiter's `email` bucket. The link `/confirm-email/<token>` (HMAC, `{ account, sha256 of the
   address, expiry 3 days }`) opens a page with a **button** (link checkers open links) that posts `POST
   /v1/email/confirm { token }` with no login: 200, 404 (not ours, or the address changed since), 410
-  `confirm_expired`. An address an administrator typed is unconfirmed too. Mails go only to confirmed
+  `confirm_expired`. An address given at sign-up is unconfirmed too. Mails go only to confirmed
   addresses.
 - **Opt-in (off by default):** `GET /v1/me/notifications` → `{ email, emailConfirmed, language, timeZone,
   sends (false: no SMTP, choices kept), roles { coordinator, collector } (from the memberships), digests {
@@ -3482,6 +3482,66 @@ token is hashed.
   secret (anyone who reads the job can trigger the week's mails, once); a confirmed address that later
   bounces is not detected (no bounce handling); unsubscribing deletes the subscription, so its last week is
   forgotten.
+
+- **Review (after 04760b0a; supersedes the above where it says so):**
+  - **The mails' links never come from a request (C1).** `configuredBaseUrl(config)` (`PUBLIC_BASE_URL`,
+    else `RENDER_EXTERNAL_URL`) is the only base of every link in a mail (confirmation, digests, unsubscribe
+    headers); `loadConfig` refuses `SMTP_URL` without one, and `registerMailRoutes` refuses to start with a
+    delivering transport and none (the log transport, which never writes a link, uses a placeholder). Test:
+    `Host` and `X-Forwarded-Host` set to another site on `PUT /v1/me/email` and the job: no link to it.
+    **On-screen links (join, reset) without `PUBLIC_BASE_URL`:** `publicBaseUrl` used `X-Forwarded-Host`
+    before `Host`. Cloud Run's front end sets `X-Forwarded-For` and `X-Forwarded-Proto` but not
+    `X-Forwarded-Host`, so one a client writes passes through (from Google's documented headers; not
+    checked on a live service): it is now ignored unless `TRUST_FORWARDED_HOST=true` (a proxy that sets it);
+    `Host` (what Cloud Run routed by: the `*.run.app` address or a mapped domain; Caddy passes it on) is
+    used, so the documented default works. Tests: the spoofed header ignored, honoured with the setting.
+    DEPLOY.md says what was found.
+  - **Confirmation caps (I1):** `email_confirmation_sends (user_id, sent_at)` (in 023, edited in place: not
+    deployed anywhere), `reserveConfirmationSend` checks and counts at once (Postgres: per-account advisory
+    lock; rows older than a day dropped): **3 an hour, 6 a day per account**, whatever the address
+    (changing it does not reset them), and **100 an hour per instance** (`HourlyCap`); refused: 429
+    `too_many_confirmations` (the address is saved, no mail). The 60 s in-memory limit is gone. The
+    confirmation mail no longer names the account ("an account on <server>"); it and the account page say
+    **no other** email goes to the address before it is confirmed. Smoke: 12 reservations at once → 3.
+  - **One address (I2):** `isEmailAddress` (`accountRules.ts`: ≤ 254, one `@`, a dot in the domain, no
+    whitespace, `,`, `;`, quotes, brackets, parentheses, colon or backslash) at sign-up (400 `invalid_email`),
+    on `PUT /v1/me/email`, and again before every mail: a stored address failing it is skipped by the job,
+    and resend / turning a digest on answer 409 `invalid_stored_email`; the view says `emailValid: false` and
+    the card asks to type it again.
+  - **The mails' key (I3):** `mailSecret` = `LINK_SECRET` only (a random key per process without it, i.e.
+    without SMTP); `loadConfig` requires `LINK_SECRET` ≥ 32 characters with `SMTP_URL`. The backup links keep
+    `linkSecret` (with its `DATABASE_URL` fallback).
+  - **Minor:** a week that ended before the subscription was made is passed over (claimed, no mail;
+    `DueDigest.createdAt`); the claim is released only when nothing was sent (writing failed, or a transient
+    send failure), a failed `markDigestSent` is logged, never undone; send errors are logged as `{ code,
+    responseCode, command }` only (`errorSummary`); `last_mailed_week` / `last_sent_at` are set only when a
+    mail went, and the card shows "Last sent: the week of <range in the viewer's language>"
+    (`weekRangeText`) only then; a **5xx refusal** keeps the week claimed and counts `failures`; at 3 in a row
+    `stopped_at` is set, the job skips it, the card says "Stopped…" and turning it on again starts afresh
+    (`noteDigestFailure`, `setDigest` on); unsubscribe tokens that verify count in their own bucket (600 a
+    minute per address), others in the shared `public` one; `isMailFrom` refuses an unquoted `,` / `;` in
+    the display name; `tls.servername` only for host names (`transportOptions`); at most 20 quiet people
+    named, then "and N more" (4 languages); the card's success message sits in a live region mounted from the
+    start; a time zone the browser cannot tell is not sent and the stored one stays (`timeZone` optional on
+    `PUT /v1/me/notifications`).
+  - **Cloud Scheduler's OIDC token (12, built):** `src/oidc.ts`: `verifyGoogleIdToken` (RS256 only, a key
+    of Google's by `kid`, issuer accounts.google.com, `aud` = `DIGEST_OIDC_AUDIENCE`, `email` =
+    `DIGEST_OIDC_EMAIL` and verified, `exp`/`iat` with 60 s of skew) and `GoogleKeys` (Google's JWKS, kept
+    for its max-age, an unknown `kid` reads again at most once a minute). The endpoint takes the secret header
+    or the token; 404 when neither is set up. DEPLOY.md gives the OIDC job as the better way (no secret in
+    the job), the secret one as the other.
+  - **Tests:** server 1139 (was 1124: mail 5 — config, From, error summary, one address, the key; oidc 2;
+    digest routes 8 — confirmation caps, one address, links from config only, new subscriptions, 5xx three
+    weeks, last-sent and zone, unsubscribe limits, OIDC; dashboard: the forwarded host), web 336 (api and
+    activityView extended), tsc clean in both, web build ok. The tests were written before the code, but
+    run against it only once it compiled. **Postgres smoke** ALL OK (new: the caps at once and after a day,
+    three refusals stop and the job skips it, turned on again, the mailed week apart); 41 mails on 100,000
+    records 4.0-4.3 s (98-104 ms a mail), 10,041 subscriptions with nothing to send 1.5 s, a page of 50
+    11 ms (slower than before on this run; the skipped rows are now checked before the creation rule); the
+    Task 18 smoke ALL OK. Docker stopped.
+  - **Open:** the confirmation caps per account are stored, the per-instance one is per instance; the OIDC
+    check reads Google's keys over the network (a failure there is a 401 for that call, logged); whether
+    Cloud Run passes a client's `X-Forwarded-Host` was taken from Google's documentation, not observed.
 
 ### Task 20: Join page and My work say what coordinators see
 

@@ -64,17 +64,38 @@ export function isUuid(value: string): boolean {
   return UUID_RE.test(value);
 }
 
+/** The longest email address accepted (RFC 5321's path limit). */
+export const MAX_EMAIL_LENGTH = 254;
+/** One address: no spaces, commas, semicolons, quotes, brackets or backslashes, one @, a dot in the domain. */
+const EMAIL_RE = /^[^\s@<>"(),;:\\[\]]+@[^\s@<>"(),;:\\[\]]+\.[^\s@<>"(),;:\\[\]]+$/;
+
+/** Whether `value` is one email address (sign-up, the account page, and again before every mail). */
+export function isEmailAddress(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= MAX_EMAIL_LENGTH && EMAIL_RE.test(value);
+}
+
 /**
- * Base URL for links handed out (join, reset): PUBLIC_BASE_URL, else Render's
- * RENDER_EXTERNAL_URL, else derived from the request (x-forwarded-proto/host are
- * honoured because the server runs with trustProxy). No trailing slash.
+ * The configured base URL for links (PUBLIC_BASE_URL, else Render's RENDER_EXTERNAL_URL), no
+ * trailing slash; null when neither is set. The mails' links use only this (Task 19 review).
+ */
+export function configuredBaseUrl(config: Pick<Config, 'publicBaseUrl' | 'renderExternalUrl'>): string | null {
+  const configured = config.publicBaseUrl ?? config.renderExternalUrl;
+  return configured ? configured.replace(/\/+$/, '') : null;
+}
+
+/**
+ * Base URL for links handed out on screen (join, reset): the configured one, else derived from
+ * the request: its protocol (x-forwarded-proto from our own proxies, trustProxy) and its Host. The
+ * Host is what Cloud Run (or a reverse proxy passing it on, as Caddy does) routed the request by.
+ * X-Forwarded-Host is a header a client can write itself (Cloud Run passes it on as sent), so it
+ * counts only with TRUST_FORWARDED_HOST, behind a proxy that sets it. No trailing slash.
  */
 export function publicBaseUrl(config: Config, request: FastifyRequest): string {
-  const configured = config.publicBaseUrl ?? config.renderExternalUrl;
+  const configured = configuredBaseUrl(config);
   if (configured) {
-    return configured.replace(/\/+$/, '');
+    return configured;
   }
-  const forwardedHost = firstHeader(request.headers['x-forwarded-host']);
+  const forwardedHost = config.trustForwardedHost ? firstHeader(request.headers['x-forwarded-host']) : undefined;
   const host = forwardedHost ?? request.headers.host ?? 'localhost';
   return `${request.protocol}://${host}`;
 }

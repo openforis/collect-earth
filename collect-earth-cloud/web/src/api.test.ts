@@ -1197,12 +1197,16 @@ describe("weekly emails (Task 19)", () => {
   const url = (i = 0) => String(fetchMock.mock.calls[i][0]);
   const body = {
     email: "maria@example.org",
+    emailValid: true,
     emailConfirmed: false,
     language: "fr",
     timeZone: "Europe/Paris",
     sends: true,
     roles: { coordinator: false, collector: true },
-    digests: { coordinator: { on: false, lastSentWeek: null, lastSentAt: null }, collector: { on: true, lastSentWeek: "2026-W44", lastSentAt: 5000 } },
+    digests: {
+      coordinator: { on: false, stopped: true, lastSentWeek: null, lastMailedWeek: null, lastSentAt: null },
+      collector: { on: true, stopped: false, lastSentWeek: "2026-W45", lastMailedWeek: "2026-W44", lastSentAt: 5000 },
+    },
   };
 
   it("reads and changes the account's address and digests", async () => {
@@ -1216,17 +1220,22 @@ describe("weekly emails (Task 19)", () => {
       digests: { coordinator: { on: false }, collector: { on: false } },
     });
     expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: "PUT", body: JSON.stringify({ collector: false, language: "es", timeZone: "UTC" }) });
+    // A zone the browser cannot tell is not sent: the stored one stays.
+    fetchMock.mockResolvedValue(jsonResponse(200, body));
+    await setNotifications({ collector: true, language: "es", timeZone: null });
+    expect(fetchMock.mock.calls[2][1]).toMatchObject({ body: JSON.stringify({ collector: true, language: "es" }) });
     fetchMock.mockResolvedValue(jsonResponse(200, body));
     await setEmail("maria@example.org", "fr");
-    expect(url(2)).toBe("/v1/me/email");
-    expect(fetchMock.mock.calls[2][1]).toMatchObject({ method: "PUT", body: JSON.stringify({ email: "maria@example.org", language: "fr" }) });
+    expect(url(3)).toBe("/v1/me/email");
+    expect(fetchMock.mock.calls[3][1]).toMatchObject({ method: "PUT", body: JSON.stringify({ email: "maria@example.org", language: "fr" }) });
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ sent: true }), { status: 202 }));
     await sendEmailConfirmation("fr");
-    expect(url(3)).toBe("/v1/me/email/confirmation");
+    expect(url(4)).toBe("/v1/me/email/confirmation");
     for (const [code, key] of [
       ["invalid_email", "mail.invalidEmail"],
       ["no_email", "mail.noEmail"],
-      ["too_soon", "mail.tooSoon"],
+      ["too_many_confirmations", "mail.tooMany"],
+      ["invalid_stored_email", "mail.invalidStored"],
       ["mail_failed", "mail.failed"],
       ["confirm_expired", "mail.confirmExpired"],
     ]) {

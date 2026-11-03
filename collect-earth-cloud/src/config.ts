@@ -92,8 +92,18 @@ export interface Config {
    */
   smtpUrl?: string;
   mailFrom?: string;
-  /** DIGEST_SECRET: what the weekly job sends in `x-digest-secret` (POST /v1/internal/digest); unset: the endpoint is off. */
+  /** DIGEST_SECRET: what the weekly job sends in `x-digest-secret` (POST /v1/internal/digest); unset: that way is off. */
   digestSecret?: string;
+  /**
+   * DIGEST_OIDC_AUDIENCE and DIGEST_OIDC_EMAIL: the weekly job may instead come with Cloud Scheduler's
+   * OIDC token (Authorization: Bearer), signed by Google for this audience and this service account.
+   */
+  digestOidc?: { audience: string; email: string };
+  /**
+   * TRUST_FORWARDED_HOST: links derived from a request (no PUBLIC_BASE_URL) use X-Forwarded-Host. Only
+   * behind a proxy that sets it: a client can write it itself (Cloud Run passes it on). Default false.
+   */
+  trustForwardedHost?: boolean;
 }
 
 /** The shortest DIGEST_SECRET accepted. */
@@ -156,23 +166,41 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     ...aiConfigOf(env, storeBackend),
     mapTiles: mapTilesOf(env),
     ...mailConfigOf(env),
+    trustForwardedHost: env.TRUST_FORWARDED_HOST === 'true' || env.TRUST_FORWARDED_HOST === '1',
   };
 }
 
-/** SMTP_URL, MAIL_FROM and DIGEST_SECRET, checked: a server never starts with mail half set up. */
-function mailConfigOf(env: NodeJS.ProcessEnv): Pick<Config, 'smtpUrl' | 'mailFrom' | 'digestSecret'> {
+/** The shortest LINK_SECRET accepted when mail is sent (it signs the mails' links). */
+export const MIN_LINK_SECRET_LENGTH = 32;
+
+/** SMTP_URL, MAIL_FROM, DIGEST_SECRET and DIGEST_OIDC_*, checked: a server never starts with mail half set up. */
+function mailConfigOf(env: NodeJS.ProcessEnv): Pick<Config, 'smtpUrl' | 'mailFrom' | 'digestSecret' | 'digestOidc'> {
   const smtpUrl = nonEmpty(env.SMTP_URL?.trim());
   const mailFrom = nonEmpty(env.MAIL_FROM?.trim());
   const digestSecret = nonEmpty(env.DIGEST_SECRET?.trim());
   if (smtpUrl) {
     parseSmtpUrl(smtpUrl); // throws with the reason
     if (!mailFrom) throw new Error('SMTP_URL is set but MAIL_FROM is not: set the address the mails come from (Collect Earth Cloud <noreply@example.org>)');
+    // The mails' links never come from a request (whose Host a client chooses).
+    if (!nonEmpty(env.PUBLIC_BASE_URL?.trim()) && !nonEmpty(env.RENDER_EXTERNAL_URL?.trim())) {
+      throw new Error('SMTP_URL is set but PUBLIC_BASE_URL is not: set the address people open the dashboard at (https://ce-cloud.example.org); the mails\' links use it');
+    }
+    // Their own key, never one worked out from DATABASE_URL (a password change would break sent links).
+    const link = env.LINK_SECRET?.trim() ?? '';
+    if (link.length < MIN_LINK_SECRET_LENGTH) {
+      throw new Error(`SMTP_URL is set but LINK_SECRET is not, or is under ${MIN_LINK_SECRET_LENGTH} characters: it signs the mails' links (openssl rand -base64 32)`);
+    }
+  }
+  const audience = nonEmpty(env.DIGEST_OIDC_AUDIENCE?.trim());
+  const email = nonEmpty(env.DIGEST_OIDC_EMAIL?.trim());
+  if ((audience === undefined) !== (email === undefined)) {
+    throw new Error('DIGEST_OIDC_AUDIENCE and DIGEST_OIDC_EMAIL go together: the endpoint\'s address and the scheduler\'s service account');
   }
   if (mailFrom && !isMailFrom(mailFrom)) throw new Error('MAIL_FROM must be an address: noreply@example.org or Name <noreply@example.org>');
   if (digestSecret && digestSecret.length < MIN_DIGEST_SECRET_LENGTH) {
     throw new Error(`DIGEST_SECRET must be at least ${MIN_DIGEST_SECRET_LENGTH} characters (openssl rand -base64 32)`);
   }
-  return { smtpUrl, mailFrom, digestSecret };
+  return { smtpUrl, mailFrom, digestSecret, ...(audience && email ? { digestOidc: { audience, email } } : {}) };
 }
 
 /** https, or http for a tile server on this machine. */

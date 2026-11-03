@@ -100,12 +100,18 @@ check('a week not written YYYY-Www is refused', (await refused("INSERT INTO dige
 check('a kind other than the two is refused', (await refused("INSERT INTO digest_subscriptions (user_id, kind) VALUES ($1, 'daily')", [ownerId])) === '23514');
 
 // The account page: address, confirmation, digests.
+// Subscribed a week before the server's clock (a week that ended before a subscription is never sent).
 const subscribe = async (token: string, email: string, kinds: object, language = 'en') => {
-  const set = await me('PUT', '/email', token, { email, language });
-  const link = /\/confirm-email\/([A-Za-z0-9_.-]+)/.exec(mailer.sent.at(-1)?.text ?? '')?.[1];
-  const ok = await app.inject({ method: 'POST', url: '/v1/email/confirm', payload: { token: link } });
-  const on = await me('PUT', '/notifications', token, { ...kinds, language, timeZone: 'UTC' });
-  return { set: set.statusCode, confirmed: ok.statusCode, on: on.statusCode, body: on.json() };
+  clock -= 7 * DAY;
+  try {
+    const set = await me('PUT', '/email', token, { email, language });
+    const link = /\/confirm-email\/([A-Za-z0-9_.-]+)/.exec(mailer.sent.at(-1)?.text ?? '')?.[1];
+    const ok = await app.inject({ method: 'POST', url: '/v1/email/confirm', payload: { token: link } });
+    const on = await me('PUT', '/notifications', token, { ...kinds, language, timeZone: 'UTC' });
+    return { set: set.statusCode, confirmed: ok.statusCode, on: on.statusCode, body: on.json() };
+  } finally {
+    clock += 7 * DAY;
+  }
 };
 const o = await subscribe(ownerToken, 'owner@example.org', { coordinator: true });
 const m = await subscribe(maria.token, 'maria@example.org', { collector: true }, 'pt');
@@ -148,6 +154,25 @@ res = await app.inject({ method: 'POST', url: new URL(url).pathname, payload: 'L
 const left = (await own.query('SELECT kind FROM digest_subscriptions')).rows.map((r) => r.kind);
 check('one click, no login: that digest off', res.statusCode === 200 && left.join() === 'coordinator', [res.body, left]);
 
+// Confirmation mails: the per-account cap checked and counted at once (12 at the same moment: 3 pass).
+const at = clock + DAY;
+const reserved = await Promise.all(Array.from({ length: 12 }, () => store.reserveConfirmationSend(ownerId, at, { perHour: 3, perDay: 6 })));
+const rows = (await own.query('SELECT count(*)::int AS n FROM email_confirmation_sends WHERE user_id = $1 AND sent_at = $2', [ownerId, new Date(at)])).rows[0].n;
+check('confirmation cap: 12 at once, 3 counted and allowed', reserved.filter(Boolean).length === 3 && rows === 3, { reserved, rows });
+check('confirmation cap: a day later the old ones are dropped and it allows again', (await store.reserveConfirmationSend(ownerId, at + DAY + 1, { perHour: 3, perDay: 6 })) === true && (await own.query('SELECT count(*)::int AS n FROM email_confirmation_sends WHERE user_id = $1 AND sent_at <= $2', [ownerId, new Date(at)])).rows[0].n === 0);
+
+// Refusals for good: three in a row stop a subscription; it is no longer listed; turned on, it starts again.
+const stops = [];
+for (let i = 0; i < 3; i++) stops.push(await store.noteDigestFailure(ownerId, 'coordinator', clock, 3));
+const listedStopped = (await store.listDueDigests({ before: '9999-W01', after: null, limit: 100 })).some((d) => d.userId === ownerId && d.kind === 'coordinator');
+check('three refusals for good stop it, and the job no longer reads it', stops.join() === 'false,false,true' && !listedStopped, { stops, listedStopped });
+await store.setDigest(ownerId, 'coordinator', true, clock);
+const restarted = (await own.query("SELECT failures, stopped_at FROM digest_subscriptions WHERE user_id = $1 AND kind = 'coordinator'", [ownerId])).rows[0];
+check('turned on again: no failures, not stopped', restarted.failures === 0 && restarted.stopped_at === null, restarted);
+await store.markDigestSent(ownerId, 'coordinator', '2026-W40', clock);
+const mailed = (await own.query("SELECT last_mailed_week FROM digest_subscriptions WHERE user_id = $1 AND kind = 'coordinator'", [ownerId])).rows[0];
+check('the week a mail went for is stored apart', mailed.last_mailed_week === '2026-W40', mailed);
+
 // A deleted account takes its subscriptions.
 await me('PUT', '/notifications', maria.token, { collector: true, language: 'pt', timeZone: 'UTC' });
 res = await app.inject({ method: 'DELETE', url: '/v1/me', headers: bearer(maria.token), payload: { password: 'password12' } });
@@ -164,7 +189,7 @@ for (const name of names) {
   await store.addMembership(pid, u.id, 'operator');
   await store.setEmail(u.id, `${name}@example.org`);
   await store.confirmEmail(u.id, `${name}@example.org`, Date.now());
-  await store.setDigest(u.id, 'collector', true);
+  await store.setDigest(u.id, 'collector', true, clock - 7 * DAY);
   ops.push(u.id);
 }
 const ids = Array.from({ length: big }, (_, i) => 100_000 + i + 1);

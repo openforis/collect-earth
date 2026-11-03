@@ -28,6 +28,7 @@ import {
   type DatabaseHealth,
   type DecisionKind,
   type DigestKind,
+  type DigestState,
   type DueDigest,
   type AccountMail,
   type MailLanguage,
@@ -191,7 +192,9 @@ export class InMemoryStore implements Store {
   /** Email digests (Task 19): userId -> confirmation and the mails' language and zone. */
   private readonly accountMail = new Map<string, { emailConfirmedAt: number | null; language: MailLanguage | null; timeZone: string | null }>();
   /** `${userId} ${kind}` -> the subscription (digest_subscriptions). */
-  private readonly digests = new Map<string, { userId: string; kind: DigestKind; createdAt: number; lastSentWeek: string | null; lastSentAt: number | null }>();
+  private readonly digests = new Map<string, { userId: string } & DigestState>();
+  /** userId -> when confirmation mails were sent (email_confirmation_sends), the last day's. */
+  private readonly confirmationSends = new Map<string, number[]>();
   private settings: ServerSettings = { ...DEFAULT_SETTINGS };
   /** Ids of record events and audit entries: increasing, as Postgres's BIGSERIAL. */
   private nextEventId = 1;
@@ -586,6 +589,7 @@ export class InMemoryStore implements Store {
       if (d.userId === userId) this.digests.delete(key);
     }
     this.accountMail.delete(userId);
+    this.confirmationSends.delete(userId);
     for (const [hash, reset] of this.resets) {
       if (reset.userId === userId) {
         this.resets.delete(hash);
@@ -614,7 +618,7 @@ export class InMemoryStore implements Store {
     const digests = [...this.digests.values()]
       .filter((d) => d.userId === userId)
       .sort((a, b) => (a.kind < b.kind ? -1 : 1))
-      .map(({ kind, createdAt, lastSentWeek, lastSentAt }) => ({ kind, createdAt, lastSentWeek, lastSentAt }));
+      .map(({ kind, createdAt, lastSentWeek, lastMailedWeek, lastSentAt, failures, stoppedAt }) => ({ kind, createdAt, lastSentWeek, lastMailedWeek, lastSentAt, failures, stoppedAt }));
     return { email: user.email, ...mail, digests };
   }
 
@@ -641,18 +645,24 @@ export class InMemoryStore implements Store {
     this.accountMail.set(userId, { ...this.mailOf(userId), language: prefs.language, timeZone: prefs.timeZone });
   }
 
-  async setDigest(userId: string, kind: DigestKind, on: boolean): Promise<boolean> {
+  async setDigest(userId: string, kind: DigestKind, on: boolean, at: number): Promise<boolean> {
     const key = `${userId} ${kind}`;
     if (!on) return this.digests.delete(key);
     if (!this.users.has(userId)) return false;
-    if (!this.digests.has(key)) this.digests.set(key, { userId, kind, createdAt: Date.now(), lastSentWeek: null, lastSentAt: null });
+    const d = this.digests.get(key);
+    if (!d) {
+      this.digests.set(key, { userId, kind, createdAt: at, lastSentWeek: null, lastMailedWeek: null, lastSentAt: null, failures: 0, stoppedAt: null });
+    } else if (d.stoppedAt !== null) {
+      d.stoppedAt = null;
+      d.failures = 0;
+    }
     return true;
   }
 
   async listDueDigests(q: { before: string; after: { userId: string; kind: DigestKind } | null; limit: number }): Promise<DueDigest[]> {
     const after = q.after ? `${q.after.userId} ${q.after.kind}` : null;
     return [...this.digests.entries()]
-      .filter(([key, d]) => (after === null || key > after) && (d.lastSentWeek === null || d.lastSentWeek < q.before))
+      .filter(([key, d]) => (after === null || key > after) && d.stoppedAt === null && (d.lastSentWeek === null || d.lastSentWeek < q.before))
       .sort(([a], [b]) => (a < b ? -1 : 1))
       .slice(0, q.limit)
       .flatMap(([, d]) => {
@@ -662,6 +672,7 @@ export class InMemoryStore implements Store {
         return [{
           userId: d.userId,
           kind: d.kind,
+          createdAt: d.createdAt,
           lastSentWeek: d.lastSentWeek,
           username: user.username,
           email: user.email,
@@ -680,14 +691,37 @@ export class InMemoryStore implements Store {
     return true;
   }
 
-  async markDigestSent(userId: string, kind: DigestKind, at: number): Promise<void> {
+  async markDigestSent(userId: string, kind: DigestKind, week: string, at: number): Promise<void> {
     const d = this.digests.get(`${userId} ${kind}`);
-    if (d) d.lastSentAt = at;
+    if (!d) return;
+    d.lastMailedWeek = week;
+    d.lastSentAt = at;
+    d.failures = 0;
+  }
+
+  async noteDigestFailure(userId: string, kind: DigestKind, at: number, max: number): Promise<boolean> {
+    const d = this.digests.get(`${userId} ${kind}`);
+    if (!d) return false;
+    d.failures += 1;
+    if (d.failures >= max && d.stoppedAt === null) d.stoppedAt = at;
+    return d.stoppedAt !== null;
   }
 
   async releaseDigest(userId: string, kind: DigestKind, week: string, previous: string | null): Promise<void> {
     const d = this.digests.get(`${userId} ${kind}`);
     if (d && d.lastSentWeek === week) d.lastSentWeek = previous;
+  }
+
+  async reserveConfirmationSend(userId: string, at: number, limits: { perHour: number; perDay: number }): Promise<boolean> {
+    const sends = (this.confirmationSends.get(userId) ?? []).filter((t) => t > at - 86_400_000);
+    const lastHour = sends.filter((t) => t > at - 3_600_000).length;
+    if (lastHour >= limits.perHour || sends.length >= limits.perDay) {
+      this.confirmationSends.set(userId, sends);
+      return false;
+    }
+    sends.push(at);
+    this.confirmationSends.set(userId, sends);
+    return true;
   }
 
   private enabledPlatformAdmins(): number {

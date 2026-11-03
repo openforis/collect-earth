@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { aiAvailable } from '../ai/available.js';
 import { limitWindows } from '../ai/service.js';
-import { checkCredentials, checkPassword, isUuid, publicBaseUrl, setupCodesMatch } from '../accountRules.js';
+import { checkCredentials, checkPassword, isEmailAddress, isUuid, publicBaseUrl, setupCodesMatch } from '../accountRules.js';
 import { OSM_TILES, type Config } from '../config.js';
 import { hashPassword } from '../password.js';
 import { requirePlatformAdmin } from '../plugins/projectAuth.js';
@@ -174,6 +174,10 @@ export async function registerAdminRoutes(
     const rule = checkCredentials(username, password);
     if (rule) {
       return reply.code(400).send(rule);
+    }
+    // The same rule as the account page (Task 19 review): one address, or none.
+    if (email !== null && !isEmailAddress(email)) {
+      return reply.code(400).send({ error: 'invalid_email', reason: 'that is not one email address' });
     }
     // When the server has terms of use, the person must accept them to sign up.
     if (settings.termsUrl && body.acceptTerms !== true) {

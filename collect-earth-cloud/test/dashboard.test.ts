@@ -404,15 +404,27 @@ describe('invites, overview and export', () => {
     ).rejects.toThrow();
   });
 
-  it('derives the join link from the request when no base URL is configured', async () => {
-    const res = await ctx.app.inject({
-      method: 'POST',
-      url: `/v1/projects/${project.projectId}/invites`,
-      headers: { ...bearer(project.adminToken), host: 'internal:8080', 'x-forwarded-proto': 'https', 'x-forwarded-host': 'ce.example.org' },
-      payload: {},
-    });
-    expect(res.json().joinUrl).toBe(`https://ce.example.org/join/${res.json().inviteToken}`);
+  it('derives the join link from the request when no base URL is configured: its Host, not X-Forwarded-Host unless trusted', async () => {
+    const headers = { ...bearer(project.adminToken), host: 'ce-abc.a.run.app', 'x-forwarded-proto': 'https', 'x-forwarded-host': 'evil.example.net' };
+    const res = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${project.projectId}/invites`, headers, payload: {} });
+    // Cloud Run's own address (the Host it routed by); the client's X-Forwarded-Host is ignored.
+    expect(res.json().joinUrl).toBe(`https://ce-abc.a.run.app/join/${res.json().inviteToken}`);
     expect(res.json().joinPath).toBe(`/join/${res.json().inviteToken}`);
+
+    // Behind a proxy that sets X-Forwarded-Host itself (TRUST_FORWARDED_HOST=true).
+    const proxied = await makeContext({ trustForwardedHost: true });
+    try {
+      const p = await createProject(proxied.app);
+      const r = await proxied.app.inject({
+        method: 'POST',
+        url: `/v1/projects/${p.projectId}/invites`,
+        headers: { ...bearer(p.adminToken), host: 'internal:8080', 'x-forwarded-proto': 'https', 'x-forwarded-host': 'ce.example.org' },
+        payload: {},
+      });
+      expect(r.json().joinUrl).toBe(`https://ce.example.org/join/${r.json().inviteToken}`);
+    } finally {
+      await proxied.app.close();
+    }
 
     const render = await makeContext({ renderExternalUrl: 'https://ce.onrender.com/' });
     try {

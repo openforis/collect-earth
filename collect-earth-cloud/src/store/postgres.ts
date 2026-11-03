@@ -762,7 +762,8 @@ export class PostgresStore implements Store {
     if (res.rowCount === 0) return null;
     const r = res.rows[0];
     const subs = await this.pool.query(
-      'SELECT kind, created_at, last_sent_week, last_sent_at FROM digest_subscriptions WHERE user_id = $1 ORDER BY kind',
+      `SELECT kind, created_at, last_sent_week, last_mailed_week, last_sent_at, failures, stopped_at
+         FROM digest_subscriptions WHERE user_id = $1 ORDER BY kind`,
       [userId],
     );
     return {
@@ -774,7 +775,10 @@ export class PostgresStore implements Store {
         kind: s.kind as DigestKind,
         createdAt: (s.created_at as Date).getTime(),
         lastSentWeek: (s.last_sent_week as string | null) ?? null,
+        lastMailedWeek: (s.last_mailed_week as string | null) ?? null,
         lastSentAt: s.last_sent_at ? (s.last_sent_at as Date).getTime() : null,
+        failures: s.failures as number,
+        stoppedAt: s.stopped_at ? (s.stopped_at as Date).getTime() : null,
       })),
     };
   }
@@ -802,15 +806,16 @@ export class PostgresStore implements Store {
     await this.pool.query('UPDATE users SET mail_language = $2, mail_time_zone = $3 WHERE id = $1', [userId, prefs.language, prefs.timeZone]);
   }
 
-  async setDigest(userId: string, kind: DigestKind, on: boolean): Promise<boolean> {
+  async setDigest(userId: string, kind: DigestKind, on: boolean, at: number): Promise<boolean> {
     if (!on) {
       const res = await this.pool.query('DELETE FROM digest_subscriptions WHERE user_id = $1 AND kind = $2', [userId, kind]);
       return (res.rowCount ?? 0) > 0;
     }
+    // On: a new row from `at`; one stopped after refusals starts again; one already on stays as it is.
     const res = await this.pool.query(
-      `INSERT INTO digest_subscriptions (user_id, kind) SELECT $1, $2 WHERE EXISTS (SELECT 1 FROM users WHERE id = $1)
-       ON CONFLICT (user_id, kind) DO NOTHING`,
-      [userId, kind],
+      `INSERT INTO digest_subscriptions (user_id, kind, created_at) SELECT $1, $2, $3 WHERE EXISTS (SELECT 1 FROM users WHERE id = $1)
+       ON CONFLICT (user_id, kind) DO UPDATE SET stopped_at = NULL, failures = 0 WHERE digest_subscriptions.stopped_at IS NOT NULL`,
+      [userId, kind, new Date(at)],
     );
     if ((res.rowCount ?? 0) > 0) return true;
     const exists = await this.pool.query('SELECT 1 FROM digest_subscriptions WHERE user_id = $1 AND kind = $2', [userId, kind]);
@@ -819,10 +824,10 @@ export class PostgresStore implements Store {
 
   async listDueDigests(q: { before: string; after: { userId: string; kind: DigestKind } | null; limit: number }): Promise<DueDigest[]> {
     const res = await this.pool.query(
-      `SELECT d.user_id, d.kind, d.last_sent_week, u.username, u.email, u.email_confirmed_at IS NOT NULL AS confirmed,
+      `SELECT d.user_id, d.kind, d.created_at, d.last_sent_week, u.username, u.email, u.email_confirmed_at IS NOT NULL AS confirmed,
               u.disabled_at IS NOT NULL AS disabled, u.mail_language, u.mail_time_zone
          FROM digest_subscriptions d JOIN users u ON u.id = d.user_id
-        WHERE (d.last_sent_week IS NULL OR d.last_sent_week < $1)
+        WHERE d.stopped_at IS NULL AND (d.last_sent_week IS NULL OR d.last_sent_week < $1)
           AND ($2::uuid IS NULL OR (d.user_id, d.kind) > ($2::uuid, $3::text))
         ORDER BY d.user_id, d.kind
         LIMIT $4`,
@@ -831,6 +836,7 @@ export class PostgresStore implements Store {
     return res.rows.map((r) => ({
       userId: r.user_id as string,
       kind: r.kind as DigestKind,
+      createdAt: (r.created_at as Date).getTime(),
       lastSentWeek: (r.last_sent_week as string | null) ?? null,
       username: r.username as string,
       email: (r.email as string | null) ?? null,
@@ -850,8 +856,51 @@ export class PostgresStore implements Store {
     return (res.rowCount ?? 0) > 0;
   }
 
-  async markDigestSent(userId: string, kind: DigestKind, at: number): Promise<void> {
-    await this.pool.query('UPDATE digest_subscriptions SET last_sent_at = $3 WHERE user_id = $1 AND kind = $2', [userId, kind, new Date(at)]);
+  async markDigestSent(userId: string, kind: DigestKind, week: string, at: number): Promise<void> {
+    await this.pool.query(
+      'UPDATE digest_subscriptions SET last_mailed_week = $3, last_sent_at = $4, failures = 0 WHERE user_id = $1 AND kind = $2',
+      [userId, kind, week, new Date(at)],
+    );
+  }
+
+  async noteDigestFailure(userId: string, kind: DigestKind, at: number, max: number): Promise<boolean> {
+    const res = await this.pool.query(
+      `UPDATE digest_subscriptions SET failures = failures + 1,
+              stopped_at = CASE WHEN stopped_at IS NULL AND failures + 1 >= $4 THEN $3 ELSE stopped_at END
+        WHERE user_id = $1 AND kind = $2
+        RETURNING stopped_at IS NOT NULL AS stopped`,
+      [userId, kind, new Date(at), max],
+    );
+    return res.rows[0]?.stopped === true;
+  }
+
+  async reserveConfirmationSend(userId: string, at: number, limits: { perHour: number; perDay: number }): Promise<boolean> {
+    // Checked and counted under a per-account lock, so two requests at once cannot both pass the cap.
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:confirm:' || $1::text))", [userId]);
+      const when = new Date(at);
+      await client.query("DELETE FROM email_confirmation_sends WHERE user_id = $1 AND sent_at <= $2::timestamptz - interval '1 day'", [userId, when]);
+      const counts = await client.query(
+        `SELECT count(*)::int AS day, count(*) FILTER (WHERE sent_at > $2::timestamptz - interval '1 hour')::int AS hour
+           FROM email_confirmation_sends WHERE user_id = $1`,
+        [userId, when],
+      );
+      const { day, hour } = counts.rows[0] as { day: number; hour: number };
+      if (hour >= limits.perHour || day >= limits.perDay) {
+        await client.query('COMMIT');
+        return false;
+      }
+      await client.query('INSERT INTO email_confirmation_sends (user_id, sent_at) SELECT $1, $2 WHERE EXISTS (SELECT 1 FROM users WHERE id = $1)', [userId, when]);
+      await client.query('COMMIT');
+      return true;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   async releaseDigest(userId: string, kind: DigestKind, week: string, previous: string | null): Promise<void> {

@@ -25,10 +25,11 @@ const en = {
   why: 'You get this email because you asked for it on your account page of {server}.',
   stop: 'Stop these emails (one click, no login)',
   account: 'Your account page',
+  more: 'and {n} more',
   confirmSubject: '{server}: confirm your email address',
-  confirmIntro: 'Hello {name}, someone (we hope you) gave this address to the account {name} on {server}, to get its weekly emails.',
+  confirmIntro: 'Hello, someone (we hope you) gave this address to an account on {server}, to get its weekly emails.',
   confirmAction: 'Confirm this address (the link works for 3 days)',
-  confirmIgnore: 'If it was not you, do nothing: no email is sent to this address until it is confirmed.',
+  confirmIgnore: 'If it was not you, do nothing: no other email goes to this address until it is confirmed.',
 };
 
 type Words = typeof en;
@@ -55,10 +56,11 @@ const es: Words = {
   why: 'Recibe este correo porque lo pidió en la página de su cuenta de {server}.',
   stop: 'Dejar de recibir estos correos (un clic, sin iniciar sesión)',
   account: 'La página de su cuenta',
+  more: 'y {n} más',
   confirmSubject: '{server}: confirme su dirección de correo',
-  confirmIntro: 'Hola {name}, alguien (esperamos que usted) dio esta dirección a la cuenta {name} en {server}, para recibir sus correos semanales.',
+  confirmIntro: 'Hola, alguien (esperamos que usted) dio esta dirección a una cuenta en {server}, para recibir sus correos semanales.',
   confirmAction: 'Confirmar esta dirección (el enlace funciona durante 3 días)',
-  confirmIgnore: 'Si no fue usted, no haga nada: no se envía ningún correo a esta dirección hasta que se confirme.',
+  confirmIgnore: 'Si no fue usted, no haga nada: no se envía ningún otro correo a esta dirección hasta que se confirme.',
 };
 
 const fr: Words = {
@@ -83,10 +85,11 @@ const fr: Words = {
   why: 'Vous recevez ce courriel parce que vous l’avez demandé sur la page de votre compte de {server}.',
   stop: 'Ne plus recevoir ces courriels (un clic, sans connexion)',
   account: 'La page de votre compte',
+  more: 'et {n} de plus',
   confirmSubject: '{server} : confirmez votre adresse e-mail',
-  confirmIntro: 'Bonjour {name}, quelqu’un (vous, nous l’espérons) a donné cette adresse au compte {name} sur {server}, pour recevoir ses courriels de la semaine.',
+  confirmIntro: 'Bonjour, quelqu’un (vous, nous l’espérons) a donné cette adresse à un compte sur {server}, pour recevoir ses courriels de la semaine.',
   confirmAction: 'Confirmer cette adresse (le lien fonctionne pendant 3 jours)',
-  confirmIgnore: 'Si ce n’était pas vous, ne faites rien : aucun courriel n’est envoyé à cette adresse tant qu’elle n’est pas confirmée.',
+  confirmIgnore: 'Si ce n’était pas vous, ne faites rien : aucun autre courriel n’est envoyé à cette adresse tant qu’elle n’est pas confirmée.',
 };
 
 const pt: Words = {
@@ -111,10 +114,11 @@ const pt: Words = {
   why: 'Você recebe este e-mail porque o pediu na página da sua conta de {server}.',
   stop: 'Parar de receber estes e-mails (um clique, sem login)',
   account: 'A página da sua conta',
+  more: 'e mais {n}',
   confirmSubject: '{server}: confirme o seu endereço de e-mail',
-  confirmIntro: 'Olá {name}, alguém (esperamos que você) deu este endereço à conta {name} em {server}, para receber os seus e-mails semanais.',
+  confirmIntro: 'Olá, alguém (esperamos que você) deu este endereço a uma conta em {server}, para receber os seus e-mails semanais.',
   confirmAction: 'Confirmar este endereço (o link funciona por 3 dias)',
-  confirmIgnore: 'Se não foi você, não faça nada: nenhum e-mail é enviado a este endereço até que seja confirmado.',
+  confirmIgnore: 'Se não foi você, não faça nada: nenhum outro e-mail é enviado a este endereço até que seja confirmado.',
 };
 
 export const DIGEST_WORDS: Record<MailLanguage, Words> = { en, es, fr, pt };

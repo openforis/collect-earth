@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityPage, LogItem } from "./api";
-import { answerLabel, dailyCsv, dayAfterMs, dayStartMs, decisionsCsv, differencesCsv, isIsoWeek, isoWeekOf, logSentence, shiftWeek, weekMonday } from "./activityView";
+import { answerLabel, dailyCsv, dayAfterMs, dayStartMs, decisionsCsv, differencesCsv, isIsoWeek, isoWeekOf, logSentence, shiftWeek, weekMonday, weekRangeText } from "./activityView";
 import { csvText } from "./csv";
 import { translator } from "./i18n";
 
@@ -98,6 +98,10 @@ describe("weeks in the browser's calendar", () => {
     expect(isoWeekOf("2027-01-01")).toBe("2026-W53");
     expect(weekMonday("2026-W45")).toBe("2026-11-02");
     expect(weekMonday("2025-W01")).toBe("2024-12-30");
+    // A week as days in the viewer's language (the account page's "last sent").
+    expect(weekRangeText("2026-W44", "en")).toMatch(/Oct 26\s*–\s*Nov 1, 2026/);
+    expect(weekRangeText("2026-W44", "es")).toMatch(/26 oct.*1 nov.*2026/);
+    expect(weekRangeText("2025-W01", "fr")).toMatch(/30 déc\. 2024\s*–\s*5 janv\. 2025/);
     expect(shiftWeek("2026-W53", 1)).toBe("2027-W01");
     expect(shiftWeek("2027-W01", -1)).toBe("2026-W53");
     expect(isIsoWeek("2026-W53")).toBe(true);

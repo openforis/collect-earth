@@ -15,6 +15,7 @@ import { QualityService, QualityWorker } from './qualityService.js';
 import { RateLimiter } from './rateLimit.js';
 import { requestSerializer } from './logRedact.js';
 import { mailerFrom, type Mailer } from './mail.js';
+import type { KeySource } from './oidc.js';
 import { ServerCounters } from './serverCounters.js';
 import type { Store } from './store/store.js';
 import { registerActivityRoutes } from './routes/activity.js';
@@ -54,6 +55,10 @@ export interface BuildServerOptions {
   ai?: { client?: AiClient | null; now?: () => number; runs?: Partial<AiRunServiceOptions> };
   /** For tests: the mail transport (mail.ts's TestMailer) instead of SMTP or the log. */
   mailer?: Mailer;
+  /** For tests: a lower cap on confirmation mails per instance and hour. */
+  mailLimits?: { perInstanceHour?: number };
+  /** For tests: Google's keys for the weekly job's OIDC token. */
+  oidcKeys?: KeySource;
 }
 
 /** How long the development fake (AI_FAKE=1) waits before each answer, so the panel's progress shows. */
@@ -170,7 +175,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerPublicProgressRoutes(app, store, config, limiter, states, now);
   // Email digests (Task 19): SMTP only when SMTP_URL is set, else nothing is sent (the log transport).
   const mailer = options.mailer ?? mailerFrom(config, app.log);
-  await registerMailRoutes(app, store, config, limiter, { mailer, quality, states, now });
+  await registerMailRoutes(app, store, config, limiter, { mailer, quality, states, now, limits: options.mailLimits, oidcKeys: options.oidcKeys });
   // Role changes, removals and disabled accounts keep the reference copies right (Task 14).
   app.decorate('referenceSync', referenceSyncer(store, states, now));
   const runs = new AiRunService(store, quality, app.log, {

@@ -7,6 +7,7 @@ import { TestMailer, type MailMessage } from '../src/mail.js';
 import { buildServer } from '../src/server.js';
 import { weekMonday } from '../src/weekly.js';
 import { batchRequest, bearer, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
+import { idToken, otherKey, testKeys } from './oidcKeys.js';
 
 const DAY = 86_400_000;
 const DIGEST_SECRET = 'a-digest-secret-of-at-least-32-characters';
@@ -39,6 +40,16 @@ describe('email digests (Task 19)', () => {
   };
   /** Gives the account an email, confirms it and turns a digest on. */
   const subscribe = async (who: { token: string }, email: string, kinds: { coordinator?: boolean; collector?: boolean }, language = 'en', timeZone = 'UTC') => {
+    // Subscribed a week before the server's clock: a subscription never gets a week that ended before it.
+    const at = clock;
+    clock -= 7 * DAY;
+    try {
+      return await subscribeNow(who, email, kinds, language, timeZone);
+    } finally {
+      clock = at;
+    }
+  };
+  const subscribeNow = async (who: { token: string }, email: string, kinds: { coordinator?: boolean; collector?: boolean }, language: string, timeZone: string) => {
     expect((await me('PUT', '/email', who.token, { email, language })).statusCode).toBe(200);
     const token = confirmLink(email);
     expect(token).not.toBeNull();
@@ -105,15 +116,19 @@ describe('email digests (Task 19)', () => {
 
   it('an email is confirmed by its link; a new address needs a new confirmation; old links and changed ones do nothing', async () => {
     expect((await me('PUT', '/email', maria.token, { email: 'not an address' })).statusCode).toBe(400);
+    for (const bad of ['a@example.org,b@example.org', 'a@example.org; b@example.org', 'a b@example.org']) {
+      expect((await me('PUT', '/email', maria.token, { email: bad })).json().error, bad).toBe('invalid_email');
+    }
     const set = await me('PUT', '/email', maria.token, { email: 'maria@example.org', language: 'es' });
     expect(set.statusCode, set.body).toBe(200);
     expect(set.json()).toMatchObject({ email: 'maria@example.org', emailConfirmed: false });
     const mail = mailer.sent.at(-1)!;
     expect(mail).toMatchObject({ to: 'maria@example.org', tag: 'email.confirm' });
     expect(mail.subject).toContain('confirme su dirección');
+    // The address may not be maria's: the mail does not name her account.
+    expect(mail.text).not.toContain('maria ');
+    expect(mail.text).toContain('una cuenta en');
     const first = confirmLink('maria@example.org')!;
-    // Sent again within a minute: refused.
-    expect((await me('POST', '/email/confirmation', maria.token)).statusCode).toBe(429);
     // A changed address: the first link no longer confirms anything.
     await me('PUT', '/email', maria.token, { email: 'maria2@example.org' });
     const stale = await ctx.app.inject({ method: 'POST', url: '/v1/email/confirm', payload: { token: first } });
@@ -125,6 +140,7 @@ describe('email digests (Task 19)', () => {
     expect((await me('GET', '/notifications', maria.token)).json()).toMatchObject({ email: 'maria2@example.org', emailConfirmed: true });
     expect((await me('POST', '/email/confirmation', maria.token)).statusCode).toBe(409);
     // Expired after 3 days.
+    clock += 2 * 3_600_000;
     await me('PUT', '/email', maria.token, { email: 'maria3@example.org' });
     const third = confirmLink('maria3@example.org')!;
     clock += 3 * DAY + 1;
@@ -135,6 +151,128 @@ describe('email digests (Task 19)', () => {
     await me('PUT', '/notifications', maria.token, { collector: true, language: 'en', timeZone: 'UTC' });
     const removed = (await me('PUT', '/email', maria.token, { email: null })).json();
     expect(removed).toMatchObject({ email: null, emailConfirmed: false, digests: { collector: { on: false } } });
+  });
+
+  it('confirmation mails: 3 an hour and 6 a day per account, changing the address does not reset it, and a cap per instance', async () => {
+    const sent = () => mailer.sent.filter((m) => m.tag === 'email.confirm').length;
+    expect((await me('PUT', '/email', maria.token, { email: 'a1@example.org' })).statusCode).toBe(200);
+    expect((await me('POST', '/email/confirmation', maria.token)).statusCode).toBe(202);
+    expect((await me('PUT', '/email', maria.token, { email: 'a2@example.org' })).statusCode).toBe(200);
+    expect(sent()).toBe(3);
+    // A fourth within the hour: the address is saved, no mail goes.
+    const fourth = await me('PUT', '/email', maria.token, { email: 'a3@example.org' });
+    expect(fourth.statusCode).toBe(429);
+    expect(fourth.json().error).toBe('too_many_confirmations');
+    expect((await me('GET', '/notifications', maria.token)).json().email).toBe('a3@example.org');
+    expect((await me('POST', '/email/confirmation', maria.token)).json().error).toBe('too_many_confirmations');
+    expect(sent()).toBe(3);
+    // An hour later, 3 more; then the day's 6 are used.
+    clock += 3_600_001;
+    for (let i = 0; i < 3; i++) expect((await me('POST', '/email/confirmation', maria.token)).statusCode).toBe(202);
+    clock += 3_600_001;
+    expect((await me('POST', '/email/confirmation', maria.token)).statusCode).toBe(429);
+    expect(sent()).toBe(6);
+    clock += DAY;
+    expect((await me('POST', '/email/confirmation', maria.token)).statusCode).toBe(202);
+
+    // Per instance: at most `perInstanceHour` confirmation mails an hour, whoever asks.
+    await ctx.app.close();
+    mailer = new TestMailer();
+    ctx = await makeContext(config, { mailer, ai: { now: () => clock }, mailLimits: { perInstanceHour: 2 } });
+    owner = await setupPlatformAdmin(ctx.app);
+    expect((await me('PUT', '/email', owner.token, { email: 'o1@example.org' })).statusCode).toBe(200);
+    expect((await me('POST', '/email/confirmation', owner.token)).statusCode).toBe(202);
+    expect((await me('POST', '/email/confirmation', owner.token)).json().error).toBe('too_many_confirmations');
+  });
+
+  it('a stored address that is not one address (an old sign-up) is refused before any mail: re-enter it', async () => {
+    expect((await ctx.app.inject({ method: 'PUT', url: '/v1/admin/settings', headers: bearer(owner.token), payload: { signupOpen: true } })).statusCode).toBe(200);
+    const bad = await ctx.app.inject({ method: 'POST', url: '/v1/auth/signup', payload: { username: 'newbie', password: 'password12', email: 'a@example.org, b@example.org' } });
+    expect(bad.statusCode).toBe(400);
+    expect(bad.json().error).toBe('invalid_email');
+    const ok = await ctx.app.inject({ method: 'POST', url: '/v1/auth/signup', payload: { username: 'newbie', password: 'password12', email: 'newbie@example.org' } });
+    expect(ok.statusCode, ok.body).toBe(201);
+    // An address stored before the rule (written to the store as an older server would have).
+    await ctx.store.setEmail(maria.userId, 'a@example.org;b@example.org');
+    await ctx.store.confirmEmail(maria.userId, 'a@example.org;b@example.org', clock);
+    const view = (await me('GET', '/notifications', maria.token)).json();
+    expect(view).toMatchObject({ emailValid: false });
+    expect((await me('POST', '/email/confirmation', maria.token)).json().error).toBe('invalid_stored_email');
+    expect((await me('PUT', '/notifications', maria.token, { collector: true, language: 'en' })).json().error).toBe('invalid_stored_email');
+    await ctx.store.setDigest(maria.userId, 'collector', true, clock - 7 * DAY);
+    const run = (await digest()).json();
+    expect(run).toMatchObject({ sent: 0, skipped: 1 });
+    expect(mailer.sent.filter((m) => m.to.includes('b@example.org'))).toHaveLength(0);
+  });
+
+  it("the mails' links come from PUBLIC_BASE_URL, never from the request's Host or X-Forwarded-Host", async () => {
+    const spoof = { host: 'evil.example.net', 'x-forwarded-host': 'evil.example.net', 'x-forwarded-proto': 'http' };
+    await ctx.app.inject({ method: 'PUT', url: '/v1/me/email', headers: { ...bearer(maria.token), ...spoof }, payload: { email: 'maria@example.org' } });
+    const confirm = mailer.sent.at(-1)!;
+    expect(confirm.text).toContain('https://ce.example.org/confirm-email/');
+    expect(confirm.text + confirm.html).not.toContain('evil');
+    await subscribe(owner, 'owner@example.org', { coordinator: true });
+    await ctx.app.inject({ method: 'POST', url: '/v1/internal/digest', headers: { 'x-digest-secret': DIGEST_SECRET, ...spoof } });
+    const weekly = digests('owner@example.org')[0];
+    expect(weekly.text).toContain('https://ce.example.org/projects/');
+    expect(weekly.text + weekly.html + JSON.stringify(weekly.headers)).not.toContain('evil');
+    // A server that can send mail does not start without the address to put in them.
+    await expect(buildServer({ store: ctx.store, config: { port: 0, host: '127.0.0.1', storeBackend: 'memory' }, webDir: null, mailer })).rejects.toThrow(/PUBLIC_BASE_URL/);
+  });
+
+  it('a new subscription never gets a week that ended before it', async () => {
+    await subscribeNow(owner, 'owner@example.org', { coordinator: true }, 'en', 'UTC');
+    expect((await digest()).json()).toMatchObject({ sent: 0 });
+    clock += 7 * DAY;
+    expect((await digest()).json()).toMatchObject({ sent: 1 });
+  });
+
+  it('a mail server refusing the address for good (5xx) three weeks in a row turns the digest off, and the card says so', async () => {
+    await subscribe(owner, 'owner@example.org', { coordinator: true });
+    mailer.fail = () => true;
+    mailer.failWith = { responseCode: 550, code: 'EENVELOPE', command: 'RCPT TO' };
+    for (let i = 0; i < 3; i++) {
+      // Refused for good: the week is not tried again.
+      expect((await digest()).json(), String(i)).toMatchObject({ failed: 1 });
+      expect((await digest()).json()).toMatchObject({ failed: 0, sent: 0 });
+      clock += 7 * DAY;
+    }
+    const view = (await me('GET', '/notifications', owner.token)).json();
+    expect(view.digests.coordinator).toMatchObject({ on: false, stopped: true });
+    expect((await digest()).json()).toMatchObject({ failed: 0, sent: 0 });
+    // Turned on again: it goes when the mail server takes it.
+    mailer.fail = null;
+    const again = (await me('PUT', '/notifications', owner.token, { coordinator: true, language: 'en' })).json();
+    expect(again.digests.coordinator).toMatchObject({ on: true, stopped: false });
+    clock += 7 * DAY;
+    expect((await digest()).json()).toMatchObject({ sent: 1 });
+    expect((await me('GET', '/notifications', owner.token)).json().digests.coordinator).toMatchObject({ lastMailedWeek: dueWeek(clock, 'UTC') });
+  });
+
+  it('the card says when a mail last went, not when a week was passed over; the zone is kept when none is sent', async () => {
+    await subscribe(maria, 'maria@example.org', { collector: true }, 'en', 'Europe/Paris');
+    // maria leaves: her week has nothing to tell.
+    await call('DELETE', `/members/${maria.userId}`, owner.token);
+    expect((await digest()).json()).toMatchObject({ empty: 1 });
+    const view = (await me('GET', '/notifications', maria.token)).json();
+    expect(view.digests.collector).toMatchObject({ lastMailedWeek: null, lastSentAt: null });
+    expect((await me('PUT', '/notifications', maria.token, { collector: true, language: 'fr' })).json()).toMatchObject({ language: 'fr', timeZone: 'Europe/Paris' });
+  });
+
+  it('unsubscribe links that work are not held back by the shared per-address limit; others are', async () => {
+    await ctx.app.close();
+    mailer = new TestMailer();
+    ctx = await makeContext({ ...config, rateLimitPerMinute: 3 }, { mailer, ai: { now: () => clock } });
+    owner = await setupPlatformAdmin(ctx.app);
+    pid = (await ctx.app.inject({ method: 'POST', url: '/v1/projects', headers: bearer(owner.token), payload: { name: 'P' } })).json().projectId;
+    await call('PUT', '/csv-files/plots.csv', owner.token, 'id,lat,lon\n1,0,0\n', { 'content-type': 'text/csv' });
+    await subscribe(owner, 'owner@example.org', { coordinator: true });
+    expect((await digest()).json()).toMatchObject({ sent: 1 });
+    const link = new URL(/^<(.+)>$/.exec(digests()[0].headers!['List-Unsubscribe'])![1]).pathname;
+    for (let i = 0; i < 8; i++) expect((await ctx.app.inject({ method: 'POST', url: link })).statusCode, String(i)).toBe(200);
+    const codes: number[] = [];
+    for (let i = 0; i < 5; i++) codes.push((await ctx.app.inject({ method: 'POST', url: '/v1/unsubscribe/not.valid' })).statusCode);
+    expect(codes).toContain(429);
   });
 
   it('the secret: off without DIGEST_SECRET, refused without the header or with a wrong one', async () => {
@@ -151,6 +289,25 @@ describe('email digests (Task 19)', () => {
       expect((await digest({ 'x-digest-secret': DIGEST_SECRET }, undefined, off.app)).statusCode).toBe(404);
     } finally {
       await off.app.close();
+    }
+  });
+
+  it("Cloud Scheduler's OIDC token is accepted when set up: Google-signed, this audience, this service account", async () => {
+    const audience = 'https://ce.example.org/v1/internal/digest';
+    const email = 'scheduler@p.iam.gserviceaccount.com';
+    const oidc = await makeContext({ publicBaseUrl: 'https://ce.example.org', digestOidc: { audience, email } }, { mailer, ai: { now: () => clock }, oidcKeys: testKeys });
+    const claims = { iss: 'https://accounts.google.com', aud: audience, email, email_verified: true, iat: Math.floor(clock / 1000) - 5, exp: Math.floor(clock / 1000) + 3000 };
+    const run = (authorization: string) => oidc.app.inject({ method: 'POST', url: '/v1/internal/digest', headers: { authorization } });
+    try {
+      expect((await run(`Bearer ${idToken(claims)}`)).statusCode).toBe(200);
+      expect((await run(`Bearer ${idToken({ ...claims, aud: 'https://other.example.org' })}`)).statusCode).toBe(401);
+      expect((await run(`Bearer ${idToken({ ...claims, email: 'x@p.iam.gserviceaccount.com' })}`)).statusCode).toBe(401);
+      expect((await run(`Bearer ${idToken(claims, { key: otherKey.privateKey })}`)).statusCode).toBe(401);
+      expect((await run('Bearer nonsense')).statusCode).toBe(401);
+      // No DIGEST_SECRET there: the header does nothing.
+      expect((await oidc.app.inject({ method: 'POST', url: '/v1/internal/digest', headers: { 'x-digest-secret': DIGEST_SECRET } })).statusCode).toBe(401);
+    } finally {
+      await oidc.app.close();
     }
   });
 
@@ -304,7 +461,9 @@ describe('email digests (Task 19)', () => {
     await me('PUT', '/email', owner.token, { email: 'owner.secret@example.org' });
     // The confirmation mail went to the log: confirm as the link would (the store, as a test can).
     await ctx.store.confirmEmail(owner.userId, 'owner.secret@example.org', clock);
+    clock -= 7 * DAY;
     await me('PUT', '/notifications', owner.token, { coordinator: true, language: 'en', timeZone: 'UTC' });
+    clock += 7 * DAY;
     const run = (await digest()).json();
     expect(run).toMatchObject({ transport: 'log', sent: 1 });
     // Nothing reached anyone, so the week is not marked: SMTP set up later still sends it.

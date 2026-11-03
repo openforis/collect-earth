@@ -522,7 +522,8 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   // Email digests (Task 19).
   invalid_email: "mail.invalidEmail",
   no_email: "mail.noEmail",
-  too_soon: "mail.tooSoon",
+  too_many_confirmations: "mail.tooMany",
+  invalid_stored_email: "mail.invalidStored",
   mail_failed: "mail.failed",
   already_confirmed: "mail.alreadyConfirmed",
   confirm_expired: "mail.confirmExpired",
@@ -806,8 +807,20 @@ export async function deleteAccount(password: string): Promise<void> {
 
 export type DigestKind = "coordinator" | "collector";
 
+export interface DigestView {
+  on: boolean;
+  /** Turned off by the server after the mail server refused the address several weeks in a row. */
+  stopped: boolean;
+  lastSentWeek: string | null;
+  /** The latest week a mail actually went for (YYYY-Www), and when. */
+  lastMailedWeek: string | null;
+  lastSentAt: number | null;
+}
+
 export interface Notifications {
   email: string | null;
+  /** False: the stored address is not one email address (an older sign-up): it must be typed again. */
+  emailValid: boolean;
   emailConfirmed: boolean;
   /** The language and time zone the mails are written in (null: never chosen). */
   language: string | null;
@@ -816,20 +829,23 @@ export interface Notifications {
   sends: boolean;
   /** Which digests make sense: coordinating a project, collecting in one. */
   roles: Record<DigestKind, boolean>;
-  digests: Record<DigestKind, { on: boolean; lastSentWeek: string | null; lastSentAt: number | null }>;
+  digests: Record<DigestKind, DigestView>;
 }
 
 function toNotifications(body: unknown): Notifications {
   const b = (body ?? {}) as Record<string, unknown>;
   const roles = (b.roles ?? {}) as Record<string, unknown>;
   const digests = (b.digests ?? {}) as Record<string, Record<string, unknown> | undefined>;
-  const digest = (kind: DigestKind) => ({
+  const digest = (kind: DigestKind): DigestView => ({
     on: digests[kind]?.on === true,
+    stopped: digests[kind]?.stopped === true,
     lastSentWeek: typeof digests[kind]?.lastSentWeek === "string" ? (digests[kind]!.lastSentWeek as string) : null,
+    lastMailedWeek: typeof digests[kind]?.lastMailedWeek === "string" ? (digests[kind]!.lastMailedWeek as string) : null,
     lastSentAt: typeof digests[kind]?.lastSentAt === "number" ? (digests[kind]!.lastSentAt as number) : null,
   });
   return {
     email: typeof b.email === "string" ? b.email : null,
+    emailValid: b.emailValid !== false,
     emailConfirmed: b.emailConfirmed === true,
     language: typeof b.language === "string" ? b.language : null,
     timeZone: typeof b.timeZone === "string" ? b.timeZone : null,
@@ -843,9 +859,10 @@ export async function getNotifications(): Promise<Notifications> {
   return toNotifications(await request("GET", "/v1/me/notifications"));
 }
 
-/** Turns digests on or off, in the language and time zone given (the dashboard's). */
-export async function setNotifications(change: Partial<Record<DigestKind, boolean>> & { language: string; timeZone: string | null }): Promise<Notifications> {
-  return toNotifications(await request("PUT", "/v1/me/notifications", { json: change }));
+/** Turns digests on or off, in the language and time zone given (the dashboard's); no zone keeps the stored one. */
+export async function setNotifications(change: Partial<Record<DigestKind, boolean>> & { language: string; timeZone?: string | null }): Promise<Notifications> {
+  const { timeZone, ...rest } = change;
+  return toNotifications(await request("PUT", "/v1/me/notifications", { json: timeZone ? { ...rest, timeZone } : rest }));
 }
 
 /** Gives the account an email (null removes it); a new one gets a mail with a link to confirm it. */
