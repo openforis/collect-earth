@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config.js';
 import { collectorMail, confirmMail, coordinatorMail, dueWeek, previousWeek, type CollectorProject, type CoordinatorProject, type DigestContext } from '../src/digest.js';
@@ -129,6 +130,26 @@ describe('the mails\' links (Task 19)', () => {
     expect(readUnsubscribeToken(writeConfirmToken('user-1', 'a@example.org', SECRET, 0), SECRET)).toBeNull();
   });
 
+  it("an unsubscribe token does not show the account's id; a first-version token (the id readable) still works (M-4)", () => {
+    const id = '0b6c3f0e-1111-4222-8333-944455556666';
+    const token = writeUnsubscribeToken(id, 'coordinator', SECRET);
+    const payload = Buffer.from(token.split('.')[0], 'base64url').toString('utf8');
+    expect(payload).not.toContain(id);
+    expect(payload).not.toContain('0b6c3f0e');
+    expect(Object.keys(JSON.parse(payload)).sort()).toEqual(['h', 'k']);
+    expect(readUnsubscribeToken(token, SECRET)).toEqual({ userId: id, kind: 'coordinator' });
+    // Two tokens of one account differ (a fresh nonce each).
+    expect(writeUnsubscribeToken(id, 'coordinator', SECRET)).not.toBe(token);
+    // The hidden id cannot be swapped for another one's (it is signed and authenticated).
+    const other = JSON.parse(Buffer.from(writeUnsubscribeToken('someone-else', 'coordinator', SECRET).split('.')[0], 'base64url').toString('utf8'));
+    const swapped = Buffer.from(JSON.stringify({ h: other.h, k: 'coordinator' })).toString('base64url');
+    expect(readUnsubscribeToken(`${swapped}.${token.split('.')[1]}`, SECRET)).toBeNull();
+    // A token written by the first version: { u, k } signed the same way.
+    const old = Buffer.from(JSON.stringify({ u: id, k: 'collector' })).toString('base64url');
+    const sig = createHmac('sha256', SECRET).update(`digest-unsubscribe:${old}`).digest('base64url');
+    expect(readUnsubscribeToken(`${old}.${sig}`, SECRET)).toEqual({ userId: id, kind: 'collector' });
+  });
+
   it('a confirmation token is tied to the account and the address, and expires', () => {
     const now = 1_800_000_000_000;
     const token = writeConfirmToken('user-1', 'maria@example.org', SECRET, now);
@@ -250,8 +271,16 @@ describe('the digests\' words (Task 19)', () => {
       // An account on the server, never its username (the address may not be theirs).
       expect(mail.text).toContain(intro[language]);
       expect(mail.text).toContain(other[language]);
+      // What confirming does, plainly (M-7): weekly emails about the account's projects on this server.
+      expect(mail.text, language).toContain(what[language]);
     }
   });
+  const what: Record<MailLanguage, string> = {
+    en: 'this address gets the weekly emails that account asks for, about its projects on Cloud',
+    es: 'esta dirección recibe los correos semanales que esa cuenta pida, sobre sus proyectos en Cloud',
+    fr: 'cette adresse reçoive les courriels de la semaine que ce compte demande, sur ses projets sur Cloud',
+    pt: 'este endereço recebe os e-mails semanais que essa conta pedir, sobre os seus projetos em Cloud',
+  };
 
   it('the quiet people: at most 20 named, then how many more', () => {
     const people = Array.from({ length: 23 }, (_, i) => `person${String(i).padStart(2, '0')}`);

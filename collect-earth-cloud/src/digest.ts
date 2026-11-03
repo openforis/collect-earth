@@ -189,6 +189,8 @@ export function confirmMail(ctx: ConfirmContext, to: string): MailMessage {
   const params = { server: oneLine(ctx.serverName) };
   const lines: MailLine[] = [
     { kind: 'para', text: w('confirmIntro', params) },
+    // What confirming does, plainly (Task 22 review, M-7).
+    { kind: 'para', text: w('confirmWhat', params) },
     { kind: 'link', label: w('confirmAction'), url: ctx.confirmUrl },
     { kind: 'para', text: w('confirmIgnore') },
   ];

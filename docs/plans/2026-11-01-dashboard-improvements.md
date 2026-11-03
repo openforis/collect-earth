@@ -3747,6 +3747,101 @@ desktop suites green (core 40, app 210+).
   balloon and `loadApp.kml` in Google Earth Pro; the owner's decisions on the stale comment (5), the round column in the
   plot settings table (4) and the download race (2).
 
+**Final review fixes (server)** (2026-11-03, commits a833dcb7, 82e10d3b, c2b48001, 9dc7a37e and the one with this block;
+web texts, accessibility and the rest of the docs are another agent's)
+- **Group 1, reviewers (Decision 10, added above):**
+  - **I-1** no reference plot for a reviewer: `GET /map/plots` filters them out of the files' units before the map
+    is built (points, statuses, counts, `files[].plots`); `GET /quality/flags` passes `patternFlags` a `hidden` set (the
+    figures' reference plots): their flags neither listed nor counted (two_main/no_plot counts less the listed problems of
+    those plots; a hidden plot's problem beyond the report's 500 listed would stay counted); `PUT`/`DELETE
+    /quality/decisions/:plot` run the `own_plot` check first (records or a copy held), then a reviewer on a reference plot
+    gets exactly the 404 of a plot that is not there (`PUT`: `NO_SUCH_PLOT`; `DELETE`: `{ error: 'not_found' }`), a
+    coordinator the 409 `reference_plot`. Test `reviewers.routes.test.ts` (map 12 vs 10 plots, flags, identical bodies,
+    the reviewer who is a reference assessor gets `own_plot`).
+  - **M-2** `PUT /quality/decisions/:plot` is a 404 (`no plot file of this project has this plot`) for a plot in no plot
+    file and without records (`recordKeysOfUnit`), all roles; the plot index (`PlotIndexCache`) is now made in `server.ts`
+    and shared by plot search and the quality routes. Tests that decided plots in no file now give them a record.
+  - **I-2** `checkersOf` defaults to collectors only; `notBlindCheckers` names the reviewers and coordinators a rule (or a
+    file's own rule) chooses, and `GET`/`PUT /sampling` carry `warning: { code: 'checkers_not_blind', usernames } | null`
+    (**for the web agent:** show it, and `checks.checkersAll` "Every collector and reviewer" must now say every collector,
+    4 languages). A copy held only as a copy (`copiesHeld`, from `listUserPlots` of the divided files) is the reviewer's
+    own plot: the plot page is a 404 until they have a submitted, not deleted record of it (a draft is not enough;
+    `ownPlot` true after), the queue leaves it out (`excludedOwn` counts it), a decision is 409 `own_plot`.
+  - **I-3** reviewers: `/quality/flags` `people: []`; `/quality/answers` with `person=` is a 403, and the team's figures
+    only (`people`, each choice's and number's `people`, the per-person `flags` and `filters.people` empty; counts, codes,
+    spreads and `flagsTotal`/`tests` stay).
+- **Group 2, consistency:**
+  - **B1** `nearbyRanksOf` keeps ranks worked out without places (the reader gave null) for `RANKS_RETRY_MS` (5 s) only,
+    never as the file's; `placesOfFile(…, inHand)` parses the file already read (my-assignment's served file, the
+    division's nearby check) instead of reading it again by id (a division's columns look now reads the file once).
+  - **B2** the map's `version` is `mapVersion(...)`: a hash of the state's version, the decisions (plot, kind, time), the
+    figures by their inputs' version (`ServedReport.version`, new), the survey's srid and hidden keys, which files have
+    places, the filters and the role. A page whose build this instance lacks is built again when the hash matches; when
+    this instance's figures at hand differ, it tries none and then the computed ones (`quality.report`, only on that miss)
+    before the 409 `map_changed`. Tested with two and three `buildServer` instances on one store.
+  - **B3** a drawn copy whose disabled holder has a check draft is not stale (kept, not drawn again); `keptBy` (division.ts)
+    adds the copy holders' check drafts to what a division and a move keep with them when check records have no key of
+    their own (`checksHaveOwnKey`: no added round, no own round with its code); the summaries still count submitted ones.
+    `removeMember` still drops all of a person's holdings (by design, see Open).
+  - **B7** migration 015's guard looks for every action of its list in the constraint (`position(quote_literal(a) IN def)`),
+    not only `decision.bulk`; no other migration widens a CHECK. Smoke: an older constraint without `link.*` is widened, a
+    complete one left as it is (same oid).
+  - **M-1** `sentBackTo` skips reference plots' old recheck decisions; the weekly summary leaves them out of `decided` and
+    counts their checks apart: `progress.referenceMeasurements` and each person's `referenceMeasurements`, `checks` (and the
+    days' checks, and the digest's `checks`) without them.
+  - A plot file that could not be read: `PlotContext.failed`; the project state is then kept only `STATE_RETRY_MS` (5 s)
+    under the unchanged version, the quality figures under `<version>:partial` (never taken for the inputs': worked out again
+    at most once per `minIntervalMs`).
+  - `copiesServedAsMain` reads only the person's records (`listRecordsByKeys(…, operator)`, `AND r.operator = $3` in SQL).
+  - `removeMember` and `putCsvFile` take the sampling advisory lock first (smoke: both wait for a held one).
+  - The memory store's `disableUser` counts the platform admins and writes with no await between (test: two admins
+    disabling each other at once, one refused).
+- **Group 3, Cloud Run:**
+  - **B4** `runMigrations` skips the files applied with the same sha256 (`schema_migrations.checksum`, migration 024; a
+    database without the column runs them all and records them), runs an edited file again, and records only what ran; after
+    taking the advisory lock it sets `lock_timeout = '3s'`; a run that meets 55P03 is tried again after 1, 2, 4 s (four runs
+    in all). Unit tests (mocked pg) and the smoke (a table held 4 s: timed out once, done after it was freed).
+  - **B5** an automatic draw has a deadline (its request's `inlineMs`): worked out past it, nothing is stored and it stays
+    due (logged); `addSampledCopies` sets `statement_timeout` 30 s and `idle_in_transaction_session_timeout` 10 s for its
+    transaction (before the lock's wait). "Draw now" has no deadline.
+  - **B6** Dockerfile: `CMD sh -c 'export NODE_OPTIONS="--max-old-space-size=${NODE_HEAP_MB} ${NODE_OPTIONS:-}"; exec node
+    --import tsx src/index.ts'`, `ENV NODE_HEAP_MB=224` (checked in a node:20-slim image with tsx 4.23.0: /health 200, node
+    is PID 1, the heap limit follows NODE_HEAP_MB). Caches configurable, lower by default: `PARSED_FILES_CACHE_MB` 96 (was
+    384), `SERVED_FILES_CACHE_MB` 32 (was 128), `MAP_BUILDS_KEPT` 4 (was 8), `PROJECT_STATES_KEPT` 3 (was 6). DEPLOY.md
+    "Memory": an estimate table (no reviewer table was at hand: my estimates, the backup's 70 MB measured) and the 1 GiB
+    settings (`NODE_HEAP_MB=448`, `QUALITY_WORKER_MAX_MB=320`, the caches 384/128/6/8) above about 30,000 records.
+  - **M-6** `eachProject` sets the store's statement timeout.
+  - `deploy.sh`: `MEMORY` and `REQUEST_TIMEOUT`, unset meaning what the service has now (`gcloud run services describe`),
+    else 512Mi / 900 for a new one; listed in `--help` ("Environment") and DEPLOY's options.
+  - `npm run smoke:pg:final` (`scripts/pg-smoke-final-review.mts`, README): ALL OK; `smoke:pg:sampling` ALL OK again.
+- **Group 4:**
+  - **The CEP's own plot file** (the real run's "Columns in CSV do not match survey"): when an upload adds round or the note
+    to the survey, `withBundledPlotFile` rewrites the plot file the CEP's `csv` property names with `servedBundledPlotFile`:
+    built as a whole plot file is served (round "1" inserted after the key, the note column empty), each only when the
+    header does not name it already (a header with `round` keeps it, and the note goes after it), read back as Collect Earth
+    reads rows or the upload fails; the upload is kept as `original` unchanged, the served file uploaded back keeps its plot
+    file. Tests compare the served header with the served survey's keys and plot-file attributes (`[id, round, YCoordinate,
+    XCoordinate, elevation … district, coordinator_note]`), every row's length, round and empty note.
+  - **M-3** DEPLOY.md: the backup's one-at-a-time rule and the used-link memory are per instance.
+  - **M-4** unsubscribe tokens carry the account's id encrypted (AES-256-GCM, its own key from the mails' key, a fresh nonce
+    each) instead of readable; first-version tokens (`{ u, k }`) still work. Not a stored per-subscription id: no schema
+    change, the same property (nothing readable in the link), and links already sent keep working.
+  - **M-5** DEPLOY.md ("The map's base map"): what the tile source learns (the areas of the plots, the referrer, the IP).
+  - **M-7** the confirmation mail says what confirming does (`confirmWhat`, 4 languages, tested).
+- **Tests:** server 1167 (was 1139 before these fixes), web 340 (not touched here), tsc clean in both.
+- **Open (owner's decisions, not fixed here):**
+  - **Swing:** the plot settings preview table (`JPlotCsvTable`) shows every column, the `round` column included, so a
+    collector who opens the plot settings can tell the drawn checks apart (real run, item 4). Only fixable in
+    `SampleDataPanel`/`JPlotCsvTable` (hide `round`), or by not putting round in the plot files (the checks' keys then rely
+    on the copy holder alone).
+  - **Swing:** the `SampleDataPanel` double download (`populateAssignments`) can also fail a download with a checksum
+    mismatch (both writing one file at once), besides leaving the field on the other file (real run, item 2): start the
+    download once per refill and write to a temporary file, then move it.
+  - `removeMember` drops every holding of the person removed, copies with a check begun included (by design: the plot is
+    drawn or dealt again; their records stay); B3's "keep a draft" applies to disabled accounts, divisions and moves.
+  - B2: a page served by an instance whose figures at hand are of other inputs and that cannot work out the same ones
+    (busy worker) is still a 409; Cloud Run session affinity (`--session-affinity`) would make that rarer.
+
 ## Order
 
 Tasks 1 → 21 → 2 → 3, then Part B (4–7), then Part C (8–11), then Part D (12–16),

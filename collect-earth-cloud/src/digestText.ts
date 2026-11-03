@@ -28,6 +28,7 @@ const en = {
   more: 'and {n} more',
   confirmSubject: '{server}: confirm your email address',
   confirmIntro: 'Hello, someone (we hope you) gave this address to an account on {server}, to get its weekly emails.',
+  confirmWhat: 'Confirming it means this address gets the weekly emails that account asks for, about its projects on {server}: one a week, each with a link to stop it.',
   confirmAction: 'Confirm this address (the link works for 3 days)',
   confirmIgnore: 'If it was not you, do nothing: no other email goes to this address until it is confirmed.',
 };
@@ -59,6 +60,7 @@ const es: Words = {
   more: 'y {n} más',
   confirmSubject: '{server}: confirme su dirección de correo',
   confirmIntro: 'Hola, alguien (esperamos que usted) dio esta dirección a una cuenta en {server}, para recibir sus correos semanales.',
+  confirmWhat: 'Al confirmarla, esta dirección recibe los correos semanales que esa cuenta pida, sobre sus proyectos en {server}: uno por semana, cada uno con un enlace para dejar de recibirlos.',
   confirmAction: 'Confirmar esta dirección (el enlace funciona durante 3 días)',
   confirmIgnore: 'Si no fue usted, no haga nada: no se envía ningún otro correo a esta dirección hasta que se confirme.',
 };
@@ -88,6 +90,7 @@ const fr: Words = {
   more: 'et {n} de plus',
   confirmSubject: '{server} : confirmez votre adresse e-mail',
   confirmIntro: 'Bonjour, quelqu’un (vous, nous l’espérons) a donné cette adresse à un compte sur {server}, pour recevoir ses courriels de la semaine.',
+  confirmWhat: 'La confirmer, c’est accepter que cette adresse reçoive les courriels de la semaine que ce compte demande, sur ses projets sur {server} : un par semaine, chacun avec un lien pour les arrêter.',
   confirmAction: 'Confirmer cette adresse (le lien fonctionne pendant 3 jours)',
   confirmIgnore: 'Si ce n’était pas vous, ne faites rien : aucun autre courriel n’est envoyé à cette adresse tant qu’elle n’est pas confirmée.',
 };
@@ -117,6 +120,7 @@ const pt: Words = {
   more: 'e mais {n}',
   confirmSubject: '{server}: confirme o seu endereço de e-mail',
   confirmIntro: 'Olá, alguém (esperamos que você) deu este endereço a uma conta em {server}, para receber os seus e-mails semanais.',
+  confirmWhat: 'Ao confirmá-lo, este endereço recebe os e-mails semanais que essa conta pedir, sobre os seus projetos em {server}: um por semana, cada um com um link para pará-los.',
   confirmAction: 'Confirmar este endereço (o link funciona por 3 dias)',
   confirmIgnore: 'Se não foi você, não faça nada: nenhum outro e-mail é enviado a este endereço até que seja confirmado.',
 };

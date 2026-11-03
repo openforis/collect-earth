@@ -3,10 +3,13 @@
 // from DATABASE_URL), each with its own purpose in the signature, so
 // a token of one kind is never taken for another.
 // - Unsubscribe: tied to the account and the kind of digest; it does not expire (a mail read months
-//   later still works) and needs no login. Using it turns that digest off, nothing else.
+//   later still works) and needs no login. Using it turns that digest off, nothing else. The account's
+//   id is in it encrypted (AES-256-GCM, a key of its own from mailSecret), so a forwarded mail or a
+//   mail program's log does not show it (Task 22 review, M-4); tokens of the first version, with the
+//   id readable, still work.
 // - Confirm: tied to the account and the address (its sha256), valid CONFIRM_TTL_MS; an address
 //   changed since makes it do nothing.
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { DIGEST_KINDS, type DigestKind } from './types.js';
 
 /**
@@ -47,15 +50,39 @@ function read(purpose: string, token: unknown, secret: Buffer): Record<string, u
   }
 }
 
-export function writeUnsubscribeToken(userId: string, kind: DigestKind, secret: Buffer): string {
-  return write('digest-unsubscribe', { u: userId, k: kind }, secret);
+/** The key that hides the account's id in an unsubscribe token: its own, from the mails' key. */
+const hidingKey = (secret: Buffer) => createHmac('sha256', secret).update('digest-unsubscribe:hide').digest();
+
+/** The account's id encrypted (AES-256-GCM: a random 12-byte nonce, the text, the 16-byte tag), base64url. */
+function hide(userId: string, secret: Buffer): string {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', hidingKey(secret), iv);
+  const text = Buffer.concat([cipher.update(userId, 'utf8'), cipher.final()]);
+  return Buffer.concat([iv, text, cipher.getAuthTag()]).toString('base64url');
 }
 
-/** The account and kind of an unsubscribe token, or null when it is none of ours. */
+function unhide(hidden: string, secret: Buffer): string | null {
+  const bytes = Buffer.from(hidden, 'base64url');
+  if (bytes.length < 12 + 16 + 1) return null;
+  try {
+    const decipher = createDecipheriv('aes-256-gcm', hidingKey(secret), bytes.subarray(0, 12));
+    decipher.setAuthTag(bytes.subarray(bytes.length - 16));
+    return Buffer.concat([decipher.update(bytes.subarray(12, bytes.length - 16)), decipher.final()]).toString('utf8');
+  } catch {
+    return null;
+  }
+}
+
+export function writeUnsubscribeToken(userId: string, kind: DigestKind, secret: Buffer): string {
+  return write('digest-unsubscribe', { h: hide(userId, secret), k: kind }, secret);
+}
+
+/** The account and kind of an unsubscribe token (the id hidden, or readable in a first-version token), or null when it is none of ours. */
 export function readUnsubscribeToken(token: unknown, secret: Buffer): { userId: string; kind: DigestKind } | null {
   const v = read('digest-unsubscribe', token, secret);
-  if (!v || typeof v.u !== 'string' || !(DIGEST_KINDS as readonly unknown[]).includes(v.k)) return null;
-  return { userId: v.u, kind: v.k as DigestKind };
+  if (!v || !(DIGEST_KINDS as readonly unknown[]).includes(v.k)) return null;
+  const userId = typeof v.h === 'string' ? unhide(v.h, secret) : typeof v.u === 'string' ? v.u : null;
+  return userId === null ? null : { userId, kind: v.k as DigestKind };
 }
 
 const addressHash = (email: string) => createHash('sha256').update(email).digest('base64url').slice(0, 22);
