@@ -69,6 +69,9 @@ public class LeafletMapController {
 	private volatile Set<String> cachedPlotIds = Collections.emptySet();
 	private final com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
 
+	/** The files of the Vite build (see HttpCaching), read once from its manifest */
+	private volatile Set<String> builtFiles;
+
 	// ---------- static page ----------
 
 	// The pages are asked for again each time (a 304 while unchanged), the files of the build named by their content kept
@@ -88,13 +91,27 @@ public class LeafletMapController {
 	@GetMapping("/map/assets/{folder}/{file:.+}")
 	public void vendorAsset(@PathVariable String folder, @PathVariable String file, HttpServletRequest request,
 			HttpServletResponse response) throws IOException {
-		serveClasspath("leafletmap/" + folder + "/" + file, contentType(file), HttpCaching.cacheControlFor(file), request,
-				response);
+		// not files of the build (it puts them all in the folder itself): asked for again
+		serveClasspath("leafletmap/" + folder + "/" + file, contentType(file), HttpCaching.REVALIDATE, request, response);
 	}
 
 	@GetMapping("/map/assets/{file:.+}")
 	public void asset(@PathVariable String file, HttpServletRequest request, HttpServletResponse response) throws IOException {
-		serveClasspath("leafletmap/" + file, contentType(file), HttpCaching.cacheControlFor(file), request, response);
+		serveClasspath("leafletmap/" + file, contentType(file), HttpCaching.cacheControlFor(file, builtFiles()), request,
+				response);
+	}
+
+	private Set<String> builtFiles() {
+		Set<String> files = builtFiles;
+		if (files == null) {
+			try (InputStream in = getClass().getClassLoader().getResourceAsStream("leafletmap/" + HttpCaching.MANIFEST)) {
+				files = HttpCaching.builtFiles(in);
+			} catch (IOException e) {
+				files = Collections.emptySet();
+			}
+			builtFiles = files;
+		}
+		return files;
 	}
 
 	private String contentType(String file) {

@@ -16,6 +16,9 @@ export default defineConfig(({ command }) => ({
     outDir: resolve(import.meta.dirname, "../../../target/classes/leafletmap"),
     emptyOutDir: true,
     assetsDir: "",
+    // build-manifest.json: the files of the build, which LeafletMapController lets the browser keep a year (HttpCaching);
+    // not in .vite/, as a jar may leave out a folder whose name starts with a dot
+    manifest: "build-manifest.json",
     // React + MUI (+ Leaflet for the map) loaded from localhost: the two pages share a chunk
     chunkSizeWarningLimit: 1000,
     rollupOptions: { input: { map: resolve(import.meta.dirname, "map.html"), form: resolve(import.meta.dirname, "form.html") } },

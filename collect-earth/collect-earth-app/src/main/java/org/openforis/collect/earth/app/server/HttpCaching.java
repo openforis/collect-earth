@@ -1,19 +1,27 @@
 package org.openforis.collect.earth.app.server;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * How the browser keeps the pages of the plots map and the web form, and what they load. The web form is loaded anew for
  * every plot, with some 630 KB of scripts: without caching, all of it came again each time.
  * <ul>
  * <li>The files Vite builds with a hash of their content in the name ({@code form-BBM79X7o.js}) never change under that
- * name: kept a year without asking ({@link #IMMUTABLE}).</li>
+ * name: kept a year without asking ({@link #IMMUTABLE}). Only those the build lists in its manifest
+ * ({@link #MANIFEST}), served from /map/assets/: a file that only looks like one is asked for again.</li>
  * <li>The pages ({@code map.html}, {@code form.html}) name the files of the build they belong to, and the survey's form
  * changes with the survey: asked for again each time, with an ETag, so that the answer is a 304 with nothing in it while
  * they have not changed ({@link #REVALIDATE}).</li>
@@ -23,6 +31,8 @@ final class HttpCaching {
 
 	static final String IMMUTABLE = "public, max-age=31536000, immutable"; //$NON-NLS-1$
 	static final String REVALIDATE = "no-cache"; //$NON-NLS-1$
+	/** The manifest of the Vite build, next to its files (build.manifest in vite.config.ts) */
+	static final String MANIFEST = "build-manifest.json"; //$NON-NLS-1$
 
 	/** Vite's names: {@code [name]-[hash].[ext]}, the hash 8 characters of base64url ({@code map-vh-t_kPv.css}) */
 	private static final Pattern CONTENT_HASHED = Pattern.compile(".+-[A-Za-z0-9_-]{8}\\.[A-Za-z0-9]+"); //$NON-NLS-1$
@@ -35,9 +45,40 @@ final class HttpCaching {
 		return file != null && !file.endsWith(".html") && CONTENT_HASHED.matcher(file).matches(); //$NON-NLS-1$
 	}
 
-	/** The Cache-Control of a file of the build */
-	static String cacheControlFor(String file) {
-		return isContentHashed(file) ? IMMUTABLE : REVALIDATE;
+	/**
+	 * The Cache-Control of a file served from /map/assets/: kept a year when the build lists it and its name carries the
+	 * hash of its content
+	 *
+	 * @param built
+	 *            the files of the build ({@link #builtFiles}), empty when it has no manifest
+	 */
+	static String cacheControlFor(String file, Set<String> built) {
+		return built.contains(file) && isContentHashed(file) ? IMMUTABLE : REVALIDATE;
+	}
+
+	/**
+	 * The files a Vite manifest lists: the file of each entry, and the CSS and the assets it loads. None when there is no
+	 * manifest or it cannot be read.
+	 */
+	static Set<String> builtFiles(InputStream manifest) {
+		if (manifest == null) {
+			return Collections.emptySet();
+		}
+		Set<String> files = new HashSet<>();
+		try {
+			for (JsonNode entry : new ObjectMapper().readTree(manifest)) {
+				files.add(entry.path("file").asText()); //$NON-NLS-1$
+				for (String list : new String[] { "css", "assets" }) { //$NON-NLS-1$ //$NON-NLS-2$
+					for (JsonNode file : entry.path(list)) {
+						files.add(file.asText());
+					}
+				}
+			}
+		} catch (IOException e) {
+			return Collections.emptySet();
+		}
+		files.remove(""); //$NON-NLS-1$
+		return Collections.unmodifiableSet(files);
 	}
 
 	/** A strong ETag of the content */

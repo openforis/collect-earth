@@ -7,7 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -18,20 +23,53 @@ public class HttpCachingTest {
 
 	private static final byte[] PAGE = "<html>form</html>".getBytes(StandardCharsets.UTF_8);
 
+	/** The shape of the manifest Vite writes (build-manifest.json) */
+	private static final String MANIFEST = "{"
+			+ "\"_shortcuts-C7F_CAKX.js\": {\"file\": \"shortcuts-C7F_CAKX.js\", \"name\": \"shortcuts\","
+			+ " \"css\": [\"shortcuts-D9iMP7se.css\"], \"assets\": [\"collect-earth-logo-Cm2Zex6a.png\","
+			+ " \"roboto-vietnamese-500-normal-BgoYVz-9.woff\"]},"
+			+ "\"form.html\": {\"file\": \"form-BBM79X7o.js\", \"src\": \"form.html\", \"isEntry\": true,"
+			+ " \"imports\": [\"_shortcuts-C7F_CAKX.js\"]},"
+			+ "\"map.html\": {\"file\": \"map-vh-t_kPv.js\", \"src\": \"map.html\", \"isEntry\": true},"
+			+ "\"src/form/collect-earth-logo.png\": {\"file\": \"collect-earth-logo-Cm2Zex6a.png\", \"src\": \"src/form/collect-earth-logo.png\"}"
+			+ "}";
+
+	private static Set<String> built() {
+		return HttpCaching.builtFiles(new ByteArrayInputStream(MANIFEST.getBytes(StandardCharsets.UTF_8)));
+	}
+
 	@Test
-	public void theFilesNamedByTheirContentAreKeptAYear() {
-		for (String file : new String[] { "form-BBM79X7o.js", "map-BMdOtu4D.js", "map-vh-t_kPv.css", "shortcuts-D42rdgNv.js",
-				"collect-earth-logo-Cm2Zex6a.png", "roboto-latin-400-normal-BqEyEoaF.woff2", "roboto-vietnamese-500-normal-BgoYVz-9.woff" }) {
-			assertEquals("public, max-age=31536000, immutable", HttpCaching.cacheControlFor(file), file);
+	public void theManifestListsTheFilesOfTheBuild() {
+		assertEquals(new HashSet<>(Arrays.asList("shortcuts-C7F_CAKX.js", "shortcuts-D9iMP7se.css", "collect-earth-logo-Cm2Zex6a.png",
+				"roboto-vietnamese-500-normal-BgoYVz-9.woff", "form-BBM79X7o.js", "map-vh-t_kPv.js")), built());
+		assertEquals(Collections.emptySet(), HttpCaching.builtFiles(null));
+		assertEquals(Collections.emptySet(), HttpCaching.builtFiles(new ByteArrayInputStream("not json".getBytes(StandardCharsets.UTF_8))));
+	}
+
+	@Test
+	public void theFilesOfTheBuildAreKeptAYear() {
+		for (String file : built()) {
+			assertEquals("public, max-age=31536000, immutable", HttpCaching.cacheControlFor(file, built()), file);
 		}
 	}
 
 	@Test
 	public void theOtherFilesAreAskedForAgain() {
-		for (String file : new String[] { "map.html", "form.html", "form-BBM79X7o.html", "leaflet.js", "marker-icon.png",
-				"layers-2x.png", "index.js", "a-b.js" }) {
-			assertEquals("no-cache", HttpCaching.cacheControlFor(file), file);
+		// pages; names that look like those of the build and are not in it
+		for (String file : new String[] { "map.html", "form.html", "build-manifest.json", "leaflet-markercl.js",
+				"shortcuts-D42rdgNv.js", "layers-2x.png", "index.js" }) {
+			assertEquals("no-cache", HttpCaching.cacheControlFor(file, built()), file);
 		}
+		// no manifest: nothing is kept
+		assertEquals("no-cache", HttpCaching.cacheControlFor("form-BBM79X7o.js", Collections.emptySet()));
+	}
+
+	@Test
+	public void aNameCarriesAHashOfViteOnly() {
+		assertTrue(HttpCaching.isContentHashed("map-vh-t_kPv.css"));
+		assertFalse(HttpCaching.isContentHashed("form-BBM79X7o.html"));
+		assertFalse(HttpCaching.isContentHashed("form-BBM79X7.js"));
+		assertFalse(HttpCaching.isContentHashed("form-BBM79X7o!.js"));
 	}
 
 	@Test
