@@ -65,7 +65,7 @@ export function AccountPage() {
             </Button>
           </Stack>
         </Box>
-        <FormCard title={t("account.changeTitle")} onSubmit={submit}>
+        <FormCard title={t("account.changeTitle")} onSubmit={submit} level={2}>
           <PasswordField
             label={t("account.current")}
             value={current}
@@ -196,7 +196,7 @@ function DeleteAccountCard() {
     );
 
   return (
-    <FormCard title={t("account.deleteTitle")} intro={t("account.deleteText")} onSubmit={submit}>
+    <FormCard title={t("account.deleteTitle")} intro={t("account.deleteText")} onSubmit={submit} level={2}>
       {body}
     </FormCard>
   );

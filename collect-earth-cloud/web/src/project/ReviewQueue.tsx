@@ -91,6 +91,7 @@ function Bulk({ projectId, onDone }: { projectId: string; onDone: (count: number
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const ask = async (rule: BulkRule) => {
+    if (asking !== null || busy) return;
     setAsking(rule);
     setError(null);
     try {
@@ -127,7 +128,8 @@ function Bulk({ projectId, onDone }: { projectId: string; onDone: (count: number
       </Typography>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
         {BULK_RULES.map((rule) => (
-          <Button key={rule} variant="outlined" size="small" onClick={() => void ask(rule)} disabled={asking !== null || busy}>
+          // Not disabled while asking (the button keeps the keyboard focus, and the dialog gives it back on closing).
+          <Button key={rule} variant="outlined" size="small" onClick={() => void ask(rule)} aria-disabled={asking !== null || busy}>
             {t(BULK_LABEL[rule])}
           </Button>
         ))}
@@ -233,7 +235,7 @@ function QueueCard({
           <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: "wrap" }}>
             <Link href={googleEarthUrl(place.lat, place.lon)} target="_blank" rel="noopener noreferrer" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
               {t("quality.googleEarth")}
-              <OpenInNew fontSize="small" aria-hidden />
+              <OpenInNew fontSize="small" titleAccess={t("common.newTab")} />
             </Link>
             <Link
               href={earthMapUrl(place.name, place.lat, place.lon, outline)}
@@ -243,7 +245,7 @@ function QueueCard({
               sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
             >
               {t(outline.kind === "place" ? "queue.earthMapPlace" : "queue.earthMap")}
-              <OpenInNew fontSize="small" aria-hidden />
+              <OpenInNew fontSize="small" titleAccess={t("common.newTab")} />
             </Link>
           </Stack>
         )}
@@ -305,7 +307,7 @@ function QueueCard({
                 {t("quality.byAssessor")}
               </Typography>
             )}
-            <Button size="small" onClick={onUndo} disabled={busy} aria-describedby={headingId}>
+            <Button size="small" onClick={onUndo} aria-disabled={busy} aria-describedby={headingId}>
               {t("quality.undo")}
             </Button>
           </Stack>
@@ -408,6 +410,8 @@ export function ReviewQueue({
   const commentRef = useRef<HTMLTextAreaElement | null>(null);
   const latest = useRef(0);
   const focusCard = useRef(false);
+  // "Load more" and Undo go away once they have done their work: the card takes the focus then.
+  const focusAfterMore = useRef(false);
 
   const load = useCallback(
     (after: string | null) => {
@@ -478,6 +482,13 @@ export function ReviewQueue({
     }
   }, [index, current?.plot]);
 
+  useEffect(() => {
+    if (focusAfterMore.current && !loading) {
+      focusAfterMore.current = false;
+      cardRef.current?.focus({ preventScroll: false });
+    }
+  }, [items.length, loading]);
+
   const goTo = (next: number, withFocus: boolean) => {
     if (next !== index) setComment("");
     focusCard.current = withFocus;
@@ -532,6 +543,7 @@ export function ReviewQueue({
       });
       onDecision?.(plot, null);
       setAnnounce(t("queue.undoneAnnounce", { plot }));
+      window.setTimeout(() => cardRef.current?.focus({ preventScroll: true }), 0);
     } catch (err) {
       setError(err);
     } finally {
@@ -698,7 +710,16 @@ export function ReviewQueue({
             {error !== null && <ErrorAlert error={error} />}
             {items.length > 0 && data.next !== null && index >= items.length - 1 && (
               <Box>
-                <Button variant="outlined" size="small" onClick={() => load(data.next)} disabled={loading || data.next === null}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  aria-disabled={loading}
+                  onClick={() => {
+                    if (loading || data.next === null) return;
+                    focusAfterMore.current = true;
+                    load(data.next);
+                  }}
+                >
                   {t("queue.loadMore", { loaded: formatNumber(items.length, language), total: formatNumber(data.total, language) })}
                 </Button>
               </Box>

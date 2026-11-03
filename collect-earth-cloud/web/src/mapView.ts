@@ -107,6 +107,21 @@ export function plotPopup(map: MapPlots, index: number, projectId: string): Plot
   };
 }
 
+/** How many plots the list under the map shows at a time ("Show more" adds as many). */
+export const LIST_PAGE = 100;
+
+/**
+ * The map's plots as a list (for the keyboard and screen readers, who cannot reach the points):
+ * the plots the map shows (its filters and the statuses switched on), in the map's order, the
+ * first `limit` of them, each with its status and its page.
+ */
+export function plotList(map: MapPlots, shown: ReadonlySet<MapStatus>, projectId: string, limit: number): { rows: PlotPopup[]; total: number } {
+  const indexes = shownIndexes(map, shown);
+  const rows: PlotPopup[] = [];
+  for (let k = 0; k < Math.min(limit, indexes.length); k++) rows.push(plotPopup(map, indexes[k], projectId));
+  return { rows, total: indexes.length };
+}
+
 /** Files with plots that have no latitude and longitude. */
 export function filesOffMap(map: Pick<MapPlots, "files">): MapFile[] {
   return map.files.filter((f) => f.onMap < f.plots);

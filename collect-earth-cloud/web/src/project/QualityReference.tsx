@@ -150,7 +150,9 @@ function AddForm({ projectId, view, onDone }: { projectId: string; view: Referen
   }, [view, fileId, assessor]);
 
   const left = Math.max(0, view.max - view.count);
+  const cannotAdd = busy || !fileId || !assessor || left === 0;
   const submit = async () => {
+    if (cannotAdd) return;
     setError(null);
     setProblem(null);
     let body: Parameters<typeof markReference>[1];
@@ -181,6 +183,7 @@ function AddForm({ projectId, view, onDone }: { projectId: string; view: Referen
       if (key) {
         const plots = Array.isArray(err instanceof ApiError ? err.details.plots : null) ? ((err as ApiError).details.plots as unknown[]).map(String).join(", ") : "";
         setProblem(t(key, { plots, max: formatNumber(view.max, language) }));
+        (how === "random" ? countRef : idsRef).current?.focus();
       } else {
         setError(err);
       }
@@ -228,21 +231,38 @@ function AddForm({ projectId, view, onDone }: { projectId: string; view: Referen
         </RadioGroup>
       </FormControl>
       {how === "random" ? (
-        <TextField size="small" label={t("reference.randomCount")} value={count} onChange={(e) => setCount(e.target.value)} inputMode="numeric" inputRef={countRef} sx={{ maxWidth: 200 }} />
+        <TextField
+          size="small"
+          label={t("reference.randomCount")}
+          value={count}
+          onChange={(e) => setCount(e.target.value)}
+          inputMode="numeric"
+          inputRef={countRef}
+          error={problem !== null}
+          helperText={problem}
+          sx={{ maxWidth: 420 }}
+        />
       ) : (
-        <TextField label={t("reference.plotIds")} value={ids} onChange={(e) => setIds(e.target.value)} multiline minRows={3} maxRows={10} inputRef={idsRef} sx={{ maxWidth: 420 }} />
+        <TextField
+          label={t("reference.plotIds")}
+          value={ids}
+          onChange={(e) => setIds(e.target.value)}
+          multiline
+          minRows={3}
+          maxRows={10}
+          inputRef={idsRef}
+          error={problem !== null}
+          helperText={problem}
+          sx={{ maxWidth: 420 }}
+        />
       )}
-      {problem && (
-        <Alert severity="warning" role="alert">
-          {problem}
-        </Alert>
-      )}
+      {/* What is wrong is said on the field (its helper text, read with it; the field takes the focus). */}
       <ErrorAlert error={error} />
       <Typography variant="body2" color="text.secondary">
         {t("reference.collectors", { count: formatNumber(view.collectors, language) })}
       </Typography>
       <Box>
-        <Button type="submit" variant="contained" disabled={busy || !fileId || !assessor || left === 0}>
+        <Button type="submit" variant="contained" aria-disabled={cannotAdd}>
           {t("reference.add")}
         </Button>
       </Box>
@@ -255,6 +275,7 @@ function PlotList({ projectId, view, onDone }: { projectId: string; view: Refere
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
+  const headingId = useId();
   const [confirm, setConfirm] = useState<{ plots: { csvFileId: string; plot: string }[] | "all"; count: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -266,16 +287,23 @@ function PlotList({ projectId, view, onDone }: { projectId: string; view: Refere
       const { unmarked, view: next } = await unmarkReference(projectId, confirm.plots);
       setConfirm(null);
       onDone(next, unmarked);
+      // The row (or the list) pressed is gone: the list's heading takes the focus.
+      window.setTimeout(() => document.getElementById(headingId)?.focus(), 0);
     } catch (err) {
       setError(err);
     } finally {
       setBusy(false);
     }
   };
-  if (view.plots.length === 0) return <Typography>{t("reference.none")}</Typography>;
+  if (view.plots.length === 0)
+    return (
+      <Typography id={headingId} tabIndex={-1} sx={{ outline: "none" }}>
+        {t("reference.none")}
+      </Typography>
+    );
   return (
     <Stack spacing={2}>
-      <Typography variant="h3" sx={{ fontSize: "1.1rem", fontWeight: 600 }}>
+      <Typography variant="h3" id={headingId} tabIndex={-1} sx={{ fontSize: "1.1rem", fontWeight: 600, outline: "none" }}>
         {t("reference.plotsTitle")}
       </Typography>
       <ErrorAlert error={error} />
@@ -367,7 +395,7 @@ function PlotList({ projectId, view, onDone }: { projectId: string; view: Refere
   );
 }
 
-const visuallyHidden = { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" } as const;
+const visuallyHidden = { position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" } as const;
 
 /**
  * "Reference plots" on the Quality tab (Task 14). Coordinators (`canEdit`) choose the reference

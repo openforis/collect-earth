@@ -654,7 +654,7 @@ export function PlotFilePage({ projectId, fileId, onGo }: { projectId: string; f
     <Stack spacing={3}>
       {back}
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-        <Typography variant="h2" gutterBottom sx={{ wordBreak: "break-word" }}>
+        <Typography variant="h2" gutterBottom sx={{ wordBreak: "break-word" }} data-page-heading>
           {t("divide.title", { file: file.filename })}
         </Typography>
         <Typography color="text.secondary" sx={{ mb: 3 }}>

@@ -487,7 +487,7 @@ function WeekLineChart({ data }: { data: QualityData }) {
 
   return (
     <Box ref={ref} sx={{ width: "100%" }}>
-      <Typography id={readout} variant="body2" sx={{ minHeight: "1.5em", fontVariantNumeric: "tabular-nums" }} aria-live="polite">
+      <Typography id={readout} variant="body2" sx={{ minHeight: "1.5em", fontVariantNumeric: "tabular-nums" }} aria-live={active !== null ? "polite" : "off"}>
         {shown ? pointText(shown) : ""}
       </Typography>
       <Box

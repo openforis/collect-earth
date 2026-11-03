@@ -107,7 +107,7 @@ function Decision({ projectId, data, onChange }: { projectId: string; data: Plot
       )}
       {decision?.comment && <Typography sx={{ wordBreak: "break-word" }}>{decision.comment}</Typography>}
       {data.ownPlot ? (
-        <Alert severity="info">{t("quality.ownPlot")}</Alert>
+        <Alert severity="info" role="note">{t("quality.ownPlot")}</Alert>
       ) : (
         <>
           {!withCheck && (
@@ -152,7 +152,7 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
     return (
       <Stack spacing={2}>
         {back}
-        {missing ? <Alert severity="info">{t("plot.notFound")}</Alert> : <ErrorAlert error={loaded.error} onRetry={loaded.reload} />}
+        {missing ? <Alert severity="info" role="note">{t("plot.notFound")}</Alert> : <ErrorAlert error={loaded.error} onRetry={loaded.reload} />}
       </Stack>
     );
   }
@@ -165,7 +165,7 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
     <Stack spacing={2}>
       {back}
       <Box>
-        <Typography variant="h2" sx={{ wordBreak: "break-word" }}>
+        <Typography variant="h2" sx={{ wordBreak: "break-word" }} data-page-heading>
           {t("quality.plot", { plot: data.plot })}
         </Typography>
         {data.name !== data.plot && <Typography color="text.secondary">{t("plot.seenAs", { name: data.name })}</Typography>}
@@ -175,7 +175,7 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
           <>
             <Link href={googleEarthUrl(data.place.lat, data.place.lon)} target="_blank" rel="noopener noreferrer" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
               {t("quality.googleEarth")}
-              <OpenInNew fontSize="small" aria-hidden />
+              <OpenInNew fontSize="small" titleAccess={t("common.newTab")} />
             </Link>
             <Link
               href={earthMapUrl(data.place.name, data.place.lat, data.place.lon, data.outline)}
@@ -185,7 +185,7 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
               sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
             >
               {t(data.outline.kind === "place" ? "queue.earthMapPlace" : "queue.earthMap")}
-              <OpenInNew fontSize="small" aria-hidden />
+              <OpenInNew fontSize="small" titleAccess={t("common.newTab")} />
             </Link>
           </>
         ) : (
@@ -197,7 +197,7 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
       </Stack>
 
       {data.reference && (
-        <Alert severity="info">{data.reference.assessor ? t("plot.reference", { assessor: data.reference.assessor }) : t("plot.referenceNoName")}</Alert>
+        <Alert severity="info" role="note">{data.reference.assessor ? t("plot.reference", { assessor: data.reference.assessor }) : t("plot.referenceNoName")}</Alert>
       )}
 
       {/* A reference plot is never decided: its other assessments are measured against it. */}
@@ -275,7 +275,7 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
 
       <Section title={t("plot.flagsHeading")}>
         {data.flags === null ? (
-          <Alert severity="info">{t("plot.figuresMissing")}</Alert>
+          <Alert severity="info" role="note">{t("plot.figuresMissing")}</Alert>
         ) : (
           <Stack spacing={1}>
             {data.figures?.stale && (

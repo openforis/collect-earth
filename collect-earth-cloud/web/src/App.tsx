@@ -9,6 +9,7 @@ import { AppContext, type AppState } from "./appContext";
 import { Loading } from "./components/Loading";
 import { I18nContext, initialLanguage, translator, type Language } from "./i18n";
 import { choosePage } from "./pageChoice";
+import { usePageFocus } from "./pageFocus";
 import { AccountPage } from "./pages/AccountPage";
 import { JoinPage } from "./pages/JoinPage";
 import { ConfirmEmailPage, UnsubscribePage } from "./pages/MailLinkPages";
@@ -78,17 +79,22 @@ export function App() {
   const [me, setMe] = useState<Me | null>(null);
   const [checking, setChecking] = useState(true);
   const [sessionEnded, setSessionEnded] = useState(false);
-  const route = matchRoute(usePath());
+  const path = usePath();
+  const route = matchRoute(path);
 
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
 
-  // A progress link's page names its project in the title itself.
-  const ownTitle = route.name === "publicProgress";
-  useEffect(() => {
-    if (!ownTitle) document.title = info?.serverName ?? t("app.title");
-  }, [info?.serverName, t, ownTitle]);
+  // The title names each page; a new page gets the focus on its heading. A progress link's page
+  // names its project in the title itself; a person, a plot or a plot file has a heading of its own
+  // under the project's.
+  const announce = usePageFocus(path, {
+    serverName: info?.serverName ?? t("app.title"),
+    language,
+    ownTitle: route.name === "publicProgress",
+    ownHeading: route.name === "person" || route.name === "plot" || route.name === "plotFile",
+  });
 
   // The server said our session is no longer valid: back to logging in, on the same page.
   useEffect(() => {
@@ -205,6 +211,10 @@ export function App() {
       <CssBaseline />
       <I18nContext.Provider value={t}>
         {state ? <AppContext.Provider value={state}>{content}</AppContext.Provider> : content}
+        {/* Only when a new page has no heading to take the focus: its title. */}
+        <Box aria-live="polite" sx={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>
+          {announce}
+        </Box>
       </I18nContext.Provider>
     </ThemeProvider>
   );

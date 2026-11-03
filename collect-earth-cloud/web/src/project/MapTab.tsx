@@ -16,16 +16,19 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Refresh from "@mui/icons-material/Refresh";
 import type * as Leaflet from "leaflet";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type MouseEvent } from "react";
 import { getMapPlots, MAP_STATUSES, type MapPlots, type MapStatus, type MapTiles } from "../api";
 import { useApp } from "../appContext";
 import { AsOf } from "../components/PeopleCharts";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { formatDate, formatNumber } from "../format";
 import { useT, type Translate } from "../i18n";
-import { attributionHtml, boundsOf, CLUSTER_FROM, filesOffMap, plotPopup, shownIndexes, STATUS_STYLE, statusDrawnKey, statusLabelKey, symbolSvg } from "../mapView";
+import { attributionHtml, boundsOf, CLUSTER_FROM, escapeHtml, filesOffMap, LIST_PAGE, plotList, plotPopup, shownIndexes, STATUS_STYLE, statusDrawnKey, statusLabelKey, symbolSvg } from "../mapView";
 import { navigate, pathFor } from "../router";
 import { loadLeaflet, type LeafletModule } from "./leaflet";
+
+/** Read by screen readers, not shown. */
+const HIDDEN = { position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" } as const;
 
 /** A circle marker that knows which plot it is. */
 type PlotMarker = Leaflet.CircleMarker & { plotIndex: number };
@@ -193,8 +196,9 @@ function PlotMap({
           } catch {
             // the plain number
           }
+          const label = escapeHtml(latest.current.t("map.cluster", { n: text }));
           return L.divIcon({
-            html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:rgba(33,33,33,0.8);border:2px solid #fff;color:#fff;font:600 12px/1 Roboto,sans-serif;display:flex;align-items:center;justify-content:center;box-sizing:border-box">${text}</div>`,
+            html: `<div role="img" aria-label="${label}" style="width:${size}px;height:${size}px;border-radius:50%;background:rgba(33,33,33,0.8);border:2px solid #fff;color:#fff;font:600 12px/1 Roboto,sans-serif;display:flex;align-items:center;justify-content:center;box-sizing:border-box">${text}</div>`,
             className: "",
             iconSize: L.point(size, size),
           });
@@ -234,6 +238,87 @@ function PlotMap({
       aria-label={label}
       sx={{ height: { xs: 380, md: "62vh" }, minHeight: 320, width: 1, borderRadius: 1, border: 1, borderColor: "divider", zIndex: 0, "& .leaflet-container": { fontFamily: "inherit" } }}
     />
+  );
+}
+
+/**
+ * The plots the map shows, as a list: the way to each plot for the keyboard and screen readers
+ * (the points on the map are reached only with a mouse or a finger). Hidden until asked for, then
+ * LIST_PAGE plots at a time; it follows the map's filters and the statuses switched on.
+ */
+function PlotList({ projectId, data, shown }: { projectId: string; data: MapPlots; shown: ReadonlySet<MapStatus> }) {
+  const t = useT();
+  const { language } = useApp();
+  const listId = useId();
+  const [open, setOpen] = useState(false);
+  const [limit, setLimit] = useState(LIST_PAGE);
+  useEffect(() => setLimit(LIST_PAGE), [data, shown]);
+  const list = useMemo(() => (open ? plotList(data, shown, projectId, limit) : null), [open, data, shown, projectId, limit]);
+  const n = (value: number) => formatNumber(value, language);
+  const go = (path: string) => (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    navigate(path);
+  };
+  return (
+    <Box>
+      <Button aria-expanded={open} aria-controls={listId} onClick={() => setOpen(!open)}>
+        {t(open ? "map.listHide" : "map.listShow")}
+      </Button>
+      {list && (
+        <Box id={listId} tabIndex={-1} sx={{ mt: 1, outline: "none" }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {list.total === 0 ? t("map.listNone") : t("map.listCount", { shown: n(list.rows.length), total: n(list.total) })}
+          </Typography>
+          {list.rows.length > 0 && (
+            <TableContainer>
+              <Table size="small" aria-label={t("map.listLabel")}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>{t("map.col.plot")}</TableCell>
+                    <TableCell>{t("map.col.status")}</TableCell>
+                    {list.rows[0].people !== null && <TableCell>{t("map.col.people")}</TableCell>}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {list.rows.map((row) => (
+                    <TableRow key={row.plot}>
+                      <TableCell component="th" scope="row" sx={{ wordBreak: "break-word" }}>
+                        <a href={row.path} onClick={go(row.path)}>
+                          {t("map.popupPlot", { plot: row.label })}
+                        </a>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Symbol status={row.status} />
+                          {t(statusLabelKey(row.status))}
+                        </Box>
+                      </TableCell>
+                      {row.people !== null && <TableCell sx={{ wordBreak: "break-word" }}>{row.people.length > 0 ? row.people.join(", ") : t("map.popupNobody")}</TableCell>}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+          {list.rows.length < list.total && (
+            <Button
+              size="small"
+              sx={{ mt: 1 }}
+              // The button stays where it is (more rows come above it), so the focus stays on it; after
+              // the last rows it goes, and the focus goes to the list.
+              onClick={() => {
+                const last = list.rows.length + LIST_PAGE >= list.total;
+                setLimit((l) => l + LIST_PAGE);
+                if (last) window.setTimeout(() => document.getElementById(listId)?.focus(), 0);
+              }}
+            >
+              {t("map.listMore", { n: n(Math.min(LIST_PAGE, list.total - list.rows.length)) })}
+            </Button>
+          )}
+        </Box>
+      )}
+    </Box>
   );
 }
 
@@ -282,8 +367,8 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
   }, [projectId, file, person, reload]);
 
   const offMap = useMemo(() => (data ? filesOffMap(data) : []), [data]);
-  // While plots are read or placed, the filters and switches wait (each change would start again).
-  const busy = loading !== null || (drawn !== null && drawn.placed !== null);
+  // The filters and switches stay enabled while plots are read or placed (a disabled control loses
+  // the keyboard focus): a change starts the reading or placing again.
   const toggle = (status: MapStatus) =>
     setShown((was) => {
       const next = new Set(was);
@@ -311,7 +396,6 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
             name="file"
             value={file}
             onChange={(e) => setFile(e.target.value)}
-            disabled={busy}
             slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
             sx={{ width: { xs: 1, sm: 280 } }}
           >
@@ -330,7 +414,6 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
               name="person"
               value={person}
               onChange={(e) => setPerson(e.target.value)}
-              disabled={busy}
               helperText={t("map.personHelp")}
               slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
               sx={{ width: { xs: 1, sm: 280 } }}
@@ -343,17 +426,25 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
               ))}
             </TextField>
           )}
-          <Button startIcon={<Refresh />} onClick={() => setReload((r) => r + 1)} disabled={busy}>
+          <Button startIcon={<Refresh />} onClick={() => setReload((r) => r + 1)}>
             {t("map.reload")}
           </Button>
         </Box>
 
         {loading !== null && (
-          <Box sx={{ mb: 2 }} role="status">
-            <Typography variant="body2" color="text.secondary">
+          <Box sx={{ mb: 2 }}>
+            {/* Said once, when the reading starts (the count of plots shown says the end); the numbers in between are not read out. */}
+            <Box role="status" sx={HIDDEN}>
+              {t("map.loadingStart")}
+            </Box>
+            <Typography variant="body2" color="text.secondary" aria-hidden="true">
               {loading.total > 0 ? t("map.loading", { loaded: n(loading.loaded), total: n(loading.total) }) : t("map.loadingStart")}
             </Typography>
-            <LinearProgress variant={loading.total > 0 ? "determinate" : "indeterminate"} value={loading.total > 0 ? (100 * loading.loaded) / loading.total : undefined} />
+            <LinearProgress
+              aria-label={t("map.loadingStart")}
+              variant={loading.total > 0 ? "determinate" : "indeterminate"}
+              value={loading.total > 0 ? (100 * loading.loaded) / loading.total : undefined}
+            />
           </Box>
         )}
         {error !== null && <ErrorAlert error={error} onRetry={() => setReload((r) => r + 1)} />}
@@ -361,15 +452,15 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
         {data && (
           <Stack spacing={1.5}>
             <AsOf asOf={data.asOf} />
-            {data.unsupportedSrs !== null && <Alert severity="info">{t("map.unsupportedSrs", { srs: data.unsupportedSrs })}</Alert>}
+            {data.unsupportedSrs !== null && <Alert severity="info" role="note">{t("map.unsupportedSrs", { srs: data.unsupportedSrs })}</Alert>}
             {data.figures === null ? (
-              <Alert severity="info">{t("map.noFigures")}</Alert>
+              <Alert severity="info" role="note">{t("map.noFigures")}</Alert>
             ) : data.figures.stale && data.figures.computedAt !== null ? (
               <Typography variant="body2" color="text.secondary">
                 {t("map.staleFigures", { time: formatDate(data.figures.computedAt, language) })}
               </Typography>
             ) : null}
-            {data.total === 0 && data.unsupportedSrs === null && <Alert severity="info">{t("map.noPlots")}</Alert>}
+            {data.total === 0 && data.unsupportedSrs === null && <Alert severity="info" role="note">{t("map.noPlots")}</Alert>}
             {data.total > 0 && (
               <>
                 <PlotMap projectId={projectId} data={data} shown={shown} tiles={info.mapTiles} label={t("map.label")} onProgress={(count, clustered, placed) => setDrawn({ shown: count, clustered, placed })} />
@@ -386,6 +477,7 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
                     )}
                   </>
                 )}
+                <PlotList projectId={projectId} data={data} shown={shown} />
               </>
             )}
           </Stack>
@@ -416,7 +508,6 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
                     <TableCell padding="checkbox">
                       <Checkbox
                         checked={shown.has(status)}
-                        disabled={busy}
                         onChange={() => toggle(status)}
                         slotProps={{ input: { "aria-label": t("map.showStatus", { status: t(statusLabelKey(status)) }) } }}
                       />

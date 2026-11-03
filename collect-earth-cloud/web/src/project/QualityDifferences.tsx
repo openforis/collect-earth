@@ -168,7 +168,7 @@ function PlotDifferences({
               sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
             >
               {t("quality.googleEarth")}
-              <OpenInNew fontSize="small" aria-hidden />
+              <OpenInNew fontSize="small" titleAccess={t("common.newTab")} />
             </Link>
           )}
           {place && (
@@ -180,7 +180,7 @@ function PlotDifferences({
               sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
             >
               {t(outline.kind === "place" ? "queue.earthMapPlace" : "queue.earthMap")}
-              <OpenInNew fontSize="small" aria-hidden />
+              <OpenInNew fontSize="small" titleAccess={t("common.newTab")} />
             </Link>
           )}
         </Stack>

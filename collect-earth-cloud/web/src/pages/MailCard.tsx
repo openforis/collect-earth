@@ -7,7 +7,7 @@ import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { getNotifications, sendEmailConfirmation, setEmail, setNotifications, type DigestKind, type Notifications } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
@@ -35,13 +35,17 @@ export function MailCard() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  // The address field takes the focus back when the button pressed goes away (Remove, Send again).
+  const emailRef = useRef<HTMLInputElement>(null);
 
   if (loaded.loading && !loaded.data) return <Loading />;
   if (loaded.error || !loaded.data) return <ErrorAlert error={loaded.error} onRetry={loaded.reload} />;
   const n: Notifications = loaded.data;
   const typed = address ?? n.email ?? "";
 
+  // One change at a time; the buttons and switches stay enabled (a disabled control drops the keyboard focus).
   const run = async (action: () => Promise<string | null>) => {
+    if (busy) return;
     setError(null);
     setStatus(null);
     setBusy(true);
@@ -57,12 +61,15 @@ export function MailCard() {
   };
 
   const saveAddress = (remove: boolean) =>
-    run(async () => {
+    (!remove && typed.trim() === (n.email ?? "")) ? Promise.resolve() : run(async () => {
       const email = remove ? null : typed.trim() || null;
       const next = await setEmail(email, language);
       loaded.setData(next);
       setAddress(null);
-      if (next.email === null) return t("mail.removed");
+      if (next.email === null) {
+        window.setTimeout(() => emailRef.current?.focus(), 0);
+        return t("mail.removed");
+      }
       if (next.email === n.email) return t("mail.changed");
       return next.sends ? t("mail.saved", { email: next.email }) : t("mail.savedNotSent");
     });
@@ -89,7 +96,7 @@ export function MailCard() {
   const writtenIn = n.language && isLanguage(n.language) ? LANGUAGE_NAMES[n.language] : LANGUAGE_NAMES.en;
 
   return (
-    <FormCard title={t("mail.title")} intro={t("mail.intro")} onSubmit={() => void saveAddress(false)}>
+    <FormCard title={t("mail.title")} intro={t("mail.intro")} onSubmit={() => void saveAddress(false)} level={2}>
       {!n.sends && <Alert severity="info">{t("mail.notSending")}</Alert>}
       <TextField
         label={t("mail.emailLabel")}
@@ -98,6 +105,7 @@ export function MailCard() {
         value={typed}
         onChange={(e) => setAddress(e.target.value)}
         helperText={t("mail.emailHelp")}
+        inputRef={emailRef}
         slotProps={{ htmlInput: { maxLength: 254 } }}
       />
       {n.email !== null && address === null && !n.emailValid && <Alert severity="warning">{t("mail.invalidStored")}</Alert>}
@@ -107,16 +115,16 @@ export function MailCard() {
         </Alert>
       )}
       <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
-        <Button type="submit" variant="contained" disabled={busy || typed.trim() === (n.email ?? "")}>
+        <Button type="submit" variant="contained" aria-disabled={busy || typed.trim() === (n.email ?? "")}>
           {t("mail.save")}
         </Button>
         {n.email !== null && n.emailValid && !n.emailConfirmed && (
-          <Button onClick={() => void resend()} disabled={busy}>
+          <Button onClick={() => void resend()} aria-disabled={busy}>
             {t("mail.resend")}
           </Button>
         )}
         {n.email !== null && (
-          <Button color="error" onClick={() => void saveAddress(true)} disabled={busy}>
+          <Button color="error" onClick={() => void saveAddress(true)} aria-disabled={busy}>
             {t("mail.remove")}
           </Button>
         )}
@@ -134,7 +142,7 @@ export function MailCard() {
                 control={
                   <Switch
                     checked={n.digests[kind].on}
-                    disabled={busy || ((n.email === null || !n.emailValid) && !n.digests[kind].on)}
+                    disabled={(n.email === null || !n.emailValid) && !n.digests[kind].on}
                     onChange={(e) => void toggle(kind, e.target.checked)}
                     slotProps={{ input: { "aria-describedby": `mail-${kind}-help` } }}
                   />
@@ -162,7 +170,12 @@ export function MailCard() {
       )}
       {/* Mounted from the start, so screen readers announce what is put in it. */}
       <Box role="status" aria-live="polite">
-        {status && <Alert severity="success">{status}</Alert>}
+        {/* role none: the box around it is the live region (an Alert is one of its own, said twice). */}
+        {status && (
+          <Alert severity="success" role="none">
+            {status}
+          </Alert>
+        )}
       </Box>
       <ErrorAlert error={error} />
     </FormCard>
