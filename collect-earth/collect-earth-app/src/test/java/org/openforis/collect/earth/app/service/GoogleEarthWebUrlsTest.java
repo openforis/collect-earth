@@ -148,8 +148,11 @@ public class GoogleEarthWebUrlsTest {
 	}
 
 	@Test
-	public void waybackOpensAtTheZoomOfThePlotView() {
-		assertEquals("https://livingatlas.arcgis.com/wayback/#mapCenter=-16.32%2C15.97%2C21&mode=explore",
+	public void waybackOpensAtTheZoomOfThePlotViewButNoDeeperThanItsImageryGoes() {
+		assertEquals("https://livingatlas.arcgis.com/wayback/#mapCenter=-16.32%2C15.97%2C18&mode=explore",
+				BrowserService.esriWaybackUrl("15.97", "-16.32", 400));
+		// A plot of 30 m would be zoom 21: Wayback often has no tiles there
+		assertEquals("https://livingatlas.arcgis.com/wayback/#mapCenter=-16.32%2C15.97%2C19&mode=explore",
 				BrowserService.esriWaybackUrl("15.97", "-16.32", 80));
 	}
 

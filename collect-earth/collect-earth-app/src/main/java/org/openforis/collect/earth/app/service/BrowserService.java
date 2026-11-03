@@ -294,6 +294,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		data.put("longitude", placemarkObject.getCoord().getLongitude());
 		// The scale of Google Earth Web's view of the plot: the same ground from the top to the bottom of the map
 		data.put("viewHeightMeters", String.format(Locale.ENGLISH, "%.1f", plotViewHeightMeters(placemarkObject)));
+		data.put("maxZoom", String.valueOf(MAX_WAYBACK_ZOOM));
 		return processJavascriptTemplate(data, TEMPLATE_FOR_ESRI_WAYBACK_JS);
 	}
 
@@ -307,12 +308,19 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
+	 * The deepest zoom ESRI Wayback is opened at: past it, its imagery often has no tiles away from cities (the rural
+	 * tropics), and the map shows nothing. A small plot is shown with more ground around it than in Google Earth Web.
+	 */
+	static final int MAX_WAYBACK_ZOOM = 19;
+
+	/**
 	 * The address of the plot in ESRI Wayback: centred on it, at the zoom that shows about the ground of Google Earth
-	 * Web's view of it (the script drawing the plot then zooms to it exactly, for the size of the map).
+	 * Web's view of it, {@link #MAX_WAYBACK_ZOOM} at most (the script drawing the plot then zooms to it exactly, for the
+	 * size of the map).
 	 */
 	static String esriWaybackUrl(String latitude, String longitude, double viewHeightMeters) {
-		int zoom = GoogleEarthWebUrls.mapZoom(Double.parseDouble(latitude), viewHeightMeters,
-				GoogleEarthWebUrls.DEFAULT_MAP_HEIGHT_PIXELS);
+		int zoom = Math.min(MAX_WAYBACK_ZOOM, GoogleEarthWebUrls.mapZoom(Double.parseDouble(latitude), viewHeightMeters,
+				GoogleEarthWebUrls.DEFAULT_MAP_HEIGHT_PIXELS));
 		// URL format: https://livingatlas.arcgis.com/wayback/#mapCenter=LONGITUDE%2CLATITUDE%2C16&mode=explore
 		return "https://livingatlas.arcgis.com/wayback/#mapCenter="
 				+ URLEncoder.encode(longitude + "," + latitude + "," + zoom, StandardCharsets.UTF_8) + "&mode=explore";

@@ -269,13 +269,15 @@
 
     // The scale of Google Earth Web's view of the plot: this much ground from the top to the bottom of the map
     var VIEW_HEIGHT_METERS = ${viewHeightMeters};
+    // No deeper: past it Wayback's imagery often has no tiles away from cities (BrowserService.MAX_WAYBACK_ZOOM)
+    var MAX_ZOOM = ${maxZoom};
 
     // The zoom showing VIEW_HEIGHT_METERS over the height of the map: Web Mercator has 156543.03 m per pixel at zoom
     // 0 on the equator, cos(latitude) times that on the ground elsewhere, half as many at each zoom level
     function plotZoom(view) {
         var height = view.height > 0 ? view.height : 800;
         var zoom = Math.log2(156543.03392804097 * Math.cos(plotCenter[1] * Math.PI / 180) * height / VIEW_HEIGHT_METERS);
-        return isFinite(zoom) ? zoom : 18;
+        return isFinite(zoom) ? Math.min(zoom, MAX_ZOOM) : MAX_ZOOM;
     }
 
     var sizeWatched = false;
