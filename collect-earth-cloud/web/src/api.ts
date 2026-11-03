@@ -148,6 +148,13 @@ export interface CsvFile {
   divided?: boolean;
   /** People holding at least one of its plots; 0 for a whole file. */
   dividedPeople?: number;
+  /** Given on upload: what may be wrong with the file, which was still taken. */
+  warnings?: {
+    duplicateIds: number;
+    duplicateExamples: string[];
+    badCoordinates: number;
+    badCoordinateExamples: string[];
+  };
 }
 
 export interface Assignment {
@@ -519,6 +526,7 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   round_removed: "error.roundRemoved",
   note_removed: "error.noteRemoved",
   note_column_in_file: "error.noteColumnInFile",
+  no_plots: "error.noPlots",
   // The Collect Earth backup (GET /exports/collect-backup).
   no_round_key: "backup.noRoundKey",
   no_project_file: "backup.noProjectFile",
@@ -1078,8 +1086,37 @@ export async function listCsvFiles(projectId: string): Promise<CsvFile[]> {
   return body?.csvFiles ?? [];
 }
 
-export function uploadCsvFile(projectId: string, file: File, onProgress?: Progress): Promise<CsvFile> {
-  return upload<CsvFile>("PUT", `${p(projectId)}/csv-files/${encodeURIComponent(file.name)}`, file, "text/csv", onProgress);
+/**
+ * Uploads (or replaces) a plot file. A replacement that drops plots people hold or submitted
+ * is refused with code "replace_needs_confirm" (its details: ReplaceImpact) unless `confirmReplace`.
+ */
+export function uploadCsvFile(projectId: string, file: File, onProgress?: Progress, confirmReplace = false): Promise<CsvFile> {
+  const query = confirmReplace ? "?confirm=replace" : "";
+  return upload<CsvFile>("PUT", `${p(projectId)}/csv-files/${encodeURIComponent(file.name)}${query}`, file, "text/csv", onProgress);
+}
+
+/** What replacing a plot file would take out of the project (the "replace_needs_confirm" error's details). */
+export interface ReplaceImpact {
+  removedPlots: number;
+  heldRemoved: number;
+  submittedRemoved: number;
+  keptPlots: number;
+  newPlots: number;
+  divided: boolean;
+}
+
+export function replaceImpactOf(error: unknown): ReplaceImpact | null {
+  if (!(error instanceof ApiError) || error.code !== "replace_needs_confirm") return null;
+  const d = error.details;
+  const n = (key: string) => (typeof d[key] === "number" ? (d[key] as number) : 0);
+  return {
+    removedPlots: n("removedPlots"),
+    heldRemoved: n("heldRemoved"),
+    submittedRemoved: n("submittedRemoved"),
+    keptPlots: n("keptPlots"),
+    newPlots: n("newPlots"),
+    divided: d.divided === true,
+  };
 }
 
 export async function listAssignments(projectId: string): Promise<Assignment[]> {

@@ -49,7 +49,7 @@ export interface PlotPlaces {
  * A coordinate field as Collect Earth reads it (KmlGenerator.getPlotObject): a decimal
  * comma is a point, and it must be a number; null otherwise or out of range.
  */
-function coordinate(value: string | undefined, limit: number): number | null {
+export function coordinate(value: string | undefined, limit: number): number | null {
   const text = (value ?? '').replace(',', '.').trim();
   if (!isNumber(text)) {
     return null;

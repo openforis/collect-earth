@@ -33,6 +33,7 @@ import {
   deleteAccount,
   deleteProject,
   errorMessageKey,
+  replaceImpactOf,
   getAccountDeletion,
   getCsvColumns,
   getDistribution,
@@ -122,9 +123,17 @@ describe("error messages", () => {
     ["sole_coordinator", 409, "error.soleCoordinator"],
     ["last_platform_admin", 409, "error.lastPlatformAdmin"],
     ["terms_not_accepted", 400, "error.termsNotAccepted"],
+    ["no_plots", 400, "error.noPlots"],
   ];
   it.each(cases)("%s becomes a sentence", (code, status, key) => {
     expect(errorMessageKey(apiErrorFrom(status, { error: code }))).toBe(key);
+  });
+
+  it("reads what replacing a plot file would take away, from its refusal only", () => {
+    const refusal = apiErrorFrom(409, { error: "replace_needs_confirm", removedPlots: 299, heldRemoved: 290, submittedRemoved: 133, keptPlots: 1, newPlots: 0, divided: true });
+    expect(replaceImpactOf(refusal)).toEqual({ removedPlots: 299, heldRemoved: 290, submittedRemoved: 133, keptPlots: 1, newPlots: 0, divided: true });
+    expect(replaceImpactOf(apiErrorFrom(409, { error: "note_column_in_file" }))).toBeNull();
+    expect(replaceImpactOf(new Error("x"))).toBeNull();
   });
 
   it("falls back on the HTTP status for unknown codes", () => {

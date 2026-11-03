@@ -11,7 +11,7 @@ import { checkUploadFits } from '../limits.js';
 import { nearbyRanksOf, servedNearby } from '../nearby.js';
 import { buildPlotFile, isNumber, noteText, parsePlotFile, type NoteColumn, type RoundColumn } from '../plots.js';
 import { referenceCopyPlan } from '../reference.js';
-import { fileKeyCount, keyShape, recordKeysOfUnit } from '../rounds.js';
+import { fileKeyCount, keyShape, recordKeysOfUnit, unitOfRecord } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store, UserPlots } from '../store/store.js';
 import type { Assignment, RecordRow, StoredDistribution } from '../types.js';
@@ -22,7 +22,8 @@ import { loadPlotContext, type Log } from '../qualityService.js';
 import { recheckFileId, sentBackTo, type RecheckFile } from '../sendBack.js';
 import type { Question } from '../surveyOutline.js';
 import { registerDivisionRoutes } from './division.js';
-import { PlotPlaceReader } from './plotPlaces.js';
+import { hasPolygonColumn } from '../plotShape.js';
+import { coordinate, isWgs84, PlotPlaceReader } from './plotPlaces.js';
 
 interface AssignmentsBody {
   assignments?: { userId?: string; csvFileId?: string }[];
@@ -95,6 +96,87 @@ export async function registerAssignmentRoutes(
     return sent.files;
   };
 
+  /**
+   * What replacing a project's file named `filename` with plots `newIds` takes away: its plots
+   * missing from the new content (and from every other file), how many of those people hold and
+   * how many have submitted records. Null when no file has that name.
+   */
+  const replaceImpact = async (projectId: string, filename: string, newIds: readonly string[], keyCount: number, info: RoundInfo | null) => {
+    const files = await store.listCsvFiles(projectId);
+    const existing = files.find((f) => f.filename === filename);
+    if (!existing) {
+      return null;
+    }
+    // Nothing to lose without holdings or submitted work (the file is then not read).
+    const [holdings, records] = await Promise.all([store.listPlotAssignments(projectId, existing.id), store.listRecordStates(projectId)]);
+    const submitted = records.filter((r) => r.activelySaved && !r.deleted);
+    if (holdings.length === 0 && submitted.length === 0) {
+      return null;
+    }
+    const old = await store.getCsvFile(projectId, existing.id);
+    if (!old) {
+      return null;
+    }
+    const kept = new Set(newIds);
+    const oldIds = plotFileOf(old, keyCount).plotIds;
+    let removed = oldIds.filter((id) => !kept.has(id));
+    if (removed.length > 0) {
+      // A plot another file also has stays in the project.
+      for (const other of files) {
+        if (other.id === existing.id || removed.length === 0) continue;
+        const file = await store.getCsvFile(projectId, other.id);
+        if (!file) continue;
+        const ids = new Set(plotFileOf(file, keyCount).plotIds);
+        removed = removed.filter((id) => !ids.has(id));
+      }
+    }
+    const removedSet = new Set(removed);
+    const oldSet = new Set(oldIds);
+    let heldRemoved = 0;
+    let submittedRemoved = 0;
+    if (removedSet.size > 0) {
+      heldRemoved = new Set(holdings.filter((h) => removedSet.has(h.plotKey)).map((h) => h.plotKey)).size;
+      submittedRemoved = submitted.filter((r) => unitOfRecord(r.recordKey, removedSet, info) !== null).length;
+    }
+    return {
+      removedPlots: removed.length,
+      heldRemoved,
+      submittedRemoved,
+      keptPlots: newIds.filter((id) => oldSet.has(id)).length,
+      newPlots: newIds.filter((id) => !oldSet.has(id)).length,
+      divided: Boolean(existing.distribution),
+    };
+  };
+
+  /** What may be wrong with an uploaded file that is still taken: ids on several rows, rows without usable coordinates. */
+  const fileWarnings = async (parsed: ReturnType<typeof parsePlotFile>, keyCount: number, projectId: string, log: FastifyRequest['log']) => {
+    const rowsOf = new Map<string, number>();
+    for (const row of parsed.rows) rowsOf.set(row.id, (rowsOf.get(row.id) ?? 0) + 1);
+    const duplicates = [...rowsOf].filter(([, n]) => n > 1).map(([id]) => id);
+    // Polygon files carry their shapes, not a place in the coordinate columns.
+    const polygons = parsed.rows.length > 0 && hasPolygonColumn(parsed.rows[0].fields);
+    const bad: string[] = [];
+    if (!polygons) {
+      const { srid } = await placeReader.surveyFacts(projectId, log);
+      // Out-of-range values are only known for latitude and longitude; other systems need numbers.
+      const [latLimit, lonLimit] = isWgs84(srid) ? [90, 180] : [Infinity, Infinity];
+      for (const row of parsed.rows) {
+        if (coordinate(row.fields[keyCount], latLimit) === null || coordinate(row.fields[keyCount + 1], lonLimit) === null) {
+          bad.push(row.id);
+        }
+      }
+    }
+    if (duplicates.length === 0 && bad.length === 0) {
+      return null;
+    }
+    return {
+      duplicateIds: duplicates.length,
+      duplicateExamples: duplicates.slice(0, 5),
+      badCoordinates: bad.length,
+      badCoordinateExamples: bad.slice(0, 5),
+    };
+  };
+
   // Upload / replace a plot CSV (admin). Raw CSV body (text/csv or octet-stream).
   app.put(
     '/v1/projects/:pid/csv-files/:filename',
@@ -121,6 +203,12 @@ export async function registerAssignmentRoutes(
       const keyCount = fileKeyCount(info);
       const parsed = parsePlotFile(data, keyCount);
       const plotIds = parsed.plotIds;
+      if (plotIds.length === 0) {
+        return reply.code(400).send({
+          error: 'no_plots',
+          reason: 'This file has no plots: only a header row, or no row with a number in it. Each plot needs its own row, with its id and coordinates.',
+        });
+      }
       // The server puts the coordinator's note in a column of that name (Task 16): a file that has one
       // of its own would be read two ways (by name in the web balloon, by place in the form).
       if (noteColumn(info) !== null && parsed.header?.fields.some((f) => f.toLowerCase() === 'coordinator_note')) {
@@ -148,9 +236,23 @@ export async function registerAssignmentRoutes(
           });
         }
       }
+      // Replacing a file: plots it loses take their holdings and submitted work out of every file
+      // (unless another file has them). Asked first when there is any (?confirm=replace goes ahead).
+      const confirmed = (request.query as { confirm?: string } | undefined)?.confirm === 'replace';
+      if (!confirmed) {
+        const impact = await replaceImpact(projectId, filename, plotIds, keyCount, info);
+        if (impact && (impact.heldRemoved > 0 || impact.submittedRemoved > 0)) {
+          return reply.code(409).send({
+            error: 'replace_needs_confirm',
+            reason: 'This file replaces one whose plots are given out or have submitted work; plots left out of the new file leave the project.',
+            ...impact,
+          });
+        }
+      }
       const meta = await store.putCsvFile(projectId, filename, data, plotIds);
       await audit(store, request, 'csv.uploaded', { csvFileId: meta.id, plots: meta.plotCount });
-      return reply.code(201).send(meta);
+      const warnings = await fileWarnings(parsed, keyCount, projectId, request.log);
+      return reply.code(201).send(warnings ? { ...meta, warnings } : meta);
     },
   );
 

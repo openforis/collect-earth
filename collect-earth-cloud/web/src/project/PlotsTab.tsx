@@ -2,6 +2,11 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import Paper from "@mui/material/Paper";
@@ -20,8 +25,10 @@ import {
   listAssignments,
   listCsvFiles,
   listMembers,
+  replaceImpactOf,
   saveAssignments,
   uploadCsvFile,
+  type ReplaceImpact,
   type Assignment,
   type CsvFile,
   type Member,
@@ -41,6 +48,13 @@ import { sortPeople } from "../division";
 interface UploadState {
   name: string;
   progress: number;
+}
+
+/** A same-name upload waiting for the coordinator to say yes or no. */
+interface PendingReplace {
+  name: string;
+  impact: ReplaceImpact;
+  answer: (replace: boolean) => void;
 }
 
 /** For each divided file (its plots shared out between people): how many people have plots. */
@@ -205,24 +219,72 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
   const [warnings, setWarnings] = useState<string[]>([]);
   const [error, setError] = useState<unknown>(null);
 
+  const [pendingReplace, setPendingReplace] = useState<PendingReplace | null>(null);
+
+  const askReplace = (name: string, impact: ReplaceImpact) =>
+    new Promise<boolean>((resolve) => {
+      setPendingReplace({
+        name,
+        impact,
+        answer: (replace) => {
+          setPendingReplace(null);
+          resolve(replace);
+        },
+      });
+    });
+
   const uploadFiles = async (files: File[]) => {
     setMessages([]);
     setError(null);
     const csv = files.filter((f) => f.name.toLowerCase().endsWith(".csv"));
-    setWarnings(files.filter((f) => !csv.includes(f)).map((f) => t("plots.wrongType", { name: f.name })));
+    const notes: string[] = files.filter((f) => !csv.includes(f)).map((f) => t("plots.wrongType", { name: f.name }));
+    setWarnings([...notes]);
+    const warn = (text: string) => {
+      notes.push(text);
+      setWarnings([...notes]);
+    };
     const done: string[] = [];
+    let changed = false;
     try {
       for (const file of csv) {
+        if (file.size === 0) {
+          warn(t("plots.emptyFile", { name: file.name }));
+          continue;
+        }
+        const send = (confirm: boolean) =>
+          uploadCsvFile(projectId, file, (progress) => setUpload({ name: file.name, progress }), confirm);
         setUpload({ name: file.name, progress: 0 });
-        const meta = await uploadCsvFile(projectId, file, (progress) => setUpload({ name: file.name, progress }));
-        done.push(t("plots.uploaded", { name: file.name, count: formatNumber(meta?.plotCount ?? 0, language) }));
+        let meta;
+        try {
+          meta = await send(false);
+        } catch (err) {
+          const impact = replaceImpactOf(err);
+          if (!impact) throw err;
+          setUpload(null);
+          if (!(await askReplace(file.name, impact))) {
+            warn(t("plots.replaceSkipped", { name: file.name }));
+            continue;
+          }
+          setUpload({ name: file.name, progress: 0 });
+          meta = await send(true);
+        }
+        changed = true;
+        const count = meta?.plotCount ?? 0;
+        done.push(count === 1 ? t("plots.uploadedOne", { name: file.name }) : t("plots.uploaded", { name: file.name, count: formatNumber(count, language) }));
         setMessages([...done]);
+        const w = meta?.warnings;
+        if (w && w.duplicateIds > 0) {
+          warn(t("plots.warnDuplicates", { name: file.name, count: formatNumber(w.duplicateIds, language), examples: w.duplicateExamples.join(", ") }));
+        }
+        if (w && w.badCoordinates > 0) {
+          warn(t("plots.warnCoordinates", { name: file.name, count: formatNumber(w.badCoordinates, language), examples: w.badCoordinateExamples.join(", ") }));
+        }
       }
     } catch (err) {
       setError(err);
     } finally {
       setUpload(null);
-      if (done.length > 0) state.reload();
+      if (changed) state.reload();
     }
   };
 
@@ -259,6 +321,33 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
           <ErrorAlert error={error} />
         </Stack>
       </Paper>
+      <Dialog open={pendingReplace !== null} onClose={() => pendingReplace?.answer(false)}>
+        {pendingReplace && (
+          <>
+            <DialogTitle>{t("plots.replaceTitle", { name: pendingReplace.name })}</DialogTitle>
+            <DialogContent>
+              <DialogContentText>{t("plots.replaceText", { removed: formatNumber(pendingReplace.impact.removedPlots, language) })}</DialogContentText>
+              <Box component="ul" sx={{ my: 1, color: "text.secondary" }}>
+                {pendingReplace.impact.heldRemoved > 0 && <li>{t("plots.replaceHeld", { count: formatNumber(pendingReplace.impact.heldRemoved, language) })}</li>}
+                {pendingReplace.impact.submittedRemoved > 0 && (
+                  <li>{t("plots.replaceSubmitted", { count: formatNumber(pendingReplace.impact.submittedRemoved, language) })}</li>
+                )}
+              </Box>
+              <DialogContentText>
+                {t("plots.replaceKept", { kept: formatNumber(pendingReplace.impact.keptPlots, language), added: formatNumber(pendingReplace.impact.newPlots, language) })}
+              </DialogContentText>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => pendingReplace.answer(false)} autoFocus>
+                {t("common.cancel")}
+              </Button>
+              <Button variant="contained" color="error" onClick={() => pendingReplace.answer(true)}>
+                {t("plots.replaceConfirm")}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
 
       {state.loading && !state.data ? (
         <Loading />

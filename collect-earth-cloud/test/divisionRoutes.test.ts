@@ -48,10 +48,10 @@ describe('dividing plots between people', () => {
   let jose: { userId: string; token: string; username: string };
   let ana: { userId: string; token: string; username: string };
 
-  const upload = (content: string, filename = 'plots.csv') =>
+  const upload = (content: string, filename = 'plots.csv', query = '') =>
     ctx.app.inject({
       method: 'PUT',
-      url: `/v1/projects/${pid}/csv-files/${filename}`,
+      url: `/v1/projects/${pid}/csv-files/${filename}${query}`,
       headers: { ...bearer(admin), 'content-type': 'text/csv' },
       payload: content,
     });
@@ -350,7 +350,12 @@ describe('dividing plots between people', () => {
   it('replacing the file keeps the plots still in it; new ones are unassigned', async () => {
     await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'file' });
     const replaced = CSV.replace('1,0,0,"POLYGON((0 0, 1 1))",La Paz\n', '') + '11,0,0,x,Oruro\n';
-    const res = await upload(replaced);
+    // Plot 1 is held: the coordinator is asked first, with what leaves the project.
+    const asked = await upload(replaced);
+    expect(asked.statusCode).toBe(409);
+    expect(asked.json()).toMatchObject({ error: 'replace_needs_confirm', removedPlots: 1, heldRemoved: 1, submittedRemoved: 0, newPlots: 1, divided: true });
+    const res = await upload(replaced, 'plots.csv', '?confirm=replace');
+    expect(res.statusCode).toBe(201);
     expect(res.json().id).toBe(fileId);
     const summary = await getDistribution();
     expect(summary).toMatchObject({ plotCount: 10, unassigned: 1 });

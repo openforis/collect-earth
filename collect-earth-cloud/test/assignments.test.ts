@@ -52,6 +52,44 @@ describe('CSV files and assignments', () => {
     await ctx.app.close();
   });
 
+  it('refuses a file without plots, with a reason', async () => {
+    const res = await uploadCsv(ctx.app, project.projectId, project.adminToken, 'empty.csv', 'id,lat,lon\n');
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('no_plots');
+    expect(res.json().reason).toMatch(/no plots/);
+  });
+
+  it('takes a file with repeated ids or unusable coordinates, and says so', async () => {
+    const res = await uploadCsv(ctx.app, project.projectId, project.adminToken, 'odd.csv',
+      'id,lat,lon\n1,0,0\n1,0,0\n2,abc,0\n3,95,10\n4,"1,5",2\n');
+    expect(res.statusCode).toBe(201);
+    expect(res.json().warnings).toEqual({ duplicateIds: 1, duplicateExamples: ['1'], badCoordinates: 2, badCoordinateExamples: ['2', '3'] });
+    const clean = await uploadCsv(ctx.app, project.projectId, project.adminToken, 'clean.csv', 'id,lat,lon\n1,0,0\n');
+    expect(clean.json().warnings).toBeUndefined();
+  });
+
+  it('asks before a same-name file drops plots with submitted work, and replaces once confirmed', async () => {
+    const pid = project.projectId;
+    await uploadCsv(ctx.app, pid, project.adminToken, 'a.csv', 'id,lat,lon\n1,0,0\n2,1,1\n3,2,2\n');
+    await batchRequest(ctx.app, pid, project.projectToken, [envelope({ recordKey: '2' })]);
+    // Plot 2 kept: no question.
+    const keeps = await uploadCsv(ctx.app, pid, project.adminToken, 'a.csv', 'id,lat,lon\n2,1,1\n4,3,3\n');
+    expect(keeps.statusCode).toBe(201);
+    const drops = await uploadCsv(ctx.app, pid, project.adminToken, 'a.csv', 'id,lat,lon\n4,3,3\n');
+    expect(drops.statusCode).toBe(409);
+    expect(drops.json()).toMatchObject({ error: 'replace_needs_confirm', removedPlots: 1, submittedRemoved: 1, heldRemoved: 0, keptPlots: 1, newPlots: 0 });
+    // Another file having plot 2 keeps it in the project.
+    await uploadCsv(ctx.app, pid, project.adminToken, 'b.csv', 'id,lat,lon\n2,1,1\n');
+    expect((await uploadCsv(ctx.app, pid, project.adminToken, 'a.csv', 'id,lat,lon\n4,3,3\n')).statusCode).toBe(201);
+    const res = await ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${pid}/csv-files/b.csv?confirm=replace`,
+      headers: { authorization: `Bearer ${project.adminToken}`, 'content-type': 'text/csv' },
+      payload: 'id,lat,lon\n5,0,0\n',
+    });
+    expect(res.statusCode).toBe(201);
+  });
+
   it('uploads a CSV and reports checksum + plot count', async () => {
     const res = await uploadCsv(ctx.app, project.projectId, project.adminToken, 'plots_a.csv',
       'id,lat,lon\n1,0,0\n2,1,1\n3,2,2\n');

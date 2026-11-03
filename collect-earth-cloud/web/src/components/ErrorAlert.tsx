@@ -1,12 +1,16 @@
+import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
-import { errorMessageKey } from "../api";
+import { ApiError, errorMessageKey } from "../api";
 import { useT } from "../i18n";
 
 /** Any error as a plain sentence, with an optional "Try again". */
 export function ErrorAlert({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const t = useT();
   if (!error) return null;
+  const key = errorMessageKey(error);
+  // A generic sentence says little: the server's own reason (in English) tells what to fix.
+  const reason = (key === "error.badRequest" || key === "error.unknown") && error instanceof ApiError ? error.reason : null;
   return (
     <Alert
       severity="error"
@@ -19,7 +23,12 @@ export function ErrorAlert({ error, onRetry }: { error: unknown; onRetry?: () =>
         ) : undefined
       }
     >
-      {t(errorMessageKey(error))}
+      {t(key)}
+      {reason && (
+        <Box component="span" sx={{ display: "block", mt: 0.5 }}>
+          {t("error.serverSaid", { reason })}
+        </Box>
+      )}
     </Alert>
   );
 }
