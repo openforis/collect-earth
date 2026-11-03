@@ -598,6 +598,9 @@ public class GoogleEarthWebService {
 			return;
 		}
 		String page = readPageUrl();
+		if (Thread.currentThread().isInterrupted()) {
+			return; // Collect Earth quitting
+		}
 		if (page != null && !GoogleEarthWebUrls.isGoogleEarthWeb(page)) {
 			// Cookie consent, sign-in...: the watchdog shows the plot once the user is through. Not for a page too busy
 			// to tell its URL (Google Earth Web starting): the outline is tried, and waits for the page if need be
@@ -706,7 +709,7 @@ public class GoogleEarthWebService {
 	 * Waits, after a page load, for the camera in the URL to be back over the plot ({@link #isCameraBackAt}), for
 	 * {@link #CAMERA_BACK_TIMEOUT_MILLIS} at most; a page that is not Google Earth Web (consent, sign-in) ends the wait.
 	 *
-	 * @return false when {@code superseded} ended it
+	 * @return false when {@code superseded} ended it, or an interrupt (Collect Earth quitting): nothing is drawn then
 	 */
 	private boolean awaitCameraAt(SimplePlacemarkObject plot, BooleanSupplier superseded) {
 		double latitude = Double.parseDouble(plot.getCoord().getLatitude());
@@ -724,7 +727,7 @@ public class GoogleEarthWebService {
 				Thread.sleep(CAMERA_BACK_POLL_MILLIS);
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
-				return true;
+				return false;
 			}
 		}
 		logger.info("Google Earth Web: the camera was not back at plot {} in time after the page load", plot.getPlacemarkId());

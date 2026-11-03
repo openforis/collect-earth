@@ -431,12 +431,22 @@ public class PlotImageryService {
 		void execute() throws Exception;
 	}
 
+	/**
+	 * Runs the action on a thread of its own. Interrupted (Collect Earth quitting, which shuts the threads down while a
+	 * plot waits for Google Earth Web, say), it ends quietly: that is no fault to report.
+	 */
 	private void openAsync(String windowName, BrowserAction action) {
 		async.execute(() -> {
 			try {
 				action.execute();
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
 			} catch (Exception e) {
-				logger.error("Exception opening " + windowName + " window", e);
+				if (Thread.currentThread().isInterrupted() || BrowserService.isCausedBy(e, InterruptedException.class)) {
+					logger.debug("{} window: interrupted", windowName, e);
+				} else {
+					logger.error("Exception opening " + windowName + " window", e);
+				}
 			}
 		});
 	}

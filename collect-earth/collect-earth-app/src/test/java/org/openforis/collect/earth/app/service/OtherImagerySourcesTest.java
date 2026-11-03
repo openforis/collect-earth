@@ -46,7 +46,7 @@ public class OtherImagerySourcesTest {
 		}
 
 		@Override
-		void awaitGoogleEarthWeb(SimplePlacemarkObject placemark, long selection) {
+		void awaitGoogleEarthWeb(SimplePlacemarkObject placemark, long selection) throws InterruptedException {
 			steps.add("wait for Google Earth Web " + placemark.getPlacemarkId());
 		}
 
@@ -138,7 +138,7 @@ public class OtherImagerySourcesTest {
 	public void aPlotGoneByWhileGoogleEarthWebShowedItLoadsNothingInTheOtherSources() {
 		Sources sources = new Sources() {
 			@Override
-			void awaitGoogleEarthWeb(SimplePlacemarkObject placemark, long selection) {
+			void awaitGoogleEarthWeb(SimplePlacemarkObject placemark, long selection) throws InterruptedException {
 				super.awaitGoogleEarthWeb(placemark, selection);
 				if ("A".equals(placemark.getPlacemarkId())) {
 					showPlot(PlotSelectionOrderTest.plot("B"), null); // B selected while A was shown
@@ -148,6 +148,24 @@ public class OtherImagerySourcesTest {
 		sources.shown.add(ImagerySource.ESRI_WAYBACK);
 		sources.showPlot(PlotSelectionOrderTest.plot("A"), null);
 		assertEquals(Arrays.asList("ESRI_WAYBACK B"), sources.loads());
+	}
+
+	@Test
+	public void quittingWhileGoogleEarthWebIsAwaitedEndsQuietlyWithTheThreadInterrupted() {
+		Sources sources = new Sources() {
+			@Override
+			void awaitGoogleEarthWeb(SimplePlacemarkObject placemark, long selection) throws InterruptedException {
+				throw new InterruptedException("shut down"); // the executor shut down at Quit
+			}
+		};
+		sources.shown.add(ImagerySource.ESRI_WAYBACK);
+		try {
+			sources.showPlot(PlotSelectionOrderTest.plot("A"), null);
+			assertTrue(Thread.currentThread().isInterrupted());
+		} finally {
+			Thread.interrupted();
+		}
+		assertEquals(Collections.emptyList(), sources.loads());
 	}
 
 	@Test
