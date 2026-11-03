@@ -56,6 +56,7 @@ import {
 } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Username } from "../components/Username";
 import { JoinSteps } from "../components/JoinSteps";
 import { Loading } from "../components/Loading";
 import { AsOf, ChartOrTable, ColumnChart, ValuesTable } from "../components/PeopleCharts";
@@ -215,9 +216,14 @@ function MemberList({ projectId, members, onChanged }: { projectId: string; memb
         {members.map((member) => (
           <ListItem key={member.userId} divider sx={{ gap: 2, flexWrap: "wrap", pr: 0 }}>
             <ListItemText
-              primary={member.userId === me?.userId ? `${member.username} ${t("people.you")}` : member.username}
+              primary={
+                <>
+                  <Username name={member.username} />
+                  {member.userId === me?.userId && ` ${t("people.you")}`}
+                </>
+              }
               secondary={member.disabled ? <Chip component="span" size="small" label={t("people.disabledBadge")} sx={{ mt: 0.5 }} /> : undefined}
-              sx={{ flex: "1 1 160px", wordBreak: "break-word" }}
+              sx={{ flex: "1 1 160px", overflowWrap: "break-word" }}
             />
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <Select
@@ -275,8 +281,10 @@ function WeekSection({ projectId, data }: { projectId: string; data: PeopleData 
   const people = (list: typeof week.mostActive) => (
     <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
       {list.map((p) => (
-        <Typography component="li" key={p.userId} sx={{ wordBreak: "break-word" }}>
-          <MuiLink {...linkProps(pathFor({ name: "person", projectId, userId: p.userId }))}>{p.username}</MuiLink>
+        <Typography component="li" key={p.userId} sx={{ overflowWrap: "break-word" }}>
+          <MuiLink {...linkProps(pathFor({ name: "person", projectId, userId: p.userId }))}>
+            <Username name={p.username} />
+          </MuiLink>
           <Box component="span" sx={{ color: "text.secondary" }}>
             {" "}
             · {plots(p.submitted)}
@@ -439,8 +447,10 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
                 r.plots.assigned > 0 ? t("peopleTable.plotsOf", { done: n(done), assigned: n(r.plots.assigned), percent: percentText(done, r.plots.assigned, language) }) : "—";
               return (
                 <TableRow key={r.userId} hover>
-                  <TableCell component="th" scope="row" sx={{ wordBreak: "break-word", minWidth: 100 }}>
-                    <MuiLink {...linkProps(pathFor({ name: "person", projectId, userId: r.userId }))}>{r.username}</MuiLink>
+                  <TableCell component="th" scope="row" sx={{ overflowWrap: "break-word", minWidth: 100 }}>
+                    <MuiLink {...linkProps(pathFor({ name: "person", projectId, userId: r.userId }))}>
+                      <Username name={r.username} />
+                    </MuiLink>
                     {r.userId === me?.userId && ` ${t("people.you")}`}
                     <Typography variant="body2" color="text.secondary">
                       {t(`role.${r.role}`)}

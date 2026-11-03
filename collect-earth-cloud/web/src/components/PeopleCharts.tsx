@@ -196,8 +196,8 @@ export function ValuesTable({ head, rows }: { head: [string, string]; rows: read
   );
 }
 
-const CELL = 13;
-const GAP = 2;
+const CELL = 18;
+const GAP = 3;
 /**
  * The shades of the days, over the paper: the lightest is still 3:1 against an empty day
  * (#f5f5f5) with the theme's green; the darkest is the theme's dark green.
@@ -250,6 +250,9 @@ export function CalendarHeatMap({
       if (months.length === 0 || months[months.length - 1].text !== text) months.push({ x: left + i * (CELL + GAP), text });
     }
   });
+  // Wide enough for the last month's name: a span of a week or two would cut it ("No").
+  const lastMonth = months[months.length - 1];
+  const svgWidth = lastMonth ? Math.max(width, lastMonth.x + 8 * lastMonth.text.length + 4) : width;
   const weekdays = [0, 2, 4].map((i) => ({ i, text: new Intl.DateTimeFormat(language, { weekday: "short", timeZone: "UTC" }).format(Date.parse(`2026-11-0${2 + i}T12:00:00Z`)) }));
   return (
     <Stack spacing={1}>
@@ -280,9 +283,9 @@ export function CalendarHeatMap({
         }}
         sx={{ overflowX: "auto", maxWidth: "100%", borderRadius: 1, outline: "none", "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 2 } }}
       >
-        <svg width={width} height={height} aria-hidden style={{ display: "block" }} onMouseLeave={() => setActive(null)}>
+        <svg width={svgWidth} height={height} aria-hidden style={{ display: "block" }} onMouseLeave={() => setActive(null)}>
           {months.map((m) => (
-            <text key={`${m.x}`} x={m.x} y={11} fontSize={11} fill={ink}>
+            <text key={`${m.x}`} x={m.x} y={11} fontSize={12} fill={ink}>
               {m.text}
             </text>
           ))}

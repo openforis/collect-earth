@@ -502,7 +502,7 @@ function CurrentDivision({
               <TableRow>
                 <TableCell>{t("divide.person")}</TableCell>
                 <TableCell align="right">{t("divide.plots")}</TableCell>
-                <TableCell sx={{ minWidth: 140 }}>{t("divide.submitted")}</TableCell>
+                <TableCell sx={{ minWidth: 140 }}>{t(shown.some((p) => p.overlap > 0) ? "divide.submittedWithChecks" : "divide.submitted")}</TableCell>
                 <TableCell>
                   <Box component="span" sx={visuallyHidden}>
                     {t("divide.moveButton")}

@@ -27,6 +27,7 @@ import { useT, type Translate } from "../i18n";
 import { attributionHtml, boundsOf, CLUSTER_FROM, escapeHtml, filesOffMap, LIST_PAGE, plotList, plotPopup, shownIndexes, STATUS_STYLE, statusDrawnKey, statusLabelKey, symbolSvg } from "../mapView";
 import { legendStatuses, localMapPlots } from "../localMode";
 import { navigate, pathFor } from "../router";
+import { EmptyState } from "../components/EmptyState";
 import { loadLeaflet, type LeafletModule } from "./leaflet";
 
 /** Read by screen readers, not shown. */
@@ -456,7 +457,19 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
         )}
         {error !== null && <ErrorAlert error={error} onRetry={() => setReload((r) => r + 1)} />}
 
-        {data && (
+        {data && data.files.length === 0 ? (
+          // A project without plot files: one thing to do, not a quality notice and a table of zeros.
+          <EmptyState
+            title={t("map.noFiles")}
+            action={
+              coordinator ? (
+                <Button variant="contained" onClick={() => navigate(pathFor({ name: "project", projectId, tab: "plots" }))}>
+                  {t("tab.plots")}
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : data && (
           <Stack spacing={1.5}>
             <AsOf asOf={data.asOf} />
             {data.unsupportedSrs !== null && <Alert severity="info" role="note">{t("map.unsupportedSrs", { srs: data.unsupportedSrs })}</Alert>}

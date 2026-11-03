@@ -6,7 +6,7 @@ import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
 import Forest from "@mui/icons-material/Forest";
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { ApiError, getProject } from "../api";
 import { useLocalMode } from "../appContext";
 import { AppShell } from "../components/AppShell";
@@ -15,28 +15,30 @@ import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { PlotSearchBox } from "../components/PlotSearchBox";
 import { useT } from "../i18n";
-import { ActivityTab } from "../project/ActivityTab";
 import { AttentionBell } from "../components/AttentionBell";
-import { DataTab } from "../project/DataTab";
 import { FileTab } from "../project/FileTab";
-import { MapTab } from "../project/MapTab";
 import { OverviewTab } from "../project/OverviewTab";
-import { PeopleTab } from "../project/PeopleTab";
-import { PersonPage } from "./PersonPage";
-import { PlotPage } from "./PlotPage";
-import { PlotFilePage } from "../project/PlotFilePage";
 import { PlotsTab } from "../project/PlotsTab";
-import { ProgressTab } from "../project/ProgressTab";
-import { QualityAnswers } from "../project/QualityAnswers";
-import { QualityFlags } from "../project/QualityFlags";
-import { QualitySurvey } from "../project/QualitySurvey";
-import { QualityReference } from "../project/QualityReference";
-import { QualityTab } from "../project/QualityTab";
-import { ReviewQueue } from "../project/ReviewQueue";
 import { SettingsTab } from "../project/SettingsTab";
 import { projectTabs } from "../localMode";
 import { linkProps, navigate, pathFor, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
+
+// Each tab is loaded when first opened (the map and the charts are most of the code).
+const ActivityTab = lazy(() => import("../project/ActivityTab").then((m) => ({ default: m.ActivityTab })));
+const DataTab = lazy(() => import("../project/DataTab").then((m) => ({ default: m.DataTab })));
+const MapTab = lazy(() => import("../project/MapTab").then((m) => ({ default: m.MapTab })));
+const PeopleTab = lazy(() => import("../project/PeopleTab").then((m) => ({ default: m.PeopleTab })));
+const PersonPage = lazy(() => import("./PersonPage").then((m) => ({ default: m.PersonPage })));
+const PlotPage = lazy(() => import("./PlotPage").then((m) => ({ default: m.PlotPage })));
+const PlotFilePage = lazy(() => import("../project/PlotFilePage").then((m) => ({ default: m.PlotFilePage })));
+const ProgressTab = lazy(() => import("../project/ProgressTab").then((m) => ({ default: m.ProgressTab })));
+const QualityAnswers = lazy(() => import("../project/QualityAnswers").then((m) => ({ default: m.QualityAnswers })));
+const QualityFlags = lazy(() => import("../project/QualityFlags").then((m) => ({ default: m.QualityFlags })));
+const QualitySurvey = lazy(() => import("../project/QualitySurvey").then((m) => ({ default: m.QualitySurvey })));
+const QualityReference = lazy(() => import("../project/QualityReference").then((m) => ({ default: m.QualityReference })));
+const QualityTab = lazy(() => import("../project/QualityTab").then((m) => ({ default: m.QualityTab })));
+const ReviewQueue = lazy(() => import("../project/ReviewQueue").then((m) => ({ default: m.ReviewQueue })));
 
 const TAB_LABELS = {
   progress: "tab.progress",
@@ -241,7 +243,7 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
         ))}
       </Tabs>
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
-        {content}
+        <Suspense fallback={<Loading />}>{content}</Suspense>
       </div>
     </AppShell>
   );

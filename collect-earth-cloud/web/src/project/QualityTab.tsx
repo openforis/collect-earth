@@ -25,6 +25,7 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type R
 import { ApiError, getQuality, saveQualityMargins, type AnswerOptions, type GuidanceNote, type QualityData, type Rate } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { SectionNav } from "../components/SectionNav";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
@@ -692,6 +693,7 @@ function TeamQualityTab({ projectId }: { projectId: string }) {
   const quality = useLoad(() => getQuality(projectId), [projectId], { merge: keepLocalChanges });
   const { data, error, loading, reload, setData } = quality;
   const [note, setNote] = useState<NoteDraft | null>(null);
+  const sectionsRef = useRef<HTMLDivElement>(null);
   /** A plot to show in the differences list (from the assistant's links); `at` makes each click a new one. */
   const [focus, setFocus] = useState<PlotFocus | null>(null);
   const busy = error instanceof ApiError && error.code === "busy";
@@ -763,7 +765,9 @@ function TeamQualityTab({ projectId }: { projectId: string }) {
   const savedNote = (saved: GuidanceNote) => update((prev) => ({ notes: withNote(prev.notes, saved) }));
 
   return (
-    <Stack spacing={3}>
+    // Headings land below the app bar and the sticky "On this page" row.
+    <Stack spacing={3} ref={sectionsRef} sx={{ "& h2": { scrollMarginTop: { xs: 72, sm: 150 } } }}>
+      <SectionNav root={sectionsRef} label={t("quality.onThisPage")} prefix="quality-section" />
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
         <Button variant="outlined" size="small" {...linkProps(pathFor({ name: "teamReport", projectId }))}>
           {t("teamReport.link")}

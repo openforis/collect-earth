@@ -3,32 +3,44 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider } from "@mui/material/styles";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, errorMessageKey, getMe, getServerInfo, logout, setUnauthorizedHandler, type Me, type ServerInfo, type Session } from "./api";
 import { AppContext, type AppState } from "./appContext";
 import { Loading } from "./components/Loading";
 import { I18nContext, initialLanguage, translator, type Language } from "./i18n";
 import { choosePage } from "./pageChoice";
 import { usePageFocus } from "./pageFocus";
-import { AccountPage } from "./pages/AccountPage";
 import { JoinPage } from "./pages/JoinPage";
 import { ConfirmEmailPage, UnsubscribePage } from "./pages/MailLinkPages";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
-import { ProjectPage } from "./pages/ProjectPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
-import { PublicProgressPage } from "./pages/PublicProgressPage";
 import { LocalSignedOutPage } from "./pages/LocalSignedOutPage";
-import { MyQualityPage, MyWorkPage, TeamReportPage } from "./pages/ReportPages";
-import { WeeklyPage } from "./pages/WeeklyPage";
 import { ResetPage } from "./pages/ResetPage";
-import { ServerPage } from "./pages/ServerPage";
 import { SetupPage } from "./pages/SetupPage";
 import { matchRoute, navigate, usePath, type Route } from "./router";
 import { getToken, setToken, storeLanguage } from "./storage";
 import { theme } from "./theme";
 
+// Pages loaded when first opened: the sign-in and the projects list do not wait for the map and charts.
+const AccountPage = lazy(() => import("./pages/AccountPage").then((m) => ({ default: m.AccountPage })));
+const ProjectPage = lazy(() => import("./pages/ProjectPage").then((m) => ({ default: m.ProjectPage })));
+const PublicProgressPage = lazy(() => import("./pages/PublicProgressPage").then((m) => ({ default: m.PublicProgressPage })));
+const MyQualityPage = lazy(() => import("./pages/ReportPages").then((m) => ({ default: m.MyQualityPage })));
+const MyWorkPage = lazy(() => import("./pages/ReportPages").then((m) => ({ default: m.MyWorkPage })));
+const TeamReportPage = lazy(() => import("./pages/ReportPages").then((m) => ({ default: m.TeamReportPage })));
+const WeeklyPage = lazy(() => import("./pages/WeeklyPage").then((m) => ({ default: m.WeeklyPage })));
+const ServerPage = lazy(() => import("./pages/ServerPage").then((m) => ({ default: m.ServerPage })));
+
 function RoutePage({ route }: { route: Route }) {
+  return (
+    <Suspense fallback={<Loading />}>
+      <RoutedPage route={route} />
+    </Suspense>
+  );
+}
+
+function RoutedPage({ route }: { route: Route }) {
   switch (route.name) {
     case "home":
       return <ProjectsPage />;
