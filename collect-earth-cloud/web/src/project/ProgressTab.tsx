@@ -36,6 +36,7 @@ import {
   dayText,
   forecastSentences,
   forecastTargetKey,
+  fromFirstWork,
   percentText,
   personDetail,
   progressChart,
@@ -165,7 +166,7 @@ function ProgressLineChart({ data }: { data: ProgressFigures }) {
   const target = data.forecast.deadline !== null || data.forecast.targetFrom === "setting" ? data.forecast.target : null;
   // Drawn at the width it has, however narrow (a very small phone): it never overflows.
   const box = { width: Math.max(width, 120), height: CHART_HEIGHT, left: 48, right: 12, top: 14, bottom: 28 };
-  const chart = progressChart(data.daily, box, target);
+  const chart = progressChart(fromFirstWork(data.daily), box, target);
   const count = chart.points.length;
   const shown = active !== null ? chart.points[active] : chart.points[count - 1];
   const first = chart.points[0];
@@ -285,7 +286,7 @@ export function OverTime({ data }: { data: ProgressFigures }) {
               </TableRow>
             </TableHead>
             <TableBody>
-              {[...data.daily].reverse().map((d) => (
+              {[...fromFirstWork(data.daily)].reverse().map((d) => (
                 <TableRow key={d.date}>
                   <TableCell component="th" scope="row" sx={{ whiteSpace: "nowrap" }}>
                     {dayText(d.date, language)}

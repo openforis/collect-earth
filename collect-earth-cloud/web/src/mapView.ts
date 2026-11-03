@@ -29,7 +29,7 @@ export const STATUS_STYLE: Record<MapStatus, StatusStyle> = {
   // A full dot with a thick outline.
   recheck: { color: "#CC79A7", fillOpacity: 0.85, weight: 3, radius: 6 },
   // A larger ring with a thick dashed outline.
-  differs: { color: "#D55E00", fillOpacity: 0.5, weight: 3, dashArray: "4 2", radius: 7 },
+  differs: { color: "#C62828", fillOpacity: 0.5, weight: 3, dashArray: "4 2", radius: 7 },
   // A full dot with a thick dotted outline.
   resubmitted: { color: "#56B4E9", fillOpacity: 0.85, weight: 3, dashArray: "2 2", radius: 6 },
 };

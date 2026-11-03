@@ -233,6 +233,17 @@ export interface ProgressChart {
   targetY: number | null;
 }
 
+/**
+ * The days worth drawing: from the day before the first plot was submitted (the line starts at 0),
+ * not weeks of nothing before it; at least `least` days, the last ones, whenever there are that many.
+ */
+export function fromFirstWork<T extends { cumulative: number }>(days: readonly T[], least = 7): T[] {
+  const first = days.findIndex((d) => d.cumulative > 0);
+  if (first < 0) return days.slice(-least);
+  const start = Math.max(0, Math.min(first - 1, days.length - least));
+  return days.slice(start);
+}
+
 /** A round step for about `count` gridlines up to `max`: 1, 2, 5 × 10^n. */
 export function niceStep(max: number, count = 4): number {
   if (max <= 0) return 1;

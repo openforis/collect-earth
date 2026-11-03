@@ -8,7 +8,7 @@ import FormHelperText from "@mui/material/FormHelperText";
 import Link from "@mui/material/Link";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { login, signup } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
@@ -37,6 +37,7 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
   const needsTerms = signingUp && info.termsUrl !== null;
+  const usernameRef = useRef<HTMLInputElement>(null);
 
   const submit = async () => {
     setError(null);
@@ -54,6 +55,9 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
       await loggedIn(session);
     } catch (err) {
       setError(err);
+      // The button pressed is disabled while busy and loses the focus: give it back to the form,
+      // from the top (the error is announced as an alert).
+      window.setTimeout(() => usernameRef.current?.focus(), 0);
     } finally {
       setBusy(false);
     }
@@ -74,6 +78,7 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           autoComplete="username"
+          inputRef={usernameRef}
           autoFocus
           required
           error={problem === "error.badUsername" || (problem === "error.fillBoth" && !username.trim())}

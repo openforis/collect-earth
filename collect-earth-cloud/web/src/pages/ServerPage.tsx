@@ -701,7 +701,13 @@ function UsersCard() {
               />
               <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
                 {user.disabledAt === null && (
-                  <Button variant="outlined" startIcon={<Key />} onClick={() => void makeLink(user)} disabled={busy === user.userId}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<Key />}
+                    onClick={() => void makeLink(user)}
+                    disabled={busy === user.userId}
+                    aria-label={t("server.makeResetLabel", { name: user.username })}
+                  >
                     {t("server.makeReset")}
                   </Button>
                 )}
@@ -712,6 +718,7 @@ function UsersCard() {
                       variant="outlined"
                       color="warning"
                       startIcon={<Block />}
+                      aria-label={t("server.disableLabel", { name: user.username })}
                       onClick={(e) => {
                         // Leave the button before the dialog hides the page from assistive
                         // technology (aria-hidden on a focused element is blocked).
@@ -728,6 +735,7 @@ function UsersCard() {
                       startIcon={<CheckCircleOutline />}
                       onClick={() => void setDisabled(user, false)}
                       aria-busy={busy === user.userId}
+                      aria-label={t("server.enableLabel", { name: user.username })}
                     >
                       {t("server.enable")}
                     </Button>

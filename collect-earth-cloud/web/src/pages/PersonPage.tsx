@@ -535,7 +535,7 @@ export function FilesSection({
                 {members ? <Link {...linkProps(pathFor({ name: "plotFile", projectId, fileId: file.csvFileId }))}>{file.filename}</Link> : file.filename}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {t(file.divided ? "person.fileDivided" : "person.fileWhole")}
+                {t(file.divided ? (members ? "person.fileDivided" : "person.fileDividedSelf") : members ? "person.fileWhole" : "person.fileWholeSelf")}
               </Typography>
               {file.plots.total > 0 && (
                 <Typography>

@@ -62,7 +62,7 @@ function LogRow({ projectId, item, page }: { projectId: string; item: LogItem; p
         {plot !== null && (
           <>
             {" · "}
-            <Link variant="body2" {...linkProps(pathFor({ name: "plot", projectId, plot }))}>
+            <Link variant="body2" aria-label={t("activity.openPlotLabel", { plot })} {...linkProps(pathFor({ name: "plot", projectId, plot }))}>
               {t("activity.openPlot")}
             </Link>
           </>

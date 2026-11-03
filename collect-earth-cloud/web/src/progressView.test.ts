@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { toProgressData, type AttentionItem, type Forecast } from "./api";
 import { translator } from "./i18n";
 import {
+  fromFirstWork,
   attentionAction,
   attentionText,
   barValue,
@@ -238,5 +239,18 @@ describe("toProgressData", () => {
     expect(d.settings).toEqual({ deadline: "2026-12-31", targetPlots: null, quietDays: 3 });
     expect(toProgressData({ attention: null }).attention).toBeNull();
     expect(toProgressData({}).forecast.paceDays).toBe(14);
+  });
+});
+
+describe("the days the chart draws", () => {
+  const day = (i: number, cumulative: number) => ({ date: `d${i}`, submitted: 0, cumulative });
+  it("start the day before the first submission, at least a week back", () => {
+    const days = [...Array.from({ length: 80 }, (_, i) => day(i, 0)), ...Array.from({ length: 10 }, (_, i) => day(80 + i, i + 1))];
+    expect(fromFirstWork(days).map((d) => d.date)[0]).toBe("d79");
+    expect(fromFirstWork(days)).toHaveLength(11);
+    const late = [...Array.from({ length: 88 }, (_, i) => day(i, 0)), day(88, 1), day(89, 2)];
+    expect(fromFirstWork(late)).toHaveLength(7);
+    expect(fromFirstWork([day(0, 3), day(1, 4)])).toHaveLength(2);
+    expect(fromFirstWork(Array.from({ length: 90 }, (_, i) => day(i, 0)))).toHaveLength(7);
   });
 });

@@ -61,6 +61,8 @@ import { useLoad } from "../useLoad";
  */
 const TEAM = "#2a6fb0";
 const PERSON = "#2f7d4a";
+/** A chart of one series (the team alone): the theme's green, as the other charts of the dashboard. */
+const ALONE = "#2e6b3f";
 
 /** Flags shown before "Show all". */
 const FLAGS_SHOWN = 8;
@@ -181,7 +183,7 @@ function ChoiceView({ choice, person, narrowed, local }: { choice: ChoiceAnswers
           { color: PERSON, value: r.person!.share ?? 0, text: pct(r.person!.share) },
           { color: TEAM, value: r.rest!.share ?? 0, text: pct(r.rest!.share) },
         ]
-      : [{ color: TEAM, value: r.share, text: percent(r.share, language) }],
+      : [{ color: ALONE, value: r.share, text: percent(r.share, language) }],
     readout: compared
       ? t("answers.readoutPerson", {
           answer: label(r),
@@ -307,7 +309,7 @@ function NumberView({ numbers, person, local }: { numbers: NumberAnswers; person
   const readoutId = useId();
   // Alone: one row, your plots.
   const rows = local
-    ? [{ label: t("answers.yourPlots"), s: numbers.team, color: TEAM }]
+    ? [{ label: t("answers.yourPlots"), s: numbers.team, color: ALONE }]
     : [{ label: t("answers.team"), s: numbers.team, color: TEAM }, ...numbers.people.map((p) => ({ label: p.username, s: p as NumberSpread, color: PERSON }))];
   const readout = (r: (typeof rows)[number]) =>
     `${r.label}: ${spreadText(t, r.s, language)}${r.s.nonNumeric > 0 ? ` · ${t("answers.nonNumeric", { n: formatNumber(r.s.nonNumeric, language) })}` : ""}`;

@@ -2,6 +2,7 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import FormControl from "@mui/material/FormControl";
+import Link from "@mui/material/Link";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
@@ -34,6 +35,7 @@ import { Loading } from "../components/Loading";
 import { FLAG_KIND_KEYS, flagText, parseSeconds, PROBLEM_KINDS } from "../flagsView";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
+import { linkProps, pathFor } from "../router";
 import { useLoad } from "../useLoad";
 
 /** The select value for "everyone" / "all kinds" (an empty value would leave the field looking blank). */
@@ -268,9 +270,9 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
                   <Stack component="ul" spacing={0.75} sx={{ m: 0, pl: 2.5 }}>
                     {shown.map((f, i) => (
                       <Box component="li" key={`${f.kind} ${f.plot} ${f.operator} ${i}`} sx={{ wordBreak: "break-word" }}>
-                        <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
+                        <Link variant="body2" sx={{ fontWeight: 500 }} {...linkProps(pathFor({ name: "plot", projectId, plot: f.plot }))}>
                           {t("flags.plot", { plot: f.plot })}
-                        </Typography>
+                        </Link>
                         <Typography variant="body2" component="span" color="text.secondary">
                           {local ? "" : ` · ${f.operator}`}
                           {f.at !== null ? ` · ${formatDate(f.at, language)}` : ""}

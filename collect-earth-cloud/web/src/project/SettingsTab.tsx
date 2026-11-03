@@ -86,6 +86,14 @@ function RenameCard({ projectId, name, onRenamed }: { projectId: string; name: s
   );
 }
 
+/** Whether a deadline (YYYY-MM-DD) is a day before today, here. */
+function deadlinePassed(deadline: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline)) return false;
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return deadline < today;
+}
+
 /** The Progress tab's settings: an optional deadline and target, and when someone counts as quiet. */
 function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string; saved: ProgressSettings; onSaved: (s: ProgressSettings) => void }) {
   const t = useT();
@@ -131,7 +139,7 @@ function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string
         // A date typed only in part reads as "" (badInput): said, not saved as no deadline.
         onChange={(e) => change("deadline")(e.target.value, e.target.validity?.badInput === true)}
         error={problems.deadline !== undefined}
-        helperText={problems.deadline ? t(problems.deadline) : t("progressSettings.deadlineHelp")}
+        helperText={problems.deadline ? t(problems.deadline) : deadlinePassed(draft.deadline) ? t("progressSettings.deadlinePast") : t("progressSettings.deadlineHelp")}
         slotProps={{ inputLabel: { shrink: true } }}
       />
       <TextField
