@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type Field, type FormModel, availableItems, clickCode, dateFromInput, dateToInput, entityCount, errorList, fieldsByName,
-  indexedField, isTabVisible, joinValues, mergeInfos, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
+  indexedField, isTabVisible, questionToFocus, joinValues, mergeInfos, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
   requiredMessage, saveBody, selectCodes, splitValues, tabsWithErrors, timeToInput,
 } from "./model";
 
@@ -187,5 +187,20 @@ describe("save request", () => {
     expect(body.get("partialUpdate")).toBe("true");
     expect(body.get("currentStep")).toBe("2");
     expect(body.get("values[collect_entity_x%5Ba%5D.code_y]")).toBe("v");
+  });
+});
+
+describe("questionToFocus", () => {
+  const values: Record<string, string> = { lu: "F", calc: "", sub: "", note: "" };
+  const value = (name: string) => values[name] ?? "";
+  it("is the first question not answered yet, passing over those with nothing to answer", () => {
+    const questions = [{ name: "lu", control: "lu-chip" }, { name: "calc", control: null }, { name: "sub", control: "sub-chip" },
+      { name: "note", control: "note-input" }];
+    expect(questionToFocus(questions, value)).toBe("sub-chip");
+  });
+  it("is the first question when all are answered, and none without questions", () => {
+    expect(questionToFocus([{ name: "calc", control: null }, { name: "lu", control: "lu-chip" }], value)).toBe("lu-chip");
+    expect(questionToFocus([{ name: "calc", control: null }], value)).toBeNull();
+    expect(questionToFocus([], value)).toBeNull();
   });
 });

@@ -30,17 +30,19 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import SendIcon from "@mui/icons-material/Send";
 import { type MessageKey, useT } from "../i18n";
-import { submitOnKey } from "../shortcuts";
+import { panelKey, submitOnKey } from "../shortcuts";
 import logo from "./collect-earth-logo.png";
 import { FieldView, errorText } from "./fields";
 import {
   type Field, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type TableItem,
-  availableItems, entityCount, errorList, indexedField, isTabVisible, isVisible, itemFields, tabsWithErrors,
+  availableItems, entityCount, errorList, indexedField, isTabVisible, isVisible, itemFields, questionToFocus, tabsWithErrors,
 } from "./model";
 import type { FormState, FormStore, SaveState } from "./store";
 
 /** A narrow form, e.g. the plots map window narrowed next to Google Earth Web: every pixel goes to the questions. */
 const NARROW = "@media (max-width: 480px)";
+/** What answers a question from the keyboard, inside its box ([data-field]) */
+const CONTROL = "input:not([disabled]), textarea, [role=radio], [role=checkbox], button";
 
 export function FormApp({ store }: { store: FormStore }) {
   const state = useSyncExternalStore(store.subscribe, store.getState);
@@ -88,7 +90,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
       const box = content.current?.querySelector<HTMLElement>(`[data-field="${CSS.escape(name)}"]`);
       if (!box) return;
       box.scrollIntoView({ block: "center", behavior: "smooth" });
-      box.querySelector<HTMLElement>("input:not([disabled]), textarea, [role=radio], [role=checkbox], button")?.focus({ preventScroll: true });
+      box.querySelector<HTMLElement>(CONTROL)?.focus({ preventScroll: true });
     }));
   }, [store, goTo]);
 
@@ -99,6 +101,21 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     goToField(first.tab, first.field.name);
   }, [state.submitErrors, store, goToField]);
 
+  // Once, when the plot opens (a plot has a page of its own), and once the server said which questions are shown: the
+  // first one not answered yet takes the focus, to be answered from the keyboard, and the keys of the plots map work
+  const opened = useRef(false);
+  const known = Object.keys(state.infos).length > 0;
+  useEffect(() => {
+    if (opened.current || !known) return;
+    opened.current = true;
+    // once the questions are rendered
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const boxes = [...(content.current?.querySelectorAll<HTMLElement>("[data-field]") ?? [])];
+      const questions = boxes.map((box) => ({ name: box.dataset.field ?? "", control: box.querySelector<HTMLElement>(CONTROL) }));
+      questionToFocus(questions, (name) => store.value(name))?.focus();
+    }));
+  }, [known, store]);
+
   // Ctrl+Enter submits, before the focused chip or button sees it (see submitOnKey)
   useEffect(() => {
     const onSubmitKey = (e: KeyboardEvent) => { submitOnKey(e, () => void store.submit()); };
@@ -106,11 +123,15 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     return () => window.removeEventListener("keydown", onSubmitKey, true);
   }, [store]);
 
-  // Alt+Left/Right change tab
+  // Alt+Left/Right change tab; "/", "N" and "Esc" go to the plots map, whose keys they are (see panelKey)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey && e.key === "ArrowRight" && next >= 0) { e.preventDefault(); goTo(next); }
       else if (e.altKey && e.key === "ArrowLeft" && back >= 0) { e.preventDefault(); goTo(back); }
+      else {
+        const key = panelKey(e);
+        if (key) { e.preventDefault(); store.passKey(key); }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

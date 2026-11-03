@@ -1,4 +1,5 @@
 import { earthBase } from "../api";
+import type { PanelKey } from "../shortcuts";
 import { ACTIVELY_SAVED, type Field, type FieldError, type FieldInfo, type FormModel, type LoadResult, errorList, fieldsByName,
   isTabVisible, mergeInfos, saveBody } from "./model";
 
@@ -373,11 +374,16 @@ export class FormStore {
     }
   };
 
-  /** Tells the plots map (the parent page) about the plot status */
-  private post(type: "ce:saved" | "ce:dirty"): void {
+  /** Passes a key of the plots map on to it ("/", "N", "Esc"): the form has the focus, so the plots map never sees them */
+  passKey = (key: PanelKey): void => {
+    this.post("ce:key", { key });
+  };
+
+  /** Tells the plots map (the parent page) about the plot status, or a key pressed */
+  private post(type: "ce:saved" | "ce:dirty" | "ce:key", extra?: { key: PanelKey }): void {
     if (window.parent === window) return;
     try {
-      window.parent.postMessage({ type, plotId: this.state.placemarkId }, window.location.origin);
+      window.parent.postMessage({ type, plotId: this.state.placemarkId, ...extra }, window.location.origin);
     } catch { /* ignore */ }
   }
 }

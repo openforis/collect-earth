@@ -19,6 +19,7 @@ import { AppBar } from "./components/AppBar";
 import { useServerTexts } from "./serverTexts";
 import { IN_HOME } from "./home";
 import { HomePage } from "./components/HomePage";
+import { keyOfMessage, type PanelKey } from "./shortcuts";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 /**
@@ -119,10 +120,24 @@ export function App({ controller }: { controller: MapController }) {
   );
 }
 
-/** "/" search, "N" next unfinished, "Esc" close the form (ignored while typing). */
+/**
+ * "/" search, "N" next unfinished, "Esc" close the form (ignored while typing). Pressed in the form, which has the focus
+ * while a plot is open, they come from it as messages (see panelKey).
+ */
 function useShortcuts(controller: MapController, showList: () => void, enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
+    const run = (key: PanelKey) => {
+      if (key === "/") {
+        showList();
+        // the search field may only now be mounted
+        requestAnimationFrame(() => (document.getElementById("plot-search") as HTMLInputElement | null)?.focus());
+      } else if (key === "n" || key === "N") {
+        controller.goToNextUnfinished();
+      } else {
+        controller.closeForm();
+      }
+    };
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
@@ -132,19 +147,18 @@ function useShortcuts(controller: MapController, showList: () => void, enabled: 
         if (e.key === "Escape") target.blur();
         return;
       }
-      if (e.key === "/") {
-        e.preventDefault();
-        showList();
-        // the search field may only now be mounted
-        requestAnimationFrame(() => (document.getElementById("plot-search") as HTMLInputElement | null)?.focus());
-      } else if (e.key === "n" || e.key === "N") {
-        controller.goToNextUnfinished();
-      } else if (e.key === "Escape") {
-        controller.closeForm();
-      }
+      if (e.key === "/") e.preventDefault();
+      if (e.key === "/" || e.key === "n" || e.key === "N" || e.key === "Escape") run(e.key);
+    };
+    // Same-origin messages from the form of the plot open, as the controller takes its others
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const key = keyOfMessage(e.data, controller.getSnapshot().activeId);
+      if (key) run(key);
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    window.addEventListener("message", onMessage);
+    return () => { document.removeEventListener("keydown", onKey); window.removeEventListener("message", onMessage); };
   }, [controller, showList, enabled]);
 }
 
