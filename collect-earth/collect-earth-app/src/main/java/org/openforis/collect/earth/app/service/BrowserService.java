@@ -644,6 +644,11 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		}
 	}
 
+	/** Keeps a driver to quit when Collect Earth closes, as starting a browser does; for the tests. */
+	void keep(RemoteWebDriver driver) {
+		drivers.add(driver);
+	}
+
 	/** Whether the driver is one of those quit when Collect Earth closes; for the tests. */
 	boolean isKept(RemoteWebDriver driver) {
 		return drivers.contains(driver);
@@ -1555,21 +1560,88 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	private Thread getClosingBrowsersThread() {
-		return new Thread("Quit the open browsers") {
-			@Override
-			public void run() {
-				isClosing = true;
-				for (RemoteWebDriver remoteWebDriver : drivers) {
+		return new Thread(this::quitAllBrowsers, "Quit the open browsers");
+	}
+
+	/** How long the drivers have to quit their browsers when Collect Earth closes, before what is left is killed. */
+	static final long QUIT_BROWSERS_MILLIS = 4000;
+	private final Object quittingLock = new Object();
+	private boolean browsersQuit;
+
+	/**
+	 * Quits every browser, once: the closing of the Spring context and the shutdown hook both ask for it, and the second
+	 * waits for the first, rather than both quitting the same drivers at once, which left a browser running when
+	 * Collect Earth quit (and its profile locked, so the next start could not open the imagery window).
+	 * <p>
+	 * The drivers quit in parallel, for at most QUIT_BROWSERS_MILLIS. Then the driver servers (chromedriver,
+	 * msedgedriver, geckodriver) still running, and the browsers they started, are killed: a driver that timed out
+	 * stopping leaves them behind otherwise. They are listed before quitting, while the browsers are still children of
+	 * their driver server, which they no longer are once it ends.
+	 */
+	void quitAllBrowsers() {
+		synchronized (quittingLock) {
+			if (browsersQuit) {
+				return;
+			}
+			isClosing = true;
+			List<ProcessHandle> left = driverProcesses();
+			List<Thread> quitting = new ArrayList<>();
+			for (RemoteWebDriver remoteWebDriver : drivers) {
+				Thread quit = new Thread(() -> {
 					try {
 						remoteWebDriver.quit();
 					} catch (final Exception e) {
 						// Collect Earth is closing : a browser that is already gone - the interpreter closed it, or its
 						// driver stopped first - is the expected case, not a failure to report
-						logger.warn("A browser could not be quit, it had probably been closed already : {}", e.getMessage());
+						logger.info("A browser could not be quit, it had probably been closed already : {}", e.getMessage());
 					}
+				}, "Quit a browser");
+				quitting.add(quit);
+				quit.setDaemon(true);
+				quit.start();
+			}
+			long until = System.currentTimeMillis() + QUIT_BROWSERS_MILLIS;
+			for (Thread quit : quitting) {
+				try {
+					quit.join(Math.max(1, until - System.currentTimeMillis()));
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					break;
 				}
 			}
-		};
+			for (ProcessHandle process : left) {
+				if (process.isAlive()) {
+					logger.info("Killing a browser process left running: {}", process.info().command().orElse("" + process.pid()));
+					process.destroyForcibly();
+				}
+			}
+			browsersQuit = true;
+		}
+	}
+
+	private static final List<String> DRIVER_SERVERS = Arrays.asList("chromedriver", "msedgedriver", "geckodriver");
+
+	/** The driver servers this process started, and every process under them (the browsers), deepest first. */
+	static List<ProcessHandle> driverProcesses() {
+		List<ProcessHandle> found = new ArrayList<>();
+		try {
+			ProcessHandle.current().children().filter(BrowserService::isDriverServer).forEach(driver -> {
+				List<ProcessHandle> under = new ArrayList<>();
+				driver.descendants().forEach(under::add);
+				Collections.reverse(under);
+				found.addAll(under);
+				found.add(driver);
+			});
+		} catch (RuntimeException e) { // a platform that does not list processes: nothing to kill then
+			LoggerFactory.getLogger(BrowserService.class).debug("Cannot list the browser processes", e);
+		}
+		return found;
+	}
+
+	static boolean isDriverServer(ProcessHandle process) {
+		String command = process.info().command().orElse("");
+		String name = new File(command).getName().toLowerCase(Locale.ENGLISH);
+		return DRIVER_SERVERS.stream().anyMatch(name::startsWith);
 	}
 
 }
