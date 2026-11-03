@@ -33,22 +33,25 @@ describe("translations", () => {
   });
 
   // The desktop's own labels (collect-earth-app Messages*.properties), as its settings page shows them: the
-  // Properties menu (CollectEarthWindow.15), the "Project" section (SettingsPage.section.project), "Refresh
-  // assignments" (English in every language) and "Apply" (SettingsPage.apply).
+  // Properties menu (CollectEarthWindow.15), the "Project" section (SettingsPage.section.project), "Apply"
+  // (SettingsPage.apply), and the assigned plot files card's button (SampleDataPanel.refreshAssignments).
   const desktop = {
     en: ["Properties → “Project”", "“Apply”"],
     es: ["Propiedades → «Proyecto»", "«Aplicar»"],
     fr: ["Propriétés → « Projet »", "« Appliquer »"],
     pt: ["Propriedades → “Projeto”", "“Aplicar”"],
   } as const;
+  const refresh = { en: "Refresh assignments", es: "Actualizar asignaciones", fr: "Actualiser les attributions", pt: "Atualizar atribuições" } as const;
   it.each(LANGUAGES)("%s names the desktop's real path to a new plot file", (language) => {
     const catalogue = CATALOGUES[language];
     for (const key of ["plots.assignSaved", "checks.explain", "person.sentBackFile", "divide.applied", "divide.moved", "reference.added", "reference.blind"] as const) {
       const text = catalogue[key];
-      expect(text, `${language} ${key}`).toContain("Refresh assignments");
+      expect(text, `${language} ${key}`).toContain(refresh[language]);
       for (const label of desktop[language]) expect(text, `${language} ${key}`).toContain(label);
     }
-    expect(catalogue["reference.collectors"]).toContain("Refresh assignments");
+    expect(catalogue["reference.collectors"]).toContain(refresh[language]);
+    // The card's labels are the desktop's in each language: no English left in the others
+    if (language !== "en") for (const [key, text] of Object.entries(catalogue)) expect(text, `${language} ${key}`).not.toMatch(/Refresh assignments|Assigned plot file/);
     // No text names the Swing screens the settings page replaced, nor a plain "Refresh" in "the plot settings".
     for (const [key, text] of Object.entries(catalogue)) expect(text, `${language} ${key}`).not.toMatch(/Sample data|Datos de muestra|Points d'échantillonnage|Dados de amostra|Save & Apply|Assigned plot file:/);
     for (const [key, text] of Object.entries(catalogue)) expect(text, `${language} ${key}`).not.toMatch(/plot settings|ajustes de parcelas|configuración de parcelas|réglages des parcelles|configurações de parcelas/);

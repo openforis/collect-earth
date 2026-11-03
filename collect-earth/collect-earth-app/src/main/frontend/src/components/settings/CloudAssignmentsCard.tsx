@@ -50,7 +50,8 @@ export function CloudAssignmentsCard({ texts, onChosen }: Props) {
     setError(null);
     downloadAssignment(id).then(onChosen, (e) => setError(errorText(e, t("appBar.unreachable")))).finally(() => setBusy(false));
   };
-  const label = s("SampleDataPanel.assignmentLabel").replace(/:\s*$/, "");
+  // The Swing label ends with a colon, after a space in French
+  const label = s("SampleDataPanel.assignmentLabel").replace(/\s*:\s*$/, "");
 
   return (
     <Paper variant="outlined" sx={{ p: 1.5 }} data-testid="cloud-assignments">
