@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FieldInfo, FormModel } from "./model";
-import { CLICK_DELAY, FormStore, retryDelay } from "./store";
+import { CLICK_DELAY, FormStore, MAX_AUTO_RETRIES, MAX_RETRY_DELAY, retryDelay } from "./store";
 
 // The store in node: the form's page and Collect Earth's answers stood in for, the saves held (fake timers)
 
@@ -190,8 +190,8 @@ describe("a save that failed", () => {
     const store = await answered();
     expect(saveRequests).toBe(1);
     // "online" and "focus" together: one save
-    const online = store.retryNow();
-    const focus = store.retryNow();
+    const online = store.retryOnEvent();
+    const focus = store.retryOnEvent();
     await online;
     await focus;
     expect(saveRequests).toBe(2);
@@ -205,8 +205,71 @@ describe("a save that failed", () => {
     serveSaves("ok");
     const store = await answered();
     expect(saveRequests).toBe(1);
-    await store.retryNow();
+    await store.retryOnEvent();
     expect(saveRequests).toBe(1);
+  });
+
+  it("is tried again on the focus once per wait between retries at most", async () => {
+    serveSaves("down");
+    const store = await answered();
+    expect(saveRequests).toBe(1);
+    await store.retryOnEvent();
+    expect(saveRequests).toBe(2);
+    // focus again and again: nothing more until the wait after 2 failures (2 s) has passed
+    await vi.advanceTimersByTimeAsync(500);
+    await store.retryOnEvent();
+    await store.retryOnEvent();
+    expect(saveRequests).toBe(2);
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(saveRequests).toBe(3); // the retry that was waiting
+    await store.retryOnEvent();
+    expect(saveRequests).toBe(3);
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(saveRequests).toBe(4); // the retry at 4 s
+    // 8 s, the wait after 4 failures, since the focus that sent one: it sends one again
+    await vi.advanceTimersByTimeAsync(2000);
+    await store.retryOnEvent();
+    expect(saveRequests).toBe(5);
+  });
+
+  it("stops trying by itself after 10 failures in a row, and Retry still tries", async () => {
+    serveSaves("down");
+    const store = await answered();
+    await vi.advanceTimersByTimeAsync(10 * MAX_RETRY_DELAY);
+    expect(saveRequests).toBe(MAX_AUTO_RETRIES);
+    expect(store.getState()).toMatchObject({ saveState: "error", retrying: false });
+    await vi.advanceTimersByTimeAsync(10 * MAX_RETRY_DELAY);
+    await store.retryOnEvent();
+    expect(saveRequests).toBe(MAX_AUTO_RETRIES);
+    serveSaves("ok");
+    store.retry();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(saveRequests).toBe(1);
+    expect(store.getState().saveState).toBe("saved");
+  });
+
+  it("an error of Collect Earth with no reason is shown in the form's own words", async () => {
+    serveSaves("error");
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      const path = url.replace("http://localhost:8028/earth/", "");
+      if (path === "surveyForm") return { ok: true, json: async () => model };
+      if (path.startsWith("surveyForm/plot")) return { ok: true, json: async () => ({ values: {} }) };
+      if (path.startsWith("placemark-info-expanded")) {
+        return { ok: true, json: async () => ({ success: true, activelySaved: false, inputFieldInfoByParameterName: {} }) };
+      }
+      return { ok: false, status: 500, json: async () => ({ success: false, message: "" }) };
+    }));
+    const store = await answered();
+    expect(store.getState()).toMatchObject({ saveState: "error", serverDown: false, saveError: "" });
+  });
+
+  it("a row that could not be added says why, as an error of Collect Earth, not as Collect Earth not answering", async () => {
+    serveSaves("error");
+    const store = new FormStore("p1");
+    await store.load();
+    await store.addEntity("tree");
+    expect(store.getState()).toMatchObject({ serverDown: false,
+      entityFailure: { entity: "tree", action: "add", message: "The database is locked" } });
   });
 
   it("Retry tries it again at once, and the backoff starts over once saved", async () => {

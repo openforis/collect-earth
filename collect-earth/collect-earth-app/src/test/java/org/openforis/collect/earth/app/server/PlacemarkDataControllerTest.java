@@ -33,7 +33,8 @@ public class PlacemarkDataControllerTest {
 		assertEquals(500, response.getStatus());
 		assertTrue(response.getContentType().startsWith("application/json"));
 		assertEquals(Boolean.FALSE, body(response).get("success"));
-		assertTrue(body(response).get("message") instanceof String);
+		// nothing technical for the collector: the form says it in its own words
+		assertEquals("", body(response).get("message"));
 	}
 
 	@Test
@@ -52,12 +53,33 @@ public class PlacemarkDataControllerTest {
 	}
 
 	@Test
-	public void theMessageIsTheOneOfTheFailure() throws Exception {
+	public void theHeadersSetBeforeStay() throws Exception {
 		MockHttpServletResponse response = new MockHttpServletResponse();
-		PlacemarkDataController.sendError(response, new IllegalStateException("The database is locked"));
+		response.setHeader("Access-Control-Allow-Origin", "*");
+		response.getWriter().print("{\"suc");
+		PlacemarkDataController.sendError(response);
 
 		assertEquals(500, response.getStatus());
-		assertEquals("The database is locked", body(response).get("message"));
+		assertEquals("*", response.getHeader("Access-Control-Allow-Origin"));
+		assertEquals("", body(response).get("message"));
+	}
+
+	@Test
+	public void aRowThatCouldNotBeAddedOrDeletedAnswers500WithJson() throws Exception {
+		PlacemarkEntityCreateParams params = new PlacemarkEntityCreateParams();
+		params.setPlacemarkId("105");
+		params.setEntityName("trees");
+		params.setValues(new HashMap<>());
+
+		MockHttpServletResponse added = new MockHttpServletResponse();
+		controller.createEntity(params, added);
+		assertEquals(500, added.getStatus());
+		assertEquals(Boolean.FALSE, body(added).get("success"));
+
+		MockHttpServletResponse deleted = new MockHttpServletResponse();
+		controller.deleteEntity(params, deleted);
+		assertEquals(500, deleted.getStatus());
+		assertEquals(Boolean.FALSE, body(deleted).get("success"));
 	}
 
 	@Test
@@ -65,7 +87,7 @@ public class PlacemarkDataControllerTest {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		response.getWriter().print("{\"success\":true}");
 		response.flushBuffer();
-		PlacemarkDataController.sendError(response, new IllegalStateException("late"));
+		PlacemarkDataController.sendError(response);
 
 		assertEquals(200, response.getStatus());
 		assertEquals("{\"success\":true}", response.getContentAsString());

@@ -9,6 +9,8 @@ export const TYPING_DELAY = 1500;
 export const CLICK_DELAY = 100;
 /** The longest wait before a failed save is tried again: 1, 2, 4, 8, 16 s, then every 30 s */
 export const MAX_RETRY_DELAY = 30000;
+/** After this many failed saves in a row, nothing is tried again by itself: Retry is left to the operator */
+export const MAX_AUTO_RETRIES = 10;
 
 /** How long to wait before the retry that follows `failures` failed saves in a row (1 for the first) */
 export function retryDelay(failures: number): number {
@@ -90,7 +92,8 @@ async function postForm(path: string, body: URLSearchParams): Promise<LoadResult
     try {
       message = String(((await r.json()) as { message?: unknown }).message ?? "");
     } catch { /* not JSON */ }
-    throw new ServerError(message || `HTTP ${r.status}`);
+    // no reason given: the form says it in its own words
+    throw new ServerError(message);
   }
   return r.json() as Promise<LoadResult>;
 }
@@ -115,6 +118,8 @@ export class FormStore {
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   /** saves failed in a row */
   private failures = 0;
+  /** when a save was last tried again at once, on the window's "online" or "focus" (see retryOnEvent) */
+  private lastEventRetry = -Infinity;
   private dirtyNotified = false;
   private fields: Record<string, Field> = {};
   /** the questions the server asked an answer for, answered since or not (see unansweredRequired) */
@@ -331,9 +336,12 @@ export class FormStore {
       && (this.dirty.size > 0 || Object.keys(this.state.infos).length === 0);
   }
 
-  /** The failed save is tried again by itself, later each time (see retryDelay); once at a time */
+  /**
+   * The failed save is tried again by itself, later each time (see retryDelay); once at a time, and no more after
+   * MAX_AUTO_RETRIES failures in a row
+   */
   private scheduleRetry(): void {
-    if (this.retryTimer || !this.hasFailedSave()) return;
+    if (this.retryTimer || !this.hasFailedSave() || this.failures >= MAX_AUTO_RETRIES) return;
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
       void this.retryNow();
@@ -354,6 +362,19 @@ export class FormStore {
    * back to the window ("focus"), or presses Retry. Nothing when no save failed. Never a second save while one is in
    * flight: saves wait for each other, and one that finds nothing left to save sends nothing.
    */
+  /**
+   * The window is back online, or has the focus again: a failed save is tried again at once, but once per wait between
+   * retries at most (a window that gets the focus again and again would send one save after another), and not after
+   * MAX_AUTO_RETRIES failures in a row.
+   */
+  retryOnEvent = async (): Promise<void> => {
+    if (!this.hasFailedSave() || this.failures >= MAX_AUTO_RETRIES) return;
+    const now = Date.now();
+    if (now - this.lastEventRetry < retryDelay(this.failures)) return;
+    this.lastEventRetry = now;
+    await this.retryNow();
+  };
+
   retryNow = async (): Promise<void> => {
     if (!this.hasFailedSave()) return;
     this.cancelRetry();
@@ -446,8 +467,10 @@ export class FormStore {
       } else {
         this.set({ saveState: "error", entityFailure: { entity, action, message: result.message ?? "" } });
       }
-    } catch {
-      this.set({ saveState: "error", serverDown: true, entityFailure: { entity, action, message: "" } });
+    } catch (e) {
+      // an error of Collect Earth, with its reason when it gave one, is not Collect Earth not answering
+      const server = e instanceof ServerError;
+      this.set({ saveState: "error", serverDown: !server, entityFailure: { entity, action, message: server ? e.message : "" } });
     } finally {
       this.set({ entityBusy: null });
     }
