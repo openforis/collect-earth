@@ -14,7 +14,10 @@
 		<jetty.version>10.0.26</jetty.version>
 		<selenium.version>4.51.0</selenium.version>
 		<classpath.prefix>earth-libs</classpath.prefix>
-		
+		<!-- How the web UI's packages are installed. Local builds reuse src/main/frontend/node_modules
+		     (a few seconds when nothing changed); `npm ci` wiped and reinstalled it on every build.
+		     Releases, installers and CI keep the exact, clean `npm ci` (the profiles at the end). -->
+		<frontend.npm.install>install --prefer-offline --no-audit --no-fund</frontend.npm.install>
 	</properties>
 
 	<dependencies>
@@ -259,9 +262,9 @@
 			</plugin>
 
 			<!-- Plots map web UI (React + MUI, src/main/frontend). Downloads a local Node into
-			     src/main/frontend/node, runs `npm ci` and builds into target/classes/leafletmap,
-			     served by LeafletMapController at /earth/map. The build runs after
-			     process-resources so the generated files are not overwritten.
+			     src/main/frontend/node, installs the packages (${frontend.npm.install}) and builds into
+			     target/classes/leafletmap, served by LeafletMapController at /earth/map. The build runs
+			     after process-resources so the generated files are not overwritten.
 			     Skip with -Dskip.npm (e.g. Java-only builds without network access). -->
 			<plugin>
 				<groupId>com.github.eirslett</groupId>
@@ -286,7 +289,7 @@
 							<goal>npm</goal>
 						</goals>
 						<configuration>
-							<arguments>ci</arguments>
+							<arguments>${frontend.npm.install}</arguments>
 						</configuration>
 					</execution>
 					<execution>
@@ -350,4 +353,31 @@
   <scm>
     <tag>HEAD</tag>
   </scm>
+	<!-- The clean, reproducible install of the web UI's packages for every build that is shipped or
+	     checked: a release (release), the installers (assembly) and GitHub Actions (CI=true). -->
+	<profiles>
+		<profile>
+			<id>release</id>
+			<properties>
+				<frontend.npm.install>ci</frontend.npm.install>
+			</properties>
+		</profile>
+		<profile>
+			<id>assembly</id>
+			<properties>
+				<frontend.npm.install>ci</frontend.npm.install>
+			</properties>
+		</profile>
+		<profile>
+			<id>ci</id>
+			<activation>
+				<property>
+					<name>env.CI</name>
+				</property>
+			</activation>
+			<properties>
+				<frontend.npm.install>ci</frontend.npm.install>
+			</properties>
+		</profile>
+	</profiles>
 </project>
