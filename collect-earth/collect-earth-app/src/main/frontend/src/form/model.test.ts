@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type Field, type FormModel, availableItems, clickCode, dateFromInput, dateToInput, entityCount, errorList, fieldsByName,
   indexedField, isTabVisible, questionToFocus, joinValues, mergeInfos, nextUnanswered, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
-  requiredMessage, saveBody, selectCodes, splitValues, tabsWithErrors, timeToInput,
+  requiredMessage, saveBody, selectCodes, splitValues, summaryLines, tabsWithErrors, timeToInput, unansweredRequired, errorsByTab,
 } from "./model";
 
 const category: Field = {
@@ -217,5 +217,40 @@ describe("nextUnanswered", () => {
   it("never goes back up to a question left above, and is none past the last one", () => {
     expect(nextUnanswered(questions, "note", value)).toBeNull();
     expect(nextUnanswered(questions, "gone", value)).toBeNull();
+  });
+});
+
+describe("required questions", () => {
+  const calculated: Field = { kind: "field", name: "collect_real_area", type: "real", label: "Area", readOnly: true, calculated: true };
+  const fields = { ...fieldsByName(model, {}), [calculated.name]: calculated };
+  it("are those the server reports in error while not answered, and shown", () => {
+    const infos = {
+      collect_code_lu: { inError: true }, collect_code_sub: { inError: true, visible: false },
+      collect_text_comments: { inError: false }, collect_real_area: { inError: true },
+    };
+    expect(unansweredRequired(fields, infos, () => "")).toEqual(["collect_code_lu"]);
+  });
+  it("leave out a question answered, whose error is about the value given", () => {
+    const infos = { collect_code_lu: { inError: true }, collect_text_comments: { inError: true } };
+    expect(unansweredRequired(fields, infos, (n) => (n === "collect_text_comments" ? "x" : ""))).toEqual(["collect_code_lu"]);
+  });
+  it("are counted by step", () => {
+    const infos = { collect_code_lu: { inError: true }, collect_code_sub: { inError: true }, collect_text_comments: { inError: true } };
+    expect(errorsByTab(errorList(model, infos))).toEqual({ 0: 2, 1: 1 });
+    expect(errorsByTab([])).toEqual({});
+  });
+});
+
+describe("summaryLines", () => {
+  const found = errorList(model, { collect_code_lu: { inError: true }, collect_text_comments: { inError: true } });
+  it("keeps what Submit found, ticking off what is answered since, so the list keeps its height", () => {
+    const now = errorList(model, { collect_text_comments: { inError: true } });
+    expect(summaryLines(found, now).map((l) => [l.error.field.name, l.fixed])).toEqual([
+      ["collect_code_lu", true], ["collect_text_comments", false]]);
+  });
+  it("adds none of those in error since, which would push the questions down, and has the latest message of the others", () => {
+    const now = errorList(model, { collect_code_sub: { inError: true }, collect_text_comments: { inError: true, errorMessage: "Too long" } });
+    expect(summaryLines(found, now).map((l) => [l.error.field.name, l.fixed, l.error.message])).toEqual([
+      ["collect_code_lu", true, ""], ["collect_text_comments", false, "Too long"]]);
   });
 });

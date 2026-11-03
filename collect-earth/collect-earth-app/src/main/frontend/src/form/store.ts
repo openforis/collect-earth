@@ -1,7 +1,7 @@
 import { earthBase } from "../api";
 import type { PanelKey } from "../shortcuts";
 import { ACTIVELY_SAVED, type Field, type FieldError, type FieldInfo, type FormModel, type LoadResult, errorList, fieldsByName,
-  isTabVisible, mergeInfos, saveBody } from "./model";
+  isTabVisible, mergeInfos, saveBody, unansweredRequired } from "./model";
 
 const REQUEST_TIMEOUT = 20000;
 /** Typing is saved once the operator pauses; a click right away (the balloon uses the same delays). */
@@ -90,6 +90,8 @@ export class FormStore {
   private inFlight: Promise<void> | null = null;
   private dirtyNotified = false;
   private fields: Record<string, Field> = {};
+  /** the questions the server asked an answer for, answered since or not (see unansweredRequired) */
+  private required = new Set<string>();
 
   constructor(placemarkId: string) {
     this.state = {
@@ -108,12 +110,21 @@ export class FormStore {
 
   private set(patch: Partial<FormState>): void {
     this.state = { ...this.state, ...patch };
-    if (patch.model || patch.infos) this.fields = this.state.model ? fieldsByName(this.state.model, this.state.infos) : {};
+    if (patch.model || patch.infos) {
+      this.fields = this.state.model ? fieldsByName(this.state.model, this.state.infos) : {};
+      // remembered once answered: its mark stays, as the server no longer says it is required
+      for (const name of unansweredRequired(this.fields, this.state.infos, (n) => this.value(n))) this.required.add(name);
+    }
     this.listeners.forEach((l) => l());
   }
 
   fieldsByName(): Record<string, Field> {
     return this.fields;
+  }
+
+  /** Whether the question needs an answer before the plot can be submitted, as far as the server said so */
+  isRequired(name: string): boolean {
+    return this.required.has(name);
   }
 
   // ---------- load ----------

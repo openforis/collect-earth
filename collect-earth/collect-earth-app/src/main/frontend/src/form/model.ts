@@ -409,3 +409,33 @@ export function nextUnanswered<T>(questions: { name: string; control: T | null }
   const at = questions.findIndex((q) => q.name === from);
   return at < 0 ? null : questionToFocus(questions.slice(at + 1), value);
 }
+
+/**
+ * The questions the server asks an answer for, of those not answered yet: the model does not say which are required
+ * (SurveyFormModelBuilder), the server does, by reporting each one left empty in error from the start, which is also
+ * what "Choose an answer" is said of (see requiredMessage). Those shown, and answered on the form, only.
+ */
+export function unansweredRequired(fields: Record<string, Field>, infos: Record<string, FieldInfo>,
+  value: (name: string) => string): string[] {
+  return Object.values(fields)
+    .filter((f) => !f.readOnly && f.type !== "unsupported" && hasError(infos, f.name) && value(f.name).trim() === "")
+    .map((f) => f.name);
+}
+
+/** How many of the errors are on each tab, by index (none: not listed) */
+export function errorsByTab(errors: FieldError[]): Record<number, number> {
+  const result: Record<number, number> = {};
+  for (const e of errors) result[e.tab] = (result[e.tab] ?? 0) + 1;
+  return result;
+}
+
+/**
+ * The lines of the list of what a Submit found unfinished, in the order it found them: each one still in error, or
+ * fixed since. Those answered are kept, and the questions an answer shows (a land use's subdivision) are not added: the
+ * list above the questions never changes height, so it never moves the question being answered under the pointer. The
+ * steps' counts, and the questions' own messages, show those.
+ */
+export function summaryLines(found: FieldError[], now: FieldError[]): { error: FieldError; fixed: boolean }[] {
+  const left = new Map(now.map((e) => [e.field.name, e]));
+  return found.map((e) => ({ error: left.get(e.field.name) ?? e, fixed: !left.has(e.field.name) }));
+}

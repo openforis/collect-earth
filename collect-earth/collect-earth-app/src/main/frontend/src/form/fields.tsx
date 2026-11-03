@@ -38,6 +38,8 @@ export interface FieldProps {
   dense?: boolean;
   /** not answered yet, and Submit not pressed: its error (the answer is required) is not shown yet */
   quiet?: boolean;
+  /** an answer is needed before the plot can be submitted: marked on the label from the start */
+  required?: boolean;
 }
 
 /** The message under a field in error: what to do when it is not answered yet, else the server's. */
@@ -70,7 +72,7 @@ function ErrorMessage({ field, text }: { field: Field; text: string | null }) {
 /** Label, description, control and the error message of one field. */
 export const FieldView = memo(function FieldView(props: FieldProps) {
   const t = useT();
-  const { field, info, value, dense, quiet } = props;
+  const { field, info, value, dense, quiet, required } = props;
   if (info?.visible === false) return null;
   // " ": in error, with nothing to say, the control is still outlined in red
   const error = info?.inError && !quiet ? errorText(t, field, value, info.errorMessage) || " " : null;
@@ -92,6 +94,7 @@ export const FieldView = memo(function FieldView(props: FieldProps) {
         <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", mb: 0.75 }}>
           <Typography component="label" htmlFor={field.name} variant="subtitle2" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
             {field.label}
+            {required && <RequiredMark />}
           </Typography>
           {field.description && (
             <Tooltip title={field.description}>
@@ -105,6 +108,17 @@ export const FieldView = memo(function FieldView(props: FieldProps) {
     </Box>
   );
 });
+
+/** A question that needs an answer: a discreet star after its label, said in words to a screen reader */
+function RequiredMark() {
+  const t = useT();
+  return (
+    <Tooltip title={t("entry.requiredMark")}>
+      <Box component="span" role="img" aria-label={t("entry.requiredMark")} data-testid="entry-required"
+        sx={{ ml: 0.5, color: "text.secondary", fontWeight: 400, cursor: "help" }}>*</Box>
+    </Tooltip>
+  );
+}
 
 /** error: outlined in red; describedBy: the id of its error message */
 type ControlProps = FieldProps & { error: boolean; describedBy?: string };

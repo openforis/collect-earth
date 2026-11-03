@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Alert from "@mui/material/Alert";
-import Badge from "@mui/material/Badge";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
@@ -21,6 +20,7 @@ import Tabs from "@mui/material/Tabs";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import CheckIcon from "@mui/icons-material/Check";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
@@ -35,8 +35,8 @@ import logo from "./collect-earth-logo.png";
 import { AnsweredByKey, FieldView, errorText } from "./fields";
 import {
   type Field, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type TableItem,
-  availableItems, entityCount, errorList, indexedField, isTabVisible, isVisible, itemFields, nextUnanswered, questionToFocus,
-  tabsWithErrors,
+  availableItems, entityCount, errorList, errorsByTab, indexedField, isTabVisible, isVisible, itemFields, nextUnanswered,
+  questionToFocus, summaryLines, tabsWithErrors,
 } from "./model";
 import type { FormState, FormStore, SaveState } from "./store";
 
@@ -75,6 +75,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
   const t = useT();
   const content = useRef<HTMLDivElement>(null);
   const errorTabs = tabsWithErrors(model, state.infos);
+  const left = errorsByTab(errorList(model, state.infos));
   const tab = model.tabs[state.tab] ?? model.tabs[0];
   const back = store.neighbourTab(-1);
   const next = store.neighbourTab(1);
@@ -167,7 +168,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
           <Tabs value={state.tab} onChange={(_, v: number) => goTo(v)} sx={{ "& .MuiTab-root": { flex: "1 1 auto" } }}>
             {visibleTabs.map(({ tb, i }) => (
               <Tab key={tb.id} value={i} data-testid={`entry-tab-${i}`} data-done={!errorTabs.has(i) || undefined}
-                label={<StepLabel label={tb.label} done={!errorTabs.has(i)} failed={state.attempted && errorTabs.has(i)} />} />
+                label={<StepLabel label={tb.label} left={left[i] ?? 0} failed={state.attempted && errorTabs.has(i)} />} />
             ))}
           </Tabs>
           <Tooltip title={stepsText}>
@@ -200,7 +201,8 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
         </Stack>
       </Box>
 
-      {/* Back and Next only where there is a step to go to; Submit takes Next's place on the last step */}
+      {/* Back and Next only where there is a step to go to; Submit takes Next's place on the last step, and goes next
+          to it on the others once nothing is left to answer on any */}
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 1, py: 1, minHeight: 56,
         [NARROW]: { px: 0.75, py: 0.75, minHeight: 52 } }}>
         {/* the balloon's footer: the Collect Earth logo, then the step buttons */}
@@ -216,16 +218,17 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
         <Box sx={{ flex: 1, minWidth: 0, display: "flex", justifyContent: "center" }}>
           <SaveStatus state={state.saveState} />
         </Box>
-        <Box sx={{ flex: "none", display: "flex", justifyContent: "flex-end" }}>
-          {next >= 0 ? (
+        <Stack direction="row" spacing={1} sx={{ flex: "none", justifyContent: "flex-end", alignItems: "center" }}>
+          {(next < 0 || errorTabs.size === 0) && <SubmitButton store={store} state={state} />}
+          {next >= 0 && (
             <Tooltip title="Alt+→" describeChild>
-              <Button variant="contained" disableElevation endIcon={<ChevronRightIcon />} onClick={() => goTo(next)} data-testid="entry-next" data-step-button
-                sx={STEP_BUTTON_SX}>
+              <Button variant={errorTabs.size === 0 ? "outlined" : "contained"} disableElevation endIcon={<ChevronRightIcon />}
+                onClick={() => goTo(next)} data-testid="entry-next" data-step-button sx={STEP_BUTTON_SX}>
                 {t("entry.next")}
               </Button>
             </Tooltip>
-          ) : <SubmitButton store={store} state={state} />}
-        </Box>
+          )}
+        </Stack>
       </Stack>
     </Stack>
   );
@@ -251,37 +254,39 @@ function focusIsFree(): boolean {
 
 /**
  * What a Submit found unfinished, grouped by step, kept up to date as the questions are answered, until nothing is left
- * and the plot can be submitted again. A click goes to the question.
+ * and the plot can be submitted again. A click goes to the question. What is answered stays listed, ticked off, so the
+ * list keeps its height and the questions under it never move as they are answered.
  */
 function ErrorSummary({ store, state, model, onGo }: { store: FormStore; state: FormState; model: FormModel;
   onGo: (tab: number, name: string) => void }) {
   const t = useT();
   const errors = errorList(model, state.infos);
-  if (!errors.length) {
-    return <Alert severity="success" data-testid="entry-errors-fixed">{t("entry.errorsFixed")}</Alert>;
-  }
-  const tabs = [...new Set(errors.map((e) => e.tab))];
+  const lines = summaryLines(state.submitErrors ?? [], errors);
+  const tabs = [...new Set(lines.map((l) => l.error.tab))].sort((a, b) => a - b);
   return (
-    <Alert severity="error" data-testid="entry-errors">
+    <Alert severity={errors.length ? "error" : "success"} data-testid={errors.length ? "entry-errors" : "entry-errors-fixed"}>
       <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-        {state.incomplete
-          ? errors.length === 1 ? t("entry.incompleteOne") : t("entry.incompleteMany", { count: errors.length })
-          : errors.length === 1 ? t("entry.errorsOne") : t("entry.errorsMany", { count: errors.length })}
+        {!errors.length ? t("entry.errorsFixed")
+          : state.incomplete
+            ? errors.length === 1 ? t("entry.incompleteOne") : t("entry.incompleteMany", { count: errors.length })
+            : errors.length === 1 ? t("entry.errorsOne") : t("entry.errorsMany", { count: errors.length })}
       </Typography>
       {tabs.map((tab) => (
         <Box key={tab} sx={{ "& + &": { mt: 0.5 } }}>
           {tabs.length > 1 && <Typography variant="caption" component="div" sx={{ fontWeight: 600, opacity: 0.85 }}>{model.tabs[tab].label}</Typography>}
           <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-            {errors.filter((e) => e.tab === tab).map((e) => {
-              const text = errorText(t, e.field, store.value(e.field.name), e.message).trim();
+            {lines.filter((l) => l.error.tab === tab).map(({ error: e, fixed }) => {
+              const text = fixed ? "" : errorText(t, e.field, store.value(e.field.name), e.message).trim();
               return (
-                <li key={e.field.name} data-error-of={e.field.name}>
+                <Box component="li" key={e.field.name} data-error-of={fixed ? undefined : e.field.name} data-fixed={fixed || undefined}
+                  sx={fixed ? { listStyle: "none", ml: -2.5, opacity: 0.7 } : undefined}>
+                  {fixed && <CheckIcon aria-label={t("entry.answered")} sx={{ fontSize: 15, mr: 0.5, verticalAlign: "-2px" }} />}
                   <Link component="button" type="button" variant="body2" onClick={() => onGo(e.tab, e.field.name)}
-                    sx={{ textAlign: "left", verticalAlign: "baseline" }}>
+                    sx={{ textAlign: "left", verticalAlign: "baseline", ...(fixed && { textDecoration: "line-through", color: "inherit" }) }}>
                     {e.context ? `${e.context} – ${e.field.label}` : e.field.label}
                   </Link>
                   {text ? `: ${text}` : ""}
-                </li>
+                </Box>
               );
             })}
           </Box>
@@ -371,25 +376,32 @@ function HeaderInfo({ items, store }: { items: InfoItem[]; store: FormStore }) {
   );
 }
 
-/** A step's label, with a check once nothing is left to answer on it, or a red dot once Submit found it unfinished. */
-function StepLabel({ label, done, failed }: { label: string; done: boolean; failed: boolean }) {
+/**
+ * A step's label, with a check once nothing is left to answer on it, else how many answers are left on it: discreet,
+ * in red once Submit found it unfinished.
+ */
+function StepLabel({ label, left, failed }: { label: string; left: number; failed: boolean }) {
   const t = useT();
-  if (failed) {
-    return (
-      <Tooltip title={t("entry.tabErrors")} describeChild>
-        <Badge color="error" variant="dot" sx={{ "& .MuiBadge-badge": { right: -8, top: 2 } }}>{label}</Badge>
-      </Tooltip>
-    );
-  }
+  const leftText = left === 1 ? t("entry.leftOne") : t("entry.leftMany", { count: left });
   return (
     <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
-      {done && (
+      {left === 0 && (
         <Tooltip title={t("entry.stepDone")}>
           <CheckCircleIcon data-testid="entry-step-done"
             sx={{ fontSize: 15, color: "success.main", ".Mui-selected &": { color: "inherit" } }} />
         </Tooltip>
       )}
       <span>{label}</span>
+      {left > 0 && (
+        <Tooltip title={failed ? `${leftText}. ${t("entry.tabErrors")}` : leftText}>
+          <Box component="span" aria-label={leftText} data-testid="entry-step-left" data-failed={failed || undefined}
+            sx={{ minWidth: 18, height: 18, px: 0.5, borderRadius: 9, fontSize: 11, fontWeight: 700, lineHeight: "18px",
+              textAlign: "center", ...(failed ? { bgcolor: "error.main", color: "error.contrastText" }
+                : { border: 1, borderColor: "currentColor", lineHeight: "16px", opacity: 0.75 }) }}>
+            {left}
+          </Box>
+        </Tooltip>
+      )}
     </Stack>
   );
 }
@@ -422,7 +434,8 @@ function BoundField({ store, state, field, dense }: { store: FormStore; state: F
   const items = field.code ? availableItems(field, state.infos, state.pending, byName) : NO_ITEMS;
   return (
     <FieldView field={field} value={store.value(field.name)} info={state.infos[field.name]} items={items}
-      parentLabel={parent?.label} onChange={store.setValue} dense={dense} quiet={!state.attempted && !store.value(field.name)} />
+      parentLabel={parent?.label} onChange={store.setValue} dense={dense} quiet={!state.attempted && !store.value(field.name)}
+      required={store.isRequired(field.name)} />
   );
 }
 const NO_ITEMS: never[] = [];
