@@ -28,6 +28,7 @@ import { registerPlotSearchRoutes } from './routes/plotSearch.js';
 import { registerPlotsGeoRoutes } from './routes/plotsGeo.js';
 import { registerProgressRoutes } from './routes/progress.js';
 import { registerProjectRoutes } from './routes/projects.js';
+import { registerPublicProgressRoutes } from './routes/publicProgress.js';
 import { registerCollectBackupRoutes } from './routes/collectBackup.js';
 import { registerQualityRoutes } from './routes/quality.js';
 import { registerRecordRoutes } from './routes/records.js';
@@ -155,6 +156,8 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerRecordRoutes(app, store, sampling);
   await registerSamplingRoutes(app, store, sampling);
   await registerReferenceRoutes(app, store, quality, states, now);
+  // Read-only progress links for funders (Task 18): the public page reads the Progress tab's figures.
+  await registerPublicProgressRoutes(app, store, config, limiter, quality, states, now);
   // Role changes, removals and disabled accounts keep the reference copies right (Task 14).
   app.decorate('referenceSync', referenceSyncer(store, states, now));
   const runs = new AiRunService(store, quality, app.log, {
@@ -204,6 +207,15 @@ async function registerDashboard(app: FastifyInstance, webDir: string | null): P
     const isApi = path === '/v1' || path.startsWith('/v1/') || path === '/health';
     const wantsHtml = (request.headers.accept ?? '').includes('text/html');
     if (serveSpa && request.method === 'GET' && !isApi && wantsHtml) {
+      if (path.startsWith('/p/')) {
+        // A progress link's page (Task 18): the token is in the address, so it is not indexed,
+        // not sent on as a referrer, and not kept by a cache.
+        return reply
+          .header('cache-control', 'no-store')
+          .header('x-robots-tag', 'noindex, nofollow')
+          .header('referrer-policy', 'no-referrer')
+          .sendFile('index.html');
+      }
       return reply.header('cache-control', 'no-cache').sendFile('index.html');
     }
     return reply.code(404).send({ error: 'not_found' });

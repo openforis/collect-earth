@@ -61,8 +61,10 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("export.downloaded", { kind: "collect-backup", rows: 4, rounds: "all" }), page, "en")).toBe("ana downloaded the Collect Earth backup");
     expect(logSentence(t, audit("export.downloaded", { kind: "collect-backup", rows: 4, rounds: "all", completed: false }), page, "en")).toBe("ana’s download of the Collect Earth backup stopped before the end");
     expect(logSentence(t, audit("cep.replaced", {}, null), page, "en")).toBe("Someone no longer in the project uploaded a new project file");
-    expect(logSentence(t, audit("link.created", {}), page, "en")).toBe("ana: link.created");
-    expect(logSentence(t, audit("sampling.drawn", { automatic: false, drawn: 1200 }), page, "en")).toBe("ana drew plots for checks (1,200 plots)");
+    expect(logSentence(t, audit("link.created", { linkId: "l1", label: "For the donor" }), page, "en")).toBe("ana made a progress link (For the donor)");
+    expect(logSentence(t, audit("link.created", { linkId: "l1", label: "" }), page, "en")).toBe("ana made a progress link");
+    expect(logSentence(t, audit("link.revoked", { linkId: "l1", label: "For the donor" }), page, "en")).toBe("ana revoked the progress link (For the donor)");
+    expect(logSentence(t, audit("link.revoked", { linkId: "l1" }), page, "en")).toBe("ana revoked a progress link");    expect(logSentence(t, audit("sampling.drawn", { automatic: false, drawn: 1200 }), page, "en")).toBe("ana drew plots for checks (1,200 plots)");
     expect(logSentence(t, audit("sampling.drawn", { automatic: true, drawn: 3 }, null), page, "en")).toBe("Plots drawn automatically for checks (3 plots)");
     expect(logSentence(t, audit("settings.changed", { setting: "sampling" }), page, "en")).toBe("ana changed the automatic checks settings");
     expect(logSentence(t, audit("reference.changed", { csvFileId: "f1", added: 20, removed: 0 }), page, "en")).toBe("ana marked plots of north.csv as reference plots (20 plots)");

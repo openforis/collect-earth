@@ -49,6 +49,7 @@ import type {
   SamplingRule,
   SamplingState,
   ServerSettings,
+  ShareLink,
   StoredDistribution,
   User,
   UserSummary,
@@ -213,6 +214,23 @@ export interface Store {
   revokeInvite(projectId: string, inviteId: string): Promise<boolean>;
   /** Atomically records one use of an invite; returns false if it is exhausted/expired/revoked. */
   consumeInvite(token: string, now: number): Promise<boolean>;
+
+  // --- Progress links for funders (Task 18) ---
+
+  /** A new link of the project: its token (shown once; only its sha256 is kept) and the link as listed. */
+  createShareLink(projectId: string, input: { label: string; createdBy: string | null }): Promise<{ token: string; link: ShareLink }>;
+  /** The project's links not revoked, oldest first. */
+  listShareLinks(projectId: string): Promise<ShareLink[]>;
+  /** Revokes a link of THIS project; the revoked link as it was, or null if no such link (or revoked already) in it. */
+  revokeShareLink(projectId: string, linkId: string): Promise<ShareLink | null>;
+  /**
+   * The link a token opens, before any project is known: its id and project, or null for an unknown
+   * or revoked token (the same answer). Postgres reads it through share_link_lookup (SECURITY DEFINER,
+   * migration 021), which returns only these two for a hash; the table stays under RLS.
+   */
+  findShareLink(token: string): Promise<{ linkId: string; projectId: string } | null>;
+  /** Notes that the link was used at `at` (written at most once a minute). */
+  touchShareLink(projectId: string, linkId: string, at: number): Promise<void>;
 
   // --- CSV files & assignments (Phase B) ---
 

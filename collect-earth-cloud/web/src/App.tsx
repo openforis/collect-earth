@@ -15,6 +15,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProjectPage } from "./pages/ProjectPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
+import { PublicProgressPage } from "./pages/PublicProgressPage";
 import { MyQualityPage, MyWorkPage, TeamReportPage } from "./pages/ReportPages";
 import { WeeklyPage } from "./pages/WeeklyPage";
 import { ResetPage } from "./pages/ResetPage";
@@ -48,6 +49,8 @@ function RoutePage({ route }: { route: Route }) {
       return <JoinPage token={route.token} />;
     case "reset":
       return <ResetPage token={route.token} />;
+    case "publicProgress":
+      return <PublicProgressPage key={route.token} token={route.token} />;
     case "account":
       return <AccountPage />;
     case "server":
@@ -76,9 +79,11 @@ export function App() {
     document.documentElement.lang = language;
   }, [language]);
 
+  // A progress link's page names its project in the title itself.
+  const ownTitle = route.name === "publicProgress";
   useEffect(() => {
-    document.title = info?.serverName ?? t("app.title");
-  }, [info?.serverName, t]);
+    if (!ownTitle) document.title = info?.serverName ?? t("app.title");
+  }, [info?.serverName, t, ownTitle]);
 
   // The server said our session is no longer valid: back to logging in, on the same page.
   useEffect(() => {

@@ -693,6 +693,18 @@ describe('dashboard static files', () => {
     }
   });
 
+  it("a progress link's page (/p/<token>): not indexed, no referrer, not cached", async () => {
+    const res = await ctx.app.inject({ method: 'GET', url: '/p/abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ', headers: html });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain('<title>CE</title>');
+    expect(res.headers['x-robots-tag']).toBe('noindex, nofollow');
+    expect(res.headers['referrer-policy']).toBe('no-referrer');
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.headers['set-cookie']).toBeUndefined();
+    // Other pages keep their own headers.
+    expect((await ctx.app.inject({ method: 'GET', url: '/join/abc', headers: html })).headers['x-robots-tag']).toBeUndefined();
+  });
+
   it('keeps JSON 404s for the API, non-HTML requests and other methods', async () => {
     const api = await ctx.app.inject({ method: 'GET', url: '/v1/nope', headers: html });
     expect(api.statusCode).toBe(404);

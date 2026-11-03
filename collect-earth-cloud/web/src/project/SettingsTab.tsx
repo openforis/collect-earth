@@ -18,6 +18,7 @@ import { useT } from "../i18n";
 import { progressDraftOf, readProgressDraft, type ProgressDraft, type ProgressProblems } from "../progressView";
 import { linkProps, navigate, pathFor } from "../router";
 import { useLoad } from "../useLoad";
+import { ShareLinksCard } from "./ShareLinks";
 
 function RenameCard({ projectId, name, onRenamed }: { projectId: string; name: string; onRenamed: (name: string) => void }) {
   const t = useT();
@@ -302,6 +303,7 @@ export function SettingsTab({ projectId, name, onRenamed }: { projectId: string;
     <Stack spacing={3}>
       <RenameCard projectId={projectId} name={name} onRenamed={onRenamed} />
       <ProgressCard projectId={projectId} />
+      <ShareLinksCard projectId={projectId} />
       <AiCard projectId={projectId} />
       <DeleteCard projectId={projectId} name={name} />
     </Stack>

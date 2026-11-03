@@ -3240,6 +3240,74 @@ function or the owner path already used for invites.
 **Tests:** no names or answers in the response, revocation, isolation, and that the
 token is hashed.
 
+**As built** (differs from the above where it says so)
+- **Migration 021 `share_links`** `(id, project_id, token_hash UNIQUE (64 hex), label ≤ 100, created_by FK ON
+  DELETE SET NULL, created_at, revoked_at, last_used_at)`, RLS with the NULLIF policy; `deleteProject` deletes
+  the rows (both stores). The token is 32 random bytes (43 base64url characters, `generateShareToken`); only
+  its sha256 is stored. It lives until revoked (not an HMAC token like Task 17's: a revocable link needs a row).
+- **The lookup before any project is known:** invites are a global table read on the pool, but `share_links`
+  is project data under RLS, so the app role cannot find a row by its hash. **`share_link_lookup(hash)`**:
+  `LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, pg_temp`, owned by the tables' owner
+  (who runs the migrations; the tables are not FORCE ROW LEVEL SECURITY), returns only `(link_id,
+  link_project)` for a hash of a link not revoked; an unknown and a revoked hash both give no row through the
+  one query. Everything else (`touchShareLink`, the list, revoke, the page's figures) runs under
+  `app.current_project`. EXECUTE stays PUBLIC (it answers only for a hash someone already holds).
+- **Routes** (`src/routes/publicProgress.ts`): coordinators (`admin`; project admin token too, made by
+  nobody): `GET /v1/projects/:pid/share-links` → `{ links: [{ id, label, createdAt, createdBy (username),
+  lastUsedAt }] }` (not revoked, oldest first); `POST` `{ label? }` (trimmed, ≤ 100, one line, else 400; at most
+  20 links not revoked, else 409 `too_many_links`) → 201 `{ token, path: "/p/<token>", url, link }` (the token
+  only here); `DELETE …/share-links/:id` → 204, 404 for an unknown/revoked/another project's id. Audited
+  **`link.created` / `link.revoked { linkId, label }`** (both already in 015's CHECK list; the log groups them
+  under "settings"; sentences "ana made a progress link (For the donor)" / "…revoked the progress link (…)").
+- **`GET /v1/public/progress/:token?tz=&days=`** (no session; the shared rate limiter's `public` bucket, per
+  IP): `{ project: { name }, timeZone, today, totals, daily, forecast, quality: { available, agreement: {
+  compared, agreeing, rate } | null, computedAt }, asOf }`, built field by field from `progressReport` over the
+  project state (`ProjectStateCache`), so the same numbers as the Progress tab (test and smoke compare them);
+  no settings, attention, people, files, ids. The agreement is every check so far (`overallAgreement`, now
+  shared with the weekly summary; rate null under 20). **`QualityService.peek(…, { refresh: false })`**: the
+  link serves what is at hand, stale or not, and never starts a computation, not even behind (unit test);
+  nothing at hand → `available: false`. A string that is not 43 base64url characters is a 404 without a
+  lookup; unknown, revoked and a deleted project's links: the same `{ error: 'not_found' }`. Every answer of
+  the route (404 and 429 too, via an `onRequest` hook in its own scope) carries `X-Robots-Tag: noindex,
+  nofollow`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`; no cookie. The SPA's `index.html` for
+  `/p/*` carries the same three headers. `last_used_at` is written at most once a minute.
+- **Web:** route `publicProgress` (`/p/<token>`, public like join/reset: no login, works before setup).
+  `pages/PublicProgressPage.tsx`: `AppShell bare` (the server's name, not a link, and the language menu; no
+  account menu even when logged in), the kicker, the project name, "Updated …", Print, the Progress tab's own
+  `Totals`, `ForecastSection` (`publicView`: "as set by the coordinators", no Settings tab), `OverTime` (chart
+  and table; the switch hidden when printed), a Quality card (the percentage, "76% agree (35 of 46 checks)",
+  "Too few checks…", "No plot has been checked…", "Not available yet."), a privacy line; title "<project>:
+  progress"; `robots` and `referrer` meta tags while open; read again every 5 min while visible; a link that
+  does not work says so. The request is sent without the session (`anonymous`: no Authorization,
+  `credentials: omit`, `referrerPolicy: no-referrer`). Coordinators: **Settings tab → "Progress links for
+  funders"** (`project/ShareLinks.tsx`): the note, "Make a link", the address shown once with the copy button,
+  the list (note, made on/by, last opened or not yet), Revoke with an inline confirmation. 38 keys × 4
+  languages; `i18n.ts`, `api.ts`, `api.test.ts`, `router.ts`, `App.tsx`, `server.ts` written with CRLF kept.
+- **Tests:** server 1099 (was 1089: `publicProgress.routes.test.ts` 7 — the body serialised and searched for
+  names, usernames, answers, question keys, the file name, coordinates, project and user ids, plot ids; the
+  same totals/days/forecast as `/progress`; the headers; quality only from the figures at hand; revoked and
+  unknown and malformed alike; audit; the token hashed in the store; roles and labels; isolation and project
+  deletion; the rate limit with its headers — plus peek `refresh: false`, the `/p/` SPA headers, the isolation
+  list, the Postgres unit test), web 332 (was 328: api 2, progressView 1, router/choosePage cases,
+  activityView). tsc clean in both, web build ok.
+- **Postgres smoke** `npm run smoke:pg:links -- <port>` (`scripts/pg-smoke-share-links.mts`, README): 021 twice;
+  the function SECURITY DEFINER, owned by the owner, its search_path, the table under RLS (not forced); the
+  token as its sha256 only; the app role with B's setting reads, updates and inserts none of A's links, with no
+  setting sees none, and the function gives the two ids of a known hash only; the page as the Progress tab, no
+  names/answers/file/coordinates/ids, headers; revoke, the same 404, audit, deletion. **Lookup: valid, revoked
+  and unknown 0.7 ms median each (max 1.4-2.4 ms).** **The page on 100,000 plots and records: 347-374 ms the
+  first time (the project state built), then 14-17 ms**, the body under 20 KB. ALL OK; Task 1 and panel
+  smokes ALL OK. Docker stopped.
+- **Chrome** (seeded memory server, built web): the page at 1280 px and at 390 px (no horizontal scroll), in
+  Spanish through the language menu (title "…: avance"), no cookie, the meta tags, the document's three
+  headers, the request without Authorization, no console error; an unknown link's message (the only console
+  line is the 404); the Settings card: a link made (shown once with Copy), "Ministry of Lands" revoked through
+  the confirmation, the list with last opened. No dark theme (as the rest of the dashboard).
+- **Open:** the rate limit is the shared per-IP one (60/min by default), per instance; the page is a public
+  read of the project state, so a cold state costs one build (~350 ms at 100k records); the label is shown in
+  the activity log; a removed coordinator's links keep working (they are the project's); revoked links are not
+  listed (the log has them).
+
 ### Task 19: Email digests (improvement 16)
 
 **Files:**

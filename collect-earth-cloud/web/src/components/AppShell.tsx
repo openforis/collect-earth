@@ -148,8 +148,11 @@ const PRINT_STYLES = {
   },
 } as const;
 
-/** The app bar (name, language, account), the page column and the footer. */
-export function AppShell({ children, narrow }: { children: ReactNode; narrow?: boolean }) {
+/**
+ * The app bar (name, language, account), the page column and the footer. `bare`: a public page
+ * (the progress link) shows the server's name only, not as a link, and no account menu.
+ */
+export function AppShell({ children, narrow, bare }: { children: ReactNode; narrow?: boolean; bare?: boolean }) {
   const t = useT();
   const { info } = useApp();
   return (
@@ -157,13 +160,20 @@ export function AppShell({ children, narrow }: { children: ReactNode; narrow?: b
       <GlobalStyles styles={PRINT_STYLES} />
       <AppBar position="sticky" color="primary">
         <Toolbar sx={{ gap: 1 }}>
-          <Button color="inherit" {...linkProps("/")} startIcon={<Public />} sx={{ fontSize: "1.1rem", px: 1, mr: "auto", minWidth: 0 }}>
-            <Typography component="span" variant="inherit" noWrap>
+          {bare ? (
+            <Typography component="p" noWrap sx={{ fontSize: "1.1rem", fontWeight: 500, px: 1, mr: "auto", minWidth: 0, display: "flex", alignItems: "center", gap: 1 }}>
+              <Public aria-hidden />
               {info.serverName ?? t("app.title")}
             </Typography>
-          </Button>
+          ) : (
+            <Button color="inherit" {...linkProps("/")} startIcon={<Public />} sx={{ fontSize: "1.1rem", px: 1, mr: "auto", minWidth: 0 }}>
+              <Typography component="span" variant="inherit" noWrap>
+                {info.serverName ?? t("app.title")}
+              </Typography>
+            </Button>
+          )}
           <LanguageMenu />
-          <AccountMenu />
+          {!bare && <AccountMenu />}
         </Toolbar>
       </AppBar>
       <Container component="main" maxWidth={narrow ? "sm" : "md"} sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>

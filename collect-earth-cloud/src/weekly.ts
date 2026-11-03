@@ -100,6 +100,17 @@ export interface WeeklyInput {
 
 const rateOf = (compared: number, agreeing: number): Rate => ({ compared, agreeing, rate: compared >= MIN_PLOTS ? agreeing / compared : null });
 
+/** Every check so far compared with its first assessment, as one figure (the weekly summary's "so far", the progress link's). */
+export function overallAgreement(report: Pick<QualityReport, 'weeks'>): Rate {
+  let compared = 0;
+  let agreeing = 0;
+  for (const w of report.weeks) {
+    compared += w.compared;
+    agreeing += w.agreeing;
+  }
+  return rateOf(compared, agreeing);
+}
+
 /** The week's summary. */
 export function weeklySummary(input: WeeklyInput): WeeklySummary {
   const start = weekMonday(input.week);
@@ -143,7 +154,6 @@ export function weeklySummary(input: WeeklyInput): WeeklySummary {
   }
   const report = input.quality?.report ?? null;
   const weekRow = report?.weeks.find((w) => w.week === input.week) ?? null;
-  const overall = report ? report.weeks.reduce((acc, w) => ({ compared: acc.compared + w.compared, agreeing: acc.agreeing + w.agreeing }), { compared: 0, agreeing: 0 }) : null;
   const days = dates.map((date) => ({ date, submitted: plotsByDay.get(date) ?? 0, checks: checksByDay.get(date) ?? 0 }));
   return {
     week: input.week,
@@ -165,7 +175,7 @@ export function weeklySummary(input: WeeklyInput): WeeklySummary {
       computedAt: input.quality?.computedAt ?? null,
       stale: input.quality?.stale ?? false,
       week: report ? rateOf(weekRow?.compared ?? 0, weekRow?.agreeing ?? 0) : null,
-      overall: overall ? rateOf(overall.compared, overall.agreeing) : null,
+      overall: report ? overallAgreement(report) : null,
       decided,
       flags: input.flags,
     },

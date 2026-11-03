@@ -1,7 +1,7 @@
 import pg from 'pg';
 import { randomUUID } from 'node:crypto';
 import { isUuid } from '../accountRules.js';
-import { generateToken, hashToken } from '../auth.js';
+import { generateShareToken, generateToken, hashToken } from '../auth.js';
 import { PUBLIC_SCHEMA_FIX } from './migrate.js';
 import {
   AI_INTERRUPTED,
@@ -61,6 +61,7 @@ import {
   type SamplingRule,
   type SamplingState,
   type ServerSettings,
+  type ShareLink,
   type StoredDistribution,
   type Role,
   type User,
@@ -236,6 +237,7 @@ export class PostgresStore implements Store {
       await client.query('DELETE FROM records WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM project_ceps WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM invites WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM share_links WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM project_members WHERE project_id = $1', [projectId]);
       // The only place project_tokens rows are deleted, with the project itself: every
       // project keeps at least one token row while it exists, or eachProject (the AI usage
@@ -1201,6 +1203,80 @@ export class PostgresStore implements Store {
       [hashToken(token), new Date(now)],
     );
     return res.rowCount !== null && res.rowCount > 0;
+  }
+
+  // --- Progress links (Task 18): share_links is project data under RLS (migration 021) ---
+
+  async createShareLink(projectId: string, input: { label: string; createdBy: string | null }): Promise<{ token: string; link: ShareLink }> {
+    const token = generateShareToken();
+    const id = randomUUID();
+    const row = await this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `WITH l AS (
+           INSERT INTO share_links (id, project_id, token_hash, label, created_by) VALUES ($1, $2, $3, $4, $5)
+           RETURNING id, label, created_by, created_at, last_used_at
+         )
+         SELECT l.*, u.username FROM l LEFT JOIN users u ON u.id = l.created_by`,
+        [id, projectId, hashToken(token), input.label, input.createdBy],
+      );
+      return res.rows[0];
+    });
+    return { token, link: shareLinkOf(row) };
+  }
+
+  async listShareLinks(projectId: string): Promise<ShareLink[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT l.id, l.label, l.created_by, l.created_at, l.last_used_at, u.username
+           FROM share_links l LEFT JOIN users u ON u.id = l.created_by
+          WHERE l.project_id = $1 AND l.revoked_at IS NULL
+          ORDER BY l.created_at, l.id`,
+        [projectId],
+      );
+      return res.rows.map(shareLinkOf);
+    });
+  }
+
+  async revokeShareLink(projectId: string, linkId: string): Promise<ShareLink | null> {
+    if (!isUuid(linkId)) {
+      return null;
+    }
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `WITH l AS (
+           UPDATE share_links SET revoked_at = now()
+            WHERE id = $1 AND project_id = $2 AND revoked_at IS NULL
+           RETURNING id, label, created_by, created_at, last_used_at
+         )
+         SELECT l.*, u.username FROM l LEFT JOIN users u ON u.id = l.created_by`,
+        [linkId, projectId],
+      );
+      return res.rowCount === 0 ? null : shareLinkOf(res.rows[0]);
+    });
+  }
+
+  async findShareLink(token: string): Promise<{ linkId: string; projectId: string } | null> {
+    // Before any project is known: share_link_lookup (SECURITY DEFINER, owned by the tables'
+    // owner) gives the link's id and project for a hash of a link not revoked, and nothing else;
+    // the app role itself still sees share_links only under app.current_project.
+    const res = await this.pool.query('SELECT link_id, link_project FROM share_link_lookup($1)', [hashToken(token)]);
+    if (res.rowCount === 0) {
+      return null;
+    }
+    return { linkId: res.rows[0].link_id as string, projectId: res.rows[0].link_project as string };
+  }
+
+  async touchShareLink(projectId: string, linkId: string, at: number): Promise<void> {
+    if (!isUuid(linkId)) {
+      return;
+    }
+    await this.withProject(projectId, async (client) => {
+      await client.query(
+        `UPDATE share_links SET last_used_at = $3
+          WHERE id = $1 AND project_id = $2 AND (last_used_at IS NULL OR last_used_at < $3::timestamptz - interval '1 minute')`,
+        [linkId, projectId, new Date(at)],
+      );
+    });
   }
 
   async putCsvFile(projectId: string, filename: string, data: Buffer, plotKeys?: string[]): Promise<CsvFile> {
@@ -2405,6 +2481,17 @@ async function insertRecordEvent(client: pg.PoolClient, e: RecordEventInput): Pr
 
 function timeOrNull(v: unknown): number | null {
   return v === null || v === undefined ? null : (v as Date).getTime();
+}
+
+/** A share_links row (with its maker's username joined) as coordinators list it. */
+function shareLinkOf(r: Record<string, unknown>): ShareLink {
+  return {
+    id: r.id as string,
+    label: r.label as string,
+    createdAt: (r.created_at as Date).getTime(),
+    createdBy: (r.username as string | null | undefined) ?? null,
+    lastUsedAt: timeOrNull(r.last_used_at),
+  };
 }
 
 function mapRecordEvent(r: Record<string, unknown>): RecordEvent {

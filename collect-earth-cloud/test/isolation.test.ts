@@ -155,6 +155,7 @@ describe('cross-tenant isolation', () => {
       payload: { decision: 'first' },
     });
     expect(decided.statusCode).toBe(200);
+    const linkB = (await ctx.app.inject({ method: 'POST', url: `/v1/projects/${b.projectId}/share-links`, headers: authB, payload: { label: 'B' } })).json().link.id as string;
 
     const auth = { authorization: `Bearer ${a.adminToken}` };
     const note = { questionKey: 'collect_code_land_use', text: 'x' };
@@ -179,6 +180,11 @@ describe('cross-tenant isolation', () => {
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/exports/collect-backup?rounds=all` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/exports/collect-backup/summary` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/attention` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/share-links` },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/share-links`, payload: { label: 'x' } },
+      { method: 'DELETE' as const, url: `/v1/projects/${b.projectId}/share-links/${linkB}` },
+      // B's link through A's own path.
+      { method: 'DELETE' as const, url: `/v1/projects/${a.projectId}/share-links/${linkB}` },
       { method: 'POST' as const, url: `/v1/projects/${b.projectId}/attention/read`, payload: { all: true } },
       { method: 'POST' as const, url: `/v1/projects/${b.projectId}/quality/decisions:bulk?dryRun=1`, payload: { rule: 'first_by_reviewer' } },
       { method: 'POST' as const, url: `/v1/projects/${b.projectId}/quality/decisions:bulk`, payload: { rule: 'check_by_reviewer' } },
@@ -203,6 +209,8 @@ describe('cross-tenant isolation', () => {
     // B's rows are untouched.
     expect((await ctx.store.listGuidanceNotes(b.projectId)).map((n) => n.text)).toEqual(['B only']);
     expect((await ctx.store.listQualityDecisions(b.projectId)).map((d) => [d.plot, d.decision])).toEqual([['17', 'first']]);
+    expect((await ctx.store.listShareLinks(b.projectId)).map((l) => l.id)).toEqual([linkB]);
+    expect(await ctx.store.listShareLinks(a.projectId)).toEqual([]);
   });
 
   // The reports, the places of differing plots and the AI assistant: aimed at B with A's

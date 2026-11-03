@@ -28,7 +28,7 @@ const AUDIT_KINDS: Record<string, readonly AuditAction[]> = {
   decisions: ['decision.set', 'decision.deleted', 'decision.bulk'],
   people: ['invite.created', 'invite.revoked', 'member.removed', 'member.role'],
   files: ['cep.replaced', 'survey.replaced', 'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'sampling.drawn', 'reference.changed'],
-  settings: ['settings.changed'],
+  settings: ['settings.changed', 'link.created', 'link.revoked'],
   downloads: ['export.downloaded'],
 };
 

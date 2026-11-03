@@ -24,6 +24,7 @@ describe("matchRoute", () => {
     ["/join/AbC_123", { name: "join", token: "AbC_123" }],
     ["/join/a%2Bb", { name: "join", token: "a+b" }],
     ["/reset/tok", { name: "reset", token: "tok" }],
+    ["/p/Ab_c-9", { name: "publicProgress", token: "Ab_c-9" }],
     ["/projects/p-1/my-quality", { name: "myQuality", projectId: "p-1" }],
     ["/projects/p%201/my-quality", { name: "myQuality", projectId: "p 1" }],
     ["/projects/p-1/quality/team-report", { name: "teamReport", projectId: "p-1" }],
@@ -39,7 +40,7 @@ describe("matchRoute", () => {
   });
 
   it("anything else is not found", () => {
-    for (const path of ["/projects/p/nope", "/projects/p/people/x/y", "/projects/p/my-work/x", "/projects/p/plots/f/x", "/projects/p/my-quality/x", "/projects/p/quality/other", "/projects/p/quality/team-report/x", "/projects/p/quality/plot", "/projects/p/quality/plot/1/x", "/projects/p/activity/week/45", "/projects/p/activity/week/2026-W45/x", "/projects/p/activity/other", "/join", "/join/a/b", "/whatever", "/reset/%E0%A4%A"]) {
+    for (const path of ["/projects/p/nope", "/projects/p/people/x/y", "/projects/p/my-work/x", "/projects/p/plots/f/x", "/projects/p/my-quality/x", "/projects/p/quality/other", "/projects/p/quality/team-report/x", "/projects/p/quality/plot", "/projects/p/quality/plot/1/x", "/projects/p/activity/week/45", "/projects/p/activity/week/2026-W45/x", "/projects/p/activity/other", "/join", "/join/a/b", "/whatever", "/reset/%E0%A4%A", "/p", "/p/a/b"]) {
       expect(matchRoute(path).name, path).toBe("notFound");
     }
   });
@@ -54,6 +55,7 @@ describe("matchRoute", () => {
       { name: "server" },
       { name: "join", token: "t/ok en" },
       { name: "reset", token: "r" },
+      { name: "publicProgress", token: "t ok/x" },
       { name: "plotFile", projectId: "p 1", fileId: "f/2" },
       { name: "myQuality", projectId: "p/1" },
       { name: "myWork", projectId: "p/1" },
@@ -81,6 +83,7 @@ describe("choosePage", () => {
     expect(choosePage({ name: "login" }, fresh, false)).toEqual({ kind: "setup" });
     expect(choosePage({ name: "join", token: "x" }, fresh, false)).toEqual({ kind: "route", route: { name: "join", token: "x" } });
     expect(choosePage({ name: "reset", token: "x" }, fresh, false).kind).toBe("route");
+    expect(choosePage({ name: "publicProgress", token: "x" }, fresh, false).kind).toBe("route");
   });
 
   it("logged out: log in on any page (sign-up only on its own page)", () => {
@@ -89,6 +92,8 @@ describe("choosePage", () => {
     expect(choosePage({ name: "setup" }, ready, false)).toEqual({ kind: "login" });
     expect(choosePage({ name: "signup" }, ready, false)).toEqual({ kind: "signup" });
     expect(choosePage({ name: "join", token: "t" }, ready, false).kind).toBe("route");
+    // A progress link opens for anyone, with no account.
+    expect(choosePage({ name: "publicProgress", token: "t" }, ready, false)).toEqual({ kind: "route", route: { name: "publicProgress", token: "t" } });
   });
 
   it("logged in: the page itself, and away from the log-in pages", () => {

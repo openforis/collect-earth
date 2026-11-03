@@ -61,7 +61,7 @@ function useWidth<T extends HTMLElement>(): [RefObject<T | null>, number] {
 }
 
 /** The time now, ticking every few seconds (for "Updated 20 s ago"). */
-function useNow(everyMs: number): number {
+export function useNow(everyMs: number): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), everyMs);
@@ -70,7 +70,10 @@ function useNow(everyMs: number): number {
   return now;
 }
 
-function Section({ title, children, id }: { title: string; children: ReactNode; id: string }) {
+/** What the headline numbers, the chart and the forecast are drawn from (the Progress tab's data, or a progress link's). */
+export type ProgressFigures = Pick<ProgressData, "timeZone" | "totals" | "daily" | "forecast">;
+
+export function Section({ title, children, id }: { title: string; children: ReactNode; id: string }) {
   return (
     <Paper variant="outlined" component="section" aria-labelledby={id} sx={{ p: { xs: 2, sm: 3 } }}>
       <Typography variant="h2" id={id} gutterBottom>
@@ -106,7 +109,7 @@ function Stat({ label, value, help, share }: { label: string; value: string; hel
   );
 }
 
-function Totals({ data }: { data: ProgressData }) {
+export function Totals({ data }: { data: ProgressFigures }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -141,7 +144,7 @@ function Totals({ data }: { data: ProgressData }) {
 const CHART_HEIGHT = 220;
 
 /** The plots submitted in total, day by day: one line, the target as a dashed reference, a readout for the day under the pointer or the keyboard. */
-function ProgressLineChart({ data }: { data: ProgressData }) {
+function ProgressLineChart({ data }: { data: ProgressFigures }) {
   const t = useT();
   const { language } = useApp();
   const theme = useTheme();
@@ -246,7 +249,7 @@ function ProgressLineChart({ data }: { data: ProgressData }) {
   );
 }
 
-function OverTime({ data }: { data: ProgressData }) {
+export function OverTime({ data }: { data: ProgressFigures }) {
   const t = useT();
   const { language } = useApp();
   const [view, setView] = useState<"chart" | "table">("chart");
@@ -294,19 +297,20 @@ function OverTime({ data }: { data: ProgressData }) {
   );
 }
 
-function ForecastSection({ data }: { data: ProgressData }) {
+/** `publicView`: a progress link's page (no Settings tab to point to). */
+export function ForecastSection({ data, publicView }: { data: ProgressFigures; publicView?: boolean }) {
   const t = useT();
   const { language } = useApp();
   const f = data.forecast;
   return (
     <Section title={t("progress.forecastTitle")} id="progress-forecast">
       <Stack spacing={1}>
-        {forecastSentences(t, f, language).map((s) => (
+        {forecastSentences(t, f, language, { publicView }).map((s) => (
           <Typography key={s}>{s}</Typography>
         ))}
         {f.target > 0 && (
           <Typography variant="body2" color="text.secondary">
-            {t(f.targetFrom === "setting" ? "progress.forecastTargetSet" : "progress.forecastTarget", { target: formatNumber(f.target, language) })}
+            {t(f.targetFrom === "setting" ? (publicView ? "publicProgress.forecastTargetSet" : "progress.forecastTargetSet") : "progress.forecastTarget", { target: formatNumber(f.target, language) })}
           </Typography>
         )}
       </Stack>

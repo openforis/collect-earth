@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  createShareLink,
+  getPublicProgress,
+  listShareLinks,
+  revokeShareLink,
   getActivity,
   getAttention,
   getExport,
@@ -1122,5 +1126,63 @@ describe("activity: the log, the weekly summary, the downloads and the bell", ()
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]!.body))).toEqual({ keys: ["quiet:1"] });
     await markAttentionRead("p1", "all");
     expect(JSON.parse(String(fetchMock.mock.calls[2][1]!.body))).toEqual({ all: true });
+  });
+});
+
+describe("progress links for funders", () => {
+  const url = (i = 0) => String(fetchMock.mock.calls[i][0]);
+
+  it("makes, lists and revokes links; the address is the server's or this page's origin", async () => {
+    const link = { id: "l1", label: "For the donor", createdAt: 1000, createdBy: "ana", lastUsedAt: null };
+    fetchMock.mockResolvedValue(jsonResponse(201, { token: "tok", path: "/p/tok", url: "https://ce.example.org/p/tok", link }));
+    expect(await createShareLink("p 1", "For the donor")).toEqual({ link, url: "https://ce.example.org/p/tok" });
+    expect(url()).toBe("/v1/projects/p%201/share-links");
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST", body: JSON.stringify({ label: "For the donor" }) });
+    fetchMock.mockResolvedValue(jsonResponse(201, { token: "tok", path: "/p/tok", link }));
+    expect((await createShareLink("p1", "")).url).toBe("https://ce.example.org/p/tok");
+    fetchMock.mockResolvedValue(jsonResponse(200, { links: [{ ...link, lastUsedAt: 2000, extra: "x" }, { id: "l2" }] }));
+    expect(await listShareLinks("p1")).toEqual([
+      { ...link, lastUsedAt: 2000 },
+      { id: "l2", label: "", createdAt: null, createdBy: null, lastUsedAt: null },
+    ]);
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    await revokeShareLink("p1", "l/1");
+    expect(url(3)).toBe("/v1/projects/p1/share-links/l%2F1");
+    expect(fetchMock.mock.calls[3][1]).toMatchObject({ method: "DELETE" });
+    fetchMock.mockResolvedValue(jsonResponse(409, { error: "too_many_links" }));
+    expect(errorMessageKey(await createShareLink("p1", "x").catch((e: unknown) => e))).toBe("shareLinks.tooMany");
+  });
+
+  it("reads a link's figures without the session, and a link that does not work is a 404", async () => {
+    setToken("my-session");
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        project: { name: "Forest 2026" },
+        timeZone: "Europe/Rome",
+        today: "2026-11-03",
+        asOf: null,
+        totals: { plots: 10, assigned: 10, notAssigned: 0, submitted: 3, started: 1, notStarted: 6 },
+        daily: [{ date: "2026-11-03", submitted: 1, cumulative: 3 }],
+        forecast: { target: 10, targetFrom: "assigned", remaining: 7, pacePerDay: 1, paceDays: 3, daysLeft: 7, endDate: "2026-11-10", deadline: null, daysToDeadline: null, daysOver: null, neededPerDay: null },
+        quality: { available: true, agreement: { compared: 25, agreeing: 20, rate: 0.8 }, computedAt: 5000 },
+      }),
+    );
+    const data = await getPublicProgress("a/b", "Europe/Rome");
+    expect(url()).toBe("/v1/public/progress/a%2Fb?tz=Europe%2FRome");
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect((init.headers as Record<string, string>).authorization).toBeUndefined();
+    expect(init).toMatchObject({ credentials: "omit", referrerPolicy: "no-referrer" });
+    expect(data).toMatchObject({ projectName: "Forest 2026", timeZone: "Europe/Rome", totals: { submitted: 3 }, quality: { available: true, agreement: { compared: 25, agreeing: 20, rate: 0.8 }, computedAt: 5000 } });
+    expect(data.daily).toEqual([{ date: "2026-11-03", submitted: 1, cumulative: 3 }]);
+    fetchMock.mockResolvedValue(jsonResponse(200, { project: { name: "x" }, quality: { available: false, agreement: null, computedAt: null } }));
+    expect((await getPublicProgress("t", "UTC")).quality).toEqual({ available: false, agreement: null, computedAt: null });
+    // A link that does not work: a 404, and the session is not ended by it.
+    const ended = vi.fn();
+    setUnauthorizedHandler(ended);
+    fetchMock.mockResolvedValue(jsonResponse(404, { error: "not_found" }));
+    const error = await getPublicProgress("t", "UTC").catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(404);
+    expect(ended).not.toHaveBeenCalled();
   });
 });

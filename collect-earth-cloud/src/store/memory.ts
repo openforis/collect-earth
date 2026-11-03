@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { generateToken, hashToken } from '../auth.js';
+import { generateShareToken, generateToken, hashToken } from '../auth.js';
 import { legacyRoundInfo } from '../cep.js';
 import { checksumOf, plotCountOf } from '../csv.js';
 import { fileKeyCount } from '../rounds.js';
@@ -59,6 +59,7 @@ import {
   type SamplingRule,
   type SamplingState,
   type ServerSettings,
+  type ShareLink,
   type StoredDistribution,
   type User,
   type UserSummary,
@@ -140,6 +141,16 @@ interface InviteEntry {
   revokedAt: number | null;
 }
 
+interface ShareLinkEntry {
+  id: string;
+  projectId: string;
+  label: string;
+  createdBy: string | null;
+  createdAt: number;
+  revokedAt: number | null;
+  lastUsedAt: number | null;
+}
+
 interface ResetEntry {
   userId: string;
   expiresAt: number;
@@ -168,6 +179,8 @@ export class InMemoryStore implements Store {
   private readonly memberships = new Map<string, Role>(); // `${projectId} ${userId}` -> role
   private readonly invites = new Map<string, InviteEntry>(); // invite token hash -> entry
   private readonly resets = new Map<string, ResetEntry>(); // reset token hash -> entry
+  /** Progress links (share_links): token hash -> link. */
+  private readonly shareLinks = new Map<string, ShareLinkEntry>();
   private settings: ServerSettings = { ...DEFAULT_SETTINGS };
   /** Ids of record events and audit entries: increasing, as Postgres's BIGSERIAL. */
   private nextEventId = 1;
@@ -246,6 +259,11 @@ export class InMemoryStore implements Store {
     for (const [hash, invite] of this.invites) {
       if (invite.projectId === projectId) {
         this.invites.delete(hash);
+      }
+    }
+    for (const [hash, link] of this.shareLinks) {
+      if (link.projectId === projectId) {
+        this.shareLinks.delete(hash);
       }
     }
   }
@@ -546,6 +564,10 @@ export class InMemoryStore implements Store {
           entry.holdingsGeneration += 1;
         } else if (r.addedBy === userId) r.addedBy = null;
       }
+    }
+    // share_links.created_by is ON DELETE SET NULL.
+    for (const link of this.shareLinks.values()) {
+      if (link.createdBy === userId) link.createdBy = null;
     }
     for (const [hash, reset] of this.resets) {
       if (reset.userId === userId) {
@@ -896,6 +918,64 @@ export class InMemoryStore implements Store {
     }
     entry.usedCount += 1;
     return true;
+  }
+
+  // --- Progress links (Task 18) ---
+
+  private shareLinkOf(e: ShareLinkEntry): ShareLink {
+    return {
+      id: e.id,
+      label: e.label,
+      createdAt: e.createdAt,
+      createdBy: e.createdBy === null ? null : (this.users.get(e.createdBy)?.username ?? null),
+      lastUsedAt: e.lastUsedAt,
+    };
+  }
+
+  async createShareLink(projectId: string, input: { label: string; createdBy: string | null }): Promise<{ token: string; link: ShareLink }> {
+    this.requireProject(projectId);
+    // As Postgres' share_links.created_by REFERENCES users(id): a user, or nobody.
+    if (input.createdBy !== null && !this.users.has(input.createdBy)) {
+      throw new Error('share_links.created_by must be a user id or null');
+    }
+    const token = generateShareToken();
+    const entry: ShareLinkEntry = { id: randomUUID(), projectId, label: input.label, createdBy: input.createdBy, createdAt: Date.now(), revokedAt: null, lastUsedAt: null };
+    this.shareLinks.set(hashToken(token), entry);
+    return { token, link: this.shareLinkOf(entry) };
+  }
+
+  async listShareLinks(projectId: string): Promise<ShareLink[]> {
+    return [...this.shareLinks.values()]
+      .filter((e) => e.projectId === projectId && e.revokedAt === null)
+      .sort((a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : 1))
+      .map((e) => this.shareLinkOf(e));
+  }
+
+  async revokeShareLink(projectId: string, linkId: string): Promise<ShareLink | null> {
+    for (const e of this.shareLinks.values()) {
+      // Matching on projectId too: a link of another project is "not found" here.
+      if (e.id === linkId && e.projectId === projectId && e.revokedAt === null) {
+        e.revokedAt = Date.now();
+        return this.shareLinkOf(e);
+      }
+    }
+    return null;
+  }
+
+  async findShareLink(token: string): Promise<{ linkId: string; projectId: string } | null> {
+    const e = this.shareLinks.get(hashToken(token));
+    if (!e || e.revokedAt !== null || !this.projects.has(e.projectId)) {
+      return null;
+    }
+    return { linkId: e.id, projectId: e.projectId };
+  }
+
+  async touchShareLink(projectId: string, linkId: string, at: number): Promise<void> {
+    for (const e of this.shareLinks.values()) {
+      if (e.id === linkId && e.projectId === projectId && (e.lastUsedAt === null || e.lastUsedAt < at - 60_000)) {
+        e.lastUsedAt = at;
+      }
+    }
   }
 
   // --- CSV files & assignments ---

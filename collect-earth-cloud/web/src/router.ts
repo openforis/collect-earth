@@ -30,6 +30,8 @@ export type Route =
   | { name: "weekly"; projectId: string; week: string | null }
   | { name: "join"; token: string }
   | { name: "reset"; token: string }
+  /** A read-only progress link for funders (no login): /p/<token>. */
+  | { name: "publicProgress"; token: string }
   | { name: "account" }
   | { name: "server" }
   | { name: "notFound"; path: string };
@@ -71,6 +73,10 @@ export function matchRoute(pathname: string): Route {
   if (first === "reset" && parts.length === 2) {
     const token = decode(second);
     if (token) return { name: "reset", token };
+  }
+  if (first === "p" && parts.length === 2) {
+    const token = decode(second);
+    if (token) return { name: "publicProgress", token };
   }
   if (first === "projects" && parts.length === 3 && third === "my-quality") {
     const projectId = decode(second);
@@ -138,6 +144,8 @@ export function pathFor(route: Route): string {
       return `/join/${encodeURIComponent(route.token)}`;
     case "reset":
       return `/reset/${encodeURIComponent(route.token)}`;
+    case "publicProgress":
+      return `/p/${encodeURIComponent(route.token)}`;
     case "notFound":
       return route.path;
     default:
@@ -147,7 +155,7 @@ export function pathFor(route: Route): string {
 
 /** Pages anyone can open without an account, even before the server is set up. */
 export function isPublicRoute(route: Route): boolean {
-  return route.name === "join" || route.name === "reset";
+  return route.name === "join" || route.name === "reset" || route.name === "publicProgress";
 }
 
 /** Pages for people who are not logged in (a logged-in person is sent home from them). */

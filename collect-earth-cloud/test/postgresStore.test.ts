@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // A stand-in for pg's Pool: the options it was made with, its listeners, and every
@@ -266,5 +267,31 @@ describe('PostgresStore pool', () => {
     expect(await new PostgresStore('postgres://x').createPasswordReset('00000000-0000-0000-0000-0000000000aa', 1)).toBeNull();
     const insert = queries.find((q) => q.sql.includes('INSERT INTO password_resets'))!;
     expect(insert.sql).toMatch(/SELECT \$1, id, \$3 FROM users WHERE id = \$2 AND disabled_at IS NULL/);
+  });
+
+  it('progress links: found by the hash through share_link_lookup, everything else under the project setting', async () => {
+    const store = new PostgresStore('postgres://x');
+    const token = 'A'.repeat(43);
+    expect(await store.findShareLink(token)).toBeNull();
+    expect(queries).toEqual([{ sql: 'POOL SELECT link_id, link_project FROM share_link_lookup($1)', params: [createHash('sha256').update(token).digest('hex')] }]);
+    queries.length = 0;
+    expect(await store.revokeShareLink(PROJECT, 'not-a-uuid')).toBeNull();
+    await store.touchShareLink(PROJECT, 'not-a-uuid', 1);
+    expect(queries).toHaveLength(0);
+    await store.listShareLinks(PROJECT);
+    await store.revokeShareLink(PROJECT, '00000000-0000-0000-0000-0000000000aa');
+    await store.touchShareLink(PROJECT, '00000000-0000-0000-0000-0000000000aa', 1);
+    let current: unknown = null;
+    let reads = 0;
+    for (const q of queries) {
+      if (q.params?.[0] === 'app.current_project') current = q.params[1];
+      if (q.sql.includes('share_links')) {
+        reads += 1;
+        expect(current).toBe(PROJECT);
+        expect(q.sql).toContain('project_id = $');
+        expect(q.sql.startsWith('POOL')).toBe(false);
+      }
+    }
+    expect(reads).toBe(3);
   });
 });

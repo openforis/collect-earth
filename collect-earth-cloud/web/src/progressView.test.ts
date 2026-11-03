@@ -13,6 +13,7 @@ import {
   personDetail,
   progressChart,
   progressDraftOf,
+  publicQualityText,
   readProgressDraft,
   updatedText,
 } from "./progressView";
@@ -96,6 +97,17 @@ describe("forecast sentences", () => {
     expect(forecastSentences(t, forecast({ remaining: 0, daysLeft: 0 }), "en")).toEqual(["All 800 plots of the target are submitted."]);
     expect(forecastSentences(t, forecast({ deadline: "2026-10-01", daysToDeadline: -31, daysOver: 43 }), "en")[1]).toBe("The deadline, Oct 1, 2026, has passed.");
     expect(forecastSentences(t, forecast({ target: 0, remaining: 0 }), "en")[0]).toContain("No plot is given to anyone yet");
+    // A progress link's reader has no Settings tab to go to.
+    expect(forecastSentences(t, forecast({ target: 0, remaining: 0 }), "en", { publicView: true })).toEqual(["No plot is given to anyone yet, so there is nothing to forecast."]);
+  });
+});
+
+describe("a progress link's quality figure", () => {
+  it("says the agreement, or why there is none", () => {
+    expect(publicQualityText(t, { available: false, agreement: null, computedAt: null }, "en")).toBe("Not available yet.");
+    expect(publicQualityText(t, { available: true, agreement: { compared: 0, agreeing: 0, rate: null }, computedAt: 1 }, "en")).toBe("No plot has been checked a second time yet.");
+    expect(publicQualityText(t, { available: true, agreement: { compared: 5, agreeing: 4, rate: null }, computedAt: 1 }, "en")).toBe("Too few checks to judge (5 checks, 20 needed)");
+    expect(publicQualityText(t, { available: true, agreement: { compared: 40, agreeing: 30, rate: 0.75 }, computedAt: 1 }, "en")).toBe("75% agree (30 of 40 checks)");
   });
 });
 

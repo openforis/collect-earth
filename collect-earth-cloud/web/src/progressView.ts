@@ -1,6 +1,7 @@
-import type { AttentionItem, AttentionKind, Forecast, ProgressDay, ProgressSettings } from "./api";
+import type { AttentionItem, AttentionKind, Forecast, ProgressDay, ProgressSettings, PublicProgressData } from "./api";
 import { formatNumber } from "./format";
 import type { MessageKey, Translate } from "./i18n";
+import { rateText } from "./qualityView";
 import type { ProjectTab } from "./router";
 
 // The Progress tab's words and numbers, pure: the forecast sentences, "Updated 20 s
@@ -8,6 +9,16 @@ import type { ProjectTab } from "./router";
 
 /** The tab reloads this often while the page is visible. */
 export const REFRESH_MS = 60_000;
+
+/**
+ * A progress link's quality figure in words: how often the checks agreed with the first
+ * assessment so far, or why there is no figure (none at hand on the server, no check yet, too few).
+ */
+export function publicQualityText(t: Translate, q: PublicProgressData["quality"], language: string): string {
+  if (!q.available || q.agreement === null) return t("publicProgress.qualityNone");
+  if (q.agreement.compared === 0) return t("publicProgress.qualityNoChecks");
+  return rateText(t, q.agreement, language);
+}
 
 /** The browser's IANA time zone (the server counts days in it); UTC when it cannot be told. */
 export function browserTimeZone(): string {
@@ -69,12 +80,13 @@ export function paceText(pace: number, language: string): string {
  * deadline, "That is 4 days after the deadline, 6 Nov 2026." "To finish by the
  * deadline, about 110 plots a day are needed."
  */
-export function forecastSentences(t: Translate, f: Forecast, language: string): string[] {
+export function forecastSentences(t: Translate, f: Forecast, language: string, options: { publicView?: boolean } = {}): string[] {
   const n = (v: number) => formatNumber(v, language);
   const deadline = f.deadline ? dayText(f.deadline, language) : null;
   const out: string[] = [];
   if (f.target === 0) {
-    out.push(t("progress.forecastNoTarget"));
+    // A progress link's reader has no Settings tab.
+    out.push(t(options.publicView ? "publicProgress.forecastNoTarget" : "progress.forecastNoTarget"));
     return out;
   }
   if (f.remaining === 0) {

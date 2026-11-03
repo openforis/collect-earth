@@ -144,6 +144,14 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
         return t(d.completed === false ? "activity.audit.downloadStopped" : "activity.audit.download", { actor, what: t(EXPORT_KEYS[d.kind]) });
       }
       return t("activity.audit.downloadData", { actor, count: num(d.records, language) });
+    case "link.created":
+    case "link.revoked": {
+      // A progress link for funders (Task 18): its note, when it has one.
+      const label = typeof d.label === "string" && d.label ? d.label : null;
+      const created = item.action === "link.created";
+      if (label) return t(created ? "activity.audit.linkCreated" : "activity.audit.linkRevoked", { actor, label });
+      return t(created ? "activity.audit.linkCreatedPlain" : "activity.audit.linkRevokedPlain", { actor });
+    }
     default:
       return t("activity.audit.other", { actor, action: item.action });
   }

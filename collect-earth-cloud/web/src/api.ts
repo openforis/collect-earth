@@ -517,6 +517,8 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   no_round_key: "backup.noRoundKey",
   no_project_file: "backup.noProjectFile",
   backup_busy: "backup.busy",
+  // Progress links (POST /share-links).
+  too_many_links: "shareLinks.tooMany",
   round_codes_changed: "error.roundCodesChanged",
   key_shape_changed: "error.keyShapeChanged",
   plots_divided: "error.plotsDivided",
@@ -569,10 +571,12 @@ interface RequestOptions {
   json?: unknown;
   /** Do not treat a 401 as "your session ended" (log in, wrong current password…). */
   noSessionEnd?: boolean;
+  /** Send no session (a public page's request: the progress link). */
+  anonymous?: boolean;
 }
 
-function headers(extra: Record<string, string> = {}): Record<string, string> {
-  const token = getToken();
+function headers(extra: Record<string, string> = {}, anonymous = false): Record<string, string> {
+  const token = anonymous ? null : getToken();
   return token ? { ...extra, authorization: `Bearer ${token}` } : extra;
 }
 
@@ -597,7 +601,8 @@ async function send(method: string, path: string, options: RequestOptions = {}):
   try {
     response = await fetch(path, {
       method,
-      headers: headers(options.json !== undefined ? { "content-type": "application/json" } : {}),
+      headers: headers(options.json !== undefined ? { "content-type": "application/json" } : {}, options.anonymous === true),
+      ...(options.anonymous ? { credentials: "omit" as const, referrerPolicy: "no-referrer" as const } : {}),
       body: options.json !== undefined ? JSON.stringify(options.json) : undefined,
     });
   } catch {
@@ -2000,6 +2005,95 @@ export async function getProgressSettings(projectId: string): Promise<ProgressSe
 
 export async function saveProgressSettings(projectId: string, settings: ProgressSettings): Promise<ProgressSettings> {
   return toProgressSettings(await request<unknown>("PUT", `${p(projectId)}/progress/settings`, { json: settings }));
+}
+
+// --- progress links for funders (Task 18) -------------------------------------------
+
+/** A read-only progress link as coordinators list it (its token is shown only when it is made). */
+export interface ShareLink {
+  id: string;
+  label: string;
+  createdAt: number | null;
+  /** The username of who made it; null for a project key or an account since deleted. */
+  createdBy: string | null;
+  lastUsedAt: number | null;
+}
+
+export interface NewShareLink {
+  link: ShareLink;
+  /** The whole address to give out (shown once). */
+  url: string;
+}
+
+function toShareLink(value: unknown): ShareLink {
+  const l = (value ?? {}) as Record<string, unknown>;
+  return {
+    id: String(l.id ?? ""),
+    label: typeof l.label === "string" ? l.label : "",
+    createdAt: toMillis(l.createdAt),
+    createdBy: typeof l.createdBy === "string" ? l.createdBy : null,
+    lastUsedAt: toMillis(l.lastUsedAt),
+  };
+}
+
+export async function listShareLinks(projectId: string): Promise<ShareLink[]> {
+  const body = await request<{ links?: unknown[] }>("GET", `${p(projectId)}/share-links`);
+  return (Array.isArray(body?.links) ? body.links : []).map(toShareLink);
+}
+
+export async function createShareLink(projectId: string, label: string): Promise<NewShareLink> {
+  const body = await request<Record<string, unknown>>("POST", `${p(projectId)}/share-links`, { json: { label } });
+  const path = typeof body.path === "string" && body.path.startsWith("/p/") ? body.path : `/p/${encodeURIComponent(String(body.token ?? ""))}`;
+  return { link: toShareLink(body.link), url: absoluteUrl(typeof body.url === "string" ? body.url : null, path) };
+}
+
+export async function revokeShareLink(projectId: string, linkId: string): Promise<void> {
+  await send("DELETE", `${p(projectId)}/share-links/${encodeURIComponent(linkId)}`);
+}
+
+/** What a progress link shows: the project's name and the Progress tab's figures, never a name or an answer. */
+export interface PublicProgressData {
+  projectName: string;
+  timeZone: string;
+  today: string;
+  asOf: number | null;
+  totals: ProgressTotals;
+  daily: ProgressDay[];
+  forecast: Forecast;
+  quality: {
+    /** False when the server has no quality figures at hand yet. */
+    available: boolean;
+    /** Checked plots compared with their first assessment; rate null when too few to say. */
+    agreement: { compared: number; agreeing: number; rate: number | null } | null;
+    computedAt: number | null;
+  };
+}
+
+export function toPublicProgress(body: unknown): PublicProgressData {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const progress = toProgressData(b);
+  const q = (b.quality ?? {}) as Record<string, unknown>;
+  const a = q.agreement as Record<string, unknown> | null | undefined;
+  return {
+    projectName: String(((b.project ?? {}) as Record<string, unknown>).name ?? ""),
+    timeZone: progress.timeZone,
+    today: progress.today,
+    asOf: progress.asOf,
+    totals: progress.totals,
+    daily: progress.daily,
+    forecast: progress.forecast,
+    quality: {
+      available: q.available === true,
+      agreement: a && typeof a === "object" ? { compared: toCount(a.compared), agreeing: toCount(a.agreeing), rate: toNumberOrNull(a.rate) } : null,
+      computedAt: toMillis(q.computedAt),
+    },
+  };
+}
+
+/** A progress link's figures, asked without the session (the page is public; nobody needs to be logged in). */
+export async function getPublicProgress(token: string, timeZone: string): Promise<PublicProgressData> {
+  const query = new URLSearchParams({ tz: timeZone });
+  return toPublicProgress(await request<unknown>("GET", `/v1/public/progress/${encodeURIComponent(token)}?${query}`, { anonymous: true, noSessionEnd: true }));
 }
 
 // --- people (the People tab, a person's page, My work) ------------------------------

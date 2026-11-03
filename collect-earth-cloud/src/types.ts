@@ -51,6 +51,21 @@ export interface InviteSummary {
   createdAt: number;
 }
 
+/**
+ * A read-only progress link of a project (Task 18), as coordinators list it. The token is shown
+ * once, when it is made; only its sha256 is stored (share_links.token_hash).
+ */
+export interface ShareLink {
+  id: string;
+  /** The coordinator's note to tell links apart ("For the donor"); may be empty. */
+  label: string;
+  createdAt: number;
+  /** The username of who made it; null for a project admin token or an account since deleted. */
+  createdBy: string | null;
+  /** When the page was last opened with it (kept to the minute); null when never. */
+  lastUsedAt: number | null;
+}
+
 /** Who may create projects with a session: every logged-in user, or platform admins only. */
 export type ProjectCreation = 'anyone' | 'platform-admins';
 
