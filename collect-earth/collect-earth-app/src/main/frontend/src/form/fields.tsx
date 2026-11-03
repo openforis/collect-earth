@@ -74,7 +74,8 @@ function Description({ title, children }: { title: string; children: ReactElemen
   const [byKey, setByKey] = useState(false);
   const { onFocus, onBlur } = children.props;
   return (
-    <Tooltip title={title} open={hovered || byKey} disableFocusListener
+    // describeChild: the answer keeps its label as its name, the description is its description
+    <Tooltip title={title} open={hovered || byKey} disableFocusListener describeChild
       onOpen={() => setHovered(true)} onClose={() => { setHovered(false); setByKey(false); }}>
       {cloneElement(children, {
         onFocus: (e: FocusEvent) => { onFocus?.(e); setByKey(focusMovedByKey(lastKey, performance.now())); },
