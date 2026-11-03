@@ -141,6 +141,16 @@ public class GoogleEarthWebUrlsTest {
 	}
 
 	@Test
+	public void aPlotAcrossTheAntimeridianIsAsWideAsTheShorterWayRound() {
+		// 0.0004 degrees across 180 at the equator: 44.5 m, not most of the way round the Earth
+		List<List<SimpleCoordinate>> across = Collections.singletonList(Arrays.asList(new SimpleCoordinate(0.0, 179.9998),
+				new SimpleCoordinate(0.0002, -179.9998), new SimpleCoordinate(0.0, -179.9999)));
+		assertEquals(44.53, GoogleEarthWebUrls.extentMeters(across), 0.1);
+		assertEquals(GoogleEarthWebUrls.plotDistance(44.53, 0.375), GoogleEarthWebUrls.plotDistance(
+				GoogleEarthWebUrls.extentMeters(across), 0.375));
+	}
+
+	@Test
 	public void thePlotFillsAboutAThirdOfTheViewHeight() {
 		// a plot of 30 m showed on 12% of the view from 400 m: 37.5% from 127 m
 		int distance = GoogleEarthWebUrls.plotDistance(30, GoogleEarthWebUrls.PLOT_VIEW_SHARE);

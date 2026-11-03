@@ -184,10 +184,19 @@ public class GoogleEarthWebService {
 	 */
 	private volatile Double groundAltitude;
 	private volatile double[] groundAltitudePosition;
-	/** Altitude of the last camera URL Collect Earth wrote. */
-	private volatile Double writtenAltitude;
-	/** Distance of the last camera URL of a plot Collect Earth wrote: see {@link #learnGroundUnderACameraStoppedShort}. */
-	private volatile int writtenDistance = GoogleEarthWebUrls.PLOT_DISTANCE;
+	/** The last camera URL Collect Earth wrote, its altitude and distance together. Null before the first. */
+	private volatile WrittenCamera written;
+
+	/** The altitude and the distance of a camera URL Collect Earth wrote: read together, never one of one URL and one of another */
+	private static final class WrittenCamera {
+		final double altitude;
+		final double distance;
+
+		WrittenCamera(double altitude, double distance) {
+			this.altitude = altitude;
+			this.distance = distance;
+		}
+	}
 	/** Altitude of the top-down view the overlay drawn last loads with its button; see {@link #topDownUrl}. */
 	private volatile Double topDownAltitude;
 	/** A camera this near (~1 cm) the point Collect Earth sent it to is still over it: see {@link #aimAtTheGround}. */
@@ -863,7 +872,8 @@ public class GoogleEarthWebService {
 		if (Math.abs(camera[0] - latitude) > EXACT_DEGREES || Math.abs(camera[1] - longitude) > EXACT_DEGREES) {
 			return false;
 		}
-		groundAltitude = isAbout(altitude, writtenAltitude) ? altitude + writtenDistance - distance : altitude;
+		WrittenCamera last = written;
+		groundAltitude = last != null && isAbout(altitude, last.altitude) ? altitude + last.distance - distance : altitude;
 		groundAltitudePosition = new double[] { latitude, longitude };
 		return true;
 	}
@@ -986,15 +996,14 @@ public class GoogleEarthWebService {
 	 */
 	String plotUrl(SimplePlacemarkObject plot, int distance) {
 		int altitude = plotAltitude(plot);
-		writtenAltitude = (double) altitude;
-		writtenDistance = distance;
+		written = new WrittenCamera(altitude, distance);
 		return GoogleEarthWebUrls.cameraUrl(plot.getCoord().getLatitude(), plot.getCoord().getLongitude(), altitude,
 				distance);
 	}
 
 	/**
 	 * The top-down view of the plot that the overlay's button loads (see javascript_google_earth_web.fmt). Not loaded
-	 * now, so it leaves {@link #writtenAltitude} alone: the outline is drawn again after a camera move, and the altitude
+	 * now, so it leaves {@link #written} alone: the outline is drawn again after a camera move, and the altitude
 	 * of that move would then be learnt as ground. Its own altitude is not learnt either, once the button loads it.
 	 */
 	String topDownUrl(SimplePlacemarkObject plot) {
@@ -1043,8 +1052,10 @@ public class GoogleEarthWebService {
 	String movedCameraUrl(String href, double latitude, double longitude, double heightMeters) {
 		Double current = GoogleEarthWebUrls.cameraAltitude(href);
 		double altitude = Math.round(altitudeAt(latitude, longitude, current == null ? 0 : current));
-		writtenAltitude = altitude;
-		return GoogleEarthWebUrls.movedCameraUrl(href, latitude, longitude, heightMeters, altitude);
+		String url = GoogleEarthWebUrls.movedCameraUrl(href, latitude, longitude, heightMeters, altitude);
+		Double distance = GoogleEarthWebUrls.cameraDistance(url);
+		written = new WrittenCamera(altitude, distance == null ? GoogleEarthWebUrls.PLOT_DISTANCE : distance);
+		return url;
 	}
 
 	private double altitudeAt(double latitude, double longitude, double fallback) {
@@ -1072,10 +1083,15 @@ public class GoogleEarthWebService {
 	void learnGroundAltitude(String href) {
 		Double altitude = GoogleEarthWebUrls.cameraAltitude(href);
 		double[] camera = GoogleEarthWebUrls.cameraPosition(href);
-		if (altitude != null && camera != null && !isAbout(altitude, writtenAltitude) && !isAbout(altitude, topDownAltitude)) {
+		if (altitude != null && camera != null && !isAbout(altitude, writtenAltitude()) && !isAbout(altitude, topDownAltitude)) {
 			groundAltitude = altitude;
 			groundAltitudePosition = camera;
 		}
+	}
+
+	private Double writtenAltitude() {
+		WrittenCamera last = written;
+		return last == null ? null : last.altitude;
 	}
 
 	private static boolean isAbout(double altitude, Double written) {

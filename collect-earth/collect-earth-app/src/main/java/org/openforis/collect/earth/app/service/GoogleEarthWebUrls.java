@@ -84,8 +84,9 @@ public final class GoogleEarthWebUrls {
 
 	/**
 	 * The size (metres) of a plot from the outline(s) the KML generator gives it: the larger of its north-south and its
-	 * east-west extents, on the ground near it (degrees of longitude shrink with the latitude). 0 when there is no outline
-	 * or an unreadable one.
+	 * east-west extents, on the ground near it (degrees of longitude shrink with the latitude). A plot across the
+	 * antimeridian (179.99 and -179.99) is as wide as the shorter way round. 0 when there is no outline or an unreadable
+	 * one.
 	 */
 	public static double extentMeters(List<List<SimpleCoordinate>> shapes) {
 		double minLatitude = Double.MAX_VALUE;
@@ -117,8 +118,27 @@ public final class GoogleEarthWebUrls {
 			return 0;
 		}
 		double northSouth = (maxLatitude - minLatitude) * METRES_PER_DEGREE;
-		double eastWest = (maxLongitude - minLongitude) * METRES_PER_DEGREE
-				* Math.cos(Math.toRadians((minLatitude + maxLatitude) / 2));
+		double longitudeSpan = maxLongitude - minLongitude;
+		if (longitudeSpan > 180) {
+			// across the antimeridian: the span the other way round, through 180
+			double minEast = Double.MAX_VALUE;
+			double maxWest = -Double.MAX_VALUE;
+			for (List<SimpleCoordinate> shape : shapes) {
+				if (shape == null) {
+					continue;
+				}
+				for (SimpleCoordinate coordinate : shape) {
+					double longitude = Double.parseDouble(coordinate.getLongitude());
+					if (longitude >= 0) {
+						minEast = Math.min(minEast, longitude);
+					} else {
+						maxWest = Math.max(maxWest, longitude);
+					}
+				}
+			}
+			longitudeSpan = maxWest + 360 - minEast;
+		}
+		double eastWest = longitudeSpan * METRES_PER_DEGREE * Math.cos(Math.toRadians((minLatitude + maxLatitude) / 2));
 		return Math.max(northSouth, eastWest);
 	}
 
