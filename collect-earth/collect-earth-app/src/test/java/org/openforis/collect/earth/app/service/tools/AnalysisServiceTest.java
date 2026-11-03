@@ -28,10 +28,10 @@ import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.ExportType;
 import org.openforis.collect.earth.app.service.IPCCGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.SaikuExecutionException;
 import org.openforis.collect.earth.app.service.jobs.RecordingContext;
 import org.openforis.collect.earth.app.service.tools.IpccAnswers.Subdivision;
 import org.openforis.collect.earth.app.service.tools.ToolsService.InvalidToolRequestException;
-import org.openforis.collect.earth.ipcc.RdbExportException;
 import org.openforis.collect.earth.ipcc.model.AbstractLandUseSubdivision;
 import org.openforis.collect.earth.ipcc.model.CountryCode;
 import org.openforis.collect.earth.ipcc.model.CroplandSubdivision;
@@ -110,7 +110,8 @@ public class AnalysisServiceTest {
 
 	@Test
 	public void aSaikuFolderThatIsNotSetFailsTheJobWithTheOldMessage() throws Exception {
-		doThrow(new RdbExportException("no start-saiku.bat")).when(saiku).prepareDataForAnalysis(any(), anyBoolean());
+		// What prepareDataForAnalysis throws when the Saiku folder is not set; the job catches it as an RdbExportException
+		doThrow(new SaikuExecutionException("no start-saiku.bat")).when(saiku).prepareDataForAnalysis(any(), anyBoolean());
 		Exception failure = assertThrows(Exception.class, () -> service.saiku(false).run(new RecordingContext()));
 		assertTrue(failure.getMessage().startsWith("The Saiku Server is not configured."));
 		assertTrue(failure.getMessage().endsWith("(no start-saiku.bat)"));
