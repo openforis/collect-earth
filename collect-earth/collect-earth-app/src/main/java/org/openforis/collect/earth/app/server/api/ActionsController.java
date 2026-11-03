@@ -13,6 +13,7 @@ import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.QuitService;
+import org.openforis.collect.earth.app.service.dashboard.LocalDashboardService;
 import org.openforis.collect.earth.app.service.notices.UpdateService;
 import org.openforis.collect.earth.app.service.notices.UpdateService.UpdaterMissingException;
 import org.openforis.collect.earth.app.view.Messages;
@@ -35,8 +36,8 @@ public class ActionsController {
 
 	@Autowired
 	public ActionsController(QuitService quit, BackupSqlLiteService backup, BrowserService browser, UpdateService updates,
-			EarthSurveyService surveys) {
-		this(actions(quit, backup, browser, updates, surveys));
+			EarthSurveyService surveys, LocalDashboardService dashboard) {
+		this(actions(quit, backup, browser, updates, surveys, dashboard));
 	}
 
 	private static void openFile(File file) {
@@ -45,14 +46,35 @@ public class ActionsController {
 		}
 	}
 
+	/**
+	 * Tools > My dashboard: the local dashboard (docs/plans/2026-11-03-desktop-dashboard.md) in the default browser,
+	 * signed in by a new one-time link. While it cannot be opened (getting ready, failed, not installed, a cloud
+	 * project), the page is told why.
+	 */
+	static void openDashboard(LocalDashboardService dashboard) {
+		String url;
+		try {
+			url = dashboard.newSignInUrl();
+		} catch (IOException e) {
+			throw new IllegalStateException("The dashboard did not give a sign-in link: " + e.getMessage(), e);
+		}
+		if (url == null) {
+			throw new ApiException("dashboard.notReady", dashboard.getStateText());
+		}
+		if (!CollectEarthUtils.openUrl(URI.create(url))) {
+			throw new IllegalStateException("The browser could not open the dashboard");
+		}
+	}
+
 	ActionsController(Map<String, Runnable> actions) {
 		this.actions = actions;
 	}
 
 	private static Map<String, Runnable> actions(QuitService quit, BackupSqlLiteService backup, BrowserService browser, UpdateService updates,
-			EarthSurveyService surveys) {
+			EarthSurveyService surveys, LocalDashboardService dashboard) {
 		Map<String, Runnable> actions = new LinkedHashMap<>();
 		actions.put("quit", quit);
+		actions.put("openDashboard", () -> openDashboard(dashboard));
 		// The Help menu's files and pages (CollectEarthMenu.getHelpMenu)
 		actions.put("openSurveyGuide", () -> {
 			File guide = surveys.getSurveyGuide();

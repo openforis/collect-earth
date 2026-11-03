@@ -1,7 +1,10 @@
 package org.openforis.collect.earth.app.server.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -13,6 +16,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.openforis.collect.earth.app.service.dashboard.LocalDashboardService;
 import org.springframework.test.web.servlet.MockMvc;
 
 /** The quick actions of the menus, answered as the server's own wiring does (see TemplateWiring). */
@@ -74,5 +78,15 @@ public class ActionsControllerTest {
 		mvc.perform(post("/api/actions/broken")).andExpect(status().isInternalServerError())
 				.andExpect(jsonPath("$.error").value("internal"))
 				.andExpect(jsonPath("$.details").value("the folder cannot be opened"));
+	}
+
+	@Test
+	public void myDashboardSaysWhyItCannotOpenYet() throws Exception {
+		LocalDashboardService dashboard = mock(LocalDashboardService.class);
+		when(dashboard.newSignInUrl()).thenReturn(null);
+		when(dashboard.getStateText()).thenReturn("Getting ready\u2026");
+		ApiException e = assertThrows(ApiException.class, () -> ActionsController.openDashboard(dashboard));
+		assertEquals("dashboard.notReady", e.getCode());
+		assertEquals("Getting ready\u2026", e.getMessage());
 	}
 }

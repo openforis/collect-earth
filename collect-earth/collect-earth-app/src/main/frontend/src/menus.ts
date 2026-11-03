@@ -7,14 +7,14 @@ export interface Menu { id: string; label: string; items: MenuItem[] }
 
 // The entries built so far: the others show, disabled, until their stage of docs/plans/2026-10-28-html-ui-design.md
 const BUILT = new Set(["quit", "properties", "export", "importZip", "updateCsv",
-  "saiku", "saikuTool", "lulucf", "loadKml", "dataFolder", "openPlotsMap", "missingPlots", "divideCsv", "deletePlots",
+  "saiku", "saikuTool", "lulucf", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots",
   "importCep", "joinCloud", "cloudStatus", "language", "surveyGuide", "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
 
 /**
  * The entries the Swing window disabled when Collect Earth acts as a client of another instance (serverMenuItems):
  * they act on data this instance does not hold.
  */
-const SERVER_ONLY = new Set(["export", "importZip", "updateCsv", "loadKml", "dataFolder", "openPlotsMap", "missingPlots", "divideCsv", "deletePlots"]);
+const SERVER_ONLY = new Set(["export", "importZip", "updateCsv", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots"]);
 
 const item = (id: string, label: string): MenuItem => ({ id, label, enabled: BUILT.has(id) });
 const toggle = (id: string, label: string): MenuItem => ({ ...item(id, label), kind: "toggle" });
@@ -25,6 +25,8 @@ export interface MenuContext {
   surveyGuide?: boolean;
   /** A client of another Collect Earth: the entries that act on the data go */
   client?: boolean;
+  /** A cloud project: its dashboard is the cloud's, so there is no local one (My dashboard) */
+  cloud?: boolean;
 }
 
 /**
@@ -58,6 +60,8 @@ function allMenus(app: MenuContext): Menu[] {
       item("lulucf", "CollectEarthWindow.72"),
       item("loadKml", "CollectEarthWindow.54"),
       item("dataFolder", "CollectEarthWindow.67"),
+      // Your dashboard, on this computer (docs/plans/2026-11-03-desktop-dashboard.md); a cloud project has the cloud's
+      ...(app.cloud ? [] : [item("myDashboard", "LocalDashboard.menu")]),
       // The plots map is already the page when it is the viewer
       ...(app.plotsMap ? [] : [item("openPlotsMap", "CollectEarthMenu.openPlotsMap")]),
     ] },

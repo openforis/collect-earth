@@ -75,7 +75,7 @@ interface Props {
 export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const t = useT();
   const s = (key: string) => serverText(texts, key);
-  const menus = useMemo(() => appMenus({ plotsMap: info.plotsMap, surveyGuide: info.surveyGuide, client: info.client }), [info.plotsMap, info.surveyGuide, info.client]);
+  const menus = useMemo(() => appMenus({ plotsMap: info.plotsMap, surveyGuide: info.surveyGuide, client: info.client, cloud: info.cloud }), [info.plotsMap, info.surveyGuide, info.client, info.cloud]);
   // The menu open and the button it hangs from; the id is null for the single menu of the compact bar
   const [open, setOpen] = useState<{ anchor: HTMLElement; id: string | null } | null>(null);
   const [operatorOpen, setOperatorOpen] = useState(false);
@@ -86,7 +86,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const [quitOpen, setQuitOpen] = useState(false);
   const [closed, setClosed] = useState(false);
   // The dialog of a menu that is open
-  const [dialog, setDialog] = useState<Exclude<AppAction, "quit" | "settings" | "dataFolder" | "openPlotsMap" | "surveyGuide" | "manual" | "support" | "updates" | "showExceptions"> | null>(null);
+  const [dialog, setDialog] = useState<Exclude<AppAction, "quit" | "settings" | "dataFolder" | "openPlotsMap" | "myDashboard" | "surveyGuide" | "manual" | "support" | "updates" | "showExceptions"> | null>(null);
   // What a quick action (open the data folder, the manual...) answered when it could not be done
   const [actionError, setActionError] = useState<string | null>(null);
   const forced = operatorRequired({ ...info, operator });
@@ -119,7 +119,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
     quit: () => setQuitOpen(true), settings: onSettings,
     export: () => setDialog("export"), importZip: () => setDialog("importZip"), updateCsv: () => setDialog("updateCsv"),
     saiku: () => setDialog("saiku"), saikuTool: () => setDialog("saikuTool"), lulucf: () => setDialog("lulucf"), loadKml: () => setDialog("loadKml"),
-    dataFolder: quick("openDataFolder"), openPlotsMap: quick("openPlotsMap"),
+    dataFolder: quick("openDataFolder"), openPlotsMap: quick("openPlotsMap"), myDashboard: quick("openDashboard"),
     missingPlots: () => setDialog("missingPlots"), divideCsv: () => setDialog("divideCsv"), deletePlots: () => setDialog("deletePlots"),
     importCep: () => { setDropped(null); setDialog("importCep"); }, joinCloud: () => setDialog("joinCloud"), cloudStatus: () => setDialog("cloudStatus"), language: () => setDialog("language"),
     surveyGuide: quick("openSurveyGuide"), manual: quick("openManual"), support: quick("openSupport"), updates: quick("runUpdater"),

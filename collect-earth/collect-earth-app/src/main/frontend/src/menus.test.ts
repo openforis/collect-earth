@@ -11,7 +11,7 @@ describe("appMenus", () => {
   it("only enables what is built", () => {
     const enabled = appMenus({ plotsMap: true }).flatMap((m) => m.items).filter((i) => i.enabled).map((i) => i.id);
     expect(enabled).toEqual(["importCep", "joinCloud", "cloudStatus", "language", "quit", "export", "importZip", "updateCsv",
-      "saiku", "saikuTool", "lulucf", "loadKml", "dataFolder", "missingPlots", "divideCsv", "deletePlots", "properties",
+      "saiku", "saikuTool", "lulucf", "loadKml", "dataFolder", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "properties",
       "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
     // The survey guide only when the survey has one, as the Swing menu showed it
     expect(appMenus({ plotsMap: true, surveyGuide: true }).find((m) => m.id === "help")?.items[0].id).toBe("surveyGuide");
@@ -46,6 +46,14 @@ describe("appMenus", () => {
     const keys = new Set([...readFileSync(file, "latin1").matchAll(/^([^#!\s=:][^\s=:]*)\s*[=:]/gm)].map((m) => m[1]));
     const labels = appMenus({ plotsMap: false }).flatMap((m) => [m.label, ...m.items.map((i) => i.label)]);
     expect(labels.filter((label) => !keys.has(label))).toEqual([]);
+  });
+});
+
+describe("my dashboard", () => {
+  it("is in the Tools menu when working alone, not in a cloud project, which has the cloud's", () => {
+    const tools = (cloud: boolean) => appMenus({ plotsMap: true, cloud }).find((m) => m.id === "tools")?.items.map((i) => i.id);
+    expect(tools(false)).toContain("myDashboard");
+    expect(tools(true)).not.toContain("myDashboard");
   });
 });
 
