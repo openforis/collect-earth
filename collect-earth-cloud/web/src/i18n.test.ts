@@ -18,6 +18,18 @@ describe("translations", () => {
     }
   });
 
+  it.each(LANGUAGES)("%s tells collectors what coordinators see, on the join page and My work alike", (language) => {
+    const catalogue = CATALOGUES[language];
+    const join = catalogue["join.coordinatorsSee"];
+    const myWork = catalogue["myWork.coordinatorsSee"];
+    // The join page names the My work page as the dashboard calls it.
+    expect(join).toContain(`"${catalogue["myWork.link"]}"`);
+    // Both start with the same sentence about what coordinators see.
+    const first = (text: string) => text.slice(0, text.indexOf(".") + 1);
+    expect(first(join).length).toBeGreaterThan(20);
+    expect(first(myWork)).toBe(first(join));
+  });
+
   it("fills placeholders and falls back to English", () => {
     expect(translator("es")("overview.stepsDone", { done: 2, total: 5 })).toBe("2 de 5 pasos hechos");
     expect(translator("de")("nav.logout")).toBe("Log out");

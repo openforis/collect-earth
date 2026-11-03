@@ -3553,6 +3553,28 @@ work, and your answers. You can see the same on My work."
 
 **Tests:** the i18n keys exist in 4 languages.
 
+**As built** (differs from the above where it says so)
+- **The sentence** says more than the plan's, to be true to what coordinators see since Tasks 3-19: when
+  and how much a person works (People tab, person page, calendar, hours, speed, syncs, the Activity log,
+  the weekly summary and the weekly email naming quiet people), their answers, and quality figures about
+  them (agreement on checks, pattern flags, accuracy against reference plots). It no longer says My work
+  shows "the same": My work shows the person's own numbers but, by design, no flags, no accuracy and
+  nothing about checks. New key `join.coordinatorsSee`, shown on the join page under the "only the
+  invitation" note, before the steps (so before the person joins): "Coordinators of this project see when
+  and how much you work, your answers, and quality figures about your work. You can see your own numbers
+  on this website, in "My work", once you have joined." `myWork.coordinatorsSee` (Task 3's alert on My
+  work) now starts with the same sentence and ends "This page shows your own numbers." es/fr/pt alike
+  ("Mi trabajo", "Mon travail", "Meu trabalho", the names of the My work button).
+- **Desktop: not changed (No Swing).** Collect Earth's join confirmation is `CloudJoin.previewMessage`
+  ("You are about to join the cloud project "%s" as %s. …"), a `JOptionPane` in
+  `CollectEarthMenu.joinCloudProject` with its text in the Swing `view/Messages*.properties`; after the
+  login it restarts with no "joined" message. **Later desktop change** (with the move of the UI to HTML):
+  add the same sentence to that confirmation in the desktop's languages.
+- **Tests:** web 340 (was 336: `i18n.test.ts` — per language, the join text names the My work button in
+  quotes and starts with the same sentence as My work's), server 1139, tsc clean.
+- **Chrome** (memory server, built dashboard, a collector invite): the join page at 390 px shows the
+  sentence before "How to join", no horizontal scroll, no console errors.
+
 ## Part F: the desktop and the end
 
 ### Task 21: Collect Earth sends its version (improvement 6)

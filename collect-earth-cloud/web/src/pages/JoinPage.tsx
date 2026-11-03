@@ -41,6 +41,7 @@ export function JoinPage({ token }: { token: string }) {
             {t("join.project", { project: preview.data.projectName, role: t(`role.${preview.data.role}`) })}
           </Typography>
           <Alert severity="info">{t("join.notHere")}</Alert>
+          <Typography>{t("join.coordinatorsSee")}</Typography>
           <Typography variant="h2">{t("join.stepsTitle")}</Typography>
           <JoinSteps link={link} />
         </Stack>
