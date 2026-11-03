@@ -422,6 +422,31 @@ export function unansweredRequired(fields: Record<string, Field>, infos: Record<
     .map((f) => f.name);
 }
 
+/**
+ * The questions known to need an answer, after a server answer: `known`, with those it reports in error while empty,
+ * and without those it reports shown, empty and not in error (no longer required, an answer elsewhere decided so).
+ * Only the server's answers say it, never a local change: a question just cleared is not in error before the server
+ * says it is. A question answered when the plot opened was never reported in error: it is not known to need one.
+ */
+export function updateRequired(known: Set<string>, fields: Record<string, Field>, infos: Record<string, FieldInfo>,
+  value: (name: string) => string): Set<string> {
+  const result = new Set(known);
+  for (const name of unansweredRequired(fields, infos, value)) result.add(name);
+  for (const name of known) {
+    const info = infos[name];
+    if (info && info.visible !== false && !info.inError && value(name).trim() === "") result.delete(name);
+  }
+  return result;
+}
+
+/**
+ * The answers still needed on each tab, by index (none: not listed): the questions in error left empty, that the user
+ * can answer. A value in error (a number out of range) is not counted, though the step is not done with it.
+ */
+export function neededByTab(errors: FieldError[], value: (name: string) => string): Record<number, number> {
+  return errorsByTab(errors.filter((e) => !e.field.readOnly && value(e.field.name).trim() === ""));
+}
+
 /** How many of the errors are on each tab, by index (none: not listed) */
 export function errorsByTab(errors: FieldError[]): Record<number, number> {
   const result: Record<number, number> = {};

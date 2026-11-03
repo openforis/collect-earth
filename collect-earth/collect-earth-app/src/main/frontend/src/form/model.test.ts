@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type Field, type FormModel, availableItems, clickCode, dateFromInput, dateToInput, entityCount, errorList, fieldsByName,
   indexedField, isTabVisible, questionToFocus, joinValues, mergeInfos, nextUnanswered, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
-  requiredMessage, saveBody, selectCodes, splitValues, summaryLines, tabsWithErrors, timeToInput, unansweredRequired, errorsByTab,
+  requiredMessage, saveBody, selectCodes, splitValues, summaryLines, tabsWithErrors, timeToInput, unansweredRequired, errorsByTab, neededByTab, updateRequired,
 } from "./model";
 
 const category: Field = {
@@ -233,6 +233,21 @@ describe("required questions", () => {
   it("leave out a question answered, whose error is about the value given", () => {
     const infos = { collect_code_lu: { inError: true }, collect_text_comments: { inError: true } };
     expect(unansweredRequired(fields, infos, (n) => (n === "collect_text_comments" ? "x" : ""))).toEqual(["collect_code_lu"]);
+  });
+  it("are remembered once answered, and forgotten when the server no longer asks an answer for them", () => {
+    const asked = updateRequired(new Set(), fields, { collect_code_lu: { inError: true }, collect_text_comments: { inError: true } }, () => "");
+    expect([...asked].sort()).toEqual(["collect_code_lu", "collect_text_comments"]);
+    // land use answered: still required; comments left empty and no longer in error: an answer made it optional
+    const after = updateRequired(asked, fields, { collect_code_lu: { inError: false }, collect_text_comments: { inError: false } },
+      (n) => (n === "collect_code_lu" ? "F" : ""));
+    expect([...after]).toEqual(["collect_code_lu"]);
+    // hidden, or not reported: kept
+    expect([...updateRequired(asked, fields, { collect_code_lu: { visible: false } }, () => "")].sort())
+      .toEqual(["collect_code_lu", "collect_text_comments"]);
+  });
+  it("count, by step, the answers still to give, not the values to correct", () => {
+    const infos = { collect_code_lu: { inError: true }, collect_code_sub: { inError: true }, collect_text_comments: { inError: true } };
+    expect(neededByTab(errorList(model, infos), (n) => (n === "collect_text_comments" ? "too long" : ""))).toEqual({ 0: 2 });
   });
   it("are counted by step", () => {
     const infos = { collect_code_lu: { inError: true }, collect_code_sub: { inError: true }, collect_text_comments: { inError: true } };

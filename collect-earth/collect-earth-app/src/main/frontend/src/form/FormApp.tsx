@@ -30,12 +30,12 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import SendIcon from "@mui/icons-material/Send";
 import { type MessageKey, useT } from "../i18n";
-import { escapeBlurs, mayTakeFocus, panelKey, submitOnKey } from "../shortcuts";
+import { escapeBlurs, mayAdvance, mayTakeFocus, panelKey, submitOnKey } from "../shortcuts";
 import logo from "./collect-earth-logo.png";
 import { AnsweredByKey, FieldView, errorText } from "./fields";
 import {
   type Field, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type TableItem,
-  availableItems, entityCount, errorList, errorsByTab, indexedField, isTabVisible, isVisible, itemFields, nextUnanswered,
+  availableItems, entityCount, errorList, indexedField, isTabVisible, isVisible, itemFields, neededByTab, nextUnanswered,
   questionToFocus, summaryLines, tabsWithErrors,
 } from "./model";
 import type { FormState, FormStore, SaveState } from "./store";
@@ -75,7 +75,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
   const t = useT();
   const content = useRef<HTMLDivElement>(null);
   const errorTabs = tabsWithErrors(model, state.infos);
-  const left = errorsByTab(errorList(model, state.infos));
+  const left = neededByTab(errorList(model, state.infos), (n) => store.value(n));
   const tab = model.tabs[state.tab] ?? model.tabs[0];
   const back = store.neighbourTab(-1);
   const next = store.neighbourTab(1);
@@ -123,14 +123,22 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
   // A single choice answered from the keyboard: on to the next question below it still to answer, else to the footer's
   // step button (Next step or Submit), for Enter to go on. Once the server answered the save, with the questions the
   // answer shows (a subdivision of the land use), and rendered them; not if the user moved the focus meanwhile.
+  // Each answer, and each change of step, makes the move of an answer before it stale.
+  const advance = useRef(0);
+  useEffect(() => { advance.current++; }, [state.tab]);
   const answeredByKey = useCallback((name: string) => {
     const from = document.activeElement;
-    const saved = Promise.race([store.whenSaved(), new Promise<void>((resolve) => setTimeout(resolve, ADVANCE_WAIT))]);
-    void saved.then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
-      if (document.activeElement !== from && document.activeElement !== document.body) return;
-      const control = nextUnanswered(questionsShown(content.current), name, (n) => store.value(n));
-      (control ?? document.querySelector<HTMLElement>("[data-step-button]"))?.focus();
-    })));
+    const ticket = ++advance.current;
+    let timer = 0;
+    const waited = new Promise<void>((resolve) => { timer = window.setTimeout(resolve, ADVANCE_WAIT); });
+    void Promise.race([store.whenSaved(), waited]).then(() => {
+      window.clearTimeout(timer);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (!mayAdvance(document.hasFocus(), document.activeElement, from, document.body, ticket !== advance.current)) return;
+        const control = nextUnanswered(questionsShown(content.current), name, (n) => store.value(n));
+        (control ?? document.querySelector<HTMLElement>("[data-step-button]"))?.focus();
+      }));
+    });
   }, [store]);
 
   // Ctrl+Enter submits, before the focused chip or button sees it (see submitOnKey)
@@ -158,6 +166,8 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
 
   const visibleTabs = model.tabs.map((tb, i) => ({ tb, i })).filter(({ tb, i }) => i === state.tab || isTabVisible(tb, state.infos));
   const stepsDone = visibleTabs.filter(({ i }) => !errorTabs.has(i)).length;
+  // nothing left on any step, as the server said: before its first answer, nothing is known to be left
+  const ready = known && errorTabs.size === 0;
   const stepsText = t("entry.stepsDone", { done: stepsDone, total: visibleTabs.length });
 
   return (
@@ -168,7 +178,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
           <Tabs value={state.tab} onChange={(_, v: number) => goTo(v)} sx={{ "& .MuiTab-root": { flex: "1 1 auto" } }}>
             {visibleTabs.map(({ tb, i }) => (
               <Tab key={tb.id} value={i} data-testid={`entry-tab-${i}`} data-done={!errorTabs.has(i) || undefined}
-                label={<StepLabel label={tb.label} left={left[i] ?? 0} failed={state.attempted && errorTabs.has(i)} />} />
+                label={<StepLabel label={tb.label} done={!errorTabs.has(i)} left={left[i] ?? 0} failed={state.attempted && errorTabs.has(i)} />} />
             ))}
           </Tabs>
           <Tooltip title={stepsText}>
@@ -232,10 +242,10 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
           <SaveStatus state={state.saveState} />
         </Box>
         <Stack direction="row" spacing={1} sx={{ flex: "none", justifyContent: "flex-end", alignItems: "center" }}>
-          {(next < 0 || errorTabs.size === 0) && <SubmitButton store={store} state={state} />}
+          {(next < 0 || ready) && <SubmitButton store={store} state={state} />}
           {next >= 0 && (
             <Tooltip title="Alt+→" describeChild>
-              <Button variant={errorTabs.size === 0 ? "outlined" : "contained"} disableElevation endIcon={<ChevronRightIcon />}
+              <Button variant={ready ? "outlined" : "contained"} disableElevation endIcon={<ChevronRightIcon />}
                 onClick={() => goTo(next)} data-testid="entry-next" data-step-button sx={STEP_BUTTON_SX}>
                 {t("entry.next")}
               </Button>
@@ -276,13 +286,16 @@ function ErrorSummary({ store, state, model, onGo }: { store: FormStore; state: 
   const errors = errorList(model, state.infos);
   const lines = summaryLines(state.submitErrors ?? [], errors);
   const tabs = [...new Set(lines.map((l) => l.error.tab))].sort((a, b) => a - b);
+  // the lines still to see to: those the questions shown since add are counted by their steps, not here
+  const count = lines.filter((l) => !l.fixed).length;
   return (
     <Alert severity={errors.length ? "error" : "success"} data-testid={errors.length ? "entry-errors" : "entry-errors-fixed"}>
       <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
         {!errors.length ? t("entry.errorsFixed")
-          : state.incomplete
-            ? errors.length === 1 ? t("entry.incompleteOne") : t("entry.incompleteMany", { count: errors.length })
-            : errors.length === 1 ? t("entry.errorsOne") : t("entry.errorsMany", { count: errors.length })}
+          : !count ? t("entry.errorsElsewhere")
+            : state.incomplete
+              ? count === 1 ? t("entry.incompleteOne") : t("entry.incompleteMany", { count })
+              : count === 1 ? t("entry.errorsOne") : t("entry.errorsMany", { count })}
       </Typography>
       {tabs.map((tab) => (
         <Box key={tab} sx={{ "& + &": { mt: 0.5 } }}>
@@ -293,7 +306,7 @@ function ErrorSummary({ store, state, model, onGo }: { store: FormStore; state: 
               return (
                 <Box component="li" key={e.field.name} data-error-of={fixed ? undefined : e.field.name} data-fixed={fixed || undefined}
                   sx={fixed ? { listStyle: "none", ml: -2.5, opacity: 0.7 } : undefined}>
-                  {fixed && <CheckIcon aria-label={t("entry.answered")} sx={{ fontSize: 15, mr: 0.5, verticalAlign: "-2px" }} />}
+                  {fixed && <CheckIcon titleAccess={t("entry.answered")} sx={{ fontSize: 15, mr: 0.5, verticalAlign: "-2px" }} />}
                   <Link component="button" type="button" variant="body2" onClick={() => onGo(e.tab, e.field.name)}
                     sx={{ textAlign: "left", verticalAlign: "baseline", ...(fixed && { textDecoration: "line-through", color: "inherit" }) }}>
                     {e.context ? `${e.context} – ${e.field.label}` : e.field.label}
@@ -308,6 +321,11 @@ function ErrorSummary({ store, state, model, onGo }: { store: FormStore; state: 
     </Alert>
   );
 }
+
+/** Read by a screen reader, not shown */
+const VISUALLY_HIDDEN = {
+  position: "absolute", width: 1, height: 1, p: 0, m: "-1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0,
+} as const;
 
 /** The banner pinned over the questions */
 const BANNER_SX = { mx: 1, mt: 1, alignItems: "center", [NARROW]: { mx: 0.5, mt: 0.5 } } as const;
@@ -393,28 +411,30 @@ function HeaderInfo({ items, store }: { items: InfoItem[]; store: FormStore }) {
 }
 
 /**
- * A step's label, with a check once nothing is left to answer on it, else how many answers are left on it: discreet,
- * in red once Submit found it unfinished.
+ * A step's label, with a check once nothing is left to answer on it, else how many answers it still needs: discreet,
+ * in red once Submit found it unfinished (a red dot when what is left is a value to correct, not an answer to give).
  */
-function StepLabel({ label, left, failed }: { label: string; left: number; failed: boolean }) {
+function StepLabel({ label, done, left, failed }: { label: string; done: boolean; left: number; failed: boolean }) {
   const t = useT();
   const leftText = left === 1 ? t("entry.leftOne") : t("entry.leftMany", { count: left });
   return (
     <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
-      {left === 0 && (
+      {done && (
         <Tooltip title={t("entry.stepDone")}>
-          <CheckCircleIcon data-testid="entry-step-done"
+          <CheckCircleIcon data-testid="entry-step-done" titleAccess={t("entry.stepDone")}
             sx={{ fontSize: 15, color: "success.main", ".Mui-selected &": { color: "inherit" } }} />
         </Tooltip>
       )}
       <span>{label}</span>
-      {left > 0 && (
-        <Tooltip title={failed ? `${leftText}. ${t("entry.tabErrors")}` : leftText}>
-          <Box component="span" aria-label={leftText} data-testid="entry-step-left" data-failed={failed || undefined}
-            sx={{ minWidth: 18, height: 18, px: 0.5, borderRadius: 9, fontSize: 11, fontWeight: 700, lineHeight: "18px",
-              textAlign: "center", ...(failed ? { bgcolor: "error.main", color: "error.contrastText" }
+      {/* the number for the eyes, the words for a screen reader, which reads them in the tab's name */}
+      {!done && (left > 0 || failed) && (
+        <Tooltip title={failed ? `${left > 0 ? `${leftText}. ` : ""}${t("entry.tabErrors")}` : leftText}>
+          <Box component="span" data-testid="entry-step-left" data-failed={failed || undefined}
+            sx={{ minWidth: left > 0 ? 18 : 8, height: left > 0 ? 18 : 8, px: left > 0 ? 0.5 : 0, borderRadius: 9, fontSize: 11,
+              fontWeight: 700, lineHeight: "18px", textAlign: "center", ...(failed ? { bgcolor: "error.main", color: "error.contrastText" }
                 : { border: 1, borderColor: "currentColor", lineHeight: "16px", opacity: 0.75 }) }}>
-            {left}
+            <span aria-hidden>{left > 0 ? left : ""}</span>
+            <Box component="span" sx={VISUALLY_HIDDEN}>{left > 0 ? leftText : t("entry.tabErrors")}</Box>
           </Box>
         </Tooltip>
       )}

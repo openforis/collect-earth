@@ -109,12 +109,15 @@ export const FieldView = memo(function FieldView(props: FieldProps) {
   );
 });
 
-/** A question that needs an answer: a discreet star after its label, said in words to a screen reader */
+/**
+ * A question that needs an answer: a discreet star after its label, for the eyes only (its tooltip for the mouse); a
+ * screen reader hears it from the control, which says aria-required.
+ */
 function RequiredMark() {
   const t = useT();
   return (
     <Tooltip title={t("entry.requiredMark")}>
-      <Box component="span" role="img" aria-label={t("entry.requiredMark")} data-testid="entry-required"
+      <Box component="span" aria-hidden data-testid="entry-required"
         sx={{ ml: 0.5, color: "text.secondary", fontWeight: 400, cursor: "help" }}>*</Box>
     </Tooltip>
   );
@@ -175,18 +178,19 @@ function ReadOnlyValue({ field, value, info, dense }: FieldProps) {
  * stays chosen when clicked again; the × after it (for the mouse), or Delete or Backspace on its buttons, clears it.
  * The question is one Tab stop: the arrows go from answer to answer, Space or Enter picks one, and 1 to 9 the n-th.
  */
-function CodeButtons({ field, value, items, parentLabel, onChange, error, describedBy }: ControlProps) {
+function CodeButtons({ field, value, items, parentLabel, onChange, error, describedBy, required }: ControlProps) {
   const t = useT();
   const answeredByKey = useContext(AnsweredByKey);
   const group = useRef<HTMLDivElement>(null);
-  // the answer last focused, which keeps the question's Tab stop
-  const [focused, setFocused] = useState<number | null>(null);
+  // the code of the answer focused, which keeps the question's Tab stop while the focus is among the answers
+  const [focused, setFocused] = useState<string | null>(null);
   const selected = parseCodes(value).map((c) => c.code);
   if (!items.length) {
     return <Typography variant="body2" color="text.secondary">{parentLabel ? t("entry.chooseParent", { parent: parentLabel }) : t("entry.noOptions")}</Typography>;
   }
-  // The Tab stop: the answer last focused, else the one chosen, else the first
-  const stop = focused != null && focused < items.length ? focused : Math.max(0, items.findIndex((i) => selected.includes(i.code)));
+  // The Tab stop: the answer focused, else the one chosen (Tab lands on it), else the first
+  const focusedAt = items.findIndex((i) => i.code === focused);
+  const stop = focusedAt >= 0 ? focusedAt : Math.max(0, items.findIndex((i) => selected.includes(i.code)));
   const pick = (code: string, byKey: boolean) => {
     const codes = clickCode(selected, code, !!field.multiple);
     if (codes) onChange(field.name, selectCodes(value, codes));
@@ -206,7 +210,9 @@ function CodeButtons({ field, value, items, parentLabel, onChange, error, descri
         if (clearable && (e.key === "Delete" || e.key === "Backspace")) { e.preventDefault(); clear(); return; }
         const chips = [...(group.current?.querySelectorAll<HTMLElement>("[data-code]") ?? [])];
         const at = chips.indexOf(e.target as HTMLElement);
-        const action = choiceKey(e, at < 0 ? stop : at, items.length);
+        // the ×, focused by a click, is no answer: its keys are its own
+        if (at < 0) return;
+        const action = choiceKey(e, at, items.length);
         if (!action) return;
         e.preventDefault();
         if ("focus" in action) {
@@ -217,13 +223,15 @@ function CodeButtons({ field, value, items, parentLabel, onChange, error, descri
         }
       }}>
       <Box ref={group} role={field.multiple ? "group" : "radiogroup"} aria-label={field.label} id={field.name}
-        aria-invalid={error || undefined} aria-describedby={describedBy}
+        aria-invalid={error || undefined} aria-describedby={describedBy} aria-required={required || undefined}
+        // the focus gone elsewhere, Tab comes back to the answer chosen
+        onBlur={(e) => { if (!group.current?.contains(e.relatedTarget as Node | null)) setFocused(null); }}
         sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, ...KEY_HINTS_SX, ...(error && { p: 0.5, borderRadius: 2, outline: 1, outlineColor: "error.main" }) }}>
         {items.map((item, i) => {
           const on = selected.includes(item.code);
           const chip = (
             <Chip key={item.id} label={<>{item.label}<KeyHint index={i} /></>} clickable
-              onClick={(e) => pick(item.code, isKeyboardClick(e))} onFocus={() => setFocused(i)} tabIndex={i === stop ? 0 : -1}
+              onClick={(e) => pick(item.code, isKeyboardClick(e))} onFocus={() => setFocused(item.code)} tabIndex={i === stop ? 0 : -1}
               icon={on ? <CheckIcon /> : undefined}
               role={field.multiple ? "checkbox" : "radio"} aria-checked={on} data-code={item.code}
               sx={on ? CODE_ON_SX : CODE_SX} />
@@ -231,15 +239,20 @@ function CodeButtons({ field, value, items, parentLabel, onChange, error, descri
           return item.description ? <Tooltip key={item.id} title={item.description}>{chip}</Tooltip> : chip;
         })}
       </Box>
-      {/* for the mouse: the keyboard has Delete on the answers, so it is not in the Tab order */}
-      {clearable && (
-        <Tooltip title={t("entry.clear")}>
-          <IconButton size="small" tabIndex={-1} aria-label={t("entry.clear")} data-testid="entry-clear" onClick={clear}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      )}
+      {clearable && <ClearButton onClear={clear} />}
     </Box>
+  );
+}
+
+/** The × after the answers, for the mouse: the keyboard has Delete on the answers, so it is not in the Tab order */
+function ClearButton({ onClear }: { onClear: () => void }) {
+  const t = useT();
+  return (
+    <Tooltip title={t("entry.clear")}>
+      <IconButton size="small" tabIndex={-1} aria-label={t("entry.clear")} data-testid="entry-clear" onClick={onClear}>
+        <CloseIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
   );
 }
 
@@ -282,7 +295,7 @@ const TOGGLE_SX = {
 } as const;
 
 /** Long lists: a searchable dropdown. */
-function CodeSelect({ field, value, items, parentLabel, onChange, error, dense, describedBy }: ControlProps) {
+function CodeSelect({ field, value, items, parentLabel, onChange, error, dense, describedBy, required }: ControlProps) {
   const t = useT();
   const codes = parseCodes(value).map((c) => c.code);
   const byCode = (c: string) => items.find((i) => i.code === c) ?? { id: -1, code: c, label: c };
@@ -308,13 +321,13 @@ function CodeSelect({ field, value, items, parentLabel, onChange, error, dense, 
     return (
       <Autocomplete multiple {...common} value={codes.map(byCode)} disableCloseOnSelect
         onChange={(_, v) => onChange(field.name, selectCodes(value, v.map((i) => i.code)))}
-        renderInput={(params) => <TextField {...params} error={error} placeholder={codes.length ? undefined : placeholder} slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps.htmlInput, "aria-label": field.label, "aria-describedby": describedBy } }} />} />
+        renderInput={(params) => <TextField {...params} error={error} placeholder={codes.length ? undefined : placeholder} slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps.htmlInput, "aria-label": field.label, "aria-describedby": describedBy, "aria-required": required || undefined } }} />} />
     );
   }
   return (
     <Autocomplete {...common} value={codes.length ? byCode(codes[0]) : null}
       onChange={(_, v) => onChange(field.name, selectCodes(value, v ? [v.code] : []))}
-      renderInput={(params) => <TextField {...params} error={error} placeholder={placeholder} slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps.htmlInput, "aria-label": field.label, "aria-describedby": describedBy } }} />} />
+      renderInput={(params) => <TextField {...params} error={error} placeholder={placeholder} slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps.htmlInput, "aria-label": field.label, "aria-describedby": describedBy, "aria-required": required || undefined } }} />} />
   );
 }
 
@@ -346,32 +359,47 @@ function QualifierInput({ label, name, qualifier, dense, onChange }: { label: st
   );
 }
 
-function BooleanInput({ field, value, onChange, error, describedBy }: ControlProps) {
+/**
+ * Yes and No, as the answers of a single choice: the one chosen stays chosen when clicked or pressed again, and the ×
+ * after them (for the mouse), or Delete or Backspace on them, clears it.
+ */
+function BooleanInput({ field, value, onChange, error, describedBy, required }: ControlProps) {
   const t = useT();
   const answeredByKey = useContext(AnsweredByKey);
   const group = useRef<HTMLDivElement>(null);
   if (field.affirmativeOnly) {
-    return <FormControlLabel control={<Checkbox id={field.name} checked={value === "true"} slotProps={{ input: { "aria-describedby": describedBy } }} onChange={(e) => onChange(field.name, e.target.checked ? "true" : "")} />} label={t("entry.yes")} />;
+    return <FormControlLabel control={<Checkbox id={field.name} checked={value === "true"} slotProps={{ input: { "aria-describedby": describedBy, "aria-required": required || undefined } }} onChange={(e) => onChange(field.name, e.target.checked ? "true" : "")} />} label={t("entry.yes")} />;
   }
+  const clear = () => {
+    onChange(field.name, "");
+    group.current?.querySelector<HTMLElement>("button")?.focus();
+  };
   // The group moves the focus with the arrows itself; 1 answers Yes and 2 No, as the n-th answer of a list
   return (
-    <ToggleButtonGroup ref={group} exclusive size="small" value={value || null} id={field.name} aria-label={field.label} aria-describedby={describedBy}
-      onChange={(e, v: string | null) => {
-        onChange(field.name, v ?? "");
-        if (v && isKeyboardClick(e as unknown as { detail: number })) answeredByKey(field.name);
-      }}
-      onKeyDown={(e) => {
-        const action = choiceKey(e, 0, BOOLEAN_VALUES.length);
-        if (!action || !("pick" in action)) return;
-        e.preventDefault();
-        group.current?.querySelectorAll<HTMLElement>("button")[action.pick]?.focus();
-        onChange(field.name, BOOLEAN_VALUES[action.pick]);
-        answeredByKey(field.name);
-      }}
-      sx={{ ...KEY_HINTS_SX, ...(error && { outline: 1, outlineColor: "error.main", borderRadius: 1 }) }}>
-      <ToggleButton value="true" sx={TOGGLE_SX}>{t("entry.yes")}<KeyHint index={0} /></ToggleButton>
-      <ToggleButton value="false" sx={TOGGLE_SX}>{t("entry.no")}<KeyHint index={1} /></ToggleButton>
-    </ToggleButtonGroup>
+    <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0.75 }}>
+      <ToggleButtonGroup ref={group} exclusive size="small" value={value || null} id={field.name} aria-label={field.label}
+        aria-describedby={describedBy} aria-required={required || undefined}
+        onChange={(e, v: string | null) => {
+          // null: the answer chosen, clicked or pressed again, which keeps it
+          if (v) onChange(field.name, v);
+          if (isKeyboardClick(e as unknown as { detail: number })) answeredByKey(field.name);
+        }}
+        onKeyDown={(e) => {
+          if (value && (e.key === "Delete" || e.key === "Backspace")) { e.preventDefault(); clear(); return; }
+          const action = choiceKey(e, 0, BOOLEAN_VALUES.length);
+          if (!action || !("pick" in action)) return;
+          e.preventDefault();
+          group.current?.querySelectorAll<HTMLElement>("button")[action.pick]?.focus();
+          // the same answer again changes nothing (a plot submitted stays so), but goes on to the next question
+          if (value !== BOOLEAN_VALUES[action.pick]) onChange(field.name, BOOLEAN_VALUES[action.pick]);
+          answeredByKey(field.name);
+        }}
+        sx={{ ...KEY_HINTS_SX, ...(error && { outline: 1, outlineColor: "error.main", borderRadius: 1 }) }}>
+        <ToggleButton value="true" sx={TOGGLE_SX}>{t("entry.yes")}<KeyHint index={0} /></ToggleButton>
+        <ToggleButton value="false" sx={TOGGLE_SX}>{t("entry.no")}<KeyHint index={1} /></ToggleButton>
+      </ToggleButtonGroup>
+      {value && <ClearButton onClear={clear} />}
+    </Box>
   );
 }
 const BOOLEAN_VALUES = ["true", "false"] as const;
@@ -386,7 +414,7 @@ function useDraft(value: string, same: (draft: string, value: string) => boolean
   return [draft, setDraft];
 }
 
-function TextInput({ field, value, onChange, error, describedBy, dense, numeric, multiline }: ControlProps & { numeric?: boolean; multiline?: boolean }) {
+function TextInput({ field, value, onChange, error, describedBy, required, dense, numeric, multiline }: ControlProps & { numeric?: boolean; multiline?: boolean }) {
   const [draft, setDraft] = useDraft(value, numeric ? (d, v) => normalizeNumber(d) === v : undefined);
   // typed but still waiting for the typing pause: leaving the field saves at once
   const typing = useRef(false);
@@ -396,23 +424,23 @@ function TextInput({ field, value, onChange, error, describedBy, dense, numeric,
       onChange={(e) => { setDraft(e.target.value); typing.current = true; commit(e.target.value, TYPING_DELAY); }}
       onBlur={() => { if (typing.current) { typing.current = false; commit(draft, 0); } }}
       slotProps={{
-        htmlInput: { inputMode: numeric ? (field.type === "integer" ? "numeric" : "decimal") : undefined, "aria-label": field.label, "aria-describedby": describedBy },
+        htmlInput: { inputMode: numeric ? (field.type === "integer" ? "numeric" : "decimal") : undefined, "aria-label": field.label, "aria-describedby": describedBy, "aria-required": required || undefined },
         input: field.unit ? { endAdornment: <InputAdornment position="end">{field.unit}</InputAdornment> } : undefined,
       }}
       sx={numeric && !dense ? { maxWidth: 240 } : undefined} />
   );
 }
 
-function DateTimeInput({ field, value, onChange, error, describedBy, kind }: ControlProps & { kind: "date" | "time" }) {
+function DateTimeInput({ field, value, onChange, error, describedBy, required, kind }: ControlProps & { kind: "date" | "time" }) {
   const shown = kind === "date" ? dateToInput(value) : timeToInput(value);
   return (
     <TextField id={field.name} size="small" type={kind} value={shown} error={error} sx={{ maxWidth: 220 }}
-      slotProps={{ htmlInput: { "aria-label": field.label, "aria-describedby": describedBy } }}
+      slotProps={{ htmlInput: { "aria-label": field.label, "aria-describedby": describedBy, "aria-required": required || undefined } }}
       onChange={(e) => onChange(field.name, kind === "date" ? dateFromInput(e.target.value) : e.target.value)} />
   );
 }
 
-function RangeInput({ field, value, onChange, error, describedBy }: ControlProps) {
+function RangeInput({ field, value, onChange, error, describedBy, required }: ControlProps) {
   const t = useT();
   const [from, to] = rangeToInput(value);
   const sameNumber = (d: string, v: string) => normalizeNumber(d) === v;
@@ -430,16 +458,16 @@ function RangeInput({ field, value, onChange, error, describedBy }: ControlProps
   return (
     <Stack direction="row" spacing={1} sx={{ maxWidth: 360, pt: 0.75 }}>
       <TextField id={field.name} size="small" label={t("entry.from")} value={dFrom} error={error}
-        slotProps={{ htmlInput: { inputMode, "aria-label": `${field.label} - ${t("entry.from")}`, "aria-describedby": describedBy }, input: unit }}
+        slotProps={{ htmlInput: { inputMode, "aria-label": `${field.label} - ${t("entry.from")}`, "aria-describedby": describedBy, "aria-required": required || undefined }, input: unit }}
         onChange={(e) => { setFrom(e.target.value); commit(e.target.value, dTo, TYPING_DELAY); }} onBlur={onBlur} />
       <TextField size="small" label={t("entry.to")} value={dTo} error={error}
-        slotProps={{ htmlInput: { inputMode, "aria-label": `${field.label} - ${t("entry.to")}`, "aria-describedby": describedBy }, input: unit }}
+        slotProps={{ htmlInput: { inputMode, "aria-label": `${field.label} - ${t("entry.to")}`, "aria-describedby": describedBy, "aria-required": required || undefined }, input: unit }}
         onChange={(e) => { setTo(e.target.value); commit(dFrom, e.target.value, TYPING_DELAY); }} onBlur={onBlur} />
     </Stack>
   );
 }
 
-function CoordinateInput({ field, value, onChange, error, describedBy }: ControlProps) {
+function CoordinateInput({ field, value, onChange, error, describedBy, required }: ControlProps) {
   const t = useT();
   const [lat, lon] = coordinateToInput(value);
   const sameNumber = (d: string, v: string) => normalizeNumber(d) === v;
@@ -453,9 +481,9 @@ function CoordinateInput({ field, value, onChange, error, describedBy }: Control
   const onBlur = () => { if (typing.current) commit(dLat, dLon, 0); };
   return (
     <Stack direction="row" spacing={1} sx={{ pt: 0.75 }}>
-      <TextField size="small" label={t("entry.latitude")} value={dLat} error={error} slotProps={{ htmlInput: { inputMode: "decimal", "aria-describedby": describedBy } }}
+      <TextField size="small" label={t("entry.latitude")} value={dLat} error={error} slotProps={{ htmlInput: { inputMode: "decimal", "aria-describedby": describedBy, "aria-required": required || undefined } }}
         onChange={(e) => { setLat(e.target.value); commit(e.target.value, dLon, TYPING_DELAY); }} onBlur={onBlur} />
-      <TextField size="small" label={t("entry.longitude")} value={dLon} error={error} slotProps={{ htmlInput: { inputMode: "decimal", "aria-describedby": describedBy } }}
+      <TextField size="small" label={t("entry.longitude")} value={dLon} error={error} slotProps={{ htmlInput: { inputMode: "decimal", "aria-describedby": describedBy, "aria-required": required || undefined } }}
         onChange={(e) => { setLon(e.target.value); commit(dLat, e.target.value, TYPING_DELAY); }} onBlur={onBlur} />
     </Stack>
   );

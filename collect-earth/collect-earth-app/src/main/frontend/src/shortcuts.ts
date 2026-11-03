@@ -133,3 +133,14 @@ export function choiceKey(e: Pick<KeyPress, "key" | "ctrlKey" | "metaKey" | "alt
 export function isKeyboardClick(e: { detail: number }): boolean {
   return e.detail === 0;
 }
+
+/**
+ * Whether the focus may move on from an answer given from the keyboard (`from`, the control focused then), once its
+ * save is answered: only if the form's page still has the focus (not the plots map around it, its search say), and
+ * the focus is still on that control, or nowhere in the page (the control re-rendered). `stale`: the step changed, or
+ * another answer was given, since.
+ */
+export function mayAdvance(pageFocused: boolean, active: Element | null, from: Element | null, body: Element | null,
+  stale: boolean): boolean {
+  return !stale && pageFocused && active != null && (active === from || active === body);
+}

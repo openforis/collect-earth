@@ -1,7 +1,7 @@
 import { earthBase } from "../api";
 import type { PanelKey } from "../shortcuts";
 import { ACTIVELY_SAVED, type Field, type FieldError, type FieldInfo, type FormModel, type LoadResult, errorList, fieldsByName,
-  isTabVisible, mergeInfos, saveBody, unansweredRequired } from "./model";
+  isTabVisible, mergeInfos, saveBody, updateRequired } from "./model";
 
 const REQUEST_TIMEOUT = 20000;
 /** Typing is saved once the operator pauses; a click right away (the balloon uses the same delays). */
@@ -110,13 +110,12 @@ export class FormStore {
 
   getState = (): FormState => this.state;
 
-  private set(patch: Partial<FormState>): void {
+  /** fromServer: the patch carries the server's answer, which says which questions need an answer (see updateRequired) */
+  private set(patch: Partial<FormState>, fromServer = false): void {
     this.state = { ...this.state, ...patch };
-    if (patch.model || patch.infos) {
-      this.fields = this.state.model ? fieldsByName(this.state.model, this.state.infos) : {};
-      // remembered once answered: its mark stays, as the server no longer says it is required
-      for (const name of unansweredRequired(this.fields, this.state.infos, (n) => this.value(n))) this.required.add(name);
-    }
+    if (patch.model || patch.infos) this.fields = this.state.model ? fieldsByName(this.state.model, this.state.infos) : {};
+    // remembered once answered: its mark stays, as the server no longer says it is required
+    if (fromServer) this.required = updateRequired(this.required, this.fields, this.state.infos, (n) => this.value(n));
     this.listeners.forEach((l) => l());
   }
 
@@ -153,7 +152,7 @@ export class FormStore {
       const result = await getJson<LoadResult>(earthBase() + "placemark-info-expanded?id=" + encodeURIComponent(id));
       if (result.success) {
         const infos = mergeInfos({}, result, true);
-        this.set({ model, infos });
+        this.set({ model, infos }, true);
         const left = result.activelySaved ? errorList(model, infos) : [];
         const incomplete = left.length > 0;
         this.set({
@@ -185,6 +184,12 @@ export class FormStore {
   }
 
   setValue = (name: string, value: string, delay = CLICK_DELAY): void => {
+    // The same answer again (a number key on the answer chosen): nothing changes, a submitted plot stays submitted; what
+    // is typed and not saved yet is saved at the delay asked, as leaving a box asks for at once
+    if (value === this.value(name)) {
+      if (this.dirty.has(name)) this.schedule(delay);
+      return;
+    }
     this.dirty.add(name);
     const patch: Partial<FormState> = { pending: { ...this.state.pending, [name]: value }, saveState: "unsaved" };
     // clear the parent's dependants right away: their items no longer apply
@@ -197,14 +202,15 @@ export class FormStore {
         }
       }
     }
-    if (this.state.submitted) Object.assign(patch, { submitted: false, unsubmitted: true });
+    const wasSubmitted = this.state.submitted;
+    if (wasSubmitted) Object.assign(patch, { submitted: false, unsubmitted: true });
     // the operator just answered: drop the field's error now, the server's answer brings it back if it stands
     const info = this.state.infos[name];
     if (info?.inError) patch.infos = { ...this.state.infos, [name]: { ...info, inError: false, errorMessage: null } };
     this.set(patch);
-    if (!this.dirtyNotified) {
+    if (!this.dirtyNotified || wasSubmitted) {
       this.dirtyNotified = true;
-      this.post("ce:dirty");
+      this.post("ce:dirty", { unsubmitted: wasSubmitted });
     }
     this.schedule(delay);
   };
@@ -283,7 +289,7 @@ export class FormStore {
       if (!this.dirty.has(name) && !infos[name]?.inError) delete pending[name];
     }
     this.dirtyNotified = this.dirty.size > 0;
-    this.set({ infos, pending, serverDown: false, saveState: this.dirty.size ? "unsaved" : "saved" });
+    this.set({ infos, pending, serverDown: false, saveState: this.dirty.size ? "unsaved" : "saved" }, true);
     return response;
   }
 
@@ -308,8 +314,9 @@ export class FormStore {
 
   submit = async (): Promise<boolean> => {
     if (this.state.submitting || !this.state.model) return false;
-    // submitted on the map, if not complete
+    // submitted on the map, if not complete; changed after it was submitted only when it was, complete
     const wasSubmitted = this.state.submitted || this.state.incomplete;
+    const wasComplete = this.state.submitted;
     this.set({ submitting: true, submitErrors: null, attempted: true, incomplete: false });
     if (this.timer) {
       clearTimeout(this.timer);
@@ -326,7 +333,7 @@ export class FormStore {
     const left = errorList(this.state.model, this.state.infos);
     if (left.length) {
       // the check is a save that is not a submit: a plot submitted before is not anymore, on the map too
-      if (wasSubmitted) this.post("ce:dirty");
+      if (wasSubmitted) this.post("ce:dirty", { unsubmitted: wasComplete });
       this.set({ submitting: false, submitted: false, submitErrors: left, tab: left[0].tab });
       return false;
     }
@@ -359,8 +366,11 @@ export class FormStore {
     try {
       const result = await postForm(path, body);
       if (result.success) {
+        const wasSubmitted = this.state.submitted;
         this.set({ infos: mergeInfos(this.state.infos, result, false), serverDown: false, submitted: false,
-          unsubmitted: this.state.unsubmitted || this.state.submitted });
+          unsubmitted: this.state.unsubmitted || wasSubmitted }, true);
+        // the plots map shows it changed, and tells it when it is left so
+        if (wasSubmitted) this.post("ce:dirty", { unsubmitted: true });
       } else {
         this.set({ saveState: "error", entityFailure: { entity, action, message: result.message ?? "" } });
       }
@@ -410,8 +420,11 @@ export class FormStore {
     this.post("ce:key", { key });
   };
 
-  /** Tells the plots map (the parent page) about the plot status, or a key pressed */
-  private post(type: "ce:saved" | "ce:dirty" | "ce:key", extra?: { key: PanelKey }): void {
+  /**
+   * Tells the plots map (the parent page) about the plot status, or a key pressed. A "ce:dirty" says `unsubmitted` when
+   * the change took back a plot that was submitted, complete: the plots map says so if it is left that way.
+   */
+  private post(type: "ce:saved" | "ce:dirty" | "ce:key", extra?: { key: PanelKey } | { unsubmitted: boolean }): void {
     if (window.parent === window) return;
     try {
       window.parent.postMessage({ type, plotId: this.state.placemarkId, ...extra }, window.location.origin);

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  type KeyPress, choiceKey, escapeBlurs, isFormMessage, isKeyboardClick, isTyping, keyOfMessage, mayTakeFocus, panelKey, submitOnKey,
+  type KeyPress, choiceKey, escapeBlurs, isFormMessage, isKeyboardClick, isTyping, keyOfMessage, mayAdvance, mayTakeFocus, panelKey,
+  submitOnKey,
 } from "./shortcuts";
 
 /** A stand-in for an element: what isTyping reads of one. */
@@ -169,5 +170,24 @@ describe("isKeyboardClick", () => {
     expect(isKeyboardClick({ detail: 0 })).toBe(true);
     expect(isKeyboardClick({ detail: 1 })).toBe(false);
     expect(isKeyboardClick({ detail: 2 })).toBe(false);
+  });
+});
+
+describe("mayAdvance", () => {
+  const chosen = element("DIV") as unknown as Element;
+  const other = element("INPUT") as unknown as Element;
+  const body = element("BODY") as unknown as Element;
+  it("moves on from the answer still focused, or from nowhere when it re-rendered", () => {
+    expect(mayAdvance(true, chosen, chosen, body, false)).toBe(true);
+    expect(mayAdvance(true, body, chosen, body, false)).toBe(true);
+  });
+  it("never pulls the focus back from the plots map around the form, its search say", () => {
+    expect(mayAdvance(false, chosen, chosen, body, false)).toBe(false);
+    expect(mayAdvance(false, body, chosen, body, false)).toBe(false);
+  });
+  it("never takes the focus from where the user put it, nor after the step changed or another answer", () => {
+    expect(mayAdvance(true, other, chosen, body, false)).toBe(false);
+    expect(mayAdvance(true, body, chosen, body, true)).toBe(false);
+    expect(mayAdvance(true, chosen, chosen, body, true)).toBe(false);
   });
 });
