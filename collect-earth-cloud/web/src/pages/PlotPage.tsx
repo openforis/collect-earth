@@ -156,7 +156,7 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
     return (
       <Stack spacing={2}>
         {back}
-        {missing ? <Alert severity="info" role="note">{t("plot.notFound")}</Alert> : <ErrorAlert error={loaded.error} onRetry={loaded.reload} />}
+        {missing ? <Alert severity="info" role="note" data-page-error>{t("plot.notFound")}</Alert> : <ErrorAlert error={loaded.error} onRetry={loaded.reload} />}
       </Stack>
     );
   }

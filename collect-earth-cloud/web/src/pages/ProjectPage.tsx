@@ -125,6 +125,7 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
         {missing ? (
           <Paper variant="outlined">
             <EmptyState
+              heading
               title={t("project.notFound")}
               action={
                 <Button variant="contained" {...linkProps("/")}>

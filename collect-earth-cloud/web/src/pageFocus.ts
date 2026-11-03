@@ -42,9 +42,10 @@ export function mayMoveFocus(active: Element | null): boolean {
   return active.closest('[role="tablist"]') === null;
 }
 
-/** The first sentence of an error the page shows (an alert of severity error), if any. */
+/** The first sentence of an error the page shows (an alert of severity error, or one marked data-page-error), if any. */
 export function errorText(root: ParentNode): string | null {
-  const alert = root.querySelector(".MuiAlert-standardError .MuiAlert-message, .MuiAlert-colorError .MuiAlert-message");
+  // An error alert, or a notice marked as standing for the page (a plot that is not there).
+  const alert = root.querySelector(".MuiAlert-standardError .MuiAlert-message, .MuiAlert-colorError .MuiAlert-message, [data-page-error] .MuiAlert-message");
   const text = (alert?.textContent ?? "").replace(/\s+/g, " ").trim();
   if (!text) return null;
   const first = text.split(/(?<=[.!?])\s/)[0];
