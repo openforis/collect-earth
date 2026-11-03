@@ -99,6 +99,9 @@ public final class ProcessJobs {
 	}
 
 	/** Copies the status into the job while the process runs, and cancels the process when the job is cancelled. */
+	/** How long a watcher may take to end its report; a status read does not block, so this is only a bound */
+	static final long STOP_WAIT_MILLIS = 2000;
+
 	private static final class Watcher extends Thread {
 		private final AbstractProcess<?, ?> process;
 		private final JobContext context;
@@ -130,9 +133,18 @@ public final class ProcessJobs {
 			}
 		}
 
+		/**
+		 * Waits for the watcher to end: a report it was making could otherwise land after the job's next step and put
+		 * back the progress of a process that is over (the KML export, whose generation follows its records).
+		 */
 		void stopWatching() {
 			watching = false;
 			interrupt();
+			try {
+				join(STOP_WAIT_MILLIS);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
 		}
 	}
 }

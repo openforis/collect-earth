@@ -1,13 +1,14 @@
 package org.openforis.collect.earth.app.service.data;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -215,11 +216,43 @@ public class ExportServiceTest {
 		verify(properties, never()).setLastExportedDate(any());
 	}
 
+	/** The KML service, mocked, runs the CSV phase it is given with this process, as the real one does */
+	private void kmlExportRuns(AbstractProcess<Void, DataExportStatus> csvExport, boolean[] generated) throws Exception {
+		doAnswer(call -> {
+			KmlGeneratorService.CsvExportRunner runner = call.getArgument(1);
+			generated[0] = runner.run(csvExport);
+			return null;
+		}).when(kml).exportToKml(eq(new File("/tmp/plots.kml")), any(KmlGeneratorService.CsvExportRunner.class));
+	}
+
 	@Test
-	public void theKmlExportIsTheGeneratorsWithoutProgress() throws Exception {
+	public void theKmlExportReportsTheRecordsExportedThenTheGeneration() throws Exception {
+		boolean[] generated = { false };
+		kmlExportRuns(completing(mock(CSVDataExportProcess.class), 7), generated);
+		RecordingContext context = new RecordingContext();
+		Map<?, ?> result = (Map<?, ?>) service.export(request(Format.KML, Records.ALL, "/tmp/plots.kml")).run(context);
+		assertTrue(generated[0]);
+		assertEquals(7L, result.get("records"));
+		assertEquals(new File("/tmp/plots.kml").getAbsolutePath(), result.get("path"));
+		assertTrue(context.progress.contains("100 " + org.openforis.collect.earth.app.view.Messages.getString("ExportDialogProcessMonitor.4") + " 7/7"),
+				context.progress.toString());
+		assertEquals("-1 " + org.openforis.collect.earth.app.view.Messages.getString("DataPage.export.kmlGenerating"),
+				context.progress.get(context.progress.size() - 1));
+	}
+
+	@Test
+	public void aKmlExportCancelledDuringTheRecordsGeneratesNoKml() throws Exception {
+		CSVDataExportProcess process = mock(CSVDataExportProcess.class);
+		DataExportStatus status = mock(DataExportStatus.class);
+		when(process.getStatus()).thenReturn(status);
+		when(status.getTotal()).thenReturn(10L);
+		when(status.getProcessed()).thenReturn(4L);
+		when(status.isComplete()).thenReturn(false);
+		boolean[] generated = { true };
+		kmlExportRuns(process, generated);
 		Map<?, ?> result = (Map<?, ?>) service.export(request(Format.KML, Records.ALL, "/tmp/plots.kml")).run(new RecordingContext());
-		verify(kml).exportToKml(new File("/tmp/plots.kml"));
-		assertEquals(0L, result.get("records"));
-		verify(data, never()).exportSurveyAsCsv(any(), anyBoolean());
+		assertFalse(generated[0]);
+		assertEquals(4L, result.get("records"));
+		assertFalse(result.containsKey("path"));
 	}
 }

@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -301,8 +302,27 @@ public class ExportService {
 		return context -> {
 			long records = 0;
 			if (request.format == Format.KML) {
-				context.progress(-1, Messages.getString("ExportDialogProcessMonitor.0"));
-				kml.exportToKml(file);
+				// The records go to a CSV first, which reports its progress as the other exports do; the KML generated
+				// from it then reports none, as KmlGenerator is one call
+				long[] exported = { 0 };
+				boolean[] cancelled = { false };
+				kml.exportToKml(file, csvExport -> {
+					ProcessStatus status = ProcessJobs.run(csvExport, context, Messages.getString("ExportDialogProcessMonitor.4"));
+					if (status != null) {
+						exported[0] = status.getProcessed();
+						if (!status.isComplete()) {
+							cancelled[0] = true;
+							return false;
+						}
+					}
+					context.progress(-1, Messages.getString("DataPage.export.kmlGenerating"));
+					return true;
+				});
+				records = exported[0];
+				if (cancelled[0]) {
+					// No KML was written: nothing to open
+					return Collections.singletonMap("records", records);
+				}
 			} else {
 				AbstractProcess<Void, DataExportStatus> process;
 				switch (request.format) {

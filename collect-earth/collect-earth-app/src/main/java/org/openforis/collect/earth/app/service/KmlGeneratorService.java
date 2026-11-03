@@ -33,6 +33,8 @@ import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareWithCirclesKmlGenerator;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
+import org.openforis.collect.io.data.DataExportStatus;
+import org.openforis.collect.manager.process.AbstractProcess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -393,7 +395,25 @@ public class KmlGeneratorService {
 
 	}
 
+	/**
+	 * Runs the export of the records to the CSV the KML is made from: with its progress, for the export job of the
+	 * pages (ExportService), or simply to the end.
+	 */
+	@FunctionalInterface
+	public interface CsvExportRunner {
+		/** @return false when the export was cancelled: no KML is generated then */
+		boolean run(AbstractProcess<Void, DataExportStatus> csvExport) throws Exception;
+	}
+
 	public void exportToKml(File exportToFile) throws Exception {
+		exportToKml(exportToFile, csvExport -> {
+			csvExport.startProcessing();
+			return true;
+		});
+	}
+
+	/** The records exported to a KML: first to a CSV, run by the runner given, then the KML generated from it. */
+	public void exportToKml(File exportToFile, CsvExportRunner csvExportRunner) throws Exception {
 
 		KmlGenerator kmlGenerator = null;
 		kmlGenerator = getKmlGenerator();
@@ -406,8 +426,10 @@ public class KmlGeneratorService {
 		File balloonFile = null;
 		try {
 			csvTempFile = File.createTempFile("surveyData",  ".csv");
-			dataImportExportService.exportSurveyAsCsv(csvTempFile, false).startProcessing(); // Get the CSV with the data
-																								// collected!
+			// The CSV with the data collected
+			if (!csvExportRunner.run(dataImportExportService.exportSurveyAsCsv(csvTempFile, false))) {
+				return;
+			}
 
 			try (BufferedReader brCsvReader = new BufferedReader(new FileReader(csvTempFile))) {
 				String headerLine = brCsvReader.readLine();
