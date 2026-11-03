@@ -34,13 +34,12 @@ describe("translations", () => {
 
   // The desktop's own labels (collect-earth-app Messages*.properties), as its settings page shows them: the
   // Properties menu (CollectEarthWindow.15), the "Project" section (SettingsPage.section.project), "Refresh
-  // assignments" (English in every language) and "Apply" (SettingsPage.apply). French and Portuguese have no text of
-  // their own for the section and the button yet, so the desktop shows them in English.
+  // assignments" (English in every language) and "Apply" (SettingsPage.apply).
   const desktop = {
-    en: ["Properties → “Project”", "Apply"],
-    es: ["Propiedades → «Proyecto»", "Aplicar"],
-    fr: ["Propriétés → « Project »", "Apply"],
-    pt: ["Propiedades → “Project”", "Apply"],
+    en: ["Properties → “Project”", "“Apply”"],
+    es: ["Propiedades → «Proyecto»", "«Aplicar»"],
+    fr: ["Propriétés → « Projet »", "« Appliquer »"],
+    pt: ["Propriedades → “Projeto”", "“Aplicar”"],
   } as const;
   it.each(LANGUAGES)("%s names the desktop's real path to a new plot file", (language) => {
     const catalogue = CATALOGUES[language];
