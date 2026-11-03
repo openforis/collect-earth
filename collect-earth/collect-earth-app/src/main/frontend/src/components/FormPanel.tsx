@@ -81,20 +81,26 @@ export function FormPanel({ controller, state, fill, hidden, onShowList }: {
         <Tooltip title={t("form.prev")}>
           <span><IconButton size={size} onClick={() => controller.step(-1)} disabled={!prev} aria-label={t("form.prev")} data-testid="form-prev"><ChevronLeftIcon /></IconButton></span>
         </Tooltip>
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flex: 1, minWidth: 0, px: 0.5 }}>
-          <Typography variant="subtitle1" noWrap sx={{ fontWeight: 600 }} data-testid="form-title">{t("form.title", { id: plotLabel(state.labels, id) })}</Typography>
-          <Chip size="small" variant="outlined" color={STATUS_CHIP[status]} label={t(`status.${status}`)} data-testid="form-status" />
-          <Tooltip title={t("progress", { saved: counts.saved, total: counts.total, pct })}>
-            <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: "none" }} data-testid="form-progress">
-              {counts.saved}/{counts.total}
-            </Typography>
-          </Tooltip>
-          {filterLabel && (
-            <Tooltip title={t("form.filtered", { filter: filterLabel })}>
-              <Chip size="small" color="primary" variant="outlined" icon={<FilterListIcon />} label={filterLabel}
-                onDelete={() => controller.setFilter("all")} data-testid="form-filter" sx={{ minWidth: 0 }} />
+        {/* The plot on its line, never squeezed by the rest (the panel may be 380 px wide), which goes on a line below */}
+        <Stack sx={{ flex: 1, minWidth: 0, px: 0.5 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", minWidth: 0 }}>
+            <Typography variant="subtitle1" noWrap sx={{ fontWeight: 600, lineHeight: 1.4 }} data-testid="form-title">{t("form.title", { id: plotLabel(state.labels, id) })}</Typography>
+            <Chip size="small" variant="outlined" color={STATUS_CHIP[status]} label={t(`status.${status}`)} data-testid="form-status" />
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", minWidth: 0, minHeight: 20 }}>
+            <Tooltip title={t("progress", { saved: counts.saved, total: counts.total, pct })}>
+              <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: "none", lineHeight: 1.4 }} data-testid="form-progress">
+                {counts.saved}/{counts.total}
+              </Typography>
             </Tooltip>
-          )}
+            {filterLabel && (
+              <Tooltip title={t("form.filtered", { filter: filterLabel })}>
+                <Chip size="small" color="primary" variant="outlined" icon={<FilterListIcon />} label={filterLabel}
+                  onDelete={() => controller.setFilter("all")} data-testid="form-filter"
+                  sx={{ minWidth: 0, height: 20, fontSize: "0.75rem", "& .MuiChip-icon, & .MuiChip-deleteIcon": { fontSize: 14 } }} />
+              </Tooltip>
+            )}
+          </Stack>
         </Stack>
         <Tooltip title={t("form.next")}>
           <span><IconButton size={size} onClick={() => controller.step(1)} disabled={!next} aria-label={t("form.next")} data-testid="form-next"><ChevronRightIcon /></IconButton></span>
