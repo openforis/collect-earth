@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.IOUtils;
@@ -70,26 +71,30 @@ public class LeafletMapController {
 
 	// ---------- static page ----------
 
+	// The pages are asked for again each time (a 304 while unchanged), the files of the build named by their content kept
+	// a year: see HttpCaching
+
 	@GetMapping("/map")
-	public void mapPage(HttpServletResponse response) throws IOException {
-		serveClasspath("leafletmap/map.html", "text/html; charset=UTF-8", response);
+	public void mapPage(HttpServletRequest request, HttpServletResponse response) throws IOException {
+		serveClasspath("leafletmap/map.html", "text/html; charset=UTF-8", HttpCaching.REVALIDATE, request, response);
 	}
 
 	/** The data entry form generated from the survey (see SurveyFormController), shown next to the map. */
 	@GetMapping("/form")
-	public void formPage(HttpServletResponse response) throws IOException {
-		serveClasspath("leafletmap/form.html", "text/html; charset=UTF-8", response);
+	public void formPage(HttpServletRequest request, HttpServletResponse response) throws IOException {
+		serveClasspath("leafletmap/form.html", "text/html; charset=UTF-8", HttpCaching.REVALIDATE, request, response);
 	}
 
 	@GetMapping("/map/assets/{folder}/{file:.+}")
-	public void vendorAsset(@PathVariable String folder, @PathVariable String file, HttpServletResponse response)
-			throws IOException {
-		serveClasspath("leafletmap/" + folder + "/" + file, contentType(file), response);
+	public void vendorAsset(@PathVariable String folder, @PathVariable String file, HttpServletRequest request,
+			HttpServletResponse response) throws IOException {
+		serveClasspath("leafletmap/" + folder + "/" + file, contentType(file), HttpCaching.cacheControlFor(file), request,
+				response);
 	}
 
 	@GetMapping("/map/assets/{file:.+}")
-	public void asset(@PathVariable String file, HttpServletResponse response) throws IOException {
-		serveClasspath("leafletmap/" + file, contentType(file), response);
+	public void asset(@PathVariable String file, HttpServletRequest request, HttpServletResponse response) throws IOException {
+		serveClasspath("leafletmap/" + file, contentType(file), HttpCaching.cacheControlFor(file), request, response);
 	}
 
 	private String contentType(String file) {
@@ -103,7 +108,8 @@ public class LeafletMapController {
 		return "application/octet-stream";
 	}
 
-	private void serveClasspath(String path, String contentType, HttpServletResponse response) throws IOException {
+	private void serveClasspath(String path, String contentType, String cacheControl, HttpServletRequest request,
+			HttpServletResponse response) throws IOException {
 		// {file:.+} DOES match across '/' (that is how vendor/images/*.png resolves),
 		// so this '..' check is the actual traversal guard - do not remove it.
 		if (path.contains("..")) {
@@ -115,8 +121,7 @@ public class LeafletMapController {
 				response.setStatus(HttpServletResponse.SC_NOT_FOUND);
 				return;
 			}
-			response.setHeader("Content-Type", contentType);
-			IOUtils.copy(in, response.getOutputStream());
+			HttpCaching.send(request, response, IOUtils.toByteArray(in), contentType, cacheControl, null);
 		}
 	}
 

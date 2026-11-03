@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.text.StringEscapeUtils;
@@ -60,19 +61,40 @@ public class SurveyFormController {
 	private CollectSurvey cachedSurvey;
 	private String cachedModelKey;
 	private Map<String, Object> cachedModel;
+	// ... and so does its JSON, sent with its ETag: the form, loaded for every plot, gets a 304 while it has not changed
+	private Map<String, Object> cachedJsonModel;
+	private byte[] cachedJson;
+	private String cachedEtag;
 
 	// Plot file values by placemark id: the location, then the extra columns. Rebuilt when the file changes.
 	private String cachedCsvPath;
 	private long cachedCsvLastModified;
 	private Map<String, String[]> plotsById;
 
+	/**
+	 * The form of the survey. It does not depend on the plot or its record (they come from /surveyForm/plot and
+	 * placemark-info-expanded), only on the survey, the language and the model version: the browser asks for it again for
+	 * every plot, with the ETag it has, and gets a 304 while none of them changed.
+	 */
 	@GetMapping("/surveyForm")
-	public void surveyForm(HttpServletResponse response) throws IOException {
-		response.setHeader("Content-Type", "application/json; charset=UTF-8");
-		response.setHeader("Cache-Control", "no-store");
+	public void surveyForm(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		try {
-			json.writeValue(response.getOutputStream(), getModel());
+			byte[] body;
+			String etag;
+			synchronized (this) {
+				Map<String, Object> model = getModel();
+				if (model != cachedJsonModel) {
+					cachedJson = json.writeValueAsBytes(model);
+					cachedEtag = HttpCaching.etag(cachedJson);
+					cachedJsonModel = model;
+				}
+				body = cachedJson;
+				etag = cachedEtag;
+			}
+			HttpCaching.send(request, response, body, "application/json; charset=UTF-8", HttpCaching.REVALIDATE, etag);
 		} catch (Exception e) {
+			response.setHeader("Content-Type", "application/json; charset=UTF-8");
+			response.setHeader("Cache-Control", "no-store");
 			logger.error("Error generating the survey form", e);
 			response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
 			json.writeValue(response.getOutputStream(), errorBody(e));
