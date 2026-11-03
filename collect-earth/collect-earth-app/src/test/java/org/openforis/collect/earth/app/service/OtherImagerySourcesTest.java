@@ -220,6 +220,7 @@ public class OtherImagerySourcesTest {
 	@Timeout(10)
 	public void googleEarthWebIsAwaitedUntilItShowedThePlot() throws Exception {
 		RecordingGoogleEarthWeb gew = new RecordingGoogleEarthWeb();
+		gew.showPlot(PlotSelectionOrderTest.plot("A"), 1);
 		gew.setState(State.MOVING, "A", null);
 		Thread ready = new Thread(() -> {
 			sleep(200);
@@ -227,7 +228,7 @@ public class OtherImagerySourcesTest {
 		});
 		ready.start();
 		long start = System.nanoTime();
-		gew.awaitShown("A", 5000, () -> false);
+		gew.awaitShown("A", 1, 5000, () -> false);
 		long waited = (System.nanoTime() - start) / 1_000_000;
 		ready.join();
 		assertTrue(waited >= 150 && waited < 4000, waited + " ms");
@@ -237,16 +238,49 @@ public class OtherImagerySourcesTest {
 	@Timeout(10)
 	public void googleEarthWebStillOnThePlotBeforeIsAwaitedToo() throws Exception {
 		RecordingGoogleEarthWeb gew = new RecordingGoogleEarthWeb();
+		gew.showPlot(PlotSelectionOrderTest.plot("Z"), 1);
 		// READY, but for the plot before: its thread has not started on A yet
 		gew.setState(State.READY, "Z", null);
 		long start = System.nanoTime();
-		gew.awaitShown("A", 300, () -> false);
+		gew.awaitShown("A", 2, 300, () -> false);
 		assertTrue((System.nanoTime() - start) / 1_000_000 >= 250);
 		// Given up on, or waiting for the user: done with the plot too
+		gew.showPlot(PlotSelectionOrderTest.plot("A"), 2);
 		gew.setState(State.WAITING, "A", null);
 		start = System.nanoTime();
-		gew.awaitShown("A", 3000, () -> false);
+		gew.awaitShown("A", 2, 3000, () -> false);
 		assertTrue((System.nanoTime() - start) / 1_000_000 < 1000);
+	}
+
+	@Test
+	@Timeout(10)
+	public void aStateOfTheSamePlotFromAnEarlierSelectionIsNotTakenForIt() throws Exception {
+		RecordingGoogleEarthWeb gew = new RecordingGoogleEarthWeb();
+		// A shown (selection 1), then B and A again selected: A's READY of selection 1 is not the one of selection 3
+		gew.showPlot(PlotSelectionOrderTest.plot("A"), 1);
+		gew.setState(State.READY, "A", null);
+		long start = System.nanoTime();
+		gew.awaitShown("A", 3, 300, () -> false);
+		assertTrue((System.nanoTime() - start) / 1_000_000 >= 250);
+		gew.showPlot(PlotSelectionOrderTest.plot("A"), 3);
+		gew.setState(State.READY, "A", null);
+		start = System.nanoTime();
+		gew.awaitShown("A", 3, 3000, () -> false);
+		assertTrue((System.nanoTime() - start) / 1_000_000 < 1000);
+	}
+
+	@Test
+	@Timeout(10)
+	public void noPlotIdOrAGoogleEarthWebThatStaysClosedIsNotAwaitedLong() throws Exception {
+		RecordingGoogleEarthWeb gew = new RecordingGoogleEarthWeb();
+		long start = System.nanoTime();
+		gew.awaitShown(null, 1, 3000, () -> false);
+		assertTrue((System.nanoTime() - start) / 1_000_000 < 200);
+		gew.setState(State.CLOSED, null, null);
+		start = System.nanoTime();
+		gew.awaitShown("A", 1, 3000, () -> false);
+		long waited = (System.nanoTime() - start) / 1_000_000;
+		assertTrue(waited >= GoogleEarthWebService.CLOSED_GRACE_MILLIS - 50 && waited < 2000, waited + " ms");
 	}
 
 	@Test
@@ -255,11 +289,11 @@ public class OtherImagerySourcesTest {
 		RecordingGoogleEarthWeb gew = new RecordingGoogleEarthWeb();
 		gew.setState(State.OPENING, "A", null);
 		long start = System.nanoTime();
-		gew.awaitShown("A", 300, () -> false);
+		gew.awaitShown("A", 1, 300, () -> false);
 		long waited = (System.nanoTime() - start) / 1_000_000;
 		assertTrue(waited >= 250 && waited < 3000, waited + " ms");
 		start = System.nanoTime();
-		gew.awaitShown("A", 5000, () -> true); // a newer plot selected
+		gew.awaitShown("A", 1, 5000, () -> true); // a newer plot selected
 		assertTrue((System.nanoTime() - start) / 1_000_000 < 1000);
 	}
 

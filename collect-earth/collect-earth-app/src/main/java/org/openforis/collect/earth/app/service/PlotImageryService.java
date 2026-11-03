@@ -192,7 +192,8 @@ public class PlotImageryService {
 
 	/** See {@link #showInOtherSources}. */
 	void awaitGoogleEarthWeb(SimplePlacemarkObject placemark, long selection) throws InterruptedException {
-		googleEarthWebService.awaitShown(placemark.getPlacemarkId(), OTHER_SOURCES_DELAY_MILLIS, () -> !isLatest(selection));
+		googleEarthWebService.awaitShown(placemark.getPlacemarkId(), selection, OTHER_SOURCES_DELAY_MILLIS,
+				() -> !isLatest(selection));
 	}
 
 	private boolean isLatest(long selection) {

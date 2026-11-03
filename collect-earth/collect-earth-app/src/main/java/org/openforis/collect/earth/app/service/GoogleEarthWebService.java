@@ -193,6 +193,10 @@ public class GoogleEarthWebService {
 	private volatile String stateMessage;
 	/** Notified at each change of the state; see {@link #awaitShown}. */
 	private final Object stateChanged = new Object();
+	/** The selection number of the plot being shown when the state was set last ({@link #shownSelection}). */
+	private volatile long stateSelection = Long.MIN_VALUE;
+	/** How long {@link #awaitShown} waits for a closed Google Earth Web to start opening before it stops waiting. */
+	static final long CLOSED_GRACE_MILLIS = 500;
 	/** Where the Google Earth Web camera looks (null when unknown or not top-down). */
 	private volatile Map<String, Object> view;
 	/**
@@ -324,20 +328,28 @@ public class GoogleEarthWebService {
 	}
 
 	/**
-	 * Waits until Google Earth Web is done with the plot: shown (READY), or waiting for the user or failed (WAITING,
-	 * ERROR), for {@code timeoutMillis} at most, or until {@code stop} says so. At once when Google Earth Web is not the
-	 * viewer. For the other imagery sources, whose loads would otherwise take the worker of the imagery window and the
-	 * machine from Google Earth Web while it moves to the plot.
+	 * Waits until Google Earth Web is done with the plot of this selection: shown (READY), or waiting for the user or
+	 * failed (WAITING, ERROR), for {@code timeoutMillis} at most, or until {@code stop} says so. A state of the same plot
+	 * from an earlier selection (A, B, A again) is not taken for it. At once when Google Earth Web is not the viewer or
+	 * the plot has no id; after {@link #CLOSED_GRACE_MILLIS} when Google Earth Web stays closed. For the other imagery
+	 * sources, whose loads would otherwise take the worker of the imagery window and the machine from Google Earth Web
+	 * while it moves to the plot.
+	 *
+	 * @param selection the number of the plot selection, as given to {@link #showPlot}
 	 */
-	public void awaitShown(String plotId, long timeoutMillis, BooleanSupplier stop) throws InterruptedException {
-		if (!isTheViewer()) {
+	public void awaitShown(String plotId, long selection, long timeoutMillis, BooleanSupplier stop)
+			throws InterruptedException {
+		if (plotId == null || !isTheViewer()) {
 			return;
 		}
-		long end = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+		long start = System.nanoTime();
+		long end = start + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+		long closedEnd = start + TimeUnit.MILLISECONDS.toNanos(CLOSED_GRACE_MILLIS);
 		synchronized (stateChanged) {
-			while (!isDoneWith(plotId) && !stop.getAsBoolean()) {
-				long left = end - System.nanoTime();
-				if (left <= 0) {
+			while (!isDoneWith(plotId, selection) && !stop.getAsBoolean()) {
+				long now = System.nanoTime();
+				long left = end - now;
+				if (left <= 0 || (state == State.CLOSED && now - closedEnd >= 0)) {
 					return;
 				}
 				// Not only on a change of the state: stop may change at any time
@@ -347,9 +359,9 @@ public class GoogleEarthWebService {
 	}
 
 	/** Called holding {@link #stateChanged}. */
-	private boolean isDoneWith(String plotId) {
+	private boolean isDoneWith(String plotId, long selection) {
 		State now = state;
-		return plotId != null && plotId.equals(statePlotId) && now != State.OPENING && now != State.MOVING;
+		return stateSelection >= selection && plotId.equals(statePlotId) && now != State.OPENING && now != State.MOVING;
 	}
 
 	/**
@@ -523,6 +535,8 @@ public class GoogleEarthWebService {
 	private void show(SimplePlacemarkObject target, boolean overview) {
 		String plotId = overview ? null : target.getPlacemarkId();
 		if (!overview && isShowing(target)) {
+			// Shown already: READY for this selection too (see awaitShown)
+			setState(State.READY, plotId, null);
 			return;
 		}
 		showCount.incrementAndGet();
@@ -1283,6 +1297,7 @@ public class GoogleEarthWebService {
 
 	void setState(State newState, String plotId, String message) {
 		synchronized (stateChanged) {
+			stateSelection = shownSelection;
 			state = newState;
 			statePlotId = plotId;
 			stateMessage = message;
