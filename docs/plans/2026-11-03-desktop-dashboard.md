@@ -61,7 +61,7 @@ to bring them to the desktop are:
 
 ## Tasks
 
-### Task 1: Node in the installer and the dev build
+### Task 1: Node in the installer and the dev build (done, see below)
 - **Pin one version:** Node v22.22.0, already the build's version through frontend-maven-plugin.
 - **Installer:** `collect-earth-installer` downloads the official Node archive per platform, the way `unpack-jre`
   does the JRE (`jre.version`, `ensure-jres`). It verifies each archive's SHA-256 against Node's signed
@@ -71,6 +71,36 @@ to bring them to the desktop are:
 - **Dev builds:** `dev-run` finds `collect-earth-app/src/main/frontend/node`, the Node the Maven build already
   downloads, so developers need nothing new.
 - **Size check:** the installer grows by about 30 MB. Measure it on the first build and record it here.
+
+**Done (2026-11-03), except the InstallBuilder build itself, which needs a machine with InstallBuilder.**
+- `collect-earth-installer/pom.xml`: `node.version` 22.22.0 and `node.shasums.sha256` (the SHA-256 of the release's
+  `SHASUMS256.txt`, whose clearsigned `.asc` was checked against nodejs/release-keys: good signature, Marco Ippolito's
+  key). `ensure-node` (assembly profile, `initialize`) downloads the four archives into the local repository as
+  `org.nodejs:node:22.22.0:<type>:<classifier>` when missing and checks them at every build; `unpack-node` unpacks
+  them into `target/installer/node_files`. `-Dnode.ensure.skip=true` skips the download and checks. CLAUDE.md, "The
+  bundled Node", has the details and how to bump the version.
+- `src/main/resources/node.xml`, included by `CollectEarthWithSaiku.xml` and `CollectEarthUpdater.xml`: installs
+  `<installdir>/node/node` (`node.exe`) and `node/LICENSE`; on macOS both binaries are packed and the machine's is
+  installed. The old `node/` is set aside and restored on a cancelled installation, as `java.xml` does with the JRE.
+- **Only `node` and `LICENSE` ship:** npm, npx, corepack and the headers are trimmed, since nothing runs npm on the
+  user's computer (Task 2 bundles the server).
+- **Dev builds:** `dev-run.cmd` is unchanged. It runs from `collect-earth-app`, and both layouts are flat, so Task 5
+  looks for `node/node[.exe]` (installed) and then `src/main/frontend/node/node[.exe]` (frontend-maven-plugin), both
+  relative to the working folder.
+- **Measured.** "Compressed" is xz -9 of what ships, an estimate of InstallBuilder's lzma:
+
+  | Platform | Archive downloaded | Unpacked in full | What ships, on disk | Compressed (installer growth) |
+  |---|---|---|---|---|
+  | Windows x64 (zip) | 35.6 MB | 99.0 MB | 85.9 MB | 21.9 MB |
+  | Linux x64 (tar.xz) | 30.8 MB | 197.7 MB | 123.5 MB | 28.4 MB |
+  | macOS arm64 (tar.gz) | 49.9 MB | 185.9 MB | 111.8 MB | 23.2 MB |
+  | macOS x64 (tar.gz) | 51.1 MB | 188.4 MB | 114.3 MB | 24.8 MB |
+
+  The .dmg and the macOS updater carry both, about 48 MB more. Each updater grows by the same amount as its
+  installer, at every release, since Node is not part of the updater baseline.
+- **Still to check on the build machine:** one `-P assembly` build with InstallBuilder (the actual size of each
+  installer, and that `node.xml` installs `node/` and leaves out the other macOS binary), and an update over an
+  installation.
 
 ### Task 2: The server as files Node runs directly
 - Bundle `collect-earth-cloud/src/index.ts` and `src/qualityWorker.ts` with esbuild into `dist/server.mjs` and

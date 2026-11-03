@@ -196,6 +196,49 @@ and the build of the updaters stops unless that is the release before it (the la
 `HEAD`), so a missed prune is found at the next release. It also stops when `earth-libs` lacks a library of
 `CollectEarth.jar`'s Class-Path.
 
+#### The bundled Node
+
+The installers and updaters also bundle Node.js, which runs the local dashboard
+(`docs/plans/2026-11-03-desktop-dashboard.md`). `node.version` in `collect-earth-installer/pom.xml` is the same version
+as the `nodeVersion` of frontend-maven-plugin in `collect-earth-app/pom.xml` (22.22.0): change both together.
+
+- **What is downloaded:** the official archives of `https://nodejs.org/dist/v<version>/`: `win-x64.zip`,
+  `linux-x64.tar.xz`, `darwin-arm64.tar.gz` and `darwin-x64.tar.gz` (~36, 31, 50 and 51 MB), with the release's
+  `SHASUMS256.txt`.
+- **Where it goes:** the `ensure-node` execution of the `assembly` profile (maven-antrun-plugin, at `initialize`) puts
+  them in the local repository as `org.nodejs:node:<version>:<type>:<classifier>`, as the JREs are, and downloads only
+  what is missing there. At every build it checks `SHASUMS256.txt` against `node.shasums.sha256` of the pom, and each
+  archive against `SHASUMS256.txt`, and fails on a mismatch (a bad cached archive is deleted, so the next build
+  downloads it again). Ant's `get` uses the JVM's proxy settings (`-Dhttps.proxyHost`/`-Dhttps.proxyPort`, e.g. in
+  `MAVEN_OPTS`), not the proxies of `settings.xml`.
+- **What ships:** `unpack-node` unpacks only the `node` binary (`node.exe`) and its `LICENSE` into
+  `target/installer/node_files`; npm, npx, corepack and the headers are left out, since the dashboard is a bundled
+  server Node runs directly. `node.xml` (InstallBuilder) installs them as `<installdir>/node/node` (`node.exe` on
+  Windows) and `node/LICENSE`, the flat layout frontend-maven-plugin gives the developer builds' Node in
+  `collect-earth-app/src/main/frontend/node`, so the application finds both the same way (`dev-run` runs from
+  `collect-earth-app`). On disk: 86 MB on Windows, 124 MB on Linux, 112/114 MB on macOS arm64/x64.
+- **macOS:** the installer and updater are one for Intel and Apple silicon, so they carry both binaries and install the
+  one of the machine (`sysctl hw.optional.arm64`, which is right under Rosetta too). The binaries are Node's own,
+  signed with the Node.js Foundation's Developer ID; the build copies them unchanged. `node.exe` carries the OpenJS
+  Foundation's Authenticode signature.
+- **Updaters:** `CollectEarthUpdater.xml` includes `node.xml` in every updater (it is not part of the baseline of
+  `updater_payload.py`, which covers `earth-libs` and `resources` only), so a new Node reaches the installations. Like
+  `java.xml` with the JRE, `node.xml` renames the old `node` to `node.old` before copying, stops the installation if it
+  is in use (a running dashboard on Windows), and puts it back if the installation is cancelled. Nothing about the
+  autoupdate manifest changes.
+- **Skipping:** `-Dnode.ensure.skip=true` leaves out the download and the checks; the archives must then already be
+  in the local repository (once they are, `ensure-node` needs no network anyway).
+- **Moving to another version:** set `node.version` (and `nodeVersion` in `collect-earth-app/pom.xml`), then check the
+  release's signature and pin its `SHASUMS256.txt`:
+
+  ```bash
+  V=22.22.0
+  curl -sSO https://nodejs.org/dist/v$V/SHASUMS256.txt -O https://nodejs.org/dist/v$V/SHASUMS256.txt.asc
+  curl -sSo node-keys.kbx https://raw.githubusercontent.com/nodejs/release-keys/main/gpg/pubring.kbx
+  gpg --no-default-keyring --keyring ./node-keys.kbx --output signed.txt --decrypt SHASUMS256.txt.asc  # Good signature
+  cmp signed.txt SHASUMS256.txt && sha256sum SHASUMS256.txt   # the value of node.shasums.sha256
+  ```
+
 #### Recovering a `release:perform` that failed during the upload
 
 Artifacts are deployed to the Sonatype Central Portal through the OSSRH Staging API
@@ -322,7 +365,7 @@ Geospatial utilities for sampling and KML generation. Contains:
 - **KMZ Compression**: `KmzGenerator` for creating compressed KML files
 
 ### 4. collect-earth-installer
-Packaging and installer generation using Bitrock InstallBuilder. Produces Windows .exe, Linux .run, and macOS .dmg installers with bundled JRE.
+Packaging and installer generation using Bitrock InstallBuilder. Produces Windows .exe, Linux .run, and macOS .dmg installers with bundled JRE and Node.js (see "The bundled Node" above).
 
 ### 5. collect-earth-grid
 Grid generation utilities for systematic global sampling (Hibernate, JDBC, CSV backends). It is built with the rest of the reactor, but **nothing ships it**: neither `collect-earth-app` nor `collect-earth-installer` depends on it, so it is a developer tool rather than part of the application.

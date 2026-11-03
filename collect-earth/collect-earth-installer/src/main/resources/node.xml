@@ -1,0 +1,140 @@
+<component>
+    <!-- The Node.js runtime that runs the local dashboard (docs/plans/2026-11-03-desktop-dashboard.md), installed as
+         ${installdir}/node/node (node.exe on Windows) with its LICENSE: the layout frontend-maven-plugin gives the Node
+         of the developer builds (collect-earth-app/src/main/frontend/node), so both are found the same way.
+         The files come from the official archives of nodejs.org, checked and unpacked by the build into node_files
+         (ensure-node and unpack-node in pom.xml); NODE_VERSION_SET_POM is node.version of the pom.
+         Included by the installer and by the updater, so a new Node reaches the existing installations. -->
+    <name>node</name>
+    <description>Node.js runtime</description>
+    <canBeEdited>0</canBeEdited>
+    <selected>1</selected>
+    <show>0</show>
+
+    <folderList>
+        <folder>
+            <description>Node.js - Microsoft Windows</description>
+            <destination>${installdir}/node</destination>
+            <name>node_windows</name>
+            <platforms>windows-x64 windows</platforms>
+            <distributionFileList>
+                <distributionFile>
+                    <origin>node_files/node-vNODE_VERSION_SET_POM-win-x64/node.exe</origin>
+                </distributionFile>
+                <distributionFile>
+                    <origin>node_files/node-vNODE_VERSION_SET_POM-win-x64/LICENSE</origin>
+                </distributionFile>
+            </distributionFileList>
+            <!-- As for the JRE (java.xml): the Windows installer is built for "windows" and packs this folder too -->
+            <shouldPackRuleList>
+                <compareText text="${platform_name}" logic="contains" value="windows"/>
+            </shouldPackRuleList>
+        </folder>
+        <folder>
+            <description>Node.js - Linux-x64</description>
+            <destination>${installdir}/node</destination>
+            <name>node_linux_x64</name>
+            <platforms>linux-x64</platforms>
+            <distributionFileList>
+                <distributionFile>
+                    <origin>node_files/node-vNODE_VERSION_SET_POM-linux-x64/bin/node</origin>
+                </distributionFile>
+                <distributionFile>
+                    <origin>node_files/node-vNODE_VERSION_SET_POM-linux-x64/LICENSE</origin>
+                </distributionFile>
+            </distributionFileList>
+        </folder>
+        <!-- macOS: one installer for Intel and Apple silicon (osxPlatforms), so it carries both and installs the one of
+             the machine (node_osx_arch, below). The binaries are Node's own, signed by the OpenJS Foundation. -->
+        <folder>
+            <description>Node.js - Mac OS X, Apple silicon</description>
+            <destination>${installdir}/node</destination>
+            <name>node_osx_arm64</name>
+            <platforms>osx</platforms>
+            <distributionFileList>
+                <distributionFile>
+                    <origin>node_files/node-vNODE_VERSION_SET_POM-darwin-arm64/bin/node</origin>
+                </distributionFile>
+                <distributionFile>
+                    <origin>node_files/node-vNODE_VERSION_SET_POM-darwin-arm64/LICENSE</origin>
+                </distributionFile>
+            </distributionFileList>
+            <ruleList>
+                <compareText text="${node_osx_arch}" logic="equals" value="arm64"/>
+            </ruleList>
+        </folder>
+        <folder>
+            <description>Node.js - Mac OS X, Intel</description>
+            <destination>${installdir}/node</destination>
+            <name>node_osx_x64</name>
+            <platforms>osx</platforms>
+            <distributionFileList>
+                <distributionFile>
+                    <origin>node_files/node-vNODE_VERSION_SET_POM-darwin-x64/bin/node</origin>
+                </distributionFile>
+                <distributionFile>
+                    <origin>node_files/node-vNODE_VERSION_SET_POM-darwin-x64/LICENSE</origin>
+                </distributionFile>
+            </distributionFileList>
+            <ruleList>
+                <compareText text="${node_osx_arch}" logic="equals" value="x64"/>
+            </ruleList>
+        </folder>
+    </folderList>
+
+    <parameterList>
+        <stringParameter name="node_version" value="NODE_VERSION_SET_POM" ask="0" />
+        <stringParameter name="node_osx_arch" value="x64" ask="0" />
+    </parameterList>
+
+    <readyToInstallActionList>
+        <!-- Apple silicon or Intel. hw.optional.arm64 is 1 on Apple silicon even when the installer runs under Rosetta
+             (uname -m would then say x86_64), and does not exist on Intel Macs, where sysctl fails. -->
+        <runProgram>
+            <program>sysctl</program>
+            <programArguments>-n hw.optional.arm64</programArguments>
+            <abortOnError>0</abortOnError>
+            <showMessageOnError>0</showMessageOnError>
+            <ruleList>
+                <platformTest type="osx"/>
+            </ruleList>
+        </runProgram>
+        <setInstallerVariable name="node_osx_arch" value="arm64">
+            <ruleList>
+                <platformTest type="osx"/>
+                <compareText text="${program_stdout}" logic="contains" value="1"/>
+            </ruleList>
+        </setInstallerVariable>
+
+        <!-- The old Node is set aside right before the files are copied, as java.xml does with the JRE: a rename fails
+             as a whole while node.exe runs (a dashboard left running by a Collect Earth that crashed), so the
+             installation stops with the old one intact, and installationAbortedActionList puts it back if it stops
+             later. Replaced as a whole, so nothing of an older Node stays mixed in with the new one. -->
+        <actionGroup>
+            <actionList>
+                <deleteFile path="${installdir}/node.old" abortOnError="0" showMessageOnError="0" />
+                <renameFile>
+                    <origin>${installdir}/node</origin>
+                    <destination>${installdir}/node.old</destination>
+                    <progressText>Removing old Node.js</progressText>
+                    <abortOnError>1</abortOnError>
+                    <showMessageOnError>1</showMessageOnError>
+                    <customErrorMessage>The Node.js of Collect Earth is still in use (its dashboard). Close Collect Earth, or end its node process, then run the installation again.</customErrorMessage>
+                </renameFile>
+            </actionList>
+            <ruleList>
+                <fileExists path="${installdir}/node" />
+            </ruleList>
+        </actionGroup>
+    </readyToInstallActionList>
+
+    <postInstallationActionList>
+        <deleteFile path="${installdir}/node.old" abortOnError="0" showMessageOnError="0" />
+        <changePermissions files="${installdir}/node/node" permissions="0755" abortOnError="0" showMessageOnError="0">
+            <ruleList>
+                <fileExists path="${installdir}/node/node" />
+                <platformTest negate="1" type="windows" />
+            </ruleList>
+        </changePermissions>
+    </postInstallationActionList>
+</component>

@@ -8,6 +8,7 @@ This module builds platform installers and updater metadata. Treat it as release
 
 - Installer resources: `src/main/resources`
 - Main InstallBuilder definitions: `CollectEarthWithSaiku.xml`, `CollectEarthUpdater.xml`, and `CollectEarthMain.xml`
+- Bundled runtimes: `java.xml` (the Temurin JRE) and `node.xml` (Node.js, see "The bundled Node" in `../CLAUDE.md`), unpacked by the `assembly` profile into `target/installer/jre_files` and `node_files`
 - Update metadata: `collectEarthUpdateJRE21.xml` (2.0 on), `collectEarthUpdateJRE11.xml`, `collectEarthUpdateMvn.xml`, and `update.ini`
 - Installer and launcher images: `*.ico`, `*.icns`, `*.png`, and `of-logo.svg`
 

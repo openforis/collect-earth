@@ -25,6 +25,10 @@
 		<include>
 			<file>java.xml</file>
 		</include>
+		<!-- The Node.js runtime of the local dashboard, as ${installdir}/node -->
+		<include>
+			<file>node.xml</file>
+		</include>
 		<include>
 			<file>CollectEarthMain.xml</file>
 		</include>
@@ -118,6 +122,16 @@
 			</actionList>
 			<ruleList>
 				<fileExists path="${installdir}/java.old" />
+			</ruleList>
+		</actionGroup>
+		<!-- The same for the Node.js that node.xml set aside -->
+		<actionGroup>
+			<actionList>
+				<deleteFile path="${installdir}/node" abortOnError="0" showMessageOnError="0" />
+				<renameFile origin="${installdir}/node.old" destination="${installdir}/node" abortOnError="0" />
+			</actionList>
+			<ruleList>
+				<fileExists path="${installdir}/node.old" />
 			</ruleList>
 		</actionGroup>
 	</installationAbortedActionList>

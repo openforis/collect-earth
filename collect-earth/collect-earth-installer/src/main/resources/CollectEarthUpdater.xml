@@ -19,6 +19,12 @@
     	<include>
 			<file>java.xml</file>
 		</include>
+		<!-- The Node.js runtime of the local dashboard, in every updater (unlike java.xml): it is small next to the JRE,
+		     and it is how a new node.version, or the first one, reaches the installations. It replaces ${installdir}/node
+		     as a whole. -->
+		<include>
+			<file>node.xml</file>
+		</include>
 
         <component>
             <name>default</name>
@@ -254,6 +260,16 @@
             </actionList>
             <ruleList>
                 <fileExists path="${installdir}/java.old" />
+            </ruleList>
+        </actionGroup>
+        <!-- The same for the Node.js that node.xml set aside -->
+        <actionGroup>
+            <actionList>
+                <deleteFile path="${installdir}/node" abortOnError="0" showMessageOnError="0" />
+                <renameFile origin="${installdir}/node.old" destination="${installdir}/node" abortOnError="0" />
+            </actionList>
+            <ruleList>
+                <fileExists path="${installdir}/node.old" />
             </ruleList>
         </actionGroup>
     </installationAbortedActionList>

@@ -24,6 +24,25 @@
 		<jre.major.version>21</jre.major.version>
 		<python.executable>python</python.executable>
 		<jre.ensure.skip>false</jre.ensure.skip>
+		<!-- The Node.js runtime bundled with the installers and updaters (node.xml), which runs the local dashboard. The
+		     same version as the frontend-maven-plugin of collect-earth-app, so that the desktop runs what it was built
+		     and tested with. The official archives of nodejs.org/dist, one per platform the installers cover (macOS
+		     both arm64 and x64: the installer installs the one of the machine), are kept in the local repository as
+		     org.nodejs:node:<version>:<type>:<classifier>, like the JREs, with the SHASUMS256.txt of the release:
+		     the ensure-node execution of the assembly profile downloads what is missing, and checks every archive
+		     against SHASUMS256.txt at each build, failing the build on a mismatch.
+
+		     node.shasums.sha256 is the SHA-256 of that SHASUMS256.txt itself, so that what the archives are checked
+		     against is pinned here and not just whatever the server answers. To move to another Node: set
+		     node.version, then check the new SHASUMS256.txt.asc with the keys of github.com/nodejs/release-keys
+		     (gpg verifies the clearsigned file, whose text must be SHASUMS256.txt) and put the SHA-256 of
+		     SHASUMS256.txt here. CLAUDE.md, "The bundled Node", has the commands.
+		     -Dnode.ensure.skip=true leaves out the download and the checks: the archives must then be in the
+		     local repository already (once they are, the step needs no network anyway). -->
+		<node.version>22.22.0</node.version>
+		<node.shasums.sha256>782c13291346fa7b5ac3ce3d6f0a466a1c9c317a30471a3f65f9ab7f6f7156c0</node.shasums.sha256>
+		<node.dist.url>https://nodejs.org/dist</node.dist.url>
+		<node.ensure.skip>false</node.ensure.skip>
 		<!-- installer file names -->
 		<windows-installer-file-name>CollectEarth-${project.version}-windows-installer.exe</windows-installer-file-name>
 		<linux-x64-installer-file-name>CollectEarth-${project.version}-linux-x64-installer.run</linux-x64-installer-file-name>
@@ -198,6 +217,63 @@
 								</configuration>
 							</execution>
 
+							<!-- 1b. the Node.js runtime of each platform, put in the local repository by ensure-node.
+							     Only the node binary and its LICENSE: npm, npx, corepack and the C headers are left out,
+							     as the dashboard is a bundled server that Node runs directly and nothing is installed
+							     with npm on the user's computer. The binaries are copied as they are, never stripped:
+							     the macOS ones carry Node's code signature. -->
+							<execution>
+								<id>unpack-node</id>
+								<phase>process-sources</phase>
+								<goals>
+									<goal>unpack</goal>
+								</goals>
+								<configuration>
+									<artifactItems>
+										<artifactItem>
+											<groupId>org.nodejs</groupId>
+											<artifactId>node</artifactId>
+											<version>${node.version}</version>
+											<classifier>win-x64</classifier>
+											<type>zip</type>
+											<includes>*/node.exe,*/LICENSE</includes>
+											<overWrite>false</overWrite>
+											<outputDirectory>${installer-build-path}/node_files</outputDirectory>
+										</artifactItem>
+										<artifactItem>
+											<groupId>org.nodejs</groupId>
+											<artifactId>node</artifactId>
+											<version>${node.version}</version>
+											<classifier>linux-x64</classifier>
+											<type>tar.xz</type>
+											<includes>*/bin/node,*/LICENSE</includes>
+											<overWrite>false</overWrite>
+											<outputDirectory>${installer-build-path}/node_files</outputDirectory>
+										</artifactItem>
+										<artifactItem>
+											<groupId>org.nodejs</groupId>
+											<artifactId>node</artifactId>
+											<version>${node.version}</version>
+											<classifier>darwin-arm64</classifier>
+											<type>tar.gz</type>
+											<includes>*/bin/node,*/LICENSE</includes>
+											<overWrite>false</overWrite>
+											<outputDirectory>${installer-build-path}/node_files</outputDirectory>
+										</artifactItem>
+										<artifactItem>
+											<groupId>org.nodejs</groupId>
+											<artifactId>node</artifactId>
+											<version>${node.version}</version>
+											<classifier>darwin-x64</classifier>
+											<type>tar.gz</type>
+											<includes>*/bin/node,*/LICENSE</includes>
+											<overWrite>false</overWrite>
+											<outputDirectory>${installer-build-path}/node_files</outputDirectory>
+										</artifactItem>
+									</artifactItems>
+								</configuration>
+							</execution>
+
 						</executions>
 					</plugin>
 
@@ -248,6 +324,7 @@
 								<include>${installbuilder-file-name}</include>
 								<include>CollectEarthMain.xml</include>
 								<include>java.xml</include>
+								<include>node.xml</include>
 								<include>earth.properties_initial</include>
 								<include>earth.properties_forced_update</include>
 								<include>${installbuilder-file-name-updater}</include>
@@ -291,6 +368,10 @@
 								<replacement>
 									<token>JAVA_MAJOR_VERSION_SET_POM</token>
 									<value>${jre.major.version}</value>
+								</replacement>
+								<replacement>
+									<token>NODE_VERSION_SET_POM</token>
+									<value>${node.version}</value>
 								</replacement>
 
 
@@ -556,6 +637,85 @@
 							</dependency>
 						</dependencies>
 						<executions>
+							<!-- 0c. the Node.js archives in the local repository, before unpack-node needs them, like
+							     ensure-jres for the JREs: downloaded from nodejs.org the first time a machine builds the
+							     installers, then only checked. SHASUMS256.txt is checked against node.shasums.sha256, and
+							     every archive, cached or just downloaded, against SHASUMS256.txt; a mismatch fails the
+							     build (a bad cached file is deleted, so the next build downloads it again). Ant's <get>
+							     goes through the proxy of the JVM (https.proxyHost / https.proxyPort, e.g. in
+							     MAVEN_OPTS), not the one of settings.xml. -Dnode.ensure.skip=true leaves it out. -->
+							<execution>
+								<id>ensure-node</id>
+								<phase>initialize</phase>
+								<goals>
+									<goal>run</goal>
+								</goals>
+								<configuration>
+									<skip>${node.ensure.skip}</skip>
+									<target xmlns:if="ant:if" xmlns:unless="ant:unless">
+										<property name="node.repo" location="${settings.localRepository}/org/nodejs/node/${node.version}" />
+										<property name="node.url" value="${node.dist.url}/v${node.version}" />
+										<property name="node.shasums" location="${node.repo}/node-${node.version}-SHASUMS256.txt" />
+										<property name="node.download" location="${project.build.directory}/node-download" />
+										<mkdir dir="${node.repo}" />
+										<mkdir dir="${node.download}" />
+										<!-- A pom, as install:install-file -DgeneratePom=true writes, so that Maven does not
+										     look for one in the remote repositories -->
+										<available property="node.pom.present" file="${node.repo}/node-${node.version}.pom" />
+										<echo file="${node.repo}/node-${node.version}.pom" unless:set="node.pom.present" message="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;${line.separator}&lt;project xmlns=&quot;http://maven.apache.org/POM/4.0.0&quot;&gt;${line.separator}  &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;${line.separator}  &lt;groupId&gt;org.nodejs&lt;/groupId&gt;${line.separator}  &lt;artifactId&gt;node&lt;/artifactId&gt;${line.separator}  &lt;version&gt;${node.version}&lt;/version&gt;${line.separator}  &lt;description&gt;The official Node.js archives of ${node.url}, put here by the ensure-node execution of collect-earth-installer&lt;/description&gt;${line.separator}&lt;/project&gt;${line.separator}" />
+
+										<!-- SHASUMS256.txt of the release, checked against the pom -->
+										<available property="node.shasums.cached" file="${node.shasums}" />
+										<echo level="info" message="Node ${node.version}: downloading ${node.url}/SHASUMS256.txt" unless:set="node.shasums.cached" />
+										<get src="${node.url}/SHASUMS256.txt" dest="${node.download}/SHASUMS256.txt" retries="3" unless:set="node.shasums.cached" />
+										<copy file="${node.download}/SHASUMS256.txt" tofile="${node.shasums}" unless:set="node.shasums.cached" />
+										<checksum file="${node.shasums}" algorithm="SHA-256" property="${node.shasums.sha256}" verifyproperty="node.shasums.ok" />
+										<delete file="${node.shasums}" unless:true="${node.shasums.ok}" />
+										<fail unless:true="${node.shasums.ok}" message="The SHASUMS256.txt of Node ${node.version} (${node.url}/SHASUMS256.txt) does not have the SHA-256 that node.shasums.sha256 gives in collect-earth-installer/pom.xml (${node.shasums.sha256}). After changing node.version, set node.shasums.sha256 to the SHA-256 of the new SHASUMS256.txt, once its signature is checked (CLAUDE.md, The bundled Node). If the version did not change, the file served is not the one of the release: do not build installers with it." />
+
+										<!-- Each archive: downloaded when missing, then checked against SHASUMS256.txt -->
+										<macrodef name="node-archive">
+											<attribute name="classifier" />
+											<attribute name="ext" />
+											<sequential>
+												<local name="na.name" />
+												<local name="na.file" />
+												<local name="na.cached" />
+												<local name="na.expected" />
+												<local name="na.ok" />
+												<property name="na.name" value="node-v${node.version}-@{classifier}.@{ext}" />
+												<property name="na.file" location="${node.repo}/node-${node.version}-@{classifier}.@{ext}" />
+												<loadfile srcfile="${node.shasums}" property="na.expected">
+													<filterchain>
+														<linecontainsregexp>
+															<regexp pattern="^[0-9a-f]{64}  node-v${node.version}-@{classifier}\.@{ext}$" />
+														</linecontainsregexp>
+														<tokenfilter>
+															<replaceregex pattern="^([0-9a-f]{64}).*$" replace="\1" />
+														</tokenfilter>
+														<striplinebreaks />
+													</filterchain>
+												</loadfile>
+												<fail unless="na.expected" message="SHASUMS256.txt of Node ${node.version} has no ${na.name}" />
+												<available property="na.cached" file="${na.file}" />
+												<echo level="info" message="Node ${node.version} @{classifier}: downloading ${node.url}/${na.name}" unless:set="na.cached" />
+												<get src="${node.url}/${na.name}" dest="${node.download}/${na.name}" retries="3" unless:set="na.cached" />
+												<move file="${node.download}/${na.name}" tofile="${na.file}" unless:set="na.cached" />
+												<checksum file="${na.file}" algorithm="SHA-256" property="${na.expected}" verifyproperty="na.ok" />
+												<echo level="info" message="Node ${node.version} @{classifier}: ${na.file}, SHA-256 matches SHASUMS256.txt" if:true="${na.ok}" />
+												<delete file="${na.file}" unless:true="${na.ok}" />
+												<fail unless:true="${na.ok}" message="${na.name} does not match the SHA-256 of SHASUMS256.txt (${na.expected}): it was deleted from ${node.repo}. Run the build again to download it again; if it fails again, the file served by ${node.url} is not the one of the release." />
+											</sequential>
+										</macrodef>
+										<node-archive classifier="win-x64" ext="zip" />
+										<node-archive classifier="linux-x64" ext="tar.xz" />
+										<node-archive classifier="darwin-arm64" ext="tar.gz" />
+										<node-archive classifier="darwin-x64" ext="tar.gz" />
+										<delete dir="${node.download}" quiet="true" />
+									</target>
+								</configuration>
+							</execution>
+
 							<!-- 5. move generated installers into the target folder -->
 							<execution>
 								<id>run-ant-move-installer-files</id>
