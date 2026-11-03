@@ -197,19 +197,30 @@ return (function () {
     }
 
     // Google Earth Web starting (a page load) writes the globe seen from afar, @0,0 at 22,000 km, before it flies to
-    // the camera of the URL: until the outline was drawn once, such a camera is waited past, not drawn from
+    // the camera of the URL: such a camera is waited past, not drawn from, until the outline was drawn once, for
+    // GLOBE_WAIT_MILLIS at most and only while the user has not moved the camera. A globe the user zoomed out to is
+    // shown as out of view, with the way back to the plot.
+    var GLOBE_WAIT_MILLIS = 15000;
+    var injectedAt = Date.now();
     var drawnOnce = false;
+    var userMovedCamera = false;
     function isGlobe(cam) {
-        return cam.dist > 1e6 || (cam.lat === 0 && cam.lon === 0);
+        return cam.dist > 1e6;
+    }
+    function isStartingGlobe(cam) {
+        return !drawnOnce && !userMovedCamera && Date.now() - injectedAt < GLOBE_WAIT_MILLIS
+            && (isGlobe(cam) || (cam.lat === 0 && cam.lon === 0));
     }
 
     // From the camera in the URL, or from the one given when the URL is known to be behind (see nearCamera)
     function draw(at) {
         if (at) heldCam = { cam: at, href: window.location.href };
         var cam = at || (heldCam && heldCam.href === window.location.href ? heldCam.cam : parseCamera());
-        if (cam && !drawnOnce && isGlobe(cam)) { hide("", false); stableCount = 0; return; }
+        if (cam && isStartingGlobe(cam)) { hide("", false); stableCount = 0; return; }
         drawnOnce = true;
         if (!cam) { hide(LABELS.hintUnavailable, true); return; }
+        // the plot a dot at the centre of the globe: no outline to see
+        if (isGlobe(cam)) { hide(LABELS.hintOutOfView, true); return; }
         if (Math.abs(cam.tilt) > 5) { hide(LABELS.hintTilted, true); return; }
         while (svg.firstChild) svg.removeChild(svg.firstChild);
         var drawn = 0;
@@ -337,6 +348,7 @@ return (function () {
     var moving = null;
 
     function startMoving() {
+        userMovedCamera = true;
         moving = { from: window.location.href, until: Date.now() + MOVE_TIMEOUT_MILLIS };
         if (flight) userMoved = true;
         afterJump = null;
@@ -415,6 +427,7 @@ return (function () {
     function onPress(e) {
         if (onBar(e)) return;
         pressed = true;
+        userMovedCamera = true;
         if (flight) userMoved = true;
         afterJump = null;
         heldCam = null;
