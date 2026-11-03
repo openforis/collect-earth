@@ -179,6 +179,22 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
         </Box>
       )}
 
+      {/* Over the questions, never scrolled away: a plot submitted already, which the first change takes back, and then
+          the call to submit it again */}
+      {state.unsubmitted ? (
+        <Alert severity="warning" data-testid="entry-unsubmitted" sx={BANNER_SX}
+          action={
+            <Button color="inherit" variant="outlined" size="small" endIcon={state.submitting ? <CircularProgress size={14} color="inherit" /> : <SendIcon />}
+              disabled={state.submitting} onClick={() => void store.submit()} data-testid="entry-resubmit" sx={{ whiteSpace: "nowrap" }}>
+              {t("entry.resubmit")}
+            </Button>
+          }>
+          {t("entry.unsubmitted")}
+        </Alert>
+      ) : state.alreadyFilled && (
+        <Alert severity="info" onClose={store.dismissAlreadyFilled} data-testid="entry-already-filled" sx={BANNER_SX}>{t("entry.alreadyFilled")}</Alert>
+      )}
+
       {/* the balloon's grey panel around the questions, edge to edge in a narrow form */}
       <Box ref={content} sx={{ flex: 1, overflowY: "auto", mx: 1, mt: 1, px: 2, pt: 1.5, pb: 2,
         bgcolor: "balloon.panel", borderRadius: 1.5, [NARROW]: { mx: 0, mt: 0.75, px: 1.25, pt: 1.25, pb: 1.5, borderRadius: 0 } }}>
@@ -186,9 +202,6 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
           {state.serverDown && (
             <Alert severity="warning" icon={<CloudOffOutlinedIcon />} data-testid="entry-server-down"
               action={<Button color="inherit" size="small" onClick={store.retry}>{t("entry.retry")}</Button>}>{t("entry.serverDown")}</Alert>
-          )}
-          {state.alreadyFilled && (
-            <Alert severity="info" onClose={store.dismissAlreadyFilled} data-testid="entry-already-filled">{t("entry.alreadyFilled")}</Alert>
           )}
           {state.submitErrors && state.submitErrors.length > 0 && <ErrorSummary store={store} state={state} model={model} onGo={goToField} />}
           {model.unsupported.length > 0 && state.tab === firstStep && (
@@ -295,6 +308,9 @@ function ErrorSummary({ store, state, model, onGo }: { store: FormStore; state: 
     </Alert>
   );
 }
+
+/** The banner pinned over the questions */
+const BANNER_SX = { mx: 1, mt: 1, alignItems: "center", [NARROW]: { mx: 0.5, mt: 0.5 } } as const;
 
 /** Next and Submit: the one button of the footer that moves the work on, big enough to hit without looking */
 const STEP_BUTTON_SX = { minWidth: 128, height: 40 } as const;

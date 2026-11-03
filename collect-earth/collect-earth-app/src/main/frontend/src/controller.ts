@@ -7,7 +7,7 @@ import { NoMapEngine } from "./engines/NoMapEngine";
 import { IN_PANEL } from "./panel";
 import { IN_HOME } from "./home";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
-import { byId, footprintCorners, indexPlots, neighbour, nextUnfinished, normalizeStatus, plotLabel, plotParam, plotsGone, plotsNear, plotToRestore, surveyView,
+import { byId, footprintCorners, indexPlots, leftUnsubmitted, neighbour, nextUnfinished, normalizeStatus, plotLabel, plotParam, plotsGone, plotsNear, plotToRestore, surveyView,
   sameView, visibleIds, withoutPlotParam } from "./plots";
 import type { MessageKey } from "./i18n";
 import { reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
@@ -71,6 +71,8 @@ export interface UiState {
   imagery: ImageryStatus;
   /** The plot just submitted and the one the list moved to (null: none left), for a toast; key tells two apart. */
   submitted: { key: number; plotId: string; next: string | null } | null;
+  /** A plot changed after it was submitted, and left without submitting it again, for a notice; key tells two apart. */
+  unsubmitted: { key: number; plotId: string } | null;
 }
 
 interface Plot { feature: PlotFeature; center: LatLng; rings: LatLng[][] }
@@ -104,6 +106,8 @@ export class MapController {
   private fellBack = false;
   /** The plot to select once the plots have loaded: the map was reopened on it (see plotParam). */
   private restorePlot: string | null = null;
+  /** The plot open, when it was changed after it had been submitted: no longer submitted until it is again */
+  private changedAfterSubmit: string | null = null;
 
   constructor() {
     this.state = {
@@ -111,7 +115,7 @@ export class MapController {
       filter: this.prefs.filter ?? "all", query: "",
       sidebarCollapsed: !!this.prefs.sidebarCollapsed, formWidth: this.prefs.formWidth ?? 560,
       banner: null, viewerType: "", language: "en", baseLayers: [], baseLayer: "", gew: null,
-      imagery: { sources: [], visible: null }, submitted: null,
+      imagery: { sources: [], visible: null }, submitted: null, unsubmitted: null,
     };
   }
 
@@ -308,10 +312,13 @@ export class MapController {
     // ignore anything but the active plot (stale iframe race)
     if (!data?.type || data.plotId == null || data.plotId !== this.state.activeId || !(data.plotId in this.plots)) return;
     if (data.type === "ce:saved") {
+      if (this.changedAfterSubmit === data.plotId) this.changedAfterSubmit = null;
       this.applyStatuses({ [data.plotId]: "saved" });
       const next = this.goToNextUnfinished();
       this.set({ submitted: { key: Date.now(), plotId: data.plotId, next } });
     } else if (data.type === "ce:dirty") {
+      // the first change to a plot submitted: the server no longer has it submitted
+      if (this.state.statuses[data.plotId] === "saved") this.changedAfterSubmit = data.plotId;
       this.applyStatuses({ [data.plotId]: "partial" });
     }
   };
@@ -322,6 +329,7 @@ export class MapController {
     if (!plot || !this.engine) return;
     const previous = this.state.activeId;
     const wasClosed = this.state.formUrl == null;
+    if (!wasClosed) this.noticeIfUnsubmitted(id);
     // Render the form panel synchronously, then resize the map BEFORE moving it, so the
     // plot ends up centered in the remaining map area.
     flushSync(() => this.set({ activeId: id, formUrl: formUrl(plot.feature, this.webForm, this.state.language) }));
@@ -349,6 +357,28 @@ export class MapController {
     if (this.state.submitted) this.set({ submitted: null });
   };
 
+  /**
+   * The form leaves the plot open, for plot `going` or for none: if it was changed after it had been submitted, a notice
+   * says it is no longer submitted, with the way back to it. Navigation goes on: it is only told.
+   */
+  private noticeIfUnsubmitted(going: string | null): void {
+    const plotId = leftUnsubmitted(this.changedAfterSubmit, this.state.activeId, going);
+    if (!plotId) return;
+    this.changedAfterSubmit = null;
+    this.set({ unsubmitted: { key: Date.now(), plotId } });
+  }
+
+  dismissUnsubmitted = (): void => {
+    if (this.state.unsubmitted) this.set({ unsubmitted: null });
+  };
+
+  /** Back to the plot the notice is about, which closes it */
+  backToUnsubmitted = (): void => {
+    const plotId = this.state.unsubmitted?.plotId;
+    this.set({ unsubmitted: null });
+    if (plotId && plotId in this.plots) this.selectPlot(plotId);
+  };
+
   /** Previous/next plot among those currently shown in the list (all plots if none). */
   neighbourOf(id: string | null, step: 1 | -1): string | null {
     const { order, labels, statuses, filter, query } = this.state;
@@ -363,6 +393,7 @@ export class MapController {
 
   closeForm = (): void => {
     if (this.state.formUrl == null) return;
+    this.noticeIfUnsubmitted(null);
     flushSync(() => this.set({ formUrl: null }));
     this.engine?.invalidateSize();
   };

@@ -28,6 +28,8 @@ export interface FormState {
   submitted: boolean;
   /** opened on a plot that had already been submitted */
   alreadyFilled: boolean;
+  /** submitted (when opened, or since), then changed: no longer submitted until it is submitted again */
+  unsubmitted: boolean;
   /**
    * what the last Submit found unfinished, as it found it: the form lists what is still left of it until the next submit
    */
@@ -96,7 +98,7 @@ export class FormStore {
   constructor(placemarkId: string) {
     this.state = {
       phase: "loading", failure: null, model: null, placemarkId, infos: {}, pending: {}, tab: 0, saveState: "idle",
-      serverDown: false, submitted: false, alreadyFilled: false, submitErrors: null, submitting: false, attempted: false,
+      serverDown: false, submitted: false, alreadyFilled: false, unsubmitted: false, submitErrors: null, submitting: false, attempted: false,
       entityBusy: null, entityFailure: null, incomplete: false,
     };
   }
@@ -195,7 +197,7 @@ export class FormStore {
         }
       }
     }
-    if (this.state.submitted) patch.submitted = false;
+    if (this.state.submitted) Object.assign(patch, { submitted: false, unsubmitted: true });
     // the operator just answered: drop the field's error now, the server's answer brings it back if it stands
     const info = this.state.infos[name];
     if (info?.inError) patch.infos = { ...this.state.infos, [name]: { ...info, inError: false, errorMessage: null } };
@@ -333,7 +335,7 @@ export class FormStore {
     if (!result || !result.success) return false;
     // The server only keeps actively_saved when the whole record is valid (AbstractEarthSurveyService)
     if (result.activelySaved) {
-      this.set({ submitted: true, submitErrors: null });
+      this.set({ submitted: true, unsubmitted: false, submitErrors: null });
       this.post("ce:saved");
       return true;
     }
@@ -357,7 +359,8 @@ export class FormStore {
     try {
       const result = await postForm(path, body);
       if (result.success) {
-        this.set({ infos: mergeInfos(this.state.infos, result, false), serverDown: false, submitted: false });
+        this.set({ infos: mergeInfos(this.state.infos, result, false), serverDown: false, submitted: false,
+          unsubmitted: this.state.unsubmitted || this.state.submitted });
       } else {
         this.set({ saveState: "error", entityFailure: { entity, action, message: result.message ?? "" } });
       }

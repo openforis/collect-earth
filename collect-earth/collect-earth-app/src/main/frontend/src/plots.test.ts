@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { byId, countStatuses, footprintCorners, indexPlots, heightForZoom, labelOfFeature, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear,
+import { byId, countStatuses, footprintCorners, indexPlots, heightForZoom, labelOfFeature, leftUnsubmitted, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear,
   MAX_VIEW_HEIGHT, plotLabel, plotToRestore, plotsGone, sameView, surveyView, withoutPlotParam,
   visibleIds, zoomForHeight } from "./plots";
 import type { PlotStatus } from "./types";
@@ -82,6 +82,19 @@ describe("nextUnfinished", () => {
   it("returns null when everything is completed", () => {
     expect(nextUnfinished(["a"], { a: "saved" }, null)).toBeNull();
     expect(nextUnfinished([], {}, null)).toBeNull();
+  });
+});
+
+describe("leftUnsubmitted", () => {
+  it("is the plot changed after it was submitted, when the form leaves it for another plot or closes", () => {
+    expect(leftUnsubmitted("p1", "p1", "p2")).toBe("p1");
+    expect(leftUnsubmitted("p1", "p1", null)).toBe("p1");
+  });
+  it("is none when the plot open again is the same, another plot is left, or nothing was changed", () => {
+    expect(leftUnsubmitted("p1", "p1", "p1")).toBeNull();
+    expect(leftUnsubmitted("p1", "p2", "p3")).toBeNull();
+    expect(leftUnsubmitted(null, "p1", "p2")).toBeNull();
+    expect(leftUnsubmitted("p1", null, "p1")).toBeNull();
   });
 });
 

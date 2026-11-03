@@ -3,6 +3,9 @@ import Box from "@mui/material/Box";
 import GlobalStyles from "@mui/material/GlobalStyles";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import CloseIcon from "@mui/icons-material/Close";
 import type { MapController } from "./controller";
 import { plotLabel } from "./plots";
 import { I18nContext, translator } from "./i18n";
@@ -32,6 +35,8 @@ const MIN_MAP_WIDTH = 360;
 const COMPACT_BAR_WIDTH = 760;
 /** How long the toast of a submitted plot stays. */
 const TOAST_MILLIS = 3000;
+/** How long the notice of a plot left no longer submitted stays: it has a button, and a decision to make */
+const UNSUBMITTED_MILLIS = 10000;
 
 export function App({ controller }: { controller: MapController }) {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
@@ -111,6 +116,24 @@ export function App({ controller }: { controller: MapController }) {
               transformOrigin: "left", "@keyframes ce-toast-time": { from: { transform: "scaleX(1)" }, to: { transform: "scaleX(0)" } },
               animation: `ce-toast-time ${TOAST_MILLIS}ms linear forwards`,
             }} />
+          </Alert>
+        </Snackbar>
+      )}
+      {/* After the submitted toast in the page, so that it shows over it; the navigation went on, this only tells */}
+      {state.unsubmitted && (
+        <Snackbar key={state.unsubmitted.key} open autoHideDuration={UNSUBMITTED_MILLIS} onClose={(_, reason) => {
+          if (reason !== "clickaway") controller.dismissUnsubmitted();
+        }} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>
+          <Alert severity="warning" variant="filled" onClose={controller.dismissUnsubmitted} data-testid="unsubmitted-notice"
+            action={<>
+              <Button color="inherit" size="small" onClick={controller.backToUnsubmitted} data-testid="unsubmitted-back">
+                {t("toast.backToPlot")}
+              </Button>
+              <IconButton color="inherit" size="small" aria-label={t("toast.close")} onClick={controller.dismissUnsubmitted}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </>}>
+            {t("toast.unsubmitted", { id: plotLabel(state.labels, state.unsubmitted.plotId) })}
           </Alert>
         </Snackbar>
       )}

@@ -85,6 +85,14 @@ export function nextUnfinished(order: string[], statuses: Record<string, PlotSta
   return null;
 }
 
+/**
+ * The plot to tell the user is no longer submitted as the form leaves it, for another plot (`going`) or for none (null):
+ * `changed`, the plot open that was changed after it had been submitted, when it is the one left.
+ */
+export function leftUnsubmitted(changed: string | null, leaving: string | null, going: string | null): string | null {
+  return changed != null && changed === leaving && going !== leaving ? changed : null;
+}
+
 /** Neighbour of `fromId` among `ids` (step +1/-1); null at the ends. When `fromId` is
  *  not among `ids`, the first (or last) id is returned. */
 export function neighbour(ids: string[], fromId: string | null, step: 1 | -1): string | null {
