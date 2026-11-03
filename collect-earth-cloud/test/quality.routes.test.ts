@@ -183,7 +183,9 @@ describe('quality routes', () => {
     expect(set.statusCode, set.body).toBe(200);
     expect(set.json()).toMatchObject({ plot: '3', decision: 'check', comment: 'the check saw the river', decidedBy: null });
     expect(typeof set.json().decidedAt).toBe('number');
-    const odd = 'plot/with ,odd chars';
+    // A plot in no plot file needs a record to be decided (M-2): its first assessment.
+    const odd = 'plot/with odd chars';
+    expect((await batchRequest(ctx.app, pid, project.projectToken, [envelope({ recordKey: `${odd},1`, operator: 'ana', summary: { collect_code_round: '1' } })])).statusCode).toBe(200);
     expect((await send('PUT', `/quality/decisions/${encodeURIComponent(odd)}`, { decision: 'recheck' })).json()).toMatchObject({ plot: odd, comment: null });
     expect((await send('PUT', '/quality/decisions/3', { decision: 'first', comment: '' })).json()).toMatchObject({ decision: 'first', comment: null });
 
@@ -215,6 +217,8 @@ describe('quality routes', () => {
 
   it('a plot id of 1000 three-byte characters still reaches the route', async () => {
     const plot = '€'.repeat(1000); // 9000 characters once URL-encoded
+    // In no plot file: decided once it has a record (M-2).
+    expect((await batchRequest(ctx.app, pid, project.projectToken, [envelope({ recordKey: `${plot},1`, operator: 'ana', summary: { collect_code_round: '1' } })])).statusCode).toBe(200);
     const res = await send('PUT', `/quality/decisions/${encodeURIComponent(plot)}`, { decision: 'first' });
     expect(res.statusCode, res.body).toBe(200);
     expect(res.json().plot).toBe(plot);

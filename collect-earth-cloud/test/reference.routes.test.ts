@@ -317,11 +317,11 @@ describe('reference plots: marking, copies for every collector, accuracy against
     expect((await mark({ csvFileId: fileId, assessorUserId: owner.userId, plots: ['1', '2', '3'] })).statusCode).toBe(200);
     // The owner's reference assessments of 1 and 2 at the same moment: "very fast" flags them, yet the queue never lists them.
     await send('owner', 1, [1, 2]);
-    for (const token of [owner.token, people.rita.token]) {
-      const refused = await call('PUT', '/quality/decisions/1', token, { decision: 'first' });
-      expect(refused.statusCode).toBe(409);
-      expect(refused.json().error).toBe('reference_plot');
-    }
+    const refused = await call('PUT', '/quality/decisions/1', owner.token, { decision: 'first' });
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json().error).toBe('reference_plot');
+    // A reviewer is answered as for a plot that is not there (Decision 10).
+    expect((await call('PUT', '/quality/decisions/1', people.rita.token, { decision: 'first' })).statusCode).toBe(404);
     const flags = await settled(() => call('GET', '/quality/flags', owner.token), (b: { flags: { plot: string }[] }) => b.flags.some((f) => f.plot === '2'));
     expect(flags.flags.some((f: { plot: string }) => f.plot === '2')).toBe(true);
     const queue = await call('GET', '/quality/queue', owner.token);

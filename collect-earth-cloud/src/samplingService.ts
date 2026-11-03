@@ -3,7 +3,7 @@ import { isPlotUnit } from './progress.js';
 import type { ProjectStateCache, ProjectState } from './projectState.js';
 import type { Log } from './qualityService.js';
 import { keyShape, splitKey } from './rounds.js';
-import { checkersOf, coreOf, drawChecks, samplingActive, type DrawFile, type DrawInput, type DrawResult } from './sampling.js';
+import { checkersOf, coreOf, drawChecks, notBlindCheckers, samplingActive, type DrawFile, type DrawInput, type DrawResult } from './sampling.js';
 import type { Store } from './store/store.js';
 import type { CsvFile, Member, PlotAssignment, SampledCopy, SamplingDraw, SamplingRule, SamplingState } from './types.js';
 
@@ -183,6 +183,8 @@ export class SamplingService {
       .sort((a, b) => a.username.localeCompare(b.username));
     const lastDraw = sampling.lastDraw ? { ...sampling.lastDraw, by: sampling.lastDraw.byUserId ? usernames.get(sampling.lastDraw.byUserId) ?? null : null } : null;
     const due = sampling.dueSince !== null && samplingActive(rule);
+    // Reviewers and coordinators chosen as checkers can read the first assessments (Decision 10).
+    const notBlind = notBlindCheckers(rule, members);
     return {
       rule,
       active: samplingActive(rule),
@@ -203,6 +205,7 @@ export class SamplingService {
       checkers,
       members: members.map((m) => ({ userId: m.userId, username: m.username, role: m.role, disabled: m.disabled === true })),
       noCheckers: eligible.size === 0,
+      warning: notBlind.length > 0 ? { code: 'checkers_not_blind', usernames: notBlind } : null,
       asOf: state.builtAt,
     };
   }
@@ -257,6 +260,11 @@ export interface SamplingView {
   members: { userId: string; username: string; role: Member['role']; disabled: boolean }[];
   /** Nobody may receive checks under the project's rule. */
   noCheckers: boolean;
+  /**
+   * Reviewers or coordinators chosen as checkers (the project's or a file's own rule): they can
+   * read the first assessments on the dashboard, so their checks may not be blind (Decision 10).
+   */
+  warning: { code: 'checkers_not_blind'; usernames: string[] } | null;
   asOf: number;
 }
 

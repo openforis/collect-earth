@@ -204,8 +204,8 @@ describe('activity data written by the routes', () => {
       expect((await call('PUT', '/assignments', owner.token, { assignments: [{ userId: maria.userId, csvFileId: fileId }] })).statusCode).toBe(200);
       expect((await call('PUT', `/csv-files/${fileId}/distribution`, owner.token, { mode: 'even', people: [maria.userId, jose.userId] })).statusCode).toBe(200);
       expect((await call('POST', `/csv-files/${fileId}/move-unfinished`, owner.token, { fromUserId: maria.userId, toUserId: jose.userId })).statusCode).toBe(200);
-      expect((await call('PUT', '/quality/decisions/plot%201', owner.token, { decision: 'check', comment: 'the check is right' })).statusCode).toBe(200);
-      expect((await call('DELETE', '/quality/decisions/plot%201', owner.token)).statusCode).toBe(204);
+      expect((await call('PUT', '/quality/decisions/1', owner.token, { decision: 'check', comment: 'the check is right' })).statusCode).toBe(200);
+      expect((await call('DELETE', '/quality/decisions/1', owner.token)).statusCode).toBe(204);
       expect((await call('PUT', '/quality/settings', owner.token, { margins: {} })).statusCode).toBe(200);
       expect((await call('PUT', '/ai', owner.token, { enabled: false })).statusCode).toBe(200);
       expect((await call('PATCH', '', owner.token, { name: 'Renamed' })).statusCode).toBe(200);
@@ -224,8 +224,8 @@ describe('activity data written by the routes', () => {
         ['assignments.set', { count: 1 }],
         ['division.applied', { csvFileId: fileId, mode: 'even', people: 2, plots: 3 }],
         ['plots.moved', { csvFileId: fileId, fromUserId: maria.userId, toUserId: jose.userId, moved: expect.any(Number) }],
-        ['decision.set', { plot: 'plot 1', decision: 'check' }],
-        ['decision.deleted', { plot: 'plot 1' }],
+        ['decision.set', { plot: '1', decision: 'check' }],
+        ['decision.deleted', { plot: '1' }],
         ['settings.changed', { setting: 'quality' }],
         ['settings.changed', { setting: 'ai', enabled: false }],
         ['settings.changed', { setting: 'name' }],

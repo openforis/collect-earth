@@ -205,6 +205,12 @@ export async function registerPlotSearchRoutes(
       const { round, group } = resolve(row);
       if (group === plot) all.push({ row, round: round.round, assessment: round.assessment });
     }
+    // A reviewer holding a copy of the plot (division, drawn, reference) checks it blind (Decision
+    // 10): until their check is submitted the page is as for a plot that is not there.
+    const holdsCopy = !coordinator && !!user && (copyHolders.get(plot)?.has(user.username) ?? false);
+    if (holdsCopy && !all.some((m) => m.row.operator === user!.username && m.row.activelySaved && !m.row.deleted)) {
+      return reply.code(404).send({ error: 'not_found', reason: 'no plot file of this project has this plot' });
+    }
     // Reviewers: no deleted records (drafts stay: they are the queue's material).
     const mine = coordinator ? all : all.filter((m) => !m.row.deleted);
     mine.sort((a, b) => ORDER[a.assessment] - ORDER[b.assessment] || a.row.modifiedOn - b.row.modifiedOn || (a.row.operator < b.row.operator ? -1 : 1));
@@ -239,7 +245,7 @@ export async function registerPlotSearchRoutes(
     const decided = decisions.find((d) => d.plot === plot) ?? null;
     const decision = decided ? { ...publicDecision(decided), byAssessor: decided.decidedBy !== null && operators.has(decided.decidedBy) } : null;
     // A reviewer does not decide a plot they assessed (Decision 3); the decision route says so too.
-    const ownPlot = !coordinator && !!user && operators.has(user.username);
+    const ownPlot = !coordinator && !!user && (operators.has(user.username) || holdsCopy);
 
     // Its flags and differing pairs, from the figures at hand.
     let flags: Flag[] | null = null;

@@ -105,10 +105,24 @@ export function priority(seed: number, ...parts: string[]): number {
   return h >>> 0;
 }
 
-/** The people who may check under a rule: the chosen ones, or every collector and reviewer; never a disabled account. */
+/**
+ * The people who may check under a rule: the chosen ones, or every collector; never a disabled
+ * account. Reviewers and coordinators only when chosen (Decision 10): they can read the first
+ * assessments on the dashboard, so their checks are not blind (notBlindCheckers).
+ */
 export function checkersOf(core: SamplingCore, members: readonly Member[]): Member[] {
   const chosen = core.checkers === null ? null : new Set(core.checkers);
-  return members.filter((m) => !m.disabled && (chosen ? chosen.has(m.userId) : m.role === 'operator' || m.role === 'reviewer'));
+  return members.filter((m) => !m.disabled && (chosen ? chosen.has(m.userId) : m.role === 'operator'));
+}
+
+/** The reviewers and coordinators a rule names as checkers (project and own file rules), by username, sorted. */
+export function notBlindCheckers(rule: SamplingRule | null, members: readonly Member[]): string[] {
+  if (!rule) return [];
+  const chosen = new Set<string>([...(rule.checkers ?? []), ...Object.values(rule.files).flatMap((f) => (f.use === 'own' ? (f.checkers ?? []) : []))]);
+  return members
+    .filter((m) => chosen.has(m.userId) && (m.role === 'reviewer' || m.role === 'admin'))
+    .map((m) => m.username)
+    .sort();
 }
 
 interface Plot {
@@ -342,7 +356,7 @@ function coreInput(b: Record<string, unknown>, members: ReadonlySet<string>, whe
   }
   let checkers: string[] | null = null;
   if (b.checkers !== undefined && b.checkers !== null) {
-    if (!Array.isArray(b.checkers)) return { reason: `${where}checkers must be a list of user ids, or null (every collector and reviewer)` };
+    if (!Array.isArray(b.checkers)) return { reason: `${where}checkers must be a list of user ids, or null (every collector)` };
     checkers = [];
     for (const id of b.checkers) {
       if (typeof id !== 'string' || !members.has(id)) return { reason: `${where}checkers: ${String(id)} is not a member of the project` };

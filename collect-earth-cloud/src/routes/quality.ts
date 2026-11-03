@@ -2,12 +2,14 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid } from '../accountRules.js';
 import { audit } from '../activity.js';
-import { answerStats, type AnswerFilter } from '../answerStats.js';
+import { answerStats, type AnswerFilter, type AnswerStats } from '../answerStats.js';
 import { isDate, isTimeZone } from '../days.js';
 import { FLAG_KINDS, fastSecondsOf, MAX_FAST_SECONDS, MIN_FAST_SECONDS, patternFlags, plotOperators, plotsOf, resubmittedAfterRecheck, seenOf, type DecisionSeen, type FlagKind, type FlagTable } from '../flags.js';
 import { columnValues, MAX_LISTED_VALUES, plotColumns, plotsWithValue } from '../plotColumns.js';
 import { plotFileOf, plotIdsOf } from '../plotFileCache.js';
-import { fileKeyCount } from '../rounds.js';
+import { unitIndex } from '../plotSearch.js';
+import { fileKeyCount, recordKeysOfUnit } from '../rounds.js';
+import { PlotIndexCache } from './plotSearch.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { checkMargins, pairAt, pairFields, type Difference, type DifferingPairRef } from '../quality.js';
 import { answerOptions, personalReport, teamReport } from '../qualityReports.js';
@@ -79,11 +81,47 @@ const OWN_PLOT = {
   reason: 'You made the first assessment or a check of this plot, so someone else decides it.',
 } as const;
 
-/** What anyone is told when deciding a reference plot (Task 14). */
+/** What a coordinator is told when deciding a reference plot (Task 14). */
 const REFERENCE_PLOT = {
   error: 'reference_plot',
   reason: 'This is a reference plot: its other assessments are measured against its reference assessment, not decided.',
 } as const;
+
+/**
+ * A plot in no plot file of the project and without records (M-2), and for a reviewer a reference
+ * plot too (Decision 10: the answer must not tell them apart): the plot page's 404.
+ */
+export const NO_SUCH_PLOT = { error: 'not_found', reason: 'no plot file of this project has this plot' } as const;
+
+/**
+ * The plots a person holds as a copy only (division, drawn or reference copies of divided files;
+ * not also as a main plot there): units, as decisions and the queue key plots. A reviewer holding
+ * one is to check it blind, so it counts as their own plot (Decision 10).
+ */
+export async function copiesHeld(store: Store, projectId: string, userId: string, files?: readonly { id: string; distribution?: unknown }[]): Promise<Set<string>> {
+  const divided = (files ?? (await store.listCsvFiles(projectId))).filter((f) => f.distribution);
+  const out = new Set<string>();
+  for (const f of divided) {
+    const { plotKeys, copyKeys } = await store.listUserPlots(projectId, f.id, userId);
+    if (copyKeys.length === 0) continue;
+    const times = new Map<string, number>();
+    for (const k of plotKeys) times.set(k, (times.get(k) ?? 0) + 1);
+    // Held twice in one file (main and copy): their main plot, not a check.
+    for (const k of copyKeys) if (times.get(k) === 1) out.add(k);
+  }
+  return out;
+}
+
+/** The answers per person taken out (Decision 10): a reviewer gets the team's figures only. */
+function teamOnly(stats: AnswerStats): AnswerStats {
+  return {
+    ...stats,
+    people: [],
+    choices: stats.choices.map((c) => ({ ...c, people: [] })),
+    numbers: stats.numbers.map((n) => ({ ...n, people: [] })),
+    flags: [],
+  };
+}
 
 /** The plot of a decision route, or null when it is not 1-MAX_NAME characters. */
 function plotOf(request: FastifyRequest): string | null {
@@ -127,6 +165,7 @@ export async function registerQualityRoutes(
   store: Store,
   quality: QualityService = new QualityService(store),
   places: PlotPlaceReader = new PlotPlaceReader(store),
+  indexes: PlotIndexCache = new PlotIndexCache(store, places),
 ): Promise<void> {
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
   const reviewer = { preHandler: requireProjectMembership(store, 'reviewer') };
@@ -175,6 +214,9 @@ export async function registerQualityRoutes(
     const to = text('to');
     const timeZone = isTimeZone(q.tz) ? q.tz : 'UTC';
     if (person !== null && person.length > MAX_NAME) return reply.code(400).send(bad(`person must be at most ${MAX_NAME} characters`));
+    // Reviewers get the team's figures only, no one's answers by name (Decision 10).
+    const coordinator = request.membership!.role === 'admin';
+    if (person !== null && !coordinator) return reply.code(403).send({ error: 'forbidden', reason: 'only coordinators see the answers per person' });
     if ((from !== null && !isDate(from)) || (to !== null && !isDate(to))) return reply.code(400).send(bad('from and to must be days written YYYY-MM-DD'));
     if (from !== null && to !== null && from > to) return reply.code(400).send(bad('from must not be after to'));
     if ((columnText !== null) !== (value !== null)) return reply.code(400).send(bad('column and value go together'));
@@ -213,12 +255,12 @@ export async function registerQualityRoutes(
     }
     remember(figures.answerStats, key, stats, MAX_CACHED_ANSWER_FILTERS);
     return reply.send({
-      ...stats,
+      ...(coordinator ? stats : teamOnly(stats)),
       computedAt: figures.computedAt,
       stale: figures.stale,
       timeZone,
       filters: {
-        people: [...figures.answers.operators].sort(),
+        people: coordinator ? [...figures.answers.operators].sort() : [],
         files: files.map((f) => ({ id: f.id, filename: f.filename })).sort((a, b) => a.filename.localeCompare(b.filename)),
       },
     });
@@ -235,6 +277,7 @@ export async function registerQualityRoutes(
     const kind = typeof q.kind === 'string' && q.kind !== '' ? q.kind : null;
     if (person !== null && person.length > MAX_NAME) return reply.code(400).send(bad(`person must be at most ${MAX_NAME} characters`));
     if (kind !== null && !(FLAG_KINDS as readonly string[]).includes(kind)) return reply.code(400).send(bad(`kind must be one of ${FLAG_KINDS.join(', ')}`));
+    const coordinator = request.membership!.role === 'admin';
     const [figures, decisions, settings] = await Promise.all([
       served(quality, projectId, request, reply),
       store.listQualityDecisions(projectId),
@@ -243,8 +286,10 @@ export async function registerQualityRoutes(
     if (!figures) {
       return reply;
     }
-    const flags = patternFlags(figures, decisions, { fastSeconds: fastSecondsOf(settings), person, kind: kind as FlagKind | null });
-    return reply.send({ ...flags, computedAt: figures.computedAt, stale: figures.stale });
+    // A reviewer: no reference plot (listed or counted) and no flags per person (Decision 10).
+    const hidden = coordinator ? null : new Set(figures.reference.byPlot.map((p) => p.plot));
+    const flags = patternFlags(figures, decisions, { fastSeconds: fastSecondsOf(settings), person, kind: kind as FlagKind | null, hidden });
+    return reply.send({ ...flags, ...(coordinator ? {} : { people: [] }), computedAt: figures.computedAt, stale: figures.stale });
   });
 
   // Survey health (Task 6), for coordinators and reviewers (never collectors): per question,
@@ -297,6 +342,8 @@ export async function registerQualityRoutes(
     // A reviewer's queue leaves out the plots they assessed: someone else decides them (the 409's rule).
     const { role, userId } = request.membership!;
     const reviewerName = role === 'admin' || !userId ? null : ((await store.getUserById(userId))?.username ?? null);
+    // Their copies too, checked or not yet (Decision 10: a check to make blind is theirs).
+    const excluded = reviewerName !== null ? new Set([...plotsOf(figures.flags, reviewerName), ...(await copiesHeld(store, projectId, userId!))]) : null;
     const queue = reviewQueue(
       {
         pairs: figures.report.pairs,
@@ -304,7 +351,7 @@ export async function registerQualityRoutes(
         everyonesFlags: everyones,
         resubmitted: resubmittedAfterRecheck(figures.flags, decisions),
         decided: new Map(decisions.map((d) => [d.plot, d.decision])),
-        ...(reviewerName !== null ? { excluded: plotsOf(figures.flags, reviewerName) } : {}),
+        ...(excluded !== null ? { excluded } : {}),
         hidden: new Set(figures.reference.byPlot.map((p) => p.plot)),
       },
       { person, kind: kind as QueueKind | null },
@@ -510,15 +557,21 @@ export async function registerQualityRoutes(
       }
       comment = body.comment.trim() || null;
     }
-    // A reference plot is never decided (Task 14): its checks measure the collectors against it.
-    if ((await store.listReferencePlots(projectId)).some((r) => r.plotKey === plot)) {
-      return reply.code(409).send(REFERENCE_PLOT);
-    }
     // What the coordinator or reviewer decided on: the plot's records as the figures at hand show them
     // (never computed here for a coordinator), for "saved again after a decision" (pattern flags).
+    // A reviewer's own plot is a 409 first, so a reference plot answers them as no plot at all.
     const figures = await figuresForDecision(request, reply);
     if (figures === undefined) {
       return reply;
+    }
+    // A reference plot is never decided (Task 14): its checks measure the collectors against it.
+    // A reviewer does not learn which plots they are (Decision 10): for them it is a plot that is not there.
+    if ((await store.listReferencePlots(projectId)).some((r) => r.plotKey === plot)) {
+      return request.membership!.role === 'admin' ? reply.code(409).send(REFERENCE_PLOT) : reply.code(404).send(NO_SUCH_PLOT);
+    }
+    // A plot in no plot file and without records (M-2): nothing to decide.
+    if (!(await plotExists(projectId, plot, request.log))) {
+      return reply.code(404).send(NO_SUCH_PLOT);
     }
     const seen: DecisionSeen[] | null = figures ? seenOf(figures.flags, plot) : null;
     const decision = await store.setQualityDecision(projectId, plot, body.decision as DecisionKind, comment, request.membership!.userId ?? null, seen);
@@ -547,11 +600,20 @@ export async function registerQualityRoutes(
       return undefined;
     }
     const user = userId ? await store.getUserById(userId) : null;
-    if (user && plotOperators(figures.flags, plotOf(request)!).has(user.username)) {
+    const plot = plotOf(request)!;
+    // A record of theirs, or a copy they hold (a check to make blind, Decision 10).
+    if (user && (plotOperators(figures.flags, plot).has(user.username) || (await copiesHeld(store, projectId, user.id)).has(plot))) {
       void reply.code(409).send(OWN_PLOT);
       return undefined;
     }
     return figures;
+  }
+
+  /** Whether the plot is in a plot file of the project or has records (a plot in no file is a data problem the queue lists). */
+  async function plotExists(projectId: string, plot: string, log: FastifyRequest['log']): Promise<boolean> {
+    const { index, info } = await indexes.get(projectId, log);
+    if (unitIndex(index, plot) >= 0) return true;
+    return (await store.listRecordsByKeys(projectId, recordKeysOfUnit(plot, info))).length > 0;
   }
 
   app.delete('/v1/projects/:pid/quality/decisions/:plot', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -561,6 +623,10 @@ export async function registerQualityRoutes(
     }
     if ((await figuresForDecision(request, reply)) === undefined) {
       return reply;
+    }
+    // A reviewer is answered on a reference plot as on a plot without a decision (Decision 10).
+    if (request.membership!.role !== 'admin' && (await store.listReferencePlots(request.membership!.projectId)).some((r) => r.plotKey === plot)) {
+      return reply.code(404).send({ error: 'not_found' });
     }
     const deleted = await store.deleteQualityDecision(request.membership!.projectId, plot);
     if (deleted) {

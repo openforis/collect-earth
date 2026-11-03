@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { isoWeek, qualityReport } from '../src/quality.js';
 import type { RoundInfo } from '../src/cep.js';
 import { copyHoldersOf } from '../src/division.js';
-import { drawChecks, parseSamplingRule, priority, samplingActive, type DrawInput } from '../src/sampling.js';
+import { drawChecks, notBlindCheckers, parseSamplingRule, priority, samplingActive, type DrawInput } from '../src/sampling.js';
 import type { Member, PlotAssignment, SamplingRule } from '../src/types.js';
 
 const DAY = 86_400_000;
@@ -185,10 +185,15 @@ describe('drawChecks: which plots get a check, and who checks them (pure)', () =
     expect(count('u-ana')).toBe(0);
   });
 
-  it('checkers: by default collectors and reviewers, never a disabled account; a chosen list otherwise', () => {
-    const members = [member('ana'), member('ben', 'reviewer'), member('boss', 'admin'), member('off', 'operator', { disabled: true })];
+  it('checkers: by default collectors only (Decision 10), never a disabled account; a chosen list otherwise', () => {
+    const members = [member('ana'), member('ben', 'reviewer'), member('boss', 'admin'), member('off', 'operator', { disabled: true }), member('cai')];
     const input = setup({ n: 20, holders: () => 'ana', members, rule: { firstN: 20 } });
+    expect(new Set(drawChecks(input).copies.map((c) => c.userId))).toEqual(new Set(['u-cai']));
+    // The reviewer only when chosen, and named as not blind.
+    input.rule = rule({ firstN: 20, checkers: ['u-ben'] });
     expect(new Set(drawChecks(input).copies.map((c) => c.userId))).toEqual(new Set(['u-ben']));
+    expect(notBlindCheckers(rule({ firstN: 1, checkers: ['u-ben', 'u-cai'], files: { f1: { use: 'own', checkers: ['u-boss'], firstN: 1, percent: null } } }), members)).toEqual(['ben', 'boss']);
+    expect(notBlindCheckers(rule({ firstN: 1 }), members)).toEqual([]);
     input.rule = rule({ firstN: 20, checkers: ['u-boss', 'u-off'] });
     expect(new Set(drawChecks(input).copies.map((c) => c.userId))).toEqual(new Set(['u-boss']));
     // Nobody left: every plot is due without a checker.

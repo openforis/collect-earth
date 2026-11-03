@@ -439,6 +439,12 @@ export interface FlagOptions {
    * data problems (two_main, no_plot), which have no time of their own, are then left out.
    */
   when?: ((at: number) => boolean) | null;
+  /**
+   * Plots whose flags are neither counted nor listed: the reference plots for a reviewer (Decision
+   * 10: a reviewer does not learn which plots they are; their many checks and the reference
+   * assessor's quick saves would say so).
+   */
+  hidden?: ReadonlySet<string> | null;
 }
 
 /** A decision as the flags read it; `seen`: the records of its plot when it was made (null: not kept). */
@@ -487,6 +493,7 @@ export function patternFlags(
   const kind = options.kind ?? null;
   const onlyPlot = options.plot ?? null;
   const when = options.when ?? null;
+  const hidden = options.hidden && options.hidden.size > 0 ? options.hidden : null;
   const all: Flag[] = [];
   const byPerson = new Map<string, FlagCounts>();
   const countFor = (username: string): FlagCounts => {
@@ -499,6 +506,7 @@ export function patternFlags(
   };
   const add = (flag: Flag) => {
     if (when !== null && (flag.at === null || !when(flag.at))) return;
+    if (hidden !== null && hidden.has(flag.plot)) return;
     countFor(flag.operator)[flag.kind] += 1;
     if ((person === null || flag.operator === person) && (kind === null || flag.kind === kind) && (onlyPlot === null || flag.plot === onlyPlot)) all.push(flag);
   };
@@ -579,6 +587,13 @@ export function patternFlags(
   for (const c of when === null ? (report.problemsByPerson ?? []) : []) {
     if (c.kind === 'two_main' || c.kind === 'no_plot') countFor(c.operator)[c.kind] += c.count;
   }
+  // Hidden plots' problems out of those counts: the listed ones (the report lists up to
+  // MAX_PROBLEMS in plot order; beyond them a hidden plot's problem stays counted).
+  if (hidden !== null && when === null) {
+    for (const p of report.problems) {
+      if ((p.kind === 'two_main' || p.kind === 'no_plot') && hidden.has(p.plot)) countFor(p.operator)[p.kind] -= 1;
+    }
+  }
   const groupsForTimes = report.problems.length > 0 ? groupIndexOf(f) : null;
   const savedAt = (plot: string, operator: string): number | null => {
     const g = groupsForTimes?.get(plot);
@@ -591,6 +606,7 @@ export function patternFlags(
   };
   for (const p of when === null ? report.problems : []) {
     if (p.kind !== 'two_main' && p.kind !== 'no_plot') continue;
+    if (hidden !== null && hidden.has(p.plot)) continue;
     if ((person !== null && p.operator !== person) || (kind !== null && p.kind !== kind) || (onlyPlot !== null && p.plot !== onlyPlot)) continue;
     all.push({ kind: p.kind, plot: p.plot, operator: p.operator, at: savedAt(p.plot, p.operator), details: { recordKey: p.recordKey } });
   }

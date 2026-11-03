@@ -188,8 +188,9 @@ describe('map of progress: GET /map/plots', () => {
       return getCsvFile(...args);
     };
     const first = await geo('?size=50');
-    const afterFirst = reads;
     expect((await call('PUT', '/quality/decisions/60', owner.token, { decision: 'first' })).statusCode).toBe(200);
+    // (The decision reads the plot files once, for its plot index.)
+    const afterFirst = reads;
     const second = await geo(`?size=50&offset=50&version=${first.version}`);
     // The same build: the counts of the first page, no plot file read again.
     expect(second.counts).toEqual(first.counts);

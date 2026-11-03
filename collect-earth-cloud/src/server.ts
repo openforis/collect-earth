@@ -27,7 +27,7 @@ import { registerPlatformRoutes } from './routes/platform.js';
 import { ProjectStateCache } from './projectState.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import { PlotPlaceReader } from './routes/plotPlaces.js';
-import { registerPlotSearchRoutes } from './routes/plotSearch.js';
+import { PlotIndexCache, registerPlotSearchRoutes } from './routes/plotSearch.js';
 import { registerPlotsGeoRoutes } from './routes/plotsGeo.js';
 import { registerProgressRoutes } from './routes/progress.js';
 import { registerProjectRoutes } from './routes/projects.js';
@@ -162,8 +162,10 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   // The plots sent back for another look compare answers as the figures do (by the survey's
   // outline) and resolve records with the project state's plot context.
   await registerAssignmentRoutes(app, store, config, { outline: (projectId, log) => quality.outline(projectId, log), states, sampling, places });
-  await registerQualityRoutes(app, store, quality, places);
-  await registerPlotSearchRoutes(app, store, quality, places);
+  // The plot index of plot search, also what tells a decision's plot exists.
+  const indexes = new PlotIndexCache(store, places);
+  await registerQualityRoutes(app, store, quality, places, indexes);
+  await registerPlotSearchRoutes(app, store, quality, places, indexes);
   await registerProgressRoutes(app, store, quality, states, now);
   await registerPeopleRoutes(app, store, quality, states, now);
   await registerPlotsGeoRoutes(app, store, quality, states, places);

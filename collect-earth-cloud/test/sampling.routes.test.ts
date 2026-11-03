@@ -94,8 +94,9 @@ describe('automatic check sampling: the rule, the draws, and what checkers get',
     expect(empty).toMatchObject({ rule: null, active: false, due: false, lastDraw: null, noCheckers: false, intervalMinutes: 10 });
     expect(empty.wholeFiles).toEqual([{ csvFileId: wholeId, filename: 'south.csv' }]);
     expect(empty.files).toEqual([expect.objectContaining({ csvFileId: fileId, filename: 'north.csv', use: 'project', plots: 12, submitted: 0, sampledCopies: 0 })]);
-    // Collectors and the reviewer may check; the coordinator is not one by default.
-    expect(empty.checkers.map((c: { username: string }) => c.username)).toEqual(['ana', 'jose', 'maria', 'rita']);
+    // Collectors may check; the reviewer and the coordinator are not by default (Decision 10).
+    expect(empty.checkers.map((c: { username: string }) => c.username)).toEqual(['ana', 'jose', 'maria']);
+    expect(empty.warning).toBeNull();
     expect((await call('POST', '/sampling/draw', owner.token)).statusCode).toBe(409);
     expect((await call('PUT', '/sampling', owner.token, { percent: 0 })).statusCode).toBe(400);
     expect((await call('PUT', '/sampling', owner.token, { files: { [wholeId]: { use: 'off' } } })).statusCode).toBe(400);

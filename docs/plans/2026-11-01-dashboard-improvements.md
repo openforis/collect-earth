@@ -109,6 +109,26 @@ desktop.
    database, so it shows on every instance and after a restart, "as of" that time; with none stored the
    page says "The quality figure appears once the coordinators have looked at the quality checks." The
    server never computes figures for someone outside the project.
+10. **Reviewers (final review, Task 22; clarifies 3 and 8).** Defaults taken for the owner:
+   - **No reference plot shows to a reviewer anywhere:** the map (`GET /map/plots`) leaves them out of its
+     points, statuses and counts; the pattern flags (`GET /quality/flags`) neither list nor count them
+     (two_main/no_plot counts less the listed problems of those plots); deciding or undoing one
+     (`PUT`/`DELETE /quality/decisions/:plot`) answers exactly as a plot that is not there (404), after the
+     `own_plot` check (a reviewer who is a reference plot's assessor gets the 409 first). Coordinators keep
+     the 409 `reference_plot`.
+   - **A decision on a plot in no plot file and without records is a 404** for every role (M-2); a plot in
+     no file with records (the queue's "plot in no file") is still decided.
+   - **Check sampling's default checkers are collectors only.** Reviewers and coordinators check only when
+     chosen, and `GET`/`PUT /sampling` then carry `warning: { code: 'checkers_not_blind', usernames }`
+     (they can read the first assessments on the dashboard, so their checks may not be blind).
+   - **A copy held is the holder's own plot** (division, drawn or reference copy, held only as a copy): a
+     reviewer holding one gets a 404 for its plot page until they have submitted a record of it (a draft is
+     not enough), never sees it in their review queue (counted in `excludedOwn`), and gets 409 `own_plot` on
+     deciding it.
+   - **No per-person evaluative figures for reviewers:** `GET /quality/flags` gives them `people: []`;
+     `GET /quality/answers` gives them the team's figures only (`people`, each question's `people`, the
+     per-person `flags` and `filters.people` empty) and refuses `person=` (403). The flags' list still names
+     who made each flagged record (Decision 3: the review queue's material).
 
 ---
 

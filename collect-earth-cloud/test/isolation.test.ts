@@ -148,6 +148,8 @@ describe('cross-tenant isolation', () => {
     });
     expect(noteB.statusCode).toBe(201);
     const idB = noteB.json().id as string;
+    // Plot 17 has a record in B (a decision needs a plot that is there, M-2).
+    await batchRequest(ctx.app, b.projectId, b.projectToken, [{ recordKey: '17', surveyUri: 'x', operator: 'o' }]);
     const decided = await ctx.app.inject({
       method: 'PUT',
       url: `/v1/projects/${b.projectId}/quality/decisions/17`,

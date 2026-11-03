@@ -174,10 +174,17 @@ export async function registerPlotsGeoRoutes(
       }
       const latLon = isWgs84(facts.srid);
       const read = latLon ? await geoPlaces.get(projectId, state.files, fileKeyCount(state.info), request.log) : null;
+      // A reviewer's map has no reference plot, on it or in its counts (Decision 10: which plots
+      // they are is the coordinators'; a status of their many checks would say so).
+      const reference = coordinator ? null : state.context.reference;
+      const unitsOf = (id: string) => {
+        const units = state.context.fileUnits.get(id) ?? [];
+        return reference && reference.size > 0 ? units.filter((u) => !reference.has(u)) : units;
+      };
       const files: GeoFile[] = state.files.map((meta) => ({
         id: meta.id,
         filename: meta.filename,
-        units: state.context.fileUnits.get(meta.id) ?? [],
+        units: unitsOf(meta.id),
         places: read?.get(meta.id) ?? null,
       }));
       const hidden = facts.hidden;

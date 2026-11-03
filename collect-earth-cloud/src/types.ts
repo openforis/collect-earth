@@ -242,7 +242,8 @@ export interface PlotAssignment {
 
 /**
  * What the automatic check sampling does (Task 13), for the project or one divided file.
- * - `checkers`: the user ids who may receive checks; null = every collector and reviewer.
+ * - `checkers`: the user ids who may receive checks; null = every collector (reviewers and
+ *   coordinators only when chosen).
  * - `firstN`: check the first N plots each person submits; null = off.
  * - `percent`: check this share of each person's plots of each ISO week; null = off.
  */
