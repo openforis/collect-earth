@@ -3963,6 +3963,85 @@ desktop code changed)
   the card, keyboard scrolling of fixed-height tables, a result count for the People filter, the map's
   one-finger drag on phones, status alerts mounted with their text. The Chrome pass is still to do.
 
+**Chrome pass and timings** (2026-11-03, this branch at 81c3ef56, web built fresh)
+- **Setup:** a memory-store server with the built web (scratchpad seed, no mailer, `LINK_SECRET` only to sign
+  the mail links locally): project "Ghana land use 2026 – northern and upper east regions", coord (owner),
+  rita (reviewer), maria, ben, ana, jose (collectors); 2 plot files (500 + 200 plots with lat/lon) divided
+  evenly with 10 % copies, 319 plots submitted over 40 days, 28 checks (14 differing), an automatic checks
+  rule with rita and ana as checkers, 5 reference plots (coord the assessor), 2 progress links, a collector
+  invitation; `samplingInlineMs: 0` so the automatic draws come late (the panel counted 2). Chrome emulating
+  390×844 at DPR 3 with touch; coordinator, reviewer and collector each in their own browser context.
+- **Every page checked:** `scrollWidth` 390 = `innerWidth` on all of them (no page-wide horizontal scroll;
+  wide tables scroll inside their card); on in-app navigation the focus went to the h1 or the page's own
+  heading (person, plot) and the title was set; no console errors (the reviewer's two were the expected 403
+  of the small filter and the 404 of a reference plot). Coordinator: Progress, People, person page (maria),
+  Quality (review queue, automatic checks with the `checkers_not_blind` warning naming rita, checks per
+  person, reference plots and accuracy, plots worth a look, answers per person, survey health), plot page
+  and plot search, map with "Show the plots as a list" (100 rows, status and holder, links to the plot
+  pages), Activity, weekly page, the bell's panel, Data (backup dialog), Settings (progress links), the
+  public progress page, Account (weekly emails card: "This server does not send email yet"), confirm-email
+  and unsubscribe pages, the owner's panel ("Automatic check draws that took longer…: 2"). Reviewer: tabs
+  Progress, Map, Quality only; no bulk decisions; flags and answers without a person filter ("As a reviewer
+  you see the team's figures only"); Reference plots shows the accuracy figures but no list and no ids
+  (a reference plot's page says "No plot file of this project has a plot with this id"); a plot file of 3
+  plots gives the "fewer than 5 plots" message. Collector: My work (the reviewers sentence shown); the join
+  page shows the coordinators/reviewers sentence. es, fr and pt on Progress, Quality, plot page, weekly,
+  person page and the owner's panel: texts wrap, no page scroll.
+- **Issues found (not fixed):**
+  1. *Reviewer's answers filter of fewer than 5 plots keeps the old figures:* as rita, Quality → Answers per
+     person → Plot file = a file of 3 plots: the message shows, but under it the previous unfiltered figures
+     stay, headed "322 first assessments of plots match the filters", with their chart. Expected: no figures
+     (or the message only) while the filter is refused.
+  2. *Plot search box squeezed on phones:* the "Find a plot" field beside the bell is 87 px wide at 390 px
+     (`ProjectPage.tsx` Header: the inner Box is sized by its content, so `PlotSearchBox`'s `width: 100%`
+     on `xs` has nothing to fill); the label reads "Find a…" ("Buscar una…", "Trouver une…", "Encontrar
+     uma…") and the results list is as narrow, each file name broken over 4-5 lines. Seen on every project
+     page, coordinator and reviewer.
+  3. *File names broken every 2-3 letters in tables at 390 px:* Automatic checks → Plot files ("nor/ther/
+     n_r/egi/on_…") and Reference plots → The reference plots ("upp/er_/eas/t_pl/ots./csv"); the tables
+     scroll sideways and the name column gets what is left. Readable but poor.
+  4. *Focus lost after the mail link pages' button:* on /unsubscribe/… (and /confirm-email/…), pressing the
+     button replaces it with "Done…", and the focus falls to `<body>` (the text is in a `role=status`
+     mounted with it, the known limitation).
+  5. *Owner's panel wording:* under the late draws line ("…: 2. The last one: Nov 3, 2026, 5:09 AM.") comes
+     "None in the last 7 days.", which belongs to the failed-logins hours above but reads as saying there
+     were no late draws.
+  6. *Titles:* a person or plot page's title is "maria – People – Collect Earth Cloud", "Plot 10 – Quality –
+     Collect Earth Cloud": without the project, unlike this plan's example ("Plot 17 – Quality – Project –
+     Server"); a page with no heading (a reviewer opening a reference plot's address) is titled and
+     announced as just the server name.
+  7. *Small:* the es/fr server panel label "Máximo de proyectos que una persona puede coordinar" is cut with
+     "…" (MUI labels do not wrap); the weekly page's "Each person's week" table needs a sideways scroll to
+     see Status; the map list's plot links are the browser's default blue, not the theme's green; on the
+     person page the "· last plot submitted" line starts with the separator when it wraps.
+  Not issues: maria's My work counts her 13 copies and 5 reference copies as plots given (192) where her
+  person page says 174 + 18 copies (blind by design); the Data tab's "347 plots submitted" counts the 28
+  checks too (Progress says 319).
+- **Postgres timings, 100,000 plots** (`scripts/pg-timing-100k.mts`, Postgres 16 in Docker on Windows,
+  the app role under RLS): 4 plot files of 25,000 plots with lat/lon, 20 members (owner, a reviewer, 18
+  collectors), 40,000 plots submitted and 5,000 started, 4,000 copies of which 2,000 checks submitted (a
+  third differing), 12 answers per record; 47,000 records. Cold = a fresh server's first request (in the
+  script: each route on its own fresh server); warm = the median of the next 5.
+
+  | Route | Cold (script) | Warm median (script) | First / warm median, image in Docker `--memory=512m` |
+  | --- | --- | --- | --- |
+  | `GET /progress?days=90` | 591 ms | 36 ms | 1,662 ms (the process's first request) / 59 ms |
+  | `GET /people` | 354 ms | 74 ms | 80 ms / 74 ms |
+  | `GET /map/plots` (first page, 536 KB) | 504 ms | 64 ms | 708 ms / 182 ms |
+  | `GET /quality/flags` (the worker computes) | 1,396 ms | 21 ms | 3,423 ms / 62 ms |
+  | `GET /weekly` | 387 ms | 46 ms | 136 ms / 101 ms |
+
+  Nothing is over 2 s warm, and nothing is near Cloud Run's 900 s timeout. Cold, the quality figures took
+  1.4 s in the script and 3.4 s in the 512 MiB container.
+- **Memory:** the image (Node 20, `NODE_HEAP_MB=224`, the quality worker's 256 MB default) in Docker with
+  `--memory=512m`: 119 MiB RSS at start, 302 MiB after every route warm, **peak 354 MiB** (VmHWM, during
+  the quality figures), never OOM-killed: 69 % of 512 MiB at the peak. That leaves about 150 MiB for a
+  backup being written (~70 MB, Task 17) or a second large project, so DEPLOY.md's advice stands: 1 GiB
+  above about 30,000 records. The same server run on Windows (`node --import tsx`, heap 224, Node 24)
+  peaked at a 555 MiB working set during the quality figures and stayed at 385 MiB, so a Windows reading
+  is not a guide to Cloud Run. In the script's process (one server, every route warm, after a GC):
+  439 MiB RSS, of which about 190 MiB was the seeding itself.
+
 ## Order
 
 Tasks 1 → 21 → 2 → 3, then Part B (4–7), then Part C (8–11), then Part D (12–16),
