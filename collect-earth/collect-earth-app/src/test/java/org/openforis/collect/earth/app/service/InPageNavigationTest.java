@@ -56,11 +56,40 @@ public class InPageNavigationTest {
 	}
 
 	@Test
-	public void failuresThatSayNothingAreNotCounted() {
+	public void failuresThatSayNothingNeverGiveItUp() {
 		InPageNavigation inPage = new InPageNavigation();
 		for (int i = 0; i < 10; i++) {
 			assertFalse(inPage.notFollowed(false)); // hidden, or the imagery window busy opening tabs
+			inPage.seen();
 		}
+		assertTrue(inPage.worthTrying());
+		assertTrue(inPage.mayFollow());
+	}
+
+	@Test
+	public void afterFailuresThatSayNothingItWaitsForTheTabToBeSeen() {
+		InPageNavigation inPage = new InPageNavigation();
+		for (int i = 1; i < InPageNavigation.UNFAIR_FAILURES_TO_PAUSE; i++) {
+			inPage.notFollowed(false);
+			assertTrue(inPage.worthTrying());
+		}
+		inPage.notFollowed(false);
+		// A tab hidden throughout: the next plots are page loads, without the 4 s of a try each
+		assertFalse(inPage.worthTrying());
+		// but the camera still follows the plots map: nothing says Google Earth Web does not follow
+		assertTrue(inPage.mayFollow());
+		inPage.seen();
+		assertTrue(inPage.worthTrying());
+	}
+
+	@Test
+	public void aFailureThatSaysSomethingEndsTheCountOfThoseThatDoNot() {
+		InPageNavigation inPage = new InPageNavigation();
+		inPage.notFollowed(false);
+		inPage.notFollowed(false);
+		inPage.notFollowed(true);
+		inPage.notFollowed(false);
+		inPage.notFollowed(false);
 		assertTrue(inPage.worthTrying());
 	}
 

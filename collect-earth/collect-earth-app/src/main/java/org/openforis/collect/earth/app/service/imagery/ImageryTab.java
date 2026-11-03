@@ -19,7 +19,7 @@ public final class ImageryTab {
 	 * neither. The poll is tried again after it anyway. Google Earth Web keeps the driver's own limit: it is the tab the
 	 * user waits for, and its start can keep it busy for longer than this.
 	 */
-	static final Duration POLL_SCRIPT_TIMEOUT = Duration.ofSeconds(2);
+	public static final Duration POLL_SCRIPT_TIMEOUT = Duration.ofSeconds(2);
 	/** A wait that nothing cancels. */
 	private static final BooleanSupplier NEVER = () -> false;
 	private static final Json JSON = new Json();
@@ -85,6 +85,16 @@ public final class ImageryTab {
 	 */
 	public Object evaluate(String body, Object... args) {
 		String json = browser.call(source, (d, tab) -> d.evaluate(tab, expression(body, args)));
+		return JSON.toType(json, Object.class);
+	}
+
+	/**
+	 * Like {@link #evaluate}, giving up on the answer after {@code scriptTimeout} (a page busy, see
+	 * {@link PageScriptException#isPageBusy()}): for reads that are repeated anyway, within a wait that has a limit and
+	 * may be given up, which a read of the driver's own limit would overshoot.
+	 */
+	public Object evaluateWithin(Duration scriptTimeout, String body, Object... args) {
+		String json = browser.call(source, (d, tab) -> d.evaluate(tab, expression(body, args), scriptTimeout));
 		return JSON.toType(json, Object.class);
 	}
 

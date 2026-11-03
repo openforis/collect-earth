@@ -850,6 +850,14 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	public void aReadWithinATimeOfItsOwnGivesItToTheBrowser() {
+		browser.answers.put("location.href", "\"https://earth.google.com/web/\"");
+		assertEquals("https://earth.google.com/web/", imagery.tab(ImagerySource.GOOGLE_EARTH_WEB)
+				.evaluateWithin(Duration.ofSeconds(2), "return location.href;"));
+		assertEquals(Arrays.asList(Duration.ofSeconds(2)), browser.scriptTimeouts);
+	}
+
+	@Test
 	@Timeout(10)
 	public void aCancelledWaitStopsAtOnce() {
 		// never ready: only the cancellation ends the waits

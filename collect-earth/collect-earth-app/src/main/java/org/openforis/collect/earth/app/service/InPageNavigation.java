@@ -15,12 +15,19 @@ final class InPageNavigation {
 
 	static final int FAILURES_TO_GIVE_UP = 3;
 	static final int PAGE_LOADS_TO_TRY_AGAIN = 10;
+	/**
+	 * After this many failures in a row that said nothing, it is not tried again until the tab is seen shown
+	 * ({@link #seen()}): a tab hidden throughout cost 4 s on every plot, for nothing learnt.
+	 */
+	static final int UNFAIR_FAILURES_TO_PAUSE = 3;
 
 	private Boolean follows;
 	/** The fair failures since the last success. */
 	private int failures;
 	/** The page loads since it was given up on. */
 	private int pageLoads;
+	/** The failures that said nothing since the last one that did, the last success or the tab last seen. */
+	private int unfairFailures;
 
 	/**
 	 * Whether the URL read from the tab says Google Earth Web followed the push of {@code pushedUrl}: its camera over the
@@ -43,14 +50,30 @@ final class InPageNavigation {
 		return follows;
 	}
 
-	/** Whether to try in-page navigation for the next plot: unless given up on. */
-	synchronized boolean worthTrying() {
+	/**
+	 * Whether Google Earth Web may follow in-page navigation: unless given up on. The camera then follows the plots map.
+	 */
+	synchronized boolean mayFollow() {
 		return !Boolean.FALSE.equals(follows);
+	}
+
+	/**
+	 * Whether to try in-page navigation for the next plot: unless given up on, or paused after failures that said
+	 * nothing (see {@link #UNFAIR_FAILURES_TO_PAUSE}).
+	 */
+	synchronized boolean worthTrying() {
+		return mayFollow() && unfairFailures < UNFAIR_FAILURES_TO_PAUSE;
+	}
+
+	/** The tab was seen shown: a pause after failures that said nothing is over. */
+	synchronized void seen() {
+		unfairFailures = 0;
 	}
 
 	synchronized void followed() {
 		follows = Boolean.TRUE;
 		failures = 0;
+		unfairFailures = 0;
 	}
 
 	/**
@@ -61,7 +84,12 @@ final class InPageNavigation {
 	 * @return whether it is now given up on
 	 */
 	synchronized boolean notFollowed(boolean fair) {
-		if (!fair || Boolean.FALSE.equals(follows)) {
+		if (!fair) {
+			unfairFailures++;
+			return false;
+		}
+		unfairFailures = 0;
+		if (Boolean.FALSE.equals(follows)) {
 			return false;
 		}
 		if (++failures < FAILURES_TO_GIVE_UP) {

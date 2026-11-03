@@ -263,6 +263,7 @@ public class GoogleEarthWebService {
 			if (source != ImagerySource.GOOGLE_EARTH_WEB || !visible) {
 				return;
 			}
+			inPage.seen();
 			ScheduledExecutorService thread = watchdog;
 			if (thread == null) {
 				return; // never opened: nothing to redraw
@@ -480,7 +481,7 @@ public class GoogleEarthWebService {
 
 	/** Whether the camera can follow the plots map at all: in Google Earth Web, and only by in-page navigation. */
 	private boolean canMoveCamera() {
-		return localPropertiesService.isGoogleEarthWebViewer() && inPage.worthTrying();
+		return localPropertiesService.isGoogleEarthWebViewer() && inPage.mayFollow();
 	}
 
 	/**
@@ -519,7 +520,7 @@ public class GoogleEarthWebService {
 		status.put("message", stateMessage);
 		status.put("view", view);
 		// Whether the camera can follow the plots map ( only without page loads )
-		status.put("cameraSync", inPage.worthTrying());
+		status.put("cameraSync", inPage.mayFollow());
 		return status;
 	}
 
@@ -585,6 +586,9 @@ public class GoogleEarthWebService {
 		// plots map says "opening", not "moving". A new window is laid out by WindowLayoutService when its browser starts.
 		boolean newTab = !tabOpen || (href != null && href.startsWith("about:"));
 		boolean moved = false;
+		if (tabOpen && tab().isVisible()) {
+			inPage.seen();
+		}
 		if (tabOpen && inPage.worthTrying() && GoogleEarthWebUrls.isGoogleEarthWeb(href)) {
 			setState(State.MOVING, plotId, null);
 			Move move = navigateInPage(url, target, superseded);
@@ -712,7 +716,7 @@ public class GoogleEarthWebService {
 	/** The URL of the page and whether Google Earth Web jumps ({@link #IN_PAGE_PROBE_SCRIPT}); null when the page did not answer. */
 	private List<?> readProbe() {
 		try {
-			Object page = tab().evaluate(IN_PAGE_PROBE_SCRIPT);
+			Object page = tab().evaluateWithin(ImageryTab.POLL_SCRIPT_TIMEOUT, IN_PAGE_PROBE_SCRIPT);
 			return page instanceof List && ((List<?>) page).size() == 2 ? (List<?>) page : null;
 		} catch (PageScriptException e) {
 			return null; // the document being replaced, or too busy: read again
@@ -733,7 +737,10 @@ public class GoogleEarthWebService {
 			if (superseded.getAsBoolean()) {
 				return false;
 			}
-			String href = pageUrl();
+			String href = quickPageUrl();
+			if (superseded.getAsBoolean()) {
+				return false;
+			}
 			if (href != null && (!GoogleEarthWebUrls.isGoogleEarthWeb(href) || isCameraBackAt(href, latitude, longitude))) {
 				return true;
 			}
@@ -782,6 +789,20 @@ public class GoogleEarthWebService {
 	 * The URL of the page in the tab, or null when it cannot be read (the page is replacing its
 	 * document, the browser is busy). A closed tab is for {@link #show} to deal with.
 	 */
+	/**
+	 * As {@link #pageUrl()}, giving up after {@link ImageryTab#POLL_SCRIPT_TIMEOUT}: for the reads repeated within a
+	 * wait of its own limit, which a read of the driver's 8 s would overshoot.
+	 */
+	private String quickPageUrl() {
+		try {
+			return String.valueOf(tab().evaluateWithin(ImageryTab.POLL_SCRIPT_TIMEOUT, "return location.href;"));
+		} catch (TabClosedException e) {
+			throw e;
+		} catch (RuntimeException e) {
+			return null;
+		}
+	}
+
 	private String pageUrl() {
 		try {
 			return tab().currentUrl();
