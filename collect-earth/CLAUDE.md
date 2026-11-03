@@ -35,8 +35,8 @@ packages. For day-to-day work the scripts at the root of this folder do only wha
 | `dev-build` | builds collect-earth-app and the modules it needs (core, sampler): no clean, no tests, no javadoc, the web UI's installed packages reused |
 | `dev-build java` | the same without the web UI (`-Dskip.npm`), for Java-only changes |
 | `dev-build clean` | cleans first: after deleting or renaming source files, or switching branch |
-| `dev-run [viewer]` | starts the built jar from `collect-earth-app` (where it must run), with the viewer chosen: `google_earth_web` (default), `plots_map` or `google_earth_pro` |
-| `dev-web` | live editing of the plots map and web form: Vite at http://localhost:5173/map.html, talking to the running Collect Earth, reloading on save, with no Maven build and no restart |
+| `dev-run [viewer]` | starts the built jar from `collect-earth-app` (where it must run), with the viewer chosen: `google_earth_web` (default), `plots_map` or `google_earth_pro`; on JDK 19+ it keeps a class-data sharing archive (`target/CollectEarth.jsa`) that makes later starts load classes faster |
+| `dev-web [port]` | live editing of the plots map and web form: Vite at http://localhost:5180/map.html (or the port given), talking to the running Collect Earth, reloading on save, with no Maven build and no restart |
 
 They need a JDK (`setx CE_JDK C:\path\to\jdk`, else `JAVA_HOME`). Close Collect Earth before
 `dev-build`: Windows locks its jar and libraries while it runs. Local builds install the web UI's
