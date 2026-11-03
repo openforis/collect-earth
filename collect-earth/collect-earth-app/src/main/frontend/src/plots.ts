@@ -188,7 +188,16 @@ export function withoutPlotParam(href: string): string {
   return url.toString();
 }
 
-/** The survey area seen from above: the middle of the plots, from high enough to see them all (5 km at least). */
+/**
+ * The highest view Google Earth Web is sent to: the server refuses a camera higher than this
+ * (PlacemarkBrowserServlet.moveGoogleEarthWebCamera), and from there it shows the whole globe anyway.
+ */
+export const MAX_VIEW_HEIGHT = 2.0e7;
+
+/**
+ * The survey area seen from above: the middle of the plots, from high enough to see them all (5 km at least), but no
+ * higher than {@link MAX_VIEW_HEIGHT}, which plots spread over continents would ask for.
+ */
 export function surveyView(centers: LatLng[]): GroundView {
   let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
   for (const [lat, lng] of centers) {
@@ -199,5 +208,5 @@ export function surveyView(centers: LatLng[]): GroundView {
   const metresPerDegree = 111320;
   const span = Math.max((maxLat - minLat) * metresPerDegree,
     (maxLng - minLng) * metresPerDegree * Math.cos((center[0] * Math.PI) / 180));
-  return { center, heightMeters: Math.max(5000, Math.round(span * 1.5)) };
+  return { center, heightMeters: Math.min(MAX_VIEW_HEIGHT, Math.max(5000, Math.round(span * 1.5))) };
 }

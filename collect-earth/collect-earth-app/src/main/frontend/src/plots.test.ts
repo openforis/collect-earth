@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { byId, countStatuses, footprintCorners, indexPlots, heightForZoom, labelOfFeature, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear,
-  plotLabel, plotToRestore, plotsGone, sameView, surveyView, withoutPlotParam,
+  MAX_VIEW_HEIGHT, plotLabel, plotToRestore, plotsGone, sameView, surveyView, withoutPlotParam,
   visibleIds, zoomForHeight } from "./plots";
 import type { PlotStatus } from "./types";
 
@@ -229,5 +229,10 @@ describe("surveyView", () => {
   });
   it("is never closer than 5 km, for a single plot", () => {
     expect(surveyView([[1, 2]]).heightMeters).toBe(5000);
+  });
+  it("is never higher than the server accepts, for plots spread over continents", () => {
+    const view = surveyView([[-40, -70], [60, 140]]);
+    expect(view.heightMeters).toBe(MAX_VIEW_HEIGHT);
+    expect(view.heightMeters).toBeLessThanOrEqual(2.0e7);
   });
 });
