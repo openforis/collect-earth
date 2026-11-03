@@ -325,13 +325,18 @@ public class BidiTabDriver implements TabDriver {
 
 	@Override
 	public String evaluate(String tab, String expression) {
+		return evaluate(tab, expression, SCRIPT_TIMEOUT);
+	}
+
+	@Override
+	public String evaluate(String tab, String expression, Duration timeout) {
 		// script.evaluate as Script.evaluateFunctionInBrowsingContext sends it, with a timeout of its own
 		Map<String, Object> params = new HashMap<>();
 		params.put("expression", expression);
 		params.put("awaitPromise", true);
 		params.put("target", Collections.singletonMap("context", tab));
 		Map<String, Object> answer = guard(tab, true,
-				() -> bidi.send(new Command<Map<String, Object>>("script.evaluate", params, Map.class), SCRIPT_TIMEOUT));
+				() -> bidi.send(new Command<Map<String, Object>>("script.evaluate", params, Map.class), timeout));
 		return scriptValue(tab, answer);
 	}
 

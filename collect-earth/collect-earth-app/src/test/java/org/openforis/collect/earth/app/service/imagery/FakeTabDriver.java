@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app.service.imagery;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -122,6 +123,14 @@ class FakeTabDriver implements TabDriver {
 			}
 		}
 		return "null";
+	}
+
+	/** The timeout of each evaluate sent with one of its own, in order. */
+	final List<Duration> scriptTimeouts = Collections.synchronizedList(new ArrayList<>());
+
+	@Override public String evaluate(String tab, String expression, Duration timeout) {
+		scriptTimeouts.add(timeout);
+		return evaluate(tab, expression);
 	}
 
 	@Override public void activate(String tab) { check(tab); calls.add("activate " + tab); }

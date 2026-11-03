@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app.service.imagery;
 
+import java.time.Duration;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -39,6 +40,16 @@ public interface TabDriver {
 	 * @throws PageScriptException when the expression throws in the page
 	 */
 	String evaluate(String tab, String expression);
+
+	/**
+	 * As {@link #evaluate(String, String)}, giving up on the answer after {@code timeout} instead of the driver's own
+	 * limit: a page too busy to run the script by then ends it as a page busy ({@link PageScriptException#isPageBusy()}).
+	 * For polls that try again anyway, which should not hold up the other tabs for long. A driver with no limit of its
+	 * own per script runs it as {@link #evaluate(String, String)}.
+	 */
+	default String evaluate(String tab, String expression, Duration timeout) {
+		return evaluate(tab, expression);
+	}
 
 	/** Selects the tab (brings it to the front of its window). */
 	void activate(String tab);

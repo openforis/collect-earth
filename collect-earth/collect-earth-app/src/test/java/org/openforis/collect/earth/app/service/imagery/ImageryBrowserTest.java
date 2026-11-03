@@ -814,4 +814,86 @@ public class ImageryBrowserTest {
 		imagery.show(ImagerySource.GOOGLE_EARTH_WEB);
 		assertTrue(browser.calls.contains("activate tab0"));
 	}
+
+	@Test
+	@Timeout(10)
+	public void googleEarthWebIsServedFirstEvenWhileAnotherTabIsShown() throws Exception {
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK, ImagerySource.PLANET));
+		browser.select("tab1"); // Wayback shown
+		browser.calls.clear();
+		CountDownLatch hold = new CountDownLatch(1);
+		browser.holdFirstNavigate = hold;
+		Thread first = new Thread(() -> imagery.tab(ImagerySource.PLANET).navigate("planet/1"));
+		first.start();
+		await(browser.enteredHeldNavigate);
+		Thread wayback = new Thread(() -> imagery.tab(ImagerySource.ESRI_WAYBACK).navigate("wayback/1"));
+		wayback.start();
+		waitFor(() -> imagery.queuedCount() == 1);
+		Thread gew = new Thread(() -> imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).navigate("gew/1"));
+		gew.start();
+		waitFor(() -> imagery.queuedCount() == 2);
+		hold.countDown();
+		first.join();
+		wayback.join();
+		gew.join();
+		assertEquals(Arrays.asList("navigate tab2 planet/1", "navigate tab0 gew/1", "navigate tab1 wayback/1"),
+				browser.calls);
+	}
+
+	@Test
+	public void thePollsOfTheOtherSourcesGiveUpSoonerThanThoseOfGoogleEarthWeb() {
+		browser.answers.put("ready", "true");
+		assertTrue(imagery.tab(ImagerySource.ESRI_WAYBACK).waitUntil("return ready;", Duration.ofSeconds(5)));
+		assertEquals(Arrays.asList(ImageryTab.POLL_SCRIPT_TIMEOUT), browser.scriptTimeouts);
+		assertTrue(imagery.tab(ImagerySource.GOOGLE_EARTH_WEB).waitUntil("return ready;", Duration.ofSeconds(5)));
+		assertEquals(Arrays.asList(ImageryTab.POLL_SCRIPT_TIMEOUT), browser.scriptTimeouts);
+	}
+
+	@Test
+	@Timeout(10)
+	public void aCancelledWaitStopsAtOnce() {
+		// never ready: only the cancellation ends the waits
+		assertFalse(imagery.tab(ImagerySource.PLANET).waitUntil("return ready;", Duration.ofSeconds(30), () -> true));
+		assertFalse(imagery.tab(ImagerySource.PLANET).load("https://planet/1", true, Duration.ofSeconds(30), () -> true));
+		// The page is loaded all the same; only the wait for it is given up
+		assertTrue(browser.calls.contains("navigate tab0 https://planet/1"), browser.calls.toString());
+		assertTrue(browser.calls.contains("reload tab0"), browser.calls.toString());
+	}
+
+	@Test
+	@Timeout(10)
+	public void aLoadKnowsWhenAnotherPlotWaitsBehindIt() throws Exception {
+		List<Boolean> pendingSeen = Collections.synchronizedList(new ArrayList<>());
+		CountDownLatch inFirst = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		Thread a = new Thread(() -> imagery.loadLatest(ImagerySource.PLANET, 1, () -> {
+			pendingSeen.add(imagery.hasPendingLoad(ImagerySource.PLANET));
+			inFirst.countDown();
+			await(release);
+			pendingSeen.add(imagery.hasPendingLoad(ImagerySource.PLANET));
+		}));
+		a.start();
+		await(inFirst);
+		imagery.loadLatest(ImagerySource.PLANET, 2, () -> pendingSeen.add(imagery.hasPendingLoad(ImagerySource.PLANET)));
+		release.countDown();
+		a.join();
+		// Plot 2 waited while plot 1 loaded, and nothing waited behind plot 2
+		assertEquals(Arrays.asList(false, true, false), pendingSeen);
+		assertFalse(imagery.hasPendingLoad(ImagerySource.PLANET));
+	}
+
+	@Test
+	public void theTabsOpenedAreCountedTwiceEachAndTheirVisibilityKnownOnceTheirPageTellsIt() {
+		long before = imagery.tabOpenings();
+		// Google Earth Web takes the tab the browser opened with, which is not opened
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK));
+		assertEquals(before + 2, imagery.tabOpenings());
+		assertFalse(imagery.reportsVisibility(ImagerySource.ESRI_WAYBACK));
+		browser.visibility("tab1", false);
+		assertTrue(imagery.reportsVisibility(ImagerySource.ESRI_WAYBACK));
+		assertFalse(imagery.reportsVisibility(ImagerySource.PLANET)); // no tab
+		browser.alive = false;
+		assertFalse(imagery.reportsVisibility(ImagerySource.ESRI_WAYBACK));
+	}
+
 }

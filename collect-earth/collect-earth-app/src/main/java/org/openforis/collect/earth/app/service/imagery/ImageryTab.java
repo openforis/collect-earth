@@ -2,6 +2,7 @@ package org.openforis.collect.earth.app.service.imagery;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.function.BooleanSupplier;
 
 import org.openqa.selenium.json.Json;
 import org.openqa.selenium.json.JsonOutput;
@@ -12,6 +13,15 @@ public final class ImageryTab {
 	/** Marks the document a load leaves: the new document of the page does not have it. */
 	private static final String LEAVING_MARK = "window.__collectEarthLeaving";
 	private static final Duration POLL = Duration.ofMillis(250);
+	/**
+	 * How long a poll of {@link #waitUntil} in the tab of a source other than Google Earth Web waits for its answer: a
+	 * page still loading may not run it for seconds, and the worker serves no other tab meanwhile, Google Earth Web's
+	 * neither. The poll is tried again after it anyway. Google Earth Web keeps the driver's own limit: it is the tab the
+	 * user waits for, and its start can keep it busy for longer than this.
+	 */
+	static final Duration POLL_SCRIPT_TIMEOUT = Duration.ofSeconds(2);
+	/** A wait that nothing cancels. */
+	private static final BooleanSupplier NEVER = () -> false;
 	private static final Json JSON = new Json();
 
 	private final ImageryBrowser browser;
@@ -44,6 +54,14 @@ public final class ImageryTab {
 	 * scripts (an error page, a privileged page) is navigated away from all the same, without the mark.
 	 */
 	public boolean load(String url, boolean reload, Duration timeout) {
+		return load(url, reload, timeout, NEVER);
+	}
+
+	/**
+	 * As {@link #load(String, boolean, Duration)}, giving up the wait for the page as soon as {@code cancelled} says so
+	 * (a newer plot is waiting): false then too, which the caller tells from a timeout by asking it again.
+	 */
+	public boolean load(String url, boolean reload, Duration timeout, BooleanSupplier cancelled) {
 		browser.call(source, (d, tab) -> {
 			try {
 				d.evaluate(tab, LEAVING_MARK + " = true");
@@ -56,7 +74,7 @@ public final class ImageryTab {
 			}
 			return null;
 		});
-		return waitUntil("return !" + LEAVING_MARK + " && document.readyState === 'complete';", timeout);
+		return waitUntil("return !" + LEAVING_MARK + " && document.readyState === 'complete';", timeout, cancelled);
 	}
 
 	/**
@@ -100,10 +118,21 @@ public final class ImageryTab {
 	 * {@link TabClosedException}.
 	 */
 	public boolean waitUntil(String body, Duration timeout) {
+		return waitUntil(body, timeout, NEVER);
+	}
+
+	/**
+	 * As {@link #waitUntil(String, Duration)}, stopping as soon as {@code cancelled} says so, with false. Each poll in
+	 * the tab of a source other than Google Earth Web gives up after {@link #POLL_SCRIPT_TIMEOUT}.
+	 */
+	public boolean waitUntil(String body, Duration timeout, BooleanSupplier cancelled) {
 		long end = System.nanoTime() + timeout.toNanos();
-		while (System.nanoTime() < end) {
+		while (System.nanoTime() - end < 0) {
+			if (cancelled.getAsBoolean()) {
+				return false;
+			}
 			try {
-				if (Boolean.TRUE.equals(evaluate(body))) {
+				if (Boolean.TRUE.equals(poll(body))) {
 					return true;
 				}
 			} catch (PageScriptException e) {
@@ -117,6 +146,15 @@ public final class ImageryTab {
 			}
 		}
 		return false;
+	}
+
+	/** Runs a poll of {@link #waitUntil}: see {@link #POLL_SCRIPT_TIMEOUT}. */
+	private Object poll(String body) {
+		if (source == ImagerySource.GOOGLE_EARTH_WEB) {
+			return evaluate(body);
+		}
+		String json = browser.call(source, (d, tab) -> d.evaluate(tab, expression(body), POLL_SCRIPT_TIMEOUT));
+		return JSON.toType(json, Object.class);
 	}
 
 	public String currentUrl() {

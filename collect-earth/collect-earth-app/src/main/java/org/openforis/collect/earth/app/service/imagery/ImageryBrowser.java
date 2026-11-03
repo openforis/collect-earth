@@ -18,6 +18,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -44,8 +45,9 @@ import io.sentry.SentryLevel;
  * A tab is opened the first time its source has something to show; a tab the user closed is opened again then, and a
  * closed browser is started again.
  * <p>
- * The worker serves the commands of the tab the user is looking at first, then the others in the order they came: a
- * plot change sends work to every tab, and the one on screen should not wait behind the hidden ones. With
+ * The worker serves the commands of Google Earth Web first, the plot viewer the user waits for, then those of the tab
+ * the user is looking at, then the others in the order they came: a plot change sends work to every tab, and the one
+ * on screen should not wait behind the hidden ones. With
  * {@link #loadLatest}, a source that is still loading a plot skips the plots the user went past meanwhile.
  * <p>
  * A command that does not answer in time quits the browser: one hung command would otherwise hold up every tab for
@@ -205,6 +207,8 @@ public class ImageryBrowser {
 	private volatile long startEndedNanos = System.nanoTime();
 	/** The visible state each tab reported last: the listeners hear of changes only, not of every page load. */
 	private final Map<String, Boolean> reportedVisibility = new HashMap<>();
+	/** Counts each tab the worker starts to open and each it is done opening: odd while one opens. See {@link #tabOpenings()}. */
+	private final AtomicLong tabOpenings = new AtomicLong();
 
 	/** For Spring, which sets the starter and the reporter in {@link #init()}. */
 	public ImageryBrowser() {
@@ -313,6 +317,31 @@ public class ImageryBrowser {
 		synchronized (tabsLock) {
 			return new ArrayList<>(openingOrder);
 		}
+	}
+
+	/**
+	 * Whether the tab of the source, open in a browser that is running, tells when it is shown: its page said whether it
+	 * is visible at least once. A tab that never loaded a page (the blank one it opened with) says nothing, so a load
+	 * left until it is shown ({@link #onVisibilityChange}) would never come.
+	 */
+	public boolean reportsVisibility(ImagerySource source) {
+		TabDriver d = driver;
+		if (d == null || !d.isAlive()) {
+			return false;
+		}
+		synchronized (tabsLock) {
+			String tab = tabOfSource.get(source);
+			return tab != null && reportedVisibility.containsKey(tab);
+		}
+	}
+
+	/**
+	 * A count that changes each time the worker starts or ends opening a tab, odd while it opens one: the same even value
+	 * read before and after a wait says no tab was opened meanwhile. Opening a tab can keep the worker for seconds (see
+	 * {@code BidiTabDriver.createTab}), and the commands of the other tabs wait behind it.
+	 */
+	public long tabOpenings() {
+		return tabOpenings.get();
 	}
 
 	/** Whether the source has a tab in a browser that is running; never opens anything. */
@@ -610,6 +639,14 @@ public class ImageryBrowser {
 		}
 	}
 
+	/**
+	 * Whether a plot waits to be loaded in the source after the one loading now (see {@link #loadLatest}): the load under
+	 * way can stop waiting for its page, as the next one replaces it.
+	 */
+	public boolean hasPendingLoad(ImagerySource source) {
+		return pendingLoads.get(source).get() != null;
+	}
+
 	/** The tab of the source, starting the browser and opening the tab when needed. Called on the worker only. */
 	String tabOf(ImagerySource source) throws Exception {
 		return open(source, null).tab;
@@ -677,7 +714,16 @@ public class ImageryBrowser {
 				newWindow = beside == null;
 			}
 		}
-		tab = useInitial ? initialTab : newWindow ? d.createWindow() : d.createTab(beside);
+		if (useInitial) {
+			tab = initialTab;
+		} else {
+			tabOpenings.incrementAndGet();
+			try {
+				tab = newWindow ? d.createWindow() : d.createTab(beside);
+			} finally {
+				tabOpenings.incrementAndGet();
+			}
+		}
 		synchronized (tabsLock) {
 			tabOfSource.put(source, tab);
 			sourceOfTab.put(tab, source);
@@ -1114,10 +1160,14 @@ public class ImageryBrowser {
 	}
 
 	/**
-	 * The first command of the visible source, else of a source shown in its own window, else the oldest of all. Called
-	 * holding {@link #queueLock}.
+	 * The first command of Google Earth Web, else of the visible source, else of a source shown in its own window, else
+	 * the oldest of all. Called holding {@link #queueLock}.
 	 */
 	private Command<?> poll() {
+		Command<?> viewer = queues.get(ImagerySource.GOOGLE_EARTH_WEB).poll();
+		if (viewer != null) {
+			return viewer;
+		}
 		ImagerySource shown = visibleSource();
 		if (shown != null) {
 			Command<?> next = queues.get(shown).poll();
