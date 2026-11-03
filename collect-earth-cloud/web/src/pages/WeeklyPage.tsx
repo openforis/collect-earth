@@ -57,6 +57,7 @@ function Progress({ data }: { data: WeeklyData }) {
     <Block title={t("weekly.progressTitle")}>
       <Typography>{t("weekly.submitted", { n: n(p.submitted) })}</Typography>
       {p.checks > 0 && <Typography>{t("weekly.checks", { n: n(p.checks) })}</Typography>}
+      {p.referenceMeasurements > 0 && <Typography>{t("weekly.referenceMeasurements", { n: n(p.referenceMeasurements) })}</Typography>}
       <Typography>{t("weekly.byEnd", { n: n(p.byEnd), total: n(p.totals.plots), before: n(p.before) })}</Typography>
       {data.current && <Typography color="text.secondary">{t("weekly.now", { n: n(p.totals.submitted), total: n(p.totals.plots) })}</Typography>}
       <Box sx={{ overflowX: "auto" }}>
@@ -191,7 +192,7 @@ export function WeeklyPage({ projectId, week }: { projectId: string; week: strin
       {data && (
         <>
           <WeekNav projectId={projectId} data={data} />
-          {data.current && <Alert severity="info">{t("weekly.current")}</Alert>}
+          {data.current && <Alert severity="info" role="note">{t("weekly.current")}</Alert>}
           <AsOf asOf={data.asOf} />
           <Progress data={data} />
           <People data={data} />

@@ -234,6 +234,14 @@ export function bucketLabel(t: Translate, buckets: readonly { upToMs: number }[]
   return t("person.between", { from: durationText(t, buckets[index - 1].upToMs), to: upTo });
 }
 
+/** "3 submissions came less than 20 s after the one before…": the project's own threshold (fastSeconds). */
+export function veryFastText(t: Translate, speed: { veryFast: number; veryFastSeconds: number }, language: string): string {
+  return t(speed.veryFast === 1 ? "person.veryFastOne" : "person.veryFastMany", {
+    n: formatNumber(speed.veryFast, language),
+    d: durationText(t, speed.veryFastSeconds * 1000),
+  });
+}
+
 /** Plots a day, with one decimal when under 10. */
 export function perDayText(value: number | null, language: string): string {
   if (value === null) return "—";

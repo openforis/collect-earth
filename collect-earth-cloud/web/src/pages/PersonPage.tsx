@@ -52,7 +52,7 @@ import { AsOf, CalendarHeatMap, ChartOrTable, ColumnChart, ValuesTable } from ".
 import { countsText, totalOf } from "../flagsView";
 import { formatDate, formatNumber } from "../format";
 import { useT, type Translate } from "../i18n";
-import { agoText, bucketLabel, durationText, perDayText, removalText, statusChip, statusSyncLevel } from "../peopleView";
+import { agoText, bucketLabel, durationText, perDayText, veryFastText, removalText, statusChip, statusSyncLevel } from "../peopleView";
 import { browserTimeZone, dayText, percentText } from "../progressView";
 import { rateText } from "../qualityView";
 import { accuracyText, weakestQuestions } from "../referenceView";
@@ -239,7 +239,7 @@ export function SpeedSection({ data }: { data: PersonData }) {
             </Typography>
             {s.veryFast > 0 && (
               <Alert severity="warning" icon={<WarningAmber />}>
-                {plural(t, s.veryFast, "person.veryFastOne", "person.veryFastMany", language)}
+                {veryFastText(t, s, language)}
               </Alert>
             )}
             <ChartOrTable
@@ -599,7 +599,9 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
   const [removing, setRemoving] = useState(false);
   const [invite, setInvite] = useState<NewInvite | null>(null);
   const [busy, setBusy] = useState(false);
+  // One change at a time; the controls stay enabled (a disabled one drops the keyboard focus).
   const run = async (action: () => Promise<void>) => {
+    if (busy) return;
     setError(null);
     setNotice(null);
     setBusy(true);
@@ -621,7 +623,7 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
               labelId="person-role"
               label={t("person.role")}
               value={person.role}
-              disabled={busy}
+              aria-disabled={busy}
               onChange={(e) =>
                 void run(async () => {
                   const role = e.target.value as Role;
@@ -646,7 +648,7 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
           <Button
             variant="outlined"
             startIcon={<InsertLink />}
-            disabled={busy}
+            aria-disabled={busy}
             onClick={() =>
               void run(async () => {
                 // A link for them only: Collect Earth gets the project file as it is now when they join with
@@ -658,7 +660,7 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
             {t("person.newLink")}
           </Button>
           {person.userId !== me?.userId && (
-            <Button color="error" variant="outlined" startIcon={<Delete />} disabled={busy} onClick={() => setRemoving(true)}>
+            <Button color="error" variant="outlined" startIcon={<Delete />} aria-disabled={busy} onClick={() => !busy && setRemoving(true)}>
               {t("people.remove", { name: person.username })}
             </Button>
           )}
@@ -721,7 +723,7 @@ export function PersonHeading({ data, title }: { data: PersonData; title?: strin
   return (
     <Stack spacing={1}>
       {title !== undefined && (
-        <Typography variant="h2" component="h2" sx={{ wordBreak: "break-word" }}>
+        <Typography variant="h2" component="h2" sx={{ wordBreak: "break-word" }} data-page-heading>
           {title}
         </Typography>
       )}

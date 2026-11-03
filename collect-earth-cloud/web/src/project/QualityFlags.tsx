@@ -75,7 +75,7 @@ function Threshold({ projectId, data, canEdit, onSaved }: { projectId: string; d
   const value = parseSeconds(text, MIN_FAST_SECONDS, MAX_FAST_SECONDS);
   const range = { min: MIN_FAST_SECONDS, max: MAX_FAST_SECONDS };
   const save = async () => {
-    if (value === null) return;
+    if (saving || value === null || value === data.fastSeconds) return;
     setSaving(true);
     setError(null);
     setSaved(false);
@@ -102,7 +102,13 @@ function Threshold({ projectId, data, canEdit, onSaved }: { projectId: string; d
           slotProps={{ htmlInput: { inputMode: "numeric" } }}
           sx={{ maxWidth: { sm: 320 } }}
         />
-        <Button variant="outlined" onClick={() => void save()} disabled={saving || value === null || value === data.fastSeconds} sx={{ mt: { sm: 0.25 } }}>
+        {/* Never disabled (a disabled button drops the keyboard focus once saved): it does nothing until there is a new value. */}
+        <Button
+          variant="outlined"
+          onClick={() => void save()}
+          aria-disabled={saving || value === null || value === data.fastSeconds}
+          sx={{ mt: { sm: 0.25 } }}
+        >
           {t("flags.fastSave")}
         </Button>
       </Stack>
@@ -210,14 +216,17 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
                 {t(data.requiredQuestions > 0 ? "flags.requiredNote" : "flags.requiredNone")}
               </Typography>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
-                <SelectField label={t("answers.filterPerson")} value={filter.person ?? ALL} onChange={(v) => (setFilter({ ...filter, person: v === ALL ? null : v }), setAll(false))}>
-                  <MenuItem value={ALL}>{t("answers.everyone")}</MenuItem>
-                  {people.map((p) => (
-                    <MenuItem key={p} value={p}>
-                      {p}
-                    </MenuItem>
-                  ))}
-                </SelectField>
+                {/* Reviewers get no counts per person (Decision 10): no person filter for them. */}
+                {canEdit && (
+                  <SelectField label={t("answers.filterPerson")} value={filter.person ?? ALL} onChange={(v) => (setFilter({ ...filter, person: v === ALL ? null : v }), setAll(false))}>
+                    <MenuItem value={ALL}>{t("answers.everyone")}</MenuItem>
+                    {people.map((p) => (
+                      <MenuItem key={p} value={p}>
+                        {p}
+                      </MenuItem>
+                    ))}
+                  </SelectField>
+                )}
                 <SelectField label={t("flags.filterKind")} value={filter.kind ?? ALL} onChange={(v) => (setFilter({ ...filter, kind: v === ALL ? null : (v as FlagKind) }), setAll(false))}>
                   <MenuItem value={ALL}>{t("flags.allKinds")}</MenuItem>
                   {FLAG_KINDS.map((k) => (
@@ -285,7 +294,7 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
                   )}
                 </Box>
               )}
-              <PeopleCounts data={data} onPerson={(username) => (setFilter({ ...filter, person: username }), setAll(false))} />
+              {canEdit && <PeopleCounts data={data} onPerson={(username) => (setFilter({ ...filter, person: username }), setAll(false))} />}
             </Stack>
           </Box>
         )}

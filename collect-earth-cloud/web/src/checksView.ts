@@ -1,4 +1,13 @@
 import type { SamplingFileRule, SamplingRuleInput, SamplingView } from "./api";
+import type { Translate } from "./i18n";
+
+/**
+ * The server's warning checkers_not_blind (GET/PUT /sampling): the reviewers and coordinators the
+ * rule chooses can read the first assessments on the dashboard, so their checks may not be blind.
+ */
+export function notBlindText(t: Translate, usernames: readonly string[]): string {
+  return t(usernames.length === 1 ? "checks.notBlindOne" : "checks.notBlind", { names: usernames.join(", ") });
+}
 
 /** The server's limits (src/sampling.ts). */
 export const MAX_FIRST_N = 1000;
@@ -21,7 +30,7 @@ export interface ChecksForm {
   firstN: string;
   percentOn: boolean;
   percent: string;
-  /** Every collector and reviewer, or only `checkers`. */
+  /** Every collector (the default: reviewers and coordinators only when chosen), or only `checkers`. */
   checkersAll: boolean;
   checkers: string[];
   files: Record<string, FileForm>;

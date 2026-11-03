@@ -104,7 +104,7 @@ describe("forecast sentences", () => {
 
 describe("a progress link's quality figure", () => {
   it("says the agreement, or why there is none", () => {
-    expect(publicQualityText(t, { available: false, agreement: null, computedAt: null }, "en")).toBe("The quality figure appears once the coordinators have looked at the quality checks.");
+    expect(publicQualityText(t, { available: false, agreement: null, computedAt: null }, "en")).toBe("The quality figure appears once the coordinators or reviewers have looked at the quality checks.");
     expect(publicQualityText(t, { available: true, agreement: { compared: 0, agreeing: 0, rate: null }, computedAt: 1 }, "en")).toBe("No plot has been checked a second time yet.");
     expect(publicQualityText(t, { available: true, agreement: { compared: 5, agreeing: 4, rate: null }, computedAt: 1 }, "en")).toBe("Too few checks to judge (5 checks, 20 needed)");
     expect(publicQualityText(t, { available: true, agreement: { compared: 40, agreeing: 30, rate: 0.75 }, computedAt: 1 }, "en")).toBe("75% agree (30 of 40 checks)");
@@ -125,12 +125,12 @@ describe("attention cards", () => {
   });
 
   it("one and many, people and days", () => {
-    expect(attentionText(t, item({ count: 1 }), "en").text[0]).toBe("One person with plots left has not sent anything for 3 days or more.");
+    expect(attentionText(t, item({ count: 1 }), "en").text[0]).toBe("One person with plots left has neither synced nor downloaded plots for more than 3 days.");
     expect(attentionText(t, item({ count: 1, quietDays: 1 }), "en")).toEqual({
-      title: "Quiet for a day or more",
-      text: ["One person with plots left has not sent anything for a day or more."],
+      title: "Quiet for more than a day",
+      text: ["One person with plots left has neither synced nor downloaded plots for more than a day."],
     });
-    expect(attentionText(t, item({ count: 2, quietDays: 1 }), "en").text[0]).toBe("2 people with plots left have not sent anything for a day or more.");
+    expect(attentionText(t, item({ count: 2, quietDays: 1 }), "en").text[0]).toBe("2 people with plots left have neither synced nor downloaded plots for more than a day.");
     expect(attentionText(t, item({ count: 1200, kind: "notAssigned" }), "en").text[0]).toBe("1,200 plots are not given to anyone, so nobody will collect them.");
   });
 

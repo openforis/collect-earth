@@ -5,7 +5,7 @@ import { formOf, ruleOf, wholeNumber } from "./checksView";
 const view = (rule: unknown, files = [{ csvFileId: "f1", filename: "north.csv" }]) => toSamplingView({ rule, files, active: rule !== null });
 
 describe("the Checks section's form", () => {
-  it("suggests 10 and 10 % for a new rule, both off, every collector and reviewer", () => {
+  it("suggests 10 and 10 % for a new rule, both off, every collector", () => {
     expect(formOf(view(null))).toEqual({
       firstNOn: false,
       firstN: "10",

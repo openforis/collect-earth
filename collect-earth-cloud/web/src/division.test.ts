@@ -72,7 +72,7 @@ describe("order nearby (plots close on the map together)", () => {
   it("says why it is not available, or how many plots go last", () => {
     const n = (value: number) => String(value);
     expect(nearbyNote(columns.nearby, t, n)).toBeNull();
-    expect(nearbyNote(otherSrs.nearby, t, n)).toBe("Not available: the survey’s coordinates are in EPSG:32633, not in latitude and longitude.");
+    expect(nearbyNote(otherSrs.nearby, t, n)).toBe("Not available: the survey's coordinates are in EPSG:32633, not in latitude and longitude.");
     expect(nearbyNote({ available: false, reason: "no_places", withPlace: 0, withoutPlace: 3, srid: null }, t, n)).toBe(
       "Not available: no plot of this file has a latitude and longitude (the two columns after the plot id).",
     );

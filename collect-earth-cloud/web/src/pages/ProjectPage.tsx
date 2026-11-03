@@ -137,7 +137,7 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
               <Typography color="text.secondary">{t("quality.reviewerNote")}</Typography>
               <ReviewQueue projectId={projectId} canBulk={false} />
               <QualityFlags projectId={projectId} canEdit={false} />
-              <QualityAnswers projectId={projectId} />
+              <QualityAnswers projectId={projectId} teamOnly />
               <QualitySurvey projectId={projectId} />
               <QualityReference projectId={projectId} canEdit={false} />
             </Stack>

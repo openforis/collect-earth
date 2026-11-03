@@ -26,6 +26,11 @@ describe("flagsView", () => {
     expect(flagText(t, flag({ kind: "same_as_before", previousPlot: "11", runLength: 4, firstPlot: "9" }), "en")).toBe(
       "Every answer is the same as on their previous plot (11): 4 plots in a row from plot 9.",
     );
+    // A plot the viewer may not see is not named (null from the server, Decision 10).
+    expect(flagText(t, flag({ gapMs: 8_400, previousPlot: null }), "en")).toBe("Submitted 8.4 s after their previous plot.");
+    expect(flagText(t, flag({ kind: "same_as_before", previousPlot: "11", runLength: 4, firstPlot: null }), "en")).toBe(
+      "Every answer is the same as on their previous plot: 4 plots in a row.",
+    );
     expect(flagText(t, flag({ kind: "required_empty", questions: [{ key: "a", label: "Land use" }, { key: "b", label: "Slope" }] }), "en")).toBe("Left empty: Land use, Slope.");
     // One question or several (Spanish says it apart).
     const es = translator("es");

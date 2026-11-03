@@ -59,7 +59,7 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("export.downloaded", { kind: "daily", rows: 3 }), page, "en")).toBe("ana downloaded the daily activity");
     expect(logSentence(t, audit("export.downloaded", { records: 50 }), page, "en")).toBe("ana downloaded the data (50 records)");
     expect(logSentence(t, audit("export.downloaded", { kind: "collect-backup", rows: 4, rounds: "all" }), page, "en")).toBe("ana downloaded the Collect Earth backup");
-    expect(logSentence(t, audit("export.downloaded", { kind: "collect-backup", rows: 4, rounds: "all", completed: false }), page, "en")).toBe("ana’s download of the Collect Earth backup stopped before the end");
+    expect(logSentence(t, audit("export.downloaded", { kind: "collect-backup", rows: 4, rounds: "all", completed: false }), page, "en")).toBe("ana's download of the Collect Earth backup stopped before the end");
     expect(logSentence(t, audit("cep.replaced", {}, null), page, "en")).toBe("Someone no longer in the project uploaded a new project file");
     expect(logSentence(t, audit("link.created", { linkId: "l1", label: "For the donor" }), page, "en")).toBe("ana made a progress link (For the donor)");
     expect(logSentence(t, audit("link.created", { linkId: "l1", label: "" }), page, "en")).toBe("ana made a progress link");
@@ -75,8 +75,8 @@ describe("the log's sentences", () => {
     const es = translator("es");
     expect(logSentence(es, record("created"), page, "es")).toBe("maria empezó la parcela 17 (guardada, sin enviar)");
     expect(logSentence(es, record("created", "check"), page, "es")).toBe("maria empezó el control de calidad de la parcela 17 (guardado, sin enviar)");
-    expect(logSentence(fr, record("unsubmitted", "check"), page, "fr")).toBe("maria a modifié le contrôle de qualité de la parcelle 17 après l’avoir envoyé (plus envoyé)");
-    expect(logSentence(fr, record("unsubmitted"), page, "fr")).toBe("maria a modifié la parcelle 17 après l’avoir envoyée (plus envoyée)");
+    expect(logSentence(fr, record("unsubmitted", "check"), page, "fr")).toBe("maria a modifié le contrôle de qualité de la parcelle 17 après l'avoir envoyé (plus envoyé)");
+    expect(logSentence(fr, record("unsubmitted"), page, "fr")).toBe("maria a modifié la parcelle 17 après l'avoir envoyée (plus envoyée)");
     expect(logSentence(translator("pt"), record("updated", "check"), page, "pt")).toBe("maria salvou de novo o controle de qualidade da parcela 17, sem enviá-lo");
     expect(logSentence(es, record("submitted", "other"), page, "es")).toBe("maria envió la parcela 17 (ronda 2025)");
   });

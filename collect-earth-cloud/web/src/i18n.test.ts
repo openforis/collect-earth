@@ -28,6 +28,51 @@ describe("translations", () => {
     const first = (text: string) => text.slice(0, text.indexOf(".") + 1);
     expect(first(join).length).toBeGreaterThan(20);
     expect(first(myWork)).toBe(first(join));
+    // Reviewers (who also collect) see answers too: both texts say so.
+    for (const text of [join, myWork]) expect(text).toContain(catalogue["role.reviewer"].toLowerCase().slice(0, 6));
+  });
+
+  // The desktop's own labels (collect-earth-app Messages*.properties): Tools → Properties, the
+  // "Sample data" tab (OptionWizard.31), "Refresh assignments" (English in every language) and
+  // "Save & Apply changes" (OptionWizard.15).
+  const desktop = {
+    en: ["Tools → Properties", "Sample data", "Save & Apply changes"],
+    es: ["Herramientas → Propiedades", "Datos de muestra", "Guardar & aplicar cambios"],
+    fr: ["Outils → Propriétés", "Points d'échantillonnage", "Appliquer et sauvegarder les changements"],
+    pt: ["Ferramentas → Propiedades", "Dados de amostra", "Guardar & Aplicar alterações"],
+  } as const;
+  it.each(LANGUAGES)("%s names the desktop's real path to a new plot file", (language) => {
+    const catalogue = CATALOGUES[language];
+    for (const key of ["plots.assignSaved", "checks.explain", "person.sentBackFile", "divide.applied", "divide.moved", "reference.added", "reference.blind"] as const) {
+      const text = catalogue[key];
+      expect(text, `${language} ${key}`).toContain("Refresh assignments");
+      for (const label of desktop[language]) expect(text, `${language} ${key}`).toContain(label);
+    }
+    expect(catalogue["reference.collectors"]).toContain("Refresh assignments");
+    // No text names a plain "Refresh" in "the plot settings" any more.
+    for (const [key, text] of Object.entries(catalogue)) expect(text, `${language} ${key}`).not.toMatch(/plot settings|ajustes de parcelas|configuración de parcelas|réglages des parcelles|configurações de parcelas/);
+  });
+
+  it.each(LANGUAGES)("%s: quiet means more than N days without a sync or a plot download", (language) => {
+    const t = translator(language);
+    const more = { en: "more than", es: "más de", fr: "plus de", pt: "mais de" }[language];
+    for (const key of ["attention.quiet", "attention.quietOne", "attention.quietTitle", "progressSettings.quietDaysHelp"] as const) {
+      expect(t(key, { count: 2, days: 3 }), `${language} ${key}`).toContain(more);
+    }
+    expect(t("attention.quiet", { count: 2, days: 3 })).not.toMatch(/(^|s)(or more|o más|ou plus|ou mais)/);
+  });
+
+  it("one term per language: parcelle, Avance, Andamento, usted, pesquisa, courriel", () => {
+    const values = (language: keyof typeof CATALOGUES) => Object.values(CATALOGUES[language]).join("\n");
+    expect(values("fr")).not.toMatch(/placette/i);
+    expect(values("fr")).not.toMatch(/e-mail/i);
+    expect(values("es")).not.toMatch(/pestaña Progreso/);
+    expect(values("pt")).not.toMatch(/Progresso/);
+    expect(values("pt")).not.toMatch(/questionário/);
+    // Spanish uses "usted": no "tu", "tus", "tú" nor the imperatives the review found.
+    expect(values("es")).not.toMatch(/(^|[^\p{L}])(tu|tus|tú|Abre|vuelve a descargar)(?![\p{L}])/u);
+    // The desktop's menu has three dots.
+    for (const language of LANGUAGES) expect(values(language)).not.toContain("Join cloud project…");
   });
 
   it("fills placeholders and falls back to English", () => {

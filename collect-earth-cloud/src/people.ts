@@ -144,6 +144,8 @@ export interface Speed {
   medianGapMs: number | null;
   /** Gaps under the project's "very fast" threshold (fastSeconds; VERY_FAST_MS by default). */
   veryFast: number;
+  /** That threshold in seconds, for the page's sentence. */
+  veryFastSeconds: number;
   /** Gaps per bin: [previous upToMs, upToMs). */
   buckets: { upToMs: number; count: number }[];
 }
@@ -302,6 +304,7 @@ export function speedOf(times: readonly number[], veryFastMs = VERY_FAST_MS): Sp
     gaps: gaps.length,
     medianGapMs: median(gaps),
     veryFast: gaps.filter((g) => g < veryFastMs).length,
+    veryFastSeconds: veryFastMs / 1000,
     buckets,
   };
 }

@@ -123,13 +123,13 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
       if (d.mode === "whole") return t("activity.audit.whole", { actor, file: fileOf(t, page, d.csvFileId) });
       return t("activity.audit.divided", { actor, file: fileOf(t, page, d.csvFileId), count: num(d.people, language) });
     case "plots.moved":
-      return t("activity.audit.moved", { actor, count: num(d.moved, language), file: fileOf(t, page, d.csvFileId), from: personOf(t, page, d.fromUserId), to: personOf(t, page, d.toUserId) });
+      return t(d.moved === 1 ? "activity.audit.movedOne" : "activity.audit.moved", { actor, count: num(d.moved, language), file: fileOf(t, page, d.csvFileId), from: personOf(t, page, d.fromUserId), to: personOf(t, page, d.toUserId) });
     case "decision.set":
       return t("activity.audit.decided", { actor, plot, decision: t(DECISION_KEYS[d.decision === "first" || d.decision === "check" ? d.decision : "recheck"]) });
     case "decision.deleted":
       return t("activity.audit.undone", { actor, plot });
     case "decision.bulk":
-      return t("activity.audit.bulk", { actor, count: num(d.count, language), decision: t(DECISION_KEYS[d.decision === "first" || d.decision === "check" ? d.decision : "recheck"]) });
+      return t(d.count === 1 ? "activity.audit.bulkOne" : "activity.audit.bulk", { actor, count: num(d.count, language), decision: t(DECISION_KEYS[d.decision === "first" || d.decision === "check" ? d.decision : "recheck"]) });
     case "settings.changed":
       if (d.setting === "ai") return t(d.enabled === true ? "activity.audit.aiOn" : "activity.audit.aiOff", { actor });
       return t("activity.audit.settings", { actor, what: t(SETTING_KEYS[String(d.setting)] ?? "activity.setting.other") });

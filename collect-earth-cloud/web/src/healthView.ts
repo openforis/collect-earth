@@ -22,7 +22,11 @@ export function reasonText(t: Translate, reason: HealthReason, row: HealthRow, d
   const r = (v: number) => formatRate(v, language);
   switch (reason) {
     case "low_agreement":
-      return t(REASON_KEYS[reason], { rate: r(row.agreement!.rate!), n: n(row.agreement!.compared), min: r(data.thresholds.lowAgreement) });
+      return t(row.agreement!.compared === 1 ? "health.reason.low_agreementOne" : REASON_KEYS[reason], {
+        rate: r(row.agreement!.rate!),
+        n: n(row.agreement!.compared),
+        min: r(data.thresholds.lowAgreement),
+      });
     case "often_other":
       return t(REASON_KEYS[reason], { share: r(row.other!.share!), answers: otherAnswersText(row) });
     case "often_empty":

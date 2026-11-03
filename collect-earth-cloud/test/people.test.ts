@@ -257,6 +257,9 @@ describe("a person's page", () => {
     // The project's threshold.
     expect(personDetail(project(records, { fastSeconds: 10 }), 'u-ana', { self: false })!.speed.veryFast).toBe(0);
     expect(personDetail(project(records, { fastSeconds: 11 }), 'u-ana', { self: false })!.speed.veryFast).toBe(1);
+    // The threshold goes with the count, for the page's sentence.
+    expect(personDetail(project(records, { fastSeconds: 11 }), 'u-ana', { self: false })!.speed.veryFastSeconds).toBe(11);
+    expect(d.speed.veryFastSeconds).toBe(15);
     // My work: plots and copies alike (checks stay blind).
     expect(personDetail(project(records), 'u-ana', { self: true })!.speed).toMatchObject({ submissions: 3, sessions: 2, gaps: 1 });
   });

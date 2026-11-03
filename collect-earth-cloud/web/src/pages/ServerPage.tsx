@@ -483,6 +483,15 @@ function OverviewCard() {
             </Typography>
             <Typography>{t("server.failedLogins", { count: n(o.security.totals.failedLogins) })}</Typography>
             <Typography sx={{ mb: 1 }}>{t("server.rateLimited", { count: n(o.security.totals.rateLimited) })}</Typography>
+            <Typography>
+              {t("server.lateDraws", { count: n(o.security.lateDraws) })}
+              {o.security.lastLateDrawAt !== null && ` ${t("server.lateDrawsLast", { date: formatDate(o.security.lastLateDrawAt, language) })}`}
+            </Typography>
+            {o.security.lateDraws > 0 && (
+              <Typography color="text.secondary" variant="body2" sx={{ mb: 1 }}>
+                {t("server.lateDrawsHelp")}
+              </Typography>
+            )}
             {o.security.hours.length === 0 ? (
               <Typography color="text.secondary">{t("server.securityEmpty")}</Typography>
             ) : (

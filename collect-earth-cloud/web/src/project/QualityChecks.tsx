@@ -24,7 +24,7 @@ import Typography from "@mui/material/Typography";
 import { useEffect, useId, useRef, useState } from "react";
 import { drawSamplingNow, getSampling, saveSampling, type SamplingView } from "../api";
 import { useApp } from "../appContext";
-import { formOf, MAX_FIRST_N, ruleOf, type ChecksForm, type FileForm, type FileUse, type FormError } from "../checksView";
+import { formOf, MAX_FIRST_N, notBlindText, ruleOf, type ChecksForm, type FileForm, type FileUse, type FormError } from "../checksView";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
@@ -85,7 +85,7 @@ function FileRow({ file, form, error, idBase, onChange }: { file: SamplingView["
         {formatNumber(file.divisionCopies, language)}
         {file.referenceCopies > 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "normal", minWidth: 140 }}>
-            {t("checks.referenceCopies", { count: formatNumber(file.referenceCopies, language) })}
+            {t(file.referenceCopies === 1 ? "checks.referenceCopiesOne" : "checks.referenceCopies", { count: formatNumber(file.referenceCopies, language) })}
           </Typography>
         )}
       </TableCell>
@@ -386,6 +386,11 @@ export function QualityChecks({ projectId }: { projectId: string }) {
             {data.files.length === 0 && <Alert severity="info">{t("checks.noFiles")}</Alert>}
             {data.wholeFiles.length > 0 && <Alert severity="info">{t("checks.whole", { files: data.wholeFiles.map((f) => f.filename).join(", ") })}</Alert>}
             {data.active && data.noCheckers && <Alert severity="warning">{t("checks.noCheckers")}</Alert>}
+            {data.notBlindCheckers.length > 0 && (
+              <Alert severity="warning" role="note">
+                {notBlindText(t, data.notBlindCheckers)}
+              </Alert>
+            )}
             <RuleForm projectId={projectId} view={data} onSaved={setData} />
             <DrawStatus projectId={projectId} view={data} onDrawn={setData} />
             <Load view={data} />

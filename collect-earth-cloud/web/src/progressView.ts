@@ -188,7 +188,8 @@ export function personDetail(t: Translate, item: AttentionItem, person: Attentio
   if (item.kind === "quiet" && person.lastSyncAt !== null) return t("attention.lastSync", { date: formatDate(person.lastSyncAt) });
   if (item.kind === "quiet" && person.lastPlotsDownloadAt !== null) return t("attention.lastDownload", { date: formatDate(person.lastPlotsDownloadAt) });
   if (item.kind === "oldUnsentWork" && person.medianDelayMs !== null) {
-    return t("attention.daysLate", { n: formatNumber(Math.round((person.medianDelayMs / DAY_MS) * 10) / 10, language) });
+    const days = Math.round((person.medianDelayMs / DAY_MS) * 10) / 10;
+    return t(days === 1 ? "attention.dayLate" : "attention.daysLate", { n: formatNumber(days, language) });
   }
   return null;
 }

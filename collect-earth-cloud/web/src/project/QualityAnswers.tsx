@@ -103,7 +103,7 @@ function BarRows({
   const thick = rows[0]?.bars.length > 1 ? 10 : 14;
   return (
     <Box>
-      <Typography id={readout} variant="body2" sx={{ minHeight: "1.5em", fontVariantNumeric: "tabular-nums" }} aria-live="polite">
+      <Typography id={readout} variant="body2" sx={{ minHeight: "1.5em", fontVariantNumeric: "tabular-nums" }} aria-live={active !== null ? "polite" : "off"}>
         {active !== null ? rows[active]?.readout : ""}
       </Typography>
       <Box
@@ -260,7 +260,7 @@ function ChoiceView({ choice, person, narrowed }: { choice: ChoiceAnswers; perso
         {compared && mine
           ? t("answers.choiceExplainPerson", { person: person!, plots: formatNumber(mine.answered, language), team: formatNumber(choice.answered - mine.answered, language) })
           : t("answers.choiceExplain", { plots: formatNumber(choice.answered, language) })}
-        {choice.blank > 0 ? ` ${t(narrowed ? "answers.blankFiltered" : "answers.blank", { n: formatNumber(choice.blank, language) })}` : ""}
+        {choice.blank > 0 ? ` ${t(narrowed ? (choice.blank === 1 ? "answers.blankFilteredOne" : "answers.blankFiltered") : choice.blank === 1 ? "answers.blankOne" : "answers.blank", { n: formatNumber(choice.blank, language) })}` : ""}
         {choice.multiple ? ` ${t("answers.multiple")}` : ""}
       </Typography>
       {compared && (
@@ -308,7 +308,7 @@ function NumberView({ numbers, person }: { numbers: NumberAnswers; person: strin
     `${r.label}: ${spreadText(t, r.s, language)}${r.s.nonNumeric > 0 ? ` · ${t("answers.nonNumeric", { n: formatNumber(r.s.nonNumeric, language) })}` : ""}`;
   const chart = (
     <Box>
-      <Typography id={readoutId} variant="body2" sx={{ minHeight: "1.5em", fontVariantNumeric: "tabular-nums" }} aria-live="polite">
+      <Typography id={readoutId} variant="body2" sx={{ minHeight: "1.5em", fontVariantNumeric: "tabular-nums" }} aria-live={active !== null ? "polite" : "off"}>
         {active !== null && rows[active] ? readout(rows[active]) : ""}
       </Typography>
       <Box
@@ -408,7 +408,19 @@ const ALL = "__all__";
 /** The days typed apply this long after the last change (or when the field is left). */
 const DAYS_DELAY_MS = 600;
 
-function Filters({ projectId, data, filter, onChange }: { projectId: string; data: AnswersData | null; filter: AnswersFilter; onChange: (f: AnswersFilter) => void }) {
+function Filters({
+  projectId,
+  data,
+  filter,
+  onChange,
+  teamOnly,
+}: {
+  projectId: string;
+  data: AnswersData | null;
+  filter: AnswersFilter;
+  onChange: (f: AnswersFilter) => void;
+  teamOnly: boolean;
+}) {
   const t = useT();
   const { language } = useApp();
   const columns = useLoad(() => (filter.file ? getAnswerColumns(projectId, filter.file) : Promise.resolve([])), [projectId, filter.file]);
@@ -432,14 +444,16 @@ function Filters({ projectId, data, filter, onChange }: { projectId: string; dat
   });
   return (
     <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} useFlexGap sx={{ flexWrap: "wrap", alignItems: { sm: "center" } }}>
-      <SelectField label={t("answers.filterPerson")} value={filter.person ?? ALL} onChange={(v) => onChange({ ...filter, person: v === ALL ? null : v })}>
-        <MenuItem value={ALL}>{t("answers.everyone")}</MenuItem>
-        {people.map((p) => (
-          <MenuItem key={p} value={p}>
-            {p}
-          </MenuItem>
-        ))}
-      </SelectField>
+      {!teamOnly && (
+        <SelectField label={t("answers.filterPerson")} value={filter.person ?? ALL} onChange={(v) => onChange({ ...filter, person: v === ALL ? null : v })}>
+          <MenuItem value={ALL}>{t("answers.everyone")}</MenuItem>
+          {people.map((p) => (
+            <MenuItem key={p} value={p}>
+              {p}
+            </MenuItem>
+          ))}
+        </SelectField>
+      )}
       <SelectField label={t("answers.filterFile")} value={filter.file ?? ALL} onChange={(v) => onChange({ ...filter, file: v === ALL ? null : v, column: null, value: null })}>
         <MenuItem value={ALL}>{t("answers.allFiles")}</MenuItem>
         {files.map((f) => (
@@ -522,8 +536,10 @@ function Filters({ projectId, data, filter, onChange }: { projectId: string; dat
  * The Quality tab's Answers section (coordinators and reviewers; never collectors, never
  * My work): how the first assessments answer each question, for the team and for each
  * person, with the shares far from the rest of the team listed as worth a look.
+ * `teamOnly` (reviewers, Decision 10): the server gives them the team's figures only and
+ * refuses a person, so there is no person filter and no list of people's answers worth a look.
  */
-export function QualityAnswers({ projectId }: { projectId: string }) {
+export function QualityAnswers({ projectId, teamOnly = false }: { projectId: string; teamOnly?: boolean }) {
   const t = useT();
   const { language } = useApp();
   const timeZone = browserTimeZone();
@@ -557,15 +573,30 @@ export function QualityAnswers({ projectId }: { projectId: string }) {
         <Typography variant="h2" id="answers-title">
           {t("answers.title")}
         </Typography>
-        <Typography color="text.secondary">{t("answers.explain")}</Typography>
-        <Filters projectId={projectId} data={data} filter={filter} onChange={setFilter} />
+        <Typography color="text.secondary">{t(teamOnly ? "answers.explainTeam" : "answers.explain")}</Typography>
+        <Filters projectId={projectId} data={data} filter={filter} onChange={setFilter} teamOnly={teamOnly} />
         {!data && loading && <Loading />}
         {busy && (
           <Alert severity="info" role="status" action={<Button color="inherit" size="small" onClick={reload}>{t("common.retry")}</Button>}>
             {t("quality.busy")}
           </Alert>
         )}
-        {error !== null && !busy && <ErrorAlert error={error} onRetry={reload} />}
+        {/* A reviewer's filter must hold at least 5 plots (Decision 10): a smaller one is refused (403). */}
+        {teamOnly && error instanceof ApiError && error.status === 403 ? (
+          <Alert
+            severity="info"
+            role="status"
+            action={
+              <Button color="inherit" size="small" onClick={() => setFilter(NO_ANSWERS_FILTER)}>
+                {t("answers.clear")}
+              </Button>
+            }
+          >
+            {t("answers.tooFewPlots")}
+          </Alert>
+        ) : (
+          error !== null && !busy && <ErrorAlert error={error} onRetry={reload} />
+        )}
         {data && (
           <Box sx={{ opacity: loading ? 0.6 : 1, transition: "opacity 120ms" }} aria-busy={loading}>
             <Stack spacing={2}>
@@ -578,6 +609,7 @@ export function QualityAnswers({ projectId }: { projectId: string }) {
                 <Typography>{t(narrowed ? "answers.noneFiltered" : "answers.none")}</Typography>
               ) : (
                 <>
+                  {!teamOnly && (
                   <Box>
                     <Typography variant="h3" sx={{ mb: 0.5 }}>
                       {t("answers.flagsTitle")}
@@ -629,6 +661,7 @@ export function QualityAnswers({ projectId }: { projectId: string }) {
                       </Typography>
                     )}
                   </Box>
+                  )}
                   {questions.length > 0 && shown !== null && (
                     <Stack spacing={1.5}>
                       <SelectField label={t("answers.question")} value={shown} onChange={setChosen} minWidth={320}>

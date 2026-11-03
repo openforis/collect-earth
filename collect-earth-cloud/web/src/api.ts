@@ -481,6 +481,7 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   [NETWORK_ERROR]: "error.network",
   invalid_credentials: "error.invalidCredentials",
   own_plot: "quality.ownPlot",
+  no_such_plot: "quality.noSuchPlot",
   reference_plot: "plot.referenceNoDecision",
   map_changed: "map.changed",
   wrong_password: "error.wrongPassword",
@@ -1323,8 +1324,17 @@ const decisionPath = (projectId: string, plot: string) => `${p(projectId)}/quali
 
 export async function setQualityDecision(projectId: string, plot: string, decision: DecisionKind, comment: string): Promise<QualityDecision> {
   const json = comment.trim() ? { decision, comment: comment.trim() } : { decision };
-  return toDecision(await request<unknown>("PUT", decisionPath(projectId, plot), { json }));
+  try {
+    return toDecision(await request<unknown>("PUT", decisionPath(projectId, plot), { json }));
+  } catch (error) {
+    // A plot in no plot file and without records (or one a reviewer may not see) is a 404: say so plainly.
+    if (error instanceof ApiError && error.status === 404) throw new ApiError(404, NO_SUCH_PLOT, error.reason, error.details);
+    throw error;
+  }
 }
+
+/** The code setQualityDecision gives a 404: the plot is not in this project (any more). */
+export const NO_SUCH_PLOT = "no_such_plot";
 
 /** Undoes a decision (a decision already gone counts as undone). */
 export async function deleteQualityDecision(projectId: string, plot: string): Promise<void> {
@@ -1855,7 +1865,14 @@ export interface ServerOverview {
     migrations: { applied: number; shipped: number; latest: string | null; newestAppliedAt: number | null; missing: string[] } | null;
   };
   server: { version: string; startedAt: number };
-  security: { since: number; totals: { failedLogins: number; rateLimited: number }; hours: { hour: number; failedLogins: number; rateLimited: number }[] };
+  security: {
+    since: number;
+    totals: { failedLogins: number; rateLimited: number };
+    hours: { hour: number; failedLogins: number; rateLimited: number }[];
+    /** Automatic check draws worked out after their request's wait (stored nothing, tried again later), and the last one's time. */
+    lateDraws: number;
+    lastLateDrawAt: number | null;
+  };
 }
 
 const countOrNull = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null);
@@ -1906,6 +1923,8 @@ export async function getServerOverview(): Promise<ServerOverview> {
       since: toMillis(security.since) ?? 0,
       totals: { failedLogins: toCount(totals.failedLogins), rateLimited: toCount(totals.rateLimited) },
       hours: list(security.hours).map((h) => ({ hour: toMillis(h.hour) ?? 0, failedLogins: toCount(h.failedLogins), rateLimited: toCount(h.rateLimited) })),
+      lateDraws: toCount(security.lateDraws),
+      lastLateDrawAt: toMillis(security.lastLateDrawAt),
     },
   };
 }
@@ -2264,6 +2283,8 @@ export interface Speed {
   gaps: number;
   medianGapMs: number | null;
   veryFast: number;
+  /** The project's "very fast" threshold (fastSeconds) the count used. */
+  veryFastSeconds: number;
   buckets: { upToMs: number; count: number }[];
 }
 
@@ -2437,6 +2458,7 @@ export function toPersonData(body: unknown): PersonData {
       gaps: toCount(speed.gaps),
       medianGapMs: toNumberOrNull(speed.medianGapMs),
       veryFast: toCount(speed.veryFast),
+      veryFastSeconds: toFastSeconds(speed.veryFastSeconds),
       buckets: list(speed.buckets).map((x) => ({ upToMs: toCount(x.upToMs), count: toCount(x.count) })),
     },
     sync: {
@@ -2763,7 +2785,7 @@ export async function getFlags(projectId: string, filter: FlagsFilter): Promise<
 
 // --- automatic checks (Task 13) --------------------------------------------------
 
-/** What a sampling rule asks: who may check (null = every collector and reviewer), the first N plots, X % a week (null = off). */
+/** What a sampling rule asks: who may check (null = every collector; reviewers and coordinators only when chosen), the first N plots, X % a week (null = off). */
 export interface SamplingCoreRule {
   checkers: string[] | null;
   firstN: number | null;
@@ -2828,6 +2850,11 @@ export interface SamplingView {
   checkers: SamplingChecker[];
   members: { userId: string; username: string; role: Role; disabled: boolean }[];
   noCheckers: boolean;
+  /**
+   * The reviewers and coordinators the rule (or a file's own rule) chooses as checkers: they can read the
+   * first assessments on the dashboard, so their checks may not be blind (warning checkers_not_blind).
+   */
+  notBlindCheckers: string[];
 }
 
 const toLimit = (value: unknown): number | null => (typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null);
@@ -2897,6 +2924,7 @@ export function toSamplingView(body: unknown): SamplingView {
     })),
     members: list(b.members).map((m) => ({ userId: String(m.userId ?? ""), username: String(m.username ?? ""), role: toRole(m.role), disabled: m.disabled === true })),
     noCheckers: b.noCheckers === true,
+    notBlindCheckers: obj(b.warning).code === "checkers_not_blind" ? strings(obj(b.warning).usernames) : [],
   };
 }
 
@@ -3701,6 +3729,8 @@ export interface WeeklyData {
     days: { date: string; submitted: number; checks: number }[];
     submitted: number;
     checks: number;
+    /** Collectors' records of reference plots submitted that week: measurements, counted apart from the checks. */
+    referenceMeasurements: number;
     before: number;
     byEnd: number;
     totals: ProgressTotals;
@@ -3739,6 +3769,7 @@ export function toWeeklyData(body: unknown): WeeklyData {
         .map((x) => ({ date: String(x.date), submitted: toCount(x.submitted), checks: toCount(x.checks) })),
       submitted: toCount(pr.submitted),
       checks: toCount(pr.checks),
+      referenceMeasurements: toCount(pr.referenceMeasurements),
       before: toCount(pr.before),
       byEnd: toCount(pr.byEnd),
       totals: {
