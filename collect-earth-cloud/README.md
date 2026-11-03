@@ -45,8 +45,11 @@ STORE_BACKEND=postgres DATABASE_URL=postgres://ce:ce@localhost:5432/collect_eart
 STORE_BACKEND=postgres DATABASE_URL=postgres://ce:ce@localhost:5432/collect_earth_cloud npm run dev
 ```
 
-Smoke test of the activity data (migration 012) on a throwaway PostgreSQL: it creates
-and drops its own database and roles, so never point it at a real server.
+Smoke tests on a throwaway PostgreSQL (the activity data of migration 012, then one
+per later feature): each creates and drops its own database and roles, so never point
+one at a real server. They take the container's port as their argument, so one
+container serves them all, run one after the other (each script's own default port,
+used when none is given, differs: 55481 to 55486).
 
 ```bash
 docker run -d --rm --name ce-pg-smoke -e POSTGRES_PASSWORD=pw -p 55481:5432 postgres:16
@@ -55,11 +58,11 @@ npm run smoke:pg:progress -- 55481   # the Progress and People tabs (migration 0
 npm run smoke:pg:activity -- 55481   # the Activity tab (migration 017): the bell's read state with RLS, the log on 100,000 record events paged by cursor (timings), the weekly summary and the daily activity download
 npm run smoke:pg:panel -- 55481      # the server owner's panel (migration 018): GET /v1/admin/overview on 100,000 records in 5 projects (totals against SQL, no names, timings), RLS still binding the app role, disabling and enabling an account, two admins disabling each other at once
 npm run smoke:pg:sampling -- 55481   # the automatic checks (migration 019): a first submission draws, the 10 minutes' coalescing, the checker's round-2 file, two draws at once, RLS of sampling_rules, a draw on 100,000 plots timed
-npm run smoke:pg:reference -- 55482  # reference plots (migration 020): marking, every collector's copy, the worker's accuracy, removing, a newcomer's copies, RLS of reference_plots, 50 reference plots × 40 collectors on 100,000 plots timed
+npm run smoke:pg:reference -- 55481  # reference plots (migration 020): marking, every collector's copy, the worker's accuracy, removing, a newcomer's copies, RLS of reference_plots, 50 reference plots × 40 collectors on 100,000 plots timed
 npm run smoke:pg:backup -- 55481     # the Collect Earth backup: getRecordXml and the records without XML under RLS (another project invisible), the summary, a link used once, then 100,000 records of 17 KB streamed and timed
-npm run smoke:pg:links -- 55484      # progress links (migration 021): RLS of share_links, share_link_lookup (SECURITY DEFINER) giving only ids, the token kept hashed, the public page without names, revoked and unknown alike, the lookup and the page on 100,000 records timed
-npm run smoke:pg:mail -- 55485       # weekly emails (migration 023): the account tables global as users, the address confirmed by its link, two instances at once sending each mail once, a failed mail put back, one-click unsubscribe, a run timed over 40 subscribers of 100,000 records and 10,000 unconfirmed
-npm run smoke:pg:final -- 55486      # the final review's fixes (migration 024): migrations skipped when unchanged, an edited one run again, 015 widening an older constraint, lock_timeout on a busy table, listRecordsByKeys by operator under RLS, removeMember and putCsvFile waiting for the sampling lock, a draw's timeouts
+npm run smoke:pg:links -- 55481      # progress links (migration 021): RLS of share_links, share_link_lookup (SECURITY DEFINER) giving only ids, the token kept hashed, the public page without names, revoked and unknown alike, the lookup and the page on 100,000 records timed
+npm run smoke:pg:mail -- 55481       # weekly emails (migration 023): the account tables global as users, the address confirmed by its link, two instances at once sending each mail once, a failed mail put back, one-click unsubscribe, a run timed over 40 subscribers of 100,000 records and 10,000 unconfirmed
+npm run smoke:pg:final -- 55481      # the final review's fixes (migration 024): migrations skipped when unchanged, an edited one run again, 015 widening an older constraint, lock_timeout on a busy table, listRecordsByKeys by operator under RLS, removeMember and putCsvFile waiting for the sampling lock, a draw's timeouts
 docker stop ce-pg-smoke
 ```
 
@@ -140,9 +143,10 @@ least 8) apply to setup, signup, password change and reset — **not** to
 it always did.
 
 `login`, `register`, `signup`, `setup` and `reset` are rate limited per client IP
-(`RATE_LIMIT_PER_MINUTE`, default 10) → 429 `rate_limited`. The server trusts
+(`RATE_LIMIT_PER_MINUTE`, default 60; failed logins also 10 a minute per account) → 429 `rate_limited`. The server trusts
 `x-forwarded-*` (it runs behind a proxy). Join and reset links use
-`PUBLIC_BASE_URL`, else `RENDER_EXTERNAL_URL` (if the host sets it), else the request's proto/host.
+`PUBLIC_BASE_URL`, else `RENDER_EXTERNAL_URL` (if the host sets it), else the request's
+protocol (`x-forwarded-proto`) and `Host` (`X-Forwarded-Host` only with `TRUST_FORWARDED_HOST`; see DEPLOY.md).
 
 **Limits.** `maxProjectStorageMb` refuses coordinator uploads (`PUT …/cep`, `PUT …/csv-files/:filename`)
 that would take the project over the limit with 413 `storage_limit_reached` `{usedBytes, limitBytes}`
@@ -302,8 +306,33 @@ texts are in `web/public/third-party-licenses.txt`, which the build copies into 
 The base map is OpenStreetMap's tiles (© OpenStreetMap contributors, ODbL), with the
 attribution shown on the map; see DEPLOY.md, "The map's base map".
 
-## Not yet implemented (later phases)
+## Not yet implemented, and known limitations
 
-Email (verification, self-service password reset), export of
-record XML / a Collect backup, the Phase C review workflow, argon2id, GCS for
-artifacts.
+Not built: self-service password reset by email (reset links are made by the server's
+administrator), argon2id for passwords (scrypt is used, `src/password.ts`), GCS for
+artifacts, undoing a bulk decision run, bounce handling for the weekly emails.
+
+Known limitations (details in DEPLOY.md, "Known limitations"):
+- **Desktop, plot settings** (Collect Earth's Swing dialog, not changed here): opening
+  it or pressing "Refresh assignments" can download two plot files at once, so the plot
+  file field may end on another file (and a download may fail its checksum); its preview
+  table shows the `round` column, so a collector who opens it can tell the drawn checks
+  apart.
+- **Desktop, form:** a plot sent back a second time shows the comment the record was
+  saved with at the top of the form, not the new one (the balloon shows the new one).
+- **A comment that looks like a shape** (WKT or GeoJSON) becomes the plot's shape in
+  polygon projects.
+- **Per-instance limits** (rate limits, confirmation mails an hour, one backup at a
+  time and the used backup links, the server panel's counts, one weekly email run at a
+  time) count on each Cloud Run instance on its own.
+- **The map's pages**: an instance whose quality figures differ and that cannot work
+  out the same ones answers 409 `map_changed` (the dashboard reads the map again from the start a few
+  times before it says the map changed).
+- **Reference plots can be guessed from gaps:** a reviewer never sees a reference plot
+  on the map, in plot search or in the plot places, but where plot ids run in sequence,
+  the ids missing from what they see are the reference plots. Only plot ids that do not
+  show an order would close this.
+- **Blind checks need the Collect Earth release after 1.23.19.**
+
+The decisions still open for the owner are listed in
+`docs/plans/2026-11-01-dashboard-improvements.md`, section "Owner decisions pending".

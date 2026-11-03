@@ -22,11 +22,11 @@ managed Postgres (Option B).
 | `SETUP_CODE` | advised | `K7QX-M3TB-WN` | Asked for once by the dashboard's first-run setup, which creates the platform admin. If unset, a random code is generated at boot and printed in the log (`Setup code: XXXX-XXXX-XX …`) while no platform admin exists. Set it when running more than one instance: each would otherwise generate its own. Case, spaces and hyphens are ignored when it is typed |
 | `ADMIN_API_KEY` | optional | `<random 32+ chars>` | Lets scripts provision projects with `x-admin-key` (returns the Phase-0 project tokens). Dashboard users create projects with their session instead. Without it, anonymous provisioning works **only** with `STORE_BACKEND=memory`; on Postgres it is refused (401) |
 | `PUBLIC_BASE_URL` | advised with a custom domain; **required with `SMTP_URL`** | `https://ce-cloud.example.org` | Base of the `/join/<token>` and `/reset/<token>` links and of every link in an email. If unset: `RENDER_EXTERNAL_URL`, else (screens only, never emails) the request's `x-forwarded-proto` + `Host` (correct on Cloud Run's own `*.run.app` address; see below) |
-| `TRUST_FORWARDED_HOST` | no | `true` | Use `X-Forwarded-Host` instead of `Host` for links derived from a request. Only behind a proxy that sets it itself; a client can write it (see below). Default off |
+| `TRUST_FORWARDED_HOST` | no | `true` | Use `X-Forwarded-Host` instead of `Host` for links derived from a request. Only behind a proxy that sets it itself; a client can write it (see below). `true` or `1`; default off |
 | `RENDER_EXTERNAL_URL` | no | `https://ce-cloud.onrender.com` | Honoured only as an environment fallback for the link base when `PUBLIC_BASE_URL` is unset (some hosts set it automatically) |
 | `RATE_LIMIT_PER_MINUTE` | no | `60` | Requests per minute per client IP on login, register, signup, setup and reset (429 `rate_limited` above it). Kept generous because a training room joins from one office IP; failed logins are also limited to 10 per minute per account. `0` disables both. Per instance, in memory |
 | `TRUST_PROXY_HOPS` | no | `1` | Proxies in front of the server that add to `x-forwarded-for` (see below) |
-| `MIGRATE_ON_BOOT` | optional | `true` | Apply pending migrations on startup (see below) |
+| `MIGRATE_ON_BOOT` | optional | `true` | Apply pending migrations on startup (see below); `true` or `1` |
 | `PORT` | no | `8080` | Listen port (Cloud Run injects `8080`) |
 | `HOST` | no | `0.0.0.0` | Bind address |
 | `QUALITY_WORKER_MAX_MB` | no | `256` | Memory (MB, at least 64) the thread that works out the quality figures may use on Postgres. A project too big for it gets a plain error instead of the figures. Keep it below the container's memory (see "Quality figures and memory") |
@@ -162,6 +162,17 @@ and has no `BYPASSRLS`. So the server should run as its own role, not as the own
   does not tell apart. Its own migrations also put back the older project policies
   (without the `NULLIF` of the empty setting); the next boot of a newer version
   replaces them again.
+  Going back to a version from before the dashboard improvements (migrations 012 to
+  024) also keeps every record and file: those migrations only add tables, columns and
+  indexes, which the older server ignores. What it does not have is lost from view, not
+  deleted: the activity log, Progress, People, the map, plot search, the review queue,
+  check sampling, reference plots, progress links, the weekly emails and the server
+  owner's panel. While it runs, its uploads write no activity event (those plots count
+  again from their next save), no check is drawn by itself, and progress links answer
+  "not found". Plots sent back or drawn for a check stay in the database but reach no
+  one, and a disabled account can log in again (the older server does not read
+  `users.disabled_at`). The next boot of a newer version picks all of it up again; its
+  migrations skip the files whose checksum is unchanged.
 - By hand (Option B), as the owner:
   `CREATE ROLE ce_app LOGIN PASSWORD '...'`, then start the server with both URLs and
   `MIGRATE_ON_BOOT=true` (or run `npm run migrate` with both set).
@@ -342,13 +353,18 @@ must be the address people really use.
   quality figures are worked out (a coordinator or reviewer opens the Quality tab, the review queue…),
   so every instance shows the same figure, also after a restart; a link never makes the server
   compute. Until the figures were worked out once, the page says the figure appears once the
-  coordinators have looked at the quality checks.
+  coordinators or reviewers have looked at the quality checks.
 - **The server owner's panel** (the Server page, "How the server is doing"): totals only.
   Projects appear by id with their size, never by name (a platform admin is not a member of
   any project). The figures are kept a minute per instance (the card says their time) and
   the page is behind the rate limiter. Failed logins and requests refused by the rate limiter are counted in
   memory by each instance since it started, so they start again from zero on a restart and
-  each Cloud Run instance shows its own. "Migrations applied" comes from
+  each Cloud Run instance shows its own. The same goes for its "late automatic draws": the
+  automatic check draws that were worked out after their request had answered, so stored
+  nothing then and were tried again later (the third late one in a row is stored after its
+  request), with the time of the last one. A count that keeps growing means a project's
+  draws are slow on this server; coordinators can still use "Draw now" on the Quality tab,
+  which always finishes. "Migrations applied" comes from
   `schema_migrations` (migration 018), filled by every migration run from then on.
 - **Disabling an account** (Server page, Accounts): the account cannot log in, its
   sessions (Collect Earth's included) and reset links are deleted, and its name stays
@@ -380,12 +396,27 @@ must be the address people really use.
 
 ## Upgrading from master
 
-The new migrations run at boot as usual. Five things to know about the data a
-server from master already holds:
+The new migrations (012 to 024) run at boot as usual. Seven things to know about the
+data a server from master already holds:
 
-- **Migration 018 builds an index on `record_events (project_id, received_at)`** for the
-  server owner's panel, while the migration lock is held: a fraction of a second per
-  100,000 events, during which uploads wait.
+- **Migration 013 builds an index on `record_events (project_id, received_at)`** (for
+  the Progress tab's "old unsent work" and the server owner's panel), right after 012
+  has filled that table (below), while the migration lock is held: a fraction of a
+  second per 100,000 events, during which uploads wait. Migration 018 names the same
+  index with `IF NOT EXISTS`, so on an upgrade it does nothing.
+
+- **The other migrations need nothing.** 014 to 017 and 019 to 022 add columns with no
+  value (no rewrite of the table), new empty tables, and an index on a column that is
+  still empty everywhere (016); 015 widens the audit log's list of actions (a quick check
+  of its rows); 023 adds the email settings and their tables; 024 adds a checksum column
+  to `schema_migrations`. The first boot with 024 runs every file once more (they are
+  all idempotent) and records their checksums; later boots skip the files unchanged.
+
+- **Email addresses saved before migration 023 are not confirmed.** 023 adds
+  `users.email_confirmed_at`, empty for every account, so an address given earlier is
+  shown on "My account" as not confirmed and gets no weekly email until its owner
+  presses "Send the link again" and opens the link (see "Weekly emails
+  (optional)"). Nothing is sent by itself.
 
 - **The first boot fills the activity log once (migration 012).** Every record the
   server holds gets one event in `record_events` (submitted, created or deleted, at
@@ -794,6 +825,40 @@ caches to the 1 GiB column (`gcloud run services update collect-earth-cloud --re
   (plots sent back for another look, always listed after the others), can find "north.csv"
   shown instead. Tell collectors to look at the plot file field and choose the file again
   from the list if it is not the one they want, before pressing Apply.
+- **A plot sent back a second time shows the old comment in Collect Earth's form.** The
+  form's header shows the comment the record was saved with before the one in the plot
+  file, so after a second send-back with a new comment the collector reads the **first**
+  comment at the top of the form until the record is saved again from the new "To check
+  again" file, while the balloon and the plots map show the new one. The same old note
+  shows when the plot is opened from the normal plot file. Tell collectors that the
+  newest comment is the one in the balloon and on "My work".
+- **A comment that looks like a shape** (WKT such as `POLYGON((…))`, or GeoJSON) is read
+  by Collect Earth as the plot's shape in projects whose plots are polygons: Collect
+  Earth looks for a shape in every column of a plot file's row, the coordinator's note
+  included. Do not paste shapes into send-back comments.
+- **Emails that bounce are not handled.** The server does not read bounces or
+  complaints: an address that no longer works keeps being written to weekly until its
+  owner removes it or unsubscribes. Watch the mail provider's bounce reports.
+- **Some limits are per instance,** kept in memory, so with several Cloud Run instances
+  each counts on its own, and a restart starts them again:
+  - the requests per minute per client IP, and the failed logins per account
+    (`RATE_LIMIT_PER_MINUTE`);
+  - at most 100 confirmation mails an hour (the 3 an hour and 6 a day per account are
+    stored, so they hold across instances);
+  - one Collect Earth backup prepared at a time ("another Collect Earth backup is being
+    prepared on this server"), and the memory of download links already used (a link
+    lives 60 s, so another instance could accept a used one within that minute);
+  - the server owner's panel: its figures are kept 60 s, and its counts of failed logins,
+    refused requests and late automatic draws start when that instance starts;
+  - one weekly email run at a time (another call meanwhile gets 409 `digest_running`;
+    runs on two instances are still safe: each week is claimed before its mail goes).
+- **A reviewer can still guess which plots are reference plots from the gaps.** The map,
+  plot search and the plot places never show a reference plot to a reviewer, but where
+  plot ids run in sequence (1, 2, 3 …), the ids missing from what a reviewer sees are the
+  reference plots. Only plot ids that do not show an order would close this.
+- **Open points for the owner** (the desktop's plot settings, the old comment above, and
+  others) are listed in the plan, `docs/plans/2026-11-01-dashboard-improvements.md`,
+  section "Owner decisions pending".
 
 ---
 
