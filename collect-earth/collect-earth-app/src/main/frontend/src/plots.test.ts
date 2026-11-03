@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { byId, countStatuses, footprintCorners, indexPlots, heightForZoom, labelOfFeature, leftUnsubmitted, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear,
+import { byId, changedAfterSubmit, countStatuses, footprintCorners, indexPlots, heightForZoom, labelOfFeature, leftUnsubmitted, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear,
   MAX_VIEW_HEIGHT, plotLabel, plotToRestore, plotsGone, sameView, surveyView, withoutPlotParam,
   visibleIds, zoomForHeight } from "./plots";
 import type { PlotStatus } from "./types";
@@ -95,6 +95,28 @@ describe("leftUnsubmitted", () => {
     expect(leftUnsubmitted("p1", "p2", "p3")).toBeNull();
     expect(leftUnsubmitted(null, "p1", "p2")).toBeNull();
     expect(leftUnsubmitted("p1", null, "p1")).toBeNull();
+  });
+});
+
+describe("a plot changed after it was submitted", () => {
+  it("is the one whose form says a change took its submission back, until it is submitted again", () => {
+    let changed = changedAfterSubmit(null, { type: "ce:dirty", plotId: "p1", unsubmitted: true });
+    expect(changed).toBe("p1");
+    expect(changedAfterSubmit(changed, { type: "ce:dirty", plotId: "p1" })).toBe("p1");
+    changed = changedAfterSubmit(changed, { type: "ce:saved", plotId: "p1" });
+    expect(changed).toBeNull();
+  });
+  it("is never a plot not submitted, nor one submitted with questions left, whose check takes it back", () => {
+    expect(changedAfterSubmit(null, { type: "ce:dirty", plotId: "p1" })).toBeNull();
+    expect(changedAfterSubmit(null, { type: "ce:dirty", plotId: "p1", unsubmitted: false })).toBeNull();
+    expect(changedAfterSubmit(null, { type: "ce:key", plotId: "p1" })).toBeNull();
+  });
+  it("is told when the form leaves it, after a change, and only then", () => {
+    let changed = changedAfterSubmit(null, { type: "ce:dirty", plotId: "p1", unsubmitted: true });
+    expect(leftUnsubmitted(changed, "p1", "p2")).toBe("p1");
+    changed = changedAfterSubmit(changed, { type: "ce:saved", plotId: "p1" });
+    expect(leftUnsubmitted(changed, "p1", "p2")).toBeNull();
+    expect(leftUnsubmitted(changedAfterSubmit(null, { type: "ce:dirty", plotId: "p3" }), "p3", null)).toBeNull();
   });
 });
 

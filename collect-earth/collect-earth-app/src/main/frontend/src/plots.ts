@@ -85,6 +85,21 @@ export function nextUnfinished(order: string[], statuses: Record<string, PlotSta
   return null;
 }
 
+/** A message of the form about its plot (see FormStore.post) */
+export interface FormMessage { type?: string; plotId?: string; unsubmitted?: boolean }
+
+/**
+ * The plot open that was changed after it had been submitted, complete, after a message of its form (`changed` before
+ * it): set by a change that took the submission back, and cleared by a submit. A plot never submitted, or submitted
+ * with questions left unanswered, is never one.
+ */
+export function changedAfterSubmit(changed: string | null, message: FormMessage): string | null {
+  if (message.plotId == null) return changed;
+  if (message.type === "ce:dirty" && message.unsubmitted) return message.plotId;
+  if (message.type === "ce:saved" && changed === message.plotId) return null;
+  return changed;
+}
+
 /**
  * The plot to tell the user is no longer submitted as the form leaves it, for another plot (`going`) or for none (null):
  * `changed`, the plot open that was changed after it had been submitted, when it is the one left.

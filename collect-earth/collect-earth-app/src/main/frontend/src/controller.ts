@@ -7,7 +7,7 @@ import { NoMapEngine } from "./engines/NoMapEngine";
 import { IN_PANEL } from "./panel";
 import { IN_HOME } from "./home";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
-import { byId, footprintCorners, indexPlots, leftUnsubmitted, neighbour, nextUnfinished, normalizeStatus, plotLabel, plotParam, plotsGone, plotsNear, plotToRestore, surveyView,
+import { byId, changedAfterSubmit, footprintCorners, type FormMessage, indexPlots, leftUnsubmitted, neighbour, nextUnfinished, normalizeStatus, plotLabel, plotParam, plotsGone, plotsNear, plotToRestore, surveyView,
   sameView, visibleIds, withoutPlotParam } from "./plots";
 import type { MessageKey } from "./i18n";
 import { reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
@@ -238,6 +238,8 @@ export class MapController {
       const banner = this.state.banner?.dismissible ? this.state.banner : null;
       // The plot open, if it is gone, is closed: nothing could be done with it
       const activeGone = this.state.activeId !== null && !(this.state.activeId in plots);
+      // nothing to go back to
+      if (this.changedAfterSubmit != null && !(this.changedAfterSubmit in plots)) this.changedAfterSubmit = null;
       this.set({ order, labels, statuses, loaded: true, banner, ...(activeGone ? { activeId: null, formUrl: null } : {}) });
       // The engines replace a plot added again
       order.forEach((id) => this.addToEngine(id));
@@ -308,17 +310,15 @@ export class MapController {
   // Same-origin messages from the web form in the iframe, and from its window only
   private onFormMessage = (event: MessageEvent): void => {
     if (!isFormMessage(event, window.location.origin, formWindow())) return;
-    const data = event.data as { type?: string; plotId?: string } | null;
+    const data = event.data as FormMessage | null;
     // ignore anything but the active plot (stale iframe race)
     if (!data?.type || data.plotId == null || data.plotId !== this.state.activeId || !(data.plotId in this.plots)) return;
+    this.changedAfterSubmit = changedAfterSubmit(this.changedAfterSubmit, data);
     if (data.type === "ce:saved") {
-      if (this.changedAfterSubmit === data.plotId) this.changedAfterSubmit = null;
       this.applyStatuses({ [data.plotId]: "saved" });
       const next = this.goToNextUnfinished();
       this.set({ submitted: { key: Date.now(), plotId: data.plotId, next } });
     } else if (data.type === "ce:dirty") {
-      // the first change to a plot submitted: the server no longer has it submitted
-      if (this.state.statuses[data.plotId] === "saved") this.changedAfterSubmit = data.plotId;
       this.applyStatuses({ [data.plotId]: "partial" });
     }
   };
@@ -368,8 +368,9 @@ export class MapController {
     this.set({ unsubmitted: { key: Date.now(), plotId } });
   }
 
-  dismissUnsubmitted = (): void => {
-    if (this.state.unsubmitted) this.set({ unsubmitted: null });
+  /** key: the notice's, so that the end of an older one never dismisses a newer one */
+  dismissUnsubmitted = (key?: number): void => {
+    if (this.state.unsubmitted && (key == null || this.state.unsubmitted.key === key)) this.set({ unsubmitted: null });
   };
 
   /** Back to the plot the notice is about, which closes it */

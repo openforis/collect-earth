@@ -43,6 +43,7 @@ export function App({ controller }: { controller: MapController }) {
   const width = useWindowWidth();
   const scale = useUiScale();
   const formOpen = state.formUrl != null;
+  const unsubmittedKey = state.unsubmitted?.key;
   // In Google Earth Web's panel there is no map: the list or the form, whatever the width
   const onePane = IN_PANEL
     || width - (formOpen ? RAIL_WIDTH * scale + state.formWidth : SIDEBAR_WIDTH * scale) < MIN_MAP_WIDTH * scale;
@@ -122,14 +123,15 @@ export function App({ controller }: { controller: MapController }) {
       {/* After the submitted toast in the page, so that it shows over it; the navigation went on, this only tells */}
       {state.unsubmitted && (
         <Snackbar key={state.unsubmitted.key} open autoHideDuration={UNSUBMITTED_MILLIS} onClose={(_, reason) => {
-          if (reason !== "clickaway") controller.dismissUnsubmitted();
+          // Esc is the plots map's key (it closes the form), not this notice's
+          if (reason === "timeout") controller.dismissUnsubmitted(unsubmittedKey);
         }} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>
-          <Alert severity="warning" variant="filled" onClose={controller.dismissUnsubmitted} data-testid="unsubmitted-notice"
+          <Alert severity="warning" variant="filled" data-testid="unsubmitted-notice"
             action={<>
               <Button color="inherit" size="small" onClick={controller.backToUnsubmitted} data-testid="unsubmitted-back">
                 {t("toast.backToPlot")}
               </Button>
-              <IconButton color="inherit" size="small" aria-label={t("toast.close")} onClick={controller.dismissUnsubmitted}>
+              <IconButton color="inherit" size="small" aria-label={t("toast.close")} onClick={() => controller.dismissUnsubmitted(unsubmittedKey)}>
                 <CloseIcon fontSize="small" />
               </IconButton>
             </>}>
