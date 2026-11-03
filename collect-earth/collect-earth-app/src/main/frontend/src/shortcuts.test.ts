@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { type KeyPress, isTyping, keyOfMessage, panelKey, submitOnKey } from "./shortcuts";
+import { type KeyPress, escapeBlurs, isFormMessage, isTyping, keyOfMessage, mayTakeFocus, panelKey, submitOnKey } from "./shortcuts";
 
 /** A stand-in for an element: what isTyping reads of one. */
 const element = (tagName: string, extra: Record<string, unknown> = {}) => ({ tagName, isContentEditable: false, ...extra }) as unknown as EventTarget;
@@ -68,6 +68,51 @@ describe("panelKey", () => {
     expect(panelKey(press("n", chip, { ctrlKey: true }))).toBeNull();
     expect(panelKey(press("n", chip, { altKey: true }))).toBeNull();
     expect(panelKey(press("Escape", chip, { defaultPrevented: true }))).toBeNull();
+  });
+  it("keeps a key held down, which would open plot after plot", () => {
+    expect(panelKey(press("n", chip, { repeat: true }))).toBeNull();
+    expect(panelKey(press("n", chip, { repeat: false }))).toBe("n");
+  });
+});
+
+describe("escapeBlurs", () => {
+  it("leaves a text, number or date box on Esc, a second Esc closing the form", () => {
+    expect(escapeBlurs(press("Escape", element("INPUT", { type: "text" })))).toBe(true);
+    expect(escapeBlurs(press("Escape", element("INPUT", { type: "date" })))).toBe(true);
+    expect(escapeBlurs(press("Escape", element("TEXTAREA")))).toBe(true);
+  });
+  it("does nothing out of a box, for other keys, with a modifier, or when the box used the Esc", () => {
+    expect(escapeBlurs(press("Escape", chip))).toBe(false);
+    expect(escapeBlurs(press("n", element("INPUT")))).toBe(false);
+    expect(escapeBlurs(press("Escape", element("INPUT"), { ctrlKey: true }))).toBe(false);
+    expect(escapeBlurs(press("Escape", element("INPUT"), { defaultPrevented: true }))).toBe(false);
+  });
+});
+
+describe("mayTakeFocus", () => {
+  const body = { tag: "body" } as unknown as Element;
+  const frame = { tag: "iframe" } as unknown as Element;
+  const search = { tag: "input" } as unknown as Element;
+  it("takes it when the plots map has nothing focused but its body or the form", () => {
+    expect(mayTakeFocus(body, frame, body)).toBe(true);
+    expect(mayTakeFocus(frame, frame, body)).toBe(true);
+    expect(mayTakeFocus(null, frame, body)).toBe(true);
+  });
+  it("leaves it where the user put it since, as in the plot search", () => {
+    expect(mayTakeFocus(search, frame, body)).toBe(false);
+    expect(mayTakeFocus(search, null, body)).toBe(false);
+  });
+});
+
+describe("isFormMessage", () => {
+  const form = { name: "form" };
+  it("takes messages from the open form's window, from this server", () => {
+    expect(isFormMessage({ origin: "http://localhost:8028", source: form }, "http://localhost:8028", form)).toBe(true);
+  });
+  it("ignores another window, another origin, and any window when no form is open", () => {
+    expect(isFormMessage({ origin: "http://localhost:8028", source: {} }, "http://localhost:8028", form)).toBe(false);
+    expect(isFormMessage({ origin: "https://evil.example", source: form }, "http://localhost:8028", form)).toBe(false);
+    expect(isFormMessage({ origin: "http://localhost:8028", source: null }, "http://localhost:8028", null)).toBe(false);
   });
 });
 

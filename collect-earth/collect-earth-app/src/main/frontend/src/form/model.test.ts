@@ -198,8 +198,8 @@ describe("questionToFocus", () => {
       { name: "note", control: "note-input" }];
     expect(questionToFocus(questions, value)).toBe("sub-chip");
   });
-  it("is the first question when all are answered, and none without questions", () => {
-    expect(questionToFocus([{ name: "calc", control: null }, { name: "lu", control: "lu-chip" }], value)).toBe("lu-chip");
+  it("is none when all are answered, and none without questions", () => {
+    expect(questionToFocus([{ name: "calc", control: null }, { name: "lu", control: "lu-chip" }], value)).toBeNull();
     expect(questionToFocus([{ name: "calc", control: null }], value)).toBeNull();
     expect(questionToFocus([], value)).toBeNull();
   });

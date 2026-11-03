@@ -392,10 +392,10 @@ export function isTabVisible(tab: Tab, infos: Record<string, FieldInfo>): boolea
 }
 
 /**
- * The control to focus when a plot opens: that of the first question not answered yet, else that of the first question.
- * The questions in the order shown, each with its control (null: nothing to answer, as a calculated field).
+ * The control to focus when a plot opens: that of the first question not answered yet, or null when all are (a key
+ * pressed in a plot looked at again must not edit it). The questions in the order shown, each with its control (null:
+ * nothing to answer, as a calculated field).
  */
 export function questionToFocus<T>(questions: { name: string; control: T | null }[], value: (name: string) => string): T | null {
-  const answerable = questions.filter((q) => q.control != null);
-  return (answerable.find((q) => value(q.name).trim() === "") ?? answerable[0])?.control ?? null;
+  return questions.find((q) => q.control != null && value(q.name).trim() === "")?.control ?? null;
 }

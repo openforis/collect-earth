@@ -30,7 +30,7 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import SendIcon from "@mui/icons-material/Send";
 import { type MessageKey, useT } from "../i18n";
-import { panelKey, submitOnKey } from "../shortcuts";
+import { escapeBlurs, mayTakeFocus, panelKey, submitOnKey } from "../shortcuts";
 import logo from "./collect-earth-logo.png";
 import { FieldView, errorText } from "./fields";
 import {
@@ -102,7 +102,8 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
   }, [state.submitErrors, store, goToField]);
 
   // Once, when the plot opens (a plot has a page of its own), and once the server said which questions are shown: the
-  // first one not answered yet takes the focus, to be answered from the keyboard, and the keys of the plots map work
+  // first one not answered yet takes the focus, to be answered from the keyboard, and the keys of the plots map work.
+  // None when all are answered, and none when the user put the focus elsewhere meanwhile (see focusIsFree).
   const opened = useRef(false);
   const known = Object.keys(state.infos).length > 0;
   useEffect(() => {
@@ -112,7 +113,8 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const boxes = [...(content.current?.querySelectorAll<HTMLElement>("[data-field]") ?? [])];
       const questions = boxes.map((box) => ({ name: box.dataset.field ?? "", control: box.querySelector<HTMLElement>(CONTROL) }));
-      questionToFocus(questions, (name) => store.value(name))?.focus();
+      const control = questionToFocus(questions, (name) => store.value(name));
+      if (control && focusIsFree()) control.focus();
     }));
   }, [known, store]);
 
@@ -128,6 +130,8 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey && e.key === "ArrowRight" && next >= 0) { e.preventDefault(); goTo(next); }
       else if (e.altKey && e.key === "ArrowLeft" && back >= 0) { e.preventDefault(); goTo(back); }
+      // as on the plots map: Esc leaves the box typed in, a second one closes the form
+      else if (escapeBlurs(e)) (e.target as HTMLElement).blur();
       else {
         const key = panelKey(e);
         if (key) { e.preventDefault(); store.passKey(key); }
@@ -209,6 +213,18 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
       </Stack>
     </Stack>
   );
+}
+
+/** Nothing has the focus, in the plots map around the form or in the form: neither the plot search nor a question. */
+function focusIsFree(): boolean {
+  try {
+    const page = window.parent.document;
+    if (!mayTakeFocus(page.activeElement, window.frameElement, page.body)) return false;
+    return window.parent === window || mayTakeFocus(document.activeElement, null, document.body);
+  } catch {
+    // the plots map cannot be read: the form takes the focus as if it could
+    return true;
+  }
 }
 
 /**

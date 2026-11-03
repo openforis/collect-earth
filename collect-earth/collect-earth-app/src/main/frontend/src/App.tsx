@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Box from "@mui/material/Box";
 import GlobalStyles from "@mui/material/GlobalStyles";
 import Snackbar from "@mui/material/Snackbar";
@@ -19,7 +19,7 @@ import { AppBar } from "./components/AppBar";
 import { useServerTexts } from "./serverTexts";
 import { IN_HOME } from "./home";
 import { HomePage } from "./components/HomePage";
-import { keyOfMessage, type PanelKey } from "./shortcuts";
+import { formWindow, isFormMessage, keyOfMessage, type PanelKey } from "./shortcuts";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 /**
@@ -53,7 +53,9 @@ export function App({ controller }: { controller: MapController }) {
   // The settings page over the map or the home page: the map stays laid out under it, so it needs no resize when it
   // comes back, and the controller keeps its state
   const [page, setPage] = useState<"main" | "settings">("main");
-  useShortcuts(controller, onePane ? () => setListShown(true) : () => controller.setSidebarCollapsed(false), !IN_HOME && page === "main");
+  // the same function from one render to the next, so that the shortcuts' listeners are not added again on every render
+  const showList = useCallback(() => (onePane ? setListShown(true) : controller.setSidebarCollapsed(false)), [onePane, controller]);
+  useShortcuts(controller, showList, !IN_HOME && page === "main");
   const t = useMemo(() => translator(state.language), [state.language]);
   useEffect(() => { document.documentElement.lang = state.language; }, [state.language]);
   const [info, reloadInfo] = useAppInfo();
@@ -150,9 +152,9 @@ function useShortcuts(controller: MapController, showList: () => void, enabled: 
       if (e.key === "/") e.preventDefault();
       if (e.key === "/" || e.key === "n" || e.key === "N" || e.key === "Escape") run(e.key);
     };
-    // Same-origin messages from the form of the plot open, as the controller takes its others
+    // Messages from the form of the plot open, as the controller takes its others
     const onMessage = (e: MessageEvent) => {
-      if (e.origin !== window.location.origin) return;
+      if (!isFormMessage(e, window.location.origin, formWindow())) return;
       const key = keyOfMessage(e.data, controller.getSnapshot().activeId);
       if (key) run(key);
     };

@@ -12,6 +12,7 @@ import { byId, footprintCorners, indexPlots, neighbour, nextUnfinished, normaliz
 import type { MessageKey } from "./i18n";
 import { reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
 import { loadPrefs, savePrefs, type Prefs } from "./prefs";
+import { formWindow, isFormMessage } from "./shortcuts";
 import { ACTIVE_COLOR, STATUS_COLORS, type GewStatus, type GewView, type GroundView, type ImagerySource, type ImageryStatus,
   type LatLng, type ListFilter, type MapConfig, type PlotFeature, type PlotStatus } from "./types";
 
@@ -300,9 +301,9 @@ export class MapController {
     }
   }
 
-  // Same-origin messages from the web form in the iframe
+  // Same-origin messages from the web form in the iframe, and from its window only
   private onFormMessage = (event: MessageEvent): void => {
-    if (event.origin !== window.location.origin) return;
+    if (!isFormMessage(event, window.location.origin, formWindow())) return;
     const data = event.data as { type?: string; plotId?: string } | null;
     // ignore anything but the active plot (stale iframe race)
     if (!data?.type || data.plotId == null || data.plotId !== this.state.activeId || !(data.plotId in this.plots)) return;

@@ -16,6 +16,8 @@ export interface KeyPress {
   metaKey: boolean;
   altKey: boolean;
   defaultPrevented?: boolean;
+  /** held down: the key again, which must not open plot after plot */
+  repeat?: boolean;
   target: EventTarget | null;
   preventDefault(): void;
   stopPropagation(): void;
@@ -36,11 +38,41 @@ export function isTyping(target: EventTarget | null): boolean {
 
 /**
  * The key of the plots map a key pressed in the form is, to be passed on to it; null for any other key, one with a
- * modifier, one pressed while typing, and one the form already acted on (an open dropdown closed by "Esc").
+ * modifier, one held down, one pressed while typing, and one the form already acted on (an open dropdown closed by "Esc").
  */
 export function panelKey(e: KeyPress): PanelKey | null {
-  if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented || !isPanelKey(e.key)) return null;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || e.defaultPrevented || !isPanelKey(e.key)) return null;
   return isTyping(e.target) ? null : e.key;
+}
+
+/**
+ * Whether "Esc" leaves the box being typed in (blurs it), as on the plots map: a second "Esc" then closes the form. Not
+ * when the box acted on it already (an open dropdown closed).
+ */
+export function escapeBlurs(e: KeyPress): boolean {
+  return e.key === "Escape" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.defaultPrevented && isTyping(e.target);
+}
+
+/**
+ * Whether the form may take the focus when its plot opens: only if nothing else took it in the meantime in the plots
+ * map's page (`active`, its focused element), the user typing in the plot search, say. The page's body, or the form's
+ * own frame, is nothing else.
+ */
+export function mayTakeFocus(active: Element | null, frame: Element | null, body: Element | null): boolean {
+  return active == null || active === body || (frame != null && active === frame);
+}
+
+/** Where the plots map finds the iframe of the form (FormPanel). */
+const FORM_FRAME_SELECTOR = 'iframe[data-testid="form-frame"]';
+
+/** Whether a message comes from the form open in the plots map: from its frame, and from this server. */
+export function isFormMessage(e: { origin: string; source: unknown }, origin: string, formWindow: unknown): boolean {
+  return e.origin === origin && formWindow != null && e.source === formWindow;
+}
+
+/** The window of the form open in the plots map, or null when there is none. */
+export function formWindow(): Window | null {
+  return document.querySelector<HTMLIFrameElement>(FORM_FRAME_SELECTOR)?.contentWindow ?? null;
 }
 
 /** The message by which the form passes a key on to the plots map, the same way it tells it a plot was saved. */
