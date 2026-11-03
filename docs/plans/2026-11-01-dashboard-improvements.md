@@ -45,8 +45,8 @@ desktop.
 
 ## Decisions taken with the recommended defaults (the owner can change them)
 
-1. **Quiet:** someone with plots counts as quiet after **3 days** without a sync; set
-   per project.
+1. **Quiet:** someone with plots left counts as quiet after **more than 3 days** with neither a sync nor
+   a plot download (someone who never did either is "never started", not quiet); set per project.
 2. **"To check again" plot file:** accepted. Plots sent back reach the collector as an
    extra plot file in Collect Earth's plot settings.
 3. **Reviewers** see the Quality tab, the review queue, the map and plot search, but
@@ -77,7 +77,8 @@ desktop.
    record, so a reviewer who opens plots one by one can work out whose they are, as plot
    search already allows.
 4. **Collectors are told** on the join page and on "My work" that coordinators see
-   when and how much they work (as the monitoring plan says).
+   when and how much they work, their answers and quality figures about their work, and that reviewers
+   (who also collect) see the answers of the plots they review and who made them (Task 20, final review).
 5. **Email** is built behind a transport that is off unless SMTP is configured; the
    weekly job is an HTTP endpoint for Cloud Scheduler, documented but not created.
 6. **“None” is an answer.** In survey health, an option labelled “None” / “Ninguno” /
@@ -129,6 +130,57 @@ desktop.
      `GET /quality/answers` gives them the team's figures only (`people`, each question's `people`, the
      per-person `flags` and `filters.people` empty) and refuses `person=` (403). The flags' list still names
      who made each flagged record (Decision 3: the review queue's material).
+
+## Owner decisions pending
+
+Collected from the tasks' open points and Task 22 (the final review and the real run). Nothing here
+blocks the branch; each needs the owner's choice. Details are where the item points to.
+
+1. **Confirm Decisions 1–10.** They were all taken with the recommended defaults ("the owner can
+   change them"); none is confirmed yet. Also to record as decisions, made in the tasks' text: the Collect
+   Earth backup keeps `coordinator_note` as stored (Task 17); "trusted" means reviewers and coordinators
+   for the bulk rules (Task 7); an empty answer is kept as `''` (Task 5); Cloud Run bills by request
+   (DEPLOY.md).
+2. **The old comment on a second send-back** (Task 16's open point, seen in Task 22's real run, item 5).
+   The form's header shows the comment the record was saved with, not the new one from the "To check
+   again" file (`FormApp.tsx`, `HeaderInfo` reads the record's value first), while the balloon shows the
+   new one. `FormApp` is the HTML/React form, not Swing, so it could be fixed here (read the plot file's
+   value first for from-CSV fields) or in the branch that moves the UI to HTML: **where?**
+3. **Desktop plot settings (Swing, `SampleDataPanel`): the double download** (Task 12's review, Task 22
+   item 2). Opening the dialog or "Refresh assignments" starts two downloads at once: 3 reopenings in 8
+   left the plot file field on the other file, and one download failed its checksum. A fix would start the
+   download once per refill and write to a temporary file, then move it. Needs a "no Swing changes"
+   exception or the HTML branch.
+4. **The `round` column in the plot settings' preview table** (Swing, `JPlotCsvTable`; Task 22 item 4).
+   A collector who opens Tools → Properties → "Sample data" sees round 2 on the drawn checks. Hide that
+   column (Swing), or stop putting round in the plot files (the checks' keys would then rely on the copy
+   holder alone).
+5. **A collector's own accuracy on My work** (Task 14, "later option, not built"): useful feedback, but it
+   tells collectors reference plots exist and, plot by plot, could reveal them.
+6. **The CloudJoin sentence** (Task 20): Collect Earth's join confirmation (`CloudJoin.previewMessage`,
+   Swing `Messages*.properties`) does not say what coordinators and reviewers see; the web join page does.
+   Add the same sentence on the desktop with the move to HTML, or with an exception now.
+7. **The 403 reason in Collect Earth** (Task 11): a disabled account's login shows "Login failed with HTTP
+   403: {json}". Parsing `reason` in `CloudApiClient` (not Swing) would read better; a desktop task.
+8. **Backup import into a cloud-mode project** (final review C, item 5). The backup's help says to import
+   into this project's file, which is in cloud mode after joining. `CloudSyncService.reconcile` queues every
+   record changed since its last check under the local user's name; if the import does not keep each
+   record's modified date, other people's records could be uploaded again under the importer's name. To
+   check in a real run, or tell people to import into a copy of the project that is not in cloud mode.
+   Allowed or not?
+9. **The desktop texts name "Save & Apply changes"** (final review C): the dashboard now tells people to
+   press "Refresh assignments" and then "Save & Apply changes" (the KML is rebuilt only then). Keep it?
+10. **Not built: keep or drop** — undoing a bulk run (Task 7); per-person mix-ups against reference plots
+    (Task 14); leaving the note column out of the polygon generators' scan, so a comment that reads as WKT or
+    GeoJSON is not taken as the plot's shape (Task 16); bounce handling for the weekly emails (Task 19).
+11. **Reference plots guessed from gaps** (code review after 5f172a7b): a reviewer can still tell which plots
+    are reference plots where plot ids run in sequence, because the ids missing from their map, plot search
+    and plot places are the reference plots. Only plot ids that do not show an order would close this.
+12. **The six Vite processes stopped in Task 16.** Before the desktop build, six Vite dev-server `node`
+    processes were stopped (a running `vite.js` locks rolldown's binary and the build fails). If any was one of
+    the owner's own dev servers, it needs starting again.
+13. **Still to verify by hand:** clicking the plot settings by mouse; Google Earth Pro's own balloon and
+    `loadApp.kml`; Cloud Run's X-Forwarded-Host behaviour (taken from the documentation, not observed).
 
 ---
 
@@ -3841,6 +3893,75 @@ web texts, accessibility and the rest of the docs are another agent's)
     drawn or dealt again; their records stay); B3's "keep a draft" applies to disabled accounts, divisions and moves.
   - B2: a page served by an instance whose figures at hand are of other inputs and that cannot work out the same ones
     (busy worker) is still a 409; Cloud Run session affinity (`--session-affinity`) would make that rarer.
+  - A reviewer can still guess which plots are reference plots from the gaps: where plot ids run in
+    sequence, the ids missing from their map, plot search and plot places are the reference plots. Only plot
+    ids that do not show an order would close this.
+- **After the code review (5f172a7b):** a client of the pool is watched while checked out (Postgres ending an
+  idle transaction is logged, not an uncaught error; a broken client is destroyed; a failed ROLLBACK no longer
+  hides the first error); `POST /quality/places` gives reviewers no reference plot; a reviewer's flags leave out
+  the copies they hold and never name a hidden plot as the previous or first plot (null); a reviewer's answers
+  filter (a plot file, a column's value) must hold at least 5 plots; a decision goes through while a plot file
+  cannot be read (the plot index is partial) instead of a wrong 404; each migration is recorded as soon as it
+  has run; late automatic draws are counted on the owner's panel (`lateDraws`, `lastLateDrawAt`) and the third
+  late one in a row is stored after its request; a project file whose own plot file fails the read-back is still
+  taken, that plot file served as it came (logged).
+
+**Final review fixes (web and docs)** (2026-11-03; review C's findings and the brief's items; no Swing or other
+desktop code changed)
+- **Desktop path:** every text that sent people to "Refresh in the plot settings" (`plots.assignSaved`,
+  `checks.explain`, `reference.blind/added/collectors`, `divide.applied/moved`, `person.sentBackFile`) now names
+  the real one, with the desktop's own labels in each language (`Messages*.properties`): Tools → Properties →
+  "Sample data" (`OptionWizard.31`: "Datos de muestra", "Points d'échantillonnage", "Dados de amostra"),
+  "Refresh assignments" (English in every language), "Assigned plot file:", then "Save & Apply changes"
+  (`OptionWizard.15`: "Guardar & aplicar cambios", "Appliquer et sauvegarder les changements", "Guardar &
+  Aplicar alterações"); pt says "Propiedades", as the desktop does. "Join cloud project..." with three dots, as
+  the menu.
+- **Very fast:** the person page's sentence says the project's threshold: `speed.veryFastSeconds` added to
+  the person answer (`src/people.ts`, additive, tested), read by `veryFastText` (`{d}`, e.g. "20 s").
+- **Join page and My work:** the sentence now also says that reviewers, who also collect plots, see the
+  answers of the plots they review and who made them (first sentence still shared, as Task 20's test asks).
+- **Quiet:** every quiet text says what `isQuiet` does — more than N days with neither a sync nor a plot
+  download (`attention.quiet*`, `progressSettings.*`, `peopleTable.explain`, `mail.coordinatorHelp`,
+  `activity.setting.progress`), in 4 languages; Decision 1 says so too.
+- **Glossary (one term each, the one used most):** copy → "copy to compare" (copia para comparar, copie à
+  comparer, cópia para comparar); a check that differs → "difference / differs" (the map's "Disagreement"
+  dropped); sent back → "sent back for another look" (devuelta para volver a mirarla, renvoyée pour être revue,
+  devolvida para outra olhada) on the person page, My work and the map; quiet → "Quiet" / "Inactivo" / "Inactif" /
+  "Inativo"; worth a look → "vale la pena mirar" (es), "vale a pena ver" (pt); fr "parcelle" (no "placette"),
+  fr "courriel" (no "e-mail"), pt "pesquisa" for the survey (no "questionário"); es tab "Avance", pt
+  "Andamento"; es "usted" everywhere (4 keys had "tú"), "computadora", "recolectar"; typography: es « », en and fr
+  straight apostrophes; fr "téléversé" for the uploaded project file.
+- **Server answers now shown:** `checks.checkersAll` "Every collector"; the sampling warning
+  `checkers_not_blind` (`notBlindCheckers`, `notBlindText`) on Automatic checks; the weekly summary's
+  `referenceMeasurements`; the owner's panel's late automatic draws; a decision 404 → "This plot cannot be found
+  in this project…" (`no_such_plot`); reviewers get no person filter nor per-person tables in Plots worth a look
+  and Answers (`teamOnly`, `answers.explainTeam`) and a plain message for a filter of fewer than 5 plots (403);
+  flags whose previous or first plot is hidden (null) are worded without it.
+- **Accessibility:** a new page moves the focus to its heading (`pageFocus.ts`: a person, plot or plot file's own
+  heading, else the h1; not when a tab was chosen) and sets the title ("Plot 17 – Quality – Project – Server"); a
+  page without a heading is announced; FormCard takes `level` (the account page: h1, then h2 cards, the email
+  legend h3); the map has "Show the plots as a list" (100 at a time, the map's filters and statuses, each linking
+  to its plot page), cluster icons with a name, and no live counter (said once at the start and at the end);
+  readouts live only while focused; buttons no longer disabled while busy (bulk rules, undo, load more, the
+  "very fast" save, the map's filters, the person's actions, the email card, reference plots), and focus goes to
+  the card, the list's heading or the field when the pressed control goes away; reference-plot errors on their
+  field; info alerts as notes; links that open a new tab say so.
+- **Plurals:** singular keys for `answers.blank(Filtered)`, `activity.audit.moved/bulk`, `attention.daysLate`,
+  `checks.referenceCopies`, `health.reason.low_agreement`; `attention.late` says "usually"; `mail.tooMany` says the
+  real limits; `publicProgress.qualityNone` names reviewers too; the unused `server.aiLimits` removed.
+- **Docs:** `.env.example` lists every setting the server reads (with `NODE_HEAP_MB`, the caches, the tiles,
+  the mail and digest settings, `TRUST_FORWARDED_HOST`, `LINK_SECRET`); DEPLOY.md's upgrade section: the
+  `record_events (project_id, received_at)` index is 013's (018's `IF NOT EXISTS` does nothing), which
+  migrations need nothing, emails saved before 023 come up unconfirmed, going back past 011; known limitations
+  complete (the old comment, WKT/GeoJSON comments, no bounce handling, one list of per-instance limits, reference
+  plots guessed from gaps, a pointer to "Owner decisions pending"); the late draws on the owner's panel. README:
+  one smoke container on 55481 for every script, rate limit default 60, known limitations.
+- **Tests:** web 358 (was 340: `reviewFixes.test.ts` 9, `i18n.test.ts` desktop path, quiet and terms per
+  language, `flagsView.test.ts` unnamed plots), server 1172, tsc clean in both; key parity in 4 languages.
+- **Not done:** pt keeps "enviar" for uploading files as well as submitting plots (Brazilian usage, about 40
+  texts); es "asignar"/"dar" for "given to" left mixed; minor accessibility left: the queue's key help not tied to
+  the card, keyboard scrolling of fixed-height tables, a result count for the People filter, the map's
+  one-finger drag on phones, status alerts mounted with their text. The Chrome pass is still to do.
 
 ## Order
 
