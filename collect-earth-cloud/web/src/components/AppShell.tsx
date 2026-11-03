@@ -152,7 +152,8 @@ const PRINT_STYLES = {
  * The app bar (name, language, account), the page column and the footer. `bare`: a public page
  * (the progress link) shows the server's name only, not as a link, and no account menu.
  */
-export function AppShell({ children, narrow, bare }: { children: ReactNode; narrow?: boolean; bare?: boolean }) {
+/** `wide`: a page of tabs and tables (a project), which uses more of a large screen. */
+export function AppShell({ children, narrow, bare, wide }: { children: ReactNode; narrow?: boolean; bare?: boolean; wide?: boolean }) {
   const t = useT();
   const { info } = useApp();
   // The local mode (one person, on their own computer): one account and one project, so no
@@ -180,7 +181,7 @@ export function AppShell({ children, narrow, bare }: { children: ReactNode; narr
           {!bare && !local && <AccountMenu />}
         </Toolbar>
       </AppBar>
-      <Container component="main" maxWidth={narrow ? "sm" : "md"} sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+      <Container component="main" maxWidth={narrow ? "sm" : wide ? "lg" : "md"} sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
         {children}
       </Container>
       <Footer />

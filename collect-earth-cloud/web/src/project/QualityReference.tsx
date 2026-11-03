@@ -446,10 +446,13 @@ export function QualityReference({ projectId, canEdit }: { projectId: string; ca
         {data && (
           <Box sx={{ opacity: loading ? 0.6 : 1, transition: "opacity 120ms" }} aria-busy={loading}>
             <Stack spacing={3}>
-              <Typography variant="body2" color="text.secondary">
-                {data.count === 0 ? t("reference.none") : t("reference.count", { count: n(data.count), max: n(data.max) })}
-                {data.figures?.computedAt != null && data.count > 0 && ` ${t(data.figures.stale ? "answers.asOfStale" : "answers.asOf", { time: formatDate(data.figures.computedAt, language) })}`}
-              </Typography>
+              {/* With none, the coordinator's list below says so already. */}
+              {!(data.count === 0 && canEdit && data.coordinator) && (
+                <Typography variant="body2" color="text.secondary">
+                  {data.count === 0 ? t("reference.none") : t("reference.count", { count: n(data.count), max: n(data.max) })}
+                  {data.figures?.computedAt != null && data.count > 0 && ` ${t(data.figures.stale ? "answers.asOfStale" : "answers.asOf", { time: formatDate(data.figures.computedAt, language) })}`}
+                </Typography>
+              )}
               {data.figures && data.count > 0 && <Accuracy figures={data.figures} />}
               {canEdit && data.coordinator && (
                 <>

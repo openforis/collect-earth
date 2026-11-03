@@ -274,12 +274,37 @@ export function checkMark(input: MarkInput): MarkRefusal | null {
 export function pickReference(units: readonly string[], free: (unit: string) => boolean, count: number, seed: number, preferred: (unit: string) => boolean = () => false): string[] {
   const candidates = units.filter(free);
   const order = new Map(units.map((u, i) => [u, i]));
-  return candidates
-    .map((unit) => ({ unit, first: preferred(unit) ? 0 : 1, p: priority(seed, unit) }))
-    .sort((a, b) => a.first - b.first || a.p - b.p || order.get(a.unit)! - order.get(b.unit)!)
-    .slice(0, Math.max(0, count))
-    .map((c) => c.unit)
-    .sort((a, b) => order.get(a)! - order.get(b)!);
+  const picked: string[] = [];
+  // Preferred plots first, the rest only to make up the count; within each, spread over the file
+  // (one plot at random from each of `need` equal stretches) so the picks are not neighbours that a
+  // collector would notice as a run (a person's plots are often a block of the file).
+  for (const tier of [candidates.filter(preferred), candidates.filter((u) => !preferred(u))]) {
+    const need = Math.min(Math.max(0, count) - picked.length, tier.length);
+    for (let i = 0; i < need; i++) {
+      const from = Math.floor((i * tier.length) / need);
+      const to = Math.floor(((i + 1) * tier.length) / need);
+      let best = tier[from];
+      for (let k = from + 1; k < to; k++) if (priority(seed, tier[k]) < priority(seed, best)) best = tier[k];
+      picked.push(best);
+    }
+  }
+  return picked.sort((a, b) => order.get(a)! - order.get(b)!);
+}
+
+/**
+ * Plot ids as typed: an id that is not a plot of the file but whose comma-separated parts all are
+ * ("5, 6, 7" pasted on one line) stands for those plots. Ids of several keys hold commas
+ * themselves ("12,3"), so an id is only split when it is not a plot as it is.
+ */
+export function splitListedPlots(plots: readonly string[], units: readonly string[]): string[] {
+  const inFile = new Set(units);
+  const out = new Set<string>();
+  for (const plot of plots) {
+    const parts = plot.split(',').map((p) => p.trim()).filter((p) => p !== '');
+    if (!inFile.has(plot) && parts.length > 1 && parts.every((p) => inFile.has(p))) parts.forEach((p) => out.add(p));
+    else out.add(plot);
+  }
+  return [...out];
 }
 
 /** The plot ids of a request: a list of distinct non-empty strings, at most MAX_PLOTS_PER_REQUEST; null otherwise. */

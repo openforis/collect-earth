@@ -9,6 +9,7 @@ import type { ProjectState, ProjectStateCache } from '../projectState.js';
 import type { QualityService, ServedReport } from '../qualityService.js';
 import {
   checkMark,
+  splitListedPlots,
   MAX_PLOTS_PER_REQUEST,
   MAX_REFERENCE_PLOTS,
   parsePlotList,
@@ -214,7 +215,7 @@ export async function registerReferenceRoutes(app: FastifyInstance, store: Store
       for (const u of w.mainDrafts) assessedByOthers.add(u);
     }
     const marked = new Set(references.filter((r) => r.csvFileId === csvFileId).map((r) => r.plotKey));
-    let plots = listed;
+    let plots = units !== null ? splitListedPlots(listed, units) : listed;
     if (random !== undefined && units !== null) {
       // At random: plots nobody has a record of yet (any round, drafts too), not reference plots already.
       const touched = new Set<string>();

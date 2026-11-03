@@ -10,6 +10,7 @@ import {
   parsePlotList,
   personAccuracy,
   pickReference,
+  splitListedPlots,
   referenceCopyPlan,
   referenceFigures,
 } from '../src/reference.js';
@@ -293,6 +294,23 @@ describe('checkMark, pickReference, parsePlotList', () => {
     expect([...a].sort((x, y) => Number(x) - Number(y))).toEqual(a);
     expect(pickReference(units, () => true, 10, 43)).not.toEqual(a);
     expect(pickReference(['1', '2'], () => true, 10, 1)).toEqual(['1', '2']);
+  });
+
+  it('splits a typed list of plots on commas, unless the id with commas is a plot', () => {
+    expect(splitListedPlots(['5, 6,7', '8'], ['5', '6', '7', '8'])).toEqual(['5', '6', '7', '8']);
+    expect(splitListedPlots(['12,3'], ['12,3', '12', '3'])).toEqual(['12,3']);
+    expect(splitListedPlots(['abc, 5'], ['5'])).toEqual(['abc, 5']);
+  });
+
+  it('spreads the picks over the file, not a run of neighbours', () => {
+    const units = Array.from({ length: 300 }, (_, i) => String(i + 1));
+    const preferred = (u: string) => Number(u) > 240;
+    const three = pickReference(units, () => true, 3, 11, preferred).map(Number);
+    expect(three.every((n) => n > 240)).toBe(true);
+    expect(three[0]).toBeLessThanOrEqual(260);
+    expect(three[2]).toBeGreaterThan(280);
+    const four = pickReference(units, () => true, 4, 11).map(Number);
+    expect(four.map((n) => Math.floor((n - 1) / 75))).toEqual([0, 1, 2, 3]);
   });
 
   it('picks the preferred plots first (their collector has not downloaded plots), the rest only to make up the count', () => {

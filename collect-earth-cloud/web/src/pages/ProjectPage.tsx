@@ -6,6 +6,7 @@ import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
 import Forest from "@mui/icons-material/Forest";
+import { useEffect, useRef } from "react";
 import { ApiError, getProject } from "../api";
 import { useLocalMode } from "../appContext";
 import { AppShell } from "../components/AppShell";
@@ -57,7 +58,20 @@ const REVIEWER_TABS = ["progress", "map", "quality"] as const satisfies readonly
 function Header({ projectId, name, bell = false }: { projectId: string; name: string; bell?: boolean }) {
   return (
     <Box sx={{ mb: 1, display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
-      <Typography variant="h1" sx={{ wordBreak: "break-word", minWidth: 0 }}>
+      <Typography
+        variant="h1"
+        title={name}
+        // On a phone a long name takes at most two lines, a little smaller.
+        sx={{
+          wordBreak: "break-word",
+          minWidth: 0,
+          fontSize: { xs: "1.5rem", sm: undefined },
+          display: { xs: "-webkit-box", sm: "block" },
+          WebkitLineClamp: { xs: 2, sm: "unset" },
+          WebkitBoxOrient: "vertical",
+          overflow: { xs: "hidden", sm: "visible" },
+        }}
+      >
         {name}
       </Typography>
       {/* On a phone the bell and the search field take a row of their own, the field all its width. */}
@@ -79,6 +93,21 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
   // file tabs, no bell (its cards are about other people) and no plot files' pages.
   const local = useLocalMode();
   const project = useLoad(() => getProject(projectId), [projectId]);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const loaded = project.data !== null && project.data !== undefined;
+  // The selected tab in sight: a scrollable row of tabs shows only its first ones on a phone,
+  // and MUI does not scroll to a tab selected before the row had its width.
+  useEffect(() => {
+    const row = tabsRef.current;
+    const selected = row?.querySelector<HTMLElement>(`#tab-${tab}`);
+    const scroller = selected?.closest<HTMLElement>(".MuiTabs-scroller");
+    if (!selected || !scroller) return;
+    const tabBox = selected.getBoundingClientRect();
+    const box = scroller.getBoundingClientRect();
+    if (tabBox.left < box.left || tabBox.right > box.right) {
+      scroller.scrollLeft += tabBox.left - box.left - (box.width - tabBox.width) / 2;
+    }
+  }, [tab, loaded]);
 
   if (project.loading && !project.data) {
     return (
@@ -187,9 +216,10 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
   }[tab];
 
   return (
-    <AppShell>
+    <AppShell wide>
       <Header projectId={projectId} name={info.name} bell={!local} />
       <Tabs
+        ref={tabsRef}
         value={tab}
         onChange={(_, value: ProjectTab) => go(value)}
         variant="scrollable"
