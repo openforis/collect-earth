@@ -21,8 +21,14 @@ const U16 = 0xffff;
 const SYNC_LIMIT = 1 << 20;
 const U32 = 0xffffffff;
 
+/**
+ * How long the stream works without letting other requests run: the deflating is synchronous, and
+ * a consumer awaiting each chunk (Readable.from) never leaves the microtask queue on its own.
+ */
+const SLICE_MS = 10;
+
 /** What the central directory needs of an entry already written. */
-interface Written {
+export interface Written {
   name: Buffer;
   flags: number;
   method: number;
@@ -45,6 +51,9 @@ interface Written {
  * the fields that overflow (as Info-ZIP and Python write them; java.util.zip reads them since
  * Java 7). One entry of 4 GB or more is refused (not needed: records are kilobytes).
  *
+ * Every SLICE_MS of work it lets the event loop run (setImmediate), so other requests are not held
+ * up while it deflates. Names may be 65,535 bytes long.
+ *
  * Every entry gets `date` (UTC: zip dates carry no zone). The same entries and date always give
  * the same bytes.
  */
@@ -52,9 +61,17 @@ export async function* zipStream(entries: AsyncIterable<ZipEntry> | Iterable<Zip
   const { dosDate, dosTime } = toDosDateTime(date);
   const written: Written[] = [];
   let offset = 0;
+  let sliceStart = performance.now();
+  const pause = async () => {
+    if (performance.now() - sliceStart >= SLICE_MS) {
+      await new Promise((resolve) => setImmediate(resolve));
+      sliceStart = performance.now();
+    }
+  };
   for await (const { name, data } of entries) {
+    await pause();
     const nameBytes = Buffer.from(name, 'utf8');
-    if (nameBytes.length >= U16) throw new Error(`zipStream: the name ${name.slice(0, 40)}... is too long`);
+    if (nameBytes.length > U16) throw new Error(`zipStream: the name ${name.slice(0, 40)}... is too long`);
     if (data.length >= U32) throw new Error(`zipStream: the file ${name} is too large`);
     const deflated = data.length === 0 ? null : data.length < SYNC_LIMIT ? zlib.deflateRawSync(data, { level: 6 }) : await deflateRaw(data, { level: 6 });
     const stored = !deflated || deflated.length >= data.length;
@@ -68,21 +85,9 @@ export async function* zipStream(entries: AsyncIterable<ZipEntry> | Iterable<Zip
       size: data.length,
       offset,
     };
-    const local = Buffer.alloc(30);
-    local.writeUInt32LE(0x04034b50, 0);
-    local.writeUInt16LE(20, 4);
-    local.writeUInt16LE(entry.flags, 6);
-    local.writeUInt16LE(entry.method, 8);
-    local.writeUInt16LE(dosTime, 10);
-    local.writeUInt16LE(dosDate, 12);
-    local.writeUInt32LE(entry.crc, 14);
-    local.writeUInt32LE(entry.compressed, 18);
-    local.writeUInt32LE(entry.size, 22);
-    local.writeUInt16LE(nameBytes.length, 26);
-    local.writeUInt16LE(0, 28);
     written.push(entry);
     offset += 30 + nameBytes.length + body.length;
-    yield Buffer.concat([local, nameBytes]);
+    yield Buffer.concat([localHeader(entry, dosDate, dosTime), nameBytes]);
     yield body;
   }
 
@@ -91,6 +96,7 @@ export async function* zipStream(entries: AsyncIterable<ZipEntry> | Iterable<Zip
   let piece: Buffer[] = [];
   let pieceBytes = 0;
   for (const e of written) {
+    await pause();
     const far = e.offset >= U32;
     const central = Buffer.alloc(46 + (far ? 12 : 0));
     central.writeUInt32LE(0x02014b50, 0);
@@ -152,6 +158,26 @@ export async function* zipStream(entries: AsyncIterable<ZipEntry> | Iterable<Zip
   end.writeUInt32LE(Math.min(directoryStart, U32), 16);
   piece.push(end);
   yield Buffer.concat(piece);
+}
+
+/**
+ * The 30 bytes of an entry's local header (its name follows). An entry starting at 4 GB or more is
+ * a ZIP64 entry (its offset is in the central directory's ZIP64 field), so it needs version 4.5.
+ */
+export function localHeader(entry: Written, dosDate: number, dosTime: number): Buffer {
+  const local = Buffer.alloc(30);
+  local.writeUInt32LE(0x04034b50, 0);
+  local.writeUInt16LE(entry.offset >= U32 ? 45 : 20, 4);
+  local.writeUInt16LE(entry.flags, 6);
+  local.writeUInt16LE(entry.method, 8);
+  local.writeUInt16LE(dosTime, 10);
+  local.writeUInt16LE(dosDate, 12);
+  local.writeUInt32LE(entry.crc, 14);
+  local.writeUInt32LE(entry.compressed, 18);
+  local.writeUInt32LE(entry.size, 22);
+  local.writeUInt16LE(entry.name.length, 26);
+  local.writeUInt16LE(0, 28);
+  return local;
 }
 
 /** A date as zip (MS-DOS) date and time fields: UTC, two-second steps, 1980-2107. */

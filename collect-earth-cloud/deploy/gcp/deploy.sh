@@ -31,6 +31,11 @@ LABEL=app=collect-earth-cloud
 DEFAULT_REGION=europe-west1
 DEFAULT_DB_TIER=db-f1-micro          # the smallest (shared-core) Cloud SQL machine
 MAX_INSTANCES=4                      # Cloud Run instances at most (cost ceiling)
+# Cloud Run's request timeout in seconds. The Collect Earth backup of a large project streams for
+# minutes (100,000 records: about 180 MB, under 20 s on the server, longer on a slow connection),
+# and a request still running at the timeout is cut. Raise it to 3600 (Cloud Run's maximum) for
+# very large projects or slow connections: REQUEST_TIMEOUT=3600 ./deploy.sh ... (see DEPLOY.md).
+REQUEST_TIMEOUT="${REQUEST_TIMEOUT:-900}"
 DB_MAX_CONNECTIONS=50                # each server instance opens up to 10
 
 # Regions offered when asking (any Cloud Run + Cloud SQL region works with --region).
@@ -647,7 +652,7 @@ deploy_service() {
     --min-instances=0 \
     --max-instances="$MAX_INSTANCES" \
     --concurrency=80 \
-    --timeout=300 \
+    --timeout="$REQUEST_TIMEOUT" \
     --cpu-boost \
     --labels="$LABEL" \
     --quiet

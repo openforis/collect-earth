@@ -56,6 +56,7 @@ npm run smoke:pg:activity -- 55481   # the Activity tab (migration 017): the bel
 npm run smoke:pg:panel -- 55481      # the server owner's panel (migration 018): GET /v1/admin/overview on 100,000 records in 5 projects (totals against SQL, no names, timings), RLS still binding the app role, disabling and enabling an account, two admins disabling each other at once
 npm run smoke:pg:sampling -- 55481   # the automatic checks (migration 019): a first submission draws, the 10 minutes' coalescing, the checker's round-2 file, two draws at once, RLS of sampling_rules, a draw on 100,000 plots timed
 npm run smoke:pg:reference -- 55482  # reference plots (migration 020): marking, every collector's copy, the worker's accuracy, removing, a newcomer's copies, RLS of reference_plots, 50 reference plots × 40 collectors on 100,000 plots timed
+npm run smoke:pg:backup -- 55481     # the Collect Earth backup: getRecordXml and the records without XML under RLS (another project invisible), the summary, a link used once, then 100,000 records of 17 KB streamed and timed
 docker stop ce-pg-smoke
 ```
 

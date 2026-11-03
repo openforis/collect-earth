@@ -330,6 +330,8 @@ export interface Store {
    * page at a time, so 100,000 records' XML is never held at once.
    */
   getRecordXml(projectId: string, keys: readonly { recordKey: string; operator: string }[]): Promise<RecordXml[]>;
+  /** The records (not deleted) the server has no XML for: the Collect Earth backup cannot carry them. */
+  listRecordKeysWithoutXml(projectId: string): Promise<{ recordKey: string; operator: string }[]>;
   /**
    * Every record (any operator) whose key is one of `recordKeys`, with its summary and without
    * XML, deleted ones too: one plot's records for the plot page (rounds.recordKeysOfUnit), in

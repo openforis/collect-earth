@@ -28,6 +28,7 @@ import { registerPlotSearchRoutes } from './routes/plotSearch.js';
 import { registerPlotsGeoRoutes } from './routes/plotsGeo.js';
 import { registerProgressRoutes } from './routes/progress.js';
 import { registerProjectRoutes } from './routes/projects.js';
+import { registerCollectBackupRoutes } from './routes/collectBackup.js';
 import { registerQualityRoutes } from './routes/quality.js';
 import { registerRecordRoutes } from './routes/records.js';
 import { referenceSyncer, registerReferenceRoutes } from './routes/reference.js';
@@ -130,6 +131,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const now = options.ai?.now ?? Date.now;
   await registerAdminRoutes(app, store, config, limiter, { setupCode, version: VERSION, now, counters, startedAt: STARTED_AT });
   await registerProjectRoutes(app, store, config);
+  await registerCollectBackupRoutes(app, store, config, limiter, now);
   await registerPlatformRoutes(app, store, config);
   const quality = new QualityService(store, new QualityWorker({ maxOldGenerationSizeMb: config.qualityWorkerMaxMb }), {
     minIntervalMs: config.qualityMinIntervalMs,

@@ -391,7 +391,7 @@ export interface RecordRow {
 export type RecordState = Pick<RecordRow, 'recordKey' | 'operator' | 'activelySaved' | 'deleted' | 'modifiedOn'> & { firstSubmittedOn: number | null };
 
 /** A record's stored XML (getRecordXml), as Collect Earth sent it. */
-export type RecordXml = Pick<RecordRow, 'recordKey' | 'operator' | 'step' | 'xml'>;
+export type RecordXml = Pick<RecordRow, 'recordKey' | 'operator' | 'step' | 'xml' | 'deleted'>;
 
 /** A project's quality-review settings: number margins (percent) by question key. */
 export interface QualitySettings {

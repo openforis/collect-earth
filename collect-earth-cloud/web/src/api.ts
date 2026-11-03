@@ -516,6 +516,7 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   // The Collect Earth backup (GET /exports/collect-backup).
   no_round_key: "backup.noRoundKey",
   no_project_file: "backup.noProjectFile",
+  backup_busy: "backup.busy",
   round_codes_changed: "error.roundCodesChanged",
   key_shape_changed: "error.keyShapeChanged",
   plots_divided: "error.plotsDivided",
@@ -1603,16 +1604,18 @@ export interface BackupCounts {
   records: number;
   /** Of them, not submitted. */
   drafts: number;
-  /** Of them, records of reference plots. */
-  reference: number;
-  /** Records of other rounds left out (the checks, with round 1 only). */
+  /** Records of other rounds left out (the checks, with the first assessments only). */
   otherRounds: number;
+  /** The collectors' measurements of reference plots, left out in every choice. */
+  measurements: number;
   /** Records left out because another record has the same plot and round (Collect Earth keeps one). */
   sameKey: number;
-  /** Of those, records of reference plots (the collectors' measurements). */
-  sameKeyReference: number;
   /** Some of the plots and rounds that had more than one record ("17,1"). */
   sameKeyExamples: string[];
+  /** Records left out because the server has no XML for them. */
+  noXml: number;
+  /** About how large the file is, in bytes. */
+  estimatedBytes: number;
 }
 
 export interface BackupSummary {
@@ -1620,6 +1623,8 @@ export interface BackupSummary {
   projectFile: boolean;
   /** The survey has the round key, so every round can go in the backup. */
   roundKey: boolean;
+  /** The round codes of the first assessments ("1"; a survey's own codes), or null when they are told apart by who holds the plots. */
+  firstCodes: string[] | null;
   /** The project file carries the coordinator's note (Task 16). */
   note: boolean;
   first: BackupCounts;
@@ -1632,11 +1637,12 @@ function toBackupCounts(value: unknown): BackupCounts {
   return {
     records: toCount(v.records),
     drafts: toCount(v.drafts),
-    reference: toCount(v.reference),
     otherRounds: toCount(v.otherRounds),
+    measurements: toCount(v.measurements),
     sameKey: toCount(v.sameKey),
-    sameKeyReference: toCount(v.sameKeyReference),
     sameKeyExamples: Array.isArray(v.sameKeyExamples) ? v.sameKeyExamples.filter((k): k is string => typeof k === "string") : [],
+    noXml: toCount(v.noXml),
+    estimatedBytes: toCount(v.estimatedBytes),
   };
 }
 
@@ -1647,6 +1653,7 @@ export function toBackupSummary(value: unknown): BackupSummary {
   return {
     projectFile: v.projectFile === true,
     roundKey,
+    firstCodes: Array.isArray(v.firstCodes) ? v.firstCodes.filter((c): c is string => typeof c === "string") : null,
     note: v.note === true,
     first: toBackupCounts(rounds["1"]),
     all: roundKey && rounds.all ? toBackupCounts(rounds.all) : null,
@@ -1658,10 +1665,15 @@ export async function getBackupSummary(projectId: string): Promise<BackupSummary
   return toBackupSummary(await request<unknown>("GET", `${p(projectId)}/exports/collect-backup/summary`));
 }
 
-/** The Collect Earth backup: a zip of the survey and the records, for "Import new data from ZIP". */
-export async function downloadCollectBackup(projectId: string, rounds: BackupRounds): Promise<{ blob: Blob; filename: string }> {
-  const response = await send("GET", `${p(projectId)}/exports/collect-backup?rounds=${rounds}`);
-  return { blob: await response.blob(), filename: attachmentName(response, "collect-earth-backup.zip") };
+/**
+ * A link to the Collect Earth backup (a zip of the survey and the records, for "Import new data
+ * from ZIP"): used once within a minute, by the browser itself, which saves the file to disk as it
+ * comes and shows its progress (the page holds none of it).
+ */
+export async function getBackupLink(projectId: string, rounds: BackupRounds): Promise<{ url: string; expiresAt: number }> {
+  const body = await request<{ url?: unknown; expiresAt?: unknown }>("POST", `${p(projectId)}/exports/collect-backup/link`, { json: { rounds } });
+  if (typeof body?.url !== "string" || !body.url.startsWith("/v1/collect-backup/")) throw new ApiError(500, "http_500");
+  return { url: body.url, expiresAt: toMillis(body.expiresAt) ?? 0 };
 }
 
 // --- platform admin ---------------------------------------------------------------------

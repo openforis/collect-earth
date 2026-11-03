@@ -15,23 +15,24 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Download from "@mui/icons-material/Download";
 import { useState } from "react";
-import { downloadCollectBackup, getBackupSummary, type BackupCounts, type BackupRounds, type BackupSummary } from "../api";
+import { getBackupLink, getBackupSummary, type BackupCounts, type BackupRounds, type BackupSummary } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
-import { formatNumber } from "../format";
+import { formatBytes, formatNumber } from "../format";
 import { useT } from "../i18n";
-import { saveBlob } from "../saveBlob";
+import { downloadUrl } from "../saveBlob";
 import { useLoad } from "../useLoad";
 
 /**
  * The Collect Earth backup on the Data tab (Task 17): the survey and the records in a zip that
- * Collect Earth imports, round 1 only or every round. The dialog says what the file will hold.
+ * Collect Earth imports, the first assessments or every round. The dialog says what the file will
+ * hold; the browser then downloads it by itself from a one-use link, with its own progress.
  */
 export function CollectBackup({ projectId }: { projectId: string }) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const [done, setDone] = useState(false);
+  const [started, setStarted] = useState(false);
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
       <Stack spacing={2}>
@@ -42,16 +43,16 @@ export function CollectBackup({ projectId }: { projectId: string }) {
             variant="outlined"
             startIcon={<Download />}
             onClick={() => {
-              setDone(false);
+              setStarted(false);
               setOpen(true);
             }}
           >
             {t("backup.open")}
           </Button>
         </Box>
-        {done && (
+        {started && (
           <Alert severity="success" role="status">
-            {t("backup.downloaded")}
+            {t("backup.started")}
           </Alert>
         )}
       </Stack>
@@ -59,9 +60,9 @@ export function CollectBackup({ projectId }: { projectId: string }) {
         <BackupDialog
           projectId={projectId}
           onClose={() => setOpen(false)}
-          onDone={() => {
+          onStarted={() => {
             setOpen(false);
-            setDone(true);
+            setStarted(true);
           }}
         />
       )}
@@ -69,7 +70,7 @@ export function CollectBackup({ projectId }: { projectId: string }) {
   );
 }
 
-function BackupDialog({ projectId, onClose, onDone }: { projectId: string; onClose: () => void; onDone: () => void }) {
+function BackupDialog({ projectId, onClose, onStarted }: { projectId: string; onClose: () => void; onStarted: () => void }) {
   const t = useT();
   const summary = useLoad(() => getBackupSummary(projectId), [projectId]);
   const [rounds, setRounds] = useState<BackupRounds>("1");
@@ -83,9 +84,9 @@ function BackupDialog({ projectId, onClose, onDone }: { projectId: string; onClo
     setBusy(true);
     setError(null);
     try {
-      const { blob, filename } = await downloadCollectBackup(projectId, rounds);
-      saveBlob(blob, filename);
-      onDone();
+      const { url } = await getBackupLink(projectId, rounds);
+      downloadUrl(url);
+      onStarted();
     } catch (err) {
       setError(err);
     } finally {
@@ -94,7 +95,7 @@ function BackupDialog({ projectId, onClose, onDone }: { projectId: string; onClo
   };
 
   return (
-    <Dialog open onClose={() => !busy && onClose()} fullWidth maxWidth="sm" aria-labelledby="backup-title">
+    <Dialog open onClose={onClose} fullWidth maxWidth="sm" aria-labelledby="backup-title">
       <DialogTitle id="backup-title">{t("backup.dialogTitle")}</DialogTitle>
       <DialogContent>
         {summary.loading && !s ? (
@@ -107,9 +108,7 @@ function BackupDialog({ projectId, onClose, onDone }: { projectId: string; onClo
         <ErrorAlert error={error} />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={busy}>
-          {t("common.cancel")}
-        </Button>
+        <Button onClick={onClose}>{t("common.close")}</Button>
         <Button variant="contained" startIcon={<Download />} onClick={() => void download()} disabled={!canDownload}>
           {busy ? t("backup.downloading") : t("backup.download")}
         </Button>
@@ -142,12 +141,13 @@ function BackupChoice({
         <RadioGroup aria-labelledby="backup-rounds" value={rounds} onChange={(e) => onRounds(e.target.value as BackupRounds)}>
           <FormControlLabel
             value="1"
-            control={<Radio />}
+            control={<Radio slotProps={{ input: { "aria-describedby": "backup-first-help" } }} />}
             label={
               <Box>
                 <Typography>{t("backup.first")}</Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="text.secondary" id="backup-first-help">
                   {t("backup.firstHelp")}
+                  {summary.firstCodes && summary.firstCodes.length > 0 && ` ${t("backup.firstCodes", { codes: summary.firstCodes.join(", ") })}`}
                 </Typography>
               </Box>
             }
@@ -155,12 +155,12 @@ function BackupChoice({
           />
           <FormControlLabel
             value="all"
-            control={<Radio />}
+            control={<Radio slotProps={{ input: { "aria-describedby": summary.roundKey ? "backup-all-help" : "backup-all-help backup-no-round-key" } }} />}
             disabled={!summary.roundKey}
             label={
               <Box>
                 <Typography>{t("backup.all")}</Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="text.secondary" id="backup-all-help">
                   {t("backup.allHelp")}
                 </Typography>
               </Box>
@@ -169,22 +169,28 @@ function BackupChoice({
           />
         </RadioGroup>
       </FormControl>
-      {!summary.roundKey && <Alert severity="warning">{t("backup.noRoundKey")}</Alert>}
+      {!summary.roundKey && (
+        <Alert severity="warning" id="backup-no-round-key">
+          {t("backup.noRoundKey")}
+        </Alert>
+      )}
       {counts.records === 0 ? (
         <Alert severity="info">{t("backup.none")}</Alert>
       ) : (
         <Box component="ul" sx={{ m: 0, pl: 2.5, "& li": { mb: 0.5 } }} aria-live="polite">
-          <li>{t("backup.records", { count: n(counts.records) })}</li>
+          <li>
+            {t("backup.records", { count: n(counts.records) })} {t("backup.size", { size: formatBytes(counts.estimatedBytes, language) })}
+          </li>
           {counts.drafts > 0 && <li>{t("backup.drafts", { count: n(counts.drafts) })}</li>}
           {rounds === "1" && counts.otherRounds > 0 && <li>{t("backup.otherRounds", { count: n(counts.otherRounds) })}</li>}
+          {counts.measurements > 0 && <li>{t("backup.measurements", { count: n(counts.measurements) })}</li>}
           {counts.sameKey > 0 && <li>{t("backup.sameKey", { count: n(counts.sameKey), examples: counts.sameKeyExamples.slice(0, 3).join(", ") })}</li>}
-          {rounds === "all" && counts.reference > 0 && <li>{t("backup.reference", { count: n(counts.reference) })}</li>}
-          {counts.sameKeyReference > 0 && <li>{t("backup.referenceSameKey", { count: n(counts.sameKeyReference) })}</li>}
+          {counts.noXml > 0 && <li>{t("backup.noXml", { count: n(counts.noXml) })}</li>}
           {summary.note && <li>{t("backup.note")}</li>}
         </Box>
       )}
       <Typography variant="body2" color="text.secondary">
-        {t("backup.howTo")}
+        {t("backup.howTo")} {t("backup.clientMode")}
       </Typography>
     </Stack>
   );

@@ -37,6 +37,7 @@ managed Postgres (Option B).
 | `MAP_TILE_ATTRIBUTION` | with `MAP_TILE_URL` | `© OpenStreetMap contributors` | The text the tile source asks to show on the map (plain text, at most 300 characters) |
 | `MAP_TILE_ATTRIBUTION_URL` | no | `https://www.openstreetmap.org/copyright` | Where that text links to (https) |
 | `MAP_TILE_MAX_ZOOM` | no | `19` | The tile source's deepest zoom (1-22) |
+| `LINK_SECRET` | optional | `<random 32+ chars>` | Signs the Collect Earth backup's one-minute download links. Without it the key is worked out from `DATABASE_URL` (the same on every instance); with the memory store, a random key per process |
 | `AI_FAKE` | never in production | `1` | Development only: a scripted stand-in for the model, so the AI panel can be tried without Vertex. Refused unless `STORE_BACKEND=memory`, and refused on Cloud Run (`K_SERVICE`) or with `NODE_ENV=production` |
 
 Generate a good admin key: `openssl rand -base64 32`.
@@ -183,7 +184,7 @@ explanation; re-running continues.
 | IAM for builds | the project's default Cloud Build service account (`gcloud builds get-default-service-account`) | `roles/cloudbuild.builds.builder` (projects created since 2024 give the default compute account no roles) |
 | Artifact Registry | `ce` (docker, in the region) | cleanup policy `deploy/gcp/cleanup-policy.json`: keep the 5 newest images, delete others older than 30 days |
 | Image | `<REGION>-docker.pkg.dev/<PROJECT>/ce/collect-earth-cloud:<git-sha>-<timestamp>` | built by Cloud Build from `collect-earth-cloud/` (the Dockerfile context), uploading what `deploy/gcp/build.gcloudignore` does not exclude |
-| Cloud Run service | `collect-earth-cloud` | the dedicated service account, Cloud SQL connector to `ce-cloud-db`, secrets `DATABASE_URL=ce-app-database-url:latest`, `MIGRATION_DATABASE_URL=ce-database-url:latest` and `SETUP_CODE=ce-setup-code:latest`, env `STORE_BACKEND=postgres`, `MIGRATE_ON_BOOT=true` (+ `PUBLIC_BASE_URL` with `--domain`), public (`--allow-unauthenticated`), port 8080, 1 vCPU, 512 MiB, 0 to 4 instances, concurrency 80, timeout 300 s, startup CPU boost |
+| Cloud Run service | `collect-earth-cloud` | the dedicated service account, Cloud SQL connector to `ce-cloud-db`, secrets `DATABASE_URL=ce-app-database-url:latest`, `MIGRATION_DATABASE_URL=ce-database-url:latest` and `SETUP_CODE=ce-setup-code:latest`, env `STORE_BACKEND=postgres`, `MIGRATE_ON_BOOT=true` (+ `PUBLIC_BASE_URL` with `--domain`), public (`--allow-unauthenticated`), port 8080, 1 vCPU, 512 MiB, 0 to 4 instances, concurrency 80, timeout 900 s (`REQUEST_TIMEOUT`, see "The Collect Earth backup and its limits"), startup CPU boost |
 | Domain mapping (with `--domain`) | the domain | `gcloud beta run domain-mappings create`; the script prints the DNS records to add |
 
 Env vars and secrets are applied with `--update-env-vars` / `--update-secrets`,
@@ -542,6 +543,23 @@ the service more memory (`gcloud run services update ... --memory=1Gi`) and rais
 `QUALITY_WORKER_MAX_MB` to about half of it (e.g. 512). Never set it close to the
 container's memory: the whole container would run out first and restart.
 
+**The Collect Earth backup and its limits.** The Data tab's "Collect Earth backup" streams a
+zip of the survey and the records (about 1.8 KB a record: 100,000 records are about 180 MB). The
+browser downloads it by itself from a link that works once within a minute (signed with
+`LINK_SECRET` when set, else with a key worked out from `DATABASE_URL`, so any instance accepts
+it; a used link is remembered by the instance that served it, so another instance could take it
+once more within that minute). Each instance writes one backup at a time (another coordinator is
+told to try again in a few minutes); writing one took about 70 MB more than the server idle
+(100,000 records, the heap capped at 384 MB). Two limits matter for large projects:
+- **The request timeout.** Cloud Run cuts a request after `--timeout`. `deploy.sh` sets
+  `REQUEST_TIMEOUT` (default 900 s: 180 MB at about 200 KB/s). For very large projects or slow
+  connections raise it to Cloud Run's maximum, `REQUEST_TIMEOUT=3600 ./deploy/gcp/deploy.sh ...`, or
+  `gcloud run services update collect-earth-cloud --region=<REGION> --timeout=3600`. A download cut
+  short is noted in the Activity log ("stopped before the end").
+- **Memory.** Large projects (more than about 50,000 records) need `--memory=1Gi`
+  (`gcloud run services update collect-earth-cloud --region=<REGION> --memory=1Gi`), so a backup and
+  the quality figures fit side by side.
+
 ## Known limitations
 
 - **Plot ids are read as UTF-8.** In a plot file saved as Latin-1 (ISO-8859-1), an
@@ -634,7 +652,7 @@ gcloud run deploy collect-earth-cloud --project=$P --region=$R --image=$IMAGE \
   --update-secrets=DATABASE_URL=ce-app-database-url:latest,MIGRATION_DATABASE_URL=ce-database-url:latest,SETUP_CODE=ce-setup-code:latest \
   --update-env-vars=STORE_BACKEND=postgres,MIGRATE_ON_BOOT=true \
   --allow-unauthenticated --port=8080 --cpu=1 --memory=512Mi \
-  --min-instances=0 --max-instances=4 --concurrency=80 --timeout=300 --cpu-boost
+  --min-instances=0 --max-instances=4 --concurrency=80 --timeout=900 --cpu-boost
 gcloud run services describe collect-earth-cloud --region=$R --project=$P --format='value(status.url)'
 ```
 

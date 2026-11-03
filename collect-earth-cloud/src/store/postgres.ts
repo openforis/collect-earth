@@ -427,14 +427,21 @@ export class PostgresStore implements Store {
     }
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        `SELECT r.record_key, r.operator, r.step, r.xml
+        `SELECT r.record_key, r.operator, r.step, r.xml, r.deleted
            FROM records r
            JOIN (SELECT DISTINCT * FROM unnest($2::text[], $3::text[])) AS k(record_key, operator)
              ON k.record_key = r.record_key AND k.operator = r.operator
           WHERE r.project_id = $1`,
         [projectId, keys.map((k) => k.recordKey), keys.map((k) => k.operator)],
       );
-      return res.rows.map((row) => ({ recordKey: row.record_key as string, operator: row.operator as string, step: Number(row.step), xml: (row.xml as string | null) ?? null }));
+      return res.rows.map((row) => ({ recordKey: row.record_key as string, operator: row.operator as string, step: Number(row.step), xml: (row.xml as string | null) ?? null, deleted: row.deleted === true }));
+    });
+  }
+
+  async listRecordKeysWithoutXml(projectId: string): Promise<{ recordKey: string; operator: string }[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT record_key, operator FROM records WHERE project_id = $1 AND NOT deleted AND xml IS NULL', [projectId]);
+      return res.rows.map((row) => ({ recordKey: row.record_key as string, operator: row.operator as string }));
     });
   }
 

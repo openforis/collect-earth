@@ -140,7 +140,9 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
       if (Number(d.removed) > 0 && !(Number(d.added) > 0)) return t("activity.audit.referenceRemoved", { actor, count: num(d.removed, language) });
       return t("activity.audit.referenceAdded", { actor, count: num(d.added, language), file: fileOf(t, page, d.csvFileId) });
     case "export.downloaded":
-      if (typeof d.kind === "string" && EXPORT_KEYS[d.kind]) return t("activity.audit.download", { actor, what: t(EXPORT_KEYS[d.kind]) });
+      if (typeof d.kind === "string" && EXPORT_KEYS[d.kind]) {
+        return t(d.completed === false ? "activity.audit.downloadStopped" : "activity.audit.download", { actor, what: t(EXPORT_KEYS[d.kind]) });
+      }
       return t("activity.audit.downloadData", { actor, count: num(d.records, language) });
     default:
       return t("activity.audit.other", { actor, action: item.action });

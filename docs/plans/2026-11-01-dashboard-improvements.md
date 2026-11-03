@@ -98,7 +98,10 @@ desktop.
    (their many checks would give them away). **Consumers of the data** (the export, Task 17's
    Collect Earth backup) treat a reference plot's round 2 as measurement, not as checks to decide:
    the export has a `reference` column ("yes" on every record of a reference plot) and its `final`
-   stays blank for them (a decision made before the plot was marked included).
+   stays blank for them (a decision made before the plot was marked included). **The Collect Earth
+   backup leaves the collectors' measurements of a reference plot (its records other than first
+   assessments) out in every choice, and keeps its round 1 (the reference assessment)**; the dialog
+   counts them as "measurements left out" and says the CSV has them all.
 
 ---
 
@@ -3140,6 +3143,84 @@ escaping.
   open the project first; the app's window was not driven (the import ran through the same service from a
   harness); the stream is audited before it is sent, so a download cut short is still logged; a stream
   error after the headers ends the response without an error message for the browser.
+
+- **Review (after ab672213; supersedes the above where it says so):**
+  - **Downloads by link** (`src/backupLink.ts`, routes moved to `src/routes/collectBackup.ts`): the dialog
+    asks `POST /v1/projects/:pid/exports/collect-backup/link { rounds }` (coordinators; 400, 409
+    `no_project_file` / `no_round_key`, 429 `backup_busy` before any link) and gets `{ url, expiresAt }`;
+    the page then follows `GET /v1/collect-backup/<token>` with a plain link, so **the browser streams the
+    file to disk with its own progress** (no fetch → blob; the page holds nothing). The token is
+    `<payload>.<HMAC-SHA256>` (base64url; project, user, rounds, expiry, a nonce), **60 s, used once** (the
+    instance remembers used nonces until they expire: 410 `link_used`; past its time 410 `link_expired`; a
+    changed or foreign token 404). Signed with `LINK_SECRET` when set, else a key worked out from
+    `DATABASE_URL` (shared by every instance), else (memory store) a random key per process. On use the
+    person must still be a coordinator of the project (403 otherwise; a project admin token's link: the
+    project must exist). The session route `GET …/exports/collect-backup?rounds=` stays for scripts.
+  - **One backup at a time per instance:** a second one (download or link) is **429 `backup_busy`**
+    ("Another Collect Earth backup is being prepared on this server. Try again in a few minutes.", 4
+    languages); the slot is freed when the response finishes or closes. The link, the token download and
+    the session download go through the rate limiter's `admin` bucket.
+  - **Audit:** as before when the stream starts, plus a second `export.downloaded { …, completed: false }`
+    when the client goes away before the end ("ana's download of the Collect Earth backup stopped before
+    the end" in the log).
+  - **Event loop:** `zipStream` lets the loop run (`setImmediate`) after every 10 ms of work (entries and
+    the central directory). The reviewer's `scratchpad/t17r/lag.mts` (20,000 records of 14 KB, a store
+    answering pages after 2 ms): **p99 17.8-19.3 ms, max 20-22 ms** (5 ms resolution); without the yields
+    p99 and max 103 ms. Test: setImmediate callbacks run while 3,000 entries are written (0 without).
+  - **Memory, the server as deployed under `--max-old-space-size=384`** (`scratchpad/t17/bench/
+    server100k.mts`: buildServer, the memory store's records made on the fly, the link downloaded by curl):
+    **100,000 records, 182 MB in 18.4 s, peak RSS 355 MB (286 idle), heap 138 MB, external 96 MB.**
+    DEPLOY.md: large projects (more than about 50,000 records) need `--memory=1Gi`.
+  - **Timeouts:** `deploy.sh` takes `REQUEST_TIMEOUT` (default **900 s**, was 300) for Cloud Run's
+    `--timeout`; DEPLOY.md says why (a large backup streams for minutes, a request past the timeout is cut)
+    and how to raise it to 3600. No cloud resource was created or changed.
+  - **Size in the dialog:** `estimatedBytes` = 50 KB (the survey) + 1.8 KB a record (the desktop's 17 KB
+    record deflates to about 1.9 KB; "About 180 MB to download").
+  - **Decided (added to Decision 8): reference plots' measurements are left out in every choice;** their
+    round 1 (the reference) stays. `planBackup` counts them as `measurements` ("Measurements of reference
+    plots left out: N … the CSV has them all"); `reference` / `sameKeyReference` are gone.
+  - **The first-assessment choice prefers the current main holder:** for one key, the record of the person
+    who holds the plot as main in a divided file now (`PlotContext.mainHolders`), then submitted, then the
+    latest, then the first name. `backup.firstHelp` says so in 4 languages; label "First assessments only",
+    and for a survey with round its codes ("In your survey, these are the records whose round is 1" /
+    an own round's codes but the re-assessment code; `firstCodes` in the summary, null when the holders
+    tell them apart).
+  - **Without the round key, the copy holders decide what is a check** (`recordRound`: a person who holds
+    the plot as a quality-check copy made a check, everyone else a first assessment); a check made before
+    the division is therefore taken for a first assessment (and then one per key).
+  - **Records without XML** never win a key and are counted (`noXml`; new `Store.listRecordKeysWithoutXml`,
+    both stores); **records deleted between the plan and the stream** are skipped and counted
+    (`RecordXml.deleted`, `outcome.deleted`, logged).
+  - **Zip details:** local header version 45 for an entry starting past 4 GB (`localHeader`, tested); a
+    name of 65,535 bytes is allowed (`>`, tested).
+  - **Dialog:** Close instead of Cancel (closing is fine once the link is followed); "The download has
+    started: your browser shows its progress…"; `aria-describedby` on both radios (the disabled one also
+    to the no-round warning); `backup.explain` says "(one per plot and round)"; the menu path
+    **Tools → Data Import/Export → Import new data from ZIP (compressed XML)** in each language from the
+    desktop's `Messages*.properties` (Herramientas / Outils / Ferramentas …), and a note that the menu is
+    greyed out when Collect Earth works with another computer's database (client mode,
+    `CollectEarthWindow.disableMenuItems`).
+  - **Postgres smoke** `npm run smoke:pg:backup -- <port>` (`scripts/pg-smoke-backup.mts`, README): RLS
+    binds the app role; `getRecordXml` returns only the asked project's rows (B's keys asked under A, A's
+    under B: none), `listRecordKeysWithoutXml` only A's, raw SQL as the app role with B's setting sees none
+    of A's XML and with no setting no rows; summary, a link used once, the zip of A only; **100,000 records
+    of 17 KB written by SQL: summary 470 ms, the backup streamed 279 MB (varied XML) in 27.8 s, peak RSS
+    389 MB. ALL OK.** Docker stopped after.
+  - **Chrome** (memory server, built web, Spanish): the dialog with the counts (measurements 2, checks 4,
+    same key 1, "Unos 8,8 KB" before the survey allowance), "Descargar la copia" → the browser downloaded
+    the 54,272-byte zip by itself (removed afterwards from Downloads) and the page said the download
+    started; the log has the download. No new real Collect Earth run: the zip's format did not change
+    (only the version of entries past 4 GB); JDK 23's `ZipFile` reads the new 100,000-record zip
+    (100,001 entries, 2.6 s). With all rounds the real run's file would now hold 9 records, not 10 (104,2
+    left out).
+  - **Tests:** server 1089 (was 1079: collectBackup 21 — the link's signature/expiry, the main holder, no
+    XML, measurements, deleted since, the local header, the 65,535-byte name, the yields, the link route,
+    the busy 429, completed:false over a real socket; Postgres unit 2), web 328 (the link and the summary's
+    new fields, the stopped sentence). tsc clean in both, web build ok.
+  - **Open:** a used link is remembered per instance (another instance could take it once more within the
+    minute); a browser shows a failed download, not the page's message, if the link fails at download time
+    (busy between the link and the download, a coordinator demoted meanwhile); the size is an estimate
+    (varied answers deflate less: 2.8 KB a record in the smoke).
 
 ### Task 18: A read-only progress link for funders (improvement 15)
 

@@ -199,8 +199,17 @@ describe('PostgresStore pool', () => {
     const read = queries.findIndex((q) => q.sql.includes('r.xml'));
     expect(setting).toBeGreaterThanOrEqual(0);
     expect(read).toBeGreaterThan(setting);
-    expect(queries[read].sql).toMatch(/SELECT r\.record_key, r\.operator, r\.step, r\.xml\s+FROM records r\s+JOIN \(SELECT DISTINCT \* FROM unnest/);
+    expect(queries[read].sql).toMatch(/SELECT r\.record_key, r\.operator, r\.step, r\.xml, r\.deleted\s+FROM records r\s+JOIN \(SELECT DISTINCT \* FROM unnest/);
     expect(queries[read].params).toEqual([PROJECT, ['1,1', '1,2'], ['ana', 'ben']]);
+  });
+
+  it('listRecordKeysWithoutXml reads the keys of live records without XML under the project setting', async () => {
+    await new PostgresStore('postgres://x').listRecordKeysWithoutXml(PROJECT);
+    const setting = queries.findIndex((q) => q.params?.[0] === 'app.current_project' && q.params[1] === PROJECT);
+    const read = queries.findIndex((q) => q.sql.includes('xml IS NULL'));
+    expect(read).toBeGreaterThan(setting);
+    expect(setting).toBeGreaterThanOrEqual(0);
+    expect(queries[read].sql).toMatch(/NOT deleted AND xml IS NULL/);
   });
 
   it('reads the quality version from the project counter the triggers bump', async () => {

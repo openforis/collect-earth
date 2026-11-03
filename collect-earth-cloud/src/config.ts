@@ -11,6 +11,11 @@ export interface Config {
   migrationDatabaseUrl?: string;
   /** When set, POST /v1/projects requires header `x-admin-key` to match. */
   adminApiKey?: string;
+  /**
+   * LINK_SECRET: signs the Collect Earth backup's download links (backupLink.ts). Optional: without
+   * it the links are signed with a key worked out from DATABASE_URL, which every instance shares.
+   */
+  linkSecret?: string;
   /** Public base URL (e.g. https://ce-cloud.example.org) for building invite/join links. */
   publicBaseUrl?: string;
   /** When true (and postgres), apply pending SQL migrations on boot before listening. */
@@ -126,6 +131,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     databaseUrl: env.DATABASE_URL,
     migrationDatabaseUrl: nonEmpty(env.MIGRATION_DATABASE_URL?.trim()),
     adminApiKey: env.ADMIN_API_KEY && env.ADMIN_API_KEY.length > 0 ? env.ADMIN_API_KEY : undefined,
+    linkSecret: nonEmpty(env.LINK_SECRET?.trim()),
     publicBaseUrl: env.PUBLIC_BASE_URL && env.PUBLIC_BASE_URL.length > 0 ? env.PUBLIC_BASE_URL : undefined,
     migrateOnBoot: env.MIGRATE_ON_BOOT === 'true' || env.MIGRATE_ON_BOOT === '1',
     renderExternalUrl: nonEmpty(env.RENDER_EXTERNAL_URL),

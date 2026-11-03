@@ -50,7 +50,7 @@ import {
   toServerSettings,
   DEFAULT_SERVER_SETTINGS,
   downloadOriginalCep,
-  downloadCollectBackup,
+  getBackupLink,
   getBackupSummary,
   getRoundInfo,
   setReassessmentCode,
@@ -1013,34 +1013,38 @@ describe("the Collect Earth backup", () => {
   const url = (i = 0) => String(fetchMock.mock.calls[i][0]);
 
   it("reads what each choice would hold; all rounds is null without the round key", async () => {
-    const counts = { records: 4, drafts: 1, reference: 0, otherRounds: 1, sameKey: 2, sameKeyReference: 0, sameKeyExamples: ["1,1", 7] };
-    fetchMock.mockResolvedValue(jsonResponse(200, { projectFile: true, roundKey: true, roundState: "added", note: true, rounds: { "1": counts, all: { ...counts, records: "x" } } }));
+    const counts = { records: 4, drafts: 1, otherRounds: 1, measurements: 3, sameKey: 2, sameKeyExamples: ["1,1", 7], noXml: 1, estimatedBytes: 7200 };
+    fetchMock.mockResolvedValue(jsonResponse(200, { projectFile: true, roundKey: true, roundState: "own", firstCodes: ["2025", 3], note: true, rounds: { "1": counts, all: { ...counts, records: "x" } } }));
     const summary = await getBackupSummary("p 1");
     expect(url()).toBe("/v1/projects/p%201/exports/collect-backup/summary");
     expect(summary).toEqual({
       projectFile: true,
       roundKey: true,
+      firstCodes: ["2025"],
       note: true,
       first: { ...counts, sameKeyExamples: ["1,1"] },
       all: { ...counts, records: 0, sameKeyExamples: ["1,1"] },
     });
-    fetchMock.mockResolvedValue(jsonResponse(200, { projectFile: true, roundKey: false, rounds: { "1": counts, all: counts } }));
-    expect((await getBackupSummary("p1")).all).toBeNull();
+    fetchMock.mockResolvedValue(jsonResponse(200, { projectFile: true, roundKey: false, firstCodes: null, rounds: { "1": counts, all: counts } }));
+    const none = await getBackupSummary("p1");
+    expect(none.all).toBeNull();
+    expect(none.firstCodes).toBeNull();
   });
 
-  it("downloads the zip with the name the server gave it; a survey without round is told as such", async () => {
-    fetchMock.mockResolvedValue(
-      new Response("PK", { status: 200, headers: { "content-type": "application/zip", "content-disposition": "attachment; filename=\"a.zip\"; filename*=UTF-8''Proyecto%20%C3%B1-collect-earth-backup-all-rounds.zip" } }),
-    );
-    const { blob, filename } = await downloadCollectBackup("p1", "all");
-    expect(url()).toBe("/v1/projects/p1/exports/collect-backup?rounds=all");
-    expect(filename).toBe("Proyecto ñ-collect-earth-backup-all-rounds.zip");
-    expect(await blob.text()).toBe("PK");
+  it("asks for a download link; refusals are told as such", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { url: "/v1/collect-backup/abc.def", expiresAt: 60_000 }));
+    expect(await getBackupLink("p1", "all")).toEqual({ url: "/v1/collect-backup/abc.def", expiresAt: 60_000 });
+    expect(url()).toBe("/v1/projects/p1/exports/collect-backup/link");
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST", body: JSON.stringify({ rounds: "all" }) });
+    // Only a link of this server's backup is followed.
+    fetchMock.mockResolvedValue(jsonResponse(200, { url: "https://elsewhere.example/x" }));
+    await expect(getBackupLink("p1", "1")).rejects.toBeInstanceOf(ApiError);
     fetchMock.mockResolvedValue(jsonResponse(409, { error: "no_round_key", reason: "no round" }));
-    const error = await downloadCollectBackup("p1", "all").catch((e: unknown) => e);
-    expect(errorMessageKey(error)).toBe("backup.noRoundKey");
+    expect(errorMessageKey(await getBackupLink("p1", "all").catch((e: unknown) => e))).toBe("backup.noRoundKey");
     fetchMock.mockResolvedValue(jsonResponse(409, { error: "no_project_file" }));
-    expect(errorMessageKey(await downloadCollectBackup("p1", "1").catch((e: unknown) => e))).toBe("backup.noProjectFile");
+    expect(errorMessageKey(await getBackupLink("p1", "1").catch((e: unknown) => e))).toBe("backup.noProjectFile");
+    fetchMock.mockResolvedValue(jsonResponse(429, { error: "backup_busy" }));
+    expect(errorMessageKey(await getBackupLink("p1", "1").catch((e: unknown) => e))).toBe("backup.busy");
   });
 });
 

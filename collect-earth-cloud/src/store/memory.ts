@@ -390,10 +390,14 @@ export class InMemoryStore implements Store {
       const r = entry.records.get(id);
       if (r && !seen.has(id)) {
         seen.add(id);
-        out.push({ recordKey: r.recordKey, operator: r.operator, step: r.step, xml: r.xml });
+        out.push({ recordKey: r.recordKey, operator: r.operator, step: r.step, xml: r.xml, deleted: r.deleted });
       }
     }
     return out;
+  }
+
+  async listRecordKeysWithoutXml(projectId: string): Promise<{ recordKey: string; operator: string }[]> {
+    return (await this.listRecords(projectId)).filter((r) => r.xml === null).map((r) => ({ recordKey: r.recordKey, operator: r.operator }));
   }
 
   async listRecordsByKeys(projectId: string, recordKeys: readonly string[]): Promise<RecordRow[]> {
