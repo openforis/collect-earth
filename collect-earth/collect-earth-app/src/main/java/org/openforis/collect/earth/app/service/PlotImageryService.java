@@ -15,6 +15,8 @@ import javax.annotation.PreDestroy;
 
 import org.openforis.collect.earth.app.service.imagery.ImageryBrowser;
 import org.openforis.collect.earth.app.service.imagery.ImagerySource;
+import org.openforis.collect.earth.app.service.imagery.TabClosedException;
+import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
@@ -81,6 +83,19 @@ public class PlotImageryService {
 	 * guarded by itself.
 	 */
 	private final Map<ImagerySource, Shown> hiddenLoads = new EnumMap<>(ImagerySource.class);
+	/**
+	 * Covers the page of a hidden tab whose plot is kept for later (see {@link #markStale}): dims it and says which plot
+	 * is coming, so that the outline of the plot before, over its ground, is never taken for the current one. The page
+	 * loaded for the plot takes it away. Returns whether it is there.
+	 */
+	private static final String STALE_MARK_SCRIPT = "if (!document.body) return false;"
+			+ " var d = document.getElementById('__collectEarthStale');"
+			+ " if (!d) { d = document.createElement('div'); d.id = '__collectEarthStale';"
+			+ " d.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:2147483646;display:flex;"
+			+ "align-items:center;justify-content:center;pointer-events:none;background:rgba(32,33,36,.72);color:#fff;"
+			+ "font:500 15px/1.3 Roboto,Arial,sans-serif';"
+			+ " document.body.appendChild(d); }"
+			+ " d.textContent = arguments[0]; return true;";
 
 	private final ExecutorService executor = Executors.newCachedThreadPool(r -> {
 		Thread thread = new Thread(r, "Plot imagery");
@@ -167,6 +182,10 @@ public class PlotImageryService {
 				return;
 			}
 			openImageryTabs();
+			// Opening the tabs can take seconds: another plot may have been selected meanwhile
+			if (!isLatest(selection)) {
+				return;
+			}
 			loadInOtherSources(placemark, selection);
 		});
 	}
@@ -322,28 +341,62 @@ public class PlotImageryService {
 	 */
 	void loadInOtherSources(SimplePlacemarkObject placemark, long selection) {
 		Shown plot = new Shown(placemark, selection);
+		Set<ImagerySource> enabled = enabledSources();
 		for (ImagerySource source : ImagerySource.values()) {
 			if (source == ImagerySource.GOOGLE_EARTH_WEB) {
 				continue;
 			}
-			if (loadsNow(source)) {
+			if (!enabled.contains(source) || loadsNow(source)) {
+				Shown load = plot;
 				synchronized (hiddenLoads) {
-					hiddenLoads.remove(source);
+					Shown kept = hiddenLoads.remove(source);
+					// A plot selected after this one, kept while this one waited for Google Earth Web: that one
+					if (kept != null && kept.selection > selection) {
+						load = kept;
+					}
 				}
-				loadIn(source, plot);
+				loadIn(source, load);
 				continue;
 			}
+			boolean keptNow;
 			synchronized (hiddenLoads) {
 				Shown kept = hiddenLoads.get(source);
-				if (kept == null || kept.selection <= selection) {
+				keptNow = kept == null || kept.selection <= selection;
+				if (keptNow) {
 					hiddenLoads.put(source, plot);
 				}
+			}
+			if (keptNow) {
+				markStale(source, placemark);
 			}
 			// Shown between the look and the plot being kept: the listener found nothing to load
 			if (loadsNow(source)) {
 				sourceShown(source);
 			}
 		}
+	}
+
+	/** The sources switched on: see {@link BrowserService#enabledImagerySources()}. */
+	Set<ImagerySource> enabledSources() {
+		return browserService.enabledImagerySources();
+	}
+
+	/**
+	 * Covers the hidden tab of the source, which still shows the plot before, until it loads this one when shown (see
+	 * {@link #STALE_MARK_SCRIPT}). On a thread of its own; a page that takes no scripts keeps what it shows.
+	 */
+	void markStale(ImagerySource source, SimplePlacemarkObject placemark) {
+		String text = "\u231B " + Messages.getString("GoogleEarthWeb.plot") + " " + GoogleEarthWebService.plotLabel(placemark)
+				+ " \u2026";
+		async.execute(() -> {
+			try {
+				imageryBrowser.tab(source).evaluateIfOpen(STALE_MARK_SCRIPT, text);
+			} catch (TabClosedException e) {
+				// closed: it loads the plot when it opens again
+			} catch (RuntimeException e) {
+				logger.debug("{}: the tab could not be marked as showing the plot before: {}", source, e.getMessage());
+			}
+		});
 	}
 
 	/** Whether the source loads a plot at once: see {@link #loadInOtherSources}. */

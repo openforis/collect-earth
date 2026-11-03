@@ -896,4 +896,20 @@ public class ImageryBrowserTest {
 		assertFalse(imagery.reportsVisibility(ImagerySource.ESRI_WAYBACK));
 	}
 
+	@Test
+	public void aTabSentToAPageTellsWhenItIsShownOnlyOnceThatPageSaidSo() {
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK));
+		browser.visibility("tab1", false);
+		assertTrue(imagery.reportsVisibility(ImagerySource.ESRI_WAYBACK));
+		// Loaded again: until its page says it, as a page of ours does at once, nothing is known (an error page of the
+		// browser, which runs no script of ours, would never say it)
+		browser.answers.put("readyState", "true");
+		imagery.tab(ImagerySource.ESRI_WAYBACK).load("https://wayback/2", true, Duration.ofSeconds(5));
+		assertFalse(imagery.reportsVisibility(ImagerySource.ESRI_WAYBACK));
+		browser.visibility("tab1", false);
+		assertTrue(imagery.reportsVisibility(ImagerySource.ESRI_WAYBACK));
+		imagery.tab(ImagerySource.ESRI_WAYBACK).navigate("https://wayback/3");
+		assertFalse(imagery.reportsVisibility(ImagerySource.ESRI_WAYBACK));
+	}
+
 }

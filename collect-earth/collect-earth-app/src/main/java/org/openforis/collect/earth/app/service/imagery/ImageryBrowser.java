@@ -207,6 +207,13 @@ public class ImageryBrowser {
 	private volatile long startEndedNanos = System.nanoTime();
 	/** The visible state each tab reported last: the listeners hear of changes only, not of every page load. */
 	private final Map<String, Boolean> reportedVisibility = new HashMap<>();
+	/**
+	 * When each tab last reported its visibility, and was last sent to a page, as numbers of {@link #tabEvents}: see
+	 * {@link #reportsVisibility}. Guarded by {@link #tabsLock}.
+	 */
+	private final Map<String, Long> reportedAt = new HashMap<>();
+	private final Map<String, Long> navigatedAt = new HashMap<>();
+	private long tabEvents;
 	/** Counts each tab the worker starts to open and each it is done opening: odd while one opens. See {@link #tabOpenings()}. */
 	private final AtomicLong tabOpenings = new AtomicLong();
 
@@ -320,9 +327,10 @@ public class ImageryBrowser {
 	}
 
 	/**
-	 * Whether the tab of the source, open in a browser that is running, tells when it is shown: its page said whether it
-	 * is visible at least once. A tab that never loaded a page (the blank one it opened with) says nothing, so a load
-	 * left until it is shown ({@link #onVisibilityChange}) would never come.
+	 * Whether the tab of the source, open in a browser that is running, tells when it is shown: the page it was last sent
+	 * to said whether it is visible. A tab that never loaded a page (the blank one it opened with), or whose page runs no
+	 * script of ours (an error page of the browser, chrome-error://), says nothing, so a load left until it is shown
+	 * ({@link #onVisibilityChange}) would never come.
 	 */
 	public boolean reportsVisibility(ImagerySource source) {
 		TabDriver d = driver;
@@ -331,7 +339,15 @@ public class ImageryBrowser {
 		}
 		synchronized (tabsLock) {
 			String tab = tabOfSource.get(source);
-			return tab != null && reportedVisibility.containsKey(tab);
+			Long reported = tab == null ? null : reportedAt.get(tab);
+			return reported != null && reported > navigatedAt.getOrDefault(tab, Long.MIN_VALUE);
+		}
+	}
+
+	/** The tab was sent to a page (on the worker): see {@link #reportsVisibility}. */
+	void navigated(String tab) {
+		synchronized (tabsLock) {
+			navigatedAt.put(tab, ++tabEvents);
 		}
 	}
 
@@ -792,6 +808,8 @@ public class ImageryBrowser {
 				sourceOfTab.clear();
 				openingOrder.clear();
 				reportedVisibility.clear();
+				reportedAt.clear();
+				navigatedAt.clear();
 				windowOfTab.clear();
 				shownIn.clear();
 				updateShownSources();
@@ -893,6 +911,9 @@ public class ImageryBrowser {
 			// The preload script reports on every page load as well, mostly the same as before
 			changed = source != null && !Boolean.valueOf(isVisible).equals(reportedVisibility.put(tab, isVisible));
 			if (source != null) {
+				reportedAt.put(tab, ++tabEvents);
+			}
+			if (source != null) {
 				ImageryWindow window = windowOfTab.getOrDefault(tab, ImageryWindow.MAIN);
 				if (isVisible) {
 					shownIn.put(window, source);
@@ -934,6 +955,8 @@ public class ImageryBrowser {
 			classicTab = null;
 		}
 		reportedVisibility.remove(tab);
+		reportedAt.remove(tab);
+		navigatedAt.remove(tab);
 		ImageryWindow window = windowOfTab.remove(tab);
 		ImagerySource source = sourceOfTab.remove(tab);
 		if (source != null && window != null && shownIn.get(window) == source) {

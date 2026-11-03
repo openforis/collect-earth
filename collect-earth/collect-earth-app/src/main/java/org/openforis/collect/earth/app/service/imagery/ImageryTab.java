@@ -40,6 +40,7 @@ public final class ImageryTab {
 	public void navigate(String url) {
 		browser.call(source, (d, tab) -> {
 			d.navigate(tab, url);
+			browser.navigated(tab);
 			return null;
 		});
 	}
@@ -72,6 +73,7 @@ public final class ImageryTab {
 			if (reload) {
 				d.reload(tab);
 			}
+			browser.navigated(tab);
 			return null;
 		});
 		return waitUntil("return !" + LEAVING_MARK + " && document.readyState === 'complete';", timeout, cancelled);

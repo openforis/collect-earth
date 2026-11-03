@@ -1,6 +1,7 @@
 package org.openforis.collect.earth.app.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -66,6 +67,19 @@ public class OtherImagerySourcesTest {
 			super.loadInOtherSources(placemark, selection);
 		}
 
+		/** The sources switched on: all of them, unless taken out. */
+		final Set<ImagerySource> enabled = Collections.synchronizedSet(EnumSet.allOf(ImagerySource.class));
+
+		@Override
+		Set<ImagerySource> enabledSources() {
+			return enabled;
+		}
+
+		@Override
+		void markStale(ImagerySource source, SimplePlacemarkObject placemark) {
+			steps.add("stale " + source + " " + placemark.getPlacemarkId());
+		}
+
 		@Override
 		boolean loadsNow(ImagerySource source) {
 			return shown.contains(source) || !telling.contains(source);
@@ -93,9 +107,12 @@ public class OtherImagerySourcesTest {
 	public void theOtherSourcesOpenTheirTabsAndLoadOnlyAfterGoogleEarthWeb() {
 		Sources sources = new Sources();
 		sources.shown.add(ImagerySource.ESRI_WAYBACK);
+		sources.enabled.retainAll(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK, ImagerySource.GEE_APP));
 		sources.showPlot(PlotSelectionOrderTest.plot("A"), null);
+		// Planet and the others are switched off: loaded at once, which does nothing
 		assertEquals(Arrays.asList("Google Earth Web A", "wait for Google Earth Web A", "open the tabs", "other sources A",
-				"ESRI_WAYBACK A"), sources.steps);
+				"ESRI_WAYBACK A", "PLANET A", "stale GEE_APP A", "EARTH_MAP A", "STREET_VIEW A", "EXTRA_MAP A",
+				"SECURE_WATCH A"), sources.steps);
 	}
 
 	@Test
@@ -148,6 +165,37 @@ public class OtherImagerySourcesTest {
 		sources.shown.add(ImagerySource.ESRI_WAYBACK);
 		sources.showPlot(PlotSelectionOrderTest.plot("A"), null);
 		assertEquals(Arrays.asList("ESRI_WAYBACK B"), sources.loads());
+	}
+
+	@Test
+	public void aHiddenTabIsMarkedAsShowingThePlotBeforeAtOnce() {
+		Sources sources = new Sources();
+		sources.enabled.retainAll(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK, ImagerySource.EARTH_MAP));
+		sources.shown.add(ImagerySource.ESRI_WAYBACK);
+		sources.showPlot(PlotSelectionOrderTest.plot("A"), null);
+		assertTrue(sources.steps.contains("stale EARTH_MAP A"), sources.steps.toString());
+		assertFalse(sources.steps.contains("stale ESRI_WAYBACK A"), sources.steps.toString());
+		// A source switched off is neither kept nor marked: its open method does nothing, at once
+		assertFalse(sources.steps.contains("stale PLANET A"), sources.steps.toString());
+		assertTrue(sources.loads().contains("PLANET A"), sources.loads().toString());
+	}
+
+	@Test
+	public void aPlotSelectedLaterAndKeptIsLoadedInsteadOfAnEarlierOne() {
+		Sources sources = new Sources();
+		// B (selection 2) kept for hidden Earth Map, then A (selection 1, its thread late) arrives with Earth Map shown
+		sources.loadInOtherSources(PlotSelectionOrderTest.plot("B"), 2);
+		sources.shown.add(ImagerySource.EARTH_MAP);
+		sources.loadInOtherSources(PlotSelectionOrderTest.plot("A"), 1);
+		assertTrue(sources.loads().contains("EARTH_MAP B"), sources.loads().toString());
+		assertFalse(sources.loads().contains("EARTH_MAP A"), sources.loads().toString());
+		// and an earlier plot never replaces the one kept, nor marks the tab
+		sources.shown.remove(ImagerySource.EARTH_MAP);
+		sources.loadInOtherSources(PlotSelectionOrderTest.plot("C"), 3);
+		sources.loadInOtherSources(PlotSelectionOrderTest.plot("D"), 2);
+		assertFalse(sources.steps.contains("stale EARTH_MAP D"), sources.steps.toString());
+		sources.sourceShown(ImagerySource.EARTH_MAP);
+		assertTrue(sources.loads().contains("EARTH_MAP C"), sources.loads().toString());
 	}
 
 	@Test
