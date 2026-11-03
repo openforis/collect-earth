@@ -13,6 +13,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -114,8 +115,11 @@ public class GoogleEarthWebService {
 	/** How long a page load of Google Earth Web may take; its WebGL start is slow on a slow machine. */
 	private static final Duration PAGE_LOAD_TIMEOUT = Duration.ofSeconds(60);
 
-	/** What injecting the plot outline came to. */
-	private enum Outline { DRAWN, PAGE_NOT_READY, FAILED }
+	/** What injecting the plot outline came to; SUPERSEDED: given up for a newer plot (see {@link #isSuperseded()}). */
+	private enum Outline { DRAWN, PAGE_NOT_READY, FAILED, SUPERSEDED }
+
+	/** What moving the page to the plot in-page came to. */
+	private enum Move { MOVED, NOT_FOLLOWED, SUPERSEDED }
 
 	/** Whether the document can take the outline; cannot throw, so a page not ready is never taken as a fault. */
 	private static final String BODY_READY_SCRIPT = "return !!document.body;";
@@ -166,8 +170,8 @@ public class GoogleEarthWebService {
 	private final Object lock = new Object();
 	/** The plot to show next, the one of the latest selection that arrived; see {@link #showPlot}. */
 	private final AtomicReference<Selection> pending = new AtomicReference<>();
-	/** The selection number of the plot shown last (see {@link #showPlot}); guarded by {@link #lock}. */
-	private long shownSelection = Long.MIN_VALUE;
+	/** The selection number of the plot shown last (see {@link #showPlot}); written holding {@link #lock}. */
+	private volatile long shownSelection = Long.MIN_VALUE;
 	/** The plot currently shown (null: overview, or nothing yet). */
 	private volatile SimplePlacemarkObject current;
 	/** Whether Google Earth Web follows in-page navigation, as learnt from the plots shown. */
@@ -293,6 +297,17 @@ public class GoogleEarthWebService {
 				showSelected(target.plot);
 			}
 		}
+	}
+
+	/**
+	 * Whether a plot selected after the one being shown waits for it: the plot being shown is then given up at the next
+	 * wait (for its page, its in-page move, its outline) and the lock left to the newer one at once, rather than after a
+	 * page load of seconds for a plot the user went past. A plot of an earlier selection waiting does not count: it is
+	 * never shown after this one.
+	 */
+	boolean isSuperseded() {
+		Selection waiting = pending.get();
+		return waiting != null && waiting.number > shownSelection;
 	}
 
 	/**
@@ -472,14 +487,15 @@ public class GoogleEarthWebService {
 		// A camera move asked for while the tab was hidden belongs to the plot shown before
 		cameraWhileHidden.set(null);
 		String url = plotUrl(target, overview ? GoogleEarthWebUrls.OVERVIEW_DISTANCE : plotDistance(target));
+		BooleanSupplier superseded = this::isSuperseded;
 		try {
 			try {
-				showIn(target, overview, plotId, url);
+				showIn(target, overview, plotId, url, superseded);
 			} catch (TabClosedException e) {
 				// The user closed the tab or the window while it loaded, or closed the whole window since the last
 				// plot, which the browser tells at the first command only: once more, in a tab opened anew
 				logger.warn("Google Earth Web: {}; opening it again", e.getMessage());
-				showIn(target, overview, plotId, url);
+				showIn(target, overview, plotId, url, superseded);
 			}
 		} catch (TabClosedException e) {
 			// Closed again: the user does not want it now, and the plots map offers to open it
@@ -500,8 +516,13 @@ public class GoogleEarthWebService {
 		}
 	}
 
-	/** Moves the tab to the plot, in-page when it can, else with a page load that opens the tab if needed. */
-	private void showIn(SimplePlacemarkObject target, boolean overview, String plotId, String url) {
+	/**
+	 * Moves the tab to the plot, in-page when it can, else with a page load that opens the tab if needed. Given up as soon
+	 * as {@code superseded} says so: the state is left as it is (MOVING, OPENING), for the newer plot to set, and never
+	 * READY for a plot the user went past.
+	 */
+	private void showIn(SimplePlacemarkObject target, boolean overview, String plotId, String url,
+			BooleanSupplier superseded) {
 		boolean tabOpen = tab().isOpen();
 		String href = tabOpen ? pageUrl() : null;
 		// A tab opened blank by the plot change (PlacemarkBrowserServlet opens the tabs first) is new all the same: the
@@ -510,12 +531,19 @@ public class GoogleEarthWebService {
 		boolean moved = false;
 		if (tabOpen && inPage.worthTrying() && GoogleEarthWebUrls.isGoogleEarthWeb(href)) {
 			setState(State.MOVING, plotId, null);
-			moved = navigateInPage(url, target);
+			Move move = navigateInPage(url, target, superseded);
+			if (move == Move.SUPERSEDED) {
+				return;
+			}
+			moved = move == Move.MOVED;
 		}
 		if (!moved) {
 			setState(newTab ? State.OPENING : State.MOVING, plotId, null);
 			// The camera URL changes the path, so a navigation loads the page: no reload needed
-			if (!tab().load(url, false, PAGE_LOAD_TIMEOUT)) {
+			if (!tab().load(url, false, PAGE_LOAD_TIMEOUT, superseded)) {
+				if (superseded.getAsBoolean()) {
+					return;
+				}
 				logger.warn("Google Earth Web did not load in time");
 			}
 			inPage.pageLoaded();
@@ -528,7 +556,10 @@ public class GoogleEarthWebService {
 			return;
 		}
 		// After an in-page move the camera is still flying: the outline waits for it to arrive
-		Outline outline = overview ? Outline.DRAWN : injectOverlay(target, moved ? url : null);
+		Outline outline = overview ? Outline.DRAWN : injectOverlay(target, moved ? url : null, superseded);
+		if (outline == Outline.SUPERSEDED || superseded.getAsBoolean()) {
+			return;
+		}
 		if (outline == Outline.DRAWN) {
 			setState(State.READY, plotId, null);
 			// Neighbours sent while the plot was being shown, after its outline read them (setContext leaves the redraw to
@@ -563,7 +594,7 @@ public class GoogleEarthWebService {
 	 * {@link InPageNavigation#notFollowed}): not while the tab was hidden (a hidden Google Earth Web may not fly until it
 	 * is shown), nor while the worker of the imagery window was opening tabs, which held up every read of the URL.
 	 */
-	private boolean navigateInPage(String url, SimplePlacemarkObject target) {
+	private Move navigateInPage(String url, SimplePlacemarkObject target, BooleanSupplier superseded) {
 		try {
 			long openings = imageryBrowser.tabOpenings();
 			boolean fair = tab().isVisible();
@@ -575,6 +606,9 @@ public class GoogleEarthWebService {
 			// Set by the first read of the URL that the worker answered
 			Long end = null;
 			while (now - last < 0 && (end == null || now - end < 0)) {
+				if (superseded.getAsBoolean()) {
+					return Move.SUPERSEDED; // says nothing about Google Earth Web
+				}
 				Thread.sleep(IN_PAGE_NAVIGATION_POLL_MILLIS);
 				fair &= tab().isVisible();
 				List<?> page = readProbe();
@@ -588,7 +622,7 @@ public class GoogleEarthWebService {
 				if (InPageNavigation.isFollowed(url, String.valueOf(page.get(0)), Boolean.TRUE.equals(page.get(1)),
 						latitude, longitude)) {
 					inPage.followed();
-					return true;
+					return Move.MOVED;
 				}
 			}
 			long openingsAfter = imageryBrowser.tabOpenings();
@@ -606,7 +640,7 @@ public class GoogleEarthWebService {
 		} catch (Exception e) {
 			logger.warn("In-page navigation in Google Earth Web failed: {}", e.getMessage());
 		}
-		return false;
+		return Move.NOT_FOLLOWED;
 	}
 
 	/** The URL of the page and whether Google Earth Web jumps ({@link #IN_PAGE_PROBE_SCRIPT}); null when the page did not answer. */
@@ -639,7 +673,7 @@ public class GoogleEarthWebService {
 
 	/** Injects the plot outline and the information bar (see javascript_google_earth_web.fmt). */
 	private Outline injectOverlay(SimplePlacemarkObject plot) {
-		return injectOverlay(plot, null);
+		return injectOverlay(plot, null, () -> false);
 	}
 
 	/**
@@ -662,10 +696,14 @@ public class GoogleEarthWebService {
 	 *
 	 * @param flightUrl camera URL Google Earth Web was just sent flying to in-page: nothing is drawn before it
 	 *                  arrives, or the plot would show over the moving imagery. Null when the camera is there.
+	 * @param superseded whether a newer plot waits (see {@link #isSuperseded()}): nothing is drawn then
 	 */
-	private Outline injectOverlay(SimplePlacemarkObject plot, String flightUrl) {
+	private Outline injectOverlay(SimplePlacemarkObject plot, String flightUrl, BooleanSupplier superseded) {
 		try {
-			if (!tab().waitUntil(BODY_READY_SCRIPT, BODY_READY_TIMEOUT)) {
+			if (!tab().waitUntil(BODY_READY_SCRIPT, BODY_READY_TIMEOUT, superseded)) {
+				if (superseded.getAsBoolean()) {
+					return Outline.SUPERSEDED;
+				}
 				logger.warn("Google Earth Web: the page has no body yet, the plot outline is drawn later");
 				return Outline.PAGE_NOT_READY;
 			}
@@ -685,6 +723,9 @@ public class GoogleEarthWebService {
 			String script = browserService.processJavascriptTemplate(data, OVERLAY_TEMPLATE);
 			if (script == null) {
 				return Outline.FAILED;
+			}
+			if (superseded.getAsBoolean()) {
+				return Outline.SUPERSEDED;
 			}
 			// First, as the outline is drawn beside it
 			syncPanel();

@@ -710,7 +710,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	private void loadPlotInDGMap(SimplePlacemarkObject placemarkObject, ImageryTab tab) {
 		if (!tab.waitUntil(
 				"return !!(document.getElementById('mainContent') || document.getElementsByName('mainContent').length);",
-				MAP_READY_TIMEOUT)) {
+				MAP_READY_TIMEOUT, () -> imageryBrowser.hasPendingLoad(tab.source()))) {
 			logger.warn("{}: the map did not appear in time, the plot is not drawn", tab.source());
 			return;
 		}
@@ -801,11 +801,24 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		});
 	}
 
+	/**
+	 * Loads the URL and runs {@code afterLoad} once the page is there, unless a newer plot waits for the tab meanwhile
+	 * ({@link ImageryBrowser#hasPendingLoad}): its load replaces this one at once, rather than after a page load and a
+	 * drawing of the plot the user went past.
+	 */
 	private void loadOnce(ImagerySource source, String url, AfterLoad afterLoad) {
 		ImageryTab tab = imageryBrowser.tab(source);
-		if (!tab.load(url, true, PAGE_LOAD_TIMEOUT)) {
+		BooleanSupplier superseded = () -> imageryBrowser.hasPendingLoad(source);
+		if (!tab.load(url, true, PAGE_LOAD_TIMEOUT, superseded)) {
+			if (superseded.getAsBoolean()) {
+				logger.debug("{}: a newer plot replaces the one loading", source);
+				return;
+			}
 			// A slow site is not a fault; the script after the load waits for its map by itself
 			logger.warn("{} did not load in time", source);
+		}
+		if (superseded.getAsBoolean()) {
+			return;
 		}
 		if (afterLoad != null) {
 			afterLoad.run(tab);
