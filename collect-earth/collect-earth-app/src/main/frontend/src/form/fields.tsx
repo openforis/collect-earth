@@ -5,6 +5,7 @@ import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormHelperText from "@mui/material/FormHelperText";
+import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -13,11 +14,12 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import CheckIcon from "@mui/icons-material/Check";
+import CloseIcon from "@mui/icons-material/Close";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { type Translate, useT } from "../i18n";
 import {
-  type CodeItem, type Field, type FieldInfo, coordinateFromInput, coordinateToInput, dateFromInput,
+  type CodeItem, type Field, type FieldInfo, clickCode, coordinateFromInput, coordinateToInput, dateFromInput,
   dateToInput, normalizeNumber, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput, requiredMessage, selectCodes,
   timeToInput,
 } from "./model";
@@ -147,23 +149,29 @@ function ReadOnlyValue({ field, value, info, dense }: FieldProps) {
   );
 }
 
-/** Items as chips that wrap: every option visible at once, one click to answer (the balloon's buttons). */
+/**
+ * Items as chips that wrap: every option visible at once, one click to answer (the balloon's buttons). A single choice
+ * stays chosen when clicked again; the × after it, or Delete or Backspace on its buttons, clears it.
+ */
 function CodeButtons({ field, value, items, parentLabel, onChange, error, describedBy }: ControlProps) {
   const t = useT();
+  const group = useRef<HTMLDivElement>(null);
   const selected = parseCodes(value).map((c) => c.code);
   if (!items.length) {
     return <Typography variant="body2" color="text.secondary">{parentLabel ? t("entry.chooseParent", { parent: parentLabel }) : t("entry.noOptions")}</Typography>;
   }
   const toggle = (code: string) => {
-    if (field.multiple) {
-      onChange(field.name, selectCodes(value, selected.includes(code) ? selected.filter((c) => c !== code) : [...selected, code]));
-    } else {
-      onChange(field.name, selectCodes(value, selected[0] === code ? [] : [code]));
-    }
+    const codes = clickCode(selected, code, !!field.multiple);
+    if (codes) onChange(field.name, selectCodes(value, codes));
   };
+  const clearable = !field.multiple && selected.length > 0;
+  const clear = () => onChange(field.name, selectCodes(value, []));
   return (
-    <Box role={field.multiple ? "group" : "radiogroup"} aria-label={field.label} id={field.name}
+    <Box ref={group} role={field.multiple ? "group" : "radiogroup"} aria-label={field.label} id={field.name}
       aria-invalid={error || undefined} aria-describedby={describedBy}
+      onKeyDown={(e) => {
+        if (clearable && (e.key === "Delete" || e.key === "Backspace")) { e.preventDefault(); clear(); }
+      }}
       sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, ...(error && { p: 0.5, borderRadius: 2, outline: 1, outlineColor: "error.main" }) }}>
       {items.map((item) => {
         const on = selected.includes(item.code);
@@ -175,6 +183,15 @@ function CodeButtons({ field, value, items, parentLabel, onChange, error, descri
         );
         return item.description ? <Tooltip key={item.id} title={item.description}>{chip}</Tooltip> : chip;
       })}
+      {/* last, so that it never moves the answers when it comes and goes; the focus stays on the question once it goes */}
+      {clearable && (
+        <Tooltip title={`${t("entry.clear")} (Delete)`}>
+          <IconButton size="small" aria-label={t("entry.clear")} data-testid="entry-clear" sx={{ alignSelf: "center" }}
+            onClick={() => { clear(); group.current?.querySelector<HTMLElement>("[role=radio]")?.focus(); }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
     </Box>
   );
 }

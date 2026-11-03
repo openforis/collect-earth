@@ -112,6 +112,16 @@ export function selectCodes(value: string | null | undefined, codes: string[]): 
   return formatCodes(codes.map((code) => ({ code, qualifier: current.find((c) => c.code === code)?.qualifier ?? "" })));
 }
 
+/**
+ * The codes selected once the button of `code` is clicked, or null when nothing changes: a multiple choice toggles the
+ * code, a single choice picks it, and a click on the answer already chosen keeps it (clearing it takes the clear button
+ * or Delete, never a click that may be a slip).
+ */
+export function clickCode(selected: string[], code: string, multiple: boolean): string[] | null {
+  if (multiple) return selected.includes(code) ? selected.filter((c) => c !== code) : [...selected, code];
+  return selected.length === 1 && selected[0] === code ? null : [code];
+}
+
 /** The value with the qualifier of one of its codes changed */
 export function qualify(value: string | null | undefined, code: string, qualifier: string): string {
   return formatCodes(parseCodes(value).map((c) => (c.code === code ? { code, qualifier } : c)));

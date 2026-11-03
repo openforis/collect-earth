@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  type Field, type FormModel, availableItems, dateFromInput, dateToInput, entityCount, errorList, fieldsByName,
+  type Field, type FormModel, availableItems, clickCode, dateFromInput, dateToInput, entityCount, errorList, fieldsByName,
   indexedField, isTabVisible, joinValues, mergeInfos, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
   requiredMessage, saveBody, selectCodes, splitValues, tabsWithErrors, timeToInput,
 } from "./model";
@@ -51,6 +51,20 @@ describe("value formats", () => {
     expect(splitValues("a===b")).toEqual(["a", "b"]);
     expect(splitValues("")).toEqual([]);
     expect(joinValues(["a", "b"])).toBe("a===b");
+  });
+});
+
+describe("clickCode", () => {
+  it("keeps a single answer chosen when it is clicked again", () => {
+    expect(clickCode(["F"], "F", false)).toBeNull();
+  });
+  it("picks another single answer in its place", () => {
+    expect(clickCode(["F"], "C", false)).toEqual(["C"]);
+    expect(clickCode([], "C", false)).toEqual(["C"]);
+  });
+  it("toggles the answers of a multiple choice", () => {
+    expect(clickCode(["F", "C"], "F", true)).toEqual(["C"]);
+    expect(clickCode(["C"], "F", true)).toEqual(["C", "F"]);
   });
 });
 
