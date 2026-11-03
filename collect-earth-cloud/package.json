@@ -21,13 +21,15 @@
     "smoke:pg:sampling": "tsx scripts/pg-smoke-sampling.mts",
     "smoke:pg:reference": "tsx scripts/pg-smoke-reference.mts",
     "smoke:pg:backup": "tsx scripts/pg-smoke-backup.mts",
-    "smoke:pg:links": "tsx scripts/pg-smoke-share-links.mts"
+    "smoke:pg:links": "tsx scripts/pg-smoke-share-links.mts",
+    "smoke:pg:mail": "tsx scripts/pg-smoke-mail.mts"
   },
   "dependencies": {
     "@fastify/static": "7.0.4",
     "@google/genai": "2.30.0",
     "fast-xml-parser": "5.11.2",
     "fastify": "^4.28.1",
+    "nodemailer": "10.1.7",
     "pg": "^8.12.0",
     "pg-connection-string": "2.14.0",
     "tsx": "^4.19.0"

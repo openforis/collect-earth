@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isTimeZone } from '../days.js';
 import { fastSecondsOf, flagCountsOf } from '../flags.js';
 import { peopleTable, personDetail, type PeopleInput } from '../people.js';
@@ -22,11 +22,11 @@ function timeZoneOf(request: FastifyRequest): string {
 }
 
 /** The quality figures at hand (never computed here, never waited for); null when none or they cannot be had. */
-async function peek(quality: QualityService, projectId: string, request: FastifyRequest) {
+async function peek(quality: QualityService, projectId: string, log: FastifyBaseLogger) {
   try {
-    return await quality.peek(projectId, request.log);
+    return await quality.peek(projectId, log);
   } catch (err) {
-    request.log.warn({ err, projectId }, 'people: the quality figures could not be had');
+    log.warn({ err, projectId }, 'people: the quality figures could not be had');
     return null;
   }
 }
@@ -59,9 +59,28 @@ export async function loadPeople(
   served: ServedState,
   request: FastifyRequest,
   now: number,
-  options: { activityOf?: string; invites: boolean; flags?: boolean; sentBackOf?: string },
+  options: PeopleOptions,
 ): Promise<PeopleInput> {
-  const projectId = request.membership!.projectId;
+  return loadPeopleFor(store, quality, served, { projectId: request.membership!.projectId, timeZone: timeZoneOf(request), log: request.log }, now, options);
+}
+
+export interface PeopleOptions {
+  activityOf?: string;
+  invites: boolean;
+  flags?: boolean;
+  sentBackOf?: string;
+}
+
+/** The same input for a project and time zone without a request (the email digests, Task 19). */
+export async function loadPeopleFor(
+  store: Store,
+  quality: QualityService,
+  served: ServedState,
+  at: { projectId: string; timeZone: string; log: FastifyBaseLogger },
+  now: number,
+  options: PeopleOptions,
+): Promise<PeopleInput> {
+  const { projectId, log } = at;
   const { state, members } = served;
   const [settings, activity, invites, cep, decisions, figures, qualitySettings] = await Promise.all([
     store.getProgressSettings(projectId),
@@ -69,7 +88,7 @@ export async function loadPeople(
     options.invites ? store.listInvites(projectId, now) : Promise.resolve([] as InviteSummary[]),
     store.getCepInfo(projectId),
     store.listQualityDecisions(projectId),
-    peek(quality, projectId, request),
+    peek(quality, projectId, log),
     store.getQualitySettings(projectId),
   ]);
   const usernames = new Map(members.map((m) => [m.userId, m.username]));
@@ -82,7 +101,7 @@ export async function loadPeople(
           await sentBackTo(store, projectId, { userId: options.sentBackOf, username: sentBackUser }, {
             info: state.context.info,
             context: async () => state.context,
-            outline: () => quality.outline(projectId, request.log),
+            outline: () => quality.outline(projectId, log),
           })
         ).plots
       : undefined;
@@ -90,7 +109,7 @@ export async function loadPeople(
   const own: MemberActivity[] = options.activityOf === undefined ? activity : activity.filter((a) => a.userId === options.activityOf);
   return {
     now,
-    timeZone: timeZoneOf(request),
+    timeZone: at.timeZone,
     settings,
     records: [],
     prepared: state.units,

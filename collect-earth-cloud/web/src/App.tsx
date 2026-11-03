@@ -11,6 +11,7 @@ import { I18nContext, initialLanguage, translator, type Language } from "./i18n"
 import { choosePage } from "./pageChoice";
 import { AccountPage } from "./pages/AccountPage";
 import { JoinPage } from "./pages/JoinPage";
+import { ConfirmEmailPage, UnsubscribePage } from "./pages/MailLinkPages";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProjectPage } from "./pages/ProjectPage";
@@ -51,6 +52,10 @@ function RoutePage({ route }: { route: Route }) {
       return <ResetPage token={route.token} />;
     case "publicProgress":
       return <PublicProgressPage key={route.token} token={route.token} />;
+    case "unsubscribe":
+      return <UnsubscribePage key={route.token} token={route.token} />;
+    case "confirmEmail":
+      return <ConfirmEmailPage key={route.token} token={route.token} />;
     case "account":
       return <AccountPage />;
     case "server":

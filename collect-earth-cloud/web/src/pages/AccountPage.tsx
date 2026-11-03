@@ -16,6 +16,7 @@ import { Loading } from "../components/Loading";
 import { PasswordField } from "../components/PasswordField";
 import { useT, type MessageKey } from "../i18n";
 import { linkProps, pathFor, type ProjectTab } from "../router";
+import { MailCard } from "./MailCard";
 import { useLoad } from "../useLoad";
 import { passwordProblem } from "../validation";
 
@@ -104,6 +105,7 @@ export function AccountPage() {
             </Button>
           </Box>
         </FormCard>
+        <MailCard />
         <DeleteAccountCard />
       </Stack>
     </AppShell>

@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
 import { isDate, isTimeZone } from '../days.js';
 import { storageLimitBytes } from '../limits.js';
@@ -126,7 +126,7 @@ export function attentionReader(store: Store, quality: QualityService) {
     remember(used, projectId, hit, 16);
     return { usedBytes: hit.bytes, limitBytes: storageLimitBytes(settings) };
   };
-  return async (projectId: string, served: ServedState, request: FastifyRequest, at: number): Promise<AttentionInput> => {
+  return async (projectId: string, served: ServedState, request: { log: FastifyBaseLogger }, at: number): Promise<AttentionInput> => {
     const { context } = served.state;
     const [activity, unsentDelays, cep, storage, waiting] = await Promise.all([
       store.listMemberActivity(projectId),
@@ -145,7 +145,7 @@ export function attentionReader(store: Store, quality: QualityService) {
  * out-of-date report is refreshed behind as the Quality tab would. Null when there are
  * none yet (nobody opened the Quality tab) or they cannot be had: the card is left out.
  */
-async function waitingDecisions(store: Store, quality: QualityService, projectId: string, request: FastifyRequest): Promise<number | null> {
+async function waitingDecisions(store: Store, quality: QualityService, projectId: string, request: { log: FastifyBaseLogger }): Promise<number | null> {
   try {
     const served = await quality.peek(projectId, request.log);
     if (!served) {

@@ -29,6 +29,10 @@ import {
   type CsvFile,
   type DatabaseHealth,
   type DecisionKind,
+  type DigestKind,
+  type DueDigest,
+  type AccountMail,
+  type MailLanguage,
   type GuidanceNote,
   type GuidanceNoteInput,
   type Invite,
@@ -738,6 +742,7 @@ export class PostgresStore implements Store {
       if (hasRecords) {
         await client.query('INSERT INTO retired_usernames (username) VALUES ($1) ON CONFLICT DO NOTHING', [username]);
       }
+      // digest_subscriptions go with the row (ON DELETE CASCADE).
       await client.query('DELETE FROM users WHERE id = $1', [userId]);
       await client.query('COMMIT');
       return 'ok';
@@ -747,6 +752,113 @@ export class PostgresStore implements Store {
     } finally {
       client.release();
     }
+  }
+
+  // --- Email digests (Task 19): users and digest_subscriptions are global (023), read by the
+  // account's id or, by the digest job, as the list of subscriptions; no project data. ---
+
+  async getAccountMail(userId: string): Promise<AccountMail | null> {
+    const res = await this.pool.query('SELECT email, email_confirmed_at, mail_language, mail_time_zone FROM users WHERE id = $1', [userId]);
+    if (res.rowCount === 0) return null;
+    const r = res.rows[0];
+    const subs = await this.pool.query(
+      'SELECT kind, created_at, last_sent_week, last_sent_at FROM digest_subscriptions WHERE user_id = $1 ORDER BY kind',
+      [userId],
+    );
+    return {
+      email: (r.email as string | null) ?? null,
+      emailConfirmedAt: r.email_confirmed_at ? (r.email_confirmed_at as Date).getTime() : null,
+      language: (r.mail_language as MailLanguage | null) ?? null,
+      timeZone: (r.mail_time_zone as string | null) ?? null,
+      digests: subs.rows.map((s) => ({
+        kind: s.kind as DigestKind,
+        createdAt: (s.created_at as Date).getTime(),
+        lastSentWeek: (s.last_sent_week as string | null) ?? null,
+        lastSentAt: s.last_sent_at ? (s.last_sent_at as Date).getTime() : null,
+      })),
+    };
+  }
+
+  async setEmail(userId: string, email: string | null): Promise<boolean> {
+    // A new address is not confirmed; the same one keeps its confirmation.
+    const res = await this.pool.query(
+      `UPDATE users SET email = $2,
+              email_confirmed_at = CASE WHEN email IS NOT DISTINCT FROM $2 THEN email_confirmed_at END
+        WHERE id = $1`,
+      [userId, email],
+    );
+    return (res.rowCount ?? 0) > 0;
+  }
+
+  async confirmEmail(userId: string, email: string, at: number): Promise<boolean> {
+    const res = await this.pool.query(
+      'UPDATE users SET email_confirmed_at = COALESCE(email_confirmed_at, $3) WHERE id = $1 AND email = $2',
+      [userId, email, new Date(at)],
+    );
+    return (res.rowCount ?? 0) > 0;
+  }
+
+  async setMailPreferences(userId: string, prefs: { language: MailLanguage | null; timeZone: string | null }): Promise<void> {
+    await this.pool.query('UPDATE users SET mail_language = $2, mail_time_zone = $3 WHERE id = $1', [userId, prefs.language, prefs.timeZone]);
+  }
+
+  async setDigest(userId: string, kind: DigestKind, on: boolean): Promise<boolean> {
+    if (!on) {
+      const res = await this.pool.query('DELETE FROM digest_subscriptions WHERE user_id = $1 AND kind = $2', [userId, kind]);
+      return (res.rowCount ?? 0) > 0;
+    }
+    const res = await this.pool.query(
+      `INSERT INTO digest_subscriptions (user_id, kind) SELECT $1, $2 WHERE EXISTS (SELECT 1 FROM users WHERE id = $1)
+       ON CONFLICT (user_id, kind) DO NOTHING`,
+      [userId, kind],
+    );
+    if ((res.rowCount ?? 0) > 0) return true;
+    const exists = await this.pool.query('SELECT 1 FROM digest_subscriptions WHERE user_id = $1 AND kind = $2', [userId, kind]);
+    return (exists.rowCount ?? 0) > 0;
+  }
+
+  async listDueDigests(q: { before: string; after: { userId: string; kind: DigestKind } | null; limit: number }): Promise<DueDigest[]> {
+    const res = await this.pool.query(
+      `SELECT d.user_id, d.kind, d.last_sent_week, u.username, u.email, u.email_confirmed_at IS NOT NULL AS confirmed,
+              u.disabled_at IS NOT NULL AS disabled, u.mail_language, u.mail_time_zone
+         FROM digest_subscriptions d JOIN users u ON u.id = d.user_id
+        WHERE (d.last_sent_week IS NULL OR d.last_sent_week < $1)
+          AND ($2::uuid IS NULL OR (d.user_id, d.kind) > ($2::uuid, $3::text))
+        ORDER BY d.user_id, d.kind
+        LIMIT $4`,
+      [q.before, q.after?.userId ?? null, q.after?.kind ?? null, q.limit],
+    );
+    return res.rows.map((r) => ({
+      userId: r.user_id as string,
+      kind: r.kind as DigestKind,
+      lastSentWeek: (r.last_sent_week as string | null) ?? null,
+      username: r.username as string,
+      email: (r.email as string | null) ?? null,
+      emailConfirmed: r.confirmed === true,
+      disabled: r.disabled === true,
+      language: (r.mail_language as MailLanguage | null) ?? null,
+      timeZone: (r.mail_time_zone as string | null) ?? null,
+    }));
+  }
+
+  async claimDigest(userId: string, kind: DigestKind, week: string, previous: string | null): Promise<boolean> {
+    const res = await this.pool.query(
+      `UPDATE digest_subscriptions SET last_sent_week = $3
+        WHERE user_id = $1 AND kind = $2 AND last_sent_week IS NOT DISTINCT FROM $4`,
+      [userId, kind, week, previous],
+    );
+    return (res.rowCount ?? 0) > 0;
+  }
+
+  async markDigestSent(userId: string, kind: DigestKind, at: number): Promise<void> {
+    await this.pool.query('UPDATE digest_subscriptions SET last_sent_at = $3 WHERE user_id = $1 AND kind = $2', [userId, kind, new Date(at)]);
+  }
+
+  async releaseDigest(userId: string, kind: DigestKind, week: string, previous: string | null): Promise<void> {
+    await this.pool.query(
+      'UPDATE digest_subscriptions SET last_sent_week = $4 WHERE user_id = $1 AND kind = $2 AND last_sent_week = $3',
+      [userId, kind, week, previous],
+    );
   }
 
   // --- Platform administration: global tables (users, server_settings,

@@ -32,6 +32,10 @@ export type Route =
   | { name: "reset"; token: string }
   /** A read-only progress link for funders (no login): /p/<token>. */
   | { name: "publicProgress"; token: string }
+  /** A weekly email's unsubscribe link (no login): /unsubscribe/<token>. */
+  | { name: "unsubscribe"; token: string }
+  /** An email confirmation link (no login): /confirm-email/<token>. */
+  | { name: "confirmEmail"; token: string }
   | { name: "account" }
   | { name: "server" }
   | { name: "notFound"; path: string };
@@ -77,6 +81,14 @@ export function matchRoute(pathname: string): Route {
   if (first === "p" && parts.length === 2) {
     const token = decode(second);
     if (token) return { name: "publicProgress", token };
+  }
+  if (first === "unsubscribe" && parts.length === 2) {
+    const token = decode(second);
+    if (token) return { name: "unsubscribe", token };
+  }
+  if (first === "confirm-email" && parts.length === 2) {
+    const token = decode(second);
+    if (token) return { name: "confirmEmail", token };
   }
   if (first === "projects" && parts.length === 3 && third === "my-quality") {
     const projectId = decode(second);
@@ -146,6 +158,10 @@ export function pathFor(route: Route): string {
       return `/reset/${encodeURIComponent(route.token)}`;
     case "publicProgress":
       return `/p/${encodeURIComponent(route.token)}`;
+    case "unsubscribe":
+      return `/unsubscribe/${encodeURIComponent(route.token)}`;
+    case "confirmEmail":
+      return `/confirm-email/${encodeURIComponent(route.token)}`;
     case "notFound":
       return route.path;
     default:
@@ -155,7 +171,7 @@ export function pathFor(route: Route): string {
 
 /** Pages anyone can open without an account, even before the server is set up. */
 export function isPublicRoute(route: Route): boolean {
-  return route.name === "join" || route.name === "reset" || route.name === "publicProgress";
+  return route.name === "join" || route.name === "reset" || route.name === "publicProgress" || route.name === "unsubscribe" || route.name === "confirmEmail";
 }
 
 /** Pages for people who are not logged in (a logged-in person is sent home from them). */

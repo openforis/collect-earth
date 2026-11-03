@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
 import {
   attentionKey,
@@ -20,15 +20,15 @@ import { peopleTable } from '../people.js';
 import { visibleId } from '../plotShape.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { dayInZone, PACE_DAYS, progressReport, type AttentionItem } from '../progress.js';
-import type { ProjectStateCache } from '../projectState.js';
+import type { ProjectStateCache, ServedState } from '../projectState.js';
 import { pairAt, pairFields, recordResolver } from '../quality.js';
 import { answerOptions } from '../qualityReports.js';
 import type { QualityService, ServedReport } from '../qualityService.js';
 import type { Assessment } from '../rounds.js';
 import { InvalidCursorError, isStoredTime, MAX_STORED_TIME, type Store } from '../store/store.js';
 import type { AuditAction, RecordChange } from '../types.js';
-import { isIsoWeek, weekOfDate, weeklySummary } from '../weekly.js';
-import { loadPeople } from './people.js';
+import { isIsoWeek, weekOfDate, weeklySummary, type WeeklySummary } from '../weekly.js';
+import { loadPeople, loadPeopleFor } from './people.js';
 import type { PlotPlaceReader } from './plotPlaces.js';
 import { attentionReader } from './progress.js';
 import { MAX_NAME, publicDecision } from './quality.js';
@@ -242,24 +242,7 @@ export async function registerActivityRoutes(
     if (asked !== undefined && asked !== '' && !isIsoWeek(asked)) return reply.code(400).send(bad('week must be an ISO week written YYYY-Www'));
     const week = typeof asked === 'string' && asked !== '' ? asked : weekOfDate(localDate(at, timeZone));
     const served = await states.get(projectId, request.log);
-    const input = await loadPeople(store, quality, served, request, at, { invites: false });
-    const figures = input.quality as ServedReport | null;
-    const summary = weeklySummary({
-      week,
-      timeZone,
-      now: at,
-      units: served.state.units,
-      people: peopleTable(input),
-      decisions: input.decisions,
-      quality: figures,
-      flags: null,
-    });
-    if (figures) {
-      // The flags of the week, from the figures at hand (never worked out for this page).
-      const dayOf = dayInZone(timeZone);
-      const flags = patternFlags(figures, input.decisions, { fastSeconds: input.fastSeconds ?? DEFAULT_FAST_SECONDS, when: (t) => { const d = dayOf(t); return d >= summary.start && d <= summary.end; } });
-      summary.quality.flags = { counts: flags.counts, total: flags.total };
-    }
+    const summary = await weeklyOf(store, quality, served, { projectId, timeZone, log: request.log }, week, at);
     return reply.send({ ...summary, asOf: served.stale ? served.state.builtAt : null });
   });
 
@@ -365,6 +348,39 @@ export async function registerActivityRoutes(
     return reply.send(await bell(request, keys as string[]));
   });
 
+}
+
+/**
+ * One week's summary of a project (the weekly page, and the coordinators' digest of Task 19): the
+ * People table now, the plots and checks of the week, and the quality from the figures at hand only.
+ */
+export async function weeklyOf(
+  store: Store,
+  quality: QualityService,
+  served: ServedState,
+  at: { projectId: string; timeZone: string; log: FastifyBaseLogger },
+  week: string,
+  now: number,
+): Promise<WeeklySummary> {
+  const input = await loadPeopleFor(store, quality, served, at, now, { invites: false });
+  const figures = input.quality as ServedReport | null;
+  const summary = weeklySummary({
+    week,
+    timeZone: at.timeZone,
+    now,
+    units: served.state.units,
+    people: peopleTable(input),
+    decisions: input.decisions,
+    quality: figures,
+    flags: null,
+  });
+  if (figures) {
+    // The flags of the week, from the figures at hand (never worked out for this page).
+    const dayOf = dayInZone(at.timeZone);
+    const flags = patternFlags(figures, input.decisions, { fastSeconds: input.fastSeconds ?? DEFAULT_FAST_SECONDS, when: (t) => { const d = dayOf(t); return d >= summary.start && d <= summary.end; } });
+    summary.quality.flags = { counts: flags.counts, total: flags.total };
+  }
+  return summary;
 }
 
 /** The daily activity download: per local day and person, what Collect Earth stored. */

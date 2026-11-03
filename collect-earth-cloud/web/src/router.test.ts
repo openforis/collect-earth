@@ -25,6 +25,8 @@ describe("matchRoute", () => {
     ["/join/a%2Bb", { name: "join", token: "a+b" }],
     ["/reset/tok", { name: "reset", token: "tok" }],
     ["/p/Ab_c-9", { name: "publicProgress", token: "Ab_c-9" }],
+    ["/unsubscribe/pay.sig", { name: "unsubscribe", token: "pay.sig" }],
+    ["/confirm-email/pay.sig", { name: "confirmEmail", token: "pay.sig" }],
     ["/projects/p-1/my-quality", { name: "myQuality", projectId: "p-1" }],
     ["/projects/p%201/my-quality", { name: "myQuality", projectId: "p 1" }],
     ["/projects/p-1/quality/team-report", { name: "teamReport", projectId: "p-1" }],
@@ -56,6 +58,8 @@ describe("matchRoute", () => {
       { name: "join", token: "t/ok en" },
       { name: "reset", token: "r" },
       { name: "publicProgress", token: "t ok/x" },
+      { name: "unsubscribe", token: "a.b/c" },
+      { name: "confirmEmail", token: "a.b/c" },
       { name: "plotFile", projectId: "p 1", fileId: "f/2" },
       { name: "myQuality", projectId: "p/1" },
       { name: "myWork", projectId: "p/1" },
@@ -84,6 +88,9 @@ describe("choosePage", () => {
     expect(choosePage({ name: "join", token: "x" }, fresh, false)).toEqual({ kind: "route", route: { name: "join", token: "x" } });
     expect(choosePage({ name: "reset", token: "x" }, fresh, false).kind).toBe("route");
     expect(choosePage({ name: "publicProgress", token: "x" }, fresh, false).kind).toBe("route");
+    // A weekly email's links work for anyone, with no account.
+    expect(choosePage({ name: "unsubscribe", token: "x" }, fresh, false).kind).toBe("route");
+    expect(choosePage({ name: "confirmEmail", token: "x" }, ready, false).kind).toBe("route");
   });
 
   it("logged out: log in on any page (sign-up only on its own page)", () => {

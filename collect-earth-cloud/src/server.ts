@@ -14,6 +14,7 @@ import { DEFAULT_AI_MODEL, type Config } from './config.js';
 import { QualityService, QualityWorker } from './qualityService.js';
 import { RateLimiter } from './rateLimit.js';
 import { requestSerializer } from './logRedact.js';
+import { mailerFrom, type Mailer } from './mail.js';
 import { ServerCounters } from './serverCounters.js';
 import type { Store } from './store/store.js';
 import { registerActivityRoutes } from './routes/activity.js';
@@ -31,6 +32,7 @@ import { registerProgressRoutes } from './routes/progress.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerPublicProgressRoutes } from './routes/publicProgress.js';
 import { registerCollectBackupRoutes } from './routes/collectBackup.js';
+import { registerMailRoutes } from './routes/mail.js';
 import { registerQualityRoutes } from './routes/quality.js';
 import { registerRecordRoutes } from './routes/records.js';
 import { referenceSyncer, registerReferenceRoutes } from './routes/reference.js';
@@ -50,6 +52,8 @@ export interface BuildServerOptions {
   webDir?: string | null;
   /** For tests: the AI assistant's client (null = none) instead of the configured one, and the clock of its limits. */
   ai?: { client?: AiClient | null; now?: () => number; runs?: Partial<AiRunServiceOptions> };
+  /** For tests: the mail transport (mail.ts's TestMailer) instead of SMTP or the log. */
+  mailer?: Mailer;
 }
 
 /** How long the development fake (AI_FAKE=1) waits before each answer, so the panel's progress shows. */
@@ -164,6 +168,9 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerReferenceRoutes(app, store, quality, states, now);
   // Read-only progress links for funders (Task 18): the public page reads the Progress tab's figures.
   await registerPublicProgressRoutes(app, store, config, limiter, states, now);
+  // Email digests (Task 19): SMTP only when SMTP_URL is set, else nothing is sent (the log transport).
+  const mailer = options.mailer ?? mailerFrom(config, app.log);
+  await registerMailRoutes(app, store, config, limiter, { mailer, quality, states, now });
   // Role changes, removals and disabled accounts keep the reference copies right (Task 14).
   app.decorate('referenceSync', referenceSyncer(store, states, now));
   const runs = new AiRunService(store, quality, app.log, {
@@ -213,9 +220,9 @@ async function registerDashboard(app: FastifyInstance, webDir: string | null): P
     const isApi = path === '/v1' || path.startsWith('/v1/') || path === '/health';
     const wantsHtml = (request.headers.accept ?? '').includes('text/html');
     if (serveSpa && request.method === 'GET' && !isApi && wantsHtml) {
-      if (path.startsWith('/p/')) {
-        // A progress link's page (Task 18): the token is in the address, so it is not indexed,
-        // not sent on as a referrer, and not kept by a cache.
+      if (path.startsWith('/p/') || path.startsWith('/unsubscribe/') || path.startsWith('/confirm-email/')) {
+        // A progress link's page (Task 18), and the pages a mail's links open (Task 19): the token
+        // is in the address, so it is not indexed, not sent on as a referrer, and not kept by a cache.
         return reply
           .header('cache-control', 'no-store')
           .header('x-robots-tag', 'noindex, nofollow')

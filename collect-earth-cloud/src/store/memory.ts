@@ -27,6 +27,10 @@ import {
   type CsvFile,
   type DatabaseHealth,
   type DecisionKind,
+  type DigestKind,
+  type DueDigest,
+  type AccountMail,
+  type MailLanguage,
   type GuidanceNote,
   type GuidanceNoteInput,
   type Invite,
@@ -184,6 +188,10 @@ export class InMemoryStore implements Store {
   private readonly resets = new Map<string, ResetEntry>(); // reset token hash -> entry
   /** Progress links (share_links): token hash -> link. */
   private readonly shareLinks = new Map<string, ShareLinkEntry>();
+  /** Email digests (Task 19): userId -> confirmation and the mails' language and zone. */
+  private readonly accountMail = new Map<string, { emailConfirmedAt: number | null; language: MailLanguage | null; timeZone: string | null }>();
+  /** `${userId} ${kind}` -> the subscription (digest_subscriptions). */
+  private readonly digests = new Map<string, { userId: string; kind: DigestKind; createdAt: number; lastSentWeek: string | null; lastSentAt: number | null }>();
   private settings: ServerSettings = { ...DEFAULT_SETTINGS };
   /** Ids of record events and audit entries: increasing, as Postgres's BIGSERIAL. */
   private nextEventId = 1;
@@ -573,6 +581,11 @@ export class InMemoryStore implements Store {
     for (const link of this.shareLinks.values()) {
       if (link.createdBy === userId) link.createdBy = null;
     }
+    // digest_subscriptions go with the account (ON DELETE CASCADE), and its mail settings with the row.
+    for (const [key, d] of this.digests) {
+      if (d.userId === userId) this.digests.delete(key);
+    }
+    this.accountMail.delete(userId);
     for (const [hash, reset] of this.resets) {
       if (reset.userId === userId) {
         this.resets.delete(hash);
@@ -586,6 +599,95 @@ export class InMemoryStore implements Store {
     this.userCreatedAt.delete(userId);
     this.userDisabledBy.delete(userId);
     return 'ok';
+  }
+
+  // --- Email digests (Task 19) ---
+
+  private mailOf(userId: string) {
+    return this.accountMail.get(userId) ?? { emailConfirmedAt: null, language: null, timeZone: null };
+  }
+
+  async getAccountMail(userId: string): Promise<AccountMail | null> {
+    const user = this.users.get(userId);
+    if (!user) return null;
+    const mail = this.mailOf(userId);
+    const digests = [...this.digests.values()]
+      .filter((d) => d.userId === userId)
+      .sort((a, b) => (a.kind < b.kind ? -1 : 1))
+      .map(({ kind, createdAt, lastSentWeek, lastSentAt }) => ({ kind, createdAt, lastSentWeek, lastSentAt }));
+    return { email: user.email, ...mail, digests };
+  }
+
+  async setEmail(userId: string, email: string | null): Promise<boolean> {
+    const user = this.users.get(userId);
+    if (!user) return false;
+    if (user.email !== email) {
+      user.email = email;
+      this.accountMail.set(userId, { ...this.mailOf(userId), emailConfirmedAt: null });
+    }
+    return true;
+  }
+
+  async confirmEmail(userId: string, email: string, at: number): Promise<boolean> {
+    const user = this.users.get(userId);
+    if (!user || user.email !== email) return false;
+    const mail = this.mailOf(userId);
+    if (mail.emailConfirmedAt === null) this.accountMail.set(userId, { ...mail, emailConfirmedAt: at });
+    return true;
+  }
+
+  async setMailPreferences(userId: string, prefs: { language: MailLanguage | null; timeZone: string | null }): Promise<void> {
+    if (!this.users.has(userId)) return;
+    this.accountMail.set(userId, { ...this.mailOf(userId), language: prefs.language, timeZone: prefs.timeZone });
+  }
+
+  async setDigest(userId: string, kind: DigestKind, on: boolean): Promise<boolean> {
+    const key = `${userId} ${kind}`;
+    if (!on) return this.digests.delete(key);
+    if (!this.users.has(userId)) return false;
+    if (!this.digests.has(key)) this.digests.set(key, { userId, kind, createdAt: Date.now(), lastSentWeek: null, lastSentAt: null });
+    return true;
+  }
+
+  async listDueDigests(q: { before: string; after: { userId: string; kind: DigestKind } | null; limit: number }): Promise<DueDigest[]> {
+    const after = q.after ? `${q.after.userId} ${q.after.kind}` : null;
+    return [...this.digests.entries()]
+      .filter(([key, d]) => (after === null || key > after) && (d.lastSentWeek === null || d.lastSentWeek < q.before))
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .slice(0, q.limit)
+      .flatMap(([, d]) => {
+        const user = this.users.get(d.userId);
+        if (!user) return [];
+        const mail = this.mailOf(d.userId);
+        return [{
+          userId: d.userId,
+          kind: d.kind,
+          lastSentWeek: d.lastSentWeek,
+          username: user.username,
+          email: user.email,
+          emailConfirmed: mail.emailConfirmedAt !== null,
+          disabled: !!user.disabledAt,
+          language: mail.language,
+          timeZone: mail.timeZone,
+        }];
+      });
+  }
+
+  async claimDigest(userId: string, kind: DigestKind, week: string, previous: string | null): Promise<boolean> {
+    const d = this.digests.get(`${userId} ${kind}`);
+    if (!d || d.lastSentWeek !== previous) return false;
+    d.lastSentWeek = week;
+    return true;
+  }
+
+  async markDigestSent(userId: string, kind: DigestKind, at: number): Promise<void> {
+    const d = this.digests.get(`${userId} ${kind}`);
+    if (d) d.lastSentAt = at;
+  }
+
+  async releaseDigest(userId: string, kind: DigestKind, week: string, previous: string | null): Promise<void> {
+    const d = this.digests.get(`${userId} ${kind}`);
+    if (d && d.lastSentWeek === week) d.lastSentWeek = previous;
   }
 
   private enabledPlatformAdmins(): number {

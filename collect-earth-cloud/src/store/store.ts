@@ -12,14 +12,18 @@ import type {
   AuditEntry,
   AuditInput,
   AuditQuery,
+  AccountMail,
   CepInfo,
   CsvFile,
   DatabaseHealth,
   DecisionKind,
+  DigestKind,
+  DueDigest,
   EventCursor,
   GuidanceNote,
   GuidanceNoteInput,
   Invite,
+  MailLanguage,
   InviteSummary,
   Member,
   MemberActivity,
@@ -151,6 +155,33 @@ export interface Store {
    * takes).
    */
   deleteUser(userId: string): Promise<'ok' | 'last_platform_admin'>;
+
+  // --- Email digests (Task 19): account data, global as users ---
+
+  /** The account's email, whether it is confirmed, the mails' language and time zone and its subscriptions; null for an unknown id. */
+  getAccountMail(userId: string): Promise<AccountMail | null>;
+  /** Sets (or, with null, removes) the account's email; a new one is not confirmed. False for an unknown id. */
+  setEmail(userId: string, email: string | null): Promise<boolean>;
+  /** Marks the email confirmed when it is still `email` (a link for an address changed since does nothing). */
+  confirmEmail(userId: string, email: string, at: number): Promise<boolean>;
+  /** The language and time zone the mails are written in. */
+  setMailPreferences(userId: string, prefs: { language: MailLanguage | null; timeZone: string | null }): Promise<void>;
+  /** Turns a digest on (kept as it was when already on) or off; off returns whether one was on. */
+  setDigest(userId: string, kind: DigestKind, on: boolean): Promise<boolean>;
+  /**
+   * The subscriptions not yet marked sent for `week` or later (last_sent_week null or before it),
+   * in (user id, kind) order after `after`, at most `limit`, with what the job needs of each account.
+   */
+  listDueDigests(q: { before: string; after: { userId: string; kind: DigestKind } | null; limit: number }): Promise<DueDigest[]>;
+  /**
+   * Marks a subscription done for `week` when its last week is still `previous` (compare and set,
+   * so two runs at once never both send it). False when someone else did, or the subscription is gone.
+   */
+  claimDigest(userId: string, kind: DigestKind, week: string, previous: string | null): Promise<boolean>;
+  /** When the claimed week's mail went out (last_sent_at). */
+  markDigestSent(userId: string, kind: DigestKind, at: number): Promise<void>;
+  /** Puts back `previous` after a mail could not be sent (only if the week is still `week`), so the next run tries again. */
+  releaseDigest(userId: string, kind: DigestKind, week: string, previous: string | null): Promise<void>;
 
   // --- Platform administration (dashboard) ---
   // Global, not project-scoped: none of these return project data.

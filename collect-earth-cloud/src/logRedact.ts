@@ -1,11 +1,12 @@
 // Secrets that travel in addresses (Task 18 review): a progress link, an invitation, a password
-// reset page and a backup download carry their token in the path, so the request log would hold
-// working links. The server's own log lines get the address with that segment replaced; the
-// platform's request log (Cloud Run's httpRequest.requestUrl) still has the full address (DEPLOY.md).
+// reset page, a backup download and a mail's unsubscribe and confirm links (Task 19) carry their
+// token in the path, so the request log would hold working links. The server's own log lines get
+// the address with that segment replaced; the platform's request log (Cloud Run's
+// httpRequest.requestUrl) still has the full address (DEPLOY.md).
 import type { FastifyRequest } from 'fastify';
 
 /** Paths whose next segment is a secret token. */
-const SECRET_PREFIXES = ['/v1/public/progress/', '/p/', '/v1/join/', '/join/', '/reset/', '/v1/collect-backup/'];
+const SECRET_PREFIXES = ['/v1/public/progress/', '/p/', '/v1/join/', '/join/', '/reset/', '/v1/collect-backup/', '/v1/unsubscribe/', '/unsubscribe/', '/confirm-email/'];
 /** Query parameters that may hold a token. */
 const SECRET_PARAMS = /([?&](?:token|inviteToken|resetToken)=)[^&#]*/gi;
 

@@ -3379,6 +3379,110 @@ token is hashed.
 - The unsubscribe token.
 - The log transport by default.
 
+**As built** (differs from the above where it says so)
+- **Transport (`src/mail.ts`):** `Mailer { transport, delivers, send }`. `LogMailer` is the default: one log
+  line per mail (`mail not sent: no SMTP_URL is set (log transport)` with the tag, the recipient's **domain**
+  only, the sizes and the header names; never the body, its links or the address) and `delivers: false`.
+  `SmtpMailer` only when `SMTP_URL` is set, through **nodemailer 10.1.7** (exact; published 18 October 2026;
+  licence MIT-0; no dependencies of its own; ships its types; not in `npm audit`). `parseSmtpUrl` builds the
+  options itself: `smtps://` TLS from the start (465), `smtp://` with `requireTLS` (587) unless the host is
+  `localhost`/`127.0.0.1`/`::1`; `tls.rejectUnauthorized: true`, TLS 1.2+; **a URL with `?…`, a path, or
+  another scheme is refused** (nodemailer would read `?ignoreTLS=true` or `?tls.rejectUnauthorized=false`
+  from it), its error never holds the password. `loadConfig` refuses `SMTP_URL` without `MAIL_FROM`, a
+  malformed `MAIL_FROM` and a `DIGEST_SECRET` under 32 characters. `TestMailer` keeps messages in memory
+  (`fail` to refuse); `buildServer({ mailer })` for tests. No test or smoke sends mail.
+- **The address is confirmed by a link (decided: cheap, and without it anyone could sign a stranger's
+  address up).** Accounts had an optional `email` only an administrator could type at account creation,
+  never verified and never shown to the person. Now: `PUT /v1/me/email { email | null, language }` sets it
+  (≤ 254, one `@`; a new address is unconfirmed, the same one keeps its confirmation; null removes it and
+  turns the digests off) and sends a confirmation mail; `POST /v1/me/email/confirmation` sends it again (429
+  `too_soon` within 60 s per account and instance; 409 `no_email` / `already_confirmed`); both behind the
+  rate limiter's `email` bucket. The link `/confirm-email/<token>` (HMAC, `{ account, sha256 of the
+  address, expiry 3 days }`) opens a page with a **button** (link checkers open links) that posts `POST
+  /v1/email/confirm { token }` with no login: 200, 404 (not ours, or the address changed since), 410
+  `confirm_expired`. An address an administrator typed is unconfirmed too. Mails go only to confirmed
+  addresses.
+- **Opt-in (off by default):** `GET /v1/me/notifications` → `{ email, emailConfirmed, language, timeZone,
+  sends (false: no SMTP, choices kept), roles { coordinator, collector } (from the memberships), digests {
+  coordinator|collector: { on, lastSentWeek, lastSentAt } } }`; `PUT { coordinator?, collector?, language,
+  timeZone }` (409 `no_email` to turn one on without an address). **The dashboard's language lived only in
+  the browser**, so each change stores the page's language and the browser's time zone (`users.mail_language`,
+  `mail_time_zone`) and the card says which.
+- **Migration 023:** `users.email_confirmed_at`, `mail_language` (CHECK en/es/fr/pt), `mail_time_zone`;
+  `digest_subscriptions (user_id FK ON DELETE CASCADE, kind CHECK coordinator|collector, created_at,
+  last_sent_week CHECK YYYY-Www, last_sent_at, PK (user_id, kind))`. **Account data, global like `users`
+  (002/018): no RLS, no project data**, read by the account's id or by the job as the list. Store (both):
+  `getAccountMail`, `setEmail`, `confirmEmail`, `setMailPreferences`, `setDigest`, `listDueDigests` (keyset
+  by (user, kind), last week before the run's), `claimDigest` (compare-and-set of `last_sent_week`),
+  `markDigestSent`, `releaseDigest`; `deleteUser` drops them (memory; Postgres by the cascade).
+- **The job `POST /v1/internal/digest`** (`src/routes/mail.ts`, `src/digest.ts`): 404 while `DIGEST_SECRET`
+  is unset; `x-digest-secret` compared in constant time (sha256 of both, `timingSafeEqual`), 401 otherwise
+  (a session is no substitute). Body `{ budgetMs ≤ 600000 (default 60000), maxMails ≤ 10000 (default 500) }`.
+  **A person's week is the last whole ISO week in their own time zone**, so a run on Monday morning UTC sends
+  Europe's and Asia's and leaves the Americas for a later call; subscriptions already done for the UTC one are
+  not read. For each: disabled account, no address or unconfirmed → skipped (left for later); with a real
+  transport **the week is claimed before the mail is built** (two runs, also on two instances, send it
+  once: test and smoke), a mail that fails is put back (`releaseDigest`) for the next call, a week with
+  nothing to tell is marked done without a mail; the log transport claims nothing (SMTP set up later still
+  sends the week). One run per instance at a time (409 `digest_running`). Answer `{ transport, week, sent,
+  empty, skipped, done, failed, more, ms }`, logged as `digest: run ended`. Links use `PUBLIC_BASE_URL`.
+- **Content** (`src/digestText.ts`: words in 4 languages, the dashboard's forms: usted, vous, você; counts as
+  "label: n", French " : "; dates by `Intl` in the language; text and simple inline-styled HTML from the same
+  lines, every value escaped, subject and names on one line). **Coordinators**, per project they coordinate
+  (role admin; ≤ 20, by name): plots first submitted in the week, checks (only where the project has
+  checks), done by the week's end of all, **the people quiet** (the Progress tab's `quiet` item: "someone
+  stopped syncing" is here, no mail of its own; "nobody…" otherwise), the differences waiting (only from the
+  figures at hand on that instance, else left out), the weekly page's link
+  (`/projects/<id>/activity/week/<YYYY-Www>`): `weeklyOf` (extracted from the weekly route, shared) and
+  `attentionReader` (now takes any `{ log }`). **Collectors** (any other role): My work's own figures
+  (`personDetail(…, { self: true })` through `loadPeopleFor`, extracted from `loadPeople`): plots and checks
+  alike first submitted in the week, submitted in all, left to do, plots sent back and waiting; a link to My
+  work. Never anyone else's name, an answer, or which plots are checks (tests search the mail). A project is
+  included when it has plots or work; no project → no mail.
+- **Unsubscribe (RFC 8058):** every digest has `List-Unsubscribe: <…/v1/unsubscribe/<token>>`,
+  `List-Unsubscribe-Post: List-Unsubscribe=One-Click` and `Auto-Submitted: auto-generated`; the token is an
+  HMAC of `{ account, kind }` (purpose-separated from the confirm token), **does not expire**, needs no
+  login. `POST` (any small body: the mail program's form, or the page's JSON) turns that kind off; `GET`
+  303s to the page `/unsubscribe/<token>`, which asks with a button. Both pages and the API answers carry
+  noindex / no-referrer / no-store; **log redaction** extended to `/v1/unsubscribe/`, `/unsubscribe/`,
+  `/confirm-email/`. Signed with `linkSecret` (LINK_SECRET, else from DATABASE_URL): DEPLOY.md advises
+  LINK_SECRET so a database password change does not break links in mails already sent.
+- **Web:** Account page card "Weekly emails" (`pages/MailCard.tsx`): the address with its state (confirmed /
+  not yet, Send the link again, Remove), the switches shown for the roles one has (disabled without an
+  address), the language and zone the mails use, the last week sent, "every email has a link that stops
+  it", and a note when the server sends no email. `pages/MailLinkPages.tsx`: `UnsubscribePage`,
+  `ConfirmEmailPage` (public routes `unsubscribe`, `confirmEmail`). 42 keys × 4 languages; `i18n.ts`,
+  `api.ts`, `api.test.ts`, `router.ts`, `App.tsx`, `server.ts`, `config.ts` with CRLF kept.
+- **DEPLOY.md:** `SMTP_URL`, `MAIL_FROM`, `DIGEST_SECRET`, `LINK_SECRET` rows; "Weekly emails (optional)": the
+  secrets in Secret Manager, the **Cloud Scheduler command (documented, not run, not in deploy.sh)**: hourly
+  06:00-14:00 UTC on Mondays, so bounded calls finish the work and western zones get theirs; deliverability
+  (SPF, DKIM, DMARC are the sender domain's job).
+- **Tests:** server 1124 (was 1103: `mail.test.ts` 10 — SMTP URL rules and no password in errors, config,
+  the log transport by default writes no link/token/address, tokens tied to account and kind / address and
+  expiry, words complete in 4 languages, the mails in 4 languages with escaping, weeks by zone;
+  `digest.routes.test.ts` 10 — off by default, confirmation flow, the secret, the two mails with My work's
+  numbers and no other names, never twice, two runs at once, disabled/unconfirmed/removed, a failed mail
+  retried, bounded runs, one-click unsubscribe, the log transport; `logRedact` and `dashboard` extended),
+  web 336 (was 332: api 2, router), tsc clean in both, web build ok.
+- **Postgres smoke** `npm run smoke:pg:mail -- <port>` (`scripts/pg-smoke-mail.mts`, README): 023 twice, the
+  CHECKs, both tables without RLS, the flow through the app role, two instances at once (one mail each), a
+  failure put back, one-click unsubscribe, the cascade on deletion; **a run of 41 mails on a project of
+  100,000 records: 2.8-3.3 s (68-81 ms a mail; the project state built once), with 10,000 unconfirmed
+  subscriptions passed over in ~0.55 s; a page of 50 due subscriptions 1-2 ms**; bounded run 5 then 36. ALL
+  OK; the Task 18 smoke ALL OK. Docker stopped, port free.
+- **Chrome** (seeded memory server, built web, a mailer writing to files): the Account card at 390 px (no
+  horizontal scroll), address saved → "Not confirmed yet", the confirm page's button → confirmed, the switch
+  on with the language and zone line; a run sent the Spanish coordinator mail (quiet jose and maria, the
+  project name `<2026>` escaped in the HTML) and maria's English week; the unsubscribe page → "Done…". No
+  console errors. The dashboard still has no dark theme.
+- **Open:** a confirmation sent while the server had no SMTP was lost (the person presses "Send the link
+  again"); the 60 s resend limit is per instance; the coordinators' "differences waiting" needs the
+  figures at hand on the instance that runs the job (usually left out on Cloud Run); ~70 ms per mail at
+  100k records means ~800 mails per 60 s call (the hourly calls cover more); Cloud Scheduler's job holds the
+  secret (anyone who reads the job can trigger the week's mails, once); a confirmed address that later
+  bounces is not detected (no bounce handling); unsubscribing deletes the subscription, so its last week is
+  forgotten.
+
 ### Task 20: Join page and My work say what coordinators see
 
 **Files:** `web/src/pages/JoinPage.tsx`, `i18n.ts` and the desktop "joined" message

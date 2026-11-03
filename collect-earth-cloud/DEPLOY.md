@@ -37,7 +37,10 @@ managed Postgres (Option B).
 | `MAP_TILE_ATTRIBUTION` | with `MAP_TILE_URL` | `© OpenStreetMap contributors` | The text the tile source asks to show on the map (plain text, at most 300 characters) |
 | `MAP_TILE_ATTRIBUTION_URL` | no | `https://www.openstreetmap.org/copyright` | Where that text links to (https) |
 | `MAP_TILE_MAX_ZOOM` | no | `19` | The tile source's deepest zoom (1-22) |
-| `LINK_SECRET` | optional | `<random 32+ chars>` | Signs the Collect Earth backup's one-minute download links. Without it the key is worked out from `DATABASE_URL` (the same on every instance); with the memory store, a random key per process |
+| `LINK_SECRET` | advised with email | `<random 32+ chars>` | Signs the Collect Earth backup's one-minute download links and the weekly emails' unsubscribe and confirmation links. Without it the key is worked out from `DATABASE_URL` (the same on every instance), so changing the database password would break the unsubscribe links of mails already sent; with the memory store, a random key per process |
+| `SMTP_URL` | no | `smtps://user:password@smtp.example.org:465` | The mail server for the weekly emails (see "Weekly emails (optional)"). `smtps://` (TLS) or `smtp://…:587` (STARTTLS, required); plain `smtp://` only to `localhost`. Unset: no email is sent, the log gets a line per mail instead. A secret (it holds the password) |
+| `MAIL_FROM` | with `SMTP_URL` | `Collect Earth Cloud <noreply@example.org>` | The address the emails come from; its domain must allow the mail server to send for it (SPF, DKIM) |
+| `DIGEST_SECRET` | no | `<random 32+ chars>` | What the weekly job sends in `x-digest-secret` to `POST /v1/internal/digest`. Unset: that endpoint is off (404). A secret |
 | `AI_FAKE` | never in production | `1` | Development only: a scripted stand-in for the model, so the AI panel can be tried without Vertex. Refused unless `STORE_BACKEND=memory`, and refused on Cloud Run (`K_SERVICE`) or with `NODE_ENV=production` |
 
 Generate a good admin key: `openssl rand -base64 32`.
@@ -526,6 +529,97 @@ the limit times the number of projects):
 
 `0` allows none. The Server settings page also shows this month's use per project
 (project ids, runs, refusals and tokens; never names or content).
+
+## Weekly emails (optional)
+
+People can ask for a weekly email on their account page (**off by default**):
+coordinators the weekly summary of the projects they coordinate (plots done that week
+and in all, who has been quiet with plots left to do, the plots waiting for a
+decision, a link to the weekly page), collectors their own week (My work's numbers
+and the plots sent back to them; never anyone else's name, never which plots are
+checks, never an answer). Each mail is in the language the person chose, with their
+time zone's days, as plain text and simple HTML, and carries a one-click unsubscribe
+link (`List-Unsubscribe` and `List-Unsubscribe-Post`, RFC 8058) that works without
+logging in.
+
+**The address is confirmed first.** A person gives their account an email on the
+account page; the server sends a link to it (valid 3 days) and sends nothing else to
+it until that link is opened. An address an administrator typed when making an
+account is not confirmed either. Changing the address needs a new confirmation;
+removing it turns the emails off.
+
+**Without `SMTP_URL` no email is sent.** The log transport writes one line per mail
+(`mail not sent: no SMTP_URL is set`, with the kind of mail, the recipient's domain and
+the sizes; never the body, the links or the address) and the weekly run marks nothing
+as sent, so setting SMTP up later still sends the current week. People can choose
+their emails meanwhile; the account page says the server does not send email yet.
+After SMTP is set up, people whose address was saved before must press "Send the link
+again" to confirm it.
+
+**Setting it up** (Option A's names; replace `<PROJECT>`, `<REGION>` and the mail
+provider's details):
+1. **A mail provider** that sends for your domain over SMTP with TLS (your
+   organisation's mail server, or a transactional mail service). **Deliverability is
+   the sender domain's job:** publish the SPF record and DKIM key the provider gives
+   you, and a DMARC policy, for the domain of `MAIL_FROM`, or the mails go to spam.
+   Use an address nobody needs to answer (`noreply@…`); the mails say how to stop
+   them.
+2. **The secrets** in Secret Manager, given to the service:
+   ```bash
+   printf '%s' 'smtps://<user>:<password>@<smtp-host>:465' | gcloud secrets create ce-smtp-url \
+     --replication-policy=automatic --data-file=- --project=<PROJECT>
+   openssl rand -base64 32 | tr -d '\n' | gcloud secrets create ce-digest-secret \
+     --replication-policy=automatic --data-file=- --project=<PROJECT>
+   openssl rand -base64 32 | tr -d '\n' | gcloud secrets create ce-link-secret \
+     --replication-policy=automatic --data-file=- --project=<PROJECT>
+   for s in ce-smtp-url ce-digest-secret ce-link-secret; do
+     gcloud secrets add-iam-policy-binding $s --project=<PROJECT> \
+       --member=serviceAccount:ce-cloud-run@<PROJECT>.iam.gserviceaccount.com \
+       --role=roles/secretmanager.secretAccessor --condition=None
+   done
+   gcloud run services update collect-earth-cloud --region=<REGION> --project=<PROJECT> \
+     --update-secrets=SMTP_URL=ce-smtp-url:latest,DIGEST_SECRET=ce-digest-secret:latest,LINK_SECRET=ce-link-secret:latest \
+     --update-env-vars='MAIL_FROM=Collect Earth Cloud <noreply@example.org>,PUBLIC_BASE_URL=https://<your address>'
+   ```
+   A percent sign, `@` or `:` in the user or password is written percent-encoded
+   (`%25`, `%40`, `%3A`). The URL takes no options (`?…` is refused): TLS is always
+   required (STARTTLS for `smtp://` to another machine) and certificates are always
+   checked. The server refuses to start when `SMTP_URL` is set without `MAIL_FROM`,
+   or when either is malformed. `PUBLIC_BASE_URL` makes the mails' links point at
+   your address (otherwise the address Cloud Scheduler called, the `*.run.app` one).
+3. **The weekly job: Cloud Scheduler calls the endpoint.** This is documented, not
+   created by `deploy.sh` (Cloud Scheduler is billed per job beyond the free ones):
+   ```bash
+   gcloud services enable cloudscheduler.googleapis.com --project=<PROJECT>
+   gcloud scheduler jobs create http ce-weekly-digest --project=<PROJECT> --location=<REGION> \
+     --schedule='0 6-14 * * 1' --time-zone=Etc/UTC \
+     --uri='https://<your address>/v1/internal/digest' --http-method=POST \
+     --headers='x-digest-secret=<the DIGEST_SECRET value>,content-type=application/json' \
+     --message-body='{}' --attempt-deadline=900s
+   ```
+   Every hour from 06:00 to 14:00 UTC on Mondays: each call sends what is due and
+   stops after 60 seconds or 500 mails (`{"budgetMs": …, "maxMails": …}` in the body
+   change that, at most 600,000 ms), answering `{ sent, empty, skipped, done, failed,
+   more }`; the next call goes on from there. A person's week is the last whole ISO
+   week in **their** time zone, so people west of UTC get theirs in a later call that
+   Monday. Calls are safe to repeat or retry: each person's week is marked done before
+   its mail goes, so no week is sent twice (also with two instances at once); a mail
+   the mail server refuses is put back for the next call. A second call on the same
+   instance while one runs gets 409. Note the scheduler keeps the secret in the job's
+   definition: whoever can read the job can call the endpoint (which only sends the
+   week's mails once).
+4. **Check it** once: `curl -X POST -H 'x-digest-secret: <secret>' https://<your address>/v1/internal/digest`
+   answers with the counts; the service's log has `digest: run ended`.
+
+**What is skipped:** accounts without an email, with one not confirmed, or disabled
+by the server owner; projects a person left (only their memberships now count); a
+week with nothing to tell (no project with plots or work) is marked done without a
+mail. A deleted account takes its subscriptions with it.
+
+**Logs:** the unsubscribe and confirmation addresses (`/v1/unsubscribe/…`,
+`/unsubscribe/…`, `/confirm-email/…`) are written to the server's log with the token
+replaced by `<redacted>`; Cloud Run's request log keeps the full address, as for the
+other links (see "Operational notes").
 
 ## Cloud Run billing: work done between requests
 

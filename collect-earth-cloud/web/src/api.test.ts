@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  confirmEmail,
+  getNotifications,
+  sendEmailConfirmation,
+  setEmail,
+  setNotifications,
+  unsubscribe,
   createShareLink,
   getPublicProgress,
   listShareLinks,
@@ -1184,5 +1190,64 @@ describe("progress links for funders", () => {
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).status).toBe(404);
     expect(ended).not.toHaveBeenCalled();
+  });
+});
+
+describe("weekly emails (Task 19)", () => {
+  const url = (i = 0) => String(fetchMock.mock.calls[i][0]);
+  const body = {
+    email: "maria@example.org",
+    emailConfirmed: false,
+    language: "fr",
+    timeZone: "Europe/Paris",
+    sends: true,
+    roles: { coordinator: false, collector: true },
+    digests: { coordinator: { on: false, lastSentWeek: null, lastSentAt: null }, collector: { on: true, lastSentWeek: "2026-W44", lastSentAt: 5000 } },
+  };
+
+  it("reads and changes the account's address and digests", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, body));
+    expect(await getNotifications()).toEqual(body);
+    expect(url()).toBe("/v1/me/notifications");
+    fetchMock.mockResolvedValue(jsonResponse(200, { digests: {} }));
+    expect(await setNotifications({ collector: false, language: "es", timeZone: "UTC" })).toMatchObject({
+      email: null,
+      sends: false,
+      digests: { coordinator: { on: false }, collector: { on: false } },
+    });
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: "PUT", body: JSON.stringify({ collector: false, language: "es", timeZone: "UTC" }) });
+    fetchMock.mockResolvedValue(jsonResponse(200, body));
+    await setEmail("maria@example.org", "fr");
+    expect(url(2)).toBe("/v1/me/email");
+    expect(fetchMock.mock.calls[2][1]).toMatchObject({ method: "PUT", body: JSON.stringify({ email: "maria@example.org", language: "fr" }) });
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ sent: true }), { status: 202 }));
+    await sendEmailConfirmation("fr");
+    expect(url(3)).toBe("/v1/me/email/confirmation");
+    for (const [code, key] of [
+      ["invalid_email", "mail.invalidEmail"],
+      ["no_email", "mail.noEmail"],
+      ["too_soon", "mail.tooSoon"],
+      ["mail_failed", "mail.failed"],
+      ["confirm_expired", "mail.confirmExpired"],
+    ]) {
+      fetchMock.mockResolvedValue(jsonResponse(409, { error: code }));
+      expect(errorMessageKey(await setEmail("x", "en").catch((e: unknown) => e))).toBe(key);
+    }
+  });
+
+  it("the mails' links work without the session", async () => {
+    setToken("my-session");
+    fetchMock.mockResolvedValue(jsonResponse(200, { unsubscribed: true, kind: "coordinator" }));
+    expect(await unsubscribe("a.b/c")).toBe("coordinator");
+    expect(url()).toBe("/v1/unsubscribe/a.b%2Fc");
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect((init.headers as Record<string, string>).authorization).toBeUndefined();
+    expect(init).toMatchObject({ method: "POST", credentials: "omit", referrerPolicy: "no-referrer" });
+    fetchMock.mockResolvedValue(jsonResponse(200, { confirmed: true }));
+    await confirmEmail("tok");
+    expect(url(1)).toBe("/v1/email/confirm");
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: "POST", body: JSON.stringify({ token: "tok" }), credentials: "omit" });
+    fetchMock.mockResolvedValue(jsonResponse(410, { error: "confirm_expired" }));
+    expect(errorMessageKey(await confirmEmail("tok").catch((e: unknown) => e))).toBe("mail.confirmExpired");
   });
 });

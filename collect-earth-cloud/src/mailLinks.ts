@@ -1,0 +1,64 @@
+// The links the mails carry (Task 19): one-click unsubscribing from a digest and confirming an email
+// address. Both are signed (HMAC-SHA256) with the key the backup links use (backupLink.linkSecret:
+// LINK_SECRET, else one worked out from DATABASE_URL), each with its own purpose in the signature, so
+// a token of one kind is never taken for another.
+// - Unsubscribe: tied to the account and the kind of digest; it does not expire (a mail read months
+//   later still works) and needs no login. Using it turns that digest off, nothing else.
+// - Confirm: tied to the account and the address (its sha256), valid CONFIRM_TTL_MS; an address
+//   changed since makes it do nothing.
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { DIGEST_KINDS, type DigestKind } from './types.js';
+
+/** How long an email confirmation link works. */
+export const CONFIRM_TTL_MS = 3 * 86_400_000;
+
+function sign(purpose: string, payload: string, secret: Buffer): string {
+  return createHmac('sha256', secret).update(`${purpose}:${payload}`).digest('base64url');
+}
+
+function write(purpose: string, claims: unknown, secret: Buffer): string {
+  const payload = Buffer.from(JSON.stringify(claims)).toString('base64url');
+  return `${payload}.${sign(purpose, payload, secret)}`;
+}
+
+function read(purpose: string, token: unknown, secret: Buffer): Record<string, unknown> | null {
+  if (typeof token !== 'string' || token.length > 1000) return null;
+  const dot = token.indexOf('.');
+  if (dot <= 0 || dot !== token.lastIndexOf('.')) return null;
+  const payload = token.slice(0, dot);
+  const given = Buffer.from(token.slice(dot + 1), 'base64url');
+  const expected = Buffer.from(sign(purpose, payload, secret), 'base64url');
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
+  try {
+    const raw = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as unknown;
+    return typeof raw === 'object' && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeUnsubscribeToken(userId: string, kind: DigestKind, secret: Buffer): string {
+  return write('digest-unsubscribe', { u: userId, k: kind }, secret);
+}
+
+/** The account and kind of an unsubscribe token, or null when it is none of ours. */
+export function readUnsubscribeToken(token: unknown, secret: Buffer): { userId: string; kind: DigestKind } | null {
+  const v = read('digest-unsubscribe', token, secret);
+  if (!v || typeof v.u !== 'string' || !(DIGEST_KINDS as readonly unknown[]).includes(v.k)) return null;
+  return { userId: v.u, kind: v.k as DigestKind };
+}
+
+const addressHash = (email: string) => createHash('sha256').update(email).digest('base64url').slice(0, 22);
+
+export function writeConfirmToken(userId: string, email: string, secret: Buffer, now: number): string {
+  return write('email-confirm', { u: userId, a: addressHash(email), e: now + CONFIRM_TTL_MS }, secret);
+}
+
+/** The account of a confirmation token, 'expired' past its time, or null when it is none of ours; `matches` tells an address apart. */
+export function readConfirmToken(token: unknown, secret: Buffer, now: number): { userId: string; matches: (email: string) => boolean } | 'expired' | null {
+  const v = read('email-confirm', token, secret);
+  if (!v || typeof v.u !== 'string' || typeof v.a !== 'string' || typeof v.e !== 'number') return null;
+  if (now >= v.e) return 'expired';
+  const a = v.a;
+  return { userId: v.u, matches: (email) => addressHash(email) === a };
+}

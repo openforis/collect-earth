@@ -748,3 +748,37 @@ export interface AuditQuery {
   from?: number;
   to?: number;
 }
+
+// --- Email digests (Task 19): account data, global as users ---
+
+/** 'coordinator': the weekly summary of the projects someone coordinates; 'collector': their own week. */
+export type DigestKind = 'coordinator' | 'collector';
+export const DIGEST_KINDS: readonly DigestKind[] = ['coordinator', 'collector'];
+
+/** The languages the dashboard and the mails are written in. */
+export type MailLanguage = 'en' | 'es' | 'fr' | 'pt';
+export const MAIL_LANGUAGES: readonly MailLanguage[] = ['en', 'es', 'fr', 'pt'];
+
+/** An account's mail settings. */
+export interface AccountMail {
+  email: string | null;
+  /** When the email was confirmed by its link; null until then (and again after a change). */
+  emailConfirmedAt: number | null;
+  /** The language and time zone the mails are written in (chosen on the Account page); null: English, UTC. */
+  language: MailLanguage | null;
+  timeZone: string | null;
+  digests: { kind: DigestKind; createdAt: number; lastSentWeek: string | null; lastSentAt: number | null }[];
+}
+
+/** A subscription the digest job looks at, with what it needs of the account. */
+export interface DueDigest {
+  userId: string;
+  kind: DigestKind;
+  lastSentWeek: string | null;
+  username: string;
+  email: string | null;
+  emailConfirmed: boolean;
+  disabled: boolean;
+  language: MailLanguage | null;
+  timeZone: string | null;
+}

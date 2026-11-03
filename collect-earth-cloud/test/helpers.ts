@@ -19,7 +19,7 @@ export const TEST_SETUP_CODE = 'TEST-CODE-1234';
  */
 export async function makeContext(
   overrides: Partial<Config> = {},
-  options: { webDir?: string | null; ai?: BuildServerOptions['ai'] } = {},
+  options: { webDir?: string | null; ai?: BuildServerOptions['ai']; mailer?: BuildServerOptions['mailer']; logger?: BuildServerOptions['logger'] } = {},
 ): Promise<TestContext> {
   const store = new InMemoryStore();
   const config: Config = {
@@ -34,7 +34,14 @@ export async function makeContext(
     stateStaleMs: 0,
     ...overrides,
   };
-  const app = await buildServer({ store, config, webDir: options.webDir ?? null, ...(options.ai ? { ai: options.ai } : {}) });
+  const app = await buildServer({
+    store,
+    config,
+    webDir: options.webDir ?? null,
+    ...(options.ai ? { ai: options.ai } : {}),
+    ...(options.mailer ? { mailer: options.mailer } : {}),
+    ...(options.logger ? { logger: options.logger } : {}),
+  });
   return { app, store };
 }
 

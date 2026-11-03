@@ -519,6 +519,13 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   backup_busy: "backup.busy",
   // Progress links (POST /share-links).
   too_many_links: "shareLinks.tooMany",
+  // Email digests (Task 19).
+  invalid_email: "mail.invalidEmail",
+  no_email: "mail.noEmail",
+  too_soon: "mail.tooSoon",
+  mail_failed: "mail.failed",
+  already_confirmed: "mail.alreadyConfirmed",
+  confirm_expired: "mail.confirmExpired",
   round_codes_changed: "error.roundCodesChanged",
   key_shape_changed: "error.keyShapeChanged",
   plots_divided: "error.plotsDivided",
@@ -793,6 +800,72 @@ export async function deleteAccount(password: string): Promise<void> {
     if (error instanceof ApiError && error.status === 401) throw new ApiError(401, "wrong_password", error.reason);
     throw error;
   }
+}
+
+// --- email digests (Task 19) ----------------------------------------------------
+
+export type DigestKind = "coordinator" | "collector";
+
+export interface Notifications {
+  email: string | null;
+  emailConfirmed: boolean;
+  /** The language and time zone the mails are written in (null: never chosen). */
+  language: string | null;
+  timeZone: string | null;
+  /** False: this server sends no email (no SMTP set up); the choices are kept. */
+  sends: boolean;
+  /** Which digests make sense: coordinating a project, collecting in one. */
+  roles: Record<DigestKind, boolean>;
+  digests: Record<DigestKind, { on: boolean; lastSentWeek: string | null; lastSentAt: number | null }>;
+}
+
+function toNotifications(body: unknown): Notifications {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const roles = (b.roles ?? {}) as Record<string, unknown>;
+  const digests = (b.digests ?? {}) as Record<string, Record<string, unknown> | undefined>;
+  const digest = (kind: DigestKind) => ({
+    on: digests[kind]?.on === true,
+    lastSentWeek: typeof digests[kind]?.lastSentWeek === "string" ? (digests[kind]!.lastSentWeek as string) : null,
+    lastSentAt: typeof digests[kind]?.lastSentAt === "number" ? (digests[kind]!.lastSentAt as number) : null,
+  });
+  return {
+    email: typeof b.email === "string" ? b.email : null,
+    emailConfirmed: b.emailConfirmed === true,
+    language: typeof b.language === "string" ? b.language : null,
+    timeZone: typeof b.timeZone === "string" ? b.timeZone : null,
+    sends: b.sends === true,
+    roles: { coordinator: roles.coordinator === true, collector: roles.collector === true },
+    digests: { coordinator: digest("coordinator"), collector: digest("collector") },
+  };
+}
+
+export async function getNotifications(): Promise<Notifications> {
+  return toNotifications(await request("GET", "/v1/me/notifications"));
+}
+
+/** Turns digests on or off, in the language and time zone given (the dashboard's). */
+export async function setNotifications(change: Partial<Record<DigestKind, boolean>> & { language: string; timeZone: string | null }): Promise<Notifications> {
+  return toNotifications(await request("PUT", "/v1/me/notifications", { json: change }));
+}
+
+/** Gives the account an email (null removes it); a new one gets a mail with a link to confirm it. */
+export async function setEmail(email: string | null, language: string): Promise<Notifications> {
+  return toNotifications(await request("PUT", "/v1/me/email", { json: { email, language } }));
+}
+
+export async function sendEmailConfirmation(language: string): Promise<void> {
+  await send("POST", "/v1/me/email/confirmation", { json: { language } });
+}
+
+/** The confirmation link's page (no login needed). */
+export async function confirmEmail(token: string): Promise<void> {
+  await send("POST", "/v1/email/confirm", { json: { token }, anonymous: true, noSessionEnd: true });
+}
+
+/** The unsubscribe link's page (no login needed): turns that digest off. */
+export async function unsubscribe(token: string): Promise<DigestKind> {
+  const body = await request<{ kind?: unknown }>("POST", `/v1/unsubscribe/${encodeURIComponent(token)}`, { json: {}, anonymous: true, noSessionEnd: true });
+  return body?.kind === "coordinator" ? "coordinator" : "collector";
 }
 
 export async function resetPassword(token: string, newPassword: string): Promise<void> {

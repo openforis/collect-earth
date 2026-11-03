@@ -705,6 +705,17 @@ describe('dashboard static files', () => {
     expect((await ctx.app.inject({ method: 'GET', url: '/join/abc', headers: html })).headers['x-robots-tag']).toBeUndefined();
   });
 
+  it("a mail's links (/unsubscribe/<token>, /confirm-email/<token>, Task 19): the same headers", async () => {
+    for (const url of ['/unsubscribe/payload.sig', '/confirm-email/payload.sig']) {
+      const res = await ctx.app.inject({ method: 'GET', url, headers: html });
+      expect(res.statusCode, url).toBe(200);
+      expect(res.body).toContain('<title>CE</title>');
+      expect(res.headers['x-robots-tag']).toBe('noindex, nofollow');
+      expect(res.headers['referrer-policy']).toBe('no-referrer');
+      expect(res.headers['cache-control']).toBe('no-store');
+    }
+  });
+
   it('keeps JSON 404s for the API, non-HTML requests and other methods', async () => {
     const api = await ctx.app.inject({ method: 'GET', url: '/v1/nope', headers: html });
     expect(api.statusCode).toBe(404);

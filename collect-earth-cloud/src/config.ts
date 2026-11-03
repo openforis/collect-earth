@@ -1,3 +1,5 @@
+import { isMailFrom, parseSmtpUrl } from './mail.js';
+
 export interface Config {
   port: number;
   host: string;
@@ -83,7 +85,19 @@ export interface Config {
    * MAP_TILE_MAX_ZOOM); undefined = OSM_TILES. Sent to the dashboard in server-info.
    */
   mapTiles?: MapTiles;
+  /**
+   * Email (Task 19, Decision 5): SMTP_URL (`smtps://user:password@host:465`, or `smtp://…:587` with
+   * STARTTLS required; checked by parseSmtpUrl) and MAIL_FROM, required with it. Without SMTP_URL no
+   * mail is sent: the log transport writes a summary to the log. A secret: never sent nor logged.
+   */
+  smtpUrl?: string;
+  mailFrom?: string;
+  /** DIGEST_SECRET: what the weekly job sends in `x-digest-secret` (POST /v1/internal/digest); unset: the endpoint is off. */
+  digestSecret?: string;
 }
+
+/** The shortest DIGEST_SECRET accepted. */
+export const MIN_DIGEST_SECRET_LENGTH = 32;
 
 /** A base map's tiles, as Leaflet asks for them: `{z}/{x}/{y}` (and optionally `{s}`, `{r}`) in the URL. */
 export interface MapTiles {
@@ -141,7 +155,24 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     qualityWorkerMaxMb: qualityWorkerMaxMbOf(env.QUALITY_WORKER_MAX_MB),
     ...aiConfigOf(env, storeBackend),
     mapTiles: mapTilesOf(env),
+    ...mailConfigOf(env),
   };
+}
+
+/** SMTP_URL, MAIL_FROM and DIGEST_SECRET, checked: a server never starts with mail half set up. */
+function mailConfigOf(env: NodeJS.ProcessEnv): Pick<Config, 'smtpUrl' | 'mailFrom' | 'digestSecret'> {
+  const smtpUrl = nonEmpty(env.SMTP_URL?.trim());
+  const mailFrom = nonEmpty(env.MAIL_FROM?.trim());
+  const digestSecret = nonEmpty(env.DIGEST_SECRET?.trim());
+  if (smtpUrl) {
+    parseSmtpUrl(smtpUrl); // throws with the reason
+    if (!mailFrom) throw new Error('SMTP_URL is set but MAIL_FROM is not: set the address the mails come from (Collect Earth Cloud <noreply@example.org>)');
+  }
+  if (mailFrom && !isMailFrom(mailFrom)) throw new Error('MAIL_FROM must be an address: noreply@example.org or Name <noreply@example.org>');
+  if (digestSecret && digestSecret.length < MIN_DIGEST_SECRET_LENGTH) {
+    throw new Error(`DIGEST_SECRET must be at least ${MIN_DIGEST_SECRET_LENGTH} characters (openssl rand -base64 32)`);
+  }
+  return { smtpUrl, mailFrom, digestSecret };
 }
 
 /** https, or http for a tile server on this machine. */
