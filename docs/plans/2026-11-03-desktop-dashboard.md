@@ -139,7 +139,7 @@ to bring them to the desktop are:
   not fit.
 - **Tests:** view tests per tab with `localMode`; a Chrome run at desktop and phone width, with seeded local data.
 
-### Task 5: The desktop starts it and feeds it
+### Task 5: The desktop starts it and feeds it (done, see below)
 - **`LocalDashboardService` (collect-earth-app):**
   - starts `node dashboard/server.mjs` with LOCAL_MODE once the project is loaded, with a free port, and a log in
     the user folder (`dashboard.log`);
@@ -155,6 +155,52 @@ to bring them to the desktop are:
 - **Changing project, survey or plot file:** restart the local server and feed it again.
 - **Tests:** a Java test with a fake Node, for start, stop, restart and the port. An integration test that starts
   the real bundle, feeds the test survey's records and reads `/progress`.
+
+**Done (2026-11-03), in `collect-earth-app`, package `service.dashboard`:**
+- `LocalDashboardService` (a bean, `ContextRefreshedEvent`, skipped when `isUsingCloudDB()`): everything runs on one
+  daemon thread, so the start of Collect Earth waits for nothing. It finds `node/node[.exe]`, else
+  `src/main/frontend/node/node[.exe]`, and `dashboard/` (installed), else `target/dashboard/` (built), each holding
+  `server.mjs` and `web/index.html`; without them its state is `UNAVAILABLE` and nothing starts.
+  `LocalDashboardProcess` runs `node <dir>/server.mjs` (LOCAL_MODE=1, PORT=0, HOST=127.0.0.1, WEB_DIR absolute,
+  LOCAL_USER = the operator, LOCAL_PROJECT_ID = a name-based UUID of the survey's URI, LOCAL_PROJECT_NAME = the
+  survey name; `NODE_OPTIONS` removed), stderr appended to `dashboard.log` in the user folder (begun again past 5 MB),
+  and waits up to 60 s for the ready line.
+- **States** for Task 6: `OFF` (cloud project, or quitting), `UNAVAILABLE`, `STARTING`, `FEEDING`, `READY`, `FAILED`;
+  `getStateText()` gives the menu's text (`LocalDashboard.*` in Messages, en/es/fr/pt) and `newSignInUrl()` a new
+  one-time link (POST /v1/local/sign-in-links), or null when it is not running.
+- **Feed:** PUT /cep (the project folder zipped again, files above 10 MB such as the guide PDF left out), PUT
+  /csv-files/<plot file name>, then every record (`RecordManager`, not validated) in batches of 200, through
+  `CloudRecordSerializer` and `CloudApiClient`, which now takes a `Destination` (base URL, project, token) besides the
+  cloud project of the settings. Envelopes are sent under the ready line's username (`RecordEnvelope.withOperator`).
+- **Live feed:** a second `RecordSavedListener` notes each saved key; every 2 s the keys go out in records:batch.
+  *Unlike the plan*, not through `CloudSyncQueueDao`: its table has no destination column, and a durable queue buys
+  nothing here, since the dashboard is fed everything again at each start.
+- **Restarts:** a server that ends, or does not start, is started once more, on a new port, and fed again; the second
+  time the state is `FAILED`. A change of the survey, the project folder or the plot file (path, size, date; checked
+  every 15 s) starts it again and feeds it again: a new project or survey relaunches Collect Earth anyway, a new plot
+  file from the settings does not.
+- **Stop:** `@PreDestroy` (Quit and restart close the Spring context), and a JVM shutdown hook. When Collect Earth is
+  killed the server is left running: its pid is in `dashboard.pid`, and the next start ends it (if it is a Node
+  running `server.mjs`). *Still to do in collect-earth-cloud:* the server noticing its parent's end by itself (e.g.
+  exit when stdin closes, which the desktop leaves open as a pipe).
+- **Maven:** `collect-earth-app` copies `../../collect-earth-cloud/dist` and `web/dist` into `target/dashboard` and
+  `target/dashboard/web` at `process-resources` (maven-resources-plugin), and skips them when absent, so the Java build
+  needs no npm.
+- **Measured** (this container, Node 22.22.0): 10,000 records of the demo survey fed in 27.8 s, of which 22.4 s were the
+  test making and serializing the records in Java and 5.4 s sending them and the server storing them; the first
+  `/progress` after it took 0.2 s. On the desktop the records are loaded from the database instead of made; Task 7
+  measures that.
+- **Tests:** `LocalDashboardServiceTest` (fake Node: start, the ready line, the port, the environment, the feed and its
+  operator, the live feed, restart once then `FAILED`, a silent start, stop, a new plot file, a real `/bin/sh` process
+  for stderr to the log and stop); `LocalDashboardIntegrationTest` (the real bundle, the demo project and its records,
+  `/progress`, a live save, the sign-in link, the stop; `DASHBOARD_FEED_10K=1` for the timing above), skipped without
+  Node or the bundle.
+- **What the installer still needs** (not done): build the bundle in the release (`npm ci && npm run build:local` in
+  `collect-earth-cloud`, `npm ci && npx vite build` in `web`) before `collect-earth-app`, and fail the `assembly` build
+  when `target/dashboard/server.mjs` is missing; a `dashboard.xml` like `node.xml`, included by
+  `CollectEarthWithSaiku.xml` and `CollectEarthUpdater.xml`, installing `collect-earth-app/target/dashboard` as
+  `<installdir>/dashboard` (`server.mjs`, `qualityWorker.mjs`, `server.mjs.LEGAL.txt`, `web/`), replacing the old
+  folder whole so no stale asset stays; and the updaters carry it at every release (it changes with the cloud code).
 
 ### Task 6: Opening it
 - A menu entry "My dashboard" (Tools), and a link on the home page and in the plots map's sidebar. It opens the local

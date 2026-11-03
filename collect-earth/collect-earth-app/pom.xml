@@ -261,6 +261,52 @@
 				</executions>
 			</plugin>
 
+			<!-- The local dashboard (docs/plans/2026-11-03-desktop-dashboard.md, Task 5): the Node bundle of
+			     collect-earth-cloud (dist/: server.mjs, qualityWorker.mjs) and its built web app (web/dist) into
+			     target/dashboard and target/dashboard/web, where LocalDashboardService finds them when run from
+			     collect-earth-app. They are built in collect-earth-cloud (npm run build:local; cd web && npx vite build),
+			     not here: when they are missing the copies are skipped, and Collect Earth runs without the dashboard. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-resources-plugin</artifactId>
+				<executions>
+					<execution>
+						<?m2e ignore?>
+						<id>copy-dashboard-server</id>
+						<phase>process-resources</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${project.build.directory}/dashboard</outputDirectory>
+							<resources>
+								<resource>
+									<directory>${project.basedir}/../../collect-earth-cloud/dist</directory>
+									<filtering>false</filtering>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
+					<execution>
+						<?m2e ignore?>
+						<id>copy-dashboard-web</id>
+						<phase>process-resources</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${project.build.directory}/dashboard/web</outputDirectory>
+							<resources>
+								<resource>
+									<directory>${project.basedir}/../../collect-earth-cloud/web/dist</directory>
+									<filtering>false</filtering>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
 			<!-- Plots map web UI (React + MUI, src/main/frontend). Downloads a local Node into
 			     src/main/frontend/node, installs the packages (${frontend.npm.install}) and builds into
 			     target/classes/leafletmap, served by LeafletMapController at /earth/map. The build runs

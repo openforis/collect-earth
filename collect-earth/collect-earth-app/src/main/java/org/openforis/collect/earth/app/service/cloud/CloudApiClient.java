@@ -19,6 +19,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -95,6 +96,76 @@ public class CloudApiClient {
 		}
 	}
 
+	/**
+	 * Where the calls go: a server, one of its projects and the token sent as Bearer. The cloud project of the
+	 * settings is one ({@link #cloudDestination()}); the local dashboard (service.dashboard) is another, fed with
+	 * the same records:batch, project file and plot file uploads.
+	 */
+	public static final class Destination {
+		private final String baseUrl;
+		private final String projectId;
+		private final String token;
+
+		public Destination(String baseUrl, String projectId, String token) {
+			this.baseUrl = normalize(baseUrl);
+			this.projectId = projectId;
+			this.token = token;
+		}
+
+		public String getBaseUrl() {
+			return baseUrl;
+		}
+
+		public String getProjectId() {
+			return projectId;
+		}
+
+		public String getToken() {
+			return token;
+		}
+
+		/** The address of a route of the project: {@code path} starts with a slash. */
+		String projectUrl(String path) {
+			return baseUrl + "/v1/projects/" + projectId + path;
+		}
+	}
+
+	/** The cloud project of the settings. */
+	public Destination cloudDestination() {
+		return new Destination(baseUrl(), projectId(), token());
+	}
+
+	/**
+	 * Replaces a file of the project with a raw body: the project file ({@code /cep}, a zip) or a plot file
+	 * ({@code /csv-files/<name>}, the name URL-encoded by the caller).
+	 */
+	public void putProjectFile(Destination destination, String path, byte[] body, ContentType contentType) throws IOException {
+		HttpPut request = new HttpPut(destination.projectUrl(path));
+		prepareWith(request, destination.getToken());
+		request.setEntity(new ByteArrayEntity(body, contentType));
+		try (CloseableHttpResponse response = client().execute(request)) {
+			int status = response.getStatusLine().getStatusCode();
+			if (!isSuccess(status)) {
+				throw errorFor("putProjectFile " + path, status, response);
+			}
+			EntityUtils.consumeQuietly(response.getEntity());
+		}
+	}
+
+	/**
+	 * A new one-time sign-in link of a local dashboard (LOCAL_MODE of collect-earth-cloud): the address the browser
+	 * opens, signed in, within 15 minutes.
+	 */
+	public String newLocalSignInUrl(Destination destination) throws IOException {
+		HttpPost request = new HttpPost(destination.getBaseUrl() + "/v1/local/sign-in-links");
+		prepareWith(request, destination.getToken());
+		String url = textOrNull(executeForJson("newLocalSignInUrl", request), "url");
+		if (url == null || url.isEmpty()) {
+			throw new IOException("The dashboard did not answer with a sign-in link");
+		}
+		return url;
+	}
+
 	/** True if the configured project is reachable and the token is accepted. */
 	public boolean ping() {
 		HttpGet request = new HttpGet(baseUrl() + "/v1/projects/" + projectId());
@@ -130,14 +201,19 @@ public class CloudApiClient {
 	 * and returns the per-record store results in the order the server reports them.
 	 */
 	public List<BatchResult> uploadRecordsBatch(List<RecordEnvelope> envelopes) throws IOException {
+		return uploadRecordsBatch(cloudDestination(), envelopes);
+	}
+
+	/** The same as {@link #uploadRecordsBatch(List)}, to another server than the cloud project of the settings. */
+	public List<BatchResult> uploadRecordsBatch(Destination destination, List<RecordEnvelope> envelopes) throws IOException {
 		ObjectNode root = objectMapper.createObjectNode();
 		ArrayNode records = root.putArray("records");
 		for (RecordEnvelope envelope : envelopes) {
 			records.add(toJson(envelope));
 		}
 
-		HttpPost request = new HttpPost(baseUrl() + "/v1/projects/" + projectId() + "/records:batch");
-		prepare(request);
+		HttpPost request = new HttpPost(destination.projectUrl("/records:batch"));
+		prepareWith(request, destination.getToken());
 		StringEntity payload = new StringEntity(root.toString(), ContentType.APPLICATION_JSON);
 		request.setEntity(new GzipCompressingEntity(payload));
 

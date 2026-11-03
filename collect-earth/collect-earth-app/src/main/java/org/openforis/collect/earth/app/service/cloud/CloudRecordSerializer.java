@@ -96,6 +96,15 @@ public class CloudRecordSerializer {
 		public int getPayloadVersion() {
 			return PAYLOAD_VERSION;
 		}
+
+		/**
+		 * The same envelope under another operator: the local dashboard stores the records under its one account
+		 * (the ready line's username), so they are sent with that name.
+		 */
+		public RecordEnvelope withOperator(String newOperator) {
+			return new RecordEnvelope(recordKey, surveyUri, newOperator, modifiedOn, activelySaved, step, xml, summary,
+					deleted);
+		}
 	}
 
 	/** Serializes a record loaded from the local database into its upload envelope. */
