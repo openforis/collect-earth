@@ -222,7 +222,7 @@ export function WeeklyPage({ projectId, week }: { projectId: string; week: strin
   const data = state.data;
   const title = data ? t("weekly.title", { n: String(Number(data.week.slice(6))), year: data.week.slice(0, 4), start: dayText(data.start, language), end: dayText(data.end, language) }) : t("weekly.titleLoading");
   return (
-    <ReportFrame projectId={projectId} title={title} back="activity">
+    <ReportFrame projectId={projectId} title={title} back="activity" printable={state.error === null}>
       {state.loading && !data && <Loading />}
       {state.error !== null && <ErrorAlert error={state.error} onRetry={state.reload} />}
       {data && (

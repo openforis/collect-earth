@@ -42,6 +42,15 @@ export function mayMoveFocus(active: Element | null): boolean {
   return active.closest('[role="tablist"]') === null;
 }
 
+/** The first sentence of an error the page shows (an alert of severity error), if any. */
+export function errorText(root: ParentNode): string | null {
+  const alert = root.querySelector(".MuiAlert-standardError .MuiAlert-message, .MuiAlert-colorError .MuiAlert-message");
+  const text = (alert?.textContent ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return null;
+  const first = text.split(/(?<=[.!?])\s/)[0];
+  return first.length > 80 ? `${first.slice(0, 79)}…` : first;
+}
+
 function selectedTab(root: ParentNode): string | null {
   return root.querySelector('[role="tab"][aria-selected="true"]')?.textContent ?? null;
 }
@@ -70,7 +79,8 @@ export function usePageFocus(
       window.clearTimeout(timer);
       const h1 = main.querySelector("h1");
       const own = heading && heading !== h1 ? heading.textContent : null;
-      const title = pageTitleOf({ own, fallback, tab: selectedTab(main), h1: h1?.textContent ?? null, server: serverName });
+      // Without a heading, the error the page shows names it ("Not found – Our server").
+      const title = pageTitleOf({ own: own ?? (heading ? null : errorText(main)), fallback, tab: selectedTab(main), h1: h1?.textContent ?? null, server: serverName });
       if (!ownTitle) document.title = title || serverName;
       if (!moved) return;
       if (heading && mayMoveFocus(document.activeElement)) {
@@ -84,6 +94,8 @@ export function usePageFocus(
     const look = () => {
       const heading = pageHeading(main, ownHeading);
       if (heading && (heading.textContent ?? "").trim()) finish(heading);
+      // A page that could not load shows an error instead of its heading: no need to wait for one.
+      else if (!heading && errorText(main)) finish(null);
     };
     const observer = new MutationObserver(look);
     observer.observe(main, { childList: true, subtree: true, characterData: true });

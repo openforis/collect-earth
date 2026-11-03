@@ -322,7 +322,9 @@ export function SyncSection({ data, self }: { data: PersonData; self: boolean })
         </Typography>
       </Line>
       <Line label={t("person.syncs")}>
-        <Typography>{t("person.syncsText", { syncs: formatNumber(s.syncsCount, language), records: formatNumber(s.recordsReceived, language) })}</Typography>
+        <Typography>{s.syncsCount === 1 ? t("person.syncsOnlyOne") : t("person.syncsOnly", { n: formatNumber(s.syncsCount, language) })}
+          {", "}
+          {s.recordsReceived === 1 ? t("person.receivedOnlyOne") : t("person.receivedOnly", { n: formatNumber(s.recordsReceived, language) })}</Typography>
       </Line>
       {s.oldProjectFile && (
         <Alert severity="warning" sx={{ mt: 2 }}>

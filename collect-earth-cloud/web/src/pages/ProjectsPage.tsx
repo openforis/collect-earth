@@ -71,6 +71,7 @@ function NewProjectDialog({ open, onClose }: { open: boolean; onClose: () => voi
               }}
               autoFocus
               required
+              slotProps={{ htmlInput: { maxLength: 200 } }}
             />
             <ErrorAlert error={error} />
           </Stack>

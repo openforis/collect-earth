@@ -10,14 +10,16 @@ export function ErrorAlert({ error, onRetry }: { error: unknown; onRetry?: () =>
   if (!error) return null;
   const key = errorMessageKey(error);
   // A generic sentence says little: the server's own reason (in English) tells what to fix.
+  // Trying again cannot help when the answer is "not allowed" or "not there".
+  const retry = onRetry && !(error instanceof ApiError && (error.status === 403 || error.status === 404)) ? onRetry : undefined;
   const reason = (key === "error.badRequest" || key === "error.unknown") && error instanceof ApiError ? error.reason : null;
   return (
     <Alert
       severity="error"
       role="alert"
       action={
-        onRetry ? (
-          <Button color="inherit" size="small" onClick={onRetry}>
+        retry ? (
+          <Button color="inherit" size="small" onClick={retry}>
             {t("common.retry")}
           </Button>
         ) : undefined

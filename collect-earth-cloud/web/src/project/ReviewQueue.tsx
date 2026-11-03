@@ -517,7 +517,7 @@ export function ReviewQueue({
       );
       const nextItem = items[next];
       setAnnounce(
-        `${t("queue.decidedAnnounce", { plot, decision: t(DECISION_LABEL[kind]) })}${nextItem && next !== index ? ` ${t("queue.nowAnnounce", { plot: nextItem.plot, n: next + 1, total: items.length })}` : ""}`,
+        `${t("queue.decidedAnnounce", { plot, decision: t(DECISION_LABEL[kind]) })}${nextItem && next !== index ? ` ${t("queue.nowAnnounce", { plot: nextItem.plot, n: formatNumber(next + 1, language), total: formatNumber(Math.max(data?.total ?? 0, items.length), language) })}` : ""}`,
       );
       goTo(next, true);
       setComment("");
@@ -555,7 +555,7 @@ export function ReviewQueue({
     const next = stepIndex(index, items.length, step);
     if (next === index) return;
     const item = items[next];
-    setAnnounce(t("queue.nowAnnounce", { plot: item.plot, n: next + 1, total: items.length }));
+    setAnnounce(t("queue.nowAnnounce", { plot: item.plot, n: formatNumber(next + 1, language), total: formatNumber(Math.max(data?.total ?? 0, items.length), language) }));
     goTo(next, withFocus);
   };
 

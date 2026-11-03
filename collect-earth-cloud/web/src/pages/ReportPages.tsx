@@ -48,11 +48,14 @@ export function ReportFrame({
   projectId,
   title,
   back,
+  printable = true,
   children,
 }: {
   projectId: string;
   title: string;
   back: ProjectTab;
+  /** False while there is nothing to print (loading, or refused). */
+  printable?: boolean;
   children: ReactNode;
 }) {
   const t = useT();
@@ -64,9 +67,11 @@ export function ReportFrame({
           <Button startIcon={<ArrowBack />} {...linkProps(pathFor({ name: "project", projectId, tab: back }))}>
             {t("report.back")}
           </Button>
-          <Button startIcon={<Print />} variant="outlined" onClick={() => window.print()}>
-            {t("common.print")}
-          </Button>
+          {printable && (
+            <Button startIcon={<Print />} variant="outlined" onClick={() => window.print()}>
+              {t("common.print")}
+            </Button>
+          )}
         </Stack>
         <div>
           <Typography variant="h1" sx={{ wordBreak: "break-word" }}>
@@ -251,7 +256,7 @@ export function TeamReportPage({ projectId }: { projectId: string }) {
   const data = report.data;
   const labels = new Map((data?.questions ?? []).map((q) => [q.key, q.label]));
   return (
-    <ReportFrame projectId={projectId} title={t("teamReport.title")} back="quality">
+    <ReportFrame projectId={projectId} title={t("teamReport.title")} back="quality" printable={Boolean(data)}>
       <Typography color="text.secondary">{t("teamReport.intro")}</Typography>
       {!data ? (
         report.loading ? <Loading /> : <ErrorAlert error={report.error} onRetry={report.reload} />

@@ -67,6 +67,8 @@ function RenameCard({ projectId, name, onRenamed }: { projectId: string; name: s
           error={empty}
           helperText={empty ? t("error.required") : t("settings.nameHelp")}
           required
+          // As the server takes it (1-200 characters).
+          slotProps={{ htmlInput: { maxLength: 200 } }}
         />
         {done && (
           <Alert severity="success" role="status">
@@ -75,7 +77,7 @@ function RenameCard({ projectId, name, onRenamed }: { projectId: string; name: s
         )}
         <ErrorAlert error={error} />
         <Box>
-          <Button type="submit" variant="contained" disabled={busy || value.trim() === name}>
+          <Button type="submit" variant="contained" disabled={busy || value.trim() === name || value.trim() === ""}>
             {t("common.save")}
           </Button>
         </Box>

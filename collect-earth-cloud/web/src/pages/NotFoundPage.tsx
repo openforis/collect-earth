@@ -11,6 +11,7 @@ export function NotFoundPage() {
     <AppShell>
       <Paper variant="outlined">
         <EmptyState
+          heading
           title={t("notFound.title")}
           action={
             <Button variant="contained" {...linkProps("/")}>
