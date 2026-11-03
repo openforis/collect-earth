@@ -1,4 +1,4 @@
-import { type HTMLAttributes, type Key, memo, useEffect, useRef, useState } from "react";
+import { type HTMLAttributes, type Key, createContext, memo, useContext, useEffect, useRef, useState } from "react";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
@@ -18,6 +18,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { type Translate, useT } from "../i18n";
+import { choiceKey, isKeyboardClick } from "../shortcuts";
 import {
   type CodeItem, type Field, type FieldInfo, clickCode, coordinateFromInput, coordinateToInput, dateFromInput,
   dateToInput, normalizeNumber, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput, requiredMessage, selectCodes,
@@ -45,6 +46,12 @@ export function errorText(t: Translate, field: Field, value: string, message: st
   const required = value.trim() === "" && !field.readOnly ? requiredMessage(field) : null;
   return required ? t(required) : plainMessage(message);
 }
+
+/**
+ * Told the name of a single-choice question answered from the keyboard (a number key, Enter or Space): the form moves
+ * the focus on to the next question to answer. Not after a click: the mouse may be on its way elsewhere.
+ */
+export const AnsweredByKey = createContext<(name: string) => void>(() => {});
 
 /** The id of the message under a field, which its control is described by */
 const errorId = (field: Field) => `${field.name}-error`;
@@ -152,17 +159,25 @@ function ReadOnlyValue({ field, value, info, dense }: FieldProps) {
 /**
  * Items as chips that wrap: every option visible at once, one click to answer (the balloon's buttons). A single choice
  * stays chosen when clicked again; the × after it (for the mouse), or Delete or Backspace on its buttons, clears it.
+ * The question is one Tab stop: the arrows go from answer to answer, Space or Enter picks one, and 1 to 9 the n-th.
  */
 function CodeButtons({ field, value, items, parentLabel, onChange, error, describedBy }: ControlProps) {
   const t = useT();
+  const answeredByKey = useContext(AnsweredByKey);
   const group = useRef<HTMLDivElement>(null);
+  // the answer last focused, which keeps the question's Tab stop
+  const [focused, setFocused] = useState<number | null>(null);
   const selected = parseCodes(value).map((c) => c.code);
   if (!items.length) {
     return <Typography variant="body2" color="text.secondary">{parentLabel ? t("entry.chooseParent", { parent: parentLabel }) : t("entry.noOptions")}</Typography>;
   }
-  const toggle = (code: string) => {
+  // The Tab stop: the answer last focused, else the one chosen, else the first
+  const stop = focused != null && focused < items.length ? focused : Math.max(0, items.findIndex((i) => selected.includes(i.code)));
+  const pick = (code: string, byKey: boolean) => {
     const codes = clickCode(selected, code, !!field.multiple);
     if (codes) onChange(field.name, selectCodes(value, codes));
+    // a single choice made from the keyboard is done with, even when it was the answer already chosen
+    if (byKey && !field.multiple) answeredByKey(field.name);
   };
   const clearable = !field.multiple && selected.length > 0;
   // the × goes once the answer is cleared: the focus goes to the question, not to the page
@@ -174,15 +189,27 @@ function CodeButtons({ field, value, items, parentLabel, onChange, error, descri
   return (
     <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0.75 }}
       onKeyDown={(e) => {
-        if (clearable && (e.key === "Delete" || e.key === "Backspace")) { e.preventDefault(); clear(); }
+        if (clearable && (e.key === "Delete" || e.key === "Backspace")) { e.preventDefault(); clear(); return; }
+        const chips = [...(group.current?.querySelectorAll<HTMLElement>("[data-code]") ?? [])];
+        const at = chips.indexOf(e.target as HTMLElement);
+        const action = choiceKey(e, at < 0 ? stop : at, items.length);
+        if (!action) return;
+        e.preventDefault();
+        if ("focus" in action) {
+          chips[action.focus]?.focus();
+        } else {
+          chips[action.pick]?.focus();
+          pick(items[action.pick].code, true);
+        }
       }}>
       <Box ref={group} role={field.multiple ? "group" : "radiogroup"} aria-label={field.label} id={field.name}
         aria-invalid={error || undefined} aria-describedby={describedBy}
-        sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, ...(error && { p: 0.5, borderRadius: 2, outline: 1, outlineColor: "error.main" }) }}>
-        {items.map((item) => {
+        sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, ...KEY_HINTS_SX, ...(error && { p: 0.5, borderRadius: 2, outline: 1, outlineColor: "error.main" }) }}>
+        {items.map((item, i) => {
           const on = selected.includes(item.code);
           const chip = (
-            <Chip key={item.id} label={item.label} clickable onClick={() => toggle(item.code)}
+            <Chip key={item.id} label={<>{item.label}<KeyHint index={i} /></>} clickable
+              onClick={(e) => pick(item.code, isKeyboardClick(e))} onFocus={() => setFocused(i)} tabIndex={i === stop ? 0 : -1}
               icon={on ? <CheckIcon /> : undefined}
               role={field.multiple ? "checkbox" : "radio"} aria-checked={on} data-code={item.code}
               sx={on ? CODE_ON_SX : CODE_SX} />
@@ -202,9 +229,29 @@ function CodeButtons({ field, value, items, parentLabel, onChange, error, descri
   );
 }
 
+/**
+ * The number key of the answer at `index`, in a corner of its button: shown only while the question has the keyboard's
+ * focus (see KEY_HINTS_SX), so the mouse never sees it, and over the button, so it moves nothing when it shows.
+ */
+function KeyHint({ index }: { index: number }) {
+  if (index >= 9) return null;
+  return <Box component="span" aria-hidden className="ce-key-hint" sx={KEY_HINT_SX}>{index + 1}</Box>;
+}
+
+/** On the answers of a question: their number keys shown while one of them has the keyboard's focus */
+const KEY_HINTS_SX = {
+  "& .ce-key-hint": { display: "none" },
+  "&:has(.Mui-focusVisible) .ce-key-hint": { display: "block" },
+} as const;
+const KEY_HINT_SX = {
+  position: "absolute", top: -6, left: -5, minWidth: 14, height: 14, px: "3px", borderRadius: 7, pointerEvents: "none",
+  fontSize: 10, fontWeight: 700, lineHeight: "12px", textAlign: "center",
+  bgcolor: "background.paper", color: "text.secondary", border: 1, borderColor: "divider",
+} as const;
+
 // The balloon's code buttons: cyan Bootstrap "info" buttons, dark teal once chosen
 const CODE_SX = {
-  height: "auto", minHeight: 32, py: 0.5, borderRadius: 1, border: 1, fontWeight: 500,
+  position: "relative", height: "auto", minHeight: 32, py: 0.5, borderRadius: 1, border: 1, fontWeight: 500,
   bgcolor: "balloon.code", borderColor: "balloon.codeBorder", color: "balloon.codeText",
   "& .MuiChip-label": { whiteSpace: "normal" },
   "&:hover, &.Mui-focusVisible": { bgcolor: "balloon.codeHover" },
@@ -287,18 +334,33 @@ function QualifierInput({ label, name, qualifier, dense, onChange }: { label: st
 
 function BooleanInput({ field, value, onChange, error, describedBy }: ControlProps) {
   const t = useT();
+  const answeredByKey = useContext(AnsweredByKey);
+  const group = useRef<HTMLDivElement>(null);
   if (field.affirmativeOnly) {
     return <FormControlLabel control={<Checkbox id={field.name} checked={value === "true"} slotProps={{ input: { "aria-describedby": describedBy } }} onChange={(e) => onChange(field.name, e.target.checked ? "true" : "")} />} label={t("entry.yes")} />;
   }
+  // The group moves the focus with the arrows itself; 1 answers Yes and 2 No, as the n-th answer of a list
   return (
-    <ToggleButtonGroup exclusive size="small" value={value || null} id={field.name} aria-label={field.label} aria-describedby={describedBy}
-      onChange={(_, v: string | null) => onChange(field.name, v ?? "")}
-      sx={error ? { outline: 1, outlineColor: "error.main", borderRadius: 1 } : undefined}>
-      <ToggleButton value="true" sx={TOGGLE_SX}>{t("entry.yes")}</ToggleButton>
-      <ToggleButton value="false" sx={TOGGLE_SX}>{t("entry.no")}</ToggleButton>
+    <ToggleButtonGroup ref={group} exclusive size="small" value={value || null} id={field.name} aria-label={field.label} aria-describedby={describedBy}
+      onChange={(e, v: string | null) => {
+        onChange(field.name, v ?? "");
+        if (v && isKeyboardClick(e as unknown as { detail: number })) answeredByKey(field.name);
+      }}
+      onKeyDown={(e) => {
+        const action = choiceKey(e, 0, BOOLEAN_VALUES.length);
+        if (!action || !("pick" in action)) return;
+        e.preventDefault();
+        group.current?.querySelectorAll<HTMLElement>("button")[action.pick]?.focus();
+        onChange(field.name, BOOLEAN_VALUES[action.pick]);
+        answeredByKey(field.name);
+      }}
+      sx={{ ...KEY_HINTS_SX, ...(error && { outline: 1, outlineColor: "error.main", borderRadius: 1 }) }}>
+      <ToggleButton value="true" sx={TOGGLE_SX}>{t("entry.yes")}<KeyHint index={0} /></ToggleButton>
+      <ToggleButton value="false" sx={TOGGLE_SX}>{t("entry.no")}<KeyHint index={1} /></ToggleButton>
     </ToggleButtonGroup>
   );
 }
+const BOOLEAN_VALUES = ["true", "false"] as const;
 
 /**
  * Keeps what is typed locally while the debounced save runs, so the caret never jumps: a value coming

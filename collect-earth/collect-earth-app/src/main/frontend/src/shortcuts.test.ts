@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { type KeyPress, escapeBlurs, isFormMessage, isTyping, keyOfMessage, mayTakeFocus, panelKey, submitOnKey } from "./shortcuts";
+import {
+  type KeyPress, choiceKey, escapeBlurs, isFormMessage, isKeyboardClick, isTyping, keyOfMessage, mayTakeFocus, panelKey, submitOnKey,
+} from "./shortcuts";
 
 /** A stand-in for an element: what isTyping reads of one. */
 const element = (tagName: string, extra: Record<string, unknown> = {}) => ({ tagName, isContentEditable: false, ...extra }) as unknown as EventTarget;
@@ -64,6 +66,8 @@ describe("panelKey", () => {
   });
   it("keeps other keys, keys with a modifier and keys the form acted on", () => {
     expect(panelKey(press("a"))).toBeNull();
+    expect(panelKey(press("1"))).toBeNull();
+    expect(panelKey(press("9"))).toBeNull();
     expect(panelKey(press("Enter"))).toBeNull();
     expect(panelKey(press("n", chip, { ctrlKey: true }))).toBeNull();
     expect(panelKey(press("n", chip, { altKey: true }))).toBeNull();
@@ -127,5 +131,43 @@ describe("keyOfMessage", () => {
     expect(keyOfMessage({ type: "ce:key", plotId: "7", key: "x" }, "7")).toBeNull();
     expect(keyOfMessage(null, "7")).toBeNull();
     expect(keyOfMessage("ce:key", "7")).toBeNull();
+  });
+});
+
+describe("choiceKey", () => {
+  it("moves along the answers with the arrows, going round at both ends", () => {
+    expect(choiceKey(press("ArrowRight"), 0, 3)).toEqual({ focus: 1 });
+    expect(choiceKey(press("ArrowDown"), 2, 3)).toEqual({ focus: 0 });
+    expect(choiceKey(press("ArrowLeft"), 0, 3)).toEqual({ focus: 2 });
+    expect(choiceKey(press("ArrowUp"), 2, 3)).toEqual({ focus: 1 });
+    expect(choiceKey(press("Home"), 2, 3)).toEqual({ focus: 0 });
+    expect(choiceKey(press("End"), 0, 3)).toEqual({ focus: 2 });
+  });
+  it("picks the n-th answer with the number keys, of those there are", () => {
+    expect(choiceKey(press("1"), 2, 3)).toEqual({ pick: 0 });
+    expect(choiceKey(press("3"), 0, 3)).toEqual({ pick: 2 });
+    expect(choiceKey(press("4"), 0, 3)).toBeNull();
+    expect(choiceKey(press("9"), 0, 12)).toEqual({ pick: 8 });
+    expect(choiceKey(press("0"), 0, 12)).toBeNull();
+  });
+  it("leaves Alt+arrows to the steps, Ctrl+Enter to Submit, and other keys alone", () => {
+    expect(choiceKey(press("ArrowRight", chip, { altKey: true }), 0, 3)).toBeNull();
+    expect(choiceKey(press("1", chip, { ctrlKey: true }), 0, 3)).toBeNull();
+    expect(choiceKey(press("Enter", chip, { ctrlKey: true }), 0, 3)).toBeNull();
+    expect(choiceKey(press("Enter"), 0, 3)).toBeNull();
+    expect(choiceKey(press(" "), 0, 3)).toBeNull();
+    expect(choiceKey(press("n"), 0, 3)).toBeNull();
+    expect(choiceKey(press("Delete"), 0, 3)).toBeNull();
+  });
+  it("picks nothing with a number held down", () => {
+    expect(choiceKey(press("2", chip, { repeat: true }), 0, 3)).toBeNull();
+  });
+});
+
+describe("isKeyboardClick", () => {
+  it("tells a click made by Enter or Space from one of the mouse", () => {
+    expect(isKeyboardClick({ detail: 0 })).toBe(true);
+    expect(isKeyboardClick({ detail: 1 })).toBe(false);
+    expect(isKeyboardClick({ detail: 2 })).toBe(false);
   });
 });

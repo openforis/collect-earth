@@ -101,3 +101,35 @@ export function submitOnKey(e: KeyPress, submit: () => void): boolean {
   submit();
   return true;
 }
+
+/**
+ * What a key pressed on an answer of a choice question does, the question being one Tab stop (roving tabindex): the
+ * arrows, Home and End move the focus from answer `current` of `count`, and 1 to 9 pick the n-th answer. Enter and Space
+ * are the answer's own, as on any button. Null for any other key, one with a modifier (Alt+arrows change the step), and
+ * a number held down or past the last answer.
+ */
+export function choiceKey(e: Pick<KeyPress, "key" | "ctrlKey" | "metaKey" | "altKey" | "repeat">, current: number,
+  count: number): { focus: number } | { pick: number } | null {
+  if (e.ctrlKey || e.metaKey || e.altKey || count <= 0) return null;
+  switch (e.key) {
+    case "ArrowRight":
+    case "ArrowDown": return { focus: (current + 1) % count };
+    case "ArrowLeft":
+    case "ArrowUp": return { focus: (current - 1 + count) % count };
+    case "Home": return { focus: 0 };
+    case "End": return { focus: count - 1 };
+    default: {
+      if (e.repeat || !/^[1-9]$/.test(e.key)) return null;
+      const n = Number(e.key) - 1;
+      return n < count ? { pick: n } : null;
+    }
+  }
+}
+
+/**
+ * Whether a click on an answer came from the keyboard (Enter or Space on it, or a number key): the browser, and MUI for
+ * the elements that are not buttons, click them with no mouse button pressed (detail 0).
+ */
+export function isKeyboardClick(e: { detail: number }): boolean {
+  return e.detail === 0;
+}

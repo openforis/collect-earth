@@ -32,10 +32,11 @@ import SendIcon from "@mui/icons-material/Send";
 import { type MessageKey, useT } from "../i18n";
 import { escapeBlurs, mayTakeFocus, panelKey, submitOnKey } from "../shortcuts";
 import logo from "./collect-earth-logo.png";
-import { FieldView, errorText } from "./fields";
+import { AnsweredByKey, FieldView, errorText } from "./fields";
 import {
   type Field, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type TableItem,
-  availableItems, entityCount, errorList, indexedField, isTabVisible, isVisible, itemFields, questionToFocus, tabsWithErrors,
+  availableItems, entityCount, errorList, indexedField, isTabVisible, isVisible, itemFields, nextUnanswered, questionToFocus,
+  tabsWithErrors,
 } from "./model";
 import type { FormState, FormStore, SaveState } from "./store";
 
@@ -43,6 +44,8 @@ import type { FormState, FormStore, SaveState } from "./store";
 const NARROW = "@media (max-width: 480px)";
 /** What answers a question from the keyboard, inside its box ([data-field]) */
 const CONTROL = "input:not([disabled]), textarea, [role=radio], [role=checkbox], button";
+/** The longest an answer from the keyboard waits for its save before the focus moves on (see answeredByKey) */
+const ADVANCE_WAIT = 3000;
 
 export function FormApp({ store }: { store: FormStore }) {
   const state = useSyncExternalStore(store.subscribe, store.getState);
@@ -111,12 +114,23 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     opened.current = true;
     // once the questions are rendered
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      const boxes = [...(content.current?.querySelectorAll<HTMLElement>("[data-field]") ?? [])];
-      const questions = boxes.map((box) => ({ name: box.dataset.field ?? "", control: box.querySelector<HTMLElement>(CONTROL) }));
-      const control = questionToFocus(questions, (name) => store.value(name));
+      const control = questionToFocus(questionsShown(content.current), (name) => store.value(name));
       if (control && focusIsFree()) control.focus();
     }));
   }, [known, store]);
+
+  // A single choice answered from the keyboard: on to the next question below it still to answer, else to the footer's
+  // step button (Next step or Submit), for Enter to go on. Once the server answered the save, with the questions the
+  // answer shows (a subdivision of the land use), and rendered them; not if the user moved the focus meanwhile.
+  const answeredByKey = useCallback((name: string) => {
+    const from = document.activeElement;
+    const saved = Promise.race([store.whenSaved(), new Promise<void>((resolve) => setTimeout(resolve, ADVANCE_WAIT))]);
+    void saved.then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (document.activeElement !== from && document.activeElement !== document.body) return;
+      const control = nextUnanswered(questionsShown(content.current), name, (n) => store.value(n));
+      (control ?? document.querySelector<HTMLElement>("[data-step-button]"))?.focus();
+    })));
+  }, [store]);
 
   // Ctrl+Enter submits, before the focused chip or button sees it (see submitOnKey)
   useEffect(() => {
@@ -180,7 +194,9 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
             <Alert severity="warning" variant="outlined">{t("entry.unsupportedSome", { names: model.unsupported.map((u) => u.name).join(", ") })}</Alert>
           )}
           {info.length > 0 && state.tab === firstStep && <HeaderInfo items={info} store={store} />}
-          <TabContent store={store} state={state} items={tab.items} />
+          <AnsweredByKey.Provider value={answeredByKey}>
+            <TabContent store={store} state={state} items={tab.items} />
+          </AnsweredByKey.Provider>
         </Stack>
       </Box>
 
@@ -203,7 +219,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
         <Box sx={{ flex: "none", display: "flex", justifyContent: "flex-end" }}>
           {next >= 0 ? (
             <Tooltip title="Alt+→" describeChild>
-              <Button variant="contained" disableElevation endIcon={<ChevronRightIcon />} onClick={() => goTo(next)} data-testid="entry-next"
+              <Button variant="contained" disableElevation endIcon={<ChevronRightIcon />} onClick={() => goTo(next)} data-testid="entry-next" data-step-button
                 sx={STEP_BUTTON_SX}>
                 {t("entry.next")}
               </Button>
@@ -213,6 +229,12 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
       </Stack>
     </Stack>
   );
+}
+
+/** The questions shown, in their order, each with the control that answers it from the keyboard (null: none) */
+function questionsShown(content: HTMLElement | null): { name: string; control: HTMLElement | null }[] {
+  const boxes = [...(content?.querySelectorAll<HTMLElement>("[data-field]") ?? [])];
+  return boxes.map((box) => ({ name: box.dataset.field ?? "", control: box.querySelector<HTMLElement>(CONTROL) }));
 }
 
 /** Nothing has the focus, in the plots map around the form or in the form: neither the plot search nor a question. */
@@ -299,7 +321,7 @@ function SubmitButton({ store, state }: { store: FormStore; state: FormState }) 
     <Tooltip title="Ctrl+Enter">
       <span>
         <Button variant="contained" disableElevation endIcon={state.submitting ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
-          disabled={state.submitting} onClick={() => void store.submit()} data-testid="entry-submit" sx={STEP_BUTTON_SX}>
+          disabled={state.submitting} onClick={() => void store.submit()} data-testid="entry-submit" data-step-button sx={STEP_BUTTON_SX}>
           {state.submitting ? t("entry.submitting") : t("entry.submit")}
         </Button>
       </span>

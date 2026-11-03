@@ -274,6 +274,23 @@ export class FormStore {
     return response;
   }
 
+  /**
+   * Resolves once nothing typed or picked is waiting to be saved and the server's answer to it is in, with the questions
+   * it showed or hid; or once the save failed.
+   */
+  whenSaved = (): Promise<void> => new Promise((resolve) => {
+    const settled = () => this.state.saveState !== "unsaved" && this.state.saveState !== "saving";
+    if (settled()) {
+      resolve();
+      return;
+    }
+    const stop = this.subscribe(() => {
+      if (!settled()) return;
+      stop();
+      resolve();
+    });
+  });
+
   // ---------- submit ----------
 
   submit = async (): Promise<boolean> => {

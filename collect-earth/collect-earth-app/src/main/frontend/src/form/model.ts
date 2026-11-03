@@ -399,3 +399,13 @@ export function isTabVisible(tab: Tab, infos: Record<string, FieldInfo>): boolea
 export function questionToFocus<T>(questions: { name: string; control: T | null }[], value: (name: string) => string): T | null {
   return questions.find((q) => q.control != null && value(q.name).trim() === "")?.control ?? null;
 }
+
+/**
+ * The control to focus once question `from` is answered from the keyboard: that of the next question below it not
+ * answered yet, or null when none is left below it (the questions as for {@link questionToFocus}).
+ */
+export function nextUnanswered<T>(questions: { name: string; control: T | null }[], from: string,
+  value: (name: string) => string): T | null {
+  const at = questions.findIndex((q) => q.name === from);
+  return at < 0 ? null : questionToFocus(questions.slice(at + 1), value);
+}

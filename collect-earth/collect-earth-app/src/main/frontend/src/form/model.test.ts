@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type Field, type FormModel, availableItems, clickCode, dateFromInput, dateToInput, entityCount, errorList, fieldsByName,
-  indexedField, isTabVisible, questionToFocus, joinValues, mergeInfos, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
+  indexedField, isTabVisible, questionToFocus, joinValues, mergeInfos, nextUnanswered, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
   requiredMessage, saveBody, selectCodes, splitValues, tabsWithErrors, timeToInput,
 } from "./model";
 
@@ -202,5 +202,20 @@ describe("questionToFocus", () => {
     expect(questionToFocus([{ name: "calc", control: null }, { name: "lu", control: "lu-chip" }], value)).toBeNull();
     expect(questionToFocus([{ name: "calc", control: null }], value)).toBeNull();
     expect(questionToFocus([], value)).toBeNull();
+  });
+});
+
+describe("nextUnanswered", () => {
+  const values: Record<string, string> = { lu: "F", calc: "", sub: "", note: "", first: "" };
+  const value = (name: string) => values[name] ?? "";
+  const questions = [{ name: "first", control: "first-chip" }, { name: "lu", control: "lu-chip" }, { name: "calc", control: null },
+    { name: "sub", control: "sub-chip" }, { name: "note", control: "note-input" }];
+  it("is the next question below the one answered not answered yet, passing over those with nothing to answer", () => {
+    expect(nextUnanswered(questions, "lu", value)).toBe("sub-chip");
+    expect(nextUnanswered(questions, "sub", value)).toBe("note-input");
+  });
+  it("never goes back up to a question left above, and is none past the last one", () => {
+    expect(nextUnanswered(questions, "note", value)).toBeNull();
+    expect(nextUnanswered(questions, "gone", value)).toBeNull();
   });
 });
