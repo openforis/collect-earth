@@ -161,10 +161,11 @@ export class FormStore {
           incomplete, attempted: incomplete, submitErrors: incomplete ? left : null,
         });
       } else {
-        // No record yet: create it now, as the balloon does, so its relevance and defaults come back
+        // No record yet: the server builds one, as for the balloon, so its relevance and defaults come back. It stores
+        // it only with the first answer, so there is nothing saved yet, and the plot is still not started
         this.set({ model, phase: "ready" });
         await this.save(false);
-        this.set({ tab: this.firstVisibleTab(0) });
+        this.set({ tab: this.firstVisibleTab(0), ...(this.state.saveState === "saved" ? { saveState: "idle" as const } : {}) });
       }
     } catch (e) {
       this.set({ phase: "failed", failure: (e as Error).message, serverDown: true });

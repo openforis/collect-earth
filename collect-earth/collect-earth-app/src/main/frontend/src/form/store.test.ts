@@ -18,13 +18,14 @@ let posted: Record<string, unknown>[];
 /** Collect Earth's answer to a save (save-data-expanded), and to an entity added */
 let saved: Record<string, FieldInfo>;
 
-function serve(opened: { activelySaved: boolean; infos: Record<string, FieldInfo> }) {
+/** opened: Collect Earth's answer to opening the plot, null when it has no record of it */
+function serve(opened: { activelySaved: boolean; infos: Record<string, FieldInfo> } | null) {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     const path = url.replace("http://localhost:8028/earth/", "");
     const json = path === "surveyForm" ? model
       : path.startsWith("surveyForm/plot") ? { values: {} }
         : path.startsWith("placemark-info-expanded")
-          ? { success: true, activelySaved: opened.activelySaved, inputFieldInfoByParameterName: opened.infos }
+          ? opened ? { success: true, activelySaved: opened.activelySaved, inputFieldInfoByParameterName: opened.infos } : { success: false }
           : { success: true, activelySaved: false, inputFieldInfoByParameterName: saved };
     return { ok: true, json: async () => json };
   }));
@@ -103,5 +104,17 @@ describe("required questions", () => {
     expect(store.isRequired("collect_boolean_trees")).toBe(false);
     store.setValue("collect_code_lu", "F");
     expect(store.isRequired("collect_code_lu")).toBe(true);
+  });
+});
+
+describe("a plot with no record", () => {
+  it("opens with nothing saved and nothing changed: the plots map is not told it is started", async () => {
+    serve(null);
+    saved = { collect_code_lu: {}, collect_boolean_trees: {} };
+    const store = new FormStore("p1");
+    await store.load();
+    expect(store.getState()).toMatchObject({ phase: "ready", saveState: "idle" });
+    expect(store.getState().infos).toHaveProperty("collect_code_lu");
+    expect(dirty()).toEqual([]);
   });
 });

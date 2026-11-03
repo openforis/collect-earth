@@ -1,0 +1,64 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<survey lastId="30" collect:target="CE" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth">
+  <project>Untouched plot</project>
+  <uri>http://www.openforis.org/idm/collect_earth_untouched_plot_test</uri>
+  <cycle>2026</cycle>
+  <language>en</language>
+  <applicationOptions>
+    <options type="ui">
+<n0:tabSet name="plot_tab_set" xmlns:n0="http://www.openforis.org/collect/3.0/ui">
+  <n0:tab name="plot_tab">
+    <n0:label>Plot</n0:label>
+  </n0:tab>
+</n0:tabSet>
+    </options>
+  </applicationOptions>
+  <codeLists>
+    <list id="10" name="land_use">
+      <items>
+        <item id="11">
+          <code>F</code>
+          <label>Forest</label>
+        </item>
+        <item id="12">
+          <code>G</code>
+          <label>Grassland</label>
+        </item>
+      </items>
+    </list>
+  </codeLists>
+  <schema>
+    <entity id="1" name="plot" ui:tab="plot_tab" ui:tabSet="plot_tab_set">
+      <label type="instance">Plot</label>
+      <text id="2" name="id" required="true" key="true" type="short">
+        <label type="instance">Id</label>
+      </text>
+      <text id="3" name="operator" type="short">
+        <label type="instance">Operator</label>
+      </text>
+      <text id="4" name="region" type="short" collectearth:fromcsv="true">
+        <label type="instance">Region (plot file)</label>
+      </text>
+      <text id="5" name="assessment" type="short">
+        <label type="instance">Assessment</label>
+        <default expr="'visual'"/>
+      </text>
+      <text id="6" name="region_label" type="short" calculated="true">
+        <label type="instance">Region label</label>
+        <default expr="concat('R-', region)"/>
+      </text>
+      <code id="7" name="land_use" list="land_use">
+        <label type="instance">Land use</label>
+      </code>
+      <text id="8" name="notes" type="short">
+        <label type="instance">Notes</label>
+      </text>
+      <boolean id="9" name="actively_saved">
+        <label type="instance">Actively saved by user</label>
+      </boolean>
+      <date id="20" name="actively_saved_on" relevant="false()">
+        <label type="instance">Last saved on</label>
+      </date>
+    </entity>
+  </schema>
+</survey>

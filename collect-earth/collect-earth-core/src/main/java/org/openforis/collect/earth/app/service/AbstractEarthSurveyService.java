@@ -6,6 +6,7 @@ import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_ON_P
 import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_ON_PARAMETER_OLD;
 import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.COLLECT_REASON_BLANK_NOT_SPECIFIED_MESSAGE;
+import static org.openforis.collect.earth.app.EarthConstants.OPERATOR_ATTRIBUTE_NAME;
 import static org.openforis.collect.earth.app.EarthConstants.OPERATOR_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.PLACEMARK_FOUND_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.ROOT_ENTITY_NAME;
@@ -14,13 +15,16 @@ import static org.openforis.collect.earth.app.EarthConstants.SKIP_FILLED_PLOT_PA
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -38,6 +42,7 @@ import org.openforis.collect.earth.core.model.PlacemarkInputFieldInfo;
 import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
 import org.openforis.collect.manager.RecordManager;
 import org.openforis.collect.manager.SurveyManager;
+import org.openforis.collect.metamodel.CollectAnnotations;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.model.CollectRecordSummary;
@@ -85,6 +90,20 @@ public abstract class AbstractEarthSurveyService {
 	private static final String PREVIEW_PLACEMARK_ID = "testPlacemark";
 	private static final ValidationMessageBuilder VALIDATION_MESSAGES = ValidationMessageBuilder.createInstance();
 	private static final String PREVIEW_PLACEMARK_ID_PLACEHOLDER = "$[EXTRA_id]";
+
+	/** Root attributes that Collect Earth fills itself with every save: none of them is an answer of the collector */
+	private static final Set<String> FILLED_BY_COLLECT_EARTH = new HashSet<>(Arrays.asList(OPERATOR_ATTRIBUTE_NAME,
+			"location", "plot_file", ACTIVELY_SAVED_ATTRIBUTE_NAME, ACTIVELY_SAVED_ON_ATTRIBUTE_NAME)); //$NON-NLS-1$ //$NON-NLS-2$
+
+	/** Where a plot is in its data collection, as the plots map, its lists and the Google Earth Pro icons show it */
+	public enum PlotStatus {
+		/** no record, or one with nothing the collector answered: only the values of the plot file, defaults, calculations */
+		NOT_STARTED,
+		/** something answered, not submitted */
+		IN_PROGRESS,
+		/** submitted with every answer it needs (actively saved) */
+		SUBMITTED
+	}
 
 	@Autowired
 	protected LocalPropertiesService localPropertiesService;
@@ -514,6 +533,65 @@ public abstract class AbstractEarthSurveyService {
 		return parameters != null && "true".equals(parameters.get(ACTIVELY_SAVED_PARAMETER)); //$NON-NLS-1$
 	}
 
+	/**
+	 * The status of the plot as stored. A record is not enough for a plot to be started: opening a plot used to store one
+	 * with only the values of the plot file, the defaults and the calculations, and the plot showed as started with
+	 * nothing answered.
+	 */
+	public PlotStatus getPlotStatus(String[] keyAttributes) {
+		return getPlotStatus(loadRecord(keyAttributes, false));
+	}
+
+	public static PlotStatus getPlotStatus(CollectRecord record) {
+		if (record == null) {
+			return PlotStatus.NOT_STARTED;
+		} else if (isActivelySaved(record)) {
+			return PlotStatus.SUBMITTED;
+		} else {
+			return hasCollectorInput(record) ? PlotStatus.IN_PROGRESS : PlotStatus.NOT_STARTED;
+		}
+	}
+
+	private static boolean isActivelySaved(CollectRecord record) {
+		Node<?> node = record.findNodeByPath(ROOT_ENTITY_NAME + "/" + ACTIVELY_SAVED_ATTRIBUTE_NAME); //$NON-NLS-1$
+		return node instanceof BooleanAttribute && ((BooleanAttribute) node).getValue() != null
+				&& Boolean.TRUE.equals(((BooleanAttribute) node).getValue().getValue());
+	}
+
+	/**
+	 * Whether the record holds a value that the collector gave: not a key, not a value of the plot file ("from CSV"), not
+	 * one Collect Earth fills itself (the operator, the location...), not a calculated one and not a default value left as
+	 * it was applied. Collect clears the mark of a default value when the attribute is updated, and stores it with the
+	 * record.
+	 */
+	public static boolean hasCollectorInput(CollectRecord record) {
+		CollectAnnotations annotations = ((CollectSurvey) record.getSurvey()).getAnnotations();
+		return hasCollectorInput(record.getRootEntity(), annotations);
+	}
+
+	private static boolean hasCollectorInput(Entity entity, CollectAnnotations annotations) {
+		for (Node<?> child : entity.getChildren()) {
+			if (child instanceof Entity) {
+				if (hasCollectorInput((Entity) child, annotations)) {
+					return true;
+				}
+			} else if (child instanceof Attribute && isCollectorInput((Attribute<?, ?>) child, annotations)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean isCollectorInput(Attribute<?, ?> attribute, CollectAnnotations annotations) {
+		AttributeDefinition def = attribute.getDefinition();
+		if (!attribute.hasData() || def.isKey() || def.isCalculated() || attribute.isDefaultValueApplied()
+				|| annotations.isFromCollectEarthCSV(def)) {
+			return false;
+		}
+		boolean ofRootEntity = attribute.getParent() != null && attribute.getParent().getParent() == null;
+		return !(ofRootEntity && FILLED_BY_COLLECT_EARTH.contains(def.getName()));
+	}
+
 	public synchronized void setCollectSurvey(CollectSurvey collectSurvey) {
 		// Persist any pending changes and drop cached records: they belong to the
 		// previous survey/project and must not leak into the new one.
@@ -645,7 +723,7 @@ public abstract class AbstractEarthSurveyService {
 				if (record == null) {
 					return updatePlacemarkDataNewRecord(plotKeyAttributes, parameters, sessionId, key);
 				} else {
-					return updatePlacemarkDataExistingRecord(parameters, sessionId, partialUpdate, record, key);
+					return updatePlacemarkDataExistingRecord(parameters, sessionId, partialUpdate, record, key, false);
 				}
 			}
 		} catch (Exception e) {
@@ -673,11 +751,32 @@ public abstract class AbstractEarthSurveyService {
 	}
 
 
+	/**
+	 * The first save of a plot. Opening a plot sends one, with the values of the plot file only, to get the defaults, the
+	 * relevance and the validation of the new record back. The record is stored only once it holds something the
+	 * collector answered, or is submitted: a plot opened and left as it was stays not started, and nothing is saved for it
+	 * (the listeners of the saves hear nothing either).
+	 */
 	private PlacemarkLoadResult updatePlacemarkDataNewRecord(String[] plotKeyAttributes, Map<String, String> parameters,
 			String sessionId, String key) throws RecordPersistenceException {
+		Map<String, String> invalidValues = new LinkedHashMap<>();
+		CollectRecord record = createNewRecord(plotKeyAttributes, parameters, invalidValues);
+
+		if (isPlacemarkSavedActively(parameters)) {
+			// Submitted before anything was stored (every answer a default value): checked and submitted as any plot is
+			return updatePlacemarkDataExistingRecord(parameters, sessionId, false, record, key, true);
+		}
+		if (hasCollectorInput(record)) {
+			persistOrDefer(key, record, sessionId, false);
+		}
+		return withInvalidValues(createPlacemarkLoadSuccessResult(record), invalidValues);
+	}
+
+	/** A record of the plot with the values received, not stored */
+	private CollectRecord createNewRecord(String[] plotKeyAttributes, Map<String, String> parameters,
+			Map<String, String> invalidValues) {
 		CollectRecord record = createRecord();
 
-		Map<String, String> invalidValues = new LinkedHashMap<>();
 		collectParametersHandler.saveToEntity(parameters, record.getRootEntity(), true, invalidValues);
 
 		// update actively_saved_on attribute now, otherwise if it's empty
@@ -687,13 +786,16 @@ public abstract class AbstractEarthSurveyService {
 
 		updateKeyAttributeValues(record, plotKeyAttributes);
 		record.setModifiedDate(new Date());
-		persistOrDefer(key, record, sessionId, isPlacemarkSavedActively(parameters));
-		return withInvalidValues(createPlacemarkLoadSuccessResult(record), invalidValues);
+		return record;
 	}
 
 
+	/**
+	 * @param notStored
+	 *            a new record, stored only when it is submitted or holds something the collector answered
+	 */
 	private PlacemarkLoadResult updatePlacemarkDataExistingRecord(Map<String, String> parameters, String sessionId,
-			boolean partialUpdate, CollectRecord record, String key) throws RecordPersistenceException {
+			boolean partialUpdate, CollectRecord record, String key, boolean notStored) throws RecordPersistenceException {
 		// Populate the data of the record using the HTTP parameters
 		// received
 		Entity plotEntity = record.getRootEntity();
@@ -739,7 +841,9 @@ public abstract class AbstractEarthSurveyService {
 
 		// Persisted synchronously when the user explicitly submits & validates, otherwise
 		// deferred (write-behind) to keep interactive field changes fast on a remote DB.
-		persistOrDefer(key, record, sessionId, userClickOnSubmitAndValidate);
+		if (!notStored || isActivelySaved(record) || hasCollectorInput(record)) {
+			persistOrDefer(key, record, sessionId, userClickOnSubmitAndValidate);
+		}
 
 		if (partialUpdate) {
 			return withInvalidValues(createPlacemarkLoadSuccessResult(record, changeSet), invalidValues);
@@ -753,14 +857,21 @@ public abstract class AbstractEarthSurveyService {
 		if (isPreviewRecordID(plotKeyAttributes)) {
 			return updatePreviewPlacemarkAddNewEntity(plotKeyAttributes, entityName, parameters, sessionId);	
 		} else {
-			return updatePlacemarkAddNewEntityToExistingRecord(plotKeyAttributes, entityName, sessionId);
+			return updatePlacemarkAddNewEntityToExistingRecord(plotKeyAttributes, entityName, parameters, sessionId);
 		}
 	}
 
-	private PlacemarkLoadResult updatePlacemarkAddNewEntityToExistingRecord(String[] plotKeyAttributes, String entityName, String sessionId) {
+	private PlacemarkLoadResult updatePlacemarkAddNewEntityToExistingRecord(String[] plotKeyAttributes, String entityName,
+			Map<String, String> parameters, String sessionId) {
 		try {
 			String key = cacheKey(plotKeyAttributes);
 			CollectRecord record = getWorkingRecord(key, plotKeyAttributes);
+			if (record == null) {
+				// Opening a plot does not store its record: the first row added does, with the values of the plot file
+				Map<String, String> values = new HashMap<>(parameters == null ? Collections.emptyMap() : parameters);
+				values.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
+				record = createNewRecord(plotKeyAttributes, values, new LinkedHashMap<>());
+			}
 			Entity rootEntity = record.getRootEntity();
 			NodeChangeSet changeSet = recordUpdater.addEntity(rootEntity, entityName);
 			persistOrDefer(key, record, sessionId, true);
@@ -795,8 +906,8 @@ public abstract class AbstractEarthSurveyService {
 		try {
 			String key = cacheKey(plotKeyAttributes);
 			CollectRecord record = getWorkingRecord(key, plotKeyAttributes);
-			Entity rootEntity = record.getRootEntity();
-			List<Node<? extends NodeDefinition>> entities = rootEntity.getChildren(entityName);
+			// no record: the plot was opened and nothing stored yet
+			List<Node<? extends NodeDefinition>> entities = record == null ? null : record.getRootEntity().getChildren(entityName);
 			if (entities == null || entities.isEmpty()) {
 				logger.warn("No entities found with name '{}' to delete", entityName);
 				PlacemarkLoadResult result = new PlacemarkLoadResult();

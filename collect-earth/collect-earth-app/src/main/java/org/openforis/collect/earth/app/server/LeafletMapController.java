@@ -14,6 +14,7 @@ import java.util.Set;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.IOUtils;
+import org.openforis.collect.earth.app.service.AbstractEarthSurveyService.PlotStatus;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -215,6 +216,18 @@ public class LeafletMapController {
 		json.writeValue(response.getOutputStream(), config);
 	}
 
+	/** The status as the plots map names it */
+	static String statusName(PlotStatus status) {
+		switch (status) {
+		case SUBMITTED:
+			return "saved";
+		case IN_PROGRESS:
+			return "partial";
+		default:
+			return "empty";
+		}
+	}
+
 	@GetMapping("/plotStatuses")
 	public void plotStatuses(HttpServletResponse response,
 			@RequestParam(value = "since", required = false) Long sinceMillis) throws IOException {
@@ -239,14 +252,8 @@ public class LeafletMapController {
 					if (keys == null || keys.isEmpty() || !plotIds.contains(String.join(",", keys))) continue;
 					String[] keyArray = keys.toArray(new String[0]);
 					try {
-						Map<String, String> placemark = earthSurveyService.getPlacemark(keyArray, false);
-						String status = "partial";
-						if (earthSurveyService.isPlacemarkSavedActively(placemark)) {
-							status = "saved";
-						} else if (!earthSurveyService.isPlacemarkEdited(placemark)) {
-							status = "empty";
-						}
-						statuses.put(String.join(",", keys), status);
+						// a record with nothing answered (stored by opening the plot, before) is not started
+						statuses.put(String.join(",", keys), statusName(earthSurveyService.getPlotStatus(keyArray)));
 					} catch (Exception e) {
 						logger.debug("Could not read status for {}", keys);
 					}

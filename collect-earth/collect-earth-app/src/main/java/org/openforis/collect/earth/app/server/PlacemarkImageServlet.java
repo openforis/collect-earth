@@ -6,7 +6,6 @@ import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
-import java.util.Map;
 
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
@@ -15,6 +14,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.service.AbstractEarthSurveyService.PlotStatus;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.PreloadedFilesService;
 import org.slf4j.Logger;
@@ -85,11 +85,11 @@ public class PlacemarkImageServlet extends JsonPocessorServlet {
 		String imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;
 		try {
 
-			final Map<String, String> placemarkParameters = earthSurveyService.getPlacemark(keys,false);
-
-			if (earthSurveyService.isPlacemarkSavedActively(placemarkParameters)) {
+			// a record with nothing answered (stored by opening the plot, before) is not started, as on the plots map
+			PlotStatus status = earthSurveyService.getPlotStatus(keys);
+			if (status == PlotStatus.SUBMITTED) {
 				imageName = EarthConstants.LIST_FILLED_IMAGE;
-			} else if (earthSurveyService.isPlacemarkEdited(placemarkParameters)) {
+			} else if (status == PlotStatus.IN_PROGRESS) {
 				imageName = EarthConstants.LIST_NOT_FINISHED_IMAGE;
 			} else {
 				imageName = EarthConstants.LIST_NON_FILLED_IMAGE;

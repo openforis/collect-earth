@@ -156,8 +156,8 @@ class SubmitAfterRelevanceChangeTest {
 		}
 	}
 
-	/** The items of the code lists of the survey, without a database */
-	private static class InMemoryCodeListService implements CodeListService {
+	/** The items of the code lists of the survey, without a database (UntouchedPlotTest uses them too) */
+	static class InMemoryCodeListService implements CodeListService {
 
 		@SuppressWarnings("unchecked")
 		@Override
