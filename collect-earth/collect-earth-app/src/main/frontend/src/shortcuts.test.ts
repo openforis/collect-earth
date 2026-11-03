@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  type KeyPress, choiceKey, escapeBlurs, isFormMessage, isKeyboardClick, isTyping, keyOfMessage, mayAdvance, mayTakeFocus, panelKey,
+  type KeyPress, FOCUS_KEY_WINDOW, choiceKey, escapeBlurs, focusMovedByKey, isFormMessage, isKeyboardClick, isTyping, keyOfMessage, mayAdvance, mayTakeFocus, panelKey,
   submitOnKey,
 } from "./shortcuts";
 
@@ -189,5 +189,28 @@ describe("mayAdvance", () => {
     expect(mayAdvance(true, other, chosen, body, false)).toBe(false);
     expect(mayAdvance(true, body, chosen, body, true)).toBe(false);
     expect(mayAdvance(true, chosen, chosen, body, true)).toBe(false);
+  });
+});
+
+describe("focusMovedByKey", () => {
+  it("takes a focus right after Tab, an arrow, Home or End as the user's", () => {
+    for (const key of ["Tab", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"]) {
+      expect(focusMovedByKey({ key, at: 1000 }, 1020)).toBe(true);
+    }
+  });
+
+  it("does not take the focus the form gives itself for the user's", () => {
+    // the plot opened, no key pressed yet
+    expect(focusMovedByKey(null, 1000)).toBe(false);
+    // an answer given with Enter, Space or a number: the form moves on to the next question
+    expect(focusMovedByKey({ key: "Enter", at: 1000 }, 1020)).toBe(false);
+    expect(focusMovedByKey({ key: " ", at: 1000 }, 1020)).toBe(false);
+    expect(focusMovedByKey({ key: "2", at: 1000 }, 1020)).toBe(false);
+  });
+
+  it("does not take a focus long after the key for the user's", () => {
+    // Tab pressed in the last plot, a new one opened since
+    expect(focusMovedByKey({ key: "Tab", at: 1000 }, 1000 + FOCUS_KEY_WINDOW + 1)).toBe(false);
+    expect(focusMovedByKey({ key: "Tab", at: 1000 }, 999)).toBe(false);
   });
 });

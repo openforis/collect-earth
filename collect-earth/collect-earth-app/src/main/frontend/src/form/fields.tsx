@@ -1,4 +1,7 @@
-import { type HTMLAttributes, type Key, createContext, memo, useContext, useEffect, useRef, useState } from "react";
+import {
+  type FocusEvent, type HTMLAttributes, type Key, type ReactElement, cloneElement, createContext, memo, useContext, useEffect, useRef,
+  useState,
+} from "react";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
@@ -18,7 +21,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { type Translate, useT } from "../i18n";
-import { choiceKey, isKeyboardClick } from "../shortcuts";
+import { type PressedKey, choiceKey, focusMovedByKey, isKeyboardClick } from "../shortcuts";
 import {
   type CodeItem, type Field, type FieldInfo, clickCode, coordinateFromInput, coordinateToInput, dateFromInput,
   dateToInput, normalizeNumber, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput, requiredMessage, selectCodes,
@@ -54,6 +57,32 @@ export function errorText(t: Translate, field: Field, value: string, message: st
  * the focus on to the next question to answer. Not after a click: the mouse may be on its way elsewhere.
  */
 export const AnsweredByKey = createContext<(name: string) => void>(() => {});
+
+/** The key pressed last in the page, for focusMovedByKey */
+let lastKey: PressedKey | null = null;
+if (typeof window !== "undefined") {
+  window.addEventListener("keydown", (e) => { lastKey = { key: e.key, at: performance.now() }; }, true);
+}
+
+/**
+ * The description of an answer, in a tooltip: on hover, and on focus only when the user moved the focus there from the
+ * keyboard (Tab, the arrows), so that it stays within reach of the keyboard; not when the form focuses the question
+ * itself (a plot opened, the one before answered), where it covered the label of the next question.
+ */
+function Description({ title, children }: { title: string; children: ReactElement<{ onFocus?: (e: FocusEvent) => void; onBlur?: (e: FocusEvent) => void }> }) {
+  const [hovered, setHovered] = useState(false);
+  const [byKey, setByKey] = useState(false);
+  const { onFocus, onBlur } = children.props;
+  return (
+    <Tooltip title={title} open={hovered || byKey} disableFocusListener
+      onOpen={() => setHovered(true)} onClose={() => { setHovered(false); setByKey(false); }}>
+      {cloneElement(children, {
+        onFocus: (e: FocusEvent) => { onFocus?.(e); setByKey(focusMovedByKey(lastKey, performance.now())); },
+        onBlur: (e: FocusEvent) => { onBlur?.(e); setByKey(false); },
+      })}
+    </Tooltip>
+  );
+}
 
 /** The id of the message under a field, which its control is described by */
 const errorId = (field: Field) => `${field.name}-error`;
@@ -236,7 +265,7 @@ function CodeButtons({ field, value, items, parentLabel, onChange, error, descri
               role={field.multiple ? "checkbox" : "radio"} aria-checked={on} data-code={item.code}
               sx={on ? CODE_ON_SX : CODE_SX} />
           );
-          return item.description ? <Tooltip key={item.id} title={item.description}>{chip}</Tooltip> : chip;
+          return item.description ? <Description key={item.id} title={item.description}>{chip}</Description> : chip;
         })}
       </Box>
       {clearable && <ClearButton onClear={clear} />}

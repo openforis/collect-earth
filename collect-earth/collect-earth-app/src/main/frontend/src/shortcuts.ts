@@ -126,6 +126,24 @@ export function choiceKey(e: Pick<KeyPress, "key" | "ctrlKey" | "metaKey" | "alt
   }
 }
 
+/** The keys that move the focus from control to control: Tab, and the arrows, Home and End among the answers */
+const FOCUS_KEYS = new Set(["Tab", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"]);
+/** How soon after its key a focus counts as moved by it (ms) */
+export const FOCUS_KEY_WINDOW = 500;
+
+/** A key pressed, and when (ms, on the clock of `now` below) */
+export interface PressedKey { key: string; at: number }
+
+/**
+ * Whether a focus that came at `now` was moved there by the user from the keyboard: a key that moves the focus was
+ * pressed just before (`last`, the key pressed last). Not a focus the form gave itself, the question to answer when a
+ * plot opens or the next once one was answered (Enter, a number): MUI shows a tooltip on any focus it takes for a
+ * keyboard one, and the description of an answer covered the label of the next question.
+ */
+export function focusMovedByKey(last: PressedKey | null, now: number): boolean {
+  return !!last && FOCUS_KEYS.has(last.key) && now - last.at >= 0 && now - last.at <= FOCUS_KEY_WINDOW;
+}
+
 /**
  * Whether a click on an answer came from the keyboard (Enter or Space on it, or a number key): the browser, and MUI for
  * the elements that are not buttons, click them with no mouse button pressed (detail 0).
