@@ -56,6 +56,9 @@ The bundle needs no node_modules: the Postgres store, the migrations, the AI cli
 mail are replaced by the stand-ins of `src/localBuild/`, so it runs the memory store only.
 `WEB_DIR` says where the built dashboard is (default: `web/dist` beside the package).
 
+`LOCAL_EXIT_WITH_STDIN=1` makes the server end when its stdin ends. Collect Earth sets it and keeps the
+stdin open as a pipe, so the dashboard ends with Collect Earth, even when Collect Earth is killed.
+
 ## Deployment
 
 To run your own server on Google Cloud without technical knowledge, follow

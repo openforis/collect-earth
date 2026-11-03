@@ -135,6 +135,9 @@ public class LocalDashboardProcess {
 		environment.put("HOST", "127.0.0.1"); //$NON-NLS-1$ //$NON-NLS-2$
 		// The server refuses a relative WEB_DIR
 		environment.put("WEB_DIR", webFolder.getAbsolutePath()); //$NON-NLS-1$
+		// Its stdin is a pipe from here (ProcessBuilder's default), which the system closes when Collect Earth ends,
+		// even killed: the server then ends too
+		environment.put("LOCAL_EXIT_WITH_STDIN", "1"); //$NON-NLS-1$ //$NON-NLS-2$
 
 		Process started = launcher.launch(command, environment, serverScript.getAbsoluteFile().getParentFile(), log);
 		process = started;

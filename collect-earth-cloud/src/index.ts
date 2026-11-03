@@ -59,6 +59,14 @@ async function main(): Promise<void> {
   await app.listen({ port: config.port, host: config.host });
   if (local) {
     process.stdout.write(`${readyLine(app, local)}\n`);
+    // Collect Earth keeps this process's stdin open as a pipe, which the system closes when Collect
+    // Earth ends, even killed: the dashboard then ends too rather than staying behind. Asked for by
+    // LOCAL_EXIT_WITH_STDIN=1, as a server started with no stdin (/dev/null) would end at once.
+    if (process.env.LOCAL_EXIT_WITH_STDIN === '1') {
+      process.stdin.on('end', () => void shutdown('the end of stdin (Collect Earth ended)'));
+      process.stdin.on('error', () => void shutdown('an error of stdin (Collect Earth ended)'));
+      process.stdin.resume();
+    }
     return;
   }
   if (config.storeBackend === 'memory') {
