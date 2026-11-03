@@ -30,6 +30,7 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import SendIcon from "@mui/icons-material/Send";
 import { type MessageKey, useT } from "../i18n";
+import { submitOnKey } from "../shortcuts";
 import logo from "./collect-earth-logo.png";
 import { FieldView, errorText } from "./fields";
 import {
@@ -98,11 +99,17 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     goToField(first.tab, first.field.name);
   }, [state.submitErrors, store, goToField]);
 
-  // Ctrl+Enter submits; Alt+Left/Right change tab
+  // Ctrl+Enter submits, before the focused chip or button sees it (see submitOnKey)
+  useEffect(() => {
+    const onSubmitKey = (e: KeyboardEvent) => { submitOnKey(e, () => void store.submit()); };
+    window.addEventListener("keydown", onSubmitKey, true);
+    return () => window.removeEventListener("keydown", onSubmitKey, true);
+  }, [store]);
+
+  // Alt+Left/Right change tab
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void store.submit(); }
-      else if (e.altKey && e.key === "ArrowRight" && next >= 0) { e.preventDefault(); goTo(next); }
+      if (e.altKey && e.key === "ArrowRight" && next >= 0) { e.preventDefault(); goTo(next); }
       else if (e.altKey && e.key === "ArrowLeft" && back >= 0) { e.preventDefault(); goTo(back); }
     };
     window.addEventListener("keydown", onKey);
