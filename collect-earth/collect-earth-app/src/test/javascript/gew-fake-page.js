@@ -123,6 +123,8 @@ function createPage({ href, now = 1800000000000, loadedAt, storage = {}, onPopSt
     class PopStateEvent { constructor(type) { this.type = type; } }
     const fakeConsole = { log: (...a) => page.console.push(a.join(" ")), warn: (...a) => page.console.push(a.join(" ")) };
 
+    window.localStorage = localStorage;
+    window.performance = performance;
     page.window = window;
     page.document = document;
     page.storage = store;

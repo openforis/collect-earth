@@ -255,37 +255,21 @@ return (function () {
     // How long that takes, and how it is known to be over: see javascript_google_earth_web_camera.js. With its fly
     // animation off GEW jumps, and the plot is drawn JUMP_SETTLE_MILLIS after the camera was sent: about a second after
     // the plot was chosen. With it on, once GEW writes the camera it arrived at, or once the longest the flight can take
-    // is over (2 to 5 s, from how far it flies).
+    // is over (2 to 6 s, from how far it flies, at its fly speed), the time it is hidden left out.
     var flight = null;
     // the user grabbed the camera during the flight: then it has to settle like any user move
     var userMoved = false;
 
-    // Collect Earth turns the animation off for the camera to jump (FLY_ANIMATION), in GEW's own setting, which GEW
-    // reads when it loads: from the next page load on (the next start of Collect Earth), as the profile of the imagery
-    // browser keeps it. When it was turned off is kept with it: a page loaded before still flies.
-    var ANIMATION_KEY = "earth.AnimationEnabled";
-    var ANIMATION_OFF_SINCE_KEY = "__collectEarthGewAnimationOffSince";
-    // A page seen flying while its setting said it jumps (turned on again in GEW's settings, say)
-    var FLIES_KEY = "__collectEarthGewFlies";
-    function turnAnimationOff() {
-        try {
-            // What Collect Earth learnt from flights before 2026-11, which took a flight that happened not to change
-            // the URL for a jump
-            localStorage.removeItem("__collectEarthGewJumps");
-            if (FLY_ANIMATION !== "off" || localStorage.getItem(ANIMATION_KEY) === GewCamera.ANIMATION_OFF) return;
-            localStorage.setItem(ANIMATION_KEY, GewCamera.ANIMATION_OFF);
-            localStorage.setItem(ANIMATION_OFF_SINCE_KEY, String(Date.now()));
-        } catch (e) { /* no storage (an opaque origin): GEW keeps flying, and the plots wait for it */ }
-    }
+    // Collect Earth turns the animation off for the camera to jump (FLY_ANIMATION), once, in GEW's own setting, which
+    // GEW reads when it loads: from the next page load on (the next start of Collect Earth), as the profile of the
+    // imagery browser keeps it. A setting the user changed since is theirs, and gew_fly_animation=true puts back the
+    // one Collect Earth replaced (GewCamera.settleSetting). Whether GEW jumps is then decided from the setting, when it
+    // was written and whether GEW was seen flying since (GewCamera.jumpsNow), as GoogleEarthWebService decides it.
+    // No storage (an opaque origin): GEW keeps flying, and the plots wait for it.
+    GewCamera.settleSetting(window, FLY_ANIMATION, Date.now());
     function jumps() {
-        if (window[FLIES_KEY] === true) return false;
-        try {
-            var since = localStorage.getItem(ANIMATION_OFF_SINCE_KEY);
-            return GewCamera.jumpsBySettings(localStorage.getItem(ANIMATION_KEY), since === null ? null : Number(since),
-                performance.timeOrigin || 0);
-        } catch (e) { return false; }
+        return GewCamera.jumpsNow(window);
     }
-    turnAnimationOff();
 
     // The camera of a jump drawn at once, while GEW could still write the one it had before it, or show that it flew
     // after all: {cam, sentAt, jumps, until}
@@ -300,24 +284,38 @@ return (function () {
     function expectFlight(url, fromUrl, sentAt) {
         var now = Date.now();
         var at = typeof sentAt === "number" && sentAt <= now && now - sentAt < 10000 ? sentAt : now;
-        flight = GewCamera.flight(url, fromUrl, at, jumps());
+        flight = GewCamera.flight(url, fromUrl, at, jumps(), GewCamera.flySpeed(window));
+        if (flight && document.hidden) flight.hiddenAt = now;
         userMoved = false;
         afterJump = null;
         heldCam = null;
         hideForMove();
     }
 
+    // A hidden GEW may not fly until it is shown: the time it is hidden does not count (see onFocusLost)
+    function pauseFlight(hidden, now) {
+        if (!flight) return;
+        if (hidden) {
+            if (flight.hiddenAt === undefined) flight.hiddenAt = now;
+        } else if (flight.hiddenAt !== undefined) {
+            flight.until += now - flight.hiddenAt;
+            delete flight.hiddenAt;
+        }
+    }
+
     // Over once the camera can be drawn from (GewCamera.flightStep), or once the flight says nothing more
     function inFlight() {
         if (!flight) return false;
         var now = Date.now();
+        pauseFlight(document.hidden, now);
+        if (document.hidden) return true;
         var cam = parseCamera();
         var step = GewCamera.flightStep(flight, cam, now, userMoved);
         if (step === "wait") return true;
         var sent = flight;
         flight = null;
         if (step === "over") return false;
-        if (GewCamera.flewAfterAll(sent, cam, now)) window[FLIES_KEY] = true;
+        if (GewCamera.flewAfterAll(sent, cam, now)) GewCamera.rememberFlying(window, now);
         afterJump = sent.jumps ? { cam: sent.cam, sentAt: sent.sentAt, jumps: true, until: now + AFTER_JUMP_MILLIS } : null;
         // GEW writes the camera once it is at rest: no need to wait for it to stay the same
         lastHref = window.location.href;
@@ -408,7 +406,7 @@ return (function () {
             }
             if (change === "correction") {
                 // GEW believed to jump wrote the camera it arrived at: it flew (animations on when the page loaded)
-                if (GewCamera.flewAfterAll(afterJump, cam, Date.now())) window[FLIES_KEY] = true;
+                if (GewCamera.flewAfterAll(afterJump, cam, Date.now())) GewCamera.rememberFlying(window, Date.now());
                 stableCount = STABLE_READS;
                 draw();
                 return;
@@ -448,6 +446,7 @@ return (function () {
     // hidden) sends no mouseup: the press ends there, or the outline would stay hidden until the mouse came back.
     // Only the window's own blur: an element's, captured here too, comes with the press that moves the focus
     function onFocusLost(e) {
+        if (e.type === "visibilitychange") pauseFlight(document.hidden, Date.now());
         if (!pressed) return;
         if (e.type === "blur" && e.target !== window) return;
         if (e.type === "visibilitychange" && !document.hidden) return;
@@ -484,8 +483,10 @@ return (function () {
         moving: function () { return moving; },
         held: function () { return heldCam; },
         afterJump: function () { return afterJump; },
-        // the camera the outline is drawn from, while the URL has not changed since
-        drawn: function () { return drawnCam && lastHref === window.location.href ? { cam: drawnCam, href: lastHref } : null; },
+        // the camera the outline is drawn from, while the URL has not changed since and no flight may still be on
+        drawn: function () {
+            return drawnCam && !flight && lastHref === window.location.href ? { cam: drawnCam, href: lastHref } : null;
+        },
         stop: function () {
             clearInterval(timer);
             LISTENERS.forEach(function (l) { window.removeEventListener(l[0], l[1], true); });

@@ -1,5 +1,9 @@
 package org.openforis.collect.earth.app.service;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -90,12 +94,12 @@ public class GoogleEarthWebService {
 	private static final int PAGE_URL_RETRIES = 3;
 	private static final long PAGE_URL_RETRY_MILLIS = 300;
 	/**
-	 * The URL of the page and whether the overlay remembers that Google Earth Web jumps (see javascript_google_earth_web.fmt),
-	 * in one round trip: see {@link InPageNavigation#isFollowed}.
+	 * The decisions on Google Earth Web's camera that the overlay includes (javascript_google_earth_web.fmt), run by
+	 * {@link #inPageProbeScript()} too. Read like the templates, from the folder Collect Earth runs in.
 	 */
-	private static final String IN_PAGE_PROBE_SCRIPT = "var j = window.__collectEarthGewJumps;"
-			+ " if (typeof j !== 'boolean') { try { j = localStorage.getItem('__collectEarthGewJumps') === '1'; }"
-			+ " catch (e) { j = false; } } return [location.href, j];";
+	static final String CAMERA_SCRIPT = "resources/javascript_google_earth_web_camera.js";
+	/** {@link #inPageProbeScript()}, once read. */
+	private static volatile String inPageProbeScript;
 	/** Also how often the camera is read for the plots map, which follows it. */
 	private static final long WATCHDOG_PERIOD_MILLIS = 500;
 	/**
@@ -718,10 +722,32 @@ public class GoogleEarthWebService {
 		return Move.NOT_FOLLOWED;
 	}
 
-	/** The URL of the page and whether Google Earth Web jumps ({@link #IN_PAGE_PROBE_SCRIPT}); null when the page did not answer. */
+	/**
+	 * The URL of the page and whether Google Earth Web jumps to a camera sent, in one round trip: see
+	 * {@link InPageNavigation#isFollowed}. Whether it jumps is decided by {@code GewCamera.jumpsNow} of
+	 * {@link #CAMERA_SCRIPT}, as the overlay decides it: from GEW's animation setting, when Collect Earth wrote it, when
+	 * the page was loaded and whether GEW was seen flying since. Without that file it is not known, and taken as false.
+	 */
+	static String inPageProbeScript() {
+		String script = inPageProbeScript;
+		if (script == null) {
+			try {
+				script = new String(Files.readAllBytes(Paths.get(System.getProperty("user.dir"), CAMERA_SCRIPT)),
+						StandardCharsets.UTF_8) + "\nreturn [location.href, GewCamera.jumpsNow(window)];";
+			} catch (IOException e) {
+				LoggerFactory.getLogger(GoogleEarthWebService.class).warn("Google Earth Web: {} could not be read: {}",
+						CAMERA_SCRIPT, e.getMessage());
+				script = "return [location.href, false];";
+			}
+			inPageProbeScript = script;
+		}
+		return script;
+	}
+
+	/** The URL of the page and whether Google Earth Web jumps ({@link #inPageProbeScript()}); null when the page did not answer. */
 	private List<?> readProbe() {
 		try {
-			Object page = tab().evaluateWithin(ImageryTab.POLL_SCRIPT_TIMEOUT, IN_PAGE_PROBE_SCRIPT);
+			Object page = tab().evaluateWithin(ImageryTab.POLL_SCRIPT_TIMEOUT, inPageProbeScript());
 			return page instanceof List && ((List<?>) page).size() == 2 ? (List<?>) page : null;
 		} catch (PageScriptException e) {
 			return null; // the document being replaced, or too busy: read again

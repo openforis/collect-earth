@@ -6,6 +6,8 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const { createPage, renderedScripts, camera } = require("./gew-fake-page.js");
 
 const scripts = renderedScripts();
@@ -152,6 +154,16 @@ test("GEW taken to jump that flies after all: kept drawn, and the next plots wai
     const next = showPlot(page, A);
     page.advance(next + 2000 - page.clock.now);
     assert.equal(page.outline(), "none", "the next plot waits for its flight");
+
+    // and so do the plots of the next sessions, whose page loaded after the setting was written
+    const later = createPage({ href: A + DATA, now: now + 3600000, loadedAt: now + 3500000,
+        storage: Object.fromEntries(page.storage) });
+    later.flyAnimation = "off";
+    later.run(overlay("plotA", "", "off"));
+    later.until(true, 1000);
+    const sent = showPlot(later, B);
+    later.advance(sent + 2000 - later.clock.now);
+    assert.equal(later.outline(), "none", "the setting is not trusted until it is written again");
 });
 
 test("the fly animation is turned off for the next page load, and the session's flights are waited for", { skip }, () => {
@@ -162,17 +174,71 @@ test("the fly animation is turned off for the next page load, and the session's 
     page.run(overlay("plotA", "", "off"));
     assert.equal(page.storage.get("earth.AnimationEnabled"), OFF);
     assert.equal(page.storage.get("__collectEarthGewAnimationOffSince"), String(now));
+    assert.equal(page.storage.get("__collectEarthGewAnimationBefore"), JSON.stringify(ON), "what it replaced is kept");
     assert.equal(page.storage.get("__collectEarthGewJumps"), undefined, "what was learnt before is forgotten");
     page.until(true, 1000);
     const sentAt = showPlot(page, B);
     page.advance(sentAt + 3000 - page.clock.now);
     assert.equal(page.outline(), "none", "this page, loaded before, still flies");
 
-    // gew_fly_animation=true leaves GEW's setting as it is
+    // gew_fly_animation=true leaves GEW's setting as it is, and puts back the one Collect Earth replaced
     const kept = createPage({ href: A + DATA, now, storage: { "earth.AnimationEnabled": ON } });
     kept.run(overlay("plotA", "", "keep"));
     assert.equal(kept.storage.get("earth.AnimationEnabled"), ON);
     assert.equal(kept.storage.get("__collectEarthGewAnimationOffSince"), undefined);
+    const restored = createPage({ href: A + DATA, now, storage: Object.fromEntries(page.storage) });
+    restored.run(overlay("plotA", "", "keep"));
+    assert.equal(restored.storage.get("earth.AnimationEnabled"), ON);
+
+    // the user turned it on again in GEW's settings: theirs
+    const users = createPage({ href: A + DATA, now, storage: Object.assign(Object.fromEntries(page.storage),
+        { "earth.AnimationEnabled": ON }) });
+    users.run(overlay("plotA", "", "off"));
+    assert.equal(users.storage.get("earth.AnimationEnabled"), ON, "not written over");
+});
+
+test("a flight does not count the time GEW is hidden", { skip }, () => {
+    const page = gewAt(A, { jumps: false });
+    const sentAt = showPlot(page, B);
+    page.advance(600);
+    page.document.hidden = true;
+    page.fire("visibilitychange");
+    page.advance(10000);
+    page.document.hidden = false;
+    page.fire("visibilitychange");
+    page.advance(sentAt + 10000 + 4000 - page.clock.now);
+    assert.equal(page.outline(), "none", "4 s of flight shown: still on its way");
+    assert.notEqual(page.until(true, 2000), null, "drawn once it has had the time, shown");
+});
+
+test("the outline drawn again while GEW flies (the tab shown again) waits for the flight", { skip }, () => {
+    const page = gewAt(A, { jumps: false });
+    const sentAt = showPlot(page, B);
+    page.advance(1000);
+    assert.equal(page.run(overlay("plotB", "", "keep")), "armed");
+    page.advance(sentAt + 4000 - page.clock.now);
+    assert.equal(page.outline(), "none", "not drawn from the camera sent while it flies");
+    arrives(page, sentAt, B, 4200);
+    assert.notEqual(page.until(true, 300), null);
+});
+
+test("Collect Earth's probe takes a push left as it was for followed when GEW jumps, as the overlay does", { skip }, () => {
+    const page = gewAt(A, { jumps: true });
+    page.evaluate(scripts["in-page-navigation"], B);
+    // GEW, its animation off, has not written anything yet
+    const probe = page.evaluate(scripts["in-page-probe"]);
+    assert.deepEqual(probe, [B, true]);
+    // GoogleEarthWebService.isFollowed decides on it: ImageryPageScriptsTest reads it back
+    fs.writeFileSync(path.join(process.env.CE_IMAGERY_PAGE_SCRIPTS, "probe-jumps.json"), JSON.stringify({ pushed: B, probe }));
+
+    const flying = gewAt(A, { jumps: false });
+    flying.evaluate(scripts["in-page-navigation"], B);
+    assert.deepEqual(flying.evaluate(scripts["in-page-probe"]), [B, false]);
+    // loaded before Collect Earth turned the animation off: still flies
+    const now = 1800000000000;
+    const before = createPage({ href: A + DATA, now, loadedAt: now - 60000,
+        storage: { "earth.AnimationEnabled": OFF, "__collectEarthGewAnimationOffSince": String(now - 1000) } });
+    assert.deepEqual(before.evaluate(scripts["in-page-probe"]), [A + DATA, false]);
 });
 
 test("where GEW was before a jump, written late, does not move the plot", { skip }, () => {

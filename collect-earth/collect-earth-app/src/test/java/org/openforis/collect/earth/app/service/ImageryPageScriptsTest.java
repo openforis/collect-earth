@@ -17,10 +17,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import freemarker.template.Configuration;
 
@@ -29,9 +33,10 @@ import freemarker.template.Configuration;
  * clock of their own: the Google Earth Web overlay (resources/javascript_google_earth_web.fmt and the camera decisions
  * it includes, javascript_google_earth_web_camera.js) - how soon the plot is drawn when GEW jumps or flies, that it is
  * never hidden for a camera GEW writes again, that a flight that happened not to change the URL is not taken for a
- * jump - and the zoom of ESRI Wayback (javascript_esri_wayback.fmt), no deeper than its imagery at the plot. The tests
+ * jump, that Collect Earth's probe of in-page navigation decides whether GEW jumps as the overlay does - and the zoom
+ * of ESRI Wayback (javascript_esri_wayback.fmt), no deeper than its imagery at the plot. The tests
  * themselves are in src/test/javascript; this renders the templates for them as Collect Earth does, and runs them.
- * Skipped where node is not on the PATH.
+ * Skipped where node 18 or later is not on the PATH.
  */
 public class ImageryPageScriptsTest {
 
@@ -106,16 +111,21 @@ public class ImageryPageScriptsTest {
 		return render("resources/javascript_esri_wayback.fmt", data);
 	}
 
-	private static boolean nodeIsThere() {
+	/** The major version of the node on the PATH ("v22.22.0": 22), 0 when there is none. */
+	private static int nodeVersion() {
 		try {
-			Process p = new ProcessBuilder("node", "--version").redirectErrorStream(true)
-					.redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
-			return p.waitFor(30, TimeUnit.SECONDS) && p.exitValue() == 0;
+			Process p = new ProcessBuilder("node", "--version").redirectErrorStream(true).start();
+			String version = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+			if (!p.waitFor(30, TimeUnit.SECONDS) || p.exitValue() != 0) {
+				return 0;
+			}
+			Matcher m = Pattern.compile("^v(\\d+)\\.").matcher(version);
+			return m.find() ? Integer.parseInt(m.group(1)) : 0;
 		} catch (IOException e) {
-			return false;
+			return 0;
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
-			return false;
+			return 0;
 		}
 	}
 
@@ -125,7 +135,8 @@ public class ImageryPageScriptsTest {
 
 	@BeforeAll
 	public static void renderTheScripts() throws Exception {
-		Assumptions.assumeTrue(nodeIsThere(), "node is not on the PATH");
+		// node --test came with node 18
+		Assumptions.assumeTrue(nodeVersion() >= 18, "no node 18 or later on the PATH");
 		Files.createDirectories(SCRIPTS);
 		// Plots of the audit of 2026-11: id_7 and id_8, 278 km apart, and one 111 m from id_7
 		write("plotA.js", overlayScript("A", 12.6919, -14.8026));
@@ -134,6 +145,7 @@ public class ImageryPageScriptsTest {
 		// Collect Earth's own scripts, so that the tests send the camera as it does
 		write("in-page-navigation.txt", GoogleEarthWebService.IN_PAGE_NAVIGATION_SCRIPT);
 		write("camera-move.txt", GoogleEarthWebService.CAMERA_MOVE_SCRIPT);
+		write("in-page-probe.txt", GoogleEarthWebService.inPageProbeScript());
 		write("wayback.js", waybackScript());
 	}
 
@@ -159,7 +171,16 @@ public class ImageryPageScriptsTest {
 
 	@Test
 	public void googleEarthWebDrawsThePlotAsSoonAsTheCameraIsThereAndNeverFlickers() throws Exception {
+		Files.deleteIfExists(SCRIPTS.resolve("probe-jumps.json"));
 		runNodeTests("gew-camera.test.js", "gew-overlay.test.js");
+
+		// With the animation off, the URL pushed, left as it was by GEW, is followed: what the probe answered there
+		String probed = new String(Files.readAllBytes(SCRIPTS.resolve("probe-jumps.json")), StandardCharsets.UTF_8);
+		Map<?, ?> result = new ObjectMapper().readValue(probed, Map.class);
+		List<?> probe = (List<?>) result.get("probe");
+		assertEquals(result.get("pushed"), probe.get(0), "the URL left as it was pushed");
+		assertTrue(InPageNavigation.isFollowed((String) result.get("pushed"), (String) probe.get(0),
+				Boolean.TRUE.equals(probe.get(1)), 14.74772, -17.4766));
 	}
 
 	@Test

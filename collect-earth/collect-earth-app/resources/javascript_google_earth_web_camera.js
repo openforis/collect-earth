@@ -1,6 +1,7 @@
 // Google Earth Web's camera as Collect Earth reads it from the page URL, and when the plot outline can be drawn from it.
-// No page and no timers here: the time, the URLs and the settings are given, so that node can run it in the tests
-// (src/test/javascript/gew-camera.test.js). javascript_google_earth_web.fmt includes it as it is (parse=false).
+// No timers here, and the page only through the window given: the time, the URLs and the settings are given, so that
+// node can run it in the tests (src/test/javascript/gew-camera.test.js). javascript_google_earth_web.fmt includes it as
+// it is (parse=false).
 //
 // What Google Earth Web does with a camera sent in-page (measured on GEW 2026-10, FlySpeed 1.0):
 // - Animations on (its setting "earth.AnimationEnabled", the default): it flies there, about 1.7 s for 100 m, 3 s for
@@ -9,7 +10,10 @@
 //   leaves the URL as it was, which happened on 3 flights out of 6. A URL that does not change says nothing then.
 // - Animations off: it jumps there at once and never writes a camera of its own.
 // GEW reads the setting when it loads, from the local storage of earth.google.com: changed later, it applies from
-// the next page load on.
+// the next page load on. Its fly speed ("earth.FlySpeed", 1.0 by default) scales the flights.
+//
+// GoogleEarthWebService runs this file too, before it asks jumpsNow(window): whether the URL pushed, left as it was,
+// means GEW followed it (InPageNavigation.isFollowed). The overlay and Collect Earth so decide it the same way.
 var GewCamera = (function () {
     var RAD = Math.PI / 180;
     var METRES_PER_DEGREE = 111320;
@@ -17,11 +21,25 @@ var GewCamera = (function () {
     // How long a jump is given before the plot is drawn: GEW moves the camera at once, but may write, right after,
     // the camera it had before (see flightStep)
     var JUMP_SETTLE_MILLIS = 600;
-    // The longest flight between two plots, and from the globe
+    // The longest flight between two plots, and from the globe or from where is not known
     var LONGEST_FLIGHT_MILLIS = 5000;
-    var LONGEST_FLIGHT_FROM_GLOBE_MILLIS = 6000;
+    var LONGEST_FLIGHT_FROM_ANYWHERE_MILLIS = 6000;
     // The value GEW keeps for animations turned off
     var ANIMATION_OFF = "\"false\"";
+
+    // In the local storage of earth.google.com: GEW's own settings, and what Collect Earth keeps of them
+    var ANIMATION_KEY = "earth.AnimationEnabled";
+    var SPEED_KEY = "earth.FlySpeed";
+    // When Collect Earth turned the animation off, and the value it replaced (JSON, "null" when there was none): kept
+    // while the setting is Collect Earth's doing
+    var OFF_SINCE_KEY = "__collectEarthGewAnimationOffSince";
+    var BEFORE_KEY = "__collectEarthGewAnimationBefore";
+    // The user changed the setting after Collect Earth wrote it: theirs from then on, never written again
+    var USERS_KEY = "__collectEarthGewAnimationUsers";
+    // When GEW was seen flying while its setting said it jumps: the setting is not trusted until it is written again
+    var FLIES_KEY = "__collectEarthGewFlies";
+    // What Collect Earth learnt before 2026-11, from flights that happened not to change the URL
+    var LEGACY_JUMPS_KEY = "__collectEarthGewJumps";
 
     // Format: https://earth.google.com/web/@LAT,LON,ALTa,DISTd,FOVy,HEADINGh,TILTt,ROLLr
     function parse(href) {
@@ -75,32 +93,122 @@ var GewCamera = (function () {
     }
 
     // At most how long GEW's animation takes from one camera to the other (see the measures above), with some margin;
-    // the longest when where it flies from is not known
-    function flightMillis(from, to) {
-        if (!from || !to) return LONGEST_FLIGHT_MILLIS;
-        if (isGlobe(from)) return LONGEST_FLIGHT_FROM_GLOBE_MILLIS;
-        var metres = groundMetres(from, to) + Math.abs(from.dist - to.dist);
-        return Math.round(Math.min(LONGEST_FLIGHT_MILLIS, 2200 + 1300 * Math.log(Math.max(metres, 100) / 100) / Math.LN10));
+    // the longest when where it flies from is not known. Measured at fly speed 1: a speed of 2 halves it.
+    function flightMillis(from, to, speed) {
+        var millis;
+        if (!from || !to || isGlobe(from)) {
+            millis = LONGEST_FLIGHT_FROM_ANYWHERE_MILLIS;
+        } else {
+            var metres = groundMetres(from, to) + Math.abs(from.dist - to.dist);
+            millis = Math.min(LONGEST_FLIGHT_MILLIS, 2200 + 1300 * Math.log(Math.max(metres, 100) / 100) / Math.LN10);
+        }
+        var s = typeof speed === "number" && isFinite(speed) && speed > 0 ? Math.max(0.1, Math.min(10, speed)) : 1;
+        return Math.round(millis / s);
     }
 
     /**
      * Whether GEW jumps to a camera sent, from its animation setting: the value kept in the local storage of
-     * earth.google.com ({@code stored}), when Collect Earth turned it off ({@code offSince}, null if it did not) and when
-     * the page was loaded ({@code loadedAt}). Turned off by Collect Earth, it applies only to a page loaded since; turned
-     * off by the user, in GEW's settings, it applied at once.
+     * earth.google.com ({@code stored}), when Collect Earth turned it off ({@code offSince}, null if it did not), when
+     * the page was loaded ({@code loadedAt}) and when GEW was last seen flying with the setting off ({@code fliesSince},
+     * null if never). Turned off by Collect Earth, it applies only to a page loaded since; turned off by the user, in
+     * GEW's settings, it applied at once. Seen flying since it was last written, it is not trusted.
      */
-    function jumpsBySettings(stored, offSince, loadedAt) {
+    function jumpsBySettings(stored, offSince, loadedAt, fliesSince) {
         if (stored !== ANIMATION_OFF) return false;
-        if (offSince === null || offSince === undefined || isNaN(offSince)) return true;
+        var known = !(offSince === null || offSince === undefined || isNaN(offSince));
+        if (typeof fliesSince === "number" && !isNaN(fliesSince) && fliesSince >= (known ? offSince : 0)) return false;
+        if (!known) return true;
         return loadedAt >= offSince;
     }
 
-    /** A flight that says when it may be over: {cam, sentAt, jumps, until}. */
-    function flight(sentUrl, fromUrl, sentAt, jumps) {
+    // The page's local storage, or null where it has none (an opaque origin throws on reading it)
+    function storageOf(win) {
+        try { return win.localStorage || null; } catch (e) { return null; }
+    }
+    function numberIn(storage, key) {
+        var value = storage.getItem(key);
+        return value === null || value === "" || isNaN(Number(value)) ? null : Number(value);
+    }
+
+    /** Whether the GEW of this page jumps to a camera sent, from its settings and what was seen of it ({@code win}). */
+    function jumpsNow(win) {
+        try {
+            if (win[FLIES_KEY] === true) return false;
+            var storage = storageOf(win);
+            if (!storage) return false;
+            var loadedAt = win.performance && win.performance.timeOrigin ? win.performance.timeOrigin : 0;
+            return jumpsBySettings(storage.getItem(ANIMATION_KEY), numberIn(storage, OFF_SINCE_KEY), loadedAt,
+                numberIn(storage, FLIES_KEY));
+        } catch (e) { return false; }
+    }
+
+    /** GEW seen flying while its setting said it jumps: in this page, and in the next ones until it is written again. */
+    function rememberFlying(win, now) {
+        win[FLIES_KEY] = true;
+        try {
+            var storage = storageOf(win);
+            if (storage) storage.setItem(FLIES_KEY, String(now));
+        } catch (e) { /* this page only */ }
+    }
+
+    /** GEW's fly speed, 1 when it has none of its own */
+    function flySpeed(win) {
+        try {
+            var storage = storageOf(win);
+            var value = storage ? storage.getItem(SPEED_KEY) : null;
+            var speed = value === null ? NaN : Number(JSON.parse(value));
+            return isFinite(speed) && speed > 0 ? speed : 1;
+        } catch (e) { return 1; }
+    }
+
+    /**
+     * Collect Earth's part in GEW's animation setting, at each plot. {@code mode} "off": it turns the animation off,
+     * once, keeping the value it replaced - unless the user had it off already, or changed it since Collect Earth wrote
+     * it, which makes it theirs for good. "keep" (gew_fly_animation=true): the value it replaced is put back, if the
+     * setting is still the one Collect Earth wrote. Returns what it did: "wrote", "restored", "users" or "none".
+     */
+    function settleSetting(win, mode, now) {
+        var storage = storageOf(win);
+        if (!storage) return "none";
+        try {
+            storage.removeItem(LEGACY_JUMPS_KEY);
+            var stored = storage.getItem(ANIMATION_KEY);
+            var ours = storage.getItem(OFF_SINCE_KEY) !== null;
+            if (ours && stored !== ANIMATION_OFF) {
+                // changed by the user after Collect Earth wrote it
+                storage.removeItem(OFF_SINCE_KEY);
+                storage.removeItem(BEFORE_KEY);
+                storage.setItem(USERS_KEY, "1");
+                return "users";
+            }
+            if (mode === "off") {
+                if (ours || storage.getItem(USERS_KEY) !== null || stored === ANIMATION_OFF) return "none";
+                storage.setItem(BEFORE_KEY, JSON.stringify(stored));
+                storage.setItem(ANIMATION_KEY, ANIMATION_OFF);
+                storage.setItem(OFF_SINCE_KEY, String(now));
+                storage.removeItem(FLIES_KEY);
+                return "wrote";
+            }
+            if (!ours) return "none";
+            var before = null;
+            try { before = JSON.parse(storage.getItem(BEFORE_KEY)); } catch (e) { before = null; }
+            if (typeof before === "string") storage.setItem(ANIMATION_KEY, before); else storage.removeItem(ANIMATION_KEY);
+            storage.removeItem(OFF_SINCE_KEY);
+            storage.removeItem(BEFORE_KEY);
+            storage.removeItem(FLIES_KEY);
+            return "restored";
+        } catch (e) { return "none"; }
+    }
+
+    /**
+     * A flight that says when it may be over: {cam, sentAt, jumps, until}. Flying, it is given the time GEW's animation
+     * takes at its fly speed ({@code speed}).
+     */
+    function flight(sentUrl, fromUrl, sentAt, jumps, speed) {
         var cam = parse(sentUrl);
         if (!cam) return null;
         return { cam: cam, sentAt: sentAt, jumps: jumps,
-            until: sentAt + (jumps ? JUMP_SETTLE_MILLIS : flightMillis(parse(fromUrl), cam)) };
+            until: sentAt + (jumps ? JUMP_SETTLE_MILLIS : flightMillis(parse(fromUrl), cam, speed)) };
     }
 
     /**
@@ -157,6 +265,10 @@ var GewCamera = (function () {
         correction: correction,
         flightMillis: flightMillis,
         jumpsBySettings: jumpsBySettings,
+        jumpsNow: jumpsNow,
+        rememberFlying: rememberFlying,
+        flySpeed: flySpeed,
+        settleSetting: settleSetting,
         flight: flight,
         flightStep: flightStep,
         changeAfterDraw: changeAfterDraw,

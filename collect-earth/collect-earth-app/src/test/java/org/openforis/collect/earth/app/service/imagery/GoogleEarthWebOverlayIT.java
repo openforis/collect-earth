@@ -160,7 +160,7 @@ public class GoogleEarthWebOverlayIT {
 
 		assertEquals("armed", tab.evaluate(overlayScript(ring, camera)));
 		assertFalse(outlineBecomes(tab, "block", 4000), "the flight is waited for");
-		assertTrue(outlineBecomes(tab, "block", 2500), "drawn once the longest flight is over");
+		assertTrue(outlineBecomes(tab, "block", 3500), "drawn once the longest flight is over (6 s from where is not known)");
 
 		// The next plot is waited for as well
 		assertEquals("armed", tab.evaluate(overlayScript(ring, camera)));

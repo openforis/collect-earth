@@ -31,12 +31,12 @@ final class InPageNavigation {
 
 	/**
 	 * Whether the URL read from the tab says Google Earth Web followed the push of {@code pushedUrl}: its camera over the
-	 * target. Google Earth Web appends its {@code /data=} suffix at once when it takes the push, and keeps the camera
-	 * pushed for the whole flight; with its animations turned off it writes nothing (see {@code jumps} in
-	 * javascript_google_earth_web.fmt), so the URL pushed, untouched, is taken as followed when Google Earth Web is known
-	 * to jump.
+	 * target. Google Earth Web appends its {@code /data=} suffix when it takes the push (seen 0.04 to 0.85 s after it,
+	 * its fly animation on or off), and keeps the camera pushed for the whole flight; with its animation off it writes
+	 * no camera of its own, so the URL pushed, untouched, is taken as followed when Google Earth Web jumps.
 	 *
-	 * @param jumps whether the page remembers that Google Earth Web jumps ({@code __collectEarthGewJumps})
+	 * @param jumps whether Google Earth Web jumps to a camera sent, as the overlay decides it ({@code GewCamera.jumpsNow}
+	 *              in javascript_google_earth_web_camera.js, see {@link GoogleEarthWebService#inPageProbeScript()})
 	 */
 	static boolean isFollowed(String pushedUrl, String href, boolean jumps, double latitude, double longitude) {
 		if (href == null || !GoogleEarthWebUrls.isCameraAt(href, latitude, longitude)) {
