@@ -3,7 +3,7 @@ import {
   type Field, type FormModel, availableItems, clickCode, dateFromInput, dateToInput, entityCount, errorList, fieldsByName,
   indexedField, isTabVisible, joinValues, mergeInfos, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
   requiredMessage, saveBody, selectCodes, splitValues, summaryLines, tabsWithErrors, timeToInput, unansweredRequired, errorsByTab, neededByTab, updateRequired,
-  advanceTarget, answeredWithKeys, firstToAnswer, stepsOf,
+  DROPDOWN_AS_BUTTONS, advanceTarget, answeredWithKeys, codeControl, firstToAnswer, stepsOf,
 } from "./model";
 
 const category: Field = {
@@ -200,6 +200,18 @@ describe("answeredWithKeys", () => {
     expect(answeredWithKeys({ ...comments, type: "text" })).toBe(false);
     expect(answeredWithKeys({ ...comments, type: "integer" })).toBe(false);
     expect(answeredWithKeys({ ...category, readOnly: true })).toBe(false);
+  });
+});
+
+describe("codeControl", () => {
+  const items = (n: number) => Array.from({ length: n }, (_, i) => ({ id: i, code: String(i), label: String(i) }));
+  it("shows a dropdown of a few answers as buttons, all in view", () => {
+    expect(codeControl(subdivision, items(DROPDOWN_AS_BUTTONS))).toBe("buttons");
+    expect(codeControl(subdivision, items(2))).toBe("buttons");
+  });
+  it("keeps a dropdown of many answers a searchable list, and buttons buttons", () => {
+    expect(codeControl(subdivision, items(DROPDOWN_AS_BUTTONS + 1))).toBe("select");
+    expect(codeControl(category, items(20))).toBe("buttons");
   });
 });
 

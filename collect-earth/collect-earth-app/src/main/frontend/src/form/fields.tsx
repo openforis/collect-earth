@@ -23,7 +23,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { type Translate, useT } from "../i18n";
 import { type PressedKey, choiceKey, focusMovedByKey, isKeyboardClick } from "../shortcuts";
 import {
-  type CodeItem, type Field, type FieldInfo, clickCode, coordinateFromInput, coordinateToInput, dateFromInput,
+  type CodeItem, type Field, type FieldInfo, clickCode, codeControl, coordinateFromInput, coordinateToInput, dateFromInput,
   dateToInput, normalizeNumber, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput, requiredMessage, selectCodes,
   timeToInput,
 } from "./model";
@@ -162,7 +162,8 @@ function Control(props: ControlProps) {
   switch (field.type) {
     case "code": return (
       <>
-        {field.code?.layout === "dropdown" ? <CodeSelect {...props} /> : <CodeButtons {...props} />}
+        {/* a dropdown of a few answers is shown as buttons: each one in view, answered with one click or one key */}
+        {codeControl(field, props.items) === "select" ? <CodeSelect {...props} /> : <CodeButtons {...props} />}
         <Qualifiers {...props} />
       </>
     );
@@ -324,9 +325,13 @@ const TOGGLE_SX = {
   "&.Mui-selected, &.Mui-selected:hover": { bgcolor: "balloon.codeOn", borderColor: "balloon.codeOnBorder", color: "balloon.codeOnText" },
 } as const;
 
-/** Long lists: a searchable dropdown. */
+/**
+ * Long lists: a searchable dropdown. An answer picked from the keyboard (Enter) moves the focus on, as a number key on a
+ * list of buttons: the next digits typed would go into its search box.
+ */
 function CodeSelect({ field, value, items, parentLabel, onChange, error, dense, describedBy, required }: ControlProps) {
   const t = useT();
+  const answeredByKey = useContext(AnsweredByKey);
   const codes = parseCodes(value).map((c) => c.code);
   const byCode = (c: string) => items.find((i) => i.code === c) ?? { id: -1, code: c, label: c };
   const placeholder = !items.length && parentLabel ? t("entry.chooseParent", { parent: parentLabel }) : t("entry.select");
@@ -356,7 +361,10 @@ function CodeSelect({ field, value, items, parentLabel, onChange, error, dense, 
   }
   return (
     <Autocomplete {...common} value={codes.length ? byCode(codes[0]) : null}
-      onChange={(_, v) => onChange(field.name, selectCodes(value, v ? [v.code] : []))}
+      onChange={(e, v, reason) => {
+        onChange(field.name, selectCodes(value, v ? [v.code] : []));
+        if (v && reason === "selectOption" && e.type === "keydown") answeredByKey(field.name);
+      }}
       renderInput={(params) => <TextField {...params} error={error} placeholder={placeholder} slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps.htmlInput, "aria-label": field.label, "aria-describedby": describedBy, "aria-required": required || undefined } }} />} />
   );
 }

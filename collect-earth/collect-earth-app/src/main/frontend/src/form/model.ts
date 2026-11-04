@@ -400,6 +400,14 @@ export function answeredWithKeys(field: Field): boolean {
   return !field.readOnly && (field.type === "code" || field.type === "boolean");
 }
 
+/** The most answers a list the survey lays out as a dropdown may have to be shown as buttons, all in view at once */
+export const DROPDOWN_AS_BUTTONS = 6;
+
+/** How a code question is shown: its answers as buttons, or a searchable list when the survey asks a dropdown of many */
+export function codeControl(field: Field, items: CodeItem[]): "buttons" | "select" {
+  return field.code?.layout === "dropdown" && items.length > DROPDOWN_AS_BUTTONS ? "select" : "buttons";
+}
+
 /** A question of a step, as the moves of the focus see it */
 export interface StepQuestion {
   name: string;
