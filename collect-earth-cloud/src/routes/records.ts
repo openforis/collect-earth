@@ -4,7 +4,8 @@ import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { noteActivity } from '../activity.js';
 import { applyLww, recordEventOf } from '../lww.js';
 import type { SamplingService } from '../samplingService.js';
-import type { BatchItemResult, RecordEnvelope } from '../types.js';
+import type { BatchItemResult, RecordEnvelope, RoundInfo } from '../types.js';
+import { isTrainingRecord, trainingUnits } from './training.js';
 
 interface BatchBody {
   records?: unknown[];
@@ -55,6 +56,8 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
       let storedCount = 0;
       // A first submission stored: the check sampling may draw (coalesced, SamplingService).
       let firstSubmission = false;
+      // The plots of training sets: their records go to training_records (read once per batch).
+      let training: { units: Set<string>; info: RoundInfo | null } | null = null;
 
       for (const raw of envelopes) {
         const envelope = normalizeEnvelope(raw);
@@ -82,6 +85,17 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
             }
           }
           const operator = envelope.operator ?? '';
+          training ??= { units: await trainingUnits(store, projectId), info: await store.getRoundInfo(projectId) };
+          if (isTrainingRecord(envelope.recordKey, training.units, training.info)) {
+            // A calibration or learning plot: kept apart, never in the project's figures (no event either).
+            const kept = await store.putTrainingRecord(projectId, envelope.recordKey, operator, (existing) => {
+              const { row, status } = applyLww(envelope, existing, receivedAt);
+              return status === 'stored' ? { ...row, projectId } : null;
+            });
+            if (kept) storedCount += 1;
+            results.push({ recordKey: envelope.recordKey, status: kept ? 'stored' : 'stale' });
+            continue;
+          }
           // The record and its event in one transaction, decided on the row stored
           // before, read under the record's lock: a crash cannot keep one without the
           // other, and two uploads of the record at once cannot both log the same change.

@@ -47,6 +47,10 @@ import type {
   ReferenceChange,
   ReferenceChangeResult,
   ReferencePlot,
+  TrainingAttempt,
+  TrainingGolden,
+  TrainingKind,
+  TrainingSet,
   RoundInfo,
   Role,
   SampledCopy,
@@ -59,6 +63,24 @@ import type {
   User,
   UserSummary,
 } from '../types.js';
+
+export interface TrainingSetInput {
+  kind: TrainingKind;
+  name: string;
+  filename: string;
+  data: Buffer;
+  plotKeys: string[];
+  passMark: number | null;
+  memberIds: string[];
+  createdBy: string | null;
+  at: number;
+}
+
+export interface TrainingSetChange {
+  name?: string;
+  kind?: TrainingKind;
+  passMark?: number | null;
+}
 
 export interface CreateProjectResult {
   projectId: string;
@@ -352,6 +374,33 @@ export interface Store {
     draw: SamplingDraw,
     dueBefore: number,
   ): Promise<SampledCopy[]>;
+  // --- Training: calibration and learning plots (025_training) ---
+
+  /** The project's training sets, oldest first (no data). */
+  listTrainingSets(projectId: string): Promise<TrainingSet[]>;
+  getTrainingSet(projectId: string, setId: string): Promise<(TrainingSet & { data: Buffer }) | null>;
+  /** Adds a set, with attempt 1 of each participant started at its creation. */
+  createTrainingSet(projectId: string, input: TrainingSetInput): Promise<TrainingSet>;
+  /** Changes a set's name, kind or pass mark; null when there is no such set. */
+  updateTrainingSet(projectId: string, setId: string, change: TrainingSetChange): Promise<TrainingSet | null>;
+  /** Deletes a set with its participants, golden answers, attempts and the training records of its plots. */
+  deleteTrainingSet(projectId: string, setId: string): Promise<boolean>;
+  /** Replaces the participants; a new participant's attempt 1 starts at `at`. */
+  setTrainingMembers(projectId: string, setId: string, userIds: readonly string[], at: number): Promise<void>;
+  listTrainingGolden(projectId: string, setId: string): Promise<TrainingGolden[]>;
+  /** Writes golden answers (whole rows, by plot); an empty `answers` with no note deletes the plot's. */
+  putTrainingGolden(projectId: string, setId: string, rows: readonly TrainingGolden[]): Promise<void>;
+  listTrainingAttempts(projectId: string, setId: string): Promise<TrainingAttempt[]>;
+  /** Closes each person's open attempt with its snapshot and opens the next one at `at`, in one transaction. */
+  startTrainingAttempts(projectId: string, setId: string, closing: readonly { userId: string; results: unknown }[], at: number): Promise<void>;
+  /**
+   * Stores a training record (training_records) as putRecordWithEvent stores a record, without
+   * an event: `apply` gets the row stored before and gives the row to store, or null (stale).
+   */
+  putTrainingRecord(projectId: string, recordKey: string, operator: string, apply: (existing: RecordRow | null) => RecordRow | null): Promise<boolean>;
+  /** The project's training records, without their XML. */
+  listTrainingRecords(projectId: string): Promise<RecordRow[]>;
+
   // --- Reference plots (Task 14: reference_plots) ---
 
   /** The project's reference plots, with their assessors' usernames (whole files hold none). */

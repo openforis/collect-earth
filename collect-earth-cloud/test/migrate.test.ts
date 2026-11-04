@@ -80,7 +80,8 @@ describe('runMigrations', () => {
     // 024 recorded itself; then every file before it at once.
     const batch = calls.filter((c) => c.sql.includes('INSERT INTO schema_migrations') && c.sql.includes('unnest('));
     expect(batch).toHaveLength(1);
-    expect(batch[0].params![0]).toEqual(files.filter((f) => f !== '024_migration_checksums.sql'));
+    // Those after it record themselves one by one.
+    expect(batch[0].params![0]).toEqual(files.slice(0, files.indexOf('024_migration_checksums.sql')));
     expect(files).toContain('024_migration_checksums.sql');
   });
 

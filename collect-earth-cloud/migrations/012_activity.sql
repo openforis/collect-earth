@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
                    'invite.created', 'invite.revoked', 'member.removed', 'member.role', 'cep.replaced',
                    'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'decision.set',
                    'decision.deleted', 'settings.changed', 'export.downloaded', 'survey.replaced', 'sampling.drawn',
-                   'reference.changed', 'link.created', 'link.revoked')),
+                   'reference.changed', 'link.created', 'link.revoked', 'training.changed')),
   details        JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 CREATE INDEX IF NOT EXISTS idx_audit_log_project_at ON audit_log(project_id, at);

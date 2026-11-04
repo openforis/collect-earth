@@ -301,6 +301,51 @@ export interface SampledCopy {
  * A reference plot (Task 14, reference_plots): a plot of a divided file whose first assessment,
  * by its reference assessor (its main holder there), every collector checks blind (a copy each).
  */
+/** Calibration or learning plots (docs/plans/2026-11-04-calibration-and-learning-plots.md). */
+export type TrainingKind = 'calibration' | 'learning';
+
+/** A training set: its own plot file, given whole to its participants, kept apart from production. */
+export interface TrainingSet {
+  id: string;
+  projectId: string;
+  kind: TrainingKind;
+  name: string;
+  /** The file's name as uploaded. */
+  filename: string;
+  checksum: string;
+  plotCount: number;
+  /** Its plot ids (units, parsed with fileKeyCount), in file order. */
+  plotKeys: string[];
+  /** Percent of answers right to pass (learning), or null. */
+  passMark: number | null;
+  createdAt: number;
+  createdBy: string | null;
+  updatedAt: number;
+  /** Participants (user ids). */
+  memberIds: string[];
+}
+
+/** The golden interpretation of one plot of a set: question key -> answer, and the coordinator's explanation. */
+export interface TrainingGolden {
+  plotKey: string;
+  answers: Record<string, string>;
+  note: string | null;
+  updatedAt: number;
+  updatedBy: string | null;
+}
+
+/**
+ * One attempt of one participant at a set. A record counts for the open attempt when it was
+ * submitted at or after `startedAt`; a closed attempt keeps a snapshot of its scores (`results`).
+ */
+export interface TrainingAttempt {
+  userId: string;
+  number: number;
+  startedAt: number;
+  /** Null while open. */
+  results: unknown;
+}
+
 export interface ReferencePlot {
   csvFileId: string;
   plotKey: string;
@@ -714,6 +759,7 @@ export const AUDIT_ACTIONS = [
   'reference.changed',
   'link.created',
   'link.revoked',
+  'training.changed',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

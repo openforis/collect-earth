@@ -932,7 +932,7 @@ export function keyRule(key: string, outline: ReadonlyMap<string, Question> | nu
 }
 
 /** No answer: blank, "null", or only blank parts. */
-function isBlankAnswer(text: string): boolean {
+export function isBlankAnswer(text: string): boolean {
   if (text === '') return true;
   if (text.charCodeAt(0) > 32 && text !== 'null' && !text.includes(SUMMARY_VALUES_SEPARATOR)) return false;
   return valuesOf(text).length === 0;
@@ -947,7 +947,7 @@ function valuesOf(text: string): string[] {
 }
 
 /** A choice answer as compared: codes without their qualifier, as a sorted set joined by ", ". */
-function choiceText(text: string): string {
+export function choiceText(text: string): string {
   if (!text.includes(SUMMARY_VALUES_SEPARATOR) && !text.includes(QUALIFIER_SEPARATOR)) {
     const v = text.trim();
     return v === 'null' ? '' : v;
@@ -960,7 +960,7 @@ function choiceText(text: string): string {
 }
 
 /** An answer as shown in the differences list: its values, qualifiers kept. */
-function shownText(text: string): string {
+export function shownText(text: string): string {
   return valuesOf(text).join(', ');
 }
 

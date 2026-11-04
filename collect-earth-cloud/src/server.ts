@@ -37,6 +37,7 @@ import { registerCollectBackupRoutes } from './routes/collectBackup.js';
 import { registerMailRoutes, type AccountMailHooks } from './routes/mail.js';
 import { registerQualityRoutes } from './routes/quality.js';
 import { registerRecordRoutes } from './routes/records.js';
+import { registerTrainingRoutes } from './routes/training.js';
 import { referenceSyncer, registerReferenceRoutes } from './routes/reference.js';
 import { registerSamplingRoutes } from './routes/sampling.js';
 import { SamplingService } from './samplingService.js';
@@ -208,6 +209,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerRecordRoutes(app, store, local ? undefined : sampling);
   await registerSamplingRoutes(app, store, sampling);
   await registerReferenceRoutes(app, store, quality, states, now);
+  await registerTrainingRoutes(app, store, { outline: (projectId, log) => quality.outline(projectId, log), now });
   // Read-only progress links for funders (Task 18): the public page reads the Progress tab's figures.
   await registerPublicProgressRoutes(app, store, config, limiter, states, now);
   // Email digests (Task 19), confirmation links, "Forgot your password?" and the account's security notices.

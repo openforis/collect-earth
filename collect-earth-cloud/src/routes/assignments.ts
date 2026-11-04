@@ -24,6 +24,7 @@ import type { Question } from '../surveyOutline.js';
 import { registerDivisionRoutes } from './division.js';
 import { hasPolygonColumn } from '../plotShape.js';
 import { coordinate, isWgs84, PlotPlaceReader } from './plotPlaces.js';
+import { trainingAssignments, trainingUnits } from './training.js';
 
 interface AssignmentsBody {
   assignments?: { userId?: string; csvFileId?: string }[];
@@ -217,6 +218,16 @@ export async function registerAssignmentRoutes(
           reason:
             "This file has a column named coordinator_note, the column the server adds to carry the coordinator's " +
             'note to Collect Earth. Rename that column or leave it out, then upload the file again.',
+        });
+      }
+      // A training set's plot is no production plot: its records go to the training records.
+      const training = await trainingUnits(store, projectId);
+      const inTraining = training.size > 0 ? plotIds.filter((id) => training.has(id)) : [];
+      if (inTraining.length > 0) {
+        return reply.code(409).send({
+          error: 'training_plot_in_file',
+          reason: 'This file holds plots of a training set (calibration or learning plots). Leave them out of this file, or delete the training set first.',
+          plots: inTraining.slice(0, 20),
         });
       }
       // A reference plot must be in one plot file only (Task 14: its records are paired by plot
@@ -466,6 +477,11 @@ export async function registerAssignmentRoutes(
         if (servedRecheck) {
           assignments.push(built({ id: recheck.id, filename: recheck.filename, checksum: servedRecheck.checksum, plotCount: servedRecheck.plotCount }, servedRecheck));
         }
+      }
+      // Calibration and learning sets the person takes part in, last.
+      if (userId) {
+        const sets = await tryBuild('training', () => trainingAssignments(store, projectId, userId, info, base));
+        if (sets) assignments.push(...sets);
       }
       noteActivity(request, { plotsDownload: true }, { desktop: true });
       return reply.send({ assignments });
@@ -735,7 +751,7 @@ function cachedOwnFile(
  * (Task 16) changes it: a whole file has no quality-check copies, so a replaced round would
  * keep every value, and the file is otherwise served as uploaded.
  */
-function wholeFile(file: { checksum: string; data: Buffer; plotCount: number }, info: RoundInfo | null): ServedFile {
+export function wholeFile(file: { checksum: string; data: Buffer; plotCount: number }, info: RoundInfo | null): ServedFile {
   const round = roundColumnOf(info, new Set());
   const note = noteColumnOf(info);
   if (round?.kind !== 'insert' && !note) {
