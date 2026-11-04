@@ -34,6 +34,8 @@ vi.mock('pg', async () => {
           if (sql.includes('records_version')) return { rows: [{ records_version: '7' }], rowCount: 1 };
           if (sql.includes('FROM project_tokens')) return { rows: [{ project_id: PROJECT }, { project_id: PROJECT_B }], rowCount: 2 };
           if (sql.includes('FROM records WHERE')) return { rows: [{ bytes: '10' }], rowCount: 1 };
+          // Training sets and records (025): none in these projects.
+          if (sql.includes('FROM training_sets WHERE')) return { rows: [{ bytes: '0' }], rowCount: 1 };
           // Was the record submitted before (asked by itself when it has no row yet).
           if (sql.includes('AS submitted_before') && !sql.includes('FROM records')) return { rows: [{ submitted_before: true }], rowCount: 1 };
           return { rows: [], rowCount: 0 };
@@ -309,7 +311,7 @@ describe('PostgresStore pool', () => {
     let current: unknown = null;
     for (const q of queries) {
       if (q.params?.[0] === 'app.current_project') current = q.params[1];
-      for (const table of ['member_activity', 'record_events', 'records', 'csv_files', 'project_ceps']) {
+      for (const table of ['member_activity', 'record_events', 'records', 'csv_files', 'project_ceps', 'training_sets', 'training_records']) {
         if (q.sql.includes(`FROM ${table} WHERE`)) {
           expect(q.params![0]).toBe(current);
         }

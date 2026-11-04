@@ -447,6 +447,12 @@ export class InMemoryStore implements Store {
     for (const r of entry.records.values()) {
       storage.recordBytes += Buffer.byteLength(r.xml ?? '', 'utf8') + Buffer.byteLength(JSON.stringify(r.summary), 'utf8');
     }
+    const training = this.training.get(projectId);
+    storage.trainingBytes = 0;
+    for (const e of training?.sets.values() ?? []) storage.trainingBytes += e.data.length;
+    for (const r of training?.records.values() ?? []) {
+      storage.trainingBytes += Buffer.byteLength(r.xml ?? '', 'utf8') + Buffer.byteLength(JSON.stringify(r.summary), 'utf8');
+    }
     return storage;
   }
 

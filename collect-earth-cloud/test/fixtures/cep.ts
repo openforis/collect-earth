@@ -82,6 +82,15 @@ export function idOnlyCep(): Buffer {
   return zip(files);
 }
 
+/** idOnlyCep with its key `id` an integer, not text (plot ids must then be numbers). */
+export function integerIdCep(): Buffer {
+  const files = unzipSync(idOnlyCep());
+  files['placemark.idm.xml'] = strToU8(
+    mustReplace(strFromU8(files['placemark.idm.xml']), /<text id="2" name="id"([^>]*?) type="short">([\s\S]*?)<\/text>/, '<integer id="2" name="id"$1>$2</integer>', 'id key'),
+  );
+  return zip(Object.entries(files));
+}
+
 /**
  * The CEP with an attribute of its own named coordinator_note (not filled from the plot file), so
  * the server adds no coordinator's note to it (Task 16, refusal note_name_taken) and serves its plot

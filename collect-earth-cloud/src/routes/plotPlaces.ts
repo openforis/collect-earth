@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { attr, cepProperties, childrenOf, elements, hiddenKeys, parseSurvey, readCep } from '../cep.js';
+import { attr, cepProperties, childrenOf, elements, hiddenKeys, parseSurvey, readCep, surveyInfo } from '../cep.js';
 import { hasPolygonColumn, plotOutline, visibleId, type PlotOutline } from '../plotShape.js';
 import { plotFileOf } from '../plotFileCache.js';
 import { isNumber } from '../plots.js';
@@ -20,6 +20,8 @@ export interface SurveyFacts {
   srid: string;
   properties: Map<string, string> | null;
   hidden: boolean[] | null;
+  /** The root entity's key attributes (name, type), in order; null without a readable project file. */
+  keys?: { name: string; type: string }[] | null;
 }
 
 /** Served project files whose facts are kept. */
@@ -155,7 +157,7 @@ export class PlotPlaceReader {
 
   /** What the served project file says of its plots ("" srid, no properties, no keys when it has none or cannot be read). */
   async surveyFacts(projectId: string, log: FastifyRequest['log']): Promise<SurveyFacts> {
-    const none: SurveyFacts = { srid: '', properties: null, hidden: null };
+    const none: SurveyFacts = { srid: '', properties: null, hidden: null, keys: null };
     const info = await this.store.getCepInfo(projectId);
     if (!info) {
       return none;
@@ -172,7 +174,7 @@ export class PlotPlaceReader {
       if (cep) {
         const files = readCep(cep);
         const idm = new TextDecoder().decode(files.entries.get(files.surveyPath)!);
-        facts = { srid: firstSrid(idm), properties: cepProperties(files), hidden: hiddenKeys(idm) };
+        facts = { srid: firstSrid(idm), properties: cepProperties(files), hidden: hiddenKeys(idm), keys: surveyInfo(idm).keys.map((k) => ({ name: k.name, type: k.type })) };
       }
     } catch (err) {
       log.warn({ err }, 'could not read the plot shape of the project file');

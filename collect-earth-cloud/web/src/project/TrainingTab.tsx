@@ -37,6 +37,7 @@ import {
   getTraining,
   getTrainingSet,
   goldenFrom,
+  pruneTrainingGolden,
   putTrainingGolden,
   setTrainingMembers,
   startTrainingAttempts,
@@ -220,7 +221,7 @@ function ClashAlert({ error, language }: { error: unknown; language: string }) {
   const t = useT();
   const details = (error as { details?: Record<string, unknown> } | null)?.details;
   const code = typeof details?.code === "string" ? details.code : null;
-  if (code && ["in_plot_file", "in_other_set", "has_records"].includes(code)) {
+  if (code && ["in_plot_file", "in_other_set", "has_records", "bad_ids"].includes(code)) {
     const plots = Array.isArray(details!.plots) ? (details!.plots as string[]) : [];
     return (
       <Alert severity="error" role="alert">
@@ -567,6 +568,18 @@ function Golden({ projectId, view, onChanged }: { projectId: string; view: Train
   const golden = new Map(view.golden.map((g) => [g.plotKey, g]));
   // The questions the participants answered in this set: a plot's golden answers are asked for those first.
   const answered = new Set(view.calibration.questions.map((q) => q.key));
+  const prune = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await pruneTrainingGolden(projectId, view.set.id);
+      onChanged();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
   const copy = async () => {
     const person = view.set.participants.find((p) => p.userId === from);
     if (!person) return;
@@ -609,6 +622,18 @@ function Golden({ projectId, view, onChanged }: { projectId: string; view: Train
         )}
         <ErrorAlert error={error} />
         {view.questions.length === 0 && golden.size === 0 && <Alert severity="info">{t("training.noQuestions")}</Alert>}
+        {(view.staleQuestions ?? []).length > 0 && (
+          <Alert
+            severity="warning"
+            action={
+              <Button color="inherit" size="small" disabled={busy} onClick={() => void prune()}>
+                {t("training.staleRemove")}
+              </Button>
+            }
+          >
+            {t("training.staleQuestions", { keys: (view.staleQuestions ?? []).join(", ") })}
+          </Alert>
+        )}
         <Stack spacing={1}>
           {view.plots.map((plot) => (
             <GoldenPlot

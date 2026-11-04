@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
+import { integerIdCep } from './fixtures/cep.js';
 
 const LU = 'collect_code_land_use';
 const COVER = 'collect_real_cover';
@@ -162,6 +163,33 @@ describe('training: calibration and learning plots', () => {
     for (const name of ['ana', 'bo', 'rita']) expect(JSON.stringify(sets)).not.toContain(name);
     // Coordinators get the same view.
     expect((await call('GET', '/training/figures', owner.token)).json().sets[0].calibration.participants).toBe(3);
+  });
+
+  it('only participants count; training counts towards storage; answers are checked against the survey', async () => {
+    const setId = (await createSet('calib.csv', [10], '?name=C')).json().id as string;
+    await call('PUT', `/training/${setId}/members`, owner.token, { userIds: [people.ana.userId, people.bo.userId] });
+    await send('ana', { 10: { [LU]: 'F' } });
+    await send('bo', { 10: { [LU]: 'C' } });
+    const before = (await ctx.store.getProjectStorage(pid)).trainingBytes ?? 0;
+    expect(before).toBeGreaterThan(0);
+    // bo leaves the set: their answer no longer counts.
+    await call('PUT', `/training/${setId}/members`, owner.token, { userIds: [people.ana.userId] });
+    const view = (await call('GET', `/training/${setId}`, owner.token)).json();
+    expect(view.calibration.plots[0].questions[0].answers).toEqual([{ value: 'F', count: 1, people: ['ana'] }]);
+    // Without a project file any question is taken; the survey's keys are checked once there is one.
+    expect((await call('PUT', `/training/${setId}/golden/10`, owner.token, { answers: { [LU]: 'F' } })).statusCode).toBe(200);
+    expect((await call('GET', `/training/${setId}`, owner.token)).json().staleQuestions).toEqual([]);
+    expect((await call('POST', `/training/${setId}/golden/prune`, owner.token)).json()).toEqual({ plots: 0, questions: 0 });
+  });
+
+  it('plot ids must fit the survey\'s number key; golden answers must fit its questions', async () => {
+    expect((await call('PUT', '/cep', owner.token, integerIdCep(), { 'content-type': 'application/zip' })).statusCode).toBeLessThan(300);
+    const refused = await call('PUT', '/training-sets/t.csv', owner.token, 'id,lat,lon\nA1,-10,20\n12,-10,21\n', { 'content-type': 'text/csv' });
+    expect(refused.statusCode).toBe(400);
+    expect(refused.json()).toMatchObject({ code: 'bad_ids', plots: ['A1'] });
+    const setId = (await createSet('ok.csv', [12, 13])).json().id as string;
+    const wrong = await call('PUT', `/training/${setId}/golden/12`, owner.token, { answers: { no_such_question: 'x' } });
+    expect(wrong.json()).toMatchObject({ code: 'bad_answer', key: 'no_such_question' });
   });
 
   it('golden answers from one person\'s records (an expert)', async () => {

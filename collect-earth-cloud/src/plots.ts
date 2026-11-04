@@ -133,6 +133,30 @@ export function isNumber(value: string): boolean {
  * (fileKeyCount of the project's RoundInfo): they make the plot id, joined by ",",
  * the way Collect Earth joins the key values of a record.
  */
+/**
+ * Plot ids that cannot be the survey's keys (`keys`: the key attributes as the plot file's first
+ * columns, in order, of the given types: integer and real keys take numbers); up to `max` of them.
+ */
+export function idsNotFittingKeys(plotIds: readonly string[], keys: readonly { name: string; type: string }[], keyCount: number, max = 20): string[] {
+  const types = keys.slice(0, keyCount).map((k) => k.type);
+  if (!types.some((t) => t === 'integer' || t === 'real')) return [];
+  const bad: string[] = [];
+  for (const id of plotIds) {
+    const parts = keyCount > 1 ? id.split(',') : [id];
+    const wrong = types.some((type, i) => {
+      const v = (parts[i] ?? '').trim();
+      if (type === 'integer') return !/^-?\d+$/.test(v);
+      if (type === 'real') return v === '' || !Number.isFinite(Number(v));
+      return false;
+    });
+    if (wrong) {
+      bad.push(id);
+      if (bad.length >= max) break;
+    }
+  }
+  return bad;
+}
+
 export function parsePlotFile(data: Buffer, keyCount = 1): PlotFile {
   const idFields = Math.max(1, Math.floor(keyCount));
   const bom = data.length >= 3 && data.subarray(0, 3).equals(BOM);

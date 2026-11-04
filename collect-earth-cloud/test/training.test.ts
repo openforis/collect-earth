@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { anonymousCalibration, calibrationFigures, fleissKappa, goldenFromConsensus, labelled, latestAnswers, learningScore, openAttempt, type Answered } from '../src/training.js';
+import { anonymousCalibration, calibrationFigures, CLOCK_TOLERANCE_MS, fleissKappa, goldenAnswerProblem, goldenFromConsensus, inAttempt, labelled, latestAnswers, learningScore, openAttempt, staleQuestions, type Answered } from '../src/training.js';
+import { idsNotFittingKeys } from '../src/plots.js';
 import type { RecordRow, TrainingGolden } from '../src/types.js';
 
 const record = (recordKey: string, operator: string, summary: Record<string, string>, modifiedOn = 1000, extra: Partial<RecordRow> = {}): RecordRow => ({
@@ -130,5 +131,46 @@ describe('training figures', () => {
         'u',
       ),
     ).toEqual({ number: 2, startedAt: 20 });
+  });
+});
+
+describe('training: attempts, survey changes, plot ids', () => {
+  it('a record counts for an attempt when saved after its start, or received after it from a desktop a little behind', () => {
+    const start = 1_000_000_000;
+    expect(inAttempt({ modifiedOn: start + 1, receivedAt: start + 2 }, start)).toBe(true);
+    expect(inAttempt({ modifiedOn: start - 3600_000, receivedAt: start + 5 }, start)).toBe(true);
+    expect(inAttempt({ modifiedOn: start - CLOCK_TOLERANCE_MS - 1, receivedAt: start + 5 }, start)).toBe(false);
+    expect(inAttempt({ modifiedOn: start - 60_000, receivedAt: start - 30_000 }, start)).toBe(false);
+    expect(inAttempt({ modifiedOn: 1, receivedAt: 1 }, 0)).toBe(true);
+  });
+
+  it('leaves out people who do not take part (since gives null)', () => {
+    const rows = [record('1', 'ana', { collect_code_lu: 'F' }), record('1', 'gone', { collect_code_lu: 'C' })];
+    const latest = latestAnswers(rows, ['1'], null, (op) => (op === 'ana' ? 0 : null));
+    expect([...latest.get('1')!.keys()]).toEqual(['ana']);
+  });
+
+  it('a golden answer is checked against the survey; questions it no longer has are not scored', () => {
+    const outline = new Map([
+      ['lu', { key: 'lu', label: 'Land use', kind: 'choice' as const, options: [{ code: 'F', label: 'Forest' }], help: null, excluded: false, multiple: false, calculated: false }],
+      ['cover', { key: 'cover', label: 'Cover', kind: 'number' as const, options: null, help: null, excluded: false, multiple: false, calculated: false }],
+      ['collect_text_id', { key: 'collect_text_id', label: 'Id', kind: 'text' as const, options: null, help: null, excluded: true, multiple: false, calculated: false }],
+    ]) as never;
+    expect(goldenAnswerProblem(outline, 'lu', 'F')).toBeNull();
+    expect(goldenAnswerProblem(outline, 'lu', 'X')).toMatch(/not one of the answers/);
+    expect(goldenAnswerProblem(outline, 'cover', 'many')).toMatch(/number/);
+    expect(goldenAnswerProblem(outline, 'collect_text_id', '1')).toMatch(/not a question/);
+    expect(goldenAnswerProblem(outline, 'old', '1')).toMatch(/no question old/);
+    expect(goldenAnswerProblem(null, 'old', '1')).toBeNull();
+    const golden = new Map([['1', { plotKey: '1', answers: { lu: 'F', old: 'x' }, note: null, updatedAt: 1, updatedBy: null }]]);
+    expect(staleQuestions(golden.values(), outline)).toEqual(['old']);
+    const score = learningScore({ plots: ['1'], golden, answers: new Map([['1', { operator: 'a', modifiedOn: 1, summary: { lu: 'F' } }]]), outline, margins: {}, passMark: null });
+    expect(score.answers).toEqual({ compared: 1, agreeing: 1, rate: 1 });
+  });
+
+  it('plot ids must fit the survey\'s number keys', () => {
+    expect(idsNotFittingKeys(['1', 'A2', '3'], [{ name: 'id', type: 'integer' }], 1)).toEqual(['A2']);
+    expect(idsNotFittingKeys(['A2'], [{ name: 'id', type: 'text' }], 1)).toEqual([]);
+    expect(idsNotFittingKeys(['1,2', '1,x'], [{ name: 'id', type: 'integer' }, { name: 'sub', type: 'real' }], 2)).toEqual(['1,x']);
   });
 });

@@ -63,7 +63,7 @@ describe('CSV files and assignments', () => {
     const res = await uploadCsv(ctx.app, project.projectId, project.adminToken, 'odd.csv',
       'id,lat,lon\n1,0,0\n1,0,0\n2,abc,0\n3,95,10\n4,"1,5",2\n');
     expect(res.statusCode).toBe(201);
-    expect(res.json().warnings).toEqual({ duplicateIds: 1, duplicateExamples: ['1'], badCoordinates: 2, badCoordinateExamples: ['2', '3'] });
+    expect(res.json().warnings).toEqual({ badIds: 0, badIdExamples: [], duplicateIds: 1, duplicateExamples: ['1'], badCoordinates: 2, badCoordinateExamples: ['2', '3'] });
     const clean = await uploadCsv(ctx.app, project.projectId, project.adminToken, 'clean.csv', 'id,lat,lon\n1,0,0\n');
     expect(clean.json().warnings).toBeUndefined();
   });

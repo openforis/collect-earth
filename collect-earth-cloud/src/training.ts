@@ -26,20 +26,35 @@ export interface Answered {
 }
 
 /**
+ * How far behind the server's clock a desktop's may be: a record received after an attempt
+ * started counts for it when it was saved (by the desktop's clock) at most this long before.
+ */
+export const CLOCK_TOLERANCE_MS = 12 * 3600_000;
+
+/** Whether a record counts for an attempt that started at `start` (0: every record). */
+export function inAttempt(r: Pick<RecordRow, 'modifiedOn' | 'receivedAt'>, start: number): boolean {
+  if (start <= 0 || r.modifiedOn >= start) return true;
+  // A desktop whose clock is behind: received since the start, saved shortly "before" it.
+  return r.receivedAt >= start && r.modifiedOn >= start - CLOCK_TOLERANCE_MS;
+}
+
+/**
  * The latest submitted record (actively saved, not deleted) of each person for each plot of a
- * set: plot -> operator -> record. `since(operator)` leaves out records saved before it (an
- * attempt's start).
+ * set: plot -> operator -> record. `since(operator)` is the start of the person's attempt (records
+ * before it are left out, inAttempt), or null to leave the person out (not taking part).
  */
 export function latestAnswers(
   records: readonly RecordRow[],
   plots: readonly string[],
   info: RoundInfo | null,
-  since: (operator: string) => number = () => 0,
+  since: (operator: string) => number | null = () => 0,
 ): Map<string, Map<string, Answered>> {
   const units = new Set(plots);
   const out = new Map<string, Map<string, Answered>>();
   for (const r of records) {
-    if (!r.activelySaved || r.deleted || r.modifiedOn < since(r.operator)) continue;
+    if (!r.activelySaved || r.deleted) continue;
+    const start = since(r.operator);
+    if (start === null || !inAttempt(r, start)) continue;
     const plot = unitOfRecord(r.recordKey, units, info);
     if (plot === null) continue;
     let byPerson = out.get(plot);
@@ -374,7 +389,8 @@ export function learningScore(input: {
   for (const plot of scored) {
     const record = input.answers.get(plot);
     if (!record) continue;
-    const golden = input.golden.get(plot)!.answers;
+    // A question the survey no longer has (the project file was replaced) is not scored: staleQuestions.
+    const golden = outline ? Object.fromEntries(Object.entries(input.golden.get(plot)!.answers).filter(([k]) => outline.has(k))) : input.golden.get(plot)!.answers;
     const questions: ScoredAnswer[] = [];
     // Only the golden interpretation's questions are scored: what it leaves out is not judged.
     const given = Object.fromEntries(Object.keys(golden).map((k) => [k, record.summary[k] ?? '']));
@@ -407,6 +423,30 @@ export function learningScore(input: {
     passed: input.passMark === null || !done ? null : (answers.rate ?? 0) * 100 >= input.passMark,
     byPlot,
   };
+}
+
+/** Golden answers' questions the survey no longer has (after the project file was replaced): not scored. */
+export function staleQuestions(golden: Iterable<TrainingGolden>, outline: ReadonlyMap<string, Question> | null): string[] {
+  if (!outline) return [];
+  const out = new Set<string>();
+  for (const g of golden) for (const k of Object.keys(g.answers)) if (!outline.has(k)) out.add(k);
+  return [...out].sort();
+}
+
+/**
+ * Why a golden answer cannot be stored, or null: its question must be one the survey compares, and
+ * an answer a code of its list (one answer) or a number.
+ */
+export function goldenAnswerProblem(outline: ReadonlyMap<string, Question> | null, key: string, value: string): string | null {
+  if (!outline) return null;
+  const q = outline.get(key);
+  if (!q) return `The survey has no question ${key}.`;
+  if (q.excluded || q.calculated || (q.kind !== 'choice' && q.kind !== 'number')) return `${q.label || key} is not a question answers are compared on.`;
+  if (q.kind === 'number' && !q.multiple && !Number.isFinite(Number(value.trim()))) return `${q.label || key} takes a number.`;
+  if (q.kind === 'choice' && !q.multiple && q.options && q.options.length > 0 && !q.options.some((o) => o.code === value.trim())) {
+    return `${value} is not one of the answers of ${q.label || key}.`;
+  }
+  return null;
 }
 
 /** A person's open attempt (the highest number without results), or attempt 1 when none is stored; attempt 1 starts at 0. */

@@ -10,7 +10,7 @@ import { copiesSubmittedAsMain } from '../division.js';
 import { attachment } from '../download.js';
 import { checkUploadFits } from '../limits.js';
 import { nearbyRanksOf, servedNearby } from '../nearby.js';
-import { buildPlotFile, isNumber, noteText, parsePlotFile, type NoteColumn, type RoundColumn } from '../plots.js';
+import { buildPlotFile, idsNotFittingKeys, isNumber, noteText, parsePlotFile, type NoteColumn, type RoundColumn } from '../plots.js';
 import { referenceCopyPlan } from '../reference.js';
 import { fileKeyCount, keyShape, recordKeysOfUnit, unitOfRecord } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
@@ -158,8 +158,11 @@ export async function registerAssignmentRoutes(
     // Polygon files carry their shapes, not a place in the coordinate columns.
     const polygons = parsed.rows.length > 0 && hasPolygonColumn(parsed.rows[0].fields);
     const bad: string[] = [];
+    const facts = await placeReader.surveyFacts(projectId, log);
+    // Ids an integer or real key of the survey cannot take (Collect Earth would not find their records).
+    const badIds = facts.keys ? idsNotFittingKeys(parsed.plotIds, facts.keys, keyCount) : [];
     if (!polygons) {
-      const { srid } = await placeReader.surveyFacts(projectId, log);
+      const { srid } = facts;
       // Out-of-range values are only known for latitude and longitude; other systems need numbers.
       const [latLimit, lonLimit] = isWgs84(srid) ? [90, 180] : [Infinity, Infinity];
       for (const row of parsed.rows) {
@@ -168,10 +171,12 @@ export async function registerAssignmentRoutes(
         }
       }
     }
-    if (duplicates.length === 0 && bad.length === 0) {
+    if (duplicates.length === 0 && bad.length === 0 && badIds.length === 0) {
       return null;
     }
     return {
+      badIds: badIds.length,
+      badIdExamples: badIds.slice(0, 5),
       duplicateIds: duplicates.length,
       duplicateExamples: duplicates.slice(0, 5),
       badCoordinates: bad.length,

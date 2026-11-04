@@ -273,6 +273,9 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
         done.push(count === 1 ? t("plots.uploadedOne", { name: file.name }) : t("plots.uploaded", { name: file.name, count: formatNumber(count, language) }));
         setMessages([...done]);
         const w = meta?.warnings;
+        if (w && (w.badIds ?? 0) > 0) {
+          warn(t("plots.warnIds", { name: file.name, count: formatNumber(w.badIds ?? 0, language), examples: (w.badIdExamples ?? []).join(", ") }));
+        }
         if (w && w.duplicateIds > 0) {
           warn(t("plots.warnDuplicates", { name: file.name, count: formatNumber(w.duplicateIds, language), examples: w.duplicateExamples.join(", ") }));
         }

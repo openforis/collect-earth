@@ -417,6 +417,17 @@ public class CloudApiClient {
 		}
 	}
 
+	/**
+	 * When a learning set's attempt started, by this computer's clock: the server's time less the difference between the
+	 * server's clock and this one (records are compared with it by their local save time).
+	 */
+	static Date freshSinceHere(long freshSince, JsonNode serverTime, long localNow) {
+		if (serverTime == null || !serverTime.isNumber()) {
+			return new Date(freshSince);
+		}
+		return new Date(freshSince + (localNow - serverTime.asLong()));
+	}
+
 	/** Lists the CSV files assigned to the logged-in operator for the configured project. */
 	public List<AssignmentInfo> getMyAssignments() throws IOException {
 		HttpGet request = new HttpGet(baseUrl() + "/v1/projects/" + projectId() + "/my-assignment");
@@ -428,10 +439,11 @@ public class CloudApiClient {
 			for (JsonNode a : assignments) {
 				JsonNode training = a.get("training");
 				JsonNode fresh = training != null ? training.get("freshSince") : null;
+				JsonNode serverTime = training != null ? training.get("serverTime") : null;
 				result.add(new AssignmentInfo(textOrNull(a, "csvFileId"), textOrNull(a, "filename"),
 						textOrNull(a, "checksum"), textOrNull(a, "downloadPath"),
 						a.has("plotCount") ? a.get("plotCount").asInt() : 0,
-						fresh != null && fresh.isNumber() ? new Date(fresh.asLong()) : null));
+						fresh != null && fresh.isNumber() ? freshSinceHere(fresh.asLong(), serverTime, System.currentTimeMillis()) : null));
 			}
 		}
 		return result;

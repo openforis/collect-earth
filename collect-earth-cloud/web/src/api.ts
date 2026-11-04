@@ -182,6 +182,9 @@ export interface CsvFile {
   dividedPeople?: number;
   /** Given on upload: what may be wrong with the file, which was still taken. */
   warnings?: {
+    /** Ids the survey's number keys cannot take. */
+    badIds?: number;
+    badIdExamples?: string[];
     duplicateIds: number;
     duplicateExamples: string[];
     badCoordinates: number;
@@ -4179,6 +4182,8 @@ export interface TrainingSetView {
   calibration: CalibrationFigures;
   golden: TrainingGolden[];
   questions: TrainingQuestion[];
+  /** Golden answers' questions the survey no longer has (not scored). */
+  staleQuestions?: string[];
   scores: { userId: string; username: string; attempt: { number: number; startedAt: number }; score: LearningScore; history: TrainingAttemptPast[] }[];
 }
 
@@ -4235,6 +4240,12 @@ export async function putTrainingGolden(projectId: string, setId: string, plot: 
 /** Golden answers for every plot: the calibration's agreed answers, or one person's records. */
 export async function goldenFrom(projectId: string, setId: string, from: { from: "consensus" } | { from: "person"; userId: string }): Promise<number> {
   const res = await request<{ plots?: number }>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden`, { json: from });
+  return typeof res.plots === "number" ? res.plots : 0;
+}
+
+/** Takes the questions the survey no longer has out of every golden answer of a set. */
+export async function pruneTrainingGolden(projectId: string, setId: string): Promise<number> {
+  const res = await request<{ plots?: number }>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden/prune`);
   return typeof res.plots === "number" ? res.plots : 0;
 }
 

@@ -6,16 +6,20 @@ import type { RoundInfo } from '../cep.js';
 import { attachment } from '../download.js';
 import { checkUploadFits } from '../limits.js';
 import { plotFileOf } from '../plotFileCache.js';
-import { parsePlotFile } from '../plots.js';
+import { idsNotFittingKeys, parsePlotFile } from '../plots.js';
+import { readCep, surveyInfo } from '../cep.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Log } from '../qualityService.js';
 import { fileKeyCount, unitOfRecord } from '../rounds.js';
+import { keyRule } from '../quality.js';
 import type { Store } from '../store/store.js';
 import type { Question } from '../surveyOutline.js';
 import {
   anonymousCalibration,
   calibrationFigures,
+  goldenAnswerProblem,
   goldenFromConsensus,
+  staleQuestions,
   latestAnswers,
   learningScore,
   MAX_GOLDEN_NOTE,
@@ -61,7 +65,7 @@ export async function trainingAssignments(store: Store, projectId: string, userI
     plotCount: number;
     downloadPath: string;
     downloadUrl: string | null;
-    training: { kind: TrainingKind; attempt: number; freshSince: number | null };
+    training: { kind: TrainingKind; attempt: number; freshSince: number | null; serverTime: number };
   }[] = [];
   for (const meta of await store.listTrainingSets(projectId)) {
     if (!meta.memberIds.includes(userId)) continue;
@@ -78,10 +82,24 @@ export async function trainingAssignments(store: Store, projectId: string, userI
       downloadPath: path,
       downloadUrl: base ? `${base}${path}` : null,
       // From attempt 2 on, Collect Earth starts the plots afresh: its records saved before go.
-      training: { kind: set.kind, attempt: attempt.number, freshSince: attempt.number > 1 ? attempt.startedAt : null },
+      // serverTime: Collect Earth reads freshSince by its own clock (the difference taken off).
+      training: { kind: set.kind, attempt: attempt.number, freshSince: attempt.number > 1 ? attempt.startedAt : null, serverTime: Date.now() },
     });
   }
   return out;
+}
+
+/** The survey's key attributes (name, type), in order, or null without a readable project file. */
+async function surveyKeysOf(store: Store, projectId: string, log: Log): Promise<{ name: string; type: string }[] | null> {
+  try {
+    const cep = await store.getCep(projectId);
+    if (!cep) return null;
+    const files = readCep(cep);
+    return surveyInfo(new TextDecoder().decode(files.entries.get(files.surveyPath)!)).keys;
+  } catch (err) {
+    log.warn({ err }, 'training: the project file could not be read for its keys');
+    return null;
+  }
 }
 
 /** Why a set's plots cannot be training plots: in a plot file, in another set, or with production records. */
@@ -123,23 +141,36 @@ function participants(set: TrainingSet, members: readonly Member[]) {
   });
 }
 
-/** Everything one set's figures need, read once. */
-async function loadSet(store: Store, projectId: string, setId: string, outline: (projectId: string, log: Log) => Promise<ReadonlyMap<string, Question> | null>, log: Log) {
-  const set = await store.getTrainingSet(projectId, setId);
-  if (!set) return null;
-  const [members, records, golden, attempts, info, settings, survey] = await Promise.all([
+type OutlineOf = (projectId: string, log: Log) => Promise<ReadonlyMap<string, Question> | null>;
+
+/** What every set of a project shares: read once per request, however many sets (loadSet). */
+async function loadShared(store: Store, projectId: string, outline: OutlineOf, log: Log) {
+  const [members, records, info, settings, survey] = await Promise.all([
     store.listMembers(projectId),
     store.listTrainingRecords(projectId),
-    store.listTrainingGolden(projectId, setId),
-    store.listTrainingAttempts(projectId, setId),
     store.getRoundInfo(projectId),
     store.getQualitySettings(projectId),
     outline(projectId, log),
   ]);
+  return { members, records, info, margins: settings.margins ?? {}, outline: survey };
+}
+type Shared = Awaited<ReturnType<typeof loadShared>>;
+
+/** Everything one set's figures need (`shared`: what the project's sets share, when read already). */
+async function loadSet(store: Store, projectId: string, setId: string, outline: OutlineOf, log: Log, shared?: Shared) {
+  const set = await store.getTrainingSet(projectId, setId);
+  if (!set) return null;
+  const [common, golden, attempts] = await Promise.all([
+    shared ?? loadShared(store, projectId, outline, log),
+    store.listTrainingGolden(projectId, setId),
+    store.listTrainingAttempts(projectId, setId),
+  ]);
+  const { members, records, info, margins, outline: survey } = common;
   const people = participants(set, members);
   const startOf = new Map(people.map((p) => [p.username, openAttempt(attempts, p.userId)]));
-  // Each person's latest submitted record in their open attempt.
-  const answers = latestAnswers(records, set.plotKeys, info, (operator) => startOf.get(operator)?.startedAt ?? 0);
+  // Each participant's latest submitted record in their open attempt; no one else's (someone
+  // removed from the set no longer counts in its figures).
+  const answers = latestAnswers(records, set.plotKeys, info, (operator) => startOf.get(operator)?.startedAt ?? null);
   return {
     set,
     people,
@@ -147,7 +178,7 @@ async function loadSet(store: Store, projectId: string, setId: string, outline: 
     golden: new Map(golden.map((g) => [g.plotKey, g])),
     attempts,
     info,
-    margins: settings.margins ?? {},
+    margins,
     outline: survey,
     answers,
     startOf,
@@ -232,10 +263,11 @@ export async function registerTrainingRoutes(
   // The project's sets, with each participant's progress in their open attempt (coordinators).
   app.get('/v1/projects/:pid/training', admin, async (request, reply) => {
     const projectId = request.membership!.projectId;
-    const [sets, members] = await Promise.all([store.listTrainingSets(projectId), store.listMembers(projectId)]);
+    const [sets, shared] = await Promise.all([store.listTrainingSets(projectId), loadShared(store, projectId, deps.outline, request.log)]);
+    const members = shared.members;
     const out = [];
     for (const meta of sets) {
-      const loaded = await loadSet(store, projectId, meta.id, deps.outline, request.log);
+      const loaded = await loadSet(store, projectId, meta.id, deps.outline, request.log, shared);
       if (!loaded) continue;
       out.push({
         ...summaryOf(loaded.set, loaded.people),
@@ -265,13 +297,20 @@ export async function registerTrainingRoutes(
     if (passMark === undefined && q.passMark !== undefined) return bad(reply, 'passMark must be a whole number from 0 to 100');
     const data = request.body;
     if (!Buffer.isBuffer(data) || data.length === 0) return bad(reply, 'expected a non-empty CSV body');
-    const over = await checkUploadFits(store, projectId, { kind: 'csv', filename: `training/${filename}` }, data.length);
+    // A new set replaces nothing: its bytes add to the project's (training included, getProjectStorage).
+    const over = await checkUploadFits(store, projectId, { kind: 'csv', filename: '\u0000training' }, data.length);
     if (over) return reply.code(413).send(over);
     if ((await store.listTrainingSets(projectId)).length >= MAX_TRAINING_SETS) return bad(reply, `A project can have at most ${MAX_TRAINING_SETS} training sets.`, 'too_many_sets');
     const info = await store.getRoundInfo(projectId);
     const plots = parsePlotFile(data, fileKeyCount(info)).plotIds;
     if (plots.length === 0) return bad(reply, 'This file has no plots: only a header row, or no row with a number in it.', 'no_plots');
     if (plots.length > MAX_TRAINING_PLOTS) return bad(reply, `A training set can have at most ${MAX_TRAINING_PLOTS} plots.`, 'too_many_plots');
+    // Ids the survey's keys cannot take (a text id for a number key): Collect Earth would not match their records.
+    const keys = await surveyKeysOf(store, projectId, request.log);
+    const wrongIds = keys ? idsNotFittingKeys(plots, keys, fileKeyCount(info)) : [];
+    if (wrongIds.length > 0) {
+      return bad(reply, 'Some plot ids cannot be the survey\'s plot ids: the survey takes numbers there.', 'bad_ids', { plots: wrongIds });
+    }
     const clash = await plotClash(store, projectId, plots, info);
     if (clash) return reply.code(409).send({ error: 'training_plot_clash', code: clash.code, reason: REASONS[clash.code], plots: clash.plots, file: clash.file });
     const set = await store.createTrainingSet(projectId, {
@@ -357,6 +396,7 @@ export async function registerTrainingRoutes(
       calibration,
       golden: [...loaded.golden.values()],
       questions: goldenQuestions(loaded.outline),
+      staleQuestions: staleQuestions(loaded.golden.values(), loaded.outline),
       scores: loaded.people.map((p) => ({
         userId: p.userId,
         username: p.username,
@@ -383,6 +423,12 @@ export async function registerTrainingRoutes(
       return bad(reply, `note must be at most ${MAX_GOLDEN_NOTE} characters`);
     }
     const clean = Object.fromEntries(Object.entries(answers as Record<string, string>).filter(([, v]) => v.trim() !== ''));
+    // Checked against the survey: a question it compares, an answer of its list or a number.
+    const outline = await deps.outline(projectId, request.log);
+    for (const [key, value] of Object.entries(clean)) {
+      const problem = goldenAnswerProblem(outline, key, value);
+      if (problem) return bad(reply, problem, 'bad_answer', { key });
+    }
     const note = typeof body.note === 'string' && body.note.trim() !== '' ? body.note.trim() : null;
     const row: TrainingGolden = { plotKey: plot, answers: clean, note, updatedAt: now(), updatedBy: request.userId ?? null };
     await store.putTrainingGolden(projectId, set.id, [row]);
@@ -408,7 +454,8 @@ export async function registerTrainingRoutes(
       const theirs = latestAnswers(loaded.records, loaded.set.plotKeys, loaded.info);
       rows = loaded.set.plotKeys.flatMap((plot) => {
         const a = theirs.get(plot)?.get(person.username);
-        return a ? [{ plotKey: plot, answers: { ...a.summary } }] : [];
+        // Only the questions answers are compared on (not the record's keys, operator or dates).
+        return a ? [{ plotKey: plot, answers: Object.fromEntries(Object.entries(a.summary).filter(([k]) => keyRule(k, loaded.outline).compare)) }] : [];
       });
     } else return bad(reply, "from must be 'consensus', or 'person' with a userId");
     const at = now();
@@ -421,6 +468,20 @@ export async function registerTrainingRoutes(
     await audit(store, request, 'training.changed', { setId: loaded.set.id, change: 'golden', name: loaded.set.name, plots: rows.length });
     telemetry.event('training_golden_set', { projectId, userId: request.userId }, { from: String(body.from), plots: rows.length });
     return reply.send({ plots: rows.length });
+  });
+
+  // Golden answers' questions the survey no longer has, taken out of every plot (coordinators).
+  app.post('/v1/projects/:pid/training/:setId/golden/prune', admin, async (request, reply) => {
+    const projectId = request.membership!.projectId;
+    const loaded = await loadSet(store, projectId, setIdOf(request), deps.outline, request.log);
+    if (!loaded) return reply.code(404).send({ error: 'not_found' });
+    const stale = new Set(staleQuestions(loaded.golden.values(), loaded.outline));
+    const at = now();
+    const rows = [...loaded.golden.values()]
+      .filter((g) => Object.keys(g.answers).some((k) => stale.has(k)))
+      .map((g) => ({ ...g, answers: Object.fromEntries(Object.entries(g.answers).filter(([k]) => !stale.has(k))), updatedAt: at, updatedBy: request.userId ?? null }));
+    await store.putTrainingGolden(projectId, loaded.set.id, rows);
+    return reply.send({ plots: rows.length, questions: stale.size });
   });
 
   // New attempts (coordinators): { userIds } or { all: true }. Each open attempt is closed with its score.
@@ -452,8 +513,9 @@ export async function registerTrainingRoutes(
   app.get('/v1/projects/:pid/training/figures', { preHandler: requireProjectMembership(store, 'reviewer') }, async (request, reply) => {
     const projectId = request.membership!.projectId;
     const out = [];
+    const shared = await loadShared(store, projectId, deps.outline, request.log);
     for (const meta of await store.listTrainingSets(projectId)) {
-      const loaded = await loadSet(store, projectId, meta.id, deps.outline, request.log);
+      const loaded = await loadSet(store, projectId, meta.id, deps.outline, request.log, shared);
       if (!loaded) continue;
       const base = { id: loaded.set.id, kind: loaded.set.kind, name: loaded.set.name, plotCount: loaded.set.plotCount };
       const me = request.userId ? loaded.people.find((p) => p.userId === request.userId) : undefined;
@@ -484,9 +546,10 @@ export async function registerTrainingRoutes(
     const userId = request.userId;
     if (!userId) return reply.send({ sets: [] });
     const out = [];
+    const shared = await loadShared(store, projectId, deps.outline, request.log);
     for (const meta of await store.listTrainingSets(projectId)) {
       if (!meta.memberIds.includes(userId)) continue;
-      const loaded = await loadSet(store, projectId, meta.id, deps.outline, request.log);
+      const loaded = await loadSet(store, projectId, meta.id, deps.outline, request.log, shared);
       const me = loaded?.people.find((p) => p.userId === userId);
       if (!loaded || !me) continue;
       let submitted = 0;

@@ -178,10 +178,12 @@ export interface ProjectStorage {
   /** Bytes of each plot CSV, by filename (an upload with the same name replaces it). */
   csvBytesByFilename: Record<string, number>;
   recordBytes: number;
+  /** Training sets (their files) and their records: they count towards the project's storage too. */
+  trainingBytes?: number;
 }
 
 export function totalStorageBytes(s: ProjectStorage): number {
-  return s.cepBytes + Object.values(s.csvBytesByFilename).reduce((a, b) => a + b, 0) + s.recordBytes;
+  return s.cepBytes + Object.values(s.csvBytesByFilename).reduce((a, b) => a + b, 0) + s.recordBytes + (s.trainingBytes ?? 0);
 }
 
 /** What the server did about the round key of a project's CEP (see src/cep.ts). */

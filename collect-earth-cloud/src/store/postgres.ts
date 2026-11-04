@@ -3120,6 +3120,12 @@ async function storageOf(client: pg.PoolClient, projectId: string): Promise<Proj
        FROM records WHERE project_id = $1`,
     [projectId],
   );
+  // Training sets and their records count too (025_training).
+  const training = await client.query(
+    `SELECT (COALESCE((SELECT SUM(octet_length(data)) FROM training_sets WHERE project_id = $1), 0)
+           + COALESCE((SELECT SUM(COALESCE(octet_length(xml), 0) + octet_length(summary::text)) FROM training_records WHERE project_id = $1), 0))::bigint AS bytes`,
+    [projectId],
+  );
   const csvBytesByFilename: Record<string, number> = {};
   for (const r of csv.rows) {
     csvBytesByFilename[r.filename as string] = Number(r.bytes);
@@ -3128,6 +3134,7 @@ async function storageOf(client: pg.PoolClient, projectId: string): Promise<Proj
     cepBytes: cep.rowCount === 0 ? 0 : Number(cep.rows[0].bytes),
     csvBytesByFilename,
     recordBytes: Number(rec.rows[0].bytes),
+    trainingBytes: Number(training.rows[0].bytes),
   };
 }
 
