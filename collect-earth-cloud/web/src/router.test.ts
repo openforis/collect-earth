@@ -30,6 +30,7 @@ describe("matchRoute", () => {
     ["/projects/p-1/my-quality", { name: "myQuality", projectId: "p-1" }],
     ["/projects/p%201/my-quality", { name: "myQuality", projectId: "p 1" }],
     ["/projects/p-1/quality/team-report", { name: "teamReport", projectId: "p-1" }],
+    ["/projects/p-1/training/s-1/report", { name: "trainingReport", projectId: "p-1", setId: "s-1" }],
     ["/projects/p-1/quality/plot/17", { name: "plot", projectId: "p-1", plot: "17" }],
     ["/projects/p-1/quality/plot/17%2C2025", { name: "plot", projectId: "p-1", plot: "17,2025" }],
     ["/projects/p-1/people/u-7", { name: "person", projectId: "p-1", userId: "u-7" }],
@@ -75,6 +76,7 @@ describe("matchRoute", () => {
     expect(pathFor({ name: "project", projectId: "p", tab: "setup" })).toBe("/projects/p/setup");
     expect(pathFor({ name: "myQuality", projectId: "p" })).toBe("/projects/p/my-quality");
     expect(pathFor({ name: "teamReport", projectId: "p" })).toBe("/projects/p/quality/team-report");
+    expect(pathFor({ name: "trainingReport", projectId: "p", setId: "s 1" })).toBe("/projects/p/training/s%201/report");
   });
 });
 

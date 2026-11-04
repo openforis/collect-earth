@@ -143,5 +143,10 @@ Members: `GET /training/mine`; `GET /training/:setId/content` (participants).
   deletes the interpreter's local records of the file's plots saved before it
   (`AbstractEarthSurveyService.deleteRecordsSavedBefore`, keys from the file's first key columns).
   The deletion is local only: the server already ignores those records in the new attempt.
-- **Not built:** a printable training report; reviewers seeing calibration figures; per-question
-  explanations (one explanation per plot).
+- **Printable training report** (`pages/TrainingReportPage.tsx`, `/projects/:pid/training/:setId/report`,
+  coordinators; "Printable report" on each set): the set and who takes part; scores per person with
+  earlier attempts; accuracy by question (weakest first) and the hardest plots (`questionAccuracy`,
+  `plotAccuracy` in `trainingView.ts`, tested); how much they agree (and, for a calibration, the plots
+  where answers differ); the golden interpretation with its explanations, on a page of its own when
+  printed. It names people: for coordinators and trainers.
+- **Not built:** reviewers seeing calibration figures; per-question explanations (one per plot).

@@ -43,6 +43,7 @@ export function localPage(route: Route, projectId: string | null): { kind: "rout
     case "myQuality":
     case "myWork":
     case "teamReport":
+    case "trainingReport":
       return progress(route.projectId);
     default:
       // Accounts (log in, sign up, setup, my account, the server panel) and the links of mail,

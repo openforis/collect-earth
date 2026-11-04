@@ -24,6 +24,8 @@ export type Route =
   | { name: "myWork"; projectId: string }
   /** The coordinators' printable team report, for training (no names). */
   | { name: "teamReport"; projectId: string }
+  /** A training set's printable report (coordinators): agreement, golden answers, scores. */
+  | { name: "trainingReport"; projectId: string; setId: string }
   /** One plot found by plot search (coordinators and reviewers), under the Quality tab. */
   | { name: "plot"; projectId: string; plot: string }
   /** The printable weekly summary (coordinators): an ISO week (YYYY-Www), or null for this week. */
@@ -103,6 +105,11 @@ export function matchRoute(pathname: string): Route {
     const userId = decode(fourth);
     if (projectId && userId) return { name: "person", projectId, userId };
   }
+  if (first === "projects" && parts.length === 5 && third === "training" && fifth === "report") {
+    const projectId = decode(second);
+    const setId = decode(fourth);
+    if (projectId && setId) return { name: "trainingReport", projectId, setId };
+  }
   if (first === "projects" && parts.length === 4 && third === "quality" && fourth === "team-report") {
     const projectId = decode(second);
     if (projectId) return { name: "teamReport", projectId };
@@ -148,6 +155,8 @@ export function pathFor(route: Route): string {
       return `/projects/${encodeURIComponent(route.projectId)}/my-work`;
     case "teamReport":
       return `/projects/${encodeURIComponent(route.projectId)}/quality/team-report`;
+    case "trainingReport":
+      return `/projects/${encodeURIComponent(route.projectId)}/training/${encodeURIComponent(route.setId)}/report`;
     case "plot":
       return `/projects/${encodeURIComponent(route.projectId)}/quality/plot/${encodeURIComponent(route.plot)}`;
     case "weekly":

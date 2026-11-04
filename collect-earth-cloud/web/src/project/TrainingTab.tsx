@@ -29,6 +29,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ArrowBack from "@mui/icons-material/ArrowBack";
+import Print from "@mui/icons-material/Print";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   createTrainingSet,
@@ -52,6 +53,7 @@ import { FileDrop } from "../components/FileDrop";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
 import { useT } from "../i18n";
+import { linkProps, pathFor } from "../router";
 import { useLoad } from "../useLoad";
 import { answerLabel, goldenKeys, kappaText, questionLabel, readPassMark, shareText } from "../trainingView";
 
@@ -245,11 +247,14 @@ function SetPage({ projectId, setId, members, onBack }: { projectId: string; set
   const data = state.data;
   return (
     <Stack spacing={3}>
-      <Box>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
         <Button startIcon={<ArrowBack />} onClick={onBack}>
           {t("training.back")}
         </Button>
-      </Box>
+        <Button variant="outlined" startIcon={<Print />} {...linkProps(pathFor({ name: "trainingReport", projectId, setId }))}>
+          {t("training.reportLink")}
+        </Button>
+      </Stack>
       {state.loading && !data ? (
         <Loading />
       ) : state.error || !data ? (

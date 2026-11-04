@@ -29,6 +29,7 @@ const PublicProgressPage = lazy(() => import("./pages/PublicProgressPage").then(
 const MyQualityPage = lazy(() => import("./pages/ReportPages").then((m) => ({ default: m.MyQualityPage })));
 const MyWorkPage = lazy(() => import("./pages/ReportPages").then((m) => ({ default: m.MyWorkPage })));
 const TeamReportPage = lazy(() => import("./pages/ReportPages").then((m) => ({ default: m.TeamReportPage })));
+const TrainingReportPage = lazy(() => import("./pages/TrainingReportPage").then((m) => ({ default: m.TrainingReportPage })));
 const WeeklyPage = lazy(() => import("./pages/WeeklyPage").then((m) => ({ default: m.WeeklyPage })));
 const ServerPage = lazy(() => import("./pages/ServerPage").then((m) => ({ default: m.ServerPage })));
 
@@ -58,6 +59,8 @@ function RoutedPage({ route }: { route: Route }) {
       return <MyWorkPage key={route.projectId} projectId={route.projectId} />;
     case "teamReport":
       return <TeamReportPage key={route.projectId} projectId={route.projectId} />;
+    case "trainingReport":
+      return <TrainingReportPage key={`${route.projectId} ${route.setId}`} projectId={route.projectId} setId={route.setId} />;
     case "weekly":
       return <WeeklyPage key={`${route.projectId} ${route.week ?? ""}`} projectId={route.projectId} week={route.week} />;
     case "join":
