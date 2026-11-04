@@ -335,6 +335,19 @@ project…*, register or log in, and the CEP downloads and the app switches to
 cloud mode. This is why the link base (`PUBLIC_BASE_URL` or the request host)
 must be the address people really use.
 
+### Checking error reports and usage events
+
+With `TELEMETRY=1` (and `GA_API_SECRET`), run on the deployment, with its environment:
+
+```bash
+npm run telemetry:check
+```
+
+It sends one test error to Sentry, in the environment `telemetry-check` (resolve it there), and asks Google
+Analytics' validation endpoint whether a usage event is well formed (the validation records nothing). It prints what
+worked and exits non-zero otherwise. The server needs outbound HTTPS to the Sentry host of the DSN and to
+`www.google-analytics.com`.
+
 ## Operational notes
 
 - **Scaling:** the service is stateless; all state is in Postgres. Scale Cloud

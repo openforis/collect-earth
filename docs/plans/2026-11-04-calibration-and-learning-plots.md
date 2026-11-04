@@ -183,3 +183,29 @@ API secret must be given, `GA_API_SECRET`). `src/telemetry.ts`, `web/src/telemet
   training flow with no name, id or answer in them), `web/src/telemetry.test.ts`; a real Sentry event
   of a failing training route checked against a local endpoint (captured with its route, nothing
   personal in it).
+
+### Gaps closed (4 November 2026)
+
+- **Correctness:** only current participants count in a set's figures; training counts towards project
+  storage; golden answers for questions the survey no longer has are not scored (listed, "Remove them",
+  `POST /training/:setId/golden/prune`); golden answers are checked against the survey (`bad_answer`);
+  plot ids must fit the survey's number keys (`bad_ids`; a warning for plot files).
+- **Clocks:** a record counts for an attempt when saved after its start, or received after it and saved
+  at most 12 hours before (`inAttempt`); `my-assignment` gives `serverTime`, and Collect Earth reads an
+  attempt's start by its own clock before clearing earlier records.
+- **Speed:** the training lists read members, records, survey and settings once per request.
+- **Exports:** `GET /training/:setId/export?what=scores|answers` (CSV, formula-guarded), buttons under
+  Scores.
+- **Notices:** the bell's "Learning plots finished" card (who finished, passed or not); My work says when
+  a new attempt started and what to do in Collect Earth.
+- **Activity:** training syncs logged once per batch (`training.synced`).
+- **Reviewers:** calibration figures of calibration sets only.
+- **Feedback inside Collect Earth:** `GET /training/feedback?key=`; the desktop's
+  `/api/cloud/training-feedback` syncs first and asks again while pending; the plot form shows the answers
+  next to the golden ones after a Submit.
+- **Verified:** row-level security of the training tables with the separate app role (no project: nothing;
+  another project's write refused; project deletion removes them); `deleteRecordsSavedBefore` on the core's
+  test survey; the QualityWorker tests (a tsx bootstrap for Node 22.18+, which loads .ts workers itself);
+  French and Portuguese texts reviewed, golden answers called "attendues/esperadas".
+- **Not verifiable here:** Sentry and Google Analytics live (this environment's network denies them):
+  `npm run telemetry:check` on the deployment checks both against the real services.
