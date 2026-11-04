@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Date;
 import java.util.List;
 
 import javax.annotation.PreDestroy;
@@ -372,13 +373,27 @@ public class CloudApiClient {
 		private final String checksum;
 		private final String downloadPath;
 		private final int plotCount;
+		/**
+		 * For a learning set's file in a new attempt: when the attempt started. The interpreter's records of its plots
+		 * saved before are deleted when the file is taken, so they assess the plots afresh. Null otherwise.
+		 */
+		private final Date freshSince;
 
 		public AssignmentInfo(String csvFileId, String filename, String checksum, String downloadPath, int plotCount) {
+			this(csvFileId, filename, checksum, downloadPath, plotCount, null);
+		}
+
+		public AssignmentInfo(String csvFileId, String filename, String checksum, String downloadPath, int plotCount, Date freshSince) {
 			this.csvFileId = csvFileId;
 			this.filename = filename;
 			this.checksum = checksum;
 			this.downloadPath = downloadPath;
 			this.plotCount = plotCount;
+			this.freshSince = freshSince;
+		}
+
+		public Date getFreshSince() {
+			return freshSince;
 		}
 
 		public String getCsvFileId() {
@@ -411,9 +426,12 @@ public class CloudApiClient {
 		JsonNode assignments = response.get("assignments");
 		if (assignments != null && assignments.isArray()) {
 			for (JsonNode a : assignments) {
+				JsonNode training = a.get("training");
+				JsonNode fresh = training != null ? training.get("freshSince") : null;
 				result.add(new AssignmentInfo(textOrNull(a, "csvFileId"), textOrNull(a, "filename"),
 						textOrNull(a, "checksum"), textOrNull(a, "downloadPath"),
-						a.has("plotCount") ? a.get("plotCount").asInt() : 0));
+						a.has("plotCount") ? a.get("plotCount").asInt() : 0,
+						fresh != null && fresh.isNumber() ? new Date(fresh.asLong()) : null));
 			}
 		}
 		return result;

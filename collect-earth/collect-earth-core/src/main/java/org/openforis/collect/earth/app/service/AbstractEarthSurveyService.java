@@ -444,6 +444,38 @@ public abstract class AbstractEarthSurveyService {
 	}
 
 	/**
+	 * Deletes the records of these plots (their key values) saved before a time: a learning set's new attempt starts
+	 * afresh, so the interpreter does not find their earlier answers. Records saved since are kept.
+	 *
+	 * @return how many records were deleted
+	 */
+	public synchronized int deleteRecordsSavedBefore(List<String[]> keys, Date before) {
+		int deleted = 0;
+		for (String[] key : keys) {
+			RecordFilter rf = new RecordFilter(getCollectSurvey(), ROOT_ENTITY_NAME);
+			rf.setKeyValues(key);
+			for (CollectRecordSummary summary : recordManager.loadSummaries(rf)) {
+				Date modified = summary.getModifiedDate();
+				if (modified != null && !modified.before(before)) {
+					continue;
+				}
+				try {
+					recordManager.delete(summary.getId());
+					deleted++;
+				} catch (Exception e) {
+					logger.warn("Could not delete the record " + String.join(",", key), e); //$NON-NLS-1$
+				}
+			}
+		}
+		return deleted;
+	}
+
+	/** How many key attributes identify a plot (the first columns of a plot file). */
+	public int getKeyAttributeCount() {
+		return getRootEntityDefinition().getKeyAttributeDefinitions().size();
+	}
+
+	/**
 	 * Return a list of the Collect records that have been updated since the
 	 * time passed as an argument. This method is useful to update the status of
 	 * the placemarks ( updating the icon on the KML using a NetworkLink )

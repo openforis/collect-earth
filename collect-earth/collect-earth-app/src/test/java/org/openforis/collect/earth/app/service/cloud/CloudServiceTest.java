@@ -171,6 +171,46 @@ public class CloudServiceTest {
 	}
 
 	@Test
+	public void aLearningSetInANewAttemptDeletesTheEarlierRecordsOfItsPlots() throws Exception {
+		org.openforis.collect.earth.app.service.EarthSurveyService survey = mock(org.openforis.collect.earth.app.service.EarthSurveyService.class);
+		service.setSurveyService(survey);
+		when(survey.getKeyAttributeCount()).thenReturn(2);
+		when(properties.getImdFile()).thenReturn(new File(folder, "project/survey.idm.xml").getPath());
+		Date since = new Date(1700000000000L);
+		CloudApiClient.AssignmentInfo learning = new CloudApiClient.AssignmentInfo("s1", "Learning – nov.csv", "c", "/d/s1", 2, since);
+		CloudApiClient.AssignmentInfo plain = new CloudApiClient.AssignmentInfo("a1", "north.csv", "c1", "/d/a1", 1);
+		when(api.getMyAssignments()).thenReturn(java.util.Arrays.asList(learning, plain));
+		File csv = new File(folder, "learning.csv");
+		java.nio.file.Files.write(csv.toPath(), "id;round;lat;lon\r\n\"9001\";1;-19;34\r\n9002;1;-19;34\r\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		File assignments = new File(folder, "project/assignments").getAbsoluteFile();
+		when(api.downloadAssignedCsv(learning, assignments)).thenReturn(csv);
+		when(api.downloadAssignedCsv(plain, assignments)).thenReturn(csv);
+		service.downloadAssignment("s1");
+		@SuppressWarnings("unchecked")
+		org.mockito.ArgumentCaptor<java.util.List<String[]>> keys = org.mockito.ArgumentCaptor.forClass(java.util.List.class);
+		verify(survey).deleteRecordsSavedBefore(keys.capture(), org.mockito.ArgumentMatchers.eq(since));
+		assertEquals(3, keys.getValue().size());
+		assertArrayEquals(new String[] { "9001", "1" }, keys.getValue().get(1));
+		assertArrayEquals(new String[] { "9002", "1" }, keys.getValue().get(2));
+		// Any other file: nothing deleted.
+		org.mockito.Mockito.clearInvocations(survey);
+		service.downloadAssignment("a1");
+		verify(survey, never()).deleteRecordsSavedBefore(any(), any());
+	}
+
+	@Test
+	public void thePlotKeysAreTheFirstColumnsWhateverTheSeparator() throws Exception {
+		File csv = new File(folder, "p.csv");
+		java.nio.file.Files.write(csv.toPath(), "\uFEFFid,lat,lon\n12,1,2\n\n13,3,4\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		java.util.List<String[]> keys = CloudService.plotKeys(csv, 1);
+		assertEquals(3, keys.size());
+		assertArrayEquals(new String[] { "id" }, keys.get(0));
+		assertArrayEquals(new String[] { "13" }, keys.get(2));
+		java.nio.file.Files.write(csv.toPath(), "id\tlat\n7\t1\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		assertArrayEquals(new String[] { "7" }, CloudService.plotKeys(csv, 1).get(1));
+	}
+
+	@Test
 	public void aServerThatCannotListTheAssignmentsSaysSo() throws Exception {
 		when(api.getMyAssignments()).thenThrow(new IOException("HTTP 401"));
 		InvalidCloudRequestException e = assertThrows(InvalidCloudRequestException.class, service::assignments);

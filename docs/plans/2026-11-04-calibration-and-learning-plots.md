@@ -125,3 +125,23 @@ Members: `GET /training/mine`; `GET /training/:setId/content` (participants).
    `my-assignment` and the content route, `training.ts` figures, routes, audit entries, tests.
 2. **Dashboard:** the Training tab and My work's Training section, 4 languages, tests.
 3. **Desktop:** `freshSince` handled when a learning set's file is taken.
+
+## As built (4 November 2026)
+
+- **Server** (`migrations/025_training.sql`, `src/training.ts`, `src/routes/training.ts`): as designed. A
+  set is created with `PUT /v1/projects/:pid/training-sets/:filename?kind=&name=&passMark=` (CSV body).
+  `training.changed` was added to the audit actions in place (012 and 015), as earlier tasks did.
+  **Attempt 1 counts every record** (a desktop clock may be behind the server's); later attempts count
+  records saved at or after their start. Trainees see answers as "Label (code)" in the survey's order.
+  Tests: `test/training.test.ts` (figures, kappa, scores, attempts) and `test/training.routes.test.ts`
+  (roles, plot clashes, serving, record routing, consensus → golden → learning, attempts, audit); the
+  PostgreSQL methods were run against a local PostgreSQL 16.
+- **Dashboard:** `project/TrainingTab.tsx` (Training tab after Quality, coordinators only, not in the local
+  mode), `components/MyTraining.tsx` (on My work), `trainingView.ts` (tested), 114 texts in four languages,
+  activity sentences.
+- **Desktop:** `my-assignment` entries carry `training.freshSince`; `CloudService.downloadAssignment`
+  deletes the interpreter's local records of the file's plots saved before it
+  (`AbstractEarthSurveyService.deleteRecordsSavedBefore`, keys from the file's first key columns).
+  The deletion is local only: the server already ignores those records in the new attempt.
+- **Not built:** a printable training report; reviewers seeing calibration figures; per-question
+  explanations (one explanation per plot).

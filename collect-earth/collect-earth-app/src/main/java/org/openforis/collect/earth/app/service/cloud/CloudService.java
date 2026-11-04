@@ -11,6 +11,7 @@ import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
+import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.AssignmentInfo;
@@ -62,6 +63,14 @@ public class CloudService {
 	private final CloudSyncService sync;
 	private final EarthProjectsService projects;
 	private final LocalPropertiesService properties;
+
+	/** To start a learning set's new attempt afresh (deleting earlier records); absent in some tests. */
+	private EarthSurveyService surveyService;
+
+	@Autowired(required = false)
+	public void setSurveyService(EarthSurveyService surveyService) {
+		this.surveyService = surveyService;
+	}
 
 	@Autowired
 	public CloudService(CloudApiClient api, CloudSyncService sync, EarthProjectsService projects, LocalPropertiesService properties) {
@@ -214,7 +223,9 @@ public class CloudService {
 		for (AssignmentInfo info : fetchAssignments()) {
 			if (info.getCsvFileId() != null && info.getCsvFileId().equals(id)) {
 				try {
-					return api.downloadAssignedCsv(info, assignmentsFolder());
+					File file = api.downloadAssignedCsv(info, assignmentsFolder());
+					startAfresh(info, file);
+					return file;
 				} catch (IOException | RuntimeException e) {
 					logger.warn("Could not download the assigned CSV {}: {}", info.getFilename(), e.getMessage());
 					throw new InvalidCloudRequestException("cloud.download", Messages.getString("SampleDataPanel.downloadError"));
@@ -222,6 +233,61 @@ public class CloudService {
 			}
 		}
 		throw new InvalidCloudRequestException("cloud.noAssignment", Messages.getString("SampleDataPanel.downloadError"));
+	}
+
+	/**
+	 * A learning set's file in a new attempt: the interpreter's records of its plots saved before the attempt started
+	 * are deleted, so they assess the plots afresh (never failing the download).
+	 */
+	private void startAfresh(AssignmentInfo info, File file) {
+		if (info.getFreshSince() == null || surveyService == null) {
+			return;
+		}
+		try {
+			List<String[]> keys = plotKeys(file, surveyService.getKeyAttributeCount());
+			int deleted = surveyService.deleteRecordsSavedBefore(keys, info.getFreshSince());
+			logger.info("New attempt at {}: {} earlier records deleted", info.getFilename(), deleted);
+		} catch (IOException | RuntimeException e) {
+			logger.warn("Could not start {} afresh: {}", info.getFilename(), e.getMessage());
+		}
+	}
+
+	/**
+	 * The key values of each row of a plot file (its first {@code keyCount} columns, quotes taken off; the separator is
+	 * the comma, semicolon or tab the header row uses most). A header row is read as a key too: no plot has it.
+	 */
+	static List<String[]> plotKeys(File csv, int keyCount) throws IOException {
+		List<String> lines = java.nio.file.Files.readAllLines(csv.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+		List<String[]> keys = new ArrayList<>();
+		if (lines.isEmpty() || keyCount < 1) {
+			return keys;
+		}
+		String first = lines.get(0).replace("\uFEFF", "");
+		char separator = ',';
+		int most = StringUtils.countMatches(first, ',');
+		for (char candidate : new char[] { ';', '\t' }) {
+			int count = StringUtils.countMatches(first, candidate);
+			if (count > most) {
+				most = count;
+				separator = candidate;
+			}
+		}
+		for (String line : lines) {
+			String row = line.replace("\uFEFF", "");
+			if (StringUtils.isBlank(row)) {
+				continue;
+			}
+			String[] fields = row.split(java.util.regex.Pattern.quote(String.valueOf(separator)), -1);
+			if (fields.length < keyCount) {
+				continue;
+			}
+			String[] key = new String[keyCount];
+			for (int i = 0; i < keyCount; i++) {
+				key[i] = StringUtils.strip(fields[i].trim(), "\"");
+			}
+			keys.add(key);
+		}
+		return keys;
 	}
 
 	private List<AssignmentInfo> fetchAssignments() throws InvalidCloudRequestException {
