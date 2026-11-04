@@ -4,9 +4,17 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import java.awt.GraphicsEnvironment;
+import java.util.concurrent.atomic.AtomicReference;
+
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
+import javax.swing.JDialog;
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
+
+import org.openforis.collect.earth.app.view.Messages;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +36,10 @@ import org.springframework.stereotype.Component;
  * With the plots map inside Google Earth Web ({@link BrowserService#plotsMapInGoogleEarthWeb()}), the form is in Google
  * Earth Web's window, which is kept open the same way: watched from what Google Earth Web knows of its tab, and opened
  * again through {@link BrowserService#reopenLeafletMap}, which opens it in place of the plots map window.
+ * <p>
+ * Before reopening it, the user is asked whether they meant to quit ({@link ClosedWindowQuestion}): closing the main
+ * window is how one quits most programs, and Collect Earth used to bring it back without a word, which left the icon in
+ * the system tray as the only way out that people found.
  */
 // Not lazy: the application context creates its beans lazily (applicationContext.fmt), and nothing asks for this one,
 // which only listens for the plots map to open
@@ -54,9 +66,24 @@ public class PlotsMapKeeper {
 	@Autowired
 	private GoogleEarthWebService googleEarthWebService;
 
+	@Autowired
+	private QuitService quitService;
+
+	/** What the user wants when they close the main window: to quit Collect Earth, or to have the window back. */
+	enum ClosedWindowAnswer {
+		QUIT, REOPEN
+	}
+
+	/** Asks it; a dialog on the screen, something else in the tests. */
+	interface ClosedWindowQuestion {
+		ClosedWindowAnswer ask();
+	}
+
+	private ClosedWindowQuestion question = PlotsMapKeeper::askInADialog;
+
 	private final PlotsMapReopening reopening = new PlotsMapReopening();
 	private ScheduledExecutorService watcher;
-	private boolean stopped;
+	private volatile boolean stopped;
 
 	@PostConstruct
 	void listen() {
@@ -94,6 +121,22 @@ public class PlotsMapKeeper {
 			if (!reopening.foundClosed()) {
 				return; // once more at the next check
 			}
+			ClosedWindowAnswer answer = question.ask();
+			if (stopped || browserService.isClosing()) {
+				return; // Collect Earth restarted or quit while the question was on the screen
+			}
+			if (answer == ClosedWindowAnswer.QUIT) {
+				logger.info("The main window was closed and the user chose to quit Collect Earth");
+				quitService.run();
+				return;
+			}
+			// The answer took a while: the window may be back meanwhile (the tray icon, Arrange), and reopening it then
+			// would load the form again
+			if (inGoogleEarthWeb ? !googleEarthWebService.isClosed()
+					: windowLayoutService.plotsMapWindow() != WindowLayoutService.WindowState.CLOSED) {
+				reopening.foundOpen();
+				return;
+			}
 			logger.info("The {} window was closed, opening it again: it holds the form",
 					inGoogleEarthWeb ? "Google Earth Web" : "plots map");
 			boolean open;
@@ -120,6 +163,42 @@ public class PlotsMapKeeper {
 			// A scheduled task that throws is never run again: the window would stay closed for good
 			logger.warn("Could not check whether the plots map window is open", e);
 		}
+	}
+
+	/**
+	 * The question, on the Swing thread, in front of every window (the browsers' included), and waited for: the check
+	 * that found the window closed runs again only once it is answered. Without a screen, the window is reopened.
+	 */
+	static ClosedWindowAnswer askInADialog() {
+		if (GraphicsEnvironment.isHeadless()) {
+			return ClosedWindowAnswer.REOPEN;
+		}
+		AtomicReference<ClosedWindowAnswer> answer = new AtomicReference<>(ClosedWindowAnswer.REOPEN);
+		try {
+			SwingUtilities.invokeAndWait(() -> {
+				String reopen = Messages.getString("WindowClosed.reopen"); //$NON-NLS-1$
+				String quit = Messages.getString("WindowClosed.quit"); //$NON-NLS-1$
+				JOptionPane pane = new JOptionPane(Messages.getString("WindowClosed.message"), JOptionPane.QUESTION_MESSAGE, //$NON-NLS-1$
+						JOptionPane.DEFAULT_OPTION, null, new Object[] { reopen, quit }, reopen);
+				JDialog dialog = pane.createDialog(null, Messages.getString("WindowClosed.title")); //$NON-NLS-1$
+				dialog.setAlwaysOnTop(true);
+				dialog.setVisible(true);
+				dialog.toFront();
+				dialog.dispose();
+				// Closing the dialog itself keeps Collect Earth, as the button that reopens the window does
+				answer.set(quit.equals(pane.getValue()) ? ClosedWindowAnswer.QUIT : ClosedWindowAnswer.REOPEN);
+			});
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		} catch (Exception e) {
+			LoggerFactory.getLogger(PlotsMapKeeper.class).warn("Could not ask whether to quit Collect Earth", e);
+		}
+		return answer.get();
+	}
+
+	/** For the tests. */
+	void setQuestion(ClosedWindowQuestion question) {
+		this.question = question;
 	}
 
 	@PreDestroy

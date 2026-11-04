@@ -232,6 +232,7 @@ public class ServerController {
 			this.addPropertyChangeListener(listener);
 		}
 
+		StartupProgressWindow.step(Messages.getString("StartupWindow.database")); //$NON-NLS-1$
 		boolean postgresConnectionSwitchedtoSqlite = initilizeDataSources();
 		try {
 
@@ -287,6 +288,7 @@ public class ServerController {
 
 			server.setHandler(getRoot());
 			server.setStopAtShutdown(true);
+			StartupProgressWindow.step(Messages.getString("StartupWindow.project")); //$NON-NLS-1$
 			server.start();
 
 			Object attribute = getRoot().getServletContext().getAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE);

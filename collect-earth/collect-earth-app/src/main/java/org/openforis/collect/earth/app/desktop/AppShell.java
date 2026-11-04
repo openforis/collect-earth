@@ -107,13 +107,14 @@ public class AppShell implements InitializingBean, DisposableBean {
 		open.addActionListener(e -> openInBackground());
 		menu.add(open);
 		menu.addSeparator();
-		MenuItem quit = new MenuItem(Messages.getString("CollectEarthWindow.42")); //$NON-NLS-1$
+		MenuItem quit = new MenuItem(Messages.getString("WindowClosed.quit")); //$NON-NLS-1$
 		// QuitService does its work on a thread of its own and returns at once
 		quit.addActionListener(e -> quitService.run());
 		menu.add(quit);
 
 		Image image = iconImage();
-		TrayIcon icon = new TrayIcon(image, "Collect Earth", menu); //$NON-NLS-1$
+		// The tooltip says what the icon is for: it is often the only sign that Collect Earth still runs
+		TrayIcon icon = new TrayIcon(image, Messages.getString("AppShell.tooltip"), menu); //$NON-NLS-1$
 		icon.setImageAutoSize(true);
 		// The double click on the icon (or Enter on it), which users expect to bring the window back
 		icon.addActionListener(e -> openInBackground());

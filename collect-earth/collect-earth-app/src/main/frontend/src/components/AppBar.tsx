@@ -24,6 +24,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import CloudDoneOutlinedIcon from "@mui/icons-material/CloudDoneOutlined";
 import LoginOutlinedIcon from "@mui/icons-material/LoginOutlined";
 import PersonIcon from "@mui/icons-material/Person";
+import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
 import logo from "../form/collect-earth-logo.png";
 import { apiPut } from "../apiClient";
 import type { AppInfo } from "../appInfo";
@@ -209,6 +210,19 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
               label={operator || s("User.name")} sx={{ maxWidth: compact ? 140 : 240 }} data-testid="user-chip" />
           </Tooltip>
         )}
+        {/* Quit, always in sight: closing the window only asks whether to quit, and the icon by the clock is easy to miss */}
+        <Tooltip title={s("WindowClosed.quit")}>
+          {compact ? (
+            <IconButton edge="end" aria-label={s("WindowClosed.quit")} onClick={() => setQuitOpen(true)} data-testid="quit-button">
+              <PowerSettingsNewIcon />
+            </IconButton>
+          ) : (
+            <Button color="inherit" size="small" startIcon={<PowerSettingsNewIcon />} onClick={() => setQuitOpen(true)}
+              sx={{ flexShrink: 0 }} data-testid="quit-button">
+              {s("CollectEarthWindow.42")}
+            </Button>
+          )}
+        </Tooltip>
       </Toolbar>
 
       <Menu id="app-menu" anchorEl={open?.anchor} open={open !== null} onClose={() => setOpen(null)}

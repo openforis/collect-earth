@@ -131,6 +131,12 @@ public class EarthApp {
 			// Change of font so that Lao and Thao glyphs are supported
 			CollectEarthUtils.setFontDependingOnLanguaue(getLocalProperties().getUiLanguage());
 
+			// Something on the screen from the first moment until the main window opens: starting takes from a few
+			// seconds to a minute, and a restart (another project, a setting) has closed the old windows meanwhile. In the
+			// language of the settings, which the Spring context sets again later (AppShell)
+			Messages.setLocale(getLocalProperties().getUiLanguage().getLocale());
+			StartupProgressWindow.show(StartupProgressWindow.startTitle());
+
 			String doubleClickedProjectFile = null;
 
 			if (args != null && args.length == 1) {
@@ -452,8 +458,11 @@ public class EarthApp {
 
 	public static void restart() {
 		try {
-
+			// The pages close with this process: until the new one opens its window, this one says what goes on
+			StartupProgressWindow.show(Messages.getString("StartupWindow.restarting")); //$NON-NLS-1$
+			StartupProgressWindow.step(Messages.getString("StartupWindow.saving")); //$NON-NLS-1$
 			serverController.stopServer();
+			StartupProgressWindow.step(Messages.getString("StartupWindow.relaunching")); //$NON-NLS-1$
 			relaunch();
 
 		} catch (final Exception e) {
@@ -482,10 +491,13 @@ public class EarthApp {
 			// Debug-agent flags (e.g. added by an IDE launch) must not be propagated: the relaunched
 			// process would try to reuse the same JDWP transport socket as this one and fail with
 			// "JDWP Transport dt_socket failed to initialize" instead of starting.
-			if (!jvmArg.startsWith("-agentlib:jdwp") && !jvmArg.startsWith("-Xrunjdwp")) { //$NON-NLS-1$ //$NON-NLS-2$
+			if (!jvmArg.startsWith("-agentlib:jdwp") && !jvmArg.startsWith("-Xrunjdwp") //$NON-NLS-1$ //$NON-NLS-2$
+					&& !jvmArg.startsWith("-D" + StartupProgressWindow.RESTARTING_PROPERTY + "=")) { //$NON-NLS-1$ //$NON-NLS-2$
 				command.add(jvmArg);
 			}
 		}
+		// The new process says "Restarting" rather than "Starting" in its window while it starts
+		command.add("-D" + StartupProgressWindow.RESTARTING_PROPERTY + "=true"); //$NON-NLS-1$ //$NON-NLS-2$
 
 		final String classpath = System.getProperty("java.class.path"); //$NON-NLS-1$
 		if (isExecutableJar(classpath)) {
@@ -517,6 +529,7 @@ public class EarthApp {
 			// left with no Collect Earth and no reason
 			logger.error("Collect Earth could not be restarted, the new process ended with code {} : {}", //$NON-NLS-1$
 					relaunched.exitValue(), readRelaunchLog(relaunchLog));
+			StartupProgressWindow.close();
 			showMessageAndWait(Messages.getString("EarthApp.relaunchFailed"), //$NON-NLS-1$
 					Messages.getString("EarthApp.relaunchFailedTitle")); //$NON-NLS-1$
 		}
@@ -610,6 +623,7 @@ public class EarthApp {
 
 		if (ceAlreadyOpen) {
 			closeSplash();
+			StartupProgressWindow.close();
 			// If the user double clicked on a project file while Collect Earth is running
 			// then load the project in the running Collect Earth
 			if (doubleClickedProjectFile != null) {
@@ -744,11 +758,15 @@ public class EarthApp {
 
 			if (!initializationEvent.equals(ServerInitializationEvent.SERVER_STOPPED_EVENT)) {
 				try {
+					StartupProgressWindow.step(Messages.getString("StartupWindow.plots")); //$NON-NLS-1$
 					earthApp.generateKml();
+					StartupProgressWindow.step(Messages.getString("StartupWindow.window")); //$NON-NLS-1$
+					// The main window opens on a thread of its own, which closes the progress window (inServerContext)
 					earthApp.simulateClickKmz(true);
 					// The announcements and the update offer are StartupNotices' now, a bean of the context
 					closeSplash();
 				} catch (final Exception e) {
+					StartupProgressWindow.close();
 					logger.error("Error generating KML file", e); //$NON-NLS-1$
 				}
 			}
@@ -762,6 +780,7 @@ public class EarthApp {
 	 */
 	private static void handleFatalRestartFailure() {
 		closeSplash();
+		StartupProgressWindow.close();
 		logger.error("Collect Earth could not restart after a configuration/project change. Exiting in a controlled manner."); //$NON-NLS-1$
 		SwingUtilities.invokeLater(() -> {
 			JOptionPane.showMessageDialog(null, Messages.getString("EarthApp.restartFailed"), //$NON-NLS-1$
@@ -859,6 +878,7 @@ public class EarthApp {
 				}
 			}
 		} catch (final Exception e) {
+			StartupProgressWindow.close();
 			notify(Notice.ERROR, Messages.getString("EarthApp.61")); //$NON-NLS-1$
 			logger.error("The KMZ file could not be found", e); //$NON-NLS-1$
 		}
@@ -893,6 +913,9 @@ public class EarthApp {
 					opening.accept(context);
 				} catch (final Exception e) {
 					logger.error("Error opening {}", what, e); //$NON-NLS-1$
+				} finally {
+					// The main window is open (or could not be): the window that said Collect Earth was starting goes
+					StartupProgressWindow.close();
 				}
 			}
 		}.start();
