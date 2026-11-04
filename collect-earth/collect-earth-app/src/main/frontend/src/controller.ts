@@ -10,7 +10,7 @@ import type { EngineConfig, MapEngine } from "./engines/MapEngine";
 import { byId, changedAfterSubmit, footprintCorners, type FormMessage, indexPlots, leftUnsubmitted, neighbour, nextUnfinished, normalizeStatus, plotLabel, plotParam, plotsGone, plotsNear, plotToRestore, surveyView,
   sameView, visibleIds, withoutPlotParam } from "./plots";
 import type { MessageKey } from "./i18n";
-import { reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
+import { imageryForNumber, reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
 import { loadPrefs, savePrefs, type Prefs } from "./prefs";
 import { formWindow, isFormMessage } from "./shortcuts";
 import { ACTIVE_COLOR, STATUS_COLORS, type GewStatus, type GewView, type GroundView, type ImagerySource, type ImageryStatus,
@@ -54,6 +54,8 @@ export interface UiState {
   statuses: Record<string, PlotStatus>;
   loaded: boolean;
   activeId: string | null;
+  /** Counts the plots selected, the one open selected again included: the one-pane layout then shows its form again */
+  selected: number;
   formUrl: string | null;
   filter: ListFilter;
   query: string;
@@ -111,7 +113,7 @@ export class MapController {
 
   constructor() {
     this.state = {
-      order: [], labels: byId(), statuses: byId(), loaded: false, activeId: null, formUrl: null,
+      order: [], labels: byId(), statuses: byId(), loaded: false, activeId: null, selected: 0, formUrl: null,
       filter: this.prefs.filter ?? "all", query: "",
       sidebarCollapsed: !!this.prefs.sidebarCollapsed, formWidth: this.prefs.formWidth ?? 560,
       banner: null, viewerType: "", language: "en", baseLayers: [], baseLayer: "", gew: null,
@@ -332,7 +334,7 @@ export class MapController {
     if (!wasClosed) this.noticeIfUnsubmitted(id);
     // Render the form panel synchronously, then resize the map BEFORE moving it, so the
     // plot ends up centered in the remaining map area.
-    flushSync(() => this.set({ activeId: id, formUrl: formUrl(plot.feature, this.webForm, this.state.language) }));
+    flushSync(() => this.set({ activeId: id, selected: this.state.selected + 1, formUrl: formUrl(plot.feature, this.webForm, this.state.language) }));
     if (previous && previous !== id) this.engine.setPlotColor(previous, STATUS_COLORS[this.state.statuses[previous]]);
     this.engine.setPlotColor(id, ACTIVE_COLOR);
     if (wasClosed) this.engine.invalidateSize();
@@ -575,6 +577,12 @@ export class MapController {
     this.imageryEpoch++;
     this.imageryExpected = { source, until: Date.now() + IMAGERY_EXPECT_MILLIS };
     this.set({ imagery: { ...this.state.imagery, visible: source } });
+  };
+
+  /** The source of key Alt+`n` (see imageryNumberOf), when it has a button */
+  showImageryNumber = (n: number): void => {
+    const source = imageryForNumber(this.state.imagery, IN_PANEL, n);
+    if (source) this.showImagery(source);
   };
 
   // ---------- list / layout ----------

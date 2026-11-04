@@ -19,8 +19,9 @@ import MenuIcon from "@mui/icons-material/Menu";
 import SearchIcon from "@mui/icons-material/Search";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
 import type { MapController, UiState } from "../controller";
-import { countStatuses, plotLabel, visibleIds } from "../plots";
+import { countStatuses, matchesElsewhere, plotLabel, visibleIds } from "../plots";
 import { useT } from "../i18n";
+import { HANDS_FOCUS } from "../shortcuts";
 import type { ListFilter, PlotStatus } from "../types";
 import { Kbd, StatusDot } from "./common";
 import { useUiScale } from "../uiScale";
@@ -53,6 +54,10 @@ export function PlotSidebar({ controller, state, collapsed, onCollapsedChange, f
     const t = window.setTimeout(() => controller.setQuery(text), 120);
     return () => window.clearTimeout(t);
   }, [text, controller]);
+  // the search cleared elsewhere (its chip in the form's header): the box too
+  useEffect(() => { if (query === "") setText(""); }, [query]);
+  const elsewhere = useMemo(() => (visible.length ? null : matchesElsewhere(order, statuses, filter, query, labels)),
+    [visible, order, statuses, filter, query, labels]);
 
   if (sidebarCollapsed) {
     return (
@@ -117,7 +122,7 @@ export function PlotSidebar({ controller, state, collapsed, onCollapsedChange, f
 
         <Button variant="contained" disableElevation fullWidth startIcon={<SkipNextIcon />}
           endIcon={<Kbd>N</Kbd>} onClick={controller.goToNextUnfinished} disabled={!counts.total}
-          data-testid="next-unfinished">
+          data-testid="next-unfinished" {...{ [HANDS_FOCUS]: true }}>
           {t("nextUnfinished")}
         </Button>
       </Stack>
@@ -125,7 +130,19 @@ export function PlotSidebar({ controller, state, collapsed, onCollapsedChange, f
       <Divider />
       <PlotList ids={visible} labels={labels} statuses={statuses} activeId={activeId} onSelect={controller.selectPlot} />
       {loaded && order.length > 0 && visible.length === 0 && (
-        <Typography color="text.secondary" align="center" sx={{ p: 2 }} data-testid="list-empty">{t("noMatch")}</Typography>
+        <Stack spacing={1} sx={{ p: 2, alignItems: "center" }}>
+          <Typography color="text.secondary" align="center" data-testid="list-empty">{t("noMatch")}</Typography>
+          {/* what the search finds in the plots the filter leaves out: "1 match in Done — Show" */}
+          {elsewhere && (
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }} data-testid="list-elsewhere">
+              <Typography variant="body2">
+                {elsewhere.count === 1 ? t("matchesElsewhereOne", { filter: t(`filter.${elsewhere.filter}`) })
+                  : t("matchesElsewhereMany", { count: elsewhere.count, filter: t(`filter.${elsewhere.filter}`) })}
+              </Typography>
+              <Button size="small" onClick={() => controller.setFilter("all")} data-testid="list-show-all">{t("matchesShow")}</Button>
+            </Stack>
+          )}
+        </Stack>
       )}
 
       <Divider />
@@ -189,7 +206,7 @@ function PlotList({ ids, labels, statuses, activeId, onSelect }: {
           const status = statuses[id] ?? "empty";
           const active = id === activeId;
           return (
-            <ListItemButton key={id} role="option" aria-selected={active} selected={active}
+            <ListItemButton key={id} role="option" aria-selected={active} selected={active} {...{ [HANDS_FOCUS]: true }}
               data-id={id} data-status={status} data-active={active || undefined} onClick={() => onSelect(id)}
               sx={{
                 position: "absolute", top: 0, left: 0, right: 0, height: rowHeight,

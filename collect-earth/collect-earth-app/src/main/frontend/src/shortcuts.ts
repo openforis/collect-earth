@@ -1,13 +1,16 @@
 // Keyboard shortcuts of the plots map and of the web form in its iframe (unit tested in shortcuts.test.ts).
 
 /**
- * The keys of the plots map: "/" searches the list, "N" opens the next unfinished plot and "Esc" closes the form. The
- * form has the focus while a plot is open, so it passes them on to the plots map (see {@link panelKey}).
+ * The keys of the plots map: "/" searches the list, "N" opens the next unfinished plot and "Esc" closes the form; Alt+1,
+ * Alt+2... show the imagery sources, in the order of their buttons (see {@link imageryKey}). The form has the focus while
+ * a plot is open, so it passes them on to the plots map (see {@link panelKey}).
  */
 const PANEL_KEYS = ["/", "n", "N", "Escape"] as const;
-export type PanelKey = (typeof PANEL_KEYS)[number];
+const IMAGERY_KEYS = ["Alt+1", "Alt+2", "Alt+3", "Alt+4", "Alt+5", "Alt+6", "Alt+7", "Alt+8", "Alt+9"] as const;
+export type ImageryKey = (typeof IMAGERY_KEYS)[number];
+export type PanelKey = (typeof PANEL_KEYS)[number] | ImageryKey;
 
-const isPanelKey = (key: unknown): key is PanelKey => PANEL_KEYS.includes(key as PanelKey);
+const isPanelKey = (key: unknown): key is PanelKey => PANEL_KEYS.includes(key as never) || IMAGERY_KEYS.includes(key as never);
 
 /** What a key press is looked at for: a KeyboardEvent, or a test's stand-in. */
 export interface KeyPress {
@@ -15,6 +18,9 @@ export interface KeyPress {
   ctrlKey: boolean;
   metaKey: boolean;
   altKey: boolean;
+  shiftKey?: boolean;
+  /** the key's place on the keyboard ("Digit1"), whatever it types with Alt held (Option+1 types "¡" on a Mac) */
+  code?: string;
   defaultPrevented?: boolean;
   /** held down: the key again, which must not open plot after plot */
   repeat?: boolean;
@@ -41,8 +47,26 @@ export function isTyping(target: EventTarget | null): boolean {
  * modifier, one held down, one pressed while typing, and one the form already acted on (an open dropdown closed by "Esc").
  */
 export function panelKey(e: KeyPress): PanelKey | null {
+  const imagery = imageryKey(e);
+  if (imagery) return imagery;
   if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || e.defaultPrevented || !isPanelKey(e.key)) return null;
   return isTyping(e.target) ? null : e.key;
+}
+
+/**
+ * Alt+1 to Alt+9: the imagery source of that number, in the order of the buttons over the form (Google Earth Web, ESRI
+ * Wayback, Earth Engine, Earth Map...). Also while typing, as Alt with a digit types nothing; not with AltGr (Ctrl+Alt),
+ * which types characters on some keyboards, nor held down.
+ */
+export function imageryKey(e: KeyPress): ImageryKey | null {
+  if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat || e.defaultPrevented) return null;
+  const digit = /^Digit([1-9])$/.exec(e.code ?? "")?.[1] ?? (/^[1-9]$/.test(e.key) ? e.key : null);
+  return digit ? `Alt+${digit}` as ImageryKey : null;
+}
+
+/** The number of the imagery source a key shows (1 for the first), or null for another key */
+export function imageryNumber(key: PanelKey): number | null {
+  return key.startsWith("Alt+") ? Number(key.slice(4)) : null;
 }
 
 /**
@@ -59,7 +83,19 @@ export function escapeBlurs(e: KeyPress): boolean {
  * own frame, is nothing else.
  */
 export function mayTakeFocus(active: Element | null, frame: Element | null, body: Element | null): boolean {
-  return active == null || active === body || (frame != null && active === frame);
+  return active == null || active === body || (frame != null && active === frame) || handsFocusOn(active);
+}
+
+/**
+ * Marks the controls of the plots map that open a plot with a click (the arrows of the form's header, a plot of the list,
+ * "Next unfinished plot"): focused by that click, they leave the focus to the form of the plot they opened, so its
+ * questions are answered from the keyboard at once. Never a box typed in, the plot search.
+ */
+export const HANDS_FOCUS = "data-hands-focus";
+
+function handsFocusOn(active: Element): boolean {
+  const element = active as Element & { closest?: (selector: string) => Element | null };
+  return typeof element.closest === "function" && element.closest(`[${HANDS_FOCUS}]`) != null && !isTyping(active);
 }
 
 /** Where the plots map finds the iframe of the form (FormPanel). */

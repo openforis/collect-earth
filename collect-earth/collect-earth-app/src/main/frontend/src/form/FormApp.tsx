@@ -276,7 +276,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
   }, [store]);
 
 
-  // Alt+Left/Right change tab; "/", "N" and "Esc" go to the plots map, whose keys they are (see panelKey)
+  // Alt+Left/Right change tab; "/", "N", "Esc" and Alt+1... go to the plots map, whose keys they are (see panelKey)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey && e.key === "ArrowRight" && next >= 0) { e.preventDefault(); goTo(next); }

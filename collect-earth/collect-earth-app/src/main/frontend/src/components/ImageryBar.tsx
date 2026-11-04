@@ -1,9 +1,10 @@
 import Box from "@mui/material/Box";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Tooltip from "@mui/material/Tooltip";
 import type { MapController, UiState } from "../controller";
 import { useT } from "../i18n";
-import { imageryChoices } from "../imagery";
+import { imageryChoices, imageryNumberOf } from "../imagery";
 import { IN_PANEL } from "../panel";
 import type { ImagerySource } from "../types";
 
@@ -23,12 +24,18 @@ export function ImageryBar({ controller, state }: { controller: MapController; s
       <ToggleButtonGroup size="small" exclusive fullWidth value={shown} aria-label={t("imagery.label")}
         // null: a click on the button already pressed, which leaves the tab where it is
         onChange={(_, source: ImagerySource | null) => { if (source) controller.showImagery(source); }}>
-        {choices.map(({ source }) => (
-          <ToggleButton key={source} value={source} data-testid={"imagery-" + source}
-            sx={{ flex: "1 0 auto", width: "auto", py: 0.25, px: 1, whiteSpace: "nowrap", textTransform: "none" }}>
-            {t(`imagery.source.${source}`)}
-          </ToggleButton>
-        ))}
+        {/* each with its key, Alt and its number in the order of the tabs (see imageryKey), in its tooltip */}
+        {choices.map(({ source }) => {
+          const key = `Alt+${imageryNumberOf(state.imagery, source)}`;
+          return (
+            <Tooltip key={source} title={key} describeChild>
+              <ToggleButton value={source} data-testid={"imagery-" + source} aria-keyshortcuts={key}
+                sx={{ flex: "1 0 auto", width: "auto", py: 0.25, px: 1, whiteSpace: "nowrap", textTransform: "none" }}>
+                {t(`imagery.source.${source}`)}
+              </ToggleButton>
+            </Tooltip>
+          );
+        })}
       </ToggleButtonGroup>
     </Box>
   );

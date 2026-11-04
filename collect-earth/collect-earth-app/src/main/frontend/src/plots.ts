@@ -89,6 +89,18 @@ export function nextUnfinished(order: string[], statuses: Record<string, PlotSta
 export interface FormMessage { type?: string; plotId?: string; unsubmitted?: boolean }
 
 /**
+ * The plots the search finds in the list the filter leaves out ("pending" or "saved"), and how many, for the user to be
+ * offered them when it finds none in the list shown; null when it finds none there either, or nothing is filtered.
+ */
+export function matchesElsewhere(order: string[], statuses: Record<string, PlotStatus>, filter: ListFilter, query: string,
+  labels: Record<string, string>): { count: number; filter: Exclude<ListFilter, "all"> } | null {
+  if (filter === "all" || !query.trim()) return null;
+  const other = filter === "pending" ? "saved" : "pending";
+  const count = visibleIds(order, statuses, other, query, labels).length;
+  return count ? { count, filter: other } : null;
+}
+
+/**
  * The plot open that was changed after it had been submitted, complete, after a message of its form (`changed` before
  * it): set by a change that took the submission back, and cleared by a submit. A plot never submitted, or submitted
  * with questions left unanswered, is never one.

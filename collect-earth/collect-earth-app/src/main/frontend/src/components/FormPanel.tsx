@@ -11,9 +11,11 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import CloseIcon from "@mui/icons-material/Close";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import MenuIcon from "@mui/icons-material/Menu";
+import SearchIcon from "@mui/icons-material/Search";
 import type { MapController, UiState } from "../controller";
 import { countStatuses, plotLabel } from "../plots";
 import { useT } from "../i18n";
+import { HANDS_FOCUS } from "../shortcuts";
 import { ImageryBar } from "./ImageryBar";
 import { useUiScale } from "../uiScale";
 import type { PlotStatus } from "../types";
@@ -40,6 +42,8 @@ export function FormPanel({ controller, state, fill, hidden, onShowList }: {
   const pct = counts.total ? Math.round((counts.saved * 100) / counts.total) : 0;
   // The arrows go through the list as filtered, which is remembered from one session to the next: shown, and undone here
   const filterLabel = state.filter !== "all" ? t(`filter.${state.filter}`) : null;
+  // and so does the search, which stays when the list is hidden (the one-pane layout) and a plot opened from it
+  const query = state.query.trim();
   // In the one-pane layout (Google Earth Web's panel), a slimmer header leaves the room to the form
   const size = fill ? "small" : "medium";
 
@@ -79,7 +83,7 @@ export function FormPanel({ controller, state, fill, hidden, onShowList }: {
           </Tooltip>
         )}
         <Tooltip title={t("form.prev")}>
-          <span><IconButton size={size} onClick={() => controller.step(-1)} disabled={!prev} aria-label={t("form.prev")} data-testid="form-prev"><ChevronLeftIcon /></IconButton></span>
+          <span><IconButton size={size} onClick={() => controller.step(-1)} disabled={!prev} aria-label={t("form.prev")} data-testid="form-prev" {...{ [HANDS_FOCUS]: true }}><ChevronLeftIcon /></IconButton></span>
         </Tooltip>
         {/* The plot on its line, never squeezed by the rest (the panel may be 380 px wide), which goes on a line below */}
         <Stack sx={{ flex: 1, minWidth: 0, px: 0.5 }}>
@@ -100,10 +104,17 @@ export function FormPanel({ controller, state, fill, hidden, onShowList }: {
                   sx={{ minWidth: 0, height: 20, fontSize: "0.75rem", "& .MuiChip-icon, & .MuiChip-deleteIcon": { fontSize: 14 } }} />
               </Tooltip>
             )}
+            {query && (
+              <Tooltip title={t("form.searched", { query })}>
+                <Chip size="small" color="primary" variant="outlined" icon={<SearchIcon />} label={query}
+                  onDelete={() => controller.setQuery("")} data-testid="form-search"
+                  sx={{ minWidth: 0, height: 20, fontSize: "0.75rem", "& .MuiChip-icon, & .MuiChip-deleteIcon": { fontSize: 14 } }} />
+              </Tooltip>
+            )}
           </Stack>
         </Stack>
         <Tooltip title={t("form.next")}>
-          <span><IconButton size={size} onClick={() => controller.step(1)} disabled={!next} aria-label={t("form.next")} data-testid="form-next"><ChevronRightIcon /></IconButton></span>
+          <span><IconButton size={size} onClick={() => controller.step(1)} disabled={!next} aria-label={t("form.next")} data-testid="form-next" {...{ [HANDS_FOCUS]: true }}><ChevronRightIcon /></IconButton></span>
         </Tooltip>
         <Tooltip title={t("form.close")}>
           <IconButton size={size} onClick={controller.closeForm} aria-label={t("form.close")} data-testid="form-close"><CloseIcon /></IconButton>

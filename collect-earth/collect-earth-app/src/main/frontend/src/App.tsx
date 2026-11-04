@@ -22,7 +22,7 @@ import { AppBar } from "./components/AppBar";
 import { useServerTexts } from "./serverTexts";
 import { IN_HOME } from "./home";
 import { HomePage } from "./components/HomePage";
-import { formWindow, isFormMessage, keyOfMessage, type PanelKey } from "./shortcuts";
+import { formWindow, imageryKey, imageryNumber, isFormMessage, keyOfMessage, type PanelKey } from "./shortcuts";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 /**
@@ -47,9 +47,10 @@ export function App({ controller }: { controller: MapController }) {
   // In Google Earth Web's panel there is no map: the list or the form, whatever the width
   const onePane = IN_PANEL
     || width - (formOpen ? RAIL_WIDTH * scale + state.formWidth : SIDEBAR_WIDTH * scale) < MIN_MAP_WIDTH * scale;
-  // One pane: the form, or the plot list when there is no form or the user asked for it until a plot is chosen
+  // One pane: the form, or the plot list when there is no form or the user asked for it until a plot is chosen, the one
+  // open included: a click on it in the list brings its form back
   const [listShown, setListShown] = useState(false);
-  useEffect(() => setListShown(false), [state.activeId, onePane]);
+  useEffect(() => setListShown(false), [state.activeId, state.selected, onePane]);
   const listPane = onePane && (!formOpen || listShown);
   // The home page is no window next to Google Earth Web, and has no list or form for the shortcuts to act on
   useFollowedByGoogleEarthWeb(!IN_PANEL && !IN_HOME);
@@ -148,14 +149,17 @@ export function App({ controller }: { controller: MapController }) {
 }
 
 /**
- * "/" search, "N" next unfinished, "Esc" close the form (ignored while typing). Pressed in the form, which has the focus
- * while a plot is open, they come from it as messages (see panelKey).
+ * "/" search, "N" next unfinished, "Esc" close the form (ignored while typing), Alt+1, Alt+2... the imagery sources.
+ * Pressed in the form, which has the focus while a plot is open, they come from it as messages (see panelKey).
  */
 function useShortcuts(controller: MapController, showList: () => void, enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
     const run = (key: PanelKey) => {
-      if (key === "/") {
+      const source = imageryNumber(key);
+      if (source != null) {
+        controller.showImageryNumber(source);
+      } else if (key === "/") {
         showList();
         // the search field may only now be mounted
         requestAnimationFrame(() => (document.getElementById("plot-search") as HTMLInputElement | null)?.focus());
@@ -166,10 +170,17 @@ function useShortcuts(controller: MapController, showList: () => void, enabled: 
       }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
       // Nor in a dialog of the app bar, whose keys are its own
       if (target?.closest?.("[role=\"dialog\"]")) return;
+      // Alt and a digit, in the plot search too, as it types nothing
+      const imagery = imageryKey(e);
+      if (imagery) {
+        e.preventDefault();
+        run(imagery);
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
         if (e.key === "Escape") target.blur();
         return;

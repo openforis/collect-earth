@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { byId, changedAfterSubmit, countStatuses, footprintCorners, indexPlots, heightForZoom, labelOfFeature, leftUnsubmitted, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear,
-  MAX_VIEW_HEIGHT, plotLabel, plotToRestore, plotsGone, sameView, surveyView, withoutPlotParam,
+  MAX_VIEW_HEIGHT, matchesElsewhere, plotLabel, plotToRestore, plotsGone, sameView, surveyView, withoutPlotParam,
   visibleIds, zoomForHeight } from "./plots";
 import type { PlotStatus } from "./types";
 
@@ -14,6 +14,18 @@ describe("filtering", () => {
     expect(visibleIds(order, statuses, "saved", "", byId())).toEqual(["p1", "p3", "p10"]);
     expect(visibleIds(order, statuses, "all", " P1 ", byId())).toEqual(["p1", "p10"]);
     expect(matchesFilter("x", "empty", "saved", "")).toBe(false);
+  });
+});
+
+describe("a search that finds nothing in the list filtered", () => {
+  it("offers the plots it finds in the list the filter leaves out", () => {
+    expect(matchesElsewhere(order, statuses, "pending", "p1", byId())).toEqual({ count: 2, filter: "saved" });
+    expect(matchesElsewhere(order, statuses, "saved", "p4", byId())).toEqual({ count: 1, filter: "pending" });
+  });
+  it("offers nothing when it finds none there either, nothing is filtered or nothing searched", () => {
+    expect(matchesElsewhere(order, statuses, "pending", "p9", byId())).toBeNull();
+    expect(matchesElsewhere(order, statuses, "all", "p1", byId())).toBeNull();
+    expect(matchesElsewhere(order, statuses, "pending", " ", byId())).toBeNull();
   });
 });
 

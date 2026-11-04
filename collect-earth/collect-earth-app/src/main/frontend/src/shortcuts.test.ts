@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  type KeyPress, FOCUS_KEY_WINDOW, choiceKey, escapeBlurs, focusMovedByKey, isFormMessage, isKeyboardClick, isTypeAheadKey, isTyping, keyOfMessage,
-  mayAdvance, mayTakeFocus, panelKey, submitOnKey,
+  type KeyPress, FOCUS_KEY_WINDOW, HANDS_FOCUS, choiceKey, escapeBlurs, focusMovedByKey, imageryKey, imageryNumber, isFormMessage, isKeyboardClick,
+  isTypeAheadKey, isTyping, keyOfMessage, mayAdvance, mayTakeFocus, panelKey, submitOnKey,
 } from "./shortcuts";
 
 /** A stand-in for an element: what isTyping reads of one. */
@@ -80,6 +80,32 @@ describe("panelKey", () => {
   });
 });
 
+describe("imageryKey", () => {
+  it("shows the imagery source of Alt and its number, in the order of the buttons", () => {
+    expect(imageryKey(press("1", chip, { altKey: true }))).toBe("Alt+1");
+    expect(imageryKey(press("4", chip, { altKey: true }))).toBe("Alt+4");
+    expect(imageryNumber("Alt+3")).toBe(3);
+    expect(imageryNumber("N")).toBeNull();
+  });
+  it("reads the key's place on a keyboard where Alt and a digit type something else, and works in a text box", () => {
+    expect(imageryKey(press("¡", chip, { altKey: true, code: "Digit1" }))).toBe("Alt+1");
+    expect(imageryKey(press("2", element("INPUT", { type: "text" }), { altKey: true }))).toBe("Alt+2");
+  });
+  it("is no other key: a digit alone, AltGr, Shift, a key held down, a letter", () => {
+    expect(imageryKey(press("1"))).toBeNull();
+    expect(imageryKey(press("1", chip, { altKey: true, ctrlKey: true }))).toBeNull();
+    expect(imageryKey(press("1", chip, { altKey: true, shiftKey: true }))).toBeNull();
+    expect(imageryKey(press("1", chip, { altKey: true, repeat: true }))).toBeNull();
+    expect(imageryKey(press("n", chip, { altKey: true }))).toBeNull();
+    expect(imageryKey(press("0", chip, { altKey: true }))).toBeNull();
+  });
+  it("is passed on to the plots map by the form, as its other keys", () => {
+    expect(panelKey(press("2", chip, { altKey: true }))).toBe("Alt+2");
+    expect(keyOfMessage({ type: "ce:key", plotId: "7", key: "Alt+2" }, "7")).toBe("Alt+2");
+    expect(keyOfMessage({ type: "ce:key", plotId: "7", key: "Alt+0" }, "7")).toBeNull();
+  });
+});
+
 describe("isTypeAheadKey", () => {
   it("keeps the number keys pressed while the focus moves on", () => {
     expect(isTypeAheadKey(press("1"))).toBe(true);
@@ -120,6 +146,16 @@ describe("mayTakeFocus", () => {
   it("leaves it where the user put it since, as in the plot search", () => {
     expect(mayTakeFocus(search, frame, body)).toBe(false);
     expect(mayTakeFocus(search, null, body)).toBe(false);
+  });
+  it("takes it from a control that opened the plot with a click: the header's arrows, a plot of the list", () => {
+    const arrow = { tagName: "BUTTON", closest: (s: string) => (s === `[${HANDS_FOCUS}]` ? {} : null) } as unknown as Element;
+    const other = { tagName: "BUTTON", closest: () => null } as unknown as Element;
+    expect(mayTakeFocus(arrow, frame, body)).toBe(true);
+    expect(mayTakeFocus(other, frame, body)).toBe(false);
+  });
+  it("never takes it from a box typed in, even one among those controls", () => {
+    const box = { tagName: "INPUT", type: "text", closest: () => ({}) } as unknown as Element;
+    expect(mayTakeFocus(box, frame, body)).toBe(false);
   });
 });
 

@@ -11,6 +11,19 @@ export function imageryChoices(status: ImageryStatus, inPanel = false): { source
   return sources.map((source) => ({ source, shown: source === status.visible }));
 }
 
+/**
+ * The number of a source's key (Alt+1, Alt+2...): its place among the tabs, Google Earth Web first, so that a source has
+ * the same number in the plots map and in Google Earth Web's panel, which has no button for Google Earth Web.
+ */
+export function imageryNumberOf(status: ImageryStatus, source: ImagerySource): number {
+  return status.sources.indexOf(source) + 1;
+}
+
+/** The source the key of number `n` shows (see imageryNumberOf), when it has a button; null otherwise */
+export function imageryForNumber(status: ImageryStatus, inPanel: boolean, n: number): ImagerySource | null {
+  return imageryChoices(status, inPanel).find((c) => imageryNumberOf(status, c.source) === n)?.source ?? null;
+}
+
 /** The source the user picked, and until when it is shown pressed whatever the server says. */
 export interface ImageryExpectation { source: ImagerySource; until: number }
 
