@@ -25,6 +25,12 @@
 		<include>
 			<file>node.xml</file>
 		</include>
+		<!-- The local dashboard, in every updater too: it changes with the code of collect-earth-cloud, and is not part
+		     of the baseline (updater_payload.py covers earth-libs and resources). It replaces ${installdir}/dashboard
+		     as a whole. -->
+		<include>
+			<file>dashboard.xml</file>
+		</include>
 
         <component>
             <name>default</name>
@@ -270,6 +276,16 @@
             </actionList>
             <ruleList>
                 <fileExists path="${installdir}/node.old" />
+            </ruleList>
+        </actionGroup>
+        <!-- And for the dashboard that dashboard.xml set aside -->
+        <actionGroup>
+            <actionList>
+                <deleteFile path="${installdir}/dashboard" abortOnError="0" showMessageOnError="0" />
+                <renameFile origin="${installdir}/dashboard.old" destination="${installdir}/dashboard" abortOnError="0" />
+            </actionList>
+            <ruleList>
+                <fileExists path="${installdir}/dashboard.old" />
             </ruleList>
         </actionGroup>
     </installationAbortedActionList>

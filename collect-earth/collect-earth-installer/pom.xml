@@ -325,6 +325,7 @@
 								<include>CollectEarthMain.xml</include>
 								<include>java.xml</include>
 								<include>node.xml</include>
+								<include>dashboard.xml</include>
 								<include>earth.properties_initial</include>
 								<include>earth.properties_forced_update</include>
 								<include>${installbuilder-file-name-updater}</include>
@@ -637,6 +638,35 @@
 							</dependency>
 						</dependencies>
 						<executions>
+							<!-- 0a. the local dashboard (dashboard.xml) must be in collect-earth-app/target/dashboard:
+							     the assembly profile of collect-earth-app builds it in collect-earth-cloud and copies
+							     it there, but that copy is skipped when the build is missing, so it is checked here,
+							     first, and no installer or updater is ever built without it. -->
+							<execution>
+								<id>check-dashboard</id>
+								<phase>initialize</phase>
+								<goals>
+									<goal>run</goal>
+								</goals>
+								<configuration>
+									<target>
+										<property name="dashboard.dir" location="${project.basedir}/../collect-earth-app/target/dashboard" />
+										<fail message="The local dashboard is missing from ${dashboard.dir} (server.mjs, qualityWorker.mjs and web/index.html are needed), and the installers and updaters must not be built without it. Build collect-earth-app with -P assembly (or -P release), which builds it in collect-earth-cloud (npm ci; npm run build:local; cd web, npm ci and npx vite build) and copies it there; check that build's output for npm errors. With -rf :collect-earth-installer, collect-earth-app must have been built that way first.">
+											<condition>
+												<not>
+													<and>
+														<available file="${dashboard.dir}/server.mjs" type="file" />
+														<available file="${dashboard.dir}/qualityWorker.mjs" type="file" />
+														<available file="${dashboard.dir}/web/index.html" type="file" />
+													</and>
+												</not>
+											</condition>
+										</fail>
+										<echo level="info" message="Local dashboard: ${dashboard.dir}" />
+									</target>
+								</configuration>
+							</execution>
+
 							<!-- 0c. the Node.js archives in the local repository, before unpack-node needs them, like
 							     ensure-jres for the JREs: downloaded from nodejs.org the first time a machine builds the
 							     installers, then only checked. SHASUMS256.txt is checked against node.shasums.sha256, and

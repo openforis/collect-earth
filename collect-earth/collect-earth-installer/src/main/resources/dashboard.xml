@@ -1,0 +1,57 @@
+<component>
+    <!-- The local dashboard (docs/plans/2026-11-03-desktop-dashboard.md), which the bundled Node (node.xml) runs:
+         installed as ${installdir}/dashboard, holding server.mjs, qualityWorker.mjs, server.mjs.LEGAL.txt and the web
+         app in web/ (index.html, assets/). LocalDashboardService looks for dashboard/ in the working folder of
+         Collect Earth, the installation folder, and for target/dashboard in the developer builds.
+         The files are collect-earth-app/target/dashboard, which the assembly profile builds in collect-earth-cloud
+         and copies there (build-dashboard-* and copy-dashboard-* in collect-earth-app/pom.xml); check-dashboard in
+         pom.xml stops the build when it is missing. The same files for every platform.
+         Included by the installer and by every updater: the dashboard changes with the cloud's code, at each release. -->
+    <name>dashboard</name>
+    <description>Local dashboard</description>
+    <canBeEdited>0</canBeEdited>
+    <selected>1</selected>
+    <show>0</show>
+
+    <folderList>
+        <folder>
+            <description>Local dashboard</description>
+            <destination>${installdir}</destination>
+            <name>dashboard</name>
+            <platforms>all</platforms>
+            <distributionFileList>
+                <distributionDirectory>
+                    <origin>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/target/dashboard</origin>
+                </distributionDirectory>
+            </distributionFileList>
+        </folder>
+    </folderList>
+
+    <readyToInstallActionList>
+        <!-- The old dashboard is set aside right before the files are copied, as node.xml does with Node: the web
+             app's assets have a new name at each build, so copying over the old folder would leave every earlier
+             one behind. A rename fails as a whole while something holds a file of the folder open, so the
+             installation then stops with the old one intact, and installationAbortedActionList (in the project
+             files) puts it back if the installation stops later. -->
+        <actionGroup>
+            <actionList>
+                <deleteFile path="${installdir}/dashboard.old" abortOnError="0" showMessageOnError="0" />
+                <renameFile>
+                    <origin>${installdir}/dashboard</origin>
+                    <destination>${installdir}/dashboard.old</destination>
+                    <progressText>Removing old dashboard</progressText>
+                    <abortOnError>1</abortOnError>
+                    <showMessageOnError>1</showMessageOnError>
+                    <customErrorMessage>The dashboard of Collect Earth is still in use. Close Collect Earth, or end its node process, then run the installation again.</customErrorMessage>
+                </renameFile>
+            </actionList>
+            <ruleList>
+                <fileExists path="${installdir}/dashboard" />
+            </ruleList>
+        </actionGroup>
+    </readyToInstallActionList>
+
+    <postInstallationActionList>
+        <deleteFile path="${installdir}/dashboard.old" abortOnError="0" showMessageOnError="0" />
+    </postInstallationActionList>
+</component>

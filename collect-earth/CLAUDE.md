@@ -239,6 +239,30 @@ as the `nodeVersion` of frontend-maven-plugin in `collect-earth-app/pom.xml` (22
   cmp signed.txt SHASUMS256.txt && sha256sum SHASUMS256.txt   # the value of node.shasums.sha256
   ```
 
+#### The bundled dashboard
+
+What that Node runs: the local dashboard, built from `../collect-earth-cloud` (the server bundle `dist/`, the web app
+`web/dist/`, both gitignored) and installed as `<installdir>/dashboard` (`server.mjs`, `qualityWorker.mjs`,
+`server.mjs.LEGAL.txt`, `web/`). `LocalDashboardService` looks for `dashboard/`, else `target/dashboard/`, in its
+working folder.
+
+- **Built by the shipped builds only:** with `-P release` or `-P assembly`, `collect-earth-app` empties
+  `target/dashboard` (`clean-dashboard`), then runs, with the Node of `src/main/frontend/node`: `npm ci` in
+  `collect-earth-cloud` and in its `web`, `npm run build:local` and `npx vite build` (the `build-dashboard-*` executions
+  of frontend-maven-plugin, at `generate-resources`); `copy-dashboard-server` and `copy-dashboard-web` then copy the
+  output into `target/dashboard`. `dashboard.build.skip` (false in those two profiles) switches it; `-Dskip.npm` does
+  not. It needs registry.npmjs.org and takes about 20 s. Other builds (`dev-build`, plain `mvn install`) build nothing
+  there and copy the output only if it was built by hand.
+- **Never an installer without it:** `check-dashboard` (`collect-earth-installer`, `assembly` profile, at
+  `initialize`) stops the build when `collect-earth-app/target/dashboard` lacks `server.mjs`, `qualityWorker.mjs` or
+  `web/index.html`, also for `-rf :collect-earth-installer`.
+- **`dashboard.xml`** (InstallBuilder), included by `CollectEarthWithSaiku.xml` and by every updater
+  (`CollectEarthUpdater.xml`), since it changes with the cloud's code: it installs the folder whole, the same files on
+  every platform. As `node.xml` does, it renames the old `dashboard` to `dashboard.old` before copying (the web app's
+  asset names change at each build, so nothing stale stays), stops if that fails, puts it back if the installation is
+  cancelled (`installationAbortedActionList` of both projects) and deletes it afterwards.
+- **Size:** about 2.7 MB of server and 2.6 MB of web app on disk, about 1.5 MB in the installer (xz -9).
+
 #### Recovering a `release:perform` that failed during the upload
 
 Artifacts are deployed to the Sonatype Central Portal through the OSSRH Staging API
@@ -365,7 +389,7 @@ Geospatial utilities for sampling and KML generation. Contains:
 - **KMZ Compression**: `KmzGenerator` for creating compressed KML files
 
 ### 4. collect-earth-installer
-Packaging and installer generation using Bitrock InstallBuilder. Produces Windows .exe, Linux .run, and macOS .dmg installers with bundled JRE and Node.js (see "The bundled Node" above).
+Packaging and installer generation using Bitrock InstallBuilder. Produces Windows .exe, Linux .run, and macOS .dmg installers with bundled JRE and Node.js, and the local dashboard (see "The bundled Node" and "The bundled dashboard" above).
 
 ### 5. collect-earth-grid
 Grid generation utilities for systematic global sampling (Hibernate, JDBC, CSV backends). It is built with the rest of the reactor, but **nothing ships it**: neither `collect-earth-app` nor `collect-earth-installer` depends on it, so it is a developer tool rather than part of the application.

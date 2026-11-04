@@ -229,12 +229,41 @@ to bring them to the desktop are:
   for stderr to the log and stop); `LocalDashboardIntegrationTest` (the real bundle, the demo project and its records,
   `/progress`, a live save, the sign-in link, the stop; `DASHBOARD_FEED_10K=1` for the timing above), skipped without
   Node or the bundle.
-- **What the installer still needs** (not done): build the bundle in the release (`npm ci && npm run build:local` in
-  `collect-earth-cloud`, `npm ci && npx vite build` in `web`) before `collect-earth-app`, and fail the `assembly` build
-  when `target/dashboard/server.mjs` is missing; a `dashboard.xml` like `node.xml`, included by
-  `CollectEarthWithSaiku.xml` and `CollectEarthUpdater.xml`, installing `collect-earth-app/target/dashboard` as
-  `<installdir>/dashboard` (`server.mjs`, `qualityWorker.mjs`, `server.mjs.LEGAL.txt`, `web/`), replacing the old
-  folder whole so no stale asset stays; and the updaters carry it at every release (it changes with the cloud code).
+- **The installers and updaters ship it (done 2026-11-03,** except the InstallBuilder build itself; CLAUDE.md, "The
+  bundled dashboard"):
+  - **Built by the release:** in `collect-earth-app/pom.xml`, `dashboard.build.skip` is false in the `release` and
+    `assembly` profiles only. Then `clean-dashboard` empties `target/dashboard`, and four frontend-maven-plugin
+    executions at `generate-resources` (`build-dashboard-server-npm-ci`, `-web-npm-ci`, `build-dashboard-server`,
+    `build-dashboard-web`) run `npm ci` in `collect-earth-cloud` and in `web`, `npm run build:local` and
+    `npx vite build`, with the Node of `src/main/frontend/node` (`installDirectory`). `copy-dashboard-*` then copy the
+    output as before. The cloud folder is `dashboard.cloud.dir` (default `../../collect-earth-cloud`, which is also
+    where it is in `release:perform`'s checkout of the whole repository). Dev builds are unchanged: the executions
+    are skipped and the copies still skip a missing build.
+  - **Never shipped without it:** `check-dashboard` (`collect-earth-installer`, `assembly`, `initialize`, before
+    `ensure-node`) fails the build, saying what to do, when `collect-earth-app/target/dashboard` lacks `server.mjs`,
+    `qualityWorker.mjs` or `web/index.html`.
+  - **`dashboard.xml`**, included by `CollectEarthWithSaiku.xml` and `CollectEarthUpdater.xml` (every updater) and
+    added to the replacer's files: one folder for all platforms, `COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/target/dashboard`
+    into `${installdir}`. As `node.xml` does, the old folder becomes `dashboard.old` before the copy (the installation
+    stops if that fails), comes back if the installation is cancelled (`installationAbortedActionList` of both
+    projects) and is deleted after.
+  - **Verified** in a copy of the repository without any build output, with a scratch Maven repository:
+    `help:evaluate` gives `dashboard.build.skip` false for `-P release` and `-P assembly`, true with no profile;
+    a plain build (no profile) skipped the four executions and both copies; `-P assembly` and `-P release`
+    `process-resources` ran `npm ci` (215 and 130 packages), `build:local` and `vite build` and copied 3 + 110 files
+    (about 20 s with npm's cache warm), and a stale file planted in `target/dashboard/web/assets` was gone after;
+    `check-dashboard` passed with the dashboard and failed with `web/index.html` removed; the installer's
+    `copy-installbuilder-source-file` and replacer, run for real, gave a `dashboard.xml` whose origin exists (113 files)
+    and every XML file is well-formed; `node target/dashboard/server.mjs` (LOCAL_MODE) started from the copied folder,
+    printed its ready line and served `/` and `/v1/server-info`.
+  - **Measured:** `dist/` 2.74 MB on disk (`server.mjs` 2.54 MB, `qualityWorker.mjs` 0.20 MB, LEGAL 2 KB), 0.42 MB
+    xz -9; `web/dist` 2.55 MB, 110 files, 1.08 MB xz -9. Each installer and updater grows by about 1.5 MB.
+  - **Still to check on the build machine:** one `-P assembly` build with InstallBuilder (that `dashboard.xml` packs
+    `dashboard/` with `web/assets` on each platform, and the sizes); an update over an installation that has a
+    `dashboard/` (replaced whole, `dashboard.old` gone) and a cancelled one (the old one back); the rename on Windows
+    while Collect Earth runs its dashboard (whether Node holds the folder; if so the updater asks to close Collect
+    Earth, as for `node/`); and `release:perform` itself, whose checkout must hold `collect-earth-cloud` (it checks out
+    the whole repository).
 
 ### Task 6: Opening it
 - A menu entry "My dashboard" (Tools), and a link on the home page and in the plots map's sidebar. It opens the local

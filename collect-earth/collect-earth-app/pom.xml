@@ -18,6 +18,12 @@
 		     (a few seconds when nothing changed); `npm ci` wiped and reinstalled it on every build.
 		     Releases, installers and CI keep the exact, clean `npm ci` (the profiles at the end). -->
 		<frontend.npm.install>install --prefer-offline --no-audit --no-fund</frontend.npm.install>
+		<!-- The local dashboard (docs/plans/2026-11-03-desktop-dashboard.md): collect-earth-cloud, whose built
+		     server (dist) and web app (web/dist) are copied into target/dashboard. dashboard.build.skip is false
+		     only in the release and assembly profiles (at the end), which build them first with the Node of
+		     src/main/frontend/node; other builds copy whatever is there, and nothing when they were never built. -->
+		<dashboard.cloud.dir>${project.basedir}/../../collect-earth-cloud</dashboard.cloud.dir>
+		<dashboard.build.skip>true</dashboard.build.skip>
 	</properties>
 
 	<dependencies>
@@ -236,6 +242,26 @@
 							</filesets>
 						</configuration>
 					</execution>
+					<!-- The same for the local dashboard, when the release and assembly profiles build it
+					     (dashboard.build.skip): the web app's assets have a new name at each build, and the
+					     installers ship the whole target/dashboard folder. -->
+					<execution>
+						<?m2e ignore?>
+						<id>clean-dashboard</id>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>clean</goal>
+						</goals>
+						<configuration>
+							<skip>${dashboard.build.skip}</skip>
+							<excludeDefaultDirectories>true</excludeDefaultDirectories>
+							<filesets>
+								<fileset>
+									<directory>${project.build.directory}/dashboard</directory>
+								</fileset>
+							</filesets>
+						</configuration>
+					</execution>
 				</executions>
 			</plugin>
 			<plugin>
@@ -264,8 +290,11 @@
 			<!-- The local dashboard (docs/plans/2026-11-03-desktop-dashboard.md, Task 5): the Node bundle of
 			     collect-earth-cloud (dist/: server.mjs, qualityWorker.mjs) and its built web app (web/dist) into
 			     target/dashboard and target/dashboard/web, where LocalDashboardService finds them when run from
-			     collect-earth-app. They are built in collect-earth-cloud (npm run build:local; cd web && npx vite build),
-			     not here: when they are missing the copies are skipped, and Collect Earth runs without the dashboard. -->
+			     collect-earth-app. They are built in collect-earth-cloud (npm run build:local; cd web && npx vite build):
+			     by the release and assembly profiles (the build-dashboard-* executions of frontend-maven-plugin
+			     below), by hand otherwise. When they are missing the copies are skipped, and Collect Earth runs without
+			     the dashboard; the installers are never built without it (check-dashboard in collect-earth-installer).
+			     When it is built, target/dashboard is emptied first (clean-dashboard, above). -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-resources-plugin</artifactId>
@@ -281,7 +310,7 @@
 							<outputDirectory>${project.build.directory}/dashboard</outputDirectory>
 							<resources>
 								<resource>
-									<directory>${project.basedir}/../../collect-earth-cloud/dist</directory>
+									<directory>${dashboard.cloud.dir}/dist</directory>
 									<filtering>false</filtering>
 								</resource>
 							</resources>
@@ -298,7 +327,7 @@
 							<outputDirectory>${project.build.directory}/dashboard/web</outputDirectory>
 							<resources>
 								<resource>
-									<directory>${project.basedir}/../../collect-earth-cloud/web/dist</directory>
+									<directory>${dashboard.cloud.dir}/web/dist</directory>
 									<filtering>false</filtering>
 								</resource>
 							</resources>
@@ -347,6 +376,68 @@
 						</goals>
 						<configuration>
 							<arguments>run build</arguments>
+						</configuration>
+					</execution>
+					<!-- The local dashboard, built in collect-earth-cloud before copy-dashboard-server and
+					     copy-dashboard-web take it (process-resources), with the Node installed above
+					     (installDirectory): the release and assembly profiles only (dashboard.build.skip).
+					     Always `npm ci`, from the lock files, in the server's folder and in web. -->
+					<execution>
+						<?m2e ignore?>
+						<id>build-dashboard-server-npm-ci</id>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>npm</goal>
+						</goals>
+						<configuration>
+							<skip>${dashboard.build.skip}</skip>
+							<workingDirectory>${dashboard.cloud.dir}</workingDirectory>
+							<installDirectory>${project.basedir}/src/main/frontend</installDirectory>
+							<arguments>ci --no-audit --no-fund</arguments>
+						</configuration>
+					</execution>
+					<execution>
+						<?m2e ignore?>
+						<id>build-dashboard-web-npm-ci</id>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>npm</goal>
+						</goals>
+						<configuration>
+							<skip>${dashboard.build.skip}</skip>
+							<workingDirectory>${dashboard.cloud.dir}/web</workingDirectory>
+							<installDirectory>${project.basedir}/src/main/frontend</installDirectory>
+							<arguments>ci --no-audit --no-fund</arguments>
+						</configuration>
+					</execution>
+					<!-- dist/server.mjs, dist/qualityWorker.mjs, dist/server.mjs.LEGAL.txt -->
+					<execution>
+						<?m2e ignore?>
+						<id>build-dashboard-server</id>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>npm</goal>
+						</goals>
+						<configuration>
+							<skip>${dashboard.build.skip}</skip>
+							<workingDirectory>${dashboard.cloud.dir}</workingDirectory>
+							<installDirectory>${project.basedir}/src/main/frontend</installDirectory>
+							<arguments>run build:local</arguments>
+						</configuration>
+					</execution>
+					<!-- web/dist -->
+					<execution>
+						<?m2e ignore?>
+						<id>build-dashboard-web</id>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>npx</goal>
+						</goals>
+						<configuration>
+							<skip>${dashboard.build.skip}</skip>
+							<workingDirectory>${dashboard.cloud.dir}/web</workingDirectory>
+							<installDirectory>${project.basedir}/src/main/frontend</installDirectory>
+							<arguments>vite build</arguments>
 						</configuration>
 					</execution>
 				</executions>
@@ -400,18 +491,21 @@
     <tag>HEAD</tag>
   </scm>
 	<!-- The clean, reproducible install of the web UI's packages for every build that is shipped or
-	     checked: a release (release), the installers (assembly) and GitHub Actions (CI=true). -->
+	     checked: a release (release), the installers (assembly) and GitHub Actions (CI=true).
+	     The builds that are shipped also build the local dashboard in collect-earth-cloud (dashboard.build.skip). -->
 	<profiles>
 		<profile>
 			<id>release</id>
 			<properties>
 				<frontend.npm.install>ci</frontend.npm.install>
+				<dashboard.build.skip>false</dashboard.build.skip>
 			</properties>
 		</profile>
 		<profile>
 			<id>assembly</id>
 			<properties>
 				<frontend.npm.install>ci</frontend.npm.install>
+				<dashboard.build.skip>false</dashboard.build.skip>
 			</properties>
 		</profile>
 		<profile>
