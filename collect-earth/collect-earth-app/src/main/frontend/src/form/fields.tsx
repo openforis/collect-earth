@@ -24,8 +24,8 @@ import { type Translate, useT } from "../i18n";
 import { type PressedKey, choiceKey, focusMovedByKey, isKeyboardClick } from "../shortcuts";
 import {
   type CodeItem, type Field, type FieldInfo, clickCode, codeControl, coordinateFromInput, coordinateToInput, dateFromInput,
-  dateToInput, normalizeNumber, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput, requiredMessage, selectCodes,
-  timeToInput,
+  dateToInput, normalizeNumber, numberProblem, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput, requiredMessage,
+  selectCodes, timeToInput,
 } from "./model";
 import { TYPING_DELAY } from "./store";
 
@@ -308,21 +308,26 @@ const KEY_HINT_SX = {
 } as const;
 
 // The balloon's code buttons: cyan Bootstrap "info" buttons, dark teal once chosen
+// The answer the keyboard is on is ringed: an outline around it, apart from its colour, which says whether it is chosen
+const FOCUS_RING = { outline: "2px solid", outlineColor: "text.primary", outlineOffset: 2, zIndex: 1 } as const;
 const CODE_SX = {
   position: "relative", height: "auto", minHeight: 32, py: 0.5, borderRadius: 1, border: 1, fontWeight: 500,
   bgcolor: "balloon.code", borderColor: "balloon.codeBorder", color: "balloon.codeText",
   "& .MuiChip-label": { whiteSpace: "normal" },
-  "&:hover, &.Mui-focusVisible": { bgcolor: "balloon.codeHover" },
+  "&:hover": { bgcolor: "balloon.codeHover" },
+  "&.Mui-focusVisible": { bgcolor: "balloon.codeHover", ...FOCUS_RING },
 } as const;
 const CODE_ON_SX = {
   ...CODE_SX, fontWeight: 600,
   bgcolor: "balloon.codeOn", borderColor: "balloon.codeOnBorder", color: "balloon.codeOnText",
   "& .MuiChip-icon": { color: "inherit", fontSize: 18 },
-  "&:hover, &.Mui-focusVisible": { bgcolor: "balloon.codeOn", filter: "brightness(1.1)" },
+  "&:hover": { bgcolor: "balloon.codeOn", filter: "brightness(1.1)" },
+  "&.Mui-focusVisible": { bgcolor: "balloon.codeOn", filter: "brightness(1.1)", ...FOCUS_RING },
 } as const;
 const TOGGLE_SX = {
-  ...CODE_SX, px: 2.5, fontWeight: 600, minHeight: 0, py: 0.75,
+  ...CODE_SX, px: 2.5, fontWeight: 600, minHeight: 0, py: 0.75, gap: 0.5,
   "&.Mui-selected, &.Mui-selected:hover": { bgcolor: "balloon.codeOn", borderColor: "balloon.codeOnBorder", color: "balloon.codeOnText" },
+  "& .MuiSvgIcon-root": { fontSize: 18, ml: -0.75 },
 } as const;
 
 /**
@@ -433,8 +438,9 @@ function BooleanInput({ field, value, onChange, error, describedBy, required }: 
           answeredByKey(field.name);
         }}
         sx={{ ...KEY_HINTS_SX, ...(error && { outline: 1, outlineColor: "error.main", borderRadius: 1 }) }}>
-        <ToggleButton value="true" sx={TOGGLE_SX}>{t("entry.yes")}<KeyHint index={0} /></ToggleButton>
-        <ToggleButton value="false" sx={TOGGLE_SX}>{t("entry.no")}<KeyHint index={1} /></ToggleButton>
+        {/* the answer chosen is ticked, as one of a list: not told by its colour alone */}
+        <ToggleButton value="true" sx={TOGGLE_SX}>{value === "true" && <CheckIcon />}{t("entry.yes")}<KeyHint index={0} /></ToggleButton>
+        <ToggleButton value="false" sx={TOGGLE_SX}>{value === "false" && <CheckIcon />}{t("entry.no")}<KeyHint index={1} /></ToggleButton>
       </ToggleButtonGroup>
       {value && <ClearButton onClear={clear} />}
     </Box>
@@ -452,18 +458,31 @@ function useDraft(value: string, same: (draft: string, value: string) => boolean
   return [draft, setDraft];
 }
 
+/**
+ * A text, or a number. A number that is none ("1.5x", which the server read as 1 and the box then showed with no word) is
+ * not sent: it stays as typed, with a message under it, until it is corrected.
+ */
 function TextInput({ field, value, onChange, error, describedBy, required, dense, numeric, multiline }: ControlProps & { numeric?: boolean; multiline?: boolean }) {
-  const [draft, setDraft] = useDraft(value, numeric ? (d, v) => normalizeNumber(d) === v : undefined);
+  const t = useT();
+  const invalid = (d: string) => (numeric ? numberProblem(field.type, d) : null);
+  // what is typed stays while it is no number, whatever the server answers about what was sent before
+  const [draft, setDraft] = useDraft(value, numeric ? (d, v) => normalizeNumber(d) === v || invalid(d) != null : undefined);
   // typed but still waiting for the typing pause: leaving the field saves at once
   const typing = useRef(false);
-  const commit = (v: string, delay: number) => onChange(field.name, numeric ? normalizeNumber(v) : v, delay);
+  const commit = (v: string, delay: number) => { if (!invalid(v)) onChange(field.name, numeric ? normalizeNumber(v) : v, delay); };
+  const problem = invalid(draft);
+  const helperId = `${field.name}-helper-text`;
   return (
-    <TextField id={field.name} size="small" fullWidth={!dense} value={draft} error={error} multiline={multiline} minRows={multiline ? 3 : undefined}
+    <TextField id={field.name} size="small" fullWidth={!dense} value={draft} error={error || !!problem} multiline={multiline} minRows={multiline ? 3 : undefined}
       onChange={(e) => { setDraft(e.target.value); typing.current = true; commit(e.target.value, TYPING_DELAY); }}
       onBlur={() => { if (typing.current) { typing.current = false; commit(draft, 0); } }}
+      helperText={problem ? t(problem) : undefined}
       slotProps={{
-        htmlInput: { inputMode: numeric ? (field.type === "integer" ? "numeric" : "decimal") : undefined, "aria-label": field.label, "aria-describedby": describedBy, "aria-required": required || undefined },
+        htmlInput: { inputMode: numeric ? (field.type === "integer" ? "numeric" : "decimal") : undefined, "aria-label": field.label,
+          "aria-describedby": [describedBy, problem ? helperId : null].filter(Boolean).join(" ") || undefined,
+          "aria-invalid": error || !!problem || undefined, "aria-required": required || undefined },
         input: field.unit ? { endAdornment: <InputAdornment position="end">{field.unit}</InputAdornment> } : undefined,
+        formHelperText: { id: helperId, sx: { mx: 0, fontWeight: 500 }, "data-testid": "entry-number-invalid" } as object,
       }}
       sx={numeric && !dense ? { maxWidth: 240 } : undefined} />
   );

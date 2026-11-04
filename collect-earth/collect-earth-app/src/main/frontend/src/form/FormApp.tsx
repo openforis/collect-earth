@@ -29,7 +29,7 @@ import CloudOffOutlinedIcon from "@mui/icons-material/CloudOffOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import SendIcon from "@mui/icons-material/Send";
-import { type MessageKey, useT } from "../i18n";
+import { type MessageKey, type Translate, useT } from "../i18n";
 import { escapeBlurs, isTypeAheadKey, isTyping, mayAdvance, mayTakeFocus, panelKey, submitOnKey } from "../shortcuts";
 import logo from "./collect-earth-logo.png";
 import { AnsweredByKey, FieldView, errorText } from "./fields";
@@ -358,6 +358,8 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
         </Stack>
       </Box>
 
+      <LiveRegion state={state} />
+
       {/* Back and Next only where there is a step to go to; Submit takes Next's place on the last step, and goes next
           to it on the others once nothing is left to answer on any */}
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 1, py: 1, minHeight: 56,
@@ -372,7 +374,8 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
             </Tooltip>
           )}
         </Box>
-        <Box sx={{ flex: 1, minWidth: 0, display: "flex", justifyContent: "center" }}>
+        {/* a query of its width: too narrow for the words (Submit and Next both shown in a narrow panel), only the icon */}
+        <Box sx={{ flex: 1, minWidth: 0, display: "flex", justifyContent: "center", containerType: "inline-size" }}>
           <SaveStatus state={state.saveState} retrying={state.retrying} />
         </Box>
         <Stack direction="row" spacing={1} sx={{ flex: "none", justifyContent: "flex-end", alignItems: "center" }}>
@@ -465,16 +468,45 @@ const SAVE_LABEL: Record<SaveState, MessageKey> = {
   idle: "entry.save.idle", unsaved: "entry.save.unsaved", saving: "entry.save.saving", saved: "entry.save.saved", error: "entry.save.error",
 };
 
+/** The label of the save state, as the footer shows it and a screen reader hears it */
+function saveLabel(t: Translate, state: SaveState, retrying: boolean): string {
+  // a failed save that is tried again by itself says so; the reason of the server is in the banner above the questions
+  return state === "error" && retrying ? t("entry.save.retrying") : t(SAVE_LABEL[state]);
+}
+
+/**
+ * The save state: an icon and its words, only the icon when the room left between the step buttons is too narrow for
+ * the words (a container query on its box, in rem, so it follows the scale of the UI), with the words in its tooltip.
+ */
 function SaveStatus({ state, retrying }: { state: SaveState; retrying: boolean }) {
   const t = useT();
-  // a failed save that is tried again by itself says so; the reason of the server is in the banner above the questions
-  const label = state === "error" && retrying ? t("entry.save.retrying") : t(SAVE_LABEL[state]);
+  const label = saveLabel(t, state, retrying);
   const icon = state === "saving" ? <CircularProgress size={12} sx={{ ml: "6px !important" }} />
     : state === "saved" ? <CloudDoneOutlinedIcon /> : state === "error" ? <CloudOffOutlinedIcon /> : <EditOutlinedIcon />;
+  // about the width of the words at the chip's size, with its icon and padding
+  const wide = `${(label.length * 0.45 + 2.75).toFixed(2)}rem`;
   return (
-    <Chip size="small" variant="outlined" icon={icon} label={label} data-testid="entry-save-state" data-state={state}
-      color={state === "error" ? "error" : state === "saved" ? "success" : "default"} sx={{ maxWidth: "100%", border: 0 }} />
+    <Tooltip title={label}>
+      <Chip size="small" variant="outlined" icon={icon} label={label} aria-label={label} data-testid="entry-save-state" data-state={state}
+        color={state === "error" ? "error" : state === "saved" ? "success" : "default"}
+        sx={{ maxWidth: "100%", border: 0, [`@container (max-width: ${wide})`]: {
+          "& .MuiChip-label": { display: "none" }, "& .MuiChip-icon": { mx: "4px !important" } } }} />
+    </Tooltip>
   );
+}
+
+/**
+ * Said to a screen reader, politely, not shown: the save done or failed, and the errors a Submit found.
+ * Saving and changes not saved yet are left out, which every answer would say twice.
+ */
+function LiveRegion({ state }: { state: FormState }) {
+  const t = useT();
+  const save = state.saveState === "saved" || state.saveState === "error" ? saveLabel(t, state.saveState, state.retrying) : "";
+  const reason = state.saveState === "error" && state.saveError ? state.saveError : "";
+  const errors = state.submitErrors?.length
+    ? state.submitErrors.length === 1 ? t("entry.errorsOne") : t("entry.errorsMany", { count: state.submitErrors.length }) : "";
+  const text = [save, reason, errors].filter(Boolean).join(". ");
+  return <Box role="status" aria-live="polite" aria-atomic sx={VISUALLY_HIDDEN} data-testid="entry-live">{text}</Box>;
 }
 
 function SubmitButton({ store, state }: { store: FormStore; state: FormState }) {
@@ -681,6 +713,18 @@ function MultipleEntities({ store, state, item }: { store: FormStore; state: For
   const count = entityCount(item, state.infos);
   const busy = state.entityBusy === item.entity;
   const failure = state.entityFailure?.entity === item.entity ? state.entityFailure : null;
+  // the one added is to be filled in: the focus goes to its first question, once the server made it and it is rendered
+  const add = async () => {
+    await store.addEntity(item.entity);
+    const added = entityCount(item, store.getState().infos);
+    if (added <= count) return;
+    afterRender(() => {
+      const first = item.fields.find((f) => !f.readOnly) ?? item.fields[0];
+      if (!first) return;
+      const name = indexedField(first, added).name;
+      document.querySelector(`[data-field="${CSS.escape(name)}"]`)?.querySelector<HTMLElement>(CONTROL)?.focus();
+    });
+  };
   return (
     <Stack spacing={1.5} data-testid={`entry-multiple-${item.entity}`}>
       <SectionTitle label={item.label} description={item.description} />
@@ -705,7 +749,7 @@ function MultipleEntities({ store, state, item }: { store: FormStore; state: For
         </Alert>
       )}
       <Stack direction="row" spacing={1}>
-        <Button size="small" variant="outlined" startIcon={<AddIcon />} disabled={busy} onClick={() => void store.addEntity(item.entity)}>{t("entry.add")}</Button>
+        <Button size="small" variant="outlined" startIcon={<AddIcon />} disabled={busy} onClick={() => void add()} data-testid="entry-add">{t("entry.add")}</Button>
         {count > 0 && (
           <Button size="small" color="error" startIcon={<DeleteOutlineIcon />} disabled={busy} onClick={() => void store.deleteEntity(item.entity)}>{t("entry.deleteLast")}</Button>
         )}

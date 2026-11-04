@@ -478,6 +478,17 @@ export function advanceTarget(steps: Step[], tab: number, from: string | null): 
 }
 
 /**
+ * What an integer or a decimal number typed is not, or null when it is one (or nothing): the server reads "1.5x" as 1,
+ * which the box then showed instead of what was typed, with no word of it. A decimal comma is a dot (normalizeNumber).
+ */
+export function numberProblem(type: FieldType, typed: string): MessageKey | null {
+  const text = normalizeNumber(typed);
+  if (text === "") return null;
+  if (type === "integer") return /^[-+]?\d+$/.test(text) ? null : "entry.invalidInteger";
+  return /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(text) ? null : "entry.invalidNumber";
+}
+
+/**
  * The questions the server asks an answer for, of those not answered yet: the model does not say which are required
  * (SurveyFormModelBuilder), the server does, by reporting each one left empty in error from the start, which is also
  * what "Choose an answer" is said of (see requiredMessage). Those shown, and answered on the form, only.

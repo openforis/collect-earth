@@ -3,7 +3,7 @@ import {
   type Field, type FormModel, availableItems, clickCode, dateFromInput, dateToInput, entityCount, errorList, fieldsByName,
   indexedField, isTabVisible, joinValues, mergeInfos, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
   requiredMessage, saveBody, selectCodes, splitValues, summaryLines, tabsWithErrors, timeToInput, unansweredRequired, errorsByTab, neededByTab, updateRequired,
-  DROPDOWN_AS_BUTTONS, advanceTarget, answeredWithKeys, codeControl, firstToAnswer, stepsOf,
+  DROPDOWN_AS_BUTTONS, advanceTarget, answeredWithKeys, codeControl, firstToAnswer, numberProblem, stepsOf,
 } from "./model";
 
 const category: Field = {
@@ -267,6 +267,23 @@ describe("moves of the focus", () => {
         { name: "collect_entity_tree[1].real_height", byKey: false, needed: false }] },
     ]);
     expect(stepsOf(model, { collect_code_lu: { visible: false }, collect_code_sub: { visible: false } }, () => null).map((s) => s.tab)).toEqual([1]);
+  });
+});
+
+describe("numberProblem", () => {
+  it("takes whole numbers, decimals with a dot or a comma, and nothing", () => {
+    expect(numberProblem("integer", "12")).toBeNull();
+    expect(numberProblem("integer", "-3")).toBeNull();
+    expect(numberProblem("real", "1,5")).toBeNull();
+    expect(numberProblem("real", ".5")).toBeNull();
+    expect(numberProblem("real", "2.")).toBeNull();
+    expect(numberProblem("integer", " ")).toBeNull();
+  });
+  it("says what is wrong with anything else, instead of the server reading 1.5x as 1", () => {
+    expect(numberProblem("integer", "1.5x")).toBe("entry.invalidInteger");
+    expect(numberProblem("integer", "1.5")).toBe("entry.invalidInteger");
+    expect(numberProblem("real", "1.5x")).toBe("entry.invalidNumber");
+    expect(numberProblem("real", "1.2.3")).toBe("entry.invalidNumber");
   });
 });
 
