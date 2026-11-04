@@ -87,26 +87,40 @@ export function nextUnfinished(order: string[], statuses: Record<string, PlotSta
 
 /**
  * A message of the form about its plot (see FormStore.post): `answers`, with a submit ("ce:saved"), those the next plot
- * may copy ("Same as previous plot").
+ * may copy ("Same as previous plot"); `survey`, with a submit and when the form is ready ("ce:ready"), its survey's name.
  */
-export interface FormMessage { type?: string; plotId?: string; unsubmitted?: boolean; answers?: Record<string, string> }
-
-/** The answers of the plot submitted last in this session, which the form of the next one may copy */
-export interface PreviousPlot { plotId: string; answers: Record<string, string> }
-
-/** The plot submitted last, after a message of the form (`previous` before it): a submit with its answers replaces it */
-export function previousPlot(previous: PreviousPlot | null, message: FormMessage): PreviousPlot | null {
-  if (message.type !== "ce:saved" || message.plotId == null || !message.answers || typeof message.answers !== "object") return previous;
-  return { plotId: message.plotId, answers: message.answers };
+export interface FormMessage {
+  type?: string; plotId?: string; unsubmitted?: boolean; answers?: Record<string, string>; survey?: string;
 }
 
 /**
- * The answer to the form of plot `plotId` when it is ready ("ce:ready"): the answers of the plot submitted before, or
- * null when there is none, or it is that plot itself.
+ * The answers of the plot submitted last in this session, which the form of the next one may copy: by the operator
+ * then, in the survey then, which another operator, or another survey, never gets
  */
-export function previousMessage(previous: PreviousPlot | null, plotId: string):
-  { type: "ce:previous"; plotId: string; answers: Record<string, string> } | null {
-  return previous && previous.plotId !== plotId ? { type: "ce:previous", plotId: previous.plotId, answers: previous.answers } : null;
+export interface PreviousPlot { plotId: string; answers: Record<string, string>; survey: string; operator: string | null }
+
+/**
+ * The plot submitted last, after a message of the form (`previous` before it), `operator` being the one working: a
+ * submit with its answers replaces it
+ */
+export function previousPlot(previous: PreviousPlot | null, message: FormMessage, operator: string | null): PreviousPlot | null {
+  if (message.type !== "ce:saved" || message.plotId == null || !message.answers || typeof message.answers !== "object") return previous;
+  return { plotId: message.plotId, answers: message.answers, survey: message.survey ?? "", operator };
+}
+
+/** Whether the answers of the plot before are still for the form of `survey` and the operator working */
+export function previousStands(previous: PreviousPlot, survey: string | undefined, operator: string | null): boolean {
+  return previous.survey === (survey ?? "") && previous.operator === operator;
+}
+
+/**
+ * The answer to the form of plot `plotId` in `survey` when it is ready ("ce:ready"): the answers of the plot submitted
+ * before, or null when there is none, it is that plot itself, or of another survey or operator.
+ */
+export function previousMessage(previous: PreviousPlot | null, plotId: string, survey: string | undefined, operator: string | null):
+  { type: "ce:previous"; plotId: string; survey: string; answers: Record<string, string> } | null {
+  if (!previous || previous.plotId === plotId || !previousStands(previous, survey, operator)) return null;
+  return { type: "ce:previous", plotId: previous.plotId, survey: previous.survey, answers: previous.answers };
 }
 
 /**

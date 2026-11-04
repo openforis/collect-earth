@@ -8,7 +8,7 @@ import { IN_PANEL } from "./panel";
 import { IN_HOME } from "./home";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
 import { byId, changedAfterSubmit, footprintCorners, type FormMessage, indexPlots, leftUnsubmitted, neighbour, nextUnfinished, normalizeStatus, plotLabel, plotParam, plotsGone, plotsNear, plotToRestore, surveyView,
-  previousMessage, previousPlot, type PreviousPlot, sameView, visibleIds, withoutPlotParam } from "./plots";
+  previousMessage, previousPlot, previousStands, type PreviousPlot, sameView, visibleIds, withoutPlotParam } from "./plots";
 import type { MessageKey } from "./i18n";
 import { imageryForNumber, reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
 import { loadPrefs, savePrefs, type Prefs } from "./prefs";
@@ -112,6 +112,8 @@ export class MapController {
   private changedAfterSubmit: string | null = null;
   /** The answers of the plot submitted last in this session, for "Same as previous plot" in the form of the next ones */
   private previous: PreviousPlot | null = null;
+  /** The operator working, as /api/app says (see setOperator) */
+  private operator: string | null = null;
 
   constructor() {
     this.state = {
@@ -318,10 +320,12 @@ export class MapController {
     // ignore anything but the active plot (stale iframe race)
     if (!data?.type || data.plotId == null || data.plotId !== this.state.activeId || !(data.plotId in this.plots)) return;
     this.changedAfterSubmit = changedAfterSubmit(this.changedAfterSubmit, data);
-    this.previous = previousPlot(this.previous, data);
+    this.previous = previousPlot(this.previous, data, this.operator);
     if (data.type === "ce:ready") {
-      // the form of the plot open asks for the answers of the plot submitted before
-      const reply = previousMessage(this.previous, data.plotId);
+      // the form of the plot open asks for the answers of the plot submitted before: forgotten when they are of another
+      // survey (another project opened) or another operator
+      if (this.previous && !previousStands(this.previous, data.survey, this.operator)) this.previous = null;
+      const reply = previousMessage(this.previous, data.plotId, data.survey, this.operator);
       if (reply) (event.source as Window | null)?.postMessage(reply, window.location.origin);
     } else if (data.type === "ce:saved") {
       this.applyStatuses({ [data.plotId]: "saved" });
@@ -330,6 +334,13 @@ export class MapController {
     } else if (data.type === "ce:dirty") {
       this.applyStatuses({ [data.plotId]: "partial" });
     }
+  };
+
+  /** The operator working changed (or is first known): the answers another one submitted are not offered to this one */
+  setOperator = (operator: string | null): void => {
+    if (operator === this.operator) return;
+    this.operator = operator;
+    this.previous = null;
   };
 
   // ---------- selection ----------

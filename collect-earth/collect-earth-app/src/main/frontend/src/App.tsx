@@ -66,6 +66,8 @@ export function App({ controller }: { controller: MapController }) {
   const t = useMemo(() => translator(state.language), [state.language]);
   useEffect(() => { document.documentElement.lang = state.language; }, [state.language]);
   const [info, reloadInfo] = useAppInfo();
+  // "Same as previous plot" offers the answers of the plot before to the operator who gave them only
+  useEffect(() => { if (info) controller.setOperator(info.operator); }, [info, controller]);
   const texts = useServerTexts(state.language);
   // The title of the window, as the Swing window set it
   useEffect(() => {

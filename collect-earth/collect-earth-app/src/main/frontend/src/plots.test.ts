@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { byId, changedAfterSubmit, countStatuses, footprintCorners, indexPlots, heightForZoom, labelOfFeature, leftUnsubmitted, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear,
-  MAX_VIEW_HEIGHT, matchesElsewhere, plotLabel, plotToRestore, plotsGone, previousMessage, previousPlot, sameView, surveyView,
+  MAX_VIEW_HEIGHT, matchesElsewhere, plotLabel, plotToRestore, plotsGone, previousMessage, previousPlot, previousStands, sameView, surveyView,
   withoutPlotParam, visibleIds, zoomForHeight } from "./plots";
 import type { PlotStatus } from "./types";
 
@@ -30,21 +30,26 @@ describe("a search that finds nothing in the list filtered", () => {
 });
 
 describe("same as previous plot", () => {
-  it("keeps the answers of the plot submitted last", () => {
-    const first = previousPlot(null, { type: "ce:saved", plotId: "p1", answers: { a: "1" } });
-    expect(first).toEqual({ plotId: "p1", answers: { a: "1" } });
-    expect(previousPlot(first, { type: "ce:saved", plotId: "p2", answers: { a: "2" } })).toEqual({ plotId: "p2", answers: { a: "2" } });
+  it("keeps the answers of the plot submitted last, with its survey and the operator", () => {
+    const first = previousPlot(null, { type: "ce:saved", plotId: "p1", survey: "s", answers: { a: "1" } }, "ana");
+    expect(first).toEqual({ plotId: "p1", survey: "s", operator: "ana", answers: { a: "1" } });
+    expect(previousPlot(first, { type: "ce:saved", plotId: "p2", survey: "s", answers: { a: "2" } }, "ana"))
+      .toEqual({ plotId: "p2", survey: "s", operator: "ana", answers: { a: "2" } });
   });
   it("is not changed by other messages, nor a submit without answers", () => {
-    const first = { plotId: "p1", answers: { a: "1" } };
-    expect(previousPlot(first, { type: "ce:dirty", plotId: "p2" })).toBe(first);
-    expect(previousPlot(first, { type: "ce:saved", plotId: "p2" })).toBe(first);
+    const first = { plotId: "p1", survey: "s", operator: "ana", answers: { a: "1" } };
+    expect(previousPlot(first, { type: "ce:dirty", plotId: "p2" }, "ana")).toBe(first);
+    expect(previousPlot(first, { type: "ce:saved", plotId: "p2" }, "ana")).toBe(first);
   });
-  it("tells them to the form of another plot only", () => {
-    const first = { plotId: "p1", answers: { a: "1" } };
-    expect(previousMessage(first, "p2")).toEqual({ type: "ce:previous", plotId: "p1", answers: { a: "1" } });
-    expect(previousMessage(first, "p1")).toBeNull();
-    expect(previousMessage(null, "p2")).toBeNull();
+  it("tells them to the form of another plot only, in the same survey, for the same operator", () => {
+    const first = { plotId: "p1", survey: "s", operator: "ana", answers: { a: "1" } };
+    expect(previousMessage(first, "p2", "s", "ana")).toEqual({ type: "ce:previous", plotId: "p1", survey: "s", answers: { a: "1" } });
+    expect(previousMessage(first, "p1", "s", "ana")).toBeNull();
+    expect(previousMessage(first, "p2", "other", "ana")).toBeNull();
+    expect(previousMessage(first, "p2", "s", "luis")).toBeNull();
+    expect(previousMessage(null, "p2", "s", "ana")).toBeNull();
+    expect(previousStands(first, "s", "ana")).toBe(true);
+    expect(previousStands(first, "s", null)).toBe(false);
   });
 });
 
