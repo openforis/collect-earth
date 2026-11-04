@@ -29,8 +29,8 @@ import freemarker.template.Configuration;
  * clock of their own: the Google Earth Web overlay (resources/javascript_google_earth_web.fmt and the camera decisions
  * it includes, javascript_google_earth_web_camera.js) - how soon the plot is drawn when GEW jumps or flies, that it is
  * never hidden for a camera GEW writes again, that a flight that happened not to change the URL is not taken for a
- * jump. The tests themselves are in src/test/javascript; this renders the templates for them as Collect Earth does, and
- * runs them.
+ * jump - and the zoom of ESRI Wayback (javascript_esri_wayback.fmt), no deeper than its imagery at the plot. The tests
+ * themselves are in src/test/javascript; this renders the templates for them as Collect Earth does, and runs them.
  * Skipped where node is not on the PATH.
  */
 public class ImageryPageScriptsTest {
@@ -95,6 +95,17 @@ public class ImageryPageScriptsTest {
 		return render("resources/javascript_google_earth_web.fmt", data);
 	}
 
+	/** The Wayback script of a plot of 30 m at 12.6919, -14.8026, as BrowserService renders it. */
+	private static String waybackScript() throws Exception {
+		Map<String, Object> data = new HashMap<>();
+		data.put("placemark", placemark(12.6919, -14.8026));
+		data.put("latitude", "12.6919");
+		data.put("longitude", "-14.8026");
+		data.put("viewHeightMeters", "80.7");
+		data.put("maxZoom", String.valueOf(BrowserService.MAX_WAYBACK_ZOOM));
+		return render("resources/javascript_esri_wayback.fmt", data);
+	}
+
 	private static boolean nodeIsThere() {
 		try {
 			Process p = new ProcessBuilder("node", "--version").redirectErrorStream(true)
@@ -123,6 +134,7 @@ public class ImageryPageScriptsTest {
 		// Collect Earth's own scripts, so that the tests send the camera as it does
 		write("in-page-navigation.txt", GoogleEarthWebService.IN_PAGE_NAVIGATION_SCRIPT);
 		write("camera-move.txt", GoogleEarthWebService.CAMERA_MOVE_SCRIPT);
+		write("wayback.js", waybackScript());
 	}
 
 	/** Runs the node tests of the files; fails with their output. */
@@ -148,5 +160,10 @@ public class ImageryPageScriptsTest {
 	@Test
 	public void googleEarthWebDrawsThePlotAsSoonAsTheCameraIsThereAndNeverFlickers() throws Exception {
 		runNodeTests("gew-camera.test.js", "gew-overlay.test.js");
+	}
+
+	@Test
+	public void esriWaybackShowsThePlotNoDeeperThanItsImagery() throws Exception {
+		runNodeTests("wayback-zoom.test.js");
 	}
 }
