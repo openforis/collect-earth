@@ -4,6 +4,16 @@
 import type { FocusTarget } from "./model";
 import { type KeyPress, isTypeAheadKey } from "../shortcuts";
 
+/**
+ * Once the change of the state just made is rendered: React renders a change of the store at once, in a microtask, so a
+ * task after it finds it in the page. Not after animation frames, which Chrome slows to about one a second in a window
+ * it does not show in front (behind Google Earth Web, or driven from another one): each move of the focus took seconds,
+ * and the wait for the server's answer to a key gave up before the focus could go to the question it showed.
+ */
+export function afterRender(run: () => void): void {
+  setTimeout(run, 0);
+}
+
 /** How long the number keys are ignored after the form moved the focus where the user did not expect it (ms) */
 export const RETARGET_GUARD = 300;
 

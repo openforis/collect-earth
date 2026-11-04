@@ -41,7 +41,7 @@ import {
   summaryLines, tabsWithErrors,
 } from "./model";
 import type { FormState, FormStore, SaveState } from "./store";
-import { TypeAhead, endOfMove } from "./typeAhead";
+import { TypeAhead, afterRender, endOfMove } from "./typeAhead";
 
 /** A narrow form, e.g. the plots map window narrowed next to Google Earth Web: every pixel goes to the questions. */
 const NARROW = "@media (max-width: 480px)";
@@ -58,11 +58,6 @@ const NONE_COPIED: ReadonlySet<string> = new Set();
 
 /** Something said to a screen reader, once (see LiveRegion) */
 interface Announcement { text: string; at: number }
-
-/** Once the change of the state just made is rendered */
-function afterRender(run: () => void): void {
-  requestAnimationFrame(() => requestAnimationFrame(run));
-}
 
 /** Text typed at the end of a box, as the keys would (React sees the input event) */
 function typeInto(input: HTMLInputElement, text: string): void {

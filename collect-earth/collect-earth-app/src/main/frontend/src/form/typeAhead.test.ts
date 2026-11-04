@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { RETARGET_GUARD, TypeAhead, endOfMove, isHeldKey } from "./typeAhead";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { advanceTarget } from "./model";
+import { RETARGET_GUARD, TypeAhead, afterRender, endOfMove, isHeldKey } from "./typeAhead";
 
 const press = (key: string, mods: { ctrlKey?: boolean; altKey?: boolean; repeat?: boolean } = {}) =>
   ({ key, ctrlKey: false, metaKey: false, altKey: false, repeat: false, ...mods });
@@ -19,6 +20,25 @@ describe("the end of a move of the focus", () => {
   });
   it("drops them when the step button the focus moved to is no longer it (Next, where Submit has come)", () => {
     expect(endOfMove({ tab: 0, name: null }, { tab: 0, name: null }, true, false)).toBe("retarget");
+  });
+});
+
+describe("an answer whose reply shows a required question below it", () => {
+  // Land use answered by key: before the reply, nothing is left to answer on the step, the focus goes to its button;
+  // the reply shows the subdivision, required, below the land use
+  const before = [{ tab: 0, questions: [{ name: "lu", byKey: true, needed: false }] }, { tab: 1, questions: [] }];
+  const after = [{ tab: 0, questions: [{ name: "lu", byKey: true, needed: false }, { name: "sub", byKey: true, needed: true }] },
+    { tab: 1, questions: [] }];
+  it("moves the focus to the step button at once, then to the question the reply showed, the keys typed dropped", () => {
+    const landed = advanceTarget(before, 0, "lu");
+    expect(landed).toEqual({ tab: 0, name: null });
+    const real = advanceTarget(after, 0, "lu");
+    expect(real).toEqual({ tab: 0, name: "sub" });
+    expect(endOfMove(landed, real, true, false)).toBe("retarget");
+    const t = new TypeAhead();
+    t.start();
+    t.key({ key: "2", ctrlKey: false, metaKey: false, altKey: false, repeat: false }, 0, true);
+    expect(t.end("retarget", 0)).toEqual([]);
   });
 });
 
@@ -79,5 +99,21 @@ describe("the keys typed ahead", () => {
     expect(isHeldKey(press("Escape"))).toBe(false);
     expect(isHeldKey(press("ArrowDown"))).toBe(false);
     expect(isHeldKey(press("1", { altKey: true }))).toBe(false);
+  });
+});
+
+describe("afterRender", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+  it("runs in the next task, without waiting for animation frames, which a window not in front hardly gets", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", () => 0);
+    const run = vi.fn();
+    afterRender(run);
+    expect(run).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(0);
+    expect(run).toHaveBeenCalledTimes(1);
   });
 });
