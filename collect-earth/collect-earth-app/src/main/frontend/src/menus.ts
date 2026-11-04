@@ -83,3 +83,51 @@ function allMenus(app: MenuContext): Menu[] {
     ] },
   ];
 }
+
+/** A section of the navigation drawer of the compact bar. */
+export interface DrawerSection {
+  id: string;
+  label: string;
+  items: MenuItem[];
+  /** Under its label as a heading; a menu of a single entry of the same name (Settings) is that entry alone */
+  heading: boolean;
+  /** A menu used rarely, folded under its label until unfolded: the drawer of a narrow panel then needs no scrolling */
+  folds: boolean;
+}
+
+// The everyday menus first, those of now and then folded last
+const DRAWER_ORDER = ["project", "data", "tools", "settings", "utilities", "help"];
+const FOLDED = new Set(["utilities", "help"]);
+
+/**
+ * The menus as the navigation drawer of the compact bar shows them: the sections in the order of DRAWER_ORDER, the
+ * rare ones folded, and Quit out of its menu, to come last, apart. What appMenus decided (the entries, enabled or not,
+ * those of a client or a cloud project) is kept as it is.
+ */
+export function drawerSections(menus: Menu[]): { sections: DrawerSection[]; quit: MenuItem | null } {
+  const rank = (m: Menu) => {
+    const i = DRAWER_ORDER.indexOf(m.id);
+    return i < 0 ? DRAWER_ORDER.length : i;
+  };
+  const quit = menus.flatMap((m) => m.items).find((i) => i.id === "quit") ?? null;
+  const sections = [...menus].sort((a, b) => rank(a) - rank(b))
+    .map((m) => ({ id: m.id, label: m.label, items: m.items.filter((i) => i.id !== "quit") }))
+    .filter((m) => m.items.length > 0)
+    .map((m) => ({ ...m, heading: !(m.items.length === 1 && m.items[0].label === m.label), folds: FOLDED.has(m.id) }));
+  return { sections, quit };
+}
+
+/**
+ * The entry the keyboard moves to in a list of `count` (the drawer's, as MUI's menus do): up and down go round, Home and
+ * End go to the ends; null for any other key, or no entries. From none (-1), down goes to the first and up to the last.
+ */
+export function nextEntry(current: number, count: number, key: string): number | null {
+  if (count === 0) return null;
+  switch (key) {
+    case "ArrowDown": return current < 0 ? 0 : (current + 1) % count;
+    case "ArrowUp": return current < 0 ? count - 1 : (current - 1 + count) % count;
+    case "Home": return 0;
+    case "End": return count - 1;
+    default: return null;
+  }
+}

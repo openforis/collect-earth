@@ -10,7 +10,7 @@ import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import CloseIcon from "@mui/icons-material/Close";
 import FilterListIcon from "@mui/icons-material/FilterList";
-import MenuIcon from "@mui/icons-material/Menu";
+import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
 import SearchIcon from "@mui/icons-material/Search";
 import type { MapController, UiState } from "../controller";
 import { countStatuses, plotLabel } from "../plots";
@@ -79,7 +79,7 @@ export function FormPanel({ controller, state, fill, hidden, onShowList }: {
       <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", p: fill ? 0.5 : 1, borderBottom: 1, borderColor: "divider" }}>
         {onShowList && (
           <Tooltip title={t("showList")}>
-            <IconButton size={size} onClick={onShowList} aria-label={t("showList")} data-testid="show-list"><MenuIcon /></IconButton>
+            <IconButton size={size} onClick={onShowList} aria-label={t("showList")} data-testid="show-list"><FormatListBulletedIcon /></IconButton>
           </Tooltip>
         )}
         <Tooltip title={t("form.prev")}>

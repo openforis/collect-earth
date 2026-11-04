@@ -15,7 +15,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MenuOpenIcon from "@mui/icons-material/MenuOpen";
-import MenuIcon from "@mui/icons-material/Menu";
+import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
 import SearchIcon from "@mui/icons-material/Search";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
 import type { MapController, UiState } from "../controller";
@@ -63,7 +63,7 @@ export function PlotSidebar({ controller, state, collapsed, onCollapsedChange, f
     return (
       <Paper square elevation={0} sx={{ width: RAIL_WIDTH * scale, flexShrink: 0, borderRight: 1, borderColor: "divider", pt: 1, textAlign: "center", zIndex: 1100 }}>
         <Tooltip title={t("showList")} placement="right">
-          <IconButton onClick={() => setCollapsed(false)} aria-label={t("showList")} data-testid="show-list"><MenuIcon /></IconButton>
+          <IconButton onClick={() => setCollapsed(false)} aria-label={t("showList")} data-testid="show-list"><FormatListBulletedIcon /></IconButton>
         </Tooltip>
       </Paper>
     );

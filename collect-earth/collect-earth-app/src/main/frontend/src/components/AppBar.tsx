@@ -12,7 +12,6 @@ import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
-import ListSubheader from "@mui/material/ListSubheader";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Snackbar from "@mui/material/Snackbar";
@@ -34,6 +33,8 @@ import { cloudLogin, setErrorsShown as setErrorsShown_, uploadFile } from "../pr
 import { saveSettings } from "../settingsApi";
 import { useT } from "../i18n";
 import { appMenus, type MenuItem as AppMenuItem } from "../menus";
+import { MenuEntryIcon } from "../menuIcons";
+import { AppDrawer, DRAWER_ID } from "./AppDrawer";
 import { serverText, type Texts } from "../serverTexts";
 import { formatText } from "../settings";
 import { ExportDialog } from "./data/ExportDialog";
@@ -77,7 +78,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const t = useT();
   const s = (key: string) => serverText(texts, key);
   const menus = useMemo(() => appMenus({ plotsMap: info.plotsMap, surveyGuide: info.surveyGuide, client: info.client, cloud: info.cloud }), [info.plotsMap, info.surveyGuide, info.client, info.cloud]);
-  // The menu open and the button it hangs from; the id is null for the single menu of the compact bar
+  // The menu open and the button it hangs from; the id is null for the drawer of the compact bar
   const [open, setOpen] = useState<{ anchor: HTMLElement; id: string | null } | null>(null);
   const [operatorOpen, setOperatorOpen] = useState(false);
   // The operator just saved, shown (and no longer missing) at once, until /api/app is read again
@@ -148,14 +149,21 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
         </MenuItem>
       );
     }
-    if (!comingSoon(item)) return <MenuItem key={item.id} onClick={() => run(item)}>{s(item.label)}</MenuItem>;
+    if (!comingSoon(item)) {
+      return (
+        <MenuItem key={item.id} onClick={() => run(item)}>
+          <ListItemIcon><MenuEntryIcon id={item.id} /></ListItemIcon>
+          <ListItemText primary={s(item.label)} />
+        </MenuItem>
+      );
+    }
     // "Coming soon" is written under the entry, not in a tooltip: a disabled entry gets no pointer events, and a
     // tooltip would need a wrapper, which is no item of the list for the keyboard or a screen reader
     return (
       <MenuItem key={item.id} disabled>
-        {item.kind === "toggle" && (
-          <ListItemIcon><Checkbox disabled size="small" sx={{ p: 0 }} /></ListItemIcon>
-        )}
+        <ListItemIcon>
+          {item.kind === "toggle" ? <Checkbox disabled size="small" sx={{ p: 0 }} /> : <MenuEntryIcon id={item.id} />}
+        </ListItemIcon>
         <ListItemText primary={s(item.label)} secondary={t("appBar.comingSoon")} />
       </MenuItem>
     );
@@ -168,8 +176,8 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
     <MuiAppBar position="static" color="default" elevation={1}>
       <Toolbar variant="dense" sx={{ gap: 1, px: { xs: 1, sm: 1.5 } }}>
         {compact && (
-          <IconButton edge="start" aria-label={t("appBar.menu")} id="app-menu-button-all" aria-haspopup="menu"
-            aria-controls={open?.id === null ? "app-menu" : undefined} aria-expanded={open?.id === null}
+          <IconButton edge="start" aria-label={t("appBar.menu")} id="app-menu-button-all"
+            aria-controls={open?.id === null ? DRAWER_ID : undefined} aria-expanded={open?.id === null}
             onClick={(e) => setOpen({ anchor: e.currentTarget, id: null })}>
             <MenuIcon />
           </IconButton>
@@ -225,12 +233,12 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
         </Tooltip>
       </Toolbar>
 
-      <Menu id="app-menu" anchorEl={open?.anchor} open={open !== null} onClose={() => setOpen(null)}
-        slotProps={{ list: { "aria-labelledby": "app-menu-button-" + (open?.id ?? "all") } }}>
-        {open?.id == null
-          ? menus.flatMap((menu) => [<ListSubheader key={"menu." + menu.id}>{s(menu.label)}</ListSubheader>, ...menu.items.map(entry)])
-          : menus.find((m) => m.id === open.id)?.items.map(entry)}
+      <Menu id="app-menu" anchorEl={open?.anchor} open={open !== null && open.id !== null} onClose={() => setOpen(null)}
+        slotProps={{ list: { "aria-labelledby": "app-menu-button-" + open?.id } }}>
+        {open?.id != null && menus.find((m) => m.id === open.id)?.items.map(entry)}
       </Menu>
+      <AppDrawer open={open !== null && open.id === null} onClose={() => setOpen(null)} menus={menus} project={info.project}
+        texts={texts} toggles={toggles} onRun={run} />
 
       <OperatorDialog open={forced || operatorOpen} forced={forced} operator={operator} texts={texts}
         onCancel={() => setOperatorOpen(false)}
