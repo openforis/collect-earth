@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { frozenLayout, subscribeFrozenLayout } from "./panelDialogs";
 
 /**
  * Smaller text and spacing in small windows: the plots map narrowed next to Google Earth Web, a laptop screen, the
@@ -20,10 +21,14 @@ const media = typeof window !== "undefined" && window.matchMedia ? STEPS.map(({ 
 
 function subscribe(onChange: () => void) {
   media.forEach((m) => m.addEventListener("change", onChange));
-  return () => media.forEach((m) => m.removeEventListener("change", onChange));
+  const unsubscribe = subscribeFrozenLayout(onChange);
+  return () => { media.forEach((m) => m.removeEventListener("change", onChange)); unsubscribe(); };
 }
 
-function currentScale(): number {
+/** The scale of the root now; while a dialog of Google Earth Web's panel widens its frame, the one of the panel (panelDialogs.ts). */
+export function currentScale(): number {
+  const frozen = frozenLayout();
+  if (frozen) return frozen.scale;
   let scale = 1;
   media.forEach((m, i) => { if (m.matches) scale = STEPS[i].scale; });
   return scale;

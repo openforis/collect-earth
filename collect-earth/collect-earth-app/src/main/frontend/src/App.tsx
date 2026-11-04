@@ -12,9 +12,10 @@ import { I18nContext, translator } from "./i18n";
 import { FormPanel } from "./components/FormPanel";
 import { MapArea } from "./components/MapArea";
 import { PlotSidebar, RAIL_WIDTH, SIDEBAR_WIDTH } from "./components/PlotSidebar";
-import { useUiScale } from "./uiScale";
+import { currentScale, useUiScale } from "./uiScale";
 import { gewFollowFormWindow } from "./api";
 import { IN_PANEL } from "./panel";
+import { expandForDialogs, frozenLayout, subscribeFrozenLayout } from "./panelDialogs";
 import { useAppInfo } from "./appInfo";
 import { windowTitle } from "./appBar";
 import { serverText } from "./serverTexts";
@@ -54,6 +55,8 @@ export function App({ controller }: { controller: MapController }) {
   const listPane = onePane && (!formOpen || listShown);
   // The home page is no window next to Google Earth Web, and has no list or form for the shortcuts to act on
   useFollowedByGoogleEarthWeb(!IN_PANEL && !IN_HOME);
+  // In Google Earth Web's panel the dialogs show over the whole page, not squeezed into the panel
+  useEffect(() => (IN_PANEL ? expandForDialogs(window, currentScale) : undefined), []);
   // With no map, nothing else starts the controller (MapArea does, once its container is there): the home page needs it
   // for the statuses, which it polls from then on
   useEffect(() => { if (IN_PANEL || IN_HOME) controller.start(null); }, [controller]);
@@ -229,9 +232,11 @@ function useFollowedByGoogleEarthWeb(enabled: boolean) {
 
 function subscribeToResize(onChange: () => void) {
   window.addEventListener("resize", onChange);
-  return () => window.removeEventListener("resize", onChange);
+  const unsubscribe = subscribeFrozenLayout(onChange);
+  return () => { window.removeEventListener("resize", onChange); unsubscribe(); };
 }
 
+/** The width of the window; while a dialog of Google Earth Web's panel widens its frame, the panel's (panelDialogs.ts). */
 function useWindowWidth(): number {
-  return useSyncExternalStore(subscribeToResize, () => window.innerWidth);
+  return useSyncExternalStore(subscribeToResize, () => frozenLayout()?.width ?? window.innerWidth);
 }

@@ -9,6 +9,10 @@
 // in the same narrower window, from --ce-panel-width.
 //
 // The panel is resized by dragging its right edge; its width is kept in this browser profile (localStorage).
+//
+// While a dialog of the plots map is open, the page in the panel asks (panelDialogs.ts) for the whole window, so that the
+// dialog is centred over Google Earth Web instead of squeezed into the panel: the panel then covers the window,
+// transparent beyond the plots map, which keeps its width. The window Google Earth Web is told of stays as it is.
 return (function (url, title) {
     var TAG = "__collectEarthPlotsMapPanel";
     var WIDTH_KEY = "collectEarthPlotsMapPanelWidth";
@@ -52,10 +56,12 @@ return (function (url, title) {
     style.setAttribute("data-ce-panel-style", "1");
     document.head.appendChild(style);
 
+    var BACKGROUND = "#121212";
+    var SHADOW = "2px 0 6px rgba(0,0,0,.4)";
     var panel = document.createElement("div");
     panel.setAttribute("data-ce-panel", "1");
-    panel.style.cssText = "position:fixed;left:0;top:0;bottom:0;z-index:2147483002;background:#121212;"
-        + "box-shadow:2px 0 6px rgba(0,0,0,.4)";
+    panel.style.cssText = "position:fixed;left:0;top:0;bottom:0;z-index:2147483002;background:" + BACKGROUND
+        + ";box-shadow:" + SHADOW;
     var frame = document.createElement("iframe");
     frame.src = url;
     frame.title = "Collect Earth";
@@ -78,9 +84,10 @@ return (function (url, title) {
             if (viewport) viewport.dispatchEvent(new Event("resize"));
         });
     }
+    var expanded = false;
     function apply(w) {
         width = clamp(w);
-        panel.style.width = width + "px";
+        if (!expanded) panel.style.width = width + "px";
         style.textContent = ":root{--ce-panel-width:" + width + "px}"
             + "flutter-view{left:" + width + "px !important;width:calc(100vw - " + width + "px) !important}";
         tellResized();
@@ -117,6 +124,30 @@ return (function (url, title) {
     }
     window.addEventListener("resize", onWindowResize);
 
+    // The whole window for a dialog of the plots map, or the panel back
+    function expand(on, colorScheme) {
+        if (on === expanded) return;
+        expanded = on;
+        if (dragging) endDrag();
+        panel.style.width = on ? "100vw" : width + "px";
+        panel.style.background = on ? "transparent" : BACKGROUND;
+        panel.style.boxShadow = on ? "none" : SHADOW;
+        handle.style.display = on ? "none" : "";
+        // Chrome paints a frame opaque when its page's color-scheme differs from the frame's: this page has none
+        if (on && /^[a-z ]+$/.test(colorScheme || "")) frame.style.colorScheme = colorScheme;
+    }
+    var frameOrigin = null;
+    try { frameOrigin = new URL(url, location.href).origin; } catch (e) { /* no messages taken */ }
+    function onMessage(e) {
+        var data = e.data;
+        if (e.source !== frame.contentWindow || e.origin !== frameOrigin || !data || data.type !== "collectEarthPanel") return;
+        expand(data.expand === true, data.colorScheme);
+    }
+    window.addEventListener("message", onMessage);
+    // A page loaded anew in the frame has no dialog open
+    function onFrameLoad() { expand(false); }
+    frame.addEventListener("load", onFrameLoad);
+
     // The page's own title is set by Google Earth Web as it pleases: put back whenever it changes
     var ownTitle = document.title;
     function keepTitle() {
@@ -133,6 +164,8 @@ return (function (url, title) {
         url: url,
         remove: function () {
             window.removeEventListener("resize", onWindowResize);
+            window.removeEventListener("message", onMessage);
+            frame.removeEventListener("load", onFrameLoad);
             titleWatch.disconnect();
             if (title && document.title === title) document.title = ownTitle;
             if (ownInnerWidth) Object.defineProperty(window, "innerWidth", ownInnerWidth);
