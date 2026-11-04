@@ -345,7 +345,7 @@ export class PostgresStore implements Store {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
         `SELECT project_id, record_key, operator, modified_on, received_at, actively_saved, step, xml, summary,
-                deleted, deleted_on
+                deleted, deleted_on, active_seconds
            FROM records
           WHERE project_id = $1 AND record_key = $2 AND operator = $3`,
         [projectId, recordKey, operator],
@@ -381,7 +381,7 @@ export class PostgresStore implements Store {
       // FOR UPDATE as well: renameRecordOperator locks the rows, not the record.
       const res = await client.query(
         `SELECT project_id, record_key, operator, modified_on, received_at, actively_saved, step, xml, summary,
-                deleted, deleted_on, ${submittedSql} AS submitted_before
+                deleted, deleted_on, active_seconds, ${submittedSql} AS submitted_before
            FROM records
           WHERE project_id = $1 AND record_key = $2 AND operator = $3
             FOR UPDATE`,
@@ -541,7 +541,8 @@ export class PostgresStore implements Store {
       const res = await client.query({
         text: `SELECT r.record_key, r.operator, r.actively_saved,
                       floor(EXTRACT(EPOCH FROM r.modified_on) * 1000)::float8,
-                      floor(EXTRACT(EPOCH FROM e.first_submitted_on) * 1000)::float8
+                      floor(EXTRACT(EPOCH FROM e.first_submitted_on) * 1000)::float8,
+                      r.active_seconds
                  FROM records r
                  LEFT JOIN (SELECT record_key, operator, min(modified_on) AS first_submitted_on
                               FROM record_events
@@ -552,13 +553,14 @@ export class PostgresStore implements Store {
         values: [projectId],
         rowMode: 'array',
       });
-      return (res.rows as [string, string, boolean, number, number | null][]).map(([recordKey, operator, activelySaved, modifiedOn, first]) => ({
+      return (res.rows as [string, string, boolean, number, number | null, number | null][]).map(([recordKey, operator, activelySaved, modifiedOn, first, activeSeconds]) => ({
         recordKey,
         operator,
         activelySaved,
         deleted: false,
         modifiedOn,
         firstSubmittedOn: first,
+        activeSeconds: activeSeconds ?? null,
       }));
     });
   }
@@ -2946,9 +2948,10 @@ function mapAiRun(r: Record<string, unknown>): AiRunRow {
 async function upsertRecord(client: pg.PoolClient, row: RecordRow): Promise<void> {
   await client.query(
     `INSERT INTO records (project_id, record_key, operator, modified_on, received_at, actively_saved, step,
-                          xml, summary, deleted, deleted_on)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                          xml, summary, deleted, deleted_on, active_seconds)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      ON CONFLICT (project_id, record_key, operator) DO UPDATE SET
+       active_seconds = EXCLUDED.active_seconds,
        modified_on = EXCLUDED.modified_on,
        received_at = EXCLUDED.received_at,
        actively_saved = EXCLUDED.actively_saved,
@@ -2969,6 +2972,7 @@ async function upsertRecord(client: pg.PoolClient, row: RecordRow): Promise<void
       JSON.stringify(row.summary),
       row.deleted,
       row.deletedOn === null ? null : new Date(row.deletedOn),
+      row.activeSeconds ?? null,
     ],
   );
 }
@@ -3170,6 +3174,8 @@ function mapRecord(r: Record<string, unknown>): RecordRow {
     summary: (r.summary as Record<string, string> | null) ?? {},
     deleted: r.deleted as boolean,
     deletedOn: r.deleted_on === null ? null : (r.deleted_on as Date).getTime(),
+    // Only where the query reads it (a record's own row): the lists leave it out.
+    ...('active_seconds' in r ? { activeSeconds: (r.active_seconds as number | null) ?? null } : {}),
   };
 }
 

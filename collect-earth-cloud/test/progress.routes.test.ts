@@ -183,8 +183,8 @@ describe('listRecordStates', () => {
       await batchRequest(ctx.app, projectId, projectToken, [envelope({ recordKey: '1', modifiedOn: 3000 })]);
       const states = (await ctx.store.listRecordStates(projectId)).sort((a, b) => (a.recordKey < b.recordKey ? -1 : 1));
       expect(states).toEqual([
-        { recordKey: '1', operator: 'maria', activelySaved: true, deleted: false, modifiedOn: 3000, firstSubmittedOn: 1000 },
-        { recordKey: '2', operator: 'maria', activelySaved: false, deleted: false, modifiedOn: 1500, firstSubmittedOn: null },
+        { recordKey: '1', operator: 'maria', activelySaved: true, deleted: false, modifiedOn: 3000, firstSubmittedOn: 1000, activeSeconds: null },
+        { recordKey: '2', operator: 'maria', activelySaved: false, deleted: false, modifiedOn: 1500, firstSubmittedOn: null, activeSeconds: null },
       ]);
     } finally {
       await ctx.app.close();

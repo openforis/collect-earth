@@ -240,6 +240,9 @@ public class CloudApiClient {
 		node.put("xml", envelope.getXml());
 		node.put("deleted", envelope.isDeleted());
 		node.put("payloadVersion", envelope.getPayloadVersion());
+		if (envelope.getActiveSeconds() != null) {
+			node.put("activeSeconds", envelope.getActiveSeconds().intValue());
+		}
 		ObjectNode summary = node.putObject("summary");
 		if (envelope.getSummary() != null) {
 			for (java.util.Map.Entry<String, String> entry : envelope.getSummary().entrySet()) {

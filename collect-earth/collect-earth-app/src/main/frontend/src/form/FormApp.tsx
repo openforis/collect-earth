@@ -76,6 +76,7 @@ export function FormApp({ store }: { store: FormStore }) {
   const state = useSyncExternalStore(store.subscribe, store.getState);
   const t = useT();
   useEffect(() => { void store.load(); }, [store]);
+  useEffect(() => store.watchActivity(), [store]);
 
   if (state.phase === "loading") {
     return (

@@ -421,6 +421,11 @@ export interface RecordEnvelope {
   summary: Record<string, string>;
   deleted: boolean;
   payloadVersion: number;
+  /**
+   * Seconds of active work on the plot counted by Collect Earth (its form open and in use, long pauses left out),
+   * or absent/null when not known (an older Collect Earth, a tool).
+   */
+  activeSeconds?: number | null;
 }
 
 /** Per-record outcome, as consumed by CloudSyncService.applyResult. */
@@ -458,6 +463,8 @@ export interface RecordRow {
   deletedOn: number | null;
   /** Only from listRecordSummaries with firstSubmissions: the modifiedOn of its record event `submitted` (null: none). */
   firstSubmittedOn?: number | null;
+  /** The active time spent on the plot, in seconds, as Collect Earth sent it with this save (null/absent: not known). */
+  activeSeconds?: number | null;
 }
 
 /**
@@ -465,7 +472,7 @@ export interface RecordRow {
  * modifiedOn of its record event `submitted` (null when it never was, or was stored
  * before record events were kept and the backfill did not see it).
  */
-export type RecordState = Pick<RecordRow, 'recordKey' | 'operator' | 'activelySaved' | 'deleted' | 'modifiedOn'> & { firstSubmittedOn: number | null };
+export type RecordState = Pick<RecordRow, 'recordKey' | 'operator' | 'activelySaved' | 'deleted' | 'modifiedOn' | 'activeSeconds'> & { firstSubmittedOn: number | null };
 
 /** A record's stored XML (getRecordXml), as Collect Earth sent it. */
 export type RecordXml = Pick<RecordRow, 'recordKey' | 'operator' | 'step' | 'xml' | 'deleted'>;

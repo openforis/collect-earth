@@ -14,6 +14,8 @@ import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.persistence.xml.DataMarshaller;
 import org.openforis.collect.persistence.xml.DataUnmarshaller;
 import org.openforis.collect.persistence.xml.DataUnmarshaller.ParseRecordResult;
+import org.openforis.collect.earth.app.service.PlotTimeService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -32,6 +34,10 @@ public class CloudRecordSerializer {
 
 	private final BalloonInputFieldsUtils balloonInputFieldsUtils = new BalloonInputFieldsUtils();
 
+	/** The active time spent on each plot, sent with its record; absent in tests and tools. */
+	@Autowired(required = false)
+	private PlotTimeService plotTimes;
+
 	/** One record (or deletion tombstone) as uploaded to the cloud service. */
 	public static class RecordEnvelope {
 		private final String recordKey;
@@ -43,9 +49,17 @@ public class CloudRecordSerializer {
 		private final String xml;
 		private final Map<String, String> summary;
 		private final boolean deleted;
+		/** Seconds of active work on the plot counted on this machine (PlotTimeService), or null when unknown. */
+		private final Integer activeSeconds;
 
 		RecordEnvelope(String recordKey, String surveyUri, String operator, Date modifiedOn, boolean activelySaved,
 				int step, String xml, Map<String, String> summary, boolean deleted) {
+			this(recordKey, surveyUri, operator, modifiedOn, activelySaved, step, xml, summary, deleted, null);
+		}
+
+		RecordEnvelope(String recordKey, String surveyUri, String operator, Date modifiedOn, boolean activelySaved,
+				int step, String xml, Map<String, String> summary, boolean deleted, Integer activeSeconds) {
+			this.activeSeconds = activeSeconds;
 			this.recordKey = recordKey;
 			this.surveyUri = surveyUri;
 			this.operator = operator;
@@ -103,7 +117,11 @@ public class CloudRecordSerializer {
 		 */
 		public RecordEnvelope withOperator(String newOperator) {
 			return new RecordEnvelope(recordKey, surveyUri, newOperator, modifiedOn, activelySaved, step, xml, summary,
-					deleted);
+					deleted, activeSeconds);
+		}
+
+		public Integer getActiveSeconds() {
+			return activeSeconds;
 		}
 	}
 
@@ -118,8 +136,9 @@ public class CloudRecordSerializer {
 		Map<String, String> summary = balloonInputFieldsUtils.getValuesByHtmlParameters(record.getRootEntity());
 		String operator = summary.get(EarthConstants.OPERATOR_PARAMETER);
 		boolean activelySaved = Boolean.parseBoolean(summary.get(EarthConstants.ACTIVELY_SAVED_PARAMETER));
+		Integer activeSeconds = plotTimes == null ? null : plotTimes.activeSeconds(surveyUri, recordKey);
 		return new RecordEnvelope(recordKey, surveyUri, operator, record.getModifiedDate(), activelySaved,
-				record.getStep().getStepNumber(), writer.toString(), summary, false);
+				record.getStep().getStepNumber(), writer.toString(), summary, false, activeSeconds);
 	}
 
 	/** A deletion marker: no XML/summary payload, the server soft-deletes the record. */

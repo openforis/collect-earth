@@ -174,6 +174,18 @@ async function postForm(path: string, body: URLSearchParams): Promise<LoadResult
   return r.json() as Promise<LoadResult>;
 }
 
+/** How often the form tells Collect Earth that the interpreter is still working on the plot. */
+export const ACTIVITY_PING_MS = 60_000;
+
+/**
+ * Whether the form says "still here" (Collect Earth counts the active time spent on each plot, from the form's loads and
+ * saves): the page is shown and the interpreter used it (a click, a key, the wheel, the pointer moving) within the last
+ * interval. A form left open and untouched says nothing, so a break is not counted.
+ */
+export function stillWorking(now: number, lastInput: number, visible: boolean): boolean {
+  return visible && now - lastInput <= ACTIVITY_PING_MS;
+}
+
 /**
  * State and server traffic of the web form, as an external store (useSyncExternalStore).
  *
@@ -236,6 +248,29 @@ export class FormStore {
   /** Whether the question needs an answer before the plot can be submitted, as far as the server said so */
   isRequired(name: string): boolean {
     return this.required.has(name);
+  }
+
+  // ---------- time spent ----------
+
+  /**
+   * Follows the interpreter's use of the form and tells Collect Earth, once a minute while they use it, that they are
+   * still working on the plot (POST plot-activity), so reading the form and looking at the imagery count too. Returns
+   * the clean-up.
+   */
+  watchActivity(win: Window = window, now: () => number = Date.now): () => void {
+    let lastInput = now();
+    const used = () => { lastInput = now(); };
+    const events = ["pointerdown", "pointermove", "keydown", "wheel", "scroll"] as const;
+    for (const e of events) win.addEventListener(e, used, { capture: true, passive: true });
+    const timer = win.setInterval(() => {
+      const id = this.state.placemarkId;
+      if (!id || this.state.phase !== "ready" || !stillWorking(now(), lastInput, win.document.visibilityState === "visible")) return;
+      void fetchWithTimeout(earthBase() + "plot-activity?id=" + encodeURIComponent(id), { method: "POST" }).catch(() => undefined);
+    }, ACTIVITY_PING_MS);
+    return () => {
+      win.clearInterval(timer);
+      for (const e of events) win.removeEventListener(e, used, { capture: true });
+    };
   }
 
   // ---------- load ----------

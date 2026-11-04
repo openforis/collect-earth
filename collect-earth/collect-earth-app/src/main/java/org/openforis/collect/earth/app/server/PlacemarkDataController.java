@@ -7,6 +7,8 @@ import java.util.Map;
 import javax.servlet.http.HttpServletResponse;
 
 import org.openforis.collect.earth.app.logging.GAlogger;
+import org.openforis.collect.earth.app.service.PlotTimeService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,10 +25,32 @@ import com.google.gson.Gson;
  */
 @Controller
 public class PlacemarkDataController extends AbstractPlacemarkDataController {
+
+	/** Counts the active time spent on each plot from the form's loads and saves (and its "still here"). */
+	@Autowired(required = false)
+	private PlotTimeService plotTimes;
+
+	private void work(String placemarkId) {
+		// not the survey designer's preview, nor the test plot of a balloon ("$[id]")
+		if (plotTimes != null && placemarkId != null && !placemarkId.contains("$[")) { //$NON-NLS-1$
+			plotTimes.work(placemarkId);
+		}
+	}
+
+	/**
+	 * The web form's "still here": sent while the interpreter uses the open plot's form without saving (reading, looking
+	 * at the imagery with the form in front), so that time counts too. Answers 204.
+	 */
+	@PostMapping(value="/plot-activity")
+	public void plotActivity(@RequestParam("id") String placemarkId, HttpServletResponse response) {
+		work(placemarkId);
+		response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+	}
 	@Override
 	@GetMapping(value="/placemark-info-expanded")
 	public void placemarkInfoExpanded(@RequestParam("id") String placemarkId, HttpServletResponse response) throws IOException {
 		try{
+			work(placemarkId);
 			super.placemarkInfoExpanded(placemarkId, response);
 		}catch(Exception e){
 			logger.error("Error loading the data of plot " + placemarkId, e);
@@ -38,6 +62,7 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 	@PostMapping(value="/save-data-expanded")
 	public void saveDataExpanded(PlacemarkUpdateRequest updateRequest, HttpServletResponse response) throws IOException {
 		try{
+			work(updateRequest.getPlacemarkId());
 			super.saveDataExpanded(updateRequest, response);
 			if( "true".equals(updateRequest.getValues().get("collect_boolean_actively_saved"))) {
 				GAlogger.logGAnalytics("PlotSavedCollectEarth");
@@ -52,6 +77,7 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 	@PostMapping(value="/create-entity")
 	public void createEntity(PlacemarkEntityCreateParams params, HttpServletResponse response) throws IOException {
 		try{
+			work(params.getPlacemarkId());
 			super.createEntity(params, response);
 		}catch(Exception e){
 			logger.error("Error adding " + params.getEntityName() + " to plot " + params.getPlacemarkId(), e);
@@ -63,6 +89,7 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 	@PostMapping(value="/delete-entity")
 	public void deleteEntity(PlacemarkEntityCreateParams params, HttpServletResponse response) throws IOException {
 		try{
+			work(params.getPlacemarkId());
 			super.deleteEntity(params, response);
 		}catch(Exception e){
 			logger.error("Error deleting " + params.getEntityName() + " from plot " + params.getPlacemarkId(), e);

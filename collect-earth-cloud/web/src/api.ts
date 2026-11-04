@@ -2622,6 +2622,52 @@ export async function getPerson(projectId: string, userId: string, timeZone: str
   return toPersonData(await request<unknown>("GET", `${p(projectId)}/people/${encodeURIComponent(userId)}?${new URLSearchParams({ tz: timeZone })}`));
 }
 
+/** One person's time per plot (GET /time-spent): Collect Earth's active time on their submitted plots. */
+export interface PersonTime {
+  username: string;
+  timed: number;
+  untimed: number;
+  medianSeconds: number | null;
+  q1Seconds: number | null;
+  q3Seconds: number | null;
+  totalSeconds: number;
+  quick: number;
+  /** Their timed plots in each band of `bandLimits` (one more: the last band is open). */
+  bands: number[];
+}
+
+/** A plot done much quicker than the team usually takes. */
+export interface QuickPlot {
+  plot: string;
+  operator: string;
+  seconds: number;
+  submittedAt: number;
+}
+
+/** The time spent on each plot (coordinators only). */
+export interface TimeSpentData {
+  timed: number;
+  untimed: number;
+  medianSeconds: number | null;
+  q1Seconds: number | null;
+  q3Seconds: number | null;
+  /** Plots under this many seconds are quick; null while fewer than `minTimed` plots are timed. */
+  quickBelowSeconds: number | null;
+  quickShare: number;
+  minTimed: number;
+  bands: number[];
+  bandLimits: number[];
+  people: PersonTime[];
+  quickCount: number;
+  quick: QuickPlot[];
+}
+
+/** How long the interpreters take per plot, and the plots done much quicker than the team usually takes (coordinators). */
+export async function getTimeSpent(projectId: string, person?: string): Promise<TimeSpentData> {
+  const query = person === undefined ? "" : `?${new URLSearchParams({ person })}`;
+  return request<TimeSpentData>("GET", `${p(projectId)}/time-spent${query}`);
+}
+
 /** The signed-in person's own page ("My work", any member). */
 export async function getMyWork(projectId: string, timeZone: string): Promise<PersonData> {
   return toPersonData(await request<unknown>("GET", `${p(projectId)}/my-work?${new URLSearchParams({ tz: timeZone })}`));

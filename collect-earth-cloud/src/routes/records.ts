@@ -172,7 +172,17 @@ function normalizeEnvelope(raw: unknown): RecordEnvelope | null {
     summary: summaryOf(o.summary),
     deleted,
     payloadVersion: typeof o.payloadVersion === 'number' ? o.payloadVersion : 1,
+    activeSeconds: activeSecondsOf(o.activeSeconds),
   };
+}
+
+/** The most active time a record may claim: a week (a larger number is a mistake, not a plot). */
+export const MAX_ACTIVE_SECONDS = 7 * 24 * 3600;
+
+/** The active time sent with a record: whole seconds from 0 to MAX_ACTIVE_SECONDS, else not known (null). */
+export function activeSecondsOf(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > MAX_ACTIVE_SECONDS) return null;
+  return Math.round(value);
 }
 
 /**

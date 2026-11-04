@@ -48,6 +48,7 @@ import { ErrorAlert } from "../components/ErrorAlert";
 import { CopyField } from "../components/CopyField";
 import { JOIN_MENU_ITEM } from "../components/JoinSteps";
 import { Loading } from "../components/Loading";
+import { PersonTimeSpent } from "../components/TimeSpent";
 import { AsOf, CalendarHeatMap, ChartOrTable, ColumnChart, ValuesTable } from "../components/PeopleCharts";
 import { movedText } from "../division";
 import { countsText, totalOf } from "../flagsView";
@@ -773,6 +774,7 @@ export function PersonPage({ projectId, userId, onGo }: { projectId: string; use
           <FilesSection data={data} projectId={projectId} members={members.data ?? []} onMoved={state.reload} />
           <ActivitySection data={data} />
           <SpeedSection data={data} />
+          <PersonTimeSpent projectId={projectId} username={data.person.username} />
           <SyncSection data={data} self={false} />
           <QualitySection data={data} self={false} projectId={projectId} />
         </>

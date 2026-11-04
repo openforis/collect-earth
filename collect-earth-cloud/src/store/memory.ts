@@ -622,6 +622,7 @@ export class InMemoryStore implements Store {
       deleted: r.deleted,
       modifiedOn: r.modifiedOn,
       firstSubmittedOn: first.get(`${r.recordKey} ${r.operator}`) ?? null,
+      activeSeconds: r.activeSeconds ?? null,
     }));
   }
 

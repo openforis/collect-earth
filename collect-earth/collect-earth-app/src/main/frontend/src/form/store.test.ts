@@ -404,3 +404,56 @@ describe("a learning plot submitted", () => {
     expect(store.getState().training).toBeNull();
   });
 });
+
+describe("the time spent on a plot", () => {
+  /** A page whose use the test plays: its listeners, its visibility */
+  function page(visible = true) {
+    const listeners = new Map<string, () => void>();
+    const win = {
+      addEventListener: (type: string, f: () => void) => listeners.set(type, f),
+      removeEventListener: (type: string) => listeners.delete(type),
+      setInterval: (f: () => void, ms: number) => setInterval(f, ms),
+      clearInterval: (id: number) => clearInterval(id),
+      document: { visibilityState: visible ? "visible" : "hidden" },
+    };
+    return { win: win as unknown as Window, use: (type = "pointermove") => listeners.get(type)?.(), listeners };
+  }
+  const pings = () => (fetch as unknown as { mock: { calls: [string, RequestInit?][] } }).mock.calls
+    .filter(([url]) => url.includes("plot-activity"));
+
+  it("says the interpreter is still on the plot once a minute while they use the form", async () => {
+    const store = await opened(false, answered);
+    const p = page();
+    const stop = store.watchActivity(p.win, () => Date.now());
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(pings()).toHaveLength(1);
+    expect(pings()[0][0]).toBe("http://localhost:8028/earth/plot-activity?id=p1");
+    expect(pings()[0][1]?.method).toBe("POST");
+    p.use("keydown");
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(pings()).toHaveLength(2);
+    stop();
+    expect(p.listeners.size).toBe(0);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(pings()).toHaveLength(2);
+  });
+  it("says nothing once the form is left untouched, nor while it is hidden", async () => {
+    const store = await opened(false, answered);
+    const p = page();
+    store.watchActivity(p.win, () => Date.now());
+    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(pings()).toHaveLength(1);
+    const hidden = page(false);
+    store.watchActivity(hidden.win, () => Date.now());
+    hidden.use();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(pings()).toHaveLength(1);
+  });
+  it("tells the use within the last interval", async () => {
+    const { stillWorking } = await import("./store");
+    expect(stillWorking(100_000, 40_000, true)).toBe(true);
+    expect(stillWorking(100_001, 40_000, true)).toBe(false);
+    expect(stillWorking(100_000, 99_000, false)).toBe(false);
+  });
+});

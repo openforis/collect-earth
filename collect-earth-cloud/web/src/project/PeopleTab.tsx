@@ -69,6 +69,7 @@ import { formatRate } from "../qualityView";
 import { linkProps, pathFor } from "../router";
 import { useDownload } from "./useDownload";
 import { useLoad } from "../useLoad";
+import { TeamTimeSpent } from "../components/TimeSpent";
 
 const EXPIRY_CHOICES = [1, 7, 30, 0] as const; // days; 0 = never
 
@@ -571,6 +572,7 @@ export function PeopleTab({ projectId }: { projectId: string }) {
         <>
           <WeekSection projectId={projectId} data={people.data} />
           <PeopleTableSection projectId={projectId} data={people.data} />
+          <TeamTimeSpent projectId={projectId} people={people.data.people} />
         </>
       )}
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>

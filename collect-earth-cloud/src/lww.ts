@@ -36,6 +36,8 @@ export function applyLww(
     summary: envelope.deleted ? (existing?.summary ?? {}) : envelope.summary,
     deleted: envelope.deleted,
     deletedOn: envelope.deleted ? modifiedOn : null,
+    // A tombstone keeps the time the plot took; a save without one (an older Collect Earth) has none.
+    activeSeconds: envelope.deleted ? (existing?.activeSeconds ?? null) : (envelope.activeSeconds ?? null),
   };
   return { row, status: 'stored' };
 }
