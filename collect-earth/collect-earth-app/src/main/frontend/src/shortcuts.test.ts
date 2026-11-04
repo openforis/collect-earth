@@ -81,26 +81,37 @@ describe("panelKey", () => {
 });
 
 describe("imageryKey", () => {
+  const alt = (digit: string, extra: Partial<KeyPress> = {}, target: EventTarget = chip) =>
+    press(digit, target, { altKey: true, code: `Digit${digit}`, ...extra });
   it("shows the imagery source of Alt and its number, in the order of the buttons", () => {
-    expect(imageryKey(press("1", chip, { altKey: true }))).toBe("Alt+1");
-    expect(imageryKey(press("4", chip, { altKey: true }))).toBe("Alt+4");
+    expect(imageryKey(alt("1"))).toBe("Alt+1");
+    expect(imageryKey(alt("4"))).toBe("Alt+4");
     expect(imageryNumber("Alt+3")).toBe(3);
     expect(imageryNumber("N")).toBeNull();
   });
-  it("reads the key's place on a keyboard where Alt and a digit type something else, and works in a text box", () => {
+  it("reads the digit by its place, whatever Alt makes it type out of a box (Option+1 types ¡ on a Mac)", () => {
     expect(imageryKey(press("¡", chip, { altKey: true, code: "Digit1" }))).toBe("Alt+1");
-    expect(imageryKey(press("2", element("INPUT", { type: "text" }), { altKey: true }))).toBe("Alt+2");
+  });
+  it("leaves Alt and the numeric keypad, which type a character by its code on Windows", () => {
+    expect(imageryKey(press("1", chip, { altKey: true, code: "Numpad1" }))).toBeNull();
+    expect(imageryKey(press("1", chip, { altKey: true }))).toBeNull();
+  });
+  it("in a box typed in, takes only Alt and a digit that types the digit, not a character of the layout", () => {
+    const box = element("INPUT", { type: "text" });
+    expect(imageryKey(alt("2", {}, box))).toBe("Alt+2");
+    expect(imageryKey(press("@", box, { altKey: true, code: "Digit2" }))).toBeNull();
+    expect(imageryKey(press("@", element("TEXTAREA"), { altKey: true, code: "Digit2" }))).toBeNull();
   });
   it("is no other key: a digit alone, AltGr, Shift, a key held down, a letter", () => {
-    expect(imageryKey(press("1"))).toBeNull();
-    expect(imageryKey(press("1", chip, { altKey: true, ctrlKey: true }))).toBeNull();
-    expect(imageryKey(press("1", chip, { altKey: true, shiftKey: true }))).toBeNull();
-    expect(imageryKey(press("1", chip, { altKey: true, repeat: true }))).toBeNull();
-    expect(imageryKey(press("n", chip, { altKey: true }))).toBeNull();
-    expect(imageryKey(press("0", chip, { altKey: true }))).toBeNull();
+    expect(imageryKey(press("1", chip, { code: "Digit1" }))).toBeNull();
+    expect(imageryKey(alt("1", { ctrlKey: true }))).toBeNull();
+    expect(imageryKey(alt("1", { shiftKey: true }))).toBeNull();
+    expect(imageryKey(alt("1", { repeat: true }))).toBeNull();
+    expect(imageryKey(press("n", chip, { altKey: true, code: "KeyN" }))).toBeNull();
+    expect(imageryKey(press("0", chip, { altKey: true, code: "Digit0" }))).toBeNull();
   });
   it("is passed on to the plots map by the form, as its other keys", () => {
-    expect(panelKey(press("2", chip, { altKey: true }))).toBe("Alt+2");
+    expect(panelKey(alt("2"))).toBe("Alt+2");
     expect(keyOfMessage({ type: "ce:key", plotId: "7", key: "Alt+2" }, "7")).toBe("Alt+2");
     expect(keyOfMessage({ type: "ce:key", plotId: "7", key: "Alt+0" }, "7")).toBeNull();
   });

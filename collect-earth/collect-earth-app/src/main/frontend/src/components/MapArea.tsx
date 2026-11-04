@@ -17,6 +17,7 @@ import RemoveIcon from "@mui/icons-material/Remove";
 import ZoomOutMapIcon from "@mui/icons-material/ZoomOutMap";
 import type { MapController, UiState } from "../controller";
 import { GewChip } from "./GewChip";
+import { HANDS_FOCUS } from "../shortcuts";
 import { isMessageKey, useT, type Translate } from "../i18n";
 
 /** {@code hidden}: kept mounted, so the map engine survives the one-pane layout of App. */
@@ -43,7 +44,8 @@ export function MapArea({ controller, state, hidden }: { controller: MapControll
 
   return (
     <Box component="main" sx={{ position: "relative", flex: 1, minWidth: 0, display: hidden ? "none" : undefined }}>
-      <Box ref={mapRef} data-testid="map" sx={{ position: "absolute", inset: 0, bgcolor: "#1b2026" }} />
+      {/* a plot clicked on the map leaves the focus to its form, as one clicked in the list (Leaflet focuses its map) */}
+      <Box ref={mapRef} data-testid="map" {...{ [HANDS_FOCUS]: true }} sx={{ position: "absolute", inset: 0, bgcolor: "#1b2026" }} />
 
       {!state.loaded && !state.banner && (
         <CircularProgress aria-label={t("map.loading")} sx={{ position: "absolute", top: "50%", left: "50%", mt: -2.5, ml: -2.5, zIndex: 1000 }} />

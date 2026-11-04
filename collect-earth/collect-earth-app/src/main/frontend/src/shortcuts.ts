@@ -55,13 +55,16 @@ export function panelKey(e: KeyPress): PanelKey | null {
 
 /**
  * Alt+1 to Alt+9: the imagery source of that number, in the order of the buttons over the form (Google Earth Web, ESRI
- * Wayback, Earth Engine, Earth Map...). Also while typing, as Alt with a digit types nothing; not with AltGr (Ctrl+Alt),
- * which types characters on some keyboards, nor held down.
+ * Wayback, Earth Engine, Earth Map...). The digits of the main row only, by their place: Alt and the digits of the
+ * numeric keypad type a character by its code on Windows. Not with AltGr (Ctrl+Alt), nor held down; and in a box typed
+ * in, only when Alt and the digit type the digit itself, not a character of the layout (Option+2 types "@" on a Mac
+ * with a Spanish or Portuguese layout).
  */
 export function imageryKey(e: KeyPress): ImageryKey | null {
   if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat || e.defaultPrevented) return null;
-  const digit = /^Digit([1-9])$/.exec(e.code ?? "")?.[1] ?? (/^[1-9]$/.test(e.key) ? e.key : null);
-  return digit ? `Alt+${digit}` as ImageryKey : null;
+  const digit = /^Digit([1-9])$/.exec(e.code ?? "")?.[1];
+  if (!digit || (isTyping(e.target) && e.key !== digit)) return null;
+  return `Alt+${digit}` as ImageryKey;
 }
 
 /** The number of the imagery source a key shows (1 for the first), or null for another key */
