@@ -4,7 +4,7 @@ import {
   indexedField, isTabVisible, joinValues, mergeInfos, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
   requiredMessage, saveBody, selectCodes, splitValues, summaryLines, tabsWithErrors, timeToInput, unansweredRequired, errorsByTab, neededByTab, updateRequired,
   DROPDOWN_AS_BUTTONS, advanceTarget, answeredWithKeys, answersToCopy, answersToRemember, codeControl, firstToAnswer, numberProblem,
-  stepsOf,
+  draftErrors, stepsOf,
 } from "./model";
 
 const category: Field = {
@@ -201,6 +201,8 @@ describe("answeredWithKeys", () => {
     expect(answeredWithKeys({ ...comments, type: "text" })).toBe(false);
     expect(answeredWithKeys({ ...comments, type: "integer" })).toBe(false);
     expect(answeredWithKeys({ ...category, readOnly: true })).toBe(false);
+    // a Yes-only box, ticked with Space: a digit there would be lost
+    expect(answeredWithKeys({ ...comments, type: "boolean", affirmativeOnly: true })).toBe(false);
   });
 });
 
@@ -292,21 +294,45 @@ describe("same as previous plot", () => {
   const key: Field = { kind: "field", name: "collect_text_id", type: "text", label: "Id" };
   const canopy: Field = { kind: "field", name: "collect_integer_canopy", type: "integer", label: "Canopy" };
   const area: Field = { kind: "field", name: "collect_real_area", type: "real", label: "Area", readOnly: true, calculated: true };
-  const fields = { [key.name]: key, [category.name]: category, [comments.name]: comments, [canopy.name]: canopy, [area.name]: area };
-  it("remembers the answers given, not the keys, the texts or the calculated values", () => {
-    const values: Record<string, string> = { collect_text_id: "7", collect_code_lu: "F", collect_text_comments: "burnt",
-      collect_integer_canopy: "", collect_real_area: "3" };
-    expect(answersToRemember(fields, ["collect_text_id"], (n) => values[n] ?? "")).toEqual({ collect_code_lu: "F" });
+  const change: Field = { kind: "field", name: "collect_boolean_change", type: "boolean", label: "Change" };
+  const fields = { [key.name]: key, [category.name]: category, [subdivision.name]: subdivision, [comments.name]: comments,
+    [canopy.name]: canopy, [area.name]: area, [change.name]: change };
+  const values: Record<string, string> = { collect_text_id: "7", collect_code_lu: "F", collect_code_sub: "dec",
+    collect_text_comments: "burnt", collect_integer_canopy: "40", collect_real_area: "3", collect_boolean_change: "false" };
+  it("remembers the choices and the Yes or No given, not the keys, texts, numbers or calculated values", () => {
+    expect(answersToRemember(fields, ["collect_text_id"], {}, (n) => values[n] ?? ""))
+      .toEqual({ collect_code_lu: "F", collect_code_sub: "dec", collect_boolean_change: "false" });
   });
-  it("copies them to the questions of the step left empty, never over an answer, a key or a text", () => {
+  it("remembers only the questions shown when the plot was submitted, not an answer an answer above hid", () => {
+    expect(answersToRemember(fields, [], { collect_code_sub: { visible: false } }, (n) => values[n] ?? ""))
+      .toEqual({ collect_code_lu: "F", collect_boolean_change: "false" });
+  });
+  it("never remembers the text of an \"Other, specify\", written about that plot", () => {
+    expect(answersToRemember({ [category.name]: category }, [], {}, () => "F::Eucalyptus===C")).toEqual({ collect_code_lu: "F===C" });
+  });
+  it("copies them to the questions of the step left empty, never over an answer, a key, a text or a number", () => {
     const previous = { collect_code_lu: "F", collect_integer_canopy: "40", collect_text_comments: "burnt", collect_text_id: "7",
-      collect_code_sub: "dec" };
+      collect_boolean_change: "true" };
     const empty = () => "";
-    expect(answersToCopy([key, category, comments, canopy], ["collect_text_id"], previous, empty))
-      .toEqual([["collect_code_lu", "F"], ["collect_integer_canopy", "40"]]);
-    expect(answersToCopy([category, canopy], [], previous, (n) => (n === "collect_code_lu" ? "C" : "")))
-      .toEqual([["collect_integer_canopy", "40"]]);
+    expect(answersToCopy([key, category, comments, canopy, change], ["collect_text_id"], previous, empty))
+      .toEqual([["collect_code_lu", "F"], ["collect_boolean_change", "true"]]);
+    expect(answersToCopy([category, change], [], previous, (n) => (n === "collect_code_lu" ? "C" : "")))
+      .toEqual([["collect_boolean_change", "true"]]);
     expect(answersToCopy([category], [], {}, empty)).toEqual([]);
+    expect(answersToCopy([category], [], { collect_code_lu: "F::Eucalyptus" }, empty)).toEqual([["collect_code_lu", "F"]]);
+  });
+});
+
+describe("draftErrors", () => {
+  const year: Field = { kind: "field", name: "collect_integer_year", type: "integer", label: "Year" };
+  const twoSteps: FormModel = { ...model, tabs: [model.tabs[0], { id: "c", label: "C", items: [year] }] };
+  it("lists the numbers typed that are none, on their steps, for Submit to refuse the plot", () => {
+    expect(draftErrors(twoSteps, {}, { collect_integer_year: "entry.invalidInteger" }).map((e) => [e.tab, e.field.name, e.problem]))
+      .toEqual([[1, "collect_integer_year", "entry.invalidInteger"]]);
+  });
+  it("lists none when there is none, and none for a question hidden since", () => {
+    expect(draftErrors(twoSteps, {}, {})).toEqual([]);
+    expect(draftErrors(twoSteps, { collect_integer_year: { visible: false } }, { collect_integer_year: "entry.invalidInteger" })).toEqual([]);
   });
 });
 

@@ -297,32 +297,62 @@ describe("a save that failed", () => {
 });
 
 describe("same as previous plot", () => {
-  it("asks the plots map for the answers of the plot submitted before, as the plot opens", async () => {
+  it("asks the plots map for the answers of the plot submitted before in its survey, as the plot opens", async () => {
     await opened(false, { collect_code_lu: {}, collect_boolean_trees: {} });
-    expect(posted.filter((m) => m.type === "ce:ready")).toEqual([{ type: "ce:ready", plotId: "p1" }]);
+    expect(posted.filter((m) => m.type === "ce:ready")).toEqual([{ type: "ce:ready", plotId: "p1", survey: "s" }]);
   });
   it("tells the plots map the answers of a plot submitted, for the next one", async () => {
     const store = await opened(false, { collect_code_lu: { value: "F" }, collect_boolean_trees: {} });
     saved = { collect_code_lu: { value: "F" }, collect_boolean_trees: {} };
     accepted = true;
     expect(await store.submit()).toBe(true);
-    expect(posted.filter((m) => m.type === "ce:saved")).toEqual([{ type: "ce:saved", plotId: "p1", answers: { collect_code_lu: "F" } }]);
+    expect(posted.filter((m) => m.type === "ce:saved"))
+      .toEqual([{ type: "ce:saved", plotId: "p1", survey: "s", answers: { collect_code_lu: "F" } }]);
   });
   it("takes the answers the plots map sends back, from the plots map only, and never those of its own plot", async () => {
     const store = await opened(false, { collect_code_lu: {}, collect_boolean_trees: {} });
     const parent = (window as unknown as { parent: unknown }).parent;
     const origin = "http://localhost:8028";
-    store.receive({ origin, source: {}, data: { type: "ce:previous", plotId: "p0", answers: { collect_code_lu: "C" } } });
-    store.receive({ origin: "https://evil.example", source: parent, data: { type: "ce:previous", plotId: "p0", answers: { collect_code_lu: "C" } } });
+    const data = { type: "ce:previous", plotId: "p0", survey: "s", answers: { collect_code_lu: "C" } };
+    store.receive({ origin, source: {}, data });
+    store.receive({ origin: "https://evil.example", source: parent, data });
+    store.receive({ origin, source: parent, data: { ...data, survey: "other" } });
     expect(store.getState().previous).toBeNull();
-    store.receive({ origin, source: parent, data: { type: "ce:previous", plotId: "p0", answers: { collect_code_lu: "C" } } });
+    store.receive({ origin, source: parent, data });
     expect(store.getState().previous).toEqual({ plotId: "p0", answers: { collect_code_lu: "C" } });
   });
   it("reads the message of the plots map, nothing else", () => {
-    expect(previousOf({ type: "ce:previous", plotId: "p1", answers: { a: "1" } }, "p1")).toBeNull();
-    expect(previousOf({ type: "ce:previous", plotId: "p0", answers: {} }, "p1")).toBeNull();
-    expect(previousOf({ type: "ce:previous", plotId: "p0", answers: { a: 1, b: "2" } }, "p1")).toEqual({ plotId: "p0", answers: { b: "2" } });
-    expect(previousOf({ type: "ce:key", plotId: "p0" }, "p1")).toBeNull();
-    expect(previousOf(null, "p1")).toBeNull();
+    const of = (data: unknown) => previousOf(data, "p1", "s");
+    expect(of({ type: "ce:previous", plotId: "p1", survey: "s", answers: { a: "1" } })).toBeNull();
+    expect(of({ type: "ce:previous", plotId: "p0", survey: "s", answers: {} })).toBeNull();
+    expect(of({ type: "ce:previous", plotId: "p0", survey: "s", answers: { a: 1, b: "2" } })).toEqual({ plotId: "p0", answers: { b: "2" } });
+    expect(of({ type: "ce:previous", plotId: "p0", survey: "t", answers: { a: "1" } })).toBeNull();
+    expect(previousOf({ type: "ce:previous", plotId: "p0", survey: "s", answers: { a: "1" } }, "p1", null)).toBeNull();
+    expect(of({ type: "ce:key", plotId: "p0" })).toBeNull();
+    expect(of(null)).toBeNull();
+  });
+});
+
+describe("a number box holding no number", () => {
+  it("refuses Submit, listing it, without a request", async () => {
+    const store = await opened(false, { collect_code_lu: { value: "F" }, collect_boolean_trees: { value: "true" } });
+    const requests = (fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
+    store.setDraftProblem("collect_boolean_trees", "entry.invalidInteger");
+    expect(await store.submit()).toBe(false);
+    expect(store.getState().submitErrors?.map((e) => [e.field.name, e.problem])).toEqual([["collect_boolean_trees", "entry.invalidInteger"]]);
+    expect((fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(requests);
+    store.setDraftProblem("collect_boolean_trees", null);
+    expect(store.getState().drafts).toEqual({});
+  });
+  it("does not send the start of it typed before, which was a number", async () => {
+    const store = await opened(false, { collect_code_lu: { value: "F" }, collect_boolean_trees: { value: "" } });
+    store.setValue("collect_boolean_trees", "1", 1500);
+    expect(store.getState().saveState).toBe("unsaved");
+    store.setDraftProblem("collect_boolean_trees", "entry.invalidInteger");
+    expect(store.value("collect_boolean_trees")).toBe("");
+    expect(store.getState().saveState).toBe("idle");
+    const requests = (fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
+    await vi.advanceTimersByTimeAsync(2000);
+    expect((fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(requests);
   });
 });

@@ -1,7 +1,8 @@
 import { earthBase } from "../api";
 import type { PanelKey } from "../shortcuts";
-import { ACTIVELY_SAVED, type Field, type FieldError, type FieldInfo, type FormModel, type LoadResult, answersToRemember, errorList,
-  fieldsByName, isTabVisible, mergeInfos, saveBody, updateRequired } from "./model";
+import type { MessageKey } from "../i18n";
+import { ACTIVELY_SAVED, type Field, type FieldError, type FieldInfo, type FormModel, type LoadResult, answersToRemember, draftErrors,
+  errorList, fieldsByName, isTabVisible, mergeInfos, saveBody, updateRequired } from "./model";
 
 const REQUEST_TIMEOUT = 20000;
 /** Typing is saved once the operator pauses; a click right away (the balloon uses the same delays). */
@@ -64,18 +65,24 @@ export interface FormState {
    * copies: kept by the plots map, which tells the form of each plot it opens
    */
   previous: PreviousPlot | null;
+  /** The number boxes holding what is no number (see numberProblem), by question: not sent, and Submit refused */
+  drafts: Record<string, MessageKey>;
 }
 
 /** The answers of a plot submitted, by question (see answersToRemember) */
 export interface PreviousPlot { plotId: string; answers: Record<string, string> }
 
-/** The message by which the plots map tells the form the answers of the plot submitted before */
-export interface PreviousMessage { type: "ce:previous"; plotId: string; answers: Record<string, string> }
+/** The message by which the plots map tells the form the answers of the plot submitted before, in its survey */
+export interface PreviousMessage { type: "ce:previous"; plotId: string; survey: string; answers: Record<string, string> }
 
-/** The answers of the plot submitted before, from a message of the plots map, or null for any other message */
-export function previousOf(data: unknown, ownId: string): PreviousPlot | null {
+/**
+ * The answers of the plot submitted before, from a message of the plots map, or null for any other message, and for
+ * those of this plot or of another survey
+ */
+export function previousOf(data: unknown, ownId: string, survey: string | null): PreviousPlot | null {
   const message = data as Partial<PreviousMessage> | null;
   if (!message || message.type !== "ce:previous" || typeof message.plotId !== "string" || message.plotId === ownId) return null;
+  if (survey == null || message.survey !== survey) return null;
   const answers = message.answers;
   if (!answers || typeof answers !== "object") return null;
   const valid = Object.entries(answers).filter((e): e is [string, string] => typeof e[1] === "string");
@@ -145,12 +152,16 @@ export class FormStore {
   private fields: Record<string, Field> = {};
   /** the questions the server asked an answer for, answered since or not (see unansweredRequired) */
   private required = new Set<string>();
+  /** the survey's name, for the answers of the plot before (see receive) */
+  private survey: string | null = null;
+  /** the save state with nothing waiting to be saved: what a change taken back returns to (see setDraftProblem) */
+  private settled: SaveState = "idle";
 
   constructor(placemarkId: string) {
     this.state = {
       phase: "loading", failure: null, model: null, placemarkId, infos: {}, pending: {}, tab: 0, saveState: "idle",
       serverDown: false, saveError: null, retrying: false, submitted: false, alreadyFilled: false, unsubmitted: false, submitErrors: null, submitting: false, attempted: false,
-      entityBusy: null, entityFailure: null, incomplete: false, previous: null,
+      entityBusy: null, entityFailure: null, incomplete: false, previous: null, drafts: {},
     };
   }
 
@@ -187,8 +198,6 @@ export class FormStore {
       this.set({ phase: "failed", failure: "noPlot" });
       return;
     }
-    // the plots map answers with the answers of the plot submitted before (see receive)
-    this.post("ce:ready");
     let model: FormModel;
     try {
       const [m, plot] = await Promise.all([
@@ -197,6 +206,9 @@ export class FormStore {
       ]);
       model = m;
       this.plotValues = Object.fromEntries(Object.entries(plot.values ?? {}).filter(([, v]) => v != null)) as Record<string, string>;
+      // the plots map answers with the answers of the plot submitted before in this survey (see receive)
+      this.survey = model.survey;
+      this.post("ce:ready", { survey: model.survey });
     } catch (e) {
       this.set({ phase: "failed", failure: (e as Error).message, serverDown: true });
       return;
@@ -220,6 +232,7 @@ export class FormStore {
         await this.save(false);
         this.set({ tab: this.firstVisibleTab(0), ...(this.state.saveState === "saved" ? { saveState: "idle" as const } : {}) });
       }
+      if (!this.dirty.size) this.settled = this.state.saveState;
     } catch (e) {
       this.set({ phase: "failed", failure: (e as Error).message, serverDown: true });
     }
@@ -336,11 +349,13 @@ export class FormStore {
     if (!response || !response.success) {
       sending.forEach((n) => this.dirty.add(n));
       this.failures++;
+      this.settled = "error";
       this.set({ saveState: "error", serverDown: !response, saveError: response ? response.message ?? "" : null });
       this.scheduleRetry();
       return response;
     }
     this.failures = 0;
+    this.settled = "saved";
     this.cancelRetry();
     const infos = mergeInfos(this.state.infos, response, full);
     const pending = { ...this.state.pending };
@@ -430,6 +445,12 @@ export class FormStore {
 
   submit = async (): Promise<boolean> => {
     if (this.state.submitting || !this.state.model) return false;
+    // A number box holding what is no number: not sent, so the plot would be submitted with the value saved before it
+    const drafts = draftErrors(this.state.model, this.state.infos, this.state.drafts);
+    if (drafts.length) {
+      this.set({ submitErrors: drafts, attempted: true, tab: drafts[0].tab });
+      return false;
+    }
     // submitted on the map, if not complete; changed after it was submitted only when it was, complete
     const wasSubmitted = this.state.submitted || this.state.incomplete;
     const wasComplete = this.state.submitted;
@@ -460,7 +481,8 @@ export class FormStore {
     if (result.activelySaved) {
       this.set({ submitted: true, unsubmitted: false, submitErrors: null });
       // the plots map keeps its answers for the next plot (see previous)
-      this.post("ce:saved", { answers: answersToRemember(this.fields, this.state.model.keys, (n) => this.value(n)) });
+      this.post("ce:saved", { survey: this.state.model.survey,
+        answers: answersToRemember(this.fields, this.state.model.keys, this.state.infos, (n) => this.value(n)) });
       return true;
     }
     const errors = errorList(this.state.model, this.state.infos);
@@ -539,8 +561,34 @@ export class FormStore {
   /** A message of the plots map (the parent page): the answers of the plot submitted before (see previous) */
   receive = (e: { origin: string; source: unknown; data: unknown }): void => {
     if (window.parent === window || e.source !== window.parent || e.origin !== window.location.origin) return;
-    const previous = previousOf(e.data, this.state.placemarkId);
+    const previous = previousOf(e.data, this.state.placemarkId, this.survey);
     if (previous) this.set({ previous });
+  };
+
+  /**
+   * A number box holds what is no number (`problem`), or no longer (null). What was typed in it before and is not sent
+   * yet, the start of it that was a number ("1" of "1.5x"), is not sent: the server keeps what it has.
+   */
+  setDraftProblem = (name: string, problem: MessageKey | null): void => {
+    if ((this.state.drafts[name] ?? null) === problem) return;
+    const drafts = { ...this.state.drafts };
+    if (problem) drafts[name] = problem;
+    else delete drafts[name];
+    const patch: Partial<FormState> = { drafts };
+    if (problem && this.dirty.has(name)) {
+      this.dirty.delete(name);
+      const pending = { ...this.state.pending };
+      delete pending[name];
+      patch.pending = pending;
+      if (!this.dirty.size) {
+        if (this.timer) {
+          clearTimeout(this.timer);
+          this.timer = null;
+        }
+        patch.saveState = this.inFlight ? "saving" : this.settled;
+      }
+    }
+    this.set(patch);
   };
 
   /** Passes a key of the plots map on to it ("/", "N", "Esc"): the form has the focus, so the plots map never sees them */
@@ -553,7 +601,7 @@ export class FormStore {
    * the change took back a plot that was submitted, complete: the plots map says so if it is left that way.
    */
   private post(type: "ce:saved" | "ce:dirty" | "ce:key" | "ce:ready",
-    extra?: { key: PanelKey } | { unsubmitted: boolean } | { answers: Record<string, string> }): void {
+    extra?: { key: PanelKey } | { unsubmitted: boolean } | { survey: string; answers?: Record<string, string> }): void {
     if (window.parent === window) return;
     try {
       window.parent.postMessage({ type, plotId: this.state.placemarkId, ...extra }, window.location.origin);

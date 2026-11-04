@@ -331,6 +331,8 @@ export interface FieldError {
   context?: string;
   /** the server's message */
   message: string;
+  /** what the form itself says of it: a number typed that is none (see draftErrors) */
+  problem?: MessageKey;
 }
 
 /** The visible fields in error, in form order, with the tab each one is on. */
@@ -397,7 +399,8 @@ export function isTabVisible(tab: Tab, infos: Record<string, FieldInfo>): boolea
  * or a comment, which the user Tabs into.
  */
 export function answeredWithKeys(field: Field): boolean {
-  return !field.readOnly && (field.type === "code" || field.type === "boolean");
+  // a Yes-only box is ticked with Space: a digit there does nothing, and is lost
+  return !field.readOnly && (field.type === "code" || (field.type === "boolean" && !field.affirmativeOnly));
 }
 
 /** The most answers a list the survey lays out as a dropdown may have to be shown as buttons, all in view at once */
@@ -488,20 +491,29 @@ export function numberProblem(type: FieldType, typed: string): MessageKey | null
   return /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(text) ? null : "entry.invalidNumber";
 }
 
-/** The types of answer "Same as previous plot" never copies: what is written about one plot, and where it is */
-const NOT_COPIED: FieldType[] = ["text", "memo", "coordinate", "unsupported"];
-
-/** Whether the answer of a question may be copied from one plot to the next: not a key, a text, a calculated value */
+/**
+ * Whether the answer of a question may be copied from one plot to the next: a choice or Yes and No, never a key. Not a
+ * number, a date, a range, a text or a calculated value, which belong to the plot they were measured or written on.
+ */
 function copiable(field: Field, keys: string[]): boolean {
-  return !field.readOnly && !field.calculated && !NOT_COPIED.includes(field.type) && !keys.includes(field.name);
+  return !field.readOnly && !field.calculated && (field.type === "code" || field.type === "boolean") && !keys.includes(field.name);
 }
 
-/** The answers of a plot submitted that the next one may copy (see answersToCopy), by question */
-export function answersToRemember(fields: Record<string, Field>, keys: string[], value: (name: string) => string): Record<string, string> {
+/** A value to copy: the codes chosen without the text of an "Other, specify", written about the plot it was given on */
+function copiedValue(field: Field, value: string): string {
+  return field.type === "code" ? formatCodes(parseCodes(value).map((c) => ({ code: c.code, qualifier: "" }))) : value;
+}
+
+/**
+ * The answers of a plot submitted that the next one may copy (see answersToCopy), by question: those shown when it was
+ * submitted only, as a question hidden keeps an answer given before an answer above made it not relevant.
+ */
+export function answersToRemember(fields: Record<string, Field>, keys: string[], infos: Record<string, FieldInfo>,
+  value: (name: string) => string): Record<string, string> {
   const result: Record<string, string> = {};
   for (const field of Object.values(fields)) {
     const v = value(field.name);
-    if (copiable(field, keys) && v.trim() !== "") result[field.name] = v;
+    if (copiable(field, keys) && isVisible(infos, field.name) && v.trim() !== "") result[field.name] = copiedValue(field, v);
   }
   return result;
 }
@@ -514,7 +526,22 @@ export function answersToCopy(fields: Field[], keys: string[], previous: Record<
   value: (name: string) => string): [string, string][] {
   return fields
     .filter((f) => copiable(f, keys) && value(f.name).trim() === "" && (previous[f.name] ?? "").trim() !== "")
-    .map((f) => [f.name, previous[f.name]]);
+    .map((f) => [f.name, copiedValue(f, previous[f.name])]);
+}
+
+/**
+ * The numbers typed that are none (see numberProblem), as errors of the form, in its order: a Submit is refused while a
+ * box holds one, which is not sent, so that the plot is never submitted with the value saved before it instead.
+ */
+export function draftErrors(model: FormModel, infos: Record<string, FieldInfo>, drafts: Record<string, MessageKey>): FieldError[] {
+  const result: FieldError[] = [];
+  model.tabs.forEach((tab, index) => {
+    for (const field of fieldsOfStep(tab, infos)) {
+      const problem = drafts[field.name];
+      if (problem) result.push({ tab: index, field, message: "", problem });
+    }
+  });
+  return result;
 }
 
 /**

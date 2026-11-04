@@ -31,30 +31,33 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import SendIcon from "@mui/icons-material/Send";
 import { type MessageKey, type Translate, useT } from "../i18n";
-import { escapeBlurs, isCopyKey, isTypeAheadKey, isTyping, mayAdvance, mayTakeFocus, panelKey, submitOnKey } from "../shortcuts";
+import { escapeBlurs, isCopyKey, isTyping, mayAdvance, mayTakeFocus, panelKey, submitOnKey } from "../shortcuts";
 import logo from "./collect-earth-logo.png";
 import { AnsweredByKey, Copied, FieldView, errorText } from "./fields";
 import {
   type Field, type FocusTarget, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type Step,
-  type TableItem, advanceTarget, answeredWithKeys, answersToCopy, availableItems, entityCount, errorList, fieldsOfStep,
-  firstToAnswer, indexedField, isTabVisible, isVisible, itemFields, neededByTab, parseCodes, stepsOf, summaryLines, tabsWithErrors,
+  type TableItem, advanceTarget, answeredWithKeys, answersToCopy, availableItems, draftErrors, entityCount, errorList,
+  fieldsOfStep, firstToAnswer, indexedField, isTabVisible, isVisible, itemFields, neededByTab, parseCodes, stepsOf,
+  summaryLines, tabsWithErrors,
 } from "./model";
 import type { FormState, FormStore, SaveState } from "./store";
+import { TypeAhead, endOfMove } from "./typeAhead";
 
 /** A narrow form, e.g. the plots map window narrowed next to Google Earth Web: every pixel goes to the questions. */
 const NARROW = "@media (max-width: 480px)";
 /** What answers a question from the keyboard, inside its box ([data-field]) */
 const CONTROL = "input:not([disabled]), textarea, [role=radio], [role=checkbox], button";
 /**
- * The longest the server's answer to an answer from the keyboard may take to move the focus once more, to a question it
- * showed above the one the focus moved to (see answeredByKey)
+ * The longest the server's answer to an answer from the keyboard is waited for, the keys typed meanwhile held (see
+ * answeredByKey); they are dropped past it
  */
 const ADVANCE_WAIT = 3000;
-/** The longest the number keys typed ahead wait for the focus to move on, before they go where it is */
+/** The longest the keys typed ahead are held, whatever happens: past it they are dropped, never pressed blindly */
 const TYPE_AHEAD_WAIT = ADVANCE_WAIT + 1000;
-/** How long the answers copied from the plot before stay marked */
-const COPIED_MILLIS = 6000;
 const NONE_COPIED: ReadonlySet<string> = new Set();
+
+/** Something said to a screen reader, once (see LiveRegion) */
+interface Announcement { text: string; at: number }
 
 /** Once the change of the state just made is rendered */
 function afterRender(run: () => void): void {
@@ -123,10 +126,23 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     });
   }, [store]);
 
-  /** The control of a question shown that the keyboard answers it with; for none, the step button (Submit when shown) */
+  /**
+   * The control of a question shown that the keyboard answers it with, its answer chosen if it has one; for none, the
+   * step button (Submit when shown)
+   */
   const controlOf = useCallback((name: string | null): HTMLElement | null => {
     if (name == null) return document.querySelector<HTMLElement>("[data-step-button]");
-    return content.current?.querySelector(`[data-field="${CSS.escape(name)}"]`)?.querySelector<HTMLElement>(CONTROL) ?? null;
+    const box = content.current?.querySelector(`[data-field="${CSS.escape(name)}"]`);
+    return box?.querySelector<HTMLElement>("[aria-checked=true], [aria-pressed=true]") ?? box?.querySelector<HTMLElement>(CONTROL) ?? null;
+  }, []);
+
+  /** The control the form is focusing itself: no focus the user moved (see the moves of answeredByKey, and Copied) */
+  const ownFocus = useRef<Element | null>(null);
+  const focusOwn = useCallback((control: HTMLElement | null) => {
+    if (!control) return;
+    ownFocus.current = control;
+    control.focus();
+    ownFocus.current = null;
   }, []);
 
   // A change of step the user made makes a move of the focus on its way stale; one the move made itself does not
@@ -146,10 +162,10 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     }
     afterRender(() => {
       const control = controlOf(target.name) ?? controlOf(null);
-      control?.focus();
+      focusOwn(control);
       done?.(control);
     });
-  }, [store, controlOf]);
+  }, [store, controlOf, focusOwn]);
 
   /**
    * To a step. With `focus`, the keyboard is ready on it: on its first question to answer, else on its step button
@@ -184,9 +200,15 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     goToField(first.tab, first.field.name);
   }, [state.submitErrors, store, goToField]);
 
+  // Said to a screen reader: the focus moved where it was not expected, the answers copied (see LiveRegion)
+  const [announced, setAnnounced] = useState<Announcement | null>(null);
+  const announce = useCallback((text: string) => setAnnounced({ text, at: Date.now() }), []);
+
   // Once, when the plot opens (a plot has a page of its own), and once the server said which questions are shown: the
   // first one needed and answered with keys takes the focus, to be answered from the keyboard, and the keys of the plots
-  // map work. None when all are answered, and none when the user put the focus elsewhere meanwhile (see focusIsFree).
+  // map work; on the step shown, else on the first step after it that needs one (see advanceTarget). None when all are
+  // answered (a key pressed in a plot looked at again must not edit it), and none when the user put the focus elsewhere
+  // meanwhile (see focusIsFree).
   const opened = useRef(false);
   const known = Object.keys(state.infos).length > 0;
   useEffect(() => {
@@ -194,83 +216,113 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     opened.current = true;
     // once the questions are rendered
     afterRender(() => {
-      const name = firstToAnswer(stepsNow(), store.getState().tab);
-      const control = name == null ? null : controlOf(name);
-      if (control && focusIsFree()) control.focus();
+      const target = advanceTarget(stepsNow(), store.getState().tab, null);
+      if (target.name != null && focusIsFree()) focusTarget(target);
     });
-  }, [known, store, stepsNow, controlOf]);
+  }, [known, store, stepsNow, focusTarget]);
 
-  // The number keys typed while the focus moves on from an answer (see answeredByKey): kept, then pressed on the control
-  // the focus moved to, so that none is lost, nor taken by the answer just given. `keys` counts every key pressed, for
-  // the move made once more after the server's answer, only if nothing was typed since.
-  const typeAhead = useRef<{ ticket: number; keys: string[] } | null>(null);
-  const keys = useRef(0);
+  // The keys typed while the focus moves on from an answer given from the keyboard (see answeredByKey): held, those typed
+  // on the answer given, on the control the focus moved to or on the page, until the server answered with what is shown
+  // now (see TypeAhead); never those typed in a box elsewhere. A click, or the focus moved by the user, ends the move, the
+  // keys held dropped. After the focus moved where it was not expected, the number keys are dropped for a moment.
+  const typeAhead = useRef(new TypeAhead());
+  const move = useRef<{ ticket: number; from: Element | null; landed: Element | null } | null>(null);
+  const dropMove = useCallback(() => {
+    if (!move.current) return;
+    move.current = null;
+    typeAhead.current.end("abandon", performance.now());
+  }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      keys.current++;
-      if (!typeAhead.current || !isTypeAheadKey(e)) return;
+      const m = move.current;
+      const onMove = m != null && (e.target === m.from || e.target === m.landed || e.target === document.body);
+      if (typeAhead.current.key(e, performance.now(), onMove) === "pass") return;
       e.preventDefault();
       e.stopImmediatePropagation();
-      typeAhead.current.keys.push(e.key);
     };
+    const onFocus = (e: FocusEvent) => { if (e.target !== ownFocus.current) dropMove(); };
     window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, []);
+    window.addEventListener("pointerdown", dropMove, true);
+    window.addEventListener("focusin", onFocus, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("pointerdown", dropMove, true);
+      window.removeEventListener("focusin", onFocus, true);
+    };
+  }, [dropMove]);
   /**
-   * The move of `ticket` is over, the focus on `control` (null: nowhere to go): the keys kept are pressed on it, or typed
-   * in it when it is a box (the search of a long list)
+   * The keys held, pressed in order on the control the focus moved to (typed in it, when it is a box: the search of a
+   * long list). One that answers starts the next move, which holds those after it in turn.
    */
-  const endMove = useCallback((ticket: number, control: Element | null) => {
-    const move = typeAhead.current;
-    if (!move || move.ticket !== ticket) return;
-    typeAhead.current = null;
-    if (!control || !move.keys.length) return;
-    if (isTyping(control)) {
-      if (control instanceof HTMLInputElement) typeInto(control, move.keys.join(""));
-      return;
+  const pressHeld = useCallback((control: Element, held: string[]) => {
+    for (let i = 0; i < held.length; i++) {
+      if (move.current) {
+        typeAhead.current.hold(held.slice(i));
+        return;
+      }
+      const key = held[i];
+      if (isTyping(control) && key.length === 1) {
+        if (control instanceof HTMLInputElement) typeInto(control, key);
+      } else {
+        control.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+      }
     }
-    // a key pressed there may start the next move, which keeps those after it in turn
-    for (const key of move.keys) control.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
   }, []);
 
-  // A single choice answered from the keyboard: on at once to the next question needed that is answered with keys, on
-  // this step or the next one that needs one, else to the footer's step button (Submit once nothing is left), for Enter
-  // to go on (see advanceTarget); never into a text. Not if the user moved the focus meanwhile. The server's answer may
-  // then show a question above the one the focus moved to (a subdivision of the land use): the focus goes there, if
-  // nothing was typed since. Each answer, and each change of step by the user, makes the move of an answer before it stale.
-  // The number keys typed ahead are pressed on the question the focus moved to; when that is a long list, whose search
-  // they would go into, they wait for the server's answer, and go to the question it showed above, if it did.
+  // A single choice answered from the keyboard: the focus moves on at once, to the next question needed that is answered
+  // with keys, on this step or the next one that needs one, else to the footer's step button (Submit once nothing is
+  // left), for Enter to go on (see advanceTarget); never into a text. Not if the user moved the focus meanwhile. The keys
+  // typed meanwhile wait for the server's answer to the save, which says what is shown now: they are pressed on the
+  // control the focus moved to if that is still where the answer leads; else (the answer hid it, or showed a question
+  // above it, or Submit came in Next's place) they are dropped, and the focus goes where it leads, which a screen reader
+  // is told (see endOfMove). Each answer, and each change of step by the user, makes the move of an answer before it stale.
   const answeredByKey = useCallback((name: string) => {
     const from = document.activeElement;
     const fromTab = store.getState().tab;
     const ticket = ++advance.current;
-    typeAhead.current = { ticket, keys: typeAhead.current?.keys ?? [] };
-    window.setTimeout(() => endMove(ticket, document.activeElement), TYPE_AHEAD_WAIT);
+    typeAhead.current.start();
+    move.current = { ticket, from, landed: null };
+    const mine = () => move.current?.ticket === ticket;
+    // the server never answered, or the page stopped drawing: the keys held are dropped, never pressed blindly
+    window.setTimeout(() => { if (mine()) dropMove(); }, TYPE_AHEAD_WAIT);
     // once the answer is rendered
     afterRender(() => {
+      if (!mine()) return;
       if (!mayAdvance(document.hasFocus(), document.activeElement, from, document.body, ticket !== advance.current)) {
-        endMove(ticket, null);
+        dropMove();
         return;
       }
       const target = advanceTarget(stepsNow(), fromTab, name);
       focusTarget(target, (landed) => {
-        const saving = store.getState().saveState === "unsaved" || store.getState().saveState === "saving";
-        const holding = saving && landed != null && isTyping(landed);
-        if (!holding) endMove(ticket, landed);
-        const typed = keys.current;
+        if (!mine()) return;
+        move.current = { ticket, from, landed };
         void within(store.whenSaved(), ADVANCE_WAIT).then(() => afterRender(() => {
-          const here = ticket === advance.current && document.hasFocus() && document.activeElement === landed;
-          if (!here || (!holding && keys.current !== typed)) {
-            endMove(ticket, here ? landed : null);
+          if (!mine()) return;
+          // not saved, or not answered in time: what is shown is not known
+          const saveState = store.getState().saveState;
+          if (saveState === "unsaved" || saveState === "saving" || saveState === "error") {
+            dropMove();
             return;
           }
-          const again = advanceTarget(stepsNow(), fromTab, name);
-          if (again.tab !== target.tab || again.name !== target.name) focusTarget(again, (control) => endMove(ticket, control));
-          else endMove(ticket, landed);
+          const steps = stepsNow();
+          const real = advanceTarget(steps, fromTab, name);
+          const realControl = controlOf(real.name) ?? controlOf(null);
+          const shown = target.name == null || steps.some((s) => s.questions.some((q) => q.name === target.name));
+          const how = endOfMove(target, real, shown, landed != null && landed.isConnected && realControl === landed);
+          move.current = null;
+          const held = typeAhead.current.end(how, performance.now());
+          if (how === "replay") {
+            if (landed) pressHeld(landed, held);
+            return;
+          }
+          if (!realControl) return;
+          focusTarget(real);
+          const label = (real.name != null ? store.fieldsByName()[real.name]?.label : null) ?? realControl.textContent ?? "";
+          announce(t(held.length ? "entry.focusMovedKeys" : "entry.focusMoved", { label }));
         }));
       });
     });
-  }, [store, stepsNow, focusTarget, endMove]);
+  }, [store, t, stepsNow, controlOf, focusTarget, dropMove, pressHeld, announce]);
 
   // Ctrl+Enter submits, before the focused chip or button sees it (see submitOnKey)
   useEffect(() => {
@@ -279,17 +331,22 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     return () => window.removeEventListener("keydown", onSubmitKey, true);
   }, [store]);
 
-  // "Same as previous plot": the answers of the plot submitted before, copied to the questions of the step left empty,
-  // marked for a moment, so that they are looked at, not taken on trust. Each goes through setValue, and is saved as if
-  // given by hand; one a list of this plot does not offer (another parent chosen) is left out.
+  // "Same as previous plot": the choices and Yes or No of the plot submitted before, copied to the questions of the step
+  // left empty. Each goes through setValue, and is saved as if given by hand; one a list of this plot does not offer
+  // (another parent chosen) is left out. They stay marked until the user looks at them (focuses, clicks or types in
+  // one), or the plot is submitted: they are to be checked, not taken on trust.
   const [copied, setCopied] = useState<ReadonlySet<string>>(NONE_COPIED);
-  // Said to a screen reader: the save, an error, the answers copied (see LiveRegion)
-  const [announced, setAnnounced] = useState("");
-  useEffect(() => {
-    if (!copied.size) return;
-    const timer = window.setTimeout(() => { setCopied(NONE_COPIED); setAnnounced(""); }, COPIED_MILLIS);
-    return () => window.clearTimeout(timer);
-  }, [copied]);
+  const looked = useCallback((target: EventTarget | null) => {
+    const name = (target as Element | null)?.closest?.("[data-field]")?.getAttribute("data-field");
+    if (!name) return;
+    setCopied((c) => {
+      if (!c.has(name)) return c;
+      const rest = new Set(c);
+      rest.delete(name);
+      return rest;
+    });
+  }, []);
+  useEffect(() => { if (state.submitted) setCopied(NONE_COPIED); }, [state.submitted]);
   /** Copies what the step shown may copy now; the questions copied */
   const copyNow = useCallback((): string[] => {
     const now = store.getState();
@@ -309,31 +366,29 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     }
     return done;
   }, [store]);
-  const copyPrevious = useCallback((byKey: boolean) => {
+  const copyPrevious = useCallback(() => {
+    // a plot submitted is not changed by a key, nor a click: it is taken back by a change of the collector's only
+    if (store.getState().submitted) return;
     const tabNow = store.getState().tab;
     const first = copyNow();
     if (!first.length) return;
     const all = new Set(first);
     const show = () => {
-      setCopied(new Set(all));
-      setAnnounced(all.size === 1 ? t("entry.copiedAnnounceOne") : t("entry.copiedAnnounce", { count: all.size }));
+      setCopied((c) => new Set([...c, ...all]));
+      announce(all.size === 1 ? t("entry.copiedAnnounceOne") : t("entry.copiedAnnounce", { count: all.size }));
     };
     show();
-    // The server's answer shows the questions the copies decide on (a subdivision of the land use): copied too, once; then,
-    // from the keyboard, the focus on what is left to answer on the step, where the answers copied are to be checked
-    const ticket = advance.current;
-    const typed = keys.current;
+    // the focus on the first answer copied, to be checked before Enter goes on: never on Submit at once
+    afterRender(() => { if (document.hasFocus()) focusOwn(controlOf(first[0])); });
+    // The server's answer shows the questions the copies decide on (a subdivision of the land use): copied too, once
     void within(store.whenSaved(), ADVANCE_WAIT).then(() => afterRender(() => {
-      if (store.getState().tab !== tabNow) return;
+      if (store.getState().tab !== tabNow || store.getState().submitted) return;
       const more = copyNow();
-      if (more.length) {
-        more.forEach((name) => all.add(name));
-        show();
-      }
-      if (!byKey || ticket !== advance.current || keys.current !== typed || !document.hasFocus()) return;
-      (controlOf(firstToAnswer(stepsNow(), tabNow)) ?? controlOf(null))?.focus();
+      if (!more.length) return;
+      more.forEach((name) => all.add(name));
+      show();
     }));
-  }, [store, t, copyNow, stepsNow, controlOf]);
+  }, [store, t, copyNow, controlOf, focusOwn, announce]);
 
   // Alt+Left/Right change tab; P copies the answers of the plot before; "/", "N", "Esc" and Alt+1... go to the plots map,
   // whose keys they are (see panelKey)
@@ -343,7 +398,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
       else if (e.altKey && e.key === "ArrowLeft" && back >= 0) { e.preventDefault(); goTo(back); }
       // as on the plots map: Esc leaves the box typed in, a second one closes the form
       else if (escapeBlurs(e)) (e.target as HTMLElement).blur();
-      else if (isCopyKey(e)) { e.preventDefault(); copyPrevious(true); }
+      else if (isCopyKey(e)) { e.preventDefault(); copyPrevious(); }
       else {
         const key = panelKey(e);
         if (key) { e.preventDefault(); store.passKey(key); }
@@ -353,7 +408,8 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     return () => window.removeEventListener("keydown", onKey);
   }, [store, next, back, goTo, copyPrevious]);
 
-  const toCopy = state.previous ? answersToCopy(fieldsOfStep(tab, state.infos), model.keys, state.previous.answers, (n) => store.value(n)).length : 0;
+  const toCopy = state.previous && !state.submitted
+    ? answersToCopy(fieldsOfStep(tab, state.infos), model.keys, state.previous.answers, (n) => store.value(n)).length : 0;
 
   const visibleTabs = model.tabs.map((tb, i) => ({ tb, i })).filter(({ tb, i }) => i === state.tab || isTabVisible(tb, state.infos));
   const stepsDone = visibleTabs.filter(({ i }) => !errorTabs.has(i)).length;
@@ -397,7 +453,10 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
       )}
 
       {/* the balloon's grey panel around the questions, edge to edge in a narrow form */}
-      <Box ref={content} sx={{ flex: 1, overflowY: "auto", mx: 1, mt: 1, px: 2, pt: 1.5, pb: 2,
+      {/* a question copied from the plot before is looked at when the user focuses it, clicks or types in it */}
+      <Box ref={content} onFocus={(e) => { if (e.target !== ownFocus.current) looked(e.target); }}
+        onPointerDown={(e) => looked(e.target)} onKeyDown={(e) => looked(e.target)}
+        sx={{ flex: 1, overflowY: "auto", mx: 1, mt: 1, px: 2, pt: 1.5, pb: 2,
         bgcolor: "balloon.panel", borderRadius: 1.5, [NARROW]: { mx: 0, mt: 0.75, px: 1.25, pt: 1.25, pb: 1.5, borderRadius: 0 } }}>
         <Stack spacing={1.5}>
           {state.serverDown && (
@@ -417,8 +476,8 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
           {info.length > 0 && state.tab === firstStep && <HeaderInfo items={info} store={store} />}
           {toCopy > 0 && (
             <Box sx={{ display: "flex", justifyContent: "flex-end", mb: -1 }}>
-              <Tooltip title={`${t("entry.copyPreviousHint", { key: "P" })}`}>
-                <Button size="small" variant="outlined" startIcon={<ContentCopyIcon />} onClick={() => copyPrevious(false)}
+              <Tooltip title={t("entry.copyPreviousHint", { key: "P" })} describeChild>
+                <Button size="small" variant="outlined" startIcon={<ContentCopyIcon />} onClick={copyPrevious}
                   data-testid="entry-copy-previous" aria-keyshortcuts="P" sx={{ bgcolor: "background.paper" }}>
                   {t("entry.copyPrevious")}
                 </Button>
@@ -489,7 +548,8 @@ function focusIsFree(): boolean {
 function ErrorSummary({ store, state, model, onGo }: { store: FormStore; state: FormState; model: FormModel;
   onGo: (tab: number, name: string) => void }) {
   const t = useT();
-  const errors = errorList(model, state.infos);
+  // the numbers typed that are none are listed as the server's errors are, until they are corrected
+  const errors = [...errorList(model, state.infos), ...draftErrors(model, state.infos, state.drafts)];
   const lines = summaryLines(state.submitErrors ?? [], errors);
   const tabs = [...new Set(lines.map((l) => l.error.tab))].sort((a, b) => a - b);
   // the lines still to see to: those the questions shown since add are counted by their steps, not here
@@ -508,7 +568,7 @@ function ErrorSummary({ store, state, model, onGo }: { store: FormStore; state: 
           {tabs.length > 1 && <Typography variant="caption" component="div" sx={{ fontWeight: 600, opacity: 0.85 }}>{model.tabs[tab].label}</Typography>}
           <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
             {lines.filter((l) => l.error.tab === tab).map(({ error: e, fixed }) => {
-              const text = fixed ? "" : errorText(t, e.field, store.value(e.field.name), e.message).trim();
+              const text = fixed ? "" : e.problem ? t(e.problem) : errorText(t, e.field, store.value(e.field.name), e.message).trim();
               return (
                 <Box component="li" key={e.field.name} data-error-of={fixed ? undefined : e.field.name} data-fixed={fixed || undefined}
                   sx={fixed ? { listStyle: "none", ml: -2.5, opacity: 0.7 } : undefined}>
@@ -571,16 +631,24 @@ function SaveStatus({ state, retrying }: { state: SaveState; retrying: boolean }
 }
 
 /**
- * Said to a screen reader, politely, not shown: the save done or failed, the errors a Submit found, the answers copied.
- * Saving and changes not saved yet are left out, which every answer would say twice.
+ * Said to a screen reader, politely, not shown, each when it changes: the save done or failed (with its reason), the
+ * errors a Submit found, and what the form says itself (`announced`: the focus moved where it was not expected, the
+ * answers copied). Saving and changes not saved yet are left out, which every answer would say twice.
  */
-function LiveRegion({ state, announced }: { state: FormState; announced: string }) {
+function LiveRegion({ state, announced }: { state: FormState; announced: Announcement | null }) {
   const t = useT();
+  const [text, setText] = useState("");
   const save = state.saveState === "saved" || state.saveState === "error" ? saveLabel(t, state.saveState, state.retrying) : "";
-  const reason = state.saveState === "error" && state.saveError ? state.saveError : "";
-  const errors = state.submitErrors?.length
-    ? state.submitErrors.length === 1 ? t("entry.errorsOne") : t("entry.errorsMany", { count: state.submitErrors.length }) : "";
-  const text = [save, reason, errors, announced].filter(Boolean).join(". ");
+  const saveText = [save, state.saveState === "error" ? state.saveError ?? "" : ""].filter(Boolean).join(". ");
+  // the save of a change only, not the state the plot opens in
+  const changed = useRef(false);
+  if (state.saveState === "unsaved") changed.current = true;
+  useEffect(() => { if (saveText && changed.current) setText(saveText); }, [saveText]);
+  useEffect(() => {
+    const count = state.submitErrors?.length ?? 0;
+    if (count) setText(count === 1 ? t("entry.errorsOne") : t("entry.errorsMany", { count }));
+  }, [state.submitErrors, t]);
+  useEffect(() => { if (announced) setText(announced.text); }, [announced]);
   return <Box role="status" aria-live="polite" aria-atomic sx={VISUALLY_HIDDEN} data-testid="entry-live">{text}</Box>;
 }
 
@@ -709,7 +777,7 @@ function BoundField({ store, state, field, dense }: { store: FormStore; state: F
   return (
     <FieldView field={field} value={store.value(field.name)} info={state.infos[field.name]} items={items}
       parentLabel={parent?.label} onChange={store.setValue} dense={dense} quiet={!state.attempted && !store.value(field.name)}
-      required={store.isRequired(field.name)} copied={copied} />
+      required={store.isRequired(field.name)} copied={copied} onDraftProblem={store.setDraftProblem} />
   );
 }
 const NO_ITEMS: never[] = [];
@@ -791,10 +859,13 @@ function MultipleEntities({ store, state, item }: { store: FormStore; state: For
   const failure = state.entityFailure?.entity === item.entity ? state.entityFailure : null;
   // the one added is to be filled in: the focus goes to its first question, once the server made it and it is rendered
   const add = async () => {
+    const button = document.activeElement;
     await store.addEntity(item.entity);
     const added = entityCount(item, store.getState().infos);
     if (added <= count) return;
     afterRender(() => {
+      // not when the user put the focus elsewhere meanwhile (the button, disabled while busy, leaves it to the page)
+      if (document.activeElement !== button && document.activeElement !== document.body) return;
       const first = item.fields.find((f) => !f.readOnly) ?? item.fields[0];
       if (!first) return;
       const name = indexedField(first, added).name;

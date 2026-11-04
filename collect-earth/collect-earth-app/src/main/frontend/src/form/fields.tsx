@@ -20,7 +20,7 @@ import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import { type Translate, useT } from "../i18n";
+import { type MessageKey, type Translate, useT } from "../i18n";
 import { type PressedKey, choiceKey, focusMovedByKey, isKeyboardClick } from "../shortcuts";
 import {
   type CodeItem, type Field, type FieldInfo, clickCode, codeControl, coordinateFromInput, coordinateToInput, dateFromInput,
@@ -43,8 +43,10 @@ export interface FieldProps {
   quiet?: boolean;
   /** an answer is needed before the plot can be submitted: marked on the label from the start */
   required?: boolean;
-  /** just copied from the plot submitted before ("Same as previous plot"): marked for a moment, to be looked at */
+  /** just copied from the plot submitted before ("Same as previous plot"): marked until it is looked at */
   copied?: boolean;
+  /** told that a number box holds what is no number (see numberProblem), or no longer (null): Submit is refused meanwhile */
+  onDraftProblem?: (name: string, problem: MessageKey | null) => void;
 }
 
 /** The message under a field in error: what to do when it is not answered yet, else the server's. */
@@ -486,7 +488,7 @@ function useDraft(value: string, same: (draft: string, value: string) => boolean
  * A text, or a number. A number that is none ("1.5x", which the server read as 1 and the box then showed with no word) is
  * not sent: it stays as typed, with a message under it, until it is corrected.
  */
-function TextInput({ field, value, onChange, error, describedBy, required, dense, numeric, multiline }: ControlProps & { numeric?: boolean; multiline?: boolean }) {
+function TextInput({ field, value, onChange, onDraftProblem, error, describedBy, required, dense, numeric, multiline }: ControlProps & { numeric?: boolean; multiline?: boolean }) {
   const t = useT();
   const invalid = (d: string) => (numeric ? numberProblem(field.type, d) : null);
   // what is typed stays while it is no number, whatever the server answers about what was sent before
@@ -496,6 +498,9 @@ function TextInput({ field, value, onChange, error, describedBy, required, dense
   const commit = (v: string, delay: number) => { if (!invalid(v)) onChange(field.name, numeric ? normalizeNumber(v) : v, delay); };
   const problem = invalid(draft);
   const helperId = `${field.name}-helper-text`;
+  // the form refuses Submit while the box holds no number, until it does again or is gone (hidden by an answer)
+  useEffect(() => { if (numeric) onDraftProblem?.(field.name, problem); }, [numeric, problem, field.name, onDraftProblem]);
+  useEffect(() => () => { if (numeric) onDraftProblem?.(field.name, null); }, [numeric, field.name, onDraftProblem]);
   return (
     <TextField id={field.name} size="small" fullWidth={!dense} value={draft} error={error || !!problem} multiline={multiline} minRows={multiline ? 3 : undefined}
       onChange={(e) => { setDraft(e.target.value); typing.current = true; commit(e.target.value, TYPING_DELAY); }}
