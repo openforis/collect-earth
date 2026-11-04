@@ -1,3 +1,4 @@
+import { finishedTrainees } from './training.js';
 import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
 import { isDate, isTimeZone } from '../days.js';
@@ -134,14 +135,18 @@ export function attentionReader(store: Store, quality: QualityService) {
   };
   return async (projectId: string, served: ServedState, request: { log: FastifyBaseLogger }, at: number): Promise<AttentionInput> => {
     const { context } = served.state;
-    const [activity, unsentDelays, cep, storage, waiting] = await Promise.all([
+    const [activity, unsentDelays, cep, storage, waiting, trainingFinished] = await Promise.all([
       store.listMemberActivity(projectId),
       store.unsentDelays(projectId, at - UNSENT_WINDOW_DAYS * DAY_MS),
       store.getCepInfo(projectId),
       storageOf(projectId, served.state.version),
       context.copyHolders.size > 0 || (context.info?.reassessmentCode ?? null) !== null ? waitingDecisions(store, quality, projectId, request) : null,
+      finishedTrainees(store, projectId, (pid, log) => quality.outline(pid, log), request.log).catch((err: unknown) => {
+        request.log.warn({ err, projectId }, 'progress: the training sets could not be read for the attention cards');
+        return [];
+      }),
     ]);
-    return { members: served.members, activity, unsentDelays, cep, storage, differencesWaiting: waiting };
+    return { members: served.members, activity, unsentDelays, cep, storage, differencesWaiting: waiting, trainingFinished };
   };
 }
 

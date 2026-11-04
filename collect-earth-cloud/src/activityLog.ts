@@ -27,7 +27,7 @@ const RECORD_KINDS: Record<string, readonly RecordChange[]> = {
 const AUDIT_KINDS: Record<string, readonly AuditAction[]> = {
   decisions: ['decision.set', 'decision.deleted', 'decision.bulk'],
   people: ['invite.created', 'invite.revoked', 'member.removed', 'member.role'],
-  files: ['cep.replaced', 'survey.replaced', 'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'sampling.drawn', 'reference.changed', 'training.changed'],
+  files: ['cep.replaced', 'survey.replaced', 'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'sampling.drawn', 'reference.changed', 'training.changed', 'training.synced'],
   settings: ['settings.changed', 'link.created', 'link.revoked'],
   downloads: ['export.downloaded'],
 };
@@ -178,6 +178,8 @@ export function attentionKey(item: AttentionItem): string {
     level: item.kind === 'storage' ? item.level : null,
     quietDays: item.kind === 'quiet' ? item.quietDays : null,
     unknownVersion: item.kind === 'oldCollectEarth' ? item.unknownVersion : null,
+    // A new attempt finished, or a pass, is a new card.
+    finished: item.kind === 'trainingFinished' ? item.people.map((p) => `${p.username}|${p.set}|${p.passed}`).sort() : null,
   };
   return `${item.kind}:${createHash('sha256').update(JSON.stringify(content)).digest('hex').slice(0, 16)}`;
 }

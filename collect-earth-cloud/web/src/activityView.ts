@@ -79,6 +79,8 @@ const EXPORT_KEYS: Record<string, MessageKey> = {
   decisions: "activity.export.decisions",
   differences: "activity.export.differences",
   "collect-backup": "activity.export.collectBackup",
+  training_scores: "activity.export.trainingScores",
+  training_answers: "activity.export.trainingAnswers",
 };
 
 /** Who did it: their name, "(no longer in the project)" after it, or someone without a name. */
@@ -172,6 +174,8 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
     case "reference.changed":
       if (Number(d.removed) > 0 && !(Number(d.added) > 0)) return t(byCount(d.removed, "activity.audit.referenceRemovedOne", "activity.audit.referenceRemoved"), { actor, count: num(d.removed, language) });
       return t(byCount(d.added, "activity.audit.referenceAddedOne", "activity.audit.referenceAdded"), { actor, count: num(d.added, language), file: fileOf(t, page, d.csvFileId) });
+    case "training.synced":
+      return t(Number(d.records) === 1 ? "activity.audit.trainingSyncedOne" : "activity.audit.trainingSynced", { actor, count: num(d.records, language) });
     case "training.changed": {
       const change = typeof d.change === "string" && ["created", "changed", "deleted", "members", "golden", "attempts"].includes(d.change) ? d.change : "changed";
       return t(`activity.audit.training.${change}` as "activity.audit.training.changed", { actor, name: typeof d.name === "string" ? d.name : "" });

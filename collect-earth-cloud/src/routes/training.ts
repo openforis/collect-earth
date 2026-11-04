@@ -1,3 +1,4 @@
+import { csvField } from '../export.js';
 import { DASHBOARD_EVENTS, telemetry, type EventName } from '../telemetry.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid } from '../accountRules.js';
@@ -484,6 +485,18 @@ export async function registerTrainingRoutes(
     return reply.send({ plots: rows.length, questions: stale.size });
   });
 
+  // A set's results as CSV (coordinators): ?what=scores (each person's attempts) or answers (every answer scored).
+  app.get('/v1/projects/:pid/training/:setId/export', admin, async (request, reply) => {
+    const projectId = request.membership!.projectId;
+    const what = (request.query as { what?: string } | undefined)?.what === 'answers' ? 'answers' : 'scores';
+    const loaded = await loadSet(store, projectId, setIdOf(request), deps.outline, request.log);
+    if (!loaded) return reply.code(404).send({ error: 'not_found' });
+    const csv = `\uFEFF${exportRows(loaded, what).map((r) => r.map(csvField).join(',')).join('\r\n')}\r\n`;
+    const name = `${loaded.set.name.replace(/[^\p{L}\p{N}_-]+/gu, '_').slice(0, 60) || 'training'}-${what}-${new Date(now()).toISOString().slice(0, 10)}.csv`;
+    await audit(store, request, 'export.downloaded', { kind: `training_${what}`, completed: true });
+    return reply.header('content-type', 'text/csv; charset=utf-8').header('content-disposition', attachment(name)).send(csv);
+  });
+
   // New attempts (coordinators): { userIds } or { all: true }. Each open attempt is closed with its score.
   app.post('/v1/projects/:pid/training/:setId/attempts', admin, async (request, reply) => {
     const projectId = request.membership!.projectId;
@@ -517,6 +530,8 @@ export async function registerTrainingRoutes(
     for (const meta of await store.listTrainingSets(projectId)) {
       const loaded = await loadSet(store, projectId, meta.id, deps.outline, request.log, shared);
       if (!loaded) continue;
+      // A learning set's spread shows its golden answers nearly: reviewers see calibration sets only.
+      if (loaded.set.kind === 'learning' && request.membership!.role !== 'admin') continue;
       const base = { id: loaded.set.id, kind: loaded.set.kind, name: loaded.set.name, plotCount: loaded.set.plotCount };
       const me = request.userId ? loaded.people.find((p) => p.userId === request.userId) : undefined;
       if (me) {
@@ -609,6 +624,56 @@ export async function registerTrainingRoutes(
       .header('content-disposition', attachment(servedName(set)))
       .send(served.data);
   });
+}
+
+/** People who submitted every plot with golden answers of a learning set in their open attempt (the bell's card). */
+export async function finishedTrainees(store: Store, projectId: string, outline: OutlineOf, log: Log): Promise<{ username: string; set: string; passed: boolean | null }[]> {
+  const sets = (await store.listTrainingSets(projectId)).filter((s) => s.kind === 'learning' && s.memberIds.length > 0);
+  if (sets.length === 0) return [];
+  const shared = await loadShared(store, projectId, outline, log);
+  const out: { username: string; set: string; passed: boolean | null }[] = [];
+  for (const meta of sets) {
+    const loaded = await loadSet(store, projectId, meta.id, outline, log, shared);
+    if (!loaded || loaded.golden.size === 0) continue;
+    for (const p of loaded.people) {
+      const score = scoreOf(loaded, p.username);
+      if (score.plots > 0 && score.submitted === score.plots) out.push({ username: p.username, set: loaded.set.name, passed: score.passed });
+    }
+  }
+  return out;
+}
+
+/** The rows of a set's export: each person's attempts (`scores`), or every answer scored (`answers`). */
+function exportRows(loaded: Loaded, what: 'scores' | 'answers'): string[][] {
+  const iso = (ms: number | null) => (ms === null || ms <= 0 ? '' : new Date(ms).toISOString());
+  const pct = (rate: number | null) => (rate === null ? '' : String(Math.round(rate * 1000) / 10));
+  const rows: string[][] = [];
+  if (what === 'scores') {
+    rows.push(['person', 'attempt', 'started', 'closed', 'plots_with_golden_answers', 'submitted', 'answers_compared', 'answers_right', 'percent_right', 'plots_all_right', 'passed']);
+  } else {
+    rows.push(['person', 'attempt', 'plot', 'question', 'question_label', 'golden_answer', 'answer', 'right']);
+  }
+  const passedText = (p: boolean | null | undefined) => (p === true ? 'yes' : p === false ? 'no' : '');
+  for (const p of loaded.people) {
+    const attempts: { number: number; startedAt: number; closedAt: number | null; score: LearningScore }[] = [];
+    for (const a of loaded.attempts.filter((x) => x.userId === p.userId && x.results !== null).sort((x, y) => x.number - y.number)) {
+      const snap = a.results as Partial<AttemptSnapshot>;
+      if (snap.score) attempts.push({ number: a.number, startedAt: a.startedAt, closedAt: snap.closedAt ?? null, score: snap.score });
+    }
+    const open = loaded.startOf.get(p.username)!;
+    attempts.push({ number: open.number, startedAt: open.startedAt, closedAt: null, score: scoreOf(loaded, p.username) });
+    for (const a of attempts) {
+      if (what === 'scores') {
+        const s = a.score;
+        rows.push([p.username, String(a.number), iso(a.startedAt), iso(a.closedAt), String(s.plots), String(s.submitted), String(s.answers.compared), String(s.answers.agreeing), pct(s.answers.rate), String(s.plotsRight), passedText(s.passed)]);
+      } else {
+        for (const plot of a.score.byPlot) {
+          for (const q of plot.questions) rows.push([p.username, String(a.number), plot.plot, q.key, q.label, q.golden, q.given, q.right ? 'yes' : 'no']);
+        }
+      }
+    }
+  }
+  return rows;
 }
 
 /** For the record intake: whether a record belongs to a training plot. */

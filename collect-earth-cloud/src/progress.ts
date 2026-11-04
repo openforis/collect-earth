@@ -49,6 +49,8 @@ export interface AttentionInput {
   storage: { usedBytes: number; limitBytes: number | null } | null;
   /** Differing plots without a decision; null when the project has no checks or no figures are at hand. */
   differencesWaiting: number | null;
+  /** People who submitted every plot of a learning set in their current attempt. */
+  trainingFinished?: readonly { username: string; set: string; passed: boolean | null }[];
 }
 
 export interface ProgressInput {
@@ -125,6 +127,9 @@ export interface AttentionPerson {
   lastPlotsDownloadAt?: number | null;
   /** oldUnsentWork: the median wait between saving and the server receiving it. */
   medianDelayMs?: number;
+  /** trainingFinished: the learning set they finished, and whether they passed (null: no pass mark). */
+  set?: string;
+  passed?: boolean | null;
 }
 
 export type AttentionItem =
@@ -135,7 +140,8 @@ export type AttentionItem =
   | { kind: 'differencesWaiting'; count: number }
   | { kind: 'storage'; count: number; level: 'nearlyFull' | 'over'; usedBytes: number; limitBytes: number }
   | { kind: 'oldProjectFile'; count: number; people: AttentionPerson[] }
-  | { kind: 'oldCollectEarth'; count: number; unknownVersion: number; people: AttentionPerson[] };
+  | { kind: 'oldCollectEarth'; count: number; unknownVersion: number; people: AttentionPerson[] }
+  | { kind: 'trainingFinished'; count: number; people: AttentionPerson[] };
 
 export interface Progress {
   timeZone: string;
@@ -485,6 +491,10 @@ function attentionOf(input: ProgressInput, a: AttentionInput, plotsOf: PlotUnits
   // Unknown versions are said apart and never counted as old.
   if (oldCe.length > 0 || unknownVersion > 0) {
     items.push({ kind: 'oldCollectEarth', count: oldCe.length, unknownVersion, people: capped(oldCe) });
+  }
+  const finished = a.trainingFinished ?? [];
+  if (finished.length > 0) {
+    items.push({ kind: 'trainingFinished', count: finished.length, people: capped(finished.map((f) => ({ username: f.username, set: f.set, passed: f.passed }))) });
   }
   return items;
 }

@@ -62,7 +62,7 @@ export function recordsCsv(
   return `﻿${lines.join('\r\n')}\r\n`;
 }
 
-function csvField(raw: string): string {
+export function csvField(raw: string): string {
   // = + - @ start a formula in Excel and LibreOffice; tab and CR can hide one.
   // Plain numbers stay as they are: negative coordinates are common.
   const formula = /^[=+\-@\t\r]/.test(raw) && !/^[-+]?\d+(\.\d+)?([eE][-+]?\d+)?$/.test(raw);

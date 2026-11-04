@@ -2,7 +2,7 @@ import { telemetry } from '../telemetry.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Store } from '../store/store.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
-import { noteActivity } from '../activity.js';
+import { audit, noteActivity } from '../activity.js';
 import { applyLww, recordEventOf } from '../lww.js';
 import type { SamplingService } from '../samplingService.js';
 import type { BatchItemResult, RecordEnvelope, RoundInfo } from '../types.js';
@@ -128,6 +128,10 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
       }
 
       noteActivity(request, { sync: { records: storedCount } }, { desktop: true });
+      if (trainingStored > 0) {
+        // In the Activity log (a coordinators' "who sent training plots"): one entry per batch.
+        await audit(store, request, 'training.synced', { records: trainingStored }).catch(() => undefined);
+      }
       if (trainingStored > 0) telemetry.event('training_records_synced', { projectId, userId: request.userId }, { records: trainingStored });
       if (firstSubmission && sampling) {
         // Before the answer (Cloud Run gives no CPU after it), never failing the batch, waited

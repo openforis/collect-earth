@@ -2096,6 +2096,9 @@ export interface AttentionPerson {
   lastSyncAt: number | null;
   lastPlotsDownloadAt: number | null;
   medianDelayMs: number | null;
+  /** trainingFinished: the learning set, and whether they passed (null: no pass mark). */
+  set?: string | null;
+  passed?: boolean | null;
 }
 
 export type AttentionKind =
@@ -2106,7 +2109,8 @@ export type AttentionKind =
   | "differencesWaiting"
   | "storage"
   | "oldProjectFile"
-  | "oldCollectEarth";
+  | "oldCollectEarth"
+  | "trainingFinished";
 
 export const ATTENTION_KINDS: readonly AttentionKind[] = [
   "quiet",
@@ -2117,6 +2121,7 @@ export const ATTENTION_KINDS: readonly AttentionKind[] = [
   "storage",
   "oldProjectFile",
   "oldCollectEarth",
+  "trainingFinished",
 ];
 
 export interface AttentionItem {
@@ -2167,6 +2172,7 @@ export function toAttentionItem(a: Record<string, unknown>): AttentionItem {
       lastSyncAt: toMillis(person.lastSyncAt),
       lastPlotsDownloadAt: toMillis(person.lastPlotsDownloadAt),
       medianDelayMs: toNumberOrNull(person.medianDelayMs),
+      ...(typeof person.set === "string" ? { set: person.set, passed: typeof person.passed === "boolean" ? person.passed : null } : {}),
     })),
     quietDays: toNumberOrNull(a.quietDays),
     unknownVersion: toCount(a.unknownVersion),
@@ -4241,6 +4247,12 @@ export async function putTrainingGolden(projectId: string, setId: string, plot: 
 export async function goldenFrom(projectId: string, setId: string, from: { from: "consensus" } | { from: "person"; userId: string }): Promise<number> {
   const res = await request<{ plots?: number }>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden`, { json: from });
   return typeof res.plots === "number" ? res.plots : 0;
+}
+
+/** A training set's results as CSV: each person's attempts, or every answer scored. */
+export async function downloadTrainingExport(projectId: string, setId: string, what: "scores" | "answers"): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("GET", `${p(projectId)}/training/${encodeURIComponent(setId)}/export?what=${what}`);
+  return { blob: await response.blob(), filename: attachmentName(response, `training-${what}.csv`) };
 }
 
 /** Takes the questions the survey no longer has out of every golden answer of a set. */

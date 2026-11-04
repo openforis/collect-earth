@@ -762,6 +762,7 @@ export const AUDIT_ACTIONS = [
   'link.created',
   'link.revoked',
   'training.changed',
+  'training.synced',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

@@ -30,10 +30,12 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import Print from "@mui/icons-material/Print";
+import Download from "@mui/icons-material/Download";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   createTrainingSet,
   deleteTrainingSet,
+  downloadTrainingExport,
   getTraining,
   getTrainingSet,
   goldenFrom,
@@ -55,6 +57,7 @@ import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
 import { useT } from "../i18n";
 import { linkProps, navigate, pathFor } from "../router";
+import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
 import { answerLabel, goldenKeys, kappaText, questionLabel, readPassMark, shareText } from "../trainingView";
 
@@ -760,6 +763,15 @@ function Scores({ projectId, view, onStarted }: { projectId: string; view: Train
       setBusy(false);
     }
   };
+  const download = async (what: "scores" | "answers") => {
+    setError(null);
+    try {
+      const { blob, filename } = await downloadTrainingExport(projectId, view.set.id, what);
+      saveBlob(blob, filename);
+    } catch (err) {
+      setError(err);
+    }
+  };
   const passedText = (passed: boolean | null) => (view.set.passMark === null ? "–" : passed === null ? t("training.notFinished") : passed ? t("training.passed") : t("training.notPassed"));
   return (
     <Section title={t("training.scoresTitle")} explain={t("training.attemptExplain")}>
@@ -818,11 +830,17 @@ function Scores({ projectId, view, onStarted }: { projectId: string; view: Train
         )}
         <ErrorAlert error={error} />
         {view.scores.length > 0 && (
-          <Box>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
             <Button variant="outlined" disabled={busy} onClick={() => void start({ all: true })}>
               {t("training.newAttemptAll")}
             </Button>
-          </Box>
+            <Button startIcon={<Download />} disabled={busy} onClick={() => void download("scores")}>
+              {t("training.exportScores")}
+            </Button>
+            <Button startIcon={<Download />} disabled={busy} onClick={() => void download("answers")}>
+              {t("training.exportAnswers")}
+            </Button>
+          </Stack>
         )}
       </Stack>
     </Section>

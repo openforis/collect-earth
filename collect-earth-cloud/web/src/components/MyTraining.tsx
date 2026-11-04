@@ -13,7 +13,7 @@ import CheckCircle from "@mui/icons-material/CheckCircle";
 import Cancel from "@mui/icons-material/Cancel";
 import { getMyTraining, type MyTrainingSet, type ScoredPlot } from "../api";
 import { useApp } from "../appContext";
-import { formatNumber } from "../format";
+import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
 import { useLoad } from "../useLoad";
 import { shareText } from "../trainingView";
@@ -60,6 +60,11 @@ function MySet({ set }: { set: MyTrainingSet }) {
         {t("training.mineFile", { file: set.servedName })}
         {set.attempt.number > 1 && ` · ${t("training.mineAttempt", { n: n(set.attempt.number) })}`}
       </Typography>
+      {set.attempt.number > 1 && set.submitted === 0 && (
+        <Alert severity="info" sx={{ mb: 1 }}>
+          {t("training.mineNewAttempt", { n: n(set.attempt.number), date: formatDate(set.attempt.startedAt, language) })}
+        </Alert>
+      )}
       {set.kind === "calibration" || !score ? (
         <Typography>{t("training.mineCalibration", { done: n(set.submitted), plots: n(set.plotCount) })}</Typography>
       ) : (

@@ -192,6 +192,30 @@ describe('training: calibration and learning plots', () => {
     expect(wrong.json()).toMatchObject({ code: 'bad_answer', key: 'no_such_question' });
   });
 
+  it('exports results, tells the bell who finished, logs training syncs; reviewers see calibration sets only', async () => {
+    await join('rita', 'reviewer');
+    const setId = (await createSet('learn.csv', [10, 11], '?kind=learning&passMark=50')).json().id as string;
+    await call('PUT', `/training/${setId}/members`, owner.token, { userIds: [people.ana.userId] });
+    await call('PUT', `/training/${setId}/golden/10`, owner.token, { answers: { [LU]: 'F' } });
+    await call('PUT', `/training/${setId}/golden/11`, owner.token, { answers: { [LU]: 'G' } });
+    await send('ana', { 10: { [LU]: 'F' }, 11: { [LU]: 'C' } });
+    const scores = await call('GET', `/training/${setId}/export?what=scores`, owner.token);
+    expect(scores.headers['content-type']).toContain('text/csv');
+    const lines = scores.body.replace(/^\uFEFF/, '').trim().split('\r\n');
+    expect(lines[0]).toBe('person,attempt,started,closed,plots_with_golden_answers,submitted,answers_compared,answers_right,percent_right,plots_all_right,passed');
+    expect(lines[1]).toMatch(/^ana,1,,,2,2,2,1,50,1,yes$/);
+    const answers = (await call('GET', `/training/${setId}/export?what=answers`, owner.token)).body.trim().split('\r\n');
+    expect(answers.slice(1)).toEqual([`ana,1,10,${LU},${LU},F,F,yes`, `ana,1,11,${LU},${LU},G,C,no`]);
+    expect((await call('GET', `/training/${setId}/export`, people.ana.token)).statusCode).toBe(403);
+    const attention = (await call('GET', '/attention', owner.token)).json();
+    const card = (attention.items as { item: { kind: string; people: unknown[] } }[]).find((i) => i.item.kind === 'trainingFinished');
+    expect(card?.item.people).toEqual([{ username: 'ana', set: 'learn', passed: true }]);
+    const audits = await ctx.store.listAudit(pid, { limit: 20, action: 'training.synced' });
+    expect(audits[0].details).toEqual({ records: 2 });
+    expect((await call('GET', '/training/figures', people.rita.token)).json().sets).toEqual([]);
+    expect((await call('GET', '/training/figures', owner.token)).json().sets).toHaveLength(1);
+  });
+
   it('golden answers from one person\'s records (an expert)', async () => {
     const setId = (await createSet('learn.csv', [10, 11], '?kind=learning')).json().id as string;
     await call('PUT', `/training/${setId}/members`, owner.token, { userIds: [people.bo.userId] });

@@ -254,3 +254,14 @@ describe("the days the chart draws", () => {
     expect(fromFirstWork(Array.from({ length: 90 }, (_, i) => day(i, 0)))).toHaveLength(7);
   });
 });
+
+describe("the training card", () => {
+  it("says how many finished and, for each, the set and whether they passed", async () => {
+    const { attentionText, personDetail } = await import("./progressView");
+    const { translator } = await import("./i18n");
+    const tr = translator("en");
+    const item = { kind: "trainingFinished" as const, count: 1, people: [{ username: "ana", lastSyncAt: null, lastPlotsDownloadAt: null, medianDelayMs: null, set: "Week 1", passed: false }], quietDays: null, unknownVersion: 0, level: null, usedBytes: null, limitBytes: null };
+    expect(attentionText(tr, item, "en").title).toBe("Learning plots finished");
+    expect(personDetail(tr, item, item.people[0], "en", String)).toBe("Week 1: not passed");
+  });
+});

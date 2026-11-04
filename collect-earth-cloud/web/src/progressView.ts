@@ -136,6 +136,7 @@ export const ATTENTION_TAB: Record<AttentionKind, ProjectTab> = {
   storage: "setup",
   oldProjectFile: "people",
   oldCollectEarth: "people",
+  trainingFinished: "training",
 };
 
 const GO: Record<ProjectTab, MessageKey> = {
@@ -192,6 +193,8 @@ export function attentionText(t: Translate, item: AttentionItem, language: strin
       }
       return { title: t(item.count > 0 ? "attention.oldCeTitle" : "attention.unknownCeTitle"), text };
     }
+    case "trainingFinished":
+      return { title: t("attention.trainingTitle"), text: [t(one ? "attention.trainingOne" : "attention.training", { count })] };
   }
 }
 
@@ -199,6 +202,9 @@ export function attentionText(t: Translate, item: AttentionItem, language: strin
 export function personDetail(t: Translate, item: AttentionItem, person: AttentionItem["people"][number], language: string, formatDate: (ms: number) => string): string | null {
   if (item.kind === "quiet" && person.lastSyncAt !== null) return t("attention.lastSync", { date: formatDate(person.lastSyncAt) });
   if (item.kind === "quiet" && person.lastPlotsDownloadAt !== null) return t("attention.lastDownload", { date: formatDate(person.lastPlotsDownloadAt) });
+  if (item.kind === "trainingFinished" && person.set) {
+    return t(person.passed === true ? "attention.trainingPassed" : person.passed === false ? "attention.trainingNotPassed" : "attention.trainingDone", { set: person.set });
+  }
   if (item.kind === "oldUnsentWork" && person.medianDelayMs !== null) {
     const days = Math.round((person.medianDelayMs / DAY_MS) * 10) / 10;
     return t(days === 1 ? "attention.dayLate" : "attention.daysLate", { n: formatNumber(days, language) });
