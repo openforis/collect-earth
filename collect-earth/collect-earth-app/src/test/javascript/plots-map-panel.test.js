@@ -22,10 +22,11 @@ function listening(node) {
     return node;
 }
 
-/** Google Earth Web's page, 1600 px wide, with the panel shown in it. */
+/** Google Earth Web's page, 1600 px wide (screen.width changes it), with the panel shown in it. */
 function pageWithPanel() {
+    const screen = { width: 1600 };
     class FakeWindow {}
-    Object.defineProperty(FakeWindow.prototype, "innerWidth", { configurable: true, get() { return 1600; } });
+    Object.defineProperty(FakeWindow.prototype, "innerWidth", { configurable: true, get() { return screen.width; } });
     const window = listening(new FakeWindow());
     window.dispatchEvent = (event) => { window.fire(event.type, event); return true; };
     const html = new FakeNode("html");
@@ -47,9 +48,10 @@ function pageWithPanel() {
     const panel = document.querySelector("div[data-ce-panel]");
     const frame = panel.children.find((c) => c.tagName === "IFRAME");
     const handle = panel.children.find((c) => c.tagName === "DIV");
-    frame.contentWindow = {};
+    const asked = [];
+    frame.contentWindow = { postMessage: (data, origin) => asked.push({ data, origin }) };
     const tell = (data, from = frame.contentWindow, origin = ORIGIN) => window.fire("message", { data, source: from, origin });
-    return { window, panel, frame, handle, run, tell };
+    return { window, screen, panel, frame, handle, run, tell, asked };
 }
 
 test("a dialog of the plots map gets the whole window, Google Earth Web the same window as before", () => {
@@ -73,9 +75,21 @@ test("a dialog of the plots map gets the whole window, Google Earth Web the same
     assert.equal(panel.style.background, "#121212");
     assert.notEqual(panel.style.boxShadow, "none");
     assert.equal(handle.style.display, "");
+    assert.equal(frame.style.colorScheme, "", "the frame as it was made");
 });
 
-test("only the plots map in the panel can ask", () => {
+test("a window made narrower during a dialog leaves the panel the width it has room for once the dialog is closed", () => {
+    const { window, screen, panel, tell } = pageWithPanel();
+    tell({ type: "collectEarthPanel", expand: true, colorScheme: "light" });
+    screen.width = 800;
+    window.fire("resize", { isTrusted: true });
+    assert.equal(panel.style.width, "100vw");
+    assert.equal(window.innerWidth, 400, "Google Earth Web keeps its room beside the panel");
+    tell({ type: "collectEarthPanel", expand: false });
+    assert.equal(panel.style.width, "400px");
+});
+
+test("only the plots map in the panel is listened to", () => {
     const { panel, frame, tell } = pageWithPanel();
     const expand = { type: "collectEarthPanel", expand: true };
     tell(expand, {});
@@ -83,16 +97,26 @@ test("only the plots map in the panel can ask", () => {
     tell({ type: "other", expand: true });
     tell(null);
     assert.equal(panel.style.width, "560px");
+    tell(expand, null);
+    assert.equal(panel.style.width, "560px");
     tell({ type: "collectEarthPanel", expand: true, colorScheme: "dark;background:red" });
     assert.equal(panel.style.width, "100vw");
     assert.notEqual(frame.style.colorScheme, "dark;background:red");
+    // The page going, a reload with a dialog open: its window is gone, and the message has no source
+    tell({ type: "collectEarthPanel", expand: false }, null);
+    assert.equal(panel.style.width, "560px");
+    tell({ type: "collectEarthPanel", expand: true }, frame.contentWindow);
+    tell({ type: "collectEarthPanel", expand: false }, null, "https://evil.example");
+    assert.equal(panel.style.width, "100vw");
 });
 
 test("the panel is back when the plots map loads again, and stops listening once taken away", () => {
-    const { window, panel, frame, tell, run } = pageWithPanel();
+    const { window, panel, frame, tell, run, asked } = pageWithPanel();
     tell({ type: "collectEarthPanel", expand: true });
     frame.fire("load");
     assert.equal(panel.style.width, "560px");
+    // and asks the page loaded, whose dialog may have opened before
+    assert.deepEqual(asked, [{ data: { type: "collectEarthPanel", ask: true }, origin: ORIGIN }]);
 
     assert.equal(run(null), "removed");
     tell({ type: "collectEarthPanel", expand: true });

@@ -64,7 +64,7 @@ export function AppDrawer({ open, onClose, menus, project, texts, toggles, onRun
     if (autoFocus) first = false;
     return (
       <ListItemButton key={item.id} data-drawer-entry disabled={soon} autoFocus={autoFocus} onClick={() => onRun(item)}
-        {...(toggle && !soon ? { role: "switch", "aria-checked": toggles[item.id] ?? false } : {})}>
+        {...(toggle && !soon ? { role: "checkbox", "aria-checked": toggles[item.id] ?? false } : {})}>
         <ListItemIcon sx={{ minWidth: 36 }}><MenuEntryIcon id={item.id} /></ListItemIcon>
         {/* "Coming soon" is written under the entry: a disabled one gets no pointer events for a tooltip */}
         <ListItemText primary={s(item.label)} secondary={soon ? t("appBar.comingSoon") : undefined} />
@@ -92,7 +92,8 @@ export function AppDrawer({ open, onClose, menus, project, texts, toggles, onRun
       </Box>
       <Divider />
       <Box component="nav" aria-label={t("appBar.menu")} ref={listRef} onKeyDown={onKeyDown} sx={{ flex: 1, overflowY: "auto" }}>
-        <List dense disablePadding sx={{ pb: 1 }}>
+        {/* Buttons, not items of a list (div, as MUI's nested lists): a folded menu is a button over the buttons it shows */}
+        <List component="div" dense disablePadding sx={{ pb: 1 }}>
           {sections.map((section, i) => {
             // A line between the menus with headings and the rest: a lone entry (Settings), then the folded ones
             const before = i > 0 && (!section.heading || section.folds) && !(section.folds && sections[i - 1].folds);
@@ -102,24 +103,24 @@ export function AppDrawer({ open, onClose, menus, project, texts, toggles, onRun
             if (!section.folds) {
               return (
                 <Fragment key={section.id}>
-                  <ListSubheader disableSticky sx={{ lineHeight: "32px", mt: i > 0 ? 0.5 : 0, bgcolor: "transparent" }}>{s(section.label)}</ListSubheader>
+                  <ListSubheader component="div" disableSticky sx={{ lineHeight: "32px", mt: i > 0 ? 0.5 : 0, bgcolor: "transparent" }}>{s(section.label)}</ListSubheader>
                   {section.items.map(entry)}
                 </Fragment>
               );
             }
             const unfoldedNow = unfolded[section.id] ?? false;
-            const listId = DRAWER_ID + "-" + section.id;
             return (
               <Fragment key={section.id}>
                 {before && <Divider sx={{ my: 0.5 }} />}
-                <ListItemButton data-drawer-entry aria-expanded={unfoldedNow} aria-controls={listId}
+                <ListItemButton data-drawer-entry aria-expanded={unfoldedNow}
                   onClick={() => setUnfolded((u) => ({ ...u, [section.id]: !unfoldedNow }))}>
                   <ListItemText primary={s(section.label)}
                     slotProps={{ primary: { variant: "body2", sx: { fontWeight: 500, color: "text.secondary" } } }} />
                   {unfoldedNow ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                 </ListItemButton>
-                <Collapse in={unfoldedNow} unmountOnExit id={listId}>
-                  <List dense disablePadding>{section.items.map(entry)}</List>
+                {/* Unmounted folded, so the keys go through the entries shown only */}
+                <Collapse in={unfoldedNow} unmountOnExit>
+                  <List component="div" dense disablePadding>{section.items.map(entry)}</List>
                 </Collapse>
               </Fragment>
             );

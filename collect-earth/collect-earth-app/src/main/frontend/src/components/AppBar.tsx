@@ -80,6 +80,8 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const menus = useMemo(() => appMenus({ plotsMap: info.plotsMap, surveyGuide: info.surveyGuide, client: info.client, cloud: info.cloud }), [info.plotsMap, info.surveyGuide, info.client, info.cloud]);
   // The menu open and the button it hangs from; the id is null for the drawer of the compact bar
   const [open, setOpen] = useState<{ anchor: HTMLElement; id: string | null } | null>(null);
+  // The menu of the wide bar opened last: it keeps its entries and its button while it fades out
+  const [wideMenu, setWideMenu] = useState<{ anchor: HTMLElement; id: string } | null>(null);
   const [operatorOpen, setOperatorOpen] = useState(false);
   // The operator just saved, shown (and no longer missing) at once, until /api/app is read again
   const [savedOperator, setSavedOperator] = useState<string | null>(null);
@@ -174,7 +176,9 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
 
   return (
     <MuiAppBar position="static" color="default" elevation={1}>
-      <Toolbar variant="dense" sx={{ gap: 1, px: { xs: 1, sm: 1.5 } }}>
+      {/* No media query (the gutters of Toolbar have one): in Google Earth Web's panel the frame is the whole window while a
+          dialog is open (panelDialogs.ts), and the bar behind it would move */}
+      <Toolbar variant="dense" disableGutters sx={{ gap: 1, px: compact ? 1 : 1.5 }}>
         {compact && (
           <IconButton edge="start" aria-label={t("appBar.menu")} id="app-menu-button-all"
             aria-controls={open?.id === null ? DRAWER_ID : undefined} aria-expanded={open?.id === null}
@@ -194,7 +198,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
           <Button key={menu.id} color="inherit" size="small" sx={{ flexShrink: 0 }} aria-haspopup="menu"
             id={"app-menu-button-" + menu.id} aria-controls={open?.id === menu.id ? "app-menu" : undefined}
             aria-expanded={open?.id === menu.id}
-            onClick={(e) => setOpen({ anchor: e.currentTarget, id: menu.id })}>
+            onClick={(e) => { setOpen({ anchor: e.currentTarget, id: menu.id }); setWideMenu({ anchor: e.currentTarget, id: menu.id }); }}>
             {s(menu.label)}
           </Button>
         ))}
@@ -233,9 +237,9 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
         </Tooltip>
       </Toolbar>
 
-      <Menu id="app-menu" anchorEl={open?.anchor} open={open !== null && open.id !== null} onClose={() => setOpen(null)}
-        slotProps={{ list: { "aria-labelledby": "app-menu-button-" + open?.id } }}>
-        {open?.id != null && menus.find((m) => m.id === open.id)?.items.map(entry)}
+      <Menu id="app-menu" anchorEl={wideMenu?.anchor} open={open !== null && open.id !== null && wideMenu !== null} onClose={() => setOpen(null)}
+        slotProps={{ list: { "aria-labelledby": "app-menu-button-" + wideMenu?.id } }}>
+        {wideMenu && menus.find((m) => m.id === wideMenu.id)?.items.map(entry)}
       </Menu>
       <AppDrawer open={open !== null && open.id === null} onClose={() => setOpen(null)} menus={menus} project={info.project}
         texts={texts} toggles={toggles} onRun={run} />

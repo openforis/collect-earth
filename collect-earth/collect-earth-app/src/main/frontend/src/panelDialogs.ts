@@ -9,10 +9,16 @@
 export const PANEL_MESSAGE = "collectEarthPanel";
 
 /**
- * Widen the frame to the whole window, or put it back. The frame must have the color-scheme of this page, or Chrome
+ * Widen the frame to the whole window, or put it back; the panel asks for it (ask) once the page has loaded. The frame must have the color-scheme of this page, or Chrome
  * paints it opaque: Google Earth Web's page has none, this one the system's.
  */
 export interface PanelMessage { type: typeof PANEL_MESSAGE; expand: boolean; colorScheme?: string }
+
+/** Whether a message is the panel's asking what this page wants (javascript_plots_map_panel.fmt), from its page only. */
+export function isPanelAsking(e: { source: unknown; data: unknown }, parent: unknown): boolean {
+  const data = e.data as { type?: unknown; ask?: unknown } | null;
+  return e.source === parent && data != null && data.type === PANEL_MESSAGE && data.ask === true;
+}
 
 export function panelMessage(expand: boolean, colorScheme?: string): PanelMessage {
   return colorScheme ? { type: PANEL_MESSAGE, expand, colorScheme } : { type: PANEL_MESSAGE, expand };
@@ -33,19 +39,24 @@ type Observe = (onMutation: () => void) => { observe(target: Node, options: Muta
 
 /**
  * Calls onChange(true) once a dialog shows, onChange(false) once the last is gone: whatever opens it, so no dialog is
- * missed. A mutation observer calls back before the next paint, so the dialog is hardly seen narrow.
+ * missed. A mutation observer calls back before the next paint, so the dialog is hardly seen narrow. It watches the
+ * children of body coming and going, and their classes, which hide and show a dialog kept mounted.
  */
 export function watchDialogs(body: HTMLElement, onChange: (shown: boolean) => void,
   observe: Observe = (f) => new MutationObserver(f)): () => void {
   let shown = dialogShown(body);
   if (shown) onChange(true);
+  // Observing a node again only renews its options; a child gone is dropped by the observer with it
+  const watchChildren = () => Array.from(body.children).forEach((child) => observer.observe(child, { attributes: true, attributeFilter: ["class"] }));
   const observer = observe(() => {
+    watchChildren();
     const now = dialogShown(body);
     if (now === shown) return;
     shown = now;
     onChange(now);
   });
   observer.observe(body, { childList: true });
+  watchChildren();
   return () => observer.disconnect();
 }
 
@@ -81,11 +92,24 @@ export function expandForDialogs(win: Window, scale: () => number, observe?: Obs
   const html = doc.documentElement;
   const root = doc.getElementById("root");
   let timer = 0;
+  // Whether a dialog shows, and what the panel was last asked for
+  let shown = false;
+  let expanded = false;
 
   const post = (expand: boolean) => {
+    expanded = expand;
     // Nothing in it but whether a dialog is open: any page may read it ("*"), the panel's checks where it comes from
     win.parent.postMessage(panelMessage(expand, win.getComputedStyle(html).colorScheme), "*");
   };
+  // A page going with a dialog open (a reload, the language changed) gives the frame back: the next page would otherwise
+  // be laid out wide over all of Google Earth Web until it has loaded
+  const onPageHide = () => { if (expanded) post(false); };
+  const onPageShow = (e: PageTransitionEvent) => { if (e.persisted && shown) post(true); };
+  // The panel takes the frame back when the page has loaded, and then asks: a dialog shown before then asked too early
+  const onMessage = (e: MessageEvent) => { if (isPanelAsking(e, win.parent)) post(shown); };
+  win.addEventListener("pagehide", onPageHide);
+  win.addEventListener("pageshow", onPageShow);
+  win.addEventListener("message", onMessage);
   const unfreeze = () => {
     win.clearTimeout(timer);
     win.removeEventListener("resize", onResize);
@@ -97,13 +121,15 @@ export function expandForDialogs(win: Window, scale: () => number, observe?: Obs
     root?.style.removeProperty("width");
     setFrozen(null);
   };
-  // Narrow again: the panel took the frame back
+  // Once the dialogs are gone, the first resize is the panel taking the frame back, or the window resized: either way
+  // the layout follows the frame from then on
   function onResize() {
-    if (frozen && win.innerWidth <= frozen.width) unfreeze();
+    unfreeze();
   }
 
-  const stop = watchDialogs(doc.body, (shown) => {
-    if (shown) {
+  const stop = watchDialogs(doc.body, (now) => {
+    shown = now;
+    if (now) {
       win.clearTimeout(timer);
       win.removeEventListener("resize", onResize);
       if (!frozen) {
@@ -127,6 +153,10 @@ export function expandForDialogs(win: Window, scale: () => number, observe?: Obs
   }, observe);
   return () => {
     stop();
+    win.removeEventListener("pagehide", onPageHide);
+    win.removeEventListener("pageshow", onPageShow);
+    win.removeEventListener("message", onMessage);
+    if (expanded) post(false);
     unfreeze();
   };
 }

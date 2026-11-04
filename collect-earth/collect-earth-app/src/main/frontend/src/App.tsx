@@ -87,7 +87,7 @@ export function App({ controller }: { controller: MapController }) {
     <Box sx={{ flex: 1, minHeight: 0, position: "relative" }}>
     {page === "settings" && (
       <Box sx={{ position: "absolute", inset: 0, zIndex: 2, bgcolor: "background.default" }}>
-        <SettingsPage texts={texts} compact={width < COMPACT_BAR_WIDTH * scale} onClose={() => setPage("main")} onApplied={reloadInfo} />
+        <SettingsPage texts={texts} compact={width < COMPACT_BAR_WIDTH * scale} width={width} onClose={() => setPage("main")} onApplied={reloadInfo} />
       </Box>
     )}
     {IN_HOME ? <HomePage info={info} state={state} /> : (

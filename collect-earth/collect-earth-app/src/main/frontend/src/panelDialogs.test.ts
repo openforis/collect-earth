@@ -1,15 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { dialogShown, expandForDialogs, frozenLayout, panelMessage, watchDialogs } from "./panelDialogs";
+import { dialogShown, expandForDialogs, frozenLayout, isPanelAsking, panelMessage, watchDialogs } from "./panelDialogs";
 
 /** An element of body with the classes given */
 const el = (...classes: string[]) => ({ classList: { contains: (c: string) => classes.includes(c) } });
 
 /** A mutation observer the test calls back by hand */
 function fakeObserver() {
-  const o = { callback: () => {}, observed: null as unknown, disconnected: false };
+  const o = { callback: () => {}, observed: [] as { target: unknown; options: MutationObserverInit }[], disconnected: false };
   const observe = (f: () => void) => {
     o.callback = f;
-    return { observe: (target: Node) => { o.observed = target; }, disconnect: () => { o.disconnected = true; } };
+    return { observe: (target: Node, options: MutationObserverInit) => { o.observed.push({ target, options }); }, disconnect: () => { o.disconnected = true; } };
   };
   return { o, observe };
 }
@@ -31,7 +31,7 @@ describe("watchDialogs", () => {
     const { o, observe } = fakeObserver();
     const changes: boolean[] = [];
     const stop = watchDialogs(body as unknown as HTMLElement, (shown) => changes.push(shown), observe);
-    expect(o.observed).toBe(body);
+    expect(o.observed[0]).toEqual({ target: body, options: { childList: true } });
     o.callback();
     body.children.push(el("MuiDialog-root"));
     o.callback();
@@ -45,6 +45,20 @@ describe("watchDialogs", () => {
     stop();
     expect(o.disconnected).toBe(true);
   });
+  it("sees a dialog kept mounted shown and hidden, by the classes of the children of body", () => {
+    const classes = ["MuiDialog-root", "MuiModal-hidden"];
+    const dialog = { classList: { contains: (c: string) => classes.includes(c) } };
+    const body = { children: [dialog] };
+    const { o, observe } = fakeObserver();
+    const changes: boolean[] = [];
+    watchDialogs(body as unknown as HTMLElement, (shown) => changes.push(shown), observe);
+    expect(o.observed).toContainEqual({ target: dialog, options: { attributes: true, attributeFilter: ["class"] } });
+    classes.pop();
+    o.callback();
+    classes.push("MuiModal-hidden");
+    o.callback();
+    expect(changes).toEqual([true, false]);
+  });
   it("tells at once of a dialog already open", () => {
     const changes: boolean[] = [];
     watchDialogs({ children: [el("MuiDialog-root")] } as unknown as HTMLElement, (shown) => changes.push(shown), fakeObserver().observe);
@@ -56,6 +70,18 @@ describe("panelMessage", () => {
   it("says whether to widen the frame, with the color scheme of the page", () => {
     expect(panelMessage(true, "dark")).toEqual({ type: "collectEarthPanel", expand: true, colorScheme: "dark" });
     expect(panelMessage(false)).toEqual({ type: "collectEarthPanel", expand: false });
+  });
+});
+
+describe("isPanelAsking", () => {
+  const parent = {};
+  it("is the panel's page asking", () => {
+    expect(isPanelAsking({ source: parent, data: { type: "collectEarthPanel", ask: true } }, parent)).toBe(true);
+  });
+  it("is no other page, nor another message", () => {
+    expect(isPanelAsking({ source: {}, data: { type: "collectEarthPanel", ask: true } }, parent)).toBe(false);
+    expect(isPanelAsking({ source: parent, data: { type: "collectEarthPanel", expand: true } }, parent)).toBe(false);
+    expect(isPanelAsking({ source: parent, data: null }, parent)).toBe(false);
   });
 });
 
@@ -80,7 +106,8 @@ describe("expandForDialogs", () => {
       removeEventListener: (type: string, f: () => void) => { listeners[type] = (listeners[type] ?? []).filter((g) => g !== f); },
       setTimeout: (f: () => void) => timers.push(f),
       clearTimeout: () => {},
-      resize(width: number) { this.innerWidth = width; (listeners.resize ?? []).forEach((f) => f()); },
+      resize(width: number) { this.innerWidth = width; this.fire("resize"); },
+      fire(type: string, event: object = {}) { (listeners[type] ?? []).slice().forEach((f) => (f as (e: object) => void)(event)); },
     };
     return { win, html, body, root, timers };
   }
@@ -142,5 +169,77 @@ describe("expandForDialogs", () => {
     o.callback();
     expect(frozenLayout()).toEqual({ width: 400, scale: 1 });
     expect(win.parent.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({ expand: true }), "*");
+  });
+});
+
+describe("expandForDialogs, the page going or asked", () => {
+  function setUp() {
+    const listeners: Record<string, ((e: object) => void)[]> = {};
+    const style = () => ({ setProperty: () => {}, removeProperty: () => {} });
+    const body = { children: [] as ReturnType<typeof el>[], style: style() };
+    const win = {
+      innerWidth: 400,
+      document: { documentElement: { style: style() }, body, getElementById: () => ({ style: style() }) },
+      parent: { postMessage: vi.fn() },
+      getComputedStyle: () => ({ fontSize: "14px", colorScheme: "light", getPropertyValue: () => "" }),
+      addEventListener: (type: string, f: (e: object) => void) => { (listeners[type] ??= []).push(f); },
+      removeEventListener: (type: string, f: (e: object) => void) => { listeners[type] = (listeners[type] ?? []).filter((g) => g !== f); },
+      setTimeout: () => 0,
+      clearTimeout: () => {},
+      fire(type: string, event: object = {}) { (listeners[type] ?? []).slice().forEach((f) => f(event)); },
+    };
+    const { o, observe } = fakeObserver();
+    const stop = expandForDialogs(win as unknown as Window, () => 1, observe);
+    const open = () => { body.children.push(el("MuiDialog-root")); o.callback(); };
+    const close = () => { body.children.pop(); o.callback(); };
+    const posted = () => win.parent.postMessage.mock.calls.map((c) => (c[0] as { expand: boolean }).expand);
+    return { win, stop, open, close, posted };
+  }
+
+  it("gives the frame back when the page goes with a dialog open (a reload), and only then", () => {
+    const { win, stop, open, posted } = setUp();
+    win.fire("pagehide");
+    expect(posted()).toEqual([]);
+    open();
+    win.fire("pagehide");
+    expect(posted()).toEqual([true, false]);
+    // Back from the cache with its dialog
+    win.fire("pageshow", { persisted: true });
+    expect(posted()).toEqual([true, false, true]);
+    stop();
+  });
+
+  it("gives the frame back when stopped with a dialog open", () => {
+    const { stop, open, posted } = setUp();
+    open();
+    stop();
+    expect(posted()).toEqual([true, false]);
+    expect(frozenLayout()).toBeNull();
+  });
+
+  it("tells the panel again what it wants when the panel asks, from its page only", () => {
+    const { win, stop, open, close, posted } = setUp();
+    open();
+    win.fire("message", { source: win.parent, data: { type: "collectEarthPanel", ask: true } });
+    win.fire("message", { source: {}, data: { type: "collectEarthPanel", ask: true } });
+    expect(posted()).toEqual([true, true]);
+    close();
+    win.fire("message", { source: win.parent, data: { type: "collectEarthPanel", ask: true } });
+    expect(posted()).toEqual([true, true, false, false]);
+    stop();
+  });
+
+  it("lets the layout follow the frame at the first resize once the dialogs are gone, wider too", () => {
+    const { win, stop, open, close } = setUp();
+    open();
+    win.innerWidth = 1600;
+    win.fire("resize");
+    expect(frozenLayout()?.width).toBe(400);
+    close();
+    // The window was made wider meanwhile: the panel is wider too
+    win.innerWidth = 480;
+    win.fire("resize");
+    expect(frozenLayout()).toBeNull();
+    stop();
   });
 });

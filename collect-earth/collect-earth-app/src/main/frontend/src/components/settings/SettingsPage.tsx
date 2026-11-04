@@ -20,6 +20,7 @@ import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
 import CloseIcon from "@mui/icons-material/Close";
 import SearchIcon from "@mui/icons-material/Search";
 import { ApiError } from "../../apiClient";
@@ -50,6 +51,11 @@ interface Props {
   texts: Texts | null;
   /** A narrow window: the sections in a select over the fields instead of a column beside them */
   compact: boolean;
+  /**
+   * The width of the window (App): the layout follows it rather than media queries, as in Google Earth Web's panel it
+   * stays the panel's while a dialog widens the frame (panelDialogs.ts), and the page behind the dialog is not laid out anew
+   */
+  width: number;
   onClose: () => void;
   /** The settings were applied without a restart: the app bar reads /api/app again (the viewer may have changed) */
   onApplied: () => void;
@@ -62,8 +68,10 @@ interface Props {
  * checks the plots file and lists the projects. Applying saves the changes, and restarts Collect Earth when one of
  * them needs it.
  */
-export function SettingsPage({ texts, compact, onClose, onApplied }: Props) {
+export function SettingsPage({ texts, compact, width, onClose, onApplied }: Props) {
   const t = useT();
+  const breakpoints = useTheme().breakpoints.values;
+  const wide = width >= breakpoints.md;
   const s = (key: string) => serverText(texts, key);
   const [data, setData] = useState<Settings | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -203,9 +211,9 @@ export function SettingsPage({ texts, compact, onClose, onApplied }: Props) {
         </Stack>
         {section.hint && !searching && <Typography variant="body2" color="text.secondary">{s(section.hint)}</Typography>}
         {section.id === "plot" && !searching ? (
-          <Stack direction={{ xs: "column", md: "row" }} spacing={3}>
+          <Stack direction={wide ? "row" : "column"} spacing={3}>
             <Stack spacing={2.5} sx={{ flex: 1, minWidth: 0 }}>{visible.map(renderField)}</Stack>
-            <Box sx={{ width: { md: 320 }, flexShrink: 0 }}><PlotPreview values={values} plot={validation?.plot ?? null} texts={texts} /></Box>
+            <Box sx={{ width: wide ? 320 : undefined, flexShrink: 0 }}><PlotPreview values={values} plot={validation?.plot ?? null} texts={texts} /></Box>
           </Stack>
         ) : visible.map(renderField)}
         {!searching && <SectionExtras section={section} values={values} data={data} texts={texts}
@@ -238,7 +246,7 @@ export function SettingsPage({ texts, compact, onClose, onApplied }: Props) {
         <Typography variant="h5" component="h1" sx={{ fontWeight: 600, flexShrink: 0 }}>{s("SettingsPage.title")}</Typography>
         <Box sx={{ flex: 1 }} />
         <TextField size="small" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={s("SettingsPage.search")}
-          aria-label={s("SettingsPage.search")} sx={{ width: { xs: 160, sm: 260 } }}
+          aria-label={s("SettingsPage.search")} sx={{ width: width >= breakpoints.sm ? 260 : 160 }}
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }} />
         <IconButton onClick={close} aria-label={s("SettingsPage.close")}><CloseIcon /></IconButton>
       </Stack>

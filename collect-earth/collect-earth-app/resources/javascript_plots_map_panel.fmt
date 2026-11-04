@@ -134,18 +134,27 @@ return (function (url, title) {
         panel.style.boxShadow = on ? "none" : SHADOW;
         handle.style.display = on ? "none" : "";
         // Chrome paints a frame opaque when its page's color-scheme differs from the frame's: this page has none
-        if (on && /^[a-z ]+$/.test(colorScheme || "")) frame.style.colorScheme = colorScheme;
+        // Put back on collapse, so the frame is as it was made but while a dialog is open
+        frame.style.colorScheme = on && /^[a-z ]+$/.test(colorScheme || "") ? colorScheme : "";
     }
     var frameOrigin = null;
     try { frameOrigin = new URL(url, location.href).origin; } catch (e) { /* no messages taken */ }
     function onMessage(e) {
         var data = e.data;
-        if (e.source !== frame.contentWindow || e.origin !== frameOrigin || !data || data.type !== "collectEarthPanel") return;
+        if (e.origin !== frameOrigin || !data || data.type !== "collectEarthPanel") return;
+        // What the page says as it goes (pagehide, a reload with a dialog open) comes with no source, its window gone: only
+        // giving the frame back is taken so
+        if (e.source !== frame.contentWindow && !(e.source === null && data.expand === false)) return;
         expand(data.expand === true, data.colorScheme);
     }
     window.addEventListener("message", onMessage);
-    // A page loaded anew in the frame has no dialog open
-    function onFrameLoad() { expand(false); }
+    // A page loaded anew in the frame has no dialog open, or one opened before it had loaded, which it then tells again
+    function onFrameLoad() {
+        expand(false);
+        try {
+            frame.contentWindow.postMessage({ type: "collectEarthPanel", ask: true }, frameOrigin);
+        } catch (e) { /* no origin: no messages */ }
+    }
     frame.addEventListener("load", onFrameLoad);
 
     // The page's own title is set by Google Earth Web as it pleases: put back whenever it changes
