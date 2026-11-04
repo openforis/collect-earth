@@ -146,9 +146,13 @@ public class GoogleEarthWebService {
 	 * Pushes the plot URL onto the history and fires popstate, which Google Earth Web's
 	 * router may follow by flying the camera. The previous plot's overlay is stopped first:
 	 * it reads the camera from the URL and would draw the old plot at the new position.
+	 * Where the camera was and when it was sent are kept for the outline of the plot, injected
+	 * once Google Earth Web took the URL: how long the flight can take depends on both (see
+	 * javascript_google_earth_web_camera.js).
 	 */
-	private static final String IN_PAGE_NAVIGATION_SCRIPT =
+	static final String IN_PAGE_NAVIGATION_SCRIPT =
 			"var o = window." + OVERLAY_TAG + "; if (o && o.stop) { o.stop(); }"
+			+ "window.__collectEarthGewSent = { url: arguments[0], from: location.href, at: Date.now() };"
 			+ "history.pushState(null, '', arguments[0]);"
 			+ "window.dispatchEvent(new PopStateEvent('popstate', { state: null }));";
 
@@ -156,9 +160,10 @@ public class GoogleEarthWebService {
 	 * The same, keeping the overlay: the plot does not change, only where the camera looks. The overlay
 	 * hides until the camera has flown there.
 	 */
-	private static final String CAMERA_MOVE_SCRIPT = "history.pushState(null, '', arguments[0]);"
+	static final String CAMERA_MOVE_SCRIPT = "var from = location.href;"
+			+ "history.pushState(null, '', arguments[0]);"
 			+ "window.dispatchEvent(new PopStateEvent('popstate', { state: null }));"
-			+ "var o = window." + OVERLAY_TAG + "; if (o && o.expectFlight) { o.expectFlight(arguments[0]); }";
+			+ "var o = window." + OVERLAY_TAG + "; if (o && o.expectFlight) { o.expectFlight(arguments[0], from, Date.now()); }";
 
 	private final Logger logger = LoggerFactory.getLogger(GoogleEarthWebService.class);
 
@@ -855,6 +860,7 @@ public class GoogleEarthWebService {
 			data.put("plotUrl", topDownUrl(plot));
 			data.put("inPageNavigation", String.valueOf(inPage.follows()));
 			data.put("flightUrl", flightUrl == null ? "" : flightUrl);
+			data.put("flyAnimation", flyAnimation());
 			Map<String, String> labels = new LinkedHashMap<>();
 			for (String key : LABEL_KEYS) {
 				labels.put(key, Messages.getString("GoogleEarthWeb." + key));
@@ -1247,6 +1253,17 @@ public class GoogleEarthWebService {
 	int plotDistance(SimplePlacemarkObject plot) {
 		return GoogleEarthWebUrls.plotDistance(plot,
 				localPropertiesService == null ? null : localPropertiesService.getValue(EarthProperty.GEW_PLOT_VIEW_SHARE));
+	}
+
+	/**
+	 * Whether the outline turns Google Earth Web's fly animation off ("off"), so that its camera jumps to each plot and
+	 * the plot is drawn about a second after it was chosen, or leaves GEW's own setting as it is ("keep",
+	 * {@code gew_fly_animation=true} in earth.properties). Flying, the camera takes 2 to 5 seconds to get to the plot,
+	 * and the outline waits for it (see javascript_google_earth_web_camera.js).
+	 */
+	String flyAnimation() {
+		String kept = localPropertiesService == null ? null : localPropertiesService.getValue(EarthProperty.GEW_FLY_ANIMATION);
+		return kept != null && Boolean.parseBoolean(kept.trim()) ? "keep" : "off";
 	}
 
 	/** The altitude a camera URL of the plot aims at: its elevation, or else the ground learnt nearby, or else 0. */

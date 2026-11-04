@@ -113,6 +113,11 @@ public class LocalPropertiesService extends Observable {
 				GEW_TRIAL_PROMPT_DISABLED("gew_trial_prompt_disabled"),
 				/** Share of the height of Google Earth Web's view a plot fills (0.375 when not set), see GoogleEarthWebUrls */
 				GEW_PLOT_VIEW_SHARE("gew_plot_view_share"),
+				/**
+				 * "true" leaves Google Earth Web's own fly animation setting as it is; otherwise Collect Earth turns it off,
+				 * so that the camera jumps to each plot (see javascript_google_earth_web_camera.js)
+				 */
+				GEW_FLY_ANIMATION("gew_fly_animation"),
 				MAP_ENGINE("map_engine"),
 				WINDOW_LAYOUT("window_layout"),
 				WEB_FORM("web_form"),

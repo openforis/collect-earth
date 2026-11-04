@@ -119,12 +119,12 @@ public class GoogleEarthWebOverlayIT {
 	}
 
 	/**
-	 * With animations off in its settings, Google Earth Web jumps to the camera it is sent and never writes one of its
-	 * own: the first flight waits out the timeout, and the plots after it are drawn once the jump has settled. A camera
-	 * it writes of its own over the plot afterwards means it flies again.
+	 * Google Earth Web flying (its fly animation on, which it is in a page of no storage of its own like this one) keeps
+	 * the camera sent in the URL until it arrives, then writes the one it arrived at: the plot is drawn then, and not
+	 * hidden for a camera written again for the same view.
 	 */
 	@Test
-	public void aCameraThatJumpsIsLearntAndNotWaitedFor() throws Exception {
+	public void aFlightIsDrawnOnceGoogleEarthWebWritesTheCameraItArrivedAt() throws Exception {
 		imagery.setCommandTimeout(Duration.ofSeconds(120));
 		List<Map<String, Object>> ring = Arrays.asList(coord(1, 1), coord(1.001, 1), coord(1.001, 1.001), coord(1, 1));
 		ImageryTab tab = imagery.tab(ImagerySource.GOOGLE_EARTH_WEB);
@@ -132,46 +132,39 @@ public class GoogleEarthWebOverlayIT {
 		assertTrue(tab.load(camera, false, Duration.ofSeconds(20)));
 
 		assertEquals("armed", tab.evaluate(overlayScript(ring, camera)));
-		assertFalse(outlineBecomes(tab, "block", 5000), "the first flight is waited for");
-		assertTrue(outlineBecomes(tab, "block", 5000), "drawn when the flight times out on the camera sent");
-		assertEquals(true, tab.evaluate("return window.__collectEarthGewJumps;"));
-
-		// The next plot, in-page: only the jump settling is waited for
-		assertEquals("armed", tab.evaluate(overlayScript(ring, camera)));
-		assertTrue(outlineBecomes(tab, "none", 500), "hidden while the jump settles");
-		assertTrue(outlineBecomes(tab, "block", 2000), "drawn once the jump has settled");
-
-		// Animations turned on again: GEW writes the camera it arrived at, over the plot
+		assertFalse(outlineBecomes(tab, "block", 1500), "the flight is waited for");
 		tab.evaluate("location.hash = '#@1.0005,1.0005,0a,500.00453d,35y,0h,0t,0r';");
-		Thread.sleep(1000);
-		assertEquals(false, tab.evaluate("return window.__collectEarthGewJumps;"));
+		assertTrue(outlineBecomes(tab, "block", 1000), "drawn as soon as GEW wrote the camera it arrived at");
+
+		// The same view written again: drawn again in place, never hidden
+		tab.evaluate("window.__hidden = false; var svg = document.querySelector('svg[data-ce-overlay]');"
+				+ "new MutationObserver(function () { if (svg.style.display === 'none') window.__hidden = true; })"
+				+ ".observe(svg, { attributes: true });"
+				+ "location.hash = '#@1.0005,1.0005,12.5a,500.00461d,35y,0h,0t,0r';");
+		Thread.sleep(1500);
+		assertEquals(false, tab.evaluate("return window.__hidden;"), "not hidden for the camera written again");
+		assertEquals("block", tab.evaluate("return document.querySelector('svg[data-ce-overlay]').style.display;"));
 	}
 
+	/**
+	 * Google Earth Web flying writes the camera it arrived at with 8 decimals: arrived at exactly the distance sent, it
+	 * leaves the URL as it was. The plot is drawn once the flight has had the time, and that is not taken for a jump.
+	 */
 	@Test
-	public void aCameraWrittenWhereGoogleEarthWebWasBeforeAJumpIsNotDrawnFrom() throws Exception {
+	public void aFlightThatLeavesTheUrlAsItWasIsDrawnOnceItHadTheTime() throws Exception {
 		imagery.setCommandTimeout(Duration.ofSeconds(120));
 		List<Map<String, Object>> ring = Arrays.asList(coord(1, 1), coord(1.001, 1), coord(1.001, 1.001), coord(1, 1));
 		ImageryTab tab = imagery.tab(ImagerySource.GOOGLE_EARTH_WEB);
 		String camera = pageWithCamera(1.0005, 1.0005);
 		assertTrue(tab.load(camera, false, Duration.ofSeconds(20)));
+
 		assertEquals("armed", tab.evaluate(overlayScript(ring, camera)));
-		assertTrue(outlineBecomes(tab, "block", 10000), "the jump is learnt");
+		assertFalse(outlineBecomes(tab, "block", 4000), "the flight is waited for");
+		assertTrue(outlineBecomes(tab, "block", 2500), "drawn once the longest flight is over");
 
-		// The next plot, 2 km away: sent there in-page, then GEW writes the camera it had over the previous one
-		List<Map<String, Object>> next = Arrays.asList(coord(1.02, 1), coord(1.021, 1), coord(1.021, 1.001), coord(1.02, 1));
-		String nextCamera = "#@1.0005,1.0205,0a,500d,35y,0h,0t,0r";
-		tab.evaluate("location.hash = arguments[0];", nextCamera);
-		assertEquals("armed", tab.evaluate(overlayScript(next, pageWithCamera(1.0005, 1.0205))));
-		tab.evaluate("location.hash = '#@1.0005,1.0005,0a,500.00453d,35y,0h,0t,0r';");
-		assertTrue(outlineBecomes(tab, "block", 2000), "drawn once the jump has settled");
-		String hint = "return document.querySelector('[data-ce-hint]').style.display;";
-		assertEquals("none", tab.evaluate(hint), "the plot is drawn in view, not from the camera written");
-		assertEquals(true, tab.evaluate("return window.__collectEarthGewJumps;"), "nor taken for a flight that arrived");
-
-		// Drawn again with its neighbours: still from the camera it jumped to
-		assertEquals("armed", tab.evaluate(overlayScript(next)));
-		assertTrue(outlineBecomes(tab, "block", 3000));
-		assertEquals("none", tab.evaluate(hint));
+		// The next plot is waited for as well
+		assertEquals("armed", tab.evaluate(overlayScript(ring, camera)));
+		assertFalse(outlineBecomes(tab, "block", 1500), "not taken for a jump");
 	}
 
 	@Test
