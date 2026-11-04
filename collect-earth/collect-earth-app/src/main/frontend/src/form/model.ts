@@ -392,22 +392,81 @@ export function isTabVisible(tab: Tab, infos: Record<string, FieldInfo>): boolea
 }
 
 /**
- * The control to focus when a plot opens: that of the first question not answered yet, or null when all are (a key
- * pressed in a plot looked at again must not edit it). The questions in the order shown, each with its control (null:
- * nothing to answer, as a calculated field).
+ * Whether a question is answered with the number keys, Enter or Space: a choice (buttons or a list) or Yes and No.
+ * Only those are ever given the focus by the form itself: a digit typed ahead must never end up in a text, a number
+ * or a comment, which the user Tabs into.
  */
-export function questionToFocus<T>(questions: { name: string; control: T | null }[], value: (name: string) => string): T | null {
-  return questions.find((q) => q.control != null && value(q.name).trim() === "")?.control ?? null;
+export function answeredWithKeys(field: Field): boolean {
+  return !field.readOnly && (field.type === "code" || field.type === "boolean");
+}
+
+/** A question of a step, as the moves of the focus see it */
+export interface StepQuestion {
+  name: string;
+  /** answered from the keyboard (see answeredWithKeys), and with something to answer now (a list with answers) */
+  byKey: boolean;
+  /** an answer is needed (required) and none is given yet */
+  needed: boolean;
+}
+
+export interface Step { tab: number; questions: StepQuestion[] }
+
+/**
+ * The steps shown, by tab, each with its questions shown in their order (`describe`: null for one that is not a
+ * question, as a calculated field).
+ */
+export function stepsOf(model: FormModel, infos: Record<string, FieldInfo>,
+  describe: (field: Field) => StepQuestion | null): Step[] {
+  const steps: Step[] = [];
+  model.tabs.forEach((tab, index) => {
+    if (!isTabVisible(tab, infos)) return;
+    const questions = fieldsOfStep(tab, infos).map(describe).filter((q): q is StepQuestion => q != null);
+    steps.push({ tab: index, questions });
+  });
+  return steps;
+}
+
+/** The fields shown on a step, in their order (every entity of a multiple item) */
+export function fieldsOfStep(tab: Tab, infos: Record<string, FieldInfo>): Field[] {
+  return tab.items.flatMap((item) => itemFields(item, item.kind === "multiple" ? entityCount(item, infos) : 0))
+    .filter((f) => isVisible(infos, f.name));
+}
+
+/** Where the focus goes: a question of a step, or (name null) the step button of the footer, Submit when it is shown */
+export interface FocusTarget { tab: number; name: string | null }
+
+const toAnswer = (q: StepQuestion) => q.needed && q.byKey;
+
+/**
+ * The question to focus on step `tab`, when a plot opens or the step is shown: its first one needed that is answered
+ * from the keyboard, or null when there is none (a key pressed in a plot looked at again must not edit it).
+ */
+export function firstToAnswer(steps: Step[], tab: number): string | null {
+  return steps.find((s) => s.tab === tab)?.questions.find(toAnswer)?.name ?? null;
 }
 
 /**
- * The control to focus once question `from` is answered from the keyboard: that of the next question below it not
- * answered yet, or null when none is left below it (the questions as for {@link questionToFocus}).
+ * Where the focus goes once question `from` of step `tab` is answered from the keyboard: the next question needed below
+ * it that is answered from the keyboard; else one above it on the step; else, when the step still needs an answer typed
+ * (which the user Tabs into), its step button; else the first such question of the next step that needs one (the steps
+ * after it, then those before), skipping those with nothing needed; else, nothing left anywhere, the step button, which
+ * is Submit then. Never a text, a number or a comment, nor an optional question.
  */
-export function nextUnanswered<T>(questions: { name: string; control: T | null }[], from: string,
-  value: (name: string) => string): T | null {
-  const at = questions.findIndex((q) => q.name === from);
-  return at < 0 ? null : questionToFocus(questions.slice(at + 1), value);
+export function advanceTarget(steps: Step[], tab: number, from: string | null): FocusTarget {
+  const at = steps.findIndex((s) => s.tab === tab);
+  const step = steps[at];
+  if (step) {
+    const index = from == null ? -1 : step.questions.findIndex((q) => q.name === from);
+    const below = step.questions.slice(index + 1).find(toAnswer) ?? step.questions.slice(0, Math.max(0, index)).find(toAnswer);
+    if (below) return { tab, name: below.name };
+    if (step.questions.some((q) => q.needed && q.name !== from)) return { tab, name: null };
+  }
+  const others = at < 0 ? steps : [...steps.slice(at + 1), ...steps.slice(0, at)];
+  for (const other of others) {
+    const first = other.questions.find(toAnswer);
+    if (first) return { tab: other.tab, name: first.name };
+  }
+  return { tab, name: null };
 }
 
 /**

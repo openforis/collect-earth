@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  type KeyPress, FOCUS_KEY_WINDOW, choiceKey, escapeBlurs, focusMovedByKey, isFormMessage, isKeyboardClick, isTyping, keyOfMessage, mayAdvance, mayTakeFocus, panelKey,
-  submitOnKey,
+  type KeyPress, FOCUS_KEY_WINDOW, choiceKey, escapeBlurs, focusMovedByKey, isFormMessage, isKeyboardClick, isTypeAheadKey, isTyping, keyOfMessage,
+  mayAdvance, mayTakeFocus, panelKey, submitOnKey,
 } from "./shortcuts";
 
 /** A stand-in for an element: what isTyping reads of one. */
@@ -77,6 +77,20 @@ describe("panelKey", () => {
   it("keeps a key held down, which would open plot after plot", () => {
     expect(panelKey(press("n", chip, { repeat: true }))).toBeNull();
     expect(panelKey(press("n", chip, { repeat: false }))).toBe("n");
+  });
+});
+
+describe("isTypeAheadKey", () => {
+  it("keeps the number keys pressed while the focus moves on", () => {
+    expect(isTypeAheadKey(press("1"))).toBe(true);
+    expect(isTypeAheadKey(press("9"))).toBe(true);
+  });
+  it("lets any other key through", () => {
+    expect(isTypeAheadKey(press("0"))).toBe(false);
+    expect(isTypeAheadKey(press("Enter"))).toBe(false);
+    expect(isTypeAheadKey(press("1", chip, { altKey: true }))).toBe(false);
+    expect(isTypeAheadKey(press("1", chip, { ctrlKey: true }))).toBe(false);
+    expect(isTypeAheadKey(press("1", chip, { repeat: true }))).toBe(false);
   });
 });
 

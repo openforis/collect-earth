@@ -153,6 +153,15 @@ export function isKeyboardClick(e: { detail: number }): boolean {
 }
 
 /**
+ * Whether a key is one typed ahead while the form moves the focus on from an answer given from the keyboard: a number
+ * key, which answers the next question once the focus is there. Kept until then, it is neither lost nor taken by the
+ * answer just given, which it would change.
+ */
+export function isTypeAheadKey(e: Pick<KeyPress, "key" | "ctrlKey" | "metaKey" | "altKey" | "repeat">): boolean {
+  return !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat && /^[1-9]$/.test(e.key);
+}
+
+/**
  * Whether the focus may move on from an answer given from the keyboard (`from`, the control focused then), once its
  * save is answered: only if the form's page still has the focus (not the plots map around it, its search say), and
  * the focus is still on that control, or nowhere in the page (the control re-rendered). `stale`: the step changed, or

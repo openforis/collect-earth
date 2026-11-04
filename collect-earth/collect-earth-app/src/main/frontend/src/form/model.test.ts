@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   type Field, type FormModel, availableItems, clickCode, dateFromInput, dateToInput, entityCount, errorList, fieldsByName,
-  indexedField, isTabVisible, questionToFocus, joinValues, mergeInfos, nextUnanswered, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
+  indexedField, isTabVisible, joinValues, mergeInfos, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
   requiredMessage, saveBody, selectCodes, splitValues, summaryLines, tabsWithErrors, timeToInput, unansweredRequired, errorsByTab, neededByTab, updateRequired,
+  advanceTarget, answeredWithKeys, firstToAnswer, stepsOf,
 } from "./model";
 
 const category: Field = {
@@ -190,33 +191,70 @@ describe("save request", () => {
   });
 });
 
-describe("questionToFocus", () => {
-  const values: Record<string, string> = { lu: "F", calc: "", sub: "", note: "" };
-  const value = (name: string) => values[name] ?? "";
-  it("is the first question not answered yet, passing over those with nothing to answer", () => {
-    const questions = [{ name: "lu", control: "lu-chip" }, { name: "calc", control: null }, { name: "sub", control: "sub-chip" },
-      { name: "note", control: "note-input" }];
-    expect(questionToFocus(questions, value)).toBe("sub-chip");
-  });
-  it("is none when all are answered, and none without questions", () => {
-    expect(questionToFocus([{ name: "calc", control: null }, { name: "lu", control: "lu-chip" }], value)).toBeNull();
-    expect(questionToFocus([{ name: "calc", control: null }], value)).toBeNull();
-    expect(questionToFocus([], value)).toBeNull();
+describe("answeredWithKeys", () => {
+  it("is a choice or Yes and No, never a text, a number or a calculated value", () => {
+    expect(answeredWithKeys(category)).toBe(true);
+    expect(answeredWithKeys(subdivision)).toBe(true);
+    expect(answeredWithKeys({ ...comments, type: "boolean" })).toBe(true);
+    expect(answeredWithKeys(comments)).toBe(false);
+    expect(answeredWithKeys({ ...comments, type: "text" })).toBe(false);
+    expect(answeredWithKeys({ ...comments, type: "integer" })).toBe(false);
+    expect(answeredWithKeys({ ...category, readOnly: true })).toBe(false);
   });
 });
 
-describe("nextUnanswered", () => {
-  const values: Record<string, string> = { lu: "F", calc: "", sub: "", note: "", first: "" };
-  const value = (name: string) => values[name] ?? "";
-  const questions = [{ name: "first", control: "first-chip" }, { name: "lu", control: "lu-chip" }, { name: "calc", control: null },
-    { name: "sub", control: "sub-chip" }, { name: "note", control: "note-input" }];
-  it("is the next question below the one answered not answered yet, passing over those with nothing to answer", () => {
-    expect(nextUnanswered(questions, "lu", value)).toBe("sub-chip");
-    expect(nextUnanswered(questions, "sub", value)).toBe("note-input");
+describe("moves of the focus", () => {
+  const q = (name: string, byKey: boolean, needed: boolean) => ({ name, byKey, needed });
+  const steps = [
+    { tab: 0, questions: [q("lu", true, false), q("sub", true, true), q("note", false, false), q("canopy", true, true)] },
+    { tab: 1, questions: [q("comments", false, false), q("optional", true, false)] },
+    { tab: 2, questions: [q("change", true, true), q("year", false, true)] },
+  ];
+  it("opens a step on its first question needed that is answered from the keyboard", () => {
+    expect(firstToAnswer(steps, 0)).toBe("sub");
+    expect(firstToAnswer(steps, 2)).toBe("change");
   });
-  it("never goes back up to a question left above, and is none past the last one", () => {
-    expect(nextUnanswered(questions, "note", value)).toBeNull();
-    expect(nextUnanswered(questions, "gone", value)).toBeNull();
+  it("opens a step with none such on nothing", () => {
+    expect(firstToAnswer(steps, 1)).toBeNull();
+    expect(firstToAnswer(steps, 7)).toBeNull();
+  });
+  it("goes on to the next question needed below, past the texts and the questions answered", () => {
+    expect(advanceTarget(steps, 0, "lu")).toEqual({ tab: 0, name: "sub" });
+    expect(advanceTarget(steps, 0, "sub")).toEqual({ tab: 0, name: "canopy" });
+  });
+  it("comes back to one left above on the same step", () => {
+    const left = [{ tab: 0, questions: [q("lu", true, true), q("sub", true, false)] }];
+    expect(advanceTarget(left, 0, "sub")).toEqual({ tab: 0, name: "lu" });
+  });
+  it("goes to the next step that needs an answer, skipping one with only optional questions and texts", () => {
+    const done = [{ ...steps[0], questions: steps[0].questions.map((x) => ({ ...x, needed: false })) }, steps[1], steps[2]];
+    expect(advanceTarget(done, 0, "canopy")).toEqual({ tab: 2, name: "change" });
+  });
+  it("goes back to a step before that needs an answer once those after are done", () => {
+    const before = [steps[0], steps[1], { tab: 2, questions: [q("change", true, false)] }];
+    expect(advanceTarget(before, 2, "change")).toEqual({ tab: 0, name: "sub" });
+  });
+  it("stays on a step that still needs an answer typed, on its step button, never in the text box", () => {
+    expect(advanceTarget(steps, 2, "change")).toEqual({ tab: 2, name: null });
+  });
+  it("goes to the step button, Submit, when nothing is left anywhere", () => {
+    const none = steps.map((s) => ({ ...s, questions: s.questions.map((x) => ({ ...x, needed: false })) }));
+    expect(advanceTarget(none, 0, "canopy")).toEqual({ tab: 0, name: null });
+    expect(advanceTarget(none, 2, null)).toEqual({ tab: 2, name: null });
+  });
+  it("never lands in an optional question, even one answered with keys", () => {
+    const optional = [{ tab: 0, questions: [q("lu", true, false), q("optional", true, false), q("comments", false, false)] }];
+    expect(advanceTarget(optional, 0, "lu")).toEqual({ tab: 0, name: null });
+  });
+  it("describes the steps shown, with their questions shown in order", () => {
+    const infos = { collect_code_sub: { visible: false }, "collect_entity_tree[1].real_height": {} };
+    const described = stepsOf(model, infos, (f) => ({ name: f.name, byKey: answeredWithKeys(f), needed: f.name === "collect_code_lu" }));
+    expect(described).toEqual([
+      { tab: 0, questions: [{ name: "collect_code_lu", byKey: true, needed: true }] },
+      { tab: 1, questions: [{ name: "collect_text_comments", byKey: false, needed: false },
+        { name: "collect_entity_tree[1].real_height", byKey: false, needed: false }] },
+    ]);
+    expect(stepsOf(model, { collect_code_lu: { visible: false }, collect_code_sub: { visible: false } }, () => null).map((s) => s.tab)).toEqual([1]);
   });
 });
 

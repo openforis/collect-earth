@@ -30,13 +30,13 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import SendIcon from "@mui/icons-material/Send";
 import { type MessageKey, useT } from "../i18n";
-import { escapeBlurs, mayAdvance, mayTakeFocus, panelKey, submitOnKey } from "../shortcuts";
+import { escapeBlurs, isTypeAheadKey, isTyping, mayAdvance, mayTakeFocus, panelKey, submitOnKey } from "../shortcuts";
 import logo from "./collect-earth-logo.png";
 import { AnsweredByKey, FieldView, errorText } from "./fields";
 import {
-  type Field, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type TableItem,
-  availableItems, entityCount, errorList, indexedField, isTabVisible, isVisible, itemFields, neededByTab, nextUnanswered,
-  questionToFocus, summaryLines, tabsWithErrors,
+  type Field, type FocusTarget, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type Step,
+  type TableItem, advanceTarget, answeredWithKeys, availableItems, entityCount, errorList, firstToAnswer, indexedField,
+  isTabVisible, isVisible, itemFields, neededByTab, stepsOf, summaryLines, tabsWithErrors,
 } from "./model";
 import type { FormState, FormStore, SaveState } from "./store";
 
@@ -44,8 +44,31 @@ import type { FormState, FormStore, SaveState } from "./store";
 const NARROW = "@media (max-width: 480px)";
 /** What answers a question from the keyboard, inside its box ([data-field]) */
 const CONTROL = "input:not([disabled]), textarea, [role=radio], [role=checkbox], button";
-/** The longest an answer from the keyboard waits for its save before the focus moves on (see answeredByKey) */
+/**
+ * The longest the server's answer to an answer from the keyboard may take to move the focus once more, to a question it
+ * showed above the one the focus moved to (see answeredByKey)
+ */
 const ADVANCE_WAIT = 3000;
+/** The longest the number keys typed ahead wait for the focus to move on, before they go where it is */
+const TYPE_AHEAD_WAIT = ADVANCE_WAIT + 1000;
+
+/** Once the change of the state just made is rendered */
+function afterRender(run: () => void): void {
+  requestAnimationFrame(() => requestAnimationFrame(run));
+}
+
+/** Text typed at the end of a box, as the keys would (React sees the input event) */
+function typeInto(input: HTMLInputElement, text: string): void {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, input.value + text);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+/** Resolves when `promise` does, or after `ms`, whichever comes first */
+function within(promise: Promise<void>, ms: number): Promise<void> {
+  let timer = 0;
+  return Promise.race([promise, new Promise<void>((resolve) => { timer = window.setTimeout(resolve, ms); })])
+    .finally(() => window.clearTimeout(timer));
+}
 
 export function FormApp({ store }: { store: FormStore }) {
   const state = useSyncExternalStore(store.subscribe, store.getState);
@@ -82,20 +105,72 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
   const info = model.tabs.flatMap((tb) => tb.items.filter((i): i is InfoItem => i.kind === "info"));
   // the header goes on the first step, which is not tab 0 when that one has nothing to fill in
   const firstStep = Math.max(0, model.tabs.findIndex((tb) => isTabVisible(tb, state.infos)));
-  const goTo = useCallback((index: number) => {
+
+  /** The steps shown and their questions as they are now, for the moves of the focus (see advanceTarget) */
+  const stepsNow = useCallback((): Step[] => {
+    const now = store.getState();
+    if (!now.model) return [];
+    const byName = store.fieldsByName();
+    return stepsOf(now.model, now.infos, (f) => {
+      if (f.readOnly || f.type === "unsupported") return null;
+      // a list whose answers depend on a question not answered yet has nothing to answer
+      const byKey = answeredWithKeys(f) && (f.type !== "code" || availableItems(f, now.infos, now.pending, byName).length > 0);
+      return { name: f.name, byKey, needed: store.isRequired(f.name) && store.value(f.name).trim() === "" };
+    });
+  }, [store]);
+
+  /** The control of a question shown that the keyboard answers it with; for none, the step button (Submit when shown) */
+  const controlOf = useCallback((name: string | null): HTMLElement | null => {
+    if (name == null) return document.querySelector<HTMLElement>("[data-step-button]");
+    return content.current?.querySelector(`[data-field="${CSS.escape(name)}"]`)?.querySelector<HTMLElement>(CONTROL) ?? null;
+  }, []);
+
+  // A change of step the user made makes a move of the focus on its way stale; one the move made itself does not
+  const advance = useRef(0);
+  const ownTab = useRef<number | null>(null);
+  useEffect(() => {
+    if (ownTab.current === state.tab) ownTab.current = null;
+    else advance.current++;
+  }, [state.tab]);
+
+  /** The focus to a question or a step button, on its step, once rendered; `done` is told the control focused */
+  const focusTarget = useCallback((target: FocusTarget, done?: (control: HTMLElement | null) => void) => {
+    if (target.tab !== store.getState().tab) {
+      ownTab.current = target.tab;
+      store.setTab(target.tab);
+      content.current?.scrollTo({ top: 0 });
+    }
+    afterRender(() => {
+      const control = controlOf(target.name) ?? controlOf(null);
+      control?.focus();
+      done?.(control);
+    });
+  }, [store, controlOf]);
+
+  /**
+   * To a step. With `focus`, the keyboard is ready on it: on its first question to answer, else on its step button
+   * (Submit on the last step, where Next is gone with the focus it had), never left on the page, where the number keys
+   * do nothing.
+   */
+  const goTo = useCallback((index: number, focus = true) => {
     store.setTab(index);
     content.current?.scrollTo({ top: 0 });
-  }, [store]);
+    if (!focus) return;
+    afterRender(() => {
+      if (store.getState().tab !== index || !document.hasFocus()) return;
+      (controlOf(firstToAnswer(stepsNow(), index)) ?? controlOf(null))?.focus();
+    });
+  }, [store, stepsNow, controlOf]);
   /** To a question, on its tab: in view, and ready to be answered from the keyboard */
   const goToField = useCallback((index: number, name: string) => {
-    if (index !== store.getState().tab) goTo(index);
+    if (index !== store.getState().tab) goTo(index, false);
     // once the tab is rendered
-    requestAnimationFrame(() => requestAnimationFrame(() => {
+    afterRender(() => {
       const box = content.current?.querySelector<HTMLElement>(`[data-field="${CSS.escape(name)}"]`);
       if (!box) return;
       box.scrollIntoView({ block: "center", behavior: "smooth" });
       box.querySelector<HTMLElement>(CONTROL)?.focus({ preventScroll: true });
-    }));
+    });
   }, [store, goTo]);
 
   // Errors after a submit: to the first one, on the tab the submit moved to (not those listed on opening the plot)
@@ -106,40 +181,92 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
   }, [state.submitErrors, store, goToField]);
 
   // Once, when the plot opens (a plot has a page of its own), and once the server said which questions are shown: the
-  // first one not answered yet takes the focus, to be answered from the keyboard, and the keys of the plots map work.
-  // None when all are answered, and none when the user put the focus elsewhere meanwhile (see focusIsFree).
+  // first one needed and answered with keys takes the focus, to be answered from the keyboard, and the keys of the plots
+  // map work. None when all are answered, and none when the user put the focus elsewhere meanwhile (see focusIsFree).
   const opened = useRef(false);
   const known = Object.keys(state.infos).length > 0;
   useEffect(() => {
     if (opened.current || !known) return;
     opened.current = true;
     // once the questions are rendered
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const control = questionToFocus(questionsShown(content.current), (name) => store.value(name));
+    afterRender(() => {
+      const name = firstToAnswer(stepsNow(), store.getState().tab);
+      const control = name == null ? null : controlOf(name);
       if (control && focusIsFree()) control.focus();
-    }));
-  }, [known, store]);
+    });
+  }, [known, store, stepsNow, controlOf]);
 
-  // A single choice answered from the keyboard: on to the next question below it still to answer, else to the footer's
-  // step button (Next step or Submit), for Enter to go on. Once the server answered the save, with the questions the
-  // answer shows (a subdivision of the land use), and rendered them; not if the user moved the focus meanwhile.
-  // Each answer, and each change of step, makes the move of an answer before it stale.
-  const advance = useRef(0);
-  useEffect(() => { advance.current++; }, [state.tab]);
+  // The number keys typed while the focus moves on from an answer (see answeredByKey): kept, then pressed on the control
+  // the focus moved to, so that none is lost, nor taken by the answer just given. `keys` counts every key pressed, for
+  // the move made once more after the server's answer, only if nothing was typed since.
+  const typeAhead = useRef<{ ticket: number; keys: string[] } | null>(null);
+  const keys = useRef(0);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      keys.current++;
+      if (!typeAhead.current || !isTypeAheadKey(e)) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      typeAhead.current.keys.push(e.key);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+  /**
+   * The move of `ticket` is over, the focus on `control` (null: nowhere to go): the keys kept are pressed on it, or typed
+   * in it when it is a box (the search of a long list)
+   */
+  const endMove = useCallback((ticket: number, control: Element | null) => {
+    const move = typeAhead.current;
+    if (!move || move.ticket !== ticket) return;
+    typeAhead.current = null;
+    if (!control || !move.keys.length) return;
+    if (isTyping(control)) {
+      if (control instanceof HTMLInputElement) typeInto(control, move.keys.join(""));
+      return;
+    }
+    // a key pressed there may start the next move, which keeps those after it in turn
+    for (const key of move.keys) control.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+  }, []);
+
+  // A single choice answered from the keyboard: on at once to the next question needed that is answered with keys, on
+  // this step or the next one that needs one, else to the footer's step button (Submit once nothing is left), for Enter
+  // to go on (see advanceTarget); never into a text. Not if the user moved the focus meanwhile. The server's answer may
+  // then show a question above the one the focus moved to (a subdivision of the land use): the focus goes there, if
+  // nothing was typed since. Each answer, and each change of step by the user, makes the move of an answer before it stale.
+  // The number keys typed ahead are pressed on the question the focus moved to; when that is a long list, whose search
+  // they would go into, they wait for the server's answer, and go to the question it showed above, if it did.
   const answeredByKey = useCallback((name: string) => {
     const from = document.activeElement;
+    const fromTab = store.getState().tab;
     const ticket = ++advance.current;
-    let timer = 0;
-    const waited = new Promise<void>((resolve) => { timer = window.setTimeout(resolve, ADVANCE_WAIT); });
-    void Promise.race([store.whenSaved(), waited]).then(() => {
-      window.clearTimeout(timer);
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        if (!mayAdvance(document.hasFocus(), document.activeElement, from, document.body, ticket !== advance.current)) return;
-        const control = nextUnanswered(questionsShown(content.current), name, (n) => store.value(n));
-        (control ?? document.querySelector<HTMLElement>("[data-step-button]"))?.focus();
-      }));
+    typeAhead.current = { ticket, keys: typeAhead.current?.keys ?? [] };
+    window.setTimeout(() => endMove(ticket, document.activeElement), TYPE_AHEAD_WAIT);
+    // once the answer is rendered
+    afterRender(() => {
+      if (!mayAdvance(document.hasFocus(), document.activeElement, from, document.body, ticket !== advance.current)) {
+        endMove(ticket, null);
+        return;
+      }
+      const target = advanceTarget(stepsNow(), fromTab, name);
+      focusTarget(target, (landed) => {
+        const saving = store.getState().saveState === "unsaved" || store.getState().saveState === "saving";
+        const holding = saving && landed != null && isTyping(landed);
+        if (!holding) endMove(ticket, landed);
+        const typed = keys.current;
+        void within(store.whenSaved(), ADVANCE_WAIT).then(() => afterRender(() => {
+          const here = ticket === advance.current && document.hasFocus() && document.activeElement === landed;
+          if (!here || (!holding && keys.current !== typed)) {
+            endMove(ticket, here ? landed : null);
+            return;
+          }
+          const again = advanceTarget(stepsNow(), fromTab, name);
+          if (again.tab !== target.tab || again.name !== target.name) focusTarget(again, (control) => endMove(ticket, control));
+          else endMove(ticket, landed);
+        }));
+      });
     });
-  }, [store]);
+  }, [store, stepsNow, focusTarget, endMove]);
 
   // Ctrl+Enter submits, before the focused chip or button sees it (see submitOnKey)
   useEffect(() => {
@@ -147,6 +274,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     window.addEventListener("keydown", onSubmitKey, true);
     return () => window.removeEventListener("keydown", onSubmitKey, true);
   }, [store]);
+
 
   // Alt+Left/Right change tab; "/", "N" and "Esc" go to the plots map, whose keys they are (see panelKey)
   useEffect(() => {
@@ -261,12 +389,6 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
       </Stack>
     </Stack>
   );
-}
-
-/** The questions shown, in their order, each with the control that answers it from the keyboard (null: none) */
-function questionsShown(content: HTMLElement | null): { name: string; control: HTMLElement | null }[] {
-  const boxes = [...(content?.querySelectorAll<HTMLElement>("[data-field]") ?? [])];
-  return boxes.map((box) => ({ name: box.dataset.field ?? "", control: box.querySelector<HTMLElement>(CONTROL) }));
 }
 
 /** Nothing has the focus, in the plots map around the form or in the form: neither the plot search nor a question. */
