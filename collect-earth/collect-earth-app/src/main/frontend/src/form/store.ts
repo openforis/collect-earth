@@ -1,7 +1,7 @@
 import { earthBase } from "../api";
 import type { PanelKey } from "../shortcuts";
-import { ACTIVELY_SAVED, type Field, type FieldError, type FieldInfo, type FormModel, type LoadResult, errorList, fieldsByName,
-  isTabVisible, mergeInfos, saveBody, updateRequired } from "./model";
+import { ACTIVELY_SAVED, type Field, type FieldError, type FieldInfo, type FormModel, type LoadResult, answersToRemember, errorList,
+  fieldsByName, isTabVisible, mergeInfos, saveBody, updateRequired } from "./model";
 
 const REQUEST_TIMEOUT = 20000;
 /** Typing is saved once the operator pauses; a click right away (the balloon uses the same delays). */
@@ -59,6 +59,27 @@ export interface FormState {
    * is not shown as submitted
    */
   incomplete: boolean;
+  /**
+   * The answers of the plot the collector submitted last in this session (another one), which "Same as previous plot"
+   * copies: kept by the plots map, which tells the form of each plot it opens
+   */
+  previous: PreviousPlot | null;
+}
+
+/** The answers of a plot submitted, by question (see answersToRemember) */
+export interface PreviousPlot { plotId: string; answers: Record<string, string> }
+
+/** The message by which the plots map tells the form the answers of the plot submitted before */
+export interface PreviousMessage { type: "ce:previous"; plotId: string; answers: Record<string, string> }
+
+/** The answers of the plot submitted before, from a message of the plots map, or null for any other message */
+export function previousOf(data: unknown, ownId: string): PreviousPlot | null {
+  const message = data as Partial<PreviousMessage> | null;
+  if (!message || message.type !== "ce:previous" || typeof message.plotId !== "string" || message.plotId === ownId) return null;
+  const answers = message.answers;
+  if (!answers || typeof answers !== "object") return null;
+  const valid = Object.entries(answers).filter((e): e is [string, string] => typeof e[1] === "string");
+  return valid.length ? { plotId: message.plotId, answers: Object.fromEntries(valid) } : null;
 }
 
 async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
@@ -129,7 +150,7 @@ export class FormStore {
     this.state = {
       phase: "loading", failure: null, model: null, placemarkId, infos: {}, pending: {}, tab: 0, saveState: "idle",
       serverDown: false, saveError: null, retrying: false, submitted: false, alreadyFilled: false, unsubmitted: false, submitErrors: null, submitting: false, attempted: false,
-      entityBusy: null, entityFailure: null, incomplete: false,
+      entityBusy: null, entityFailure: null, incomplete: false, previous: null,
     };
   }
 
@@ -166,6 +187,8 @@ export class FormStore {
       this.set({ phase: "failed", failure: "noPlot" });
       return;
     }
+    // the plots map answers with the answers of the plot submitted before (see receive)
+    this.post("ce:ready");
     let model: FormModel;
     try {
       const [m, plot] = await Promise.all([
@@ -436,7 +459,8 @@ export class FormStore {
     // The server only keeps actively_saved when the whole record is valid (AbstractEarthSurveyService)
     if (result.activelySaved) {
       this.set({ submitted: true, unsubmitted: false, submitErrors: null });
-      this.post("ce:saved");
+      // the plots map keeps its answers for the next plot (see previous)
+      this.post("ce:saved", { answers: answersToRemember(this.fields, this.state.model.keys, (n) => this.value(n)) });
       return true;
     }
     const errors = errorList(this.state.model, this.state.infos);
@@ -512,6 +536,13 @@ export class FormStore {
     }
   };
 
+  /** A message of the plots map (the parent page): the answers of the plot submitted before (see previous) */
+  receive = (e: { origin: string; source: unknown; data: unknown }): void => {
+    if (window.parent === window || e.source !== window.parent || e.origin !== window.location.origin) return;
+    const previous = previousOf(e.data, this.state.placemarkId);
+    if (previous) this.set({ previous });
+  };
+
   /** Passes a key of the plots map on to it ("/", "N", "Esc"): the form has the focus, so the plots map never sees them */
   passKey = (key: PanelKey): void => {
     this.post("ce:key", { key });
@@ -521,7 +552,8 @@ export class FormStore {
    * Tells the plots map (the parent page) about the plot status, or a key pressed. A "ce:dirty" says `unsubmitted` when
    * the change took back a plot that was submitted, complete: the plots map says so if it is left that way.
    */
-  private post(type: "ce:saved" | "ce:dirty" | "ce:key", extra?: { key: PanelKey } | { unsubmitted: boolean }): void {
+  private post(type: "ce:saved" | "ce:dirty" | "ce:key" | "ce:ready",
+    extra?: { key: PanelKey } | { unsubmitted: boolean } | { answers: Record<string, string> }): void {
     if (window.parent === window) return;
     try {
       window.parent.postMessage({ type, plotId: this.state.placemarkId, ...extra }, window.location.origin);

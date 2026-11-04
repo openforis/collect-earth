@@ -3,7 +3,8 @@ import {
   type Field, type FormModel, availableItems, clickCode, dateFromInput, dateToInput, entityCount, errorList, fieldsByName,
   indexedField, isTabVisible, joinValues, mergeInfos, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
   requiredMessage, saveBody, selectCodes, splitValues, summaryLines, tabsWithErrors, timeToInput, unansweredRequired, errorsByTab, neededByTab, updateRequired,
-  DROPDOWN_AS_BUTTONS, advanceTarget, answeredWithKeys, codeControl, firstToAnswer, numberProblem, stepsOf,
+  DROPDOWN_AS_BUTTONS, advanceTarget, answeredWithKeys, answersToCopy, answersToRemember, codeControl, firstToAnswer, numberProblem,
+  stepsOf,
 } from "./model";
 
 const category: Field = {
@@ -284,6 +285,28 @@ describe("numberProblem", () => {
     expect(numberProblem("integer", "1.5")).toBe("entry.invalidInteger");
     expect(numberProblem("real", "1.5x")).toBe("entry.invalidNumber");
     expect(numberProblem("real", "1.2.3")).toBe("entry.invalidNumber");
+  });
+});
+
+describe("same as previous plot", () => {
+  const key: Field = { kind: "field", name: "collect_text_id", type: "text", label: "Id" };
+  const canopy: Field = { kind: "field", name: "collect_integer_canopy", type: "integer", label: "Canopy" };
+  const area: Field = { kind: "field", name: "collect_real_area", type: "real", label: "Area", readOnly: true, calculated: true };
+  const fields = { [key.name]: key, [category.name]: category, [comments.name]: comments, [canopy.name]: canopy, [area.name]: area };
+  it("remembers the answers given, not the keys, the texts or the calculated values", () => {
+    const values: Record<string, string> = { collect_text_id: "7", collect_code_lu: "F", collect_text_comments: "burnt",
+      collect_integer_canopy: "", collect_real_area: "3" };
+    expect(answersToRemember(fields, ["collect_text_id"], (n) => values[n] ?? "")).toEqual({ collect_code_lu: "F" });
+  });
+  it("copies them to the questions of the step left empty, never over an answer, a key or a text", () => {
+    const previous = { collect_code_lu: "F", collect_integer_canopy: "40", collect_text_comments: "burnt", collect_text_id: "7",
+      collect_code_sub: "dec" };
+    const empty = () => "";
+    expect(answersToCopy([key, category, comments, canopy], ["collect_text_id"], previous, empty))
+      .toEqual([["collect_code_lu", "F"], ["collect_integer_canopy", "40"]]);
+    expect(answersToCopy([category, canopy], [], previous, (n) => (n === "collect_code_lu" ? "C" : "")))
+      .toEqual([["collect_integer_canopy", "40"]]);
+    expect(answersToCopy([category], [], {}, empty)).toEqual([]);
   });
 });
 

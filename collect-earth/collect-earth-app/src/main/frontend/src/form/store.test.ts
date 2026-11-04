@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FieldInfo, FormModel } from "./model";
-import { CLICK_DELAY, FormStore, MAX_AUTO_RETRIES, MAX_RETRY_DELAY, retryDelay } from "./store";
+import { CLICK_DELAY, FormStore, MAX_AUTO_RETRIES, MAX_RETRY_DELAY, previousOf, retryDelay } from "./store";
 
 // The store in node: the form's page and Collect Earth's answers stood in for, the saves held (fake timers)
 
@@ -17,6 +17,8 @@ const model: FormModel = {
 let posted: Record<string, unknown>[];
 /** Collect Earth's answer to a save (save-data-expanded), and to an entity added */
 let saved: Record<string, FieldInfo>;
+/** Whether Collect Earth takes a submit (the plot valid) */
+let accepted: boolean;
 
 /** opened: Collect Earth's answer to opening the plot, null when it has no record of it */
 function serve(opened: { activelySaved: boolean; infos: Record<string, FieldInfo> } | null) {
@@ -26,7 +28,7 @@ function serve(opened: { activelySaved: boolean; infos: Record<string, FieldInfo
       : path.startsWith("surveyForm/plot") ? { values: {} }
         : path.startsWith("placemark-info-expanded")
           ? opened ? { success: true, activelySaved: opened.activelySaved, inputFieldInfoByParameterName: opened.infos } : { success: false }
-          : { success: true, activelySaved: false, inputFieldInfoByParameterName: saved };
+          : { success: true, activelySaved: accepted, inputFieldInfoByParameterName: saved };
     return { ok: true, json: async () => json };
   }));
 }
@@ -35,6 +37,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   posted = [];
   saved = {};
+  accepted = false;
   const page: Record<string, unknown> = { location: { origin: "http://localhost:8028" } };
   page.parent = { postMessage: (m: Record<string, unknown>) => posted.push(m) };
   vi.stubGlobal("window", page);
@@ -290,5 +293,36 @@ describe("a save that failed", () => {
     expect(saveRequests).toBe(4);
     await vi.advanceTimersByTimeAsync(1000);
     expect(saveRequests).toBe(5);
+  });
+});
+
+describe("same as previous plot", () => {
+  it("asks the plots map for the answers of the plot submitted before, as the plot opens", async () => {
+    await opened(false, { collect_code_lu: {}, collect_boolean_trees: {} });
+    expect(posted.filter((m) => m.type === "ce:ready")).toEqual([{ type: "ce:ready", plotId: "p1" }]);
+  });
+  it("tells the plots map the answers of a plot submitted, for the next one", async () => {
+    const store = await opened(false, { collect_code_lu: { value: "F" }, collect_boolean_trees: {} });
+    saved = { collect_code_lu: { value: "F" }, collect_boolean_trees: {} };
+    accepted = true;
+    expect(await store.submit()).toBe(true);
+    expect(posted.filter((m) => m.type === "ce:saved")).toEqual([{ type: "ce:saved", plotId: "p1", answers: { collect_code_lu: "F" } }]);
+  });
+  it("takes the answers the plots map sends back, from the plots map only, and never those of its own plot", async () => {
+    const store = await opened(false, { collect_code_lu: {}, collect_boolean_trees: {} });
+    const parent = (window as unknown as { parent: unknown }).parent;
+    const origin = "http://localhost:8028";
+    store.receive({ origin, source: {}, data: { type: "ce:previous", plotId: "p0", answers: { collect_code_lu: "C" } } });
+    store.receive({ origin: "https://evil.example", source: parent, data: { type: "ce:previous", plotId: "p0", answers: { collect_code_lu: "C" } } });
+    expect(store.getState().previous).toBeNull();
+    store.receive({ origin, source: parent, data: { type: "ce:previous", plotId: "p0", answers: { collect_code_lu: "C" } } });
+    expect(store.getState().previous).toEqual({ plotId: "p0", answers: { collect_code_lu: "C" } });
+  });
+  it("reads the message of the plots map, nothing else", () => {
+    expect(previousOf({ type: "ce:previous", plotId: "p1", answers: { a: "1" } }, "p1")).toBeNull();
+    expect(previousOf({ type: "ce:previous", plotId: "p0", answers: {} }, "p1")).toBeNull();
+    expect(previousOf({ type: "ce:previous", plotId: "p0", answers: { a: 1, b: "2" } }, "p1")).toEqual({ plotId: "p0", answers: { b: "2" } });
+    expect(previousOf({ type: "ce:key", plotId: "p0" }, "p1")).toBeNull();
+    expect(previousOf(null, "p1")).toBeNull();
   });
 });

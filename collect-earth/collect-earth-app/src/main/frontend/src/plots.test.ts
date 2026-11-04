@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { byId, changedAfterSubmit, countStatuses, footprintCorners, indexPlots, heightForZoom, labelOfFeature, leftUnsubmitted, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear,
-  MAX_VIEW_HEIGHT, matchesElsewhere, plotLabel, plotToRestore, plotsGone, sameView, surveyView, withoutPlotParam,
-  visibleIds, zoomForHeight } from "./plots";
+  MAX_VIEW_HEIGHT, matchesElsewhere, plotLabel, plotToRestore, plotsGone, previousMessage, previousPlot, sameView, surveyView,
+  withoutPlotParam, visibleIds, zoomForHeight } from "./plots";
 import type { PlotStatus } from "./types";
 
 const order = ["p1", "p2", "p3", "p4", "p10"];
@@ -26,6 +26,25 @@ describe("a search that finds nothing in the list filtered", () => {
     expect(matchesElsewhere(order, statuses, "pending", "p9", byId())).toBeNull();
     expect(matchesElsewhere(order, statuses, "all", "p1", byId())).toBeNull();
     expect(matchesElsewhere(order, statuses, "pending", " ", byId())).toBeNull();
+  });
+});
+
+describe("same as previous plot", () => {
+  it("keeps the answers of the plot submitted last", () => {
+    const first = previousPlot(null, { type: "ce:saved", plotId: "p1", answers: { a: "1" } });
+    expect(first).toEqual({ plotId: "p1", answers: { a: "1" } });
+    expect(previousPlot(first, { type: "ce:saved", plotId: "p2", answers: { a: "2" } })).toEqual({ plotId: "p2", answers: { a: "2" } });
+  });
+  it("is not changed by other messages, nor a submit without answers", () => {
+    const first = { plotId: "p1", answers: { a: "1" } };
+    expect(previousPlot(first, { type: "ce:dirty", plotId: "p2" })).toBe(first);
+    expect(previousPlot(first, { type: "ce:saved", plotId: "p2" })).toBe(first);
+  });
+  it("tells them to the form of another plot only", () => {
+    const first = { plotId: "p1", answers: { a: "1" } };
+    expect(previousMessage(first, "p2")).toEqual({ type: "ce:previous", plotId: "p1", answers: { a: "1" } });
+    expect(previousMessage(first, "p1")).toBeNull();
+    expect(previousMessage(null, "p2")).toBeNull();
   });
 });
 

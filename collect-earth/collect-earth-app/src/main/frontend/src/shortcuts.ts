@@ -121,6 +121,15 @@ export function keyOfMessage(data: unknown, activeId: string | null): PanelKey |
   return isPanelKey(message.key) ? message.key : null;
 }
 
+/**
+ * P, out of a box typed in: "Same as previous plot", the answers of the plot submitted before copied to the questions of
+ * the step left empty. Not held down, nor with a modifier.
+ */
+export function isCopyKey(e: KeyPress): boolean {
+  return (e.key === "p" || e.key === "P") && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat && !e.defaultPrevented
+    && !isTyping(e.target);
+}
+
 /** Ctrl+Enter (Cmd+Enter on a Mac): submit the plot. */
 export function isSubmitKey(e: Pick<KeyPress, "key" | "ctrlKey" | "metaKey">): boolean {
   return e.key === "Enter" && (e.ctrlKey || e.metaKey);

@@ -43,6 +43,8 @@ export interface FieldProps {
   quiet?: boolean;
   /** an answer is needed before the plot can be submitted: marked on the label from the start */
   required?: boolean;
+  /** just copied from the plot submitted before ("Same as previous plot"): marked for a moment, to be looked at */
+  copied?: boolean;
 }
 
 /** The message under a field in error: what to do when it is not answered yet, else the server's. */
@@ -57,6 +59,9 @@ export function errorText(t: Translate, field: Field, value: string, message: st
  * the focus on to the next question to answer. Not after a click: the mouse may be on its way elsewhere.
  */
 export const AnsweredByKey = createContext<(name: string) => void>(() => {});
+
+/** The questions whose answers were just copied from the plot submitted before (see FieldProps.copied) */
+export const Copied = createContext<ReadonlySet<string>>(new Set());
 
 /** The key pressed last in the page, for focusMovedByKey */
 let lastKey: PressedKey | null = null;
@@ -102,7 +107,7 @@ function ErrorMessage({ field, text }: { field: Field; text: string | null }) {
 /** Label, description, control and the error message of one field. */
 export const FieldView = memo(function FieldView(props: FieldProps) {
   const t = useT();
-  const { field, info, value, dense, quiet, required } = props;
+  const { field, info, value, dense, quiet, required, copied } = props;
   if (info?.visible === false) return null;
   // " ": in error, with nothing to say, the control is still outlined in red
   const error = info?.inError && !quiet ? errorText(t, field, value, info.errorMessage) || " " : null;
@@ -119,7 +124,8 @@ export const FieldView = memo(function FieldView(props: FieldProps) {
     );
   }
   return (
-    <Box data-field={field.name} data-error={error ? "true" : undefined} sx={{ minWidth: 0 }}>
+    <Box data-field={field.name} data-error={error ? "true" : undefined} data-copied={copied || undefined}
+      sx={{ minWidth: 0, ...(copied && COPIED_SX) }}>
       {!dense && (
         <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", mb: 0.75 }}>
           <Typography component="label" htmlFor={field.name} variant="subtitle2" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
@@ -131,6 +137,7 @@ export const FieldView = memo(function FieldView(props: FieldProps) {
               <InfoOutlinedIcon fontSize="small" color="action" sx={{ fontSize: 16, cursor: "help" }} aria-label={field.description} />
             </Tooltip>
           )}
+          {copied && <CopiedBadge />}
         </Stack>
       )}
       <Control {...props} error={!!error} describedBy={error?.trim() ? errorId(field) : undefined} />
@@ -138,6 +145,23 @@ export const FieldView = memo(function FieldView(props: FieldProps) {
     </Box>
   );
 });
+
+/** An answer copied from the plot before: outlined, so that it is checked, not taken on trust */
+const COPIED_SX = {
+  outline: 2, outlineStyle: "dashed", outlineColor: "warning.main", outlineOffset: 4, borderRadius: 1,
+} as const;
+
+function CopiedBadge() {
+  const t = useT();
+  return (
+    <Tooltip title={t("entry.copiedHint")}>
+      <Box component="span" data-testid="entry-copied" sx={{ ml: 0.5, px: 0.75, borderRadius: 1, fontSize: 11, fontWeight: 700,
+        lineHeight: "18px", bgcolor: "warning.main", color: "warning.contrastText" }}>
+        {t("entry.copied")}
+      </Box>
+    </Tooltip>
+  );
+}
 
 /**
  * A question that needs an answer: a discreet star after its label, for the eyes only (its tooltip for the mouse); a

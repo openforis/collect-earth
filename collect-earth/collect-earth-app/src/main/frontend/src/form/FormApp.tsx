@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -26,17 +26,18 @@ import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import CloudDoneOutlinedIcon from "@mui/icons-material/CloudDoneOutlined";
 import CloudOffOutlinedIcon from "@mui/icons-material/CloudOffOutlined";
+import ContentCopyIcon from "@mui/icons-material/ContentCopyOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import SendIcon from "@mui/icons-material/Send";
 import { type MessageKey, type Translate, useT } from "../i18n";
-import { escapeBlurs, isTypeAheadKey, isTyping, mayAdvance, mayTakeFocus, panelKey, submitOnKey } from "../shortcuts";
+import { escapeBlurs, isCopyKey, isTypeAheadKey, isTyping, mayAdvance, mayTakeFocus, panelKey, submitOnKey } from "../shortcuts";
 import logo from "./collect-earth-logo.png";
-import { AnsweredByKey, FieldView, errorText } from "./fields";
+import { AnsweredByKey, Copied, FieldView, errorText } from "./fields";
 import {
   type Field, type FocusTarget, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type Step,
-  type TableItem, advanceTarget, answeredWithKeys, availableItems, entityCount, errorList, firstToAnswer, indexedField,
-  isTabVisible, isVisible, itemFields, neededByTab, stepsOf, summaryLines, tabsWithErrors,
+  type TableItem, advanceTarget, answeredWithKeys, answersToCopy, availableItems, entityCount, errorList, fieldsOfStep,
+  firstToAnswer, indexedField, isTabVisible, isVisible, itemFields, neededByTab, parseCodes, stepsOf, summaryLines, tabsWithErrors,
 } from "./model";
 import type { FormState, FormStore, SaveState } from "./store";
 
@@ -51,6 +52,9 @@ const CONTROL = "input:not([disabled]), textarea, [role=radio], [role=checkbox],
 const ADVANCE_WAIT = 3000;
 /** The longest the number keys typed ahead wait for the focus to move on, before they go where it is */
 const TYPE_AHEAD_WAIT = ADVANCE_WAIT + 1000;
+/** How long the answers copied from the plot before stay marked */
+const COPIED_MILLIS = 6000;
+const NONE_COPIED: ReadonlySet<string> = new Set();
 
 /** Once the change of the state just made is rendered */
 function afterRender(run: () => void): void {
@@ -275,14 +279,71 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     return () => window.removeEventListener("keydown", onSubmitKey, true);
   }, [store]);
 
+  // "Same as previous plot": the answers of the plot submitted before, copied to the questions of the step left empty,
+  // marked for a moment, so that they are looked at, not taken on trust. Each goes through setValue, and is saved as if
+  // given by hand; one a list of this plot does not offer (another parent chosen) is left out.
+  const [copied, setCopied] = useState<ReadonlySet<string>>(NONE_COPIED);
+  // Said to a screen reader: the save, an error, the answers copied (see LiveRegion)
+  const [announced, setAnnounced] = useState("");
+  useEffect(() => {
+    if (!copied.size) return;
+    const timer = window.setTimeout(() => { setCopied(NONE_COPIED); setAnnounced(""); }, COPIED_MILLIS);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+  /** Copies what the step shown may copy now; the questions copied */
+  const copyNow = useCallback((): string[] => {
+    const now = store.getState();
+    const step = now.model?.tabs[now.tab];
+    if (!now.previous || !now.model || !step) return [];
+    const byName = store.fieldsByName();
+    const done: string[] = [];
+    for (const [name, value] of answersToCopy(fieldsOfStep(step, now.infos), now.model.keys, now.previous.answers, (n) => store.value(n))) {
+      const field = byName[name];
+      if (field?.code) {
+        // after the copy of the question it depends on, if it is one
+        const items = availableItems(field, store.getState().infos, store.getState().pending, byName);
+        if (!parseCodes(value).every((c) => items.some((i) => i.code === c.code))) continue;
+      }
+      store.setValue(name, value);
+      done.push(name);
+    }
+    return done;
+  }, [store]);
+  const copyPrevious = useCallback((byKey: boolean) => {
+    const tabNow = store.getState().tab;
+    const first = copyNow();
+    if (!first.length) return;
+    const all = new Set(first);
+    const show = () => {
+      setCopied(new Set(all));
+      setAnnounced(all.size === 1 ? t("entry.copiedAnnounceOne") : t("entry.copiedAnnounce", { count: all.size }));
+    };
+    show();
+    // The server's answer shows the questions the copies decide on (a subdivision of the land use): copied too, once; then,
+    // from the keyboard, the focus on what is left to answer on the step, where the answers copied are to be checked
+    const ticket = advance.current;
+    const typed = keys.current;
+    void within(store.whenSaved(), ADVANCE_WAIT).then(() => afterRender(() => {
+      if (store.getState().tab !== tabNow) return;
+      const more = copyNow();
+      if (more.length) {
+        more.forEach((name) => all.add(name));
+        show();
+      }
+      if (!byKey || ticket !== advance.current || keys.current !== typed || !document.hasFocus()) return;
+      (controlOf(firstToAnswer(stepsNow(), tabNow)) ?? controlOf(null))?.focus();
+    }));
+  }, [store, t, copyNow, stepsNow, controlOf]);
 
-  // Alt+Left/Right change tab; "/", "N", "Esc" and Alt+1... go to the plots map, whose keys they are (see panelKey)
+  // Alt+Left/Right change tab; P copies the answers of the plot before; "/", "N", "Esc" and Alt+1... go to the plots map,
+  // whose keys they are (see panelKey)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey && e.key === "ArrowRight" && next >= 0) { e.preventDefault(); goTo(next); }
       else if (e.altKey && e.key === "ArrowLeft" && back >= 0) { e.preventDefault(); goTo(back); }
       // as on the plots map: Esc leaves the box typed in, a second one closes the form
       else if (escapeBlurs(e)) (e.target as HTMLElement).blur();
+      else if (isCopyKey(e)) { e.preventDefault(); copyPrevious(true); }
       else {
         const key = panelKey(e);
         if (key) { e.preventDefault(); store.passKey(key); }
@@ -290,7 +351,9 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [store, next, back, goTo]);
+  }, [store, next, back, goTo, copyPrevious]);
+
+  const toCopy = state.previous ? answersToCopy(fieldsOfStep(tab, state.infos), model.keys, state.previous.answers, (n) => store.value(n)).length : 0;
 
   const visibleTabs = model.tabs.map((tb, i) => ({ tb, i })).filter(({ tb, i }) => i === state.tab || isTabVisible(tb, state.infos));
   const stepsDone = visibleTabs.filter(({ i }) => !errorTabs.has(i)).length;
@@ -352,13 +415,25 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
             <Alert severity="warning" variant="outlined">{t("entry.unsupportedSome", { names: model.unsupported.map((u) => u.name).join(", ") })}</Alert>
           )}
           {info.length > 0 && state.tab === firstStep && <HeaderInfo items={info} store={store} />}
+          {toCopy > 0 && (
+            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: -1 }}>
+              <Tooltip title={`${t("entry.copyPreviousHint", { key: "P" })}`}>
+                <Button size="small" variant="outlined" startIcon={<ContentCopyIcon />} onClick={() => copyPrevious(false)}
+                  data-testid="entry-copy-previous" aria-keyshortcuts="P" sx={{ bgcolor: "background.paper" }}>
+                  {t("entry.copyPrevious")}
+                </Button>
+              </Tooltip>
+            </Box>
+          )}
           <AnsweredByKey.Provider value={answeredByKey}>
-            <TabContent store={store} state={state} items={tab.items} />
+            <Copied.Provider value={copied}>
+              <TabContent store={store} state={state} items={tab.items} />
+            </Copied.Provider>
           </AnsweredByKey.Provider>
         </Stack>
       </Box>
 
-      <LiveRegion state={state} />
+      <LiveRegion state={state} announced={announced} />
 
       {/* Back and Next only where there is a step to go to; Submit takes Next's place on the last step, and goes next
           to it on the others once nothing is left to answer on any */}
@@ -496,16 +571,16 @@ function SaveStatus({ state, retrying }: { state: SaveState; retrying: boolean }
 }
 
 /**
- * Said to a screen reader, politely, not shown: the save done or failed, and the errors a Submit found.
+ * Said to a screen reader, politely, not shown: the save done or failed, the errors a Submit found, the answers copied.
  * Saving and changes not saved yet are left out, which every answer would say twice.
  */
-function LiveRegion({ state }: { state: FormState }) {
+function LiveRegion({ state, announced }: { state: FormState; announced: string }) {
   const t = useT();
   const save = state.saveState === "saved" || state.saveState === "error" ? saveLabel(t, state.saveState, state.retrying) : "";
   const reason = state.saveState === "error" && state.saveError ? state.saveError : "";
   const errors = state.submitErrors?.length
     ? state.submitErrors.length === 1 ? t("entry.errorsOne") : t("entry.errorsMany", { count: state.submitErrors.length }) : "";
-  const text = [save, reason, errors].filter(Boolean).join(". ");
+  const text = [save, reason, errors, announced].filter(Boolean).join(". ");
   return <Box role="status" aria-live="polite" aria-atomic sx={VISUALLY_HIDDEN} data-testid="entry-live">{text}</Box>;
 }
 
@@ -628,12 +703,13 @@ function TabContent({ store, state, items }: { store: FormStore; state: FormStat
 
 function BoundField({ store, state, field, dense }: { store: FormStore; state: FormState; field: Field; dense?: boolean }) {
   const byName = store.fieldsByName();
+  const copied = useContext(Copied).has(field.name);
   const parent = field.code?.parent ? byName[field.code.parent] : undefined;
   const items = field.code ? availableItems(field, state.infos, state.pending, byName) : NO_ITEMS;
   return (
     <FieldView field={field} value={store.value(field.name)} info={state.infos[field.name]} items={items}
       parentLabel={parent?.label} onChange={store.setValue} dense={dense} quiet={!state.attempted && !store.value(field.name)}
-      required={store.isRequired(field.name)} />
+      required={store.isRequired(field.name)} copied={copied} />
   );
 }
 const NO_ITEMS: never[] = [];

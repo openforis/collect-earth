@@ -488,6 +488,35 @@ export function numberProblem(type: FieldType, typed: string): MessageKey | null
   return /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(text) ? null : "entry.invalidNumber";
 }
 
+/** The types of answer "Same as previous plot" never copies: what is written about one plot, and where it is */
+const NOT_COPIED: FieldType[] = ["text", "memo", "coordinate", "unsupported"];
+
+/** Whether the answer of a question may be copied from one plot to the next: not a key, a text, a calculated value */
+function copiable(field: Field, keys: string[]): boolean {
+  return !field.readOnly && !field.calculated && !NOT_COPIED.includes(field.type) && !keys.includes(field.name);
+}
+
+/** The answers of a plot submitted that the next one may copy (see answersToCopy), by question */
+export function answersToRemember(fields: Record<string, Field>, keys: string[], value: (name: string) => string): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const field of Object.values(fields)) {
+    const v = value(field.name);
+    if (copiable(field, keys) && v.trim() !== "") result[field.name] = v;
+  }
+  return result;
+}
+
+/**
+ * The answers of the plot submitted before (`previous`) to copy to the questions of a step (`fields`, those shown, in
+ * their order) still left empty: never into a key or a text, never over an answer given.
+ */
+export function answersToCopy(fields: Field[], keys: string[], previous: Record<string, string>,
+  value: (name: string) => string): [string, string][] {
+  return fields
+    .filter((f) => copiable(f, keys) && value(f.name).trim() === "" && (previous[f.name] ?? "").trim() !== "")
+    .map((f) => [f.name, previous[f.name]]);
+}
+
 /**
  * The questions the server asks an answer for, of those not answered yet: the model does not say which are required
  * (SurveyFormModelBuilder), the server does, by reporting each one left empty in error from the start, which is also

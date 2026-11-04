@@ -85,8 +85,29 @@ export function nextUnfinished(order: string[], statuses: Record<string, PlotSta
   return null;
 }
 
-/** A message of the form about its plot (see FormStore.post) */
-export interface FormMessage { type?: string; plotId?: string; unsubmitted?: boolean }
+/**
+ * A message of the form about its plot (see FormStore.post): `answers`, with a submit ("ce:saved"), those the next plot
+ * may copy ("Same as previous plot").
+ */
+export interface FormMessage { type?: string; plotId?: string; unsubmitted?: boolean; answers?: Record<string, string> }
+
+/** The answers of the plot submitted last in this session, which the form of the next one may copy */
+export interface PreviousPlot { plotId: string; answers: Record<string, string> }
+
+/** The plot submitted last, after a message of the form (`previous` before it): a submit with its answers replaces it */
+export function previousPlot(previous: PreviousPlot | null, message: FormMessage): PreviousPlot | null {
+  if (message.type !== "ce:saved" || message.plotId == null || !message.answers || typeof message.answers !== "object") return previous;
+  return { plotId: message.plotId, answers: message.answers };
+}
+
+/**
+ * The answer to the form of plot `plotId` when it is ready ("ce:ready"): the answers of the plot submitted before, or
+ * null when there is none, or it is that plot itself.
+ */
+export function previousMessage(previous: PreviousPlot | null, plotId: string):
+  { type: "ce:previous"; plotId: string; answers: Record<string, string> } | null {
+  return previous && previous.plotId !== plotId ? { type: "ce:previous", plotId: previous.plotId, answers: previous.answers } : null;
+}
 
 /**
  * The plots the search finds in the list the filter leaves out ("pending" or "saved"), and how many, for the user to be

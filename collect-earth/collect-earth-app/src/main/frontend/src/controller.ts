@@ -8,7 +8,7 @@ import { IN_PANEL } from "./panel";
 import { IN_HOME } from "./home";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
 import { byId, changedAfterSubmit, footprintCorners, type FormMessage, indexPlots, leftUnsubmitted, neighbour, nextUnfinished, normalizeStatus, plotLabel, plotParam, plotsGone, plotsNear, plotToRestore, surveyView,
-  sameView, visibleIds, withoutPlotParam } from "./plots";
+  previousMessage, previousPlot, type PreviousPlot, sameView, visibleIds, withoutPlotParam } from "./plots";
 import type { MessageKey } from "./i18n";
 import { imageryForNumber, reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
 import { loadPrefs, savePrefs, type Prefs } from "./prefs";
@@ -110,6 +110,8 @@ export class MapController {
   private restorePlot: string | null = null;
   /** The plot open, when it was changed after it had been submitted: no longer submitted until it is again */
   private changedAfterSubmit: string | null = null;
+  /** The answers of the plot submitted last in this session, for "Same as previous plot" in the form of the next ones */
+  private previous: PreviousPlot | null = null;
 
   constructor() {
     this.state = {
@@ -316,7 +318,12 @@ export class MapController {
     // ignore anything but the active plot (stale iframe race)
     if (!data?.type || data.plotId == null || data.plotId !== this.state.activeId || !(data.plotId in this.plots)) return;
     this.changedAfterSubmit = changedAfterSubmit(this.changedAfterSubmit, data);
-    if (data.type === "ce:saved") {
+    this.previous = previousPlot(this.previous, data);
+    if (data.type === "ce:ready") {
+      // the form of the plot open asks for the answers of the plot submitted before
+      const reply = previousMessage(this.previous, data.plotId);
+      if (reply) (event.source as Window | null)?.postMessage(reply, window.location.origin);
+    } else if (data.type === "ce:saved") {
       this.applyStatuses({ [data.plotId]: "saved" });
       const next = this.goToNextUnfinished();
       this.set({ submitted: { key: Date.now(), plotId: data.plotId, next } });

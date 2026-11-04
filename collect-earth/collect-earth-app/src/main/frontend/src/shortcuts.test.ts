@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  type KeyPress, FOCUS_KEY_WINDOW, HANDS_FOCUS, choiceKey, escapeBlurs, focusMovedByKey, imageryKey, imageryNumber, isFormMessage, isKeyboardClick,
+  type KeyPress, FOCUS_KEY_WINDOW, HANDS_FOCUS, choiceKey, escapeBlurs, focusMovedByKey, imageryKey, imageryNumber, isCopyKey, isFormMessage, isKeyboardClick,
   isTypeAheadKey, isTyping, keyOfMessage, mayAdvance, mayTakeFocus, panelKey, submitOnKey,
 } from "./shortcuts";
 
@@ -103,6 +103,19 @@ describe("imageryKey", () => {
     expect(panelKey(press("2", chip, { altKey: true }))).toBe("Alt+2");
     expect(keyOfMessage({ type: "ce:key", plotId: "7", key: "Alt+2" }, "7")).toBe("Alt+2");
     expect(keyOfMessage({ type: "ce:key", plotId: "7", key: "Alt+0" }, "7")).toBeNull();
+  });
+});
+
+describe("isCopyKey", () => {
+  it("is P on an answer or a button", () => {
+    expect(isCopyKey(press("p"))).toBe(true);
+    expect(isCopyKey(press("P"))).toBe(true);
+  });
+  it("is not P typed in a box, with a modifier, held down, or another key", () => {
+    expect(isCopyKey(press("p", element("INPUT", { type: "text" })))).toBe(false);
+    expect(isCopyKey(press("p", chip, { ctrlKey: true }))).toBe(false);
+    expect(isCopyKey(press("p", chip, { repeat: true }))).toBe(false);
+    expect(isCopyKey(press("n"))).toBe(false);
   });
 });
 

@@ -18,6 +18,8 @@ const language = params.get("lang") ?? "en";
 document.documentElement.lang = language;
 const store = new FormStore(params.get("id") ?? "");
 window.addEventListener("pagehide", store.saveOnLeave);
+// the plots map tells the form the answers of the plot submitted before
+window.addEventListener("message", store.receive);
 // a save that failed is tried again at once when the network is back, or the operator back to the window
 window.addEventListener("online", () => void store.retryOnEvent());
 window.addEventListener("focus", () => void store.retryOnEvent());
