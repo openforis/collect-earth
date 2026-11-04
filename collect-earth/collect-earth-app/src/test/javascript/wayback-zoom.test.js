@@ -47,8 +47,23 @@ function waybackPage({ tilemap, storage = {} } = {}) {
             removeMany: (items) => items.forEach((g) => graphics.splice(graphics.indexOf(g), 1)),
             toArray: () => graphics.slice()
         },
-        goTo(target) { this.zoom = target.zoom; this.goTos.push(Math.round(target.zoom * 100) / 100); },
-        watch: () => ({ remove() {} }),
+        // in degrees here: the script only compares it with itself
+        center: { x: -14.8026, y: 12.6919 },
+        resolution: 0.000001,
+        container: {
+            listeners: {},
+            addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn); },
+            removeEventListener(type, fn) { this.listeners[type] = (this.listeners[type] || []).filter((f) => f !== fn); },
+            querySelector: () => null
+        },
+        watchers: {},
+        goTo(target) {
+            this.zoom = target.zoom;
+            this.center = { x: target.target[0], y: target.target[1] };
+            this.goTos.push(Math.round(target.zoom * 100) / 100);
+            return Promise.resolve();
+        },
+        watch(property, fn) { (this.watchers[property] = this.watchers[property] || []).push(fn); return { remove() {} }; },
         when: (fn) => fn()
     };
     const document = {
@@ -71,6 +86,11 @@ function waybackPage({ tilemap, storage = {} } = {}) {
         });
     }
     const page = { view, requests, storage: store, clock, logs: [] };
+    /** The user does something to the map: "wheel", "pointerdown"..., or "interacting" */
+    page.user = (what) => {
+        if (what === "interacting") (view.watchers.interacting || []).forEach((fn) => fn(true));
+        else (view.container.listeners[what] || []).forEach((fn) => fn({ type: what }));
+    };
     page.run = () => {
         const fn = new Function("window", "document", "localStorage", "setInterval", "clearInterval", "setTimeout",
             "clearTimeout", "fetch", "AbortController", "console", "location", scripts.wayback);
@@ -169,4 +189,45 @@ test("an answer after the plot was fitted zooms again, unless the user zoomed me
     assert.deepEqual(zoomed.view.goTos, [19], "the user's zoom is left alone");
     assert.equal(JSON.parse(zoomed.storage.get("__collectEarthWaybackNativeZoom"))[RELEASE + "/12.69190,-14.80260"], 17,
         "and the depth of the imagery kept for the next time");
+});
+
+test("imagery at the deepest level asked says only that it goes at least that deep: not kept", { skip }, async () => {
+    const page = waybackPage({ tilemap: levels(23) });
+    page.run();
+    await page.advance(1000);
+    assert.equal(page.storage.get("__collectEarthWaybackNativeZoom"), undefined);
+});
+
+test("no imagery at any level asked: the plot at the shallowest of them, not at 19", { skip }, async () => {
+    const page = waybackPage({ tilemap: () => false });
+    page.run();
+    await page.advance(1000);
+    // GEW's scale is 20.5: asked from 21 up to 14
+    assert.deepEqual(page.view.goTos, [14]);
+    assert.equal(page.storage.get("__collectEarthWaybackNativeZoom"), undefined);
+});
+
+test("the map the user touched before it was fitted is left alone", { skip }, async () => {
+    for (const input of ["wheel", "pointerdown", "keydown", "touchstart", "interacting"]) {
+        const page = waybackPage({ tilemap: (zoom) => ({ after: 2000, has: zoom <= 17 }) });
+        page.run();
+        await page.advance(700);
+        page.user(input);
+        await page.advance(3000);
+        assert.deepEqual(page.view.goTos, [], input + ": no fit, not even when the answer came");
+    }
+});
+
+test("a map the user panned after it was fitted is not fitted again when the answer comes", { skip }, async () => {
+    const page = waybackPage({ tilemap: (zoom) => ({ after: 2000, has: zoom <= 17 }) });
+    page.run();
+    await page.advance(2100);
+    assert.deepEqual(page.view.goTos, [19]);
+    // moved by the search box, say: no input on the map itself
+    page.view.center = { x: -14.7, y: 12.6 };
+    await page.advance(1000);
+    assert.deepEqual(page.view.goTos, [19]);
+    // nor when the window is resized
+    (page.view.watchers.size || []).forEach((fn) => fn());
+    assert.deepEqual(page.view.goTos, [19]);
 });

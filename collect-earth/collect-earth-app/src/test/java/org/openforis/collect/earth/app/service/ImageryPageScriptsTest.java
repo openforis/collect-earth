@@ -34,7 +34,8 @@ import freemarker.template.Configuration;
  * it includes, javascript_google_earth_web_camera.js) - how soon the plot is drawn when GEW jumps or flies, that it is
  * never hidden for a camera GEW writes again, that a flight that happened not to change the URL is not taken for a
  * jump, that Collect Earth's probe of in-page navigation decides whether GEW jumps as the overlay does - and the zoom
- * of ESRI Wayback (javascript_esri_wayback.fmt), no deeper than its imagery at the plot. The tests
+ * of ESRI Wayback (javascript_esri_wayback.fmt), at most a level past its imagery at the plot, and never over a map the
+ * user moved. The tests
  * themselves are in src/test/javascript; this renders the templates for them as Collect Earth does, and runs them.
  * Skipped where node 18 or later is not on the PATH.
  */
@@ -184,7 +185,7 @@ public class ImageryPageScriptsTest {
 	}
 
 	@Test
-	public void esriWaybackShowsThePlotNoDeeperThanItsImagery() throws Exception {
+	public void esriWaybackShowsThePlotAtMostALevelPastItsImageryAndLeavesTheUsersMap() throws Exception {
 		runNodeTests("wayback-zoom.test.js");
 	}
 }

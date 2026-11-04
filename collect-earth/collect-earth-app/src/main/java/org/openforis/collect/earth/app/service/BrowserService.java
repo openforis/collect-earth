@@ -311,8 +311,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * The deepest zoom ESRI Wayback is opened at, and shows the plot at while the depth of its imagery there is not known:
 	 * past it, its imagery often has no tiles away from cities (the rural tropics), and the map shows them enlarged or
 	 * nothing. The script drawing the plot asks Wayback's tilemap how deep the imagery of the release shown goes at the
-	 * plot (javascript_esri_wayback.fmt), and shows it at the scale of Google Earth Web down to that depth, whatever
-	 * this is: deeper in a city, shallower where the imagery is coarser.
+	 * plot (javascript_esri_wayback.fmt), and shows it at the scale of Google Earth Web, one zoom level past that depth
+	 * at most, whatever this is: deeper in a city, shallower where the imagery is coarser. Never once the user moved
+	 * the map.
 	 */
 	static final int MAX_WAYBACK_ZOOM = 19;
 

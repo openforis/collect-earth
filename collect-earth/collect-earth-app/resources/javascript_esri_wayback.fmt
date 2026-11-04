@@ -285,11 +285,12 @@
     // release shown says whether a tile has imagery ({"data":[1]}, [0] if not): asked for the tile under the plot at
     // the zoom of Google Earth Web's view and the levels above it, all at once and for NATIVE_TIMEOUT_MILLIS at most,
     // the plot is shown at most OVERZOOM_LEVELS deeper than the deepest one with imagery - smaller than in Google Earth
-    // Web where the imagery is coarser, rather than blurred. Kept per release and plot in the page's local storage: a
-    // plot seen again asks nothing. Without an answer, the plot is shown as before, MAX_ZOOM at most.
+    // Web where the imagery is coarser, rather than blurred; where none of them has any, at the shallowest asked. The
+    // depth found is kept per release and plot in the page's local storage: a plot seen again asks nothing. Without an
+    // answer, the plot is shown as before, MAX_ZOOM at most. Never once the user moved the map.
     var TILEMAP_URL = "https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tilemap/";
     var NATIVE_TIMEOUT_MILLIS = 3000;
-    // The plot is fitted without it after this, and again when it comes, unless the user zoomed meanwhile
+    // The plot is fitted without it after this, and again when it comes, unless the user moved the map meanwhile
     var NATIVE_WAIT_MILLIS = 1500;
     var LEVELS_ASKED = 8;
     var SHALLOWEST_ASKED = 10;
@@ -299,8 +300,8 @@
     // At the deepest level itself a plot of 30 m was 28 pixels across where the imagery ends at zoom 17, too small to
     // judge (2026-11)
     var OVERZOOM_LEVELS = 1;
-    // the deepest zoom with imagery at the plot, once known
-    var nativeZoom = null;
+    // the deepest zoom the plot may be shown at, once the imagery at it is known
+    var zoomLimit = null;
 
     // The release of the imagery shown: the one in the address of its tiles (.../MapServer/tile/<release>/{level}/...),
     // else the one the page says is active (#...&active=<release>)
@@ -343,20 +344,24 @@
         } catch (e) { /* asked again next time */ }
     }
 
-    /** Asks the tilemap; done(the deepest zoom with imagery at the plot), or done(null) when that is not known. */
+    /**
+     * Asks the tilemap; done({limit, depth}): the deepest zoom the plot may be shown at, and the depth of the imagery to
+     * keep for the next time (null when the answer is only a bound: the deepest level asked has imagery, or none has);
+     * done(null) when that is not known.
+     */
     function lookUpNativeZoom(release, upTo, done) {
         if (typeof fetch !== "function" || typeof AbortController !== "function") { done(null); return; }
         var controller = new AbortController();
         nativeLookup = controller;
         var over = false;
         var timeout = null;
-        function finish(zoom) {
+        function finish(result) {
             if (over) return;
             over = true;
             clearTimeout(timeout);
             nativeLookup = null;
             controller.abort();
-            done(zoom);
+            done(result);
         }
         timeout = setTimeout(function () { finish(null); }, NATIVE_TIMEOUT_MILLIS);
         var levels = [];
@@ -370,10 +375,15 @@
         })).then(function (hasImagery) {
             // The deepest level with imagery, every deeper one known to have none: a level not answered may have some
             for (var i = 0; i < levels.length; i++) {
-                if (hasImagery[i] === true) { finish(levels[i]); return; }
-                if (hasImagery[i] !== false) break;
+                if (hasImagery[i] === true) {
+                    // The deepest level asked having imagery says only that it goes at least that deep
+                    finish({ limit: levels[i] + OVERZOOM_LEVELS, depth: i > 0 ? levels[i] : null });
+                    return;
+                }
+                if (hasImagery[i] !== false) { finish(null); return; }
             }
-            finish(null);
+            // None has imagery: shallower than any level asked, shown at the shallowest of them
+            finish({ limit: levels[levels.length - 1], depth: null });
         });
     }
 
@@ -384,60 +394,103 @@
         return Math.log2(156543.03392804097 * Math.cos(plotCenter[1] * Math.PI / 180) * height / VIEW_HEIGHT_METERS);
     }
 
-    // That zoom, no deeper than the imagery at the plot, or than MAX_ZOOM while that is not known
+    // That zoom, no deeper than the imagery at the plot allows, or than MAX_ZOOM while that is not known
     function plotZoom(view) {
         var zoom = viewZoom(view);
-        var deepest = nativeZoom !== null ? nativeZoom + OVERZOOM_LEVELS : MAX_ZOOM;
+        var deepest = zoomLimit !== null ? zoomLimit : MAX_ZOOM;
         return isFinite(zoom) ? Math.min(zoom, deepest) : deepest;
     }
 
     var sizeWatched = false;
-    // the zoom the plot was fitted at last: another one is the user's
+    // the zoom the plot was fitted at last
     var fittedZoom = null;
 
-    function fit(view) {
-        fittedZoom = plotZoom(view);
-        view.goTo({ target: [plotCenter[0], plotCenter[1]], zoom: fittedZoom }, { animate: false });
+    // ===== The map is the user's once they touched it =====
+    // A fit after the user zoomed or panned would take them back to the plot: none is made after that. Known from the
+    // map being interacted with (its "interacting"), a press, a wheel, a key or a touch on it, and from the map moved
+    // away from where the last fit left it (the search box, a release picked).
+    var userInteracted = false;
+    // where the last fit left the map: {zoom, x, y}, once the map is there
+    var fittedAt = null;
+
+    function onUserInput() {
+        userInteracted = true;
     }
 
-    function userZoomed(view) {
-        return fittedZoom !== null && Math.abs(view.zoom - fittedZoom) > 0.01;
+    function watchTheUser(view) {
+        try {
+            if (typeof view.watch === "function") {
+                watchHandles.push(view.watch("interacting", function (interacting) { if (interacting) onUserInput(); }));
+            }
+        } catch (e) { /* the inputs below */ }
+        var host = view.container;
+        if (host && typeof host.addEventListener === "function") {
+            var inputs = ["pointerdown", "wheel", "keydown", "touchstart"];
+            inputs.forEach(function (type) { host.addEventListener(type, onUserInput, true); });
+            watchHandles.push({ remove: function () {
+                inputs.forEach(function (type) { host.removeEventListener(type, onUserInput, true); });
+            } });
+        }
+    }
+
+    function whereTheMapIs(view) {
+        var c = view.center;
+        return { zoom: view.zoom, x: c && typeof c.x === "number" ? c.x : null, y: c && typeof c.y === "number" ? c.y : null };
+    }
+
+    function userMovedTheMap(view) {
+        if (userInteracted) return true;
+        if (!fittedAt) return false;
+        var now = whereTheMapIs(view);
+        if (Math.abs(now.zoom - fittedAt.zoom) > 0.01) return true;
+        if (now.x === null || fittedAt.x === null) return false;
+        var tolerance = 2 * (view.resolution > 0 ? view.resolution : 1);
+        return Math.abs(now.x - fittedAt.x) > tolerance || Math.abs(now.y - fittedAt.y) > tolerance;
+    }
+
+    function fit(view) {
+        if (stopped || userMovedTheMap(view)) return;
+        fittedZoom = plotZoom(view);
+        fittedAt = null;
+        function there() { if (!stopped) fittedAt = whereTheMapIs(view); }
+        try {
+            var going = view.goTo({ target: [plotCenter[0], plotCenter[1]], zoom: fittedZoom }, { animate: false });
+            if (going && typeof going.then === "function") going.then(there, there); else there();
+        } catch (e) { there(); }
     }
 
     function centerOnPlot(view) {
         try {
             // Not rounded to a whole zoom level, which could show twice or half the ground of Google Earth Web
             if (view.constraints) view.constraints.snapToZoom = false;
+            watchTheUser(view);
             var release = releaseShown(view);
             var cached = release ? cachedNativeZoom(release) : null;
             var zoom = viewZoom(view);
-            if (cached !== null) nativeZoom = cached;
+            if (cached !== null) zoomLimit = cached + OVERZOOM_LEVELS;
             if (cached !== null || !release || !isFinite(zoom)) {
                 fit(view);
             } else {
-                fitFallback = setTimeout(function () { if (!stopped) fit(view); }, NATIVE_WAIT_MILLIS);
-                lookUpNativeZoom(release, Math.min(DEEPEST_ZOOM, Math.ceil(zoom)), function (deepest) {
+                fitFallback = setTimeout(function () { fit(view); }, NATIVE_WAIT_MILLIS);
+                lookUpNativeZoom(release, Math.min(DEEPEST_ZOOM, Math.ceil(zoom)), function (found) {
                     clearTimeout(fitFallback);
                     if (stopped) return;
-                    if (deepest !== null) {
-                        nativeZoom = deepest;
-                        cacheNativeZoom(release, deepest);
+                    if (found) {
+                        zoomLimit = found.limit;
+                        if (found.depth !== null) cacheNativeZoom(release, found.depth);
                     }
-                    console.log("[CE] ESRI Wayback release " + release + ": imagery at the plot down to zoom "
-                        + (deepest === null ? "unknown" : deepest));
-                    // Fitted already without it: again only for another zoom, and not over a zoom of the user
-                    if (fittedZoom === null || (!userZoomed(view) && Math.abs(plotZoom(view) - fittedZoom) > 0.01)) {
-                        fit(view);
-                    }
+                    console.log("[CE] ESRI Wayback release " + release + ": the plot shown down to zoom "
+                        + (found ? found.limit : "unknown"));
+                    // Fitted already without it: again only for another zoom
+                    if (fittedZoom === null || Math.abs(plotZoom(view) - fittedZoom) > 0.01) fit(view);
                 });
             }
             if (!sizeWatched && typeof view.watch === "function") {
                 // A tab opened behind another has a small window until it is shown: zoomed again once the map has its
-                // size, unless the user zoomed meanwhile
+                // size, unless the user moved it meanwhile
                 sizeWatched = true;
                 watchHandles.push(view.watch("size", function () {
-                    if (stopped || fittedZoom === null || userZoomed(view)) return;
-                    fit(view);
+                    if (fittedZoom !== null) fit(view);
                 }));
             }
         } catch (e) { /* ignore */ }
