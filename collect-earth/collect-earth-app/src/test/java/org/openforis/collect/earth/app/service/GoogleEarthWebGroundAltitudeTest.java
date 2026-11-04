@@ -114,4 +114,13 @@ public class GoogleEarthWebGroundAltitudeTest {
 		// a plot of no known outline is flown to from the distance of old
 		assertEquals(GoogleEarthWebUrls.PLOT_DISTANCE, gew.plotDistance(plot(1, 1, 0)));
 	}
+
+	@Test
+	public void googleEarthWebFliesUnlessTheSurveyAsksItToJump() {
+		// GEW tells the ground only by stopping a flight short of it: jumping, a plot over high ground stays black
+		assertEquals("keep", GoogleEarthWebService.flyAnimation(null));
+		assertEquals("keep", GoogleEarthWebService.flyAnimation(""));
+		assertEquals("keep", GoogleEarthWebService.flyAnimation("true"));
+		assertEquals("off", GoogleEarthWebService.flyAnimation(" FALSE "));
+	}
 }

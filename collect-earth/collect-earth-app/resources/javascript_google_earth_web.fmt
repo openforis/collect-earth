@@ -39,9 +39,9 @@ return (function () {
     var IN_PAGE_NAVIGATION = "${inPageNavigation}";
     // Camera URL Collect Earth has just sent Google Earth Web flying to, "" if none (see expectFlight)
     var FLIGHT_URL = "${(flightUrl!"")?js_string}";
-    // "off": Collect Earth turns GEW's fly animation off, so that the camera jumps to each plot; "keep": GEW's own
-    // setting is left as it is (gew_fly_animation=true in earth.properties)
-    var FLY_ANIMATION = "${(flyAnimation!"off")?js_string}";
+    // "keep" (the default): GEW's own fly animation setting is left as it is; "off" (gew_fly_animation=false in
+    // earth.properties): Collect Earth turns it off, so that the camera jumps to each plot
+    var FLY_ANIMATION = "${(flyAnimation!"keep")?js_string}";
     var CE_TAG = "__collectEarthGewOverlay";
     // Texts in the Collect Earth UI language
     var LABELS = {
@@ -260,10 +260,11 @@ return (function () {
     // the user grabbed the camera during the flight: then it has to settle like any user move
     var userMoved = false;
 
-    // Collect Earth turns the animation off for the camera to jump (FLY_ANIMATION), once, in GEW's own setting, which
-    // GEW reads when it loads: from the next page load on (the next start of Collect Earth), as the profile of the
-    // imagery browser keeps it. A setting the user changed since is theirs, and gew_fly_animation=true puts back the
-    // one Collect Earth replaced (GewCamera.settleSetting). Whether GEW jumps is then decided from the setting, when it
+    // With gew_fly_animation=false Collect Earth turns the animation off for the camera to jump (FLY_ANIMATION), once,
+    // in GEW's own setting, which GEW reads when it loads. A preload script of the imagery browser writes it before
+    // GEW's page loads (GoogleEarthWebService.animationOffPreloadScript); this call writes it where that did not run,
+    // for the next page load, as the profile of the imagery browser keeps it. A setting the user changed since is
+    // theirs, and "keep" puts back the one Collect Earth replaced (GewCamera.settleSetting). Whether GEW jumps is then decided from the setting, when it
     // was written and whether GEW was seen flying since (GewCamera.jumpsNow), as GoogleEarthWebService decides it.
     // No storage (an opaque origin): GEW keeps flying, and the plots wait for it.
     GewCamera.settleSetting(window, FLY_ANIMATION, Date.now());

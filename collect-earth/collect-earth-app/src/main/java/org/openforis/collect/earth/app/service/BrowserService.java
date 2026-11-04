@@ -473,10 +473,12 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
-	 * Has Google Earth Web's fly animation turned off before its page loads, so that its camera jumps to each plot from
-	 * the first one on (see {@link GoogleEarthWebService#animationOffPreloadScript()}); not when the user keeps it
-	 * ({@code gew_fly_animation=true}). When this fails the overlay turns it off at the first plot, for the next page
-	 * load. Installed in every imagery browser, as the viewer can be chosen while it runs: other pages end it at once.
+	 * With {@code gew_fly_animation=false}, has Google Earth Web's fly animation turned off before its page loads, so
+	 * that its camera jumps to each plot from the first one on (see
+	 * {@link GoogleEarthWebService#animationOffPreloadScript()}). When this fails the overlay turns it off at the first
+	 * plot, for the next page load. Installed in every imagery browser, as the viewer can be chosen while it runs: other
+	 * pages end it at once. The setting is read when the browser starts: changed while it runs, it applies from the next
+	 * start, and meanwhile the preload and the overlay may each write their own.
 	 */
 	private void turnGoogleEarthWebAnimationOff(TabDriver tabDriver) {
 		if (!"off".equals(GoogleEarthWebService.flyAnimation(localPropertiesService.getValue(EarthProperty.GEW_FLY_ANIMATION)))) {
@@ -489,7 +491,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		try {
 			tabDriver.addPreloadScript(script);
 		} catch (RuntimeException e) {
-			logger.debug("Imagery window: Google Earth Web's animation not turned off before its page loads: {}",
+			logger.info("Imagery window: Google Earth Web's animation not turned off before its page loads: {}",
 					e.getMessage());
 		}
 	}

@@ -164,7 +164,7 @@ var GewCamera = (function () {
     /**
      * Collect Earth's part in GEW's animation setting, at each plot. {@code mode} "off": it turns the animation off,
      * once, keeping the value it replaced - unless the user had it off already, or changed it since Collect Earth wrote
-     * it, which makes it theirs for good. "keep" (gew_fly_animation=true): the value it replaced is put back, if the
+     * it, which makes it theirs for good. "keep" (the default): the value it replaced is put back, if the
      * setting is still the one Collect Earth wrote. Returns what it did: "wrote", "restored", "users" or "none".
      */
     function settleSetting(win, mode, now) {

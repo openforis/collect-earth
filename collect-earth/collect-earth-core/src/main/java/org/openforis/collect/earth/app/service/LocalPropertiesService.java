@@ -114,8 +114,10 @@ public class LocalPropertiesService extends Observable {
 				/** Share of the height of Google Earth Web's view a plot fills (0.375 when not set), see GoogleEarthWebUrls */
 				GEW_PLOT_VIEW_SHARE("gew_plot_view_share"),
 				/**
-				 * "true" leaves Google Earth Web's own fly animation setting as it is; otherwise Collect Earth turns it off,
-				 * so that the camera jumps to each plot (see javascript_google_earth_web_camera.js)
+				 * "false" has Collect Earth turn Google Earth Web's fly animation off, so that the camera jumps to each plot
+				 * (see javascript_google_earth_web_camera.js); otherwise GEW's own setting is left as it is. Only for
+				 * surveys where the ground is known: jumping, GEW never says where the ground is, and a camera aimed at
+				 * sea level over higher ground shows nothing
 				 */
 				GEW_FLY_ANIMATION("gew_fly_animation"),
 				MAP_ENGINE("map_engine"),

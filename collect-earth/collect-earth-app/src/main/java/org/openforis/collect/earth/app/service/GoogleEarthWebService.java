@@ -741,9 +741,9 @@ public class GoogleEarthWebService {
 	}
 
 	/**
-	 * The script that turns Google Earth Web's fly animation off before its page reads the setting, run before the
-	 * page's own scripts (a BiDi preload script, see {@code BrowserService#startImageryBrowser}). Written by the overlay
-	 * at the first plot, the setting applied only from the next page load on: the first session after an update, or on
+	 * The script that turns Google Earth Web's fly animation off before its page reads the setting
+	 * ({@code gew_fly_animation=false}, see {@link #flyAnimation()}), run before the page's own scripts (a BiDi preload script, see {@code BrowserService#startImageryBrowser}). Written by the overlay
+	 * at the first plot, the setting applied only from the next page load on: the first session after it was set, or on
 	 * a new computer, waited 2 to 5 s for the camera to fly to each plot. It is {@code GewCamera.settleSetting} of the
 	 * overlay, which so finds it written and leaves it as it is, with the time the page started loading: GEW, which
 	 * reads it later, jumps ({@code GewCamera.jumpsNow}). A setting the user changed in GEW stays theirs. Only in GEW's
@@ -1306,18 +1306,21 @@ public class GoogleEarthWebService {
 	}
 
 	/**
-	 * Whether the outline turns Google Earth Web's fly animation off ("off"), so that its camera jumps to each plot and
-	 * the plot is drawn about a second after it was chosen, or leaves GEW's own setting as it is ("keep",
-	 * {@code gew_fly_animation=true} in earth.properties). Flying, the camera takes 2 to 5 seconds to get to the plot,
-	 * and the outline waits for it (see javascript_google_earth_web_camera.js).
+	 * Whether Collect Earth leaves Google Earth Web's fly animation setting as it is ("keep", the default), or turns it
+	 * off ("off", {@code gew_fly_animation=false} in earth.properties), so that its camera jumps to each plot and the
+	 * plot is drawn about 0.6 s after it was chosen, instead of 1.5 s and more (see
+	 * javascript_google_earth_web_camera.js). Jumping is for surveys whose ground is known: flying, GEW stops a camera
+	 * aimed below the ground short of it and writes where, which tells Collect Earth the ground
+	 * ({@link #learnGroundUnderACameraStoppedShort}); jumping, it writes nothing, and a plot higher than the camera
+	 * distance, aimed at sea level as plots of no known ground are, is seen from under the ground: black.
 	 */
 	String flyAnimation() {
 		return flyAnimation(localPropertiesService == null ? null : localPropertiesService.getValue(EarthProperty.GEW_FLY_ANIMATION));
 	}
 
 	/** {@link #flyAnimation()} from the value of {@code gew_fly_animation}, null when not set. */
-	static String flyAnimation(String kept) {
-		return kept != null && Boolean.parseBoolean(kept.trim()) ? "keep" : "off";
+	static String flyAnimation(String value) {
+		return value != null && "false".equalsIgnoreCase(value.trim()) ? "off" : "keep";
 	}
 
 	/** The altitude a camera URL of the plot aims at: its elevation, or else the ground learnt nearby, or else 0. */

@@ -52,8 +52,9 @@ public interface TabDriver {
 	}
 
 	/**
-	 * Runs {@code functionDeclaration}, a JavaScript function of no arguments, in every page the browser loads from now
-	 * on, before the page's own scripts. A driver that cannot does nothing.
+	 * Runs {@code functionDeclaration}, a JavaScript function of no arguments, in every document the browser loads from
+	 * now on, frames and every site included, before the document's own scripts: it must check where it runs. A driver
+	 * that cannot does nothing.
 	 */
 	default void addPreloadScript(String functionDeclaration) {
 	}
