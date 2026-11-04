@@ -161,11 +161,22 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   // Members' activity (member_activity), coalesced; written when the app closes too.
   registerActivity(app, new ActivityRecorder(store, { onError: (err) => app.log.error({ err }, 'member activity write failed') }));
 
-  await registerAuthRoutes(app, store, limiter, loginFailures, counters);
-  const now = options.ai?.now ?? Date.now;
-  // The mail routes, registered later, put their confirmation sender here for sign-up.
+  // The mail routes, registered later, put their confirmation sender and the password notice here.
   const accountMail: AccountMailHooks = {};
-  await registerAdminRoutes(app, store, config, limiter, { setupCode, version: VERSION, now, counters, startedAt: STARTED_AT, accountMail });
+  // Email (Task 19): SMTP only when SMTP_URL is set, else nothing is sent (the log transport).
+  const mailer = options.mailer ?? mailerFrom(config, app.log);
+  await registerAuthRoutes(app, store, limiter, loginFailures, counters, accountMail);
+  const now = options.ai?.now ?? Date.now;
+  await registerAdminRoutes(app, store, config, limiter, {
+    setupCode,
+    version: VERSION,
+    now,
+    counters,
+    startedAt: STARTED_AT,
+    accountMail,
+    // "Forgot your password?" mails its link only where mail really goes out.
+    selfServiceReset: mailer.delivers && !config.localMode,
+  });
   await registerProjectRoutes(app, store, config);
   await registerCollectBackupRoutes(app, store, config, limiter, now);
   await registerPlatformRoutes(app, store, config);
@@ -199,8 +210,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerReferenceRoutes(app, store, quality, states, now);
   // Read-only progress links for funders (Task 18): the public page reads the Progress tab's figures.
   await registerPublicProgressRoutes(app, store, config, limiter, states, now);
-  // Email digests (Task 19): SMTP only when SMTP_URL is set, else nothing is sent (the log transport).
-  const mailer = options.mailer ?? mailerFrom(config, app.log);
+  // Email digests (Task 19), confirmation links, "Forgot your password?" and the account's security notices.
   await registerMailRoutes(app, store, config, limiter, { mailer, quality, states, now, limits: options.mailLimits, oidcKeys: options.oidcKeys, accountMail });
   // Role changes, removals and disabled accounts keep the reference copies right (Task 14).
   app.decorate('referenceSync', referenceSyncer(store, states, now));

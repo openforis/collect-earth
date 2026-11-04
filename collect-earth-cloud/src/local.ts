@@ -54,6 +54,7 @@ export const LOCAL_OFF_ROUTES: readonly string[] = [
   'POST /v1/auth/register',
   'POST /v1/auth/login',
   'POST /v1/auth/reset',
+  'POST /v1/auth/forgot',
   'GET /v1/auth/reset/:token',
   'PUT /v1/me/password',
   'GET /v1/me/deletion',

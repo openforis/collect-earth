@@ -530,6 +530,16 @@ export class InMemoryStore implements Store {
     }
   }
 
+  async deleteUserSessionsExcept(userId: string, keepToken: string): Promise<void> {
+    const keep = hashToken(keepToken);
+    for (const [hash, owner] of this.sessions) {
+      if (owner === userId && hash !== keep) {
+        this.sessions.delete(hash);
+        this.sessionCreatedAt.delete(hash);
+      }
+    }
+  }
+
   async setPassword(userId: string, passwordHash: string): Promise<void> {
     const user = this.users.get(userId);
     if (user) {
@@ -632,8 +642,21 @@ export class InMemoryStore implements Store {
     if (user.email !== email) {
       user.email = email;
       this.accountMail.set(userId, { ...this.mailOf(userId), emailConfirmedAt: null });
+      // A reset link mailed to the old address stops working with it.
+      for (const [hash, reset] of this.resets) if (reset.userId === userId) this.resets.delete(hash);
     }
     return true;
+  }
+
+  async listUserIdsByConfirmedEmail(email: string, limit: number): Promise<string[]> {
+    const wanted = email.toLowerCase();
+    const ids: string[] = [];
+    for (const user of this.users.values()) {
+      if (ids.length >= limit) break;
+      if (user.disabledAt || user.email === null || user.email.toLowerCase() !== wanted) continue;
+      if (this.mailOf(user.id).emailConfirmedAt !== null) ids.push(user.id);
+    }
+    return ids;
   }
 
   async confirmEmail(userId: string, email: string, at: number): Promise<boolean> {

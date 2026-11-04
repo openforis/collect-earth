@@ -42,7 +42,7 @@ managed Postgres (Option B).
 | `MAP_TILE_ATTRIBUTION_URL` | no | `https://www.openstreetmap.org/copyright` | Where that text links to (https) |
 | `MAP_TILE_MAX_ZOOM` | no | `19` | The tile source's deepest zoom (1-22) |
 | `LINK_SECRET` | **required with `SMTP_URL`** (32+ characters) | `<random 32+ chars>` | Signs the Collect Earth backup's one-minute download links (without it: a key worked out from `DATABASE_URL`, the same on every instance; with the memory store, a random key per process) and the weekly emails' unsubscribe and confirmation links, which never use the `DATABASE_URL` key (a database password change would break links in mails already sent): the server does not start with `SMTP_URL` and no `LINK_SECRET` |
-| `SMTP_URL` | no | `smtps://user:password@smtp.example.org:465` | The mail server for the weekly emails (see "Weekly emails (optional)"). `smtps://` (TLS) or `smtp://…:587` (STARTTLS, required); plain `smtp://` only to `localhost`. Unset: no email is sent, the log gets a line per mail instead. A secret (it holds the password) |
+| `SMTP_URL` | no | `smtps://user:password@smtp.example.org:465` | The mail server for the weekly emails, the address confirmations, "Forgot your password?" reset links and the security notices (see "Weekly emails (optional)"). `smtps://` (TLS) or `smtp://…:587` (STARTTLS, required); plain `smtp://` only to `localhost`. Unset: no email is sent, the log gets a line per mail instead. A secret (it holds the password) |
 | `MAIL_FROM` | with `SMTP_URL` | `Collect Earth Cloud <noreply@example.org>` | The address the emails come from; its domain must allow the mail server to send for it (SPF, DKIM) |
 | `DIGEST_SECRET` | no | `<random 32+ chars>` | What the weekly job may send in `x-digest-secret` to `POST /v1/internal/digest`. A secret |
 | `DIGEST_OIDC_AUDIENCE`, `DIGEST_OIDC_EMAIL` | no (together) | `https://ce-cloud.example.org/v1/internal/digest`, `ce-scheduler@<PROJECT>.iam.gserviceaccount.com` | The better way for the weekly job: Cloud Scheduler's OIDC token (`Authorization: Bearer`), accepted when Google signed it for this audience and this service account. With neither this nor `DIGEST_SECRET` the endpoint is off (404) |
@@ -618,6 +618,32 @@ confirmation mails an hour and 6 a day per account** (stored, so changing the ad
 does not start them again), and at most 100 an hour per instance whoever asks.
 Changing the address needs a new confirmation; removing it turns the emails off.
 
+**The other mails: password reset links and security notices.** With mail set up, the
+server also sends, always and only to a **confirmed** address (none of them can be turned
+off; they carry no unsubscribe link, no tracking and no link but the reset link or the
+dashboard's address, `PUBLIC_BASE_URL`):
+- **"Forgot your password?"** on the log-in page (`POST /v1/auth/forgot`, a username or an
+  email address) mails a password reset link to the account's confirmed address, in the
+  page's language. It is the same kind of link the administrator makes (Server settings →
+  accounts), single use, but works **one hour** (an administrator's: 7 days); using it ends
+  every session of the account, Collect Earth's included. The answer is always the same
+  ("If this account has a confirmed email address, a link is on its way") and is given
+  before anything is looked up, so it never tells whether an account exists. Nothing is
+  sent for an unknown, disabled or unconfirmed account. Limits, all quiet (same answer):
+  **3 reset mails an hour per account**, 10 requests an hour per client IP, 100 reset mails
+  an hour per instance. Where the server sends no email, the log-in page keeps saying to
+  ask the server's administrator for a link (`selfServiceReset: false` in `/v1/server-info`).
+- **"Your password was changed"**, after a change on the account page or with any reset
+  link (the administrator's or a mailed one), with the date in the account's time zone and
+  what to do if it was not them: "Forgot your password?", and the server's contact address
+  (Server settings) when set. A change on the account page also ends every **other** session
+  of the account: Collect Earth signs in again with the new password.
+- **"The email address of your account was changed / removed"**, to the **old** address
+  when it was confirmed; the new one is shown only in part (`m…@e….org`).
+
+They are sent after the answer: a mail that fails is logged (`account mail: could not be
+sent`, with nodemailer's code only) and never fails the request.
+
 **Without `SMTP_URL` no email is sent.** The log transport writes one line per mail
 (`mail not sent: no SMTP_URL is set`, with the kind of mail, the recipient's domain and
 the sizes; never the body, the links or the address) and the weekly run marks nothing
@@ -710,8 +736,8 @@ memberships now count); a week with nothing to tell (no project with plots or wo
 is marked done without a mail (the account page's "last sent" shows only weeks a mail
 went for). A deleted account takes its subscriptions with it.
 
-**Logs:** the unsubscribe and confirmation addresses (`/v1/unsubscribe/…`,
-`/unsubscribe/…`, `/confirm-email/…`) are written to the server's log with the token
+**Logs:** the unsubscribe, confirmation and reset addresses (`/v1/unsubscribe/…`,
+`/unsubscribe/…`, `/confirm-email/…`, `/reset/…`, `/v1/auth/reset/…`) are written to the server's log with the token
 replaced by `<redacted>`; Cloud Run's request log keeps the full address, as for the
 other links (see "Operational notes"). A failed send is logged with nodemailer's error
 code, the SMTP reply code and the command only, never the server's message (it may
@@ -845,6 +871,8 @@ caches to the 1 GiB column (`gcloud run services update collect-earth-cloud --re
     (`RATE_LIMIT_PER_MINUTE`);
   - at most 100 confirmation mails an hour (the 3 an hour and 6 a day per account are
     stored, so they hold across instances);
+  - "Forgot your password?": 3 reset mails an hour per account, 10 requests an hour per
+    client IP and 100 reset mails an hour (with several instances, each counts its own);
   - one Collect Earth backup prepared at a time ("another Collect Earth backup is being
     prepared on this server"), and the memory of download links already used (a link
     lives 60 s, so another instance could accept a used one within that minute);

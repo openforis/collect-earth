@@ -725,6 +725,10 @@ export class PostgresStore implements Store {
     await this.pool.query('DELETE FROM sessions WHERE user_id = $1', [userId]);
   }
 
+  async deleteUserSessionsExcept(userId: string, keepToken: string): Promise<void> {
+    await this.pool.query('DELETE FROM sessions WHERE user_id = $1 AND token_hash <> $2', [userId, hashToken(keepToken)]);
+  }
+
   async setPassword(userId: string, passwordHash: string): Promise<void> {
     const client = await this.connect();
     try {
@@ -830,14 +834,29 @@ export class PostgresStore implements Store {
   }
 
   async setEmail(userId: string, email: string | null): Promise<boolean> {
-    // A new address is not confirmed; the same one keeps its confirmation.
+    // A new address is not confirmed; the same one keeps its confirmation. A changed address also
+    // ends the account's reset links: one mailed to the old address stops working with it.
     const res = await this.pool.query(
-      `UPDATE users SET email = $2,
+      `WITH gone AS (
+         DELETE FROM password_resets WHERE user_id = $1
+            AND (SELECT email FROM users WHERE id = $1) IS DISTINCT FROM $2)
+       UPDATE users SET email = $2,
               email_confirmed_at = CASE WHEN email IS NOT DISTINCT FROM $2 THEN email_confirmed_at END
         WHERE id = $1`,
       [userId, email],
     );
     return (res.rowCount ?? 0) > 0;
+  }
+
+  async listUserIdsByConfirmedEmail(email: string, limit: number): Promise<string[]> {
+    // users is global (no RLS); a scan of the accounts, which are few next to the records.
+    const res = await this.pool.query(
+      `SELECT id FROM users
+        WHERE lower(email) = lower($1) AND email_confirmed_at IS NOT NULL AND disabled_at IS NULL
+        ORDER BY created_at, id LIMIT $2`,
+      [email, limit],
+    );
+    return res.rows.map((r) => r.id as string);
   }
 
   async confirmEmail(userId: string, email: string, at: number): Promise<boolean> {

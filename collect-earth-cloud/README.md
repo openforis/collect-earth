@@ -67,6 +67,14 @@ To run your own server on Google Cloud without technical knowledge, follow
 For production (Cloud Run + Cloud SQL, or any Docker host + managed Postgres),
 required env vars, and how to onboard projects, see [`DEPLOY.md`](DEPLOY.md).
 
+**Emails** are optional (`SMTP_URL`, DEPLOY.md "Weekly emails (optional)", which covers every mail). With mail set up the
+server sends: the link that confirms an account's address; the weekly emails people turn on
+(with one-click unsubscribe); the password reset link of "Forgot your password?" (1 hour,
+single use); and two security notices, only to a confirmed address: "your password was
+changed" (account page or any reset link) and, to the **old** address, "the email address
+of your account was changed/removed" (the new one shown only in part). Without
+`SMTP_URL` none is sent, and "Forgot your password?" says to ask the server's administrator.
+
 ## With PostgreSQL
 
 ```bash
@@ -139,11 +147,12 @@ session tokens** (from login, access via `project_members`).
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
-| `GET`  | `/v1/server-info` | none | `{needsSetup, signupOpen, projectCreation, version, termsUrl, contactEmail, serverName, aiAvailable}` (`termsUrl`, `contactEmail`, `serverName` `null` when not set; `aiAvailable`: the AI assistant is configured and allowed on this server) |
+| `GET`  | `/v1/server-info` | none | `{needsSetup, signupOpen, projectCreation, version, termsUrl, contactEmail, serverName, aiAvailable, selfServiceReset}` (`termsUrl`, `contactEmail`, `serverName` `null` when not set; `aiAvailable`: the AI assistant is configured and allowed on this server; `selfServiceReset`: the server sends email, so "Forgot your password?" mails a reset link) |
 | `POST` | `/v1/setup` | setup code in body | `{setupCode, username, password}` → 201 `{token, userId, username}` (the platform admin, logged in); 403 `bad_setup_code`; 409 `already_set_up` / `username_taken`; 400 `bad_username` / `weak_password` |
 | `POST` | `/v1/auth/signup` | none | `{username, password, email?, acceptTerms?}` → 201 `{token, userId, username}`; 403 `signup_closed`; 409 `username_taken`; 400 `bad_username` / `weak_password` / `terms_not_accepted` (when `termsUrl` is set and `acceptTerms` is not `true`; the acceptance time is stored as `users.terms_accepted_at`) |
-| `POST` | `/v1/auth/reset` | reset token in body | `{token, newPassword}` → 204, revokes all the user's sessions; 410 `invalid_reset_token` (unknown, used or expired); 400 `weak_password` |
-| `PUT`  | `/v1/me/password` | session | `{currentPassword, newPassword}` → 204; 401 `invalid_credentials`; 400 `weak_password` |
+| `POST` | `/v1/auth/forgot` | none | `{login, language?}` (a username or an email address) → always 202 `{accepted: true}`, answered before anything is looked up. When mail delivers and the account (or each enabled account whose **confirmed** address it is, at most 5) has a confirmed address and is not disabled, a reset link (`/reset/<token>`, single use, **1 hour**) is mailed to it in `language` (else the account's mail language). Quiet limits: 3 mails an hour per account, 10 requests an hour per client IP, 100 mails an hour per instance; plus the shared per-minute limit (429). 400 `bad_request` (no login, or over 254 characters); 409 `not_available` where the server sends no email |
+| `POST` | `/v1/auth/reset` | reset token in body | `{token, newPassword, language?}` → 204, revokes all the user's sessions and mails the "password changed" notice to the confirmed address; 410 `invalid_reset_token` (unknown, used or expired); 400 `weak_password` |
+| `PUT`  | `/v1/me/password` | session | `{currentPassword, newPassword, language?}` → 204: every **other** session of the account ends (Collect Earth's too: it signs in again), the one making the change stays, and the "password changed" notice goes to the confirmed address; 401 `invalid_credentials`; 400 `weak_password` |
 | `GET`  | `/v1/me/deletion` | session | What deleting the account would do: `{soleCoordinator: [{projectId, name}], deletedWithAccount: [{projectId, name}], lastPlatformAdmin}` |
 | `DELETE` | `/v1/me` | session | `{password}` → 204: deletes the account (sessions, memberships, assignments, reset links) and the projects where it is the only member and coordinator. Records it uploaded stay in their projects. 401 `invalid_credentials`; 409 `last_platform_admin`; 409 `sole_coordinator` `{projects: [{projectId, name}]}` (only coordinator of a project others are in: hand it over or delete it first) |
 | `POST` | `/v1/projects` | session | Allowed when `projectCreation` is `anyone` or the caller is a platform admin (else 403 `project_creation_restricted`); the caller becomes its admin → 201 `{projectId, name}`. 403 `project_limit_reached` `{limit}` when the caller already coordinates `maxProjectsPerUser` projects (platform admins exempt) |
@@ -341,8 +350,7 @@ attribution shown on the map; see DEPLOY.md, "The map's base map".
 
 ## Not yet implemented, and known limitations
 
-Not built: self-service password reset by email (reset links are made by the server's
-administrator), argon2id for passwords (scrypt is used, `src/password.ts`), GCS for
+Not built: argon2id for passwords (scrypt is used, `src/password.ts`), GCS for
 artifacts, undoing a bulk decision run, bounce handling for the weekly emails.
 
 Known limitations (details in DEPLOY.md, "Known limitations"):
@@ -355,8 +363,8 @@ Known limitations (details in DEPLOY.md, "Known limitations"):
   saved with at the top of the form, not the new one (the balloon shows the new one).
 - **A comment that looks like a shape** (WKT or GeoJSON) becomes the plot's shape in
   polygon projects.
-- **Per-instance limits** (rate limits, confirmation mails an hour, one backup at a
-  time and the used backup links, the server panel's counts, one weekly email run at a
+- **Per-instance limits** (rate limits, confirmation mails an hour, the reset mails of
+  "Forgot your password?", one backup at a time and the used backup links, the server panel's counts, one weekly email run at a
   time) count on each Cloud Run instance on its own.
 - **The map's pages**: an instance whose quality figures differ and that cannot work
   out the same ones answers 409 `map_changed` (the dashboard reads the map again from the start a few

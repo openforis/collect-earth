@@ -11,6 +11,7 @@ import { requireSession } from '../plugins/projectAuth.js';
 import type { ProjectStateCache } from '../projectState.js';
 import type { QualityService } from '../qualityService.js';
 import { RateLimiter, RATE_LIMITED } from '../rateLimit.js';
+import { emailChangedMail, longMoment, passwordChangedMail, resetLinkMail, SELF_RESET_TTL_MS, type SecurityContext } from '../securityMail.js';
 import type { Store } from '../store/store.js';
 import { DIGEST_KINDS, MAIL_LANGUAGES, type AccountMail, type DigestKind, type MailLanguage } from '../types.js';
 
@@ -23,10 +24,51 @@ export const CONFIRMATIONS_PER_DAY = 6;
 export const CONFIRMATIONS_PER_INSTANCE_HOUR = 100;
 /** Unsubscribe links that work, per address and minute (a mail program, a person pressing twice): generous, still bounded. */
 export const UNSUBSCRIBES_PER_MINUTE = 600;
+/** "Forgot your password?": reset mails per account and hour (quietly: the answer stays the same). */
+export const RESET_MAILS_PER_ACCOUNT_HOUR = 3;
+/** "Forgot your password?" requests per client IP and hour that are looked into (the others answer the same, doing nothing). */
+export const FORGOT_PER_IP_HOUR = 10;
+/** Reset mails per instance and hour, whoever asks. */
+export const RESET_MAILS_PER_INSTANCE_HOUR = 100;
+/** Accounts one address can name ("Forgot your password?" by email): each gets its own link. */
+const MAX_ACCOUNTS_PER_ADDRESS = 5;
+const HOUR_MS = 3_600_000;
 
-/** What other routes may ask of the mail routes: sign-up sends the confirmation link of the address given there. */
+/**
+ * What other routes may ask of the mail routes: sign-up sends the confirmation link of the address
+ * given there; a password change (account page, reset link) sends its security notice.
+ */
 export interface AccountMailHooks {
   sendConfirmation?: (request: FastifyRequest, userId: string, email: string, language: MailLanguage) => Promise<'sent' | 'too_many'>;
+  /**
+   * The notice "your password was changed", to the account's confirmed address, when mail delivers.
+   * In the background: never awaited by the request, never throws (a failure is logged).
+   */
+  passwordChanged?: (request: FastifyRequest, userId: string, how: 'changed' | 'reset', language?: unknown) => void;
+}
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** The mails sent after the answer (reset links, security notices): `idle()` waits for them (tests, closing). */
+    mailWork?: BackgroundMail;
+  }
+}
+
+/** Mails sent after the request was answered: kept so closing the server (and a test) can wait for them. */
+export class BackgroundMail {
+  private readonly pending = new Set<Promise<void>>();
+
+  /** Runs `task` without making the request wait; a failure is logged with `what`, never thrown. */
+  run(request: FastifyRequest, what: string, task: () => Promise<void>): void {
+    const p = task()
+      .catch((err) => request.log.warn({ err: errorSummary(err), mail: what }, 'account mail: could not be sent'))
+      .finally(() => this.pending.delete(p));
+    this.pending.add(p);
+  }
+
+  async idle(): Promise<void> {
+    while (this.pending.size > 0) await Promise.allSettled([...this.pending]);
+  }
 }
 
 export interface MailRouteDeps {
@@ -36,13 +78,15 @@ export interface MailRouteDeps {
   quality: QualityService;
   states: ProjectStateCache;
   now: () => number;
-  /** For tests: a lower cap per instance. */
-  limits?: { perInstanceHour?: number };
+  /** For tests: a lower cap per instance (confirmation mails, reset mails). */
+  limits?: { perInstanceHour?: number; resetsPerInstanceHour?: number };
   /** For tests: Google's keys (the OIDC token); default: read from Google. */
   oidcKeys?: KeySource;
 }
 
 const bad = (reason: string) => ({ error: 'bad_request', reason });
+/** The longest username or address "Forgot your password?" takes. */
+const MAX_LOGIN_LENGTH = 254;
 const isLanguage = (v: unknown): v is MailLanguage => (MAIL_LANGUAGES as readonly unknown[]).includes(v);
 const TOO_MANY = { error: 'too_many_confirmations', reason: 'too many confirmation mails were sent for this account: try again in an hour' } as const;
 const INVALID_STORED = { error: 'invalid_stored_email', reason: 'the address on the account is not one email address: type it again' } as const;
@@ -110,6 +154,13 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
   const unsubscribes = new RateLimiter(config.rateLimitPerMinute === 0 ? 0 : UNSUBSCRIBES_PER_MINUTE);
   const oidcKeys = deps.oidcKeys ?? new GoogleKeys();
   let running = false;
+  const work = new BackgroundMail();
+  app.decorate('mailWork', work);
+  app.addHook('onClose', async () => work.idle());
+  const resetCap = new HourlyCap(deps.limits?.resetsPerInstanceHour ?? RESET_MAILS_PER_INSTANCE_HOUR, deps.now);
+  const forgotPerIp = new RateLimiter(config.rateLimitPerMinute === 0 ? 0 : FORGOT_PER_IP_HOUR, deps.now, { windowMs: HOUR_MS });
+  // Always on (also where the request limits are off): it is what keeps a mailbox from being flooded.
+  const resetsPerAccount = new RateLimiter(RESET_MAILS_PER_ACCOUNT_HOUR, deps.now, { windowMs: HOUR_MS });
 
   const view = async (userId: string, mail: AccountMail) => {
     const memberships = await store.listMemberships(userId);
@@ -161,6 +212,99 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
   };
   if (deps.accountMail) deps.accountMail.sendConfirmation = sendConfirmation;
 
+  /** The confirmed address of an account that can be written to, with its mail settings; null otherwise. */
+  const confirmedAddress = async (userId: string) => {
+    const mail = await store.getAccountMail(userId);
+    if (!mail || mail.email === null || mail.emailConfirmedAt === null || !isEmailAddress(mail.email)) return null;
+    return { ...mail, email: mail.email };
+  };
+
+  /** What a security mail says of the server and the account; the language: the page's, else the account's, else English. */
+  const securityContext = async (userId: string, language: unknown, mail: AccountMail): Promise<SecurityContext | null> => {
+    const user = await store.getUserById(userId);
+    if (!user) return null;
+    const settings = await store.getSettings();
+    return {
+      serverName: settings.serverName ?? 'Collect Earth Cloud',
+      language: isLanguage(language) ? language : (mail.language ?? 'en'),
+      username: user.username,
+      baseUrl,
+      contactEmail: settings.contactEmail,
+    };
+  };
+
+  const passwordChanged = (request: FastifyRequest, userId: string, how: 'changed' | 'reset', language?: unknown): void => {
+    if (!deps.mailer.delivers) return;
+    const at = deps.now();
+    work.run(request, 'account.password-changed', async () => {
+      const mail = await confirmedAddress(userId);
+      const ctx = mail && (await securityContext(userId, language, mail));
+      if (!mail || !ctx) return;
+      await deps.mailer.send(passwordChangedMail(ctx, how, longMoment(at, ctx.language, mail.timeZone), mail.email));
+    });
+  };
+  if (deps.accountMail) deps.accountMail.passwordChanged = passwordChanged;
+
+  /**
+   * "Forgot your password?" (no login): `{ login, language? }`, a username or an email address. When
+   * mail delivers and the account (or each enabled account whose confirmed address it is) has a
+   * CONFIRMED address and is not disabled, a reset link (SELF_RESET_TTL_MS, single use, the
+   * administrator's links' table) is mailed to that address. The answer is always 202 and is sent
+   * before anything is looked up (the work runs after it), so neither its content nor its timing
+   * tells whether an account exists. Limits, all quiet: FORGOT_PER_IP_HOUR per client IP,
+   * RESET_MAILS_PER_ACCOUNT_HOUR per account, RESET_MAILS_PER_INSTANCE_HOUR per instance; and the
+   * shared per-minute limit per IP (429, as every public route).
+   */
+  app.post('/v1/auth/forgot', { preHandler: limiter.guard('forgot') }, async (request: FastifyRequest, reply: FastifyReply) => {
+    reply.header('cache-control', 'no-store');
+    const body = (request.body ?? {}) as { login?: unknown; language?: unknown };
+    const login = typeof body.login === 'string' ? body.login.trim() : '';
+    if (login === '' || login.length > MAX_LOGIN_LENGTH) return reply.code(400).send(bad('login must be a username or an email address'));
+    if (!deps.mailer.delivers) {
+      return reply.code(409).send({ error: 'not_available', reason: 'this server does not send email: ask its administrator for a password reset link' });
+    }
+    if (forgotPerIp.hit(`forgot ${request.ip}`)) {
+      const language = body.language;
+      work.run(request, 'account.reset', () => mailResetLinks(request, login, language));
+    } else {
+      request.log.info({ action: 'account.forgot.limited' }, 'forgot password: too many requests from this address, nothing done');
+    }
+    return reply.code(202).send({ accepted: true });
+  });
+
+  /** The work behind "Forgot your password?", after the answer. */
+  const mailResetLinks = async (request: FastifyRequest, login: string, language: unknown): Promise<void> => {
+    const ids = new Set<string>();
+    const byName = await store.getUserByUsername(login);
+    if (byName) ids.add(byName.id);
+    if (isEmailAddress(login)) for (const id of await store.listUserIdsByConfirmedEmail(login, MAX_ACCOUNTS_PER_ADDRESS)) ids.add(id);
+    for (const userId of ids) {
+      const user = await store.getUserById(userId);
+      if (!user || user.disabledAt) continue;
+      const mail = await confirmedAddress(userId);
+      if (!mail) continue;
+      if (!resetsPerAccount.hit(`reset ${userId}`)) {
+        request.log.info({ action: 'account.forgot.limited', userId }, 'forgot password: too many reset mails for this account, nothing sent');
+        continue;
+      }
+      if (!resetCap.available()) {
+        request.log.warn({ action: 'account.forgot.limited' }, 'forgot password: the reset mails of this instance for this hour are used up');
+        return;
+      }
+      resetCap.take();
+      // Date.now(), as the reset itself (admin.ts) reads the expiry with it. Null: disabled meanwhile.
+      const token = await store.createPasswordReset(userId, Date.now() + SELF_RESET_TTL_MS);
+      const ctx = token === null ? null : await securityContext(userId, language, mail);
+      if (token === null || !ctx) continue;
+      try {
+        await deps.mailer.send(resetLinkMail(ctx, `${baseUrl}/reset/${token}`, mail.email));
+        request.log.info({ action: 'account.forgot.sent', userId }, 'forgot password: a reset link was mailed');
+      } catch (err) {
+        request.log.warn({ err: errorSummary(err), userId }, 'forgot password: the reset mail could not be sent');
+      }
+    }
+  };
+
   app.get('/v1/me/notifications', session, async (request: FastifyRequest, reply: FastifyReply) => {
     const mail = await store.getAccountMail(request.userId!);
     if (!mail) return reply.code(401).send({ error: 'unauthorized' });
@@ -205,6 +349,15 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
     const language = isLanguage(body.language) ? body.language : (before.language ?? 'en');
     if (before.email !== email) {
       await store.setEmail(userId, email);
+      // A notice to the OLD address, when it was confirmed: the new one is shown only in part.
+      const old = before.email;
+      if (deps.mailer.delivers && old !== null && before.emailConfirmedAt !== null && isEmailAddress(old)) {
+        const at = deps.now();
+        work.run(request, 'account.email-changed', async () => {
+          const ctx = await securityContext(userId, language, before);
+          if (ctx) await deps.mailer.send(emailChangedMail(ctx, email, longMoment(at, ctx.language, before.timeZone), old));
+        });
+      }
       // No address: no mail can go, so the digests go off too.
       if (email === null) for (const kind of DIGEST_KINDS) await store.setDigest(userId, kind, false, deps.now());
       if (email !== null) {

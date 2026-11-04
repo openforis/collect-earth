@@ -119,11 +119,13 @@ describe('LOCAL_MODE server', () => {
 
   it('server-info says localMode and offers nothing about sign-up, setup or the AI', async () => {
     const info = (await app.inject({ method: 'GET', url: '/v1/server-info' })).json();
-    expect(info).toMatchObject({ localMode: true, needsSetup: false, signupOpen: false, projectCreation: 'platform-admins', aiAvailable: false, termsUrl: null });
+    expect(info).toMatchObject({ localMode: true, needsSetup: false, signupOpen: false, projectCreation: 'platform-admins', aiAvailable: false, termsUrl: null, selfServiceReset: false });
   });
 
   it('every route about other people or the server answers 404, with or without the session', async () => {
     expect(LOCAL_OFF_ROUTES.length).toBeGreaterThan(50);
+    // "Forgot your password?" too: the one account has no address nor a password anyone knows.
+    expect(LOCAL_OFF_ROUTES).toContain('POST /v1/auth/forgot');
     for (const route of LOCAL_OFF_ROUTES) {
       const [method, path] = route.split(' ') as ['GET' | 'POST' | 'PUT' | 'DELETE', string];
       const url = path.replace('/:pid', `/${PROJECT_ID}`).replace(/\/:[A-Za-z]+/g, '/x');

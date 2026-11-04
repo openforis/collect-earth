@@ -1,4 +1,5 @@
 import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Collapse from "@mui/material/Collapse";
@@ -6,10 +7,11 @@ import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormHelperText from "@mui/material/FormHelperText";
 import Link from "@mui/material/Link";
+import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useRef, useState } from "react";
-import { login, signup } from "../api";
+import { forgotPassword, login, signup } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
@@ -151,15 +153,7 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
                 {t("login.forgotLink")}
               </Link>
               <Collapse in={forgotOpen}>
-                <Alert severity="info" sx={{ mt: 1 }}>
-                  {t("login.forgotText")}
-                  {info.contactEmail && (
-                    <>
-                      {" "}
-                      <Link href={`mailto:${info.contactEmail}`}>{t("login.forgotContact", { email: info.contactEmail })}</Link>
-                    </>
-                  )}
-                </Alert>
+                {forgotOpen && <ForgotPassword initial={username.trim()} />}
               </Collapse>
             </div>
             <Typography variant="body2" color="text.secondary">
@@ -169,5 +163,102 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
         )}
       </FormCard>
     </AppShell>
+  );
+}
+
+/** "Ask the person who runs this server", with their address when the server gives one. */
+function ContactLink() {
+  const t = useT();
+  const { info } = useApp();
+  if (!info.contactEmail) return null;
+  return (
+    <>
+      {" "}
+      <Link href={`mailto:${info.contactEmail}`}>{t("login.forgotContact", { email: info.contactEmail })}</Link>
+    </>
+  );
+}
+
+/**
+ * "Forgot your password?": where the server sends email, a small form (username or email address)
+ * asks for a reset link, mailed to the account's confirmed address; the answer never says whether
+ * the account exists. Asking the person who runs the server stays as the other way. Elsewhere only
+ * that. Inside the log-in form, so not a form of its own: Enter in its field sends it.
+ */
+function ForgotPassword({ initial }: { initial: string }) {
+  const t = useT();
+  const { info, language } = useApp();
+  const [login, setLogin] = useState(initial);
+  const [empty, setEmpty] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+
+  if (!info.selfServiceReset) {
+    return (
+      <Alert severity="info" sx={{ mt: 1 }}>
+        {t("login.forgotText")}
+        <ContactLink />
+      </Alert>
+    );
+  }
+
+  const send = async () => {
+    setError(null);
+    if (!login.trim()) {
+      setEmpty(true);
+      return;
+    }
+    setBusy(true);
+    try {
+      await forgotPassword(login.trim(), language);
+      setSent(true);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Stack spacing={1.5} sx={{ mt: 1 }}>
+      {sent ? (
+        <Alert severity="success" role="status">
+          {t("login.forgotSent")}
+        </Alert>
+      ) : (
+        <>
+          <Typography variant="body2">{t("login.forgotIntro")}</Typography>
+          <TextField
+            label={t("login.forgotLogin")}
+            value={login}
+            onChange={(e) => {
+              setLogin(e.target.value);
+              setEmpty(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void send();
+              }
+            }}
+            autoComplete="username"
+            size="small"
+            error={empty}
+            helperText={empty ? t("login.forgotEmpty") : undefined}
+          />
+          <ErrorAlert error={error} />
+          <Box>
+            <Button type="button" variant="outlined" onClick={() => void send()} disabled={busy}>
+              {t("login.forgotSend")}
+            </Button>
+          </Box>
+        </>
+      )}
+      <Alert severity="info">
+        {t("login.forgotOther")}
+        <ContactLink />
+      </Alert>
+    </Stack>
   );
 }

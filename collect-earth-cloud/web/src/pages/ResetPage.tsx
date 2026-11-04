@@ -14,7 +14,7 @@ import { passwordProblem } from "../validation";
 /** Public page a password reset link opens. */
 export function ResetPage({ token }: { token: string }) {
   const t = useT();
-  const { me, refreshMe } = useApp();
+  const { me, refreshMe, language } = useApp();
   const [password, setPassword] = useState("");
   const [repeated, setRepeated] = useState("");
   const [problem, setProblem] = useState<MessageKey | null>(null);
@@ -45,7 +45,7 @@ export function ResetPage({ token }: { token: string }) {
     if (found) return;
     setBusy(true);
     try {
-      await resetPassword(token, password);
+      await resetPassword(token, password, language);
       setDone(true);
       // The reset ends every session of that account: if it was ours, the check below
       // finds the session gone and the page goes back to logging in.

@@ -7,6 +7,7 @@ import { RATE_LIMITED, type RateLimiter } from '../rateLimit.js';
 import type { ServerCounters } from '../serverCounters.js';
 import { UsernameTakenError } from '../store/memory.js';
 import type { Store } from '../store/store.js';
+import type { AccountMailHooks } from './mail.js';
 
 interface RegisterBody {
   username?: string;
@@ -22,6 +23,8 @@ interface LoginBody {
 interface PasswordChangeBody {
   currentPassword?: string;
   newPassword?: string;
+  /** The page's language, for the notice mailed after the change. */
+  language?: string;
 }
 
 interface ProjectRef {
@@ -76,6 +79,8 @@ export async function registerAuthRoutes(
   limiter: RateLimiter,
   loginFailures: RateLimiter,
   counters?: ServerCounters,
+  /** Filled in by the mail routes (registered later): the notice mailed after a password change. */
+  accountMail?: AccountMailHooks,
 ): Promise<void> {
   app.post('/v1/auth/register', { preHandler: limiter.guard('register') }, async (request: FastifyRequest, reply: FastifyReply) => {
     const body = (request.body ?? {}) as RegisterBody;
@@ -230,8 +235,10 @@ export async function registerAuthRoutes(
     },
   );
 
-  // Change the caller's own password. Other sessions stay valid (the desktop
-  // client's session is not logged out by a change made in the dashboard).
+  // Change the caller's own password. Every other session of the account ends, Collect
+  // Earth's included (it signs in again with the new password): a session someone else
+  // holds must not outlive the change. The session making the change stays. A notice goes
+  // to the account's confirmed address.
   app.put(
     '/v1/me/password',
     { preHandler: requireSession(store) },
@@ -248,6 +255,14 @@ export async function registerAuthRoutes(
         return reply.code(400).send(rule);
       }
       await store.setPassword(user.id, await hashPassword(newPassword));
+      // requireSession let the request in with this bearer token: it is the session that stays.
+      const current = bearerToken(request.headers.authorization);
+      if (current) {
+        await store.deleteUserSessionsExcept(user.id, current);
+      } else {
+        await store.deleteUserSessions(user.id);
+      }
+      accountMail?.passwordChanged?.(request, user.id, 'changed', body.language);
       return reply.code(204).send();
     },
   );

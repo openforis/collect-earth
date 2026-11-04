@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   checkResetLink,
+  forgotPassword,
+  resetPassword,
   confirmEmail,
   getNotifications,
   sendEmailConfirmation,
@@ -177,6 +179,29 @@ describe("transport", () => {
     await expect(checkResetLink("t")).rejects.toBeInstanceOf(ApiError);
   });
 
+  it("forgot password: the login and the page's language, without the session; the language goes with a change and a reset", async () => {
+    setToken("someone-else");
+    fetchMock.mockResolvedValue(new Response(null, { status: 202 }));
+    await forgotPassword("maria@example.org", "fr");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/v1/auth/forgot");
+    expect(init!.method).toBe("POST");
+    expect(JSON.parse(init!.body as string)).toEqual({ login: "maria@example.org", language: "fr" });
+    expect((init!.headers as Record<string, string>).authorization).toBeUndefined();
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    await changePassword("old-password", "new-password", "es");
+    expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string)).toEqual({ currentPassword: "old-password", newPassword: "new-password", language: "es" });
+    await resetPassword("T", "new-password", "pt");
+    expect(JSON.parse(fetchMock.mock.calls[2][1]!.body as string)).toEqual({ token: "T", newPassword: "new-password", language: "pt" });
+  });
+
+  it("server info says whether self-service reset is there", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { selfServiceReset: true }));
+    expect((await getServerInfo()).selfServiceReset).toBe(true);
+    fetchMock.mockResolvedValue(jsonResponse(200, { selfServiceReset: "yes" }));
+    expect((await getServerInfo()).selfServiceReset).toBe(false);
+  });
+
   it("a network failure is an ApiError with status 0", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
     const error = await listProjects().catch((e: unknown) => e);
@@ -235,6 +260,7 @@ describe("normalising responses", () => {
       contactEmail: null,
       serverName: null,
       aiAvailable: false,
+      selfServiceReset: false,
       mapTiles: OSM_TILES,
       localMode: false,
     });
@@ -251,6 +277,7 @@ describe("normalising responses", () => {
       contactEmail: null,
       serverName: null,
       aiAvailable: false,
+      selfServiceReset: false,
       mapTiles: OSM_TILES,
       localMode: false,
     });

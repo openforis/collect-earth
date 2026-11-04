@@ -22,6 +22,8 @@ export interface ServerInfo {
   serverName: string | null;
   /** The AI assistant can be switched on for a project (set up and switched on by the server owner). */
   aiAvailable: boolean;
+  /** "Forgot your password?" mails a reset link to an account's confirmed address (the server sends email). */
+  selfServiceReset: boolean;
   /** The map of progress's base map (OpenStreetMap unless the server sets another). */
   mapTiles: MapTiles;
   /**
@@ -735,6 +737,7 @@ export async function getServerInfo(): Promise<ServerInfo> {
       contactEmail: optionalText(info?.contactEmail),
       serverName: optionalText(info?.serverName),
       aiAvailable: info?.aiAvailable === true,
+      selfServiceReset: info?.selfServiceReset === true,
       mapTiles: toMapTiles(info?.mapTiles),
       localMode: info?.localMode === true,
     };
@@ -750,6 +753,7 @@ export async function getServerInfo(): Promise<ServerInfo> {
         contactEmail: null,
         serverName: null,
         aiAvailable: false,
+        selfServiceReset: false,
         mapTiles: OSM_TILES,
         localMode: false,
       };
@@ -789,9 +793,13 @@ export async function getMe(): Promise<Me> {
   };
 }
 
-export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+/**
+ * Changes the password: the server ends every other session of the account (Collect Earth's too) and
+ * mails a notice, in `language`, to the account's confirmed address.
+ */
+export async function changePassword(currentPassword: string, newPassword: string, language?: string): Promise<void> {
   try {
-    await send("PUT", "/v1/me/password", { json: { currentPassword, newPassword }, noSessionEnd: true });
+    await send("PUT", "/v1/me/password", { json: { currentPassword, newPassword, ...(language ? { language } : {}) }, noSessionEnd: true });
   } catch (error) {
     // Here a 401 means the current password is wrong, not that the session ended.
     if (error instanceof ApiError && error.status === 401) throw new ApiError(401, "wrong_password", error.reason);
@@ -919,8 +927,16 @@ export async function checkResetLink(token: string): Promise<boolean> {
   }
 }
 
-export async function resetPassword(token: string, newPassword: string): Promise<void> {
-  await send("POST", "/v1/auth/reset", { json: { token, newPassword }, noSessionEnd: true });
+export async function resetPassword(token: string, newPassword: string, language?: string): Promise<void> {
+  await send("POST", "/v1/auth/reset", { json: { token, newPassword, ...(language ? { language } : {}) }, noSessionEnd: true });
+}
+
+/**
+ * "Forgot your password?": asks the server to mail a reset link for `login` (a username or an email
+ * address). The server answers the same whatever the account (202), so there is nothing to read back.
+ */
+export async function forgotPassword(login: string, language: string): Promise<void> {
+  await send("POST", "/v1/auth/forgot", { json: { login, language }, anonymous: true, noSessionEnd: true });
 }
 
 // --- projects --------------------------------------------------------------------------

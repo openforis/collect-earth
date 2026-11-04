@@ -22,7 +22,7 @@ import { passwordProblem } from "../validation";
 
 export function AccountPage() {
   const t = useT();
-  const { me, logOut } = useApp();
+  const { me, logOut, language } = useApp();
   const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [repeated, setRepeated] = useState("");
@@ -39,7 +39,8 @@ export function AccountPage() {
     if (found) return;
     setBusy(true);
     try {
-      await changePassword(current, password);
+      // The server ends the other sessions (Collect Earth's too) and mails a notice in this language.
+      await changePassword(current, password, language);
       setDone(true);
       setCurrent("");
       setPassword("");

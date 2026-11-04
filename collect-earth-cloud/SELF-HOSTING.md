@@ -146,7 +146,9 @@ It is also kept in your project in **Secret Manager**, under the name
    shows them the exact steps.
 
 Forgotten passwords: as server administrator, open **Server** → *Accounts* →
-**Make a reset link** for that person, and send them the link.
+**Make a reset link** for that person, and send them the link. If your server sends
+email (DEPLOY.md, "Weekly emails (optional)"), people whose account has a confirmed
+email address can also use **Forgot your password?** on the log-in page themselves.
 
 ## Backups
 

@@ -145,6 +145,8 @@ export interface Store {
   deleteSession(token: string): Promise<void>;
   /** Revokes every session of a user (password reset). */
   deleteUserSessions(userId: string): Promise<void>;
+  /** Revokes every session of a user but the one of `keepToken` (a password change: the other sessions, the desktop's included, end). */
+  deleteUserSessionsExcept(userId: string, keepToken: string): Promise<void>;
   /** Also cancels every reset link of the user: an older, leaked one must not work afterwards. */
   setPassword(userId: string, passwordHash: string): Promise<void>;
   /**
@@ -161,7 +163,13 @@ export interface Store {
   /** The account's email, whether it is confirmed, the mails' language and time zone and its subscriptions; null for an unknown id. */
   getAccountMail(userId: string): Promise<AccountMail | null>;
   /** Sets (or, with null, removes) the account's email; a new one is not confirmed. False for an unknown id. */
+  /** Sets the address (a new one is not confirmed) and, when it changes, ends the account's reset links. */
   setEmail(userId: string, email: string | null): Promise<boolean>;
+  /**
+   * The enabled accounts whose CONFIRMED email is `email` (compared without case), at most `limit`
+   * ("Forgot your password?" by address).
+   */
+  listUserIdsByConfirmedEmail(email: string, limit: number): Promise<string[]>;
   /** Marks the email confirmed when it is still `email` (a link for an address changed since does nothing). */
   confirmEmail(userId: string, email: string, at: number): Promise<boolean>;
   /** The language and time zone the mails are written in. */

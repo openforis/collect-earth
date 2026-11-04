@@ -24,12 +24,17 @@ export class RateLimiter {
   /**
    * @param perMinute requests allowed per minute per key; 0 disables the limiter.
    * @param options.onRefused told of each request `guard` refuses (the server owner's counters).
+   * @param options.windowMs the window's length (a minute by default; `perMinute` is then per window).
    */
   constructor(
     private readonly perMinute: number,
     private readonly now: () => number = Date.now,
-    private readonly options: { onRefused?: () => void } = {},
+    private readonly options: { onRefused?: () => void; windowMs?: number } = {},
   ) {}
+
+  private get windowMs(): number {
+    return this.options.windowMs ?? WINDOW_MS;
+  }
 
   /** Counts one hit; returns false when the key is over its limit for this window. */
   hit(key: string): boolean {
@@ -39,13 +44,13 @@ export class RateLimiter {
     const now = this.now();
     if (this.windows.size > SWEEP_THRESHOLD) {
       for (const [k, w] of this.windows) {
-        if (now - w.start >= WINDOW_MS) {
+        if (now - w.start >= this.windowMs) {
           this.windows.delete(k);
         }
       }
     }
     const window = this.windows.get(key);
-    if (!window || now - window.start >= WINDOW_MS) {
+    if (!window || now - window.start >= this.windowMs) {
       this.windows.set(key, { start: now, count: 1 });
       return true;
     }
@@ -59,7 +64,7 @@ export class RateLimiter {
       return false;
     }
     const window = this.windows.get(key);
-    return !!window && this.now() - window.start < WINDOW_MS && window.count >= this.perMinute;
+    return !!window && this.now() - window.start < this.windowMs && window.count >= this.perMinute;
   }
 
   /** preHandler limiting one named bucket (e.g. "login"); over the limit -> 429 rate_limited. */
@@ -69,7 +74,7 @@ export class RateLimiter {
         this.options.onRefused?.();
         return reply
           .code(429)
-          .header('retry-after', String(WINDOW_MS / 1000))
+          .header('retry-after', String(Math.ceil(this.windowMs / 1000)))
           .send(RATE_LIMITED);
       }
       return undefined;

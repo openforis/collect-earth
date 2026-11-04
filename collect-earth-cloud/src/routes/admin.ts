@@ -32,6 +32,8 @@ interface SignupBody {
 interface ResetBody {
   token?: string;
   newPassword?: string;
+  /** The page's language, for the notice mailed after the change. */
+  language?: string;
 }
 
 const PROJECT_CREATION_VALUES: ProjectCreation[] = ['anyone', 'platform-admins'];
@@ -95,8 +97,10 @@ export interface AdminRouteOptions {
   counters?: ServerCounters;
   /** When this process started (epoch ms). */
   startedAt?: number;
-  /** The mail routes' confirmation sender, for an address given at sign-up. */
+  /** The mail routes' confirmation sender, for an address given at sign-up, and the notice after a reset. */
   accountMail?: AccountMailHooks;
+  /** Whether "Forgot your password?" can mail a reset link: the server's mail really delivers. */
+  selfServiceReset?: boolean;
 }
 
 /**
@@ -128,6 +132,7 @@ export async function registerAdminRoutes(
         contactEmail: null,
         serverName: null,
         aiAvailable: false,
+        selfServiceReset: false,
         mapTiles: config.mapTiles ?? OSM_TILES,
       });
     }
@@ -142,6 +147,8 @@ export async function registerAdminRoutes(
       serverName: settings.serverName,
       // Whether the AI assistant can be switched on for a project. Never the key or the Vertex settings.
       aiAvailable: aiAvailable(config, settings),
+      // "Forgot your password?" mails a reset link (to an account's confirmed address): mail is set up.
+      selfServiceReset: options.selfServiceReset === true,
       // The map of progress's base map (OpenStreetMap unless the server sets another).
       mapTiles: config.mapTiles ?? OSM_TILES,
     });
@@ -243,8 +250,9 @@ export async function registerAdminRoutes(
     return reply.send({ valid: true });
   });
 
-  // Password reset with a link a platform admin issued. Single use; revokes every
-  // session of the user (desktop client included) so a leaked session dies too.
+  // Password reset with a link a platform admin issued, or one "Forgot your password?" mailed. Single
+  // use; revokes every session of the user (desktop client included) so a leaked session dies too,
+  // and mails the notice of the change to the account's confirmed address.
   app.post('/v1/auth/reset', { preHandler: limiter.guard('reset') }, async (request: FastifyRequest, reply: FastifyReply) => {
     const body = (request.body ?? {}) as ResetBody;
     const token = typeof body.token === 'string' ? body.token.trim() : '';
@@ -263,6 +271,7 @@ export async function registerAdminRoutes(
     }
     await store.setPassword(userId, await hashPassword(newPassword));
     await store.deleteUserSessions(userId);
+    options.accountMail?.passwordChanged?.(request, userId, 'reset', body.language);
     return reply.code(204).send();
   });
 
