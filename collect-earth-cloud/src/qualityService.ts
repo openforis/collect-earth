@@ -3,8 +3,6 @@
 // report cached per project while its inputs do not change, and computed on a worker
 // thread when the store lets one read the records itself.
 import { createHash } from 'node:crypto';
-import { createRequire } from 'node:module';
-import { pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { readCep, type RoundInfo } from './cep.js';
 import { copyHoldersOf } from './division.js';
@@ -131,12 +129,8 @@ export class WorkerUnavailableError extends Error {
  * tsx's loader is added.
  */
 function workerExecArgv(): string[] {
-  const argv = process.execArgv;
-  if (!RUNS_TYPESCRIPT || argv.some((a) => a.includes('tsx'))) {
-    return argv;
-  }
-  const loader = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
-  return [...argv, '--import', loader];
+  // The bootstrap registers tsx itself (qualityWorkerFromSources.mjs): only the process's own flags.
+  return process.execArgv;
 }
 
 /** Run from the sources (tsx, vitest), not from built JavaScript. */
@@ -147,7 +141,8 @@ const RUNS_TYPESCRIPT = import.meta.url.endsWith('.ts');
  * (scripts/build-local.mjs: dist/server.mjs) the bundled worker, dist/qualityWorker.mjs.
  */
 const WORKER_URL = new URL(
-  RUNS_TYPESCRIPT ? './qualityWorker.ts' : import.meta.url.endsWith('.mjs') ? './qualityWorker.mjs' : './qualityWorker.js',
+  // From the sources, a bootstrap that registers tsx in the worker first (qualityWorkerFromSources.mjs).
+  RUNS_TYPESCRIPT ? './qualityWorkerFromSources.mjs' : import.meta.url.endsWith('.mjs') ? './qualityWorker.mjs' : './qualityWorker.js',
   import.meta.url,
 );
 
