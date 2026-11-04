@@ -273,6 +273,27 @@ export function calibrationFigures(input: {
   };
 }
 
+/** Calibration figures without anyone's name: for reviewers (no one's agreement by name, as for reference plots). */
+export interface AnonymousCalibration {
+  participants: number;
+  plots: { plot: string; people: number; questions: { key: string; answers: { value: string; count: number }[]; pairs: Share; consensus: string | null }[] }[];
+  questions: CalibrationQuestion[];
+  overall: Share;
+}
+
+export function anonymousCalibration(figures: CalibrationFigures): AnonymousCalibration {
+  return {
+    participants: figures.participants.length,
+    plots: figures.plots.map((p) => ({
+      plot: p.plot,
+      people: p.people.length,
+      questions: p.questions.map((q) => ({ key: q.key, answers: q.answers.map((a) => ({ value: a.value, count: a.count })), pairs: q.pairs, consensus: q.consensus })),
+    })),
+    questions: figures.questions,
+    overall: figures.overall,
+  };
+}
+
 /**
  * Golden answers from the proposed agreed answers of a calibration: for each plot, every
  * question with one. Plots without any are left out.

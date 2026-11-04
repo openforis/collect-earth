@@ -12,6 +12,7 @@ import { fileKeyCount, unitOfRecord } from '../rounds.js';
 import type { Store } from '../store/store.js';
 import type { Question } from '../surveyOutline.js';
 import {
+  anonymousCalibration,
   calibrationFigures,
   goldenFromConsensus,
   latestAnswers,
@@ -436,6 +437,36 @@ export async function registerTrainingRoutes(
     );
     await audit(store, request, 'training.changed', { setId: loaded.set.id, change: 'attempts', name: loaded.set.name, people: people.length });
     return reply.send({ started: people.length });
+  });
+
+  // The calibration figures of every set, without names (reviewers and coordinators). A set the
+  // caller takes part in shows only once they submitted all its plots, so their answers stay their own.
+  app.get('/v1/projects/:pid/training/figures', { preHandler: requireProjectMembership(store, 'reviewer') }, async (request, reply) => {
+    const projectId = request.membership!.projectId;
+    const out = [];
+    for (const meta of await store.listTrainingSets(projectId)) {
+      const loaded = await loadSet(store, projectId, meta.id, deps.outline, request.log);
+      if (!loaded) continue;
+      const base = { id: loaded.set.id, kind: loaded.set.kind, name: loaded.set.name, plotCount: loaded.set.plotCount };
+      const me = request.userId ? loaded.people.find((p) => p.userId === request.userId) : undefined;
+      if (me) {
+        let submitted = 0;
+        for (const byPerson of loaded.answers.values()) if (byPerson.has(me.username)) submitted += 1;
+        if (submitted < loaded.set.plotCount) {
+          out.push({ ...base, takingPart: { submitted } });
+          continue;
+        }
+      }
+      out.push({
+        ...base,
+        calibration: anonymousCalibration(
+          calibrationFigures({ plots: loaded.set.plotKeys, answers: loaded.answers, participants: loaded.people.map((p) => p.username), outline: loaded.outline, margins: loaded.margins }),
+        ),
+      });
+    }
+    // The survey's questions and their answers' labels, for the figures.
+    const outline = await deps.outline(projectId, request.log);
+    return reply.send({ sets: out, questions: goldenQuestions(outline) });
   });
 
   // A participant's own sets: progress, and for learning sets their answers next to the golden ones.

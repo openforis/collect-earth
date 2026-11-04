@@ -4216,3 +4216,26 @@ export async function getMyTraining(projectId: string): Promise<MyTrainingSet[]>
   const res = await request<{ sets?: MyTrainingSet[] }>("GET", `${p(projectId)}/training/mine`);
   return Array.isArray(res.sets) ? res.sets : [];
 }
+
+/** Calibration figures without anyone's name (reviewers). */
+export interface AnonymousCalibration {
+  participants: number;
+  plots: { plot: string; people: number; questions: { key: string; answers: { value: string; count: number }[]; pairs: TrainingShare; consensus: string | null }[] }[];
+  questions: CalibrationFigures["questions"];
+  overall: TrainingShare;
+}
+
+export interface TrainingFiguresSet {
+  id: string;
+  kind: TrainingKind;
+  name: string;
+  plotCount: number;
+  /** The caller takes part and has not submitted every plot yet: no figures. */
+  takingPart?: { submitted: number };
+  calibration?: AnonymousCalibration;
+}
+
+export async function getTrainingFigures(projectId: string): Promise<{ sets: TrainingFiguresSet[]; questions: TrainingQuestion[] }> {
+  const res = await request<{ sets?: TrainingFiguresSet[]; questions?: TrainingQuestion[] }>("GET", `${p(projectId)}/training/figures`);
+  return { sets: Array.isArray(res.sets) ? res.sets : [], questions: Array.isArray(res.questions) ? res.questions : [] };
+}

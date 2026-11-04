@@ -142,6 +142,28 @@ describe('training: calibration and learning plots', () => {
     expect(audits.map((a) => String(a.details.change)).sort()).toEqual(['attempts', 'changed', 'created', 'golden', 'members']);
   });
 
+  it('reviewers see the calibration figures without names, once they submitted every plot of a set they take part in', async () => {
+    await join('rita', 'reviewer');
+    const setId = (await createSet('calib.csv', [10, 11], '?name=Calibration')).json().id as string;
+    await call('PUT', `/training/${setId}/members`, owner.token, { userIds: [people.ana.userId, people.bo.userId, people.rita.userId] });
+    await send('ana', { 10: { [LU]: 'F' }, 11: { [LU]: 'G' } });
+    await send('bo', { 10: { [LU]: 'C' }, 11: { [LU]: 'G' } });
+    expect((await call('GET', '/training/figures', people.ana.token)).statusCode).toBe(403);
+    expect((await call('GET', `/training/${setId}`, people.rita.token)).statusCode).toBe(403);
+    // Taking part, one plot submitted: the figures wait.
+    await send('rita', { 10: { [LU]: 'F' } });
+    let sets = (await call('GET', '/training/figures', people.rita.token)).json().sets;
+    expect(sets).toEqual([{ id: setId, kind: 'calibration', name: 'Calibration', plotCount: 2, takingPart: { submitted: 1 } }]);
+    await send('rita', { 11: { [LU]: 'G' } });
+    const res = await call('GET', '/training/figures', people.rita.token);
+    sets = res.json().sets;
+    expect(sets[0].calibration.participants).toBe(3);
+    expect(sets[0].calibration.questions[0]).toMatchObject({ key: LU, pairs: { compared: 6, agreeing: 4 } });
+    for (const name of ['ana', 'bo', 'rita']) expect(JSON.stringify(sets)).not.toContain(name);
+    // Coordinators get the same view.
+    expect((await call('GET', '/training/figures', owner.token)).json().sets[0].calibration.participants).toBe(3);
+  });
+
   it('golden answers from one person\'s records (an expert)', async () => {
     const setId = (await createSet('learn.csv', [10, 11], '?kind=learning')).json().id as string;
     await call('PUT', `/training/${setId}/members`, owner.token, { userIds: [people.bo.userId] });

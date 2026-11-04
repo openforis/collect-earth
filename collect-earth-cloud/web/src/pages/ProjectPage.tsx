@@ -25,6 +25,7 @@ import { linkProps, navigate, pathFor, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 
 // Each tab is loaded when first opened (the map and the charts are most of the code).
+const TrainingFigures = lazy(() => import("../components/TrainingFigures").then((m) => ({ default: m.TrainingFigures })));
 const TrainingTab = lazy(() => import("../project/TrainingTab").then((m) => ({ default: m.TrainingTab })));
 const ActivityTab = lazy(() => import("../project/ActivityTab").then((m) => ({ default: m.ActivityTab })));
 const DataTab = lazy(() => import("../project/DataTab").then((m) => ({ default: m.DataTab })));
@@ -56,7 +57,7 @@ const TAB_LABELS = {
 } as const;
 
 /** The tabs a reviewer has. */
-const REVIEWER_TABS = ["progress", "map", "quality"] as const satisfies readonly ProjectTab[];
+const REVIEWER_TABS = ["progress", "map", "quality", "training"] as const satisfies readonly ProjectTab[];
 
 /** The project's name, with the plot search beside it (coordinators and reviewers), and the bell (coordinators). */
 function Header({ projectId, name, bell = false }: { projectId: string; name: string; bell?: boolean }) {
@@ -148,7 +149,7 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
   // A reviewer follows the progress (without the cards that name people), the map (without who
   // holds each plot) and the answers per person (the Quality tab's Answers section); the other
   // tabs are the coordinators'.
-  if (info.role === "reviewer" && (tab === "progress" || tab === "map" || tab === "quality")) {
+  if (info.role === "reviewer" && (REVIEWER_TABS as readonly ProjectTab[]).includes(tab)) {
     return (
       <AppShell>
         <Header projectId={projectId} name={info.name} />
@@ -170,6 +171,8 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
             <ProgressTab projectId={projectId} onGo={go} />
           ) : tab === "map" ? (
             <MapTab projectId={projectId} coordinator={false} />
+          ) : tab === "training" ? (
+            <TrainingFigures projectId={projectId} />
           ) : plot ? (
             <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles={false} />
           ) : (

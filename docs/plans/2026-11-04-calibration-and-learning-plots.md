@@ -149,4 +149,10 @@ Members: `GET /training/mine`; `GET /training/:setId/content` (participants).
   `plotAccuracy` in `trainingView.ts`, tested); how much they agree (and, for a calibration, the plots
   where answers differ); the golden interpretation with its explanations, on a page of its own when
   printed. It names people: for coordinators and trainers.
-- **Not built:** reviewers seeing calibration figures; per-question explanations (one per plot).
+- **Reviewers see the calibration figures** (`GET /training/figures`, reviewers and coordinators;
+  `anonymousCalibration` in `src/training.ts`; the reviewer's Training tab, `components/TrainingFigures.tsx`):
+  per set, how many take part, pairs agreeing and kappa per question, and plot by plot how many gave
+  each answer with the most given one (the median for numbers). **Never anyone's name** (as for reference
+  plots, Decision 8: no one's agreement by name), no golden answers, no scores. A set the reviewer takes
+  part in shows only once they have submitted all its plots, so their answers stay their own.
+- **Not built:** per-question explanations (one per plot).

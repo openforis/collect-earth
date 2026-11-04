@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calibrationFigures, fleissKappa, goldenFromConsensus, labelled, latestAnswers, learningScore, openAttempt, type Answered } from '../src/training.js';
+import { anonymousCalibration, calibrationFigures, fleissKappa, goldenFromConsensus, labelled, latestAnswers, learningScore, openAttempt, type Answered } from '../src/training.js';
 import type { RecordRow, TrainingGolden } from '../src/types.js';
 
 const record = (recordKey: string, operator: string, summary: Record<string, string>, modifiedOn = 1000, extra: Partial<RecordRow> = {}): RecordRow => ({
@@ -83,6 +83,9 @@ describe('training figures', () => {
     expect(cy.withConsensus).toEqual({ compared: 2, agreeing: 0, rate: 0 });
     expect(figures.questions.map((q) => q.key)).toEqual(['collect_code_lu', 'collect_real_cover']);
     expect(figures.questions[1].kappa).toBeNull();
+    const anonymous = JSON.stringify(anonymousCalibration(figures));
+    for (const name of ['ana', 'bo', 'cy']) expect(anonymous).not.toContain(name);
+    expect(anonymousCalibration(figures).plots[0]).toMatchObject({ people: 3, questions: [{ key: 'collect_code_lu', answers: [{ value: 'F', count: 2 }, { value: 'C', count: 1 }] }, expect.anything()] });
     expect(goldenFromConsensus(figures)).toEqual([{ plotKey: '1', answers: { collect_code_lu: 'F', collect_real_cover: '54' } }]);
   });
 
