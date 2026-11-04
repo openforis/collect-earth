@@ -147,6 +147,7 @@ public class ImageryPageScriptsTest {
 		write("in-page-navigation.txt", GoogleEarthWebService.IN_PAGE_NAVIGATION_SCRIPT);
 		write("camera-move.txt", GoogleEarthWebService.CAMERA_MOVE_SCRIPT);
 		write("in-page-probe.txt", GoogleEarthWebService.inPageProbeScript());
+		write("gew-animation-off-preload.txt", GoogleEarthWebService.animationOffPreloadScript());
 		write("wayback.js", waybackScript());
 	}
 

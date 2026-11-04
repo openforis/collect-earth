@@ -241,6 +241,51 @@ test("Collect Earth's probe takes a push left as it was for followed when GEW ju
     assert.deepEqual(before.evaluate(scripts["in-page-probe"]), [A + DATA, false]);
 });
 
+/** Runs Collect Earth's preload script in {@code page} as the browser does, before the page's own scripts. */
+function preload(page, { hostname = "earth.google.com", inFrame = false } = {}) {
+    page.window.top = inFrame ? {} : page.window;
+    const fn = new Function("window", "location", "performance",
+        "return (" + scripts["gew-animation-off-preload"] + ")();");
+    fn(page.window, { hostname }, page.window.performance);
+}
+
+test("the preload script turns the animation off before GEW loads: it jumps from the first plot", { skip }, () => {
+    const now = 1800000000000;
+    const page = createPage({ href: A + DATA, now, loadedAt: now - 60000.25, storage: { "earth.AnimationEnabled": ON } });
+    preload(page);
+    assert.equal(page.storage.get("earth.AnimationEnabled"), OFF);
+    assert.equal(page.storage.get("__collectEarthGewAnimationBefore"), JSON.stringify(ON), "the value it replaced kept");
+    page.evaluate(scripts["in-page-navigation"], B);
+    assert.deepEqual(page.evaluate(scripts["in-page-probe"]), [B, true], "this very page jumps");
+    // the overlay finds it written, and leaves it so
+    page.flyAnimation = "off";
+    assert.equal(page.run(overlay("plotA", "", "off")), "armed");
+    assert.equal(page.storage.get("__collectEarthGewAnimationOffSince"), String(now - 60001));
+
+    // a page of a fresh profile: no setting of GEW's yet
+    const fresh = createPage({ href: A + DATA, now, storage: {} });
+    preload(fresh);
+    assert.equal(fresh.storage.get("earth.AnimationEnabled"), OFF);
+    assert.deepEqual(fresh.evaluate(scripts["in-page-probe"]), [A + DATA, true]);
+});
+
+test("the preload script leaves the user's setting, the frames of GEW and the other sources alone", { skip }, () => {
+    const now = 1800000000000;
+    // turned back on by the user, in GEW's settings, after Collect Earth turned it off
+    const users = createPage({ href: A + DATA, now,
+        storage: { "earth.AnimationEnabled": ON, "__collectEarthGewAnimationOffSince": String(now - 900000) } });
+    preload(users);
+    assert.equal(users.storage.get("earth.AnimationEnabled"), ON);
+    preload(users);
+    assert.equal(users.storage.get("earth.AnimationEnabled"), ON, "theirs for good");
+
+    for (const where of [{ inFrame: true }, { hostname: "livingatlas.arcgis.com" }]) {
+        const page = createPage({ href: A + DATA, now, storage: { "earth.AnimationEnabled": ON } });
+        preload(page, where);
+        assert.deepEqual([...page.storage.entries()], [["earth.AnimationEnabled", ON]], JSON.stringify(where));
+    }
+});
+
 test("where GEW was before a jump, written late, does not move the plot", { skip }, () => {
     const page = gewAt(A, { jumps: true });
     const sentAt = showPlot(page, B);

@@ -194,6 +194,11 @@ public class BidiTabDriver implements TabDriver {
 	}
 
 	@Override
+	public void addPreloadScript(String functionDeclaration) {
+		script.addPreloadScript(functionDeclaration);
+	}
+
+	@Override
 	public String initialTab() {
 		return initialTab;
 	}

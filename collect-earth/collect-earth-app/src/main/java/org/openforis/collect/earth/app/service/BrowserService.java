@@ -473,6 +473,28 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
+	 * Has Google Earth Web's fly animation turned off before its page loads, so that its camera jumps to each plot from
+	 * the first one on (see {@link GoogleEarthWebService#animationOffPreloadScript()}); not when the user keeps it
+	 * ({@code gew_fly_animation=true}). When this fails the overlay turns it off at the first plot, for the next page
+	 * load. Installed in every imagery browser, as the viewer can be chosen while it runs: other pages end it at once.
+	 */
+	private void turnGoogleEarthWebAnimationOff(TabDriver tabDriver) {
+		if (!"off".equals(GoogleEarthWebService.flyAnimation(localPropertiesService.getValue(EarthProperty.GEW_FLY_ANIMATION)))) {
+			return;
+		}
+		String script = GoogleEarthWebService.animationOffPreloadScript();
+		if (script == null) {
+			return;
+		}
+		try {
+			tabDriver.addPreloadScript(script);
+		} catch (RuntimeException e) {
+			logger.debug("Imagery window: Google Earth Web's animation not turned off before its page loads: {}",
+					e.getMessage());
+		}
+	}
+
+	/**
 	 * Gives the satellite icon to the windows the imagery browser opened after it started (the window of the other
 	 * sources, see {@link ImageryBrowser#separateWindowsWhen}): called once they are shown, by the window layout.
 	 */
@@ -500,6 +522,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			try {
 				TabDriver tabDriver = new BidiTabDriver(driver); // which quits the driver if it fails
 				allowPlotsMapInGoogleEarthWeb(driver);
+				turnGoogleEarthWebAnimationOff(tabDriver);
 				imageryStartFailures.started();
 				imageryWindowIcon.apply(processesBefore);
 				return tabDriver;

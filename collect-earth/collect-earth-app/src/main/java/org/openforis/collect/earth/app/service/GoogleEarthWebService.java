@@ -95,7 +95,8 @@ public class GoogleEarthWebService {
 	private static final long PAGE_URL_RETRY_MILLIS = 300;
 	/**
 	 * The decisions on Google Earth Web's camera that the overlay includes (javascript_google_earth_web.fmt), run by
-	 * {@link #inPageProbeScript()} too. Read like the templates, from the folder Collect Earth runs in.
+	 * {@link #inPageProbeScript()} and {@link #animationOffPreloadScript()} too. Read like the templates, from the folder
+	 * Collect Earth runs in.
 	 */
 	static final String CAMERA_SCRIPT = "resources/javascript_google_earth_web_camera.js";
 	/** {@link #inPageProbeScript()}, once read. */
@@ -731,17 +732,40 @@ public class GoogleEarthWebService {
 	static String inPageProbeScript() {
 		String script = inPageProbeScript;
 		if (script == null) {
-			try {
-				script = new String(Files.readAllBytes(Paths.get(System.getProperty("user.dir"), CAMERA_SCRIPT)),
-						StandardCharsets.UTF_8) + "\nreturn [location.href, GewCamera.jumpsNow(window)];";
-			} catch (IOException e) {
-				LoggerFactory.getLogger(GoogleEarthWebService.class).warn("Google Earth Web: {} could not be read: {}",
-						CAMERA_SCRIPT, e.getMessage());
-				script = "return [location.href, false];";
-			}
+			String camera = cameraScript();
+			script = camera == null ? "return [location.href, false];"
+					: camera + "\nreturn [location.href, GewCamera.jumpsNow(window)];";
 			inPageProbeScript = script;
 		}
 		return script;
+	}
+
+	/**
+	 * The script that turns Google Earth Web's fly animation off before its page reads the setting, run before the
+	 * page's own scripts (a BiDi preload script, see {@code BrowserService#startImageryBrowser}). Written by the overlay
+	 * at the first plot, the setting applied only from the next page load on: the first session after an update, or on
+	 * a new computer, waited 2 to 5 s for the camera to fly to each plot. It is {@code GewCamera.settleSetting} of the
+	 * overlay, which so finds it written and leaves it as it is, with the time the page started loading: GEW, which
+	 * reads it later, jumps ({@code GewCamera.jumpsNow}). A setting the user changed in GEW stays theirs. Only in GEW's
+	 * own page, not in its frames nor in the other sources; null when {@link #CAMERA_SCRIPT} cannot be read.
+	 */
+	static String animationOffPreloadScript() {
+		String camera = cameraScript();
+		return camera == null ? null
+				: "() => { if (location.hostname !== 'earth.google.com' || window !== window.top) return;\n" + camera
+						+ "\nGewCamera.settleSetting(window, 'off', Math.floor(performance.timeOrigin)); }";
+	}
+
+	/** {@link #CAMERA_SCRIPT}; null, with a warning, when it cannot be read. */
+	private static String cameraScript() {
+		try {
+			return new String(Files.readAllBytes(Paths.get(System.getProperty("user.dir"), CAMERA_SCRIPT)),
+					StandardCharsets.UTF_8);
+		} catch (IOException e) {
+			LoggerFactory.getLogger(GoogleEarthWebService.class).warn("Google Earth Web: {} could not be read: {}",
+					CAMERA_SCRIPT, e.getMessage());
+			return null;
+		}
 	}
 
 	/** The URL of the page and whether Google Earth Web jumps ({@link #inPageProbeScript()}); null when the page did not answer. */
@@ -1288,7 +1312,11 @@ public class GoogleEarthWebService {
 	 * and the outline waits for it (see javascript_google_earth_web_camera.js).
 	 */
 	String flyAnimation() {
-		String kept = localPropertiesService == null ? null : localPropertiesService.getValue(EarthProperty.GEW_FLY_ANIMATION);
+		return flyAnimation(localPropertiesService == null ? null : localPropertiesService.getValue(EarthProperty.GEW_FLY_ANIMATION));
+	}
+
+	/** {@link #flyAnimation()} from the value of {@code gew_fly_animation}, null when not set. */
+	static String flyAnimation(String kept) {
 		return kept != null && Boolean.parseBoolean(kept.trim()) ? "keep" : "off";
 	}
 

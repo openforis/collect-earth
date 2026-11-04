@@ -51,6 +51,13 @@ public interface TabDriver {
 		return evaluate(tab, expression);
 	}
 
+	/**
+	 * Runs {@code functionDeclaration}, a JavaScript function of no arguments, in every page the browser loads from now
+	 * on, before the page's own scripts. A driver that cannot does nothing.
+	 */
+	default void addPreloadScript(String functionDeclaration) {
+	}
+
 	/** Selects the tab (brings it to the front of its window). */
 	void activate(String tab);
 
