@@ -6,7 +6,7 @@
 import type { FastifyRequest } from 'fastify';
 
 /** Paths whose next segment is a secret token. */
-const SECRET_PREFIXES = ['/v1/public/progress/', '/p/', '/v1/join/', '/join/', '/reset/', '/v1/collect-backup/', '/v1/unsubscribe/', '/unsubscribe/', '/confirm-email/'];
+const SECRET_PREFIXES = ['/v1/public/progress/', '/p/', '/v1/join/', '/join/', '/reset/', '/v1/auth/reset/', '/v1/collect-backup/', '/v1/unsubscribe/', '/unsubscribe/', '/confirm-email/'];
 /** Query parameters that may hold a token. */
 const SECRET_PARAMS = /([?&](?:token|inviteToken|resetToken)=)[^&#]*/gi;
 

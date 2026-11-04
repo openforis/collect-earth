@@ -137,6 +137,11 @@ describe('GET /quality/flags, the threshold, and the person page', () => {
 
   it('coordinators and reviewers see them; collectors do not, nor in My work', async () => {
     expect((await call('GET', '/quality/flags', rita.token)).statusCode).toBe(200);
+    // No flags per person for a reviewer (Decision 10), as for the answers per person.
+    const byPerson = await call('GET', '/quality/flags?person=ana', rita.token);
+    expect(byPerson.statusCode).toBe(403);
+    expect(byPerson.json()).toEqual({ error: 'forbidden', reason: 'only coordinators see the flags per person' });
+    expect((await call('GET', '/quality/flags?kind=very_fast', rita.token)).statusCode).toBe(200);
     expect((await call('GET', '/quality/flags', maria.token)).statusCode).toBe(403);
     expect((await call('GET', '/quality/flags', ana.token)).statusCode).toBe(403);
     await call('GET', '/quality/flags', owner.token);

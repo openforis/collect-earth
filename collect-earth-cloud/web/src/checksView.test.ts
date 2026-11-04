@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { toSamplingView } from "./api";
-import { formOf, ruleOf, wholeNumber } from "./checksView";
+import { formOf, formWarnings, ruleOf, wholeNumber } from "./checksView";
 
 const view = (rule: unknown, files = [{ csvFileId: "f1", filename: "north.csv" }]) => toSamplingView({ rule, files, active: rule !== null });
 
@@ -60,5 +60,31 @@ describe("the Checks section's form", () => {
     expect(v.files[0]).toMatchObject({ use: "own", own: { firstN: 2 }, sampledCopies: 2, divisionCopies: 1 });
     expect(v.checkers[0]).toMatchObject({ username: "ana", role: "reviewer", open: 2, done: 1, sampled: 2 });
     expect(v.wholeFiles).toEqual([{ csvFileId: "f2", filename: "south.csv" }]);
+  });
+});
+
+describe("the Checks section's warnings, as typed", () => {
+  const members = [
+    { userId: "u1", username: "kofi", role: "operator" as const, disabled: false },
+    { userId: "u2", username: "rita", role: "reviewer" as const, disabled: false },
+    { userId: "u3", username: "ana", role: "admin" as const, disabled: false },
+    { userId: "u4", username: "old", role: "operator" as const, disabled: true },
+  ];
+  const on = { ...formOf(view(null)), firstNOn: true };
+
+  it("warns when nobody is ticked and a part of the rule is on", () => {
+    expect(formWarnings({ ...on, checkersAll: false, checkers: [] }, members)).toEqual({ noCheckers: true, notBlind: [] });
+    expect(formWarnings({ ...on, checkersAll: false, checkers: ["u4"] }, members).noCheckers).toBe(true);
+    expect(formWarnings({ ...on, firstNOn: false, checkersAll: false, checkers: [] }, members).noCheckers).toBe(false);
+    expect(formWarnings({ ...on, firstNOn: false, checkersAll: false, checkers: [], files: { f1: { use: "own", firstN: "", percent: "5" } } }, members).noCheckers).toBe(true);
+  });
+
+  it("every collector: no warning unless there is no active collector", () => {
+    expect(formWarnings(on, members)).toEqual({ noCheckers: false, notBlind: [] });
+    expect(formWarnings(on, members.filter((m) => m.userId !== "u1")).noCheckers).toBe(true);
+  });
+
+  it("names the reviewers and coordinators ticked", () => {
+    expect(formWarnings({ ...on, checkersAll: false, checkers: ["u2", "u1", "u3"] }, members)).toEqual({ noCheckers: false, notBlind: ["ana", "rita"] });
   });
 });

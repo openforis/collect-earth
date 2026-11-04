@@ -288,6 +288,10 @@ describe('password change and reset', () => {
 
     const weak = await ctx.app.inject({ method: 'POST', url: '/v1/auth/reset', payload: { token, newPassword: 'short' } });
     expect(weak.statusCode).toBe(400);
+    // The page checks the link as it opens: usable, and the check does not use it.
+    const check = () => ctx.app.inject({ method: 'GET', url: `/v1/auth/reset/${encodeURIComponent(token)}` });
+    expect((await check()).statusCode).toBe(200);
+    expect((await check()).json()).toEqual({ valid: true });
 
     const ok = await ctx.app.inject({ method: 'POST', url: '/v1/auth/reset', payload: { token, newPassword: 'reset-password' } });
     expect(ok.statusCode).toBe(204);
@@ -297,6 +301,11 @@ describe('password change and reset', () => {
 
     const reused = await ctx.app.inject({ method: 'POST', url: '/v1/auth/reset', payload: { token, newPassword: 'another-password' } });
     expect(reused.statusCode).toBe(410);
+    // Used: the page says so as it opens.
+    const used = await check();
+    expect(used.statusCode).toBe(410);
+    expect(used.json().error).toBe('invalid_reset_token');
+    expect((await ctx.app.inject({ method: 'GET', url: '/v1/auth/reset/garbage' })).statusCode).toBe(410);
     const unknown = await ctx.app.inject({ method: 'POST', url: '/v1/auth/reset', payload: { token: 'garbage', newPassword: 'another-password' } });
     expect(unknown.statusCode).toBe(410);
   });
@@ -324,6 +333,7 @@ describe('password change and reset', () => {
 
   it('an expired reset link answers 410', async () => {
     const token = await ctx.store.createPasswordReset(maria.userId, Date.now() - 1000);
+    expect((await ctx.app.inject({ method: 'GET', url: `/v1/auth/reset/${token}` })).statusCode).toBe(410);
     const res = await ctx.app.inject({ method: 'POST', url: '/v1/auth/reset', payload: { token, newPassword: 'reset-password' } });
     expect(res.statusCode).toBe(410);
     expect((await login(ctx.app, 'maria', 'maria-password')).statusCode).toBe(200);
@@ -462,6 +472,7 @@ describe('invites, overview and export', () => {
       usedCount: 0,
       expiresAt: expect.any(Number),
       createdAt: expect.any(Number),
+      forUsername: null,
     });
     expect(JSON.stringify(invites)).not.toContain(inviteToken);
 

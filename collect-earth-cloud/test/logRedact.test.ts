@@ -39,7 +39,7 @@ describe('secrets in the request log (Task 18 review)', () => {
     });
     const secret = 'S3cretT0kenS3cretT0kenS3cretT0kenS3cretT0k';
     try {
-      for (const url of [`/v1/public/progress/${secret}?tz=UTC`, `/p/${secret}`, `/v1/join/${secret}`, `/join/${secret}`, `/reset/${secret}`, `/v1/collect-backup/${secret}`, `/v1/unsubscribe/${secret}`, `/unsubscribe/${secret}`, `/confirm-email/${secret}`]) {
+      for (const url of [`/v1/public/progress/${secret}?tz=UTC`, `/p/${secret}`, `/v1/join/${secret}`, `/join/${secret}`, `/reset/${secret}`, `/v1/auth/reset/${secret}`, `/v1/collect-backup/${secret}`, `/v1/unsubscribe/${secret}`, `/unsubscribe/${secret}`, `/confirm-email/${secret}`]) {
         await app.inject({ method: 'GET', url, headers: { accept: 'text/html' } });
       }
       await app.inject({ method: 'POST', url: '/v1/auth/reset', payload: { token: secret, password: 'new-password-1' } });

@@ -66,6 +66,18 @@ describe("translations", () => {
     expect(t("attention.quiet", { count: 2, days: 3 })).not.toMatch(/(^|s)(or more|o más|ou plus|ou mais)/);
   });
 
+  it.each(LANGUAGES)("%s: one day, one gap, one session are singular; the old project file's links are made on each person's page", (language) => {
+    const t = translator(language);
+    const day = { en: "a day", es: "un día", fr: "un jour", pt: "um dia" }[language];
+    for (const key of ["peopleTable.explainOneDay", "peopleTable.syncAmberOneDay", "person.syncAmberOneDay", "person.syncQuietSelfOneDay"] as const) {
+      expect(t(key, { days: 1, zone: "UTC" }), `${language} ${key}`).toContain(day);
+    }
+    const median = t("person.speedMedian", { d: "1 min", gaps: t("person.gapsOne", { n: 1 }), sessions: t("person.sessionsOne", { n: 1 }) });
+    expect(median, language).not.toMatch(/\{|1 (gaps|intervalos|intervalles|working sessions|sesiones|séances|sessões)/);
+    const people = { en: "People page", es: "página Personas", fr: "page Personnes", pt: "página Pessoas" }[language];
+    for (const key of ["attention.oldFile", "attention.oldFileOne"] as const) expect(t(key, { count: 2 }), `${language} ${key}`).not.toContain(people);
+  });
+
   it("one term per language: parcelle, Avance, Andamento, usted, pesquisa, courriel", () => {
     const values = (language: keyof typeof CATALOGUES) => Object.values(CATALOGUES[language]).join("\n");
     expect(values("fr")).not.toMatch(/placette/i);

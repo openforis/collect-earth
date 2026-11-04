@@ -49,6 +49,7 @@ import { CopyField } from "../components/CopyField";
 import { JOIN_MENU_ITEM } from "../components/JoinSteps";
 import { Loading } from "../components/Loading";
 import { AsOf, CalendarHeatMap, ChartOrTable, ColumnChart, ValuesTable } from "../components/PeopleCharts";
+import { movedText } from "../division";
 import { countsText, totalOf } from "../flagsView";
 import { formatDate, formatNumber } from "../format";
 import { useT, type Translate } from "../i18n";
@@ -235,7 +236,11 @@ export function SpeedSection({ data }: { data: PersonData }) {
         ) : (
           <>
             <Typography sx={{ fontSize: "1.15rem" }}>
-              {t("person.speedMedian", { d: durationText(t, s.medianGapMs ?? 0), gaps: n(s.gaps), sessions: n(s.sessions) })}
+              {t("person.speedMedian", {
+                d: durationText(t, s.medianGapMs ?? 0),
+                gaps: plural(t, s.gaps, "person.gapsOne", "person.gapsMany", language),
+                sessions: plural(t, s.sessions, "person.sessionsOne", "person.sessionsMany", language),
+              })}
             </Typography>
             {s.veryFast > 0 && (
               <Alert severity="warning" icon={<WarningAmber />}>
@@ -297,8 +302,8 @@ export function SyncSection({ data, self }: { data: PersonData; self: boolean })
         {level && (
           <Typography variant="body2" color="text.secondary">
             {self
-              ? t("person.syncQuietSelf", { days: data.quietDays })
-              : t(level === "red" ? "person.syncRed" : "person.syncAmber", { days: data.quietDays, twice: data.quietDays * 2 })}
+              ? t(data.quietDays === 1 ? "person.syncQuietSelfOneDay" : "person.syncQuietSelf", { days: data.quietDays })
+              : t(level === "red" ? "person.syncRed" : data.quietDays === 1 ? "person.syncAmberOneDay" : "person.syncAmber", { days: data.quietDays, twice: data.quietDays * 2 })}
           </Typography>
         )}
       </Line>
@@ -512,7 +517,7 @@ export function FilesSection({
     setNotice(null);
     try {
       const result = await moveUnfinished(projectId, pending.file.csvFileId, data.person.userId, pending.to.userId);
-      setNotice(t("divide.moved", { count: n(result.moved), to: pending.to.username }));
+      setNotice(movedText(t, result, data.person.username, pending.to.username, language));
       onMoved?.();
     } catch (err) {
       setError(err);
@@ -539,11 +544,11 @@ export function FilesSection({
               </Typography>
               {file.plots.total > 0 && (
                 <Typography>
-                  {t("person.filePlots", { total: n(file.plots.total), submitted: n(file.plots.submitted), started: n(file.plots.started), notStarted: n(file.plots.notStarted) })}
+                  {t(file.plots.total === 1 ? "person.filePlotsOne" : "person.filePlots", { total: n(file.plots.total), submitted: n(file.plots.submitted), started: n(file.plots.started), notStarted: n(file.plots.notStarted) })}
                   {file.plots.doneByOther > 0 && ` ${t("person.fileDoneByOther", { n: n(file.plots.doneByOther) })}`}
                 </Typography>
               )}
-              {file.checks && file.checks.total > 0 && <Typography>{t("person.fileChecks", { total: n(file.checks.total), submitted: n(file.checks.submitted) })}</Typography>}
+              {file.checks && file.checks.total > 0 && <Typography>{t(file.checks.total === 1 ? "person.fileChecksOne" : "person.fileChecks", { total: n(file.checks.total), submitted: n(file.checks.submitted) })}</Typography>}
               {members && unfinished > 0 && others.length > 0 && (
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 1, alignItems: { sm: "center" } }}>
                   <FormControl size="small" sx={{ minWidth: 200 }}>

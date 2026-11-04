@@ -7,6 +7,7 @@ import {
   formProblem,
   giveInTurn,
   initialForm,
+  movedText,
   nearbyNote,
   sortPeople,
   toRequest,
@@ -245,5 +246,18 @@ describe("server answers", () => {
     expect(toDistribution({ mode: "whole" })).toBeNull();
     expect(toDistribution({ mode: "map" })).toBeNull();
     expect(toDistribution({ mode: "manual", extra: 1 })).toEqual({ mode: "manual" });
+  });
+});
+
+describe("what moving the unfinished plots did", () => {
+  it("says the plots kept back and the copies dropped, only when there are some", () => {
+    const plain = movedText(t, { moved: 4, notMoved: 0, droppedChecks: 0 }, "ana", "maria", "en");
+    expect(plain).toMatch(/^Plots moved to maria: 4\./);
+    expect(plain).not.toContain("Kept with");
+    const all = movedText(t, { moved: 4, notMoved: 1, droppedChecks: 2 }, "ana", "maria", "en");
+    expect(all).toContain("Kept with ana: 1 (plots that maria already assessed or checked");
+    expect(all).toContain("Copies to compare dropped: 2");
+    for (const lang of ["es", "fr", "pt"]) expect(movedText(translator(lang), { moved: 1, notMoved: 1, droppedChecks: 1 }, "ana", "maria", lang), lang).not.toMatch(/divide\.|\{/);
+    expect(t("divide.moveText", { from: "ana", to: "maria" })).not.toContain("every plot");
   });
 });

@@ -1,4 +1,4 @@
-import type { PersonRow, PersonStatus } from "./api";
+import type { PeopleInvite, PersonRow, PersonStatus } from "./api";
 import { csvText } from "./csv";
 import { formatNumber } from "./format";
 import type { MessageKey, Translate } from "./i18n";
@@ -97,15 +97,38 @@ export function sortPeople(rows: readonly PersonRow[], key: SortKey, direction: 
     if (va === null && vb !== null) return 1;
     if (vb === null && va !== null) return -1;
     if (va !== null && vb !== null && va !== vb) return (va < vb ? -1 : 1) * sign;
+    // Agreement under the minimum of checks has no rate: then by how many checks there are so far.
+    if (key === "agreement" && va === null && vb === null) {
+      const ca = a.agreement?.compared ?? 0;
+      const cb = b.agreement?.compared ?? 0;
+      if (ca !== cb) return (ca < cb ? -1 : 1) * sign;
+    }
     return a.username.localeCompare(b.username);
   });
 }
 
-export type StatusFilter = "all" | PersonStatus["kind"];
+/** A status to filter on, or "invited": only the invitation links nobody has used yet. */
+export type StatusFilter = "all" | PersonStatus["kind"] | "invited";
+
+/** The open links shown under the table's people: all of them with no filter, only the invitations (not the links for a new project file) with "invited". */
+export function invitesShown<T extends Pick<PeopleInvite, "forUsername">>(invites: readonly T[], text: string, status: StatusFilter): T[] {
+  if (text.trim()) return [];
+  if (status === "all") return [...invites];
+  if (status === "invited") return invites.filter((i) => i.forUsername === null);
+  return [];
+}
+
+/** An open link in the list of links: its role and uses, and whom it is for when made on a person's page. */
+export function inviteRowText(t: Translate, invite: Pick<PeopleInvite, "role" | "usedCount" | "maxUses" | "forUsername">): string {
+  const used = { used: invite.usedCount, max: invite.maxUses };
+  if (invite.forUsername !== null) return t("people.inviteRowFor", { person: invite.forUsername, ...used });
+  return t("people.inviteRow", { role: t(`role.${invite.role}`), ...used });
+}
 
 /** The rows whose name holds the text (any case) and, unless "all", with that status. */
 export function filterPeople(rows: readonly PersonRow[], text: string, status: StatusFilter): PersonRow[] {
   const needle = text.trim().toLowerCase();
+  // "invited" holds no people: only the links nobody used yet (invitesShown).
   return rows.filter((r) => (status === "all" || r.status.kind === status) && (!needle || r.username.toLowerCase().includes(needle)));
 }
 

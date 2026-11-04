@@ -302,6 +302,14 @@ describe('checkMark, pickReference, parsePlotList', () => {
     expect(splitListedPlots(['abc, 5'], ['5'])).toEqual(['abc, 5']);
   });
 
+  it('takes the id as in the CSV for the one plot of several keys it starts', () => {
+    expect(splitListedPlots(['lagoon', ' river '], ['lagoon,1', 'river,2', 'delta,1'])).toEqual(['lagoon,1', 'river,2']);
+    // Several plots share the id: it stays as typed (refused as unknown).
+    expect(splitListedPlots(['18'], ['18,1', '18,3'])).toEqual(['18']);
+    // A plot of one key is not taken for another's first key.
+    expect(splitListedPlots(['12'], ['12', '12,3'])).toEqual(['12']);
+  });
+
   it('spreads the picks over the file, not a run of neighbours', () => {
     const units = Array.from({ length: 300 }, (_, i) => String(i + 1));
     const preferred = (u: string) => Number(u) > 240;

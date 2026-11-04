@@ -19,7 +19,6 @@ import { formatDate } from "../format";
 import { useT } from "../i18n";
 import { ForecastSection, OverTime, Section, Totals, useNow } from "../project/ProgressTab";
 import { browserTimeZone, publicQualityText, updatedText } from "../progressView";
-import { formatRate } from "../qualityView";
 import { useLoad } from "../useLoad";
 import { onceVisibleAfter } from "../visibility";
 
@@ -64,17 +63,14 @@ function QualitySection({ data }: { data: PublicProgressData }) {
   const t = useT();
   const { language } = useApp();
   const q = data.quality;
-  const rate = q.agreement?.rate ?? null;
+  // The figure once: the sentence holds the rate with its counts ("32% agree (7 of 22 checks)").
   return (
     <Section title={t("publicProgress.qualityTitle")} id="public-quality">
       <Stack spacing={1}>
         <Typography color="text.secondary">{t("publicProgress.qualityExplain")}</Typography>
-        {rate !== null && (
-          <Typography variant="h2" component="p" sx={{ fontVariantNumeric: "tabular-nums" }}>
-            {formatRate(rate, language)}
-          </Typography>
-        )}
-        <Typography>{publicQualityText(t, q, language)}</Typography>
+        <Typography sx={q.agreement?.rate != null ? { fontSize: "1.25rem", fontWeight: 600, fontVariantNumeric: "tabular-nums" } : undefined}>
+          {publicQualityText(t, q, language)}
+        </Typography>
         {q.available && q.computedAt !== null && (
           <Typography variant="body2" color="text.secondary">
             {t("publicProgress.qualityAsOf", { time: formatDate(q.computedAt, language) })}

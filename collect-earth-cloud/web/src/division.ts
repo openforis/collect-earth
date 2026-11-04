@@ -1,5 +1,25 @@
 import type { CsvColumn, CsvColumns, Distribution, DivisionOrder, Member, NearbyInfo } from "./api";
+import { formatNumber } from "./format";
 import type { MessageKey, Translate } from "./i18n";
+
+/**
+ * What "Move unfinished plots" did: the plots moved, then those the server kept with `from`
+ * (`to` already assessed or checked them) and the copies to compare dropped (`to` collects
+ * those plots), each only when there are some.
+ */
+export function movedText(
+  t: Translate,
+  result: { moved: number; notMoved: number; droppedChecks: number },
+  from: string,
+  to: string,
+  language: string,
+): string {
+  const n = (v: number) => formatNumber(v, language);
+  const parts = [t("divide.moved", { count: n(result.moved), to })];
+  if (result.notMoved > 0) parts.push(t("divide.movedKept", { count: n(result.notMoved), from, to }));
+  if (result.droppedChecks > 0) parts.push(t("divide.movedDropped", { count: n(result.droppedChecks), to }));
+  return parts.join(" ");
+}
 
 // The "divide the plots of a file" form: its state, from and to what the server
 // stores, and what is missing before it can be sent. Kept apart from the React code

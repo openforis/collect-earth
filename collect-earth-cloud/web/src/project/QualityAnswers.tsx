@@ -16,7 +16,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import {
   ApiError,
   getAnswerColumns,
@@ -36,6 +36,7 @@ import {
   chanceText,
   choiceRows,
   datesInOrder,
+  syncedDays,
   flagText,
   hasFilter,
   numberText,
@@ -263,7 +264,7 @@ function ChoiceView({ choice, person, narrowed, local }: { choice: ChoiceAnswers
       <Typography variant="body2" color="text.secondary">
         {compared && mine
           ? t("answers.choiceExplainPerson", { person: person!, plots: formatNumber(mine.answered, language), team: formatNumber(choice.answered - mine.answered, language) })
-          : t("answers.choiceExplain", { plots: formatNumber(choice.answered, language) })}
+          : t(choice.answered === 1 ? "answers.choiceExplainOne" : "answers.choiceExplain", { plots: formatNumber(choice.answered, language) })}
         {choice.blank > 0 ? ` ${t(narrowed ? (choice.blank === 1 ? "answers.blankFilteredOne" : "answers.blankFiltered") : choice.blank === 1 ? "answers.blankOne" : "answers.blank", { n: formatNumber(choice.blank, language) })}` : ""}
         {choice.multiple ? ` ${t("answers.multiple")}` : ""}
       </Typography>
@@ -312,7 +313,7 @@ function NumberView({ numbers, person, local }: { numbers: NumberAnswers; person
     ? [{ label: t("answers.yourPlots"), s: numbers.team, color: ALONE }]
     : [{ label: t("answers.team"), s: numbers.team, color: TEAM }, ...numbers.people.map((p) => ({ label: p.username, s: p as NumberSpread, color: PERSON }))];
   const readout = (r: (typeof rows)[number]) =>
-    `${r.label}: ${spreadText(t, r.s, language)}${r.s.nonNumeric > 0 ? ` · ${t("answers.nonNumeric", { n: formatNumber(r.s.nonNumeric, language) })}` : ""}`;
+    `${r.label}: ${spreadText(t, r.s, language)}${r.s.nonNumeric > 0 ? ` · ${t(r.s.nonNumeric === 1 ? "answers.nonNumericOne" : "answers.nonNumeric", { n: formatNumber(r.s.nonNumeric, language) })}` : ""}`;
   const chart = (
     <Box>
       <Typography id={readoutId} variant="body2" sx={{ minHeight: "1.5em", fontVariantNumeric: "tabular-nums" }} aria-live={active !== null ? "polite" : "off"}>
@@ -386,7 +387,7 @@ function NumberView({ numbers, person, local }: { numbers: NumberAnswers; person
     <Stack spacing={1}>
       <Typography variant="body2" color="text.secondary">
         {t("answers.numberExplain")}
-        {numbers.team.nonNumeric > 0 ? ` ${t("answers.nonNumericTeam", { n: formatNumber(numbers.team.nonNumeric, language) })}` : ""}
+        {numbers.team.nonNumeric > 0 ? ` ${t(numbers.team.nonNumeric === 1 ? "answers.nonNumericTeamOne" : "answers.nonNumericTeam", { n: formatNumber(numbers.team.nonNumeric, language) })}` : ""}
       </Typography>
       {!local && (
         <Legend
@@ -439,12 +440,21 @@ function Filters({
   // The days as typed: applied DAYS_DELAY_MS after the last change or when the field is
   // left, and only when in order (the server refuses a first day after the last).
   const [days, setDays] = useState({ from: filter.from ?? "", to: filter.to ?? "" });
-  useEffect(() => setDays({ from: filter.from ?? "", to: filter.to ?? "" }), [filter.from, filter.to]);
+  // The days this form applied last: a field follows the filter only when its day changed from
+  // outside, so applying one day does not reset the other while it is being typed.
+  const applied = useRef({ from: filter.from, to: filter.to });
+  useEffect(() => {
+    const last = applied.current;
+    applied.current = { from: filter.from, to: filter.to };
+    setDays((d) => syncedDays(d, last, filter));
+  }, [filter.from, filter.to]);
   const typedFrom = days.from || null;
   const typedTo = days.to || null;
   const inOrder = datesInOrder(typedFrom, typedTo);
   const applyDays = () => {
-    if (inOrder && (typedFrom !== filter.from || typedTo !== filter.to)) onChange({ ...filter, from: typedFrom, to: typedTo });
+    if (!inOrder || (typedFrom === filter.from && typedTo === filter.to)) return;
+    applied.current = { from: typedFrom, to: typedTo };
+    onChange({ ...filter, from: typedFrom, to: typedTo });
   };
   useEffect(() => {
     if (typedFrom === filter.from && typedTo === filter.to) return;

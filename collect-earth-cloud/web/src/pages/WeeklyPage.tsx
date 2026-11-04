@@ -13,7 +13,7 @@ import ChevronLeft from "@mui/icons-material/ChevronLeft";
 import ChevronRight from "@mui/icons-material/ChevronRight";
 import { getWeekly, type FlagCounts, type WeeklyData } from "../api";
 import { useApp, useLocalMode } from "../appContext";
-import { dayStartMs, isoWeekOf, localDay, shiftWeek } from "../activityView";
+import { dayStartMs, isoWeekOf, localDay, shiftWeek, weeklyNotForRole } from "../activityView";
 import { AsOf } from "../components/PeopleCharts";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
@@ -224,7 +224,14 @@ export function WeeklyPage({ projectId, week }: { projectId: string; week: strin
   return (
     <ReportFrame projectId={projectId} title={title} back="activity" printable={state.error === null}>
       {state.loading && !data && <Loading />}
-      {state.error !== null && <ErrorAlert error={state.error} onRetry={state.reload} />}
+      {state.error !== null &&
+        (weeklyNotForRole(state.error) ? (
+          <Alert severity="info" role="note">
+            {t("weekly.notForRole")}
+          </Alert>
+        ) : (
+          <ErrorAlert error={state.error} onRetry={state.reload} />
+        ))}
       {data && (
         <>
           <WeekNav projectId={projectId} data={data} />

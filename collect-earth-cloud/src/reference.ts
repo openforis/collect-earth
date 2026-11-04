@@ -294,14 +294,26 @@ export function pickReference(units: readonly string[], free: (unit: string) => 
 /**
  * Plot ids as typed: an id that is not a plot of the file but whose comma-separated parts all are
  * ("5, 6, 7" pasted on one line) stands for those plots. Ids of several keys hold commas
- * themselves ("12,3"), so an id is only split when it is not a plot as it is.
+ * themselves ("12,3"), so an id is only split when it is not a plot as it is. An id that is the
+ * first key of exactly one plot of a file with several keys ("lagoon" for "lagoon,1", the id as
+ * it is in the CSV) stands for that plot; when it is the first key of several, it stays unknown.
  */
 export function splitListedPlots(plots: readonly string[], units: readonly string[]): string[] {
   const inFile = new Set(units);
+  // The first key of each plot of several keys, and its plot (null: several plots share it).
+  const byFirstKey = new Map<string, string | null>();
+  for (const u of units) {
+    const comma = u.indexOf(',');
+    if (comma <= 0) continue;
+    const first = u.slice(0, comma);
+    byFirstKey.set(first, byFirstKey.has(first) ? null : u);
+  }
   const out = new Set<string>();
   for (const plot of plots) {
     const parts = plot.split(',').map((p) => p.trim()).filter((p) => p !== '');
+    const only = inFile.has(plot) ? null : byFirstKey.get(plot.trim());
     if (!inFile.has(plot) && parts.length > 1 && parts.every((p) => inFile.has(p))) parts.forEach((p) => out.add(p));
+    else if (only) out.add(only);
     else out.add(plot);
   }
   return [...out];

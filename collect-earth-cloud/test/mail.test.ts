@@ -1,11 +1,12 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import { createTransport } from 'nodemailer';
 import { loadConfig } from '../src/config.js';
-import { collectorMail, confirmMail, coordinatorMail, dueWeek, previousWeek, type CollectorProject, type CoordinatorProject, type DigestContext } from '../src/digest.js';
+import { collectorHasNews, collectorMail, confirmMail, coordinatorHasNews, coordinatorMail, dueWeek, previousWeek, type CollectorProject, type CoordinatorProject, type DigestContext } from '../src/digest.js';
 import { DIGEST_WORDS, escapeHtml, oneLine } from '../src/digestText.js';
 import { isEmailAddress } from '../src/accountRules.js';
 import { linkSecret } from '../src/backupLink.js';
-import { errorSummary, isMailFrom, isPermanentFailure, LogMailer, mailerFrom, parseSmtpUrl, SmtpMailer, transportOptions } from '../src/mail.js';
+import { errorSummary, isMailFrom, isPermanentFailure, LogMailer, mailerFrom, mailFromHeader, parseSmtpUrl, SmtpMailer, transportOptions } from '../src/mail.js';
 import { mailSecret, readConfirmToken, readUnsubscribeToken, writeConfirmToken, writeUnsubscribeToken, CONFIRM_TTL_MS } from '../src/mailLinks.js';
 import { MAIL_LANGUAGES, type MailLanguage } from '../src/types.js';
 
@@ -70,6 +71,23 @@ describe('the mail transport (Task 19)', () => {
     expect(transportOptions(parseSmtpUrl('smtps://u:p@smtp.example.org')).tls).toMatchObject({ rejectUnauthorized: true, servername: 'smtp.example.org' });
     expect(transportOptions(parseSmtpUrl('smtp://127.0.0.1:25')).tls.servername).toBeUndefined();
     expect(transportOptions(parseSmtpUrl('smtp://[::1]:25')).tls.servername).toBeUndefined();
+  });
+
+  it('MAIL_FROM: the display name is sent quoted, so "(test)" and other specials stay in the From line', async () => {
+    expect(mailFromHeader('noreply@example.org')).toBe('noreply@example.org');
+    expect(mailFromHeader('<noreply@example.org>')).toBe('noreply@example.org');
+    expect(mailFromHeader('Collect Earth Cloud (test) <noreply@example.org>')).toBe('"Collect Earth Cloud (test)" <noreply@example.org>');
+    expect(mailFromHeader('"FAO, Forestry" <noreply@example.org>')).toBe('"FAO, Forestry" <noreply@example.org>');
+    expect(mailFromHeader('A \\ B <noreply@example.org>')).toBe('"A \\\\ B" <noreply@example.org>');
+    expect(mailFromHeader('Dr. O\'Neil: CEC <noreply@example.org>')).toBe('"Dr. O\'Neil: CEC" <noreply@example.org>');
+    // As nodemailer writes it: the whole name reaches the header.
+    const composer = createTransport({ streamTransport: true, buffer: true });
+    const from = async (value: string) => {
+      const info = await composer.sendMail({ from: mailFromHeader(value), to: 'a@example.org', subject: 's', text: 't' });
+      return /^From: (.*)$/m.exec((info.message as Buffer).toString())?.[1];
+    };
+    expect(await from('Collect Earth Cloud (test) <noreply@example.org>')).toBe('"Collect Earth Cloud (test)" <noreply@example.org>');
+    expect(await from('A \\ B <noreply@example.org>')).toBe('"A \\\\ B" <noreply@example.org>');
   });
 
   it("a send's error is logged by its code only (a mail server's message may hold addresses)", () => {
@@ -180,6 +198,25 @@ describe('the digests\' words (Task 19)', () => {
     week: '2026-W44',
     username: 'maria',
     unsubscribeUrl: 'https://ce.example.org/v1/unsubscribe/TOKEN',
+  });
+
+  it('a week with nothing done and nothing waiting is no news (no mail of zeros)', () => {
+    expect(coordinatorHasNews(coordinator[0])).toBe(true);
+    // Wetlands: finished, nothing done in the week, nobody quiet, no differences known.
+    expect(coordinatorHasNews(coordinator[1])).toBe(false);
+    const still = coordinator[1];
+    expect(coordinatorHasNews({ ...still, differencesWaiting: 0 })).toBe(false);
+    expect(coordinatorHasNews({ ...still, quiet: null })).toBe(false);
+    expect(coordinatorHasNews({ ...still, submitted: 1 })).toBe(true);
+    expect(coordinatorHasNews({ ...still, checks: 1 })).toBe(true);
+    expect(coordinatorHasNews({ ...still, differencesWaiting: 2 })).toBe(true);
+    expect(coordinatorHasNews({ ...still, quiet: { days: 4, people: ['jose'] } })).toBe(true);
+    const done: CollectorProject = { ...collector[0], submitted: 0, submittedAll: 50, remaining: 0, sentBack: 0 };
+    expect(collectorHasNews(collector[0])).toBe(true);
+    expect(collectorHasNews(done)).toBe(false);
+    expect(collectorHasNews({ ...done, submitted: 3 })).toBe(true);
+    expect(collectorHasNews({ ...done, remaining: 1 })).toBe(true);
+    expect(collectorHasNews({ ...done, sentBack: 1 })).toBe(true);
   });
 
   it('every language has every text, filled, and they are not English', () => {

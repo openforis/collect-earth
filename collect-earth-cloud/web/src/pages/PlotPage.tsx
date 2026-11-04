@@ -116,7 +116,7 @@ function Decision({ projectId, data, onChange }: { projectId: string; data: Plot
               {t("queue.noCheck")}
             </Typography>
           )}
-          <TextField label={t("quality.comment")} value={comment} onChange={(e) => setComment(e.target.value)} size="small" multiline slotProps={{ htmlInput: { maxLength: 2000 } }} />
+          <TextField label={t("quality.comment")} helperText={t("quality.commentSeen")} value={comment} onChange={(e) => setComment(e.target.value)} size="small" multiline slotProps={{ htmlInput: { maxLength: 2000 } }} />
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
             {DECISIONS.map((d) => (
               <Button key={d.kind} variant={decision?.decision === d.kind ? "contained" : "outlined"} onClick={() => void decide(d.kind)} disabled={busy || (d.kind === "check" && !withCheck)}>

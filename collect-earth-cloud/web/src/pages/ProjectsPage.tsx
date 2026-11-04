@@ -127,8 +127,13 @@ export function ProjectsPage() {
                     <Chip size="small" label={t(`role.${p.role}`)} color={p.role === "admin" ? "primary" : "default"} />
                   </CardContent>
                 </CardActionArea>
-                {/* Every member can see how their own plots fared in the checks. */}
+                {/* Every member can see how their own plots fared in the checks; collectors and reviewers also their work, as on the project page. */}
                 <CardActions sx={{ pt: 0 }}>
+                  {p.role !== "admin" && (
+                    <Button size="small" {...linkProps(pathFor({ name: "myWork", projectId: p.projectId }))}>
+                      {t("myWork.link")}
+                    </Button>
+                  )}
                   <Button size="small" {...linkProps(pathFor({ name: "myQuality", projectId: p.projectId }))}>
                     {t("myQuality.link")}
                   </Button>

@@ -1,7 +1,7 @@
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
-import { useState } from "react";
-import { resetPassword } from "../api";
+import { useEffect, useState } from "react";
+import { checkResetLink, resetPassword } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
@@ -21,6 +21,22 @@ export function ResetPage({ token }: { token: string }) {
   const [error, setError] = useState<unknown>(null);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Checked as the page opens: a link already used or expired says so before a password is typed.
+  // Until the answer (or if it cannot be had), the form is there; the reset itself checks again.
+  const [usable, setUsable] = useState(true);
+
+  useEffect(() => {
+    let current = true;
+    checkResetLink(token).then(
+      (ok) => {
+        if (current) setUsable(ok);
+      },
+      () => undefined,
+    );
+    return () => {
+      current = false;
+    };
+  }, [token]);
 
   const submit = async () => {
     setError(null);
@@ -43,8 +59,15 @@ export function ResetPage({ token }: { token: string }) {
 
   return (
     <AppShell narrow>
-      <FormCard title={t("reset.title")} intro={done ? undefined : t("reset.intro")} onSubmit={submit}>
-        {done ? (
+      <FormCard title={t("reset.title")} intro={done || !usable ? undefined : t("reset.intro")} onSubmit={submit}>
+        {!done && !usable ? (
+          <>
+            <Alert severity="error">{t("error.linkUsedOrExpired")}</Alert>
+            <Button variant="contained" size="large" {...linkProps("/login")}>
+              {t("reset.goLogin")}
+            </Button>
+          </>
+        ) : done ? (
           <>
             <Alert severity="success" role="status">
               {t("reset.done")}

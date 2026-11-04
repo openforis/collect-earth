@@ -127,6 +127,8 @@ describe("page titles and focus", () => {
     // A plot a reviewer may not see: no heading of its own, the address's words instead of the server alone.
     expect(pageTitleOf({ own: null, fallback: "Plot 10", tab: "Quality", h1: "Ghana", server })).toBe("Plot 10 – Quality – Ghana – Collect Earth Cloud");
     expect(pageTitleOf({ own: null, fallback: "Page not found", tab: null, h1: null, server })).toBe("Page not found – Collect Earth Cloud");
+    // A report (Team report, My quality, My work): its h1 is the report, its project under it.
+    expect(pageTitleOf({ own: null, fallback: null, tab: null, h1: "Team report", context: "Ghana", server })).toBe("Team report – Ghana – Collect Earth Cloud");
   });
 
   it("a page's own heading wins over the project's h1", () => {

@@ -6,6 +6,7 @@ import type { Config } from '../config.js';
 import { checkUploadFits } from '../limits.js';
 import { servedBundledPlotFile } from './assignments.js';
 import { fileKeyCount } from '../rounds.js';
+import { invitesFor } from './people.js';
 import { requireProjectMembership, requireSession } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { Role, RoundInfo } from '../types.js';
@@ -227,7 +228,11 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
     '/v1/projects/:pid/invites',
     { preHandler: requireProjectMembership(store, 'admin') },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send({ invites: await store.listInvites(request.membership!.projectId, Date.now()) });
+      const projectId = request.membership!.projectId;
+      const [invites, members] = await Promise.all([store.listInvites(projectId, Date.now()), store.listMembers(projectId)]);
+      // A link made on a person's page (for the new project file) names whom it is for.
+      const forOf = await invitesFor(store, projectId, invites, new Map(members.map((m) => [m.userId, m.username])));
+      return reply.send({ invites: invites.map((i) => ({ ...i, forUsername: forOf.get(i.id) ?? null })) });
     },
   );
 

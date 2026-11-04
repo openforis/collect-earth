@@ -126,7 +126,7 @@ export async function registerProjectRoutes(
         return reply.code(400).send({ error: 'bad_request', reason: 'name must be 1-200 characters' });
       }
       await store.renameProject(request.membership!.projectId, name);
-      await audit(store, request, 'settings.changed', { setting: 'name' });
+      await audit(store, request, 'settings.changed', { setting: 'name', name });
       return reply.send({ projectId: request.membership!.projectId, name });
     },
   );

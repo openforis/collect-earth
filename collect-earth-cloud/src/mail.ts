@@ -159,6 +159,23 @@ export function isMailFrom(value: string): boolean {
   return /^[^\s@<>,;"]+@[^\s@<>,;"]+\.[^\s@<>,;"]+$/.test(text);
 }
 
+/**
+ * MAIL_FROM as the From header, its display name an RFC 5322 quoted-string (`"Collect Earth
+ * Cloud (test)" <noreply@example.org>`): unquoted, parentheses read as a comment and are dropped
+ * from the name, and other specials (`.`, `:`, `@`…) can break it. A name already quoted and a
+ * bare address stay as they are; `"` and `\` in a name are escaped.
+ */
+export function mailFromHeader(value: string): string {
+  const text = value.trim();
+  const angle = /^([^<>]*)<([^<>]+)>$/.exec(text);
+  if (!angle) return text;
+  const name = angle[1].trim();
+  const address = angle[2].trim();
+  if (name === '') return address;
+  if (/^"(?:[^"\\]|\\.)*"$/.test(name)) return `${name} <${address}>`;
+  return `"${name.replace(/[\\"]/g, (c) => `\\${c}`)}" <${address}>`;
+}
+
 /** nodemailer's options for the settings: TLS required, certificates checked; the TLS name (SNI) only for a host name. */
 export function transportOptions(settings: SmtpSettings) {
   return {
@@ -186,12 +203,15 @@ export class SmtpMailer implements Mailer {
   readonly transport = 'smtp' as const;
   readonly delivers = true;
   private readonly transporter;
+  /** MAIL_FROM with its display name quoted (mailFromHeader). */
+  private readonly from: string;
 
   constructor(
     settings: SmtpSettings,
-    private readonly from: string,
+    from: string,
   ) {
     this.transporter = createTransport(transportOptions(settings));
+    this.from = mailFromHeader(from);
   }
 
   async send(message: MailMessage): Promise<void> {

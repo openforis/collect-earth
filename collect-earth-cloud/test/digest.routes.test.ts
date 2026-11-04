@@ -59,6 +59,12 @@ describe('email digests (Task 19)', () => {
     expect(res.statusCode, res.body).toBe(200);
     return res.json();
   };
+  /** A project of its own (tests that make one): plot 1 done in the digest's week, so the week has news. */
+  const plotDoneInTheWeek = async () => {
+    await call('PUT', '/cep', owner.token, idOnlyCep(), { 'content-type': 'application/zip' });
+    const monday = Date.parse(`${weekMonday(dueWeek(clock, 'UTC'))}T12:00:00Z`);
+    await batchRequest(ctx.app, pid, owner.token, [envelope({ recordKey: '1', operator: 'owner', modifiedOn: monday + DAY, activelySaved: true })]);
+  };
   const digests = (to?: string) => mailer.sent.filter((m) => m.tag.startsWith('digest.') && (to === undefined || m.to === to));
 
   beforeEach(async () => {
@@ -293,6 +299,7 @@ describe('email digests (Task 19)', () => {
     owner = await setupPlatformAdmin(ctx.app);
     pid = (await ctx.app.inject({ method: 'POST', url: '/v1/projects', headers: bearer(owner.token), payload: { name: 'P' } })).json().projectId;
     await call('PUT', '/csv-files/plots.csv', owner.token, 'id,lat,lon\n1,0,0\n', { 'content-type': 'text/csv' });
+    await plotDoneInTheWeek();
     await subscribe(owner, 'owner@example.org', { coordinator: true });
     expect((await digest()).json()).toMatchObject({ sent: 1 });
     const link = new URL(/^<(.+)>$/.exec(digests()[0].headers!['List-Unsubscribe'])![1]).pathname;
@@ -386,6 +393,19 @@ describe('email digests (Task 19)', () => {
     // The next week, again.
     clock += 7 * DAY;
     expect((await digest()).json()).toMatchObject({ sent: 2 });
+  });
+
+  it("a person's week with nothing done and nothing left to do sends no mail", async () => {
+    // maria does her last plot (4) before the digest's week: that week she submitted 1, 2 and 7.
+    const monday = Date.parse(`${weekMonday(dueWeek(clock, 'UTC'))}T12:00:00Z`);
+    await batchRequest(ctx.app, pid, maria.token, [envelope({ recordKey: '4', operator: 'maria', modifiedOn: monday - 2 * DAY, activelySaved: true })]);
+    await subscribe(maria, 'maria@example.org', { collector: true });
+    expect((await digest()).json()).toMatchObject({ sent: 1, empty: 0 });
+    // The next week: nothing submitted, nothing left, nothing sent back. No mail, the week passed over.
+    clock += 7 * DAY;
+    expect((await digest()).json()).toMatchObject({ sent: 0, empty: 1 });
+    expect(digests('maria@example.org')).toHaveLength(1);
+    expect((await digest()).json()).toMatchObject({ sent: 0, empty: 0 });
   });
 
   it('two runs at once, on one instance or two, send each mail once', async () => {
@@ -484,6 +504,7 @@ describe('email digests (Task 19)', () => {
     owner = await setupPlatformAdmin(ctx.app);
     pid = (await ctx.app.inject({ method: 'POST', url: '/v1/projects', headers: bearer(owner.token), payload: { name: 'P' } })).json().projectId;
     await call('PUT', '/csv-files/plots.csv', owner.token, 'id,lat,lon\n1,0,0\n', { 'content-type': 'text/csv' });
+    await plotDoneInTheWeek();
     expect((await me('GET', '/notifications', owner.token)).json().sends).toBe(false);
     await me('PUT', '/email', owner.token, { email: 'owner.secret@example.org' });
     // The confirmation mail went to the log: confirm as the link would (the store, as a test can).

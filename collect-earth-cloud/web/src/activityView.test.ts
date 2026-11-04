@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityPage, LogItem } from "./api";
-import { answerLabel, dailyCsv, dayAfterMs, dayStartMs, decisionsCsv, differencesCsv, isIsoWeek, isoWeekOf, logSentence, shiftWeek, weekMonday, weekRangeText } from "./activityView";
+import { answerLabel, dailyCsv, dayAfterMs, dayStartMs, decisionsCsv, differencesCsv, isIsoWeek, isoWeekOf, logSentence, shiftWeek, weekMonday, weekRangeText, weeklyNotForRole } from "./activityView";
+import { ApiError, errorMessageKey } from "./api";
 import { csvText } from "./csv";
 import { translator } from "./i18n";
 
@@ -69,6 +70,32 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("settings.changed", { setting: "sampling" }), page, "en")).toBe("ana changed the automatic checks settings");
     expect(logSentence(t, audit("reference.changed", { csvFileId: "f1", added: 20, removed: 0 }), page, "en")).toBe("ana marked plots of north.csv as reference plots (20 plots)");
     expect(logSentence(t, audit("reference.changed", { csvFileId: null, added: 0, removed: 3 }), page, "en")).toBe("ana removed reference plots (3 plots)");
+  });
+
+  it("a count of 1 is singular; a rename says the new name when the log has it", () => {
+    expect(logSentence(t, audit("sampling.drawn", { automatic: false, drawn: 1 }), page, "en")).toBe("ana drew 1 plot for checks");
+    expect(logSentence(t, audit("sampling.drawn", { automatic: true, drawn: 1 }, null), page, "en")).toBe("1 plot drawn automatically for checks");
+    expect(logSentence(t, audit("csv.uploaded", { csvFileId: "f1", plots: 1 }), page, "en")).toBe("ana uploaded the plot file north.csv (1 plot)");
+    expect(logSentence(t, audit("reference.changed", { csvFileId: "f1", added: 1, removed: 0 }), page, "en")).toBe("ana marked 1 plot of north.csv as a reference plot");
+    expect(logSentence(t, audit("reference.changed", { added: 0, removed: 1 }), page, "en")).toBe("ana removed 1 reference plot");
+    expect(logSentence(t, audit("export.downloaded", { records: 1 }), page, "en")).toBe("ana downloaded the data (1 record)");
+    expect(logSentence(t, audit("division.applied", { csvFileId: "f1", mode: "equal", people: 1 }), page, "en")).toBe("ana divided north.csv: all of it to one person");
+    expect(logSentence(t, audit("csv.uploaded", { csvFileId: "f1", plots: 1 }), page, "en", { local: true })).toBe("Collect Earth sent the plot file north.csv (1 plot)");
+    expect(logSentence(t, audit("settings.changed", { setting: "name", name: "Bolivia 2027" }), page, "en")).toBe("ana renamed the project “Bolivia 2027”");
+    expect(logSentence(t, audit("settings.changed", { setting: "name" }), page, "en")).toBe("ana renamed the project");
+    expect(logSentence(t, audit("settings.changed", { setting: "name", name: "Bolivia 2027" }), page, "en", { local: true })).toBe("You renamed the project “Bolivia 2027”");
+    for (const lang of ["es", "fr", "pt"]) {
+      expect(logSentence(translator(lang), audit("settings.changed", { setting: "name", name: "X" }), page, lang), lang).toContain("X");
+      expect(logSentence(translator(lang), audit("sampling.drawn", { drawn: 1 }), page, lang), lang).not.toMatch(/parcel(a|le)s/);
+    }
+  });
+
+  it("the weekly summary: a refusal for the role and a week that does not exist are said plainly", () => {
+    expect(weeklyNotForRole(new ApiError(403, "forbidden", null))).toBe(true);
+    expect(weeklyNotForRole(new ApiError(500, "server_error", null))).toBe(false);
+    expect(weeklyNotForRole(new Error("x"))).toBe(false);
+    expect(t("weekly.notForRole")).not.toMatch(/try again/i);
+    expect(errorMessageKey(new ApiError(404, "no_such_week", null))).toBe("weekly.noSuchWeek");
   });
 
   it("es, fr and pt: a plot's sentence agrees with the plot, a check's with the check", () => {

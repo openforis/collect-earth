@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  checkResetLink,
   confirmEmail,
   getNotifications,
   sendEmailConfirmation,
@@ -124,6 +125,7 @@ describe("error messages", () => {
     ["last_platform_admin", 409, "error.lastPlatformAdmin"],
     ["terms_not_accepted", 400, "error.termsNotAccepted"],
     ["no_plots", 400, "error.noPlots"],
+    ["no_such_week", 404, "weekly.noSuchWeek"],
   ];
   it.each(cases)("%s becomes a sentence", (code, status, key) => {
     expect(errorMessageKey(apiErrorFrom(status, { error: code }))).toBe(key);
@@ -164,6 +166,17 @@ describe("error messages", () => {
 });
 
 describe("transport", () => {
+  it("a password reset link is checked without using it: used or expired is false, offline throws", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { valid: true }));
+    expect(await checkResetLink("a/b")).toBe(true);
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/auth/reset/a%2Fb");
+    expect(fetchMock.mock.calls[0][1]!.method).toBe("GET");
+    fetchMock.mockResolvedValue(jsonResponse(410, { error: "invalid_reset_token" }));
+    expect(await checkResetLink("t")).toBe(false);
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    await expect(checkResetLink("t")).rejects.toBeInstanceOf(ApiError);
+  });
+
   it("a network failure is an ApiError with status 0", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
     const error = await listProjects().catch((e: unknown) => e);
@@ -403,7 +416,7 @@ describe("dividing plots", () => {
   });
 
   it("gets, previews, applies and moves", async () => {
-    fetchMock.mockImplementation(async () => jsonResponse(200, { ...state, moved: 5 }));
+    fetchMock.mockImplementation(async () => jsonResponse(200, { ...state, moved: 5, notMoved: 1, droppedChecks: 2 }));
     await getDistribution("p1", "f1");
     expect(call(0)).toEqual({ url: "/v1/projects/p1/csv-files/f1/distribution", method: "GET", body: undefined });
     const even = { mode: "even" as const, people: ["u1"], order: "file" as const };
@@ -411,7 +424,7 @@ describe("dividing plots", () => {
     expect(call(1)).toEqual({ url: "/v1/projects/p1/csv-files/f1/distribution", method: "PUT", body: { ...even, dryRun: true } });
     await saveDistribution("p1", "f1", even);
     expect(call(2).body).toEqual(even);
-    expect(await moveUnfinished("p1", "f1", "u1", "u2")).toMatchObject({ moved: 5, plotCount: 3 });
+    expect(await moveUnfinished("p1", "f1", "u1", "u2")).toMatchObject({ moved: 5, notMoved: 1, droppedChecks: 2, plotCount: 3 });
     expect(call(3)).toEqual({ url: "/v1/projects/p1/csv-files/f1/move-unfinished", method: "POST", body: { fromUserId: "u1", toUserId: "u2" } });
   });
 });

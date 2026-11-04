@@ -42,6 +42,7 @@ import {
   createInvite,
   getPeople,
   type PeopleData,
+  type PeopleInvite,
   type PersonRow,
   listInvites,
   listMembers,
@@ -62,7 +63,7 @@ import { Loading } from "../components/Loading";
 import { AsOf, ChartOrTable, ColumnChart, ValuesTable } from "../components/PeopleCharts";
 import { formatDate, formatDay, formatNumber } from "../format";
 import { useT, type MessageKey } from "../i18n";
-import { agoText, filterPeople, perDayText, sortPeople, statusChip, statusSyncLevel, type SortKey, type StatusFilter } from "../peopleView";
+import { agoText, filterPeople, inviteRowText, invitesShown, perDayText, sortPeople, statusChip, statusSyncLevel, type SortKey, type StatusFilter } from "../peopleView";
 import { browserTimeZone, dayText, percentText } from "../progressView";
 import { formatRate } from "../qualityView";
 import { linkProps, pathFor } from "../router";
@@ -145,7 +146,7 @@ function InviteForm({ projectId, onCreated }: { projectId: string; onCreated: (i
   );
 }
 
-function InviteList({ invites, onRevoke }: { invites: Invite[]; onRevoke: (invite: Invite) => void }) {
+function InviteList({ invites, onRevoke }: { invites: PeopleInvite[]; onRevoke: (invite: Invite) => void }) {
   const t = useT();
   const { language } = useApp();
   if (invites.length === 0) return <Typography color="text.secondary">{t("people.noInvites")}</Typography>;
@@ -164,7 +165,7 @@ function InviteList({ invites, onRevoke }: { invites: Invite[]; onRevoke: (invit
           }
         >
           <ListItemText
-            primary={t("people.inviteRow", { role: t(`role.${invite.role}`), used: invite.usedCount, max: invite.maxUses })}
+            primary={inviteRowText(t, invite)}
             secondary={[
               invite.createdAt !== null ? t("people.inviteMade", { date: formatDay(invite.createdAt, language) }) : null,
               invite.expiresAt !== null ? t("people.inviteExpires", { date: formatDay(invite.expiresAt, language) }) : t("people.inviteNoExpiry"),
@@ -357,6 +358,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: MessageKey }[] = [
   { value: "working", label: "peopleTable.statusWorking" },
   { value: "finished", label: "peopleTable.statusFinished" },
   { value: "noPlots", label: "peopleTable.statusNoPlots" },
+  { value: "invited", label: "peopleTable.statusInvited" },
 ];
 
 /** The people table: one row per person (sortable, filterable, as CSV), then the links nobody has used yet. */
@@ -369,7 +371,7 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
   const now = Date.now();
   const n = (v: number) => formatNumber(v, language);
   const rows = sortPeople(filterPeople(data.people, text, status), sort.key, sort.direction);
-  const showInvites = status === "all" && !text.trim();
+  const invites = invitesShown(data.invites, text, status);
   // Through the server, which notes the download in the activity log (the rows are the table's).
   const downloadKind = useDownload(projectId);
   const [downloadError, setDownloadError] = useState<unknown>(null);
@@ -393,7 +395,7 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
         {t("peopleTable.title")}
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 2 }}>
-        {t("peopleTable.explain", { days: data.quietDays, zone: data.timeZone })}
+        {t(data.quietDays === 1 ? "peopleTable.explainOneDay" : "peopleTable.explain", { days: data.quietDays, zone: data.timeZone })}
       </Typography>
       <AsOf asOf={data.asOf} />
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2, alignItems: { sm: "center" } }}>
@@ -485,7 +487,7 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
                   </TableCell>
                   <TableCell sx={{ minWidth: 90 }} title={r.lastSyncAt !== null ? formatDate(r.lastSyncAt, language) : undefined}>
                     <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
-                      {level && <WarningAmber fontSize="small" color={level === "red" ? "error" : "warning"} titleAccess={t(level === "red" ? "peopleTable.syncRed" : "peopleTable.syncAmber", { days: data.quietDays, twice: data.quietDays * 2 })} />}
+                      {level && <WarningAmber fontSize="small" color={level === "red" ? "error" : "warning"} titleAccess={t(level === "red" ? "peopleTable.syncRed" : data.quietDays === 1 ? "peopleTable.syncAmberOneDay" : "peopleTable.syncAmber", { days: data.quietDays, twice: data.quietDays * 2 })} />}
                       <span>{agoText(t, r.lastSyncAt, now)}</span>
                     </Stack>
                   </TableCell>
@@ -498,8 +500,7 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
                 </TableRow>
               );
             })}
-            {showInvites &&
-              data.invites.map((invite) => (
+            {invites.map((invite) => (
                 <TableRow key={`invite-${invite.id}`}>
                   <TableCell component="th" scope="row" sx={{ minWidth: 120 }}>
                     <Typography variant="body2">
@@ -523,7 +524,7 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
                   </TableCell>
                 </TableRow>
               ))}
-            {rows.length === 0 && !(showInvites && data.invites.length > 0) && (
+            {rows.length === 0 && invites.length === 0 && (
               <TableRow>
                 <TableCell colSpan={COLUMNS.length}>
                   <Typography color="text.secondary">{t("peopleTable.noneMatch")}</Typography>

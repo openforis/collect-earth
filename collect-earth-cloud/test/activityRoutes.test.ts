@@ -228,7 +228,7 @@ describe('activity data written by the routes', () => {
         ['decision.deleted', { plot: '1' }],
         ['settings.changed', { setting: 'quality' }],
         ['settings.changed', { setting: 'ai', enabled: false }],
-        ['settings.changed', { setting: 'name' }],
+        ['settings.changed', { setting: 'name', name: 'Renamed' }],
         ['export.downloaded', { records: 0 }],
         ['member.removed', { userId: jose.userId }],
         ['survey.replaced', { bytes: 1 }],

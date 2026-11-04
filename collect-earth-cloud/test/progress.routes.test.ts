@@ -90,6 +90,9 @@ describe('GET /progress and the progress settings', () => {
     expect(body.forecast).toMatchObject({ target: 3, targetFrom: 'setting', remaining: 1, deadline: '2099-01-31' });
     const audit = await ctx.store.listAudit(pid, { limit: 10, action: 'settings.changed' });
     expect(audit.map((a) => a.details)).toEqual([{ setting: 'progress' }]);
+    // Saving the same settings again writes no second line.
+    expect((await call('PUT', '/progress/settings', owner.token, { deadline: '2099-01-31', targetPlots: 3, quietDays: 5 })).statusCode).toBe(200);
+    expect(await ctx.store.listAudit(pid, { limit: 10, action: 'settings.changed' })).toHaveLength(1);
 
     for (const body of ['x', [1], 'null']) {
       expect((await call('PUT', '/progress/settings', owner.token, body, { 'content-type': 'application/json' })).statusCode, String(body)).toBe(400);

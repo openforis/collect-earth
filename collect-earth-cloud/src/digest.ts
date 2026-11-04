@@ -88,6 +88,23 @@ export interface DigestContext {
   unsubscribeUrl: string;
 }
 
+/**
+ * Whether a coordinator's project has something to tell this week: plots or checks done in the
+ * week, people quiet with plots left, or differences waiting for a decision. The totals alone
+ * ("4 of 8 plots") are no news: a week where nothing else is set sends no mail.
+ */
+export function coordinatorHasNews(p: CoordinatorProject): boolean {
+  return p.submitted > 0 || p.checks > 0 || (p.quiet?.people.length ?? 0) > 0 || (p.differencesWaiting ?? 0) > 0;
+}
+
+/**
+ * Whether a collector's project has something to tell them this week: plots they submitted in the
+ * week, plots left to do, or plots sent back to them. Their totals alone are no news.
+ */
+export function collectorHasNews(p: CollectorProject): boolean {
+  return p.submitted > 0 || p.remaining > 0 || p.sentBack > 0;
+}
+
 const wordsOf = (language: MailLanguage) => {
   const words = DIGEST_WORDS[language] ?? DIGEST_WORDS.en;
   return (key: WordKey, params: Record<string, string | number> = {}) => fill(words[key], params);
@@ -213,7 +230,10 @@ export interface DigestRunResult {
   week: string;
   /** Mails handed to the transport (the log transport: written to the log, sent to nobody). */
   sent: number;
-  /** Weeks with nothing to tell (no project with plots or work), marked done without a mail. */
+  /**
+   * Weeks with nothing to tell, marked done without a mail: no project with plots or work, or
+   * nothing done in the week and nothing waiting (coordinatorHasNews, collectorHasNews).
+   */
   empty: number;
   /** Subscriptions left alone: no email, not confirmed, account disabled. */
   skipped: number;
@@ -341,7 +361,8 @@ async function buildDigest(
       const p = await coordinatorProject(deps, attentionOf, m, at.week, at.timeZone, now);
       if (p.plots > 0 || p.submitted > 0 || p.checks > 0) projects.push(p);
     }
-    if (projects.length === 0) return null;
+    // Nothing done in any project and nothing needing attention: no mail of zeros.
+    if (!projects.some(coordinatorHasNews)) return null;
     return coordinatorMail(ctx, projects.slice(0, MAX_DIGEST_PROJECTS), Math.max(0, projects.length - MAX_DIGEST_PROJECTS), row.email!);
   }
   const projects: CollectorProject[] = [];
@@ -349,7 +370,8 @@ async function buildDigest(
     const p = await collectorProject(deps, m, row.userId, at.week, at.timeZone, now);
     if (p && (p.assigned > 0 || p.submitted > 0 || p.sentBack > 0)) projects.push(p);
   }
-  if (projects.length === 0) return null;
+  // Nothing done in the week and nothing waiting for them: no mail of zeros.
+  if (!projects.some(collectorHasNews)) return null;
   return collectorMail(ctx, projects.slice(0, MAX_DIGEST_PROJECTS), Math.max(0, projects.length - MAX_DIGEST_PROJECTS), row.email!);
 }
 

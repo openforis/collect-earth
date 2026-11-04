@@ -18,10 +18,12 @@ export function pageTitle(parts: readonly (string | null | undefined)[]): string
 /**
  * A page's title, from the most particular to the most general: its own heading (a person, a plot,
  * a plot file) or, without one, what the address says (fallback: "Plot 10"), then the tab chosen,
- * the page's h1 (the project's name) and the server: "Plot 10 – Quality – North survey – Our server".
+ * the page's h1 (the project's name), what the page marks as its context (a report's project, under
+ * its h1: data-page-context) and the server: "Plot 10 – Quality – North survey – Our server",
+ * "Team report – North survey – Our server".
  */
-export function pageTitleOf(parts: { own: string | null; fallback: string | null; tab: string | null; h1: string | null; server: string }): string {
-  return pageTitle([parts.own ?? parts.fallback, parts.tab, parts.h1, parts.server]);
+export function pageTitleOf(parts: { own: string | null; fallback: string | null; tab: string | null; h1: string | null; context?: string | null; server: string }): string {
+  return pageTitle([parts.own ?? parts.fallback, parts.tab, parts.h1, parts.context, parts.server]);
 }
 
 /**
@@ -81,7 +83,8 @@ export function usePageFocus(
       const h1 = main.querySelector("h1");
       const own = heading && heading !== h1 ? heading.textContent : null;
       // Without a heading, the error the page shows names it ("Not found – Our server").
-      const title = pageTitleOf({ own: own ?? (heading ? null : errorText(main)), fallback, tab: selectedTab(main), h1: h1?.textContent ?? null, server: serverName });
+      const context = main.querySelector("[data-page-context]")?.textContent ?? null;
+      const title = pageTitleOf({ own: own ?? (heading ? null : errorText(main)), fallback, tab: selectedTab(main), h1: h1?.textContent ?? null, context, server: serverName });
       if (!ownTitle) document.title = title || serverName;
       if (!moved) return;
       if (heading && mayMoveFocus(document.activeElement)) {

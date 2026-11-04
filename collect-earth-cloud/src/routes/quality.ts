@@ -304,7 +304,9 @@ export async function registerQualityRoutes(
     const kind = typeof q.kind === 'string' && q.kind !== '' ? q.kind : null;
     if (person !== null && person.length > MAX_NAME) return reply.code(400).send(bad(`person must be at most ${MAX_NAME} characters`));
     if (kind !== null && !(FLAG_KINDS as readonly string[]).includes(kind)) return reply.code(400).send(bad(`kind must be one of ${FLAG_KINDS.join(', ')}`));
+    // Reviewers get no flags per person (Decision 10), as for the answers per person.
     const coordinator = request.membership!.role === 'admin';
+    if (person !== null && !coordinator) return reply.code(403).send({ error: 'forbidden', reason: 'only coordinators see the flags per person' });
     const [figures, decisions, settings] = await Promise.all([
       served(quality, projectId, request, reply),
       store.listQualityDecisions(projectId),

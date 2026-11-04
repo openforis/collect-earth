@@ -90,3 +90,27 @@ export function ruleOf(form: ChecksForm): { rule: SamplingRuleInput } | { error:
   }
   return { rule: { checkers, firstN, percent, files } };
 }
+
+/**
+ * The warnings of the form as typed, before it is saved (the server's noCheckers and
+ * checkers_not_blind for the saved rule, src/sampling.ts checkersOf and notBlindCheckers):
+ * - noCheckers: a part of the rule is on and nobody can receive checks (nobody ticked, or no
+ *   active collector when every collector may check);
+ * - notBlind: the reviewers and coordinators ticked, by username, sorted.
+ * A file with a rule of its own takes the project's checkers (ruleOf).
+ */
+export function formWarnings(form: ChecksForm, members: SamplingView["members"]): { noCheckers: boolean; notBlind: string[] } {
+  const chosen = form.checkersAll ? null : new Set(form.checkers);
+  const active =
+    form.firstNOn ||
+    form.percentOn ||
+    Object.values(form.files).some((f) => f.use === "own" && (f.firstN.trim() !== "" || f.percent.trim() !== ""));
+  const eligible = members.filter((m) => !m.disabled && (chosen ? chosen.has(m.userId) : m.role === "operator"));
+  const notBlind = chosen
+    ? members
+        .filter((m) => chosen.has(m.userId) && (m.role === "reviewer" || m.role === "admin"))
+        .map((m) => m.username)
+        .sort()
+    : [];
+  return { noCheckers: active && eligible.length === 0, notBlind };
+}

@@ -252,7 +252,7 @@ function AddForm({ projectId, view, onDone }: { projectId: string; view: Referen
           maxRows={10}
           inputRef={idsRef}
           error={problem !== null}
-          helperText={problem}
+          helperText={problem ?? t("reference.plotIdsHelp")}
           sx={{ maxWidth: 420 }}
         />
       )}

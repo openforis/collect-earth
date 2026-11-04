@@ -12,9 +12,12 @@ import { linkProps } from "../router";
 /** The result that replaces the button takes the focus (the button pressed is gone). Stable, so it runs once. */
 const focusOnMount = (element: HTMLElement | null) => element?.focus();
 
-/** A link's error as a sentence: a link that is not one (404) says so. */
-function linkError(error: unknown): MessageKey {
-  return error instanceof ApiError && error.status === 404 ? "mail.linkInvalid" : errorMessageKey(error);
+/**
+ * A link's error as a sentence: a link that is not one (404) says so, in the page's own words
+ * (an unsubscribe link does not depend on the address, a confirmation link does).
+ */
+function linkError(error: unknown, invalid: MessageKey = "mail.linkInvalid"): MessageKey {
+  return error instanceof ApiError && error.status === 404 ? invalid : errorMessageKey(error);
 }
 
 /**
@@ -34,7 +37,7 @@ export function UnsubscribePage({ token }: { token: string }) {
     try {
       setDone(await unsubscribe(token));
     } catch (err) {
-      setError(linkError(err));
+      setError(linkError(err, "mail.unsubscribeInvalid"));
     } finally {
       setBusy(false);
     }

@@ -162,7 +162,11 @@ describe('Activity: the log, the weekly summary, the downloads and the bell (coo
     expect(later.quality.flags).toMatchObject({ total: expect.any(Number) });
     // The current week when none is asked for; a week that is not one is refused.
     expect((await call('GET', '/weekly', owner.token)).json().current).toBe(true);
-    expect((await call('GET', '/weekly?week=2026-W60', owner.token)).statusCode).toBe(400);
+    const noWeek = await call('GET', '/weekly?week=2026-W60', owner.token);
+    expect(noWeek.statusCode).toBe(404);
+    expect(noWeek.json().error).toBe('no_such_week');
+    expect((await call('GET', '/weekly?week=2025-W53', owner.token)).json().error).toBe('no_such_week');
+    expect((await call('GET', '/weekly?week=last', owner.token)).statusCode).toBe(400);
   });
 
   it('downloads: people, daily activity, decisions and differences, each audited with its kind', async () => {

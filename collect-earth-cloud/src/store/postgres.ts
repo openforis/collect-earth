@@ -1212,6 +1212,15 @@ export class PostgresStore implements Store {
     return res.rowCount === 0 ? null : token;
   }
 
+  async checkPasswordReset(token: string, now: number): Promise<boolean> {
+    // The same conditions as consumePasswordReset, read only.
+    const res = await this.pool.query(
+      `SELECT 1 FROM password_resets WHERE token_hash = $1 AND used_at IS NULL AND expires_at > $2`,
+      [hashToken(token), new Date(now)],
+    );
+    return (res.rowCount ?? 0) > 0;
+  }
+
   async consumePasswordReset(token: string, now: number): Promise<string | null> {
     // One UPDATE = atomic single use, even with concurrent submits.
     const res = await this.pool.query(

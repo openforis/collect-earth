@@ -15,6 +15,7 @@ describe("the Reference plots section", () => {
   it("says the accuracy, or that there are too few plots to judge", () => {
     expect(accuracyText(t, { compared: 20, agreeing: 15, rate: 0.75 }, "en")).toBe("75% match the reference (15 of 20 plots)");
     expect(accuracyText(t, { compared: 12, agreeing: 12, rate: null }, "en")).toBe("Too few plots to judge (12 plots, 20 needed)");
+    expect(accuracyText(t, { compared: 1, agreeing: 1, rate: null }, "en")).toBe("Too few plots to judge (1 plot, 20 needed)");
   });
 
   it("has a text for every refusal the server gives", () => {

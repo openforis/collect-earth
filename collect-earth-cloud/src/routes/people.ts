@@ -32,7 +32,7 @@ async function peek(quality: QualityService, projectId: string, log: FastifyBase
 }
 
 /** invite id -> the member it was made for (invite.created with forUserId, from a person's page). */
-async function invitesFor(store: Store, projectId: string, invites: readonly InviteSummary[], usernames: ReadonlyMap<string, string>): Promise<Map<string, string>> {
+export async function invitesFor(store: Store, projectId: string, invites: readonly InviteSummary[], usernames: ReadonlyMap<string, string>): Promise<Map<string, string>> {
   const result = new Map<string, string>();
   if (invites.length === 0) return result;
   const open = new Set(invites.map((i) => i.id));

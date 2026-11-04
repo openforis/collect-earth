@@ -60,6 +60,7 @@ import {
   giveInTurn,
   initialForm,
   MAX_OVERLAP_PERCENT,
+  movedText,
   nearbyNote,
   MIN_OVERLAP_PERCENT,
   sortPeople,
@@ -479,7 +480,7 @@ function CurrentDivision({
     setNotice(null);
     try {
       const result = await moveUnfinished(projectId, fileId, from.userId, to.userId);
-      setNotice(t("divide.moved", { count: formatNumber(result.moved, language), to: to.username }));
+      setNotice(movedText(t, result, from.username, to.username, language));
       onChanged(result);
     } catch (err) {
       setError(err);
@@ -512,7 +513,7 @@ function CurrentDivision({
             </TableHead>
             <TableBody>
               {shown.map((person) => {
-                const label = t("divide.progressLabel", {
+                const label = t(person.plots === 1 ? "divide.progressLabelOne" : "divide.progressLabel", {
                   person: person.username,
                   submitted: formatNumber(person.submitted, language),
                   plots: formatNumber(person.plots, language),

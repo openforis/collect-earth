@@ -239,7 +239,11 @@ export async function registerActivityRoutes(
     const at = now();
     const timeZone = timeZoneOf(request);
     const asked = ((request.query ?? {}) as { week?: unknown }).week;
-    if (asked !== undefined && asked !== '' && !isIsoWeek(asked)) return reply.code(400).send(bad('week must be an ISO week written YYYY-Www'));
+    if (asked !== undefined && asked !== '' && !isIsoWeek(asked)) {
+      // Written like a week (2026-W60) but no such week in that year: said apart, so the page can tell it plainly.
+      if (typeof asked === 'string' && /^\d{4}-W\d{2}$/.test(asked)) return reply.code(404).send({ error: 'no_such_week', reason: `${asked} is not a week of ${asked.slice(0, 4)}` });
+      return reply.code(400).send(bad('week must be an ISO week written YYYY-Www'));
+    }
     const week = typeof asked === 'string' && asked !== '' ? asked : weekOfDate(localDate(at, timeZone));
     const served = await states.get(projectId, request.log);
     const summary = await weeklyOf(store, quality, served, { projectId, timeZone, log: request.log }, week, at);

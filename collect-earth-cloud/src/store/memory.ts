@@ -879,6 +879,11 @@ export class InMemoryStore implements Store {
     return token;
   }
 
+  async checkPasswordReset(token: string, now: number): Promise<boolean> {
+    const entry = this.resets.get(hashToken(token));
+    return !!entry && entry.usedAt === null && entry.expiresAt > now && this.users.has(entry.userId);
+  }
+
   async consumePasswordReset(token: string, now: number): Promise<string | null> {
     const entry = this.resets.get(hashToken(token));
     if (!entry || entry.usedAt !== null || entry.expiresAt <= now || !this.users.has(entry.userId)) {

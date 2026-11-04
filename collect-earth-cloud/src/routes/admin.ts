@@ -230,6 +230,19 @@ export async function registerAdminRoutes(
     return reply.code(201).send({ token, userId, username });
   });
 
+  // Whether a reset link still works, checked when its page opens (so a used or expired link says
+  // so before a password is typed). Read only: the link is not used. The token is in the path
+  // (redacted from the log, logRedact.ts); the same rate limit as the reset itself.
+  app.get('/v1/auth/reset/:token', { preHandler: limiter.guard('reset') }, async (request: FastifyRequest, reply: FastifyReply) => {
+    reply.header('cache-control', 'no-store');
+    reply.header('referrer-policy', 'no-referrer');
+    const token = (request.params as { token: string }).token.trim();
+    if (!token || !(await store.checkPasswordReset(token, Date.now()))) {
+      return reply.code(410).send({ error: 'invalid_reset_token', reason: 'the link is unknown, used or expired' });
+    }
+    return reply.send({ valid: true });
+  });
+
   // Password reset with a link a platform admin issued. Single use; revokes every
   // session of the user (desktop client included) so a leaked session dies too.
   app.post('/v1/auth/reset', { preHandler: limiter.guard('reset') }, async (request: FastifyRequest, reply: FastifyReply) => {

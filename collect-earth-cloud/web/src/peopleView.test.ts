@@ -9,6 +9,8 @@ import {
   durationText,
   filterPeople,
   heatLevel,
+  inviteRowText,
+  invitesShown,
   peopleCsv,
   removalText,
   sortPeople,
@@ -84,6 +86,34 @@ describe("sorting and filtering", () => {
   it("by name and status", () => {
     expect(filterPeople(rows, " AN", "all").map((r) => r.username)).toEqual(["Ana"]);
     expect(filterPeople(rows, "", "quiet").map((r) => r.username)).toEqual(["Ana", "carl"]);
+    expect(filterPeople(rows, "", "invited")).toEqual([]);
+  });
+  it("by agreement under the minimum of checks: by how many checks so far, then by name", () => {
+    const few = [
+      row("dan", { agreement: { compared: 3, agreeing: 2, rate: null } }),
+      row("bea", { agreement: null }),
+      row("Ana", { agreement: { compared: 12, agreeing: 9, rate: null } }),
+      row("carl", { agreement: { compared: 3, agreeing: 3, rate: null } }),
+    ];
+    expect(sortPeople(few, "agreement", "asc").map((r) => r.username)).toEqual(["bea", "carl", "dan", "Ana"]);
+    expect(sortPeople(few, "agreement", "desc").map((r) => r.username)).toEqual(["Ana", "carl", "dan", "bea"]);
+    // A rate, when someone has one, still comes first.
+    const mixed = [...few, row("eve", { agreement: { compared: 25, agreeing: 20, rate: 0.8 } })];
+    expect(sortPeople(mixed, "agreement", "asc")[0].username).toBe("eve");
+  });
+  it("the open links under the table: all of them, or with \"Invited, not joined\" only the invitations", () => {
+    const invites = [{ id: "i1", forUsername: null }, { id: "i2", forUsername: "rita" }];
+    expect(invitesShown(invites, "", "all").map((i) => i.id)).toEqual(["i1", "i2"]);
+    expect(invitesShown(invites, "", "invited").map((i) => i.id)).toEqual(["i1"]);
+    expect(invitesShown(invites, "", "quiet")).toEqual([]);
+    expect(invitesShown(invites, "ana", "all")).toEqual([]);
+  });
+});
+
+describe("the list of open links", () => {
+  it("a link made on a person's page says whom it is for", () => {
+    expect(inviteRowText(t, { role: "operator", usedCount: 0, maxUses: 1, forUsername: "rita" })).toBe("Link for the new project file: rita · used by 0 of 1");
+    expect(inviteRowText(t, { role: "reviewer", usedCount: 1, maxUses: 3, forUsername: null })).toBe("Reviewer · used by 1 of 3");
   });
 });
 

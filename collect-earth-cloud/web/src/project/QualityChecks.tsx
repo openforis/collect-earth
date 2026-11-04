@@ -24,7 +24,7 @@ import Typography from "@mui/material/Typography";
 import { useEffect, useId, useRef, useState } from "react";
 import { drawSamplingNow, getSampling, saveSampling, type SamplingView } from "../api";
 import { useApp } from "../appContext";
-import { formOf, MAX_FIRST_N, notBlindText, ruleOf, type ChecksForm, type FileForm, type FileUse, type FormError } from "../checksView";
+import { formOf, formWarnings, MAX_FIRST_N, notBlindText, ruleOf, type ChecksForm, type FileForm, type FileUse, type FormError } from "../checksView";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
@@ -140,6 +140,8 @@ function RuleForm({ projectId, view, onSaved }: { projectId: string; view: Sampl
   };
   const members = view.members.filter((m) => !m.disabled || form.checkers.includes(m.userId));
   const projectError = error && !error.file ? error : null;
+  // The warnings follow the form as typed (the server gives the same ones for the saved rule).
+  const warnings = formWarnings(form, view.members);
   return (
     <Stack spacing={2}>
       <Stack spacing={1}>
@@ -234,6 +236,16 @@ function RuleForm({ projectId, view, onSaved }: { projectId: string; view: Sampl
             </Table>
           </TableContainer>
         </Stack>
+      )}
+      {warnings.noCheckers && (
+        <Alert severity="warning" role="status">
+          {t("checks.noCheckers")}
+        </Alert>
+      )}
+      {warnings.notBlind.length > 0 && (
+        <Alert severity="warning" role="status">
+          {notBlindText(t, warnings.notBlind)}
+        </Alert>
       )}
       {failure !== null && <ErrorAlert error={failure} />}
       {saved && (
@@ -386,12 +398,6 @@ export function QualityChecks({ projectId }: { projectId: string }) {
           <>
             {data.files.length === 0 && <Alert severity="info">{t("checks.noFiles")}</Alert>}
             {data.wholeFiles.length > 0 && <Alert severity="info">{t("checks.whole", { files: data.wholeFiles.map((f) => f.filename).join(", ") })}</Alert>}
-            {data.active && data.noCheckers && <Alert severity="warning">{t("checks.noCheckers")}</Alert>}
-            {data.notBlindCheckers.length > 0 && (
-              <Alert severity="warning" role="note">
-                {notBlindText(t, data.notBlindCheckers)}
-              </Alert>
-            )}
             <RuleForm projectId={projectId} view={data} onSaved={setData} />
             <DrawStatus projectId={projectId} view={data} onDrawn={setData} />
             <Load view={data} />

@@ -21,7 +21,7 @@ export function formatRate(rate: number, language: string): string {
 
 /** "82 % agree (41 of 50 checks)", or "Too few checks to judge (12 of 20)". */
 export function rateText(t: Translate, rate: Rate, language: string): string {
-  if (rate.rate === null) return t("quality.tooFew", { count: rate.compared, min: MIN_CHECKS });
+  if (rate.rate === null) return t(rate.compared === 1 ? "quality.tooFewOne" : "quality.tooFew", { count: rate.compared, min: MIN_CHECKS });
   return t("quality.agree", { pct: formatRate(rate.rate, language), agreeing: rate.agreeing, count: rate.compared });
 }
 

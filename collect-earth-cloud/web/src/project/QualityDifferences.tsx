@@ -256,6 +256,9 @@ export function QualityDifferences({
   const groups = useMemo(() => groupDifferences(data.differences), [data.differences]);
   const [hideDecided, setHideDecided] = useState(false);
   const [page, setPage] = useState(1);
+  // The list is closed at first: the review queue above shows the same plots, and the cards are long
+  // (on a phone the open list made the tab tens of thousands of pixels tall).
+  const [open, setOpen] = useState(false);
   // Where each plot asked about is, kept while the tab is open: null for a plot with no place.
   const [places, setPlaces] = useState<Map<string, PlotPlace | null>>(new Map());
   // The survey's coordinate system when it is not latitude and longitude: no links then.
@@ -268,7 +271,7 @@ export function QualityDifferences({
   const pages = Math.max(1, Math.ceil(listed.length / DIFFERENCES_PAGE));
   const current = Math.min(page, pages);
   const shown = listed.slice((current - 1) * DIFFERENCES_PAGE, current * DIFFERENCES_PAGE);
-  const missing = unsupportedSrs === null ? shown.map((g) => g.plot).filter((plot) => !places.has(plot)) : [];
+  const missing = open && unsupportedSrs === null ? shown.map((g) => g.plot).filter((plot) => !places.has(plot)) : [];
   const missingKey = missing.join("\u0000");
   /** The plot to scroll to once its page is shown. */
   const [scrollTo, setScrollTo] = useState<string | null>(null);
@@ -282,6 +285,7 @@ export function QualityDifferences({
       if (index >= 0) setHideDecided(false);
     }
     if (index < 0) return;
+    setOpen(true);
     setPage(Math.floor(index / DIFFERENCES_PAGE) + 1);
     setScrollTo(focus.plot);
     // Only a new focus moves the page; the list changing under it does not.
@@ -295,7 +299,7 @@ export function QualityDifferences({
     card.scrollIntoView?.({ block: "start" });
     card.focus({ preventScroll: true });
     setScrollTo(null);
-  }, [scrollTo, current, hideDecided]);
+  }, [scrollTo, current, hideDecided, open]);
 
   // Where the plots of this page are, for their Google Earth links (no link when that fails).
   useEffect(() => {
@@ -327,8 +331,19 @@ export function QualityDifferences({
         <Typography color="text.secondary">{t("quality.differencesExplain")}</Typography>
         {groups.length === 0 ? (
           <Alert severity="info">{t("quality.noDifferences")}</Alert>
+        ) : !open ? (
+          <Box>
+            <Button variant="outlined" onClick={() => setOpen(true)} aria-expanded={false}>
+              {t("quality.differencesShow", { count: formatNumber(groups.length, language) })}
+            </Button>
+          </Box>
         ) : (
           <>
+            <Box>
+              <Button onClick={() => setOpen(false)} aria-expanded>
+                {t("quality.differencesHide")}
+              </Button>
+            </Box>
             <FormControlLabel
               control={<Switch checked={hideDecided} onChange={(e) => (setHideDecided(e.target.checked), setPage(1))} />}
               label={t("quality.hideDecided")}

@@ -1,4 +1,5 @@
 import type { ActivityPage, DailyRow, DecisionRow, DifferenceRow, LogItem, LogKind } from "./api";
+import { ApiError } from "./api";
 import { csvText } from "./csv";
 import { formatNumber } from "./format";
 import type { MessageKey, Translate } from "./i18n";
@@ -99,6 +100,15 @@ function fileOf(t: Translate, page: Pick<ActivityPage, "files">, id: unknown): s
 }
 
 const num = (v: unknown, language: string) => formatNumber(typeof v === "number" ? v : Number(v) || 0, language);
+/** The singular key when the count is 1, else the plural one. */
+const byCount = (v: unknown, one: MessageKey, many: MessageKey): MessageKey => (Number(v) === 1 ? one : many);
+/** A rename's new name, when the log has it (older entries do not). */
+const newName = (d: Record<string, unknown>): string | null => (d.setting === "name" && typeof d.name === "string" && d.name ? d.name : null);
+
+/** The weekly summary refused for the viewer's role (it is the coordinators'): trying again cannot help. */
+export function weeklyNotForRole(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 403;
+}
 
 /**
  * What a row of the log says, without its time: "maria submitted plot 17". `local`: the local mode
@@ -135,12 +145,12 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
     case "survey.replaced":
       return t("activity.audit.survey", { actor });
     case "csv.uploaded":
-      return t("activity.audit.csv", { actor, file: fileOf(t, page, d.csvFileId), count: num(d.plots, language) });
+      return t(byCount(d.plots, "activity.audit.csvOne", "activity.audit.csv"), { actor, file: fileOf(t, page, d.csvFileId), count: num(d.plots, language) });
     case "assignments.set":
       return t("activity.audit.assignments", { actor });
     case "division.applied":
       if (d.mode === "whole") return t("activity.audit.whole", { actor, file: fileOf(t, page, d.csvFileId) });
-      return t("activity.audit.divided", { actor, file: fileOf(t, page, d.csvFileId), count: num(d.people, language) });
+      return t(byCount(d.people, "activity.audit.dividedOne", "activity.audit.divided"), { actor, file: fileOf(t, page, d.csvFileId), count: num(d.people, language) });
     case "plots.moved":
       return t(d.moved === 1 ? "activity.audit.movedOne" : "activity.audit.moved", { actor, count: num(d.moved, language), file: fileOf(t, page, d.csvFileId), from: personOf(t, page, d.fromUserId), to: personOf(t, page, d.toUserId) });
     case "decision.set":
@@ -151,18 +161,22 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
       return t(d.count === 1 ? "activity.audit.bulkOne" : "activity.audit.bulk", { actor, count: num(d.count, language), decision: t(DECISION_KEYS[d.decision === "first" || d.decision === "check" ? d.decision : "recheck"]) });
     case "settings.changed":
       if (d.setting === "ai") return t(d.enabled === true ? "activity.audit.aiOn" : "activity.audit.aiOff", { actor });
+      if (d.setting === "name") {
+        const name = newName(d);
+        return name !== null ? t("activity.audit.renamed", { actor, name }) : t("activity.audit.renamedPlain", { actor });
+      }
       return t("activity.audit.settings", { actor, what: t(SETTING_KEYS[String(d.setting)] ?? "activity.setting.other") });
     case "sampling.drawn":
-      if (d.automatic === true) return t("activity.audit.sampledAuto", { count: num(d.drawn, language) });
-      return t("activity.audit.sampled", { actor, count: num(d.drawn, language) });
+      if (d.automatic === true) return t(byCount(d.drawn, "activity.audit.sampledAutoOne", "activity.audit.sampledAuto"), { count: num(d.drawn, language) });
+      return t(byCount(d.drawn, "activity.audit.sampledOne", "activity.audit.sampled"), { actor, count: num(d.drawn, language) });
     case "reference.changed":
-      if (Number(d.removed) > 0 && !(Number(d.added) > 0)) return t("activity.audit.referenceRemoved", { actor, count: num(d.removed, language) });
-      return t("activity.audit.referenceAdded", { actor, count: num(d.added, language), file: fileOf(t, page, d.csvFileId) });
+      if (Number(d.removed) > 0 && !(Number(d.added) > 0)) return t(byCount(d.removed, "activity.audit.referenceRemovedOne", "activity.audit.referenceRemoved"), { actor, count: num(d.removed, language) });
+      return t(byCount(d.added, "activity.audit.referenceAddedOne", "activity.audit.referenceAdded"), { actor, count: num(d.added, language), file: fileOf(t, page, d.csvFileId) });
     case "export.downloaded":
       if (typeof d.kind === "string" && EXPORT_KEYS[d.kind]) {
         return t(d.completed === false ? "activity.audit.downloadStopped" : "activity.audit.download", { actor, what: t(EXPORT_KEYS[d.kind]) });
       }
-      return t("activity.audit.downloadData", { actor, count: num(d.records, language) });
+      return t(byCount(d.records, "activity.audit.downloadDataOne", "activity.audit.downloadData"), { actor, count: num(d.records, language) });
     case "link.created":
     case "link.revoked": {
       // A progress link for funders (Task 18): its note, when it has one.
@@ -184,14 +198,18 @@ function localAuditSentence(t: Translate, action: string, d: Record<string, unkn
     case "survey.replaced":
       return t("activity.auditLocal.survey");
     case "csv.uploaded":
-      return t("activity.auditLocal.csv", { file: fileOf(t, page, d.csvFileId), count: num(d.plots, language) });
+      return t(byCount(d.plots, "activity.auditLocal.csvOne", "activity.auditLocal.csv"), { file: fileOf(t, page, d.csvFileId), count: num(d.plots, language) });
     case "settings.changed":
+      if (d.setting === "name") {
+        const name = newName(d);
+        return name !== null ? t("activity.auditLocal.renamed", { name }) : t("activity.auditLocal.renamedPlain");
+      }
       return t("activity.auditLocal.settings", { what: t(SETTING_KEYS[String(d.setting)] ?? "activity.setting.other") });
     case "export.downloaded":
       if (typeof d.kind === "string" && EXPORT_KEYS[d.kind]) {
         return t(d.completed === false ? "activity.auditLocal.downloadStopped" : "activity.auditLocal.download", { what: t(EXPORT_KEYS[d.kind]) });
       }
-      return t("activity.auditLocal.downloadData", { count: num(d.records, language) });
+      return t(byCount(d.records, "activity.auditLocal.downloadDataOne", "activity.auditLocal.downloadData"), { count: num(d.records, language) });
     default:
       return null;
   }

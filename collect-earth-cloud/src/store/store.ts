@@ -228,6 +228,8 @@ export interface Store {
   createPasswordReset(userId: string, expiresAt: number): Promise<string | null>;
   /** Atomically marks a reset token used; returns its user id, or null if unknown/used/expired. */
   consumePasswordReset(token: string, now: number): Promise<string | null>;
+  /** Whether a reset token would be taken now (known, not used, not expired), without using it. */
+  checkPasswordReset(token: string, now: number): Promise<boolean>;
 
   // --- Memberships (Phase A, tenancy model §4b) ---
 

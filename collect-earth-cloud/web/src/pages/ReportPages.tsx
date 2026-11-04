@@ -73,16 +73,19 @@ export function ReportFrame({
             </Button>
           )}
         </Stack>
-        <div>
-          <Typography variant="h1" sx={{ wordBreak: "break-word" }}>
-            {title}
-          </Typography>
-          {project.data && (
-            <Typography variant="h2" component="p" color="text.secondary" sx={{ wordBreak: "break-word" }}>
-              {project.data.name}
+        {/* The heading shows once the project is known: the page's title names both ("Team report – North survey"). */}
+        {!project.loading && (
+          <div>
+            <Typography variant="h1" sx={{ wordBreak: "break-word" }}>
+              {title}
             </Typography>
-          )}
-        </div>
+            {project.data && (
+              <Typography variant="h2" component="p" color="text.secondary" sx={{ wordBreak: "break-word" }} data-page-context>
+                {project.data.name}
+              </Typography>
+            )}
+          </div>
+        )}
         {children}
       </Stack>
     </AppShell>

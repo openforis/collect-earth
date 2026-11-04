@@ -647,7 +647,7 @@ function Problems({ data }: { data: QualityData }) {
                 {t("quality.problemsMore", { count: formatNumber(data.problems.length, language), total: formatNumber(count, language) })}
               </Typography>
             )}
-            {data.beyondOutline.count > 0 && <Alert severity="info">{t("quality.beyond", { count: formatNumber(data.beyondOutline.count, language) })}</Alert>}
+            {data.beyondOutline.count > 0 && <Alert severity="info">{t(data.beyondOutline.count === 1 ? "quality.beyondOne" : "quality.beyond", { count: formatNumber(data.beyondOutline.count, language) })}</Alert>}
           </Stack>
         </AccordionDetails>
       </Accordion>

@@ -102,7 +102,13 @@ export async function registerProgressRoutes(
     if ('error' in input) {
       return reply.code(400).send(input);
     }
-    await store.setProgressSettings(request.membership!.projectId, input);
+    const projectId = request.membership!.projectId;
+    const before = await store.getProgressSettings(projectId);
+    // Saving the same settings again changes nothing: no write, no line in the activity log.
+    if (before.deadline === input.deadline && before.targetPlots === input.targetPlots && before.quietDays === input.quietDays) {
+      return reply.send(input);
+    }
+    await store.setProgressSettings(projectId, input);
     await audit(store, request, 'settings.changed', { setting: 'progress' });
     return reply.send(input);
   });

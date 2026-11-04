@@ -81,6 +81,28 @@ export function datesInOrder(from: string | null, to: string | null): boolean {
   return from === null || to === null || from <= to;
 }
 
+/** The days of the filter: as typed ("" for none) or as applied (null for none). */
+export interface TypedDays {
+  from: string;
+  to: string;
+}
+export interface AppliedDays {
+  from: string | null;
+  to: string | null;
+}
+
+/**
+ * The days as typed once the applied filter changes: a field takes the filter's day only when that
+ * day changed from outside (not the one this form applied last), so applying "Saved from" does not
+ * empty an "until" being typed meanwhile.
+ */
+export function syncedDays(typed: TypedDays, lastApplied: AppliedDays, filter: AppliedDays): TypedDays {
+  return {
+    from: filter.from !== lastApplied.from ? (filter.from ?? "") : typed.from,
+    to: filter.to !== lastApplied.to ? (filter.to ?? "") : typed.to,
+  };
+}
+
 /** "About 0.3 of them": how many flags chance alone would give, rounded so it reads (one decimal under 10). */
 export function chanceText(t: Translate, chanceFlags: number, language: string): string {
   if (chanceFlags < 0.05) return t("answers.chanceNone");

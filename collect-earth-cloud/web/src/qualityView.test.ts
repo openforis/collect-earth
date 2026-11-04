@@ -51,6 +51,7 @@ describe("rates as text", () => {
 
   it("says there are too few checks when the rate is null", () => {
     expect(rateText(translator("en"), { compared: 12, agreeing: 12, rate: null }, "en")).toBe("Too few checks to judge (12 checks, 20 needed)");
+    expect(rateText(translator("en"), { compared: 1, agreeing: 1, rate: null }, "en")).toBe("Too few checks to judge (1 check, 20 needed)");
     expect(rateText(translator("es"), { compared: 0, agreeing: 0, rate: null }, "es")).toBe("Muy pocos controles para juzgar (0 controles, se necesitan 20)");
     expect(rateText(translator("fr"), { compared: 3, agreeing: 3, rate: null }, "fr")).toBe("Trop peu de contrôles pour juger (3 contrôles, 20 nécessaires)");
     expect(rateText(translator("pt"), { compared: 3, agreeing: 3, rate: null }, "pt")).toBe("Poucos controles para julgar (3 controles, são necessários 20)");

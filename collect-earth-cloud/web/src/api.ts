@@ -541,6 +541,8 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   mail_failed: "mail.failed",
   already_confirmed: "mail.alreadyConfirmed",
   confirm_expired: "mail.confirmExpired",
+  // The weekly summary (GET /weekly?week=): a week written right that the year does not have.
+  no_such_week: "weekly.noSuchWeek",
   round_codes_changed: "error.roundCodesChanged",
   key_shape_changed: "error.keyShapeChanged",
   plots_divided: "error.plotsDivided",
@@ -903,6 +905,20 @@ export async function unsubscribe(token: string): Promise<DigestKind> {
   return body?.kind === "coordinator" ? "coordinator" : "collector";
 }
 
+/**
+ * Whether a password reset link still works (asked when its page opens; the link is not used):
+ * false for one used, expired or unknown. Other errors (offline…) are thrown.
+ */
+export async function checkResetLink(token: string): Promise<boolean> {
+  try {
+    await send("GET", `/v1/auth/reset/${encodeURIComponent(token)}`, { noSessionEnd: true });
+    return true;
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 410 || err.status === 404)) return false;
+    throw err;
+  }
+}
+
 export async function resetPassword(token: string, newPassword: string): Promise<void> {
   await send("POST", "/v1/auth/reset", { json: { token, newPassword }, noSessionEnd: true });
 }
@@ -1043,7 +1059,7 @@ export async function createInvite(
   };
 }
 
-export async function listInvites(projectId: string): Promise<Invite[]> {
+export async function listInvites(projectId: string): Promise<PeopleInvite[]> {
   const body = await request<{ invites?: Record<string, unknown>[] } | Record<string, unknown>[]>("GET", `${p(projectId)}/invites`);
   const raw = Array.isArray(body) ? body : (body?.invites ?? []);
   return raw.map((i) => ({
@@ -1053,6 +1069,7 @@ export async function listInvites(projectId: string): Promise<Invite[]> {
     usedCount: toCount(i.usedCount),
     expiresAt: toMillis(i.expiresAt),
     createdAt: toMillis(i.createdAt),
+    forUsername: typeof i.forUsername === "string" && i.forUsername !== "" ? i.forUsername : null,
   }));
 }
 
@@ -1235,9 +1252,10 @@ export async function moveUnfinished(
   csvFileId: string,
   fromUserId: string,
   toUserId: string,
-): Promise<DistributionState & { moved: number }> {
+): Promise<DistributionState & { moved: number; notMoved: number; droppedChecks: number }> {
   const body = await request<Record<string, unknown>>("POST", `${f(projectId, csvFileId)}/move-unfinished`, { json: { fromUserId, toUserId } });
-  return { ...toDistributionState(body), moved: toCount(body?.moved) };
+  // notMoved: kept with `from` (`to` assessed or checked them); droppedChecks: copies to compare of plots `to` collects.
+  return { ...toDistributionState(body), moved: toCount(body?.moved), notMoved: toCount(body?.notMoved), droppedChecks: toCount(body?.droppedChecks) };
 }
 
 // --- quality ---------------------------------------------------------------------------------

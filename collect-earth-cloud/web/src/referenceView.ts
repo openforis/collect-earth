@@ -23,7 +23,7 @@ export function parsePlotIds(text: string): string[] {
 
 /** "75 % match the reference (15 of 20 plots)", or "Too few plots to judge (12 plots, 20 needed)". */
 export function accuracyText(t: Translate, rate: Rate, language: string): string {
-  if (rate.rate === null) return t("reference.tooFew", { count: rate.compared, min: MIN_CHECKS });
+  if (rate.rate === null) return t(rate.compared === 1 ? "reference.tooFewOne" : "reference.tooFew", { count: rate.compared, min: MIN_CHECKS });
   return t("reference.match", { pct: formatRate(rate.rate, language), agreeing: rate.agreeing, count: rate.compared });
 }
 

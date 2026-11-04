@@ -329,10 +329,11 @@ function Stat({ label, value, help }: { label: string; value: string; help?: str
  * The server owner's panel (Task 11): totals only. Projects appear by id with their size;
  * no project names, no people's names, no answers (§4b).
  */
-function OverviewCard() {
+function OverviewCard({ version }: { version: number }) {
   const t = useT();
   const { language } = useApp();
-  const overview = useLoad(getServerOverview, []);
+  // `version` changes after an account is disabled or enabled: the figures are loaded again.
+  const overview = useLoad(getServerOverview, [version]);
   const n = (value: number) => formatNumber(value, language);
   const o = overview.data;
   const subtitle = (id: string, text: string) => (
@@ -384,7 +385,7 @@ function OverviewCard() {
                     columns={o.records.receivedByDay.map((d, i, all) => ({
                       label: utcDayText(d.day, language, "short"),
                       value: d.count,
-                      title: t("server.receivedDay", { date: utcDayText(d.day, language), count: n(d.count) }),
+                      title: t(d.count === 1 ? "server.receivedDayOne" : "server.receivedDay", { date: utcDayText(d.day, language), count: n(d.count) }),
                       always: i === all.length - 1,
                     }))}
                   />
@@ -408,7 +409,7 @@ function OverviewCard() {
                     columns={o.users.signupsByWeek.map((w, i, all) => ({
                       label: w.week.slice(5),
                       value: w.count,
-                      title: t("server.signupsWeek", { week: `${w.week.slice(5)} (${utcDayText(w.start, language)})`, count: n(w.count) }),
+                      title: t(w.count === 1 ? "server.signupsWeekOne" : "server.signupsWeek", { week: `${w.week.slice(5)} (${utcDayText(w.start, language)})`, count: n(w.count) }),
                       always: i === all.length - 1,
                     }))}
                   />
@@ -609,7 +610,7 @@ function SettingsCard() {
   );
 }
 
-function UsersCard() {
+function UsersCard({ onAccountChanged }: { onAccountChanged: () => void }) {
   const t = useT();
   const { language, me } = useApp();
   const users = useLoad(listUsers, []);
@@ -625,6 +626,16 @@ function UsersCard() {
   /** Puts the focus back on the row's Disable / Enable button once the list shows the change. */
   const focusToggle = (userId: string) =>
     window.setTimeout(() => document.getElementById(`account-toggle-${userId}`)?.focus(), 0);
+  /**
+   * The row whose button gets the focus once the confirmation dialog has closed. Focusing
+   * it while the dialog is still leaving does not hold (the page behind it is still hidden
+   * and the dialog's focus trap still active), so it waits for the dialog's exit transition.
+   */
+  const focusAfterDialog = useRef<string | null>(null);
+  const closeConfirm = (userId: string) => {
+    focusAfterDialog.current = userId;
+    setConfirm(null);
+  };
 
   const setDisabled = async (user: AdminUser, disabled: boolean) => {
     if (changing.current) return;
@@ -636,13 +647,15 @@ function UsersCard() {
       const now = await setUserDisabled(user.userId, disabled);
       users.setData((prev) => prev.map((u) => (u.userId === now.userId ? { ...u, ...now } : u)));
       setDone(t(disabled ? "server.disabledNow" : "server.enabledNow", { name: user.username }));
+      onAccountChanged();
     } catch (err) {
       setError(err);
     } finally {
       changing.current = false;
       setBusy(null);
-      setConfirm(null);
-      focusToggle(user.userId);
+      // Disabling goes through the dialog: focus once it has closed. Enabling does not.
+      if (disabled) closeConfirm(user.userId);
+      else focusToggle(user.userId);
     }
   };
 
@@ -754,10 +767,18 @@ function UsersCard() {
       <Dialog
         open={confirm !== null}
         onClose={() => {
-          if (confirm) focusToggle(confirm.userId);
-          setConfirm(null);
+          if (confirm) closeConfirm(confirm.userId);
         }}
         disableRestoreFocus
+        slotProps={{
+          transition: {
+            onExited: () => {
+              const userId = focusAfterDialog.current;
+              focusAfterDialog.current = null;
+              if (userId) document.getElementById(`account-toggle-${userId}`)?.focus();
+            },
+          },
+        }}
         fullWidth
         maxWidth="sm"
       >
@@ -768,12 +789,7 @@ function UsersCard() {
               <DialogContentText>{t("server.disableText", { name: confirm.username })}</DialogContentText>
             </DialogContent>
             <DialogActions>
-              <Button
-                onClick={() => {
-                  focusToggle(confirm.userId);
-                  setConfirm(null);
-                }}
-              >
+              <Button onClick={() => closeConfirm(confirm.userId)}>
                 {t("common.cancel")}
               </Button>
               <Button color="warning" variant="contained" onClick={() => void setDisabled(confirm, true)} aria-busy={busy === confirm.userId}>
@@ -811,6 +827,8 @@ function UsersCard() {
 export function ServerPage() {
   const t = useT();
   const { me, info } = useApp();
+  // Counts the account changes, so the overview's figures (disabled accounts) follow them.
+  const [accountChanges, setAccountChanges] = useState(0);
   if (!me?.isPlatformAdmin) {
     return (
       <AppShell>
@@ -829,10 +847,10 @@ export function ServerPage() {
           </Typography>
           <Typography color="text.secondary">{t("server.intro")}</Typography>
         </div>
-        <OverviewCard />
+        <OverviewCard version={accountChanges} />
         <SettingsCard />
         <AiUsageCard />
-        <UsersCard />
+        <UsersCard onAccountChanged={() => setAccountChanges((n) => n + 1)} />
         {info.version && (
           <Typography variant="body2" color="text.secondary">
             {t("server.version", { version: info.version })}

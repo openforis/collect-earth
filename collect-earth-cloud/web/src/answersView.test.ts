@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { answersQuery, NO_ANSWERS_FILTER, toAnswersData, type AnswerFlag, type ChoiceAnswers } from "./api";
-import { answerQuestions, chanceText, choiceRows, datesInOrder, flagText, hasFilter, numberText, restOfTeam, shownQuestion, spreadScale, spreadText } from "./answersView";
+import { answerQuestions, chanceText, choiceRows, datesInOrder, flagText, syncedDays, hasFilter, numberText, restOfTeam, shownQuestion, spreadScale, spreadText } from "./answersView";
 import { translator } from "./i18n";
 
 const land: ChoiceAnswers = {
@@ -111,5 +111,17 @@ describe("answersView", () => {
     expect(datesInOrder("2026-10-02", "2026-10-01")).toBe(false);
     expect(datesInOrder(null, "2026-10-01")).toBe(true);
     expect(hasFilter({ ...NO_ANSWERS_FILTER, to: "2026-10-01" })).toBe(true);
+  });
+});
+
+describe("the days typed in the answers filter", () => {
+  it("keeps a day being typed when the other one is applied", () => {
+    // "Saved from" applied (from: null -> 2026-10-01) while "until" is being typed.
+    expect(syncedDays({ from: "2026-10-01", to: "2026-10-20" }, { from: "2026-10-01", to: null }, { from: "2026-10-01", to: null })).toEqual({ from: "2026-10-01", to: "2026-10-20" });
+  });
+
+  it("takes a day changed from outside (filters cleared)", () => {
+    expect(syncedDays({ from: "2026-10-01", to: "2026-10-20" }, { from: "2026-10-01", to: "2026-10-20" }, { from: null, to: null })).toEqual({ from: "", to: "" });
+    expect(syncedDays({ from: "2026-10-01", to: "2026-10" }, { from: "2026-10-01", to: null }, { from: "2026-09-01", to: null })).toEqual({ from: "2026-09-01", to: "2026-10" });
   });
 });

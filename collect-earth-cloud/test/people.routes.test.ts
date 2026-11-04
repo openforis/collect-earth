@@ -167,6 +167,9 @@ describe('GET /people, /people/:userId and /my-work', () => {
     expect(entry.details).toMatchObject({ role: 'operator', maxUses: 1, forUserId: rita.userId });
     const invites = (await call('GET', '/people', owner.token)).json().invites;
     expect(invites.map((i: { forUsername: string | null }) => i.forUsername).sort()).toEqual([null, 'rita']);
+    // The coordinator's list of open links says whom it is for too.
+    const open = (await call('GET', '/invites', owner.token)).json().invites;
+    expect(open.map((i: { forUsername: string | null }) => i.forUsername).sort()).toEqual([null, 'rita']);
     expect((await call('POST', '/invites', owner.token, { forUserId: '00000000-0000-4000-8000-000000000000' })).statusCode).toBe(400);
     expect((await call('POST', '/invites', owner.token, { forUserId: 5 })).statusCode).toBe(400);
   });
