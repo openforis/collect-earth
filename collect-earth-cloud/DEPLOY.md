@@ -25,6 +25,11 @@ managed Postgres (Option B).
 | `TRUST_FORWARDED_HOST` | no | `true` | Use `X-Forwarded-Host` instead of `Host` for links derived from a request. Only behind a proxy that sets it itself; a client can write it (see below). `true` or `1`; default off |
 | `RENDER_EXTERNAL_URL` | no | `https://ce-cloud.onrender.com` | Honoured only as an environment fallback for the link base when `PUBLIC_BASE_URL` is unset (some hosts set it automatically) |
 | `RATE_LIMIT_PER_MINUTE` | no | `60` | Requests per minute per client IP on login, register, signup, setup and reset (429 `rate_limited` above it). Kept generous because a training room joins from one office IP; failed logins are also limited to 10 per minute per account. `0` disables both. Per instance, in memory |
+| `TELEMETRY` | no | `1` | Send error reports (Sentry) and usage events (Google Analytics), as the desktop app does. Off unless `1` or `true`, so a self-hosted server sends nothing by default. Nothing personal: Sentry gets no request body, header, query string, user nor link token; an event carries a hashed client id and kinds and counts only (`src/telemetry.ts`) |
+| `SENTRY_DSN` | no | `https://key@o1.ingest.sentry.io/2` | With `TELEMETRY`: where the server and the dashboard send error reports. Default: the desktop app's Sentry project |
+| `SENTRY_ENVIRONMENT` | no | `staging` | With `TELEMETRY`: the reports' environment (default `production`) |
+| `GA_API_SECRET` | with GA | *(secret)* | With `TELEMETRY`: the Measurement Protocol API secret of the Google Analytics property. Without it no usage event is sent (it cannot be in this public repository) |
+| `GA_MEASUREMENT_ID` | no | `G-XXXXXXX` | With `TELEMETRY` and `GA_API_SECRET`: the property. Default: the desktop app's (`G-8K943HZKJZ`) |
 | `TRUST_PROXY_HOPS` | no | `1` | Proxies in front of the server that add to `x-forwarded-for` (see below) |
 | `MIGRATE_ON_BOOT` | optional | `true` | Apply pending migrations on startup (see below); `true` or `1` |
 | `PORT` | no | `8080` | Listen port (Cloud Run injects `8080`) |

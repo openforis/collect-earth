@@ -1,3 +1,4 @@
+import { telemetry } from '../telemetry.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { aiAvailable } from '../ai/available.js';
 import { limitWindows } from '../ai/service.js';
@@ -151,6 +152,8 @@ export async function registerAdminRoutes(
       selfServiceReset: options.selfServiceReset === true,
       // The map of progress's base map (OpenStreetMap unless the server sets another).
       mapTiles: config.mapTiles ?? OSM_TILES,
+      // The dashboard's error reports (Sentry), when the server sends them: its public DSN only.
+      telemetry: telemetry.dashboardConfig(),
     });
   });
 

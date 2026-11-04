@@ -199,6 +199,21 @@ public class CloudServiceTest {
 	}
 
 	@Test
+	public void aFailureToStartAfreshNeverFailsTheDownload() throws Exception {
+		org.openforis.collect.earth.app.service.EarthSurveyService survey = mock(org.openforis.collect.earth.app.service.EarthSurveyService.class);
+		service.setSurveyService(survey);
+		when(survey.getKeyAttributeCount()).thenReturn(1);
+		when(survey.deleteRecordsSavedBefore(any(), any())).thenThrow(new IllegalStateException("database locked"));
+		when(properties.getImdFile()).thenReturn(new File(folder, "project/survey.idm.xml").getPath());
+		CloudApiClient.AssignmentInfo learning = new CloudApiClient.AssignmentInfo("s1", "Learning – nov.csv", "c", "/d/s1", 1, new Date(1L));
+		when(api.getMyAssignments()).thenReturn(java.util.Collections.singletonList(learning));
+		File csv = new File(folder, "l.csv");
+		java.nio.file.Files.write(csv.toPath(), "id,lat\n1,2\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		when(api.downloadAssignedCsv(any(), any())).thenReturn(csv);
+		assertEquals(csv, service.downloadAssignment("s1"));
+	}
+
+	@Test
 	public void thePlotKeysAreTheFirstColumnsWhateverTheSeparator() throws Exception {
 		File csv = new File(folder, "p.csv");
 		java.nio.file.Files.write(csv.toPath(), "\uFEFFid,lat,lon\n12,1,2\n\n13,3,4\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));

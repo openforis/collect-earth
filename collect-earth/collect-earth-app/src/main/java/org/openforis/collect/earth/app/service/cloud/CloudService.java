@@ -10,6 +10,7 @@ import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
+import org.openforis.collect.earth.app.logging.GAlogger;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -247,8 +248,12 @@ public class CloudService {
 			List<String[]> keys = plotKeys(file, surveyService.getKeyAttributeCount());
 			int deleted = surveyService.deleteRecordsSavedBefore(keys, info.getFreshSince());
 			logger.info("New attempt at {}: {} earlier records deleted", info.getFilename(), deleted);
+			if (deleted > 0) {
+				GAlogger.logGAnalytics("TrainingAttemptStartedAfresh");
+			}
 		} catch (IOException | RuntimeException e) {
-			logger.warn("Could not start {} afresh: {}", info.getFilename(), e.getMessage());
+			// An error, so Sentry has it (its appender is bound at ERROR): the interpreter would see earlier answers.
+			logger.error("Could not start a learning set's new attempt afresh", e);
 		}
 	}
 

@@ -21,6 +21,7 @@ import { SetupPage } from "./pages/SetupPage";
 import { matchRoute, navigate, usePath, type Route } from "./router";
 import { getToken, setToken, storeLanguage } from "./storage";
 import { theme } from "./theme";
+import { startErrorReports } from "./telemetry";
 
 // Pages loaded when first opened: the sign-in and the projects list do not wait for the map and charts.
 const AccountPage = lazy(() => import("./pages/AccountPage").then((m) => ({ default: m.AccountPage })));
@@ -125,7 +126,9 @@ export function App() {
   }, []);
 
   const refreshInfo = useCallback(async () => {
-    setInfo(await getServerInfo());
+    const loaded = await getServerInfo();
+    setInfo(loaded);
+    void startErrorReports(loaded.telemetry);
   }, []);
 
   const refreshMe = useCallback(async () => {

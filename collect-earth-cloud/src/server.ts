@@ -20,6 +20,7 @@ import { ServerCounters } from './serverCounters.js';
 import type { Store } from './store/store.js';
 import { registerActivityRoutes } from './routes/activity.js';
 import { registerAdminRoutes } from './routes/admin.js';
+import { telemetry } from './telemetry.js';
 import { registerAiRoutes } from './routes/ai.js';
 import { registerAssignmentRoutes, setServedCacheMb } from './routes/assignments.js';
 import { setParsedCacheMb } from './plotFileCache.js';
@@ -168,6 +169,15 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const mailer = options.mailer ?? mailerFrom(config, app.log);
   await registerAuthRoutes(app, store, limiter, loginFailures, counters, accountMail);
   const now = options.ai?.now ?? Date.now;
+  // Error reports and usage events, when the server is started with TELEMETRY=1 (src/telemetry.ts).
+  if (config.telemetry) await telemetry.configure(config.telemetry, VERSION, app.log);
+  app.addHook('onError', async (request, _reply, error) => {
+    // A plain error thrown by a handler has no status yet (the reply's is still 200): it is a 500.
+    const status = (error as { statusCode?: number }).statusCode ?? 500;
+    if (status >= 500) {
+      telemetry.captureError(error, { route: request.routeOptions?.url ?? 'unknown', method: request.method, project: request.membership?.projectId });
+    }
+  });
   await registerAdminRoutes(app, store, config, limiter, {
     setupCode,
     version: VERSION,

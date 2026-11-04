@@ -8,8 +8,8 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import type { ReactNode } from "react";
-import { getTrainingSet, type TrainingSetView } from "../api";
+import { useEffect, type ReactNode } from "react";
+import { getTrainingSet, sendUsageEvent, type TrainingSetView } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
@@ -65,8 +65,18 @@ function Row({ cells }: { cells: ReactNode[] }) {
 // The heading stays empty while loading, so the page's title waits for the set's name.
 export function TrainingReportPage({ projectId, setId }: { projectId: string; setId: string }) {
   const t = useT();
+  const { info } = useApp();
   const state = useLoad(() => getTrainingSet(projectId, setId), [projectId, setId]);
   const data = state.data;
+  const kind = data?.set.kind;
+  // Usage events (when the server sends them): the report opened, and printed.
+  useEffect(() => {
+    if (!kind || !info.telemetry?.events) return;
+    sendUsageEvent(projectId, "training_report_opened", { kind });
+    const printed = () => sendUsageEvent(projectId, "training_report_printed", { kind });
+    window.addEventListener("afterprint", printed);
+    return () => window.removeEventListener("afterprint", printed);
+  }, [projectId, kind, info.telemetry?.events]);
   return (
     <ReportFrame projectId={projectId} title={data ? t("trainingReport.title", { name: data.set.name }) : state.error ? t("trainingReport.titlePlain") : ""} back="training" printable={Boolean(data)}>
       {!data ? state.loading ? <Loading /> : <ErrorAlert error={state.error} onRetry={state.reload} /> : <Report view={data} />}

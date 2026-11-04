@@ -1,3 +1,4 @@
+import { telemetryConfigOf, type TelemetryConfig } from './telemetry.js';
 import { resolve } from 'node:path';
 import { isUuid } from './accountRules.js';
 import { isMailFrom, parseSmtpUrl } from './mail.js';
@@ -13,6 +14,8 @@ export interface Config {
    * missing and grant table rights to, so Row-Level Security binds the server.
    */
   migrationDatabaseUrl?: string;
+  /** Error reports and usage events (src/telemetry.ts): off unless TELEMETRY=1; absent in the local mode. */
+  telemetry?: TelemetryConfig;
   /** When set, POST /v1/projects requires header `x-admin-key` to match. */
   adminApiKey?: string;
   /**
@@ -212,6 +215,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     ...mailConfigOf(env),
     trustForwardedHost: env.TRUST_FORWARDED_HOST === 'true' || env.TRUST_FORWARDED_HOST === '1',
     webDir: webDirOf(env.WEB_DIR),
+    telemetry: telemetryConfigOf(env),
   };
 }
 

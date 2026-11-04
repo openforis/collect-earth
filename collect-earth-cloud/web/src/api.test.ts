@@ -280,6 +280,7 @@ describe("normalising responses", () => {
       selfServiceReset: false,
       mapTiles: OSM_TILES,
       localMode: false,
+      telemetry: null,
     });
   });
 

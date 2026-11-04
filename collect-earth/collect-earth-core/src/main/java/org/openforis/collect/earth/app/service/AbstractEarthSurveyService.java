@@ -463,7 +463,8 @@ public abstract class AbstractEarthSurveyService {
 					recordManager.delete(summary.getId());
 					deleted++;
 				} catch (Exception e) {
-					logger.warn("Could not delete the record " + String.join(",", key), e); //$NON-NLS-1$
+					// An error, so Sentry has it: the interpreter would find their earlier answers.
+					logger.error("Could not delete an earlier attempt's record " + String.join(",", key), e); //$NON-NLS-1$
 				}
 			}
 		}

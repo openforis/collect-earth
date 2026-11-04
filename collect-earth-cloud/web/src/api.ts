@@ -31,6 +31,36 @@ export interface ServerInfo {
    * LOCAL_MODE): what is about other people or the server is hidden (src/localMode.ts).
    */
   localMode: boolean;
+  /** Error reports (Sentry) and usage events, when the server sends them (its TELEMETRY setting). */
+  telemetry?: DashboardTelemetry | null;
+}
+
+export interface DashboardTelemetry {
+  sentryDsn: string | null;
+  environment: string;
+  release: string;
+  /** The server forwards the dashboard's usage events (POST /telemetry). */
+  events: boolean;
+}
+
+/** The server's telemetry settings, or null when they are off or unreadable (a DSN must be https). */
+export function toTelemetry(value: unknown): DashboardTelemetry | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  const dsn = typeof v.sentryDsn === "string" && /^https:\/\/[^\s]+$/.test(v.sentryDsn) ? v.sentryDsn : null;
+  const events = v.events === true;
+  if (!dsn && !events) return null;
+  return {
+    sentryDsn: dsn,
+    environment: typeof v.environment === "string" ? v.environment.slice(0, 64) : "production",
+    release: typeof v.release === "string" ? v.release.slice(0, 100) : "collect-earth-cloud",
+    events,
+  };
+}
+
+/** Tells the server of a use of the dashboard it cannot see (it forwards it to Google Analytics, when it does). */
+export function sendUsageEvent(projectId: string, name: "training_report_opened" | "training_report_printed", params: Record<string, string | number> = {}): void {
+  request<unknown>("POST", `${p(projectId)}/telemetry`, { json: { name, params } }).catch(() => undefined);
 }
 
 /** A base map's tiles: a URL with {z}/{x}/{y}, the attribution the source asks for (plain text) and where it links. */
@@ -742,6 +772,7 @@ export async function getServerInfo(): Promise<ServerInfo> {
       selfServiceReset: info?.selfServiceReset === true,
       mapTiles: toMapTiles(info?.mapTiles),
       localMode: info?.localMode === true,
+      telemetry: toTelemetry(info?.telemetry),
     };
   } catch (error) {
     // A server from before the dashboard existed: no setup, no sign-up.

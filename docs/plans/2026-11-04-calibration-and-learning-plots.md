@@ -156,3 +156,30 @@ Members: `GET /training/mine`; `GET /training/:setId/content` (participants).
   plots, Decision 8: no one's agreement by name), no golden answers, no scores. A set the reviewer takes
   part in shows only once they have submitted all its plots, so their answers stay their own.
 - **Not built:** per-question explanations (one per plot).
+
+### Sentry and Google Analytics
+
+The cloud server and dashboard had neither; they now have both, opt-in (`TELEMETRY=1`), with the
+desktop app's Sentry project and GA property as defaults (decided by the owner, 4 Nov 2026; the GA
+API secret must be given, `GA_API_SECRET`). `src/telemetry.ts`, `web/src/telemetry.ts`.
+
+- **Sentry, server:** every 5xx (a Fastify `onError` hook, tagged with the route and project id), and
+  the failures caught and logged without a 5xx: a record not stored at intake (training records
+  included), the training sets of `my-assignment`. Sent without request body, headers, query string or
+  user (`scrubEvent`); console and HTTP breadcrumbs dropped; no tracing.
+- **Sentry, dashboard:** `@sentry/react`, loaded only when the server gives a DSN in `/v1/server-info`
+  (`telemetry`); no user, no request body, link tokens masked in every address (`scrubUrl`).
+- **Google Analytics (Measurement Protocol, from the server: no cookie, no script in the browser):**
+  `training_set_created`, `training_set_changed`, `training_set_deleted`, `training_members_set`,
+  `training_golden_set`, `training_attempts_started`, `training_records_synced`,
+  `training_file_downloaded`, `training_figures_viewed`, `my_training_viewed`, and from the dashboard
+  through `POST /v1/projects/:pid/telemetry` (a fixed list) `training_report_opened` and
+  `training_report_printed`; also the plot files of this work: `plot_file_replace_asked`,
+  `plot_file_replaced`, `plot_file_refused`. Kinds and counts only; the client id is a hash of the
+  project and account ids.
+- **Desktop:** a new attempt that cannot be started afresh is logged as an error (the Sentry appender);
+  a successful one sends `TrainingAttemptStartedAfresh` (GAlogger, as `PlotSavedCollectEarth`).
+- **Tests:** `test/telemetry.test.ts` (settings, parameters kept, scrubbing, the events of the whole
+  training flow with no name, id or answer in them), `web/src/telemetry.test.ts`; a real Sentry event
+  of a failing training route checked against a local endpoint (captured with its route, nothing
+  personal in it).

@@ -23,14 +23,17 @@ const STAND_INS = new Map([
   [join(src, 'store', 'migrate.ts'), join(src, 'localBuild', 'migrate.ts')],
   [join(src, 'ai', 'gemini.ts'), join(src, 'localBuild', 'gemini.ts')],
 ]);
-const PACKAGE_STAND_INS = new Map([['nodemailer', join(src, 'localBuild', 'nodemailer.ts')]]);
+const PACKAGE_STAND_INS = new Map([
+  ['nodemailer', join(src, 'localBuild', 'nodemailer.ts')],
+  ['@sentry/node', join(src, 'localBuild', 'sentry.ts')],
+]);
 /** Packages that must not end up in the bundle. */
-const CLOUD_ONLY_PACKAGES = ['pg', 'pg-connection-string', 'pg-pool', 'pg-protocol', '@google/genai', 'google-auth-library', 'nodemailer'];
+const CLOUD_ONLY_PACKAGES = ['pg', 'pg-connection-string', 'pg-pool', 'pg-protocol', '@google/genai', 'google-auth-library', 'nodemailer', '@sentry/node', '@sentry/core', '@opentelemetry/api'];
 
 const localStandIns = {
   name: 'local-stand-ins',
   setup(b) {
-    b.onResolve({ filter: /^nodemailer$/ }, (args) => ({ path: PACKAGE_STAND_INS.get(args.path) }));
+    b.onResolve({ filter: /^(nodemailer|@sentry\/node)$/ }, (args) => ({ path: PACKAGE_STAND_INS.get(args.path) }));
     b.onResolve({ filter: /^\.{1,2}\/.*\.js$/ }, (args) => {
       const target = resolve(args.resolveDir, args.path).replace(/\.js$/, '.ts');
       const standIn = STAND_INS.get(target);

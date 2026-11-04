@@ -29,6 +29,7 @@
   "dependencies": {
     "@fastify/static": "7.0.4",
     "@google/genai": "2.30.0",
+    "@sentry/node": "10.27.0",
     "fast-xml-parser": "5.11.2",
     "fastify": "^4.28.1",
     "nodemailer": "10.1.7",

@@ -1,3 +1,4 @@
+import { telemetry } from '../telemetry.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Store } from '../store/store.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
@@ -58,6 +59,7 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
       let firstSubmission = false;
       // The plots of training sets: their records go to training_records (read once per batch).
       let training: { units: Set<string>; info: RoundInfo | null } | null = null;
+      let trainingStored = 0;
 
       for (const raw of envelopes) {
         const envelope = normalizeEnvelope(raw);
@@ -92,7 +94,10 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
               const { row, status } = applyLww(envelope, existing, receivedAt);
               return status === 'stored' ? { ...row, projectId } : null;
             });
-            if (kept) storedCount += 1;
+            if (kept) {
+              storedCount += 1;
+              trainingStored += 1;
+            }
             results.push({ recordKey: envelope.recordKey, status: kept ? 'stored' : 'stale' });
             continue;
           }
@@ -117,11 +122,13 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
           results.push({ recordKey: envelope.recordKey, status: stored ? 'stored' : 'stale' });
         } catch (err) {
           request.log.error({ err, recordKey: envelope.recordKey }, 'record store failed');
+          telemetry.captureError(err, { route: 'records:batch', project: projectId });
           results.push({ recordKey: envelope.recordKey, status: 'error', reason: 'internal error' });
         }
       }
 
       noteActivity(request, { sync: { records: storedCount } }, { desktop: true });
+      if (trainingStored > 0) telemetry.event('training_records_synced', { projectId, userId: request.userId }, { records: trainingStored });
       if (firstSubmission && sampling) {
         // Before the answer (Cloud Run gives no CPU after it), never failing the batch, waited
         // for at most SAMPLING_INLINE_MS; at most once per project per 10 min.
