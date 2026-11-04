@@ -216,6 +216,21 @@ describe('training: calibration and learning plots', () => {
     expect((await call('GET', '/training/figures', owner.token)).json().sets).toHaveLength(1);
   });
 
+  it('feedback on one plot for Collect Earth: none, pending, then the answers next to the golden ones', async () => {
+    const setId = (await createSet('learn.csv', [10, 11], '?kind=learning')).json().id as string;
+    await call('PUT', `/training/${setId}/members`, owner.token, { userIds: [people.ana.userId] });
+    const fb = async (key: string, who = people.ana.token) => (await call('GET', `/training/feedback?key=${encodeURIComponent(key)}`, who)).json();
+    expect(await fb('99')).toEqual({ status: 'none' });
+    expect(await fb('10', people.bo.token)).toEqual({ status: 'none' });
+    expect(await fb('10')).toMatchObject({ status: 'noGolden', plot: '10' });
+    await call('PUT', `/training/${setId}/golden/10`, owner.token, { answers: { [LU]: 'F' }, note: 'Crowns.' });
+    expect(await fb('10')).toMatchObject({ status: 'pending', attempt: 1 });
+    await send('ana', { 10: { [LU]: 'C' } });
+    const scored = await fb('10');
+    expect(scored).toMatchObject({ status: 'scored', set: 'learn', plot: { plot: '10', right: false, note: 'Crowns.' } });
+    expect(scored.plot.questions).toEqual([expect.objectContaining({ key: LU, golden: 'F', given: 'C', right: false })]);
+  });
+
   it('golden answers from one person\'s records (an expert)', async () => {
     const setId = (await createSet('learn.csv', [10, 11], '?kind=learning')).json().id as string;
     await call('PUT', `/training/${setId}/members`, owner.token, { userIds: [people.bo.userId] });

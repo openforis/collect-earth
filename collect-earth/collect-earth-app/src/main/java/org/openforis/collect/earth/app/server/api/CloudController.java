@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Join cloud project, the cloud login and the sync status of the Project menu (CloudService). */
@@ -78,6 +79,12 @@ public class CloudController {
 	@PostMapping("/api/cloud/syncNow")
 	public void syncNow() {
 		cloud.syncNow();
+	}
+
+	/** The training feedback of a plot just submitted (a learning set's), for the plot form */
+	@GetMapping("/api/cloud/training-feedback")
+	public Map<String, Object> trainingFeedback(@RequestParam("plot") String plot) {
+		return cloud.trainingFeedback(plot);
 	}
 
 	/** The plot files assigned to the operator, for the Project section of the settings in cloud mode */

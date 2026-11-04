@@ -428,6 +428,17 @@ public class CloudApiClient {
 		return new Date(freshSince + (localNow - serverTime.asLong()));
 	}
 
+	/**
+	 * The training feedback of one plot just submitted (GET /training/feedback): for a learning set the operator takes
+	 * part in, their answers next to the golden ones ({@code status} scored), pending, or none.
+	 */
+	public JsonNode getTrainingFeedback(String recordKey) throws IOException {
+		HttpGet request = new HttpGet(baseUrl() + "/v1/projects/" + projectId() + "/training/feedback?key="
+				+ java.net.URLEncoder.encode(recordKey, java.nio.charset.StandardCharsets.UTF_8.name()));
+		prepare(request);
+		return executeForJson("getTrainingFeedback", request);
+	}
+
 	/** Lists the CSV files assigned to the logged-in operator for the configured project. */
 	public List<AssignmentInfo> getMyAssignments() throws IOException {
 		HttpGet request = new HttpGet(baseUrl() + "/v1/projects/" + projectId() + "/my-assignment");

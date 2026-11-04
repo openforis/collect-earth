@@ -214,6 +214,27 @@ public class CloudServiceTest {
 	}
 
 	@Test
+	public void theTrainingFeedbackSyncsFirstAndAsksAgainWhileThePlotIsOnItsWay() throws Exception {
+		com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
+		when(properties.isCloudSyncEnabled()).thenReturn(false);
+		assertEquals("none", service.trainingFeedback("9001").get("status"));
+		verify(sync, never()).syncNowAsync();
+
+		when(properties.isCloudSyncEnabled()).thenReturn(true);
+		service.waitMs = 1;
+		when(api.getTrainingFeedback("9001")).thenReturn(json.readTree("{\"status\":\"pending\"}"),
+				json.readTree("{\"status\":\"scored\",\"plot\":{\"plot\":\"9001\",\"right\":true}}"));
+		Map<String, Object> answer = service.trainingFeedback("9001");
+		assertEquals("scored", answer.get("status"));
+		verify(sync).syncNowAsync();
+		verify(api, org.mockito.Mockito.times(2)).getTrainingFeedback("9001");
+
+		// The server cannot be reached: nothing to show, never an error in the form.
+		when(api.getTrainingFeedback("9002")).thenThrow(new IOException("offline"));
+		assertEquals("none", service.trainingFeedback("9002").get("status"));
+	}
+
+	@Test
 	public void thePlotKeysAreTheFirstColumnsWhateverTheSeparator() throws Exception {
 		File csv = new File(folder, "p.csv");
 		java.nio.file.Files.write(csv.toPath(), "\uFEFFid,lat,lon\n12,1,2\n\n13,3,4\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));

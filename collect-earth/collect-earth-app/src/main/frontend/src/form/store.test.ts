@@ -19,10 +19,17 @@ let posted: Record<string, unknown>[];
 let saved: Record<string, FieldInfo>;
 /** Whether Collect Earth takes a submit (the plot valid) */
 let accepted: boolean;
+/** Collect Earth's answer to the training feedback of a plot submitted, and the plots it was asked about */
+let trainingAnswer: Record<string, unknown>;
+let trainingAsked: string[];
 
 /** opened: Collect Earth's answer to opening the plot, null when it has no record of it */
 function serve(opened: { activelySaved: boolean; infos: Record<string, FieldInfo> } | null) {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.startsWith("http://localhost:8028/api/cloud/training-feedback")) {
+      trainingAsked.push(new URL(url).searchParams.get("plot") ?? "");
+      return { ok: true, json: async () => trainingAnswer };
+    }
     const path = url.replace("http://localhost:8028/earth/", "");
     const json = path === "surveyForm" ? model
       : path.startsWith("surveyForm/plot") ? { values: {} }
@@ -38,6 +45,8 @@ beforeEach(() => {
   posted = [];
   saved = {};
   accepted = false;
+  trainingAnswer = { status: "none" };
+  trainingAsked = [];
   const page: Record<string, unknown> = { location: { origin: "http://localhost:8028" } };
   page.parent = { postMessage: (m: Record<string, unknown>) => posted.push(m) };
   vi.stubGlobal("window", page);
@@ -354,5 +363,44 @@ describe("a number box holding no number", () => {
     const requests = (fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
     await vi.advanceTimersByTimeAsync(2000);
     expect((fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(requests);
+  });
+});
+
+describe("the training feedback of a plot submitted", () => {
+  it("reads the server's answer, nothing for none or an odd one", async () => {
+    const { toTrainingFeedback } = await import("./store");
+    expect(toTrainingFeedback({ status: "none" })).toBeNull();
+    expect(toTrainingFeedback(null)).toBeNull();
+    expect(toTrainingFeedback({ status: "pending", set: "Week 1", attempt: 2 })).toEqual({ status: "pending", set: "Week 1", attempt: 2, plot: undefined });
+    const scored = toTrainingFeedback({
+      status: "scored",
+      set: "Week 1",
+      plot: { plot: "9001", right: false, answers: { compared: 2, agreeing: 1 }, note: "  ", questions: [{ key: "lu", label: "Land use", golden: "Forest (F)", given: "Grassland (G)", right: false }] },
+    });
+    expect(scored?.plot?.questions[0]).toEqual({ key: "lu", label: "Land use", golden: "Forest (F)", given: "Grassland (G)", right: false });
+    expect(scored?.plot?.note).toBeNull();
+  });
+});
+
+describe("a learning plot submitted", () => {
+  it("asks Collect Earth how the answers compare with the golden ones, and forgets it once the plot changes", async () => {
+    const store = await opened(false, { collect_code_lu: { value: "F" }, collect_boolean_trees: {} });
+    saved = { collect_code_lu: { value: "F" }, collect_boolean_trees: {} };
+    accepted = true;
+    trainingAnswer = { status: "scored", set: "Week 1", attempt: 1, plot: { plot: "p1", right: true, answers: { compared: 1, agreeing: 1 }, note: null, questions: [{ key: "collect_code_lu", label: "Land use", golden: "F", given: "F", right: true }] } };
+    expect(await store.submit()).toBe(true);
+    await vi.waitFor(() => expect(store.getState().training?.status).toBe("scored"));
+    expect(trainingAsked).toEqual(["p1"]);
+    expect(store.getState().training?.plot?.questions[0].right).toBe(true);
+    store.setValue("collect_code_lu", "C");
+    expect(store.getState().training).toBeNull();
+  });
+  it("shows nothing for a plot that is no training plot", async () => {
+    const store = await opened(false, { collect_code_lu: { value: "F" }, collect_boolean_trees: {} });
+    saved = { collect_code_lu: { value: "F" }, collect_boolean_trees: {} };
+    accepted = true;
+    expect(await store.submit()).toBe(true);
+    await vi.waitFor(() => expect(store.getState().trainingLoading).toBe(false));
+    expect(store.getState().training).toBeNull();
   });
 });

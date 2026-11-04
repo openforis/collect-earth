@@ -447,6 +447,9 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
         <Alert severity="info" onClose={store.dismissAlreadyFilled} data-testid="entry-already-filled" sx={BANNER_SX}>{t("entry.alreadyFilled")}</Alert>
       )}
 
+      {/* A learning plot just submitted (cloud training): the answers next to the golden ones, as the server scores them */}
+      <TrainingFeedbackPanel store={store} state={state} />
+
       {/* the balloon's grey panel around the questions, edge to edge in a narrow form */}
       {/* a question copied from the plot before is looked at when the user focuses it, clicks or types in it */}
       <Box ref={content} onFocus={(e) => { if (e.target !== ownFocus.current) looked(e.target); }}
@@ -897,5 +900,49 @@ function MultipleEntities({ store, state, item }: { store: FormStore; state: For
         )}
       </Stack>
     </Stack>
+  );
+}
+
+/** The feedback of a learning plot just submitted: each answer next to the golden one, and the coordinator's explanation. */
+function TrainingFeedbackPanel({ store, state }: { store: FormStore; state: FormState }) {
+  const t = useT();
+  const fb = state.training;
+  if (state.trainingLoading && !fb) {
+    return (
+      <Alert severity="info" icon={<CircularProgress size={18} />} data-testid="entry-training-loading" sx={BANNER_SX}>
+        {t("training.loading")}
+      </Alert>
+    );
+  }
+  if (!fb || !state.submitted) return null;
+  if (fb.status === "pending") {
+    return (
+      <Alert severity="info" data-testid="entry-training-pending" sx={BANNER_SX}
+        action={<Button color="inherit" size="small" disabled={state.trainingLoading} onClick={() => void store.checkTraining()}>{t("training.checkAgain")}</Button>}>
+        {t("training.pending")}
+      </Alert>
+    );
+  }
+  if (fb.status === "noGolden") return <Alert severity="info" data-testid="entry-training-no-golden" sx={BANNER_SX}>{t("training.noGolden", { set: fb.set ?? "" })}</Alert>;
+  if (fb.status === "calibration") return <Alert severity="info" data-testid="entry-training-calibration" sx={BANNER_SX}>{t("training.calibration", { set: fb.set ?? "" })}</Alert>;
+  const plot = fb.plot;
+  if (!plot) return null;
+  return (
+    <Alert severity={plot.right ? "success" : "warning"} data-testid="entry-training-scored" sx={BANNER_SX}>
+      <Typography sx={{ fontWeight: 600 }}>
+        {plot.right ? t("training.allRight") : t("training.someWrong", { right: plot.answers.agreeing, of: plot.answers.compared })}
+      </Typography>
+      <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
+        {plot.questions.map((q) => (
+          <li key={q.key}>
+            <strong>{q.label}</strong>{": "}
+            {q.right
+              ? t("training.answerRight", { given: q.given || t("training.noAnswer") })
+              : t("training.answerWrong", { given: q.given || t("training.noAnswer"), golden: q.golden })}
+          </li>
+        ))}
+      </Box>
+      {plot.note && <Typography variant="body2" sx={{ mt: 0.5 }}><strong>{t("training.why")}</strong> {plot.note}</Typography>}
+    </Alert>
   );
 }

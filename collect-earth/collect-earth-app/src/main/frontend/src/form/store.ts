@@ -20,6 +20,50 @@ export function retryDelay(failures: number): number {
 
 export type SaveState = "idle" | "unsaved" | "saving" | "saved" | "error";
 
+/** A learning plot just submitted, as the cloud server scores it (see CloudService.trainingFeedback). */
+export interface TrainingFeedback {
+  /** scored: the answers next to the golden ones; pending: the record is still on its way; noGolden; calibration */
+  status: "scored" | "pending" | "noGolden" | "calibration";
+  set?: string;
+  attempt?: number;
+  plot?: {
+    plot: string;
+    right: boolean;
+    answers: { compared: number; agreeing: number };
+    questions: { key: string; label: string; golden: string; given: string; right: boolean }[];
+    note: string | null;
+  };
+}
+
+const TRAINING_STATUSES = ["scored", "pending", "noGolden", "calibration"];
+
+/** The server's answer as feedback to show, or null (none, or not readable). */
+export function toTrainingFeedback(value: unknown): TrainingFeedback | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  if (typeof v.status !== "string" || !TRAINING_STATUSES.includes(v.status)) return null;
+  const plot = v.plot && typeof v.plot === "object" ? (v.plot as Record<string, unknown>) : null;
+  return {
+    status: v.status as TrainingFeedback["status"],
+    set: typeof v.set === "string" ? v.set : undefined,
+    attempt: typeof v.attempt === "number" ? v.attempt : undefined,
+    plot: plot && Array.isArray(plot.questions)
+      ? {
+          plot: String(plot.plot ?? ""),
+          right: plot.right === true,
+          answers: {
+            compared: Number((plot.answers as Record<string, unknown> | undefined)?.compared ?? 0),
+            agreeing: Number((plot.answers as Record<string, unknown> | undefined)?.agreeing ?? 0),
+          },
+          questions: (plot.questions as Record<string, unknown>[]).map((q) => ({
+            key: String(q.key ?? ""), label: String(q.label ?? q.key ?? ""), golden: String(q.golden ?? ""), given: String(q.given ?? ""), right: q.right === true,
+          })),
+          note: typeof plot.note === "string" && plot.note.trim() ? plot.note : null,
+        }
+      : undefined,
+  };
+}
+
 export interface FormState {
   phase: "loading" | "ready" | "failed";
   /** why the form could not be shown (phase "failed") */
@@ -67,6 +111,10 @@ export interface FormState {
   previous: PreviousPlot | null;
   /** The number boxes holding what is no number (see numberProblem), by question: not sent, and Submit refused */
   drafts: Record<string, MessageKey>;
+  /** A learning plot submitted: how the answers compare with the golden ones (cloud training) */
+  training: TrainingFeedback | null;
+  /** The training feedback is being asked for */
+  trainingLoading: boolean;
 }
 
 /** The answers of a plot submitted, by question (see answersToRemember) */
@@ -89,9 +137,9 @@ export function previousOf(data: unknown, ownId: string, survey: string | null):
   return valid.length ? { plotId: message.plotId, answers: Object.fromEntries(valid) } : null;
 }
 
-async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
+async function fetchWithTimeout(url: string, init?: RequestInit, timeout = REQUEST_TIMEOUT): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  const timer = setTimeout(() => controller.abort(), timeout);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } finally {
@@ -160,7 +208,7 @@ export class FormStore {
   constructor(placemarkId: string) {
     this.state = {
       phase: "loading", failure: null, model: null, placemarkId, infos: {}, pending: {}, tab: 0, saveState: "idle",
-      serverDown: false, saveError: null, retrying: false, submitted: false, alreadyFilled: false, unsubmitted: false, submitErrors: null, submitting: false, attempted: false,
+      serverDown: false, saveError: null, retrying: false, submitted: false, alreadyFilled: false, unsubmitted: false, submitErrors: null, submitting: false, attempted: false, training: null, trainingLoading: false,
       entityBusy: null, entityFailure: null, incomplete: false, previous: null, drafts: {},
     };
   }
@@ -270,7 +318,7 @@ export class FormStore {
       }
     }
     const wasSubmitted = this.state.submitted;
-    if (wasSubmitted) Object.assign(patch, { submitted: false, unsubmitted: true });
+    if (wasSubmitted) Object.assign(patch, { submitted: false, unsubmitted: true, training: null });
     // the operator just answered: drop the field's error now, the server's answer brings it back if it stands
     const info = this.state.infos[name];
     if (info?.inError) patch.infos = { ...this.state.infos, [name]: { ...info, inError: false, errorMessage: null } };
@@ -480,6 +528,7 @@ export class FormStore {
     // The server only keeps actively_saved when the whole record is valid (AbstractEarthSurveyService)
     if (result.activelySaved) {
       this.set({ submitted: true, unsubmitted: false, submitErrors: null });
+      void this.checkTraining();
       // the plots map keeps its answers for the next plot (see previous)
       this.post("ce:saved", { survey: this.state.model.survey,
         answers: answersToRemember(this.fields, this.state.model.keys, this.state.infos, (n) => this.value(n)) });
@@ -488,6 +537,28 @@ export class FormStore {
     const errors = errorList(this.state.model, this.state.infos);
     this.set({ submitErrors: errors, tab: errors.length ? errors[0].tab : this.state.tab });
     return false;
+  };
+
+  /**
+   * Asks Collect Earth for the training feedback of this plot (a learning set's, in cloud mode): it syncs the record
+   * and asks the server. Nothing is shown when it is no training plot, or the server cannot be reached.
+   */
+  checkTraining = async (): Promise<void> => {
+    const id = this.state.placemarkId;
+    this.set({ trainingLoading: true });
+    let training: TrainingFeedback | null = null;
+    try {
+      const r = await fetchWithTimeout(`${window.location.origin}/api/cloud/training-feedback?plot=${encodeURIComponent(id)}`, { headers: { Accept: "application/json" } }, 20000);
+      if (r.ok) training = toTrainingFeedback(await r.json());
+    } catch {
+      training = null;
+    }
+    // another plot opened meanwhile, or the plot changed again: that answer is not this form's
+    if (this.state.placemarkId !== id || !this.state.submitted) {
+      this.set({ trainingLoading: false });
+      return;
+    }
+    this.set({ training, trainingLoading: false });
   };
 
   // ---------- multiple entities ----------

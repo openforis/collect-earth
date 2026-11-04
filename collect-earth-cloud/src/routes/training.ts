@@ -595,6 +595,31 @@ export async function registerTrainingRoutes(
     return reply.send({ sets: out });
   });
 
+  // Feedback on one plot just submitted in Collect Earth (?key=<record key>): for a learning set the person
+  // takes part in, their answers next to the golden ones; "pending" until the record reached the server.
+  app.get('/v1/projects/:pid/training/feedback', member, async (request, reply) => {
+    const projectId = request.membership!.projectId;
+    const key = (request.query as { key?: string } | undefined)?.key ?? '';
+    const userId = request.userId;
+    if (!userId || key === '' || key.length > 1000) return reply.send({ status: 'none' });
+    const sets = (await store.listTrainingSets(projectId)).filter((s) => s.memberIds.includes(userId));
+    if (sets.length === 0) return reply.send({ status: 'none' });
+    const info = await store.getRoundInfo(projectId);
+    const meta = sets.find((s) => unitOfRecord(key, new Set(s.plotKeys), info) !== null);
+    if (!meta) return reply.send({ status: 'none' });
+    const plot = unitOfRecord(key, new Set(meta.plotKeys), info)!;
+    if (meta.kind !== 'learning') return reply.send({ status: 'calibration', set: meta.name });
+    const loaded = await loadSet(store, projectId, meta.id, deps.outline, request.log);
+    const me = loaded?.people.find((p) => p.userId === userId);
+    if (!loaded || !me) return reply.send({ status: 'none' });
+    const attempt = loaded.startOf.get(me.username)!.number;
+    const golden = loaded.golden.get(plot);
+    if (!golden || Object.keys(golden.answers).length === 0) return reply.send({ status: 'noGolden', set: loaded.set.name, attempt, plot });
+    const scored = scoreOf(loaded, me.username).byPlot.find((p) => p.plot === plot);
+    if (!scored) return reply.send({ status: 'pending', set: loaded.set.name, attempt, plot });
+    return reply.send({ status: 'scored', set: loaded.set.name, attempt, plot: { ...scored, note: golden.note } });
+  });
+
   // What the dashboard tells of its use that the server cannot see (the report opened or printed).
   app.post('/v1/projects/:pid/telemetry', member, async (request, reply) => {
     const body = (request.body ?? {}) as { name?: unknown; params?: unknown };

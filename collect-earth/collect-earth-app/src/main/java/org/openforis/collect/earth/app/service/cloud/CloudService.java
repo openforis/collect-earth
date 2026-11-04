@@ -3,6 +3,7 @@ package org.openforis.collect.earth.app.service.cloud;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -175,6 +176,47 @@ public class CloudService {
 		}
 		return token;
 	}
+
+	/** How many times, and how long apart, the feedback of a plot just submitted is asked while its record is on its way */
+	static final int FEEDBACK_TRIES = 5;
+	static final long FEEDBACK_WAIT_MS = 1500;
+
+	/**
+	 * The training feedback of a plot just submitted (a learning set's): the sync is started so the record reaches the
+	 * server, and the server is asked again while it says pending. {@code status} none outside the cloud mode, or when the
+	 * server cannot be reached (the form then shows nothing).
+	 */
+	public Map<String, Object> trainingFeedback(String placemarkId) {
+		if (!properties.isCloudSyncEnabled() || StringUtils.isBlank(placemarkId)) {
+			return Collections.singletonMap("status", "none");
+		}
+		sync.syncNowAsync();
+		Map<String, Object> answer = Collections.singletonMap("status", "none");
+		for (int i = 0; i < FEEDBACK_TRIES; i++) {
+			try {
+				com.fasterxml.jackson.databind.JsonNode node = api.getTrainingFeedback(placemarkId);
+				@SuppressWarnings("unchecked")
+				Map<String, Object> map = new com.fasterxml.jackson.databind.ObjectMapper().convertValue(node, Map.class);
+				answer = map;
+			} catch (IOException | RuntimeException e) {
+				logger.warn("Could not get the training feedback of {}: {}", placemarkId, e.getMessage());
+				return Collections.singletonMap("status", "none");
+			}
+			if (!"pending".equals(answer.get("status")) || i == FEEDBACK_TRIES - 1) {
+				break;
+			}
+			try {
+				Thread.sleep(waitMs);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				break;
+			}
+		}
+		return answer;
+	}
+
+	/** The wait between two asks (shorter in tests) */
+	long waitMs = FEEDBACK_WAIT_MS;
 
 	/** The status of the sync, as CloudSyncStatusDialog showed it */
 	public Map<String, Object> status() {
