@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calibrationFigures, fleissKappa, goldenFromConsensus, latestAnswers, learningScore, openAttempt, type Answered } from '../src/training.js';
+import { calibrationFigures, fleissKappa, goldenFromConsensus, labelled, latestAnswers, learningScore, openAttempt, type Answered } from '../src/training.js';
 import type { RecordRow, TrainingGolden } from '../src/types.js';
 
 const record = (recordKey: string, operator: string, summary: Record<string, string>, modifiedOn = 1000, extra: Partial<RecordRow> = {}): RecordRow => ({
@@ -107,6 +107,12 @@ describe('training figures', () => {
     expect(done.plotsRight).toBe(1);
     expect(done.passed).toBe(true);
     expect(learningScore({ plots: ['1', '2'], golden, answers: mine, outline: null, margins: {}, passMark: 70 }).passed).toBe(false);
+  });
+
+  it('shows a choice by its label and code, numbers as they are', () => {
+    const outline = new Map([['lu', { key: 'lu', label: 'Land use', kind: 'choice' as const, options: [{ code: 'F', label: 'Forest' }], help: null, excluded: false, multiple: true, calculated: false }]]);
+    expect(labelled(outline as never, 'lu', 'F===G')).toBe('Forest (F), G');
+    expect(labelled(outline as never, 'cover', '50')).toBe('50');
   });
 
   it('the open attempt: the highest without results, attempt 1 from the start when none is stored', () => {

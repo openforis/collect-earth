@@ -147,6 +147,7 @@ const GO: Record<ProjectTab, MessageKey> = {
   map: "tab.map",
   data: "tab.data",
   quality: "progress.goQuality",
+  training: "tab.training",
   activity: "tab.activity",
   settings: "tab.settings",
 };

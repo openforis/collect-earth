@@ -16,6 +16,7 @@ import { getMyQuality, getMyWork, getProject, getTeamReport, type AnswerOptions,
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { MyTraining } from "../components/MyTraining";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
@@ -240,6 +241,7 @@ export function MyWorkPage({ projectId }: { projectId: string }) {
           <AsOf asOf={data.asOf} />
           <PersonNumbers data={data} self />
           <FilesSection data={data} projectId={projectId} />
+          <MyTraining projectId={projectId} />
           <ActivitySection data={data} self />
           <SpeedSection data={data} />
           <SyncSection data={data} self />

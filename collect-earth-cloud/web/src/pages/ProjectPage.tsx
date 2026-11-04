@@ -25,6 +25,7 @@ import { linkProps, navigate, pathFor, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 
 // Each tab is loaded when first opened (the map and the charts are most of the code).
+const TrainingTab = lazy(() => import("../project/TrainingTab").then((m) => ({ default: m.TrainingTab })));
 const ActivityTab = lazy(() => import("../project/ActivityTab").then((m) => ({ default: m.ActivityTab })));
 const DataTab = lazy(() => import("../project/DataTab").then((m) => ({ default: m.DataTab })));
 const MapTab = lazy(() => import("../project/MapTab").then((m) => ({ default: m.MapTab })));
@@ -49,6 +50,7 @@ const TAB_LABELS = {
   map: "tab.map",
   data: "tab.data",
   quality: "tab.quality",
+  training: "tab.training",
   activity: "tab.activity",
   settings: "tab.settings",
 } as const;
@@ -214,6 +216,7 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
     map: <MapTab projectId={projectId} coordinator={!local} />,
     data: <DataTab projectId={projectId} onGo={go} />,
     quality: plot ? <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles={!local} /> : <QualityTab projectId={projectId} />,
+    training: <TrainingTab projectId={projectId} />,
     activity: <ActivityTab projectId={projectId} />,
     settings: <SettingsTab projectId={projectId} name={info.name} onRenamed={(name) => project.setData({ ...info, name })} />,
   }[tab];

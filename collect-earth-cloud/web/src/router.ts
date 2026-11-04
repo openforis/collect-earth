@@ -5,7 +5,7 @@ import { useSyncExternalStore, type MouseEvent } from "react";
 // app path (/join/<token>, /projects/..., /setup, /reset/<token>), so deep links work.
 
 // Progress is the first tab (its path is the project's own); Setup is the getting-started checklist.
-export const PROJECT_TABS = ["progress", "setup", "file", "people", "plots", "map", "data", "quality", "activity", "settings"] as const;
+export const PROJECT_TABS = ["progress", "setup", "file", "people", "plots", "map", "data", "quality", "training", "activity", "settings"] as const;
 export type ProjectTab = (typeof PROJECT_TABS)[number];
 
 export type Route =

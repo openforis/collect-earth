@@ -285,6 +285,20 @@ export function goldenFromConsensus(figures: CalibrationFigures): { plotKey: str
 
 // --- learning --------------------------------------------------------------------
 
+/** An answer as the interpreter reads it: each code of a choice as "Label (code)" when the survey labels it. */
+export function labelled(outline: ReadonlyMap<string, Question> | null, key: string, value: string): string {
+  const shown = shownText(value);
+  const options = outline?.get(key)?.options;
+  if (!options || options.length === 0) return shown;
+  return shown
+    .split(', ')
+    .map((code) => {
+      const option = options.find((o) => o.code === code);
+      return option && option.label.trim() && option.label !== code ? `${option.label} (${code})` : code;
+    })
+    .join(', ');
+}
+
 /** One question of one plot: the person's answer next to the golden one. */
 export interface ScoredAnswer {
   key: string;
@@ -345,12 +359,15 @@ export function learningScore(input: {
     const given = Object.fromEntries(Object.keys(golden).map((k) => [k, record.summary[k] ?? '']));
     compareAnswers(golden, given, (key) => keyRule(key, outline), margins, (key, _kind, right) => {
       const rule = keyRule(key, outline);
-      questions.push({ key, label: rule.compare ? rule.label : key, golden: shownText(golden[key] ?? ''), given: shownText(given[key] ?? ''), right });
+      questions.push({ key, label: rule.compare ? rule.label : key, golden: labelled(outline, key, golden[key] ?? ''), given: labelled(outline, key, given[key] ?? ''), right });
       const b = byQuestion.get(key) ?? { compared: 0, agreeing: 0 };
       b.compared += 1;
       if (right) b.agreeing += 1;
       byQuestion.set(key, b);
     });
+    // In the survey's order, as the interpreter answered them.
+    const position = new Map([...(outline?.keys() ?? [])].map((k, i) => [k, i]));
+    questions.sort((a, b) => (position.get(a.key) ?? Infinity) - (position.get(b.key) ?? Infinity) || plotOrder(a.key, b.key));
     const plotRight = questions.filter((q) => q.right).length;
     compared += questions.length;
     agreeing += plotRight;

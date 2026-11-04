@@ -529,6 +529,8 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   note_removed: "error.noteRemoved",
   note_column_in_file: "error.noteColumnInFile",
   no_plots: "error.noPlots",
+  training_plot_in_file: "error.trainingPlotInFile",
+  training_plot_clash: "training.clash",
   // The Collect Earth backup (GET /exports/collect-backup).
   no_round_key: "backup.noRoundKey",
   no_project_file: "backup.noProjectFile",
@@ -4028,4 +4030,189 @@ export async function getAttention(projectId: string): Promise<BellData> {
 /** Marks items read (by key), or all of them. */
 export async function markAttentionRead(projectId: string, keys: string[] | "all"): Promise<BellData> {
   return toBellData(await request<unknown>("POST", `${p(projectId)}/attention/read`, { json: keys === "all" ? { all: true } : { keys } }));
+}
+
+// --- Training: calibration and learning plots -----------------------------------------
+
+export type TrainingKind = "calibration" | "learning";
+
+/** Agreement as counts and their share (null with nothing compared). */
+export interface TrainingShare {
+  compared: number;
+  agreeing: number;
+  rate: number | null;
+}
+
+export interface TrainingPerson {
+  userId: string;
+  username: string;
+  role: Role;
+}
+
+export interface TrainingSetSummary {
+  id: string;
+  kind: TrainingKind;
+  name: string;
+  filename: string;
+  /** The file's name in Collect Earth ("Learning – plots.csv"). */
+  servedName: string;
+  plotCount: number;
+  passMark: number | null;
+  createdAt: number;
+  participants: TrainingPerson[];
+}
+
+export interface TrainingListItem extends TrainingSetSummary {
+  /** Plots with a golden interpretation. */
+  golden: number;
+  progress: { userId: string; attempt: number; submitted: number; accuracy: number | null; passed: boolean | null }[];
+}
+
+export interface TrainingList {
+  sets: TrainingListItem[];
+  members: TrainingPerson[];
+  max: number;
+}
+
+export interface TrainingAnswerCount {
+  value: string;
+  count: number;
+  people: string[];
+}
+
+export interface CalibrationCell {
+  key: string;
+  answers: TrainingAnswerCount[];
+  pairs: TrainingShare;
+  consensus: string | null;
+}
+
+export interface CalibrationFigures {
+  participants: string[];
+  plots: { plot: string; people: string[]; questions: CalibrationCell[] }[];
+  questions: { key: string; label: string; kind: "choice" | "number"; pairs: TrainingShare; kappa: number | null }[];
+  people: { username: string; plots: number; withConsensus: TrainingShare; byQuestion: Record<string, TrainingShare> }[];
+  overall: TrainingShare;
+}
+
+export interface TrainingGolden {
+  plotKey: string;
+  answers: Record<string, string>;
+  note: string | null;
+  updatedAt: number;
+  updatedBy: string | null;
+}
+
+export interface TrainingQuestion {
+  key: string;
+  label: string;
+  kind: "choice" | "number";
+  options: { code: string; label: string }[] | null;
+  multiple: boolean;
+}
+
+export interface ScoredPlot {
+  plot: string;
+  submittedAt: number;
+  answers: TrainingShare;
+  right: boolean;
+  questions: { key: string; label: string; golden: string; given: string; right: boolean }[];
+  /** The coordinator's explanation (My work only). */
+  note?: string | null;
+}
+
+export interface LearningScore {
+  plots: number;
+  submitted: number;
+  answers: TrainingShare;
+  plotsRight: number;
+  byQuestion: Record<string, TrainingShare>;
+  passed: boolean | null;
+  byPlot: ScoredPlot[];
+}
+
+export interface TrainingAttemptPast {
+  number: number;
+  startedAt: number;
+  closedAt: number | null;
+  plots: number;
+  submitted: number;
+  answers: TrainingShare;
+  plotsRight: number;
+  passed: boolean | null;
+}
+
+export interface TrainingSetView {
+  set: TrainingSetSummary;
+  plots: string[];
+  calibration: CalibrationFigures;
+  golden: TrainingGolden[];
+  questions: TrainingQuestion[];
+  scores: { userId: string; username: string; attempt: { number: number; startedAt: number }; score: LearningScore; history: TrainingAttemptPast[] }[];
+}
+
+export interface MyTrainingSet {
+  id: string;
+  kind: TrainingKind;
+  name: string;
+  servedName: string;
+  plotCount: number;
+  passMark: number | null;
+  attempt: { number: number; startedAt: number };
+  submitted: number;
+  /** Learning sets only. */
+  score?: LearningScore;
+  history?: TrainingAttemptPast[];
+}
+
+export async function getTraining(projectId: string): Promise<TrainingList> {
+  return request<TrainingList>("GET", `${p(projectId)}/training`);
+}
+
+/** A new set from a CSV file. */
+export function createTrainingSet(
+  projectId: string,
+  file: File,
+  options: { kind: TrainingKind; name: string; passMark: number | null },
+  onProgress?: Progress,
+): Promise<TrainingSetSummary> {
+  const q = new URLSearchParams({ kind: options.kind, name: options.name });
+  if (options.passMark !== null) q.set("passMark", String(options.passMark));
+  return upload<TrainingSetSummary>("PUT", `${p(projectId)}/training-sets/${encodeURIComponent(file.name)}?${q}`, file, "text/csv", onProgress);
+}
+
+export async function updateTrainingSet(projectId: string, setId: string, change: { name?: string; kind?: TrainingKind; passMark?: number | null }): Promise<TrainingSetSummary> {
+  return request<TrainingSetSummary>("PATCH", `${p(projectId)}/training/${encodeURIComponent(setId)}`, { json: change });
+}
+
+export async function deleteTrainingSet(projectId: string, setId: string): Promise<void> {
+  await request<unknown>("DELETE", `${p(projectId)}/training/${encodeURIComponent(setId)}`);
+}
+
+export async function setTrainingMembers(projectId: string, setId: string, userIds: string[]): Promise<void> {
+  await request<unknown>("PUT", `${p(projectId)}/training/${encodeURIComponent(setId)}/members`, { json: { userIds } });
+}
+
+export async function getTrainingSet(projectId: string, setId: string): Promise<TrainingSetView> {
+  return request<TrainingSetView>("GET", `${p(projectId)}/training/${encodeURIComponent(setId)}`);
+}
+
+export async function putTrainingGolden(projectId: string, setId: string, plot: string, answers: Record<string, string>, note: string | null): Promise<TrainingGolden> {
+  return request<TrainingGolden>("PUT", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden/${encodeURIComponent(plot)}`, { json: { answers, note } });
+}
+
+/** Golden answers for every plot: the calibration's agreed answers, or one person's records. */
+export async function goldenFrom(projectId: string, setId: string, from: { from: "consensus" } | { from: "person"; userId: string }): Promise<number> {
+  const res = await request<{ plots?: number }>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden`, { json: from });
+  return typeof res.plots === "number" ? res.plots : 0;
+}
+
+export async function startTrainingAttempts(projectId: string, setId: string, who: { userIds: string[] } | { all: true }): Promise<number> {
+  const res = await request<{ started?: number }>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/attempts`, { json: who });
+  return typeof res.started === "number" ? res.started : 0;
+}
+
+export async function getMyTraining(projectId: string): Promise<MyTrainingSet[]> {
+  const res = await request<{ sets?: MyTrainingSet[] }>("GET", `${p(projectId)}/training/mine`);
+  return Array.isArray(res.sets) ? res.sets : [];
 }

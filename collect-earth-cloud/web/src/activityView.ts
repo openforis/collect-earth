@@ -172,6 +172,10 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
     case "reference.changed":
       if (Number(d.removed) > 0 && !(Number(d.added) > 0)) return t(byCount(d.removed, "activity.audit.referenceRemovedOne", "activity.audit.referenceRemoved"), { actor, count: num(d.removed, language) });
       return t(byCount(d.added, "activity.audit.referenceAddedOne", "activity.audit.referenceAdded"), { actor, count: num(d.added, language), file: fileOf(t, page, d.csvFileId) });
+    case "training.changed": {
+      const change = typeof d.change === "string" && ["created", "changed", "deleted", "members", "golden", "attempts"].includes(d.change) ? d.change : "changed";
+      return t(`activity.audit.training.${change}` as "activity.audit.training.changed", { actor, name: typeof d.name === "string" ? d.name : "" });
+    }
     case "export.downloaded":
       if (typeof d.kind === "string" && EXPORT_KEYS[d.kind]) {
         return t(d.completed === false ? "activity.audit.downloadStopped" : "activity.audit.download", { actor, what: t(EXPORT_KEYS[d.kind]) });
