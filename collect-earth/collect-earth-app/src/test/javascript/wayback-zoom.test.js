@@ -98,18 +98,18 @@ function waybackPage({ tilemap, storage = {} } = {}) {
 
 const levels = (deepest) => (zoom) => zoom <= deepest;
 
-test("the plot is shown no deeper than the imagery at it: zoom 17 where its tiles end at 17", { skip }, async () => {
+test("the plot is shown one level past the imagery at it at most: zoom 18 where its tiles end at 17", { skip }, async () => {
     const page = waybackPage({ tilemap: levels(17) });
     page.run();
     await page.advance(1000);
-    assert.deepEqual(page.view.goTos, [17], "fitted once, at the deepest zoom with imagery");
+    assert.deepEqual(page.view.goTos, [18], "fitted once, a level past the deepest zoom with imagery");
     assert.equal(page.requests.length, 8, "the levels from GEW's scale up, at once");
     assert.ok(page.requests.every((u) => u.includes("/tilemap/" + RELEASE + "/")), "for the release shown");
     // The plot seen again asks nothing
     const again = waybackPage({ tilemap: levels(17), storage: Object.fromEntries(page.storage) });
     again.run();
     await again.advance(600);
-    assert.deepEqual(again.view.goTos, [17]);
+    assert.deepEqual(again.view.goTos, [18]);
     assert.equal(again.requests.length, 0);
 });
 
@@ -121,11 +121,18 @@ test("where the imagery goes deeper than zoom 19, the plot is shown at the scale
     assert.ok(GEW_ZOOM > 19);
 });
 
-test("imagery down to 20: zoom 20, not the 20.5 of Google Earth Web's scale", { skip }, async () => {
-    const page = waybackPage({ tilemap: levels(20) });
+test("imagery down to 19: zoom 20, not the 20.5 of Google Earth Web's scale", { skip }, async () => {
+    const page = waybackPage({ tilemap: levels(19) });
     page.run();
     await page.advance(1000);
     assert.deepEqual(page.view.goTos, [20]);
+});
+
+test("imagery down to 20: the 20.5 of Google Earth Web's scale, within a level of it", { skip }, async () => {
+    const page = waybackPage({ tilemap: levels(20) });
+    page.run();
+    await page.advance(1000);
+    assert.deepEqual(page.view.goTos, [Math.round(GEW_ZOOM * 100) / 100]);
 });
 
 test("without an answer the plot is shown as before, at zoom 19 at most, after 1.5 s", { skip }, async () => {
@@ -145,7 +152,7 @@ test("a level that did not answer above the deepest found leaves the depth unkno
 });
 
 test("an answer after the plot was fitted zooms again, unless the user zoomed meanwhile", { skip }, async () => {
-    const slow = (zoom) => ({ after: 2000, has: zoom <= 18 });
+    const slow = (zoom) => ({ after: 2000, has: zoom <= 17 });
     const page = waybackPage({ tilemap: slow });
     page.run();
     // the script finds the map at its first look, after half a second, and waits 1.5 s for the answer
@@ -160,6 +167,6 @@ test("an answer after the plot was fitted zooms again, unless the user zoomed me
     zoomed.view.zoom = 16;
     await zoomed.advance(1000);
     assert.deepEqual(zoomed.view.goTos, [19], "the user's zoom is left alone");
-    assert.equal(JSON.parse(zoomed.storage.get("__collectEarthWaybackNativeZoom"))[RELEASE + "/12.69190,-14.80260"], 18,
-        "and the depth kept for the next time");
+    assert.equal(JSON.parse(zoomed.storage.get("__collectEarthWaybackNativeZoom"))[RELEASE + "/12.69190,-14.80260"], 17,
+        "and the depth of the imagery kept for the next time");
 });

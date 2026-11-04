@@ -284,9 +284,9 @@
     // map shows the tiles above it enlarged and blurred (2 to 4 times at zoom 19, seen in 2026-11). The tilemap of the
     // release shown says whether a tile has imagery ({"data":[1]}, [0] if not): asked for the tile under the plot at
     // the zoom of Google Earth Web's view and the levels above it, all at once and for NATIVE_TIMEOUT_MILLIS at most,
-    // the deepest one with imagery is the deepest the plot is shown at - smaller than in Google Earth Web where the
-    // imagery is coarser, rather than blurred. Kept per release and plot in the page's local storage: a plot seen again
-    // asks nothing. Without an answer, the plot is shown as before, MAX_ZOOM at most.
+    // the plot is shown at most OVERZOOM_LEVELS deeper than the deepest one with imagery - smaller than in Google Earth
+    // Web where the imagery is coarser, rather than blurred. Kept per release and plot in the page's local storage: a
+    // plot seen again asks nothing. Without an answer, the plot is shown as before, MAX_ZOOM at most.
     var TILEMAP_URL = "https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tilemap/";
     var NATIVE_TIMEOUT_MILLIS = 3000;
     // The plot is fitted without it after this, and again when it comes, unless the user zoomed meanwhile
@@ -295,9 +295,10 @@
     var SHALLOWEST_ASKED = 10;
     var NATIVE_CACHE_KEY = "__collectEarthWaybackNativeZoom";
     var NATIVE_CACHE_SIZE = 2000;
-    // How far past the deepest imagery the plot may be shown: 0, never blurred, the plot smaller where the imagery is
-    // coarser; 1 would show it twice as large there, the imagery enlarged twice
-    var OVERZOOM_LEVELS = 0;
+    // How far past the deepest imagery the plot may be shown: one level, the imagery enlarged twice and mildly blurred.
+    // At the deepest level itself a plot of 30 m was 28 pixels across where the imagery ends at zoom 17, too small to
+    // judge (2026-11)
+    var OVERZOOM_LEVELS = 1;
     // the deepest zoom with imagery at the plot, once known
     var nativeZoom = null;
 
