@@ -16,6 +16,7 @@ import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
 import { answerLabel, goldenKeys, kappaText, plotAccuracy, questionAccuracy, questionLabel, shareText } from "../trainingView";
+import { pathFor } from "../router";
 import { useLoad } from "../useLoad";
 import { Block, ReportFrame } from "./ReportPages";
 
@@ -78,7 +79,7 @@ export function TrainingReportPage({ projectId, setId }: { projectId: string; se
     return () => window.removeEventListener("afterprint", printed);
   }, [projectId, kind, info.telemetry?.events]);
   return (
-    <ReportFrame projectId={projectId} title={data ? t("trainingReport.title", { name: data.set.name }) : state.error ? t("trainingReport.titlePlain") : ""} back="training" printable={Boolean(data)}>
+    <ReportFrame projectId={projectId} title={data ? t("trainingReport.title", { name: data.set.name }) : state.error ? t("trainingReport.titlePlain") : ""} back="training" backTo={{ path: pathFor({ name: "trainingSet", projectId, setId }), label: t("trainingReport.backToSet") }} printable={Boolean(data)}>
       {!data ? state.loading ? <Loading /> : <ErrorAlert error={state.error} onRetry={state.reload} /> : <Report view={data} />}
     </ReportFrame>
   );
@@ -130,7 +131,7 @@ function Report({ view }: { view: TrainingSetView }) {
             <Typography color="text.secondary">{t("trainingReport.noScores")}</Typography>
           ) : (
             <PrintTable
-              head={[t("training.colPerson"), t("training.colAttempt"), t("training.colDone"), t("training.colAccuracy"), t("training.colPlotsRight"), t("training.colPassed"), t("training.colEarlier")]}
+              head={[t("training.colPerson"), t("training.colAttempt"), t("training.colScored"), t("training.colAccuracy"), t("training.colPlotsRight"), t("training.colPassed"), t("training.colEarlier")]}
             >
               {view.scores.map((s) => (
                 <Row

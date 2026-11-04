@@ -50,6 +50,8 @@ function RoutedPage({ route }: { route: Route }) {
       return <ProjectPage key={route.projectId} projectId={route.projectId} tab={route.tab} />;
     case "plotFile":
       return <ProjectPage key={route.projectId} projectId={route.projectId} tab="plots" fileId={route.fileId} />;
+    case "trainingSet":
+      return <ProjectPage key={route.projectId} projectId={route.projectId} tab="training" trainingSetId={route.setId} />;
     case "person":
       return <ProjectPage key={route.projectId} projectId={route.projectId} tab="people" personId={route.userId} />;
     case "plot":
@@ -110,7 +112,7 @@ export function App() {
     serverName: info?.localMode ? t("app.titleLocal") : (info?.serverName ?? t("app.title")),
     language,
     ownTitle: route.name === "publicProgress",
-    ownHeading: route.name === "person" || route.name === "plot" || route.name === "plotFile",
+    ownHeading: route.name === "person" || route.name === "plot" || route.name === "plotFile" || route.name === "trainingSet",
     // What the address says, for a page that shows no heading of its own (a plot one may not see, a wrong address).
     fallback: route.name === "plot" ? t("quality.plot", { plot: route.plot }) : route.name === "notFound" ? t("notFound.title") : null,
   });

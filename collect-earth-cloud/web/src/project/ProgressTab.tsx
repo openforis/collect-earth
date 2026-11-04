@@ -250,7 +250,16 @@ function ProgressLineChart({ data }: { data: ProgressFigures }) {
               </text>
             )}
             {chart.points.map((pt, i) => (
-              <rect key={pt.date} x={pt.x - band / 2} y={box.top} width={Math.max(band, 1)} height={box.height - box.top - box.bottom} fill="transparent" onMouseEnter={() => setActive(i)} />
+              <rect
+                key={pt.date}
+                // Kept inside the plot area: the first and last days' strips used to run past its edges.
+                x={Math.max(box.left, pt.x - Math.max(band, 1) / 2)}
+                y={box.top}
+                width={Math.max(0, Math.min(box.width - box.right, pt.x + Math.max(band, 1) / 2) - Math.max(box.left, pt.x - Math.max(band, 1) / 2))}
+                height={box.height - box.top - box.bottom}
+                fill="transparent"
+                onMouseEnter={() => setActive(i)}
+              />
             ))}
           </svg>
         )}

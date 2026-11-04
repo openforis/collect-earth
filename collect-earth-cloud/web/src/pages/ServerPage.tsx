@@ -833,7 +833,7 @@ export function ServerPage() {
     return (
       <AppShell>
         <Paper variant="outlined">
-          <EmptyState title={t("server.onlyAdmin")} />
+          <EmptyState heading title={t("server.onlyAdmin")} />
         </Paper>
       </AppShell>
     );

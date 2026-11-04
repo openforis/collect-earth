@@ -49,12 +49,15 @@ export function ReportFrame({
   projectId,
   title,
   back,
+  backTo,
   printable = true,
   children,
 }: {
   projectId: string;
   title: string;
   back: ProjectTab;
+  /** A page to go back to instead of the tab (a training set's page), and its link's words. */
+  backTo?: { path: string; label: string };
   /** False while there is nothing to print (loading, or refused). */
   printable?: boolean;
   children: ReactNode;
@@ -65,8 +68,8 @@ export function ReportFrame({
     <AppShell>
       <Stack spacing={3}>
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }} className="no-print">
-          <Button startIcon={<ArrowBack />} {...linkProps(pathFor({ name: "project", projectId, tab: back }))}>
-            {t("report.back")}
+          <Button startIcon={<ArrowBack />} {...linkProps(backTo?.path ?? pathFor({ name: "project", projectId, tab: back }))}>
+            {backTo?.label ?? t("report.back")}
           </Button>
           {printable && (
             <Button startIcon={<Print />} variant="outlined" onClick={() => window.print()}>

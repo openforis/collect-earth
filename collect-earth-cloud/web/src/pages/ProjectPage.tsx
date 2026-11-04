@@ -92,7 +92,22 @@ function Header({ projectId, name, bell = false }: { projectId: string; name: st
  * fileId: one plot file's page, shown under the Plot files tab; personId: one person's page, under
  * the People tab; plot: one plot's page (plot search), under the Quality tab.
  */
-export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projectId: string; tab: ProjectTab; fileId?: string; personId?: string; plot?: string }) {
+export function ProjectPage({
+  projectId,
+  tab,
+  fileId,
+  personId,
+  plot,
+  trainingSetId,
+}: {
+  projectId: string;
+  tab: ProjectTab;
+  fileId?: string;
+  personId?: string;
+  plot?: string;
+  /** One training set, under the Training tab (coordinators). */
+  trainingSetId?: string;
+}) {
   const t = useT();
   // The local mode (one person, on their own computer): no People, Plot files, Setup or project
   // file tabs, no bell (its cards are about other people) and no plot files' pages.
@@ -193,7 +208,7 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
     return (
       <AppShell>
         <Paper variant="outlined">
-          <EmptyState icon={<Forest color="primary" />} title={info.name}>
+          <EmptyState heading icon={<Forest color="primary" />} title={info.name}>
             <span style={{ display: "block", marginBottom: 12 }}>{t("member.text", { role: t(`role.${info.role}`) })}</span>
             <span style={{ display: "block" }}>{t("member.notThere")}</span>
           </EmptyState>
@@ -219,7 +234,7 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
     map: <MapTab projectId={projectId} coordinator={!local} />,
     data: <DataTab projectId={projectId} onGo={go} />,
     quality: plot ? <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles={!local} /> : <QualityTab projectId={projectId} />,
-    training: <TrainingTab projectId={projectId} />,
+    training: <TrainingTab key={trainingSetId ?? "list"} projectId={projectId} setId={trainingSetId} />,
     activity: <ActivityTab projectId={projectId} />,
     settings: <SettingsTab projectId={projectId} name={info.name} onRenamed={(name) => project.setData({ ...info, name })} />,
   }[tab];
@@ -245,7 +260,7 @@ export function ProjectPage({ projectId, tab, fileId, personId, plot }: { projec
             id={`tab-${id}`}
             aria-controls={`panel-${id}`}
             // On a plot file's page the Plot files tab is already selected: clicking it goes back to the list.
-            onClick={(fileId || personId || plot) && id === tab ? () => go(id) : undefined}
+            onClick={(fileId || personId || plot || trainingSetId) && id === tab ? () => go(id) : undefined}
           />
         ))}
       </Tabs>

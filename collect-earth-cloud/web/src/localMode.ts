@@ -39,6 +39,7 @@ export function localPage(route: Route, projectId: string | null): { kind: "rout
     case "notFound":
       return { kind: "route", route };
     case "plotFile":
+    case "trainingSet":
     case "person":
     case "myQuality":
     case "myWork":

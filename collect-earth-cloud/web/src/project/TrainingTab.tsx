@@ -53,16 +53,16 @@ import { FileDrop } from "../components/FileDrop";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
 import { useT } from "../i18n";
-import { linkProps, pathFor } from "../router";
+import { linkProps, navigate, pathFor } from "../router";
 import { useLoad } from "../useLoad";
 import { answerLabel, goldenKeys, kappaText, questionLabel, readPassMark, shareText } from "../trainingView";
 
 const tableFrame = { border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto" } as const;
 
-function Section({ title, children, explain }: { title: string; explain?: string; children: ReactNode }) {
+function Section({ title, children, explain, pageHeading = false }: { title: string; explain?: string; children: ReactNode; pageHeading?: boolean }) {
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section">
-      <Typography variant="h2" gutterBottom>
+      <Typography variant="h2" gutterBottom {...(pageHeading ? { "data-page-heading": true } : {})}>
         {title}
       </Typography>
       {explain && (
@@ -79,30 +79,21 @@ function Section({ title, children, explain }: { title: string; explain?: string
  * Training (coordinators): calibration and learning plot sets, kept apart from the project's data.
  * The list and a form to add a set; a set opens in place.
  */
-export function TrainingTab({ projectId }: { projectId: string }) {
+export function TrainingTab({ projectId, setId }: { projectId: string; setId?: string }) {
   const t = useT();
   const { language } = useApp();
   const state = useLoad(() => getTraining(projectId), [projectId]);
-  const [open, setOpen] = useState<string | null>(null);
   const n = (v: number) => formatNumber(v, language);
+  // A set has its own address, so Back (the browser's or the report's) returns to it.
+  const setOpen = (id: string) => navigate(pathFor({ name: "trainingSet", projectId, setId: id }));
 
-  if (open) {
-    return (
-      <SetPage
-        projectId={projectId}
-        setId={open}
-        members={state.data?.members ?? []}
-        onBack={() => {
-          setOpen(null);
-          state.reload();
-        }}
-      />
-    );
+  if (setId) {
+    return <SetPage projectId={projectId} setId={setId} members={state.data?.members ?? []} onBack={() => navigate(pathFor({ name: "project", projectId, tab: "training" }))} />;
   }
   return (
     <Stack spacing={3}>
       <Section title={t("training.title")} explain={t("training.explain")}>
-        <AddSet projectId={projectId} onAdded={(id) => (state.reload(), setOpen(id))} />
+        <AddSet projectId={projectId} onAdded={setOpen} />
       </Section>
       {state.loading && !state.data ? (
         <Loading />
@@ -143,7 +134,7 @@ export function TrainingTab({ projectId }: { projectId: string }) {
                       <TableCell align="right">{n(set.golden)}</TableCell>
                       <TableCell>{set.participants.length > 0 ? t("training.progressCell", { done: n(finished), people: n(set.participants.length) }) : "–"}</TableCell>
                       <TableCell align="right">
-                        <Button size="small" onClick={() => setOpen(set.id)} aria-label={t("training.openLabel", { name: set.name })}>
+                        <Button size="small" {...linkProps(pathFor({ name: "trainingSet", projectId, setId: set.id }))} aria-label={t("training.openLabel", { name: set.name })}>
                           {t("training.open")}
                         </Button>
                       </TableCell>
@@ -301,7 +292,7 @@ function Settings({ projectId, view, onChanged, onDeleted }: { projectId: string
   };
 
   return (
-    <Section title={set.name}>
+    <Section title={set.name} pageHeading>
       <Stack spacing={2}>
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
           <Chip color={set.kind === "learning" ? "primary" : "default"} label={t(set.kind === "learning" ? "training.kindLearning" : "training.kindCalibration")} />
@@ -574,6 +565,8 @@ function Golden({ projectId, view, onChanged }: { projectId: string; view: Train
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const golden = new Map(view.golden.map((g) => [g.plotKey, g]));
+  // The questions the participants answered in this set: a plot's golden answers are asked for those first.
+  const answered = new Set(view.calibration.questions.map((q) => q.key));
   const copy = async () => {
     const person = view.set.participants.find((p) => p.userId === from);
     if (!person) return;
@@ -618,7 +611,16 @@ function Golden({ projectId, view, onChanged }: { projectId: string; view: Train
         {view.questions.length === 0 && golden.size === 0 && <Alert severity="info">{t("training.noQuestions")}</Alert>}
         <Stack spacing={1}>
           {view.plots.map((plot) => (
-            <GoldenPlot key={`${plot} ${golden.get(plot)?.updatedAt ?? 0}`} projectId={projectId} setId={view.set.id} plot={plot} questions={view.questions} saved={golden.get(plot)} onSaved={onChanged} />
+            <GoldenPlot
+              key={`${plot} ${golden.get(plot)?.updatedAt ?? 0}`}
+              projectId={projectId}
+              setId={view.set.id}
+              plot={plot}
+              questions={view.questions}
+              answered={answered}
+              saved={golden.get(plot)}
+              onSaved={onChanged}
+            />
           ))}
         </Stack>
       </Stack>
@@ -631,6 +633,7 @@ function GoldenPlot({
   setId,
   plot,
   questions,
+  answered,
   saved,
   onSaved,
 }: {
@@ -638,6 +641,7 @@ function GoldenPlot({
   setId: string;
   plot: string;
   questions: TrainingQuestion[];
+  answered: ReadonlySet<string>;
   saved: { answers: Record<string, string>; note: string | null } | undefined;
   onSaved: () => void;
 }) {
@@ -646,8 +650,13 @@ function GoldenPlot({
   const [note, setNote] = useState(saved?.note ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const keys = goldenKeys(questions, answers);
+  const [all, setAll] = useState(false);
+  const allKeys = goldenKeys(questions, answers);
+  // The questions answered in the set and those already given, unless all are asked for (or none was answered yet).
+  const focused = allKeys.filter((k) => answered.has(k) || (answers[k] ?? "").trim() !== "");
+  const keys = all || focused.length === 0 ? allKeys : focused;
   const given = Object.values(answers).filter((v) => v.trim() !== "").length;
+  const noted = (saved?.note ?? "").trim() !== "";
   const save = async () => {
     setBusy(true);
     setError(null);
@@ -663,7 +672,8 @@ function GoldenPlot({
   return (
     <Box component="details" sx={{ border: 1, borderColor: "divider", borderRadius: 1, px: 1.5, py: 1 }}>
       <Box component="summary" sx={{ cursor: "pointer" }}>
-        {t("training.goldenPlot", { plot })} · {given > 0 ? t("training.goldenGiven", { count: given }) : t("training.goldenMissing")}
+        {t("training.goldenPlot", { plot })} · {given > 0 ? t("training.goldenGiven", { count: given }) : noted ? t("training.noteOnly") : t("training.goldenMissing")}
+        {given > 0 && noted && ` · ${t("training.withNote")}`}
       </Box>
       <Stack spacing={1.5} sx={{ mt: 1.5 }}>
         {keys.map((key) => {
@@ -686,6 +696,13 @@ function GoldenPlot({
             <TextField key={key} size="small" label={q?.label || key} value={value} onChange={(e) => set(e.target.value)} sx={{ maxWidth: 420 }} />
           );
         })}
+        {focused.length > 0 && focused.length < allKeys.length && (
+          <Box>
+            <Button size="small" onClick={() => setAll(!all)}>
+              {all ? t("training.answeredQuestions") : t("training.allQuestions", { count: allKeys.length })}
+            </Button>
+          </Box>
+        )}
         <TextField label={t("training.note")} value={note} onChange={(e) => setNote(e.target.value)} multiline minRows={2} slotProps={{ htmlInput: { maxLength: 2000 } }} />
         <ErrorAlert error={error} />
         <Box>
@@ -731,7 +748,7 @@ function Scores({ projectId, view, onStarted }: { projectId: string; view: Train
                 <TableRow>
                   <TableCell>{t("training.colPerson")}</TableCell>
                   <TableCell align="right">{t("training.colAttempt")}</TableCell>
-                  <TableCell align="right">{t("training.colDone")}</TableCell>
+                  <TableCell align="right">{t("training.colScored")}</TableCell>
                   <TableCell align="right">{t("training.colAccuracy")}</TableCell>
                   <TableCell align="right">{t("training.colPlotsRight")}</TableCell>
                   <TableCell>{t("training.colPassed")}</TableCell>

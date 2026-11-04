@@ -546,17 +546,24 @@ function WeekLineChart({ data }: { data: QualityData }) {
               {weekName(last.week)}
             </text>
           )}
-          {chart.points.map((pt, i) => (
-            <rect
-              key={`hit-${pt.week}`}
-              x={pt.x - band / 2}
-              y={box.top}
-              width={Math.max(band, 24)}
-              height={box.height - box.top - box.bottom}
-              fill="transparent"
-              onMouseEnter={() => setActive(i)}
-            />
-          ))}
+          {chart.points.map((pt, i) => {
+            // Each week's hover strip, kept inside the plot area (with two weeks, half of one strip
+            // used to run past the chart's right edge).
+            const half = Math.max(band, 24) / 2;
+            const x0 = Math.max(box.left, pt.x - half);
+            const x1 = Math.min(box.width - box.right, pt.x + half);
+            return (
+              <rect
+                key={`hit-${pt.week}`}
+                x={x0}
+                y={box.top}
+                width={Math.max(0, x1 - x0)}
+                height={box.height - box.top - box.bottom}
+                fill="transparent"
+                onMouseEnter={() => setActive(i)}
+              />
+            );
+          })}
         </svg>
       )}
       </Box>
