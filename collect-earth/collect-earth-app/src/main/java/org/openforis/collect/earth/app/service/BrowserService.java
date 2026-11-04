@@ -203,6 +203,35 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	@Override
 	public void afterPropertiesSet() throws Exception {
 		Runtime.getRuntime().addShutdownHook(getClosingBrowsersThread());
+		try {
+			leftoverBrowsers().endLeftovers();
+		} catch (RuntimeException e) {
+			logger.warn("Could not end the browsers a previous Collect Earth left running", e);
+		}
+	}
+
+	/** The browsers a killed or crashed Collect Earth left running, ended at the next start: see LeftoverBrowsers. */
+	private LeftoverBrowsers leftoverBrowsers;
+
+	synchronized LeftoverBrowsers leftoverBrowsers() {
+		if (leftoverBrowsers == null) {
+			leftoverBrowsers = new LeftoverBrowsers(new File(FolderFinder.getCollectEarthDataFolder()));
+		}
+		return leftoverBrowsers;
+	}
+
+	/** For the tests: where the running browsers are written down. */
+	synchronized void setLeftoverBrowsers(LeftoverBrowsers leftoverBrowsers) {
+		this.leftoverBrowsers = leftoverBrowsers;
+	}
+
+	/** Writes down the driver servers and browsers running now, for the next start to end if Collect Earth is killed. */
+	private void recordRunningBrowsers() {
+		try {
+			leftoverBrowsers().record(driverProcesses());
+		} catch (RuntimeException e) {
+			logger.debug("Could not write down the running browsers", e);
+		}
 	}
 
 	@Override
@@ -379,6 +408,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			return null;
 		}
 		drivers.add(driver);
+		recordRunningBrowsers();
 		return driver;
 	}
 
@@ -527,6 +557,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 				turnGoogleEarthWebAnimationOff(tabDriver);
 				imageryStartFailures.started();
 				imageryWindowIcon.apply(processesBefore);
+				recordRunningBrowsers();
 				return tabDriver;
 			} catch (RuntimeException e) {
 				drivers.remove(driver);
@@ -729,6 +760,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			driver = null;
 		} else {
 			drivers.add(driver);
+			recordRunningBrowsers();
 		}
 		return driver;
 	}
@@ -1681,6 +1713,12 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 					logger.info("Killing a browser process left running: {}", process.info().command().orElse("" + process.pid()));
 					process.destroyForcibly();
 				}
+			}
+			// Quit: nothing for the next start to end
+			try {
+				leftoverBrowsers().clear();
+			} catch (RuntimeException e) {
+				logger.debug("Could not forget the running browsers", e);
 			}
 			browsersQuit = true;
 		}

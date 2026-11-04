@@ -4,11 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.remote.RemoteWebDriver;
 
@@ -45,9 +49,27 @@ public class BrowserQuitTest {
 		}
 	}
 
+	@TempDir
+	Path folder;
+
+	private BrowserService service() {
+		BrowserService service = new BrowserService();
+		service.setLeftoverBrowsers(new LeftoverBrowsers(folder.toFile()));
+		return service;
+	}
+
+	@Test
+	public void aQuitForgetsTheBrowsersWrittenDown() throws Exception {
+		BrowserService service = service();
+		service.leftoverBrowsers().record(List.of());
+		assertTrue(Files.exists(folder.resolve(LeftoverBrowsers.FILE_NAME)));
+		service.quitAllBrowsers();
+		assertFalse(Files.exists(folder.resolve(LeftoverBrowsers.FILE_NAME)));
+	}
+
 	@Test
 	public void everyBrowserIsQuitOnceEvenWhenAskedTwiceAtOnce() throws Exception {
-		BrowserService service = new BrowserService();
+		BrowserService service = service();
 		CountingDriver slow = new CountingDriver(300, false);
 		CountingDriver failing = new CountingDriver(0, true);
 		CountingDriver fine = new CountingDriver(0, false);
@@ -71,7 +93,7 @@ public class BrowserQuitTest {
 
 	@Test
 	public void aBrowserThatHangsDoesNotHoldTheClosingBeyondItsTime() {
-		BrowserService service = new BrowserService();
+		BrowserService service = service();
 		service.keep(new CountingDriver(60_000, false));
 		long start = System.currentTimeMillis();
 		service.quitAllBrowsers();
