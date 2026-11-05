@@ -28,7 +28,7 @@
     "telemetry:check": "tsx scripts/telemetry-check.mts"
   },
   "dependencies": {
-    "@fastify/static": "7.0.4",
+    "@fastify/static": "10.1.10",
     "@google/genai": "2.30.0",
     "@sentry/node": "10.27.0",
     "fast-xml-parser": "5.11.2",
