@@ -70,8 +70,9 @@ Already in TypeScript, in this repository, and reusable:
    Web. Keeping it means rendering the `.cep`'s FreeMarker template `kml_template.fmt` in Node (see Risks).
 3. **Firefox.** Playwright drives only its own modified Firefox, not the one people install. Proposed: support Chrome and
    Edge (Edge is on every Windows 10 and 11), and drop Firefox.
-4. **Saiku and the LULUCF package.** Port them, keep them as a separate Java tool started on demand, or replace them with
-   Arena's analysis (to verify what Arena offers).
+4. **Saiku and the LULUCF package.** Saiku is replaced by the analysis of "Presenting the data" below (decided by the
+   owner, 5 Nov 2026: the analysis must stay dynamic, built from any survey). The LULUCF package: port it, or keep it as a
+   separate Java tool started on demand.
 5. **Packaging.** Keep InstallBuilder (it already ships Node and the dashboard) or move to Electron with electron-builder.
 
 ## Design
@@ -239,6 +240,88 @@ closes, as the SQLite file is today (`backupSqlite`, the newest 10 kept).
 - **No new interface for Collect Earth.** The desktop keeps sending to Collect Earth Cloud's `records:batch`; Arena is
   reached from inside Collect Earth Cloud, through Arena's own code, not through a public interface of Arena.
 
+### Presenting the data: the analysis that replaces Saiku
+
+**What Saiku is used for.** A pivot table over the collected plots: a question on the rows, another on the columns,
+counts and areas in the cells, by stratum or region, exported to Excel. Saiku 2.6 (2014) is bundled with a Tomcat and
+started from **Tools → Start SAIKU Analysis**; a rebuilt Saiku exists (Spicule, 2026, still Mondrian and Java) but keeps
+Java in a product leaving it, under one vendor and an unclear licence. Everything Saiku knows of a survey is generated:
+the tables by Collect's RDB export (one per entity, codes and labels), the cube by `collectEarthCubes.xml.fmt` from the
+`.cep` (dimensions: code, boolean and range attributes, code-list levels; measures: count, area, numbers), the expansion
+factors from `region_areas.csv` or `areas_per_attribute.csv`, and the climate, soil, elevation, slope and aspect columns
+added by `AnalysisSaikuService`. The replacement is generated from the same sources, so **any survey** works, as today.
+
+**Three layers, each useful alone**
+
+| Layer | What | Where it runs |
+| --- | --- | --- |
+| 1. The pivot table | DuckDB-WASM (the analytical database, inside the page) and Perspective (the drag-and-drop pivot grid and charts, OpenJS Foundation), both MIT. A page of the dashboard, so the same on the laptop and on the cloud server | In the browser |
+| 2. Estimates | Design-based estimates with confidence intervals, through Arena's R processing chains (`survey`, `srvyr`) once Arena is the backend, or an R script template shipped with Collect Earth if Arena's chains need a field-inventory structure (to verify, S7) | On the server (RStudio Server), or the person's R |
+| 3. The AI analyst | Questions in plain words, answered as queries over layer 1's model, with the chart and the query shown (next section) | The cloud server (an LLM), optional |
+
+**Layer 1, built from the survey**
+
+- **The view model**, generated at project load from the survey the dashboard already reads (`surveyOutline.ts`: questions,
+  types, code lists, labels per language): one DuckDB table per entity (plot and the nested ones, as the RDB export
+  does), *dimensions* = code, boolean, range and date attributes with their labels, code-list hierarchies as level
+  columns (`land_use`, `land_use_subcategory`), *measures* = plot count, area (expansion factor × count), sums and means
+  of number attributes. The `collectEarthCubes.xml` of a `.cep` that customised its cube (renamed measures, hidden
+  attributes, calculated members) is read as an override; a calculated MDX member becomes a SQL expression of the model.
+- **Enrichment**, the same as today, in TypeScript: expansion factors from the areas CSVs, the ALU climate and soil
+  classes, elevation, slope and aspect.
+- **The data**: the project's records as the dashboard holds them (on the laptop, every record; on the server, by role:
+  coordinators all, collectors their own), loaded into DuckDB as Parquet. No export step, no stale copy: the pivot reads
+  what was synced a minute ago.
+- **Perspective** shows the pivot, filters, sorts, charts (bar, line, heat map, map scatter of plots), and exports CSV and
+  Excel; its views are JSON, saved per project and shared with the team on the cloud. Aggregation is done in DuckDB (SQL
+  generated from the view), Perspective only displays: DuckDB-WASM handles millions of rows, Perspective's own engine
+  about one or two million.
+- **The stand-alone tool** ("Generate Stand-Alone Saiku tool") becomes one HTML file holding the page, DuckDB-WASM and
+  the data as Parquet: opens in any browser, no install, no Java.
+- **Pages**: a *Data → Analyse* page of the dashboard (local and cloud), and **Tools → Analyse the data** in Collect Earth,
+  which opens it in the local dashboard where **Start SAIKU Analysis** is now.
+
+**Trial S7 (a day or two):** the demo survey and one real `.cep` with a customised cube loaded into DuckDB-WASM with a
+view model generated from the survey, pivoted in Perspective, and the figures (counts and areas by two dimensions,
+with expansion factors) compared with Saiku's on the same data; a 100,000-plot file for speed and memory in Chrome on an
+8 GB laptop; the stand-alone HTML opened offline.
+
+### The AI analyst: presenting the data and finding what matters
+
+The cloud server already has an AI assistant for quality (`src/ai/`: Gemini on Vertex AI; per project, switched on by a
+coordinator; names replaced by Person A, B…; the model answers through a fixed set of tools over figures already
+computed, never raw text answers or coordinates; daily and monthly limits per project; every run and its tool calls
+kept). The analyst extends that design to the collected data, in the same place and under the same rules.
+
+**What it does, in four steps that build on one another**
+
+| Step | What the person gets | How |
+| --- | --- | --- |
+| A. Ask in words | "How much forest is there by province, as a share of the area?" → the pivot shows the table and chart, with the query underneath, which the person can edit | The model gets the **view model** (dimensions, measures, labels, help texts) and writes a DuckDB query, or a Perspective view; the server runs it on the project's data with the asker's rights; the model never sees the rows, only the aggregated result it asked for (capped, as the quality tools are) |
+| B. Explain a result | A paragraph under a pivot: what stands out, which cells are small samples, how the figure compares with the whole | The model receives the aggregated table shown (not the records) and the survey's definitions; the text is marked as the assistant's and never replaces a figure |
+| C. Find what matters | "What should I look at?": a short list of findings with their table, each a saved view the person can open — strata with few plots, questions whose answers changed over time, land uses concentrated in one region, numbers far from the others | A fixed set of analyses run in DuckDB without a model (the same way the pattern flags work), the model ranking and wording them; the figures are the computer's, the sentences the model's |
+| D. Report | A printable report for a project (as the training report is): the headline figures, the pivots the coordinator saved, the findings of C and the estimates of layer 2 with their intervals, in the dashboard's language | Built by the server from saved views; the model writes only the connecting sentences, from the figures |
+
+**Rules, the same as the quality assistant's**
+
+- **Off until a coordinator switches it on**, and only where the server owner has set an LLM up. On the laptop (local mode)
+  it can use the same cloud model with the person's own key, or a local model through Ollama, or stay off: layer 1 works
+  without it.
+- **Nothing a person wrote reaches the model**: answers to choice, number and date questions, aggregated, and the survey's
+  own texts; never free-text answers, comments, coordinates or names (people as Person A, B…; plots by their id only
+  when the asker could see them anyway).
+- **Every figure is reproducible**: the query is shown and kept with the answer; a person can run it again without the
+  model. The model's text is labelled as such.
+- **Limits and logging** as today: runs per day and tokens per month per project, every run kept with its tool calls, the
+  server owner's usage panel.
+- **The model is replaceable**: the client is one module (`src/ai/client.ts`, Gemini today); the analyst adds no other
+  dependency on a provider.
+
+**Trial S8 (after S7):** twenty questions a coordinator would ask, in English, Spanish and French, on the demo and one real
+survey; the model's queries checked against hand-written ones for the same questions (correct dimensions, measures,
+filters, expansion factors); the explanations read by two coordinators for usefulness and for anything they should not
+contain.
+
 ### Data already on people's computers
 
 Today's local database keeps each record as a **Protostuff blob that only the matching Collect version can decode**
@@ -274,14 +357,17 @@ Each stage leaves a working Collect Earth; the Java program is retired only at t
 
 | Stage | What | Depends on | Size |
 | --- | --- | --- | --- |
-| 0 | Trials (S1 to S6, below) | — | S |
+| 0 | Trials (S1 to S8, below) | — | S |
 | 1 | Arena inside Collect Earth Cloud on servers: surveys and records stored in Arena, the raw copy kept, one sign-in, Arena's pages from the dashboard | S1, S3 | L |
 | 2 | The Node program serving the same API, project and settings, local store, plot files, sync, local dashboard in the same process | S5 | L |
 | 3 | The survey engine (A or B) | S4 | L |
 | 4 | Browsers and windows with Playwright: plots map, Google Earth Web, imagery sources, layout | S2 | L |
 | 5 | Packaging, updates and the migration of local data; a public beta next to the Java release | 2, 3, 4 | M |
 | 5b | Arena inside the local Collect Earth Cloud: its database on the computer in place of the memory store, the local dashboard reading from it, moving a project from local to distributed | 1, 5, S6 | M |
-| 6 | What is left: Saiku, the LULUCF package, the Google Earth Pro viewer (per decisions 2 and 4) | decisions | M to L |
+| 6 | What is left: the LULUCF package, the Google Earth Pro viewer (per decisions 2 and 4) | decisions | M to L |
+| 6a | The analysis, layer 1: the view model from the survey, DuckDB-WASM and Perspective in the dashboard (local and cloud), enrichment, saved views, the stand-alone HTML; Saiku and its Tomcat leave the installer | S7; can start before 2 | M |
+| 6b | The analysis, layer 2: estimates through Arena's R chains or a shipped R template | 1, 6a, S7 | M |
+| 6c | The AI analyst, steps A to D, on the quality assistant's foundations | 6a, S8 | M |
 | 7 | Retire the Java program and Selenium; drop the raw copy of records if decision 1 allows | 5, 6 | S |
 
 ### Stage 0: trials
@@ -300,6 +386,8 @@ Each stage leaves a working Collect Earth; the Java program is retired only at t
   embedded PostgreSQL binaries, on a Windows laptop
   with 8 GB of memory and on a Mac: time to start, memory and disk used, a project of 10,000 plots imported and read, a
   restart after the computer was switched off mid-write, and what antivirus and the firewall say.
+- **S7, the pivot table:** see "Presenting the data" (DuckDB-WASM and Perspective against Saiku on the same data).
+- **S8, the AI analyst:** see "The AI analyst" (twenty questions checked against hand-written queries).
 
 ### Testing
 
@@ -326,6 +414,9 @@ Each stage leaves a working Collect Earth; the Java program is retired only at t
 | Arena built as an application, not as a part of another | Running it inside Collect Earth Cloud may need changes in Arena | Trial S3; agree the changes with the Arena team; else two processes in one container |
 | Two permission systems | A member could see in Arena what Collect Earth Cloud would hide | Rights in Arena derived from Collect Earth Cloud's roles only; the isolation tests (`test/isolation.test.ts`) extended to Arena's pages |
 | Arena upgrades | A new Arena changes its database or its conversion of Collect surveys | Each Collect Earth Cloud release pins its Arena; upgrades tested on copies of real projects first |
+| Customised cubes | A survey's `collectEarthCubes.xml` with MDX calculated members the view model cannot express | Trial S7 on a customised `.cep`; the override reads what it can and lists what it could not |
+| Wrong figures from the AI analyst | A plausible table built from the wrong measure or filter | The query is always shown and editable; S8's check against hand-written queries; the model never computes, DuckDB does |
+| Arena's R chains assume a field inventory | Layer 2 may not fit plot photo-interpretation | Trial S7; fall back to a shipped R template |
 
 ## Not in this plan
 
