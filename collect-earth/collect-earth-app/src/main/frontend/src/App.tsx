@@ -85,12 +85,9 @@ export function App({ controller }: { controller: MapController }) {
     {info && texts && <AppBar info={info} texts={texts} reload={reloadInfo} compact={IN_PANEL || width < COMPACT_BAR_WIDTH * scale}
       onSettings={() => setPage("settings")} />}
     <Box sx={{ flex: 1, minHeight: 0, position: "relative" }}>
-    {/* Over the plot list and the form, which are at the app bar's z-index (1100) to stay over the map's panes; under
-        the drawer and the dialogs (1200 and up), which the page opens */}
+    {/* A modal dialog in the middle of the page, over the map, the list and the form (the whole window when narrow) */}
     {page === "settings" && (
-      <Box data-testid="settings-overlay" sx={{ position: "absolute", inset: 0, zIndex: 1150, bgcolor: "background.default" }}>
-        <SettingsPage texts={texts} compact={width < COMPACT_BAR_WIDTH * scale} width={width} onClose={() => setPage("main")} onApplied={reloadInfo} />
-      </Box>
+      <SettingsPage texts={texts} compact={width < COMPACT_BAR_WIDTH * scale} width={width} onClose={() => setPage("main")} onApplied={reloadInfo} />
     )}
     {IN_HOME ? <HomePage info={info} state={state} /> : (
     <Box sx={{ display: "flex", height: "100%", overflow: "hidden" }}>

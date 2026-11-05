@@ -243,9 +243,11 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
   );
 
   return (
+    <Dialog open onClose={close} fullScreen={compact} fullWidth maxWidth="lg" data-testid="settings-overlay" aria-labelledby="settings-title"
+      slotProps={{ paper: { sx: compact ? undefined : { height: "min(860px, calc(100% - 64px))" } } }}>
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }} data-testid="settings-page">
-      <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 2, py: 1 }}>
-        <Typography variant="h5" component="h1" sx={{ fontWeight: 600, flexShrink: 0 }}>{s("SettingsPage.title")}</Typography>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 3, py: 1.5 }}>
+        <Typography id="settings-title" variant="h5" component="h1" sx={{ fontWeight: 600, flexShrink: 0 }}>{s("SettingsPage.title")}</Typography>
         <Box sx={{ flex: 1 }} />
         <TextField size="small" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={s("SettingsPage.search")}
           aria-label={s("SettingsPage.search")} sx={{ width: width >= breakpoints.sm ? 260 : 160 }}
@@ -304,6 +306,7 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
       </Dialog>
       <Snackbar open={notice !== null} autoHideDuration={4000} onClose={() => setNotice(null)} message={notice} />
     </Box>
+    </Dialog>
   );
 }
 
