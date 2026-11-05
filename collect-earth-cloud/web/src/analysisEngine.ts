@@ -15,8 +15,9 @@ import "@perspective-dev/viewer/dist/css/pro.css";
 import viewerEs from "@perspective-dev/viewer/dist/css/intl/es.css?inline";
 import viewerFr from "@perspective-dev/viewer/dist/css/intl/fr.css?inline";
 import viewerPt from "@perspective-dev/viewer/dist/css/intl/pt.css?inline";
-import { tableToIPC, type Table as ArrowTable } from "apache-arrow";
+import type { Table as ArrowTable } from "apache-arrow";
 import type { AnalysisData } from "./api";
+import { toIpc } from "./arrowIpc";
 import { codesCsv, readCsvSql, type Cube, type ViewConfig } from "./analysisView";
 
 type PerspectiveClient = Awaited<ReturnType<typeof perspective.worker>>;
@@ -48,12 +49,6 @@ function startPerspective(): Promise<{ client: PerspectiveClient }> {
     started.catch(() => (started = null));
   }
   return started;
-}
-
-/** An Arrow table (from DuckDB) as the IPC bytes Perspective takes: an ArrayBuffer, not a view on one. */
-function toBuffer(table: ArrowTable): ArrayBuffer {
-  const bytes = tableToIPC(table, "stream");
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 export type Step = "database" | "tables" | "pivot";
@@ -100,7 +95,7 @@ export class AnalysisEngine {
   async show(viewer: Viewer, cube: Cube, config: ViewConfig, title: string): Promise<number> {
     const rows = await this.conn.query(cube.sql);
     const name = `${cube.table}_${++this.shown}`;
-    const table = await this.client.table(toBuffer(rows as unknown as ArrowTable), { name });
+    const table = await this.client.table(toIpc(rows as unknown as ArrowTable), { name });
     if (!this.viewers.has(viewer)) {
       await viewer.load(this.client);
       this.viewers.add(viewer);
