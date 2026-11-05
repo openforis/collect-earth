@@ -499,18 +499,31 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * @throws BrowserNotFoundException when no browser starts with BiDi (reported to Sentry), or none did a moment ago
 	 */
 	/**
+	 * The names of the permission that lets a public site load the pages of this computer or of the local network:
+	 * Chrome and Edge's, then Firefox's (153), which has one for this computer (127.0.0.1, where Collect Earth serves the
+	 * plots map) and one for the local network (its address on it, as a server of other computers). Each browser refuses
+	 * the names it does not know.
+	 */
+	public static final List<String> LOCAL_NETWORK_PERMISSIONS = Collections.unmodifiableList(
+			Arrays.asList("local-network-access", "loopback-network", "local-network"));
+
+	/**
 	 * Lets Google Earth Web's page show the plots map, which this computer serves, in a panel ("plots map inside Google
-	 * Earth Web" layout): Chrome and Edge refuse a public site the pages of the local network unless the user allows it,
-	 * and a browser under automation refuses without asking. Granted in every imagery browser, as the layout can be
-	 * chosen while it runs. Firefox does not know the permission, which it does not need: the failure is only logged.
+	 * Earth Web" layout): Chrome, Edge and Firefox refuse a public site the pages of this computer and of the local
+	 * network unless the user allows it, and a browser under automation refuses without asking. Firefox gives no sign of
+	 * it: the panel's frame stays blank. Granted in every imagery browser, as the layout can be chosen while it runs.
+	 * The names a browser does not know are only logged.
 	 */
 	private void allowPlotsMapInGoogleEarthWeb(RemoteWebDriver driver) {
-		try {
-			new Permission(driver).setPermission(Collections.singletonMap("name", "local-network-access"),
-					PermissionState.GRANTED, GOOGLE_EARTH_WEB_ORIGIN);
-		} catch (RuntimeException e) {
-			logger.debug("Imagery window: local network access not granted to {} ({}): {}", GOOGLE_EARTH_WEB_ORIGIN,
-					driver.getCapabilities().getBrowserName(), e.getMessage());
+		Permission permission = new Permission(driver);
+		for (String name : LOCAL_NETWORK_PERMISSIONS) {
+			try {
+				permission.setPermission(Collections.singletonMap("name", name), PermissionState.GRANTED,
+						GOOGLE_EARTH_WEB_ORIGIN);
+			} catch (RuntimeException e) {
+				logger.debug("Imagery window: permission {} not granted to {} ({}): {}", name, GOOGLE_EARTH_WEB_ORIGIN,
+						driver.getCapabilities().getBrowserName(), e.getMessage());
+			}
 		}
 	}
 
