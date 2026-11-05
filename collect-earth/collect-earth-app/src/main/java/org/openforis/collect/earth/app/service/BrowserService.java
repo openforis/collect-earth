@@ -135,10 +135,22 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	private final BrowserWindowIcon imageryWindowIcon = new BrowserWindowIcon("/images/imageryWindow.ico",
 			PLOTS_IN_GOOGLE_EARTH_WEB_TITLE, "/images/plotsWindow.ico");
 	/**
-	 * The title of Google Earth Web's page with the plots map in its panel (see GoogleEarthWebService), which gives its
-	 * window the icon of Collect Earth, apart from the satellite of the window of the other imagery.
+	 * What the title of Google Earth Web's page with the plots map in its panel ends with (see GoogleEarthWebService and
+	 * {@link #plotsInGoogleEarthWebTitle(String)}), which gives its window the icon of Collect Earth, apart from the
+	 * satellite of the window of the other imagery.
 	 */
 	public static final String PLOTS_IN_GOOGLE_EARTH_WEB_TITLE = "Google Earth Web · Collect Earth";
+
+	/**
+	 * The title of Google Earth Web's page with the plots map in its panel: the name of the survey loaded first, so
+	 * that the tab and the task bar, which cut long titles at the end, still show it.
+	 *
+	 * @param projectName the name of the survey loaded, null or blank when there is none
+	 */
+	public static String plotsInGoogleEarthWebTitle(String projectName) {
+		return StringUtils.isBlank(projectName) ? PLOTS_IN_GOOGLE_EARTH_WEB_TITLE
+				: projectName.trim() + " · " + PLOTS_IN_GOOGLE_EARTH_WEB_TITLE;
+	}
 
 	/** The interpreter is told once per run that the Planet API key is missing, not once per plot */
 	private boolean planetApiKeyWarningShown;

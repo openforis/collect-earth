@@ -23,7 +23,7 @@ function listening(node) {
 }
 
 /** Google Earth Web's page, 1600 px wide (screen.width changes it), with the panel shown in it. */
-function pageWithPanel() {
+function pageWithPanel(title = null) {
     const screen = { width: 1600 };
     class FakeWindow {}
     Object.defineProperty(FakeWindow.prototype, "innerWidth", { configurable: true, get() { return screen.width; } });
@@ -41,9 +41,9 @@ function pageWithPanel() {
     window.localStorage = { getItem: (k) => (storage.has(k) ? storage.get(k) : null), setItem: (k, v) => storage.set(k, String(v)) };
     class MutationObserver { observe() {} disconnect() {} }
     class Event { constructor(type) { this.type = type; } }
-    const run = (url) => new Function("window", "document", "Window", "VisualViewport", "Event", "MutationObserver",
+    const run = (url, newTitle = title) => new Function("window", "document", "Window", "VisualViewport", "Event", "MutationObserver",
         "requestAnimationFrame", "location", "arguments", SCRIPT)(window, document, FakeWindow, undefined, Event,
-        MutationObserver, () => 0, { href: "https://earth.google.com/web/" }, [url, null]);
+        MutationObserver, () => 0, { href: "https://earth.google.com/web/" }, [url, newTitle]);
     assert.equal(run(URL_), "shown");
     const panel = document.querySelector("div[data-ce-panel]");
     const frame = panel.children.find((c) => c.tagName === "IFRAME");
@@ -51,7 +51,7 @@ function pageWithPanel() {
     const asked = [];
     frame.contentWindow = { postMessage: (data, origin) => asked.push({ data, origin }) };
     const tell = (data, from = frame.contentWindow, origin = ORIGIN) => window.fire("message", { data, source: from, origin });
-    return { window, screen, panel, frame, handle, run, tell, asked };
+    return { window, document, screen, panel, frame, handle, run, tell, asked };
 }
 
 test("a dialog of the plots map gets the whole window, Google Earth Web the same window as before", () => {
@@ -122,4 +122,14 @@ test("the panel is back when the plots map loads again, and stops listening once
     tell({ type: "collectEarthPanel", expand: true });
     assert.equal(panel.style.width, "560px");
     assert.equal(window.innerWidth, 1600);
+});
+
+test("the page keeps the title it is given, the survey's name once it is known, and gets its own back without the panel", () => {
+    const { document, run } = pageWithPanel("Google Earth Web · Collect Earth");
+    assert.equal(document.title, "Google Earth Web · Collect Earth");
+    // the survey loaded after the panel was shown: the same panel, the new title
+    assert.equal(run(URL_, "Sierra Leone 2026 · Google Earth Web · Collect Earth"), "kept");
+    assert.equal(document.title, "Sierra Leone 2026 · Google Earth Web · Collect Earth");
+    assert.equal(run(null), "removed");
+    assert.equal(document.title, "Google Earth");
 });

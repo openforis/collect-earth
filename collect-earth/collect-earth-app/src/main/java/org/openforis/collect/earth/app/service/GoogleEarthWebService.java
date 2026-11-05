@@ -31,6 +31,7 @@ import org.openforis.collect.earth.app.service.imagery.PageScriptException;
 import org.openforis.collect.earth.app.service.imagery.TabClosedException;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
+import org.openforis.collect.model.CollectSurvey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -145,7 +146,7 @@ public class GoogleEarthWebService {
 
 	/** Camera URL, window size and whether the overlay is armed, in one round trip. */
 	private static final String PAGE_STATE_SCRIPT = "return [location.href, window.innerWidth, window.innerHeight, !!window."
-			+ OVERLAY_TAG + "];";
+			+ OVERLAY_TAG + ", !!document.querySelector('div[data-ce-panel]')];";
 
 	/**
 	 * Pushes the plot URL onto the history and fires popstate, which Google Earth Web's
@@ -183,6 +184,9 @@ public class GoogleEarthWebService {
 
 	@Autowired
 	private ImageryBrowser imageryBrowser;
+
+	@Autowired
+	private EarthSurveyService earthSurveyService;
 
 	/** The address of the plots map in the panel of the page, null when it has none; see {@link #syncPanel()}. */
 	private volatile String panelShown;
@@ -965,7 +969,7 @@ public class GoogleEarthWebService {
 				}
 				panelScript = script;
 			}
-			Object result = tab().evaluateIfOpen(script, url, BrowserService.PLOTS_IN_GOOGLE_EARTH_WEB_TITLE);
+			Object result = tab().evaluateIfOpen(script, url, panelTitle());
 			if (!"no_body".equals(result)) {
 				panelShown = url;
 			}
@@ -978,6 +982,25 @@ public class GoogleEarthWebService {
 			logger.warn("Google Earth Web: the plots map panel could not be {}: {}", url == null ? "removed" : "shown",
 					e.getMessage());
 		}
+	}
+
+	/**
+	 * The title Google Earth Web's page keeps while the plots map is in its panel: the name of the survey loaded, then
+	 * the mark that gives its window the icon of Collect Earth ({@link BrowserService#plotsInGoogleEarthWebTitle}).
+	 * Without the name when it cannot be had.
+	 */
+	private String panelTitle() {
+		String name = null;
+		try {
+			CollectSurvey survey = earthSurveyService == null ? null : earthSurveyService.getCollectSurvey();
+			if (survey != null) {
+				name = EarthSurveyService.projectName(survey,
+						localPropertiesService.getUiLanguage().getLocale().getLanguage());
+			}
+		} catch (Exception e) {
+			logger.warn("Google Earth Web: the name of the survey for the title of the page: {}", e.getMessage());
+		}
+		return BrowserService.plotsInGoogleEarthWebTitle(name);
 	}
 
 	/**
@@ -1075,8 +1098,11 @@ public class GoogleEarthWebService {
 				if (state == State.READY && plot != null && aimAtTheGround(href, plot)) {
 					return;
 				}
-				if (!Objects.equals(panelUrl(), panelShown)) {
-					syncPanel(); // the window layout was changed
+				String panelWanted = panelUrl();
+				boolean panelInPage = Boolean.TRUE.equals(page.get(4));
+				if (!Objects.equals(panelWanted, panelShown) || panelWanted != null && !panelInPage) {
+					// the window layout was changed, or the page lost the panel: a window opened again, a page loaded anew
+					syncPanel();
 				}
 				double[] camera = GoogleEarthWebUrls.cameraPosition(href);
 				view = GoogleEarthWebUrls.cameraView(href, ((Number) page.get(1)).doubleValue(), ((Number) page.get(2)).doubleValue(),

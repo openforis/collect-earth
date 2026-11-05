@@ -29,8 +29,9 @@ import com.sun.jna.win32.StdCallLibrary;
  * Windows takes the task bar icon of a window from the window itself, and another process may set it, so it is set
  * here on every top-level window of the browser's processes. The browser keeps it: it does not set its icon again.
  * <p>
- * A window whose title starts with {@code titlePrefix} gets the other icon: the window of Google Earth Web with the
- * plots map in its panel, which names its page so (javascript_plots_map_panel.fmt), apart from the window of the other
+ * A window whose title contains {@code titleMark} gets the other icon: the window of Google Earth Web with the
+ * plots map in its panel, which names its page so, after the name of the survey (javascript_plots_map_panel.fmt), apart
+ * from the window of the other
  * imagery. A window's title is the one of its tab shown, so the icon is set again when the titles may have changed
  * ({@link #applyAgain()}).
  * <p>
@@ -53,7 +54,7 @@ final class BrowserWindowIcon {
 	private static final int MAX_TITLE = 256;
 
 	private final String resource;
-	private final String titlePrefix;
+	private final String titleMark;
 	private final String titledResource;
 	/** The icons loaded, {big, small} by resource; a resource missing when they cannot be. */
 	private final Map<String, Pointer[]> icons = new HashMap<>();
@@ -66,12 +67,12 @@ final class BrowserWindowIcon {
 	}
 
 	/**
-	 * @param titlePrefix    how the title of the windows that get {@code titledResource} instead starts; null for none
+	 * @param titleMark      what the title of the windows that get {@code titledResource} instead contains; null for none
 	 * @param titledResource the class path of their .ico file
 	 */
-	BrowserWindowIcon(String resource, String titlePrefix, String titledResource) {
+	BrowserWindowIcon(String resource, String titleMark, String titledResource) {
 		this.resource = resource;
-		this.titlePrefix = titlePrefix;
+		this.titleMark = titleMark;
 		this.titledResource = titledResource;
 	}
 
@@ -127,14 +128,14 @@ final class BrowserWindowIcon {
 		if (plain == null) {
 			return 0;
 		}
-		Pointer[] titled = titlePrefix == null ? null : load(titledResource);
+		Pointer[] titled = titleMark == null ? null : load(titledResource);
 		int[] count = { 0 };
 		User32.INSTANCE.EnumWindows((window, data) -> {
 			IntByReference pid = new IntByReference();
 			User32.INSTANCE.GetWindowThreadProcessId(window, pid);
 			if (processes.contains((long) pid.getValue()) && User32.INSTANCE.IsWindowVisible(window)
 					&& User32.INSTANCE.GetWindow(window, GW_OWNER) == null) {
-				Pointer[] icon = titled != null && titleOf(window).startsWith(titlePrefix) ? titled : plain;
+				Pointer[] icon = titled != null && titleOf(window).contains(titleMark) ? titled : plain;
 				User32.INSTANCE.SendMessageW(window, WM_SETICON, new Pointer(ICON_BIG), icon[0]);
 				User32.INSTANCE.SendMessageW(window, WM_SETICON, new Pointer(ICON_SMALL), icon[1]);
 				count[0]++;
