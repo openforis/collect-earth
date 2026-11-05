@@ -3,7 +3,9 @@ package org.openforis.collect.earth.ipcc;
 import java.io.IOException;
 import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -56,8 +58,12 @@ public class SamplingUncertaintyGenerator extends RDBConnector {
 	public Workbook getSamplingUncertainityTemplate() {
 		try {
 			templateFile = new File(TEMPLATE_PATH);
-			// Read only : opened for writing the workbook kept the template file locked, and it is never written back
-			return WorkbookFactory.create(templateFile, null, true);
+			// Read into memory from a stream : opened on the file for writing, the workbook kept the template locked, and
+			// opened on it read only, it cannot be written to the copy filled in (POI refuses: "document open in read
+			// only mode")
+			try (InputStream template = new FileInputStream(templateFile)) {
+				return WorkbookFactory.create(template);
+			}
 		} catch (Exception e) {
 			logger.error(TEMPLATE_PATH + " not accessible, problems reading Sampling Uncertainty Template", e);
 			return null;
