@@ -688,9 +688,9 @@ public class EarthApp {
 		}
 		try {
 			SwingUtilities.invokeAndWait(() -> {
-				String settingsPath = Messages.getString("CollectEarthWindow.12") + " > " //$NON-NLS-1$ //$NON-NLS-2$
-						+ Messages.getString("CollectEarthWindow.15") + " > " //$NON-NLS-1$ //$NON-NLS-2$
-						+ Messages.getString("OptionWizard.125") + " > " //$NON-NLS-1$ //$NON-NLS-2$
+				// Where the choice is made later: the settings page (the Settings menu), its "Imagery and viewer" section
+				String settingsPath = Messages.getString("SettingsPage.title") + " > " //$NON-NLS-1$ //$NON-NLS-2$
+						+ Messages.getString("SettingsPage.section.imagery") + " > " //$NON-NLS-1$ //$NON-NLS-2$
 						+ Messages.getString("ExternalServicesPanel.viewerType"); //$NON-NLS-1$
 				JCheckBox dontAskAgain = new JCheckBox(Messages.getString("EarthApp.gewTrialDontAsk")); //$NON-NLS-1$
 				Object[] message = {

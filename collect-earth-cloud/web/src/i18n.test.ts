@@ -33,13 +33,13 @@ describe("translations", () => {
   });
 
   // The desktop's own labels (collect-earth-app Messages*.properties), as its settings page shows them: the
-  // Properties menu (CollectEarthWindow.15), the "Project" section (SettingsPage.section.project), "Apply"
+  // Settings menu (CollectEarthWindow.15, the page's title SettingsPage.title), the "Project" section (SettingsPage.section.project), "Apply"
   // (SettingsPage.apply), and the assigned plot files card's button (SampleDataPanel.refreshAssignments).
   const desktop = {
-    en: ["Properties → “Project”", "“Apply”"],
-    es: ["Propiedades → «Proyecto»", "«Aplicar»"],
-    fr: ["Propriétés → « Projet »", "« Appliquer »"],
-    pt: ["Propriedades → “Projeto”", "“Aplicar”"],
+    en: ["Settings → “Project”", "“Apply”"],
+    es: ["Ajustes → «Proyecto»", "«Aplicar»"],
+    fr: ["Paramètres → « Projet »", "« Appliquer »"],
+    pt: ["Configurações → “Projeto”", "“Aplicar”"],
   } as const;
   const refresh = { en: "Refresh assignments", es: "Actualizar asignaciones", fr: "Actualiser les attributions", pt: "Atualizar atribuições" } as const;
   it.each(LANGUAGES)("%s names the desktop's real path to a new plot file", (language) => {
