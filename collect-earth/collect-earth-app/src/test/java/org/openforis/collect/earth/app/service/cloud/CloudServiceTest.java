@@ -123,6 +123,17 @@ public class CloudServiceTest {
 		verify(properties).saveOperator("maria");
 	}
 
+	/** The Log in button of the settings: the server typed there, which is not saved yet; the token goes into its field */
+	@Test
+	public void theLoginOfTheSettingsAnswersTheTokenAndSavesNothing() throws Exception {
+		when(api.login("https://typed.org", "maria", "pw")).thenReturn("t3");
+		assertEquals("t3", service.token(" https://typed.org ", " maria ", "pw"));
+		verify(properties, never()).saveCloudSyncToken(any());
+		verify(properties, never()).saveOperator(any());
+		assertEquals("cloud.urlRequired", assertThrows(InvalidCloudRequestException.class, () -> service.token(" ", "maria", "pw")).getCode());
+		assertEquals("cloud.emptyFields", assertThrows(InvalidCloudRequestException.class, () -> service.token("https://typed.org", "maria", "")).getCode());
+	}
+
 	@Test
 	public void theStatusIsTheQueuesWhenCloudSyncIsOn() {
 		when(properties.isCloudSyncEnabled()).thenReturn(false);

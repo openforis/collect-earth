@@ -18,6 +18,10 @@ export const cloudJoin = (request: JoinRequest) => apiPost<{ restart: boolean }>
 
 export const cloudLogin = (username: string, password: string) => apiPost<{ operator: string }>("cloud/login", { username, password });
 
+/** The Log in button of the settings: the token of the server typed there, for its field; nothing is saved */
+export const cloudToken = (url: string, username: string, password: string) =>
+  apiPost<{ token: string }>("cloud/token", { url, username, password });
+
 export const cloudStatus = (signal?: AbortSignal) => apiGet<CloudStatus>("cloud/status", signal);
 
 export const cloudSyncNow = () => apiPost<void>("cloud/syncNow");

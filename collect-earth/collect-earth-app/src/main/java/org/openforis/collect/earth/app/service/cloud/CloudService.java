@@ -155,6 +155,20 @@ public class CloudService {
 		return username.trim();
 	}
 
+	/**
+	 * The Log in button of the settings (the Swing DatabaseServerPanel's): a login against the server typed there, not
+	 * saved yet. Nothing is saved: the token goes into its field, and Apply saves it with the rest.
+	 */
+	public String token(String url, String username, String password) throws InvalidCloudRequestException {
+		if (StringUtils.isBlank(url)) {
+			throw new InvalidCloudRequestException("cloud.urlRequired", Messages.getString("DatabaseServerPanel.cloudUrlRequired"));
+		}
+		JoinRequest credentials = new JoinRequest();
+		credentials.username = username;
+		credentials.password = password;
+		return authenticate(() -> api.login(url.trim(), username.trim(), password), credentials);
+	}
+
 	private interface Authentication {
 		String call() throws IOException;
 	}

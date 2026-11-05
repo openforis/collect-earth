@@ -71,6 +71,22 @@ public class CloudController {
 		}
 	}
 
+	public static class TokenRequest {
+		public String url;
+		public String username;
+		public String password;
+	}
+
+	/** The Log in button of the settings: the token of the server typed there, for its field; nothing is saved */
+	@PostMapping("/api/cloud/token")
+	public Map<String, Object> token(@RequestBody TokenRequest request) {
+		try {
+			return Collections.singletonMap("token", cloud.token(request.url, request.username, request.password));
+		} catch (InvalidCloudRequestException e) {
+			throw new ApiException(e.getCode(), e.getMessage());
+		}
+	}
+
 	@GetMapping("/api/cloud/status")
 	public Map<String, Object> status() {
 		return cloud.status();

@@ -9,7 +9,8 @@ import Typography from "@mui/material/Typography";
 import { errorText } from "../../appBar";
 import { useT } from "../../i18n";
 import type { Project } from "../../settings";
-import { listProjects, loadProject } from "../../settingsApi";
+import { chooseFile, listProjects, loadProject } from "../../settingsApi";
+import { importProject } from "../../projectApi";
 import { serverText, type Texts } from "../../serverTexts";
 
 interface Props {
@@ -43,6 +44,16 @@ export function ProjectsCard({ texts, onRestarting, onMessage }: Props) {
     }, (e) => setError(errorText(e, t("appBar.unreachable")))).finally(() => setLoading(null));
   };
 
+  // Load a new project file (the Swing ProjectsPanel's): a CEP file chosen, imported, and Collect Earth restarts with it
+  const importFile = () => {
+    setError(null);
+    chooseFile("OPEN", ["cep"]).then((path) => {
+      if (!path) return undefined;
+      setLoading(path);
+      return importProject(path).then((r) => { if (r.restart) onRestarting(); });
+    }).catch((e) => setError(errorText(e, t("appBar.unreachable")))).finally(() => setLoading(null));
+  };
+
   return (
     <Stack spacing={1.5} data-testid="projects">
       <Typography variant="subtitle2">{s("OptionWizard.57")}</Typography>
@@ -63,6 +74,10 @@ export function ProjectsCard({ texts, onRestarting, onMessage }: Props) {
           </Button>
         </Paper>
       ))}
+      <Button variant="outlined" size="small" sx={{ alignSelf: "flex-start" }} disabled={loading !== null} onClick={importFile}
+        data-testid="project-import">
+        {s("OptionWizard.41")}
+      </Button>
     </Stack>
   );
 }

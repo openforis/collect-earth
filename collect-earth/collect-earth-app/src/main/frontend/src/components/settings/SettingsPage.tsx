@@ -38,6 +38,8 @@ import { serverText, type Texts } from "../../serverTexts";
 import { PlotPreview } from "./PlotPreview";
 import { CloudAssignmentsCard } from "./CloudAssignmentsCard";
 import { ProjectsCard } from "./ProjectsCard";
+import { CloudLoginDialog } from "../project/CloudLoginDialog";
+import { cloudToken } from "../../projectApi";
 import { RestartingOverlay } from "./RestartingOverlay";
 import { SampleFileCard } from "./SampleFileCard";
 import { SettingField } from "./SettingField";
@@ -216,7 +218,7 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
             <Box sx={{ width: wide ? 320 : undefined, flexShrink: 0 }}><PlotPreview values={values} plot={validation?.plot ?? null} texts={texts} /></Box>
           </Stack>
         ) : visible.map(renderField)}
-        {!searching && <SectionExtras section={section} values={values} data={data} texts={texts}
+        {!searching && <SectionExtras section={section} values={values} data={data} texts={texts} onChange={change}
           onRestarting={() => setRestarting(true)} onMessage={setNotice} />}
       </Stack>
     );
@@ -306,8 +308,9 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
 }
 
 /** What a section shows besides its fields: the projects, the connection tests, the backup folder. */
-function SectionExtras({ section, values, data, texts, onRestarting, onMessage }: {
-  section: Section; values: Values; data: Settings | null; texts: Texts | null; onRestarting: () => void; onMessage: (m: string) => void;
+function SectionExtras({ section, values, data, texts, onChange, onRestarting, onMessage }: {
+  section: Section; values: Values; data: Settings | null; texts: Texts | null; onChange: (key: string, value: string) => void;
+  onRestarting: () => void; onMessage: (m: string) => void;
 }) {
   const s = (key: string) => serverText(texts, key);
   if (section.id === "project") return <ProjectsCard texts={texts} onRestarting={onRestarting} onMessage={onMessage} />;
@@ -333,12 +336,37 @@ function SectionExtras({ section, values, data, texts, onRestarting, onMessage }
   }
   if (section.id === "collaboration") {
     return (
-      <ConnectionTestButton label={s("DatabaseServerPanel.cloudTestButton")} testing={s("SettingsPage.testing")} test={() => testCloud({
-        url: values.cloud_sync_url ?? "", projectId: values.cloud_project_id ?? "", token: values.cloud_sync_token ?? "",
-      })} />
+      <Stack spacing={1.5}>
+        <CloudTokenLogin url={values.cloud_sync_url ?? ""} texts={texts} onToken={(token) => onChange("cloud_sync_token", token)} />
+        <ConnectionTestButton label={s("DatabaseServerPanel.cloudTestButton")} testing={s("SettingsPage.testing")} test={() => testCloud({
+          url: values.cloud_sync_url ?? "", projectId: values.cloud_project_id ?? "", token: values.cloud_sync_token ?? "",
+        })} />
+      </Stack>
     );
   }
   return null;
+}
+
+/**
+ * Log in... of the Swing DatabaseServerPanel: the login of the cloud server typed above, which puts the token into its
+ * field; Apply saves it with the rest. A server is needed first.
+ */
+function CloudTokenLogin({ url, texts, onToken }: { url: string; texts: Texts | null; onToken: (token: string) => void }) {
+  const s = (key: string) => serverText(texts, key);
+  const [open, setOpen] = useState(false);
+  const [missingUrl, setMissingUrl] = useState(false);
+  useEffect(() => { if (url.trim()) setMissingUrl(false); }, [url]);
+  return (
+    <Stack spacing={1} sx={{ alignItems: "flex-start" }}>
+      <Button variant="outlined" size="small" data-testid="cloud-token-login"
+        onClick={() => (url.trim() ? setOpen(true) : setMissingUrl(true))}>
+        {s("DatabaseServerPanel.cloudLoginButton")}
+      </Button>
+      {missingUrl && <Typography variant="body2" color="error">{s("DatabaseServerPanel.cloudUrlRequired")}</Typography>}
+      <CloudLoginDialog open={open} texts={texts} onCancel={() => setOpen(false)}
+        onSubmit={(c) => cloudToken(url.trim(), c.username, c.password).then((r) => { onToken(r.token); setOpen(false); })} />
+    </Stack>
+  );
 }
 
 /** A Test connection button with the answer under it, as the dialogs of the Swing panels. */
