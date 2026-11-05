@@ -1,6 +1,7 @@
 import type { SvgIconComponent } from "@mui/icons-material";
 import AddLocationAltOutlinedIcon from "@mui/icons-material/AddLocationAltOutlined";
 import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
+import PivotTableChartOutlinedIcon from "@mui/icons-material/PivotTableChartOutlined";
 import BugReportOutlinedIcon from "@mui/icons-material/BugReportOutlined";
 import CallSplitOutlinedIcon from "@mui/icons-material/CallSplitOutlined";
 import CloudSyncOutlinedIcon from "@mui/icons-material/CloudSyncOutlined";
@@ -38,6 +39,7 @@ export const MENU_ICONS: Record<string, SvgIconComponent> = {
   quit: PowerSettingsNewOutlinedIcon,
   export: FileDownloadOutlinedIcon,
   import: FileUploadOutlinedIcon,
+  analyse: PivotTableChartOutlinedIcon,
   saiku: BarChartOutlinedIcon,
   saikuTool: QueryStatsOutlinedIcon,
   lulucf: ForestOutlinedIcon,

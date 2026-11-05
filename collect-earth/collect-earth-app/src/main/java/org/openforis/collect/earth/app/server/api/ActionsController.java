@@ -12,7 +12,9 @@ import org.openforis.collect.earth.app.service.BackupSqlLiteService;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
+import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.QuitService;
+import org.openforis.collect.earth.app.service.cloud.CloudApiClient;
 import org.openforis.collect.earth.app.service.dashboard.LocalDashboardService;
 import org.openforis.collect.earth.app.service.notices.UpdateService;
 import org.openforis.collect.earth.app.service.notices.UpdateService.UpdaterMissingException;
@@ -46,8 +48,65 @@ public class ActionsController {
 
 	@Autowired
 	public ActionsController(QuitService quit, BackupSqlLiteService backup, BrowserService browser, UpdateService updates,
-			EarthSurveyService surveys, LocalDashboardService dashboard) {
-		this(actions(quit, backup, browser, updates, surveys, dashboard));
+			EarthSurveyService surveys, LocalDashboardService dashboard, LocalPropertiesService properties, CloudApiClient cloud) {
+		this(actions(quit, backup, browser, updates, surveys, dashboard, properties, cloud));
+	}
+
+	/** The pages of the dashboard a sign-in link can open directly (the dashboard checks the same list). */
+	static final String ANALYSIS_PAGE = "analysis"; //$NON-NLS-1$
+
+	/**
+	 * The address of the analysis page (docs/plans/2026-11-05-node-and-arena.md, stage 6a, what replaces Saiku): for a
+	 * cloud project, the cloud dashboard's page of the project (the browser signs in there as on any visit); else the
+	 * local dashboard's one-time sign-in link, told to open the page.
+	 */
+	static String analysisUrl(boolean cloud, String cloudBaseUrl, String cloudProjectId, String localSignInUrl) {
+		if (cloud) {
+			if (cloudBaseUrl == null || cloudBaseUrl.trim().isEmpty() || cloudProjectId == null || cloudProjectId.trim().isEmpty()) {
+				return null;
+			}
+			String base = cloudBaseUrl.trim().replaceAll("/+$", ""); //$NON-NLS-1$ //$NON-NLS-2$
+			try {
+				return base + "/projects/" + java.net.URLEncoder.encode(cloudProjectId.trim(), "UTF-8").replace("+", "%20") + "/" + ANALYSIS_PAGE; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+			} catch (java.io.UnsupportedEncodingException e) {
+				throw new IllegalStateException(e);
+			}
+		}
+		if (localSignInUrl == null) {
+			return null;
+		}
+		return localSignInUrl + (localSignInUrl.contains("?") ? "&" : "?") + "to=" + ANALYSIS_PAGE; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+	}
+
+	/** Tools > Analyse the data: the analysis page in the default browser, the cloud's for a cloud project. */
+	static void openAnalysis(LocalDashboardService dashboard, LocalPropertiesService properties, CloudApiClient cloud) {
+		boolean cloudProject = properties.isCloudSyncEnabled();
+		String url;
+		if (cloudProject) {
+			CloudApiClient.Destination destination = cloud.cloudDestination();
+			url = analysisUrl(true, destination.getBaseUrl(), destination.getProjectId(), null);
+			if (url == null) {
+				throw new ApiException("analysis.noCloudProject", Messages.getString("CollectEarthMenu.analyseNoCloud")); //$NON-NLS-1$ //$NON-NLS-2$
+			}
+		} else {
+			String signIn;
+			try {
+				signIn = dashboard.newSignInUrl();
+			} catch (IOException e) {
+				throw new IllegalStateException("The dashboard did not give a sign-in link: " + e.getMessage(), e);
+			}
+			if (signIn == null) {
+				throw new ApiException("dashboard.notReady", dashboard.getStateText());
+			}
+			url = analysisUrl(false, null, null, signIn);
+			if (Boolean.getBoolean(LOG_SIGN_IN_URL_PROPERTY)) {
+				logger.info("Analysis sign-in link (single use, 15 minutes; not opened, {} is set): {}", LOG_SIGN_IN_URL_PROPERTY, url);
+				return;
+			}
+		}
+		if (!CollectEarthUtils.openUrl(URI.create(url))) {
+			throw new IllegalStateException("The browser could not open the analysis page");
+		}
 	}
 
 	private static void openFile(File file) {
@@ -85,10 +144,11 @@ public class ActionsController {
 	}
 
 	private static Map<String, Runnable> actions(QuitService quit, BackupSqlLiteService backup, BrowserService browser, UpdateService updates,
-			EarthSurveyService surveys, LocalDashboardService dashboard) {
+			EarthSurveyService surveys, LocalDashboardService dashboard, LocalPropertiesService properties, CloudApiClient cloud) {
 		Map<String, Runnable> actions = new LinkedHashMap<>();
 		actions.put("quit", quit);
 		actions.put("openDashboard", () -> openDashboard(dashboard));
+		actions.put("openAnalysis", () -> openAnalysis(dashboard, properties, cloud));
 		// The Help menu's files and pages (CollectEarthMenu.getHelpMenu)
 		actions.put("openSurveyGuide", () -> {
 			File guide = surveys.getSurveyGuide();

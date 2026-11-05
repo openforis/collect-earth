@@ -89,7 +89,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const [quitOpen, setQuitOpen] = useState(false);
   const [closed, setClosed] = useState(false);
   // The dialog of a menu that is open
-  const [dialog, setDialog] = useState<Exclude<AppAction, "quit" | "settings" | "dataFolder" | "openPlotsMap" | "myDashboard" | "surveyGuide" | "manual" | "support" | "updates" | "showExceptions"> | null>(null);
+  const [dialog, setDialog] = useState<Exclude<AppAction, "quit" | "settings" | "analyse" | "dataFolder" | "openPlotsMap" | "myDashboard" | "surveyGuide" | "manual" | "support" | "updates" | "showExceptions"> | null>(null);
   // What a quick action (open the data folder, the manual...) answered when it could not be done
   const [actionError, setActionError] = useState<string | null>(null);
   const forced = operatorRequired({ ...info, operator });
@@ -121,7 +121,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const actions: Record<AppAction, () => void> = {
     quit: () => setQuitOpen(true), settings: onSettings,
     export: () => setDialog("export"), import: () => setDialog("import"),
-    saiku: () => setDialog("saiku"), saikuTool: () => setDialog("saikuTool"), lulucf: () => setDialog("lulucf"), loadKml: () => setDialog("loadKml"),
+    analyse: quick("openAnalysis"), saiku: () => setDialog("saiku"), saikuTool: () => setDialog("saikuTool"), lulucf: () => setDialog("lulucf"), loadKml: () => setDialog("loadKml"),
     dataFolder: quick("openDataFolder"), openPlotsMap: quick("openPlotsMap"), myDashboard: quick("openDashboard"),
     missingPlots: () => setDialog("missingPlots"), divideCsv: () => setDialog("divideCsv"), deletePlots: () => setDialog("deletePlots"),
     importCep: () => { setDropped(null); setDialog("importCep"); }, joinCloud: () => setDialog("joinCloud"), cloudStatus: () => setDialog("cloudStatus"), language: () => setDialog("language"),

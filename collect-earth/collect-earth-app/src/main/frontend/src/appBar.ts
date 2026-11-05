@@ -4,14 +4,14 @@ import type { MenuItem } from "./menus";
 
 /** What an entry of the menus does. Each stage of the HTML UI adds its own here, as it builds them. */
 export type AppAction = "quit" | "settings" | "export" | "import"
-  | "saiku" | "saikuTool" | "lulucf" | "loadKml" | "dataFolder" | "openPlotsMap" | "myDashboard" | "missingPlots" | "divideCsv" | "deletePlots"
+  | "analyse" | "saiku" | "saikuTool" | "lulucf" | "loadKml" | "dataFolder" | "openPlotsMap" | "myDashboard" | "missingPlots" | "divideCsv" | "deletePlots"
   | "importCep" | "joinCloud" | "cloudStatus" | "language"
   | "surveyGuide" | "manual" | "support" | "log" | "showExceptions" | "updates" | "disclaimer" | "about";
 
 // A Map, not an object: an entry called "constructor" would find a property of every object
 const ACTIONS = new Map<string, AppAction>([
   ["quit", "quit"], ["properties", "settings"], ["export", "export"], ["import", "import"],
-  ["saiku", "saiku"], ["saikuTool", "saikuTool"], ["lulucf", "lulucf"], ["loadKml", "loadKml"], ["dataFolder", "dataFolder"], ["openPlotsMap", "openPlotsMap"], ["myDashboard", "myDashboard"],
+  ["analyse", "analyse"], ["saiku", "saiku"], ["saikuTool", "saikuTool"], ["lulucf", "lulucf"], ["loadKml", "loadKml"], ["dataFolder", "dataFolder"], ["openPlotsMap", "openPlotsMap"], ["myDashboard", "myDashboard"],
   ["missingPlots", "missingPlots"], ["divideCsv", "divideCsv"], ["deletePlots", "deletePlots"],
   ["importCep", "importCep"], ["joinCloud", "joinCloud"], ["cloudStatus", "cloudStatus"], ["language", "language"],
   ["surveyGuide", "surveyGuide"], ["manual", "manual"], ["support", "support"], ["log", "log"], ["showExceptions", "showExceptions"],

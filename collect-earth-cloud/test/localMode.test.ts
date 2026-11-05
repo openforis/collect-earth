@@ -234,6 +234,19 @@ describe('LOCAL_MODE server', () => {
     expect((await app.inject({ method: 'GET', url: '/local-sign-in/made-up' })).statusCode).toBe(410);
   });
 
+  it("a sign-in link opens a page of the list (Collect Earth's Analyse the data), never another address", async () => {
+    const open = async (to: string) => (await app.inject({ method: 'GET', url: `/local-sign-in/${local.signIn.issue()}?to=${encodeURIComponent(to)}` })).body;
+    expect(await open('analysis')).toContain(`location.replace("/projects/${PROJECT_ID}/analysis")`);
+    expect(await open('data')).toContain(`location.replace("/projects/${PROJECT_ID}/data")`);
+    for (const bad of ['https://evil.example', '../../x', 'people', '']) {
+      expect(await open(bad), bad).toContain(`location.replace("/projects/${PROJECT_ID}")`);
+    }
+    // a used link: a browser already signed in goes to the page asked
+    const token = local.signIn.issue();
+    await app.inject({ method: 'GET', url: `/local-sign-in/${token}` });
+    expect((await app.inject({ method: 'GET', url: `/local-sign-in/${token}?to=analysis` })).body).toContain(`location.replace("/projects/${PROJECT_ID}/analysis")`);
+  });
+
   it('the desktop asks a new sign-in link with its token; no one else can', async () => {
     expect((await app.inject({ method: 'POST', url: '/v1/local/sign-in-links' })).statusCode).toBe(401);
     const res = await app.inject({ method: 'POST', url: '/v1/local/sign-in-links', headers: { ...bearer(local.apiToken), host: '127.0.0.1:4321' } });

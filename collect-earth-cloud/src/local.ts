@@ -281,12 +281,20 @@ function page(reply: FastifyReply, status: number, html: string): FastifyReply {
     .send(`<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Collect Earth</title></head><body>${html}</body></html>`);
 }
 
+/**
+ * The pages a sign-in link may open (`?to=`), beside the project's own: Collect Earth's "Analyse the data" opens the
+ * analysis page. A list, so the link can never send the browser anywhere else.
+ */
+export const SIGN_IN_PAGES = ['analysis', 'data', 'map', 'quality', 'activity', 'settings'] as const;
+
 /** The sign-in link and the route the desktop asks new links from. */
 export async function registerLocalRoutes(app: FastifyInstance, store: InMemoryStore, local: LocalSetup): Promise<void> {
-  const target = `/projects/${local.projectId}`;
+  const projectPage = `/projects/${local.projectId}`;
 
   app.get('/local-sign-in/:token', async (request: FastifyRequest, reply: FastifyReply) => {
     const token = (request.params as { token: string }).token;
+    const to = (request.query as { to?: unknown }).to;
+    const target = typeof to === 'string' && (SIGN_IN_PAGES as readonly string[]).includes(to) ? `${projectPage}/${to}` : projectPage;
     if (!local.signIn.consume(token)) {
       // Used or expired (a reload of the page, say): a browser that already signed in goes on.
       return page(
