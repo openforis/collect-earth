@@ -497,6 +497,19 @@ export interface ProgressSettings {
 
 export const DEFAULT_PROGRESS_SETTINGS: ProgressSettings = { deadline: null, targetPlots: null, quietDays: 3 };
 
+/**
+ * A view of the analysis page a coordinator shared with the project's team (web/src/analysisView.ts): the table, the
+ * language its column names are in, and Perspective's configuration (kept as given: the page reads it).
+ */
+export interface SharedAnalysisView {
+  name: string;
+  table: string;
+  language: string;
+  config: Record<string, unknown>;
+  savedBy: string;
+  savedAt: number;
+}
+
 /** Which answer of a differing plot is right: the first assessment, the check, or neither (look again). */
 export type DecisionKind = 'first' | 'check' | 'recheck';
 

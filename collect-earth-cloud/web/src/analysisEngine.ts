@@ -29,6 +29,8 @@ export interface Viewer extends HTMLElement {
   save(): Promise<ViewConfig>;
   reset(all?: boolean): Promise<void>;
   delete(): Promise<void>;
+  getView(): Promise<{ to_csv(): Promise<string> }>;
+  toggleConfig(force?: boolean): Promise<void>;
 }
 
 let started: Promise<{ client: PerspectiveClient }> | null = null;
@@ -112,6 +114,25 @@ export class AnalysisEngine {
 
   private shown = 0;
   private readonly viewers = new WeakSet<Viewer>();
+
+  /** The rows of a query as plain objects (numbers for DuckDB's big integers, ISO days for dates). */
+  async rows(sql: string): Promise<Record<string, unknown>[]> {
+    const result = await this.conn.query(sql);
+    const dates = new Set(result.schema.fields.filter((f) => String(f.type).startsWith("Date")).map((f) => f.name));
+    return result.toArray().map((row: { toJSON(): Record<string, unknown> }) => {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(row.toJSON())) {
+        out[k] = typeof v === "bigint" ? Number(v) : dates.has(k) && typeof v === "number" ? new Date(v).toISOString().slice(0, 10) : v;
+      }
+      return out;
+    });
+  }
+
+  /** What the viewer shows, as CSV (the pivot as it is: its rows, columns and totals). */
+  async viewCsv(viewer: Viewer): Promise<string> {
+    const view = await viewer.getView();
+    return view.to_csv();
+  }
 
   async close(): Promise<void> {
     await this.table?.delete().catch(() => {});

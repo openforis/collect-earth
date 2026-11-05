@@ -7,6 +7,11 @@ import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { ProjectStateCache } from '../projectState.js';
 import { recordResolver } from '../quality.js';
 import type { Store } from '../store/store.js';
+import type { SharedAnalysisView } from '../types.js';
+
+/** At most so many shared views per project, each at most so big (a view is a few kilobytes). */
+const MAX_VIEWS = 200;
+const MAX_VIEW_BYTES = 64 * 1024;
 
 type Parsed = { model: AnalysisModel; regionAreas?: string; attributeAreas?: string } | null;
 /** The model of the last project files, by checksum (reading a survey takes a moment; the file changes rarely). */
@@ -100,5 +105,44 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
       return reply.header('content-encoding', 'gzip').send(gzipSync(body, { level: 6 }));
     }
     return reply.send(body);
+  });
+
+  // The views a coordinator shares with the team: everyone in the project sees them, coordinators save and delete them
+  app.get('/v1/projects/:pid/analysis/views', member, async (request: FastifyRequest, reply: FastifyReply) => {
+    return reply.header('cache-control', 'no-store').send({ views: await store.getAnalysisViews(request.membership!.projectId) });
+  });
+
+  const coordinator = { preHandler: requireProjectMembership(store, 'admin') };
+  app.put('/v1/projects/:pid/analysis/views', coordinator, async (request: FastifyRequest, reply: FastifyReply) => {
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const table = typeof body.table === 'string' ? body.table : '';
+    const language = typeof body.language === 'string' ? body.language : '';
+    const config = body.config;
+    if (!name || name.length > 80 || !table || table.length > 200 || !language || language.length > 10 || !config || typeof config !== 'object' || Array.isArray(config)) {
+      return reply.code(400).send({ error: 'invalid_view', message: 'A view needs a name (at most 80 characters), its table, its language and its configuration.' });
+    }
+    if (Buffer.byteLength(JSON.stringify(config)) > MAX_VIEW_BYTES) return reply.code(413).send({ error: 'view_too_large', message: 'This view is too large to share.' });
+    const projectId = request.membership!.projectId;
+    const [views, served] = await Promise.all([store.getAnalysisViews(projectId), states.get(projectId, request.log)]);
+    const others = views.filter((v) => !(v.name === name && v.table === table));
+    if (others.length >= MAX_VIEWS) return reply.code(409).send({ error: 'too_many_views', message: `A project shares at most ${MAX_VIEWS} views: delete some first.` });
+    const savedBy = served.members.find((m) => m.userId === request.userId)?.username ?? '';
+    const view: SharedAnalysisView = { name, table, language, config: config as Record<string, unknown>, savedBy, savedAt: Date.now() };
+    const next = [...others, view].sort((a, b) => a.name.localeCompare(b.name) || a.table.localeCompare(b.table));
+    await store.setAnalysisViews(projectId, next);
+    return reply.send({ views: next });
+  });
+
+  app.delete('/v1/projects/:pid/analysis/views', coordinator, async (request: FastifyRequest, reply: FastifyReply) => {
+    const q = request.query as Record<string, unknown>;
+    const name = typeof q.name === 'string' ? q.name : '';
+    const table = typeof q.table === 'string' ? q.table : '';
+    const projectId = request.membership!.projectId;
+    const views = await store.getAnalysisViews(projectId);
+    const next = views.filter((v) => !(v.name === name && v.table === table));
+    if (next.length === views.length) return reply.code(404).send({ error: 'not_found' });
+    await store.setAnalysisViews(projectId, next);
+    return reply.send({ views: next });
   });
 }

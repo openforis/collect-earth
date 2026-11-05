@@ -43,6 +43,7 @@ import {
   type PlatformStats,
   type PlotAssignment,
   type ProgressSettings,
+  type SharedAnalysisView,
   type PublicQuality,
   type ProjectRow,
   type ProjectStorage,
@@ -107,6 +108,7 @@ interface ProjectEntry {
   holdingsGeneration: number;
   qualitySettings: QualitySettings | null;
   progressSettings: ProgressSettings | null;
+  analysisViews: SharedAnalysisView[];
   /** The progress link's quality figure (projects.public_quality). */
   publicQuality: PublicQuality | null;
   aiEnabled: boolean;
@@ -380,6 +382,7 @@ export class InMemoryStore implements Store {
       holdingsGeneration: 0,
       qualitySettings: null,
       progressSettings: null,
+      analysisViews: [],
       publicQuality: null,
       aiEnabled: false,
       aiRuns: [],
@@ -2028,6 +2031,14 @@ export class InMemoryStore implements Store {
 
   async setProgressSettings(projectId: string, settings: ProgressSettings): Promise<void> {
     this.requireProject(projectId).progressSettings = { ...settings };
+  }
+
+  async getAnalysisViews(projectId: string): Promise<SharedAnalysisView[]> {
+    return structuredClone(this.projects.get(projectId)?.analysisViews ?? []);
+  }
+
+  async setAnalysisViews(projectId: string, views: SharedAnalysisView[]): Promise<void> {
+    this.requireProject(projectId).analysisViews = structuredClone(views);
   }
 
   async appendAudit(projectId: string, input: AuditInput): Promise<void> {

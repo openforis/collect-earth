@@ -1,5 +1,6 @@
 import type { AnalysisData, AnalysisModelData, AnalysisTableModel } from "./api";
 import type { MessageKey, Translate } from "./i18n";
+import { applyQuestion, measuresOf, templatesOf } from "./analysisQuestion";
 
 // The analysis page (docs/plans/2026-11-05-node-and-arena.md, stage 6a: what replaces Saiku). The server sends the
 // survey's model and the rows of its tables (src/analysis.ts there); the browser loads them into DuckDB and pivots
@@ -16,7 +17,17 @@ export interface CubeColumn {
   sql: string;
   /** For a column of labels: each value's label by its code, to translate a filter's values with the column's name. */
   values?: Record<string, string>;
+  /** What its values are: how they are filtered (a list of values, or a range) and added up. */
+  kind: ColumnKind;
+  /** Where it comes from, to list the fields in groups as Saiku's dimension tree. */
+  group: ColumnGroup;
 }
+
+export type ColumnKind = "text" | "number" | "boolean" | "date";
+/** collection: what Collect Earth Cloud knows of the record; plotFile: from the plot file; survey: the plot's answers; entity: the nested table's own; area: the areas. */
+export type ColumnGroup = "collection" | "plotFile" | "survey" | "entity" | "area";
+
+const KIND_OF_TYPE: Record<string, ColumnKind> = { code: "text", boolean: "boolean", integer: "number", real: "number", text: "text", date: "date", time: "text" };
 
 export interface Cube {
   /** The table's name in the model ("plot", or the multiple entity's). */
@@ -76,20 +87,24 @@ export function csvField(value: string): string {
 }
 
 /** The fixed columns: what Collect Earth Cloud knows of each record, beside its answers. */
-const FIXED: { id: string; key: MessageKey; sql: (alias: string, t: Translate) => string; rounds?: boolean; values?: (t: Translate) => Record<string, string> }[] = [
-  { id: "_plot", key: "analysis.col.plot", sql: (a) => `${a}._plot` },
-  { id: "_operator", key: "analysis.col.operator", sql: (a) => `${a}._operator` },
-  { id: "_round", key: "analysis.col.round", sql: (a) => `${a}._round`, rounds: true },
+const FIXED: { id: string; key: MessageKey; sql: (alias: string, t: Translate) => string; kind: ColumnKind; rounds?: boolean; values?: (t: Translate) => Record<string, string> }[] = [
+  { id: "_plot", key: "analysis.col.plot", sql: (a) => `${a}._plot`, kind: "text" },
+  { id: "_operator", key: "analysis.col.operator", sql: (a) => `${a}._operator`, kind: "text" },
+  { id: "_round", key: "analysis.col.round", sql: (a) => `${a}._round`, kind: "text", rounds: true },
   {
     id: "_assessment",
     key: "analysis.col.assessment",
     sql: (a, t) =>
       `CASE ${a}._assessment WHEN 'main' THEN ${quoteString(t("analysis.assessment.main"))} WHEN 'check' THEN ${quoteString(t("analysis.assessment.check"))} WHEN 'other' THEN ${quoteString(t("analysis.assessment.other"))} END`,
+    kind: "text",
     rounds: true,
     values: (t) => ({ main: t("analysis.assessment.main"), check: t("analysis.assessment.check"), other: t("analysis.assessment.other") }),
   },
-  { id: "_submitted", key: "analysis.col.submitted", sql: (a) => `${a}._submitted` },
-  { id: "_saved_on", key: "analysis.col.savedOn", sql: (a) => `${a}._saved_on` },
+  { id: "_submitted", key: "analysis.col.submitted", sql: (a) => `${a}._submitted`, kind: "boolean" },
+  { id: "_saved_on", key: "analysis.col.savedOn", sql: (a) => `${a}._saved_on`, kind: "date" },
+  // The month and the week, to follow the work over time (Saiku split the save date into year, month and day)
+  { id: "_saved_month", key: "analysis.col.savedMonth", sql: (a) => `strftime(${a}._saved_on, '%Y-%m')`, kind: "text" },
+  { id: "_saved_week", key: "analysis.col.savedWeek", sql: (a) => `strftime(${a}._saved_on, '%G-W%V')`, kind: "text" },
 ];
 
 /**
@@ -112,12 +127,13 @@ export function cubeOf(data: Pick<AnalysisData, "model" | "scope" | "areas">, ta
     used.add(out);
     return out;
   };
-  const add = (id: string, name: string, alt: string, sql: string, values?: Record<string, string>) =>
-    columns.push({ id, name: unique(name, alt), sql, ...(values ? { values } : {}) });
+  const add = (id: string, name: string, alt: string, sql: string, kind: ColumnKind, group: ColumnGroup, values?: Record<string, string>) =>
+    columns.push({ id, name: unique(name, alt), sql, kind, group, ...(values ? { values } : {}) });
   const labelsOfList = (list: string) => Object.fromEntries(model.lists[list].map((i) => [i.code, labelIn(i.labels, language, model, i.code)]));
 
-  const answers = (tm: AnalysisTableModel, alias: string, idPrefix: string) => {
+  const answers = (tm: AnalysisTableModel, alias: string, idPrefix: string, ownGroup: ColumnGroup) => {
     for (const c of tm.columns) {
+      const group: ColumnGroup = c.fromPlotFile ? "plotFile" : ownGroup;
       const label = labelIn(c.labels, language, model, c.name);
       const id = `${idPrefix}${c.name}`;
       const col = `${alias}.${quoteIdent(c.name)}`;
@@ -125,26 +141,26 @@ export function cubeOf(data: Pick<AnalysisData, "model" | "scope" | "areas">, ta
         const j = `c${joins.length}`;
         joins.push(`LEFT JOIN _codes ${j} ON ${j}.list = ${quoteString(c.list)} AND ${j}.code = ${col}`);
         const values = labelsOfList(c.list);
-        add(id, label, c.name, `COALESCE(${j}.label, ${col})`, values);
-        add(`${id}#code`, t("analysis.code", { label }), c.name, col);
-        for (let k = 0; k < (depths[c.list] ?? 0); k++) add(`${id}#${k}`, t("analysis.level", { label, level: k + 1 }), c.name, `${j}.level_${k}`, values);
+        add(id, label, c.name, `COALESCE(${j}.label, ${col})`, "text", group, values);
+        add(`${id}#code`, t("analysis.code", { label }), c.name, col, "text", group);
+        for (let k = 0; k < (depths[c.list] ?? 0); k++) add(`${id}#${k}`, t("analysis.level", { label, level: k + 1 }), c.name, `${j}.level_${k}`, "text", group, values);
       } else {
-        add(id, label, c.name, col);
+        add(id, label, c.name, col, c.multiple ? "text" : (KIND_OF_TYPE[c.type] ?? "text"), group);
       }
     }
   };
 
   const nested = table.name !== "plot";
-  if (nested) answers(table, "t", "");
+  if (nested) answers(table, "t", "", "entity");
   const plotAlias = nested ? "p" : "t";
   for (const f of FIXED) {
     if (f.rounds && data.scope === "own") continue;
-    add(f.id, t(f.key), f.id, f.sql(plotAlias, t), f.values?.(t));
+    add(f.id, t(f.key), f.id, f.sql(plotAlias, t), f.kind, "collection", f.values?.(t));
   }
-  answers(plot, plotAlias, nested ? "plot." : "");
+  answers(plot, plotAlias, nested ? "plot." : "", "survey");
   if (data.areas && !nested) {
-    add("expansion_factor", t("analysis.col.area"), "expansion_factor", `${plotAlias}.expansion_factor`);
-    add("plot_weight", t("analysis.col.weight"), "plot_weight", `${plotAlias}.plot_weight`);
+    add("expansion_factor", t("analysis.col.area"), "expansion_factor", `${plotAlias}.expansion_factor`, "number", "area");
+    add("plot_weight", t("analysis.col.weight"), "plot_weight", `${plotAlias}.plot_weight`, "number", "area");
   }
   const from = nested ? `${quoteIdent(table.name)} t JOIN plot p ON p._record = t._record` : "plot t";
   const sql = `SELECT ${columns.map((c) => `${c.sql} AS ${quoteIdent(c.name)}`).join(", ")} FROM ${from} ${joins.join(" ")}`;
@@ -170,39 +186,38 @@ export interface ViewConfig {
 }
 
 /**
- * The view the page opens with, as a Saiku user would start: the number of plots by land use (the survey's
- * land_use_category, else its first code question), with the area they stand for when the project file has areas;
- * for coordinators the first assessments only (the quality checks are other people's answers for the same plots).
+ * The view the page opens with, as a Saiku user would start: the first ready-made view (the plots and the area by
+ * land use, largest first; for coordinators the first assessments only, as the quality checks are other people's
+ * answers for the same plots). Perspective's panel starts closed: the question bar above it is the way in.
  */
 export function defaultView(data: Pick<AnalysisData, "model" | "scope" | "areas">, cube: Cube, t: Translate): ViewConfig {
-  const byId = new Map(cube.columns.map((c) => [c.id, c.name]));
-  const plot = data.model.tables.find((x) => x.name === "plot")!;
-  const nested = cube.table !== "plot";
-  let groupId: string | undefined;
-  if (nested) {
-    const tm = data.model.tables.find((x) => x.name === cube.table)!;
-    groupId = tm.keyColumn ?? tm.columns.find((c) => c.type === "code")?.name;
-  } else {
-    const preferred = plot.columns.find((c) => c.name === "land_use_category") ?? plot.columns.find((c) => c.type === "code" && c.list && !c.fromPlotFile);
-    groupId = preferred?.name;
-  }
-  const plots = byId.get("_plot")!;
-  const area = !nested ? byId.get("expansion_factor") : undefined;
-  const config: ViewConfig = {
-    plugin: "Datagrid",
-    // the panel where the questions are dragged into rows, columns and filters: open, as Saiku's
-    settings: true,
-    group_by: groupId && byId.has(groupId) ? [byId.get(groupId)!] : [],
-    split_by: [],
-    columns: area ? [plots, area] : [plots],
-    aggregates: area ? { [plots]: "count", [area]: "sum" } : { [plots]: "count" },
-    filter: [],
-    sort: [],
-    expressions: {},
+  const measures = measuresOf(cube, t);
+  const [first] = templatesOf(data, cube, measures, t);
+  return applyQuestion({ plugin: "Datagrid", settings: false, group_by: [], split_by: [], columns: [], aggregates: {}, filter: [], sort: [], expressions: {} }, first.question, measures);
+}
+
+/**
+ * A view fitted to the cube it is opened on: what names a column the cube does not have is left out (a coordinator's
+ * view shared with collectors filters on the assessment, which a collector's table has not; a column renamed in a new
+ * version of the survey), as are the person's own expressions reading such a column. Perspective refuses a view
+ * naming an unknown column.
+ */
+export function fitToCube(config: ViewConfig, cube: Cube): ViewConfig {
+  const known = new Set(cube.columns.map((c) => c.name));
+  const expressions = Object.fromEntries(
+    Object.entries(config.expressions ?? {}).filter(([, e]) => [...e.matchAll(/"((?:[^"\\]|\\.)*)"/g)].every((m) => known.has(m[1].replace(/\\(.)/g, "$1")))),
+  );
+  const ok = (n: string | null) => n === null || known.has(n) || n in expressions;
+  return {
+    ...config,
+    expressions,
+    group_by: (config.group_by ?? []).filter(ok),
+    split_by: (config.split_by ?? []).filter(ok),
+    columns: (config.columns ?? []).filter(ok),
+    filter: (config.filter ?? []).filter(([c]) => ok(c)),
+    sort: (config.sort ?? []).filter(([c]) => ok(c)),
+    ...(config.aggregates ? { aggregates: Object.fromEntries(Object.entries(config.aggregates).filter(([k]) => ok(k))) } : {}),
   };
-  const assessment = byId.get("_assessment");
-  if (assessment && data.scope === "project") config.filter = [[assessment, "==", t("analysis.assessment.main")]];
-  return config;
 }
 
 /** A view the person saved: its name, the table, and the configuration in the language it was saved in. */

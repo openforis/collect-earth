@@ -44,6 +44,7 @@ import {
   type PlatformStats,
   type PlotAssignment,
   type ProgressSettings,
+  type SharedAnalysisView,
   type PublicQuality,
   type ProjectRow,
   type ProjectStorage,
@@ -2745,6 +2746,20 @@ export class PostgresStore implements Store {
   async setProgressSettings(projectId: string, settings: ProgressSettings): Promise<void> {
     await this.withProject(projectId, async (client) => {
       await client.query('UPDATE projects SET progress_settings = $2 WHERE id = $1', [projectId, JSON.stringify(settings)]);
+    });
+  }
+
+  async getAnalysisViews(projectId: string): Promise<SharedAnalysisView[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT analysis_views FROM projects WHERE id = $1', [projectId]);
+      const stored = res.rows[0]?.analysis_views as SharedAnalysisView[] | null | undefined;
+      return Array.isArray(stored) ? stored : [];
+    });
+  }
+
+  async setAnalysisViews(projectId: string, views: SharedAnalysisView[]): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('UPDATE projects SET analysis_views = $2 WHERE id = $1', [projectId, JSON.stringify(views)]);
     });
   }
 

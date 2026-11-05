@@ -32,6 +32,7 @@ import type {
   PlatformStats,
   PlotAssignment,
   ProgressSettings,
+  SharedAnalysisView,
   PublicQuality,
   ProjectRow,
   ProjectStorage,
@@ -590,6 +591,10 @@ export interface Store {
   /** The progress settings; DEFAULT_PROGRESS_SETTINGS when none were saved. */
   getProgressSettings(projectId: string): Promise<ProgressSettings>;
   setProgressSettings(projectId: string, settings: ProgressSettings): Promise<void>;
+  /** The analysis views shared with the team, in name order; none when none were saved. */
+  getAnalysisViews(projectId: string): Promise<SharedAnalysisView[]>;
+  /** Replaces the shared analysis views. */
+  setAnalysisViews(projectId: string, views: SharedAnalysisView[]): Promise<void>;
   /** Logs a coordinator action at the current time. */
   appendAudit(projectId: string, entry: AuditInput): Promise<void>;
   /** The project's audit log, newest first (at, then id). Throws InvalidCursorError as listRecordEvents. */

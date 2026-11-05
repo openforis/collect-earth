@@ -2,6 +2,7 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
+import IconButton from "@mui/material/IconButton";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -21,13 +22,32 @@ import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
 import { translator, useT } from "../i18n";
-import { cubeOf, defaultView, parseSavedViews, tableChoices, translateView, withSavedView, type Cube, type SavedView, type ViewConfig } from "../analysisView";
+import ListSubheader from "@mui/material/ListSubheader";
+import Snackbar from "@mui/material/Snackbar";
+import Tooltip from "@mui/material/Tooltip";
+import Delete from "@mui/icons-material/Delete";
+import Download from "@mui/icons-material/Download";
+import Fullscreen from "@mui/icons-material/Fullscreen";
+import FullscreenExit from "@mui/icons-material/FullscreenExit";
+import Groups from "@mui/icons-material/Groups";
+import LinkIcon from "@mui/icons-material/Link";
+import Save from "@mui/icons-material/Save";
+import Tune from "@mui/icons-material/Tune";
+import { useCallback } from "react";
+import { deleteSharedAnalysisView, getSharedAnalysisViews, shareAnalysisView, type Role } from "../api";
+import { useLocalMode } from "../appContext";
+import { applyQuestion, decodeView, drillColumns, encodeView, measuresOf, questionOf, templatesOf, valuesSql, type Filter, type Measure, type Question, type Template } from "../analysisQuestion";
+import { cubeOf, defaultView, fitToCube, parseSavedViews, tableChoices, translateView, withSavedView, type Cube, type SavedView, type ViewConfig } from "../analysisView";
 import type { AnalysisEngine, Step, Viewer } from "../analysisEngine";
-
-type EngineModule = typeof import("../analysisEngine");
+import { DrillDialog } from "../components/analysis/DrillDialog";
+import { FilterBar } from "../components/analysis/FilterBar";
+import { QuestionBar } from "../components/analysis/QuestionBar";
 import { linkProps, pathFor } from "../router";
+import { saveBlob } from "../saveBlob";
 import { getAnalysisViews, storeAnalysisViews } from "../storage";
 import { useLoad } from "../useLoad";
+
+type EngineModule = typeof import("../analysisEngine");
 
 /** The analysis of the collected data: a pivot table and charts over the survey's own tables (what replaces Saiku). */
 export function AnalysisPage({ projectId }: { projectId: string }) {
@@ -63,87 +83,144 @@ export function AnalysisPage({ projectId }: { projectId: string }) {
           <EmptyState heading title={t(data.data.scope === "own" ? "analysis.emptyOwn" : "analysis.empty")} />
         </Paper>
       ) : data.data ? (
-        <Pivot projectId={projectId} data={data.data} language={language} />
+        <Pivot projectId={projectId} projectName={project.data?.name ?? ""} role={project.data?.role ?? "operator"} data={data.data} language={language} />
       ) : null}
     </AppShell>
   );
 }
 
-function Pivot({ projectId, data, language }: { projectId: string; data: AnalysisData; language: string }) {
+/** What is shown: the cube, its measures and ready-made views, and the language its names are in. */
+interface Shown {
+  cube: Cube;
+  measures: Measure[];
+  templates: Template[];
+  language: string;
+}
+
+/** The chosen view in the views list: a ready-made one, one shared with the team, or one of the person's own. */
+type ViewKey = `tpl:${string}` | `team:${string}` | `mine:${string}` | "";
+
+/** A configuration as it is kept: without the table's and title's names, which the page gives when it opens it. */
+function keepable(config: ViewConfig): ViewConfig {
+  const { table: _table, title: _title, ...rest } = config;
+  return rest;
+}
+
+function Pivot({ projectId, projectName, role, data, language }: { projectId: string; projectName: string; role: Role; data: AnalysisData; language: string }) {
   const t = useT();
+  const local = useLocalMode();
+  const coordinator = role === "admin";
   const host = useRef<HTMLDivElement>(null);
   const engine = useRef<AnalysisEngine | null>(null);
   const engineModule = useRef<EngineModule | null>(null);
   const viewer = useRef<Viewer | null>(null);
-  /** What is shown: the cube and the language it is in (to translate the view when either changes). */
-  const shown = useRef<{ cube: Cube; language: string } | null>(null);
+  const shownRef = useRef<Shown | null>(null);
   /** One change at a time: the engine's calls follow each other. */
   const queue = useRef<Promise<unknown>>(Promise.resolve());
+  /** The language of the code tables' labels in DuckDB. */
+  const codesLanguage = useRef(language);
   const [step, setStep] = useState<Step | "ready">("database");
   const [error, setError] = useState<unknown>(null);
   const [rows, setRows] = useState<number | null>(null);
   const [table, setTable] = useState("plot");
-  const [views, setViews] = useState<SavedView[]>(() => parseSavedViews(getAnalysisViews(projectId)));
-  const [viewName, setViewName] = useState("");
-  const [saving, setSaving] = useState<string | null>(null);
+  const [shown, setShown] = useState<Shown | null>(null);
+  const [config, setConfig] = useState<ViewConfig | null>(null);
+  const [mine, setMine] = useState<SavedView[]>(() => parseSavedViews(getAnalysisViews(projectId)));
+  const team = useLoad(() => (local ? Promise.resolve([]) : getSharedAnalysisViews(projectId)), [projectId, local]);
+  const [selected, setSelected] = useState<ViewKey>("tpl:default");
+  const [changed, setChanged] = useState(false);
+  const [saving, setSaving] = useState<"mine" | "team" | null>(null);
+  const [drill, setDrill] = useState<Filter[] | null>(null);
+  const [fullScreen, setFullScreen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const tables = useMemo(() => tableChoices(data.model, language, t), [data, language, t]);
 
+  /** How many changes are under way: the pivot shows a progress line and the bars wait meanwhile. */
+  const [working, setWorking] = useState(0);
   const run = (task: () => Promise<void>) => {
-    queue.current = queue.current.then(task).catch((e: unknown) => {
-      console.error("analysis", e);
-      setError(e);
-    });
+    setWorking((n) => n + 1);
+    queue.current = queue.current
+      .then(task)
+      .catch((e: unknown) => {
+        console.error("analysis", e);
+        setError(e);
+      })
+      .finally(() => setWorking((n) => n - 1));
     return queue.current;
   };
 
-  /** The language of the code tables' labels in DuckDB. */
-  const codesLanguage = useRef(language);
+  /** Another view of the table shown (the same language): only the view is replaced, the table stays. */
+  const restyle = (make: (s: Shown, current: ViewConfig) => ViewConfig) =>
+    run(async () => {
+      const v = viewer.current;
+      const s = shownRef.current;
+      if (!v || !s) return;
+      const current = await v.save();
+      await v.restore({ ...fitToCube(make(s, current), s.cube), table: current.table, title: current.title });
+      setConfig(await v.save());
+    });
 
-  /**
-   * Shows a table with a view: a saved one (translated when it was saved in another language), the default one
-   * (`fresh`), or else the one shown, its column names translated (when only the language changed).
-   */
-  const show = (nextTable: string, saved: SavedView | null, fresh = false) =>
+  /** Shows a table with the view `make` gives for its cube (from the cube shown before, for a translation). */
+  const show = (nextTable: string, make: (next: Shown, before: Shown | null, current: ViewConfig | null) => ViewConfig) =>
     run(async () => {
       const e = engine.current;
       const v = viewer.current;
       if (!e || !v) return;
       const cube = cubeOf(data, nextTable, language, t);
-      let config: ViewConfig;
-      if (saved) {
-        config = saved.language === language ? saved.config : translateView(saved.config, cubeOf(data, saved.table, saved.language, translator(saved.language)), cube);
-      } else if (!fresh && shown.current && shown.current.cube.table === nextTable) {
-        config = translateView(await v.save(), shown.current.cube, cube);
-      } else {
-        config = defaultView(data, cube, t);
-      }
+      const measures = measuresOf(cube, t);
+      const next: Shown = { cube, measures, templates: templatesOf(data, cube, measures, t), language };
+      const before = shownRef.current;
+      const current = before ? await v.save() : null;
+      const viewConfig = fitToCube(make(next, before, current), cube);
       if (codesLanguage.current !== language) {
         await e.setLanguage(data, language);
         codesLanguage.current = language;
       }
-      setRows(await e.show(v, cube, config, tables.find((x) => x.name === nextTable)?.label ?? nextTable));
-      shown.current = { cube, language };
+      setRows(await e.show(v, cube, viewConfig, tables.find((x) => x.name === nextTable)?.label ?? nextTable));
+      shownRef.current = next;
+      setShown(next);
+      setTable(nextTable);
+      setConfig(await v.save());
     });
 
-  // DuckDB and Perspective start with the page (their code is loaded only now)
+  const savedConfig = (view: { table: string; language: string; config: ViewConfig }, next: Shown) =>
+    view.language === next.language ? view.config : translateView(view.config, cubeOf(data, view.table, view.language, translator(view.language)), next.cube);
+  const templateConfig = (id: string, next: Shown, current: ViewConfig | null) => {
+    const tpl = next.templates.find((x) => x.id === id) ?? next.templates[0];
+    const base = current ? { ...keepable(current), expressions: {}, aggregates: {}, columns_config: {} } : keepable(defaultView(data, next.cube, t));
+    return applyQuestion(base, tpl.question, next.measures);
+  };
+
+  // DuckDB and Perspective start with the page (their code is loaded only now); a link may bring a view (#view=…)
   useEffect(() => {
     let closed = false;
     (async () => {
       try {
         const mod = await import("../analysisEngine");
         engineModule.current = mod;
-        const { AnalysisEngine, createViewer } = mod;
         mod.setViewerLanguage(language);
-        const e = await AnalysisEngine.open(data, language, (s) => !closed && setStep(s));
+        const e = await mod.AnalysisEngine.open(data, language, (s) => !closed && setStep(s));
         if (closed) return void e.close();
         engine.current = e;
         setStep("pivot");
-        const v = createViewer();
+        const v = mod.createViewer();
         v.style.height = "100%";
         v.style.width = "100%";
         host.current?.appendChild(v);
         viewer.current = v;
-        await show("plot", null, true);
+        // Perspective's panel and the bars are one view: what changes in the panel shows in the bars
+        v.addEventListener("perspective-config-update", () => {
+          void v.save().then((c) => setConfig(c));
+        });
+        // A click on a cell lists its plots (the drill-through)
+        v.addEventListener("perspective-click", (event) => {
+          const detail = (event as CustomEvent<{ config?: { filter?: Filter[] } }>).detail;
+          setDrill(detail?.config?.filter ?? []);
+        });
+        const linked = window.location.hash.startsWith("#view=") ? decodeView(window.location.hash.slice(6)) : null;
+        const linkedTable = linked && data.model.tables.some((x) => x.name === linked.table) ? linked.table : "plot";
+        await show(linkedTable, (next) => (linked ? savedConfig(linked, next) : templateConfig("default", next, null)));
+        if (linked) setSelected("");
         if (!closed) setStep("ready");
       } catch (e) {
         if (!closed) setError(e);
@@ -165,50 +242,143 @@ function Pivot({ projectId, data, language }: { projectId: string; data: Analysi
   // Another language: the labels and the column names change, the view stays
   useEffect(() => {
     engineModule.current?.setViewerLanguage(language);
-    if (shown.current && shown.current.language !== language) void show(shown.current.cube.table, null);
+    const before = shownRef.current;
+    if (before && before.language !== language) void show(before.cube.table, (next, b, current) => (current && b ? translateView(current, b.cube, next.cube) : templateConfig("default", next, null)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
 
-  const keepViews = (next: SavedView[]) => {
-    setViews(next);
-    storeAnalysisViews(projectId, next.length ? JSON.stringify(next) : null);
-  };
+  // Esc leaves the full screen
+  useEffect(() => {
+    if (!fullScreen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setFullScreen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullScreen]);
+
+  const question = shown && config ? questionOf(config, shown.measures) : null;
+
+  /** The bars' changes: the view shown with the question asked, its other settings kept. */
+  const ask = (q: Question) =>
+    run(async () => {
+      const v = viewer.current;
+      const s = shownRef.current;
+      if (!v || !s) return;
+      const next = applyQuestion(await v.save(), q, s.measures);
+      setConfig(next);
+      setChanged(true);
+      await v.restore(next);
+    });
+
+  const loadValues = useCallback(async (column: string, filters: Filter[]) => {
+    const e = engine.current;
+    const s = shownRef.current;
+    if (!e || !s) return [];
+    return (await e.rows(valuesSql(s.cube, column, filters, 1000))).map((r) => ({ value: r.value, n: Number(r.n) }));
+  }, []);
+  const query = useCallback(async (sql: string) => (engine.current ? engine.current.rows(sql) : []), []);
+
   const chooseTable = (name: string) => {
-    setTable(name);
-    setViewName("");
-    void show(name, null, true);
+    setSelected("tpl:default");
+    setChanged(false);
+    void show(name, (next, _b, current) => templateConfig("default", next, current));
   };
-  const chooseView = (name: string) => {
-    setViewName(name);
-    const saved = views.find((v) => v.name === name && v.table === table) ?? null;
-    void show(table, saved, !saved);
+  const chooseView = (key: ViewKey) => {
+    setSelected(key);
+    setChanged(false);
+    const [kind, ...rest] = key.split(":");
+    const name = rest.join(":");
+    const same = shownRef.current?.cube.table === table && shownRef.current.language === language;
+    if (kind === "tpl") {
+      if (same) void restyle((s, current) => templateConfig(name, s, current));
+      else void show(table, (next, _b, current) => templateConfig(name, next, current));
+      return;
+    }
+    const view = (kind === "team" ? (team.data ?? []).find((v) => v.name === name && v.table === table) : mine.find((v) => v.name === name && v.table === table)) as
+      | { table: string; language: string; config: ViewConfig }
+      | undefined;
+    if (!view) return;
+    if (same) void restyle((s) => savedConfig(view, s));
+    else void show(view.table, (next) => savedConfig(view, next));
+  };
+  const keepMine = (next: SavedView[]) => {
+    setMine(next);
+    storeAnalysisViews(projectId, next.length ? JSON.stringify(next) : null);
   };
   const save = async (name: string) => {
     const v = viewer.current;
-    if (!v || !shown.current) return;
-    // the table's and title's names are the page's, given again when the view is opened
-    const { table: _table, title: _title, ...config } = await v.save();
-    keepViews(withSavedView(views, { name, table, language, config }));
-    setViewName(name);
-    setSaving(null);
+    if (!v) return;
+    const kept = keepable(await v.save());
+    try {
+      if (saving === "team") {
+        team.setData(await shareAnalysisView(projectId, { name, table, language, config: kept }));
+        setSelected(`team:${name}`);
+        setNotice(t("analysis.sharedDone"));
+      } else {
+        keepMine(withSavedView(mine, { name, table, language, config: kept }));
+        setSelected(`mine:${name}`);
+      }
+      setChanged(false);
+      setSaving(null);
+    } catch (e) {
+      setError(e);
+    }
   };
-  const remove = () => {
-    keepViews(views.filter((v) => !(v.name === viewName && v.table === table)));
-    setViewName("");
+  const remove = async () => {
+    const [kind, ...rest] = selected.split(":");
+    const name = rest.join(":");
+    try {
+      if (kind === "team") team.setData(await deleteSharedAnalysisView(projectId, name, table));
+      else keepMine(mine.filter((v) => !(v.name === name && v.table === table)));
+      chooseView("tpl:default");
+    } catch (e) {
+      setError(e);
+    }
   };
+  const copyLink = async () => {
+    const v = viewer.current;
+    if (!v) return;
+    const url = `${window.location.origin}${window.location.pathname}#view=${encodeView({ table, language, config: keepable(await v.save()) })}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setNotice(t("analysis.linkCopied"));
+    } catch {
+      window.prompt(t("analysis.linkCopy"), url);
+    }
+  };
+  const download = () =>
+    run(async () => {
+      const e = engine.current;
+      const v = viewer.current;
+      if (!e || !v) return;
+      const csv = await e.viewCsv(v);
+      saveBlob(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }), `${fileBase()}.csv`);
+    });
+  const fileBase = () => {
+    const label = selectedLabel() || t("analysis.title");
+    return `${projectName} - ${label}`.replace(/[\\/:*?"<>|]+/g, "_").slice(0, 120);
+  };
+  const selectedLabel = () => {
+    const [kind, ...rest] = selected.split(":");
+    const name = rest.join(":");
+    if (kind === "tpl") return shown?.templates.find((x) => x.id === name)?.label ?? "";
+    return name;
+  };
+  const togglePanel = () =>
+    run(async () => {
+      await viewer.current?.toggleConfig();
+    });
 
-  const ready = step === "ready";
-  const tableViews = views.filter((v) => v.table === table);
+  const ready = step === "ready" && working === 0;
+  const teamViews = (team.data ?? []).filter((v) => v.table === table);
+  const myViews = mine.filter((v) => v.table === table);
+  const canDelete = selected.startsWith("mine:") || (selected.startsWith("team:") && coordinator);
   const plotRows = data.tables.find((x) => x.name === "plot")?.rows ?? 0;
-  return (
-    <Stack spacing={2}>
-      <Typography color="text.secondary">
-        {t(data.scope === "own" ? "analysis.explainOwn" : "analysis.explain", { count: formatNumber(plotRows, language) })}
-      </Typography>
-      {!data.areas && data.scope === "project" && <Alert severity="info">{t("analysis.noAreas")}</Alert>}
-      {data.areas && data.areas.unmatched > 0 && <Alert severity="warning">{t("analysis.areasUnmatched", { file: data.areas.source, count: data.areas.unmatched })}</Alert>}
-      <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
-        <TextField select size="small" label={t("analysis.table")} value={table} onChange={(e) => chooseTable(e.target.value)} disabled={!ready} sx={{ width: { xs: "100%", sm: 240 } }}>
+  const drillCols = shown && question ? drillColumns(shown.cube, question, shown.measures) : [];
+
+  const toolbar = (
+    <Stack spacing={1.5}>
+      <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", alignItems: "center" }}>
+        <TextField select size="small" label={t("analysis.table")} value={table} onChange={(e) => chooseTable(e.target.value)} disabled={!ready} sx={{ width: { xs: "100%", sm: 200 } }}>
           {tables.map((x) => (
             <MenuItem key={x.name} value={x.name}>
               {x.label}
@@ -219,35 +389,108 @@ function Pivot({ projectId, data, language }: { projectId: string; data: Analysi
           select
           size="small"
           label={t("analysis.view")}
-          value={viewName}
-          onChange={(e) => chooseView(e.target.value)}
+          value={selected}
+          onChange={(e) => chooseView(e.target.value as ViewKey)}
           disabled={!ready}
-          sx={{ width: { xs: "100%", sm: 300 } }}
-          slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
+          sx={{ width: { xs: "100%", sm: 340 } }}
+          slotProps={{ select: { displayEmpty: true, renderValue: () => (selected ? selectedLabel() : t("analysis.custom")) + (changed ? ` · ${t("analysis.changed")}` : "") }, inputLabel: { shrink: true } }}
         >
-          <MenuItem value="">{t("analysis.defaultView")}</MenuItem>
-          {tableViews.map((v) => (
-            <MenuItem key={v.name} value={v.name}>
+          <ListSubheader>{t("analysis.views.ready")}</ListSubheader>
+          {(shown?.templates ?? []).map((x) => (
+            <MenuItem key={x.id} value={`tpl:${x.id}`}>
+              {x.label}
+            </MenuItem>
+          ))}
+          {!local && <ListSubheader>{t("analysis.views.team")}</ListSubheader>}
+          {!local && teamViews.length === 0 && (
+            <MenuItem disabled value="none-team">
+              {t(coordinator ? "analysis.views.teamNoneCoordinator" : "analysis.views.teamNone")}
+            </MenuItem>
+          )}
+          {teamViews.map((v) => (
+            <MenuItem key={`team:${v.name}`} value={`team:${v.name}`}>
+              <Groups fontSize="small" sx={{ mr: 1, color: "text.secondary" }} />
+              {v.name}
+              <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                {v.savedBy}
+              </Typography>
+            </MenuItem>
+          ))}
+          <ListSubheader>{t("analysis.views.mine")}</ListSubheader>
+          {myViews.length === 0 && (
+            <MenuItem disabled value="none-mine">
+              {t("analysis.views.mineNone")}
+            </MenuItem>
+          )}
+          {myViews.map((v) => (
+            <MenuItem key={`mine:${v.name}`} value={`mine:${v.name}`}>
               {v.name}
             </MenuItem>
           ))}
         </TextField>
-        <Button variant="outlined" onClick={() => setSaving(viewName)} disabled={!ready}>
+        <Button size="small" variant="outlined" startIcon={<Save />} onClick={() => setSaving("mine")} disabled={!ready}>
           {t("analysis.saveView")}
         </Button>
-        {viewName && (
-          <Button color="error" onClick={remove} disabled={!ready}>
-            {t("analysis.deleteView")}
+        {coordinator && !local && (
+          <Button size="small" variant="outlined" startIcon={<Groups />} onClick={() => setSaving("team")} disabled={!ready}>
+            {t("analysis.shareView")}
           </Button>
         )}
-        {rows !== null && (
-          <Typography variant="body2" color="text.secondary" sx={{ ml: "auto" }}>
-            {t("analysis.rows", { count: formatNumber(rows, language) })}
-          </Typography>
+        {canDelete && (
+          <Tooltip title={t("analysis.deleteView")}>
+            <IconButton aria-label={t("analysis.deleteView")} onClick={() => void remove()} disabled={!ready} color="error">
+              <Delete />
+            </IconButton>
+          </Tooltip>
         )}
+        <Box sx={{ flex: 1 }} />
+        <Tooltip title={t("analysis.download")}>
+          <span>
+            <IconButton aria-label={t("analysis.download")} onClick={() => void download()} disabled={!ready}>
+              <Download />
+            </IconButton>
+          </span>
+        </Tooltip>
+        {!local && (
+          <Tooltip title={t("analysis.linkCopy")}>
+            <span>
+              <IconButton aria-label={t("analysis.linkCopy")} onClick={() => void copyLink()} disabled={!ready}>
+                <LinkIcon />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+        <Tooltip title={t(config?.settings ? "analysis.panelHide" : "analysis.panelShow")}>
+          <span>
+            <IconButton aria-label={t("analysis.panelShow")} onClick={() => void togglePanel()} disabled={!ready} color={config?.settings ? "primary" : "default"}>
+              <Tune />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title={t(fullScreen ? "analysis.fullScreenExit" : "analysis.fullScreen")}>
+          <IconButton aria-label={t(fullScreen ? "analysis.fullScreenExit" : "analysis.fullScreen")} onClick={() => setFullScreen((f) => !f)}>
+            {fullScreen ? <FullscreenExit /> : <Fullscreen />}
+          </IconButton>
+        </Tooltip>
       </Box>
+      {shown && question && (
+        <>
+          <QuestionBar cube={shown.cube} measures={shown.measures} question={question} onChange={(q) => void ask(q)} disabled={!ready} />
+          <FilterBar cube={shown.cube} filters={question.filters} onChange={(filters) => void ask({ ...question, filters })} loadValues={loadValues} disabled={!ready} />
+        </>
+      )}
+    </Stack>
+  );
+
+  return (
+    <Stack spacing={2}>
+      <Typography color="text.secondary">
+        {t(data.scope === "own" ? "analysis.explainOwn" : "analysis.explain", { count: formatNumber(plotRows, language) })}
+      </Typography>
+      {!data.areas && data.scope === "project" && <Alert severity="info">{t("analysis.noAreas")}</Alert>}
+      {data.areas && data.areas.unmatched > 0 && <Alert severity="warning">{t("analysis.areasUnmatched", { file: data.areas.source, count: data.areas.unmatched })}</Alert>}
       <ErrorAlert error={error} />
-      {!ready && !error && (
+      {step !== "ready" && !error && (
         <Box role="status">
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             {t(`analysis.step.${step}`)}
@@ -255,24 +498,57 @@ function Pivot({ projectId, data, language }: { projectId: string; data: Analysi
           <LinearProgress />
         </Box>
       )}
-      <Paper variant="outlined" sx={{ height: { xs: "70vh", md: "calc(100vh - 300px)" }, minHeight: 420, overflow: "hidden" }}>
-        <Box ref={host} sx={{ height: "100%", width: "100%" }} data-testid="analysis-pivot" />
-      </Paper>
-      <Typography variant="body2" color="text.secondary">
-        {t("analysis.help")}
-      </Typography>
+      <Box
+        sx={
+          fullScreen
+            ? { position: "fixed", inset: 0, zIndex: 1200, bgcolor: "background.default", p: 2, display: "flex", flexDirection: "column", gap: 1.5, overflow: "auto" }
+            : { display: "flex", flexDirection: "column", gap: 1.5 }
+        }
+      >
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          {toolbar}
+        </Paper>
+        <Paper variant="outlined" sx={{ position: "relative", flex: fullScreen ? "1 1 auto" : undefined, height: fullScreen ? undefined : { xs: "70vh", md: "calc(100vh - 220px)" }, minHeight: 440, overflow: "hidden" }}>
+          {step === "ready" && working > 0 && <LinearProgress sx={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 2 }} aria-label={t("analysis.working")} />}
+          <Box ref={host} sx={{ height: "100%", width: "100%" }} data-testid="analysis-pivot" />
+        </Paper>
+        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+          {rows !== null && (
+            <Typography variant="body2" color="text.secondary">
+              {t("analysis.rows", { count: formatNumber(rows, language) })}
+            </Typography>
+          )}
+          <Typography variant="body2" color="text.secondary">
+            {t("analysis.help")}
+          </Typography>
+        </Box>
+      </Box>
       <SaveDialog
         open={saving !== null}
-        initial={saving ?? ""}
-        taken={(name) => tableViews.some((v) => v.name === name)}
+        team={saving === "team"}
+        initial={selected.startsWith(saving === "team" ? "team:" : "mine:") ? selectedLabel() : ""}
+        taken={(name) => (saving === "team" ? teamViews : myViews).some((v) => v.name === name)}
         onCancel={() => setSaving(null)}
         onSave={(name) => void save(name)}
       />
+      {drill && shown && (
+        <DrillDialog
+          projectId={projectId}
+          cube={shown.cube}
+          filters={drill}
+          columns={drillCols}
+          query={query}
+          plotLinks={role !== "operator"}
+          fileName={`${fileBase()} - ${t("analysis.d.file")}`}
+          onClose={() => setDrill(null)}
+        />
+      )}
+      <Snackbar open={notice !== null} autoHideDuration={4000} onClose={() => setNotice(null)} message={notice ?? ""} />
     </Stack>
   );
 }
 
-function SaveDialog({ open, initial, taken, onCancel, onSave }: { open: boolean; initial: string; taken: (name: string) => boolean; onCancel: () => void; onSave: (name: string) => void }) {
+function SaveDialog({ open, team, initial, taken, onCancel, onSave }: { open: boolean; team: boolean; initial: string; taken: (name: string) => boolean; onCancel: () => void; onSave: (name: string) => void }) {
   const t = useT();
   const [name, setName] = useState(initial);
   useEffect(() => setName(initial), [initial, open]);
@@ -285,17 +561,17 @@ function SaveDialog({ open, initial, taken, onCancel, onSave }: { open: boolean;
           if (trimmed) onSave(trimmed);
         }}
       >
-        <DialogTitle>{t("analysis.saveTitle")}</DialogTitle>
+        <DialogTitle>{t(team ? "analysis.shareTitle" : "analysis.saveTitle")}</DialogTitle>
         <DialogContent>
           <Typography color="text.secondary" sx={{ mb: 2 }}>
-            {t("analysis.saveExplain")}
+            {t(team ? "analysis.shareExplain" : "analysis.saveExplain")}
           </Typography>
           <TextField autoFocus fullWidth label={t("analysis.viewName")} value={name} onChange={(e) => setName(e.target.value)} helperText={trimmed && taken(trimmed) ? t("analysis.replaces") : " "} slotProps={{ htmlInput: { maxLength: 80 } }} />
         </DialogContent>
         <DialogActions>
           <Button onClick={onCancel}>{t("common.cancel")}</Button>
           <Button type="submit" variant="contained" disabled={!trimmed}>
-            {t("common.save")}
+            {t(team ? "analysis.shareDo" : "common.save")}
           </Button>
         </DialogActions>
       </form>

@@ -2725,6 +2725,29 @@ export async function getAnalysis(projectId: string): Promise<AnalysisData> {
   return request<AnalysisData>("GET", `${p(projectId)}/analysis`);
 }
 
+/** A view a coordinator shared with the team (the analysis page). */
+export interface SharedAnalysisView {
+  name: string;
+  table: string;
+  language: string;
+  config: Record<string, unknown>;
+  savedBy: string;
+  savedAt: number;
+}
+
+export async function getSharedAnalysisViews(projectId: string): Promise<SharedAnalysisView[]> {
+  return (await request<{ views: SharedAnalysisView[] }>("GET", `${p(projectId)}/analysis/views`)).views;
+}
+
+/** Shares a view with the team (coordinators), replacing one of the same name and table; gives them all. */
+export async function shareAnalysisView(projectId: string, view: { name: string; table: string; language: string; config: Record<string, unknown> }): Promise<SharedAnalysisView[]> {
+  return (await request<{ views: SharedAnalysisView[] }>("PUT", `${p(projectId)}/analysis/views`, { json: view })).views;
+}
+
+export async function deleteSharedAnalysisView(projectId: string, name: string, table: string): Promise<SharedAnalysisView[]> {
+  return (await request<{ views: SharedAnalysisView[] }>("DELETE", `${p(projectId)}/analysis/views?${new URLSearchParams({ name, table })}`)).views;
+}
+
 /** The signed-in person's own page ("My work", any member). */
 export async function getMyWork(projectId: string, timeZone: string): Promise<PersonData> {
   return toPersonData(await request<unknown>("GET", `${p(projectId)}/my-work?${new URLSearchParams({ tz: timeZone })}`));

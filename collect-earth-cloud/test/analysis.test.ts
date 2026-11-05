@@ -205,3 +205,49 @@ describe('GET /analysis', () => {
     expect([403, 404]).toContain(res.statusCode);
   });
 });
+
+describe('the views shared with the team', () => {
+  let ctx: TestContext;
+  let pid: string;
+  let owner: { token: string; userId: string };
+  let ana: string;
+  const call = (method: 'GET' | 'PUT' | 'DELETE', path: string, token: string, payload?: unknown) =>
+    ctx.app.inject({ method, url: `/v1/projects/${pid}/analysis/views${path}`, headers: bearer(token), ...(payload === undefined ? {} : { payload: payload as Record<string, unknown> }) });
+
+  beforeEach(async () => {
+    ctx = await makeContext();
+    owner = await setupPlatformAdmin(ctx.app);
+    pid = (await createProject(ctx.app, 'Views')).projectId;
+    await ctx.store.addMembership(pid, owner.userId, 'admin');
+    const invite = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${pid}/invites`, headers: bearer(owner.token), payload: { role: 'operator', maxUses: 1 } });
+    ana = (await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username: 'ana', password: 'password12', inviteToken: invite.json().inviteToken } })).json().token;
+  });
+  afterEach(async () => {
+    await ctx.app.close();
+  });
+
+  const view = (name: string, over: Record<string, unknown> = {}) => ({ name, table: 'plot', language: 'en', config: { plugin: 'Y Bar', group_by: ['Land use'] }, ...over });
+
+  it('are saved by coordinators, replaced by name and table, seen by everyone, deleted', async () => {
+    expect((await call('GET', '', ana)).json()).toEqual({ views: [] });
+    expect((await call('PUT', '', owner.token, view('Land use'))).statusCode).toBe(200);
+    expect((await call('PUT', '', owner.token, view('Area by region'))).statusCode).toBe(200);
+    await call('PUT', '', owner.token, view('Land use', { config: { plugin: 'Datagrid' } }));
+    await call('PUT', '', owner.token, view('Land use', { table: 'land_cover' }));
+    const seen = (await call('GET', '', ana)).json().views;
+    expect(seen.map((v: { name: string; table: string }) => [v.name, v.table])).toEqual([['Area by region', 'plot'], ['Land use', 'land_cover'], ['Land use', 'plot']]);
+    expect(seen[2]).toMatchObject({ config: { plugin: 'Datagrid' }, savedBy: 'owner', language: 'en' });
+    expect(typeof seen[2].savedAt).toBe('number');
+    expect((await call('DELETE', '?name=Land%20use&table=plot', owner.token)).json().views).toHaveLength(2);
+    expect((await call('DELETE', '?name=Land%20use&table=plot', owner.token)).statusCode).toBe(404);
+  });
+
+  it('are refused to collectors, and when they are not views', async () => {
+    expect((await call('PUT', '', ana, view('Mine'))).statusCode).toBe(403);
+    expect((await call('DELETE', '?name=x&table=plot', ana)).statusCode).toBe(403);
+    for (const bad of [view(''), view('x'.repeat(81)), view('x', { config: [] }), view('x', { table: '' }), { name: 'x' }]) {
+      expect((await call('PUT', '', owner.token, bad)).statusCode, JSON.stringify(bad)).toBe(400);
+    }
+    expect((await call('PUT', '', owner.token, view('big', { config: { x: 'y'.repeat(70_000) } }))).statusCode).toBe(413);
+  });
+});

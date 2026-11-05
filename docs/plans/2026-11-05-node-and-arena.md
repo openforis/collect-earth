@@ -336,7 +336,37 @@ In collect-earth-cloud, so the same code serves the cloud dashboard and the loca
   server sends (8 MB for DuckDB) and the assets are now cached for good (hashed names); the installer carries
   about 11 MB more (xz), without the `.gz` copies.
 
-Still to do in 6a: views shared by the team (saved on the server, not only in the browser); the stand-alone HTML
+**What Saiku users have, on the same page** (built the same day, `web/src/analysisQuestion.ts` and
+`web/src/components/analysis`):
+
+- **The question bar.** It reads "Show <measures> by <rows> and <columns>, as <a table or one of seven charts>",
+  with the order of the rows (largest first…) and a swap of rows and columns.
+  - Every list is searchable and grouped: the survey's questions, the plot file's fields, the collection (collector,
+    round, assessment, the day, month and week saved).
+  - The measures: the number of plots or rows; the area; each as a percentage of the total or of the group above;
+    and the average, total, minimum and maximum of every numeric question.
+  - The bar writes Perspective's configuration and reads it back, so it and Perspective's own panel ("More options")
+    are one view.
+- **Filters.** A field's values are ticked in a list with their counts and a search (the other filters applied, as
+  Saiku's member list), or a number or a date is given a range; each filter shows as a chip.
+- **Drill-through.** A click on any cell lists the plots behind it: their collector, the day, the view's fields and
+  what its measures read. Each plot is a link to its page (coordinators and reviewers), and all of them can be
+  downloaded.
+- **Ready-made views,** worked out from the survey:
+  - the plots and the area by land use, largest first;
+  - land use by region (a field of the plot file);
+  - a land-use change matrix for each pair of questions on the same list;
+  - an average by land use;
+  - the work by collector and month, and the plots saved per week.
+- **Views shared with the team** (coordinators save them on the server, migration 027, `GET/PUT/DELETE
+  /analysis/views`), beside each person's own (this browser). A view opens in any language, and on a collector's table
+  without what it lacks (the assessment).
+- **Also:** a link that opens the same view, the download of what is shown for Excel, and full screen.
+
+Checked in Chromium on the demo survey: each of these, a coordinator's shared view opened by a collector, and the link
+opened in a fresh browser; and on PostgreSQL with row-level security (`scripts/pg-smoke-analysis.mts`).
+
+Still to do in 6a: the stand-alone HTML
 download; Collect Earth's "Tools → Start SAIKU Analysis" becoming "Analyse the data" (the local dashboard's page, or
 the cloud's for a cloud project), then Saiku and its Tomcat out of the installer; a projection of the columns in use
 for very large projects (S7's memory finding).

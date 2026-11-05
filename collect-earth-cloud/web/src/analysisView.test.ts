@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AnalysisData, AnalysisModelData } from "./api";
-import { codesCsv, cubeOf, defaultView, labelIn, parseSavedViews, readCsvSql, tableChoices, translateView, withSavedView } from "./analysisView";
+import { codesCsv, cubeOf, defaultView, fitToCube, labelIn, parseSavedViews, readCsvSql, tableChoices, translateView, withSavedView } from "./analysisView";
 import { translator } from "./i18n";
 
 const col = (name: string, over: Partial<AnalysisModelData["tables"][number]["columns"][number]> = {}) => ({
@@ -82,6 +82,8 @@ describe("the cube of a table", () => {
       "Assessment",
       "Submitted",
       "Saved on",
+      "Month saved",
+      "Week saved",
       "Plot id",
       "province",
       "Land use",
@@ -125,20 +127,24 @@ describe("the cube of a table", () => {
 });
 
 describe("the default view", () => {
-  it("counts plots and adds up the area by land use, first assessments only for coordinators", () => {
+  it("counts plots and adds up the area by land use, largest first, first assessments only for coordinators", () => {
     const cube = cubeOf(data(), "plot", "en", en);
     expect(defaultView(data(), cube, en)).toMatchObject({
+      plugin: "Datagrid",
+      settings: false,
       group_by: ["Land use"],
-      columns: ["Plot", "Area"],
-      aggregates: { Plot: "count", Area: "sum" },
+      columns: ["Number of plots", "Total area", "Area (% of the total)"],
+      expressions: { "Number of plots": "integer(1)", "Total area": '"Area"', "Area (% of the total)": '"Area"' },
+      aggregates: { "Number of plots": "sum", "Total area": "sum", "Area (% of the total)": "pct sum grand total" },
       filter: [["Assessment", "==", "First assessment"]],
+      sort: [["Number of plots", "desc"]],
     });
   });
 
   it("for a collector: their plots, without a filter; for an entity: rows by its key", () => {
     const own = data({ scope: "own", areas: null });
-    expect(defaultView(own, cubeOf(own, "plot", "en", en), en)).toMatchObject({ columns: ["Plot"], filter: [] });
-    expect(defaultView(data(), cubeOf(data(), "land_cover", "en", en), en)).toMatchObject({ group_by: ["Element"], columns: ["Plot"] });
+    expect(defaultView(own, cubeOf(own, "plot", "en", en), en)).toMatchObject({ columns: ["Number of plots", "Plots (% of the total)"], filter: [] });
+    expect(defaultView(data(), cubeOf(data(), "land_cover", "en", en), en)).toMatchObject({ group_by: ["Element"], columns: ["Number of rows", "Number of plots"] });
   });
 });
 
@@ -186,4 +192,30 @@ it("reads a table's CSV with the types the server states", () => {
   expect(readCsvSql("land_cover", "land_cover.csv", [["_record", "VARCHAR"], ["it's", "BIGINT"]])).toBe(
     `CREATE OR REPLACE TABLE "land_cover" AS SELECT * FROM read_csv('land_cover.csv', header = true, auto_detect = false, delim = ',', quote = '"', escape = '"', columns = {'_record': 'VARCHAR', 'it''s': 'BIGINT'})`,
   );
+});
+
+it("fits a view to the table it opens on: a collector's has no assessment, a coordinator's shared view filters on it", () => {
+  const own = cubeOf(data({ scope: "own" }), "plot", "en", en);
+  expect(
+    fitToCube(
+      {
+        group_by: ["Land use", "Round"],
+        split_by: ["Assessment"],
+        columns: ["Number of plots", "gone", null],
+        expressions: { "Number of plots": "integer(1)", gone: '"Round" * 2', keep: '"Trees (%)" + 1' },
+        aggregates: { "Number of plots": "sum", gone: "sum" },
+        filter: [["Assessment", "==", "First assessment"], ["Land use", "==", "Forest"]],
+        sort: [["Round", "asc"]],
+      },
+      own,
+    ),
+  ).toEqual({
+    group_by: ["Land use"],
+    split_by: [],
+    columns: ["Number of plots", null],
+    expressions: { "Number of plots": "integer(1)", keep: '"Trees (%)" + 1' },
+    aggregates: { "Number of plots": "sum" },
+    filter: [["Land use", "==", "Forest"]],
+    sort: [],
+  });
 });
