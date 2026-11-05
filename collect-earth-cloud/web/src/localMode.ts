@@ -36,6 +36,7 @@ export function localPage(route: Route, projectId: string | null): { kind: "rout
       return isLocalTab(route.tab) ? { kind: "route", route } : progress(route.projectId);
     case "plot":
     case "weekly":
+    case "analysis":
     case "notFound":
       return { kind: "route", route };
     case "plotFile":

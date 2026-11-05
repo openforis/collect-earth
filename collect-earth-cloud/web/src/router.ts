@@ -24,6 +24,8 @@ export type Route =
   | { name: "myQuality"; projectId: string }
   /** A member's own work: the numbers the coordinators see about them (any member with an account). */
   | { name: "myWork"; projectId: string }
+  /** The analysis of the collected data, the pivot table that replaces Saiku (any member: a collector sees their own plots). */
+  | { name: "analysis"; projectId: string }
   /** The coordinators' printable team report, for training (no names). */
   | { name: "teamReport"; projectId: string }
   /** A training set's printable report (coordinators): agreement, golden answers, scores. */
@@ -102,6 +104,10 @@ export function matchRoute(pathname: string): Route {
     const projectId = decode(second);
     if (projectId) return { name: "myWork", projectId };
   }
+  if (first === "projects" && parts.length === 3 && third === "analysis") {
+    const projectId = decode(second);
+    if (projectId) return { name: "analysis", projectId };
+  }
   if (first === "projects" && parts.length === 4 && third === "people") {
     const projectId = decode(second);
     const userId = decode(fourth);
@@ -164,6 +170,8 @@ export function pathFor(route: Route): string {
       return `/projects/${encodeURIComponent(route.projectId)}/my-work`;
     case "teamReport":
       return `/projects/${encodeURIComponent(route.projectId)}/quality/team-report`;
+    case "analysis":
+      return `/projects/${encodeURIComponent(route.projectId)}/analysis`;
     case "trainingReport":
       return `/projects/${encodeURIComponent(route.projectId)}/training/${encodeURIComponent(route.setId)}/report`;
     case "plot":

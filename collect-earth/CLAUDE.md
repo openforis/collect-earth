@@ -261,7 +261,9 @@ working folder.
   every platform. As `node.xml` does, it renames the old `dashboard` to `dashboard.old` before copying (the web app's
   asset names change at each build, so nothing stale stays), stops if that fails, puts it back if the installation is
   cancelled (`installationAbortedActionList` of both projects) and deletes it afterwards.
-- **Size:** about 2.7 MB of server and 2.6 MB of web app on disk, about 1.5 MB in the installer (xz -9).
+- **Size:** about 2.7 MB of server and 44 MB of web app on disk, most of it the analysis page's DuckDB-WASM (36 MB)
+  and Perspective (5 MB), loaded only when that page opens; about 11 MB in the installer (xz). The build's `.gz` copies are left out
+  (`copy-dashboard-web`).
 
 #### Recovering a `release:perform` that failed during the upload
 

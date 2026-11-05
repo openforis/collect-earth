@@ -1,4 +1,6 @@
-import { resolve } from "node:path";
+import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { gzipSync } from "node:zlib";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
@@ -10,11 +12,33 @@ import react from "@vitejs/plugin-react";
 // set API_TARGET to use another one.
 const apiTarget = process.env.API_TARGET ?? "http://localhost:8080";
 
+/**
+ * A .gz beside each large file of the build, which the server sends to browsers that take gzip (@fastify/static's
+ * preCompressed): the analysis page's DuckDB wasm is 36 MB, 8 MB gzipped. Only where gzip saves a tenth or more.
+ */
+function gzipAssets(outDir: string) {
+  return {
+    name: "gzip-assets",
+    apply: "build" as const,
+    closeBundle() {
+      const walk = (dir: string): string[] => readdirSync(dir).flatMap((n) => (statSync(join(dir, n)).isDirectory() ? walk(join(dir, n)) : [join(dir, n)]));
+      for (const file of walk(outDir)) {
+        if (!/\.(js|css|wasm|svg|json|html)$/.test(file) || statSync(file).size < 10_000) continue;
+        const raw = readFileSync(file);
+        const gz = gzipSync(raw, { level: 9 });
+        if (gz.length < raw.length * 0.9) writeFileSync(`${file}.gz`, gz);
+      }
+    },
+  };
+}
+
+const outDir = resolve(import.meta.dirname, "dist");
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), gzipAssets(outDir)],
   base: "/",
   build: {
-    outDir: resolve(import.meta.dirname, "dist"),
+    outDir,
     emptyOutDir: true,
     chunkSizeWarningLimit: 1000,
   },

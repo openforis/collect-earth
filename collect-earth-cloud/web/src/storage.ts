@@ -40,3 +40,14 @@ export function getStoredLanguage(): string | null {
 export function storeLanguage(language: string): void {
   write(LANGUAGE_KEY, language);
 }
+
+// The analysis page's saved views, per project, in this browser (src/analysisView.ts reads them).
+const ANALYSIS_VIEWS_KEY = "collectEarthCloud.analysisViews.";
+
+export function getAnalysisViews(projectId: string): string | null {
+  return read(ANALYSIS_VIEWS_KEY + projectId);
+}
+
+export function storeAnalysisViews(projectId: string, text: string | null): void {
+  write(ANALYSIS_VIEWS_KEY + projectId, text);
+}

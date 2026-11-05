@@ -25,7 +25,8 @@ import { linkProps, navigate, pathFor, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 
 // Each tab is loaded when first opened (the map and the charts are most of the code).
-const TrainingFigures = lazy(() => import("../components/TrainingFigures").then((m) => ({ default: m.TrainingFigures })));
+const TrainingFigures = lazy(() => import("../components/TrainingFigures").then((m) => ({ default: m.TrainingFigures })));
+
 const TrainingTab = lazy(() => import("../project/TrainingTab").then((m) => ({ default: m.TrainingTab })));
 const ActivityTab = lazy(() => import("../project/ActivityTab").then((m) => ({ default: m.ActivityTab })));
 const DataTab = lazy(() => import("../project/DataTab").then((m) => ({ default: m.DataTab })));
@@ -175,6 +176,9 @@ export function ProjectPage({
           <Button variant="outlined" {...linkProps(pathFor({ name: "myQuality", projectId }))}>
             {t("myQuality.link")}
           </Button>
+          <Button variant="outlined" {...linkProps(pathFor({ name: "analysis", projectId }))}>
+            {t("analysis.title")}
+          </Button>
         </Box>
         <Tabs value={tab} onChange={(_, value: ProjectTab) => go(value)} aria-label={t("project.sections")} sx={{ mb: 3, borderBottom: 1, borderColor: "divider" }}>
           {REVIEWER_TABS.map((id) => (
@@ -218,6 +222,9 @@ export function ProjectPage({
             </Button>
             <Button variant="outlined" {...linkProps(pathFor({ name: "myQuality", projectId }))}>
               {t("myQuality.link")}
+            </Button>
+            <Button variant="outlined" {...linkProps(pathFor({ name: "analysis", projectId }))}>
+              {t("analysis.title")}
             </Button>
           </Box>
         </Paper>

@@ -278,7 +278,18 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
 async function registerDashboard(app: FastifyInstance, webDir: string | null): Promise<void> {
   const serveSpa = webDir !== null && existsSync(join(webDir, 'index.html'));
   if (serveSpa) {
-    await app.register(fastifyStatic, { root: webDir, prefix: '/', index: 'index.html' });
+    await app.register(fastifyStatic, {
+      root: webDir,
+      prefix: '/',
+      index: 'index.html',
+      // The build writes a .gz beside each large file (web/vite.config.ts): sent to browsers that take gzip.
+      // The analysis page's DuckDB is 36 MB, 8 MB gzipped.
+      preCompressed: true,
+      setHeaders: (res, path) => {
+        // The files under assets/ have their content's hash in their names: they never change, so they are kept
+        if (/[\\/]assets[\\/]/.test(path)) res.setHeader('cache-control', 'public, max-age=31536000, immutable');
+      },
+    });
   }
   app.setNotFoundHandler(async (request: FastifyRequest, reply: FastifyReply) => {
     const path = request.url.split('?')[0];

@@ -1,6 +1,7 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { OSM_TILES } from '../src/config.js';
@@ -706,6 +707,23 @@ describe('dashboard static files', () => {
     const asset = await ctx.app.inject({ method: 'GET', url: '/assets/app.js' });
     expect(asset.statusCode).toBe(200);
     expect(asset.body).toBe('console.log(1)');
+  });
+
+  it('keeps the hashed assets for good and sends the gzipped copy the build wrote to browsers that take it', async () => {
+    const big = 'const analysis = 1;\n'.repeat(2000);
+    writeFileSync(join(dir, 'assets', 'big.js'), big);
+    writeFileSync(join(dir, 'assets', 'big.js.gz'), gzipSync(big));
+    const gz = await ctx.app.inject({ method: 'GET', url: '/assets/big.js', headers: { 'accept-encoding': 'gzip' } });
+    expect(gz.statusCode).toBe(200);
+    expect(gz.headers['content-encoding']).toBe('gzip');
+    expect(gunzipSync(gz.rawPayload).toString()).toBe(big);
+    expect(gz.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    const plain = await ctx.app.inject({ method: 'GET', url: '/assets/big.js' });
+    expect(plain.headers['content-encoding']).toBeUndefined();
+    expect(plain.body).toBe(big);
+    // the page itself is asked for again each time (it names the assets of the latest build)
+    const root = await ctx.app.inject({ method: 'GET', url: '/', headers: html });
+    expect(root.headers['cache-control']).not.toContain('immutable');
   });
 
   it('returns index.html for client-side routes that accept HTML', async () => {

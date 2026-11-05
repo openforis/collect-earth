@@ -307,6 +307,40 @@ a viewer element written in the HTML before the library loads crashing when a pl
 giving empty tables, a `Uint8Array` where Perspective wants an `ArrayBuffer`, and a CSV dialect DuckDB could not sniff.
 None of them is a reason against the design; all of them would have cost the stage days.
 
+### Stage 6a, first part: the analysis page (built 5 November 2026)
+
+In collect-earth-cloud, so the same code serves the cloud dashboard and the local one Collect Earth runs:
+
+- **Server** (`src/analysis.ts`, `src/routes/analysis.ts`): `GET /v1/projects/:pid/analysis` answers, gzipped, the
+  model generated from the survey (the plot table, a table per multiple entity keyed by its key attribute, labels in
+  every language, the code lists with their levels) and every table's rows as CSV with their DuckDB types, built from
+  the records' summaries; the expansion factors from `region_areas.csv` or `areas_per_attribute.csv`, as
+  RegionCalculationUtils works them out. Coordinators and reviewers get every record with its round and whether it is
+  a first assessment or a check; a collector their own records, without rounds.
+- **Page** (`web/src/pages/AnalysisPage.tsx`, `analysisView.ts`, `analysisEngine.ts`): `/projects/<id>/analysis`,
+  linked from the Data tab (coordinators, and the local dashboard), and from the project page of reviewers and
+  collectors. DuckDB-WASM and Perspective load with the page only, from the dashboard's own files (offline).
+  - Every column is named by its label in the dashboard's language. Each code has its label, its code and the
+    label of each level above it.
+  - It opens on the number of plots and the area by land use, for coordinators the first assessments only.
+  - Any table and chart are a drag away, and Perspective's own panel is in the same four languages.
+  - Views are saved per project in the browser, and a saved view is translated (columns and filter values) when the
+    language changes.
+- **Checked** in Chromium against a running server with the demo survey and 200 plots from two collectors: the
+  figures (the areas add up to the areas file's total), the nested tables, charts, saving and reopening a view,
+  switching to Spanish, a collector's own view; page ready in about 6 s, most of it starting DuckDB.
+- **Found:** with Vite, Perspective's client must not be given its own wasm (`init_client` of
+  `@perspective-dev/client`): it takes the viewer's module, and a second one crashes `load` with "memory access out of
+  bounds". `load(table)` is deprecated: `load(client)`, then `restore({ table })`.
+- **Size:** the dashboard's files grow from 2.6 to 44 MB (DuckDB's wasm 36 MB): the build writes `.gz` copies the
+  server sends (8 MB for DuckDB) and the assets are now cached for good (hashed names); the installer carries
+  about 11 MB more (xz), without the `.gz` copies.
+
+Still to do in 6a: views shared by the team (saved on the server, not only in the browser); the stand-alone HTML
+download; Collect Earth's "Tools → Start SAIKU Analysis" becoming "Analyse the data" (the local dashboard's page, or
+the cloud's for a cloud project), then Saiku and its Tomcat out of the installer; a projection of the columns in use
+for very large projects (S7's memory finding).
+
 ### The AI analyst: presenting the data and finding what matters
 
 The cloud server already has an AI assistant for quality (`src/ai/`: Gemini on Vertex AI; per project, switched on by a
@@ -386,7 +420,7 @@ Each stage leaves a working Collect Earth; the Java program is retired only at t
 | 5 | Packaging, updates and the migration of local data; a public beta next to the Java release | 2, 3, 4 | M |
 | 5b | Arena inside the local Collect Earth Cloud: its database on the computer in place of the memory store, the local dashboard reading from it, moving a project from local to distributed | 1, 5, S6 | M |
 | 6 | What is left: the LULUCF package, the Google Earth Pro viewer (per decisions 2 and 4) | decisions | M to L |
-| 6a | The analysis, layer 1: the view model from the survey, DuckDB-WASM and Perspective in the dashboard (local and cloud), enrichment, saved views, the stand-alone HTML; Saiku and its Tomcat leave the installer | S7 (done, passed); can start before 2 | M |
+| 6a | The analysis, layer 1: the view model from the survey, DuckDB-WASM and Perspective in the dashboard (local and cloud), enrichment, saved views, the stand-alone HTML; Saiku and its Tomcat leave the installer | S7 (done, passed); can start before 2; the analysis page done (see "Stage 6a, first part") | M |
 | 6b | The analysis, layer 2: estimates through Arena's R chains or a shipped R template | 1, 6a, S7 | M |
 | 6c | The AI analyst, steps A to D, on the quality assistant's foundations | 6a, S8 | M |
 | 7 | Retire the Java program and Selenium; drop the raw copy of records if decision 1 allows | 5, 6 | S |

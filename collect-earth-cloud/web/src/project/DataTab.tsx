@@ -6,6 +6,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import Download from "@mui/icons-material/Download";
+import PivotTableChart from "@mui/icons-material/PivotTableChart";
 import { useState } from "react";
 import { downloadExport, getOverview } from "../api";
 import { useApp, useLocalMode } from "../appContext";
@@ -14,10 +15,28 @@ import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
 import { useT } from "../i18n";
 import { dataSections } from "../localMode";
-import type { ProjectTab } from "../router";
+import { linkProps, pathFor, type ProjectTab } from "../router";
 import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
 import { CollectBackup } from "./CollectBackup";
+
+/** The pivot table and charts over the collected data (what replaces Saiku), on a page of its own. */
+function Analysis({ projectId }: { projectId: string }) {
+  const t = useT();
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+      <Stack spacing={2}>
+        <Typography variant="h2">{t("analysis.title")}</Typography>
+        <Typography color="text.secondary">{t("analysis.cardText")}</Typography>
+        <Box>
+          <Button variant="contained" size="large" startIcon={<PivotTableChart />} {...linkProps(pathFor({ name: "analysis", projectId }))}>
+            {t("analysis.open")}
+          </Button>
+        </Box>
+      </Stack>
+    </Paper>
+  );
+}
 
 /** The comparison of first assessments and checks moved to the Quality tab: a pointer to it. */
 function QualityCheck({ onGo }: { onGo: (tab: ProjectTab) => void }) {
@@ -66,6 +85,7 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
   const records = overview.data?.records;
   return (
     <Stack spacing={3}>
+      <Analysis projectId={projectId} />
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack spacing={2}>
           <Typography variant="h2">{t("data.title")}</Typography>

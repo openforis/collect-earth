@@ -2668,6 +2668,63 @@ export async function getTimeSpent(projectId: string, person?: string): Promise<
   return request<TimeSpentData>("GET", `${p(projectId)}/time-spent${query}`);
 }
 
+// --- the analysis page (what replaces Saiku; the server's src/analysis.ts) -----------
+
+export type AnalysisColumnType = "code" | "boolean" | "integer" | "real" | "text" | "date" | "time";
+
+export interface AnalysisColumnModel {
+  name: string;
+  key: string;
+  labels: Record<string, string>;
+  type: AnalysisColumnType;
+  list: string | null;
+  calculated: boolean;
+  multiple: boolean;
+  fromPlotFile: boolean;
+}
+
+export interface AnalysisTableModel {
+  name: string;
+  labels: Record<string, string>;
+  keyColumn: string | null;
+  columns: AnalysisColumnModel[];
+}
+
+export interface AnalysisListItem {
+  code: string;
+  labels: Record<string, string>;
+  parent: string | null;
+  level: number;
+}
+
+export interface AnalysisModelData {
+  languages: string[];
+  tables: AnalysisTableModel[];
+  lists: Record<string, AnalysisListItem[]>;
+}
+
+export interface AnalysisTableData {
+  name: string;
+  /** Each column's name and DuckDB type, in the CSV's order. */
+  columns: [string, string][];
+  rows: number;
+  csv: string;
+}
+
+export interface AnalysisData {
+  model: AnalysisModelData;
+  /** "project": every record (coordinators, reviewers); "own": the person's own, without rounds (collectors). */
+  scope: "project" | "own";
+  /** Where the areas come from (the project file's region_areas.csv or areas_per_attribute.csv), or null: no areas. */
+  areas: { source: string; plots: number; unmatched: number } | null;
+  tables: AnalysisTableData[];
+}
+
+/** The survey's model and the rows of its tables, for the analysis page (any member). */
+export async function getAnalysis(projectId: string): Promise<AnalysisData> {
+  return request<AnalysisData>("GET", `${p(projectId)}/analysis`);
+}
+
 /** The signed-in person's own page ("My work", any member). */
 export async function getMyWork(projectId: string, timeZone: string): Promise<PersonData> {
   return toPersonData(await request<unknown>("GET", `${p(projectId)}/my-work?${new URLSearchParams({ tz: timeZone })}`));

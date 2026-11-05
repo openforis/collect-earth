@@ -28,6 +28,7 @@ const AccountPage = lazy(() => import("./pages/AccountPage").then((m) => ({ defa
 const ProjectPage = lazy(() => import("./pages/ProjectPage").then((m) => ({ default: m.ProjectPage })));
 const PublicProgressPage = lazy(() => import("./pages/PublicProgressPage").then((m) => ({ default: m.PublicProgressPage })));
 const MyQualityPage = lazy(() => import("./pages/ReportPages").then((m) => ({ default: m.MyQualityPage })));
+const AnalysisPage = lazy(() => import("./pages/AnalysisPage").then((m) => ({ default: m.AnalysisPage })));
 const MyWorkPage = lazy(() => import("./pages/ReportPages").then((m) => ({ default: m.MyWorkPage })));
 const TeamReportPage = lazy(() => import("./pages/ReportPages").then((m) => ({ default: m.TeamReportPage })));
 const TrainingReportPage = lazy(() => import("./pages/TrainingReportPage").then((m) => ({ default: m.TrainingReportPage })));
@@ -58,6 +59,8 @@ function RoutedPage({ route }: { route: Route }) {
       return <ProjectPage key={route.projectId} projectId={route.projectId} tab="quality" plot={route.plot} />;
     case "myQuality":
       return <MyQualityPage key={route.projectId} projectId={route.projectId} />;
+    case "analysis":
+      return <AnalysisPage key={route.projectId} projectId={route.projectId} />;
     case "myWork":
       return <MyWorkPage key={route.projectId} projectId={route.projectId} />;
     case "teamReport":
