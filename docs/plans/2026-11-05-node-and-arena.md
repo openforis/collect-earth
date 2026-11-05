@@ -11,9 +11,16 @@ Two moves, which can be made separately:
    React app (`collect-earth-app/src/main/frontend`) that talks to the Java program only through a JSON API. Only the
    program behind that API changes. The installers keep shipping one program for Windows, macOS and Linux.
 2. **Open Foris Arena becomes the data backend.** Arena keeps the survey and the collected plots for analysis and long-term
-   storage, next to (and later in place of) the storage of Collect Earth Cloud.
+   storage, next to (and later in place of) the storage of Collect Earth Cloud. It runs **on the interpreter's own
+   computer** when the collection is local, and **on a server** when it is distributed.
 
-## Requirement (from the owner, 5 Nov 2026)
+## Requirements (from the owner, 5 Nov 2026)
+
+1. **Arena works both locally and on servers** (added 5 Nov 2026): on `localhost` when the data collection takes place on
+   one computer (set-up 1 of the guide *Collect Earth data collection: four ways to set it up*), and on a cloud server, the
+   shared one or a private one, when it is distributed between several interpreters (set-ups 3 and 4). The same Arena, the
+   same Collect Earth, the same way of sending plots: only the address changes. See "Arena in two places" below.
+2. **The Collect survey definitions and the `.cep` project files stay** (below).
 
 **The Collect survey definitions and the `.cep` project files stay.** Coordinators keep designing surveys in Collect's
 designer and handing out `.cep` files; existing projects keep working unchanged. So:
@@ -48,9 +55,11 @@ Already in TypeScript, in this repository, and reusable:
 
 ## Decisions to take (owner)
 
-1. **Arena's role.** (a) A store downstream of Collect Earth Cloud, fed by it (recommended first, Stage 1); (b) later, the
-   store the desktop syncs to directly, with Collect Earth Cloud keeping the coordination (assignments, division, checks,
-   training, time spent), reading from and writing to Arena.
+1. **Arena's role.** Settled in part by requirement 1: Arena is the backend in both kinds of collection, on the computer and
+   on servers, and Collect Earth sends plots to it the same way in both. Still to decide: (a) whether Arena starts as a store
+   downstream of Collect Earth Cloud, fed by it (recommended first, Stage 1), before Collect Earth sends to it directly;
+   (b) where the coordination of a distributed collection lives (assignments, division, checks, reference plots, training,
+   time spent): in Collect Earth Cloud, reading from and writing to Arena, or moved into Arena itself.
 2. **Google Earth Pro.** Keep the Google Earth Pro viewer (KML and the balloon) or keep only the plots map and Google Earth
    Web. Keeping it means rendering the `.cep`'s FreeMarker template `kml_template.fmt` in Node (see Risks).
 3. **Firefox.** Playwright drives only its own modified Firefox, not the one people install. Proposed: support Chrome and
@@ -70,8 +79,11 @@ React app (unchanged)  ──JSON API (same contract)──▶  Node program (Fa
                                                          ├─ local store (SQLite: Collect XML + summary per record)
                                                          ├─ plots (CSV, geometry, GeoJSON, optional KML)
                                                          ├─ browsers (Playwright: plots map, Google Earth Web, imagery)
-                                                         ├─ sync (records:batch to Collect Earth Cloud)
+                                                         ├─ sync (to an Arena: on this computer or on a server)
                                                          └─ local dashboard (the cloud server in LOCAL_MODE, same process)
+
+Local collection:        Collect Earth ──sync──▶ Arena on 127.0.0.1 (started by Collect Earth, local PostgreSQL)
+Distributed collection:  Collect Earth ──sync──▶ Arena on a server (shared or private) ◀── coordinators' browsers
 ```
 
 - **One Node process.** The local dashboard is already the cloud server run by Node; the new desktop program serves the
@@ -134,6 +146,56 @@ With Playwright (`playwright-core`, no browser downloaded):
   application, about 150 MB per platform) but not proposed: on macOS every nested binary must then be signed and
   notarized by us.
 
+### Arena in two places: on the computer and on a server
+
+The same Arena code runs in both, and Collect Earth talks to both the same way; what differs is who starts it, where its
+database lives, and who signs in.
+
+| | Local collection (one computer) | Distributed collection (several interpreters) |
+| --- | --- | --- |
+| Where Arena runs | On the interpreter's computer, at `127.0.0.1`, started and stopped by Collect Earth | On a server: the shared one or a private one |
+| Its database | PostgreSQL on the computer, in Collect Earth's user folder (see "A database on every computer") | PostgreSQL on the server (Cloud SQL, or the organisation's) |
+| Who signs in | Nobody: one local account, made at first start, and a one-time sign-in link to open Arena in the browser, as the local dashboard does now | Everyone with their own account, invited to the project |
+| How the survey gets there | Collect Earth sends the survey of the `.cep` it opened | The coordinator uploads the `.cep`; the server sends its survey (with the hidden `round`) |
+| How plots get there | Collect Earth's sync, within seconds of each save | Collect Earth's sync, every 30 seconds, queued while offline |
+| Who can see the data | Only that computer (`127.0.0.1` only, never the network) | The project's members, by role |
+| Coordination (division, checks, training) | Not needed | Decision 1b |
+
+**One sync, two addresses.** Collect Earth always keeps its own local store and sync queue (Collect XML per record), in
+both kinds of collection, and sends the records to "its Arena": the local one, or the one on the server. So:
+
+- working offline is the same in both: the queue waits;
+- a local Arena that is not running (it failed to start, or is being updated) loses nothing: the queue sends later;
+- the local dashboard and the server's dashboard read the same kind of data.
+
+**From local to distributed.** A project that starts on one computer and grows into a team does not need an export by
+hand: the coordinator puts the `.cep` on the server, the interpreter joins it, and Collect Earth sends every record of
+the project from its local store to the server's Arena, as the cloud sync's reconciliation does today. The local Arena can
+then be stopped. The other way (a server project continued alone, offline for good) is a Collect backup from the server
+imported into the local Arena.
+
+**The same version on both sides.** Collect Earth bundles the local Arena, so every Collect Earth release names the Arena
+version it ships. A server running an older or newer Arena must still accept Collect Earth's sync: the sync uses one
+documented, versioned interface (as `/v1` is for Collect Earth Cloud today), and the server says which versions it
+accepts.
+
+#### A database on every computer
+
+Arena keeps its data in PostgreSQL. On a server that is given; on an interpreter's laptop it must come with Collect Earth,
+start in seconds, use little memory, and never ask the person anything. Three candidates, to be tried (S6):
+
+| | Embedded PostgreSQL binaries | PGlite (PostgreSQL compiled to WebAssembly) | A store adapter |
+| --- | --- | --- | --- |
+| What | The real PostgreSQL server, shipped per system (Windows, macOS on Apple silicon and Intel, Linux) and started by Collect Earth on a free local port | PostgreSQL inside the Node process, data in a folder; reached by Arena through a local socket | Arena's data layer gets a second implementation over SQLite, used only locally |
+| Size | About 30 to 60 MB per system | About 10 MB | None extra |
+| Fidelity | The same as on the server | Close; some extensions missing (PostGIS, if Arena needs it, to verify) | Arena's queries rewritten: large and lasting work |
+| Risks | Antivirus and firewalls on Windows; signing every binary on macOS; a second process to keep alive | Whether Arena's database library works over it; speed on large projects | Two data layers to keep in step |
+
+Proposed: try PGlite first, fall back to the embedded binaries. The store adapter only if both fail.
+
+The local database lives next to Collect Earth's other files, in the user folder, and is backed up when Collect Earth
+closes, as the SQLite file is today (`backupSqlite`, the newest 10 kept).
+
 ### Arena
 
 - **Survey:** when a `.cep` is uploaded to Collect Earth Cloud (or a new version), the server sends Arena the survey it
@@ -146,8 +208,10 @@ With Playwright (`playwright-core`, no browser downloaded):
   they come through.
 - **What Arena does not get:** the form (`balloon.html`), the map template and the project settings: they are Collect
   Earth's, and stay in the `.cep`.
-- **Later (decision 1b):** if Arena offers an API for a client to send records one by one, the desktop's sync can target
-  it, with conversion from Collect XML in the sync step. To verify with the Arena team.
+- **The desktop sending to Arena directly:** both the local Arena and a server's need an interface through which a program
+  sends records one by one (or in small batches), signs in with a token, and learns which records were stored. To verify
+  with the Arena team (S3); if Arena has none yet, it is the first thing to build there, since requirement 1 depends on it.
+  Conversion from Collect XML happens in that interface or in Collect Earth's sync step.
 
 ### Data already on people's computers
 
@@ -159,6 +223,8 @@ Today's local database keeps each record as a **Protostuff blob that only the ma
 2. The **first Node release** imports that folder into its own store at first start, and reads `earth.properties` for the
    settings, the projects loaded and the operator name.
 3. Cloud projects lose nothing either way: their records are on the server.
+4. Once the local Arena runs (Stage 5b), the first start also sends every imported record of a local project to it, so
+   the local Arena holds the project's whole history from day one.
 
 ### Packaging and updates
 
@@ -166,6 +232,11 @@ Today's local database keeps each record as a **Protostuff blob that only the ma
   (`node.xml`, `dashboard.xml`). The Java runtime and the jars are replaced by the Node program, bundled with esbuild as
   the dashboard is (`npm run build:local`), plus the native modules built per system and processor (SQLite). The update
   manifest and its `versionId` rule do not change.
+- **The local Arena** ships in the same installers and updaters: Arena's server bundled like the dashboard, and the local
+  database (PGlite, or the embedded PostgreSQL binaries per system). An update that changes Arena's database applies
+  Arena's migrations to the local database at the next start, after a backup.
+- **The server Arena** is installed as Collect Earth Cloud is today: the guided Google Cloud script (Cloud Run and Cloud
+  SQL) and a Docker image for other hosts (`SELF-HOSTING.md`, `DEPLOY.md`), extended to Arena.
 - **Electron (alternative):** the main window becomes a desktop window (tray, menus, quit on close and updates built in).
   Imagery windows still need a real Chrome, since Google blocks sign-in inside embedded browsers.
 - **Signing:** Windows needs a code-signing certificate (SmartScreen); macOS needs an Apple Developer ID, the hardened
@@ -177,12 +248,13 @@ Each stage leaves a working Collect Earth; the Java program is retired only at t
 
 | Stage | What | Depends on | Size |
 | --- | --- | --- | --- |
-| 0 | Trials (S1 to S5, below) | — | S |
-| 1 | Arena downstream of Collect Earth Cloud | S1, S3 | M |
+| 0 | Trials (S1 to S6, below) | — | S |
+| 1 | Arena downstream of Collect Earth Cloud (distributed collection first) | S1, S3 | M |
 | 2 | The Node program serving the same API, project and settings, local store, plot files, sync, local dashboard in the same process | S5 | L |
 | 3 | The survey engine (A or B) | S4 | L |
 | 4 | Browsers and windows with Playwright: plots map, Google Earth Web, imagery sources, layout | S2 | L |
 | 5 | Packaging, updates and the migration of local data; a public beta next to the Java release | 2, 3, 4 | M |
+| 5b | The local Arena: bundled, started and stopped by Collect Earth, its database on the computer, the sync pointed at it for local projects, moving a project from local to distributed | 5, S6, the sync interface of S3 | M |
 | 6 | What is left: Saiku, the LULUCF package, the Google Earth Pro viewer (per decisions 2 and 4) | decisions | M to L |
 | 7 | Retire the Java program and Selenium; Collect Earth Cloud reads from Arena if decision 1b | 5, 6 | S |
 
@@ -197,6 +269,9 @@ Each stage leaves a working Collect Earth; the Java program is retired only at t
 - **S4, the survey engine:** Arena's converter on the same surveys as S1, outside Arena's server; decide A or B.
 - **S5, a Node installer:** an InstallBuilder build with the Node program only (a "hello" API and the React app), signed
   and notarized on macOS, installed on Windows and macOS.
+- **S6, Arena on a laptop:** Arena's server with PGlite, then with the embedded PostgreSQL binaries, on a Windows laptop
+  with 8 GB of memory and on a Mac: time to start, memory and disk used, a project of 10,000 plots imported and read, a
+  restart after the computer was switched off mid-write, and what antivirus and the firewall say.
 
 ### Testing
 
@@ -219,6 +294,9 @@ Each stage leaves a working Collect Earth; the Java program is retired only at t
 | The LULUCF package | 14,500 lines with its own rules | Decision 4; keep it as a Java tool until ported |
 | Local data in Protostuff blobs | Unreadable outside Java | The migration export of the last Java release |
 | Two programs for a while | Fixes made twice | Freeze Java features once Stage 2 starts; only fixes |
+| A database on every laptop | Slow starts, memory, antivirus, a damaged database after a power cut | Trial S6; backups at every close; the sync queue keeps every record until the local Arena has it |
+| Local and server Arena on different versions | Collect Earth's sync refused by an older or newer server | One versioned sync interface; the server says which versions it accepts |
+| Arena has no interface for a client to send records | Requirement 1 cannot be met without it | Trial S3; build it with the Arena team before Stage 5b |
 
 ## Not in this plan
 
