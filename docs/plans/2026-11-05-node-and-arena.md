@@ -286,6 +286,27 @@ view model generated from the survey, pivoted in Perspective, and the figures (c
 with expansion factors) compared with Saiku's on the same data; a 100,000-plot file for speed and memory in Chrome on an
 8 GB laptop; the stand-alone HTML opened offline.
 
+### S7 results (5 November 2026, the demo survey)
+
+Run on the demo survey (`demo_survey.cep`: a plot entity with 40 questions and two nested tables, 132 cube dimensions),
+with synthetic records, in headless Chromium on this 16 GB machine; the code is in `collect-earth-cloud/trials/s7-pivot`
+(its README lists what was learnt). **Verdict: it works, and layer 1 can be built as designed.**
+
+| Question | Result |
+| --- | --- |
+| Generated from the survey, as the cube is? | **Yes.** The view model generated from the IDML has 128 dimensions and 36 measures to the cube's 132 and 30; the differences are explained (the cube splits the save date into year, month and day and adds latitude and longitude as dimensions; ours adds min/max/avg of the nested tables' percentages). Rule found: the cube generator skips the attributes marked `collect:includeInDataExport="false"` and keeps the bookkeeping ones. Nested entities (`land_cover`, `land_use`) become cubes of their own with the plot's dimensions joined, as Saiku's hierarchies do. |
+| The figures right? | **Yes.** Plot counts and areas (with expansion factors) by land use, means and shares by climate, the two-level land-use list as a drill-down, land cover rows by element with the plot's province: 26 figures per run, identical between Perspective's pivot, DuckDB's SQL and an independent Python count, at 55 and at 100,000 plots. |
+| Speed | 55 plots: the page usable in 2.2 s (DuckDB started in 0.8 s). **100,000 plots (49 columns, 300,000 land cover rows): first pivot in 5.2 s**, a new pivot (province × land use, area) in 0.4 s. |
+| Memory | DuckDB 64 MB for 100,000 plots; the whole headless browser 1.6 GB against 0.85 GB with 55 plots, so about 0.7 GB for the data in DuckDB, Arrow and Perspective's copy together: fine on an 8 GB laptop, but the Perspective copy should be a projection of the columns in use, not the whole cube (the next step of layer 1). |
+| Charts | Stacked bars, lines and the rest from the same pivot, with the maintained `@perspective-dev/viewer-charts`. |
+| The stand-alone file | **One HTML file opens from the disk with no server**: 19 MB with the demo's 55 plots, 26 MB with 100,000 (DuckDB's wasm 8 MB gzipped, Perspective 8 MB, the data 5 MB gzipped); ready in 3.9 s and 6.9 s, the same figures. **The charts stay blank in it:** the chart package draws in a background worker that a page opened from the disk cannot start (a `blob:` script from an opaque origin); the grid works. To fix in the package (an option to draw without the worker), or by serving the stand-alone from the local dashboard instead of a bare file. |
+| Offline | DuckDB-WASM downloads its Parquet and JSON extensions from the internet on first use (refused in this sandbox): the product must serve them itself, or stick to CSV and Arrow, which need none. |
+
+Found and fixed on the way, kept in the trial's README: the deprecated `@finos/perspective*` packages (use `@perspective-dev/*`),
+a viewer element written in the HTML before the library loads crashing when a plugin is chosen, two Arrow versions
+giving empty tables, a `Uint8Array` where Perspective wants an `ArrayBuffer`, and a CSV dialect DuckDB could not sniff.
+None of them is a reason against the design; all of them would have cost the stage days.
+
 ### The AI analyst: presenting the data and finding what matters
 
 The cloud server already has an AI assistant for quality (`src/ai/`: Gemini on Vertex AI; per project, switched on by a
@@ -365,7 +386,7 @@ Each stage leaves a working Collect Earth; the Java program is retired only at t
 | 5 | Packaging, updates and the migration of local data; a public beta next to the Java release | 2, 3, 4 | M |
 | 5b | Arena inside the local Collect Earth Cloud: its database on the computer in place of the memory store, the local dashboard reading from it, moving a project from local to distributed | 1, 5, S6 | M |
 | 6 | What is left: the LULUCF package, the Google Earth Pro viewer (per decisions 2 and 4) | decisions | M to L |
-| 6a | The analysis, layer 1: the view model from the survey, DuckDB-WASM and Perspective in the dashboard (local and cloud), enrichment, saved views, the stand-alone HTML; Saiku and its Tomcat leave the installer | S7; can start before 2 | M |
+| 6a | The analysis, layer 1: the view model from the survey, DuckDB-WASM and Perspective in the dashboard (local and cloud), enrichment, saved views, the stand-alone HTML; Saiku and its Tomcat leave the installer | S7 (done, passed); can start before 2 | M |
 | 6b | The analysis, layer 2: estimates through Arena's R chains or a shipped R template | 1, 6a, S7 | M |
 | 6c | The AI analyst, steps A to D, on the quality assistant's foundations | 6a, S8 | M |
 | 7 | Retire the Java program and Selenium; drop the raw copy of records if decision 1 allows | 5, 6 | S |
@@ -386,7 +407,7 @@ Each stage leaves a working Collect Earth; the Java program is retired only at t
   embedded PostgreSQL binaries, on a Windows laptop
   with 8 GB of memory and on a Mac: time to start, memory and disk used, a project of 10,000 plots imported and read, a
   restart after the computer was switched off mid-write, and what antivirus and the firewall say.
-- **S7, the pivot table:** see "Presenting the data" (DuckDB-WASM and Perspective against Saiku on the same data).
+- **S7, the pivot table:** see "Presenting the data" (DuckDB-WASM and Perspective against Saiku on the same data). **Done: see "S7 results".** Saiku itself could not be run here (its Tomcat and Java are not in this environment); the figures were checked against SQL and an independent count instead.
 - **S8, the AI analyst:** see "The AI analyst" (twenty questions checked against hand-written queries).
 
 ### Testing
@@ -414,7 +435,7 @@ Each stage leaves a working Collect Earth; the Java program is retired only at t
 | Arena built as an application, not as a part of another | Running it inside Collect Earth Cloud may need changes in Arena | Trial S3; agree the changes with the Arena team; else two processes in one container |
 | Two permission systems | A member could see in Arena what Collect Earth Cloud would hide | Rights in Arena derived from Collect Earth Cloud's roles only; the isolation tests (`test/isolation.test.ts`) extended to Arena's pages |
 | Arena upgrades | A new Arena changes its database or its conversion of Collect surveys | Each Collect Earth Cloud release pins its Arena; upgrades tested on copies of real projects first |
-| Customised cubes | A survey's `collectEarthCubes.xml` with MDX calculated members the view model cannot express | Trial S7 on a customised `.cep`; the override reads what it can and lists what it could not |
+| Customised cubes | A survey's `collectEarthCubes.xml` with MDX calculated members the view model cannot express | Trial S7 ran on the demo survey only (its cube has no calculated member): still to try on a customised `.cep` from a country; the override reads what it can and lists what it could not |
 | Wrong figures from the AI analyst | A plausible table built from the wrong measure or filter | The query is always shown and editable; S8's check against hand-written queries; the model never computes, DuckDB does |
 | Arena's R chains assume a field inventory | Layer 2 may not fit plot photo-interpretation | Trial S7; fall back to a shipped R template |
 
