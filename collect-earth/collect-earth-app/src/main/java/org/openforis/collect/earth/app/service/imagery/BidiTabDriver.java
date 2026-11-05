@@ -1,9 +1,11 @@
 package org.openforis.collect.earth.app.service.imagery;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -73,6 +75,8 @@ public class BidiTabDriver implements TabDriver {
 
 	/** How long {@link #createTab} waits for the tab a page opens before opening it the other way. */
 	private static final long OPEN_FROM_PAGE_MILLIS = 3_000;
+	/** How often the tabs said created after the click are looked for among the browser's tabs (see openedTab) */
+	private static final long OPENED_CHECK_MILLIS = 100;
 	private static final String OPEN_LINK_ID = "collectEarthOpenTab";
 	private static final int OPEN_LINK_SIZE = 20;
 	/** Puts the link that {@link #openFromPage} clicks over the top left corner of the page, above all of it. */
@@ -242,7 +246,7 @@ public class BidiTabDriver implements TabDriver {
 			}
 			guard(tab, false, () -> bidi.send(new Command<Map<String, Object>>("input.performActions",
 					ctrlClickAt(tab, OPEN_LINK_SIZE / 2), Map.class)));
-			String opened = created.poll(OPEN_FROM_PAGE_MILLIS, TimeUnit.MILLISECONDS);
+			String opened = openedTab(tab, created, System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(OPEN_FROM_PAGE_MILLIS));
 			if (opened == null) {
 				logger.debug("Imagery window: the page in tab {} opened no tab", tab);
 			}
@@ -264,6 +268,54 @@ public class BidiTabDriver implements TabDriver {
 				logger.debug("Imagery window: could not tidy up the link opening a tab in {}: {}", tab, e.getMessage());
 			}
 		}
+	}
+
+	/**
+	 * The tab the click opened, of those the browser said it created meanwhile, or null if none is there by the deadline.
+	 * Firefox 153 tells of two for one click: first one that it never lists among its tabs, and that is never said
+	 * destroyed (a command sent to it fails with "no such frame"), then the tab. The first created that the browser lists
+	 * is the one; the others are forgotten, so that they do not count as open tabs (see {@link #contextDestroyed}).
+	 */
+	private String openedTab(String tab, BlockingQueue<String> created, long deadlineNanos) throws InterruptedException {
+		List<String> candidates = new ArrayList<>();
+		while (true) {
+			long left = deadlineNanos - System.nanoTime();
+			if (left <= 0) {
+				candidates.forEach(openTabs::remove);
+				return null;
+			}
+			String next = created.poll(Math.min(left, TimeUnit.MILLISECONDS.toNanos(OPENED_CHECK_MILLIS)), TimeUnit.NANOSECONDS);
+			if (next != null) {
+				candidates.add(next);
+				created.drainTo(candidates);
+			}
+			if (candidates.isEmpty()) {
+				continue;
+			}
+			Set<String> listed = new HashSet<>();
+			for (BrowsingContextInfo context : guard(tab, false, () -> new BrowsingContext(driver, tab).getTopLevelContexts())) {
+				listed.add(context.getId());
+			}
+			String opened = firstListed(candidates, listed);
+			if (opened != null) {
+				for (String candidate : candidates) {
+					if (!candidate.equals(opened) && !listed.contains(candidate)) {
+						openTabs.remove(candidate);
+					}
+				}
+				return opened;
+			}
+		}
+	}
+
+	/** The first of the tabs said created that the browser lists, or null. */
+	static String firstListed(List<String> created, Set<String> listed) {
+		for (String id : created) {
+			if (listed.contains(id)) {
+				return id;
+			}
+		}
+		return null;
 	}
 
 	/**
