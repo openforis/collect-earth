@@ -13,7 +13,7 @@ describe("app bar", () => {
     // Every entry of the Swing menu bar is built now: nothing is coming soon
     expect(items.filter((i) => comingSoon(i)).map((i) => i.id)).toEqual([]);
     expect(items.filter((i) => !comingSoon(i)).map((i) => i.id)).toEqual([
-      "importCep", "joinCloud", "cloudStatus", "language", "quit", "export", "importZip", "updateCsv",
+      "importCep", "joinCloud", "cloudStatus", "language", "quit", "export", "import",
       "saiku", "saikuTool", "lulucf", "loadKml", "dataFolder", "myDashboard", "openPlotsMap", "missingPlots", "divideCsv", "deletePlots", "properties",
       "surveyGuide", "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
     // An entry menus.ts does not enable, or this file has no action for, is not offered

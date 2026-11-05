@@ -1,11 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormLabel from "@mui/material/FormLabel";
@@ -29,16 +27,22 @@ import { formatText } from "../../settings";
 import { serverText, type Texts } from "../../serverTexts";
 import { JobPanel } from "./JobPanel";
 
-interface Props { open: boolean; texts: Texts | null; language: string; onClose: () => void }
+interface Props {
+  open: boolean; texts: Texts | null; language: string; onClose: () => void;
+  /** Shown above the first step only: the choice of what to import (ImportDialog) */
+  choice?: ReactNode;
+  /** Whether the dialog may be closed by a click beside it: not while a job runs */
+  onLocked: (locked: boolean) => void;
+}
 
 type Step = "choose" | "reading" | "answer" | "importing";
 
 /**
- * Import new data from ZIP, in the steps the Swing import took with its dialogs: the files and whether to take the
- * plots not fully assessed, the reading of the files (a job), the answer about the records already in the
- * database, the import (a job).
+ * Import new data from ZIP, in the Import dialog, in the steps the Swing import took with its dialogs: the files and
+ * whether to take the plots not fully assessed, the reading of the files (a job), the answer about the records already
+ * in the database, the import (a job).
  */
-export function ImportZipDialog({ open, texts, language, onClose }: Props) {
+export function ImportZipSteps({ open, texts, language, onClose, choice, onLocked }: Props) {
   const t = useT();
   const s = (key: string) => serverText(texts, key);
   const [files, setFiles] = useState<string[]>([]);
@@ -53,6 +57,9 @@ export function ImportZipDialog({ open, texts, language, onClose }: Props) {
   useEffect(() => {
     if (open) { setFiles([]); setIncludeNonFinished(false); setStep("choose"); setJobId(null); setSummary(null); setAnswers({}); setError(null); }
   }, [open]);
+
+  const locked = step === "reading" || step === "importing";
+  useEffect(() => onLocked(locked), [locked, onLocked]);
 
   const fail = (e: unknown) => { setError(errorText(e, t("appBar.unreachable"))); setBusy(false); };
   const choose = () => chooseFiles(["zip", "collect-data"]).then((chosen) => { if (chosen.length) setFiles(chosen); }, fail);
@@ -77,13 +84,13 @@ export function ImportZipDialog({ open, texts, language, onClose }: Props) {
   const when = (millis: number | null) => (millis == null ? "" : new Date(millis).toLocaleString(language));
 
   return (
-    <Dialog open={open} onClose={step === "reading" || step === "importing" ? undefined : onClose} fullWidth maxWidth="md" data-testid="import-zip-dialog">
-      <DialogTitle>{s("CollectEarthWindow.46")}</DialogTitle>
-      <DialogContent>
+    <>
+      <DialogContent data-testid="import-zip-steps">
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           {step === "choose" && (
             <>
+              {choice}
               <Alert severity="info">{s("CollectEarthWindow.39")}</Alert>
               <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
                 <Button variant="outlined" onClick={choose}>{s("DataPage.import.chooseFiles")}</Button>
@@ -122,7 +129,7 @@ export function ImportZipDialog({ open, texts, language, onClose }: Props) {
         {step === "choose" && <Button variant="contained" onClick={read} disabled={files.length === 0 || busy}>{s(busy ? "DataPage.import.reading" : "DataPage.import.read")}</Button>}
         {step === "answer" && <Button variant="contained" onClick={doImport} disabled={!canImport(summary, answers) || busy}>{s(busy ? "DataPage.import.importing" : "DataPage.import.start")}</Button>}
       </DialogActions>
-    </Dialog>
+    </>
   );
 }
 

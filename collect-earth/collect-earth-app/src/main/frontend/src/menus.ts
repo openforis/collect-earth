@@ -6,7 +6,7 @@ export interface MenuItem { id: string; label: string; enabled: boolean; kind?: 
 export interface Menu { id: string; label: string; items: MenuItem[] }
 
 // The entries built so far: the others show, disabled, until their stage of docs/plans/2026-10-28-html-ui-design.md
-const BUILT = new Set(["quit", "properties", "export", "importZip", "updateCsv",
+const BUILT = new Set(["quit", "properties", "export", "import",
   "saiku", "saikuTool", "lulucf", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots",
   "importCep", "joinCloud", "cloudStatus", "language", "surveyGuide", "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
 
@@ -14,7 +14,7 @@ const BUILT = new Set(["quit", "properties", "export", "importZip", "updateCsv",
  * The entries the Swing window disabled when Collect Earth acts as a client of another instance (serverMenuItems):
  * they act on data this instance does not hold.
  */
-const SERVER_ONLY = new Set(["export", "importZip", "updateCsv", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots"]);
+const SERVER_ONLY = new Set(["export", "import", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots"]);
 
 const item = (id: string, label: string): MenuItem => ({ id, label, enabled: BUILT.has(id) });
 const toggle = (id: string, label: string): MenuItem => ({ ...item(id, label), kind: "toggle" });
@@ -51,8 +51,8 @@ function allMenus(app: MenuContext): Menu[] {
     ] },
     { id: "data", label: "CollectEarthWindow.44", items: [
       item("export", "CollectEarthWindow.13"),
-      item("importZip", "CollectEarthWindow.46"),
-      item("updateCsv", "CollectEarthWindow.55"),
+      // One import, which asks what to import: a ZIP export of Collect Earth, or a CSV that updates attributes
+      item("import", "DataPage.import.menu"),
     ] },
     { id: "tools", label: "CollectEarthWindow.12", items: [
       item("saiku", "CollectEarthWindow.14"),

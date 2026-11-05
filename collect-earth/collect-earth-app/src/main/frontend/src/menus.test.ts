@@ -11,7 +11,7 @@ describe("appMenus", () => {
 
   it("only enables what is built", () => {
     const enabled = appMenus({ plotsMap: true }).flatMap((m) => m.items).filter((i) => i.enabled).map((i) => i.id);
-    expect(enabled).toEqual(["importCep", "joinCloud", "cloudStatus", "language", "quit", "export", "importZip", "updateCsv",
+    expect(enabled).toEqual(["importCep", "joinCloud", "cloudStatus", "language", "quit", "export", "import",
       "saiku", "saikuTool", "lulucf", "loadKml", "dataFolder", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "properties",
       "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
     // The survey guide only when the survey has one, as the Swing menu showed it

@@ -6,7 +6,6 @@ import CallSplitOutlinedIcon from "@mui/icons-material/CallSplitOutlined";
 import CloudSyncOutlinedIcon from "@mui/icons-material/CloudSyncOutlined";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 import DeleteSweepOutlinedIcon from "@mui/icons-material/DeleteSweepOutlined";
-import EditNoteOutlinedIcon from "@mui/icons-material/EditNoteOutlined";
 import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import FileOpenOutlinedIcon from "@mui/icons-material/FileOpenOutlined";
 import FileUploadOutlinedIcon from "@mui/icons-material/FileUploadOutlined";
@@ -38,8 +37,7 @@ export const MENU_ICONS: Record<string, SvgIconComponent> = {
   language: TranslateOutlinedIcon,
   quit: PowerSettingsNewOutlinedIcon,
   export: FileDownloadOutlinedIcon,
-  importZip: FileUploadOutlinedIcon,
-  updateCsv: EditNoteOutlinedIcon,
+  import: FileUploadOutlinedIcon,
   saiku: BarChartOutlinedIcon,
   saikuTool: QueryStatsOutlinedIcon,
   lulucf: ForestOutlinedIcon,

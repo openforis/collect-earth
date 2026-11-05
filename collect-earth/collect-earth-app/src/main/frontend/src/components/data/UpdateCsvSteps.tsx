@@ -1,10 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { errorText } from "../../appBar";
@@ -15,10 +13,19 @@ import { formatText } from "../../settings";
 import { serverText, type Texts } from "../../serverTexts";
 import { JobPanel } from "./JobPanel";
 
-interface Props { open: boolean; texts: Texts | null; onClose: () => void }
+interface Props {
+  open: boolean; texts: Texts | null; onClose: () => void;
+  /** Shown above the first step only: the choice of what to import (ImportDialog) */
+  choice?: ReactNode;
+  /** Whether the dialog may be closed by a click beside it: not while the job is shown */
+  onLocked: (locked: boolean) => void;
+}
 
-/** Update current records using CSV: the columns the files need, the files, the job with its rows and problems. */
-export function UpdateCsvDialog({ open, texts, onClose }: Props) {
+/**
+ * Update current records using CSV, in the Import dialog: the columns the files need, the files, the job with its rows
+ * and problems.
+ */
+export function UpdateCsvSteps({ open, texts, onClose, choice, onLocked }: Props) {
   const t = useT();
   const s = (key: string) => serverText(texts, key);
   const [keys, setKeys] = useState<string[]>([]);
@@ -35,6 +42,9 @@ export function UpdateCsvDialog({ open, texts, onClose }: Props) {
     return () => controller.abort();
   }, [open]);
 
+  const locked = jobId !== null && !busy;
+  useEffect(() => onLocked(locked), [locked, onLocked]);
+
   const fail = (e: unknown) => { setError(errorText(e, t("appBar.unreachable"))); setBusy(false); };
   const choose = () => chooseFiles(["csv"]).then((chosen) => { if (chosen.length) setFiles(chosen); }, fail);
   const start = () => {
@@ -44,9 +54,8 @@ export function UpdateCsvDialog({ open, texts, onClose }: Props) {
   };
 
   return (
-    <Dialog open={open} onClose={jobId && !busy ? undefined : onClose} fullWidth maxWidth="sm" data-testid="update-csv-dialog">
-      <DialogTitle>{s("CollectEarthWindow.55")}</DialogTitle>
-      <DialogContent>
+    <>
+      <DialogContent data-testid="update-csv-steps">
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           {jobId ? (
@@ -63,6 +72,7 @@ export function UpdateCsvDialog({ open, texts, onClose }: Props) {
             )} />
           ) : (
             <>
+              {choice}
               <Alert severity="info">{formatText(s("DataPage.csv.info"), keys.join(", "))}</Alert>
               <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
                 <Button variant="outlined" onClick={choose}>{s("DataPage.import.chooseFiles")}</Button>
@@ -77,6 +87,6 @@ export function UpdateCsvDialog({ open, texts, onClose }: Props) {
         <Button onClick={onClose}>{s(jobId ? "DataPage.job.close" : "OptionWizard.24")}</Button>
         {!jobId && <Button variant="contained" onClick={start} disabled={files.length === 0 || busy}>{s(busy ? "DataPage.csv.updating" : "DataPage.csv.start")}</Button>}
       </DialogActions>
-    </Dialog>
+    </>
   );
 }

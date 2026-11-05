@@ -38,8 +38,7 @@ import { AppDrawer, DRAWER_ID } from "./AppDrawer";
 import { serverText, type Texts } from "../serverTexts";
 import { formatText } from "../settings";
 import { ExportDialog } from "./data/ExportDialog";
-import { ImportZipDialog } from "./data/ImportZipDialog";
-import { UpdateCsvDialog } from "./data/UpdateCsvDialog";
+import { ImportDialog } from "./data/ImportDialog";
 import { runAction } from "../toolsApi";
 import { DeletePlotsDialog } from "./tools/DeletePlotsDialog";
 import { DivideCsvDialog } from "./tools/DivideCsvDialog";
@@ -121,7 +120,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const quick = (name: string) => () => runAction(name).catch((e) => setActionError(errorText(e, t("appBar.unreachable"))));
   const actions: Record<AppAction, () => void> = {
     quit: () => setQuitOpen(true), settings: onSettings,
-    export: () => setDialog("export"), importZip: () => setDialog("importZip"), updateCsv: () => setDialog("updateCsv"),
+    export: () => setDialog("export"), import: () => setDialog("import"),
     saiku: () => setDialog("saiku"), saikuTool: () => setDialog("saikuTool"), lulucf: () => setDialog("lulucf"), loadKml: () => setDialog("loadKml"),
     dataFolder: quick("openDataFolder"), openPlotsMap: quick("openPlotsMap"), myDashboard: quick("openDashboard"),
     missingPlots: () => setDialog("missingPlots"), divideCsv: () => setDialog("divideCsv"), deletePlots: () => setDialog("deletePlots"),
@@ -250,8 +249,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
         onQuit={() => setQuitOpen(true)} />
       <QuitDialog open={quitOpen} texts={texts} onKeepOpen={() => setQuitOpen(false)} onClosed={() => setClosed(true)} />
       <ExportDialog open={dialog === "export"} texts={texts} language={info.language} onClose={close} />
-      <ImportZipDialog open={dialog === "importZip"} texts={texts} language={info.language} onClose={close} />
-      <UpdateCsvDialog open={dialog === "updateCsv"} texts={texts} onClose={close} />
+      <ImportDialog open={dialog === "import"} texts={texts} language={info.language} onClose={close} />
       <SaikuDialog open={dialog === "saiku"} texts={texts} onClose={close} />
       <SaikuToolDialog open={dialog === "saikuTool"} texts={texts} onClose={close} />
       <IpccDialog open={dialog === "lulucf"} texts={texts} onClose={close} />
