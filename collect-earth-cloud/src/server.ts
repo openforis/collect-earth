@@ -29,6 +29,7 @@ import { registerPlatformRoutes } from './routes/platform.js';
 import { ProjectStateCache } from './projectState.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import { registerTimeSpentRoutes } from './routes/timeSpent.js';
+import { registerAnalysisRoutes } from './routes/analysis.js';
 import { PlotPlaceReader } from './routes/plotPlaces.js';
 import { PlotIndexCache, registerPlotSearchRoutes } from './routes/plotSearch.js';
 import { registerPlotsGeoRoutes } from './routes/plotsGeo.js';
@@ -215,6 +216,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerProgressRoutes(app, store, quality, states, now);
   await registerPeopleRoutes(app, store, quality, states, now);
   await registerTimeSpentRoutes(app, store, states);
+  await registerAnalysisRoutes(app, store, states);
   await registerPlotsGeoRoutes(app, store, quality, states, places, config.mapBuildsKept ? { maxBuilds: config.mapBuildsKept } : {});
   await registerActivityRoutes(app, store, quality, states, places, now);
   // No check sampling in the local mode: there is no one else to check.

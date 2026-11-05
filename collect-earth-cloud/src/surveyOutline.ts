@@ -56,7 +56,7 @@ export const MAX_INDEXED_ENTITIES = 10;
  * BalloonInputFieldsUtils give it (getPrefix). Elements without a handler (taxon, file)
  * are not in summaries: the desktop app cannot summarize a record holding them.
  */
-function prefixOf(node: XmlNode): string | null {
+export function prefixOf(node: XmlNode): string | null {
   const type = attr(node, 'type');
   switch (tagOf(node)) {
     case 'boolean':
