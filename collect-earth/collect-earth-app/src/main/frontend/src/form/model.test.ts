@@ -3,7 +3,7 @@ import {
   type Field, type FormModel, availableItems, clickCode, dateFromInput, dateToInput, entityCount, errorList, fieldsByName,
   indexedField, isTabVisible, joinValues, mergeInfos, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
   requiredMessage, saveBody, selectCodes, splitValues, summaryLines, tabsWithErrors, timeToInput, unansweredRequired, errorsByTab, neededByTab, updateRequired,
-  DROPDOWN_AS_BUTTONS, advanceTarget, answeredWithKeys, answersToCopy, answersToRemember, codeControl, firstToAnswer, numberProblem,
+  DROPDOWN_AS_BUTTONS, advanceTarget, answeredWithKeys, openingTarget, answersToCopy, answersToRemember, codeControl, firstToAnswer, numberProblem,
   draftErrors, stepsOf,
 } from "./model";
 
@@ -251,6 +251,16 @@ describe("moves of the focus", () => {
   });
   it("stays on a step that still needs an answer typed, on its step button, never in the text box", () => {
     expect(advanceTarget(steps, 2, "change")).toEqual({ tab: 2, name: null });
+  });
+  it("opens a plot on its first step, on the step button when only a later step needs an answer", () => {
+    // a first step of optional questions only (a table of coverages): the plot still opens on it
+    const optionalFirst = [{ tab: 0, questions: [q("trees", true, false), q("crops", true, false)] }, steps[1], steps[2]];
+    expect(openingTarget(optionalFirst, 0)).toEqual({ tab: 0, name: null });
+    expect(openingTarget(steps, 0)).toEqual({ tab: 0, name: "sub" });
+  });
+  it("opens a plot with nothing needed on nothing", () => {
+    const none = steps.map((s) => ({ ...s, questions: s.questions.map((x) => ({ ...x, needed: false })) }));
+    expect(openingTarget(none, 0)).toBeNull();
   });
   it("goes to the step button, Submit, when nothing is left anywhere", () => {
     const none = steps.map((s) => ({ ...s, questions: s.questions.map((x) => ({ ...x, needed: false })) }));

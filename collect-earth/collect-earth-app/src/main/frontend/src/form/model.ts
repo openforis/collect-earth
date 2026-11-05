@@ -481,6 +481,18 @@ export function advanceTarget(steps: Step[], tab: number, from: string | null): 
 }
 
 /**
+ * Where the focus goes when a plot opens on step `tab`, or null for nowhere: on that step's first question needed that
+ * is answered from the keyboard; when it has none but another step needs one, on its step button, for Enter to go on.
+ * Never on another step: a plot always opens on its first step, also when its questions are optional (a table of
+ * coverages, for instance), and the user reads it before going on. Nowhere when nothing is needed (see advanceTarget).
+ */
+export function openingTarget(steps: Step[], tab: number): FocusTarget | null {
+  const target = advanceTarget(steps, tab, null);
+  if (target.name == null) return null;
+  return target.tab === tab ? target : { tab, name: null };
+}
+
+/**
  * What an integer or a decimal number typed is not, or null when it is one (or nothing): the server reads "1.5x" as 1,
  * which the box then showed instead of what was typed, with no word of it. A decimal comma is a dot (normalizeNumber).
  */

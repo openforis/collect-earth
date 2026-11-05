@@ -37,8 +37,8 @@ import { AnsweredByKey, Copied, FieldView, errorText } from "./fields";
 import {
   type Field, type FocusTarget, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type Step,
   type TableItem, advanceTarget, answeredWithKeys, answersToCopy, availableItems, draftErrors, entityCount, errorList,
-  fieldsOfStep, firstToAnswer, indexedField, isTabVisible, isVisible, itemFields, neededByTab, parseCodes, stepsOf,
-  summaryLines, tabsWithErrors,
+  fieldsOfStep, firstToAnswer, indexedField, isTabVisible, isVisible, itemFields, neededByTab, openingTarget, parseCodes,
+  stepsOf, summaryLines, tabsWithErrors,
 } from "./model";
 import type { FormState, FormStore, SaveState } from "./store";
 import { TypeAhead, afterRender, endOfMove } from "./typeAhead";
@@ -202,9 +202,9 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
 
   // Once, when the plot opens (a plot has a page of its own), and once the server said which questions are shown: the
   // first one needed and answered with keys takes the focus, to be answered from the keyboard, and the keys of the plots
-  // map work; on the step shown, else on the first step after it that needs one (see advanceTarget). None when all are
-  // answered (a key pressed in a plot looked at again must not edit it), and none when the user put the focus elsewhere
-  // meanwhile (see focusIsFree).
+  // map work. Only on the step shown, the first: its step button when only a step after it needs one (see
+  // openingTarget). None when all are answered (a key pressed in a plot looked at again must not edit it), and none when
+  // the user put the focus elsewhere meanwhile (see focusIsFree).
   const opened = useRef(false);
   const known = Object.keys(state.infos).length > 0;
   useEffect(() => {
@@ -212,8 +212,8 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     opened.current = true;
     // once the questions are rendered
     afterRender(() => {
-      const target = advanceTarget(stepsNow(), store.getState().tab, null);
-      if (target.name != null && focusIsFree()) focusTarget(target);
+      const target = openingTarget(stepsNow(), store.getState().tab);
+      if (target && focusIsFree()) focusTarget(target);
     });
   }, [known, store, stepsNow, focusTarget]);
 
