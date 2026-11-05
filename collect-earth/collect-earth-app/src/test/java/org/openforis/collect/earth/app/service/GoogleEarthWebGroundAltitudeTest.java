@@ -33,6 +33,34 @@ public class GoogleEarthWebGroundAltitudeTest {
 		assertEquals(Double.valueOf(320), gew.groundAltitudeNear(10, 10));
 	}
 
+	/**
+	 * The ground of a survey area is kept while plots far away are looked at: back from a plot on another continent,
+	 * the plots of the area were aimed at sea level, under hills of 1000 m and more, and Google Earth Web showed black.
+	 */
+	@Test
+	public void theGroundOfAPlaceIsKeptWhilePlotsElsewhereAreShown() {
+		GoogleEarthWebService gew = new GoogleEarthWebService();
+		gew.plotUrl(plot(0, 0, 100), GoogleEarthWebUrls.PLOT_DISTANCE);
+		gew.learnGroundAltitude(camera(1.1184, 30.791, 1086)); // Uganda
+		gew.learnGroundAltitude(camera(-4.998, 151.358, 293)); // Papua New Guinea
+		assertEquals(Double.valueOf(1086), gew.groundAltitudeNear(1.1659, 31.061));
+		assertEquals(Double.valueOf(293), gew.groundAltitudeNear(-4.99, 151.36));
+		assertNull(gew.groundAltitudeNear(40, 0));
+	}
+
+	/** Of the places within reach, the ground learnt nearest the plot; one learnt again at the same place replaces it. */
+	@Test
+	public void theNearestGroundLearntIsUsed() {
+		GoogleEarthWebService gew = new GoogleEarthWebService();
+		gew.plotUrl(plot(0, 0, 100), GoogleEarthWebUrls.PLOT_DISTANCE);
+		gew.learnGroundAltitude(camera(1.0, 31.0, 900));
+		gew.learnGroundAltitude(camera(1.3, 31.0, 1500));
+		assertEquals(Double.valueOf(900), gew.groundAltitudeNear(1.05, 31.0));
+		assertEquals(Double.valueOf(1500), gew.groundAltitudeNear(1.25, 31.0));
+		gew.learnGroundAltitude(camera(1.0001, 31.0, 950));
+		assertEquals(Double.valueOf(950), gew.groundAltitudeNear(1.05, 31.0));
+	}
+
 	@Test
 	public void aCameraMoveIsNotLearntAfterTheOutlineIsDrawnAgain() {
 		GoogleEarthWebService gew = new GoogleEarthWebService();

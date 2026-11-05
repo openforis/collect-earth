@@ -5,11 +5,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -229,11 +231,33 @@ public class GoogleEarthWebService {
 	/** Counts the plots shown: a camera move asked for before a plot was shown is dropped. */
 	private final AtomicLong showCount = new AtomicLong();
 	/**
-	 * Altitude of the ground where the camera looked last, from the URLs Google Earth Web writes
-	 * ( it aims at the ground ), with where it was learnt. Null until then.
+	 * The altitudes of the ground learnt from the URLs Google Earth Web writes (it aims at the ground), with where each
+	 * was learnt, the newest first: one per place ({@link #SAME_GROUND_METERS}), {@link #GROUNDS_KEPT} at most. A plot is
+	 * aimed at the one learnt nearest it ({@link #groundAltitudeNear}). Kept per place, not only the last: the survey
+	 * area's was lost to a plot far away, and its plots were then aimed at sea level, under the hills, and showed black.
 	 */
-	private volatile Double groundAltitude;
-	private volatile double[] groundAltitudePosition;
+	private final Deque<LearntGround> grounds = new ConcurrentLinkedDeque<>();
+	private static final int GROUNDS_KEPT = 500;
+	/** A ground learnt this near one learnt before replaces it. */
+	private static final double SAME_GROUND_METERS = 1000;
+
+	private static final class LearntGround {
+		final double latitude;
+		final double longitude;
+		final double altitude;
+
+		LearntGround(double latitude, double longitude, double altitude) {
+			this.latitude = latitude;
+			this.longitude = longitude;
+			this.altitude = altitude;
+		}
+
+		double metresTo(double lat, double lon) {
+			double north = (lat - latitude) * 111320;
+			double east = (lon - longitude) * 111320 * Math.cos(Math.toRadians(lat));
+			return Math.hypot(north, east);
+		}
+	}
 	/** The last camera URL Collect Earth wrote, its altitude and distance together. Null before the first. */
 	private volatile WrittenCamera written;
 
@@ -1151,7 +1175,7 @@ public class GoogleEarthWebService {
 		groundAimedFor = shown;
 		String url = plotUrl(plot, plotDistance(plot));
 		logger.info("Google Earth Web stopped the camera {} m from the ground of plot {}: flown there again aimed at {} m",
-				Math.round(GoogleEarthWebUrls.cameraDistance(href)), plot.getPlacemarkId(), Math.round(groundAltitude));
+				Math.round(GoogleEarthWebUrls.cameraDistance(href)), plot.getPlacemarkId(), Math.round(plotAltitude(plot)));
 		if (Boolean.TRUE.equals(inPage.follows())) {
 			// The overlay hides until the camera has flown there
 			tab().evaluate(CAMERA_MOVE_SCRIPT, url);
@@ -1181,8 +1205,8 @@ public class GoogleEarthWebService {
 			return false;
 		}
 		WrittenCamera last = written;
-		groundAltitude = last != null && isAbout(altitude, last.altitude) ? altitude + last.distance - distance : altitude;
-		groundAltitudePosition = new double[] { latitude, longitude };
+		learnGround(latitude, longitude,
+				last != null && isAbout(altitude, last.altitude) ? altitude + last.distance - distance : altitude);
 		return true;
 	}
 
@@ -1381,15 +1405,29 @@ public class GoogleEarthWebService {
 		return ground == null ? fallback : ground;
 	}
 
+	/** The ground learnt nearest the point, if one is within {@link #GROUND_ALTITUDE_RANGE_METERS}; else null. */
 	Double groundAltitudeNear(double latitude, double longitude) {
-		Double ground = groundAltitude;
-		double[] at = groundAltitudePosition;
-		if (ground == null || at == null) {
-			return null;
+		LearntGround nearest = null;
+		double nearestMetres = GROUND_ALTITUDE_RANGE_METERS;
+		for (LearntGround ground : grounds) {
+			double metres = ground.metresTo(latitude, longitude);
+			if (metres <= nearestMetres) {
+				nearest = ground;
+				nearestMetres = metres;
+			}
 		}
-		double north = (latitude - at[0]) * 111320;
-		double east = (longitude - at[1]) * 111320 * Math.cos(Math.toRadians(latitude));
-		return Math.hypot(north, east) <= GROUND_ALTITUDE_RANGE_METERS ? ground : null;
+		return nearest == null ? null : nearest.altitude;
+	}
+
+	/** Remembers the ground at a place, replacing one learnt at the same place: see {@link #grounds}. */
+	private void learnGround(double latitude, double longitude, double altitude) {
+		synchronized (grounds) {
+			grounds.removeIf(ground -> ground.metresTo(latitude, longitude) <= SAME_GROUND_METERS);
+			grounds.addFirst(new LearntGround(latitude, longitude, altitude));
+			while (grounds.size() > GROUNDS_KEPT) {
+				grounds.pollLast();
+			}
+		}
 	}
 
 	/**
@@ -1402,8 +1440,7 @@ public class GoogleEarthWebService {
 		Double altitude = GoogleEarthWebUrls.cameraAltitude(href);
 		double[] camera = GoogleEarthWebUrls.cameraPosition(href);
 		if (altitude != null && camera != null && !isAbout(altitude, writtenAltitude()) && !isAbout(altitude, topDownAltitude)) {
-			groundAltitude = altitude;
-			groundAltitudePosition = camera;
+			learnGround(camera[0], camera[1], altitude);
 		}
 	}
 
