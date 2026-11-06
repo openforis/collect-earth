@@ -93,7 +93,8 @@ export function SettingField({ field, value, values, texts, error, warning, chan
       break;
     case "choice":
       control = (
-        <TextField {...common} select>
+        // displayEmpty: a choice whose value is blank (Automatic, No limit) shows its label instead of an empty box
+        <TextField {...common} select slotProps={{ ...common.slotProps, select: { displayEmpty: true } }}>
           {(field.choices ?? []).map((c) => <MenuItem key={c.value} value={c.value}>{choiceLabel(c, texts)}</MenuItem>)}
         </TextField>
       );

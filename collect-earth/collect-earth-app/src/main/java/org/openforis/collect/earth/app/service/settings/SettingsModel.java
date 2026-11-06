@@ -221,8 +221,9 @@ public final class SettingsModel {
 
 	private static Section advanced() {
 		return new Section(ADVANCED, "SettingsPage.section.advanced",
-				Setting.choice(EarthProperty.BROWSER_TO_USE, "OptionWizard.1").tooltip("SettingsPage.browser.tooltip")
-						.defaultValue(EarthConstants.FIREFOX_BROWSER).restart()
+				// Blank, as in a new installation, is no choice: BrowserService tries the installed browsers in its own order
+				Setting.choice(EarthProperty.BROWSER_TO_USE, "OptionWizard.1").tooltip("SettingsPage.browser.tooltip").restart()
+						.option("", "SettingsPage.browser.automatic")
 						.option(EarthConstants.FIREFOX_BROWSER, "SettingsPage.browser.firefox")
 						.option(EarthConstants.CHROME_BROWSER, "SettingsPage.browser.chrome")
 						.option(EarthConstants.EDGE_BROWSER, "SettingsPage.browser.edge"),
