@@ -195,11 +195,12 @@ export function templatesOf(data: Pick<AnalysisData, "model" | "scope" | "areas"
   if (region && main) out.push({ id: "byRegion", label: t("analysis.tpl.byTwo", { a: main, b: region.name }), question: q([main], [region.name], [size]) });
   const numeric = cube.columns.find((c) => c.group === "survey" && c.kind === "number" && !c.time);
   if (numeric && main) out.push({ id: `avg:${numeric.id}`, label: t("analysis.tpl.avgBy", { measure: numeric.name, field: main }), question: q([main], [], [`avg:${numeric.id}`], "X Bar") });
+  // Bars, not lines: a line through a single week (a survey started this week) draws nothing at all
   if (data.scope === "project") {
     out.push({ id: "byCollector", label: t("analysis.tpl.byCollector"), question: q([name("_operator")], [name("_saved_month")], ["plots"], "Datagrid", []) });
-    out.push({ id: "perWeek", label: t("analysis.tpl.perWeek"), question: q([name("_saved_week")], [assessment], ["plots"], "Y Line", []) });
+    out.push({ id: "perWeek", label: t("analysis.tpl.perWeek"), question: q([name("_saved_week")], [assessment], ["plots"], "Y Bar", []) });
   } else {
-    out.push({ id: "perWeek", label: t("analysis.tpl.myWeeks"), question: q([name("_saved_week")], [], ["plots"], "Y Line", []) });
+    out.push({ id: "perWeek", label: t("analysis.tpl.myWeeks"), question: q([name("_saved_week")], [], ["plots"], "Y Bar", []) });
   }
   return out;
 }

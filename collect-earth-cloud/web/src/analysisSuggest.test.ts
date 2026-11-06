@@ -139,7 +139,7 @@ describe("the ready-made views", () => {
     expect(by("count:disturbance2")).toMatchObject({ chart: "X Bar", order: "desc" });
     expect(by("yesno:confidentt2")).toMatchObject({ rows: ["Land use"], columns: ["Are you confident with the interpretation?"], chart: "Y Bar" });
     // the work over time as lines
-    expect(by("perWeek")).toMatchObject({ rows: ["Week saved"], chart: "Y Line" });
+    expect(by("perWeek")).toMatchObject({ rows: ["Week saved"], chart: "Y Bar" });
   });
 
   it("title a change matrix with which side is the land use before and which after", () => {
