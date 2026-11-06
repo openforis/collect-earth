@@ -58,6 +58,25 @@ public class SettingsServiceTest {
 		when(properties.getMapEngine()).thenReturn("leaflet");
 		when(properties.getWebForm()).thenReturn("generated");
 		when(properties.getCollectDBDriver()).thenReturn(CollectDBDriver.SQLITE);
+		// As LocalPropertiesService: the default port when none is stored
+		when(properties.getPort()).thenAnswer(call -> stored.getOrDefault("port", "").isEmpty() ? "8028" : stored.get("port"));
+	}
+
+	@Test
+	public void aNewInstallationShowsItsPortAndAnAutomaticBrowser() {
+		// A new installation stores neither
+		stored.remove("port");
+		stored.remove("use_browser");
+		Map<String, String> current = service.current();
+		// The port the server listens on, not a blank field
+		assertEquals("8028", current.get("port"));
+		// No browser chosen, which the page offers as a choice of its own
+		assertEquals("", current.get("use_browser"));
+		Setting browser = service.getModel().setting("use_browser");
+		assertEquals("", browser.getChoices().get(0).getValue());
+		assertEquals("SettingsPage.browser.automatic", browser.getChoices().get(0).getLabel());
+		// Restore defaults gives back what a new installation has
+		assertEquals("", browser.getDefaultValue());
 	}
 
 	@Test

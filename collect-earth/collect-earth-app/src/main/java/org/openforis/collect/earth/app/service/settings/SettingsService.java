@@ -87,6 +87,9 @@ public class SettingsService {
 			return properties.getMapEngine();
 		} else if (property == EarthProperty.WEB_FORM) {
 			return properties.getWebForm();
+		} else if (property == EarthProperty.HOST_PORT_KEY) {
+			// The port the server uses: the default when none is stored
+			return properties.getPort();
 		} else if (property == EarthProperty.DB_DRIVER) {
 			CollectDBDriver driver = properties.getCollectDBDriver();
 			return (driver == null ? CollectDBDriver.SQLITE : driver).name();
