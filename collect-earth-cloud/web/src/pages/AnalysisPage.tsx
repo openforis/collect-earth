@@ -14,7 +14,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ApiError, getAnalysis, getProject, type AnalysisData } from "../api";
+import { ApiError, getAnalysis, getProject, getProjectAi, proposeAnalysisViews, type AnalysisData, type ProposedView } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
@@ -36,7 +36,12 @@ import Tune from "@mui/icons-material/Tune";
 import { useCallback } from "react";
 import { deleteSharedAnalysisView, getSharedAnalysisViews, shareAnalysisView, type Role } from "../api";
 import { useLocalMode } from "../appContext";
-import { applyQuestion, decodeView, drillColumns, encodeView, measuresOf, questionOf, templatesOf, valuesSql, type Filter, type Measure, type Question, type Template } from "../analysisQuestion";
+import AutoAwesome from "@mui/icons-material/AutoAwesome";
+import ListItemText from "@mui/material/ListItemText";
+import { applyQuestion, decodeView, drillColumns, encodeView, measuresOf, questionOf, valuesSql, type Filter, type Measure, type Question } from "../analysisQuestion";
+import { chartStyle, seriesOfPaths, takesOut, TREES } from "../analysisColors";
+import { templatesOf, viewOfProposal, viewTitle, type Template } from "../analysisSuggest";
+import { startErrorText } from "../aiView";
 import { cubeOf, defaultView, fitToCube, parseSavedViews, tableChoices, translateView, withSavedView, type Cube, type SavedView, type ViewConfig } from "../analysisView";
 import type { AnalysisEngine, Step, Viewer } from "../analysisEngine";
 import { DrillDialog } from "../components/analysis/DrillDialog";
@@ -97,8 +102,19 @@ interface Shown {
   language: string;
 }
 
-/** The chosen view in the views list: a ready-made one, one shared with the team, or one of the person's own. */
-type ViewKey = `tpl:${string}` | `team:${string}` | `mine:${string}` | "";
+/** The chosen view in the views list: a ready-made one, one the AI assistant proposed, one shared with the team, or one of the person's own. */
+type ViewKey = `tpl:${string}` | `ai:${string}` | `team:${string}` | `mine:${string}` | "";
+/** The views list's action that asks the AI assistant for views (not a view). */
+const ASK_AI = "ask-ai";
+
+/** The AI assistant's proposals as views of the cube shown (those naming a field it has not are left out). */
+function aiTemplates(proposals: { table: string; views: ProposedView[] } | null, s: Shown | null, t: ReturnType<typeof useT>): Template[] {
+  if (!proposals || !s || proposals.table !== s.cube.table) return [];
+  return proposals.views.flatMap((p, i) => {
+    const question = viewOfProposal(p, s.cube, s.measures, t);
+    return question ? [{ id: `${i}`, label: p.title, why: p.why, question }] : [];
+  });
+}
 
 /** A configuration as it is kept: without the table's and title's names, which the page gives when it opens it. */
 function keepable(config: ViewConfig): ViewConfig {
@@ -117,6 +133,8 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
   const shownRef = useRef<Shown | null>(null);
   /** One change at a time: the engine's calls follow each other. */
   const queue = useRef<Promise<unknown>>(Promise.resolve());
+  /** A repaint after a change in Perspective's panel is under way. */
+  const painting = useRef(false);
   /** The language of the code tables' labels in DuckDB. */
   const codesLanguage = useRef(language);
   const [step, setStep] = useState<Step | "ready">("database");
@@ -134,6 +152,19 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
   const [fullScreen, setFullScreen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const tables = useMemo(() => tableChoices(data.model, language, t), [data, language, t]);
+  // The AI assistant's views: for coordinators of a project where it is on (never in the local mode, which has none)
+  const ai = useLoad(() => (coordinator && !local ? getProjectAi(projectId).catch(() => null) : Promise.resolve(null)), [projectId, coordinator, local]);
+  const canAskAi = !!ai.data?.enabled && !!ai.data.available;
+  const [proposals, setProposals] = useState<{ table: string; views: ProposedView[] } | null>(null);
+  const proposalsRef = useRef(proposals);
+  proposalsRef.current = proposals;
+  const [asking, setAsking] = useState(false);
+  /** The chosen view, for the title the chart is given after a change (the state is a render late). */
+  const selectedRef = useRef<ViewKey>("tpl:default");
+  selectedRef.current = selected;
+  /** The view was changed since it was chosen: its title is then the table's, not the view's. */
+  const changedRef = useRef(false);
+  changedRef.current = changed;
 
   /** How many changes are under way: the pivot shows a progress line and the bars wait meanwhile. */
   const [working, setWorking] = useState(0);
@@ -157,8 +188,42 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
       if (!v || !s) return;
       const current = await v.save();
       await v.restore({ ...fitToCube(make(s, current), s.cube), table: current.table, title: current.title });
+      await paint(v, s);
       setConfig(await v.save());
     });
+
+  /**
+   * The chart's colours (each category its own, in every chart: analysisColors.ts) and its title, once the view is
+   * shown: Perspective takes the colours in the order of the view's series, which only the view knows.
+   */
+  const paint = async (v: Viewer, s: Shown) => {
+    const e = engine.current;
+    if (!e) return;
+    const config = await v.save();
+    const plugin = config.plugin ?? "Datagrid";
+    const colour = TREES.has(plugin) ? (config.group_by?.[0] ?? null) : null;
+    const order = plugin === "Datagrid" ? { paths: [], colourValues: null } : await e.chartOrder(v, colour);
+    const style = chartStyle(config, s.cube, data.model, seriesOfPaths(order.paths, (config.split_by ?? []).length), order.colourValues);
+    const title = titleOf(s, config);
+    // Perspective adds the colours restored to those it has: a colour no longer wanted is cleared first
+    if (style && takesOut(config.columns_config, style.columns_config)) await v.restore({ columns_config: null });
+    if (style || title !== config.title) await v.restore({ ...(style ?? {}), title });
+  };
+
+  // the panel's listener, set once, paints with what this render knows (the language, the AI's views)
+  const paintRef = useRef(paint);
+  paintRef.current = paint;
+
+  /** A ready-made or proposed view's title (a change matrix says which axis is which), else the table's name. */
+  const titleOf = (s: Shown, config: ViewConfig): string => {
+    const tableLabel = tables.find((x) => x.name === s.cube.table)?.label ?? s.cube.table;
+    if (changedRef.current) return tableLabel;
+    const [kind, ...rest] = selectedRef.current.split(":");
+    const id = rest.join(":");
+    const tpl = kind === "tpl" ? s.templates.find((x) => x.id === id) : kind === "ai" ? aiTemplates(proposalsRef.current, s, t).find((x) => x.id === id) : undefined;
+    if (tpl) return viewTitle(tpl, questionOf(config, s.measures), t);
+    return kind === "team" || kind === "mine" ? id : tableLabel;
+  };
 
   /** Shows a table with the view `make` gives for its cube (from the cube shown before, for a translation). */
   const show = (nextTable: string, make: (next: Shown, before: Shown | null, current: ViewConfig | null) => ViewConfig) =>
@@ -178,6 +243,7 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
       }
       setRows(await e.show(v, cube, viewConfig, tables.find((x) => x.name === nextTable)?.label ?? nextTable));
       shownRef.current = next;
+      await paint(v, next);
       setShown(next);
       setTable(nextTable);
       setConfig(await v.save());
@@ -185,10 +251,10 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
 
   const savedConfig = (view: { table: string; language: string; config: ViewConfig }, next: Shown) =>
     view.language === next.language ? view.config : translateView(view.config, cubeOf(data, view.table, view.language, translator(view.language)), next.cube);
-  const templateConfig = (id: string, next: Shown, current: ViewConfig | null) => {
-    const tpl = next.templates.find((x) => x.id === id) ?? next.templates[0];
+  const templateConfig = (id: string, next: Shown, current: ViewConfig | null, from: Template[] = next.templates) => {
+    const tpl = from.find((x) => x.id === id) ?? next.templates[0];
     const base = current ? { ...keepable(current), expressions: {}, aggregates: {}, columns_config: {} } : keepable(defaultView(data, next.cube, t));
-    return applyQuestion(base, tpl.question, next.measures);
+    return applyQuestion(base, tpl.question, next.measures, next.cube);
   };
 
   // DuckDB and Perspective start with the page (their code is loaded only now); a link may bring a view (#view=…)
@@ -211,6 +277,14 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
         // Perspective's panel and the bars are one view: what changes in the panel shows in the bars
         v.addEventListener("perspective-config-update", () => {
           void v.save().then((c) => setConfig(c));
+          // A change made in Perspective's own panel gets its colours too; paint restores only what differs, so the
+          // change it makes asks for nothing more
+          if (painting.current) return;
+          painting.current = true;
+          void run(async () => {
+            const s = shownRef.current;
+            if (s && viewer.current) await paintRef.current(viewer.current, s);
+          }).finally(() => (painting.current = false));
         });
         // A click on a cell lists its plots (the drill-through)
         v.addEventListener("perspective-click", (event) => {
@@ -263,10 +337,13 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
       const v = viewer.current;
       const s = shownRef.current;
       if (!v || !s) return;
-      const next = applyQuestion(await v.save(), q, s.measures);
+      const next = applyQuestion(await v.save(), q, s.measures, s.cube);
       setConfig(next);
       setChanged(true);
+      changedRef.current = true;
       await v.restore(next);
+      await paint(v, s);
+      setConfig(await v.save());
     });
 
   const loadValues = useCallback(async (column: string, filters: Filter[]) => {
@@ -279,12 +356,17 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
 
   const chooseTable = (name: string) => {
     setSelected("tpl:default");
+    selectedRef.current = "tpl:default";
     setChanged(false);
+    changedRef.current = false;
     void show(name, (next, _b, current) => templateConfig("default", next, current));
   };
-  const chooseView = (key: ViewKey) => {
+  const chooseView = (key: ViewKey | typeof ASK_AI) => {
+    if (key === ASK_AI) return void askAi();
     setSelected(key);
+    selectedRef.current = key;
     setChanged(false);
+    changedRef.current = false;
     const [kind, ...rest] = key.split(":");
     const name = rest.join(":");
     const same = shownRef.current?.cube.table === table && shownRef.current.language === language;
@@ -293,12 +375,31 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
       else void show(table, (next, _b, current) => templateConfig(name, next, current));
       return;
     }
+    if (kind === "ai") {
+      if (same) void restyle((s, current) => templateConfig(name, s, current, aiTemplates(proposalsRef.current, s, t)));
+      else void show(table, (next, _b, current) => templateConfig(name, next, current, aiTemplates(proposalsRef.current, next, t)));
+      return;
+    }
     const view = (kind === "team" ? (team.data ?? []).find((v) => v.name === name && v.table === table) : mine.find((v) => v.name === name && v.table === table)) as
       | { table: string; language: string; config: ViewConfig }
       | undefined;
     if (!view) return;
     if (same) void restyle((s) => savedConfig(view, s));
     else void show(view.table, (next) => savedConfig(view, next));
+  };
+  /** Asks the AI assistant for views of the table shown; they join the list's suggestions. */
+  const askAi = async () => {
+    setAsking(true);
+    try {
+      const views = await proposeAnalysisViews(projectId, table, language);
+      setProposals({ table, views });
+      const usable = aiTemplates({ table, views }, shownRef.current, t).length;
+      setNotice(usable ? t("analysis.ai.got", { count: usable }) : t("analysis.ai.none"));
+    } catch (e) {
+      setNotice(startErrorText(t, e, language) ?? t("analysis.ai.failed"));
+    } finally {
+      setAsking(false);
+    }
   };
   const keepMine = (next: SavedView[]) => {
     setMine(next);
@@ -361,6 +462,7 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
     const [kind, ...rest] = selected.split(":");
     const name = rest.join(":");
     if (kind === "tpl") return shown?.templates.find((x) => x.id === name)?.label ?? "";
+    if (kind === "ai") return aiTemplates(proposals, shown, t).find((x) => x.id === name)?.label ?? "";
     return name;
   };
   const togglePanel = () =>
@@ -371,6 +473,7 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
   const ready = step === "ready" && working === 0;
   const teamViews = (team.data ?? []).filter((v) => v.table === table);
   const myViews = mine.filter((v) => v.table === table);
+  const myAi = aiTemplates(proposals, shown, t);
   const canDelete = selected.startsWith("mine:") || (selected.startsWith("team:") && coordinator);
   const plotRows = data.tables.find((x) => x.name === "plot")?.rows ?? 0;
   const drillCols = shown && question ? drillColumns(shown.cube, question, shown.measures) : [];
@@ -390,7 +493,7 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
           size="small"
           label={t("analysis.view")}
           value={selected}
-          onChange={(e) => chooseView(e.target.value as ViewKey)}
+          onChange={(e) => chooseView(e.target.value as ViewKey | typeof ASK_AI)}
           disabled={!ready}
           sx={{ width: { xs: "100%", sm: 340 } }}
           slotProps={{ select: { displayEmpty: true, renderValue: () => (selected ? selectedLabel() : t("analysis.custom")) + (changed ? ` · ${t("analysis.changed")}` : "") }, inputLabel: { shrink: true } }}
@@ -401,6 +504,18 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
               {x.label}
             </MenuItem>
           ))}
+          {myAi.length > 0 && <ListSubheader>{t("analysis.ai.group")}</ListSubheader>}
+          {myAi.map((x) => (
+            <MenuItem key={`ai:${x.id}`} value={`ai:${x.id}`} sx={{ whiteSpace: "normal", maxWidth: 520 }}>
+              <ListItemText primary={x.label} secondary={x.why} slotProps={{ secondary: { variant: "caption" } }} sx={{ my: 0 }} />
+            </MenuItem>
+          ))}
+          {canAskAi && (
+            <MenuItem value={ASK_AI} disabled={asking} sx={{ color: "primary.main", whiteSpace: "normal", maxWidth: 520 }}>
+              <AutoAwesome fontSize="small" sx={{ mr: 1 }} />
+              <ListItemText primary={t(asking ? "analysis.ai.asking" : "analysis.ai.ask")} secondary={t("analysis.ai.privacy")} slotProps={{ secondary: { variant: "caption" } }} sx={{ my: 0 }} />
+            </MenuItem>
+          )}
           {!local && <ListSubheader>{t("analysis.views.team")}</ListSubheader>}
           {!local && teamViews.length === 0 && (
             <MenuItem disabled value="none-team">
@@ -526,7 +641,7 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
       <SaveDialog
         open={saving !== null}
         team={saving === "team"}
-        initial={selected.startsWith(saving === "team" ? "team:" : "mine:") ? selectedLabel() : ""}
+        initial={selected.startsWith(saving === "team" ? "team:" : "mine:") || selected.startsWith("ai:") ? selectedLabel() : ""}
         taken={(name) => (saving === "team" ? teamViews : myViews).some((v) => v.name === name)}
         onCancel={() => setSaving(null)}
         onSave={(name) => void save(name)}

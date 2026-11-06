@@ -17,7 +17,7 @@ import SwapHoriz from "@mui/icons-material/SwapHoriz";
 import TableChart from "@mui/icons-material/TableChart";
 import ViewQuilt from "@mui/icons-material/ViewQuilt";
 import type { ReactNode } from "react";
-import { CHARTS, swapAxes, type Measure, type Question } from "../../analysisQuestion";
+import { CHARTS, overTime, swapAxes, type Measure, type Question } from "../../analysisQuestion";
 import type { ColumnGroup, Cube, CubeColumn } from "../../analysisView";
 import { useT, type MessageKey } from "../../i18n";
 
@@ -59,6 +59,7 @@ export function QuestionBar({ cube, measures, question, onChange, disabled }: { 
   const fieldByName = new Map(fields.map((f) => [f.name, f]));
   const measureById = new Map(measures.map((m) => [m.id, m]));
   const set = (patch: Partial<Question>) => onChange({ ...question, ...patch });
+  const alongTime = overTime(cube, question.rows);
   // A field is in the rows or in the columns, not in both
   const used = new Set([...question.rows, ...question.columns]);
   const chips = (values: readonly string[], getTagProps: (o: { index: number }) => Record<string, unknown>, label: (v: string) => string) =>
@@ -108,13 +109,19 @@ export function QuestionBar({ cube, measures, question, onChange, disabled }: { 
       {fieldPicker("columns", t("analysis.q.columns"), t("analysis.q.columnsHint"))}
       <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", alignItems: "center", flex: "1 1 100%" }}>
         <ToggleButtonGroup size="small" exclusive value={question.chart} onChange={(_, v: string | null) => v && set({ chart: v })} aria-label={t("analysis.q.as")} disabled={disabled}>
-          {CHARTS.map((c) => (
-            <Tooltip key={c.id} title={t(c.key)}>
-              <ToggleButton value={c.id} aria-label={t(c.key)}>
-                {CHART_ICONS[c.id]}
-              </ToggleButton>
-            </Tooltip>
-          ))}
+          {CHARTS.map((c) => {
+            // lines and areas join one row to the next: a trend only along time (the current one stays choosable)
+            const off = "overTime" in c && !alongTime && question.chart !== c.id;
+            return (
+              <Tooltip key={c.id} title={off ? `${t(c.key)}: ${t("analysis.q.overTimeOnly")}` : t(c.key)}>
+                <span style={{ display: "inline-flex" }}>
+                  <ToggleButton value={c.id} aria-label={t(c.key)} disabled={disabled || off}>
+                    {CHART_ICONS[c.id]}
+                  </ToggleButton>
+                </span>
+              </Tooltip>
+            );
+          })}
         </ToggleButtonGroup>
         <TextField select size="small" label={t("analysis.q.order")} value={question.order} onChange={(e) => set({ order: e.target.value as Question["order"] })} disabled={disabled || !question.measures.length} sx={{ width: 220 }}>
           <MenuItem value="name">{t("analysis.q.orderName")}</MenuItem>

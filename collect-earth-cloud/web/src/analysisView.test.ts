@@ -28,6 +28,8 @@ const model: AnalysisModelData = {
         col("land_use_category", { type: "code", list: "land_uses", labels: { en: "Land use", es: "Uso de la tierra" } }),
         col("land_use_subdivision", { type: "code", list: "land_uses", labels: { en: "Land use" } }),
         col("tree_percentage", { type: "integer", labels: { en: "Trees (%)", es: "Árboles (%)" } }),
+        col("confident", { type: "boolean", labels: { en: "Confident?" } }),
+        col("planted", { type: "integer", labels: { en: "Year planted" } }),
       ],
     },
     {
@@ -94,13 +96,28 @@ describe("the cube of a table", () => {
       "Land use (code) (land_use_subdivision)",
       "Land use (level 1) (land_use_subdivision)",
       "Trees (%)",
+      "Confident?",
+      "Year planted",
       "Area",
       "Plot weight",
     ]);
     expect(cube.sql).toContain(`LEFT JOIN _codes c0 ON c0.list = 'land_uses' AND c0.code = t."land_use_category"`);
-    expect(cube.sql).toContain(`COALESCE(c0.label, t."land_use_category") AS "Land use"`);
+    // an empty answer is "No answer", not null, in the rows, columns and legends
+    expect(cube.sql).toContain(`COALESCE(c0.label, t."land_use_category", 'No answer') AS "Land use"`);
+    expect(cube.sql).toContain(`COALESCE(t."land_use_category", 'No answer') AS "Land use (code)"`);
+    expect(cube.sql).toContain(`COALESCE(c0.level_0, 'No answer') AS "Land use (level 1)"`);
+    expect(cube.columns.find((c) => c.name === "Land use")).toMatchObject({ list: "land_uses", source: "land_use_category", values: { F: "Forest", "": "No answer" } });
     expect(cube.sql).toContain(`CASE t._assessment WHEN 'main' THEN 'First assessment'`);
     expect(cube.sql.endsWith("FROM plot t LEFT JOIN _codes c0 ON c0.list = 'land_uses' AND c0.code = t.\"land_use_category\" LEFT JOIN _codes c1 ON c1.list = 'land_uses' AND c1.code = t.\"land_use_subdivision\"")).toBe(true);
+  });
+
+  it("says yes and no in words, and which fields follow time", () => {
+    const cube = cubeOf(data(), "plot", "es", es);
+    const confident = cube.columns.find((c) => c.id === "confident")!;
+    expect(confident).toMatchObject({ kind: "text", values: { true: "Sí", false: "No", "": "Sin respuesta" } });
+    expect(cube.sql).toContain(`CASE t."confident" WHEN TRUE THEN 'Sí' WHEN FALSE THEN 'No' ELSE 'Sin respuesta' END AS "Confident?"`);
+    const time = cube.columns.filter((c) => c.time).map((c) => c.id);
+    expect(time).toEqual(["_saved_on", "_saved_month", "_saved_week", "planted"]);
   });
 
   it("gives a collector no round and no assessment, and leaves the area out without an areas file", () => {
@@ -127,23 +144,25 @@ describe("the cube of a table", () => {
 });
 
 describe("the default view", () => {
-  it("counts plots and adds up the area by land use, largest first, first assessments only for coordinators", () => {
+  it("adds up the area by land use as horizontal bars, largest first, first assessments only for coordinators", () => {
     const cube = cubeOf(data(), "plot", "en", en);
     expect(defaultView(data(), cube, en)).toMatchObject({
-      plugin: "Datagrid",
+      plugin: "X Bar",
       settings: false,
       group_by: ["Land use"],
-      columns: ["Number of plots", "Total area", "Area (% of the total)"],
-      expressions: { "Number of plots": "integer(1)", "Total area": '"Area"', "Area (% of the total)": '"Area"' },
-      aggregates: { "Number of plots": "sum", "Total area": "sum", "Area (% of the total)": "pct sum grand total" },
+      // each bar in its land use's colour (analysisQuestion.ts, colouredByRows)
+      split_by: ["Land use"],
+      columns: ["Total area"],
+      expressions: { "Total area": '"Area"' },
+      aggregates: { "Total area": "sum" },
       filter: [["Assessment", "==", "First assessment"]],
-      sort: [["Number of plots", "desc"]],
+      sort: [["Total area", "desc"]],
     });
   });
 
   it("for a collector: their plots, without a filter; for an entity: rows by its key", () => {
     const own = data({ scope: "own", areas: null });
-    expect(defaultView(own, cubeOf(own, "plot", "en", en), en)).toMatchObject({ columns: ["Number of plots", "Plots (% of the total)"], filter: [] });
+    expect(defaultView(own, cubeOf(own, "plot", "en", en), en)).toMatchObject({ columns: ["Number of plots"], filter: [] });
     expect(defaultView(data(), cubeOf(data(), "land_cover", "en", en), en)).toMatchObject({ group_by: ["Element"], columns: ["Number of rows", "Number of plots"] });
   });
 });
@@ -192,6 +211,15 @@ it("reads a table's CSV with the types the server states", () => {
   expect(readCsvSql("land_cover", "land_cover.csv", [["_record", "VARCHAR"], ["it's", "BIGINT"]])).toBe(
     `CREATE OR REPLACE TABLE "land_cover" AS SELECT * FROM read_csv('land_cover.csv', header = true, auto_detect = false, delim = ',', quote = '"', escape = '"', columns = {'_record': 'VARCHAR', 'it''s': 'BIGINT'})`,
   );
+});
+
+it("fits a view saved when yes/no questions were true and false to the words they are now", () => {
+  const cube = cubeOf(data(), "plot", "en", en);
+  expect(fitToCube({ filter: [["Confident?", "==", true], ["Confident?", "in", [false, "Yes"]], ["Land use", "==", true]] }, cube).filter).toEqual([
+    ["Confident?", "==", "Yes"],
+    ["Confident?", "in", ["No", "Yes"]],
+    ["Land use", "==", true],
+  ]);
 });
 
 it("fits a view to the table it opens on: a collector's has no assessment, a coordinator's shared view filters on it", () => {

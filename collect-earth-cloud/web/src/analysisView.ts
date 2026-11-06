@@ -1,6 +1,7 @@
 import type { AnalysisData, AnalysisModelData, AnalysisTableModel } from "./api";
 import type { MessageKey, Translate } from "./i18n";
-import { applyQuestion, measuresOf, templatesOf } from "./analysisQuestion";
+import { applyQuestion, measuresOf } from "./analysisQuestion";
+import { templatesOf } from "./analysisSuggest";
 
 // The analysis page (docs/plans/2026-11-05-node-and-arena.md, stage 6a: what replaces Saiku). The server sends the
 // survey's model and the rows of its tables (src/analysis.ts there); the browser loads them into DuckDB and pivots
@@ -21,6 +22,12 @@ export interface CubeColumn {
   kind: ColumnKind;
   /** Where it comes from, to list the fields in groups as Saiku's dimension tree. */
   group: ColumnGroup;
+  /** The code list its values are of (a code's label, its code, a level above it): for their colours. */
+  list?: string;
+  /** Its values follow time (dates, months, weeks, years): lines and areas make sense along it. */
+  time?: boolean;
+  /** The survey's column it shows (its name in the model), for what the ready-made views know of the question. */
+  source?: string;
 }
 
 export type ColumnKind = "text" | "number" | "boolean" | "date";
@@ -48,6 +55,15 @@ export function labelIn(labels: Record<string, string> | undefined, language: st
 export const quoteIdent = (name: string) => `"${name.replace(/"/g, '""')}"`;
 /** A string for SQL: in single quotes, any single quote doubled. */
 export const quoteString = (value: string) => `'${value.replace(/'/g, "''")}'`;
+
+/** A list whose codes are all years (the year of a change): an axis over time. */
+export function isYearList(model: Pick<AnalysisModelData, "lists">, list: string | null | undefined): boolean {
+  const items = list ? model.lists[list] : undefined;
+  return !!items && items.length > 0 && items.every((i) => /^\d{4}$/.test(i.code) && Number(i.code) >= 1900 && Number(i.code) <= 2100);
+}
+
+/** A number question named a year ("Year of planting", "Año"): an axis over time too. */
+const YEAR_WORDS = /year|año|\bano\b|année|annee/i;
 
 /** The deepest level of each list (0 for a flat list). */
 export function listDepths(model: AnalysisModelData): Record<string, number> {
@@ -87,7 +103,7 @@ export function csvField(value: string): string {
 }
 
 /** The fixed columns: what Collect Earth Cloud knows of each record, beside its answers. */
-const FIXED: { id: string; key: MessageKey; sql: (alias: string, t: Translate) => string; kind: ColumnKind; rounds?: boolean; values?: (t: Translate) => Record<string, string> }[] = [
+const FIXED: { id: string; key: MessageKey; sql: (alias: string, t: Translate) => string; kind: ColumnKind; rounds?: boolean; time?: boolean; values?: (t: Translate) => Record<string, string> }[] = [
   { id: "_plot", key: "analysis.col.plot", sql: (a) => `${a}._plot`, kind: "text" },
   { id: "_operator", key: "analysis.col.operator", sql: (a) => `${a}._operator`, kind: "text" },
   { id: "_round", key: "analysis.col.round", sql: (a) => `${a}._round`, kind: "text", rounds: true },
@@ -101,10 +117,10 @@ const FIXED: { id: string; key: MessageKey; sql: (alias: string, t: Translate) =
     values: (t) => ({ main: t("analysis.assessment.main"), check: t("analysis.assessment.check"), other: t("analysis.assessment.other") }),
   },
   { id: "_submitted", key: "analysis.col.submitted", sql: (a) => `${a}._submitted`, kind: "boolean" },
-  { id: "_saved_on", key: "analysis.col.savedOn", sql: (a) => `${a}._saved_on`, kind: "date" },
+  { id: "_saved_on", key: "analysis.col.savedOn", sql: (a) => `${a}._saved_on`, kind: "date", time: true },
   // The month and the week, to follow the work over time (Saiku split the save date into year, month and day)
-  { id: "_saved_month", key: "analysis.col.savedMonth", sql: (a) => `strftime(${a}._saved_on, '%Y-%m')`, kind: "text" },
-  { id: "_saved_week", key: "analysis.col.savedWeek", sql: (a) => `strftime(${a}._saved_on, '%G-W%V')`, kind: "text" },
+  { id: "_saved_month", key: "analysis.col.savedMonth", sql: (a) => `strftime(${a}._saved_on, '%Y-%m')`, kind: "text", time: true },
+  { id: "_saved_week", key: "analysis.col.savedWeek", sql: (a) => `strftime(${a}._saved_on, '%G-W%V')`, kind: "text", time: true },
 ];
 
 /**
@@ -127,9 +143,13 @@ export function cubeOf(data: Pick<AnalysisData, "model" | "scope" | "areas">, ta
     used.add(out);
     return out;
   };
-  const add = (id: string, name: string, alt: string, sql: string, kind: ColumnKind, group: ColumnGroup, values?: Record<string, string>) =>
-    columns.push({ id, name: unique(name, alt), sql, kind, group, ...(values ? { values } : {}) });
-  const labelsOfList = (list: string) => Object.fromEntries(model.lists[list].map((i) => [i.code, labelIn(i.labels, language, model, i.code)]));
+  const add = (id: string, name: string, alt: string, sql: string, kind: ColumnKind, group: ColumnGroup, values?: Record<string, string>, more: Partial<CubeColumn> = {}) =>
+    columns.push({ id, name: unique(name, alt), sql, kind, group, ...(values ? { values } : {}), ...more });
+  // An empty answer is "No answer" in the rows, columns and legends (not "null"), and filtered as such; in `values` it
+  // is the code "", so a filter on it is translated with the others
+  const none = t("analysis.noAnswer");
+  const noneSql = quoteString(none);
+  const labelsOfList = (list: string) => ({ ...Object.fromEntries(model.lists[list].map((i) => [i.code, labelIn(i.labels, language, model, i.code)])), "": none });
 
   const answers = (tm: AnalysisTableModel, alias: string, idPrefix: string, ownGroup: ColumnGroup) => {
     for (const c of tm.columns) {
@@ -137,15 +157,25 @@ export function cubeOf(data: Pick<AnalysisData, "model" | "scope" | "areas">, ta
       const label = labelIn(c.labels, language, model, c.name);
       const id = `${idPrefix}${c.name}`;
       const col = `${alias}.${quoteIdent(c.name)}`;
+      const source = c.name;
       if (c.type === "code" && c.list && model.lists[c.list]?.length && !c.multiple) {
         const j = `c${joins.length}`;
         joins.push(`LEFT JOIN _codes ${j} ON ${j}.list = ${quoteString(c.list)} AND ${j}.code = ${col}`);
         const values = labelsOfList(c.list);
-        add(id, label, c.name, `COALESCE(${j}.label, ${col})`, "text", group, values);
-        add(`${id}#code`, t("analysis.code", { label }), c.name, col, "text", group);
-        for (let k = 0; k < (depths[c.list] ?? 0); k++) add(`${id}#${k}`, t("analysis.level", { label, level: k + 1 }), c.name, `${j}.level_${k}`, "text", group, values);
+        const time = isYearList(model, c.list);
+        add(id, label, c.name, `COALESCE(${j}.label, ${col}, ${noneSql})`, "text", group, values, { list: c.list, time, source });
+        add(`${id}#code`, t("analysis.code", { label }), c.name, `COALESCE(${col}, ${noneSql})`, "text", group, undefined, { list: c.list, time, source });
+        for (let k = 0; k < (depths[c.list] ?? 0); k++) {
+          add(`${id}#${k}`, t("analysis.level", { label, level: k + 1 }), c.name, `COALESCE(${j}.level_${k}, ${noneSql})`, "text", group, values, { list: c.list, source });
+        }
+      } else if (c.type === "boolean" && !c.multiple) {
+        // Yes, No or No answer, in words: a chart's legend and a table's rows say it, and nothing reads "null"
+        const values = { true: t("common.yes"), false: t("common.no"), "": none };
+        add(id, label, c.name, `CASE ${col} WHEN TRUE THEN ${quoteString(values.true)} WHEN FALSE THEN ${quoteString(values.false)} ELSE ${noneSql} END`, "text", group, values, { source });
       } else {
-        add(id, label, c.name, col, c.multiple ? "text" : (KIND_OF_TYPE[c.type] ?? "text"), group);
+        const kind = c.multiple ? "text" : (KIND_OF_TYPE[c.type] ?? "text");
+        const time = kind === "date" || (kind === "number" && (YEAR_WORDS.test(c.name) || YEAR_WORDS.test(label)));
+        add(id, label, c.name, col, kind, group, undefined, time ? { source, time } : { source });
       }
     }
   };
@@ -155,7 +185,7 @@ export function cubeOf(data: Pick<AnalysisData, "model" | "scope" | "areas">, ta
   const plotAlias = nested ? "p" : "t";
   for (const f of FIXED) {
     if (f.rounds && data.scope === "own") continue;
-    add(f.id, t(f.key), f.id, f.sql(plotAlias, t), f.kind, "collection", f.values?.(t));
+    add(f.id, t(f.key), f.id, f.sql(plotAlias, t), f.kind, "collection", f.values?.(t), f.time ? { time: true } : {});
   }
   answers(plot, plotAlias, nested ? "plot." : "", "survey");
   if (data.areas && !nested) {
@@ -186,14 +216,15 @@ export interface ViewConfig {
 }
 
 /**
- * The view the page opens with, as a Saiku user would start: the first ready-made view (the plots and the area by
- * land use, largest first; for coordinators the first assessments only, as the quality checks are other people's
- * answers for the same plots). Perspective's panel starts closed: the question bar above it is the way in.
+ * The view the page opens with: the first ready-made view, the survey's main question (its land use) by the number
+ * of plots and their share, as horizontal bars, largest first; for coordinators the first assessments only, as the
+ * quality checks are other people's answers for the same plots. Perspective's panel starts closed: the question bar
+ * above it is the way in.
  */
 export function defaultView(data: Pick<AnalysisData, "model" | "scope" | "areas">, cube: Cube, t: Translate): ViewConfig {
   const measures = measuresOf(cube, t);
   const [first] = templatesOf(data, cube, measures, t);
-  return applyQuestion({ plugin: "Datagrid", settings: false, group_by: [], split_by: [], columns: [], aggregates: {}, filter: [], sort: [], expressions: {} }, first.question, measures);
+  return applyQuestion({ plugin: "Datagrid", settings: false, group_by: [], split_by: [], columns: [], aggregates: {}, filter: [], sort: [], expressions: {} }, first.question, measures, cube);
 }
 
 /**
@@ -208,13 +239,23 @@ export function fitToCube(config: ViewConfig, cube: Cube): ViewConfig {
     Object.entries(config.expressions ?? {}).filter(([, e]) => [...e.matchAll(/"((?:[^"\\]|\\.)*)"/g)].every((m) => known.has(m[1].replace(/\\(.)/g, "$1")))),
   );
   const ok = (n: string | null) => n === null || known.has(n) || n in expressions;
+  // A yes/no question is a column of words ("Yes", "No", "No answer"): a view saved when it was of true and false
+  // filters on the words
+  const byName = new Map(cube.columns.map((c) => [c.name, c]));
+  const word = (column: string, v: unknown): unknown => {
+    const values = byName.get(column)?.values;
+    if (!values || values.true === undefined) return v;
+    if (typeof v === "boolean") return values[String(v)];
+    if (Array.isArray(v)) return v.map((x) => word(column, x));
+    return v;
+  };
   return {
     ...config,
     expressions,
     group_by: (config.group_by ?? []).filter(ok),
     split_by: (config.split_by ?? []).filter(ok),
     columns: (config.columns ?? []).filter(ok),
-    filter: (config.filter ?? []).filter(([c]) => ok(c)),
+    filter: (config.filter ?? []).filter(([c]) => ok(c)).map(([c, op, v]): [string, string, unknown] => [c, op, word(c, v)]),
     sort: (config.sort ?? []).filter(([c]) => ok(c)),
     ...(config.aggregates ? { aggregates: Object.fromEntries(Object.entries(config.aggregates).filter(([k]) => ok(k))) } : {}),
   };

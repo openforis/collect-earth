@@ -15,7 +15,7 @@ import "@perspective-dev/viewer/dist/css/pro.css";
 import viewerEs from "@perspective-dev/viewer/dist/css/intl/es.css?inline";
 import viewerFr from "@perspective-dev/viewer/dist/css/intl/fr.css?inline";
 import viewerPt from "@perspective-dev/viewer/dist/css/intl/pt.css?inline";
-import type { Table as ArrowTable } from "apache-arrow";
+import { tableFromIPC, type Table as ArrowTable } from "apache-arrow";
 import type { AnalysisData } from "./api";
 import { toIpc } from "./arrowIpc";
 import { codesCsv, readCsvSql, type Cube, type ViewConfig } from "./analysisView";
@@ -30,7 +30,7 @@ export interface Viewer extends HTMLElement {
   save(): Promise<ViewConfig>;
   reset(all?: boolean): Promise<void>;
   delete(): Promise<void>;
-  getView(): Promise<{ to_csv(): Promise<string> }>;
+  getView(): Promise<{ to_csv(): Promise<string>; column_paths(): Promise<unknown[][]>; to_arrow(): Promise<ArrayBuffer> }>;
   toggleConfig(force?: boolean): Promise<void>;
 }
 
@@ -121,6 +121,23 @@ export class AnalysisEngine {
       }
       return out;
     });
+  }
+
+  /**
+   * What the colours of the viewer's chart are given by, in the order the chart takes them (analysisColors.ts): its
+   * series (the values of its split field, from the view's column paths) and the values of a column `colour` (a
+   * treemap's Color column: Perspective's charts number them as its Arrow dictionary does).
+   */
+  async chartOrder(viewer: Viewer, colour: string | null): Promise<{ paths: unknown[][]; colourValues: unknown[] | null }> {
+    const view = await viewer.getView();
+    const paths = await view.column_paths();
+    let colourValues: unknown[] | null = null;
+    if (colour) {
+      const column = tableFromIPC(new Uint8Array(await view.to_arrow())).getChild(colour);
+      const dictionary = column?.data[0]?.dictionary;
+      colourValues = dictionary ? [...dictionary] : column ? [...new Set([...column])] : null;
+    }
+    return { paths, colourValues };
   }
 
   /** What the viewer shows, as CSV (the pivot as it is: its rows, columns and totals). */

@@ -2681,6 +2681,12 @@ export interface AnalysisColumnModel {
   calculated: boolean;
   multiple: boolean;
   fromPlotFile: boolean;
+  /** A key attribute of the survey (the plot's id, the assessment round). Absent from an older server. */
+  keyAttr?: boolean;
+  /** For a code: the column of the code it refines (a land use's subdivision), else null. */
+  parent?: string | null;
+  /** The yes/no column the question is asked after (the year of a change, after "Any change?"), else null. */
+  relevantIf?: string | null;
 }
 
 export interface AnalysisTableModel {
@@ -2742,6 +2748,35 @@ export async function getSharedAnalysisViews(projectId: string): Promise<SharedA
 /** Shares a view with the team (coordinators), replacing one of the same name and table; gives them all. */
 export async function shareAnalysisView(projectId: string, view: { name: string; table: string; language: string; config: Record<string, unknown> }): Promise<SharedAnalysisView[]> {
   return (await request<{ views: SharedAnalysisView[] }>("PUT", `${p(projectId)}/analysis/views`, { json: view })).views;
+}
+
+/** A filter of a view proposed by the AI assistant, on codes (the server's src/ai/analysisViews.ts). */
+export interface ProposedFilter {
+  column: string;
+  op: "is" | "isNot" | "yes" | "no" | "answered" | "notAnswered" | "atLeast" | "atMost";
+  codes?: string[];
+  value?: number | string;
+}
+
+/** A view of the analysis page proposed by the AI assistant from the survey's structure, by the cube's column ids. */
+export interface ProposedView {
+  title: string;
+  why: string;
+  rows: string[];
+  columns: string[];
+  measures: string[];
+  chart: "table" | "bars" | "hbars" | "stacked" | "lines" | "areas" | "heatmap" | "treemap" | "sunburst";
+  filters: ProposedFilter[];
+  order: "largest" | "smallest" | "name";
+}
+
+/**
+ * Views proposed by the AI assistant for a table of the analysis (coordinators of a project with the assistant on):
+ * the server sends the model the survey's structure only, never the data. Counted against the project's AI limits.
+ */
+export async function proposeAnalysisViews(projectId: string, table: string, language: string): Promise<ProposedView[]> {
+  const body = obj(await request<unknown>("POST", `${p(projectId)}/analysis/proposals`, { json: { table, language } }));
+  return Array.isArray(body.views) ? (body.views as ProposedView[]) : [];
 }
 
 export async function deleteSharedAnalysisView(projectId: string, name: string, table: string): Promise<SharedAnalysisView[]> {

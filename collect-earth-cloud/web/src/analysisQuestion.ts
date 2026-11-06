@@ -1,6 +1,6 @@
-import type { AnalysisData } from "./api";
 import type { MessageKey, Translate } from "./i18n";
 import { quoteIdent, quoteString, type Cube, type CubeColumn, type ViewConfig } from "./analysisView";
+import { TREES, withoutChartColours } from "./analysisColors";
 
 // The analysis page's question bar (what Saiku's query toolbar was): "show <measures> by <rows> and <columns>, as
 // <a table or chart>, where <filters>". It reads and writes Perspective's configuration, so the bar and Perspective's
@@ -58,17 +58,30 @@ export function measuresOf(cube: Cube, t: Translate): Measure[] {
   return out;
 }
 
-/** The ways to show a view: Perspective's plugins, by the names its configuration uses. */
+/**
+ * The ways to show a view: Perspective's plugins, by the names its configuration uses ("Y Bar" stands its bars up,
+ * "X Bar" lays them along: horizontal bars). Lines and areas join their points from one row to the next, which reads
+ * as a trend: only along time (`overTime`).
+ */
 export const CHARTS = [
   { id: "Datagrid", key: "analysis.chart.table" },
   { id: "Y Bar", key: "analysis.chart.bars" },
   { id: "X Bar", key: "analysis.chart.hbars" },
-  { id: "Y Line", key: "analysis.chart.lines" },
-  { id: "Y Area", key: "analysis.chart.area" },
+  { id: "Y Line", key: "analysis.chart.lines", overTime: true },
+  { id: "Y Area", key: "analysis.chart.area", overTime: true },
   { id: "Treemap", key: "analysis.chart.treemap" },
   { id: "Sunburst", key: "analysis.chart.sunburst" },
   { id: "Heatmap", key: "analysis.chart.heatmap" },
-] as const satisfies readonly { id: string; key: MessageKey }[];
+] as const satisfies readonly { id: string; key: MessageKey; overTime?: true }[];
+
+/** The bar charts: one bar per row, coloured by the rows' values when nothing is in the columns. */
+const BARS = new Set(["X Bar", "Y Bar"]);
+
+/** The rows follow time (dates, months, weeks, years): lines and areas can be drawn along them. */
+export function overTime(cube: Cube, rows: readonly string[]): boolean {
+  const first = rows[0];
+  return first !== undefined && !!cube.columns.find((c) => c.name === first)?.time;
+}
 
 export type Filter = [string, string, unknown];
 
@@ -87,13 +100,26 @@ export interface Question {
   order: "name" | "desc" | "asc";
 }
 
+/**
+ * Bars of one row field with nothing in the columns get the same field in Perspective's split_by too: each bar is then a
+ * series of its own, drawn in its category's colour (Perspective colours a bar chart by its series only; without a
+ * split every bar would have one colour). The bar shows it as no field in the columns.
+ */
+function colouredByRows(config: ViewConfig): boolean {
+  const rows = config.group_by ?? [];
+  const split = config.split_by ?? [];
+  return BARS.has(config.plugin ?? "") && rows.length === 1 && split.length === 1 && split[0] === rows[0];
+}
+
 /** The question a Perspective configuration asks (the bar shows it). */
 export function questionOf(config: ViewConfig, measures: readonly Measure[]): Question {
   const byLabel = new Map(measures.map((m) => [m.label, m]));
   const ms: string[] = [];
   const extra: string[] = [];
+  // a treemap's or sunburst's colour column is its first row field (applyQuestion): no column of the person's
+  const treeColour = TREES.has(config.plugin ?? "") ? config.group_by?.[0] : undefined;
   for (const c of config.columns ?? []) {
-    if (c === null) continue;
+    if (c === null || c === treeColour) continue;
     const m = byLabel.get(c);
     // a measure of the bar only when its expression is the bar's (a person may have named a column of theirs alike)
     if (m && config.expressions?.[c] === m.expression) ms.push(m.id);
@@ -103,7 +129,7 @@ export function questionOf(config: ViewConfig, measures: readonly Measure[]): Qu
   const sort = (config.sort ?? []).find(([c]) => c === first);
   return {
     rows: [...(config.group_by ?? [])],
-    columns: [...(config.split_by ?? [])],
+    columns: colouredByRows(config) ? [] : [...(config.split_by ?? [])],
     measures: ms,
     extra,
     filters: [...(config.filter ?? [])],
@@ -115,8 +141,10 @@ export function questionOf(config: ViewConfig, measures: readonly Measure[]): Qu
 /**
  * A configuration asking the question: the configuration given with the bar's parts replaced (the rows, columns,
  * measures, filters, chart and order) and the rest kept (the person's own expressions, column widths, colours…).
+ * Bars of one field of categories (not along time) get it in split_by too, to colour each bar by its category
+ * (colouredByRows): the cube says which fields those are.
  */
-export function applyQuestion(config: ViewConfig, q: Question, measures: readonly Measure[]): ViewConfig {
+export function applyQuestion(config: ViewConfig, q: Question, measures: readonly Measure[], cube?: Cube): ViewConfig {
   const byId = new Map(measures.map((m) => [m.id, m]));
   const chosen = q.measures.map((id) => byId.get(id)).filter((m): m is Measure => !!m);
   const ours = new Set(measures.map((m) => m.label));
@@ -126,12 +154,24 @@ export function applyQuestion(config: ViewConfig, q: Question, measures: readonl
     expressions[m.label] = m.expression;
     aggregates[m.label] = m.aggregate;
   }
-  const columns = [...chosen.map((m) => m.label), ...q.extra];
+  let columns = [...chosen.map((m) => m.label), ...q.extra];
+  const rowField = q.rows.length === 1 ? cube?.columns.find((c) => c.name === q.rows[0]) : undefined;
+  const colour = BARS.has(q.chart) && q.columns.length === 0 && !!rowField && rowField.kind === "text" && !rowField.time;
+  // A treemap or a sunburst is coloured by its Color column (its second): the first row field, its most frequent value
+  // in each block, so each block has its category's colour (without one, every block had the same)
+  const treeColour = TREES.has(q.chart) && q.rows.length > 0 && columns.length > 0 ? q.rows[0] : undefined;
+  if (treeColour) {
+    columns = [columns[0], treeColour, ...columns.slice(1).filter((c) => c !== treeColour)];
+    aggregates[treeColour] = "dominant";
+  }
+  // Another chart starts from its own settings: a table's are not a chart's (the colours are set again, chartStyle)
+  const changed = (config.plugin ?? "Datagrid") !== q.chart;
   return {
     ...config,
+    ...(changed ? { plugin_config: {}, columns_config: withoutChartColours(config.columns_config) } : {}),
     plugin: q.chart,
     group_by: [...q.rows],
-    split_by: [...q.columns],
+    split_by: colour ? [...q.rows] : [...q.columns],
     columns,
     aggregates,
     expressions,
@@ -274,88 +314,6 @@ export function valuesSql(cube: Cube, column: string, filters: readonly Filter[]
   // the other filters apply, as in Saiku's member list: the values left to choose from
   const others = filters.filter(([c]) => c !== column);
   return `SELECT ${quoteIdent(column)} AS value, count(*) AS n FROM (${cube.sql}) AS cube WHERE ${whereSql(cube, others).sql} AND ${quoteIdent(column)} IS NOT NULL GROUP BY 1 ORDER BY n DESC, 1 LIMIT ${limit}`;
-}
-
-// --- ready-made views ---------------------------------------------------------------------------------------------
-
-export interface Template {
-  id: string;
-  label: string;
-  question: Question;
-}
-
-const REGION = /region|province|district|stratum|strata|zone|county|state|department|admin|municip|ecozone|ecoregion/i;
-
-/**
- * Views ready to open, worked out from the survey, as the first things a Collect Earth analyst asks: the plots and
- * the area by land use; by region (a field of the plot file); the land use change between two questions on the same
- * list (a change matrix); an average by land use; and, for coordinators, the work by collector and over time.
- */
-export function templatesOf(data: Pick<AnalysisData, "model" | "scope" | "areas">, cube: Cube, measures: readonly Measure[], t: Translate): Template[] {
-  const nested = cube.table !== "plot";
-  const has = new Set(measures.map((m) => m.id));
-  const name = (id: string) => cube.columns.find((c) => c.id === id)?.name;
-  const assessment = name("_assessment");
-  const firsts: Filter[] = assessment && data.scope === "project" ? [[assessment, "==", t("analysis.assessment.main")]] : [];
-  const q = (rows: (string | undefined)[], columns: (string | undefined)[], ms: string[], chart = "Datagrid", filters = firsts, order: Question["order"] = "name"): Question => ({
-    rows: rows.filter((x): x is string => !!x),
-    columns: columns.filter((x): x is string => !!x),
-    measures: ms.filter((m) => has.has(m)),
-    extra: [],
-    filters,
-    chart,
-    order,
-  });
-  const out: Template[] = [];
-  const plotTable = data.model.tables.find((x) => x.name === "plot")!;
-
-  if (nested) {
-    const tm = data.model.tables.find((x) => x.name === cube.table)!;
-    const key = name(tm.keyColumn ?? "") ?? cube.columns.find((c) => c.group === "entity" && c.kind === "text")?.name;
-    out.push({ id: "default", label: t("analysis.tpl.rowsBy", { field: key ?? "" }), question: q([key], [], ["rows", "plots"]) });
-    const lu = landUse(plotTable.columns, "plot.");
-    if (key && lu && name(lu)) out.push({ id: "byLandUse", label: t("analysis.tpl.byTwo", { a: key, b: name(lu)! }), question: q([key], [name(lu)], ["rows"]) });
-    for (const c of cube.columns.filter((x) => x.group === "entity" && x.kind === "number").slice(0, 2)) {
-      out.push({ id: `avg:${c.id}`, label: t("analysis.tpl.avgBy", { measure: c.name, field: key ?? "" }), question: q([key], [], [`avg:${c.id}`]) });
-    }
-    return out;
-  }
-
-  const luId = landUse(plotTable.columns, "");
-  const lu = luId ? name(luId) : undefined;
-  const size = has.has("area") ? ["area", "areaPct"] : ["plots", "plotsPct"];
-  out.push({ id: "default", label: t(has.has("area") ? "analysis.tpl.default" : "analysis.tpl.defaultPlots", { field: lu ?? "" }), question: q([lu], [], has.has("area") ? ["plots", "area", "areaPct"] : ["plots", "plotsPct"], "Datagrid", firsts, "desc") });
-  const region = cube.columns.find((c) => c.group === "plotFile" && c.kind === "text" && REGION.test(c.id));
-  if (region && lu) out.push({ id: "byRegion", label: t("analysis.tpl.byTwo", { a: lu, b: region.name }), question: q([lu], [region.name], [size[0]]) });
-  // A change matrix for each pair of questions answered from the same list (land use now and before…), at most three
-  const byList = new Map<string, string[]>();
-  for (const c of plotTable.columns) {
-    if (c.type !== "code" || !c.list || c.multiple || c.fromPlotFile || !name(c.name)) continue;
-    byList.set(c.list, [...(byList.get(c.list) ?? []), c.name]);
-  }
-  let pairs = 0;
-  for (const ids of byList.values()) {
-    for (let i = 1; i < ids.length && pairs < 3; i++, pairs++) {
-      const a = name(ids[0])!;
-      const b = name(ids[i])!;
-      out.push({ id: `change:${ids[0]}:${ids[i]}`, label: t("analysis.tpl.change", { a, b }), question: q([a], [b], [size[0]]) });
-    }
-  }
-  const numeric = cube.columns.find((c) => c.group === "survey" && c.kind === "number");
-  if (numeric && lu) out.push({ id: `avg:${numeric.id}`, label: t("analysis.tpl.avgBy", { measure: numeric.name, field: lu }), question: q([lu], [], [`avg:${numeric.id}`]) });
-  if (data.scope === "project") {
-    out.push({ id: "byCollector", label: t("analysis.tpl.byCollector"), question: q([name("_operator")], [name("_saved_month")], ["plots"], "Datagrid", []) });
-    out.push({ id: "perWeek", label: t("analysis.tpl.perWeek"), question: q([name("_saved_week")], [assessment], ["plots"], "Y Bar", []) });
-  } else {
-    out.push({ id: "perWeek", label: t("analysis.tpl.myWeeks"), question: q([name("_saved_week")], [], ["plots"], "Y Bar", []) });
-  }
-  return out;
-}
-
-/** The survey's land use question: land_use_category, else its first code question not from the plot file. */
-function landUse(columns: AnalysisData["model"]["tables"][number]["columns"], prefix: string): string | undefined {
-  const c = columns.find((x) => x.name === "land_use_category") ?? columns.find((x) => x.type === "code" && !!x.list && !x.fromPlotFile && !x.multiple);
-  return c ? `${prefix}${c.name}` : undefined;
 }
 
 // --- a view in a link -----------------------------------------------------------------------------------------------

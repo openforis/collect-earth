@@ -9,8 +9,8 @@ import {
   filterValues,
   measuresOf,
   questionOf,
+  overTime,
   swapAxes,
-  templatesOf,
   valuesSql,
   whereSql,
   withRangeFilter,
@@ -101,7 +101,7 @@ describe("the question bar and Perspective's configuration", () => {
   const q: Question = { rows: ["Land use 2025"], columns: ["Province"], measures: ["plots", "areaPct"], extra: [], filters: [["Collector", "in", ["ana"]]], chart: "Y Bar", order: "desc" };
 
   it("write the question into the configuration, keeping what the person set elsewhere", () => {
-    const config = applyQuestion({ title: "Plots", expressions: { mine: '"Tree cover" * 2' }, aggregates: { mine: "avg" }, columns_config: { mine: { fixed: 0 } } }, { ...q, extra: ["mine"] }, measures);
+    const config = applyQuestion({ title: "Plots", plugin: "Y Bar", expressions: { mine: '"Tree cover" * 2' }, aggregates: { mine: "avg" }, columns_config: { mine: { fixed: 0 } } }, { ...q, extra: ["mine"] }, measures);
     expect(config).toEqual({
       title: "Plots",
       plugin: "Y Bar",
@@ -137,6 +137,41 @@ describe("the question bar and Perspective's configuration", () => {
 
   it("swap the rows and the columns", () => {
     expect(swapAxes(q)).toMatchObject({ rows: ["Province"], columns: ["Land use 2025"] });
+  });
+
+  it("colour bars of one field of categories by it: the field goes in the columns too, and the bar does not show it", () => {
+    const bars: Question = { ...q, columns: [], chart: "X Bar" };
+    const config = applyQuestion({}, bars, measures, cube);
+    expect(config).toMatchObject({ group_by: ["Land use 2025"], split_by: ["Land use 2025"] });
+    expect(questionOf(config, measures)).toEqual(bars);
+    // not as a table, nor along time, nor with a field in the columns
+    expect(applyQuestion({}, { ...bars, chart: "Datagrid" }, measures, cube).split_by).toEqual([]);
+    expect(applyQuestion({}, { ...bars, rows: ["Week saved"] }, measures, cube).split_by).toEqual([]);
+    expect(applyQuestion({}, { ...bars, columns: ["Province"] }, measures, cube).split_by).toEqual(["Province"]);
+  });
+
+  it("colour a treemap's blocks by its first row field, which the bar does not show as a column", () => {
+    const tree: Question = { ...q, columns: [], chart: "Treemap", measures: ["plots"] };
+    const config = applyQuestion({}, tree, measures, cube);
+    expect(config.columns).toEqual(["Number of plots", "Land use 2025"]);
+    expect(config.aggregates).toMatchObject({ "Land use 2025": "dominant" });
+    expect(questionOf(config, measures)).toEqual(tree);
+    expect(applyQuestion(config, { ...tree, chart: "Y Bar" }, measures, cube).columns).toEqual(["Number of plots"]);
+  });
+
+  it("start another chart from its own settings, without the colours of the one before", () => {
+    const before = { plugin: "Y Bar", plugin_config: { legend_width_px: 190 }, columns_config: { "Number of plots": { palette: "linear-gradient(to right, #fff)", number_format: { x: 1 } } } };
+    const table = applyQuestion(before, { ...q, chart: "Datagrid" }, measures, cube);
+    expect(table.plugin_config).toEqual({});
+    expect(table.columns_config).toEqual({ "Number of plots": { number_format: { x: 1 } } });
+    expect(applyQuestion(before, q, measures, cube).plugin_config).toEqual({ legend_width_px: 190 });
+  });
+
+  it("allow lines and areas only along time", () => {
+    expect(overTime(cube, ["Week saved"])).toBe(true);
+    expect(overTime(cube, ["Saved on"])).toBe(true);
+    expect(overTime(cube, ["Land use 2025"])).toBe(false);
+    expect(overTime(cube, [])).toBe(false);
   });
 });
 
@@ -187,30 +222,6 @@ describe("the drill-through", () => {
   it("lists a field's values with the other filters applied", () => {
     const sql = valuesSql(cube, "Province", [["Province", "in", ["Tete"]], ["Land use 2025", "==", "Forest"]], 1000);
     expect(sql).toContain(`WHERE "Land use 2025" = 'Forest' AND "Province" IS NOT NULL GROUP BY 1 ORDER BY n DESC, 1 LIMIT 1000`);
-  });
-});
-
-describe("the ready-made views", () => {
-  it("are worked out from the survey: land use, by region, the change between two questions on one list, an average, the work", () => {
-    const tpls = templatesOf(data(), cube, measures, t);
-    expect(tpls.map((x) => [x.id, x.label])).toEqual([
-      ["default", "Plots and area by Land use 2025"],
-      ["byRegion", "Land use 2025 by Province"],
-      ["change:land_use_category:land_use_2015", "Change: Land use 2025 → Land use 2015"],
-      ["avg:tree_cover", "Average Tree cover by Land use 2025"],
-      ["byCollector", "Plots by collector and month"],
-      ["perWeek", "Plots saved per week"],
-    ]);
-    expect(tpls[2].question).toMatchObject({ rows: ["Land use 2025"], columns: ["Land use 2015"], measures: ["area"], filters: [["Assessment", "==", "First assessment"]] });
-    expect(tpls[4].question).toMatchObject({ rows: ["Collector"], columns: ["Month saved"], filters: [] });
-  });
-
-  it("for a collector: no work by collector, their own weeks", () => {
-    const own = data({ scope: "own", areas: null });
-    const c = cubeOf(own, "plot", "en", t);
-    const ids = templatesOf(own, c, measuresOf(c, t), t).map((x) => x.id);
-    expect(ids).not.toContain("byCollector");
-    expect(ids).toContain("perWeek");
   });
 });
 
