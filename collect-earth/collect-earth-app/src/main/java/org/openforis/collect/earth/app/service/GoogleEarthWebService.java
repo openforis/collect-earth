@@ -91,6 +91,25 @@ public class GoogleEarthWebService {
 	 */
 	private static final long CAMERA_BACK_TIMEOUT_MILLIS = 10000;
 	private static final long CAMERA_BACK_POLL_MILLIS = 250;
+	/**
+	 * How long the first of the two flights to a plot of unknown ground ({@link #flyTwice}) is waited for to stop short
+	 * of the ground: 3 to 5 s, the longer from the other side of the globe. Below sea level it is not stopped, but ends
+	 * all the same, which is seen too.
+	 */
+	private static final long GROUND_FLIGHT_TIMEOUT_MILLIS = 9000;
+	/**
+	 * The distance of the first flight ({@link #groundSeekingUrl}): 1 m above sea level, below the ground anywhere but in
+	 * the few places below the sea. Aimed 400 m above sea level, a plot whose ground is lower than that was not stopped,
+	 * and nothing was told: a plot at 256 m in Papua New Guinea was seen from 40 m.
+	 */
+	static final int GROUND_SEEKING_DISTANCE = 1;
+	/**
+	 * The distance of the camera a page is loaded at for a plot flown to twice: above any ground. A page loaded at the
+	 * first flight's camera, or at one under the ground, ended at a camera of no distance ("10a,0d"), and no flight
+	 * down from it told the ground; from this one it does.
+	 */
+	static final int ABOVE_ANY_GROUND_DISTANCE = 9000;
+	private static final long LOADED_CAMERA_PAUSE_MILLIS = 700;
 	/** A camera farther than this from the ground is the globe Google Earth Web shows while it starts, not a plot. */
 	static final double GLOBE_DISTANCE_METERS = 1e6;
 	/** How many more times the URL of a page that did not answer is read before going on without it, and how often. */
@@ -278,7 +297,9 @@ public class GoogleEarthWebService {
 	/** Google Earth Web stops a camera aimed below the ground 10 m from it: see {@link #aimAtTheGround}. */
 	private static final double STOPPED_SHORT_METERS = 20;
 	/** The {@link #showCount} of the plot flown to again aimed at the ground (see {@link #aimAtTheGround}). */
-	private long groundAimedFor = -1;
+	private volatile long groundAimedFor = -1;
+	/** The {@link #showCount} of the plot last flown to twice ({@link #flyTwice}): once per plot shown. */
+	private volatile long groundSoughtFor = -1;
 
 	private volatile ScheduledExecutorService watchdog;
 	/** Watchdog checks since the tab was last seen visible, or since the last liveness check; watchdog thread only. */
@@ -627,9 +648,12 @@ public class GoogleEarthWebService {
 		if (tabOpen && tab().isVisible()) {
 			inPage.seen();
 		}
+		// A plot of unknown ground is flown to twice: first aimed at sea level, which Google Earth Web stops 10 m above
+		// the ground and so tells it, then aimed at that ground (see flyTwice)
+		boolean twice = !overview && seeksGround(target);
 		if (tabOpen && inPage.worthTrying() && GoogleEarthWebUrls.isGoogleEarthWeb(href)) {
 			setState(State.MOVING, plotId, null);
-			Move move = navigateInPage(url, target, superseded);
+			Move move = navigateInPage(twice ? groundSeekingUrl(target) : url, target, superseded);
 			if (move == Move.SUPERSEDED) {
 				return;
 			}
@@ -638,7 +662,7 @@ public class GoogleEarthWebService {
 		if (!moved) {
 			setState(newTab ? State.OPENING : State.MOVING, plotId, null);
 			// The camera URL changes the path, so a navigation loads the page: no reload needed
-			if (!tab().load(url, false, PAGE_LOAD_TIMEOUT, superseded)) {
+			if (!tab().load(twice ? aboveTheGroundUrl(target) : url, false, PAGE_LOAD_TIMEOUT, superseded)) {
 				if (superseded.getAsBoolean()) {
 					return;
 				}
@@ -663,8 +687,15 @@ public class GoogleEarthWebService {
 			setState(State.WAITING, plotId, null);
 			return;
 		}
+		String flightUrl = moved ? url : null;
+		if (twice) {
+			flightUrl = flyTwice(target, !moved, superseded);
+			if (flightUrl == null) {
+				return; // superseded, or Collect Earth quitting
+			}
+		}
 		// After an in-page move the camera is still flying: the outline waits for it to arrive
-		Outline outline = overview ? Outline.DRAWN : injectOverlay(target, moved ? url : null, superseded);
+		Outline outline = overview ? Outline.DRAWN : injectOverlay(target, flightUrl, superseded);
 		if (outline == Outline.SUPERSEDED || superseded.getAsBoolean()) {
 			return;
 		}
@@ -678,6 +709,143 @@ public class GoogleEarthWebService {
 			setState(State.WAITING, plotId, null);
 		} else {
 			outlineFailed(plotId);
+		}
+	}
+
+	/**
+	 * Whether a plot is flown to twice ({@link #flyTwice}): its elevation is not known (Collect Earth never knows it, see
+	 * {@link #plotAltitude}), and Google Earth Web flies, which is what tells the ground. Jumping
+	 * ({@code gew_fly_animation=false}) it writes nothing, and the plot is shown at once, at the ground learnt nearby.
+	 */
+	private boolean seeksGround(SimplePlacemarkObject plot) {
+		return plot.getElevation() <= 0 && "keep".equals(flyAnimation());
+	}
+
+	/**
+	 * The first of the two flights to a plot: {@link #GROUND_SEEKING_DISTANCE} above sea level, so that Google Earth Web,
+	 * which stops a camera below the ground 10 m above it, writes the altitude of the ground of the plot itself. A ground
+	 * remembered from an earlier plot is not used: plots are mostly in places not seen before, and a ground from tens of
+	 * kilometres away showed hills black or from too near.
+	 */
+	String groundSeekingUrl(SimplePlacemarkObject plot) {
+		written = new WrittenCamera(0, GROUND_SEEKING_DISTANCE);
+		return GoogleEarthWebUrls.cameraUrl(plot.getCoord().getLatitude(), plot.getCoord().getLongitude(), 0,
+				GROUND_SEEKING_DISTANCE);
+	}
+
+	/** The camera a page is loaded at for a plot flown to twice: {@link #ABOVE_ANY_GROUND_DISTANCE} above sea level. */
+	String aboveTheGroundUrl(SimplePlacemarkObject plot) {
+		written = new WrittenCamera(0, ABOVE_ANY_GROUND_DISTANCE);
+		return GoogleEarthWebUrls.cameraUrl(plot.getCoord().getLatitude(), plot.getCoord().getLongitude(), 0,
+				ABOVE_ANY_GROUND_DISTANCE);
+	}
+
+	/**
+	 * Whether Google Earth Web has written the camera where the first flight ended: until then the URL is the one Collect
+	 * Earth sent, which is as near the ground as one stopped short, and would be learnt as ground at sea level.
+	 */
+	static boolean groundFlightEnded(String href) {
+		Double altitude = GoogleEarthWebUrls.cameraAltitude(href);
+		Double distance = GoogleEarthWebUrls.cameraDistance(href);
+		return altitude != null && distance != null
+				&& (altitude != 0 || Math.abs(distance - GROUND_SEEKING_DISTANCE) > 1e-9);
+	}
+
+	/**
+	 * The second flight to a plot of unknown ground: waits for the first ({@link #groundSeekingUrl}) to stop short of the
+	 * ground, for {@link #GROUND_FLIGHT_TIMEOUT_MILLIS} at most, learns the ground there, and flies to the plot aimed at
+	 * it (in-page when Google Earth Web follows that, else with a page load). The outline is drawn after this second
+	 * flight only: drawn after the first, it showed over a view from 10 m.
+	 *
+	 * @param afterPageLoad whether a page load ({@link #aboveTheGroundUrl}) took the place of the first flight: it tells
+	 *                      nothing of the ground, and the first flight is flown in the page then
+	 *
+	 * @return the camera URL of the second flight, which the outline waits for when it was in-page, or "" when it was a
+	 *         page load; null when {@code superseded} or an interrupt ended it
+	 */
+	private String flyTwice(SimplePlacemarkObject plot, boolean afterPageLoad, BooleanSupplier superseded) {
+		groundSoughtFor = showCount.get();
+		if (afterPageLoad) {
+			// The page was loaded above the ground (aboveTheGroundUrl): flown down in the page, once Google Earth Web
+			// took that camera at the end of its start (a camera sent before it is not followed)
+			if (!awaitLoadedCamera(plot, superseded)) {
+				return null;
+			}
+			tab().evaluate(IN_PAGE_NAVIGATION_SCRIPT, groundSeekingUrl(plot));
+		}
+		long end = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(GROUND_FLIGHT_TIMEOUT_MILLIS);
+		boolean learnt = false;
+		boolean ended = false;
+		while (!ended && System.nanoTime() - end < 0) {
+			if (superseded.getAsBoolean()) {
+				return null;
+			}
+			String href = quickPageUrl();
+			ended = href != null && GoogleEarthWebUrls.isCameraAt(href, Double.parseDouble(plot.getCoord().getLatitude()),
+					Double.parseDouble(plot.getCoord().getLongitude())) && groundFlightEnded(href);
+			learnt = ended && learnGroundUnderACameraStoppedShort(href, plot);
+			if (!ended && !sleep(CAMERA_BACK_POLL_MILLIS)) {
+				return null;
+			}
+		}
+		if (superseded.getAsBoolean()) {
+			return null;
+		}
+		if (learnt) {
+			// The watchdog's own correction (aimAtTheGround) is not needed for this plot: it stays for one not told
+			groundAimedFor = showCount.get();
+		}
+		String url = plotUrl(plot, plotDistance(plot));
+		if (learnt) {
+			logger.info("Google Earth Web: the ground of plot {} is at {} m; flown there again aimed at it", plot.getPlacemarkId(),
+					Math.round(plotAltitude(plot)));
+		} else {
+			logger.info("Google Earth Web did not tell the ground of plot {}{}; flown there again as {}", plot.getPlacemarkId(),
+					ended ? " (below sea level?)" : " in time", url);
+		}
+		if (Boolean.TRUE.equals(inPage.follows())) {
+			tab().evaluate(IN_PAGE_NAVIGATION_SCRIPT, url);
+			return url;
+		}
+		if (!tab().load(url, false, PAGE_LOAD_TIMEOUT, superseded) && superseded.getAsBoolean()) {
+			return null;
+		}
+		inPage.pageLoaded();
+		return awaitCameraAt(plot, superseded) ? "" : null;
+	}
+
+	/**
+	 * Waits for Google Earth Web to take the camera of the page loaded, at the end of its start: the URL with its own
+	 * {@code /data=} suffix, at the plot (on its way it shows the globe). False when superseded.
+	 */
+	private boolean awaitLoadedCamera(SimplePlacemarkObject plot, BooleanSupplier superseded) {
+		double latitude = Double.parseDouble(plot.getCoord().getLatitude());
+		double longitude = Double.parseDouble(plot.getCoord().getLongitude());
+		long end = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(GROUND_FLIGHT_TIMEOUT_MILLIS);
+		while (System.nanoTime() - end < 0) {
+			if (superseded.getAsBoolean()) {
+				return false;
+			}
+			String href = quickPageUrl();
+			if (href != null && href.contains("/data=") && GoogleEarthWebUrls.isCameraAt(href, latitude, longitude)) {
+				// a moment for its start to end: a camera sent with the suffix just written was not always followed
+				return sleep(LOADED_CAMERA_PAUSE_MILLIS) && !superseded.getAsBoolean();
+			}
+			if (!sleep(CAMERA_BACK_POLL_MILLIS)) {
+				return false;
+			}
+		}
+		return !superseded.getAsBoolean();
+	}
+
+	/** Sleeps; false when interrupted (Collect Earth quitting), the interrupt kept. */
+	private static boolean sleep(long millis) {
+		try {
+			Thread.sleep(millis);
+			return true;
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return false;
 		}
 	}
 
@@ -1132,12 +1300,22 @@ public class GoogleEarthWebService {
 				view = GoogleEarthWebUrls.cameraView(href, ((Number) page.get(1)).doubleValue(), ((Number) page.get(2)).doubleValue(),
 						camera == null ? null : groundAltitudeNear(camera[0], camera[1]));
 				if (state == State.WAITING) {
-					// Through consent / sign-in: Google may have dropped the camera position
-					if (plot != null && !GoogleEarthWebUrls.isCameraAt(href, Double.parseDouble(plot.getCoord().getLatitude()),
+					String flightUrl = null;
+					if (plot != null && seeksGround(plot) && groundSoughtFor != showCount.get()) {
+						// The first plot after a start mostly comes this way (the page was not Google Earth Web yet when
+						// it was shown): flown to twice as well (see flyTwice)
+						tab().load(aboveTheGroundUrl(plot), false, PAGE_LOAD_TIMEOUT);
+						inPage.pageLoaded();
+						flightUrl = awaitCameraAt(plot, () -> false) ? flyTwice(plot, true, () -> false) : null;
+						if (flightUrl != null && flightUrl.isEmpty()) {
+							flightUrl = null;
+						}
+					} else if (plot != null && !GoogleEarthWebUrls.isCameraAt(href, Double.parseDouble(plot.getCoord().getLatitude()),
 							Double.parseDouble(plot.getCoord().getLongitude()))) {
+						// Through consent / sign-in: Google may have dropped the camera position
 						tab().load(plotUrl(plot, plotDistance(plot)), false, PAGE_LOAD_TIMEOUT);
 					}
-					if (plot == null || injectOverlay(plot) == Outline.DRAWN) {
+					if (plot == null || injectOverlay(plot, flightUrl, () -> false) == Outline.DRAWN) {
 						setState(State.READY, plotId, null);
 					}
 				} else if (plot != null && (!armed || contextChangedFor(plot))) {
@@ -1195,7 +1373,8 @@ public class GoogleEarthWebService {
 		Double altitude = GoogleEarthWebUrls.cameraAltitude(href);
 		Double distance = GoogleEarthWebUrls.cameraDistance(href);
 		double[] camera = GoogleEarthWebUrls.cameraPosition(href);
-		if (altitude == null || distance == null || camera == null || distance > STOPPED_SHORT_METERS) {
+		// A camera of no distance is the end of a page loaded at the first flight's camera, not the ground
+		if (altitude == null || distance == null || camera == null || distance > STOPPED_SHORT_METERS || distance < 0.5) {
 			return false;
 		}
 		double latitude = Double.parseDouble(plot.getCoord().getLatitude());
