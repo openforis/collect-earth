@@ -34,7 +34,9 @@ import LinkIcon from "@mui/icons-material/Link";
 import Save from "@mui/icons-material/Save";
 import Tune from "@mui/icons-material/Tune";
 import { useCallback } from "react";
-import { deleteSharedAnalysisView, getSharedAnalysisViews, shareAnalysisView, type Role } from "../api";
+import { deleteSharedAnalysisView, downloadAnalysisStandalone, getSharedAnalysisViews, shareAnalysisView, type Role } from "../api";
+import CircularProgress from "@mui/material/CircularProgress";
+import OfflineShare from "@mui/icons-material/OfflineShare";
 import { useLocalMode } from "../appContext";
 import { applyQuestion, decodeView, drillColumns, encodeView, measuresOf, questionOf, templatesOf, valuesSql, type Filter, type Measure, type Question, type Template } from "../analysisQuestion";
 import { cubeOf, defaultView, fitToCube, parseSavedViews, tableChoices, translateView, withSavedView, type Cube, type SavedView, type ViewConfig } from "../analysisView";
@@ -106,9 +108,13 @@ function keepable(config: ViewConfig): ViewConfig {
   return rest;
 }
 
-function Pivot({ projectId, projectName, role, data, language }: { projectId: string; projectName: string; role: Role; data: AnalysisData; language: string }) {
+/**
+ * The pivot and its bars. `standalone`: in the stand-alone file (src/standalone.tsx), with no server: no team views, no
+ * links to share or to the plots' pages, and no stand-alone download of itself.
+ */
+export function Pivot({ projectId, projectName, role, data, language, standalone = false }: { projectId: string; projectName: string; role: Role; data: AnalysisData; language: string; standalone?: boolean }) {
   const t = useT();
-  const local = useLocalMode();
+  const local = useLocalMode() || standalone;
   const coordinator = role === "admin";
   const host = useRef<HTMLDivElement>(null);
   const engine = useRef<AnalysisEngine | null>(null);
@@ -345,6 +351,18 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
       window.prompt(t("analysis.linkCopy"), url);
     }
   };
+  const [packing, setPacking] = useState(false);
+  const downloadStandalone = async () => {
+    setPacking(true);
+    try {
+      const { blob, filename } = await downloadAnalysisStandalone(projectId);
+      saveBlob(blob, filename);
+    } catch (e) {
+      setError(e);
+    } finally {
+      setPacking(false);
+    }
+  };
   const download = () =>
     run(async () => {
       const e = engine.current;
@@ -451,6 +469,15 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
             </IconButton>
           </span>
         </Tooltip>
+        {!standalone && (
+          <Tooltip title={t("analysis.standalone")}>
+            <span>
+              <IconButton aria-label={t("analysis.standalone")} onClick={() => void downloadStandalone()} disabled={packing}>
+                {packing ? <CircularProgress size={20} /> : <OfflineShare />}
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
         {!local && (
           <Tooltip title={t("analysis.linkCopy")}>
             <span>
@@ -538,7 +565,7 @@ function Pivot({ projectId, projectName, role, data, language }: { projectId: st
           filters={drill}
           columns={drillCols}
           query={query}
-          plotLinks={role !== "operator"}
+          plotLinks={!standalone && role !== "operator"}
           fileName={`${fileBase()} - ${t("analysis.d.file")}`}
           onClose={() => setDrill(null)}
         />

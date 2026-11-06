@@ -1,21 +1,18 @@
 // The analysis page's engine: DuckDB-WASM holds the tables and builds each cube (SQL from src/analysisView.ts);
-// Perspective shows the pivot. Both run in the browser, from files the dashboard serves itself (web/dist/assets):
-// nothing is fetched from elsewhere, so the local dashboard works offline. Loaded with the page only (its code and
+// Perspective shows the pivot. Both run in the browser, from files the dashboard serves itself (web/dist/assets), or
+// that the stand-alone file holds (src/analysisAssets.ts): nothing is fetched from elsewhere, so both work offline. Loaded with the page only (its code and
 // wasm are most of the dashboard's size). What trial S7 found (collect-earth-cloud/trials/s7-pivot/README.md):
 // @perspective-dev 5.6, one apache-arrow (DuckDB's, 17), Perspective given an ArrayBuffer, the viewer element made
 // from script after the library loaded, CSV read with the types stated.
 import * as duckdb from "@duckdb/duckdb-wasm";
-import duckdbWasm from "@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url";
-import duckdbWorker from "@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url";
 import perspective from "@perspective-dev/client";
-import serverWasm from "@perspective-dev/server/dist/wasm/perspective-server.wasm?url";
 import { init_client as initViewer } from "@perspective-dev/viewer";
-import viewerWasm from "@perspective-dev/viewer/dist/wasm/perspective-viewer.wasm?url";
 import "@perspective-dev/viewer/dist/css/pro.css";
 import viewerEs from "@perspective-dev/viewer/dist/css/intl/es.css?inline";
 import viewerFr from "@perspective-dev/viewer/dist/css/intl/fr.css?inline";
 import viewerPt from "@perspective-dev/viewer/dist/css/intl/pt.css?inline";
-import { tableToIPC, type Table as ArrowTable } from "apache-arrow";
+import { tableFromIPC } from "apache-arrow";
+import { analysisAssets } from "./analysisAssets";
 import type { AnalysisData } from "./api";
 import { codesCsv, readCsvSql, type Cube, type ViewConfig } from "./analysisView";
 
@@ -39,9 +36,9 @@ let started: Promise<{ client: PerspectiveClient }> | null = null;
 function startPerspective(): Promise<{ client: PerspectiveClient }> {
   if (!started) {
     started = (async () => {
-      perspective.init_server(fetch(serverWasm));
+      perspective.init_server(analysisAssets.perspectiveServer());
       // The client shares the viewer's wasm (it takes the registered viewer's module): no second one
-      await initViewer(fetch(viewerWasm));
+      await initViewer(analysisAssets.perspectiveViewer());
       await Promise.all([import("@perspective-dev/viewer-datagrid"), import("@perspective-dev/viewer-charts")]);
       return { client: await perspective.worker() };
     })();
@@ -50,9 +47,8 @@ function startPerspective(): Promise<{ client: PerspectiveClient }> {
   return started;
 }
 
-/** An Arrow table (from DuckDB) as the IPC bytes Perspective takes: an ArrayBuffer, not a view on one. */
-function toBuffer(table: ArrowTable): ArrayBuffer {
-  const bytes = tableToIPC(table, "stream");
+/** IPC bytes as Perspective takes them: an ArrayBuffer, not a view on one. */
+function toBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
@@ -71,9 +67,9 @@ export class AnalysisEngine {
   static async open(data: AnalysisData, language: string, onStep: (step: Step) => void = () => {}): Promise<AnalysisEngine> {
     onStep("database");
     const perspectiveReady = startPerspective();
-    const worker = new Worker(duckdbWorker);
+    const worker = new Worker(await analysisAssets.duckdbWorker());
     const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
-    await db.instantiate(duckdbWasm);
+    await db.instantiate(await analysisAssets.duckdbWasm());
     const conn = await db.connect();
     onStep("tables");
     for (const t of data.tables) {
@@ -98,9 +94,13 @@ export class AnalysisEngine {
 
   /** The rows of a cube, given to the viewer as a table of the client (the previous one deleted). */
   async show(viewer: Viewer, cube: Cube, config: ViewConfig, title: string): Promise<number> {
-    const rows = await this.conn.query(cube.sql);
+    // The Arrow bytes DuckDB wrote, given to Perspective as they are. Not read into JavaScript and written again:
+    // apache-arrow's writer leaves out the values of a boolean column whose rows are all null (a yes/no question
+    // nobody answered), which Perspective refuses ("Buffer #1 too small in array of type bool").
+    const bytes = await this.conn.useUnsafe((bindings, conn) => bindings.runQuery(conn, cube.sql));
+    const rows = tableFromIPC(bytes);
     const name = `${cube.table}_${++this.shown}`;
-    const table = await this.client.table(toBuffer(rows as unknown as ArrowTable), { name });
+    const table = await this.client.table(toBuffer(bytes), { name });
     if (!this.viewers.has(viewer)) {
       await viewer.load(this.client);
       this.viewers.add(viewer);

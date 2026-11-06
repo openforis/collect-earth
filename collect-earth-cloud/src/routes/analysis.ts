@@ -1,13 +1,34 @@
 import { createHash } from 'node:crypto';
+import { readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { analysisModel, analysisTables, ATTRIBUTE_AREAS_CSV, expansionFactors, REGION_AREAS_CSV, type AnalysisModel, type AnalysisRecord } from '../analysis.js';
 import { readCep } from '../cep.js';
+import { attachment } from '../download.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { ProjectStateCache } from '../projectState.js';
 import { recordResolver } from '../quality.js';
 import type { Store } from '../store/store.js';
 import type { SharedAnalysisView } from '../types.js';
+
+/** The stand-alone page in the built dashboard, and where its data goes in it (web/standalone.config.ts writes both). */
+export const STANDALONE_FILE = 'analysis-standalone.html';
+export const STANDALONE_DATA = '<!--CE_ANALYSIS_DATA-->';
+
+/** The stand-alone page of the built dashboard (read again when the file changes), or null when it was not built. */
+let template: { path: string; mtimeMs: number; html: string } | null = null;
+function standaloneTemplate(webDir: string | null): string | null {
+  if (!webDir) return null;
+  const path = join(webDir, STANDALONE_FILE);
+  try {
+    const { mtimeMs } = statSync(path);
+    if (!template || template.path !== path || template.mtimeMs !== mtimeMs) template = { path, mtimeMs, html: readFileSync(path, 'utf8') };
+    return template.html.includes(STANDALONE_DATA) ? template.html : null;
+  } catch {
+    return null;
+  }
+}
 
 /** At most so many shared views per project, each at most so big (a view is a few kilobytes). */
 const MAX_VIEWS = 200;
@@ -48,15 +69,57 @@ function modelOf(cep: Buffer): Parsed {
  * checks, as on My work). Training records are never in it (they are kept apart). The local mode has its one account as
  * coordinator: everything.
  */
-export async function registerAnalysisRoutes(app: FastifyInstance, store: Store, states: ProjectStateCache): Promise<void> {
+export async function registerAnalysisRoutes(app: FastifyInstance, store: Store, states: ProjectStateCache, webDir: string | null = null): Promise<void> {
   const member = { preHandler: requireProjectMembership(store) };
   app.get('/v1/projects/:pid/analysis', member, async (request: FastifyRequest, reply: FastifyReply) => {
+    const payload = await analysisPayload(request, reply);
+    if (!payload) return reply;
+    const body = JSON.stringify(payload);
+    reply.header('cache-control', 'no-store').type('application/json; charset=utf-8');
+    if (/\bgzip\b/.test(String(request.headers['accept-encoding'] ?? ''))) {
+      return reply.header('content-encoding', 'gzip').send(gzipSync(body, { level: 6 }));
+    }
+    return reply.send(body);
+  });
+
+  /**
+   * `GET /v1/projects/:pid/analysis/standalone`: the analysis as one HTML file that opens in any browser with no server,
+   * no internet and no installation (what replaces the stand-alone Saiku tool): the dashboard's stand-alone page (built
+   * into web/dist by web/standalone.config.ts) with the same data as the page above, for whoever asks (a collector their
+   * own records), gzipped inside it.
+   */
+  app.get('/v1/projects/:pid/analysis/standalone', member, async (request: FastifyRequest, reply: FastifyReply) => {
+    const template = standaloneTemplate(webDir);
+    if (!template) return reply.code(404).send({ error: 'no_standalone', message: 'This server was installed without the stand-alone analysis page.' });
+    const payload = await analysisPayload(request, reply);
+    if (!payload) return reply;
+    const project = await store.getProject(request.membership!.projectId);
+    const made = new Date();
+    const data = { ...payload, project: { id: request.membership!.projectId, name: project?.name ?? '' }, made: made.toISOString() };
+    const embedded = `<script>window.__CE_ANALYSIS=${JSON.stringify(gzipSync(JSON.stringify(data), { level: 6 }).toString('base64'))}</script>`;
+    // A function replacement: a replacement string would read "$&" or "$`" in the data as patterns
+    const html = template.replace(STANDALONE_DATA, () => embedded);
+    return reply
+      .header('cache-control', 'no-store')
+      .header('content-type', 'text/html; charset=utf-8')
+      .header('content-disposition', attachment(`${project?.name ?? 'project'} - analysis ${made.toISOString().slice(0, 10)}.html`, 'analysis.html'))
+      .send(html);
+  });
+
+  /** The page's data for whoever asks, or null when an error was sent instead. */
+  async function analysisPayload(request: FastifyRequest, reply: FastifyReply) {
     const projectId = request.membership!.projectId;
     const role = request.membership!.role;
     const cep = await store.getCep(projectId);
-    if (!cep) return reply.code(404).send({ error: 'no_project_file', message: 'Upload the project file first: the analysis is built from its survey.' });
+    if (!cep) {
+      reply.code(404).send({ error: 'no_project_file', message: 'Upload the project file first: the analysis is built from its survey.' });
+      return null;
+    }
     const parsed = modelOf(cep);
-    if (!parsed) return reply.code(409).send({ error: 'survey_unreadable', message: 'The survey of the project file cannot be read.' });
+    if (!parsed) {
+      reply.code(409).send({ error: 'survey_unreadable', message: 'The survey of the project file cannot be read.' });
+      return null;
+    }
 
     const [served, rows] = await Promise.all([states.get(projectId, request.log), store.listRecordSummaries(projectId)]);
     const { context } = served.state;
@@ -94,18 +157,13 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
     }
 
     const tables = analysisTables(parsed.model, records, factors?.byPlot ?? null, { hideRounds: !everyone });
-    const body = JSON.stringify({
+    return {
       model: parsed.model,
       scope: everyone ? 'project' : 'own',
       areas: factors ? { source: factors.source, plots: factors.byPlot.size, unmatched: factors.unmatched } : null,
       tables,
-    });
-    reply.header('cache-control', 'no-store').type('application/json; charset=utf-8');
-    if (/\bgzip\b/.test(String(request.headers['accept-encoding'] ?? ''))) {
-      return reply.header('content-encoding', 'gzip').send(gzipSync(body, { level: 6 }));
-    }
-    return reply.send(body);
-  });
+    };
+  }
 
   // The views a coordinator shares with the team: everyone in the project sees them, coordinators save and delete them
   app.get('/v1/projects/:pid/analysis/views', member, async (request: FastifyRequest, reply: FastifyReply) => {

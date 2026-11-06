@@ -2725,6 +2725,19 @@ export async function getAnalysis(projectId: string): Promise<AnalysisData> {
   return request<AnalysisData>("GET", `${p(projectId)}/analysis`);
 }
 
+/** The analysis as one HTML file that opens with no server (fetched with the session, then saved by the page). */
+export async function downloadAnalysisStandalone(projectId: string): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("GET", `${p(projectId)}/analysis/standalone`);
+  return { blob: await response.blob(), filename: attachmentName(response, "analysis.html") };
+}
+
+/** What the stand-alone file holds besides the page's data: its project, and when it was made. */
+export interface StandaloneAnalysisData extends AnalysisData {
+  project: { id: string; name: string };
+  /** ISO 8601. */
+  made: string;
+}
+
 /** A view a coordinator shared with the team (the analysis page). */
 export interface SharedAnalysisView {
   name: string;

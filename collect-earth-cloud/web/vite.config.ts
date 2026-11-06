@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import { buildStandalone, STANDALONE_FILE } from "./standaloneBuild.ts";
 
 // The production build goes to web/dist, which the cloud server serves at "/" (and
 // returns index.html for app routes such as /join/<token>, /projects/..., /setup).
@@ -23,7 +24,8 @@ function gzipAssets(outDir: string) {
     closeBundle() {
       const walk = (dir: string): string[] => readdirSync(dir).flatMap((n) => (statSync(join(dir, n)).isDirectory() ? walk(join(dir, n)) : [join(dir, n)]));
       for (const file of walk(outDir)) {
-        if (!/\.(js|css|wasm|svg|json|html)$/.test(file) || statSync(file).size < 10_000) continue;
+        // Not the stand-alone page: it is a template the server fills, never sent as it is
+        if (!/\.(js|css|wasm|svg|json|html)$/.test(file) || file.endsWith(STANDALONE_FILE) || statSync(file).size < 10_000) continue;
         const raw = readFileSync(file);
         const gz = gzipSync(raw, { level: 9 });
         if (gz.length < raw.length * 0.9) writeFileSync(`${file}.gz`, gz);
@@ -32,10 +34,21 @@ function gzipAssets(outDir: string) {
   };
 }
 
+/** The analysis's stand-alone page (standaloneBuild.ts), built after the dashboard into the same folder. */
+function standaloneAnalysis(outDir: string) {
+  return {
+    name: "standalone-analysis",
+    apply: "build" as const,
+    async closeBundle() {
+      await buildStandalone(outDir);
+    },
+  };
+}
+
 const outDir = resolve(import.meta.dirname, "dist");
 
 export default defineConfig({
-  plugins: [react(), gzipAssets(outDir)],
+  plugins: [react(), gzipAssets(outDir), standaloneAnalysis(outDir)],
   base: "/",
   build: {
     outDir,
