@@ -24,6 +24,7 @@ import CloudDoneOutlinedIcon from "@mui/icons-material/CloudDoneOutlined";
 import LoginOutlinedIcon from "@mui/icons-material/LoginOutlined";
 import PersonIcon from "@mui/icons-material/Person";
 import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import logo from "../form/collect-earth-logo.png";
 import { apiPut } from "../apiClient";
 import type { AppInfo } from "../appInfo";
@@ -202,6 +203,12 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
           </Button>
         ))}
         <Box sx={{ flex: 1 }} />
+        {/* The settings beside you, one click from the plot form, without going through the menus */}
+        <Tooltip title={t("appBar.settingsTip")}>
+          <IconButton size="small" aria-label={s("CollectEarthWindow.15")} onClick={onSettings} data-testid="settings-button">
+            <SettingsOutlinedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
         {/* You: in a cloud project the account signed in (its sync status on click), else the name you typed */}
         {info.cloud ? (
           info.cloudLoginNeeded ? (
@@ -221,14 +228,14 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
               label={operator || s("User.name")} sx={{ maxWidth: compact ? 140 : 240 }} data-testid="user-chip" />
           </Tooltip>
         )}
-        {/* Quit, always in sight: closing the window only asks whether to quit, and the icon by the clock is easy to miss */}
-        <Tooltip title={s("WindowClosed.quit")}>
+        {/* Quit, always in sight and red, so it is not taken for anything else: closing the window only asks whether to quit, and the icon by the clock is easy to miss */}
+        <Tooltip title={t("appBar.quitTip")}>
           {compact ? (
-            <IconButton edge="end" aria-label={s("WindowClosed.quit")} onClick={() => setQuitOpen(true)} data-testid="quit-button">
+            <IconButton edge="end" color="error" aria-label={s("WindowClosed.quit")} onClick={() => setQuitOpen(true)} data-testid="quit-button">
               <PowerSettingsNewIcon />
             </IconButton>
           ) : (
-            <Button color="inherit" size="small" startIcon={<PowerSettingsNewIcon />} onClick={() => setQuitOpen(true)}
+            <Button color="error" size="small" startIcon={<PowerSettingsNewIcon />} onClick={() => setQuitOpen(true)}
               sx={{ flexShrink: 0 }} data-testid="quit-button">
               {s("CollectEarthWindow.42")}
             </Button>
