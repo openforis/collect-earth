@@ -352,15 +352,6 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 				&& isSaikuFolder(new File(localPropertiesService.getSaikuFolder()));
 	}
 
-	/*
-	 * private boolean isJavaHomeConfigured() {
-	 *
-	 * if (SystemUtils.IS_OS_MAC){ return true; } return ! ( StringUtils.isBlank(
-	 * System.getenv("JAVA_HOME") ) //$NON-NLS-1$ && StringUtils.isBlank(
-	 * System.getenv("JRE_HOME") ) //$NON-NLS-1$ && StringUtils.isBlank(
-	 * System.getenv("COLLECT_EARTH_JRE_HOME") ) //$NON-NLS-1$ ); }
-	 */
-
 	public boolean isSaikuFolder(File saikuFolder) {
 		boolean isSaikuFolder = false;
 		if (saikuFolder.listFiles() != null) {
@@ -657,25 +648,6 @@ public class AnalysisSaikuService extends GenerateDatabase implements Disposable
 
 			Map<String, String> environment = p.environment();
 			environment.put("COLLECT_EARTH_JRE_HOME", javaFolder.getAbsolutePath());
-
-			/*
-			 * // In MAC the environment variable COLLECT_EARTH_JRE_HOME is not accesible
-			 * from outside the bash, set it again! if( SystemUtils.IS_OS_MAC ||
-			 * SystemUtils.IS_OS_MAC_OSX){ try { File javaFolder = new File("./java");
-			 *
-			 * if( !javaFolder.exists() ){ String userName =
-			 * System.getProperty("user.name"); String testWithPath = "/Users/"+userName +
-			 * "/OpenForis/CollectEarth/java"; File testJavaPath = new File(testWithPath);
-			 * if( testJavaPath.exists()){ javaFolder = testJavaPath; } }
-			 *
-			 * Process setEnv = runProcessBuilder(new String[] { "/bin/bash", "setenv",
-			 * "COLLECT_EARTH_JRE_HOME=\""+ javaFolder.getAbsolutePath() +"\"" });
-			 * setEnv.waitFor(); } catch (final IOException e) {
-			 * logger.error("Error setting the COLLECT_EARTH_JRE_HOME environment variable",
-			 * e); //$NON-NLS-1$ } catch (InterruptedException e) {
-			 * logger.error("Error when running COLLECT_EARTH_JRE_HOME environment variable"
-			 * , e); //$NON-NLS-1$ } }
-			 */
 		}
 	}
 
