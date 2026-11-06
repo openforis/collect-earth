@@ -186,9 +186,9 @@ public class RegionCalculationUtils{
 		String schemaName = getSchemaPrefix();
 		// This is specific to the Global Forest Survey - Drylands monitoring assessment
 		if(
-			AnalysisSaikuService.surveyContains(SHRUB_COUNT, earthSurveyService.getCollectSurvey() )
+			IPCCGeneratorService.surveyContains(SHRUB_COUNT, earthSurveyService.getCollectSurvey() )
 				&&
-			AnalysisSaikuService.surveyContains(MANY_SHRUBS, earthSurveyService.getCollectSurvey() )
+			IPCCGeneratorService.surveyContains(MANY_SHRUBS, earthSurveyService.getCollectSurvey() )
 		){
 			// First set the number of shrubs to 30 if the user assessed that there were more than 30 shrubs on the plot
 			// This way we get a conservative estimation
@@ -202,9 +202,9 @@ public class RegionCalculationUtils{
 		String schemaName = getSchemaPrefix();
 		// This is specific to the Global Forest Survey - Drylands monitoring assessment
 		if(
-			AnalysisSaikuService.surveyContains(TREE_COUNT, earthSurveyService.getCollectSurvey() )
+			IPCCGeneratorService.surveyContains(TREE_COUNT, earthSurveyService.getCollectSurvey() )
 				&&
-			AnalysisSaikuService.surveyContains(MANY_TREES, earthSurveyService.getCollectSurvey() )
+			IPCCGeneratorService.surveyContains(MANY_TREES, earthSurveyService.getCollectSurvey() )
 		){
 			// First set the number of shrubs to 30 if the user assessed that there were more than 30 shrubs on the plot
 			// This way we get a conservative estimation

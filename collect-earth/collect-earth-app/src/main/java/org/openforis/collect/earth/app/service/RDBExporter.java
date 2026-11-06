@@ -42,8 +42,6 @@ public class RDBExporter extends RDBConnector{
 	public static final String COLLECT_EARTH_IPCC_DATABASE_RDB_DB = 
 			EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB
 			+ ServerController.IPCC_RDB_SUFFIX;
-	public static final String COLLECT_EARTH_SAIKU_DATABASE_RDB_DB = EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB
-			+ ServerController.SAIKU_RDB_SUFFIX;
 
 	private boolean userCancelledOperation = false;
 	
@@ -116,7 +114,7 @@ public class RDBExporter extends RDBConnector{
 				try {
 					Files.delete( Paths.get( oldRdbFile.toURI() ) );
 				} catch (IOException e3) {
-					logger.error("Error deleteing old Saiku DB sqlite file", e3);
+					logger.error("Error deleteing old Relational DB sqlite file", e3);
 				}
 			}
 

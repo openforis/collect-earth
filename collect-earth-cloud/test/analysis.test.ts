@@ -1,6 +1,10 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { analysisModel, analysisTables, expansionFactors, parseCsv, type AnalysisRecord } from '../src/analysis.js';
+import { STANDALONE_DATA, STANDALONE_FILE } from '../src/routes/analysis.js';
 import { readCep, zipCep } from '../src/cep.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 import { demoCep, FIXTURE_DATE, realDemoCep } from './fixtures/cep.js';
@@ -231,6 +235,72 @@ describe('GET /analysis', () => {
   it('is refused to people outside the project', async () => {
     const other = (await createProject(ctx.app, 'Other')).projectId;
     const res = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${other}/analysis`, headers: bearer(people.ana) });
+    expect([403, 404]).toContain(res.statusCode);
+  });
+});
+
+describe('GET /analysis/standalone', () => {
+  let ctx: TestContext;
+  let pid: string;
+  let owner: { token: string; userId: string };
+  let ana: string;
+  let webDir: string;
+  const TEMPLATE = `<html><head>${STANDALONE_DATA}\n</head><body><script>/* the page; "$&" and "$\`" stay as they are */</script></body></html>`;
+  const call = (token: string) => ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/analysis/standalone`, headers: bearer(token) });
+  /** The data the server put in the file. */
+  const dataOf = (html: string) => {
+    const match = /<script>window\.__CE_ANALYSIS=("[^"]+")<\/script>/.exec(html);
+    expect(match, 'the data in the page').not.toBeNull();
+    return JSON.parse(gunzipSync(Buffer.from(JSON.parse(match![1]) as string, 'base64')).toString('utf8'));
+  };
+
+  beforeEach(async () => {
+    webDir = mkdtempSync(join(tmpdir(), 'ce-web-'));
+    writeFileSync(join(webDir, STANDALONE_FILE), TEMPLATE);
+    ctx = await makeContext({}, { webDir });
+    owner = await setupPlatformAdmin(ctx.app);
+    pid = (await createProject(ctx.app, 'Río Analysis')).projectId;
+    await ctx.store.addMembership(pid, owner.userId, 'admin');
+    const invite = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${pid}/invites`, headers: bearer(owner.token), payload: { role: 'operator', maxUses: 1 } });
+    ana = (await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username: 'ana', password: 'password12', inviteToken: invite.json().inviteToken } })).json().token;
+    const res = await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/cep`, headers: { ...bearer(owner.token), 'content-type': 'application/zip' }, payload: demoCep() });
+    expect(res.statusCode, res.body).toBe(200);
+  });
+  afterEach(async () => {
+    await ctx.app.close();
+    rmSync(webDir, { recursive: true, force: true });
+  });
+
+  it('is the built page with the data of whoever asks inside it, as a file to save', async () => {
+    const sent = await batchRequest(ctx.app, pid, ana, [envelope({ recordKey: '1,1', operator: 'ana', modifiedOn: Date.UTC(2026, 10, 1), summary: { collect_text_id: '1', collect_code_land_use_category: 'F' } })]);
+    expect(sent.statusCode, sent.body).toBe(200);
+
+    const res = await call(owner.token);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.headers['content-type']).toMatch(/^text\/html/);
+    expect(res.headers['content-disposition']).toMatch(/^attachment; filename="R_o_Analysis_-_analysis_\d{4}-\d{2}-\d{2}\.html"; filename\*=UTF-8''R%C3%ADo%20Analysis/);
+    // The page as built, the data where it goes, the page's own "$&" untouched
+    expect(res.body).not.toContain(STANDALONE_DATA);
+    expect(res.body).toContain('"$&" and "$`" stay as they are');
+    const data = dataOf(res.body);
+    expect(data.project).toEqual({ id: pid, name: 'Río Analysis' });
+    expect(Date.parse(data.made)).not.toBeNaN();
+    expect(data.scope).toBe('project');
+    expect(data.tables.find((t: { name: string }) => t.name === 'plot').rows).toBe(1);
+
+    // A collector's file: their own records, as their page has them
+    const own = dataOf((await call(ana)).body);
+    expect(own.scope).toBe('own');
+  });
+
+  it('is not found when the dashboard was built without it, and refused outside the project', async () => {
+    rmSync(join(webDir, STANDALONE_FILE));
+    const missing = await call(owner.token);
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json().error).toBe('no_standalone');
+
+    const other = (await createProject(ctx.app, 'Other')).projectId;
+    const res = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${other}/analysis/standalone`, headers: bearer(ana) });
     expect([403, 404]).toContain(res.statusCode);
   });
 });

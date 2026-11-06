@@ -4,13 +4,10 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.filefilter.IOFileFilter;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
@@ -145,8 +142,6 @@ public class EarthProjectsService {
 
 			setProjectDefinitionMD5(projectFolder);
 
-			moveSaikuQueriesToRepository(projectFolder, (String) projectProperties.get("survey_name") );
-
 			success = true;
 		}
 
@@ -154,47 +149,6 @@ public class EarthProjectsService {
 		return success;
 	}
 
-
-	private void moveSaikuQueriesToRepository(File projectFolder, String surveyName) {
-
-		try {
-			Collection<File> saikuFiles = getSaikuFiles( projectFolder );
-
-			String repoDirectory = "tomcat/webapps/saiku/WEB-INF/classes/saiku-repository";
-			final File saikuRepositoryRoot = new File( localPropertiesService.getSaikuFolder() + File.separator + repoDirectory ).getCanonicalFile();
-			final File saikuRepo = new File( saikuRepositoryRoot, StringUtils.defaultString( surveyName ) ).getCanonicalFile();
-			// The survey name comes from the project file, do not let it point outside of the Saiku repository
-			if( !saikuRepositoryRoot.equals( saikuRepo.getParentFile() ) ){
-				logger.error("The survey name {} is not a valid folder name, the Saiku queries are not copied", surveyName); //$NON-NLS-1$
-				return;
-			}
-
-			for (File saikuFile : saikuFiles) {
-				FileUtils.copyFileToDirectory(saikuFile, saikuRepo, true);
-			}
-		} catch (IOException e) {
-			logger.error("Error moving the Saiku files", e);
-		}
-
-
-
-	}
-
-	private Collection<File> getSaikuFiles(File projectFolder) {
-		return FileUtils.listFiles(projectFolder, new IOFileFilter() {
-
-			@Override
-			public boolean accept(File dir, String name) {
-				return name.endsWith("saiku");
-			}
-
-			@Override
-			public boolean accept(File file) {
-
-				return file.getName().endsWith("saiku");
-			}
-		}, null);
-	}
 
 	private void setProjectDefinitionMD5(File projectFolder) throws IOException {
 		localPropertiesService.setValue( EarthProperty.ACTIVE_PROJECT_DEFINITION, CollectEarthUtils.getMd5FromFolder( projectFolder ) );

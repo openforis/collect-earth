@@ -14,7 +14,7 @@ Collect Earth is a tool that enables data collection through Google Earth. In co
  
 Its user friendliness and smooth learning curve make it a perfect tool for performing fast, accurate and cost-effective assessments. It is highly customizable for the specific data collection needs and methodologies.
  
-The data gathered through Collect Earth is exportable to commonly used formats and can also be exported to Saiku, a tool that facilitates data analysis.
+The data gathered through Collect Earth is exportable to commonly used formats, and can be analysed in a pivot table and charts (Tools > Analyse the data), also as a stand-alone file that opens in any browser.
 
 ## Where to download the installer!
 

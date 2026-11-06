@@ -12,7 +12,8 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "types": ["vite/client", "node"],
-    "noEmit": true
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts", "standaloneBuild.ts"]
 }

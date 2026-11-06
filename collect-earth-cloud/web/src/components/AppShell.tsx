@@ -23,7 +23,7 @@ import { useApp, useLocalMode } from "../appContext";
 import { LANGUAGES, LANGUAGE_NAMES, useT, type Language } from "../i18n";
 import { linkProps, navigate } from "../router";
 
-function LanguageMenu() {
+export function LanguageMenu() {
   const t = useT();
   const { language, setLanguage } = useApp();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);

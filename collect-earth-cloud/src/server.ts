@@ -154,6 +154,9 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
 
   app.get('/health', async () => ({ status: 'ok' }));
 
+  // The built dashboard: served at "/", and the template of the analysis's stand-alone file
+  const webDir = options.webDir === undefined ? (config.webDir ?? DEFAULT_WEB_DIR) : options.webDir;
+
   // Failed logins and refused requests by hour since this process started (the server owner's panel).
   const counters = new ServerCounters();
   const limiter = new RateLimiter(config.rateLimitPerMinute ?? DEFAULT_RATE_LIMIT_PER_MINUTE, Date.now, {
@@ -216,7 +219,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerProgressRoutes(app, store, quality, states, now);
   await registerPeopleRoutes(app, store, quality, states, now);
   await registerTimeSpentRoutes(app, store, states);
-  await registerAnalysisRoutes(app, store, states);
+  await registerAnalysisRoutes(app, store, states, webDir);
   await registerPlotsGeoRoutes(app, store, quality, states, places, config.mapBuildsKept ? { maxBuilds: config.mapBuildsKept } : {});
   await registerActivityRoutes(app, store, quality, states, places, now);
   // No check sampling in the local mode: there is no one else to check.
@@ -243,7 +246,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     await registerLocalRoutes(app, store as InMemoryStore, local);
   }
 
-  await registerDashboard(app, options.webDir === undefined ? (config.webDir ?? DEFAULT_WEB_DIR) : options.webDir);
+  await registerDashboard(app, webDir);
 
   // Until the first platform admin exists, say how to finish setup. A generated
   // code is only ever shown here, so it is printed once per boot.

@@ -78,8 +78,7 @@ public class LocalPropertiesService extends Observable {
 				"open_separate_browser_form"), OPEN_STREET_VIEW(
 				"open_street_view"), OPERATION_MODE(
 				"operation_mode"), OPERATOR_KEY(
-				"operator"), SAIKU_SERVER_FOLDER(
-				"saiku_server_folder"), SAMPLE_FILE(
+				"operator"), SAMPLE_FILE(
 				"csv"), SAMPLE_SHAPE(
 				"sample_shape"), SURVEY_NAME(
 				"survey_name"), UI_LANGUAGE(
@@ -373,16 +372,6 @@ public class LocalPropertiesService extends Observable {
 	public String getProjectFolder() {
 		final File metadataFile = new File(getImdFile());
 		return metadataFile.getParent();
-	}
-
-	public String getSaikuFolder() {
-		final String configuredSaikuFolder = convertToOSPath(getValue(EarthProperty.SAIKU_SERVER_FOLDER));
-		if (StringUtils.isBlank(configuredSaikuFolder)) {
-			return ""; //$NON-NLS-1$
-		} else {
-			final File saikuFolder = new File(configuredSaikuFolder);
-			return saikuFolder.getAbsolutePath();
-		}
 	}
 
 	public SAMPLE_SHAPE getSampleShape() {
