@@ -162,8 +162,8 @@ public class JobServiceTest {
 	@Test
 	public void theThreadIsNamedAfterTheKindOfJob() throws Exception {
 		// so a thread dump, or the log, says which job a thread runs
-		String id = jobs.start("saiku", ctx -> Thread.currentThread().getName());
-		assertEquals("Collect Earth job saiku", waitUntilOver(id).get("result"));
+		String id = jobs.start("ipcc", ctx -> Thread.currentThread().getName());
+		assertEquals("Collect Earth job ipcc", waitUntilOver(id).get("result"));
 	}
 
 	@Test

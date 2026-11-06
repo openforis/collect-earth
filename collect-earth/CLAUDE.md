@@ -256,7 +256,7 @@ working folder.
 - **Never an installer without it:** `check-dashboard` (`collect-earth-installer`, `assembly` profile, at
   `initialize`) stops the build when `collect-earth-app/target/dashboard` lacks `server.mjs`, `qualityWorker.mjs` or
   `web/index.html`, also for `-rf :collect-earth-installer`.
-- **`dashboard.xml`** (InstallBuilder), included by `CollectEarthWithSaiku.xml` and by every updater
+- **`dashboard.xml`** (InstallBuilder), included by `CollectEarth.xml` and by every updater
   (`CollectEarthUpdater.xml`), since it changes with the cloud's code: it installs the folder whole, the same files on
   every platform. As `node.xml` does, it renames the old `dashboard` to `dashboard.old` before copying (the web app's
   asset names change at each build, so nothing stale stays), stops if that fails, puts it back if the installation is
@@ -443,7 +443,7 @@ The application supports dual database configurations with automatic fallback:
 - **Primary**: PostgreSQL (configurable via `LocalPropertiesService`: host, port, dbname, username, password)
 - **Fallback**: SQLite (automatic if PostgreSQL unreachable)
 - **Connection Test**: `ServerController.isPostgreSQLReachable()` checks connectivity before server start
-- **Multiple Databases**: Main DB + Saiku analysis DB + IPCC analysis DB (for SQLite, suffixes added to filename)
+- **Multiple Databases**: Main DB + IPCC analysis DB (for SQLite, a suffix added to the filename)
 
 Database configuration stored in: `${collectEarth.userFolder}/earth.properties`
 

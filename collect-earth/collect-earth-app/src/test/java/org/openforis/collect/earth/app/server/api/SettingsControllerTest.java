@@ -83,7 +83,7 @@ public class SettingsControllerTest {
 
 	@Test
 	public void validatesWhatThePageHolds() throws Exception {
-		SettingsValidator validator = new SettingsValidator(model, f -> true, () -> TODAY);
+		SettingsValidator validator = new SettingsValidator(model, () -> TODAY);
 		Map<String, String> values = new HashMap<>();
 		values.put("sample_shape", "SQUARE");
 		values.put("number_of_sampling_points_in_plot", "25");

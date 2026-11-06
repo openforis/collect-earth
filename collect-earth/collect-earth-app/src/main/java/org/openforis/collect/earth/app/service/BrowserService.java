@@ -281,7 +281,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 		if (driver == null) {
 			throw new BrowserNotFoundException(
-					"Neither Chrome, Edge or Firefox could be opened. You need to have one of them installed in order to use GEE, Earth Map or Saiku.");
+					"Neither Chrome, Edge or Firefox could be opened. You need to have one of them installed in order to use GEE or Earth Map.");
 		}
 
 		return driver;

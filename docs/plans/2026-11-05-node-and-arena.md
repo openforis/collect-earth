@@ -366,10 +366,18 @@ In collect-earth-cloud, so the same code serves the cloud dashboard and the loca
 Checked in Chromium on the demo survey: each of these, a coordinator's shared view opened by a collector, and the link
 opened in a fresh browser; and on PostgreSQL with row-level security (`scripts/pg-smoke-analysis.mts`).
 
-Still to do in 6a: the stand-alone HTML
-download; Collect Earth's "Tools → Start SAIKU Analysis" becoming "Analyse the data" (the local dashboard's page, or
-the cloud's for a cloud project), then Saiku and its Tomcat out of the installer; a projection of the columns in use
-for very large projects (S7's memory finding).
+Done since (6 November 2026): Collect Earth's "Tools → Start SAIKU Analysis" became "Analyse the data" (the local
+dashboard's page, or the cloud's for a cloud project); the stand-alone HTML, `GET /v1/projects/:pid/analysis/standalone`
+(the button "Download as a file that opens without Collect Earth" of the page): the dashboard's build makes
+`web/dist/analysis-standalone.html` (`web/standaloneBuild.ts`, a second Vite build of `src/standalone.tsx` with the
+wasm and DuckDB's worker gzipped in the page) and the server puts the data of whoever asks in it, gzipped. Checked
+opened from the disk with every network request blocked: 19 MB, usable in about 14 s, the same figures as the page.
+Then Saiku, its Tomcat and the code that drove them left Collect Earth and its installers (the updater deletes the
+installation's `saiku-server_2.6`). Found on the way: apache-arrow's IPC writer drops the values of a boolean column
+whose rows are all null, which Perspective refuses, so the page failed on any project with a yes/no question nobody
+answered; the engine now gives Perspective DuckDB's own Arrow bytes.
+
+Still to do in 6a: a projection of the columns in use for very large projects (S7's memory finding).
 
 ### The AI analyst: presenting the data and finding what matters
 
@@ -450,7 +458,7 @@ Each stage leaves a working Collect Earth; the Java program is retired only at t
 | 5 | Packaging, updates and the migration of local data; a public beta next to the Java release | 2, 3, 4 | M |
 | 5b | Arena inside the local Collect Earth Cloud: its database on the computer in place of the memory store, the local dashboard reading from it, moving a project from local to distributed | 1, 5, S6 | M |
 | 6 | What is left: the LULUCF package, the Google Earth Pro viewer (per decisions 2 and 4) | decisions | M to L |
-| 6a | The analysis, layer 1: the view model from the survey, DuckDB-WASM and Perspective in the dashboard (local and cloud), enrichment, saved views, the stand-alone HTML; Saiku and its Tomcat leave the installer | S7 (done, passed); can start before 2; the analysis page done (see "Stage 6a, first part") | M |
+| 6a | The analysis, layer 1: the view model from the survey, DuckDB-WASM and Perspective in the dashboard (local and cloud), enrichment, saved views, the stand-alone HTML; Saiku and its Tomcat leave the installer | S7 (done, passed); can start before 2; the analysis page, the stand-alone HTML and Saiku's removal done; the column projection left | M |
 | 6b | The analysis, layer 2: estimates through Arena's R chains or a shipped R template | 1, 6a, S7 | M |
 | 6c | The AI analyst, steps A to D, on the quality assistant's foundations | 6a, S8 | M |
 | 7 | Retire the Java program and Selenium; drop the raw copy of records if decision 1 allows | 5, 6 | S |

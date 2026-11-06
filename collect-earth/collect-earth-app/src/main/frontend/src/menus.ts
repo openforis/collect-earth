@@ -7,7 +7,7 @@ export interface Menu { id: string; label: string; items: MenuItem[] }
 
 // The entries built so far: the others show, disabled, until their stage of docs/plans/2026-10-28-html-ui-design.md
 const BUILT = new Set(["quit", "properties", "export", "import",
-  "analyse", "saiku", "saikuTool", "lulucf", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots",
+  "analyse", "lulucf", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots",
   "importCep", "joinCloud", "cloudStatus", "language", "surveyGuide", "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
 
 /**
@@ -55,11 +55,9 @@ function allMenus(app: MenuContext): Menu[] {
       item("import", "DataPage.import.menu"),
     ] },
     { id: "tools", label: "CollectEarthWindow.12", items: [
-      // The analysis page of the dashboard (docs/plans/2026-11-05-node-and-arena.md, stage 6a), what replaces Saiku: the
-      // local dashboard's, or the cloud's for a cloud project. Saiku stays below it until it leaves the installer.
+      // The analysis page of the dashboard (docs/plans/2026-11-05-node-and-arena.md, stage 6a), which replaced Saiku: the
+      // local dashboard's, or the cloud's for a cloud project. The page downloads its stand-alone file too.
       item("analyse", "CollectEarthMenu.analyse"),
-      item("saiku", "CollectEarthWindow.14"),
-      item("saikuTool", "CollectEarthWindow.71"),
       item("lulucf", "CollectEarthWindow.72"),
       item("loadKml", "CollectEarthWindow.54"),
       item("dataFolder", "CollectEarthWindow.67"),

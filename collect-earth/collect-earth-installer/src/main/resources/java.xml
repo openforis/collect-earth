@@ -182,9 +182,8 @@
 				    </conditionRuleList>
 				</while>
 				<deleteFile path="${installdir}/java.old" abortOnError="0" showMessageOnError="0" />
-				<!-- A rename, not a delete: it fails as a whole while any of the files is in use (Saiku's Tomcat runs
-				     this Java too, and may outlive a Collect Earth that crashed), so the old JRE is never left half
-				     deleted, and the installation stops with it intact. The project's installationAbortedActionList
+				<!-- A rename, not a delete: it fails as a whole while any of the files is in use (a Collect Earth that
+				     crashed may leave a process running on it), so the old JRE is never left half deleted, and the installation stops with it intact. The project's installationAbortedActionList
 				     puts it back if the installation stops later. -->
 				<renameFile>
 				    <origin>${installdir}/java</origin>
@@ -192,7 +191,7 @@
 				    <progressText>Removing old JRE</progressText>
 				    <abortOnError>1</abortOnError>
 				    <showMessageOnError>1</showMessageOnError>
-				    <customErrorMessage>The Java of Collect Earth is still in use. Close Collect Earth and Saiku, then run the installation again.</customErrorMessage>
+				    <customErrorMessage>The Java of Collect Earth is still in use. Close Collect Earth, then run the installation again.</customErrorMessage>
 				</renameFile>
 		    </actionList>
 		    <ruleList>

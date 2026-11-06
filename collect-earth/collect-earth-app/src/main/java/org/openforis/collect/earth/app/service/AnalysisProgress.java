@@ -3,7 +3,7 @@ package org.openforis.collect.earth.app.service;
 import org.openforis.concurrency.ProgressListener;
 
 /**
- * Where the long services (the Saiku and IPCC databases, the missing plots) report their progress and learn that
+ * Where the long services (the IPCC database, the missing plots) report their progress and learn that
  * the user gave up: what the Swing InfiniteProgressMonitor offered them, as an interface, so a job of the pages
  * (JobProgress) can stand in for the dialog. The services keep calling these as they did.
  */

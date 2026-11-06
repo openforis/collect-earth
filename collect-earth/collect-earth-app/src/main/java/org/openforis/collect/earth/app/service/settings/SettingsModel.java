@@ -234,8 +234,6 @@ public final class SettingsModel {
 				Setting.bool(EarthProperty.OPEN_BALLOON_IN_BROWSER, "OptionWizard.48").tooltip("SettingsPage.balloonInBrowser.tooltip")
 						.defaultValue("false").visibleWhen(GOOGLE_EARTH_PRO),
 				Setting.text(EarthProperty.HOST_PORT_KEY, "OptionWizard.5").tooltip("SettingsPage.port.tooltip")
-						.defaultValue(LocalPropertiesService.DEFAULT_LOCAL_PORT).restart(),
-				Setting.folder(EarthProperty.SAIKU_SERVER_FOLDER, "OptionWizard.65").tooltip("SettingsPage.saiku.tooltip")
-						.defaultValue("saiku-server_2.6/"));
+						.defaultValue(LocalPropertiesService.DEFAULT_LOCAL_PORT).restart());
 	}
 }

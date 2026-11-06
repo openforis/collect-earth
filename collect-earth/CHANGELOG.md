@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A number that is not one ("1.5x") stays as typed, marked, with what to type instead, and Submit is refused until it is corrected; it used to be saved as 1. The save state is announced to screen readers, and the answer the keyboard is on is ringed
 - With Google Earth Web, the plot outline appears as soon as the camera has arrived (it sometimes waited up to 8 s) and no longer disappears for a moment when Google Earth Web rewrites its view. `gew_fly_animation=false` in earth.properties turns Google Earth Web's fly animation off, so that the camera jumps to each plot in about a second, from the first session on; only for surveys whose ground is known, since a plot higher than about 130 m is otherwise seen from under the ground. By default Google Earth Web flies to each plot and Collect Earth learns the height of the ground from where it stops
 - In the panel of Google Earth Web and in narrow windows, the menus open as a drawer on the left, every entry with an icon, the everyday menus first and Utilities and Help folded, Quit last; the button that shows the plot list has a list icon of its own. The dialogs of the panel (About, Export, Settings' questions...) open in the middle of the Google Earth Web window, over the whole of it, instead of squeezed into the panel
+- The analysis page can be downloaded as one HTML file that opens in any browser, with no internet connection, no server and nothing to install: the pivot table, the charts, the filters and the drill-through over a copy of the data, made when it is downloaded (a collector's file holds their own plots). It replaces the stand-alone Saiku tool, and works on every operating system, not only Windows
 
 ### Changed
 - The imagery of a plot opens in one browser window, with a tab per source (Google Earth Web, ESRI Wayback, Planet, Earth Engine, Earth Map, Street View, the extra URL), instead of a browser window for each source, with every plot viewer. A new plot loads in every tab without changing the one being looked at, and a tab that was closed opens again with the next plot. One browser instead of one per source also uses much less memory. In Firefox the window shows its tabs but no address bar, and keeps its own profile, so the sign-ins to Google, Planet or Earth Engine are kept from one session to the next
@@ -36,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The text written for a qualifiable code item ("Other, specify") is saved and shown again; it used to be dropped
 - The header row of the plot file no longer logs an error with a stack trace on every start
 - A value that the balloon fills by itself and that cannot be read - the id of the plot where its coordinate goes - is reported as an error once, instead of on every save of every plot. The repeats used up the quota of the error reports, so that no report from any user was received for nine days
+- The analysis page no longer fails with "Something went wrong" on a project with a yes/no question that nobody answered (every row of its column empty)
+
+### Removed
+- Saiku and its Tomcat server: "Tools > Analyse the data" (the dashboard's analysis page) replaces "Start SAIKU Analysis", and the analysis page's stand-alone file replaces "Generate Stand-Alone Saiku tool". The installers no longer include Saiku (about 75 MB), the update removes the `saiku-server_2.6` folder of the installation, and the "Path to Saiku folder" setting is gone
 
 ## [1.23.19] - 2026-09-29
 ### Added

@@ -12,7 +12,7 @@ describe("appMenus", () => {
   it("only enables what is built", () => {
     const enabled = appMenus({ plotsMap: true }).flatMap((m) => m.items).filter((i) => i.enabled).map((i) => i.id);
     expect(enabled).toEqual(["importCep", "joinCloud", "cloudStatus", "language", "quit", "export", "import",
-      "analyse", "saiku", "saikuTool", "lulucf", "loadKml", "dataFolder", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "properties",
+      "analyse", "lulucf", "loadKml", "dataFolder", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "properties",
       "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
     // The survey guide only when the survey has one, as the Swing menu showed it
     expect(appMenus({ plotsMap: true, surveyGuide: true }).find((m) => m.id === "help")?.items[0].id).toBe("surveyGuide");
@@ -65,7 +65,7 @@ describe("client mode", () => {
   it("drops the entries that act on the data of this instance, as the Swing window disabled them", () => {
     const menus = appMenus({ plotsMap: false, client: true });
     expect(menus.map((m) => m.id)).toEqual(["project", "tools", "settings", "help"]);
-    expect(menus.find((m) => m.id === "tools")?.items.map((i) => i.id)).toEqual(["saiku", "saikuTool", "lulucf"]);
+    expect(menus.find((m) => m.id === "tools")?.items.map((i) => i.id)).toEqual(["lulucf"]);
   });
 });
 

@@ -1,16 +1,13 @@
 package org.openforis.collect.earth.app.service.settings;
 
-import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.MessageFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Map;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-import org.openforis.collect.earth.app.service.AnalysisSaikuService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,18 +27,15 @@ public class SettingsValidator {
 	private static final int MAX_PORT = 65535;
 
 	private final SettingsModel model;
-	/** Whether a folder is a Saiku server's (AnalysisSaikuService.isSaikuFolder) */
-	private final Predicate<File> saikuFolder;
 	private final Supplier<LocalDate> today;
 
 	@Autowired
-	public SettingsValidator(AnalysisSaikuService saiku) {
-		this(new SettingsModel(), saiku::isSaikuFolder, LocalDate::now);
+	public SettingsValidator() {
+		this(new SettingsModel(), LocalDate::now);
 	}
 
-	public SettingsValidator(SettingsModel model, Predicate<File> saikuFolder, Supplier<LocalDate> today) {
+	public SettingsValidator(SettingsModel model, Supplier<LocalDate> today) {
 		this.model = model;
-		this.saikuFolder = saikuFolder;
 		this.today = today;
 	}
 
@@ -102,10 +96,6 @@ public class SettingsValidator {
 		} else if (property == EarthProperty.PLANET_MAPS_KEY) {
 			if (trimmed.isEmpty()) {
 				validation.warning(key, Messages.getString("OptionWizard.1055"));
-			}
-		} else if (property == EarthProperty.SAIKU_SERVER_FOLDER) {
-			if (!trimmed.isEmpty() && !saikuFolder.test(new File(trimmed))) {
-				validation.warning(key, Messages.getString("OptionWizard.27"));
 			}
 		}
 	}

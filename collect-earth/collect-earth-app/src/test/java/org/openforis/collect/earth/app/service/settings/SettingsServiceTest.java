@@ -35,7 +35,7 @@ public class SettingsServiceTest {
 	private final AtomicInteger restarts = new AtomicInteger();
 	private final AtomicInteger reloads = new AtomicInteger();
 	private final SettingsService service = new SettingsService(properties,
-			new SettingsValidator(new SettingsModel(LocalDate.of(2026, 10, 30)), f -> true, () -> LocalDate.of(2026, 10, 30)),
+			new SettingsValidator(new SettingsModel(LocalDate.of(2026, 10, 30)), () -> LocalDate.of(2026, 10, 30)),
 			restarts::incrementAndGet, reloads::incrementAndGet);
 
 	@BeforeEach

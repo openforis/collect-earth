@@ -45,8 +45,6 @@ import { DivideCsvDialog } from "./tools/DivideCsvDialog";
 import { IpccDialog } from "./tools/IpccDialog";
 import { LoadKmlDialog } from "./tools/LoadKmlDialog";
 import { MissingPlotsDialog } from "./tools/MissingPlotsDialog";
-import { SaikuDialog } from "./tools/SaikuDialog";
-import { SaikuToolDialog } from "./tools/SaikuToolDialog";
 import { NoticeDialog } from "./notices/NoticeDialog";
 import { CloudLoginDialog } from "./project/CloudLoginDialog";
 import { CloudStatusDialog } from "./project/CloudStatusDialog";
@@ -121,7 +119,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const actions: Record<AppAction, () => void> = {
     quit: () => setQuitOpen(true), settings: onSettings,
     export: () => setDialog("export"), import: () => setDialog("import"),
-    analyse: quick("openAnalysis"), saiku: () => setDialog("saiku"), saikuTool: () => setDialog("saikuTool"), lulucf: () => setDialog("lulucf"), loadKml: () => setDialog("loadKml"),
+    analyse: quick("openAnalysis"), lulucf: () => setDialog("lulucf"), loadKml: () => setDialog("loadKml"),
     dataFolder: quick("openDataFolder"), openPlotsMap: quick("openPlotsMap"), myDashboard: quick("openDashboard"),
     missingPlots: () => setDialog("missingPlots"), divideCsv: () => setDialog("divideCsv"), deletePlots: () => setDialog("deletePlots"),
     importCep: () => { setDropped(null); setDialog("importCep"); }, joinCloud: () => setDialog("joinCloud"), cloudStatus: () => setDialog("cloudStatus"), language: () => setDialog("language"),
@@ -250,8 +248,6 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
       <QuitDialog open={quitOpen} texts={texts} onKeepOpen={() => setQuitOpen(false)} onClosed={() => setClosed(true)} />
       <ExportDialog open={dialog === "export"} texts={texts} language={info.language} onClose={close} />
       <ImportDialog open={dialog === "import"} texts={texts} language={info.language} onClose={close} />
-      <SaikuDialog open={dialog === "saiku"} texts={texts} onClose={close} />
-      <SaikuToolDialog open={dialog === "saikuTool"} texts={texts} onClose={close} />
       <IpccDialog open={dialog === "lulucf"} texts={texts} onClose={close} />
       <LoadKmlDialog open={dialog === "loadKml"} texts={texts} onClose={close} kml={dropped?.kind === "kml" ? dropped.path : null} />
       <MissingPlotsDialog open={dialog === "missingPlots"} texts={texts} onClose={close} />
