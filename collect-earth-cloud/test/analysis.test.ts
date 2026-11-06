@@ -40,6 +40,35 @@ describe('the analysis model, generated from the survey', () => {
     expect(model.tables[0].columns.find((c) => c.name === 'province')!.fromPlotFile).toBe(true);
   });
 
+  it('says which attributes are keys, which code depends on which, and which question is asked after a yes', () => {
+    const survey = `<?xml version="1.0" encoding="UTF-8"?>
+<survey xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect">
+  <language>en</language>
+  <codeLists><list name="land_uses"><items><item><code>F</code><label>Forest</label></item></items></list><list name="years"><items><item><code>2020</code></item></items></list></codeLists>
+  <schema>
+    <entity name="plot">
+      <code name="round" key="true" list="land_uses"/>
+      <code name="lu" list="land_uses"/>
+      <code name="sub" list="land_uses" parent="lu"/>
+      <boolean name="change"/>
+      <code name="change_yr" list="years" relevant="change"/>
+      <code name="from_lu" list="land_uses" relevant="change and lu = 'F'"/>
+      <code name="odd" list="years" relevant="lu = 'F'"/>
+      <code name="orphan" list="land_uses" parent="nowhere" relevant="lu"/>
+    </entity>
+  </schema>
+</survey>`;
+    const cols = Object.fromEntries(analysisModel(survey).tables[0].columns.map((c) => [c.name, c]));
+    expect(cols.round).toMatchObject({ keyAttr: true, parent: null, relevantIf: null });
+    expect(cols.lu).toMatchObject({ keyAttr: false, parent: null });
+    expect(cols.sub.parent).toBe('lu');
+    expect(cols.change_yr.relevantIf).toBe('change');
+    expect(cols.from_lu.relevantIf).toBe('change');
+    expect(cols.odd.relevantIf).toBeNull();
+    // a parent that is no column, and a relevant on what is not a yes/no question, are no links
+    expect(cols.orphan).toMatchObject({ parent: null, relevantIf: null });
+  });
+
   it('keeps every level of a hierarchical list, with each item\'s parent and labels', () => {
     const forest = model.lists.land_uses.find((i) => i.code === 'F')!;
     expect(forest).toMatchObject({ parent: null, level: 0, labels: { en: 'Forest', fr: 'Forêt' } });

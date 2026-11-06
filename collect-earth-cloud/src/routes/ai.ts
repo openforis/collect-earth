@@ -1,14 +1,16 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid } from '../accountRules.js';
 import { audit } from '../activity.js';
+import { analysisStructure } from '../ai/analysisViews.js';
 import { aiAvailable } from '../ai/available.js';
 import { AI_LANGUAGES, FOLLOW_UP_ACTIONS, type AiLanguage, type FollowUpAction } from '../ai/prompts.js';
-import { MAX_QUESTION_CHARS, questionWithRealNames, withRealNames, type AiReport, type StoredResult } from '../ai/run.js';
+import { FAILURE_MESSAGES, MAX_QUESTION_CHARS, questionWithRealNames, withRealNames, type AiReport, type StoredResult } from '../ai/run.js';
 import type { AiRunService, RunRequest } from '../ai/service.js';
 import type { Config } from '../config.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { AiRunRow, AiRunSummary } from '../types.js';
+import { modelOf } from './analysis.js';
 
 /** Runs listed by default, and at most. */
 export const DEFAULT_LISTED_RUNS = 50;
@@ -164,6 +166,69 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     });
   });
 
+  // Views for the analysis page, proposed from the survey's structure (src/ai/analysisViews.ts): the model is sent the
+  // questions, their labels and code lists, never a plot, an answer or a person. Waited for (one call, no tools), and
+  // counted as a run of its own kind against the project's limits.
+  app.post('/v1/projects/:pid/analysis/proposals', admin, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { projectId, userId } = request.membership!;
+    if (!userId) {
+      return reply.code(403).send(SESSION_REQUIRED);
+    }
+    const [settings, enabled] = await Promise.all([store.getSettings(), store.isAiEnabled(projectId)]);
+    if (!aiAvailable(config, settings) || !runs.hasClient) {
+      return reply.code(409).send(UNAVAILABLE);
+    }
+    if (!enabled) {
+      return reply.code(409).send(NOT_ENABLED);
+    }
+    const body = (request.body ?? {}) as { table?: unknown; language?: unknown };
+    const table = body.table === undefined ? 'plot' : body.table;
+    const language = body.language === undefined ? 'en' : body.language;
+    if (typeof table !== 'string' || !AI_LANGUAGES.includes(language as AiLanguage)) {
+      return reply.code(400).send(bad(`table must be a table's name, language one of ${AI_LANGUAGES.join(', ')}`));
+    }
+    const cep = await store.getCep(projectId);
+    if (!cep) {
+      return reply.code(404).send({ error: 'no_project_file', reason: 'Upload the project file first: the views are worked out from its survey.' });
+    }
+    const parsed = modelOf(cep);
+    if (!parsed) {
+      return reply.code(409).send({ error: 'survey_unreadable', reason: 'The survey of the project file cannot be read.' });
+    }
+    const structure = analysisStructure(parsed.model, table, language as string, !!(parsed.regionAreas || parsed.attributeAreas));
+    if (!structure) {
+      return reply.code(400).send(bad('the survey has no such table'));
+    }
+    await runs.failStale(projectId);
+    const out = await runs.proposeViews(projectId, userId, structure, language as AiLanguage, settings);
+    if (out.ok) {
+      return reply.header('cache-control', 'no-store').send({ views: out.views });
+    }
+    if ('failed' in out) {
+      return reply.code(502).send({ error: 'ai_failed', code: out.failed, reason: FAILURE_MESSAGES[out.failed] });
+    }
+    if (out.limit === 'busy') {
+      return reply.code(409).send({ error: 'busy', reason: 'The assistant is already working for this project. Wait until it has finished.' });
+    }
+    if (out.limit === 'daily') {
+      const none = settings.aiFollowUpsPerDay === 0;
+      return reply.code(429).send({
+        error: 'ai_daily_limit',
+        limit: 'follow_ups',
+        resetsAt: none ? null : out.resetsAt,
+        reason: none
+          ? 'Follow-ups and questions to the AI assistant are not allowed on this server: the daily limit is 0.'
+          : 'This project has used all its follow-ups and questions to the AI assistant for today.',
+      });
+    }
+    const none = settings.aiMonthlyTokens === 0;
+    return reply.code(429).send({
+      error: 'ai_monthly_limit',
+      resetsAt: none ? null : out.resetsAt,
+      reason: none ? 'The AI assistant is not allowed on this server: its monthly limit is 0.' : 'This project has used all the AI assistant time it may use this month.',
+    });
+  });
+
   // Reading the runs needs a person too, as starting them: a project token is no one, and
   // the results name the project's people.
   app.get('/v1/projects/:pid/ai/runs', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -177,7 +242,8 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
       return reply.code(400).send(bad(`limit must be a whole number from 1 to ${MAX_LISTED_RUNS}`));
     }
     await runs.failStale(projectId);
-    return reply.send({ runs: (await store.listAiRuns(projectId, limit)).map(summaryOf) });
+    // The views proposed for the analysis page are runs too (they count against the limits), but no part of the AI tab
+    return reply.send({ runs: (await store.listAiRuns(projectId, limit)).filter((r) => r.kind !== 'views').map(summaryOf) });
   });
 
   app.get('/v1/projects/:pid/ai/runs/:id', admin, async (request: FastifyRequest, reply: FastifyReply) => {

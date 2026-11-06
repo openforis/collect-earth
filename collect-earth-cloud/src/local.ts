@@ -126,6 +126,7 @@ export const LOCAL_OFF_ROUTES: readonly string[] = [
   'POST /v1/projects/:pid/ai/runs',
   'GET /v1/projects/:pid/ai/runs',
   'GET /v1/projects/:pid/ai/runs/:id',
+  'POST /v1/projects/:pid/analysis/proposals',
 ];
 
 const notFound: onRequestHookHandler = async (_request, reply) => {

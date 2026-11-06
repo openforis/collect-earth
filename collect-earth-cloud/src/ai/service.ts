@@ -9,6 +9,7 @@ import { surveyHealth } from '../surveyHealth.js';
 import type { Store } from '../store/store.js';
 import { AI_INTERRUPTED, type AiRunWindow, type RecordRow, type ServerSettings } from '../types.js';
 import { AiError, type AiClient, type AiResponse } from './client.js';
+import { validateProposals, viewsSystem, viewsTurn, VIEWS_SCHEMA, type AnalysisStructure, type ProposedView } from './analysisViews.js';
 import type { AiLanguage, FollowUpAction } from './prompts.js';
 import {
   FAILURE_MESSAGES,
@@ -55,6 +56,16 @@ export type RunRequest =
   | { kind: 'report'; language: AiLanguage }
   | { kind: 'follow_up'; language: AiLanguage; parentRun: string; parent: StoredResult<AiReport>; findingIndex: number; action: FollowUpAction }
   | { kind: 'question'; language: AiLanguage; parentRun: string; parent: StoredResult<AiReport>; question: string };
+
+/** How long proposing views may take: one call to the model, no tools. */
+export const PROPOSALS_TIMEOUT_MS = 90_000;
+const PROPOSALS_OUTPUT_TOKENS = 6144;
+
+export type ProposalsResult =
+  | { ok: true; views: ProposedView[] }
+  | { ok: false; limit: 'busy' }
+  | { ok: false; limit: 'daily' | 'monthly'; resetsAt: number }
+  | { ok: false; failed: 'blocked' | 'invalid_answer' | 'ai_unavailable' | 'ai_timeout' };
 
 export type StartResult =
   | { ok: true; runId: string }
@@ -186,6 +197,59 @@ export class AiRunService {
     });
     this.inFlight.set(runId, { projectId, done });
     return { ok: true, runId };
+  }
+
+  /**
+   * Views of the analysis page proposed from the survey's structure (never its data): one call to the model, waited
+   * for, stored as a run of kind `views` so it counts against the project's limits as the other runs do (one run at a
+   * time, the day's follow-ups and questions, the month's tokens).
+   */
+  async proposeViews(projectId: string, userId: string, structure: AnalysisStructure, language: AiLanguage, settings: ServerSettings): Promise<ProposalsResult> {
+    const client = this.options.client;
+    if (!client) {
+      throw new Error('the AI assistant is not set up');
+    }
+    const w = this.window(settings);
+    const started = await this.store.startAiRun(projectId, { kind: 'views', startedBy: userId, model: this.options.model }, w);
+    if (!started.ok) {
+      if (started.limit === 'busy') return { ok: false, limit: 'busy' };
+      return { ok: false, limit: started.limit, resetsAt: started.limit === 'daily' ? w.nextDay : w.nextMonth };
+    }
+    const runId = started.run.id;
+    let used = { inputTokens: 0, outputTokens: 0 };
+    let outcome: { ok: true; views: ProposedView[] } | { ok: false; failed: 'blocked' | 'invalid_answer' | 'ai_unavailable' | 'ai_timeout' };
+    try {
+      const res = await withDeadline(client, Date.now() + PROPOSALS_TIMEOUT_MS).generate({
+        system: viewsSystem(language),
+        turns: [{ role: 'user', text: viewsTurn(structure) }],
+        responseSchema: VIEWS_SCHEMA,
+        maxOutputTokens: PROPOSALS_OUTPUT_TOKENS,
+        thinking: 'low',
+        timeoutMs: PROPOSALS_TIMEOUT_MS - 5_000,
+      });
+      used = { inputTokens: res.inputTokens, outputTokens: res.outputTokens };
+      if (res.blocked || res.text === null) {
+        outcome = { ok: false, failed: 'blocked' };
+      } else {
+        let json: unknown = null;
+        try {
+          json = JSON.parse(res.text);
+        } catch {
+          json = null;
+        }
+        outcome = json === null ? { ok: false, failed: 'invalid_answer' } : { ok: true, views: validateProposals(json, structure) };
+      }
+    } catch (err) {
+      this.log.warn({ err, projectId, runId }, 'ai: proposing analysis views failed');
+      outcome = { ok: false, failed: err instanceof AiError && err.timeout ? 'ai_timeout' : 'ai_unavailable' };
+    }
+    const finishedAt = this.now();
+    const end = { ...used, toolCalls: [], finishedAt };
+    // Stored as the other runs' results are ({ result, pseudonyms, plots }): it names no one and no plot
+    await (outcome.ok
+      ? this.store.finishAiRun(projectId, runId, { ...end, status: 'done', result: { result: { views: outcome.views }, pseudonyms: {}, plots: {} }, error: null, errorCode: null })
+      : this.store.finishAiRun(projectId, runId, { ...end, status: 'failed', result: null, error: FAILURE_MESSAGES[outcome.failed], errorCode: outcome.failed }));
+    return outcome;
   }
 
   /** Fails the project's runs left running too long (on every start, list and read). */

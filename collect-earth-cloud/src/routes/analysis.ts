@@ -13,12 +13,12 @@ import type { SharedAnalysisView } from '../types.js';
 const MAX_VIEWS = 200;
 const MAX_VIEW_BYTES = 64 * 1024;
 
-type Parsed = { model: AnalysisModel; regionAreas?: string; attributeAreas?: string } | null;
+export type Parsed = { model: AnalysisModel; regionAreas?: string; attributeAreas?: string } | null;
 /** The model of the last project files, by checksum (reading a survey takes a moment; the file changes rarely). */
 const models = new Map<string, Parsed>();
 const MAX_MODELS = 8;
 
-function modelOf(cep: Buffer): Parsed {
+export function modelOf(cep: Buffer): Parsed {
   const checksum = createHash('sha256').update(cep).digest('hex');
   if (models.has(checksum)) return models.get(checksum)!;
   let out: Parsed = null;

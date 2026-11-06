@@ -28,6 +28,15 @@ export interface AnalysisColumn {
   multiple: boolean;
   /** Filled from the plot file (collectearth:fromcsv): province, elevation… */
   fromPlotFile: boolean;
+  /** A key attribute of the survey (the plot's id, the assessment round): what identifies a record, not an answer. */
+  keyAttr: boolean;
+  /** For a code: the column of the code it depends on (`parent` in the survey: a land use's subdivision), else null. */
+  parent: string | null;
+  /**
+   * The yes/no column the question is asked after (its `relevant` expression starts with it: "change2", "change2 and
+   * …"), else null: the analysis page counts such answers among the plots where it is yes (the year of a change…).
+   */
+  relevantIf: string | null;
 }
 
 export interface AnalysisTable {
@@ -69,6 +78,9 @@ export const AREA_COLUMNS = [
   ['expansion_factor', 'DOUBLE'],
   ['plot_weight', 'DOUBLE'],
 ] as const;
+
+/** The yes/no attribute a `relevant` expression starts with: "change2", "change2 and …", "change2 = true()". */
+const RELEVANT_IF = /^\s*([A-Za-z_][\w]*)\s*(?:=\s*true\(\)\s*)?(?:$|\sand\s)/;
 
 const TYPE_OF_PREFIX: Record<string, ColumnType> = {
   code_: 'code',
@@ -153,7 +165,23 @@ export function analysisModel(idmXml: string): AnalysisModel {
       calculated: attr(node, 'calculated') === 'true',
       multiple: attr(node, 'multiple') === 'true',
       fromPlotFile: attr(node, 'collectearth:fromcsv') === 'true',
+      keyAttr: attr(node, 'key') === 'true',
+      // resolved to column names once the entity's columns are known (resolveLinks)
+      parent: type === 'code' ? (attr(node, 'parent')?.trim() || null) : null,
+      relevantIf: RELEVANT_IF.exec(attr(node, 'relevant') ?? '')?.[1] ?? null,
     };
+  };
+  /** The attribute names of a container's columns, to resolve `parent` and `relevantIf` (written with them) to columns. */
+  const attrNames = new Map<AnalysisColumn, string>();
+  const resolveLinks = (columns: AnalysisColumn[]) => {
+    const byAttr = new Map<string, AnalysisColumn>();
+    for (const c of columns) if (attrNames.has(c)) byAttr.set(attrNames.get(c)!, c);
+    for (const c of columns) {
+      const parent = c.parent ? byAttr.get(c.parent) : undefined;
+      c.parent = parent && parent.type === 'code' && parent !== c ? parent.name : null;
+      const gate = c.relevantIf ? byAttr.get(c.relevantIf) : undefined;
+      c.relevantIf = gate && gate.type === 'boolean' && gate !== c ? gate.name : null;
+    }
   };
 
   const plot: AnalysisTable = { name: 'plot', labels: labelsOf(root), keyColumn: null, columns: [] };
@@ -172,19 +200,28 @@ export function analysisModel(idmXml: string): AnalysisModel {
       const prefix = prefixOf(node);
       if (!prefix) continue;
       const c = columnOf(node, unique(name), `collect_${prefix}${name}`);
-      if (c) plot.columns.push(c);
+      if (c) {
+        plot.columns.push(c);
+        attrNames.set(c, name);
+      }
       continue;
     }
     if (!exported(node)) continue;
     const children = childrenOf(node).filter((c) => attr(c, 'name') !== undefined && tagOf(c) !== 'entity');
     if (attr(node, 'multiple') !== 'true') {
       // A single entity: its attributes are columns of the plot
+      const own: AnalysisColumn[] = [];
       for (const child of children) {
         const prefix = prefixOf(child);
         if (!prefix) continue;
         const c = columnOf(child, unique(`${name}_${attr(child, 'name')}`), `collect_entity_${name}.${prefix}${attr(child, 'name')}`);
-        if (c) plot.columns.push(c);
+        if (c) {
+          plot.columns.push(c);
+          own.push(c);
+          attrNames.set(c, attr(child, 'name')!);
+        }
       }
+      resolveLinks(own);
       continue;
     }
     // A multiple entity: a table of its own, one row per entity, its key in the summary keys' […]
@@ -200,15 +237,19 @@ export function analysisModel(idmXml: string): AnalysisModel {
       const c = columnOf(child, colName, `${prefix}${childName}`);
       if (!c) continue;
       table.columns.push(c);
+      attrNames.set(c, childName);
       if (table.keyColumn === null && attr(child, 'key') === 'true') table.keyColumn = c.name;
     }
     if (table.keyColumn === null) {
       // No key attribute: the entity's number, as the summary keys have it
-      table.columns.unshift({ name: '_n', key: '', labels: { [defaultLanguage]: '#' }, type: 'integer', list: null, calculated: false, multiple: false, fromPlotFile: false });
+      table.columns.unshift({ name: '_n', key: '', labels: { [defaultLanguage]: '#' }, type: 'integer', list: null, calculated: false, multiple: false, fromPlotFile: false, keyAttr: true, parent: null, relevantIf: null });
       table.keyColumn = '_n';
     }
+    resolveLinks(table.columns);
     tables.push(table);
   }
+  // the plot's own attributes (those of its single entities were resolved with their entity)
+  resolveLinks(plot.columns.filter((c) => !c.key.startsWith('collect_entity_')));
   return { languages: languages.length > 0 ? languages : [defaultLanguage], tables, lists };
 }
 

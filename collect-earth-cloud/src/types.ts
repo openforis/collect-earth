@@ -549,7 +549,8 @@ export interface GuidanceNote extends GuidanceNoteInput {
 
 // --- The AI assistant's runs (ai_runs, migration 011) ---
 
-export type AiRunKind = 'report' | 'follow_up' | 'question';
+/** `views`: the analysis page's views proposed from the survey's structure (src/ai/analysisViews.ts). */
+export type AiRunKind = 'report' | 'follow_up' | 'question' | 'views';
 export type AiRunStatus = 'running' | 'done' | 'failed' | 'refused';
 
 /** One tool call of a run as stored: our tool's name (or "unknown"), the arguments as validated (pseudonymous), and whether it worked. */
