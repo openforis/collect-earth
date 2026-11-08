@@ -480,7 +480,13 @@ Each stage leaves a working Collect Earth; the Java program is retired only at t
   with 8 GB of memory and on a Mac: time to start, memory and disk used, a project of 10,000 plots imported and read, a
   restart after the computer was switched off mid-write, and what antivirus and the firewall say.
 - **S7, the pivot table:** see "Presenting the data" (DuckDB-WASM and Perspective against Saiku on the same data). **Done: see "S7 results".** Saiku itself could not be run here (its Tomcat and Java are not in this environment); the figures were checked against SQL and an independent count instead.
-- **S8, the AI analyst:** see "The AI analyst" (twenty questions checked against hand-written queries).
+- **S8, the AI analyst:** see "The AI analyst" (twenty questions checked against hand-written queries). **Built,
+  not yet run with the model** (`collect-earth-cloud/trials/s8-analyst`): the twenty questions in English, Spanish and
+  French, each with its hand-written view; the model answers in views as the server's proposals do (the survey's
+  structure only), and each view is judged by its figures in DuckDB on trial data. The trial checks itself (the
+  hand-written views pass 60/60, a deliberate mistake per question fails 20/20). Left: the run with Gemini (it needs a
+  Vertex AI key: `AI_VERTEX_API_KEY=… npx tsx trials/s8-analyst/run.mts --model gemini`), one real survey, and the two
+  coordinators' reading of the explanations in its report.
 
 ### Testing
 
