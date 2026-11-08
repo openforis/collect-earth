@@ -136,13 +136,12 @@ public class SettingsModelTest {
 
 	@Test
 	public void theOtherSectionsFollowTheirSwitches() {
-		List<String> sqlite = visibleKeys(values("db_driver", "SQLITE", "viewer_type", "google_earth_pro"));
+		List<String> sqlite = visibleKeys(values("db_driver", "SQLITE", "viewer_type", "google_earth_web"));
 		assertTrue(sqlite.contains("automatic_backup"));
 		assertFalse(sqlite.contains("db_host"));
-		assertTrue(sqlite.contains("open_separate_browser_form"));
-		assertFalse(sqlite.contains("map_engine"));
-		assertFalse(sqlite.contains("window_layout"));
-		assertFalse(sqlite.contains("web_form"));
+		// Google Earth Pro is no longer a viewer, so its balloon setting is gone and the plots map ones always show
+		assertFalse(sqlite.contains("open_separate_browser_form"));
+		assertTrue(sqlite.containsAll(Arrays.asList("map_engine", "window_layout", "web_form")));
 		List<String> postgres = visibleKeys(values("db_driver", "POSTGRESQL", "viewer_type", "plots_map", "open_gee_app", "true",
 				"open_planet_maps", "true", "planet_maps_use_tfo", "true"));
 		assertFalse(postgres.contains("automatic_backup"));
@@ -224,9 +223,12 @@ public class SettingsModelTest {
 		assertEquals(SettingsModel.ROUND_PLOT.toJson(), labels.get(0).get("when"));
 		Map<String, Object> viewer = model.setting("viewer_type").toJson();
 		List<Map<String, Object>> choices = (List<Map<String, Object>>) viewer.get("choices");
-		assertEquals("plots_map", choices.get(1).get("value"));
-		assertEquals("ExternalServicesPanel.viewerType.plots_map", choices.get(1).get("label"));
-		assertEquals("ExternalServicesPanel.viewerHelp.plots_map", choices.get(1).get("description"));
+		// Google Earth Pro is no longer offered: the plots map and Google Earth Web only
+		assertEquals(2, choices.size());
+		assertEquals("plots_map", choices.get(0).get("value"));
+		assertEquals("ExternalServicesPanel.viewerType.plots_map", choices.get(0).get("label"));
+		assertEquals("ExternalServicesPanel.viewerHelp.plots_map", choices.get(0).get("description"));
+		assertEquals("google_earth_web", choices.get(1).get("value"));
 		assertFalse(viewer.containsKey("visible"));
 		Map<String, Object> points = model.setting("number_of_sampling_points_in_plot").toJson();
 		List<Map<String, Object>> options = (List<Map<String, Object>>) points.get("choices");

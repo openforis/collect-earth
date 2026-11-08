@@ -109,7 +109,6 @@ public class LocalPropertiesService extends Observable {
 				@Deprecated
 				OPEN_IN_LEAFLET_MAP("open_in_leaflet_map"),
 				VIEWER_TYPE("viewer_type"),
-				GEW_TRIAL_PROMPT_DISABLED("gew_trial_prompt_disabled"),
 				/** Share of the height of Google Earth Web's view a plot fills (0.375 when not set), see GoogleEarthWebUrls */
 				GEW_PLOT_VIEW_SHARE("gew_plot_view_share"),
 				/**
@@ -528,7 +527,10 @@ public class LocalPropertiesService extends Observable {
 		return isPropertyActivated(EarthProperty.OPEN_ESRI_WAYBACK);
 	}
 
-	/** Legacy mode: plots are handed to Google Earth Pro as KML (balloon forms, NetworkLink status icons). */
+	/**
+	 * Legacy mode: plots are handed to Google Earth Pro as KML (balloon forms, NetworkLink status icons). No longer
+	 * offered: EarthApp moves an installation still set to it to Google Earth Web at start-up.
+	 */
 	public static final String VIEWER_TYPE_GOOGLE_EARTH_PRO = "google_earth_pro";
 	/** Plots map window (Leaflet/Google Maps engine) with the plot list and web form; no Google Earth. */
 	public static final String VIEWER_TYPE_PLOTS_MAP = "plots_map";
@@ -558,23 +560,11 @@ public class LocalPropertiesService extends Observable {
 		if (legacyLeafletMap) {
 			return VIEWER_TYPE_PLOTS_MAP;
 		}
-		return VIEWER_TYPE_GOOGLE_EARTH_PRO;
+		return VIEWER_TYPE_GOOGLE_EARTH_WEB;
 	}
 
 	public void saveViewerType(String viewerType) {
 		setValue(EarthProperty.VIEWER_TYPE, viewerType);
-	}
-
-	/**
-	 * Whether the start-up dialog asking the user to try Google Earth Web instead of
-	 * Google Earth Pro has been switched off ("Don't ask me again").
-	 */
-	public boolean isGoogleEarthWebTrialPromptDisabled() {
-		return isPropertyActivated(EarthProperty.GEW_TRIAL_PROMPT_DISABLED);
-	}
-
-	public void setGoogleEarthWebTrialPromptDisabled(boolean disabled) {
-		setValue(EarthProperty.GEW_TRIAL_PROMPT_DISABLED, Boolean.toString(disabled));
 	}
 
 	/** Whether the plots map window replaces the KML handoff to Google Earth Pro. */

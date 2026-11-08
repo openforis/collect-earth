@@ -4,7 +4,6 @@ import static org.openforis.collect.earth.app.service.settings.Condition.all;
 import static org.openforis.collect.earth.app.service.settings.Condition.any;
 import static org.openforis.collect.earth.app.service.settings.Condition.atLeast;
 import static org.openforis.collect.earth.app.service.settings.Condition.in;
-import static org.openforis.collect.earth.app.service.settings.Condition.not;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -45,8 +44,6 @@ public final class SettingsModel {
 	static final Condition SQUARE_OR_ROUND = any(SQUARE_PLOT, ROUND_PLOT);
 	static final Condition REFERENCE_AREA = all(SQUARE_OR_ROUND,
 			in(EarthProperty.BUFFER_SHAPE, BUFFER_SHAPE.SQUARE, BUFFER_SHAPE.CIRCLE, BUFFER_SHAPE.HEXAGON));
-	static final Condition GOOGLE_EARTH_PRO = in(EarthProperty.VIEWER_TYPE, LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_PRO);
-	static final Condition PLOTS_MAP = not(GOOGLE_EARTH_PRO);
 	static final Condition POSTGRESQL = in(EarthProperty.DB_DRIVER, CollectDBDriver.POSTGRESQL);
 	static final Condition SQLITE_FILE = in(EarthProperty.DB_DRIVER, CollectDBDriver.SQLITE, CollectDBDriver.CLOUD);
 	static final Condition GEE_APP = in(EarthProperty.OPEN_GEE_APP, "true");
@@ -163,22 +160,20 @@ public final class SettingsModel {
 		}
 		return new Section(IMAGERY, "SettingsPage.section.imagery",
 				Setting.choice(EarthProperty.VIEWER_TYPE, "ExternalServicesPanel.viewerType").tooltip("ExternalServicesPanel.viewerTypeTooltip")
-						.defaultValue(LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_PRO)
-						.option(LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_PRO, "ExternalServicesPanel.viewerType.google_earth_pro",
-								"ExternalServicesPanel.viewerHelp.google_earth_pro")
+						.defaultValue(LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB)
 						.option(LocalPropertiesService.VIEWER_TYPE_PLOTS_MAP, "ExternalServicesPanel.viewerType.plots_map",
 								"ExternalServicesPanel.viewerHelp.plots_map")
 						.option(LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB, "ExternalServicesPanel.viewerType.google_earth_web",
 								"ExternalServicesPanel.viewerHelp.google_earth_web"),
 				Setting.choice(EarthProperty.WINDOW_LAYOUT, "ExternalServicesPanel.windowLayout").tooltip("ExternalServicesPanel.windowLayoutTooltip")
-						.defaultValue(LocalPropertiesService.WINDOW_LAYOUT_AUTO).visibleWhen(PLOTS_MAP)
+						.defaultValue(LocalPropertiesService.WINDOW_LAYOUT_AUTO)
 						.option(LocalPropertiesService.WINDOW_LAYOUT_AUTO, "ExternalServicesPanel.windowLayout.auto")
 						.option(LocalPropertiesService.WINDOW_LAYOUT_SIDE_BY_SIDE, "ExternalServicesPanel.windowLayout.side_by_side")
 						.option(LocalPropertiesService.WINDOW_LAYOUT_SEPARATE_SCREENS, "ExternalServicesPanel.windowLayout.separate_screens")
 						.option(LocalPropertiesService.WINDOW_LAYOUT_IMAGERY_FULL_SCREEN, "ExternalServicesPanel.windowLayout.imagery_full_screen")
 						.option(LocalPropertiesService.WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH, "ExternalServicesPanel.windowLayout.plots_map_in_earth"),
 				Setting.choice(EarthProperty.MAP_ENGINE, "OptionWizard.147").tooltip("SettingsPage.mapEngine.tooltip")
-						.defaultValue(LocalPropertiesService.MAP_ENGINE_LEAFLET).visibleWhen(PLOTS_MAP)
+						.defaultValue(LocalPropertiesService.MAP_ENGINE_LEAFLET)
 						.option(LocalPropertiesService.MAP_ENGINE_LEAFLET, "SettingsPage.mapEngine.leaflet")
 						.option(LocalPropertiesService.MAP_ENGINE_GOOGLE, "SettingsPage.mapEngine.google_maps"),
 				Setting.bool(EarthProperty.OPEN_GEE_APP, "OptionWizard.136").tooltip("SettingsPage.geeApp.tooltip").defaultValue("true"),
@@ -228,11 +223,9 @@ public final class SettingsModel {
 						.option(EarthConstants.CHROME_BROWSER, "SettingsPage.browser.chrome")
 						.option(EarthConstants.EDGE_BROWSER, "SettingsPage.browser.edge"),
 				Setting.choice(EarthProperty.WEB_FORM, "SettingsPage.webForm").tooltip("SettingsPage.webForm.tooltip")
-						.defaultValue(LocalPropertiesService.WEB_FORM_GENERATED).visibleWhen(PLOTS_MAP)
+						.defaultValue(LocalPropertiesService.WEB_FORM_GENERATED)
 						.option(LocalPropertiesService.WEB_FORM_GENERATED, "SettingsPage.webForm.generated")
 						.option(LocalPropertiesService.WEB_FORM_BALLOON, "SettingsPage.webForm.balloon"),
-				Setting.bool(EarthProperty.OPEN_BALLOON_IN_BROWSER, "OptionWizard.48").tooltip("SettingsPage.balloonInBrowser.tooltip")
-						.defaultValue("false").visibleWhen(GOOGLE_EARTH_PRO),
 				Setting.text(EarthProperty.HOST_PORT_KEY, "OptionWizard.5").tooltip("SettingsPage.port.tooltip")
 						.defaultValue(LocalPropertiesService.DEFAULT_LOCAL_PORT).restart());
 	}

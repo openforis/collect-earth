@@ -18,9 +18,9 @@ public class ViewerTypeResolutionTest {
 	}
 
 	@Test
-	public void unsetViewerTypeDefaultsToGoogleEarthPro() {
-		assertEquals(VIEWER_TYPE_GOOGLE_EARTH_PRO, resolveViewerType("", false, false));
-		assertEquals(VIEWER_TYPE_GOOGLE_EARTH_PRO, resolveViewerType(null, false, false));
+	public void unsetViewerTypeDefaultsToGoogleEarthWeb() {
+		assertEquals(VIEWER_TYPE_GOOGLE_EARTH_WEB, resolveViewerType("", false, false));
+		assertEquals(VIEWER_TYPE_GOOGLE_EARTH_WEB, resolveViewerType(null, false, false));
 	}
 
 	@Test
