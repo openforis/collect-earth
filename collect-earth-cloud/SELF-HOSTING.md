@@ -166,6 +166,10 @@ the copy, so download what you need from each project's **Data** tab first.
 For your own safety copy, each project's **Data** tab downloads everything
 collected as one spreadsheet file.
 
+**Before going live, test a restore once**, and keep a copy for longer than a week:
+DEPLOY.md, "Backups: the restore drill and monthly copies", has the steps (a restore
+into a separate copy that never touches the real data, and monthly copies kept a year).
+
 ## Updating
 
 When there is a new version, press the **Open in Cloud Shell** button again and

@@ -354,9 +354,8 @@ worked and exits non-zero otherwise. The server needs outbound HTTPS to the Sent
   Run instances freely within the database's `max_connections` (see above).
   Boot migrations are serialised by the advisory lock.
 - **Backups:** keep automated backups and PITR on the Postgres instance (the
-  script turns both on): record data and tombstones live only there. Restore from
-  the Cloud SQL console (*Backups* → *Restore*, or *Point-in-time recovery*, which
-  creates a clone to switch to).
+  script turns both on): record data and tombstones live only there. See
+  "Backups: the restore drill and monthly copies" below.
 - **Logs:** `gcloud run services logs read collect-earth-cloud --region <REGION> --limit 50`.
 - **Links in the logs (progress links, invitations, password resets, backup downloads):** these
   links carry their secret token in the address. The server's own log lines write the address
@@ -636,6 +635,47 @@ the limit times the number of projects):
 
 `0` allows none. The Server settings page also shows this month's use per project
 (project ids, runs, refusals and tokens; never names or content).
+
+## Backups: the restore drill and monthly copies
+
+**What there is.** `deploy.sh` gives the database a backup every night, kept 7 days, and point-in-time recovery for
+the last 7 days (any minute can be restored), and protects it against deletion. Collect Earth's records live only
+there, so these are the project's only copies apart from what coordinators download.
+
+**The restore drill: do it once before going live, then once a year.** A backup never restored is a hope. The drill
+restores into a *new* database server, so the real one is never touched:
+1. Note the figures to compare: in the dashboard, each project's records (Data tab) and plots. Or in
+   *Cloud SQL* → `ce-cloud-db` → *Cloud SQL Studio*: `SELECT count(*) FROM records;` and `SELECT count(*) FROM
+   projects;`.
+2. Restore yesterday into a copy (a few minutes; a second server is billed while it exists):
+   ```bash
+   gcloud sql instances clone ce-cloud-db ce-cloud-db-drill --project=<PROJECT> \
+     --point-in-time="$(date -u -d 'yesterday 12:00' +%Y-%m-%dT%H:%M:%SZ)"
+   ```
+3. In *Cloud SQL Studio* on `ce-cloud-db-drill`, run the same counts: they should match, less what arrived since.
+4. Delete the copy (a clone may keep the deletion protection; turn it off first):
+   ```bash
+   gcloud sql instances patch ce-cloud-db-drill --no-deletion-protection --project=<PROJECT>
+   gcloud sql instances delete ce-cloud-db-drill --project=<PROJECT>
+   ```
+5. Write it down: the date, who did it, the minutes it took and whether the counts matched. Keep that note with the
+   project's documents; it is what tells an auditor (or you, in a hurry) that restoring works.
+
+**Restoring for real** after a mistake: the same clone, at a minute just before the mistake, then point the server at
+it. Ask whoever manages the Google Cloud project, as it changes the server's database address; and first download
+what you need from each project's Data tab, as the restore replaces everything since that minute.
+
+**Monthly copies, kept a year.** Seven days is short when a mistake is noticed a month later.
+`deploy/gcp/monthly-backups.sh --project <PROJECT> --schedule` (in Cloud Shell) creates a private Cloud Storage
+bucket `<PROJECT>-ce-backups`, makes a first copy, and asks Cloud Scheduler for one on the 1st of every month; each
+copy is kept 12 months (`--keep-months`). A copy is restored into a new server with
+`gcloud sql import sql <NEW-INSTANCE> gs://<PROJECT>-ce-backups/ce-cloud-db-monthly.sql.gz --database=collect_earth_cloud`
+(choose the month with `gcloud storage ls --all-versions`). The script was written without access to Google Cloud:
+check its first run in the console, and include one monthly copy in the yearly drill.
+
+**Where the copies are:** in the same project and region as the database. A copy outside Google Cloud (a
+coordinator's Collect Earth backup from the Data tab, kept by the institution) protects against losing the Google
+Cloud account itself.
 
 ## Alerts for the server's owner
 
