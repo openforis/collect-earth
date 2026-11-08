@@ -288,6 +288,14 @@ export interface Store {
    * its audit entries there stay with no actor.
    */
   removeMember(projectId: string, userId: string): Promise<void>;
+  /**
+   * Renames an operator on everything of the project (src/anonymize.ts): the records (their key, summary and XML), the
+   * record history, the training records and the quality decisions' "seen", in one transaction. Gives the number of
+   * records renamed. The caller checks the person is no longer a member and that `to` is a free pseudonym. With the
+   * account's id (when the name is still an account's), the project's log entries about it (removed, role changed) no
+   * longer point at the account, so the log cannot name them either.
+   */
+  anonymizeOperator(projectId: string, from: string, to: string, userId?: string | null): Promise<number>;
   countAdmins(projectId: string): Promise<number>;
   /** How many projects the user coordinates (admin role). */
   countCoordinatedProjects(userId: string): Promise<number>;

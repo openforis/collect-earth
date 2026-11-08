@@ -1,3 +1,4 @@
+import { renameOperatorInSummary, renameOperatorInXml } from '../anonymize.js';
 import { randomUUID } from 'node:crypto';
 import { generateShareToken, generateToken, hashToken } from '../auth.js';
 import { legacyRoundInfo } from '../cep.js';
@@ -342,6 +343,36 @@ export class InMemoryStore implements Store {
     if (row === null) return false;
     t.records.set(InMemoryStore.recordId(row.recordKey, row.operator), { ...row, projectId });
     return true;
+  }
+
+  async anonymizeOperator(projectId: string, from: string, to: string, userId: string | null = null): Promise<number> {
+    const entry = this.requireProject(projectId);
+    let renamed = 0;
+    const renameRows = (rows: Map<string, RecordRow>) => {
+      for (const [id, r] of [...rows]) {
+        if (r.operator !== from) continue;
+        rows.delete(id);
+        rows.set(InMemoryStore.recordId(r.recordKey, to), { ...r, operator: to, xml: renameOperatorInXml(r.xml, from, to), summary: renameOperatorInSummary(r.summary, from, to) });
+        if (rows === entry.records) renamed++;
+      }
+    };
+    renameRows(entry.records);
+    const training = this.training.get(projectId);
+    if (training) renameRows(training.records);
+    entry.recordEvents = entry.recordEvents.map((e) => (e.operator === from ? { ...e, operator: to, summary: renameOperatorInSummary(e.summary, from, to) } : e));
+    for (const d of entry.decisions.values()) {
+      if (d.seen) d.seen = d.seen.map((s) => (s.operator === from ? { ...s, operator: to } : s));
+    }
+    if (userId) {
+      for (const a of entry.audit) {
+        if (a.details && a.details.userId === userId) {
+          const { userId: _gone, ...rest } = a.details;
+          a.details = rest;
+        }
+      }
+    }
+    entry.recordsGeneration++;
+    return renamed;
   }
 
   async listTrainingRecords(projectId: string): Promise<RecordRow[]> {

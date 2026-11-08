@@ -51,6 +51,9 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("division.applied", { csvFileId: "f1", mode: "equal", people: 3, plots: 90 }), page, "en")).toBe("ana divided north.csv between 3 people");
     expect(logSentence(t, audit("member.removed", { userId: "u2" }), page, "en")).toBe("ana removed ben (no longer in the project) from the project");
     expect(logSentence(t, audit("member.role", { userId: "u1", role: "reviewer" }), page, "en")).toBe("ana made ana a Reviewer");
+    // anonymising says how many records, never whose
+    expect(logSentence(t, audit("member.anonymized", { records: 120 }), page, "en")).toBe("ana anonymised a former member (120 records)");
+    expect(logSentence(t, audit("member.anonymized", { records: 1 }), page, "en")).toBe("ana anonymised a former member (1 record)");
     expect(logSentence(t, audit("plots.moved", { csvFileId: "f1", fromUserId: "u3", toUserId: "u1", moved: 4 }), page, "en")).toBe(
       "ana moved 4 plots of north.csv from someone whose account was deleted to ana",
     );

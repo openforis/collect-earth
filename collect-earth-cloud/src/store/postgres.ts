@@ -1,3 +1,4 @@
+import { OPERATOR_SUMMARY_KEY, operatorXmlPattern } from '../anonymize.js';
 import pg from 'pg';
 import { randomUUID } from 'node:crypto';
 import { isUuid } from '../accountRules.js';
@@ -1393,6 +1394,36 @@ export class PostgresStore implements Store {
       await client.query('DELETE FROM attention_reads WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
       await client.query('UPDATE audit_log SET actor_user_id = NULL WHERE project_id = $1 AND actor_user_id = $2', [projectId, userId]);
       await client.query('DELETE FROM project_members WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
+    });
+  }
+
+  async anonymizeOperator(projectId: string, from: string, to: string, userId: string | null = null): Promise<number> {
+    const pattern = operatorXmlPattern(from);
+    // The summary's operator, only where it is this one; the XML's <operator><value>, nothing else in it
+    const summary = (column: string) => `CASE WHEN ${column} ->> '${OPERATOR_SUMMARY_KEY}' = $2 THEN jsonb_set(${column}, '{${OPERATOR_SUMMARY_KEY}}', to_jsonb($3::text)) ELSE ${column} END`;
+    return this.withProject(projectId, async (client) => {
+      const records = await client.query(
+        `UPDATE records SET operator = $3, summary = ${summary('summary')}, xml = CASE WHEN xml IS NULL THEN NULL ELSE regexp_replace(xml, $4, '\\1' || $3 || '\\2', 'g') END
+          WHERE project_id = $1 AND operator = $2`,
+        [projectId, from, to, pattern],
+      );
+      await client.query(
+        `UPDATE training_records SET operator = $3, summary = ${summary('summary')}, xml = CASE WHEN xml IS NULL THEN NULL ELSE regexp_replace(xml, $4, '\\1' || $3 || '\\2', 'g') END
+          WHERE project_id = $1 AND operator = $2`,
+        [projectId, from, to, pattern],
+      );
+      await client.query(`UPDATE record_events SET operator = $3, summary = CASE WHEN summary IS NULL THEN NULL ELSE ${summary('summary')} END WHERE project_id = $1 AND operator = $2`, [projectId, from, to]);
+      await client.query(
+        `UPDATE quality_decisions SET seen = (
+           SELECT jsonb_agg(CASE WHEN e ->> 'operator' = $2 THEN jsonb_set(e, '{operator}', to_jsonb($3::text)) ELSE e END ORDER BY n)
+             FROM jsonb_array_elements(seen) WITH ORDINALITY AS x(e, n))
+          WHERE project_id = $1 AND seen @> jsonb_build_array(jsonb_build_object('operator', $2::text))`,
+        [projectId, from, to],
+      );
+      if (userId) {
+        await client.query(`UPDATE audit_log SET details = details - 'userId' WHERE project_id = $1 AND details ->> 'userId' = $2`, [projectId, userId]);
+      }
+      return records.rowCount ?? 0;
     });
   }
 

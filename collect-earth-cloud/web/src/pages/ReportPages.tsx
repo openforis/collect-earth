@@ -249,9 +249,34 @@ export function MyWorkPage({ projectId }: { projectId: string }) {
           <SpeedSection data={data} />
           <SyncSection data={data} self />
           <QualitySection data={data} self projectId={projectId} />
+          <YourData />
         </>
       )}
     </ReportFrame>
+  );
+}
+
+/**
+ * What this server records about the person and who sees it (recommendation 6 of the data review): said plainly, on
+ * the page that already shows them the coordinators' figures about them.
+ */
+function YourData() {
+  const t = useT();
+  const items = ["yourData.answers", "yourData.when", "yourData.time", "yourData.sync", "yourData.account"] as const;
+  return (
+    <Block title={t("yourData.title")}>
+      <Typography sx={{ mb: 1 }}>{t("yourData.intro")}</Typography>
+      <Box component="ul" sx={{ mt: 0, pl: 3 }}>
+        {items.map((k) => (
+          <li key={k}>
+            <Typography>{t(k)}</Typography>
+          </li>
+        ))}
+      </Box>
+      <Typography sx={{ mb: 1 }}>{t("yourData.who")}</Typography>
+      <Typography sx={{ mb: 1 }}>{t("yourData.ai")}</Typography>
+      <Typography>{t("yourData.kept")}</Typography>
+    </Block>
   );
 }
 

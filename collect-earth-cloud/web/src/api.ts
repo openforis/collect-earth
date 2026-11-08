@@ -842,6 +842,24 @@ export async function getMe(): Promise<Me> {
   };
 }
 
+// --- former members (the server's src/routes/formerMembers.ts) -----------------------------------
+
+export interface FormerMember {
+  /** Their name as on their records: a username, or former-member-N once anonymised. */
+  operator: string;
+  records: number;
+  anonymized: boolean;
+}
+
+export async function getFormerMembers(projectId: string): Promise<FormerMember[]> {
+  return (await request<{ formerMembers: FormerMember[] }>("GET", `${p(projectId)}/former-members`)).formerMembers;
+}
+
+/** Renames a former member on everything they collected; gives the pseudonym and how many records. Cannot be undone. */
+export async function anonymizeFormerMember(projectId: string, operator: string): Promise<{ operator: string; records: number }> {
+  return request<{ operator: string; records: number }>("POST", `${p(projectId)}/former-members/anonymize`, { json: { operator } });
+}
+
 // --- two-step sign-in (the server's src/routes/twoFactor.ts) ------------------------------------
 
 /** A new secret to put in an authenticator app: as text, and as the address its QR code holds. */

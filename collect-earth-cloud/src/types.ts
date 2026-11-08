@@ -783,6 +783,7 @@ export const AUDIT_ACTIONS = [
   'invite.created',
   'invite.revoked',
   'member.removed',
+  'member.anonymized',
   'member.role',
   'cep.replaced',
   'csv.uploaded',

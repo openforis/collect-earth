@@ -38,6 +38,7 @@ import WarningAmber from "@mui/icons-material/WarningAmber";
 import Link from "@mui/icons-material/Link";
 import LinkOff from "@mui/icons-material/LinkOff";
 import { useState, type FormEvent } from "react";
+import { FormerMembers } from "../components/FormerMembers";
 import {
   createInvite,
   getPeople,
@@ -573,6 +574,7 @@ export function PeopleTab({ projectId }: { projectId: string }) {
           <WeekSection projectId={projectId} data={people.data} />
           <PeopleTableSection projectId={projectId} data={people.data} />
           <TeamTimeSpent projectId={projectId} people={people.data.people} />
+          <FormerMembers projectId={projectId} />
         </>
       )}
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
