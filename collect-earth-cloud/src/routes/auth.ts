@@ -1,3 +1,5 @@
+import { twoFactorKey } from '../twoFactor.js';
+import { checkSecondStep, twoFactorEnabled } from './twoFactor.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { bearerToken } from '../auth.js';
 import { hashPassword, verifyPassword } from '../password.js';
@@ -18,6 +20,8 @@ interface RegisterBody {
 interface LoginBody {
   username?: string;
   password?: string;
+  /** The second step, for an account with two-step sign-in: the authenticator app's code, or a recovery code. */
+  code?: string;
 }
 
 interface PasswordChangeBody {
@@ -81,6 +85,8 @@ export async function registerAuthRoutes(
   counters?: ServerCounters,
   /** Filled in by the mail routes (registered later): the notice mailed after a password change. */
   accountMail?: AccountMailHooks,
+  /** The key two-step sign-in's secrets are encrypted with (src/twoFactor.ts). */
+  twoFactorKeyBuf: Buffer = twoFactorKey({}),
 ): Promise<void> {
   app.post('/v1/auth/register', { preHandler: limiter.guard('register') }, async (request: FastifyRequest, reply: FastifyReply) => {
     const body = (request.body ?? {}) as RegisterBody;
@@ -154,6 +160,18 @@ export async function registerAuthRoutes(
     if (user.disabledAt) {
       return reply.code(403).send(ACCOUNT_DISABLED);
     }
+    // Two-step sign-in: the password was right; without a code, say a code is needed (the dashboard and Collect Earth
+    // then ask for it and send both again); a wrong code counts as a failed login, as a wrong password does
+    if (await twoFactorEnabled(store, user.id)) {
+      const code = typeof body.code === 'string' ? body.code : '';
+      if (!code.trim()) return reply.code(401).send({ error: 'second_step_required' });
+      const check = await checkSecondStep(store, twoFactorKeyBuf, user.id, code);
+      if (check !== 'ok') {
+        loginFailures.hit(failureKey);
+        counters?.count('failedLogin');
+        return reply.code(401).send({ error: check === 'unreadable' ? 'second_step_unreadable' : 'invalid_second_step' });
+      }
+    }
     const token = await store.createSession(user.id);
     return reply.send({ token, userId: user.id, username: user.username });
   });
@@ -179,11 +197,15 @@ export async function registerAuthRoutes(
         return reply.code(401).send({ error: 'unauthorized' });
       }
       const memberships = await store.listMemberships(user.id);
+      const enabled = await twoFactorEnabled(store, user.id);
+      const settings = await store.getSettings();
+      const required = settings.twoFactorForCoordinators && (user.isPlatformAdmin || memberships.some((m) => m.role === 'admin'));
       return reply.send({
         userId: user.id,
         username: user.username,
         isPlatformAdmin: user.isPlatformAdmin,
         memberships,
+        twoFactor: { enabled, required },
       });
     },
   );

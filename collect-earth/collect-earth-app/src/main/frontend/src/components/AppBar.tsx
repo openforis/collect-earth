@@ -277,7 +277,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
         </DialogActions>
       </Dialog>
       <CloudLoginDialog open={info.cloudLoginNeeded && cloudPrompt === "login"} texts={texts} onCancel={() => setCloudPrompt("done")}
-        onSubmit={(c) => cloudLogin(c.username, c.password).then((r) => { setSavedOperator(r.operator); setCloudPrompt("done"); reload(); })} />
+        onSubmit={(c) => cloudLogin(c.username, c.password, c.code).then((r) => { setSavedOperator(r.operator); setCloudPrompt("done"); reload(); })} />
       {/* A dropped plots file: use it as the project's plots file? */}
       <Dialog open={dropped?.kind === "plots" && dialog === null} maxWidth="sm" onClose={() => setDropped(null)} data-testid="drop-plots">
         <DialogTitle>{s("ProjectPage.drop.plotsTitle")}</DialogTitle>

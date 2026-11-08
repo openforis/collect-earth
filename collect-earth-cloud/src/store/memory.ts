@@ -44,6 +44,7 @@ import {
   type PlotAssignment,
   type ProgressSettings,
   type SharedAnalysisView,
+  type TwoFactorState,
   type PublicQuality,
   type ProjectRow,
   type ProjectStorage,
@@ -660,6 +661,49 @@ export class InMemoryStore implements Store {
     return this.users.get(userId) ?? null;
   }
 
+  private readonly twoFactor = new Map<string, TwoFactorState>();
+
+  async getTwoFactor(userId: string): Promise<TwoFactorState | null> {
+    const s = this.twoFactor.get(userId);
+    return s ? { ...s, recoveryHashes: [...s.recoveryHashes] } : null;
+  }
+
+  private twoFactorOf(userId: string): TwoFactorState {
+    let s = this.twoFactor.get(userId);
+    if (!s) this.twoFactor.set(userId, (s = { secretEnc: null, pendingEnc: null, enabledAt: null, lastStep: null, recoveryHashes: [] }));
+    return s;
+  }
+
+  async setTwoFactorPending(userId: string, pendingEnc: string | null): Promise<void> {
+    this.twoFactorOf(userId).pendingEnc = pendingEnc;
+  }
+
+  async enableTwoFactor(userId: string, secretEnc: string, recoveryHashes: string[]): Promise<void> {
+    Object.assign(this.twoFactorOf(userId), { secretEnc, pendingEnc: null, enabledAt: Date.now(), lastStep: null, recoveryHashes: [...recoveryHashes] });
+  }
+
+  async disableTwoFactor(userId: string): Promise<void> {
+    this.twoFactor.delete(userId);
+  }
+
+  async setRecoveryHashes(userId: string, recoveryHashes: string[]): Promise<void> {
+    this.twoFactorOf(userId).recoveryHashes = [...recoveryHashes];
+  }
+
+  async claimTwoFactorStep(userId: string, step: number): Promise<boolean> {
+    const s = this.twoFactor.get(userId);
+    if (!s || (s.lastStep !== null && s.lastStep >= step)) return false;
+    s.lastStep = step;
+    return true;
+  }
+
+  async claimRecoveryCode(userId: string, hash: string): Promise<boolean> {
+    const s = this.twoFactor.get(userId);
+    if (!s || !s.recoveryHashes.includes(hash)) return false;
+    s.recoveryHashes = s.recoveryHashes.filter((h) => h !== hash);
+    return true;
+  }
+
   async createSession(userId: string): Promise<string> {
     const token = generateToken();
     this.sessions.set(hashToken(token), userId);
@@ -1045,6 +1089,7 @@ export class InMemoryStore implements Store {
         coordinatedProjects: coordinated.get(u.id) ?? 0,
         disabledAt: u.disabledAt ?? null,
         disabledBy: u.disabledAt ? (this.users.get(this.userDisabledBy.get(u.id) ?? '')?.username ?? null) : null,
+        twoFactor: !!(this.twoFactor.get(u.id)?.enabledAt && this.twoFactor.get(u.id)?.secretEnc),
       }))
       .sort((a, b) => a.username.localeCompare(b.username));
   }

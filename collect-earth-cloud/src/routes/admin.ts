@@ -297,6 +297,17 @@ export async function registerAdminRoutes(
         }
         patch.signupOpen = body.signupOpen;
       }
+      if (body.twoFactorForCoordinators !== undefined) {
+        if (typeof body.twoFactorForCoordinators !== 'boolean') {
+          return reply.code(400).send({ error: 'bad_request', reason: 'twoFactorForCoordinators must be true or false' });
+        }
+        // The administrator who turns it on must have it, or the server panel would lock them out at once
+        const own = body.twoFactorForCoordinators ? await store.getTwoFactor(request.userId!) : null;
+        if (body.twoFactorForCoordinators && !(own?.enabledAt && own.secretEnc)) {
+          return reply.code(409).send({ error: 'set_up_two_factor_first', reason: 'set up two-step sign-in on your own account first' });
+        }
+        patch.twoFactorForCoordinators = body.twoFactorForCoordinators;
+      }
       if (body.aiEnabled !== undefined) {
         if (typeof body.aiEnabled !== 'boolean') {
           return reply.code(400).send({ error: 'bad_request', reason: 'aiEnabled must be true or false' });

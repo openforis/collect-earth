@@ -37,6 +37,7 @@ import {
   getServerSettings,
   listUsers,
   makeResetLink,
+  resetUserTwoFactor,
   saveServerSettings,
   setUserDisabled,
   type AdminUser,
@@ -586,6 +587,13 @@ function SettingsCard() {
             <FormHelperText sx={{ ml: 0 }}>{t("server.signupHelp")}</FormHelperText>
           </FormControl>
           <FormControl>
+            <FormControlLabel
+              control={<Switch checked={settings.data.twoFactorForCoordinators} onChange={(e) => void save({ twoFactorForCoordinators: e.target.checked })} />}
+              label={t("server.twoFactorRequired")}
+            />
+            <FormHelperText sx={{ ml: 0 }}>{t("server.twoFactorRequiredHelp")}</FormHelperText>
+          </FormControl>
+          <FormControl>
             <FormLabel id="project-creation">{t("server.projectCreation")}</FormLabel>
             <RadioGroup
               aria-labelledby="project-creation"
@@ -659,6 +667,23 @@ function UsersCard({ onAccountChanged }: { onAccountChanged: () => void }) {
     }
   };
 
+  /** A lost phone: two-step sign-in off for the account, its sessions ended; it sets it up again after signing in. */
+  const resetTwoFactor = async (user: AdminUser) => {
+    if (!window.confirm(t("server.twoFactorResetConfirm", { name: user.username }))) return;
+    setError(null);
+    setDone(null);
+    setBusy(user.userId);
+    try {
+      await resetUserTwoFactor(user.userId);
+      users.setData((prev) => prev.map((u) => (u.userId === user.userId ? { ...u, twoFactor: false } : u)));
+      setDone(t("server.twoFactorResetDone", { name: user.username }));
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const makeLink = async (user: AdminUser) => {
     setError(null);
     setBusy(user.userId);
@@ -695,6 +720,7 @@ function UsersCard({ onAccountChanged }: { onAccountChanged: () => void }) {
                     <span style={{ wordBreak: "break-word" }}>{user.username}</span>
                     {user.isPlatformAdmin && <Chip size="small" color="primary" label={t("server.adminBadge")} />}
                     {user.disabledAt !== null && <Chip size="small" color="warning" icon={<Block />} label={t("server.disabledBadge")} />}
+                    {user.twoFactor && <Chip size="small" variant="outlined" label={t("server.twoFactorBadge")} />}
                   </Stack>
                 }
                 secondary={
@@ -722,6 +748,11 @@ function UsersCard({ onAccountChanged }: { onAccountChanged: () => void }) {
                     aria-label={t("server.makeResetLabel", { name: user.username })}
                   >
                     {t("server.makeReset")}
+                  </Button>
+                )}
+                {user.twoFactor && user.userId !== me?.userId && (
+                  <Button variant="outlined" onClick={() => void resetTwoFactor(user)} disabled={busy === user.userId} aria-label={t("server.twoFactorResetLabel", { name: user.username })}>
+                    {t("server.twoFactorReset")}
                   </Button>
                 )}
                 {user.userId !== me?.userId &&

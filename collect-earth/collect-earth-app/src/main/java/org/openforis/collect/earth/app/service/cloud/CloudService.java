@@ -56,6 +56,8 @@ public class CloudService {
 		public String password;
 		/** Register with the invitation rather than log in */
 		public boolean register;
+		/** Two-step sign-in: the code of the authenticator app (or a recovery code), once the server asked for it */
+		public String code;
 	}
 
 	private static final String JOIN_MARKER = "/join/";
@@ -127,7 +129,7 @@ public class CloudService {
 	public void join(JoinRequest request) throws InvalidCloudRequestException, IOException {
 		String username = StringUtils.trimToEmpty(request.username);
 		String token = request.register ? authenticate(() -> api.register(request.baseUrl, username, request.password, request.inviteToken), request)
-				: authenticate(() -> api.login(request.baseUrl, username, request.password), request);
+				: authenticate(() -> login(request.baseUrl, username, request.password, request.code), request);
 		File cep = api.downloadCep(request.baseUrl, request.projectId, token);
 		try {
 			projects.loadCompressedProjectFile(cep);
@@ -146,10 +148,15 @@ public class CloudService {
 
 	/** The login of the prompt at start: the token saved, the operator is the user. @return the operator */
 	public String login(String username, String password) throws InvalidCloudRequestException {
+		return login(username, password, null);
+	}
+
+	/** {@link #login(String, String)} with the code of two-step sign-in, once the server asked for it. */
+	public String login(String username, String password, String code) throws InvalidCloudRequestException {
 		JoinRequest credentials = new JoinRequest();
 		credentials.username = username;
 		credentials.password = password;
-		String token = authenticate(() -> api.login(properties.getCloudSyncUrl(), username.trim(), password), credentials);
+		String token = authenticate(() -> login(properties.getCloudSyncUrl(), username.trim(), password, code), credentials);
 		properties.saveCloudSyncToken(token);
 		properties.saveOperator(username.trim());
 		return username.trim();
@@ -160,13 +167,23 @@ public class CloudService {
 	 * saved yet. Nothing is saved: the token goes into its field, and Apply saves it with the rest.
 	 */
 	public String token(String url, String username, String password) throws InvalidCloudRequestException {
+		return token(url, username, password, null);
+	}
+
+	/** {@link #token(String, String, String)} with the code of two-step sign-in, once the server asked for it. */
+	public String token(String url, String username, String password, String code) throws InvalidCloudRequestException {
 		if (StringUtils.isBlank(url)) {
 			throw new InvalidCloudRequestException("cloud.urlRequired", Messages.getString("DatabaseServerPanel.cloudUrlRequired"));
 		}
 		JoinRequest credentials = new JoinRequest();
 		credentials.username = username;
 		credentials.password = password;
-		return authenticate(() -> api.login(url.trim(), username.trim(), password), credentials);
+		return authenticate(() -> login(url.trim(), username.trim(), password, code), credentials);
+	}
+
+	/** The login, with the code only when there is one (the three-argument call otherwise, as before). */
+	private String login(String baseUrl, String username, String password, String code) throws IOException {
+		return StringUtils.isBlank(code) ? api.login(baseUrl, username, password) : api.login(baseUrl, username, password, code);
 	}
 
 	private interface Authentication {
@@ -181,6 +198,16 @@ public class CloudService {
 		String token;
 		try {
 			token = authentication.call();
+		} catch (CloudApiClient.SecondStepException e) {
+			// Not a failure to report as such: the page asks for the code (required), or says it is wrong
+			switch (e.getKind()) {
+			case "required":
+				throw new InvalidCloudRequestException("cloud.secondStepRequired", Messages.getString("CloudLoginDialog.secondStepRequired"));
+			case "unreadable":
+				throw new InvalidCloudRequestException("cloud.secondStepUnreadable", Messages.getString("CloudLoginDialog.secondStepUnreadable"));
+			default:
+				throw new InvalidCloudRequestException("cloud.secondStepInvalid", Messages.getString("CloudLoginDialog.secondStepInvalid"));
+			}
 		} catch (IOException | RuntimeException e) {
 			logger.warn("The cloud login failed: {}", e.getMessage());
 			throw new InvalidCloudRequestException("cloud.login", StringUtils.defaultIfBlank(e.getMessage(), Messages.getString("CloudLoginDialog.failed")));

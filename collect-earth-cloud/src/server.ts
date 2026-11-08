@@ -24,6 +24,8 @@ import { telemetry } from './telemetry.js';
 import { registerAiRoutes } from './routes/ai.js';
 import { registerAssignmentRoutes, setServedCacheMb } from './routes/assignments.js';
 import { setParsedCacheMb } from './plotFileCache.js';
+import { twoFactorKey } from './twoFactor.js';
+import { registerTwoFactorRoutes } from './routes/twoFactor.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerPlatformRoutes } from './routes/platform.js';
 import { ProjectStateCache } from './projectState.js';
@@ -172,7 +174,9 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const accountMail: AccountMailHooks = {};
   // Email (Task 19): SMTP only when SMTP_URL is set, else nothing is sent (the log transport).
   const mailer = options.mailer ?? mailerFrom(config, app.log);
-  await registerAuthRoutes(app, store, limiter, loginFailures, counters, accountMail);
+  const twoFactorKeyBuf = twoFactorKey(config);
+  await registerAuthRoutes(app, store, limiter, loginFailures, counters, accountMail, twoFactorKeyBuf);
+  await registerTwoFactorRoutes(app, store, twoFactorKeyBuf, limiter, async () => (await store.getSettings()).serverName ?? 'Collect Earth Cloud');
   const now = options.ai?.now ?? Date.now;
   // Error reports and usage events, when the server is started with TELEMETRY=1 (src/telemetry.ts).
   if (config.telemetry) await telemetry.configure(config.telemetry, VERSION, app.log);

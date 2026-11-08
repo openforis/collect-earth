@@ -311,14 +311,69 @@ public class CloudApiClient {
 	 * before any cloud properties are saved). Returns the opaque session token.
 	 */
 	public String login(String baseUrl, String username, String password) throws IOException {
+		return login(baseUrl, username, password, null);
+	}
+
+	/**
+	 * The server's answers about the second step of a sign-in (two-step sign-in, src/routes/twoFactor.ts of
+	 * collect-earth-cloud): the account needs the code of its authenticator app ({@code required}), the code given is
+	 * wrong or used ({@code invalid}), or the server cannot check it any more ({@code unreadable}).
+	 */
+	public static class SecondStepException extends IOException {
+		private static final long serialVersionUID = 1L;
+		private final String kind;
+
+		public SecondStepException(String kind) {
+			super("two-step sign-in: " + kind);
+			this.kind = kind;
+		}
+
+		public String getKind() {
+			return kind;
+		}
+	}
+
+	/** {@link #login(String, String, String)} with the second step's code (an authenticator app's, or a recovery code). */
+	public String login(String baseUrl, String username, String password, String code) throws IOException {
 		ObjectNode body = objectMapper.createObjectNode();
 		body.put("username", username);
 		body.put("password", password);
+		if (code != null && !code.trim().isEmpty()) {
+			body.put("code", code.trim());
+		}
 		HttpPost request = new HttpPost(normalize(baseUrl) + "/v1/auth/login");
 		prepareNoAuth(request);
 		request.setEntity(jsonEntity(body.toString()));
-		JsonNode response = executeForJson("login", request);
-		return textOrNull(response, "token");
+		try (CloseableHttpResponse response = client().execute(request)) {
+			int status = response.getStatusLine().getStatusCode();
+			HttpEntity entity = response.getEntity();
+			String responseBody = entity == null ? "" : EntityUtils.toString(entity, StandardCharsets.UTF_8);
+			if (!isSuccess(status)) {
+				String kind = secondStepKind(status, responseBody);
+				if (kind != null) {
+					throw new SecondStepException(kind);
+				}
+				throw errorFor("login", status, responseBody);
+			}
+			return textOrNull(objectMapper.readTree(responseBody.isEmpty() ? "{}" : responseBody), "token");
+		}
+	}
+
+	/** The second step's answer in a refused login, or null for any other refusal. */
+	static String secondStepKind(int status, String body) {
+		if (status != 401 || body == null) {
+			return null;
+		}
+		if (body.contains("\"second_step_required\"")) {
+			return "required";
+		}
+		if (body.contains("\"invalid_second_step\"")) {
+			return "invalid";
+		}
+		if (body.contains("\"second_step_unreadable\"")) {
+			return "unreadable";
+		}
+		return null;
 	}
 
 	/**

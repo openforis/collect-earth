@@ -111,6 +111,8 @@ export interface Me {
   username: string;
   memberships: Membership[];
   isPlatformAdmin: boolean;
+  /** Two-step sign-in: on for the account; required of it by the server (it coordinates or administers). */
+  twoFactor: { enabled: boolean; required: boolean };
 }
 
 export interface ProjectInfo {
@@ -430,6 +432,8 @@ export interface ServerSettings {
   aiMonthlyTokens: number;
   /** Read only: whether the server has its AI configuration (Vertex AI). */
   aiConfigured: boolean;
+  /** Coordinators and the server's administrators must use two-step sign-in. */
+  twoFactorForCoordinators: boolean;
 }
 
 export interface AdminUser {
@@ -443,6 +447,8 @@ export interface AdminUser {
   disabledAt: number | null;
   /** Who disabled it, or null. */
   disabledBy: string | null;
+  /** Two-step sign-in is on for the account. */
+  twoFactor: boolean;
 }
 
 export interface ProjectRef {
@@ -532,6 +538,11 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   reference_plot: "plot.referenceNoDecision",
   map_changed: "map.changed",
   wrong_password: "error.wrongPassword",
+  invalid_second_step: "error.invalidSecondStep",
+  invalid_code: "error.invalidSecondStep",
+  second_step_unreadable: "error.secondStepUnreadable",
+  two_factor_required: "error.twoFactorRequired",
+  set_up_two_factor_first: "error.setUpTwoFactorFirst",
   username_taken: "error.usernameTaken",
   signup_closed: "error.signupClosed",
   weak_password: "error.weakPassword",
@@ -802,8 +813,9 @@ export function setup(setupCode: string, username: string, password: string): Pr
   return request<Session>("POST", "/v1/setup", { json: { setupCode, username, password }, noSessionEnd: true });
 }
 
-export function login(username: string, password: string): Promise<Session> {
-  return request<Session>("POST", "/v1/auth/login", { json: { username, password }, noSessionEnd: true });
+/** Logs in; with two-step sign-in, the server first answers second_step_required, then takes the code with the password. */
+export function login(username: string, password: string, code?: string): Promise<Session> {
+  return request<Session>("POST", "/v1/auth/login", { json: code ? { username, password, code } : { username, password }, noSessionEnd: true });
 }
 
 export function signup(username: string, password: string, email?: string, acceptTerms?: boolean, language?: string): Promise<Session> {
@@ -826,7 +838,33 @@ export async function getMe(): Promise<Me> {
     username: String(me?.username ?? ""),
     memberships: Array.isArray(me?.memberships) ? me.memberships.map((m) => ({ ...m, role: asRole(m.role) })) : [],
     isPlatformAdmin: me?.isPlatformAdmin === true,
+    twoFactor: { enabled: me?.twoFactor?.enabled === true, required: me?.twoFactor?.required === true },
   };
+}
+
+// --- two-step sign-in (the server's src/routes/twoFactor.ts) ------------------------------------
+
+/** A new secret to put in an authenticator app: as text, and as the address its QR code holds. */
+export async function startTwoFactor(): Promise<{ secret: string; uri: string }> {
+  return request<{ secret: string; uri: string }>("POST", "/v1/me/two-factor/setup", { json: {} });
+}
+
+/** Turns two-step sign-in on with the app's first code; gives the recovery codes, shown once. */
+export async function enableTwoFactor(code: string): Promise<string[]> {
+  return (await request<{ recoveryCodes: string[] }>("POST", "/v1/me/two-factor/enable", { json: { code } })).recoveryCodes;
+}
+
+export async function disableTwoFactor(password: string): Promise<void> {
+  await send("POST", "/v1/me/two-factor/disable", { json: { password } });
+}
+
+export async function newRecoveryCodes(password: string): Promise<string[]> {
+  return (await request<{ recoveryCodes: string[] }>("POST", "/v1/me/two-factor/recovery-codes", { json: { password } })).recoveryCodes;
+}
+
+/** The server's administrator turns someone's two-step sign-in off (a lost phone): their sessions end. */
+export async function resetUserTwoFactor(userId: string): Promise<void> {
+  await send("POST", `/v1/admin/users/${encodeURIComponent(userId)}/two-factor/reset`, { json: {} });
 }
 
 /**
@@ -1912,6 +1950,7 @@ export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
   aiFollowUpsPerDay: 30,
   aiMonthlyTokens: 2_000_000,
   aiConfigured: false,
+  twoFactorForCoordinators: false,
 };
 
 /** Settings from a server answer, keeping `fallback` for anything missing (older servers). */
@@ -1932,6 +1971,7 @@ export function toServerSettings(body: unknown, fallback: ServerSettings = DEFAU
     aiFollowUpsPerDay: limit(b.aiFollowUpsPerDay, fallback.aiFollowUpsPerDay),
     aiMonthlyTokens: limit(b.aiMonthlyTokens, fallback.aiMonthlyTokens),
     aiConfigured: typeof b.aiConfigured === "boolean" ? b.aiConfigured : fallback.aiConfigured,
+    twoFactorForCoordinators: typeof b.twoFactorForCoordinators === "boolean" ? b.twoFactorForCoordinators : fallback.twoFactorForCoordinators,
   };
 }
 
@@ -1954,6 +1994,7 @@ function toAdminUser(u: Record<string, unknown>): AdminUser {
     coordinatedProjects: toCount(u.coordinatedProjects),
     disabledAt: toMillis(u.disabledAt),
     disabledBy: typeof u.disabledBy === "string" ? u.disabledBy : null,
+    twoFactor: u.twoFactor === true,
   };
 }
 

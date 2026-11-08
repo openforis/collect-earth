@@ -26,6 +26,8 @@ public class CloudController {
 	public static class LoginRequest {
 		public String username;
 		public String password;
+		/** Two-step sign-in's code, once the server asked for it */
+		public String code;
 	}
 
 	private final CloudService cloud;
@@ -65,7 +67,9 @@ public class CloudController {
 	@PostMapping("/api/cloud/login")
 	public Map<String, Object> login(@RequestBody LoginRequest request) {
 		try {
-			return Collections.singletonMap("operator", cloud.login(request.username, request.password));
+			String operator = request.code == null || request.code.trim().isEmpty() ? cloud.login(request.username, request.password)
+					: cloud.login(request.username, request.password, request.code);
+			return Collections.singletonMap("operator", operator);
 		} catch (InvalidCloudRequestException e) {
 			throw new ApiException(e.getCode(), e.getMessage());
 		}
@@ -75,13 +79,17 @@ public class CloudController {
 		public String url;
 		public String username;
 		public String password;
+		/** Two-step sign-in's code, once the server asked for it */
+		public String code;
 	}
 
 	/** The Log in button of the settings: the token of the server typed there, for its field; nothing is saved */
 	@PostMapping("/api/cloud/token")
 	public Map<String, Object> token(@RequestBody TokenRequest request) {
 		try {
-			return Collections.singletonMap("token", cloud.token(request.url, request.username, request.password));
+			String token = request.code == null || request.code.trim().isEmpty() ? cloud.token(request.url, request.username, request.password)
+					: cloud.token(request.url, request.username, request.password, request.code);
+			return Collections.singletonMap("token", token);
 		} catch (InvalidCloudRequestException e) {
 			throw new ApiException(e.getCode(), e.getMessage());
 		}

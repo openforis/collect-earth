@@ -217,7 +217,7 @@ export function App() {
   } else {
     // The local mode has one project: home is its Progress tab.
     const localProjectId = state.info.localMode ? (me?.memberships[0]?.projectId ?? null) : null;
-    const choice = choosePage(route, state.info, me !== null, localProjectId);
+    const choice = choosePage(route, state.info, me !== null, localProjectId, !!me && me.twoFactor.required && !me.twoFactor.enabled);
     switch (choice.kind) {
       case "setup":
         content = <SetupPage />;

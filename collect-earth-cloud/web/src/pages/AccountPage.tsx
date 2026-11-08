@@ -17,6 +17,7 @@ import { PasswordField } from "../components/PasswordField";
 import { useT, type MessageKey } from "../i18n";
 import { linkProps, pathFor, type ProjectTab } from "../router";
 import { MailCard } from "./MailCard";
+import { TwoFactorCard } from "../components/TwoFactorCard";
 import { useLoad } from "../useLoad";
 import { passwordProblem } from "../validation";
 
@@ -66,6 +67,7 @@ export function AccountPage() {
             </Button>
           </Stack>
         </Box>
+        <TwoFactorCard />
         <FormCard title={t("account.changeTitle")} onSubmit={submit} level={2}>
           <PasswordField
             label={t("account.current")}

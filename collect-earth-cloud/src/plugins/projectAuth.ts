@@ -45,6 +45,10 @@ export function requireProjectMembership(store: Store, requiredRole?: Role): pre
     if (requiredRole && !roleSatisfies(membership.role, requiredRole)) {
       return reply.code(403).send({ error: 'forbidden' });
     }
+    // Coordinators' pages, when the server requires two-step sign-in of coordinators and the person has not set it up
+    if (requiredRole === 'admin' && membership.userId && (await secondStepMissing(store, membership.userId))) {
+      return reply.code(403).send(TWO_FACTOR_REQUIRED);
+    }
     request.membership = membership;
     if (membership.userId) {
       request.userId = membership.userId;
@@ -93,9 +97,24 @@ export function requirePlatformAdmin(store: Store): preHandlerHookHandler {
     if (!user.isPlatformAdmin) {
       return reply.code(403).send({ error: 'forbidden' });
     }
+    if (await secondStepMissing(store, user.id)) {
+      return reply.code(403).send(TWO_FACTOR_REQUIRED);
+    }
     request.userId = user.id;
     return undefined;
   };
+}
+
+export const TWO_FACTOR_REQUIRED = {
+  error: 'two_factor_required',
+  message: 'This server requires two-step sign-in of coordinators and administrators: set it up on your account page.',
+};
+
+/** The server requires two-step sign-in of coordinators and the account has not set it up. */
+async function secondStepMissing(store: Store, userId: string): Promise<boolean> {
+  if (!(await store.getSettings()).twoFactorForCoordinators) return false;
+  const state = await store.getTwoFactor(userId);
+  return !(state?.enabledAt && state.secretEnc);
 }
 
 type MembershipResolution = RequestMembership | 'invalid' | 'no_access';

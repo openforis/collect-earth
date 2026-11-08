@@ -45,6 +45,7 @@ import {
   type PlotAssignment,
   type ProgressSettings,
   type SharedAnalysisView,
+  type TwoFactorState,
   type PublicQuality,
   type ProjectRow,
   type ProjectStorage,
@@ -705,6 +706,54 @@ export class PostgresStore implements Store {
     };
   }
 
+  async getTwoFactor(userId: string): Promise<TwoFactorState | null> {
+    const res = await this.pool.query('SELECT secret_enc, pending_enc, enabled_at, last_step, recovery_hashes FROM user_two_factor WHERE user_id = $1', [userId]);
+    if (res.rowCount === 0) return null;
+    const r = res.rows[0];
+    return {
+      secretEnc: r.secret_enc ?? null,
+      pendingEnc: r.pending_enc ?? null,
+      enabledAt: r.enabled_at ? (r.enabled_at as Date).getTime() : null,
+      lastStep: r.last_step === null || r.last_step === undefined ? null : Number(r.last_step),
+      recoveryHashes: (r.recovery_hashes as string[] | null) ?? [],
+    };
+  }
+
+  async setTwoFactorPending(userId: string, pendingEnc: string | null): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO user_two_factor (user_id, pending_enc) VALUES ($1, $2)
+       ON CONFLICT (user_id) DO UPDATE SET pending_enc = EXCLUDED.pending_enc`,
+      [userId, pendingEnc],
+    );
+  }
+
+  async enableTwoFactor(userId: string, secretEnc: string, recoveryHashes: string[]): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO user_two_factor (user_id, secret_enc, pending_enc, enabled_at, last_step, recovery_hashes) VALUES ($1, $2, NULL, now(), NULL, $3)
+       ON CONFLICT (user_id) DO UPDATE SET secret_enc = EXCLUDED.secret_enc, pending_enc = NULL, enabled_at = now(), last_step = NULL, recovery_hashes = EXCLUDED.recovery_hashes`,
+      [userId, secretEnc, recoveryHashes],
+    );
+  }
+
+  async disableTwoFactor(userId: string): Promise<void> {
+    await this.pool.query('DELETE FROM user_two_factor WHERE user_id = $1', [userId]);
+  }
+
+  async setRecoveryHashes(userId: string, recoveryHashes: string[]): Promise<void> {
+    await this.pool.query('UPDATE user_two_factor SET recovery_hashes = $2 WHERE user_id = $1', [userId, recoveryHashes]);
+  }
+
+  async claimTwoFactorStep(userId: string, step: number): Promise<boolean> {
+    // One statement: two logins with the same code at once cannot both pass
+    const res = await this.pool.query('UPDATE user_two_factor SET last_step = $2 WHERE user_id = $1 AND (last_step IS NULL OR last_step < $2)', [userId, step]);
+    return (res.rowCount ?? 0) > 0;
+  }
+
+  async claimRecoveryCode(userId: string, hash: string): Promise<boolean> {
+    const res = await this.pool.query('UPDATE user_two_factor SET recovery_hashes = array_remove(recovery_hashes, $2) WHERE user_id = $1 AND $2 = ANY(recovery_hashes)', [userId, hash]);
+    return (res.rowCount ?? 0) > 0;
+  }
+
   async getUserByUsername(username: string): Promise<User | null> {
     const res = await this.pool.query(
       'SELECT id, username, password_hash, email, is_platform_admin, terms_accepted_at, disabled_at FROM users WHERE username = $1',
@@ -1185,6 +1234,8 @@ export class PostgresStore implements Store {
         settings[r.key as 'maxProjectsPerUser' | 'maxProjectStorageMb'] = Number.isInteger(n) && n >= 0 ? n : 0;
       } else if (r.key === 'aiEnabled') {
         settings.aiEnabled = r.value === 'true';
+      } else if (r.key === 'twoFactorForCoordinators') {
+        settings.twoFactorForCoordinators = r.value === 'true';
       } else if (r.key === 'aiReportsPerDay' || r.key === 'aiFollowUpsPerDay' || r.key === 'aiMonthlyTokens') {
         const n = Number(r.value);
         const key = r.key as 'aiReportsPerDay' | 'aiFollowUpsPerDay' | 'aiMonthlyTokens';
@@ -1223,7 +1274,8 @@ export class PostgresStore implements Store {
     const res = await this.pool.query(
       `SELECT u.id, u.username, u.is_platform_admin, u.disabled_at, b.username AS disabled_by,
               COUNT(m.project_id)::int AS projects,
-              (COUNT(m.project_id) FILTER (WHERE m.role = 'admin'))::int AS coordinated
+              (COUNT(m.project_id) FILTER (WHERE m.role = 'admin'))::int AS coordinated,
+              EXISTS (SELECT 1 FROM user_two_factor t WHERE t.user_id = u.id AND t.enabled_at IS NOT NULL AND t.secret_enc IS NOT NULL) AS two_factor
          FROM users u LEFT JOIN project_members m ON m.user_id = u.id
               LEFT JOIN users b ON b.id = u.disabled_by
         GROUP BY u.id, u.username, u.is_platform_admin, u.disabled_at, b.username
@@ -1237,6 +1289,7 @@ export class PostgresStore implements Store {
       coordinatedProjects: r.coordinated,
       disabledAt: r.disabled_at === null ? null : (r.disabled_at as Date).getTime(),
       disabledBy: r.disabled_at === null ? null : ((r.disabled_by as string | null) ?? null),
+      twoFactor: r.two_factor === true,
     }));
   }
 

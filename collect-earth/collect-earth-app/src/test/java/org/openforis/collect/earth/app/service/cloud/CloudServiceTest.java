@@ -263,4 +263,36 @@ public class CloudServiceTest {
 		InvalidCloudRequestException e = assertThrows(InvalidCloudRequestException.class, service::assignments);
 		assertEquals("cloud.assignments", e.getCode());
 	}
+
+	/** Two-step sign-in: the server asks for the code, the page sends it with the password, a wrong one is said as such */
+	@Test
+	public void twoStepSignInAsksForTheCodeThenSendsIt() throws Exception {
+		when(properties.getCloudSyncUrl()).thenReturn("https://c.org");
+		when(api.login("https://c.org", "cora", "pw")).thenThrow(new CloudApiClient.SecondStepException("required"));
+		assertEquals("cloud.secondStepRequired", assertThrows(InvalidCloudRequestException.class, () -> service.login("cora", "pw")).getCode());
+		when(api.login("https://c.org", "cora", "pw", "000000")).thenThrow(new CloudApiClient.SecondStepException("invalid"));
+		assertEquals("cloud.secondStepInvalid", assertThrows(InvalidCloudRequestException.class, () -> service.login("cora", "pw", "000000")).getCode());
+		when(api.login("https://c.org", "cora", "pw", "123456")).thenReturn("t4");
+		assertEquals("cora", service.login("cora", "pw", "123456"));
+		verify(properties).saveCloudSyncToken("t4");
+		// The join and the settings' Log in button take it too
+		when(api.login("https://typed.org", "cora", "pw", "K7QD-2MXP-9TVA")).thenReturn("t5");
+		assertEquals("t5", service.token("https://typed.org", "cora", "pw", "K7QD-2MXP-9TVA"));
+		when(api.login("https://c.org", "cora", "pw", "654321")).thenThrow(new CloudApiClient.SecondStepException("unreadable"));
+		JoinRequest request = new JoinRequest();
+		request.baseUrl = "https://c.org";
+		request.username = "cora";
+		request.password = "pw";
+		request.code = "654321";
+		assertEquals("cloud.secondStepUnreadable", assertThrows(InvalidCloudRequestException.class, () -> service.join(request)).getCode());
+	}
+
+	@Test
+	public void theServersAnswersAboutTheSecondStepAreRecognised() {
+		assertEquals("required", CloudApiClient.secondStepKind(401, "{\"error\":\"second_step_required\"}"));
+		assertEquals("invalid", CloudApiClient.secondStepKind(401, "{\"error\":\"invalid_second_step\"}"));
+		assertEquals("unreadable", CloudApiClient.secondStepKind(401, "{\"error\":\"second_step_unreadable\"}"));
+		assertNull(CloudApiClient.secondStepKind(401, "{\"error\":\"invalid_credentials\"}"));
+		assertNull(CloudApiClient.secondStepKind(403, "{\"error\":\"second_step_required\"}"));
+	}
 }

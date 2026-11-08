@@ -358,7 +358,7 @@ function CloudTokenLogin({ url, texts, onToken }: { url: string; texts: Texts | 
       </Button>
       {missingUrl && <Typography variant="body2" color="error">{s("DatabaseServerPanel.cloudUrlRequired")}</Typography>}
       <CloudLoginDialog open={open} texts={texts} onCancel={() => setOpen(false)}
-        onSubmit={(c) => cloudToken(url.trim(), c.username, c.password).then((r) => { onToken(r.token); setOpen(false); })} />
+        onSubmit={(c) => cloudToken(url.trim(), c.username, c.password, c.code).then((r) => { onToken(r.token); setOpen(false); })} />
     </Stack>
   );
 }

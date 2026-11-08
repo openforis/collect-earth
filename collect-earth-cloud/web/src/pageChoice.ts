@@ -17,7 +17,14 @@ export type PageChoice =
  * `localProjectId`: in the local mode (server.localMode), the one project, from the account's
  * memberships (null while unknown).
  */
-export function choosePage(route: Route, server: { needsSetup: boolean; localMode?: boolean }, loggedIn: boolean, localProjectId: string | null = null): PageChoice {
+export function choosePage(
+  route: Route,
+  server: { needsSetup: boolean; localMode?: boolean },
+  loggedIn: boolean,
+  localProjectId: string | null = null,
+  /** The server requires two-step sign-in of this person (a coordinator) and they have not set it up yet. */
+  secondStepPending = false,
+): PageChoice {
   // The local mode (one person, on their own computer): no accounts, setup, mail or invitations;
   // Collect Earth signs the browser in with a one-time link.
   if (server.localMode) {
@@ -33,5 +40,7 @@ export function choosePage(route: Route, server: { needsSetup: boolean; localMod
     return route.name === "signup" ? { kind: "signup" } : { kind: "login" };
   }
   if (isLoggedOutRoute(route)) return { kind: "redirect", to: "/" };
+  // The account page sets it up; every other page waits (the server refuses their coordinator pages meanwhile)
+  if (secondStepPending && route.name !== "account") return { kind: "redirect", to: "/account" };
   return { kind: "route", route };
 }

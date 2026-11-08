@@ -32,6 +32,7 @@ import type {
   PlatformStats,
   PlotAssignment,
   ProgressSettings,
+  TwoFactorState,
   SharedAnalysisView,
   PublicQuality,
   ProjectRow,
@@ -170,6 +171,19 @@ export interface Store {
   deleteUserSessions(userId: string): Promise<void>;
   /** Revokes every session of a user but the one of `keepToken` (a password change: the other sessions, the desktop's included, end). */
   deleteUserSessionsExcept(userId: string, keepToken: string): Promise<void>;
+  /** The account's two-step sign-in (src/twoFactor.ts), or null when it never started setting it up. */
+  getTwoFactor(userId: string): Promise<TwoFactorState | null>;
+  /** Keeps a secret being set up (or forgets it: null), until its first code is confirmed. */
+  setTwoFactorPending(userId: string, pendingEnc: string | null): Promise<void>;
+  /** Turns two-step sign-in on with this secret and these recovery codes (hashed); the pending secret is dropped. */
+  enableTwoFactor(userId: string, secretEnc: string, recoveryHashes: string[]): Promise<void>;
+  /** Turns it off: the secret and the recovery codes are deleted. */
+  disableTwoFactor(userId: string): Promise<void>;
+  setRecoveryHashes(userId: string, recoveryHashes: string[]): Promise<void>;
+  /** Marks a time step used; false when it (or a later one) was used already: a code works once. */
+  claimTwoFactorStep(userId: string, step: number): Promise<boolean>;
+  /** Uses up a recovery code; false when it is not one of the account's (or was used). */
+  claimRecoveryCode(userId: string, hash: string): Promise<boolean>;
   /** Also cancels every reset link of the user: an older, leaked one must not work afterwards. */
   setPassword(userId: string, passwordHash: string): Promise<void>;
   /**

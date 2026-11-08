@@ -12,15 +12,16 @@ export interface CloudPreview { baseUrl: string; inviteToken: string; projectId:
 
 export const cloudPreview = (url: string) => apiPost<CloudPreview>("cloud/preview", { url });
 
-export interface JoinRequest { baseUrl: string; inviteToken: string; projectId: string; username: string; password: string; register: boolean }
+export interface JoinRequest { baseUrl: string; inviteToken: string; projectId: string; username: string; password: string; register: boolean; code?: string }
 
 export const cloudJoin = (request: JoinRequest) => apiPost<{ restart: boolean }>("cloud/join", request);
 
-export const cloudLogin = (username: string, password: string) => apiPost<{ operator: string }>("cloud/login", { username, password });
+/** With `code` once the server asked for two-step sign-in's code (cloud.secondStepRequired). */
+export const cloudLogin = (username: string, password: string, code?: string) => apiPost<{ operator: string }>("cloud/login", code ? { username, password, code } : { username, password });
 
 /** The Log in button of the settings: the token of the server typed there, for its field; nothing is saved */
-export const cloudToken = (url: string, username: string, password: string) =>
-  apiPost<{ token: string }>("cloud/token", { url, username, password });
+export const cloudToken = (url: string, username: string, password: string, code?: string) =>
+  apiPost<{ token: string }>("cloud/token", code ? { url, username, password, code } : { url, username, password });
 
 export const cloudStatus = (signal?: AbortSignal) => apiGet<CloudStatus>("cloud/status", signal);
 

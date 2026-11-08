@@ -108,6 +108,20 @@ export interface ServerSettings {
    * Per project: the server's total can reach this times the number of projects.
    */
   aiMonthlyTokens: number;
+  /**
+   * Coordinators (project admins) and the server's administrators must use two-step sign-in (src/twoFactor.ts): until
+   * they set it up, their coordinator and administration pages are refused (two_factor_required).
+   */
+  twoFactorForCoordinators: boolean;
+}
+
+/** An account's two-step sign-in, as stored (src/twoFactor.ts): the secrets encrypted, the recovery codes hashed. */
+export interface TwoFactorState {
+  secretEnc: string | null;
+  pendingEnc: string | null;
+  enabledAt: number | null;
+  lastStep: number | null;
+  recoveryHashes: string[];
 }
 
 export const DEFAULT_SETTINGS: ServerSettings = {
@@ -122,6 +136,7 @@ export const DEFAULT_SETTINGS: ServerSettings = {
   aiReportsPerDay: 5,
   aiFollowUpsPerDay: 30,
   aiMonthlyTokens: 2_000_000,
+  twoFactorForCoordinators: false,
 };
 
 /** One account in the platform admin's user list: a project COUNT only, never names (§4b). */
@@ -137,6 +152,8 @@ export interface UserSummary {
   disabledAt: number | null;
   /** Who disabled it (a username), or null (enabled, or that account was deleted since). */
   disabledBy: string | null;
+  /** Two-step sign-in is on for the account. */
+  twoFactor: boolean;
 }
 
 /** A count for one UTC day (epoch ms of its midnight). */
