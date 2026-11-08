@@ -27,6 +27,8 @@ import { setParsedCacheMb } from './plotFileCache.js';
 import { twoFactorKey } from './twoFactor.js';
 import { registerTwoFactorRoutes } from './routes/twoFactor.js';
 import { registerFormerMemberRoutes } from './routes/formerMembers.js';
+import { OwnerAlerts, ownerNotifier, STORAGE_PERCENT, THRESHOLDS } from './ownerAlerts.js';
+import { requirePlatformAdmin } from './plugins/projectAuth.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerPlatformRoutes } from './routes/platform.js';
 import { ProjectStateCache } from './projectState.js';
@@ -175,6 +177,34 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const accountMail: AccountMailHooks = {};
   // Email (Task 19): SMTP only when SMTP_URL is set, else nothing is sent (the log transport).
   const mailer = options.mailer ?? mailerFrom(config, app.log);
+  // Alerts for the server's owner (src/ownerAlerts.ts): failed logins, server errors, records refused, storage. Not in
+  // the local mode (one person, on their own computer: nobody else to tell).
+  const ownerAlerts = new OwnerAlerts({
+    notify: local ? undefined : ownerNotifier(store, mailer, app.log, async () => (await store.getSettings()).serverName ?? 'Collect Earth Cloud'),
+  });
+  app.decorate('ownerAlerts', ownerAlerts);
+  counters.onCount = (kind) => {
+    if (kind === 'failedLogin') ownerAlerts.note('failedLogin');
+  };
+  app.addHook('onResponse', async (_request, reply) => {
+    if (reply.statusCode >= 500) ownerAlerts.note('serverError');
+  });
+  if (!local) {
+    // Each project's storage against the server's limit, every hour
+    const storageCheck = setInterval(() => {
+      void (async () => {
+        const settings = await store.getSettings();
+        if (!settings.maxProjectStorageMb) return;
+        const stats = await store.platformStats({ activeSince: Date.now(), signupsFrom: Date.now(), receivedFrom: Date.now() });
+        ownerAlerts.checkStorage(stats.projects, settings.maxProjectStorageMb);
+      })().catch((err) => app.log.warn({ err }, 'owner alerts: the storage check failed'));
+    }, 3_600_000);
+    storageCheck.unref();
+    app.addHook('onClose', async () => clearInterval(storageCheck));
+  }
+  app.get('/v1/admin/alerts', { preHandler: requirePlatformAdmin(store) }, async (_request, reply) =>
+    reply.header('cache-control', 'no-store').send({ alerts: ownerAlerts.recent(), thresholds: { ...THRESHOLDS, storagePercent: STORAGE_PERCENT } }),
+  );
   const twoFactorKeyBuf = twoFactorKey(config);
   await registerAuthRoutes(app, store, limiter, loginFailures, counters, accountMail, twoFactorKeyBuf);
   await registerTwoFactorRoutes(app, store, twoFactorKeyBuf, limiter, async () => (await store.getSettings()).serverName ?? 'Collect Earth Cloud');

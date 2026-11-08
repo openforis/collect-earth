@@ -128,6 +128,8 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
       }
 
       noteActivity(request, { sync: { records: storedCount } }, { desktop: true });
+      // Records refused (malformed, or failed to store): the owner is told when many are, in an hour
+      request.server.ownerAlerts?.note('syncError', results.filter((r) => r.status === 'error').length);
       if (trainingStored > 0) {
         // In the Activity log (a coordinators' "who sent training plots"): one entry per batch.
         await audit(store, request, 'training.synced', { records: trainingStored }).catch(() => undefined);

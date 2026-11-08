@@ -842,6 +842,23 @@ export async function getMe(): Promise<Me> {
   };
 }
 
+// --- the owner's alerts (the server's src/ownerAlerts.ts) ---------------------------------------
+
+export type OwnerAlertKind = "failed_logins" | "server_errors" | "sync_errors" | "storage";
+
+export interface OwnerAlert {
+  kind: OwnerAlertKind;
+  at: number;
+  count: number;
+  projectId?: string;
+}
+
+/** The alerts this server instance raised since it started (newest first), and its thresholds. */
+export async function getOwnerAlerts(): Promise<{ alerts: OwnerAlert[]; thresholds: Record<string, number> }> {
+  const body = await request<{ alerts?: OwnerAlert[]; thresholds?: Record<string, number> }>("GET", "/v1/admin/alerts");
+  return { alerts: Array.isArray(body?.alerts) ? body.alerts : [], thresholds: body?.thresholds ?? {} };
+}
+
 // --- former members (the server's src/routes/formerMembers.ts) -----------------------------------
 
 export interface FormerMember {

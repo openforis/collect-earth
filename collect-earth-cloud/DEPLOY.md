@@ -637,6 +637,37 @@ the limit times the number of projects):
 `0` allows none. The Server settings page also shows this month's use per project
 (project ids, runs, refusals and tokens; never names or content).
 
+## Alerts for the server's owner
+
+The server watches for signs that someone should look at it (`src/ownerAlerts.ts`):
+
+| Alert | Raised when | What to do |
+| --- | --- | --- |
+| Failed logins | 50 in an hour | Someone may be guessing passwords: look at the server panel; consider requiring two-step sign-in of coordinators (Server settings) |
+| Server errors | 20 answers of 500 or more in an hour | Something is broken: look at the server's log |
+| Records refused | 50 records from Collect Earth refused in an hour | Interpreters' work may not be arriving: look at the log |
+| Storage | A project uses 90 % of the storage limit (checked hourly; only with a limit set) | Raise the limit, or ask the project's coordinators to tidy up |
+
+Each alert is:
+- **a log line** with `jsonPayload.ownerAlert` set to its kind (`failed_logins`, `server_errors`, `sync_errors`,
+  `storage`);
+- **listed on the server panel** ("Alerts"), since that instance started;
+- **mailed to every server administrator whose email address is confirmed** (their account page), in their
+  language, when the server sends mail (`SMTP_URL`, "Weekly emails" below).
+
+The same alert is raised at most once every six hours (a project's storage once a day). Each Cloud Run instance
+counts its own, and a restart starts from zero, as the panel's counters do; the log-based alert below sees them all.
+
+**Two checks only Google Cloud can do** (in the console; a few minutes each):
+1. **The server is down.** *Monitoring* → *Uptime checks* → *Create uptime check*: protocol HTTPS, the server's host,
+   path `/health`, every 5 minutes; then create its alert policy with an email notification channel. Nothing inside
+   the server can tell you it is down.
+2. **Alerts from every instance.** *Logging* → *Logs Explorer*, query
+   `resource.type="cloud_run_revision" AND jsonPayload.ownerAlert:*`, then *Actions* → *Create log alert*, with the
+   same notification channel. This works without `SMTP_URL`.
+
+A billing budget alert (*AI assistant*, step 4) is the third one worth having.
+
 ## Weekly emails (optional)
 
 People can ask for a weekly email on their account page (**off by default**):

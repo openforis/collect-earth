@@ -43,7 +43,11 @@ export class ServerCounters {
     this.since = now();
   }
 
+  /** Told of every count (the owner's alerts, src/ownerAlerts.ts). */
+  onCount: ((kind: CounterKind) => void) | null = null;
+
   count(kind: CounterKind): void {
+    this.onCount?.(kind);
     const hour = Math.floor(this.now() / HOUR_MS) * HOUR_MS;
     let h = this.hours.get(hour);
     if (!h) {

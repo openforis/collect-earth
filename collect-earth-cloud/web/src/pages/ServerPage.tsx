@@ -38,6 +38,8 @@ import {
   listUsers,
   makeResetLink,
   resetUserTwoFactor,
+  getOwnerAlerts,
+  type OwnerAlert,
   saveServerSettings,
   setUserDisabled,
   type AdminUser,
@@ -618,6 +620,43 @@ function SettingsCard() {
   );
 }
 
+/**
+ * The owner's alerts (the server's src/ownerAlerts.ts): what this server raised since it started, the thresholds, and
+ * how they reach the owner. Nothing to see while all is well, but the card says what is watched.
+ */
+function AlertsCard() {
+  const t = useT();
+  const { language } = useApp();
+  const alerts = useLoad(getOwnerAlerts, []);
+  const text = (a: OwnerAlert) =>
+    a.kind === "storage" ? t("server.alert.storage", { count: a.count, project: a.projectId ?? "" }) : t(`server.alert.${a.kind}`, { count: a.count });
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="server-alerts">
+      <Typography variant="h2" id="server-alerts" gutterBottom>
+        {t("server.alertsTitle")}
+      </Typography>
+      <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
+        {t("server.alertsExplain")}
+      </Typography>
+      {alerts.loading && !alerts.data ? (
+        <Loading />
+      ) : alerts.error || !alerts.data ? (
+        <ErrorAlert error={alerts.error} onRetry={alerts.reload} />
+      ) : alerts.data.alerts.length === 0 ? (
+        <Alert severity="success">{t("server.alertsNone")}</Alert>
+      ) : (
+        <List disablePadding>
+          {alerts.data.alerts.map((a) => (
+            <ListItem key={`${a.kind}-${a.at}-${a.projectId ?? ""}`} divider sx={{ px: 0 }}>
+              <ListItemText primary={text(a)} secondary={new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" }).format(a.at)} />
+            </ListItem>
+          ))}
+        </List>
+      )}
+    </Paper>
+  );
+}
+
 function UsersCard({ onAccountChanged }: { onAccountChanged: () => void }) {
   const t = useT();
   const { language, me } = useApp();
@@ -878,6 +917,7 @@ export function ServerPage() {
           </Typography>
           <Typography color="text.secondary">{t("server.intro")}</Typography>
         </div>
+        <AlertsCard />
         <OverviewCard version={accountChanges} />
         <SettingsCard />
         <AiUsageCard />
