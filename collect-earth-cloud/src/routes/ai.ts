@@ -1,3 +1,4 @@
+import { DEFAULT_AI_MODEL, DEFAULT_AI_REGION } from '../config.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid } from '../accountRules.js';
 import { audit } from '../activity.js';
@@ -91,7 +92,11 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
   app.get('/v1/projects/:pid/ai', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
     const [enabled, settings] = await Promise.all([store.isAiEnabled(projectId), store.getSettings()]);
-    return reply.send({ enabled, available: aiAvailable(config, settings) });
+    const available = aiAvailable(config, settings);
+    // Where what is sent is processed, for the coordinator deciding to switch it on (a region of "global" is not one
+    // place: Google may process it in any of its regions)
+    const where = available ? { provider: 'Google Gemini (Vertex AI)', model: config.aiModel ?? DEFAULT_AI_MODEL, region: config.aiVertexRegion ?? DEFAULT_AI_REGION } : null;
+    return reply.send({ enabled, available, where });
   });
 
   app.put('/v1/projects/:pid/ai', admin, async (request: FastifyRequest, reply: FastifyReply) => {

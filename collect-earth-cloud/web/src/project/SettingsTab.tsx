@@ -1,6 +1,11 @@
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
@@ -207,8 +212,12 @@ function AiCard({ projectId }: { projectId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [changed, setChanged] = useState(false);
+  // Switching on is confirmed: what is sent, to whom and where, checked against the project's agreements
+  const [confirming, setConfirming] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   const toggle = async (enabled: boolean) => {
+    setConfirming(false);
     setBusy(true);
     setError(null);
     setChanged(false);
@@ -242,12 +251,40 @@ function AiCard({ projectId }: { projectId: string }) {
                   checked={ai.data.enabled}
                   // Off is always allowed; on only while the server has the assistant.
                   disabled={busy || (!ai.data.available && !ai.data.enabled)}
-                  onChange={(e) => void toggle(e.target.checked)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setAgreed(false);
+                      setConfirming(true);
+                    } else void toggle(false);
+                  }}
                 />
               }
               label={t("settings.aiSwitch")}
             />
             {!ai.data.available && <Alert severity="info">{t("settings.aiNotAvailable")}</Alert>}
+            {ai.data.where && (
+              <Typography variant="body2" color="text.secondary">
+                {t(ai.data.where.region === "global" ? "settings.aiWhereGlobal" : "settings.aiWhere", ai.data.where)}
+              </Typography>
+            )}
+            <Dialog open={confirming} onClose={() => setConfirming(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>{t("settings.aiConfirmTitle")}</DialogTitle>
+              <DialogContent>
+                <Stack spacing={2}>
+                  <Typography>{t("settings.aiSent")}</Typography>
+                  <Typography>{t("settings.aiSentViews")}</Typography>
+                  {ai.data.where && <Typography>{t(ai.data.where.region === "global" ? "settings.aiWhereGlobal" : "settings.aiWhere", ai.data.where)}</Typography>}
+                  <Typography>{t("settings.aiConfirmTerms")}</Typography>
+                  <FormControlLabel control={<Checkbox checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />} label={t("settings.aiConfirmCheck")} />
+                </Stack>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setConfirming(false)}>{t("common.cancel")}</Button>
+                <Button variant="contained" disabled={!agreed || busy} onClick={() => void toggle(true)}>
+                  {t("settings.aiConfirmOn")}
+                </Button>
+              </DialogActions>
+            </Dialog>
             {changed && (
               <Alert severity="success" role="status">
                 {ai.data.enabled ? t("settings.aiOn") : t("settings.aiOff")}

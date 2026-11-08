@@ -599,6 +599,30 @@ coordinator's guidance notes. People's names are replaced by "Person A",
 back. Coordinates, comments, other text answers, record keys and plot ids are never
 sent. The assistant only reads; it changes nothing.
 
+The analysis page's "Ask AI for more views" sends less: the survey's **structure**
+only (its questions, code lists and labels, and which questions are years or dates),
+never a plot, an answer, a figure or a person.
+
+**Where it is processed.** Vertex AI processes what is sent in the location the
+server asks for, and the project's Settings tab shows it to the coordinator:
+- with `AI_VERTEX_API_KEY`, the location is always `global`: Google may process a
+  request in any of its regions;
+- with `AI_VERTEX_PROJECT`, `AI_VERTEX_REGION` chooses it. `global` is the default;
+  `eu` or `us` keep the processing in those areas (the default model is available in
+  `global`, `us` and `eu`).
+
+Where a project's data must stay in a region (a country's rules, the data owner's
+agreement), set the server up with the service account (not a key) and
+`AI_VERTEX_REGION` to that area, or leave the assistant off.
+
+**Before allowing it on a server**, read Google's terms for Vertex AI and its
+[data governance page](https://cloud.google.com/vertex-ai/generative-ai/docs/data-governance)
+(how prompts and answers are kept and whether they are used, on the terms of the
+Google Cloud account the server uses), and note in each project's agreement that the
+assistant may be used. Coordinators confirm, when they switch it on in a project's
+Settings tab, that sending these data fits their project's agreements; the
+project's activity log keeps who switched it on and when.
+
 **Limits** (Server settings; each **per project**, so the server's total can be
 the limit times the number of projects):
 - AI reviews per project per day (default 5) and follow-ups and questions per

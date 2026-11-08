@@ -1558,6 +1558,13 @@ const CAUSES: FindingCause[] = ["unclear_question", "overlapping_options", "pers
 export interface ProjectAi {
   enabled: boolean;
   available: boolean;
+  /** Who processes what is sent, and where (region "global": any of the provider's regions); null while unavailable. */
+  where: { provider: string; model: string; region: string } | null;
+}
+
+function toWhere(v: unknown): ProjectAi["where"] {
+  const w = v && typeof v === "object" ? (v as Record<string, unknown>) : null;
+  return w && typeof w.provider === "string" ? { provider: w.provider, model: String(w.model ?? ""), region: String(w.region ?? "") } : null;
 }
 
 /** A run as listed: who, when and what, never its result. */
@@ -1679,13 +1686,13 @@ export function toAiRun(body: unknown): AiRun {
 
 export async function getProjectAi(projectId: string): Promise<ProjectAi> {
   const body = obj(await request<unknown>("GET", `${p(projectId)}/ai`));
-  return { enabled: body.enabled === true, available: body.available === true };
+  return { enabled: body.enabled === true, available: body.available === true, where: toWhere(body.where) };
 }
 
 /** Switches the assistant on or off for a project (a person's session only: a project key gets 403 user_session_required). */
 export async function setProjectAi(projectId: string, enabled: boolean): Promise<ProjectAi> {
   const body = obj(await request<unknown>("PUT", `${p(projectId)}/ai`, { json: { enabled } }));
-  return { enabled: body.enabled === true, available: body.available === true };
+  return { enabled: body.enabled === true, available: body.available === true, where: toWhere(body.where) };
 }
 
 /**

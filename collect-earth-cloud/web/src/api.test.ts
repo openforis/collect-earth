@@ -870,10 +870,12 @@ describe("the AI assistant and the reports", () => {
   };
 
   it("reads and sets the project's switch", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { enabled: false, available: true }));
-    expect(await getProjectAi("p1")).toEqual({ enabled: false, available: true });
+    const where = { provider: "Google Gemini (Vertex AI)", model: "gemini-x", region: "europe-west1" };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { enabled: false, available: true, where }));
+    expect(await getProjectAi("p1")).toEqual({ enabled: false, available: true, where });
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { enabled: true, available: true }));
-    expect(await setProjectAi("p1", true)).toEqual({ enabled: true, available: true });
+    // an older server says nothing of where
+    expect(await setProjectAi("p1", true)).toEqual({ enabled: true, available: true, where: null });
     expect(call(1)).toEqual({ url: "/v1/projects/p1/ai", method: "PUT", body: { enabled: true } });
     fetchMock.mockResolvedValueOnce(jsonResponse(403, { error: "user_session_required", reason: "Sign in" }));
     const err = await setProjectAi("p1", true).catch((e: unknown) => e);
