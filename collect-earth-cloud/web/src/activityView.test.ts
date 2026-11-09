@@ -51,6 +51,11 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("division.applied", { csvFileId: "f1", mode: "equal", people: 3, plots: 90 }), page, "en")).toBe("ana divided north.csv between 3 people");
     expect(logSentence(t, audit("member.removed", { userId: "u2" }), page, "en")).toBe("ana removed ben (no longer in the project) from the project");
     expect(logSentence(t, audit("member.role", { userId: "u1", role: "reviewer" }), page, "en")).toBe("ana made ana a Reviewer");
+    expect(logSentence(t, audit("member.signed_out", { userId: "u1" }), page, "en")).toBe("ana signed ana out everywhere");
+    // the downloads that leave the plots' places out say so
+    expect(logSentence(t, audit("export.downloaded", { records: 3, coordinates: false }), page, "en")).toBe("ana downloaded the data without the plots' locations (3 records)");
+    expect(logSentence(t, audit("export.downloaded", { kind: "analysis", records: 3, coordinates: true }), page, "en")).toBe("ana downloaded the stand-alone analysis file");
+    expect(logSentence(t, audit("export.downloaded", { kind: "analysis", records: 3, coordinates: false }), page, "en")).toBe("ana downloaded the stand-alone analysis file, without the plots' locations");
     // anonymising says how many records, never whose
     expect(logSentence(t, audit("member.anonymized", { records: 120 }), page, "en")).toBe("ana anonymised a former member (120 records)");
     expect(logSentence(t, audit("member.anonymized", { records: 1 }), page, "en")).toBe("ana anonymised a former member (1 record)");

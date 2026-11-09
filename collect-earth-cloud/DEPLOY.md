@@ -31,6 +31,7 @@ managed Postgres (Option B).
 | `GA_API_SECRET` | with GA | *(secret)* | With `TELEMETRY`: the Measurement Protocol API secret of the Google Analytics property. Without it no usage event is sent (it cannot be in this public repository) |
 | `GA_MEASUREMENT_ID` | no | `G-XXXXXXX` | With `TELEMETRY` and `GA_API_SECRET`: the property. Default: the desktop app's (`G-8K943HZKJZ`) |
 | `TRUST_PROXY_HOPS` | no | `1` | Proxies in front of the server that add to `x-forwarded-for` (see below) |
+| `SESSION_IDLE_DAYS` | no | `90` | A sign-in (in Collect Earth or the dashboard) unused for this many days stops working; each use keeps it alive. A coordinator can also sign a person out everywhere (their page, *Sign out everywhere*), and anyone their other devices (*My account*) |
 | `MIGRATE_ON_BOOT` | optional | `true` | Apply pending migrations on startup (see below); `true` or `1` |
 | `PORT` | no | `8080` | Listen port (Cloud Run injects `8080`) |
 | `HOST` | no | `0.0.0.0` | Bind address |
@@ -307,6 +308,9 @@ production topology: use a managed, backed-up Postgres in production.
 ---
 
 ## Post-deploy checks & onboarding
+
+Before the first real project: agree on its data with its owner, on one page ([`DATA-AGREEMENT.md`](DATA-AGREEMENT.md):
+who owns it, the region, who sees and downloads what, how long it is kept), and do the restore drill ("Backups" below).
 
 ```bash
 BASE=https://ce-cloud.example.org

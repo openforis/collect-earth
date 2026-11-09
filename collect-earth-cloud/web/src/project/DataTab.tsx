@@ -1,3 +1,5 @@
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -71,13 +73,14 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
   const [error, setError] = useState<unknown>(null);
   const [done, setDone] = useState(false);
   const [format, setFormat] = useState<ExportFormat>("csv");
+  const [noPositions, setNoPositions] = useState(false);
 
   const download = async () => {
     setBusy(true);
     setError(null);
     setDone(false);
     try {
-      const { blob, filename } = await downloadExport(projectId, format);
+      const { blob, filename } = await downloadExport(projectId, format, noPositions);
       saveBlob(blob, filename);
       setDone(true);
     } catch (err) {
@@ -120,7 +123,14 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
               </Button>
             </Box>
           </Stack>
-          {format !== "csv" && (
+          {format === "csv" ? (
+            <Box>
+              <FormControlLabel control={<Checkbox checked={noPositions} onChange={(e) => setNoPositions(e.target.checked)} />} label={t("data.noPositions")} />
+              <Typography variant="body2" color="text.secondary">
+                {t("data.noPositionsHelp")}
+              </Typography>
+            </Box>
+          ) : (
             <Typography variant="body2" color="text.secondary">
               {t("data.formatHint")}
             </Typography>

@@ -123,6 +123,14 @@ public class EarthApp {
 					"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.4; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2");
 
 			initializeSentry();
+			// The cloud token kept with Windows' data protection, not in plain text (before the first read of the settings);
+			// one still in plain text is protected now
+			LocalPropertiesService.setSecretProtector(WindowsDpapiProtector.ifAvailable());
+			try {
+				getLocalProperties().protectSecrets();
+			} catch (RuntimeException e) {
+				logger.warn("The cloud token could not be protected", e);
+			}
 			// After Sentry, whose handler it wraps : a file chooser broken by the Windows shell falls back to plain folders
 			ShellFolderFallback.installUncaughtExceptionHandler();
 

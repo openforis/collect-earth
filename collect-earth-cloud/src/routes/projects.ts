@@ -1,3 +1,4 @@
+import { isPositionKey, withoutPositions } from '../positions.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { secretsEqual } from '../accountRules.js';
 import { audit } from '../activity.js';
@@ -294,6 +295,12 @@ export async function registerProjectRoutes(
       const resolve = recordResolver({ info, units, copyHolders });
       // The coordinator's note the server added (Task 16) is the coordinator's text, not an answer.
       const leaveOut = noteColumn(info) !== null ? new Set([NOTE_SUMMARY_KEY]) : new Set<string>();
+      // Without plot locations (?coordinates=none): for sharing with whoever only needs the answers
+      const noPositions = withoutPositions(request.query);
+      if (noPositions && format !== 'csv') {
+        return reply.code(400).send({ error: 'bad_request', reason: 'a map file always has the plot locations' });
+      }
+      if (noPositions) for (const r of records) for (const k of Object.keys(r.summary)) if (isPositionKey(k)) leaveOut.add(k);
       const args = [records, exportRoundOf(info, units, copyHolders), finalOf, (r: RecordRow) => reference.size > 0 && reference.has(resolve(r).group), leaveOut] as const;
       let body: string | Buffer;
       if (format === 'csv') {
@@ -308,7 +315,7 @@ export async function registerProjectRoutes(
           : format === 'kml' ? kmlOf(table, geometries, project.name)
           : zipCep(shapefileOf(table, geometries, 'plots', new Date()), new Date());
       }
-      await audit(store, request, 'export.downloaded', format === 'csv' ? { records: records.length } : { records: records.length, format });
+      await audit(store, request, 'export.downloaded', { records: records.length, ...(format === 'csv' ? {} : { format }), ...(noPositions ? { coordinates: false } : {}) });
       return reply
         .header('content-type', type)
         .header('content-disposition', attachment(`${project.name}-${file}`, `export-${file}`))

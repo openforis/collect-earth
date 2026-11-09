@@ -79,9 +79,16 @@ const EXPORT_KEYS: Record<string, MessageKey> = {
   decisions: "activity.export.decisions",
   differences: "activity.export.differences",
   "collect-backup": "activity.export.collectBackup",
+  analysis: "activity.export.analysis",
   training_scores: "activity.export.trainingScores",
   training_answers: "activity.export.trainingAnswers",
 };
+
+/** What was downloaded: the stand-alone analysis file says whether without the plots' locations. */
+function exportKey(d: Record<string, unknown>): MessageKey {
+  if (d.kind === "analysis" && d.coordinates === false) return "activity.export.analysisNoPositions";
+  return EXPORT_KEYS[d.kind as string];
+}
 
 /** Who did it: their name, "(no longer in the project)" after it, or someone without a name. */
 function who(t: Translate, name: string | null): string {
@@ -140,6 +147,8 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
       return t("activity.audit.inviteRevoked", { actor });
     case "member.removed":
       return t("activity.audit.removed", { actor, person: personOf(t, page, d.userId) });
+    case "member.signed_out":
+      return t("activity.audit.signedOut", { actor, person: personOf(t, page, d.userId) });
     case "member.anonymized":
       return t(d.records === 1 ? "activity.audit.anonymizedOne" : "activity.audit.anonymized", { actor, count: num(d.records, language) });
     case "member.role":
@@ -186,8 +195,9 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
     }
     case "export.downloaded":
       if (typeof d.kind === "string" && EXPORT_KEYS[d.kind]) {
-        return t(d.completed === false ? "activity.audit.downloadStopped" : "activity.audit.download", { actor, what: t(EXPORT_KEYS[d.kind]) });
+        return t(d.completed === false ? "activity.audit.downloadStopped" : "activity.audit.download", { actor, what: t(exportKey(d)) });
       }
+      if (d.coordinates === false) return t("activity.audit.downloadDataNoPositions", { actor, count: num(d.records, language) });
       return t(byCount(d.records, "activity.audit.downloadDataOne", "activity.audit.downloadData"), { actor, count: num(d.records, language) });
     case "link.created":
     case "link.revoked": {
@@ -219,8 +229,9 @@ function localAuditSentence(t: Translate, action: string, d: Record<string, unkn
       return t("activity.auditLocal.settings", { what: t(SETTING_KEYS[String(d.setting)] ?? "activity.setting.other") });
     case "export.downloaded":
       if (typeof d.kind === "string" && EXPORT_KEYS[d.kind]) {
-        return t(d.completed === false ? "activity.auditLocal.downloadStopped" : "activity.auditLocal.download", { what: t(EXPORT_KEYS[d.kind]) });
+        return t(d.completed === false ? "activity.auditLocal.downloadStopped" : "activity.auditLocal.download", { what: t(exportKey(d)) });
       }
+      if (d.coordinates === false) return t("activity.auditLocal.downloadDataNoPositions", { count: num(d.records, language) });
       return t(byCount(d.records, "activity.auditLocal.downloadDataOne", "activity.auditLocal.downloadData"), { count: num(d.records, language) });
     default:
       return null;

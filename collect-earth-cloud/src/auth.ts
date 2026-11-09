@@ -20,6 +20,20 @@ export function hashToken(token: string): string {
   return createHash('sha256').update(token, 'utf8').digest('hex');
 }
 
+/**
+ * A sign-in (session token) unused for this long stops working (recommendation 1 of the data review): a forgotten
+ * laptop, or a token copied from one, loses access by itself. Each use keeps it alive, so someone who syncs or opens
+ * the dashboard now and then never notices. SESSION_IDLE_DAYS changes it (default 90).
+ */
+export const SESSION_IDLE_MS = sessionIdleDays(process.env.SESSION_IDLE_DAYS) * 24 * 3_600_000;
+/** How often a session's last use is written down: not at every request. */
+export const SESSION_TOUCH_MS = 3_600_000;
+
+export function sessionIdleDays(value: string | undefined): number {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 1 && n <= 3650 ? n : 90;
+}
+
 /** Constant-time comparison of two hex hashes of equal length. */
 export function hashesEqual(a: string, b: string): boolean {
   if (a.length !== b.length) {

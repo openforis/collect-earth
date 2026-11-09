@@ -854,6 +854,11 @@ export async function logout(): Promise<void> {
   await send("POST", "/v1/auth/logout", { noSessionEnd: true });
 }
 
+/** Ends every other session of the account; this one stays. */
+export async function logoutOthers(): Promise<void> {
+  await send("POST", "/v1/auth/logout-others");
+}
+
 export async function getMe(): Promise<Me> {
   const me = await request<Partial<Me>>("GET", "/v1/me");
   return {
@@ -1255,6 +1260,11 @@ export async function listMembers(projectId: string): Promise<Member[]> {
 
 export async function setMemberRole(projectId: string, userId: string, role: Role): Promise<void> {
   await send("PUT", `${p(projectId)}/members/${encodeURIComponent(userId)}`, { json: { role } });
+}
+
+/** Ends every session of a member (a lost laptop): they stay in the project and log in again. */
+export async function signOutMember(projectId: string, userId: string): Promise<void> {
+  await send("POST", `${p(projectId)}/members/${encodeURIComponent(userId)}/sign-out`);
 }
 
 export async function removeMember(projectId: string, userId: string): Promise<void> {
@@ -1961,9 +1971,9 @@ export async function getTeamReport(projectId: string): Promise<TeamReport> {
 export const EXPORT_FORMATS = ["csv", "geojson", "kml", "shp.zip"] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
-/** The collected data as a CSV or map file (fetched with the session, then saved by the page). */
-export async function downloadExport(projectId: string, format: ExportFormat = "csv"): Promise<{ blob: Blob; filename: string }> {
-  const response = await send("GET", `${p(projectId)}/export.${format}`);
+/** The collected data as a CSV or map file (fetched with the session, then saved by the page); a CSV can leave out the plot locations. */
+export async function downloadExport(projectId: string, format: ExportFormat = "csv", withoutPositions = false): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("GET", `${p(projectId)}/export.${format}${format === "csv" && withoutPositions ? "?coordinates=none" : ""}`);
   return { blob: await response.blob(), filename: attachmentName(response, `collect-earth-data.${format}`) };
 }
 
@@ -2902,8 +2912,8 @@ export async function getAnalysis(projectId: string): Promise<AnalysisData> {
 }
 
 /** The analysis as one HTML file that opens with no server (fetched with the session, then saved by the page). */
-export async function downloadAnalysisStandalone(projectId: string): Promise<{ blob: Blob; filename: string }> {
-  const response = await send("GET", `${p(projectId)}/analysis/standalone`);
+export async function downloadAnalysisStandalone(projectId: string, withoutPositions = false): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("GET", `${p(projectId)}/analysis/standalone${withoutPositions ? "?coordinates=none" : ""}`);
   return { blob: await response.blob(), filename: attachmentName(response, "analysis.html") };
 }
 
@@ -2912,6 +2922,8 @@ export interface StandaloneAnalysisData extends AnalysisData {
   project: { id: string; name: string };
   /** ISO 8601. */
   made: string;
+  /** The plots' locations were left out (?coordinates=none). */
+  withoutPositions?: boolean;
 }
 
 /** A view a coordinator shared with the team (the analysis page). */

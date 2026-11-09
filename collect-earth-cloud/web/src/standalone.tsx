@@ -101,6 +101,11 @@ function Standalone() {
                 <Typography color="text.secondary" sx={{ mb: 2 }}>
                   {t("analysis.standaloneMade", { date: made })}
                 </Typography>
+                {/* What the file holds, first: it is easy to pass around */}
+                <Alert severity="warning" sx={{ mb: 2 }} data-testid="standalone-share">
+                  {t("analysis.standaloneShare", { project: data.project.name })}
+                  {data.withoutPositions ? ` ${t("analysis.standaloneNoPositions")}` : ""}
+                </Alert>
                 {plots === 0 ? (
                   <Alert severity="info">{t(data.scope === "own" ? "analysis.emptyOwn" : "analysis.empty")}</Alert>
                 ) : (

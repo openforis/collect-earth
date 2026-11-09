@@ -170,7 +170,11 @@ export interface Store {
   /** Issues an opaque session token for a user and returns the plaintext token. */
   createSession(userId: string): Promise<string>;
   /** Resolves a session token to its user id, or null if unknown/expired or the account is disabled. */
-  resolveSession(token: string): Promise<{ userId: string } | null>;
+  /**
+   * The account of a session token, or null: unknown, deleted, its account disabled, or unused for longer than
+   * SESSION_IDLE_MS (src/auth.ts), when it is deleted. A use is written down at most once per SESSION_TOUCH_MS.
+   */
+  resolveSession(token: string, now?: number): Promise<{ userId: string } | null>;
   deleteSession(token: string): Promise<void>;
   /** Revokes every session of a user (password reset). */
   deleteUserSessions(userId: string): Promise<void>;

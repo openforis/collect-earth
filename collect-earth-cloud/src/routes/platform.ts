@@ -483,6 +483,28 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
     },
   );
 
+  // Sign a member out everywhere (admin): a lost or shared laptop. Every session of the account ends, in Collect Earth
+  // and in the dashboard; the person stays in the project and logs in again with their password. The server's
+  // administrators are left to themselves (a coordinator cannot sign out the server's owner); oneself is fine.
+  app.post(
+    '/v1/projects/:pid/members/:uid/sign-out',
+    { preHandler: requireProjectMembership(store, 'admin') },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const projectId = request.membership!.projectId;
+      const uid = (request.params as { uid: string }).uid;
+      if (!(await store.getMembership(projectId, uid))) {
+        return reply.code(404).send({ error: 'not_found' });
+      }
+      const target = await store.getUserById(uid);
+      if (target?.isPlatformAdmin && uid !== request.userId && !(await store.getUserById(request.userId ?? ''))?.isPlatformAdmin) {
+        return reply.code(403).send({ error: 'forbidden', reason: 'a server administrator signs out by themselves' });
+      }
+      await store.deleteUserSessions(uid);
+      await audit(store, request, 'member.signed_out', { userId: uid });
+      return reply.code(204).send();
+    },
+  );
+
   // Remove a member (admin). Removing the last admin is refused.
   app.delete(
     '/v1/projects/:pid/members/:uid',

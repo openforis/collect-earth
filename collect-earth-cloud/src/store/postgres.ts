@@ -2,7 +2,7 @@ import { OPERATOR_SUMMARY_KEY, operatorXmlPattern } from '../anonymize.js';
 import pg from 'pg';
 import { randomUUID } from 'node:crypto';
 import { isUuid } from '../accountRules.js';
-import { generateShareToken, generateToken, hashToken } from '../auth.js';
+import { generateShareToken, generateToken, hashToken, SESSION_IDLE_MS, SESSION_TOUCH_MS } from '../auth.js';
 import { PUBLIC_SCHEMA_FIX } from './migrate.js';
 import {
   AI_INTERRUPTED,
@@ -792,14 +792,32 @@ export class PostgresStore implements Store {
     return token;
   }
 
-  async resolveSession(token: string): Promise<{ userId: string } | null> {
-    // A disabled account's sessions are deleted; the join also refuses one made meanwhile.
+  async resolveSession(token: string, now = Date.now()): Promise<{ userId: string } | null> {
+    const hash = hashToken(token);
+    const at = new Date(now);
+    // A disabled account's sessions are deleted; the join also refuses one made meanwhile. Unused for longer than
+    // SESSION_IDLE_MS: refused, and deleted below. A use is written down at most once per SESSION_TOUCH_MS.
     const res = await this.pool.query(
-      `SELECT s.user_id FROM sessions s JOIN users u ON u.id = s.user_id
-        WHERE s.token_hash = $1 AND (s.expires_at IS NULL OR s.expires_at > now()) AND u.disabled_at IS NULL`,
-      [hashToken(token)],
+      `WITH hit AS (
+         SELECT s.token_hash, s.user_id, COALESCE(s.last_used_at, s.created_at) AS used
+           FROM sessions s JOIN users u ON u.id = s.user_id
+          WHERE s.token_hash = $1 AND (s.expires_at IS NULL OR s.expires_at > $2) AND u.disabled_at IS NULL
+            AND COALESCE(s.last_used_at, s.created_at) >= $2::timestamptz - make_interval(secs => $3)
+       ), touched AS (
+         UPDATE sessions SET last_used_at = $2
+          WHERE token_hash IN (SELECT token_hash FROM hit WHERE used < $2::timestamptz - make_interval(secs => $4))
+       )
+       SELECT user_id FROM hit`,
+      [hash, at, SESSION_IDLE_MS / 1000, SESSION_TOUCH_MS / 1000],
     );
-    return res.rowCount === 0 ? null : { userId: res.rows[0].user_id };
+    if (res.rowCount === 0) {
+      await this.pool.query(
+        `DELETE FROM sessions WHERE token_hash = $1 AND COALESCE(last_used_at, created_at) < $2::timestamptz - make_interval(secs => $3)`,
+        [hash, at, SESSION_IDLE_MS / 1000],
+      );
+      return null;
+    }
+    return { userId: res.rows[0].user_id };
   }
 
   async deleteSession(token: string): Promise<void> {

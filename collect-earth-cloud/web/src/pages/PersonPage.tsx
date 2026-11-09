@@ -26,6 +26,7 @@ import Typography from "@mui/material/Typography";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import Delete from "@mui/icons-material/Delete";
 import InsertLink from "@mui/icons-material/Link";
+import Logout from "@mui/icons-material/Logout";
 import WarningAmber from "@mui/icons-material/WarningAmber";
 import { useState, type ReactNode } from "react";
 import {
@@ -34,6 +35,7 @@ import {
   listMembers,
   moveUnfinished,
   removeMember,
+  signOutMember,
   ROLES,
   setMemberRole,
   type Member,
@@ -605,6 +607,7 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [invite, setInvite] = useState<NewInvite | null>(null);
   const [busy, setBusy] = useState(false);
   // One change at a time; the controls stay enabled (a disabled one drops the keyboard focus).
@@ -668,6 +671,11 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
             {t("person.newLink")}
           </Button>
           {person.userId !== me?.userId && (
+            <Button variant="outlined" startIcon={<Logout />} aria-disabled={busy} onClick={() => !busy && setSigningOut(true)}>
+              {t("person.signOut")}
+            </Button>
+          )}
+          {person.userId !== me?.userId && (
             <Button color="error" variant="outlined" startIcon={<Delete />} aria-disabled={busy} onClick={() => !busy && setRemoving(true)}>
               {t("people.remove", { name: person.username })}
             </Button>
@@ -693,6 +701,27 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
         )}
         <ErrorAlert error={error} />
       </Stack>
+      <Dialog open={signingOut} onClose={() => setSigningOut(false)}>
+        <DialogTitle>{t("person.signOutTitle", { name: person.username })}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{t("person.signOutText", { name: person.username })}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSigningOut(false)}>{t("common.cancel")}</Button>
+          <Button
+            variant="contained"
+            onClick={() =>
+              void run(async () => {
+                setSigningOut(false);
+                await signOutMember(projectId, person.userId);
+                setNotice(t("person.signedOut", { name: person.username }));
+              })
+            }
+          >
+            {t("person.signOut")}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Dialog open={removing} onClose={() => setRemoving(false)}>
         <DialogTitle>{t("people.removeTitle", { name: person.username })}</DialogTitle>
         <DialogContent>

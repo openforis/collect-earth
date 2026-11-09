@@ -437,8 +437,73 @@ public class LocalPropertiesService extends Observable {
 		if (value == null) {
 			value = "";
 		}
-
+		if (isSecret(key.toString())) {
+			value = revealed(value);
+		}
 		return value;
+	}
+
+	/** The properties kept with the operating system's protection when there is one (see SecretProtector). */
+	private static final java.util.Set<String> SECRETS = Collections.singleton("cloud_sync_token");
+	private static volatile SecretProtector secretProtector;
+
+	/**
+	 * Registers the operating system's protection of the secrets (the cloud token). The ones already in the file in plain
+	 * text are protected once they are written again; {@link #protectSecrets()} does it at once.
+	 */
+	public static void setSecretProtector(SecretProtector protector) {
+		secretProtector = protector;
+	}
+
+	static boolean isSecret(String key) {
+		return SECRETS.contains(key);
+	}
+
+	/** The plain value of a secret as stored: protected by this computer, or plain text from before. */
+	private static String revealed(String stored) {
+		SecretProtector protector = secretProtector;
+		if (protector == null || stored.isEmpty() || !stored.startsWith(protector.prefix())) {
+			return stored;
+		}
+		String plain = protector.reveal(stored);
+		// Copied from another computer or user: no token, so the login is asked for again
+		return plain == null ? "" : plain;
+	}
+
+	/** A secret as it is written: protected when this computer can, else as it is. */
+	private static String stored(String key, String value) {
+		SecretProtector protector = secretProtector;
+		if (protector == null || value == null || value.isEmpty() || !isSecret(key)) {
+			return value;
+		}
+		try {
+			return protector.protect(value);
+		} catch (RuntimeException e) {
+			LoggerFactory.getLogger(LocalPropertiesService.class).warn("The token could not be protected, kept as it is: {}", e.getMessage());
+			return value;
+		}
+	}
+
+	/** Writes the secrets kept in plain text with the protection registered, if any: once, at start. */
+	public synchronized void protectSecrets() {
+		SecretProtector protector = secretProtector;
+		if (protector == null) {
+			return;
+		}
+		boolean changed = false;
+		for (String key : SECRETS) {
+			String value = properties.getProperty(key);
+			if (value != null && !value.isEmpty() && !value.startsWith(protector.prefix())) {
+				String protectedValue = stored(key, value);
+				if (!protectedValue.equals(value)) {
+					properties.setProperty(key, protectedValue);
+					changed = true;
+				}
+			}
+		}
+		if (changed) {
+			storeProperties();
+		}
 	}
 
 	private void init() throws IOException {
@@ -826,7 +891,7 @@ public class LocalPropertiesService extends Observable {
 	}
 
 	public void setValue(Object key, String value) {
-		properties.setProperty(key.toString(), value);
+		properties.setProperty(key.toString(), stored(key.toString(), value));
 		this.setChanged();
 		this.notifyObservers(key);
 		storeProperties();
@@ -838,7 +903,7 @@ public class LocalPropertiesService extends Observable {
 	 */
 	public void setValues(Map<String, String> values) {
 		for (Map.Entry<String, String> value : values.entrySet()) {
-			properties.setProperty(value.getKey(), value.getValue());
+			properties.setProperty(value.getKey(), stored(value.getKey(), value.getValue()));
 			this.setChanged();
 			this.notifyObservers(value.getKey());
 		}

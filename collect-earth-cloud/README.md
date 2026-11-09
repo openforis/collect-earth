@@ -66,6 +66,8 @@ To run your own server on Google Cloud without technical knowledge, follow
 
 For production (Cloud Run + Cloud SQL, or any Docker host + managed Postgres),
 required env vars, and how to onboard projects, see [`DEPLOY.md`](DEPLOY.md).
+Before a real project starts, agree on its data with the owner: [`DATA-AGREEMENT.md`](DATA-AGREEMENT.md) is a one-page
+template (who owns it, where it is stored, who sees and downloads what, how long it is kept).
 
 **Emails** are optional (`SMTP_URL`, DEPLOY.md "Weekly emails (optional)", which covers every mail). With mail set up the
 server sends: the link that confirms an account's address; the weekly emails people turn on
