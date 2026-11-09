@@ -783,6 +783,11 @@ function TeamQualityTab({ projectId }: { projectId: string }) {
           {t("myQuality.link")}
         </Button>
       </Stack>
+      {data.excluded.length > 0 && (
+        <Alert severity="info">
+          {t("quality.excludedNote", { names: data.excluded.map((x) => (x.reason ? `${x.username} (${x.reason})` : x.username)).join(", ") })}
+        </Alert>
+      )}
       <Counts data={data} stillWorking={busy} />
       {error !== null && !busy && <ErrorAlert error={error} onRetry={reload} />}
       <ReviewQueue

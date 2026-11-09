@@ -144,6 +144,8 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
       return t(d.records === 1 ? "activity.audit.anonymizedOne" : "activity.audit.anonymized", { actor, count: num(d.records, language) });
     case "member.role":
       return t("activity.audit.role", { actor, person: personOf(t, page, d.userId), role: t(`role.${d.role === "admin" || d.role === "reviewer" ? d.role : "operator"}`) });
+    case "member.excluded":
+      return t(d.excluded === false ? "activity.audit.included" : "activity.audit.excluded", { actor, person: personOf(t, page, d.userId) });
     case "cep.replaced":
       return t("activity.audit.cep", { actor });
     case "survey.replaced":

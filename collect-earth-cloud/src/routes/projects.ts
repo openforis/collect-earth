@@ -282,11 +282,15 @@ export async function registerProjectRoutes(
       // The plots of every plot file, read as the division reads them, so a record gets
       // the same plot and round here as in the division and the plot files served; and
       // the coordinator's decisions, by plot unit as the quality figures pair records.
-      const [records, context, decisions] = await Promise.all([
+      const [all, context, decisions, members] = await Promise.all([
         store.listRecordSummaries(projectId),
         loadPlotContext(store, projectId, request.log),
         store.listQualityDecisions(projectId),
+        store.listMembers(projectId),
       ]);
+      // The records of people left out of the results are not in it, unless ?excluded=include.
+      const excluded = (request.query as { excluded?: string } | undefined)?.excluded === 'include' ? new Set<string>() : new Set(members.filter((m) => m.excluded).map((m) => m.username));
+      const records = excluded.size > 0 ? all.filter((r) => !excluded.has(r.operator)) : all;
       const { info, units, copyHolders, reference } = context;
       // Reference plots (Task 14) are never decided: their round 2 measures the collectors
       // against the reference, so `final` stays blank for them and `reference` says "yes".

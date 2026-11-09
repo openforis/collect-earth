@@ -43,6 +43,8 @@ export interface Member {
   role: Role;
   /** The server owner disabled the account (a flag only: not when or by whom). */
   disabled?: boolean;
+  /** A coordinator left their records out of the results (the figures and the exports); absent otherwise. */
+  excluded?: { at: number; reason: string | null };
 }
 
 export interface Invite {
@@ -825,6 +827,7 @@ export const AUDIT_ACTIONS = [
   'link.revoked',
   'training.changed',
   'training.synced',
+  'member.excluded',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

@@ -183,6 +183,8 @@ export interface Member {
   role: Role;
   /** The server administrator disabled the account: it cannot log in or sync. */
   disabled?: boolean;
+  /** A coordinator left their records out of the results (figures and exports). */
+  excluded?: { at: number; reason: string | null };
 }
 
 export interface CsvFile {
@@ -395,6 +397,8 @@ export interface QualityData {
   computedAt: number | null;
   /** Older figures, given while newer ones are worked out. */
   stale: boolean;
+  /** People a coordinator left out of these figures, with why. */
+  excluded: { username: string; reason: string | null }[];
 }
 
 /** Where a plot is, from the plot files. */
@@ -1259,6 +1263,12 @@ export async function setMemberRole(projectId: string, userId: string, role: Rol
   await send("PUT", `${p(projectId)}/members/${encodeURIComponent(userId)}`, { json: { role } });
 }
 
+/** Leaves a member's records out of the results (with an optional reason), or puts them back. */
+export async function setMemberExcluded(projectId: string, userId: string, excluded: boolean, reason = ""): Promise<void> {
+  const json = excluded && reason.trim() ? { excluded, reason: reason.trim() } : { excluded };
+  await send("PUT", `${p(projectId)}/members/${encodeURIComponent(userId)}/excluded`, { json });
+}
+
 export async function removeMember(projectId: string, userId: string): Promise<void> {
   await send("DELETE", `${p(projectId)}/members/${encodeURIComponent(userId)}`);
 }
@@ -1564,6 +1574,7 @@ export function toQualityData(body: unknown): QualityData {
     options: toOptions(b.options),
     computedAt: toMillis(b.computedAt),
     stale: b.stale === true,
+    excluded: list(b.excluded).map((x) => ({ username: text(x.username), reason: typeof x.reason === "string" ? x.reason : null })),
   };
 }
 
@@ -1967,8 +1978,9 @@ export const EXPORT_FORMATS = ["csv", "geojson", "kml", "shp.zip"] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
 /** The collected data as a CSV or map file (fetched with the session, then saved by the page). */
-export async function downloadExport(projectId: string, format: ExportFormat = "csv"): Promise<{ blob: Blob; filename: string }> {
-  const response = await send("GET", `${p(projectId)}/export.${format}`);
+/** `includeExcluded`: also the records of people left out of the results. */
+export async function downloadExport(projectId: string, format: ExportFormat = "csv", includeExcluded = false): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("GET", `${p(projectId)}/export.${format}${includeExcluded ? "?excluded=include" : ""}`);
   return { blob: await response.blob(), filename: attachmentName(response, `collect-earth-data.${format}`) };
 }
 
@@ -2529,6 +2541,8 @@ export interface PersonRow {
   /** Null when the quality figures are not at hand. */
   agreement: Rate | null;
   status: PersonStatus;
+  /** Left out of the results by a coordinator (their records are in no figure nor export); null otherwise. */
+  excluded?: { at: number; reason: string | null } | null;
 }
 
 export interface QualityAtHand {
@@ -2663,6 +2677,7 @@ export function toPersonRow(value: unknown): PersonRow {
     lastPlotsDownloadAt: toMillis(r.lastPlotsDownloadAt),
     lastSubmittedAt: toMillis(r.lastSubmittedAt),
     agreement: toRateOrNull(r.agreement),
+    excluded: r.excluded && typeof r.excluded === "object" ? { at: toCount(obj(r.excluded).at), reason: typeof obj(r.excluded).reason === "string" ? text(obj(r.excluded).reason) : null } : null,
     status: {
       kind,
       days: kind === "quiet" ? toNumberOrNull(status.days) : null,

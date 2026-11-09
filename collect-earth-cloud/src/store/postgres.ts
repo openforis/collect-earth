@@ -1386,13 +1386,27 @@ export class PostgresStore implements Store {
 
   async listMembers(projectId: string): Promise<Member[]> {
     const res = await this.pool.query(
-      `SELECT m.user_id, u.username, m.role, u.disabled_at IS NOT NULL AS disabled
+      `SELECT m.user_id, u.username, m.role, u.disabled_at IS NOT NULL AS disabled, m.excluded_at, m.excluded_reason
          FROM project_members m JOIN users u ON u.id = m.user_id
         WHERE m.project_id = $1
         ORDER BY u.username`,
       [projectId],
     );
-    return res.rows.map((r) => ({ userId: r.user_id, username: r.username, role: r.role, disabled: r.disabled === true }));
+    return res.rows.map((r) => ({
+      userId: r.user_id,
+      username: r.username,
+      role: r.role,
+      disabled: r.disabled === true,
+      ...(r.excluded_at ? { excluded: { at: new Date(r.excluded_at).getTime(), reason: r.excluded_reason ?? null } } : {}),
+    }));
+  }
+
+  async setMemberExcluded(projectId: string, userId: string, excluded: { at: number; reason: string | null } | null): Promise<boolean> {
+    const res = await this.pool.query(
+      'UPDATE project_members SET excluded_at = $3, excluded_reason = $4 WHERE project_id = $1 AND user_id = $2',
+      [projectId, userId, excluded ? new Date(excluded.at) : null, excluded?.reason ?? null],
+    );
+    return (res.rowCount ?? 0) > 0;
   }
 
   async setMemberRole(projectId: string, userId: string, role: Role): Promise<void> {

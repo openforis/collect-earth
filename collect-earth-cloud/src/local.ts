@@ -79,6 +79,7 @@ export const LOCAL_OFF_ROUTES: readonly string[] = [
   'DELETE /v1/projects/:pid/invites/:id',
   'GET /v1/join/:token',
   'PUT /v1/projects/:pid/members/:uid',
+  'PUT /v1/projects/:pid/members/:uid/excluded',
   'DELETE /v1/projects/:pid/members/:uid',
   'GET /v1/projects/:pid/people',
   'GET /v1/projects/:pid/people/:userId',

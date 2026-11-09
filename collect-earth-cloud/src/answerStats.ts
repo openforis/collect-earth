@@ -159,6 +159,10 @@ export interface QualityFigures {
 
 /** The report, the answers, the flags' table and survey health's, from the same records. */
 export function qualityFigures(input: QualityInput): QualityFigures {
+  if (input.excluded && input.excluded.length > 0) {
+    const out = new Set(input.excluded);
+    input = { ...input, records: input.records.filter((r) => !out.has(r.operator)) };
+  }
   const kept = firstAssessments(input);
   const answers = answerTable(input, kept);
   const checked = checkedPlots();

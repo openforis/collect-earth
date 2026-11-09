@@ -288,6 +288,8 @@ export interface Store {
   listMemberships(userId: string): Promise<Membership[]>;
   listMembers(projectId: string): Promise<Member[]>;
   setMemberRole(projectId: string, userId: string, role: Role): Promise<void>;
+  /** Leaves a member's records out of the results (Member.excluded), or with null puts them back; false when not a member. */
+  setMemberExcluded(projectId: string, userId: string, excluded: { at: number; reason: string | null } | null): Promise<boolean>;
   /**
    * Also drops the member's assignments, plot holdings, activity and bell read state in the project;
    * its audit entries there stay with no actor.

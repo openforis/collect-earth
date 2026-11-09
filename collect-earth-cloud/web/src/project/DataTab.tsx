@@ -2,6 +2,8 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import MenuItem from "@mui/material/MenuItem";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -10,7 +12,7 @@ import ArrowForward from "@mui/icons-material/ArrowForward";
 import Download from "@mui/icons-material/Download";
 import PivotTableChart from "@mui/icons-material/PivotTableChart";
 import { useState } from "react";
-import { downloadExport, EXPORT_FORMATS, getOverview, type ExportFormat } from "../api";
+import { downloadExport, EXPORT_FORMATS, getOverview, listMembers, type ExportFormat } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
@@ -71,13 +73,16 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
   const [error, setError] = useState<unknown>(null);
   const [done, setDone] = useState(false);
   const [format, setFormat] = useState<ExportFormat>("csv");
+  // People left out of the results: their records are not in the download unless asked for.
+  const excluded = useLoad(() => (local ? Promise.resolve([]) : listMembers(projectId).then((ms) => ms.filter((m) => m.excluded))), [projectId, local]);
+  const [includeExcluded, setIncludeExcluded] = useState(false);
 
   const download = async () => {
     setBusy(true);
     setError(null);
     setDone(false);
     try {
-      const { blob, filename } = await downloadExport(projectId, format);
+      const { blob, filename } = await downloadExport(projectId, format, includeExcluded);
       saveBlob(blob, filename);
       setDone(true);
     } catch (err) {
@@ -106,6 +111,12 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
               {t("data.summary", { submitted: formatNumber(records.submitted, language), total: formatNumber(records.total, language) })}
             </Typography>
           ) : null}
+          {(excluded.data?.length ?? 0) > 0 && (
+            <FormControlLabel
+              control={<Checkbox checked={includeExcluded} onChange={(e) => setIncludeExcluded(e.target.checked)} />}
+              label={t("data.includeExcluded", { names: (excluded.data ?? []).map((m) => m.username).join(", ") })}
+            />
+          )}
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: { sm: "center" } }}>
             <TextField select size="small" label={t("data.format")} value={format} onChange={(e) => setFormat(e.target.value as ExportFormat)} sx={{ minWidth: 240 }}>
               {EXPORT_FORMATS.map((f) => (

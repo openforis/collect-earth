@@ -656,7 +656,8 @@ export class QualityService {
         info,
         cep,
         files.map((f) => [f.id, f.checksum, f.distribution ?? null]),
-        members.map((m) => [m.userId, m.username]),
+        // Who is left out of the results too: the figures are worked out again when that changes.
+        members.map((m) => [m.userId, m.username, m.excluded ? 1 : 0]),
         // The margins only: the "very fast" threshold is applied when the flags are served.
         settings.margins,
       ]),
@@ -704,7 +705,8 @@ export class QualityService {
     const [context, outline] = await Promise.all([loadPlotContext(this.store, projectId, log, known), this.outline(projectId, log)]);
     const { failed, ...plots } = context;
     const partial = failed === true;
-    const input: Omit<QualityInput, 'records'> = { ...plots, outline, margins: known.settings.margins };
+    const excluded = known.members.filter((m) => m.excluded).map((m) => m.username);
+    const input: Omit<QualityInput, 'records'> = { ...plots, outline, margins: known.settings.margins, ...(excluded.length > 0 ? { excluded } : {}) };
     this.computed += 1;
     if (source && this.runner) {
       try {

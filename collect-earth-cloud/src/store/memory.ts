@@ -202,6 +202,8 @@ export class InMemoryStore implements Store {
   private readonly userCreatedAt = new Map<string, number>();
   private readonly userDisabledBy = new Map<string, string>();
   private readonly memberships = new Map<string, Role>(); // `${projectId} ${userId}` -> role
+  /** `${projectId} ${userId}` -> left out of the results (Member.excluded). */
+  private readonly excludedMembers = new Map<string, { at: number; reason: string | null }>();
   private readonly invites = new Map<string, InviteEntry>(); // invite token hash -> entry
   private readonly resets = new Map<string, ResetEntry>(); // reset token hash -> entry
   /** Progress links (share_links): token hash -> link. */
@@ -1191,11 +1193,20 @@ export class InMemoryStore implements Store {
       if (memberProjectId === projectId) {
         const user = this.users.get(userId);
         if (user) {
-          result.push({ userId, username: user.username, role, disabled: !!user.disabledAt });
+          const excluded = this.excludedMembers.get(key);
+          result.push({ userId, username: user.username, role, disabled: !!user.disabledAt, ...(excluded ? { excluded: { ...excluded } } : {}) });
         }
       }
     }
     return result;
+  }
+
+  async setMemberExcluded(projectId: string, userId: string, excluded: { at: number; reason: string | null } | null): Promise<boolean> {
+    const id = InMemoryStore.memberId(projectId, userId);
+    if (!this.memberships.has(id)) return false;
+    if (excluded) this.excludedMembers.set(id, { ...excluded });
+    else this.excludedMembers.delete(id);
+    return true;
   }
 
   async setMemberRole(projectId: string, userId: string, role: Role): Promise<void> {
@@ -1207,6 +1218,7 @@ export class InMemoryStore implements Store {
 
   async removeMember(projectId: string, userId: string): Promise<void> {
     this.memberships.delete(InMemoryStore.memberId(projectId, userId));
+    this.excludedMembers.delete(InMemoryStore.memberId(projectId, userId));
     const entry = this.projects.get(projectId);
     if (entry) {
       for (const a of entry.assignments) {
