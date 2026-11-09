@@ -272,6 +272,12 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
         changed = true;
         const count = meta?.plotCount ?? 0;
         done.push(count === 1 ? t("plots.uploadedOne", { name: file.name }) : t("plots.uploaded", { name: file.name, count: formatNumber(count, language) }));
+        const given = meta?.assignment;
+        if (given) {
+          done.push(t("plots.assignedFromFile", { name: file.name, count: formatNumber(given.assigned, language), checks: formatNumber(given.checks, language) }));
+          if (given.unknown.length > 0) warn(t("plots.unknownNames", { name: file.name, names: given.unknown.join(", ") }));
+          if (given.notAssigned > 0) warn(t("plots.notAssignedFromFile", { name: file.name, count: formatNumber(given.notAssigned, language) }));
+        }
         setMessages([...done]);
         const w = meta?.warnings;
         if (w && (w.badIds ?? 0) > 0) {
@@ -305,6 +311,9 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
           <FileDrop label={t("plots.drop")} buttonLabel={t("plots.choose")} accept=".csv,text/csv" multiple disabled={upload !== null} onFiles={uploadFiles} />
           <Typography variant="body2" color="text.secondary">
             {t("plots.replaceHint")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t("plots.userColumnHint")}
           </Typography>
           {upload && (
             <div role="status">

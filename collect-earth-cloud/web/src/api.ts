@@ -194,6 +194,8 @@ export interface CsvFile {
   divided?: boolean;
   /** People holding at least one of its plots; 0 for a whole file. */
   dividedPeople?: number;
+  /** Given on upload of a file with a user column: how its plots were given out (the plots of unknown names were not). */
+  assignment?: { assigned: number; checks: number; notAssigned: number; unknown: string[] };
   /** Given on upload: what may be wrong with the file, which was still taken. */
   warnings?: {
     /** Ids the survey's number keys cannot take. */
@@ -250,7 +252,7 @@ export type DivisionOrder = "file" | "mixed" | "nearby";
 export type Distribution =
   | { mode: "whole" }
   | { mode: "manual"; order?: "nearby" }
-  | { mode: "even"; people: string[]; order: DivisionOrder; overlapPercent?: number; seed?: number }
+  | { mode: "even"; people: string[]; percents?: number[]; order: DivisionOrder; overlapPercent?: number; seed?: number }
   | {
       mode: "column";
       column: number;
@@ -1366,8 +1368,11 @@ export function toDistribution(value: unknown): Distribution | null {
   switch (d.mode) {
     case "manual":
       return d.order === "nearby" ? { mode: "manual", order: "nearby" } : { mode: "manual" };
-    case "even":
-      return { mode: "even", people: strings(d.people), order, ...extra };
+    case "even": {
+      const people = strings(d.people);
+      const percents = Array.isArray(d.percents) && d.percents.length === people.length ? d.percents.map((p) => toCount(p)) : null;
+      return { mode: "even", people, ...(percents ? { percents } : {}), order, ...extra };
+    }
     case "column":
       return {
         mode: "column",

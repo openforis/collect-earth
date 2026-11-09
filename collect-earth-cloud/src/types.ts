@@ -257,7 +257,8 @@ export type DivisionOrder = 'file' | 'mixed' | 'nearby';
  * rows in that order.
  */
 export type StoredDistribution =
-  | { mode: 'even'; people: string[]; order: DivisionOrder; overlapPercent: number; seed?: number }
+  /** `percents`: each person's share of the plots (one per person, adding up to 100); absent = even shares. */
+  | { mode: 'even'; people: string[]; percents?: number[]; order: DivisionOrder; overlapPercent: number; seed?: number }
   | {
       mode: 'column';
       column: number;
