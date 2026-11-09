@@ -98,8 +98,9 @@ function Standalone() {
               <Alert severity="error">{t("analysis.standaloneBroken")}</Alert>
             ) : (
               <>
+                <Typography color="text.secondary">{t("analysis.standaloneMade", { date: made })}</Typography>
                 <Typography color="text.secondary" sx={{ mb: 2 }}>
-                  {t("analysis.standaloneMade", { date: made })}
+                  {t("analysis.standaloneFresh")}
                 </Typography>
                 {/* What the file holds, first: it is easy to pass around */}
                 <Alert severity="warning" sx={{ mb: 2 }} data-testid="standalone-share">
