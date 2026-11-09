@@ -386,7 +386,10 @@ describe('the memory store: record events, member activity and the audit log', (
     await store.appendAudit(a, { actorUserId: jose, action: 'cep.replaced', details: {} });
     await store.appendAudit(a, { actorUserId: maria, action: 'cep.replaced', details: {} });
     await store.appendRecordEvent(event(a, { operator: 'jose' }));
-    await store.removeMember(a, jose);
+    // jose is the project's only admin: the store refuses to leave it with none
+    expect(await store.removeMember(a, jose)).toBe('last_admin');
+    await store.setMemberRole(a, maria, 'admin');
+    expect(await store.removeMember(a, jose)).toBe('ok');
     expect((await store.listMemberActivity(a)).map((m) => m.userId)).toEqual([maria]);
     expect((await store.listAudit(a, { limit: 10 })).map((e) => e.actorUserId)).toEqual([maria, null]);
     expect(await store.listRecordEvents(a, { from: 0, to: 10_000, limit: 10 })).toHaveLength(1);

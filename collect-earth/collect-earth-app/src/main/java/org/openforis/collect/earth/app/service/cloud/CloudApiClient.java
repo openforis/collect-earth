@@ -71,6 +71,31 @@ public class CloudApiClient {
 
 	private volatile CloseableHttpClient httpClient;
 
+	/**
+	 * A call the server refused: its HTTP status and the {@code error} code of its JSON answer
+	 * ({@code weak_password}, {@code invalid_invite}...), null when it had none. The message stays
+	 * "operation failed with HTTP status: body", as before.
+	 */
+	public static class CloudApiException extends IOException {
+		private static final long serialVersionUID = 1L;
+		private final int status;
+		private final String errorCode;
+
+		public CloudApiException(String message, int status, String errorCode) {
+			super(message);
+			this.status = status;
+			this.errorCode = errorCode;
+		}
+
+		public int getStatus() {
+			return status;
+		}
+
+		public String getErrorCode() {
+			return errorCode;
+		}
+	}
+
 	/** Result of trying to store a single record within a batch upload. */
 	public static class BatchResult {
 		private final String recordKey;
@@ -651,7 +676,20 @@ public class CloudApiClient {
 
 	private IOException errorFor(String operation, int status, String body) {
 		String excerpt = body == null ? "" : body.substring(0, Math.min(body.length(), ERROR_BODY_EXCERPT));
-		return new IOException(operation + " failed with HTTP " + status + ": " + excerpt);
+		return new CloudApiException(operation + " failed with HTTP " + status + ": " + excerpt, status, errorCodeOf(body));
+	}
+
+	/** The {@code error} of a JSON answer, or null when the body is no JSON object with one */
+	private String errorCodeOf(String body) {
+		if (body == null || body.isEmpty()) {
+			return null;
+		}
+		try {
+			JsonNode error = objectMapper.readTree(body).get("error");
+			return error != null && error.isTextual() ? error.asText() : null;
+		} catch (IOException | RuntimeException e) {
+			return null;
+		}
 	}
 
 	private static boolean isSuccess(int statusCode) {

@@ -17,6 +17,7 @@ import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.AssignmentInfo;
+import org.openforis.collect.earth.app.service.cloud.CloudApiClient.CloudApiException;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.JoinPreview;
 import org.openforis.collect.earth.app.service.cloud.CloudSyncQueueDao.QueueStatus;
 import org.openforis.collect.earth.app.view.Messages;
@@ -106,6 +107,12 @@ public class CloudService {
 		return new String[] { baseUrl, token };
 	}
 
+	/**
+	 * The shortest password an account registered from an invitation may have: the cloud server's rule
+	 * (collect-earth-cloud, src/accountRules.ts MIN_PASSWORD_LENGTH), checked here first to say it plainly.
+	 */
+	static final int MIN_PASSWORD_LENGTH = 8;
+
 	/** What the invitation is for, before the user confirms and logs in */
 	public Map<String, Object> preview(String url) throws InvalidCloudRequestException, IOException {
 		String[] invitation = parseInvitation(url);
@@ -128,6 +135,11 @@ public class CloudService {
 	 */
 	public void join(JoinRequest request) throws InvalidCloudRequestException, IOException {
 		String username = StringUtils.trimToEmpty(request.username);
+		// Said here, in the user's language, before the server is asked: it refuses the same (weak_password)
+		if (request.register && StringUtils.isNotEmpty(request.password) && StringUtils.isNotBlank(username)
+				&& request.password.length() < MIN_PASSWORD_LENGTH) {
+			throw new InvalidCloudRequestException("cloud.weakPassword", Messages.getString("CloudLoginDialog.passwordTooShort"));
+		}
 		String token = request.register ? authenticate(() -> api.register(request.baseUrl, username, request.password, request.inviteToken), request)
 				: authenticate(() -> login(request.baseUrl, username, request.password, request.code), request);
 		File cep = api.downloadCep(request.baseUrl, request.projectId, token);
@@ -208,6 +220,13 @@ public class CloudService {
 			default:
 				throw new InvalidCloudRequestException("cloud.secondStepInvalid", Messages.getString("CloudLoginDialog.secondStepInvalid"));
 			}
+		} catch (CloudApiException e) {
+			logger.warn("The cloud login failed: {}", e.getMessage());
+			// A server with a stricter rule than this version knows: still said in plain words
+			if ("weak_password".equals(e.getErrorCode())) {
+				throw new InvalidCloudRequestException("cloud.weakPassword", Messages.getString("CloudLoginDialog.passwordTooShort"));
+			}
+			throw new InvalidCloudRequestException("cloud.login", StringUtils.defaultIfBlank(e.getMessage(), Messages.getString("CloudLoginDialog.failed")));
 		} catch (IOException | RuntimeException e) {
 			logger.warn("The cloud login failed: {}", e.getMessage());
 			throw new InvalidCloudRequestException("cloud.login", StringUtils.defaultIfBlank(e.getMessage(), Messages.getString("CloudLoginDialog.failed")));

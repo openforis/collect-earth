@@ -29,6 +29,7 @@ import CloudOffOutlinedIcon from "@mui/icons-material/CloudOffOutlined";
 import ContentCopyIcon from "@mui/icons-material/ContentCopyOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import SendIcon from "@mui/icons-material/Send";
 import { type MessageKey, type Translate, useT } from "../i18n";
 import { escapeBlurs, isCopyKey, isTyping, mayAdvance, mayTakeFocus, panelKey, submitOnKey } from "../shortcuts";
@@ -36,7 +37,8 @@ import logo from "./collect-earth-logo.png";
 import { AnsweredByKey, Copied, FieldView, errorText } from "./fields";
 import {
   type Field, type FocusTarget, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type Step,
-  type TableItem, advanceTarget, answeredWithKeys, answersToCopy, availableItems, draftErrors, entityCount, errorList,
+  type TableItem, type TableTotal, type TotalRule, advanceTarget, answeredWithKeys, answersToCopy, availableItems, columnTotal,
+  draftErrors, entityCount, errorList, ruleMet, totalGap,
   fieldsOfStep, firstToAnswer, indexedField, isTabVisible, isVisible, itemFields, neededByTab, openingTarget, parseCodes,
   stepsOf, summaryLines, tabsWithErrors,
 } from "./model";
@@ -845,8 +847,58 @@ function EntityTable({ store, state, item }: { store: FormStore; state: FormStat
             ))}
           </TableBody>
         </Table>
+        {item.totals?.map((total, i) => <TableTotalLine key={i} store={store} state={state} total={total} />)}
       </Box>
     </Box>
+  );
+}
+
+const RULE_TEXT: Record<TotalRule["op"], MessageKey> = {
+  ">=": "entry.rule.ge", "<=": "entry.rule.le", ">": "entry.rule.gt", "<": "entry.rule.lt", "=": "entry.rule.eq", "!=": "entry.rule.ne",
+};
+
+/** Up to two decimals, in the browser's way of writing numbers */
+const formatTotal = (n: number) => new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(n);
+
+/**
+ * Under a table, the sum of a column that a check of the survey adds up, kept up to date as the rows are filled in, with
+ * what the check asks of it: "Total: 75 % · at least 90 · 15 to go". Red (amber for a warning) while a rule is broken,
+ * once something is entered or Submit was pressed; before that it only says what is asked. A calculated column (a
+ * percentage worked out from a coverage class) is known once the save has answered: dimmed until then.
+ */
+function TableTotalLine({ store, state, total }: { store: FormStore; state: FormState; total: TableTotal }) {
+  const t = useT();
+  const { sum, any } = columnTotal(total, (name) => store.value(name));
+  const broken = total.rules.filter((r) => !ruleMet(r, sum));
+  const shown = any || state.attempted;
+  const severity = !broken.length ? "success" : broken.some((r) => r.flag === "error") ? "error" : "warning";
+  const updating = !!total.calculated && (state.saveState === "unsaved" || state.saveState === "saving");
+  // a hidden column named "%" (the IPCC survey's) says the unit its label stands for
+  const unit = total.unit ?? (total.hidden && total.label.trim() === "%" ? "%" : undefined);
+  const amount = (n: number) => formatTotal(n) + (unit ? (unit === "%" ? "\u00a0%" : ` ${unit}`) : "");
+  const gap = broken.length ? totalGap(broken[0], sum) : null;
+  const color = shown && !updating ? `${severity}.main` : "text.secondary";
+  return (
+    <Stack direction="row" role="status" aria-live="polite" aria-atomic aria-busy={updating || undefined} data-testid="entry-table-total"
+      data-met={!broken.length || undefined}
+      sx={{ alignItems: "center", flexWrap: "wrap", columnGap: 1, rowGap: 0.25, px: 2, py: 1, borderTop: 1, borderColor: "divider",
+        bgcolor: "action.hover", opacity: updating ? 0.6 : 1, transition: "opacity 120ms", [NARROW]: { px: 1 } }}>
+      {shown && !updating && (broken.length
+        ? <ErrorOutlineIcon fontSize="small" sx={{ color }} />
+        : <CheckCircleIcon fontSize="small" sx={{ color }} titleAccess={t("entry.totalMet")} />)}
+      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+        {total.hidden ? t("entry.total") : t("entry.totalOf", { label: total.label })}: {amount(sum)}
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        {total.rules.map((r) => t(RULE_TEXT[r.op], { value: amount(r.value) })).join(" · ")}
+      </Typography>
+      {shown && !updating && gap != null && gap !== 0 && (
+        <Typography variant="body2" sx={{ color, fontWeight: 600 }}>
+          {gap > 0 ? t("entry.totalToGo", { amount: amount(gap) }) : t("entry.totalOver", { amount: amount(-gap) })}
+        </Typography>
+      )}
+      {updating && <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>{t("entry.totalUpdating")}</Typography>}
+    </Stack>
   );
 }
 

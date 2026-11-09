@@ -380,15 +380,21 @@ export async function registerAssignmentRoutes(
     '/v1/projects/:pid/assignments',
     { preHandler: requireProjectMembership(store, 'admin') },
     async (request: FastifyRequest, reply: FastifyReply) => {
+      const projectId = request.membership!.projectId;
       const body = (request.body ?? {}) as AssignmentsBody;
       const raw = Array.isArray(body.assignments) ? body.assignments : [];
+      // Members of this project only: any account's id was taken, and the list then gave its
+      // username, whatever project it belongs to. Ids that are not uuids are refused too (a 500 before).
+      const members = new Set((await store.listMembers(projectId)).map((m) => m.userId));
       const assignments: Assignment[] = [];
       for (const a of raw) {
-        if (typeof a?.userId === 'string' && typeof a?.csvFileId === 'string') {
-          assignments.push({ userId: a.userId, csvFileId: a.csvFileId });
+        if (typeof a?.userId !== 'string' || typeof a?.csvFileId !== 'string') continue;
+        if (!isUuid(a.csvFileId) || !members.has(a.userId)) {
+          return reply.code(400).send({ error: 'bad_request', reason: 'each assignment needs a member of this project and one of its plot files' });
         }
+        assignments.push({ userId: a.userId, csvFileId: a.csvFileId });
       }
-      await store.setAssignments(request.membership!.projectId, assignments);
+      await store.setAssignments(projectId, assignments);
       await audit(store, request, 'assignments.set', { count: assignments.length });
       return reply.send({ ok: true, count: assignments.length });
     },

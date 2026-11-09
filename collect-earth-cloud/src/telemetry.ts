@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { redactUrlsIn } from './logRedact.js';
 
 /**
  * Error reports (Sentry) and usage events (Google Analytics 4, Measurement Protocol, from the
@@ -82,10 +83,15 @@ export function cleanParams(name: EventName, params: Params): Record<string, str
 }
 
 /** What Sentry may keep of an event: no request body, headers, cookies, query string nor user. */
-export function scrubEvent<E extends { request?: object; user?: unknown }>(event: E): E {
+export function scrubEvent<E extends { request?: object; user?: unknown; transaction?: unknown }>(event: E): E {
   if (event.request) {
     const { url, method } = event.request as { url?: unknown; method?: unknown };
-    (event as { request?: object }).request = { url: typeof url === 'string' ? url.split('?')[0] : undefined, method };
+    // No query string, and no token in the path: an invitation, a password reset or a progress link
+    // there is a working link for whoever reads the reports (logRedact's list of such paths)
+    (event as { request?: object }).request = { url: typeof url === 'string' ? redactUrlsIn(url.split('?')[0]) : undefined, method };
+  }
+  if (typeof event.transaction === 'string') {
+    (event as { transaction?: unknown }).transaction = redactUrlsIn(event.transaction);
   }
   delete event.user;
   return event;

@@ -477,7 +477,10 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       if (current.role === 'admin' && body.role !== 'admin' && (await store.countAdmins(projectId)) <= 1) {
         return reply.code(409).send({ error: 'last_admin' });
       }
-      await store.setMemberRole(projectId, uid, body.role);
+      // Checked again by the store, atomically: two admins demoting each other at once
+      if ((await store.setMemberRole(projectId, uid, body.role)) === 'last_admin') {
+        return reply.code(409).send({ error: 'last_admin' });
+      }
       await audit(store, request, 'member.role', { userId: uid, role: body.role });
       // A new collector gets the reference copies; someone no longer one loses those not started.
       await request.server.referenceSync?.(projectId, request.log);
@@ -544,9 +547,14 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       if (current.role === 'admin' && (await store.countAdmins(projectId)) <= 1) {
         return reply.code(409).send({ error: 'last_admin' });
       }
-      // Logged first: removeMember sets the actor of the member's own entries to null.
+      // Logged first: removeMember sets the actor of the member's own entries to null. The store
+      // checks the last admin again, atomically (two admins removing each other at once): the entry
+      // then says it was refused.
       await audit(store, request, 'member.removed', { userId: uid });
-      await store.removeMember(projectId, uid);
+      if ((await store.removeMember(projectId, uid)) === 'last_admin') {
+        await audit(store, request, 'member.removed', { userId: uid, refused: 'last_admin' });
+        return reply.code(409).send({ error: 'last_admin' });
+      }
       await request.server.referenceSync?.(projectId, request.log);
       return reply.code(204).send();
     },

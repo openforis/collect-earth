@@ -243,14 +243,57 @@ describe('account security: "Forgot your password?", sessions after a change, se
     });
   });
 
+  describe("the server administrator's reset links", () => {
+    const issue = (userId: string) =>
+      ctx.app.inject({ method: 'POST', url: `/v1/admin/users/${userId}/password-reset`, headers: bearer(owner.token) });
+
+    it('mails it to a confirmed address and never shows it to the administrator', async () => {
+      const coord = await account('coord', 'coord@example.org');
+      const res = await issue(coord.userId);
+      expect(res.statusCode).toBe(202);
+      expect(res.json()).toEqual({ mailed: true });
+      const sent = mails('account.reset', 'coord@example.org');
+      expect(sent).toHaveLength(1);
+      expect(res.body).not.toContain(resetToken(sent[0].text)!);
+    });
+
+    it('gives the administrator a link only for an account no mail reaches', async () => {
+      const nomail = await account('nomail', null);
+      const unconfirmed = await account('unconf', 'unconf@example.org', { confirmed: false });
+      for (const who of [nomail, unconfirmed]) {
+        const res = await issue(who.userId);
+        expect(res.statusCode).toBe(201);
+        expect(res.json().resetUrl).toMatch(/\/reset\//);
+      }
+      expect(mails('account.reset')).toEqual([]);
+    });
+  });
+
   describe('the email address changed or removed', () => {
-    const putEmail = (token: string, email: string | null, language?: string) =>
-      ctx.app.inject({ method: 'PUT', url: '/v1/me/email', headers: bearer(token), payload: { email, ...(language ? { language } : {}) } });
+    const putEmail = (token: string, email: string | null, password: string, language?: string) =>
+      ctx.app.inject({ method: 'PUT', url: '/v1/me/email', headers: bearer(token), payload: { email, currentPassword: password, ...(language ? { language } : {}) } });
+
+    it('asks for the password: a session alone cannot move the address the reset links go to', async () => {
+      const ivy = await account('ivy', 'ivy@example.org');
+      const token = await session('ivy', ivy.password);
+      for (const payload of [{ email: 'thief@evil.example' }, { email: 'thief@evil.example', currentPassword: 'wrong' }, { email: null }]) {
+        const res = await ctx.app.inject({ method: 'PUT', url: '/v1/me/email', headers: bearer(token), payload });
+        expect(res.statusCode).toBe(401);
+        expect(res.json().error).toBe('invalid_credentials');
+      }
+      expect((await ctx.store.getAccountMail(ivy.userId))!.email).toBe('ivy@example.org');
+      await settled();
+      expect(mails('email.confirm')).toEqual([]);
+      // the same address again changes nothing and needs no password
+      expect((await ctx.app.inject({ method: 'PUT', url: '/v1/me/email', headers: bearer(token), payload: { email: 'ivy@example.org' } })).statusCode).toBe(200);
+      // the session stays: a wrong password here is not a sign-out
+      expect((await ctx.app.inject({ method: 'GET', url: '/v1/me', headers: bearer(token) })).statusCode).toBe(200);
+    });
 
     it('tells the OLD confirmed address, never showing the new one in full', async () => {
       const max = await account('max', 'max.old@example.org');
       const token = await session('max', max.password);
-      expect((await putEmail(token, 'newaddress@other.net')).statusCode).toBe(200);
+      expect((await putEmail(token, 'newaddress@other.net', max.password)).statusCode).toBe(200);
       await settled();
       const notice = mails('account.email-changed');
       expect(notice).toHaveLength(1);
@@ -270,7 +313,7 @@ describe('account security: "Forgot your password?", sessions after a change, se
       await settled();
       const token = resetToken(mails('account.reset', 'oli@example.org')[0].text)!;
       const session_ = await session('oli', oli.password);
-      expect((await putEmail(session_, 'oli@other.net')).statusCode).toBe(200);
+      expect((await putEmail(session_, 'oli@other.net', oli.password)).statusCode).toBe(200);
       expect((await ctx.app.inject({ method: 'GET', url: `/v1/auth/reset/${token}` })).statusCode).toBe(410);
       const res = await ctx.app.inject({ method: 'POST', url: '/v1/auth/reset', payload: { token, newPassword: 'new-password-1' } });
       expect(res.statusCode).toBe(410);
@@ -279,7 +322,7 @@ describe('account security: "Forgot your password?", sessions after a change, se
     it('tells it when the address is removed, in the language of the page', async () => {
       const ned = await account('ned', 'ned@example.org');
       const token = await session('ned', ned.password);
-      expect((await putEmail(token, null, 'fr')).statusCode).toBe(200);
+      expect((await putEmail(token, null, ned.password, 'fr')).statusCode).toBe(200);
       await settled();
       const notice = mails('account.email-changed', 'ned@example.org');
       expect(notice).toHaveLength(1);
@@ -290,8 +333,8 @@ describe('account security: "Forgot your password?", sessions after a change, se
     it('nothing to an address that was not confirmed', async () => {
       const ole = await account('ole', 'ole@example.org', { confirmed: false });
       const token = await session('ole', ole.password);
-      expect((await putEmail(token, 'ole2@example.org')).statusCode).toBe(200);
-      expect((await putEmail(token, null)).statusCode).toBe(200);
+      expect((await putEmail(token, 'ole2@example.org', ole.password)).statusCode).toBe(200);
+      expect((await putEmail(token, null, ole.password)).statusCode).toBe(200);
       await settled();
       expect(mails('account.email-changed')).toEqual([]);
     });

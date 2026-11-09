@@ -4,8 +4,8 @@ import type { Config } from './config.js';
 
 /**
  * Username / password rules for accounts made or changed from the dashboard
- * (setup, signup, password change, reset). NOT applied to /v1/auth/register: the
- * desktop client uses it and must keep accepting what it accepts today.
+ * (setup, signup, password change, reset). /v1/auth/register, which Collect Earth uses too,
+ * applies the password rule only: its usernames stay as the desktop client accepts them.
  */
 const USERNAME_RE = /^[A-Za-z0-9._@-]{3,64}$/;
 export const MIN_PASSWORD_LENGTH = 8;

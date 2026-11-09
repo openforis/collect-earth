@@ -166,6 +166,8 @@ export interface Store {
   /** Creates a user; rejects if the username already exists. */
   createUser(input: { username: string; passwordHash: string; email: string | null; termsAcceptedAt?: number | null }): Promise<User>;
   getUserByUsername(username: string): Promise<User | null>;
+  /** Whether a name is an account's username, a live account's or a deleted one's (retired, migration 010). */
+  isAccountUsername(username: string): Promise<boolean>;
   getUserById(userId: string): Promise<User | null>;
 
   /** Issues an opaque session token for a user and returns the plaintext token. */
@@ -292,14 +294,16 @@ export interface Store {
   getMembership(projectId: string, userId: string): Promise<TokenMembership | null>;
   listMemberships(userId: string): Promise<Membership[]>;
   listMembers(projectId: string): Promise<Member[]>;
-  setMemberRole(projectId: string, userId: string, role: Role): Promise<void>;
+  /** 'last_admin', changing nothing, when it would leave the project without an admin (checked atomically). */
+  setMemberRole(projectId: string, userId: string, role: Role): Promise<'ok' | 'last_admin'>;
   /** Leaves a member's records out of the results (Member.excluded), or with null puts them back; false when not a member. */
   setMemberExcluded(projectId: string, userId: string, excluded: { at: number; reason: string | null } | null): Promise<boolean>;
   /**
    * Also drops the member's assignments, plot holdings, activity and bell read state in the project;
-   * its audit entries there stay with no actor.
+   * its audit entries there stay with no actor. 'last_admin', changing nothing, when it would leave the project
+   * without an admin (checked atomically).
    */
-  removeMember(projectId: string, userId: string): Promise<void>;
+  removeMember(projectId: string, userId: string): Promise<'ok' | 'last_admin'>;
   /**
    * Renames an operator on everything of the project (src/anonymize.ts): the records (their key, summary and XML), the
    * record history, the training records and the quality decisions' "seen", in one transaction. Gives the number of
@@ -472,6 +476,10 @@ export interface Store {
    * Moves the record (recordKey, from) to (recordKey, to), in one transaction. When
    * (recordKey, to) exists too, the newer one (modifiedOn; the `to` row on a tie) is
    * kept under `to` and the other deleted. False when there is no (recordKey, from).
+   */
+  /**
+   * Moves a record kept under a legacy operator name to the account's username: false when there is no
+   * such row, or when the account already has the record (both are then kept as they are, never deleted).
    */
   renameRecordOperator(projectId: string, recordKey: string, from: string, to: string): Promise<boolean>;
 

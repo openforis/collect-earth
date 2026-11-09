@@ -17,6 +17,9 @@ import { serverText, type Texts } from "../../serverTexts";
 /** `code`: two-step sign-in's code, once the server asked for it (cloud.secondStepRequired) */
 export interface Credentials { username: string; password: string; register: boolean; code?: string }
 
+/** The shortest password a new account may have: the cloud server's rule (CloudService.MIN_PASSWORD_LENGTH) */
+export const MIN_PASSWORD_LENGTH = 8;
+
 interface Props {
   open: boolean;
   texts: Texts | null;
@@ -48,6 +51,8 @@ export function CloudLoginDialog({ open, texts, intro, canRegister = false, onSu
   const submit = (register: boolean) => {
     if (!username.trim() || !password) { setError(s("CloudLoginDialog.emptyFields")); return; }
     if (needsCode && !register && !code.trim()) { setError(s("CloudLoginDialog.secondStepRequired")); return; }
+    // Said before the server is asked, in the user's language: it refuses the same
+    if (register && password.length < MIN_PASSWORD_LENGTH) { setError(s("CloudLoginDialog.passwordTooShort")); return; }
     setBusy(true);
     setError(null);
     onSubmit({ username: username.trim(), password, register, ...(needsCode && !register ? { code: code.trim() } : {}) }).catch((e) => {
@@ -72,7 +77,9 @@ export function CloudLoginDialog({ open, texts, intro, canRegister = false, onSu
             {intro && <DialogContentText sx={{ whiteSpace: "pre-line" }}>{intro}</DialogContentText>}
             {error && <Alert severity="error">{error}</Alert>}
             <TextField autoFocus label={s("CloudLoginDialog.usernameLabel")} value={username} onChange={(e) => setUsername(e.target.value)} size="small" autoComplete="username" />
-            <TextField label={s("CloudLoginDialog.passwordLabel")} type="password" value={password} onChange={(e) => setPassword(e.target.value)} size="small" autoComplete="current-password" />
+            {/* With an invitation the password may be a new account's: its rule said under it */}
+            <TextField label={s("CloudLoginDialog.passwordLabel")} type="password" value={password} onChange={(e) => setPassword(e.target.value)} size="small" autoComplete="current-password"
+              helperText={canRegister ? s("CloudLoginDialog.passwordHint") : undefined} />
             {needsCode && (
               <>
                 <Alert severity="info">{s("CloudLoginDialog.secondStepRequired")}</Alert>

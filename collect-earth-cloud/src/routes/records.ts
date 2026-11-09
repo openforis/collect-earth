@@ -48,7 +48,16 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
         sessionUsername = user.username;
       }
       let warned = false;
-      let memberNames: Set<string> | undefined;
+      // Whether a name sent as operator is an account's username, asked once per name in a batch
+      const accountNames = new Map<string, boolean>();
+      const accountName = async (name: string): Promise<boolean> => {
+        let known = accountNames.get(name);
+        if (known === undefined) {
+          known = await store.isAccountUsername(name);
+          accountNames.set(name, known);
+        }
+        return known;
+      };
       const body = (request.body ?? {}) as BatchBody;
       const envelopes = Array.isArray(body.records) ? body.records : [];
 
@@ -78,11 +87,12 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
             // Before records went by the username, a session upload was stored under the
             // operator name Collect Earth sent ("Juan Perez" for the account juan). Its
             // next save moves that row to the username, so the record is not counted twice
-            // and a deletion reaches it. Never a row that is another member's own.
-            if (sent !== null && sent !== '') {
-              memberNames ??= new Set((await store.listMembers(projectId)).map((m) => m.username));
-              if (!memberNames.has(sent)) {
-                await store.renameRecordOperator(projectId, envelope.recordKey, sent, sessionUsername);
+            // and a deletion reaches it. The name is the client's word, so never a row kept
+            // under any account's username, a member's, a former member's or a deleted
+            // account's, and never one the account has already (renameRecordOperator).
+            if (sent !== null && sent !== '' && !(await accountName(sent))) {
+              if (await store.renameRecordOperator(projectId, envelope.recordKey, sent, sessionUsername)) {
+                request.log.info({ projectId, recordKey: envelope.recordKey, from: sent, to: sessionUsername }, 'record moved from a legacy operator name to the username');
               }
             }
           }

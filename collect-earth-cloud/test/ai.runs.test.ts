@@ -472,6 +472,25 @@ describe('AI runs', () => {
     expect((await run({ kind: 'report' })).status).toBe('done');
   });
 
+  it("deleting a project and making another does not start a fresh month: the person's tokens are kept", async () => {
+    await setUp();
+    client = blocked(5000);
+    expect((await run({ kind: 'report' })).status).toBe('failed');
+    await settings({ aiMonthlyTokens: 5007 });
+    expect((await post({ kind: 'report' })).json().error).toBe('ai_monthly_limit');
+    expect((await ctx.app.inject({ method: 'DELETE', url: url(''), headers: bearer(owner.token), payload: { confirmName: PROJECT_NAME } })).statusCode).toBe(204);
+    const fresh = await createProject(ctx.app, 'Fresh start');
+    await ctx.store.addMembership(fresh.projectId, owner.userId, 'admin');
+    const on = await ctx.app.inject({ method: 'PUT', url: url('/ai', fresh.projectId), headers: bearer(owner.token), payload: { enabled: true } });
+    expect(on.statusCode, on.body).toBe(200);
+    expect((await post({ kind: 'report' }, owner.token, fresh.projectId)).json().error).toBe('ai_monthly_limit');
+    // the limit is per project coordinated: a second one gives a second allowance
+    const second = await createProject(ctx.app, 'Second');
+    await ctx.store.addMembership(second.projectId, owner.userId, 'admin');
+    client = createFakeClient();
+    expect((await post({ kind: 'report' }, owner.token, fresh.projectId)).statusCode).toBe(202);
+  });
+
   it('tokens per calendar month (UTC), failed runs too; checked after the daily limits; 0 allows none', async () => {
     await setUp();
     client = blocked(5000);

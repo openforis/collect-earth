@@ -104,7 +104,9 @@ check('a kind other than the two is refused', (await refused("INSERT INTO digest
 const subscribe = async (token: string, email: string, kinds: object, language = 'en') => {
   clock -= 7 * DAY;
   try {
-    const set = await me('PUT', '/email', token, { email, language });
+    // a change of address asks for the account's password (security review, 2026-11)
+    const currentPassword = token === ownerToken ? 'owner-password' : 'password12';
+    const set = await me('PUT', '/email', token, { email, language, currentPassword });
     const link = /\/confirm-email\/([A-Za-z0-9_.-]+)/.exec(mailer.sent.at(-1)?.text ?? '')?.[1];
     const ok = await app.inject({ method: 'POST', url: '/v1/email/confirm', payload: { token: link } });
     const on = await me('PUT', '/notifications', token, { ...kinds, language, timeZone: 'UTC' });

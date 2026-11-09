@@ -490,7 +490,10 @@ export async function registerAdminRoutes(
   );
 
   // Issue a reset link. Platform admin only: a project admin resetting a user who
-  // also belongs to another project would reach across the tenant boundary.
+  // also belongs to another project would reach across the tenant boundary. An account
+  // with a confirmed address gets it by mail (202 { mailed }), never shown to the
+  // administrator, who could otherwise sign in as any coordinator and see their projects;
+  // only an account no mail can reach gets a link the administrator passes on (201).
   app.post(
     '/v1/admin/users/:uid/password-reset',
     { preHandler: requirePlatformAdmin(store) },
@@ -503,12 +506,16 @@ export async function registerAdminRoutes(
       if (user.disabledAt) {
         return reply.code(409).send({ error: 'account_disabled', reason: 'enable the account first' });
       }
+      if (await options.accountMail?.mailResetLink?.(request, user.id)) {
+        return reply.code(202).send({ mailed: true });
+      }
       const expiresAt = Date.now() + RESET_TTL_MS;
       // Null when the account was disabled meanwhile: the store checks it in the same statement.
       const token = await store.createPasswordReset(user.id, expiresAt);
       if (token === null) {
         return reply.code(409).send({ error: 'account_disabled', reason: 'enable the account first' });
       }
+      request.log.info({ action: 'account.reset.issued', actorUserId: request.userId, userId: user.id }, 'platform admin was given a reset link (no address to mail it to)');
       return reply.code(201).send({ resetUrl: `${publicBaseUrl(config, request)}/reset/${token}`, expiresAt });
     },
   );

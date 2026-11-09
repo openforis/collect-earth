@@ -7,6 +7,7 @@ import { PUBLIC_SCHEMA_FIX } from './migrate.js';
 import {
   AI_INTERRUPTED,
   aiLimitReached,
+  personOverMonth,
   DEFAULT_PROGRESS_SETTINGS,
   DEFAULT_SETTINGS,
   totalStorageBytes,
@@ -105,6 +106,8 @@ const PLOT_INSERT_CHUNK = 5000;
 const SHARE_LINKS_LOCK = "SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:share-links:' || $1))";
 /** The check sampling's lock per project (addSampledCopies, setDivision). */
 const SAMPLING_LOCK = "SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:sampling:' || $1))";
+/** Changes to a project's admins, one at a time (lastAdmin). */
+const PROJECT_ADMINS_LOCK = "SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:project-admins:' || $1))";
 /** The longest statement of a draw's transaction (its lock's wait included): 24,000 copies took about 1.5 s. */
 export const SAMPLING_STATEMENT_TIMEOUT_MS = 30_000;
 /** The longest pause between the statements of a draw's transaction before Postgres ends it. */
@@ -440,13 +443,10 @@ export class PostgresStore implements Store {
       if (!old) {
         return false;
       }
-      const current = res.rows.find((r) => r.operator === to);
-      if (current && (old.modified_on as Date).getTime() <= (current.modified_on as Date).getTime()) {
-        await client.query('DELETE FROM records WHERE project_id = $1 AND record_key = $2 AND operator = $3', [projectId, recordKey, from]);
-        return true;
-      }
-      if (current) {
-        await client.query('DELETE FROM records WHERE project_id = $1 AND record_key = $2 AND operator = $3', [projectId, recordKey, to]);
+      // The account has the record already: both are kept. Merging them deleted one, and a forged
+      // operator name made that someone else's record.
+      if (res.rows.some((r) => r.operator === to)) {
+        return false;
       }
       await client.query('UPDATE records SET operator = $4 WHERE project_id = $1 AND record_key = $2 AND operator = $3', [projectId, recordKey, from, to]);
       return true;
@@ -769,6 +769,15 @@ export class PostgresStore implements Store {
 
   async claimRecoveryCode(userId: string, hash: string): Promise<boolean> {
     const res = await this.pool.query('UPDATE user_two_factor SET recovery_hashes = array_remove(recovery_hashes, $2) WHERE user_id = $1 AND $2 = ANY(recovery_hashes)', [userId, hash]);
+    return (res.rowCount ?? 0) > 0;
+  }
+
+  async isAccountUsername(username: string): Promise<boolean> {
+    const res = await this.pool.query(
+      `SELECT 1 FROM users WHERE username = ANY($1::text[])
+       UNION ALL SELECT 1 FROM retired_usernames WHERE username = ANY($1::text[]) LIMIT 1`,
+      [[username, username.toLowerCase()]],
+    );
     return (res.rowCount ?? 0) > 0;
   }
 
@@ -1429,15 +1438,34 @@ export class PostgresStore implements Store {
     return (res.rowCount ?? 0) > 0;
   }
 
-  async setMemberRole(projectId: string, userId: string, role: Role): Promise<void> {
-    await this.pool.query(
-      'UPDATE project_members SET role = $3 WHERE project_id = $1 AND user_id = $2',
-      [projectId, userId, role],
+  /**
+   * Whether taking `userId`'s admin role away would leave the project with none, asked under
+   * PROJECT_ADMINS_LOCK: two admins demoting or removing each other at once are then taken one
+   * after the other, and the second is refused (it used to leave a project nobody could manage).
+   */
+  private async lastAdmin(client: pg.PoolClient, projectId: string, userId: string, keepsAdmin: boolean): Promise<boolean> {
+    await client.query(PROJECT_ADMINS_LOCK, [projectId]);
+    if (keepsAdmin) return false;
+    const res = await client.query(
+      `SELECT (SELECT role FROM project_members WHERE project_id = $1 AND user_id = $2) AS role,
+              (SELECT COUNT(*)::int FROM project_members WHERE project_id = $1 AND role = 'admin') AS admins`,
+      [projectId, userId],
     );
+    const r = res.rows[0];
+    return r?.role === 'admin' && r.admins <= 1;
   }
 
-  async removeMember(projectId: string, userId: string): Promise<void> {
-    await this.withProject(projectId, async (client) => {
+  async setMemberRole(projectId: string, userId: string, role: Role): Promise<'ok' | 'last_admin'> {
+    return this.withProject(projectId, async (client) => {
+      if (await this.lastAdmin(client, projectId, userId, role === 'admin')) return 'last_admin';
+      await client.query('UPDATE project_members SET role = $3 WHERE project_id = $1 AND user_id = $2', [projectId, userId, role]);
+      return 'ok';
+    });
+  }
+
+  async removeMember(projectId: string, userId: string): Promise<'ok' | 'last_admin'> {
+    return this.withProject(projectId, async (client) => {
+      if (await this.lastAdmin(client, projectId, userId, false)) return 'last_admin';
       // A draw's copies land before or after the removal, never one for a person removed meanwhile.
       await client.query(SAMPLING_LOCK, [projectId]);
       await client.query('DELETE FROM assignments WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
@@ -1446,6 +1474,7 @@ export class PostgresStore implements Store {
       await client.query('DELETE FROM attention_reads WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
       await client.query('UPDATE audit_log SET actor_user_id = NULL WHERE project_id = $1 AND actor_user_id = $2', [projectId, userId]);
       await client.query('DELETE FROM project_members WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
+      return 'ok';
     });
   }
 
@@ -2637,6 +2666,17 @@ export class PostgresStore implements Store {
       if (limit) {
         return { ok: false, limit } as const;
       }
+      // The person's month across projects, deleted ones included (ai_token_ledger, migration 034)
+      if (start.startedBy) {
+        const mine = await client.query(
+          `SELECT COALESCE((SELECT tokens FROM ai_token_ledger WHERE user_id = $1 AND month = ($2::timestamptz AT TIME ZONE 'UTC')::date), 0)::bigint AS used,
+                  (SELECT count(*) FROM project_members WHERE user_id = $1 AND role = 'admin')::int AS coordinated`,
+          [start.startedBy, new Date(w.monthStart)],
+        );
+        if (personOverMonth(Number(mine.rows[0].used), mine.rows[0].coordinated, w)) {
+          return { ok: false, limit: 'monthly' } as const;
+        }
+      }
       const ins = await client.query(
         `WITH a AS (
            INSERT INTO ai_runs (project_id, kind, started_by, started_at, model, parent_run, finding_index, action, question, question_names)
@@ -2679,9 +2719,17 @@ export class PostgresStore implements Store {
     }
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        `UPDATE ai_runs SET status = $3, finished_at = $4, input_tokens = $5, output_tokens = $6, tool_calls = $7,
-                result = $8, error = $9, error_code = $10
-          WHERE project_id = $1 AND id = $2 AND status = 'running'`,
+        `WITH done AS (
+           UPDATE ai_runs SET status = $3, finished_at = $4, input_tokens = $5, output_tokens = $6, tool_calls = $7,
+                  result = $8, error = $9, error_code = $10
+            WHERE project_id = $1 AND id = $2 AND status = 'running'
+            RETURNING started_by, started_at, input_tokens + output_tokens AS tokens),
+         spent AS (
+           INSERT INTO ai_token_ledger (user_id, month, tokens)
+           SELECT started_by, date_trunc('month', started_at AT TIME ZONE 'UTC')::date, tokens
+             FROM done WHERE started_by IS NOT NULL AND tokens > 0
+           ON CONFLICT (user_id, month) DO UPDATE SET tokens = ai_token_ledger.tokens + EXCLUDED.tokens)
+         SELECT 1 FROM done`,
         [
           projectId,
           runId,

@@ -715,6 +715,15 @@ export function aiLimitReached(kind: AiRunKind, counts: AiRunCounts, w: AiRunWin
   return null;
 }
 
+/**
+ * Whether a person's AI tokens this month (every project, deleted ones included) reach the monthly limit
+ * times the projects they coordinate (at least one): deleting a project and making another does not start
+ * a fresh allowance.
+ */
+export function personOverMonth(tokensThisMonth: number, coordinatedProjects: number, w: AiRunWindow): boolean {
+  return tokensThisMonth >= w.monthlyTokens * Math.max(1, coordinatedProjects);
+}
+
 /** The failure of a run that was still running when its server stopped, or long past its time limit. */
 export const AI_INTERRUPTED = { code: 'interrupted', message: 'The assistant stopped before it finished: the server restarted, or the run took too long.' } as const;
 

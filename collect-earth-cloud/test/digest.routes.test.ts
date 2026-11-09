@@ -24,8 +24,12 @@ describe('email digests (Task 19)', () => {
   const config: Partial<Config> = { digestSecret: DIGEST_SECRET, publicBaseUrl: 'https://ce.example.org' };
   const call = (method: 'GET' | 'PUT' | 'POST' | 'DELETE', path: string, token: string, payload?: unknown, headers: Record<string, string> = {}) =>
     ctx.app.inject({ method, url: `/v1/projects/${pid}${path}`, headers: { ...bearer(token), ...headers }, payload: payload as never });
+  // A change of address asks for the password: the owner's (setupPlatformAdmin), else password12
   const me = (method: 'GET' | 'PUT' | 'POST', path: string, token: string, payload?: unknown) =>
-    ctx.app.inject({ method, url: `/v1/me${path}`, headers: bearer(token), payload: payload as never });
+    ctx.app.inject({
+      method, url: `/v1/me${path}`, headers: bearer(token),
+      payload: (method === 'PUT' && path === '/email' ? { currentPassword: token === owner.token ? 'owner-password' : 'password12', ...(payload as object) } : payload) as never,
+    });
   const join = async (username: string, role: 'operator' | 'reviewer') => {
     const invite = await call('POST', '/invites', owner.token, { role, maxUses: 1 });
     const res = await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username, password: 'password12', inviteToken: invite.json().inviteToken } });
@@ -240,7 +244,7 @@ describe('email digests (Task 19)', () => {
 
   it("the mails' links come from PUBLIC_BASE_URL, never from the request's Host or X-Forwarded-Host", async () => {
     const spoof = { host: 'evil.example.net', 'x-forwarded-host': 'evil.example.net', 'x-forwarded-proto': 'http' };
-    await ctx.app.inject({ method: 'PUT', url: '/v1/me/email', headers: { ...bearer(maria.token), ...spoof }, payload: { email: 'maria@example.org' } });
+    await ctx.app.inject({ method: 'PUT', url: '/v1/me/email', headers: { ...bearer(maria.token), ...spoof }, payload: { email: 'maria@example.org', currentPassword: 'password12' } });
     const confirm = mailer.sent.at(-1)!;
     expect(confirm.text).toContain('https://ce.example.org/confirm-email/');
     expect(confirm.text + confirm.html).not.toContain('evil');

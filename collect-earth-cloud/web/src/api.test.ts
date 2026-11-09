@@ -1299,12 +1299,15 @@ describe("weekly emails (Task 19)", () => {
     await setNotifications({ collector: true, language: "es", timeZone: null });
     expect(fetchMock.mock.calls[2][1]).toMatchObject({ body: JSON.stringify({ collector: true, language: "es" }) });
     fetchMock.mockResolvedValue(jsonResponse(200, body));
-    await setEmail("maria@example.org", "fr");
+    await setEmail("maria@example.org", "fr", "secret");
     expect(url(3)).toBe("/v1/me/email");
-    expect(fetchMock.mock.calls[3][1]).toMatchObject({ method: "PUT", body: JSON.stringify({ email: "maria@example.org", language: "fr" }) });
+    expect(fetchMock.mock.calls[3][1]).toMatchObject({ method: "PUT", body: JSON.stringify({ email: "maria@example.org", language: "fr", currentPassword: "secret" }) });
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ sent: true }), { status: 202 }));
     await sendEmailConfirmation("fr");
     expect(url(4)).toBe("/v1/me/email/confirmation");
+    // A wrong password is said as such, and does not end the session
+    fetchMock.mockResolvedValue(jsonResponse(401, { error: "invalid_credentials" }));
+    expect(errorMessageKey(await setEmail("x@example.org", "en", "wrong").catch((e: unknown) => e))).toBe("error.wrongPassword");
     for (const [code, key] of [
       ["invalid_email", "mail.invalidEmail"],
       ["no_email", "mail.noEmail"],
@@ -1314,7 +1317,7 @@ describe("weekly emails (Task 19)", () => {
       ["confirm_expired", "mail.confirmExpired"],
     ]) {
       fetchMock.mockResolvedValue(jsonResponse(409, { error: code }));
-      expect(errorMessageKey(await setEmail("x", "en").catch((e: unknown) => e))).toBe(key);
+      expect(errorMessageKey(await setEmail("x", "en", "pw").catch((e: unknown) => e))).toBe(key);
     }
   });
 

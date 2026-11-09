@@ -488,8 +488,10 @@ export interface AccountDeletion {
 }
 
 export interface ResetLink {
-  resetUrl: string;
+  /** null when the link was mailed to the account's confirmed address instead (mailed) */
+  resetUrl: string | null;
   expiresAt: number | null;
+  mailed: boolean;
 }
 
 /** added: the server added a hidden round key; own: the survey has one; none: no round. */
@@ -1043,9 +1045,17 @@ export async function setNotifications(change: Partial<Record<DigestKind, boolea
   return toNotifications(await request("PUT", "/v1/me/notifications", { json: timeZone ? { ...rest, timeZone } : rest }));
 }
 
-/** Gives the account an email (null removes it); a new one gets a mail with a link to confirm it. */
-export async function setEmail(email: string | null, language: string): Promise<Notifications> {
-  return toNotifications(await request("PUT", "/v1/me/email", { json: { email, language } }));
+/**
+ * Gives the account an email (null removes it); a new one gets a mail with a link to confirm it. A change asks
+ * for the account's current password: a 401 is then a wrong password (wrong_password), not a session ended.
+ */
+export async function setEmail(email: string | null, language: string, currentPassword: string): Promise<Notifications> {
+  try {
+    return toNotifications(await request("PUT", "/v1/me/email", { json: { email, language, currentPassword }, noSessionEnd: true }));
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) throw new ApiError(401, "wrong_password", error.reason);
+    throw error;
+  }
 }
 
 export async function sendEmailConfirmation(language: string): Promise<void> {
@@ -2244,8 +2254,9 @@ export async function getServerOverview(): Promise<ServerOverview> {
 }
 
 export async function makeResetLink(userId: string): Promise<ResetLink> {
-  const body = await request<{ resetUrl?: string; expiresAt?: unknown }>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/password-reset`);
-  return { resetUrl: absoluteUrl(body?.resetUrl ?? null, "/"), expiresAt: toMillis(body?.expiresAt) };
+  const body = await request<{ resetUrl?: string; expiresAt?: unknown; mailed?: unknown }>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/password-reset`);
+  if (body?.mailed === true) return { resetUrl: null, expiresAt: null, mailed: true };
+  return { resetUrl: absoluteUrl(body?.resetUrl ?? null, "/"), expiresAt: toMillis(body?.expiresAt), mailed: false };
 }
 
 // --- progress (the Progress tab) -----------------------------------------------------

@@ -25,7 +25,16 @@ describe('telemetry settings', () => {
 
   it('sends Sentry no body, header, query string nor user', () => {
     const event = scrubEvent({ request: { url: 'https://c.org/join/TOKEN?x=1', method: 'POST', data: '{"password":"x"}', headers: { authorization: 'Bearer t' } }, user: { username: 'ana' } });
-    expect(event).toEqual({ request: { url: 'https://c.org/join/TOKEN', method: 'POST' } });
+    expect(event).toEqual({ request: { url: 'https://c.org/join/<redacted>', method: 'POST' } });
+  });
+
+  it("keeps the link tokens of the address out of Sentry's reports", () => {
+    for (const path of ['/v1/join/T1', '/v1/auth/reset/T2', '/v1/public/progress/T3', '/v1/collect-backup/T4', '/v1/unsubscribe/T5']) {
+      const event = scrubEvent({ request: { url: `https://ce.example.org${path}`, method: 'GET' }, transaction: `GET ${path}` });
+      expect(JSON.stringify(event), path).not.toMatch(/T[1-5]/);
+    }
+    // other addresses are kept as they are, for the report to say where it happened
+    expect(scrubEvent({ request: { url: 'https://c.org/v1/projects/p1/cep', method: 'PUT' } }).request).toEqual({ url: 'https://c.org/v1/projects/p1/cep', method: 'PUT' });
   });
 });
 
