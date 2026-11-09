@@ -1,5 +1,6 @@
 import { randomInt } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { NOTE_NAME, noteColumn, plotFileExtraColumns, readCep, type RoundInfo } from '../cep.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import {
   areaFromGeoJson,
@@ -25,7 +26,24 @@ interface DesignBody {
   generate?: unknown;
 }
 
-const isCount = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= MAX_DESIGN_PLOTS;
+/**
+ * The survey's extra plot-file columns, in order (null: no readable project file). The coordinator's
+ * note the server added is left out: the server puts that column in the files it serves itself.
+ */
+async function extraColumns(store: Store, projectId: string, info: RoundInfo | null, log: FastifyRequest['log']): Promise<string[] | null> {
+  const cep = await store.getCep(projectId);
+  if (!cep) return null;
+  try {
+    const files = readCep(cep);
+    const columns = plotFileExtraColumns(new TextDecoder().decode(files.entries.get(files.surveyPath)!));
+    return noteColumn(info) !== null ? columns.filter((c) => c !== NOTE_NAME) : columns;
+  } catch (err) {
+    log.warn({ err }, 'could not read the plot-file columns of the project file');
+    return null;
+  }
+}
+
+const isCount =(n: unknown): n is number => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= MAX_DESIGN_PLOTS;
 
 /** The design asked for, checked; a reason in words when it is not one. */
 function designOf(raw: Record<string, unknown>, area: AreaOfInterest): Design | string {
@@ -92,10 +110,11 @@ export async function registerPlotDesignRoutes(app: FastifyInstance, store: Stor
     try {
       if (body.generate !== true) return reply.send({ ...facts, ...planDesign(area, design, seed), seed });
       const plots = designPlots(area, design, seed);
+      const extra = await extraColumns(store, request.membership!.projectId, info, request.log);
       return reply
         .header('content-type', 'text/csv; charset=utf-8')
         .header('x-plot-count', String(plots.length))
-        .send(plotFileCsv(plots, { count: keyCount, roundIndex, roundCode }));
+        .send(plotFileCsv(plots, { count: keyCount, roundIndex, roundCode }, extra));
     } catch (err) {
       if (err instanceof DesignError) return refuse(err.code, err.message);
       throw err;

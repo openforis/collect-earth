@@ -1,3 +1,4 @@
+import { strFromU8, strToU8, unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { zipCep } from '../src/cep.js';
 import { parsePlotFile } from '../src/plots.js';
@@ -159,6 +160,20 @@ describe('the plot file', () => {
     // A survey with its own round key (the demo's id, round): the first round's code in that column.
     expect(plotFileCsv([plots[1]], { count: 2, roundIndex: 1, roundCode: '1' })).toBe('id,round,YCoordinate,XCoordinate,elevation,slope,aspect,stratum\n1,1,-5.500000,150.500000,0,0,0,B\n');
   });
+
+  it("keeps the survey's extra columns in place: the stratum after them all, or in the survey's own stratum column", () => {
+    const plot = [{ lon: 150.5, lat: -5.5, stratum: 'B' }];
+    const keys = { count: 1, roundIndex: null, roundCode: '1' };
+    // The demo's: climate must not get the stratum (Collect Earth reads these columns by position).
+    expect(plotFileCsv(plot, keys, ['elevation', 'slope', 'aspect', 'climate', 'soil'])).toBe(
+      'id,YCoordinate,XCoordinate,elevation,slope,aspect,climate,soil,stratum\n1,-5.500000,150.500000,0,0,0,,,B\n',
+    );
+    expect(plotFileCsv(plot, keys, ['elevation', 'slope', 'aspect', 'Stratum', 'soil'])).toBe(
+      'id,YCoordinate,XCoordinate,elevation,slope,aspect,Stratum,soil\n1,-5.500000,150.500000,0,0,0,B,\n',
+    );
+    // Without strata, a stratum column of the survey stays empty and none is added.
+    expect(plotFileCsv([{ lon: 1, lat: 2 }], keys, ['climate', 'stratum'])).toBe('id,YCoordinate,XCoordinate,climate,stratum\n1,2.000000,1.000000,,\n');
+  });
 });
 
 describe('POST /plot-design', () => {
@@ -203,11 +218,34 @@ describe('POST /plot-design', () => {
     await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/cep`, headers: { ...bearer(admin), 'content-type': 'application/zip' }, payload: demoCep() });
     const made = await post({ geojson, design: { method: 'random', count: 3 }, seed: 1, generate: true });
     expect(made.statusCode, made.body).toBe(200);
-    expect(made.body.split('\n')[0]).toBe('id,round,YCoordinate,XCoordinate,elevation,slope,aspect');
-    expect(made.body.split('\n')[1]).toMatch(/^1,1,/);
+    expect(made.body.split('\n')[0]).toBe('id,round,YCoordinate,XCoordinate,elevation,slope,aspect,climate,soil,gez,country,province,district');
+    expect(made.body.split('\n')[1]).toMatch(/^1,1,-?[\d.]+,[\d.]+,0,0,0,,,,,,$/);
     const up = await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/csv-files/design.csv`, headers: { ...bearer(admin), 'content-type': 'text/csv' }, payload: made.body });
     expect(up.statusCode, up.body).toBe(201);
     expect(up.json().plotCount).toBe(3);
+  });
+
+  it("stratified on a survey with extra columns (the demo's climate...): the stratum after them, or in its own stratum column", async () => {
+    const design = { method: 'stratified', field: 'zone', allocation: 'equal', count: 1 };
+    await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/cep`, headers: { ...bearer(admin), 'content-type': 'application/zip' }, payload: idOnlyCep() });
+    const after = (await post({ geojson, design, seed: 2, generate: true })).body.split('\n');
+    expect(after[0]).toBe('id,YCoordinate,XCoordinate,elevation,slope,aspect,climate,soil,gez,country,province,district,stratum');
+    expect(after[1]).toMatch(/^1,-?[\d.]+,[\d.]+,0,0,0,,,,,,,A$/);
+
+    // The same survey with its climate attribute named Stratum: the stratum goes there.
+    const files = unzipSync(new Uint8Array(idOnlyCep()));
+    files['placemark.idm.xml'] = strToU8(strFromU8(files['placemark.idm.xml']).replace('name="climate"', 'name="Stratum"'));
+    await ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${pid}/cep`,
+      headers: { ...bearer(admin), 'content-type': 'application/zip' },
+      payload: zipCep(new Map(Object.entries(files)), new Date()),
+    });
+    const own = (await post({ geojson, design, seed: 2, generate: true })).body.split('\n');
+    expect(own[0]).toBe('id,YCoordinate,XCoordinate,elevation,slope,aspect,Stratum,soil,gez,country,province,district');
+    expect(own[1]).toMatch(/^1,-?[\d.]+,[\d.]+,0,0,0,A,,,,,$/);
+    const up = await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/csv-files/design.csv`, headers: { ...bearer(admin), 'content-type': 'text/csv' }, payload: own.join('\n') });
+    expect(up.statusCode, up.body).toBe(201);
   });
 
   it('refuses a bad area or design with the reason, and anyone but a coordinator', async () => {

@@ -1244,6 +1244,20 @@ function noteShape(text: string): NoteShape {
   return { root, survey, column, nested, note: note !== null, ours, anchor: anchor ?? lastKey, firstKey };
 }
 
+/**
+ * The names of the attributes a survey fills from a plot file's extra columns (those after the keys
+ * and the coordinates), in order: its root entity's attributes filled from the plot file that are
+ * not keys. Collect Earth reads them by position.
+ */
+export function plotFileExtraColumns(idmXml: string): string[] {
+  const root = scanXml(idmXml)
+    .find((e) => e.name === 'survey')
+    ?.children.find((e) => e.name === 'schema')
+    ?.children.find((e) => e.name === 'entity');
+  if (!root) throw new CepError('survey_unreadable', 'The survey cannot be read.');
+  return root.children.filter((c) => ATTRIBUTE_TAGS.has(c.name) && isPlotColumn(c) && !isKey(c)).map((c) => attrOf(c, 'name')?.value ?? '');
+}
+
 /** Adds the note attribute after the root's last attribute filled from the plot file (else its last key). */
 function addNoteToSurvey(text: string, shape: NoteShape, languages: readonly string[]): string {
   const { survey, anchor, firstKey } = shape;

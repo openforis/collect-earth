@@ -353,23 +353,28 @@ export function planDesign(area: AreaOfInterest, design: Design, seed: number, l
 /** A field of the plot file: quoted when it holds the separator, a quote or a line break. */
 const field = (v: string) => (/[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
 
+/** The extra columns of a plot file when the survey's are not known: Collect Earth's usual three. */
+const USUAL_EXTRA = ['elevation', 'slope', 'aspect'];
+const ZERO = new Set(USUAL_EXTRA);
+
 /**
  * The plot file of the plots, as the upload reads it (plots.ts): the key columns (the id, 1, 2...
- * and the survey's own round key with its first-round code), then latitude and longitude, elevation,
- * slope and aspect (0), and the stratum when the design has strata.
+ * and the survey's own round key with its first-round code), latitude and longitude, then the
+ * survey's extra columns in its order (`extra`: plotFileExtraColumns; null without a project file),
+ * since Collect Earth reads them by position: elevation, slope and aspect 0, the others empty. The
+ * stratum goes in the survey's own `stratum` column (any case), else in a column after them all.
  */
-export function plotFileCsv(plots: readonly DesignedPlot[], keys: { count: number; roundIndex: number | null; roundCode: string }): string {
+export function plotFileCsv(plots: readonly DesignedPlot[], keys: { count: number; roundIndex: number | null; roundCode: string }, extra: readonly string[] | null = null): string {
   const stratified = plots.some((p) => p.stratum !== undefined);
   const keyNames = Array.from({ length: keys.count }, (_, i) => (i === keys.roundIndex ? 'round' : 'id'));
-  const header = [...keyNames, 'YCoordinate', 'XCoordinate', 'elevation', 'slope', 'aspect', ...(stratified ? ['stratum'] : [])];
+  const columns = [...(extra ?? USUAL_EXTRA)];
+  let at = columns.findIndex((c) => c.toLowerCase() === 'stratum');
+  if (stratified && at < 0) at = columns.push('stratum') - 1;
   const lines = plots.map((p, n) => [
     ...keyNames.map((k) => (k === 'round' ? keys.roundCode : String(n + 1))),
     p.lat.toFixed(6),
     p.lon.toFixed(6),
-    '0',
-    '0',
-    '0',
-    ...(stratified ? [field(p.stratum ?? '')] : []),
+    ...columns.map((c, i) => (i === at ? field(p.stratum ?? '') : ZERO.has(c.toLowerCase()) ? '0' : '')),
   ]);
-  return [header, ...lines].map((l) => l.join(',')).join('\n') + '\n';
+  return [[...keyNames, 'YCoordinate', 'XCoordinate', ...columns], ...lines].map((l) => l.join(',')).join('\n') + '\n';
 }
