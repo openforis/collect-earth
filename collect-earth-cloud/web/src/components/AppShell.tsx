@@ -1,3 +1,4 @@
+import Alert from "@mui/material/Alert";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -19,7 +20,9 @@ import Person from "@mui/icons-material/Person";
 import Public from "@mui/icons-material/Public";
 import Translate from "@mui/icons-material/Translate";
 import { useState, type ReactNode } from "react";
+import { announcementKey, shownAnnouncement } from "../announcement";
 import { useApp, useLocalMode } from "../appContext";
+import { getDismissedAnnouncement, storeDismissedAnnouncement } from "../storage";
 import { LANGUAGES, LANGUAGE_NAMES, useT, type Language } from "../i18n";
 import { linkProps, navigate } from "../router";
 
@@ -112,6 +115,25 @@ function AccountMenu() {
   );
 }
 
+/** The server owner's announcement, until this person dismisses it (remembered in this browser) or it ends. */
+function AnnouncementBanner() {
+  const t = useT();
+  const { me } = useApp();
+  const [dismissed, setDismissed] = useState(getDismissedAnnouncement);
+  const shown = shownAnnouncement(me?.announcement ?? null, dismissed, Date.now());
+  if (!shown) return null;
+  const dismiss = () => {
+    const key = announcementKey(shown);
+    storeDismissedAnnouncement(key);
+    setDismissed(key);
+  };
+  return (
+    <Alert severity="info" square onClose={dismiss} slotProps={{ closeButton: { "aria-label": t("announcement.dismiss") } }} sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
+      {shown.text}
+    </Alert>
+  );
+}
+
 /** Terms of use and the contact address, when the server administrator set them. */
 function Footer() {
   const t = useT();
@@ -181,6 +203,7 @@ export function AppShell({ children, narrow, bare, wide }: { children: ReactNode
           {!bare && !local && <AccountMenu />}
         </Toolbar>
       </AppBar>
+      {!bare && <AnnouncementBanner />}
       <Container component="main" maxWidth={narrow ? "sm" : wide ? "lg" : "md"} sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
         {children}
       </Container>

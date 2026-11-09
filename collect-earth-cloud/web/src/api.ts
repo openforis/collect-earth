@@ -110,11 +110,18 @@ export interface Membership {
   status: ProjectStatus;
 }
 
+/** The server owner's message to everyone signed in; `until`: when it ends (epoch ms), null: until cleared. */
+export interface Announcement {
+  text: string;
+  until: number | null;
+}
+
 export interface Me {
   userId: string;
   username: string;
   memberships: Membership[];
   isPlatformAdmin: boolean;
+  announcement: Announcement | null;
   /** Two-step sign-in: on for the account; required of it by the server (it coordinates or administers). */
   twoFactor: { enabled: boolean; required: boolean };
 }
@@ -437,6 +444,9 @@ export interface ServerSettings {
   aiMonthlyTokens: number;
   /** Read only: whether the server has its AI configuration (Vertex AI). */
   aiConfigured: boolean;
+  /** The banner every signed-in person sees (plain text), and when it ends (epoch ms; null: until cleared). */
+  announcement: string | null;
+  announcementUntil: number | null;
   /** Coordinators and the server's administrators must use two-step sign-in. */
   twoFactorForCoordinators: boolean;
 }
@@ -852,7 +862,14 @@ export async function getMe(): Promise<Me> {
     memberships: Array.isArray(me?.memberships) ? me.memberships.map((m) => ({ ...m, role: asRole(m.role), status: asStatus(m.status) })) : [],
     isPlatformAdmin: me?.isPlatformAdmin === true,
     twoFactor: { enabled: me?.twoFactor?.enabled === true, required: me?.twoFactor?.required === true },
+    announcement: toAnnouncement((me as { announcement?: unknown } | undefined)?.announcement),
   };
+}
+
+function toAnnouncement(value: unknown): Announcement | null {
+  const a = value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+  if (!a || typeof a.text !== "string" || !a.text.trim()) return null;
+  return { text: a.text, until: typeof a.until === "number" && Number.isFinite(a.until) ? a.until : null };
 }
 
 // --- the owner's alerts (the server's src/ownerAlerts.ts) ---------------------------------------
@@ -2058,6 +2075,8 @@ export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
   aiFollowUpsPerDay: 30,
   aiMonthlyTokens: 2_000_000,
   aiConfigured: false,
+  announcement: null,
+  announcementUntil: null,
   twoFactorForCoordinators: false,
 };
 
@@ -2079,6 +2098,8 @@ export function toServerSettings(body: unknown, fallback: ServerSettings = DEFAU
     aiFollowUpsPerDay: limit(b.aiFollowUpsPerDay, fallback.aiFollowUpsPerDay),
     aiMonthlyTokens: limit(b.aiMonthlyTokens, fallback.aiMonthlyTokens),
     aiConfigured: typeof b.aiConfigured === "boolean" ? b.aiConfigured : fallback.aiConfigured,
+    announcement: text("announcement", fallback.announcement),
+    announcementUntil: "announcementUntil" in b ? toMillis(b.announcementUntil) : fallback.announcementUntil,
     twoFactorForCoordinators: typeof b.twoFactorForCoordinators === "boolean" ? b.twoFactorForCoordinators : fallback.twoFactorForCoordinators,
   };
 }

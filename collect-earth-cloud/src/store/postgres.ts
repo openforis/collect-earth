@@ -1256,8 +1256,11 @@ export class PostgresStore implements Store {
         const n = Number(r.value);
         const key = r.key as 'aiReportsPerDay' | 'aiFollowUpsPerDay' | 'aiMonthlyTokens';
         settings[key] = Number.isInteger(n) && n >= 0 ? n : DEFAULT_SETTINGS[key];
-      } else if (r.key === 'termsUrl' || r.key === 'contactEmail' || r.key === 'serverName') {
-        settings[r.key as 'termsUrl' | 'contactEmail' | 'serverName'] = r.value.length > 0 ? r.value : null;
+      } else if (r.key === 'termsUrl' || r.key === 'contactEmail' || r.key === 'serverName' || r.key === 'announcement') {
+        settings[r.key as 'termsUrl' | 'contactEmail' | 'serverName' | 'announcement'] = r.value.length > 0 ? r.value : null;
+      } else if (r.key === 'announcementUntil') {
+        const n = Number(r.value);
+        settings.announcementUntil = Number.isFinite(n) ? n : null;
       }
     }
     return settings;

@@ -175,7 +175,11 @@ session tokens** (from login, access via `project_members`).
 | `POST` | `/v1/admin/users/:uid/password-reset` | platform admin | 201 `{resetUrl, expiresAt}` — single use, 7 days |
 | `GET`  | `/v1/admin/ai-usage` | platform admin | This UTC month's AI use per project: `{month, from, until, projects: [{projectId, runs, reports, followUps, questions, failed, refused, inputTokens, outputTokens, tokens}], totals}` — project ids only, no names or content |
 
-`GET /v1/me` also returns `isPlatformAdmin`. A platform admin owns the server
+`GET /v1/me` also returns `isPlatformAdmin`, and `announcement: {text, until} | null`: the server owner's
+banner (`announcement`, plain text up to 500 characters, and `announcementUntil`, epoch ms or null for
+"until cleared", in `/v1/admin/settings`; kept as `server_settings` rows, no migration), null once it has
+ended. The dashboard shows it at the top of every page; each person can dismiss it (remembered in the
+browser, per message and end). A platform admin owns the server
 (created by the first-run setup) but is **not** a member of any project and sees
 no project data. Admin routes answer 401 without a session and 403 for a
 non-platform-admin.

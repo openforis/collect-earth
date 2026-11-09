@@ -386,6 +386,8 @@ describe('password change and reset', () => {
       aiFollowUpsPerDay: 30,
       aiMonthlyTokens: 2_000_000,
       twoFactorForCoordinators: false,
+      announcement: null,
+      announcementUntil: null,
       aiConfigured: false,
     });
 

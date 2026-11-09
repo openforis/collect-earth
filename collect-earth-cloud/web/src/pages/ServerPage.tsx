@@ -1,4 +1,5 @@
 import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
@@ -59,6 +60,7 @@ import { Loading } from "../components/Loading";
 import { formatBytes, formatDate, formatNumber } from "../format";
 import { useT, type MessageKey } from "../i18n";
 import { draftOf, readDraft, type DraftProblems, type SettingsDraft } from "../settingsForm";
+import { fromLocalInput, toLocalInput } from "../announcement";
 import { useLoad } from "../useLoad";
 
 /** Limits for each account and the server's name, terms and contact: typed, then saved together. */
@@ -133,6 +135,67 @@ function DetailsForm({ settings, onSave }: { settings: ServerSettings; onSave: (
           {t("common.save")}
         </Button>
       </div>
+    </Stack>
+  );
+}
+
+/** The banner every signed-in person sees at the top of each page: a short plain message, until an optional end or until cleared. */
+function AnnouncementForm({ settings, onSave }: { settings: ServerSettings; onSave: (changes: Partial<ServerSettings>) => Promise<void> }) {
+  const t = useT();
+  const { refreshMe } = useApp();
+  const [text, setText] = useState(settings.announcement ?? "");
+  const [until, setUntil] = useState(toLocalInput(settings.announcementUntil));
+  const [busy, setBusy] = useState(false);
+  const end = fromLocalInput(until);
+  const past = end !== null && end <= Date.now();
+
+  const save = async (changes: Partial<ServerSettings>) => {
+    setBusy(true);
+    try {
+      await onSave(changes);
+      await refreshMe();
+    } finally {
+      setBusy(false);
+    }
+  };
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    void save({ announcement: text.trim() || null, announcementUntil: text.trim() ? end : null });
+  };
+  const clear = () => {
+    setText("");
+    setUntil("");
+    void save({ announcement: null, announcementUntil: null });
+  };
+
+  return (
+    <Stack component="form" spacing={2} onSubmit={submit} noValidate>
+      <div>
+        <Typography variant="h3" component="h3" sx={{ fontSize: "1.1rem", fontWeight: 600 }}>
+          {t("server.announcementTitle")}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {t("server.announcementHelp")}
+        </Typography>
+      </div>
+      <TextField label={t("server.announcementText")} value={text} onChange={(e) => setText(e.target.value)} multiline minRows={2} slotProps={{ htmlInput: { maxLength: 500 } }} />
+      <TextField
+        type="datetime-local"
+        label={t("server.announcementUntil")}
+        value={until}
+        onChange={(e) => setUntil(e.target.value)}
+        error={past}
+        helperText={t(past ? "server.announcementPast" : "server.announcementUntilHelp")}
+        slotProps={{ inputLabel: { shrink: true } }}
+      />
+      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+        <Button type="submit" variant="contained" disabled={busy || !text.trim()}>
+          {t("common.save")}
+        </Button>
+        <Button variant="outlined" disabled={busy || (!settings.announcement && !text)} onClick={clear}>
+          {t("server.announcementClear")}
+        </Button>
+      </Box>
     </Stack>
   );
 }
@@ -607,6 +670,7 @@ function SettingsCard() {
             </RadioGroup>
           </FormControl>
           <DetailsForm settings={settings.data} onSave={save} />
+          <AnnouncementForm settings={settings.data} onSave={save} />
           <AiSettings settings={settings.data} onSave={save} />
           {saved && (
             <Alert severity="success" role="status">

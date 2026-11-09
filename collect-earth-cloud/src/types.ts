@@ -123,6 +123,10 @@ export interface ServerSettings {
    * Per project: the server's total can reach this times the number of projects.
    */
   aiMonthlyTokens: number;
+  /** A short plain-text message shown at the top of every dashboard page to everyone signed in; null: none. */
+  announcement: string | null;
+  /** When the announcement stops being shown (epoch ms); null: until it is cleared. */
+  announcementUntil: number | null;
   /**
    * Coordinators (project admins) and the server's administrators must use two-step sign-in (src/twoFactor.ts): until
    * they set it up, their coordinator and administration pages are refused (two_factor_required).
@@ -151,6 +155,8 @@ export const DEFAULT_SETTINGS: ServerSettings = {
   aiReportsPerDay: 5,
   aiFollowUpsPerDay: 30,
   aiMonthlyTokens: 2_000_000,
+  announcement: null,
+  announcementUntil: null,
   twoFactorForCoordinators: false,
 };
 

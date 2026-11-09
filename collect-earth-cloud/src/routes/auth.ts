@@ -206,6 +206,10 @@ export async function registerAuthRoutes(
         isPlatformAdmin: user.isPlatformAdmin,
         memberships,
         twoFactor: { enabled, required },
+        // The server owner's announcement, while it lasts (the dashboard lets each person dismiss it).
+        announcement: settings.announcement && (settings.announcementUntil === null || settings.announcementUntil > Date.now())
+          ? { text: settings.announcement, until: settings.announcementUntil }
+          : null,
       });
     },
   );

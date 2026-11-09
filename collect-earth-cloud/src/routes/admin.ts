@@ -11,7 +11,7 @@ import type { ServerCounters } from '../serverCounters.js';
 import { buildOverview, statsWindow, type ServerOverview } from '../serverPanel.js';
 import { migrationFiles } from '../store/migrate.js';
 import { UsernameTakenError } from '../store/memory.js';
-import type { Store } from '../store/store.js';
+import { isStoredTime, type Store } from '../store/store.js';
 import { MAIL_LANGUAGES, type MailLanguage, type ProjectCreation, type ServerSettings } from '../types.js';
 import type { AccountMailHooks } from './mail.js';
 
@@ -351,6 +351,20 @@ export async function registerAdminRoutes(
           }
           patch[key] = r.value;
         }
+      }
+      // The announcement banner: plain text (shown as text, never as HTML) and when it ends.
+      if (body.announcement !== undefined) {
+        const r = textSetting('announcement', body.announcement, (v) => v, 'a short message');
+        if (!r.ok) {
+          return reply.code(400).send({ error: 'bad_request', reason: r.reason });
+        }
+        patch.announcement = r.value;
+      }
+      if (body.announcementUntil !== undefined) {
+        if (body.announcementUntil !== null && !isStoredTime(body.announcementUntil)) {
+          return reply.code(400).send({ error: 'bad_request', reason: 'announcementUntil must be a time (epoch ms) or null' });
+        }
+        patch.announcementUntil = body.announcementUntil as number | null;
       }
       return reply.send({ ...(await store.updateSettings(patch)), aiConfigured: config.aiConfigured === true });
     },
