@@ -1,5 +1,8 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
+/** A session ends after this many days unused (migration 027); each day of use extends it. */
+export const SESSION_IDLE_DAYS = 60;
+
 /** Generates a URL-safe opaque token (the plaintext handed to a client once). */
 export function generateToken(): string {
   return randomBytes(24).toString('base64url');

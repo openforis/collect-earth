@@ -805,12 +805,18 @@ function UsersCard({ onAccountChanged }: { onAccountChanged: () => void }) {
             <DialogTitle>{t("server.resetTitle", { name: link.user.username })}</DialogTitle>
             <DialogContent>
               <Stack spacing={2} sx={{ pt: 1 }}>
-                <DialogContentText>
-                  {link.reset.expiresAt !== null
-                    ? t("server.resetText", { name: link.user.username, date: formatDate(link.reset.expiresAt, language) })
-                    : t("server.resetTextNoDate", { name: link.user.username })}
-                </DialogContentText>
-                <CopyField value={link.reset.resetUrl} label={t("server.resetLink")} />
+                {link.reset.mailed ? (
+                  <DialogContentText>{t("server.resetMailed", { name: link.user.username })}</DialogContentText>
+                ) : (
+                  <>
+                    <DialogContentText>
+                      {link.reset.expiresAt !== null
+                        ? t("server.resetText", { name: link.user.username, date: formatDate(link.reset.expiresAt, language) })
+                        : t("server.resetTextNoDate", { name: link.user.username })}
+                    </DialogContentText>
+                    <CopyField value={link.reset.resetUrl ?? ""} label={t("server.resetLink")} />
+                  </>
+                )}
               </Stack>
             </DialogContent>
             <DialogActions>

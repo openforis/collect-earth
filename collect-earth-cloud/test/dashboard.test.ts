@@ -459,7 +459,7 @@ describe('invites, overview and export', () => {
     const created = await invite(ctx.app, project.projectId, project.adminToken, { role: 'operator', maxUses: 5, expiresInDays: 3 });
     const inviteToken = created.json().inviteToken as string;
     const used = (await invite(ctx.app, project.projectId, project.adminToken, { maxUses: 1 })).json().inviteToken as string;
-    expect((await register(ctx.app, 'juan', 'x', used)).statusCode).toBe(201); // used up: not listed
+    expect((await register(ctx.app, 'juan', 'password12', used)).statusCode).toBe(201); // used up: not listed
 
     const list = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${project.projectId}/invites`, headers: bearer(project.adminToken) });
     expect(list.statusCode).toBe(200);
@@ -542,7 +542,7 @@ describe('invites, overview and export', () => {
       });
     }
     const inv = (await invite(ctx.app, project.projectId, project.adminToken)).json().inviteToken as string;
-    await register(ctx.app, 'maria', 'pw', inv);
+    await register(ctx.app, 'maria', 'password12', inv);
     await batchRequest(ctx.app, project.projectId, project.projectToken, [
       envelope({ recordKey: '1', operator: 'maria', modifiedOn: 1000, activelySaved: true }),
       envelope({ recordKey: '2', operator: 'maria', modifiedOn: 3000, activelySaved: false }),
@@ -597,14 +597,18 @@ describe('invites, overview and export', () => {
 });
 
 describe('desktop client contract', () => {
-  it('/v1/auth/register still accepts a 1-character username and password', async () => {
+  it('/v1/auth/register still accepts a 1-character username, but a password of 8 characters only', async () => {
     const ctx = await makeContext();
     try {
       const project = await createProject(ctx.app);
       const token = (await invite(ctx.app, project.projectId, project.adminToken)).json().inviteToken as string;
-      const res = await register(ctx.app, 'a', 'b', token);
+      // the dashboard's password rule (security review, 2026-11), said with its reason, which Collect Earth shows
+      const weak = await register(ctx.app, 'a', 'b', token);
+      expect(weak.statusCode).toBe(400);
+      expect(weak.json()).toMatchObject({ error: 'weak_password', reason: 'password must be at least 8 characters' });
+      const res = await register(ctx.app, 'a', 'b-password', token);
       expect(res.statusCode).toBe(201);
-      expect((await login(ctx.app, 'a', 'b')).statusCode).toBe(200);
+      expect((await login(ctx.app, 'a', 'b-password')).statusCode).toBe(200);
     } finally {
       await ctx.app.close();
     }

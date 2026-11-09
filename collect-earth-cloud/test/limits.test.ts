@@ -151,7 +151,7 @@ describe('terms of use at sign-up', () => {
     const res = await ctx.app.inject({
       method: 'POST',
       url: '/v1/auth/register',
-      payload: { username: 'juan', password: 'pw', inviteToken: inv.json().inviteToken },
+      payload: { username: 'juan', password: 'password12', inviteToken: inv.json().inviteToken },
     });
     expect(res.statusCode).toBe(201);
   });

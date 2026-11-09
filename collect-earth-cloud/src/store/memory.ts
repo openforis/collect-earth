@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { generateShareToken, generateToken, hashToken } from '../auth.js';
+import { generateShareToken, generateToken, hashToken, SESSION_IDLE_DAYS } from '../auth.js';
 import { legacyRoundInfo } from '../cep.js';
 import { checksumOf, plotCountOf } from '../csv.js';
 import { fileKeyCount, unitOfRecord } from '../rounds.js';
 import {
   AI_INTERRUPTED,
   aiLimitReached,
+  personOverMonth,
   DEFAULT_PROGRESS_SETTINGS,
   DEFAULT_SETTINGS,
   totalStorageBytes,
@@ -84,6 +85,8 @@ import {
   type UserPlots,
 } from './store.js';
 
+/** The UTC month of a time, YYYY-MM (the AI token ledger's key). */
+const monthOf = (ms: number): string => new Date(ms).toISOString().slice(0, 7);
 const DAY_MS = 86_400_000;
 
 interface CsvFileEntry extends CsvFile {
@@ -193,6 +196,9 @@ export class InMemoryStore implements Store {
   private readonly sessions = new Map<string, string>(); // session token hash -> userId
   /** When each session was made (active accounts on the server owner's panel). */
   private readonly sessionCreatedAt = new Map<string, number>(); // session token hash -> epoch ms
+  /** `${userId} YYYY-MM` -> AI tokens spent that month (UTC), deleted projects included (migration 028) */
+  private readonly aiTokenLedger = new Map<string, number>();
+  private readonly sessionExpiresAt = new Map<string, number>(); // session token hash -> epoch ms (SESSION_IDLE_DAYS unused)
   /** When each account was made (sign-ups per week) and who disabled it. */
   private readonly userCreatedAt = new Map<string, number>();
   private readonly userDisabledBy = new Map<string, string>();
@@ -535,11 +541,13 @@ export class InMemoryStore implements Store {
     if (!entry || !old || from === to) {
       return false;
     }
-    const current = entry.records.get(InMemoryStore.recordId(recordKey, to));
-    entry.records.delete(InMemoryStore.recordId(recordKey, from));
-    if (!current || old.modifiedOn > current.modifiedOn) {
-      entry.records.set(InMemoryStore.recordId(recordKey, to), { ...old, operator: to });
+    // The account has the record already: both are kept. Merging them deleted one, and a forged
+    // operator name made that someone else's record.
+    if (entry.records.has(InMemoryStore.recordId(recordKey, to))) {
+      return false;
     }
+    entry.records.delete(InMemoryStore.recordId(recordKey, from));
+    entry.records.set(InMemoryStore.recordId(recordKey, to), { ...old, operator: to });
     entry.recordsGeneration += 1;
     return true;
   }
@@ -653,6 +661,11 @@ export class InMemoryStore implements Store {
     return id ? this.users.get(id) ?? null : null;
   }
 
+  async isAccountUsername(username: string): Promise<boolean> {
+    const names = [username, username.toLowerCase()];
+    return names.some((n) => this.usersByName.has(n) || this.retiredUsernames.has(n));
+  }
+
   async getUserById(userId: string): Promise<User | null> {
     return this.users.get(userId) ?? null;
   }
@@ -661,13 +674,25 @@ export class InMemoryStore implements Store {
     const token = generateToken();
     this.sessions.set(hashToken(token), userId);
     this.sessionCreatedAt.set(hashToken(token), Date.now());
+    this.sessionExpiresAt.set(hashToken(token), Date.now() + SESSION_IDLE_DAYS * DAY_MS);
     return token;
   }
 
   async resolveSession(token: string): Promise<{ userId: string } | null> {
-    const userId = this.sessions.get(hashToken(token));
+    const hash = hashToken(token);
+    const userId = this.sessions.get(hash);
+    const expires = this.sessionExpiresAt.get(hash) ?? 0;
+    const now = Date.now();
     // A disabled account's sessions are deleted; this also covers one made meanwhile.
-    return userId && !this.users.get(userId)?.disabledAt ? { userId } : null;
+    if (!userId || this.users.get(userId)?.disabledAt || expires <= now) return null;
+    // In use: SESSION_IDLE_DAYS more from now
+    this.sessionExpiresAt.set(hash, now + SESSION_IDLE_DAYS * DAY_MS);
+    return { userId };
+  }
+
+  /** For tests: the session ends now, as if unused for SESSION_IDLE_DAYS. */
+  expireSession(token: string): void {
+    this.sessionExpiresAt.set(hashToken(token), Date.now() - 1);
   }
 
   async deleteSession(token: string): Promise<void> {
@@ -1109,14 +1134,27 @@ export class InMemoryStore implements Store {
     return result;
   }
 
-  async setMemberRole(projectId: string, userId: string, role: Role): Promise<void> {
+  /** Whether taking userId's admin role away would leave the project with none (no await: atomic here). */
+  private lastAdmin(projectId: string, userId: string): boolean {
+    if (this.memberships.get(InMemoryStore.memberId(projectId, userId)) !== 'admin') return false;
+    let admins = 0;
+    for (const [key, role] of this.memberships) {
+      if (key.startsWith(`${projectId} `) && role === 'admin') admins += 1;
+    }
+    return admins <= 1;
+  }
+
+  async setMemberRole(projectId: string, userId: string, role: Role): Promise<'ok' | 'last_admin'> {
     const id = InMemoryStore.memberId(projectId, userId);
+    if (role !== 'admin' && this.lastAdmin(projectId, userId)) return 'last_admin';
     if (this.memberships.has(id)) {
       this.memberships.set(id, role);
     }
+    return 'ok';
   }
 
-  async removeMember(projectId: string, userId: string): Promise<void> {
+  async removeMember(projectId: string, userId: string): Promise<'ok' | 'last_admin'> {
+    if (this.lastAdmin(projectId, userId)) return 'last_admin';
     this.memberships.delete(InMemoryStore.memberId(projectId, userId));
     const entry = this.projects.get(projectId);
     if (entry) {
@@ -1128,6 +1166,7 @@ export class InMemoryStore implements Store {
       InMemoryStore.dropPlotAssignments(entry, userId);
       InMemoryStore.dropActivity(entry, userId);
     }
+    return 'ok';
   }
 
   /** The member's activity goes; their audit entries stay, with no actor. */
@@ -1826,6 +1865,13 @@ export class InMemoryStore implements Store {
     if (limit) {
       return { ok: false, limit };
     }
+    // The person's month across projects, deleted ones included (ai_token_ledger, migration 028)
+    if (start.startedBy) {
+      const used = this.aiTokenLedger.get(`${start.startedBy} ${monthOf(w.monthStart)}`) ?? 0;
+      if (personOverMonth(used, await this.countCoordinatedProjects(start.startedBy), w)) {
+        return { ok: false, limit: 'monthly' };
+      }
+    }
     const run: AiRunRow = {
       id: randomUUID(),
       kind: start.kind,
@@ -1863,6 +1909,11 @@ export class InMemoryStore implements Store {
       return false;
     }
     Object.assign(run, structuredClone(end));
+    const tokens = run.inputTokens + run.outputTokens;
+    if (run.startedBy && tokens > 0) {
+      const key = `${run.startedBy} ${monthOf(run.startedAt)}`;
+      this.aiTokenLedger.set(key, (this.aiTokenLedger.get(key) ?? 0) + tokens);
+    }
     return true;
   }
 
@@ -2113,6 +2164,8 @@ export class InMemoryStore implements Store {
     this.usersByName.clear();
     this.sessions.clear();
     this.sessionCreatedAt.clear();
+    this.sessionExpiresAt.clear();
+    this.aiTokenLedger.clear();
     this.userCreatedAt.clear();
     this.userDisabledBy.clear();
     this.memberships.clear();

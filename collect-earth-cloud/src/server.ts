@@ -95,6 +95,10 @@ const STARTED_AT = Date.now();
 // password guessing is held back per account by LOGIN_FAILURES_PER_MINUTE instead.
 const DEFAULT_RATE_LIMIT_PER_MINUTE = 60;
 const LOGIN_FAILURES_PER_MINUTE = 10;
+// Wrong passwords for one account from all addresses together, per 15 minutes: guessing from many
+// addresses, each under the limit above, is stopped there (security review, 2026-11).
+const ACCOUNT_LOGIN_FAILURES = 100;
+const ACCOUNT_LOGIN_WINDOW_MS = 15 * 60_000;
 
 /**
  * Builds the Fastify app around a Store. Kept free of process/network side effects
@@ -159,6 +163,9 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     onRefused: () => counters.count('rateLimited'),
   });
   const loginFailures = new RateLimiter(config.rateLimitPerMinute === 0 ? 0 : LOGIN_FAILURES_PER_MINUTE);
+  const accountFailures = new RateLimiter(config.rateLimitPerMinute === 0 ? 0 : ACCOUNT_LOGIN_FAILURES, Date.now, {
+    windowMs: ACCOUNT_LOGIN_WINDOW_MS,
+  });
   const setupCode = config.setupCode ?? generateSetupCode();
 
   // Members' activity (member_activity), coalesced; written when the app closes too.
@@ -168,7 +175,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const accountMail: AccountMailHooks = {};
   // Email (Task 19): SMTP only when SMTP_URL is set, else nothing is sent (the log transport).
   const mailer = options.mailer ?? mailerFrom(config, app.log);
-  await registerAuthRoutes(app, store, limiter, loginFailures, counters, accountMail);
+  await registerAuthRoutes(app, store, limiter, loginFailures, counters, accountMail, accountFailures);
   const now = options.ai?.now ?? Date.now;
   // Error reports and usage events, when the server is started with TELEMETRY=1 (src/telemetry.ts).
   if (config.telemetry) await telemetry.configure(config.telemetry, VERSION, app.log);

@@ -12,6 +12,7 @@ import { getNotifications, sendEmailConfirmation, setEmail, setNotifications, ty
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { FormCard } from "../components/FormCard";
+import { PasswordField } from "../components/PasswordField";
 import { Loading } from "../components/Loading";
 import { isLanguage, LANGUAGE_NAMES, useT } from "../i18n";
 import { useLoad } from "../useLoad";
@@ -35,13 +36,19 @@ export function MailCard() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  // A change of address asks for the password (the reset links go to it); Remove first asks for it too.
+  const [password, setPassword] = useState("");
+  const [removing, setRemoving] = useState(false);
   // The address field takes the focus back when the button pressed goes away (Remove, Send again).
   const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   if (loaded.loading && !loaded.data) return <Loading />;
   if (loaded.error || !loaded.data) return <ErrorAlert error={loaded.error} onRetry={loaded.reload} />;
   const n: Notifications = loaded.data;
   const typed = address ?? n.email ?? "";
+  const changed = typed.trim() !== (n.email ?? "");
+  const askPassword = changed || removing;
 
   // One change at a time; the buttons and switches stay enabled (a disabled control drops the keyboard focus).
   const run = async (action: () => Promise<string | null>) => {
@@ -60,12 +67,21 @@ export function MailCard() {
     }
   };
 
-  const saveAddress = (remove: boolean) =>
-    (!remove && typed.trim() === (n.email ?? "")) ? Promise.resolve() : run(async () => {
+  const saveAddress = (remove: boolean) => {
+    if (!remove && !changed) return Promise.resolve();
+    // Remove shows the password field first; the form's own check asks for it on Save
+    if (remove && !password) {
+      setRemoving(true);
+      window.setTimeout(() => passwordRef.current?.focus(), 0);
+      return Promise.resolve();
+    }
+    return run(async () => {
       const email = remove ? null : typed.trim() || null;
-      const next = await setEmail(email, language);
+      const next = await setEmail(email, language, password);
       loaded.setData(next);
       setAddress(null);
+      setPassword("");
+      setRemoving(false);
       if (next.email === null) {
         window.setTimeout(() => emailRef.current?.focus(), 0);
         return t("mail.removed");
@@ -73,6 +89,7 @@ export function MailCard() {
       if (next.email === n.email) return t("mail.changed");
       return next.sends ? t("mail.saved", { email: next.email }) : t("mail.savedNotSent");
     });
+  };
 
   const resend = () =>
     run(async () => {
@@ -108,6 +125,17 @@ export function MailCard() {
         inputRef={emailRef}
         slotProps={{ htmlInput: { maxLength: 254 } }}
       />
+      {askPassword && (
+        <PasswordField
+          label={t("account.current")}
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          helperText={t("mail.passwordHelp")}
+          inputRef={passwordRef}
+        />
+      )}
       {n.email !== null && address === null && !n.emailValid && <Alert severity="warning">{t("mail.invalidStored")}</Alert>}
       {n.email !== null && address === null && n.emailValid && (
         <Alert severity={n.emailConfirmed ? "success" : "warning"}>

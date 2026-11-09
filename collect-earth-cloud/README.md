@@ -101,6 +101,7 @@ npm run smoke:pg:reference -- 55481  # reference plots (migration 020): marking,
 npm run smoke:pg:backup -- 55481     # the Collect Earth backup: getRecordXml and the records without XML under RLS (another project invisible), the summary, a link used once, then 100,000 records of 17 KB streamed and timed
 npm run smoke:pg:links -- 55481      # progress links (migration 021): RLS of share_links, share_link_lookup (SECURITY DEFINER) giving only ids, the token kept hashed, the public page without names, revoked and unknown alike, the lookup and the page on 100,000 records timed
 npm run smoke:pg:mail -- 55481       # weekly emails (migration 023): the account tables global as users, the address confirmed by its link, two instances at once sending each mail once, a failed mail put back, one-click unsubscribe, a run timed over 40 subscribers of 100,000 records and 10,000 unconfirmed
+npm run smoke:pg:security -- 55481   # the security review's fixes (migrations 027, 028): sessions ending unused and extended in use, account usernames live and retired, a legacy record moved but never deleted, two admins demoting or removing each other at once, the AI token ledger kept when a project is deleted
 npm run smoke:pg:final -- 55481      # the final review's fixes (migration 024): migrations skipped when unchanged, an edited one run again, 015 widening an older constraint, lock_timeout on a busy table, listRecordsByKeys by operator under RLS, removeMember and putCsvFile waiting for the sampling lock, a draw's timeouts
 docker stop ce-pg-smoke
 ```
@@ -152,6 +153,7 @@ session tokens** (from login, access via `project_members`).
 | `POST` | `/v1/auth/signup` | none | `{username, password, email?, acceptTerms?}` → 201 `{token, userId, username}`; 403 `signup_closed`; 409 `username_taken`; 400 `bad_username` / `weak_password` / `terms_not_accepted` (when `termsUrl` is set and `acceptTerms` is not `true`; the acceptance time is stored as `users.terms_accepted_at`) |
 | `POST` | `/v1/auth/forgot` | none | `{login, language?}` (a username or an email address) → always 202 `{accepted: true}`, answered before anything is looked up. When mail delivers and the account (or each enabled account whose **confirmed** address it is, at most 5) has a confirmed address and is not disabled, a reset link (`/reset/<token>`, single use, **1 hour**) is mailed to it in `language` (else the account's mail language). Quiet limits: 3 mails an hour per account, 10 requests an hour per client IP, 100 mails an hour per instance; plus the shared per-minute limit (429). 400 `bad_request` (no login, or over 254 characters); 409 `not_available` where the server sends no email |
 | `POST` | `/v1/auth/reset` | reset token in body | `{token, newPassword, language?}` → 204, revokes all the user's sessions and mails the "password changed" notice to the confirmed address; 410 `invalid_reset_token` (unknown, used or expired); 400 `weak_password` |
+| `PUT`  | `/v1/me/email` | session | `{email \| null, currentPassword, language?}`: a change or removal needs the account's password (401 `invalid_credentials`), since reset links go to that address; the same address again needs none. See "Emails" |
 | `PUT`  | `/v1/me/password` | session | `{currentPassword, newPassword, language?}` → 204: every **other** session of the account ends (Collect Earth's too: it signs in again), the one making the change stays, and the "password changed" notice goes to the confirmed address; 401 `invalid_credentials`; 400 `weak_password` |
 | `GET`  | `/v1/me/deletion` | session | What deleting the account would do: `{soleCoordinator: [{projectId, name}], deletedWithAccount: [{projectId, name}], lastPlatformAdmin}` |
 | `DELETE` | `/v1/me` | session | `{password}` → 204: deletes the account (sessions, memberships, assignments, reset links) and the projects where it is the only member and coordinator. Records it uploaded stay in their projects. 401 `invalid_credentials`; 409 `last_platform_admin`; 409 `sole_coordinator` `{projects: [{projectId, name}]}` (only coordinator of a project others are in: hand it over or delete it first) |
@@ -169,7 +171,7 @@ session tokens** (from login, access via `project_members`).
 | `GET`  | `/v1/projects/:pid/export.csv` | admin | One row per non-deleted `(recordKey, operator)`: `record_key, plot, round, assessment, final, operator, actively_saved, modified_on` (ISO 8601; `assessment` is `main`, `check` or `other`; without `round` in the key, round is 1 or 2 from who holds the plot as a quality-check copy; `final` is `yes`/`no` for the answer a coordinator's decision accepted, `recheck`, or empty) + the sorted union of summary keys; RFC 4180, UTF-8 BOM, `content-disposition: attachment` |
 | `GET` / `PUT` | `/v1/admin/settings` | platform admin | `{signupOpen, projectCreation: "anyone" \| "platform-admins", maxProjectsPerUser, maxProjectStorageMb, termsUrl, contactEmail, serverName, aiEnabled, aiReportsPerDay, aiFollowUpsPerDay, aiMonthlyTokens, aiConfigured}` (`aiConfigured` read-only: the server has its AI settings; never the key; the AI limits are per project, 0 = none allowed) — limits are whole numbers, 0 = no limit; `termsUrl` http(s) only; text fields `null`/`""` clear them. PUT takes any subset, 400 `bad_request` on a bad value, returns the result |
 | `GET`  | `/v1/admin/users` | platform admin | `{users: [{userId, username, isPlatformAdmin, projects, coordinatedProjects}]}` — project **counts** (any role / as coordinator), no names (§4b) |
-| `POST` | `/v1/admin/users/:uid/password-reset` | platform admin | 201 `{resetUrl, expiresAt}` — single use, 7 days |
+| `POST` | `/v1/admin/users/:uid/password-reset` | platform admin | An account with a confirmed address (and mail set up): the link is mailed to it, 202 `{mailed: true}`, never shown to the administrator, 1 hour. Otherwise 201 `{resetUrl, expiresAt}` — single use, 7 days |
 | `GET`  | `/v1/admin/ai-usage` | platform admin | This UTC month's AI use per project: `{month, from, until, projects: [{projectId, runs, reports, followUps, questions, failed, refused, inputTokens, outputTokens, tokens}], totals}` — project ids only, no names or content |
 
 `GET /v1/me` also returns `isPlatformAdmin`. A platform admin owns the server
@@ -178,12 +180,16 @@ no project data. Admin routes answer 401 without a session and 403 for a
 non-platform-admin.
 
 Username/password rules (3–64 characters of `A-Z a-z 0-9 . _ - @`; passwords at
-least 8) apply to setup, signup, password change and reset — **not** to
-`/v1/auth/register`, which the desktop client uses and which keeps accepting what
-it always did.
+least 8) apply to setup, signup, password change and reset. `/v1/auth/register`, which
+the desktop client uses, applies the password rule (400 `weak_password`, with its reason)
+but keeps accepting the usernames it always did. It checks the invitation before the
+username, so a made-up invitation never tells whether a username is taken.
+
+Sessions end after 60 days unused (`SESSION_IDLE_DAYS`, migration 027); each day of use
+extends them, so Collect Earth's sync keeps its session while it is used.
 
 `login`, `register`, `signup`, `setup` and `reset` are rate limited per client IP
-(`RATE_LIMIT_PER_MINUTE`, default 60; failed logins also 10 a minute per account) → 429 `rate_limited`. The server trusts
+(`RATE_LIMIT_PER_MINUTE`, default 60; failed logins also 10 a minute per account and address, and 100 per 15 minutes per account from all addresses together) → 429 `rate_limited`. The server trusts
 `x-forwarded-*` (it runs behind a proxy). Join and reset links use
 `PUBLIC_BASE_URL`, else `RENDER_EXTERNAL_URL` (if the host sets it), else the request's
 protocol (`x-forwarded-proto`) and `Host` (`X-Forwarded-Host` only with `TRUST_FORWARDED_HOST`; see DEPLOY.md).

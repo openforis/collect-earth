@@ -401,6 +401,23 @@ worked and exits non-zero otherwise. The server needs outbound HTTPS to the Sent
   but a database edit could): enable one again as the tables' owner, e.g.
   `psql "$MIGRATION_DATABASE_URL" -c "UPDATE users SET disabled_at = NULL, disabled_by = NULL WHERE username = 'owner'"`
   (the account then logs in as before).
+- **Sessions** end after 60 days unused (`SESSION_IDLE_DAYS` in `src/auth.ts`, migration 027,
+  which gives the sessions made before it 60 days from the upgrade); each day of use extends
+  them. A Collect Earth that has not synced for 60 days logs in again from its cloud settings.
+- **Reset links from the Server page:** for an account with a confirmed address (and mail set
+  up), the link is mailed to that address and not shown to the administrator, who could
+  otherwise sign in as a coordinator and see their projects. The administrator gets a link to
+  pass on only for an account no mail reaches. Each is written to the server log
+  (`account.reset.mailed` / `account.reset.issued`, with both account ids).
+- **Changing an account's email** asks for its password: the address is where "Forgot your
+  password?" sends its link, so a session alone, copied from a browser, cannot move it.
+- **Records under a legacy operator name** (before records went by the username) move to the
+  account that sends them again, unless the name is any account's username (a member's, a
+  former member's or a deleted account's) or the account has that record already: then both
+  rows are kept. Nothing is ever deleted by it.
+- **Project file (CEP) uploads** may unzip to 64 MB at most (413 `too_large`), and their
+  `project_definition.properties` to 256 KB: a larger upload took a 512 MiB instance past its
+  memory, for every project on it.
 - **Passwords:** hashed with scrypt (`node:crypto`, no native deps). For a
   hardened deployment swap `src/password.ts` for argon2id; only that module
   changes (the stored-hash string shape is private to it).
@@ -861,7 +878,11 @@ caches to the 1 GiB column (`gcloud run services update collect-earth-cloud --re
   host of `MAP_TILE_URL`) and `style-src` must allow inline styles, which Leaflet and the
   dashboard's components set.
 - **AI limits are per project** and checked before a run starts, so the server's
-  monthly total can reach the limit times the number of projects, plus one run each.
+  monthly total can reach the limit times the number of projects, plus one run each. A
+  person's tokens are also counted by month across projects (`ai_token_ledger`, migration
+  028), deleted ones included, against the monthly limit times the projects they coordinate:
+  deleting a project and making another does not give a fresh allowance. The usage on the
+  Server page lists live projects only; the ledger keeps the deleted ones' share.
 - **Check the plot file before pressing Apply in Collect Earth's plot settings.** When the
   settings open (or on Refresh), Collect Earth downloads the first plot file of the list and
   also the one in use, at the same time, and shows whichever download ends last. Someone

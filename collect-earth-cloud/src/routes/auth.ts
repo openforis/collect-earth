@@ -81,7 +81,17 @@ export async function registerAuthRoutes(
   counters?: ServerCounters,
   /** Filled in by the mail routes (registered later): the notice mailed after a password change. */
   accountMail?: AccountMailHooks,
+  /** Wrong passwords for one account from every address together (server.ts, ACCOUNT_LOGIN_FAILURES). */
+  accountFailures?: RateLimiter,
 ): Promise<void> {
+  // An unknown username is checked against a password hash all the same, so that its answer
+  // takes as long as a wrong password's and does not tell that the username is free.
+  let dummyHash: Promise<string> | null = null;
+  const unknownUser = async (password: string): Promise<void> => {
+    dummyHash ??= hashPassword(`no account ${Math.random()}`);
+    await verifyPassword(password, await dummyHash);
+  };
+
   app.post('/v1/auth/register', { preHandler: limiter.guard('register') }, async (request: FastifyRequest, reply: FastifyReply) => {
     const body = (request.body ?? {}) as RegisterBody;
     const username = (body.username ?? '').trim();
@@ -91,14 +101,23 @@ export async function registerAuthRoutes(
       return reply.code(400).send({ error: 'bad_request', reason: 'username, password and inviteToken are required' });
     }
 
-    // Fast pre-check so an obvious duplicate does not consume an invite use.
-    if (await store.getUserByUsername(username)) {
-      return reply.code(409).send({ error: 'username_taken' });
+    // The password rule of the dashboard's accounts applies to an invitation's too (security review,
+    // 2026-11): collectors' accounts reach their project's records and plot files. Collect Earth
+    // shows the reason when it refuses.
+    const weak = checkPassword(password);
+    if (weak) {
+      return reply.code(400).send(weak);
     }
+    // The invitation first: whether a username is taken is said only to someone holding a valid
+    // one, not to anyone asking with a made-up token.
     const invite = await store.getInvite(inviteToken);
     // A revoked invite answers exactly like an unknown one.
     if (!invite || invite.revoked) {
       return reply.code(400).send({ error: 'invalid_invite' });
+    }
+    // Fast pre-check so an obvious duplicate does not consume an invite use.
+    if (await store.getUserByUsername(username)) {
+      return reply.code(409).send({ error: 'username_taken' });
     }
     // Atomic gate: one use per successful registration. On a lost dup race below we
     // over-consume by one use (admin can raise max_uses); we never orphan a user.
@@ -140,13 +159,18 @@ export async function registerAuthRoutes(
     // Failed logins are counted per account and client IP: guessing from one place
     // stops, while someone else's wrong guesses never lock the real user out.
     const failureKey = `${username.toLowerCase()} ${request.ip}`;
-    if (loginFailures.blocked(failureKey)) {
+    // ...and per account from every address together, at a higher limit: many addresses, each under
+    // its own limit, guessing one account (a temporary lock of that account on this instance)
+    const accountKey = username.toLowerCase();
+    if (loginFailures.blocked(failureKey) || accountFailures?.blocked(accountKey)) {
       counters?.count('rateLimited');
       return reply.code(429).header('retry-after', '60').send(RATE_LIMITED);
     }
     const user = await store.getUserByUsername(username);
+    if (!user) await unknownUser(password);
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
       loginFailures.hit(failureKey);
+      accountFailures?.hit(accountKey);
       counters?.count('failedLogin');
       return reply.code(401).send({ error: 'invalid_credentials' });
     }

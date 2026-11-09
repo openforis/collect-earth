@@ -25,6 +25,7 @@
     "smoke:pg:links": "tsx scripts/pg-smoke-share-links.mts",
     "smoke:pg:mail": "tsx scripts/pg-smoke-mail.mts",
     "smoke:pg:final": "tsx scripts/pg-smoke-final-review.mts",
+    "smoke:pg:security": "tsx scripts/pg-smoke-security-review.mts",
     "telemetry:check": "tsx scripts/telemetry-check.mts"
   },
   "dependencies": {
