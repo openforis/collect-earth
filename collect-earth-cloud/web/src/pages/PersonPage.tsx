@@ -798,6 +798,13 @@ export function PersonPage({ projectId, userId, onGo }: { projectId: string; use
         <>
           <PersonHeading data={data} title={data.person.username} />
           <AsOf asOf={data.asOf} />
+          {data.person.excluded && (
+            <Alert severity="warning">
+              {data.person.excluded.reason
+                ? t("person.excludedReason", { name: data.person.username, reason: data.person.excluded.reason })
+                : t("person.excluded", { name: data.person.username })}
+            </Alert>
+          )}
           <PersonNumbers data={data} />
           <PersonActions projectId={projectId} data={data} onChanged={state.reload} />
           <FilesSection data={data} projectId={projectId} members={members.data ?? []} onMoved={state.reload} />

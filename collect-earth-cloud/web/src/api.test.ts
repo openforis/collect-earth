@@ -80,6 +80,7 @@ import {
   setUserDisabled,
   listMembers,
   toPersonRow,
+  setMemberExcluded,
   getMyQuality,
   getTeamReport,
 } from "./api";
@@ -995,6 +996,17 @@ describe("the AI assistant and the reports", () => {
     const members = await listMembers("p1");
     expect(members.map((m) => m.disabled)).toEqual([true, false]);
     expect(toPersonRow({ userId: "u1", username: "maria", status: { kind: "disabled" } }).status).toEqual({ kind: "disabled", days: null, level: null });
+  });
+
+  it("reads who is left out of the results, and leaves someone out or puts them back", async () => {
+    expect(toPersonRow({ userId: "u1", excluded: { at: 5, reason: "protocol" } }).excluded).toEqual({ at: 5, reason: "protocol" });
+    expect(toPersonRow({ userId: "u1" }).excluded).toBeNull();
+    expect(toQualityData({ excluded: [{ username: "ben", reason: null }] }).excluded).toEqual([{ username: "ben", reason: null }]);
+    expect(toQualityData({}).excluded).toEqual([]);
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+    await setMemberExcluded("p1", "u1", true, "  protocol ");
+    expect(call().url).toBe("/v1/projects/p1/members/u1/excluded");
+    expect(call()).toMatchObject({ method: "PUT", body: { excluded: true, reason: "protocol" } });
   });
 
   it("reads the server owner's panel, and disables and enables an account", async () => {

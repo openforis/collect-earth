@@ -63,6 +63,7 @@ import {
   movedText,
   nearbyNote,
   MIN_OVERLAP_PERCENT,
+  percentTotal,
   sortPeople,
   toRequest,
   withSeed,
@@ -330,6 +331,32 @@ function DivideForm({
               />
             ))}
           </FormGroup>
+          <FormControlLabel
+            control={<Switch checked={form.byPercent} onChange={(e) => change({ byPercent: e.target.checked })} />}
+            label={t("divide.byPercent")}
+            sx={{ mt: 1 }}
+          />
+          <FormHelperText sx={{ mt: -0.5 }}>{t("divide.byPercentHelp")}</FormHelperText>
+          {form.byPercent && (
+            <Stack spacing={1.5} sx={{ mt: 1.5, maxWidth: 320 }}>
+              {people
+                .filter((person) => form.people.includes(person.userId))
+                .map((person) => (
+                  <TextField
+                    key={person.userId}
+                    label={t("divide.percentOf", { name: person.username })}
+                    type="number"
+                    size="small"
+                    value={form.percents[person.userId] ?? ""}
+                    onChange={(e) => change({ percents: { ...form.percents, [person.userId]: e.target.value } })}
+                    slotProps={{ htmlInput: { min: 0, max: 100, inputMode: "numeric" } }}
+                  />
+                ))}
+              <Typography variant="body2" color={percentTotal(form) === 100 ? "text.secondary" : "warning.main"} role="status">
+                {t("divide.percentsTotal", { total: formatNumber(percentTotal(form), language) })}
+              </Typography>
+            </Stack>
+          )}
         </FormControl>
       )}
 

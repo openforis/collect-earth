@@ -191,12 +191,13 @@ export async function registerQualityRoutes(
 
   app.get('/v1/projects/:pid/quality', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
-    const [figures, decisions, notes, settings, outline] = await Promise.all([
+    const [figures, decisions, notes, settings, outline, members] = await Promise.all([
       served(quality, projectId, request, reply),
       store.listQualityDecisions(projectId),
       store.listGuidanceNotes(projectId),
       store.getQualitySettings(projectId),
       quality.outline(projectId, request.log),
+      store.listMembers(projectId),
     ]);
     if (!figures) {
       return reply;
@@ -205,7 +206,9 @@ export async function registerQualityRoutes(
     const options = answerOptions(outline, [...figures.report.questions.map((q) => q.key), ...notes.map((n) => n.questionKey)]);
     // Every differing pair is for the review queue and the bulk decisions only.
     const { pairs: _pairs, ...report } = figures.report;
-    return reply.send({ ...report, computedAt: figures.computedAt, stale: figures.stale, decisions: decisions.map((d) => publicDecision(d, figures.flags)), notes, settings, options });
+    // The people left out of these figures (a coordinator's choice), with why.
+    const excluded = members.filter((m) => m.excluded).map((m) => ({ username: m.username, reason: m.excluded!.reason }));
+    return reply.send({ ...report, computedAt: figures.computedAt, stale: figures.stale, decisions: decisions.map((d) => publicDecision(d, figures.flags)), notes, settings, options, excluded });
   });
 
   // Answers per person (Task 4), for coordinators and reviewers (never collectors, never

@@ -64,6 +64,7 @@ import {
   type ReferenceChange,
   type ReferenceChangeResult,
   type ReferencePlot,
+  type ReferenceAnswer,
   type RoundInfo,
   type SampledCopy,
   type SamplingDraw,
@@ -316,6 +317,7 @@ export class PostgresStore implements Store {
       await client.query('DELETE FROM guidance_notes WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM sampling_rules WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM reference_plots WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM reference_answers WHERE project_id = $1', [projectId]);
       for (const table of ['training_attempts', 'training_golden', 'training_members', 'training_sets', 'training_records']) {
         await client.query(`DELETE FROM ${table} WHERE project_id = $1`, [projectId]);
       }
@@ -1404,13 +1406,27 @@ export class PostgresStore implements Store {
 
   async listMembers(projectId: string): Promise<Member[]> {
     const res = await this.pool.query(
-      `SELECT m.user_id, u.username, m.role, u.disabled_at IS NOT NULL AS disabled
+      `SELECT m.user_id, u.username, m.role, u.disabled_at IS NOT NULL AS disabled, m.excluded_at, m.excluded_reason
          FROM project_members m JOIN users u ON u.id = m.user_id
         WHERE m.project_id = $1
         ORDER BY u.username`,
       [projectId],
     );
-    return res.rows.map((r) => ({ userId: r.user_id, username: r.username, role: r.role, disabled: r.disabled === true }));
+    return res.rows.map((r) => ({
+      userId: r.user_id,
+      username: r.username,
+      role: r.role,
+      disabled: r.disabled === true,
+      ...(r.excluded_at ? { excluded: { at: new Date(r.excluded_at).getTime(), reason: r.excluded_reason ?? null } } : {}),
+    }));
+  }
+
+  async setMemberExcluded(projectId: string, userId: string, excluded: { at: number; reason: string | null } | null): Promise<boolean> {
+    const res = await this.pool.query(
+      'UPDATE project_members SET excluded_at = $3, excluded_reason = $4 WHERE project_id = $1 AND user_id = $2',
+      [projectId, userId, excluded ? new Date(excluded.at) : null, excluded?.reason ?? null],
+    );
+    return (res.rowCount ?? 0) > 0;
   }
 
   async setMemberRole(projectId: string, userId: string, role: Role): Promise<void> {
@@ -2211,6 +2227,28 @@ export class PostgresStore implements Store {
         [projectId],
       );
       return res.rows.map(mapRecord);
+    });
+  }
+
+  async listReferenceAnswers(projectId: string): Promise<ReferenceAnswer[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT plot_key, answers, uploaded_at FROM reference_answers WHERE project_id = $1', [projectId]);
+      return res.rows.map((r) => ({ plotKey: r.plot_key as string, answers: r.answers as Record<string, string>, uploadedAt: (r.uploaded_at as Date).getTime() }));
+    });
+  }
+
+  async replaceReferenceAnswers(projectId: string, rows: readonly { plotKey: string; answers: Record<string, string> }[], at: number): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('DELETE FROM reference_answers WHERE project_id = $1', [projectId]);
+      // In slices: one statement per 5,000 plots (the version trigger runs once per statement).
+      for (let i = 0; i < rows.length; i += 5000) {
+        const slice = rows.slice(i, i + 5000);
+        await client.query(
+          `INSERT INTO reference_answers (project_id, plot_key, answers, uploaded_at)
+           SELECT $1, k, a, $4 FROM unnest($2::text[], $3::jsonb[]) AS t(k, a)`,
+          [projectId, slice.map((r) => r.plotKey), slice.map((r) => JSON.stringify(r.answers)), new Date(at)],
+        );
+      }
     });
   }
 

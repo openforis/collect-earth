@@ -59,6 +59,8 @@ describe("the log's sentences", () => {
     // anonymising says how many records, never whose
     expect(logSentence(t, audit("member.anonymized", { records: 120 }), page, "en")).toBe("ana anonymised a former member (120 records)");
     expect(logSentence(t, audit("member.anonymized", { records: 1 }), page, "en")).toBe("ana anonymised a former member (1 record)");
+    expect(logSentence(t, audit("member.excluded", { userId: "u1", excluded: true }), page, "en")).toBe("ana left ana out of the results");
+    expect(logSentence(t, audit("member.excluded", { userId: "u1", excluded: false }), page, "en")).toBe("ana put ana back in the results");
     expect(logSentence(t, audit("plots.moved", { csvFileId: "f1", fromUserId: "u3", toUserId: "u1", moved: 4 }), page, "en")).toBe(
       "ana moved 4 plots of north.csv from someone whose account was deleted to ana",
     );
@@ -80,6 +82,8 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("settings.changed", { setting: "copy", from: "Bolivia 2026" }), page, "en")).toBe("ana made this project as a copy of “Bolivia 2026”");
     expect(logSentence(t, audit("reference.changed", { csvFileId: "f1", added: 20, removed: 0 }), page, "en")).toBe("ana marked plots of north.csv as reference plots (20 plots)");
     expect(logSentence(t, audit("reference.changed", { csvFileId: null, added: 0, removed: 3 }), page, "en")).toBe("ana removed reference plots (3 plots)");
+    expect(logSentence(t, audit("reference.changed", { external: "uploaded", plots: 120 }), page, "en")).toBe("ana uploaded reference answers for 120 plots");
+    expect(logSentence(t, audit("reference.changed", { external: "deleted" }), page, "en")).toBe("ana deleted the reference answers");
   });
 
   it("a count of 1 is singular; a rename says the new name when the log has it", () => {

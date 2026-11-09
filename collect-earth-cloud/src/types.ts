@@ -43,6 +43,8 @@ export interface Member {
   role: Role;
   /** The server owner disabled the account (a flag only: not when or by whom). */
   disabled?: boolean;
+  /** A coordinator left their records out of the results (the figures and the exports); absent otherwise. */
+  excluded?: { at: number; reason: string | null };
 }
 
 export interface Invite {
@@ -257,7 +259,8 @@ export type DivisionOrder = 'file' | 'mixed' | 'nearby';
  * rows in that order.
  */
 export type StoredDistribution =
-  | { mode: 'even'; people: string[]; order: DivisionOrder; overlapPercent: number; seed?: number }
+  /** `percents`: each person's share of the plots (one per person, adding up to 100); absent = even shares. */
+  | { mode: 'even'; people: string[]; percents?: number[]; order: DivisionOrder; overlapPercent: number; seed?: number }
   | {
       mode: 'column';
       column: number;
@@ -267,6 +270,13 @@ export type StoredDistribution =
       seed?: number;
     }
   | { mode: 'manual'; order?: 'nearby' };
+
+/** A plot's answers in the reference set a coordinator uploaded, by summary key. */
+export interface ReferenceAnswer {
+  plotKey: string;
+  answers: Record<string, string>;
+  uploadedAt: number;
+}
 
 /**
  * One plot of a divided file held by one person; overlap = given as a quality-check copy.
@@ -825,6 +835,7 @@ export const AUDIT_ACTIONS = [
   'link.revoked',
   'training.changed',
   'training.synced',
+  'member.excluded',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

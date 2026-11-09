@@ -104,4 +104,21 @@ describe('copying a project (a template)', () => {
     await ctx.store.setMemberRole(pid, maria.userId, 'admin');
     expect((await copy({ name: 'Not allowed' }, maria.token, pid)).json()).toMatchObject({ error: 'project_creation_restricted' });
   });
+
+  it('leaves behind who was left out of the results and the reference answers: judgements about this project`s data', async () => {
+    expect((await call('PUT', src, `/members/${maria.userId}/excluded`, { excluded: true, reason: 'protocol' })).statusCode).toBe(200);
+    await ctx.store.replaceReferenceAnswers(src, [{ plotKey: '1', answers: { collect_code_land_use_category: 'F' } }], Date.now());
+    const pid = (await copy({ name: 'Bolivia 2027', members: true })).json().projectId;
+    const members = await ctx.store.listMembers(pid);
+    expect(members.find((m) => m.userId === maria.userId)).toBeDefined();
+    expect(members.some((m) => m.excluded)).toBe(false);
+    expect(await ctx.store.listReferenceAnswers(pid)).toEqual([]);
+  });
+
+  it('a closed project refuses leaving someone out and a reference upload (409 project_closed)', async () => {
+    expect((await call('PUT', src, '/status', { status: 'closed' })).statusCode).toBe(200);
+    expect((await call('PUT', src, `/members/${maria.userId}/excluded`, { excluded: true })).json()).toMatchObject({ error: 'project_closed' });
+    const upload = await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${src}/reference/answers`, headers: { ...bearer(owner), 'content-type': 'text/csv' }, payload: 'plot,land_use_category\n1,F\n' });
+    expect(upload.statusCode).toBe(409);
+  });
 });

@@ -50,6 +50,7 @@ import type {
   ReferenceChange,
   ReferenceChangeResult,
   ReferencePlot,
+  ReferenceAnswer,
   TrainingAttempt,
   TrainingGolden,
   TrainingKind,
@@ -292,6 +293,8 @@ export interface Store {
   listMemberships(userId: string): Promise<Membership[]>;
   listMembers(projectId: string): Promise<Member[]>;
   setMemberRole(projectId: string, userId: string, role: Role): Promise<void>;
+  /** Leaves a member's records out of the results (Member.excluded), or with null puts them back; false when not a member. */
+  setMemberExcluded(projectId: string, userId: string, excluded: { at: number; reason: string | null } | null): Promise<boolean>;
   /**
    * Also drops the member's assignments, plot holdings, activity and bell read state in the project;
    * its audit entries there stay with no actor.
@@ -442,6 +445,10 @@ export interface Store {
    * order), in one transaction under the check sampling's lock (no draw nor division meanwhile).
    */
   changeReferencePlots(projectId: string, change: ReferenceChange): Promise<ReferenceChangeResult>;
+  /** The reference answers a coordinator uploaded (migration 033), by plot unit. */
+  listReferenceAnswers(projectId: string): Promise<ReferenceAnswer[]>;
+  /** Replaces the whole set of reference answers (none: deletes it); the quality figures' version changes. */
+  replaceReferenceAnswers(projectId: string, rows: readonly { plotKey: string; answers: Record<string, string> }[], at: number): Promise<void>;
   /**
    * The divided files where the user holds plots, with those plots, by filename.
    * `copyKeys` are the ones among them given as quality-check copies (overlap).

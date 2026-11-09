@@ -62,6 +62,7 @@ import {
   type ReferenceChange,
   type ReferenceChangeResult,
   type ReferencePlot,
+  type ReferenceAnswer,
   type RoundInfo,
   type Role,
   type SampledCopy,
@@ -130,6 +131,8 @@ interface ProjectEntry {
   sampling: (SamplingState & { active: boolean; lastMarkedAt: number | null }) | null;
   /** Reference plots (reference_plots), key = `${csvFileId} ${plotKey}`. */
   references: Map<string, StoredReference>;
+  /** Reference answers uploaded, by plot unit. */
+  referenceAnswers: Map<string, ReferenceAnswer>;
 }
 
 interface StoredReference {
@@ -203,6 +206,8 @@ export class InMemoryStore implements Store {
   private readonly userCreatedAt = new Map<string, number>();
   private readonly userDisabledBy = new Map<string, string>();
   private readonly memberships = new Map<string, Role>(); // `${projectId} ${userId}` -> role
+  /** `${projectId} ${userId}` -> left out of the results (Member.excluded). */
+  private readonly excludedMembers = new Map<string, { at: number; reason: string | null }>();
   private readonly invites = new Map<string, InviteEntry>(); // invite token hash -> entry
   private readonly resets = new Map<string, ResetEntry>(); // reset token hash -> entry
   /** Progress links (share_links): token hash -> link. */
@@ -429,6 +434,7 @@ export class InMemoryStore implements Store {
       attentionReads: new Map(),
       sampling: null,
       references: new Map(),
+      referenceAnswers: new Map(),
     });
 
     const adminToken = generateToken();
@@ -1206,11 +1212,20 @@ export class InMemoryStore implements Store {
       if (memberProjectId === projectId) {
         const user = this.users.get(userId);
         if (user) {
-          result.push({ userId, username: user.username, role, disabled: !!user.disabledAt });
+          const excluded = this.excludedMembers.get(key);
+          result.push({ userId, username: user.username, role, disabled: !!user.disabledAt, ...(excluded ? { excluded: { ...excluded } } : {}) });
         }
       }
     }
     return result;
+  }
+
+  async setMemberExcluded(projectId: string, userId: string, excluded: { at: number; reason: string | null } | null): Promise<boolean> {
+    const id = InMemoryStore.memberId(projectId, userId);
+    if (!this.memberships.has(id)) return false;
+    if (excluded) this.excludedMembers.set(id, { ...excluded });
+    else this.excludedMembers.delete(id);
+    return true;
   }
 
   async setMemberRole(projectId: string, userId: string, role: Role): Promise<void> {
@@ -1222,6 +1237,7 @@ export class InMemoryStore implements Store {
 
   async removeMember(projectId: string, userId: string): Promise<void> {
     this.memberships.delete(InMemoryStore.memberId(projectId, userId));
+    this.excludedMembers.delete(InMemoryStore.memberId(projectId, userId));
     const entry = this.projects.get(projectId);
     if (entry) {
       for (const a of entry.assignments) {
@@ -1662,6 +1678,17 @@ export class InMemoryStore implements Store {
       dueSince: s.dueSince !== null && (s.lastMarkedAt ?? s.dueSince) <= dueBefore ? null : s.dueSince,
     };
     return added;
+  }
+
+  async listReferenceAnswers(projectId: string): Promise<ReferenceAnswer[]> {
+    return [...(this.projects.get(projectId)?.referenceAnswers.values() ?? [])].map((r) => ({ ...r, answers: { ...r.answers } }));
+  }
+
+  async replaceReferenceAnswers(projectId: string, rows: readonly { plotKey: string; answers: Record<string, string> }[], at: number): Promise<void> {
+    const entry = this.requireProject(projectId);
+    entry.referenceAnswers = new Map(rows.map((r) => [r.plotKey, { plotKey: r.plotKey, answers: { ...r.answers }, uploadedAt: at }]));
+    // The quality figures' version follows the set, as Postgres's trigger (033).
+    entry.holdingsGeneration += 1;
   }
 
   async listReferencePlots(projectId: string): Promise<ReferencePlot[]> {

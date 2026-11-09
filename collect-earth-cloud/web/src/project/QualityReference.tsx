@@ -26,13 +26,25 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useEffect, useId, useRef, useState } from "react";
-import { ApiError, getReference, markReference, unmarkReference, type ReferenceFiguresView, type ReferenceView } from "../api";
+import Chip from "@mui/material/Chip";
+import {
+  ApiError,
+  deleteReferenceAnswers,
+  getReference,
+  markReference,
+  unmarkReference,
+  uploadReferenceAnswers,
+  type ReferenceAnswersReport,
+  type ReferenceFiguresView,
+  type ReferenceView,
+} from "../api";
+import { FileDrop } from "../components/FileDrop";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
-import { accuracyText, parsePlotIds, refusalKey, sortedPeople, weakestQuestions } from "../referenceView";
+import { aboveHalf, accuracyText, disagreementText, mostDiffering, overallRate, parsePlotIds, refusalKey, sortedPeople, weakestQuestions } from "../referenceView";
 import { linkProps, pathFor } from "../router";
 import { useLoad } from "../useLoad";
 import { wholeNumber } from "../checksView";
@@ -120,6 +132,184 @@ function Accuracy({ figures }: { figures: ReferenceFiguresView }) {
               </TableBody>
             </Table>
           </TableContainer>
+        </>
+      )}
+    </Stack>
+  );
+}
+
+/**
+ * Reference answers from a file (Collect Earth Online's reference data): the coordinator uploads a
+ * set of answers keyed by plot id, and everyone's latest records of those plots are compared with
+ * it, for the project, per question, per person (above half differing is flagged) and per plot.
+ */
+function ExternalReference({ projectId, view, canEdit, onChanged }: { projectId: string; view: ReferenceView; canEdit: boolean; onChanged: (text: string) => void }) {
+  const t = useT();
+  const { language } = useApp();
+  const n = (v: number) => formatNumber(v, language);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [report, setReport] = useState<ReferenceAnswersReport | null>(null);
+  const figures = view.figures?.external ?? null;
+  if (!canEdit && !figures) return null;
+  const run = async (action: () => Promise<string>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      onChanged(await action());
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const upload = (files: File[]) =>
+    void run(async () => {
+      setReport(null);
+      const result = await uploadReferenceAnswers(projectId, files[0]);
+      setReport(result);
+      return t("reference.ext.uploaded", { count: n(result.plots) });
+    });
+  const remove = () =>
+    void run(async () => {
+      setReport(null);
+      await deleteReferenceAnswers(projectId);
+      return t("reference.ext.deleted");
+    });
+  const overall = figures ? overallRate(figures.questions) : null;
+  return (
+    <Stack spacing={2}>
+      <Typography variant="h3" sx={{ fontSize: "1.1rem", fontWeight: 600 }}>
+        {t("reference.ext.title")}
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        {t("reference.ext.explain")}
+      </Typography>
+      {canEdit && (
+        <>
+          {view.external.count > 0 && (
+            <Typography variant="body2">
+              {t("reference.ext.count", { count: n(view.external.count) })}
+              {view.external.uploadedAt !== null && ` ${t("reference.ext.uploadedAt", { time: formatDate(view.external.uploadedAt, language) })}`}
+            </Typography>
+          )}
+          <FileDrop label={t("reference.ext.drop")} buttonLabel={t("reference.ext.choose")} accept=".csv,.json,text/csv,application/json" disabled={busy} onFiles={upload} />
+          {view.external.count > 0 && (
+            <Box>
+              <Button color="error" variant="outlined" onClick={remove} disabled={busy}>
+                {t("reference.ext.delete")}
+              </Button>
+            </Box>
+          )}
+          {report && report.columns.length > 0 && (
+            <Typography variant="body2" color="text.secondary">
+              {t("reference.ext.columns", { columns: report.columns.map((c) => c.column).join(", ") })}
+            </Typography>
+          )}
+          {report && report.unmatchedColumns.length > 0 && <Alert severity="warning">{t("reference.ext.unmatchedColumns", { columns: report.unmatchedColumns.join(", ") })}</Alert>}
+          {report && report.unmatchedValues.length > 0 && (
+            <Alert severity="warning">
+              {t("reference.ext.unmatchedValues", { values: report.unmatchedValues.map((v) => `${v.column}: "${v.value}" (${n(v.count)})`).join(", ") })}
+            </Alert>
+          )}
+          {report && report.unknownPlotCount > 0 && (
+            <Alert severity="warning">{t("reference.ext.unknownPlots", { count: n(report.unknownPlotCount), plots: report.unknownPlots.join(", ") })}</Alert>
+          )}
+          <ErrorAlert error={error} />
+        </>
+      )}
+      {figures && overall && (
+        <>
+          {figures.checks === 0 ? (
+            <Typography>{t("reference.ext.noRecords")}</Typography>
+          ) : (
+            <>
+              <Typography>
+                {t("reference.ext.overall", { plots: n(figures.assessed), records: n(figures.checks) })} {disagreementText(t, overall, language)}
+              </Typography>
+              {figures.people.length > 0 && (
+                <TableContainer sx={tableFrame}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>{t("reference.col.person")}</TableCell>
+                        <TableCell>{t("reference.ext.col.disagreement")}</TableCell>
+                        <TableCell>{t("reference.col.weakest")}</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {[...figures.people]
+                        .sort((a, b) => (a.answers.rate ?? 2) - (b.answers.rate ?? 2) || a.username.localeCompare(b.username))
+                        .map((person) => {
+                          const high = aboveHalf(person.answers);
+                          return (
+                            <TableRow key={person.username} sx={{ verticalAlign: "top", ...(high ? { bgcolor: "warning.light" } : {}) }}>
+                              <TableCell component="th" scope="row" sx={{ wordBreak: "break-word" }}>
+                                {person.username}
+                                {high && <Chip size="small" color="warning" label={t("reference.ext.aboveHalf")} sx={{ ml: 1 }} />}
+                              </TableCell>
+                              <TableCell sx={{ minWidth: 180 }}>{disagreementText(t, person.answers, language)}</TableCell>
+                              <TableCell sx={{ minWidth: 180, wordBreak: "break-word" }}>
+                                {weakestQuestions(person).map((q) => (
+                                  <Box key={q.key}>{t("reference.missed", { label: q.label, missed: n(q.compared - q.agreeing), count: n(q.compared) })}</Box>
+                                ))}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+              <TableContainer sx={tableFrame}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>{t("reference.col.question")}</TableCell>
+                      <TableCell>{t("reference.ext.col.disagreement")}</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {figures.questions.map((q) => (
+                      <TableRow key={q.key}>
+                        <TableCell component="th" scope="row" sx={{ wordBreak: "break-word" }}>
+                          {q.label}
+                        </TableCell>
+                        <TableCell sx={{ minWidth: 180 }}>{disagreementText(t, q, language)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              {mostDiffering(figures.byPlot).length > 0 && (
+                <>
+                  <Typography variant="h3" sx={{ fontSize: "1rem", fontWeight: 600 }}>
+                    {t("reference.ext.plotsTitle")}
+                  </Typography>
+                  <TableContainer sx={tableFrame}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>{t("reference.ext.col.plot")}</TableCell>
+                          <TableCell>{t("reference.ext.col.plotDiffer")}</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {mostDiffering(figures.byPlot).map((p) => (
+                          <TableRow key={p.plot}>
+                            <TableCell component="th" scope="row">
+                              <Link {...linkProps(pathFor({ name: "plot", projectId, plot: p.plot }))}>{p.plot}</Link>
+                            </TableCell>
+                            <TableCell>{t("reference.ext.plotDiffer", { differing: n(p.compared - p.agreeing), count: n(p.compared), records: n(p.records) })}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </>
+              )}
+            </>
+          )}
         </>
       )}
     </Stack>
@@ -454,6 +644,7 @@ export function QualityReference({ projectId, canEdit }: { projectId: string; ca
                 </Typography>
               )}
               {data.figures && data.count > 0 && <Accuracy figures={data.figures} />}
+              <ExternalReference projectId={projectId} view={data} canEdit={canEdit && data.coordinator} onChanged={(text) => (setMessage(text), reload())} />
               {canEdit && data.coordinator && (
                 <>
                   <PlotList projectId={projectId} view={data} onDone={(next, removed) => changed(next, t("reference.removed", { count: n(removed) }))} />

@@ -6,11 +6,11 @@ import { audit, noteActivity } from '../activity.js';
 import { noteColumn, type RoundInfo } from '../cep.js';
 import type { Config } from '../config.js';
 import { checksumOf } from '../csv.js';
-import { copiesSubmittedAsMain } from '../division.js';
+import { copiesSubmittedAsMain, fileAssignment, type FileAssignment } from '../division.js';
 import { attachment } from '../download.js';
 import { checkUploadFits } from '../limits.js';
 import { nearbyRanksOf, servedNearby } from '../nearby.js';
-import { buildPlotFile, idsNotFittingKeys, isNumber, noteText, parsePlotFile, type NoteColumn, type RoundColumn } from '../plots.js';
+import { buildPlotFile, idsNotFittingKeys, isNumber, noteText, parsePlotFile, withoutColumns, type NoteColumn, type RoundColumn } from '../plots.js';
 import { referenceCopyPlan } from '../reference.js';
 import { fileKeyCount, keyShape, recordKeysOfUnit, unitOfRecord } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
@@ -195,7 +195,7 @@ export async function registerAssignmentRoutes(
       if (!filename || /[/\\\0]/.test(filename) || filename === '.' || filename === '..' || filename.includes('..')) {
         return reply.code(400).send({ error: 'bad_request', reason: 'invalid filename' });
       }
-      const data = request.body;
+      let data = request.body as Buffer;
       if (!Buffer.isBuffer(data) || data.length === 0) {
         return reply.code(400).send({ error: 'bad_request', reason: 'expected a non-empty CSV body' });
       }
@@ -208,7 +208,14 @@ export async function registerAssignmentRoutes(
       const projectId = request.membership!.projectId;
       const info = await store.getRoundInfo(projectId);
       const keyCount = fileKeyCount(info);
-      const parsed = parsePlotFile(data, keyCount);
+      let parsed = parsePlotFile(data, keyCount);
+      // A `user` column (and `reviewers`) gives the plots out (not in the local mode: one person there).
+      const fromFile = config.localMode ? null : fileAssignment(parsed, await membersWithEmail(store, projectId), keyCount);
+      if (fromFile) {
+        // Taken out of the stored file: only the dashboard reads them, and collectors are not told who checks them.
+        data = withoutColumns(parsed, fromFile.columns);
+        parsed = parsePlotFile(data, keyCount);
+      }
       const plotIds = parsed.plotIds;
       if (plotIds.length === 0) {
         telemetry.event('plot_file_refused', { projectId: request.membership!.projectId, userId: request.userId }, { reason: 'no_plots' });
@@ -269,11 +276,21 @@ export async function registerAssignmentRoutes(
           });
         }
       }
-      const meta = await store.putCsvFile(projectId, filename, data, plotIds);
+      let meta = await store.putCsvFile(projectId, filename, data, plotIds);
       await audit(store, request, 'csv.uploaded', { csvFileId: meta.id, plots: meta.plotCount });
       if (confirmed) telemetry.event('plot_file_replaced', { projectId, userId: request.userId });
+      let assignment: Omit<FileAssignment, 'plots' | 'columns'> | undefined;
+      if (fromFile) {
+        // The file says who has which plot: its holdings become the file's (reference plots keep theirs, setDivision).
+        const distribution: StoredDistribution = { mode: 'manual' };
+        await store.setDivision(projectId, meta.id, distribution, fromFile.plots);
+        await audit(store, request, 'division.applied', { csvFileId: meta.id, mode: 'file', people: new Set(fromFile.plots.map((a) => a.userId)).size, plots: meta.plotCount });
+        meta = { ...meta, distribution };
+        const { plots: _plots, columns: _columns, ...counts } = fromFile;
+        assignment = { ...counts, unknown: counts.unknown.slice(0, 100) };
+      }
       const warnings = await fileWarnings(parsed, keyCount, projectId, request.log);
-      return reply.code(201).send(warnings ? { ...meta, warnings } : meta);
+      return reply.code(201).send({ ...meta, ...(fromFile ? { divided: true, assignment } : {}), ...(warnings ? { warnings } : {}) });
     },
   );
 
@@ -842,4 +859,11 @@ function ownFile(
   }
   cacheSet(key, built);
   return built;
+}
+
+/** The project's members with their accounts' e-mails (a plot file's user column may name either). */
+async function membersWithEmail(store: Store, projectId: string): Promise<{ userId: string; username: string; email: string | null }[]> {
+  const members = await store.listMembers(projectId);
+  const users = await Promise.all(members.map((m) => store.getUserById(m.userId)));
+  return members.map((m, i) => ({ userId: m.userId, username: m.username, email: users[i]?.email ?? null }));
 }

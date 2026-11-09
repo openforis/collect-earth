@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { publicBaseUrl } from '../accountRules.js';
+import { isUuid, publicBaseUrl } from '../accountRules.js';
 import { audit, noteActivity } from '../activity.js';
 import { addNote, addRound, CepError, noteColumn, roundInfoOf, withBundledPlotFile, type NoteInfo, type NoteRefusal, type RefusalCode } from '../cep.js';
 import type { Config } from '../config.js';
@@ -165,6 +165,8 @@ function withNote(
 }
 
 const VALID_ROLES: Role[] = ['admin', 'reviewer', 'operator'];
+/** The longest reason for leaving someone out of the results. */
+const MAX_EXCLUDED_REASON = 500;
 
 /**
  * Phase-A coordination routes: the caller's project list, invite creation and
@@ -502,6 +504,29 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       await store.deleteUserSessions(uid);
       await audit(store, request, 'member.signed_out', { userId: uid });
       return reply.code(204).send();
+    },
+  );
+
+  // Leave a member's records out of the results (admin), or put them back: {excluded, reason?}.
+  app.put(
+    '/v1/projects/:pid/members/:uid/excluded',
+    { preHandler: requireProjectMembership(store, 'admin') },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const projectId = request.membership!.projectId;
+      const uid = (request.params as { uid: string }).uid;
+      const body = (request.body ?? {}) as { excluded?: unknown; reason?: unknown };
+      if (typeof body.excluded !== 'boolean') {
+        return reply.code(400).send({ error: 'bad_request', reason: 'excluded must be true or false' });
+      }
+      const reason = typeof body.reason === 'string' && body.reason.trim() !== '' ? body.reason.trim() : null;
+      if ((body.reason !== undefined && body.reason !== null && typeof body.reason !== 'string') || (reason?.length ?? 0) > MAX_EXCLUDED_REASON) {
+        return reply.code(400).send({ error: 'bad_request', reason: `reason must be text of at most ${MAX_EXCLUDED_REASON} characters` });
+      }
+      if (!isUuid(uid) || !(await store.setMemberExcluded(projectId, uid, body.excluded ? { at: Date.now(), reason } : null))) {
+        return reply.code(404).send({ error: 'not_found' });
+      }
+      await audit(store, request, 'member.excluded', { userId: uid, excluded: body.excluded });
+      return reply.send({ ok: true });
     },
   );
 

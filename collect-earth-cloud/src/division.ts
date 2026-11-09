@@ -1,5 +1,6 @@
 import type { DivisionOrder, PlotAssignment, RecordRow, StoredDistribution } from './types.js';
 import type { RoundInfo } from './cep.js';
+import type { PlotFile } from './plots.js';
 import { copyUnitsByUser, keyShape, recordRound, unitOfRecord } from './rounds.js';
 import { inRankOrder } from './nearby.js';
 
@@ -99,7 +100,23 @@ export function parseDivisionRequest(
   const extra = { order, overlapPercent, ...(seed === undefined ? {} : { seed }) };
   if (b.mode === 'even') {
     const list = people(b.people, 'people');
-    return 'reason' in list ? list : { mode: 'even', people: list, ...extra };
+    if ('reason' in list) {
+      return list;
+    }
+    if (b.percents === undefined || b.percents === null) {
+      return { mode: 'even', people: list, ...extra };
+    }
+    const percents = b.percents;
+    if (
+      !Array.isArray(percents) ||
+      percents.length !== (b.people as unknown[]).length ||
+      list.length !== percents.length ||
+      !percents.every((p) => typeof p === 'number' && Number.isFinite(p) && p >= 0 && p <= 100) ||
+      Math.abs((percents as number[]).reduce((sum, p) => sum + p, 0) - 100) > 1e-6
+    ) {
+      return { reason: 'percents needs one percent from 0 to 100 for each person (no one twice), adding up to 100' };
+    }
+    return { mode: 'even', people: list, percents: percents as number[], ...extra };
   }
   if (typeof b.column !== 'number' || !Number.isInteger(b.column) || b.column < 0 || b.column >= columnCount) {
     return { reason: `column must be a column of the file, from 0 to ${columnCount - 1}` };
@@ -189,6 +206,34 @@ export function shareSizes(pinned: readonly number[], free: number): number[] {
 }
 
 /**
+ * Like shareSizes, by percent: person i ends up with percents[i] of all the plots (pinned and
+ * free), rounded by largest remainder (ties to the earlier person). When someone already holds
+ * more than their share, the others give up the difference, the one most over their exact
+ * share first (ties: the later person).
+ */
+export function percentSizes(pinned: readonly number[], free: number, percents: readonly number[]): number[] {
+  const total = free + pinned.reduce((sum, p) => sum + p, 0);
+  const ideal = percents.map((p) => (p * total) / 100);
+  const target = ideal.map((x) => Math.floor(x + 1e-9));
+  let left = total - target.reduce((sum, t) => sum + t, 0);
+  const byFraction = ideal.map((_, i) => i).sort((a, b) => ideal[b] - target[b] - (ideal[a] - target[a]) || a - b);
+  for (const i of byFraction) {
+    if (left <= 0) break;
+    target[i] += 1;
+    left -= 1;
+  }
+  const extra = target.map((t, i) => Math.max(0, t - pinned[i]));
+  for (let over = extra.reduce((sum, e) => sum + e, 0) - free; over > 0; over -= 1) {
+    let pick = -1;
+    for (let i = 0; i < extra.length; i += 1) {
+      if (extra[i] > 0 && (pick < 0 || pinned[i] + extra[i] - ideal[i] >= pinned[pick] + extra[pick] - ideal[pick])) pick = i;
+    }
+    extra[pick] -= 1;
+  }
+  return extra;
+}
+
+/**
  * Deals `plots` (in the order they are to be dealt) between `people`.
  * - A plot whose main assessment one of them submitted stays theirs (the first of
  *   them, if several; the others keep it as a copy) and counts towards their share.
@@ -206,6 +251,7 @@ function deal(
   plots: readonly string[],
   people: readonly string[],
   submittedBy: SubmittedBy,
+  percents?: readonly number[],
 ): { lists: string[][]; copies: PlotAssignment[]; kept: PlotAssignment[] } {
   const n = people.length;
   const index = new Map(people.map((p, i) => [p, i]));
@@ -238,7 +284,8 @@ function deal(
       checkedBy.set(plot, new Set(checkers));
     }
   }
-  const extra = shareSizes(pinned, plots.length - owner.size - done.size);
+  const free = plots.length - owner.size - done.size;
+  const extra = percents ? percentSizes(pinned, free, percents) : shareSizes(pinned, free);
   const lists: string[][] = people.map(() => []);
   let person = 0;
   for (const plot of plots) {
@@ -341,9 +388,9 @@ export function divide(
     d.order === 'mixed' ? shuffled(plotIds, d.seed ?? 0) : d.order === 'nearby' ? inRankOrder(plotIds, curve) : [...plotIds];
   // Each person's list is kept in file order, or along the curve for 'nearby'.
   const rank = d.order === 'nearby' ? new Map(order.map((id, i) => [id, i])) : position;
-  const groups: { people: string[]; plots: string[] }[] = [];
+  const groups: { people: string[]; plots: string[]; percents?: number[] }[] = [];
   if (d.mode === 'even') {
-    groups.push({ people: d.people, plots: order });
+    groups.push({ people: d.people, plots: order, percents: d.percents });
   } else {
     const valueOf = new Map(plotIds.map((id, i) => [id, values?.[i] ?? '']));
     const byValue = new Map(d.groups.map((g) => [g.value, { people: g.people, plots: [] as string[] }]));
@@ -392,7 +439,7 @@ export function divide(
   };
   // First everything dealt (the main holdings and the copies kept for what people
   // submitted, in every group), then the new overlap copies.
-  const dealt = groups.map((group) => ({ group, ...deal(group.plots, group.people, submittedBy) }));
+  const dealt = groups.map((group) => ({ group, ...deal(group.plots, group.people, submittedBy, group.percents) }));
   for (const { group, lists, copies, kept } of dealt) {
     lists.forEach((list, i) => {
       list.sort((x, y) => rank.get(x)! - rank.get(y)!);
@@ -757,3 +804,79 @@ export function summarize(
  * know is never compared by the quality figures when its name contains any of these.
  */
 export const METADATA_KEY_PARTS = ['operator', 'actively_saved', 'saved_on', 'modified', 'created', 'timestamp', 'skipped', '_time'];
+
+/** The columns of a plot file that give its plots out (as Collect Earth Online's plot files): matched by name, case ignored. */
+const USER_COLUMN = 'user';
+const REVIEWERS_COLUMN = 'reviewers';
+
+export interface FileAssignment {
+  /** The holdings: each plot's user as main, its reviewers as quality-check copies. */
+  plots: PlotAssignment[];
+  /** Plots given to a user, and the checks given to reviewers. */
+  assigned: number;
+  checks: number;
+  /** Plots given to no one: no user, or a name that is no member's. */
+  notAssigned: number;
+  /** The names that are no member's (username or e-mail), in the order first met. */
+  unknown: string[];
+  /** The indices of the user and reviewers columns (to take out of the stored file). */
+  columns: number[];
+}
+
+/**
+ * Who gets each plot from a plot file's `user` column (a username or e-mail of a member, case
+ * ignored) and who checks it from its `reviewers` column (members separated by ";" or "|"): null
+ * when the file has no header with a user column. The first row of a plot decides. A row with any
+ * name that is no member's is given to no one (its names listed in `unknown`); a user is never
+ * their own reviewer.
+ */
+export function fileAssignment(
+  file: PlotFile,
+  people: readonly { userId: string; username: string; email: string | null }[],
+  keyCount: number,
+): FileAssignment | null {
+  const names = file.header?.fields.map((f) => f.trim().toLowerCase()) ?? [];
+  const userAt = names.indexOf(USER_COLUMN);
+  if (userAt < keyCount) {
+    return null;
+  }
+  const reviewersAt = names.indexOf(REVIEWERS_COLUMN);
+  const byName = new Map<string, string>();
+  for (const p of people) {
+    if (p.email) byName.set(p.email.trim().toLowerCase(), p.userId);
+  }
+  for (const p of people) byName.set(p.username.toLowerCase(), p.userId);
+  const unknown: string[] = [];
+  const plots: PlotAssignment[] = [];
+  const seen = new Set<string>();
+  let assigned = 0;
+  let checks = 0;
+  for (const row of file.rows) {
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    const user = (row.fields[userAt] ?? '').trim();
+    if (user === '') continue;
+    const reviewers = reviewersAt < keyCount ? [] : (row.fields[reviewersAt] ?? '').split(/[;|]/).map((n) => n.trim()).filter((n) => n !== '');
+    const missing = [user, ...reviewers].filter((n) => !byName.has(n.toLowerCase()));
+    if (missing.length > 0) {
+      for (const n of missing) if (!unknown.includes(n)) unknown.push(n);
+      continue;
+    }
+    const main = byName.get(user.toLowerCase())!;
+    plots.push({ plotKey: row.id, userId: main, overlap: false });
+    assigned += 1;
+    for (const userId of new Set(reviewers.map((n) => byName.get(n.toLowerCase())!))) {
+      if (userId === main) continue;
+      plots.push({ plotKey: row.id, userId, overlap: true });
+      checks += 1;
+    }
+  }
+  return {
+    plots,
+    assigned,
+    checks,
+    notAssigned: file.plotIds.length - assigned,
+    unknown,
+    columns: [userAt, ...(reviewersAt >= keyCount ? [reviewersAt] : [])].sort((a, b) => a - b),
+  };
+}

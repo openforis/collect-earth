@@ -183,6 +183,8 @@ export interface Member {
   role: Role;
   /** The server administrator disabled the account: it cannot log in or sync. */
   disabled?: boolean;
+  /** A coordinator left their records out of the results (figures and exports). */
+  excluded?: { at: number; reason: string | null };
 }
 
 export interface CsvFile {
@@ -194,6 +196,8 @@ export interface CsvFile {
   divided?: boolean;
   /** People holding at least one of its plots; 0 for a whole file. */
   dividedPeople?: number;
+  /** Given on upload of a file with a user column: how its plots were given out (the plots of unknown names were not). */
+  assignment?: { assigned: number; checks: number; notAssigned: number; unknown: string[] };
   /** Given on upload: what may be wrong with the file, which was still taken. */
   warnings?: {
     /** Ids the survey's number keys cannot take. */
@@ -250,7 +254,7 @@ export type DivisionOrder = "file" | "mixed" | "nearby";
 export type Distribution =
   | { mode: "whole" }
   | { mode: "manual"; order?: "nearby" }
-  | { mode: "even"; people: string[]; order: DivisionOrder; overlapPercent?: number; seed?: number }
+  | { mode: "even"; people: string[]; percents?: number[]; order: DivisionOrder; overlapPercent?: number; seed?: number }
   | {
       mode: "column";
       column: number;
@@ -393,6 +397,8 @@ export interface QualityData {
   computedAt: number | null;
   /** Older figures, given while newer ones are worked out. */
   stale: boolean;
+  /** People a coordinator left out of these figures, with why. */
+  excluded: { username: string; reason: string | null }[];
 }
 
 /** Where a plot is, from the plot files. */
@@ -1267,6 +1273,12 @@ export async function signOutMember(projectId: string, userId: string): Promise<
   await send("POST", `${p(projectId)}/members/${encodeURIComponent(userId)}/sign-out`);
 }
 
+/** Leaves a member's records out of the results (with an optional reason), or puts them back. */
+export async function setMemberExcluded(projectId: string, userId: string, excluded: boolean, reason = ""): Promise<void> {
+  const json = excluded && reason.trim() ? { excluded, reason: reason.trim() } : { excluded };
+  await send("PUT", `${p(projectId)}/members/${encodeURIComponent(userId)}/excluded`, { json });
+}
+
 export async function removeMember(projectId: string, userId: string): Promise<void> {
   await send("DELETE", `${p(projectId)}/members/${encodeURIComponent(userId)}`);
 }
@@ -1376,8 +1388,11 @@ export function toDistribution(value: unknown): Distribution | null {
   switch (d.mode) {
     case "manual":
       return d.order === "nearby" ? { mode: "manual", order: "nearby" } : { mode: "manual" };
-    case "even":
-      return { mode: "even", people: strings(d.people), order, ...extra };
+    case "even": {
+      const people = strings(d.people);
+      const percents = Array.isArray(d.percents) && d.percents.length === people.length ? d.percents.map((p) => toCount(p)) : null;
+      return { mode: "even", people, ...(percents ? { percents } : {}), order, ...extra };
+    }
     case "column":
       return {
         mode: "column",
@@ -1569,6 +1584,7 @@ export function toQualityData(body: unknown): QualityData {
     options: toOptions(b.options),
     computedAt: toMillis(b.computedAt),
     stale: b.stale === true,
+    excluded: list(b.excluded).map((x) => ({ username: text(x.username), reason: typeof x.reason === "string" ? x.reason : null })),
   };
 }
 
@@ -1972,8 +1988,10 @@ export const EXPORT_FORMATS = ["csv", "geojson", "kml", "shp.zip"] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
 /** The collected data as a CSV or map file (fetched with the session, then saved by the page); a CSV can leave out the plot locations. */
-export async function downloadExport(projectId: string, format: ExportFormat = "csv", withoutPositions = false): Promise<{ blob: Blob; filename: string }> {
-  const response = await send("GET", `${p(projectId)}/export.${format}${format === "csv" && withoutPositions ? "?coordinates=none" : ""}`);
+/** `includeExcluded`: also the records of people left out of the results. */
+export async function downloadExport(projectId: string, format: ExportFormat = "csv", withoutPositions = false, includeExcluded = false): Promise<{ blob: Blob; filename: string }> {
+  const query = [format === "csv" && withoutPositions ? "coordinates=none" : "", includeExcluded ? "excluded=include" : ""].filter(Boolean).join("&");
+  const response = await send("GET", `${p(projectId)}/export.${format}${query ? `?${query}` : ""}`);
   return { blob: await response.blob(), filename: attachmentName(response, `collect-earth-data.${format}`) };
 }
 
@@ -2534,6 +2552,8 @@ export interface PersonRow {
   /** Null when the quality figures are not at hand. */
   agreement: Rate | null;
   status: PersonStatus;
+  /** Left out of the results by a coordinator (their records are in no figure nor export); null otherwise. */
+  excluded?: { at: number; reason: string | null } | null;
 }
 
 export interface QualityAtHand {
@@ -2668,6 +2688,7 @@ export function toPersonRow(value: unknown): PersonRow {
     lastPlotsDownloadAt: toMillis(r.lastPlotsDownloadAt),
     lastSubmittedAt: toMillis(r.lastSubmittedAt),
     agreement: toRateOrNull(r.agreement),
+    excluded: r.excluded && typeof r.excluded === "object" ? { at: toCount(obj(r.excluded).at), reason: typeof obj(r.excluded).reason === "string" ? text(obj(r.excluded).reason) : null } : null,
     status: {
       kind,
       days: kind === "quiet" ? toNumberOrNull(status.days) : null,
@@ -3438,6 +3459,29 @@ export interface ReferenceFiguresView {
   people: ReferencePerson[];
   computedAt: number | null;
   stale: boolean;
+  /** Against the reference answers uploaded from a file; null without them. Reviewers get no people nor plots. */
+  external: ExternalReferenceView | null;
+}
+
+/** Everyone's latest records of the plots of an uploaded reference set, compared with its answers. */
+export interface ExternalReferenceView {
+  plots: number;
+  assessed: number;
+  checks: number;
+  questions: (Rate & { key: string; label: string; kind: "choice" | "number" })[];
+  /** `answers`: every answer of theirs compared (its share differing is their disagreement). */
+  people: (ReferencePerson & { answers: Rate })[];
+  byPlot: { plot: string; records: number; compared: number; agreeing: number }[];
+}
+
+/** What an upload of reference answers took, and what did not match. */
+export interface ReferenceAnswersReport {
+  plots: number;
+  columns: { column: string; key: string }[];
+  unmatchedColumns: string[];
+  unmatchedValues: { column: string; value: string; count: number }[];
+  unknownPlots: string[];
+  unknownPlotCount: number;
 }
 
 export interface ReferencePlotRow {
@@ -3468,6 +3512,8 @@ export interface ReferenceView {
   assessors: { userId: string; username: string; role: Role }[];
   collectors: number;
   people: { userId: string; username: string; copies: number; checked: number }[];
+  /** The reference answers uploaded: how many plots, and when (coordinators). */
+  external: { count: number; uploadedAt: number | null };
 }
 
 export function toReferencePerson(value: unknown): ReferencePerson {
@@ -3494,8 +3540,10 @@ export function toReferenceView(body: unknown): ReferenceView {
           people: list(f.people).map(toReferencePerson),
           computedAt: toMillis(f.computedAt),
           stale: f.stale === true,
+          external: f.external && typeof f.external === "object" ? toExternalReference(f.external) : null,
         }
       : null,
+    external: { count: toCount(obj(b.external).count), uploadedAt: toMillis(obj(b.external).uploadedAt) },
     max: toCount(b.max) || 500,
     plots: list(b.plots).map((r) => ({
       csvFileId: text(r.csvFileId),
@@ -3515,6 +3563,36 @@ export function toReferenceView(body: unknown): ReferenceView {
     collectors: toCount(b.collectors),
     people: list(b.people).map((x) => ({ userId: text(x.userId), username: text(x.username), copies: toCount(x.copies), checked: toCount(x.checked) })),
   };
+}
+
+function toExternalReference(value: unknown): ExternalReferenceView {
+  const e = obj(value);
+  return {
+    plots: toCount(e.plots),
+    assessed: toCount(e.assessed),
+    checks: toCount(e.checks),
+    questions: list(e.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key), kind: q.kind === "number" ? "number" : "choice", ...toRate(q) })),
+    people: list(e.people).map((p) => ({ ...toReferencePerson(p), answers: toRate(p.answers) })),
+    byPlot: list(e.byPlot).map((p) => ({ plot: text(p.plot), records: toCount(p.records), compared: toCount(p.compared), agreeing: toCount(p.agreeing) })),
+  };
+}
+
+/** Uploads a reference set (a CSV, or a JSON array for a .json file); it replaces the one the project had. */
+export async function uploadReferenceAnswers(projectId: string, file: File): Promise<ReferenceAnswersReport> {
+  const json = file.name.toLowerCase().endsWith(".json");
+  const b = obj(await upload<unknown>("PUT", `${p(projectId)}/reference/answers`, file, json ? "application/json" : "text/csv"));
+  return {
+    plots: toCount(b.plots),
+    columns: list(b.columns).map((c) => ({ column: text(c.column), key: text(c.key) })),
+    unmatchedColumns: strings(b.unmatchedColumns),
+    unmatchedValues: list(b.unmatchedValues).map((v) => ({ column: text(v.column), value: text(v.value), count: toCount(v.count) })),
+    unknownPlots: strings(b.unknownPlots),
+    unknownPlotCount: toCount(b.unknownPlotCount),
+  };
+}
+
+export async function deleteReferenceAnswers(projectId: string): Promise<void> {
+  await send("DELETE", `${p(projectId)}/reference/answers`);
 }
 
 export async function getReference(projectId: string): Promise<ReferenceView> {
