@@ -169,6 +169,7 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
         const name = newName(d);
         return name !== null ? t("activity.audit.renamed", { actor, name }) : t("activity.audit.renamedPlain", { actor });
       }
+      if (d.setting === "copy") return t("activity.audit.copied", { actor, name: typeof d.from === "string" ? d.from : "" });
       if (d.setting === "status") return t("activity.audit.status", { actor, status: t(`project.status.${asStatus(d.status)}`).toLowerCase() });
       return t("activity.audit.settings", { actor, what: t(SETTING_KEYS[String(d.setting)] ?? "activity.setting.other") });
     case "sampling.drawn":

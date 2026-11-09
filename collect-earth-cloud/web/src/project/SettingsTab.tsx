@@ -16,6 +16,7 @@ import Typography from "@mui/material/Typography";
 import DeleteForever from "@mui/icons-material/DeleteForever";
 import { useState, type FormEvent } from "react";
 import {
+  copyProject,
   deleteProject,
   getProgressSettings,
   getProjectAi,
@@ -357,6 +358,58 @@ function StatusCard({ projectId, status, onStatus }: { projectId: string; status
   );
 }
 
+/** A new project from this one (a template), as a draft: the coordinator lands on its getting-started checklist. */
+function CopyCard({ projectId, name }: { projectId: string; name: string }) {
+  const t = useT();
+  const { refreshMe } = useApp();
+  const [value, setValue] = useState(() => t("copy.defaultName", { name }));
+  const [members, setMembers] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!value.trim()) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const copy = await copyProject(projectId, value.trim(), members);
+      await refreshMe();
+      navigate(pathFor({ name: "project", projectId: copy.projectId, tab: "setup" }));
+    } catch (err) {
+      setError(err);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="settings-copy">
+      <Stack component="form" spacing={2} onSubmit={submit} noValidate>
+        <Typography variant="h2" id="settings-copy">
+          {t("copy.title")}
+        </Typography>
+        <Typography>{t("copy.intro")}</Typography>
+        <TextField
+          label={t("copy.nameLabel")}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          error={value.trim() === ""}
+          helperText={value.trim() === "" ? t("error.required") : undefined}
+          required
+          slotProps={{ htmlInput: { maxLength: 200 } }}
+        />
+        <FormControlLabel control={<Checkbox checked={members} onChange={(e) => setMembers(e.target.checked)} />} label={t("copy.members")} />
+        <ErrorAlert error={error} />
+        <Box>
+          <Button type="submit" variant="contained" disabled={busy || value.trim() === ""}>
+            {t("copy.submit")}
+          </Button>
+        </Box>
+      </Stack>
+    </Paper>
+  );
+}
+
 /** The danger zone: deleting the project, confirmed by typing its name. */
 function DeleteCard({ projectId, name }: { projectId: string; name: string }) {
   const t = useT();
@@ -435,6 +488,8 @@ export function SettingsTab({
           <ShareLinksCard key={card} projectId={projectId} />
         ) : card === "ai" ? (
           <AiCard key={card} projectId={projectId} />
+        ) : card === "copy" ? (
+          <CopyCard key={card} projectId={projectId} name={name} />
         ) : card === "status" ? (
           <StatusCard key={card} projectId={projectId} status={status} onStatus={onStatus} />
         ) : (

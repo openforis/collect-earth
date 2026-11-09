@@ -1077,6 +1077,11 @@ export async function getProject(projectId: string): Promise<ProjectInfo> {
   return { projectId: body.projectId, name: body.name, role: asRole(body.role), status: asStatus(body.status) };
 }
 
+/** A new project (a draft) from this one: its survey, plot files and settings; with `members`, its people and who does which plots. */
+export function copyProject(projectId: string, name: string, members: boolean): Promise<{ projectId: string; name: string }> {
+  return request("POST", `${p(projectId)}/copy`, { json: { name, members } });
+}
+
 export async function setProjectStatus(projectId: string, status: ProjectStatus): Promise<ProjectStatus> {
   const body = await request<{ status?: string }>("PUT", `${p(projectId)}/status`, { json: { status } });
   return asStatus(body?.status);

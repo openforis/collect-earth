@@ -122,12 +122,13 @@ async function secondStepMissing(store: Store, userId: string): Promise<boolean>
 }
 
 /**
- * The changes a closed (or archived) project still takes: its status itself, its deletion, and
- * requests that only read or are the person's own (the bell's read marks, a backup
+ * The changes a closed (or archived) project still takes: its status itself, its deletion, a copy
+ * of it (a template: the copy is another project), and requests that only read or are the person's own (the bell's read marks, a backup
  * link, plot places, the AI assistant's analysis, usage events).
  */
 const OPEN_WHEN_CLOSED = new Set([
   'PUT /v1/projects/:pid/status',
+  'POST /v1/projects/:pid/copy',
   'DELETE /v1/projects/:pid',
   'POST /v1/projects/:pid/attention/read',
   'POST /v1/projects/:pid/exports/collect-backup/link',

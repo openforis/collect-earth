@@ -72,6 +72,7 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("sampling.drawn", { automatic: true, drawn: 3 }, null), page, "en")).toBe("Plots drawn automatically for checks (3 plots)");
     expect(logSentence(t, audit("settings.changed", { setting: "sampling" }), page, "en")).toBe("ana changed the automatic checks settings");
     expect(logSentence(t, audit("settings.changed", { setting: "status", from: "active", status: "closed" }), page, "en")).toBe("ana set the project's status to closed");
+    expect(logSentence(t, audit("settings.changed", { setting: "copy", from: "Bolivia 2026" }), page, "en")).toBe("ana made this project as a copy of “Bolivia 2026”");
     expect(logSentence(t, audit("reference.changed", { csvFileId: "f1", added: 20, removed: 0 }), page, "en")).toBe("ana marked plots of north.csv as reference plots (20 plots)");
     expect(logSentence(t, audit("reference.changed", { csvFileId: null, added: 0, removed: 3 }), page, "en")).toBe("ana removed reference plots (3 plots)");
   });

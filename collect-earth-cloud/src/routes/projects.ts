@@ -11,7 +11,8 @@ import { geojsonOf, kmlOf, rowGeometries, shapefileOf } from '../mapExport.js';
 import { finalAnswers, recordResolver } from '../quality.js';
 import { loadPlotContext } from '../qualityService.js';
 import type { Store } from '../store/store.js';
-import { PROJECT_STATUSES, STATUS_MOVES, type ProjectStatus, type RecordRow } from '../types.js';
+import { PROJECT_STATUSES, STATUS_MOVES, type ProjectStatus, type RecordRow, type User } from '../types.js';
+import { copyProject } from '../projectCopy.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { PlotPlaceReader } from './plotPlaces.js';
 
@@ -19,6 +20,23 @@ interface SurveyBody {
   surveyUri?: string;
   surveyName?: string;
   idmlBase64?: string;
+}
+
+/**
+ * Why this account may not make a new project (403), or null: projectCreation, and the per-account
+ * limit on the projects one coordinates (the hosted model). Platform admins own the server and are exempt.
+ */
+async function creationRefusal(store: Store, user: User): Promise<{ error: string; limit?: number } | null> {
+  if (user.isPlatformAdmin) return null;
+  const settings = await store.getSettings();
+  if (settings.projectCreation !== 'anyone') {
+    return { error: 'project_creation_restricted' };
+  }
+  const limit = settings.maxProjectsPerUser;
+  if (limit > 0 && (await store.countCoordinatedProjects(user.id)) >= limit) {
+    return { error: 'project_limit_reached', limit };
+  }
+  return null;
 }
 
 /** Project provisioning, ping/metadata, and survey-definition upload. */
@@ -54,15 +72,9 @@ export async function registerProjectRoutes(
       if (!user) {
         return reply.code(401).send({ error: 'unauthorized' });
       }
-      const settings = await store.getSettings();
-      if (settings.projectCreation !== 'anyone' && !user.isPlatformAdmin) {
-        return reply.code(403).send({ error: 'project_creation_restricted' });
-      }
-      // Per-account limit on the projects one coordinates (the hosted model).
-      // Platform admins own the server and are exempt.
-      const limit = settings.maxProjectsPerUser;
-      if (limit > 0 && !user.isPlatformAdmin && (await store.countCoordinatedProjects(user.id)) >= limit) {
-        return reply.code(403).send({ error: 'project_limit_reached', limit });
+      const refused = await creationRefusal(store, user);
+      if (refused) {
+        return reply.code(403).send(refused);
       }
       // The Phase-0 tokens are minted but not returned: the creator works with
       // their session, as a project admin member.
@@ -156,6 +168,30 @@ export async function registerProjectRoutes(
       await store.setProjectStatus(projectId, status as ProjectStatus);
       await audit(store, request, 'settings.changed', { setting: 'status', from, status: status as ProjectStatus });
       return reply.send({ projectId, status });
+    },
+  );
+
+  // A new project from this one (admin, with a session: the copy's coordinator), as a draft: see copyProject.
+  // The same rules as making a project (creationRefusal); works from a closed or archived project too.
+  app.post(
+    '/v1/projects/:pid/copy',
+    { preHandler: requireProjectMembership(store, 'admin') },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const user = request.userId ? await store.getUserById(request.userId) : null;
+      if (!user) {
+        return reply.code(403).send({ error: 'user_session_required', reason: 'Copy a project signed in as a person: the copy needs a coordinator' });
+      }
+      const body = (request.body ?? {}) as { name?: unknown; members?: unknown };
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      if (!name || name.length > 200) {
+        return reply.code(400).send({ error: 'bad_request', reason: 'name must be 1-200 characters' });
+      }
+      const refused = await creationRefusal(store, user);
+      if (refused) {
+        return reply.code(403).send(refused);
+      }
+      const projectId = await copyProject(store, request.membership!.projectId, { name, ownerId: user.id, members: body.members === true });
+      return reply.code(201).send({ projectId, name, status: 'draft' });
     },
   );
 
