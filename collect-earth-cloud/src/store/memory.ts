@@ -1,6 +1,6 @@
 import { renameOperatorInSummary, renameOperatorInXml } from '../anonymize.js';
 import { randomUUID } from 'node:crypto';
-import { generateShareToken, generateToken, hashToken } from '../auth.js';
+import { generateShareToken, generateToken, hashToken, SESSION_IDLE_MS, SESSION_TOUCH_MS } from '../auth.js';
 import { legacyRoundInfo } from '../cep.js';
 import { checksumOf, plotCountOf } from '../csv.js';
 import { fileKeyCount, unitOfRecord } from '../rounds.js';
@@ -197,6 +197,7 @@ export class InMemoryStore implements Store {
   private readonly sessions = new Map<string, string>(); // session token hash -> userId
   /** When each session was made (active accounts on the server owner's panel). */
   private readonly sessionCreatedAt = new Map<string, number>(); // session token hash -> epoch ms
+  private readonly sessionLastUsedAt = new Map<string, number>(); // session token hash -> epoch ms (SESSION_TOUCH_MS)
   /** When each account was made (sign-ups per week) and who disabled it. */
   private readonly userCreatedAt = new Map<string, number>();
   private readonly userDisabledBy = new Map<string, string>();
@@ -742,15 +743,27 @@ export class InMemoryStore implements Store {
     return token;
   }
 
-  async resolveSession(token: string): Promise<{ userId: string } | null> {
-    const userId = this.sessions.get(hashToken(token));
+  async resolveSession(token: string, now = Date.now()): Promise<{ userId: string } | null> {
+    const hash = hashToken(token);
+    const userId = this.sessions.get(hash);
     // A disabled account's sessions are deleted; this also covers one made meanwhile.
-    return userId && !this.users.get(userId)?.disabledAt ? { userId } : null;
+    if (!userId || this.users.get(userId)?.disabledAt) return null;
+    const lastUsed = this.sessionLastUsedAt.get(hash) ?? this.sessionCreatedAt.get(hash) ?? now;
+    if (now - lastUsed > SESSION_IDLE_MS) {
+      // Unused for too long: gone
+      this.sessions.delete(hash);
+      this.sessionCreatedAt.delete(hash);
+      this.sessionLastUsedAt.delete(hash);
+      return null;
+    }
+    if (now - lastUsed >= SESSION_TOUCH_MS) this.sessionLastUsedAt.set(hash, now);
+    return { userId };
   }
 
   async deleteSession(token: string): Promise<void> {
     this.sessions.delete(hashToken(token));
     this.sessionCreatedAt.delete(hashToken(token));
+    this.sessionLastUsedAt.delete(hashToken(token));
   }
 
   async deleteUserSessions(userId: string): Promise<void> {
@@ -758,6 +771,7 @@ export class InMemoryStore implements Store {
       if (owner === userId) {
         this.sessions.delete(hash);
         this.sessionCreatedAt.delete(hash);
+        this.sessionLastUsedAt.delete(hash);
       }
     }
   }
@@ -768,6 +782,7 @@ export class InMemoryStore implements Store {
       if (owner === userId && hash !== keep) {
         this.sessions.delete(hash);
         this.sessionCreatedAt.delete(hash);
+        this.sessionLastUsedAt.delete(hash);
       }
     }
   }

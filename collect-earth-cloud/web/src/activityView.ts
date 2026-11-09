@@ -140,6 +140,8 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
       return t("activity.audit.inviteRevoked", { actor });
     case "member.removed":
       return t("activity.audit.removed", { actor, person: personOf(t, page, d.userId) });
+    case "member.signed_out":
+      return t("activity.audit.signedOut", { actor, person: personOf(t, page, d.userId) });
     case "member.anonymized":
       return t(d.records === 1 ? "activity.audit.anonymizedOne" : "activity.audit.anonymized", { actor, count: num(d.records, language) });
     case "member.role":

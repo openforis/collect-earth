@@ -188,6 +188,19 @@ export async function registerAuthRoutes(
     },
   );
 
+  // Sign out everywhere else: every other session of the account ends (a laptop lost, a computer shared), this one stays.
+  app.post(
+    '/v1/auth/logout-others',
+    { preHandler: requireSession(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const token = bearerToken(request.headers.authorization);
+      if (token) {
+        await store.deleteUserSessionsExcept(request.userId!, token);
+      }
+      return reply.code(204).send();
+    },
+  );
+
   app.get(
     '/v1/me',
     { preHandler: requireSession(store) },

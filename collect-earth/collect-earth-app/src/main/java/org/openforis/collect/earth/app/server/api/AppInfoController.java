@@ -85,8 +85,9 @@ public class AppInfoController {
 		// Stage 5: the title, the Help menu and the About dialog, the cloud login
 		boolean cloud = properties.isCloudSyncEnabled();
 		app.put("cloud", cloud);
-		// In cloud mode the operator is the user logged in (CollectEarthWindow.promptCloudLogin): none means not logged in
-		app.put("cloudLoginNeeded", cloud && StringUtils.isBlank(operator));
+		// In cloud mode the operator is the user logged in (CollectEarthWindow.promptCloudLogin): none means not logged in.
+		// No token either: the server stopped taking it (CloudSyncService.signedOut), so the login is asked for again
+		app.put("cloudLoginNeeded", cloud && (StringUtils.isBlank(operator) || StringUtils.isBlank(properties.getCloudSyncToken())));
 		app.put("errorsShown", Boolean.TRUE.equals(properties.isExceptionShown()));
 		File guide = surveyGuide.get();
 		app.put("surveyGuide", guide != null && guide.exists() && guide.canRead());

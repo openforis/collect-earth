@@ -831,6 +831,11 @@ export async function logout(): Promise<void> {
   await send("POST", "/v1/auth/logout", { noSessionEnd: true });
 }
 
+/** Ends every other session of the account; this one stays. */
+export async function logoutOthers(): Promise<void> {
+  await send("POST", "/v1/auth/logout-others");
+}
+
 export async function getMe(): Promise<Me> {
   const me = await request<Partial<Me>>("GET", "/v1/me");
   return {
@@ -1215,6 +1220,11 @@ export async function listMembers(projectId: string): Promise<Member[]> {
 
 export async function setMemberRole(projectId: string, userId: string, role: Role): Promise<void> {
   await send("PUT", `${p(projectId)}/members/${encodeURIComponent(userId)}`, { json: { role } });
+}
+
+/** Ends every session of a member (a lost laptop): they stay in the project and log in again. */
+export async function signOutMember(projectId: string, userId: string): Promise<void> {
+  await send("POST", `${p(projectId)}/members/${encodeURIComponent(userId)}/sign-out`);
 }
 
 export async function removeMember(projectId: string, userId: string): Promise<void> {

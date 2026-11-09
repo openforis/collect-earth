@@ -784,6 +784,7 @@ export const AUDIT_ACTIONS = [
   'invite.revoked',
   'member.removed',
   'member.anonymized',
+  'member.signed_out',
   'member.role',
   'cep.replaced',
   'csv.uploaded',
