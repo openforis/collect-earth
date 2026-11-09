@@ -98,6 +98,8 @@ export const LOCAL_OFF_ROUTES: readonly string[] = [
   'GET /v1/projects/:pid/reference',
   'POST /v1/projects/:pid/reference/plots',
   'POST /v1/projects/:pid/reference/remove',
+  'PUT /v1/projects/:pid/reference/answers',
+  'DELETE /v1/projects/:pid/reference/answers',
   'GET /v1/projects/:pid/quality/queue',
   'POST /v1/projects/:pid/quality/decisions:bulk',
   'PUT /v1/projects/:pid/quality/decisions/:plot',

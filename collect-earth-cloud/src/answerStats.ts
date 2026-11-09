@@ -10,7 +10,7 @@ import { dayInZone } from './progress.js';
 import { keyRule, MIN_PLOTS, pairBuffers, qualityReport, recordResolver, type DifferingPairs, type QualityInput, type QualityReport } from './quality.js';
 import { QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR } from './surveyOutline.js';
 import { checkedPlots, healthBuffers, healthTable, type HealthTable } from './surveyHealth.js';
-import { referenceFigures, type ReferenceFigures } from './reference.js';
+import { externalReferenceFigures, referenceFigures, type ReferenceFigures } from './reference.js';
 
 /** |z| at or above this flags a person's share of an answer (two-proportion z-test). */
 export const FLAG_Z = 3;
@@ -167,7 +167,9 @@ export function qualityFigures(input: QualityInput): QualityFigures {
   const answers = answerTable(input, kept);
   const checked = checkedPlots();
   const report = qualityReport(input, checked.add);
-  return { report, answers, flags: flagTable(input, kept, answers), health: healthTable(input.outline, answers, checked.done()), reference: referenceFigures(input) };
+  const external = externalReferenceFigures(input);
+  const reference = referenceFigures(input);
+  return { report, answers, flags: flagTable(input, kept, answers), health: healthTable(input.outline, answers, checked.done()), reference: external ? { ...reference, external } : reference };
 }
 
 /** The typed arrays of the tables, to hand them over between threads without copying. */

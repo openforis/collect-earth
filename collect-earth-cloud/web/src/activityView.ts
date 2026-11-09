@@ -178,6 +178,9 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
       if (d.automatic === true) return t(byCount(d.drawn, "activity.audit.sampledAutoOne", "activity.audit.sampledAuto"), { count: num(d.drawn, language) });
       return t(byCount(d.drawn, "activity.audit.sampledOne", "activity.audit.sampled"), { actor, count: num(d.drawn, language) });
     case "reference.changed":
+      // Reference answers from a file: uploaded (how many plots) or deleted.
+      if (d.external === "deleted") return t("activity.audit.referenceAnswersDeleted", { actor });
+      if (d.external === "uploaded") return t("activity.audit.referenceAnswers", { actor, count: num(d.plots, language) });
       if (Number(d.removed) > 0 && !(Number(d.added) > 0)) return t(byCount(d.removed, "activity.audit.referenceRemovedOne", "activity.audit.referenceRemoved"), { actor, count: num(d.removed, language) });
       return t(byCount(d.added, "activity.audit.referenceAddedOne", "activity.audit.referenceAdded"), { actor, count: num(d.added, language), file: fileOf(t, page, d.csvFileId) });
     case "training.synced":

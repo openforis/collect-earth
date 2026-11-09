@@ -702,11 +702,21 @@ export class QualityService {
     if (source && this.runner?.hasRoom && !this.runner.hasRoom()) {
       throw new WorkerBusyError();
     }
-    const [context, outline] = await Promise.all([loadPlotContext(this.store, projectId, log, known), this.outline(projectId, log)]);
+    const [context, outline, referenceAnswers] = await Promise.all([
+      loadPlotContext(this.store, projectId, log, known),
+      this.outline(projectId, log),
+      this.store.listReferenceAnswers(projectId),
+    ]);
     const { failed, ...plots } = context;
     const partial = failed === true;
     const excluded = known.members.filter((m) => m.excluded).map((m) => m.username);
-    const input: Omit<QualityInput, 'records'> = { ...plots, outline, margins: known.settings.margins, ...(excluded.length > 0 ? { excluded } : {}) };
+    const input: Omit<QualityInput, 'records'> = {
+      ...plots,
+      outline,
+      margins: known.settings.margins,
+      ...(excluded.length > 0 ? { excluded } : {}),
+      ...(referenceAnswers.length > 0 ? { referenceAnswers: new Map(referenceAnswers.map((r) => [r.plotKey, r.answers])) } : {}),
+    };
     this.computed += 1;
     if (source && this.runner) {
       try {

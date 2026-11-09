@@ -271,6 +271,13 @@ export type StoredDistribution =
     }
   | { mode: 'manual'; order?: 'nearby' };
 
+/** A plot's answers in the reference set a coordinator uploaded, by summary key. */
+export interface ReferenceAnswer {
+  plotKey: string;
+  answers: Record<string, string>;
+  uploadedAt: number;
+}
+
 /**
  * One plot of a divided file held by one person; overlap = given as a quality-check copy.
  * `sampledAt` (a copy only): drawn by the check sampling at that time (epoch ms), not dealt

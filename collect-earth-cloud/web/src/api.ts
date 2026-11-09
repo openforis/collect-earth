@@ -3446,6 +3446,29 @@ export interface ReferenceFiguresView {
   people: ReferencePerson[];
   computedAt: number | null;
   stale: boolean;
+  /** Against the reference answers uploaded from a file; null without them. Reviewers get no people nor plots. */
+  external: ExternalReferenceView | null;
+}
+
+/** Everyone's latest records of the plots of an uploaded reference set, compared with its answers. */
+export interface ExternalReferenceView {
+  plots: number;
+  assessed: number;
+  checks: number;
+  questions: (Rate & { key: string; label: string; kind: "choice" | "number" })[];
+  /** `answers`: every answer of theirs compared (its share differing is their disagreement). */
+  people: (ReferencePerson & { answers: Rate })[];
+  byPlot: { plot: string; records: number; compared: number; agreeing: number }[];
+}
+
+/** What an upload of reference answers took, and what did not match. */
+export interface ReferenceAnswersReport {
+  plots: number;
+  columns: { column: string; key: string }[];
+  unmatchedColumns: string[];
+  unmatchedValues: { column: string; value: string; count: number }[];
+  unknownPlots: string[];
+  unknownPlotCount: number;
 }
 
 export interface ReferencePlotRow {
@@ -3476,6 +3499,8 @@ export interface ReferenceView {
   assessors: { userId: string; username: string; role: Role }[];
   collectors: number;
   people: { userId: string; username: string; copies: number; checked: number }[];
+  /** The reference answers uploaded: how many plots, and when (coordinators). */
+  external: { count: number; uploadedAt: number | null };
 }
 
 export function toReferencePerson(value: unknown): ReferencePerson {
@@ -3502,8 +3527,10 @@ export function toReferenceView(body: unknown): ReferenceView {
           people: list(f.people).map(toReferencePerson),
           computedAt: toMillis(f.computedAt),
           stale: f.stale === true,
+          external: f.external && typeof f.external === "object" ? toExternalReference(f.external) : null,
         }
       : null,
+    external: { count: toCount(obj(b.external).count), uploadedAt: toMillis(obj(b.external).uploadedAt) },
     max: toCount(b.max) || 500,
     plots: list(b.plots).map((r) => ({
       csvFileId: text(r.csvFileId),
@@ -3523,6 +3550,36 @@ export function toReferenceView(body: unknown): ReferenceView {
     collectors: toCount(b.collectors),
     people: list(b.people).map((x) => ({ userId: text(x.userId), username: text(x.username), copies: toCount(x.copies), checked: toCount(x.checked) })),
   };
+}
+
+function toExternalReference(value: unknown): ExternalReferenceView {
+  const e = obj(value);
+  return {
+    plots: toCount(e.plots),
+    assessed: toCount(e.assessed),
+    checks: toCount(e.checks),
+    questions: list(e.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key), kind: q.kind === "number" ? "number" : "choice", ...toRate(q) })),
+    people: list(e.people).map((p) => ({ ...toReferencePerson(p), answers: toRate(p.answers) })),
+    byPlot: list(e.byPlot).map((p) => ({ plot: text(p.plot), records: toCount(p.records), compared: toCount(p.compared), agreeing: toCount(p.agreeing) })),
+  };
+}
+
+/** Uploads a reference set (a CSV, or a JSON array for a .json file); it replaces the one the project had. */
+export async function uploadReferenceAnswers(projectId: string, file: File): Promise<ReferenceAnswersReport> {
+  const json = file.name.toLowerCase().endsWith(".json");
+  const b = obj(await upload<unknown>("PUT", `${p(projectId)}/reference/answers`, file, json ? "application/json" : "text/csv"));
+  return {
+    plots: toCount(b.plots),
+    columns: list(b.columns).map((c) => ({ column: text(c.column), key: text(c.key) })),
+    unmatchedColumns: strings(b.unmatchedColumns),
+    unmatchedValues: list(b.unmatchedValues).map((v) => ({ column: text(v.column), value: text(v.value), count: toCount(v.count) })),
+    unknownPlots: strings(b.unknownPlots),
+    unknownPlotCount: toCount(b.unknownPlotCount),
+  };
+}
+
+export async function deleteReferenceAnswers(projectId: string): Promise<void> {
+  await send("DELETE", `${p(projectId)}/reference/answers`);
 }
 
 export async function getReference(projectId: string): Promise<ReferenceView> {

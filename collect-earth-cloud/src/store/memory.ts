@@ -62,6 +62,7 @@ import {
   type ReferenceChange,
   type ReferenceChangeResult,
   type ReferencePlot,
+  type ReferenceAnswer,
   type RoundInfo,
   type Role,
   type SampledCopy,
@@ -130,6 +131,8 @@ interface ProjectEntry {
   sampling: (SamplingState & { active: boolean; lastMarkedAt: number | null }) | null;
   /** Reference plots (reference_plots), key = `${csvFileId} ${plotKey}`. */
   references: Map<string, StoredReference>;
+  /** Reference answers uploaded, by plot unit. */
+  referenceAnswers: Map<string, ReferenceAnswer>;
 }
 
 interface StoredReference {
@@ -430,6 +433,7 @@ export class InMemoryStore implements Store {
       attentionReads: new Map(),
       sampling: null,
       references: new Map(),
+      referenceAnswers: new Map(),
     });
 
     const adminToken = generateToken();
@@ -1659,6 +1663,17 @@ export class InMemoryStore implements Store {
       dueSince: s.dueSince !== null && (s.lastMarkedAt ?? s.dueSince) <= dueBefore ? null : s.dueSince,
     };
     return added;
+  }
+
+  async listReferenceAnswers(projectId: string): Promise<ReferenceAnswer[]> {
+    return [...(this.projects.get(projectId)?.referenceAnswers.values() ?? [])].map((r) => ({ ...r, answers: { ...r.answers } }));
+  }
+
+  async replaceReferenceAnswers(projectId: string, rows: readonly { plotKey: string; answers: Record<string, string> }[], at: number): Promise<void> {
+    const entry = this.requireProject(projectId);
+    entry.referenceAnswers = new Map(rows.map((r) => [r.plotKey, { plotKey: r.plotKey, answers: { ...r.answers }, uploadedAt: at }]));
+    // The quality figures' version follows the set, as Postgres's trigger (033).
+    entry.holdingsGeneration += 1;
   }
 
   async listReferencePlots(projectId: string): Promise<ReferencePlot[]> {

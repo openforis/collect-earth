@@ -77,6 +77,8 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("settings.changed", { setting: "copy", from: "Bolivia 2026" }), page, "en")).toBe("ana made this project as a copy of “Bolivia 2026”");
     expect(logSentence(t, audit("reference.changed", { csvFileId: "f1", added: 20, removed: 0 }), page, "en")).toBe("ana marked plots of north.csv as reference plots (20 plots)");
     expect(logSentence(t, audit("reference.changed", { csvFileId: null, added: 0, removed: 3 }), page, "en")).toBe("ana removed reference plots (3 plots)");
+    expect(logSentence(t, audit("reference.changed", { external: "uploaded", plots: 120 }), page, "en")).toBe("ana uploaded reference answers for 120 plots");
+    expect(logSentence(t, audit("reference.changed", { external: "deleted" }), page, "en")).toBe("ana deleted the reference answers");
   });
 
   it("a count of 1 is singular; a rename says the new name when the log has it", () => {
