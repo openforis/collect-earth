@@ -309,6 +309,9 @@ production topology: use a managed, backed-up Postgres in production.
 
 ## Post-deploy checks & onboarding
 
+Before the first real project: agree on its data with its owner, on one page ([`DATA-AGREEMENT.md`](DATA-AGREEMENT.md):
+who owns it, the region, who sees and downloads what, how long it is kept), and do the restore drill ("Backups" below).
+
 ```bash
 BASE=https://ce-cloud.example.org
 
