@@ -20,4 +20,8 @@ public interface SecretProtector {
 	 * from another computer or user.
 	 */
 	String reveal(String stored);
+
+	/** The secret was emptied (signed out): a protector that keeps it elsewhere (the macOS Keychain) removes it there. */
+	default void forget() {
+	}
 }

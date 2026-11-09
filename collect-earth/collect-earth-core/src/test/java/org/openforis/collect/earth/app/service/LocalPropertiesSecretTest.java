@@ -31,6 +31,13 @@ class LocalPropertiesSecretTest {
 		public String reveal(String stored) {
 			return thisComputer ? new StringBuilder(stored.substring(5)).reverse().toString() : null;
 		}
+
+		int forgotten;
+
+		@Override
+		public void forget() {
+			forgotten++;
+		}
 	}
 
 	@AfterEach
@@ -73,8 +80,23 @@ class LocalPropertiesSecretTest {
 		// The file copied to another computer: no token, so the login is asked for again
 		protector.thisComputer = false;
 		assertEquals("", service.getCloudSyncToken());
-		// An empty token stays empty
+		// An empty token stays empty, and the protector forgets what it kept
 		service.saveCloudSyncToken("");
 		assertEquals("", file.getProperty("cloud_sync_token"));
+		assertEquals(1, protector.forgotten);
+	}
+
+	@Test
+	void theSettingsFileIsTheOwnersOnlyOnLinuxAndMacOs(@org.junit.jupiter.api.io.TempDir java.nio.file.Path folder) throws Exception {
+		java.nio.file.Path file = folder.resolve("earth.properties");
+		java.nio.file.Files.write(file, "cloud_sync_token=x\n".getBytes());
+		if (!file.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+			assertEquals(false, LocalPropertiesService.ownerOnly(file));
+			return;
+		}
+		java.nio.file.Files.setPosixFilePermissions(file, java.nio.file.attribute.PosixFilePermissions.fromString("rw-r--r--"));
+		assertTrue(LocalPropertiesService.ownerOnly(file));
+		assertEquals("rw-------", java.nio.file.attribute.PosixFilePermissions.toString(java.nio.file.Files.getPosixFilePermissions(file)));
+		assertEquals(false, LocalPropertiesService.ownerOnly(folder.resolve("missing.properties")));
 	}
 }

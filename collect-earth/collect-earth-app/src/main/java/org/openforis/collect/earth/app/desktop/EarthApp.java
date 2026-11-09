@@ -42,6 +42,7 @@ import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.SecretProtector;
 import org.openforis.collect.earth.app.service.ShellFolderFallback;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.openforis.collect.earth.app.service.notices.Notice;
@@ -123,9 +124,14 @@ public class EarthApp {
 					"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.4; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2");
 
 			initializeSentry();
-			// The cloud token kept with Windows' data protection, not in plain text (before the first read of the settings);
-			// one still in plain text is protected now
-			LocalPropertiesService.setSecretProtector(WindowsDpapiProtector.ifAvailable());
+			// The cloud token kept by the system, not in plain text (before the first read of the settings): Windows' data
+			// protection, the macOS Keychain; on Linux the settings file is made private to its owner. One still in plain
+			// text is protected now
+			SecretProtector protector = WindowsDpapiProtector.ifAvailable();
+			if (protector == null) {
+				protector = MacKeychainProtector.ifAvailable();
+			}
+			LocalPropertiesService.setSecretProtector(protector);
 			try {
 				getLocalProperties().protectSecrets();
 			} catch (RuntimeException e) {

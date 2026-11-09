@@ -473,6 +473,14 @@ public class LocalPropertiesService extends Observable {
 	/** A secret as it is written: protected when this computer can, else as it is. */
 	private static String stored(String key, String value) {
 		SecretProtector protector = secretProtector;
+		if (protector != null && (value == null || value.isEmpty()) && isSecret(key)) {
+			try {
+				protector.forget();
+			} catch (RuntimeException e) {
+				LoggerFactory.getLogger(LocalPropertiesService.class).warn("The token kept by the system could not be removed: {}", e.getMessage());
+			}
+			return value;
+		}
 		if (protector == null || value == null || value.isEmpty() || !isSecret(key)) {
 			return value;
 		}
@@ -484,8 +492,15 @@ public class LocalPropertiesService extends Observable {
 		}
 	}
 
-	/** Writes the secrets kept in plain text with the protection registered, if any: once, at start. */
+	/**
+	 * At start: writes the secrets kept in plain text with the protection registered, if any, and makes the file
+	 * private to its owner on Linux and macOS.
+	 */
 	public synchronized void protectSecrets() {
+		if (persisted) {
+			// A file written before this version, with the permissions the user's other files get
+			ownerOnly(new File(PROPERTIES_FILE_PATH).toPath());
+		}
 		SecretProtector protector = secretProtector;
 		if (protector == null) {
 			return;
@@ -930,6 +945,33 @@ public class LocalPropertiesService extends Observable {
 			properties.store(fw, null);
 		} catch (final IOException e) {
 			logger.error("The properties could not be saved", e);
+		}
+		ownerOnly(propertiesFile.toPath());
+	}
+
+	private static final java.util.Set<java.nio.file.attribute.PosixFilePermission> OWNER_ONLY =
+			java.nio.file.attribute.PosixFilePermissions.fromString("rw-------");
+
+	/**
+	 * On Linux and macOS, earth.properties readable and writable by its owner only (600): it holds the cloud token
+	 * and the database password, and the user's home may be readable by the other accounts of the computer. Windows
+	 * keeps a user's profile to them already (and the token is protected there, WindowsDpapiProtector).
+	 *
+	 * @return whether the permissions are owner-only now (false on a file system without POSIX permissions)
+	 */
+	static boolean ownerOnly(java.nio.file.Path file) {
+		try {
+			if (!java.nio.file.Files.exists(file)
+					|| !file.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+				return false;
+			}
+			if (!OWNER_ONLY.equals(java.nio.file.Files.getPosixFilePermissions(file))) {
+				java.nio.file.Files.setPosixFilePermissions(file, OWNER_ONLY);
+			}
+			return true;
+		} catch (IOException | RuntimeException e) {
+			LoggerFactory.getLogger(LocalPropertiesService.class).warn("The settings file could not be made private to its owner: {}", e.getMessage());
+			return false;
 		}
 	}
 

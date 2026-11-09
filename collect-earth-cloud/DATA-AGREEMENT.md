@@ -36,7 +36,8 @@ The facts in normal type are what Collect Earth Cloud does; check them against t
 - **Backups:** in the same project and region as the database: every night, kept 7 days; monthly copies kept
   *[12]* months, if set up (DEPLOY.md, "Backups").
 - **On the collectors' computers:** Collect Earth keeps each person's own records in its local database, and their
-  sign-in (protected with Windows' data protection on Windows).
+  sign-in: on Windows protected with Windows' data protection, on macOS in the user's Keychain, on Linux in a settings
+  file only its owner can read.
 
 ## 4. Who sees what
 
