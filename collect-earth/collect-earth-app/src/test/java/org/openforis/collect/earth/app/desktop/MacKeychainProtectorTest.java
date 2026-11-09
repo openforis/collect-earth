@@ -17,31 +17,31 @@ import org.junit.jupiter.api.Test;
 public class MacKeychainProtectorTest {
 
 	/** A keychain of one item, as security answers */
-	static final class FakeSecurity implements MacKeychainProtector.Runner {
+	static final class FakeSecurity implements SecretCommand.Runner {
 		String item;
 		final List<List<String>> commands = new ArrayList<>();
 		final List<String> inputs = new ArrayList<>();
 		int reads;
 
 		@Override
-		public MacKeychainProtector.Result run(List<String> command, String input) {
+		public SecretCommand.Result run(List<String> command, String input) {
 			commands.add(command);
 			inputs.add(input);
 			String verb = command.get(1);
 			if (verb.equals("-i")) {
 				Matcher m = Pattern.compile("^add-generic-password -U .* -w \"([^\"]*)\"\\n$").matcher(input);
 				if (m.matches()) item = m.group(1);
-				return new MacKeychainProtector.Result(0, "");
+				return new SecretCommand.Result(0, "");
 			}
 			if (verb.equals("find-generic-password")) {
 				reads++;
-				return item == null ? new MacKeychainProtector.Result(MacKeychainProtector.NOT_FOUND, "") : new MacKeychainProtector.Result(0, item + "\n");
+				return item == null ? new SecretCommand.Result(MacKeychainProtector.NOT_FOUND, "") : new SecretCommand.Result(0, item + "\n");
 			}
 			if (verb.equals("delete-generic-password")) {
 				item = null;
-				return new MacKeychainProtector.Result(0, "");
+				return new SecretCommand.Result(0, "");
 			}
-			return new MacKeychainProtector.Result(1, "");
+			return new SecretCommand.Result(1, "");
 		}
 	}
 
@@ -77,7 +77,7 @@ public class MacKeychainProtectorTest {
 		MacKeychainProtector protector = new MacKeychainProtector(security);
 		assertThrows(IllegalArgumentException.class, () -> protector.protect("a\" ; delete-keychain \"x"));
 		assertTrue(security.commands.isEmpty());
-		MacKeychainProtector forgetful = new MacKeychainProtector((command, input) -> new MacKeychainProtector.Result(command.get(1).equals("find-generic-password") ? 44 : 0, ""));
+		MacKeychainProtector forgetful = new MacKeychainProtector((command, input) -> new SecretCommand.Result(command.get(1).equals("find-generic-password") ? 44 : 0, ""));
 		assertThrows(IllegalStateException.class, () -> forgetful.protect("tok"));
 	}
 }

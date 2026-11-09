@@ -1,13 +1,8 @@
 package org.openforis.collect.earth.app.desktop;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.SystemUtils;
@@ -34,25 +29,10 @@ public final class MacKeychainProtector implements SecretProtector {
 	/** security's exit code when the item is not in the keychain */
 	static final int NOT_FOUND = 44;
 
-	/** Runs a command with what it reads on its standard input, and gives back its exit code and output. */
-	interface Runner {
-		Result run(List<String> command, String input) throws IOException;
-	}
-
-	static final class Result {
-		final int exit;
-		final String output;
-
-		Result(int exit, String output) {
-			this.exit = exit;
-			this.output = output;
-		}
-	}
-
-	private final Runner runner;
+	private final SecretCommand.Runner runner;
 	private volatile String cached;
 
-	MacKeychainProtector(Runner runner) {
+	MacKeychainProtector(SecretCommand.Runner runner) {
 		this.runner = runner;
 	}
 
@@ -61,7 +41,7 @@ public final class MacKeychainProtector implements SecretProtector {
 		if (!SystemUtils.IS_OS_MAC || !new java.io.File(SECURITY).canExecute()) {
 			return null;
 		}
-		return new MacKeychainProtector(MacKeychainProtector::run);
+		return new MacKeychainProtector(SecretCommand::run);
 	}
 
 	@Override
@@ -122,7 +102,7 @@ public final class MacKeychainProtector implements SecretProtector {
 
 	/** The token in the keychain, or null when there is none. */
 	private String read() throws IOException {
-		Result result = runner.run(Arrays.asList(SECURITY, "find-generic-password", "-a", ACCOUNT, "-s", SERVICE, "-w"), "");
+		SecretCommand.Result result = runner.run(Arrays.asList(SECURITY, "find-generic-password", "-a", ACCOUNT, "-s", SERVICE, "-w"), "");
 		if (result.exit != 0) {
 			if (result.exit != NOT_FOUND) {
 				logger.warn("security find-generic-password ended with {}", result.exit);
@@ -131,26 +111,5 @@ public final class MacKeychainProtector implements SecretProtector {
 		}
 		String token = result.output.trim();
 		return token.isEmpty() ? null : token;
-	}
-
-	private static Result run(List<String> command, String input) throws IOException {
-		Process process = new ProcessBuilder(command).redirectErrorStream(false).start();
-		try (OutputStream in = process.getOutputStream()) {
-			in.write(input.getBytes(StandardCharsets.UTF_8));
-		}
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		try (InputStream stdout = process.getInputStream()) {
-			stdout.transferTo(out);
-		}
-		try {
-			if (!process.waitFor(15, TimeUnit.SECONDS)) {
-				process.destroyForcibly();
-				throw new IOException("security did not answer in 15 seconds");
-			}
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			throw new IOException("interrupted", e);
-		}
-		return new Result(process.exitValue(), out.toString(StandardCharsets.UTF_8));
 	}
 }

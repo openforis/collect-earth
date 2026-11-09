@@ -125,11 +125,14 @@ public class EarthApp {
 
 			initializeSentry();
 			// The cloud token kept by the system, not in plain text (before the first read of the settings): Windows' data
-			// protection, the macOS Keychain; on Linux the settings file is made private to its owner. One still in plain
-			// text is protected now
+			// protection, the macOS Keychain, the Linux desktop's keyring; without one (a Linux with no desktop) the
+			// settings file is private to its owner. One still in plain text is protected now
 			SecretProtector protector = WindowsDpapiProtector.ifAvailable();
 			if (protector == null) {
 				protector = MacKeychainProtector.ifAvailable();
+			}
+			if (protector == null) {
+				protector = LinuxKeyringProtector.ifAvailable();
 			}
 			LocalPropertiesService.setSecretProtector(protector);
 			try {
