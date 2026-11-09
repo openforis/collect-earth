@@ -1,14 +1,24 @@
 # A bridge from Collect Earth Online to Collect Earth
 
-Date: 9 November 2026. Branch `ce-2026-GEW`. **Status: plan, for the owner to approve.**
+Date: 9 November 2026. Branch `ce-2026-GEW`. **Status: approved, with the owner's decisions below (9 Nov 2026); not
+started.**
 
 ## Goal
 
-Let a coordinator start a Collect Earth project from a Collect Earth Online (CEO) project: its survey, its rules and
-its plots, translated, with a report of what came across and what did not. Later, optionally, its collected answers.
+Let an organisation move a Collect Earth Online (CEO) project to Collect Earth: its survey, its rules, its plots and
+its collected answers, translated, with a report of what came across and what did not.
 
-The other direction already exists: since 2024 CEO imports a Collect Earth project file (`.cep`). This plan only adds
-a check of our project files against what that import keeps (Part D), so coordinators know before they upload.
+The other direction (CEO importing a Collect Earth `.cep`) exists since 2024 and is not part of this plan.
+
+## Owner decisions (9 Nov 2026)
+
+1. **For organisations moving from CEO to Collect Earth.** Not for projects run in both tools: Part D is not planned.
+2. **No Google Earth Pro.** It will not be used any more; a project that opens in the plots map and Google Earth
+   Web only is what is wanted, so no balloon is generated (B4).
+3. **The answers are imported too** (Part C is part of the work, not optional): an organisation moves its finished
+   and ongoing projects with what was collected.
+4. **The CEO team is not asked for a documented export.** We read the definition CEO's pages load (`get-project-by-id`),
+   saved by the coordinator; Part A keeps real files as test fixtures, so a change on CEO's side shows in our tests.
 
 ## What CEO offers to read (checked 9 Nov 2026)
 
@@ -21,6 +31,13 @@ a check of our project files against what that import keeps (Part D), so coordin
   `sampleDistribution`, `samplesPerPlot`, `sampleResolution`, `allowDrawnSamples`, `imageryId`, `designSettings` and
   `projectOptions`. It is not a documented API: CEO can change it, and it uses CEO's login cookie. So the coordinator
   saves it from their logged-in browser as a file, and we read the file; we never call CEO.
+  Tried on 9 Nov 2026: `https://app.collect.earth/get-project-by-id?projectId=1` (a public project) answers without
+  a login, as JSON: `surveyQuestions` is an object keyed by question id, each with `question`, `answers` (keyed by
+  answer id, `{answer, color}`), `componentType`, `dataType`, `cardOrder`, `parentQuestionId` and `parentAnswerIds`,
+  as CEO's importer builds them. It also has `learningMaterial` (the interpretation guide, Markdown: it can become the
+  survey guide), `type` (`regular` or `simplified`), `aoiFeatures`, `plotSpacing`, `privacyLevel` and
+  `designSettings` (`sampleGeometries`, `userAssignment`, `qaqcAssignment`: the assignments and checks, worth
+  reporting). A private project needs the coordinator's login, hence the saved file.
 - **The plots**, from the project's "Download Shape File" (a zip with `plot-shape-file` and `sample-shape-file`) or
   "Download Plot Data" (CSV: `plotid`, `center_lon`, `center_lat`, `size_m`, `shape`, `sample_points`, the uploaded
   columns as `pl_…`, then the answers as percentages per `QUESTION:ANSWER`).
@@ -66,7 +83,7 @@ The coordinator chooses at import. Part B does the first only.
   uploaded plots with extra columns, a simplified project.
 - Write down the exact shapes (the rules not built by CEO's importer, the answers' keys, the samples' settings) and
   keep the files as test fixtures under `collect-earth-cloud/test/fixtures/ceo/`.
-- Decide with the owner: Part B's scope, and whether Part C (answers) is wanted at all.
+- Include projects with collected answers (several collectors, flagged plots, confidence values) for Part C.
 
 ## Part B: the survey and the plots (about 2 weeks)
 
@@ -125,9 +142,7 @@ Every check is an error, as CEO's rules block saving.
 
 - The `.cep` is made with `zipCep` of `src/cep.ts`: `placemark.idm.xml`, `project_definition.properties` and the
   plot file. No `balloon.html` or `kml_template.fmt`: the plots map and Google Earth Web build the form from the
-  survey, so such a project does **not** open in Google Earth Pro. The report says so. (Generating a balloon is
-  the Collect Survey Designer's work; a coordinator who needs Google Earth Pro opens the survey there and exports
-  the `.cep` again.)
+  survey, and Google Earth Pro is no longer used (owner, 9 Nov 2026).
 - The cloud dashboard: "New project from Collect Earth Online", on the projects page. Two files (the saved JSON,
   the shapefile zip or plot CSV) and the choice of answers per plot; then the report; then "Create", which makes the
   project and stores the `.cep` and the plot file through the existing upload paths (`PUT /cep`, the plot-file
@@ -151,9 +166,9 @@ with a change (said), or left out (why). Shown before "Create", and kept with th
   checked in, so the Java test needs no Node.
 - A real run: import a CEO project, join it from Collect Earth, fill some plots, check the export.
 
-## Part C: the answers (optional, about 1 week)
+## Part C: the answers (about 1 week)
 
-CEO's sample CSV into the new project's records, for a project moved mid-way or to compare the two tools:
+CEO's sample CSV into the new project's records, so a project moves with what was collected, finished or mid-way:
 
 - one answer per plot: a plot's samples agree, or the answer of most samples is taken (reported per plot);
 - one record per plot and CEO collector, under a name the coordinator maps to the project's members, or a
@@ -162,9 +177,10 @@ CEO's sample CSV into the new project's records, for a project moved mid-way or 
   kept as extra columns until Collect Earth has flags and confidence of its own;
 - written through the records' path with their summaries, so the dashboard counts them like any record.
 
-## Part D: will a Collect Earth project open in CEO? (2–3 days)
+## Part D: will a Collect Earth project open in CEO? (not planned)
 
-On the project file page of the dashboard, a check of the uploaded `.cep` against what CEO's import keeps
+Not planned: the bridge is for organisations leaving CEO (owner, 9 Nov 2026). Kept as a note. On the project file
+page of the dashboard, a check of the uploaded `.cep` against what CEO's import keeps
 (`survey.clj`, `rules.clj`, `plots.clj`): the questions it would skip (calculated, hidden, range, coordinate, entities
 the collector adds rows to), the ones it would change (conditionally required made optional, multiple answers over
 15 items), the checks it cannot translate, and that it imports plot outlines but not sample points. Only a report: the
@@ -178,17 +194,7 @@ file stays as it is. It goes out of date when CEO's importer changes, so it says
 - A live link (projects kept in step between the two): not without a documented CEO API with tokens. Raise it with
   the CEO team if wanted.
 
-## Questions for the owner
-
-1. Who is it for: organisations moving from CEO to Collect Earth, or projects run in both? (Part B and C, or Part D,
-   first.)
-2. Is a project that opens only in the plots map and Google Earth Web (no Google Earth Pro) acceptable, or must the
-   import make a balloon too?
-3. Part C: wanted?
-4. Should we ask the CEO team for a documented project export (survey and rules as a file)? It would make Part B
-   independent of their internal address.
-
 ## Order and size
 
-Part A, then B1–B2 with their tests, B3, B4–B5, B6; C and D after, on the owner's answers. About three weeks for
-A and B, one more for C, a few days for D.
+Part A, then B1–B2 with their tests, B3, B4–B5, B6, then C. About four weeks in all: A and B about three, C about
+one.
