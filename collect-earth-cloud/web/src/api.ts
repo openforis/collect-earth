@@ -1889,8 +1889,8 @@ export async function getTeamReport(projectId: string): Promise<TeamReport> {
 // --- data ------------------------------------------------------------------------------------
 
 /** The collected data as a CSV file (fetched with the session, then saved by the page). */
-export async function downloadExport(projectId: string): Promise<{ blob: Blob; filename: string }> {
-  const response = await send("GET", `${p(projectId)}/export.csv`);
+export async function downloadExport(projectId: string, withoutPositions = false): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("GET", `${p(projectId)}/export.csv${withoutPositions ? "?coordinates=none" : ""}`);
   return { blob: await response.blob(), filename: attachmentName(response, "collect-earth-data.csv") };
 }
 
@@ -2825,8 +2825,8 @@ export async function getAnalysis(projectId: string): Promise<AnalysisData> {
 }
 
 /** The analysis as one HTML file that opens with no server (fetched with the session, then saved by the page). */
-export async function downloadAnalysisStandalone(projectId: string): Promise<{ blob: Blob; filename: string }> {
-  const response = await send("GET", `${p(projectId)}/analysis/standalone`);
+export async function downloadAnalysisStandalone(projectId: string, withoutPositions = false): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("GET", `${p(projectId)}/analysis/standalone${withoutPositions ? "?coordinates=none" : ""}`);
   return { blob: await response.blob(), filename: attachmentName(response, "analysis.html") };
 }
 
@@ -2835,6 +2835,8 @@ export interface StandaloneAnalysisData extends AnalysisData {
   project: { id: string; name: string };
   /** ISO 8601. */
   made: string;
+  /** The plots' locations were left out (?coordinates=none). */
+  withoutPositions?: boolean;
 }
 
 /** A view a coordinator shared with the team (the analysis page). */

@@ -293,6 +293,23 @@ describe('GET /analysis/standalone', () => {
     expect(own.scope).toBe('own');
   });
 
+  it('is logged as a download, and can leave the plots\' locations out', async () => {
+    const sent = await batchRequest(ctx.app, pid, ana, [envelope({ recordKey: '1,1', operator: 'ana', modifiedOn: Date.UTC(2026, 10, 1), summary: { collect_text_id: '1', collect_code_land_use_category: 'F' } })]);
+    expect(sent.statusCode, sent.body).toBe(200);
+    const all = dataOf((await call(owner.token)).body);
+    expect(all.withoutPositions).toBe(false);
+    const res = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/analysis/standalone?coordinates=none`, headers: bearer(owner.token) });
+    const without = dataOf(res.body);
+    expect(without.withoutPositions).toBe(true);
+    // The model has no position column (the demo survey's place is a coordinate, never a column): the answers stay
+    const columns = (d: { model: { tables: { columns: { key: string }[] }[] } }) => d.model.tables.flatMap((t) => t.columns.map((c) => c.key));
+    expect(columns(without)).toEqual(columns(all));
+    const log = await ctx.store.listAudit(pid, { limit: 10 });
+    expect(log.filter((e) => e.action === 'export.downloaded').map((e) => e.details)).toEqual(
+      expect.arrayContaining([{ kind: 'analysis', records: 1, coordinates: true }, { kind: 'analysis', records: 1, coordinates: false }]),
+    );
+  });
+
   it('is not found when the dashboard was built without it, and refused outside the project', async () => {
     rmSync(join(webDir, STANDALONE_FILE));
     const missing = await call(owner.token);

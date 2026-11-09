@@ -1,3 +1,4 @@
+import { isPositionKey, withoutPositions } from '../positions.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { secretsEqual } from '../accountRules.js';
 import { audit } from '../activity.js';
@@ -223,8 +224,11 @@ export async function registerProjectRoutes(
       const resolve = recordResolver({ info, units, copyHolders });
       // The coordinator's note the server added (Task 16) is the coordinator's text, not an answer.
       const leaveOut = noteColumn(info) !== null ? new Set([NOTE_SUMMARY_KEY]) : new Set<string>();
+      // Without plot locations (?coordinates=none): for sharing with whoever only needs the answers
+      const noPositions = withoutPositions(request.query);
+      if (noPositions) for (const r of records) for (const k of Object.keys(r.summary)) if (isPositionKey(k)) leaveOut.add(k);
       const csv = recordsCsv(records, exportRoundOf(info, units, copyHolders), finalOf, (r) => reference.size > 0 && reference.has(resolve(r).group), leaveOut);
-      await audit(store, request, 'export.downloaded', { records: records.length });
+      await audit(store, request, 'export.downloaded', { records: records.length, ...(noPositions ? { coordinates: false } : {}) });
       return reply
         .header('content-type', 'text/csv; charset=utf-8')
         .header('content-disposition', attachment(`${project.name}-data.csv`, 'export.csv'))

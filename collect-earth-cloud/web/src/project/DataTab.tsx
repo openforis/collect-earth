@@ -1,3 +1,5 @@
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -66,13 +68,14 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [done, setDone] = useState(false);
+  const [noPositions, setNoPositions] = useState(false);
 
   const download = async () => {
     setBusy(true);
     setError(null);
     setDone(false);
     try {
-      const { blob, filename } = await downloadExport(projectId);
+      const { blob, filename } = await downloadExport(projectId, noPositions);
       saveBlob(blob, filename);
       setDone(true);
     } catch (err) {
@@ -101,6 +104,12 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
               {t("data.summary", { submitted: formatNumber(records.submitted, language), total: formatNumber(records.total, language) })}
             </Typography>
           ) : null}
+          <Box>
+            <FormControlLabel control={<Checkbox checked={noPositions} onChange={(e) => setNoPositions(e.target.checked)} />} label={t("data.noPositions")} />
+            <Typography variant="body2" color="text.secondary">
+              {t("data.noPositionsHelp")}
+            </Typography>
+          </Box>
           <Box>
             <Button variant="contained" size="large" startIcon={<Download />} onClick={download} disabled={busy}>
               {busy ? t("data.downloading") : t("data.download")}

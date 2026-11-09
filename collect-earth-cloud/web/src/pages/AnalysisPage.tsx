@@ -1,11 +1,13 @@
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import Dialog from "@mui/material/Dialog";
 import IconButton from "@mui/material/IconButton";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import LinearProgress from "@mui/material/LinearProgress";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
@@ -453,10 +455,14 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
     }
   };
   const [packing, setPacking] = useState(false);
+  // The stand-alone file is easy to pass around: what it holds is said first, and the places of the plots can be left out
+  const [packOpen, setPackOpen] = useState(false);
+  const [packNoPositions, setPackNoPositions] = useState(false);
   const downloadStandalone = async () => {
+    setPackOpen(false);
     setPacking(true);
     try {
-      const { blob, filename } = await downloadAnalysisStandalone(projectId);
+      const { blob, filename } = await downloadAnalysisStandalone(projectId, packNoPositions);
       saveBlob(blob, filename);
     } catch (e) {
       setError(e);
@@ -587,7 +593,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
         {!standalone && (
           <Tooltip title={t("analysis.standalone")}>
             <span>
-              <IconButton aria-label={t("analysis.standalone")} onClick={() => void downloadStandalone()} disabled={packing}>
+              <IconButton aria-label={t("analysis.standalone")} onClick={() => setPackOpen(true)} disabled={packing}>
                 {packing ? <CircularProgress size={20} /> : <OfflineShare />}
               </IconButton>
             </span>
@@ -685,6 +691,22 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
           onClose={() => setDrill(null)}
         />
       )}
+      <Dialog open={packOpen} onClose={() => setPackOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{t("analysis.standaloneTitle")}</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>{t("analysis.standaloneText")}</Typography>
+          <FormControlLabel control={<Checkbox checked={packNoPositions} onChange={(e) => setPackNoPositions(e.target.checked)} />} label={t("data.noPositions")} />
+          <Typography variant="body2" color="text.secondary">
+            {t("data.noPositionsHelp")}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPackOpen(false)}>{t("common.cancel")}</Button>
+          <Button variant="contained" onClick={() => void downloadStandalone()}>
+            {t("analysis.standaloneDownload")}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Snackbar open={notice !== null} autoHideDuration={4000} onClose={() => setNotice(null)} message={notice ?? ""} />
     </Stack>
   );

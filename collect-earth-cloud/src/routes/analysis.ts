@@ -1,3 +1,5 @@
+import { audit } from '../activity.js';
+import { isPositionKey, withoutPositions } from '../positions.js';
 import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -91,11 +93,16 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
   app.get('/v1/projects/:pid/analysis/standalone', member, async (request: FastifyRequest, reply: FastifyReply) => {
     const template = standaloneTemplate(webDir);
     if (!template) return reply.code(404).send({ error: 'no_standalone', message: 'This server was installed without the stand-alone analysis page.' });
-    const payload = await analysisPayload(request, reply);
+    // Without plot locations (?coordinates=none): a file to share with whoever only needs the figures
+    const noPositions = withoutPositions(request.query);
+    const payload = await analysisPayload(request, reply, noPositions);
     if (!payload) return reply;
     const project = await store.getProject(request.membership!.projectId);
+    const records = payload.tables.find((t) => t.name === 'plot')?.rows ?? 0;
+    // A file that is easy to pass around: who took it, and whether with the plots' places
+    await audit(store, request, 'export.downloaded', { kind: 'analysis', records, coordinates: !noPositions });
     const made = new Date();
-    const data = { ...payload, project: { id: request.membership!.projectId, name: project?.name ?? '' }, made: made.toISOString() };
+    const data = { ...payload, project: { id: request.membership!.projectId, name: project?.name ?? '' }, made: made.toISOString(), withoutPositions: noPositions };
     const embedded = `<script>window.__CE_ANALYSIS=${JSON.stringify(gzipSync(JSON.stringify(data), { level: 6 }).toString('base64'))}</script>`;
     // A function replacement: a replacement string would read "$&" or "$`" in the data as patterns
     const html = template.replace(STANDALONE_DATA, () => embedded);
@@ -107,7 +114,7 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
   });
 
   /** The page's data for whoever asks, or null when an error was sent instead. */
-  async function analysisPayload(request: FastifyRequest, reply: FastifyReply) {
+  async function analysisPayload(request: FastifyRequest, reply: FastifyReply, noPositions = false) {
     const projectId = request.membership!.projectId;
     const role = request.membership!.role;
     const cep = await store.getCep(projectId);
@@ -115,7 +122,9 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
       reply.code(404).send({ error: 'no_project_file', message: 'Upload the project file first: the analysis is built from its survey.' });
       return null;
     }
-    const parsed = modelOf(cep);
+    const read = modelOf(cep);
+    // The places of the plots left out, when asked: their columns are not in the model, so not in the tables
+    const parsed = read && noPositions ? { ...read, model: modelWithoutPositions(read.model) } : read;
     if (!parsed) {
       reply.code(409).send({ error: 'survey_unreadable', message: 'The survey of the project file cannot be read.' });
       return null;
@@ -203,4 +212,9 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
     await store.setAnalysisViews(projectId, next);
     return reply.send({ views: next });
   });
+}
+
+/** The model with no column that says where a plot is (src/positions.ts). */
+function modelWithoutPositions(model: AnalysisModel): AnalysisModel {
+  return { ...model, tables: model.tables.map((t) => ({ ...t, columns: t.columns.filter((c) => !c.key || !isPositionKey(c.key)) })) };
 }
