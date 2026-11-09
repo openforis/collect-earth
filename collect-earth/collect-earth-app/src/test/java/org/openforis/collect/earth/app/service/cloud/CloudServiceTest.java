@@ -21,10 +21,12 @@ import org.junit.jupiter.api.io.TempDir;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.cloud.CloudApiClient.CloudApiException;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.JoinPreview;
 import org.openforis.collect.earth.app.service.cloud.CloudService.InvalidCloudRequestException;
 import org.openforis.collect.earth.app.service.cloud.CloudService.JoinRequest;
 import org.openforis.collect.earth.app.service.cloud.CloudSyncQueueDao.QueueStatus;
+import org.openforis.collect.earth.app.view.Messages;
 
 public class CloudServiceTest {
 
@@ -81,18 +83,47 @@ public class CloudServiceTest {
 
 	@Test
 	public void registeringUsesTheInvitation() throws Exception {
-		when(api.register("https://c.org", "maria", "pw", "tok")).thenReturn("t");
+		when(api.register("https://c.org", "maria", "password12", "tok")).thenReturn("t");
 		when(api.downloadCep("https://c.org", "p1", "t")).thenReturn(new File(folder, "none.cep"));
 		JoinRequest request = new JoinRequest();
 		request.baseUrl = "https://c.org";
 		request.inviteToken = "tok";
 		request.projectId = "p1";
 		request.username = "maria";
-		request.password = "pw";
+		request.password = "password12";
 		request.register = true;
 		service.join(request);
 		verify(api, never()).login(any(), any(), any());
 		verify(properties).saveCloudSyncToken("t");
+	}
+
+	@Test
+	public void aShortPasswordIsSaidPlainlyWhenRegistering() throws Exception {
+		JoinRequest request = new JoinRequest();
+		request.baseUrl = "https://c.org";
+		request.inviteToken = "tok";
+		request.projectId = "p1";
+		request.username = "maria";
+		request.password = "1234567";
+		request.register = true;
+		// Refused here, before the server is asked, in the user's language
+		InvalidCloudRequestException e = assertThrows(InvalidCloudRequestException.class, () -> service.join(request));
+		assertEquals("cloud.weakPassword", e.getCode());
+		assertEquals(Messages.getString("CloudLoginDialog.passwordTooShort"), e.getMessage());
+		verify(api, never()).register(any(), any(), any(), any());
+		// A login is not a new account: a short password there is the server's to judge
+		request.register = false;
+		when(api.login("https://c.org", "maria", "1234567")).thenThrow(new IOException("Invalid credentials"));
+		assertEquals("cloud.login", assertThrows(InvalidCloudRequestException.class, () -> service.join(request)).getCode());
+		// A server with a stricter rule: its weak_password said in the same plain words, not as HTTP 400 and JSON
+		request.register = true;
+		request.password = "eight-chars-but-refused";
+		when(api.register("https://c.org", "maria", "eight-chars-but-refused", "tok")).thenThrow(new CloudApiException(
+				"register failed with HTTP 400: {\"error\":\"weak_password\"}", 400, "weak_password"));
+		e = assertThrows(InvalidCloudRequestException.class, () -> service.join(request));
+		assertEquals("cloud.weakPassword", e.getCode());
+		assertEquals(Messages.getString("CloudLoginDialog.passwordTooShort"), e.getMessage());
+		verify(properties, never()).setCloudSyncEnabled(true);
 	}
 
 	@Test
