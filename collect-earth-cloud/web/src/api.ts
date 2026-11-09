@@ -1878,10 +1878,14 @@ export async function getTeamReport(projectId: string): Promise<TeamReport> {
 
 // --- data ------------------------------------------------------------------------------------
 
-/** The collected data as a CSV file (fetched with the session, then saved by the page). */
-export async function downloadExport(projectId: string): Promise<{ blob: Blob; filename: string }> {
-  const response = await send("GET", `${p(projectId)}/export.csv`);
-  return { blob: await response.blob(), filename: attachmentName(response, "collect-earth-data.csv") };
+/** The formats of the data download: a spreadsheet, or a map file with each plot's shape. */
+export const EXPORT_FORMATS = ["csv", "geojson", "kml", "shp.zip"] as const;
+export type ExportFormat = (typeof EXPORT_FORMATS)[number];
+
+/** The collected data as a CSV or map file (fetched with the session, then saved by the page). */
+export async function downloadExport(projectId: string, format: ExportFormat = "csv"): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("GET", `${p(projectId)}/export.${format}`);
+  return { blob: await response.blob(), filename: attachmentName(response, `collect-earth-data.${format}`) };
 }
 
 /** The file name a download was sent with: the UTF-8 name (filename*) before the ASCII fallback the server sends first. */

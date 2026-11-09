@@ -1,14 +1,16 @@
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import Download from "@mui/icons-material/Download";
 import PivotTableChart from "@mui/icons-material/PivotTableChart";
 import { useState } from "react";
-import { downloadExport, getOverview } from "../api";
+import { downloadExport, EXPORT_FORMATS, getOverview, type ExportFormat } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
@@ -19,6 +21,8 @@ import { linkProps, pathFor, type ProjectTab } from "../router";
 import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
 import { CollectBackup } from "./CollectBackup";
+
+const FORMAT_LABELS = { csv: "data.formatCsv", geojson: "data.formatGeojson", kml: "data.formatKml", "shp.zip": "data.formatShp" } as const;
 
 /** The pivot table and charts over the collected data (what replaces Saiku), on a page of its own. */
 function Analysis({ projectId }: { projectId: string }) {
@@ -66,13 +70,14 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [done, setDone] = useState(false);
+  const [format, setFormat] = useState<ExportFormat>("csv");
 
   const download = async () => {
     setBusy(true);
     setError(null);
     setDone(false);
     try {
-      const { blob, filename } = await downloadExport(projectId);
+      const { blob, filename } = await downloadExport(projectId, format);
       saveBlob(blob, filename);
       setDone(true);
     } catch (err) {
@@ -101,11 +106,25 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
               {t("data.summary", { submitted: formatNumber(records.submitted, language), total: formatNumber(records.total, language) })}
             </Typography>
           ) : null}
-          <Box>
-            <Button variant="contained" size="large" startIcon={<Download />} onClick={download} disabled={busy}>
-              {busy ? t("data.downloading") : t("data.download")}
-            </Button>
-          </Box>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: { sm: "center" } }}>
+            <TextField select size="small" label={t("data.format")} value={format} onChange={(e) => setFormat(e.target.value as ExportFormat)} sx={{ minWidth: 240 }}>
+              {EXPORT_FORMATS.map((f) => (
+                <MenuItem key={f} value={f}>
+                  {t(FORMAT_LABELS[f])}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Box>
+              <Button variant="contained" size="large" startIcon={<Download />} onClick={download} disabled={busy}>
+                {busy ? t("data.downloading") : t("data.download")}
+              </Button>
+            </Box>
+          </Stack>
+          {format !== "csv" && (
+            <Typography variant="body2" color="text.secondary">
+              {t("data.formatHint")}
+            </Typography>
+          )}
           {done && (
             <Alert severity="success" role="status">
               {t("data.downloaded")}

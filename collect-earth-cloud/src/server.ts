@@ -228,7 +228,10 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     // "Forgot your password?" mails its link only where mail really goes out.
     selfServiceReset: mailer.delivers && !config.localMode,
   });
-  await registerProjectRoutes(app, store, config);
+  // Where plots are and what the project file says of them, shared by the map exports, the quality
+  // routes, plot search, the map and order 'nearby' of a division (Task 15).
+  const places = new PlotPlaceReader(store);
+  await registerProjectRoutes(app, store, config, places);
   await registerCollectBackupRoutes(app, store, config, limiter, now);
   await registerPlatformRoutes(app, store, config);
   const quality = new QualityService(store, new QualityWorker({ maxOldGenerationSizeMb: config.qualityWorkerMaxMb }), {
@@ -241,9 +244,6 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   if (config.servedCacheMb) setServedCacheMb(config.servedCacheMb);
   // The automatic check sampling: drawn after first submissions and before a plot list, at most once per 10 min.
   const sampling = new SamplingService(store, states, { intervalMs: config.samplingIntervalMs, inlineMs: config.samplingInlineMs, now, onLate: () => counters.lateDraw() });
-  // Where plots are and what the project file says of them, shared by the quality routes, plot
-  // search, the map and order 'nearby' of a division (Task 15).
-  const places = new PlotPlaceReader(store);
   // The plots sent back for another look compare answers as the figures do (by the survey's
   // outline) and resolve records with the project state's plot context.
   await registerAssignmentRoutes(app, store, config, { outline: (projectId, log) => quality.outline(projectId, log), states, sampling, places });

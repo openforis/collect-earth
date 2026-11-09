@@ -4,13 +4,16 @@ import { audit } from '../activity.js';
 import { bearerToken } from '../auth.js';
 import type { Config } from '../config.js';
 import { attachment } from '../download.js';
-import { NOTE_SUMMARY_KEY, noteColumn } from '../cep.js';
-import { exportRoundOf, recordsCsv } from '../export.js';
+import { NOTE_SUMMARY_KEY, noteColumn, zipCep } from '../cep.js';
+import { exportRoundOf, recordsCsv, recordsTable } from '../export.js';
 import { storageSummary } from '../limits.js';
+import { geojsonOf, kmlOf, rowGeometries, shapefileOf } from '../mapExport.js';
 import { finalAnswers, recordResolver } from '../quality.js';
 import { loadPlotContext } from '../qualityService.js';
 import type { Store } from '../store/store.js';
+import type { RecordRow } from '../types.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
+import { PlotPlaceReader } from './plotPlaces.js';
 
 interface SurveyBody {
   surveyUri?: string;
@@ -23,6 +26,7 @@ export async function registerProjectRoutes(
   app: FastifyInstance,
   store: Store,
   config: Config,
+  places = new PlotPlaceReader(store),
 ): Promise<void> {
   // Provisioning, three ways (not a project-scoped route):
   //  1. `x-admin-key` matching ADMIN_API_KEY: the Phase-0 operator path, unchanged —
@@ -198,9 +202,16 @@ export async function registerProjectRoutes(
     },
   );
 
-  // All collected data as one CSV (admin), for Excel / a spreadsheet.
-  app.get(
-    '/v1/projects/:pid/export.csv',
+  // All collected data as one CSV (admin), for Excel / a spreadsheet; or as a map file, each
+  // record with its plot's shape (GeoJSON, KML, a zipped shapefile).
+  const formats = [
+    { path: 'export.csv', format: 'csv', type: 'text/csv; charset=utf-8', file: 'data.csv' },
+    { path: 'export.geojson', format: 'geojson', type: 'application/geo+json', file: 'data.geojson' },
+    { path: 'export.kml', format: 'kml', type: 'application/vnd.google-earth.kml+xml', file: 'data.kml' },
+    { path: 'export.shp.zip', format: 'shp', type: 'application/zip', file: 'data-shapefile.zip' },
+  ] as const;
+  for (const { path, format, type, file } of formats) app.get(
+    `/v1/projects/:pid/${path}`,
     { preHandler: requireProjectMembership(store, 'admin') },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const projectId = request.membership!.projectId;
@@ -223,12 +234,25 @@ export async function registerProjectRoutes(
       const resolve = recordResolver({ info, units, copyHolders });
       // The coordinator's note the server added (Task 16) is the coordinator's text, not an answer.
       const leaveOut = noteColumn(info) !== null ? new Set([NOTE_SUMMARY_KEY]) : new Set<string>();
-      const csv = recordsCsv(records, exportRoundOf(info, units, copyHolders), finalOf, (r) => reference.size > 0 && reference.has(resolve(r).group), leaveOut);
-      await audit(store, request, 'export.downloaded', { records: records.length });
+      const args = [records, exportRoundOf(info, units, copyHolders), finalOf, (r: RecordRow) => reference.size > 0 && reference.has(resolve(r).group), leaveOut] as const;
+      let body: string | Buffer;
+      if (format === 'csv') {
+        body = recordsCsv(...args);
+      } else {
+        const table = recordsTable(...args);
+        const plot = table.columns.indexOf('plot');
+        const found = await places.places(projectId, [...new Set(table.rows.map((row) => row[plot]))], request.log);
+        const geometries = rowGeometries(table, new Map(found.places.map((p) => [p.plot, [p.lat, p.lon] as const])), found.outline);
+        body =
+          format === 'geojson' ? geojsonOf(table, geometries)
+          : format === 'kml' ? kmlOf(table, geometries, project.name)
+          : zipCep(shapefileOf(table, geometries, 'plots', new Date()), new Date());
+      }
+      await audit(store, request, 'export.downloaded', format === 'csv' ? { records: records.length } : { records: records.length, format });
       return reply
-        .header('content-type', 'text/csv; charset=utf-8')
-        .header('content-disposition', attachment(`${project.name}-data.csv`, 'export.csv'))
-        .send(csv);
+        .header('content-type', type)
+        .header('content-disposition', attachment(`${project.name}-${file}`, `export-${file}`))
+        .send(body);
     },
   );
 }
