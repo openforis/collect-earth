@@ -1237,6 +1237,45 @@ export function uploadCsvFile(projectId: string, file: File, onProgress?: Progre
   return upload<CsvFile>("PUT", `${p(projectId)}/csv-files/${encodeURIComponent(file.name)}${query}`, file, "text/csv", onProgress);
 }
 
+/** How plot design lays out the plots over the area of interest. */
+export type PlotDesign =
+  | { method: "random"; count: number }
+  | { method: "grid"; spacingMeters: number; randomOffset: boolean }
+  | { method: "stratified"; field: string; allocation: "equal" | "proportional"; count: number };
+
+/** The area of interest as sent: a GeoJSON text, or a zipped shapefile in base64. */
+export type DesignArea = { geojson: string } | { shapefile: string };
+
+/** The area as the server read it. */
+export interface DesignFacts {
+  features: number;
+  fields: string[];
+  areaKm2: number;
+  /** Most plots a design may make. */
+  max: number;
+}
+
+/** How many plots a design makes, laid out with `seed`. */
+export interface DesignPlan extends DesignFacts {
+  plots: number;
+  tooMany: boolean;
+  strata: { value: string; areaKm2: number; plots: number }[] | null;
+  seed: number;
+}
+
+const designPath = (projectId: string) => `${p(projectId)}/plot-design`;
+
+export const readDesignArea = (projectId: string, area: DesignArea) => request<DesignFacts>("POST", designPath(projectId), { json: area });
+
+export const planPlotDesign = (projectId: string, area: DesignArea, design: PlotDesign, seed?: number) =>
+  request<DesignPlan>("POST", designPath(projectId), { json: { ...area, design, seed } });
+
+/** The plot file of a design (CSV text), to upload as any plot file. */
+export async function generatePlotDesign(projectId: string, area: DesignArea, design: PlotDesign, seed: number): Promise<string> {
+  const response = await send("POST", designPath(projectId), { json: { ...area, design, seed, generate: true } });
+  return response.text();
+}
+
 /** What replacing a plot file would take out of the project (the "replace_needs_confirm" error's details). */
 export interface ReplaceImpact {
   removedPlots: number;

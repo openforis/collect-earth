@@ -88,6 +88,73 @@ export function writeDbf(names: readonly string[], rows: readonly (readonly stri
   return out;
 }
 
+/** A .shp's polygons: each record's rings as [x, y] points (null: a null shape). Only polygon shapefiles (5; 15 and 25 read without Z and M). */
+export function readShpPolygons(shp: Buffer): ([number, number][][] | null)[] {
+  if (shp.length < 100 || shp.readInt32BE(0) !== 9994) throw new Error('not a shapefile (.shp)');
+  const type = shp.readInt32LE(32);
+  if (type !== 5 && type !== 15 && type !== 25) throw new Error(`the shapefile holds shapes of type ${type}, not polygons`);
+  const out: ([number, number][][] | null)[] = [];
+  let at = 100;
+  while (at + 12 <= shp.length) {
+    const end = at + 8 + shp.readInt32BE(at + 4) * 2;
+    if (end > shp.length) throw new Error('the shapefile (.shp) is cut short');
+    const c = at + 8;
+    const shapeType = shp.readInt32LE(c);
+    if (shapeType === NULL_SHAPE) {
+      out.push(null);
+    } else {
+      if (shapeType !== type || c + 44 > end) throw new Error('the shapefile (.shp) is damaged');
+      const parts = shp.readInt32LE(c + 36);
+      const points = shp.readInt32LE(c + 40);
+      if (parts < 0 || points < 0 || c + 44 + 4 * parts + 16 * points > end) throw new Error('the shapefile (.shp) is damaged');
+      const starts = Array.from({ length: parts }, (_, i) => shp.readInt32LE(c + 44 + 4 * i));
+      const p0 = c + 44 + 4 * parts;
+      out.push(
+        starts.map((start, i) => {
+          const stop = i + 1 < parts ? starts[i + 1] : points;
+          if (start < 0 || stop > points || start > stop) throw new Error('the shapefile (.shp) is damaged');
+          return Array.from({ length: stop - start }, (_, k): [number, number] => [shp.readDoubleLE(p0 + 16 * (start + k)), shp.readDoubleLE(p0 + 16 * (start + k) + 8)]);
+        }),
+      );
+    }
+    at = end;
+  }
+  return out;
+}
+
+/** A .dbf's field names and records (values trimmed; UTF-8 when it is valid UTF-8, else Latin-1). Deleted records are kept, so records stay in step with the shapes. */
+export function readDbf(dbf: Buffer): { fields: string[]; records: string[][] } {
+  if (dbf.length < 33) throw new Error('the attribute table (.dbf) is cut short');
+  const count = dbf.readUInt32LE(4);
+  const headerLength = dbf.readUInt16LE(8);
+  const recordLength = dbf.readUInt16LE(10);
+  const fields: { name: string; length: number }[] = [];
+  for (let at = 32; at + 32 <= headerLength && dbf[at] !== 0x0d; at += 32) {
+    fields.push({ name: dbf.subarray(at, at + 11).toString('latin1').replace(/\0.*$/s, '').trim(), length: dbf[at + 16] });
+  }
+  if (headerLength + count * recordLength > dbf.length) throw new Error('the attribute table (.dbf) is cut short');
+  const utf8 = new TextDecoder('utf-8', { fatal: true });
+  const text = (bytes: Buffer) => {
+    try {
+      return utf8.decode(bytes).trim();
+    } catch {
+      return bytes.toString('latin1').trim();
+    }
+  };
+  const records: string[][] = [];
+  for (let r = 0; r < count; r++) {
+    let at = headerLength + r * recordLength + 1;
+    records.push(
+      fields.map((f) => {
+        const value = text(dbf.subarray(at, at + f.length));
+        at += f.length;
+        return value;
+      }),
+    );
+  }
+  return { fields: fields.map((f) => f.name), records };
+}
+
 /** The bytes of one shape's record content (shape type first). */
 function shapeContent(g: Geometry): Buffer {
   if (!g) {

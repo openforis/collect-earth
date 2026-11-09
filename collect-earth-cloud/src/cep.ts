@@ -141,6 +141,11 @@ export function readCep(zip: Uint8Array, limits: CepLimits = DEFAULT_CEP_LIMITS)
   return readCepWithin(asBuffer(zip), limits, allowedBytes(zip.length, limits));
 }
 
+/** The files of any zip, read within the project file's limits (an uploaded shapefile's, for one). Throws CepError. */
+export function readZip(zip: Uint8Array, limits: CepLimits = DEFAULT_CEP_LIMITS): Map<string, Uint8Array> {
+  return unzipEntries(asBuffer(zip), limits.maxEntries, allowedBytes(zip.length, limits));
+}
+
 const asBuffer = (bytes: Uint8Array): Buffer =>
   Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 

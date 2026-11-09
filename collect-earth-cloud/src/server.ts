@@ -40,6 +40,7 @@ import { PlotIndexCache, registerPlotSearchRoutes } from './routes/plotSearch.js
 import { registerPlotsGeoRoutes } from './routes/plotsGeo.js';
 import { registerProgressRoutes } from './routes/progress.js';
 import { registerProjectRoutes } from './routes/projects.js';
+import { registerPlotDesignRoutes } from './routes/plotDesign.js';
 import { registerPublicProgressRoutes } from './routes/publicProgress.js';
 import { registerCollectBackupRoutes } from './routes/collectBackup.js';
 import { registerMailRoutes, type AccountMailHooks } from './routes/mail.js';
@@ -232,6 +233,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   // routes, plot search, the map and order 'nearby' of a division (Task 15).
   const places = new PlotPlaceReader(store);
   await registerProjectRoutes(app, store, config, places);
+  await registerPlotDesignRoutes(app, store);
   await registerCollectBackupRoutes(app, store, config, limiter, now);
   await registerPlatformRoutes(app, store, config);
   const quality = new QualityService(store, new QualityWorker({ maxOldGenerationSizeMb: config.qualityWorkerMaxMb }), {

@@ -44,6 +44,7 @@ import { linkProps, pathFor, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 import { fromPairs, hasChanges, pairKey, toPairs } from "../assignmentGrid";
 import { sortPeople } from "../division";
+import { PlotDesign } from "./PlotDesign";
 
 interface UploadState {
   name: string;
@@ -324,6 +325,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
           <ErrorAlert error={error} />
         </Stack>
       </Paper>
+      <PlotDesign projectId={projectId} busy={upload !== null} onFile={(file) => uploadFiles([file])} />
       <Dialog open={pendingReplace !== null} onClose={() => pendingReplace?.answer(false)}>
         {pendingReplace && (
           <>
