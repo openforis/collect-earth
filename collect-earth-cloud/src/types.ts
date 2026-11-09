@@ -19,7 +19,22 @@ export interface Membership {
   projectId: string;
   projectName: string;
   role: Role;
+  status: ProjectStatus;
 }
+
+/**
+ * A project's lifecycle: draft (being set up: collectors cannot sync yet), active, closed (read-only:
+ * no syncs, no changes; reading and exports work) and archived (closed and out of the normal list).
+ */
+export type ProjectStatus = 'draft' | 'active' | 'closed' | 'archived';
+export const PROJECT_STATUSES: readonly ProjectStatus[] = ['draft', 'active', 'closed', 'archived'];
+/** The moves a coordinator can make: publish, close, reopen, archive, restore. */
+export const STATUS_MOVES: Record<ProjectStatus, readonly ProjectStatus[]> = {
+  draft: ['active'],
+  active: ['closed'],
+  closed: ['active', 'archived'],
+  archived: ['closed'],
+};
 
 /** One project member, for the admin members listing. */
 export interface Member {
@@ -460,6 +475,7 @@ export interface ProjectRow {
   surveyUri: string | null;
   surveyName: string | null;
   idmlBase64: string | null;
+  status: ProjectStatus;
 }
 
 /**

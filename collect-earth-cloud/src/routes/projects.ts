@@ -11,7 +11,7 @@ import { geojsonOf, kmlOf, rowGeometries, shapefileOf } from '../mapExport.js';
 import { finalAnswers, recordResolver } from '../quality.js';
 import { loadPlotContext } from '../qualityService.js';
 import type { Store } from '../store/store.js';
-import type { RecordRow } from '../types.js';
+import { PROJECT_STATUSES, STATUS_MOVES, type ProjectStatus, type RecordRow } from '../types.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { PlotPlaceReader } from './plotPlaces.js';
 
@@ -95,6 +95,7 @@ export async function registerProjectRoutes(
         surveyName: project.surveyName,
         hasSurvey: project.idmlBase64 !== null,
         role: request.membership!.role,
+        status: project.status,
       });
     },
   );
@@ -132,6 +133,29 @@ export async function registerProjectRoutes(
       await store.renameProject(request.membership!.projectId, name);
       await audit(store, request, 'settings.changed', { setting: 'name', name });
       return reply.send({ projectId: request.membership!.projectId, name });
+    },
+  );
+
+  // The project's lifecycle (admin): publish a draft, close, reopen, archive, restore (STATUS_MOVES).
+  app.put(
+    '/v1/projects/:pid/status',
+    { preHandler: requireProjectMembership(store, 'admin') },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const projectId = request.membership!.projectId;
+      const status = ((request.body ?? {}) as { status?: unknown }).status;
+      if (!PROJECT_STATUSES.includes(status as ProjectStatus)) {
+        return reply.code(400).send({ error: 'bad_request', reason: `status must be one of ${PROJECT_STATUSES.join(', ')}` });
+      }
+      const from = await store.getProjectStatus(projectId);
+      if (!from) {
+        return reply.code(404).send({ error: 'not_found' });
+      }
+      if (!STATUS_MOVES[from].includes(status as ProjectStatus)) {
+        return reply.code(409).send({ error: 'bad_transition', reason: `A ${from} project cannot become ${String(status)}`, status: from });
+      }
+      await store.setProjectStatus(projectId, status as ProjectStatus);
+      await audit(store, request, 'settings.changed', { setting: 'status', from, status: status as ProjectStatus });
+      return reply.send({ projectId, status });
     },
   );
 

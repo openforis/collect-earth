@@ -9,6 +9,9 @@ import { getToken } from "./storage";
 export type Role = "admin" | "reviewer" | "operator";
 export const ROLES: Role[] = ["operator", "reviewer", "admin"];
 export type ProjectCreation = "anyone" | "platform-admins";
+/** A project's lifecycle (the server's STATUS_MOVES): draft -> active -> closed (-> archived), closed -> active again. */
+export type ProjectStatus = "draft" | "active" | "closed" | "archived";
+export const STATUS_MOVES: Record<ProjectStatus, readonly ProjectStatus[]> = { draft: ["active"], active: ["closed"], closed: ["active", "archived"], archived: ["closed"] };
 
 export interface ServerInfo {
   needsSetup: boolean;
@@ -104,6 +107,7 @@ export interface Membership {
   projectId: string;
   projectName: string;
   role: Role;
+  status: ProjectStatus;
 }
 
 export interface Me {
@@ -119,6 +123,7 @@ export interface ProjectInfo {
   projectId: string;
   name: string;
   role: Role;
+  status: ProjectStatus;
 }
 
 export interface OperatorProgress {
@@ -562,6 +567,9 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   project_limit_reached: "error.projectLimitReached",
   storage_limit_reached: "error.storageLimitReached",
   confirm_mismatch: "error.confirmMismatch",
+  project_closed: "error.projectClosed",
+  project_draft: "error.projectDraft",
+  bad_transition: "error.badTransition",
   sole_coordinator: "error.soleCoordinator",
   last_platform_admin: "error.lastPlatformAdmin",
   last_enabled_admin: "error.lastEnabledAdmin",
@@ -767,6 +775,11 @@ function asRole(value: unknown): Role {
   return value === "admin" || value === "reviewer" ? value : "operator";
 }
 
+/** A server without statuses (older) has active projects only. */
+export function asStatus(value: unknown): ProjectStatus {
+  return value === "draft" || value === "closed" || value === "archived" ? value : "active";
+}
+
 const p = (projectId: string) => `/v1/projects/${encodeURIComponent(projectId)}`;
 
 // --- server & account --------------------------------------------------------------
@@ -836,7 +849,7 @@ export async function getMe(): Promise<Me> {
   return {
     userId: String(me?.userId ?? ""),
     username: String(me?.username ?? ""),
-    memberships: Array.isArray(me?.memberships) ? me.memberships.map((m) => ({ ...m, role: asRole(m.role) })) : [],
+    memberships: Array.isArray(me?.memberships) ? me.memberships.map((m) => ({ ...m, role: asRole(m.role), status: asStatus(m.status) })) : [],
     isPlatformAdmin: me?.isPlatformAdmin === true,
     twoFactor: { enabled: me?.twoFactor?.enabled === true, required: me?.twoFactor?.required === true },
   };
@@ -1052,7 +1065,7 @@ export async function forgotPassword(login: string, language: string): Promise<v
 
 export async function listProjects(): Promise<Membership[]> {
   const body = await request<{ projects?: Membership[] }>("GET", "/v1/projects");
-  return (body?.projects ?? []).map((m) => ({ ...m, role: asRole(m.role) }));
+  return (body?.projects ?? []).map((m) => ({ ...m, role: asRole(m.role), status: asStatus(m.status) }));
 }
 
 export function createProject(name: string): Promise<{ projectId: string; name: string }> {
@@ -1060,8 +1073,13 @@ export function createProject(name: string): Promise<{ projectId: string; name: 
 }
 
 export async function getProject(projectId: string): Promise<ProjectInfo> {
-  const body = await request<{ projectId: string; name: string; role: string }>("GET", p(projectId));
-  return { projectId: body.projectId, name: body.name, role: asRole(body.role) };
+  const body = await request<{ projectId: string; name: string; role: string; status?: string }>("GET", p(projectId));
+  return { projectId: body.projectId, name: body.name, role: asRole(body.role), status: asStatus(body.status) };
+}
+
+export async function setProjectStatus(projectId: string, status: ProjectStatus): Promise<ProjectStatus> {
+  const body = await request<{ status?: string }>("PUT", `${p(projectId)}/status`, { json: { status } });
+  return asStatus(body?.status);
 }
 
 export async function renameProject(projectId: string, name: string): Promise<void> {

@@ -291,7 +291,7 @@ describe("local mode: Activity", () => {
 describe("local mode: Settings", () => {
   it("has the progress settings only (deadline and target: quiet days are about a team)", () => {
     expect(settingsCards(true)).toEqual(["progress"]);
-    expect(settingsCards(false)).toEqual(["rename", "progress", "shareLinks", "ai", "delete"]);
+    expect(settingsCards(false)).toEqual(["rename", "status", "progress", "shareLinks", "ai", "delete"]);
     expect(t("progressSettings.targetHelpLocal")).not.toMatch(/given to/);
   });
 });

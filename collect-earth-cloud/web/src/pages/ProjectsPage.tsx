@@ -9,8 +9,10 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Grid from "@mui/material/Grid";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Add from "@mui/icons-material/Add";
@@ -92,6 +94,9 @@ export function ProjectsPage() {
   const { me, info } = useApp();
   const projects = useLoad(listProjects, []);
   const [creating, setCreating] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const archived = projects.data?.filter((p) => p.status === "archived").length ?? 0;
+  const shown = projects.data?.filter((p) => showArchived || p.status !== "archived");
   const canCreate = me?.isPlatformAdmin === true || info.projectCreation === "anyone";
 
   return (
@@ -104,6 +109,13 @@ export function ProjectsPage() {
           </Button>
         )}
       </Stack>
+      {archived > 0 && (
+        <FormControlLabel
+          sx={{ mb: 2 }}
+          control={<Switch checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />}
+          label={`${t("projects.showArchived")} (${archived})`}
+        />
+      )}
       {projects.loading && !projects.data ? (
         <Loading />
       ) : projects.error ? (
@@ -114,9 +126,11 @@ export function ProjectsPage() {
             {canCreate ? t("projects.empty.create") : t("projects.empty.ask")}
           </EmptyState>
         </Paper>
+      ) : shown && shown.length === 0 ? (
+        <Typography color="text.secondary">{t("projects.onlyArchived")}</Typography>
       ) : (
         <Grid container spacing={2}>
-          {projects.data?.map((p) => (
+          {shown?.map((p) => (
             <Grid key={p.projectId} size={{ xs: 12, sm: 6 }}>
               <Card variant="outlined" sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
                 <CardActionArea {...linkProps(pathFor({ name: "project", projectId: p.projectId, tab: "progress" }))} sx={{ flex: 1 }}>
@@ -124,7 +138,10 @@ export function ProjectsPage() {
                     <Typography variant="h3" component="h2" gutterBottom sx={{ wordBreak: "break-word" }}>
                       {p.projectName}
                     </Typography>
-                    <Chip size="small" label={t(`role.${p.role}`)} color={p.role === "admin" ? "primary" : "default"} />
+                    <Stack direction="row" spacing={1}>
+                      <Chip size="small" label={t(`role.${p.role}`)} color={p.role === "admin" ? "primary" : "default"} />
+                      {p.status !== "active" && <Chip size="small" variant="outlined" label={t(`project.status.${p.status}`)} />}
+                    </Stack>
                   </CardContent>
                 </CardActionArea>
                 {/* Every member can see how their own plots fared in the checks; collectors and reviewers also their work, as on the project page. */}

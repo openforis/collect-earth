@@ -1,5 +1,5 @@
 import type { ActivityPage, DailyRow, DecisionRow, DifferenceRow, LogItem, LogKind } from "./api";
-import { ApiError } from "./api";
+import { ApiError, asStatus } from "./api";
 import { csvText } from "./csv";
 import { formatNumber } from "./format";
 import type { MessageKey, Translate } from "./i18n";
@@ -169,6 +169,7 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
         const name = newName(d);
         return name !== null ? t("activity.audit.renamed", { actor, name }) : t("activity.audit.renamedPlain", { actor });
       }
+      if (d.setting === "status") return t("activity.audit.status", { actor, status: t(`project.status.${asStatus(d.status)}`).toLowerCase() });
       return t("activity.audit.settings", { actor, what: t(SETTING_KEYS[String(d.setting)] ?? "activity.setting.other") });
     case "sampling.drawn":
       if (d.automatic === true) return t(byCount(d.drawn, "activity.audit.sampledAutoOne", "activity.audit.sampledAuto"), { count: num(d.drawn, language) });

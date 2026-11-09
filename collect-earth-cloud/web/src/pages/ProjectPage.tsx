@@ -1,3 +1,4 @@
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
@@ -7,7 +8,7 @@ import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
 import Forest from "@mui/icons-material/Forest";
 import { lazy, Suspense, useEffect, useRef } from "react";
-import { ApiError, getProject } from "../api";
+import { ApiError, getProject, type ProjectStatus } from "../api";
 import { useLocalMode } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
@@ -86,6 +87,17 @@ function Header({ projectId, name, bell = false }: { projectId: string; name: st
         <PlotSearchBox projectId={projectId} />
       </Box>
     </Box>
+  );
+}
+
+/** Says when the project is not active: a draft takes no records yet, a closed or archived one is read-only. */
+function StatusNote({ status }: { status: ProjectStatus }) {
+  const t = useT();
+  if (status === "active") return null;
+  return (
+    <Alert severity={status === "draft" ? "info" : "warning"} sx={{ mb: 2 }}>
+      <strong>{t(`project.status.${status}`)}</strong> · {t(status === "draft" ? "status.note.draft" : "status.note.closed")}
+    </Alert>
   );
 }
 
@@ -169,6 +181,7 @@ export function ProjectPage({
     return (
       <AppShell>
         <Header projectId={projectId} name={info.name} />
+        <StatusNote status={info.status} />
         <Box sx={{ mb: 3, display: "flex", gap: 1, flexWrap: "wrap" }}>
           <Button variant="outlined" {...linkProps(pathFor({ name: "myWork", projectId }))}>
             {t("myWork.link")}
@@ -211,6 +224,7 @@ export function ProjectPage({
   if (info.role !== "admin") {
     return (
       <AppShell>
+        <StatusNote status={info.status} />
         <Paper variant="outlined">
           <EmptyState heading icon={<Forest color="primary" />} title={info.name}>
             <span style={{ display: "block", marginBottom: 12 }}>{t("member.text", { role: t(`role.${info.role}`) })}</span>
@@ -243,12 +257,21 @@ export function ProjectPage({
     quality: plot ? <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles={!local} /> : <QualityTab projectId={projectId} />,
     training: <TrainingTab key={trainingSetId ?? "list"} projectId={projectId} setId={trainingSetId} />,
     activity: <ActivityTab projectId={projectId} />,
-    settings: <SettingsTab projectId={projectId} name={info.name} onRenamed={(name) => project.setData({ ...info, name })} />,
+    settings: (
+      <SettingsTab
+        projectId={projectId}
+        name={info.name}
+        status={info.status}
+        onRenamed={(name) => project.setData({ ...info, name })}
+        onStatus={(status) => project.setData({ ...info, status })}
+      />
+    ),
   }[tab];
 
   return (
     <AppShell wide>
       <Header projectId={projectId} name={info.name} bell={!local} />
+      <StatusNote status={info.status} />
       <Tabs
         ref={tabsRef}
         value={tab}

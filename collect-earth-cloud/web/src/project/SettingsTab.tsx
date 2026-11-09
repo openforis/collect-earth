@@ -15,7 +15,18 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import DeleteForever from "@mui/icons-material/DeleteForever";
 import { useState, type FormEvent } from "react";
-import { deleteProject, getProgressSettings, getProjectAi, renameProject, saveProgressSettings, setProjectAi, type ProgressSettings } from "../api";
+import {
+  deleteProject,
+  getProgressSettings,
+  getProjectAi,
+  renameProject,
+  saveProgressSettings,
+  setProjectAi,
+  setProjectStatus,
+  STATUS_MOVES,
+  type ProgressSettings,
+  type ProjectStatus,
+} from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
@@ -24,6 +35,7 @@ import { settingsCards } from "../localMode";
 import { progressDraftOf, readProgressDraft, type ProgressDraft, type ProgressProblems } from "../progressView";
 import { linkProps, navigate, pathFor } from "../router";
 import { useLoad } from "../useLoad";
+import type { MessageKey } from "../i18n";
 import { ShareLinksCard } from "./ShareLinks";
 
 function RenameCard({ projectId, name, onRenamed }: { projectId: string; name: string; onRenamed: (name: string) => void }) {
@@ -298,6 +310,53 @@ function AiCard({ projectId }: { projectId: string }) {
   );
 }
 
+/** The button of a move from one status to another. */
+function moveLabel(from: ProjectStatus, to: ProjectStatus): MessageKey {
+  if (to === "active") return from === "draft" ? "status.move.active" : "status.move.reopen";
+  if (to === "closed") return from === "archived" ? "status.move.restore" : "status.move.closed";
+  return "status.move.archived";
+}
+
+/** The project's lifecycle: what its status means, and the moves it can make (publish, close, reopen, archive, restore). */
+function StatusCard({ projectId, status, onStatus }: { projectId: string; status: ProjectStatus; onStatus: (status: ProjectStatus) => void }) {
+  const t = useT();
+  const { refreshMe } = useApp();
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+
+  const move = async (to: ProjectStatus) => {
+    setError(null);
+    setBusy(true);
+    try {
+      onStatus(await setProjectStatus(projectId, to));
+      void refreshMe();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="settings-status">
+      <Stack spacing={2}>
+        <Typography variant="h2" id="settings-status">
+          {t("status.title")}: {t(`project.status.${status}`)}
+        </Typography>
+        <Typography>{t(`status.intro.${status}`)}</Typography>
+        <ErrorAlert error={error} />
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+          {STATUS_MOVES[status].map((to, i) => (
+            <Button key={to} variant={i === 0 ? "contained" : "outlined"} disabled={busy} onClick={() => void move(to)}>
+              {t(moveLabel(status, to))}
+            </Button>
+          ))}
+        </Box>
+      </Stack>
+    </Paper>
+  );
+}
+
 /** The danger zone: deleting the project, confirmed by typing its name. */
 function DeleteCard({ projectId, name }: { projectId: string; name: string }) {
   const t = useT();
@@ -351,7 +410,19 @@ function DeleteCard({ projectId, name }: { projectId: string; name: string }) {
 }
 
 /** The project's settings; in the local mode (one person), the progress settings only (src/localMode.ts, settingsCards). */
-export function SettingsTab({ projectId, name, onRenamed }: { projectId: string; name: string; onRenamed: (name: string) => void }) {
+export function SettingsTab({
+  projectId,
+  name,
+  status,
+  onRenamed,
+  onStatus,
+}: {
+  projectId: string;
+  name: string;
+  status: ProjectStatus;
+  onRenamed: (name: string) => void;
+  onStatus: (status: ProjectStatus) => void;
+}) {
   const cards = settingsCards(useLocalMode());
   return (
     <Stack spacing={3}>
@@ -364,6 +435,8 @@ export function SettingsTab({ projectId, name, onRenamed }: { projectId: string;
           <ShareLinksCard key={card} projectId={projectId} />
         ) : card === "ai" ? (
           <AiCard key={card} projectId={projectId} />
+        ) : card === "status" ? (
+          <StatusCard key={card} projectId={projectId} status={status} onStatus={onStatus} />
         ) : (
           <DeleteCard key={card} projectId={projectId} name={name} />
         ),

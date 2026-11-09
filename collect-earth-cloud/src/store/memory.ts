@@ -48,6 +48,7 @@ import {
   type TwoFactorState,
   type PublicQuality,
   type ProjectRow,
+  type ProjectStatus,
   type ProjectStorage,
   type QualityDecision,
   type QualitySettings,
@@ -388,7 +389,7 @@ export class InMemoryStore implements Store {
   }
 
   /** `projectId`: the local mode's stable id (src/local.ts); otherwise a new one. */
-  async createProject(input: { name: string; projectId?: string }): Promise<CreateProjectResult> {
+  async createProject(input: { name: string; projectId?: string; status?: ProjectStatus }): Promise<CreateProjectResult> {
     const projectId = input.projectId ?? randomUUID();
     if (this.projects.has(projectId)) {
       throw new Error(`Project ${projectId} already exists`);
@@ -399,6 +400,7 @@ export class InMemoryStore implements Store {
       surveyUri: null,
       surveyName: null,
       idmlBase64: null,
+      status: input.status ?? 'active',
     };
     this.projects.set(projectId, {
       project,
@@ -438,6 +440,14 @@ export class InMemoryStore implements Store {
 
   async getProject(projectId: string): Promise<ProjectRow | null> {
     return this.projects.get(projectId)?.project ?? null;
+  }
+
+  async getProjectStatus(projectId: string): Promise<ProjectStatus | null> {
+    return this.projects.get(projectId)?.project.status ?? null;
+  }
+
+  async setProjectStatus(projectId: string, status: ProjectStatus): Promise<void> {
+    this.requireProject(projectId).project.status = status;
   }
 
   async renameProject(projectId: string, name: string): Promise<void> {
@@ -1167,7 +1177,7 @@ export class InMemoryStore implements Store {
       if (memberUserId === userId) {
         const project = this.projects.get(projectId)?.project;
         if (project) {
-          result.push({ projectId, projectName: project.name, role });
+          result.push({ projectId, projectName: project.name, role, status: project.status });
         }
       }
     }

@@ -36,6 +36,7 @@ import type {
   SharedAnalysisView,
   PublicQuality,
   ProjectRow,
+  ProjectStatus,
   ProjectStorage,
   QualityDecision,
   QualitySettings,
@@ -118,8 +119,12 @@ export interface CreateInviteInput {
  * development and tests, and a PostgreSQL store for deployment.
  */
 export interface Store {
-  createProject(input: { name: string }): Promise<CreateProjectResult>;
+  /** A new project is active unless `status` says otherwise (a copy starts as a draft). */
+  createProject(input: { name: string; status?: ProjectStatus }): Promise<CreateProjectResult>;
   getProject(projectId: string): Promise<ProjectRow | null>;
+  /** The project's status alone (checked on every change and sync); null for an unknown project. */
+  getProjectStatus(projectId: string): Promise<ProjectStatus | null>;
+  setProjectStatus(projectId: string, status: ProjectStatus): Promise<void>;
   renameProject(projectId: string, name: string): Promise<void>;
   /**
    * Deletes a project and everything in it: records, CEP, plot files, assignments,

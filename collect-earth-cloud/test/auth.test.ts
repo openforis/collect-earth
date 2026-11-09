@@ -62,7 +62,7 @@ describe('accounts, invites and join', () => {
       headers: { authorization: `Bearer ${sessionToken}` },
     });
     expect(me.json().memberships).toEqual([
-      { projectId: project.projectId, projectName: 'Bolivia NFI', role: 'operator' },
+      { projectId: project.projectId, projectName: 'Bolivia NFI', role: 'operator', status: 'active' },
     ]);
 
     // A session token grants access to its project's scoped routes.

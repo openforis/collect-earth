@@ -167,7 +167,7 @@ describe('sign-up and project creation modes', () => {
     // The creator is the project's admin (and no Phase-0 tokens are handed out).
     const projects = await ctx.app.inject({ method: 'GET', url: '/v1/projects', headers: bearer(owner.token) });
     expect(projects.json().projects).toEqual([
-      { projectId: mine.json().projectId, projectName: 'Owner project', role: 'admin' },
+      { projectId: mine.json().projectId, projectName: 'Owner project', role: 'admin', status: 'active' },
     ]);
 
     await setSettings(ctx.app, owner.token, { signupOpen: true });

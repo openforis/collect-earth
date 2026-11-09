@@ -71,6 +71,7 @@ export const LOCAL_OFF_ROUTES: readonly string[] = [
   // One project, the desktop's.
   'POST /v1/projects',
   'DELETE /v1/projects/:pid',
+  'PUT /v1/projects/:pid/status',
   // Invitations and members.
   'POST /v1/projects/:pid/invites',
   'GET /v1/projects/:pid/invites',

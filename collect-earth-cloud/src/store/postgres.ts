@@ -49,6 +49,7 @@ import {
   type TwoFactorState,
   type PublicQuality,
   type ProjectRow,
+  type ProjectStatus,
   type ProjectStorage,
   type QualityDecision,
   type QualitySettings,
@@ -213,7 +214,7 @@ export class PostgresStore implements Store {
     }
   }
 
-  async createProject(input: { name: string }): Promise<CreateProjectResult> {
+  async createProject(input: { name: string; status?: ProjectStatus }): Promise<CreateProjectResult> {
     const projectId = randomUUID();
     const adminToken = generateToken();
     const projectToken = generateToken();
@@ -223,7 +224,7 @@ export class PostgresStore implements Store {
       await client.query('BEGIN');
       // The new project's own id, so its row passes the projects policy (RLS).
       await client.query('SELECT set_config($1, $2, true)', ['app.current_project', projectId]);
-      await client.query('INSERT INTO projects (id, name) VALUES ($1, $2)', [projectId, input.name]);
+      await client.query('INSERT INTO projects (id, name, status) VALUES ($1, $2, $3)', [projectId, input.name, input.status ?? 'active']);
       await client.query(
         'INSERT INTO project_tokens (token_hash, project_id, role) VALUES ($1, $2, $3), ($4, $2, $5)',
         [hashToken(adminToken), projectId, 'admin', hashToken(projectToken), 'operator'],
@@ -241,7 +242,7 @@ export class PostgresStore implements Store {
   async getProject(projectId: string): Promise<ProjectRow | null> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        'SELECT id, name, survey_uri, survey_name, idml_base64 FROM projects WHERE id = $1',
+        'SELECT id, name, survey_uri, survey_name, idml_base64, status FROM projects WHERE id = $1',
         [projectId],
       );
       if (res.rowCount === 0) {
@@ -254,7 +255,21 @@ export class PostgresStore implements Store {
         surveyUri: r.survey_uri,
         surveyName: r.survey_name,
         idmlBase64: r.idml_base64,
+        status: r.status,
       };
+    });
+  }
+
+  async getProjectStatus(projectId: string): Promise<ProjectStatus | null> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT status FROM projects WHERE id = $1', [projectId]);
+      return res.rowCount === 0 ? null : (res.rows[0].status as ProjectStatus);
+    });
+  }
+
+  async setProjectStatus(projectId: string, status: ProjectStatus): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('UPDATE projects SET status = $2 WHERE id = $1', [projectId, status]);
     });
   }
 
@@ -1351,9 +1366,9 @@ export class PostgresStore implements Store {
       const out: Membership[] = [];
       for (const m of members.rows) {
         await client.query('SELECT set_config($1, $2, true)', ['app.current_project', m.project_id]);
-        const p = await client.query('SELECT name FROM projects WHERE id = $1', [m.project_id]);
+        const p = await client.query('SELECT name, status FROM projects WHERE id = $1', [m.project_id]);
         if (p.rowCount !== 0) {
-          out.push({ projectId: m.project_id, projectName: p.rows[0].name, role: m.role });
+          out.push({ projectId: m.project_id, projectName: p.rows[0].name, role: m.role, status: p.rows[0].status });
         }
       }
       await client.query('COMMIT');

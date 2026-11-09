@@ -213,7 +213,8 @@ describe("transport", () => {
   it("sends the session as a bearer token", async () => {
     setToken("tok-1");
     fetchMock.mockResolvedValue(jsonResponse(200, { projects: [{ projectId: "p", projectName: "P", role: "admin" }] }));
-    expect(await listProjects()).toEqual([{ projectId: "p", projectName: "P", role: "admin" }]);
+    // A server without project statuses: every project is active.
+    expect(await listProjects()).toEqual([{ projectId: "p", projectName: "P", role: "admin", status: "active" }]);
     const init = fetchMock.mock.calls[0][1]!;
     expect((init.headers as Record<string, string>).authorization).toBe("Bearer tok-1");
   });

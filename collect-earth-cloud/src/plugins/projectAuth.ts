@@ -49,6 +49,10 @@ export function requireProjectMembership(store: Store, requiredRole?: Role): pre
     if (requiredRole === 'admin' && membership.userId && (await secondStepMissing(store, membership.userId))) {
       return reply.code(403).send(TWO_FACTOR_REQUIRED);
     }
+    const refusal = await statusRefusal(store, request, membership.projectId);
+    if (refusal) {
+      return reply.code(409).send(refusal);
+    }
     request.membership = membership;
     if (membership.userId) {
       request.userId = membership.userId;
@@ -115,6 +119,40 @@ async function secondStepMissing(store: Store, userId: string): Promise<boolean>
   if (!(await store.getSettings()).twoFactorForCoordinators) return false;
   const state = await store.getTwoFactor(userId);
   return !(state?.enabledAt && state.secretEnc);
+}
+
+/**
+ * The changes a closed (or archived) project still takes: its status itself, its deletion, and
+ * requests that only read or are the person's own (the bell's read marks, a backup
+ * link, plot places, the AI assistant's analysis, usage events).
+ */
+const OPEN_WHEN_CLOSED = new Set([
+  'PUT /v1/projects/:pid/status',
+  'DELETE /v1/projects/:pid',
+  'POST /v1/projects/:pid/attention/read',
+  'POST /v1/projects/:pid/exports/collect-backup/link',
+  'POST /v1/projects/:pid/quality/places',
+  'POST /v1/projects/:pid/ai/runs',
+  'POST /v1/projects/:pid/telemetry',
+]);
+const RECORDS_BATCH = 'POST /v1/projects/:pid/records:batch';
+
+/**
+ * Why the project's status refuses this request, or null. Reading (GET, HEAD) is never refused.
+ * Collect Earth shows the reason of a refused sync and keeps the records to send later.
+ */
+async function statusRefusal(store: Store, request: FastifyRequest, projectId: string): Promise<{ error: string; reason: string } | null> {
+  if (request.method === 'GET' || request.method === 'HEAD') return null;
+  const route = `${request.method} ${request.routeOptions?.url ?? ''}`;
+  if (OPEN_WHEN_CLOSED.has(route)) return null;
+  const status = await store.getProjectStatus(projectId);
+  if (status === 'closed' || status === 'archived') {
+    return { error: 'project_closed', reason: 'This project is closed: it takes no new records or changes. Ask its coordinator to reopen it.' };
+  }
+  if (status === 'draft' && route === RECORDS_BATCH) {
+    return { error: 'project_draft', reason: 'This project is still being set up: records can be sent once its coordinator makes it active.' };
+  }
+  return null;
 }
 
 type MembershipResolution = RequestMembership | 'invalid' | 'no_access';
