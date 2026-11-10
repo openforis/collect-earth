@@ -45,9 +45,11 @@ export type Design =
 export interface DesignedPlot {
   lon: number;
   lat: number;
-  /** the plot's id in the file; 1, 2, 3... in order when none (a design's plots) */
+  /** the plot's id in the file (SIGRID's CE_ID); 1, 2, 3... in order when none (a design's plots) */
   id?: string;
   stratum?: string;
+  /** Values for the survey's extra columns of these names (lowercase), e.g. adm1nm. */
+  columns?: Record<string, string>;
 }
 
 const bad = (message: string) => new DesignError('bad_area', message);
@@ -234,6 +236,12 @@ class Shape {
   }
 }
 
+/** Whether a point (longitude, latitude) is in any feature of the area. */
+export function areaContains(area: AreaOfInterest): (lon: number, lat: number) => boolean {
+  const shapes = area.features.map((f) => new Shape(f));
+  return (lon, lat) => shapes.some((s) => s.contains(lon, lat));
+}
+
 /**
  * `n` points uniformly at random over the union of the shapes: a shape drawn by the area of its box
  * on the sphere, a point uniform in that box (longitude, and the sine of the latitude), kept when the
@@ -364,7 +372,8 @@ const ZERO = new Set(USUAL_EXTRA);
  * and the survey's own round key with its first-round code), latitude and longitude, then the
  * survey's extra columns in its order (`extra`: plotFileExtraColumns; null without a project file),
  * since Collect Earth reads them by position: elevation, slope and aspect 0, the others empty. The
- * stratum goes in the survey's own `stratum` column (any case), else in a column after them all.
+ * stratum goes in the survey's own `stratum` column (any case), else in a column after them all. A plot
+ * with its own `id` keeps it (else plots are numbered 1, 2...), and its `columns` fill those columns.
  */
 export function plotFileCsv(plots: readonly DesignedPlot[], keys: { count: number; roundIndex: number | null; roundCode: string }, extra: readonly string[] | null = null): string {
   const stratified = plots.some((p) => p.stratum !== undefined);
@@ -376,7 +385,7 @@ export function plotFileCsv(plots: readonly DesignedPlot[], keys: { count: numbe
     ...keyNames.map((k) => (k === 'round' ? keys.roundCode : field(p.id ?? String(n + 1)))),
     p.lat.toFixed(6),
     p.lon.toFixed(6),
-    ...columns.map((c, i) => (i === at ? field(p.stratum ?? '') : ZERO.has(c.toLowerCase()) ? '0' : '')),
+    ...columns.map((c, i) => (i === at ? field(p.stratum ?? '') : field(p.columns?.[c.toLowerCase()] ?? (ZERO.has(c.toLowerCase()) ? '0' : '')))),
   ]);
   return [[...keyNames, 'YCoordinate', 'XCoordinate', ...columns], ...lines].map((l) => l.join(',')).join('\n') + '\n';
 }

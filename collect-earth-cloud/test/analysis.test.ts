@@ -147,7 +147,7 @@ describe('expansion factors, as RegionCalculationUtils works them out', () => {
   it('or divides the area of each combination of answers among the plots that have it', () => {
     const f = expansionFactors({ attributeAreas: 'land_use_category;area\nF;800\nC;100\nG;100\n' }, plots, model)!;
     expect(f.source).toBe('areas_per_attribute.csv');
-    expect(f.byPlot.get('1')).toEqual({ factor: 800, weight: 8 });
+    expect(f.byPlot.get('1')).toEqual({ factor: 800, weight: 8, stratum: 'F' });
     expect(f.byPlot.get('2')!.factor).toBe(100);
     expect(f.byPlot.has('4')).toBe(false);
   });

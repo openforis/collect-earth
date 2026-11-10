@@ -15,6 +15,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ArrowBack from "@mui/icons-material/ArrowBack";
+import Calculate from "@mui/icons-material/Calculate";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, getAnalysis, getProject, getProjectAi, proposeAnalysisViews, type AnalysisData, type ProposedView } from "../api";
 import { useApp } from "../appContext";
@@ -85,6 +86,11 @@ export function AnalysisPage({ projectId }: { projectId: string }) {
         <Button startIcon={<ArrowBack />} {...linkProps(back)}>
           {project.data?.name ?? t("analysis.back")}
         </Button>
+        {(project.data?.role === "admin" || project.data?.role === "reviewer") && (
+          <Button variant="outlined" startIcon={<Calculate />} {...linkProps(pathFor({ name: "uncertainty", projectId }))}>
+            {t("uncertainty.open")}
+          </Button>
+        )}
       </Box>
       <Typography variant="h1" sx={{ mb: 1 }}>
         {t("analysis.title")}

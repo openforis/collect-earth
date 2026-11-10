@@ -1,3 +1,4 @@
+import { unzipSync } from "fflate";
 import type { MessageKey } from "./i18n";
 import { getToken } from "./storage";
 
@@ -628,6 +629,7 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   user_session_required: "ai.sessionRequired",
   ai_unavailable: "ai.unavailable",
   ai_not_enabled: "ai.notEnabled",
+  sigrid_unreachable: "sigrid.unreachable",
 };
 
 /** The sentence (message key) to show a person for any error thrown by this module. */
@@ -1123,24 +1125,40 @@ export interface CeoImportPreview {
   ceoProjectId: number | null;
   /** plots: null without CEO's plot list */
   counts: { questions: number; questionsChanged: number; questionsSkipped: number; rules: number; rulesSkipped: number; plots: number | null };
+  /** null without CEO's sample data; the collectors by email, for the coordinator to map (the server keeps no email) */
+  answers: { plots: number; flagged: number; collectors: { email: string; plots: number }[] } | null;
   report: CeoReportEntry[];
 }
 
+/** CEO's files, as saved: the project (required), its plot list, its sample data (CSV); null when not given. */
+export interface CeoFiles {
+  project: string;
+  plots: string | null;
+  answers: string | null;
+}
+
+const ceoBody = (files: CeoFiles) => ({
+  ceoProject: files.project,
+  ...(files.plots !== null ? { ceoPlots: files.plots } : {}),
+  ...(files.answers !== null ? { ceoAnswers: files.answers } : {}),
+});
+
 /**
  * What a project saved from Collect Earth Online (its get-project-by-id file, as text) would become, with its plots
- * when CEO's plot list (get-project-plots) is given; nothing is stored.
+ * when CEO's plot list (get-project-plots) is given, and its answers with CEO's sample data; nothing is stored.
  */
-export function previewCeoImport(ceoProject: string, ceoPlots: string | null): Promise<CeoImportPreview> {
-  return request("POST", "/v1/projects/from-ceo/preview", { json: { ceoProject, ...(ceoPlots !== null ? { ceoPlots } : {}) } });
+export function previewCeoImport(files: CeoFiles): Promise<CeoImportPreview> {
+  return request("POST", "/v1/projects/from-ceo/preview", { json: ceoBody(files) });
 }
 
 /** A new project from a project saved from Collect Earth Online: its survey, rules and plots; the caller is its coordinator. */
 export function importCeoProject(
-  ceoProject: string,
-  ceoPlots: string | null,
+  files: CeoFiles,
   name: string,
-): Promise<CeoImportPreview & { projectId: string; round: string; reportText: string; plotFile: { csvFileId: string; filename: string; plots: number } | null }> {
-  return request("POST", "/v1/projects/from-ceo", { json: { ceoProject, ...(ceoPlots !== null ? { ceoPlots } : {}), name } });
+  /** CEO collector's email -> the username of their account here (the others get a pseudonym) */
+  collectors: Record<string, string>,
+): Promise<CeoImportPreview & { projectId: string; round: string; reportText: string; records: number; plotFile: { csvFileId: string; filename: string; plots: number } | null }> {
+  return request("POST", "/v1/projects/from-ceo", { json: { ...ceoBody(files), name, collectors } });
 }
 
 export async function getProject(projectId: string): Promise<ProjectInfo> {
@@ -1342,6 +1360,46 @@ export function uploadCsvFile(projectId: string, file: File, onProgress?: Progre
   return upload<CsvFile>("PUT", `${p(projectId)}/csv-files/${encodeURIComponent(file.name)}${query}`, file, "text/csv", onProgress);
 }
 
+/** The plot files a project file brings in its grid folder (grid/*.csv, sub-folders left out). */
+export async function cepGridFiles(cep: Blob): Promise<File[]> {
+  const isGrid = (name: string) => /^grid\/[^/]+\.csv$/i.test(name);
+  const entries = unzipSync(new Uint8Array(await cep.arrayBuffer()), { filter: (f) => isGrid(f.name) });
+  return Object.entries(entries).map(([name, data]) => new File([data], name.slice("grid/".length), { type: "text/csv" }));
+}
+
+/**
+ * Plot files joined into one named `name`: those with the header most of them share (compared without
+ * quotes, spaces or a BOM) become one file, its header once and every file's rows after it, byte for
+ * byte (the text encoding is kept). The others are returned to add as they are.
+ */
+export async function mergeGridFiles(files: File[], name: string): Promise<{ merged: File | null; separate: File[] }> {
+  const parts = await Promise.all(
+    files.map(async (file) => {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const end = bytes.indexOf(10);
+      const headerEnd = end === -1 ? bytes.length : end + 1;
+      // shortcut: a header whose names hold quoted commas compares as other columns, and its file is then added on its own.
+      const header = new TextDecoder("latin1").decode(bytes.subarray(0, headerEnd)).replace(/^(﻿|ï»¿)/, "").replace(/["\s]/g, "");
+      return { file, bytes, headerEnd, header };
+    }),
+  );
+  const counts = new Map<string, number>();
+  for (const p of parts) counts.set(p.header, (counts.get(p.header) ?? 0) + 1);
+  const common = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const same = parts.filter((p) => p.header === common);
+  const separate = parts.filter((p) => p.header !== common).map((p) => p.file);
+  if (same.length < 2) return { merged: null, separate: files };
+  const chunks: Uint8Array<ArrayBuffer>[] = [same[0].bytes.subarray(0, same[0].headerEnd)];
+  if (same[0].bytes[same[0].headerEnd - 1] !== 10) chunks.push(new Uint8Array([10]));
+  for (const p of same) {
+    const rows = p.bytes.subarray(p.headerEnd);
+    if (rows.length === 0) continue;
+    chunks.push(rows);
+    if (rows[rows.length - 1] !== 10) chunks.push(new Uint8Array([10]));
+  }
+  return { merged: new File(chunks, name, { type: "text/csv" }), separate };
+}
+
 /** How plot design lays out the plots over the area of interest. */
 export type PlotDesign =
   | { method: "random"; count: number }
@@ -1378,6 +1436,45 @@ export const planPlotDesign = (projectId: string, area: DesignArea, design: Plot
 /** The plot file of a design (CSV text), to upload as any plot file. */
 export async function generatePlotDesign(projectId: string, area: DesignArea, design: PlotDesign, seed: number): Promise<string> {
   const response = await send("POST", designPath(projectId), { json: { ...area, design, seed, generate: true } });
+  return response.text();
+}
+
+/** A SIGRID country package: its name, and its file name's stem (Cote_d_Ivoire). */
+export interface SigridCountry {
+  name: string;
+  file: string;
+}
+
+/** What a SIGRID choice is: the country, its provinces and districts (none: all of it), an area to clip to. */
+export type SigridChoice = {
+  country: string;
+  spacingKm?: number;
+  provinces: string[];
+  districts: { province: string; district: string }[];
+} & ({ geojson: string } | { shapefile: string } | object);
+
+/** A SIGRID country as the server read it: plots per spacing (as `spacings`) by province and district, and for the choice. */
+export interface SigridFacts {
+  country: string;
+  spacings: number[];
+  provinces: { name: string; plots: number[]; districts: { name: string; plots: number[] }[] }[];
+  /** The plots per spacing of the provinces and districts chosen, before any clip. */
+  selected: number[];
+  max: number;
+  /** With a spacing: the plots of the whole choice (clip too). */
+  plots?: number;
+  tooMany?: boolean;
+}
+
+const sigridPath = (projectId: string) => `${p(projectId)}/sigrid`;
+
+export const listSigridCountries = (projectId: string) => request<{ countries: SigridCountry[]; spacings: number[]; max: number }>("GET", `${sigridPath(projectId)}/countries`);
+
+export const planSigrid = (projectId: string, choice: SigridChoice) => request<SigridFacts>("POST", sigridPath(projectId), { json: choice });
+
+/** The plot file of a SIGRID choice (CSV text, its ids SIGRID's CE_ID), to upload as any plot file. */
+export async function generateSigrid(projectId: string, choice: SigridChoice): Promise<string> {
+  const response = await send("POST", sigridPath(projectId), { json: { ...choice, generate: true } });
   return response.text();
 }
 
@@ -4770,4 +4867,77 @@ export interface TrainingFiguresSet {
 export async function getTrainingFigures(projectId: string): Promise<{ sets: TrainingFiguresSet[]; questions: TrainingQuestion[] }> {
   const res = await request<{ sets?: TrainingFiguresSet[]; questions?: TrainingQuestion[] }>("GET", `${p(projectId)}/training/figures`);
   return { sets: Array.isArray(res.sets) ? res.sets : [], questions: Array.isArray(res.questions) ? res.questions : [] };
+}
+
+/** The six IPCC land categories (the server's src/uncertainty.ts). */
+export const IPCC_CATEGORIES = ["forest", "cropland", "grassland", "wetland", "settlement", "other"] as const;
+export type IpccCategory = (typeof IPCC_CATEGORIES)[number];
+
+/** The uncertainty analysis's setup: the two land use questions, their years, each code's category (null: left out), the area. */
+export interface UncertaintySettings {
+  initial: string;
+  final: string;
+  initialYear: string;
+  finalYear: string;
+  codes: Record<string, Record<string, IpccCategory | null>>;
+  totalArea: number | null;
+}
+
+export interface UncertaintyQuestion {
+  name: string;
+  labels: Record<string, string>;
+  list: string;
+  parent: string | null;
+  fromPlotFile: boolean;
+  calculated: boolean;
+}
+
+export interface UncertaintySetup {
+  settings: UncertaintySettings | null;
+  languages: string[];
+  questions: UncertaintyQuestion[];
+  lists: Record<string, AnalysisListItem[]>;
+  areas: "region_areas.csv" | "areas_per_attribute.csv" | null;
+  canEdit: boolean;
+}
+
+export interface UncertaintyEstimate {
+  plots: number;
+  proportion: number;
+  area: number;
+  se: number;
+  ci: number;
+  uncertainty: number | null;
+}
+
+export type ForestRow = "forestStable" | "nonForestToForest" | "forestToNonForest" | "nonForestStable" | "initiallyForest" | "initiallyNonForest" | "currentlyForest" | "currentlyNonForest";
+
+/** The tables of the uncertainty analysis (the server's UncertaintyResult). */
+export interface UncertaintyData {
+  settings: UncertaintySettings;
+  areas: string | null;
+  estimator: "simple" | "stratified";
+  totalArea: number;
+  plots: number;
+  strata: { key: string; area: number; plots: number }[];
+  notEstimable: { key: string; area: number; plots: number }[];
+  skipped: { missing: number; unmapped: number; leftOut: number; noArea: number };
+  unmapped: { which: "initial" | "final"; code: string; plots: number }[];
+  categories: { category: IpccCategory; initial: UncertaintyEstimate; final: UncertaintyEstimate }[];
+  total: UncertaintyEstimate;
+  forest: { row: ForestRow; estimate: UncertaintyEstimate }[];
+  transitions: { from: IpccCategory; to: IpccCategory; estimate: UncertaintyEstimate }[];
+  matrix: { cells: number[][]; rowTotals: number[]; columnTotals: number[]; total: number; rowPercent: (number | null)[][] };
+}
+
+export async function getUncertaintySetup(projectId: string): Promise<UncertaintySetup> {
+  return request<UncertaintySetup>("GET", `${p(projectId)}/uncertainty/settings`);
+}
+
+export async function saveUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<UncertaintySettings> {
+  return (await request<{ settings: UncertaintySettings }>("PUT", `${p(projectId)}/uncertainty/settings`, { json: settings })).settings;
+}
+
+export async function getUncertainty(projectId: string): Promise<UncertaintyData> {
+  return request<UncertaintyData>("GET", `${p(projectId)}/uncertainty`);
 }

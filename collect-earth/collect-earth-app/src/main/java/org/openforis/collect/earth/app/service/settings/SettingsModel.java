@@ -4,6 +4,7 @@ import static org.openforis.collect.earth.app.service.settings.Condition.all;
 import static org.openforis.collect.earth.app.service.settings.Condition.any;
 import static org.openforis.collect.earth.app.service.settings.Condition.atLeast;
 import static org.openforis.collect.earth.app.service.settings.Condition.in;
+import static org.openforis.collect.earth.app.service.settings.Condition.notBlank;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -47,7 +48,8 @@ public final class SettingsModel {
 	static final Condition POSTGRESQL = in(EarthProperty.DB_DRIVER, CollectDBDriver.POSTGRESQL);
 	static final Condition SQLITE_FILE = in(EarthProperty.DB_DRIVER, CollectDBDriver.SQLITE, CollectDBDriver.CLOUD);
 	static final Condition GEE_APP = in(EarthProperty.OPEN_GEE_APP, "true");
-	static final Condition PLANET = in(EarthProperty.OPEN_PLANET_MAPS, "true");
+	/** Planet is offered once its key is set: without one it shows nothing */
+	static final Condition PLANET = notBlank(EarthProperty.PLANET_MAPS_KEY);
 	static final Condition PLANET_TFO = all(PLANET, in(EarthProperty.PLANET_MAPS_USE_TFO, "true"));
 
 	private final List<Section> sections;
@@ -181,8 +183,7 @@ public final class SettingsModel {
 				Setting.date(EarthProperty.GEEAPP_TO_DATE, "OptionWizard.122").tooltip("OptionWizard.1039").visibleWhen(GEE_APP),
 				Setting.bool(EarthProperty.OPEN_EARTH_MAP, "OptionWizard.105").tooltip("SettingsPage.earthMap.tooltip").defaultValue("false"),
 				Setting.bool(EarthProperty.OPEN_ESRI_WAYBACK, "OptionWizard.144").tooltip("SettingsPage.esriWayback.tooltip").defaultValue("false"),
-				Setting.bool(EarthProperty.OPEN_PLANET_MAPS, "OptionWizard.100").tooltip("SettingsPage.planet.tooltip").defaultValue("false"),
-				Setting.password(EarthProperty.PLANET_MAPS_KEY, "OptionWizard.101").tooltip("OptionWizard.1053").visibleWhen(PLANET),
+				Setting.password(EarthProperty.PLANET_MAPS_KEY, "OptionWizard.101").tooltip("OptionWizard.1053"),
 				Setting.bool(EarthProperty.PLANET_MAPS_USE_TFO, "OptionWizard.140").tooltip("SettingsPage.planetTfo.tooltip").defaultValue("false")
 						.visibleWhen(PLANET),
 				from,
@@ -214,6 +215,7 @@ public final class SettingsModel {
 				Setting.password(EarthProperty.CLOUD_SYNC_TOKEN, "DatabaseServerPanel.cloudTokenLabel").tooltip("DatabaseServerPanel.cloudTokenTooltip"));
 	}
 
+	/** The port and the form (web_form=balloon) are left to earth.properties: the page cannot fix a port in use, as it is served on it */
 	private static Section advanced() {
 		return new Section(ADVANCED, "SettingsPage.section.advanced",
 				// Blank, as in a new installation, is no choice: BrowserService tries the installed browsers in its own order
@@ -221,12 +223,6 @@ public final class SettingsModel {
 						.option("", "SettingsPage.browser.automatic")
 						.option(EarthConstants.FIREFOX_BROWSER, "SettingsPage.browser.firefox")
 						.option(EarthConstants.CHROME_BROWSER, "SettingsPage.browser.chrome")
-						.option(EarthConstants.EDGE_BROWSER, "SettingsPage.browser.edge"),
-				Setting.choice(EarthProperty.WEB_FORM, "SettingsPage.webForm").tooltip("SettingsPage.webForm.tooltip")
-						.defaultValue(LocalPropertiesService.WEB_FORM_GENERATED)
-						.option(LocalPropertiesService.WEB_FORM_GENERATED, "SettingsPage.webForm.generated")
-						.option(LocalPropertiesService.WEB_FORM_BALLOON, "SettingsPage.webForm.balloon"),
-				Setting.text(EarthProperty.HOST_PORT_KEY, "OptionWizard.5").tooltip("SettingsPage.port.tooltip")
-						.defaultValue(LocalPropertiesService.DEFAULT_LOCAL_PORT).restart());
+						.option(EarthConstants.EDGE_BROWSER, "SettingsPage.browser.edge"));
 	}
 }

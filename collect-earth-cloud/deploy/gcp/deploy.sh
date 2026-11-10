@@ -485,7 +485,7 @@ enable_apis() {
   step "turning on the Google Cloud services the server uses (1 to 2 minutes)" \
     "If it says billing is required, turn billing on (https://console.cloud.google.com/billing) and run again."
   gc services enable \
-    run.googleapis.com sqladmin.googleapis.com secretmanager.googleapis.com \
+    run.googleapis.com sqladmin.googleapis.com sql-component.googleapis.com secretmanager.googleapis.com \
     artifactregistry.googleapis.com cloudbuild.googleapis.com iam.googleapis.com \
     cloudresourcemanager.googleapis.com --quiet
   ok "Services are on."

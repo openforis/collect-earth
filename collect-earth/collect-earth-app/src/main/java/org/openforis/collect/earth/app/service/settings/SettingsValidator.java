@@ -79,7 +79,7 @@ public class SettingsValidator {
 			break;
 		}
 		EarthProperty property = setting.getProperty();
-		if (property == EarthProperty.HOST_PORT_KEY || property == EarthProperty.DB_PORT) {
+		if (property == EarthProperty.DB_PORT) {
 			// Blank is allowed, as PortValidator allowed it: the default port is then used
 			if (!trimmed.isEmpty() && !isWholeNumberWithin(trimmed, MIN_PORT, MAX_PORT)) {
 				validation.error(key, Messages.getString("PropertyValidators.portRange"));
@@ -92,10 +92,6 @@ public class SettingsValidator {
 			String from = Condition.valueOf(values, EarthProperty.GEEAPP_FROM_DATE.toString()).trim();
 			if (!trimmed.isEmpty() && isDateWithin(from, FIRST_GEE_DATE, today.get()) && LocalDate.parse(from).isAfter(LocalDate.parse(trimmed))) {
 				validation.error(key, Messages.getString("SettingsPage.date.order"));
-			}
-		} else if (property == EarthProperty.PLANET_MAPS_KEY) {
-			if (trimmed.isEmpty()) {
-				validation.warning(key, Messages.getString("OptionWizard.1055"));
 			}
 		}
 	}

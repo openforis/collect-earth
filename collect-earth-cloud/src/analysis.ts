@@ -276,7 +276,7 @@ export interface TableData {
 }
 
 /** Whether a raw answer is usable for its type: "" is NULL, a number must parse, a boolean be true or false… */
-function cell(c: AnalysisColumn, raw: string | undefined): string {
+export function cell(c: AnalysisColumn, raw: string | undefined): string {
   if (raw === undefined || raw === '') return '';
   if (c.multiple) return raw;
   switch (c.type) {
@@ -425,7 +425,8 @@ const NO_DATA_LAND_USE = 'noData';
 export interface Factors {
   /** Which file gave them. */
   source: typeof REGION_AREAS_CSV | typeof ATTRIBUTE_AREAS_CSV;
-  byPlot: Map<string, { factor: number; weight: number }>;
+  /** `stratum`: the areas file's line the plot stands in ("" for a noData plot), for the uncertainty's strata. */
+  byPlot: Map<string, { factor: number; weight: number; stratum: string }>;
   /** Lines of the file that matched no plot, or could not be read. */
   unmatched: number;
 }
@@ -443,7 +444,7 @@ export function expansionFactors(
   model: AnalysisModel,
 ): Factors | null {
   const keyOf = (name: string) => model.tables[0].columns.find((c) => c.name === name)?.key ?? `collect_text_${name}`;
-  const byPlot = new Map<string, { factor: number; weight: number }>();
+  const byPlot = new Map<string, { factor: number; weight: number; stratum: string }>();
   let unmatched = 0;
   let source: Factors['source'] | null = null;
   if (files.regionAreas) {
@@ -456,9 +457,10 @@ export function expansionFactors(
       if (line.length < 3 || !Number.isFinite(area)) { unmatched++; continue; } // the header, or a broken line
       const matching = [...plots].filter(([, s]) => (s[region] === line[0] || s[plotFile] === line[1]) && s[landUse] !== NO_DATA_LAND_USE).map(([p]) => p);
       if (matching.length === 0) { unmatched++; continue; }
-      for (const p of matching) byPlot.set(p, { factor: area / matching.length, weight: 1 });
+      const stratum = [line[0], line[1]].filter((x) => x !== '').join(' / ');
+      for (const p of matching) byPlot.set(p, { factor: area / matching.length, weight: 1, stratum });
     }
-    for (const [p, s] of plots) if (s[landUse] === NO_DATA_LAND_USE) byPlot.set(p, { factor: 0, weight: 0 });
+    for (const [p, s] of plots) if (s[landUse] === NO_DATA_LAND_USE) byPlot.set(p, { factor: 0, weight: 0, stratum: '' });
   } else if (files.attributeAreas) {
     source = ATTRIBUTE_AREAS_CSV;
     const [header, ...lines] = parseCsv(files.attributeAreas);
@@ -471,7 +473,8 @@ export function expansionFactors(
       const values = line.slice(0, attributes.length).map(comparable);
       const matching = [...plots].filter(([, s]) => attributes.every((k, i) => comparable(s[k]) === values[i])).map(([p]) => p);
       if (matching.length === 0) { unmatched++; continue; }
-      for (const p of matching) byPlot.set(p, { factor: area / matching.length, weight: 1 });
+      const stratum = line.slice(0, attributes.length).join(' / ');
+      for (const p of matching) byPlot.set(p, { factor: area / matching.length, weight: 1, stratum });
     }
   }
   if (source === null) return null;

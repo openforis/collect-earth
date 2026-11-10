@@ -123,7 +123,7 @@ const BOUNDS_MARGIN = 0.05;
  * kept with CEO's plot id (the one its collectors saw; its internal one when those repeat). Throws CeoImportError
  * for a file that is no plot list, or one whose plots are not in the project's area (another project's).
  */
-export function readCeoPlots(json: string, project: CeoProject, report: Report): CeoPlots {
+export function readCeoPlots(json: string, project: CeoProject, report: Report, withAnswers = false): CeoPlots {
   let raw: unknown;
   try {
     raw = JSON.parse(json);
@@ -177,7 +177,9 @@ export function readCeoPlots(json: string, project: CeoProject, report: Report):
   }
   if (analyzed > 0 || flagged > 0) {
     report.add('plots', 'Plots done in CEO', 'info',
-      `${analyzed} plot(s) were answered in CEO and ${flagged} flagged. Here every plot starts as new: the answers collected in CEO are not brought over.`);
+      withAnswers
+        ? `${analyzed} plot(s) were answered in CEO and ${flagged} flagged; what was collected comes from the answers file.`
+        : `${analyzed} plot(s) were answered in CEO and ${flagged} flagged. Here every plot starts as new: the answers collected in CEO are not brought over without CEO's sample data.`);
   }
   return { plots, ids, analyzed, flagged };
 }
