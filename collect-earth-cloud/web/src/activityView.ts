@@ -158,6 +158,7 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
     case "cep.replaced":
       return t("activity.audit.cep", { actor });
     case "project.imported":
+      if (d.source === "collect-earth") return t("activity.audit.collectImported", { actor, count: num(d.records, language) });
       return typeof d.ceoProjectId === "number"
         ? t("activity.audit.ceoImported", { actor, id: String(d.ceoProjectId) })
         : t("activity.audit.ceoImportedPlain", { actor });

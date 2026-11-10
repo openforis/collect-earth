@@ -1,0 +1,55 @@
+<?xml version='1.0' standalone='yes' ?>
+<plot step="1" created="2026-10-30T14:21:38.147+01:00" modified="2026-10-31T09:00:00.000+01:00">
+  <id>
+    <value>p2</value>
+  </id>
+  <operator>
+    <value>bob</value>
+  </operator>
+  <actively_saved>
+    <value>false</value>
+  </actively_saved>
+  <actively_saved_on />
+  <location>
+    <x>100</x>
+    <y>-0.0001</y>
+    <srs>EPSG:4326</srs>
+  </location>
+  <colour>
+    <code>red</code>
+    <qualifier>ignored</qualifier>
+  </colour>
+  <tags />
+  <trees />
+  <height>
+    <value>-0.25</value>
+  </height>
+  <area>
+    <value>1e7</value>
+  </area>
+  <age>
+    <from>3</from>
+  </age>
+  <slope_range>
+    <from>0.0001</from>
+    <to>20</to>
+  </slope_range>
+  <seen_on>
+    <year>2025</year>
+    <month>2</month>
+    <day>30</day>
+  </seen_on>
+  <seen_at>
+    <hour>0</hour>
+    <minute>5</minute>
+  </seen_at>
+  <burnt />
+  <cover>
+    <layer>
+      <code>shrubs</code>
+    </layer>
+    <remark>
+      <value>dense</value>
+    </remark>
+  </cover>
+</plot>

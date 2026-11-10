@@ -1,0 +1,67 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<survey lastId="100" collect:target="CE" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth">
+  <project>Every attribute type</project>
+  <uri>http://www.openforis.org/idm/import_types</uri>
+  <codeLists>
+    <list id="2" name="colours">
+      <items>
+        <item id="3"><code>red</code><label>Red</label></item>
+        <item id="4"><code>green</code><label>Green</label></item>
+        <item id="5" qualifiable="true"><code>other</code><label>Other</label></item>
+      </items>
+    </list>
+    <list id="6" name="layers">
+      <items>
+        <item id="7"><code>trees</code><label>Trees</label></item>
+        <item id="8"><code>shrubs</code><label>Shrubs</label></item>
+        <item id="9"><code>grass</code><label>Grass</label></item>
+      </items>
+    </list>
+  </codeLists>
+  <spatialReferenceSystems>
+    <spatialReferenceSystem srid="EPSG:4326">
+      <label>WGS84</label>
+      <wkt>GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.01745329251994328,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]</wkt>
+  </spatialReferenceSystem>
+  </spatialReferenceSystems>
+  <schema>
+    <entity id="10" name="plot">
+      <label type="instance">Plot</label>
+      <text id="11" name="id" key="true"><label type="instance">Id</label></text>
+      <text id="12" name="operator"><label type="instance">Operator</label></text>
+      <boolean id="13" name="actively_saved"><label type="instance">Saved</label></boolean>
+      <date id="14" name="actively_saved_on"><label type="instance">Saved on</label></date>
+      <coordinate id="15" name="location"><label type="instance">Location</label></coordinate>
+      <coordinate id="16" name="other_point"><label type="instance">Other point</label></coordinate>
+      <code id="17" name="colour" list="colours"><label type="instance">Colour</label></code>
+      <code id="18" name="colours_seen" list="colours" multiple="true"><label type="instance">Colours</label></code>
+      <text id="19" name="notes"><label type="instance">Notes</label></text>
+      <text id="20" name="tags" multiple="true"><label type="instance">Tags</label></text>
+      <number id="21" name="trees" type="integer"><label type="instance">Trees</label></number>
+      <number id="22" name="height" type="real"><label type="instance">Height</label></number>
+      <number id="23" name="area"><label type="instance">Area</label></number>
+      <range id="24" name="age" type="integer"><label type="instance">Age</label></range>
+      <range id="25" name="slope_range" type="real"><label type="instance">Slope</label></range>
+      <date id="26" name="seen_on"><label type="instance">Seen on</label></date>
+      <time id="27" name="seen_at"><label type="instance">Seen at</label></time>
+      <boolean id="28" name="burnt"><label type="instance">Burnt</label></boolean>
+      <entity id="29" name="cover" multiple="true" collect:enumerate="true">
+        <label type="instance">Cover</label>
+        <code id="30" name="layer" key="true" list="layers"><label type="instance">Layer</label></code>
+        <number id="31" name="percent" type="integer"><label type="instance">Percent</label></number>
+        <text id="32" name="remark"><label type="instance">Remark</label></text>
+        <code id="33" name="hues" list="colours" multiple="true"><label type="instance">Hues</label></code>
+      </entity>
+      <entity id="34" name="tree" multiple="true">
+        <label type="instance">Tree</label>
+        <text id="35" name="species"><label type="instance">Species</label></text>
+        <number id="36" name="dbh" type="real"><label type="instance">DBH</label></number>
+      </entity>
+      <entity id="37" name="site">
+        <label type="instance">Site</label>
+        <text id="38" name="owner"><label type="instance">Owner</label></text>
+        <boolean id="39" name="fenced"><label type="instance">Fenced</label></boolean>
+      </entity>
+    </entity>
+  </schema>
+</survey>
