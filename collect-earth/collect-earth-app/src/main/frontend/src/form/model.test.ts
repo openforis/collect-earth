@@ -4,7 +4,7 @@ import {
   indexedField, isTabVisible, joinValues, mergeInfos, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
   requiredMessage, saveBody, selectCodes, splitValues, summaryLines, tabsWithErrors, timeToInput, unansweredRequired, errorsByTab, neededByTab, updateRequired,
   DROPDOWN_AS_BUTTONS, advanceTarget, answeredWithKeys, openingTarget, answersToCopy, answersToRemember, codeControl, firstToAnswer, numberProblem,
-  draftErrors, stepsOf, columnFillTargets, type FieldInfo, type TableItem,
+  draftErrors, stepsOf, columnFillTargets, type FieldInfo, type TableItem, stepAfterAnswer, stepComplete,
 } from "./model";
 
 const category: Field = {
@@ -416,5 +416,34 @@ describe("Every row… over a table's choice column", () => {
     expect(columnFillTargets(table([[code("m1", { multiple: true })], [code("m2", { multiple: true })]]), 0, {})).toBeNull();
     expect(columnFillTargets(table([[code("c1", { calculated: true })], [code("c2", { calculated: true })]]), 0, {})).toBeNull();
     expect(columnFillTargets(table([[code("one")]]), 0, {})).toBeNull();
+  });
+});
+
+describe("stepComplete and stepAfterAnswer", () => {
+  /** a question: answered with a click or a key, and left empty or not */
+  const q = (name: string, byKey: boolean, empty: boolean) => ({ name, byKey, needed: false, empty });
+  const none = new Set<number>();
+  const steps = [
+    { tab: 0, questions: [q("lu", true, false), q("note", false, true)] },
+    { tab: 1, questions: [q("canopy", true, true)] },
+    { tab: 2, questions: [q("change", true, false)] },
+  ];
+  it("is done with a step once every choice on it is answered and nothing on it is in error", () => {
+    expect(stepComplete(steps[0], none)).toBe(true);
+    expect(stepComplete(steps[1], none)).toBe(false);
+    expect(stepComplete(steps[0], new Set([0]))).toBe(false);
+  });
+  it("goes on to the next step not done with, once the step answered on is", () => {
+    expect(stepAfterAnswer(steps, 0, none)).toBe(1);
+    expect(stepAfterAnswer(steps, 1, none)).toBeNull();
+  });
+  it("offers Submit when the step and those after it are done with and nothing is in error", () => {
+    expect(stepAfterAnswer(steps, 2, none)).toBe("submit");
+    expect(stepAfterAnswer(steps, 2, new Set([1]))).toBeNull();
+  });
+  it("never goes back to a step before", () => {
+    const done = [{ tab: 0, questions: [q("lu", true, true)] }, { tab: 1, questions: [q("canopy", true, false)] }];
+    expect(stepAfterAnswer(done, 1, none)).toBe("submit");
+    expect(stepAfterAnswer(done, 1, new Set([0]))).toBeNull();
   });
 });

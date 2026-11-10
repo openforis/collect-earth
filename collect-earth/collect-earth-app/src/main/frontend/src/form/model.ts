@@ -449,6 +449,8 @@ export interface StepQuestion {
   byKey: boolean;
   /** an answer is needed (required) and none is given yet */
   needed: boolean;
+  /** no answer given yet, needed or not */
+  empty?: boolean;
 }
 
 export interface Step { tab: number; questions: StepQuestion[] }
@@ -509,6 +511,28 @@ export function advanceTarget(steps: Step[], tab: number, from: string | null): 
     if (first) return { tab: other.tab, name: first.name };
   }
   return { tab, name: null };
+}
+
+/**
+ * Whether a step is done with: nothing on it in error (a required question left empty is one), and every question on it
+ * answered with a click or a key (a choice, Yes or No) answered, optional ones too, since one left empty may not have
+ * been seen yet. A text, a number or a comment left empty and optional does not hold the step open.
+ */
+export function stepComplete(step: Step, errorTabs: ReadonlySet<number>): boolean {
+  return !errorTabs.has(step.tab) && !step.questions.some((q) => q.byKey && q.empty);
+}
+
+/**
+ * What follows an answer on step `tab`, once the server said what is shown: the step to go to (its tab) when this one is
+ * done with (see stepComplete) and a step after it is not; "submit" when this one is done with, those after it too, and
+ * nothing anywhere is in error; null to stay on the step. Never back to a step before it: the steps go forward only.
+ */
+export function stepAfterAnswer(steps: Step[], tab: number, errorTabs: ReadonlySet<number>): number | "submit" | null {
+  const at = steps.findIndex((s) => s.tab === tab);
+  if (at < 0 || !stepComplete(steps[at], errorTabs)) return null;
+  const next = steps.slice(at + 1).find((s) => !stepComplete(s, errorTabs));
+  if (next) return next.tab;
+  return errorTabs.size === 0 ? "submit" : null;
 }
 
 /**
