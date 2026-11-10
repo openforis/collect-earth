@@ -19,7 +19,7 @@ Imported from Collect Earth Online, project 53855.</description>
     </options>
   </applicationOptions>
   <codeLists>
-    <list id="13" name="land_cover_2024">
+    <list id="13" name="land_cover2024">
       <label type="item">Land cover 2024</label>
       <codingScheme scope="local" />
       <items>
@@ -230,13 +230,13 @@ Imported from Collect Earth Online, project 53855.</description>
       <number id="49" name="aspect" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="real">
         <label type="instance">Plot - Aspect</label>
       </number>
-      <code id="51" name="land_cover_2024" required="true" ui:tab="survey_tab" list="land_cover_2024">
+      <code id="51" name="land_cover2024" required="true" ui:tab="survey_tab" list="land_cover2024">
         <label type="instance">Land cover 2024</label>
       </code>
-      <code id="52" name="permanent_crops_type" required="true" relevant="land_cover_2024 = &apos;permanent_crops&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="permanent_crops_type">
+      <code id="52" name="permanent_crops_type" required="true" relevant="land_cover2024 = &apos;permanent_crops&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="permanent_crops_type">
         <label type="instance">Permanent crops type</label>
       </code>
-      <code id="53" name="annual_crops_type" required="true" relevant="land_cover_2024 = &apos;annual_crops&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="annual_crops_type">
+      <code id="53" name="annual_crops_type" required="true" relevant="land_cover2024 = &apos;annual_crops&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="annual_crops_type">
         <label type="instance">Annual crops type</label>
       </code>
     </entity>

@@ -19,7 +19,7 @@ Imported from Collect Earth Online, project 30918.</description>
     </options>
   </applicationOptions>
   <codeLists>
-    <list id="3" name="forest_2017">
+    <list id="3" name="forest2017">
       <label type="item">Forest 2017?</label>
       <codingScheme scope="local" />
       <items>
@@ -33,7 +33,7 @@ Imported from Collect Earth Online, project 30918.</description>
         </item>
       </items>
     </list>
-    <list id="7" name="forest_trend_2013_2017">
+    <list id="7" name="forest_trend_2013to2017">
       <label type="item">Forest Trend (2013-2017)</label>
       <codingScheme scope="local" />
       <items>
@@ -51,7 +51,7 @@ Imported from Collect Earth Online, project 30918.</description>
         </item>
       </items>
     </list>
-    <list id="13" name="forest_type_2017">
+    <list id="13" name="forest_type2017">
       <label type="item">Forest Type 2017?</label>
       <codingScheme scope="local" />
       <items>
@@ -205,7 +205,7 @@ Imported from Collect Earth Online, project 30918.</description>
         </item>
       </items>
     </list>
-    <list id="49" name="forest_type_2017_1">
+    <list id="49" name="forest_type_2017to1">
       <label type="item">Forest Type 2017? (1)</label>
       <codingScheme scope="local" />
       <items>
@@ -245,7 +245,7 @@ Imported from Collect Earth Online, project 30918.</description>
         </item>
       </items>
     </list>
-    <list id="58" name="stable_forest_type_2017">
+    <list id="58" name="stable_forest_type2017">
       <label type="item">Stable forest type 2017?</label>
       <codingScheme scope="local" />
       <items>
@@ -271,7 +271,7 @@ Imported from Collect Earth Online, project 30918.</description>
         </item>
       </items>
     </list>
-    <list id="61" name="land_cover_change_2013_2017">
+    <list id="61" name="land_cover_change_2013to2017">
       <label type="item">Land cover change (2013-2017)?</label>
       <codingScheme scope="local" />
       <items>
@@ -285,7 +285,7 @@ Imported from Collect Earth Online, project 30918.</description>
         </item>
       </items>
     </list>
-    <list id="67" name="forest_type_2013_2">
+    <list id="67" name="forest_type_2013to2">
       <label type="item">Forest Type 2013? (2)</label>
       <codingScheme scope="local" />
       <items>
@@ -355,7 +355,7 @@ Imported from Collect Earth Online, project 30918.</description>
         </item>
       </items>
     </list>
-    <list id="84" name="land_cover_2017">
+    <list id="84" name="land_cover2017">
       <label type="item">Land cover 2017?</label>
       <codingScheme scope="local" />
       <items>
@@ -460,81 +460,81 @@ Imported from Collect Earth Online, project 30918.</description>
       <number id="100" name="aspect" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="real">
         <label type="instance">Plot - Aspect</label>
       </number>
-      <code id="102" name="forest_2017" required="true" ui:tab="survey_tab" list="forest_2017">
+      <code id="102" name="forest2017" required="true" ui:tab="survey_tab" list="forest2017">
         <label type="instance">Forest 2017?</label>
       </code>
-      <code id="103" name="forest_trend_2013_2017" required="true" relevant="forest_2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_trend_2013_2017">
+      <code id="103" name="forest_trend_2013to2017" required="true" relevant="forest2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_trend_2013to2017">
         <label type="instance">Forest Trend (2013-2017)</label>
       </code>
-      <code id="104" name="forest_type_2017" required="true" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;decreasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_type_2017">
+      <code id="104" name="forest_type2017" required="true" relevant="(forest2017 = &apos;yes&apos;) and forest_trend_2013to2017 = &apos;decreasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_type2017">
         <label type="instance">Forest Type 2017?</label>
       </code>
-      <number id="105" name="canopy_cover_before_disturbance" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;decreasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+      <number id="105" name="canopy_cover_before_disturbance" relevant="(forest2017 = &apos;yes&apos;) and forest_trend_2013to2017 = &apos;decreasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
         <label type="instance">Canopy cover before disturbance?</label>
         <description>In CEO: &quot;0&quot;</description>
         <compare flag="error" gte="7" lte="49"><message>The answer to “Canopy cover before disturbance?” must be between 7 and 49.</message></compare>
       </number>
-      <code id="106" name="year_of_disturbance" required="true" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;decreasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="year_of_disturbance">
+      <code id="106" name="year_of_disturbance" required="true" relevant="(forest2017 = &apos;yes&apos;) and forest_trend_2013to2017 = &apos;decreasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="year_of_disturbance">
         <label type="instance">Year of disturbance?</label>
       </code>
-      <number id="107" name="canopy_cover_after_disturbance" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;decreasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+      <number id="107" name="canopy_cover_after_disturbance" relevant="(forest2017 = &apos;yes&apos;) and forest_trend_2013to2017 = &apos;decreasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
         <label type="instance">Canopy cover after disturbance?</label>
         <description>In CEO: &quot;0&quot;</description>
         <compare flag="error" gte="7" lte="49"><message>The answer to “Canopy cover after disturbance?” must be between 7 and 49.</message></compare>
       </number>
-      <code id="108" name="driver_of_disturbance" required="true" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;decreasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_disturbance">
+      <code id="108" name="driver_of_disturbance" required="true" relevant="(forest2017 = &apos;yes&apos;) and forest_trend_2013to2017 = &apos;decreasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_disturbance">
         <label type="instance">Driver of disturbance</label>
       </code>
-      <code id="109" name="previous_land_cover" required="true" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;increasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="previous_land_cover">
+      <code id="109" name="previous_land_cover" required="true" relevant="(forest2017 = &apos;yes&apos;) and forest_trend_2013to2017 = &apos;increasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="previous_land_cover">
         <label type="instance">Previous land cover?</label>
-        <check flag="error" expr="not(forest_2017 = &apos;yes&apos; and previous_land_cover = &apos;forest_land&apos;)"><message>“Forest 2017?”: “Yes” cannot go with “Previous land cover?”: “Forest land”.</message></check>
+        <check flag="error" expr="not(forest2017 = &apos;yes&apos; and previous_land_cover = &apos;forest_land&apos;)"><message>“Forest 2017?”: “Yes” cannot go with “Previous land cover?”: “Forest land”.</message></check>
       </code>
-      <code id="110" name="year_restoration_begins" required="true" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;increasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="year_restoration_begins">
+      <code id="110" name="year_restoration_begins" required="true" relevant="(forest2017 = &apos;yes&apos;) and forest_trend_2013to2017 = &apos;increasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="year_restoration_begins">
         <label type="instance">Year restoration begins?</label>
       </code>
-      <code id="111" name="forest_type_2017_1" required="true" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;increasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_type_2017_1">
+      <code id="111" name="forest_type_2017to1" required="true" relevant="(forest2017 = &apos;yes&apos;) and forest_trend_2013to2017 = &apos;increasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_type_2017to1">
         <label type="instance">Forest Type 2017? (1)</label>
       </code>
-      <number id="112" name="canopy_cover_2017" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;increasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+      <number id="112" name="canopy_cover2017" relevant="(forest2017 = &apos;yes&apos;) and forest_trend_2013to2017 = &apos;increasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
         <label type="instance">Canopy cover (2017)?</label>
         <description>In CEO: &quot;0&quot;</description>
         <compare flag="error" gte="7" lte="49"><message>The answer to “Canopy cover (2017)?” must be between 7 and 49.</message></compare>
       </number>
-      <code id="113" name="plantation_or_natural_forest" required="true" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;stable_forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="plantation_or_natural_forest">
+      <code id="113" name="plantation_or_natural_forest" required="true" relevant="(forest2017 = &apos;yes&apos;) and forest_trend_2013to2017 = &apos;stable_forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="plantation_or_natural_forest">
         <label type="instance">Plantation or Natural forest</label>
       </code>
-      <code id="114" name="stable_forest_type_2017" required="true" relevant="((forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;stable_forest&apos;) and plantation_or_natural_forest = &apos;stable_forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="stable_forest_type_2017">
+      <code id="114" name="stable_forest_type2017" required="true" relevant="((forest2017 = &apos;yes&apos;) and forest_trend_2013to2017 = &apos;stable_forest&apos;) and plantation_or_natural_forest = &apos;stable_forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="stable_forest_type2017">
         <label type="instance">Stable forest type 2017?</label>
       </code>
-      <number id="115" name="stable_canopy_cover" relevant="((forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;stable_forest&apos;) and plantation_or_natural_forest = &apos;stable_forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+      <number id="115" name="stable_canopy_cover" relevant="((forest2017 = &apos;yes&apos;) and forest_trend_2013to2017 = &apos;stable_forest&apos;) and plantation_or_natural_forest = &apos;stable_forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
         <label type="instance">Stable canopy cover</label>
         <description>In CEO: &quot;0&quot;</description>
         <compare flag="error" gte="7" lte="49"><message>The answer to “Stable canopy cover” must be between 7 and 49.</message></compare>
       </number>
-      <code id="116" name="land_cover_change_2013_2017" required="true" relevant="forest_2017 = &apos;no&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_cover_change_2013_2017">
+      <code id="116" name="land_cover_change_2013to2017" required="true" relevant="forest2017 = &apos;no&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_cover_change_2013to2017">
         <label type="instance">Land cover change (2013-2017)?</label>
       </code>
-      <code id="117" name="forest_type_2013_2" required="true" relevant="(forest_2017 = &apos;no&apos;) and land_cover_change_2013_2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_type_2013_2">
+      <code id="117" name="forest_type_2013to2" required="true" relevant="(forest2017 = &apos;no&apos;) and land_cover_change_2013to2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_type_2013to2">
         <label type="instance">Forest Type 2013? (2)</label>
       </code>
-      <number id="118" name="canopy_cover_2013" relevant="(forest_2017 = &apos;no&apos;) and land_cover_change_2013_2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+      <number id="118" name="canopy_cover2013" relevant="(forest2017 = &apos;no&apos;) and land_cover_change_2013to2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
         <label type="instance">Canopy cover 2013?</label>
         <description>In CEO: &quot;0&quot;</description>
         <compare flag="error" gte="7" lte="49"><message>The answer to “Canopy cover 2013?” must be between 7 and 49.</message></compare>
       </number>
-      <code id="119" name="year_of_deforestation_event" required="true" relevant="(forest_2017 = &apos;no&apos;) and land_cover_change_2013_2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="year_of_deforestation_event">
+      <code id="119" name="year_of_deforestation_event" required="true" relevant="(forest2017 = &apos;no&apos;) and land_cover_change_2013to2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="year_of_deforestation_event">
         <label type="instance">Year of deforestation event?</label>
       </code>
-      <code id="120" name="drivers_of_deforestation" required="true" relevant="(forest_2017 = &apos;no&apos;) and land_cover_change_2013_2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="drivers_of_deforestation">
+      <code id="120" name="drivers_of_deforestation" required="true" relevant="(forest2017 = &apos;no&apos;) and land_cover_change_2013to2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="drivers_of_deforestation">
         <label type="instance">Drivers of deforestation?</label>
       </code>
-      <code id="121" name="land_cover_2017" required="true" relevant="(forest_2017 = &apos;no&apos;) and land_cover_change_2013_2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_cover_2017">
+      <code id="121" name="land_cover2017" required="true" relevant="(forest2017 = &apos;no&apos;) and land_cover_change_2013to2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_cover2017">
         <label type="instance">Land cover 2017?</label>
-        <check flag="error" expr="not(land_cover_change_2013_2017 = &apos;yes&apos; and land_cover_2017 = &apos;forest_land&apos;)"><message>“Land cover change (2013-2017)?”: “Yes” cannot go with “Land cover 2017?”: “Forest land”.</message></check>
+        <check flag="error" expr="not(land_cover_change_2013to2017 = &apos;yes&apos; and land_cover2017 = &apos;forest_land&apos;)"><message>“Land cover change (2013-2017)?”: “Yes” cannot go with “Land cover 2017?”: “Forest land”.</message></check>
       </code>
-      <code id="122" name="land_cover_2017_stable_non_forest" required="true" relevant="(forest_2017 = &apos;no&apos;) and land_cover_change_2013_2017 = &apos;no&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_cover_2017_stable_non_forest">
+      <code id="122" name="land_cover_2017_stable_non_forest" required="true" relevant="(forest2017 = &apos;no&apos;) and land_cover_change_2013to2017 = &apos;no&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_cover_2017_stable_non_forest">
         <label type="instance">Land cover 2017? (Stable non-forest)</label>
-        <check flag="error" expr="not(land_cover_change_2013_2017 = &apos;no&apos; and land_cover_2017_stable_non_forest = &apos;forest_land&apos;)"><message>“Land cover change (2013-2017)?”: “No” cannot go with “Land cover 2017? (Stable non-forest)”: “Forest land”.</message></check>
+        <check flag="error" expr="not(land_cover_change_2013to2017 = &apos;no&apos; and land_cover_2017_stable_non_forest = &apos;forest_land&apos;)"><message>“Land cover change (2013-2017)?”: “No” cannot go with “Land cover 2017? (Stable non-forest)”: “Forest land”.</message></check>
       </code>
       <text id="123" name="comment" ui:tab="survey_tab" type="short">
         <label type="instance">Comment?</label>

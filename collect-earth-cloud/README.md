@@ -132,7 +132,7 @@ session tokens** (from login, access via `project_members`).
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
 | `POST` | `/v1/auth/register` | invite token in body | Create account + membership, auto-login |
-| `POST` | `/v1/auth/login` | none | `{username,password}` → session token |
+| `POST` | `/v1/auth/login` | none | `{username, password, code?, inviteToken?}` → `{token, userId, username}`. With `inviteToken` (someone with an account taking an invitation: Collect Earth's Join cloud project, then Log in), checked once the password and code are right: the account joins the invitation's project with its role and one of its uses, as `register` does for a new account (a member already keeps their role, and the invitation is not used up), and the answer adds `{projectId, projectName, role}`; 400 `invalid_invite`, 410 `invite_exhausted` |
 | `POST` | `/v1/auth/logout` | session | Revoke the session |
 | `GET`  | `/v1/me` | session | Profile + memberships |
 | `GET`  | `/v1/projects` | session | The caller's projects (only) |

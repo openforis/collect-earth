@@ -277,6 +277,51 @@ with a change (said), or left out (why). Shown before "Create", and kept with th
   checked in, so the Java test needs no Node.
 - A real run: import a CEO project, join it from Collect Earth, fill some plots, check the export.
 
+**Done (10 Nov 2026).** The unit and route tests are in `test/ceo.test.ts` and `test/ceoImport.routes.test.ts`,
+the Java test is `CeoSurveyIdmlTest`, and `npm run smoke:pg:ceo` covers Postgres. The real run used Collect Earth itself,
+built from this branch (`CollectEarth.jar` under a virtual display, with its own data folder and the plots map as the
+viewer), driven through its own pages and API as a collector would drive them:
+1. The cloud server imported two fixtures with their plot lists: 20170 (Nepal: text and number inputs, questions
+   three deep, 266 plots) and 2616 (Mexico Review: 29 questions, 37 rules, 3 of its plots). The round was added to
+   both, and a collector invitation was made for each.
+2. Collect Earth joined each one with the invitation (`/api/cloud/join`, which restarts it), received the assigned
+   plot file (`/api/cloud/assignments/download`, then the plots file setting), and drew the plots as CEO did: 30 m
+   squares with one sample in Nepal, and circles 100 m across in Mexico, where CEO gave no size.
+3. Plots were filled in the generated form (`/earth/form`) with Playwright, as a person does:
+   - relevance three deep: a branch opened and then closed leaves no answer behind;
+   - a required number was refused while empty and while it read "abc";
+   - CEO's rules showed their messages at the question: an incompatible pair, and shares that do not add up to 100,
+     which cleared once they did. A plot that broke a rule could not be submitted.
+4. The plots were synced, and the coordinator's `export.csv` and Collect Earth's own CSV export held the same answers,
+   row for row: three plots submitted and one in progress in Nepal, one submitted and two in progress in Mexico.
+
+What the run found, now fixed:
+- **No plot of Mexico Review could be saved.** Collect Earth reads a field name ending in "_" and a number as a
+  repeated value's index and cuts it off (`BalloonInputFieldsUtils.removeArraySuffix`, from the old balloons), so
+  "cambios_para_el_periodo_2000_2010" was looked for as "…_2000". Six of the thirteen fixture surveys had such
+  names, from CEO's question text ("… 2000-2010", "… 2017") or from the import's own suffix for a repeated name
+  ("_2"). Names now join a final range with "to" ("…_2000to2010") and a final number with its word ("…type2017"),
+  and a repeated name takes a letter ("cover_b"). Both the cloud's test and `CeoSurveyIdmlTest` check every
+  fixture survey for such names.
+- **Someone with an account could not join a second project.** Collect Earth's Log in, with an invitation, ended in
+  an internal error (the project file was refused: not a member), and Register said the username was taken. This
+  blocks an organisation moving several CEO projects, whose collectors work on many of them. `POST /v1/auth/login`
+  now takes the invitation (`inviteToken`): once the password, and the code if any, are right, the account joins
+  the project with the invitation's role and one of its uses, as `register` does for a new account. A member already
+  keeps their role, and the invitation is not used up. Collect Earth's Join, with Log in, sends it. Tested in
+  `test/auth.test.ts` and `CloudServiceTest`, and in the run: maria, registered through 20170's invitation, joined
+  Mexico Review with Log in.
+
+What the run found, for later:
+- CEO's number inputs are Collect `real` attributes, so a year reads "2015.0" in the exports, and "2001.0" when a
+  saved plot is opened again. CEO allows decimals there, so `real` is the faithful choice. The trailing ".0" is how
+  the desktop shows any real.
+- The rules' messages are in English (as the report is), whatever the project's language: CEO's rules have no text
+  of their own.
+- Outside the import: a code answer that was cleared because its question was hidden reads "Invalid code", not
+  "required", once the question shows again. This is Collect's clearing of answers that are not relevant
+  (`setClearNotRelevantAttributes`), in any survey, and was left as a separate task.
+
 ## Part C: the answers (about 1 week)
 
 CEO's sample CSV into the new project's records, so a project moves with what was collected, finished or mid-way:

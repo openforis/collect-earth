@@ -57,6 +57,11 @@ public class CeoSurveyIdmlTest {
 				if (!names.validateNodeName(def.getName())) {
 					problems.add(where + ": not a valid name");
 				}
+				// Collect Earth's own rule: the form's handling (BalloonInputFieldsUtils.removeArraySuffix) takes a final "_"
+				// and number for a repeated value's index and cuts it off, so such a field could never be saved
+				if (def.getName().matches(".*_\\d+")) {
+					problems.add(where + ": ends in \"_\" and a number, which Collect Earth cuts off");
+				}
 				List<String> expressionsOf = new ArrayList<>();
 				if (def.getRelevantExpression() != null) {
 					expressionsOf.add(def.getRelevantExpression());

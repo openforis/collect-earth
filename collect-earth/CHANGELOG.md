@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The header row of the plot file no longer logs an error with a stack trace on every start
 - A value that the balloon fills by itself and that cannot be read - the id of the plot where its coordinate goes - is reported as an error once, instead of on every save of every plot. The repeats used up the quota of the error reports, so that no report from any user was received for nine days
 - The analysis page no longer fails with "Something went wrong" on a project with a yes/no question that nobody answered (every row of its column empty)
+- Join cloud project works for someone who already has an account on the server (from another project): Log in with the invitation now adds its project to the account. It failed with an internal error (the project file could not be downloaded), and Register said the username was taken
 
 ### Removed
 - Saiku and its Tomcat server: "Tools > Analyse the data" (the dashboard's analysis page) replaces "Start SAIKU Analysis", and the analysis page's stand-alone file replaces "Generate Stand-Alone Saiku tool". The installers no longer include Saiku (about 75 MB), the update removes the `saiku-server_2.6` folder of the installation, and the "Path to Saiku folder" setting is gone

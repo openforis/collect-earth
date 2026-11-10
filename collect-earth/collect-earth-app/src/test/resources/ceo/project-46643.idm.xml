@@ -151,7 +151,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="35" name="lu_change_or_disturbance_most_recent_1">
+    <list id="35" name="lu_change_or_disturbance_most_recent1">
       <label type="item">LU change or disturbance (most recent) (1)</label>
       <codingScheme scope="local" />
       <items>
@@ -173,7 +173,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="41" name="lu_before_change_1">
+    <list id="41" name="lu_before_change1">
       <label type="item">LU before change (1)</label>
       <codingScheme scope="local" />
       <items>
@@ -199,7 +199,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="45" name="forest_subtype_subdivision_1">
+    <list id="45" name="forest_subtype_subdivision1">
       <label type="item">Forest subtype/subdivision (1)</label>
       <codingScheme scope="local" />
       <items>
@@ -217,7 +217,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="52" name="cyclical_system_1">
+    <list id="52" name="cyclical_system1">
       <label type="item">Cyclical system (1)</label>
       <codingScheme scope="local" />
       <items>
@@ -247,7 +247,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="56" name="cropland_subtype_1">
+    <list id="56" name="cropland_subtype1">
       <label type="item">Cropland subtype (1)</label>
       <codingScheme scope="local" />
       <items>
@@ -265,7 +265,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="61" name="driver_of_change_1">
+    <list id="61" name="driver_of_change1">
       <label type="item">Driver of change (1)</label>
       <codingScheme scope="local" />
       <items>
@@ -287,7 +287,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="64" name="duration_non_forest_before_event_1">
+    <list id="64" name="duration_non_forest_before_event1">
       <label type="item">Duration non-forest before event (1)</label>
       <codingScheme scope="local" />
       <items>
@@ -301,7 +301,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="77" name="driver_of_disturbance_1">
+    <list id="77" name="driver_of_disturbance1">
       <label type="item">Driver of disturbance (1)</label>
       <codingScheme scope="local" />
       <items>
@@ -355,7 +355,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="81" name="cause_of_disturbance_1">
+    <list id="81" name="cause_of_disturbance1">
       <label type="item">Cause of disturbance (1)</label>
       <codingScheme scope="local" />
       <items>
@@ -373,7 +373,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="85" name="confidence_in_event_1">
+    <list id="85" name="confidence_in_event1">
       <label type="item">Confidence in event (1)</label>
       <codingScheme scope="local" />
       <items>
@@ -413,7 +413,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="96" name="lu_before_change_2">
+    <list id="96" name="lu_before_change2">
       <label type="item">LU before change (2)</label>
       <codingScheme scope="local" />
       <items>
@@ -439,7 +439,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="100" name="forest_subtype_subdivision_2">
+    <list id="100" name="forest_subtype_subdivision2">
       <label type="item">Forest subtype/subdivision (2)</label>
       <codingScheme scope="local" />
       <items>
@@ -457,7 +457,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="107" name="cyclical_system_2">
+    <list id="107" name="cyclical_system2">
       <label type="item">Cyclical system (2)</label>
       <codingScheme scope="local" />
       <items>
@@ -487,7 +487,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="111" name="cropland_subtype_2">
+    <list id="111" name="cropland_subtype2">
       <label type="item">Cropland subtype (2)</label>
       <codingScheme scope="local" />
       <items>
@@ -505,7 +505,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="116" name="driver_of_change_2">
+    <list id="116" name="driver_of_change2">
       <label type="item">Driver of change (2)</label>
       <codingScheme scope="local" />
       <items>
@@ -527,7 +527,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="119" name="duration_non_forest_before_event_2">
+    <list id="119" name="duration_non_forest_before_event2">
       <label type="item">Duration non-forest before event (2)</label>
       <codingScheme scope="local" />
       <items>
@@ -541,7 +541,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="132" name="driver_of_disturbance_2">
+    <list id="132" name="driver_of_disturbance2">
       <label type="item">Driver of disturbance (2)</label>
       <codingScheme scope="local" />
       <items>
@@ -595,7 +595,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="136" name="cause_of_disturbance_2">
+    <list id="136" name="cause_of_disturbance2">
       <label type="item">Cause of disturbance (2)</label>
       <codingScheme scope="local" />
       <items>
@@ -613,7 +613,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="140" name="confidence_in_event_2">
+    <list id="140" name="confidence_in_event2">
       <label type="item">Confidence in event (2)</label>
       <codingScheme scope="local" />
       <items>
@@ -653,7 +653,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="151" name="lu_before_change_3">
+    <list id="151" name="lu_before_change3">
       <label type="item">LU before change (3)</label>
       <codingScheme scope="local" />
       <items>
@@ -679,7 +679,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="155" name="forest_subtype_subdivision_3">
+    <list id="155" name="forest_subtype_subdivision3">
       <label type="item">Forest subtype/subdivision (3)</label>
       <codingScheme scope="local" />
       <items>
@@ -697,7 +697,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="162" name="cyclical_system_3">
+    <list id="162" name="cyclical_system3">
       <label type="item">Cyclical system (3)</label>
       <codingScheme scope="local" />
       <items>
@@ -727,7 +727,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="166" name="cropland_subtype_3">
+    <list id="166" name="cropland_subtype3">
       <label type="item">Cropland subtype (3)</label>
       <codingScheme scope="local" />
       <items>
@@ -745,7 +745,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="171" name="driver_of_change_3">
+    <list id="171" name="driver_of_change3">
       <label type="item">Driver of change (3)</label>
       <codingScheme scope="local" />
       <items>
@@ -767,7 +767,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="174" name="duration_non_forest_before_event_3">
+    <list id="174" name="duration_non_forest_before_event3">
       <label type="item">Duration non-forest before event (3)</label>
       <codingScheme scope="local" />
       <items>
@@ -781,7 +781,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="187" name="driver_of_disturbance_3">
+    <list id="187" name="driver_of_disturbance3">
       <label type="item">Driver of disturbance (3)</label>
       <codingScheme scope="local" />
       <items>
@@ -835,7 +835,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="191" name="cause_of_disturbance_3">
+    <list id="191" name="cause_of_disturbance3">
       <label type="item">Cause of disturbance (3)</label>
       <codingScheme scope="local" />
       <items>
@@ -853,7 +853,7 @@ Imported from Collect Earth Online, project 46643.</description>
         </item>
       </items>
     </list>
-    <list id="195" name="confidence_in_event_3">
+    <list id="195" name="confidence_in_event3">
       <label type="item">Confidence in event (3)</label>
       <codingScheme scope="local" />
       <items>
@@ -934,156 +934,156 @@ Imported from Collect Earth Online, project 46643.</description>
       <code id="211" name="primary_question_causing_confidence_conc" required="true" relevant="((lu_in_time2_end_year = &apos;forest&apos; or lu_in_time2_end_year = &apos;cropland&apos; or lu_in_time2_end_year = &apos;grassland&apos; or lu_in_time2_end_year = &apos;wetland&apos; or lu_in_time2_end_year = &apos;other_land&apos;)) and (confidence_in_responses = &apos;medium&apos; or confidence_in_responses = &apos;low&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="primary_question_causing_confidence_conc">
         <label type="instance">Primary question causing confidence concern</label>
       </code>
-      <text id="212" name="notes_on_confidence_0" relevant="((lu_in_time2_end_year = &apos;forest&apos; or lu_in_time2_end_year = &apos;cropland&apos; or lu_in_time2_end_year = &apos;grassland&apos; or lu_in_time2_end_year = &apos;wetland&apos; or lu_in_time2_end_year = &apos;other_land&apos;)) and (confidence_in_responses = &apos;high&apos; or confidence_in_responses = &apos;medium&apos; or confidence_in_responses = &apos;low&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="short">
+      <text id="212" name="notes_on_confidence0" relevant="((lu_in_time2_end_year = &apos;forest&apos; or lu_in_time2_end_year = &apos;cropland&apos; or lu_in_time2_end_year = &apos;grassland&apos; or lu_in_time2_end_year = &apos;wetland&apos; or lu_in_time2_end_year = &apos;other_land&apos;)) and (confidence_in_responses = &apos;high&apos; or confidence_in_responses = &apos;medium&apos; or confidence_in_responses = &apos;low&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="short">
         <label type="instance">Notes on confidence (0)</label>
         <description>In CEO: &quot;confidence notes&quot;</description>
       </text>
-      <code id="213" name="lu_change_or_disturbance_most_recent_1" required="true" ui:tab="survey_tab" list="lu_change_or_disturbance_most_recent_1">
+      <code id="213" name="lu_change_or_disturbance_most_recent1" required="true" ui:tab="survey_tab" list="lu_change_or_disturbance_most_recent1">
         <label type="instance">LU change or disturbance (most recent) (1)</label>
-        <check flag="error" expr="not(lu_in_time2_end_year = &apos;cropland&apos; and lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Cropland” cannot go with “LU change or disturbance (most recent) (1)”: “disturbance without LU change”.</message></check>
-        <check flag="error" expr="not(lu_in_time2_end_year = &apos;cropland&apos; and lu_change_or_disturbance_most_recent_1 = &apos;recovery_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Cropland” cannot go with “LU change or disturbance (most recent) (1)”: “recovery without LU change”.</message></check>
-        <check flag="error" expr="not(lu_in_time2_end_year = &apos;grassland&apos; and lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Grassland” cannot go with “LU change or disturbance (most recent) (1)”: “disturbance without LU change”.</message></check>
-        <check flag="error" expr="not(lu_in_time2_end_year = &apos;grassland&apos; and lu_change_or_disturbance_most_recent_1 = &apos;recovery_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Grassland” cannot go with “LU change or disturbance (most recent) (1)”: “recovery without LU change”.</message></check>
-        <check flag="error" expr="not(lu_in_time2_end_year = &apos;wetland&apos; and lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Wetland” cannot go with “LU change or disturbance (most recent) (1)”: “disturbance without LU change”.</message></check>
-        <check flag="error" expr="not(lu_in_time2_end_year = &apos;wetland&apos; and lu_change_or_disturbance_most_recent_1 = &apos;recovery_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Wetland” cannot go with “LU change or disturbance (most recent) (1)”: “recovery without LU change”.</message></check>
-        <check flag="error" expr="not(lu_in_time2_end_year = &apos;other_land&apos; and lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Other land” cannot go with “LU change or disturbance (most recent) (1)”: “disturbance without LU change”.</message></check>
-        <check flag="error" expr="not(lu_in_time2_end_year = &apos;other_land&apos; and lu_change_or_disturbance_most_recent_1 = &apos;recovery_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Other land” cannot go with “LU change or disturbance (most recent) (1)”: “recovery without LU change”.</message></check>
+        <check flag="error" expr="not(lu_in_time2_end_year = &apos;cropland&apos; and lu_change_or_disturbance_most_recent1 = &apos;disturbance_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Cropland” cannot go with “LU change or disturbance (most recent) (1)”: “disturbance without LU change”.</message></check>
+        <check flag="error" expr="not(lu_in_time2_end_year = &apos;cropland&apos; and lu_change_or_disturbance_most_recent1 = &apos;recovery_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Cropland” cannot go with “LU change or disturbance (most recent) (1)”: “recovery without LU change”.</message></check>
+        <check flag="error" expr="not(lu_in_time2_end_year = &apos;grassland&apos; and lu_change_or_disturbance_most_recent1 = &apos;disturbance_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Grassland” cannot go with “LU change or disturbance (most recent) (1)”: “disturbance without LU change”.</message></check>
+        <check flag="error" expr="not(lu_in_time2_end_year = &apos;grassland&apos; and lu_change_or_disturbance_most_recent1 = &apos;recovery_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Grassland” cannot go with “LU change or disturbance (most recent) (1)”: “recovery without LU change”.</message></check>
+        <check flag="error" expr="not(lu_in_time2_end_year = &apos;wetland&apos; and lu_change_or_disturbance_most_recent1 = &apos;disturbance_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Wetland” cannot go with “LU change or disturbance (most recent) (1)”: “disturbance without LU change”.</message></check>
+        <check flag="error" expr="not(lu_in_time2_end_year = &apos;wetland&apos; and lu_change_or_disturbance_most_recent1 = &apos;recovery_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Wetland” cannot go with “LU change or disturbance (most recent) (1)”: “recovery without LU change”.</message></check>
+        <check flag="error" expr="not(lu_in_time2_end_year = &apos;other_land&apos; and lu_change_or_disturbance_most_recent1 = &apos;disturbance_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Other land” cannot go with “LU change or disturbance (most recent) (1)”: “disturbance without LU change”.</message></check>
+        <check flag="error" expr="not(lu_in_time2_end_year = &apos;other_land&apos; and lu_change_or_disturbance_most_recent1 = &apos;recovery_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Other land” cannot go with “LU change or disturbance (most recent) (1)”: “recovery without LU change”.</message></check>
       </code>
-      <number id="214" name="year_of_change_1" required="true" relevant="lu_change_or_disturbance_most_recent_1 = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+      <number id="214" name="year_of_change1" required="true" relevant="lu_change_or_disturbance_most_recent1 = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
         <label type="instance">year of change (1)</label>
         <description>In CEO: &quot;0000&quot;</description>
         <compare flag="error" gte="2000" lte="2024"><message>The answer to “year of change (1)” must be between 2000 and 2024.</message></compare>
       </number>
-      <code id="215" name="lu_before_change_1" required="true" relevant="not(idm:blank(lu_change_or_disturbance_most_recent_1))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="lu_before_change_1">
+      <code id="215" name="lu_before_change1" required="true" relevant="not(idm:blank(lu_change_or_disturbance_most_recent1))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="lu_before_change1">
         <label type="instance">LU before change (1)</label>
       </code>
-      <code id="216" name="forest_subtype_subdivision_1" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_most_recent_1))) and lu_before_change_1 = &apos;forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_subtype_subdivision_1">
+      <code id="216" name="forest_subtype_subdivision1" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_most_recent1))) and lu_before_change1 = &apos;forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_subtype_subdivision1">
         <label type="instance">Forest subtype/subdivision (1)</label>
-        <check flag="error" expr="not(lu_change_or_disturbance_most_recent_1 = &apos;lu_or_subtype_change&apos; and forest_subtype_subdivision_1 = &apos;forest_type_1&apos;)"><message>“LU change or disturbance (most recent) (1)”: “LU or subtype change” cannot go with “Forest subtype/subdivision (1)”: “forest type 1”.</message></check>
-        <check flag="error" expr="not(forest_subtype_subdivision = &apos;forest_type_2&apos; and forest_subtype_subdivision_1 = &apos;forest_type_2&apos;)"><message>“Forest subtype/subdivision”: “forest type 2” cannot go with “Forest subtype/subdivision (1)”: “forest type 2”.</message></check>
+        <check flag="error" expr="not(lu_change_or_disturbance_most_recent1 = &apos;lu_or_subtype_change&apos; and forest_subtype_subdivision1 = &apos;forest_type_1&apos;)"><message>“LU change or disturbance (most recent) (1)”: “LU or subtype change” cannot go with “Forest subtype/subdivision (1)”: “forest type 1”.</message></check>
+        <check flag="error" expr="not(forest_subtype_subdivision = &apos;forest_type_2&apos; and forest_subtype_subdivision1 = &apos;forest_type_2&apos;)"><message>“Forest subtype/subdivision”: “forest type 2” cannot go with “Forest subtype/subdivision (1)”: “forest type 2”.</message></check>
       </code>
-      <code id="217" name="cyclical_system_1" required="true" relevant="((not(idm:blank(lu_change_or_disturbance_most_recent_1))) and lu_before_change_1 = &apos;forest&apos;) and forest_subtype_subdivision_1 = &apos;forest_plantation_1&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cyclical_system_1">
+      <code id="217" name="cyclical_system1" required="true" relevant="((not(idm:blank(lu_change_or_disturbance_most_recent1))) and lu_before_change1 = &apos;forest&apos;) and forest_subtype_subdivision1 = &apos;forest_plantation_1&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cyclical_system1">
         <label type="instance">Cyclical system (1)</label>
       </code>
-      <code id="218" name="cropland_subtype_1" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_most_recent_1))) and lu_before_change_1 = &apos;cropland&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cropland_subtype_1">
+      <code id="218" name="cropland_subtype1" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_most_recent1))) and lu_before_change1 = &apos;cropland&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cropland_subtype1">
         <label type="instance">Cropland subtype (1)</label>
       </code>
-      <code id="219" name="driver_of_change_1" required="true" relevant="lu_change_or_disturbance_most_recent_1 = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_change_1">
+      <code id="219" name="driver_of_change1" required="true" relevant="lu_change_or_disturbance_most_recent1 = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_change1">
         <label type="instance">Driver of change (1)</label>
       </code>
-      <code id="220" name="duration_non_forest_before_event_1" required="true" relevant="(lu_change_or_disturbance_most_recent_1 = &apos;lu_or_subtype_change&apos;) and (driver_of_change_1 = &apos;planted_trees&apos; or driver_of_change_1 = &apos;natural_reforestation&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="duration_non_forest_before_event_1">
+      <code id="220" name="duration_non_forest_before_event1" required="true" relevant="(lu_change_or_disturbance_most_recent1 = &apos;lu_or_subtype_change&apos;) and (driver_of_change1 = &apos;planted_trees&apos; or driver_of_change1 = &apos;natural_reforestation&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="duration_non_forest_before_event1">
         <label type="instance">Duration non-forest before event (1)</label>
       </code>
-      <number id="221" name="year_of_disturbance_1" required="true" relevant="lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+      <number id="221" name="year_of_disturbance1" required="true" relevant="lu_change_or_disturbance_most_recent1 = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
         <label type="instance">year of disturbance (1)</label>
         <description>In CEO: &quot;0000&quot;</description>
       </number>
-      <code id="222" name="driver_of_disturbance_1" required="true" relevant="lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_disturbance_1">
+      <code id="222" name="driver_of_disturbance1" required="true" relevant="lu_change_or_disturbance_most_recent1 = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_disturbance1">
         <label type="instance">Driver of disturbance (1)</label>
       </code>
-      <code id="223" name="cause_of_disturbance_1" required="true" relevant="lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cause_of_disturbance_1">
+      <code id="223" name="cause_of_disturbance1" required="true" relevant="lu_change_or_disturbance_most_recent1 = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cause_of_disturbance1">
         <label type="instance">Cause of disturbance (1)</label>
       </code>
-      <number id="224" name="year_of_recovery_1" required="true" relevant="lu_change_or_disturbance_most_recent_1 = &apos;recovery_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+      <number id="224" name="year_of_recovery1" required="true" relevant="lu_change_or_disturbance_most_recent1 = &apos;recovery_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
         <label type="instance">year of recovery (1)</label>
         <description>In CEO: &quot;0000&quot;</description>
       </number>
-      <code id="225" name="confidence_in_event_1" required="true" relevant="(lu_change_or_disturbance_most_recent_1 = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_most_recent_1 = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_most_recent_1 = &apos;no_disturbance_or_lu_change&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="confidence_in_event_1">
+      <code id="225" name="confidence_in_event1" required="true" relevant="(lu_change_or_disturbance_most_recent1 = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_most_recent1 = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_most_recent1 = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_most_recent1 = &apos;no_disturbance_or_lu_change&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="confidence_in_event1">
         <label type="instance">Confidence in event (1)</label>
       </code>
-      <text id="226" name="notes_on_event_confidence_1" relevant="((lu_change_or_disturbance_most_recent_1 = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_most_recent_1 = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_most_recent_1 = &apos;no_disturbance_or_lu_change&apos;)) and (confidence_in_event_1 = &apos;high&apos; or confidence_in_event_1 = &apos;medium&apos; or confidence_in_event_1 = &apos;low&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="short">
+      <text id="226" name="notes_on_event_confidence1" relevant="((lu_change_or_disturbance_most_recent1 = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_most_recent1 = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_most_recent1 = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_most_recent1 = &apos;no_disturbance_or_lu_change&apos;)) and (confidence_in_event1 = &apos;high&apos; or confidence_in_event1 = &apos;medium&apos; or confidence_in_event1 = &apos;low&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="short">
         <label type="instance">Notes on event confidence (1)</label>
         <description>In CEO: &quot;confidence notes&quot;</description>
       </text>
       <code id="227" name="lu_change_or_disturbance_2nd_most_recent" required="true" ui:tab="survey_tab" list="lu_change_or_disturbance_2nd_most_recent">
         <label type="instance">LU change or disturbance (2nd most recent) (2)</label>
       </code>
-      <number id="228" name="year_of_change_2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+      <number id="228" name="year_of_change2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
         <label type="instance">year of change (2)</label>
         <description>In CEO: &quot;0000&quot;</description>
       </number>
-      <code id="229" name="lu_before_change_2" required="true" relevant="not(idm:blank(lu_change_or_disturbance_2nd_most_recent))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="lu_before_change_2">
+      <code id="229" name="lu_before_change2" required="true" relevant="not(idm:blank(lu_change_or_disturbance_2nd_most_recent))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="lu_before_change2">
         <label type="instance">LU before change (2)</label>
       </code>
-      <code id="230" name="forest_subtype_subdivision_2" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_2nd_most_recent))) and lu_before_change_2 = &apos;forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_subtype_subdivision_2">
+      <code id="230" name="forest_subtype_subdivision2" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_2nd_most_recent))) and lu_before_change2 = &apos;forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_subtype_subdivision2">
         <label type="instance">Forest subtype/subdivision (2)</label>
       </code>
-      <code id="231" name="cyclical_system_2" required="true" relevant="((not(idm:blank(lu_change_or_disturbance_2nd_most_recent))) and lu_before_change_2 = &apos;forest&apos;) and forest_subtype_subdivision_2 = &apos;forest_plantation_1&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cyclical_system_2">
+      <code id="231" name="cyclical_system2" required="true" relevant="((not(idm:blank(lu_change_or_disturbance_2nd_most_recent))) and lu_before_change2 = &apos;forest&apos;) and forest_subtype_subdivision2 = &apos;forest_plantation_1&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cyclical_system2">
         <label type="instance">Cyclical system (2)</label>
       </code>
-      <code id="232" name="cropland_subtype_2" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_2nd_most_recent))) and lu_before_change_2 = &apos;cropland&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cropland_subtype_2">
+      <code id="232" name="cropland_subtype2" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_2nd_most_recent))) and lu_before_change2 = &apos;cropland&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cropland_subtype2">
         <label type="instance">Cropland subtype (2)</label>
       </code>
-      <code id="233" name="driver_of_change_2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_change_2">
+      <code id="233" name="driver_of_change2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_change2">
         <label type="instance">Driver of change (2)</label>
       </code>
-      <code id="234" name="duration_non_forest_before_event_2" required="true" relevant="(lu_change_or_disturbance_2nd_most_recent = &apos;lu_or_subtype_change&apos;) and (driver_of_change_2 = &apos;planted_trees&apos; or driver_of_change_2 = &apos;natural_reforestation&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="duration_non_forest_before_event_2">
+      <code id="234" name="duration_non_forest_before_event2" required="true" relevant="(lu_change_or_disturbance_2nd_most_recent = &apos;lu_or_subtype_change&apos;) and (driver_of_change2 = &apos;planted_trees&apos; or driver_of_change2 = &apos;natural_reforestation&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="duration_non_forest_before_event2">
         <label type="instance">Duration non-forest before event (2)</label>
       </code>
-      <number id="235" name="year_of_disturbance_2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+      <number id="235" name="year_of_disturbance2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
         <label type="instance">year of disturbance (2)</label>
         <description>In CEO: &quot;0000&quot;</description>
       </number>
-      <code id="236" name="driver_of_disturbance_2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_disturbance_2">
+      <code id="236" name="driver_of_disturbance2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_disturbance2">
         <label type="instance">Driver of disturbance (2)</label>
       </code>
-      <code id="237" name="cause_of_disturbance_2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cause_of_disturbance_2">
+      <code id="237" name="cause_of_disturbance2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cause_of_disturbance2">
         <label type="instance">Cause of disturbance (2)</label>
       </code>
-      <number id="238" name="year_of_recovery_2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;recovery_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+      <number id="238" name="year_of_recovery2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;recovery_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
         <label type="instance">year of recovery (2)</label>
         <description>In CEO: &quot;0000&quot;</description>
       </number>
-      <code id="239" name="confidence_in_event_2" required="true" relevant="(lu_change_or_disturbance_2nd_most_recent = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;no_disturbance_or_lu_change&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="confidence_in_event_2">
+      <code id="239" name="confidence_in_event2" required="true" relevant="(lu_change_or_disturbance_2nd_most_recent = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;no_disturbance_or_lu_change&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="confidence_in_event2">
         <label type="instance">Confidence in event (2)</label>
       </code>
-      <text id="240" name="notes_on_event_confidence_2" relevant="((lu_change_or_disturbance_2nd_most_recent = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;no_disturbance_or_lu_change&apos;)) and (confidence_in_event_2 = &apos;high&apos; or confidence_in_event_2 = &apos;medium&apos; or confidence_in_event_2 = &apos;low&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="short">
+      <text id="240" name="notes_on_event_confidence2" relevant="((lu_change_or_disturbance_2nd_most_recent = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;no_disturbance_or_lu_change&apos;)) and (confidence_in_event2 = &apos;high&apos; or confidence_in_event2 = &apos;medium&apos; or confidence_in_event2 = &apos;low&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="short">
         <label type="instance">Notes on event confidence (2)</label>
         <description>In CEO: &quot;confidence notes&quot;</description>
       </text>
       <code id="241" name="lu_change_or_disturbance_3rd_most_recent" required="true" ui:tab="survey_tab" list="lu_change_or_disturbance_3rd_most_recent">
         <label type="instance">LU change or disturbance (3rd most recent) (3)</label>
       </code>
-      <number id="242" name="year_of_change_3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+      <number id="242" name="year_of_change3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
         <label type="instance">year of change (3)</label>
         <description>In CEO: &quot;0000&quot;</description>
       </number>
-      <code id="243" name="lu_before_change_3" required="true" relevant="not(idm:blank(lu_change_or_disturbance_3rd_most_recent))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="lu_before_change_3">
+      <code id="243" name="lu_before_change3" required="true" relevant="not(idm:blank(lu_change_or_disturbance_3rd_most_recent))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="lu_before_change3">
         <label type="instance">LU before change (3)</label>
       </code>
-      <code id="244" name="forest_subtype_subdivision_3" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_3rd_most_recent))) and lu_before_change_3 = &apos;forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_subtype_subdivision_3">
+      <code id="244" name="forest_subtype_subdivision3" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_3rd_most_recent))) and lu_before_change3 = &apos;forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_subtype_subdivision3">
         <label type="instance">Forest subtype/subdivision (3)</label>
       </code>
-      <code id="245" name="cyclical_system_3" required="true" relevant="((not(idm:blank(lu_change_or_disturbance_3rd_most_recent))) and lu_before_change_3 = &apos;forest&apos;) and forest_subtype_subdivision_3 = &apos;forest_plantation_1&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cyclical_system_3">
+      <code id="245" name="cyclical_system3" required="true" relevant="((not(idm:blank(lu_change_or_disturbance_3rd_most_recent))) and lu_before_change3 = &apos;forest&apos;) and forest_subtype_subdivision3 = &apos;forest_plantation_1&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cyclical_system3">
         <label type="instance">Cyclical system (3)</label>
       </code>
-      <code id="246" name="cropland_subtype_3" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_3rd_most_recent))) and lu_before_change_3 = &apos;cropland&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cropland_subtype_3">
+      <code id="246" name="cropland_subtype3" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_3rd_most_recent))) and lu_before_change3 = &apos;cropland&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cropland_subtype3">
         <label type="instance">Cropland subtype (3)</label>
       </code>
-      <code id="247" name="driver_of_change_3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_change_3">
+      <code id="247" name="driver_of_change3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_change3">
         <label type="instance">Driver of change (3)</label>
       </code>
-      <code id="248" name="duration_non_forest_before_event_3" required="true" relevant="(lu_change_or_disturbance_3rd_most_recent = &apos;lu_or_subtype_change&apos;) and (driver_of_change_3 = &apos;planted_trees&apos; or driver_of_change_3 = &apos;natural_reforestation&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="duration_non_forest_before_event_3">
+      <code id="248" name="duration_non_forest_before_event3" required="true" relevant="(lu_change_or_disturbance_3rd_most_recent = &apos;lu_or_subtype_change&apos;) and (driver_of_change3 = &apos;planted_trees&apos; or driver_of_change3 = &apos;natural_reforestation&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="duration_non_forest_before_event3">
         <label type="instance">Duration non-forest before event (3)</label>
       </code>
-      <number id="249" name="year_of_disturbance_3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+      <number id="249" name="year_of_disturbance3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
         <label type="instance">year of disturbance (3)</label>
         <description>In CEO: &quot;0000&quot;</description>
       </number>
-      <code id="250" name="driver_of_disturbance_3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_disturbance_3">
+      <code id="250" name="driver_of_disturbance3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_disturbance3">
         <label type="instance">Driver of disturbance (3)</label>
       </code>
-      <code id="251" name="cause_of_disturbance_3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cause_of_disturbance_3">
+      <code id="251" name="cause_of_disturbance3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cause_of_disturbance3">
         <label type="instance">Cause of disturbance (3)</label>
       </code>
-      <number id="252" name="year_of_recovery_3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;recovery_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+      <number id="252" name="year_of_recovery3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;recovery_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
         <label type="instance">year of recovery (3)</label>
         <description>In CEO: &quot;0000&quot;</description>
       </number>
-      <code id="253" name="confidence_in_event_3" required="true" relevant="(lu_change_or_disturbance_3rd_most_recent = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;no_disturbance_or_lu_change&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="confidence_in_event_3">
+      <code id="253" name="confidence_in_event3" required="true" relevant="(lu_change_or_disturbance_3rd_most_recent = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;no_disturbance_or_lu_change&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="confidence_in_event3">
         <label type="instance">Confidence in event (3)</label>
       </code>
-      <text id="254" name="notes_on_event_confidence_3" relevant="((lu_change_or_disturbance_3rd_most_recent = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;no_disturbance_or_lu_change&apos;)) and (confidence_in_event_3 = &apos;high&apos; or confidence_in_event_3 = &apos;medium&apos; or confidence_in_event_3 = &apos;low&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="short">
+      <text id="254" name="notes_on_event_confidence3" relevant="((lu_change_or_disturbance_3rd_most_recent = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;no_disturbance_or_lu_change&apos;)) and (confidence_in_event3 = &apos;high&apos; or confidence_in_event3 = &apos;medium&apos; or confidence_in_event3 = &apos;low&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="short">
         <label type="instance">Notes on event confidence (3)</label>
         <description>In CEO: &quot;confidence notes&quot;</description>
       </text>

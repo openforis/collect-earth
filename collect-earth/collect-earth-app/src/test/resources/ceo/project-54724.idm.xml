@@ -42,7 +42,7 @@ Imported from Collect Earth Online, project 54724.</description>
           <label>&lt;= 1ha</label>
         </item>
         <item id="5">
-          <code>1ha_2</code>
+          <code>1ha_b</code>
           <label>&gt; 1ha</label>
         </item>
       </items>
@@ -95,7 +95,7 @@ Imported from Collect Earth Online, project 54724.</description>
         </item>
       </items>
     </list>
-    <list id="20" name="disturbance_btw_2021_2024">
+    <list id="20" name="disturbance_btw_2021to2024">
       <label type="item">Disturbance btw 2021-2024</label>
       <codingScheme scope="local" />
       <items>
@@ -220,7 +220,7 @@ Imported from Collect Earth Online, project 54724.</description>
           <label>&lt;= 20%</label>
         </item>
         <item id="46">
-          <code>20_2</code>
+          <code>20_b</code>
           <label>&gt; 20%</label>
         </item>
         <item id="47">
@@ -229,7 +229,7 @@ Imported from Collect Earth Online, project 54724.</description>
         </item>
       </items>
     </list>
-    <list id="55" name="canopy_cover_after_disturbance_2">
+    <list id="55" name="canopy_cover_after_disturbance_b">
       <label type="item">Canopy cover after disturbance</label>
       <codingScheme scope="local" />
       <items>
@@ -398,7 +398,7 @@ Imported from Collect Earth Online, project 54724.</description>
           <label>&lt;= 20</label>
         </item>
         <item id="87">
-          <code>20_2</code>
+          <code>20_b</code>
           <label>&gt; 20</label>
         </item>
         <item id="88">
@@ -407,7 +407,7 @@ Imported from Collect Earth Online, project 54724.</description>
         </item>
       </items>
     </list>
-    <list id="95" name="canopy_cover_after_2nd_disturbance_2">
+    <list id="95" name="canopy_cover_after_2nd_disturbance_b">
       <label type="item">Canopy cover after 2nd disturbance</label>
       <codingScheme scope="local" />
       <items>
@@ -433,7 +433,7 @@ Imported from Collect Earth Online, project 54724.</description>
         </item>
       </items>
     </list>
-    <list id="99" name="fire_associated_with_2nd_disturbance_2">
+    <list id="99" name="fire_associated_with_2nd_disturbance2">
       <label type="item">Fire associated with 2nd disturbance? (2)</label>
       <codingScheme scope="local" />
       <items>
@@ -474,7 +474,7 @@ Imported from Collect Earth Online, project 54724.</description>
           <label>&lt;= 1ha</label>
         </item>
         <item id="104">
-          <code>1ha_2</code>
+          <code>1ha_b</code>
           <label>&gt; 1ha</label>
         </item>
       </items>
@@ -630,7 +630,7 @@ Imported from Collect Earth Online, project 54724.</description>
           <label>&lt;= 0.1ha</label>
         </item>
         <item id="140">
-          <code>0_1ha_2</code>
+          <code>0_1ha_b</code>
           <label>&gt; 0.1ha</label>
         </item>
       </items>
@@ -644,7 +644,7 @@ Imported from Collect Earth Online, project 54724.</description>
           <label>&lt;= 20</label>
         </item>
         <item id="143">
-          <code>20_2</code>
+          <code>20_b</code>
           <label>&gt; 20</label>
         </item>
         <item id="144">
@@ -653,7 +653,7 @@ Imported from Collect Earth Online, project 54724.</description>
         </item>
       </items>
     </list>
-    <list id="151" name="canopy_cover_after_disturbance_reg_2">
+    <list id="151" name="canopy_cover_after_disturbance_reg_b">
       <label type="item">Canopy cover after disturbance (reg)</label>
       <codingScheme scope="local" />
       <items>
@@ -794,46 +794,46 @@ Imported from Collect Earth Online, project 54724.</description>
       <code id="178" name="canopy_cover" required="true" relevant="forest_2020_0_5ha_10_cc = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover">
         <label type="instance">Canopy cover (%)</label>
       </code>
-      <code id="179" name="disturbance_btw_2021_2024" required="true" relevant="forest_2020_0_5ha_10_cc = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="disturbance_btw_2021_2024">
+      <code id="179" name="disturbance_btw_2021to2024" required="true" relevant="forest_2020_0_5ha_10_cc = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="disturbance_btw_2021to2024">
         <label type="instance">Disturbance btw 2021-2024</label>
       </code>
-      <code id="180" name="year_of_disturbance" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021_2024 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="year_of_disturbance">
+      <code id="180" name="year_of_disturbance" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="year_of_disturbance">
         <label type="instance">Year of disturbance</label>
       </code>
-      <code id="181" name="driver_of_disturbance" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021_2024 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_disturbance">
+      <code id="181" name="driver_of_disturbance" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_disturbance">
         <label type="instance">Driver of disturbance</label>
       </code>
-      <code id="182" name="patch_size_of_disturbance" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021_2024 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="patch_size_of_disturbance">
+      <code id="182" name="patch_size_of_disturbance" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="patch_size_of_disturbance">
         <label type="instance">Patch size of disturbance</label>
       </code>
-      <code id="183" name="canopy_cover_after_disturbance" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021_2024 = &apos;yes&apos;) and patch_size_of_disturbance = &apos;0_1ha&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_disturbance">
+      <code id="183" name="canopy_cover_after_disturbance" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;) and patch_size_of_disturbance = &apos;0_1ha&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_disturbance">
         <label type="instance">Canopy cover after disturbance</label>
       </code>
-      <code id="184" name="canopy_cover_after_disturbance_2" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021_2024 = &apos;yes&apos;) and (patch_size_of_disturbance = &apos;0_1_0_5ha&apos; or patch_size_of_disturbance = &apos;0_5_1ha&apos; or patch_size_of_disturbance = &apos;1ha&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_disturbance_2">
+      <code id="184" name="canopy_cover_after_disturbance_b" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;) and (patch_size_of_disturbance = &apos;0_1_0_5ha&apos; or patch_size_of_disturbance = &apos;0_5_1ha&apos; or patch_size_of_disturbance = &apos;1ha&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_disturbance_b">
         <label type="instance">Canopy cover after disturbance</label>
       </code>
-      <code id="185" name="fire_associated_with_disturbance" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021_2024 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="fire_associated_with_disturbance">
+      <code id="185" name="fire_associated_with_disturbance" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="fire_associated_with_disturbance">
         <label type="instance">Fire associated with disturbance?</label>
       </code>
-      <code id="186" name="q_2nd_disturbance" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021_2024 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="q_2nd_disturbance">
+      <code id="186" name="q_2nd_disturbance" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="q_2nd_disturbance">
         <label type="instance">2nd disturbance</label>
       </code>
-      <code id="187" name="year_of_2nd_disturbance" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021_2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="year_of_2nd_disturbance">
+      <code id="187" name="year_of_2nd_disturbance" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="year_of_2nd_disturbance">
         <label type="instance">Year of 2nd disturbance</label>
       </code>
-      <code id="188" name="driver_of_2nd_disturbance" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021_2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_2nd_disturbance">
+      <code id="188" name="driver_of_2nd_disturbance" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_2nd_disturbance">
         <label type="instance">Driver of 2nd disturbance</label>
       </code>
-      <code id="189" name="patch_size_of_2nd_disturbance" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021_2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="patch_size_of_2nd_disturbance">
+      <code id="189" name="patch_size_of_2nd_disturbance" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="patch_size_of_2nd_disturbance">
         <label type="instance">Patch size of 2nd disturbance</label>
       </code>
-      <code id="190" name="canopy_cover_after_2nd_disturbance" required="true" relevant="(((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021_2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;) and patch_size_of_2nd_disturbance = &apos;0_1ha&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_2nd_disturbance">
+      <code id="190" name="canopy_cover_after_2nd_disturbance" required="true" relevant="(((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;) and patch_size_of_2nd_disturbance = &apos;0_1ha&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_2nd_disturbance">
         <label type="instance">Canopy cover after 2nd disturbance</label>
       </code>
-      <code id="191" name="canopy_cover_after_2nd_disturbance_2" required="true" relevant="(((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021_2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;) and (patch_size_of_2nd_disturbance = &apos;0_1_0_5ha&apos; or patch_size_of_2nd_disturbance = &apos;0_5_1ha&apos; or patch_size_of_2nd_disturbance = &apos;1ha&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_2nd_disturbance_2">
+      <code id="191" name="canopy_cover_after_2nd_disturbance_b" required="true" relevant="(((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;) and (patch_size_of_2nd_disturbance = &apos;0_1_0_5ha&apos; or patch_size_of_2nd_disturbance = &apos;0_5_1ha&apos; or patch_size_of_2nd_disturbance = &apos;1ha&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_2nd_disturbance_b">
         <label type="instance">Canopy cover after 2nd disturbance</label>
       </code>
-      <code id="192" name="fire_associated_with_2nd_disturbance_2" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021_2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="fire_associated_with_2nd_disturbance_2">
+      <code id="192" name="fire_associated_with_2nd_disturbance2" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="fire_associated_with_2nd_disturbance2">
         <label type="instance">Fire associated with 2nd disturbance? (2)</label>
       </code>
       <code id="193" name="forest_regeneration" required="true" relevant="forest_2020_0_5ha_10_cc = &apos;no&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_regeneration">
@@ -863,7 +863,7 @@ Imported from Collect Earth Online, project 54724.</description>
       <code id="201" name="canopy_cover_after_disturbance_reg" required="true" relevant="(((forest_2020_0_5ha_10_cc = &apos;no&apos;) and forest_regeneration = &apos;yes&apos;) and disturbance_after_regeneration = &apos;yes&apos;) and patch_size_of_disturbance_reg = &apos;0_1ha&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_disturbance_reg">
         <label type="instance">Canopy cover after disturbance (reg)</label>
       </code>
-      <code id="202" name="canopy_cover_after_disturbance_reg_2" required="true" relevant="(((forest_2020_0_5ha_10_cc = &apos;no&apos;) and forest_regeneration = &apos;yes&apos;) and disturbance_after_regeneration = &apos;yes&apos;) and patch_size_of_disturbance_reg = &apos;0_1ha_2&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_disturbance_reg_2">
+      <code id="202" name="canopy_cover_after_disturbance_reg_b" required="true" relevant="(((forest_2020_0_5ha_10_cc = &apos;no&apos;) and forest_regeneration = &apos;yes&apos;) and disturbance_after_regeneration = &apos;yes&apos;) and patch_size_of_disturbance_reg = &apos;0_1ha_b&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_disturbance_reg_b">
         <label type="instance">Canopy cover after disturbance (reg)</label>
       </code>
       <code id="203" name="fire_associated_with_disturbance_reg" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;no&apos;) and forest_regeneration = &apos;yes&apos;) and disturbance_after_regeneration = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="fire_associated_with_disturbance_reg">

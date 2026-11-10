@@ -179,7 +179,7 @@ Imported from Collect Earth Online, project 2616.</description>
         </item>
       </items>
     </list>
-    <list id="40" name="cambios_para_el_periodo_2000_2010">
+    <list id="40" name="cambios_para_el_periodo_2000to2010">
       <label type="item">Cambios para el periodo 2000-2010</label>
       <codingScheme scope="local" />
       <items>
@@ -201,7 +201,7 @@ Imported from Collect Earth Online, project 2616.</description>
         </item>
       </items>
     </list>
-    <list id="46" name="subcategorias_de_bosque_estable_00_10">
+    <list id="46" name="subcategorias_de_bosque_estable_00to10">
       <label type="item">Subcategorías de Bosque Estable 00 - 10</label>
       <codingScheme scope="local" />
       <items>
@@ -227,7 +227,7 @@ Imported from Collect Earth Online, project 2616.</description>
         </item>
       </items>
     </list>
-    <list id="51" name="cambios_para_el_periodo_2010_2018">
+    <list id="51" name="cambios_para_el_periodo_2010to2018">
       <label type="item">Cambios para el periodo 2010-2018</label>
       <codingScheme scope="local" />
       <items>
@@ -249,7 +249,7 @@ Imported from Collect Earth Online, project 2616.</description>
         </item>
       </items>
     </list>
-    <list id="57" name="subcategorias_de_bosque_estable_10_18">
+    <list id="57" name="subcategorias_de_bosque_estable_10to18">
       <label type="item">Subcategorías de Bosque Estable 10 - 18</label>
       <codingScheme scope="local" />
       <items>
@@ -495,7 +495,7 @@ Imported from Collect Earth Online, project 2616.</description>
         </item>
       </items>
     </list>
-    <list id="121" name="perdida_de_bosque_2000_2010">
+    <list id="121" name="perdida_de_bosque_2000to2010">
       <label type="item">% Pérdida de bosque 2000-2010</label>
       <codingScheme scope="local" />
       <items>
@@ -545,7 +545,7 @@ Imported from Collect Earth Online, project 2616.</description>
         </item>
       </items>
     </list>
-    <list id="133" name="ganancia_de_bosque_2000_2010">
+    <list id="133" name="ganancia_de_bosque_2000to2010">
       <label type="item">% Ganancia de bosque 2000-2010</label>
       <codingScheme scope="local" />
       <items>
@@ -595,7 +595,7 @@ Imported from Collect Earth Online, project 2616.</description>
         </item>
       </items>
     </list>
-    <list id="145" name="bosque_estable_2000_2010">
+    <list id="145" name="bosque_estable_2000to2010">
       <label type="item">% Bosque estable 2000-2010</label>
       <codingScheme scope="local" />
       <items>
@@ -645,7 +645,7 @@ Imported from Collect Earth Online, project 2616.</description>
         </item>
       </items>
     </list>
-    <list id="157" name="no_bosque_estable_2000_2010">
+    <list id="157" name="no_bosque_estable_2000to2010">
       <label type="item">% No bosque estable 2000-2010</label>
       <codingScheme scope="local" />
       <items>
@@ -705,7 +705,7 @@ Imported from Collect Earth Online, project 2616.</description>
         </item>
       </items>
     </list>
-    <list id="171" name="perdida_de_bosque_2010_2018">
+    <list id="171" name="perdida_de_bosque_2010to2018">
       <label type="item">% Pérdida de bosque 2010-2018</label>
       <codingScheme scope="local" />
       <items>
@@ -755,7 +755,7 @@ Imported from Collect Earth Online, project 2616.</description>
         </item>
       </items>
     </list>
-    <list id="183" name="ganancia_de_bosque_2010_2018">
+    <list id="183" name="ganancia_de_bosque_2010to2018">
       <label type="item">% Ganancia de bosque 2010-2018</label>
       <codingScheme scope="local" />
       <items>
@@ -805,7 +805,7 @@ Imported from Collect Earth Online, project 2616.</description>
         </item>
       </items>
     </list>
-    <list id="195" name="bosque_estable_2010_2018">
+    <list id="195" name="bosque_estable_2010to2018">
       <label type="item">% Bosque estable 2010-2018</label>
       <codingScheme scope="local" />
       <items>
@@ -855,7 +855,7 @@ Imported from Collect Earth Online, project 2616.</description>
         </item>
       </items>
     </list>
-    <list id="207" name="no_bosque_estable_2010_2018">
+    <list id="207" name="no_bosque_estable_2010to2018">
       <label type="item">% No bosque estable 2010-2018</label>
       <codingScheme scope="local" />
       <items>
@@ -980,49 +980,49 @@ Imported from Collect Earth Online, project 2616.</description>
       <code id="227" name="cambio_de_uso_del_suelo_2000_2010_2018_c" required="true" ui:tab="survey_tab" list="cambio_de_uso_del_suelo_2000_2010_2018_c">
         <label type="instance">Cambio de uso del suelo 2000-2010-2018 - Centroide</label>
       </code>
-      <code id="228" name="cambios_para_el_periodo_2000_2010" required="true" relevant="cambio_de_uso_del_suelo_2000_2010_2018_c = &apos;cambios&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cambios_para_el_periodo_2000_2010">
+      <code id="228" name="cambios_para_el_periodo_2000to2010" required="true" relevant="cambio_de_uso_del_suelo_2000_2010_2018_c = &apos;cambios&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cambios_para_el_periodo_2000to2010">
         <label type="instance">Cambios para el periodo 2000-2010</label>
       </code>
-      <code id="229" name="subcategorias_de_bosque_estable_00_10" required="true" relevant="(cambio_de_uso_del_suelo_2000_2010_2018_c = &apos;cambios&apos;) and cambios_para_el_periodo_2000_2010 = &apos;bosque_estable&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="subcategorias_de_bosque_estable_00_10">
+      <code id="229" name="subcategorias_de_bosque_estable_00to10" required="true" relevant="(cambio_de_uso_del_suelo_2000_2010_2018_c = &apos;cambios&apos;) and cambios_para_el_periodo_2000to2010 = &apos;bosque_estable&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="subcategorias_de_bosque_estable_00to10">
         <label type="instance">Subcategorías de Bosque Estable 00 - 10</label>
       </code>
-      <code id="230" name="cambios_para_el_periodo_2010_2018" required="true" relevant="cambio_de_uso_del_suelo_2000_2010_2018_c = &apos;cambios&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cambios_para_el_periodo_2010_2018">
+      <code id="230" name="cambios_para_el_periodo_2010to2018" required="true" relevant="cambio_de_uso_del_suelo_2000_2010_2018_c = &apos;cambios&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cambios_para_el_periodo_2010to2018">
         <label type="instance">Cambios para el periodo 2010-2018</label>
-        <check flag="error" expr="not(cambios_para_el_periodo_2000_2010 = &apos;perdida_de_bosque&apos; and cambios_para_el_periodo_2010_2018 = &apos;perdida_de_bosque&apos;)"><message>“Cambios para el periodo 2000-2010”: “Pérdida de bosque” cannot go with “Cambios para el periodo 2010-2018”: “Pérdida de bosque”.</message></check>
-        <check flag="error" expr="not(cambios_para_el_periodo_2000_2010 = &apos;ganancia_de_bosque&apos; and cambios_para_el_periodo_2010_2018 = &apos;ganancia_de_bosque&apos;)"><message>“Cambios para el periodo 2000-2010”: “Ganancia de bosque” cannot go with “Cambios para el periodo 2010-2018”: “Ganancia de bosque”.</message></check>
-        <check flag="error" expr="not(cambios_para_el_periodo_2000_2010 = &apos;ganancia_de_bosque&apos; and cambios_para_el_periodo_2010_2018 = &apos;no_bosque_estable&apos;)"><message>“Cambios para el periodo 2000-2010”: “Ganancia de bosque” cannot go with “Cambios para el periodo 2010-2018”: “No bosque estable”.</message></check>
-        <check flag="error" expr="not(cambios_para_el_periodo_2000_2010 = &apos;perdida_de_bosque&apos; and cambios_para_el_periodo_2010_2018 = &apos;bosque_estable&apos;)"><message>“Cambios para el periodo 2000-2010”: “Pérdida de bosque” cannot go with “Cambios para el periodo 2010-2018”: “Bosque estable”.</message></check>
-        <check flag="error" expr="not(cambios_para_el_periodo_2000_2010 = &apos;bosque_estable&apos; and cambios_para_el_periodo_2010_2018 = &apos;ganancia_de_bosque&apos;)"><message>“Cambios para el periodo 2000-2010”: “Bosque estable” cannot go with “Cambios para el periodo 2010-2018”: “Ganancia de bosque”.</message></check>
-        <check flag="error" expr="not(cambios_para_el_periodo_2000_2010 = &apos;no_bosque_estable&apos; and cambios_para_el_periodo_2010_2018 = &apos;perdida_de_bosque&apos;)"><message>“Cambios para el periodo 2000-2010”: “No bosque estable” cannot go with “Cambios para el periodo 2010-2018”: “Pérdida de bosque”.</message></check>
-        <check flag="error" expr="not(cambios_para_el_periodo_2000_2010 = &apos;no_bosque_estable&apos; and cambios_para_el_periodo_2010_2018 = &apos;bosque_estable&apos;)"><message>“Cambios para el periodo 2000-2010”: “No bosque estable” cannot go with “Cambios para el periodo 2010-2018”: “Bosque estable”.</message></check>
-        <check flag="error" expr="not(cambios_para_el_periodo_2000_2010 = &apos;bosque_estable&apos; and cambios_para_el_periodo_2010_2018 = &apos;no_bosque_estable&apos;)"><message>“Cambios para el periodo 2000-2010”: “Bosque estable” cannot go with “Cambios para el periodo 2010-2018”: “No bosque estable”.</message></check>
-        <check flag="error" expr="not(uso_del_suelo_2018_centroide = &apos;bosque&apos; and cambios_para_el_periodo_2010_2018 = &apos;perdida_de_bosque&apos;)"><message>“Uso del Suelo 2018 - Centroide”: “Bosque” cannot go with “Cambios para el periodo 2010-2018”: “Pérdida de bosque”.</message></check>
-        <check flag="error" expr="not(uso_del_suelo_2018_centroide = &apos;bosque&apos; and cambios_para_el_periodo_2010_2018 = &apos;no_bosque_estable&apos;)"><message>“Uso del Suelo 2018 - Centroide”: “Bosque” cannot go with “Cambios para el periodo 2010-2018”: “No bosque estable”.</message></check>
-        <check flag="error" expr="not(uso_del_suelo_2018_centroide = &apos;otras_tierras_boscosas&apos; and cambios_para_el_periodo_2010_2018 = &apos;bosque_estable&apos;)"><message>“Uso del Suelo 2018 - Centroide”: “Otras Tierras Boscosas” cannot go with “Cambios para el periodo 2010-2018”: “Bosque estable”.</message></check>
-        <check flag="error" expr="not(uso_del_suelo_2018_centroide = &apos;otras_tierras_boscosas&apos; and cambios_para_el_periodo_2010_2018 = &apos;ganancia_de_bosque&apos;)"><message>“Uso del Suelo 2018 - Centroide”: “Otras Tierras Boscosas” cannot go with “Cambios para el periodo 2010-2018”: “Ganancia de bosque”.</message></check>
-        <check flag="error" expr="not(uso_del_suelo_2018_centroide = &apos;otras_tierras&apos; and cambios_para_el_periodo_2010_2018 = &apos;ganancia_de_bosque&apos;)"><message>“Uso del Suelo 2018 - Centroide”: “Otras Tierras” cannot go with “Cambios para el periodo 2010-2018”: “Ganancia de bosque”.</message></check>
-        <check flag="error" expr="not(uso_del_suelo_2018_centroide = &apos;otras_tierras&apos; and cambios_para_el_periodo_2010_2018 = &apos;bosque_estable&apos;)"><message>“Uso del Suelo 2018 - Centroide”: “Otras Tierras” cannot go with “Cambios para el periodo 2010-2018”: “Bosque estable”.</message></check>
-        <check flag="error" expr="not(uso_del_suelo_2018_centroide = &apos;agua&apos; and cambios_para_el_periodo_2010_2018 = &apos;bosque_estable&apos;)"><message>“Uso del Suelo 2018 - Centroide”: “Agua” cannot go with “Cambios para el periodo 2010-2018”: “Bosque estable”.</message></check>
-        <check flag="error" expr="not(uso_del_suelo_2018_centroide = &apos;agua&apos; and cambios_para_el_periodo_2010_2018 = &apos;ganancia_de_bosque&apos;)"><message>“Uso del Suelo 2018 - Centroide”: “Agua” cannot go with “Cambios para el periodo 2010-2018”: “Ganancia de bosque”.</message></check>
+        <check flag="error" expr="not(cambios_para_el_periodo_2000to2010 = &apos;perdida_de_bosque&apos; and cambios_para_el_periodo_2010to2018 = &apos;perdida_de_bosque&apos;)"><message>“Cambios para el periodo 2000-2010”: “Pérdida de bosque” cannot go with “Cambios para el periodo 2010-2018”: “Pérdida de bosque”.</message></check>
+        <check flag="error" expr="not(cambios_para_el_periodo_2000to2010 = &apos;ganancia_de_bosque&apos; and cambios_para_el_periodo_2010to2018 = &apos;ganancia_de_bosque&apos;)"><message>“Cambios para el periodo 2000-2010”: “Ganancia de bosque” cannot go with “Cambios para el periodo 2010-2018”: “Ganancia de bosque”.</message></check>
+        <check flag="error" expr="not(cambios_para_el_periodo_2000to2010 = &apos;ganancia_de_bosque&apos; and cambios_para_el_periodo_2010to2018 = &apos;no_bosque_estable&apos;)"><message>“Cambios para el periodo 2000-2010”: “Ganancia de bosque” cannot go with “Cambios para el periodo 2010-2018”: “No bosque estable”.</message></check>
+        <check flag="error" expr="not(cambios_para_el_periodo_2000to2010 = &apos;perdida_de_bosque&apos; and cambios_para_el_periodo_2010to2018 = &apos;bosque_estable&apos;)"><message>“Cambios para el periodo 2000-2010”: “Pérdida de bosque” cannot go with “Cambios para el periodo 2010-2018”: “Bosque estable”.</message></check>
+        <check flag="error" expr="not(cambios_para_el_periodo_2000to2010 = &apos;bosque_estable&apos; and cambios_para_el_periodo_2010to2018 = &apos;ganancia_de_bosque&apos;)"><message>“Cambios para el periodo 2000-2010”: “Bosque estable” cannot go with “Cambios para el periodo 2010-2018”: “Ganancia de bosque”.</message></check>
+        <check flag="error" expr="not(cambios_para_el_periodo_2000to2010 = &apos;no_bosque_estable&apos; and cambios_para_el_periodo_2010to2018 = &apos;perdida_de_bosque&apos;)"><message>“Cambios para el periodo 2000-2010”: “No bosque estable” cannot go with “Cambios para el periodo 2010-2018”: “Pérdida de bosque”.</message></check>
+        <check flag="error" expr="not(cambios_para_el_periodo_2000to2010 = &apos;no_bosque_estable&apos; and cambios_para_el_periodo_2010to2018 = &apos;bosque_estable&apos;)"><message>“Cambios para el periodo 2000-2010”: “No bosque estable” cannot go with “Cambios para el periodo 2010-2018”: “Bosque estable”.</message></check>
+        <check flag="error" expr="not(cambios_para_el_periodo_2000to2010 = &apos;bosque_estable&apos; and cambios_para_el_periodo_2010to2018 = &apos;no_bosque_estable&apos;)"><message>“Cambios para el periodo 2000-2010”: “Bosque estable” cannot go with “Cambios para el periodo 2010-2018”: “No bosque estable”.</message></check>
+        <check flag="error" expr="not(uso_del_suelo_2018_centroide = &apos;bosque&apos; and cambios_para_el_periodo_2010to2018 = &apos;perdida_de_bosque&apos;)"><message>“Uso del Suelo 2018 - Centroide”: “Bosque” cannot go with “Cambios para el periodo 2010-2018”: “Pérdida de bosque”.</message></check>
+        <check flag="error" expr="not(uso_del_suelo_2018_centroide = &apos;bosque&apos; and cambios_para_el_periodo_2010to2018 = &apos;no_bosque_estable&apos;)"><message>“Uso del Suelo 2018 - Centroide”: “Bosque” cannot go with “Cambios para el periodo 2010-2018”: “No bosque estable”.</message></check>
+        <check flag="error" expr="not(uso_del_suelo_2018_centroide = &apos;otras_tierras_boscosas&apos; and cambios_para_el_periodo_2010to2018 = &apos;bosque_estable&apos;)"><message>“Uso del Suelo 2018 - Centroide”: “Otras Tierras Boscosas” cannot go with “Cambios para el periodo 2010-2018”: “Bosque estable”.</message></check>
+        <check flag="error" expr="not(uso_del_suelo_2018_centroide = &apos;otras_tierras_boscosas&apos; and cambios_para_el_periodo_2010to2018 = &apos;ganancia_de_bosque&apos;)"><message>“Uso del Suelo 2018 - Centroide”: “Otras Tierras Boscosas” cannot go with “Cambios para el periodo 2010-2018”: “Ganancia de bosque”.</message></check>
+        <check flag="error" expr="not(uso_del_suelo_2018_centroide = &apos;otras_tierras&apos; and cambios_para_el_periodo_2010to2018 = &apos;ganancia_de_bosque&apos;)"><message>“Uso del Suelo 2018 - Centroide”: “Otras Tierras” cannot go with “Cambios para el periodo 2010-2018”: “Ganancia de bosque”.</message></check>
+        <check flag="error" expr="not(uso_del_suelo_2018_centroide = &apos;otras_tierras&apos; and cambios_para_el_periodo_2010to2018 = &apos;bosque_estable&apos;)"><message>“Uso del Suelo 2018 - Centroide”: “Otras Tierras” cannot go with “Cambios para el periodo 2010-2018”: “Bosque estable”.</message></check>
+        <check flag="error" expr="not(uso_del_suelo_2018_centroide = &apos;agua&apos; and cambios_para_el_periodo_2010to2018 = &apos;bosque_estable&apos;)"><message>“Uso del Suelo 2018 - Centroide”: “Agua” cannot go with “Cambios para el periodo 2010-2018”: “Bosque estable”.</message></check>
+        <check flag="error" expr="not(uso_del_suelo_2018_centroide = &apos;agua&apos; and cambios_para_el_periodo_2010to2018 = &apos;ganancia_de_bosque&apos;)"><message>“Uso del Suelo 2018 - Centroide”: “Agua” cannot go with “Cambios para el periodo 2010-2018”: “Ganancia de bosque”.</message></check>
       </code>
-      <code id="231" name="subcategorias_de_bosque_estable_10_18" required="true" relevant="(cambio_de_uso_del_suelo_2000_2010_2018_c = &apos;cambios&apos;) and cambios_para_el_periodo_2010_2018 = &apos;bosque_estable&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="subcategorias_de_bosque_estable_10_18">
+      <code id="231" name="subcategorias_de_bosque_estable_10to18" required="true" relevant="(cambio_de_uso_del_suelo_2000_2010_2018_c = &apos;cambios&apos;) and cambios_para_el_periodo_2010to2018 = &apos;bosque_estable&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="subcategorias_de_bosque_estable_10to18">
         <label type="instance">Subcategorías de Bosque Estable 10 - 18</label>
-        <check flag="error" expr="not(sub_categorias_si_es_bosque_regenerado_d = &apos;bosque_temporalmente_desprovis&apos; and subcategorias_de_bosque_estable_10_18 = &apos;estable_con_arboles&apos;)"><message>“Sub-categorías si es Bosque regenerado de forma natural”: “Bosque temporalmente desprovisto de árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Estable con árboles”.</message></check>
-        <check flag="error" expr="not(sub_categorias_si_es_bosque_regenerado_d = &apos;bosque_temporalmente_desprovis&apos; and subcategorias_de_bosque_estable_10_18 = &apos;sin_arboles_a_con_arboles&apos;)"><message>“Sub-categorías si es Bosque regenerado de forma natural”: “Bosque temporalmente desprovisto de árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Sin árboles a Con árboles”.</message></check>
-        <check flag="error" expr="not(sub_categorias_si_es_bosque_regenerado_d = &apos;bosque_con_arboles&apos; and subcategorias_de_bosque_estable_10_18 = &apos;estable_sin_arboles&apos;)"><message>“Sub-categorías si es Bosque regenerado de forma natural”: “Bosque con árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Estable sin árboles”.</message></check>
-        <check flag="error" expr="not(sub_categorias_si_es_bosque_regenerado_d = &apos;bosque_con_arboles&apos; and subcategorias_de_bosque_estable_10_18 = &apos;con_arboles_a_sin_arboles&apos;)"><message>“Sub-categorías si es Bosque regenerado de forma natural”: “Bosque con árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Con árboles a Sin árboles”.</message></check>
-        <check flag="error" expr="not(sub_categorias_si_es_bosque_plantado = &apos;bosque_plantado_con_arboles&apos; and subcategorias_de_bosque_estable_10_18 = &apos;estable_sin_arboles&apos;)"><message>“Sub-categorías si es Bosque Plantado”: “Bosque plantado con árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Estable sin árboles”.</message></check>
-        <check flag="error" expr="not(sub_categorias_si_es_bosque_plantado = &apos;bosque_plantado_con_arboles&apos; and subcategorias_de_bosque_estable_10_18 = &apos;con_arboles_a_sin_arboles&apos;)"><message>“Sub-categorías si es Bosque Plantado”: “Bosque plantado con árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Con árboles a Sin árboles”.</message></check>
-        <check flag="error" expr="not(sub_categorias_si_es_bosque_plantado = &apos;bosque_plantado_temporalmente&apos; and subcategorias_de_bosque_estable_10_18 = &apos;estable_con_arboles&apos;)"><message>“Sub-categorías si es Bosque Plantado”: “Bosque plantado temporalmente desprovisto de árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Estable con árboles”.</message></check>
-        <check flag="error" expr="not(sub_categorias_si_es_bosque_plantado = &apos;bosque_plantado_temporalmente&apos; and subcategorias_de_bosque_estable_10_18 = &apos;sin_arboles_a_con_arboles&apos;)"><message>“Sub-categorías si es Bosque Plantado”: “Bosque plantado temporalmente desprovisto de árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Sin árboles a Con árboles”.</message></check>
-        <check flag="error" expr="not(subcategorias_de_bosque_estable_00_10 = &apos;estable_con_arboles&apos; and subcategorias_de_bosque_estable_10_18 = &apos;estable_sin_arboles&apos;)"><message>“Subcategorías de Bosque Estable 00 - 10”: “Estable con árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Estable sin árboles”.</message></check>
-        <check flag="error" expr="not(subcategorias_de_bosque_estable_00_10 = &apos;estable_con_arboles&apos; and subcategorias_de_bosque_estable_10_18 = &apos;sin_arboles_a_con_arboles&apos;)"><message>“Subcategorías de Bosque Estable 00 - 10”: “Estable con árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Sin árboles a Con árboles”.</message></check>
-        <check flag="error" expr="not(subcategorias_de_bosque_estable_00_10 = &apos;estable_sin_arboles&apos; and subcategorias_de_bosque_estable_10_18 = &apos;estable_con_arboles&apos;)"><message>“Subcategorías de Bosque Estable 00 - 10”: “Estable sin árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Estable con árboles”.</message></check>
-        <check flag="error" expr="not(subcategorias_de_bosque_estable_00_10 = &apos;estable_sin_arboles&apos; and subcategorias_de_bosque_estable_10_18 = &apos;con_arboles_a_sin_arboles&apos;)"><message>“Subcategorías de Bosque Estable 00 - 10”: “Estable sin árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Con árboles a Sin árboles”.</message></check>
-        <check flag="error" expr="not(subcategorias_de_bosque_estable_00_10 = &apos;con_arboles_a_sin_arboles&apos; and subcategorias_de_bosque_estable_10_18 = &apos;con_arboles_a_sin_arboles&apos;)"><message>“Subcategorías de Bosque Estable 00 - 10”: “Con árboles a Sin árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Con árboles a Sin árboles”.</message></check>
-        <check flag="error" expr="not(subcategorias_de_bosque_estable_00_10 = &apos;con_arboles_a_sin_arboles&apos; and subcategorias_de_bosque_estable_10_18 = &apos;estable_con_arboles&apos;)"><message>“Subcategorías de Bosque Estable 00 - 10”: “Con árboles a Sin árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Estable con árboles”.</message></check>
-        <check flag="error" expr="not(subcategorias_de_bosque_estable_00_10 = &apos;sin_arboles_a_con_arboles&apos; and subcategorias_de_bosque_estable_10_18 = &apos;estable_sin_arboles&apos;)"><message>“Subcategorías de Bosque Estable 00 - 10”: “Sin árboles a Con árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Estable sin árboles”.</message></check>
-        <check flag="error" expr="not(subcategorias_de_bosque_estable_00_10 = &apos;sin_arboles_a_con_arboles&apos; and subcategorias_de_bosque_estable_10_18 = &apos;sin_arboles_a_con_arboles&apos;)"><message>“Subcategorías de Bosque Estable 00 - 10”: “Sin árboles a Con árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Sin árboles a Con árboles”.</message></check>
+        <check flag="error" expr="not(sub_categorias_si_es_bosque_regenerado_d = &apos;bosque_temporalmente_desprovis&apos; and subcategorias_de_bosque_estable_10to18 = &apos;estable_con_arboles&apos;)"><message>“Sub-categorías si es Bosque regenerado de forma natural”: “Bosque temporalmente desprovisto de árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Estable con árboles”.</message></check>
+        <check flag="error" expr="not(sub_categorias_si_es_bosque_regenerado_d = &apos;bosque_temporalmente_desprovis&apos; and subcategorias_de_bosque_estable_10to18 = &apos;sin_arboles_a_con_arboles&apos;)"><message>“Sub-categorías si es Bosque regenerado de forma natural”: “Bosque temporalmente desprovisto de árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Sin árboles a Con árboles”.</message></check>
+        <check flag="error" expr="not(sub_categorias_si_es_bosque_regenerado_d = &apos;bosque_con_arboles&apos; and subcategorias_de_bosque_estable_10to18 = &apos;estable_sin_arboles&apos;)"><message>“Sub-categorías si es Bosque regenerado de forma natural”: “Bosque con árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Estable sin árboles”.</message></check>
+        <check flag="error" expr="not(sub_categorias_si_es_bosque_regenerado_d = &apos;bosque_con_arboles&apos; and subcategorias_de_bosque_estable_10to18 = &apos;con_arboles_a_sin_arboles&apos;)"><message>“Sub-categorías si es Bosque regenerado de forma natural”: “Bosque con árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Con árboles a Sin árboles”.</message></check>
+        <check flag="error" expr="not(sub_categorias_si_es_bosque_plantado = &apos;bosque_plantado_con_arboles&apos; and subcategorias_de_bosque_estable_10to18 = &apos;estable_sin_arboles&apos;)"><message>“Sub-categorías si es Bosque Plantado”: “Bosque plantado con árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Estable sin árboles”.</message></check>
+        <check flag="error" expr="not(sub_categorias_si_es_bosque_plantado = &apos;bosque_plantado_con_arboles&apos; and subcategorias_de_bosque_estable_10to18 = &apos;con_arboles_a_sin_arboles&apos;)"><message>“Sub-categorías si es Bosque Plantado”: “Bosque plantado con árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Con árboles a Sin árboles”.</message></check>
+        <check flag="error" expr="not(sub_categorias_si_es_bosque_plantado = &apos;bosque_plantado_temporalmente&apos; and subcategorias_de_bosque_estable_10to18 = &apos;estable_con_arboles&apos;)"><message>“Sub-categorías si es Bosque Plantado”: “Bosque plantado temporalmente desprovisto de árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Estable con árboles”.</message></check>
+        <check flag="error" expr="not(sub_categorias_si_es_bosque_plantado = &apos;bosque_plantado_temporalmente&apos; and subcategorias_de_bosque_estable_10to18 = &apos;sin_arboles_a_con_arboles&apos;)"><message>“Sub-categorías si es Bosque Plantado”: “Bosque plantado temporalmente desprovisto de árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Sin árboles a Con árboles”.</message></check>
+        <check flag="error" expr="not(subcategorias_de_bosque_estable_00to10 = &apos;estable_con_arboles&apos; and subcategorias_de_bosque_estable_10to18 = &apos;estable_sin_arboles&apos;)"><message>“Subcategorías de Bosque Estable 00 - 10”: “Estable con árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Estable sin árboles”.</message></check>
+        <check flag="error" expr="not(subcategorias_de_bosque_estable_00to10 = &apos;estable_con_arboles&apos; and subcategorias_de_bosque_estable_10to18 = &apos;sin_arboles_a_con_arboles&apos;)"><message>“Subcategorías de Bosque Estable 00 - 10”: “Estable con árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Sin árboles a Con árboles”.</message></check>
+        <check flag="error" expr="not(subcategorias_de_bosque_estable_00to10 = &apos;estable_sin_arboles&apos; and subcategorias_de_bosque_estable_10to18 = &apos;estable_con_arboles&apos;)"><message>“Subcategorías de Bosque Estable 00 - 10”: “Estable sin árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Estable con árboles”.</message></check>
+        <check flag="error" expr="not(subcategorias_de_bosque_estable_00to10 = &apos;estable_sin_arboles&apos; and subcategorias_de_bosque_estable_10to18 = &apos;con_arboles_a_sin_arboles&apos;)"><message>“Subcategorías de Bosque Estable 00 - 10”: “Estable sin árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Con árboles a Sin árboles”.</message></check>
+        <check flag="error" expr="not(subcategorias_de_bosque_estable_00to10 = &apos;con_arboles_a_sin_arboles&apos; and subcategorias_de_bosque_estable_10to18 = &apos;con_arboles_a_sin_arboles&apos;)"><message>“Subcategorías de Bosque Estable 00 - 10”: “Con árboles a Sin árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Con árboles a Sin árboles”.</message></check>
+        <check flag="error" expr="not(subcategorias_de_bosque_estable_00to10 = &apos;con_arboles_a_sin_arboles&apos; and subcategorias_de_bosque_estable_10to18 = &apos;estable_con_arboles&apos;)"><message>“Subcategorías de Bosque Estable 00 - 10”: “Con árboles a Sin árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Estable con árboles”.</message></check>
+        <check flag="error" expr="not(subcategorias_de_bosque_estable_00to10 = &apos;sin_arboles_a_con_arboles&apos; and subcategorias_de_bosque_estable_10to18 = &apos;estable_sin_arboles&apos;)"><message>“Subcategorías de Bosque Estable 00 - 10”: “Sin árboles a Con árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Estable sin árboles”.</message></check>
+        <check flag="error" expr="not(subcategorias_de_bosque_estable_00to10 = &apos;sin_arboles_a_con_arboles&apos; and subcategorias_de_bosque_estable_10to18 = &apos;sin_arboles_a_con_arboles&apos;)"><message>“Subcategorías de Bosque Estable 00 - 10”: “Sin árboles a Con árboles” cannot go with “Subcategorías de Bosque Estable 10 - 18”: “Sin árboles a Con árboles”.</message></check>
       </code>
       <code id="232" name="uso_del_suelo_2018_hexagono" required="true" ui:tab="survey_tab" list="uso_del_suelo_2018_hexagono">
         <label type="instance">Uso del suelo 2018 - Hexágono</label>
@@ -1043,36 +1043,36 @@ Imported from Collect Earth Online, project 2616.</description>
       <code id="237" name="cambio_de_uso_del_suelo_2000_2010_hexago" required="true" ui:tab="survey_tab" list="cambio_de_uso_del_suelo_2000_2010_hexago">
         <label type="instance">Cambio de uso del suelo 2000-2010 - Hexágono</label>
       </code>
-      <code id="238" name="perdida_de_bosque_2000_2010" required="true" relevant="cambio_de_uso_del_suelo_2000_2010_hexago = &apos;de_cambio_de_uso_de_suelo_2000&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="perdida_de_bosque_2000_2010">
+      <code id="238" name="perdida_de_bosque_2000to2010" required="true" relevant="cambio_de_uso_del_suelo_2000_2010_hexago = &apos;de_cambio_de_uso_de_suelo_2000&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="perdida_de_bosque_2000to2010">
         <label type="instance">% Pérdida de bosque 2000-2010</label>
       </code>
-      <code id="239" name="ganancia_de_bosque_2000_2010" required="true" relevant="cambio_de_uso_del_suelo_2000_2010_hexago = &apos;de_cambio_de_uso_de_suelo_2000&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="ganancia_de_bosque_2000_2010">
+      <code id="239" name="ganancia_de_bosque_2000to2010" required="true" relevant="cambio_de_uso_del_suelo_2000_2010_hexago = &apos;de_cambio_de_uso_de_suelo_2000&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="ganancia_de_bosque_2000to2010">
         <label type="instance">% Ganancia de bosque 2000-2010</label>
       </code>
-      <code id="240" name="bosque_estable_2000_2010" required="true" relevant="cambio_de_uso_del_suelo_2000_2010_hexago = &apos;de_cambio_de_uso_de_suelo_2000&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="bosque_estable_2000_2010">
+      <code id="240" name="bosque_estable_2000to2010" required="true" relevant="cambio_de_uso_del_suelo_2000_2010_hexago = &apos;de_cambio_de_uso_de_suelo_2000&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="bosque_estable_2000to2010">
         <label type="instance">% Bosque estable 2000-2010</label>
       </code>
-      <code id="241" name="no_bosque_estable_2000_2010" required="true" relevant="cambio_de_uso_del_suelo_2000_2010_hexago = &apos;de_cambio_de_uso_de_suelo_2000&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="no_bosque_estable_2000_2010">
+      <code id="241" name="no_bosque_estable_2000to2010" required="true" relevant="cambio_de_uso_del_suelo_2000_2010_hexago = &apos;de_cambio_de_uso_de_suelo_2000&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="no_bosque_estable_2000to2010">
         <label type="instance">% No bosque estable 2000-2010</label>
-        <check flag="error" if="not(idm:blank(perdida_de_bosque_2000_2010)) and not(idm:blank(ganancia_de_bosque_2000_2010)) and not(idm:blank(bosque_estable_2000_2010)) and not(idm:blank(no_bosque_estable_2000_2010))" expr="number(perdida_de_bosque_2000_2010) + number(ganancia_de_bosque_2000_2010) + number(bosque_estable_2000_2010) + number(no_bosque_estable_2000_2010) = 100"><message>The answers to “% Pérdida de bosque 2000-2010”, “% Ganancia de bosque 2000-2010”, “% Bosque estable 2000-2010” and “% No bosque estable 2000-2010” must add up to 100.</message></check>
+        <check flag="error" if="not(idm:blank(perdida_de_bosque_2000to2010)) and not(idm:blank(ganancia_de_bosque_2000to2010)) and not(idm:blank(bosque_estable_2000to2010)) and not(idm:blank(no_bosque_estable_2000to2010))" expr="number(perdida_de_bosque_2000to2010) + number(ganancia_de_bosque_2000to2010) + number(bosque_estable_2000to2010) + number(no_bosque_estable_2000to2010) = 100"><message>The answers to “% Pérdida de bosque 2000-2010”, “% Ganancia de bosque 2000-2010”, “% Bosque estable 2000-2010” and “% No bosque estable 2000-2010” must add up to 100.</message></check>
       </code>
       <code id="242" name="cambio_de_uso_del_suelo_2010_2018_hexago" required="true" ui:tab="survey_tab" list="cambio_de_uso_del_suelo_2010_2018_hexago">
         <label type="instance">Cambio de uso del suelo 2010-2018 - Hexágono</label>
       </code>
-      <code id="243" name="perdida_de_bosque_2010_2018" required="true" relevant="cambio_de_uso_del_suelo_2010_2018_hexago = &apos;de_cambio_de_uso_de_suelo_2010&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="perdida_de_bosque_2010_2018">
+      <code id="243" name="perdida_de_bosque_2010to2018" required="true" relevant="cambio_de_uso_del_suelo_2010_2018_hexago = &apos;de_cambio_de_uso_de_suelo_2010&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="perdida_de_bosque_2010to2018">
         <label type="instance">% Pérdida de bosque 2010-2018</label>
       </code>
-      <code id="244" name="ganancia_de_bosque_2010_2018" required="true" relevant="cambio_de_uso_del_suelo_2010_2018_hexago = &apos;de_cambio_de_uso_de_suelo_2010&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="ganancia_de_bosque_2010_2018">
+      <code id="244" name="ganancia_de_bosque_2010to2018" required="true" relevant="cambio_de_uso_del_suelo_2010_2018_hexago = &apos;de_cambio_de_uso_de_suelo_2010&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="ganancia_de_bosque_2010to2018">
         <label type="instance">% Ganancia de bosque 2010-2018</label>
       </code>
-      <code id="245" name="bosque_estable_2010_2018" required="true" relevant="cambio_de_uso_del_suelo_2010_2018_hexago = &apos;de_cambio_de_uso_de_suelo_2010&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="bosque_estable_2010_2018">
+      <code id="245" name="bosque_estable_2010to2018" required="true" relevant="cambio_de_uso_del_suelo_2010_2018_hexago = &apos;de_cambio_de_uso_de_suelo_2010&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="bosque_estable_2010to2018">
         <label type="instance">% Bosque estable 2010-2018</label>
       </code>
-      <code id="246" name="no_bosque_estable_2010_2018" required="true" relevant="cambio_de_uso_del_suelo_2010_2018_hexago = &apos;de_cambio_de_uso_de_suelo_2010&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="no_bosque_estable_2010_2018">
+      <code id="246" name="no_bosque_estable_2010to2018" required="true" relevant="cambio_de_uso_del_suelo_2010_2018_hexago = &apos;de_cambio_de_uso_de_suelo_2010&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="no_bosque_estable_2010to2018">
         <label type="instance">% No bosque estable 2010-2018</label>
-        <check flag="error" if="not(idm:blank(perdida_de_bosque_2010_2018)) and not(idm:blank(ganancia_de_bosque_2010_2018)) and not(idm:blank(bosque_estable_2010_2018)) and not(idm:blank(no_bosque_estable_2010_2018))" expr="number(perdida_de_bosque_2010_2018) + number(ganancia_de_bosque_2010_2018) + number(bosque_estable_2010_2018) + number(no_bosque_estable_2010_2018) = 100"><message>The answers to “% Pérdida de bosque 2010-2018”, “% Ganancia de bosque 2010-2018”, “% Bosque estable 2010-2018” and “% No bosque estable 2010-2018” must add up to 100.</message></check>
-        <check flag="error" if="not(idm:blank(de_otras_tierras_boscosas)) and not(idm:blank(de_otras_tierras)) and not(idm:blank(de_agua)) and not(idm:blank(perdida_de_bosque_2010_2018)) and not(idm:blank(no_bosque_estable_2010_2018))" expr="number(de_otras_tierras_boscosas) + number(de_otras_tierras) + number(de_agua) = number(perdida_de_bosque_2010_2018) + number(no_bosque_estable_2010_2018)"><message>The answers to “% de Otras Tierras Boscosas”, “% de Otras Tierras” and “% de Agua” must add up to the same as those to “% Pérdida de bosque 2010-2018” and “% No bosque estable 2010-2018”.</message></check>
-        <check flag="error" if="not(idm:blank(perdida_de_bosque_2000_2010)) and not(idm:blank(no_bosque_estable_2000_2010)) and not(idm:blank(ganancia_de_bosque_2010_2018)) and not(idm:blank(no_bosque_estable_2010_2018))" expr="number(perdida_de_bosque_2000_2010) + number(no_bosque_estable_2000_2010) = number(ganancia_de_bosque_2010_2018) + number(no_bosque_estable_2010_2018)"><message>The answers to “% Pérdida de bosque 2000-2010” and “% No bosque estable 2000-2010” must add up to the same as those to “% Ganancia de bosque 2010-2018” and “% No bosque estable 2010-2018”.</message></check>
+        <check flag="error" if="not(idm:blank(perdida_de_bosque_2010to2018)) and not(idm:blank(ganancia_de_bosque_2010to2018)) and not(idm:blank(bosque_estable_2010to2018)) and not(idm:blank(no_bosque_estable_2010to2018))" expr="number(perdida_de_bosque_2010to2018) + number(ganancia_de_bosque_2010to2018) + number(bosque_estable_2010to2018) + number(no_bosque_estable_2010to2018) = 100"><message>The answers to “% Pérdida de bosque 2010-2018”, “% Ganancia de bosque 2010-2018”, “% Bosque estable 2010-2018” and “% No bosque estable 2010-2018” must add up to 100.</message></check>
+        <check flag="error" if="not(idm:blank(de_otras_tierras_boscosas)) and not(idm:blank(de_otras_tierras)) and not(idm:blank(de_agua)) and not(idm:blank(perdida_de_bosque_2010to2018)) and not(idm:blank(no_bosque_estable_2010to2018))" expr="number(de_otras_tierras_boscosas) + number(de_otras_tierras) + number(de_agua) = number(perdida_de_bosque_2010to2018) + number(no_bosque_estable_2010to2018)"><message>The answers to “% de Otras Tierras Boscosas”, “% de Otras Tierras” and “% de Agua” must add up to the same as those to “% Pérdida de bosque 2010-2018” and “% No bosque estable 2010-2018”.</message></check>
+        <check flag="error" if="not(idm:blank(perdida_de_bosque_2000to2010)) and not(idm:blank(no_bosque_estable_2000to2010)) and not(idm:blank(ganancia_de_bosque_2010to2018)) and not(idm:blank(no_bosque_estable_2010to2018))" expr="number(perdida_de_bosque_2000to2010) + number(no_bosque_estable_2000to2010) = number(ganancia_de_bosque_2010to2018) + number(no_bosque_estable_2010to2018)"><message>The answers to “% Pérdida de bosque 2000-2010” and “% No bosque estable 2000-2010” must add up to the same as those to “% Ganancia de bosque 2010-2018” and “% No bosque estable 2010-2018”.</message></check>
       </code>
     </entity>
   </schema>
