@@ -157,6 +157,8 @@ public class CloudService {
 		properties.saveOperator(username);
 		properties.setCloudSyncEnabled(true);
 		properties.saveCollectDBDriver(CollectDBDriver.CLOUD);
+		// The next start offers to send the records this computer already has (CloudRecordsSender)
+		properties.setValue(EarthProperty.CLOUD_OFFER_LOCAL_RECORDS, Boolean.TRUE.toString());
 	}
 
 	/** The login of the prompt at start: the token saved, the operator is the user. @return the operator */

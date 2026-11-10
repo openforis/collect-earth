@@ -42,3 +42,12 @@ export interface CloudStatus {
 }
 
 export const CLOUD_STATUS_POLL_MILLIS = 3000;
+
+/** The result of the sendToCloud job (CloudRecordsSender): how many records the cloud project has now, how many it refused and why */
+export interface CloudSendResult { total: number; sent: number; refused: number; reasons: { reason: string; count: number }[] }
+
+export function cloudSendResultOf(result: unknown): CloudSendResult {
+  const r = (result && typeof result === "object" ? result : {}) as Partial<CloudSendResult>;
+  const n = (v: unknown) => (typeof v === "number" ? v : 0);
+  return { total: n(r.total), sent: n(r.sent), refused: n(r.refused), reasons: Array.isArray(r.reasons) ? r.reasons : [] };
+}

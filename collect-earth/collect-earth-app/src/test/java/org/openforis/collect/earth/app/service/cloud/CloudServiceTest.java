@@ -80,6 +80,8 @@ public class CloudServiceTest {
 		verify(properties).saveOperator("maria");
 		verify(properties).setCloudSyncEnabled(true);
 		verify(properties).saveCollectDBDriver(CollectDBDriver.CLOUD);
+		// the next start offers to send the records this computer has (CloudRecordsSender)
+		verify(properties).setValue(org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty.CLOUD_OFFER_LOCAL_RECORDS, "true");
 	}
 
 	@Test

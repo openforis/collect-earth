@@ -11,9 +11,9 @@ describe("app bar", () => {
   it("shows every entry that does nothing yet as coming soon", () => {
     const items = appMenus({ plotsMap: false, surveyGuide: true }).flatMap((m) => m.items);
     // Every entry of the Swing menu bar is built now: nothing is coming soon. One disabled with a reason (the cloud
-    // sync status of a local project) is not coming soon either: it says why instead
+    // sync status of a local project, sending records outside a cloud project) is not coming soon either: it says why instead
     expect(items.filter((i) => comingSoon(i) && !i.disabledReason).map((i) => i.id)).toEqual([]);
-    expect(items.filter((i) => i.disabledReason).map((i) => i.id)).toEqual(["cloudStatus"]);
+    expect(items.filter((i) => i.disabledReason).map((i) => i.id)).toEqual(["cloudStatus", "sendToCloud"]);
     expect(items.filter((i) => !comingSoon(i)).map((i) => i.id)).toEqual([
       "importCep", "joinCloud", "language", "quit", "export", "import",
       "analyse", "lulucf", "loadKml", "dataFolder", "myDashboard", "openPlotsMap", "missingPlots", "divideCsv", "deletePlots", "properties",
