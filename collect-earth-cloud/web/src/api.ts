@@ -1264,6 +1264,37 @@ export async function uploadCep(projectId: string, file: Blob, onProgress?: Prog
   return toRoundInfo(body?.round);
 }
 
+/** A Collect Earth backup's records against the project (POST .../records/import/preview): nothing stored. */
+export interface CollectImportPreview {
+  records: number;
+  submitted: number;
+  drafts: number;
+  newRecords: number;
+  /** In the project already, newer there: left as they are. */
+  newerThere: number;
+  /** In the project already, older there: replaced. */
+  olderThere: number;
+  /** Who collected them: the name Collect Earth wrote, the username they are kept under, whether a member. */
+  operators: { name: string; username: string; records: number; member: boolean }[];
+  /** Up to 20 files that could not be read, and how many in all. */
+  problems: string[];
+  problemCount: number;
+}
+
+export interface CollectImportResult extends CollectImportPreview {
+  stored: number;
+  kept: number;
+}
+
+/** `query`: collectImportQuery, the accounts the coordinator named for the operators. */
+export function previewCollectImport(projectId: string, file: Blob, query: string, onProgress?: Progress): Promise<CollectImportPreview> {
+  return upload<CollectImportPreview>("POST", `${p(projectId)}/records/import/preview${query}`, file, "application/zip", onProgress);
+}
+
+export function importCollectData(projectId: string, file: Blob, query: string, onProgress?: Progress): Promise<CollectImportResult> {
+  return upload<CollectImportResult>("POST", `${p(projectId)}/records/import${query}`, file, "application/zip", onProgress);
+}
+
 /** What the server did about round in the current project file; null before any upload. */
 export async function getRoundInfo(projectId: string): Promise<RoundInfo | null> {
   return toRoundInfo(await request<unknown>("GET", `${p(projectId)}/round`));

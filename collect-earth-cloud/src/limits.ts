@@ -23,12 +23,13 @@ export async function storageSummary(
  * is not counted twice. Returns the 413 body when it would go over, else null.
  *
  * Collectors' record uploads never come through here: field data is never
- * refused because of the limit; the overview warns instead.
+ * refused because of the limit; the overview warns instead. A coordinator's import
+ * of a Collect Earth backup (`records`) does: it replaces nothing.
  */
 export async function checkUploadFits(
   store: Store,
   projectId: string,
-  upload: { kind: 'cep' } | { kind: 'csv'; filename: string },
+  upload: { kind: 'cep' } | { kind: 'csv'; filename: string } | { kind: 'records' },
   newBytes: number,
 ): Promise<{ error: 'storage_limit_reached'; usedBytes: number; limitBytes: number } | null> {
   const limitBytes = storageLimitBytes(await store.getSettings());
@@ -37,7 +38,7 @@ export async function checkUploadFits(
   }
   const storage = await store.getProjectStorage(projectId);
   const usedBytes = totalStorageBytes(storage);
-  const replaced = upload.kind === 'cep' ? storage.cepBytes : storage.csvBytesByFilename[upload.filename] ?? 0;
+  const replaced = upload.kind === 'cep' ? storage.cepBytes : upload.kind === 'csv' ? (storage.csvBytesByFilename[upload.filename] ?? 0) : 0;
   if (usedBytes - replaced + newBytes > limitBytes) {
     return { error: 'storage_limit_reached', usedBytes, limitBytes };
   }

@@ -426,7 +426,7 @@ function unescapeProperty(value: string): string {
 /** One node of fast-xml-parser's preserveOrder output: { tag: children, ':@': attributes }. */
 export type XmlNode = Record<string, unknown>;
 
-const parser = new XMLParser({
+export const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
   preserveOrder: true,
