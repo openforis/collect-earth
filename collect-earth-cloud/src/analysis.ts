@@ -291,10 +291,13 @@ function cell(c: AnalysisColumn, raw: string | undefined): string {
     case 'real':
       return Number.isFinite(Number(raw)) && raw.trim() !== '' ? raw.trim() : '';
     case 'date': {
-      // Collect writes dd/MM/yyyy in summaries; ISO dates kept as they are
+      // Collect Earth writes MM/dd/yyyy in summaries (DateAttributeHandler); ISO dates kept as they are. A day that
+      // does not exist is empty: one such value in a DATE column failed the whole table in the browser
       const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(raw.trim());
-      if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-      return /^\d{4}-\d{2}-\d{2}/.test(raw.trim()) ? raw.trim().slice(0, 10) : '';
+      const iso = m ? `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}` : raw.trim().slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
+      const day = new Date(`${iso}T00:00:00Z`);
+      return !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === iso ? iso : '';
     }
     default:
       return raw;

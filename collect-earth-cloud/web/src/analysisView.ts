@@ -341,8 +341,12 @@ export function withSavedView(views: readonly SavedView[], view: SavedView): Sav
   return [...views.filter((v) => !(v.name === view.name && v.table === view.table)), view].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** How the columns are typed in DuckDB, for read_csv (the server says each one's type: nothing is guessed). */
+/**
+ * How the columns are typed in DuckDB, for read_csv (the server says each one's type: nothing is guessed). A row with
+ * a value that does not fit its type (a date saved as 2025-23-09) is skipped (ignore_errors): without it one bad
+ * record failed the whole table and with it the page.
+ */
 export function readCsvSql(name: string, file: string, columns: readonly [string, string][]): string {
   const types = columns.map(([n, ty]) => `${quoteString(n)}: ${quoteString(ty)}`).join(", ");
-  return `CREATE OR REPLACE TABLE ${quoteIdent(name)} AS SELECT * FROM read_csv(${quoteString(file)}, header = true, auto_detect = false, delim = ',', quote = '"', escape = '"', columns = {${types}})`;
+  return `CREATE OR REPLACE TABLE ${quoteIdent(name)} AS SELECT * FROM read_csv(${quoteString(file)}, header = true, auto_detect = false, delim = ',', quote = '"', escape = '"', ignore_errors = true, columns = {${types}})`;
 }

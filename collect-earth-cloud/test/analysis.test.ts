@@ -96,21 +96,22 @@ describe('the tables, from the records\' summaries', () => {
             collect_boolean_land_use_assessment_confidence: 'true',
             collect_code_land_use_subdivision: 'broadleaf_dec::with a qualifier',
             collect_text_province: 'Sofala, "north"',
+            collect_date_actively_saved_on: '09/25/2025',
             'collect_entity_land_cover[trees].code_coverage': '13',
             'collect_entity_land_cover[trees].integer_percentage': '24',
             'collect_entity_land_cover[grass].code_coverage': '',
             'collect_entity_land_cover[water_body].integer_percentage': '4',
           },
         }),
-        record({ recordKey: '2,1', plot: '2', operator: 'bo', submitted: false, summary: { collect_integer_forest_percentage: 'n/a', collect_boolean_land_use_assessment_confidence: 'maybe' } }),
+        record({ recordKey: '2,1', plot: '2', operator: 'bo', submitted: false, summary: { collect_integer_forest_percentage: 'n/a', collect_boolean_land_use_assessment_confidence: 'maybe', collect_date_actively_saved_on: '25/09/2025' } }),
       ],
       null,
     );
     expect(tables.map((t) => [t.name, t.rows])).toEqual([['plot', 2], ['land_cover', 2], ['land_use', 0], ['_lists', expect.any(Number)]]);
     const plots = rowsOf(tables[0].csv);
-    expect(plots[0]).toMatchObject({ _record: '1,1', _plot: '1', _round: '1', _assessment: 'main', _operator: 'ana', _submitted: 'true', _saved_on: '2026-11-05', land_use_category: 'F', forest_percentage: '45', land_use_assessment_confidence: 'true', land_use_subdivision: 'broadleaf_dec', province: 'Sofala, "north"' });
-    // a number that is no number, a boolean that is no boolean: empty, never a wrong value
-    expect(plots[1]).toMatchObject({ _submitted: 'false', forest_percentage: '', land_use_assessment_confidence: '' });
+    expect(plots[0]).toMatchObject({ _record: '1,1', _plot: '1', _round: '1', _assessment: 'main', _operator: 'ana', _submitted: 'true', _saved_on: '2026-11-05', land_use_category: 'F', forest_percentage: '45', land_use_assessment_confidence: 'true', land_use_subdivision: 'broadleaf_dec', province: 'Sofala, "north"', actively_saved_on: '2025-09-25' });
+    // a number that is no number, a boolean that is no boolean, a date that is no day (month 25): empty, never a wrong value
+    expect(plots[1]).toMatchObject({ _submitted: 'false', forest_percentage: '', land_use_assessment_confidence: '', actively_saved_on: '' });
     // the declared types, which the browser reads the CSV with
     expect(Object.fromEntries(tables[0].columns)).toMatchObject({ _saved_on: 'DATE', forest_percentage: 'BIGINT', land_use_assessment_confidence: 'BOOLEAN', land_use_category: 'VARCHAR' });
     // the entity with only a blank answer is left out
