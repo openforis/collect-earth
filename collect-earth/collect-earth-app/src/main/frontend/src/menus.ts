@@ -76,16 +76,19 @@ function allMenus(app: MenuContext): Menu[] {
       local(app.cloud, item("lulucf", "CollectEarthWindow.72")),
       item("loadKml", "CollectEarthWindow.54"),
       item("dataFolder", "CollectEarthWindow.67"),
-      // Your dashboard, on this computer (docs/plans/2026-11-03-desktop-dashboard.md); a cloud project has the cloud's,
-      // so there the entry is disabled and says why
-      unless(app.cloud, item("myDashboard", "LocalDashboard.menu"), "LocalDashboard.cloudProject"),
+      // Your dashboard: on this computer (docs/plans/2026-11-03-desktop-dashboard.md), or the cloud's page of a cloud
+      // project, which also has what the utilities do there (the state of every plot, dividing the plot files)
+      item("myDashboard", "LocalDashboard.menu"),
       // The plots map is already the page when it is the viewer
       ...(app.plotsMap ? [] : [item("openPlotsMap", "CollectEarthMenu.openPlotsMap")]),
     ] },
     { id: "utilities", label: "CollectEarthMenu.2", items: [
-      local(app.cloud, item("missingPlots", "CollectEarthWindow.18")),
-      item("divideCsv", "CollectEarthMenu.3"),
-      item("deletePlots", "CollectEarthMenu.10"),
+      // In a cloud project the dashboard does these for the whole team: here they would see only this computer's records,
+      // and a plot file divided here would go nowhere (the server gives each collector their share)
+      unless(app.cloud, item("missingPlots", "CollectEarthWindow.18"), "CollectEarthMenu.missingPlotsCloud"),
+      unless(app.cloud, item("divideCsv", "CollectEarthMenu.3"), "CollectEarthMenu.divideCsvCloud"),
+      // The server keeps each collector's records apart: a deletion reaches only your own, here and there
+      app.cloud ? { ...item("deletePlots", "CollectEarthMenu.10"), note: "CollectEarthMenu.ownRecordsOnly" } : item("deletePlots", "CollectEarthMenu.10"),
     ] },
     { id: "settings", label: "CollectEarthWindow.15", items: [item("properties", "CollectEarthWindow.15")] },
     { id: "help", label: "CollectEarthWindow.16", items: [

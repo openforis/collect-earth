@@ -112,4 +112,11 @@ public class ActionsControllerTest {
 		assertEquals(null, ActionsController.analysisUrl(true, "https://ce.example.org", "", null));
 		assertEquals(null, ActionsController.analysisUrl(true, " ", "p1", null));
 	}
+
+	@Test
+	public void aCloudProjectsDashboardIsItsPageOnTheCloud() {
+		assertEquals("https://ce.example.org/projects/p%201", ActionsController.cloudPageUrl("https://ce.example.org/", " p 1 ", ""));
+		assertEquals("https://ce.example.org/projects/p1/analysis", ActionsController.cloudPageUrl("https://ce.example.org", "p1", "analysis"));
+		assertEquals(null, ActionsController.cloudPageUrl("https://ce.example.org", " ", ""));
+	}
 }

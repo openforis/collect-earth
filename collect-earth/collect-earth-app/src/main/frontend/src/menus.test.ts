@@ -66,19 +66,27 @@ describe("cloud and local projects", () => {
   });
 
   it("says that what reads the database reads only this computer's records in a cloud project", () => {
-    for (const id of ["export", "lulucf", "missingPlots"]) {
+    for (const id of ["export", "lulucf"]) {
       expect(entry(true, id)).toMatchObject({ enabled: true, note: "CollectEarthMenu.thisComputerOnly" });
       expect(entry(false, id)?.note).toBeUndefined();
     }
   });
+
+  it("leaves to the dashboard the utilities it does for the whole team, and deletes only your own records", () => {
+    expect(entry(true, "missingPlots")).toMatchObject({ enabled: false, disabledReason: "CollectEarthMenu.missingPlotsCloud" });
+    expect(entry(true, "divideCsv")).toMatchObject({ enabled: false, disabledReason: "CollectEarthMenu.divideCsvCloud" });
+    expect(entry(true, "deletePlots")).toMatchObject({ enabled: true, note: "CollectEarthMenu.ownRecordsOnly" });
+    for (const id of ["missingPlots", "divideCsv", "deletePlots"]) expect(entry(false, id)).toEqual(expect.objectContaining({ enabled: true }));
+    expect(entry(false, "deletePlots")?.note).toBeUndefined();
+  });
 });
 
 describe("my dashboard", () => {
-  it("is in the Tools menu when working alone; in a cloud project, which has the cloud's, disabled with the reason", () => {
+  it("is in the Tools menu, enabled: this computer's dashboard, or the cloud's page of a cloud project", () => {
     const tools = (cloud: boolean) => appMenus({ plotsMap: true, cloud }).find((m) => m.id === "tools")?.items.map((i) => i.id);
     const mine = (cloud: boolean) => appMenus({ plotsMap: true, cloud }).flatMap((m) => m.items).find((i) => i.id === "myDashboard");
     expect(mine(false)).toEqual({ id: "myDashboard", label: "LocalDashboard.menu", enabled: true });
-    expect(mine(true)).toEqual({ id: "myDashboard", label: "LocalDashboard.menu", enabled: false, disabledReason: "LocalDashboard.cloudProject" });
+    expect(mine(true)).toEqual({ id: "myDashboard", label: "LocalDashboard.menu", enabled: true });
     // Analyse the data: first, for a local project and a cloud one (the cloud's page)
     expect(tools(false)?.[0]).toBe("analyse");
     expect(tools(true)?.[0]).toBe("analyse");
@@ -116,7 +124,7 @@ describe("the drawer of the compact bar", () => {
   it("keeps the filtering of a client and of a cloud project", () => {
     expect(ids(drawerSections(appMenus({ plotsMap: false, client: true })))).toEqual(["project", "tools", "settings", "help"]);
     const entries = drawerSections(appMenus({ plotsMap: true, cloud: true })).sections.flatMap((m) => m.items);
-    expect(entries.find((i) => i.id === "myDashboard")).toMatchObject({ enabled: false, disabledReason: "LocalDashboard.cloudProject" });
+    expect(entries.find((i) => i.id === "divideCsv")).toMatchObject({ enabled: false, disabledReason: "CollectEarthMenu.divideCsvCloud" });
   });
 
   it("shows Settings, a menu of one entry of the same name, as that entry alone", () => {

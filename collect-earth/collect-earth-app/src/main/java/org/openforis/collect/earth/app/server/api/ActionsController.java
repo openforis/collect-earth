@@ -62,20 +62,30 @@ public class ActionsController {
 	 */
 	static String analysisUrl(boolean cloud, String cloudBaseUrl, String cloudProjectId, String localSignInUrl) {
 		if (cloud) {
-			if (cloudBaseUrl == null || cloudBaseUrl.trim().isEmpty() || cloudProjectId == null || cloudProjectId.trim().isEmpty()) {
-				return null;
-			}
-			String base = cloudBaseUrl.trim().replaceAll("/+$", ""); //$NON-NLS-1$ //$NON-NLS-2$
-			try {
-				return base + "/projects/" + java.net.URLEncoder.encode(cloudProjectId.trim(), "UTF-8").replace("+", "%20") + "/" + ANALYSIS_PAGE; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
-			} catch (java.io.UnsupportedEncodingException e) {
-				throw new IllegalStateException(e);
-			}
+			return cloudPageUrl(cloudBaseUrl, cloudProjectId, ANALYSIS_PAGE);
 		}
 		if (localSignInUrl == null) {
 			return null;
 		}
 		return localSignInUrl + (localSignInUrl.contains("?") ? "&" : "?") + "to=" + ANALYSIS_PAGE; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+	}
+
+	/**
+	 * A page of the cloud dashboard for the project (the browser signs in there as on any visit): {@code page} after
+	 * the project's address, or its own page when empty (the dashboard of a coordinator, links to their work for the
+	 * others). Null when the project has no cloud server or project.
+	 */
+	static String cloudPageUrl(String cloudBaseUrl, String cloudProjectId, String page) {
+		if (cloudBaseUrl == null || cloudBaseUrl.trim().isEmpty() || cloudProjectId == null || cloudProjectId.trim().isEmpty()) {
+			return null;
+		}
+		String base = cloudBaseUrl.trim().replaceAll("/+$", ""); //$NON-NLS-1$ //$NON-NLS-2$
+		try {
+			String project = base + "/projects/" + java.net.URLEncoder.encode(cloudProjectId.trim(), "UTF-8").replace("+", "%20"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			return page == null || page.isEmpty() ? project : project + "/" + page; //$NON-NLS-1$
+		} catch (java.io.UnsupportedEncodingException e) {
+			throw new IllegalStateException(e);
+		}
 	}
 
 	/** Tools > Analyse the data: the analysis page in the default browser, the cloud's for a cloud project. */
@@ -120,6 +130,22 @@ public class ActionsController {
 	 * signed in by a new one-time link. While it cannot be opened (getting ready, failed, not installed, a cloud
 	 * project), the page is told why.
 	 */
+	static void openDashboard(LocalDashboardService dashboard, LocalPropertiesService properties, CloudApiClient cloud) {
+		if (!properties.isCloudSyncEnabled()) {
+			openDashboard(dashboard);
+			return;
+		}
+		// A cloud project has no local dashboard: its own is the cloud's page of the project
+		CloudApiClient.Destination destination = cloud.cloudDestination();
+		String url = cloudPageUrl(destination.getBaseUrl(), destination.getProjectId(), "");
+		if (url == null) {
+			throw new ApiException("analysis.noCloudProject", Messages.getString("CollectEarthMenu.analyseNoCloud")); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		if (!CollectEarthUtils.openUrl(URI.create(url))) {
+			throw new IllegalStateException("The browser could not open the dashboard");
+		}
+	}
+
 	static void openDashboard(LocalDashboardService dashboard) {
 		String url;
 		try {
@@ -147,7 +173,7 @@ public class ActionsController {
 			EarthSurveyService surveys, LocalDashboardService dashboard, LocalPropertiesService properties, CloudApiClient cloud) {
 		Map<String, Runnable> actions = new LinkedHashMap<>();
 		actions.put("quit", quit);
-		actions.put("openDashboard", () -> openDashboard(dashboard));
+		actions.put("openDashboard", () -> openDashboard(dashboard, properties, cloud));
 		actions.put("openAnalysis", () -> openAnalysis(dashboard, properties, cloud));
 		// The Help menu's files and pages (CollectEarthMenu.getHelpMenu)
 		actions.put("openSurveyGuide", () -> {
