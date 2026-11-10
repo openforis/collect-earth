@@ -151,8 +151,8 @@ export function submitOnKey(e: KeyPress, submit: () => void): boolean {
 }
 
 /**
- * What a key pressed on an answer of a choice question does, the question being one Tab stop (roving tabindex): the
- * arrows, Home and End move the focus from answer `current` of `count`, and 1 to 9 pick the n-th answer. Enter and Space
+ * What a key pressed on an answer of a choice question does, the question being one Tab stop (roving tabindex): Left,
+ * Right, Home and End move the focus from answer `current` of `count`, and 1 to 9 pick the n-th answer. Enter and Space
  * are the answer's own, as on any button. Null for any other key, one with a modifier (Alt+arrows change the step), and
  * a number held down or past the last answer.
  */
@@ -160,10 +160,9 @@ export function choiceKey(e: Pick<KeyPress, "key" | "ctrlKey" | "metaKey" | "alt
   count: number): { focus: number } | { pick: number } | null {
   if (e.ctrlKey || e.metaKey || e.altKey || count <= 0) return null;
   switch (e.key) {
-    case "ArrowRight":
-    case "ArrowDown": return { focus: (current + 1) % count };
-    case "ArrowLeft":
-    case "ArrowUp": return { focus: (current - 1 + count) % count };
+    // Up and Down are the form's: to the question before or after (see questionKey)
+    case "ArrowRight": return { focus: (current + 1) % count };
+    case "ArrowLeft": return { focus: (current - 1 + count) % count };
     case "Home": return { focus: 0 };
     case "End": return { focus: count - 1 };
     default: {
@@ -172,6 +171,22 @@ export function choiceKey(e: Pick<KeyPress, "key" | "ctrlKey" | "metaKey" | "alt
       return n < count ? { pick: n } : null;
     }
   }
+}
+
+/**
+ * Up or Down pressed in the form: to the question before or after it ("previous", "next"), wherever the keys are not the
+ * control's own. They are a list's (its search box, open or not), a text of several lines', and a date's or a time's,
+ * which step their value with them. Not with a modifier (Alt+arrows change the step), nor once a control took the key.
+ */
+export function questionKey(e: KeyPress & { defaultPrevented?: boolean }): "previous" | "next" | null {
+  if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.defaultPrevented) return null;
+  if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return null;
+  const target = e.target as { tagName?: string; type?: string; getAttribute?: (name: string) => string | null } | null;
+  const tag = target?.tagName?.toLowerCase();
+  if (tag === "textarea" || tag === "select") return null;
+  if (target?.getAttribute?.("role") === "combobox" || target?.getAttribute?.("aria-expanded") === "true") return null;
+  if (tag === "input" && ["date", "time", "datetime-local", "month", "week", "number", "range"].includes(target?.type ?? "")) return null;
+  return e.key === "ArrowUp" ? "previous" : "next";
 }
 
 /** The keys that move the focus from control to control: Tab, and the arrows, Home and End among the answers */

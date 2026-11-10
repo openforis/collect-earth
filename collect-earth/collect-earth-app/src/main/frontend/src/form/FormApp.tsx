@@ -34,9 +34,9 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import SendIcon from "@mui/icons-material/Send";
 import { type MessageKey, type Translate, useT } from "../i18n";
-import { escapeBlurs, isCopyKey, isTyping, mayAdvance, mayTakeFocus, panelKey, submitOnKey } from "../shortcuts";
+import { escapeBlurs, isCopyKey, isTyping, mayAdvance, mayTakeFocus, panelKey, questionKey, submitOnKey } from "../shortcuts";
 import logo from "@shared/collect-earth-logo.png";
-import { AnsweredByKey, Copied, FieldView, errorText } from "./fields";
+import { AnsweredByClick, AnsweredByKey, Copied, FieldView, errorText } from "./fields";
 import {
   type Field, type FocusTarget, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type Step,
   type TableItem, type TableTotal, type TotalRule, advanceTarget, answeredWithKeys, answersToCopy, availableItems, columnFillTargets, columnTotal,
@@ -141,8 +141,9 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
   const focusOwn = useCallback((control: HTMLElement | null) => {
     if (!control) return;
     ownFocus.current = control;
-    control.focus();
+    control.focus({ preventScroll: true });
     ownFocus.current = null;
+    bringIntoView(content.current, control);
   }, []);
 
   // A change of step the user made makes a move of the focus on its way stale; one the move made itself does not
@@ -324,6 +325,56 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     });
   }, [store, t, stepsNow, controlOf, focusTarget, dropMove, pressHeld, announce]);
 
+  // A single choice answered with the mouse: once the server said what is shown now (an answer may show the question that
+  // depends on it), the next question of the step still unanswered comes into view, with the keyboard on it, so the
+  // next answer needs no scrolling. Nothing when every question after it is answered (a plot looked at again does not
+  // jump), nor when the user clicked, or moved to another question, meanwhile.
+  const clicks = useRef(0);
+  useEffect(() => {
+    const onPointer = () => { clicks.current++; };
+    window.addEventListener("pointerdown", onPointer, true);
+    return () => window.removeEventListener("pointerdown", onPointer, true);
+  }, []);
+  const answeredByClick = useCallback((name: string) => {
+    const ticket = ++clicks.current;
+    const tabNow = store.getState().tab;
+    void within(store.whenSaved(), ADVANCE_WAIT).then(() => afterRender(() => {
+      if (clicks.current !== ticket || store.getState().tab !== tabNow || !document.hasFocus()) return;
+      const on = document.activeElement?.closest?.("[data-field]")?.getAttribute("data-field");
+      if (on != null && on !== name) return;
+      const boxes = questionBoxes(content.current, true);
+      const at = boxes.findIndex((b) => b.getAttribute("data-field") === name);
+      const next = boxes.slice(at + 1).find((b) => store.value(b.getAttribute("data-field") ?? "").trim() === "");
+      if (next) focusOwn(controlOf(next.getAttribute("data-field")));
+    }));
+  }, [store, controlOf, focusOwn]);
+
+  // Up and Down: to the question before or after, its answer chosen if it has one (see questionKey for where the keys
+  // are the control's own). Down past the last question goes to the step button. Not in a table, whose cells Tab goes
+  // through.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const way = questionKey(e);
+      if (!way) return;
+      const target = e.target as Element;
+      if (target !== document.body && !content.current?.contains(target)) return;
+      if (target.closest?.("table")) return;
+      const boxes = questionBoxes(content.current, false);
+      const box = target.closest?.("[data-field]");
+      const at = box ? boxes.indexOf(box as HTMLElement) : -1;
+      if (box && at < 0) return;
+      const to = way === "next" ? at + 1 : at < 0 ? -1 : at - 1;
+      if (to < 0) return;
+      e.preventDefault();
+      const control = to < boxes.length ? controlOf(boxes[to].getAttribute("data-field")) : controlOf(null);
+      if (!control) return;
+      control.focus({ preventScroll: true });
+      bringIntoView(content.current, control);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [controlOf]);
+
   // Ctrl+Enter submits, before the focused chip or button sees it (see submitOnKey)
   useEffect(() => {
     const onSubmitKey = (e: KeyboardEvent) => { submitOnKey(e, () => void store.submit()); };
@@ -488,9 +539,11 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
             </Box>
           )}
           <AnsweredByKey.Provider value={answeredByKey}>
-            <Copied.Provider value={copied}>
-              <TabContent store={store} state={state} items={tab.items} />
-            </Copied.Provider>
+            <AnsweredByClick.Provider value={answeredByClick}>
+              <Copied.Provider value={copied}>
+                <TabContent store={store} state={state} items={tab.items} />
+              </Copied.Provider>
+            </AnsweredByClick.Provider>
           </AnsweredByKey.Provider>
         </Stack>
       </Box>
@@ -529,6 +582,31 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
       </Stack>
     </Stack>
   );
+}
+
+/**
+ * The boxes of the questions shown that can be answered (read-only ones have no control), in the order of the page;
+ * `withTables`: also the cells of the tables.
+ */
+function questionBoxes(content: HTMLElement | null, withTables: boolean): HTMLElement[] {
+  return [...(content?.querySelectorAll<HTMLElement>("[data-field]") ?? [])]
+    .filter((box) => box.querySelector(CONTROL) && (withTables || !box.closest("table")));
+}
+
+/**
+ * The question of `control` well in view in the scrolling `content`: left alone when it already is, else scrolled to a
+ * fifth of the way down, where the eyes are, with the question before it still in sight. Smoothly, unless the user asked
+ * for less motion. A control out of the questions (a step button) is always in view.
+ */
+function bringIntoView(content: HTMLElement | null, control: HTMLElement): void {
+  const box = control.closest<HTMLElement>("[data-field]") ?? control;
+  if (!content || !content.contains(box)) return;
+  const view = content.getBoundingClientRect();
+  const at = box.getBoundingClientRect();
+  const inView = at.top >= view.top + 8 && at.bottom <= view.top + view.height * 0.85;
+  if (inView) return;
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  content.scrollTo({ top: content.scrollTop + at.top - view.top - view.height * 0.2, behavior: reduced ? "auto" : "smooth" });
 }
 
 /** Nothing has the focus, in the plots map around the form or in the form: neither the plot search nor a question. */
