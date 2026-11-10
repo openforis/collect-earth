@@ -157,6 +157,10 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
       return t(d.excluded === false ? "activity.audit.included" : "activity.audit.excluded", { actor, person: personOf(t, page, d.userId) });
     case "cep.replaced":
       return t("activity.audit.cep", { actor });
+    case "project.imported":
+      return typeof d.ceoProjectId === "number"
+        ? t("activity.audit.ceoImported", { actor, id: String(d.ceoProjectId) })
+        : t("activity.audit.ceoImportedPlain", { actor });
     case "survey.replaced":
       return t("activity.audit.survey", { actor });
     case "csv.uploaded":

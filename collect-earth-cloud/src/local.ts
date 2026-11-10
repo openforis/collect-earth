@@ -70,6 +70,8 @@ export const LOCAL_OFF_ROUTES: readonly string[] = [
   'POST /v1/admin/users/:uid/password-reset',
   // One project, the desktop's.
   'POST /v1/projects',
+  'POST /v1/projects/from-ceo/preview',
+  'POST /v1/projects/from-ceo',
   'DELETE /v1/projects/:pid',
   'PUT /v1/projects/:pid/status',
   'POST /v1/projects/:pid/copy',

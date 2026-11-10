@@ -193,6 +193,33 @@ Every check is an error, as CEO's rules block saving.
 
 ### B4. The project file and the page
 
+**Done for the survey (10 Nov 2026)**, with B5; the plots wait for B3 (CEO's plot files need an admin's download).
+What was built, and where it differs from the plan below:
+
+- `src/ceo/projectFile.ts` makes the `.cep`: `placemark.idm.xml`, `project_definition.properties` (CIRCLE or
+  SQUARE from CEO's plot shape, EPSG:4326, `open_gee_app` from `showGEEScript`), `ceo_import_report.txt`, and **a stub
+  `balloon.html` and `kml_template.fmt`** after all. Owner decision 2 still holds (nothing is shown in Google Earth
+  Pro), but two readers need them: the cloud's upload path (`addRound`, `addNote` look for the balloon's
+  `<!-- START OF EXTRA CSV DATA -->` marker and `EXTRA_ID_ATTRIBUTES`, and the template's marker line; without them
+  the project has no `round` key and its quality checks cannot be told apart), and Collect Earth itself
+  (`KmlGeneratorService` makes the KML at every start from the template and balloon, and copies `earthFiles/`). The
+  balloon only says the form is in the plots map and Google Earth Web; the template is the demo's
+  (`src/ceo/kmlTemplate.ts`) with the `EXTRA_` data of elevation, slope, aspect and the plot file's columns.
+- `PUT /cep`'s work was moved into `acceptCep` (`src/routes/platform.ts`), which both routes call: the import's file
+  takes the same path as any uploaded one (size limit, round, note, survey checks). Checked: the round is `added` for
+  every importable fixture.
+- `src/routes/ceoImport.ts`: `POST /v1/projects/from-ceo/preview` (any signed-in account; nothing stored) and
+  `POST /v1/projects/from-ceo` (`{ceoProject, name?}`; the rules of `POST /v1/projects`). The caller becomes its
+  coordinator; a refused project file deletes the project again. Off in local mode.
+- The dashboard: "From Collect Earth Online" beside "New project" (`web/src/pages/CeoImportDialog.tsx`). One file
+  for now, the saved JSON; the CEO project number gives a link to `get-project-by-id` to save it from (signed in to
+  CEO for a private project). Then the report, the name (CEO's), and Create, which opens the new project on its
+  getting-started checklist, whose next step is the plots: a plot file, or the plot design.
+- Not yet: the plot file (B3), CEO's `plotSize`, the answers-per-plot choice (one answer per plot is the only
+  translation so far), the imagery suggestion.
+
+The plan as written:
+
 - The `.cep` is made with `zipCep` of `src/cep.ts`: `placemark.idm.xml`, `project_definition.properties` and the
   plot file. No `balloon.html` or `kml_template.fmt`: the plots map and Google Earth Web build the form from the
   survey, and Google Earth Pro is no longer used (owner, 9 Nov 2026).
@@ -206,6 +233,13 @@ Every check is an error, as CEO's rules block saving.
   Earth's nearest source (Planet monthly: Planet; Sentinel-2 or Landsat: Earth Engine and Earth Map).
 
 ### B5. The report
+
+**Done (10 Nov 2026).** `src/ceo/report.ts`, shown in the dialog before Create: the counts, then only what changed,
+was left out, or is a note ("Show everything" lists every question and rule). The details are the server's, in
+English; the dialog's own words are in the four languages. Kept with the project twice: `ceo_import_report.txt` in
+its project file, and a `project.imported` entry in its log (`{source: 'ceo', ceoProjectId, questions,
+questionsChanged, questionsSkipped, rules, rulesSkipped}`, migrations 012 and 015), shown as "… made this project
+from Collect Earth Online project N" under the project files.
 
 As CEO's importer does (`report.clj`): each question, rule and setting with what became of it: imported, imported
 with a change (said), or left out (why). Shown before "Create", and kept with the project (its log).

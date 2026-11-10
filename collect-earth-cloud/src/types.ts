@@ -845,6 +845,7 @@ export const AUDIT_ACTIONS = [
   'training.changed',
   'training.synced',
   'member.excluded',
+  'project.imported',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
