@@ -47,7 +47,6 @@ public class SettingsServiceTest {
 		stored.put("inner_point_side", "2");
 		stored.put("db_driver", "SQLITE");
 		stored.put("use_browser", "firefox");
-		stored.put("port", "8028");
 		stored.put("csv", "C:/plots.csv");
 		when(properties.getValue(any(EarthProperty.class))).thenAnswer(call -> {
 			String value = stored.get(call.getArgument(0).toString());
@@ -56,20 +55,16 @@ public class SettingsServiceTest {
 		when(properties.getViewerType()).thenReturn("plots_map");
 		when(properties.getWindowLayout()).thenReturn("auto");
 		when(properties.getMapEngine()).thenReturn("leaflet");
-		when(properties.getWebForm()).thenReturn("generated");
 		when(properties.getCollectDBDriver()).thenReturn(CollectDBDriver.SQLITE);
-		// As LocalPropertiesService: the default port when none is stored
-		when(properties.getPort()).thenAnswer(call -> stored.getOrDefault("port", "").isEmpty() ? "8028" : stored.get("port"));
 	}
 
 	@Test
-	public void aNewInstallationShowsItsPortAndAnAutomaticBrowser() {
-		// A new installation stores neither
-		stored.remove("port");
+	public void aNewInstallationShowsAnAutomaticBrowser() {
+		// A new installation stores none
 		stored.remove("use_browser");
 		Map<String, String> current = service.current();
-		// The port the server listens on, not a blank field
-		assertEquals("8028", current.get("port"));
+		// The port is left to earth.properties: the page is served on it, so it could not fix a port in use
+		assertFalse(current.containsKey("port"));
 		// No browser chosen, which the page offers as a choice of its own
 		assertEquals("", current.get("use_browser"));
 		Setting browser = service.getModel().setting("use_browser");
@@ -180,10 +175,11 @@ public class SettingsServiceTest {
 	@Test
 	public void invalidChangesAreRefusedAndNothingIsWritten() {
 		Map<String, String> changes = new HashMap<>();
-		changes.put("port", "99999");
+		changes.put("db_driver", "POSTGRESQL");
+		changes.put("db_port", "99999");
 		changes.put("csv", "D:/other.csv");
 		InvalidSettingsException refused = assertThrows(InvalidSettingsException.class, () -> service.save(changes));
-		assertTrue(refused.getErrors().containsKey("port"));
+		assertTrue(refused.getErrors().containsKey("db_port"));
 		verify(properties, never()).setValues(anyMap());
 		assertEquals(0, reloads.get() + restarts.get());
 	}

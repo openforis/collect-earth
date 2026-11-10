@@ -141,15 +141,18 @@ public class SettingsModelTest {
 		assertFalse(sqlite.contains("db_host"));
 		// Google Earth Pro is no longer a viewer, so its balloon setting is gone and the plots map ones always show
 		assertFalse(sqlite.contains("open_separate_browser_form"));
-		assertTrue(sqlite.containsAll(Arrays.asList("map_engine", "window_layout", "web_form")));
+		assertTrue(sqlite.containsAll(Arrays.asList("map_engine", "window_layout", "planet_maps_key")));
+		// Left to earth.properties: the port, the form, and the Planet switch (the key is the switch)
+		assertFalse(sqlite.contains("port") || sqlite.contains("web_form") || sqlite.contains("open_planet_maps"));
+		assertFalse(sqlite.contains("planet_maps_use_tfo"));
 		List<String> postgres = visibleKeys(values("db_driver", "POSTGRESQL", "viewer_type", "plots_map", "open_gee_app", "true",
-				"open_planet_maps", "true", "planet_maps_use_tfo", "true"));
+				"planet_maps_key", "PLAK123", "planet_maps_use_tfo", "true"));
 		assertFalse(postgres.contains("automatic_backup"));
 		assertTrue(postgres.containsAll(Arrays.asList("db_host", "db_port", "db_name", "db_username", "db_password")));
-		assertTrue(postgres.containsAll(Arrays.asList("map_engine", "window_layout", "web_form", "geeapp_date_from", "geeapp_date_to",
+		assertTrue(postgres.containsAll(Arrays.asList("map_engine", "window_layout", "geeapp_date_from", "geeapp_date_to",
 				"planet_maps_key", "planet_maps_use_tfo", "planet_tfo_date_from", "planet_tfo_date_to")));
 		assertFalse(postgres.contains("open_separate_browser_form"));
-		List<String> cloud = visibleKeys(values("db_driver", "CLOUD", "open_gee_app", "false", "open_planet_maps", "true"));
+		List<String> cloud = visibleKeys(values("db_driver", "CLOUD", "open_gee_app", "false", "planet_maps_key", "PLAK123"));
 		assertTrue(cloud.contains("automatic_backup"));
 		assertFalse(cloud.contains("geeapp_date_from"));
 		assertFalse(cloud.contains("planet_tfo_date_from"));
@@ -165,7 +168,7 @@ public class SettingsModelTest {
 			}
 		}
 		// The survey version too: the KML, the form and the records of the server are made for one version
-		assertEquals(new HashSet<>(Arrays.asList("db_driver", "db_host", "db_port", "db_name", "db_username", "db_password", "port", "use_browser",
+		assertEquals(new HashSet<>(Arrays.asList("db_driver", "db_host", "db_port", "db_name", "db_username", "db_password", "use_browser",
 				"model_version_name")), restart);
 	}
 
