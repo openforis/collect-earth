@@ -140,8 +140,9 @@ public class CloudService {
 				&& request.password.length() < MIN_PASSWORD_LENGTH) {
 			throw new InvalidCloudRequestException("cloud.weakPassword", Messages.getString("CloudLoginDialog.passwordTooShort"));
 		}
+		// Log in with the invitation: someone who has an account (another project's) joins this one with it
 		String token = request.register ? authenticate(() -> api.register(request.baseUrl, username, request.password, request.inviteToken), request)
-				: authenticate(() -> login(request.baseUrl, username, request.password, request.code), request);
+				: authenticate(() -> login(request.baseUrl, username, request.password, request.code, request.inviteToken), request);
 		File cep = api.downloadCep(request.baseUrl, request.projectId, token);
 		try {
 			projects.loadCompressedProjectFile(cep);
@@ -168,7 +169,7 @@ public class CloudService {
 		JoinRequest credentials = new JoinRequest();
 		credentials.username = username;
 		credentials.password = password;
-		String token = authenticate(() -> login(properties.getCloudSyncUrl(), username.trim(), password, code), credentials);
+		String token = authenticate(() -> login(properties.getCloudSyncUrl(), username.trim(), password, code, null), credentials);
 		properties.saveCloudSyncToken(token);
 		properties.saveOperator(username.trim());
 		return username.trim();
@@ -190,11 +191,14 @@ public class CloudService {
 		JoinRequest credentials = new JoinRequest();
 		credentials.username = username;
 		credentials.password = password;
-		return authenticate(() -> login(url.trim(), username.trim(), password, code), credentials);
+		return authenticate(() -> login(url.trim(), username.trim(), password, code, null), credentials);
 	}
 
-	/** The login, with the code only when there is one (the three-argument call otherwise, as before). */
-	private String login(String baseUrl, String username, String password, String code) throws IOException {
+	/** The login, with the code and the invitation only when there are some (the three-argument call otherwise, as before). */
+	private String login(String baseUrl, String username, String password, String code, String inviteToken) throws IOException {
+		if (StringUtils.isNotBlank(inviteToken)) {
+			return api.login(baseUrl, username, password, StringUtils.trimToNull(code), inviteToken);
+		}
 		return StringUtils.isBlank(code) ? api.login(baseUrl, username, password) : api.login(baseUrl, username, password, code);
 	}
 

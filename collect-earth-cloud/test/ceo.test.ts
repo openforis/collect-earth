@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { ceoSurvey, CeoImportError, readCeoProject } from '../src/ceo/index.js';
 import { DEFAULT_SIDE_M, layoutProperties } from '../src/ceo/plots.js';
-import { slug } from '../src/ceo/survey.js';
+import { readableName, slug } from '../src/ceo/survey.js';
 import { plotFileCsv } from '../src/plotDesign.js';
 import { parsePlotFile } from '../src/plots.js';
 import { plotOutline } from '../src/plotShape.js';
@@ -111,10 +111,28 @@ describe('the survey', () => {
       3: q('Cover', { 1: 'a' }),
       4: q('Cover', { 1: 'a' }),
     }));
-    expect(s.plan.attributes.map((a) => a.name)).toEqual(['q_id', 'q_2018_cover', 'cover', 'cover_2']);
+    expect(s.plan.attributes.map((a) => a.name)).toEqual(['q_id', 'q_2018_cover', 'cover', 'cover_b']);
     const withColumns = ceoSurvey(project({ 1: q('Region', { 1: 'a' }) }), { columns: ['region', 'Elevation (m)'] });
     expect(withColumns.plan.columns.map((c) => c.name)).toEqual(['region', 'elevation_m']);
-    expect(withColumns.plan.attributes[0].name).toBe('region_2');
+    expect(withColumns.plan.attributes[0].name).toBe('region_b');
+  });
+
+  it("never ends a name in \"_\" and a number, which Collect Earth's form takes for a repeated value's index", () => {
+    // B6's real run: "Cambios para el periodo 2000-2010" was saved as "cambios_para_el_periodo_2000" and failed
+    const s = ceoSurvey(project({
+      1: q('Cambios para el periodo 2000-2010', { 1: 'a' }),
+      2: q('Stable forest type 2017', { 1: 'a' }),
+      3: q('Cover', { 1: 'a' }),
+      4: q('Cover', { 1: 'a' }),
+    }), { columns: ['plot_2'] });
+    expect(s.plan.attributes.map((a) => a.name)).toEqual(['cambios_para_el_periodo_2000to2010', 'stable_forest_type2017', 'cover', 'cover_b']);
+    expect(s.plan.columns.map((c) => c.name)).toEqual(['plot2']);
+    expect(readableName('a_10_18')).toBe('a_10to18');
+    // every survey written for the fixtures: no name Collect Earth would cut
+    for (const file of readdirSync(FIXTURES).filter((f) => /^project-\d+\.json$/.test(f) && f !== 'project-64113.json')) {
+      const names = [...ceoSurvey(readFileSync(FIXTURES + file, 'utf8')).idml.matchAll(/ name="([a-z0-9_]+)"/g)].map((m) => m[1]);
+      expect(names.filter((n) => /_\d+$/.test(n) && !/^tab_/.test(n)), file).toEqual([]);
+    }
   });
 });
 

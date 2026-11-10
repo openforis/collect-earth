@@ -62,7 +62,8 @@ public class CloudServiceTest {
 	public void joiningLogsInDownloadsLoadsAndSwitchesToCloudMode() throws Exception {
 		File cep = new File(folder, "kenya.cep");
 		java.nio.file.Files.write(cep.toPath(), new byte[] { 1 });
-		when(api.login("https://c.org", "maria", "pw")).thenReturn("session-token");
+		// Log in with the invitation: the account joins its project (a member of another project already)
+		when(api.login("https://c.org", "maria", "pw", null, "tok")).thenReturn("session-token");
 		when(api.downloadCep("https://c.org", "p1", "session-token")).thenReturn(cep);
 		JoinRequest request = new JoinRequest();
 		request.baseUrl = "https://c.org";
@@ -113,7 +114,7 @@ public class CloudServiceTest {
 		verify(api, never()).register(any(), any(), any(), any());
 		// A login is not a new account: a short password there is the server's to judge
 		request.register = false;
-		when(api.login("https://c.org", "maria", "1234567")).thenThrow(new IOException("Invalid credentials"));
+		when(api.login("https://c.org", "maria", "1234567", null, "tok")).thenThrow(new IOException("Invalid credentials"));
 		assertEquals("cloud.login", assertThrows(InvalidCloudRequestException.class, () -> service.join(request)).getCode());
 		// A server with a stricter rule: its weak_password said in the same plain words, not as HTTP 400 and JSON
 		request.register = true;

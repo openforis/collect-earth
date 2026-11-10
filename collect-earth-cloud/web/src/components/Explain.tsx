@@ -1,9 +1,10 @@
 import Box from "@mui/material/Box";
+import ClickAwayListener from "@mui/material/ClickAwayListener";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Typography, { type TypographyProps } from "@mui/material/Typography";
 import InfoOutlined from "@mui/icons-material/InfoOutlined";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode, type SyntheticEvent } from "react";
 import { useT } from "../i18n";
 
 /**
@@ -14,26 +15,40 @@ import { useT } from "../i18n";
 export function MoreInfo({ text, label }: { text: ReactNode; label?: string }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  // A tap ends with a mouseleave, which would close the tip it just opened: after a touch, the tip stays open until a
+  // tap elsewhere (Safari does not focus a tapped button, so blur alone cannot be relied on).
+  const touched = useRef(false);
+  const close = (event: Event | SyntheticEvent) => {
+    if (touched.current && event.type === "mouseleave") return;
+    setOpen(false);
+  };
   return (
     <>
-      <Tooltip
-        title={<Box sx={{ whiteSpace: "pre-line" }}>{text}</Box>}
-        describeChild
-        disableTouchListener
-        open={open}
-        onOpen={() => setOpen(true)}
-        onClose={() => setOpen(false)}
-        slotProps={{ tooltip: { sx: { maxWidth: 380, fontSize: "0.8rem", lineHeight: 1.5, p: 1.25 } } }}
-      >
-        <IconButton
-          size="small"
-          aria-label={label ?? t("common.moreInfo")}
-          onClick={() => setOpen((o) => !o)}
-          sx={{ p: 0.25, ml: 0.25, mt: "-2px", color: "text.secondary", verticalAlign: "middle" }}
+      <ClickAwayListener onClickAway={() => open && setOpen(false)}>
+        <Tooltip
+          title={<Box sx={{ whiteSpace: "pre-line" }}>{text}</Box>}
+          describeChild
+          disableTouchListener
+          open={open}
+          onOpen={() => setOpen(true)}
+          onClose={close}
+          // solid, not MUI's see-through grey: these tips are long and often lie over text
+          slotProps={{
+            tooltip: { sx: { maxWidth: 380, fontSize: "0.8rem", lineHeight: 1.5, p: 1.25, bgcolor: "#262b31", boxShadow: "0 4px 16px rgba(16, 24, 40, 0.18)" } },
+            arrow: { sx: { color: "#262b31" } },
+          }}
         >
-          <InfoOutlined sx={{ fontSize: "1.05rem" }} />
-        </IconButton>
-      </Tooltip>
+          <IconButton
+            size="small"
+            aria-label={label ?? t("common.moreInfo")}
+            onPointerDown={(event) => (touched.current = event.pointerType !== "mouse")}
+            onClick={() => setOpen(true)}
+            sx={{ p: 0.25, ml: 0.25, mt: "-2px", color: "text.secondary", verticalAlign: "middle" }}
+          >
+            <InfoOutlined sx={{ fontSize: "1.05rem" }} />
+          </IconButton>
+        </Tooltip>
+      </ClickAwayListener>
       <Box component="span" className="print-only">
         {" "}
         {text}

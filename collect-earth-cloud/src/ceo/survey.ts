@@ -68,11 +68,28 @@ export function slug(text: string, max: number): string {
     .replace(/_+$/g, '');
 }
 
-/** A name not taken yet: `base`, else `base_2`, `base_3`... (kept within `max`) */
+/**
+ * A field name Collect Earth can read back: none ends in "_" and a number, which its form handling takes for the index
+ * of a repeated value and cuts off (BalloonInputFieldsUtils.removeArraySuffix: "…_2000_2010" was looked for as
+ * "…_2000", and no plot could be saved). A range at the end is joined with "to" ("periodo_2000to2010"), a single number
+ * with its word ("type2017").
+ */
+export function readableName(name: string): string {
+  return name.replace(/_(\d+)_(\d+)$/, '_$1to$2').replace(/_(\d+)$/, '$1');
+}
+
+/** b, c ... z, ba, bb ...: the suffix of the n-th use of a name (2 is b) */
+function letters(n: number): string {
+  let out = '';
+  for (let k = n - 1; k > 0; k = Math.floor(k / 26)) out = String.fromCharCode(97 + (k % 26)) + out;
+  return out;
+}
+
+/** A name not taken yet: `base`, else `base_b`, `base_c`... (kept within `max`; letters, as a number would end it) */
 function unique(base: string, taken: Set<string>, max: number): string {
   let name = base;
   for (let n = 2; taken.has(name); n++) {
-    const suffix = `_${n}`;
+    const suffix = `_${letters(n)}`;
     name = base.slice(0, max - suffix.length).replace(/_+$/g, '') + suffix;
   }
   taken.add(name);
@@ -84,6 +101,7 @@ function attributeName(q: CeoQuestion, taken: Set<string>): string {
   let base = slug(q.questionLabel ?? q.question, MAX_NAME);
   if (base === '') base = `question_${slug(q.id, 10) || 'x'}`;
   if (!/^[a-z]/.test(base)) base = `q_${base}`.slice(0, MAX_NAME).replace(/_+$/g, '');
+  base = readableName(base);
   if (RESERVED_NAMES.has(base)) base = `q_${base}`;
   return unique(base, taken, MAX_NAME);
 }
@@ -141,7 +159,7 @@ export function planSurvey(project: CeoProject, report: Report, options: { colum
   for (const column of options.columns ?? []) {
     let base = slug(column, MAX_NAME) || 'column';
     if (!/^[a-z]/.test(base)) base = `c_${base}`;
-    columns.push({ name: unique(base, taken, MAX_NAME), column });
+    columns.push({ name: unique(readableName(base), taken, MAX_NAME), column });
   }
 
   const attributes: PlannedAttribute[] = [];
