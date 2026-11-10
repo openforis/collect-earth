@@ -1,7 +1,7 @@
 # A bridge from Collect Earth Online to Collect Earth
 
-Date: 9 November 2026. Branch `ce-2026-GEW`. **Status: approved, with the owner's decisions below (9 Nov 2026); not
-started.**
+Date: 9 November 2026. Branch `ce-2026-GEW`. **Status: done (10 Nov 2026): Parts A, B, C and E are built; Part D is
+not planned and Part F is closed (owner, 10 Nov 2026).**
 
 ## Goal
 
@@ -452,12 +452,16 @@ The desktop:
 Not done: `smpl_` columns are still not read (each sample's own columns would be per row now, but no project at hand
 has them); Google Earth Pro's balloon numbers no points.
 
-## Part F: later
+## Part F: closed (owner, 10 Nov 2026)
 
-- Simplified CEO projects (collectors draw their samples): refused for now; they need drawing, which is an idea for
-  later (`2026-11-09-drawing-tools-idea.md`).
-- A live link (projects kept in step between the two): not without a documented CEO API with tokens. Raise it with
-  the CEO team if wanted.
+Neither item is built:
+- **Simplified CEO projects** (collectors draw their samples) stay refused, with the message the import gives
+  ("its collectors draw their own samples, which Collect Earth does not do"). They are 6 of the 628 public projects,
+  and taking them needs drawing on the map, which is an idea not planned (`2026-11-09-drawing-tools-idea.md`); if
+  drawing is ever built, this is where they would come in.
+- **A live link** (projects kept in step between the two tools) is dropped: the bridge is for organisations leaving
+  CEO, not for projects run in both (decision 1), CEO is not asked for an API (decision 4), and it has no documented
+  API with tokens to keep anything in step.
 
 ## Order and size
 
