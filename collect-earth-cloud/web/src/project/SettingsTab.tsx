@@ -166,7 +166,9 @@ function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string
         value={draft.targetPlots}
         onChange={(e) => change("targetPlots")(e.target.value)}
         error={problems.targetPlots !== undefined}
-        helperText={problems.targetPlots ? t(problems.targetPlots) : t(local ? "progressSettings.targetHelpLocal" : "progressSettings.targetHelp")}
+        helperText={
+          problems.targetPlots ? t(problems.targetPlots) : local ? t("progressSettings.targetHelpLocal") : <>{t("progressSettings.targetHelp")}<MoreInfo text={t("progressSettings.targetHelp.more")} /></>
+        }
         slotProps={{ htmlInput: { inputMode: "numeric" } }}
       />
       {/* Who has gone quiet is about a team: working alone, nothing uses it */}
