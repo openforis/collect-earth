@@ -413,6 +413,7 @@ function AddForm({ projectId, view, onDone }: { projectId: string; view: Referen
       </Stack>
       <Typography variant="body2" color="text.secondary" id={`${idBase}-assessor-help`}>
         {t("reference.assessorHelp")}
+        <MoreInfo text={t("reference.assessorHelp.more")} />
       </Typography>
       <FormControl>
         <FormLabel id={`${idBase}-how`}>{t("reference.how")}</FormLabel>
