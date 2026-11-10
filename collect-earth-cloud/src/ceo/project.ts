@@ -61,6 +61,12 @@ export interface CeoProject {
   plotSize: number | null;
   sampleDistribution: string | null;
   samplesPerPlot: number | null;
+  /** metres between gridded samples */
+  sampleResolution: number | null;
+  /** how many plots CEO made */
+  numPlots: number | null;
+  /** the box around the project's boundary: [west, south, east, north], null when not read */
+  bounds: [number, number, number, number] | null;
   allowDrawnSamples: boolean;
   questions: CeoQuestion[];
   rules: CeoRule[];
@@ -148,12 +154,41 @@ export function readCeoProject(json: string): CeoProject {
     plotSize: num(raw.plotSize),
     sampleDistribution: text(raw.sampleDistribution) || null,
     samplesPerPlot: num(raw.samplesPerPlot),
+    sampleResolution: num(raw.sampleResolution),
+    numPlots: num(raw.numPlots),
+    bounds: boundsOf(raw.boundary),
     allowDrawnSamples: raw.allowDrawnSamples === true,
     questions,
     rules,
     options: isObject(raw.projectOptions) ? raw.projectOptions : {},
     designSettings: isObject(raw.designSettings) ? raw.designSettings : {},
   };
+}
+
+/** The box around a GeoJSON geometry (CEO gives the boundary as its text); null when it has no coordinates. */
+function boundsOf(v: unknown): [number, number, number, number] | null {
+  let geometry: unknown = v;
+  if (typeof v === 'string') {
+    try {
+      geometry = JSON.parse(v);
+    } catch {
+      return null;
+    }
+  }
+  const box: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
+  const visit = (c: unknown): void => {
+    if (!Array.isArray(c)) return;
+    if (c.length >= 2 && typeof c[0] === 'number' && typeof c[1] === 'number') {
+      box[0] = Math.min(box[0], c[0]);
+      box[1] = Math.min(box[1], c[1]);
+      box[2] = Math.max(box[2], c[0]);
+      box[3] = Math.max(box[3], c[1]);
+      return;
+    }
+    for (const x of c) visit(x);
+  };
+  if (isObject(geometry)) visit(geometry.coordinates);
+  return Number.isFinite(box[0]) ? box : null;
 }
 
 function readRule(r: Record<string, unknown>): CeoRule {

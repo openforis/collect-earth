@@ -6,7 +6,11 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { ceoSurvey, CeoImportError, readCeoProject } from '../src/ceo/index.js';
+import { DEFAULT_SIDE_M, layoutProperties } from '../src/ceo/plots.js';
 import { slug } from '../src/ceo/survey.js';
+import { plotFileCsv } from '../src/plotDesign.js';
+import { parsePlotFile } from '../src/plots.js';
+import { plotOutline } from '../src/plotShape.js';
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/ceo/', import.meta.url));
 const IDML_DIR = fileURLToPath(new URL('../../collect-earth/collect-earth-app/src/test/resources/ceo/', import.meta.url));
@@ -205,5 +209,79 @@ describe('the written survey', () => {
       if (process.env.UPDATE_CEO_IDML === '1' || !existsSync(path)) writeFileSync(path, written);
       expect(readFileSync(path, 'utf8'), path).toBe(written);
     }
+  });
+});
+
+describe('the plots (B3)', () => {
+  const plotsOf = (id: number) => readFileSync(`${FIXTURES}project-${id}-plots.json`, 'utf8');
+  const withPlots = (id: number) => ceoSurvey(fixture(id), { plots: plotsOf(id) });
+  const plotEntries = (s: ReturnType<typeof ceoSurvey>) => s.report.entries.filter((e) => e.area === 'plots');
+
+  it("draws CEO's plots as Collect Earth's settings say", () => {
+    // a circle: its radius, the first point at the centre and the others at random
+    expect(layoutProperties(survey(1).layout)).toEqual([
+      'sample_shape=CIRCLE', 'number_of_sampling_points_in_plot=15', 'distance_between_sample_points=100', 'distance_to_plot_boundaries=0', 'inner_point_side=2',
+    ]);
+    // CEO's grid reaches the plot's edge: 6 × 6 points 20 m apart fill 100 m
+    expect(survey(743).layout).toMatchObject({ shape: 'SQUARE', points: 36, distance: 20, boundary: 0 });
+    expect(survey(30918).layout).toMatchObject({ shape: 'SQUARE', points: 49, distance: 10, boundary: 5 });
+    // one sample at the centre: the square is twice the boundary
+    expect(survey(20170).layout).toMatchObject({ shape: 'SQUARE', points: 1, distance: 0, boundary: 15 });
+    // every layout gives CEO's plot side, as the dashboard and Collect Earth work it out
+    for (const id of [743, 30918, 20170, 5455]) {
+      const s = survey(id);
+      const outline = plotOutline(new Map(layoutProperties(s.layout).map((l) => l.split('=') as [string, string])));
+      expect(outline, String(id)).toEqual({ kind: 'square', sideMeters: s.project.plotSize });
+    }
+  });
+
+  it('says where the layout is not CEO\'s: uploaded shapes, samples off the grid', () => {
+    const shp = survey(2616);
+    expect(shp.layout).toMatchObject({ shape: 'CIRCLE', distance: DEFAULT_SIDE_M / 2 });
+    expect(shp.report.entries.find((e) => e.subject === 'Plot size')).toMatchObject({ outcome: 'changed', message: expect.stringContaining('shapefile') });
+    expect(survey(54724).report.entries.find((e) => e.subject === 'Plot size')?.message).toMatch(/GeoJSON.*square of 30 m/);
+    // 15 random samples in a square: a 4 × 4 grid
+    const square = ceoSurvey(project({ 1: q('Land', { 1: 'Forest' }) }, [], { plotShape: 'square', plotSize: 40, sampleDistribution: 'random', samplesPerPlot: 15 }));
+    expect(square.layout).toMatchObject({ points: 16, distance: 10, boundary: 5 });
+    expect(square.report.entries.find((e) => e.subject === 'Sample points')?.message).toMatch(/at random.*4 × 4/);
+  });
+
+  it("reads CEO's plot list: each plot with the id its people saw", () => {
+    const s = withPlots(30918);
+    expect(s.plots).toMatchObject({ ids: 'visible', analyzed: 2, flagged: 2 });
+    expect(s.plots!.plots[0]).toEqual({ id: '1425', lon: expect.any(Number), lat: expect.any(Number) });
+    expect(plotEntries(s).map((e) => e.subject)).toEqual(['Plot shape', 'Plots', 'Plots done in CEO']);
+    // every saved plot list comes across whole
+    for (const id of [1, 743, 17814, 20170, 54724]) {
+      const plots = withPlots(id).plots!;
+      expect(plots.plots, String(id)).toHaveLength((JSON.parse(plotsOf(id)) as unknown[]).length);
+      expect(new Set(plots.plots.map((p) => p.id)).size, String(id)).toBe(plots.plots.length);
+    }
+  });
+
+  it('written as a plot file Collect Earth and the upload read: CEO ids, centres, the survey\'s columns', () => {
+    const s = withPlots(1);
+    const csv = plotFileCsv(s.plots!.plots, { count: 1, roundIndex: null, roundCode: '1' }, ['elevation', 'slope', 'aspect']);
+    expect(csv).toBe('id,YCoordinate,XCoordinate,elevation,slope,aspect\n1,22.046807,102.999640,0,0,0\n2,12.379354,98.568022,0,0,0\n3,13.745907,106.718471,0,0,0\n');
+    expect(parsePlotFile(Buffer.from(csv)).plotIds).toEqual(['1', '2', '3']);
+  });
+
+  it('refuses a file that is no plot list, or the plots of another project', () => {
+    expect(() => ceoSurvey(fixture(1), { plots: '<html>' })).toThrow(/plots file is not JSON/);
+    expect(() => ceoSurvey(fixture(1), { plots: fixture(1) })).toThrow(/not a Collect Earth Online plot list/);
+    expect(() => ceoSurvey(fixture(1), { plots: '[{"center":"x","id":1}]' })).toThrow(/no plot with a place/);
+    expect(() => ceoSurvey(fixture(1), { plots: plotsOf(743) })).toThrow(/outside this project's area/);
+  });
+
+  it("takes CEO's internal numbers when its plot ids repeat", () => {
+    const point = (lon: number, lat: number) => JSON.stringify({ type: 'Point', coordinates: [lon, lat] });
+    const list = JSON.stringify([
+      { center: point(100, 15), id: 1, plotId: 501 },
+      { center: point(101, 16), id: 1, plotId: 502 },
+    ]);
+    const s = ceoSurvey(fixture(1), { plots: list });
+    expect(s.plots!.ids).toBe('internal');
+    expect(s.plots!.plots.map((p) => p.id)).toEqual(['501', '502']);
+    expect(plotEntries(s).find((e) => e.subject === 'Plot ids')?.outcome).toBe('changed');
   });
 });

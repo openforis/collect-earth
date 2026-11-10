@@ -1,7 +1,7 @@
 // Smoke test against a real Postgres: a new project from a Collect Earth Online project (src/routes/ceoImport.ts),
 // through the app role and Row-Level Security: the project, its coordinator, its project file with the round added,
-// the 'project.imported' entry the audit log's constraint (012, 015) allows, and a second import from another
-// fixture. Usage: npm run smoke:pg:ceo [port] (a Postgres on localhost with user postgres, password pw).
+// the 'project.imported' entry the audit log's constraint (012, 015) allows, a second import with CEO's plot list
+// (its plot file stored and logged), and a refused one that leaves nothing behind. Usage: npm run smoke:pg:ceo [port] (a Postgres on localhost with user postgres, password pw).
 import { readFileSync } from 'node:fs';
 import pg from 'pg';
 import { buildServer } from '../src/server.js';
@@ -63,8 +63,15 @@ try {
   const refused = await app.inject({ method: 'POST', url: '/v1/projects/from-ceo', headers: auth, payload: { ceoProject: fixture(64113) } });
   check('a simplified project is refused', refused.statusCode === 400 && refused.json().error === 'ceo_unreadable', refused.body);
 
-  const second = await app.inject({ method: 'POST', url: '/v1/projects/from-ceo', headers: auth, payload: { ceoProject: fixture(1), name: 'Mekong 2026' } });
-  check('another, under its own name', second.statusCode === 201 && second.json().name === 'Mekong 2026', second.body.slice(0, 300));
+  const plots = readFileSync(new URL('../test/fixtures/ceo/project-743-plots.json', import.meta.url), 'utf8');
+  const second = await app.inject({ method: 'POST', url: '/v1/projects/from-ceo', headers: auth, payload: { ceoProject: fixture(743), ceoPlots: plots, name: 'Rome 2026' } });
+  check('another with its plots, under its own name', second.statusCode === 201 && second.json().name === 'Rome 2026' && second.json().plotFile?.plots === 210, second.body.slice(0, 300));
+  const files = await store.listCsvFiles(second.json().projectId as string);
+  check('its plot file is stored with its 210 plots', files.length === 1 && files[0].plotCount === 210, files);
+  const secondLog = await store.listAudit(second.json().projectId as string, { limit: 10 });
+  check('and logged as uploaded', secondLog.some((e) => e.action === 'csv.uploaded'), secondLog);
+  const wrong = await app.inject({ method: 'POST', url: '/v1/projects/from-ceo', headers: auth, payload: { ceoProject: fixture(1), ceoPlots: plots } });
+  check("another project's plots are refused", wrong.statusCode === 400, wrong.body);
   check('two projects, nothing half made', (await store.listMemberships(userId)).length === 2);
 } finally {
   await app.close();

@@ -1,23 +1,30 @@
-// A new project from a Collect Earth Online project (docs/plans/2026-11-09-ceo-bridge.md, B4 and B5): the file a
-// coordinator saved from CEO (get-project-by-id), its survey and rules translated (src/ceo), shown as a report first,
-// then made into a project whose project file goes through the upload path every project file takes (acceptCep), so
-// the round, the note and the space limit apply as they do to any. The plots come after: a plot file, a plot design,
-// or (later) CEO's own plots.
+// A new project from a Collect Earth Online project (docs/plans/2026-11-09-ceo-bridge.md, B3 to B5): the files a
+// coordinator saved from CEO (get-project-by-id, and get-project-plots for its plots), its survey, rules and plots
+// translated (src/ceo), shown as a report first, then made into a project whose project file goes through the upload
+// path every project file takes (acceptCep), so the round, the note and the space limit apply as they do to any; its
+// plots become its plot file, written as the plot design writes one. Without the plots file, the plots come after: a
+// plot file or a plot design.
 //
-// - POST /v1/projects/from-ceo/preview { ceoProject } -> { name, ceoProjectId, counts, report }: nothing stored.
-// - POST /v1/projects/from-ceo { ceoProject, name? } -> 201 { projectId, name, counts, report }: who may make a project
-//   (projectCreation, maxProjectsPerUser) as for POST /v1/projects; the caller is its coordinator.
+// - POST /v1/projects/from-ceo/preview { ceoProject, ceoPlots? } -> { name, ceoProjectId, counts, report }: nothing stored.
+// - POST /v1/projects/from-ceo { ceoProject, ceoPlots?, name? } -> 201 { projectId, name, round, plotFile, counts, report }:
+//   who may make a project (projectCreation, maxProjectsPerUser) as for POST /v1/projects; the caller is its coordinator.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ceoSurvey, CeoImportError, type CeoSurvey } from '../ceo/index.js';
 import { ceoProjectFile, reportText } from '../ceo/projectFile.js';
+import { checkUploadFits } from '../limits.js';
+import { plotFileCsv } from '../plotDesign.js';
+import { parsePlotFile } from '../plots.js';
 import { requireSession } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import { acceptCep } from './platform.js';
+import { plotFileFormat } from './plotDesign.js';
 import { creationRefusal } from './projects.js';
 
 interface ImportBody {
   /** the saved file: its JSON, or its text */
   ceoProject?: unknown;
+  /** CEO's plot list (get-project-plots), as saved: its JSON, or its text; optional */
+  ceoPlots?: unknown;
   /** the new project's name; CEO's by default */
   name?: unknown;
 }
@@ -35,6 +42,8 @@ function summary(s: CeoSurvey) {
       questionsSkipped: r.count('skipped', 'question'),
       rules: r.count('imported', 'rule') + r.count('changed', 'rule'),
       rulesSkipped: r.count('skipped', 'rule'),
+      /** null: no plots file */
+      plots: s.plots ? s.plots.plots.length : null,
     },
     report: r.entries,
   };
@@ -42,14 +51,19 @@ function summary(s: CeoSurvey) {
 
 /** The survey of the body's CEO file, or the answer refusing it */
 function translate(body: ImportBody, reply: FastifyReply): CeoSurvey | null {
-  const raw = body.ceoProject;
-  const json = typeof raw === 'string' ? raw : raw !== null && typeof raw === 'object' ? JSON.stringify(raw) : null;
+  const asText = (raw: unknown) => (typeof raw === 'string' ? raw : raw !== null && typeof raw === 'object' ? JSON.stringify(raw) : null);
+  const json = asText(body.ceoProject);
   if (json === null) {
     void reply.code(400).send({ error: 'bad_request', reason: 'ceoProject must be the project file saved from Collect Earth Online' });
     return null;
   }
+  const plots = body.ceoPlots === undefined || body.ceoPlots === null ? undefined : asText(body.ceoPlots);
+  if (plots === null) {
+    void reply.code(400).send({ error: 'bad_request', reason: 'ceoPlots must be the plots file saved from Collect Earth Online' });
+    return null;
+  }
   try {
-    return ceoSurvey(json);
+    return ceoSurvey(json, plots !== undefined ? { plots } : {});
   } catch (e) {
     if (e instanceof CeoImportError) {
       void reply.code(400).send({ error: 'ceo_unreadable', reason: e.message });
@@ -86,6 +100,21 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
       await store.deleteProject(projectId);
       return reply.code(accepted.status).send(accepted.body);
     }
+    // Its plots, as the plot design writes a plot file, through what the plot-file upload stores and logs
+    let plotFile: { csvFileId: string; filename: string; plots: number } | null = null;
+    if (survey.plots) {
+      const format = await plotFileFormat(store, projectId, request.log);
+      const filename = `ceo_${survey.project.id ?? 'project'}_plots.csv`;
+      const data = Buffer.from(plotFileCsv(survey.plots.plots, format?.keys ?? { count: 1, roundIndex: null, roundCode: '1' }, format?.extra ?? null), 'utf8');
+      const over = await checkUploadFits(store, projectId, { kind: 'csv', filename }, data.length);
+      if (over) {
+        await store.deleteProject(projectId);
+        return reply.code(413).send(over);
+      }
+      const keyCount = format?.keys.count ?? 1;
+      const meta = await store.putCsvFile(projectId, filename, data, parsePlotFile(data, keyCount).plotIds);
+      plotFile = { csvFileId: meta.id, filename, plots: meta.plotCount };
+    }
     const s = summary(survey);
     try {
       await store.appendAudit(projectId, {
@@ -99,12 +128,14 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
           questionsSkipped: s.counts.questionsSkipped,
           rules: s.counts.rules,
           rulesSkipped: s.counts.rulesSkipped,
+          plots: s.counts.plots,
         },
       });
+      if (plotFile) await store.appendAudit(projectId, { actorUserId: user.id, action: 'csv.uploaded', details: { csvFileId: plotFile.csvFileId, plots: plotFile.plots } });
     } catch (err) {
       request.log.error({ err }, 'audit log write failed');
     }
     request.log.info({ projectId, ceoProjectId: survey.project.id, round: accepted.info.state }, 'project made from a Collect Earth Online project');
-    return reply.code(201).send({ projectId, name, round: accepted.info.state, reportText: reportText(survey), ...s });
+    return reply.code(201).send({ projectId, name, round: accepted.info.state, plotFile, reportText: reportText(survey), ...s });
   });
 }

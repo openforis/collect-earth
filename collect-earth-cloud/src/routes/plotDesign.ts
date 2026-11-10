@@ -43,6 +43,26 @@ async function extraColumns(store: Store, projectId: string, info: RoundInfo | n
   }
 }
 
+/** How a plot file the server writes is laid out for this project: its key columns and the survey's extra columns. */
+export interface PlotFileFormat {
+  keys: { count: number; roundIndex: number | null; roundCode: string };
+  /** null: no readable project file (Collect Earth's usual three) */
+  extra: string[] | null;
+}
+
+/**
+ * The plot file's key columns as the upload reads them (the id, and the survey's own round key) and its extra
+ * columns; null when the survey identifies a plot by several keys, whose values the server cannot make up.
+ */
+export async function plotFileFormat(store: Store, projectId: string, log: FastifyRequest['log']): Promise<PlotFileFormat | null> {
+  const info = await store.getRoundInfo(projectId);
+  const count = fileKeyCount(info);
+  const roundIndex = info?.state === 'own' && info.roundIndex !== null && info.roundIndex < count ? info.roundIndex : null;
+  if (count > (roundIndex === null ? 1 : 2)) return null;
+  const roundCode = info?.roundCodes.find((c) => c.code !== info.reassessmentCode)?.code ?? '1';
+  return { keys: { count, roundIndex, roundCode }, extra: await extraColumns(store, projectId, info, log) };
+}
+
 const isCount =(n: unknown): n is number => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= MAX_DESIGN_PLOTS;
 
 /** The design asked for, checked; a reason in words when it is not one. */
@@ -98,23 +118,18 @@ export async function registerPlotDesignRoutes(app: FastifyInstance, store: Stor
     if (typeof design === 'string') return refuse('bad_design', design);
     const seed = Number.isInteger(body.seed) && (body.seed as number) >= 0 && (body.seed as number) < 2 ** 32 ? (body.seed as number) : randomInt(2 ** 32 - 1);
 
-    // The plot file's key columns as the upload reads them: the id, and the survey's own round key.
-    const info = await store.getRoundInfo(request.membership!.projectId);
-    const keyCount = fileKeyCount(info);
-    const roundIndex = info?.state === 'own' && info.roundIndex !== null && info.roundIndex < keyCount ? info.roundIndex : null;
-    if (keyCount > (roundIndex === null ? 1 : 2)) {
+    const format = await plotFileFormat(store, request.membership!.projectId, request.log);
+    if (!format) {
       return refuse('several_keys', 'The survey identifies a plot by several keys: the server cannot make up their values. Make the plot file in another tool.');
     }
-    const roundCode = info?.roundCodes.find((c) => c.code !== info.reassessmentCode)?.code ?? '1';
 
     try {
       if (body.generate !== true) return reply.send({ ...facts, ...planDesign(area, design, seed), seed });
       const plots = designPlots(area, design, seed);
-      const extra = await extraColumns(store, request.membership!.projectId, info, request.log);
       return reply
         .header('content-type', 'text/csv; charset=utf-8')
         .header('x-plot-count', String(plots.length))
-        .send(plotFileCsv(plots, { count: keyCount, roundIndex, roundCode }, extra));
+        .send(plotFileCsv(plots, format.keys, format.extra));
     } catch (err) {
       if (err instanceof DesignError) return refuse(err.code, err.message);
       throw err;

@@ -9,6 +9,7 @@ import { bearer, makeContext, setupPlatformAdmin, type TestContext } from './hel
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/ceo/', import.meta.url));
 const ceo = (id: number) => JSON.parse(readFileSync(`${FIXTURES}project-${id}.json`, 'utf8')) as Record<string, unknown>;
+const ceoPlots = (id: number) => readFileSync(`${FIXTURES}project-${id}-plots.json`, 'utf8');
 
 describe('a new project from a Collect Earth Online project', () => {
   let ctx: TestContext;
@@ -84,6 +85,45 @@ describe('a new project from a Collect Earth Online project', () => {
     expect(await ctx.store.listMemberships(signup.json().userId)).toEqual([]);
     // the preview stores nothing: anyone signed in may see it
     expect((await post('/preview', { ceoProject: ceo(1) }, maria)).statusCode).toBe(200);
+  });
+
+  it("with CEO's plot list: its plots become the project's plot file, under CEO's plot ids", async () => {
+    const preview = await post('/preview', { ceoProject: ceo(743), ceoPlots: ceoPlots(743) });
+    expect(preview.json().counts).toMatchObject({ plots: 210 });
+    expect((await post('/preview', { ceoProject: ceo(743) })).json().counts.plots).toBeNull();
+
+    const res = await post('', { ceoProject: ceo(743), ceoPlots: ceoPlots(743) });
+    expect(res.statusCode, res.body).toBe(201);
+    const { projectId, plotFile, round } = res.json();
+    expect(round).toBe('added');
+    expect(plotFile).toMatchObject({ filename: 'ceo_743_plots.csv', plots: 210 });
+
+    const files = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/csv-files`, headers: bearer(owner.token) });
+    expect(files.json().csvFiles).toMatchObject([{ id: plotFile.csvFileId, filename: 'ceo_743_plots.csv', plotCount: 210 }]);
+    // What a collector downloads: the round the server added, CEO's ids, the centres, the survey's columns
+    const content = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/csv-files/${plotFile.csvFileId}/content`, headers: bearer(owner.token) });
+    expect(content.statusCode).toBe(200);
+    const lines = content.body.trim().split('\n');
+    expect(lines).toHaveLength(211);
+    expect(lines[0]).toMatch(/^id,YCoordinate,XCoordinate,elevation,slope,aspect/);
+    expect(lines[1]).toMatch(/^1,41\.80074\d,12\.37142\d,0,0,0/);
+
+    // the project file draws them as CEO did: 6 × 6 samples 20 m apart on a 100 m square
+    const cep = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/cep`, headers: bearer(owner.token) });
+    const properties = strFromU8(unzipSync(new Uint8Array(cep.rawPayload))['project_definition.properties']);
+    expect(properties).toContain('sample_shape=SQUARE\nnumber_of_sampling_points_in_plot=36\ndistance_between_sample_points=20\ndistance_to_plot_boundaries=0');
+
+    const log = await ctx.store.listAudit(projectId, { limit: 10 });
+    expect(log.map((e) => e.action).sort()).toEqual(['csv.uploaded', 'project.imported']);
+    expect(log.find((e) => e.action === 'csv.uploaded')?.details).toEqual({ csvFileId: plotFile.csvFileId, plots: 210 });
+  });
+
+  it("refuses another project's plot list, and makes nothing", async () => {
+    const res = await post('', { ceoProject: ceo(1), ceoPlots: ceoPlots(743) });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ error: 'ceo_unreadable', reason: expect.stringContaining("outside this project's area") });
+    expect((await post('', { ceoProject: ceo(1), ceoPlots: 12 })).json()).toMatchObject({ error: 'bad_request' });
+    expect(await ctx.store.listMemberships(owner.userId)).toEqual([]);
   });
 
   it('every importable fixture makes a project whose round is added', async () => {

@@ -6,6 +6,7 @@
 import { zipCep } from '../cep.js';
 import type { CeoSurvey } from './index.js';
 import { KML_TEMPLATE } from './kmlTemplate.js';
+import { layoutProperties } from './plots.js';
 import type { ReportEntry } from './report.js';
 
 /** The report as text, for the project file and the log */
@@ -14,6 +15,7 @@ export function reportText(survey: CeoSurvey): string {
     `Imported from Collect Earth Online${survey.project.id !== null ? `, project ${survey.project.id}` : ''}: ${survey.project.name}`,
     `Questions: ${count(survey, 'question', 'imported')} imported, ${count(survey, 'question', 'changed')} changed, ${count(survey, 'question', 'skipped')} left out.`,
     `Rules: ${count(survey, 'rule', 'imported') + count(survey, 'rule', 'changed')} checked, ${count(survey, 'rule', 'skipped')} left out.`,
+    survey.plots ? `Plots: ${survey.plots.plots.length}, from CEO's plot list.` : 'Plots: none from CEO; add a plot file or a plot design.',
     '',
   ];
   const label: Record<ReportEntry['outcome'], string> = { imported: 'Imported', changed: 'Changed', skipped: 'Left out', info: 'Note' };
@@ -58,7 +60,6 @@ export function ceoProjectFile(survey: CeoSurvey, date: Date): Buffer {
 </html>
 `;
 
-  const shape = project.plotShape === 'circle' ? 'CIRCLE' : 'SQUARE';
   const properties = [
     `#Collect Earth project made from Collect Earth Online${project.id !== null ? ` project ${project.id}` : ''}`,
     'metadata_file=${project_path}/placemark.idm.xml',
@@ -66,7 +67,7 @@ export function ceoProjectFile(survey: CeoSurvey, date: Date): Buffer {
     'template=${project_path}/kml_template.fmt',
     `survey_name=${property(surveyName)}`,
     'coordinates_reference_system=EPSG\\:4326',
-    `sample_shape=${shape}`,
+    ...layoutProperties(survey.layout),
     `open_gee_app=${project.options.showGEEScript === true ? 'true' : 'false'}`,
     '',
   ].join('\n');

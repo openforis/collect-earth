@@ -1,6 +1,7 @@
 // A Collect Earth Online project's survey and rules as a Collect survey, with the import report
-// (docs/plans/2026-11-09-ceo-bridge.md, Part B1 and B2). The plots (B3), the project file and the page (B4) build on it.
+// (docs/plans/2026-11-09-ceo-bridge.md, Part B1 and B2), with its plots (B3); the project file and the page (B4) build on it.
 import { writeIdml } from './idml.js';
+import { plotLayout, readCeoPlots, type CeoPlots, type PlotLayout } from './plots.js';
 import { CeoImportError, readCeoProject, type CeoProject } from './project.js';
 import { Report } from './report.js';
 import { planChecks, type PlannedCheck } from './rules.js';
@@ -17,14 +18,19 @@ export interface CeoSurvey {
   surveyName: string;
   plan: SurveyPlan;
   checks: PlannedCheck[];
+  /** how Collect Earth draws the plots (project_definition.properties) */
+  layout: PlotLayout;
+  /** the plots of CEO's plot list, when one was given */
+  plots: CeoPlots | null;
   report: Report;
 }
 
 /**
  * The survey of a CEO project file (as saved from get-project-by-id), translated. `columns`: the plot file's extra
- * columns, read into each record. Refuses a simplified project (collectors draw their samples).
+ * columns, read into each record; `plots`: CEO's plot list (get-project-plots), as saved. Refuses a simplified project
+ * (collectors draw their samples).
  */
-export function ceoSurvey(json: string, options: { columns?: readonly string[] } = {}): CeoSurvey {
+export function ceoSurvey(json: string, options: { columns?: readonly string[]; plots?: string } = {}): CeoSurvey {
   const project = readCeoProject(json);
   if (project.type === 'simplified') {
     throw new CeoImportError(
@@ -38,6 +44,8 @@ export function ceoSurvey(json: string, options: { columns?: readonly string[] }
   }
   const checks = planChecks(project, plan, report);
   projectNotes(project, report);
+  const layout = plotLayout(project, report);
+  const plots = options.plots !== undefined ? readCeoPlots(options.plots, project, report) : null;
   const surveyName = `ceo_${project.id ?? (slug(project.name, 30) || 'project')}`;
   const idml = writeIdml(
     {
@@ -50,7 +58,7 @@ export function ceoSurvey(json: string, options: { columns?: readonly string[] }
     plan,
     checks,
   );
-  return { project, idml, surveyName, plan, checks, report };
+  return { project, idml, surveyName, plan, checks, layout, plots, report };
 }
 
 /** What the project's settings mean in Collect Earth, said once each. */

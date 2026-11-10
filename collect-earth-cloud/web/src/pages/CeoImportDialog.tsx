@@ -21,8 +21,14 @@ import { FileDrop } from "../components/FileDrop";
 import { useT } from "../i18n";
 import { navigate, pathFor } from "../router";
 
-/** CEO answers its project's file at this address, to anyone for a public project and to its admins when signed in. */
+/** CEO answers these to anyone for a public project, and to its members when signed in. */
 export const ceoProjectUrl = (id: string) => `https://app.collect.earth/get-project-by-id?projectId=${encodeURIComponent(id)}`;
+export const ceoPlotsUrl = (id: string) => `https://app.collect.earth/get-project-plots?projectId=${encodeURIComponent(id)}`;
+
+/** Which of CEO's two files a text is: its plot list is a JSON array, its project an object. */
+export function ceoFileKind(text: string): "plots" | "project" {
+  return text.trimStart().startsWith("[") ? "plots" : "project";
+}
 
 const OUTCOME_COLOR = { imported: "success", changed: "warning", skipped: "error", info: "default" } as const;
 
@@ -30,14 +36,16 @@ const OUTCOME_COLOR = { imported: "success", changed: "warning", skipped: "error
 export const needsAttention = (e: CeoReportEntry) => e.outcome !== "imported";
 
 /**
- * A new project from Collect Earth Online (docs/plans/2026-11-09-ceo-bridge.md, B4 and B5): the file saved from CEO,
- * the report of what comes across, then the project, which opens on its getting-started checklist (the plots next).
+ * A new project from Collect Earth Online (docs/plans/2026-11-09-ceo-bridge.md, B3 to B5): the files saved from CEO
+ * (the project, and its plots when wanted), the report of what comes across, then the project, which opens on its
+ * getting-started checklist.
  */
 export function CeoImportDialog({ onClose }: { onClose: () => void }) {
   const t = useT();
   const { refreshMe } = useApp();
   const [ceoId, setCeoId] = useState("");
-  const [file, setFile] = useState<string | null>(null);
+  const [project, setProject] = useState<string | null>(null);
+  const [plots, setPlots] = useState<string | null>(null);
   const [preview, setPreview] = useState<CeoImportPreview | null>(null);
   const [name, setName] = useState("");
   const [empty, setEmpty] = useState(false);
@@ -45,16 +53,27 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
+  /** Takes the files dropped (one or both, in any order) and shows what they make, once the project is there. */
   const read = async (files: File[]) => {
     setError(null);
     setBusy(true);
     try {
-      const text = await files[0].text();
-      const shown = await previewCeoImport(text);
-      setFile(text);
-      setPreview(shown);
-      setName(shown.name);
-      setShowAll(false);
+      let nextProject = project;
+      let nextPlots = plots;
+      for (const file of files) {
+        const text = await file.text();
+        if (ceoFileKind(text) === "plots") nextPlots = text;
+        else nextProject = text;
+      }
+      if (nextProject !== null) {
+        const shown = await previewCeoImport(nextProject, nextPlots);
+        // A name typed already stays; the first preview gives CEO's
+        if (preview === null) setName(shown.name);
+        setPreview(shown);
+        setShowAll(false);
+      }
+      setProject(nextProject);
+      setPlots(nextPlots);
     } catch (err) {
       setError(err);
     } finally {
@@ -64,7 +83,7 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
 
   const create = async (event: FormEvent) => {
     event.preventDefault();
-    if (file === null) return;
+    if (project === null) return;
     setError(null);
     if (!name.trim()) {
       setEmpty(true);
@@ -72,7 +91,7 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
     }
     setBusy(true);
     try {
-      const created = await importCeoProject(file, name.trim());
+      const created = await importCeoProject(project, plots, name.trim());
       await refreshMe();
       navigate(pathFor({ name: "project", projectId: created.projectId, tab: "setup" }));
     } catch (err) {
@@ -81,8 +100,17 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const startAgain = () => {
+    setPreview(null);
+    setProject(null);
+    setPlots(null);
+    setError(null);
+  };
+
   const entries = preview ? preview.report.filter((e) => showAll || needsAttention(e)) : [];
-  const validId = /^\d+$/.test(ceoId.trim());
+  const id = ceoId.trim();
+  const validId = /^\d+$/.test(id);
+  const plotCount = preview?.counts.plots ?? null;
 
   return (
     <Dialog open onClose={busy ? undefined : onClose} fullWidth maxWidth="md">
@@ -101,23 +129,18 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
                   slotProps={{ htmlInput: { inputMode: "numeric", maxLength: 12 } }}
                   sx={{ flex: 1 }}
                 />
-                <Button
-                  variant="outlined"
-                  component="a"
-                  aria-disabled={!validId}
-                  disabled={!validId}
-                  href={ceoProjectUrl(ceoId.trim())}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  sx={{ mt: { sm: 1 } }}
-                >
+                <Button variant="outlined" component="a" aria-disabled={!validId} disabled={!validId} href={ceoProjectUrl(id)} target="_blank" rel="noopener noreferrer" sx={{ mt: { sm: 1 } }}>
                   {t("ceoImport.open")}
+                </Button>
+                <Button variant="outlined" component="a" aria-disabled={!validId} disabled={!validId} href={ceoPlotsUrl(id)} target="_blank" rel="noopener noreferrer" sx={{ mt: { sm: 1 } }}>
+                  {t("ceoImport.openPlots")}
                 </Button>
               </Stack>
               <Typography variant="body2" color="text.secondary">
                 {t("ceoImport.save")}
               </Typography>
-              <FileDrop label={t("ceoImport.drop")} buttonLabel={t("ceoImport.choose")} accept=".json,application/json" disabled={busy} onFiles={read} />
+              <FileDrop label={t("ceoImport.drop")} buttonLabel={t("ceoImport.choose")} accept=".json,application/json" multiple disabled={busy} onFiles={read} />
+              {plots !== null && project === null && <Alert severity="info">{t("ceoImport.plotsOnly")}</Alert>}
               {busy && <LinearProgress aria-label={t("ceoImport.reading")} />}
             </Stack>
           ) : (
@@ -144,7 +167,13 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
                 <ListItem disableGutters>
                   <ListItemText primary={t("ceoImport.rules", { count: String(preview.counts.rules) })} secondary={t("ceoImport.rulesDetail", { skipped: String(preview.counts.rulesSkipped) })} />
                 </ListItem>
+                <ListItem disableGutters>
+                  <ListItemText primary={plotCount !== null ? t("ceoImport.plots", { count: String(plotCount) }) : t("ceoImport.noPlots")} />
+                </ListItem>
               </List>
+              {plotCount === null && (
+                <FileDrop label={t("ceoImport.dropPlots")} buttonLabel={t("ceoImport.choosePlots")} accept=".json,application/json" disabled={busy} onFiles={read} />
+              )}
               <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
                 <Typography variant="h3" component="h3">
                   {showAll ? t("ceoImport.everything") : t("ceoImport.attention")}
@@ -168,7 +197,7 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
               <Typography variant="body2" color="text.secondary">
                 {t("ceoImport.english")}
               </Typography>
-              <Alert severity="info">{t("ceoImport.next")}</Alert>
+              <Alert severity="info">{plotCount !== null ? t("ceoImport.nextWithPlots") : t("ceoImport.next")}</Alert>
               {busy && <LinearProgress aria-label={t("ceoImport.creating")} />}
             </Stack>
           )}
@@ -182,14 +211,7 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
           </Button>
           {preview !== null && (
             <>
-              <Button
-                onClick={() => {
-                  setPreview(null);
-                  setFile(null);
-                  setError(null);
-                }}
-                disabled={busy}
-              >
+              <Button onClick={startAgain} disabled={busy}>
                 {t("ceoImport.another")}
               </Button>
               <Button type="submit" variant="contained" disabled={busy}>
