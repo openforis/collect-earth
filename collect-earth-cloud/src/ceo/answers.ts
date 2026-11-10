@@ -55,6 +55,8 @@ export interface CeoPlotAnswers {
 
 export interface CeoAnswers {
   plots: CeoPlotAnswers[];
+  /** the plot file's columns uploaded to CEO, per plot: by the attribute's name (plan.columns), the value */
+  plotColumns: Map<string, Record<string, string>>;
   /** each collector and how many plots they answered, by email, in the order of the file */
   collectors: { email: string; plots: number }[];
 }
@@ -141,8 +143,24 @@ export function ceoTime(text: string): number | null {
 /** "12.3 secs" as whole seconds. */
 const ceoSeconds = (text: string): number | null => {
   const m = /^\s*(\d+(?:\.\d+)?)/.exec(text);
-  return m ? Math.round(Number(m[1])) : null;
+  const seconds = m ? Math.round(Number(m[1])) : null;
+  // "0.0 secs": answers loaded into CEO in bulk, with no time of their own (not a plot done in no time)
+  return seconds === 0 ? null : seconds;
 };
+
+/** The prefix of the columns of the plot file uploaded to CEO, in its sample data. */
+const PLOT_COLUMN_PREFIX = 'pl_';
+
+/**
+ * The columns of the plot file uploaded to CEO (`pl_…` in its sample data, without the prefix), from the file's first
+ * line only: the survey reads them from the plot file, as any Collect Earth project's extra columns.
+ */
+export function ceoPlotColumns(csv: string): string[] {
+  const end = csv.search(/\r?\n/);
+  const header = parseCsv((end < 0 ? csv : csv.slice(0, end)).replace(/^\uFEFF/, ''))[0] ?? [];
+  if (header[0]?.trim() !== 'plotid') return [];
+  return header.map((h) => h.trim()).filter((h) => h.startsWith(PLOT_COLUMN_PREFIX) && h.length > PLOT_COLUMN_PREFIX.length).map((h) => h.slice(PLOT_COLUMN_PREFIX.length));
+}
 
 /** The code of an answer's text, among the attribute's items (labels as CEO's file writes them). */
 function codeOf(attribute: PlannedAttribute, value: string): string | null {
@@ -213,6 +231,10 @@ export function readCeoAnswers(csv: string, project: CeoProject, plan: SurveyPla
   const groups = new Map<string, Group>();
   let broken = 0;
   let unknownPlots = 0;
+  const plotColumns = new Map<string, Record<string, string>>();
+  const plotColumnCols = plan.columns
+    .map((c) => ({ name: c.name, index: header.indexOf(PLOT_COLUMN_PREFIX + c.column) }))
+    .filter((c) => c.index >= 0);
   for (const row of rows) {
     if (row.length === 1 && row[0].trim() === '') continue;
     if (row.length !== header.length) {
@@ -221,6 +243,10 @@ export function readCeoAnswers(csv: string, project: CeoProject, plan: SurveyPla
     }
     const email = row[emailCol].trim();
     const plot = row[plotCol].trim();
+    // The plot file's columns, the same on every row of the plot (an unanswered plot has rows too)
+    if (plot !== '' && plotColumnCols.length > 0 && !plotColumns.has(plot)) {
+      plotColumns.set(plot, Object.fromEntries(plotColumnCols.map(({ name, index }) => [name, row[index].trim()])));
+    }
     if (email === '' || plot === '') continue; // a plot nobody answered
     if (plotIds && !plotIds.has(plot)) {
       unknownPlots++;
@@ -334,7 +360,11 @@ export function readCeoAnswers(csv: string, project: CeoProject, plan: SurveyPla
     report.add('plots', 'Samples that disagree', 'changed',
       `In ${plotsDisagreeing} plot answer(s) the samples were not all given the same answer to a question: the answer of most samples is kept (of equals, the first sample's).`);
   }
-  return { plots, collectors };
+  if (plotColumnCols.length > 0) {
+    report.add('plots', 'Plot information', 'imported',
+      `The columns of the plot file uploaded to CEO come with each plot, in the plot file and on each record: ${plan.columns.map((c) => `${c.column} (as "${c.name}")`).join(', ')}.`);
+  }
+  return { plots, collectors, plotColumns };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -397,6 +427,8 @@ export function ceoRecords(
     operatorOf: (email: string) => string;
     plotFile: string;
     centres: ReadonlyMap<string, { lat: number; lon: number }>;
+    /** the plot file's columns uploaded to CEO, per plot (CeoAnswers.plotColumns) */
+    plotColumns?: ReadonlyMap<string, Record<string, string>>;
     now: number;
   },
 ): ImportedRecord[] {
@@ -419,6 +451,7 @@ export function ceoRecords(
     ]);
     if (hasRound && options.roundCode !== null) fixed.set('round', options.roundCode);
     if (p.confidence !== null) fixed.set(CONFIDENCE_NAME, String(p.confidence));
+    for (const [name, value] of Object.entries(options.plotColumns?.get(p.plot) ?? {})) if (value !== '') fixed.set(name, value);
 
     const xml: string[] = [`<?xml version='1.0' standalone='yes' ?>`, `<${root} step="1" created="${xmlTime(at)}" modified="${xmlTime(at)}">`];
     const summary: Record<string, string> = {};

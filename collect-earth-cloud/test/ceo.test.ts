@@ -225,7 +225,8 @@ describe('the written survey', () => {
       const path = `${IDML_DIR}project-${id}.idm.xml`;
       const written = survey(id).idml;
       if (process.env.UPDATE_CEO_IDML === '1' || !existsSync(path)) writeFileSync(path, written);
-      expect(readFileSync(path, 'utf8'), path).toBe(written);
+      // a Windows checkout (core.autocrlf) has the file with CRLF: only the content is compared
+      expect(readFileSync(path, 'utf8').replace(/\r\n/g, '\n'), path).toBe(written.replace(/\r\n/g, '\n'));
     }
   });
 });

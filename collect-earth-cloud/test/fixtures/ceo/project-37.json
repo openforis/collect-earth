@@ -1,0 +1,174 @@
+{
+ "allowDrawnSamples": false,
+ "aoiFeatures": [
+  {
+   "coordinates": [
+    [
+     [
+      102.354850053,
+      10.030031942
+     ],
+     [
+      102.354850053,
+      14.558374231
+     ],
+     [
+      107.567211647,
+      14.558374231
+     ],
+     [
+      107.567211647,
+      10.030031942
+     ],
+     [
+      102.354850053,
+      10.030031942
+     ]
+    ]
+   ],
+   "type": "Polygon"
+  }
+ ],
+ "aoiFileName": "",
+ "availability": "published",
+ "boundary": "{\"type\":\"Polygon\",\"coordinates\":[[[102.354850053,10.030031942],[102.354850053,14.558374231],[107.567211647,14.558374231],[107.567211647,10.030031942],[102.354850053,10.030031942]]]}",
+ "closedDate": "",
+ "createdDate": "2018-11-27",
+ "description": "",
+ "designSettings": {
+  "qaqcAssignment": {
+   "percent": 0,
+   "qaqcMethod": "none",
+   "smes": [],
+   "timesToReview": 2
+  },
+  "sampleGeometries": {
+   "lines": true,
+   "points": true,
+   "polygons": true
+  },
+  "userAssignment": {
+   "percents": [],
+   "userMethod": "none",
+   "users": []
+  }
+ },
+ "hasGeoDash": true,
+ "id": 37,
+ "imageryId": 1318,
+ "institution": 4,
+ "isProjectAdmin": false,
+ "learningMaterial": null,
+ "name": "RLCMS Cambodia",
+ "numPlots": 2374,
+ "plotDistribution": "csv",
+ "plotFileName": null,
+ "plotShape": "square",
+ "plotSimilarityDetails": {
+  "referencePlotId": null,
+  "years": null
+ },
+ "plotSize": 30.0,
+ "plotSpacing": 0.0,
+ "privacyLevel": "public",
+ "projectOptions": {
+  "autoLaunchGeoDash": true,
+  "collectConfidence": false,
+  "showGEEScript": false,
+  "showPlotInformation": false
+ },
+ "publishedDate": "",
+ "referencePlotId": null,
+ "sampleDistribution": "gridded",
+ "sampleFileName": null,
+ "sampleResolution": 7.5,
+ "samplesPerPlot": 25,
+ "shufflePlots": null,
+ "surveyQuestions": {
+  "1": {
+   "answers": {
+    "1": {
+     "answer": "Built Surface",
+     "color": "#6A5D54"
+    },
+    "10": {
+     "answer": "Shrub",
+     "color": "#C42B60"
+    },
+    "11": {
+     "answer": "Grass",
+     "color": "#E085A5"
+    },
+    "12": {
+     "answer": "Crop",
+     "color": "#DC0F0F"
+    },
+    "13": {
+     "answer": "Aquaculture Pond",
+     "color": "#137FF6"
+    },
+    "14": {
+     "answer": "Aquatic Veg. Other",
+     "color": "#13F3F6"
+    },
+    "15": {
+     "answer": "Water",
+     "color": "#1C214F"
+    },
+    "16": {
+     "answer": "Snow & Ice",
+     "color": "#EBECF6"
+    },
+    "17": {
+     "answer": "Unknown",
+     "color": "#7D06F9"
+    },
+    "18": {
+     "answer": "Other",
+     "color": "#050209"
+    },
+    "2": {
+     "answer": "Built Veg. (non-tree)",
+     "color": "#3ACE65"
+    },
+    "3": {
+     "answer": "Built Tree",
+     "color": "#178922"
+    },
+    "4": {
+     "answer": "Mining",
+     "color": "#251510"
+    },
+    "5": {
+     "answer": "Mudflat/Beach",
+     "color": "#E1671F"
+    },
+    "6": {
+     "answer": "Barren Other",
+     "color": "#314021"
+    },
+    "7": {
+     "answer": "Tree Plantation/Orchard",
+     "color": "#1CDE63"
+    },
+    "8": {
+     "answer": "Tree Mangrove",
+     "color": "#EAB412"
+    },
+    "9": {
+     "answer": "Tree Other",
+     "color": "#5AC63C"
+    }
+   },
+   "cardOrder": 1,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "LULC"
+  }
+ },
+ "surveyRules": [],
+ "type": "regular",
+ "userRole": null
+}
