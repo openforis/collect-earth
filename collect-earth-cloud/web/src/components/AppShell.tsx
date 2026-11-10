@@ -207,7 +207,7 @@ export function AppShell({ children, narrow, bare, wide }: { children: ReactNode
         </Toolbar>
       </AppBar>
       {!bare && <AnnouncementBanner />}
-      <Container component="main" maxWidth={narrow ? "sm" : wide ? "lg" : "md"} sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+      <Container component="main" maxWidth={narrow ? "sm" : wide ? "xl" : "md"} sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
         {children}
       </Container>
       <Footer />

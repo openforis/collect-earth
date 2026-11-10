@@ -53,7 +53,7 @@ export function SectionNav({ root, label, prefix }: { root: RefObject<HTMLElemen
       className="no-print"
       sx={{
         position: { xs: "static", sm: "sticky" },
-        top: { sm: 64 },
+        top: { sm: 48 },
         zIndex: 2,
         bgcolor: "background.default",
         py: 1,

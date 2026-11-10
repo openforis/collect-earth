@@ -112,6 +112,10 @@ const en = {
   "twoFactor.cannotTurnOff": "This server requires it of coordinators, so it cannot be turned off.",
 
   "nav.projects": "My projects",
+  "nav.group.monitor": "Monitor",
+  "nav.group.team": "Team and plots",
+  "nav.group.results": "Results",
+  "nav.group.project": "Project",
   "nav.account": "My account",
   "nav.server": "Server",
   "nav.logout": "Log out",
@@ -2524,6 +2528,10 @@ const es: Catalogue = {
   "twoFactor.cannotTurnOff": "Este servidor la exige a los coordinadores, así que no se puede desactivar.",
 
   "nav.projects": "Mis proyectos",
+  "nav.group.monitor": "Seguimiento",
+  "nav.group.team": "Equipo y parcelas",
+  "nav.group.results": "Resultados",
+  "nav.group.project": "Proyecto",
   "nav.account": "Mi cuenta",
   "nav.server": "Servidor",
   "nav.logout": "Cerrar sesión",
@@ -4933,6 +4941,10 @@ const fr: Catalogue = {
   "twoFactor.cannotTurnOff": "Ce serveur l'exige des coordinateurs : elle ne peut pas être désactivée.",
 
   "nav.projects": "Mes projets",
+  "nav.group.monitor": "Suivi",
+  "nav.group.team": "Équipe et parcelles",
+  "nav.group.results": "Résultats",
+  "nav.group.project": "Projet",
   "nav.account": "Mon compte",
   "nav.server": "Serveur",
   "nav.logout": "Se déconnecter",
@@ -7342,6 +7354,10 @@ const pt: Catalogue = {
   "twoFactor.cannotTurnOff": "Este servidor a exige dos coordenadores, por isso não pode ser desativada.",
 
   "nav.projects": "Meus projetos",
+  "nav.group.monitor": "Acompanhamento",
+  "nav.group.team": "Equipe e parcelas",
+  "nav.group.results": "Resultados",
+  "nav.group.project": "Projeto",
   "nav.account": "Minha conta",
   "nav.server": "Servidor",
   "nav.logout": "Sair",
