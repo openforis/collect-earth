@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
 import org.apache.commons.lang3.StringUtils;
@@ -46,6 +47,8 @@ public class SampleFileCheck {
 	/** The check of Collect against the survey, or null when there is no survey to check against */
 	private final Function<File, CSVFileValidationResult> validator;
 	private final Supplier<List<String>> expectedHeaders;
+	/** How many key columns come before the latitude and the longitude (the survey's key attributes, as KmlGenerator reads them) */
+	private final IntSupplier keyColumns;
 
 	@Autowired
 	public SampleFileCheck(EarthSurveyService surveys) {
@@ -60,13 +63,24 @@ public class SampleFileCheck {
 		}, () -> {
 			CollectSurvey survey = surveys.getCollectSurvey();
 			return survey == null ? Collections.emptyList() : new CollectEarthGridTemplateGenerator().getExpectedHeaders(survey);
+		}, () -> {
+			// A survey keyed by the plot and the round has its coordinates one column further: read at 1 and 2, every
+			// plot had the round as its latitude and the map drew them all on one line
+			CollectSurvey survey = surveys.getCollectSurvey();
+			return survey == null ? 1 : Math.max(1, survey.getSchema().getRootEntityDefinitions().get(0).getKeyAttributeDefinitions().size());
 		});
 	}
 
-	/** For the tests: the check of Collect and the expected headers stood in for. */
+	/** For the tests: the check of Collect and the expected headers stood in for, one key column. */
 	public SampleFileCheck(Function<File, CSVFileValidationResult> validator, Supplier<List<String>> expectedHeaders) {
+		this(validator, expectedHeaders, () -> 1);
+	}
+
+	/** For the tests: with the number of key columns before the coordinates. */
+	public SampleFileCheck(Function<File, CSVFileValidationResult> validator, Supplier<List<String>> expectedHeaders, IntSupplier keyColumns) {
 		this.validator = validator;
 		this.expectedHeaders = expectedHeaders;
+		this.keyColumns = keyColumns;
 	}
 
 	/**
@@ -110,6 +124,7 @@ public class SampleFileCheck {
 		List<List<String>> rows = new ArrayList<>();
 		List<List<Double>> points = new ArrayList<>();
 		int plots = 0;
+		int lat = keyColumns.getAsInt();
 		try (CSVReader reader = CsvReaderUtils.getCsvReader(file.getAbsolutePath())) {
 			String[] line;
 			boolean first = true;
@@ -117,7 +132,7 @@ public class SampleFileCheck {
 				if (CsvReaderUtils.onlyEmptyCells(line)) {
 					continue;
 				}
-				if (first && isHeader(line)) {
+				if (first && isHeader(line, lat)) {
 					foundColumns = Arrays.asList(line);
 					first = false;
 					continue;
@@ -127,9 +142,9 @@ public class SampleFileCheck {
 				if (rows.size() < PREVIEW_ROWS) {
 					rows.add(Arrays.asList(line));
 				}
-				if (points.size() < MAX_POINTS && line.length > 2) {
-					Double latitude = number(line[1]);
-					Double longitude = number(line[2]);
+				if (points.size() < MAX_POINTS && line.length > lat + 1) {
+					Double latitude = number(line[lat]);
+					Double longitude = number(line[lat + 1]);
 					if (latitude != null && longitude != null) {
 						points.add(Arrays.asList(latitude, longitude));
 					}
@@ -152,8 +167,8 @@ public class SampleFileCheck {
 	}
 
 	/** A first row whose latitude or longitude is not a number is the header, whatever its first cell says. */
-	private static boolean isHeader(String[] line) {
-		return line.length > 2 && (number(line[1]) == null || number(line[2]) == null);
+	private static boolean isHeader(String[] line, int lat) {
+		return line.length > lat + 1 && (number(line[lat]) == null || number(line[lat + 1]) == null);
 	}
 
 	private static Double number(String cell) {
