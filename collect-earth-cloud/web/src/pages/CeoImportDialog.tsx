@@ -2,6 +2,11 @@ import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
+import FormControl from "@mui/material/FormControl";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import FormLabel from "@mui/material/FormLabel";
+import Radio from "@mui/material/Radio";
+import RadioGroup from "@mui/material/RadioGroup";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -14,7 +19,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useState, type FormEvent } from "react";
-import { fetchCeoProject, importCeoProject, previewCeoImport, type CeoFiles, type CeoImportPreview, type CeoReportEntry } from "../api";
+import { fetchCeoProject, importCeoProject, previewCeoImport, type CeoImportPreview, type CeoReportEntry } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { FileDrop } from "../components/FileDrop";
@@ -35,7 +40,7 @@ export function ceoProjectIdOf(text: string): string | null {
 }
 
 /** Which of CEO's three files a text is: its plot list is a JSON array, its sample data a CSV, its project an object. */
-export function ceoFileKind(text: string): keyof CeoFiles {
+export function ceoFileKind(text: string): "project" | "plots" | "answers" {
   const start = text.replace(/^﻿/, "").trimStart();
   if (start.startsWith("[")) return "plots";
   if (start.startsWith("plotid")) return "answers";
@@ -66,11 +71,13 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
   const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  /** The questions asked per sample point (Part E), once the project allows it */
+  const [perPoint, setPerPoint] = useState(false);
 
   /** Shows what the files make, once the project is there. */
-  const show = async (next: typeof files) => {
+  const show = async (next: typeof files, asked = perPoint) => {
     if (next.project !== null) {
-      const shown = await previewCeoImport({ project: next.project, plots: next.plots, answers: next.answers });
+      const shown = await previewCeoImport({ project: next.project, plots: next.plots, answers: next.answers, perPoint: asked });
       // A name typed already stays; the first preview gives CEO's
       if (preview === null) setName(shown.name);
       setPreview(shown);
@@ -120,7 +127,7 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
     setBusy(true);
     try {
       const collectors = Object.fromEntries(Object.entries(accounts).map(([email, username]) => [email, username.trim()]).filter(([, username]) => username !== ""));
-      const created = await importCeoProject({ project: files.project, plots: files.plots, answers: files.answers }, name.trim(), collectors);
+      const created = await importCeoProject({ project: files.project, plots: files.plots, answers: files.answers, perPoint }, name.trim(), collectors);
       await refreshMe();
       navigate(pathFor({ name: "project", projectId: created.projectId, tab: "setup" }));
     } catch (err) {
@@ -130,6 +137,7 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
   };
 
   const startAgain = () => {
+    setPerPoint(false);
     setPreview(null);
     setFiles(NO_FILES);
     setAccounts({});
@@ -218,6 +226,26 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
                   </ListItem>
                 )}
               </List>
+              {preview.samplePoints !== null && (
+                <FormControl disabled={busy}>
+                  <FormLabel id="ceo-per-what">{t("ceoImport.perWhat")}</FormLabel>
+                  <RadioGroup
+                    aria-labelledby="ceo-per-what"
+                    value={perPoint ? "point" : "plot"}
+                    onChange={(e) => {
+                      const asked = e.target.value === "point";
+                      setPerPoint(asked);
+                      void working(() => show(files, asked));
+                    }}
+                  >
+                    <FormControlLabel value="plot" control={<Radio size="small" />} label={t("ceoImport.perPlot")} />
+                    <FormControlLabel value="point" control={<Radio size="small" />} label={t("ceoImport.perPoint", { count: String(preview.samplePoints) })} />
+                  </RadioGroup>
+                  {!perPoint && preview.report.some((e) => e.subject === "Samples that disagree") && (
+                    <Alert severity="warning" sx={{ mt: 1 }}>{t("ceoImport.perPointHint")}</Alert>
+                  )}
+                </FormControl>
+              )}
               {plotCount === null && (
                 <FileDrop label={t("ceoImport.dropPlots")} buttonLabel={t("ceoImport.choosePlots")} accept=".json,application/json" disabled={busy} onFiles={read} />
               )}

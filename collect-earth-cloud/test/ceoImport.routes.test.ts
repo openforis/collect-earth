@@ -293,6 +293,36 @@ describe('a new project from a Collect Earth Online project', () => {
       await javaFixtures(body.projectId, '37');
     });
 
+    it('per sample point (Part E): a row of answers per point in each record, the points numbered on the map', async () => {
+      const files = { ceoProject: ceo(37), ceoPlots: ceoPlots(37), ceoAnswers: ceoAnswers(37) };
+      expect((await post('/preview', { ...files, perPoint: true })).json()).toMatchObject({ perPoint: 25 });
+      expect((await post('/preview', files)).json()).toMatchObject({ perPoint: null });
+      const res = await post('', { ...files, perPoint: true });
+      expect(res.statusCode, res.body).toBe(201);
+      const { projectId } = res.json();
+
+      // Collect Earth numbers the points, in the order of the table's rows
+      const cep = unzipSync(new Uint8Array((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/cep`, headers: bearer(owner.token) })).rawPayload));
+      expect(strFromU8(cep['project_definition.properties'])).toContain('sample_point_numbers=true');
+      expect(strFromU8(cep['placemark.idm.xml'])).toContain('name="sample_points"');
+
+      // plot 4: its west three columns shrub (points 1-15), its east two crop (16-25), each point in the export
+      const rows = exportRows((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/export.csv`, headers: bearer(owner.token) })).body);
+      const plot4 = rows.find((r) => r.plot === '4')!;
+      expect(plot4).toMatchObject({
+        actively_saved: 'true',
+        'collect_entity_sample_points[1].code_point': '1',
+        'collect_entity_sample_points[1].code_lulc': 'shrub',
+        'collect_entity_sample_points[15].code_lulc': 'shrub',
+        'collect_entity_sample_points[16].code_lulc': 'crop',
+        'collect_entity_sample_points[25].code_lulc': 'crop',
+      });
+      expect(plot4.collect_code_lulc).toBeUndefined();
+      // a flagged plot: its rows there, unanswered, not submitted
+      expect(rows.find((r) => r.plot === '115')).toMatchObject({ actively_saved: 'false', 'collect_entity_sample_points[3].code_point': '3' });
+      await javaFixtures(projectId, '37-points');
+    });
+
     it('refuses an account that does not exist, and makes nothing', async () => {
       const res = await post('', withAnswers({ collectors: { 'ana@example.org': 'nobody' } }));
       expect(res.statusCode).toBe(400);

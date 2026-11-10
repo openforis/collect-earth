@@ -35,6 +35,8 @@ import { creationRefusal } from './projects.js';
 interface ImportBody {
   /** the saved file: its JSON, or its text */
   ceoProject?: unknown;
+  /** true: the questions are asked per sample point, in a table with a row per point (Part E); per plot otherwise */
+  perPoint?: unknown;
   /** CEO's plot list (get-project-plots), as saved: its JSON, or its text; optional */
   ceoPlots?: unknown;
   /** CEO's sample data ("Download Sample Data", CSV), as its text; optional, with the plots (Part C) */
@@ -65,6 +67,10 @@ function summary(s: CeoSurvey) {
       plots: s.plots ? s.plots.plots.length : null,
     },
     /** null: no answers file. The emails are the coordinator's to map (never stored: see collectors) */
+    /** the number of points a plot's questions' table has, when answered per sample point (Part E); null: per plot */
+    perPoint: s.perPoint,
+    /** the points a plot could be answered per (Collect Earth's square grid of more than one point); null: per plot only */
+    samplePoints: s.layout.shape === 'SQUARE' && s.layout.points > 1 && (s.project.samplesPerPlot ?? 0) > 1 ? s.layout.points : null,
     answers: s.answers
       ? { plots: s.answers.plots.length, flagged: s.answers.plots.filter((p) => p.flagged).length, collectors: s.answers.collectors }
       : null,
@@ -98,7 +104,7 @@ function translate(body: ImportBody, reply: FastifyReply): CeoSurvey | null {
     return null;
   }
   try {
-    return ceoSurvey(json, { ...(plots !== undefined ? { plots } : {}), ...(answers !== undefined ? { answers } : {}) });
+    return ceoSurvey(json, { ...(plots !== undefined ? { plots } : {}), ...(answers !== undefined ? { answers } : {}), perPoint: body.perPoint === true });
   } catch (e) {
     if (e instanceof CeoImportError) {
       void reply.code(400).send({ error: 'ceo_unreadable', reason: e.message });

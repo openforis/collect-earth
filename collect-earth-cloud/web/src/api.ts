@@ -1127,6 +1127,10 @@ export interface CeoImportPreview {
   ceoProjectId: number | null;
   /** plots: null without CEO's plot list */
   counts: { questions: number; questionsChanged: number; questionsSkipped: number; rules: number; rulesSkipped: number; plots: number | null };
+  /** the points of the questions' table when answered per sample point; null: once for the plot */
+  perPoint: number | null;
+  /** the points a plot could be answered per (a square grid of several); null: per plot only */
+  samplePoints: number | null;
   /** null without CEO's sample data; the collectors by email, for the coordinator to map (the server keeps no email) */
   answers: { plots: number; flagged: number; collectors: { email: string; plots: number }[] } | null;
   report: CeoReportEntry[];
@@ -1137,12 +1141,15 @@ export interface CeoFiles {
   project: string;
   plots: string | null;
   answers: string | null;
+  /** the questions asked per sample point, a table with a row per point (Part E); per plot otherwise */
+  perPoint?: boolean;
 }
 
 const ceoBody = (files: CeoFiles) => ({
   ceoProject: files.project,
   ...(files.plots !== null ? { ceoPlots: files.plots } : {}),
   ...(files.answers !== null ? { ceoAnswers: files.answers } : {}),
+  ...(files.perPoint ? { perPoint: true } : {}),
 });
 
 /** A CEO project and its plot list, as text, read by the server from Collect Earth Online by the project's number. */

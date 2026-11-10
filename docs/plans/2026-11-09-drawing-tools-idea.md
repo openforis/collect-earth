@@ -1,6 +1,8 @@
 # Drawing on the map while interpreting (an idea for later)
 
 Date: 9 November 2026. **Status: an idea, not planned.** Kept here so it is not lost; nothing is decided or built.
+CEO's simplified projects, which need it, stay refused by the CEO import (`2026-11-09-ceo-bridge.md`, Part F, closed
+10 Nov 2026).
 
 ## The idea
 
