@@ -318,9 +318,11 @@ What the run found, for later:
   the desktop shows any real.
 - The rules' messages are in English (as the report is), whatever the project's language: CEO's rules have no text
   of their own.
-- Outside the import: a code answer that was cleared because its question was hidden reads "Invalid code", not
-  "required", once the question shows again. This is Collect's clearing of answers that are not relevant
-  (`setClearNotRelevantAttributes`), in any survey, and was left as a separate task.
+- Outside the import, fixed since: a code answer that was cleared because its question was hidden read "Invalid
+  code", not "required", once the question showed again, in any survey. Collect's `RecordDependentsUpdater` clears
+  such answers without updating what the attribute knows of itself, so it still read as answered. Collect Earth now
+  updates every attribute an update changed (`BalloonInputFieldsUtils.countClearedAsEmpty`). Tested in
+  `SubmitAfterRelevanceChangeTest`, and in the Mexico form.
 
 ## Part C: the answers (about 1 week)
 

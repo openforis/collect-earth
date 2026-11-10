@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The header row of the plot file no longer logs an error with a stack trace on every start
 - A value that the balloon fills by itself and that cannot be read - the id of the plot where its coordinate goes - is reported as an error once, instead of on every save of every plot. The repeats used up the quota of the error reports, so that no report from any user was received for nine days
 - The analysis page no longer fails with "Something went wrong" on a project with a yes/no question that nobody answered (every row of its column empty)
+- An answer cleared because its question was no longer asked reads as missing when the question is asked again: the form said "Invalid code" and the error counts were wrong, until another answer was chosen
 - Join cloud project works for someone who already has an account on the server (from another project): Log in with the invitation now adds its project to the account. It failed with an internal error (the project file could not be downloaded), and Register said the username was taken
 
 ### Removed

@@ -36,6 +36,7 @@ import org.openforis.collect.metamodel.ui.UIFormSet;
 import org.openforis.collect.metamodel.ui.UITable;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectSurvey;
+import org.openforis.collect.model.NodeChange;
 import org.openforis.collect.model.NodeChangeMap;
 import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.collect.model.RecordValidationReportGenerator;
@@ -648,12 +649,14 @@ public class BalloonInputFieldsUtils {
 						if (handler.isMultiValueAware()) { // EntityHandler will use the original separated parameter
 															// values while the other will take single values
 							NodeChangeSet partialChangeSet = handler.addOrUpdate(cleanName, parameterValue, entity, 0);
+							countClearedAsEmpty(partialChangeSet);
 							result.addMergeChanges(partialChangeSet);
 						} else {
 							String[] parameterValues = parameterValue
 									.split(BalloonInputFieldsUtils.PARAMETER_SEPARATOR);
 							NodeChangeSet partialChangeSet = handler.updateMultipleAttribute(cleanName, entity,
 									parameterValues);
+							countClearedAsEmpty(partialChangeSet);
 							result.addMergeChanges(partialChangeSet);
 						}
 					}
@@ -681,6 +684,24 @@ public class BalloonInputFieldsUtils {
 			}
 		}
 		return result;
+	}
+
+	/**
+	 * The answers Collect cleared in an update, because their question stopped being asked, counted as empty again.
+	 * RecordUpdater (RecordDependentsUpdater.clearNonRelevantAttributes) clears their values without updating what the
+	 * attribute knows of itself, so it still reads as answered : once the question was asked again, its missing answer was
+	 * validated as a code that is not in the list, "Invalid code", where the form should say an answer is needed, and was not
+	 * counted as missing. Done after each update of a save, as the next one can ask the question again.
+	 */
+	static void countClearedAsEmpty(NodeChangeSet changeSet) {
+		if (changeSet == null) {
+			return;
+		}
+		for (NodeChange<?> change : changeSet.getChanges()) {
+			if (change.getNode() instanceof Attribute) {
+				((Attribute<?, ?>) change.getNode()).updateSummaryInfo();
+			}
+		}
 	}
 
 	/**
