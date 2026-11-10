@@ -9,7 +9,7 @@
  "collect_integer_elevation": "0",
  "collect_real_aspect": "0.0",
  "collect_real_slope": "0.0",
- "collect_text_class": "0",
+ "collect_text_class": "2",
  "collect_text_coordinator_note": "",
  "collect_text_country": "5",
  "collect_text_countryname": "Cambodia",

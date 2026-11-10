@@ -1,9 +1,9 @@
 ﻿plotid,sampleid,sample_internal_id,lon,lat,email,flagged,collection_time,analysis_duration,used_geodash,used_kml,imagery_title,imagery_attributions,sample_geom,confidence,confidence_comment,Visible_strata,Mixed?,Secondary _visible_strata,Secondary notes or type of 'Other':,Notes or type of 'Other':,Confidence ,Year disturbed , Guest Interpreters
 138814414,1,1000,87.4837365,26.66312053,ana@example.org,false,2025-12-31 10:05,95.4 secs,false,false,Mapbox Satellite,,POINT(87.4837365 26.66312053),,,Degradation,yes,Other,"logging road, near the river",,High,2015,
-138814414,1,1001,87.4837365,26.66312053,ben@example.org,false,2024-12-20 08:30,41 secs,false,false,Mapbox Satellite,,POINT(87.4837365 26.66312053),,,Stable Forest,no,,,,Medium ,2001,
-138814419,1,1002,85.06610058,27.13177161,ben@example.org,false,2025-03-03 14:00,63 secs,false,false,Mapbox Satellite,,POINT(85.06610058 27.13177161),,,Other,no,,,river bed gravel,Low,2010,
-138814420,1,1003,85.26714354,27.18863497,ana@example.org,true,2025-03-04 09:00,12 secs,false,false,Mapbox Satellite,,POINT(85.26714354 27.18863497),,,,,,,,,,
-138814421,1,1004,85.83335166,27.02505175,ana@example.org,false,2025-03-04 09:30,30 secs,false,false,Mapbox Satellite,,POINT(85.83335166 27.02505175),,,Forest (old name),,,,,High,1999,
+138814414,1,1001,87.4837365,26.66312053,ben@example.org,false,2024-12-20 08:30,41.0 secs,false,false,Mapbox Satellite,,POINT(87.4837365 26.66312053),,,Stable Forest,no,,,,Medium ,2001,
+138814419,1,1002,85.06610058,27.13177161,ben@example.org,false,2025-03-03 14:00,63.0 secs,false,false,Mapbox Satellite,,POINT(85.06610058 27.13177161),,,Other,no,,,river bed gravel,Low,2010,
+138814420,1,1003,85.26714354,27.18863497,ana@example.org,true,2025-03-04 09:00,12.0 secs,false,false,Mapbox Satellite,,POINT(85.26714354 27.18863497),,,,,,,,,,
+138814421,1,1004,85.83335166,27.02505175,ana@example.org,false,2025-03-04 09:30,30.0 secs,false,false,Mapbox Satellite,,POINT(85.83335166 27.02505175),,,Forest (old name),,,,,High,1999,
 138814430,1,1005,80.46043812,28.78026999,,,,,,,,,POINT(80.46043812 28.78026999),,,,,,,,,,
 138814449,1,1006,84.98417422,27.21235049,,,,,,,,,POINT(84.98417422 27.21235049),,,,,,,,,,
 138814452,1,1007,87.09970672,26.788705,,,,,,,,,POINT(87.09970672 26.788705),,,,,,,,,,

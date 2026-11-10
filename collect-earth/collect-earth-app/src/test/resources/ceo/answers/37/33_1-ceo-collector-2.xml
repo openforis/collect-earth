@@ -52,6 +52,6 @@
   </ceo_flagged>
   <ceo_confidence />
   <lulc>
-    <code>water</code>
+    <code>built_surface</code>
   </lulc>
 </plot>

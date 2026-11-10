@@ -341,8 +341,9 @@ records written in batches). It showed three things, the first two now done:
   per point, which the answer of most samples flattens. Its points are what Part E (one row per sample point) keeps;
   until then the report says how many plots lose their mix.
 
-A cut of the file (50 plots, its emails replaced) is a fixture (`project-37-samples.csv`), and its records are read by
-`CeoRecordsXmlTest` with those of 20170.
+The real file is not kept (it holds people's emails and their organisation's answers): `project-37-samples.csv` is
+made up by `test/ceoSampleData.ts` in its shape (plot file columns, bulk answers, a guest, flagged and unanswered
+plots, samples that disagree), and its records are read by `CeoRecordsXmlTest` with those of 20170.
 
 What the file is, from CEO's code:
 - the UTF-8 mark; `plotid, sampleid, sample_internal_id, lon, lat, email, flagged, collection_time,

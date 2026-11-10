@@ -241,7 +241,7 @@ describe('a new project from a Collect Earth Online project', () => {
       expect(res.json().report.find((e: { subject: string }) => e.subject === 'Samples that disagree')).toMatchObject({ outcome: 'changed' });
     });
 
-    it("reads a real download of CEO's sample data (RLCMS Cambodia, its emails replaced)", async () => {
+    it("reads sample data shaped as a real download is (RLCMS Cambodia: plot file columns, bulk answers, a guest)", async () => {
       const res = await post('', { ceoProject: ceo(37), ceoPlots: ceoPlots(37), ceoAnswers: ceoAnswers(37) });
       expect(res.statusCode, res.body).toBe(201);
       const body = res.json();
@@ -255,7 +255,7 @@ describe('a new project from a Collect Earth Online project', () => {
       // the columns of the plot file uploaded to CEO, on the plots and on the records
       const content = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${body.projectId}/csv-files/${body.doneFile.csvFileId}/content`, headers: bearer(owner.token) });
       expect(content.body.split('\n')[0]).toMatch(/^id,YCoordinate,XCoordinate,elevation,slope,aspect,year,class,country,countryname/);
-      expect(content.body).toMatch(/\n1,11\.57\d+,105\.08\d+,0,0,0,2013,0,5,Cambodia/);
+      expect(content.body).toMatch(/\n1,11\.57\d+,105\.08\d+,0,0,0,2013,2,5,Cambodia/);
       const rows = exportRows((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${body.projectId}/export.csv`, headers: bearer(owner.token) })).body);
       expect(rows.find((r) => r.plot === '1')).toMatchObject({ collect_code_lulc: 'aquatic_veg_other', collect_text_year: '2013', collect_text_countryname: 'Cambodia', actively_saved: 'true', modified_on: '2019-03-01T00:00:00.000Z' });
 

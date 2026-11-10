@@ -5,7 +5,8 @@
 //   questions' texts in sort-questions order, ", Guest Interpreters"; each row the base values, the answers by question
 //   text (extract-answers: one per text), then "," and the guest names (none in a regular project);
 // - csv-quotes: double quotes taken out, the value quoted only when it holds a comma;
-// - format-time: "YYYY-MM-dd HH:mm" with Java's week year; analysis_duration as "N secs";
+// - format-time: "YYYY-MM-dd HH:mm" with Java's week year; analysis_duration as "N.N secs" (rounded to a tenth);
+// - the plot file uploaded to CEO: its columns as `pl_<name>` after the base columns, on every row of the plot;
 // - dump_project_sample_data (src/sql/functions/project.sql): one row per sample and per collector of the plot, and
 //   rows without a collector for a plot nobody answered.
 // `npx tsx test/ceoSampleData.ts` writes the fixtures (test/fixtures/ceo/project-<id>-samples.csv) again.
@@ -58,12 +59,19 @@ function formatTime(d: Date): string {
   return `${year}-${two(d.getUTCMonth() + 1)}-${two(d.getUTCDate())} ${two(d.getUTCHours())}:${two(d.getUTCMinutes())}`;
 }
 
+/** The columns of a plot file uploaded to CEO (extra_plot_info: `pl_<name>` in the file), in their order, and their values. */
+export interface PlotColumns {
+  names: string[];
+  of: (plot: number) => Record<string, string>;
+}
+
 /** The sample data of a project (its get-project-by-id JSON and get-project-plots list), with these answers. */
-export function ceoSampleCsv(projectJson: string, plotsJson: string, answers: SampleAnswer[]): string {
+export function ceoSampleCsv(projectJson: string, plotsJson: string, answers: SampleAnswer[], plotColumns?: PlotColumns): string {
   const project = JSON.parse(projectJson) as { surveyQuestions: Record<string, RawQuestion>; samplesPerPlot: number };
   const plots = JSON.parse(plotsJson) as { id: number; center: string }[];
   const questions = sortQuestions(project.surveyQuestions);
-  const header = '﻿' + [...SAMPLE_BASE_HEADERS, ...questions.map(([, q]) => q.question ?? 'not-found')].map(csvQuotes).join(',') + ', Guest Interpreters';
+  const plHeaders = (plotColumns?.names ?? []).map((n) => `pl_${n}`);
+  const header = '\uFEFF' + [...SAMPLE_BASE_HEADERS, ...plHeaders, ...questions.map(([, q]) => q.question ?? 'not-found')].map(csvQuotes).join(',') + ', Guest Interpreters';
   const lines = [header];
   let internal = 1000;
   for (const plot of plots) {
@@ -81,11 +89,12 @@ export function ceoSampleCsv(projectJson: string, plotsJson: string, answers: Sa
         const base: Record<string, unknown> = {
           plotid: plot.id, sampleid: s + 1, sample_internal_id: internal++, lon: sampleLon, lat: sampleLat,
           email: a?.email ?? null, flagged: a ? a.flagged === true : null,
-          collection_time: a ? formatTime(a.collectedAt) : null, analysis_duration: a ? `${a.seconds} secs` : null,
+          collection_time: a ? formatTime(a.collectedAt) : null, analysis_duration: a ? `${a.seconds.toFixed(1)} secs` : null,
           used_geodash: a ? false : null, used_kml: a ? false : null, imagery_title: a ? 'Mapbox Satellite' : null,
           sample_geom: `POINT(${sampleLon} ${sampleLat})`, confidence: a?.confidence ?? null, confidence_comment: null,
         };
-        const row = [...SAMPLE_BASE_HEADERS.map((h) => csvQuotes(base[h])), ...questions.map(([, q]) => csvQuotes(byText.get(q.question ?? 'not-found') ?? ''))];
+        const pl = plotColumns?.of(plot.id) ?? {};
+        const row = [...SAMPLE_BASE_HEADERS.map((h) => csvQuotes(base[h])), ...(plotColumns?.names ?? []).map((n) => csvQuotes(pl[n] ?? '')), ...questions.map(([, q]) => csvQuotes(byText.get(q.question ?? 'not-found') ?? ''))];
         lines.push(row.join(',') + ',');
       }
     }
@@ -127,9 +136,33 @@ export const FIXTURE_ANSWERS: Record<number, SampleAnswer[]> = {
   ],
 };
 
+// RLCMS Cambodia (37): shaped as a real download of its sample data is (the answers made up here): 25 samples per plot,
+// the columns of the plot file uploaded to CEO, most answers loaded in bulk (one date, "0.0 secs"), samples that disagree
+// (land cover per point), a guest, flagged plots and plots nobody answered (93, 105, 114)
+const LAND_COVERS = ['Crop', 'Tree Other', 'Water', 'Tree Plantation/Orchard', 'Shrub', 'Built Surface', 'Grass'];
+const BULK = new Date(Date.UTC(2019, 2, 1, 0, 0));
+const lulc = (cover: string): Record<string, string> => ({ 1: cover });
+const samples = (first: string, second: string | null) => Array.from({ length: 25 }, (_, i) => lulc(second !== null && i >= 15 ? second : first));
+FIXTURE_ANSWERS[37] = [
+  ...Array.from({ length: 40 }, (_, i): SampleAnswer => {
+    const plot = i + 1;
+    const cover = plot === 1 ? 'Aquatic Veg. Other' : LAND_COVERS[plot % LAND_COVERS.length];
+    // every fourth plot: 15 points of one land cover, 10 of another
+    const other = plot % 4 === 0 ? LAND_COVERS[(plot + 3) % LAND_COVERS.length] : null;
+    return { plot, email: plot <= 25 ? 'collector-1@example.org' : 'collector-2@example.org', collectedAt: BULK, seconds: 0, samples: samples(cover, other) };
+  }),
+  ...[115, 143, 152, 201].map((plot): SampleAnswer => ({ plot, email: 'collector-1@example.org', flagged: true, collectedAt: BULK, seconds: 0, samples: Array.from({ length: 25 }, () => ({})) })),
+  { plot: 227, email: 'guest', collectedAt: new Date(Date.UTC(2024, 1, 12, 3, 14)), seconds: 179, samples: samples('Crop', null) },
+  { plot: 246, email: 'collector-3@example.org', collectedAt: new Date(Date.UTC(2021, 8, 14, 10, 2)), seconds: 277.7, samples: samples('Tree Other', 'Grass') },
+  { plot: 253, email: 'collector-4@example.org', collectedAt: new Date(Date.UTC(2020, 7, 3, 16, 40)), seconds: 58, samples: samples('Built Surface', null) },
+];
+const FIXTURE_PLOT_COLUMNS: Record<number, PlotColumns> = {
+  37: { names: ['year', 'class', 'country', 'countryname'], of: (plot) => ({ year: '2013', class: String((plot % 3) * 2), country: '5', countryname: 'Cambodia' }) },
+};
+
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   for (const [id, answers] of Object.entries(FIXTURE_ANSWERS)) {
-    const csv = ceoSampleCsv(readFileSync(`${FIXTURES}project-${id}.json`, 'utf8'), readFileSync(`${FIXTURES}project-${id}-plots.json`, 'utf8'), answers);
+    const csv = ceoSampleCsv(readFileSync(`${FIXTURES}project-${id}.json`, 'utf8'), readFileSync(`${FIXTURES}project-${id}-plots.json`, 'utf8'), answers, FIXTURE_PLOT_COLUMNS[Number(id)]);
     writeFileSync(`${FIXTURES}project-${id}-samples.csv`, csv);
     console.log(`project-${id}-samples.csv: ${csv.split('\n').length - 1} rows`);
   }

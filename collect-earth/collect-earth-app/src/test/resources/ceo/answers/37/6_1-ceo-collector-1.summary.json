@@ -1,7 +1,7 @@
 {
  "collect_boolean_actively_saved": "true",
  "collect_boolean_ceo_flagged": "false",
- "collect_code_lulc": "water",
+ "collect_code_lulc": "grass",
  "collect_code_round": "1",
  "collect_coord_location": "13.06087502,103.9863125",
  "collect_date_actively_saved_on": "03/01/2019",
