@@ -157,7 +157,8 @@ describe('a new project from a Collect Earth Online project', () => {
       for (const [name, text] of written) {
         const path = dir + name;
         if (process.env.UPDATE_CEO_IDML === '1' || !existsSync(path)) writeFileSync(path, text);
-        expect(readFileSync(path, 'utf8'), path).toBe(text);
+        // a Windows checkout (core.autocrlf) has the file with CRLF: only the content is compared
+        expect(readFileSync(path, 'utf8').replace(/\r\n/g, '\n'), path).toBe(text.replace(/\r\n/g, '\n'));
       }
     };
 
