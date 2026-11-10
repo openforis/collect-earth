@@ -27,7 +27,7 @@ interface SurveyBody {
  * Why this account may not make a new project (403), or null: projectCreation, and the per-account
  * limit on the projects one coordinates (the hosted model). Platform admins own the server and are exempt.
  */
-async function creationRefusal(store: Store, user: User): Promise<{ error: string; limit?: number } | null> {
+export async function creationRefusal(store: Store, user: User): Promise<{ error: string; limit?: number } | null> {
   if (user.isPlatformAdmin) return null;
   const settings = await store.getSettings();
   if (settings.projectCreation !== 'anyone') {

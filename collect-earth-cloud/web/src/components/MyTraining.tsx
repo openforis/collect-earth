@@ -18,6 +18,7 @@ import { useT } from "../i18n";
 import { useLoad } from "../useLoad";
 import { shareText } from "../trainingView";
 import { ErrorAlert } from "./ErrorAlert";
+import { MoreInfo } from "./Explain";
 
 /**
  * My work's Training section: the calibration and learning sets the person takes part in. For a
@@ -66,12 +67,15 @@ function MySet({ set }: { set: MyTrainingSet }) {
         </Alert>
       )}
       {set.kind === "calibration" || !score ? (
-        <Typography>{t("training.mineCalibration", { done: n(set.submitted), plots: n(set.plotCount) })}</Typography>
+        <Typography>
+          {t("training.mineCalibration.short", { done: n(set.submitted), plots: n(set.plotCount) })}
+          <MoreInfo text={t("training.mineCalibration", { done: n(set.submitted), plots: n(set.plotCount) })} />
+        </Typography>
       ) : (
         <Stack spacing={1.5}>
           <Typography>
             {score.submitted === 0
-              ? t("training.mineStart", { plots: n(score.plots) })
+              ? <>{t("training.mineStart.short", { plots: n(score.plots) })}<MoreInfo text={t("training.mineStart", { plots: n(score.plots) })} /></>
               : t("training.mineScore", { rate: shareText(score.answers, language), agreeing: n(score.answers.agreeing), compared: n(score.answers.compared), done: n(score.submitted), plots: n(score.plots) })}
           </Typography>
           {set.passMark !== null && (

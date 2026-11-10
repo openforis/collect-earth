@@ -19,10 +19,11 @@ import { useState } from "react";
 import { ApiError, cepGridFiles, downloadOriginalCep, getOverview, getRoundInfo, listCsvFiles, mergeGridFiles, setReassessmentCode, uploadCep, uploadCsvFile, type RoundInfo } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { FileDrop } from "../components/FileDrop";
 import { Loading } from "../components/Loading";
 import { formatBytes, formatDate } from "../format";
-import { useT } from "../i18n";
+import { CATALOGUES, useT, type MessageKey } from "../i18n";
 import { noteMessage, originalFileName, roundCodeLabel, roundMessage } from "../roundText";
 import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
@@ -78,7 +79,10 @@ function ReassessmentChoice({ projectId, info, onSaved }: { projectId: string; i
             {t("file.round.noneOption")}
           </MenuItem>
         </Select>
-        <FormHelperText>{t("file.round.whichHelp")}</FormHelperText>
+        <FormHelperText>
+          {t("file.round.whichHelp.short")}
+          <MoreInfo text={t("file.round.whichHelp")} />
+        </FormHelperText>
       </FormControl>
       <ErrorAlert error={error} />
       {saved && (
@@ -92,6 +96,19 @@ function ReassessmentChoice({ projectId, info, onSaved }: { projectId: string; i
         </Button>
       </Box>
     </Stack>
+  );
+}
+
+/** One sentence of the round and note messages: its short form with the full one in a tip, when it has one. */
+function RoundSentence({ messageKey, first }: { messageKey: MessageKey; first: boolean }) {
+  const t = useT();
+  const shortKey = `${messageKey}.short`;
+  const short = Object.hasOwn(CATALOGUES.en, shortKey) ? (shortKey as MessageKey) : null;
+  return (
+    <Typography variant="body2" sx={{ mt: first ? 0 : 1 }}>
+      {t(short ?? messageKey)}
+      {short && <MoreInfo text={t(messageKey)} />}
+    </Typography>
   );
 }
 
@@ -124,17 +141,13 @@ function RoundStatus({ projectId, projectName, info, onChange }: { projectId: st
         <Typography variant="h2">{t("file.round.title")}</Typography>
         <Alert severity={message.severity}>
           {message.keys.map((key, i) => (
-            <Typography key={key} variant="body2" sx={{ mt: i === 0 ? 0 : 1 }}>
-              {t(key)}
-            </Typography>
+            <RoundSentence key={key} messageKey={key} first={i === 0} />
           ))}
         </Alert>
         {note && (
           <Alert severity={note.severity} data-testid="file-note">
             {note.keys.map((key, i) => (
-              <Typography key={key} variant="body2" sx={{ mt: i === 0 ? 0 : 1 }}>
-                {t(key)}
-              </Typography>
+              <RoundSentence key={key} messageKey={key} first={i === 0} />
             ))}
           </Alert>
         )}
@@ -247,9 +260,7 @@ export function FileTab({ projectId }: { projectId: string }) {
         <Typography variant="h2" gutterBottom>
           {t("file.title")}
         </Typography>
-        <Typography color="text.secondary" sx={{ mb: 2 }}>
-          {t("file.explain")}
-        </Typography>
+        <Explain sx={{ mb: 2 }} text={t("file.explain.short")} more={t("file.explain")} />
         {overview.loading && !overview.data ? (
           <Loading />
         ) : overview.error ? (
@@ -289,7 +300,8 @@ export function FileTab({ projectId }: { projectId: string }) {
       {wrongType && <Alert severity="warning" role="alert">{t("file.wrongType")}</Alert>}
       {uploaded && (
         <Alert severity="success" role="status">
-          {t("file.uploaded")}
+          {t("file.uploaded.short")}
+          <MoreInfo text={t("file.uploaded")} />
         </Alert>
       )}
       {/* No close on Escape or outside clicks: the grid files wait for one of the two answers. */}

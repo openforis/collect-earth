@@ -27,6 +27,12 @@ describe("onboarding checklist", () => {
     expect(checklist({ ...base, memberCount: 2 }).find((s) => s.current)?.id).toBe("assign");
   });
 
+  it("giving out the plots is done with a file divided between people, though no file is given whole", () => {
+    const base = { ...empty, hasProjectFile: true, plotFileCount: 1, memberCount: 3 };
+    expect(checklist(base).find((s) => s.current)?.id).toBe("assign");
+    expect(checklist({ ...base, dividedFileCount: 1 }).find((s) => s.current)?.id).toBe("progress");
+  });
+
   it("everything done: no current step", () => {
     const steps = checklist({ hasProjectFile: true, plotFileCount: 1, memberCount: 3, openInviteCount: 0, assignmentCount: 2, recordCount: 5 });
     expect(doneCount(steps)).toBe(5);

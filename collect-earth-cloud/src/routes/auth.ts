@@ -22,6 +22,11 @@ interface LoginBody {
   password?: string;
   /** The second step, for an account with two-step sign-in: the authenticator app's code, or a recovery code. */
   code?: string;
+  /**
+   * An invitation taken by someone who already has an account (Collect Earth: Join cloud project, then Log in): its
+   * project is added to theirs, as register adds it to a new account's.
+   */
+  inviteToken?: string;
 }
 
 interface PasswordChangeBody {
@@ -197,8 +202,25 @@ export async function registerAuthRoutes(
         return reply.code(401).send({ error: check === 'unreadable' ? 'second_step_unreadable' : 'invalid_second_step' });
       }
     }
+    // An invitation with the login: its project joins the account's, with the invitation's role and one of its uses,
+    // as register does for a new account. Checked once the password (and code) were right, so only someone who
+    // could sign in learns whether a link is good. A member already keeps their role, and the link is not used up
+    // (a coordinator's link to bring a member the new project file).
+    const inviteToken = typeof body.inviteToken === 'string' ? body.inviteToken.trim() : '';
+    let joined: { projectId: string; projectName: string; role: string } | null = null;
+    if (inviteToken) {
+      const invite = await store.getInvite(inviteToken);
+      if (!invite || invite.revoked) return reply.code(400).send({ error: 'invalid_invite' });
+      const memberships = await store.listMemberships(user.id);
+      const member = memberships.find((m) => m.projectId === invite.projectId);
+      if (!member) {
+        if (!(await store.consumeInvite(inviteToken, Date.now()))) return reply.code(410).send({ error: 'invite_exhausted' });
+        await store.addMembership(invite.projectId, user.id, invite.role);
+      }
+      joined = { projectId: invite.projectId, projectName: invite.projectName, role: member ? member.role : invite.role };
+    }
     const token = await store.createSession(user.id);
-    return reply.send({ token, userId: user.id, username: user.username });
+    return reply.send({ token, userId: user.id, username: user.username, ...(joined ?? {}) });
   });
 
   app.post(

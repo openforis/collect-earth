@@ -209,7 +209,7 @@ describe("saved views", () => {
 
 it("reads a table's CSV with the types the server states", () => {
   expect(readCsvSql("land_cover", "land_cover.csv", [["_record", "VARCHAR"], ["it's", "BIGINT"]])).toBe(
-    `CREATE OR REPLACE TABLE "land_cover" AS SELECT * FROM read_csv('land_cover.csv', header = true, auto_detect = false, delim = ',', quote = '"', escape = '"', columns = {'_record': 'VARCHAR', 'it''s': 'BIGINT'})`,
+    `CREATE OR REPLACE TABLE "land_cover" AS SELECT * FROM read_csv('land_cover.csv', header = true, auto_detect = false, delim = ',', quote = '"', escape = '"', ignore_errors = true, columns = {'_record': 'VARCHAR', 'it''s': 'BIGINT'})`,
   );
 });
 

@@ -33,7 +33,7 @@ import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import SendIcon from "@mui/icons-material/Send";
 import { type MessageKey, type Translate, useT } from "../i18n";
 import { escapeBlurs, isCopyKey, isTyping, mayAdvance, mayTakeFocus, panelKey, submitOnKey } from "../shortcuts";
-import logo from "./collect-earth-logo.png";
+import logo from "@shared/collect-earth-logo.png";
 import { AnsweredByKey, Copied, FieldView, errorText } from "./fields";
 import {
   type Field, type FocusTarget, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type Step,

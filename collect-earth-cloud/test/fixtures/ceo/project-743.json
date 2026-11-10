@@ -1,0 +1,133 @@
+{
+ "allowDrawnSamples": false,
+ "aoiFeatures": [
+  {
+   "coordinates": [
+    [
+     [
+      12.364600003,
+      41.795034242
+     ],
+     [
+      12.364600003,
+      41.980321639
+     ],
+     [
+      12.629776597,
+      41.980321639
+     ],
+     [
+      12.629776597,
+      41.795034242
+     ],
+     [
+      12.364600003,
+      41.795034242
+     ]
+    ]
+   ],
+   "type": "Polygon"
+  }
+ ],
+ "aoiFileName": "",
+ "availability": "published",
+ "boundary": "{\"type\":\"Polygon\",\"coordinates\":[[[12.364600003,41.795034242],[12.364600003,41.980321639],[12.629776597,41.980321639],[12.629776597,41.795034242],[12.364600003,41.795034242]]]}",
+ "closedDate": "",
+ "createdDate": "2018-11-27",
+ "description": "This is a demo of a collection for Rome",
+ "designSettings": {
+  "qaqcAssignment": {
+   "percent": 0,
+   "qaqcMethod": "none",
+   "smes": [],
+   "timesToReview": 2
+  },
+  "sampleGeometries": {
+   "lines": true,
+   "points": true,
+   "polygons": true
+  },
+  "userAssignment": {
+   "percents": [],
+   "userMethod": "none",
+   "users": []
+  }
+ },
+ "hasGeoDash": false,
+ "id": 743,
+ "imageryId": 1318,
+ "institution": 4,
+ "isProjectAdmin": false,
+ "learningMaterial": null,
+ "name": "FAO - Demo",
+ "numPlots": 210,
+ "plotDistribution": "gridded",
+ "plotFileName": null,
+ "plotShape": "square",
+ "plotSimilarityDetails": {
+  "referencePlotId": null,
+  "years": null
+ },
+ "plotSize": 100.0,
+ "plotSpacing": 2000.0,
+ "privacyLevel": "public",
+ "projectOptions": {
+  "autoLaunchGeoDash": true,
+  "collectConfidence": false,
+  "showGEEScript": false,
+  "showPlotInformation": false
+ },
+ "publishedDate": "",
+ "referencePlotId": null,
+ "sampleDistribution": "gridded",
+ "sampleFileName": null,
+ "sampleResolution": 20.0,
+ "samplesPerPlot": 36,
+ "shufflePlots": null,
+ "surveyQuestions": {
+  "1": {
+   "answers": {
+    "1": {
+     "answer": "Yes",
+     "color": "#68ff5f"
+    },
+    "2": {
+     "answer": "No",
+     "color": "#ff000a"
+    },
+    "3": {
+     "answer": "Maybe",
+     "color": "#949494"
+    }
+   },
+   "cardOrder": 1,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Is this forest?"
+  },
+  "2": {
+   "answers": {
+    "1": {
+     "answer": "Yes",
+     "color": "#64ff6c"
+    },
+    "2": {
+     "answer": "No",
+     "color": "#ff140f"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 1,
+   "question": "Evergreen?"
+  }
+ },
+ "surveyRules": [],
+ "type": "regular",
+ "userRole": null
+}

@@ -45,9 +45,9 @@ export type Design =
 export interface DesignedPlot {
   lon: number;
   lat: number;
-  stratum?: string;
-  /** The plot's own id (SIGRID's CE_ID), else it is numbered 1, 2... */
+  /** the plot's id in the file (SIGRID's CE_ID); 1, 2, 3... in order when none (a design's plots) */
   id?: string;
+  stratum?: string;
   /** Values for the survey's extra columns of these names (lowercase), e.g. adm1nm. */
   columns?: Record<string, string>;
 }
@@ -382,7 +382,7 @@ export function plotFileCsv(plots: readonly DesignedPlot[], keys: { count: numbe
   let at = columns.findIndex((c) => c.toLowerCase() === 'stratum');
   if (stratified && at < 0) at = columns.push('stratum') - 1;
   const lines = plots.map((p, n) => [
-    ...keyNames.map((k) => (k === 'round' ? keys.roundCode : (p.id ?? String(n + 1)))),
+    ...keyNames.map((k) => (k === 'round' ? keys.roundCode : field(p.id ?? String(n + 1)))),
     p.lat.toFixed(6),
     p.lon.toFixed(6),
     ...columns.map((c, i) => (i === at ? field(p.stratum ?? '') : field(p.columns?.[c.toLowerCase()] ?? (ZERO.has(c.toLowerCase()) ? '0' : '')))),

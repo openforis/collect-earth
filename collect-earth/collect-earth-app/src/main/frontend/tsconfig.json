@@ -12,7 +12,8 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "types": ["google.maps", "vite/client", "node"],
-    "noEmit": true
+    "noEmit": true,
+    "paths": { "@shared/*": ["../../../../../collect-earth-cloud/web/src/shared/*"] }
   },
   "include": ["src", "vite.config.ts"]
 }

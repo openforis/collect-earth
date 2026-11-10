@@ -25,7 +25,7 @@ import LoginOutlinedIcon from "@mui/icons-material/LoginOutlined";
 import PersonIcon from "@mui/icons-material/Person";
 import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
-import logo from "../form/collect-earth-logo.png";
+import logo from "@shared/collect-earth-logo.png";
 import { apiPut } from "../apiClient";
 import type { AppInfo } from "../appInfo";
 import { actionOf, comingSoon, errorText, operatorRequired, quitServer, type AppAction } from "../appBar";

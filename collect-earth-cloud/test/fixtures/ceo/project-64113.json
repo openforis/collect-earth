@@ -1,0 +1,152 @@
+{
+ "allowDrawnSamples": true,
+ "aoiFeatures": [
+  {
+   "coordinates": [
+    [
+     [
+      -57.41854910306219,
+      -37.73958448316888
+     ],
+     [
+      -57.41854910306219,
+      -37.54551332612587
+     ],
+     [
+      -57.214909072996925,
+      -37.54551332612587
+     ],
+     [
+      -57.214909072996925,
+      -37.73958448316888
+     ],
+     [
+      -57.41854910306219,
+      -37.73958448316888
+     ]
+    ]
+   ],
+   "type": "Polygon"
+  }
+ ],
+ "aoiFileName": "GrillaMarchi_FiltroDesacuerdo.zip",
+ "availability": "published",
+ "boundary": "{\"type\":\"Polygon\",\"coordinates\":[[[-57.429898758,-37.748597626],[-57.429898758,-37.729667203],[-57.406059877,-37.729667203],[-57.406059877,-37.748597626],[-57.429898758,-37.748597626]]]}",
+ "closedDate": "",
+ "createdDate": "2026-09-28",
+ "description": "Identificar y caracterizar la distribución espacial y el grado de invasión de especies exóticas leñosas (Pinus sp. y Acacia longifolia) en la Reserva Provincial de Mar Chiquita, en relación con la calidad del hábitat para Liolaemus multimaculatus. Definir, evaluar y priorizar estrategias de manejo orientadas al control de especies invasoras y la restauración del hábitat.",
+ "designSettings": {
+  "qaqcAssignment": {
+   "percent": 0,
+   "qaqcMethod": "none",
+   "smes": [],
+   "timesToReview": 2
+  },
+  "sampleGeometries": {
+   "lines": true,
+   "points": true,
+   "polygons": true
+  },
+  "userAssignment": {
+   "percents": [],
+   "userMethod": "none",
+   "users": []
+  }
+ },
+ "hasGeoDash": false,
+ "id": 64113,
+ "imageryId": 1317,
+ "institution": 7142,
+ "isProjectAdmin": false,
+ "learningMaterial": "",
+ "name": "Reserva Natural Mar Chiquita-Restauracion PCLD",
+ "numPlots": 1,
+ "plotDistribution": "simplified",
+ "plotFileName": "",
+ "plotShape": "square",
+ "plotSimilarityDetails": {
+  "referencePlotId": null,
+  "years": null
+ },
+ "plotSize": 1000.0,
+ "plotSpacing": 1000.0,
+ "privacyLevel": "public",
+ "projectOptions": {
+  "autoLaunchGeoDash": false,
+  "collectConfidence": false,
+  "license": "public",
+  "plotSimilarity": false,
+  "showGEEScript": false,
+  "showPlotInformation": false
+ },
+ "publishedDate": "2026-10-21",
+ "referencePlotId": null,
+ "sampleDistribution": "center",
+ "sampleFileName": "",
+ "sampleResolution": 25.0,
+ "samplesPerPlot": 1,
+ "shufflePlots": false,
+ "surveyQuestions": {
+  "1": {
+   "answers": {
+    "1": {
+     "answer": "PINO",
+     "color": "#109844"
+    },
+    "2": {
+     "answer": "DUNA",
+     "color": "#fff68f",
+     "hide": false
+    },
+    "3": {
+     "answer": "PASTIZAL",
+     "color": "#b3883d",
+     "hide": false
+    },
+    "4": {
+     "answer": "ACACIA",
+     "color": "#ff0000",
+     "hide": false
+    }
+   },
+   "cardOrder": 1,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "que tipo de fisonomia predomina en esta ha?",
+   "questionLabel": "fisonomia",
+   "required": false
+  },
+  "2": {
+   "answers": {
+    "1": {
+     "answer": "BAJA",
+     "color": "#109844"
+    },
+    "2": {
+     "answer": "MEDIA",
+     "color": "#ff7b00",
+     "hide": false
+    },
+    "3": {
+     "answer": "ALTA",
+     "color": "#ff0000",
+     "hide": false
+    }
+   },
+   "cardOrder": 2,
+   "componentType": "button",
+   "dataType": "text",
+   "label": "confianza",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "confianza",
+   "questionLabel": "Densidad",
+   "required": false
+  }
+ },
+ "surveyRules": [],
+ "type": "simplified",
+ "userRole": null
+}

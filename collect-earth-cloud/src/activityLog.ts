@@ -27,7 +27,7 @@ const RECORD_KINDS: Record<string, readonly RecordChange[]> = {
 const AUDIT_KINDS: Record<string, readonly AuditAction[]> = {
   decisions: ['decision.set', 'decision.deleted', 'decision.bulk'],
   people: ['invite.created', 'invite.revoked', 'member.removed', 'member.anonymized', 'member.signed_out', 'member.role', 'member.excluded'],
-  files: ['cep.replaced', 'survey.replaced', 'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'sampling.drawn', 'reference.changed', 'training.changed', 'training.synced'],
+  files: ['project.imported', 'cep.replaced', 'survey.replaced', 'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'sampling.drawn', 'reference.changed', 'training.changed', 'training.synced'],
   settings: ['settings.changed', 'link.created', 'link.revoked'],
   downloads: ['export.downloaded'],
 };

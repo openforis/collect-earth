@@ -1,7 +1,7 @@
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Grid from "@mui/material/Grid";
+import Divider from "@mui/material/Divider";
 import LinearProgress from "@mui/material/LinearProgress";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -23,6 +23,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode,
 import { getProgress, type AttentionItem, type ProgressData } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { AsOf } from "../components/PeopleCharts";
 import { Loading } from "../components/Loading";
 import { formatDay, formatNumber } from "../format";
@@ -87,24 +88,26 @@ export function Section({ title, children, id }: { title: string; children: Reac
   );
 }
 
-/** A headline number: what it counts, and its share of the plots as a bar. */
+/** A headline number: what it counts above it, and its share of the plots as a thin bar below. */
 function Stat({ label, value, help, share }: { label: string; value: string; help?: string; share?: { value: number; text: string } }) {
   return (
-    <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
-      <Typography variant="h2" component="p" sx={{ fontVariantNumeric: "tabular-nums" }}>
+    <Paper variant="outlined" sx={{ p: 2, height: "100%", display: "flex", flexDirection: "column", gap: 0.5 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+        {label}
+      </Typography>
+      <Typography component="p" sx={{ fontSize: "1.75rem", fontWeight: 600, lineHeight: 1.2, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.01em" }}>
         {value}
       </Typography>
-      <Typography sx={{ fontWeight: 500 }}>{label}</Typography>
       {share && (
         <>
-          <LinearProgress variant="determinate" value={share.value} sx={{ my: 1, height: 6, borderRadius: 3 }} aria-label={`${label}: ${share.text}`} />
-          <Typography variant="body2" color="text.secondary">
+          <LinearProgress variant="determinate" value={share.value} sx={{ mt: 0.5, height: 4, borderRadius: 2 }} aria-label={`${label}: ${share.text}`} />
+          <Typography variant="caption" color="text.secondary">
             {share.text}
           </Typography>
         </>
       )}
       {help && (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: share ? 0.5 : 1 }}>
+        <Typography variant="caption" color="text.secondary">
           {help}
         </Typography>
       )}
@@ -120,9 +123,6 @@ export function Totals({ data, local = false }: { data: ProgressFigures; local?:
   const { totals } = data;
   const share = (part: number) => ({ value: barValue(part, totals.plots), text: t("progress.ofPlots", { percent: percentText(part, totals.plots, language) }) });
   const stats = totalStats(local);
-  // Five numbers: two, then three, in a row (on a desktop); four: two by two, or four in a row.
-  const size = (stat: TotalStat) =>
-    stats.length === 4 ? { xs: 12, sm: 6, md: 3 } : stat === "plots" || stat === "assigned" ? { xs: 12, sm: 6, md: 4 } : stat === "submitted" ? { xs: 12, sm: 4, md: 4 } : { xs: 12, sm: 4, md: 6 };
   const card = (stat: TotalStat) => {
     switch (stat) {
       case "plots":
@@ -141,13 +141,12 @@ export function Totals({ data, local = false }: { data: ProgressFigures; local?:
     }
   };
   return (
-    <Grid container spacing={2}>
+    // One row of equal tiles on a desktop, wrapping to fewer per row on smaller screens
+    <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
       {stats.map((stat) => (
-        <Grid key={stat} size={size(stat)}>
-          {card(stat)}
-        </Grid>
+        <Box key={stat}>{card(stat)}</Box>
       ))}
-    </Grid>
+    </Box>
   );
 }
 
@@ -275,9 +274,7 @@ export function OverTime({ data }: { data: ProgressFigures }) {
   const n = (v: number) => formatNumber(v, language);
   return (
     <Section title={t("progress.chartTitle")} id="progress-chart">
-      <Typography color="text.secondary" sx={{ mb: 2 }}>
-        {t("progress.chartExplain", { zone: data.timeZone })}
-      </Typography>
+      <Explain sx={{ mb: 2 }} text={t("progress.chartExplain.short")} more={t("progress.chartExplain", { zone: data.timeZone })} />
       <ToggleButtonGroup size="small" exclusive value={view} onChange={(_, v) => v && setView(v)} aria-label={t("progress.chartTitle")} sx={{ mb: 1 }}>
         <ToggleButton value="chart">{t("quality.showChart")}</ToggleButton>
         <ToggleButton value="table">{t("quality.showTable")}</ToggleButton>
@@ -322,11 +319,18 @@ export function ForecastSection({ data, publicView, local }: { data: ProgressFig
   const { language } = useApp();
   const f = data.forecast;
   const targetKey = forecastTargetKey(f, { publicView, local });
+  const sentences = forecastSentences(t, f, language, { publicView, local });
+  // How the forecast is worked out and where its target and deadline are set: for the project's own dashboard
+  // (a progress link has no Settings tab; the local mode's target comes from Settings only).
+  const more = !publicView && !local;
   return (
     <Section title={t("progress.forecastTitle")} id="progress-forecast">
       <Stack spacing={1}>
-        {forecastSentences(t, f, language, { publicView, local }).map((s) => (
-          <Typography key={s}>{s}</Typography>
+        {sentences.map((s, i) => (
+          <Typography key={s}>
+            {s}
+            {more && i === sentences.length - 1 && <MoreInfo text={t("progress.forecastTitle.more")} />}
+          </Typography>
         ))}
         {targetKey !== null && (
           <Typography variant="body2" color="text.secondary">
@@ -341,51 +345,53 @@ export function ForecastSection({ data, publicView, local }: { data: ProgressFig
 function AttentionCard({ item, onGo }: { item: AttentionItem; onGo: (tab: ProjectTab) => void }) {
   const t = useT();
   const { language } = useApp();
-  const { title, text } = attentionText(t, item, language);
+  const { title, text, more: fullText } = attentionText(t, item, language);
   const action = attentionAction(t, item.kind);
   const more = item.count - item.people.length;
   return (
-    <Paper variant="outlined" sx={{ p: 2, height: "100%", display: "flex", flexDirection: "column", gap: 1 }}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-        <WarningAmber color="warning" fontSize="small" aria-hidden />
+    // A row of the list (not a card in the card): what is wrong, its details, and the way to it on the right
+    <Box sx={{ display: "flex", gap: 1.5, py: 2, flexDirection: { xs: "column", sm: "row" }, alignItems: { sm: "flex-start" } }}>
+      <WarningAmber color="warning" fontSize="small" aria-hidden sx={{ mt: 0.25, display: { xs: "none", sm: "block" } }} />
+      <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 0.5 }}>
         <Typography variant="h3" component="h3">
           {title}
         </Typography>
-      </Stack>
-      {text.map((s) => (
-        <Typography key={s} variant="body2">
-          {s}
-        </Typography>
-      ))}
-      {item.people.length > 0 && (
-        <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-          {item.people.map((person) => {
-            const detail = personDetail(t, item, person, language, (ms) => formatDay(ms, language));
-            return (
-              <Typography component="li" variant="body2" key={person.username} sx={{ wordBreak: "break-word" }}>
-                {person.username}
-                {detail && (
-                  <Box component="span" sx={{ color: "text.secondary" }}>
-                    {" "}
-                    · {detail}
-                  </Box>
-                )}
+        {text.map((s, i) => (
+          <Typography key={s} variant="body2" color="text.secondary">
+            {s}
+            {fullText && i === text.length - 1 && <MoreInfo text={fullText} />}
+          </Typography>
+        ))}
+        {item.people.length > 0 && (
+          <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+            {item.people.map((person) => {
+              const detail = personDetail(t, item, person, language, (ms) => formatDay(ms, language));
+              return (
+                <Typography component="li" variant="body2" key={person.username} sx={{ wordBreak: "break-word" }}>
+                  {person.username}
+                  {detail && (
+                    <Box component="span" sx={{ color: "text.secondary" }}>
+                      {" "}
+                      · {detail}
+                    </Box>
+                  )}
+                </Typography>
+              );
+            })}
+            {more > 0 && (
+              <Typography component="li" variant="body2" color="text.secondary">
+                {t("progress.andMore", { n: formatNumber(more, language) })}
               </Typography>
-            );
-          })}
-          {more > 0 && (
-            <Typography component="li" variant="body2" color="text.secondary">
-              {t("progress.andMore", { n: formatNumber(more, language) })}
-            </Typography>
-          )}
-        </Box>
-      )}
-      <Box sx={{ mt: "auto", pt: 1 }}>
+            )}
+          </Box>
+        )}
+      </Box>
+      <Box sx={{ flexShrink: 0 }}>
         <Button size="small" variant="outlined" endIcon={<ArrowForward />} onClick={() => onGo(action.tab)}>
           {action.label}
         </Button>
       </Box>
-    </Paper>
+    </Box>
   );
 }
 
@@ -399,13 +405,11 @@ function Attention({ items, onGo }: { items: AttentionItem[]; onGo: (tab: Projec
           <Typography>{t("progress.attentionNone")}</Typography>
         </Stack>
       ) : (
-        <Grid container spacing={2}>
+        <Stack divider={<Divider flexItem />} sx={{ mt: -1, mb: -2 }}>
           {items.map((item) => (
-            <Grid key={item.kind} size={{ xs: 12, md: 6 }}>
-              <AttentionCard item={item} onGo={onGo} />
-            </Grid>
+            <AttentionCard key={item.kind} item={item} onGo={onGo} />
           ))}
-        </Grid>
+        </Stack>
       )}
     </Section>
   );

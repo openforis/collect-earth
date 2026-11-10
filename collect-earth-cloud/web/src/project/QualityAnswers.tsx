@@ -49,6 +49,7 @@ import {
 } from "../answersView";
 import { ChartOrTable, stepKey } from "../components/PeopleCharts";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
@@ -597,7 +598,10 @@ export function QualityAnswers({ projectId, teamOnly = false }: { projectId: str
         <Typography variant="h2" id="answers-title">
           {t(local ? "answers.titleLocal" : "answers.title")}
         </Typography>
-        <Typography color="text.secondary">{t(local ? "answers.explainLocal" : teamOnly ? "answers.explainTeam" : "answers.explain")}</Typography>
+        <Explain
+          text={t(local ? "answers.explainLocal.short" : teamOnly ? "answers.explainTeam.short" : "answers.explain.short")}
+          more={t(local ? "answers.explainLocal" : teamOnly ? "answers.explainTeam" : "answers.explain")}
+        />
         <Filters projectId={projectId} data={data} filter={filter} onChange={setFilter} teamOnly={teamOnly || local} />
         {!data && loading && <Loading />}
         {busy && (
@@ -616,7 +620,8 @@ export function QualityAnswers({ projectId, teamOnly = false }: { projectId: str
               </Button>
             }
           >
-            {t("answers.tooFewPlots")}
+            {t("answers.tooFewPlots.short")}
+            <MoreInfo text={t("answers.tooFewPlots")} />
           </Alert>
         ) : (
           error !== null && !busy && <ErrorAlert error={error} onRetry={reload} />
@@ -638,9 +643,7 @@ export function QualityAnswers({ projectId, teamOnly = false }: { projectId: str
                     <Typography variant="h3" sx={{ mb: 0.5 }}>
                       {t("answers.flagsTitle")}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      {t("answers.flagsExplain")}
-                    </Typography>
+                    <Explain variant="body2" sx={{ mb: 1 }} text={t("answers.flagsExplain.short")} more={t("answers.flagsExplain")} />
                     {data.tests > 0 && data.flagsTotal > 0 && (
                       <Typography variant="body2" sx={{ mb: 1 }}>
                         {t("answers.flagsCount", { n: formatNumber(data.flagsTotal, language), tests: formatNumber(data.tests, language) })} {chanceText(t, data.chanceFlags, language)}

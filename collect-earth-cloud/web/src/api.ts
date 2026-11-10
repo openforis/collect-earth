@@ -1112,6 +1112,55 @@ export function createProject(name: string): Promise<{ projectId: string; name: 
   return request("POST", "/v1/projects", { json: { name } });
 }
 
+/** One line of a Collect Earth Online import's report (src/ceo/report.ts); its subject and message are the server's, in English. */
+export interface CeoReportEntry {
+  area: "project" | "question" | "rule" | "plots";
+  subject: string;
+  outcome: "imported" | "changed" | "skipped" | "info";
+  message: string;
+}
+
+export interface CeoImportPreview {
+  name: string;
+  ceoProjectId: number | null;
+  /** plots: null without CEO's plot list */
+  counts: { questions: number; questionsChanged: number; questionsSkipped: number; rules: number; rulesSkipped: number; plots: number | null };
+  /** null without CEO's sample data; the collectors by email, for the coordinator to map (the server keeps no email) */
+  answers: { plots: number; flagged: number; collectors: { email: string; plots: number }[] } | null;
+  report: CeoReportEntry[];
+}
+
+/** CEO's files, as saved: the project (required), its plot list, its sample data (CSV); null when not given. */
+export interface CeoFiles {
+  project: string;
+  plots: string | null;
+  answers: string | null;
+}
+
+const ceoBody = (files: CeoFiles) => ({
+  ceoProject: files.project,
+  ...(files.plots !== null ? { ceoPlots: files.plots } : {}),
+  ...(files.answers !== null ? { ceoAnswers: files.answers } : {}),
+});
+
+/**
+ * What a project saved from Collect Earth Online (its get-project-by-id file, as text) would become, with its plots
+ * when CEO's plot list (get-project-plots) is given, and its answers with CEO's sample data; nothing is stored.
+ */
+export function previewCeoImport(files: CeoFiles): Promise<CeoImportPreview> {
+  return request("POST", "/v1/projects/from-ceo/preview", { json: ceoBody(files) });
+}
+
+/** A new project from a project saved from Collect Earth Online: its survey, rules and plots; the caller is its coordinator. */
+export function importCeoProject(
+  files: CeoFiles,
+  name: string,
+  /** CEO collector's email -> the username of their account here (the others get a pseudonym) */
+  collectors: Record<string, string>,
+): Promise<CeoImportPreview & { projectId: string; round: string; reportText: string; records: number; plotFile: { csvFileId: string; filename: string; plots: number } | null }> {
+  return request("POST", "/v1/projects/from-ceo", { json: { ...ceoBody(files), name, collectors } });
+}
+
 export async function getProject(projectId: string): Promise<ProjectInfo> {
   const body = await request<{ projectId: string; name: string; role: string; status?: string }>("GET", p(projectId));
   return { projectId: body.projectId, name: body.name, role: asRole(body.role), status: asStatus(body.status) };

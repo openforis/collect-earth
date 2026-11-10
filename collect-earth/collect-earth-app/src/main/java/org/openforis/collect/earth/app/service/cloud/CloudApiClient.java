@@ -360,11 +360,23 @@ public class CloudApiClient {
 
 	/** {@link #login(String, String, String)} with the second step's code (an authenticator app's, or a recovery code). */
 	public String login(String baseUrl, String username, String password, String code) throws IOException {
+		return login(baseUrl, username, password, code, null);
+	}
+
+	/**
+	 * {@link #login(String, String, String, String)} with an invitation: someone who has an account joins its project
+	 * (Join cloud project, then Log in), as {@link #register} joins a new account to it. A server without that
+	 * (before November 2026) ignores the invitation.
+	 */
+	public String login(String baseUrl, String username, String password, String code, String inviteToken) throws IOException {
 		ObjectNode body = objectMapper.createObjectNode();
 		body.put("username", username);
 		body.put("password", password);
 		if (code != null && !code.trim().isEmpty()) {
 			body.put("code", code.trim());
+		}
+		if (inviteToken != null && !inviteToken.trim().isEmpty()) {
+			body.put("inviteToken", inviteToken.trim());
 		}
 		HttpPost request = new HttpPost(normalize(baseUrl) + "/v1/auth/login");
 		prepareNoAuth(request);

@@ -61,6 +61,7 @@ import {
 } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { Username } from "../components/Username";
 import { JoinSteps } from "../components/JoinSteps";
 import { Loading } from "../components/Loading";
@@ -367,9 +368,7 @@ function WeekSection({ projectId, data }: { projectId: string; data: PeopleData 
       <Typography variant="h2" id="people-week" gutterBottom>
         {t("peopleWeek.title")}
       </Typography>
-      <Typography color="text.secondary" sx={{ mb: 2 }}>
-        {t("peopleWeek.explain", { n: n(total), zone: data.timeZone })}
-      </Typography>
+      <Explain sx={{ mb: 2 }} text={t("peopleWeek.explain.short", { n: n(total) })} more={t("peopleWeek.explain", { n: n(total), zone: data.timeZone })} />
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 6 }}>
           <ChartOrTable
@@ -462,9 +461,11 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
       <Typography variant="h2" id="people-table" gutterBottom>
         {t("peopleTable.title")}
       </Typography>
-      <Typography color="text.secondary" sx={{ mb: 2 }}>
-        {t(data.quietDays === 1 ? "peopleTable.explainOneDay" : "peopleTable.explain", { days: data.quietDays, zone: data.timeZone })}
-      </Typography>
+      <Explain
+        sx={{ mb: 2 }}
+        text={t("peopleTable.explain.short")}
+        more={t(data.quietDays === 1 ? "peopleTable.explainOneDay" : "peopleTable.explain", { days: data.quietDays, zone: data.timeZone })}
+      />
       <AsOf asOf={data.asOf} />
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2, alignItems: { sm: "center" } }}>
         <TextField size="small" label={t("peopleTable.search")} value={text} onChange={(e) => setText(e.target.value)} sx={{ maxWidth: { sm: 260 } }} />
@@ -603,9 +604,7 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
           </TableBody>
         </Table>
       </TableContainer>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-        {t("peopleTable.footnote")}
-      </Typography>
+      <Explain variant="body2" sx={{ mt: 1 }} text={t("peopleTable.footnote.short")} more={t("peopleTable.footnote")} />
     </Paper>
   );
 }

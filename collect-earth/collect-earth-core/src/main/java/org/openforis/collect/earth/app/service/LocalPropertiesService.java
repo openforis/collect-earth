@@ -718,8 +718,9 @@ public class LocalPropertiesService extends Observable {
 		return isPropertyActivated(EarthProperty.EXCEPTION_SHOWN);
 	}
 
+	/** Planet is offered once its key is set (open_planet_maps is no longer read): without one it shows nothing. */
 	public boolean isPlanetMapsSupported() {
-		return isPropertyActivated(EarthProperty.OPEN_PLANET_MAPS);
+		return !getValue(EarthProperty.PLANET_MAPS_KEY).trim().isEmpty();
 	}
 
 

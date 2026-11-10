@@ -8,6 +8,7 @@ import * as duckdb from "@duckdb/duckdb-wasm";
 import perspective from "@perspective-dev/client";
 import { init_client as initViewer } from "@perspective-dev/viewer";
 import "@perspective-dev/viewer/dist/css/pro.css";
+import "./analysisTheme.css";
 import viewerEs from "@perspective-dev/viewer/dist/css/intl/es.css?inline";
 import viewerFr from "@perspective-dev/viewer/dist/css/intl/fr.css?inline";
 import viewerPt from "@perspective-dev/viewer/dist/css/intl/pt.css?inline";

@@ -17,11 +17,13 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Add from "@mui/icons-material/Add";
 import FolderOpen from "@mui/icons-material/FolderOpen";
+import Public from "@mui/icons-material/Public";
 import { useState, type FormEvent } from "react";
 import { createProject, listProjects } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
+import { CeoImportDialog } from "./CeoImportDialog";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { useT } from "../i18n";
@@ -94,6 +96,7 @@ export function ProjectsPage() {
   const { me, info } = useApp();
   const projects = useLoad(listProjects, []);
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const archived = projects.data?.filter((p) => p.status === "archived").length ?? 0;
   const shown = projects.data?.filter((p) => showArchived || p.status !== "archived");
@@ -104,9 +107,15 @@ export function ProjectsPage() {
       <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 3, gap: 2, flexWrap: "wrap" }}>
         <Typography variant="h1">{t("projects.title")}</Typography>
         {canCreate && (
-          <Button variant="contained" startIcon={<Add />} onClick={() => setCreating(true)}>
-            {t("projects.new")}
-          </Button>
+          <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
+            {/* For organizations moving from Collect Earth Online: its survey and rules (docs/plans/2026-11-09-ceo-bridge.md) */}
+            <Button variant="outlined" startIcon={<Public />} onClick={() => setImporting(true)}>
+              {t("projects.fromCeo")}
+            </Button>
+            <Button variant="contained" startIcon={<Add />} onClick={() => setCreating(true)}>
+              {t("projects.new")}
+            </Button>
+          </Stack>
         )}
       </Stack>
       {archived > 0 && (
@@ -161,6 +170,7 @@ export function ProjectsPage() {
         </Grid>
       )}
       {creating && <NewProjectDialog open onClose={() => setCreating(false)} />}
+      {importing && <CeoImportDialog onClose={() => setImporting(false)} />}
     </AppShell>
   );
 }

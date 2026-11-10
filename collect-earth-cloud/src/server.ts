@@ -40,6 +40,7 @@ import { PlotPlaceReader } from './routes/plotPlaces.js';
 import { PlotIndexCache, registerPlotSearchRoutes } from './routes/plotSearch.js';
 import { registerPlotsGeoRoutes } from './routes/plotsGeo.js';
 import { registerProgressRoutes } from './routes/progress.js';
+import { registerCeoImportRoutes } from './routes/ceoImport.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerPlotDesignRoutes } from './routes/plotDesign.js';
 import { registerSigridRoutes } from './routes/sigrid.js';
@@ -242,6 +243,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   // routes, plot search, the map and order 'nearby' of a division (Task 15).
   const places = new PlotPlaceReader(store);
   await registerProjectRoutes(app, store, config, places);
+  await registerCeoImportRoutes(app, store);
   await registerPlotDesignRoutes(app, store);
   await registerSigridRoutes(app, store, places);
   await registerCollectBackupRoutes(app, store, config, limiter, now);

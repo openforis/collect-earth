@@ -16,6 +16,7 @@ import { useApp, useLocalMode } from "../appContext";
 import { dayStartMs, isoWeekOf, localDay, shiftWeek, weeklyNotForRole } from "../activityView";
 import { AsOf } from "../components/PeopleCharts";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { countsText } from "../flagsView";
 import { formatDay, formatNumber } from "../format";
@@ -128,9 +129,7 @@ function People({ data }: { data: WeeklyData }) {
           </Table>
         </Box>
       )}
-      <Typography variant="body2" color="text.secondary">
-        {t("weekly.peopleNote")}
-      </Typography>
+      <Explain variant="body2" text={t("weekly.peopleNote.short")} more={t("weekly.peopleNote")} />
     </Block>
   );
 }
@@ -157,7 +156,8 @@ function Quality({ projectId, data }: { projectId: string; data: WeeklyData }) {
             </Button>
           }
         >
-          {t("weekly.noFigures")}
+          {t("weekly.noFigures.short")}
+          <MoreInfo text={t("weekly.noFigures")} />
         </Alert>
       ) : (
         <>
@@ -171,9 +171,7 @@ function Quality({ projectId, data }: { projectId: string; data: WeeklyData }) {
             </Typography>
           )}
           <FiguresTime computedAt={q.computedAt} stale={q.stale} />
-          <Typography variant="body2" color="text.secondary">
-            {t("weekly.qualityNote")}
-          </Typography>
+          <Explain variant="body2" text={t("weekly.qualityNote.short")} more={t("weekly.qualityNote")} />
         </>
       )}
     </Block>
@@ -196,7 +194,8 @@ function Flags({ projectId, data }: { projectId: string; data: WeeklyData }) {
             </Button>
           }
         >
-          {t("weekly.noFiguresLocal")}
+          {t("weekly.noFiguresLocal.short")}
+          <MoreInfo text={t("weekly.noFiguresLocal")} />
         </Alert>
       ) : (
         <>

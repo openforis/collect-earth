@@ -1,0 +1,1159 @@
+{
+ "allowDrawnSamples": false,
+ "aoiFeatures": [
+  {
+   "coordinates": [
+    [
+     [
+      119.269307206,
+      -7.101936043
+     ],
+     [
+      119.269307206,
+      1.017721439
+     ],
+     [
+      124.408440894,
+      1.017721439
+     ],
+     [
+      124.408440894,
+      -7.101936043
+     ],
+     [
+      119.269307206,
+      -7.101936043
+     ]
+    ]
+   ],
+   "type": "Polygon"
+  }
+ ],
+ "aoiFileName": "",
+ "availability": "published",
+ "boundary": "{\"type\":\"Polygon\",\"coordinates\":[[[119.269307206,-7.101936043],[119.269307206,1.017721439],[124.408440894,1.017721439],[124.408440894,-7.101936043],[119.269307206,-7.101936043]]]}",
+ "closedDate": "",
+ "createdDate": "2025-08-06",
+ "description": "Survey used for training and calibration",
+ "designSettings": {
+  "qaqcAssignment": {
+   "percent": 0,
+   "qaqcMethod": "none",
+   "smes": [],
+   "timesToReview": 2
+  },
+  "sampleGeometries": {
+   "lines": true,
+   "points": true,
+   "polygons": true
+  },
+  "userAssignment": {
+   "percents": [],
+   "userMethod": null,
+   "users": []
+  }
+ },
+ "hasGeoDash": true,
+ "id": 54724,
+ "imageryId": 1317,
+ "institution": 6031,
+ "isProjectAdmin": false,
+ "learningMaterial": "",
+ "name": "TFFF Indonesia Calibration & Training Survey",
+ "numPlots": 33,
+ "plotDistribution": "geojson",
+ "plotFileName": "plots_final_Sulawesi_day1.geojson",
+ "plotShape": "square",
+ "plotSimilarityDetails": {
+  "referencePlotId": null,
+  "years": null
+ },
+ "plotSize": 30.0,
+ "plotSpacing": -1.0,
+ "privacyLevel": "public",
+ "projectOptions": {
+  "autoLaunchGeoDash": true,
+  "collectConfidence": false,
+  "showGEEScript": true,
+  "showPlotInformation": false
+ },
+ "publishedDate": "2025-08-06",
+ "referencePlotId": null,
+ "sampleDistribution": "geojson",
+ "sampleFileName": "samples_final_Sulawesi_day1.geojson",
+ "sampleResolution": -1.0,
+ "samplesPerPlot": 1,
+ "shufflePlots": false,
+ "surveyQuestions": {
+  "0": {
+   "answers": {
+    "0": {
+     "answer": "Yes",
+     "color": "#4f7a28",
+     "hide": false
+    },
+    "1": {
+     "answer": "No",
+     "color": "#abacb5",
+     "hide": false
+    }
+   },
+   "cardOrder": 1,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Forest 2020 (> 0.5ha, >10% cc)"
+  },
+  "1": {
+   "answers": {
+    "0": {
+     "answer": "<= 1ha",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "> 1ha",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 0,
+   "question": "Forest patch size"
+  },
+  "10": {
+   "answers": {
+    "0": {
+     "answer": "Yes",
+     "color": "#f62a13",
+     "hide": false
+    },
+    "1": {
+     "answer": "No",
+     "color": "#86878d",
+     "hide": false
+    },
+    "3": {
+     "answer": "Unknown",
+     "color": "#111112",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 4,
+   "question": "Fire associated with disturbance?"
+  },
+  "14": {
+   "answers": {
+    "0": {
+     "answer": "Yes",
+     "color": "#4f7a28",
+     "hide": false
+    },
+    "1": {
+     "answer": "No",
+     "color": "#b1b1b9",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 0,
+   "question": "Forest regeneration"
+  },
+  "16": {
+   "answers": {
+    "0": {
+     "answer": "<= 1ha",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "> 1ha",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 14,
+   "question": "Patch size after regeneration"
+  },
+  "17": {
+   "answers": {
+    "0": {
+     "answer": "Primary forest",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "Secondary forest",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "Forest plantation",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "Unknown",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 14,
+   "question": "Forest type after regeneration"
+  },
+  "18": {
+   "answers": {
+    "0": {
+     "answer": "> 10-20%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "> 20-30%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "> 30-50%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "> 50%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "Unknown",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 14,
+   "question": "Canopy cover after regeneration"
+  },
+  "19": {
+   "answers": {
+    "0": {
+     "answer": "Yes",
+     "color": "#f61313",
+     "hide": false
+    },
+    "1": {
+     "answer": "No",
+     "color": "#c6c7cd",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 14,
+   "question": "Disturbance after regeneration"
+  },
+  "2": {
+   "answers": {
+    "0": {
+     "answer": "Primary forest",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "Secondary forest",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "Forest plantation",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "Unknown",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 0,
+   "question": "Forest type"
+  },
+  "20": {
+   "answers": {
+    "0": {
+     "answer": "2021",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "2022",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "2023",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "2024",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "Unknown",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 19,
+   "question": "Year of disturbance (reg)"
+  },
+  "21": {
+   "answers": {
+    "0": {
+     "answer": "Selective logging ",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "Artisanal logging ",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "10": {
+     "answer": "Unknown",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "11": {
+     "answer": "Fire (human induced)",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "Conventional logging",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "Cropland or Agroforestry",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "Charcoal burning/fuelwood",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "5": {
+     "answer": "Grassland (unmanaged land)",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "6": {
+     "answer": "Settlement",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "7": {
+     "answer": "Mining",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "8": {
+     "answer": "Natural disturbance",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "9": {
+     "answer": "Other",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 19,
+   "question": "Driver of disturbance (reg)"
+  },
+  "22": {
+   "answers": {
+    "0": {
+     "answer": "<= 0.1ha",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "> 0.1ha",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "Unknown",
+     "color": "#1527f6",
+     "hide": true
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 19,
+   "question": "Patch size of disturbance (reg)"
+  },
+  "23": {
+   "answers": {
+    "0": {
+     "answer": "<= 20",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "> 20",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "Unknown",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 22,
+   "question": "Canopy cover after disturbance (reg)"
+  },
+  "24": {
+   "answers": {
+    "0": {
+     "answer": "<= 10%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "> 10-20%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "> 20-30%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "> 30 - 50%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "Unknown",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 22,
+   "question": "Canopy cover after disturbance (reg)"
+  },
+  "25": {
+   "answers": {
+    "0": {
+     "answer": "Yes",
+     "color": "#f62a13",
+     "hide": false
+    },
+    "1": {
+     "answer": "No",
+     "color": "#86878d",
+     "hide": false
+    },
+    "3": {
+     "answer": "Unknown",
+     "color": "#111112",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 19,
+   "question": "Fire associated with disturbance? (reg)"
+  },
+  "29": {
+   "answers": {
+    "0": {
+     "answer": "Yes",
+     "color": "#f64013",
+     "hide": false
+    },
+    "1": {
+     "answer": "No",
+     "color": "#c1c1c3",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 4,
+   "question": "2nd disturbance"
+  },
+  "3": {
+   "answers": {
+    "0": {
+     "answer": "> 10-20",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "> 20-30",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "> 30-50",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "> 50",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "Unknown",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 0,
+   "question": "Canopy cover (%)"
+  },
+  "30": {
+   "answers": {
+    "0": {
+     "answer": "2021",
+     "color": "#1527f6",
+     "hide": true
+    },
+    "1": {
+     "answer": "2022",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "2023",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "2024",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "Unknown",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 29,
+   "question": "Year of 2nd disturbance"
+  },
+  "31": {
+   "answers": {
+    "0": {
+     "answer": "Selective logging ",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "Artisanal logging ",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "10": {
+     "answer": "Unknown",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "11": {
+     "answer": "Fire (human induced)",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "Conventional logging",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "Cropland or Agroforestry",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "Charcoal burning/fuelwood",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "5": {
+     "answer": "Grassland (unmanaged land)",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "6": {
+     "answer": "Settlement",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "7": {
+     "answer": "Mining",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "8": {
+     "answer": "Natural disturbance",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "9": {
+     "answer": "Other",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 29,
+   "question": "Driver of 2nd disturbance"
+  },
+  "32": {
+   "answers": {
+    "0": {
+     "answer": "<= 0.1ha",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "> 0.1 - 0.5ha",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "> 0.5 - 1ha",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "> 1ha",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 29,
+   "question": "Patch size of 2nd disturbance"
+  },
+  "33": {
+   "answers": {
+    "0": {
+     "answer": "<= 20",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "> 20",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "Unknown",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 32,
+   "question": "Canopy cover after 2nd disturbance"
+  },
+  "36": {
+   "answers": {
+    "0": {
+     "answer": "Yes",
+     "color": "#f62a13",
+     "hide": false
+    },
+    "1": {
+     "answer": "No",
+     "color": "#86878d",
+     "hide": false
+    },
+    "3": {
+     "answer": "Unknown",
+     "color": "#111112",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 29,
+   "question": "Fire associated with 2nd disturbance? (2)"
+  },
+  "4": {
+   "answers": {
+    "0": {
+     "answer": "Yes",
+     "color": "#f61313",
+     "hide": false
+    },
+    "1": {
+     "answer": "No",
+     "color": "#c6c7cd",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 0,
+   "question": "Disturbance btw 2021-2024"
+  },
+  "44": {
+   "answers": {
+    "0": {
+     "answer": "<= 10%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "> 10-20%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "> 20-30%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "> 30-50%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "> 50%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "5": {
+     "answer": "Unknown",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1,
+    2,
+    3
+   ],
+   "parentQuestionId": 7,
+   "question": "Canopy cover after disturbance"
+  },
+  "47": {
+   "answers": {
+    "0": {
+     "answer": "Hard",
+     "color": "#e32400",
+     "hide": false
+    },
+    "1": {
+     "answer": "Medium",
+     "color": "#fffc41",
+     "hide": false
+    },
+    "2": {
+     "answer": "Easy",
+     "color": "#77bb41",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0,
+    1
+   ],
+   "parentQuestionId": 0,
+   "question": "Difficulty of Interpretation"
+  },
+  "48": {
+   "answers": {
+    "0": {
+     "answer": "Google Earth (KML export)",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "Google Earth online",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "Annual Sentinel-2",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "Annual Planet",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0,
+    1
+   ],
+   "parentQuestionId": 0,
+   "question": "Most useful data source"
+  },
+  "49": {
+   "answers": {
+    "0": {
+     "answer": "<= 10%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "> 10 - 20%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "> 20 - 30 %",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "> 30 - 50%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "> 50 %",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1,
+    2,
+    3
+   ],
+   "parentQuestionId": 32,
+   "question": "Canopy cover after 2nd disturbance"
+  },
+  "5": {
+   "answers": {
+    "0": {
+     "answer": "2021",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "2022",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "2023",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "2024",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "Unknown",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 4,
+   "question": "Year of disturbance"
+  },
+  "6": {
+   "answers": {
+    "0": {
+     "answer": "Selective logging ",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "Artisanal logging ",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "10": {
+     "answer": "Unknown",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "11": {
+     "answer": "Fire (human induced)",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "Conventional logging",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "Cropland or Agroforestry",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "Charcoal burning/fuelwood",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "5": {
+     "answer": "Grassland (unmanaged land)",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "6": {
+     "answer": "Settlement",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "7": {
+     "answer": "Mining",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "8": {
+     "answer": "Natural disturbance",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "9": {
+     "answer": "Other",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 4,
+   "question": "Driver of disturbance"
+  },
+  "7": {
+   "answers": {
+    "0": {
+     "answer": "<= 0.1ha",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "> 0.1 - 0.5ha",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "> 0.5 - 1ha",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "> 1ha",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 4,
+   "question": "Patch size of disturbance"
+  },
+  "8": {
+   "answers": {
+    "0": {
+     "answer": "<= 20%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "> 20%",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "Unknown",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 7,
+   "question": "Canopy cover after disturbance"
+  }
+ },
+ "surveyRules": [],
+ "type": "regular",
+ "userRole": null
+}

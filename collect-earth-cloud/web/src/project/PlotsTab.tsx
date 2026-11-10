@@ -36,6 +36,7 @@ import {
 import { useApp } from "../appContext";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { FileDrop } from "../components/FileDrop";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
@@ -198,7 +199,8 @@ function AssignmentGrid({
       {changed && <Alert severity="warning">{t("plots.unsaved")}</Alert>}
       {done && !changed && (
         <Alert severity="success" role="status">
-          {t("plots.assignSaved")}
+          {t("plots.assignSaved.short")}
+          <MoreInfo text={t("plots.assignSaved")} />
         </Alert>
       )}
       <ErrorAlert error={error} />
@@ -312,9 +314,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
           <Typography variant="body2" color="text.secondary">
             {t("plots.replaceHint")}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {t("plots.userColumnHint")}
-          </Typography>
+          <Explain variant="body2" text={t("plots.userColumnHint.short")} more={t("plots.userColumnHint")} />
           {upload && (
             <div role="status">
               <Typography sx={{ mb: 1 }}>{t("plots.uploading", { name: upload.name, pct: Math.round(upload.progress * 100) })}</Typography>
@@ -412,6 +412,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
             </Typography>
             <Typography color="text.secondary" sx={{ mb: 2 }}>
               {t("plots.gridHelp")}
+              <MoreInfo text={t("plots.gridHelp.more")} />
             </Typography>
             <AssignmentGrid
               projectId={projectId}

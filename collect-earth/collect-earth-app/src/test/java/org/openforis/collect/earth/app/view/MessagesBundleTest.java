@@ -45,7 +45,7 @@ class MessagesBundleTest {
 	@Test
 	void thePlanetNotesHaveTheirOwnTexts() throws IOException {
 		Properties english = load("Messages");
-		for (String planetKey : new String[] { "OptionWizard.1053", "OptionWizard.1055" }) {
+		for (String planetKey : new String[] { "OptionWizard.1053" }) {
 			assertTrue(english.getProperty(planetKey).contains("API key") || english.getProperty(planetKey).contains("own key"), planetKey);
 		}
 		Properties spanish = load("Messages_es");

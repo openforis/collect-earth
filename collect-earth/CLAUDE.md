@@ -430,6 +430,12 @@ Because it is not shipped, its dependencies (Hibernate, the JDBC drivers) lag be
 
 The plots map (used instead of Google Earth Pro when `viewer_type` is `plots_map` or `google_earth_web`) is a React + MUI + Vite app in `collect-earth-app/src/main/frontend`. The same app is the main window of Collect Earth: its app bar has the menus (Project, Data, Tools, Utilities, Settings, Help), and with the Google Earth Pro viewer it opens on a home page instead of the map (`map.html?home`). The pages call the JSON API under `/earth/api` (`server.api`), which runs the long actions as jobs (`service.jobs`) and passes the server's messages to them as notices (`service.notices`); `docs/plans/2026-10-28-html-ui-design.md` describes it. The `collect-earth-app` Maven build compiles it into `target/classes/leafletmap` via `frontend-maven-plugin` (skip with `-Dskip.npm`); `LeafletMapController` serves it at `/earth/map`. The data entry form next to the map (`/earth/form`, a second page of the same app) is generated at runtime from the survey by `SurveyFormModelBuilder` / `SurveyFormController` (`/surveyForm`), and saves through the balloon endpoints; `web_form=balloon` brings back the CEP balloon. See that folder's README for `npm run dev` / `npm test`.
 
+**One look with the dashboard.** The theme values (colours, shape, type, component defaults, the app bar) and the
+Collect Earth logo live in `collect-earth-cloud/web/src/shared/` (`collectEarthTheme.ts`, `collect-earth-logo.png`), which
+this frontend imports as `@shared` (an alias in `vite.config.ts` and `tsconfig.json`): the dashboard's Docker build sees
+only `collect-earth-cloud`, so the shared files are there. `collectEarthTheme.ts` imports nothing, MUI included; each
+app passes its values to `createTheme` with its own MUI. A change there changes both apps.
+
 ## Spring Configuration
 
 - **Runtime Generation**: `applicationContext.xml` is generated at startup from `resources/applicationContext.fmt` template

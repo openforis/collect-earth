@@ -17,6 +17,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Add from "@mui/icons-material/Add";
+import ArrowDropDown from "@mui/icons-material/ArrowDropDown";
 import FilterAlt from "@mui/icons-material/FilterAlt";
 import Search from "@mui/icons-material/Search";
 import { useEffect, useMemo, useState } from "react";
@@ -56,12 +57,28 @@ export function filterText(column: string, filters: readonly Filter[], t: Return
  * The filters, as chips over the pivot (Saiku's filter axis): each field filtered once, by a list of its values or
  * by a range; clicking a chip opens its values again. Filters made in Perspective's own panel show here too.
  */
-export function FilterBar({ cube, filters, onChange, loadValues, disabled }: { cube: Cube; filters: Filter[]; onChange: (f: Filter[]) => void; loadValues: LoadValues; disabled?: boolean }) {
+export function FilterBar({
+  cube,
+  filters,
+  onChange,
+  loadValues,
+  disabled,
+  suggested = [],
+}: {
+  cube: Cube;
+  filters: Filter[];
+  onChange: (f: Filter[]) => void;
+  loadValues: LoadValues;
+  disabled?: boolean;
+  /** Fields offered as one-click filters (a chip with a drop-down) while they are not filtered. */
+  suggested?: string[];
+}) {
   const t = useT();
   const [editing, setEditing] = useState<string | null>(null);
   const [choosing, setChoosing] = useState(false);
   const columns = [...new Set(filters.map(([c]) => c))];
   const fields = fieldOptions(cube);
+  const offered = suggested.filter((s) => !columns.includes(s) && cube.columns.some((c) => c.name === s));
   return (
     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, alignItems: "center" }} role="group" aria-label={t("analysis.f.label")}>
       <FilterAlt fontSize="small" color="action" />
@@ -80,6 +97,19 @@ export function FilterBar({ cube, filters, onChange, loadValues, disabled }: { c
           color="primary"
           variant="outlined"
           sx={{ maxWidth: 420 }}
+        />
+      ))}
+      {offered.map((c) => (
+        <Chip
+          key={`offer:${c}`}
+          label={c}
+          variant="outlined"
+          onClick={() => setEditing(c)}
+          onDelete={() => setEditing(c)}
+          deleteIcon={<ArrowDropDown />}
+          disabled={disabled}
+          aria-label={t("analysis.f.by", { field: c })}
+          sx={{ maxWidth: 260, borderStyle: "dashed" }}
         />
       ))}
       {choosing ? (

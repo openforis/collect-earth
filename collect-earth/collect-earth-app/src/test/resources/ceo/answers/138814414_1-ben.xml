@@ -1,0 +1,57 @@
+<?xml version='1.0' standalone='yes' ?>
+<plot step="1" created="2024-12-20T08:30:00.000+00:00" modified="2024-12-20T08:30:00.000+00:00">
+  <id>
+    <value>138814414</value>
+  </id>
+  <round>
+    <code>1</code>
+  </round>
+  <location>
+    <x>87.4837365</x>
+    <y>26.66312053</y>
+    <srs>EPSG:4326</srs>
+  </location>
+  <operator>
+    <value>ben</value>
+  </operator>
+  <actively_saved>
+    <value>true</value>
+  </actively_saved>
+  <actively_saved_on>
+    <year>2024</year>
+    <month>12</month>
+    <day>20</day>
+  </actively_saved_on>
+  <plot_file>
+    <value>ceo_20170_plots_done.csv</value>
+  </plot_file>
+  <elevation>
+    <value>0</value>
+  </elevation>
+  <slope>
+    <value>0.0</value>
+  </slope>
+  <aspect>
+    <value>0.0</value>
+  </aspect>
+  <coordinator_note />
+  <ceo_flagged>
+    <value>false</value>
+  </ceo_flagged>
+  <ceo_confidence />
+  <visible_strata>
+    <code>stable_forest</code>
+  </visible_strata>
+  <mixed>
+    <code>no</code>
+  </mixed>
+  <secondary_visible_strata />
+  <secondary_notes_or_type_of_other />
+  <notes_or_type_of_other />
+  <confidence>
+    <code>medium</code>
+  </confidence>
+  <year_disturbed>
+    <value>2001.0</value>
+  </year_disturbed>
+</plot>

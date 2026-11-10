@@ -1,0 +1,23 @@
+[
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[102.999640127,22.046807469]}",
+  "flagged": false,
+  "id": 1,
+  "plotId": 1,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[98.568021678,12.379353595]}",
+  "flagged": true,
+  "id": 2,
+  "plotId": 2,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[106.718471401,13.745907436]}",
+  "flagged": false,
+  "id": 3,
+  "plotId": 3,
+  "status": "analyzed"
+ }
+]

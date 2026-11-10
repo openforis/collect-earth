@@ -19,6 +19,7 @@ import { useId, useState, type ReactNode } from "react";
 import { ApiError, deleteQualityDecision, getPlotPage, setQualityDecision, type DecisionKind, type PlotPageData } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { FLAG_KIND_KEYS, flagText } from "../flagsView";
 import { formatDate } from "../format";
@@ -116,7 +117,15 @@ function Decision({ projectId, data, onChange }: { projectId: string; data: Plot
               {t("queue.noCheck")}
             </Typography>
           )}
-          <TextField label={t("quality.comment")} helperText={t("quality.commentSeen")} value={comment} onChange={(e) => setComment(e.target.value)} size="small" multiline slotProps={{ htmlInput: { maxLength: 2000 } }} />
+          <TextField
+            label={t("quality.comment")}
+            helperText={<>{t("quality.commentSeen.short")}<MoreInfo text={t("quality.commentSeen")} /></>}
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            size="small"
+            multiline
+            slotProps={{ htmlInput: { maxLength: 2000 } }}
+          />
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
             {DECISIONS.map((d) => (
               <Button key={d.kind} variant={decision?.decision === d.kind ? "contained" : "outlined"} onClick={() => void decide(d.kind)} disabled={busy || (d.kind === "check" && !withCheck)}>
@@ -201,7 +210,10 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
       </Stack>
 
       {data.reference && (
-        <Alert severity="info" role="note">{data.reference.assessor ? t("plot.reference", { assessor: data.reference.assessor }) : t("plot.referenceNoName")}</Alert>
+        <Alert severity="info" role="note">
+          {data.reference.assessor ? t("plot.reference.short", { assessor: data.reference.assessor }) : t("plot.referenceNoName.short")}
+          <MoreInfo text={data.reference.assessor ? t("plot.reference", { assessor: data.reference.assessor }) : t("plot.referenceNoName")} />
+        </Alert>
       )}
 
       {/* A reference plot is never decided: its other assessments are measured against it. */}
@@ -279,7 +291,10 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
 
       <Section title={t("plot.flagsHeading")}>
         {data.flags === null ? (
-          <Alert severity="info" role="note">{t(local ? "plot.figuresMissingLocal" : "plot.figuresMissing")}</Alert>
+          <Alert severity="info" role="note">
+            {t(local ? "plot.figuresMissingLocal.short" : "plot.figuresMissing.short")}
+            <MoreInfo text={t(local ? "plot.figuresMissingLocal" : "plot.figuresMissing")} />
+          </Alert>
         ) : (
           <Stack spacing={1}>
             {data.figures?.stale && (

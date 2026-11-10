@@ -9,8 +9,13 @@ import react from "@vitejs/plugin-react";
 //
 // `npm run dev` serves the page at http://localhost:5173/ and proxies the data
 // endpoints to a running Collect Earth (localhost:8028).
+// The look Collect Earth shares with the dashboard (its theme and logo), in collect-earth-cloud, whose Docker build
+// sees only that folder: imported here as @shared.
+const shared = resolve(import.meta.dirname, "../../../../../collect-earth-cloud/web/src/shared");
+
 export default defineConfig(({ command }) => ({
   plugins: [react()],
+  resolve: { alias: { "@shared": shared } },
   base: command === "build" ? "/earth/map/assets/" : "/",
   build: {
     outDir: resolve(import.meta.dirname, "../../../target/classes/leafletmap"),
@@ -25,6 +30,8 @@ export default defineConfig(({ command }) => ({
   },
   server: {
     proxy: { "/earth": "http://localhost:8028" },
+    // the dev server serves files outside this folder only when allowed
+    fs: { allow: [import.meta.dirname, shared] },
   },
   test: { include: ["src/**/*.test.ts"] },
 }));

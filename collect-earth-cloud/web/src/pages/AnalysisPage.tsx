@@ -22,6 +22,7 @@ import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
 import { translator, useT } from "../i18n";
@@ -49,6 +50,17 @@ import { templatesOf, viewOfProposal, viewTitle, type Template } from "../analys
 import { startErrorText } from "../aiView";
 import { cubeOf, defaultView, fitToCube, parseSavedViews, tableChoices, translateView, withSavedView, type Cube, type SavedView, type ViewConfig } from "../analysisView";
 import type { AnalysisEngine, Step, Viewer } from "../analysisEngine";
+import Breadcrumbs from "@mui/material/Breadcrumbs";
+import Link from "@mui/material/Link";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import AltRoute from "@mui/icons-material/AltRoute";
+import FormatListBulleted from "@mui/icons-material/FormatListBulleted";
+import MapIcon from "@mui/icons-material/Map";
+import TableChart from "@mui/icons-material/TableChart";
+import { changeFields, drillDown, quickFilterFields } from "../analysisInsights";
+import { AnalysisMap } from "../components/analysis/AnalysisMap";
+import { ChangeFlows } from "../components/analysis/ChangeFlows";
 import { DrillDialog } from "../components/analysis/DrillDialog";
 import { FilterBar } from "../components/analysis/FilterBar";
 import { QuestionBar } from "../components/analysis/QuestionBar";
@@ -165,6 +177,11 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
   const [drill, setDrill] = useState<Filter[] | null>(null);
   const [fullScreen, setFullScreen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  /** What the chart area shows: the pivot, or the land use change flows. */
+  const [mode, setMode] = useState<"pivot" | "flows">("pivot");
+  const [showMap, setShowMap] = useState(false);
+  /** The views a click went down from (the breadcrumbs), each with what was clicked. */
+  const [trail, setTrail] = useState<{ question: Question; label: string }[]>([]);
   const tables = useMemo(() => tableChoices(data.model, language, t), [data, language, t]);
   // The AI assistant's views: for coordinators of a project where it is on (never in the local mode, which has none)
   const ai = useLoad(() => (coordinator && !local ? getProjectAi(projectId).catch(() => null) : Promise.resolve(null)), [projectId, coordinator, local]);
@@ -271,6 +288,24 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
     return applyQuestion(base, tpl.question, next.measures, next.cube);
   };
 
+  /** A click in the pivot (the listener, set once, calls what this render knows): down a level, else the plots. */
+  const clickRef = useRef<(clicked: Filter[]) => void>(() => {});
+  clickRef.current = (clicked) => {
+    const s = shownRef.current;
+    const q = s && config ? questionOf(config, s.measures) : null;
+    const step = s && q ? drillDown(data.model, s.cube, q, clicked) : null;
+    if (!step || !q) return setDrill(clicked);
+    setTrail((tr) => [...tr, { question: q, label: `${step.field}: ${String(step.value)}` }]);
+    void ask(step.question);
+  };
+  /** Back up the breadcrumbs to the view of step `k` (0: before the first click). */
+  const backTo = (k: number) => {
+    const target = trail[k];
+    if (!target) return;
+    setTrail(trail.slice(0, k));
+    void ask(target.question);
+  };
+
   // DuckDB and Perspective start with the page (their code is loaded only now); a link may bring a view (#view=…)
   useEffect(() => {
     let closed = false;
@@ -300,10 +335,10 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
             if (s && viewer.current) await paintRef.current(viewer.current, s);
           }).finally(() => (painting.current = false));
         });
-        // A click on a cell lists its plots (the drill-through)
+        // A click on a bar or a row goes down into it; at the bottom, it lists its plots (the drill-through)
         v.addEventListener("perspective-click", (event) => {
           const detail = (event as CustomEvent<{ config?: { filter?: Filter[] } }>).detail;
-          setDrill(detail?.config?.filter ?? []);
+          clickRef.current(detail?.config?.filter ?? []);
         });
         const linked = window.location.hash.startsWith("#view=") ? decodeView(window.location.hash.slice(6)) : null;
         const linkedTable = linked && data.model.tables.some((x) => x.name === linked.table) ? linked.table : "plot";
@@ -369,6 +404,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
   const query = useCallback(async (sql: string) => (engine.current ? engine.current.rows(sql) : []), []);
 
   const chooseTable = (name: string) => {
+    setTrail([]);
     setSelected("tpl:default");
     selectedRef.current = "tpl:default";
     setChanged(false);
@@ -377,6 +413,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
   };
   const chooseView = (key: ViewKey | typeof ASK_AI) => {
     if (key === ASK_AI) return void askAi();
+    setTrail([]);
     setSelected(key);
     selectedRef.current = key;
     setChanged(false);
@@ -507,6 +544,12 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
   const canDelete = selected.startsWith("mine:") || (selected.startsWith("team:") && coordinator);
   const plotRows = data.tables.find((x) => x.name === "plot")?.rows ?? 0;
   const drillCols = shown && question ? drillColumns(shown.cube, question, shown.measures) : [];
+  const suggested = useMemo(() => (shown ? quickFilterFields(data.model, shown.cube) : []), [data.model, shown]);
+  const canFlow = useMemo(() => !!shown && changeFields(data.model, shown.cube).length >= 2, [data.model, shown]);
+  const canMap = !standalone && role !== "operator" && !!shown?.cube.columns.some((c) => c.id === "_plot");
+  const areaColumn = shown?.cube.columns.find((c) => c.id === "expansion_factor")?.name ?? null;
+  const flowMeasure = areaColumn && question?.measures.some((m) => m.startsWith("area")) ? areaColumn : null;
+  const flowing = mode === "flows" && canFlow;
 
   const toolbar = (
     <Stack spacing={1.5}>
@@ -589,6 +632,27 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
           </Tooltip>
         )}
         <Box sx={{ flex: 1 }} />
+        {canFlow && (
+          <ToggleButtonGroup size="small" exclusive value={mode} onChange={(_, v: "pivot" | "flows" | null) => v && setMode(v)} aria-label={t("analysis.mode.label")}>
+            <ToggleButton value="pivot" sx={{ gap: 0.75, px: 1.5 }}>
+              <TableChart fontSize="small" />
+              {t("analysis.mode.pivot")}
+            </ToggleButton>
+            <ToggleButton value="flows" sx={{ gap: 0.75, px: 1.5 }}>
+              <AltRoute fontSize="small" />
+              {t("analysis.mode.flows")}
+            </ToggleButton>
+          </ToggleButtonGroup>
+        )}
+        {canMap && (
+          <Tooltip title={t(showMap ? "analysis.map.hide" : "analysis.map.show")}>
+            <span>
+              <IconButton aria-label={t("analysis.map.show")} aria-pressed={showMap} onClick={() => setShowMap((m) => !m)} disabled={!ready} color={showMap ? "primary" : "default"}>
+                <MapIcon />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
         <Tooltip title={t("analysis.download")}>
           <span>
             <IconButton aria-label={t("analysis.download")} onClick={() => void download()} disabled={!ready}>
@@ -630,7 +694,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
       {shown && question && (
         <>
           <QuestionBar cube={shown.cube} measures={shown.measures} question={question} onChange={(q) => void ask(q)} disabled={!ready} />
-          <FilterBar cube={shown.cube} filters={question.filters} onChange={(filters) => void ask({ ...question, filters })} loadValues={loadValues} disabled={!ready} />
+          <FilterBar cube={shown.cube} filters={question.filters} onChange={(filters) => void ask({ ...question, filters })} loadValues={loadValues} disabled={!ready} suggested={suggested} />
         </>
       )}
     </Stack>
@@ -638,10 +702,17 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
 
   return (
     <Stack spacing={2}>
-      <Typography color="text.secondary">
-        {t(data.scope === "own" ? "analysis.explainOwn" : "analysis.explain", { count: formatNumber(plotRows, language) })}
-      </Typography>
-      {!data.areas && data.scope === "project" && <Alert severity="info">{t("analysis.noAreas")}</Alert>}
+      {data.scope === "own" ? (
+        <Typography color="text.secondary">{t("analysis.explainOwn", { count: formatNumber(plotRows, language) })}</Typography>
+      ) : (
+        <Explain text={t("analysis.explain.short", { count: formatNumber(plotRows, language) })} more={t("analysis.explain", { count: formatNumber(plotRows, language) })} />
+      )}
+      {!data.areas && data.scope === "project" && (
+        <Alert severity="info">
+          {t("analysis.noAreas.short")}
+          <MoreInfo text={t("analysis.noAreas")} />
+        </Alert>
+      )}
       {data.areas && data.areas.unmatched > 0 && <Alert severity="warning">{t("analysis.areasUnmatched", { file: data.areas.source, count: data.areas.unmatched })}</Alert>}
       <ErrorAlert error={error} />
       {step !== "ready" && !error && (
@@ -662,19 +733,45 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
         <Paper variant="outlined" sx={{ p: 2 }}>
           {toolbar}
         </Paper>
-        <Paper variant="outlined" sx={{ position: "relative", flex: fullScreen ? "1 1 auto" : undefined, height: fullScreen ? undefined : { xs: "70vh", md: "calc(100vh - 220px)" }, minHeight: 440, overflow: "hidden" }}>
-          {step === "ready" && working > 0 && <LinearProgress sx={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 2 }} aria-label={t("analysis.working")} />}
-          <Box ref={host} sx={{ height: "100%", width: "100%" }} data-testid="analysis-pivot" />
-        </Paper>
+        {trail.length > 0 && question && (
+          <Paper variant="outlined" sx={{ px: 2, py: 0.75, display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+            <Breadcrumbs aria-label={t("analysis.drill.label")} sx={{ flex: "1 1 auto" }}>
+              {[t("analysis.drill.all"), ...trail.map((s) => s.label)].map((label, k) =>
+                k < trail.length ? (
+                  <Link key={k} component="button" underline="hover" onClick={() => backTo(k)} disabled={!ready} sx={{ fontSize: 14 }}>
+                    {label}
+                  </Link>
+                ) : (
+                  <Typography key={k} sx={{ fontSize: 14, fontWeight: 600 }} color="text.primary">
+                    {label}
+                  </Typography>
+                ),
+              )}
+            </Breadcrumbs>
+            <Button size="small" startIcon={<FormatListBulleted />} onClick={() => setDrill(question.filters)} disabled={!ready}>
+              {t("analysis.drill.plots")}
+            </Button>
+          </Paper>
+        )}
+        <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 1.5, flex: fullScreen ? "1 1 auto" : undefined, height: fullScreen ? undefined : { md: "calc(100vh - 220px)" }, minHeight: 440 }}>
+          <Paper variant="outlined" sx={{ position: "relative", flex: "1 1 0", minWidth: 0, height: { xs: "70vh", md: "auto" }, minHeight: 440, overflow: "hidden" }}>
+            {step === "ready" && working > 0 && <LinearProgress sx={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 2 }} aria-label={t("analysis.working")} />}
+            <Box ref={host} sx={{ height: "100%", width: "100%", display: flowing ? "none" : "block" }} data-testid="analysis-pivot" />
+            {flowing && shown && question && <ChangeFlows model={data.model} cube={shown.cube} filters={question.filters} measure={flowMeasure} query={query} onPick={setDrill} />}
+          </Paper>
+          {showMap && canMap && shown && question && (
+            <Paper variant="outlined" sx={{ flex: { md: "0 0 40%" }, height: { xs: "60vh", md: "auto" }, minHeight: 320, overflow: "hidden" }}>
+              <AnalysisMap projectId={projectId} model={data.model} cube={shown.cube} filters={question.filters} colour={question.rows[0] ?? null} query={query} plotLinks />
+            </Paper>
+          )}
+        </Box>
         <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
           {rows !== null && (
             <Typography variant="body2" color="text.secondary">
               {t("analysis.rows", { count: formatNumber(rows, language) })}
             </Typography>
           )}
-          <Typography variant="body2" color="text.secondary">
-            {t("analysis.help")}
-          </Typography>
+          <Explain variant="body2" text={t("analysis.help.short")} more={t("analysis.help")} />
         </Box>
       </Box>
       <SaveDialog
@@ -700,7 +797,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
       <Dialog open={packOpen} onClose={() => setPackOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{t("analysis.standaloneTitle")}</DialogTitle>
         <DialogContent>
-          <Typography sx={{ mb: 2 }}>{t("analysis.standaloneText")}</Typography>
+          <Explain color="text.primary" sx={{ mb: 2 }} text={t("analysis.standaloneText.short")} more={t("analysis.standaloneText")} />
           <FormControlLabel control={<Checkbox checked={packNoPositions} onChange={(e) => setPackNoPositions(e.target.checked)} />} label={t("data.noPositions")} />
           <Typography variant="body2" color="text.secondary">
             {t("data.noPositionsHelp")}
@@ -733,9 +830,13 @@ function SaveDialog({ open, team, initial, taken, onCancel, onSave }: { open: bo
       >
         <DialogTitle>{t(team ? "analysis.shareTitle" : "analysis.saveTitle")}</DialogTitle>
         <DialogContent>
-          <Typography color="text.secondary" sx={{ mb: 2 }}>
-            {t(team ? "analysis.shareExplain" : "analysis.saveExplain")}
-          </Typography>
+          {team ? (
+            <Explain sx={{ mb: 2 }} text={t("analysis.shareExplain.short")} more={t("analysis.shareExplain")} />
+          ) : (
+            <Typography color="text.secondary" sx={{ mb: 2 }}>
+              {t("analysis.saveExplain")}
+            </Typography>
+          )}
           <TextField autoFocus fullWidth label={t("analysis.viewName")} value={name} onChange={(e) => setName(e.target.value)} helperText={trimmed && taken(trimmed) ? t("analysis.replaces") : " "} slotProps={{ htmlInput: { maxLength: 80 } }} />
         </DialogContent>
         <DialogActions>
