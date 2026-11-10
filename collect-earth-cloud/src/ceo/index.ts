@@ -25,6 +25,8 @@ export interface CeoSurvey {
   plots: CeoPlots | null;
   /** what CEO's collectors answered, when its sample data was given (Part C) */
   answers: CeoAnswers | null;
+  /** answers per sample point (Part E): the number of points, a row each in the questions' table; null: per plot */
+  perPoint: number | null;
   report: Report;
 }
 
@@ -33,7 +35,10 @@ export interface CeoSurvey {
  * columns, read into each record; `plots`: CEO's plot list (get-project-plots), as saved. Refuses a simplified project
  * (collectors draw their samples).
  */
-export function ceoSurvey(json: string, options: { columns?: readonly string[]; plots?: string; answers?: string } = {}): CeoSurvey {
+export function ceoSurvey(
+  json: string,
+  options: { columns?: readonly string[]; plots?: string; answers?: string; perPoint?: boolean } = {},
+): CeoSurvey {
   const project = readCeoProject(json);
   if (project.type === 'simplified') {
     throw new CeoImportError(
@@ -48,11 +53,14 @@ export function ceoSurvey(json: string, options: { columns?: readonly string[]; 
     throw new CeoImportError('None of the questions of this CEO project can be asked in Collect Earth (they are all hidden or have no answers).');
   }
   const checks = planChecks(project, plan, report);
-  projectNotes(project, report);
   const layout = plotLayout(project, report);
+  const perPoint = options.perPoint ? pointsOf(layout, report) : null;
+  projectNotes(project, report, perPoint);
   const plots = options.plots !== undefined ? readCeoPlots(options.plots, project, report, options.answers !== undefined) : null;
   const answers = options.answers !== undefined
-    ? readCeoAnswers(options.answers, project, plan, report, plots ? new Set(plots.plots.map((p) => p.id)) : undefined)
+    ? readCeoAnswers(options.answers, project, plan, report, plots ? new Set(plots.plots.map((p) => p.id)) : undefined,
+      // per point: each sample placed on the point of Collect Earth's grid where it is
+      perPoint !== null && plots ? { points: perPoint, distance: layout.distance, centres: new Map(plots.plots.map((p) => [p.id, { lat: p.lat, lon: p.lon }])) } : null)
     : null;
   const surveyName = `ceo_${project.id ?? (slug(project.name, 30) || 'project')}`;
   const idml = writeIdml(
@@ -63,17 +71,39 @@ export function ceoSurvey(json: string, options: { columns?: readonly string[]; 
         .filter(Boolean)
         .join('\n\n'),
       answerFields: options.answers !== undefined,
+      perPoint,
     },
     plan,
     checks,
   );
-  return { project, idml, surveyName, plan, checks, layout, plots, answers, report };
+  return { project, idml, surveyName, plan, checks, layout, plots, answers, perPoint, report };
+}
+
+/**
+ * The points of a plot that answers per point (Part E): Collect Earth's square grid, which it draws in the same place at
+ * every start, numbered as the table's rows. A round plot's points are drawn at random, and one point is the plot:
+ * those are answered per plot, and said so.
+ */
+function pointsOf(layout: PlotLayout, report: Report): number | null {
+  if (layout.shape !== 'SQUARE') {
+    report.add('project', 'Answers per sample point', 'changed',
+      "Collect Earth draws a round plot's points at random, so a point's number would not stay on it: the questions are answered once for the plot.");
+    return null;
+  }
+  if (layout.points < 2) {
+    report.add('project', 'Answers per sample point', 'changed', 'The plot has a single point: the questions are answered once for the plot.');
+    return null;
+  }
+  return layout.points;
 }
 
 /** What the project's settings mean in Collect Earth, said once each. */
-function projectNotes(p: CeoProject, report: Report): void {
+function projectNotes(p: CeoProject, report: Report, perPoint: number | null): void {
   const samples = p.samplesPerPlot ?? 0;
-  if (samples > 1) {
+  if (perPoint !== null) {
+    report.add('project', 'Samples', 'imported',
+      `Each question is asked per sample point, as in CEO: a table with a row for each of the plot's ${perPoint} points, numbered on the map as in the table.`);
+  } else if (samples > 1) {
     report.add('project', 'Samples', 'changed',
       `CEO asked each question per sample point (${samples} per plot). In Collect Earth each question is answered once for the plot.`);
   }

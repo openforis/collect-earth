@@ -174,6 +174,10 @@ public class EarthProjectsService {
 		if (!projectProperties.containsKey(EarthProperty.BALLOON_TEMPLATE_KEY_WEB.toString())) {
 			localPropertiesService.setValue(EarthProperty.BALLOON_TEMPLATE_KEY_WEB, ""); //$NON-NLS-1$
 		}
+		// Nor does a project that does not number its sample points keep the numbers of the one before
+		if (!projectProperties.containsKey(EarthProperty.SAMPLE_POINT_NUMBERS.toString())) {
+			localPropertiesService.setValue(EarthProperty.SAMPLE_POINT_NUMBERS, ""); //$NON-NLS-1$
+		}
 
 		for (Object key : projectProperties.keySet()) {
 			String value = projectProperties.getProperty((String) key);

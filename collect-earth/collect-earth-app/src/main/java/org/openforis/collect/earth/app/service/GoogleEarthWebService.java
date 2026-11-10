@@ -1107,6 +1107,8 @@ public class GoogleEarthWebService {
 			data.put("inPageNavigation", String.valueOf(inPage.follows()));
 			data.put("flightUrl", flightUrl == null ? "" : flightUrl);
 			data.put("flyAnimation", flyAnimation());
+			// The sample points numbered as the rows of a questions' table per point, as on the plots map
+			data.put("samplePointNumbers", String.valueOf(localPropertiesService.isSamplePointNumbers()));
 			Map<String, String> labels = new LinkedHashMap<>();
 			for (String key : LABEL_KEYS) {
 				labels.put(key, Messages.getString("GoogleEarthWeb." + key));

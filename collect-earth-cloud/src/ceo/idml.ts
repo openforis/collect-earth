@@ -4,7 +4,7 @@
 // (elevation, slope, aspect, then the extra ones), then the questions on a tab of their own. Read back by Collect's
 // own parser in the desktop's tests (CeoSurveyIdmlTest).
 import type { PlannedCheck } from './rules.js';
-import { CONFIDENCE_NAME, FLAGGED_NAME, type PlannedAttribute, type SurveyPlan } from './survey.js';
+import { CONFIDENCE_NAME, FLAGGED_NAME, POINT_KEY, POINT_LIST, POINTS_ENTITY, type PlannedAttribute, type SurveyPlan } from './survey.js';
 
 export interface SurveyMeta {
   /** the project's name, the survey's label */
@@ -14,6 +14,8 @@ export interface SurveyMeta {
   description: string;
   /** with CEO's answers: the hidden attributes of what Collect Earth has no place for yet (flag, confidence) */
   answerFields?: boolean;
+  /** answers per sample point (Part E): the number of points, each a row of the questions' table */
+  perPoint?: number | null;
 }
 
 const escape = (s: string): string =>
@@ -61,21 +63,31 @@ export function writeIdml(meta: SurveyMeta, plan: SurveyPlan, checks: readonly P
       }
     });
 
-  const question = (a: PlannedAttribute): string => {
+  // The points' list, when the questions are asked per point: 1, 2... named "Point 1"...
+  if (meta.perPoint) {
+    const items = Array.from({ length: meta.perPoint }, (_, i) => `        <item id="${next()}">\n          <code>${i + 1}</code>\n          <label>Point ${i + 1}</label>\n        </item>`);
+    lists.push(`    <list id="${next()}" name="${POINT_LIST}">\n      ${label('Sample point', 'item')}\n      <codingScheme scope="local" />\n      <items>\n${items.join('\n')}\n      </items>\n    </list>`);
+  }
+
+  /** A question; in the points' table its tab is the table's (and its relevance and checks are read in the row). */
+  const question = (a: PlannedAttribute, inTable = false): string => {
     const attrs = [
       `id="${next()}"`,
       `name="${a.name}"`,
       a.required ? 'required="true"' : null,
       a.relevant ? `relevant="${escape(a.relevant)}"` : null,
       a.relevant ? 'ui:hideWhenNotRelevant="true"' : null,
-      `ui:tab="${SURVEY_TAB}"`,
-      a.kind === 'code' && a.layout === 'dropdown' ? 'ui:layoutType="dropdown"' : null,
+      inTable ? null : `ui:tab="${SURVEY_TAB}"`,
+      // In the points' table every code question is a dropdown: the form keeps a few answers as buttons, and lists
+      // many in one control per row, not a row of buttons each (codeControl, DROPDOWN_AS_BUTTONS)
+      a.kind === 'code' && (a.layout === 'dropdown' || inTable) ? 'ui:layoutType="dropdown"' : null,
       a.kind === 'code' ? `list="${a.name}"` : null,
       a.kind === 'number' ? 'type="real"' : a.kind === 'text' ? 'type="short"' : null,
     ].filter(Boolean).join(' ');
     const tag = a.kind === 'code' ? 'code' : a.kind === 'number' ? 'number' : 'text';
     const body = [label(a.label), a.description ? `<description>${escape(a.description)}</description>` : null, ...checksOf(a.name)].filter(Boolean);
-    return `      <${tag} ${attrs}>\n${body.map((b) => `        ${b}`).join('\n')}\n      </${tag}>`;
+    const indent = inTable ? '        ' : '      ';
+    return `${indent}<${tag} ${attrs}>\n${body.map((b) => `${indent}  ${b}`).join('\n')}\n${indent}</${tag}>`;
   };
 
   const builtIn = [
@@ -99,7 +111,16 @@ export function writeIdml(meta: SurveyMeta, plan: SurveyPlan, checks: readonly P
       : []),
   ];
   const entityId = next();
-  const questions = plan.attributes.map(question);
+  const questions = meta.perPoint
+    ? [
+        // One row per point, in the order Collect Earth draws and numbers them (enumerated: a row for each)
+        `      <entity id="${next()}" name="${POINTS_ENTITY}" multiple="true" ui:layout="table" collect:enumerate="true" ui:tab="${SURVEY_TAB}">`,
+        `        ${label('Sample points')}`,
+        `        <code id="${next()}" name="${POINT_KEY}" required="true" key="true" list="${POINT_LIST}">\n          ${label('Point')}\n        </code>`,
+        ...plan.attributes.map((a) => question(a, true)),
+        '      </entity>',
+      ]
+    : plan.attributes.map((a) => question(a));
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <survey lastId="${lastId}" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth">

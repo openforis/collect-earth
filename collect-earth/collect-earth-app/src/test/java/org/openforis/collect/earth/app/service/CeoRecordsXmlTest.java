@@ -23,6 +23,16 @@ import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.model.CollectSurveyContext;
 import org.openforis.collect.model.RecordUpdater;
+import org.openforis.collect.model.validation.CollectValidator;
+import org.openforis.idm.metamodel.CodeAttributeDefinition;
+import org.openforis.idm.metamodel.CodeList;
+import org.openforis.idm.metamodel.CodeListItem;
+import org.openforis.idm.metamodel.CodeListService;
+import org.openforis.idm.metamodel.ModelVersion;
+import org.openforis.idm.model.Code;
+import org.openforis.idm.model.CodeAttribute;
+import org.openforis.idm.model.Entity;
+import org.openforis.idm.model.expression.ExpressionFactory;
 import org.openforis.collect.persistence.xml.CollectSurveyIdmlBinder;
 import org.openforis.collect.persistence.xml.DataUnmarshaller;
 import org.openforis.collect.persistence.xml.DataUnmarshaller.ParseRecordResult;
@@ -57,7 +67,9 @@ public class CeoRecordsXmlTest {
 	private static void readProject(File folder, List<String> problems) throws Exception {
 		CollectSurvey survey;
 		try (InputStream is = new FileInputStream(new File(folder, "placemark.idm.xml"))) {
-			survey = (CollectSurvey) new CollectSurveyIdmlBinder(new CollectSurveyContext()).unmarshal(is, true);
+			// The code lists' items from the survey itself: the points' table (Part E) has a row per item of its list
+			survey = (CollectSurvey) new CollectSurveyIdmlBinder(
+					new CollectSurveyContext(new ExpressionFactory(), new CollectValidator(), new SurveyCodeLists())).unmarshal(is, true);
 		}
 		File[] records = folder.listFiles((dir, name) -> name.endsWith(".xml") && !name.equals("placemark.idm.xml"));
 		assertTrue(records != null && records.length > 0, "no record to read");
@@ -110,6 +122,79 @@ public class CeoRecordsXmlTest {
 		java.util.Set<String> keys = new java.util.HashSet<>(a.keySet());
 		keys.addAll(b.keySet());
 		return keys;
+	}
+
+	/** The items of the survey's own code lists, without a database (as the core's tests have them) */
+	private static class SurveyCodeLists implements CodeListService {
+
+		@SuppressWarnings("unchecked")
+		@Override
+		public <T extends CodeListItem> T loadItem(CodeAttribute attribute) {
+			Code value = attribute.getValue();
+			for (CodeListItem item : attribute.getDefinition().getList().getItems()) {
+				if (value != null && item.getCode().equals(value.getCode())) {
+					return (T) item;
+				}
+			}
+			return null;
+		}
+
+		@Override
+		public <T extends CodeListItem> List<T> loadRootItems(CodeList codeList) {
+			return codeList.getItems();
+		}
+
+		@Override
+		public <T extends CodeListItem> T loadRootItem(CodeList list, String code, ModelVersion version) {
+			return null;
+		}
+
+		@Override
+		public <T extends CodeListItem> List<T> loadChildItems(T parentItem) {
+			return parentItem.getChildItems();
+		}
+
+		@Override
+		public <T extends CodeListItem> List<T> loadItems(CodeList codeList, int level) {
+			return codeList.getItems();
+		}
+
+		@Override
+		public boolean hasItems(Entity parent, CodeAttributeDefinition def) {
+			return !def.getList().getItems().isEmpty();
+		}
+
+		@Override
+		public <T extends CodeListItem> List<T> loadValidItems(Entity parent, CodeAttributeDefinition def) {
+			return new ArrayList<>(def.getList().<T>getItems());
+		}
+
+		@Override
+		public <T extends CodeListItem> T loadParentItem(T item) {
+			return null;
+		}
+
+		@Override
+		public boolean hasQualifiableItems(CodeList codeList) {
+			return codeList.getItems().stream().anyMatch(CodeListItem::isQualifiable);
+		}
+
+		@Override
+		public <T extends CodeListItem> void save(T item) {
+		}
+
+		@Override
+		public <T extends CodeListItem> void save(List<T> items) {
+		}
+
+		@Override
+		public <T extends CodeListItem> void delete(T item) {
+		}
+
+		@Override
+		public void deleteAllItems(CodeList list) {
+		}
+
 	}
 
 	private static URL resource(String path) {

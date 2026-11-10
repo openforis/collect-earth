@@ -62,6 +62,13 @@ export function errorText(t: Translate, field: Field, value: string, message: st
  */
 export const AnsweredByKey = createContext<(name: string) => void>(() => {});
 
+/**
+ * Told the name of a question answered otherwise than with a number key: a single choice with the mouse, or Enter in a
+ * text or number box. The form goes on to the next question to answer, in view, or to the next step once this one is
+ * done with, or to Submit once everything is (see answered in FormApp).
+ */
+export const Answered = createContext<(name: string) => void>(() => {});
+
 /** The questions whose answers were just copied from the plot submitted before (see FieldProps.copied) */
 export const Copied = createContext<ReadonlySet<string>>(new Set());
 
@@ -127,7 +134,7 @@ export const FieldView = memo(function FieldView(props: FieldProps) {
   }
   return (
     <Box data-field={field.name} data-error={error ? "true" : undefined} data-copied={copied || undefined}
-      sx={{ minWidth: 0, ...(copied && COPIED_SX) }}>
+      sx={{ minWidth: 0, ...(!dense && CURRENT_SX), ...(copied && COPIED_SX) }}>
       {!dense && (
         <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", mb: 0.75 }}>
           <Typography component="label" htmlFor={field.name} variant="subtitle2" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
@@ -147,6 +154,18 @@ export const FieldView = memo(function FieldView(props: FieldProps) {
     </Box>
   );
 });
+
+/**
+ * The question the keyboard is on stands out: a white card with a bar of the form's blue on its left. Its padding is
+ * taken back by a negative margin, so the questions do not move, nor take more room, when it comes and goes.
+ */
+const CURRENT_SX = {
+  px: 1, py: 0.75, mx: -1, my: -0.75, borderRadius: 1.5, transition: "background-color 120ms, box-shadow 120ms",
+  "&:focus-within": {
+    bgcolor: "background.paper",
+    boxShadow: (theme: { palette: { primary: { main: string } } }) => `inset 3px 0 0 ${theme.palette.primary.main}, 0 1px 4px rgba(0, 0, 0, 0.12)`,
+  },
+} as const;
 
 /** An answer copied from the plot before: outlined, so that it is checked, not taken on trust */
 const COPIED_SX = {
@@ -233,11 +252,13 @@ function ReadOnlyValue({ field, value, info, dense }: FieldProps) {
 /**
  * Items as chips that wrap: every option visible at once, one click to answer (the balloon's buttons). A single choice
  * stays chosen when clicked again; the × after it (for the mouse), or Delete or Backspace on its buttons, clears it.
- * The question is one Tab stop: the arrows go from answer to answer, Space or Enter picks one, and 1 to 9 the n-th.
+ * The question is one Tab stop: Left and Right go from answer to answer (Up and Down to the question before or after),
+ * Space or Enter picks one, and 1 to 9 the n-th.
  */
 function CodeButtons({ field, value, items, parentLabel, onChange, error, describedBy, required }: ControlProps) {
   const t = useT();
   const answeredByKey = useContext(AnsweredByKey);
+  const answered = useContext(Answered);
   const group = useRef<HTMLDivElement>(null);
   // the code of the answer focused, which keeps the question's Tab stop while the focus is among the answers
   const [focused, setFocused] = useState<string | null>(null);
@@ -253,6 +274,8 @@ function CodeButtons({ field, value, items, parentLabel, onChange, error, descri
     if (codes) onChange(field.name, selectCodes(value, codes));
     // a single choice made from the keyboard is done with, even when it was the answer already chosen
     if (byKey && !field.multiple) answeredByKey(field.name);
+    // one chosen with the mouse (not the one chosen already, clicked again): on to the next question
+    else if (!byKey && !field.multiple && codes?.length) answered(field.name);
   };
   const clearable = !field.multiple && selected.length > 0;
   // the × goes once the answer is cleared: the focus goes to the question, not to the page
@@ -363,6 +386,7 @@ const TOGGLE_SX = {
 function CodeSelect({ field, value, items, parentLabel, onChange, error, dense, describedBy, required }: ControlProps) {
   const t = useT();
   const answeredByKey = useContext(AnsweredByKey);
+  const answered = useContext(Answered);
   const codes = parseCodes(value).map((c) => c.code);
   const byCode = (c: string) => items.find((i) => i.code === c) ?? { id: -1, code: c, label: c };
   const placeholder = !items.length && parentLabel ? t("entry.chooseParent", { parent: parentLabel }) : t("entry.select");
@@ -394,7 +418,7 @@ function CodeSelect({ field, value, items, parentLabel, onChange, error, dense, 
     <Autocomplete {...common} value={codes.length ? byCode(codes[0]) : null}
       onChange={(e, v, reason) => {
         onChange(field.name, selectCodes(value, v ? [v.code] : []));
-        if (v && reason === "selectOption" && e.type === "keydown") answeredByKey(field.name);
+        if (v && reason === "selectOption") (e.type === "keydown" ? answeredByKey : answered)(field.name);
       }}
       renderInput={(params) => <TextField {...params} error={error} placeholder={placeholder} slotProps={{ ...params.slotProps, htmlInput: { ...params.slotProps.htmlInput, "aria-label": field.label, "aria-describedby": describedBy, "aria-required": required || undefined } }} />} />
   );
@@ -435,6 +459,7 @@ function QualifierInput({ label, name, qualifier, dense, onChange }: { label: st
 function BooleanInput({ field, value, onChange, error, describedBy, required }: ControlProps) {
   const t = useT();
   const answeredByKey = useContext(AnsweredByKey);
+  const answered = useContext(Answered);
   const group = useRef<HTMLDivElement>(null);
   if (field.affirmativeOnly) {
     return <FormControlLabel control={<Checkbox id={field.name} checked={value === "true"} slotProps={{ input: { "aria-describedby": describedBy, "aria-required": required || undefined } }} onChange={(e) => onChange(field.name, e.target.checked ? "true" : "")} />} label={t("entry.yes")} />;
@@ -452,6 +477,7 @@ function BooleanInput({ field, value, onChange, error, describedBy, required }: 
           // null: the answer chosen, clicked or pressed again, which keeps it
           if (v) onChange(field.name, v);
           if (isKeyboardClick(e as unknown as { detail: number })) answeredByKey(field.name);
+          else if (v) answered(field.name);
         }}
         onKeyDown={(e) => {
           if (value && (e.key === "Delete" || e.key === "Backspace")) { e.preventDefault(); clear(); return; }
@@ -490,6 +516,7 @@ function useDraft(value: string, same: (draft: string, value: string) => boolean
  */
 function TextInput({ field, value, onChange, onDraftProblem, error, describedBy, required, dense, numeric, multiline }: ControlProps & { numeric?: boolean; multiline?: boolean }) {
   const t = useT();
+  const answered = useContext(Answered);
   const invalid = (d: string) => (numeric ? numberProblem(field.type, d) : null);
   // what is typed stays while it is no number, whatever the server answers about what was sent before
   const [draft, setDraft] = useDraft(value, numeric ? (d, v) => normalizeNumber(d) === v || invalid(d) != null : undefined);
@@ -505,6 +532,14 @@ function TextInput({ field, value, onChange, onDraftProblem, error, describedBy,
     <TextField id={field.name} size="small" fullWidth={!dense} value={draft} error={error || !!problem} multiline={multiline} minRows={multiline ? 3 : undefined}
       onChange={(e) => { setDraft(e.target.value); typing.current = true; commit(e.target.value, TYPING_DELAY); }}
       onBlur={() => { if (typing.current) { typing.current = false; commit(draft, 0); } }}
+      // Enter in a box of one line: what is typed is saved, and the form goes on (to the next question, or step)
+      onKeyDown={(e) => {
+        if (multiline || e.key !== "Enter" || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+        e.preventDefault();
+        typing.current = false;
+        commit(draft, 0);
+        if (!invalid(draft) && draft.trim() !== "") answered(field.name);
+      }}
       helperText={problem ? t(problem) : undefined}
       slotProps={{
         htmlInput: { inputMode: numeric ? (field.type === "integer" ? "numeric" : "decimal") : undefined, "aria-label": field.label,

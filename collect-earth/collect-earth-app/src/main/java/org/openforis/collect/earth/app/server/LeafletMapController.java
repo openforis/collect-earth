@@ -235,6 +235,8 @@ public class LeafletMapController {
 		config.put("viewerType", localPropertiesService.getViewerType());
 		config.put("language", localPropertiesService.getUiLanguage().getLocale().getLanguage());
 		config.put("webForm", localPropertiesService.getWebForm());
+		// The plot's sample points numbered as the rows of a questions' table per point
+		config.put("samplePointNumbers", localPropertiesService.isSamplePointNumbers());
 		json.writeValue(response.getOutputStream(), config);
 	}
 

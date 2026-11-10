@@ -98,6 +98,11 @@ export function App({ controller }: { controller: MapController }) {
           border: 0, borderRadius: 6, boxShadow: "var(--mui-shadows-2)", fontWeight: 600, padding: "3px 8px",
         },
         ".leaflet-tooltip.plot-tooltip::before": { display: "none" },
+        // The numbers of the open plot's sample points (sample_point_numbers), readable on any imagery
+        ".sample-point-number": {
+          color: "#ffffff", fontWeight: 700, fontSize: 12, lineHeight: "14px", textAlign: "center", pointerEvents: "none",
+          textShadow: "0 0 3px #000, 0 0 2px #000, 0 0 1px #000",
+        },
       }} />
       {onePane
         ? listPane && <PlotSidebar controller={controller} state={state} collapsed={false} fill

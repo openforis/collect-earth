@@ -6,11 +6,12 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { ceoSurvey, CeoImportError, readCeoProject } from '../src/ceo/index.js';
+import { placeSamples, pointOffset } from '../src/ceo/answers.js';
 import { DEFAULT_SIDE_M, layoutProperties } from '../src/ceo/plots.js';
 import { readableName, slug } from '../src/ceo/survey.js';
 import { plotFileCsv } from '../src/plotDesign.js';
 import { parsePlotFile } from '../src/plots.js';
-import { plotOutline } from '../src/plotShape.js';
+import { degreesPerMetre, plotOutline } from '../src/plotShape.js';
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/ceo/', import.meta.url));
 const IDML_DIR = fileURLToPath(new URL('../../collect-earth/collect-earth-app/src/test/resources/ceo/', import.meta.url));
@@ -302,5 +303,67 @@ describe('the plots (B3)', () => {
     expect(s.plots!.ids).toBe('internal');
     expect(s.plots!.plots.map((p) => p.id)).toEqual(['501', '502']);
     expect(plotEntries(s).find((e) => e.subject === 'Plot ids')?.outcome).toBe('changed');
+  });
+});
+
+describe('answers per sample point (Part E)', () => {
+  it("numbers the points as Collect Earth draws them: from the north-west corner, down each column, then east", () => {
+    // SquareKmlGenerator: for col (west to east) { for row (north to south) }
+    expect(pointOffset(1, 25, 7.5)).toEqual({ east: -15, north: 15 });
+    expect(pointOffset(2, 25, 7.5)).toEqual({ east: -15, north: 7.5 });
+    expect(pointOffset(5, 25, 7.5)).toEqual({ east: -15, north: -15 });
+    expect(pointOffset(6, 25, 7.5)).toEqual({ east: -7.5, north: 15 });
+    expect(pointOffset(13, 25, 7.5)).toEqual({ east: 0, north: 0 });
+    expect(pointOffset(4, 4, 10)).toEqual({ east: 5, north: -5 });
+  });
+
+  it("puts each of CEO's samples on the point where it is, never two on one", () => {
+    const centre = { lat: 11.5, lon: 105 };
+    // CEO's order: from the south-west corner, up each column, then east
+    const per = degreesPerMetre(centre.lat);
+    const ceo = Array.from({ length: 9 }, (_, s) => ({ lon: centre.lon + (Math.floor(s / 3) - 1) * 10 * per.east, lat: centre.lat + ((s % 3) - 1) * 10 * per.north }));
+    expect(placeSamples(ceo, centre, { points: 9, distance: 10 })).toEqual({ points: [2, 1, 0, 5, 4, 3, 8, 7, 6], offGrid: 0 });
+    // two samples nearest the same point: the closer keeps it, the other takes the next nearest free one, and is said
+    const crowded = [ceo[4], { lon: centre.lon + 2 * per.east, lat: centre.lat }];
+    const placed = placeSamples(crowded, centre, { points: 9, distance: 10 });
+    expect(placed.points[4]).toBe(0);
+    expect(placed.points.filter((p) => p !== null)).toHaveLength(2);
+    expect(placed.offGrid).toBe(1);
+  });
+
+  it('asks the questions in a table with a row per point, their relevance and rules read in the row', () => {
+    const s = ceoSurvey(fixture(30918), { perPoint: true });
+    expect(s.perPoint).toBe(49);
+    expect(s.idml).toMatch(/<entity id="\d+" name="sample_points" multiple="true" ui:layout="table" collect:enumerate="true" ui:tab="survey_tab">/);
+    expect(s.idml).toMatch(/<code id="\d+" name="point" required="true" key="true" list="sample_point">/);
+    expect((s.idml.match(/<label>Point \d+<\/label>/g) ?? []).length).toBe(49);
+    // a child question and its rule, inside the table, as they were at the plot
+    const table = s.idml.slice(s.idml.indexOf('name="sample_points"'), s.idml.indexOf('</entity>'));
+    expect(table).toContain('relevant="forest2017 = &apos;yes&apos;"');
+    expect(table).toMatch(/<compare flag="error" gte="7" lte="49">/);
+    expect(s.report.entries.find((e) => e.subject === 'Samples')).toMatchObject({ outcome: 'imported', message: expect.stringContaining('49 points') });
+  });
+
+  it('a round plot, or a single point, is answered per plot, and said so', () => {
+    const round = ceoSurvey(fixture(1), { perPoint: true });
+    expect(round.perPoint).toBeNull();
+    expect(round.idml).not.toContain('sample_points');
+    expect(round.report.entries.find((e) => e.subject === 'Answers per sample point')?.message).toMatch(/round plot/);
+    expect(ceoSurvey(fixture(20170), { perPoint: true }).report.entries.find((e) => e.subject === 'Answers per sample point')?.message).toMatch(/single point/);
+  });
+
+  it("gives each point CEO's answer of its sample", () => {
+    const s = ceoSurvey(fixture(37), {
+      plots: readFileSync(`${FIXTURES}project-37-plots.json`, 'utf8'),
+      answers: readFileSync(`${FIXTURES}project-37-samples.csv`, 'utf8'),
+      perPoint: true,
+    });
+    // plot 4: CEO's west three columns one land cover, its east two another; Collect Earth numbers columns west to east too
+    const plot4 = s.answers!.plots.find((p) => p.plot === '4')!;
+    expect([...plot4.points!.values()].map((v) => v.get('lulc'))).toEqual([...Array(15).fill('shrub'), ...Array(10).fill('crop')]);
+    expect(plot4.values.size).toBe(0);
+    expect(plot4.complete).toBe(true);
+    expect(s.report.entries.find((e) => e.subject === 'Samples off the grid')).toBeUndefined();
+    expect(s.report.entries.find((e) => e.subject === 'Samples that disagree')).toMatchObject({ outcome: 'info' });
   });
 });

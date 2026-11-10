@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { type Ref, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -8,6 +8,8 @@ import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
 import Link from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
@@ -32,15 +34,15 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import SendIcon from "@mui/icons-material/Send";
 import { type MessageKey, type Translate, useT } from "../i18n";
-import { escapeBlurs, isCopyKey, isTyping, mayAdvance, mayTakeFocus, panelKey, submitOnKey } from "../shortcuts";
+import { escapeBlurs, isCopyKey, isTyping, mayAdvance, mayTakeFocus, panelKey, questionKey, submitOnKey } from "../shortcuts";
 import logo from "@shared/collect-earth-logo.png";
-import { AnsweredByKey, Copied, FieldView, errorText } from "./fields";
+import { Answered, AnsweredByKey, Copied, FieldView, errorText } from "./fields";
 import {
   type Field, type FocusTarget, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type Step,
-  type TableItem, type TableTotal, type TotalRule, advanceTarget, answeredWithKeys, answersToCopy, availableItems, columnTotal,
+  type TableItem, type TableTotal, type TotalRule, advanceTarget, answeredWithKeys, answersToCopy, availableItems, columnFillTargets, columnTotal,
   draftErrors, entityCount, errorList, ruleMet, totalGap,
   fieldsOfStep, firstToAnswer, indexedField, isTabVisible, isVisible, itemFields, neededByTab, openingTarget, parseCodes,
-  stepsOf, summaryLines, tabsWithErrors,
+  stepAfterAnswer, stepsOf, summaryLines, tabsWithErrors,
 } from "./model";
 import type { FormState, FormStore, SaveState } from "./store";
 import { TypeAhead, afterRender, endOfMove } from "./typeAhead";
@@ -120,8 +122,14 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
       if (f.readOnly || f.type === "unsupported") return null;
       // a list whose answers depend on a question not answered yet has nothing to answer
       const byKey = answeredWithKeys(f) && (f.type !== "code" || availableItems(f, now.infos, now.pending, byName).length > 0);
-      return { name: f.name, byKey, needed: store.isRequired(f.name) && store.value(f.name).trim() === "" };
+      const empty = store.value(f.name).trim() === "";
+      return { name: f.name, byKey, needed: store.isRequired(f.name) && empty, empty };
     });
+  }, [store]);
+  /** The steps with something in error now (a required question left empty is one) */
+  const errorTabsNow = useCallback((): Set<number> => {
+    const now = store.getState();
+    return now.model ? tabsWithErrors(now.model, now.infos) : new Set();
   }, [store]);
 
   /**
@@ -139,8 +147,9 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
   const focusOwn = useCallback((control: HTMLElement | null) => {
     if (!control) return;
     ownFocus.current = control;
-    control.focus();
+    control.focus({ preventScroll: true });
     ownFocus.current = null;
+    bringIntoView(content.current, control);
   }, []);
 
   // A change of step the user made makes a move of the focus on its way stale; one the move made itself does not
@@ -267,6 +276,22 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     }
   }, []);
 
+  /**
+   * To step `tab`, the one before done with (see stepAfterAnswer): its first question needed, else its first choice not
+   * answered yet, else its first question, with the keyboard on it; a screen reader is told.
+   */
+  const toStep = useCallback((tab: number) => {
+    ownTab.current = tab;
+    goTo(tab, false);
+    afterRender(() => {
+      if (store.getState().tab !== tab) return;
+      const step = stepsNow().find((s) => s.tab === tab);
+      const q = step?.questions.find((x) => x.needed && x.byKey) ?? step?.questions.find((x) => x.byKey && x.empty) ?? step?.questions[0];
+      if (document.hasFocus()) focusOwn(controlOf(q?.name ?? null));
+      announce(t("entry.movedToStep", { step: store.getState().model?.tabs[tab]?.label ?? "" }));
+    });
+  }, [store, t, goTo, stepsNow, controlOf, focusOwn, announce]);
+
   // A single choice answered from the keyboard: the focus moves on at once, to the next question needed that is answered
   // with keys, on this step or the next one that needs one, else to the footer's step button (Submit once nothing is
   // left), for Enter to go on (see advanceTarget); never into a text. Not if the user moved the focus meanwhile. The keys
@@ -304,6 +329,14 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
           }
           const steps = stepsNow();
           const real = advanceTarget(steps, fromTab, name);
+          // nothing more to answer with keys on the step, and the step done with: on to the next one not done with
+          const after = real.name == null && real.tab === fromTab ? stepAfterAnswer(steps, fromTab, errorTabsNow()) : null;
+          if (typeof after === "number") {
+            move.current = null;
+            typeAhead.current.end("abandon", performance.now());
+            toStep(after);
+            return;
+          }
           const realControl = controlOf(real.name) ?? controlOf(null);
           const shown = target.name == null || steps.some((s) => s.questions.some((q) => q.name === target.name));
           const how = endOfMove(target, real, shown, landed != null && landed.isConnected && realControl === landed);
@@ -320,7 +353,67 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
         }));
       });
     });
-  }, [store, t, stepsNow, controlOf, focusTarget, dropMove, pressHeld, announce]);
+  }, [store, t, stepsNow, errorTabsNow, controlOf, focusTarget, dropMove, pressHeld, announce, toStep]);
+
+  // A single choice answered with the mouse, or Enter in a box: once the server said what is shown now (an answer may show
+  // the question that depends on it), the step done with goes on to the next one not done with (see stepAfterAnswer),
+  // and everything done with to the big Submit; else the next question of the step still unanswered comes into view,
+  // with the keyboard on it, so the next answer needs no scrolling. Nothing when every question after it is answered (a
+  // plot looked at again does not jump), nor when the user clicked, or moved to another question, meanwhile.
+  const clicks = useRef(0);
+  useEffect(() => {
+    const onPointer = () => { clicks.current++; };
+    window.addEventListener("pointerdown", onPointer, true);
+    return () => window.removeEventListener("pointerdown", onPointer, true);
+  }, []);
+  const answered = useCallback((name: string) => {
+    const ticket = ++clicks.current;
+    const tabNow = store.getState().tab;
+    void within(store.whenSaved(), ADVANCE_WAIT).then(() => afterRender(() => {
+      if (clicks.current !== ticket || store.getState().tab !== tabNow || !document.hasFocus()) return;
+      const on = document.activeElement?.closest?.("[data-field]")?.getAttribute("data-field");
+      if (on != null && on !== name) return;
+      const after = stepAfterAnswer(stepsNow(), tabNow, errorTabsNow());
+      if (typeof after === "number") {
+        toStep(after);
+        return;
+      }
+      if (after === "submit") {
+        focusOwn(controlOf(null));
+        return;
+      }
+      const boxes = questionBoxes(content.current, true);
+      const at = boxes.findIndex((b) => b.getAttribute("data-field") === name);
+      const next = boxes.slice(at + 1).find((b) => store.value(b.getAttribute("data-field") ?? "").trim() === "");
+      if (next) focusOwn(controlOf(next.getAttribute("data-field")));
+    }));
+  }, [store, stepsNow, errorTabsNow, toStep, controlOf, focusOwn]);
+
+  // Up and Down: to the question before or after, its answer chosen if it has one (see questionKey for where the keys
+  // are the control's own). Down past the last question goes to the step button. Not in a table, whose cells Tab goes
+  // through.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const way = questionKey(e);
+      if (!way) return;
+      const target = e.target as Element;
+      if (target !== document.body && !content.current?.contains(target)) return;
+      if (target.closest?.("table")) return;
+      const boxes = questionBoxes(content.current, false);
+      const box = target.closest?.("[data-field]");
+      const at = box ? boxes.indexOf(box as HTMLElement) : -1;
+      if (box && at < 0) return;
+      const to = way === "next" ? at + 1 : at < 0 ? -1 : at - 1;
+      if (to < 0) return;
+      e.preventDefault();
+      const control = to < boxes.length ? controlOf(boxes[to].getAttribute("data-field")) : controlOf(null);
+      if (!control) return;
+      control.focus({ preventScroll: true });
+      bringIntoView(content.current, control);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [controlOf]);
 
   // Ctrl+Enter submits, before the focused chip or button sees it (see submitOnKey)
   useEffect(() => {
@@ -414,6 +507,12 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
   // nothing left on any step, as the server said: before its first answer, nothing is known to be left
   const ready = known && errorTabs.size === 0;
   const stepsText = t("entry.stepsDone", { done: stepsDone, total: visibleTabs.length });
+  // This step and those after it done with, nothing in error anywhere: Submit, big, under the questions (see FinishCard)
+  const finished = ready && !(state.submitted && !state.submitting) && stepAfterAnswer(stepsNow(), state.tab, errorTabs) === "submit";
+  const finishCard = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (finished) afterRender(() => { if (finishCard.current) bringIntoView(content.current, finishCard.current); });
+  }, [finished]);
 
   return (
     <Stack sx={{ height: "100vh", bgcolor: "background.default" }} data-testid="entry-form">
@@ -459,7 +558,8 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
         onPointerDown={(e) => looked(e.target)} onKeyDown={(e) => looked(e.target)}
         sx={{ flex: 1, overflowY: "auto", mx: 1, mt: 1, px: 2, pt: 1.5, pb: 2,
         bgcolor: "balloon.panel", borderRadius: 1.5, [NARROW]: { mx: 0, mt: 0.75, px: 1.25, pt: 1.25, pb: 1.5, borderRadius: 0 } }}>
-        <Stack spacing={1.5}>
+        {/* the whole height, for the big Submit to stand in the middle of the room left under the questions */}
+        <Stack spacing={1.5} sx={{ minHeight: "100%" }}>
           {state.serverDown && (
             <Alert severity="warning" icon={<CloudOffOutlinedIcon />} data-testid="entry-server-down"
               action={<Button color="inherit" size="small" onClick={store.retry}>{t("entry.retry")}</Button>}>{t("entry.serverDown")}</Alert>
@@ -486,9 +586,12 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
             </Box>
           )}
           <AnsweredByKey.Provider value={answeredByKey}>
-            <Copied.Provider value={copied}>
-              <TabContent store={store} state={state} items={tab.items} />
-            </Copied.Provider>
+            <Answered.Provider value={answered}>
+              <Copied.Provider value={copied}>
+                <TabContent store={store} state={state} items={tab.items} />
+              </Copied.Provider>
+              {finished && <FinishCard ref={finishCard} store={store} state={state} />}
+            </Answered.Provider>
           </AnsweredByKey.Provider>
         </Stack>
       </Box>
@@ -514,7 +617,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
           <SaveStatus state={state.saveState} retrying={state.retrying} />
         </Box>
         <Stack direction="row" spacing={1} sx={{ flex: "none", justifyContent: "flex-end", alignItems: "center" }}>
-          {(next < 0 || ready) && <SubmitButton store={store} state={state} />}
+          {(next < 0 || ready) && !finished && <SubmitButton store={store} state={state} />}
           {next >= 0 && (
             <Tooltip title="Alt+→" describeChild>
               <Button variant={ready ? "outlined" : "contained"} disableElevation endIcon={<ChevronRightIcon />}
@@ -527,6 +630,53 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
       </Stack>
     </Stack>
   );
+}
+
+/**
+ * Everything answered and nothing in error: Submit, big, in the middle of the form under the questions, in the footer's
+ * place (which hides its own). It is the step button the moves of the focus go to (data-step-button).
+ */
+function FinishCard({ store, state, ref }: { store: FormStore; state: FormState; ref: Ref<HTMLDivElement> }) {
+  const t = useT();
+  return (
+    <Stack ref={ref} spacing={1.5} data-testid="entry-finish" sx={{ alignItems: "center", textAlign: "center", py: 4, px: 2, my: "auto !important",
+      bgcolor: "background.paper", borderRadius: 2, boxShadow: "0 1px 4px rgba(0, 0, 0, 0.12)" }}>
+      <CheckCircleIcon color="success" sx={{ fontSize: 40 }} />
+      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{t("entry.allAnswered")}</Typography>
+      <Tooltip title="Ctrl+Enter">
+        <Button variant="contained" size="large" disableElevation disabled={state.submitting} onClick={() => void store.submit()}
+          endIcon={state.submitting ? <CircularProgress size={18} color="inherit" /> : <SendIcon />}
+          data-testid="entry-submit" data-step-button sx={{ minWidth: 240, height: 52, fontSize: "1.05rem", borderRadius: 2 }}>
+          {state.submitting ? t("entry.submitting") : t("entry.submit")}
+        </Button>
+      </Tooltip>
+    </Stack>
+  );
+}
+
+/**
+ * The boxes of the questions shown that can be answered (read-only ones have no control), in the order of the page;
+ * `withTables`: also the cells of the tables.
+ */
+function questionBoxes(content: HTMLElement | null, withTables: boolean): HTMLElement[] {
+  return [...(content?.querySelectorAll<HTMLElement>("[data-field]") ?? [])]
+    .filter((box) => box.querySelector(CONTROL) && (withTables || !box.closest("table")));
+}
+
+/**
+ * The question of `control` well in view in the scrolling `content`: left alone when it already is, else scrolled to a
+ * fifth of the way down, where the eyes are, with the question before it still in sight. Smoothly, unless the user asked
+ * for less motion. A control out of the questions (a step button) is always in view.
+ */
+function bringIntoView(content: HTMLElement | null, control: HTMLElement): void {
+  const box = control.closest<HTMLElement>("[data-field]") ?? control;
+  if (!content || !content.contains(box)) return;
+  const view = content.getBoundingClientRect();
+  const at = box.getBoundingClientRect();
+  const inView = at.top >= view.top + 8 && at.bottom <= view.top + view.height * 0.85;
+  if (inView) return;
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  content.scrollTo({ top: content.scrollTop + at.top - view.top - view.height * 0.2, behavior: reduced ? "auto" : "smooth" });
 }
 
 /** Nothing has the focus, in the plots map around the form or in the form: neither the plot search nor a question. */
@@ -830,6 +980,7 @@ function EntityTable({ store, state, item }: { store: FormStore; state: FormStat
                 <TableCell key={i} sx={{ fontWeight: 600, whiteSpace: "nowrap", [NARROW]: { whiteSpace: "normal" } }} title={c.description}>
                   {c.label}
                   {calculated[i] && <Typography component="span" variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 400 }}>{t("entry.calculated")}</Typography>}
+                  <FillColumn store={store} state={state} item={item} column={i} label={c.label} />
                 </TableCell>
               ))}
             </TableRow>
@@ -850,6 +1001,26 @@ function EntityTable({ store, state, item }: { store: FormStore; state: FormStat
         {item.totals?.map((total, i) => <TableTotalLine key={i} store={store} state={state} total={total} />)}
       </Box>
     </Box>
+  );
+}
+
+/**
+ * Over a choice column of a table, "Every row…": one answer given to every row where the question is shown, as CEO's
+ * collectors answer the points they selected at once (the answers per sample point of an imported project). Each row
+ * can still be changed after.
+ */
+function FillColumn({ store, state, item, column, label }: { store: FormStore; state: FormState; item: TableItem; column: number; label: string }) {
+  const t = useT();
+  const targets = columnFillTargets(item, column, state.infos);
+  if (!targets || targets.length < 2) return null;
+  const items = availableItems(targets[0], state.infos, state.pending, store.fieldsByName());
+  return (
+    <TextField select size="small" value="" label={t("entry.everyRow")} data-testid="entry-fill-column"
+      fullWidth sx={{ display: "flex", mt: 1, maxWidth: 280, "& .MuiInputBase-root": { fontWeight: 400 } }}
+      slotProps={{ htmlInput: { "aria-label": `${label}: ${t("entry.everyRow")}` }, select: { MenuProps: { slotProps: { paper: { sx: { maxHeight: 360 } } } } } }}
+      onChange={(e) => { for (const f of targets) store.setValue(f.name, e.target.value); }}>
+      {items.map((i) => <MenuItem key={i.code} value={i.code}>{i.label}</MenuItem>)}
+    </TextField>
   );
 }
 

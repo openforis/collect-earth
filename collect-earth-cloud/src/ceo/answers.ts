@@ -15,10 +15,11 @@
 // - collection_time is "YYYY-MM-dd HH:mm" (Java's week year: the last days of December can carry the next year),
 //   analysis_duration "12.3 secs".
 import { attr, childrenOf, parseSurvey, tagOf, type XmlNode } from '../cep.js';
+import { degreesPerMetre } from '../plotShape.js';
 import { prefixOf } from '../surveyOutline.js';
 import { CeoImportError, type CeoProject, type CeoQuestion } from './project.js';
 import type { Report } from './report.js';
-import { CONFIDENCE_NAME, FLAGGED_NAME, type PlannedAttribute, type SurveyPlan } from './survey.js';
+import { CONFIDENCE_NAME, FLAGGED_NAME, POINT_KEY, POINT_LIST, type PlannedAttribute, type SurveyPlan } from './survey.js';
 
 export { CONFIDENCE_NAME, FLAGGED_NAME };
 
@@ -45,8 +46,10 @@ export interface CeoPlotAnswers {
   seconds: number | null;
   /** 0 to 100, when CEO asked for it */
   confidence: number | null;
-  /** the answer per attribute name: a code, or the value typed */
+  /** the answer per attribute name: a code, or the value typed (per plot; empty when answered per point) */
   values: Map<string, string>;
+  /** answered per sample point (Part E): each point's answers, by its number (1, 2... as Collect Earth numbers them) */
+  points: Map<number, Map<string, string>> | null;
   /** the questions whose samples did not all agree, the answer of most samples taken */
   disagreed: string[];
   /** every question shown under its answers has the answer it needs (not so when one was left out): submitted only then */
@@ -184,7 +187,14 @@ function majority(values: string[]): { value: string; agreed: boolean } {
  * question's, questions the file has not or the survey left out. Throws CeoImportError for a file that is not CEO's
  * sample data, or another project's.
  */
-export function readCeoAnswers(csv: string, project: CeoProject, plan: SurveyPlan, report: Report, plotIds?: ReadonlySet<string>): CeoAnswers {
+export function readCeoAnswers(
+  csv: string,
+  project: CeoProject,
+  plan: SurveyPlan,
+  report: Report,
+  plotIds?: ReadonlySet<string>,
+  perPoint?: PointGrid | null,
+): CeoAnswers {
   const rows = parseCsv(csv.replace(/^﻿/, ''));
   const header = (rows.shift() ?? []).map((h) => h.trim());
   if (header[0] !== 'plotid' || header[1] !== 'sampleid' || !header.includes('email')) {
@@ -270,21 +280,20 @@ export function readCeoAnswers(csv: string, project: CeoProject, plan: SurveyPla
   if (broken > 0) report.add('project', 'Answers file', 'skipped', `${broken} row(s) do not have the file's columns (a line break typed in an answer breaks CEO's rows): left out.`);
   if (unknownPlots > 0) report.add('plots', 'Answers of other plots', 'skipped', `${unknownPlots} row(s) are for plots that are not in the plots file: left out.`);
 
-  // One answer per question: the samples' answers, the most given
+  // The answers of a set of rows (a plot's samples, or one point's sample): per question, the answer most rows gave
   const unknownAnswers = new Map<string, Set<string>>();
   const badNumbers = new Map<string, number>();
   let plotsDisagreeing = 0;
   let notShown = 0;
   let incomplete = 0;
   const questionById = new Map(project.questions.map((q) => [q.id, q]));
-  const plots: CeoPlotAnswers[] = [];
-  for (const g of groups.values()) {
+  const answersOf = (sampleRows: string[][]): { values: Map<string, string>; disagreed: string[] } => {
     const values = new Map<string, string>();
     const disagreed: string[] = [];
     for (const q of shared) {
       const attribute = plan.byCeoId.get(q.id);
       if (!attribute) continue;
-      const given = g.samples.map((r) => r[columnOf.get(q.id)!].trim()).filter((v) => v !== '');
+      const given = sampleRows.map((r) => r[columnOf.get(q.id)!].trim()).filter((v) => v !== '');
       if (given.length === 0) continue;
       const { value, agreed } = majority(given);
       if (!agreed) disagreed.push(attribute.name);
@@ -306,36 +315,79 @@ export function readCeoAnswers(csv: string, project: CeoProject, plan: SurveyPla
         values.set(attribute.name, String(n));
       } else values.set(attribute.name, value);
     }
-    // Only the answers of questions shown under the answers kept, as CEO shows them (when the samples did not agree on
-    // a question, the others' answers to the questions its other answers show are not the plot's)
+    return { values, disagreed };
+  };
+  /** Whether a question is shown under these answers, as CEO shows it: its parent shown, and given one of its answers */
+  const showing = (values: Map<string, string>, shownSoFar: Map<string, boolean>, attribute: PlannedAttribute): boolean => {
+    const q = questionById.get(attribute.ceoId);
+    const parent = q?.parentQuestionId != null ? plan.byCeoId.get(q.parentQuestionId) : undefined;
+    if (!q || !parent) return true;
+    const parentCode = values.get(parent.name);
+    return shownSoFar.get(parent.name) === true && parentCode !== undefined
+      && (q.parentAnswerIds.length === 0 || parent.items.some((i) => i.code === parentCode && q.parentAnswerIds.includes(i.answerId)));
+  };
+  /**
+   * Keeps only the answers of questions shown under the answers kept (when samples did not agree on a question, the
+   * others' answers to the questions its other answers show are not the plot's), and says whether every question
+   * shown that needs an answer has one.
+   */
+  const settle = (values: Map<string, string>): boolean => {
+    const shownSoFar = new Map<string, boolean>();
+    let complete = true;
     for (const attribute of plan.attributes) {
-      if (!values.has(attribute.name)) continue;
-      const q = questionById.get(attribute.ceoId);
-      const parent = q?.parentQuestionId != null ? plan.byCeoId.get(q.parentQuestionId) : undefined;
-      if (!q || !parent) continue;
-      const parentCode = values.get(parent.name);
-      const showing = q.parentAnswerIds.length === 0 ? parentCode !== undefined
-        : parent.items.some((i) => i.code === parentCode && q.parentAnswerIds.includes(i.answerId));
-      if (!showing) {
+      const isShown = showing(values, shownSoFar, attribute);
+      shownSoFar.set(attribute.name, isShown);
+      if (!isShown && values.has(attribute.name)) {
         values.delete(attribute.name);
         notShown++;
       }
-    }
-    // Submitted only with every answer it needs: a question shown under the answers kept, required, has one
-    const shown = new Map<string, boolean>();
-    let complete = true;
-    for (const attribute of plan.attributes) {
-      const q = questionById.get(attribute.ceoId);
-      const parent = q?.parentQuestionId != null ? plan.byCeoId.get(q.parentQuestionId) : undefined;
-      const parentCode = parent ? values.get(parent.name) : undefined;
-      const isShown = !parent || (shown.get(parent.name) === true && parentCode !== undefined
-        && (q!.parentAnswerIds.length === 0 || parent.items.some((i) => i.code === parentCode && q!.parentAnswerIds.includes(i.answerId))));
-      shown.set(attribute.name, isShown);
       if (isShown && attribute.required && !values.has(attribute.name)) complete = false;
     }
+    return complete;
+  };
+
+  const [lonCol, latCol] = [column('lon'), column('lat')];
+  let offGrid = 0;
+  let pointsWithout = 0;
+  const plots: CeoPlotAnswers[] = [];
+  for (const g of groups.values()) {
+    const whole = answersOf(g.samples);
+    if (whole.disagreed.length > 0) plotsDisagreeing++;
+    let values = whole.values;
+    let points: Map<number, Map<string, string>> | null = null;
+    let complete: boolean;
+    if (perPoint) {
+      // Each sample on the point of Collect Earth's grid where it is, and its answers that point's row
+      const centre = perPoint.centres.get(g.plot);
+      const placed = centre ? placeSamples(g.samples.map((r) => ({ lon: Number(r[lonCol]), lat: Number(r[latCol]) })), centre, perPoint) : null;
+      points = new Map();
+      complete = placed !== null;
+      if (placed) {
+        offGrid += placed.offGrid;
+        placed.points.forEach((sample, i) => {
+          if (sample === null) {
+            pointsWithout++;
+            complete = false;
+            return;
+          }
+          const row = answersOf([g.samples[sample]]).values;
+          if (!settle(row)) complete = false;
+          points!.set(i + 1, row);
+        });
+      }
+      values = new Map();
+    } else {
+      complete = settle(values);
+    }
     if (!g.flagged && !complete) incomplete++;
-    if (disagreed.length > 0) plotsDisagreeing++;
-    plots.push({ plot: g.plot, email: g.email, flagged: g.flagged, collectedAt: g.collectedAt, seconds: g.seconds, confidence: g.confidence, values, disagreed, complete });
+    plots.push({ plot: g.plot, email: g.email, flagged: g.flagged, collectedAt: g.collectedAt, seconds: g.seconds, confidence: g.confidence, values, points, disagreed: whole.disagreed, complete });
+  }
+  if (offGrid > 0) {
+    report.add('plots', 'Samples off the grid', 'changed',
+      `${offGrid} sample(s) were not on a point of Collect Earth's grid (CEO drew them otherwise): each went to the nearest point not taken.`);
+  }
+  if (pointsWithout > 0) {
+    report.add('plots', 'Points without a sample', 'changed', `${pointsWithout} point(s) had no sample of CEO's: their row is left to answer, and the plot is not submitted.`);
   }
   for (const [question, answers] of unknownAnswers) {
     report.add('question', question, 'skipped', `Answers that are not among the question's (changed or hidden in CEO since) were left out: ${[...answers].slice(0, 5).map((a) => `"${a}"`).join(', ')}${answers.size > 5 ? '…' : ''}.`);
@@ -347,7 +399,7 @@ export function readCeoAnswers(csv: string, project: CeoProject, plan: SurveyPla
   const collectors = [...byEmail].map(([email, n]) => ({ email, plots: n }));
   const flagged = plots.filter((p) => p.flagged).length;
   report.add('plots', 'Answers', 'imported',
-    `${plots.length} plot answer(s) from ${collectors.length} collector(s)${flagged ? `, ${flagged} of them flagged (kept, not submitted)` : ''}: one record per plot and collector, answered once for the plot.`);
+    `${plots.length} plot answer(s) from ${collectors.length} collector(s)${flagged ? `, ${flagged} of them flagged (kept, not submitted)` : ''}: one record per plot and collector, ${perPoint ? 'with a row of answers per sample point' : 'answered once for the plot'}.`);
   if (incomplete > 0) {
     report.add('plots', 'Answers missing', 'changed',
       `${incomplete} plot answer(s) lack an answer they need (left out above): kept, but not submitted, so the plot can be answered again.`);
@@ -356,7 +408,10 @@ export function readCeoAnswers(csv: string, project: CeoProject, plan: SurveyPla
     report.add('plots', 'Answers of questions not shown', 'skipped',
       `${notShown} answer(s) were to questions that the answers kept do not show (samples answered differently): left out.`);
   }
-  if (plotsDisagreeing > 0) {
+  if (plotsDisagreeing > 0 && perPoint) {
+    report.add('plots', 'Samples that disagree', 'info',
+      `In ${plotsDisagreeing} plot answer(s) the samples were given different answers: each point keeps its own.`);
+  } else if (plotsDisagreeing > 0) {
     report.add('plots', 'Samples that disagree', 'changed',
       `In ${plotsDisagreeing} plot answer(s) the samples were not all given the same answer to a question: the answer of most samples is kept (of equals, the first sample's).`);
   }
@@ -365,6 +420,59 @@ export function readCeoAnswers(csv: string, project: CeoProject, plan: SurveyPla
       `The columns of the plot file uploaded to CEO come with each plot, in the plot file and on each record: ${plan.columns.map((c) => `${c.column} (as "${c.name}")`).join(', ')}.`);
   }
   return { plots, collectors, plotColumns };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The points
+
+/** Collect Earth's square grid of a plot (plots.ts' layout): `points` (n × n) `distance` metres apart, and the plots' centres. */
+export interface PointGrid {
+  points: number;
+  distance: number;
+  centres: ReadonlyMap<string, { lat: number; lon: number }>;
+}
+
+/**
+ * Where Collect Earth draws point k (1, 2...) of an n × n grid, in metres east and north of the plot's centre: as
+ * SquareKmlGenerator lays them out, point 1 at the north-west corner, down each column (north to south), the columns from
+ * west to east.
+ */
+export function pointOffset(k: number, points: number, distance: number): { east: number; north: number } {
+  const n = Math.round(Math.sqrt(points));
+  const col = Math.floor((k - 1) / n) + 1;
+  const row = ((k - 1) % n) + 1;
+  return { east: (col - (n + 1) / 2) * distance, north: ((n + 1) / 2 - row) * distance };
+}
+
+/**
+ * The sample on each of the grid's points (by index, null when none came there): each sample on the nearest point,
+ * the closest pairs first, so that two samples never share a point. `offGrid`: the samples farther than half the
+ * spacing from their point.
+ */
+export function placeSamples(
+  samples: readonly { lon: number; lat: number }[],
+  centre: { lat: number; lon: number },
+  grid: Pick<PointGrid, 'points' | 'distance'>,
+): { points: (number | null)[]; offGrid: number } {
+  const per = degreesPerMetre(centre.lat);
+  const at = samples.map((s) => ({ east: (s.lon - centre.lon) / per.east, north: (s.lat - centre.lat) / per.north }));
+  const offsets = Array.from({ length: grid.points }, (_, i) => pointOffset(i + 1, grid.points, grid.distance));
+  const pairs: { sample: number; point: number; d: number }[] = [];
+  at.forEach((a, sample) => {
+    if (!Number.isFinite(a.east) || !Number.isFinite(a.north)) return;
+    offsets.forEach((o, point) => pairs.push({ sample, point, d: Math.hypot(a.east - o.east, a.north - o.north) }));
+  });
+  pairs.sort((x, y) => x.d - y.d || x.sample - y.sample);
+  const points: (number | null)[] = offsets.map(() => null);
+  const placed = new Set<number>();
+  let offGrid = 0;
+  for (const { sample, point, d } of pairs) {
+    if (placed.has(sample) || points[point] !== null) continue;
+    points[point] = sample;
+    placed.add(sample);
+    if (d > grid.distance / 2) offGrid++;
+  }
+  return { points, offGrid };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -386,18 +494,32 @@ interface RootAttribute {
   tag: string;
   /** the summary key, null for an attribute Collect Earth does not summarize */
   key: string | null;
+  /** an entity's attributes (the points' table, Part E), in its order; their keys are the part after the entity's */
+  children?: RootAttribute[];
 }
 
-/** The attributes of the survey's root entity, in its order (the survey as stored: round and note added). */
-export function rootAttributes(idmXml: string): { root: string; attributes: RootAttribute[] } {
-  const { root, rootEntity } = parseSurvey(idmXml);
-  const attributes = childrenOf(root as XmlNode)
-    .filter((n) => tagOf(n) !== null && !tagOf(n)!.startsWith('#') && !['label', 'description', 'entity'].includes(tagOf(n)!) && attr(n, 'name'))
+/** An attribute (or entity) node of the survey as RootAttribute; `prefix` makes its summary key */
+const nodesOf = (parent: XmlNode, keyOf: (prefix: string, name: string) => string): RootAttribute[] =>
+  childrenOf(parent)
+    .filter((n) => tagOf(n) !== null && !tagOf(n)!.startsWith('#') && !['label', 'description'].includes(tagOf(n)!) && attr(n, 'name'))
     .map((n) => {
+      const name = attr(n, 'name')!;
+      if (tagOf(n) === 'entity') {
+        return { name, tag: 'entity', key: null, children: nodesOf(n, (prefix, child) => `${prefix}${child}`) };
+      }
       const prefix = prefixOf(n);
-      return { name: attr(n, 'name')!, tag: tagOf(n)!, key: prefix ? `collect_${prefix}${attr(n, 'name')}` : null };
+      return { name, tag: tagOf(n)!, key: prefix ? keyOf(prefix, name) : null };
     });
-  return { root: rootEntity, attributes };
+
+/**
+ * The attributes of the survey's root entity, in its order (the survey as stored: round and note added), and the
+ * number of points of its points' table (0 when it has none).
+ */
+export function rootAttributes(idmXml: string): { root: string; attributes: RootAttribute[]; points: number } {
+  const { root, rootEntity } = parseSurvey(idmXml);
+  const list = new RegExp(`<list [^>]*name="${POINT_LIST}"[^>]*>([\\s\\S]*?)</list>`).exec(idmXml);
+  const points = list ? (list[1].match(/<item[ >]/g) ?? []).length : 0;
+  return { root: rootEntity, attributes: nodesOf(root as XmlNode, (prefix, name) => `collect_${prefix}${name}`), points };
 }
 
 const escapeXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -432,8 +554,13 @@ export function ceoRecords(
     now: number;
   },
 ): ImportedRecord[] {
-  const { root, attributes } = rootAttributes(options.surveyXml);
+  const { root, attributes, points } = rootAttributes(options.surveyXml);
   const hasRound = attributes.some((a) => a.name === 'round');
+  /** An attribute's value as Collect's XML and Collect Earth's summary write it (null: none) */
+  const written = (a: RootAttribute, raw: string): { field: string; value: string } => {
+    const value = a.tag === 'number' && a.key?.includes('real_') ? javaDouble(Number(raw)) : a.tag === 'number' ? String(Math.round(Number(raw))) : raw;
+    return { field: a.tag === 'code' ? 'code' : 'value', value };
+  };
   return answers.map((p) => {
     const at = p.collectedAt ?? options.now;
     const date = new Date(at);
@@ -456,6 +583,26 @@ export function ceoRecords(
     const xml: string[] = [`<?xml version='1.0' standalone='yes' ?>`, `<${root} step="1" created="${xmlTime(at)}" modified="${xmlTime(at)}">`];
     const summary: Record<string, string> = {};
     for (const a of attributes) {
+      if (a.tag === 'entity') {
+        // The points' table (Part E): a row for each point, as Collect enumerates them, its number the row's key;
+        // inside an entity, Collect Earth's summary leaves a blank answer out
+        for (let k = 1; k <= points; k++) {
+          const row = p.points?.get(k) ?? new Map<string, string>();
+          xml.push(`  <${a.name}>`);
+          for (const c of a.children ?? []) {
+            const raw = c.name === POINT_KEY ? String(k) : row.get(c.name) ?? null;
+            if (raw === null) {
+              xml.push(`    <${c.name} />`);
+              continue;
+            }
+            const { field, value } = written(c, raw);
+            xml.push(`    <${c.name}>\n      <${field}>${escapeXml(value)}</${field}>\n    </${c.name}>`);
+            if (c.key) summary[`collect_entity_${a.name}[${k}].${c.key}`] = value;
+          }
+          xml.push(`  </${a.name}>`);
+        }
+        continue;
+      }
       let value = p.values.get(a.name) ?? fixed.get(a.name) ?? null;
       let text = '';
       if (a.name === 'location' && a.tag === 'coordinate') {
@@ -476,10 +623,9 @@ export function ceoRecords(
         if (a.key) summary[a.key] = '';
         continue;
       }
-      if (a.tag === 'number' && a.key?.startsWith('collect_real_')) value = javaDouble(Number(value));
-      else if (a.tag === 'number') value = String(Math.round(Number(value)));
-      const field = a.tag === 'code' ? 'code' : 'value';
-      xml.push(`  <${a.name}>\n    <${field}>${escapeXml(value)}</${field}>\n  </${a.name}>`);
+      const out = written(a, value);
+      value = out.value;
+      xml.push(`  <${a.name}>\n    <${out.field}>${escapeXml(value)}</${out.field}>\n  </${a.name}>`);
       text = value;
       if (a.key) summary[a.key] = text;
     }

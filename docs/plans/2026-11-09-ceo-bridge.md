@@ -1,7 +1,7 @@
 # A bridge from Collect Earth Online to Collect Earth
 
-Date: 9 November 2026. Branch `ce-2026-GEW`. **Status: approved, with the owner's decisions below (9 Nov 2026); not
-started.**
+Date: 9 November 2026. Branch `ce-2026-GEW`. **Status: done (10 Nov 2026): Parts A, B, C and E are built; Part D is
+not planned and Part F is closed (owner, 10 Nov 2026).**
 
 ## Goal
 
@@ -71,10 +71,10 @@ one row per point (as its land-cover tables do). Two translations:
 
 1. **One answer per plot** (Part B): each CEO question becomes a plot question. Right for the CEO projects whose
    collectors answer all samples at once, which is common. The import report says so plainly.
-2. **One row per sample point** (later, Part E): a table entity keyed by the point number, the questions as its
+2. **One row per sample point** (Part E): a table entity keyed by the point number, the questions as its
    columns. Keeps point answers, but a 25-point plot becomes a 25-row table.
 
-The coordinator chooses at import. Part B does the first only.
+The coordinator chooses at import (Part B did the first; Part E adds the second for square plots).
 
 ## Part A: a short study (1–2 days)
 
@@ -124,7 +124,7 @@ What the 628 hold (a feature may occur several times in one project):
   script link in 240, learning material in 17 (it becomes the survey guide).
 - **Assignments and QA/QC**: plots given out equally in 31, by percent in 18; overlap QA/QC in 11, subject-matter
   experts in 1. Reported by the import; the coordinator sets them again in Collect Earth's division and checks.
-- **Simplified projects**: 6, refused (Part E).
+- **Simplified projects**: 6, refused (Part F).
 
 ## Part B: the survey and the plots (about 2 weeks)
 
@@ -339,7 +339,7 @@ records written in batches). It showed three things, the first two now done:
 - most of its answers were loaded into CEO in bulk, with "0.0 secs" and one date: no time spent is no time known;
 - **in a quarter of its plots (589 of 2,271) the samples were given different land covers**: a project that answers
   per point, which the answer of most samples flattens. Its points are what Part E (one row per sample point) keeps;
-  until then the report says how many plots lose their mix.
+  imported per plot, the report says how many plots lose their mix and points to the choice.
 
 The real file is not kept (it holds people's emails and their organisation's answers): `project-37-samples.csv` is
 made up by `test/ceoSampleData.ts` in its shape (plot file columns, bulk answers, a guest, flagged and unanswered
@@ -412,15 +412,58 @@ the collector adds rows to), the ones it would change (conditionally required ma
 15 items), the checks it cannot translate, and that it imports plot outlines but not sample points. Only a report: the
 file stays as it is. It goes out of date when CEO's importer changes, so it says which version it describes.
 
-## Part E: later
+## Part E: answers per sample point
 
-- One row per sample point (the second translation above).
-- Simplified CEO projects (collectors draw their samples): refused for now; they need drawing, which is an idea for
-  later (`2026-11-09-drawing-tools-idea.md`).
-- A live link (projects kept in step between the two): not without a documented CEO API with tokens. Raise it with
-  the CEO team if wanted.
+**Done (10 Nov 2026).** The coordinator chooses, in the import dialog, "one answer per plot" or "one row per sample
+point" when the project's plots are squares of gridded samples (the dialog shows the choice only then, and warns
+when per plot would flatten samples that disagree). Checked with the made-up RLCMS Cambodia fixture (37) end to end:
+imported per point with its answers, joined from the desktop, a plot answered row by row, submitted, synced and
+read back in the cloud's export.
+
+The survey (`idml.ts`):
+- the code list `sample_point` (items 1..N, "Point k") and an entity `sample_points`, `multiple="true"`,
+  `ui:layout="table"`, `collect:enumerate="true"`, keyed by the code `point`: Collect makes one row per item of the
+  list, with no 10-row cap (that is for the entities the collector adds rows to). The CEO questions are its columns,
+  their relevance and checks unchanged (Collect evaluates them per row);
+- every code question in the table is a dropdown (`ui:layoutType="dropdown"`): the form keeps buttons for 6 answers
+  or fewer and a select for more, instead of 18 buttons per row;
+- the project file carries `sample_point_numbers=true`.
+
+Which point is which (`answers.ts`):
+- Collect Earth numbers a square plot's points column by column from the north-west corner, west to east, each
+  column north to south (`SquareKmlGenerator`). CEO numbers its gridded samples from the south-west corner, up each
+  column. The import does not trust either order: it places each CEO sample on the point nearest to it
+  (`placeSamples`, nearest pairs first) and reports the samples farther than half the spacing ("off the grid") and the
+  points left without a sample.
+- Round plots are refused for this choice: their Collect Earth points are random, so no sample has a point to land
+  on. Plots of one sample have nothing to choose.
+- Each record has its N rows, the answers of its samples (by collector, as in Part C), and the summary
+  `collect_entity_sample_points[k].<column>` Collect Earth makes of it (`CeoRecordsXmlTest` reads the 37-points
+  records through Collect and compares).
+
+The desktop:
+- with `sample_point_numbers`, the plots map writes each point's number on it (at the centroid of its square, shown
+  only when the points are at least 18 px apart, so a zoomed-out plot is not a blur), and so does Google Earth Web
+  (the overlay, skipped when the points are closer than 14 px);
+- over a choice column of a table, "Every row…" gives one answer to every row where the question is shown, as CEO's
+  "nothing selected" answers every sample; each row can then be changed. It is in every table of the form, not only
+  the imported ones.
+
+Not done: `smpl_` columns are still not read (each sample's own columns would be per row now, but no project at hand
+has them); Google Earth Pro's balloon numbers no points.
+
+## Part F: closed (owner, 10 Nov 2026)
+
+Neither item is built:
+- **Simplified CEO projects** (collectors draw their samples) stay refused, with the message the import gives
+  ("its collectors draw their own samples, which Collect Earth does not do"). They are 6 of the 628 public projects,
+  and taking them needs drawing on the map, which is an idea not planned (`2026-11-09-drawing-tools-idea.md`); if
+  drawing is ever built, this is where they would come in.
+- **A live link** (projects kept in step between the two tools) is dropped: the bridge is for organisations leaving
+  CEO, not for projects run in both (decision 1), CEO is not asked for an API (decision 4), and it has no documented
+  API with tokens to keep anything in step.
 
 ## Order and size
 
-Part A, then B1–B2 with their tests, B3, B4–B5, B6, then C. About four weeks in all: A and B about three, C about
+Part A, then B1–B2 with their tests, B3, B4–B5, B6, then C, then E. About four weeks in all: A and B about three, C about
 one.

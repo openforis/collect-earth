@@ -57,6 +57,19 @@ public class PlotGeoJsonBuilder {
 		return geom;
 	}
 
+	/** The sample points that have a polygon of their own (the last geometries of the plot), as geometry() counts them */
+	private int samplePolygons(SimplePlacemarkObject plot) {
+		int count = 0;
+		if (plot.getPoints() != null) {
+			for (SimplePlacemarkObject sample : plot.getPoints()) {
+				if (sample.getShape() != null && sample.getShape().size() >= 3) {
+					count++;
+				}
+			}
+		}
+		return count;
+	}
+
 	private Map<String, Object> polygon(List<SimpleCoordinate> ring) {
 		// Skip degenerate rings: a Polygon needs at least 3 vertices.
 		if (ring == null || ring.size() < 3) {
@@ -113,6 +126,8 @@ public class PlotGeoJsonBuilder {
 		// $[EXTRA_visibleId]. "" when every key is hidden: the map then names the plot by its place in the file
 		String visibleId = plot.getVisiblePlacemarkId() != null ? plot.getVisiblePlacemarkId() : plot.getPlacemarkId();
 		Object csvValue = props.put("visibleId", visibleId);
+		// How many of the geometries, the last ones, are the sample points, in the order Collect Earth numbers them
+		props.put("samplePoints", String.valueOf(samplePolygons(plot)));
 		if (csvValue != null) {
 			props.putIfAbsent("EXTRA_visibleId", csvValue); //$NON-NLS-1$
 		}
