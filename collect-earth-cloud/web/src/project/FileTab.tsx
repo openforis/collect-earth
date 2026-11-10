@@ -1,6 +1,9 @@
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
 import FormControl from "@mui/material/FormControl";
 import FormHelperText from "@mui/material/FormHelperText";
 import InputLabel from "@mui/material/InputLabel";
@@ -13,7 +16,7 @@ import Typography from "@mui/material/Typography";
 import Download from "@mui/icons-material/Download";
 import InsertDriveFile from "@mui/icons-material/InsertDriveFile";
 import { useState } from "react";
-import { downloadOriginalCep, getOverview, getRoundInfo, setReassessmentCode, uploadCep, type RoundInfo } from "../api";
+import { ApiError, cepGridFiles, downloadOriginalCep, getOverview, getRoundInfo, listCsvFiles, mergeGridFiles, setReassessmentCode, uploadCep, uploadCsvFile, type RoundInfo } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { FileDrop } from "../components/FileDrop";
@@ -167,10 +170,57 @@ export function FileTab({ projectId }: { projectId: string }) {
   const [uploaded, setUploaded] = useState(false);
   // Counts uploads, so the round section starts again from what the server says about the new file.
   const [uploads, setUploads] = useState(0);
+  // The plot files of the project file's grid folder: how many were added, and which were refused (and why).
+  const [grid, setGrid] = useState<{ added: number; failed: { name: string; reason: string }[] } | null>(null);
+  // Several new grid files wait for the coordinator's choice: one merged plot file, or each on its own.
+  const [pendingGrid, setPendingGrid] = useState<{ files: File[]; mergedName: string } | null>(null);
+  const [gridProgress, setGridProgress] = useState<{ done: number; total: number } | null>(null);
+
+  const addPlotFiles = async (files: File[]) => {
+    const result = { added: 0, failed: [] as { name: string; reason: string }[] };
+    setGridProgress({ done: 0, total: files.length });
+    for (const file of files) {
+      try {
+        await uploadCsvFile(projectId, file);
+        result.added++;
+      } catch (err) {
+        result.failed.push({ name: file.name, reason: err instanceof ApiError ? err.reason ?? err.code : String(err) });
+      }
+      setGridProgress({ done: result.added + result.failed.length, total: files.length });
+    }
+    setGridProgress(null);
+    setGrid(result);
+  };
+
+  // After the project file (its survey decides how plot files are read): the grid files the project lacks.
+  // One of the same name is left alone, since replacing it could take plots away from people who hold them.
+  const addGridFiles = async (cep: File) => {
+    const existing = new Set((await listCsvFiles(projectId)).map((f) => f.filename));
+    const mergedName = cep.name.replace(/\.cep$/i, ".csv");
+    const files = (await cepGridFiles(cep)).filter((f) => !existing.has(f.name));
+    if (files.length === 1) await addPlotFiles(files);
+    else if (files.length > 1 && !existing.has(mergedName)) setPendingGrid({ files, mergedName });
+  };
+
+  const chooseGrid = async (merge: boolean) => {
+    if (!pendingGrid) return;
+    const { files, mergedName } = pendingGrid;
+    setPendingGrid(null);
+    try {
+      if (!merge) return await addPlotFiles(files);
+      const { merged, separate } = await mergeGridFiles(files, mergedName);
+      await addPlotFiles(merged ? [merged, ...separate] : separate);
+    } catch (err) {
+      setGridProgress(null);
+      setError(err);
+    }
+  };
 
   const upload = async ([file]: File[]) => {
     setError(null);
     setUploaded(false);
+    setGrid(null);
+    setPendingGrid(null);
     setWrongType(!file.name.toLowerCase().endsWith(".cep"));
     if (!file.name.toLowerCase().endsWith(".cep")) return;
     setProgress(0);
@@ -181,6 +231,7 @@ export function FileTab({ projectId }: { projectId: string }) {
       overview.reload();
       if (info) round.setData(info);
       else round.reload();
+      await addGridFiles(file);
     } catch (err) {
       setError(err);
     } finally {
@@ -239,6 +290,42 @@ export function FileTab({ projectId }: { projectId: string }) {
       {uploaded && (
         <Alert severity="success" role="status">
           {t("file.uploaded")}
+        </Alert>
+      )}
+      {/* No close on Escape or outside clicks: the grid files wait for one of the two answers. */}
+      <Dialog open={pendingGrid !== null} aria-labelledby="grid-choice" maxWidth="sm" fullWidth>
+        <DialogContent>
+          <Typography id="grid-choice">
+            {pendingGrid && t("file.gridChoice", { count: pendingGrid.files.length, name: pendingGrid.mergedName })}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ flexWrap: "wrap", gap: 1, px: 3, pb: 2 }}>
+          <Button variant="outlined" onClick={() => void chooseGrid(false)}>
+            {t("file.gridSeparate", { count: pendingGrid?.files.length ?? 0 })}
+          </Button>
+          <Button variant="contained" autoFocus onClick={() => void chooseGrid(true)}>
+            {t("file.gridMerge")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      {gridProgress && (
+        <Typography role="status">{t("file.gridAdding", { done: gridProgress.done, total: gridProgress.total })}</Typography>
+      )}
+      {grid && grid.added > 0 && (
+        <Alert severity="success" role="status">
+          {t("file.gridAdded", { count: grid.added })}
+        </Alert>
+      )}
+      {grid && grid.failed.length > 0 && (
+        <Alert severity="warning" role="alert">
+          {t("file.gridFailed")}
+          <ul>
+            {grid.failed.map((f) => (
+              <li key={f.name}>
+                {f.name}: {f.reason}
+              </li>
+            ))}
+          </ul>
         </Alert>
       )}
       <ErrorAlert error={error} />

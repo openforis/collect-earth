@@ -35,12 +35,14 @@ import { ProjectStateCache } from './projectState.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import { registerTimeSpentRoutes } from './routes/timeSpent.js';
 import { registerAnalysisRoutes } from './routes/analysis.js';
+import { registerUncertaintyRoutes } from './routes/uncertainty.js';
 import { PlotPlaceReader } from './routes/plotPlaces.js';
 import { PlotIndexCache, registerPlotSearchRoutes } from './routes/plotSearch.js';
 import { registerPlotsGeoRoutes } from './routes/plotsGeo.js';
 import { registerProgressRoutes } from './routes/progress.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerPlotDesignRoutes } from './routes/plotDesign.js';
+import { registerSigridRoutes } from './routes/sigrid.js';
 import { registerPublicProgressRoutes } from './routes/publicProgress.js';
 import { registerCollectBackupRoutes } from './routes/collectBackup.js';
 import { registerMailRoutes, type AccountMailHooks } from './routes/mail.js';
@@ -241,6 +243,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const places = new PlotPlaceReader(store);
   await registerProjectRoutes(app, store, config, places);
   await registerPlotDesignRoutes(app, store);
+  await registerSigridRoutes(app, store, places);
   await registerCollectBackupRoutes(app, store, config, limiter, now);
   await registerPlatformRoutes(app, store, config);
   const quality = new QualityService(store, new QualityWorker({ maxOldGenerationSizeMb: config.qualityWorkerMaxMb }), {
@@ -264,6 +267,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerPeopleRoutes(app, store, quality, states, now);
   await registerTimeSpentRoutes(app, store, states);
   await registerAnalysisRoutes(app, store, states, webDir);
+  await registerUncertaintyRoutes(app, store, states);
   await registerFormerMemberRoutes(app, store, states);
   await registerPlotsGeoRoutes(app, store, quality, states, places, config.mapBuildsKept ? { maxBuilds: config.mapBuildsKept } : {});
   await registerActivityRoutes(app, store, quality, states, places, now);

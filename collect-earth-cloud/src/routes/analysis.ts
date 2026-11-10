@@ -12,7 +12,7 @@ import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { ProjectStateCache } from '../projectState.js';
 import { recordResolver } from '../quality.js';
 import type { Store } from '../store/store.js';
-import type { SharedAnalysisView } from '../types.js';
+import type { RecordRow, SharedAnalysisView } from '../types.js';
 
 /** The stand-alone page in the built dashboard, and where its data goes in it (web/standalone.config.ts writes both). */
 export const STANDALONE_FILE = 'analysis-standalone.html';
@@ -154,16 +154,7 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
     }
 
     // The expansion factors are the plots', from their first assessments: over the whole project, whoever asks
-    let factors = null as ReturnType<typeof expansionFactors>;
-    if (parsed.regionAreas || parsed.attributeAreas) {
-      const firsts = new Map<string, Record<string, string>>();
-      for (const r of rows) {
-        if (r.deleted || !r.activelySaved) continue;
-        const { unit, round } = resolve(r);
-        if (unit !== null && round.assessment === 'main' && !firsts.has(unit)) firsts.set(unit, r.summary);
-      }
-      factors = expansionFactors({ regionAreas: parsed.regionAreas, attributeAreas: parsed.attributeAreas }, firsts, parsed.model);
-    }
+    const factors = factorsOf(parsed, firstAssessments(rows, resolve));
 
     const tables = analysisTables(parsed.model, records, factors?.byPlot ?? null, { hideRounds: !everyone });
     return {
@@ -212,6 +203,26 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
     await store.setAnalysisViews(projectId, next);
     return reply.send({ views: next });
   });
+}
+
+/**
+ * The first assessment of each plot of the project, by plot unit: submitted, not deleted, not a check (training records
+ * are kept apart, never listed). What the expansion factors and the uncertainty (routes/uncertainty.ts) are worked out from.
+ */
+export function firstAssessments(rows: readonly RecordRow[], resolve: ReturnType<typeof recordResolver>): Map<string, Record<string, string>> {
+  const firsts = new Map<string, Record<string, string>>();
+  for (const r of rows) {
+    if (r.deleted || !r.activelySaved) continue;
+    const { unit, round } = resolve(r);
+    if (unit !== null && round.assessment === 'main' && !firsts.has(unit)) firsts.set(unit, r.summary);
+  }
+  return firsts;
+}
+
+/** The expansion factors of the plots, from the project file's areas file; null without one. */
+export function factorsOf(parsed: NonNullable<Parsed>, firsts: ReadonlyMap<string, Record<string, string>>) {
+  if (!parsed.regionAreas && !parsed.attributeAreas) return null;
+  return expansionFactors({ regionAreas: parsed.regionAreas, attributeAreas: parsed.attributeAreas }, firsts, parsed.model);
 }
 
 /** The model with no column that says where a plot is (src/positions.ts). */

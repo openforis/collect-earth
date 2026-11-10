@@ -26,6 +26,8 @@ export type Route =
   | { name: "myWork"; projectId: string }
   /** The analysis of the collected data, the pivot table that replaces Saiku (any member: a collector sees their own plots). */
   | { name: "analysis"; projectId: string }
+  /** The IPCC uncertainty of the land areas (coordinators and reviewers), from the analysis page. */
+  | { name: "uncertainty"; projectId: string }
   /** The coordinators' printable team report, for training (no names). */
   | { name: "teamReport"; projectId: string }
   /** A training set's printable report (coordinators): agreement, golden answers, scores. */
@@ -108,6 +110,10 @@ export function matchRoute(pathname: string): Route {
     const projectId = decode(second);
     if (projectId) return { name: "analysis", projectId };
   }
+  if (first === "projects" && parts.length === 4 && third === "analysis" && fourth === "uncertainty") {
+    const projectId = decode(second);
+    if (projectId) return { name: "uncertainty", projectId };
+  }
   if (first === "projects" && parts.length === 4 && third === "people") {
     const projectId = decode(second);
     const userId = decode(fourth);
@@ -172,6 +178,8 @@ export function pathFor(route: Route): string {
       return `/projects/${encodeURIComponent(route.projectId)}/quality/team-report`;
     case "analysis":
       return `/projects/${encodeURIComponent(route.projectId)}/analysis`;
+    case "uncertainty":
+      return `/projects/${encodeURIComponent(route.projectId)}/analysis/uncertainty`;
     case "trainingReport":
       return `/projects/${encodeURIComponent(route.projectId)}/training/${encodeURIComponent(route.setId)}/report`;
     case "plot":

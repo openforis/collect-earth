@@ -7,6 +7,8 @@ import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import { useEffect, useState } from "react";
 import { generatePlotDesign, planPlotDesign, readDesignArea, type DesignArea, type DesignFacts, type DesignPlan } from "../api";
@@ -16,6 +18,7 @@ import { FileDrop } from "../components/FileDrop";
 import { formatNumber } from "../format";
 import { useT } from "../i18n";
 import { bytesToBase64, designOf, plotFileName, type DesignForm } from "../plotDesignView";
+import { SigridDesign } from "./SigridDesign";
 
 const km2 = (n: number, language: string) => formatNumber(Math.round(n * 10) / 10, language);
 
@@ -34,6 +37,7 @@ export function PlotDesign({ projectId, busy, onFile }: { projectId: string; bus
   const [filename, setFilename] = useState("");
   const [working, setWorking] = useState<"reading" | "checking" | "creating" | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const [source, setSource] = useState<"area" | "sigrid">("area");
   const design = area ? designOf(form, area.facts.max) : null;
 
   const read = async ([file]: File[]) => {
@@ -101,11 +105,29 @@ export function PlotDesign({ projectId, busy, onFile }: { projectId: string; bus
   };
 
   const set = (change: Partial<DesignForm>) => setForm((f) => ({ ...f, ...change }));
+  const sourceChoice = (
+    <ToggleButtonGroup exclusive size="small" color="primary" value={source} onChange={(_, v) => v && setSource(v)} aria-label={t("sigrid.source")} sx={{ mb: 2, flexWrap: "wrap" }}>
+      <ToggleButton value="area">{t("sigrid.fromArea")}</ToggleButton>
+      <ToggleButton value="sigrid">{t("sigrid.fromSigrid")}</ToggleButton>
+    </ToggleButtonGroup>
+  );
+  if (source === "sigrid") {
+    return (
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+        <Typography variant="h2" gutterBottom>
+          {t("design.title")}
+        </Typography>
+        {sourceChoice}
+        <SigridDesign projectId={projectId} busy={busy} onFile={onFile} />
+      </Paper>
+    );
+  }
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
       <Typography variant="h2" gutterBottom>
         {t("design.title")}
       </Typography>
+      {sourceChoice}
       <Typography color="text.secondary" sx={{ mb: 2 }}>
         {t("design.explain")}
       </Typography>

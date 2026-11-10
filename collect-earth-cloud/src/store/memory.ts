@@ -89,6 +89,7 @@ import {
   type TrainingSetInput,
   type UserPlots,
 } from './store.js';
+import type { UncertaintySettings } from '../uncertainty.js';
 
 /** The UTC month of a time, YYYY-MM (the AI token ledger's key). */
 const monthOf = (ms: number): string => new Date(ms).toISOString().slice(0, 7);
@@ -116,6 +117,7 @@ interface ProjectEntry {
   qualitySettings: QualitySettings | null;
   progressSettings: ProgressSettings | null;
   analysisViews: SharedAnalysisView[];
+  uncertaintySettings: UncertaintySettings | null;
   /** The progress link's quality figure (projects.public_quality). */
   publicQuality: PublicQuality | null;
   aiEnabled: boolean;
@@ -428,6 +430,7 @@ export class InMemoryStore implements Store {
       qualitySettings: null,
       progressSettings: null,
       analysisViews: [],
+      uncertaintySettings: null,
       publicQuality: null,
       aiEnabled: false,
       aiRuns: [],
@@ -2205,6 +2208,14 @@ export class InMemoryStore implements Store {
 
   async setAnalysisViews(projectId: string, views: SharedAnalysisView[]): Promise<void> {
     this.requireProject(projectId).analysisViews = structuredClone(views);
+  }
+
+  async getUncertaintySettings(projectId: string): Promise<UncertaintySettings | null> {
+    return structuredClone(this.projects.get(projectId)?.uncertaintySettings ?? null);
+  }
+
+  async setUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<void> {
+    this.requireProject(projectId).uncertaintySettings = structuredClone(settings);
   }
 
   async appendAudit(projectId: string, input: AuditInput): Promise<void> {
