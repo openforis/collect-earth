@@ -7,6 +7,8 @@
 // per plot and CEO collector, stored as a sync stores them (last write wins, record events), under the account the
 // coordinator named or a pseudonym (ceo-collector-N): no email is stored.
 //
+// - POST /v1/projects/from-ceo/fetch { ceoProjectId } -> { project, plots }: CEO's project and plot list as text, read
+//   from app.collect.earth (CEO answers both without a login; its pages send no CORS headers, so the browser cannot).
 // - POST /v1/projects/from-ceo/preview { ceoProject, ceoPlots?, ceoAnswers? } -> { name, ceoProjectId, counts, answers,
 //   report }: nothing stored.
 // - POST /v1/projects/from-ceo { ceoProject, ceoPlots?, ceoAnswers?, collectors?, name? } -> 201 { projectId, name,
@@ -103,7 +105,70 @@ function translate(body: ImportBody, reply: FastifyReply): CeoSurvey | null {
   }
 }
 
+/** The only place read from: a project number goes into these two fixed addresses. */
+export const CEO_BASE = 'https://app.collect.earth/';
+const CEO_TIMEOUT_MS = 60_000;
+/** Most bytes read of one CEO answer (2616's plot list, 7,933 plots, is 1.2 MB). */
+const MAX_CEO_BYTES = 50 * 1024 * 1024;
+
+class CeoFetchError extends Error {}
+
+/** The text CEO answers at `path`; throws CeoFetchError. */
+async function ceoText(path: string, signal: AbortSignal): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(CEO_BASE + path, { signal, redirect: 'error', headers: { accept: 'application/json' } });
+  } catch (err) {
+    throw new CeoFetchError(signal.aborted ? 'it took too long' : (err as Error).message);
+  }
+  if (!res.ok || !res.body) throw new CeoFetchError(`HTTP ${res.status}`);
+  const chunks: Uint8Array[] = [];
+  let bytes = 0;
+  const reader = res.body.getReader();
+  for (;;) {
+    const { value, done } = await reader.read().catch((err: Error) => {
+      throw new CeoFetchError(signal.aborted ? 'it took too long' : err.message);
+    });
+    if (done) break;
+    bytes += value.length;
+    if (bytes > MAX_CEO_BYTES) {
+      await reader.cancel().catch(() => undefined);
+      throw new CeoFetchError('its answer is larger than the server reads');
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
 export async function registerCeoImportRoutes(app: FastifyInstance, store: Store): Promise<void> {
+  app.post('/v1/projects/from-ceo/fetch', { preHandler: requireSession(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const raw = ((request.body ?? {}) as { ceoProjectId?: unknown }).ceoProjectId;
+    const id = typeof raw === 'number' ? String(raw) : typeof raw === 'string' ? raw.trim() : '';
+    // Digits only: nothing else of the caller's reaches the address
+    if (!/^\d{1,12}$/.test(id)) return reply.code(400).send({ error: 'bad_request', reason: 'ceoProjectId must be the number of a CEO project' });
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), CEO_TIMEOUT_MS);
+    try {
+      const [project, plots] = await Promise.all([ceoText(`get-project-by-id?projectId=${id}`, abort.signal), ceoText(`get-project-plots?projectId=${id}`, abort.signal)]);
+      // CEO answers a number it has no project for with a project of nulls
+      let name: unknown = null;
+      try {
+        name = (JSON.parse(project) as { name?: unknown }).name;
+      } catch {
+        /* not JSON: refused below */
+      }
+      if (typeof name !== 'string') return reply.code(404).send({ error: 'ceo_not_found', reason: `Collect Earth Online has no project ${id}.` });
+      return reply.send({ project, plots });
+    } catch (err) {
+      if (!(err instanceof CeoFetchError)) throw err;
+      request.log.warn({ ceoProjectId: id, why: err.message }, 'Collect Earth Online could not be read');
+      return reply.code(502).send({ error: 'ceo_unreachable', reason: `Collect Earth Online could not be read (${err.message}). Save its pages as files and drop them here instead.` });
+    } finally {
+      clearTimeout(timer);
+      abort.abort();
+    }
+  });
+
   app.post('/v1/projects/from-ceo/preview', { preHandler: requireSession(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const survey = translate((request.body ?? {}) as ImportBody, reply);
     if (!survey) return reply;

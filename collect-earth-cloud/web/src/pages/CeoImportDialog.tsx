@@ -14,7 +14,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useState, type FormEvent } from "react";
-import { importCeoProject, previewCeoImport, type CeoFiles, type CeoImportPreview, type CeoReportEntry } from "../api";
+import { fetchCeoProject, importCeoProject, previewCeoImport, type CeoFiles, type CeoImportPreview, type CeoReportEntry } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { FileDrop } from "../components/FileDrop";
@@ -26,6 +26,13 @@ export const ceoProjectUrl = (id: string) => `https://app.collect.earth/get-proj
 export const ceoPlotsUrl = (id: string) => `https://app.collect.earth/get-project-plots?projectId=${encodeURIComponent(id)}`;
 /** The project's "Download Sample Data": CEO gives it to the project's administrators only. */
 export const ceoAnswersUrl = (id: string) => `https://app.collect.earth/dump-project-raw-data?projectId=${encodeURIComponent(id)}`;
+
+/** The project number in what was typed or pasted: the number itself, or any CEO address with ?projectId=1234. */
+export function ceoProjectIdOf(text: string): string | null {
+  const typed = text.trim();
+  if (/^\d{1,12}$/.test(typed)) return typed;
+  return /[?&#]projectId=(\d{1,12})(?!\d)/i.exec(typed)?.[1] ?? null;
+}
 
 /** Which of CEO's three files a text is: its plot list is a JSON array, its sample data a CSV, its project an object. */
 export function ceoFileKind(text: string): keyof CeoFiles {
@@ -60,30 +67,47 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
-  /** Takes the files dropped (any of the three, in any order) and shows what they make, once the project is there. */
-  const read = async (dropped: File[]) => {
+  /** Shows what the files make, once the project is there. */
+  const show = async (next: typeof files) => {
+    if (next.project !== null) {
+      const shown = await previewCeoImport({ project: next.project, plots: next.plots, answers: next.answers });
+      // A name typed already stays; the first preview gives CEO's
+      if (preview === null) setName(shown.name);
+      setPreview(shown);
+      setShowAll(false);
+    }
+    setFiles(next);
+  };
+
+  const working = async (work: () => Promise<void>) => {
     setError(null);
     setBusy(true);
     try {
-      const next = { ...files };
-      for (const file of dropped) {
-        const text = await file.text();
-        next[ceoFileKind(text)] = text;
-      }
-      if (next.project !== null) {
-        const shown = await previewCeoImport({ project: next.project, plots: next.plots, answers: next.answers });
-        // A name typed already stays; the first preview gives CEO's
-        if (preview === null) setName(shown.name);
-        setPreview(shown);
-        setShowAll(false);
-      }
-      setFiles(next);
+      await work();
     } catch (err) {
       setError(err);
     } finally {
       setBusy(false);
     }
   };
+
+  /** Takes the files dropped (any of the three, in any order). */
+  const read = (dropped: File[]) =>
+    working(async () => {
+      const next = { ...files };
+      for (const file of dropped) {
+        const text = await file.text();
+        next[ceoFileKind(text)] = text;
+      }
+      await show(next);
+    });
+
+  /** The project and its plots, read from CEO by the server: only the answers are left to drop as a file. */
+  const readFromCeo = () =>
+    working(async () => {
+      const fetched = await fetchCeoProject(ceoProjectIdOf(ceoId)!);
+      await show({ ...files, project: fetched.project, plots: fetched.plots });
+    });
 
   const create = async (event: FormEvent) => {
     event.preventDefault();
@@ -113,8 +137,8 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
   };
 
   const entries = preview ? preview.report.filter((e) => showAll || needsAttention(e)) : [];
-  const id = ceoId.trim();
-  const validId = /^\d+$/.test(id);
+  const id = ceoProjectIdOf(ceoId) ?? "";
+  const validId = id !== "";
   const plotCount = preview?.counts.plots ?? null;
   const answers = preview?.answers ?? null;
   const link = (href: string, text: string) => (
@@ -136,8 +160,16 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
                 helperText={t("ceoImport.idHelp")}
                 value={ceoId}
                 onChange={(e) => setCeoId(e.target.value)}
-                slotProps={{ htmlInput: { inputMode: "numeric", maxLength: 12 } }}
+                slotProps={{ htmlInput: { maxLength: 2000, spellCheck: false, autoCapitalize: "none" } }}
               />
+              <Stack direction="row">
+                <Button variant="contained" disabled={!validId || busy} onClick={readFromCeo}>
+                  {t("ceoImport.fetch")}
+                </Button>
+              </Stack>
+              <Typography variant="body2" color="text.secondary">
+                {t("ceoImport.fetchHelp")}
+              </Typography>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
                 {link(ceoProjectUrl(id), t("ceoImport.open"))}
                 {link(ceoPlotsUrl(id), t("ceoImport.openPlots"))}

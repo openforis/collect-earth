@@ -630,6 +630,8 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   ai_unavailable: "ai.unavailable",
   ai_not_enabled: "ai.notEnabled",
   sigrid_unreachable: "sigrid.unreachable",
+  ceo_unreachable: "ceoImport.unreachable",
+  ceo_not_found: "ceoImport.notFound",
 };
 
 /** The sentence (message key) to show a person for any error thrown by this module. */
@@ -1142,6 +1144,11 @@ const ceoBody = (files: CeoFiles) => ({
   ...(files.plots !== null ? { ceoPlots: files.plots } : {}),
   ...(files.answers !== null ? { ceoAnswers: files.answers } : {}),
 });
+
+/** A CEO project and its plot list, as text, read by the server from Collect Earth Online by the project's number. */
+export function fetchCeoProject(ceoProjectId: string): Promise<{ project: string; plots: string }> {
+  return request("POST", "/v1/projects/from-ceo/fetch", { json: { ceoProjectId } });
+}
 
 /**
  * What a project saved from Collect Earth Online (its get-project-by-id file, as text) would become, with its plots

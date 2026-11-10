@@ -3,7 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { strFromU8, unzipSync } from 'fflate';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseCsv } from '../src/ceo/answers.js';
 import { readCep } from '../src/cep.js';
 import { bearer, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
@@ -30,7 +30,34 @@ describe('a new project from a Collect Earth Online project', () => {
     owner = await setupPlatformAdmin(ctx.app);
   });
   afterEach(async () => {
+    vi.unstubAllGlobals();
     await ctx.app.close();
+  });
+
+  it('reads a project and its plots from CEO by its number, and only from CEO', async () => {
+    const asked: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      asked.push(url);
+      if (url.includes('projectId=404')) return new Response(url.includes('plots') ? '[]' : '{"name":null,"id":null}');
+      return new Response(url.includes('get-project-plots') ? ceoPlots(743) : JSON.stringify(ceo(743)));
+    }));
+    const res = await post('/fetch', { ceoProjectId: '743' });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(asked.sort()).toEqual(['https://app.collect.earth/get-project-by-id?projectId=743', 'https://app.collect.earth/get-project-plots?projectId=743']);
+    const { project, plots } = res.json();
+    const preview = await post('/preview', { ceoProject: project, ceoPlots: plots });
+    expect(preview.json()).toMatchObject({ name: 'FAO - Demo', ceoProjectId: 743 });
+    expect(preview.json().counts.plots).toBeGreaterThan(0);
+
+    expect((await post('/fetch', { ceoProjectId: 404 })).json()).toMatchObject({ error: 'ceo_not_found' });
+    for (const bad of ['1&x=y', '../a', '', 'evil.com', 1.5]) expect((await post('/fetch', { ceoProjectId: bad })).statusCode).toBe(400);
+    expect(asked).toHaveLength(4);
+    expect((await ctx.app.inject({ method: 'POST', url: '/v1/projects/from-ceo/fetch', payload: { ceoProjectId: 1 } })).statusCode).toBe(401);
+
+    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('fetch failed'))));
+    expect((await post('/fetch', { ceoProjectId: 1 })).json()).toMatchObject({ error: 'ceo_unreachable' });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('no', { status: 500 })));
+    expect((await post('/fetch', { ceoProjectId: 1 })).statusCode).toBe(502);
   });
 
   it('the preview says what will come across, and stores nothing', async () => {
