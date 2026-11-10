@@ -13,10 +13,7 @@ public class SchemaService {
 	private String getSchemaName(ExportType exportType) {
 		String schemaName = null;
 		if (localPropertiesService.isUsingPostgreSqlDB()) {
-			if( exportType.equals( ExportType.SAIKU ))
-				schemaName = EarthConstants.POSTGRES_RDB_SCHEMA_SAIKU;
-			else
-				schemaName = EarthConstants.POSTGRES_RDB_SCHEMA_IPCC;
+			schemaName = EarthConstants.POSTGRES_RDB_SCHEMA_IPCC;
 		}
 		return schemaName;
 	}

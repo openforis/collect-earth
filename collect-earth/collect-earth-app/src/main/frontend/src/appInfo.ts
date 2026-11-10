@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet } from "./apiClient";
+import { APP_INFO_CHANGED } from "./notices";
 
 /** What AppInfoController tells about the running Collect Earth (/api/app). */
 export interface AppInfo {
@@ -60,7 +61,12 @@ export function useAppInfo(): [AppInfo | null, () => void] {
   }, []);
   useEffect(() => {
     reload();
-    return () => stop.current?.();
+    // A notice after which the info changed (notices.ts, changesAppInfo)
+    window.addEventListener(APP_INFO_CHANGED, reload);
+    return () => {
+      window.removeEventListener(APP_INFO_CHANGED, reload);
+      stop.current?.();
+    };
   }, [reload]);
   return [info, reload];
 }

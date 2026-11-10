@@ -33,11 +33,14 @@ import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import Delete from "@mui/icons-material/Delete";
+import PersonOffOutlined from "@mui/icons-material/PersonOffOutlined";
+import Undo from "@mui/icons-material/Undo";
 import Download from "@mui/icons-material/Download";
 import WarningAmber from "@mui/icons-material/WarningAmber";
 import Link from "@mui/icons-material/Link";
 import LinkOff from "@mui/icons-material/LinkOff";
 import { useState, type FormEvent } from "react";
+import { FormerMembers } from "../components/FormerMembers";
 import {
   createInvite,
   getPeople,
@@ -47,6 +50,7 @@ import {
   listInvites,
   listMembers,
   removeMember,
+  setMemberExcluded,
   revokeInvite,
   ROLES,
   setMemberRole,
@@ -57,6 +61,7 @@ import {
 } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { Username } from "../components/Username";
 import { JoinSteps } from "../components/JoinSteps";
 import { Loading } from "../components/Loading";
@@ -186,6 +191,9 @@ function MemberList({ projectId, members, onChanged }: { projectId: string; memb
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [removing, setRemoving] = useState<Member | null>(null);
+  // Leaving someone out of the results: who, and the reason being typed.
+  const [excluding, setExcluding] = useState<Member | null>(null);
+  const [reason, setReason] = useState("");
 
   const changeRole = async (member: Member, role: Role) => {
     setError(null);
@@ -193,6 +201,18 @@ function MemberList({ projectId, members, onChanged }: { projectId: string; memb
     try {
       await setMemberRole(projectId, member.userId, role);
       setNotice(t("people.roleChanged", { name: member.username, role: t(`role.${role}`) }));
+      onChanged();
+    } catch (err) {
+      setError(err);
+    }
+  };
+  const exclude = async (member: Member, excluded: boolean) => {
+    setExcluding(null);
+    setError(null);
+    setNotice(null);
+    try {
+      await setMemberExcluded(projectId, member.userId, excluded, reason);
+      setNotice(t(excluded ? "people.excludedDone" : "people.includedDone", { name: member.username }));
       onChanged();
     } catch (err) {
       setError(err);
@@ -224,7 +244,22 @@ function MemberList({ projectId, members, onChanged }: { projectId: string; memb
                   {member.userId === me?.userId && ` ${t("people.you")}`}
                 </>
               }
-              secondary={member.disabled ? <Chip component="span" size="small" label={t("people.disabledBadge")} sx={{ mt: 0.5 }} /> : undefined}
+              secondary={
+                member.disabled || member.excluded ? (
+                  <>
+                    {member.disabled && <Chip component="span" size="small" label={t("people.disabledBadge")} sx={{ mt: 0.5, mr: 0.5 }} />}
+                    {member.excluded && (
+                      <Chip
+                        component="span"
+                        size="small"
+                        color="warning"
+                        label={member.excluded.reason ? t("people.excludedBadgeReason", { reason: member.excluded.reason }) : t("people.excludedBadge")}
+                        sx={{ mt: 0.5, maxWidth: "100%" }}
+                      />
+                    )}
+                  </>
+                ) : undefined
+              }
               sx={{ flex: "1 1 160px", overflowWrap: "break-word" }}
             />
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
@@ -241,6 +276,19 @@ function MemberList({ projectId, members, onChanged }: { projectId: string; memb
                   </MenuItem>
                 ))}
               </Select>
+              {member.excluded ? (
+                <Tooltip title={t("people.include", { name: member.username })}>
+                  <IconButton aria-label={t("people.include", { name: member.username })} onClick={() => void exclude(member, false)}>
+                    <Undo />
+                  </IconButton>
+                </Tooltip>
+              ) : (
+                <Tooltip title={t("people.exclude", { name: member.username })}>
+                  <IconButton aria-label={t("people.exclude", { name: member.username })} onClick={() => (setReason(""), setExcluding(member))}>
+                    <PersonOffOutlined />
+                  </IconButton>
+                </Tooltip>
+              )}
               <Tooltip title={t("people.remove", { name: member.username })}>
                 <IconButton aria-label={t("people.remove", { name: member.username })} onClick={() => setRemoving(member)}>
                   <Delete />
@@ -256,6 +304,26 @@ function MemberList({ projectId, members, onChanged }: { projectId: string; memb
         </Alert>
       )}
       <ErrorAlert error={error} />
+      <Dialog open={excluding !== null} onClose={() => setExcluding(null)}>
+        <DialogTitle>{excluding && t("people.excludeTitle", { name: excluding.username })}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{excluding && t("people.excludeText", { name: excluding.username })}</DialogContentText>
+          <TextField
+            label={t("people.excludeReason")}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            fullWidth
+            margin="normal"
+            slotProps={{ htmlInput: { maxLength: 500 } }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExcluding(null)}>{t("common.cancel")}</Button>
+          <Button color="warning" variant="contained" onClick={() => excluding && void exclude(excluding, true)}>
+            {t("people.excludeConfirm")}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Dialog open={removing !== null} onClose={() => setRemoving(null)}>
         <DialogTitle>{removing && t("people.removeTitle", { name: removing.username })}</DialogTitle>
         <DialogContent>
@@ -300,9 +368,7 @@ function WeekSection({ projectId, data }: { projectId: string; data: PeopleData 
       <Typography variant="h2" id="people-week" gutterBottom>
         {t("peopleWeek.title")}
       </Typography>
-      <Typography color="text.secondary" sx={{ mb: 2 }}>
-        {t("peopleWeek.explain", { n: n(total), zone: data.timeZone })}
-      </Typography>
+      <Explain sx={{ mb: 2 }} text={t("peopleWeek.explain.short", { n: n(total) })} more={t("peopleWeek.explain", { n: n(total), zone: data.timeZone })} />
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 6 }}>
           <ChartOrTable
@@ -395,9 +461,11 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
       <Typography variant="h2" id="people-table" gutterBottom>
         {t("peopleTable.title")}
       </Typography>
-      <Typography color="text.secondary" sx={{ mb: 2 }}>
-        {t(data.quietDays === 1 ? "peopleTable.explainOneDay" : "peopleTable.explain", { days: data.quietDays, zone: data.timeZone })}
-      </Typography>
+      <Explain
+        sx={{ mb: 2 }}
+        text={t("peopleTable.explain.short")}
+        more={t(data.quietDays === 1 ? "peopleTable.explainOneDay" : "peopleTable.explain", { days: data.quietDays, zone: data.timeZone })}
+      />
       <AsOf asOf={data.asOf} />
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2, alignItems: { sm: "center" } }}>
         <TextField size="small" label={t("peopleTable.search")} value={text} onChange={(e) => setText(e.target.value)} sx={{ maxWidth: { sm: 260 } }} />
@@ -458,6 +526,7 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
                     <Typography variant="body2" color="text.secondary">
                       {t(`role.${r.role}`)}
                     </Typography>
+                    {r.excluded && <Chip size="small" color="warning" label={t("people.excludedBadge")} title={r.excluded.reason ?? undefined} sx={{ mt: 0.5 }} />}
                   </TableCell>
                   <TableCell>
                     <Chip size="small" label={chip.label} color={chip.color} variant={r.status.kind === "noPlots" ? "outlined" : "filled"} />
@@ -535,9 +604,7 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
           </TableBody>
         </Table>
       </TableContainer>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-        {t("peopleTable.footnote")}
-      </Typography>
+      <Explain variant="body2" sx={{ mt: 1 }} text={t("peopleTable.footnote.short")} more={t("peopleTable.footnote")} />
     </Paper>
   );
 }
@@ -573,6 +640,7 @@ export function PeopleTab({ projectId }: { projectId: string }) {
           <WeekSection projectId={projectId} data={people.data} />
           <PeopleTableSection projectId={projectId} data={people.data} />
           <TeamTimeSpent projectId={projectId} people={people.data.people} />
+          <FormerMembers projectId={projectId} />
         </>
       )}
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>

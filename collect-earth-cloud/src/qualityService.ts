@@ -656,7 +656,8 @@ export class QualityService {
         info,
         cep,
         files.map((f) => [f.id, f.checksum, f.distribution ?? null]),
-        members.map((m) => [m.userId, m.username]),
+        // Who is left out of the results too: the figures are worked out again when that changes.
+        members.map((m) => [m.userId, m.username, m.excluded ? 1 : 0]),
         // The margins only: the "very fast" threshold is applied when the flags are served.
         settings.margins,
       ]),
@@ -701,10 +702,21 @@ export class QualityService {
     if (source && this.runner?.hasRoom && !this.runner.hasRoom()) {
       throw new WorkerBusyError();
     }
-    const [context, outline] = await Promise.all([loadPlotContext(this.store, projectId, log, known), this.outline(projectId, log)]);
+    const [context, outline, referenceAnswers] = await Promise.all([
+      loadPlotContext(this.store, projectId, log, known),
+      this.outline(projectId, log),
+      this.store.listReferenceAnswers(projectId),
+    ]);
     const { failed, ...plots } = context;
     const partial = failed === true;
-    const input: Omit<QualityInput, 'records'> = { ...plots, outline, margins: known.settings.margins };
+    const excluded = known.members.filter((m) => m.excluded).map((m) => m.username);
+    const input: Omit<QualityInput, 'records'> = {
+      ...plots,
+      outline,
+      margins: known.settings.margins,
+      ...(excluded.length > 0 ? { excluded } : {}),
+      ...(referenceAnswers.length > 0 ? { referenceAnswers: new Map(referenceAnswers.map((r) => [r.plotKey, r.answers])) } : {}),
+    };
     this.computed += 1;
     if (source && this.runner) {
       try {

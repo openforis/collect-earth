@@ -386,7 +386,10 @@ describe('the memory store: record events, member activity and the audit log', (
     await store.appendAudit(a, { actorUserId: jose, action: 'cep.replaced', details: {} });
     await store.appendAudit(a, { actorUserId: maria, action: 'cep.replaced', details: {} });
     await store.appendRecordEvent(event(a, { operator: 'jose' }));
-    await store.removeMember(a, jose);
+    // jose is the project's only admin: the store refuses to leave it with none
+    expect(await store.removeMember(a, jose)).toBe('last_admin');
+    await store.setMemberRole(a, maria, 'admin');
+    expect(await store.removeMember(a, jose)).toBe('ok');
     expect((await store.listMemberActivity(a)).map((m) => m.userId)).toEqual([maria]);
     expect((await store.listAudit(a, { limit: 10 })).map((e) => e.actorUserId)).toEqual([maria, null]);
     expect(await store.listRecordEvents(a, { from: 0, to: 10_000, limit: 10 })).toHaveLength(1);
@@ -436,14 +439,14 @@ describe('migration 012', () => {
 
   it('allows exactly the changes and audit actions the code has', () => {
     const listed = (constraint: string) =>
-      [...sql.slice(sql.indexOf(constraint)).split('))')[0].matchAll(/'([a-z.]+)'/g)].map((m) => m[1]).sort();
+      [...sql.slice(sql.indexOf(constraint)).split('))')[0].matchAll(/'([a-z._]+)'/g)].map((m) => m[1]).sort();
     expect(listed('change         TEXT')).toEqual(['created', 'deleted', 'resubmitted', 'submitted', 'unsubmitted', 'updated']);
     // 012 lists the actions of the plan; 015 widens them (decision.bulk, Task 7) and is what applies.
     const widened = readFileSync(new URL('../migrations/015_decision_bulk.sql', import.meta.url), 'utf8');
-    const actions = (text: string) => [...text.slice(text.indexOf('ADD CONSTRAINT audit_log_action_check')).split('))')[0].matchAll(/'([a-z.]+)'/g)].map((m) => m[1]).sort();
+    const actions = (text: string) => [...text.slice(text.indexOf('ADD CONSTRAINT audit_log_action_check')).split('))')[0].matchAll(/'([a-z._]+)'/g)].map((m) => m[1]).sort();
     expect(actions(widened)).toEqual([...AUDIT_ACTIONS].sort());
     // Its guard looks for every action it adds (B7), not only decision.bulk.
-    const guard = [...widened.slice(widened.indexOf('wanted TEXT[]')).split('];')[0].matchAll(/'([a-z.]+)'/g)].map((m) => m[1]).sort();
+    const guard = [...widened.slice(widened.indexOf('wanted TEXT[]')).split('];')[0].matchAll(/'([a-z._]+)'/g)].map((m) => m[1]).sort();
     expect(guard).toEqual([...AUDIT_ACTIONS].sort());
     expect(widened).not.toMatch(/LIKE '%decision\.bulk%'/);
     expect(listed('audit_log_action_check')).toEqual([...AUDIT_ACTIONS].filter((a) => a !== 'decision.bulk').sort());

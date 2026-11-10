@@ -25,7 +25,11 @@ return (function (url, title) {
         if (current) current.remove();
         return "removed";
     }
-    if (current && current.url === url && document.querySelector("div[data-ce-panel]")) return "kept";
+    if (current && current.url === url && document.querySelector("div[data-ce-panel]")) {
+        // The title follows the survey, which may be loaded after the panel was shown
+        if (current.title !== title) current.setTitle(title);
+        return "kept";
+    }
     if (current) current.remove();
     if (!document.body || !document.head) return "no_body";
 
@@ -171,6 +175,13 @@ return (function (url, title) {
 
     window[TAG] = {
         url: url,
+        title: title,
+        setTitle: function (newTitle) {
+            if (title && document.title === title) document.title = ownTitle;
+            title = newTitle;
+            this.title = newTitle;
+            keepTitle();
+        },
         remove: function () {
             window.removeEventListener("resize", onWindowResize);
             window.removeEventListener("message", onMessage);

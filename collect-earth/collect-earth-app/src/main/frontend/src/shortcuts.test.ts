@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   type KeyPress, FOCUS_KEY_WINDOW, HANDS_FOCUS, choiceKey, escapeBlurs, focusMovedByKey, imageryKey, imageryNumber, isCopyKey, isFormMessage, isKeyboardClick,
-  isTypeAheadKey, isTyping, keyOfMessage, mayAdvance, mayTakeFocus, panelKey, submitOnKey,
+  isTypeAheadKey, isTyping, keyOfMessage, mayAdvance, mayTakeFocus, panelKey, questionKey, submitOnKey,
 } from "./shortcuts";
 
 /** A stand-in for an element: what isTyping reads of one. */
@@ -210,11 +210,11 @@ describe("keyOfMessage", () => {
 });
 
 describe("choiceKey", () => {
-  it("moves along the answers with the arrows, going round at both ends", () => {
+  it("moves along the answers with Left and Right, going round at both ends", () => {
     expect(choiceKey(press("ArrowRight"), 0, 3)).toEqual({ focus: 1 });
-    expect(choiceKey(press("ArrowDown"), 2, 3)).toEqual({ focus: 0 });
+    expect(choiceKey(press("ArrowRight"), 2, 3)).toEqual({ focus: 0 });
     expect(choiceKey(press("ArrowLeft"), 0, 3)).toEqual({ focus: 2 });
-    expect(choiceKey(press("ArrowUp"), 2, 3)).toEqual({ focus: 1 });
+    expect(choiceKey(press("ArrowLeft"), 2, 3)).toEqual({ focus: 1 });
     expect(choiceKey(press("Home"), 2, 3)).toEqual({ focus: 0 });
     expect(choiceKey(press("End"), 0, 3)).toEqual({ focus: 2 });
   });
@@ -236,6 +236,35 @@ describe("choiceKey", () => {
   });
   it("picks nothing with a number held down", () => {
     expect(choiceKey(press("2", chip, { repeat: true }), 0, 3)).toBeNull();
+  });
+  it("leaves Up and Down to the form, which goes from question to question with them", () => {
+    expect(choiceKey(press("ArrowDown"), 0, 3)).toBeNull();
+    expect(choiceKey(press("ArrowUp"), 2, 3)).toBeNull();
+  });
+});
+
+describe("questionKey", () => {
+  /** A stand-in for an element with attributes */
+  const el = (tagName: string, attrs: Record<string, string> = {}, extra: Record<string, unknown> = {}) =>
+    element(tagName, { getAttribute: (n: string) => attrs[n] ?? null, ...extra });
+  it("goes to the question before or after from an answer, a text or a number box, and the page", () => {
+    expect(questionKey(press("ArrowDown", el("DIV", { role: "radio" })))).toBe("next");
+    expect(questionKey(press("ArrowUp", el("BUTTON")))).toBe("previous");
+    expect(questionKey(press("ArrowDown", el("INPUT", {}, { type: "text" })))).toBe("next");
+    expect(questionKey(press("ArrowDown", el("BODY")))).toBe("next");
+  });
+  it("leaves the keys to the controls that use them: a list, a text of several lines, a date, a time", () => {
+    expect(questionKey(press("ArrowDown", el("INPUT", { role: "combobox" }, { type: "text" })))).toBeNull();
+    expect(questionKey(press("ArrowDown", el("TEXTAREA")))).toBeNull();
+    expect(questionKey(press("ArrowUp", el("INPUT", {}, { type: "date" })))).toBeNull();
+    expect(questionKey(press("ArrowUp", el("INPUT", {}, { type: "time" })))).toBeNull();
+    expect(questionKey(press("ArrowDown", el("BUTTON", { "aria-expanded": "true" })))).toBeNull();
+  });
+  it("does nothing with a modifier, once a control took the key, or for another key", () => {
+    expect(questionKey(press("ArrowDown", el("DIV"), { altKey: true }))).toBeNull();
+    expect(questionKey(press("ArrowDown", el("DIV"), { shiftKey: true }))).toBeNull();
+    expect(questionKey(press("ArrowDown", el("DIV"), { defaultPrevented: true }))).toBeNull();
+    expect(questionKey(press("ArrowRight", el("DIV")))).toBeNull();
   });
 });
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { strFromU8, unzipSync } from 'fflate';
 import * as zlib from 'node:zlib';
 import { inflateRawSync } from 'node:zlib';
+import { randomBytes } from 'node:crypto';
 import { addNote, addRound, CepError, NOTE_SUMMARY_KEY, readCep, surveyInfo, zipCep } from '../src/cep.js';
 import { keyRule } from '../src/quality.js';
 import { surveyOutline } from '../src/surveyOutline.js';
@@ -190,6 +191,35 @@ describe('readCep', () => {
     expect(files.balloonWebPath).toBeNull();
   });
 
+  it('joins continuation lines as Java does: an odd number of trailing backslashes, each line on its own', () => {
+    const files = readCep(
+      cepWith({
+        'project_definition.properties':
+          'metadata_file=${project_path}/long\\\n    name.xml\n' + 'balloon=${project_path}/b\\\\\nballoon_web=w.html\n',
+        'longname.xml': idm(''),
+        'b\\': '<html/>',
+      }),
+    );
+    expect(files.surveyPath).toBe('longname.xml');
+    // "\\\\" is an escaped backslash, not a continuation: the next line is a key of its own
+    expect(files.balloonPath).toBe('b\\');
+  });
+
+  it('reads a properties file of continuation lines in linear time', () => {
+    // 220 KB of "a\" lines took seconds when each step tested the whole joined line again
+    const properties = 'metadata_file=placemark.idm.xml\nx=' + 'a\\\n'.repeat(75_000) + 'end\n';
+    const started = performance.now();
+    const files = readCep(cepWith({ 'project_definition.properties': properties, 'placemark.idm.xml': idm('') }));
+    expect(files.surveyPath).toBe('placemark.idm.xml');
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+
+  it('refuses a properties file larger than a real one could be', () => {
+    const big = 'x=' + 'a'.repeat(300 * 1024) + '\n';
+    expect(() => readCep(cepWith({ 'project_definition.properties': big, 'placemark.idm.xml': idm('') })))
+      .toThrowError(expect.objectContaining({ code: 'too_large' }));
+  });
+
   it('falls back to the usual file names without a properties file', () => {
     const files = readCep(cepWith({ 'placemark.idm.xml': idm(''), 'balloon.html': '<html/>' }));
     expect(files.surveyPath).toBe('placemark.idm.xml');
@@ -219,6 +249,14 @@ describe('readCep', () => {
     expect(cepErrorCode(() => readCep(text, limits))).toBe('too_large');
     expect(cepErrorCode(() => readCep(text, { ...limits, maxRatio: 1000 }))).toBeNull();
     expect(cepErrorCode(() => readCep(text, { ...limits, maxRatio: 1000, maxTotalBytes: 9_999 }))).toBe('too_large');
+    // A big zip may not unzip to more than 64 MB in all, whatever its ratio: a 10 MB random pad
+    // (which would allow 200 MB) beside zeros took a 512 MiB instance past its memory at 200 MB.
+    const pad = new Uint8Array(randomBytes(10 * MB));
+    const padded = (zeros: number) => zipCep(new Map([
+      ['placemark.idm.xml', new Uint8Array(1)], ['pad.bin', pad], ['z.bin', new Uint8Array(zeros)],
+    ]), FIXTURE_DATE);
+    expect(cepErrorCode(() => readCep(padded(50 * MB)))).toBeNull();
+    expect(cepErrorCode(() => readCep(padded(60 * MB)))).toBe('too_large');
     const many = cepWith(Array.from({ length: 2001 }, (_, i): [string, string] => [`f${i}`, '']));
     expect(cepErrorCode(() => readCep(many))).toBe('too_large');
     expect(() => readCep(many)).toThrow(/2,000 files/);

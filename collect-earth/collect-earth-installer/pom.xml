@@ -14,7 +14,7 @@
 		<!-- to avoid replacing relative path to images and other resources used
 			by the installer -->
 		<installer-build-path>${project.build.directory}/installer</installer-build-path>
-		<installbuilder-file-name>CollectEarthWithSaiku.xml</installbuilder-file-name>
+		<installbuilder-file-name>CollectEarth.xml</installbuilder-file-name>
 		<installbuilder-file-name-updater>CollectEarthUpdater.xml</installbuilder-file-name-updater>
 		<!-- The Eclipse Temurin JRE bundled with the installers: a Temurin release name without its "jdk-". No
 		     repository serves it: ../utils/repack_jres.py downloads it from Adoptium and installs it in the local

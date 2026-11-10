@@ -37,9 +37,9 @@ run as jobs of the server (`POST /earth/api/jobs/export`, `importSummary`, `impo
 Open file / Open folder (`POST /earth/api/files/open`, `reveal`). The ZIP import reads the files first and
 asks about the records already in the database before importing (`src/importDialog.ts`).
 
-The Tools and Utilities menus (`src/components/tools/`) run Saiku, the stand-alone Saiku tool and the LULUCF
-package as jobs (`POST /earth/api/jobs/saiku`, `saikuTool`, `ipccPrepare`, `ipccOutputs`), asking first whether
-to generate the dataset again when `GET /earth/api/tools/analysis` says one exists; the LULUCF form of
+The Tools and Utilities menus (`src/components/tools/`) open the dashboard's analysis page (Tools > Analyse the
+data, which downloads its stand-alone file too) and run the LULUCF package as jobs (`POST /earth/api/jobs/ipccPrepare`,
+`ipccOutputs`), asking first whether to generate the dataset again when `GET /earth/api/tools/analysis` says one exists; the LULUCF form of
 `IpccDialog.tsx` replaces the Swing wizard (`src/tools.ts` holds its logic). Load points from KML
 (`POST /earth/api/tools/loadKml`) restarts Collect Earth under the restart overlay. The utilities are jobs too
 (`missingPlots`, `divideCsv`, `deletePlots`), with the checks of the Swing dialogs made by the server first

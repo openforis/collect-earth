@@ -10,7 +10,7 @@ import Typography from "@mui/material/Typography";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import { nextNotice, NOTICES_POLL_MILLIS, type Notice } from "../../notices";
+import { APP_INFO_CHANGED, changesAppInfo, nextNotice, NOTICES_POLL_MILLIS, type Notice } from "../../notices";
 import { answerNotice, readNotices } from "../../noticesApi";
 
 /**
@@ -45,6 +45,7 @@ export function NoticeDialog() {
     answerNotice(notice.id, option).catch(() => undefined).finally(() => {
       setBusy(false);
       setNotices((list) => list.filter((n) => n.id !== notice.id));
+      if (changesAppInfo(notice)) window.dispatchEvent(new Event(APP_INFO_CHANGED));
     });
   };
   if (!notice) return null;

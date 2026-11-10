@@ -17,6 +17,7 @@ import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.AssignmentInfo;
+import org.openforis.collect.earth.app.service.cloud.CloudApiClient.CloudApiException;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.JoinPreview;
 import org.openforis.collect.earth.app.service.cloud.CloudSyncQueueDao.QueueStatus;
 import org.openforis.collect.earth.app.view.Messages;
@@ -56,6 +57,8 @@ public class CloudService {
 		public String password;
 		/** Register with the invitation rather than log in */
 		public boolean register;
+		/** Two-step sign-in: the code of the authenticator app (or a recovery code), once the server asked for it */
+		public String code;
 	}
 
 	private static final String JOIN_MARKER = "/join/";
@@ -104,6 +107,12 @@ public class CloudService {
 		return new String[] { baseUrl, token };
 	}
 
+	/**
+	 * The shortest password an account registered from an invitation may have: the cloud server's rule
+	 * (collect-earth-cloud, src/accountRules.ts MIN_PASSWORD_LENGTH), checked here first to say it plainly.
+	 */
+	static final int MIN_PASSWORD_LENGTH = 8;
+
 	/** What the invitation is for, before the user confirms and logs in */
 	public Map<String, Object> preview(String url) throws InvalidCloudRequestException, IOException {
 		String[] invitation = parseInvitation(url);
@@ -126,8 +135,14 @@ public class CloudService {
 	 */
 	public void join(JoinRequest request) throws InvalidCloudRequestException, IOException {
 		String username = StringUtils.trimToEmpty(request.username);
+		// Said here, in the user's language, before the server is asked: it refuses the same (weak_password)
+		if (request.register && StringUtils.isNotEmpty(request.password) && StringUtils.isNotBlank(username)
+				&& request.password.length() < MIN_PASSWORD_LENGTH) {
+			throw new InvalidCloudRequestException("cloud.weakPassword", Messages.getString("CloudLoginDialog.passwordTooShort"));
+		}
+		// Log in with the invitation: someone who has an account (another project's) joins this one with it
 		String token = request.register ? authenticate(() -> api.register(request.baseUrl, username, request.password, request.inviteToken), request)
-				: authenticate(() -> api.login(request.baseUrl, username, request.password), request);
+				: authenticate(() -> login(request.baseUrl, username, request.password, request.code, request.inviteToken), request);
 		File cep = api.downloadCep(request.baseUrl, request.projectId, token);
 		try {
 			projects.loadCompressedProjectFile(cep);
@@ -146,13 +161,45 @@ public class CloudService {
 
 	/** The login of the prompt at start: the token saved, the operator is the user. @return the operator */
 	public String login(String username, String password) throws InvalidCloudRequestException {
+		return login(username, password, null);
+	}
+
+	/** {@link #login(String, String)} with the code of two-step sign-in, once the server asked for it. */
+	public String login(String username, String password, String code) throws InvalidCloudRequestException {
 		JoinRequest credentials = new JoinRequest();
 		credentials.username = username;
 		credentials.password = password;
-		String token = authenticate(() -> api.login(properties.getCloudSyncUrl(), username.trim(), password), credentials);
+		String token = authenticate(() -> login(properties.getCloudSyncUrl(), username.trim(), password, code, null), credentials);
 		properties.saveCloudSyncToken(token);
 		properties.saveOperator(username.trim());
 		return username.trim();
+	}
+
+	/**
+	 * The Log in button of the settings (the Swing DatabaseServerPanel's): a login against the server typed there, not
+	 * saved yet. Nothing is saved: the token goes into its field, and Apply saves it with the rest.
+	 */
+	public String token(String url, String username, String password) throws InvalidCloudRequestException {
+		return token(url, username, password, null);
+	}
+
+	/** {@link #token(String, String, String)} with the code of two-step sign-in, once the server asked for it. */
+	public String token(String url, String username, String password, String code) throws InvalidCloudRequestException {
+		if (StringUtils.isBlank(url)) {
+			throw new InvalidCloudRequestException("cloud.urlRequired", Messages.getString("DatabaseServerPanel.cloudUrlRequired"));
+		}
+		JoinRequest credentials = new JoinRequest();
+		credentials.username = username;
+		credentials.password = password;
+		return authenticate(() -> login(url.trim(), username.trim(), password, code, null), credentials);
+	}
+
+	/** The login, with the code and the invitation only when there are some (the three-argument call otherwise, as before). */
+	private String login(String baseUrl, String username, String password, String code, String inviteToken) throws IOException {
+		if (StringUtils.isNotBlank(inviteToken)) {
+			return api.login(baseUrl, username, password, StringUtils.trimToNull(code), inviteToken);
+		}
+		return StringUtils.isBlank(code) ? api.login(baseUrl, username, password) : api.login(baseUrl, username, password, code);
 	}
 
 	private interface Authentication {
@@ -167,6 +214,23 @@ public class CloudService {
 		String token;
 		try {
 			token = authentication.call();
+		} catch (CloudApiClient.SecondStepException e) {
+			// Not a failure to report as such: the page asks for the code (required), or says it is wrong
+			switch (e.getKind()) {
+			case "required":
+				throw new InvalidCloudRequestException("cloud.secondStepRequired", Messages.getString("CloudLoginDialog.secondStepRequired"));
+			case "unreadable":
+				throw new InvalidCloudRequestException("cloud.secondStepUnreadable", Messages.getString("CloudLoginDialog.secondStepUnreadable"));
+			default:
+				throw new InvalidCloudRequestException("cloud.secondStepInvalid", Messages.getString("CloudLoginDialog.secondStepInvalid"));
+			}
+		} catch (CloudApiException e) {
+			logger.warn("The cloud login failed: {}", e.getMessage());
+			// A server with a stricter rule than this version knows: still said in plain words
+			if ("weak_password".equals(e.getErrorCode())) {
+				throw new InvalidCloudRequestException("cloud.weakPassword", Messages.getString("CloudLoginDialog.passwordTooShort"));
+			}
+			throw new InvalidCloudRequestException("cloud.login", StringUtils.defaultIfBlank(e.getMessage(), Messages.getString("CloudLoginDialog.failed")));
 		} catch (IOException | RuntimeException e) {
 			logger.warn("The cloud login failed: {}", e.getMessage());
 			throw new InvalidCloudRequestException("cloud.login", StringUtils.defaultIfBlank(e.getMessage(), Messages.getString("CloudLoginDialog.failed")));

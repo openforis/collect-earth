@@ -261,3 +261,23 @@ describe("what moving the unfinished plots did", () => {
     expect(t("divide.moveText", { from: "ana", to: "maria" })).not.toContain("every plot");
   });
 });
+
+describe("evenly by percent", () => {
+  const even: DivisionForm = { ...base, mode: "even", people: ["u1", "u2"], byPercent: true, percents: { u1: "70", u2: "30", u0: "99" } };
+
+  it("sends one percent per person ticked, and round-trips", () => {
+    expect(formProblem(even, columns)).toBeNull();
+    expect(toRequest(even, columns)).toEqual({ mode: "even", people: ["u1", "u2"], percents: [70, 30], order: "file" });
+    const back = initialForm(toDistribution(JSON.parse(JSON.stringify(toRequest(even, columns)))), [], members);
+    expect(back).toMatchObject({ mode: "even", byPercent: true, percents: { u1: "70", u2: "30" } });
+    // Not by percent: no percents sent.
+    expect(toRequest({ ...even, byPercent: false }, columns)).not.toHaveProperty("percents");
+  });
+
+  it("needs whole numbers adding up to 100", () => {
+    expect(formProblem({ ...even, percents: { u1: "70", u2: "20" } }, columns)).toBe("divide.problemPercents");
+    expect(formProblem({ ...even, percents: { u1: "70.5", u2: "29.5" } }, columns)).toBe("divide.problemPercents");
+    expect(formProblem({ ...even, percents: { u1: "100" } }, columns)).toBe("divide.problemPercents");
+    expect(t("divide.percentsTotal", { total: "90" })).toContain("90");
+  });
+});

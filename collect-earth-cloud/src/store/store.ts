@@ -32,8 +32,11 @@ import type {
   PlatformStats,
   PlotAssignment,
   ProgressSettings,
+  TwoFactorState,
+  SharedAnalysisView,
   PublicQuality,
   ProjectRow,
+  ProjectStatus,
   ProjectStorage,
   QualityDecision,
   QualitySettings,
@@ -47,6 +50,7 @@ import type {
   ReferenceChange,
   ReferenceChangeResult,
   ReferencePlot,
+  ReferenceAnswer,
   TrainingAttempt,
   TrainingGolden,
   TrainingKind,
@@ -63,6 +67,7 @@ import type {
   User,
   UserSummary,
 } from '../types.js';
+import type { UncertaintySettings } from '../uncertainty.js';
 
 export interface TrainingSetInput {
   kind: TrainingKind;
@@ -116,8 +121,12 @@ export interface CreateInviteInput {
  * development and tests, and a PostgreSQL store for deployment.
  */
 export interface Store {
-  createProject(input: { name: string }): Promise<CreateProjectResult>;
+  /** A new project is active unless `status` says otherwise (a copy starts as a draft). */
+  createProject(input: { name: string; status?: ProjectStatus }): Promise<CreateProjectResult>;
   getProject(projectId: string): Promise<ProjectRow | null>;
+  /** The project's status alone (checked on every change and sync); null for an unknown project. */
+  getProjectStatus(projectId: string): Promise<ProjectStatus | null>;
+  setProjectStatus(projectId: string, status: ProjectStatus): Promise<void>;
   renameProject(projectId: string, name: string): Promise<void>;
   /**
    * Deletes a project and everything in it: records, CEP, plot files, assignments,
@@ -158,17 +167,36 @@ export interface Store {
   /** Creates a user; rejects if the username already exists. */
   createUser(input: { username: string; passwordHash: string; email: string | null; termsAcceptedAt?: number | null }): Promise<User>;
   getUserByUsername(username: string): Promise<User | null>;
+  /** Whether a name is an account's username, a live account's or a deleted one's (retired, migration 010). */
+  isAccountUsername(username: string): Promise<boolean>;
   getUserById(userId: string): Promise<User | null>;
 
   /** Issues an opaque session token for a user and returns the plaintext token. */
   createSession(userId: string): Promise<string>;
   /** Resolves a session token to its user id, or null if unknown/expired or the account is disabled. */
-  resolveSession(token: string): Promise<{ userId: string } | null>;
+  /**
+   * The account of a session token, or null: unknown, deleted, its account disabled, or unused for longer than
+   * SESSION_IDLE_MS (src/auth.ts), when it is deleted. A use is written down at most once per SESSION_TOUCH_MS.
+   */
+  resolveSession(token: string, now?: number): Promise<{ userId: string } | null>;
   deleteSession(token: string): Promise<void>;
   /** Revokes every session of a user (password reset). */
   deleteUserSessions(userId: string): Promise<void>;
   /** Revokes every session of a user but the one of `keepToken` (a password change: the other sessions, the desktop's included, end). */
   deleteUserSessionsExcept(userId: string, keepToken: string): Promise<void>;
+  /** The account's two-step sign-in (src/twoFactor.ts), or null when it never started setting it up. */
+  getTwoFactor(userId: string): Promise<TwoFactorState | null>;
+  /** Keeps a secret being set up (or forgets it: null), until its first code is confirmed. */
+  setTwoFactorPending(userId: string, pendingEnc: string | null): Promise<void>;
+  /** Turns two-step sign-in on with this secret and these recovery codes (hashed); the pending secret is dropped. */
+  enableTwoFactor(userId: string, secretEnc: string, recoveryHashes: string[]): Promise<void>;
+  /** Turns it off: the secret and the recovery codes are deleted. */
+  disableTwoFactor(userId: string): Promise<void>;
+  setRecoveryHashes(userId: string, recoveryHashes: string[]): Promise<void>;
+  /** Marks a time step used; false when it (or a later one) was used already: a code works once. */
+  claimTwoFactorStep(userId: string, step: number): Promise<boolean>;
+  /** Uses up a recovery code; false when it is not one of the account's (or was used). */
+  claimRecoveryCode(userId: string, hash: string): Promise<boolean>;
   /** Also cancels every reset link of the user: an older, leaked one must not work afterwards. */
   setPassword(userId: string, passwordHash: string): Promise<void>;
   /**
@@ -267,12 +295,24 @@ export interface Store {
   getMembership(projectId: string, userId: string): Promise<TokenMembership | null>;
   listMemberships(userId: string): Promise<Membership[]>;
   listMembers(projectId: string): Promise<Member[]>;
-  setMemberRole(projectId: string, userId: string, role: Role): Promise<void>;
+  /** 'last_admin', changing nothing, when it would leave the project without an admin (checked atomically). */
+  setMemberRole(projectId: string, userId: string, role: Role): Promise<'ok' | 'last_admin'>;
+  /** Leaves a member's records out of the results (Member.excluded), or with null puts them back; false when not a member. */
+  setMemberExcluded(projectId: string, userId: string, excluded: { at: number; reason: string | null } | null): Promise<boolean>;
   /**
    * Also drops the member's assignments, plot holdings, activity and bell read state in the project;
-   * its audit entries there stay with no actor.
+   * its audit entries there stay with no actor. 'last_admin', changing nothing, when it would leave the project
+   * without an admin (checked atomically).
    */
-  removeMember(projectId: string, userId: string): Promise<void>;
+  removeMember(projectId: string, userId: string): Promise<'ok' | 'last_admin'>;
+  /**
+   * Renames an operator on everything of the project (src/anonymize.ts): the records (their key, summary and XML), the
+   * record history, the training records and the quality decisions' "seen", in one transaction. Gives the number of
+   * records renamed. The caller checks the person is no longer a member and that `to` is a free pseudonym. With the
+   * account's id (when the name is still an account's), the project's log entries about it (removed, role changed) no
+   * longer point at the account, so the log cannot name them either.
+   */
+  anonymizeOperator(projectId: string, from: string, to: string, userId?: string | null): Promise<number>;
   countAdmins(projectId: string): Promise<number>;
   /** How many projects the user coordinates (admin role). */
   countCoordinatedProjects(userId: string): Promise<number>;
@@ -410,6 +450,10 @@ export interface Store {
    * order), in one transaction under the check sampling's lock (no draw nor division meanwhile).
    */
   changeReferencePlots(projectId: string, change: ReferenceChange): Promise<ReferenceChangeResult>;
+  /** The reference answers a coordinator uploaded (migration 033), by plot unit. */
+  listReferenceAnswers(projectId: string): Promise<ReferenceAnswer[]>;
+  /** Replaces the whole set of reference answers (none: deletes it); the quality figures' version changes. */
+  replaceReferenceAnswers(projectId: string, rows: readonly { plotKey: string; answers: Record<string, string> }[], at: number): Promise<void>;
   /**
    * The divided files where the user holds plots, with those plots, by filename.
    * `copyKeys` are the ones among them given as quality-check copies (overlap).
@@ -433,6 +477,10 @@ export interface Store {
    * Moves the record (recordKey, from) to (recordKey, to), in one transaction. When
    * (recordKey, to) exists too, the newer one (modifiedOn; the `to` row on a tie) is
    * kept under `to` and the other deleted. False when there is no (recordKey, from).
+   */
+  /**
+   * Moves a record kept under a legacy operator name to the account's username: false when there is no
+   * such row, or when the account already has the record (both are then kept as they are, never deleted).
    */
   renameRecordOperator(projectId: string, recordKey: string, from: string, to: string): Promise<boolean>;
 
@@ -590,6 +638,13 @@ export interface Store {
   /** The progress settings; DEFAULT_PROGRESS_SETTINGS when none were saved. */
   getProgressSettings(projectId: string): Promise<ProgressSettings>;
   setProgressSettings(projectId: string, settings: ProgressSettings): Promise<void>;
+  /** The analysis views shared with the team, in name order; none when none were saved. */
+  getAnalysisViews(projectId: string): Promise<SharedAnalysisView[]>;
+  /** Replaces the shared analysis views. */
+  setAnalysisViews(projectId: string, views: SharedAnalysisView[]): Promise<void>;
+  /** The uncertainty analysis's setup (src/uncertainty.ts); null when none was saved. */
+  getUncertaintySettings(projectId: string): Promise<UncertaintySettings | null>;
+  setUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<void>;
   /** Logs a coordinator action at the current time. */
   appendAudit(projectId: string, entry: AuditInput): Promise<void>;
   /** The project's audit log, newest first (at, then id). Throws InvalidCursorError as listRecordEvents. */

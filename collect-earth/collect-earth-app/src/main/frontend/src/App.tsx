@@ -85,10 +85,9 @@ export function App({ controller }: { controller: MapController }) {
     {info && texts && <AppBar info={info} texts={texts} reload={reloadInfo} compact={IN_PANEL || width < COMPACT_BAR_WIDTH * scale}
       onSettings={() => setPage("settings")} />}
     <Box sx={{ flex: 1, minHeight: 0, position: "relative" }}>
+    {/* A modal dialog in the middle of the page, over the map, the list and the form (the whole window when narrow) */}
     {page === "settings" && (
-      <Box sx={{ position: "absolute", inset: 0, zIndex: 2, bgcolor: "background.default" }}>
-        <SettingsPage texts={texts} compact={width < COMPACT_BAR_WIDTH * scale} width={width} onClose={() => setPage("main")} onApplied={reloadInfo} />
-      </Box>
+      <SettingsPage texts={texts} compact={width < COMPACT_BAR_WIDTH * scale} width={width} onClose={() => setPage("main")} onApplied={reloadInfo} />
     )}
     {IN_HOME ? <HomePage info={info} state={state} /> : (
     <Box sx={{ display: "flex", height: "100%", overflow: "hidden" }}>
@@ -99,6 +98,11 @@ export function App({ controller }: { controller: MapController }) {
           border: 0, borderRadius: 6, boxShadow: "var(--mui-shadows-2)", fontWeight: 600, padding: "3px 8px",
         },
         ".leaflet-tooltip.plot-tooltip::before": { display: "none" },
+        // The numbers of the open plot's sample points (sample_point_numbers), readable on any imagery
+        ".sample-point-number": {
+          color: "#ffffff", fontWeight: 700, fontSize: 12, lineHeight: "14px", textAlign: "center", pointerEvents: "none",
+          textShadow: "0 0 3px #000, 0 0 2px #000, 0 0 1px #000",
+        },
       }} />
       {onePane
         ? listPane && <PlotSidebar controller={controller} state={state} collapsed={false} fill

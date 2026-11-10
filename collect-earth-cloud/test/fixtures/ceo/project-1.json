@@ -1,0 +1,138 @@
+{
+ "allowDrawnSamples": false,
+ "aoiFeatures": [
+  {
+   "coordinates": [
+    [
+     [
+      95,
+      10.5
+     ],
+     [
+      95,
+      22.5
+     ],
+     [
+      107,
+      22.5
+     ],
+     [
+      107,
+      10.5
+     ],
+     [
+      95,
+      10.5
+     ]
+    ]
+   ],
+   "type": "Polygon"
+  }
+ ],
+ "aoiFileName": "",
+ "availability": "published",
+ "boundary": "{\"type\":\"Polygon\",\"coordinates\":[[[95,10.5],[95,22.5],[107,22.5],[107,10.5],[95,10.5]]]}",
+ "closedDate": "",
+ "createdDate": "2018-11-27",
+ "description": "Laos, Cambodia, Vietnam, Thailand, Myanmar",
+ "designSettings": {
+  "qaqcAssignment": {
+   "percent": 0,
+   "qaqcMethod": "none",
+   "smes": [],
+   "timesToReview": 2
+  },
+  "sampleGeometries": {
+   "lines": true,
+   "points": true,
+   "polygons": true
+  },
+  "userAssignment": {
+   "percents": [],
+   "userMethod": "none",
+   "users": []
+  }
+ },
+ "hasGeoDash": true,
+ "id": 1,
+ "imageryId": 1318,
+ "institution": 3,
+ "isProjectAdmin": false,
+ "learningMaterial": null,
+ "name": "Mekong River Region",
+ "numPlots": 3,
+ "plotDistribution": "random",
+ "plotFileName": null,
+ "plotShape": "circle",
+ "plotSimilarityDetails": {
+  "referencePlotId": null,
+  "years": null
+ },
+ "plotSize": 200.0,
+ "plotSpacing": 0.0,
+ "privacyLevel": "public",
+ "projectOptions": {
+  "autoLaunchGeoDash": true,
+  "collectConfidence": false,
+  "showGEEScript": false,
+  "showPlotInformation": false
+ },
+ "publishedDate": "",
+ "referencePlotId": null,
+ "sampleDistribution": "random",
+ "sampleFileName": null,
+ "sampleResolution": 0.0,
+ "samplesPerPlot": 15,
+ "shufflePlots": null,
+ "surveyQuestions": {
+  "1": {
+   "answers": {
+    "1": {
+     "answer": "Forest",
+     "color": "#1EC61B"
+    },
+    "2": {
+     "answer": "Grassland",
+     "color": "#9CF135"
+    },
+    "3": {
+     "answer": "Bare Surface",
+     "color": "#D5DE85"
+    },
+    "4": {
+     "answer": "Impervious Surface",
+     "color": "#8B9084"
+    },
+    "5": {
+     "answer": "Agriculture",
+     "color": "#F2C613"
+    },
+    "6": {
+     "answer": "Urban",
+     "color": "#6A3A75"
+    },
+    "7": {
+     "answer": "Water",
+     "color": "#2F4DC0"
+    },
+    "8": {
+     "answer": "Cloud",
+     "color": "#FFFFFF"
+    },
+    "9": {
+     "answer": "Unknown",
+     "color": "#000000"
+    }
+   },
+   "cardOrder": 1,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "LULC"
+  }
+ },
+ "surveyRules": [],
+ "type": "regular",
+ "userRole": null
+}

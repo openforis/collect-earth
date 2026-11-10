@@ -85,8 +85,6 @@ public class SettingsService {
 			return properties.getWindowLayout();
 		} else if (property == EarthProperty.MAP_ENGINE) {
 			return properties.getMapEngine();
-		} else if (property == EarthProperty.WEB_FORM) {
-			return properties.getWebForm();
 		} else if (property == EarthProperty.DB_DRIVER) {
 			CollectDBDriver driver = properties.getCollectDBDriver();
 			return (driver == null ? CollectDBDriver.SQLITE : driver).name();

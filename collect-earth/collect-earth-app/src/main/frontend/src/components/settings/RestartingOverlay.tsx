@@ -1,7 +1,7 @@
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
-import logo from "../../form/collect-earth-logo.png";
+import logo from "@shared/collect-earth-logo.png";
 
 /**
  * Over everything while Collect Earth restarts for the settings or the project: the process that served this page

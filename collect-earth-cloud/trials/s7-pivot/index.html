@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trial S7: the pivot table of the demo survey</title>
+<link rel="stylesheet" href="pd/viewer/dist/css/pro.css">
+<style>
+  :root { --bg: #fff; --ink: #212121; --quiet: #616161; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; }
+  header { padding: 10px 16px; border-bottom: 1px solid #ddd; display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 16px; margin: 0; }
+  #status { color: var(--quiet); }
+  perspective-viewer { flex: 1; min-height: 0; height: calc(100vh - 44px); }
+</style>
+</head>
+<body>
+<header><h1>Collect Earth · Analyse the data (trial)</h1><span id="status">Loading…</span></header>
+<script type="module" src="main.bundle.js"></script>
+</body>
+</html>

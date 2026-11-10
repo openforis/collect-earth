@@ -1,23 +1,49 @@
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import Download from "@mui/icons-material/Download";
+import PivotTableChart from "@mui/icons-material/PivotTableChart";
 import { useState } from "react";
-import { downloadExport, getOverview } from "../api";
+import { downloadExport, EXPORT_FORMATS, getOverview, listMembers, type ExportFormat } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
 import { useT } from "../i18n";
 import { dataSections } from "../localMode";
-import type { ProjectTab } from "../router";
+import { linkProps, pathFor, type ProjectTab } from "../router";
 import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
 import { CollectBackup } from "./CollectBackup";
+
+const FORMAT_LABELS = { csv: "data.formatCsv", geojson: "data.formatGeojson", kml: "data.formatKml", "shp.zip": "data.formatShp" } as const;
+
+/** The pivot table and charts over the collected data (what replaces Saiku), on a page of its own. */
+function Analysis({ projectId }: { projectId: string }) {
+  const t = useT();
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+      <Stack spacing={2}>
+        <Typography variant="h2">{t("analysis.title")}</Typography>
+        <Explain text={t("analysis.cardText.short")} more={t("analysis.cardText")} />
+        <Box>
+          <Button variant="contained" size="large" startIcon={<PivotTableChart />} {...linkProps(pathFor({ name: "analysis", projectId }))}>
+            {t("analysis.open")}
+          </Button>
+        </Box>
+      </Stack>
+    </Paper>
+  );
+}
 
 /** The comparison of first assessments and checks moved to the Quality tab: a pointer to it. */
 function QualityCheck({ onGo }: { onGo: (tab: ProjectTab) => void }) {
@@ -47,13 +73,18 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [done, setDone] = useState(false);
+  const [format, setFormat] = useState<ExportFormat>("csv");
+  const [noPositions, setNoPositions] = useState(false);
+  // People left out of the results: their records are not in the download unless asked for.
+  const excluded = useLoad(() => (local ? Promise.resolve([]) : listMembers(projectId).then((ms) => ms.filter((m) => m.excluded))), [projectId, local]);
+  const [includeExcluded, setIncludeExcluded] = useState(false);
 
   const download = async () => {
     setBusy(true);
     setError(null);
     setDone(false);
     try {
-      const { blob, filename } = await downloadExport(projectId);
+      const { blob, filename } = await downloadExport(projectId, format, noPositions, includeExcluded);
       saveBlob(blob, filename);
       setDone(true);
     } catch (err) {
@@ -66,10 +97,14 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
   const records = overview.data?.records;
   return (
     <Stack spacing={3}>
+      <Analysis projectId={projectId} />
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack spacing={2}>
           <Typography variant="h2">{t("data.title")}</Typography>
-          <Typography color="text.secondary">{t(local ? "data.explainLocal" : "data.explain")}</Typography>
+          <Typography color="text.secondary">
+            {t(local ? "data.explainLocal" : "data.explain")}
+            {!local && <MoreInfo text={t("data.explain.more")} />}
+          </Typography>
           {overview.loading && !overview.data ? (
             <Loading />
           ) : overview.error ? (
@@ -81,11 +116,36 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
               {t("data.summary", { submitted: formatNumber(records.submitted, language), total: formatNumber(records.total, language) })}
             </Typography>
           ) : null}
-          <Box>
-            <Button variant="contained" size="large" startIcon={<Download />} onClick={download} disabled={busy}>
-              {busy ? t("data.downloading") : t("data.download")}
-            </Button>
-          </Box>
+          {(excluded.data?.length ?? 0) > 0 && (
+            <FormControlLabel
+              control={<Checkbox checked={includeExcluded} onChange={(e) => setIncludeExcluded(e.target.checked)} />}
+              label={t("data.includeExcluded", { names: (excluded.data ?? []).map((m) => m.username).join(", ") })}
+            />
+          )}
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: { sm: "center" } }}>
+            <TextField select size="small" label={t("data.format")} value={format} onChange={(e) => setFormat(e.target.value as ExportFormat)} sx={{ minWidth: 240 }}>
+              {EXPORT_FORMATS.map((f) => (
+                <MenuItem key={f} value={f}>
+                  {t(FORMAT_LABELS[f])}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Box>
+              <Button variant="contained" size="large" startIcon={<Download />} onClick={download} disabled={busy}>
+                {busy ? t("data.downloading") : t("data.download")}
+              </Button>
+            </Box>
+          </Stack>
+          {format === "csv" ? (
+            <Box>
+              <FormControlLabel control={<Checkbox checked={noPositions} onChange={(e) => setNoPositions(e.target.checked)} />} label={t("data.noPositions")} />
+              <Typography variant="body2" color="text.secondary">
+                {t("data.noPositionsHelp")}
+              </Typography>
+            </Box>
+          ) : (
+            <Explain variant="body2" text={t("data.formatHint.short")} more={t("data.formatHint")} />
+          )}
           {done && (
             <Alert severity="success" role="status">
               {t("data.downloaded")}

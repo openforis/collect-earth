@@ -36,6 +36,7 @@ import {
 import { useApp } from "../appContext";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { FileDrop } from "../components/FileDrop";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
@@ -44,6 +45,7 @@ import { linkProps, pathFor, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 import { fromPairs, hasChanges, pairKey, toPairs } from "../assignmentGrid";
 import { sortPeople } from "../division";
+import { PlotDesign } from "./PlotDesign";
 
 interface UploadState {
   name: string;
@@ -197,7 +199,8 @@ function AssignmentGrid({
       {changed && <Alert severity="warning">{t("plots.unsaved")}</Alert>}
       {done && !changed && (
         <Alert severity="success" role="status">
-          {t("plots.assignSaved")}
+          {t("plots.assignSaved.short")}
+          <MoreInfo text={t("plots.assignSaved")} />
         </Alert>
       )}
       <ErrorAlert error={error} />
@@ -271,6 +274,12 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
         changed = true;
         const count = meta?.plotCount ?? 0;
         done.push(count === 1 ? t("plots.uploadedOne", { name: file.name }) : t("plots.uploaded", { name: file.name, count: formatNumber(count, language) }));
+        const given = meta?.assignment;
+        if (given) {
+          done.push(t("plots.assignedFromFile", { name: file.name, count: formatNumber(given.assigned, language), checks: formatNumber(given.checks, language) }));
+          if (given.unknown.length > 0) warn(t("plots.unknownNames", { name: file.name, names: given.unknown.join(", ") }));
+          if (given.notAssigned > 0) warn(t("plots.notAssignedFromFile", { name: file.name, count: formatNumber(given.notAssigned, language) }));
+        }
         setMessages([...done]);
         const w = meta?.warnings;
         if (w && (w.badIds ?? 0) > 0) {
@@ -305,6 +314,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
           <Typography variant="body2" color="text.secondary">
             {t("plots.replaceHint")}
           </Typography>
+          <Explain variant="body2" text={t("plots.userColumnHint.short")} more={t("plots.userColumnHint")} />
           {upload && (
             <div role="status">
               <Typography sx={{ mb: 1 }}>{t("plots.uploading", { name: upload.name, pct: Math.round(upload.progress * 100) })}</Typography>
@@ -324,6 +334,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
           <ErrorAlert error={error} />
         </Stack>
       </Paper>
+      <PlotDesign projectId={projectId} busy={upload !== null} onFile={(file) => uploadFiles([file])} />
       <Dialog open={pendingReplace !== null} onClose={() => pendingReplace?.answer(false)}>
         {pendingReplace && (
           <>
@@ -401,6 +412,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
             </Typography>
             <Typography color="text.secondary" sx={{ mb: 2 }}>
               {t("plots.gridHelp")}
+              <MoreInfo text={t("plots.gridHelp.more")} />
             </Typography>
             <AssignmentGrid
               projectId={projectId}

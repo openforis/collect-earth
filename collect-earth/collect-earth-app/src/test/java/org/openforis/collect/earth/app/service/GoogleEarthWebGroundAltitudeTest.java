@@ -33,6 +33,34 @@ public class GoogleEarthWebGroundAltitudeTest {
 		assertEquals(Double.valueOf(320), gew.groundAltitudeNear(10, 10));
 	}
 
+	/**
+	 * The ground of a survey area is kept while plots far away are looked at: back from a plot on another continent,
+	 * the plots of the area were aimed at sea level, under hills of 1000 m and more, and Google Earth Web showed black.
+	 */
+	@Test
+	public void theGroundOfAPlaceIsKeptWhilePlotsElsewhereAreShown() {
+		GoogleEarthWebService gew = new GoogleEarthWebService();
+		gew.plotUrl(plot(0, 0, 100), GoogleEarthWebUrls.PLOT_DISTANCE);
+		gew.learnGroundAltitude(camera(1.1184, 30.791, 1086)); // Uganda
+		gew.learnGroundAltitude(camera(-4.998, 151.358, 293)); // Papua New Guinea
+		assertEquals(Double.valueOf(1086), gew.groundAltitudeNear(1.1659, 31.061));
+		assertEquals(Double.valueOf(293), gew.groundAltitudeNear(-4.99, 151.36));
+		assertNull(gew.groundAltitudeNear(40, 0));
+	}
+
+	/** Of the places within reach, the ground learnt nearest the plot; one learnt again at the same place replaces it. */
+	@Test
+	public void theNearestGroundLearntIsUsed() {
+		GoogleEarthWebService gew = new GoogleEarthWebService();
+		gew.plotUrl(plot(0, 0, 100), GoogleEarthWebUrls.PLOT_DISTANCE);
+		gew.learnGroundAltitude(camera(1.0, 31.0, 900));
+		gew.learnGroundAltitude(camera(1.3, 31.0, 1500));
+		assertEquals(Double.valueOf(900), gew.groundAltitudeNear(1.05, 31.0));
+		assertEquals(Double.valueOf(1500), gew.groundAltitudeNear(1.25, 31.0));
+		gew.learnGroundAltitude(camera(1.0001, 31.0, 950));
+		assertEquals(Double.valueOf(950), gew.groundAltitudeNear(1.05, 31.0));
+	}
+
 	@Test
 	public void aCameraMoveIsNotLearntAfterTheOutlineIsDrawnAgain() {
 		GoogleEarthWebService gew = new GoogleEarthWebService();
@@ -75,6 +103,34 @@ public class GoogleEarthWebGroundAltitudeTest {
 				"https://earth.google.com/web/@8.887482,-10.855691,426.27423958a,9.99999118d,35y,0h,0t,0r/data=CgRC", plot));
 		assertEquals(426.27423958, gew.groundAltitudeNear(8.8875, -10.8557), 1e-6);
 		assertTrue(gew.plotUrl(plot, GoogleEarthWebUrls.PLOT_DISTANCE).contains(",426a,400d,"));
+	}
+
+	/**
+	 * Each plot is flown to twice: first aimed at sea level, even with a ground learnt nearby, as plots are mostly in
+	 * places not seen before and a ground from kilometres away showed hills black or from too near; then aimed at the
+	 * ground that first flight told.
+	 */
+	@Test
+	public void theFirstFlightIsAimedAtSeaLevelWhateverWasLearntNearby() {
+		GoogleEarthWebService gew = new GoogleEarthWebService();
+		SimplePlacemarkObject plot = plot(-4.998422, 151.358785, 0);
+		gew.plotUrl(plot(0, 0, 100), GoogleEarthWebUrls.PLOT_DISTANCE);
+		gew.learnGroundAltitude(camera(-5.05, 151.3, 900)); // a hill 9 km away
+		String first = gew.groundSeekingUrl(plot);
+		assertTrue(first.contains(",0a,1d,"), first);
+		// The URL sent is not the end of the flight, though as near the ground as one stopped short
+		assertFalse(GoogleEarthWebService.groundFlightEnded(first));
+		// What Google Earth Web wrote there (plot id_1,1): the ground of the plot itself, 10 m under the camera
+		String arrived = "https://earth.google.com/web/@-4.998422,151.358785,256.10929952a,10.00000059d,35y,0h,0t,0r";
+		assertTrue(GoogleEarthWebService.groundFlightEnded(arrived));
+		assertTrue(gew.learnGroundUnderACameraStoppedShort(arrived, plot));
+		assertTrue(gew.plotUrl(plot, GoogleEarthWebUrls.PLOT_DISTANCE).contains(",256a,400d,"));
+	}
+
+	/** Below sea level the first flight is not stopped, but its end is seen: Google Earth Web writes its own distance. */
+	@Test
+	public void theEndOfAFirstFlightBelowSeaLevelIsSeen() {
+		assertTrue(GoogleEarthWebService.groundFlightEnded("https://earth.google.com/web/@31.5,35.45,0a,1.00000963d,35y,0h,0t,0r"));
 	}
 
 	@Test

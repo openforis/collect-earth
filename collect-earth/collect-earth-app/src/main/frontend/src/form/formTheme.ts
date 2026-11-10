@@ -1,4 +1,5 @@
 import { createTheme } from "@mui/material/styles";
+import { collectEarthTypography } from "@shared/collectEarthTheme";
 
 /**
  * The colours of the Collect Earth balloon (Bootstrap 3 + jQuery Steps, earth.css): blue step tabs, cyan
@@ -59,10 +60,8 @@ export const formTheme = createTheme({
     },
   },
   shape: { borderRadius: 6 },
-  typography: {
-    fontFamily: "Roboto, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif",
-    button: { textTransform: "none", fontWeight: 600 },
-  },
+  // the rest of Collect Earth's type (collect-earth-cloud/web/src/shared/collectEarthTheme.ts)
+  typography: collectEarthTypography,
   components: {
     MuiTooltip: { defaultProps: { arrow: true } },
     // the inputs stand out white on the grey panel, as the balloon's Bootstrap fields

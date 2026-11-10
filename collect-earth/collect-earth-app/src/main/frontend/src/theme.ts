@@ -1,18 +1,14 @@
 import { createTheme } from "@mui/material/styles";
+import { collectEarthColors, collectEarthComponents, collectEarthShape, collectEarthTypography } from "@shared/collectEarthTheme";
 
+// Collect Earth's look, shared with the dashboard (collect-earth-cloud/web/src/shared/collectEarthTheme.ts)
 export const theme = createTheme({
   cssVariables: { colorSchemeSelector: "media" },
   colorSchemes: {
-    light: { palette: { primary: { main: "#1565c0" }, background: { default: "#f4f6f8" } } },
-    dark: { palette: { primary: { main: "#64a8f0", contrastText: "#0b1420" }, background: { default: "#101418", paper: "#171c22" } } },
+    light: { palette: collectEarthColors.light },
+    dark: { palette: collectEarthColors.dark },
   },
-  shape: { borderRadius: 10 },
-  typography: {
-    fontFamily: "Roboto, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif",
-    button: { textTransform: "none", fontWeight: 600 },
-  },
-  components: {
-    MuiToggleButton: { styleOverrides: { root: { textTransform: "none" } } },
-    MuiTooltip: { defaultProps: { arrow: true } },
-  },
+  shape: collectEarthShape,
+  typography: collectEarthTypography,
+  components: collectEarthComponents,
 });

@@ -26,6 +26,7 @@ import { drawSamplingNow, getSampling, saveSampling, type SamplingView } from ".
 import { useApp } from "../appContext";
 import { formOf, formWarnings, MAX_FIRST_N, notBlindText, ruleOf, type ChecksForm, type FileForm, type FileUse, type FormError } from "../checksView";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
@@ -173,9 +174,7 @@ function RuleForm({ projectId, view, onSaved }: { projectId: string; view: Sampl
               error={projectError?.field === "percent"}
               helperText={projectError?.field === "percent" ? t("checks.invalidPercent") : undefined}
             />
-            <Typography variant="body2" color="text.secondary">
-              {t("checks.weekNote")}
-            </Typography>
+            <Explain variant="body2" text={t("checks.weekNote.short")} more={t("checks.weekNote")} />
           </>
         )}
         {!form.firstNOn && !form.percentOn && (
@@ -302,9 +301,11 @@ function DrawStatus({ projectId, view, onDrawn }: { projectId: string; view: Sam
       )}
       {last && last.noChecker > 0 && <Alert severity="warning">{t("checks.noChecker", { count: formatNumber(last.noChecker, language) })}</Alert>}
       {view.due && view.nextAutomaticAt !== null && (
-        <Typography variant="body2" color="text.secondary">
-          {t("checks.due", { time: formatDate(view.nextAutomaticAt, language) })}
-        </Typography>
+        <Explain
+          variant="body2"
+          text={t("checks.due.short", { time: formatDate(view.nextAutomaticAt, language) })}
+          more={t("checks.due", { time: formatDate(view.nextAutomaticAt, language) })}
+        />
       )}
       {view.active && (
         <Typography variant="body2">
@@ -387,7 +388,7 @@ export function QualityChecks({ projectId }: { projectId: string }) {
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section">
       <Stack spacing={2}>
         <Typography variant="h2">{t("checks.title")}</Typography>
-        <Typography color="text.secondary">{t("checks.explain")}</Typography>
+        <Explain text={t("checks.explain.short")} more={t("checks.explain")} />
         {!data ? (
           loading ? (
             <Loading />
@@ -397,7 +398,12 @@ export function QualityChecks({ projectId }: { projectId: string }) {
         ) : (
           <>
             {data.files.length === 0 && <Alert severity="info">{t("checks.noFiles")}</Alert>}
-            {data.wholeFiles.length > 0 && <Alert severity="info">{t("checks.whole", { files: data.wholeFiles.map((f) => f.filename).join(", ") })}</Alert>}
+            {data.wholeFiles.length > 0 && (
+              <Alert severity="info">
+                {t("checks.whole.short", { files: data.wholeFiles.map((f) => f.filename).join(", ") })}
+                <MoreInfo text={t("checks.whole", { files: data.wholeFiles.map((f) => f.filename).join(", ") })} />
+              </Alert>
+            )}
             <RuleForm projectId={projectId} view={data} onSaved={setData} />
             <DrawStatus projectId={projectId} view={data} onDrawn={setData} />
             <Load view={data} />

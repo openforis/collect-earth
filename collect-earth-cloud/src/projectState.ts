@@ -140,7 +140,8 @@ export class ProjectStateCache {
         records,
         info,
         files.map((f) => [f.id, f.checksum, f.distribution ?? null]),
-        members.map((m) => [m.userId, m.username]),
+        // Who is left out of the results, as the quality figures' version has it (rebuilt with them).
+        members.map((m) => [m.userId, m.username, m.excluded ? 1 : 0]),
         assignments.map((a) => [a.userId, a.csvFileId]),
       ]),
     );

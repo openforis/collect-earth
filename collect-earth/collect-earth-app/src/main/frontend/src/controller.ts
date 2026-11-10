@@ -8,7 +8,7 @@ import { IN_PANEL } from "./panel";
 import { IN_HOME } from "./home";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
 import { byId, changedAfterSubmit, footprintCorners, type FormMessage, indexPlots, leftUnsubmitted, neighbour, nextUnfinished, normalizeStatus, plotLabel, plotParam, plotsGone, plotsNear, plotToRestore, surveyView,
-  previousMessage, previousPlot, previousStands, type PreviousPlot, sameView, visibleIds, withoutPlotParam } from "./plots";
+  pointNumbersOf, previousMessage, previousPlot, previousStands, type PreviousPlot, sameView, visibleIds, withoutPlotParam } from "./plots";
 import type { MessageKey } from "./i18n";
 import { imageryForNumber, reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
 import { loadPrefs, savePrefs, type Prefs } from "./prefs";
@@ -102,6 +102,8 @@ export class MapController {
   private started = false;
   /** "generated" (the form built from the survey) or "balloon" (the CEP's HTML) */
   private webForm = "generated";
+  /** Whether the open plot's sample points are numbered (the project's sample_point_numbers) */
+  private pointNumbers = false;
   private lastStatusPoll: number | null = null;
   /** Whether the statuses are polled: started by the first load that succeeds, and only once. */
   private statusPolling = false;
@@ -160,6 +162,7 @@ export class MapController {
       config = { engine: "leaflet", googleMapsApiKey: "" }; // collection must still work
     }
     this.webForm = config.webForm ?? "generated";
+    this.pointNumbers = config.samplePointNumbers === true;
     this.set({ viewerType: config.viewerType ?? "", language: config.language ?? "en" });
     if (this.usesGoogleEarthWeb()) this.pollGew();
     this.pollImagery();
@@ -355,6 +358,7 @@ export class MapController {
     flushSync(() => this.set({ activeId: id, selected: this.state.selected + 1, formUrl: formUrl(plot.feature, this.webForm, this.state.language) }));
     if (previous && previous !== id) this.engine.setPlotColor(previous, STATUS_COLORS[this.state.statuses[previous]]);
     this.engine.setPlotColor(id, ACTIVE_COLOR);
+    if (this.pointNumbers) this.engine.setPointNumbers?.(pointNumbersOf(plot));
     if (wasClosed) this.engine.invalidateSize();
     this.engine.flyTo(plot.center, PLOT_ZOOM);
     if (this.usesGoogleEarthWeb()) this.sendGewContext(id);

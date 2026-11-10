@@ -435,3 +435,25 @@ export function buildPlotFile(
   }
   return out;
 }
+
+/**
+ * The file without the given columns (indices after the first, ascending: each cut with the
+ * separator before it), every other byte as it was; a row shorter than a column just lacks it.
+ * Blank lines go, as in buildPlotFile.
+ */
+export function withoutColumns(file: PlotFile, columns: readonly number[]): Buffer {
+  const parts: Buffer[] = file.bom ? [BOM] : [];
+  const lineEnding = Buffer.from(file.lineEnding, 'ascii');
+  const all = file.header ? [file.header, ...file.rows] : file.rows;
+  all.forEach((row, i) => {
+    let from = row.start;
+    for (const c of columns) {
+      if (c < 1 || c >= row.fields.length) continue;
+      parts.push(file.data.subarray(from, row.fieldEnds[c - 1]));
+      from = row.fieldEnds[c];
+    }
+    parts.push(file.data.subarray(from, row.next));
+    if (row.next === row.end && i < all.length - 1) parts.push(lineEnding);
+  });
+  return Buffer.concat(parts);
+}

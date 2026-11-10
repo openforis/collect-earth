@@ -329,6 +329,10 @@
 								<resource>
 									<directory>${dashboard.cloud.dir}/web/dist</directory>
 									<filtering>false</filtering>
+									<!-- the gzipped copies are for the cloud's slow links: on the computer itself, only disk space -->
+									<excludes>
+										<exclude>**/*.gz</exclude>
+									</excludes>
 								</resource>
 							</resources>
 						</configuration>

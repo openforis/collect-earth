@@ -14,12 +14,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.BatchResult;
 import org.openforis.collect.earth.app.service.cloud.CloudRecordSerializer.RecordEnvelope;
 import org.openforis.collect.earth.app.service.cloud.CloudSyncQueueDao.QueueItem;
 import org.openforis.collect.earth.app.service.cloud.CloudSyncQueueDao.QueueStatus;
+import org.openforis.collect.earth.app.service.notices.Notice;
+import org.openforis.collect.earth.app.service.notices.NoticeService;
+import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecordSummary;
 import org.slf4j.Logger;
@@ -52,6 +56,8 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 	private static final String STATUS_STORED = "stored";
 	private static final String STATUS_STALE = "stale";
 	private static final String STATUS_CONFLICT = "conflict";
+	/** The notice's kind: the pages read app info again once it is answered, and so ask for the login */
+	public static final String SIGNED_OUT_NOTICE = "cloudSignedOut";
 
 	private final Logger logger = LoggerFactory.getLogger(CloudSyncService.class);
 
@@ -65,6 +71,8 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 	private CloudRecordSerializer serializer;
 	@Autowired
 	private CloudApiClient apiClient;
+	@Autowired(required = false)
+	private NoticeService notices;
 
 	private final AtomicBoolean started = new AtomicBoolean(false);
 	private final ReentrantLock syncLock = new ReentrantLock();
@@ -186,6 +194,9 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 				applyResult(item, result, now);
 			}
 		} catch (IOException e) {
+			if (isSignInRefused(e)) {
+				signedOut();
+			}
 			// whole-batch failure, almost always the network being offline
 			if (!offlineLogged) {
 				logger.info("Cloud sync is offline, records will be retried: {}", e.getMessage());
@@ -308,6 +319,28 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 			Thread.currentThread().interrupt();
 		} catch (Exception e) {
 			logger.debug("Error during cloud sync shutdown: {}", e.getMessage());
+		}
+	}
+
+	/** The server no longer takes the token: unknown, unused for months, or signed out by a coordinator (HTTP 401). */
+	static boolean isSignInRefused(IOException e) {
+		String message = e.getMessage();
+		return message != null && message.contains("HTTP 401");
+	}
+
+	/**
+	 * The token is forgotten, so the pages ask for the login again (AppInfoController's cloudLoginNeeded), and the
+	 * person is told why. The records stay in the queue and are sent once they have logged in.
+	 */
+	void signedOut() {
+		if (StringUtils.isBlank(localPropertiesService.getCloudSyncToken())) {
+			return;
+		}
+		logger.info("Cloud sync: the server no longer accepts this sign-in; asking for the login again");
+		localPropertiesService.saveCloudSyncToken("");
+		if (notices != null && !notices.hasPending(SIGNED_OUT_NOTICE)) {
+			notices.post(new Notice(SIGNED_OUT_NOTICE, Notice.WARNING, Messages.getString("CloudSync.signedOut.title"),
+					Messages.getString("CloudSync.signedOut.message")));
 		}
 	}
 

@@ -1,0 +1,9 @@
+{
+  "name": "trial-s8-analyst",
+  "private": true,
+  "type": "module",
+  "description": "Trial S8: the AI analyst's views checked against hand-written ones (docs/plans/2026-11-05-node-and-arena.md)",
+  "dependencies": {
+    "@duckdb/node-api": "2.0.0-r.1"
+  }
+}

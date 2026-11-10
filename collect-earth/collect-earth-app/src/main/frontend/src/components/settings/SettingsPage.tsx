@@ -10,14 +10,12 @@ import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
 import LinearProgress from "@mui/material/LinearProgress";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemText from "@mui/material/ListItemText";
 import ListSubheader from "@mui/material/ListSubheader";
-import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
@@ -38,6 +36,8 @@ import { serverText, type Texts } from "../../serverTexts";
 import { PlotPreview } from "./PlotPreview";
 import { CloudAssignmentsCard } from "./CloudAssignmentsCard";
 import { ProjectsCard } from "./ProjectsCard";
+import { CloudLoginDialog } from "../project/CloudLoginDialog";
+import { cloudToken } from "../../projectApi";
 import { RestartingOverlay } from "./RestartingOverlay";
 import { SampleFileCard } from "./SampleFileCard";
 import { SettingField } from "./SettingField";
@@ -45,11 +45,10 @@ import { SettingField } from "./SettingField";
 /** How long after the last keystroke the values are sent for validation, and the plots file for its check */
 const VALIDATE_AFTER_MILLIS = 300;
 const CHECK_FILE_AFTER_MILLIS = 500;
-const NAV_WIDTH = 220;
 
 interface Props {
   texts: Texts | null;
-  /** A narrow window: the sections in a select over the fields instead of a column beside them */
+  /** A narrow window: the search field is narrower (the dialog fills the window only when smaller still, see fullScreen) */
   compact: boolean;
   /**
    * The width of the window (App): the layout follows it rather than media queries, as in Google Earth Web's panel it
@@ -202,7 +201,7 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
     return (
       <Stack key={section.id} spacing={2.5} data-testid={"section-" + section.id}>
         <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between" }}>
-          {withTitle && <Typography variant="h6" component="h2">{s(section.label)}</Typography>}
+          {withTitle ? <Typography variant="h6" component="h2">{s(section.label)}</Typography> : <Box />}
           {!searching && (
             <Button size="small" onClick={() => { for (const [k, v] of Object.entries(defaultsOf(section, values))) change(k, v); }}>
               {s("SettingsPage.restoreDefaults")}
@@ -216,7 +215,7 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
             <Box sx={{ width: wide ? 320 : undefined, flexShrink: 0 }}><PlotPreview values={values} plot={validation?.plot ?? null} texts={texts} /></Box>
           </Stack>
         ) : visible.map(renderField)}
-        {!searching && <SectionExtras section={section} values={values} data={data} texts={texts}
+        {!searching && <SectionExtras section={section} values={values} data={data} texts={texts} onChange={change}
           onRestarting={() => setRestarting(true)} onMessage={setNotice} />}
       </Stack>
     );
@@ -224,29 +223,25 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
 
   if (restarting) return <RestartingOverlay text={s("SettingsPage.restarting")} />;
 
+  // The sections as tabs over the fields, as in the Swing properties dialog; scrolled when they do not all fit
   const nav = (
-    compact ? (
-      <TextField select size="small" fullWidth value={sectionId} onChange={(e) => setSectionId(e.target.value)} aria-label={s("SettingsPage.title")}>
-        {sections.map((sec) => <MenuItem key={sec.id} value={sec.id}>{s(sec.label)}</MenuItem>)}
-      </TextField>
-    ) : (
-      <List dense sx={{ width: NAV_WIDTH, flexShrink: 0 }} aria-label={s("SettingsPage.title")}>
-        {sections.map((sec) => (
-          <ListItemButton key={sec.id} selected={sec.id === sectionId} onClick={() => setSectionId(sec.id)} sx={{ borderRadius: 1 }}>
-            <ListItemText primary={s(sec.label)} />
-          </ListItemButton>
-        ))}
-      </List>
-    )
+    <Tabs value={sectionId} onChange={(_, id: string) => setSectionId(id)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile
+      aria-label={s("SettingsPage.title")} sx={{ borderBottom: 1, borderColor: "divider", px: 1, flexShrink: 0 }}>
+      {sections.map((sec) => <Tab key={sec.id} value={sec.id} label={s(sec.label)} sx={{ textTransform: "none", minWidth: 0 }} />)}
+    </Tabs>
   );
+  // A dialog over the page, its backdrop around it; the whole window only when too small to leave a margin
+  const fullScreen = width < breakpoints.sm;
 
   return (
+    <Dialog open onClose={close} fullScreen={fullScreen} fullWidth maxWidth="md" data-testid="settings-overlay" aria-labelledby="settings-title"
+      slotProps={{ paper: { elevation: 24, sx: fullScreen ? undefined : { height: "min(820px, calc(100% - 48px))", m: 3, width: "calc(100% - 48px)", borderRadius: 2 } } }}>
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }} data-testid="settings-page">
-      <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 2, py: 1 }}>
-        <Typography variant="h5" component="h1" sx={{ fontWeight: 600, flexShrink: 0 }}>{s("SettingsPage.title")}</Typography>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 3, py: 1.5 }}>
+        <Typography id="settings-title" variant="h5" component="h1" sx={{ fontWeight: 600, flexShrink: 0 }}>{s("SettingsPage.title")}</Typography>
         <Box sx={{ flex: 1 }} />
         <TextField size="small" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={s("SettingsPage.search")}
-          aria-label={s("SettingsPage.search")} sx={{ width: width >= breakpoints.sm ? 260 : 160 }}
+          aria-label={s("SettingsPage.search")} sx={{ width: compact ? 160 : 260 }}
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }} />
         <IconButton onClick={close} aria-label={s("SettingsPage.close")}><CloseIcon /></IconButton>
       </Stack>
@@ -257,10 +252,10 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
       )}
       {!data && !loadError && <LinearProgress sx={{ mx: 2 }} />}
       {data && (
-        <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: compact ? "column" : "row", gap: 2, px: 2 }}>
+        <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
           {!searching && nav}
-          <Box sx={{ flex: 1, minWidth: 0, overflow: "auto", pb: 2 }}>
-            <Box sx={{ maxWidth: 820 }}>
+          <Box sx={{ flex: 1, minWidth: 0, overflow: "auto", px: 3, py: 2 }}>
+            <Box>
               {searching ? (
                 matching.length === 0
                   ? <Typography color="text.secondary">{formatText(s("SettingsPage.search.none"), query.trim())}</Typography>
@@ -274,7 +269,7 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
                       ))}
                     </Stack>
                   )
-              ) : sections.filter((sec) => sec.id === sectionId).map((sec) => renderSection(sec, true))}
+              ) : sections.filter((sec) => sec.id === sectionId).map((sec) => renderSection(sec, false))}
             </Box>
           </Box>
         </Box>
@@ -302,12 +297,14 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
       </Dialog>
       <Snackbar open={notice !== null} autoHideDuration={4000} onClose={() => setNotice(null)} message={notice} />
     </Box>
+    </Dialog>
   );
 }
 
 /** What a section shows besides its fields: the projects, the connection tests, the backup folder. */
-function SectionExtras({ section, values, data, texts, onRestarting, onMessage }: {
-  section: Section; values: Values; data: Settings | null; texts: Texts | null; onRestarting: () => void; onMessage: (m: string) => void;
+function SectionExtras({ section, values, data, texts, onChange, onRestarting, onMessage }: {
+  section: Section; values: Values; data: Settings | null; texts: Texts | null; onChange: (key: string, value: string) => void;
+  onRestarting: () => void; onMessage: (m: string) => void;
 }) {
   const s = (key: string) => serverText(texts, key);
   if (section.id === "project") return <ProjectsCard texts={texts} onRestarting={onRestarting} onMessage={onMessage} />;
@@ -333,12 +330,37 @@ function SectionExtras({ section, values, data, texts, onRestarting, onMessage }
   }
   if (section.id === "collaboration") {
     return (
-      <ConnectionTestButton label={s("DatabaseServerPanel.cloudTestButton")} testing={s("SettingsPage.testing")} test={() => testCloud({
-        url: values.cloud_sync_url ?? "", projectId: values.cloud_project_id ?? "", token: values.cloud_sync_token ?? "",
-      })} />
+      <Stack spacing={1.5}>
+        <CloudTokenLogin url={values.cloud_sync_url ?? ""} texts={texts} onToken={(token) => onChange("cloud_sync_token", token)} />
+        <ConnectionTestButton label={s("DatabaseServerPanel.cloudTestButton")} testing={s("SettingsPage.testing")} test={() => testCloud({
+          url: values.cloud_sync_url ?? "", projectId: values.cloud_project_id ?? "", token: values.cloud_sync_token ?? "",
+        })} />
+      </Stack>
     );
   }
   return null;
+}
+
+/**
+ * Log in... of the Swing DatabaseServerPanel: the login of the cloud server typed above, which puts the token into its
+ * field; Apply saves it with the rest. A server is needed first.
+ */
+function CloudTokenLogin({ url, texts, onToken }: { url: string; texts: Texts | null; onToken: (token: string) => void }) {
+  const s = (key: string) => serverText(texts, key);
+  const [open, setOpen] = useState(false);
+  const [missingUrl, setMissingUrl] = useState(false);
+  useEffect(() => { if (url.trim()) setMissingUrl(false); }, [url]);
+  return (
+    <Stack spacing={1} sx={{ alignItems: "flex-start" }}>
+      <Button variant="outlined" size="small" data-testid="cloud-token-login"
+        onClick={() => (url.trim() ? setOpen(true) : setMissingUrl(true))}>
+        {s("DatabaseServerPanel.cloudLoginButton")}
+      </Button>
+      {missingUrl && <Typography variant="body2" color="error">{s("DatabaseServerPanel.cloudUrlRequired")}</Typography>}
+      <CloudLoginDialog open={open} texts={texts} onCancel={() => setOpen(false)}
+        onSubmit={(c) => cloudToken(url.trim(), c.username, c.password, c.code).then((r) => { onToken(r.token); setOpen(false); })} />
+    </Stack>
+  );
 }
 
 /** A Test connection button with the answer under it, as the dialogs of the Swing panels. */

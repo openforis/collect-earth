@@ -30,8 +30,6 @@ public class ToolsController {
 
 	public static class RefreshRequest {
 		public boolean refresh;
-		/** For the stand-alone Saiku tool: the ZIP to write */
-		public String path;
 	}
 
 	public static class KmlRequest {
@@ -67,16 +65,6 @@ public class ToolsController {
 	@GetMapping("/api/tools/analysis")
 	public Map<String, Object> analysis() {
 		return analysis.analysis();
-	}
-
-	@PostMapping("/api/jobs/saiku")
-	public Map<String, String> saiku(@RequestBody RefreshRequest request) {
-		return start("saiku", () -> analysis.saiku(request.refresh));
-	}
-
-	@PostMapping("/api/jobs/saikuTool")
-	public Map<String, String> saikuTool(@RequestBody RefreshRequest request) {
-		return start("saikuTool", () -> analysis.saikuTool(request.refresh, request.path));
 	}
 
 	@PostMapping("/api/jobs/ipccPrepare")

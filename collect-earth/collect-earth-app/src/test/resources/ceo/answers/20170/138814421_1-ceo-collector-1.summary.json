@@ -1,0 +1,22 @@
+{
+ "collect_boolean_actively_saved": "false",
+ "collect_boolean_ceo_flagged": "false",
+ "collect_code_confidence": "high",
+ "collect_code_mixed": "",
+ "collect_code_round": "1",
+ "collect_code_secondary_visible_strata": "",
+ "collect_code_visible_strata": "",
+ "collect_coord_location": "27.02505175,85.83335166",
+ "collect_date_actively_saved_on": "03/04/2025",
+ "collect_integer_ceo_confidence": "",
+ "collect_integer_elevation": "0",
+ "collect_real_aspect": "0.0",
+ "collect_real_slope": "0.0",
+ "collect_real_year_disturbed": "1999.0",
+ "collect_text_coordinator_note": "",
+ "collect_text_id": "138814421",
+ "collect_text_notes_or_type_of_other": "",
+ "collect_text_operator": "ceo-collector-1",
+ "collect_text_plot_file": "ceo_20170_plots_done.csv",
+ "collect_text_secondary_notes_or_type_of_other": ""
+}

@@ -24,16 +24,26 @@ import { telemetry } from './telemetry.js';
 import { registerAiRoutes } from './routes/ai.js';
 import { registerAssignmentRoutes, setServedCacheMb } from './routes/assignments.js';
 import { setParsedCacheMb } from './plotFileCache.js';
+import { twoFactorKey } from './twoFactor.js';
+import { registerTwoFactorRoutes } from './routes/twoFactor.js';
+import { registerFormerMemberRoutes } from './routes/formerMembers.js';
+import { OwnerAlerts, ownerNotifier, STORAGE_PERCENT, THRESHOLDS } from './ownerAlerts.js';
+import { requirePlatformAdmin } from './plugins/projectAuth.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerPlatformRoutes } from './routes/platform.js';
 import { ProjectStateCache } from './projectState.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import { registerTimeSpentRoutes } from './routes/timeSpent.js';
+import { registerAnalysisRoutes } from './routes/analysis.js';
+import { registerUncertaintyRoutes } from './routes/uncertainty.js';
 import { PlotPlaceReader } from './routes/plotPlaces.js';
 import { PlotIndexCache, registerPlotSearchRoutes } from './routes/plotSearch.js';
 import { registerPlotsGeoRoutes } from './routes/plotsGeo.js';
 import { registerProgressRoutes } from './routes/progress.js';
+import { registerCeoImportRoutes } from './routes/ceoImport.js';
 import { registerProjectRoutes } from './routes/projects.js';
+import { registerPlotDesignRoutes } from './routes/plotDesign.js';
+import { registerSigridRoutes } from './routes/sigrid.js';
 import { registerPublicProgressRoutes } from './routes/publicProgress.js';
 import { registerCollectBackupRoutes } from './routes/collectBackup.js';
 import { registerMailRoutes, type AccountMailHooks } from './routes/mail.js';
@@ -95,6 +105,10 @@ const STARTED_AT = Date.now();
 // password guessing is held back per account by LOGIN_FAILURES_PER_MINUTE instead.
 const DEFAULT_RATE_LIMIT_PER_MINUTE = 60;
 const LOGIN_FAILURES_PER_MINUTE = 10;
+// Wrong passwords for one account from all addresses together, per 15 minutes: guessing from many
+// addresses, each under the limit above, is stopped there (security review, 2026-11).
+const ACCOUNT_LOGIN_FAILURES = 100;
+const ACCOUNT_LOGIN_WINDOW_MS = 15 * 60_000;
 
 /**
  * Builds the Fastify app around a Store. Kept free of process/network side effects
@@ -153,12 +167,18 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
 
   app.get('/health', async () => ({ status: 'ok' }));
 
+  // The built dashboard: served at "/", and the template of the analysis's stand-alone file
+  const webDir = options.webDir === undefined ? (config.webDir ?? DEFAULT_WEB_DIR) : options.webDir;
+
   // Failed logins and refused requests by hour since this process started (the server owner's panel).
   const counters = new ServerCounters();
   const limiter = new RateLimiter(config.rateLimitPerMinute ?? DEFAULT_RATE_LIMIT_PER_MINUTE, Date.now, {
     onRefused: () => counters.count('rateLimited'),
   });
   const loginFailures = new RateLimiter(config.rateLimitPerMinute === 0 ? 0 : LOGIN_FAILURES_PER_MINUTE);
+  const accountFailures = new RateLimiter(config.rateLimitPerMinute === 0 ? 0 : ACCOUNT_LOGIN_FAILURES, Date.now, {
+    windowMs: ACCOUNT_LOGIN_WINDOW_MS,
+  });
   const setupCode = config.setupCode ?? generateSetupCode();
 
   // Members' activity (member_activity), coalesced; written when the app closes too.
@@ -168,7 +188,37 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const accountMail: AccountMailHooks = {};
   // Email (Task 19): SMTP only when SMTP_URL is set, else nothing is sent (the log transport).
   const mailer = options.mailer ?? mailerFrom(config, app.log);
-  await registerAuthRoutes(app, store, limiter, loginFailures, counters, accountMail);
+  // Alerts for the server's owner (src/ownerAlerts.ts): failed logins, server errors, records refused, storage. Not in
+  // the local mode (one person, on their own computer: nobody else to tell).
+  const ownerAlerts = new OwnerAlerts({
+    notify: local ? undefined : ownerNotifier(store, mailer, app.log, async () => (await store.getSettings()).serverName ?? 'Collect Earth Cloud'),
+  });
+  app.decorate('ownerAlerts', ownerAlerts);
+  counters.onCount = (kind) => {
+    if (kind === 'failedLogin') ownerAlerts.note('failedLogin');
+  };
+  app.addHook('onResponse', async (_request, reply) => {
+    if (reply.statusCode >= 500) ownerAlerts.note('serverError');
+  });
+  if (!local) {
+    // Each project's storage against the server's limit, every hour
+    const storageCheck = setInterval(() => {
+      void (async () => {
+        const settings = await store.getSettings();
+        if (!settings.maxProjectStorageMb) return;
+        const stats = await store.platformStats({ activeSince: Date.now(), signupsFrom: Date.now(), receivedFrom: Date.now() });
+        ownerAlerts.checkStorage(stats.projects, settings.maxProjectStorageMb);
+      })().catch((err) => app.log.warn({ err }, 'owner alerts: the storage check failed'));
+    }, 3_600_000);
+    storageCheck.unref();
+    app.addHook('onClose', async () => clearInterval(storageCheck));
+  }
+  app.get('/v1/admin/alerts', { preHandler: requirePlatformAdmin(store) }, async (_request, reply) =>
+    reply.header('cache-control', 'no-store').send({ alerts: ownerAlerts.recent(), thresholds: { ...THRESHOLDS, storagePercent: STORAGE_PERCENT } }),
+  );
+  const twoFactorKeyBuf = twoFactorKey(config);
+  await registerAuthRoutes(app, store, limiter, loginFailures, counters, accountMail, twoFactorKeyBuf, accountFailures);
+  await registerTwoFactorRoutes(app, store, twoFactorKeyBuf, limiter, async () => (await store.getSettings()).serverName ?? 'Collect Earth Cloud');
   const now = options.ai?.now ?? Date.now;
   // Error reports and usage events, when the server is started with TELEMETRY=1 (src/telemetry.ts).
   if (config.telemetry) await telemetry.configure(config.telemetry, VERSION, app.log);
@@ -189,7 +239,13 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     // "Forgot your password?" mails its link only where mail really goes out.
     selfServiceReset: mailer.delivers && !config.localMode,
   });
-  await registerProjectRoutes(app, store, config);
+  // Where plots are and what the project file says of them, shared by the map exports, the quality
+  // routes, plot search, the map and order 'nearby' of a division (Task 15).
+  const places = new PlotPlaceReader(store);
+  await registerProjectRoutes(app, store, config, places);
+  await registerCeoImportRoutes(app, store);
+  await registerPlotDesignRoutes(app, store);
+  await registerSigridRoutes(app, store, places);
   await registerCollectBackupRoutes(app, store, config, limiter, now);
   await registerPlatformRoutes(app, store, config);
   const quality = new QualityService(store, new QualityWorker({ maxOldGenerationSizeMb: config.qualityWorkerMaxMb }), {
@@ -202,9 +258,6 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   if (config.servedCacheMb) setServedCacheMb(config.servedCacheMb);
   // The automatic check sampling: drawn after first submissions and before a plot list, at most once per 10 min.
   const sampling = new SamplingService(store, states, { intervalMs: config.samplingIntervalMs, inlineMs: config.samplingInlineMs, now, onLate: () => counters.lateDraw() });
-  // Where plots are and what the project file says of them, shared by the quality routes, plot
-  // search, the map and order 'nearby' of a division (Task 15).
-  const places = new PlotPlaceReader(store);
   // The plots sent back for another look compare answers as the figures do (by the survey's
   // outline) and resolve records with the project state's plot context.
   await registerAssignmentRoutes(app, store, config, { outline: (projectId, log) => quality.outline(projectId, log), states, sampling, places });
@@ -215,6 +268,9 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerProgressRoutes(app, store, quality, states, now);
   await registerPeopleRoutes(app, store, quality, states, now);
   await registerTimeSpentRoutes(app, store, states);
+  await registerAnalysisRoutes(app, store, states, webDir);
+  await registerUncertaintyRoutes(app, store, states);
+  await registerFormerMemberRoutes(app, store, states);
   await registerPlotsGeoRoutes(app, store, quality, states, places, config.mapBuildsKept ? { maxBuilds: config.mapBuildsKept } : {});
   await registerActivityRoutes(app, store, quality, states, places, now);
   // No check sampling in the local mode: there is no one else to check.
@@ -241,7 +297,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     await registerLocalRoutes(app, store as InMemoryStore, local);
   }
 
-  await registerDashboard(app, options.webDir === undefined ? (config.webDir ?? DEFAULT_WEB_DIR) : options.webDir);
+  await registerDashboard(app, webDir);
 
   // Until the first platform admin exists, say how to finish setup. A generated
   // code is only ever shown here, so it is printed once per boot.
@@ -276,7 +332,18 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
 async function registerDashboard(app: FastifyInstance, webDir: string | null): Promise<void> {
   const serveSpa = webDir !== null && existsSync(join(webDir, 'index.html'));
   if (serveSpa) {
-    await app.register(fastifyStatic, { root: webDir, prefix: '/', index: 'index.html' });
+    await app.register(fastifyStatic, {
+      root: webDir,
+      prefix: '/',
+      index: 'index.html',
+      // The build writes a .gz beside each large file (web/vite.config.ts): sent to browsers that take gzip.
+      // The analysis page's DuckDB is 36 MB, 8 MB gzipped.
+      preCompressed: true,
+      setHeaders: (res, path) => {
+        // The files under assets/ have their content's hash in their names: they never change, so they are kept
+        if (/[\\/]assets[\\/]/.test(path)) res.setHeader('cache-control', 'public, max-age=31536000, immutable');
+      },
+    });
   }
   app.setNotFoundHandler(async (request: FastifyRequest, reply: FastifyReply) => {
     const path = request.url.split('?')[0];

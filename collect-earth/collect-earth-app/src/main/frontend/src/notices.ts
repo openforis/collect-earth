@@ -17,6 +17,16 @@ export interface Notice {
 
 export const NOTICES_POLL_MILLIS = 5000;
 
+/** The event the pages read the app's info again on (useAppInfo) */
+export const APP_INFO_CHANGED = "collectEarth:appInfoChanged";
+/**
+ * The notices after which the app's info has changed: the cloud sign-in the server no longer takes
+ * (CloudSyncService.signedOut), after which the login is asked for again.
+ */
+export function changesAppInfo(notice: Notice): boolean {
+  return notice.kind === "cloudSignedOut";
+}
+
 /**
  * The notice to show: the first the server lists that this page has not answered. An answer already sent is not
  * shown again while the server has not yet taken it out (the next read may still list it).

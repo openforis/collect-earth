@@ -28,6 +28,17 @@ export function redactUrl(url: string): string {
   return path + rest.replace(SECRET_PARAMS, `$1${REDACTED}`);
 }
 
+/**
+ * redactUrl for an absolute address too ("https://host/join/TOKEN"), and for each address in a
+ * text such as Sentry's transaction name ("GET /v1/auth/reset/TOKEN").
+ */
+export function redactUrlsIn(text: string): string {
+  return text.replace(/\S*\/\S*/g, (word) => {
+    const origin = /^[a-z][a-z0-9+.-]*:\/\/[^/?#]*/i.exec(word)?.[0] ?? '';
+    return origin + redactUrl(word.slice(origin.length));
+  });
+}
+
 /** The request as the log writes it: Fastify's default fields, with the address redacted. */
 export function requestSerializer(request: FastifyRequest): Record<string, unknown> {
   return {

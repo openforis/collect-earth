@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.text.MessageFormat;
 
+import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.manager.exception.SurveyValidationException;
 import org.openforis.collect.earth.app.service.notices.Notice;
@@ -66,5 +67,24 @@ public class EarthSurveyService extends AbstractEarthSurveyService implements In
 			}
 		}
 
+	}
+
+	/**
+	 * The name of a survey as the user knows it, for the titles of the pages and of Google Earth Web's tab: in the UI
+	 * language if the survey has it in that language, else in its default one, else the survey's description. Null when
+	 * there is no survey.
+	 *
+	 * @param language the UI language, as a two-letter code
+	 */
+	public static String projectName(CollectSurvey survey, String language) {
+		if (survey == null) {
+			return null;
+		}
+		if (StringUtils.isNotBlank(survey.getProjectName(language))) {
+			return survey.getProjectName(language);
+		} else if (StringUtils.isNotBlank(survey.getProjectName())) {
+			return survey.getProjectName();
+		}
+		return survey.getDescription(language);
 	}
 }

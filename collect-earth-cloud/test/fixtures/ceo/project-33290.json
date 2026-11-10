@@ -1,0 +1,166 @@
+{
+ "allowDrawnSamples": false,
+ "aoiFeatures": [
+  {
+   "coordinates": [
+    [
+     [
+      -78.417259992,
+      0.237624269
+     ],
+     [
+      -78.417259992,
+      0.443313033
+     ],
+     [
+      -78.100336637,
+      0.443313033
+     ],
+     [
+      -78.100336637,
+      0.237624269
+     ],
+     [
+      -78.417259992,
+      0.237624269
+     ]
+    ]
+   ],
+   "type": "Polygon"
+  }
+ ],
+ "aoiFileName": "",
+ "availability": "published",
+ "boundary": "{\"type\":\"Polygon\",\"coordinates\":[[[-78.417259992,0.237624269],[-78.417259992,0.443313033],[-78.100336637,0.443313033],[-78.100336637,0.237624269],[-78.417259992,0.237624269]]]}",
+ "closedDate": "",
+ "createdDate": "2022-10-25",
+ "description": "Rodrigo Torres",
+ "designSettings": {
+  "qaqcAssignment": {
+   "percent": 22,
+   "qaqcMethod": "sme",
+   "smes": [
+    6630
+   ],
+   "timesToReview": 2
+  },
+  "sampleGeometries": {
+   "lines": true,
+   "points": true,
+   "polygons": true
+  },
+  "userAssignment": {
+   "percents": [
+    0,
+    0
+   ],
+   "userMethod": "equal",
+   "users": [
+    8471,
+    7404
+   ]
+  }
+ },
+ "hasGeoDash": false,
+ "id": 33290,
+ "imageryId": 1318,
+ "institution": 2480,
+ "isProjectAdmin": false,
+ "learningMaterial": null,
+ "name": "Proyecto Rodrigo",
+ "numPlots": 5,
+ "plotDistribution": "csv",
+ "plotFileName": "ejemploCEO.csv",
+ "plotShape": "square",
+ "plotSimilarityDetails": {
+  "referencePlotId": null,
+  "years": null
+ },
+ "plotSize": 100.0,
+ "plotSpacing": -1.0,
+ "privacyLevel": "public",
+ "projectOptions": {
+  "autoLaunchGeoDash": true,
+  "collectConfidence": true,
+  "showGEEScript": true,
+  "showPlotInformation": true
+ },
+ "publishedDate": "2022-10-25",
+ "referencePlotId": null,
+ "sampleDistribution": "center",
+ "sampleFileName": null,
+ "sampleResolution": -1.0,
+ "samplesPerPlot": 1,
+ "shufflePlots": false,
+ "surveyQuestions": {
+  "0": {
+   "answers": {
+    "0": {
+     "answer": "Si ",
+     "color": "#b18f2f"
+    },
+    "1": {
+     "answer": "No",
+     "color": "#f313f6"
+    }
+   },
+   "cardOrder": 0,
+   "componentType": "radiobutton",
+   "dataType": "boolean",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Es urbano?"
+  },
+  "1": {
+   "answers": {
+    "0": {
+     "answer": "Si",
+     "color": "#62f613"
+    },
+    "1": {
+     "answer": "No",
+     "color": "#d9210d"
+    }
+   },
+   "cardOrder": 0,
+   "componentType": "dropdown",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Que cobertura Existe"
+  },
+  "2": {
+   "answers": {
+    "0": {
+     "answer": "3",
+     "color": "#3a9310"
+    },
+    "1": {
+     "answer": "6",
+     "color": "#126847"
+    },
+    "2": {
+     "answer": "21",
+     "color": "#b3c337"
+    },
+    "3": {
+     "answer": "33",
+     "color": "#c84148"
+    },
+    "4": {
+     "answer": "30",
+     "color": "#091ad7"
+    }
+   },
+   "cardOrder": 0,
+   "componentType": "button",
+   "dataType": "number",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Que clase observa?"
+  }
+ },
+ "surveyRules": [],
+ "type": "regular",
+ "userRole": null
+}

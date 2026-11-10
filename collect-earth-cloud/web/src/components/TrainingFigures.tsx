@@ -16,6 +16,7 @@ import { useT } from "../i18n";
 import { answerLabel, kappaText, questionLabel, shareText } from "../trainingView";
 import { useLoad } from "../useLoad";
 import { EmptyState } from "./EmptyState";
+import { Explain, MoreInfo } from "./Explain";
 import { ErrorAlert } from "./ErrorAlert";
 import { Loading } from "./Loading";
 
@@ -31,7 +32,7 @@ export function TrainingFigures({ projectId }: { projectId: string }) {
   if (state.error || !state.data) return <ErrorAlert error={state.error} onRetry={state.reload} />;
   return (
     <Stack spacing={3}>
-      <Typography color="text.secondary">{t("trainingFigures.explain")}</Typography>
+      <Explain text={t("trainingFigures.explain.short")} more={t("trainingFigures.explain")} />
       {state.data.sets.length === 0 ? (
         <Paper variant="outlined">
           <EmptyState title={t("training.none")} />
@@ -60,7 +61,10 @@ function SetFigures({ set, questions }: { set: TrainingFiguresSet; questions: Tr
           <Chip size="small" variant="outlined" label={t(set.kind === "learning" ? "training.kindLearning" : "training.kindCalibration")} />
         </Stack>
         {set.takingPart ? (
-          <Alert severity="info">{t("trainingFigures.takingPart", { done: n(set.takingPart.submitted), plots: n(set.plotCount) })}</Alert>
+          <Alert severity="info">
+            {t("trainingFigures.takingPart.short", { done: n(set.takingPart.submitted), plots: n(set.plotCount) })}
+            <MoreInfo text={t("trainingFigures.takingPart", { done: n(set.takingPart.submitted), plots: n(set.plotCount) })} />
+          </Alert>
         ) : !c || answered.length === 0 ? (
           <Typography color="text.secondary">{t("training.calibrationNone")}</Typography>
         ) : (
@@ -93,9 +97,7 @@ function SetFigures({ set, questions }: { set: TrainingFiguresSet; questions: Tr
                 </TableBody>
               </Table>
             </Box>
-            <Typography variant="body2" color="text.secondary">
-              {t("training.kappaHelp")}
-            </Typography>
+            <Explain variant="body2" text={t("training.kappaHelp.short")} more={t("training.kappaHelp")} />
             <Typography variant="h3">{t("training.plotsTitle")}</Typography>
             <Stack spacing={1}>
               {answered.map((plot) => {

@@ -73,23 +73,15 @@ public class ToolsControllerTest {
 	@Test
 	public void saysWhatTheDialogsAskFirst() throws Exception {
 		Map<String, Object> flags = new LinkedHashMap<>();
-		flags.put("saikuGenerated", true);
-		flags.put("saikuToolAvailable", false);
+		flags.put("ipccGenerated", true);
+		flags.put("survey", false);
 		when(analysis.analysis()).thenReturn(flags);
 		mvc.perform(get("/api/tools/analysis")).andExpect(status().isOk())
-				.andExpect(jsonPath("$.saikuGenerated").value(true)).andExpect(jsonPath("$.saikuToolAvailable").value(false));
+				.andExpect(jsonPath("$.ipccGenerated").value(true)).andExpect(jsonPath("$.survey").value(false));
 	}
 
 	@Test
 	public void theAnalysisJobsStartWithTheirRequests() throws Exception {
-		when(analysis.saiku(true)).thenReturn(ctx -> Collections.singletonMap("opened", true));
-		String saiku = idOf(mvc.perform(post("/api/jobs/saiku").contentType(MediaType.APPLICATION_JSON).content("{\"refresh\":true}"))
-				.andExpect(status().isOk()).andReturn());
-		assertEquals("saiku", waitUntilOver(saiku).get("kind"));
-		when(analysis.saikuTool(false, "/tmp/SaikuTool.zip")).thenReturn(ctx -> Collections.singletonMap("path", "/tmp/SaikuTool.zip"));
-		String tool = idOf(mvc.perform(post("/api/jobs/saikuTool").contentType(MediaType.APPLICATION_JSON).content("{\"refresh\":false,\"path\":\"/tmp/SaikuTool.zip\"}"))
-				.andExpect(status().isOk()).andReturn());
-		assertEquals(Collections.singletonMap("path", "/tmp/SaikuTool.zip"), waitUntilOver(tool).get("result"));
 		when(analysis.ipccPrepare(false)).thenReturn(ctx -> Collections.singletonMap("categories", Collections.emptyList()));
 		String prepare = idOf(mvc.perform(post("/api/jobs/ipccPrepare").contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isOk()).andReturn());
 		assertEquals("ipcc", waitUntilOver(prepare).get("kind"));
@@ -107,9 +99,12 @@ public class ToolsControllerTest {
 
 	@Test
 	public void aRequestTheServiceRefusesIsABadRequestWithItsCode() throws Exception {
-		when(analysis.saikuTool(anyBoolean(), any())).thenThrow(new InvalidToolRequestException("tools.saikuTool", "Windows only"));
-		mvc.perform(post("/api/jobs/saikuTool").contentType(MediaType.APPLICATION_JSON).content("{}"))
-				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("tools.saikuTool")).andExpect(jsonPath("$.message").value("Windows only"));
+		when(analysis.ipccPrepare(anyBoolean())).thenThrow(new InvalidToolRequestException("tools.noSurvey", "No survey"));
+		mvc.perform(post("/api/jobs/ipccPrepare").contentType(MediaType.APPLICATION_JSON).content("{}"))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("tools.noSurvey")).andExpect(jsonPath("$.message").value("No survey"));
+		// Saiku's jobs are gone
+		mvc.perform(post("/api/jobs/saiku").contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isNotFound());
+		mvc.perform(post("/api/jobs/saikuTool").contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isNotFound());
 		when(tools.deletePlots(anyString())).thenThrow(new InvalidToolRequestException("delete.csv", "wrong header"));
 		mvc.perform(post("/api/jobs/deletePlots").contentType(MediaType.APPLICATION_JSON).content("{\"path\":\"/tmp/x.csv\"}"))
 				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("delete.csv"));
@@ -158,6 +153,6 @@ public class ToolsControllerTest {
 		String delete = idOf(mvc.perform(post("/api/jobs/deletePlots").contentType(MediaType.APPLICATION_JSON).content("{\"path\":\"/tmp/d.csv\"}"))
 				.andExpect(status().isOk()).andReturn());
 		assertEquals("deletePlots", waitUntilOver(delete).get("kind"));
-		verify(analysis, never()).saiku(anyBoolean());
+		verify(analysis, never()).ipccOutputs(any());
 	}
 }

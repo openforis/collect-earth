@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * Runs the long actions of the pages (exports, imports, Saiku, IPCC...) on threads of their own and keeps what they
+ * Runs the long actions of the pages (exports, imports, IPCC...) on threads of their own and keeps what they
  * report, which the pages read (GET /api/jobs/{id}): the Swing UI blocked in a modal progress dialog instead. One job
  * of each kind at a time, as those dialogs allowed. A job is forgotten FORGET_AFTER_MINUTES after it ended.
  * <p>

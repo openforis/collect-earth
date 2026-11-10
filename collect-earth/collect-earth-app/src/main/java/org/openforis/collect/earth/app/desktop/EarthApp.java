@@ -24,9 +24,7 @@ import java.beans.PropertyChangeListener;
 import java.nio.charset.StandardCharsets;
 
 import javax.swing.ImageIcon;
-import javax.swing.JCheckBox;
 import javax.swing.JDialog;
-import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
@@ -44,6 +42,7 @@ import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.SecretProtector;
 import org.openforis.collect.earth.app.service.ShellFolderFallback;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.openforis.collect.earth.app.service.notices.Notice;
@@ -125,6 +124,22 @@ public class EarthApp {
 					"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.4; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2");
 
 			initializeSentry();
+			// The cloud token kept by the system, not in plain text (before the first read of the settings): Windows' data
+			// protection, the macOS Keychain, the Linux desktop's keyring; without one (a Linux with no desktop) the
+			// settings file is private to its owner. One still in plain text is protected now
+			SecretProtector protector = WindowsDpapiProtector.ifAvailable();
+			if (protector == null) {
+				protector = MacKeychainProtector.ifAvailable();
+			}
+			if (protector == null) {
+				protector = LinuxKeyringProtector.ifAvailable();
+			}
+			LocalPropertiesService.setSecretProtector(protector);
+			try {
+				getLocalProperties().protectSecrets();
+			} catch (RuntimeException e) {
+				logger.warn("The cloud token could not be protected", e);
+			}
 			// After Sentry, whose handler it wraps : a file chooser broken by the Windows shell falls back to plain folders
 			ShellFolderFallback.installUncaughtExceptionHandler();
 
@@ -659,7 +674,7 @@ public class EarthApp {
 			}
 		} else {
 
-			askToTryGoogleEarthWeb();
+			useGoogleEarthWeb();
 
 			startServer(doubleClickedProjectFile);
 
@@ -669,60 +684,22 @@ public class EarthApp {
 	}
 
 	/**
-	 * While Google Earth Web is being tested as a replacement for Google Earth Pro, ask the user at
-	 * start-up which one to use and store the answer as the plot viewer. Runs before the server starts so
-	 * the choice is already in earth.properties when the server-side properties service loads it.
+	 * Google Earth Web replaces Google Earth Pro: an installation still set to Google Earth Pro (or set to nothing) is
+	 * moved to Google Earth Web at start-up. Runs before the server starts so the viewer is already in earth.properties
+	 * when the server-side properties service loads it.
 	 */
-	private static void askToTryGoogleEarthWeb() {
+	private static void useGoogleEarthWeb() {
 		final LocalPropertiesService localProperties = getLocalProperties();
-		// Unattended runs ( automated tests ) choose the viewer with -Dcollectearth.viewerType=google_earth_web, since
-		// the dialog blocks the start-up until someone answers it. The "do not ask again" choice of the user is kept
+		// Unattended runs ( automated tests ) can still choose the viewer with -Dcollectearth.viewerType=...
 		String forcedViewerType = System.getProperty("collectearth.viewerType"); //$NON-NLS-1$
 		if (StringUtils.isNotBlank(forcedViewerType)) {
 			localProperties.saveViewerType(forcedViewerType.trim());
 			logger.info("Plot viewer set from the command line : {}", forcedViewerType); //$NON-NLS-1$
 			return;
 		}
-		if (localProperties.isGoogleEarthWebTrialPromptDisabled()) {
-			return;
-		}
-		try {
-			SwingUtilities.invokeAndWait(() -> {
-				// Where the choice is made later: the settings page (the Settings menu), its "Imagery and viewer" section
-				String settingsPath = Messages.getString("SettingsPage.title") + " > " //$NON-NLS-1$ //$NON-NLS-2$
-						+ Messages.getString("SettingsPage.section.imagery") + " > " //$NON-NLS-1$ //$NON-NLS-2$
-						+ Messages.getString("ExternalServicesPanel.viewerType"); //$NON-NLS-1$
-				JCheckBox dontAskAgain = new JCheckBox(Messages.getString("EarthApp.gewTrialDontAsk")); //$NON-NLS-1$
-				Object[] message = {
-						new JLabel(Messages.getString("EarthApp.gewTrialMessage").replace("{settingsPath}", settingsPath)), //$NON-NLS-1$ //$NON-NLS-2$
-						dontAskAgain };
-				String useGoogleEarthWeb = Messages.getString("EarthApp.gewTrialAccept"); //$NON-NLS-1$
-				String keepGoogleEarthPro = Messages.getString("EarthApp.gewTrialDecline"); //$NON-NLS-1$
-
-				// Always-on-top dialog so it is not hidden behind the splash screen (see showMessage)
-				JOptionPane pane = new JOptionPane(message, JOptionPane.QUESTION_MESSAGE, JOptionPane.YES_NO_OPTION,
-						null, new Object[] { useGoogleEarthWeb, keepGoogleEarthPro }, keepGoogleEarthPro);
-				JDialog dialog = pane.createDialog(null, Messages.getString("EarthApp.gewTrialTitle")); //$NON-NLS-1$
-				dialog.setAlwaysOnTop(true);
-				dialog.setLocationRelativeTo(null);
-				dialog.toFront();
-				dialog.setVisible(true);
-				dialog.dispose();
-
-				// Closing the dialog counts as declining: Google Earth Pro stays the viewer
-				boolean accepted = useGoogleEarthWeb.equals(pane.getValue());
-				localProperties.saveViewerType(accepted ? LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB
-						: LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_PRO);
-				if (dontAskAgain.isSelected()) {
-					localProperties.setGoogleEarthWebTrialPromptDisabled(true);
-				}
-				logger.info("Google Earth Web trial prompt answered: {}", accepted ? "accepted" : "declined"); //$NON-NLS-1$
-			});
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			logger.error("Interrupted while asking the user to try Google Earth Web", e); //$NON-NLS-1$
-		} catch (InvocationTargetException e) {
-			logger.error("Error asking the user to try Google Earth Web", e); //$NON-NLS-1$
+		if (LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_PRO.equals(localProperties.getViewerType())) {
+			localProperties.saveViewerType(LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB);
+			logger.info("Plot viewer moved from Google Earth Pro to Google Earth Web"); //$NON-NLS-1$
 		}
 	}
 

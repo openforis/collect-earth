@@ -1,6 +1,11 @@
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
@@ -10,15 +15,29 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import DeleteForever from "@mui/icons-material/DeleteForever";
 import { useState, type FormEvent } from "react";
-import { deleteProject, getProgressSettings, getProjectAi, renameProject, saveProgressSettings, setProjectAi, type ProgressSettings } from "../api";
+import {
+  copyProject,
+  deleteProject,
+  getProgressSettings,
+  getProjectAi,
+  renameProject,
+  saveProgressSettings,
+  setProjectAi,
+  setProjectStatus,
+  STATUS_MOVES,
+  type ProgressSettings,
+  type ProjectStatus,
+} from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { useT } from "../i18n";
 import { settingsCards } from "../localMode";
 import { progressDraftOf, readProgressDraft, type ProgressDraft, type ProgressProblems } from "../progressView";
 import { linkProps, navigate, pathFor } from "../router";
 import { useLoad } from "../useLoad";
+import type { MessageKey } from "../i18n";
 import { ShareLinksCard } from "./ShareLinks";
 
 function RenameCard({ projectId, name, onRenamed }: { projectId: string; name: string; onRenamed: (name: string) => void }) {
@@ -147,7 +166,9 @@ function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string
         value={draft.targetPlots}
         onChange={(e) => change("targetPlots")(e.target.value)}
         error={problems.targetPlots !== undefined}
-        helperText={problems.targetPlots ? t(problems.targetPlots) : t(local ? "progressSettings.targetHelpLocal" : "progressSettings.targetHelp")}
+        helperText={
+          problems.targetPlots ? t(problems.targetPlots) : local ? t("progressSettings.targetHelpLocal") : <>{t("progressSettings.targetHelp")}<MoreInfo text={t("progressSettings.targetHelp.more")} /></>
+        }
         slotProps={{ htmlInput: { inputMode: "numeric" } }}
       />
       {/* Who has gone quiet is about a team: working alone, nothing uses it */}
@@ -156,7 +177,7 @@ function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string
         value={draft.quietDays}
         onChange={(e) => change("quietDays")(e.target.value)}
         error={problems.quietDays !== undefined}
-        helperText={problems.quietDays ? t(problems.quietDays) : t("progressSettings.quietDaysHelp")}
+        helperText={problems.quietDays ? t(problems.quietDays) : <>{t("progressSettings.quietDaysHelp.short")}<MoreInfo text={t("progressSettings.quietDaysHelp")} /></>}
         slotProps={{ htmlInput: { inputMode: "numeric" } }}
       />}
       {done && (
@@ -207,8 +228,12 @@ function AiCard({ projectId }: { projectId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [changed, setChanged] = useState(false);
+  // Switching on is confirmed: what is sent, to whom and where, checked against the project's agreements
+  const [confirming, setConfirming] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   const toggle = async (enabled: boolean) => {
+    setConfirming(false);
     setBusy(true);
     setError(null);
     setChanged(false);
@@ -228,8 +253,8 @@ function AiCard({ projectId }: { projectId: string }) {
         <Typography variant="h2" id="settings-ai">
           {t("settings.aiTitle")}
         </Typography>
-        <Typography>{t("settings.aiIntro")}</Typography>
-        <Typography>{t("settings.aiSent")}</Typography>
+        <Explain color="text.primary" text={t("settings.aiIntro.short")} more={t("settings.aiIntro")} />
+        <Explain color="text.primary" text={t("settings.aiSent.short")} more={t("settings.aiSent")} />
         {ai.loading && !ai.data ? (
           <Loading />
         ) : ai.error || !ai.data ? (
@@ -242,12 +267,44 @@ function AiCard({ projectId }: { projectId: string }) {
                   checked={ai.data.enabled}
                   // Off is always allowed; on only while the server has the assistant.
                   disabled={busy || (!ai.data.available && !ai.data.enabled)}
-                  onChange={(e) => void toggle(e.target.checked)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setAgreed(false);
+                      setConfirming(true);
+                    } else void toggle(false);
+                  }}
                 />
               }
               label={t("settings.aiSwitch")}
             />
             {!ai.data.available && <Alert severity="info">{t("settings.aiNotAvailable")}</Alert>}
+            {ai.data.where && (
+              ai.data.where.region === "global" ? (
+                <Explain variant="body2" text={t("settings.aiWhereGlobal.short", ai.data.where)} more={t("settings.aiWhereGlobal", ai.data.where)} />
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  {t("settings.aiWhere", ai.data.where)}
+                </Typography>
+              )
+            )}
+            <Dialog open={confirming} onClose={() => setConfirming(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>{t("settings.aiConfirmTitle")}</DialogTitle>
+              <DialogContent>
+                <Stack spacing={2}>
+                  <Typography>{t("settings.aiSent")}</Typography>
+                  <Typography>{t("settings.aiSentViews")}</Typography>
+                  {ai.data.where && <Typography>{t(ai.data.where.region === "global" ? "settings.aiWhereGlobal" : "settings.aiWhere", ai.data.where)}</Typography>}
+                  <Typography>{t("settings.aiConfirmTerms")}</Typography>
+                  <FormControlLabel control={<Checkbox checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />} label={t("settings.aiConfirmCheck")} />
+                </Stack>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setConfirming(false)}>{t("common.cancel")}</Button>
+                <Button variant="contained" disabled={!agreed || busy} onClick={() => void toggle(true)}>
+                  {t("settings.aiConfirmOn")}
+                </Button>
+              </DialogActions>
+            </Dialog>
             {changed && (
               <Alert severity="success" role="status">
                 {ai.data.enabled ? t("settings.aiOn") : t("settings.aiOff")}
@@ -256,6 +313,105 @@ function AiCard({ projectId }: { projectId: string }) {
           </>
         )}
         <ErrorAlert error={error} />
+      </Stack>
+    </Paper>
+  );
+}
+
+/** The button of a move from one status to another. */
+function moveLabel(from: ProjectStatus, to: ProjectStatus): MessageKey {
+  if (to === "active") return from === "draft" ? "status.move.active" : "status.move.reopen";
+  if (to === "closed") return from === "archived" ? "status.move.restore" : "status.move.closed";
+  return "status.move.archived";
+}
+
+/** The project's lifecycle: what its status means, and the moves it can make (publish, close, reopen, archive, restore). */
+function StatusCard({ projectId, status, onStatus }: { projectId: string; status: ProjectStatus; onStatus: (status: ProjectStatus) => void }) {
+  const t = useT();
+  const { refreshMe } = useApp();
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+
+  const move = async (to: ProjectStatus) => {
+    setError(null);
+    setBusy(true);
+    try {
+      onStatus(await setProjectStatus(projectId, to));
+      void refreshMe();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="settings-status">
+      <Stack spacing={2}>
+        <Typography variant="h2" id="settings-status">
+          {t("status.title")}: {t(`project.status.${status}`)}
+        </Typography>
+        <Typography>{t(`status.intro.${status}`)}</Typography>
+        <ErrorAlert error={error} />
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+          {STATUS_MOVES[status].map((to, i) => (
+            <Button key={to} variant={i === 0 ? "contained" : "outlined"} disabled={busy} onClick={() => void move(to)}>
+              {t(moveLabel(status, to))}
+            </Button>
+          ))}
+        </Box>
+      </Stack>
+    </Paper>
+  );
+}
+
+/** A new project from this one (a template), as a draft: the coordinator lands on its getting-started checklist. */
+function CopyCard({ projectId, name }: { projectId: string; name: string }) {
+  const t = useT();
+  const { refreshMe } = useApp();
+  const [value, setValue] = useState(() => t("copy.defaultName", { name }));
+  const [members, setMembers] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!value.trim()) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const copy = await copyProject(projectId, value.trim(), members);
+      await refreshMe();
+      navigate(pathFor({ name: "project", projectId: copy.projectId, tab: "setup" }));
+    } catch (err) {
+      setError(err);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="settings-copy">
+      <Stack component="form" spacing={2} onSubmit={submit} noValidate>
+        <Typography variant="h2" id="settings-copy">
+          {t("copy.title")}
+        </Typography>
+        <Explain color="text.primary" text={t("copy.intro.short")} more={t("copy.intro")} />
+        <TextField
+          label={t("copy.nameLabel")}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          error={value.trim() === ""}
+          helperText={value.trim() === "" ? t("error.required") : undefined}
+          required
+          slotProps={{ htmlInput: { maxLength: 200 } }}
+        />
+        <FormControlLabel control={<Checkbox checked={members} onChange={(e) => setMembers(e.target.checked)} />} label={t("copy.members")} />
+        <ErrorAlert error={error} />
+        <Box>
+          <Button type="submit" variant="contained" disabled={busy || value.trim() === ""}>
+            {t("copy.submit")}
+          </Button>
+        </Box>
       </Stack>
     </Paper>
   );
@@ -314,7 +470,19 @@ function DeleteCard({ projectId, name }: { projectId: string; name: string }) {
 }
 
 /** The project's settings; in the local mode (one person), the progress settings only (src/localMode.ts, settingsCards). */
-export function SettingsTab({ projectId, name, onRenamed }: { projectId: string; name: string; onRenamed: (name: string) => void }) {
+export function SettingsTab({
+  projectId,
+  name,
+  status,
+  onRenamed,
+  onStatus,
+}: {
+  projectId: string;
+  name: string;
+  status: ProjectStatus;
+  onRenamed: (name: string) => void;
+  onStatus: (status: ProjectStatus) => void;
+}) {
   const cards = settingsCards(useLocalMode());
   return (
     <Stack spacing={3}>
@@ -327,6 +495,10 @@ export function SettingsTab({ projectId, name, onRenamed }: { projectId: string;
           <ShareLinksCard key={card} projectId={projectId} />
         ) : card === "ai" ? (
           <AiCard key={card} projectId={projectId} />
+        ) : card === "copy" ? (
+          <CopyCard key={card} projectId={projectId} name={name} />
+        ) : card === "status" ? (
+          <StatusCard key={card} projectId={projectId} status={status} onStatus={onStatus} />
         ) : (
           <DeleteCard key={card} projectId={projectId} name={name} />
         ),

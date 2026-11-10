@@ -19,7 +19,22 @@ export interface Membership {
   projectId: string;
   projectName: string;
   role: Role;
+  status: ProjectStatus;
 }
+
+/**
+ * A project's lifecycle: draft (being set up: collectors cannot sync yet), active, closed (read-only:
+ * no syncs, no changes; reading and exports work) and archived (closed and out of the normal list).
+ */
+export type ProjectStatus = 'draft' | 'active' | 'closed' | 'archived';
+export const PROJECT_STATUSES: readonly ProjectStatus[] = ['draft', 'active', 'closed', 'archived'];
+/** The moves a coordinator can make: publish, close, reopen, archive, restore. */
+export const STATUS_MOVES: Record<ProjectStatus, readonly ProjectStatus[]> = {
+  draft: ['active'],
+  active: ['closed'],
+  closed: ['active', 'archived'],
+  archived: ['closed'],
+};
 
 /** One project member, for the admin members listing. */
 export interface Member {
@@ -28,6 +43,8 @@ export interface Member {
   role: Role;
   /** The server owner disabled the account (a flag only: not when or by whom). */
   disabled?: boolean;
+  /** A coordinator left their records out of the results (the figures and the exports); absent otherwise. */
+  excluded?: { at: number; reason: string | null };
 }
 
 export interface Invite {
@@ -108,6 +125,24 @@ export interface ServerSettings {
    * Per project: the server's total can reach this times the number of projects.
    */
   aiMonthlyTokens: number;
+  /** A short plain-text message shown at the top of every dashboard page to everyone signed in; null: none. */
+  announcement: string | null;
+  /** When the announcement stops being shown (epoch ms); null: until it is cleared. */
+  announcementUntil: number | null;
+  /**
+   * Coordinators (project admins) and the server's administrators must use two-step sign-in (src/twoFactor.ts): until
+   * they set it up, their coordinator and administration pages are refused (two_factor_required).
+   */
+  twoFactorForCoordinators: boolean;
+}
+
+/** An account's two-step sign-in, as stored (src/twoFactor.ts): the secrets encrypted, the recovery codes hashed. */
+export interface TwoFactorState {
+  secretEnc: string | null;
+  pendingEnc: string | null;
+  enabledAt: number | null;
+  lastStep: number | null;
+  recoveryHashes: string[];
 }
 
 export const DEFAULT_SETTINGS: ServerSettings = {
@@ -122,6 +157,9 @@ export const DEFAULT_SETTINGS: ServerSettings = {
   aiReportsPerDay: 5,
   aiFollowUpsPerDay: 30,
   aiMonthlyTokens: 2_000_000,
+  announcement: null,
+  announcementUntil: null,
+  twoFactorForCoordinators: false,
 };
 
 /** One account in the platform admin's user list: a project COUNT only, never names (§4b). */
@@ -137,6 +175,8 @@ export interface UserSummary {
   disabledAt: number | null;
   /** Who disabled it (a username), or null (enabled, or that account was deleted since). */
   disabledBy: string | null;
+  /** Two-step sign-in is on for the account. */
+  twoFactor: boolean;
 }
 
 /** A count for one UTC day (epoch ms of its midnight). */
@@ -219,7 +259,8 @@ export type DivisionOrder = 'file' | 'mixed' | 'nearby';
  * rows in that order.
  */
 export type StoredDistribution =
-  | { mode: 'even'; people: string[]; order: DivisionOrder; overlapPercent: number; seed?: number }
+  /** `percents`: each person's share of the plots (one per person, adding up to 100); absent = even shares. */
+  | { mode: 'even'; people: string[]; percents?: number[]; order: DivisionOrder; overlapPercent: number; seed?: number }
   | {
       mode: 'column';
       column: number;
@@ -229,6 +270,13 @@ export type StoredDistribution =
       seed?: number;
     }
   | { mode: 'manual'; order?: 'nearby' };
+
+/** A plot's answers in the reference set a coordinator uploaded, by summary key. */
+export interface ReferenceAnswer {
+  plotKey: string;
+  answers: Record<string, string>;
+  uploadedAt: number;
+}
 
 /**
  * One plot of a divided file held by one person; overlap = given as a quality-check copy.
@@ -443,6 +491,7 @@ export interface ProjectRow {
   surveyUri: string | null;
   surveyName: string | null;
   idmlBase64: string | null;
+  status: ProjectStatus;
 }
 
 /**
@@ -497,6 +546,19 @@ export interface ProgressSettings {
 
 export const DEFAULT_PROGRESS_SETTINGS: ProgressSettings = { deadline: null, targetPlots: null, quietDays: 3 };
 
+/**
+ * A view of the analysis page a coordinator shared with the project's team (web/src/analysisView.ts): the table, the
+ * language its column names are in, and Perspective's configuration (kept as given: the page reads it).
+ */
+export interface SharedAnalysisView {
+  name: string;
+  table: string;
+  language: string;
+  config: Record<string, unknown>;
+  savedBy: string;
+  savedAt: number;
+}
+
 /** Which answer of a differing plot is right: the first assessment, the check, or neither (look again). */
 export type DecisionKind = 'first' | 'check' | 'recheck';
 
@@ -536,7 +598,8 @@ export interface GuidanceNote extends GuidanceNoteInput {
 
 // --- The AI assistant's runs (ai_runs, migration 011) ---
 
-export type AiRunKind = 'report' | 'follow_up' | 'question';
+/** `views`: the analysis page's views proposed from the survey's structure (src/ai/analysisViews.ts). */
+export type AiRunKind = 'report' | 'follow_up' | 'question' | 'views';
 export type AiRunStatus = 'running' | 'done' | 'failed' | 'refused';
 
 /** One tool call of a run as stored: our tool's name (or "unknown"), the arguments as validated (pseudonymous), and whether it worked. */
@@ -652,6 +715,15 @@ export function aiLimitReached(kind: AiRunKind, counts: AiRunCounts, w: AiRunWin
   return null;
 }
 
+/**
+ * Whether a person's AI tokens this month (every project, deleted ones included) reach the monthly limit
+ * times the projects they coordinate (at least one): deleting a project and making another does not start
+ * a fresh allowance.
+ */
+export function personOverMonth(tokensThisMonth: number, coordinatedProjects: number, w: AiRunWindow): boolean {
+  return tokensThisMonth >= w.monthlyTokens * Math.max(1, coordinatedProjects);
+}
+
 /** The failure of a run that was still running when its server stopped, or long past its time limit. */
 export const AI_INTERRUPTED = { code: 'interrupted', message: 'The assistant stopped before it finished: the server restarted, or the run took too long.' } as const;
 
@@ -752,6 +824,8 @@ export const AUDIT_ACTIONS = [
   'invite.created',
   'invite.revoked',
   'member.removed',
+  'member.anonymized',
+  'member.signed_out',
   'member.role',
   'cep.replaced',
   'csv.uploaded',
@@ -770,6 +844,8 @@ export const AUDIT_ACTIONS = [
   'link.revoked',
   'training.changed',
   'training.synced',
+  'member.excluded',
+  'project.imported',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

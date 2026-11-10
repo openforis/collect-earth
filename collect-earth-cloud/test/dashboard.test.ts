@@ -1,6 +1,7 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { OSM_TILES } from '../src/config.js';
@@ -166,7 +167,7 @@ describe('sign-up and project creation modes', () => {
     // The creator is the project's admin (and no Phase-0 tokens are handed out).
     const projects = await ctx.app.inject({ method: 'GET', url: '/v1/projects', headers: bearer(owner.token) });
     expect(projects.json().projects).toEqual([
-      { projectId: mine.json().projectId, projectName: 'Owner project', role: 'admin' },
+      { projectId: mine.json().projectId, projectName: 'Owner project', role: 'admin', status: 'active' },
     ]);
 
     await setSettings(ctx.app, owner.token, { signupOpen: true });
@@ -364,8 +365,8 @@ describe('password change and reset', () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/v1/admin/users', headers: bearer(owner.token) });
     expect(res.json()).toEqual({
       users: [
-        { userId: maria.userId, username: 'maria', isPlatformAdmin: false, projects: 0, coordinatedProjects: 0, disabledAt: null, disabledBy: null },
-        { userId: owner.userId, username: 'owner', isPlatformAdmin: true, projects: 1, coordinatedProjects: 1, disabledAt: null, disabledBy: null },
+        { userId: maria.userId, username: 'maria', isPlatformAdmin: false, projects: 0, coordinatedProjects: 0, disabledAt: null, disabledBy: null, twoFactor: false },
+        { userId: owner.userId, username: 'owner', isPlatformAdmin: true, projects: 1, coordinatedProjects: 1, disabledAt: null, disabledBy: null, twoFactor: false },
       ],
     });
 
@@ -384,6 +385,9 @@ describe('password change and reset', () => {
       aiReportsPerDay: 5,
       aiFollowUpsPerDay: 30,
       aiMonthlyTokens: 2_000_000,
+      twoFactorForCoordinators: false,
+      announcement: null,
+      announcementUntil: null,
       aiConfigured: false,
     });
 
@@ -459,7 +463,7 @@ describe('invites, overview and export', () => {
     const created = await invite(ctx.app, project.projectId, project.adminToken, { role: 'operator', maxUses: 5, expiresInDays: 3 });
     const inviteToken = created.json().inviteToken as string;
     const used = (await invite(ctx.app, project.projectId, project.adminToken, { maxUses: 1 })).json().inviteToken as string;
-    expect((await register(ctx.app, 'juan', 'x', used)).statusCode).toBe(201); // used up: not listed
+    expect((await register(ctx.app, 'juan', 'password12', used)).statusCode).toBe(201); // used up: not listed
 
     const list = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${project.projectId}/invites`, headers: bearer(project.adminToken) });
     expect(list.statusCode).toBe(200);
@@ -542,7 +546,7 @@ describe('invites, overview and export', () => {
       });
     }
     const inv = (await invite(ctx.app, project.projectId, project.adminToken)).json().inviteToken as string;
-    await register(ctx.app, 'maria', 'pw', inv);
+    await register(ctx.app, 'maria', 'password12', inv);
     await batchRequest(ctx.app, project.projectId, project.projectToken, [
       envelope({ recordKey: '1', operator: 'maria', modifiedOn: 1000, activelySaved: true }),
       envelope({ recordKey: '2', operator: 'maria', modifiedOn: 3000, activelySaved: false }),
@@ -597,14 +601,18 @@ describe('invites, overview and export', () => {
 });
 
 describe('desktop client contract', () => {
-  it('/v1/auth/register still accepts a 1-character username and password', async () => {
+  it('/v1/auth/register still accepts a 1-character username, but a password of 8 characters only', async () => {
     const ctx = await makeContext();
     try {
       const project = await createProject(ctx.app);
       const token = (await invite(ctx.app, project.projectId, project.adminToken)).json().inviteToken as string;
-      const res = await register(ctx.app, 'a', 'b', token);
+      // the dashboard's password rule (security review, 2026-11), said with its reason, which Collect Earth shows
+      const weak = await register(ctx.app, 'a', 'b', token);
+      expect(weak.statusCode).toBe(400);
+      expect(weak.json()).toMatchObject({ error: 'weak_password', reason: 'password must be at least 8 characters' });
+      const res = await register(ctx.app, 'a', 'b-password', token);
       expect(res.statusCode).toBe(201);
-      expect((await login(ctx.app, 'a', 'b')).statusCode).toBe(200);
+      expect((await login(ctx.app, 'a', 'b-password')).statusCode).toBe(200);
     } finally {
       await ctx.app.close();
     }
@@ -706,6 +714,23 @@ describe('dashboard static files', () => {
     const asset = await ctx.app.inject({ method: 'GET', url: '/assets/app.js' });
     expect(asset.statusCode).toBe(200);
     expect(asset.body).toBe('console.log(1)');
+  });
+
+  it('keeps the hashed assets for good and sends the gzipped copy the build wrote to browsers that take it', async () => {
+    const big = 'const analysis = 1;\n'.repeat(2000);
+    writeFileSync(join(dir, 'assets', 'big.js'), big);
+    writeFileSync(join(dir, 'assets', 'big.js.gz'), gzipSync(big));
+    const gz = await ctx.app.inject({ method: 'GET', url: '/assets/big.js', headers: { 'accept-encoding': 'gzip' } });
+    expect(gz.statusCode).toBe(200);
+    expect(gz.headers['content-encoding']).toBe('gzip');
+    expect(gunzipSync(gz.rawPayload).toString()).toBe(big);
+    expect(gz.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    const plain = await ctx.app.inject({ method: 'GET', url: '/assets/big.js' });
+    expect(plain.headers['content-encoding']).toBeUndefined();
+    expect(plain.body).toBe(big);
+    // the page itself is asked for again each time (it names the assets of the latest build)
+    const root = await ctx.app.inject({ method: 'GET', url: '/', headers: html });
+    expect(root.headers['cache-control']).not.toContain('immutable');
   });
 
   it('returns index.html for client-side routes that accept HTML', async () => {

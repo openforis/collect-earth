@@ -64,3 +64,38 @@ export function visibleId(plot: string, hidden: readonly boolean[] | null): stri
   if (parts.length !== hidden.length) return plot;
   return parts.filter((_, i) => !hidden[i]).join(',');
 }
+
+/** Degrees per metre north and east at a latitude, on the WGS84 ellipsoid (as web/src/reviewQueueView.ts). */
+export function degreesPerMetre(lat: number): { north: number; east: number } {
+  const a = 6378137;
+  const e2 = 0.00669437999014;
+  const phi = (lat * Math.PI) / 180;
+  const s = Math.sin(phi);
+  const m = (a * (1 - e2)) / Math.pow(1 - e2 * s * s, 1.5);
+  const n = a / Math.sqrt(1 - e2 * s * s);
+  return { north: 180 / (Math.PI * m), east: 180 / (Math.PI * n * Math.max(Math.cos(phi), 1e-6)) };
+}
+
+/**
+ * The plot's outline as closed [longitude, latitude] points, as Collect Earth draws it (the ring of
+ * the dashboard's outlineRing, web/src/reviewQueueView.ts): a square of the plot's side from its
+ * top-left corner clockwise, or the circle's (hexagon's) vertices, each offset rounded to whole
+ * metres. Null when only the place is known.
+ */
+export function outlineRing(lat: number, lon: number, outline: PlotOutline): [number, number][] | null {
+  const per = degreesPerMetre(lat);
+  const at = (east: number, north: number): [number, number] => [Number((lon + east * per.east).toFixed(7)), Number((lat + north * per.north).toFixed(7))];
+  if (outline.kind === 'circle') {
+    const ring: [number, number][] = [];
+    const arc = 360 / outline.vertices;
+    for (let i = 0; i <= outline.vertices; i++) {
+      const t = ((i % outline.vertices) * arc * Math.PI) / 180;
+      ring.push(at(Math.round(outline.radiusMeters * Math.cos(t)), Math.round(outline.radiusMeters * Math.sin(t))));
+    }
+    return ring;
+  }
+  if (outline.kind !== 'square') return null;
+  const half = outline.sideMeters / 2;
+  const topLeft = at(-half, half);
+  return [topLeft, at(half, half), at(half, -half), at(-half, -half), topLeft];
+}

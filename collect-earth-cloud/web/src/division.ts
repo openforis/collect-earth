@@ -31,6 +31,9 @@ export interface DivisionForm {
   mode: DivisionMode;
   /** Evenly: the people who share the plots. */
   people: string[];
+  /** Evenly: each person's share in percent instead of equal shares (typed, by user id). */
+  byPercent: boolean;
+  percents: Record<string, string>;
   /** By a column: the column (0-based) and who collects each of its values. */
   column: number | null;
   groups: Record<string, string[]>;
@@ -67,6 +70,8 @@ export function initialForm(distribution: Distribution | null, holders: string[]
   const form: DivisionForm = {
     mode: "whole",
     people: startPeople,
+    byPercent: false,
+    percents: {},
     column: null,
     groups: {},
     order: "file",
@@ -83,7 +88,13 @@ export function initialForm(distribution: Distribution | null, holders: string[]
     overlap,
     overlapPercent: String(overlap ? distribution.overlapPercent : DEFAULT_OVERLAP_PERCENT),
   };
-  if (distribution.mode === "even") return { ...form, ...common, mode: "even", people: known(distribution.people) };
+  if (distribution.mode === "even") {
+    const percents: Record<string, string> = {};
+    distribution.people.forEach((id, i) => {
+      if (distribution.percents?.[i] !== undefined) percents[id] = String(distribution.percents[i]);
+    });
+    return { ...form, ...common, mode: "even", people: known(distribution.people), byPercent: distribution.percents !== undefined, percents };
+  }
   const groups: Record<string, string[]> = {};
   for (const group of distribution.groups) {
     const people = known(group.people);
@@ -123,6 +134,22 @@ function percent(form: DivisionForm): number | null {
   return text !== "" && Number.isInteger(n) && n >= MIN_OVERLAP_PERCENT && n <= MAX_OVERLAP_PERCENT ? n : null;
 }
 
+/** Each ticked person's percent, when every one is a whole number from 0 to 100 and they add up to 100; else null. */
+function percentsOf(form: DivisionForm): number[] | null {
+  const values = form.people.map((id) => {
+    const text = (form.percents[id] ?? "").trim();
+    const n = Number(text);
+    return text !== "" && Number.isInteger(n) && n >= 0 && n <= 100 ? n : null;
+  });
+  if (values.some((v) => v === null)) return null;
+  return percentTotal(form) === 100 ? (values as number[]) : null;
+}
+
+/** What the ticked people's percents add up to, the ones not typed as 0. */
+export function percentTotal(form: DivisionForm): number {
+  return form.people.reduce((sum, id) => sum + (Number(form.percents[id]) || 0), 0);
+}
+
 /** The selected column, when it can be used. */
 function selectedColumn(form: DivisionForm, columns: CsvColumns | null): CsvColumn | null {
   const column = columns?.columns.find((c) => c.index === form.column) ?? null;
@@ -149,6 +176,7 @@ export function formProblem(form: DivisionForm, columns: CsvColumns | null): Mes
   if (form.mode === "whole") return null;
   if (form.order === "nearby" && columns && !columns.nearby.available) return "divide.problemNearby";
   if (form.mode === "even" && form.people.length === 0) return "divide.problemNoPeople";
+  if (form.mode === "even" && form.byPercent && percentsOf(form) === null) return "divide.problemPercents";
   if (form.mode === "column") {
     if (!selectedColumn(form, columns)) return "divide.problemNoColumn";
     if (groupsToSend(form, columns).length === 0) return "divide.problemNoGroups";
@@ -182,7 +210,7 @@ export function toRequest(form: DivisionForm, columns: CsvColumns | null): Distr
     case "whole":
       return { mode: "whole" };
     case "even":
-      return { mode: "even", people: [...form.people], order: form.order, ...extra };
+      return { mode: "even", people: [...form.people], ...(form.byPercent ? { percents: percentsOf(form) ?? [] } : {}), order: form.order, ...extra };
     case "column":
       return { mode: "column", column: form.column ?? 0, groups: groupsToSend(form, columns), order: form.order, ...extra };
   }

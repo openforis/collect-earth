@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<survey lastId="43" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth">
+  <project>Nepal - Degradation Plot Review</project>
+  <uri>http://www.openforis.org/idm/ceo_20170</uri>
+  <description>Nepal - Degradation Plot Review
+
+Imported from Collect Earth Online, project 20170.</description>
+  <language>en</language>
+  <applicationOptions>
+    <options type="ui">
+      <n0:tabSet name="plot_tab_set" xmlns:n0="http://www.openforis.org/collect/3.0/ui">
+        <n0:tab name="survey_tab">
+          <n0:label>Nepal - Degradation Plot Review</n0:label>
+        </n0:tab>
+        <n0:tab name="plot_data_tab">
+          <n0:label>Plot data</n0:label>
+        </n0:tab>
+      </n0:tabSet>
+    </options>
+  </applicationOptions>
+  <codeLists>
+    <list id="6" name="visible_strata">
+      <label type="item">Visible_strata</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="1">
+          <code>stable_forest</code>
+          <label>Stable Forest</label>
+        </item>
+        <item id="2">
+          <code>stable_non_forest</code>
+          <label>Stable Non-Forest</label>
+        </item>
+        <item id="3">
+          <code>degradation</code>
+          <label>Degradation</label>
+        </item>
+        <item id="4">
+          <code>deforestation</code>
+          <label>Deforestation</label>
+        </item>
+        <item id="5">
+          <code>other</code>
+          <label>Other</label>
+        </item>
+      </items>
+    </list>
+    <list id="9" name="mixed">
+      <label type="item">Mixed?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="7">
+          <code>yes</code>
+          <label>yes</label>
+        </item>
+        <item id="8">
+          <code>no</code>
+          <label>no</label>
+        </item>
+      </items>
+    </list>
+    <list id="15" name="secondary_visible_strata">
+      <label type="item">Secondary _visible_strata</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="10">
+          <code>stable_forest</code>
+          <label>Stable Forest</label>
+        </item>
+        <item id="11">
+          <code>stable_non_forest</code>
+          <label>Stable Non-Forest</label>
+        </item>
+        <item id="12">
+          <code>degradation</code>
+          <label>Degradation</label>
+        </item>
+        <item id="13">
+          <code>deforestation</code>
+          <label>Deforestation</label>
+        </item>
+        <item id="14">
+          <code>other</code>
+          <label>Other</label>
+        </item>
+      </items>
+    </list>
+    <list id="19" name="confidence">
+      <label type="item">Confidence</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="16">
+          <code>high</code>
+          <label>High</label>
+        </item>
+        <item id="17">
+          <code>medium</code>
+          <label>Medium</label>
+        </item>
+        <item id="18">
+          <code>low</code>
+          <label>Low</label>
+        </item>
+      </items>
+    </list>
+    <list id="40" name="assessment_phases">
+      <label type="item">Assessment round</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="41"><code>1</code><label>First assessment</label></item>
+        <item id="42"><code>2</code><label>Re-assessment</label></item>
+      </items>
+    </list>
+  </codeLists>
+  <spatialReferenceSystems>
+    <spatialReferenceSystem srid="EPSG:4326">
+      <label xml:lang="en">EPSG:4326</label>
+      <wkt><![CDATA[GEOGCS["WGS 84",
+      DATUM["World Geodetic System 1984",
+        SPHEROID["WGS 84", 6378137.0, 298.257223563, AUTHORITY["EPSG","7030"]],
+        AUTHORITY["EPSG","6326"]],
+      PRIMEM["Greenwich", 0.0, AUTHORITY["EPSG","8901"]],
+      UNIT["degree", 0.017453292519943295],
+      AXIS["Geodetic longitude", EAST],
+      AXIS["Geodetic latitude", NORTH],
+      AUTHORITY["EPSG","4326"]]]]></wkt>
+    </spatialReferenceSystem>
+  </spatialReferenceSystems>
+  <schema>
+    <entity id="31" name="plot" ui:tab="survey_tab" ui:tabSet="plot_tab_set">
+      <label type="instance">Plot</label>
+      <text id="20" name="id" required="true" ui:tab="plot_data_tab" key="true" type="short">
+        <label type="instance">Plot - ID</label>
+      </text>
+      <code id="39" name="round" required="true" ui:tab="plot_data_tab" key="true" list="assessment_phases" collect:measurement="true" collectearth:fromcsv="true" collectearth:hideinrecordlist="true">
+        <label type="instance">Assessment round</label>
+      </code>
+      <coordinate id="21" name="location" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Central point coordinates</label>
+      </coordinate>
+      <text id="22" name="operator" required="true" ui:tab="plot_data_tab" type="short">
+        <label type="instance">Plot - Operator</label>
+      </text>
+      <boolean id="23" name="actively_saved" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Actively saved by user</label>
+      </boolean>
+      <date id="24" name="actively_saved_on" relevant="false()" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Date of last saved</label>
+      </date>
+      <text id="25" name="plot_file" relevant="false()" ui:tab="plot_data_tab" type="short">
+        <label type="instance">Plot - CSV file that contains the plot</label>
+      </text>
+      <number id="26" name="elevation" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="integer">
+        <label type="instance">Plot - Elevation</label>
+      </number>
+      <number id="27" name="slope" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="real">
+        <label type="instance">Plot - Slope</label>
+      </number>
+      <number id="28" name="aspect" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="real">
+        <label type="instance">Plot - Aspect</label>
+      </number>
+      <text id="43" name="coordinator_note" type="memo" ui:tab="plot_data_tab" collectearth:fromcsv="true" collectearth:includeinheader="true">
+        <label type="instance">Note from the coordinator</label>
+      </text>
+      <boolean id="29" name="ceo_flagged" relevant="false()" ui:tab="plot_data_tab">
+        <label type="instance">CEO - Flagged by the collector</label>
+      </boolean>
+      <number id="30" name="ceo_confidence" relevant="false()" ui:tab="plot_data_tab" type="integer">
+        <label type="instance">CEO - Confidence (0-100)</label>
+      </number>
+      <code id="32" name="visible_strata" required="true" ui:tab="survey_tab" list="visible_strata">
+        <label type="instance">Visible_strata</label>
+      </code>
+      <code id="33" name="mixed" required="true" relevant="not(idm:blank(visible_strata))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="mixed">
+        <label type="instance">Mixed?</label>
+      </code>
+      <code id="34" name="secondary_visible_strata" required="true" relevant="(not(idm:blank(visible_strata))) and mixed = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="secondary_visible_strata">
+        <label type="instance">Secondary _visible_strata</label>
+      </code>
+      <text id="35" name="secondary_notes_or_type_of_other" required="true" relevant="((not(idm:blank(visible_strata))) and mixed = &apos;yes&apos;) and secondary_visible_strata = &apos;other&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="short">
+        <label type="instance">Secondary notes or type of &apos;Other&apos;:</label>
+        <description>In CEO: &quot;Notes&quot;</description>
+      </text>
+      <text id="36" name="notes_or_type_of_other" required="true" relevant="visible_strata = &apos;other&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="short">
+        <label type="instance">Notes or type of &apos;Other&apos;:</label>
+        <description>In CEO: &quot;Notes&quot;</description>
+      </text>
+      <code id="37" name="confidence" required="true" ui:tab="survey_tab" list="confidence">
+        <label type="instance">Confidence</label>
+      </code>
+      <number id="38" name="year_disturbed" required="true" ui:tab="survey_tab" type="real">
+        <label type="instance">Year disturbed</label>
+        <description>In CEO: &quot;0&quot;</description>
+      </number>
+    </entity>
+  </schema>
+</survey>

@@ -1,0 +1,1020 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<survey lastId="240" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth">
+  <project>PNG_LULUCF_2020_Demo</project>
+  <uri>http://www.openforis.org/idm/ceo_5455</uri>
+  <description>PNG_Land Use and Land Use Change and Forestry 2020 (Demo). This is the demo survey to share the design of PNG LULUCF 2020 as CEO version. There are surveys per province for actual assessment but they are restricted to only Group Members. Please contact Admin for further detail.
+
+Imported from Collect Earth Online, project 5455.</description>
+  <language>en</language>
+  <applicationOptions>
+    <options type="ui">
+      <n0:tabSet name="plot_tab_set" xmlns:n0="http://www.openforis.org/collect/3.0/ui">
+        <n0:tab name="survey_tab">
+          <n0:label>PNG_LULUCF_2020_Demo</n0:label>
+        </n0:tab>
+        <n0:tab name="plot_data_tab">
+          <n0:label>Plot data</n0:label>
+        </n0:tab>
+      </n0:tabSet>
+    </options>
+  </applicationOptions>
+  <codeLists>
+    <list id="8" name="land_use">
+      <label type="item">Land Use</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="1">
+          <code>forest_land</code>
+          <label>Forest land</label>
+        </item>
+        <item id="2">
+          <code>cropland</code>
+          <label>Cropland</label>
+        </item>
+        <item id="3">
+          <code>grassland</code>
+          <label>Grassland</label>
+        </item>
+        <item id="4">
+          <code>wetlands</code>
+          <label>Wetlands</label>
+        </item>
+        <item id="5">
+          <code>settlements</code>
+          <label>Settlements</label>
+        </item>
+        <item id="6">
+          <code>other_land</code>
+          <label>Other land</label>
+        </item>
+        <item id="7">
+          <code>no_data</code>
+          <label>No Data</label>
+        </item>
+      </items>
+    </list>
+    <list id="15" name="land_use_change_fl">
+      <label type="item">Land Use Change (FL)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="9">
+          <code>fltofl</code>
+          <label>FLtoFL</label>
+        </item>
+        <item id="10">
+          <code>ottofl</code>
+          <label>OTtoFL</label>
+        </item>
+        <item id="11">
+          <code>cltofl</code>
+          <label>CLtoFL</label>
+        </item>
+        <item id="12">
+          <code>gltofl</code>
+          <label>GLtoFL</label>
+        </item>
+        <item id="13">
+          <code>wltofl</code>
+          <label>WLtoFL</label>
+        </item>
+        <item id="14">
+          <code>sltofl</code>
+          <label>SLtoFL</label>
+        </item>
+      </items>
+    </list>
+    <list id="22" name="land_use_change_cl">
+      <label type="item">Land Use Change (CL)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="16">
+          <code>cltocl</code>
+          <label>CLtoCL</label>
+        </item>
+        <item id="17">
+          <code>ottocl</code>
+          <label>OTtoCL</label>
+        </item>
+        <item id="18">
+          <code>fltocl</code>
+          <label>FLtoCL</label>
+        </item>
+        <item id="19">
+          <code>gltocl</code>
+          <label>GLtoCL</label>
+        </item>
+        <item id="20">
+          <code>wltocl</code>
+          <label>WLtoCL</label>
+        </item>
+        <item id="21">
+          <code>sltocl</code>
+          <label>SLtoCL</label>
+        </item>
+      </items>
+    </list>
+    <list id="29" name="land_use_change_gl">
+      <label type="item">Land Use Change (GL)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="23">
+          <code>gltogl</code>
+          <label>GLtoGL</label>
+        </item>
+        <item id="24">
+          <code>ottogl</code>
+          <label>OTtoGL</label>
+        </item>
+        <item id="25">
+          <code>fltogl</code>
+          <label>FLtoGL</label>
+        </item>
+        <item id="26">
+          <code>cltogl</code>
+          <label>CLtoGL</label>
+        </item>
+        <item id="27">
+          <code>wltogl</code>
+          <label>WLtoGL</label>
+        </item>
+        <item id="28">
+          <code>sltogl</code>
+          <label>SLtoGL</label>
+        </item>
+      </items>
+    </list>
+    <list id="36" name="land_use_change_wl">
+      <label type="item">Land Use Change (WL)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="30">
+          <code>wltowl</code>
+          <label>WLtoWL</label>
+        </item>
+        <item id="31">
+          <code>ottowl</code>
+          <label>OTtoWL</label>
+        </item>
+        <item id="32">
+          <code>fltowl</code>
+          <label>FLtoWL</label>
+        </item>
+        <item id="33">
+          <code>cltowl</code>
+          <label>CLtoWL</label>
+        </item>
+        <item id="34">
+          <code>gltowl</code>
+          <label>GLtoWL</label>
+        </item>
+        <item id="35">
+          <code>sltowl</code>
+          <label>SLtoWL</label>
+        </item>
+      </items>
+    </list>
+    <list id="43" name="land_use_change_sl">
+      <label type="item">Land Use Change (SL)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="37">
+          <code>sltosl</code>
+          <label>SLtoSL</label>
+        </item>
+        <item id="38">
+          <code>ottosl</code>
+          <label>OTtoSL</label>
+        </item>
+        <item id="39">
+          <code>fltosl</code>
+          <label>FLtoSL</label>
+        </item>
+        <item id="40">
+          <code>cltosl</code>
+          <label>CLtoSL</label>
+        </item>
+        <item id="41">
+          <code>gltosl</code>
+          <label>GLtoSL</label>
+        </item>
+        <item id="42">
+          <code>wltosl</code>
+          <label>WLtoSL</label>
+        </item>
+      </items>
+    </list>
+    <list id="50" name="land_use_change_ot">
+      <label type="item">Land Use Change (OT)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="44">
+          <code>ottoot</code>
+          <label>OTtoOT</label>
+        </item>
+        <item id="45">
+          <code>cltoot</code>
+          <label>CLtoOT</label>
+        </item>
+        <item id="46">
+          <code>fltoot</code>
+          <label>FLtoOT</label>
+        </item>
+        <item id="47">
+          <code>gltoot</code>
+          <label>GLtoOT</label>
+        </item>
+        <item id="48">
+          <code>wltoot</code>
+          <label>WLtoOT</label>
+        </item>
+        <item id="49">
+          <code>sltoot</code>
+          <label>SLtoOT</label>
+        </item>
+      </items>
+    </list>
+    <list id="70" name="land_use_change_year">
+      <label type="item">Land Use Change Year</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="51">
+          <code>2001</code>
+          <label>2001</label>
+        </item>
+        <item id="52">
+          <code>2002</code>
+          <label>2002</label>
+        </item>
+        <item id="53">
+          <code>2003</code>
+          <label>2003</label>
+        </item>
+        <item id="54">
+          <code>2004</code>
+          <label>2004</label>
+        </item>
+        <item id="55">
+          <code>2005</code>
+          <label>2005</label>
+        </item>
+        <item id="56">
+          <code>2006</code>
+          <label>2006</label>
+        </item>
+        <item id="57">
+          <code>2007</code>
+          <label>2007</label>
+        </item>
+        <item id="58">
+          <code>2008</code>
+          <label>2008</label>
+        </item>
+        <item id="59">
+          <code>2009</code>
+          <label>2009</label>
+        </item>
+        <item id="60">
+          <code>2010</code>
+          <label>2010</label>
+        </item>
+        <item id="61">
+          <code>2011</code>
+          <label>2011</label>
+        </item>
+        <item id="62">
+          <code>2012</code>
+          <label>2012</label>
+        </item>
+        <item id="63">
+          <code>2013</code>
+          <label>2013</label>
+        </item>
+        <item id="64">
+          <code>2014</code>
+          <label>2014</label>
+        </item>
+        <item id="65">
+          <code>2015</code>
+          <label>2015</label>
+        </item>
+        <item id="66">
+          <code>2016</code>
+          <label>2016</label>
+        </item>
+        <item id="67">
+          <code>2017</code>
+          <label>2017</label>
+        </item>
+        <item id="68">
+          <code>2018</code>
+          <label>2018</label>
+        </item>
+        <item id="69">
+          <code>2019</code>
+          <label>2019</label>
+        </item>
+      </items>
+    </list>
+    <list id="73" name="land_use_subtype_fl">
+      <label type="item">Land Use Subtype (FL)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="71">
+          <code>natural_forest</code>
+          <label>Natural Forest</label>
+        </item>
+        <item id="72">
+          <code>plantation_forest</code>
+          <label>Plantation Forest</label>
+        </item>
+      </items>
+    </list>
+    <list id="86" name="land_use_subdiv_nf">
+      <label type="item">Land Use Subdiv (NF)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="74">
+          <code>low_altitude_forest_plain</code>
+          <label>Low_altitude_forest_plain</label>
+        </item>
+        <item id="75">
+          <code>low_altitude_forest_upland</code>
+          <label>Low_altitude_forest_upland</label>
+        </item>
+        <item id="76">
+          <code>lower_montane_forest</code>
+          <label>Lower_montane_forest</label>
+        </item>
+        <item id="77">
+          <code>montane_forest</code>
+          <label>Montane_forest</label>
+        </item>
+        <item id="78">
+          <code>dry_seasonal_forest</code>
+          <label>Dry_seasonal_forest</label>
+        </item>
+        <item id="79">
+          <code>littoral_forest</code>
+          <label>Littoral_forest</label>
+        </item>
+        <item id="80">
+          <code>seral_forest</code>
+          <label>Seral_forest</label>
+        </item>
+        <item id="81">
+          <code>swamp_forest</code>
+          <label>Swamp_forest</label>
+        </item>
+        <item id="82">
+          <code>savanna</code>
+          <label>Savanna</label>
+        </item>
+        <item id="83">
+          <code>woodland</code>
+          <label>Woodland</label>
+        </item>
+        <item id="84">
+          <code>scrub</code>
+          <label>Scrub</label>
+        </item>
+        <item id="85">
+          <code>mangrove</code>
+          <label>Mangrove</label>
+        </item>
+      </items>
+    </list>
+    <list id="96" name="land_use_subdiv_pf">
+      <label type="item">Land Use Subdiv (PF)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="87">
+          <code>teak_plantation</code>
+          <label>Teak Plantation</label>
+        </item>
+        <item id="88">
+          <code>eucalyptus_plantation</code>
+          <label>Eucalyptus Plantation</label>
+        </item>
+        <item id="89">
+          <code>balsa_plantation</code>
+          <label>Balsa Plantation</label>
+        </item>
+        <item id="90">
+          <code>araucaria_plantation</code>
+          <label>Araucaria Plantation</label>
+        </item>
+        <item id="91">
+          <code>pinus_plantation</code>
+          <label>Pinus Plantation</label>
+        </item>
+        <item id="92">
+          <code>acacia_plantation</code>
+          <label>Acacia Plantation</label>
+        </item>
+        <item id="93">
+          <code>terminalia_plantation</code>
+          <label>Terminalia Plantation</label>
+        </item>
+        <item id="94">
+          <code>other_forest_plantation</code>
+          <label>Other Forest Plantation</label>
+        </item>
+        <item id="95">
+          <code>undetermined_forest_plantation</code>
+          <label>Undetermined Forest Plantation</label>
+        </item>
+      </items>
+    </list>
+    <list id="99" name="land_use_subtype_cl">
+      <label type="item">Land Use Subtype (CL)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="97">
+          <code>subsistence_agriculture</code>
+          <label>Subsistence Agriculture</label>
+        </item>
+        <item id="98">
+          <code>commercial_agriculture</code>
+          <label>Commercial Agriculture</label>
+        </item>
+      </items>
+    </list>
+    <list id="103" name="land_use_subdiv_sa">
+      <label type="item">Land Use Subdiv (SA)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="100">
+          <code>permanent</code>
+          <label>Permanent</label>
+        </item>
+        <item id="101">
+          <code>shifting</code>
+          <label>Shifting</label>
+        </item>
+        <item id="102">
+          <code>not_sure</code>
+          <label>Not sure</label>
+        </item>
+      </items>
+    </list>
+    <list id="115" name="land_use_subdiv_ca">
+      <label type="item">Land Use Subdiv (CA)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="104">
+          <code>tea</code>
+          <label>Tea</label>
+        </item>
+        <item id="105">
+          <code>coffee</code>
+          <label>Coffee</label>
+        </item>
+        <item id="106">
+          <code>palm_oil</code>
+          <label>Palm Oil</label>
+        </item>
+        <item id="107">
+          <code>cocoa</code>
+          <label>Cocoa</label>
+        </item>
+        <item id="108">
+          <code>coconut</code>
+          <label>Coconut</label>
+        </item>
+        <item id="109">
+          <code>other</code>
+          <label>Other</label>
+        </item>
+        <item id="110">
+          <code>codoa_coconut</code>
+          <label>Codoa_Coconut</label>
+        </item>
+        <item id="111">
+          <code>sugar</code>
+          <label>Sugar</label>
+        </item>
+        <item id="112">
+          <code>rice</code>
+          <label>Rice</label>
+        </item>
+        <item id="113">
+          <code>spices</code>
+          <label>Spices</label>
+        </item>
+        <item id="114">
+          <code>rubber</code>
+          <label>Rubber</label>
+        </item>
+      </items>
+    </list>
+    <list id="117" name="land_use_subtype_gl">
+      <label type="item">Land Use Subtype (GL)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="116">
+          <code>grassland</code>
+          <label>Grassland</label>
+        </item>
+      </items>
+    </list>
+    <list id="121" name="land_use_subdiv_gl">
+      <label type="item">Land Use Subdiv (GL)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="118">
+          <code>herbland</code>
+          <label>Herbland</label>
+        </item>
+        <item id="119">
+          <code>rangeland</code>
+          <label>Rangeland</label>
+        </item>
+        <item id="120">
+          <code>others</code>
+          <label>Others</label>
+        </item>
+      </items>
+    </list>
+    <list id="123" name="land_use_subtype_wl">
+      <label type="item">Land Use Subtype (WL)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="122">
+          <code>wetlands</code>
+          <label>Wetlands</label>
+        </item>
+      </items>
+    </list>
+    <list id="129" name="land_use_subdiv_wl">
+      <label type="item">Land Use Subdiv (WL)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="124">
+          <code>river</code>
+          <label>River</label>
+        </item>
+        <item id="125">
+          <code>lake</code>
+          <label>Lake</label>
+        </item>
+        <item id="126">
+          <code>dam</code>
+          <label>Dam</label>
+        </item>
+        <item id="127">
+          <code>nipa_swamp</code>
+          <label>Nipa Swamp</label>
+        </item>
+        <item id="128">
+          <code>other_swamp</code>
+          <label>Other Swamp</label>
+        </item>
+      </items>
+    </list>
+    <list id="131" name="land_use_subtype_sl">
+      <label type="item">Land Use Subtype (SL)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="130">
+          <code>settlements</code>
+          <label>Settlements</label>
+        </item>
+      </items>
+    </list>
+    <list id="136" name="land_use_subdiv_sl">
+      <label type="item">Land Use Subdiv (SL)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="132">
+          <code>village</code>
+          <label>Village</label>
+        </item>
+        <item id="133">
+          <code>hamlet</code>
+          <label>Hamlet</label>
+        </item>
+        <item id="134">
+          <code>large_settlement</code>
+          <label>Large Settlement</label>
+        </item>
+        <item id="135">
+          <code>infrastructure</code>
+          <label>Infrastructure</label>
+        </item>
+      </items>
+    </list>
+    <list id="138" name="land_use_subtype_ot">
+      <label type="item">Land Use Subtype (OT)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="137">
+          <code>other_land</code>
+          <label>Other land</label>
+        </item>
+      </items>
+    </list>
+    <list id="142" name="land_use_subdiv_ot">
+      <label type="item">Land Use Subdiv (OT)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="139">
+          <code>bare</code>
+          <label>Bare</label>
+        </item>
+        <item id="140">
+          <code>sand</code>
+          <label>Sand</label>
+        </item>
+        <item id="141">
+          <code>rock</code>
+          <label>Rock</label>
+        </item>
+      </items>
+    </list>
+    <list id="144" name="land_use_subtype_nd">
+      <label type="item">Land Use Subtype (ND)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="143">
+          <code>no_data</code>
+          <label>No Data</label>
+        </item>
+      </items>
+    </list>
+    <list id="148" name="land_use_subdiv_nd">
+      <label type="item">Land Use Subdiv (ND)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="145">
+          <code>sea</code>
+          <label>Sea</label>
+        </item>
+        <item id="146">
+          <code>clouds</code>
+          <label>Clouds</label>
+        </item>
+        <item id="147">
+          <code>other_reason</code>
+          <label>Other reason</label>
+        </item>
+      </items>
+    </list>
+    <list id="155" name="canopy_cover">
+      <label type="item">Canopy Cover (%)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="149">
+          <code>0</code>
+          <label>0</label>
+        </item>
+        <item id="150">
+          <code>0_10</code>
+          <label>0-10</label>
+        </item>
+        <item id="151">
+          <code>10_30</code>
+          <label>10-30</label>
+        </item>
+        <item id="152">
+          <code>30_50</code>
+          <label>30-50</label>
+        </item>
+        <item id="153">
+          <code>50_70</code>
+          <label>50-70</label>
+        </item>
+        <item id="154">
+          <code>70_100</code>
+          <label>70-100</label>
+        </item>
+      </items>
+    </list>
+    <list id="158" name="canopy_cover_accuracy">
+      <label type="item">Canopy Cover Accuracy</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="156">
+          <code>true</code>
+          <label>TRUE</label>
+        </item>
+        <item id="157">
+          <code>false</code>
+          <label>FALSE</label>
+        </item>
+      </items>
+    </list>
+    <list id="166" name="human_impact_type">
+      <label type="item">Human Impact Type</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="159">
+          <code>logging</code>
+          <label>Logging</label>
+        </item>
+        <item id="160">
+          <code>fire</code>
+          <label>Fire</label>
+        </item>
+        <item id="161">
+          <code>grazing</code>
+          <label>Grazing</label>
+        </item>
+        <item id="162">
+          <code>wokabout_sawmill</code>
+          <label>Wokabout Sawmill</label>
+        </item>
+        <item id="163">
+          <code>gardening</code>
+          <label>Gardening</label>
+        </item>
+        <item id="164">
+          <code>other_human_impact</code>
+          <label>Other Human Impact</label>
+        </item>
+        <item id="165">
+          <code>none</code>
+          <label>None</label>
+        </item>
+      </items>
+    </list>
+    <list id="169" name="human_impact_accuracy">
+      <label type="item">Human Impact Accuracy</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="167">
+          <code>true</code>
+          <label>TRUE</label>
+        </item>
+        <item id="168">
+          <code>false</code>
+          <label>FALSE</label>
+        </item>
+      </items>
+    </list>
+    <list id="173" name="human_impact_grade">
+      <label type="item">Human Impact Grade</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="170">
+          <code>low</code>
+          <label>Low</label>
+        </item>
+        <item id="171">
+          <code>medium</code>
+          <label>Medium</label>
+        </item>
+        <item id="172">
+          <code>high</code>
+          <label>High</label>
+        </item>
+      </items>
+    </list>
+    <list id="193" name="human_impact_year">
+      <label type="item">Human Impact Year</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="174">
+          <code>2001</code>
+          <label>2001</label>
+        </item>
+        <item id="175">
+          <code>2002</code>
+          <label>2002</label>
+        </item>
+        <item id="176">
+          <code>2003</code>
+          <label>2003</label>
+        </item>
+        <item id="177">
+          <code>2004</code>
+          <label>2004</label>
+        </item>
+        <item id="178">
+          <code>2005</code>
+          <label>2005</label>
+        </item>
+        <item id="179">
+          <code>2006</code>
+          <label>2006</label>
+        </item>
+        <item id="180">
+          <code>2007</code>
+          <label>2007</label>
+        </item>
+        <item id="181">
+          <code>2008</code>
+          <label>2008</label>
+        </item>
+        <item id="182">
+          <code>2009</code>
+          <label>2009</label>
+        </item>
+        <item id="183">
+          <code>2010</code>
+          <label>2010</label>
+        </item>
+        <item id="184">
+          <code>2011</code>
+          <label>2011</label>
+        </item>
+        <item id="185">
+          <code>2012</code>
+          <label>2012</label>
+        </item>
+        <item id="186">
+          <code>2013</code>
+          <label>2013</label>
+        </item>
+        <item id="187">
+          <code>2014</code>
+          <label>2014</label>
+        </item>
+        <item id="188">
+          <code>2015</code>
+          <label>2015</label>
+        </item>
+        <item id="189">
+          <code>2016</code>
+          <label>2016</label>
+        </item>
+        <item id="190">
+          <code>2017</code>
+          <label>2017</label>
+        </item>
+        <item id="191">
+          <code>2018</code>
+          <label>2018</label>
+        </item>
+        <item id="192">
+          <code>2019</code>
+          <label>2019</label>
+        </item>
+      </items>
+    </list>
+    <list id="199" name="satellite_image">
+      <label type="item">Satellite Image</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="194">
+          <code>google_earth</code>
+          <label>Google Earth</label>
+        </item>
+        <item id="195">
+          <code>bing_maps</code>
+          <label>Bing Maps</label>
+        </item>
+        <item id="196">
+          <code>planet_maps</code>
+          <label>Planet Maps</label>
+        </item>
+        <item id="197">
+          <code>landsat_gee</code>
+          <label>Landsat (GEE)</label>
+        </item>
+        <item id="198">
+          <code>sentinel_gee</code>
+          <label>Sentinel (GEE)</label>
+        </item>
+      </items>
+    </list>
+  </codeLists>
+  <spatialReferenceSystems>
+    <spatialReferenceSystem srid="EPSG:4326">
+      <label xml:lang="en">EPSG:4326</label>
+      <wkt><![CDATA[GEOGCS["WGS 84",
+      DATUM["World Geodetic System 1984",
+        SPHEROID["WGS 84", 6378137.0, 298.257223563, AUTHORITY["EPSG","7030"]],
+        AUTHORITY["EPSG","6326"]],
+      PRIMEM["Greenwich", 0.0, AUTHORITY["EPSG","8901"]],
+      UNIT["degree", 0.017453292519943295],
+      AXIS["Geodetic longitude", EAST],
+      AXIS["Geodetic latitude", NORTH],
+      AUTHORITY["EPSG","4326"]]]]></wkt>
+    </spatialReferenceSystem>
+  </spatialReferenceSystems>
+  <schema>
+    <entity id="209" name="plot" ui:tab="survey_tab" ui:tabSet="plot_tab_set">
+      <label type="instance">Plot</label>
+      <text id="200" name="id" required="true" ui:tab="plot_data_tab" key="true" type="short">
+        <label type="instance">Plot - ID</label>
+      </text>
+      <coordinate id="201" name="location" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Central point coordinates</label>
+      </coordinate>
+      <text id="202" name="operator" required="true" ui:tab="plot_data_tab" type="short">
+        <label type="instance">Plot - Operator</label>
+      </text>
+      <boolean id="203" name="actively_saved" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Actively saved by user</label>
+      </boolean>
+      <date id="204" name="actively_saved_on" relevant="false()" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Date of last saved</label>
+      </date>
+      <text id="205" name="plot_file" relevant="false()" ui:tab="plot_data_tab" type="short">
+        <label type="instance">Plot - CSV file that contains the plot</label>
+      </text>
+      <number id="206" name="elevation" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="integer">
+        <label type="instance">Plot - Elevation</label>
+      </number>
+      <number id="207" name="slope" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="real">
+        <label type="instance">Plot - Slope</label>
+      </number>
+      <number id="208" name="aspect" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="real">
+        <label type="instance">Plot - Aspect</label>
+      </number>
+      <code id="210" name="land_use" required="true" ui:tab="survey_tab" list="land_use">
+        <label type="instance">Land Use</label>
+      </code>
+      <code id="211" name="land_use_change_fl" required="true" relevant="land_use = &apos;forest_land&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_use_change_fl">
+        <label type="instance">Land Use Change (FL)</label>
+      </code>
+      <code id="212" name="land_use_change_cl" required="true" relevant="land_use = &apos;cropland&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_use_change_cl">
+        <label type="instance">Land Use Change (CL)</label>
+      </code>
+      <code id="213" name="land_use_change_gl" required="true" relevant="land_use = &apos;grassland&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_use_change_gl">
+        <label type="instance">Land Use Change (GL)</label>
+      </code>
+      <code id="214" name="land_use_change_wl" required="true" relevant="land_use = &apos;wetlands&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_use_change_wl">
+        <label type="instance">Land Use Change (WL)</label>
+      </code>
+      <code id="215" name="land_use_change_sl" required="true" relevant="land_use = &apos;settlements&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_use_change_sl">
+        <label type="instance">Land Use Change (SL)</label>
+      </code>
+      <code id="216" name="land_use_change_ot" required="true" relevant="land_use = &apos;other_land&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_use_change_ot">
+        <label type="instance">Land Use Change (OT)</label>
+      </code>
+      <code id="217" name="land_use_change_year" required="true" relevant="not(idm:blank(land_use))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" ui:layoutType="dropdown" list="land_use_change_year">
+        <label type="instance">Land Use Change Year</label>
+      </code>
+      <code id="218" name="land_use_subtype_fl" required="true" relevant="land_use = &apos;forest_land&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_use_subtype_fl">
+        <label type="instance">Land Use Subtype (FL)</label>
+      </code>
+      <code id="219" name="land_use_subdiv_nf" required="true" relevant="(land_use = &apos;forest_land&apos;) and land_use_subtype_fl = &apos;natural_forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" ui:layoutType="dropdown" list="land_use_subdiv_nf">
+        <label type="instance">Land Use Subdiv (NF)</label>
+      </code>
+      <code id="220" name="land_use_subdiv_pf" required="true" relevant="(land_use = &apos;forest_land&apos;) and land_use_subtype_fl = &apos;plantation_forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" ui:layoutType="dropdown" list="land_use_subdiv_pf">
+        <label type="instance">Land Use Subdiv (PF)</label>
+      </code>
+      <code id="221" name="land_use_subtype_cl" required="true" relevant="land_use = &apos;cropland&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_use_subtype_cl">
+        <label type="instance">Land Use Subtype (CL)</label>
+      </code>
+      <code id="222" name="land_use_subdiv_sa" required="true" relevant="(land_use = &apos;cropland&apos;) and land_use_subtype_cl = &apos;subsistence_agriculture&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" ui:layoutType="dropdown" list="land_use_subdiv_sa">
+        <label type="instance">Land Use Subdiv (SA)</label>
+      </code>
+      <code id="223" name="land_use_subdiv_ca" required="true" relevant="(land_use = &apos;cropland&apos;) and land_use_subtype_cl = &apos;commercial_agriculture&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" ui:layoutType="dropdown" list="land_use_subdiv_ca">
+        <label type="instance">Land Use Subdiv (CA)</label>
+      </code>
+      <code id="224" name="land_use_subtype_gl" required="true" relevant="land_use = &apos;grassland&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_use_subtype_gl">
+        <label type="instance">Land Use Subtype (GL)</label>
+      </code>
+      <code id="225" name="land_use_subdiv_gl" required="true" relevant="(land_use = &apos;grassland&apos;) and land_use_subtype_gl = &apos;grassland&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" ui:layoutType="dropdown" list="land_use_subdiv_gl">
+        <label type="instance">Land Use Subdiv (GL)</label>
+      </code>
+      <code id="226" name="land_use_subtype_wl" required="true" relevant="land_use = &apos;wetlands&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_use_subtype_wl">
+        <label type="instance">Land Use Subtype (WL)</label>
+      </code>
+      <code id="227" name="land_use_subdiv_wl" required="true" relevant="(land_use = &apos;wetlands&apos;) and land_use_subtype_wl = &apos;wetlands&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" ui:layoutType="dropdown" list="land_use_subdiv_wl">
+        <label type="instance">Land Use Subdiv (WL)</label>
+      </code>
+      <code id="228" name="land_use_subtype_sl" required="true" relevant="land_use = &apos;settlements&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_use_subtype_sl">
+        <label type="instance">Land Use Subtype (SL)</label>
+      </code>
+      <code id="229" name="land_use_subdiv_sl" required="true" relevant="(land_use = &apos;settlements&apos;) and land_use_subtype_sl = &apos;settlements&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" ui:layoutType="dropdown" list="land_use_subdiv_sl">
+        <label type="instance">Land Use Subdiv (SL)</label>
+      </code>
+      <code id="230" name="land_use_subtype_ot" required="true" relevant="land_use = &apos;other_land&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_use_subtype_ot">
+        <label type="instance">Land Use Subtype (OT)</label>
+      </code>
+      <code id="231" name="land_use_subdiv_ot" required="true" relevant="(land_use = &apos;other_land&apos;) and land_use_subtype_ot = &apos;other_land&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" ui:layoutType="dropdown" list="land_use_subdiv_ot">
+        <label type="instance">Land Use Subdiv (OT)</label>
+      </code>
+      <code id="232" name="land_use_subtype_nd" required="true" relevant="land_use = &apos;no_data&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_use_subtype_nd">
+        <label type="instance">Land Use Subtype (ND)</label>
+      </code>
+      <code id="233" name="land_use_subdiv_nd" required="true" relevant="(land_use = &apos;no_data&apos;) and land_use_subtype_nd = &apos;no_data&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_use_subdiv_nd">
+        <label type="instance">Land Use Subdiv (ND)</label>
+      </code>
+      <code id="234" name="canopy_cover" required="true" relevant="land_use = &apos;forest_land&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" ui:layoutType="dropdown" list="canopy_cover">
+        <label type="instance">Canopy Cover (%)</label>
+      </code>
+      <code id="235" name="canopy_cover_accuracy" required="true" relevant="(land_use = &apos;forest_land&apos;) and not(idm:blank(canopy_cover))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_accuracy">
+        <label type="instance">Canopy Cover Accuracy</label>
+      </code>
+      <code id="236" name="human_impact_type" required="true" relevant="land_use = &apos;forest_land&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="human_impact_type">
+        <label type="instance">Human Impact Type</label>
+      </code>
+      <code id="237" name="human_impact_accuracy" required="true" relevant="(land_use = &apos;forest_land&apos;) and not(idm:blank(human_impact_type))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="human_impact_accuracy">
+        <label type="instance">Human Impact Accuracy</label>
+      </code>
+      <code id="238" name="human_impact_grade" required="true" relevant="(land_use = &apos;forest_land&apos;) and not(idm:blank(human_impact_type))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" ui:layoutType="dropdown" list="human_impact_grade">
+        <label type="instance">Human Impact Grade</label>
+      </code>
+      <code id="239" name="human_impact_year" required="true" relevant="(land_use = &apos;forest_land&apos;) and not(idm:blank(human_impact_type))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" ui:layoutType="dropdown" list="human_impact_year">
+        <label type="instance">Human Impact Year</label>
+      </code>
+      <code id="240" name="satellite_image" required="true" ui:tab="survey_tab" list="satellite_image">
+        <label type="instance">Satellite Image</label>
+      </code>
+    </entity>
+  </schema>
+</survey>

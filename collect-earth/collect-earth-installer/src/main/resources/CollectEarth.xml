@@ -1,0 +1,87 @@
+<project>
+	<shortName>CollectEarth</shortName>
+	<fullName>Collect Earth</fullName>
+	<version>PROJECT_VERSION</version>
+	<installerFilename>${product_shortname}-${product_version}-${platform_name}-installer.${platform_exec_suffix}</installerFilename>
+	<readmeFile>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/README.txt</readmeFile>
+	<licenseFile>COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/License.txt</licenseFile>
+	<leftImage>installer_left_panel.png</leftImage>
+	<logoImage>installer_logo.png</logoImage>
+	<splashImage>installer_splash.png</splashImage>
+	<wmImage>installer_logo.png</wmImage>
+	<defaultLanguage>auto</defaultLanguage>
+	<allowLanguageSelection>1</allowLanguageSelection>
+	<languageSelectionStyle>onlyNativeNames</languageSelectionStyle>
+	<requireInstallationByRootUser>0</requireInstallationByRootUser>
+	<requestedExecutionLevel>asInvoker</requestedExecutionLevel>
+
+	<!--  Max OS X stuff -->
+	<createOsxBundleDmg>1</createOsxBundleDmg>
+	<osxPlatforms>osx-intel osx-x86_64 osx-arm64</osxPlatforms>
+	<osxDmgBackgroundImage>installer_logo.png</osxDmgBackgroundImage>
+	<osxDmgTitle>Collect Earth PROJECT_VERSION</osxDmgTitle>
+
+	<componentList>
+		<include>
+			<file>java.xml</file>
+		</include>
+		<!-- The Node.js runtime of the local dashboard, as ${installdir}/node -->
+		<include>
+			<file>node.xml</file>
+		</include>
+		<!-- The local dashboard that Node runs, as ${installdir}/dashboard -->
+		<include>
+			<file>dashboard.xml</file>
+		</include>
+		<include>
+			<file>CollectEarthMain.xml</file>
+		</include>
+	</componentList>
+	<allowedLanguages>en es fr pt</allowedLanguages>
+	<!-- The installation stopped after java.xml set the old JRE aside: it goes back, in place of whatever of the
+	     new one was copied, or the installation would be left with no Java (there is no rollback) -->
+	<installationAbortedActionList>
+		<actionGroup>
+			<actionList>
+				<deleteFile path="${installdir}/java" abortOnError="0" showMessageOnError="0" />
+				<renameFile origin="${installdir}/java.old" destination="${installdir}/java" abortOnError="0" />
+			</actionList>
+			<ruleList>
+				<fileExists path="${installdir}/java.old" />
+			</ruleList>
+		</actionGroup>
+		<!-- The same for the Node.js that node.xml set aside -->
+		<actionGroup>
+			<actionList>
+				<deleteFile path="${installdir}/node" abortOnError="0" showMessageOnError="0" />
+				<renameFile origin="${installdir}/node.old" destination="${installdir}/node" abortOnError="0" />
+			</actionList>
+			<ruleList>
+				<fileExists path="${installdir}/node.old" />
+			</ruleList>
+		</actionGroup>
+		<!-- And for the dashboard that dashboard.xml set aside -->
+		<actionGroup>
+			<actionList>
+				<deleteFile path="${installdir}/dashboard" abortOnError="0" showMessageOnError="0" />
+				<renameFile origin="${installdir}/dashboard.old" destination="${installdir}/dashboard" abortOnError="0" />
+			</actionList>
+			<ruleList>
+				<fileExists path="${installdir}/dashboard.old" />
+			</ruleList>
+		</actionGroup>
+	</installationAbortedActionList>
+	<compressionAlgorithm>lzma</compressionAlgorithm>
+	<defaultUnixDirectoryPermissions>777</defaultUnixDirectoryPermissions>
+	<defaultUnixFilePermissions>777</defaultUnixFilePermissions>
+	<defaultUnixOwner>${system_username}</defaultUnixOwner>
+	<enableDebugger>1</enableDebugger>
+	<enableRollback>0</enableRollback>
+	<enableTimestamp>1</enableTimestamp>
+	<saveRelativePaths>1</saveRelativePaths>
+	<splashScreenDelay>1000</splashScreenDelay>
+	<vendor>Open Foris Initiative</vendor>
+	<windowsExecutableIcon>installer_icon.ico</windowsExecutableIcon>
+	<!-- Configures the final destination of the installation log -->
+	<installationLogFile>${installdir}/${project.shortName}-installLog.log</installationLogFile>
+</project>

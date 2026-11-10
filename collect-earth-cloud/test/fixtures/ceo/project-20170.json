@@ -1,0 +1,236 @@
+{
+ "allowDrawnSamples": false,
+ "aoiFeatures": [
+  {
+   "coordinates": [
+    [
+     [
+      80.121646813,
+      26.375297979
+     ],
+     [
+      80.121646813,
+      29.087766224
+     ],
+     [
+      88.143497702,
+      29.087766224
+     ],
+     [
+      88.143497702,
+      26.375297979
+     ],
+     [
+      80.121646813,
+      26.375297979
+     ]
+    ]
+   ],
+   "type": "Polygon"
+  }
+ ],
+ "aoiFileName": "",
+ "availability": "published",
+ "boundary": "{\"type\":\"Polygon\",\"coordinates\":[[[80.121646813,26.375297979],[80.121646813,29.087766224],[88.143497702,29.087766224],[88.143497702,26.375297979],[80.121646813,26.375297979]]]}",
+ "closedDate": "",
+ "createdDate": "2021-02-04",
+ "description": "Nepal - Degradation Plot Review",
+ "designSettings": {
+  "qaqcAssignment": {
+   "percent": 0,
+   "qaqcMethod": "none",
+   "smes": [],
+   "timesToReview": 2
+  },
+  "sampleGeometries": {
+   "lines": true,
+   "points": true,
+   "polygons": true
+  },
+  "userAssignment": {
+   "percents": [],
+   "userMethod": "none",
+   "users": []
+  }
+ },
+ "hasGeoDash": true,
+ "id": 20170,
+ "imageryId": 1318,
+ "institution": 3,
+ "isProjectAdmin": false,
+ "learningMaterial": null,
+ "name": "Nepal - Degradation Plot Review",
+ "numPlots": 266,
+ "plotDistribution": "csv",
+ "plotFileName": null,
+ "plotShape": "square",
+ "plotSimilarityDetails": {
+  "referencePlotId": null,
+  "years": null
+ },
+ "plotSize": 30.0,
+ "plotSpacing": -1.0,
+ "privacyLevel": "public",
+ "projectOptions": {
+  "autoLaunchGeoDash": true,
+  "collectConfidence": false,
+  "showGEEScript": true,
+  "showPlotInformation": false
+ },
+ "publishedDate": "2021-02-04",
+ "referencePlotId": null,
+ "sampleDistribution": "center",
+ "sampleFileName": null,
+ "sampleResolution": -1.0,
+ "samplesPerPlot": 1,
+ "shufflePlots": null,
+ "surveyQuestions": {
+  "1": {
+   "answers": {
+    "1": {
+     "answer": "Stable Forest",
+     "color": "#309152"
+    },
+    "2": {
+     "answer": "Stable Non-Forest",
+     "color": "#a3a4ae"
+    },
+    "3": {
+     "answer": "Degradation",
+     "color": "#f6c513"
+    },
+    "4": {
+     "answer": "Deforestation",
+     "color": "#f4511a"
+    },
+    "5": {
+     "answer": "Other",
+     "color": "#000000"
+    }
+   },
+   "cardOrder": 1,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Visible_strata"
+  },
+  "2": {
+   "answers": {
+    "1": {
+     "answer": "yes",
+     "color": "#1527f6"
+    },
+    "2": {
+     "answer": "no",
+     "color": "#e6e6e6"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": 1,
+   "question": "Mixed?"
+  },
+  "3": {
+   "answers": {
+    "1": {
+     "answer": "Stable Forest",
+     "color": "#5d9054"
+    },
+    "2": {
+     "answer": "Stable Non-Forest",
+     "color": "#a3a4ae"
+    },
+    "3": {
+     "answer": "Degradation",
+     "color": "#e7c423"
+    },
+    "4": {
+     "answer": "Deforestation",
+     "color": "#d15419"
+    },
+    "5": {
+     "answer": "Other",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 2,
+   "question": "Secondary _visible_strata"
+  },
+  "4": {
+   "answers": {
+    "1": {
+     "answer": "High",
+     "color": "#13f640"
+    },
+    "2": {
+     "answer": "Medium ",
+     "color": "#1527f6"
+    },
+    "3": {
+     "answer": "Low",
+     "color": "#f61313"
+    }
+   },
+   "cardOrder": 4,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Confidence "
+  },
+  "5": {
+   "answers": {
+    "1": {
+     "answer": "Notes",
+     "color": "#1527f6"
+    }
+   },
+   "componentType": "input",
+   "dataType": "text",
+   "parentAnswerIds": [
+    5
+   ],
+   "parentQuestionId": 1,
+   "question": "Notes or type of 'Other':"
+  },
+  "6": {
+   "answers": {
+    "1": {
+     "answer": "Notes",
+     "color": "#1527f6"
+    }
+   },
+   "componentType": "input",
+   "dataType": "text",
+   "parentAnswerIds": [
+    5
+   ],
+   "parentQuestionId": 3,
+   "question": "Secondary notes or type of 'Other':"
+  },
+  "7": {
+   "answers": {
+    "1": {
+     "answer": "0",
+     "color": "#1527f6"
+    }
+   },
+   "cardOrder": 7,
+   "componentType": "input",
+   "dataType": "number",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Year disturbed "
+  }
+ },
+ "surveyRules": [],
+ "type": "regular",
+ "userRole": null
+}

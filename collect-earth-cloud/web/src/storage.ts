@@ -4,6 +4,7 @@
 
 const TOKEN_KEY = "collectEarthCloud.session";
 const LANGUAGE_KEY = "collectEarthCloud.language";
+const ANNOUNCEMENT_KEY = "collectEarthCloud.announcementDismissed";
 
 function read(key: string): string | null {
   try {
@@ -39,4 +40,24 @@ export function getStoredLanguage(): string | null {
 
 export function storeLanguage(language: string): void {
   write(LANGUAGE_KEY, language);
+}
+
+/** The announcement this browser dismissed (announcementKey), or null. */
+export function getDismissedAnnouncement(): string | null {
+  return read(ANNOUNCEMENT_KEY);
+}
+
+export function storeDismissedAnnouncement(key: string): void {
+  write(ANNOUNCEMENT_KEY, key);
+}
+
+// The analysis page's saved views, per project, in this browser (src/analysisView.ts reads them).
+const ANALYSIS_VIEWS_KEY = "collectEarthCloud.analysisViews.";
+
+export function getAnalysisViews(projectId: string): string | null {
+  return read(ANALYSIS_VIEWS_KEY + projectId);
+}
+
+export function storeAnalysisViews(projectId: string, text: string | null): void {
+  write(ANALYSIS_VIEWS_KEY + projectId, text);
 }

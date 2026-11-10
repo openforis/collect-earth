@@ -36,6 +36,8 @@ export function localPage(route: Route, projectId: string | null): { kind: "rout
       return isLocalTab(route.tab) ? { kind: "route", route } : progress(route.projectId);
     case "plot":
     case "weekly":
+    case "analysis":
+    case "uncertainty":
     case "notFound":
       return { kind: "route", route };
     case "plotFile":
@@ -147,7 +149,7 @@ export function weeklyBlocks(localMode: boolean): readonly ("progress" | "people
 
 // --- Settings -----------------------------------------------------------------------
 
-export type SettingsCard = "rename" | "progress" | "shareLinks" | "ai" | "delete";
+export type SettingsCard = "rename" | "status" | "progress" | "shareLinks" | "ai" | "copy" | "delete";
 
 /**
  * The Settings tab's cards. Alone: the progress settings (where the forecast's deadline and target
@@ -155,7 +157,7 @@ export type SettingsCard = "rename" | "progress" | "shareLinks" | "ai" | "delete
  * are off in this mode.
  */
 export function settingsCards(localMode: boolean): readonly SettingsCard[] {
-  return localMode ? ["progress"] : ["rename", "progress", "shareLinks", "ai", "delete"];
+  return localMode ? ["progress"] : ["rename", "status", "progress", "shareLinks", "ai", "copy", "delete"];
 }
 
 // --- One plot's page ----------------------------------------------------------------

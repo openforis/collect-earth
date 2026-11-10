@@ -1,3 +1,5 @@
+import { twoFactorKey } from '../twoFactor.js';
+import { checkSecondStep, twoFactorEnabled } from './twoFactor.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { bearerToken } from '../auth.js';
 import { hashPassword, verifyPassword } from '../password.js';
@@ -18,6 +20,13 @@ interface RegisterBody {
 interface LoginBody {
   username?: string;
   password?: string;
+  /** The second step, for an account with two-step sign-in: the authenticator app's code, or a recovery code. */
+  code?: string;
+  /**
+   * An invitation taken by someone who already has an account (Collect Earth: Join cloud project, then Log in): its
+   * project is added to theirs, as register adds it to a new account's.
+   */
+  inviteToken?: string;
 }
 
 interface PasswordChangeBody {
@@ -81,7 +90,19 @@ export async function registerAuthRoutes(
   counters?: ServerCounters,
   /** Filled in by the mail routes (registered later): the notice mailed after a password change. */
   accountMail?: AccountMailHooks,
+  /** The key two-step sign-in's secrets are encrypted with (src/twoFactor.ts). */
+  twoFactorKeyBuf: Buffer = twoFactorKey({}),
+  /** Wrong passwords for one account from every address together (server.ts, ACCOUNT_LOGIN_FAILURES). */
+  accountFailures?: RateLimiter,
 ): Promise<void> {
+  // An unknown username is checked against a password hash all the same, so that its answer
+  // takes as long as a wrong password's and does not tell that the username is free.
+  let dummyHash: Promise<string> | null = null;
+  const unknownUser = async (password: string): Promise<void> => {
+    dummyHash ??= hashPassword(`no account ${Math.random()}`);
+    await verifyPassword(password, await dummyHash);
+  };
+
   app.post('/v1/auth/register', { preHandler: limiter.guard('register') }, async (request: FastifyRequest, reply: FastifyReply) => {
     const body = (request.body ?? {}) as RegisterBody;
     const username = (body.username ?? '').trim();
@@ -91,14 +112,23 @@ export async function registerAuthRoutes(
       return reply.code(400).send({ error: 'bad_request', reason: 'username, password and inviteToken are required' });
     }
 
-    // Fast pre-check so an obvious duplicate does not consume an invite use.
-    if (await store.getUserByUsername(username)) {
-      return reply.code(409).send({ error: 'username_taken' });
+    // The password rule of the dashboard's accounts applies to an invitation's too (security review,
+    // 2026-11): collectors' accounts reach their project's records and plot files. Collect Earth
+    // shows the reason when it refuses.
+    const weak = checkPassword(password);
+    if (weak) {
+      return reply.code(400).send(weak);
     }
+    // The invitation first: whether a username is taken is said only to someone holding a valid
+    // one, not to anyone asking with a made-up token.
     const invite = await store.getInvite(inviteToken);
     // A revoked invite answers exactly like an unknown one.
     if (!invite || invite.revoked) {
       return reply.code(400).send({ error: 'invalid_invite' });
+    }
+    // Fast pre-check so an obvious duplicate does not consume an invite use.
+    if (await store.getUserByUsername(username)) {
+      return reply.code(409).send({ error: 'username_taken' });
     }
     // Atomic gate: one use per successful registration. On a lost dup race below we
     // over-consume by one use (admin can raise max_uses); we never orphan a user.
@@ -140,13 +170,18 @@ export async function registerAuthRoutes(
     // Failed logins are counted per account and client IP: guessing from one place
     // stops, while someone else's wrong guesses never lock the real user out.
     const failureKey = `${username.toLowerCase()} ${request.ip}`;
-    if (loginFailures.blocked(failureKey)) {
+    // ...and per account from every address together, at a higher limit: many addresses, each under
+    // its own limit, guessing one account (a temporary lock of that account on this instance)
+    const accountKey = username.toLowerCase();
+    if (loginFailures.blocked(failureKey) || accountFailures?.blocked(accountKey)) {
       counters?.count('rateLimited');
       return reply.code(429).header('retry-after', '60').send(RATE_LIMITED);
     }
     const user = await store.getUserByUsername(username);
+    if (!user) await unknownUser(password);
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
       loginFailures.hit(failureKey);
+      accountFailures?.hit(accountKey);
       counters?.count('failedLogin');
       return reply.code(401).send({ error: 'invalid_credentials' });
     }
@@ -154,8 +189,38 @@ export async function registerAuthRoutes(
     if (user.disabledAt) {
       return reply.code(403).send(ACCOUNT_DISABLED);
     }
+    // Two-step sign-in: the password was right; without a code, say a code is needed (the dashboard and Collect Earth
+    // then ask for it and send both again); a wrong code counts as a failed login, as a wrong password does
+    if (await twoFactorEnabled(store, user.id)) {
+      const code = typeof body.code === 'string' ? body.code : '';
+      if (!code.trim()) return reply.code(401).send({ error: 'second_step_required' });
+      const check = await checkSecondStep(store, twoFactorKeyBuf, user.id, code);
+      if (check !== 'ok') {
+        loginFailures.hit(failureKey);
+        accountFailures?.hit(accountKey);
+        counters?.count('failedLogin');
+        return reply.code(401).send({ error: check === 'unreadable' ? 'second_step_unreadable' : 'invalid_second_step' });
+      }
+    }
+    // An invitation with the login: its project joins the account's, with the invitation's role and one of its uses,
+    // as register does for a new account. Checked once the password (and code) were right, so only someone who
+    // could sign in learns whether a link is good. A member already keeps their role, and the link is not used up
+    // (a coordinator's link to bring a member the new project file).
+    const inviteToken = typeof body.inviteToken === 'string' ? body.inviteToken.trim() : '';
+    let joined: { projectId: string; projectName: string; role: string } | null = null;
+    if (inviteToken) {
+      const invite = await store.getInvite(inviteToken);
+      if (!invite || invite.revoked) return reply.code(400).send({ error: 'invalid_invite' });
+      const memberships = await store.listMemberships(user.id);
+      const member = memberships.find((m) => m.projectId === invite.projectId);
+      if (!member) {
+        if (!(await store.consumeInvite(inviteToken, Date.now()))) return reply.code(410).send({ error: 'invite_exhausted' });
+        await store.addMembership(invite.projectId, user.id, invite.role);
+      }
+      joined = { projectId: invite.projectId, projectName: invite.projectName, role: member ? member.role : invite.role };
+    }
     const token = await store.createSession(user.id);
-    return reply.send({ token, userId: user.id, username: user.username });
+    return reply.send({ token, userId: user.id, username: user.username, ...(joined ?? {}) });
   });
 
   app.post(
@@ -170,6 +235,19 @@ export async function registerAuthRoutes(
     },
   );
 
+  // Sign out everywhere else: every other session of the account ends (a laptop lost, a computer shared), this one stays.
+  app.post(
+    '/v1/auth/logout-others',
+    { preHandler: requireSession(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const token = bearerToken(request.headers.authorization);
+      if (token) {
+        await store.deleteUserSessionsExcept(request.userId!, token);
+      }
+      return reply.code(204).send();
+    },
+  );
+
   app.get(
     '/v1/me',
     { preHandler: requireSession(store) },
@@ -179,11 +257,19 @@ export async function registerAuthRoutes(
         return reply.code(401).send({ error: 'unauthorized' });
       }
       const memberships = await store.listMemberships(user.id);
+      const enabled = await twoFactorEnabled(store, user.id);
+      const settings = await store.getSettings();
+      const required = settings.twoFactorForCoordinators && (user.isPlatformAdmin || memberships.some((m) => m.role === 'admin'));
       return reply.send({
         userId: user.id,
         username: user.username,
         isPlatformAdmin: user.isPlatformAdmin,
         memberships,
+        twoFactor: { enabled, required },
+        // The server owner's announcement, while it lasts (the dashboard lets each person dismiss it).
+        announcement: settings.announcement && (settings.announcementUntil === null || settings.announcementUntil > Date.now())
+          ? { text: settings.announcement, until: settings.announcementUntil }
+          : null,
       });
     },
   );

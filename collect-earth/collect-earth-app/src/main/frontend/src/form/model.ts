@@ -40,6 +40,26 @@ export interface TableItem {
   description?: string;
   columns: { label: string; description?: string }[];
   rows: { code: string; label: string; description?: string; fields: Field[] }[];
+  /** columns a check of the survey adds up, shown as a total under the table */
+  totals?: TableTotal[];
+}
+
+/** What a check asks of a column's sum, e.g. sum(parent()/land_cover/percentage) >= 90 */
+export interface TotalRule { op: ">=" | "<=" | ">" | "<" | "=" | "!="; value: number; flag: "error" | "warning" }
+
+/**
+ * A column of a table that a check of the survey adds up (SurveyFormModelBuilder.columnTotals): its value in each
+ * row (`fields`, also for a hidden column, whose values come back from the server) and the rules on the sum.
+ */
+export interface TableTotal {
+  label: string;
+  /** not a column of the table (a percentage calculated from a coverage class) */
+  hidden?: boolean;
+  /** worked out by the server: up to date once a save has answered */
+  calculated?: boolean;
+  unit?: string;
+  fields: string[];
+  rules: TotalRule[];
 }
 /** Entities the operator adds: field names hold "$index" (1, 2, ...) */
 export interface MultipleItem { kind: "multiple"; entity: string; label: string; description?: string; fields: Field[] }
@@ -250,6 +270,17 @@ export function mergeInfos(known: Record<string, FieldInfo>, response: LoadResul
 }
 
 /** A field the server has not reported on yet is shown; one it says is not relevant is hidden. */
+/**
+ * The fields of a table's column that "Every row…" fills: one per row where the column is shown and answerable (a single
+ * choice, not read-only nor calculated); null when the column is not a choice column (nothing to offer).
+ */
+export function columnFillTargets(item: TableItem, column: number, infos: Record<string, FieldInfo>): Field[] | null {
+  const fields = item.rows.map((r) => r.fields[column]).filter((f): f is Field => !!f);
+  const choice = (f: Field) => !!f.code && !f.multiple && !f.readOnly && !f.calculated;
+  if (fields.length < 2 || !fields.every(choice)) return null;
+  return fields.filter((f) => isVisible(infos, f.name));
+}
+
 export function isVisible(infos: Record<string, FieldInfo>, name: string): boolean {
   return infos[name]?.visible !== false;
 }
@@ -418,6 +449,8 @@ export interface StepQuestion {
   byKey: boolean;
   /** an answer is needed (required) and none is given yet */
   needed: boolean;
+  /** no answer given yet, needed or not */
+  empty?: boolean;
 }
 
 export interface Step { tab: number; questions: StepQuestion[] }
@@ -478,6 +511,40 @@ export function advanceTarget(steps: Step[], tab: number, from: string | null): 
     if (first) return { tab: other.tab, name: first.name };
   }
   return { tab, name: null };
+}
+
+/**
+ * Whether a step is done with: nothing on it in error (a required question left empty is one), and every question on it
+ * answered with a click or a key (a choice, Yes or No) answered, optional ones too, since one left empty may not have
+ * been seen yet. A text, a number or a comment left empty and optional does not hold the step open.
+ */
+export function stepComplete(step: Step, errorTabs: ReadonlySet<number>): boolean {
+  return !errorTabs.has(step.tab) && !step.questions.some((q) => q.byKey && q.empty);
+}
+
+/**
+ * What follows an answer on step `tab`, once the server said what is shown: the step to go to (its tab) when this one is
+ * done with (see stepComplete) and a step after it is not; "submit" when this one is done with, those after it too, and
+ * nothing anywhere is in error; null to stay on the step. Never back to a step before it: the steps go forward only.
+ */
+export function stepAfterAnswer(steps: Step[], tab: number, errorTabs: ReadonlySet<number>): number | "submit" | null {
+  const at = steps.findIndex((s) => s.tab === tab);
+  if (at < 0 || !stepComplete(steps[at], errorTabs)) return null;
+  const next = steps.slice(at + 1).find((s) => !stepComplete(s, errorTabs));
+  if (next) return next.tab;
+  return errorTabs.size === 0 ? "submit" : null;
+}
+
+/**
+ * Where the focus goes when a plot opens on step `tab`, or null for nowhere: on that step's first question needed that
+ * is answered from the keyboard; when it has none but another step needs one, on its step button, for Enter to go on.
+ * Never on another step: a plot always opens on its first step, also when its questions are optional (a table of
+ * coverages, for instance), and the user reads it before going on. Nowhere when nothing is needed (see advanceTarget).
+ */
+export function openingTarget(steps: Step[], tab: number): FocusTarget | null {
+  const target = advanceTarget(steps, tab, null);
+  if (target.name == null) return null;
+  return target.tab === tab ? target : { tab, name: null };
 }
 
 /**
@@ -597,4 +664,46 @@ export function errorsByTab(errors: FieldError[]): Record<number, number> {
 export function summaryLines(found: FieldError[], now: FieldError[]): { error: FieldError; fixed: boolean }[] {
   const left = new Map(now.map((e) => [e.field.name, e]));
   return found.map((e) => ({ error: left.get(e.field.name) ?? e, fixed: !left.has(e.field.name) }));
+}
+
+// ---------- table totals ----------
+
+/** The sum of a column, from what each row holds now; a row with no number (blank, or being typed) counts as nothing */
+export function columnTotal(total: TableTotal, value: (name: string) => string): { sum: number; any: boolean } {
+  let sum = 0;
+  let any = false;
+  for (const name of total.fields) {
+    const text = normalizeNumber(value(name) ?? "");
+    if (text === "" || numberProblem("real", text)) continue;
+    sum += Number(text);
+    any = true;
+  }
+  // 0.1 + 0.2 shown as 0.3
+  return { sum: Math.round(sum * 1e6) / 1e6, any };
+}
+
+/** Within rounding of the numbers added up */
+const CLOSE = 1e-6;
+
+export function ruleMet(rule: TotalRule, sum: number): boolean {
+  switch (rule.op) {
+    case ">=": return sum >= rule.value - CLOSE;
+    case "<=": return sum <= rule.value + CLOSE;
+    case ">": return sum > rule.value + CLOSE;
+    case "<": return sum < rule.value - CLOSE;
+    case "=": return Math.abs(sum - rule.value) <= CLOSE;
+    case "!=": return Math.abs(sum - rule.value) > CLOSE;
+  }
+}
+
+/**
+ * How far the sum is from a rule it breaks, to say "15 to go" or "5 too many": positive to add, negative to take
+ * away, null when it is met or no amount says it (more than, less than, not).
+ */
+export function totalGap(rule: TotalRule, sum: number): number | null {
+  if (ruleMet(rule, sum)) return null;
+  switch (rule.op) {
+    case ">=": case "<=": case "=": return Math.round((rule.value - sum) * 1e6) / 1e6;
+    default: return null;
+  }
 }

@@ -36,6 +36,7 @@ packages. For day-to-day work the scripts at the root of this folder do only wha
 | `dev-build java` | the same without the web UI (`-Dskip.npm`), for Java-only changes |
 | `dev-build clean` | cleans first: after deleting or renaming source files, or switching branch |
 | `dev-run [viewer]` | starts the built jar from `collect-earth-app` (where it must run), with the viewer chosen: `google_earth_web` (default), `plots_map` or `google_earth_pro`; on JDK 19+ it keeps a class-data sharing archive (`target/CollectEarth.jsa`) that makes later starts load classes faster |
+| `dev-dashboard` | builds the local dashboard from `../collect-earth-cloud` with the web UI's Node and puts it in `collect-earth-app/target/dashboard`, which the development builds never fill; run it once, again after the cloud's code changes or a `dev-build clean`, then restart Collect Earth |
 | `dev-web [port]` | live editing of the plots map and web form: Vite at http://localhost:5180/map.html (or the port given), talking to the running Collect Earth, reloading on save, with no Maven build and no restart |
 
 They need a JDK (`setx CE_JDK C:\path\to\jdk`, else `JAVA_HOME`). Close Collect Earth before
@@ -256,12 +257,14 @@ working folder.
 - **Never an installer without it:** `check-dashboard` (`collect-earth-installer`, `assembly` profile, at
   `initialize`) stops the build when `collect-earth-app/target/dashboard` lacks `server.mjs`, `qualityWorker.mjs` or
   `web/index.html`, also for `-rf :collect-earth-installer`.
-- **`dashboard.xml`** (InstallBuilder), included by `CollectEarthWithSaiku.xml` and by every updater
+- **`dashboard.xml`** (InstallBuilder), included by `CollectEarth.xml` and by every updater
   (`CollectEarthUpdater.xml`), since it changes with the cloud's code: it installs the folder whole, the same files on
   every platform. As `node.xml` does, it renames the old `dashboard` to `dashboard.old` before copying (the web app's
   asset names change at each build, so nothing stale stays), stops if that fails, puts it back if the installation is
   cancelled (`installationAbortedActionList` of both projects) and deletes it afterwards.
-- **Size:** about 2.7 MB of server and 2.6 MB of web app on disk, about 1.5 MB in the installer (xz -9).
+- **Size:** about 2.7 MB of server and 44 MB of web app on disk, most of it the analysis page's DuckDB-WASM (36 MB)
+  and Perspective (5 MB), loaded only when that page opens; about 11 MB in the installer (xz). The build's `.gz` copies are left out
+  (`copy-dashboard-web`).
 
 #### Recovering a `release:perform` that failed during the upload
 
@@ -427,6 +430,12 @@ Because it is not shipped, its dependencies (Hibernate, the JDBC drivers) lag be
 
 The plots map (used instead of Google Earth Pro when `viewer_type` is `plots_map` or `google_earth_web`) is a React + MUI + Vite app in `collect-earth-app/src/main/frontend`. The same app is the main window of Collect Earth: its app bar has the menus (Project, Data, Tools, Utilities, Settings, Help), and with the Google Earth Pro viewer it opens on a home page instead of the map (`map.html?home`). The pages call the JSON API under `/earth/api` (`server.api`), which runs the long actions as jobs (`service.jobs`) and passes the server's messages to them as notices (`service.notices`); `docs/plans/2026-10-28-html-ui-design.md` describes it. The `collect-earth-app` Maven build compiles it into `target/classes/leafletmap` via `frontend-maven-plugin` (skip with `-Dskip.npm`); `LeafletMapController` serves it at `/earth/map`. The data entry form next to the map (`/earth/form`, a second page of the same app) is generated at runtime from the survey by `SurveyFormModelBuilder` / `SurveyFormController` (`/surveyForm`), and saves through the balloon endpoints; `web_form=balloon` brings back the CEP balloon. See that folder's README for `npm run dev` / `npm test`.
 
+**One look with the dashboard.** The theme values (colours, shape, type, component defaults, the app bar) and the
+Collect Earth logo live in `collect-earth-cloud/web/src/shared/` (`collectEarthTheme.ts`, `collect-earth-logo.png`), which
+this frontend imports as `@shared` (an alias in `vite.config.ts` and `tsconfig.json`): the dashboard's Docker build sees
+only `collect-earth-cloud`, so the shared files are there. `collectEarthTheme.ts` imports nothing, MUI included; each
+app passes its values to `createTheme` with its own MUI. A change there changes both apps.
+
 ## Spring Configuration
 
 - **Runtime Generation**: `applicationContext.xml` is generated at startup from `resources/applicationContext.fmt` template
@@ -441,7 +450,7 @@ The application supports dual database configurations with automatic fallback:
 - **Primary**: PostgreSQL (configurable via `LocalPropertiesService`: host, port, dbname, username, password)
 - **Fallback**: SQLite (automatic if PostgreSQL unreachable)
 - **Connection Test**: `ServerController.isPostgreSQLReachable()` checks connectivity before server start
-- **Multiple Databases**: Main DB + Saiku analysis DB + IPCC analysis DB (for SQLite, suffixes added to filename)
+- **Multiple Databases**: Main DB + IPCC analysis DB (for SQLite, a suffix added to the filename)
 
 Database configuration stored in: `${collectEarth.userFolder}/earth.properties`
 

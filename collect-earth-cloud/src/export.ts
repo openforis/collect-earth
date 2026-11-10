@@ -47,19 +47,35 @@ export function recordsCsv(
   referenceOf: ReferenceOf = () => false,
   leaveOut: ReadonlySet<string> = new Set(),
 ): string {
-  const rows = records
+  const { columns, rows } = recordsTable(records, roundOf, finalOf, referenceOf, leaveOut);
+  const lines = [columns, ...rows].map((fields) => fields.map(csvField).join(','));
+  return `﻿${lines.join('\r\n')}\r\n`;
+}
+
+/** The export's columns and rows, raw (before recordsCsv quotes them): also the map exports' attributes. */
+export interface RecordsTable {
+  columns: string[];
+  rows: string[][];
+}
+
+/** What recordsCsv writes, as columns and rows of raw values. */
+export function recordsTable(
+  records: RecordRow[],
+  roundOf: RoundOf,
+  finalOf: FinalOf = () => '',
+  referenceOf: ReferenceOf = () => false,
+  leaveOut: ReadonlySet<string> = new Set(),
+): RecordsTable {
+  const kept = records
     .filter((r) => !r.deleted)
     .sort((a, b) => compare(a.recordKey, b.recordKey) || compare(a.operator, b.operator));
-  const summaryKeys = [...new Set(rows.flatMap((r) => Object.keys(r.summary)))].filter((k) => !leaveOut.has(k)).sort(compare);
-
-  const lines = [[...FIXED_COLUMNS, ...summaryKeys].map(csvField).join(',')];
-  for (const r of rows) {
+  const summaryKeys = [...new Set(kept.flatMap((r) => Object.keys(r.summary)))].filter((k) => !leaveOut.has(k)).sort(compare);
+  const rows = kept.map((r) => {
     const { plot, round, assessment } = roundOf(r);
     const fixed = [r.recordKey, plot, round, assessment, finalOf(r), referenceOf(r) ? 'yes' : '', r.operator, String(r.activelySaved), new Date(r.modifiedOn).toISOString()];
-    const summary = summaryKeys.map((k) => r.summary[k] ?? '');
-    lines.push([...fixed, ...summary].map(csvField).join(','));
-  }
-  return `﻿${lines.join('\r\n')}\r\n`;
+    return [...fixed, ...summaryKeys.map((k) => r.summary[k] ?? '')];
+  });
+  return { columns: [...FIXED_COLUMNS, ...summaryKeys], rows };
 }
 
 export function csvField(raw: string): string {

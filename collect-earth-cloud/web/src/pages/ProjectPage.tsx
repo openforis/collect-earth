@@ -1,19 +1,24 @@
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
+import ChevronLeft from "@mui/icons-material/ChevronLeft";
 import Forest from "@mui/icons-material/Forest";
 import { lazy, Suspense, useEffect, useRef } from "react";
-import { ApiError, getProject } from "../api";
+import { ApiError, getProject, type ProjectStatus } from "../api";
 import { useLocalMode } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { PlotSearchBox } from "../components/PlotSearchBox";
+import { ProjectNav } from "../components/ProjectNav";
 import { useT } from "../i18n";
 import { AttentionBell } from "../components/AttentionBell";
 import { FileTab } from "../project/FileTab";
@@ -25,7 +30,8 @@ import { linkProps, navigate, pathFor, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 
 // Each tab is loaded when first opened (the map and the charts are most of the code).
-const TrainingFigures = lazy(() => import("../components/TrainingFigures").then((m) => ({ default: m.TrainingFigures })));
+const TrainingFigures = lazy(() => import("../components/TrainingFigures").then((m) => ({ default: m.TrainingFigures })));
+
 const TrainingTab = lazy(() => import("../project/TrainingTab").then((m) => ({ default: m.TrainingTab })));
 const ActivityTab = lazy(() => import("../project/ActivityTab").then((m) => ({ default: m.ActivityTab })));
 const DataTab = lazy(() => import("../project/DataTab").then((m) => ({ default: m.DataTab })));
@@ -59,32 +65,56 @@ const TAB_LABELS = {
 /** The tabs a reviewer has. */
 const REVIEWER_TABS = ["progress", "map", "quality", "training"] as const satisfies readonly ProjectTab[];
 
-/** The project's name, with the plot search beside it (coordinators and reviewers), and the bell (coordinators). */
+/**
+ * The project's name, under a link back to the projects (not in the local mode, which has one), with the plot search
+ * beside it (coordinators and reviewers), and the bell (coordinators).
+ */
 function Header({ projectId, name, bell = false }: { projectId: string; name: string; bell?: boolean }) {
+  const t = useT();
+  const local = useLocalMode();
   return (
-    <Box sx={{ mb: 1, display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
-      <Typography
-        variant="h1"
-        title={name}
-        // On a phone a long name takes at most two lines, a little smaller.
-        sx={{
-          wordBreak: "break-word",
-          minWidth: 0,
-          fontSize: { xs: "1.5rem", sm: undefined },
-          display: { xs: "-webkit-box", sm: "block" },
-          WebkitLineClamp: { xs: 2, sm: "unset" },
-          WebkitBoxOrient: "vertical",
-          overflow: { xs: "hidden", sm: "visible" },
-        }}
-      >
-        {name}
-      </Typography>
+    <Box sx={{ mb: 2, display: "flex", gap: 2, flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between" }}>
+      <Box sx={{ minWidth: 0 }}>
+        {!local && (
+          <Link {...linkProps("/")} variant="body2" color="text.secondary" underline="hover" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
+            <ChevronLeft fontSize="small" aria-hidden />
+            {t("nav.projects")}
+          </Link>
+        )}
+        <Typography
+          variant="h1"
+          title={name}
+          // On a phone a long name takes at most two lines, a little smaller.
+          sx={{
+            wordBreak: "break-word",
+            minWidth: 0,
+            fontSize: { xs: "1.5rem", sm: undefined },
+            display: { xs: "-webkit-box", sm: "block" },
+            WebkitLineClamp: { xs: 2, sm: "unset" },
+            WebkitBoxOrient: "vertical",
+            overflow: { xs: "hidden", sm: "visible" },
+          }}
+        >
+          {name}
+        </Typography>
+      </Box>
       {/* On a phone the bell and the search field take a row of their own, the field all its width. */}
       <Box sx={{ display: "flex", gap: 1, alignItems: "center", minWidth: 0, flex: { xs: "1 1 100%", sm: "0 1 auto" }, "& > :last-child": { flex: { xs: 1, sm: "0 1 auto" }, minWidth: 0 } }}>
         {bell && <AttentionBell projectId={projectId} />}
         <PlotSearchBox projectId={projectId} />
       </Box>
     </Box>
+  );
+}
+
+/** Says when the project is not active: a draft takes no records yet, a closed or archived one is read-only. */
+function StatusNote({ status }: { status: ProjectStatus }) {
+  const t = useT();
+  if (status === "active") return null;
+  return (
+    <Alert severity={status === "draft" ? "info" : "warning"} sx={{ mb: 2 }}>
+      <strong>{t(`project.status.${status}`)}</strong> · {t(status === "draft" ? "status.note.draft" : "status.note.closed")}
+    </Alert>
   );
 }
 
@@ -168,12 +198,16 @@ export function ProjectPage({
     return (
       <AppShell>
         <Header projectId={projectId} name={info.name} />
+        <StatusNote status={info.status} />
         <Box sx={{ mb: 3, display: "flex", gap: 1, flexWrap: "wrap" }}>
           <Button variant="outlined" {...linkProps(pathFor({ name: "myWork", projectId }))}>
             {t("myWork.link")}
           </Button>
           <Button variant="outlined" {...linkProps(pathFor({ name: "myQuality", projectId }))}>
             {t("myQuality.link")}
+          </Button>
+          <Button variant="outlined" {...linkProps(pathFor({ name: "analysis", projectId }))}>
+            {t("analysis.title")}
           </Button>
         </Box>
         <Tabs value={tab} onChange={(_, value: ProjectTab) => go(value)} aria-label={t("project.sections")} sx={{ mb: 3, borderBottom: 1, borderColor: "divider" }}>
@@ -192,7 +226,7 @@ export function ProjectPage({
             <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles={false} />
           ) : (
             <Stack spacing={2}>
-              <Typography color="text.secondary">{t("quality.reviewerNote")}</Typography>
+              <Explain text={t("quality.reviewerNote.short")} more={t("quality.reviewerNote")} />
               <ReviewQueue projectId={projectId} canBulk={false} />
               <QualityFlags projectId={projectId} canEdit={false} />
               <QualityAnswers projectId={projectId} teamOnly />
@@ -207,9 +241,13 @@ export function ProjectPage({
   if (info.role !== "admin") {
     return (
       <AppShell>
+        <StatusNote status={info.status} />
         <Paper variant="outlined">
           <EmptyState heading icon={<Forest color="primary" />} title={info.name}>
-            <span style={{ display: "block", marginBottom: 12 }}>{t("member.text", { role: t(`role.${info.role}`) })}</span>
+            <span style={{ display: "block", marginBottom: 12 }}>
+              {t("member.text.short", { role: t(`role.${info.role}`) })}
+              <MoreInfo text={t("member.text", { role: t(`role.${info.role}`) })} />
+            </span>
             <span style={{ display: "block" }}>{t("member.notThere")}</span>
           </EmptyState>
           <Box sx={{ pb: 4, display: "flex", gap: 1, flexWrap: "wrap", justifyContent: "center" }}>
@@ -218,6 +256,9 @@ export function ProjectPage({
             </Button>
             <Button variant="outlined" {...linkProps(pathFor({ name: "myQuality", projectId }))}>
               {t("myQuality.link")}
+            </Button>
+            <Button variant="outlined" {...linkProps(pathFor({ name: "analysis", projectId }))}>
+              {t("analysis.title")}
             </Button>
           </Box>
         </Paper>
@@ -236,37 +277,52 @@ export function ProjectPage({
     quality: plot ? <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles={!local} /> : <QualityTab projectId={projectId} />,
     training: <TrainingTab key={trainingSetId ?? "list"} projectId={projectId} setId={trainingSetId} />,
     activity: <ActivityTab projectId={projectId} />,
-    settings: <SettingsTab projectId={projectId} name={info.name} onRenamed={(name) => project.setData({ ...info, name })} />,
+    settings: (
+      <SettingsTab
+        projectId={projectId}
+        name={info.name}
+        status={info.status}
+        onRenamed={(name) => project.setData({ ...info, name })}
+        onStatus={(status) => project.setData({ ...info, status })}
+      />
+    ),
   }[tab];
 
   return (
     <AppShell wide>
-      <Header projectId={projectId} name={info.name} bell={!local} />
-      <Tabs
-        ref={tabsRef}
-        value={tab}
-        onChange={(_, value: ProjectTab) => go(value)}
-        variant="scrollable"
-        scrollButtons="auto"
-        allowScrollButtonsMobile
-        aria-label={t("project.sections")}
-        sx={{ mb: 3, borderBottom: 1, borderColor: "divider" }}
-      >
-        {projectTabs(local).map((id) => (
-          <Tab
-            key={id}
-            value={id}
-            label={t(TAB_LABELS[id])}
-            id={`tab-${id}`}
-            aria-controls={`panel-${id}`}
-            // On a plot file's page the Plot files tab is already selected: clicking it goes back to the list.
-            onClick={(fileId || personId || plot || trainingSetId) && id === tab ? () => go(id) : undefined}
-          />
-        ))}
-      </Tabs>
-      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
-        <Suspense fallback={<Loading />}>{content}</Suspense>
-      </div>
+      {/* On a desktop the sections are a sidebar (ProjectNav); on smaller screens, the row of tabs */}
+      <Box sx={{ display: "flex", gap: 4 }}>
+        <ProjectNav projectId={projectId} tab={tab} tabs={projectTabs(local)} labels={TAB_LABELS} />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Header projectId={projectId} name={info.name} bell={!local} />
+          <StatusNote status={info.status} />
+          <Tabs
+            ref={tabsRef}
+            value={tab}
+            onChange={(_, value: ProjectTab) => go(value)}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
+            aria-label={t("project.sections")}
+            sx={{ mb: 3, borderBottom: 1, borderColor: "divider", display: { md: "none" } }}
+          >
+            {projectTabs(local).map((id) => (
+              <Tab
+                key={id}
+                value={id}
+                label={t(TAB_LABELS[id])}
+                id={`tab-${id}`}
+                aria-controls={`panel-${id}`}
+                // On a plot file's page the Plot files tab is already selected: clicking it goes back to the list.
+                onClick={(fileId || personId || plot || trainingSetId) && id === tab ? () => go(id) : undefined}
+              />
+            ))}
+          </Tabs>
+          <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+            <Suspense fallback={<Loading />}>{content}</Suspense>
+          </div>
+        </Box>
+      </Box>
     </AppShell>
   );
 }

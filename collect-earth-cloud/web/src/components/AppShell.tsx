@@ -1,3 +1,4 @@
+import Alert from "@mui/material/Alert";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -16,14 +17,17 @@ import Dns from "@mui/icons-material/Dns";
 import FolderOpen from "@mui/icons-material/FolderOpen";
 import Logout from "@mui/icons-material/Logout";
 import Person from "@mui/icons-material/Person";
-import Public from "@mui/icons-material/Public";
 import Translate from "@mui/icons-material/Translate";
 import { useState, type ReactNode } from "react";
+import { collectEarthAppBar } from "../shared/collectEarthTheme";
+import logo from "../shared/collect-earth-logo.png";
+import { announcementKey, shownAnnouncement } from "../announcement";
 import { useApp, useLocalMode } from "../appContext";
+import { getDismissedAnnouncement, storeDismissedAnnouncement } from "../storage";
 import { LANGUAGES, LANGUAGE_NAMES, useT, type Language } from "../i18n";
 import { linkProps, navigate } from "../router";
 
-function LanguageMenu() {
+export function LanguageMenu() {
   const t = useT();
   const { language, setLanguage } = useApp();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -112,6 +116,25 @@ function AccountMenu() {
   );
 }
 
+/** The server owner's announcement, until this person dismisses it (remembered in this browser) or it ends. */
+function AnnouncementBanner() {
+  const t = useT();
+  const { me } = useApp();
+  const [dismissed, setDismissed] = useState(getDismissedAnnouncement);
+  const shown = shownAnnouncement(me?.announcement ?? null, dismissed, Date.now());
+  if (!shown) return null;
+  const dismiss = () => {
+    const key = announcementKey(shown);
+    storeDismissedAnnouncement(key);
+    setDismissed(key);
+  };
+  return (
+    <Alert severity="info" square onClose={dismiss} slotProps={{ closeButton: { "aria-label": t("announcement.dismiss") } }} sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
+      {shown.text}
+    </Alert>
+  );
+}
+
 /** Terms of use and the contact address, when the server administrator set them. */
 function Footer() {
   const t = useT();
@@ -140,6 +163,8 @@ function Footer() {
 const PRINT_STYLES = {
   // Space between the paper's edge and the cards, whatever the browser's own margins.
   "@page": { margin: "15mm 12mm" },
+  // the full explanation of a "more about this" tip (Explain.tsx), which paper cannot show on hover
+  "@media screen": { ".print-only": { display: "none !important" } },
   "@media print": {
     ".MuiAppBar-root, footer, .MuiButton-root, .MuiIconButton-root, .no-print": { display: "none !important" },
     "body, .app-page": { background: "#fff !important" },
@@ -163,15 +188,17 @@ export function AppShell({ children, narrow, bare, wide }: { children: ReactNode
   return (
     <Box className="app-page" sx={{ minHeight: "100vh", bgcolor: "background.default", display: "flex", flexDirection: "column" }}>
       <GlobalStyles styles={PRINT_STYLES} />
-      <AppBar position="sticky" color="primary">
-        <Toolbar sx={{ gap: 1 }}>
+      {/* Collect Earth's app bar (src/shared/collectEarthTheme.ts): light, with its logo */}
+      <AppBar position="sticky" color={collectEarthAppBar.color} elevation={collectEarthAppBar.elevation}>
+        <Toolbar variant="dense" sx={{ gap: 1 }}>
           {bare ? (
-            <Typography component="p" noWrap sx={{ fontSize: "1.1rem", fontWeight: 500, px: 1, mr: "auto", minWidth: 0, display: "flex", alignItems: "center", gap: 1 }}>
-              <Public aria-hidden />
+            <Typography component="p" noWrap sx={{ fontSize: "1rem", fontWeight: 600, mr: "auto", minWidth: 0, display: "flex", alignItems: "center", gap: 1.5 }}>
+              <Box component="img" src={logo} alt="" sx={collectEarthAppBar.logoSx} />
               {name}
             </Typography>
           ) : (
-            <Button color="inherit" {...linkProps("/")} startIcon={<Public />} sx={{ fontSize: "1.1rem", px: 1, mr: "auto", minWidth: 0 }}>
+            <Button color="inherit" {...linkProps("/")} sx={{ fontSize: "1rem", px: 0.5, mr: "auto", minWidth: 0, gap: 1.5 }}>
+              <Box component="img" src={logo} alt="" sx={collectEarthAppBar.logoSx} />
               <Typography component="span" variant="inherit" noWrap>
                 {name}
               </Typography>
@@ -181,7 +208,8 @@ export function AppShell({ children, narrow, bare, wide }: { children: ReactNode
           {!bare && !local && <AccountMenu />}
         </Toolbar>
       </AppBar>
-      <Container component="main" maxWidth={narrow ? "sm" : wide ? "lg" : "md"} sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+      {!bare && <AnnouncementBanner />}
+      <Container component="main" maxWidth={narrow ? "sm" : wide ? "xl" : "md"} sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
         {children}
       </Container>
       <Footer />

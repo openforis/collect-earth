@@ -26,6 +26,7 @@ import Typography from "@mui/material/Typography";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import Delete from "@mui/icons-material/Delete";
 import InsertLink from "@mui/icons-material/Link";
+import Logout from "@mui/icons-material/Logout";
 import WarningAmber from "@mui/icons-material/WarningAmber";
 import { useState, type ReactNode } from "react";
 import {
@@ -34,6 +35,7 @@ import {
   listMembers,
   moveUnfinished,
   removeMember,
+  signOutMember,
   ROLES,
   setMemberRole,
   type Member,
@@ -45,6 +47,7 @@ import {
 } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { CopyField } from "../components/CopyField";
 import { JOIN_MENU_ITEM } from "../components/JoinSteps";
 import { Loading } from "../components/Loading";
@@ -154,9 +157,12 @@ export function ActivitySection({ data, self = false }: { data: PersonData; self
           <Typography variant="h3" gutterBottom>
             {t("person.calendarTitle")}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            {t(self ? "person.calendarExplainSelf" : "person.calendarExplain", { zone: data.timeZone })}
-          </Typography>
+          <Explain
+            variant="body2"
+            sx={{ mb: 1 }}
+            text={t(self ? "person.calendarExplainSelf.short" : "person.calendarExplain.short")}
+            more={t(self ? "person.calendarExplainSelf" : "person.calendarExplain", { zone: data.timeZone })}
+          />
           {data.calendar.length === 0 ? (
             <Typography>{t("person.nothingYet")}</Typography>
           ) : (
@@ -229,9 +235,7 @@ export function SpeedSection({ data }: { data: PersonData }) {
   return (
     <Section title={t("person.speedTitle")} id="person-speed">
       <Stack spacing={1.5}>
-        <Typography variant="body2" color="text.secondary">
-          {t("person.speedExplain")}
-        </Typography>
+        <Explain variant="body2" text={t("person.speedExplain.short")} more={t("person.speedExplain")} />
         {s.gaps === 0 ? (
           <Typography>{t("person.speedNone")}</Typography>
         ) : (
@@ -264,9 +268,7 @@ export function SpeedSection({ data }: { data: PersonData }) {
               }
               table={<ValuesTable head={[t("person.gapColumn"), t("person.timesColumn")]} rows={s.buckets.map((b, i) => ({ label: bucketLabel(t, s.buckets, i), value: n(b.count) }))} />}
             />
-            <Typography variant="body2" color="text.secondary">
-              {t("person.speedEstimate")}
-            </Typography>
+            <Explain variant="body2" text={t("person.speedEstimate.short")} more={t("person.speedEstimate")} />
           </>
         )}
       </Stack>
@@ -605,6 +607,7 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [invite, setInvite] = useState<NewInvite | null>(null);
   const [busy, setBusy] = useState(false);
   // One change at a time; the controls stay enabled (a disabled one drops the keyboard focus).
@@ -668,14 +671,17 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
             {t("person.newLink")}
           </Button>
           {person.userId !== me?.userId && (
+            <Button variant="outlined" startIcon={<Logout />} aria-disabled={busy} onClick={() => !busy && setSigningOut(true)}>
+              {t("person.signOut")}
+            </Button>
+          )}
+          {person.userId !== me?.userId && (
             <Button color="error" variant="outlined" startIcon={<Delete />} aria-disabled={busy} onClick={() => !busy && setRemoving(true)}>
               {t("people.remove", { name: person.username })}
             </Button>
           )}
         </Stack>
-        <Typography variant="body2" color="text.secondary">
-          {t("person.newLinkHelp")}
-        </Typography>
+        <Explain variant="body2" text={t("person.newLinkHelp.short")} more={t("person.newLinkHelp")} />
         {invite && (
           <Box>
             <Alert severity="success" role="status" sx={{ mb: 2 }}>
@@ -693,6 +699,27 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
         )}
         <ErrorAlert error={error} />
       </Stack>
+      <Dialog open={signingOut} onClose={() => setSigningOut(false)}>
+        <DialogTitle>{t("person.signOutTitle", { name: person.username })}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{t("person.signOutText", { name: person.username })}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSigningOut(false)}>{t("common.cancel")}</Button>
+          <Button
+            variant="contained"
+            onClick={() =>
+              void run(async () => {
+                setSigningOut(false);
+                await signOutMember(projectId, person.userId);
+                setNotice(t("person.signedOut", { name: person.username }));
+              })
+            }
+          >
+            {t("person.signOut")}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Dialog open={removing} onClose={() => setRemoving(false)}>
         <DialogTitle>{t("people.removeTitle", { name: person.username })}</DialogTitle>
         <DialogContent>
@@ -769,6 +796,13 @@ export function PersonPage({ projectId, userId, onGo }: { projectId: string; use
         <>
           <PersonHeading data={data} title={data.person.username} />
           <AsOf asOf={data.asOf} />
+          {data.person.excluded && (
+            <Alert severity="warning">
+              {data.person.excluded.reason
+                ? t("person.excludedReason", { name: data.person.username, reason: data.person.excluded.reason })
+                : t("person.excluded", { name: data.person.username })}
+            </Alert>
+          )}
           <PersonNumbers data={data} />
           <PersonActions projectId={projectId} data={data} onChanged={state.reload} />
           <FilesSection data={data} projectId={projectId} members={members.data ?? []} onMoved={state.reload} />

@@ -11,16 +11,20 @@ import {
   checkMark,
   splitListedPlots,
   MAX_PLOTS_PER_REQUEST,
+  MAX_REFERENCE_ANSWERS,
   MAX_REFERENCE_PLOTS,
+  parseReferenceAnswers,
   parsePlotList,
   pickReference,
   referenceCopyPlan,
   type MarkRefusal,
+  type ExternalReferenceFigures,
   type ReferenceFigures,
 } from '../reference.js';
 import type { Store } from '../store/store.js';
 import type { Member, PlotAssignment, ReferencePlot } from '../types.js';
 import { served } from './quality.js';
+import { fileKeyCount } from '../rounds.js';
 
 /** Why a mark was refused, in plain words (the page has its own texts by `code`). */
 const REASONS: Record<MarkRefusal['code'], string> = {
@@ -50,11 +54,13 @@ function recordsOf(state: ProjectState): (username: string, unit: string) => boo
 function figuresOf(
   f: ServedReport | null,
   coordinator: boolean,
-): (Omit<ReferenceFigures, 'byPlot' | 'people'> & Partial<Pick<ReferenceFigures, 'byPlot' | 'people'>> & { computedAt: number; stale: boolean }) | null {
+): (Omit<ReferenceFigures, 'byPlot' | 'people' | 'external'> &
+  Partial<Pick<ReferenceFigures, 'byPlot' | 'people'>> & { external?: Partial<ExternalReferenceFigures>; computedAt: number; stale: boolean }) | null {
   if (!f) return null;
-  const { byPlot, people, ...rest } = f.reference;
+  const { byPlot, people, external, ...rest } = f.reference;
   // Reviewers: the figures per question only (Decision 3: no one's accuracy by name, no plot list).
-  return { ...rest, ...(coordinator ? { byPlot, people } : {}), computedAt: f.computedAt, stale: f.stale };
+  const ext = external && !coordinator ? (({ byPlot: _b, people: _p, ...e }) => e)(external) : external;
+  return { ...rest, ...(coordinator ? { byPlot, people } : {}), ...(ext ? { external: ext } : {}), computedAt: f.computedAt, stale: f.stale };
 }
 
 /**
@@ -111,7 +117,7 @@ export async function registerReferenceRoutes(app: FastifyInstance, store: Store
 
   /** The coordinator's view of the reference set, from the project state and the store. */
   async function view(projectId: string, request: FastifyRequest, figures: ServedReport | null, fresh = false) {
-    const [served, references] = await Promise.all([states.get(projectId, request.log, { fresh }), store.listReferencePlots(projectId)]);
+    const [served, references, answers] = await Promise.all([states.get(projectId, request.log, { fresh }), store.listReferencePlots(projectId), store.listReferenceAnswers(projectId)]);
     const { state, members } = served;
     const done = state.units.checksDone;
     const copyHolders = state.context.copyHolders;
@@ -158,6 +164,8 @@ export async function registerReferenceRoutes(app: FastifyInstance, store: Store
       assessors: members.filter(canAssess).map((m) => ({ userId: m.userId, username: m.username, role: m.role })),
       collectors: collectors.length,
       people,
+      // The reference answers uploaded (a file of the coordinator's): how many plots, and when.
+      external: { count: answers.length, uploadedAt: answers.length > 0 ? Math.max(...answers.map((a) => a.uploadedAt)) : null },
       asOf: served.stale ? state.builtAt : null,
     };
   }
@@ -171,6 +179,43 @@ export async function registerReferenceRoutes(app: FastifyInstance, store: Store
       return reply.send({ coordinator: false, count: figures.reference.plots, figures: figuresOf(figures, false) });
     }
     return reply.send({ coordinator: true, ...(await view(projectId, request, figures)), figures: figuresOf(figures, true) });
+  });
+
+  // Reference answers from a file (coordinators): a CSV (text/csv: the plot id, then a column per
+  // question) or a JSON array; replaces the set the project had. What did not match is answered.
+  app.put('/v1/projects/:pid/reference/answers', admin, async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
+    const body = request.body;
+    if (!Buffer.isBuffer(body) && !Array.isArray(body)) {
+      return reply.code(400).send(bad('send a CSV file (text/csv) or a JSON array of plots'));
+    }
+    const outline = await quality.outline(projectId, request.log);
+    if (!outline) {
+      return reply.code(409).send({ error: 'no_survey', reason: "Upload the project file first: the reference answers are matched to its survey's questions." });
+    }
+    const { state } = await states.get(projectId, request.log);
+    const parsed = parseReferenceAnswers(body, outline, state.context.units, fileKeyCount(state.info));
+    if (parsed.rows.length === 0) {
+      return reply.code(400).send({
+        ...bad('Nothing to keep: the file needs a header row, a plot id of the project in its first column and at least one column named as a question of the survey.'),
+        ...parsed,
+        rows: undefined,
+      });
+    }
+    if (parsed.rows.length > MAX_REFERENCE_ANSWERS) {
+      return reply.code(400).send(bad(`At most ${MAX_REFERENCE_ANSWERS} plots`));
+    }
+    await store.replaceReferenceAnswers(projectId, parsed.rows, now());
+    await audit(store, request, 'reference.changed', { external: 'uploaded', plots: parsed.rows.length });
+    const { rows, ...report } = parsed;
+    return reply.send({ plots: rows.length, ...report });
+  });
+
+  app.delete('/v1/projects/:pid/reference/answers', admin, async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
+    await store.replaceReferenceAnswers(projectId, [], now());
+    await audit(store, request, 'reference.changed', { external: 'deleted' });
+    return reply.code(204).send();
   });
 
   /** The whole reference set after a change: every collector's copies added, those no longer wanted dropped. */

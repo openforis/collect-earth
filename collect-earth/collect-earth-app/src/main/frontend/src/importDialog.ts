@@ -1,7 +1,14 @@
 /**
- * The import dialogs' logic: what the summaries of the ZIP files say, the answers about the conflicting records, and
- * what the import job is told (ImportService on the server).
+ * The import dialog's logic: what can be imported, what the summaries of the ZIP files say, the answers about the
+ * conflicting records, and what the import job is told (ImportService on the server).
  */
+
+/**
+ * What the Import dialog imports, in the order it offers them: records from a Collect Earth export (ZIP with XML), new
+ * or replacing the ones of the database, or changes to some attributes of the records from a CSV.
+ */
+export const IMPORT_KINDS = ["ZIP", "CSV"] as const;
+export type ImportKind = (typeof IMPORT_KINDS)[number];
 
 export interface ImportConflict {
   keys: string[];

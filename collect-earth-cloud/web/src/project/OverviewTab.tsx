@@ -18,27 +18,34 @@ import CheckCircle from "@mui/icons-material/CheckCircle";
 import RadioButtonUnchecked from "@mui/icons-material/RadioButtonUnchecked";
 import { getOverview, listAssignments, listCsvFiles, listInvites } from "../api";
 import { useApp } from "../appContext";
-import { checklist, doneCount, STEP_TAB } from "../checklist";
+import { checklist, doneCount, STEP_TAB, type StepId } from "../checklist";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
-import { useT } from "../i18n";
+import { useT, type MessageKey } from "../i18n";
 import type { ProjectTab } from "../router";
 import { storageLevel, storagePercent, storageText, storageWarningKey } from "../storageUse";
 import { useLoad } from "../useLoad";
 
 async function loadOverview(projectId: string) {
-  const [overview, invites, assignments, csvFiles] = await Promise.all([
+  const [overview, invites, assignments, files] = await Promise.all([
     getOverview(projectId),
     // Older servers have no invite list: the checklist then counts only people.
     listInvites(projectId).catch(() => []),
     listAssignments(projectId).catch(() => []),
-    // Dividing a file replaces its whole-file assignments: a divided file counts as assigned.
     listCsvFiles(projectId).catch(() => []),
   ]);
-  const dividedFiles = csvFiles.filter((file) => file.divided && (file.dividedPeople ?? 0) > 0).length;
+  const dividedFiles = files.filter((file) => file.divided && (file.dividedPeople ?? 0) > 0).length;
   return { overview, openInvites: invites.length, assignments: assignments.length, dividedFiles };
 }
+
+/** The steps that need more than their one line: how to do them and what happens after. */
+const STEP_MORE: Partial<Record<StepId, MessageKey>> = {
+  projectFile: "step.projectFile.help.more",
+  invite: "step.invite.help.more",
+  assign: "step.assign.help.more",
+};
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -73,6 +80,7 @@ function StorageUse({ usedBytes, limitBytes }: { usedBytes: number; limitBytes: 
       )}
       <Typography variant="body2" color="text.secondary">
         {t("storage.explain")}
+        <MoreInfo text={t("storage.explain.more")} />
       </Typography>
       {warning && (
         <Alert severity={level === "over" ? "error" : "warning"} sx={{ mt: 2 }}>
@@ -148,6 +156,7 @@ export function OverviewTab({ projectId, onGo }: { projectId: string; onGo: (tab
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     {t(`step.${step.id}.help`)}
+                    {STEP_MORE[step.id] && <MoreInfo text={t(STEP_MORE[step.id]!)} />}
                   </Typography>
                 </Box>
               </Stack>
@@ -188,6 +197,7 @@ export function OverviewTab({ projectId, onGo }: { projectId: string; onGo: (tab
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Typography variant="h2" gutterBottom>
           {t("overview.byPerson")}
+          <MoreInfo text={t("overview.byPerson.more")} />
         </Typography>
         {overview.records.byOperator.length === 0 ? (
           <Typography color="text.secondary">{t("overview.noData")}</Typography>

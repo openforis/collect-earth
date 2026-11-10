@@ -40,6 +40,7 @@ import {
 } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { FLAG_KIND_KEYS, flagText } from "../flagsView";
 import { formatDate, formatNumber } from "../format";
@@ -123,9 +124,7 @@ function Bulk({ projectId, onDone }: { projectId: string; onDone: (count: number
       <Typography variant="h3" sx={{ mb: 0.5 }}>
         {t("queue.bulkTitle")}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        {t("queue.bulkExplain")}
-      </Typography>
+      <Explain variant="body2" sx={{ mb: 1 }} text={t("queue.bulkExplain.short")} more={t("queue.bulkExplain")} />
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
         {BULK_RULES.map((rule) => (
           // Not disabled while asking (the button keeps the keyboard focus, and the dialog gives it back on closing).
@@ -320,7 +319,12 @@ function QueueCard({
         )}
         <TextField
           label={t("quality.comment")}
-          helperText={t("quality.commentSeen")}
+          helperText={
+            <>
+              {t("quality.commentSeen.short")}
+              <MoreInfo text={t("quality.commentSeen")} />
+            </>
+          }
           value={comment}
           onChange={(e) => onComment(e.target.value)}
           size="small"
@@ -602,9 +606,10 @@ export function ReviewQueue({
         <Typography variant="h2" id="queue-title">
           {t("queue.title")}
         </Typography>
-        <Typography color="text.secondary">{t("queue.explain")}</Typography>
+        <Explain text={t("queue.explain.short")} more={t("queue.explain")} />
         <Box component="p" id="queue-keys" sx={{ m: 0, p: 1.5, bgcolor: "action.hover", borderRadius: 1, typography: "body2" }}>
-          {t("queue.keys")}
+          {t("queue.keys.short")}
+          <MoreInfo text={t("queue.keys")} />
         </Box>
         {/* What was decided, said to screen readers (the page moves on by itself). */}
         <Box role="status" aria-live="polite" sx={{ position: "absolute", width: "1px", height: "1px", margin: "-1px", padding: 0, border: 0, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>

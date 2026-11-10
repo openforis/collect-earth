@@ -7,6 +7,7 @@ import { ApiError, previewInvite } from "../api";
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { JoinSteps } from "../components/JoinSteps";
 import { Loading } from "../components/Loading";
 import { useT } from "../i18n";
@@ -41,7 +42,7 @@ export function JoinPage({ token }: { token: string }) {
             {t("join.project", { project: preview.data.projectName, role: t(`role.${preview.data.role}`) })}
           </Typography>
           <Alert severity="info">{t("join.notHere")}</Alert>
-          <Typography>{t("join.coordinatorsSee")}</Typography>
+          <Explain color="text.primary" text={t("join.coordinatorsSee.short")} more={t("join.coordinatorsSee")} />
           <Typography variant="h2">{t("join.stepsTitle")}</Typography>
           <JoinSteps link={link} />
         </Stack>

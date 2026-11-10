@@ -26,8 +26,6 @@ import java.util.function.Function;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.desktop.EarthApp;
-import org.openforis.collect.earth.app.service.notices.Notice;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.imagery.BidiCommandException;
@@ -135,13 +133,22 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	private final BrowserWindowIcon imageryWindowIcon = new BrowserWindowIcon("/images/imageryWindow.ico",
 			PLOTS_IN_GOOGLE_EARTH_WEB_TITLE, "/images/plotsWindow.ico");
 	/**
-	 * The title of Google Earth Web's page with the plots map in its panel (see GoogleEarthWebService), which gives its
-	 * window the icon of Collect Earth, apart from the satellite of the window of the other imagery.
+	 * What the title of Google Earth Web's page with the plots map in its panel ends with (see GoogleEarthWebService and
+	 * {@link #plotsInGoogleEarthWebTitle(String)}), which gives its window the icon of Collect Earth, apart from the
+	 * satellite of the window of the other imagery.
 	 */
 	public static final String PLOTS_IN_GOOGLE_EARTH_WEB_TITLE = "Google Earth Web · Collect Earth";
 
-	/** The interpreter is told once per run that the Planet API key is missing, not once per plot */
-	private boolean planetApiKeyWarningShown;
+	/**
+	 * The title of Google Earth Web's page with the plots map in its panel: the name of the survey loaded first, so
+	 * that the tab and the task bar, which cut long titles at the end, still show it.
+	 *
+	 * @param projectName the name of the survey loaded, null or blank when there is none
+	 */
+	public static String plotsInGoogleEarthWebTitle(String projectName) {
+		return StringUtils.isBlank(projectName) ? PLOTS_IN_GOOGLE_EARTH_WEB_TITLE
+				: projectName.trim() + " · " + PLOTS_IN_GOOGLE_EARTH_WEB_TITLE;
+	}
 
 	private final CopyOnWriteArrayList<RemoteWebDriver> drivers = new CopyOnWriteArrayList<>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
@@ -269,7 +276,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 		if (driver == null) {
 			throw new BrowserNotFoundException(
-					"Neither Chrome, Edge or Firefox could be opened. You need to have one of them installed in order to use GEE, Earth Map or Saiku.");
+					"Neither Chrome, Edge or Firefox could be opened. You need to have one of them installed in order to use GEE or Earth Map.");
 		}
 
 		return driver;
@@ -487,18 +494,31 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * @throws BrowserNotFoundException when no browser starts with BiDi (reported to Sentry), or none did a moment ago
 	 */
 	/**
+	 * The names of the permission that lets a public site load the pages of this computer or of the local network:
+	 * Chrome and Edge's, then Firefox's (153), which has one for this computer (127.0.0.1, where Collect Earth serves the
+	 * plots map) and one for the local network (its address on it, as a server of other computers). Each browser refuses
+	 * the names it does not know.
+	 */
+	public static final List<String> LOCAL_NETWORK_PERMISSIONS = Collections.unmodifiableList(
+			Arrays.asList("local-network-access", "loopback-network", "local-network"));
+
+	/**
 	 * Lets Google Earth Web's page show the plots map, which this computer serves, in a panel ("plots map inside Google
-	 * Earth Web" layout): Chrome and Edge refuse a public site the pages of the local network unless the user allows it,
-	 * and a browser under automation refuses without asking. Granted in every imagery browser, as the layout can be
-	 * chosen while it runs. Firefox does not know the permission, which it does not need: the failure is only logged.
+	 * Earth Web" layout): Chrome, Edge and Firefox refuse a public site the pages of this computer and of the local
+	 * network unless the user allows it, and a browser under automation refuses without asking. Firefox gives no sign of
+	 * it: the panel's frame stays blank. Granted in every imagery browser, as the layout can be chosen while it runs.
+	 * The names a browser does not know are only logged.
 	 */
 	private void allowPlotsMapInGoogleEarthWeb(RemoteWebDriver driver) {
-		try {
-			new Permission(driver).setPermission(Collections.singletonMap("name", "local-network-access"),
-					PermissionState.GRANTED, GOOGLE_EARTH_WEB_ORIGIN);
-		} catch (RuntimeException e) {
-			logger.debug("Imagery window: local network access not granted to {} ({}): {}", GOOGLE_EARTH_WEB_ORIGIN,
-					driver.getCapabilities().getBrowserName(), e.getMessage());
+		Permission permission = new Permission(driver);
+		for (String name : LOCAL_NETWORK_PERMISSIONS) {
+			try {
+				permission.setPermission(Collections.singletonMap("name", name), PermissionState.GRANTED,
+						GOOGLE_EARTH_WEB_ORIGIN);
+			} catch (RuntimeException e) {
+				logger.debug("Imagery window: permission {} not granted to {} ({}): {}", name, GOOGLE_EARTH_WEB_ORIGIN,
+						driver.getCapabilities().getBrowserName(), e.getMessage());
+			}
 		}
 	}
 
@@ -936,7 +956,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		if (localPropertiesService.isEsriWaybackSupported()) {
 			sources.add(ImagerySource.ESRI_WAYBACK);
 		}
-		if (localPropertiesService.isPlanetMapsSupported() && StringUtils.isNotBlank(localPropertiesService.getPlanetMapsKey())) {
+		if (localPropertiesService.isPlanetMapsSupported()) {
 			sources.add(ImagerySource.PLANET);
 		}
 		if (localPropertiesService.isGEEAppSupported()) {
@@ -1118,12 +1138,8 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * @param selection       the number of the plot selection, see {@link ImageryBrowser#loadLatest}
 	 */
 	public void openPlanetMaps(SimplePlacemarkObject placemarkObject, long selection) {
+		// Planet is supported once its key is set: both modes are opened with it
 		if (localPropertiesService.isPlanetMapsSupported()) {
-			// both modes are opened with the same key, and neither of them shows anything without it
-			if (StringUtils.isBlank(localPropertiesService.getPlanetMapsKey())) {
-				warnAboutMissingPlanetApiKey();
-				return;
-			}
 			try {
 				if (localPropertiesService.isPlanetMapsUseTfo()) {
 					// TFO mode: Use hosted planet.html with NICFI monthly basemaps
@@ -1135,19 +1151,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			} catch (final Exception e) {
 				logger.error("Problems loading Planet", e);
 			}
-		}
-	}
-
-	/**
-	 * Planet is opened for every plot, so the interpreter is told once per run: a dialog on each plot would
-	 * get in the way of the assessment, and the key is entered in the settings, not here. A notice of the pages.
-	 */
-	private void warnAboutMissingPlanetApiKey() {
-		logger.warn("Planet is switched on but no Planet API key is configured");
-		if (!planetApiKeyWarningShown) {
-			planetApiKeyWarningShown = true;
-			EarthApp.notify(Notice.WARNING, Messages.getString("BrowserService.planetApiKeyMissingTitle"), //$NON-NLS-1$
-					Messages.getString("BrowserService.planetApiKeyMissing")); //$NON-NLS-1$
 		}
 	}
 

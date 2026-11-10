@@ -22,6 +22,7 @@ import { getMapPlots, MAP_STATUSES, type MapPlots, type MapStatus, type MapTiles
 import { useApp, useLocalMode } from "../appContext";
 import { AsOf } from "../components/PeopleCharts";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { formatDate, formatNumber } from "../format";
 import { useT, type Translate } from "../i18n";
 import { attributionHtml, boundsOf, CLUSTER_FROM, escapeHtml, filesOffMap, LIST_PAGE, plotList, plotPopup, shownIndexes, STATUS_STYLE, statusDrawnKey, statusLabelKey, symbolSvg } from "../mapView";
@@ -393,9 +394,7 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
         <Typography variant="h2" id={headingId} gutterBottom>
           {t("map.heading")}
         </Typography>
-        <Typography color="text.secondary" sx={{ mb: 2 }}>
-          {t("map.intro")}
-        </Typography>
+        <Explain sx={{ mb: 2 }} text={t("map.intro.short")} more={t("map.intro")} />
         <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "flex-start", mb: 2 }}>
           <TextField
             select
@@ -472,10 +471,18 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
         ) : data && (
           <Stack spacing={1.5}>
             <AsOf asOf={data.asOf} />
-            {data.unsupportedSrs !== null && <Alert severity="info" role="note">{t("map.unsupportedSrs", { srs: data.unsupportedSrs })}</Alert>}
+            {data.unsupportedSrs !== null && (
+              <Alert severity="info" role="note">
+                {t("map.unsupportedSrs.short", { srs: data.unsupportedSrs })}
+                <MoreInfo text={t("map.unsupportedSrs", { srs: data.unsupportedSrs })} />
+              </Alert>
+            )}
             {/* Alone there are no checks to differ from: the quality figures do not matter here. */}
             {local ? null : data.figures === null ? (
-              <Alert severity="info" role="note">{t("map.noFigures")}</Alert>
+              <Alert severity="info" role="note">
+                {t("map.noFigures.short")}
+                <MoreInfo text={t("map.noFigures")} />
+              </Alert>
             ) : data.figures.stale && data.figures.computedAt !== null ? (
               <Typography variant="body2" color="text.secondary">
                 {t("map.staleFigures", { time: formatDate(data.figures.computedAt, language) })}
@@ -559,13 +566,12 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
             </Table>
           </TableContainer>
           {!local && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-              {t("map.submittedNote")}
-            </Typography>
+            <Explain variant="body2" sx={{ mt: 1.5 }} text={t("map.submittedNote.short")} more={t("map.submittedNote")} />
           )}
           {data.notOnMap > 0 && (
             <Typography variant="body2" sx={{ mt: 1.5 }}>
               {t("map.notOnMap", { n: n(data.notOnMap) })}
+              {data.unsupportedSrs === null && <MoreInfo text={t("map.notOnMap.more")} />}
             </Typography>
           )}
           {data.unsupportedSrs === null && offMap.length > 0 && (

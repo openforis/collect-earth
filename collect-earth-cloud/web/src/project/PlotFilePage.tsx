@@ -51,6 +51,7 @@ import {
 import { useApp } from "../appContext";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import {
   collectors,
@@ -63,6 +64,7 @@ import {
   movedText,
   nearbyNote,
   MIN_OVERLAP_PERCENT,
+  percentTotal,
   sortPeople,
   toRequest,
   withSeed,
@@ -208,7 +210,7 @@ function GroupsTable({
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, children }: { title: ReactNode; children: ReactNode }) {
   return (
     <Box>
       <Typography variant="h3" gutterBottom>
@@ -330,6 +332,32 @@ function DivideForm({
               />
             ))}
           </FormGroup>
+          <FormControlLabel
+            control={<Switch checked={form.byPercent} onChange={(e) => change({ byPercent: e.target.checked })} />}
+            label={t("divide.byPercent")}
+            sx={{ mt: 1 }}
+          />
+          <FormHelperText sx={{ mt: -0.5 }}>{t("divide.byPercentHelp")}</FormHelperText>
+          {form.byPercent && (
+            <Stack spacing={1.5} sx={{ mt: 1.5, maxWidth: 320 }}>
+              {people
+                .filter((person) => form.people.includes(person.userId))
+                .map((person) => (
+                  <TextField
+                    key={person.userId}
+                    label={t("divide.percentOf", { name: person.username })}
+                    type="number"
+                    size="small"
+                    value={form.percents[person.userId] ?? ""}
+                    onChange={(e) => change({ percents: { ...form.percents, [person.userId]: e.target.value } })}
+                    slotProps={{ htmlInput: { min: 0, max: 100, inputMode: "numeric" } }}
+                  />
+                ))}
+              <Typography variant="body2" color={percentTotal(form) === 100 ? "text.secondary" : "warning.main"} role="status">
+                {t("divide.percentsTotal", { total: formatNumber(percentTotal(form), language) })}
+              </Typography>
+            </Stack>
+          )}
         </FormControl>
       )}
 
@@ -379,7 +407,8 @@ function DivideForm({
                 disabled={!columns.nearby.available}
               />
               <FormHelperText id="divide-order-nearby-help" sx={{ mt: -0.5, ml: 4 }}>
-                {t("divide.orderNearbyHelp")}
+                {t("divide.orderNearbyHelp.short")}
+                <MoreInfo text={t("divide.orderNearbyHelp")} />
                 {nearbyText && (
                   <Typography variant="body2" component="span" sx={{ display: "block" }} color={columns.nearby.available ? "text.secondary" : "warning.main"}>
                     {nearbyText}
@@ -391,7 +420,14 @@ function DivideForm({
             </RadioGroup>
           </FormControl>
 
-          <Section title={t("divide.checkTitle")}>
+          <Section
+            title={
+              <>
+                {t("divide.checkTitle")}
+                <MoreInfo text={t("divide.checkTitle.more")} />
+              </>
+            }
+          >
             <Stack spacing={2}>
               <FormControlLabel
                 control={<Switch checked={form.overlap} onChange={(e) => change({ overlap: e.target.checked })} />}
@@ -419,7 +455,7 @@ function DivideForm({
           {t(problem)}
         </Alert>
       )}
-      {form.mode !== "whole" && <Typography color="text.secondary">{t("divide.applyNote")}</Typography>}
+      {form.mode !== "whole" && <Explain text={t("divide.applyNote.short")} more={t("divide.applyNote")} />}
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
         <Button variant="outlined" onClick={() => void run(true)} disabled={busy}>
           {t("divide.preview")}

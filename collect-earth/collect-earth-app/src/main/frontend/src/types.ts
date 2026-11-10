@@ -17,6 +17,8 @@ export interface MapConfig {
   language?: string;
   /** "generated" (from the survey, the default) or "balloon" (the CEP's balloon HTML) */
   webForm?: string;
+  /** The open plot's sample points numbered, as the rows of the form's table per point (sample_point_numbers) */
+  samplePointNumbers?: boolean;
 }
 
 export type GewState = "CLOSED" | "OPENING" | "MOVING" | "READY" | "WAITING" | "ERROR";
