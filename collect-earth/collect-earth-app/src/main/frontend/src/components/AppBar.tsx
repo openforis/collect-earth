@@ -165,7 +165,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
       return (
         <MenuItem key={item.id} onClick={() => run(item)}>
           <ListItemIcon><MenuEntryIcon id={item.id} /></ListItemIcon>
-          <ListItemText primary={s(item.label)} />
+          <ListItemText primary={s(item.label)} secondary={item.note ? s(item.note) : undefined} />
         </MenuItem>
       );
     }

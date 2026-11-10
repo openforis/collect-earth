@@ -163,6 +163,18 @@ public class DataControllerTest {
 	}
 
 	@Test
+	public void aCloudProjectRefusesTheImportsWhoseRecordsWouldNeverReachTheServer() throws Exception {
+		MockMvc cloud = TemplateWiring.mockMvc(new DataController(exports, imports, jobs, () -> true), new ApiExceptionHandler());
+		cloud.perform(post("/api/jobs/import").contentType(MediaType.APPLICATION_JSON).content("{\"token\":\"t1\"}"))
+				.andExpect(status().isConflict()).andExpect(jsonPath("$.error").value("import.cloudProject"))
+				.andExpect(jsonPath("$.message").value(Messages.getString("DataPage.import.cloudProject")));
+		cloud.perform(post("/api/jobs/updateCsv").contentType(MediaType.APPLICATION_JSON).content("{\"files\":[\"/tmp/u.csv\"]}"))
+				.andExpect(status().isConflict()).andExpect(jsonPath("$.error").value("import.cloudProject"));
+		org.mockito.Mockito.verify(imports, org.mockito.Mockito.never()).importPrepared(anyString(), anyList());
+		org.mockito.Mockito.verify(imports, org.mockito.Mockito.never()).updateFromCsv(anyList());
+	}
+
+	@Test
 	public void theCsvUpdateIsAJobAndItsInfoTheKeyAttributes() throws Exception {
 		when(imports.csvInfo()).thenReturn(Collections.singletonMap("keyAttributes", Arrays.asList("id")));
 		mvc.perform(get("/api/data/import/csvInfo")).andExpect(status().isOk()).andExpect(jsonPath("$.keyAttributes[0]").value("id"));

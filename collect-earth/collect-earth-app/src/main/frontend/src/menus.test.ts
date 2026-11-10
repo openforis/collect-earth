@@ -11,7 +11,8 @@ describe("appMenus", () => {
 
   it("only enables what is built", () => {
     const enabled = appMenus({ plotsMap: true }).flatMap((m) => m.items).filter((i) => i.enabled).map((i) => i.id);
-    expect(enabled).toEqual(["importCep", "joinCloud", "cloudStatus", "language", "quit", "export", "import",
+    // Cloud sync status is a cloud project's (see "cloud and local projects")
+    expect(enabled).toEqual(["importCep", "joinCloud", "language", "quit", "export", "import",
       "analyse", "lulucf", "loadKml", "dataFolder", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "properties",
       "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
     // The survey guide only when the survey has one, as the Swing menu showed it
@@ -45,8 +46,30 @@ describe("appMenus", () => {
     // The base bundle, the English one: the other languages fall back to it for a key they lack
     const file = resolve(import.meta.dirname, "../../resources/org/openforis/collect/earth/app/view/Messages.properties");
     const keys = new Set([...readFileSync(file, "latin1").matchAll(/^([^#!\s=:][^\s=:]*)\s*[=:]/gm)].map((m) => m[1]));
-    const labels = appMenus({ plotsMap: false }).flatMap((m) => [m.label, ...m.items.map((i) => i.label)]);
+    const labels = [false, true].flatMap((cloud) =>
+      appMenus({ plotsMap: false, cloud }).flatMap((m) => [m.label, ...m.items.flatMap((i) => [i.label, i.disabledReason, i.note].filter((k): k is string => !!k))]));
     expect(labels.filter((label) => !keys.has(label))).toEqual([]);
+  });
+});
+
+describe("cloud and local projects", () => {
+  const entry = (cloud: boolean, id: string) => appMenus({ plotsMap: true, cloud }).flatMap((m) => m.items).find((i) => i.id === id);
+
+  it("disables the import in a cloud project, whose sync would never send the imported records", () => {
+    expect(entry(false, "import")).toEqual({ id: "import", label: "DataPage.import.menu", enabled: true });
+    expect(entry(true, "import")).toMatchObject({ enabled: false, disabledReason: "DataPage.import.cloudProject" });
+  });
+
+  it("disables the cloud sync status in a local project, which has no sync", () => {
+    expect(entry(true, "cloudStatus")).toEqual({ id: "cloudStatus", label: "CloudSyncStatusDialog.menuItem", enabled: true });
+    expect(entry(false, "cloudStatus")).toMatchObject({ enabled: false, disabledReason: "CloudSyncStatusDialog.localProject" });
+  });
+
+  it("says that what reads the database reads only this computer's records in a cloud project", () => {
+    for (const id of ["export", "lulucf", "missingPlots"]) {
+      expect(entry(true, id)).toMatchObject({ enabled: true, note: "CollectEarthMenu.thisComputerOnly" });
+      expect(entry(false, id)?.note).toBeUndefined();
+    }
   });
 });
 
