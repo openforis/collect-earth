@@ -1,0 +1,204 @@
+{
+ "allowDrawnSamples": false,
+ "aoiFeatures": [
+  {
+   "coordinates": [
+    [
+     [
+      -70.065307617,
+      -18.072756915
+     ],
+     [
+      -70.065307617,
+      -14.466596475
+     ],
+     [
+      -60.902709961,
+      -14.466596475
+     ],
+     [
+      -60.902709961,
+      -18.072756915
+     ],
+     [
+      -70.065307617,
+      -18.072756915
+     ]
+    ]
+   ],
+   "type": "Polygon"
+  }
+ ],
+ "aoiFileName": "",
+ "availability": "published",
+ "boundary": "{\"type\":\"Polygon\",\"coordinates\":[[[-70.065307617,-18.072756915],[-70.065307617,-14.466596475],[-60.902709961,-14.466596475],[-60.902709961,-18.072756915],[-70.065307617,-18.072756915]]]}",
+ "closedDate": "",
+ "createdDate": "2020-09-23",
+ "description": "Ejercicio en Clase",
+ "designSettings": {
+  "qaqcAssignment": {
+   "percent": 0,
+   "qaqcMethod": "none",
+   "smes": [],
+   "timesToReview": 2
+  },
+  "sampleGeometries": {
+   "lines": true,
+   "points": true,
+   "polygons": true
+  },
+  "userAssignment": {
+   "percents": [],
+   "userMethod": "none",
+   "users": []
+  }
+ },
+ "hasGeoDash": false,
+ "id": 17814,
+ "imageryId": 1318,
+ "institution": 1192,
+ "isProjectAdmin": false,
+ "learningMaterial": null,
+ "name": "MAP400_1",
+ "numPlots": 10,
+ "plotDistribution": "random",
+ "plotFileName": null,
+ "plotShape": "circle",
+ "plotSimilarityDetails": {
+  "referencePlotId": null,
+  "years": null
+ },
+ "plotSize": 150.0,
+ "plotSpacing": 0.0,
+ "privacyLevel": "public",
+ "projectOptions": {
+  "autoLaunchGeoDash": true,
+  "collectConfidence": false,
+  "showGEEScript": false,
+  "showPlotInformation": true
+ },
+ "publishedDate": "2020-09-23",
+ "referencePlotId": null,
+ "sampleDistribution": "random",
+ "sampleFileName": null,
+ "sampleResolution": 0.0,
+ "samplesPerPlot": 2,
+ "shufflePlots": null,
+ "surveyQuestions": {
+  "1": {
+   "answers": {
+    "1": {
+     "answer": "Agua",
+     "color": "#1527F6"
+    },
+    "2": {
+     "answer": "Vegetación",
+     "color": "#4ff613"
+    },
+    "3": {
+     "answer": "Suelo",
+     "color": "#f64c13"
+    },
+    "4": {
+     "answer": "Ninguno",
+     "color": "#030308"
+    }
+   },
+   "cardOrder": 1,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Qué tipo de uso del suelo es?"
+  },
+  "2": {
+   "answers": {
+    "1": {
+     "answer": "Lagos",
+     "color": "#1527F6"
+    },
+    "2": {
+     "answer": "Rios",
+     "color": "#1527F6"
+    },
+    "3": {
+     "answer": "Embalses",
+     "color": "#1527F6"
+    },
+    "4": {
+     "answer": "Otro",
+     "color": "#1527F6"
+    },
+    "5": {
+     "answer": "Ninguno",
+     "color": "#0d0e1c"
+    }
+   },
+   "cardOrder": 2,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Tipos de Cobertura de agua?"
+  },
+  "3": {
+   "answers": {
+    "1": {
+     "answer": "Salinos",
+     "color": "#f3f4fb"
+    },
+    "2": {
+     "answer": "Arenosos",
+     "color": "#f6c513"
+    },
+    "3": {
+     "answer": "Arcillosos",
+     "color": "#c5f613"
+    },
+    "4": {
+     "answer": "Humiferos",
+     "color": "#f613e3"
+    },
+    "5": {
+     "answer": "Pedregosos",
+     "color": "#f63513"
+    },
+    "6": {
+     "answer": "Ninguno",
+     "color": "#23232a"
+    }
+   },
+   "cardOrder": 3,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Tipos de suelos?"
+  },
+  "4": {
+   "answers": {
+    "1": {
+     "answer": "Bosque",
+     "color": "#90f613"
+    },
+    "2": {
+     "answer": "Matorral",
+     "color": "#0e6724"
+    },
+    "3": {
+     "answer": "Pradera",
+     "color": "#51634b"
+    }
+   },
+   "cardOrder": 4,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Tipo de vegetación"
+  }
+ },
+ "surveyRules": [],
+ "type": "regular",
+ "userRole": null
+}

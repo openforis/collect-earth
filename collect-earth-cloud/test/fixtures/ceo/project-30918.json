@@ -1,0 +1,722 @@
+{
+ "allowDrawnSamples": false,
+ "aoiFeatures": [
+  {
+   "coordinates": [
+    [
+     [
+      35.367270857,
+      -3.826964644
+     ],
+     [
+      35.367270857,
+      4.527756535
+     ],
+     [
+      40.809905651,
+      4.527756535
+     ],
+     [
+      40.809905651,
+      -3.826964644
+     ],
+     [
+      35.367270857,
+      -3.826964644
+     ]
+    ]
+   ],
+   "type": "Polygon"
+  }
+ ],
+ "aoiFileName": "",
+ "availability": "published",
+ "boundary": "{\"type\":\"Polygon\",\"coordinates\":[[[35.367270857,-3.826964644],[35.367270857,4.527756535],[40.809905651,4.527756535],[40.809905651,-3.826964644],[35.367270857,-3.826964644]]]}",
+ "closedDate": "",
+ "createdDate": "2022-05-15",
+ "description": "Pilot the draft data collection survey as a practice exercise and pilot the preferred QAQC approach to data collection",
+ "designSettings": {
+  "qaqcAssignment": {
+   "percent": 0,
+   "qaqcMethod": "none",
+   "smes": [],
+   "timesToReview": 2
+  },
+  "sampleGeometries": {
+   "lines": true,
+   "points": true,
+   "polygons": true
+  },
+  "userAssignment": {
+   "percents": [],
+   "userMethod": "none",
+   "users": []
+  }
+ },
+ "hasGeoDash": false,
+ "id": 30918,
+ "imageryId": 1318,
+ "institution": 2093,
+ "isProjectAdmin": false,
+ "learningMaterial": null,
+ "name": "Session 5 - Point Interpretation practice V2",
+ "numPlots": 16,
+ "plotDistribution": "csv",
+ "plotFileName": "4.CEO.IMPRESS.Session4.csv",
+ "plotShape": "square",
+ "plotSimilarityDetails": {
+  "referencePlotId": null,
+  "years": null
+ },
+ "plotSize": 70.0,
+ "plotSpacing": -1.0,
+ "privacyLevel": "public",
+ "projectOptions": {
+  "autoLaunchGeoDash": false,
+  "collectConfidence": true,
+  "showGEEScript": true,
+  "showPlotInformation": true
+ },
+ "publishedDate": "2022-05-17",
+ "referencePlotId": null,
+ "sampleDistribution": "gridded",
+ "sampleFileName": null,
+ "sampleResolution": 10.0,
+ "samplesPerPlot": 49,
+ "shufflePlots": false,
+ "surveyQuestions": {
+  "0": {
+   "answers": {
+    "0": {
+     "answer": "Yes",
+     "color": "#7fbf7b"
+    },
+    "1": {
+     "answer": "No",
+     "color": "#af8dc3"
+    }
+   },
+   "cardOrder": 0,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Forest 2017?"
+  },
+  "1": {
+   "answers": {
+    "0": {
+     "answer": "Decreasing",
+     "color": "#e41a1c"
+    },
+    "1": {
+     "answer": "Increasing",
+     "color": "#377eb8"
+    },
+    "2": {
+     "answer": "Stable Forest",
+     "color": "#4daf4a"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 0,
+   "question": "Forest Trend (2013-2017)"
+  },
+  "10": {
+   "answers": {
+    "0": {
+     "answer": "0",
+     "color": "#1527f6",
+     "required": false
+    }
+   },
+   "componentType": "input",
+   "dataType": "number",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 1,
+   "question": "Canopy cover (2017)?"
+  },
+  "11": {
+   "answers": {
+    "0": {
+     "answer": "Plantation",
+     "color": "#e41a1c"
+    },
+    "1": {
+     "answer": "Stable Forest",
+     "color": "#4daf4a"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    2
+   ],
+   "parentQuestionId": 1,
+   "question": "Plantation or Natural forest"
+  },
+  "12": {
+   "answers": {
+    "0": {
+     "answer": "Montane forest",
+     "color": "#1b9e77"
+    },
+    "1": {
+     "answer": "Western rain forest",
+     "color": "#d95f02"
+    },
+    "2": {
+     "answer": "Coastal forest",
+     "color": "#7570b3"
+    },
+    "3": {
+     "answer": "Mangrove forest",
+     "color": "#e7298a"
+    },
+    "4": {
+     "answer": "Dryland forest",
+     "color": "#66a61e"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 11,
+   "question": "Stable forest type 2017?"
+  },
+  "13": {
+   "answers": {
+    "0": {
+     "answer": "0",
+     "color": "#1527f6",
+     "required": false
+    }
+   },
+   "componentType": "input",
+   "dataType": "number",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 11,
+   "question": "Stable canopy cover"
+  },
+  "14": {
+   "answers": {
+    "0": {
+     "answer": "Yes",
+     "color": "#7fbf7b"
+    },
+    "1": {
+     "answer": "No",
+     "color": "#af8dc3"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 0,
+   "question": "Land cover change (2013-2017)?"
+  },
+  "16": {
+   "answers": {
+    "0": {
+     "answer": "Montane forest",
+     "color": "#1b9e77"
+    },
+    "1": {
+     "answer": "Western rain forest",
+     "color": "#d95f02"
+    },
+    "2": {
+     "answer": "Coastal forest",
+     "color": "#7570b3"
+    },
+    "3": {
+     "answer": "Mangrove forest",
+     "color": "#e7298a"
+    },
+    "4": {
+     "answer": "Dryland forest",
+     "color": "#66a61e"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 14,
+   "question": "Forest Type 2013? (2)"
+  },
+  "17": {
+   "answers": {
+    "0": {
+     "answer": "0",
+     "color": "#1527f6",
+     "required": false
+    }
+   },
+   "componentType": "input",
+   "dataType": "number",
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 14,
+   "question": "Canopy cover 2013?"
+  },
+  "18": {
+   "answers": {
+    "0": {
+     "answer": "2013",
+     "color": "#7b3294"
+    },
+    "1": {
+     "answer": "2014",
+     "color": "#c2a5cf"
+    },
+    "2": {
+     "answer": "2015",
+     "color": "#f7f7f7"
+    },
+    "3": {
+     "answer": "2016",
+     "color": "#a6dba0"
+    },
+    "4": {
+     "answer": "2017",
+     "color": "#008837"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 14,
+   "question": "Year of deforestation event?"
+  },
+  "19": {
+   "answers": {
+    "0": {
+     "answer": "Infrastructure",
+     "color": "#fbb4ae"
+    },
+    "1": {
+     "answer": "Agriculture",
+     "color": "#b3cde3"
+    },
+    "2": {
+     "answer": "Natural Disasters",
+     "color": "#ccebc5"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 14,
+   "question": "Drivers of deforestation?"
+  },
+  "2": {
+   "answers": {
+    "0": {
+     "answer": "Montane forest",
+     "color": "#1b9e77"
+    },
+    "1": {
+     "answer": "Western rain forest",
+     "color": "#d95f02"
+    },
+    "2": {
+     "answer": "Coastal forest",
+     "color": "#7570b3"
+    },
+    "3": {
+     "answer": "Mangrove forest",
+     "color": "#e7298a"
+    },
+    "4": {
+     "answer": "Dryland forest",
+     "color": "#66a61e"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 1,
+   "question": "Forest Type 2017?"
+  },
+  "20": {
+   "answers": {
+    "0": {
+     "answer": "Forest land",
+     "color": "#1b9e77"
+    },
+    "1": {
+     "answer": "Cropland",
+     "color": "#d95f02"
+    },
+    "2": {
+     "answer": "Grassland",
+     "color": "#7570b3"
+    },
+    "3": {
+     "answer": "Wetlands",
+     "color": "#e7298a"
+    },
+    "4": {
+     "answer": "Settlements",
+     "color": "#66a61e"
+    },
+    "5": {
+     "answer": "Otherland",
+     "color": "#e6ab02"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 14,
+   "question": "Land cover 2017?"
+  },
+  "21": {
+   "answers": {
+    "0": {
+     "answer": "Forest land",
+     "color": "#1b9e77"
+    },
+    "1": {
+     "answer": "Cropland",
+     "color": "#d95f02"
+    },
+    "2": {
+     "answer": "Grassland",
+     "color": "#7570b3"
+    },
+    "3": {
+     "answer": "Wetlands",
+     "color": "#e7298a"
+    },
+    "4": {
+     "answer": "Settlements",
+     "color": "#66a61e"
+    },
+    "5": {
+     "answer": "Otherland",
+     "color": "#e6ab02"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 14,
+   "question": "Land cover 2017? (Stable non-forest)"
+  },
+  "22": {
+   "answers": {
+    "0": {
+     "answer": "Insert Comment",
+     "color": "#1527f6",
+     "required": false
+    }
+   },
+   "cardOrder": 0,
+   "componentType": "input",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Comment?"
+  },
+  "3": {
+   "answers": {
+    "0": {
+     "answer": "0",
+     "color": "#1527f6",
+     "required": false
+    }
+   },
+   "componentType": "input",
+   "dataType": "number",
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 1,
+   "question": "Canopy cover before disturbance?"
+  },
+  "4": {
+   "answers": {
+    "0": {
+     "answer": "2013",
+     "color": "#7b3294"
+    },
+    "1": {
+     "answer": "2014",
+     "color": "#c2a5cf"
+    },
+    "2": {
+     "answer": "2015",
+     "color": "#f7f7f7"
+    },
+    "3": {
+     "answer": "2016",
+     "color": "#a6dba0"
+    },
+    "4": {
+     "answer": "2017",
+     "color": "#008837"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 1,
+   "question": "Year of disturbance?"
+  },
+  "5": {
+   "answers": {
+    "0": {
+     "answer": "0",
+     "color": "#1527f6",
+     "required": false
+    }
+   },
+   "componentType": "input",
+   "dataType": "number",
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 1,
+   "question": "Canopy cover after disturbance?"
+  },
+  "6": {
+   "answers": {
+    "0": {
+     "answer": "Agriculture",
+     "color": "#ca0020"
+    },
+    "1": {
+     "answer": "Infrastructure",
+     "color": "#f4a582"
+    },
+    "2": {
+     "answer": "Fire",
+     "color": "#ffffff"
+    },
+    "3": {
+     "answer": "Logging",
+     "color": "#bababa"
+    },
+    "4": {
+     "answer": "Charcoal",
+     "color": "#404040"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 1,
+   "question": "Driver of disturbance"
+  },
+  "7": {
+   "answers": {
+    "0": {
+     "answer": "Forest land",
+     "color": "#1b9e77"
+    },
+    "1": {
+     "answer": "Cropland",
+     "color": "#d95f02"
+    },
+    "2": {
+     "answer": "Grassland",
+     "color": "#7570b3"
+    },
+    "3": {
+     "answer": "Wetlands",
+     "color": "#e7298a"
+    },
+    "4": {
+     "answer": "Settlements",
+     "color": "#66a61e"
+    },
+    "5": {
+     "answer": "Otherland",
+     "color": "#e6ab02"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 1,
+   "question": "Previous land cover?"
+  },
+  "8": {
+   "answers": {
+    "0": {
+     "answer": "2008",
+     "color": "#9e0142"
+    },
+    "1": {
+     "answer": "2009",
+     "color": "#d53e4f"
+    },
+    "2": {
+     "answer": "2010",
+     "color": "#f46d43"
+    },
+    "3": {
+     "answer": "2011",
+     "color": "#fdae61"
+    },
+    "4": {
+     "answer": "2012",
+     "color": "#fee08b"
+    },
+    "5": {
+     "answer": "2013",
+     "color": "#e6f598"
+    },
+    "6": {
+     "answer": "2014",
+     "color": "#abdda4"
+    },
+    "7": {
+     "answer": "2015",
+     "color": "#66c2a5"
+    },
+    "8": {
+     "answer": "2016",
+     "color": "#3288bd"
+    },
+    "9": {
+     "answer": "2017",
+     "color": "#5e4fa2"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 1,
+   "question": "Year restoration begins?"
+  },
+  "9": {
+   "answers": {
+    "0": {
+     "answer": "Montane forest",
+     "color": "#1b9e77"
+    },
+    "1": {
+     "answer": "Western rain forest",
+     "color": "#d95f02"
+    },
+    "2": {
+     "answer": "Coastal forest",
+     "color": "#7570b3"
+    },
+    "3": {
+     "answer": "Mangrove forest",
+     "color": "#e7298a"
+    },
+    "4": {
+     "answer": "Dryland forest",
+     "color": "#66a61e"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 1,
+   "question": "Forest Type 2017? (1)"
+  }
+ },
+ "surveyRules": [
+  {
+   "id": 0,
+   "max": 49,
+   "min": 7,
+   "questionId": 3,
+   "ruleType": "numeric-range"
+  },
+  {
+   "id": 1,
+   "max": 49,
+   "min": 7,
+   "questionId": 5,
+   "ruleType": "numeric-range"
+  },
+  {
+   "answerId1": 0,
+   "answerId2": 0,
+   "id": 2,
+   "questionId1": 0,
+   "questionId2": 7,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "id": 3,
+   "max": 49,
+   "min": 7,
+   "questionId": 10,
+   "ruleType": "numeric-range"
+  },
+  {
+   "id": 4,
+   "max": 49,
+   "min": 7,
+   "questionId": 13,
+   "ruleType": "numeric-range"
+  },
+  {
+   "id": 6,
+   "max": 49,
+   "min": 7,
+   "questionId": 17,
+   "ruleType": "numeric-range"
+  },
+  {
+   "answerId1": 1,
+   "answerId2": 0,
+   "id": 7,
+   "questionId1": 14,
+   "questionId2": 21,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 0,
+   "answerId2": 0,
+   "id": 8,
+   "questionId1": 14,
+   "questionId2": 20,
+   "ruleType": "incompatible-answers"
+  }
+ ],
+ "type": "regular",
+ "userRole": null
+}

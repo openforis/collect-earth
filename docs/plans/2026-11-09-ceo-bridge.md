@@ -60,7 +60,7 @@ questions keyed by id, each with:
 Its rules (`rules.clj`) are `{id, ruleType, …}` with `text-match` (`questionId`, `regex`), `numeric-range`
 (`questionId`, `min`, `max`) and `incompatible-answers` (`questionId1`, `answerId1`, `questionId2`, `answerId2`).
 CEO also has sum of answers, matching sums and multiple incompatible answers
-(https://collect-earth-online-doc.readthedocs.io/en/latest/project/rules.html), whose JSON keys are to be confirmed
+(https://collect-earth-online-doc.readthedocs.io/en/latest/project/rules.html), whose JSON keys were confirmed
 on real projects (Part A).
 
 ## The one real difference: what an answer belongs to
@@ -85,6 +85,47 @@ The coordinator chooses at import. Part B does the first only.
   keep the files as test fixtures under `collect-earth-cloud/test/fixtures/ceo/`.
 - Include projects with collected answers (several collectors, flagged plots, confidence values) for Part C.
 
+### Part A results (10 Nov 2026)
+
+**Done for the public projects; waiting for the organisations' files.** All 630 public projects were read (628
+definitions, two listed twice) with a pause between requests. 14 of them, chosen to cover every case below, are the
+fixtures in `collect-earth-cloud/test/fixtures/ceo/` (its README says what each one is for). The plot and answer
+downloads are only given to a project's administrators (403 without their login), so they are still to come from the
+organisations moving their projects.
+
+What the 628 hold (a feature may occur several times in one project):
+
+- **Questions** (4,196): `button`/`text` 3,206, `input`/`number` 205, `dropdown`/`text` 166, `button`/`number` 154,
+  `input`/`text` 148, `radiobutton`/`text` 112, `radiobutton`/`boolean` 84, `dropdown`/`number` 71,
+  `dropdown`/`boolean` 46, `radiobutton`/`number` 4. Every question has `question`, `answers`, `componentType`,
+  `dataType`, `parentQuestionId` and `parentAnswerIds`; `cardOrder` only on some, `hideQuestion` on about half,
+  `questionLabel` and `required` on 5 (the newest projects). `surveyQuestions` is always an object keyed by id.
+- **Answers**: `{answer, color}`, plus `hide` (a hidden answer, 5,657) and `required` (on an `input`'s single answer,
+  330). Ids are strings in the JSON (`"1"`), numbers in the rules.
+- **Answers that are numbers**: a `button`, `dropdown` or `radiobutton` question with `dataType: number` offers numbers
+  ("80", "20") as its answers, and the sum rules add the chosen numbers. In Collect: a code list whose codes are those
+  numbers, and checks that turn them into numbers (`number(q16) + number(q17) = 100`).
+- **Child questions**: in 258 projects, up to 19 levels deep (a chain in project 37956); B1's nested relevance takes
+  any depth.
+- **Rules** (1,530), all with kebab-case `ruleType` and an `id`:
+  - `incompatible-answers` 1,262: `questionId1`, `answerId1`, `questionId2`, `answerId2`;
+  - `numeric-range` 169: `questionId`, `min`, `max`;
+  - `multiple-incompatible-answers` 48: `answers` (an object question id → answer id, all of them together),
+    `incompatQuestionId`, `incompatAnswerId`;
+  - `sum-of-answers` 31: `questionIds`, `validSum`;
+  - `matching-sums` 20: `questionIds1`, `questionIds2`;
+  - `text-match`: none in the public projects; kept in B2 from CEO's documentation and its importer.
+- **Plots**: from a CSV 385, random 116, shapefile 72, gridded 50, GeoJSON 2, simplified 3; square 519, circle 109
+  (a shapefile's plots have size 0: their own outlines).
+- **Samples per plot**: one in 331 projects (centre 253), so answering per plot (Part B) is exactly what more than
+  half of them do. Then 25 and 9 (70 each), 49 (25), 16 (18), up to 225. Gridded 220, random 99, from a shapefile 26,
+  from a CSV 22, GeoJSON 2, none 6. Drawn samples allowed in 136.
+- **Project options**: confidence collected in 176 (Part C keeps it), plot information shown in 163, the Earth Engine
+  script link in 240, learning material in 17 (it becomes the survey guide).
+- **Assignments and QA/QC**: plots given out equally in 31, by percent in 18; overlap QA/QC in 11, subject-matter
+  experts in 1. Reported by the import; the coordinator sets them again in Collect Earth's division and checks.
+- **Simplified projects**: 6, refused (Part E).
+
 ## Part B: the survey and the plots (about 2 weeks)
 
 In `collect-earth-cloud/src/ceo/`, as pure functions with unit tests, the way `plotDesign.ts` is written:
@@ -99,14 +140,15 @@ attributes, and one tab.
 | CEO | Collect |
 | --- | --- |
 | `button`, `radiobutton`, `dropdown` with `dataType: text` | code attribute and its code list; layout buttons, radio or dropdown |
-| `dataType: boolean` | boolean attribute |
+| `dataType: boolean` (as buttons, radio or dropdown) | boolean attribute |
+| `button`, `radiobutton`, `dropdown` with `dataType: number` | code attribute whose codes are the numbers offered, so the sum rules can add them |
 | `input`, `dataType: number` | real number attribute (integer when every rule bound and example is whole) |
 | `input`, `dataType: text` | text attribute |
 | `required` | `required="true"` |
 | child question (`parentQuestionId`, `parentAnswerIds`) | `relevant="parent = 'a' or parent = 'b'"`, nested to any depth |
 | `question` / `questionLabel` | label / attribute name (made a valid Collect name: lower case, `_`, unique) |
 | answer `color` | dropped (Collect code items have none); said in the report |
-| hidden question or answer | left out; said in the report |
+| hidden question (`hideQuestion`) or answer (`hide`) | left out; said in the report |
 | `cardOrder` | the attributes' order |
 
 ### B2. The rules (`rules.ts`)

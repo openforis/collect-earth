@@ -1,0 +1,1433 @@
+{
+ "allowDrawnSamples": false,
+ "aoiFeatures": [
+  {
+   "coordinates": [
+    [
+     [
+      -116.961947117,
+      14.580569355
+     ],
+     [
+      -116.961947117,
+      32.646309916
+     ],
+     [
+      -86.804906463,
+      32.646309916
+     ],
+     [
+      -86.804906463,
+      14.580569355
+     ],
+     [
+      -116.961947117,
+      14.580569355
+     ]
+    ]
+   ],
+   "type": "Polygon"
+  }
+ ],
+ "aoiFileName": "",
+ "availability": "published",
+ "boundary": "{\"type\":\"Polygon\",\"coordinates\":[[[-116.961947117,14.580569355],[-116.961947117,32.646309916],[-86.804906463,32.646309916],[-86.804906463,14.580569355],[-116.961947117,14.580569355]]]}",
+ "closedDate": "",
+ "createdDate": "2019-07-19",
+ "description": "All Mexico samples",
+ "designSettings": {
+  "qaqcAssignment": {
+   "percent": 0,
+   "qaqcMethod": "none",
+   "smes": [],
+   "timesToReview": 2
+  },
+  "sampleGeometries": {
+   "lines": true,
+   "points": true,
+   "polygons": true
+  },
+  "userAssignment": {
+   "percents": [],
+   "userMethod": "none",
+   "users": []
+  }
+ },
+ "hasGeoDash": true,
+ "id": 2616,
+ "imageryId": 1318,
+ "institution": 499,
+ "isProjectAdmin": false,
+ "learningMaterial": null,
+ "name": "Mexico Review",
+ "numPlots": 7933,
+ "plotDistribution": "shp",
+ "plotFileName": null,
+ "plotShape": "circle",
+ "plotSimilarityDetails": {
+  "referencePlotId": null,
+  "years": null
+ },
+ "plotSize": 0.0,
+ "plotSpacing": 0.0,
+ "privacyLevel": "public",
+ "projectOptions": {
+  "autoLaunchGeoDash": true,
+  "collectConfidence": false,
+  "showGEEScript": false,
+  "showPlotInformation": false
+ },
+ "publishedDate": "2019-07-22",
+ "referencePlotId": null,
+ "sampleDistribution": "shp",
+ "sampleFileName": null,
+ "sampleResolution": 0.0,
+ "samplesPerPlot": 1,
+ "shufflePlots": null,
+ "surveyQuestions": {
+  "1": {
+   "answers": {
+    "1": {
+     "answer": "Bosque",
+     "color": "#008000"
+    },
+    "2": {
+     "answer": "Otras Tierras Boscosas",
+     "color": "#ff8000"
+    },
+    "3": {
+     "answer": " Otras Tierras",
+     "color": "#ff80ff"
+    },
+    "4": {
+     "answer": "Agua",
+     "color": "#1527F6"
+    }
+   },
+   "cardOrder": 1,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Uso del Suelo 2018 - Centroide"
+  },
+  "10": {
+   "answers": {
+    "1": {
+     "answer": "Cambios",
+     "color": "#000000"
+    }
+   },
+   "cardOrder": 10,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Cambio de uso del suelo 2000-2010-2018 - Centroide"
+  },
+  "11": {
+   "answers": {
+    "1": {
+     "answer": " Pérdida de bosque",
+     "color": "#ffff00"
+    },
+    "2": {
+     "answer": "Ganancia de bosque",
+     "color": "#00ff00"
+    },
+    "3": {
+     "answer": "Bosque estable",
+     "color": "#008000"
+    },
+    "4": {
+     "answer": "No bosque estable",
+     "color": "#c0c0c0"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 10,
+   "question": "Cambios para el periodo 2000-2010"
+  },
+  "12": {
+   "answers": {
+    "1": {
+     "answer": "Estable con árboles",
+     "color": "#000000"
+    },
+    "2": {
+     "answer": "Estable sin árboles",
+     "color": "#000000"
+    },
+    "3": {
+     "answer": "De bosque natural a plantación",
+     "color": "#000000"
+    },
+    "4": {
+     "answer": "Con árboles a Sin árboles",
+     "color": "#000000"
+    },
+    "5": {
+     "answer": " Sin árboles a Con árboles",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    3
+   ],
+   "parentQuestionId": 11,
+   "question": "Subcategorías de Bosque Estable 00 - 10"
+  },
+  "13": {
+   "answers": {
+    "1": {
+     "answer": " Pérdida de bosque",
+     "color": "#ff0000"
+    },
+    "2": {
+     "answer": "Ganancia de bosque",
+     "color": "#0080ff"
+    },
+    "3": {
+     "answer": " Bosque estable",
+     "color": "#008040"
+    },
+    "4": {
+     "answer": "No bosque estable",
+     "color": "#c0c0c0"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 10,
+   "question": "Cambios para el periodo 2010-2018"
+  },
+  "14": {
+   "answers": {
+    "1": {
+     "answer": "Estable con árboles",
+     "color": "#000000"
+    },
+    "2": {
+     "answer": "Estable sin árboles",
+     "color": "#000000"
+    },
+    "3": {
+     "answer": "De bosque natural a plantación",
+     "color": "#000000"
+    },
+    "4": {
+     "answer": "Con árboles a Sin árboles",
+     "color": "#000000"
+    },
+    "5": {
+     "answer": " Sin árboles a Con árboles",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    3
+   ],
+   "parentQuestionId": 13,
+   "question": "Subcategorías de Bosque Estable 10 - 18"
+  },
+  "15": {
+   "answers": {
+    "1": {
+     "answer": " % de uso de suelo 2018 en hexágono",
+     "color": "#000000"
+    }
+   },
+   "cardOrder": 15,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Uso del suelo 2018 - Hexágono"
+  },
+  "16": {
+   "answers": {
+    "1": {
+     "answer": "0",
+     "color": "#000000"
+    },
+    "10": {
+     "answer": "90",
+     "color": "#000000"
+    },
+    "11": {
+     "answer": "100",
+     "color": "#000000"
+    },
+    "2": {
+     "answer": "10",
+     "color": "#000000"
+    },
+    "3": {
+     "answer": "20",
+     "color": "#000000"
+    },
+    "4": {
+     "answer": "30",
+     "color": "#000000"
+    },
+    "5": {
+     "answer": "40",
+     "color": "#000000"
+    },
+    "6": {
+     "answer": "50",
+     "color": "#000000"
+    },
+    "7": {
+     "answer": "60",
+     "color": "#000000"
+    },
+    "8": {
+     "answer": "70",
+     "color": "#000000"
+    },
+    "9": {
+     "answer": "80",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "number",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 15,
+   "question": "% de Bosque"
+  },
+  "17": {
+   "answers": {
+    "1": {
+     "answer": "0",
+     "color": "#000000"
+    },
+    "10": {
+     "answer": "90",
+     "color": "#000000"
+    },
+    "11": {
+     "answer": "100",
+     "color": "#000000"
+    },
+    "2": {
+     "answer": "10",
+     "color": "#000000"
+    },
+    "3": {
+     "answer": "20",
+     "color": "#000000"
+    },
+    "4": {
+     "answer": "30",
+     "color": "#000000"
+    },
+    "5": {
+     "answer": "40",
+     "color": "#000000"
+    },
+    "6": {
+     "answer": "50",
+     "color": "#000000"
+    },
+    "7": {
+     "answer": "60",
+     "color": "#000000"
+    },
+    "8": {
+     "answer": "70",
+     "color": "#000000"
+    },
+    "9": {
+     "answer": "80",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "number",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 15,
+   "question": "% de Otras Tierras Boscosas"
+  },
+  "18": {
+   "answers": {
+    "1": {
+     "answer": "0",
+     "color": "#000000"
+    },
+    "10": {
+     "answer": "90",
+     "color": "#000000"
+    },
+    "11": {
+     "answer": "100",
+     "color": "#000000"
+    },
+    "2": {
+     "answer": "10",
+     "color": "#000000"
+    },
+    "3": {
+     "answer": "20",
+     "color": "#000000"
+    },
+    "4": {
+     "answer": "30",
+     "color": "#000000"
+    },
+    "5": {
+     "answer": "40",
+     "color": "#000000"
+    },
+    "6": {
+     "answer": "50",
+     "color": "#000000"
+    },
+    "7": {
+     "answer": "60",
+     "color": "#000000"
+    },
+    "8": {
+     "answer": "70",
+     "color": "#000000"
+    },
+    "9": {
+     "answer": "80",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "number",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 15,
+   "question": "% de Otras Tierras"
+  },
+  "19": {
+   "answers": {
+    "1": {
+     "answer": "0",
+     "color": "#000000"
+    },
+    "10": {
+     "answer": "90",
+     "color": "#000000"
+    },
+    "11": {
+     "answer": "100",
+     "color": "#000000"
+    },
+    "2": {
+     "answer": "10",
+     "color": "#000000"
+    },
+    "3": {
+     "answer": "20",
+     "color": "#000000"
+    },
+    "4": {
+     "answer": "30",
+     "color": "#000000"
+    },
+    "5": {
+     "answer": "40",
+     "color": "#000000"
+    },
+    "6": {
+     "answer": "50",
+     "color": "#000000"
+    },
+    "7": {
+     "answer": "60",
+     "color": "#000000"
+    },
+    "8": {
+     "answer": "70",
+     "color": "#000000"
+    },
+    "9": {
+     "answer": "80",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "number",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 15,
+   "question": "% de Agua"
+  },
+  "2": {
+   "answers": {
+    "1": {
+     "answer": " Bosque Regenerado de Forma Natural",
+     "color": "#006200"
+    },
+    "2": {
+     "answer": " Bosque Plantado",
+     "color": "#00ff40"
+    },
+    "3": {
+     "answer": "Manglares",
+     "color": "#ff0000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 1,
+   "question": "Subcategorías de Bosque"
+  },
+  "20": {
+   "answers": {
+    "1": {
+     "answer": "% de cambio de uso de suelo 2000-2010 en hexágono",
+     "color": "#000000"
+    }
+   },
+   "cardOrder": 20,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Cambio de uso del suelo 2000-2010 - Hexágono"
+  },
+  "21": {
+   "answers": {
+    "1": {
+     "answer": "0",
+     "color": "#000000"
+    },
+    "10": {
+     "answer": "90",
+     "color": "#000000"
+    },
+    "11": {
+     "answer": "100",
+     "color": "#000000"
+    },
+    "2": {
+     "answer": "10",
+     "color": "#000000"
+    },
+    "3": {
+     "answer": "20",
+     "color": "#000000"
+    },
+    "4": {
+     "answer": "30",
+     "color": "#000000"
+    },
+    "5": {
+     "answer": "40",
+     "color": "#000000"
+    },
+    "6": {
+     "answer": "50",
+     "color": "#000000"
+    },
+    "7": {
+     "answer": "60",
+     "color": "#000000"
+    },
+    "8": {
+     "answer": "70",
+     "color": "#000000"
+    },
+    "9": {
+     "answer": "80",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "number",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 20,
+   "question": "% Pérdida de bosque 2000-2010"
+  },
+  "22": {
+   "answers": {
+    "1": {
+     "answer": "0",
+     "color": "#000000"
+    },
+    "10": {
+     "answer": "90",
+     "color": "#000000"
+    },
+    "11": {
+     "answer": "100",
+     "color": "#000000"
+    },
+    "2": {
+     "answer": "10",
+     "color": "#000000"
+    },
+    "3": {
+     "answer": "20",
+     "color": "#000000"
+    },
+    "4": {
+     "answer": "30",
+     "color": "#000000"
+    },
+    "5": {
+     "answer": "40",
+     "color": "#000000"
+    },
+    "6": {
+     "answer": "50",
+     "color": "#000000"
+    },
+    "7": {
+     "answer": "60",
+     "color": "#000000"
+    },
+    "8": {
+     "answer": "70",
+     "color": "#000000"
+    },
+    "9": {
+     "answer": "80",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "number",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 20,
+   "question": "% Ganancia de bosque 2000-2010"
+  },
+  "23": {
+   "answers": {
+    "1": {
+     "answer": "0",
+     "color": "#000000"
+    },
+    "10": {
+     "answer": "90",
+     "color": "#000000"
+    },
+    "11": {
+     "answer": "100",
+     "color": "#000000"
+    },
+    "2": {
+     "answer": "10",
+     "color": "#000000"
+    },
+    "3": {
+     "answer": "20",
+     "color": "#000000"
+    },
+    "4": {
+     "answer": "30",
+     "color": "#000000"
+    },
+    "5": {
+     "answer": "40",
+     "color": "#000000"
+    },
+    "6": {
+     "answer": "50",
+     "color": "#000000"
+    },
+    "7": {
+     "answer": "60",
+     "color": "#000000"
+    },
+    "8": {
+     "answer": "70",
+     "color": "#000000"
+    },
+    "9": {
+     "answer": "80",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "number",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 20,
+   "question": " % Bosque estable 2000-2010"
+  },
+  "24": {
+   "answers": {
+    "1": {
+     "answer": "0",
+     "color": "#000000"
+    },
+    "10": {
+     "answer": "90",
+     "color": "#000000"
+    },
+    "11": {
+     "answer": "100",
+     "color": "#000000"
+    },
+    "2": {
+     "answer": "10",
+     "color": "#000000"
+    },
+    "3": {
+     "answer": "20",
+     "color": "#000000"
+    },
+    "4": {
+     "answer": "30",
+     "color": "#000000"
+    },
+    "5": {
+     "answer": "40",
+     "color": "#000000"
+    },
+    "6": {
+     "answer": "50",
+     "color": "#000000"
+    },
+    "7": {
+     "answer": "60",
+     "color": "#000000"
+    },
+    "8": {
+     "answer": "70",
+     "color": "#000000"
+    },
+    "9": {
+     "answer": "80",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "number",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 20,
+   "question": "% No bosque estable 2000-2010"
+  },
+  "25": {
+   "answers": {
+    "1": {
+     "answer": "% de cambio de uso de suelo 2010-2018 en hexágono ",
+     "color": "#000000"
+    }
+   },
+   "cardOrder": 25,
+   "componentType": "button",
+   "dataType": "number",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Cambio de uso del suelo 2010-2018 - Hexágono"
+  },
+  "26": {
+   "answers": {
+    "1": {
+     "answer": "0",
+     "color": "#000000"
+    },
+    "10": {
+     "answer": "90",
+     "color": "#000000"
+    },
+    "11": {
+     "answer": "100",
+     "color": "#000000"
+    },
+    "2": {
+     "answer": "10",
+     "color": "#000000"
+    },
+    "3": {
+     "answer": "20",
+     "color": "#000000"
+    },
+    "4": {
+     "answer": "30",
+     "color": "#000000"
+    },
+    "5": {
+     "answer": "40",
+     "color": "#000000"
+    },
+    "6": {
+     "answer": "50",
+     "color": "#000000"
+    },
+    "7": {
+     "answer": "60",
+     "color": "#000000"
+    },
+    "8": {
+     "answer": "70",
+     "color": "#000000"
+    },
+    "9": {
+     "answer": "80",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "number",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 25,
+   "question": "% Pérdida de bosque 2010-2018"
+  },
+  "27": {
+   "answers": {
+    "1": {
+     "answer": "0",
+     "color": "#000000"
+    },
+    "10": {
+     "answer": "90",
+     "color": "#000000"
+    },
+    "11": {
+     "answer": "100",
+     "color": "#000000"
+    },
+    "2": {
+     "answer": "10",
+     "color": "#000000"
+    },
+    "3": {
+     "answer": "20",
+     "color": "#000000"
+    },
+    "4": {
+     "answer": "30",
+     "color": "#000000"
+    },
+    "5": {
+     "answer": "40",
+     "color": "#000000"
+    },
+    "6": {
+     "answer": "50",
+     "color": "#000000"
+    },
+    "7": {
+     "answer": "60",
+     "color": "#000000"
+    },
+    "8": {
+     "answer": "70",
+     "color": "#000000"
+    },
+    "9": {
+     "answer": "80",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "number",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 25,
+   "question": "% Ganancia de bosque 2010-2018"
+  },
+  "28": {
+   "answers": {
+    "1": {
+     "answer": "0",
+     "color": "#000000"
+    },
+    "10": {
+     "answer": "90",
+     "color": "#000000"
+    },
+    "11": {
+     "answer": "100",
+     "color": "#000000"
+    },
+    "2": {
+     "answer": "10",
+     "color": "#000000"
+    },
+    "3": {
+     "answer": "20",
+     "color": "#000000"
+    },
+    "4": {
+     "answer": "30",
+     "color": "#000000"
+    },
+    "5": {
+     "answer": "40",
+     "color": "#000000"
+    },
+    "6": {
+     "answer": "50",
+     "color": "#000000"
+    },
+    "7": {
+     "answer": "60",
+     "color": "#000000"
+    },
+    "8": {
+     "answer": "70",
+     "color": "#000000"
+    },
+    "9": {
+     "answer": "80",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "number",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 25,
+   "question": "% Bosque estable 2010-2018"
+  },
+  "29": {
+   "answers": {
+    "1": {
+     "answer": "0",
+     "color": "#000000"
+    },
+    "10": {
+     "answer": "90",
+     "color": "#000000"
+    },
+    "11": {
+     "answer": "100",
+     "color": "#000000"
+    },
+    "2": {
+     "answer": "10",
+     "color": "#000000"
+    },
+    "3": {
+     "answer": "20",
+     "color": "#000000"
+    },
+    "4": {
+     "answer": "30",
+     "color": "#000000"
+    },
+    "5": {
+     "answer": "40",
+     "color": "#000000"
+    },
+    "6": {
+     "answer": "50",
+     "color": "#000000"
+    },
+    "7": {
+     "answer": "60",
+     "color": "#000000"
+    },
+    "8": {
+     "answer": "70",
+     "color": "#000000"
+    },
+    "9": {
+     "answer": "80",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "number",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 25,
+   "question": "% No bosque estable 2010-2018"
+  },
+  "3": {
+   "answers": {
+    "1": {
+     "answer": "Bosque con árboles",
+     "color": "#000000"
+    },
+    "2": {
+     "answer": "Bosque temporalmente desprovisto de árboles",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 2,
+   "question": "Sub-categorías si es Bosque regenerado de forma natural"
+  },
+  "4": {
+   "answers": {
+    "1": {
+     "answer": "Bosque plantado con árboles",
+     "color": "#000000"
+    },
+    "2": {
+     "answer": "Bosque plantado temporalmente desprovisto de árboles",
+     "color": "#000000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    2
+   ],
+   "parentQuestionId": 2,
+   "question": "Sub-categorías si es Bosque Plantado"
+  },
+  "5": {
+   "answers": {
+    "1": {
+     "answer": "Cultivos",
+     "color": "#800080"
+    },
+    "2": {
+     "answer": "Pastizales",
+     "color": "#ffff9d"
+    },
+    "3": {
+     "answer": "Asentamientos",
+     "color": "#c0c0c0"
+    },
+    "4": {
+     "answer": "Suelo desnudo",
+     "color": "#ffffff"
+    },
+    "5": {
+     "answer": " Palmera de aceite",
+     "color": "#ff8000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    3
+   ],
+   "parentQuestionId": 1,
+   "question": "Subcategorías OT"
+  },
+  "6": {
+   "answers": {
+    "1": {
+     "answer": "Con árboles",
+     "color": "#408080"
+    },
+    "2": {
+     "answer": " Sin árboles",
+     "color": "#00ff40"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 5,
+   "question": "Cultivo - Con o sin árboles"
+  },
+  "7": {
+   "answers": {
+    "1": {
+     "answer": "Con árboles",
+     "color": "#16f5b8"
+    },
+    "2": {
+     "answer": "Sin árboles",
+     "color": "#804040"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    2
+   ],
+   "parentQuestionId": 5,
+   "question": "Pastizal - Con o sin árboles"
+  },
+  "8": {
+   "answers": {
+    "1": {
+     "answer": " Con árboles",
+     "color": "#808040"
+    },
+    "2": {
+     "answer": " Sin árboles",
+     "color": "#c0c0c0"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    3
+   ],
+   "parentQuestionId": 5,
+   "question": "Asentamiento - Con o sin árboles"
+  },
+  "9": {
+   "answers": {
+    "1": {
+     "answer": "Aguas continentales",
+     "color": "#00ffff"
+    },
+    "2": {
+     "answer": "Mar",
+     "color": "#2588eb"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    4
+   ],
+   "parentQuestionId": 1,
+   "question": "Subcategorías - Agua"
+  }
+ },
+ "surveyRules": [
+  {
+   "answerId1": 1,
+   "answerId2": 1,
+   "id": 1,
+   "questionId1": 11,
+   "questionId2": 13,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 2,
+   "answerId2": 2,
+   "id": 2,
+   "questionId1": 11,
+   "questionId2": 13,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 2,
+   "answerId2": 4,
+   "id": 3,
+   "questionId1": 11,
+   "questionId2": 13,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 1,
+   "answerId2": 3,
+   "id": 4,
+   "questionId1": 11,
+   "questionId2": 13,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 3,
+   "answerId2": 2,
+   "id": 5,
+   "questionId1": 11,
+   "questionId2": 13,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 4,
+   "answerId2": 1,
+   "id": 6,
+   "questionId1": 11,
+   "questionId2": 13,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 4,
+   "answerId2": 3,
+   "id": 7,
+   "questionId1": 11,
+   "questionId2": 13,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 3,
+   "answerId2": 4,
+   "id": 8,
+   "questionId1": 11,
+   "questionId2": 13,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 1,
+   "answerId2": 1,
+   "id": 9,
+   "questionId1": 1,
+   "questionId2": 13,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 1,
+   "answerId2": 4,
+   "id": 10,
+   "questionId1": 1,
+   "questionId2": 13,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 2,
+   "answerId2": 3,
+   "id": 11,
+   "questionId1": 1,
+   "questionId2": 13,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 2,
+   "answerId2": 2,
+   "id": 12,
+   "questionId1": 1,
+   "questionId2": 13,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 3,
+   "answerId2": 2,
+   "id": 13,
+   "questionId1": 1,
+   "questionId2": 13,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 3,
+   "answerId2": 3,
+   "id": 14,
+   "questionId1": 1,
+   "questionId2": 13,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 4,
+   "answerId2": 3,
+   "id": 15,
+   "questionId1": 1,
+   "questionId2": 13,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 4,
+   "answerId2": 2,
+   "id": 16,
+   "questionId1": 1,
+   "questionId2": 13,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 2,
+   "answerId2": 1,
+   "id": 17,
+   "questionId1": 3,
+   "questionId2": 14,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 2,
+   "answerId2": 5,
+   "id": 18,
+   "questionId1": 3,
+   "questionId2": 14,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 1,
+   "answerId2": 2,
+   "id": 19,
+   "questionId1": 3,
+   "questionId2": 14,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 1,
+   "answerId2": 4,
+   "id": 20,
+   "questionId1": 3,
+   "questionId2": 14,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 1,
+   "answerId2": 2,
+   "id": 21,
+   "questionId1": 4,
+   "questionId2": 14,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 1,
+   "answerId2": 4,
+   "id": 22,
+   "questionId1": 4,
+   "questionId2": 14,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 2,
+   "answerId2": 1,
+   "id": 23,
+   "questionId1": 4,
+   "questionId2": 14,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 2,
+   "answerId2": 5,
+   "id": 24,
+   "questionId1": 4,
+   "questionId2": 14,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 1,
+   "answerId2": 2,
+   "id": 25,
+   "questionId1": 12,
+   "questionId2": 14,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 1,
+   "answerId2": 5,
+   "id": 26,
+   "questionId1": 12,
+   "questionId2": 14,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 2,
+   "answerId2": 1,
+   "id": 27,
+   "questionId1": 12,
+   "questionId2": 14,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 2,
+   "answerId2": 4,
+   "id": 28,
+   "questionId1": 12,
+   "questionId2": 14,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 4,
+   "answerId2": 4,
+   "id": 29,
+   "questionId1": 12,
+   "questionId2": 14,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 4,
+   "answerId2": 1,
+   "id": 30,
+   "questionId1": 12,
+   "questionId2": 14,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 5,
+   "answerId2": 2,
+   "id": 31,
+   "questionId1": 12,
+   "questionId2": 14,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 5,
+   "answerId2": 5,
+   "id": 32,
+   "questionId1": 12,
+   "questionId2": 14,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "id": 33,
+   "questionIds": [
+    16,
+    17,
+    18,
+    19
+   ],
+   "ruleType": "sum-of-answers",
+   "validSum": 100
+  },
+  {
+   "id": 34,
+   "questionIds": [
+    21,
+    22,
+    23,
+    24
+   ],
+   "ruleType": "sum-of-answers",
+   "validSum": 100
+  },
+  {
+   "id": 35,
+   "questionIds": [
+    26,
+    27,
+    28,
+    29
+   ],
+   "ruleType": "sum-of-answers",
+   "validSum": 100
+  },
+  {
+   "id": 36,
+   "questionIds1": [
+    17,
+    18,
+    19
+   ],
+   "questionIds2": [
+    26,
+    29
+   ],
+   "ruleType": "matching-sums"
+  },
+  {
+   "id": 37,
+   "questionIds1": [
+    21,
+    24
+   ],
+   "questionIds2": [
+    27,
+    29
+   ],
+   "ruleType": "matching-sums"
+  }
+ ],
+ "type": "regular",
+ "userRole": null
+}

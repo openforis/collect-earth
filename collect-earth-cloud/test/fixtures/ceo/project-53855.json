@@ -1,0 +1,347 @@
+{
+ "allowDrawnSamples": true,
+ "aoiFeatures": [
+  {
+   "coordinates": [
+    [
+     [
+      3.561568379,
+      4.707058639
+     ],
+     [
+      3.561568379,
+      13.266819917
+     ],
+     [
+      9.371929736,
+      13.266819917
+     ],
+     [
+      9.371929736,
+      4.707058639
+     ],
+     [
+      3.561568379,
+      4.707058639
+     ]
+    ]
+   ],
+   "type": "Polygon"
+  }
+ ],
+ "aoiFileName": "",
+ "availability": "published",
+ "boundary": "{\"type\":\"Polygon\",\"coordinates\":[[[3.561568379,4.707058639],[3.561568379,13.266819917],[9.371929736,13.266819917],[9.371929736,4.707058639],[3.561568379,4.707058639]]]}",
+ "closedDate": "",
+ "createdDate": "2025-06-30",
+ "description": "Proposed LC 2025 for GEF-project in Nigeria",
+ "designSettings": {
+  "qaqcAssignment": {
+   "overlap": 0,
+   "qaqcMethod": "none",
+   "smes": []
+  },
+  "sampleGeometries": {
+   "lines": true,
+   "points": true,
+   "polygons": true
+  },
+  "userAssignment": {
+   "percents": [],
+   "userMethod": "none",
+   "users": []
+  }
+ },
+ "hasGeoDash": true,
+ "id": 53855,
+ "imageryId": 1317,
+ "institution": 5918,
+ "isProjectAdmin": false,
+ "learningMaterial": "",
+ "name": "Nigeria",
+ "numPlots": 2000,
+ "plotDistribution": "csv",
+ "plotFileName": "samplev2.csv",
+ "plotShape": "square",
+ "plotSimilarityDetails": {
+  "referencePlotId": null,
+  "years": null
+ },
+ "plotSize": 10.0,
+ "plotSpacing": -1.0,
+ "privacyLevel": "public",
+ "projectOptions": {
+  "autoLaunchGeoDash": true,
+  "collectConfidence": true,
+  "showGEEScript": false,
+  "showPlotInformation": true
+ },
+ "publishedDate": "2025-07-01",
+ "referencePlotId": null,
+ "sampleDistribution": "center",
+ "sampleFileName": null,
+ "sampleResolution": -1.0,
+ "samplesPerPlot": 1,
+ "shufflePlots": false,
+ "surveyQuestions": {
+  "0": {
+   "answers": {
+    "0": {
+     "answer": "Closed forest",
+     "color": "#467c03",
+     "hide": false
+    },
+    "1": {
+     "answer": "Open forest",
+     "color": "#5fd3ac",
+     "hide": false
+    },
+    "10": {
+     "answer": " Bare surfaces",
+     "color": "#eeefd7",
+     "hide": false
+    },
+    "11": {
+     "answer": " Water",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "Shrubland",
+     "color": "#13f65f",
+     "hide": false
+    },
+    "3": {
+     "answer": " Savanna woodland",
+     "color": "#c5f613",
+     "hide": false
+    },
+    "4": {
+     "answer": " Savanna grassland",
+     "color": "#f6d813",
+     "hide": false
+    },
+    "5": {
+     "answer": " Mangroves",
+     "color": "#13dcf6",
+     "hide": false
+    },
+    "6": {
+     "answer": " Freshwater swamps",
+     "color": "#13f6d0",
+     "hide": false
+    },
+    "7": {
+     "answer": " Annual crops",
+     "color": "#fbff00",
+     "hide": false
+    },
+    "8": {
+     "answer": " Permanent crops",
+     "color": "#73ff00",
+     "hide": false
+    },
+    "9": {
+     "answer": " Artificial surfaces",
+     "color": "#f61313",
+     "hide": false
+    }
+   },
+   "cardOrder": 1,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Land cover 2024"
+  },
+  "1": {
+   "answers": {
+    "0": {
+     "answer": "Cocoa",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "Cashew",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "Oil palm",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "Sugarcane",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "Citrus fruits",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "5": {
+     "answer": "Rubber",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "6": {
+     "answer": "Taro",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "7": {
+     "answer": "Plantain",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "8": {
+     "answer": "Others",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    8
+   ],
+   "parentQuestionId": 0,
+   "question": "Permanent crops type"
+  },
+  "2": {
+   "answers": {
+    "0": {
+     "answer": "Answer",
+     "color": "#1527f6",
+     "hide": false,
+     "required": false
+    }
+   },
+   "componentType": "input",
+   "dataType": "text",
+   "hideQuestion": true,
+   "parentAnswerIds": [
+    8
+   ],
+   "parentQuestionId": 1,
+   "question": "Specify permanent crops type"
+  },
+  "3": {
+   "answers": {
+    "0": {
+     "answer": "Cassava",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "Yam",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "10": {
+     "answer": "Cotton",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "11": {
+     "answer": "Cowpea",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "12": {
+     "answer": "Sorghum",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "13": {
+     "answer": "Millet",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "14": {
+     "answer": "Groundnuts",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "15": {
+     "answer": "Others",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "Beans",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "Sesame",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "Soybean",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "5": {
+     "answer": "Maize",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "6": {
+     "answer": "Vegetables",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "7": {
+     "answer": "Wheat",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "8": {
+     "answer": "Rice",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "9": {
+     "answer": "Potatoes",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    7
+   ],
+   "parentQuestionId": 0,
+   "question": "Annual crops type"
+  },
+  "4": {
+   "answers": {
+    "0": {
+     "answer": "Answer",
+     "color": "#1527f6",
+     "hide": false,
+     "required": false
+    }
+   },
+   "componentType": "input",
+   "dataType": "text",
+   "hideQuestion": true,
+   "parentAnswerIds": [
+    15
+   ],
+   "parentQuestionId": 3,
+   "question": "Specify annual crops type"
+  }
+ },
+ "surveyRules": [],
+ "type": "regular",
+ "userRole": null
+}

@@ -1,0 +1,1695 @@
+{
+ "allowDrawnSamples": false,
+ "aoiFeatures": [
+  {
+   "coordinates": [
+    [
+     [
+      32.8316487178,
+      10.2732987114
+     ],
+     [
+      32.8316487178,
+      3.11440361
+     ],
+     [
+      41.3064591815,
+      3.11440361
+     ],
+     [
+      41.3064591815,
+      10.2732987114
+     ],
+     [
+      32.8316487178,
+      10.2732987114
+     ]
+    ]
+   ],
+   "type": "Polygon"
+  }
+ ],
+ "aoiFileName": "",
+ "availability": "published",
+ "boundary": "{\"type\":\"Polygon\",\"coordinates\":[[[32.999850789,3.190243062],[32.999850789,10.165626808],[41.197112786,10.165626808],[41.197112786,3.190243062],[32.999850789,3.190243062]]]}",
+ "closedDate": "",
+ "createdDate": "2024-11-11",
+ "description": "iteration 1 of what a universally applicable survey template would look like for activity data reporting for multiple REDD+ reporting mechanisms",
+ "designSettings": {
+  "qaqcAssignment": {
+   "percent": 0,
+   "qaqcMethod": "none",
+   "smes": [],
+   "timesToReview": 2
+  },
+  "sampleGeometries": {
+   "lines": true,
+   "points": true,
+   "polygons": true
+  },
+  "userAssignment": {
+   "percents": [],
+   "userMethod": "none",
+   "users": []
+  }
+ },
+ "hasGeoDash": false,
+ "id": 46643,
+ "imageryId": 1318,
+ "institution": 3,
+ "isProjectAdmin": false,
+ "learningMaterial": "Link to definitions doc....",
+ "name": "V1 - FAO - REDD+ Reporting Template",
+ "numPlots": 50,
+ "plotDistribution": "random",
+ "plotFileName": null,
+ "plotShape": "square",
+ "plotSimilarityDetails": {
+  "referencePlotId": null,
+  "years": null
+ },
+ "plotSize": 30.0,
+ "plotSpacing": -1.0,
+ "privacyLevel": "public",
+ "projectOptions": {
+  "autoLaunchGeoDash": false,
+  "collectConfidence": true,
+  "showGEEScript": true,
+  "showPlotInformation": true
+ },
+ "publishedDate": "2025-07-24",
+ "referencePlotId": null,
+ "sampleDistribution": "center",
+ "sampleFileName": null,
+ "sampleResolution": -1.0,
+ "samplesPerPlot": 1,
+ "shufflePlots": false,
+ "surveyQuestions": {
+  "0": {
+   "answers": {
+    "0": {
+     "answer": "Forest",
+     "color": "#33a02c"
+    },
+    "1": {
+     "answer": "Cropland",
+     "color": "#fe9929"
+    },
+    "2": {
+     "answer": "Grassland",
+     "color": "#b2df8a"
+    },
+    "3": {
+     "answer": "Wetland",
+     "color": "#a6cee3"
+    },
+    "4": {
+     "answer": "Other land",
+     "color": "#525252"
+    }
+   },
+   "cardOrder": 1,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "LU in time2 (end year)"
+  },
+  "1": {
+   "answers": {
+    "0": {
+     "answer": "forest type 1",
+     "color": "#c2e699",
+     "hide": false
+    },
+    "1": {
+     "answer": "forest type 2",
+     "color": "#78c679",
+     "hide": false
+    },
+    "2": {
+     "answer": "forest type 3",
+     "color": "#31a354",
+     "hide": true
+    },
+    "3": {
+     "answer": "Forest Plantation 1",
+     "color": "#006837",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 0,
+   "question": "Forest subtype/subdivision"
+  },
+  "11": {
+   "answers": {
+    "0": {
+     "answer": "<5 years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "5 to <10 years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "10 to <20 years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "20 or more years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "not cyclical",
+     "color": "#000000",
+     "hide": false
+    },
+    "5": {
+     "answer": "unknown",
+     "color": "#7e7e81",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    3
+   ],
+   "parentQuestionId": 9,
+   "question": "Cyclical system (1)"
+  },
+  "12": {
+   "answers": {
+    "0": {
+     "answer": "Annual crop",
+     "color": "#feedde"
+    },
+    "1": {
+     "answer": "Perennial crop",
+     "color": "#fdbe85"
+    },
+    "2": {
+     "answer": "Orchard",
+     "color": "#fd8d3c"
+    },
+    "3": {
+     "answer": "Paddy fields",
+     "color": "#e6550d",
+     "hide": true
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 8,
+   "question": "Cropland subtype (1)"
+  },
+  "14": {
+   "answers": {
+    "0": {
+     "answer": "planted trees",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "natural reforestation",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "other anthropogenic cause",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "other non-anthropogenic cause",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 6,
+   "question": "Driver of change (1)"
+  },
+  "16": {
+   "answers": {
+    "0": {
+     "answer": "0000",
+     "color": "#1527f6",
+     "hide": false,
+     "required": true
+    }
+   },
+   "componentType": "input",
+   "dataType": "number",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 6,
+   "question": "year of disturbance (1)"
+  },
+  "18": {
+   "answers": {
+    "0": {
+     "answer": "fire",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "flood",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "10": {
+     "answer": "climatic ecosystem shift",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "11": {
+     "answer": "....",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "landslide",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "storm",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "selective logging",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "5": {
+     "answer": "agriculture",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "6": {
+     "answer": "livestock",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "7": {
+     "answer": "volcano",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "8": {
+     "answer": "timber harvest",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "9": {
+     "answer": "infrastructure development",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 6,
+   "question": "Driver of disturbance (1)"
+  },
+  "19": {
+   "answers": {
+    "0": {
+     "answer": "< 5 years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "5 or more years",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0,
+    1
+   ],
+   "parentQuestionId": 14,
+   "question": "Duration non-forest before event (1)"
+  },
+  "2": {
+   "answers": {
+    "0": {
+     "answer": "Annual crop",
+     "color": "#feedde"
+    },
+    "1": {
+     "answer": "Perennial crop",
+     "color": "#fdbe85"
+    },
+    "2": {
+     "answer": "Orchard",
+     "color": "#fd8d3c"
+    },
+    "3": {
+     "answer": "Paddy fields",
+     "color": "#e6550d",
+     "hide": true
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 0,
+   "question": "Cropland subtype"
+  },
+  "20": {
+   "answers": {
+    "0": {
+     "answer": "anthropogenic",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "non-anthropogenic",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "unsure",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 6,
+   "question": "Cause of disturbance (1)"
+  },
+  "21": {
+   "answers": {
+    "0": {
+     "answer": "0000",
+     "color": "#1527f6",
+     "hide": false,
+     "required": true
+    }
+   },
+   "componentType": "input",
+   "dataType": "number",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    2
+   ],
+   "parentQuestionId": 6,
+   "question": "year of recovery (1)"
+  },
+  "22": {
+   "answers": {
+    "0": {
+     "answer": "high",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "medium",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "low",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "parentQuestionId": 6,
+   "question": "Confidence in event (1)"
+  },
+  "23": {
+   "answers": {
+    "0": {
+     "answer": "confidence notes",
+     "color": "#1527f6",
+     "hide": false,
+     "required": false
+    }
+   },
+   "componentType": "input",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0,
+    1,
+    2
+   ],
+   "parentQuestionId": 22,
+   "question": "Notes on event confidence (1)"
+  },
+  "24": {
+   "answers": {
+    "0": {
+     "answer": "confidence notes",
+     "color": "#1527f6",
+     "hide": false,
+     "required": false
+    }
+   },
+   "componentType": "input",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0,
+    1,
+    2
+   ],
+   "parentQuestionId": 4,
+   "question": "Notes on confidence (0)"
+  },
+  "25": {
+   "answers": {
+    "0": {
+     "answer": "LU or subtype change",
+     "color": "#ff0000",
+     "hide": false
+    },
+    "1": {
+     "answer": "disturbance without LU change",
+     "color": "#fff700",
+     "hide": false
+    },
+    "2": {
+     "answer": "recovery without LU change",
+     "color": "#00ffaa",
+     "hide": false
+    },
+    "3": {
+     "answer": "no disturbance or LU change",
+     "color": "#000000",
+     "hide": false
+    }
+   },
+   "cardOrder": 3,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "LU change or disturbance (2nd most recent) (2)"
+  },
+  "26": {
+   "answers": {
+    "0": {
+     "answer": "0000",
+     "color": "#1527f6",
+     "hide": false,
+     "required": true
+    }
+   },
+   "cardOrder": null,
+   "componentType": "input",
+   "dataType": "number",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 25,
+   "question": "year of change (2)"
+  },
+  "27": {
+   "answers": {
+    "0": {
+     "answer": "Forest",
+     "color": "#33a02c"
+    },
+    "1": {
+     "answer": "Cropland",
+     "color": "#fe9929"
+    },
+    "2": {
+     "answer": "Grassland",
+     "color": "#b2df8a"
+    },
+    "3": {
+     "answer": "Wetland",
+     "color": "#a6cee3"
+    },
+    "4": {
+     "answer": "Other land",
+     "color": "#525252"
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [],
+   "parentQuestionId": 25,
+   "question": "LU before change (2)"
+  },
+  "28": {
+   "answers": {
+    "0": {
+     "answer": "forest type 1",
+     "color": "#c2e699",
+     "hide": false
+    },
+    "1": {
+     "answer": "forest type 2",
+     "color": "#78c679",
+     "hide": false
+    },
+    "2": {
+     "answer": "forest type 3",
+     "color": "#31a354",
+     "hide": true
+    },
+    "3": {
+     "answer": "Forest Plantation 1",
+     "color": "#006837",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 27,
+   "question": "Forest subtype/subdivision (2)"
+  },
+  "3": {
+   "answers": {
+    "0": {
+     "answer": "<5 years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "5 to <10 years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "10 to <20 years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "20 or more years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "not cyclical",
+     "color": "#000000",
+     "hide": false
+    },
+    "5": {
+     "answer": "unknown",
+     "color": "#7e7e81",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    3
+   ],
+   "parentQuestionId": 1,
+   "question": "Cyclical system"
+  },
+  "30": {
+   "answers": {
+    "0": {
+     "answer": "<5 years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "5 to <10 years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "10 to <20 years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "20 or more years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "not cyclical",
+     "color": "#000000",
+     "hide": false
+    },
+    "5": {
+     "answer": "unknown",
+     "color": "#7e7e81",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    3
+   ],
+   "parentQuestionId": 28,
+   "question": "Cyclical system (2)"
+  },
+  "31": {
+   "answers": {
+    "0": {
+     "answer": "Annual crop",
+     "color": "#feedde"
+    },
+    "1": {
+     "answer": "Perennial crop",
+     "color": "#fdbe85"
+    },
+    "2": {
+     "answer": "Orchard",
+     "color": "#fd8d3c"
+    },
+    "3": {
+     "answer": "Paddy fields",
+     "color": "#e6550d",
+     "hide": true
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 27,
+   "question": "Cropland subtype (2)"
+  },
+  "33": {
+   "answers": {
+    "0": {
+     "answer": "planted trees",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "natural reforestation",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "other anthropogenic cause",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "other non-anthropogenic cause",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 25,
+   "question": "Driver of change (2)"
+  },
+  "35": {
+   "answers": {
+    "0": {
+     "answer": "0000",
+     "color": "#1527f6",
+     "hide": false,
+     "required": true
+    }
+   },
+   "cardOrder": null,
+   "componentType": "input",
+   "dataType": "number",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 25,
+   "question": "year of disturbance (2)"
+  },
+  "37": {
+   "answers": {
+    "0": {
+     "answer": "fire",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "flood",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "10": {
+     "answer": "climatic ecosystem shift",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "11": {
+     "answer": "....",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "landslide",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "storm",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "selective logging",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "5": {
+     "answer": "agriculture",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "6": {
+     "answer": "livestock",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "7": {
+     "answer": "volcano",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "8": {
+     "answer": "timber harvest",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "9": {
+     "answer": "infrastructure development",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 25,
+   "question": "Driver of disturbance (2)"
+  },
+  "38": {
+   "answers": {
+    "0": {
+     "answer": "< 5 years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "5 or more years",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0,
+    1
+   ],
+   "parentQuestionId": 33,
+   "question": "Duration non-forest before event (2)"
+  },
+  "39": {
+   "answers": {
+    "0": {
+     "answer": "anthropogenic",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "non-anthropogenic",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "unsure",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 25,
+   "question": "Cause of disturbance (2)"
+  },
+  "4": {
+   "answers": {
+    "0": {
+     "answer": "high",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "medium",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "low",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ],
+   "parentQuestionId": 0,
+   "question": "Confidence in responses"
+  },
+  "40": {
+   "answers": {
+    "0": {
+     "answer": "0000",
+     "color": "#1527f6",
+     "hide": false,
+     "required": true
+    }
+   },
+   "cardOrder": null,
+   "componentType": "input",
+   "dataType": "number",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    2
+   ],
+   "parentQuestionId": 25,
+   "question": "year of recovery (2)"
+  },
+  "41": {
+   "answers": {
+    "0": {
+     "answer": "high",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "medium",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "low",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "parentQuestionId": 25,
+   "question": "Confidence in event (2)"
+  },
+  "42": {
+   "answers": {
+    "0": {
+     "answer": "confidence notes",
+     "color": "#1527f6",
+     "hide": false,
+     "required": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "input",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0,
+    1,
+    2
+   ],
+   "parentQuestionId": 41,
+   "question": "Notes on event confidence (2)"
+  },
+  "43": {
+   "answers": {
+    "0": {
+     "answer": "LU or subtype change",
+     "color": "#ff0000",
+     "hide": false
+    },
+    "1": {
+     "answer": "disturbance without LU change",
+     "color": "#fff700",
+     "hide": false
+    },
+    "2": {
+     "answer": "recovery without LU change",
+     "color": "#00ffaa",
+     "hide": false
+    },
+    "3": {
+     "answer": "no disturbance or LU change",
+     "color": "#000000",
+     "hide": false
+    }
+   },
+   "cardOrder": 4,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "LU change or disturbance (3rd most recent) (3)"
+  },
+  "44": {
+   "answers": {
+    "0": {
+     "answer": "0000",
+     "color": "#1527f6",
+     "hide": false,
+     "required": true
+    }
+   },
+   "cardOrder": null,
+   "componentType": "input",
+   "dataType": "number",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 43,
+   "question": "year of change (3)"
+  },
+  "45": {
+   "answers": {
+    "0": {
+     "answer": "Forest",
+     "color": "#33a02c"
+    },
+    "1": {
+     "answer": "Cropland",
+     "color": "#fe9929"
+    },
+    "2": {
+     "answer": "Grassland",
+     "color": "#b2df8a"
+    },
+    "3": {
+     "answer": "Wetland",
+     "color": "#a6cee3"
+    },
+    "4": {
+     "answer": "Other land",
+     "color": "#525252"
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [],
+   "parentQuestionId": 43,
+   "question": "LU before change (3)"
+  },
+  "46": {
+   "answers": {
+    "0": {
+     "answer": "forest type 1",
+     "color": "#c2e699",
+     "hide": false
+    },
+    "1": {
+     "answer": "forest type 2",
+     "color": "#78c679",
+     "hide": false
+    },
+    "2": {
+     "answer": "forest type 3",
+     "color": "#31a354",
+     "hide": true
+    },
+    "3": {
+     "answer": "Forest Plantation 1",
+     "color": "#006837",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 45,
+   "question": "Forest subtype/subdivision (3)"
+  },
+  "48": {
+   "answers": {
+    "0": {
+     "answer": "<5 years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "5 to <10 years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "10 to <20 years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "20 or more years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "not cyclical",
+     "color": "#000000",
+     "hide": false
+    },
+    "5": {
+     "answer": "unknown",
+     "color": "#7e7e81",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    3
+   ],
+   "parentQuestionId": 46,
+   "question": "Cyclical system (3)"
+  },
+  "49": {
+   "answers": {
+    "0": {
+     "answer": "Annual crop",
+     "color": "#feedde"
+    },
+    "1": {
+     "answer": "Perennial crop",
+     "color": "#fdbe85"
+    },
+    "2": {
+     "answer": "Orchard",
+     "color": "#fd8d3c"
+    },
+    "3": {
+     "answer": "Paddy fields",
+     "color": "#e6550d",
+     "hide": true
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 45,
+   "question": "Cropland subtype (3)"
+  },
+  "5": {
+   "answers": {
+    "0": {
+     "answer": "LU in time2",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "Forest subtype/subdivision",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "Cyclical system",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "Cropland subtype",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1,
+    2
+   ],
+   "parentQuestionId": 4,
+   "question": "Primary question causing confidence concern"
+  },
+  "51": {
+   "answers": {
+    "0": {
+     "answer": "planted trees",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "natural reforestation",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "other anthropogenic cause",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "other non-anthropogenic cause",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 43,
+   "question": "Driver of change (3)"
+  },
+  "53": {
+   "answers": {
+    "0": {
+     "answer": "0000",
+     "color": "#1527f6",
+     "hide": false,
+     "required": true
+    }
+   },
+   "cardOrder": null,
+   "componentType": "input",
+   "dataType": "number",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 43,
+   "question": "year of disturbance (3)"
+  },
+  "55": {
+   "answers": {
+    "0": {
+     "answer": "fire",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "flood",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "10": {
+     "answer": "climatic ecosystem shift",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "11": {
+     "answer": "....",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "landslide",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "3": {
+     "answer": "storm",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "4": {
+     "answer": "selective logging",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "5": {
+     "answer": "agriculture",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "6": {
+     "answer": "livestock",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "7": {
+     "answer": "volcano",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "8": {
+     "answer": "timber harvest",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "9": {
+     "answer": "infrastructure development",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 43,
+   "question": "Driver of disturbance (3)"
+  },
+  "56": {
+   "answers": {
+    "0": {
+     "answer": "< 5 years",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "5 or more years",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0,
+    1
+   ],
+   "parentQuestionId": 51,
+   "question": "Duration non-forest before event (3)"
+  },
+  "57": {
+   "answers": {
+    "0": {
+     "answer": "anthropogenic",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "non-anthropogenic",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "unsure",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 43,
+   "question": "Cause of disturbance (3)"
+  },
+  "58": {
+   "answers": {
+    "0": {
+     "answer": "0000",
+     "color": "#1527f6",
+     "hide": false,
+     "required": true
+    }
+   },
+   "cardOrder": null,
+   "componentType": "input",
+   "dataType": "number",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    2
+   ],
+   "parentQuestionId": 43,
+   "question": "year of recovery (3)"
+  },
+  "59": {
+   "answers": {
+    "0": {
+     "answer": "high",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "1": {
+     "answer": "medium",
+     "color": "#1527f6",
+     "hide": false
+    },
+    "2": {
+     "answer": "low",
+     "color": "#1527f6",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "parentQuestionId": 43,
+   "question": "Confidence in event (3)"
+  },
+  "6": {
+   "answers": {
+    "0": {
+     "answer": "LU or subtype change",
+     "color": "#ff0000",
+     "hide": false
+    },
+    "1": {
+     "answer": "disturbance without LU change",
+     "color": "#fff700",
+     "hide": false
+    },
+    "2": {
+     "answer": "recovery without LU change",
+     "color": "#00ffaa",
+     "hide": false
+    },
+    "3": {
+     "answer": "no disturbance or LU change",
+     "color": "#000000",
+     "hide": false
+    }
+   },
+   "cardOrder": 2,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "LU change or disturbance (most recent) (1)"
+  },
+  "60": {
+   "answers": {
+    "0": {
+     "answer": "confidence notes",
+     "color": "#1527f6",
+     "hide": false,
+     "required": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "input",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0,
+    1,
+    2
+   ],
+   "parentQuestionId": 59,
+   "question": "Notes on event confidence (3)"
+  },
+  "7": {
+   "answers": {
+    "0": {
+     "answer": "0000",
+     "color": "#1527f6",
+     "hide": false,
+     "required": true
+    }
+   },
+   "componentType": "input",
+   "dataType": "number",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 6,
+   "question": "year of change (1)"
+  },
+  "8": {
+   "answers": {
+    "0": {
+     "answer": "Forest",
+     "color": "#33a02c"
+    },
+    "1": {
+     "answer": "Cropland",
+     "color": "#fe9929"
+    },
+    "2": {
+     "answer": "Grassland",
+     "color": "#b2df8a"
+    },
+    "3": {
+     "answer": "Wetland",
+     "color": "#a6cee3"
+    },
+    "4": {
+     "answer": "Other land",
+     "color": "#525252"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [],
+   "parentQuestionId": 6,
+   "question": "LU before change (1)"
+  },
+  "9": {
+   "answers": {
+    "0": {
+     "answer": "forest type 1",
+     "color": "#c2e699",
+     "hide": false
+    },
+    "1": {
+     "answer": "forest type 2",
+     "color": "#78c679",
+     "hide": false
+    },
+    "2": {
+     "answer": "forest type 3",
+     "color": "#31a354",
+     "hide": true
+    },
+    "3": {
+     "answer": "Forest Plantation 1",
+     "color": "#006837",
+     "hide": false
+    }
+   },
+   "cardOrder": null,
+   "componentType": "button",
+   "dataType": "text",
+   "hideQuestion": false,
+   "parentAnswerIds": [
+    0
+   ],
+   "parentQuestionId": 8,
+   "question": "Forest subtype/subdivision (1)"
+  }
+ },
+ "surveyRules": [
+  {
+   "answers": {
+    "6": "0"
+   },
+   "id": 0,
+   "incompatAnswerId": "0",
+   "incompatQuestionId": "9",
+   "ruleType": "multiple-incompatible-answers"
+  },
+  {
+   "answers": {
+    "1": "1"
+   },
+   "id": 1,
+   "incompatAnswerId": "1",
+   "incompatQuestionId": "9",
+   "ruleType": "multiple-incompatible-answers"
+  },
+  {
+   "id": 2,
+   "max": 2024,
+   "min": 2000,
+   "questionId": 7,
+   "ruleType": "numeric-range"
+  },
+  {
+   "answerId1": 1,
+   "answerId2": 1,
+   "id": 3,
+   "questionId1": 0,
+   "questionId2": 6,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 1,
+   "answerId2": 2,
+   "id": 4,
+   "questionId1": 0,
+   "questionId2": 6,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 2,
+   "answerId2": 1,
+   "id": 5,
+   "questionId1": 0,
+   "questionId2": 6,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 2,
+   "answerId2": 2,
+   "id": 6,
+   "questionId1": 0,
+   "questionId2": 6,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 3,
+   "answerId2": 1,
+   "id": 7,
+   "questionId1": 0,
+   "questionId2": 6,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 3,
+   "answerId2": 2,
+   "id": 8,
+   "questionId1": 0,
+   "questionId2": 6,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 4,
+   "answerId2": 1,
+   "id": 9,
+   "questionId1": 0,
+   "questionId2": 6,
+   "ruleType": "incompatible-answers"
+  },
+  {
+   "answerId1": 4,
+   "answerId2": 2,
+   "id": 10,
+   "questionId1": 0,
+   "questionId2": 6,
+   "ruleType": "incompatible-answers"
+  }
+ ],
+ "type": "regular",
+ "userRole": null
+}
