@@ -36,10 +36,10 @@ public class SettingsValidatorTest {
 
 	@Test
 	public void aPortIsBlankOrANumberOfAPort() {
-		assertNull(validator.validate(values("port", "")).getErrors().get("port"));
-		assertNull(validator.validate(values("port", "8028")).getErrors().get("port"));
-		assertEquals(Messages.getString("PropertyValidators.portRange"), validator.validate(values("port", "70000")).getErrors().get("port"));
-		assertEquals(Messages.getString("PropertyValidators.portRange"), validator.validate(values("port", "x")).getErrors().get("port"));
+		assertNull(validator.validate(values("db_driver", "POSTGRESQL", "db_port", "")).getErrors().get("db_port"));
+		assertNull(validator.validate(values("db_driver", "POSTGRESQL", "db_port", "5432")).getErrors().get("db_port"));
+		assertEquals(Messages.getString("PropertyValidators.portRange"),
+				validator.validate(values("db_driver", "POSTGRESQL", "db_port", "x")).getErrors().get("db_port"));
 		assertEquals(Messages.getString("PropertyValidators.portRange"),
 				validator.validate(values("db_driver", "POSTGRESQL", "db_port", "0")).getErrors().get("db_port"));
 	}
@@ -124,11 +124,11 @@ public class SettingsValidatorTest {
 	}
 
 	@Test
-	public void planetWithoutAKeyIsAWarning() {
-		Validation planet = validator.validate(values("open_planet_maps", "true", "planet_maps_key", " "));
+	public void planetWithoutAKeyIsSimplyOff() {
+		// The key is what switches Planet on: none is no problem
+		Validation planet = validator.validate(values("planet_maps_key", " "));
 		assertTrue(planet.isValid());
-		assertEquals(Messages.getString("OptionWizard.1055"), planet.getWarnings().get("planet_maps_key"));
-		assertTrue(validator.validate(values("open_planet_maps", "false", "planet_maps_key", "")).getWarnings().isEmpty());
+		assertTrue(planet.getWarnings().isEmpty());
 	}
 
 	@Test

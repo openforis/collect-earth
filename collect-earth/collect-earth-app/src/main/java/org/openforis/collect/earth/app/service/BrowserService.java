@@ -26,8 +26,6 @@ import java.util.function.Function;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.desktop.EarthApp;
-import org.openforis.collect.earth.app.service.notices.Notice;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.imagery.BidiCommandException;
@@ -151,9 +149,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		return StringUtils.isBlank(projectName) ? PLOTS_IN_GOOGLE_EARTH_WEB_TITLE
 				: projectName.trim() + " · " + PLOTS_IN_GOOGLE_EARTH_WEB_TITLE;
 	}
-
-	/** The interpreter is told once per run that the Planet API key is missing, not once per plot */
-	private boolean planetApiKeyWarningShown;
 
 	private final CopyOnWriteArrayList<RemoteWebDriver> drivers = new CopyOnWriteArrayList<>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
@@ -961,7 +956,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		if (localPropertiesService.isEsriWaybackSupported()) {
 			sources.add(ImagerySource.ESRI_WAYBACK);
 		}
-		if (localPropertiesService.isPlanetMapsSupported() && StringUtils.isNotBlank(localPropertiesService.getPlanetMapsKey())) {
+		if (localPropertiesService.isPlanetMapsSupported()) {
 			sources.add(ImagerySource.PLANET);
 		}
 		if (localPropertiesService.isGEEAppSupported()) {
@@ -1143,12 +1138,8 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * @param selection       the number of the plot selection, see {@link ImageryBrowser#loadLatest}
 	 */
 	public void openPlanetMaps(SimplePlacemarkObject placemarkObject, long selection) {
+		// Planet is supported once its key is set: both modes are opened with it
 		if (localPropertiesService.isPlanetMapsSupported()) {
-			// both modes are opened with the same key, and neither of them shows anything without it
-			if (StringUtils.isBlank(localPropertiesService.getPlanetMapsKey())) {
-				warnAboutMissingPlanetApiKey();
-				return;
-			}
 			try {
 				if (localPropertiesService.isPlanetMapsUseTfo()) {
 					// TFO mode: Use hosted planet.html with NICFI monthly basemaps
@@ -1160,19 +1151,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			} catch (final Exception e) {
 				logger.error("Problems loading Planet", e);
 			}
-		}
-	}
-
-	/**
-	 * Planet is opened for every plot, so the interpreter is told once per run: a dialog on each plot would
-	 * get in the way of the assessment, and the key is entered in the settings, not here. A notice of the pages.
-	 */
-	private void warnAboutMissingPlanetApiKey() {
-		logger.warn("Planet is switched on but no Planet API key is configured");
-		if (!planetApiKeyWarningShown) {
-			planetApiKeyWarningShown = true;
-			EarthApp.notify(Notice.WARNING, Messages.getString("BrowserService.planetApiKeyMissingTitle"), //$NON-NLS-1$
-					Messages.getString("BrowserService.planetApiKeyMissing")); //$NON-NLS-1$
 		}
 	}
 
