@@ -1,0 +1,545 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<survey lastId="123" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth">
+  <project>Session 5 - Point Interpretation practice V2</project>
+  <uri>http://www.openforis.org/idm/ceo_30918</uri>
+  <description>Pilot the draft data collection survey as a practice exercise and pilot the preferred QAQC approach to data collection
+
+Imported from Collect Earth Online, project 30918.</description>
+  <language>en</language>
+  <applicationOptions>
+    <options type="ui">
+      <n0:tabSet name="plot_tab_set" xmlns:n0="http://www.openforis.org/collect/3.0/ui">
+        <n0:tab name="survey_tab">
+          <n0:label>Session 5 - Point Interpretation practice V2</n0:label>
+        </n0:tab>
+        <n0:tab name="plot_data_tab">
+          <n0:label>Plot data</n0:label>
+        </n0:tab>
+      </n0:tabSet>
+    </options>
+  </applicationOptions>
+  <codeLists>
+    <list id="3" name="forest_2017">
+      <label type="item">Forest 2017?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="1">
+          <code>yes</code>
+          <label>Yes</label>
+        </item>
+        <item id="2">
+          <code>no</code>
+          <label>No</label>
+        </item>
+      </items>
+    </list>
+    <list id="7" name="forest_trend_2013_2017">
+      <label type="item">Forest Trend (2013-2017)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="4">
+          <code>decreasing</code>
+          <label>Decreasing</label>
+        </item>
+        <item id="5">
+          <code>increasing</code>
+          <label>Increasing</label>
+        </item>
+        <item id="6">
+          <code>stable_forest</code>
+          <label>Stable Forest</label>
+        </item>
+      </items>
+    </list>
+    <list id="13" name="forest_type_2017">
+      <label type="item">Forest Type 2017?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="8">
+          <code>montane_forest</code>
+          <label>Montane forest</label>
+        </item>
+        <item id="9">
+          <code>western_rain_forest</code>
+          <label>Western rain forest</label>
+        </item>
+        <item id="10">
+          <code>coastal_forest</code>
+          <label>Coastal forest</label>
+        </item>
+        <item id="11">
+          <code>mangrove_forest</code>
+          <label>Mangrove forest</label>
+        </item>
+        <item id="12">
+          <code>dryland_forest</code>
+          <label>Dryland forest</label>
+        </item>
+      </items>
+    </list>
+    <list id="19" name="year_of_disturbance">
+      <label type="item">Year of disturbance?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="14">
+          <code>2013</code>
+          <label>2013</label>
+        </item>
+        <item id="15">
+          <code>2014</code>
+          <label>2014</label>
+        </item>
+        <item id="16">
+          <code>2015</code>
+          <label>2015</label>
+        </item>
+        <item id="17">
+          <code>2016</code>
+          <label>2016</label>
+        </item>
+        <item id="18">
+          <code>2017</code>
+          <label>2017</label>
+        </item>
+      </items>
+    </list>
+    <list id="25" name="driver_of_disturbance">
+      <label type="item">Driver of disturbance</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="20">
+          <code>agriculture</code>
+          <label>Agriculture</label>
+        </item>
+        <item id="21">
+          <code>infrastructure</code>
+          <label>Infrastructure</label>
+        </item>
+        <item id="22">
+          <code>fire</code>
+          <label>Fire</label>
+        </item>
+        <item id="23">
+          <code>logging</code>
+          <label>Logging</label>
+        </item>
+        <item id="24">
+          <code>charcoal</code>
+          <label>Charcoal</label>
+        </item>
+      </items>
+    </list>
+    <list id="32" name="previous_land_cover">
+      <label type="item">Previous land cover?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="26">
+          <code>forest_land</code>
+          <label>Forest land</label>
+        </item>
+        <item id="27">
+          <code>cropland</code>
+          <label>Cropland</label>
+        </item>
+        <item id="28">
+          <code>grassland</code>
+          <label>Grassland</label>
+        </item>
+        <item id="29">
+          <code>wetlands</code>
+          <label>Wetlands</label>
+        </item>
+        <item id="30">
+          <code>settlements</code>
+          <label>Settlements</label>
+        </item>
+        <item id="31">
+          <code>otherland</code>
+          <label>Otherland</label>
+        </item>
+      </items>
+    </list>
+    <list id="43" name="year_restoration_begins">
+      <label type="item">Year restoration begins?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="33">
+          <code>2008</code>
+          <label>2008</label>
+        </item>
+        <item id="34">
+          <code>2009</code>
+          <label>2009</label>
+        </item>
+        <item id="35">
+          <code>2010</code>
+          <label>2010</label>
+        </item>
+        <item id="36">
+          <code>2011</code>
+          <label>2011</label>
+        </item>
+        <item id="37">
+          <code>2012</code>
+          <label>2012</label>
+        </item>
+        <item id="38">
+          <code>2013</code>
+          <label>2013</label>
+        </item>
+        <item id="39">
+          <code>2014</code>
+          <label>2014</label>
+        </item>
+        <item id="40">
+          <code>2015</code>
+          <label>2015</label>
+        </item>
+        <item id="41">
+          <code>2016</code>
+          <label>2016</label>
+        </item>
+        <item id="42">
+          <code>2017</code>
+          <label>2017</label>
+        </item>
+      </items>
+    </list>
+    <list id="49" name="forest_type_2017_1">
+      <label type="item">Forest Type 2017? (1)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="44">
+          <code>montane_forest</code>
+          <label>Montane forest</label>
+        </item>
+        <item id="45">
+          <code>western_rain_forest</code>
+          <label>Western rain forest</label>
+        </item>
+        <item id="46">
+          <code>coastal_forest</code>
+          <label>Coastal forest</label>
+        </item>
+        <item id="47">
+          <code>mangrove_forest</code>
+          <label>Mangrove forest</label>
+        </item>
+        <item id="48">
+          <code>dryland_forest</code>
+          <label>Dryland forest</label>
+        </item>
+      </items>
+    </list>
+    <list id="52" name="plantation_or_natural_forest">
+      <label type="item">Plantation or Natural forest</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="50">
+          <code>plantation</code>
+          <label>Plantation</label>
+        </item>
+        <item id="51">
+          <code>stable_forest</code>
+          <label>Stable Forest</label>
+        </item>
+      </items>
+    </list>
+    <list id="58" name="stable_forest_type_2017">
+      <label type="item">Stable forest type 2017?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="53">
+          <code>montane_forest</code>
+          <label>Montane forest</label>
+        </item>
+        <item id="54">
+          <code>western_rain_forest</code>
+          <label>Western rain forest</label>
+        </item>
+        <item id="55">
+          <code>coastal_forest</code>
+          <label>Coastal forest</label>
+        </item>
+        <item id="56">
+          <code>mangrove_forest</code>
+          <label>Mangrove forest</label>
+        </item>
+        <item id="57">
+          <code>dryland_forest</code>
+          <label>Dryland forest</label>
+        </item>
+      </items>
+    </list>
+    <list id="61" name="land_cover_change_2013_2017">
+      <label type="item">Land cover change (2013-2017)?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="59">
+          <code>yes</code>
+          <label>Yes</label>
+        </item>
+        <item id="60">
+          <code>no</code>
+          <label>No</label>
+        </item>
+      </items>
+    </list>
+    <list id="67" name="forest_type_2013_2">
+      <label type="item">Forest Type 2013? (2)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="62">
+          <code>montane_forest</code>
+          <label>Montane forest</label>
+        </item>
+        <item id="63">
+          <code>western_rain_forest</code>
+          <label>Western rain forest</label>
+        </item>
+        <item id="64">
+          <code>coastal_forest</code>
+          <label>Coastal forest</label>
+        </item>
+        <item id="65">
+          <code>mangrove_forest</code>
+          <label>Mangrove forest</label>
+        </item>
+        <item id="66">
+          <code>dryland_forest</code>
+          <label>Dryland forest</label>
+        </item>
+      </items>
+    </list>
+    <list id="73" name="year_of_deforestation_event">
+      <label type="item">Year of deforestation event?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="68">
+          <code>2013</code>
+          <label>2013</label>
+        </item>
+        <item id="69">
+          <code>2014</code>
+          <label>2014</label>
+        </item>
+        <item id="70">
+          <code>2015</code>
+          <label>2015</label>
+        </item>
+        <item id="71">
+          <code>2016</code>
+          <label>2016</label>
+        </item>
+        <item id="72">
+          <code>2017</code>
+          <label>2017</label>
+        </item>
+      </items>
+    </list>
+    <list id="77" name="drivers_of_deforestation">
+      <label type="item">Drivers of deforestation?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="74">
+          <code>infrastructure</code>
+          <label>Infrastructure</label>
+        </item>
+        <item id="75">
+          <code>agriculture</code>
+          <label>Agriculture</label>
+        </item>
+        <item id="76">
+          <code>natural_disasters</code>
+          <label>Natural Disasters</label>
+        </item>
+      </items>
+    </list>
+    <list id="84" name="land_cover_2017">
+      <label type="item">Land cover 2017?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="78">
+          <code>forest_land</code>
+          <label>Forest land</label>
+        </item>
+        <item id="79">
+          <code>cropland</code>
+          <label>Cropland</label>
+        </item>
+        <item id="80">
+          <code>grassland</code>
+          <label>Grassland</label>
+        </item>
+        <item id="81">
+          <code>wetlands</code>
+          <label>Wetlands</label>
+        </item>
+        <item id="82">
+          <code>settlements</code>
+          <label>Settlements</label>
+        </item>
+        <item id="83">
+          <code>otherland</code>
+          <label>Otherland</label>
+        </item>
+      </items>
+    </list>
+    <list id="91" name="land_cover_2017_stable_non_forest">
+      <label type="item">Land cover 2017? (Stable non-forest)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="85">
+          <code>forest_land</code>
+          <label>Forest land</label>
+        </item>
+        <item id="86">
+          <code>cropland</code>
+          <label>Cropland</label>
+        </item>
+        <item id="87">
+          <code>grassland</code>
+          <label>Grassland</label>
+        </item>
+        <item id="88">
+          <code>wetlands</code>
+          <label>Wetlands</label>
+        </item>
+        <item id="89">
+          <code>settlements</code>
+          <label>Settlements</label>
+        </item>
+        <item id="90">
+          <code>otherland</code>
+          <label>Otherland</label>
+        </item>
+      </items>
+    </list>
+  </codeLists>
+  <spatialReferenceSystems>
+    <spatialReferenceSystem srid="EPSG:4326">
+      <label xml:lang="en">EPSG:4326</label>
+      <wkt><![CDATA[GEOGCS["WGS 84",
+      DATUM["World Geodetic System 1984",
+        SPHEROID["WGS 84", 6378137.0, 298.257223563, AUTHORITY["EPSG","7030"]],
+        AUTHORITY["EPSG","6326"]],
+      PRIMEM["Greenwich", 0.0, AUTHORITY["EPSG","8901"]],
+      UNIT["degree", 0.017453292519943295],
+      AXIS["Geodetic longitude", EAST],
+      AXIS["Geodetic latitude", NORTH],
+      AUTHORITY["EPSG","4326"]]]]></wkt>
+    </spatialReferenceSystem>
+  </spatialReferenceSystems>
+  <schema>
+    <entity id="101" name="plot" ui:tab="survey_tab" ui:tabSet="plot_tab_set">
+      <label type="instance">Plot</label>
+      <text id="92" name="id" required="true" ui:tab="plot_data_tab" key="true" type="short">
+        <label type="instance">Plot - ID</label>
+      </text>
+      <coordinate id="93" name="location" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Central point coordinates</label>
+      </coordinate>
+      <text id="94" name="operator" required="true" ui:tab="plot_data_tab" type="short">
+        <label type="instance">Plot - Operator</label>
+      </text>
+      <boolean id="95" name="actively_saved" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Actively saved by user</label>
+      </boolean>
+      <date id="96" name="actively_saved_on" relevant="false()" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Date of last saved</label>
+      </date>
+      <text id="97" name="plot_file" relevant="false()" ui:tab="plot_data_tab" type="short">
+        <label type="instance">Plot - CSV file that contains the plot</label>
+      </text>
+      <number id="98" name="elevation" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="integer">
+        <label type="instance">Plot - Elevation</label>
+      </number>
+      <number id="99" name="slope" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="real">
+        <label type="instance">Plot - Slope</label>
+      </number>
+      <number id="100" name="aspect" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="real">
+        <label type="instance">Plot - Aspect</label>
+      </number>
+      <code id="102" name="forest_2017" required="true" ui:tab="survey_tab" list="forest_2017">
+        <label type="instance">Forest 2017?</label>
+      </code>
+      <code id="103" name="forest_trend_2013_2017" required="true" relevant="forest_2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_trend_2013_2017">
+        <label type="instance">Forest Trend (2013-2017)</label>
+      </code>
+      <code id="104" name="forest_type_2017" required="true" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;decreasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_type_2017">
+        <label type="instance">Forest Type 2017?</label>
+      </code>
+      <number id="105" name="canopy_cover_before_disturbance" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;decreasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+        <label type="instance">Canopy cover before disturbance?</label>
+        <description>In CEO: &quot;0&quot;</description>
+        <compare flag="error" gte="7" lte="49"><message>The answer to “Canopy cover before disturbance?” must be between 7 and 49.</message></compare>
+      </number>
+      <code id="106" name="year_of_disturbance" required="true" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;decreasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="year_of_disturbance">
+        <label type="instance">Year of disturbance?</label>
+      </code>
+      <number id="107" name="canopy_cover_after_disturbance" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;decreasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+        <label type="instance">Canopy cover after disturbance?</label>
+        <description>In CEO: &quot;0&quot;</description>
+        <compare flag="error" gte="7" lte="49"><message>The answer to “Canopy cover after disturbance?” must be between 7 and 49.</message></compare>
+      </number>
+      <code id="108" name="driver_of_disturbance" required="true" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;decreasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_disturbance">
+        <label type="instance">Driver of disturbance</label>
+      </code>
+      <code id="109" name="previous_land_cover" required="true" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;increasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="previous_land_cover">
+        <label type="instance">Previous land cover?</label>
+        <check flag="error" expr="not(forest_2017 = &apos;yes&apos; and previous_land_cover = &apos;forest_land&apos;)"><message>“Forest 2017?”: “Yes” cannot go with “Previous land cover?”: “Forest land”.</message></check>
+      </code>
+      <code id="110" name="year_restoration_begins" required="true" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;increasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="year_restoration_begins">
+        <label type="instance">Year restoration begins?</label>
+      </code>
+      <code id="111" name="forest_type_2017_1" required="true" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;increasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_type_2017_1">
+        <label type="instance">Forest Type 2017? (1)</label>
+      </code>
+      <number id="112" name="canopy_cover_2017" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;increasing&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+        <label type="instance">Canopy cover (2017)?</label>
+        <description>In CEO: &quot;0&quot;</description>
+        <compare flag="error" gte="7" lte="49"><message>The answer to “Canopy cover (2017)?” must be between 7 and 49.</message></compare>
+      </number>
+      <code id="113" name="plantation_or_natural_forest" required="true" relevant="(forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;stable_forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="plantation_or_natural_forest">
+        <label type="instance">Plantation or Natural forest</label>
+      </code>
+      <code id="114" name="stable_forest_type_2017" required="true" relevant="((forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;stable_forest&apos;) and plantation_or_natural_forest = &apos;stable_forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="stable_forest_type_2017">
+        <label type="instance">Stable forest type 2017?</label>
+      </code>
+      <number id="115" name="stable_canopy_cover" relevant="((forest_2017 = &apos;yes&apos;) and forest_trend_2013_2017 = &apos;stable_forest&apos;) and plantation_or_natural_forest = &apos;stable_forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+        <label type="instance">Stable canopy cover</label>
+        <description>In CEO: &quot;0&quot;</description>
+        <compare flag="error" gte="7" lte="49"><message>The answer to “Stable canopy cover” must be between 7 and 49.</message></compare>
+      </number>
+      <code id="116" name="land_cover_change_2013_2017" required="true" relevant="forest_2017 = &apos;no&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_cover_change_2013_2017">
+        <label type="instance">Land cover change (2013-2017)?</label>
+      </code>
+      <code id="117" name="forest_type_2013_2" required="true" relevant="(forest_2017 = &apos;no&apos;) and land_cover_change_2013_2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_type_2013_2">
+        <label type="instance">Forest Type 2013? (2)</label>
+      </code>
+      <number id="118" name="canopy_cover_2013" relevant="(forest_2017 = &apos;no&apos;) and land_cover_change_2013_2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+        <label type="instance">Canopy cover 2013?</label>
+        <description>In CEO: &quot;0&quot;</description>
+        <compare flag="error" gte="7" lte="49"><message>The answer to “Canopy cover 2013?” must be between 7 and 49.</message></compare>
+      </number>
+      <code id="119" name="year_of_deforestation_event" required="true" relevant="(forest_2017 = &apos;no&apos;) and land_cover_change_2013_2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="year_of_deforestation_event">
+        <label type="instance">Year of deforestation event?</label>
+      </code>
+      <code id="120" name="drivers_of_deforestation" required="true" relevant="(forest_2017 = &apos;no&apos;) and land_cover_change_2013_2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="drivers_of_deforestation">
+        <label type="instance">Drivers of deforestation?</label>
+      </code>
+      <code id="121" name="land_cover_2017" required="true" relevant="(forest_2017 = &apos;no&apos;) and land_cover_change_2013_2017 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_cover_2017">
+        <label type="instance">Land cover 2017?</label>
+        <check flag="error" expr="not(land_cover_change_2013_2017 = &apos;yes&apos; and land_cover_2017 = &apos;forest_land&apos;)"><message>“Land cover change (2013-2017)?”: “Yes” cannot go with “Land cover 2017?”: “Forest land”.</message></check>
+      </code>
+      <code id="122" name="land_cover_2017_stable_non_forest" required="true" relevant="(forest_2017 = &apos;no&apos;) and land_cover_change_2013_2017 = &apos;no&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="land_cover_2017_stable_non_forest">
+        <label type="instance">Land cover 2017? (Stable non-forest)</label>
+        <check flag="error" expr="not(land_cover_change_2013_2017 = &apos;no&apos; and land_cover_2017_stable_non_forest = &apos;forest_land&apos;)"><message>“Land cover change (2013-2017)?”: “No” cannot go with “Land cover 2017? (Stable non-forest)”: “Forest land”.</message></check>
+      </code>
+      <text id="123" name="comment" ui:tab="survey_tab" type="short">
+        <label type="instance">Comment?</label>
+        <description>In CEO: &quot;Insert Comment&quot;</description>
+      </text>
+    </entity>
+  </schema>
+</survey>
