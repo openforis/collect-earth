@@ -210,7 +210,7 @@ function GroupsTable({
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, children }: { title: ReactNode; children: ReactNode }) {
   return (
     <Box>
       <Typography variant="h3" gutterBottom>
@@ -420,7 +420,14 @@ function DivideForm({
             </RadioGroup>
           </FormControl>
 
-          <Section title={t("divide.checkTitle")}>
+          <Section
+            title={
+              <>
+                {t("divide.checkTitle")}
+                <MoreInfo text={t("divide.checkTitle.more")} />
+              </>
+            }
+          >
             <Stack spacing={2}>
               <FormControlLabel
                 control={<Switch checked={form.overlap} onChange={(e) => change({ overlap: e.target.checked })} />}

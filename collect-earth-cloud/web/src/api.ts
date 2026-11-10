@@ -1121,18 +1121,26 @@ export interface CeoReportEntry {
 export interface CeoImportPreview {
   name: string;
   ceoProjectId: number | null;
-  counts: { questions: number; questionsChanged: number; questionsSkipped: number; rules: number; rulesSkipped: number };
+  /** plots: null without CEO's plot list */
+  counts: { questions: number; questionsChanged: number; questionsSkipped: number; rules: number; rulesSkipped: number; plots: number | null };
   report: CeoReportEntry[];
 }
 
-/** What a project saved from Collect Earth Online (its get-project-by-id file, as text) would become; nothing is stored. */
-export function previewCeoImport(ceoProject: string): Promise<CeoImportPreview> {
-  return request("POST", "/v1/projects/from-ceo/preview", { json: { ceoProject } });
+/**
+ * What a project saved from Collect Earth Online (its get-project-by-id file, as text) would become, with its plots
+ * when CEO's plot list (get-project-plots) is given; nothing is stored.
+ */
+export function previewCeoImport(ceoProject: string, ceoPlots: string | null): Promise<CeoImportPreview> {
+  return request("POST", "/v1/projects/from-ceo/preview", { json: { ceoProject, ...(ceoPlots !== null ? { ceoPlots } : {}) } });
 }
 
-/** A new project from a project saved from Collect Earth Online: its survey and rules; the caller is its coordinator. */
-export function importCeoProject(ceoProject: string, name: string): Promise<CeoImportPreview & { projectId: string; round: string; reportText: string }> {
-  return request("POST", "/v1/projects/from-ceo", { json: { ceoProject, name } });
+/** A new project from a project saved from Collect Earth Online: its survey, rules and plots; the caller is its coordinator. */
+export function importCeoProject(
+  ceoProject: string,
+  ceoPlots: string | null,
+  name: string,
+): Promise<CeoImportPreview & { projectId: string; round: string; reportText: string; plotFile: { csvFileId: string; filename: string; plots: number } | null }> {
+  return request("POST", "/v1/projects/from-ceo", { json: { ceoProject, ...(ceoPlots !== null ? { ceoPlots } : {}), name } });
 }
 
 export async function getProject(projectId: string): Promise<ProjectInfo> {

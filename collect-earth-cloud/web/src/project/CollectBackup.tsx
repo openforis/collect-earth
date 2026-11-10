@@ -202,7 +202,7 @@ function BackupChoice({
           {summary.note && <li>{t("backup.note")}</li>}
         </Box>
       )}
-      <Explain variant="body2" text={t("backup.howTo.short")} more={`${t("backup.howTo")} ${t("backup.clientMode")}`} />
+      <Explain variant="body2" text={t("backup.howTo.short")} more={`${t("backup.howTo")}\n\n${t("backup.clientMode")}`} />
     </Stack>
   );
 }

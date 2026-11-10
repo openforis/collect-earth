@@ -45,6 +45,8 @@ export type Design =
 export interface DesignedPlot {
   lon: number;
   lat: number;
+  /** the plot's id in the file; 1, 2, 3... in order when none (a design's plots) */
+  id?: string;
   stratum?: string;
 }
 
@@ -371,7 +373,7 @@ export function plotFileCsv(plots: readonly DesignedPlot[], keys: { count: numbe
   let at = columns.findIndex((c) => c.toLowerCase() === 'stratum');
   if (stratified && at < 0) at = columns.push('stratum') - 1;
   const lines = plots.map((p, n) => [
-    ...keyNames.map((k) => (k === 'round' ? keys.roundCode : String(n + 1))),
+    ...keyNames.map((k) => (k === 'round' ? keys.roundCode : field(p.id ?? String(n + 1)))),
     p.lat.toFixed(6),
     p.lon.toFixed(6),
     ...columns.map((c, i) => (i === at ? field(p.stratum ?? '') : ZERO.has(c.toLowerCase()) ? '0' : '')),

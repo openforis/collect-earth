@@ -25,7 +25,9 @@ sample design that occurs (the counts are in the plan's Part A results):
 | `project-37956.json` | NREF Coherencia Espacial 2000 - 2022 | 429 questions, children 19 deep (stored without indentation) |
 | `project-64113.json` | Reserva Natural Mar Chiquita | a simplified project (collectors draw their samples), to be refused; its `aoiFeatures` (180 KB of outline) replaced by their bounding box |
 | `project-1-plots.json` | Mekong River Region | `get-project-plots?projectId=1`: the plots' centres, ids, status and flag |
+| `project-<id>-plots.json` | 743, 17814, 20170, 30918, 54724 | `get-project-plots` of those projects (10 November 2026, without a login; saved with sorted keys): gridded, random, uploaded CSV and GeoJSON plots, flagged and answered ones. 2616's (7,933 plots, 1.2 MB) is left out |
 
 What is **not** here, as CEO gives it only to the project's administrators (403 without their login): the downloads
-of plots ("Download Shape File", "Download Plot Data") and of answers ("Download Sample Data"). Those come from the
-organisations moving their projects, for Part B3 (plots) and Part C (answers).
+of plots ("Download Shape File", "Download Plot Data", with the uploaded shapes and columns) and of answers
+("Download Sample Data"). Those come from the organisations moving their projects, for Part C (answers) and for the
+plots' shapes; the plots themselves come from `get-project-plots` (Part B3).

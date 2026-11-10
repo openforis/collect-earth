@@ -180,6 +180,30 @@ Every check is an error, as CEO's rules block saving.
 
 ### B3. The plots (`plots.ts`)
 
+**Done (10 Nov 2026), from CEO's plot list** rather than its admin downloads. CEO's pages load the plots with
+`get-project-plots?projectId=N`, which answers like `get-project-by-id` (to anyone for a public project, to its
+members when signed in): each plot's centre, its id as the collectors saw it (`id`: the id of an uploaded plot file),
+CEO's internal number (`plotId`), its status and whether it was flagged. So no CEO admin is needed for the plots;
+the fixtures `project-<id>-plots.json` (1, 743, 17814, 20170, 30918, 54724) are such lists.
+
+- `src/ceo/plots.ts`, `readCeoPlots`: the list checked (JSON, a centre and an id per plot) and against the project:
+  a list whose plots are mostly outside the project's boundary box is refused as another project's. Each plot keeps
+  its CEO id; when those repeat, CEO's internal numbers are used, and said.
+- `plotLayout`: CEO's shape, size and samples as Collect Earth's `project_definition.properties`. A circle: its
+  radius (`distance_between_sample_points`), the samples at the centre then at random, as `CircleKmlGenerator` draws
+  them. A square: an n × n grid (`SquareKmlGenerator`), at CEO's spacing when it is gridded (CEO's grid reaches the
+  edge: 36 samples 20 m apart fill 100 m, so the boundary is 0), else spread evenly; a count that is no square
+  becomes the nearest, said. The tests check that every layout gives CEO's plot side as the dashboard
+  (`plotOutline`) and Collect Earth work it out.
+- Written by the plot design's `plotFileCsv` (it now takes each plot's id), with the project's key and extra
+  columns (`plotFileFormat`, shared with the plot design route); stored as `ceo_<id>_plots.csv` with what the
+  plot-file upload stores and logs (`putCsvFile`, `csv.uploaded`, the space limit).
+- What the list does not give, and is said in the report: the shapes uploaded to CEO (shapefile or GeoJSON plots are
+  drawn as CEO's plot size around their centre, 100 m when CEO gives none), the extra columns of an uploaded plot
+  file, and what was collected (the plots start as new; Part C).
+
+The plan as written, for CEO's downloads (still the way to the shapes and the extra columns):
+
 - From the shapefile zip (`readShpPolygons`, `readDbf` of `src/shapefile.ts`) or the plot CSV: the plot id
   (`plotid`), its centre, and the uploaded columns (`pl_…`, without the prefix) as extra columns.
 - Written with `plotFileCsv` of `src/plotDesign.ts`: the plot-file format Collect Earth reads, elevation, slope and
@@ -193,7 +217,7 @@ Every check is an error, as CEO's rules block saving.
 
 ### B4. The project file and the page
 
-**Done for the survey (10 Nov 2026)**, with B5; the plots wait for B3 (CEO's plot files need an admin's download).
+**Done (10 Nov 2026)**, with B5, and with the plots of B3.
 What was built, and where it differs from the plan below:
 
 - `src/ceo/projectFile.ts` makes the `.cep`: `placemark.idm.xml`, `project_definition.properties` (CIRCLE or
@@ -211,12 +235,12 @@ What was built, and where it differs from the plan below:
 - `src/routes/ceoImport.ts`: `POST /v1/projects/from-ceo/preview` (any signed-in account; nothing stored) and
   `POST /v1/projects/from-ceo` (`{ceoProject, name?}`; the rules of `POST /v1/projects`). The caller becomes its
   coordinator; a refused project file deletes the project again. Off in local mode.
-- The dashboard: "From Collect Earth Online" beside "New project" (`web/src/pages/CeoImportDialog.tsx`). One file
-  for now, the saved JSON; the CEO project number gives a link to `get-project-by-id` to save it from (signed in to
-  CEO for a private project). Then the report, the name (CEO's), and Create, which opens the new project on its
-  getting-started checklist, whose next step is the plots: a plot file, or the plot design.
-- Not yet: the plot file (B3), CEO's `plotSize`, the answers-per-plot choice (one answer per plot is the only
-  translation so far), the imagery suggestion.
+- The dashboard: "From Collect Earth Online" beside "New project" (`web/src/pages/CeoImportDialog.tsx`). The CEO
+  project number gives links to `get-project-by-id` and `get-project-plots` to save (signed in to CEO for a private
+  project); both files are dropped together or one after the other (the plot list is told from the project by its
+  shape), and the plots can be added on the report too. Then the report, the name (CEO's), and Create, which opens
+  the new project on its getting-started checklist: with the plots, its next step is the people.
+- Not yet: the answers-per-plot choice (one answer per plot is the only translation so far), the imagery suggestion.
 
 The plan as written:
 

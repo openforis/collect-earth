@@ -294,7 +294,7 @@ function Confusions({ data, onWriteNote }: { data: QualityData; onWriteNote: (dr
     data.notes.find((n) => n.questionKey === key && n.firstValue === (first || null) && n.checkValue === (check || null));
 
   return (
-    <Section title={t("quality.confusionsTitle")} explain={t("quality.confusionsExplain")}>
+    <Section title={t("quality.confusionsTitle")} explain={t("quality.confusionsExplain")} more={t("quality.confusionsExplain.more")}>
       {keys.length === 0 ? (
         <Alert severity="info">{t("quality.noConfusions")}</Alert>
       ) : (

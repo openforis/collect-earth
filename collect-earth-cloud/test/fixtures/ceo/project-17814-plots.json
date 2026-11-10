@@ -1,0 +1,72 @@
+[
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[-63.376921247,-15.175627172]}",
+  "flagged": false,
+  "id": 1,
+  "plotId": 137933330,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[-60.994996199,-14.821662046]}",
+  "flagged": false,
+  "id": 2,
+  "plotId": 137933331,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[-65.392396287,-16.05792225]}",
+  "flagged": false,
+  "id": 3,
+  "plotId": 137933332,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[-67.407871328,-17.461417607]}",
+  "flagged": false,
+  "id": 4,
+  "plotId": 137933333,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[-67.591096331,-17.985001882]}",
+  "flagged": false,
+  "id": 5,
+  "plotId": 137933334,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[-66.125296302,-17.461417607]}",
+  "flagged": false,
+  "id": 6,
+  "plotId": 137933335,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[-63.743371254,-14.821662046]}",
+  "flagged": false,
+  "id": 7,
+  "plotId": 137933336,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[-62.094346221,-17.461417607]}",
+  "flagged": false,
+  "id": 8,
+  "plotId": 137933337,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[-64.842721276,-17.111520428]}",
+  "flagged": false,
+  "id": 9,
+  "plotId": 137933338,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[-65.942071298,-14.467117327]}",
+  "flagged": false,
+  "id": 10,
+  "plotId": 137933339,
+  "status": "analyzed"
+ }
+]

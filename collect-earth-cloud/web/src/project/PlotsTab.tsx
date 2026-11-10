@@ -412,6 +412,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
             </Typography>
             <Typography color="text.secondary" sx={{ mb: 2 }}>
               {t("plots.gridHelp")}
+              <MoreInfo text={t("plots.gridHelp.more")} />
             </Typography>
             <AssignmentGrid
               projectId={projectId}
