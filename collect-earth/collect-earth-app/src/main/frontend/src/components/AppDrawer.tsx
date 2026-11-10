@@ -14,7 +14,7 @@ import Typography from "@mui/material/Typography";
 import CloseIcon from "@mui/icons-material/Close";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import logo from "../form/collect-earth-logo.png";
+import logo from "@shared/collect-earth-logo.png";
 import { comingSoon } from "../appBar";
 import { useT } from "../i18n";
 import { drawerSections, nextEntry, type Menu, type MenuItem } from "../menus";

@@ -27,6 +27,8 @@ import { I18nContext, initialLanguage, translator, type Language } from "./i18n"
 import { Pivot } from "./pages/AnalysisPage";
 import { storeLanguage } from "./storage";
 import { theme } from "./theme";
+import { collectEarthAppBar } from "./shared/collectEarthTheme";
+import logo from "./shared/collect-earth-logo.png";
 
 declare global {
   interface Window {
@@ -83,9 +85,11 @@ function Standalone() {
       <CssBaseline />
       <I18nContext.Provider value={t}>
         <AppContext.Provider value={state}>
-          <AppBar position="static" elevation={0}>
-            <Toolbar sx={{ gap: 2 }}>
-              <Typography variant="h6" component="div" sx={{ flex: 1, minWidth: 0 }} noWrap>
+          {/* Collect Earth's app bar (src/shared/collectEarthTheme.ts); the logo is inside the file, as everything else */}
+          <AppBar position="static" color={collectEarthAppBar.color} elevation={collectEarthAppBar.elevation}>
+            <Toolbar variant="dense" sx={{ gap: 1.5 }}>
+              <Box component="img" src={logo} alt="" sx={collectEarthAppBar.logoSx} />
+              <Typography variant="subtitle1" component="div" sx={{ flex: 1, minWidth: 0, fontWeight: 600 }} noWrap>
                 {data ? `${data.project.name} · ${t("analysis.title")}` : t("analysis.title")}
               </Typography>
               <LanguageMenu />
