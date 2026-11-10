@@ -1,7 +1,7 @@
 // A Collect Earth Online project's survey and rules as a Collect survey, with the import report
 // (docs/plans/2026-11-09-ceo-bridge.md, Part B1 and B2), with its plots (B3); the project file and the page (B4) build on it.
 import { writeIdml } from './idml.js';
-import { readCeoAnswers, type CeoAnswers } from './answers.js';
+import { ceoPlotColumns, readCeoAnswers, type CeoAnswers } from './answers.js';
 import { plotLayout, readCeoPlots, type CeoPlots, type PlotLayout } from './plots.js';
 import { CeoImportError, readCeoProject, type CeoProject } from './project.js';
 import { Report } from './report.js';
@@ -41,7 +41,9 @@ export function ceoSurvey(json: string, options: { columns?: readonly string[]; 
     );
   }
   const report = new Report();
-  const plan = planSurvey(project, report, options);
+  // The plot file uploaded to CEO: its columns, in CEO's sample data, become the plot file's extra columns
+  const columns = [...(options.columns ?? []), ...(options.answers !== undefined ? ceoPlotColumns(options.answers) : [])];
+  const plan = planSurvey(project, report, { columns });
   if (plan.attributes.length === 0) {
     throw new CeoImportError('None of the questions of this CEO project can be asked in Collect Earth (they are all hidden or have no answers).');
   }

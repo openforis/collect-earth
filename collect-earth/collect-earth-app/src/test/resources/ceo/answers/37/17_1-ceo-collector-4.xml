@@ -1,0 +1,57 @@
+<?xml version='1.0' standalone='yes' ?>
+<plot step="1" created="2021-09-24T09:29:00.000+00:00" modified="2021-09-24T09:29:00.000+00:00">
+  <id>
+    <value>17</value>
+  </id>
+  <round>
+    <code>1</code>
+  </round>
+  <location>
+    <x>103.9338912</x>
+    <y>12.97993617</y>
+    <srs>EPSG:4326</srs>
+  </location>
+  <operator>
+    <value>ceo-collector-4</value>
+  </operator>
+  <actively_saved>
+    <value>true</value>
+  </actively_saved>
+  <actively_saved_on>
+    <year>2021</year>
+    <month>9</month>
+    <day>24</day>
+  </actively_saved_on>
+  <plot_file>
+    <value>ceo_37_plots_done.csv</value>
+  </plot_file>
+  <elevation>
+    <value>0</value>
+  </elevation>
+  <slope>
+    <value>0.0</value>
+  </slope>
+  <aspect>
+    <value>0.0</value>
+  </aspect>
+  <year>
+    <value>2013</value>
+  </year>
+  <class>
+    <value>0</value>
+  </class>
+  <country>
+    <value>5</value>
+  </country>
+  <countryname>
+    <value>Cambodia</value>
+  </countryname>
+  <coordinator_note />
+  <ceo_flagged>
+    <value>false</value>
+  </ceo_flagged>
+  <ceo_confidence />
+  <lulc>
+    <code>water</code>
+  </lulc>
+</plot>

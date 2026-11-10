@@ -108,6 +108,15 @@ public class CeoSurveyIdmlTest {
 		}
 		File[] found = folder.listFiles((d, name) -> name.endsWith(".idm.xml"));
 		List<File> files = new ArrayList<>(found == null ? Arrays.asList() : Arrays.asList(found));
+		// The surveys of the projects imported with their answers, as the cloud serves them (round and note added, the
+		// plot file's columns and CEO's flag and confidence): ceo/answers/<project>/placemark.idm.xml
+		File[] answered = new File(folder, "answers").listFiles(File::isDirectory);
+		for (File project : answered == null ? new File[0] : answered) {
+			File survey = new File(project, "placemark.idm.xml");
+			if (survey.isFile()) {
+				files.add(survey);
+			}
+		}
 		files.sort(null);
 		return files;
 	}

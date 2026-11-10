@@ -47,6 +47,8 @@ export interface DesignedPlot {
   lat: number;
   /** the plot's id in the file; 1, 2, 3... in order when none (a design's plots) */
   id?: string;
+  /** values of the survey's extra columns, by column name (an imported plot file's); the others are 0 or empty */
+  extra?: Record<string, string>;
   stratum?: string;
 }
 
@@ -376,7 +378,7 @@ export function plotFileCsv(plots: readonly DesignedPlot[], keys: { count: numbe
     ...keyNames.map((k) => (k === 'round' ? keys.roundCode : field(p.id ?? String(n + 1)))),
     p.lat.toFixed(6),
     p.lon.toFixed(6),
-    ...columns.map((c, i) => (i === at ? field(p.stratum ?? '') : ZERO.has(c.toLowerCase()) ? '0' : '')),
+    ...columns.map((c, i) => (i === at ? field(p.stratum ?? '') : p.extra?.[c] !== undefined ? field(p.extra[c]) : ZERO.has(c.toLowerCase()) ? '0' : '')),
   ]);
   return [[...keyNames, 'YCoordinate', 'XCoordinate', ...columns], ...lines].map((l) => l.join(',')).join('\n') + '\n';
 }

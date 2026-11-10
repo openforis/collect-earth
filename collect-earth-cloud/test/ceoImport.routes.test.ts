@@ -137,6 +137,30 @@ describe('a new project from a Collect Earth Online project', () => {
   describe("with CEO's answers (Part C)", () => {
     const withAnswers = (extra: object = {}) => ({ ceoProject: ceo(20170), ceoPlots: ceoPlots(20170), ceoAnswers: ceoAnswers(20170), ...extra });
 
+    /**
+     * For CeoRecordsXmlTest and CeoSurveyIdmlTest: the survey a project serves and its records with their summaries, in
+     * src/test/resources/ceo/answers/<folder> of the desktop (UPDATE_CEO_IDML=1 writes them again)
+     */
+    const javaFixtures = async (projectId: string, folder: string) => {
+      const stored = await ctx.store.listRecords(projectId);
+      const xml = await ctx.store.getRecordXml(projectId, stored.map((r) => ({ recordKey: r.recordKey, operator: r.operator })));
+      const files = readCep(Buffer.from((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/cep`, headers: bearer(owner.token) })).rawPayload));
+      const written = new Map<string, string>([['placemark.idm.xml', new TextDecoder().decode(files.entries.get(files.surveyPath)!)]]);
+      for (const x of xml) {
+        const name = `${x.recordKey.replace(',', '_')}-${x.operator}`;
+        written.set(`${name}.xml`, x.xml!);
+        const summary = stored.find((r) => r.recordKey === x.recordKey && r.operator === x.operator)!.summary;
+        written.set(`${name}.summary.json`, JSON.stringify(Object.fromEntries(Object.entries(summary).sort(([a], [b]) => (a < b ? -1 : 1))), null, 1) + '\n');
+      }
+      const dir = `${JAVA_RESOURCES}${folder}/`;
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      for (const [name, text] of written) {
+        const path = dir + name;
+        if (process.env.UPDATE_CEO_IDML === '1' || !existsSync(path)) writeFileSync(path, text);
+        expect(readFileSync(path, 'utf8'), path).toBe(text);
+      }
+    };
+
     it('the preview counts them, and gives the collectors to map; answers need the plots', async () => {
       const res = await post('/preview', withAnswers());
       expect(res.statusCode, res.body).toBe(200);
@@ -203,21 +227,7 @@ describe('a new project from a Collect Earth Online project', () => {
       expect(strFromU8(cep['ceo_import_report.txt'])).not.toContain('example.org');
 
       // for CeoRecordsXmlTest: the survey served and the records, which Collect itself reads
-      const xml = await ctx.store.getRecordXml(projectId, stored.map((r) => ({ recordKey: r.recordKey, operator: r.operator })));
-      const files = readCep(cep['placemark.idm.xml'] ? Buffer.from((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/cep`, headers: bearer(owner.token) })).rawPayload) : Buffer.alloc(0));
-      const written = new Map<string, string>([['placemark.idm.xml', new TextDecoder().decode(files.entries.get(files.surveyPath)!)]]);
-      for (const x of xml) {
-        const name = `${x.recordKey.replace(',', '_')}-${x.operator}`;
-        written.set(`${name}.xml`, x.xml!);
-        const summary = stored.find((r) => r.recordKey === x.recordKey && r.operator === x.operator)!.summary;
-        written.set(`${name}.summary.json`, JSON.stringify(Object.fromEntries(Object.entries(summary).sort(([a], [b]) => (a < b ? -1 : 1))), null, 1) + '\n');
-      }
-      if (!existsSync(JAVA_RESOURCES)) mkdirSync(JAVA_RESOURCES, { recursive: true });
-      for (const [name, text] of written) {
-        const path = JAVA_RESOURCES + name;
-        if (process.env.UPDATE_CEO_IDML === '1' || !existsSync(path)) writeFileSync(path, text);
-        expect(readFileSync(path, 'utf8'), path).toBe(text);
-      }
+      await javaFixtures(projectId, '20170');
     });
 
     it("keeps CEO's confidence, and the answer of most samples", async () => {
@@ -228,6 +238,31 @@ describe('a new project from a Collect Earth Online project', () => {
       expect(plot).toMatchObject({ collect_code_forest2017: 'yes', collect_code_forest_trend_2013to2017: 'decreasing', collect_integer_ceo_confidence: '80', collect_code_land_cover_change_2013to2017: '' });
       expect(rows.find((r) => r.plot === '1680')).toMatchObject({ collect_real_stable_canopy_cover: '72.5', collect_integer_ceo_confidence: '100' });
       expect(res.json().report.find((e: { subject: string }) => e.subject === 'Samples that disagree')).toMatchObject({ outcome: 'changed' });
+    });
+
+    it("reads a real download of CEO's sample data (RLCMS Cambodia, its emails replaced)", async () => {
+      const res = await post('', { ceoProject: ceo(37), ceoPlots: ceoPlots(37), ceoAnswers: ceoAnswers(37) });
+      expect(res.statusCode, res.body).toBe(201);
+      const body = res.json();
+      // 50 plots; three nobody answered in CEO, four flagged
+      expect(body.answers).toMatchObject({ plots: 47, flagged: 4 });
+      expect(body.collectors.map((c: { email: string; username: string }) => c.username)).toContain('ceo-collector-1');
+      expect(body.collectors.some((c: { email: string }) => c.email === 'guest')).toBe(true);
+      expect(body.doneFile.plots + body.plotFile.plots).toBe(50);
+      expect(body.report.find((e: { subject: string }) => e.subject === 'Samples that disagree')).toMatchObject({ outcome: 'changed' });
+
+      // the columns of the plot file uploaded to CEO, on the plots and on the records
+      const content = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${body.projectId}/csv-files/${body.doneFile.csvFileId}/content`, headers: bearer(owner.token) });
+      expect(content.body.split('\n')[0]).toMatch(/^id,YCoordinate,XCoordinate,elevation,slope,aspect,year,class,country,countryname/);
+      expect(content.body).toMatch(/\n1,11\.57\d+,105\.08\d+,0,0,0,2013,0,5,Cambodia/);
+      const rows = exportRows((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${body.projectId}/export.csv`, headers: bearer(owner.token) })).body);
+      expect(rows.find((r) => r.plot === '1')).toMatchObject({ collect_code_lulc: 'aquatic_veg_other', collect_text_year: '2013', collect_text_countryname: 'Cambodia', actively_saved: 'true', modified_on: '2019-03-01T00:00:00.000Z' });
+
+      // CEO's "0.0 secs" (answers loaded in bulk) is no time spent
+      const stored = await ctx.store.listRecords(body.projectId);
+      expect(stored.find((r) => r.recordKey === '1,1')?.activeSeconds ?? null).toBeNull();
+      expect(stored.some((r) => (r.activeSeconds ?? 0) > 0)).toBe(true);
+      await javaFixtures(body.projectId, '37');
     });
 
     it('refuses an account that does not exist, and makes nothing', async () => {

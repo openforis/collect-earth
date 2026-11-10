@@ -326,11 +326,23 @@ What the run found, for later:
 
 ## Part C: the answers (about 1 week)
 
-**Done (10 Nov 2026)**, on sample data made by the rules of CEO's code: CEO gives "Download Sample Data" to a project's
-administrators only, and none was at hand. CEO's code defines the file exactly
-(`dump-project-raw-data!` in `src/clj/collect_earth_online/db/projects.clj`, `dump_project_sample_data` in
-`src/sql/functions/project.sql`), and `test/ceoSampleData.ts` writes it that way for fixtures 20170 and 30918. A real
-download should still be tried when an organisation sends one.
+**Done (10 Nov 2026)**, first on sample data made by the rules of CEO's code (`dump-project-raw-data!` in
+`src/clj/collect_earth_online/db/projects.clj`, `dump_project_sample_data` in `src/sql/functions/project.sql`;
+`test/ceoSampleData.ts` writes it for fixtures 20170 and 30918), then **checked on a real download**: RLCMS Cambodia
+(CEO project 37, 2,374 plots of 25 samples, 59,350 rows, 15 collectors, 10.8 MB). Its file is exactly what CEO's code
+writes (the columns, `pl_…`, the trailing comma, rows without an email for 103 plots never answered, "guest" as an
+email). Imported whole: 2,271 records, 2,264 plots in the done file and 110 to give out, in 0.7 s in memory and 6.6 s
+on a local PostgreSQL (one transaction per record: a project ten times larger on a distant database will need the
+records written in batches). It showed three things, the first two now done:
+- the columns of the plot file uploaded to CEO (`pl_year`, `pl_class`, `pl_country`, `pl_countryname`) are in the
+  sample data for every plot, answered or not: they become the plot file's extra columns, read into each record;
+- most of its answers were loaded into CEO in bulk, with "0.0 secs" and one date: no time spent is no time known;
+- **in a quarter of its plots (589 of 2,271) the samples were given different land covers**: a project that answers
+  per point, which the answer of most samples flattens. Its points are what Part E (one row per sample point) keeps;
+  until then the report says how many plots lose their mix.
+
+A cut of the file (50 plots, its emails replaced) is a fixture (`project-37-samples.csv`), and its records are read by
+`CeoRecordsXmlTest` with those of 20170.
 
 What the file is, from CEO's code:
 - the UTF-8 mark; `plotid, sampleid, sample_internal_id, lon, lat, email, flagged, collection_time,
@@ -375,7 +387,7 @@ the log without emails), `CeoRecordsXmlTest`, `npm run smoke:pg:ceo` (through th
 browser (Progress, People, Data, Activity: CEO's work under CEO's dates).
 
 Not done:
-- `pl_` and `smpl_` columns are not read (CEO's uploaded plot file's columns would be extra plot columns).
+- `smpl_` columns (an uploaded sample file's) are not read: they are per point (Part E).
 - A file too large for a request (32 MB: roughly 100,000 sample rows) cannot be imported in one go.
 - An imported project cannot take CEO's answers later: they come at creation.
 

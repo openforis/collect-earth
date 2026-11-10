@@ -36,13 +36,25 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * serves, as Collect Earth reads the records of a cloud backup. Their summary, as Collect Earth makes it
  * (BalloonInputFieldsUtils.getValuesByHtmlParameters, what CloudRecordSerializer sends), must be the one the cloud
  * stored: the dashboard and the exports read that one. The files are written by the cloud's test
- * (test/ceoImport.routes.test.ts) into src/test/resources/ceo/answers.
+ * (test/ceoImport.routes.test.ts) into src/test/resources/ceo/answers/<project>: 20170 from sample data made by the rules
+ * of CEO's code, 37 (RLCMS Cambodia) from a real download.
  */
 public class CeoRecordsXmlTest {
 
 	@Test
 	public void theImportedRecordsReadInCollectAsTheCloudSummarizedThem() throws Exception {
-		File folder = new File(resource("ceo/answers/placemark.idm.xml").toURI()).getParentFile();
+		File[] projects = new File(resource("ceo/answers").toURI()).listFiles(File::isDirectory);
+		assertTrue(projects != null && projects.length > 0, "no project to read");
+		Arrays.sort(projects);
+		List<String> problems = new ArrayList<>();
+		for (File folder : projects) {
+			readProject(folder, problems);
+		}
+		assertTrue(problems.isEmpty(), String.join("\n", problems));
+	}
+
+	/** One project's records against its survey, the problems added to {@code problems}. */
+	private static void readProject(File folder, List<String> problems) throws Exception {
 		CollectSurvey survey;
 		try (InputStream is = new FileInputStream(new File(folder, "placemark.idm.xml"))) {
 			survey = (CollectSurvey) new CollectSurveyIdmlBinder(new CollectSurveyContext()).unmarshal(is, true);
@@ -51,7 +63,6 @@ public class CeoRecordsXmlTest {
 		assertTrue(records != null && records.length > 0, "no record to read");
 		Arrays.sort(records);
 
-		List<String> problems = new ArrayList<>();
 		ObjectMapper json = new ObjectMapper();
 		for (File file : records) {
 			ParseRecordResult result;
@@ -59,11 +70,11 @@ public class CeoRecordsXmlTest {
 				result = new DataUnmarshaller(survey).parse(reader);
 			}
 			if (!result.isSuccess() || result.getRecord() == null) {
-				problems.add(file.getName() + ": not read: " + result.getFailures());
+				problems.add(folder.getName() + "/" + file.getName() + ": not read: " + result.getFailures());
 				continue;
 			}
 			if (result.hasWarnings()) {
-				problems.add(file.getName() + ": warnings: " + result.getWarnings());
+				problems.add(folder.getName() + "/" + file.getName() + ": warnings: " + result.getWarnings());
 			}
 			CollectRecord record = result.getRecord();
 			// As Collect Earth loads a record: the attributes left empty get their node (Collect's parser makes none for an
@@ -78,10 +89,9 @@ public class CeoRecordsXmlTest {
 			Map<String, String> stored = new TreeMap<>(json.readValue(summaryFile, new TypeReference<Map<String, String>>() {
 			}));
 			if (!made.equals(stored)) {
-				problems.add(file.getName() + ": the summary Collect Earth makes differs from the cloud's: " + difference(made, stored));
+				problems.add(folder.getName() + "/" + file.getName() + ": the summary Collect Earth makes differs from the cloud's: " + difference(made, stored));
 			}
 		}
-		assertTrue(problems.isEmpty(), String.join("\n", problems));
 	}
 
 	private static String difference(Map<String, String> made, Map<String, String> stored) {
@@ -111,7 +121,7 @@ public class CeoRecordsXmlTest {
 	@Test
 	public void theSummaryHoldsWhatTheCollectorAnswered() throws Exception {
 		Map<String, String> summary = new ObjectMapper().readValue(
-				new File(resource("ceo/answers/138814414_1-ceo-collector-1.summary.json").toURI()), new TypeReference<Map<String, String>>() {
+				new File(resource("ceo/answers/20170/138814414_1-ceo-collector-1.summary.json").toURI()), new TypeReference<Map<String, String>>() {
 				});
 		assertEquals("degradation", summary.get("collect_code_visible_strata"));
 		assertEquals("logging road, near the river", summary.get("collect_text_secondary_notes_or_type_of_other"));

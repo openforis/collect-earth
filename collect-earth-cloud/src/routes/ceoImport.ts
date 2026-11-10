@@ -172,7 +172,10 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
     };
     if (survey.plots) {
       const done = survey.answers ? answeredPlots(survey.answers.plots) : new Set<string>();
-      const toDo = survey.plots.plots.filter((p) => !done.has(p.id));
+      // with the columns of the plot file uploaded to CEO, read from its sample data
+      const plotColumns = survey.answers?.plotColumns;
+      const withColumns = survey.plots.plots.map((p) => (plotColumns?.has(p.id) ? { ...p, extra: plotColumns.get(p.id) } : p));
+      const toDo = withColumns.filter((p) => !done.has(p.id));
       const base = `ceo_${survey.project.id ?? 'project'}_plots`;
       if (toDo.length > 0) {
         const stored = await storePlotFile(`${base}.csv`, toDo);
@@ -180,7 +183,7 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
         plotFile = stored;
       }
       if (done.size > 0) {
-        const stored = await storePlotFile(`${base}_done.csv`, survey.plots.plots.filter((p) => done.has(p.id)));
+        const stored = await storePlotFile(`${base}_done.csv`, withColumns.filter((p) => done.has(p.id)));
         if (stored === 'over') return reply;
         doneFile = stored;
       }
@@ -204,6 +207,7 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
         operatorOf: (email) => operators.get(email)!.username,
         plotFile: (done.size > 0 ? doneFile : plotFile)?.filename ?? '',
         centres: new Map(survey.plots.plots.map((p) => [p.id, { lat: p.lat, lon: p.lon }])),
+        plotColumns: survey.answers.plotColumns,
         now: receivedAt,
       });
       for (const r of built) {
