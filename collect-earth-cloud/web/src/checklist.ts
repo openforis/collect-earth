@@ -10,7 +10,13 @@ export interface ProjectFacts {
   memberCount: number;
   /** Invitation links still open (people may not have used them yet). */
   openInviteCount: number;
+  /** Whole-file assignments (one per person and file). */
   assignmentCount: number;
+  /**
+   * Plot files divided between people (a saved division holding at least one person).
+   * Dividing a file drops its whole-file assignments, so these count as assigned too.
+   */
+  dividedFileCount: number;
   recordCount: number;
 }
 
@@ -29,7 +35,7 @@ export function checklist(facts: ProjectFacts): ChecklistStep[] {
     plotFiles: facts.plotFileCount > 0,
     // Done as soon as someone else is in, or a link is out there waiting to be used.
     invite: facts.memberCount > 1 || facts.openInviteCount > 0,
-    assign: facts.assignmentCount > 0,
+    assign: facts.assignmentCount > 0 || facts.dividedFileCount > 0,
     progress: facts.recordCount > 0,
   };
   const firstOpen = STEP_ORDER.find((id) => !done[id]);

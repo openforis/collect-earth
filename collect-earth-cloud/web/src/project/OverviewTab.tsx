@@ -16,7 +16,7 @@ import Typography from "@mui/material/Typography";
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import CheckCircle from "@mui/icons-material/CheckCircle";
 import RadioButtonUnchecked from "@mui/icons-material/RadioButtonUnchecked";
-import { getOverview, listAssignments, listInvites } from "../api";
+import { getOverview, listAssignments, listCsvFiles, listInvites } from "../api";
 import { useApp } from "../appContext";
 import { checklist, doneCount, STEP_TAB } from "../checklist";
 import { ErrorAlert } from "../components/ErrorAlert";
@@ -28,13 +28,16 @@ import { storageLevel, storagePercent, storageText, storageWarningKey } from "..
 import { useLoad } from "../useLoad";
 
 async function loadOverview(projectId: string) {
-  const [overview, invites, assignments] = await Promise.all([
+  const [overview, invites, assignments, csvFiles] = await Promise.all([
     getOverview(projectId),
     // Older servers have no invite list: the checklist then counts only people.
     listInvites(projectId).catch(() => []),
     listAssignments(projectId).catch(() => []),
+    // Dividing a file replaces its whole-file assignments: a divided file counts as assigned.
+    listCsvFiles(projectId).catch(() => []),
   ]);
-  return { overview, openInvites: invites.length, assignments: assignments.length };
+  const dividedFiles = csvFiles.filter((file) => file.divided && (file.dividedPeople ?? 0) > 0).length;
+  return { overview, openInvites: invites.length, assignments: assignments.length, dividedFiles };
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -88,13 +91,14 @@ export function OverviewTab({ projectId, onGo }: { projectId: string; onGo: (tab
   if (state.loading && !state.data) return <Loading />;
   if (state.error || !state.data) return <ErrorAlert error={state.error} onRetry={state.reload} />;
 
-  const { overview, openInvites, assignments } = state.data;
+  const { overview, openInvites, assignments, dividedFiles } = state.data;
   const steps = checklist({
     hasProjectFile: overview.cep !== null,
     plotFileCount: overview.csvFiles,
     memberCount: overview.members,
     openInviteCount: openInvites,
     assignmentCount: assignments,
+    dividedFileCount: dividedFiles,
     recordCount: overview.records.total,
   });
   const done = doneCount(steps);

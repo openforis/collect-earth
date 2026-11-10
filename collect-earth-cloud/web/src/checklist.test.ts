@@ -3,7 +3,7 @@ import { fromPairs, hasChanges, pairKey, toPairs } from "./assignmentGrid";
 import { checklist, doneCount, STEP_ORDER, type ProjectFacts } from "./checklist";
 import { passwordProblem, usernameProblem } from "./validation";
 
-const empty: ProjectFacts = { hasProjectFile: false, plotFileCount: 0, memberCount: 1, openInviteCount: 0, assignmentCount: 0, recordCount: 0 };
+const empty: ProjectFacts = { hasProjectFile: false, plotFileCount: 0, memberCount: 1, openInviteCount: 0, assignmentCount: 0, dividedFileCount: 0, recordCount: 0 };
 
 describe("onboarding checklist", () => {
   it("a new project starts at uploading the project file", () => {
@@ -27,8 +27,16 @@ describe("onboarding checklist", () => {
     expect(checklist({ ...base, memberCount: 2 }).find((s) => s.current)?.id).toBe("assign");
   });
 
+  it("assigning is done when the only plot file is divided (no whole-file assignments)", () => {
+    const base = { ...empty, hasProjectFile: true, plotFileCount: 1, memberCount: 2 };
+    expect(checklist(base).find((s) => s.current)?.id).toBe("assign");
+    const steps = checklist({ ...base, dividedFileCount: 1 });
+    expect(steps.find((s) => s.id === "assign")?.done).toBe(true);
+    expect(steps.find((s) => s.current)?.id).toBe("progress");
+  });
+
   it("everything done: no current step", () => {
-    const steps = checklist({ hasProjectFile: true, plotFileCount: 1, memberCount: 3, openInviteCount: 0, assignmentCount: 2, recordCount: 5 });
+    const steps = checklist({ hasProjectFile: true, plotFileCount: 1, memberCount: 3, openInviteCount: 0, assignmentCount: 2, dividedFileCount: 0, recordCount: 5 });
     expect(doneCount(steps)).toBe(5);
     expect(steps.some((s) => s.current)).toBe(false);
   });
