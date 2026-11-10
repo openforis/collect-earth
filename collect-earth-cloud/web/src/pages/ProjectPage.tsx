@@ -1,4 +1,5 @@
 import Alert from "@mui/material/Alert";
+import { CeoShapes } from "../project/CeoShapes";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Link from "@mui/material/Link";
@@ -296,6 +297,7 @@ export function ProjectPage({
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Header projectId={projectId} name={info.name} bell={!local} />
           <StatusNote status={info.status} />
+          {!local && <CeoShapes projectId={projectId} />}
           <Tabs
             ref={tabsRef}
             value={tab}

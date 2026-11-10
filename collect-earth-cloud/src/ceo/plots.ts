@@ -41,7 +41,7 @@ export function plotLayout(project: CeoProject, report: Report): PlotLayout {
   if (size === null || shapes) {
     size ??= DEFAULT_SIDE_M;
     report.add('plots', 'Plot size', 'changed',
-      `CEO's plots are shapes uploaded to it (${project.plotDistribution === 'shp' ? 'a shapefile' : project.plotDistribution === 'geojson' ? 'GeoJSON' : 'a file'}), which its plot list does not include: Collect Earth draws each as a ${shape === 'CIRCLE' ? 'circle' : 'square'} of ${metres(size)} around its centre.`);
+      `CEO's plots are shapes uploaded to it (${project.plotDistribution === 'shp' ? 'a shapefile' : project.plotDistribution === 'geojson' ? 'GeoJSON' : 'a file'}), which its plot list does not include. With the plot list, once the project is made, the shapes of its plots and samples are copied from CEO in the background (the dashboard shows how far it is), and Collect Earth draws them as CEO does. Until then, and for a plot CEO has no shape for, Collect Earth draws a ${shape === 'CIRCLE' ? 'circle' : 'square'} of ${metres(size)} around its centre.`);
   }
   const resolution = project.sampleResolution !== null && project.sampleResolution > 0 ? project.sampleResolution : null;
   const pointSide = resolution !== null ? Math.min(DEFAULT_POINT_SIDE_M, resolution / 2) : DEFAULT_POINT_SIDE_M;
@@ -89,7 +89,8 @@ export function layoutProperties(l: PlotLayout): string[] {
 }
 
 export interface CeoPlots {
-  plots: (DesignedPlot & { id: string })[];
+  /** `internal`: CEO's own number of the plot (its shapes are read by it), '' when CEO gave none */
+  plots: (DesignedPlot & { id: string; internal: string })[];
   /** which CEO number became the plot id: CEO's plot id as its people saw it, or its internal one */
   ids: 'visible' | 'internal';
   analyzed: number;
@@ -167,7 +168,7 @@ export function readCeoPlots(json: string, project: CeoProject, report: Report, 
     ids = 'internal';
     report.add('plots', 'Plot ids', 'changed', "CEO's plot ids repeat or are missing, so each plot takes CEO's internal number as its id.");
   }
-  const plots = read.map((p) => ({ id: ids === 'visible' ? p.visible : p.internal, lon: p.lon, lat: p.lat }));
+  const plots = read.map((p) => ({ id: ids === 'visible' ? p.visible : p.internal, internal: p.internal, lon: p.lon, lat: p.lat }));
   const analyzed = read.filter((p) => p.analyzed).length;
   const flagged = read.filter((p) => p.flagged).length;
 

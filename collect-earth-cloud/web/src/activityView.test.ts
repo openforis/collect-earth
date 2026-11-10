@@ -74,6 +74,7 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("cep.replaced", {}, null), page, "en")).toBe("Someone no longer in the project uploaded a new project file");
     expect(logSentence(t, audit("project.imported", { source: "ceo", ceoProjectId: 2616, questions: 29 }), page, "en")).toBe("ana made this project from Collect Earth Online project 2616");
     expect(logSentence(t, audit("project.imported", { source: "ceo", ceoProjectId: null }), page, "en")).toBe("ana made this project from a Collect Earth Online project");
+    expect(logSentence(t, audit("project.imported", { source: "collect-earth", records: 12 }), page, "en")).toBe("ana imported records from Collect Earth (12)");
     expect(logSentence(t, audit("link.created", { linkId: "l1", label: "For the donor" }), page, "en")).toBe("ana made a progress link (For the donor)");
     expect(logSentence(t, audit("link.created", { linkId: "l1", label: "" }), page, "en")).toBe("ana made a progress link");
     expect(logSentence(t, audit("link.revoked", { linkId: "l1", label: "For the donor" }), page, "en")).toBe("ana revoked the progress link (For the donor)");

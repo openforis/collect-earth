@@ -93,6 +93,7 @@ import {
   type UserPlots,
 } from './store.js';
 import type { UncertaintySettings } from '../uncertainty.js';
+import type { CeoShapesJob } from '../ceo/shapes.js';
 import { unitOfRecord } from '../rounds.js';
 import { UsernameTakenError } from './memory.js';
 import { checksumOf, plotCountOf } from '../csv.js';
@@ -2980,6 +2981,19 @@ export class PostgresStore implements Store {
   async setUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<void> {
     await this.withProject(projectId, async (client) => {
       await client.query('UPDATE projects SET uncertainty_settings = $2 WHERE id = $1', [projectId, JSON.stringify(settings)]);
+    });
+  }
+
+  async getCeoShapes(projectId: string): Promise<CeoShapesJob | null> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT ceo_shapes FROM projects WHERE id = $1', [projectId]);
+      return (res.rows[0]?.ceo_shapes as CeoShapesJob | null | undefined) ?? null;
+    });
+  }
+
+  async setCeoShapes(projectId: string, job: CeoShapesJob): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('UPDATE projects SET ceo_shapes = $2 WHERE id = $1', [projectId, JSON.stringify(job)]);
     });
   }
 

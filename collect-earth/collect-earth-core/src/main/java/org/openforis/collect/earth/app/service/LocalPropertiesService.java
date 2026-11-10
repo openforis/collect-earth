@@ -126,7 +126,9 @@ public class LocalPropertiesService extends Observable {
 				CLOUD_SYNC_ENABLED("cloud_sync_enabled"),
 				CLOUD_SYNC_URL("cloud_sync_url"),
 				CLOUD_PROJECT_ID("cloud_project_id"),
-				CLOUD_SYNC_TOKEN("cloud_sync_token"),;
+				CLOUD_SYNC_TOKEN("cloud_sync_token"),
+				/** "true" from joining a cloud project to the next start, which offers to send this computer's records there */
+				CLOUD_OFFER_LOCAL_RECORDS("cloud_offer_local_records"),;
 
 		private String name;
 

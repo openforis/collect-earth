@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { anchorLabel, droppedKind, formatPercent, looksLikeInvitation } from "./project";
+import { anchorLabel, cloudSendResultOf, droppedKind, formatPercent, looksLikeInvitation } from "./project";
+
+describe("the result of sending the records to the cloud project", () => {
+  it("is read from the job's result, and is all zeros when there is none", () => {
+    const reasons = [{ reason: "malformed envelope", count: 2 }];
+    expect(cloudSendResultOf({ total: 5, sent: 3, refused: 2, reasons })).toEqual({ total: 5, sent: 3, refused: 2, reasons });
+    expect(cloudSendResultOf(null)).toEqual({ total: 0, sent: 0, refused: 0, reasons: [] });
+    expect(cloudSendResultOf({ sent: "3", reasons: "x" })).toEqual({ total: 0, sent: 0, refused: 0, reasons: [] });
+  });
+});
 
 describe("the dropped files", () => {
   it("are told apart by their extension", () => {

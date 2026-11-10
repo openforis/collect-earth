@@ -269,7 +269,7 @@ describe('the plots (B3)', () => {
   it("reads CEO's plot list: each plot with the id its people saw", () => {
     const s = withPlots(30918);
     expect(s.plots).toMatchObject({ ids: 'visible', analyzed: 2, flagged: 2 });
-    expect(s.plots!.plots[0]).toEqual({ id: '1425', lon: expect.any(Number), lat: expect.any(Number) });
+    expect(s.plots!.plots[0]).toEqual({ id: '1425', internal: expect.any(String), lon: expect.any(Number), lat: expect.any(Number) });
     expect(plotEntries(s).map((e) => e.subject)).toEqual(['Plot shape', 'Plots', 'Plots done in CEO']);
     // every saved plot list comes across whole
     for (const id of [1, 743, 17814, 20170, 54724]) {

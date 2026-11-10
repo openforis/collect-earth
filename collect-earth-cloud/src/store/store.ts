@@ -68,6 +68,7 @@ import type {
   UserSummary,
 } from '../types.js';
 import type { UncertaintySettings } from '../uncertainty.js';
+import type { CeoShapesJob } from '../ceo/shapes.js';
 
 export interface TrainingSetInput {
   kind: TrainingKind;
@@ -645,6 +646,9 @@ export interface Store {
   /** The uncertainty analysis's setup (src/uncertainty.ts); null when none was saved. */
   getUncertaintySettings(projectId: string): Promise<UncertaintySettings | null>;
   setUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<void>;
+  /** The copy of a CEO project's shapes (src/ceo/shapes.ts); null when there is none. */
+  getCeoShapes(projectId: string): Promise<CeoShapesJob | null>;
+  setCeoShapes(projectId: string, job: CeoShapesJob): Promise<void>;
   /** Logs a coordinator action at the current time. */
   appendAudit(projectId: string, entry: AuditInput): Promise<void>;
   /** The project's audit log, newest first (at, then id). Throws InvalidCursorError as listRecordEvents. */

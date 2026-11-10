@@ -1,0 +1,17 @@
+<?xml version='1.0' standalone='yes' ?>
+<plot step="1" created="2026-10-30T14:21:38.147+01:00" modified="2026-10-30T14:21:38.147+01:00">
+  <id>
+    <value>p3</value>
+  </id>
+  <operator>
+    <value>bob</value>
+  </operator>
+  <seen_at>
+    <hour>13</hour>
+    <minute>45</minute>
+  </seen_at>
+  <seen_on>
+    <year>2025</year>
+    <month>6</month>
+  </seen_on>
+</plot>

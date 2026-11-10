@@ -68,6 +68,10 @@ describe('cross-tenant isolation', () => {
       { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/cep`, payload: Buffer.from('zip'),
         headers: { ...auth, 'content-type': 'application/zip' } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/cep/original` },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/records/import/preview`, payload: Buffer.from('zip'),
+        headers: { ...auth, 'content-type': 'application/zip' } },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/records/import`, payload: Buffer.from('zip'),
+        headers: { ...auth, 'content-type': 'application/zip' } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/round` },
       { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/round`, payload: { reassessmentCode: null } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/members` },
@@ -101,6 +105,8 @@ describe('cross-tenant isolation', () => {
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/invites` },
       { method: 'DELETE' as const, url: `/v1/projects/${b.projectId}/invites/00000000-0000-0000-0000-000000000000` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/export.csv` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/ceo-shapes` },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/ceo-shapes/step` },
       { method: 'DELETE' as const, url: `/v1/projects/${b.projectId}`, payload: { confirmName: 'Project B' } },
     ];
     for (const c of cases) {

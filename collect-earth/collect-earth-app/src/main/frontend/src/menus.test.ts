@@ -93,6 +93,16 @@ describe("my dashboard", () => {
   });
 });
 
+describe("send this computer's records to the cloud project", () => {
+  it("is in the Data menu, enabled only in a cloud project", () => {
+    const send = (cloud: boolean) => appMenus({ plotsMap: true, cloud }).find((m) => m.id === "data")?.items.find((i) => i.id === "sendToCloud");
+    expect(send(true)).toEqual({ id: "sendToCloud", label: "CloudSend.menu", enabled: true });
+    expect(send(false)).toEqual({ id: "sendToCloud", label: "CloudSend.menu", enabled: false, disabledReason: "CloudSend.notCloud" });
+    // A client of another Collect Earth holds no records
+    expect(appMenus({ plotsMap: true, cloud: true, client: true }).flatMap((m) => m.items).map((i) => i.id)).not.toContain("sendToCloud");
+  });
+});
+
 describe("client mode", () => {
   it("drops the entries that act on the data of this instance, as the Swing window disabled them", () => {
     const menus = appMenus({ plotsMap: false, client: true });

@@ -41,11 +41,13 @@ import { PlotIndexCache, registerPlotSearchRoutes } from './routes/plotSearch.js
 import { registerPlotsGeoRoutes } from './routes/plotsGeo.js';
 import { registerProgressRoutes } from './routes/progress.js';
 import { registerCeoImportRoutes } from './routes/ceoImport.js';
+import { registerCeoShapesRoutes } from './routes/ceoShapes.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerPlotDesignRoutes } from './routes/plotDesign.js';
 import { registerSigridRoutes } from './routes/sigrid.js';
 import { registerPublicProgressRoutes } from './routes/publicProgress.js';
 import { registerCollectBackupRoutes } from './routes/collectBackup.js';
+import { registerCollectImportRoutes } from './routes/collectImport.js';
 import { registerMailRoutes, type AccountMailHooks } from './routes/mail.js';
 import { registerQualityRoutes } from './routes/quality.js';
 import { registerRecordRoutes } from './routes/records.js';
@@ -244,6 +246,8 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const places = new PlotPlaceReader(store);
   await registerProjectRoutes(app, store, config, places);
   await registerCeoImportRoutes(app, store);
+  await registerCeoShapesRoutes(app, store);
+  await registerCollectImportRoutes(app, store);
   await registerPlotDesignRoutes(app, store);
   await registerSigridRoutes(app, store, places);
   await registerCollectBackupRoutes(app, store, config, limiter, now);
