@@ -4,7 +4,7 @@ import {
   indexedField, isTabVisible, joinValues, mergeInfos, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
   requiredMessage, saveBody, selectCodes, splitValues, summaryLines, tabsWithErrors, timeToInput, unansweredRequired, errorsByTab, neededByTab, updateRequired,
   DROPDOWN_AS_BUTTONS, advanceTarget, answeredWithKeys, openingTarget, answersToCopy, answersToRemember, codeControl, firstToAnswer, numberProblem,
-  draftErrors, stepsOf,
+  draftErrors, stepsOf, columnFillTargets, type FieldInfo, type TableItem,
 } from "./model";
 
 const category: Field = {
@@ -393,5 +393,28 @@ describe("summaryLines", () => {
     const now = errorList(model, { collect_code_sub: { inError: true }, collect_text_comments: { inError: true, errorMessage: "Too long" } });
     expect(summaryLines(found, now).map((l) => [l.error.field.name, l.fixed, l.error.message])).toEqual([
       ["collect_code_lu", true, ""], ["collect_text_comments", false, "Too long"]]);
+  });
+});
+
+describe("Every row… over a table's choice column", () => {
+  const code = (name: string, more: Partial<Field> = {}): Field => ({
+    kind: "field", name, type: "code", label: name, code: { layout: "buttons", items: [{ id: 1, code: "crop", label: "Crop" }] }, ...more,
+  });
+  const table = (fields: (Field | undefined)[][]): TableItem => ({
+    kind: "table", label: "Sample points", columns: [{ label: "LULC" }, { label: "Note" }],
+    rows: fields.map((f, i) => ({ code: String(i + 1), label: `Point ${i + 1}`, fields: f.filter((x): x is Field => !!x) })),
+  });
+
+  it("fills the rows where the question is shown", () => {
+    const item = table([[code("p1")], [code("p2")], [code("p3")]]);
+    expect(columnFillTargets(item, 0, { p2: { visible: false } as FieldInfo })?.map((f) => f.name)).toEqual(["p1", "p3"]);
+  });
+
+  it("offers nothing over a column that is not a single choice, or a table of one row", () => {
+    const text: Field = { kind: "field", name: "t1", type: "text", label: "Note" };
+    expect(columnFillTargets(table([[code("a1"), text], [code("a2"), { ...text, name: "t2" }]]), 1, {})).toBeNull();
+    expect(columnFillTargets(table([[code("m1", { multiple: true })], [code("m2", { multiple: true })]]), 0, {})).toBeNull();
+    expect(columnFillTargets(table([[code("c1", { calculated: true })], [code("c2", { calculated: true })]]), 0, {})).toBeNull();
+    expect(columnFillTargets(table([[code("one")]]), 0, {})).toBeNull();
   });
 });

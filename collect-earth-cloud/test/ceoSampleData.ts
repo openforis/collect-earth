@@ -12,6 +12,7 @@
 // `npx tsx test/ceoSampleData.ts` writes the fixtures (test/fixtures/ceo/project-<id>-samples.csv) again.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { degreesPerMetre } from '../src/plotShape.js';
 
 const SAMPLE_BASE_HEADERS = [
   'plotid', 'sampleid', 'sample_internal_id', 'lon', 'lat', 'email', 'flagged', 'collection_time', 'analysis_duration',
@@ -67,7 +68,19 @@ export interface PlotColumns {
 
 /** The sample data of a project (its get-project-by-id JSON and get-project-plots list), with these answers. */
 export function ceoSampleCsv(projectJson: string, plotsJson: string, answers: SampleAnswer[], plotColumns?: PlotColumns): string {
-  const project = JSON.parse(projectJson) as { surveyQuestions: Record<string, RawQuestion>; samplesPerPlot: number };
+  const project = JSON.parse(projectJson) as { surveyQuestions: Record<string, RawQuestion>; samplesPerPlot: number; sampleDistribution?: string; sampleResolution?: number };
+  // CEO's gridded samples, as a real download has them: n × n, `sampleResolution` metres apart, sample 1 at the
+  // south-west corner, up each column (south to north), the columns from west to east; others on a short diagonal
+  const n = Math.round(Math.sqrt(project.samplesPerPlot));
+  const gridded = project.sampleDistribution === 'gridded' && n * n === project.samplesPerPlot && (project.sampleResolution ?? 0) > 0;
+  const sampleAt = (lon: number, lat: number, s: number): [number, number] => {
+    if (!gridded) return [lon + s * 1e-5, lat - s * 1e-5];
+    const per = degreesPerMetre(lat);
+    const r = project.sampleResolution!;
+    const east = (Math.floor(s / n) - (n - 1) / 2) * r;
+    const north = ((s % n) - (n - 1) / 2) * r;
+    return [Number((lon + east * per.east).toFixed(9)), Number((lat + north * per.north).toFixed(9))];
+  };
   const plots = JSON.parse(plotsJson) as { id: number; center: string }[];
   const questions = sortQuestions(project.surveyQuestions);
   const plHeaders = (plotColumns?.names ?? []).map((n) => `pl_${n}`);
@@ -81,8 +94,7 @@ export function ceoSampleCsv(projectJson: string, plotsJson: string, answers: Sa
     for (const a of sets) {
       const count = a ? a.samples.length : Math.max(1, project.samplesPerPlot);
       for (let s = 0; s < count; s++) {
-        const sampleLon = lon + s * 1e-5;
-        const sampleLat = lat - s * 1e-5;
+        const [sampleLon, sampleLat] = sampleAt(lon, lat, s);
         // extract-answers: by question text, a later question of the same text wins
         const byText = new Map<string, string>();
         if (a) for (const [id, q] of questions) if (a.samples[s][id] !== undefined) byText.set(q.question ?? 'not-found', a.samples[s][id]);

@@ -30,6 +30,8 @@ return (function () {
     var neighbours = ${neighboursJson!"[]"};
     var STATUS_COLORS = { empty: "#e53935", partial: "#fdd835", saved: "#43a047" };
     var PLOT_COLOR = "#ffff00";
+    // Whether the sample points are numbered, as the rows of the form's table per point (sample_point_numbers)
+    var NUMBER_POINTS = "${samplePointNumbers!"false"}" === "true";
     var PLOT_ID = "${plotId?js_string}";
     // What the plot is called: its id without the keys hidden from the collector (blind quality control copies)
     var PLOT_LABEL = "${(plotLabel!"")?js_string}";
@@ -197,6 +199,46 @@ return (function () {
         return true;
     }
 
+    // The number of each sample point at its centre (1 at the north-west corner, down each column, as the rows of the
+    // form's table), in white on a dark halo; left out when the points are too close on the screen to tell apart
+    function addPointNumbers(cam) {
+        var centres = sampleRings.map(function (ring) {
+            var n = ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1] ? ring.length - 1 : ring.length;
+            var lon = 0, lat = 0;
+            for (var i = 0; i < n; i++) { lon += ring[i][0]; lat += ring[i][1]; }
+            return project(cam, lon / n, lat / n);
+        });
+        if (centres.length > 1) {
+            var closest = Infinity;
+            for (var a = 0; a < centres.length; a++) {
+                for (var b = a + 1; b < centres.length; b++) {
+                    closest = Math.min(closest, Math.hypot(centres[a].x - centres[b].x, centres[a].y - centres[b].y));
+                }
+            }
+            if (closest < 14) return;
+        }
+        centres.forEach(function (c, i) {
+            [["rgba(0,0,0,.75)", 3], ["#ffffff", 0]].forEach(function (style) {
+                var text = document.createElementNS(svgNS, "text");
+                text.setAttribute("x", c.x.toFixed(1));
+                text.setAttribute("y", (c.y - 6).toFixed(1));
+                text.setAttribute("text-anchor", "middle");
+                text.setAttribute("font-family", "Roboto, Arial, sans-serif");
+                text.setAttribute("font-size", "12");
+                text.setAttribute("font-weight", "700");
+                text.setAttribute("fill", style[0]);
+                if (style[1]) {
+                    text.setAttribute("stroke", style[0]);
+                    text.setAttribute("stroke-width", String(style[1]));
+                    text.setAttribute("stroke-linejoin", "round");
+                }
+                text.setAttribute("data-ce-ring", "sample-number");
+                text.textContent = String(i + 1);
+                svg.appendChild(text);
+            });
+        });
+    }
+
     // Google Earth Web starting (a page load) writes the globe seen from afar, @0,0 at 22,000 km, before it flies to
     // the camera of the URL: such a camera is waited past, not drawn from, until the outline was drawn once, for
     // GLOBE_WAIT_MILLIS at most and only while the user has not moved the camera. A globe the user zoomed out to is
@@ -236,6 +278,7 @@ return (function () {
         // projects does for Google Earth Pro (FF00FFFF, 2 px)
         plotRings.forEach(function (ring) { if (addRing(cam, ring, PLOT_COLOR, 2, "plot")) drawn++; });
         sampleRings.forEach(function (ring) { if (addRing(cam, ring, PLOT_COLOR, 2, "sample")) drawn++; });
+        if (NUMBER_POINTS) addPointNumbers(cam);
         svg.style.display = drawn > 0 ? "block" : "none";
         // A far-away camera (user zoomed/panned out) is not an error; offer the way back.
         var c = project(cam, plotRings.length && plotRings[0].length ? plotRings[0][0][0] : cam.lon,

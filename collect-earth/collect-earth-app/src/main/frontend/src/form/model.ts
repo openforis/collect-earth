@@ -270,6 +270,17 @@ export function mergeInfos(known: Record<string, FieldInfo>, response: LoadResul
 }
 
 /** A field the server has not reported on yet is shown; one it says is not relevant is hidden. */
+/**
+ * The fields of a table's column that "Every row…" fills: one per row where the column is shown and answerable (a single
+ * choice, not read-only nor calculated); null when the column is not a choice column (nothing to offer).
+ */
+export function columnFillTargets(item: TableItem, column: number, infos: Record<string, FieldInfo>): Field[] | null {
+  const fields = item.rows.map((r) => r.fields[column]).filter((f): f is Field => !!f);
+  const choice = (f: Field) => !!f.code && !f.multiple && !f.readOnly && !f.calculated;
+  if (fields.length < 2 || !fields.every(choice)) return null;
+  return fields.filter((f) => isVisible(infos, f.name));
+}
+
 export function isVisible(infos: Record<string, FieldInfo>, name: string): boolean {
   return infos[name]?.visible !== false;
 }

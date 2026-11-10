@@ -68,6 +68,8 @@ export function ceoProjectFile(survey: CeoSurvey, date: Date): Buffer {
     `survey_name=${property(surveyName)}`,
     'coordinates_reference_system=EPSG\\:4326',
     ...layoutProperties(survey.layout),
+    // Answers per sample point: Collect Earth numbers the points on the map, as the rows of the questions' table
+    ...(survey.perPoint ? ['sample_point_numbers=true'] : []),
     `open_gee_app=${project.options.showGEEScript === true ? 'true' : 'false'}`,
     '',
   ].join('\n');

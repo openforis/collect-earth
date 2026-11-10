@@ -1,4 +1,4 @@
-import type { GewView, GroundView, LatLng, ListFilter, PlotStatus } from "./types";
+import type { GewView, GroundView, LatLng, ListFilter, PlotFeature, PlotStatus } from "./types";
 
 // Pure plot-list logic shared by the store and the UI (unit tested in plots.test.ts).
 
@@ -279,4 +279,19 @@ export function surveyView(centers: LatLng[]): GroundView {
   const span = Math.max((maxLat - minLat) * metresPerDegree,
     (maxLng - minLng) * metresPerDegree * Math.cos((center[0] * Math.PI) / 180));
   return { center, heightMeters: Math.min(MAX_VIEW_HEIGHT, Math.max(5000, Math.round(span * 1.5))) };
+}
+
+/**
+ * The numbers of a plot's sample points at their centres: its last rings (the GeoJSON's samplePoints), in the order
+ * Collect Earth numbers them, 1 at the north-west corner, down each column, as the rows of the form's table per point.
+ */
+export function pointNumbersOf(plot: { feature: PlotFeature; rings: LatLng[][] }): { at: LatLng; text: string }[] {
+  const count = Number(plot.feature.properties.samplePoints ?? 0);
+  if (!Number.isInteger(count) || count < 2 || count > plot.rings.length) return [];
+  return plot.rings.slice(plot.rings.length - count).map((ring, i) => {
+    const open = ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1] ? ring.slice(0, -1) : ring;
+    const lat = open.reduce((sum, p) => sum + p[0], 0) / open.length;
+    const lng = open.reduce((sum, p) => sum + p[1], 0) / open.length;
+    return { at: [lat, lng] as LatLng, text: String(i + 1) };
+  });
 }

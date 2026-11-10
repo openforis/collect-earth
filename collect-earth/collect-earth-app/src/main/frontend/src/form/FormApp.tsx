@@ -8,6 +8,8 @@ import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
 import Link from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
@@ -37,7 +39,7 @@ import logo from "@shared/collect-earth-logo.png";
 import { AnsweredByKey, Copied, FieldView, errorText } from "./fields";
 import {
   type Field, type FocusTarget, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type Step,
-  type TableItem, type TableTotal, type TotalRule, advanceTarget, answeredWithKeys, answersToCopy, availableItems, columnTotal,
+  type TableItem, type TableTotal, type TotalRule, advanceTarget, answeredWithKeys, answersToCopy, availableItems, columnFillTargets, columnTotal,
   draftErrors, entityCount, errorList, ruleMet, totalGap,
   fieldsOfStep, firstToAnswer, indexedField, isTabVisible, isVisible, itemFields, neededByTab, openingTarget, parseCodes,
   stepsOf, summaryLines, tabsWithErrors,
@@ -830,6 +832,7 @@ function EntityTable({ store, state, item }: { store: FormStore; state: FormStat
                 <TableCell key={i} sx={{ fontWeight: 600, whiteSpace: "nowrap", [NARROW]: { whiteSpace: "normal" } }} title={c.description}>
                   {c.label}
                   {calculated[i] && <Typography component="span" variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 400 }}>{t("entry.calculated")}</Typography>}
+                  <FillColumn store={store} state={state} item={item} column={i} label={c.label} />
                 </TableCell>
               ))}
             </TableRow>
@@ -850,6 +853,26 @@ function EntityTable({ store, state, item }: { store: FormStore; state: FormStat
         {item.totals?.map((total, i) => <TableTotalLine key={i} store={store} state={state} total={total} />)}
       </Box>
     </Box>
+  );
+}
+
+/**
+ * Over a choice column of a table, "Every row…": one answer given to every row where the question is shown, as CEO's
+ * collectors answer the points they selected at once (the answers per sample point of an imported project). Each row
+ * can still be changed after.
+ */
+function FillColumn({ store, state, item, column, label }: { store: FormStore; state: FormState; item: TableItem; column: number; label: string }) {
+  const t = useT();
+  const targets = columnFillTargets(item, column, state.infos);
+  if (!targets || targets.length < 2) return null;
+  const items = availableItems(targets[0], state.infos, state.pending, store.fieldsByName());
+  return (
+    <TextField select size="small" value="" label={t("entry.everyRow")} data-testid="entry-fill-column"
+      fullWidth sx={{ display: "flex", mt: 1, maxWidth: 280, "& .MuiInputBase-root": { fontWeight: 400 } }}
+      slotProps={{ htmlInput: { "aria-label": `${label}: ${t("entry.everyRow")}` }, select: { MenuProps: { slotProps: { paper: { sx: { maxHeight: 360 } } } } } }}
+      onChange={(e) => { for (const f of targets) store.setValue(f.name, e.target.value); }}>
+      {items.map((i) => <MenuItem key={i.code} value={i.code}>{i.label}</MenuItem>)}
+    </TextField>
   );
 }
 

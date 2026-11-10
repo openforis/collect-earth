@@ -5,6 +5,9 @@ import { byId, heightForZoom, zoomForHeight } from "../plots";
 import type { EngineCallbacks, EngineConfig, MapEngine } from "./MapEngine";
 import { UserIntent } from "./userIntent";
 
+/** The numbers of the sample points are shown once the two closest points are this far apart on the screen (px) */
+export const POINT_NUMBERS_SPACING = 18;
+
 const ESRI_ATTRIBUTION = "&copy; Esri, Maxar, Earthstar Geographics";
 /**
  * Google Earth Web frames a plot from a few hundred metres, closer than map tiles go: beyond their
@@ -41,6 +44,9 @@ export class LeafletEngine implements MapEngine {
   private map: L.Map | null = null;
   /** Keyed by plot id, without a prototype (see byId). */
   private layers: Record<string, { group: L.FeatureGroup; marker: L.CircleMarker }> = byId();
+  /** The numbers of the open plot's sample points, shown once they can be told apart (POINT_NUMBERS_SPACING) */
+  private pointNumbers: L.LayerGroup | null = null;
+  private pointNumbersAt: LatLng[] = [];
   private callbacks!: EngineCallbacks;
   private zoomThreshold = 14;
   private emptyColor = "#e53935";
@@ -66,7 +72,10 @@ export class LeafletEngine implements MapEngine {
     this.baseName = config.baseLayer && names.includes(config.baseLayer) ? config.baseLayer : names[0];
     this.base[this.baseName].addTo(map);
     L.control.scale({ position: "bottomleft", imperial: false }).addTo(map);
-    map.on("zoomend", () => this.callbacks.onZoomChange());
+    map.on("zoomend", () => {
+      this.showPointNumbersAtZoom();
+      this.callbacks.onZoomChange();
+    });
     map.on("dragstart", () => { this.viewTarget = null; });
     map.on("moveend", () => {
       const view = this.getView();
@@ -93,6 +102,34 @@ export class LeafletEngine implements MapEngine {
     group.on("click", () => this.callbacks.onPlotClick(id));
     marker.on("click", () => this.callbacks.onPlotClick(id));
     this.layers[id] = { group, marker };
+  }
+
+  setPointNumbers(points: { at: LatLng; text: string }[]): void {
+    this.pointNumbers?.remove();
+    this.pointNumbers = null;
+    if (!this.map || points.length === 0) return;
+    const group = L.layerGroup();
+    for (const p of points) {
+      // White on a dark halo, small, never in the way of a click on the plot
+      group.addLayer(L.marker(p.at, {
+        interactive: false, keyboard: false,
+        icon: L.divIcon({ className: "sample-point-number", html: p.text, iconSize: [24, 14], iconAnchor: [12, 18] }),
+      }));
+    }
+    this.pointNumbers = group;
+    this.pointNumbersAt = points.map((p) => p.at);
+    this.showPointNumbersAtZoom();
+  }
+
+  /** The points' numbers only once the points can be told apart on the screen: zoomed in close enough on the plot */
+  private showPointNumbersAtZoom(): void {
+    if (!this.map || !this.pointNumbers) return;
+    const map = this.map;
+    const px = this.pointNumbersAt.map((at) => map.latLngToContainerPoint(at));
+    let closest = Infinity;
+    for (let a = 0; a < px.length; a++) for (let b = a + 1; b < px.length; b++) closest = Math.min(closest, px[a].distanceTo(px[b]));
+    if (closest >= POINT_NUMBERS_SPACING) this.pointNumbers.addTo(map);
+    else this.pointNumbers.remove();
   }
 
   removePlot(id: string): void {

@@ -49,10 +49,18 @@ export interface SurveyPlan {
 export const FLAGGED_NAME = 'ceo_flagged';
 export const CONFIDENCE_NAME = 'ceo_confidence';
 
+/**
+ * Answers per sample point (Part E): the questions are the columns of a table with a row per point of the plot, an
+ * enumerated entity keyed by the point's number, from the list of the points.
+ */
+export const POINTS_ENTITY = 'sample_points';
+export const POINT_KEY = 'point';
+export const POINT_LIST = 'sample_point';
+
 /** Names Collect Earth gives attributes itself, which a question may not take. */
 export const RESERVED_NAMES: ReadonlySet<string> = new Set([
   'plot', 'id', 'round', 'location', 'operator', 'actively_saved', 'actively_saved_on', 'plot_file',
-  'elevation', 'slope', 'aspect', 'coordinator_note', FLAGGED_NAME, CONFIDENCE_NAME,
+  'elevation', 'slope', 'aspect', 'coordinator_note', FLAGGED_NAME, CONFIDENCE_NAME, POINTS_ENTITY, POINT_KEY, POINT_LIST,
 ]);
 
 /** Longest attribute name made from a question's text. */

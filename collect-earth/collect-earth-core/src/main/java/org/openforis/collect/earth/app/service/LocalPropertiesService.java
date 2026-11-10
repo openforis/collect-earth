@@ -80,7 +80,8 @@ public class LocalPropertiesService extends Observable {
 				"operation_mode"), OPERATOR_KEY(
 				"operator"), SAMPLE_FILE(
 				"csv"), SAMPLE_SHAPE(
-				"sample_shape"), SURVEY_NAME(
+				"sample_shape"), SAMPLE_POINT_NUMBERS(
+				"sample_point_numbers"), SURVEY_NAME(
 				"survey_name"), UI_LANGUAGE(
 				"ui_language"), LARGE_CENTRAL_PLOT_SIDE(
 				"large_central_plot_side"), DISTANCE_TO_BUFFERS(
@@ -594,6 +595,15 @@ public class LocalPropertiesService extends Observable {
 		}
 	}
 
+
+	/**
+	 * Whether the sample points of a plot are numbered on the plots map and in Google Earth Web: a project that asks its
+	 * questions per sample point (a table with a row per point, as the projects imported from Collect Earth Online
+	 * that answer per point) numbers them as its rows.
+	 */
+	public boolean isSamplePointNumbers() {
+		return isPropertyActivated(EarthProperty.SAMPLE_POINT_NUMBERS);
+	}
 
 	public boolean isGEEAppSupported() {
 		return isPropertyActivated(EarthProperty.OPEN_GEE_APP);
