@@ -90,6 +90,7 @@ import {
   type UserPlots,
 } from './store.js';
 import type { UncertaintySettings } from '../uncertainty.js';
+import type { CeoShapesJob } from '../ceo/shapes.js';
 
 /** The UTC month of a time, YYYY-MM (the AI token ledger's key). */
 const monthOf = (ms: number): string => new Date(ms).toISOString().slice(0, 7);
@@ -118,6 +119,7 @@ interface ProjectEntry {
   progressSettings: ProgressSettings | null;
   analysisViews: SharedAnalysisView[];
   uncertaintySettings: UncertaintySettings | null;
+  ceoShapes: CeoShapesJob | null;
   /** The progress link's quality figure (projects.public_quality). */
   publicQuality: PublicQuality | null;
   aiEnabled: boolean;
@@ -431,6 +433,7 @@ export class InMemoryStore implements Store {
       progressSettings: null,
       analysisViews: [],
       uncertaintySettings: null,
+      ceoShapes: null,
       publicQuality: null,
       aiEnabled: false,
       aiRuns: [],
@@ -2216,6 +2219,14 @@ export class InMemoryStore implements Store {
 
   async setUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<void> {
     this.requireProject(projectId).uncertaintySettings = structuredClone(settings);
+  }
+
+  async getCeoShapes(projectId: string): Promise<CeoShapesJob | null> {
+    return structuredClone(this.projects.get(projectId)?.ceoShapes ?? null);
+  }
+
+  async setCeoShapes(projectId: string, job: CeoShapesJob): Promise<void> {
+    this.requireProject(projectId).ceoShapes = structuredClone(job);
   }
 
   async appendAudit(projectId: string, input: AuditInput): Promise<void> {

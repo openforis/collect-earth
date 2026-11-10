@@ -72,6 +72,8 @@ export const LOCAL_OFF_ROUTES: readonly string[] = [
   'POST /v1/projects',
   'POST /v1/projects/from-ceo/preview',
   'POST /v1/projects/from-ceo',
+  'GET /v1/projects/:pid/ceo-shapes',
+  'POST /v1/projects/:pid/ceo-shapes/step',
   'DELETE /v1/projects/:pid',
   'PUT /v1/projects/:pid/status',
   'POST /v1/projects/:pid/copy',

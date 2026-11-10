@@ -4948,3 +4948,17 @@ export async function saveUncertaintySettings(projectId: string, settings: Uncer
 export async function getUncertainty(projectId: string): Promise<UncertaintyData> {
   return request<UncertaintyData>("GET", `${p(projectId)}/uncertainty`);
 }
+
+/** The copy of a CEO project's plot and sample shapes into the project (src/routes/ceoShapes.ts). */
+export type CeoShapesProgress =
+  | { state: "none" }
+  | { state: "reading" | "done"; total: number; done: number; missing: number; error: string | null };
+
+export function getCeoShapes(projectId: string): Promise<CeoShapesProgress> {
+  return request("GET", `${p(projectId)}/ceo-shapes`);
+}
+
+/** Reads the next plots' shapes from CEO (about 20 seconds); once all are read, the plot files get them. */
+export function stepCeoShapes(projectId: string): Promise<CeoShapesProgress> {
+  return request("POST", `${p(projectId)}/ceo-shapes/step`);
+}

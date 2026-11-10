@@ -18,6 +18,9 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ceoRecords, submitted, type CeoPlotAnswers } from '../ceo/answers.js';
 import { ceoSurvey, CeoImportError, type CeoSurvey } from '../ceo/index.js';
 import { ceoProjectFile, reportText } from '../ceo/projectFile.js';
+import { layoutProperties } from '../ceo/plots.js';
+import { ceoHasShapes, newShapesJob } from '../ceo/shapes.js';
+import { plotOutline } from '../plotShape.js';
 import { readCep } from '../cep.js';
 import { checkUploadFits } from '../limits.js';
 import { applyLww, recordEventOf } from '../lww.js';
@@ -257,6 +260,17 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
       }
     }
 
+    // The plots' and samples' shapes CEO keeps (uploaded as shapes): copied from CEO in steps the dashboard asks for
+    let shapes: { total: number } | null = null;
+    if (survey.plots && ceoHasShapes(survey.project)) {
+      const toRead = survey.plots.plots.filter((p) => p.internal !== '');
+      if (toRead.length > 0) {
+        const properties = new Map(layoutProperties(survey.layout).map((line) => line.split('=', 2) as [string, string]));
+        await store.setCeoShapes(projectId, newShapesJob(survey.project.id, toRead, plotOutline(properties)));
+        shapes = { total: toRead.length };
+      }
+    }
+
     // CEO's answers, as records Collect Earth would have sent, stored as a sync stores them (last write wins, events)
     let records = 0;
     if (survey.answers && survey.plots && survey.answers.plots.length > 0) {
@@ -317,6 +331,6 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
     request.log.info({ projectId, ceoProjectId: survey.project.id, round: accepted.info.state }, 'project made from a Collect Earth Online project');
     // The collectors' names on this server, by CEO email: for the coordinator, who mapped them (never stored)
     const collectors = survey.answers ? survey.answers.collectors.map((c) => ({ ...c, username: operators.get(c.email)!.username })) : [];
-    return reply.code(201).send({ projectId, name, round: accepted.info.state, plotFile, doneFile, records, reportText: reportText(survey), ...s, collectors });
+    return reply.code(201).send({ projectId, name, round: accepted.info.state, plotFile, doneFile, records, shapes, reportText: reportText(survey), ...s, collectors });
   });
 }
