@@ -319,11 +319,18 @@ export function ForecastSection({ data, publicView, local }: { data: ProgressFig
   const { language } = useApp();
   const f = data.forecast;
   const targetKey = forecastTargetKey(f, { publicView, local });
+  const sentences = forecastSentences(t, f, language, { publicView, local });
+  // How the forecast is worked out and where its target and deadline are set: for the project's own dashboard
+  // (a progress link has no Settings tab; the local mode's target comes from Settings only).
+  const more = !publicView && !local;
   return (
     <Section title={t("progress.forecastTitle")} id="progress-forecast">
       <Stack spacing={1}>
-        {forecastSentences(t, f, language, { publicView, local }).map((s) => (
-          <Typography key={s}>{s}</Typography>
+        {sentences.map((s, i) => (
+          <Typography key={s}>
+            {s}
+            {more && i === sentences.length - 1 && <MoreInfo text={t("progress.forecastTitle.more")} />}
+          </Typography>
         ))}
         {targetKey !== null && (
           <Typography variant="body2" color="text.secondary">

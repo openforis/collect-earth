@@ -127,6 +127,7 @@ function ActivityLog({ projectId }: { projectId: string }) {
     <Section title={t("activity.logTitle")} id="activity-log">
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t(local ? "activity.logHelpLocal" : "activity.logHelp")}
+        {!local && <MoreInfo text={t("activity.logHelp.more")} />}
       </Typography>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} useFlexGap sx={{ mb: 2, flexWrap: "wrap" }}>
         {!local && (

@@ -20,7 +20,7 @@ export interface Template {
 
 /** Collect Earth's own attributes of every plot: the collection's columns already give them. */
 const CE_OWN = new Set(["id", "round", "operator", "actively_saved", "actively_saved_on", "plot_file"]);
-const REGION = /region|province|district|stratum|strata|zone|county|state|department|admin|municip|ecozone|ecoregion/i;
+export const REGION = /region|province|district|stratum|strata|zone|county|state|department|admin|municip|ecozone|ecoregion|parish|parroq|commune|comuna/i;
 /** A yes/no question on how sure the interpreter is. */
 const CONFIDENCE = /confiden|certain|\bsure\b|segur|confian|fiab/i;
 /** A question on what disturbed the land or drove its change. */

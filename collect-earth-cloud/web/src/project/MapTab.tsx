@@ -571,6 +571,7 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
           {data.notOnMap > 0 && (
             <Typography variant="body2" sx={{ mt: 1.5 }}>
               {t("map.notOnMap", { n: n(data.notOnMap) })}
+              {data.unsupportedSrs === null && <MoreInfo text={t("map.notOnMap.more")} />}
             </Typography>
           )}
           {data.unsupportedSrs === null && offMap.length > 0 && (
