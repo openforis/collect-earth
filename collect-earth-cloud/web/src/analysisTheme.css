@@ -1,0 +1,30 @@
+/*
+ * The analysis page's look over Perspective's "Pro Light" theme (loaded before this file): the dashboard's font in the
+ * charts and the table instead of Perspective's monospace, faint gridlines with no axis lines, a dark tooltip, a
+ * transparent legend and a table with light borders. Only Perspective's own variables are set: its charts and grid are
+ * drawn inside its shadow DOM, which reads them and nothing else from here.
+ */
+perspective-viewer,
+perspective-viewer[theme] {
+  --psp-interface-monospace--font-family: Roboto, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  --psp-charts--font-family: Roboto, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  font-family: Roboto, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  --psp--background-color: #ffffff;
+  --psp--color: #1f2a30;
+  --psp-inactive--color: #7b8790;
+  --psp-inactive--border-color: #e3e8ec;
+
+  --psp-charts--gridline--color: rgba(31, 42, 48, 0.07);
+  --psp-charts--axis-lines--color: transparent;
+  --psp-charts--axis-ticks--color: #5f6b72;
+  --psp-charts--legend--background: transparent;
+  --psp-charts--legend--color: #3a464d;
+  --psp-charts--tooltip--background: rgba(23, 28, 34, 0.94);
+  --psp-charts--tooltip--color: #ffffff;
+  --psp-charts--tooltip--border-color: transparent;
+
+  --psp-datagrid--border-color: #eef1f3;
+  --psp-datagrid--hover--border-color: #c9d6e2;
+  --psp-datagrid--pos-cell--color: #1565c0;
+  --psp-datagrid--neg-cell--color: #c62828;
+}
