@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid, publicBaseUrl } from '../accountRules.js';
 import { audit, noteActivity } from '../activity.js';
 import { addNote, addRound, CepError, noteColumn, roundInfoOf, withBundledPlotFile, type NoteInfo, type NoteRefusal, type RefusalCode } from '../cep.js';
@@ -291,95 +291,9 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       if (!Buffer.isBuffer(cep) || cep.length === 0) {
         return reply.code(400).send({ error: 'bad_request', reason: 'expected a non-empty zip body' });
       }
-      const previous = await store.getRoundInfo(projectId);
-      const date = new Date();
-      let served = cep;
-      let original: Buffer | null = null;
-      let info: RoundInfo;
-      let noteColumnChanged: { from: number; to: number } | undefined;
-      try {
-        const recordsExist = await store.hasRecords(projectId);
-        if (!recordsExist) {
-          const result = addRound(cep, date);
-          info = result.info;
-          if (info.state === 'added') {
-            served = result.cep;
-            original = cep;
-          }
-        } else {
-          const upload = uploadOnceRecordsExist(cep, previous, date);
-          if ('error' in upload) return reply.code(409).send(upload);
-          ({ served, original, info } = upload);
-        }
-        // What this upload adds to the survey: its own plot file gets the same columns (below).
-        const roundAdded = served !== cep;
-        const note = withNote(served, previous, recordsExist, date);
-        if ('error' in note) return reply.code(409).send(note);
-        const noteAdded = note.cep !== served;
-        if (noteAdded) {
-          served = note.cep;
-          original ??= cep;
-        }
-        info = { ...info, note: note.info };
-        // The plot file the project file brings (Collect Earth opens it until an assigned one is
-        // chosen) gets the round and note columns as the served plot files have them (Task 22's real run).
-        // One that does not read back as it should is served as it came (logged): Collect Earth then only
-        // warns that its columns do not match until an assigned plot file is chosen, as before this
-        // rewrite existed; the survey, the balloons and every served plot file are right regardless.
-        if (roundAdded || noteAdded) {
-          const withColumns = info;
-          try {
-            served = withBundledPlotFile(served, (data) => servedBundledPlotFile(data, withColumns, { round: roundAdded, note: noteAdded }), date);
-          } catch (err) {
-            request.log.warn({ err, projectId }, "cep: the project file's own plot file could not be given the round and note columns; served as uploaded");
-          }
-        }
-        // Records hold their note whatever its column; the files people get from now on carry it at the
-        // new one (they have to Refresh their plot files). Said in the answer, and logged.
-        const from = noteColumn(previous);
-        const to = noteColumn(info);
-        if (recordsExist && from !== null && to !== null && from !== to) {
-          noteColumnChanged = { from, to };
-          request.log.warn({ projectId, from, to }, "cep: the coordinator's note is read from another column of the plot files");
-        }
-      } catch (e) {
-        // The message names the limit this upload had.
-        if (e instanceof CepError && e.code === 'too_large') {
-          return reply.code(413).send({ error: 'too_large', reason: e.message });
-        }
-        throw e;
-      }
-      // A re-assessment code the coordinator chose stays while the new file still has it.
-      const chosen = previous?.state === 'own' ? previous.reassessmentCode : null;
-      if (info.state === 'own' && chosen !== null && info.roundCodes.some((c) => c.code === chosen)) {
-        info = { ...info, reassessmentCode: chosen };
-      }
-      // Plot files are read with as many key columns as the survey has (less the round
-      // the server added). A file that changes that would orphan the divided plots,
-      // held by their old ids: refused while any file is divided.
-      const keyCountBefore = fileKeyCount(previous);
-      const keyCountAfter = fileKeyCount(info);
-      if (keyCountBefore !== keyCountAfter) {
-        const files = await store.listCsvFiles(projectId);
-        if (files.some((f) => f.distribution)) {
-          const columns = (n: number) => `${n} key column${n === 1 ? '' : 's'}`;
-          return reply.code(409).send({
-            error: 'plots_divided',
-            reason:
-              `This project file reads plots with ${columns(keyCountAfter)} instead of ${keyCountBefore}, ` +
-              "which would undo how the plots are divided. Set the divided plot files back to 'whole file' first, " +
-              'then upload it again.',
-          });
-        }
-      }
-      const over = await checkUploadFits(store, projectId, { kind: 'cep' }, served.length + (original?.length ?? 0));
-      if (over) {
-        return reply.code(413).send(over);
-      }
-      await store.putCep(projectId, served, info, original);
-      if (keyCountBefore !== keyCountAfter) {
-        await store.recountPlots(projectId, keyCountAfter);
-      }
+      const accepted = await acceptCep(store, projectId, cep, request.log);
+      if (!accepted.ok) return reply.code(accepted.status).send(accepted.body);
+      const { info, noteColumnChanged } = accepted;
       await audit(store, request, 'cep.replaced', { bytes: cep.length });
       return reply.send({ ok: true, bytes: cep.length, round: info, ...(noteColumnChanged ? { noteColumnChanged } : {}) });
     },
@@ -559,4 +473,108 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       return reply.code(204).send();
     },
   );
+}
+
+/** What storing an uploaded project file came to: the round information, or the refusal to answer. */
+export type CepAcceptance =
+  | { ok: true; info: RoundInfo; noteColumnChanged?: { from: number; to: number } }
+  | { ok: false; status: number; body: object };
+
+/**
+ * Stores a project file uploaded for `projectId` (PUT /cep, and a project made from a Collect Earth Online project): the
+ * round added before collection or the key shape kept once records exist, the coordinator's note, the project file's own
+ * plot file given their columns, the space limit. A refusal is returned, not thrown, for the caller to answer.
+ */
+export async function acceptCep(store: Store, projectId: string, cep: Buffer, log: FastifyBaseLogger): Promise<CepAcceptance> {
+  const refuse = (status: number, body: object): CepAcceptance => ({ ok: false, status, body });
+  const previous = await store.getRoundInfo(projectId);
+  const date = new Date();
+  let served = cep;
+  let original: Buffer | null = null;
+  let info: RoundInfo;
+  let noteColumnChanged: { from: number; to: number } | undefined;
+  try {
+    const recordsExist = await store.hasRecords(projectId);
+    if (!recordsExist) {
+      const result = addRound(cep, date);
+      info = result.info;
+      if (info.state === 'added') {
+        served = result.cep;
+        original = cep;
+      }
+    } else {
+      const upload = uploadOnceRecordsExist(cep, previous, date);
+      if ('error' in upload) return refuse(409, upload);
+      ({ served, original, info } = upload);
+    }
+    // What this upload adds to the survey: its own plot file gets the same columns (below).
+    const roundAdded = served !== cep;
+    const note = withNote(served, previous, recordsExist, date);
+    if ('error' in note) return refuse(409, note);
+    const noteAdded = note.cep !== served;
+    if (noteAdded) {
+      served = note.cep;
+      original ??= cep;
+    }
+    info = { ...info, note: note.info };
+    // The plot file the project file brings (Collect Earth opens it until an assigned one is
+    // chosen) gets the round and note columns as the served plot files have them (Task 22's real run).
+    // One that does not read back as it should is served as it came (logged): Collect Earth then only
+    // warns that its columns do not match until an assigned plot file is chosen, as before this
+    // rewrite existed; the survey, the balloons and every served plot file are right regardless.
+    if (roundAdded || noteAdded) {
+      const withColumns = info;
+      try {
+        served = withBundledPlotFile(served, (data) => servedBundledPlotFile(data, withColumns, { round: roundAdded, note: noteAdded }), date);
+      } catch (err) {
+        log.warn({ err, projectId }, "cep: the project file's own plot file could not be given the round and note columns; served as uploaded");
+      }
+    }
+    // Records hold their note whatever its column; the files people get from now on carry it at the
+    // new one (they have to Refresh their plot files). Said in the answer, and logged.
+    const from = noteColumn(previous);
+    const to = noteColumn(info);
+    if (recordsExist && from !== null && to !== null && from !== to) {
+      noteColumnChanged = { from, to };
+      log.warn({ projectId, from, to }, "cep: the coordinator's note is read from another column of the plot files");
+    }
+  } catch (e) {
+    // The message names the limit this upload had.
+    if (e instanceof CepError && e.code === 'too_large') {
+      return refuse(413, { error: 'too_large', reason: e.message });
+    }
+    throw e;
+  }
+  // A re-assessment code the coordinator chose stays while the new file still has it.
+  const chosen = previous?.state === 'own' ? previous.reassessmentCode : null;
+  if (info.state === 'own' && chosen !== null && info.roundCodes.some((c) => c.code === chosen)) {
+    info = { ...info, reassessmentCode: chosen };
+  }
+  // Plot files are read with as many key columns as the survey has (less the round
+  // the server added). A file that changes that would orphan the divided plots,
+  // held by their old ids: refused while any file is divided.
+  const keyCountBefore = fileKeyCount(previous);
+  const keyCountAfter = fileKeyCount(info);
+  if (keyCountBefore !== keyCountAfter) {
+    const files = await store.listCsvFiles(projectId);
+    if (files.some((f) => f.distribution)) {
+      const columns = (n: number) => `${n} key column${n === 1 ? '' : 's'}`;
+      return refuse(409, {
+        error: 'plots_divided',
+        reason:
+          `This project file reads plots with ${columns(keyCountAfter)} instead of ${keyCountBefore}, ` +
+          "which would undo how the plots are divided. Set the divided plot files back to 'whole file' first, " +
+          'then upload it again.',
+      });
+    }
+  }
+  const over = await checkUploadFits(store, projectId, { kind: 'cep' }, served.length + (original?.length ?? 0));
+  if (over) {
+    return refuse(413, over);
+  }
+  await store.putCep(projectId, served, info, original);
+  if (keyCountBefore !== keyCountAfter) {
+    await store.recountPlots(projectId, keyCountAfter);
+  }
+  return { ok: true, info, ...(noteColumnChanged ? { noteColumnChanged } : {}) };
 }

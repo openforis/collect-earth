@@ -12,7 +12,7 @@ DECLARE
     'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'decision.set',
     'decision.deleted', 'decision.bulk', 'settings.changed', 'export.downloaded', 'survey.replaced',
     'sampling.drawn', 'reference.changed', 'link.created', 'link.revoked', 'training.changed', 'training.synced',
-    'member.excluded'];
+    'member.excluded', 'project.imported'];
   defined TEXT;
 BEGIN
   SELECT pg_get_constraintdef(oid) INTO defined FROM pg_constraint
@@ -26,6 +26,6 @@ BEGIN
       'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'decision.set',
       'decision.deleted', 'decision.bulk', 'settings.changed', 'export.downloaded', 'survey.replaced',
       'sampling.drawn', 'reference.changed', 'link.created', 'link.revoked', 'training.changed', 'training.synced',
-      'member.excluded'));
+      'member.excluded', 'project.imported'));
   END IF;
 END $$;

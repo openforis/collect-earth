@@ -1110,6 +1110,31 @@ export function createProject(name: string): Promise<{ projectId: string; name: 
   return request("POST", "/v1/projects", { json: { name } });
 }
 
+/** One line of a Collect Earth Online import's report (src/ceo/report.ts); its subject and message are the server's, in English. */
+export interface CeoReportEntry {
+  area: "project" | "question" | "rule" | "plots";
+  subject: string;
+  outcome: "imported" | "changed" | "skipped" | "info";
+  message: string;
+}
+
+export interface CeoImportPreview {
+  name: string;
+  ceoProjectId: number | null;
+  counts: { questions: number; questionsChanged: number; questionsSkipped: number; rules: number; rulesSkipped: number };
+  report: CeoReportEntry[];
+}
+
+/** What a project saved from Collect Earth Online (its get-project-by-id file, as text) would become; nothing is stored. */
+export function previewCeoImport(ceoProject: string): Promise<CeoImportPreview> {
+  return request("POST", "/v1/projects/from-ceo/preview", { json: { ceoProject } });
+}
+
+/** A new project from a project saved from Collect Earth Online: its survey and rules; the caller is its coordinator. */
+export function importCeoProject(ceoProject: string, name: string): Promise<CeoImportPreview & { projectId: string; round: string; reportText: string }> {
+  return request("POST", "/v1/projects/from-ceo", { json: { ceoProject, name } });
+}
+
 export async function getProject(projectId: string): Promise<ProjectInfo> {
   const body = await request<{ projectId: string; name: string; role: string; status?: string }>("GET", p(projectId));
   return { projectId: body.projectId, name: body.name, role: asRole(body.role), status: asStatus(body.status) };
