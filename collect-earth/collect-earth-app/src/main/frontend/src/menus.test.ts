@@ -51,10 +51,11 @@ describe("appMenus", () => {
 });
 
 describe("my dashboard", () => {
-  it("is in the Tools menu when working alone, not in a cloud project, which has the cloud's", () => {
+  it("is in the Tools menu when working alone; in a cloud project, which has the cloud's, disabled with the reason", () => {
     const tools = (cloud: boolean) => appMenus({ plotsMap: true, cloud }).find((m) => m.id === "tools")?.items.map((i) => i.id);
-    expect(tools(false)).toContain("myDashboard");
-    expect(tools(true)).not.toContain("myDashboard");
+    const mine = (cloud: boolean) => appMenus({ plotsMap: true, cloud }).flatMap((m) => m.items).find((i) => i.id === "myDashboard");
+    expect(mine(false)).toEqual({ id: "myDashboard", label: "LocalDashboard.menu", enabled: true });
+    expect(mine(true)).toEqual({ id: "myDashboard", label: "LocalDashboard.menu", enabled: false, disabledReason: "LocalDashboard.cloudProject" });
     // Analyse the data: first, for a local project and a cloud one (the cloud's page)
     expect(tools(false)?.[0]).toBe("analyse");
     expect(tools(true)?.[0]).toBe("analyse");
@@ -91,8 +92,8 @@ describe("the drawer of the compact bar", () => {
 
   it("keeps the filtering of a client and of a cloud project", () => {
     expect(ids(drawerSections(appMenus({ plotsMap: false, client: true })))).toEqual(["project", "tools", "settings", "help"]);
-    const entries = drawerSections(appMenus({ plotsMap: true, cloud: true })).sections.flatMap((m) => m.items).map((i) => i.id);
-    expect(entries).not.toContain("myDashboard");
+    const entries = drawerSections(appMenus({ plotsMap: true, cloud: true })).sections.flatMap((m) => m.items);
+    expect(entries.find((i) => i.id === "myDashboard")).toMatchObject({ enabled: false, disabledReason: "LocalDashboard.cloudProject" });
   });
 
   it("shows Settings, a menu of one entry of the same name, as that entry alone", () => {

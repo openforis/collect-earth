@@ -67,7 +67,7 @@ export function AppDrawer({ open, onClose, menus, project, texts, toggles, onRun
         {...(toggle && !soon ? { role: "checkbox", "aria-checked": toggles[item.id] ?? false } : {})}>
         <ListItemIcon sx={{ minWidth: 36 }}><MenuEntryIcon id={item.id} /></ListItemIcon>
         {/* "Coming soon" is written under the entry: a disabled one gets no pointer events for a tooltip */}
-        <ListItemText primary={s(item.label)} secondary={soon ? t("appBar.comingSoon") : undefined} />
+        <ListItemText primary={s(item.label)} secondary={soon ? (item.disabledReason ? s(item.disabledReason) : t("appBar.comingSoon")) : undefined} />
         {toggle && (
           <Checkbox edge="end" size="small" checked={!soon && (toggles[item.id] ?? false)} disabled={soon} tabIndex={-1}
             disableRipple sx={{ py: 0 }} slotProps={{ input: { "aria-hidden": true } }} />

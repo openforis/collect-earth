@@ -2,7 +2,11 @@
  * An entry of the app bar's menus. `label` is a key of Messages*.properties (serverTexts.ts). A "toggle" is an
  * entry with a check mark, whose state comes from the server once it is built.
  */
-export interface MenuItem { id: string; label: string; enabled: boolean; kind?: "toggle" }
+export interface MenuItem {
+  id: string; label: string; enabled: boolean; kind?: "toggle";
+  /** Why a built entry is disabled here (a key of Messages*.properties), shown on it instead of "Coming soon" */
+  disabledReason?: string;
+}
 export interface Menu { id: string; label: string; items: MenuItem[] }
 
 // The entries built so far: the others show, disabled, until their stage of docs/plans/2026-10-28-html-ui-design.md
@@ -61,8 +65,11 @@ function allMenus(app: MenuContext): Menu[] {
       item("lulucf", "CollectEarthWindow.72"),
       item("loadKml", "CollectEarthWindow.54"),
       item("dataFolder", "CollectEarthWindow.67"),
-      // Your dashboard, on this computer (docs/plans/2026-11-03-desktop-dashboard.md); a cloud project has the cloud's
-      ...(app.cloud ? [] : [item("myDashboard", "LocalDashboard.menu")]),
+      // Your dashboard, on this computer (docs/plans/2026-11-03-desktop-dashboard.md); a cloud project has the cloud's,
+      // so there the entry is disabled and says why
+      app.cloud
+        ? { ...item("myDashboard", "LocalDashboard.menu"), enabled: false, disabledReason: "LocalDashboard.cloudProject" }
+        : item("myDashboard", "LocalDashboard.menu"),
       // The plots map is already the page when it is the viewer
       ...(app.plotsMap ? [] : [item("openPlotsMap", "CollectEarthMenu.openPlotsMap")]),
     ] },
