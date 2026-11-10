@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { changesAppInfo, nextNotice, type Notice } from "./notices";
+import { changesAppInfo, nextNotice, opensSendToCloud, type Notice } from "./notices";
+
+describe("the offer to send this computer's records after joining a cloud project", () => {
+  const offer = { id: "1", kind: "cloudSendRecords", severity: "info", title: "", message: "", html: false, options: [] } as Notice;
+  it("opens the send dialog when answered with Send only", () => {
+    expect(opensSendToCloud(offer, "send")).toBe(true);
+    expect(opensSendToCloud(offer, "later")).toBe(false);
+    expect(opensSendToCloud({ ...offer, kind: "error" }, "send")).toBe(false);
+  });
+});
 
 const notice = (id: string): Notice => ({ id, kind: "error", severity: "error", title: "t", message: "m", html: false, options: [{ id: "ok", label: "Ok" }] });
 

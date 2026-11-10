@@ -27,6 +27,13 @@ export function changesAppInfo(notice: Notice): boolean {
   return notice.kind === "cloudSignedOut";
 }
 
+/** The event that opens Data > Send this computer's records to the cloud project (AppBar) */
+export const SEND_TO_CLOUD = "collectEarth:sendToCloud";
+/** The offer made after joining a cloud project (CloudRecordsSender), answered with its Send option */
+export function opensSendToCloud(notice: Notice, option: string): boolean {
+  return notice.kind === "cloudSendRecords" && option === "send";
+}
+
 /**
  * The notice to show: the first the server lists that this page has not answered. An answer already sent is not
  * shown again while the server has not yet taken it out (the next read may still list it).

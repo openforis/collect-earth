@@ -11,14 +11,14 @@ export interface Menu { id: string; label: string; items: MenuItem[] }
 
 // The entries built so far: the others show, disabled, until their stage of docs/plans/2026-10-28-html-ui-design.md
 const BUILT = new Set(["quit", "properties", "export", "import",
-  "analyse", "lulucf", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots",
+  "analyse", "lulucf", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "sendToCloud",
   "importCep", "joinCloud", "cloudStatus", "language", "surveyGuide", "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
 
 /**
  * The entries the Swing window disabled when Collect Earth acts as a client of another instance (serverMenuItems):
  * they act on data this instance does not hold.
  */
-const SERVER_ONLY = new Set(["analyse", "export", "import", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots"]);
+const SERVER_ONLY = new Set(["analyse", "export", "import", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "sendToCloud"]);
 
 const item = (id: string, label: string): MenuItem => ({ id, label, enabled: BUILT.has(id) });
 const toggle = (id: string, label: string): MenuItem => ({ ...item(id, label), kind: "toggle" });
@@ -57,6 +57,10 @@ function allMenus(app: MenuContext): Menu[] {
       item("export", "CollectEarthWindow.13"),
       // One import, which asks what to import: a ZIP export of Collect Earth, or a CSV that updates attributes
       item("import", "DataPage.import.menu"),
+      // The records collected before joining a cloud project (CloudRecordsSender): only a cloud project has somewhere to send them
+      app.cloud
+        ? item("sendToCloud", "CloudSend.menu")
+        : { ...item("sendToCloud", "CloudSend.menu"), enabled: false, disabledReason: "CloudSend.notCloud" },
     ] },
     { id: "tools", label: "CollectEarthWindow.12", items: [
       // The analysis page of the dashboard (docs/plans/2026-11-05-node-and-arena.md, stage 6a), which replaced Saiku: the

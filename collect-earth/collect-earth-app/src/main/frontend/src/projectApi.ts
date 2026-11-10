@@ -27,6 +27,12 @@ export const cloudStatus = (signal?: AbortSignal) => apiGet<CloudStatus>("cloud/
 
 export const cloudSyncNow = () => apiPost<void>("cloud/syncNow");
 
+/** The records this computer has of the project (CloudSendController) */
+export const localRecordCount = (signal?: AbortSignal) => apiGet<{ count: number }>("cloud/localRecords", signal).then((r) => r.count);
+
+/** Starts sending them to the cloud project; answers the job's id */
+export const startSendToCloud = () => apiPost<{ id: string }>("jobs/sendToCloud").then((r) => r.id);
+
 export const setLanguage = (language: string) => apiPut<void>("app/language", { language });
 
 export const helpText = (name: "disclaimer" | "log", signal?: AbortSignal) => apiGet<{ path: string; text: string }>("help/text?name=" + name, signal);

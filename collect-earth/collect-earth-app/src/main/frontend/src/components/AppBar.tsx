@@ -52,6 +52,8 @@ import { CloudStatusDialog } from "./project/CloudStatusDialog";
 import { ImportCepDialog } from "./project/ImportCepDialog";
 import { JoinCloudDialog } from "./project/JoinCloudDialog";
 import { LanguageDialog } from "./project/LanguageDialog";
+import { SendToCloudDialog } from "./project/SendToCloudDialog";
+import { SEND_TO_CLOUD } from "../notices";
 import { AboutDialog } from "./help/AboutDialog";
 import { TextDialog } from "./help/TextDialog";
 import { RestartingOverlay } from "./settings/RestartingOverlay";
@@ -123,6 +125,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
     analyse: quick("openAnalysis"), lulucf: () => setDialog("lulucf"), loadKml: () => setDialog("loadKml"),
     dataFolder: quick("openDataFolder"), openPlotsMap: quick("openPlotsMap"), myDashboard: quick("openDashboard"),
     missingPlots: () => setDialog("missingPlots"), divideCsv: () => setDialog("divideCsv"), deletePlots: () => setDialog("deletePlots"),
+    sendToCloud: () => setDialog("sendToCloud"),
     importCep: () => { setDropped(null); setDialog("importCep"); }, joinCloud: () => setDialog("joinCloud"), cloudStatus: () => setDialog("cloudStatus"), language: () => setDialog("language"),
     surveyGuide: quick("openSurveyGuide"), manual: quick("openManual"), support: quick("openSupport"), updates: quick("runUpdater"),
     log: () => setDialog("log"), disclaimer: () => setDialog("disclaimer"), about: () => setDialog("about"),
@@ -133,6 +136,12 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
     },
   };
   const close = () => { setDialog(null); setDropped(null); };
+  // The offer made after joining a cloud project, answered with Send (NoticeDialog)
+  useEffect(() => {
+    const openSend = () => setDialog("sendToCloud");
+    window.addEventListener(SEND_TO_CLOUD, openSend);
+    return () => window.removeEventListener(SEND_TO_CLOUD, openSend);
+  }, []);
   const toggles: Record<string, boolean> = { showExceptions: errorsShown };
   const run = (item: AppMenuItem) => {
     setOpen(null);
@@ -274,6 +283,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
       <DeletePlotsDialog open={dialog === "deletePlots"} texts={texts} onClose={close} />
       <ImportCepDialog open={dialog === "importCep"} texts={texts} onClose={close} path={dropped?.kind === "cep" ? dropped.path : null} />
       <JoinCloudDialog open={dialog === "joinCloud"} texts={texts} onClose={close} />
+      <SendToCloudDialog open={dialog === "sendToCloud"} texts={texts} operator={operator} onClose={close} />
       <CloudStatusDialog open={dialog === "cloudStatus"} texts={texts} language={info.language} onClose={close} />
       <LanguageDialog open={dialog === "language"} texts={texts} languages={info.languages} current={info.language} onClose={close} />
       <AboutDialog open={dialog === "about"} texts={texts} info={info} onClose={close} />

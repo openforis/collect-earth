@@ -36,7 +36,6 @@ import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient;
-import org.openforis.collect.earth.app.service.cloud.CloudApiClient.BatchResult;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.Destination;
 import org.openforis.collect.earth.app.service.cloud.CloudRecordSerializer.RecordEnvelope;
 import org.openforis.collect.earth.app.service.dashboard.LocalDashboardProcess.Launcher;
@@ -515,42 +514,14 @@ public class LocalDashboardService implements ApplicationListener<ContextRefresh
 				logger.warn("The dashboard did not take the plot file {}: {}", plots.getName(), e.getMessage()); //$NON-NLS-1$
 			}
 		}
-		List<Integer> ids = source.recordIds();
-		int sent = 0;
-		int refused = 0;
-		long sendingMillis = 0;
-		for (int from = 0; from < ids.size(); from += FEED_BATCH) {
-			if (stopping) {
-				throw new IOException("Stopping"); //$NON-NLS-1$
-			}
-			List<RecordEnvelope> envelopes = new ArrayList<>();
-			for (Integer id : ids.subList(from, Math.min(ids.size(), from + FEED_BATCH))) {
-				try {
-					RecordEnvelope envelope = source.load(id);
-					if (envelope != null) {
-						envelopes.add(envelope.withOperator(username));
-					}
-				} catch (IOException | RuntimeException e) {
-					logger.debug("Record {} not sent to the dashboard: {}", id, e.getMessage()); //$NON-NLS-1$
-				}
-			}
-			if (envelopes.isEmpty()) {
-				continue;
-			}
-			long sending = System.currentTimeMillis();
-			List<BatchResult> results = apiClient.uploadRecordsBatch(target, envelopes);
-			sendingMillis += System.currentTimeMillis() - sending;
-			for (BatchResult result : results) {
-				if ("error".equalsIgnoreCase(result.getStatus())) { //$NON-NLS-1$
-					refused++;
-				}
-			}
-			sent += envelopes.size();
-		}
+		RecordBatches.Result fed = RecordBatches.upload(source, apiClient, target, username, FEED_BATCH, () -> stopping,
+				(done, total) -> {
+				});
+		int refused = fed.getRefused();
 		lastFeedMillis = System.currentTimeMillis() - start;
-		lastFeedRecords = sent;
-		logger.info("Dashboard fed with {} records in {} ms, {} ms of it sending them{}", sent, lastFeedMillis, //$NON-NLS-1$
-				sendingMillis, refused == 0 ? "" : " (" + refused + " refused)"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		lastFeedRecords = fed.getSent() + refused;
+		logger.info("Dashboard fed with {} records in {} ms, {} ms of it sending them{}", lastFeedRecords, lastFeedMillis, //$NON-NLS-1$
+				fed.getSendingMillis(), refused == 0 ? "" : " (" + refused + " refused)"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
 
 	private Map<String, String> settings(String surveyUri) {

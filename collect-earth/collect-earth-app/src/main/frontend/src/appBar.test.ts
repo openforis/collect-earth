@@ -10,8 +10,9 @@ const info = (operator: string | null, cloud = false): AppInfo =>
 describe("app bar", () => {
   it("shows every entry that does nothing yet as coming soon", () => {
     const items = appMenus({ plotsMap: false, surveyGuide: true }).flatMap((m) => m.items);
-    // Every entry of the Swing menu bar is built now: nothing is coming soon
-    expect(items.filter((i) => comingSoon(i)).map((i) => i.id)).toEqual([]);
+    // Every entry of the Swing menu bar is built now: nothing is coming soon, but sending the records to a cloud project,
+    // which is disabled (with its reason) outside one
+    expect(items.filter((i) => comingSoon(i)).map((i) => i.id)).toEqual(["sendToCloud"]);
     expect(items.filter((i) => !comingSoon(i)).map((i) => i.id)).toEqual([
       "importCep", "joinCloud", "cloudStatus", "language", "quit", "export", "import",
       "analyse", "lulucf", "loadKml", "dataFolder", "myDashboard", "openPlotsMap", "missingPlots", "divideCsv", "deletePlots", "properties",
