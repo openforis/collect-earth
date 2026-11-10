@@ -16,6 +16,7 @@ import { getMyQuality, getMyWork, getProject, getTeamReport, type AnswerOptions,
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { MyTraining } from "../components/MyTraining";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
@@ -176,7 +177,7 @@ export function MyQualityPage({ projectId }: { projectId: string }) {
   const data = mine.data;
   return (
     <ReportFrame projectId={projectId} title={t("myQuality.title")} back="progress">
-      <Typography color="text.secondary">{t("myQuality.intro")}</Typography>
+      <Explain text={t("myQuality.intro.short")} more={t("myQuality.intro")} />
       <Box className="no-print">
         <Button variant="outlined" {...linkProps(pathFor({ name: "myWork", projectId }))}>
           {t("myWork.link")}
@@ -230,7 +231,10 @@ export function MyWorkPage({ projectId }: { projectId: string }) {
   const data = mine.data;
   return (
     <ReportFrame projectId={projectId} title={t("myWork.title")} back="progress">
-      <Alert severity="info">{t("myWork.coordinatorsSee")}</Alert>
+      <Alert severity="info">
+        {t("myWork.coordinatorsSee.short")}
+        <MoreInfo text={t("myWork.coordinatorsSee")} />
+      </Alert>
       <Box className="no-print">
         <Button variant="outlined" {...linkProps(pathFor({ name: "myQuality", projectId }))}>
           {t("myQuality.link")}
@@ -290,7 +294,7 @@ export function TeamReportPage({ projectId }: { projectId: string }) {
   const labels = new Map((data?.questions ?? []).map((q) => [q.key, q.label]));
   return (
     <ReportFrame projectId={projectId} title={t("teamReport.title")} back="quality" printable={Boolean(data)}>
-      <Typography color="text.secondary">{t("teamReport.intro")}</Typography>
+      <Explain text={t("teamReport.intro.short")} more={t("teamReport.intro")} />
       {!data ? (
         report.loading ? <Loading /> : <ErrorAlert error={report.error} onRetry={report.reload} />
       ) : (

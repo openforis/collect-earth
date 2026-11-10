@@ -52,6 +52,7 @@ import {
 import { useApp } from "../appContext";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { FileDrop } from "../components/FileDrop";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
@@ -63,17 +64,14 @@ import { answerLabel, goldenKeys, kappaText, questionLabel, readPassMark, shareT
 
 const tableFrame = { border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto" } as const;
 
-function Section({ title, children, explain, pageHeading = false }: { title: string; explain?: string; children: ReactNode; pageHeading?: boolean }) {
+/** `explain`: a sentence under the title; `more`: the full explanation, in its "more about this" tip. */
+function Section({ title, children, explain, more, pageHeading = false }: { title: string; explain?: string; more?: string; children: ReactNode; pageHeading?: boolean }) {
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section">
       <Typography variant="h2" gutterBottom {...(pageHeading ? { "data-page-heading": true } : {})}>
         {title}
       </Typography>
-      {explain && (
-        <Typography color="text.secondary" sx={{ mb: 2 }}>
-          {explain}
-        </Typography>
-      )}
+      {explain && <Explain sx={{ mb: 2 }} text={explain} more={more} />}
       {children}
     </Paper>
   );
@@ -96,7 +94,7 @@ export function TrainingTab({ projectId, setId }: { projectId: string; setId?: s
   }
   return (
     <Stack spacing={3}>
-      <Section title={t("training.title")} explain={t("training.explain")}>
+      <Section title={t("training.title")} explain={t("training.explain.short")} more={t("training.explain")}>
         <AddSet projectId={projectId} onAdded={setOpen} />
       </Section>
       {state.loading && !state.data ? (
@@ -209,9 +207,7 @@ function AddSet({ projectId, onAdded }: { projectId: string; onAdded: (setId: st
         )}
       </Stack>
       <FileDrop label={t("training.drop")} buttonLabel={t("training.choose")} accept=".csv,text/csv" disabled={progress !== null} onFiles={add} />
-      <Typography variant="body2" color="text.secondary">
-        {t("training.fileHelp")}
-      </Typography>
+      <Explain variant="body2" text={t("training.fileHelp.short")} more={t("training.fileHelp")} />
       {progress !== null && <LinearProgress variant="determinate" value={progress * 100} aria-label={t("plots.uploading", { name: name || "", pct: Math.round(progress * 100) })} />}
       {problem && <Alert severity="warning">{problem}</Alert>}
       <ClashAlert error={error} language={language} />
@@ -334,9 +330,7 @@ function Settings({ projectId, view, onChanged, onDeleted }: { projectId: string
           </Button>
         </Stack>
         {set.kind === "calibration" && (
-          <Typography variant="body2" color="text.secondary">
-            {t("training.toLearningHelp")}
-          </Typography>
+          <Explain variant="body2" text={t("training.toLearningHelp.short")} more={t("training.toLearningHelp")} />
         )}
         <ErrorAlert error={error} />
       </Stack>
@@ -390,7 +384,7 @@ function Participants({ projectId, view, members, onSaved }: { projectId: string
     }
   };
   return (
-    <Section title={t("training.participants")} explain={t("training.participantsHelp")}>
+    <Section title={t("training.participants")} explain={t("training.participantsHelp.short")} more={t("training.participantsHelp")}>
       <Stack spacing={2}>
         <FormGroup row>
           {people.map((m) => (
@@ -442,7 +436,7 @@ function Calibration({ projectId, view, onGolden }: { projectId: string; view: T
     }
   };
   return (
-    <Section title={t("training.calibrationTitle")} explain={t("training.calibrationExplain")}>
+    <Section title={t("training.calibrationTitle")} explain={t("training.calibrationExplain.short")} more={t("training.calibrationExplain")}>
       {answered.length === 0 ? (
         <Typography color="text.secondary">{t("training.calibrationNone")}</Typography>
       ) : (
@@ -474,9 +468,7 @@ function Calibration({ projectId, view, onGolden }: { projectId: string; view: T
               </TableBody>
             </Table>
           </TableContainer>
-          <Typography variant="body2" color="text.secondary">
-            {t("training.kappaHelp")}
-          </Typography>
+          <Explain variant="body2" text={t("training.kappaHelp.short")} more={t("training.kappaHelp")} />
           <Box>
             <Typography variant="h3" gutterBottom>
               {t("training.peopleTitle")}
@@ -774,7 +766,7 @@ function Scores({ projectId, view, onStarted }: { projectId: string; view: Train
   };
   const passedText = (passed: boolean | null) => (view.set.passMark === null ? "–" : passed === null ? t("training.notFinished") : passed ? t("training.passed") : t("training.notPassed"));
   return (
-    <Section title={t("training.scoresTitle")} explain={t("training.attemptExplain")}>
+    <Section title={t("training.scoresTitle")} explain={t("training.attemptExplain.short")} more={t("training.attemptExplain")}>
       <Stack spacing={2}>
         {view.scores.length === 0 ? (
           <Typography color="text.secondary">{t("training.noParticipants")}</Typography>

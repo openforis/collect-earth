@@ -30,6 +30,7 @@ import {
 } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { useT } from "../i18n";
 import { settingsCards } from "../localMode";
@@ -174,7 +175,7 @@ function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string
         value={draft.quietDays}
         onChange={(e) => change("quietDays")(e.target.value)}
         error={problems.quietDays !== undefined}
-        helperText={problems.quietDays ? t(problems.quietDays) : t("progressSettings.quietDaysHelp")}
+        helperText={problems.quietDays ? t(problems.quietDays) : <>{t("progressSettings.quietDaysHelp.short")}<MoreInfo text={t("progressSettings.quietDaysHelp")} /></>}
         slotProps={{ htmlInput: { inputMode: "numeric" } }}
       />}
       {done && (
@@ -250,8 +251,8 @@ function AiCard({ projectId }: { projectId: string }) {
         <Typography variant="h2" id="settings-ai">
           {t("settings.aiTitle")}
         </Typography>
-        <Typography>{t("settings.aiIntro")}</Typography>
-        <Typography>{t("settings.aiSent")}</Typography>
+        <Explain color="text.primary" text={t("settings.aiIntro.short")} more={t("settings.aiIntro")} />
+        <Explain color="text.primary" text={t("settings.aiSent.short")} more={t("settings.aiSent")} />
         {ai.loading && !ai.data ? (
           <Loading />
         ) : ai.error || !ai.data ? (
@@ -276,9 +277,13 @@ function AiCard({ projectId }: { projectId: string }) {
             />
             {!ai.data.available && <Alert severity="info">{t("settings.aiNotAvailable")}</Alert>}
             {ai.data.where && (
-              <Typography variant="body2" color="text.secondary">
-                {t(ai.data.where.region === "global" ? "settings.aiWhereGlobal" : "settings.aiWhere", ai.data.where)}
-              </Typography>
+              ai.data.where.region === "global" ? (
+                <Explain variant="body2" text={t("settings.aiWhereGlobal.short", ai.data.where)} more={t("settings.aiWhereGlobal", ai.data.where)} />
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  {t("settings.aiWhere", ai.data.where)}
+                </Typography>
+              )
             )}
             <Dialog open={confirming} onClose={() => setConfirming(false)} maxWidth="sm" fullWidth>
               <DialogTitle>{t("settings.aiConfirmTitle")}</DialogTitle>
@@ -388,7 +393,7 @@ function CopyCard({ projectId, name }: { projectId: string; name: string }) {
         <Typography variant="h2" id="settings-copy">
           {t("copy.title")}
         </Typography>
-        <Typography>{t("copy.intro")}</Typography>
+        <Explain color="text.primary" text={t("copy.intro.short")} more={t("copy.intro")} />
         <TextField
           label={t("copy.nameLabel")}
           value={value}

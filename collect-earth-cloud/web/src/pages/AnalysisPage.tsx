@@ -21,6 +21,7 @@ import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
 import { translator, useT } from "../i18n";
@@ -632,10 +633,17 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
 
   return (
     <Stack spacing={2}>
-      <Typography color="text.secondary">
-        {t(data.scope === "own" ? "analysis.explainOwn" : "analysis.explain", { count: formatNumber(plotRows, language) })}
-      </Typography>
-      {!data.areas && data.scope === "project" && <Alert severity="info">{t("analysis.noAreas")}</Alert>}
+      {data.scope === "own" ? (
+        <Typography color="text.secondary">{t("analysis.explainOwn", { count: formatNumber(plotRows, language) })}</Typography>
+      ) : (
+        <Explain text={t("analysis.explain.short", { count: formatNumber(plotRows, language) })} more={t("analysis.explain", { count: formatNumber(plotRows, language) })} />
+      )}
+      {!data.areas && data.scope === "project" && (
+        <Alert severity="info">
+          {t("analysis.noAreas.short")}
+          <MoreInfo text={t("analysis.noAreas")} />
+        </Alert>
+      )}
       {data.areas && data.areas.unmatched > 0 && <Alert severity="warning">{t("analysis.areasUnmatched", { file: data.areas.source, count: data.areas.unmatched })}</Alert>}
       <ErrorAlert error={error} />
       {step !== "ready" && !error && (
@@ -666,9 +674,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
               {t("analysis.rows", { count: formatNumber(rows, language) })}
             </Typography>
           )}
-          <Typography variant="body2" color="text.secondary">
-            {t("analysis.help")}
-          </Typography>
+          <Explain variant="body2" text={t("analysis.help.short")} more={t("analysis.help")} />
         </Box>
       </Box>
       <SaveDialog
@@ -694,7 +700,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
       <Dialog open={packOpen} onClose={() => setPackOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{t("analysis.standaloneTitle")}</DialogTitle>
         <DialogContent>
-          <Typography sx={{ mb: 2 }}>{t("analysis.standaloneText")}</Typography>
+          <Explain color="text.primary" sx={{ mb: 2 }} text={t("analysis.standaloneText.short")} more={t("analysis.standaloneText")} />
           <FormControlLabel control={<Checkbox checked={packNoPositions} onChange={(e) => setPackNoPositions(e.target.checked)} />} label={t("data.noPositions")} />
           <Typography variant="body2" color="text.secondary">
             {t("data.noPositionsHelp")}
@@ -727,9 +733,13 @@ function SaveDialog({ open, team, initial, taken, onCancel, onSave }: { open: bo
       >
         <DialogTitle>{t(team ? "analysis.shareTitle" : "analysis.saveTitle")}</DialogTitle>
         <DialogContent>
-          <Typography color="text.secondary" sx={{ mb: 2 }}>
-            {t(team ? "analysis.shareExplain" : "analysis.saveExplain")}
-          </Typography>
+          {team ? (
+            <Explain sx={{ mb: 2 }} text={t("analysis.shareExplain.short")} more={t("analysis.shareExplain")} />
+          ) : (
+            <Typography color="text.secondary" sx={{ mb: 2 }}>
+              {t("analysis.saveExplain")}
+            </Typography>
+          )}
           <TextField autoFocus fullWidth label={t("analysis.viewName")} value={name} onChange={(e) => setName(e.target.value)} helperText={trimmed && taken(trimmed) ? t("analysis.replaces") : " "} slotProps={{ htmlInput: { maxLength: 80 } }} />
         </DialogContent>
         <DialogActions>

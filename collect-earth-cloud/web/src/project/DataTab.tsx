@@ -15,6 +15,7 @@ import { useState } from "react";
 import { downloadExport, EXPORT_FORMATS, getOverview, listMembers, type ExportFormat } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
 import { useT } from "../i18n";
@@ -33,7 +34,7 @@ function Analysis({ projectId }: { projectId: string }) {
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
       <Stack spacing={2}>
         <Typography variant="h2">{t("analysis.title")}</Typography>
-        <Typography color="text.secondary">{t("analysis.cardText")}</Typography>
+        <Explain text={t("analysis.cardText.short")} more={t("analysis.cardText")} />
         <Box>
           <Button variant="contained" size="large" startIcon={<PivotTableChart />} {...linkProps(pathFor({ name: "analysis", projectId }))}>
             {t("analysis.open")}
@@ -140,9 +141,7 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
               </Typography>
             </Box>
           ) : (
-            <Typography variant="body2" color="text.secondary">
-              {t("data.formatHint")}
-            </Typography>
+            <Explain variant="body2" text={t("data.formatHint.short")} more={t("data.formatHint")} />
           )}
           {done && (
             <Alert severity="success" role="status">

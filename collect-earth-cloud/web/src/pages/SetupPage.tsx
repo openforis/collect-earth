@@ -7,6 +7,7 @@ import { ApiError, setup } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { MoreInfo } from "../components/Explain";
 import { FormCard } from "../components/FormCard";
 import { PasswordField } from "../components/PasswordField";
 import { useT, type MessageKey } from "../i18n";
@@ -46,7 +47,7 @@ export function SetupPage() {
 
   return (
     <AppShell narrow>
-      <FormCard title={t("setup.title")} intro={t("setup.intro")} onSubmit={submit}>
+      <FormCard title={t("setup.title")} intro={<>{t("setup.intro.short")}<MoreInfo text={t("setup.intro")} /></>} onSubmit={submit}>
         <Alert severity="info" icon={false}>
           <AlertTitle>{t("setup.whereTitle")}</AlertTitle>
           <p style={{ margin: "0 0 8px" }}>{t("setup.whereGoogle")}</p>

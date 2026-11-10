@@ -23,6 +23,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode,
 import { getProgress, type AttentionItem, type ProgressData } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { AsOf } from "../components/PeopleCharts";
 import { Loading } from "../components/Loading";
 import { formatDay, formatNumber } from "../format";
@@ -273,9 +274,7 @@ export function OverTime({ data }: { data: ProgressFigures }) {
   const n = (v: number) => formatNumber(v, language);
   return (
     <Section title={t("progress.chartTitle")} id="progress-chart">
-      <Typography color="text.secondary" sx={{ mb: 2 }}>
-        {t("progress.chartExplain", { zone: data.timeZone })}
-      </Typography>
+      <Explain sx={{ mb: 2 }} text={t("progress.chartExplain.short")} more={t("progress.chartExplain", { zone: data.timeZone })} />
       <ToggleButtonGroup size="small" exclusive value={view} onChange={(_, v) => v && setView(v)} aria-label={t("progress.chartTitle")} sx={{ mb: 1 }}>
         <ToggleButton value="chart">{t("quality.showChart")}</ToggleButton>
         <ToggleButton value="table">{t("quality.showTable")}</ToggleButton>
@@ -339,7 +338,7 @@ export function ForecastSection({ data, publicView, local }: { data: ProgressFig
 function AttentionCard({ item, onGo }: { item: AttentionItem; onGo: (tab: ProjectTab) => void }) {
   const t = useT();
   const { language } = useApp();
-  const { title, text } = attentionText(t, item, language);
+  const { title, text, more: fullText } = attentionText(t, item, language);
   const action = attentionAction(t, item.kind);
   const more = item.count - item.people.length;
   return (
@@ -350,9 +349,10 @@ function AttentionCard({ item, onGo }: { item: AttentionItem; onGo: (tab: Projec
         <Typography variant="h3" component="h3">
           {title}
         </Typography>
-        {text.map((s) => (
+        {text.map((s, i) => (
           <Typography key={s} variant="body2" color="text.secondary">
             {s}
+            {fullText && i === text.length - 1 && <MoreInfo text={fullText} />}
           </Typography>
         ))}
         {item.people.length > 0 && (

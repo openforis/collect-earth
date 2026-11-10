@@ -11,6 +11,7 @@ import { ApiError, changePassword, deleteAccount, getAccountDeletion, logoutOthe
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { FormCard } from "../components/FormCard";
 import { Loading } from "../components/Loading";
 import { PasswordField } from "../components/PasswordField";
@@ -153,7 +154,7 @@ function OtherDevicesCard() {
   };
   return (
     <FormCard title={t("account.othersTitle")} onSubmit={submit} level={2}>
-      <Typography>{t("account.othersText")}</Typography>
+      <Explain text={t("account.othersText.short")} more={t("account.othersText")} />
       {done && (
         <Alert severity="success" role="status">
           {t("account.othersDone")}

@@ -18,6 +18,7 @@ import { useState } from "react";
 import { getBackupLink, getBackupSummary, type BackupCounts, type BackupRounds, type BackupSummary } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatBytes, formatNumber } from "../format";
 import { useT } from "../i18n";
@@ -37,7 +38,7 @@ export function CollectBackup({ projectId }: { projectId: string }) {
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
       <Stack spacing={2}>
         <Typography variant="h2">{t("backup.title")}</Typography>
-        <Typography color="text.secondary">{t("backup.explain")}</Typography>
+        <Explain text={t("backup.explain.short")} more={t("backup.explain")} />
         <Box>
           <Button
             variant="outlined"
@@ -146,8 +147,9 @@ function BackupChoice({
               <Box>
                 <Typography>{t("backup.first")}</Typography>
                 <Typography variant="body2" color="text.secondary" id="backup-first-help">
-                  {t("backup.firstHelp")}
+                  {t("backup.firstHelp.short")}
                   {summary.firstCodes && summary.firstCodes.length > 0 && ` ${t("backup.firstCodes", { codes: summary.firstCodes.join(", ") })}`}
+                  <MoreInfo text={t("backup.firstHelp")} />
                 </Typography>
               </Box>
             }
@@ -171,7 +173,8 @@ function BackupChoice({
       </FormControl>
       {!summary.roundKey && (
         <Alert severity="warning" id="backup-no-round-key">
-          {t("backup.noRoundKey")}
+          {t("backup.noRoundKey.short")}
+          <MoreInfo text={t("backup.noRoundKey")} />
         </Alert>
       )}
       {counts.records === 0 ? (
@@ -183,15 +186,23 @@ function BackupChoice({
           </li>
           {counts.drafts > 0 && <li>{t("backup.drafts", { count: n(counts.drafts) })}</li>}
           {rounds === "1" && counts.otherRounds > 0 && <li>{t("backup.otherRounds", { count: n(counts.otherRounds) })}</li>}
-          {counts.measurements > 0 && <li>{t("backup.measurements", { count: n(counts.measurements) })}</li>}
-          {counts.sameKey > 0 && <li>{t("backup.sameKey", { count: n(counts.sameKey), examples: counts.sameKeyExamples.slice(0, 3).join(", ") })}</li>}
+          {counts.measurements > 0 && (
+            <li>
+              {t("backup.measurements.short", { count: n(counts.measurements) })}
+              <MoreInfo text={t("backup.measurements", { count: n(counts.measurements) })} />
+            </li>
+          )}
+          {counts.sameKey > 0 && (
+            <li>
+              {t("backup.sameKey.short", { count: n(counts.sameKey), examples: counts.sameKeyExamples.slice(0, 3).join(", ") })}
+              <MoreInfo text={t("backup.sameKey", { count: n(counts.sameKey), examples: counts.sameKeyExamples.slice(0, 3).join(", ") })} />
+            </li>
+          )}
           {counts.noXml > 0 && <li>{t("backup.noXml", { count: n(counts.noXml) })}</li>}
           {summary.note && <li>{t("backup.note")}</li>}
         </Box>
       )}
-      <Typography variant="body2" color="text.secondary">
-        {t("backup.howTo")} {t("backup.clientMode")}
-      </Typography>
+      <Explain variant="body2" text={t("backup.howTo.short")} more={`${t("backup.howTo")} ${t("backup.clientMode")}`} />
     </Stack>
   );
 }

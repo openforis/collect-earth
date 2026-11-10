@@ -15,6 +15,7 @@ import { useLocalMode } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { PlotSearchBox } from "../components/PlotSearchBox";
 import { ProjectNav } from "../components/ProjectNav";
@@ -225,7 +226,7 @@ export function ProjectPage({
             <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles={false} />
           ) : (
             <Stack spacing={2}>
-              <Typography color="text.secondary">{t("quality.reviewerNote")}</Typography>
+              <Explain text={t("quality.reviewerNote.short")} more={t("quality.reviewerNote")} />
               <ReviewQueue projectId={projectId} canBulk={false} />
               <QualityFlags projectId={projectId} canEdit={false} />
               <QualityAnswers projectId={projectId} teamOnly />
@@ -243,7 +244,10 @@ export function ProjectPage({
         <StatusNote status={info.status} />
         <Paper variant="outlined">
           <EmptyState heading icon={<Forest color="primary" />} title={info.name}>
-            <span style={{ display: "block", marginBottom: 12 }}>{t("member.text", { role: t(`role.${info.role}`) })}</span>
+            <span style={{ display: "block", marginBottom: 12 }}>
+              {t("member.text.short", { role: t(`role.${info.role}`) })}
+              <MoreInfo text={t("member.text", { role: t(`role.${info.role}`) })} />
+            </span>
             <span style={{ display: "block" }}>{t("member.notThere")}</span>
           </EmptyState>
           <Box sx={{ pb: 4, display: "flex", gap: 1, flexWrap: "wrap", justifyContent: "center" }}>

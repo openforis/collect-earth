@@ -13,6 +13,7 @@ import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { AsOf } from "../components/PeopleCharts";
 import { formatDate } from "../format";
@@ -67,7 +68,7 @@ function QualitySection({ data }: { data: PublicProgressData }) {
   return (
     <Section title={t("publicProgress.qualityTitle")} id="public-quality">
       <Stack spacing={1}>
-        <Typography color="text.secondary">{t("publicProgress.qualityExplain")}</Typography>
+        <Explain text={t("publicProgress.qualityExplain.short")} more={t("publicProgress.qualityExplain")} />
         <Typography sx={q.agreement?.rate != null ? { fontSize: "1.25rem", fontWeight: 600, fontVariantNumeric: "tabular-nums" } : undefined}>
           {publicQualityText(t, q, language)}
         </Typography>
@@ -142,9 +143,7 @@ export function PublicProgressPage({ token }: { token: string }) {
         <ForecastSection data={data} publicView />
         <OverTime data={data} />
         <QualitySection data={data} />
-        <Typography variant="body2" color="text.secondary">
-          {t("publicProgress.privacy")}
-        </Typography>
+        <Explain variant="body2" text={t("publicProgress.privacy.short")} more={t("publicProgress.privacy")} />
       </Stack>
     );
   }

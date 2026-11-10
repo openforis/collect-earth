@@ -31,6 +31,7 @@ import {
 } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { FLAG_KIND_KEYS, flagText, parseSeconds, PROBLEM_KINDS } from "../flagsView";
 import { formatDate, formatNumber } from "../format";
@@ -206,7 +207,7 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
         <Typography variant="h2" id="flags-title">
           {t("flags.title")}
         </Typography>
-        <Typography color="text.secondary">{t(local ? "flags.explainLocal" : "flags.explain")}</Typography>
+        <Explain text={t(local ? "flags.explainLocal.short" : "flags.explain.short")} more={t(local ? "flags.explainLocal" : "flags.explain")} />
         {!data && loading && <Loading />}
         {busy && (
           <Alert severity="info" role="status" action={<Button color="inherit" size="small" onClick={reload}>{t("common.retry")}</Button>}>
@@ -218,9 +219,13 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
           <Box sx={{ opacity: loading ? 0.6 : 1, transition: "opacity 120ms" }} aria-busy={loading}>
             <Stack spacing={2}>
               <Threshold projectId={projectId} data={data} canEdit={canEdit} onSaved={reload} />
-              <Typography variant="body2" color="text.secondary">
-                {t(data.requiredQuestions > 0 ? "flags.requiredNote" : "flags.requiredNone")}
-              </Typography>
+              {data.requiredQuestions > 0 ? (
+                <Explain variant="body2" text={t("flags.requiredNote.short")} more={t("flags.requiredNote")} />
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  {t("flags.requiredNone")}
+                </Typography>
+              )}
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
                 {/* Reviewers get no counts per person (Decision 10): no person filter for them. */}
                 {perPerson && (
@@ -256,17 +261,17 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
                 {data.computedAt !== null && ` ${t(data.stale ? "answers.asOfStale" : "answers.asOf", { time: formatDate(data.computedAt, language) })}`}
               </Typography>
               {problems > 0 && (
-                <Typography variant="body2" color="text.secondary">
-                  {t(local ? "flags.problemsNoteLocal" : canEdit ? "flags.problemsNote" : "flags.problemsNoteReviewer")}
-                </Typography>
+                <Explain
+                  variant="body2"
+                  text={t(local ? "flags.problemsNoteLocal.short" : canEdit ? "flags.problemsNote.short" : "flags.problemsNoteReviewer.short")}
+                  more={t(local ? "flags.problemsNoteLocal" : canEdit ? "flags.problemsNote" : "flags.problemsNoteReviewer")}
+                />
               )}
               {data.flags.length === 0 ? (
                 <Typography>{t(filtered ? "flags.noneFiltered" : "flags.none")}</Typography>
               ) : (
                 <Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    {t("flags.order")}
-                  </Typography>
+                  <Explain variant="body2" sx={{ mb: 1 }} text={t("flags.order.short")} more={t("flags.order")} />
                   <Stack component="ul" spacing={0.75} sx={{ m: 0, pl: 2.5 }}>
                     {shown.map((f, i) => (
                       <Box component="li" key={`${f.kind} ${f.plot} ${f.operator} ${i}`} sx={{ wordBreak: "break-word" }}>

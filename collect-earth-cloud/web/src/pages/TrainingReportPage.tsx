@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import { getTrainingSet, sendUsageEvent, type TrainingSetView } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
@@ -101,7 +102,7 @@ function Report({ view }: { view: TrainingSetView }) {
 
   return (
     <>
-      <Typography color="text.secondary">{t("trainingReport.intro", { date: formatDate(Date.now(), language) })}</Typography>
+      <Explain text={t("trainingReport.intro.short", { date: formatDate(Date.now(), language) })} more={t("trainingReport.intro", { date: formatDate(Date.now(), language) })} />
       <Stack direction="row" spacing={4} useFlexGap sx={{ flexWrap: "wrap" }}>
         {[
           [t("training.kind"), t(learning ? "training.kindLearning" : "training.kindCalibration")],
@@ -180,18 +181,14 @@ function Report({ view }: { view: TrainingSetView }) {
 
       {answered && (
         <Block title={t("training.calibrationTitle")}>
-          <Typography variant="body2" color="text.secondary">
-            {t("training.calibrationExplain")}
-          </Typography>
+          <Explain variant="body2" text={t("training.calibrationExplain.short")} more={t("training.calibrationExplain")} />
           <Typography>{t("training.overall", { rate: shareText(c.overall, language), agreeing: n(c.overall.agreeing), compared: n(c.overall.compared) })}</Typography>
           <PrintTable head={[t("training.colQuestion"), t("training.colPairs"), t("training.colKappa")]}>
             {c.questions.map((q) => (
               <Row key={q.key} cells={[q.label, `${shareText(q.pairs, language)} (${n(q.pairs.agreeing)}/${n(q.pairs.compared)})`, kappaText(q.kappa, language)]} />
             ))}
           </PrintTable>
-          <Typography variant="body2" color="text.secondary">
-            {t("training.kappaHelp")}
-          </Typography>
+          <Explain variant="body2" text={t("training.kappaHelp.short")} more={t("training.kappaHelp")} />
           <Typography variant="h3">{t("training.peopleTitle")}</Typography>
           <PrintTable head={[t("training.colPerson"), t("training.colDone"), t("training.colWithConsensus")]}>
             {c.people.map((p) => (

@@ -163,6 +163,8 @@ function Footer() {
 const PRINT_STYLES = {
   // Space between the paper's edge and the cards, whatever the browser's own margins.
   "@page": { margin: "15mm 12mm" },
+  // the full explanation of a "more about this" tip (Explain.tsx), which paper cannot show on hover
+  "@media screen": { ".print-only": { display: "none !important" } },
   "@media print": {
     ".MuiAppBar-root, footer, .MuiButton-root, .MuiIconButton-root, .no-print": { display: "none !important" },
     "body, .app-page": { background: "#fff !important" },

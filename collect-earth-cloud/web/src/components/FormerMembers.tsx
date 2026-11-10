@@ -17,6 +17,7 @@ import { formatNumber } from "../format";
 import { useT } from "../i18n";
 import { useLoad } from "../useLoad";
 import { ErrorAlert } from "./ErrorAlert";
+import { Explain } from "./Explain";
 
 /**
  * The people who collected in the project and have left it (People tab, coordinators): their name stays on what they
@@ -55,9 +56,7 @@ export function FormerMembers({ projectId }: { projectId: string }) {
       <Typography variant="h2" id="former-members" gutterBottom>
         {t("former.title")}
       </Typography>
-      <Typography color="text.secondary" sx={{ mb: 2 }}>
-        {t("former.explain")}
-      </Typography>
+      <Explain sx={{ mb: 2 }} text={t("former.explain.short")} more={t("former.explain")} />
       {done && (
         <Alert severity="success" role="status" sx={{ mb: 2 }}>
           {done}

@@ -41,6 +41,7 @@ import {
 import { FileDrop } from "../components/FileDrop";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
@@ -72,9 +73,11 @@ function Accuracy({ figures }: { figures: ReferenceFiguresView }) {
         <Typography>{t("reference.noChecks")}</Typography>
       ) : (
         <>
-          <Typography variant="body2" color="text.secondary">
-            {t(figures.people.length > 0 ? "reference.accuracyExplain" : "reference.accuracyExplainQuestions", { checks: n(figures.checks) })}
-          </Typography>
+          <Explain
+            variant="body2"
+            text={t(figures.people.length > 0 ? "reference.accuracyExplain.short" : "reference.accuracyExplainQuestions.short", { checks: n(figures.checks) })}
+            more={t(figures.people.length > 0 ? "reference.accuracyExplain" : "reference.accuracyExplainQuestions", { checks: n(figures.checks) })}
+          />
           {/* Reviewers get no one's accuracy by name (Decision 3): the people's table is the coordinators'. */}
           {figures.people.length > 0 && (
           <TableContainer sx={tableFrame}>
@@ -182,9 +185,7 @@ function ExternalReference({ projectId, view, canEdit, onChanged }: { projectId:
       <Typography variant="h3" sx={{ fontSize: "1.1rem", fontWeight: 600 }}>
         {t("reference.ext.title")}
       </Typography>
-      <Typography variant="body2" color="text.secondary">
-        {t("reference.ext.explain")}
-      </Typography>
+      <Explain variant="body2" text={t("reference.ext.explain.short")} more={t("reference.ext.explain")} />
       {canEdit && (
         <>
           {view.external.count > 0 && (
@@ -442,15 +443,24 @@ function AddForm({ projectId, view, onDone }: { projectId: string; view: Referen
           maxRows={10}
           inputRef={idsRef}
           error={problem !== null}
-          helperText={problem ?? t("reference.plotIdsHelp")}
+          helperText={
+            problem ?? (
+              <>
+                {t("reference.plotIdsHelp.short")}
+                <MoreInfo text={t("reference.plotIdsHelp")} />
+              </>
+            )
+          }
           sx={{ maxWidth: 420 }}
         />
       )}
       {/* What is wrong is said on the field (its helper text, read with it; the field takes the focus). */}
       <ErrorAlert error={error} />
-      <Typography variant="body2" color="text.secondary">
-        {t("reference.collectors", { count: formatNumber(view.collectors, language) })}
-      </Typography>
+      <Explain
+        variant="body2"
+        text={t("reference.collectors.short", { count: formatNumber(view.collectors, language) })}
+        more={t("reference.collectors", { count: formatNumber(view.collectors, language) })}
+      />
       <Box>
         <Button type="submit" variant="contained" aria-disabled={cannotAdd}>
           {t("reference.add")}
@@ -619,8 +629,8 @@ export function QualityReference({ projectId, canEdit }: { projectId: string; ca
         <Typography variant="h2" id="reference-title">
           {t("reference.title")}
         </Typography>
-        <Typography color="text.secondary">{t(canEdit ? "reference.explain" : "reference.reviewerExplain")}</Typography>
-        {canEdit && <Typography variant="body2" color="text.secondary">{t("reference.blind")}</Typography>}
+        <Explain text={t(canEdit ? "reference.explain.short" : "reference.reviewerExplain.short")} more={t(canEdit ? "reference.explain" : "reference.reviewerExplain")} />
+        {canEdit && <Explain variant="body2" text={t("reference.blind.short")} more={t("reference.blind")} />}
         {!data && loading && <Loading />}
         {busy && (
           <Alert severity="info" role="status" action={<Button color="inherit" size="small" onClick={reload}>{t("common.retry")}</Button>}>

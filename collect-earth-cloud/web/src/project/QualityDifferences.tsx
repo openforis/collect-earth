@@ -32,6 +32,7 @@ import {
 } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { formatDate, formatNumber } from "../format";
 import { useT, type MessageKey } from "../i18n";
 import { answerText, googleEarthUrl, groupDifferences, labelMap } from "../qualityView";
@@ -213,7 +214,12 @@ function PlotDifferences({
           <Stack spacing={1.5}>
             <TextField
               label={t("quality.comment")}
-              helperText={t("quality.commentSeen")}
+              helperText={
+                <>
+                  {t("quality.commentSeen.short")}
+                  <MoreInfo text={t("quality.commentSeen")} />
+                </>
+              }
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               size="small"
@@ -328,7 +334,7 @@ export function QualityDifferences({
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, scrollMarginTop: 72 }} component="section" ref={top}>
       <Stack spacing={2}>
         <Typography variant="h2">{t("quality.differencesTitle")}</Typography>
-        <Typography color="text.secondary">{t("quality.differencesExplain")}</Typography>
+        <Explain text={t("quality.differencesExplain.short")} more={t("quality.differencesExplain")} />
         {groups.length === 0 ? (
           <Alert severity="info">{t("quality.noDifferences")}</Alert>
         ) : !open ? (
