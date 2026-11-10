@@ -23,7 +23,11 @@ export function MoreInfo({ text, label }: { text: ReactNode; label?: string }) {
         open={open}
         onOpen={() => setOpen(true)}
         onClose={() => setOpen(false)}
-        slotProps={{ tooltip: { sx: { maxWidth: 380, fontSize: "0.8rem", lineHeight: 1.5, p: 1.25 } } }}
+        // solid, not MUI's see-through grey: these tips are long and often lie over text
+        slotProps={{
+          tooltip: { sx: { maxWidth: 380, fontSize: "0.8rem", lineHeight: 1.5, p: 1.25, bgcolor: "#262b31", boxShadow: "0 4px 16px rgba(16, 24, 40, 0.18)" } },
+          arrow: { sx: { color: "#262b31" } },
+        }}
       >
         <IconButton
           size="small"
