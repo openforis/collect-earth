@@ -14,6 +14,7 @@ import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import CssBaseline from "@mui/material/CssBaseline";
+import GlobalStyles from "@mui/material/GlobalStyles";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import { ThemeProvider } from "@mui/material/styles";
@@ -22,6 +23,7 @@ import { createRoot } from "react-dom/client";
 import type { ServerInfo, StandaloneAnalysisData } from "./api";
 import { AppContext, type AppState } from "./appContext";
 import { LanguageMenu } from "./components/AppShell";
+import { Explain } from "./components/Explain";
 import { Loading } from "./components/Loading";
 import { I18nContext, initialLanguage, translator, type Language } from "./i18n";
 import { Pivot } from "./pages/AnalysisPage";
@@ -83,6 +85,8 @@ function Standalone() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      {/* the full text of a "more about this" tip is for paper only (as AppShell's print styles) */}
+      <GlobalStyles styles={{ "@media screen": { ".print-only": { display: "none !important" } } }} />
       <I18nContext.Provider value={t}>
         <AppContext.Provider value={state}>
           {/* Collect Earth's app bar (src/shared/collectEarthTheme.ts); the logo is inside the file, as everything else */}
@@ -102,10 +106,8 @@ function Standalone() {
               <Alert severity="error">{t("analysis.standaloneBroken")}</Alert>
             ) : (
               <>
-                <Typography color="text.secondary">{t("analysis.standaloneMade", { date: made })}</Typography>
-                <Typography color="text.secondary" sx={{ mb: 2 }}>
-                  {t("analysis.standaloneFresh")}
-                </Typography>
+                <Explain text={t("analysis.standaloneMade.short", { date: made })} more={t("analysis.standaloneMade", { date: made })} />
+                <Explain sx={{ mb: 2 }} text={t("analysis.standaloneFresh.short")} more={t("analysis.standaloneFresh")} />
                 {/* What the file holds, first: it is easy to pass around */}
                 <Alert severity="warning" sx={{ mb: 2 }} data-testid="standalone-share">
                   {t("analysis.standaloneShare", { project: data.project.name })}

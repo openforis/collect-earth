@@ -19,6 +19,7 @@ import { linkProps, pathFor } from "../router";
 import { bandLabels, bandShortLabels, quickBands, secondsText } from "../timeSpentView";
 import { useLoad } from "../useLoad";
 import { ErrorAlert } from "./ErrorAlert";
+import { Explain, MoreInfo } from "./Explain";
 import { Loading } from "./Loading";
 import { ChartOrTable, ColumnChart, ValuesTable } from "./PeopleCharts";
 
@@ -30,9 +31,7 @@ function Frame({ id, children }: { id: string; children: ReactNode }) {
         {t("timeSpent.title")}
       </Typography>
       <Stack spacing={1.5}>
-        <Typography variant="body2" color="text.secondary">
-          {t("timeSpent.explain")}
-        </Typography>
+        <Explain variant="body2" text={t("timeSpent.explain.short")} more={t("timeSpent.explain")} />
         {children}
       </Stack>
     </Paper>
@@ -79,7 +78,10 @@ function TeamLines({ data }: { data: TimeSpentData }) {
         </Typography>
       )}
       {data.quickBelowSeconds !== null ? (
-        <Typography variant="body2">{t("timeSpent.quickRule", { d: secondsText(t, data.quickBelowSeconds), share: n(data.quickShare * 100) })}</Typography>
+        <Typography variant="body2">
+          {t("timeSpent.quickRule.short", { d: secondsText(t, data.quickBelowSeconds) })}
+          <MoreInfo text={t("timeSpent.quickRule", { d: secondsText(t, data.quickBelowSeconds), share: n(data.quickShare * 100) })} />
+        </Typography>
       ) : (
         <Typography variant="body2" color="text.secondary">
           {t("timeSpent.quickWait", { n: n(data.minTimed), timed: n(data.timed) })}

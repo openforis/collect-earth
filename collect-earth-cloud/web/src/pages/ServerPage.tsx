@@ -56,6 +56,7 @@ import { CopyField } from "../components/CopyField";
 import { ChartOrTable, ColumnChart, ValuesTable } from "../components/PeopleCharts";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatBytes, formatDate, formatNumber } from "../format";
 import { useT, type MessageKey } from "../i18n";
@@ -71,7 +72,7 @@ function DetailsForm({ settings, onSave }: { settings: ServerSettings; onSave: (
   const [busy, setBusy] = useState(false);
 
   // The label above the field, not inside it: a long label (es, fr) wraps there instead of being cut with "…".
-  const field = (key: keyof SettingsDraft, label: MessageKey, help: MessageKey, extra: { type?: string; inputMode?: "numeric" } = {}) => (
+  const field = (key: keyof SettingsDraft, label: MessageKey, help: MessageKey, extra: { type?: string; inputMode?: "numeric"; more?: MessageKey } = {}) => (
     <Stack spacing={0.75}>
       <FormLabel htmlFor={`server-setting-${key}`} sx={{ color: "text.primary" }}>
         {t(label)}
@@ -79,7 +80,7 @@ function DetailsForm({ settings, onSave }: { settings: ServerSettings; onSave: (
       {textField(key, help, extra)}
     </Stack>
   );
-  const textField = (key: keyof SettingsDraft, help: MessageKey, extra: { type?: string; inputMode?: "numeric" }) => (
+  const textField = (key: keyof SettingsDraft, help: MessageKey, extra: { type?: string; inputMode?: "numeric"; more?: MessageKey }) => (
     <TextField
       id={`server-setting-${key}`}
       value={draft[key]}
@@ -88,7 +89,7 @@ function DetailsForm({ settings, onSave }: { settings: ServerSettings; onSave: (
         setProblems({ ...problems, [key]: undefined });
       }}
       error={problems[key] !== undefined}
-      helperText={problems[key] ? t(problems[key]!) : t(help)}
+      helperText={problems[key] ? t(problems[key]!) : <>{t(help)}{extra.more && <MoreInfo text={t(extra.more)} />}</>}
       type={extra.type}
       slotProps={extra.inputMode ? { htmlInput: { inputMode: extra.inputMode } } : undefined}
     />
@@ -118,7 +119,7 @@ function DetailsForm({ settings, onSave }: { settings: ServerSettings; onSave: (
         </Typography>
       </div>
       {field("maxProjectsPerUser", "server.maxProjects", "server.maxProjectsHelp", { inputMode: "numeric" })}
-      {field("maxProjectStorageMb", "server.maxStorage", "server.maxStorageHelp", { inputMode: "numeric" })}
+      {field("maxProjectStorageMb", "server.maxStorage", "server.maxStorageHelp.short", { inputMode: "numeric", more: "server.maxStorageHelp" })}
       <div>
         <Typography variant="h3" component="h3" sx={{ fontSize: "1.1rem", fontWeight: 600 }}>
           {t("server.about")}
@@ -174,9 +175,7 @@ function AnnouncementForm({ settings, onSave }: { settings: ServerSettings; onSa
         <Typography variant="h3" component="h3" sx={{ fontSize: "1.1rem", fontWeight: 600 }}>
           {t("server.announcementTitle")}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {t("server.announcementHelp")}
-        </Typography>
+        <Explain variant="body2" text={t("server.announcementHelp.short")} more={t("server.announcementHelp")} />
       </div>
       <TextField label={t("server.announcementText")} value={text} onChange={(e) => setText(e.target.value)} multiline minRows={2} slotProps={{ htmlInput: { maxLength: 500 } }} />
       <TextField
@@ -201,10 +200,10 @@ function AnnouncementForm({ settings, onSave }: { settings: ServerSettings; onSa
 }
 
 type AiLimitKey = keyof typeof AI_LIMIT_MAX;
-const AI_LIMIT_FIELDS: { key: AiLimitKey; label: MessageKey; help: MessageKey }[] = [
+const AI_LIMIT_FIELDS: { key: AiLimitKey; label: MessageKey; help: MessageKey; more?: MessageKey }[] = [
   { key: "aiReportsPerDay", label: "server.aiReports", help: "server.aiReportsHelp" },
   { key: "aiFollowUpsPerDay", label: "server.aiFollowUps", help: "server.aiFollowUpsHelp" },
-  { key: "aiMonthlyTokens", label: "server.aiTokens", help: "server.aiTokensHelp" },
+  { key: "aiMonthlyTokens", label: "server.aiTokens", help: "server.aiTokensHelp.short", more: "server.aiTokensHelp" },
 ];
 
 /**
@@ -241,9 +240,7 @@ function AiSettings({ settings, onSave }: { settings: ServerSettings; onSave: (c
         <Typography variant="h3" component="h3" id="server-ai" sx={{ fontSize: "1.1rem", fontWeight: 600 }}>
           {t("server.aiTitle")}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {t("server.aiIntro")}
-        </Typography>
+        <Explain variant="body2" text={t("server.aiIntro.short")} more={t("server.aiIntro")} />
       </div>
       <FormControl>
         <FormControlLabel
@@ -263,7 +260,7 @@ function AiSettings({ settings, onSave }: { settings: ServerSettings; onSave: (c
       <Typography variant="body2" color="text.secondary">
         {t("server.aiLimitsIntro")}
       </Typography>
-      {AI_LIMIT_FIELDS.map(({ key, label, help }) => {
+      {AI_LIMIT_FIELDS.map(({ key, label, help, more }) => {
         const max = formatNumber(AI_LIMIT_MAX[key], language);
         return (
           <TextField
@@ -272,7 +269,7 @@ function AiSettings({ settings, onSave }: { settings: ServerSettings; onSave: (c
             value={texts[key]}
             onChange={(e) => setTyped({ ...typed, [key]: e.target.value })}
             error={values[key] === null}
-            helperText={values[key] === null ? t("server.aiLimitInvalid", { max }) : t(help, { max })}
+            helperText={values[key] === null ? t("server.aiLimitInvalid", { max }) : <>{t(help, { max })}{more && <MoreInfo text={t(more, { max })} />}</>}
             slotProps={{ htmlInput: { inputMode: "numeric" } }}
           />
         );
@@ -419,7 +416,8 @@ function OverviewCard({ version }: { version: number }) {
       ) : (
         <Stack spacing={3}>
           <Typography color="text.secondary" variant="body2">
-            {t("server.overviewIntro")} {t("server.asOf", { time: formatDate(o.asOf, language) })}
+            {t("server.overviewIntro.short")} {t("server.asOf", { time: formatDate(o.asOf, language) })}
+            <MoreInfo text={t("server.overviewIntro")} />
           </Typography>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
@@ -554,9 +552,12 @@ function OverviewCard({ version }: { version: number }) {
 
           <section aria-labelledby="server-security">
             {subtitle("server-security", t("server.securityTitle"))}
-            <Typography color="text.secondary" variant="body2" sx={{ mb: 1 }}>
-              {t("server.securityIntro", { date: formatDate(o.security.since, language) })}
-            </Typography>
+            <Explain
+              variant="body2"
+              sx={{ mb: 1 }}
+              text={t("server.securityIntro.short", { date: formatDate(o.security.since, language) })}
+              more={t("server.securityIntro", { date: formatDate(o.security.since, language) })}
+            />
             <Typography>{t("server.failedLogins", { count: n(o.security.totals.failedLogins) })}</Typography>
             <Typography sx={{ mb: 1 }}>{t("server.rateLimited", { count: n(o.security.totals.rateLimited) })}</Typography>
             {o.security.hours.length === 0 ? (
@@ -599,9 +600,7 @@ function OverviewCard({ version }: { version: number }) {
               {o.security.lastLateDrawAt !== null && ` ${t("server.lateDrawsLast", { date: formatDate(o.security.lastLateDrawAt, language) })}`}
             </Typography>
             {o.security.lateDraws > 0 && (
-              <Typography color="text.secondary" variant="body2" sx={{ mb: 1 }}>
-                {t("server.lateDrawsHelp")}
-              </Typography>
+              <Explain variant="body2" sx={{ mb: 1 }} text={t("server.lateDrawsHelp.short")} more={t("server.lateDrawsHelp")} />
             )}
           </section>
         </Stack>
@@ -656,7 +655,10 @@ function SettingsCard() {
               control={<Switch checked={settings.data.twoFactorForCoordinators} onChange={(e) => void save({ twoFactorForCoordinators: e.target.checked })} />}
               label={t("server.twoFactorRequired")}
             />
-            <FormHelperText sx={{ ml: 0 }}>{t("server.twoFactorRequiredHelp")}</FormHelperText>
+            <FormHelperText sx={{ ml: 0 }}>
+              {t("server.twoFactorRequiredHelp.short")}
+              <MoreInfo text={t("server.twoFactorRequiredHelp")} />
+            </FormHelperText>
           </FormControl>
           <FormControl>
             <FormLabel id="project-creation">{t("server.projectCreation")}</FormLabel>
@@ -699,9 +701,7 @@ function AlertsCard() {
       <Typography variant="h2" id="server-alerts" gutterBottom>
         {t("server.alertsTitle")}
       </Typography>
-      <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
-        {t("server.alertsExplain")}
-      </Typography>
+      <Explain variant="body2" sx={{ mb: 2 }} text={t("server.alertsExplain.short")} more={t("server.alertsExplain")} />
       {alerts.loading && !alerts.data ? (
         <Loading />
       ) : alerts.error || !alerts.data ? (

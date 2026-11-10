@@ -14,6 +14,7 @@ import { useApp } from "../appContext";
 import { useT } from "../i18n";
 import { saveBlob } from "../saveBlob";
 import { ErrorAlert } from "./ErrorAlert";
+import { Explain } from "./Explain";
 import { PasswordField } from "./PasswordField";
 
 type Step = { kind: "idle" } | { kind: "scan"; secret: string; uri: string; qr: string | null } | { kind: "codes"; codes: string[] } | { kind: "password"; action: "disable" | "codes" };
@@ -91,7 +92,7 @@ export function TwoFactorCard() {
         <Typography variant="h2" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Security color="primary" /> {t("twoFactor.title")}
         </Typography>
-        <Typography color="text.secondary">{t("twoFactor.explain")}</Typography>
+        <Explain text={t("twoFactor.explain.short")} more={t("twoFactor.explain")} />
         {required && !enabled && <Alert severity="warning">{t("twoFactor.requiredNow")}</Alert>}
         {enabled && step.kind === "idle" && <Alert severity="success">{t("twoFactor.on")}</Alert>}
 

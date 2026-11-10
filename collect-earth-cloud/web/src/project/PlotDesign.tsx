@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { generatePlotDesign, planPlotDesign, readDesignArea, type DesignArea, type DesignFacts, type DesignPlan } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { FileDrop } from "../components/FileDrop";
 import { formatNumber } from "../format";
 import { useT } from "../i18n";
@@ -106,9 +107,7 @@ export function PlotDesign({ projectId, busy, onFile }: { projectId: string; bus
       <Typography variant="h2" gutterBottom>
         {t("design.title")}
       </Typography>
-      <Typography color="text.secondary" sx={{ mb: 2 }}>
-        {t("design.explain")}
-      </Typography>
+      <Explain sx={{ mb: 2 }} text={t("design.explain.short")} more={t("design.explain")} />
       <Stack spacing={2}>
         <FileDrop label={t("design.drop")} buttonLabel={t("design.choose")} accept=".geojson,.json,.zip,application/geo+json,application/zip" disabled={working !== null || busy} onFiles={read} />
         {working === "reading" && <Typography role="status">{t("design.reading")}</Typography>}

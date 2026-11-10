@@ -15,6 +15,7 @@ import { ApiError, getActivity, type ActivityPage, type ExportKind, type LogItem
 import { useApp, useLocalMode } from "../appContext";
 import { COORDINATOR_LOG_KINDS, dayAfterMs, dayStartMs, LOG_KIND_LABELS, logSentence, RECORD_LOG_KINDS } from "../activityView";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
@@ -189,9 +190,13 @@ function ActivityLog({ projectId }: { projectId: string }) {
           </Button>
         </Box>
       )}
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-        {t(local ? "activity.timesNoteLocal" : "activity.timesNote")}
-      </Typography>
+      {local ? (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+          {t("activity.timesNoteLocal")}
+        </Typography>
+      ) : (
+        <Explain variant="body2" sx={{ mt: 2 }} text={t("activity.timesNote.short")} more={t("activity.timesNote")} />
+      )}
       <Box role="status" aria-live="polite" sx={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)" }}>
         {announce}
       </Box>
@@ -242,7 +247,8 @@ function Downloads({ projectId }: { projectId: string }) {
             {error?.kind === d.kind &&
               (error.error instanceof ApiError && error.error.code === "no_figures" ? (
                 <Alert severity="info" sx={{ mt: 1 }} action={<Button {...linkProps(pathFor({ name: "project", projectId, tab: "quality" }))}>{t("activity.openQuality")}</Button>}>
-                  {t("activity.noFigures")}
+                  {t("activity.noFigures.short")}
+                  <MoreInfo text={t("activity.noFigures")} />
                 </Alert>
               ) : (
                 <Box sx={{ mt: 1 }}>

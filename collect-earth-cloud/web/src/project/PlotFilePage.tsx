@@ -51,6 +51,7 @@ import {
 import { useApp } from "../appContext";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import {
   collectors,
@@ -406,7 +407,8 @@ function DivideForm({
                 disabled={!columns.nearby.available}
               />
               <FormHelperText id="divide-order-nearby-help" sx={{ mt: -0.5, ml: 4 }}>
-                {t("divide.orderNearbyHelp")}
+                {t("divide.orderNearbyHelp.short")}
+                <MoreInfo text={t("divide.orderNearbyHelp")} />
                 {nearbyText && (
                   <Typography variant="body2" component="span" sx={{ display: "block" }} color={columns.nearby.available ? "text.secondary" : "warning.main"}>
                     {nearbyText}
@@ -446,7 +448,7 @@ function DivideForm({
           {t(problem)}
         </Alert>
       )}
-      {form.mode !== "whole" && <Typography color="text.secondary">{t("divide.applyNote")}</Typography>}
+      {form.mode !== "whole" && <Explain text={t("divide.applyNote.short")} more={t("divide.applyNote")} />}
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
         <Button variant="outlined" onClick={() => void run(true)} disabled={busy}>
           {t("divide.preview")}

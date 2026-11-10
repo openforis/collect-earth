@@ -15,6 +15,7 @@ import { ApiError, forgotPassword, login, signup } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { MoreInfo } from "../components/Explain";
 import { FormCard } from "../components/FormCard";
 import { PasswordField } from "../components/PasswordField";
 import { useT, type MessageKey } from "../i18n";
@@ -228,7 +229,8 @@ function ForgotPassword({ initial }: { initial: string }) {
   if (!info.selfServiceReset) {
     return (
       <Alert severity="info" sx={{ mt: 1 }}>
-        {t("login.forgotText")}
+        {t("login.forgotText.short")}
+        <MoreInfo text={t("login.forgotText")} />
         <ContactLink />
       </Alert>
     );
@@ -259,7 +261,10 @@ function ForgotPassword({ initial }: { initial: string }) {
         </Alert>
       ) : (
         <>
-          <Typography variant="body2">{t("login.forgotIntro")}</Typography>
+          <Typography variant="body2">
+            {t("login.forgotIntro.short")}
+            <MoreInfo text={t("login.forgotIntro")} />
+          </Typography>
           <TextField
             label={t("login.forgotLogin")}
             value={login}
@@ -287,7 +292,8 @@ function ForgotPassword({ initial }: { initial: string }) {
         </>
       )}
       <Alert severity="info">
-        {t("login.forgotOther")}
+        {t("login.forgotOther.short")}
+        <MoreInfo text={t("login.forgotOther")} />
         <ContactLink />
       </Alert>
     </Stack>

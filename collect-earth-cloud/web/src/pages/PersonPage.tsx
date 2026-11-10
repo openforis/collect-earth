@@ -47,6 +47,7 @@ import {
 } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { CopyField } from "../components/CopyField";
 import { JOIN_MENU_ITEM } from "../components/JoinSteps";
 import { Loading } from "../components/Loading";
@@ -156,9 +157,12 @@ export function ActivitySection({ data, self = false }: { data: PersonData; self
           <Typography variant="h3" gutterBottom>
             {t("person.calendarTitle")}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            {t(self ? "person.calendarExplainSelf" : "person.calendarExplain", { zone: data.timeZone })}
-          </Typography>
+          <Explain
+            variant="body2"
+            sx={{ mb: 1 }}
+            text={t(self ? "person.calendarExplainSelf.short" : "person.calendarExplain.short")}
+            more={t(self ? "person.calendarExplainSelf" : "person.calendarExplain", { zone: data.timeZone })}
+          />
           {data.calendar.length === 0 ? (
             <Typography>{t("person.nothingYet")}</Typography>
           ) : (
@@ -231,9 +235,7 @@ export function SpeedSection({ data }: { data: PersonData }) {
   return (
     <Section title={t("person.speedTitle")} id="person-speed">
       <Stack spacing={1.5}>
-        <Typography variant="body2" color="text.secondary">
-          {t("person.speedExplain")}
-        </Typography>
+        <Explain variant="body2" text={t("person.speedExplain.short")} more={t("person.speedExplain")} />
         {s.gaps === 0 ? (
           <Typography>{t("person.speedNone")}</Typography>
         ) : (
@@ -266,9 +268,7 @@ export function SpeedSection({ data }: { data: PersonData }) {
               }
               table={<ValuesTable head={[t("person.gapColumn"), t("person.timesColumn")]} rows={s.buckets.map((b, i) => ({ label: bucketLabel(t, s.buckets, i), value: n(b.count) }))} />}
             />
-            <Typography variant="body2" color="text.secondary">
-              {t("person.speedEstimate")}
-            </Typography>
+            <Explain variant="body2" text={t("person.speedEstimate.short")} more={t("person.speedEstimate")} />
           </>
         )}
       </Stack>
@@ -681,9 +681,7 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
             </Button>
           )}
         </Stack>
-        <Typography variant="body2" color="text.secondary">
-          {t("person.newLinkHelp")}
-        </Typography>
+        <Explain variant="body2" text={t("person.newLinkHelp.short")} more={t("person.newLinkHelp")} />
         {invite && (
           <Box>
             <Alert severity="success" role="status" sx={{ mb: 2 }}>

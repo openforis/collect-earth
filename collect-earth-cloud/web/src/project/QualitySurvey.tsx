@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { ApiError, getSurveyHealth, type HealthRow, type SurveyHealthData } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { agreementText, changedText, emptyText, noneText, orderText, otherText, reasonText } from "../healthView";
@@ -105,7 +106,7 @@ export function QualitySurvey({ projectId }: { projectId: string }) {
         <Typography variant="h2" id="health-title">
           {t("health.title")}
         </Typography>
-        <Typography color="text.secondary">{t(local ? "health.explainLocal" : "health.explain")}</Typography>
+        <Explain text={t(local ? "health.explainLocal.short" : "health.explain.short")} more={t(local ? "health.explainLocal" : "health.explain")} />
         {!data && loading && <Loading />}
         {busy && (
           <Alert severity="info" role="status" action={<Button color="inherit" size="small" onClick={reload}>{t("common.retry")}</Button>}>
