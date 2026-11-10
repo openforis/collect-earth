@@ -1,0 +1,1092 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<survey lastId="254" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth">
+  <project>V1 - FAO - REDD+ Reporting Template</project>
+  <uri>http://www.openforis.org/idm/ceo_46643</uri>
+  <description>iteration 1 of what a universally applicable survey template would look like for activity data reporting for multiple REDD+ reporting mechanisms
+
+Imported from Collect Earth Online, project 46643.</description>
+  <language>en</language>
+  <applicationOptions>
+    <options type="ui">
+      <n0:tabSet name="plot_tab_set" xmlns:n0="http://www.openforis.org/collect/3.0/ui">
+        <n0:tab name="survey_tab">
+          <n0:label>V1 - FAO - REDD+ Reporting Template</n0:label>
+        </n0:tab>
+        <n0:tab name="plot_data_tab">
+          <n0:label>Plot data</n0:label>
+        </n0:tab>
+      </n0:tabSet>
+    </options>
+  </applicationOptions>
+  <codeLists>
+    <list id="6" name="lu_in_time2_end_year">
+      <label type="item">LU in time2 (end year)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="1">
+          <code>forest</code>
+          <label>Forest</label>
+        </item>
+        <item id="2">
+          <code>cropland</code>
+          <label>Cropland</label>
+        </item>
+        <item id="3">
+          <code>grassland</code>
+          <label>Grassland</label>
+        </item>
+        <item id="4">
+          <code>wetland</code>
+          <label>Wetland</label>
+        </item>
+        <item id="5">
+          <code>other_land</code>
+          <label>Other land</label>
+        </item>
+      </items>
+    </list>
+    <list id="10" name="forest_subtype_subdivision">
+      <label type="item">Forest subtype/subdivision</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="7">
+          <code>forest_type_1</code>
+          <label>forest type 1</label>
+        </item>
+        <item id="8">
+          <code>forest_type_2</code>
+          <label>forest type 2</label>
+        </item>
+        <item id="9">
+          <code>forest_plantation_1</code>
+          <label>Forest Plantation 1</label>
+        </item>
+      </items>
+    </list>
+    <list id="17" name="cyclical_system">
+      <label type="item">Cyclical system</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="11">
+          <code>5_years</code>
+          <label>&lt;5 years</label>
+        </item>
+        <item id="12">
+          <code>5_to_10_years</code>
+          <label>5 to &lt;10 years</label>
+        </item>
+        <item id="13">
+          <code>10_to_20_years</code>
+          <label>10 to &lt;20 years</label>
+        </item>
+        <item id="14">
+          <code>20_or_more_years</code>
+          <label>20 or more years</label>
+        </item>
+        <item id="15">
+          <code>not_cyclical</code>
+          <label>not cyclical</label>
+        </item>
+        <item id="16">
+          <code>unknown</code>
+          <label>unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="21" name="cropland_subtype">
+      <label type="item">Cropland subtype</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="18">
+          <code>annual_crop</code>
+          <label>Annual crop</label>
+        </item>
+        <item id="19">
+          <code>perennial_crop</code>
+          <label>Perennial crop</label>
+        </item>
+        <item id="20">
+          <code>orchard</code>
+          <label>Orchard</label>
+        </item>
+      </items>
+    </list>
+    <list id="25" name="confidence_in_responses">
+      <label type="item">Confidence in responses</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="22">
+          <code>high</code>
+          <label>high</label>
+        </item>
+        <item id="23">
+          <code>medium</code>
+          <label>medium</label>
+        </item>
+        <item id="24">
+          <code>low</code>
+          <label>low</label>
+        </item>
+      </items>
+    </list>
+    <list id="30" name="primary_question_causing_confidence_conc">
+      <label type="item">Primary question causing confidence concern</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="26">
+          <code>lu_in_time2</code>
+          <label>LU in time2</label>
+        </item>
+        <item id="27">
+          <code>forest_subtype_subdivision</code>
+          <label>Forest subtype/subdivision</label>
+        </item>
+        <item id="28">
+          <code>cyclical_system</code>
+          <label>Cyclical system</label>
+        </item>
+        <item id="29">
+          <code>cropland_subtype</code>
+          <label>Cropland subtype</label>
+        </item>
+      </items>
+    </list>
+    <list id="35" name="lu_change_or_disturbance_most_recent_1">
+      <label type="item">LU change or disturbance (most recent) (1)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="31">
+          <code>lu_or_subtype_change</code>
+          <label>LU or subtype change</label>
+        </item>
+        <item id="32">
+          <code>disturbance_without_lu_change</code>
+          <label>disturbance without LU change</label>
+        </item>
+        <item id="33">
+          <code>recovery_without_lu_change</code>
+          <label>recovery without LU change</label>
+        </item>
+        <item id="34">
+          <code>no_disturbance_or_lu_change</code>
+          <label>no disturbance or LU change</label>
+        </item>
+      </items>
+    </list>
+    <list id="41" name="lu_before_change_1">
+      <label type="item">LU before change (1)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="36">
+          <code>forest</code>
+          <label>Forest</label>
+        </item>
+        <item id="37">
+          <code>cropland</code>
+          <label>Cropland</label>
+        </item>
+        <item id="38">
+          <code>grassland</code>
+          <label>Grassland</label>
+        </item>
+        <item id="39">
+          <code>wetland</code>
+          <label>Wetland</label>
+        </item>
+        <item id="40">
+          <code>other_land</code>
+          <label>Other land</label>
+        </item>
+      </items>
+    </list>
+    <list id="45" name="forest_subtype_subdivision_1">
+      <label type="item">Forest subtype/subdivision (1)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="42">
+          <code>forest_type_1</code>
+          <label>forest type 1</label>
+        </item>
+        <item id="43">
+          <code>forest_type_2</code>
+          <label>forest type 2</label>
+        </item>
+        <item id="44">
+          <code>forest_plantation_1</code>
+          <label>Forest Plantation 1</label>
+        </item>
+      </items>
+    </list>
+    <list id="52" name="cyclical_system_1">
+      <label type="item">Cyclical system (1)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="46">
+          <code>5_years</code>
+          <label>&lt;5 years</label>
+        </item>
+        <item id="47">
+          <code>5_to_10_years</code>
+          <label>5 to &lt;10 years</label>
+        </item>
+        <item id="48">
+          <code>10_to_20_years</code>
+          <label>10 to &lt;20 years</label>
+        </item>
+        <item id="49">
+          <code>20_or_more_years</code>
+          <label>20 or more years</label>
+        </item>
+        <item id="50">
+          <code>not_cyclical</code>
+          <label>not cyclical</label>
+        </item>
+        <item id="51">
+          <code>unknown</code>
+          <label>unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="56" name="cropland_subtype_1">
+      <label type="item">Cropland subtype (1)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="53">
+          <code>annual_crop</code>
+          <label>Annual crop</label>
+        </item>
+        <item id="54">
+          <code>perennial_crop</code>
+          <label>Perennial crop</label>
+        </item>
+        <item id="55">
+          <code>orchard</code>
+          <label>Orchard</label>
+        </item>
+      </items>
+    </list>
+    <list id="61" name="driver_of_change_1">
+      <label type="item">Driver of change (1)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="57">
+          <code>planted_trees</code>
+          <label>planted trees</label>
+        </item>
+        <item id="58">
+          <code>natural_reforestation</code>
+          <label>natural reforestation</label>
+        </item>
+        <item id="59">
+          <code>other_anthropogenic_cause</code>
+          <label>other anthropogenic cause</label>
+        </item>
+        <item id="60">
+          <code>other_non_anthropogenic_cause</code>
+          <label>other non-anthropogenic cause</label>
+        </item>
+      </items>
+    </list>
+    <list id="64" name="duration_non_forest_before_event_1">
+      <label type="item">Duration non-forest before event (1)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="62">
+          <code>5_years</code>
+          <label>&lt; 5 years</label>
+        </item>
+        <item id="63">
+          <code>5_or_more_years</code>
+          <label>5 or more years</label>
+        </item>
+      </items>
+    </list>
+    <list id="77" name="driver_of_disturbance_1">
+      <label type="item">Driver of disturbance (1)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="65">
+          <code>fire</code>
+          <label>fire</label>
+        </item>
+        <item id="66">
+          <code>flood</code>
+          <label>flood</label>
+        </item>
+        <item id="67">
+          <code>landslide</code>
+          <label>landslide</label>
+        </item>
+        <item id="68">
+          <code>storm</code>
+          <label>storm</label>
+        </item>
+        <item id="69">
+          <code>selective_logging</code>
+          <label>selective logging</label>
+        </item>
+        <item id="70">
+          <code>agriculture</code>
+          <label>agriculture</label>
+        </item>
+        <item id="71">
+          <code>livestock</code>
+          <label>livestock</label>
+        </item>
+        <item id="72">
+          <code>volcano</code>
+          <label>volcano</label>
+        </item>
+        <item id="73">
+          <code>timber_harvest</code>
+          <label>timber harvest</label>
+        </item>
+        <item id="74">
+          <code>infrastructure_development</code>
+          <label>infrastructure development</label>
+        </item>
+        <item id="75">
+          <code>climatic_ecosystem_shift</code>
+          <label>climatic ecosystem shift</label>
+        </item>
+        <item id="76">
+          <code>a11</code>
+          <label>....</label>
+        </item>
+      </items>
+    </list>
+    <list id="81" name="cause_of_disturbance_1">
+      <label type="item">Cause of disturbance (1)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="78">
+          <code>anthropogenic</code>
+          <label>anthropogenic</label>
+        </item>
+        <item id="79">
+          <code>non_anthropogenic</code>
+          <label>non-anthropogenic</label>
+        </item>
+        <item id="80">
+          <code>unsure</code>
+          <label>unsure</label>
+        </item>
+      </items>
+    </list>
+    <list id="85" name="confidence_in_event_1">
+      <label type="item">Confidence in event (1)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="82">
+          <code>high</code>
+          <label>high</label>
+        </item>
+        <item id="83">
+          <code>medium</code>
+          <label>medium</label>
+        </item>
+        <item id="84">
+          <code>low</code>
+          <label>low</label>
+        </item>
+      </items>
+    </list>
+    <list id="90" name="lu_change_or_disturbance_2nd_most_recent">
+      <label type="item">LU change or disturbance (2nd most recent) (2)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="86">
+          <code>lu_or_subtype_change</code>
+          <label>LU or subtype change</label>
+        </item>
+        <item id="87">
+          <code>disturbance_without_lu_change</code>
+          <label>disturbance without LU change</label>
+        </item>
+        <item id="88">
+          <code>recovery_without_lu_change</code>
+          <label>recovery without LU change</label>
+        </item>
+        <item id="89">
+          <code>no_disturbance_or_lu_change</code>
+          <label>no disturbance or LU change</label>
+        </item>
+      </items>
+    </list>
+    <list id="96" name="lu_before_change_2">
+      <label type="item">LU before change (2)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="91">
+          <code>forest</code>
+          <label>Forest</label>
+        </item>
+        <item id="92">
+          <code>cropland</code>
+          <label>Cropland</label>
+        </item>
+        <item id="93">
+          <code>grassland</code>
+          <label>Grassland</label>
+        </item>
+        <item id="94">
+          <code>wetland</code>
+          <label>Wetland</label>
+        </item>
+        <item id="95">
+          <code>other_land</code>
+          <label>Other land</label>
+        </item>
+      </items>
+    </list>
+    <list id="100" name="forest_subtype_subdivision_2">
+      <label type="item">Forest subtype/subdivision (2)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="97">
+          <code>forest_type_1</code>
+          <label>forest type 1</label>
+        </item>
+        <item id="98">
+          <code>forest_type_2</code>
+          <label>forest type 2</label>
+        </item>
+        <item id="99">
+          <code>forest_plantation_1</code>
+          <label>Forest Plantation 1</label>
+        </item>
+      </items>
+    </list>
+    <list id="107" name="cyclical_system_2">
+      <label type="item">Cyclical system (2)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="101">
+          <code>5_years</code>
+          <label>&lt;5 years</label>
+        </item>
+        <item id="102">
+          <code>5_to_10_years</code>
+          <label>5 to &lt;10 years</label>
+        </item>
+        <item id="103">
+          <code>10_to_20_years</code>
+          <label>10 to &lt;20 years</label>
+        </item>
+        <item id="104">
+          <code>20_or_more_years</code>
+          <label>20 or more years</label>
+        </item>
+        <item id="105">
+          <code>not_cyclical</code>
+          <label>not cyclical</label>
+        </item>
+        <item id="106">
+          <code>unknown</code>
+          <label>unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="111" name="cropland_subtype_2">
+      <label type="item">Cropland subtype (2)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="108">
+          <code>annual_crop</code>
+          <label>Annual crop</label>
+        </item>
+        <item id="109">
+          <code>perennial_crop</code>
+          <label>Perennial crop</label>
+        </item>
+        <item id="110">
+          <code>orchard</code>
+          <label>Orchard</label>
+        </item>
+      </items>
+    </list>
+    <list id="116" name="driver_of_change_2">
+      <label type="item">Driver of change (2)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="112">
+          <code>planted_trees</code>
+          <label>planted trees</label>
+        </item>
+        <item id="113">
+          <code>natural_reforestation</code>
+          <label>natural reforestation</label>
+        </item>
+        <item id="114">
+          <code>other_anthropogenic_cause</code>
+          <label>other anthropogenic cause</label>
+        </item>
+        <item id="115">
+          <code>other_non_anthropogenic_cause</code>
+          <label>other non-anthropogenic cause</label>
+        </item>
+      </items>
+    </list>
+    <list id="119" name="duration_non_forest_before_event_2">
+      <label type="item">Duration non-forest before event (2)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="117">
+          <code>5_years</code>
+          <label>&lt; 5 years</label>
+        </item>
+        <item id="118">
+          <code>5_or_more_years</code>
+          <label>5 or more years</label>
+        </item>
+      </items>
+    </list>
+    <list id="132" name="driver_of_disturbance_2">
+      <label type="item">Driver of disturbance (2)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="120">
+          <code>fire</code>
+          <label>fire</label>
+        </item>
+        <item id="121">
+          <code>flood</code>
+          <label>flood</label>
+        </item>
+        <item id="122">
+          <code>landslide</code>
+          <label>landslide</label>
+        </item>
+        <item id="123">
+          <code>storm</code>
+          <label>storm</label>
+        </item>
+        <item id="124">
+          <code>selective_logging</code>
+          <label>selective logging</label>
+        </item>
+        <item id="125">
+          <code>agriculture</code>
+          <label>agriculture</label>
+        </item>
+        <item id="126">
+          <code>livestock</code>
+          <label>livestock</label>
+        </item>
+        <item id="127">
+          <code>volcano</code>
+          <label>volcano</label>
+        </item>
+        <item id="128">
+          <code>timber_harvest</code>
+          <label>timber harvest</label>
+        </item>
+        <item id="129">
+          <code>infrastructure_development</code>
+          <label>infrastructure development</label>
+        </item>
+        <item id="130">
+          <code>climatic_ecosystem_shift</code>
+          <label>climatic ecosystem shift</label>
+        </item>
+        <item id="131">
+          <code>a11</code>
+          <label>....</label>
+        </item>
+      </items>
+    </list>
+    <list id="136" name="cause_of_disturbance_2">
+      <label type="item">Cause of disturbance (2)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="133">
+          <code>anthropogenic</code>
+          <label>anthropogenic</label>
+        </item>
+        <item id="134">
+          <code>non_anthropogenic</code>
+          <label>non-anthropogenic</label>
+        </item>
+        <item id="135">
+          <code>unsure</code>
+          <label>unsure</label>
+        </item>
+      </items>
+    </list>
+    <list id="140" name="confidence_in_event_2">
+      <label type="item">Confidence in event (2)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="137">
+          <code>high</code>
+          <label>high</label>
+        </item>
+        <item id="138">
+          <code>medium</code>
+          <label>medium</label>
+        </item>
+        <item id="139">
+          <code>low</code>
+          <label>low</label>
+        </item>
+      </items>
+    </list>
+    <list id="145" name="lu_change_or_disturbance_3rd_most_recent">
+      <label type="item">LU change or disturbance (3rd most recent) (3)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="141">
+          <code>lu_or_subtype_change</code>
+          <label>LU or subtype change</label>
+        </item>
+        <item id="142">
+          <code>disturbance_without_lu_change</code>
+          <label>disturbance without LU change</label>
+        </item>
+        <item id="143">
+          <code>recovery_without_lu_change</code>
+          <label>recovery without LU change</label>
+        </item>
+        <item id="144">
+          <code>no_disturbance_or_lu_change</code>
+          <label>no disturbance or LU change</label>
+        </item>
+      </items>
+    </list>
+    <list id="151" name="lu_before_change_3">
+      <label type="item">LU before change (3)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="146">
+          <code>forest</code>
+          <label>Forest</label>
+        </item>
+        <item id="147">
+          <code>cropland</code>
+          <label>Cropland</label>
+        </item>
+        <item id="148">
+          <code>grassland</code>
+          <label>Grassland</label>
+        </item>
+        <item id="149">
+          <code>wetland</code>
+          <label>Wetland</label>
+        </item>
+        <item id="150">
+          <code>other_land</code>
+          <label>Other land</label>
+        </item>
+      </items>
+    </list>
+    <list id="155" name="forest_subtype_subdivision_3">
+      <label type="item">Forest subtype/subdivision (3)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="152">
+          <code>forest_type_1</code>
+          <label>forest type 1</label>
+        </item>
+        <item id="153">
+          <code>forest_type_2</code>
+          <label>forest type 2</label>
+        </item>
+        <item id="154">
+          <code>forest_plantation_1</code>
+          <label>Forest Plantation 1</label>
+        </item>
+      </items>
+    </list>
+    <list id="162" name="cyclical_system_3">
+      <label type="item">Cyclical system (3)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="156">
+          <code>5_years</code>
+          <label>&lt;5 years</label>
+        </item>
+        <item id="157">
+          <code>5_to_10_years</code>
+          <label>5 to &lt;10 years</label>
+        </item>
+        <item id="158">
+          <code>10_to_20_years</code>
+          <label>10 to &lt;20 years</label>
+        </item>
+        <item id="159">
+          <code>20_or_more_years</code>
+          <label>20 or more years</label>
+        </item>
+        <item id="160">
+          <code>not_cyclical</code>
+          <label>not cyclical</label>
+        </item>
+        <item id="161">
+          <code>unknown</code>
+          <label>unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="166" name="cropland_subtype_3">
+      <label type="item">Cropland subtype (3)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="163">
+          <code>annual_crop</code>
+          <label>Annual crop</label>
+        </item>
+        <item id="164">
+          <code>perennial_crop</code>
+          <label>Perennial crop</label>
+        </item>
+        <item id="165">
+          <code>orchard</code>
+          <label>Orchard</label>
+        </item>
+      </items>
+    </list>
+    <list id="171" name="driver_of_change_3">
+      <label type="item">Driver of change (3)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="167">
+          <code>planted_trees</code>
+          <label>planted trees</label>
+        </item>
+        <item id="168">
+          <code>natural_reforestation</code>
+          <label>natural reforestation</label>
+        </item>
+        <item id="169">
+          <code>other_anthropogenic_cause</code>
+          <label>other anthropogenic cause</label>
+        </item>
+        <item id="170">
+          <code>other_non_anthropogenic_cause</code>
+          <label>other non-anthropogenic cause</label>
+        </item>
+      </items>
+    </list>
+    <list id="174" name="duration_non_forest_before_event_3">
+      <label type="item">Duration non-forest before event (3)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="172">
+          <code>5_years</code>
+          <label>&lt; 5 years</label>
+        </item>
+        <item id="173">
+          <code>5_or_more_years</code>
+          <label>5 or more years</label>
+        </item>
+      </items>
+    </list>
+    <list id="187" name="driver_of_disturbance_3">
+      <label type="item">Driver of disturbance (3)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="175">
+          <code>fire</code>
+          <label>fire</label>
+        </item>
+        <item id="176">
+          <code>flood</code>
+          <label>flood</label>
+        </item>
+        <item id="177">
+          <code>landslide</code>
+          <label>landslide</label>
+        </item>
+        <item id="178">
+          <code>storm</code>
+          <label>storm</label>
+        </item>
+        <item id="179">
+          <code>selective_logging</code>
+          <label>selective logging</label>
+        </item>
+        <item id="180">
+          <code>agriculture</code>
+          <label>agriculture</label>
+        </item>
+        <item id="181">
+          <code>livestock</code>
+          <label>livestock</label>
+        </item>
+        <item id="182">
+          <code>volcano</code>
+          <label>volcano</label>
+        </item>
+        <item id="183">
+          <code>timber_harvest</code>
+          <label>timber harvest</label>
+        </item>
+        <item id="184">
+          <code>infrastructure_development</code>
+          <label>infrastructure development</label>
+        </item>
+        <item id="185">
+          <code>climatic_ecosystem_shift</code>
+          <label>climatic ecosystem shift</label>
+        </item>
+        <item id="186">
+          <code>a11</code>
+          <label>....</label>
+        </item>
+      </items>
+    </list>
+    <list id="191" name="cause_of_disturbance_3">
+      <label type="item">Cause of disturbance (3)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="188">
+          <code>anthropogenic</code>
+          <label>anthropogenic</label>
+        </item>
+        <item id="189">
+          <code>non_anthropogenic</code>
+          <label>non-anthropogenic</label>
+        </item>
+        <item id="190">
+          <code>unsure</code>
+          <label>unsure</label>
+        </item>
+      </items>
+    </list>
+    <list id="195" name="confidence_in_event_3">
+      <label type="item">Confidence in event (3)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="192">
+          <code>high</code>
+          <label>high</label>
+        </item>
+        <item id="193">
+          <code>medium</code>
+          <label>medium</label>
+        </item>
+        <item id="194">
+          <code>low</code>
+          <label>low</label>
+        </item>
+      </items>
+    </list>
+  </codeLists>
+  <spatialReferenceSystems>
+    <spatialReferenceSystem srid="EPSG:4326">
+      <label xml:lang="en">EPSG:4326</label>
+      <wkt><![CDATA[GEOGCS["WGS 84",
+      DATUM["World Geodetic System 1984",
+        SPHEROID["WGS 84", 6378137.0, 298.257223563, AUTHORITY["EPSG","7030"]],
+        AUTHORITY["EPSG","6326"]],
+      PRIMEM["Greenwich", 0.0, AUTHORITY["EPSG","8901"]],
+      UNIT["degree", 0.017453292519943295],
+      AXIS["Geodetic longitude", EAST],
+      AXIS["Geodetic latitude", NORTH],
+      AUTHORITY["EPSG","4326"]]]]></wkt>
+    </spatialReferenceSystem>
+  </spatialReferenceSystems>
+  <schema>
+    <entity id="205" name="plot" ui:tab="survey_tab" ui:tabSet="plot_tab_set">
+      <label type="instance">Plot</label>
+      <text id="196" name="id" required="true" ui:tab="plot_data_tab" key="true" type="short">
+        <label type="instance">Plot - ID</label>
+      </text>
+      <coordinate id="197" name="location" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Central point coordinates</label>
+      </coordinate>
+      <text id="198" name="operator" required="true" ui:tab="plot_data_tab" type="short">
+        <label type="instance">Plot - Operator</label>
+      </text>
+      <boolean id="199" name="actively_saved" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Actively saved by user</label>
+      </boolean>
+      <date id="200" name="actively_saved_on" relevant="false()" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Date of last saved</label>
+      </date>
+      <text id="201" name="plot_file" relevant="false()" ui:tab="plot_data_tab" type="short">
+        <label type="instance">Plot - CSV file that contains the plot</label>
+      </text>
+      <number id="202" name="elevation" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="integer">
+        <label type="instance">Plot - Elevation</label>
+      </number>
+      <number id="203" name="slope" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="real">
+        <label type="instance">Plot - Slope</label>
+      </number>
+      <number id="204" name="aspect" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="real">
+        <label type="instance">Plot - Aspect</label>
+      </number>
+      <code id="206" name="lu_in_time2_end_year" required="true" ui:tab="survey_tab" list="lu_in_time2_end_year">
+        <label type="instance">LU in time2 (end year)</label>
+      </code>
+      <code id="207" name="forest_subtype_subdivision" required="true" relevant="lu_in_time2_end_year = &apos;forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_subtype_subdivision">
+        <label type="instance">Forest subtype/subdivision</label>
+      </code>
+      <code id="208" name="cyclical_system" required="true" relevant="(lu_in_time2_end_year = &apos;forest&apos;) and forest_subtype_subdivision = &apos;forest_plantation_1&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cyclical_system">
+        <label type="instance">Cyclical system</label>
+      </code>
+      <code id="209" name="cropland_subtype" required="true" relevant="lu_in_time2_end_year = &apos;cropland&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cropland_subtype">
+        <label type="instance">Cropland subtype</label>
+      </code>
+      <code id="210" name="confidence_in_responses" required="true" relevant="(lu_in_time2_end_year = &apos;forest&apos; or lu_in_time2_end_year = &apos;cropland&apos; or lu_in_time2_end_year = &apos;grassland&apos; or lu_in_time2_end_year = &apos;wetland&apos; or lu_in_time2_end_year = &apos;other_land&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="confidence_in_responses">
+        <label type="instance">Confidence in responses</label>
+      </code>
+      <code id="211" name="primary_question_causing_confidence_conc" required="true" relevant="((lu_in_time2_end_year = &apos;forest&apos; or lu_in_time2_end_year = &apos;cropland&apos; or lu_in_time2_end_year = &apos;grassland&apos; or lu_in_time2_end_year = &apos;wetland&apos; or lu_in_time2_end_year = &apos;other_land&apos;)) and (confidence_in_responses = &apos;medium&apos; or confidence_in_responses = &apos;low&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="primary_question_causing_confidence_conc">
+        <label type="instance">Primary question causing confidence concern</label>
+      </code>
+      <text id="212" name="notes_on_confidence_0" relevant="((lu_in_time2_end_year = &apos;forest&apos; or lu_in_time2_end_year = &apos;cropland&apos; or lu_in_time2_end_year = &apos;grassland&apos; or lu_in_time2_end_year = &apos;wetland&apos; or lu_in_time2_end_year = &apos;other_land&apos;)) and (confidence_in_responses = &apos;high&apos; or confidence_in_responses = &apos;medium&apos; or confidence_in_responses = &apos;low&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="short">
+        <label type="instance">Notes on confidence (0)</label>
+        <description>In CEO: &quot;confidence notes&quot;</description>
+      </text>
+      <code id="213" name="lu_change_or_disturbance_most_recent_1" required="true" ui:tab="survey_tab" list="lu_change_or_disturbance_most_recent_1">
+        <label type="instance">LU change or disturbance (most recent) (1)</label>
+        <check flag="error" expr="not(lu_in_time2_end_year = &apos;cropland&apos; and lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Cropland” cannot go with “LU change or disturbance (most recent) (1)”: “disturbance without LU change”.</message></check>
+        <check flag="error" expr="not(lu_in_time2_end_year = &apos;cropland&apos; and lu_change_or_disturbance_most_recent_1 = &apos;recovery_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Cropland” cannot go with “LU change or disturbance (most recent) (1)”: “recovery without LU change”.</message></check>
+        <check flag="error" expr="not(lu_in_time2_end_year = &apos;grassland&apos; and lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Grassland” cannot go with “LU change or disturbance (most recent) (1)”: “disturbance without LU change”.</message></check>
+        <check flag="error" expr="not(lu_in_time2_end_year = &apos;grassland&apos; and lu_change_or_disturbance_most_recent_1 = &apos;recovery_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Grassland” cannot go with “LU change or disturbance (most recent) (1)”: “recovery without LU change”.</message></check>
+        <check flag="error" expr="not(lu_in_time2_end_year = &apos;wetland&apos; and lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Wetland” cannot go with “LU change or disturbance (most recent) (1)”: “disturbance without LU change”.</message></check>
+        <check flag="error" expr="not(lu_in_time2_end_year = &apos;wetland&apos; and lu_change_or_disturbance_most_recent_1 = &apos;recovery_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Wetland” cannot go with “LU change or disturbance (most recent) (1)”: “recovery without LU change”.</message></check>
+        <check flag="error" expr="not(lu_in_time2_end_year = &apos;other_land&apos; and lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Other land” cannot go with “LU change or disturbance (most recent) (1)”: “disturbance without LU change”.</message></check>
+        <check flag="error" expr="not(lu_in_time2_end_year = &apos;other_land&apos; and lu_change_or_disturbance_most_recent_1 = &apos;recovery_without_lu_change&apos;)"><message>“LU in time2 (end year)”: “Other land” cannot go with “LU change or disturbance (most recent) (1)”: “recovery without LU change”.</message></check>
+      </code>
+      <number id="214" name="year_of_change_1" required="true" relevant="lu_change_or_disturbance_most_recent_1 = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+        <label type="instance">year of change (1)</label>
+        <description>In CEO: &quot;0000&quot;</description>
+        <compare flag="error" gte="2000" lte="2024"><message>The answer to “year of change (1)” must be between 2000 and 2024.</message></compare>
+      </number>
+      <code id="215" name="lu_before_change_1" required="true" relevant="not(idm:blank(lu_change_or_disturbance_most_recent_1))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="lu_before_change_1">
+        <label type="instance">LU before change (1)</label>
+      </code>
+      <code id="216" name="forest_subtype_subdivision_1" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_most_recent_1))) and lu_before_change_1 = &apos;forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_subtype_subdivision_1">
+        <label type="instance">Forest subtype/subdivision (1)</label>
+        <check flag="error" expr="not(lu_change_or_disturbance_most_recent_1 = &apos;lu_or_subtype_change&apos; and forest_subtype_subdivision_1 = &apos;forest_type_1&apos;)"><message>“LU change or disturbance (most recent) (1)”: “LU or subtype change” cannot go with “Forest subtype/subdivision (1)”: “forest type 1”.</message></check>
+        <check flag="error" expr="not(forest_subtype_subdivision = &apos;forest_type_2&apos; and forest_subtype_subdivision_1 = &apos;forest_type_2&apos;)"><message>“Forest subtype/subdivision”: “forest type 2” cannot go with “Forest subtype/subdivision (1)”: “forest type 2”.</message></check>
+      </code>
+      <code id="217" name="cyclical_system_1" required="true" relevant="((not(idm:blank(lu_change_or_disturbance_most_recent_1))) and lu_before_change_1 = &apos;forest&apos;) and forest_subtype_subdivision_1 = &apos;forest_plantation_1&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cyclical_system_1">
+        <label type="instance">Cyclical system (1)</label>
+      </code>
+      <code id="218" name="cropland_subtype_1" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_most_recent_1))) and lu_before_change_1 = &apos;cropland&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cropland_subtype_1">
+        <label type="instance">Cropland subtype (1)</label>
+      </code>
+      <code id="219" name="driver_of_change_1" required="true" relevant="lu_change_or_disturbance_most_recent_1 = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_change_1">
+        <label type="instance">Driver of change (1)</label>
+      </code>
+      <code id="220" name="duration_non_forest_before_event_1" required="true" relevant="(lu_change_or_disturbance_most_recent_1 = &apos;lu_or_subtype_change&apos;) and (driver_of_change_1 = &apos;planted_trees&apos; or driver_of_change_1 = &apos;natural_reforestation&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="duration_non_forest_before_event_1">
+        <label type="instance">Duration non-forest before event (1)</label>
+      </code>
+      <number id="221" name="year_of_disturbance_1" required="true" relevant="lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+        <label type="instance">year of disturbance (1)</label>
+        <description>In CEO: &quot;0000&quot;</description>
+      </number>
+      <code id="222" name="driver_of_disturbance_1" required="true" relevant="lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_disturbance_1">
+        <label type="instance">Driver of disturbance (1)</label>
+      </code>
+      <code id="223" name="cause_of_disturbance_1" required="true" relevant="lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cause_of_disturbance_1">
+        <label type="instance">Cause of disturbance (1)</label>
+      </code>
+      <number id="224" name="year_of_recovery_1" required="true" relevant="lu_change_or_disturbance_most_recent_1 = &apos;recovery_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+        <label type="instance">year of recovery (1)</label>
+        <description>In CEO: &quot;0000&quot;</description>
+      </number>
+      <code id="225" name="confidence_in_event_1" required="true" relevant="(lu_change_or_disturbance_most_recent_1 = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_most_recent_1 = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_most_recent_1 = &apos;no_disturbance_or_lu_change&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="confidence_in_event_1">
+        <label type="instance">Confidence in event (1)</label>
+      </code>
+      <text id="226" name="notes_on_event_confidence_1" relevant="((lu_change_or_disturbance_most_recent_1 = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_most_recent_1 = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_most_recent_1 = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_most_recent_1 = &apos;no_disturbance_or_lu_change&apos;)) and (confidence_in_event_1 = &apos;high&apos; or confidence_in_event_1 = &apos;medium&apos; or confidence_in_event_1 = &apos;low&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="short">
+        <label type="instance">Notes on event confidence (1)</label>
+        <description>In CEO: &quot;confidence notes&quot;</description>
+      </text>
+      <code id="227" name="lu_change_or_disturbance_2nd_most_recent" required="true" ui:tab="survey_tab" list="lu_change_or_disturbance_2nd_most_recent">
+        <label type="instance">LU change or disturbance (2nd most recent) (2)</label>
+      </code>
+      <number id="228" name="year_of_change_2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+        <label type="instance">year of change (2)</label>
+        <description>In CEO: &quot;0000&quot;</description>
+      </number>
+      <code id="229" name="lu_before_change_2" required="true" relevant="not(idm:blank(lu_change_or_disturbance_2nd_most_recent))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="lu_before_change_2">
+        <label type="instance">LU before change (2)</label>
+      </code>
+      <code id="230" name="forest_subtype_subdivision_2" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_2nd_most_recent))) and lu_before_change_2 = &apos;forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_subtype_subdivision_2">
+        <label type="instance">Forest subtype/subdivision (2)</label>
+      </code>
+      <code id="231" name="cyclical_system_2" required="true" relevant="((not(idm:blank(lu_change_or_disturbance_2nd_most_recent))) and lu_before_change_2 = &apos;forest&apos;) and forest_subtype_subdivision_2 = &apos;forest_plantation_1&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cyclical_system_2">
+        <label type="instance">Cyclical system (2)</label>
+      </code>
+      <code id="232" name="cropland_subtype_2" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_2nd_most_recent))) and lu_before_change_2 = &apos;cropland&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cropland_subtype_2">
+        <label type="instance">Cropland subtype (2)</label>
+      </code>
+      <code id="233" name="driver_of_change_2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_change_2">
+        <label type="instance">Driver of change (2)</label>
+      </code>
+      <code id="234" name="duration_non_forest_before_event_2" required="true" relevant="(lu_change_or_disturbance_2nd_most_recent = &apos;lu_or_subtype_change&apos;) and (driver_of_change_2 = &apos;planted_trees&apos; or driver_of_change_2 = &apos;natural_reforestation&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="duration_non_forest_before_event_2">
+        <label type="instance">Duration non-forest before event (2)</label>
+      </code>
+      <number id="235" name="year_of_disturbance_2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+        <label type="instance">year of disturbance (2)</label>
+        <description>In CEO: &quot;0000&quot;</description>
+      </number>
+      <code id="236" name="driver_of_disturbance_2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_disturbance_2">
+        <label type="instance">Driver of disturbance (2)</label>
+      </code>
+      <code id="237" name="cause_of_disturbance_2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cause_of_disturbance_2">
+        <label type="instance">Cause of disturbance (2)</label>
+      </code>
+      <number id="238" name="year_of_recovery_2" required="true" relevant="lu_change_or_disturbance_2nd_most_recent = &apos;recovery_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+        <label type="instance">year of recovery (2)</label>
+        <description>In CEO: &quot;0000&quot;</description>
+      </number>
+      <code id="239" name="confidence_in_event_2" required="true" relevant="(lu_change_or_disturbance_2nd_most_recent = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;no_disturbance_or_lu_change&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="confidence_in_event_2">
+        <label type="instance">Confidence in event (2)</label>
+      </code>
+      <text id="240" name="notes_on_event_confidence_2" relevant="((lu_change_or_disturbance_2nd_most_recent = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_2nd_most_recent = &apos;no_disturbance_or_lu_change&apos;)) and (confidence_in_event_2 = &apos;high&apos; or confidence_in_event_2 = &apos;medium&apos; or confidence_in_event_2 = &apos;low&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="short">
+        <label type="instance">Notes on event confidence (2)</label>
+        <description>In CEO: &quot;confidence notes&quot;</description>
+      </text>
+      <code id="241" name="lu_change_or_disturbance_3rd_most_recent" required="true" ui:tab="survey_tab" list="lu_change_or_disturbance_3rd_most_recent">
+        <label type="instance">LU change or disturbance (3rd most recent) (3)</label>
+      </code>
+      <number id="242" name="year_of_change_3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+        <label type="instance">year of change (3)</label>
+        <description>In CEO: &quot;0000&quot;</description>
+      </number>
+      <code id="243" name="lu_before_change_3" required="true" relevant="not(idm:blank(lu_change_or_disturbance_3rd_most_recent))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="lu_before_change_3">
+        <label type="instance">LU before change (3)</label>
+      </code>
+      <code id="244" name="forest_subtype_subdivision_3" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_3rd_most_recent))) and lu_before_change_3 = &apos;forest&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_subtype_subdivision_3">
+        <label type="instance">Forest subtype/subdivision (3)</label>
+      </code>
+      <code id="245" name="cyclical_system_3" required="true" relevant="((not(idm:blank(lu_change_or_disturbance_3rd_most_recent))) and lu_before_change_3 = &apos;forest&apos;) and forest_subtype_subdivision_3 = &apos;forest_plantation_1&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cyclical_system_3">
+        <label type="instance">Cyclical system (3)</label>
+      </code>
+      <code id="246" name="cropland_subtype_3" required="true" relevant="(not(idm:blank(lu_change_or_disturbance_3rd_most_recent))) and lu_before_change_3 = &apos;cropland&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cropland_subtype_3">
+        <label type="instance">Cropland subtype (3)</label>
+      </code>
+      <code id="247" name="driver_of_change_3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;lu_or_subtype_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_change_3">
+        <label type="instance">Driver of change (3)</label>
+      </code>
+      <code id="248" name="duration_non_forest_before_event_3" required="true" relevant="(lu_change_or_disturbance_3rd_most_recent = &apos;lu_or_subtype_change&apos;) and (driver_of_change_3 = &apos;planted_trees&apos; or driver_of_change_3 = &apos;natural_reforestation&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="duration_non_forest_before_event_3">
+        <label type="instance">Duration non-forest before event (3)</label>
+      </code>
+      <number id="249" name="year_of_disturbance_3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+        <label type="instance">year of disturbance (3)</label>
+        <description>In CEO: &quot;0000&quot;</description>
+      </number>
+      <code id="250" name="driver_of_disturbance_3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_disturbance_3">
+        <label type="instance">Driver of disturbance (3)</label>
+      </code>
+      <code id="251" name="cause_of_disturbance_3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;disturbance_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="cause_of_disturbance_3">
+        <label type="instance">Cause of disturbance (3)</label>
+      </code>
+      <number id="252" name="year_of_recovery_3" required="true" relevant="lu_change_or_disturbance_3rd_most_recent = &apos;recovery_without_lu_change&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="real">
+        <label type="instance">year of recovery (3)</label>
+        <description>In CEO: &quot;0000&quot;</description>
+      </number>
+      <code id="253" name="confidence_in_event_3" required="true" relevant="(lu_change_or_disturbance_3rd_most_recent = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;no_disturbance_or_lu_change&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="confidence_in_event_3">
+        <label type="instance">Confidence in event (3)</label>
+      </code>
+      <text id="254" name="notes_on_event_confidence_3" relevant="((lu_change_or_disturbance_3rd_most_recent = &apos;lu_or_subtype_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;disturbance_without_lu_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;recovery_without_lu_change&apos; or lu_change_or_disturbance_3rd_most_recent = &apos;no_disturbance_or_lu_change&apos;)) and (confidence_in_event_3 = &apos;high&apos; or confidence_in_event_3 = &apos;medium&apos; or confidence_in_event_3 = &apos;low&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" type="short">
+        <label type="instance">Notes on event confidence (3)</label>
+        <description>In CEO: &quot;confidence notes&quot;</description>
+      </text>
+    </entity>
+  </schema>
+</survey>

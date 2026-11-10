@@ -132,6 +132,15 @@ In `collect-earth-cloud/src/ceo/`, as pure functions with unit tests, the way `p
 
 ### B1. The survey (`survey.ts`, `idml.ts`)
 
+**Done (10 Nov 2026)**, with B2: `collect-earth-cloud/src/ceo/` (`project.ts` reads the file, `survey.ts`, `rules.ts`,
+`idml.ts`, `report.ts`, `index.ts` with `ceoSurvey()`), tested in `test/ceo.test.ts`. Run over the 628 public projects:
+622 translated (the 6 simplified ones refused), no failure; 4,159 questions imported as they are, 19 with a change
+(hidden answers left out), 4 left out (hidden); 1,527 of the 1,530 rules became checks, the 3 others naming a hidden
+question. All 622 surveys were read by Collect, passed its checks of names and expressions, and made a form
+(`CeoSurveyIdmlTest`, with `-Dceo.idml.dir`); the surveys of the 13 importable fixtures are kept in
+`collect-earth-app/src/test/resources/ceo/`, written by the cloud's test (`UPDATE_CEO_IDML=1` after a change) and read
+by that test at every build.
+
 CEO's survey becomes a Collect survey (IDML), built on the skeleton Collect Earth expects: the `plot` root entity with
 its `id` key, the attributes Collect Earth fills itself (`operator`, `location`, `plot_file`, `actively_saved`,
 `actively_saved_on`; `SurveyFormModelBuilder.BUILT_IN_ATTRIBUTE_NAMES`), the plot file's extra columns as "from CSV"
@@ -140,14 +149,16 @@ attributes, and one tab.
 | CEO | Collect |
 | --- | --- |
 | `button`, `radiobutton`, `dropdown` with `dataType: text` | code attribute and its code list; layout buttons, radio or dropdown |
-| `dataType: boolean` (as buttons, radio or dropdown) | boolean attribute |
+| `dataType: boolean` (as buttons, radio or dropdown) | code attribute with its two answers: CEO's "booleans" are often not yes/no ("bosque" / "plantaciones forestales"), so their labels are kept |
 | `button`, `radiobutton`, `dropdown` with `dataType: number` | code attribute whose codes are the numbers offered, so the sum rules can add them |
 | `input`, `dataType: number` | real number attribute (integer when every rule bound and example is whole) |
 | `input`, `dataType: text` | text attribute |
 | `required` | `required="true"` |
-| child question (`parentQuestionId`, `parentAnswerIds`) | `relevant="parent = 'a' or parent = 'b'"`, nested to any depth |
+| child question (`parentQuestionId`, `parentAnswerIds`) | `relevant="parent = 'a' or parent = 'b'"`, and the parent's own relevance, to any depth (a hidden parent may keep an answer); no answer named (424 of 3,020 children): `not(idm:blank(parent))`, any answer |
 | `question` / `questionLabel` | label / attribute name (made a valid Collect name: lower case, `_`, unique) |
 | answer `color` | dropped (Collect code items have none); said in the report |
+| answer text | the code is the text made a Collect code (`Bare Surface` → `bare_surface`), unique in its list; a number answer keeps its number |
+| an `input`'s single answer | its placeholder ("insert comment here", "9999"), kept as the question's description; its `required` says whether the input is needed |
 | hidden question (`hideQuestion`) or answer (`hide`) | left out; said in the report |
 | `cardOrder` | the attributes' order |
 

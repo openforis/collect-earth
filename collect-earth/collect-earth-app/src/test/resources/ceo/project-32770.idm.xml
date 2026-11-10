@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<survey lastId="82" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth">
+  <project>GLC_Bangladesh_200_A</project>
+  <uri>http://www.openforis.org/idm/ceo_32770</uri>
+  <description>GLC_Bangladesh_200_A
+
+Imported from Collect Earth Online, project 32770.</description>
+  <language>en</language>
+  <applicationOptions>
+    <options type="ui">
+      <n0:tabSet name="plot_tab_set" xmlns:n0="http://www.openforis.org/collect/3.0/ui">
+        <n0:tab name="survey_tab">
+          <n0:label>GLC_Bangladesh_200_A</n0:label>
+        </n0:tab>
+        <n0:tab name="plot_data_tab">
+          <n0:label>Plot data</n0:label>
+        </n0:tab>
+      </n0:tabSet>
+    </options>
+  </applicationOptions>
+  <codeLists>
+    <list id="3" name="in_2000_is_the_land_cover_of_the_plot_fo">
+      <label type="item">In 2000, is the land cover of the plot forest?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="1">
+          <code>yes</code>
+          <label>yes</label>
+        </item>
+        <item id="2">
+          <code>no</code>
+          <label>no</label>
+        </item>
+      </items>
+    </list>
+    <list id="6" name="did_the_land_cover_change_between_2000_a">
+      <label type="item">Did the land cover change between 2000 and 2020?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="4">
+          <code>yes</code>
+          <label>yes</label>
+        </item>
+        <item id="5">
+          <code>no</code>
+          <label>no</label>
+        </item>
+      </items>
+    </list>
+    <list id="28" name="what_year_did_the_land_cover_change_firs">
+      <label type="item">What year did the land cover change first?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="7">
+          <code>2000</code>
+          <label>2000</label>
+        </item>
+        <item id="8">
+          <code>2001</code>
+          <label>2001</label>
+        </item>
+        <item id="9">
+          <code>2002</code>
+          <label>2002</label>
+        </item>
+        <item id="10">
+          <code>2003</code>
+          <label>2003</label>
+        </item>
+        <item id="11">
+          <code>2004</code>
+          <label>2004</label>
+        </item>
+        <item id="12">
+          <code>2005</code>
+          <label>2005</label>
+        </item>
+        <item id="13">
+          <code>2006</code>
+          <label>2006</label>
+        </item>
+        <item id="14">
+          <code>2007</code>
+          <label>2007</label>
+        </item>
+        <item id="15">
+          <code>2008</code>
+          <label>2008</label>
+        </item>
+        <item id="16">
+          <code>2009</code>
+          <label>2009</label>
+        </item>
+        <item id="17">
+          <code>2010</code>
+          <label>2010</label>
+        </item>
+        <item id="18">
+          <code>2011</code>
+          <label>2011</label>
+        </item>
+        <item id="19">
+          <code>2012</code>
+          <label>2012</label>
+        </item>
+        <item id="20">
+          <code>2013</code>
+          <label>2013</label>
+        </item>
+        <item id="21">
+          <code>2014</code>
+          <label>2014</label>
+        </item>
+        <item id="22">
+          <code>2015</code>
+          <label>2015</label>
+        </item>
+        <item id="23">
+          <code>2016</code>
+          <label>2016</label>
+        </item>
+        <item id="24">
+          <code>2017</code>
+          <label>2017</label>
+        </item>
+        <item id="25">
+          <code>2018</code>
+          <label>2018</label>
+        </item>
+        <item id="26">
+          <code>2019</code>
+          <label>2019</label>
+        </item>
+        <item id="27">
+          <code>2020</code>
+          <label>2020</label>
+        </item>
+      </items>
+    </list>
+    <list id="31" name="did_the_land_cover_change_more_than_once">
+      <label type="item">Did the land cover change more than once throughout the time period?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="29">
+          <code>yes</code>
+          <label>yes</label>
+        </item>
+        <item id="30">
+          <code>no</code>
+          <label>no</label>
+        </item>
+      </items>
+    </list>
+    <list id="53" name="what_year_was_the_greatest_change">
+      <label type="item">What year was the greatest change?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="32">
+          <code>2000</code>
+          <label>2000</label>
+        </item>
+        <item id="33">
+          <code>2001</code>
+          <label>2001</label>
+        </item>
+        <item id="34">
+          <code>2002</code>
+          <label>2002</label>
+        </item>
+        <item id="35">
+          <code>2003</code>
+          <label>2003</label>
+        </item>
+        <item id="36">
+          <code>2004</code>
+          <label>2004</label>
+        </item>
+        <item id="37">
+          <code>2005</code>
+          <label>2005</label>
+        </item>
+        <item id="38">
+          <code>2006</code>
+          <label>2006</label>
+        </item>
+        <item id="39">
+          <code>2007</code>
+          <label>2007</label>
+        </item>
+        <item id="40">
+          <code>2008</code>
+          <label>2008</label>
+        </item>
+        <item id="41">
+          <code>2009</code>
+          <label>2009</label>
+        </item>
+        <item id="42">
+          <code>2010</code>
+          <label>2010</label>
+        </item>
+        <item id="43">
+          <code>2011</code>
+          <label>2011</label>
+        </item>
+        <item id="44">
+          <code>2012</code>
+          <label>2012</label>
+        </item>
+        <item id="45">
+          <code>2013</code>
+          <label>2013</label>
+        </item>
+        <item id="46">
+          <code>2014</code>
+          <label>2014</label>
+        </item>
+        <item id="47">
+          <code>2015</code>
+          <label>2015</label>
+        </item>
+        <item id="48">
+          <code>2016</code>
+          <label>2016</label>
+        </item>
+        <item id="49">
+          <code>2017</code>
+          <label>2017</label>
+        </item>
+        <item id="50">
+          <code>2018</code>
+          <label>2018</label>
+        </item>
+        <item id="51">
+          <code>2019</code>
+          <label>2019</label>
+        </item>
+        <item id="52">
+          <code>2020</code>
+          <label>2020</label>
+        </item>
+      </items>
+    </list>
+    <list id="57" name="was_the_final_disturbance_deforestation">
+      <label type="item">Was the final disturbance deforestation or forest degradation?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="54">
+          <code>deforestation</code>
+          <label>Deforestation</label>
+        </item>
+        <item id="55">
+          <code>degradation</code>
+          <label>Degradation</label>
+        </item>
+        <item id="56">
+          <code>neither</code>
+          <label>Neither</label>
+        </item>
+      </items>
+    </list>
+    <list id="65" name="what_is_the_final_land_cover_at_the_end">
+      <label type="item">What is the final land cover at the end of the study period?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="58">
+          <code>stable_forest</code>
+          <label>Stable Forest</label>
+        </item>
+        <item id="59">
+          <code>disturbed_forest</code>
+          <label>Disturbed Forest</label>
+        </item>
+        <item id="60">
+          <code>agriculture</code>
+          <label>Agriculture</label>
+        </item>
+        <item id="61">
+          <code>tree_plantation</code>
+          <label>Tree Plantation</label>
+        </item>
+        <item id="62">
+          <code>grassland_pasture</code>
+          <label>Grassland/Pasture</label>
+        </item>
+        <item id="63">
+          <code>urban_settlement_road</code>
+          <label>Urban/Settlement/Road</label>
+        </item>
+        <item id="64">
+          <code>other</code>
+          <label>Other</label>
+        </item>
+      </items>
+    </list>
+  </codeLists>
+  <spatialReferenceSystems>
+    <spatialReferenceSystem srid="EPSG:4326">
+      <label xml:lang="en">EPSG:4326</label>
+      <wkt><![CDATA[GEOGCS["WGS 84",
+      DATUM["World Geodetic System 1984",
+        SPHEROID["WGS 84", 6378137.0, 298.257223563, AUTHORITY["EPSG","7030"]],
+        AUTHORITY["EPSG","6326"]],
+      PRIMEM["Greenwich", 0.0, AUTHORITY["EPSG","8901"]],
+      UNIT["degree", 0.017453292519943295],
+      AXIS["Geodetic longitude", EAST],
+      AXIS["Geodetic latitude", NORTH],
+      AUTHORITY["EPSG","4326"]]]]></wkt>
+    </spatialReferenceSystem>
+  </spatialReferenceSystems>
+  <schema>
+    <entity id="75" name="plot" ui:tab="survey_tab" ui:tabSet="plot_tab_set">
+      <label type="instance">Plot</label>
+      <text id="66" name="id" required="true" ui:tab="plot_data_tab" key="true" type="short">
+        <label type="instance">Plot - ID</label>
+      </text>
+      <coordinate id="67" name="location" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Central point coordinates</label>
+      </coordinate>
+      <text id="68" name="operator" required="true" ui:tab="plot_data_tab" type="short">
+        <label type="instance">Plot - Operator</label>
+      </text>
+      <boolean id="69" name="actively_saved" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Actively saved by user</label>
+      </boolean>
+      <date id="70" name="actively_saved_on" relevant="false()" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Date of last saved</label>
+      </date>
+      <text id="71" name="plot_file" relevant="false()" ui:tab="plot_data_tab" type="short">
+        <label type="instance">Plot - CSV file that contains the plot</label>
+      </text>
+      <number id="72" name="elevation" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="integer">
+        <label type="instance">Plot - Elevation</label>
+      </number>
+      <number id="73" name="slope" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="real">
+        <label type="instance">Plot - Slope</label>
+      </number>
+      <number id="74" name="aspect" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="real">
+        <label type="instance">Plot - Aspect</label>
+      </number>
+      <code id="76" name="in_2000_is_the_land_cover_of_the_plot_fo" required="true" ui:tab="survey_tab" list="in_2000_is_the_land_cover_of_the_plot_fo">
+        <label type="instance">In 2000, is the land cover of the plot forest?</label>
+      </code>
+      <code id="77" name="did_the_land_cover_change_between_2000_a" required="true" ui:tab="survey_tab" list="did_the_land_cover_change_between_2000_a">
+        <label type="instance">Did the land cover change between 2000 and 2020?</label>
+      </code>
+      <code id="78" name="what_year_did_the_land_cover_change_firs" required="true" relevant="did_the_land_cover_change_between_2000_a = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" ui:layoutType="dropdown" list="what_year_did_the_land_cover_change_firs">
+        <label type="instance">What year did the land cover change first?</label>
+      </code>
+      <code id="79" name="did_the_land_cover_change_more_than_once" required="true" relevant="(did_the_land_cover_change_between_2000_a = &apos;yes&apos;) and not(idm:blank(what_year_did_the_land_cover_change_firs))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="did_the_land_cover_change_more_than_once">
+        <label type="instance">Did the land cover change more than once throughout the time period?</label>
+      </code>
+      <code id="80" name="what_year_was_the_greatest_change" required="true" relevant="((did_the_land_cover_change_between_2000_a = &apos;yes&apos;) and not(idm:blank(what_year_did_the_land_cover_change_firs))) and did_the_land_cover_change_more_than_once = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" ui:layoutType="dropdown" list="what_year_was_the_greatest_change">
+        <label type="instance">What year was the greatest change?</label>
+      </code>
+      <code id="81" name="was_the_final_disturbance_deforestation" required="true" relevant="(((did_the_land_cover_change_between_2000_a = &apos;yes&apos;) and not(idm:blank(what_year_did_the_land_cover_change_firs))) and did_the_land_cover_change_more_than_once = &apos;yes&apos;) and not(idm:blank(what_year_was_the_greatest_change))" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="was_the_final_disturbance_deforestation">
+        <label type="instance">Was the final disturbance deforestation or forest degradation?</label>
+      </code>
+      <code id="82" name="what_is_the_final_land_cover_at_the_end" required="true" ui:tab="survey_tab" list="what_is_the_final_land_cover_at_the_end">
+        <label type="instance">What is the final land cover at the end of the study period?</label>
+      </code>
+    </entity>
+  </schema>
+</survey>
