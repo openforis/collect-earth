@@ -45,10 +45,14 @@ export interface SurveyPlan {
   columns: PlannedColumn[];
 }
 
+/** The hidden attributes that keep, with CEO's answers, what Collect Earth has no place for yet (answers.ts). */
+export const FLAGGED_NAME = 'ceo_flagged';
+export const CONFIDENCE_NAME = 'ceo_confidence';
+
 /** Names Collect Earth gives attributes itself, which a question may not take. */
 export const RESERVED_NAMES: ReadonlySet<string> = new Set([
   'plot', 'id', 'round', 'location', 'operator', 'actively_saved', 'actively_saved_on', 'plot_file',
-  'elevation', 'slope', 'aspect',
+  'elevation', 'slope', 'aspect', 'coordinator_note', FLAGGED_NAME, CONFIDENCE_NAME,
 ]);
 
 /** Longest attribute name made from a question's text. */

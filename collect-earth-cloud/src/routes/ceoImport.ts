@@ -1,17 +1,24 @@
-// A new project from a Collect Earth Online project (docs/plans/2026-11-09-ceo-bridge.md, B3 to B5): the files a
-// coordinator saved from CEO (get-project-by-id, and get-project-plots for its plots), its survey, rules and plots
-// translated (src/ceo), shown as a report first, then made into a project whose project file goes through the upload
-// path every project file takes (acceptCep), so the round, the note and the space limit apply as they do to any; its
-// plots become its plot file, written as the plot design writes one. Without the plots file, the plots come after: a
-// plot file or a plot design.
+// A new project from a Collect Earth Online project (docs/plans/2026-11-09-ceo-bridge.md, B3 to C): the files a
+// coordinator saved from CEO (get-project-by-id; get-project-plots for its plots; "Download Sample Data" for its
+// answers), its survey, rules, plots and answers translated (src/ceo), shown as a report first, then made into a project
+// whose project file goes through the upload path every project file takes (acceptCep), so the round, the note and the
+// space limit apply as they do to any; its plots become its plot file, written as the plot design writes one. With the
+// answers, the plots answered in CEO go in a plot file of their own (…_done.csv), and the answers become records, one
+// per plot and CEO collector, stored as a sync stores them (last write wins, record events), under the account the
+// coordinator named or a pseudonym (ceo-collector-N): no email is stored.
 //
-// - POST /v1/projects/from-ceo/preview { ceoProject, ceoPlots? } -> { name, ceoProjectId, counts, report }: nothing stored.
-// - POST /v1/projects/from-ceo { ceoProject, ceoPlots?, name? } -> 201 { projectId, name, round, plotFile, counts, report }:
-//   who may make a project (projectCreation, maxProjectsPerUser) as for POST /v1/projects; the caller is its coordinator.
+// - POST /v1/projects/from-ceo/preview { ceoProject, ceoPlots?, ceoAnswers? } -> { name, ceoProjectId, counts, answers,
+//   report }: nothing stored.
+// - POST /v1/projects/from-ceo { ceoProject, ceoPlots?, ceoAnswers?, collectors?, name? } -> 201 { projectId, name,
+//   round, plotFile, doneFile, records, collectors, counts, answers, report }: who may make a project (projectCreation,
+//   maxProjectsPerUser) as for POST /v1/projects; the caller is its coordinator.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { ceoRecords, submitted, type CeoPlotAnswers } from '../ceo/answers.js';
 import { ceoSurvey, CeoImportError, type CeoSurvey } from '../ceo/index.js';
 import { ceoProjectFile, reportText } from '../ceo/projectFile.js';
+import { readCep } from '../cep.js';
 import { checkUploadFits } from '../limits.js';
+import { applyLww, recordEventOf } from '../lww.js';
 import { plotFileCsv } from '../plotDesign.js';
 import { parsePlotFile } from '../plots.js';
 import { requireSession } from '../plugins/projectAuth.js';
@@ -25,9 +32,16 @@ interface ImportBody {
   ceoProject?: unknown;
   /** CEO's plot list (get-project-plots), as saved: its JSON, or its text; optional */
   ceoPlots?: unknown;
+  /** CEO's sample data ("Download Sample Data", CSV), as its text; optional, with the plots (Part C) */
+  ceoAnswers?: unknown;
+  /** CEO's collectors by email: the username of an account to keep their records under; a pseudonym otherwise */
+  collectors?: unknown;
   /** the new project's name; CEO's by default */
   name?: unknown;
 }
+
+/** The records of a collector given no account: ceo-collector-1, -2... */
+const PSEUDONYM_PREFIX = 'ceo-collector-';
 
 const MAX_NAME = 200;
 
@@ -45,9 +59,16 @@ function summary(s: CeoSurvey) {
       /** null: no plots file */
       plots: s.plots ? s.plots.plots.length : null,
     },
+    /** null: no answers file. The emails are the coordinator's to map (never stored: see collectors) */
+    answers: s.answers
+      ? { plots: s.answers.plots.length, flagged: s.answers.plots.filter((p) => p.flagged).length, collectors: s.answers.collectors }
+      : null,
     report: r.entries,
   };
 }
+
+/** The plots answered in CEO (one answer submitted at least): their own plot file, not to be given out again. */
+const answeredPlots = (answers: readonly CeoPlotAnswers[]) => new Set(answers.filter(submitted).map((p) => p.plot));
 
 /** The survey of the body's CEO file, or the answer refusing it */
 function translate(body: ImportBody, reply: FastifyReply): CeoSurvey | null {
@@ -62,8 +83,17 @@ function translate(body: ImportBody, reply: FastifyReply): CeoSurvey | null {
     void reply.code(400).send({ error: 'bad_request', reason: 'ceoPlots must be the plots file saved from Collect Earth Online' });
     return null;
   }
+  const answers = body.ceoAnswers === undefined || body.ceoAnswers === null ? undefined : typeof body.ceoAnswers === 'string' ? body.ceoAnswers : null;
+  if (answers === null) {
+    void reply.code(400).send({ error: 'bad_request', reason: "ceoAnswers must be the text of CEO's sample data (CSV)" });
+    return null;
+  }
+  if (answers !== undefined && plots === undefined) {
+    void reply.code(400).send({ error: 'ceo_unreadable', reason: "The answers need the plots file too: save CEO's plot list (get-project-plots) as well." });
+    return null;
+  }
   try {
-    return ceoSurvey(json, plots !== undefined ? { plots } : {});
+    return ceoSurvey(json, { ...(plots !== undefined ? { plots } : {}), ...(answers !== undefined ? { answers } : {}) });
   } catch (e) {
     if (e instanceof CeoImportError) {
       void reply.code(400).send({ error: 'ceo_unreadable', reason: e.message });
@@ -91,6 +121,29 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
     const asked = typeof body.name === 'string' ? body.name.trim() : '';
     const name = (asked || survey.project.name || `CEO project ${survey.project.id ?? ''}`.trim()).slice(0, MAX_NAME);
 
+    // Whose records: the accounts the coordinator named (checked before anything is made), pseudonyms for the others
+    const operators = new Map<string, { username: string; userId: string | null }>();
+    if (survey.answers) {
+      const named = body.collectors !== null && typeof body.collectors === 'object' && !Array.isArray(body.collectors) ? (body.collectors as Record<string, unknown>) : {};
+      for (const { email } of survey.answers.collectors) {
+        const username = typeof named[email] === 'string' ? (named[email] as string).trim() : '';
+        if (!username) continue;
+        const account = await store.getUserByUsername(username);
+        if (!account || account.disabledAt) {
+          return reply.code(400).send({ error: 'unknown_account', reason: `No account "${username}" can take the work of a CEO collector on this server.`, username });
+        }
+        operators.set(email, { username: account.username, userId: account.id });
+      }
+      let n = 0;
+      for (const { email } of survey.answers.collectors) {
+        if (operators.has(email)) continue;
+        let pseudonym: string;
+        do pseudonym = `${PSEUDONYM_PREFIX}${++n}`;
+        while (await store.isAccountUsername(pseudonym));
+        operators.set(email, { username: pseudonym, userId: null });
+      }
+    }
+
     const cep = ceoProjectFile(survey, new Date());
     const { projectId } = await store.createProject({ name });
     await store.addMembership(projectId, user.id, 'admin');
@@ -100,20 +153,71 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
       await store.deleteProject(projectId);
       return reply.code(accepted.status).send(accepted.body);
     }
-    // Its plots, as the plot design writes a plot file, through what the plot-file upload stores and logs
-    let plotFile: { csvFileId: string; filename: string; plots: number } | null = null;
-    if (survey.plots) {
-      const format = await plotFileFormat(store, projectId, request.log);
-      const filename = `ceo_${survey.project.id ?? 'project'}_plots.csv`;
-      const data = Buffer.from(plotFileCsv(survey.plots.plots, format?.keys ?? { count: 1, roundIndex: null, roundCode: '1' }, format?.extra ?? null), 'utf8');
+    // Its plots, as the plot design writes a plot file, through what the plot-file upload stores and logs; with the
+    // answers, the plots answered in CEO in a file of their own, so only the others are given out
+    type StoredFile = { csvFileId: string; filename: string; plots: number };
+    let plotFile: StoredFile | null = null;
+    let doneFile: StoredFile | null = null;
+    const format = survey.plots ? await plotFileFormat(store, projectId, request.log) : null;
+    const storePlotFile = async (filename: string, plots: NonNullable<CeoSurvey['plots']>['plots']): Promise<StoredFile | 'over'> => {
+      const data = Buffer.from(plotFileCsv(plots, format?.keys ?? { count: 1, roundIndex: null, roundCode: '1' }, format?.extra ?? null), 'utf8');
       const over = await checkUploadFits(store, projectId, { kind: 'csv', filename }, data.length);
       if (over) {
         await store.deleteProject(projectId);
-        return reply.code(413).send(over);
+        void reply.code(413).send(over);
+        return 'over';
       }
-      const keyCount = format?.keys.count ?? 1;
-      const meta = await store.putCsvFile(projectId, filename, data, parsePlotFile(data, keyCount).plotIds);
-      plotFile = { csvFileId: meta.id, filename, plots: meta.plotCount };
+      const meta = await store.putCsvFile(projectId, filename, data, parsePlotFile(data, format?.keys.count ?? 1).plotIds);
+      return { csvFileId: meta.id, filename, plots: meta.plotCount };
+    };
+    if (survey.plots) {
+      const done = survey.answers ? answeredPlots(survey.answers.plots) : new Set<string>();
+      const toDo = survey.plots.plots.filter((p) => !done.has(p.id));
+      const base = `ceo_${survey.project.id ?? 'project'}_plots`;
+      if (toDo.length > 0) {
+        const stored = await storePlotFile(`${base}.csv`, toDo);
+        if (stored === 'over') return reply;
+        plotFile = stored;
+      }
+      if (done.size > 0) {
+        const stored = await storePlotFile(`${base}_done.csv`, survey.plots.plots.filter((p) => done.has(p.id)));
+        if (stored === 'over') return reply;
+        doneFile = stored;
+      }
+    }
+
+    // CEO's answers, as records Collect Earth would have sent, stored as a sync stores them (last write wins, events)
+    let records = 0;
+    if (survey.answers && survey.plots && survey.answers.plots.length > 0) {
+      for (const { userId } of operators.values()) {
+        if (userId && !(await store.listMemberships(userId)).some((m) => m.projectId === projectId)) await store.addMembership(projectId, userId, 'operator');
+      }
+      const stored = readCep(await store.getCep(projectId) as Buffer);
+      const surveyXml = new TextDecoder().decode(stored.entries.get(stored.surveyPath)!);
+      const info = await store.getRoundInfo(projectId);
+      const roundCode = info && info.state !== 'none' ? info.roundCodes.find((c) => c.code !== info.reassessmentCode)?.code ?? null : null;
+      const done = answeredPlots(survey.answers.plots);
+      const receivedAt = Date.now();
+      const built = ceoRecords(survey.answers.plots, {
+        surveyXml,
+        roundCode,
+        operatorOf: (email) => operators.get(email)!.username,
+        plotFile: (done.size > 0 ? doneFile : plotFile)?.filename ?? '',
+        centres: new Map(survey.plots.plots.map((p) => [p.id, { lat: p.lat, lon: p.lon }])),
+        now: receivedAt,
+      });
+      for (const r of built) {
+        const envelope = { recordKey: r.recordKey, surveyUri: `http://www.openforis.org/idm/${survey.surveyName}`, operator: r.operator, modifiedOn: r.modifiedOn,
+          activelySaved: r.activelySaved, step: 1, xml: r.xml, summary: r.summary, deleted: false, payloadVersion: 1, activeSeconds: r.activeSeconds };
+        const kept = await store.putRecordWithEvent(projectId, r.recordKey, r.operator, (existing, submittedBefore) => {
+          // Received when it was saved in CEO: it did not come late (the Progress tab's "work that arrives late")
+          const { row, status } = applyLww(envelope, existing, r.modifiedOn);
+          if (status !== 'stored') return null;
+          const next = { ...row, projectId };
+          return { row: next, event: recordEventOf(existing, next, submittedBefore) };
+        });
+        if (kept) records++;
+      }
     }
     const s = summary(survey);
     try {
@@ -129,13 +233,18 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
           rules: s.counts.rules,
           rulesSkipped: s.counts.rulesSkipped,
           plots: s.counts.plots,
+          ...(survey.answers ? { records, collectors: survey.answers.collectors.length } : {}),
         },
       });
-      if (plotFile) await store.appendAudit(projectId, { actorUserId: user.id, action: 'csv.uploaded', details: { csvFileId: plotFile.csvFileId, plots: plotFile.plots } });
+      for (const file of [plotFile, doneFile]) {
+        if (file) await store.appendAudit(projectId, { actorUserId: user.id, action: 'csv.uploaded', details: { csvFileId: file.csvFileId, plots: file.plots } });
+      }
     } catch (err) {
       request.log.error({ err }, 'audit log write failed');
     }
     request.log.info({ projectId, ceoProjectId: survey.project.id, round: accepted.info.state }, 'project made from a Collect Earth Online project');
-    return reply.code(201).send({ projectId, name, round: accepted.info.state, plotFile, reportText: reportText(survey), ...s });
+    // The collectors' names on this server, by CEO email: for the coordinator, who mapped them (never stored)
+    const collectors = survey.answers ? survey.answers.collectors.map((c) => ({ ...c, username: operators.get(c.email)!.username })) : [];
+    return reply.code(201).send({ projectId, name, round: accepted.info.state, plotFile, doneFile, records, reportText: reportText(survey), ...s, collectors });
   });
 }

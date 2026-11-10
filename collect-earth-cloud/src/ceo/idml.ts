@@ -4,7 +4,7 @@
 // (elevation, slope, aspect, then the extra ones), then the questions on a tab of their own. Read back by Collect's
 // own parser in the desktop's tests (CeoSurveyIdmlTest).
 import type { PlannedCheck } from './rules.js';
-import type { PlannedAttribute, SurveyPlan } from './survey.js';
+import { CONFIDENCE_NAME, FLAGGED_NAME, type PlannedAttribute, type SurveyPlan } from './survey.js';
 
 export interface SurveyMeta {
   /** the project's name, the survey's label */
@@ -12,6 +12,8 @@ export interface SurveyMeta {
   /** a unique identifier of the survey (Collect's uri) */
   uri: string;
   description: string;
+  /** with CEO's answers: the hidden attributes of what Collect Earth has no place for yet (flag, confidence) */
+  answerFields?: boolean;
 }
 
 const escape = (s: string): string =>
@@ -87,6 +89,14 @@ export function writeIdml(meta: SurveyMeta, plan: SurveyPlan, checks: readonly P
     `      <number id="${next()}" name="slope" ui:tab="${DATA_TAB}" collectearth:fromcsv="true" type="real">\n        ${label('Plot - Slope')}\n      </number>`,
     `      <number id="${next()}" name="aspect" ui:tab="${DATA_TAB}" collectearth:fromcsv="true" type="real">\n        ${label('Plot - Aspect')}\n      </number>`,
     ...plan.columns.map((c) => `      <text id="${next()}" name="${c.name}" ui:tab="${DATA_TAB}" collectearth:fromcsv="true" type="short">\n        ${label(c.column)}\n      </text>`),
+    // With CEO's answers (answers.ts): what Collect Earth has no place for yet, kept on each imported record, hidden
+    // as plot_file is
+    ...(meta.answerFields
+      ? [
+          `      <boolean id="${next()}" name="${FLAGGED_NAME}" relevant="false()" ui:tab="${DATA_TAB}">\n        ${label('CEO - Flagged by the collector')}\n      </boolean>`,
+          `      <number id="${next()}" name="${CONFIDENCE_NAME}" relevant="false()" ui:tab="${DATA_TAB}" type="integer">\n        ${label('CEO - Confidence (0-100)')}\n      </number>`,
+        ]
+      : []),
   ];
   const entityId = next();
   const questions = plan.attributes.map(question);

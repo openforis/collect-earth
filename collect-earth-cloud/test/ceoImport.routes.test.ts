@@ -1,15 +1,23 @@
 // A new project from a Collect Earth Online project (src/routes/ceoImport.ts, plan docs/plans/2026-11-09-ceo-bridge.md,
 // B4 and B5), on the public CEO projects of test/fixtures/ceo.
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { strFromU8, unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { parseCsv } from '../src/ceo/answers.js';
 import { readCep } from '../src/cep.js';
 import { bearer, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/ceo/', import.meta.url));
 const ceo = (id: number) => JSON.parse(readFileSync(`${FIXTURES}project-${id}.json`, 'utf8')) as Record<string, unknown>;
 const ceoPlots = (id: number) => readFileSync(`${FIXTURES}project-${id}-plots.json`, 'utf8');
+const ceoAnswers = (id: number) => readFileSync(`${FIXTURES}project-${id}-samples.csv`, 'utf8');
+/** The rows of the coordinator's export.csv, by column */
+const exportRows = (csv: string) => {
+  const [header, ...rows] = parseCsv(csv.replace(/^\uFEFF/, '')).filter((r) => r.length > 1);
+  return rows.map((r) => Object.fromEntries(header.map((h, i) => [h, r[i]])));
+};
+const JAVA_RESOURCES = fileURLToPath(new URL('../../collect-earth/collect-earth-app/src/test/resources/ceo/answers/', import.meta.url));
 
 describe('a new project from a Collect Earth Online project', () => {
   let ctx: TestContext;
@@ -124,6 +132,110 @@ describe('a new project from a Collect Earth Online project', () => {
     expect(res.json()).toMatchObject({ error: 'ceo_unreadable', reason: expect.stringContaining("outside this project's area") });
     expect((await post('', { ceoProject: ceo(1), ceoPlots: 12 })).json()).toMatchObject({ error: 'bad_request' });
     expect(await ctx.store.listMemberships(owner.userId)).toEqual([]);
+  });
+
+  describe("with CEO's answers (Part C)", () => {
+    const withAnswers = (extra: object = {}) => ({ ceoProject: ceo(20170), ceoPlots: ceoPlots(20170), ceoAnswers: ceoAnswers(20170), ...extra });
+
+    it('the preview counts them, and gives the collectors to map; answers need the plots', async () => {
+      const res = await post('/preview', withAnswers());
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json().answers).toEqual({
+        plots: 5, flagged: 1,
+        collectors: [{ email: 'ana@example.org', plots: 3 }, { email: 'ben@example.org', plots: 2 }],
+      });
+      expect((await post('/preview', { ceoProject: ceo(20170) })).json().answers).toBeNull();
+      expect((await post('', { ceoProject: ceo(20170), ceoAnswers: ceoAnswers(20170) })).json()).toMatchObject({ error: 'ceo_unreadable', reason: expect.stringContaining('plots file') });
+      expect((await post('/preview', withAnswers({ ceoAnswers: 'name,age\nana,3' }))).json()).toMatchObject({ error: 'ceo_unreadable' });
+      expect((await post('/preview', withAnswers({ ceoAnswers: ceoAnswers(30918) }))).json()).toMatchObject({ error: 'ceo_unreadable', reason: expect.stringContaining("another project's") });
+    });
+
+    it('stores one record per plot and collector, as a sync would, under pseudonyms or the accounts named', async () => {
+      // ben has an account on the server (another project's)
+      await ctx.app.inject({ method: 'PUT', url: '/v1/admin/settings', headers: bearer(owner.token), payload: { signupOpen: true } });
+      const ben = (await ctx.app.inject({ method: 'POST', url: '/v1/auth/signup', payload: { username: 'ben', password: 'ben-password1' } })).json();
+
+      const res = await post('', withAnswers({ collectors: { 'ben@example.org': 'ben' } }));
+      expect(res.statusCode, res.body).toBe(201);
+      const { projectId, plotFile, doneFile, records, collectors } = res.json();
+      expect(records).toBe(5);
+      expect(collectors).toEqual([
+        { email: 'ana@example.org', plots: 3, username: 'ceo-collector-1' },
+        { email: 'ben@example.org', plots: 2, username: 'ben' },
+      ]);
+      // the plots answered (not flagged) apart, so only the others are given out
+      expect(doneFile).toMatchObject({ filename: 'ceo_20170_plots_done.csv', plots: 2 });
+      expect(plotFile).toMatchObject({ filename: 'ceo_20170_plots.csv', plots: 264 });
+      // ben joined as a collector
+      expect((await ctx.store.listMemberships(ben.userId)).map((m) => [m.projectId, m.role])).toEqual([[projectId, 'operator']]);
+
+      const exported = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/export.csv`, headers: bearer(owner.token) });
+      const rows = exportRows(exported.body);
+      const row = (plot: string, operator: string) => rows.find((r) => r.plot === plot && r.operator === operator)!;
+      expect(rows).toHaveLength(5);
+      expect(row('138814414', 'ceo-collector-1')).toMatchObject({
+        record_key: '138814414,1', round: '1', actively_saved: 'true', modified_on: '2024-12-31T10:05:00.000Z',
+        collect_code_visible_strata: 'degradation', collect_code_mixed: 'yes', collect_code_secondary_visible_strata: 'other',
+        collect_text_secondary_notes_or_type_of_other: 'logging road, near the river', collect_code_confidence: 'high',
+        collect_real_year_disturbed: '2015.0', collect_text_operator: 'ceo-collector-1', collect_boolean_ceo_flagged: 'false',
+        collect_coord_location: '26.66312053,87.4837365', collect_date_actively_saved_on: '12/31/2024',
+      });
+      expect(row('138814414', 'ben')).toMatchObject({ collect_code_visible_strata: 'stable_forest', collect_code_confidence: 'medium', collect_code_secondary_visible_strata: '' });
+      expect(row('138814419', 'ben').collect_text_notes_or_type_of_other).toBe('river bed gravel');
+      expect(row('138814420', 'ceo-collector-1')).toMatchObject({ actively_saved: 'false', collect_boolean_ceo_flagged: 'true', collect_code_visible_strata: '' });
+      expect(row('138814421', 'ceo-collector-1')).toMatchObject({ actively_saved: 'false', collect_code_visible_strata: '', collect_code_confidence: 'high' });
+
+      // the time spent in CEO, and a record event for each submission (progress counts them)
+      const stored = await ctx.store.listRecords(projectId);
+      const first = stored.find((r) => r.recordKey === '138814414,1' && r.operator === 'ceo-collector-1')!;
+      expect(first.activeSeconds).toBe(95);
+      // received when CEO saved it: the Progress tab does not take CEO's old work for work that arrives late
+      expect(first.receivedAt).toBe(first.modifiedOn);
+      const progress = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/progress`, headers: bearer(owner.token) });
+      expect(progress.statusCode).toBe(200);
+      expect(JSON.stringify(progress.json())).toContain('"submitted"');
+
+      // the log says how many, never who in CEO
+      const log = await ctx.store.listAudit(projectId, { limit: 10 });
+      expect(log.find((e) => e.action === 'project.imported')?.details).toMatchObject({ records: 5, collectors: 2 });
+      expect(JSON.stringify(log)).not.toContain('example.org');
+      const cep = unzipSync(new Uint8Array((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/cep`, headers: bearer(owner.token) })).rawPayload));
+      expect(strFromU8(cep['ceo_import_report.txt'])).not.toContain('example.org');
+
+      // for CeoRecordsXmlTest: the survey served and the records, which Collect itself reads
+      const xml = await ctx.store.getRecordXml(projectId, stored.map((r) => ({ recordKey: r.recordKey, operator: r.operator })));
+      const files = readCep(cep['placemark.idm.xml'] ? Buffer.from((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/cep`, headers: bearer(owner.token) })).rawPayload) : Buffer.alloc(0));
+      const written = new Map<string, string>([['placemark.idm.xml', new TextDecoder().decode(files.entries.get(files.surveyPath)!)]]);
+      for (const x of xml) {
+        const name = `${x.recordKey.replace(',', '_')}-${x.operator}`;
+        written.set(`${name}.xml`, x.xml!);
+        const summary = stored.find((r) => r.recordKey === x.recordKey && r.operator === x.operator)!.summary;
+        written.set(`${name}.summary.json`, JSON.stringify(Object.fromEntries(Object.entries(summary).sort(([a], [b]) => (a < b ? -1 : 1))), null, 1) + '\n');
+      }
+      if (!existsSync(JAVA_RESOURCES)) mkdirSync(JAVA_RESOURCES, { recursive: true });
+      for (const [name, text] of written) {
+        const path = JAVA_RESOURCES + name;
+        if (process.env.UPDATE_CEO_IDML === '1' || !existsSync(path)) writeFileSync(path, text);
+        expect(readFileSync(path, 'utf8'), path).toBe(text);
+      }
+    });
+
+    it("keeps CEO's confidence, and the answer of most samples", async () => {
+      const res = await post('', { ceoProject: ceo(30918), ceoPlots: ceoPlots(30918), ceoAnswers: ceoAnswers(30918) });
+      expect(res.statusCode, res.body).toBe(201);
+      const rows = exportRows((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${res.json().projectId}/export.csv`, headers: bearer(owner.token) })).body);
+      const plot = rows.find((r) => r.plot === '1425')!;
+      expect(plot).toMatchObject({ collect_code_forest2017: 'yes', collect_code_forest_trend_2013to2017: 'decreasing', collect_integer_ceo_confidence: '80', collect_code_land_cover_change_2013to2017: '' });
+      expect(rows.find((r) => r.plot === '1680')).toMatchObject({ collect_real_stable_canopy_cover: '72.5', collect_integer_ceo_confidence: '100' });
+      expect(res.json().report.find((e: { subject: string }) => e.subject === 'Samples that disagree')).toMatchObject({ outcome: 'changed' });
+    });
+
+    it('refuses an account that does not exist, and makes nothing', async () => {
+      const res = await post('', withAnswers({ collectors: { 'ana@example.org': 'nobody' } }));
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toMatchObject({ error: 'unknown_account', username: 'nobody' });
+      expect(await ctx.store.listMemberships(owner.userId)).toEqual([]);
+    });
   });
 
   it('every importable fixture makes a project whose round is added', async () => {

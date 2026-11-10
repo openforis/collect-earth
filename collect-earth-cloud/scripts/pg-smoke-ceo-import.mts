@@ -70,9 +70,24 @@ try {
   check('its plot file is stored with its 210 plots', files.length === 1 && files[0].plotCount === 210, files);
   const secondLog = await store.listAudit(second.json().projectId as string, { limit: 10 });
   check('and logged as uploaded', secondLog.some((e) => e.action === 'csv.uploaded'), secondLog);
+  // With CEO's answers (Part C): records through the app role, their events, a named account joining
+  const answers = readFileSync(new URL('../test/fixtures/ceo/project-20170-samples.csv', import.meta.url), 'utf8');
+  const nepalPlots = readFileSync(new URL('../test/fixtures/ceo/project-20170-plots.json', import.meta.url), 'utf8');
+  const withAnswers = await app.inject({ method: 'POST', url: '/v1/projects/from-ceo', headers: auth, payload: { ceoProject: fixture(20170), ceoPlots: nepalPlots, ceoAnswers: answers } });
+  check('a project with its answers', withAnswers.statusCode === 201 && withAnswers.json().records === 5, withAnswers.body.slice(0, 300));
+  const nepal = withAnswers.json().projectId as string;
+  const records = await store.listRecords(nepal);
+  check('five records, two collectors', records.length === 5 && new Set(records.map((r) => r.operator)).size === 2, records.map((r) => [r.recordKey, r.operator]));
+  check('received when CEO saved them', records.every((r) => r.receivedAt === r.modifiedOn), records.map((r) => [r.receivedAt, r.modifiedOn]));
+  const exported = await app.inject({ method: 'GET', url: `/v1/projects/${nepal}/export.csv`, headers: auth });
+  check('the export holds the answers', exported.statusCode === 200 && exported.body.includes('logging road, near the river') && exported.body.includes('degradation'), exported.body.slice(0, 300));
+  const progress = await app.inject({ method: 'GET', url: `/v1/projects/${nepal}/progress`, headers: auth });
+  check('the progress counts them', progress.statusCode === 200, progress.body.slice(0, 200));
+  check('and the two plot files', (await store.listCsvFiles(nepal)).map((f) => f.filename).sort().join() === 'ceo_20170_plots.csv,ceo_20170_plots_done.csv');
+
   const wrong = await app.inject({ method: 'POST', url: '/v1/projects/from-ceo', headers: auth, payload: { ceoProject: fixture(1), ceoPlots: plots } });
   check("another project's plots are refused", wrong.statusCode === 400, wrong.body);
-  check('two projects, nothing half made', (await store.listMemberships(userId)).length === 2);
+  check('three projects, nothing half made', (await store.listMemberships(userId)).length === 3);
 } finally {
   await app.close();
 }

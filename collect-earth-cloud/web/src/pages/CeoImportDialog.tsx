@@ -14,7 +14,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useState, type FormEvent } from "react";
-import { importCeoProject, previewCeoImport, type CeoImportPreview, type CeoReportEntry } from "../api";
+import { importCeoProject, previewCeoImport, type CeoFiles, type CeoImportPreview, type CeoReportEntry } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { FileDrop } from "../components/FileDrop";
@@ -24,10 +24,15 @@ import { navigate, pathFor } from "../router";
 /** CEO answers these to anyone for a public project, and to its members when signed in. */
 export const ceoProjectUrl = (id: string) => `https://app.collect.earth/get-project-by-id?projectId=${encodeURIComponent(id)}`;
 export const ceoPlotsUrl = (id: string) => `https://app.collect.earth/get-project-plots?projectId=${encodeURIComponent(id)}`;
+/** The project's "Download Sample Data": CEO gives it to the project's administrators only. */
+export const ceoAnswersUrl = (id: string) => `https://app.collect.earth/dump-project-raw-data?projectId=${encodeURIComponent(id)}`;
 
-/** Which of CEO's two files a text is: its plot list is a JSON array, its project an object. */
-export function ceoFileKind(text: string): "plots" | "project" {
-  return text.trimStart().startsWith("[") ? "plots" : "project";
+/** Which of CEO's three files a text is: its plot list is a JSON array, its sample data a CSV, its project an object. */
+export function ceoFileKind(text: string): keyof CeoFiles {
+  const start = text.replace(/^﻿/, "").trimStart();
+  if (start.startsWith("[")) return "plots";
+  if (start.startsWith("plotid")) return "answers";
+  return "project";
 }
 
 const OUTCOME_COLOR = { imported: "success", changed: "warning", skipped: "error", info: "default" } as const;
@@ -35,45 +40,44 @@ const OUTCOME_COLOR = { imported: "success", changed: "warning", skipped: "error
 /** What the coordinator should read before creating: what changed, was left out, or is a note. */
 export const needsAttention = (e: CeoReportEntry) => e.outcome !== "imported";
 
+const NO_FILES = { project: null as string | null, plots: null as string | null, answers: null as string | null };
+
 /**
- * A new project from Collect Earth Online (docs/plans/2026-11-09-ceo-bridge.md, B3 to B5): the files saved from CEO
- * (the project, and its plots when wanted), the report of what comes across, then the project, which opens on its
- * getting-started checklist.
+ * A new project from Collect Earth Online (docs/plans/2026-11-09-ceo-bridge.md, B3 to C): the files saved from CEO (the
+ * project; its plots and its answers when wanted), the report of what comes across, whose the answers are, then the
+ * project, which opens on its getting-started checklist.
  */
 export function CeoImportDialog({ onClose }: { onClose: () => void }) {
   const t = useT();
   const { refreshMe } = useApp();
   const [ceoId, setCeoId] = useState("");
-  const [project, setProject] = useState<string | null>(null);
-  const [plots, setPlots] = useState<string | null>(null);
+  const [files, setFiles] = useState(NO_FILES);
   const [preview, setPreview] = useState<CeoImportPreview | null>(null);
   const [name, setName] = useState("");
+  const [accounts, setAccounts] = useState<Record<string, string>>({});
   const [empty, setEmpty] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
-  /** Takes the files dropped (one or both, in any order) and shows what they make, once the project is there. */
-  const read = async (files: File[]) => {
+  /** Takes the files dropped (any of the three, in any order) and shows what they make, once the project is there. */
+  const read = async (dropped: File[]) => {
     setError(null);
     setBusy(true);
     try {
-      let nextProject = project;
-      let nextPlots = plots;
-      for (const file of files) {
+      const next = { ...files };
+      for (const file of dropped) {
         const text = await file.text();
-        if (ceoFileKind(text) === "plots") nextPlots = text;
-        else nextProject = text;
+        next[ceoFileKind(text)] = text;
       }
-      if (nextProject !== null) {
-        const shown = await previewCeoImport(nextProject, nextPlots);
+      if (next.project !== null) {
+        const shown = await previewCeoImport({ project: next.project, plots: next.plots, answers: next.answers });
         // A name typed already stays; the first preview gives CEO's
         if (preview === null) setName(shown.name);
         setPreview(shown);
         setShowAll(false);
       }
-      setProject(nextProject);
-      setPlots(nextPlots);
+      setFiles(next);
     } catch (err) {
       setError(err);
     } finally {
@@ -83,7 +87,7 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
 
   const create = async (event: FormEvent) => {
     event.preventDefault();
-    if (project === null) return;
+    if (files.project === null) return;
     setError(null);
     if (!name.trim()) {
       setEmpty(true);
@@ -91,7 +95,8 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
     }
     setBusy(true);
     try {
-      const created = await importCeoProject(project, plots, name.trim());
+      const collectors = Object.fromEntries(Object.entries(accounts).map(([email, username]) => [email, username.trim()]).filter(([, username]) => username !== ""));
+      const created = await importCeoProject({ project: files.project, plots: files.plots, answers: files.answers }, name.trim(), collectors);
       await refreshMe();
       navigate(pathFor({ name: "project", projectId: created.projectId, tab: "setup" }));
     } catch (err) {
@@ -102,8 +107,8 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
 
   const startAgain = () => {
     setPreview(null);
-    setProject(null);
-    setPlots(null);
+    setFiles(NO_FILES);
+    setAccounts({});
     setError(null);
   };
 
@@ -111,6 +116,12 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
   const id = ceoId.trim();
   const validId = /^\d+$/.test(id);
   const plotCount = preview?.counts.plots ?? null;
+  const answers = preview?.answers ?? null;
+  const link = (href: string, text: string) => (
+    <Button variant="outlined" component="a" aria-disabled={!validId} disabled={!validId} href={href} target="_blank" rel="noopener noreferrer">
+      {text}
+    </Button>
+  );
 
   return (
     <Dialog open onClose={busy ? undefined : onClose} fullWidth maxWidth="md">
@@ -120,27 +131,23 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
           {preview === null ? (
             <Stack spacing={2} sx={{ pt: 1 }}>
               <Typography>{t("ceoImport.intro")}</Typography>
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: { sm: "flex-start" } }}>
-                <TextField
-                  label={t("ceoImport.idLabel")}
-                  helperText={t("ceoImport.idHelp")}
-                  value={ceoId}
-                  onChange={(e) => setCeoId(e.target.value)}
-                  slotProps={{ htmlInput: { inputMode: "numeric", maxLength: 12 } }}
-                  sx={{ flex: 1 }}
-                />
-                <Button variant="outlined" component="a" aria-disabled={!validId} disabled={!validId} href={ceoProjectUrl(id)} target="_blank" rel="noopener noreferrer" sx={{ mt: { sm: 1 } }}>
-                  {t("ceoImport.open")}
-                </Button>
-                <Button variant="outlined" component="a" aria-disabled={!validId} disabled={!validId} href={ceoPlotsUrl(id)} target="_blank" rel="noopener noreferrer" sx={{ mt: { sm: 1 } }}>
-                  {t("ceoImport.openPlots")}
-                </Button>
+              <TextField
+                label={t("ceoImport.idLabel")}
+                helperText={t("ceoImport.idHelp")}
+                value={ceoId}
+                onChange={(e) => setCeoId(e.target.value)}
+                slotProps={{ htmlInput: { inputMode: "numeric", maxLength: 12 } }}
+              />
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                {link(ceoProjectUrl(id), t("ceoImport.open"))}
+                {link(ceoPlotsUrl(id), t("ceoImport.openPlots"))}
+                {link(ceoAnswersUrl(id), t("ceoImport.openAnswers"))}
               </Stack>
               <Typography variant="body2" color="text.secondary">
                 {t("ceoImport.save")}
               </Typography>
-              <FileDrop label={t("ceoImport.drop")} buttonLabel={t("ceoImport.choose")} accept=".json,application/json" multiple disabled={busy} onFiles={read} />
-              {plots !== null && project === null && <Alert severity="info">{t("ceoImport.plotsOnly")}</Alert>}
+              <FileDrop label={t("ceoImport.drop")} buttonLabel={t("ceoImport.choose")} accept=".json,.csv,application/json,text/csv" multiple disabled={busy} onFiles={read} />
+              {(files.plots !== null || files.answers !== null) && files.project === null && <Alert severity="info">{t("ceoImport.plotsOnly")}</Alert>}
               {busy && <LinearProgress aria-label={t("ceoImport.reading")} />}
             </Stack>
           ) : (
@@ -170,9 +177,44 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
                 <ListItem disableGutters>
                   <ListItemText primary={plotCount !== null ? t("ceoImport.plots", { count: String(plotCount) }) : t("ceoImport.noPlots")} />
                 </ListItem>
+                {plotCount !== null && (
+                  <ListItem disableGutters>
+                    <ListItemText
+                      primary={answers ? t("ceoImport.answers", { count: String(answers.plots), collectors: String(answers.collectors.length) }) : t("ceoImport.noAnswers")}
+                      secondary={answers && answers.flagged > 0 ? t("ceoImport.answersFlagged", { count: String(answers.flagged) }) : undefined}
+                    />
+                  </ListItem>
+                )}
               </List>
               {plotCount === null && (
                 <FileDrop label={t("ceoImport.dropPlots")} buttonLabel={t("ceoImport.choosePlots")} accept=".json,application/json" disabled={busy} onFiles={read} />
+              )}
+              {plotCount !== null && answers === null && (
+                <FileDrop label={t("ceoImport.dropAnswers")} buttonLabel={t("ceoImport.chooseAnswers")} accept=".csv,text/csv" disabled={busy} onFiles={read} />
+              )}
+              {answers && answers.collectors.length > 0 && (
+                <Stack spacing={1}>
+                  <Typography variant="h3" component="h3">
+                    {t("ceoImport.collectors")}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {t("ceoImport.collectorsHelp")}
+                  </Typography>
+                  {answers.collectors.map((c, i) => (
+                    <Stack key={c.email} direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: { sm: "center" } }}>
+                      <ListItemText primary={c.email} secondary={t("ceoImport.collectorPlots", { count: String(c.plots) })} sx={{ flex: 1, wordBreak: "break-all" }} />
+                      <TextField
+                        size="small"
+                        label={t("ceoImport.accountLabel")}
+                        placeholder={`ceo-collector-${i + 1}`}
+                        value={accounts[c.email] ?? ""}
+                        onChange={(e) => setAccounts({ ...accounts, [c.email]: e.target.value })}
+                        slotProps={{ htmlInput: { maxLength: 100, autoCapitalize: "none", spellCheck: false } }}
+                        sx={{ flex: 1 }}
+                      />
+                    </Stack>
+                  ))}
+                </Stack>
               )}
               <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
                 <Typography variant="h3" component="h3">
@@ -197,7 +239,7 @@ export function CeoImportDialog({ onClose }: { onClose: () => void }) {
               <Typography variant="body2" color="text.secondary">
                 {t("ceoImport.english")}
               </Typography>
-              <Alert severity="info">{plotCount !== null ? t("ceoImport.nextWithPlots") : t("ceoImport.next")}</Alert>
+              <Alert severity="info">{answers ? t("ceoImport.nextWithAnswers") : plotCount !== null ? t("ceoImport.nextWithPlots") : t("ceoImport.next")}</Alert>
               {busy && <LinearProgress aria-label={t("ceoImport.creating")} />}
             </Stack>
           )}

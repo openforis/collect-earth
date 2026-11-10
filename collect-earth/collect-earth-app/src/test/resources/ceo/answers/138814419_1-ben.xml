@@ -1,0 +1,59 @@
+<?xml version='1.0' standalone='yes' ?>
+<plot step="1" created="2025-03-03T14:00:00.000+00:00" modified="2025-03-03T14:00:00.000+00:00">
+  <id>
+    <value>138814419</value>
+  </id>
+  <round>
+    <code>1</code>
+  </round>
+  <location>
+    <x>85.06610058</x>
+    <y>27.13177161</y>
+    <srs>EPSG:4326</srs>
+  </location>
+  <operator>
+    <value>ben</value>
+  </operator>
+  <actively_saved>
+    <value>true</value>
+  </actively_saved>
+  <actively_saved_on>
+    <year>2025</year>
+    <month>3</month>
+    <day>3</day>
+  </actively_saved_on>
+  <plot_file>
+    <value>ceo_20170_plots_done.csv</value>
+  </plot_file>
+  <elevation>
+    <value>0</value>
+  </elevation>
+  <slope>
+    <value>0.0</value>
+  </slope>
+  <aspect>
+    <value>0.0</value>
+  </aspect>
+  <coordinator_note />
+  <ceo_flagged>
+    <value>false</value>
+  </ceo_flagged>
+  <ceo_confidence />
+  <visible_strata>
+    <code>other</code>
+  </visible_strata>
+  <mixed>
+    <code>no</code>
+  </mixed>
+  <secondary_visible_strata />
+  <secondary_notes_or_type_of_other />
+  <notes_or_type_of_other>
+    <value>river bed gravel</value>
+  </notes_or_type_of_other>
+  <confidence>
+    <code>low</code>
+  </confidence>
+  <year_disturbed>
+    <value>2010.0</value>
+  </year_disturbed>
+</plot>

@@ -27,6 +27,8 @@ sample design that occurs (the counts are in the plan's Part A results):
 | `project-1-plots.json` | Mekong River Region | `get-project-plots?projectId=1`: the plots' centres, ids, status and flag |
 | `project-<id>-plots.json` | 743, 17814, 20170, 30918, 54724 | `get-project-plots` of those projects (10 November 2026, without a login; saved with sorted keys): gridded, random, uploaded CSV and GeoJSON plots, flagged and answered ones. 2616's (7,933 plots, 1.2 MB) is left out |
 
+| `project-<id>-samples.csv` | 20170, 30918 | CEO's sample data ("Download Sample Data"), **made here, not downloaded**: `test/ceoSampleData.ts` writes it by the rules of CEO's own code (`dump-project-raw-data!` and `dump_project_sample_data`: columns, question order, quoting, Java's week year) for these real projects and their real plots, with answers made up to hold every case the import reads (two collectors on one plot, a flagged plot, an answer CEO no longer has, a comma and quotes typed, samples that disagree, a date written with the next year). `npx tsx test/ceoSampleData.ts` writes them again. Replace or add a real download when one is at hand |
+
 What is **not** here, as CEO gives it only to the project's administrators (403 without their login): the downloads
 of plots ("Download Shape File", "Download Plot Data", with the uploaded shapes and columns) and of answers
 ("Download Sample Data"). Those come from the organisations moving their projects, for Part C (answers) and for the

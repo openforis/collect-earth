@@ -326,6 +326,61 @@ What the run found, for later:
 
 ## Part C: the answers (about 1 week)
 
+**Done (10 Nov 2026)**, on sample data made by the rules of CEO's code: CEO gives "Download Sample Data" to a project's
+administrators only, and none was at hand. CEO's code defines the file exactly
+(`dump-project-raw-data!` in `src/clj/collect_earth_online/db/projects.clj`, `dump_project_sample_data` in
+`src/sql/functions/project.sql`), and `test/ceoSampleData.ts` writes it that way for fixtures 20170 and 30918. A real
+download should still be tried when an organisation sends one.
+
+What the file is, from CEO's code:
+- the UTF-8 mark; `plotid, sampleid, sample_internal_id, lon, lat, email, flagged, collection_time,
+  analysis_duration, used_geodash, used_kml, imagery_title, imagery_attributions, sample_geom, confidence,
+  confidence_comment`; `pl_…` and `smpl_…` (the uploaded files' columns); one column per question **named by its
+  text**, in CEO's order (the top questions by card, each followed by its children, the survey's keys in jsonb order);
+  `, Guest Interpreters` last, and every row ends with a comma;
+- one row per sample **and per collector** of the plot (a plot CEO gave two people has two sets), and rows without an
+  email for the plots nobody answered;
+- a value is the answer's text (or what was typed); it is quoted only when it holds a comma, and its quotes are taken
+  out; nothing else is escaped, so a line break typed in an answer breaks its row;
+- `collection_time` is `YYYY-MM-dd HH:mm` with Java's **week year**: the last days of December can carry the next
+  year ("2025-12-31" for 31 December 2024); `analysis_duration` is "95.4 secs".
+
+What was built:
+- `src/ceo/answers.ts` reads the file against the project and the survey planned for it: the question columns by
+  place, checked by their text (by text alone when the project changed since), answers matched to the codes by their
+  text, numbers checked. Per plot and collector, **the answer of most samples** (the first sample's among equals),
+  then only the answers of questions shown under the answers kept. A plot answer is submitted when it is not flagged
+  and every question it shows has its needed answer; otherwise it is kept not submitted, to be answered again. The
+  date's week year is put back. All of it is reported: rows broken, answers CEO no longer has, samples that disagree,
+  answers of questions not shown, plot answers lacking a needed answer.
+- `ceoRecords` writes each as Collect Earth would send it (`CloudRecordSerializer`): the record XML of Collect's
+  `DataMarshaller`, from the survey the cloud serves (round and note added), and the summary of
+  `getValuesByHtmlParameters`. `CeoRecordsXmlTest` reads the records with Collect's `DataUnmarshaller` and checks
+  that the summary Collect Earth makes of each equals the cloud's.
+- The route stores them as `records:batch` does (`putRecordWithEvent`, `applyLww`, record events), received at
+  CEO's save time so the Progress tab does not take them for late work, with CEO's time spent as the active time.
+- **Whose records:** a CEO collector is an email, which the server does not keep. The coordinator may name an
+  account of the server for each (it joins the project as a collector); the others become `ceo-collector-1`, `-2`...
+  (never an account's name). The preview shows the emails to the coordinator only; the log and the report count.
+- **The plots done:** with the answers, the plots answered in CEO go in `ceo_<id>_plots_done.csv`, so that the
+  coordinator gives out only `ceo_<id>_plots.csv`. Collect Earth does not download records: a plot given out again
+  would be answered again, under the collector's name, beside CEO's answer.
+- `flagged` and `confidence` are kept on each record in two hidden attributes the survey gets with the answers,
+  `ceo_flagged` and `ceo_confidence` (relevant="false()", as `plot_file`).
+- The dialog takes the three files together or one after the other (the sample data is told by its first column),
+  links to CEO's download of the answers, and lists the collectors with a field for an account each.
+
+Checked: `test/ceo.test.ts` and `test/ceoImport.routes.test.ts` (every case of the fixtures, the export, the progress,
+the log without emails), `CeoRecordsXmlTest`, `npm run smoke:pg:ceo` (through the app role), and the dashboard in a
+browser (Progress, People, Data, Activity: CEO's work under CEO's dates).
+
+Not done:
+- `pl_` and `smpl_` columns are not read (CEO's uploaded plot file's columns would be extra plot columns).
+- A file too large for a request (32 MB: roughly 100,000 sample rows) cannot be imported in one go.
+- An imported project cannot take CEO's answers later: they come at creation.
+
+The plan as written:
+
 CEO's sample CSV into the new project's records, so a project moves with what was collected, finished or mid-way:
 
 - one answer per plot: a plot's samples agree, or the answer of most samples is taken (reported per plot);
