@@ -11,6 +11,8 @@
 import { isPlotUnit } from './progress.js';
 import { compareAnswers, keyRule, later, MIN_PLOTS, plotOrder, recordResolver, type KeyRule, type QualityInput, type QualityRecord, type Rate } from './quality.js';
 import { recordKeysOfUnit } from './rounds.js';
+import { parsePlotFile } from './plots.js';
+import type { Question } from './surveyOutline.js';
 import { priority } from './sampling.js';
 import type { RoundInfo } from './cep.js';
 import type { Member, PlotAssignment, PlotHoldingKey, ReferencePlot } from './types.js';
@@ -47,6 +49,8 @@ export interface ReferenceFigures {
   people: ReferencePerson[];
   /** Each reference plot (plot order): its assessor, whether the reference is submitted, and how many checks of it are. */
   byPlot: { plot: string; assessor: string; assessed: boolean; checks: number }[];
+  /** Against the reference answers a coordinator uploaded (externalReferenceFigures); absent without them. */
+  external?: ExternalReferenceFigures;
 }
 
 export const NO_REFERENCE: ReferenceFigures = { plots: 0, assessed: 0, checks: 0, questions: [], people: [], byPlot: [] };
@@ -323,4 +327,227 @@ export function splitListedPlots(plots: readonly string[], units: readonly strin
 export function parsePlotList(value: unknown): string[] | null {
   if (!Array.isArray(value) || value.length > MAX_PLOTS_PER_REQUEST || !value.every((v) => typeof v === 'string' && v.length > 0 && v.length <= 1000)) return null;
   return [...new Set(value as string[])];
+}
+
+// --- Reference answers from a file: a coordinator's own reference set (Collect Earth Online's
+// reference data), keyed by plot id, every collector's latest record of those plots compared with it.
+
+/** At most this many plots in an uploaded reference set. */
+export const MAX_REFERENCE_ANSWERS = 100_000;
+/** At most this many unmatched values and unknown plots are reported back. */
+const MAX_REPORTED = 50;
+
+export interface ExternalReferenceFigures {
+  /** Plots with reference answers, and of them those someone's record was compared on. */
+  plots: number;
+  assessed: number;
+  /** Records compared: each person's latest submitted record of each plot (first assessment or check). */
+  checks: number;
+  /** Per question, everyone's answers together, in the survey's order: agreeing = the same as the reference. */
+  questions: ReferenceQuestion[];
+  /** Per person, by name: `answers` every compared answer (its share differing is their disagreement), `plots` all agreeing. */
+  people: (ReferencePerson & { answers: Rate })[];
+  /** Per plot (plot order): records compared, and their answers compared and agreeing. */
+  byPlot: { plot: string; records: number; compared: number; agreeing: number }[];
+}
+
+export interface ParsedReferenceAnswers {
+  rows: { plotKey: string; answers: Record<string, string> }[];
+  /** The file's columns taken, with the question each one is. */
+  columns: { column: string; key: string }[];
+  /** Columns that are no question answers are compared on (by name, key or label). */
+  unmatchedColumns: string[];
+  /** Answers that are none of the question's (a number for a number question), with how often. */
+  unmatchedValues: { column: string; value: string; count: number }[];
+  /** Plot ids in no plot file of the project (their rows are not kept). */
+  unknownPlots: string[];
+  unknownPlotCount: number;
+}
+
+/** The questions answers are compared on (keyRule: calculated ones too, as the agreement figures compare them). */
+function comparedQuestions(outline: ReadonlyMap<string, Question>): Question[] {
+  return [...outline.values()].filter((q) => !q.excluded && (q.kind === 'choice' || q.kind === 'number'));
+}
+
+/**
+ * Reads an uploaded reference set: a CSV (its first keyCount columns the plot id, as in a plot
+ * file, then one column per question) or a JSON array of objects (`plot`, `plot_id` or `id`, then
+ * the questions). A column is a question when its name is the question's summary key, its name
+ * without the "collect_<type>_" prefix, or its label (case ignored). Choice answers are the codes
+ * (or their labels); number answers numbers; blank cells give no answer. Rows of plots in no plot
+ * file (`units`) are left out and listed, as are columns and answers that do not match.
+ */
+export function parseReferenceAnswers(
+  body: Buffer | readonly unknown[],
+  outline: ReadonlyMap<string, Question>,
+  units: ReadonlySet<string>,
+  keyCount: number,
+): ParsedReferenceAnswers {
+  const byName = new Map<string, Question>();
+  for (const q of comparedQuestions(outline)) {
+    for (const name of [q.label, q.key.replace(/^collect_[a-z]+_/, ''), q.key]) if (name) byName.set(name.trim().toLowerCase(), q);
+  }
+  // The table: a header of column names and rows of [plot id, cells by column].
+  let names: string[];
+  let table: { plot: string; cells: Record<string, unknown> }[];
+  if (Buffer.isBuffer(body)) {
+    const file = parsePlotFile(body, keyCount);
+    const header = file.header?.fields ?? [];
+    names = header.slice(keyCount);
+    table = file.rows.map((row) => ({ plot: row.id, cells: Object.fromEntries(names.map((n, i) => [n, row.fields[keyCount + i] ?? ''])) }));
+  } else {
+    const objects = body.filter((x): x is Record<string, unknown> => x !== null && typeof x === 'object' && !Array.isArray(x));
+    const idOf = (o: Record<string, unknown>) => ['plot', 'plot_id', 'id'].find((k) => typeof o[k] === 'string' || typeof o[k] === 'number');
+    names = [...new Set(objects.flatMap((o) => Object.keys(o).filter((k) => k !== idOf(o))))];
+    table = objects.filter((o) => idOf(o) !== undefined).map((o) => ({ plot: String(o[idOf(o)!]).trim(), cells: o }));
+  }
+  const columns = names.flatMap((column) => {
+    const q = byName.get(column.trim().toLowerCase());
+    return q ? [{ column, key: q.key }] : [];
+  });
+  const taken = new Set(columns.map((c) => c.column));
+  const unmatchedColumns = names.filter((n) => !taken.has(n) && n.trim() !== '');
+  const questionOf = new Map(columns.map((c) => [c.column, outline.get(c.key)!]));
+  const bad = new Map<string, { column: string; value: string; count: number }>();
+  const unknown: string[] = [];
+  const seen = new Set<string>();
+  const rows: ParsedReferenceAnswers['rows'] = [];
+  for (const { plot, cells } of table) {
+    if (!units.has(plot)) {
+      if (plot !== '' && !unknown.includes(plot)) unknown.push(plot);
+      continue;
+    }
+    if (seen.has(plot)) continue; // the first row of a plot is taken, as in a plot file
+    seen.add(plot);
+    const answers: Record<string, string> = {};
+    for (const { column, key } of columns) {
+      const raw = cells[column];
+      const value = raw === null || raw === undefined ? '' : String(raw).trim();
+      if (value === '') continue;
+      const q = questionOf.get(column)!;
+      let answer: string | null = value;
+      if (q.kind === 'number') {
+        answer = Number.isFinite(Number(value.replace(',', '.'))) ? value.replace(',', '.') : null;
+      } else if (!q.multiple && q.options && q.options.length > 0) {
+        const lower = value.toLowerCase();
+        answer = (q.options.find((o) => o.code === value) ?? q.options.find((o) => o.code.toLowerCase() === lower || o.label.trim().toLowerCase() === lower))?.code ?? null;
+      }
+      if (answer === null) {
+        const id = `${column}\u0000${value}`;
+        const b = bad.get(id);
+        if (b) b.count += 1;
+        else bad.set(id, { column, value, count: 1 });
+        continue;
+      }
+      answers[key] = answer;
+    }
+    if (Object.keys(answers).length > 0) rows.push({ plotKey: plot, answers });
+  }
+  return {
+    rows,
+    columns,
+    unmatchedColumns,
+    // The most frequent first; else in the order met.
+    unmatchedValues: [...bad.values()].sort((a, b) => b.count - a.count).slice(0, MAX_REPORTED),
+    unknownPlots: unknown.slice(0, MAX_REPORTED),
+    unknownPlotCount: unknown.length,
+  };
+}
+
+/**
+ * Everyone's answers against the uploaded reference answers (`input.referenceAnswers`, by plot
+ * unit): each person's latest submitted record of each of those plots (a first assessment or a
+ * check), only the questions the reference answers, compared as the agreement figures compare
+ * (compareAnswers: margins, blanks; a question the reference answers and the record leaves blank
+ * differs). Null without reference answers. A rate needs MIN_PLOTS compared, else it is null.
+ */
+export function externalReferenceFigures(input: QualityInput): ExternalReferenceFigures | null {
+  const reference = input.referenceAnswers;
+  if (!reference || reference.size === 0) return null;
+  const resolve = recordResolver(input);
+  const keys = new Set<string>();
+  for (const unit of reference.keys()) for (const k of recordKeysOfUnit(unit, input.info)) keys.add(k);
+  const latest = new Map<string, Map<string, QualityRecord>>();
+  for (const r of input.records) {
+    if (!r.activelySaved || r.deleted || !keys.has(r.recordKey)) continue;
+    const { unit, group } = resolve(r);
+    const plot = unit !== null && reference.has(unit) ? unit : reference.has(group) ? group : null;
+    if (plot === null) continue;
+    let byOperator = latest.get(plot);
+    if (!byOperator) latest.set(plot, (byOperator = new Map()));
+    const seen = byOperator.get(r.operator);
+    if (!seen || later(r, seen)) byOperator.set(r.operator, r);
+  }
+  const rules = new Map<string, KeyRule>();
+  const ruleOf = (key: string) => {
+    let rule = rules.get(key);
+    if (!rule) rules.set(key, (rule = keyRule(key, input.outline)));
+    return rule;
+  };
+  const margins = input.margins ?? {};
+  const count = () => ({ compared: 0, agreeing: 0 });
+  const questions = new Map<string, { kind: 'choice' | 'number'; compared: number; agreeing: number }>();
+  const people = new Map<string, { answers: { compared: number; agreeing: number }; plots: { compared: number; agreeing: number }; questions: Map<string, { compared: number; agreeing: number }> }>();
+  const byPlot: ExternalReferenceFigures['byPlot'] = [];
+  let checks = 0;
+  for (const [plot, answers] of reference) {
+    const entry = { plot, records: 0, compared: 0, agreeing: 0 };
+    for (const [operator, record] of latest.get(plot) ?? []) {
+      // Only what the reference answers: a question it leaves out says nothing.
+      const mine: Record<string, string> = {};
+      for (const key of Object.keys(answers)) if (Object.hasOwn(record.summary, key)) mine[key] = record.summary[key];
+      let person = people.get(operator);
+      let compared = 0;
+      let all = true;
+      compareAnswers(answers, mine, ruleOf, margins, (key, kind, agrees) => {
+        if (!person) people.set(operator, (person = { answers: count(), plots: count(), questions: new Map() }));
+        let q = questions.get(key);
+        if (!q) questions.set(key, (q = { kind, ...count() }));
+        let pq = person.questions.get(key);
+        if (!pq) person.questions.set(key, (pq = count()));
+        compared += 1;
+        for (const c of [q, pq, person.answers]) {
+          c.compared += 1;
+          if (agrees) c.agreeing += 1;
+        }
+        if (agrees) entry.agreeing += 1;
+        else all = false;
+      });
+      if (compared === 0 || !person) continue;
+      checks += 1;
+      entry.records += 1;
+      entry.compared += compared;
+      person.plots.compared += 1;
+      if (all) person.plots.agreeing += 1;
+    }
+    byPlot.push(entry);
+  }
+  const outlineKeys = input.outline ? [...input.outline.keys()] : [];
+  const rank = new Map(outlineKeys.map((k, i) => [k, i]));
+  const byOutline = (a: string, b: string) => (rank.get(a) ?? outlineKeys.length) - (rank.get(b) ?? outlineKeys.length) || (a < b ? -1 : a > b ? 1 : 0);
+  const labelOf = (key: string) => {
+    const rule = ruleOf(key);
+    return rule.compare ? rule.label : key;
+  };
+  return {
+    plots: reference.size,
+    assessed: byPlot.filter((p) => p.records > 0).length,
+    checks,
+    questions: [...questions.keys()].sort(byOutline).map((key) => {
+      const q = questions.get(key)!;
+      return { key, label: labelOf(key), kind: q.kind, ...rateOf(q.compared, q.agreeing) };
+    }),
+    people: [...people.keys()]
+      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+      .map((username) => {
+        const p = people.get(username)!;
+        return {
+          username,
+          answers: rateOf(p.answers.compared, p.answers.agreeing),
+          plots: rateOf(p.plots.compared, p.plots.agreeing),
+          questions: [...p.questions.keys()].sort(byOutline).map((key) => ({ key, label: labelOf(key), ...rateOf(p.questions.get(key)!.compared, p.questions.get(key)!.agreeing) })),
+        };
+      }),
+    byPlot: byPlot.sort((a, b) => plotOrder(a.plot, b.plot)),
+  };
 }

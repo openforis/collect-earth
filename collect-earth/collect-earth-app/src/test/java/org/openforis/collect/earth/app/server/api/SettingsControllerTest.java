@@ -83,7 +83,7 @@ public class SettingsControllerTest {
 
 	@Test
 	public void validatesWhatThePageHolds() throws Exception {
-		SettingsValidator validator = new SettingsValidator(model, f -> true, () -> TODAY);
+		SettingsValidator validator = new SettingsValidator(model, () -> TODAY);
 		Map<String, String> values = new HashMap<>();
 		values.put("sample_shape", "SQUARE");
 		values.put("number_of_sampling_points_in_plot", "25");
@@ -92,12 +92,13 @@ public class SettingsControllerTest {
 		values.put("inner_point_side", "2");
 		values.put("buffer_shape", "SQUARE");
 		values.put("distance_to_buffers", "5");
-		values.put("port", "x");
+		values.put("db_driver", "POSTGRESQL");
+		values.put("db_port", "x");
 		when(settings.validate(anyMap())).thenReturn(validator.validate(values));
 		mvc.perform(post("/api/settings/validate").contentType(MediaType.APPLICATION_JSON)
-				.content("{\"values\":{\"distance_to_buffers\":\"5\",\"port\":\"x\"}}"))
+				.content("{\"values\":{\"distance_to_buffers\":\"5\",\"db_port\":\"x\"}}"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.errors.port").value(Messages.getString("PropertyValidators.portRange")))
+				.andExpect(jsonPath("$.errors.db_port").value(Messages.getString("PropertyValidators.portRange")))
 				.andExpect(jsonPath("$.errors.distance_to_buffers").exists())
 				.andExpect(jsonPath("$.plot.minReferenceDistance").value(21))
 				.andExpect(jsonPath("$.plot.plotAreaHa").value(0.16));
@@ -119,12 +120,12 @@ public class SettingsControllerTest {
 
 	@Test
 	public void refusesInvalidChangesWithTheErrorsByKey() throws Exception {
-		when(settings.save(anyMap())).thenThrow(new InvalidSettingsException(Collections.singletonMap("port", "Port must be a number")));
-		mvc.perform(post("/api/settings").contentType(MediaType.APPLICATION_JSON).content("{\"values\":{\"port\":\"x\"}}"))
+		when(settings.save(anyMap())).thenThrow(new InvalidSettingsException(Collections.singletonMap("db_port", "Port must be a number")));
+		mvc.perform(post("/api/settings").contentType(MediaType.APPLICATION_JSON).content("{\"values\":{\"db_port\":\"x\"}}"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.error").value("settings.invalid"))
 				.andExpect(jsonPath("$.message").value(Messages.getString("PropertiesDialog.validationErrors")))
-				.andExpect(jsonPath("$.errors.port").value("Port must be a number"));
+				.andExpect(jsonPath("$.errors.db_port").value("Port must be a number"));
 	}
 
 	@Test

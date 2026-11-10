@@ -1,0 +1,1093 @@
+{
+ "allowDrawnSamples": false,
+ "aoiFeatures": [
+  {
+   "coordinates": [
+    [
+     [
+      144.199093004,
+      -7.5609033
+     ],
+     [
+      144.199093004,
+      -4.999095058
+     ],
+     [
+      151.360912874,
+      -4.999095058
+     ],
+     [
+      151.360912874,
+      -7.5609033
+     ],
+     [
+      144.199093004,
+      -7.5609033
+     ]
+    ]
+   ],
+   "type": "Polygon"
+  }
+ ],
+ "aoiFileName": "",
+ "availability": "published",
+ "boundary": "{\"type\":\"Polygon\",\"coordinates\":[[[144.199093004,-7.5609033],[144.199093004,-4.999095058],[151.360912874,-4.999095058],[151.360912874,-7.5609033],[144.199093004,-7.5609033]]]}",
+ "closedDate": "2020-12-12",
+ "createdDate": "2020-02-09",
+ "description": "PNG_Land Use and Land Use Change and Forestry 2020 (Demo). This is the demo survey to share the design of PNG LULUCF 2020 as CEO version. There are surveys per province for actual assessment but they are restricted to only Group Members. Please contact Admin for further detail.",
+ "designSettings": {
+  "qaqcAssignment": {
+   "percent": 0,
+   "qaqcMethod": "none",
+   "smes": [],
+   "timesToReview": 2
+  },
+  "sampleGeometries": {
+   "lines": true,
+   "points": true,
+   "polygons": true
+  },
+  "userAssignment": {
+   "percents": [],
+   "userMethod": "none",
+   "users": []
+  }
+ },
+ "hasGeoDash": true,
+ "id": 5455,
+ "imageryId": 1318,
+ "institution": 790,
+ "isProjectAdmin": false,
+ "learningMaterial": null,
+ "name": "PNG_LULUCF_2020_Demo",
+ "numPlots": 4,
+ "plotDistribution": "csv",
+ "plotFileName": null,
+ "plotShape": "square",
+ "plotSimilarityDetails": {
+  "referencePlotId": null,
+  "years": null
+ },
+ "plotSize": 100.0,
+ "plotSpacing": 0.0,
+ "privacyLevel": "public",
+ "projectOptions": {
+  "autoLaunchGeoDash": true,
+  "collectConfidence": true,
+  "showGEEScript": true,
+  "showPlotInformation": true
+ },
+ "publishedDate": "2020-12-12",
+ "referencePlotId": null,
+ "sampleDistribution": "gridded",
+ "sampleFileName": null,
+ "sampleResolution": 25.0,
+ "samplesPerPlot": 25,
+ "shufflePlots": null,
+ "surveyQuestions": {
+  "1": {
+   "answers": {
+    "1": {
+     "answer": "Forest land",
+     "color": "#008000"
+    },
+    "2": {
+     "answer": "Cropland",
+     "color": "#ffff00"
+    },
+    "3": {
+     "answer": "Grassland",
+     "color": "#00ff00"
+    },
+    "4": {
+     "answer": "Wetlands",
+     "color": "#1527F6"
+    },
+    "5": {
+     "answer": "Settlements",
+     "color": "#ff80c0"
+    },
+    "6": {
+     "answer": "Other land",
+     "color": "#ff8040"
+    },
+    "7": {
+     "answer": "No Data",
+     "color": "#c0c0c0"
+    }
+   },
+   "cardOrder": 1,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Land Use"
+  },
+  "10": {
+   "answers": {
+    "1": {
+     "answer": "Subsistence Agriculture",
+     "color": "#ffff80"
+    },
+    "2": {
+     "answer": "Commercial Agriculture",
+     "color": "#ffff00"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    2
+   ],
+   "parentQuestionId": 1,
+   "question": "Land Use Subtype (CL)"
+  },
+  "11": {
+   "answers": {
+    "1": {
+     "answer": "Grassland",
+     "color": "#00ff00"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    3
+   ],
+   "parentQuestionId": 1,
+   "question": "Land Use Subtype (GL)"
+  },
+  "12": {
+   "answers": {
+    "1": {
+     "answer": "Wetlands",
+     "color": "#1527F6"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    4
+   ],
+   "parentQuestionId": 1,
+   "question": "Land Use Subtype (WL)"
+  },
+  "13": {
+   "answers": {
+    "1": {
+     "answer": "Settlements",
+     "color": "#ff00ff"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    5
+   ],
+   "parentQuestionId": 1,
+   "question": "Land Use Subtype (SL)"
+  },
+  "14": {
+   "answers": {
+    "1": {
+     "answer": "Other land",
+     "color": "#ff8000"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    6
+   ],
+   "parentQuestionId": 1,
+   "question": "Land Use Subtype (OT)"
+  },
+  "15": {
+   "answers": {
+    "1": {
+     "answer": "Low_altitude_forest_plain",
+     "color": "#008000"
+    },
+    "10": {
+     "answer": "Woodland",
+     "color": "#008000"
+    },
+    "11": {
+     "answer": "Scrub",
+     "color": "#008000"
+    },
+    "12": {
+     "answer": "Mangrove",
+     "color": "#008000"
+    },
+    "2": {
+     "answer": "Low_altitude_forest_upland",
+     "color": "#008000"
+    },
+    "3": {
+     "answer": "Lower_montane_forest",
+     "color": "#008000"
+    },
+    "4": {
+     "answer": "Montane_forest",
+     "color": "#008000"
+    },
+    "5": {
+     "answer": "Dry_seasonal_forest",
+     "color": "#008000"
+    },
+    "6": {
+     "answer": "Littoral_forest",
+     "color": "#008000"
+    },
+    "7": {
+     "answer": "Seral_forest",
+     "color": "#008000"
+    },
+    "8": {
+     "answer": "Swamp_forest",
+     "color": "#008000"
+    },
+    "9": {
+     "answer": "Savanna",
+     "color": "#008000"
+    }
+   },
+   "componentType": "dropdown",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 9,
+   "question": "Land Use Subdiv (NF)"
+  },
+  "16": {
+   "answers": {
+    "1": {
+     "answer": "Teak Plantation",
+     "color": "#008080"
+    },
+    "2": {
+     "answer": "Eucalyptus Plantation",
+     "color": "#008080"
+    },
+    "3": {
+     "answer": "Balsa Plantation",
+     "color": "#008080"
+    },
+    "4": {
+     "answer": "Araucaria Plantation",
+     "color": "#008080"
+    },
+    "5": {
+     "answer": "Pinus Plantation",
+     "color": "#008080"
+    },
+    "6": {
+     "answer": "Acacia Plantation",
+     "color": "#008080"
+    },
+    "7": {
+     "answer": "Terminalia Plantation",
+     "color": "#008080"
+    },
+    "8": {
+     "answer": "Other Forest Plantation",
+     "color": "#008080"
+    },
+    "9": {
+     "answer": "Undetermined Forest Plantation",
+     "color": "#008080"
+    }
+   },
+   "componentType": "dropdown",
+   "dataType": "text",
+   "parentAnswerIds": [
+    2
+   ],
+   "parentQuestionId": 9,
+   "question": "Land Use Subdiv (PF)"
+  },
+  "17": {
+   "answers": {
+    "1": {
+     "answer": "Permanent",
+     "color": "#ffff80"
+    },
+    "2": {
+     "answer": "Shifting",
+     "color": "#ffff80"
+    },
+    "3": {
+     "answer": "Not sure",
+     "color": "#ffff80"
+    }
+   },
+   "componentType": "dropdown",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 10,
+   "question": "Land Use Subdiv (SA)"
+  },
+  "18": {
+   "answers": {
+    "1": {
+     "answer": "Tea",
+     "color": "#ffff00"
+    },
+    "10": {
+     "answer": "Spices",
+     "color": "#ffff00"
+    },
+    "11": {
+     "answer": "Rubber",
+     "color": "#ffff00"
+    },
+    "2": {
+     "answer": "Coffee",
+     "color": "#ffff00"
+    },
+    "3": {
+     "answer": "Palm Oil",
+     "color": "#ffff00"
+    },
+    "4": {
+     "answer": "Cocoa",
+     "color": "#ffff00"
+    },
+    "5": {
+     "answer": "Coconut",
+     "color": "#ffff00"
+    },
+    "6": {
+     "answer": "Other",
+     "color": "#ffff00"
+    },
+    "7": {
+     "answer": "Codoa_Coconut",
+     "color": "#ffff00"
+    },
+    "8": {
+     "answer": "Sugar",
+     "color": "#ffff00"
+    },
+    "9": {
+     "answer": "Rice",
+     "color": "#ffff00"
+    }
+   },
+   "componentType": "dropdown",
+   "dataType": "text",
+   "parentAnswerIds": [
+    2
+   ],
+   "parentQuestionId": 10,
+   "question": "Land Use Subdiv (CA)"
+  },
+  "19": {
+   "answers": {
+    "1": {
+     "answer": "Herbland",
+     "color": "#00ff00"
+    },
+    "2": {
+     "answer": "Rangeland",
+     "color": "#00ff00"
+    },
+    "3": {
+     "answer": "Others",
+     "color": "#00ff00"
+    }
+   },
+   "componentType": "dropdown",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 11,
+   "question": "Land Use Subdiv (GL)"
+  },
+  "2": {
+   "answers": {
+    "1": {
+     "answer": "FLtoFL",
+     "color": "#008000"
+    },
+    "2": {
+     "answer": "OTtoFL",
+     "color": "#ff8000"
+    },
+    "3": {
+     "answer": "CLtoFL",
+     "color": "#ffff00"
+    },
+    "4": {
+     "answer": "GLtoFL",
+     "color": "#00ff00"
+    },
+    "5": {
+     "answer": "WLtoFL",
+     "color": "#1527F6"
+    },
+    "6": {
+     "answer": "SLtoFL",
+     "color": "#ff00ff"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 1,
+   "question": "Land Use Change (FL)"
+  },
+  "20": {
+   "answers": {
+    "1": {
+     "answer": "River",
+     "color": "#1527F6"
+    },
+    "2": {
+     "answer": "Lake",
+     "color": "#1527F6"
+    },
+    "3": {
+     "answer": "Dam",
+     "color": "#1527F6"
+    },
+    "4": {
+     "answer": "Nipa Swamp",
+     "color": "#1527F6"
+    },
+    "5": {
+     "answer": "Other Swamp",
+     "color": "#1527F6"
+    }
+   },
+   "componentType": "dropdown",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 12,
+   "question": "Land Use Subdiv (WL)"
+  },
+  "21": {
+   "answers": {
+    "1": {
+     "answer": "Village",
+     "color": "#ff00ff"
+    },
+    "2": {
+     "answer": "Hamlet",
+     "color": "#ff00ff"
+    },
+    "3": {
+     "answer": "Large Settlement",
+     "color": "#ff00ff"
+    },
+    "4": {
+     "answer": "Infrastructure",
+     "color": "#ff00ff"
+    }
+   },
+   "componentType": "dropdown",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 13,
+   "question": "Land Use Subdiv (SL)"
+  },
+  "22": {
+   "answers": {
+    "1": {
+     "answer": "Bare",
+     "color": "#ff8040"
+    },
+    "2": {
+     "answer": "Sand",
+     "color": "#ff8040"
+    },
+    "3": {
+     "answer": "Rock",
+     "color": "#ff8040"
+    }
+   },
+   "componentType": "dropdown",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 14,
+   "question": "Land Use Subdiv (OT)"
+  },
+  "23": {
+   "answers": {
+    "1": {
+     "answer": "No Data",
+     "color": "#c0c0c0"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    7
+   ],
+   "parentQuestionId": 1,
+   "question": "Land Use Subtype (ND)"
+  },
+  "24": {
+   "answers": {
+    "1": {
+     "answer": "Sea",
+     "color": "#c0c0c0"
+    },
+    "2": {
+     "answer": "Clouds",
+     "color": "#c0c0c0"
+    },
+    "3": {
+     "answer": "Other reason",
+     "color": "#c0c0c0"
+    }
+   },
+   "componentType": "radiobutton",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 23,
+   "question": "Land Use Subdiv (ND)"
+  },
+  "25": {
+   "answers": {
+    "1": {
+     "answer": "0",
+     "color": "#008000"
+    },
+    "2": {
+     "answer": "0-10",
+     "color": "#008000"
+    },
+    "3": {
+     "answer": "10-30",
+     "color": "#008000"
+    },
+    "4": {
+     "answer": "30-50",
+     "color": "#008000"
+    },
+    "5": {
+     "answer": "50-70",
+     "color": "#008000"
+    },
+    "6": {
+     "answer": "70-100",
+     "color": "#008000"
+    }
+   },
+   "componentType": "dropdown",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 1,
+   "question": "Canopy Cover (%)"
+  },
+  "26": {
+   "answers": {
+    "1": {
+     "answer": "TRUE",
+     "color": "#ffffff"
+    },
+    "2": {
+     "answer": "FALSE",
+     "color": "#000000"
+    }
+   },
+   "componentType": "radiobutton",
+   "dataType": "boolean",
+   "parentAnswerIds": [],
+   "parentQuestionId": 25,
+   "question": "Canopy Cover Accuracy"
+  },
+  "27": {
+   "answers": {
+    "1": {
+     "answer": "Logging",
+     "color": "#008000"
+    },
+    "2": {
+     "answer": "Fire",
+     "color": "#ff0000"
+    },
+    "3": {
+     "answer": "Grazing",
+     "color": "#00ff00"
+    },
+    "4": {
+     "answer": "Wokabout Sawmill",
+     "color": "#ff00ff"
+    },
+    "5": {
+     "answer": "Gardening",
+     "color": "#ffff00"
+    },
+    "6": {
+     "answer": "Other Human Impact",
+     "color": "#ff8040"
+    },
+    "7": {
+     "answer": "None",
+     "color": "#c0c0c0"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 1,
+   "question": "Human Impact Type"
+  },
+  "28": {
+   "answers": {
+    "1": {
+     "answer": "TRUE",
+     "color": "#ffffff"
+    },
+    "2": {
+     "answer": "FALSE",
+     "color": "#000000"
+    }
+   },
+   "componentType": "radiobutton",
+   "dataType": "boolean",
+   "parentAnswerIds": [],
+   "parentQuestionId": 27,
+   "question": "Human Impact Accuracy"
+  },
+  "29": {
+   "answers": {
+    "1": {
+     "answer": "Low",
+     "color": "#ff80ff"
+    },
+    "2": {
+     "answer": "Medium",
+     "color": "#ff00ff"
+    },
+    "3": {
+     "answer": "High",
+     "color": "#ff0080"
+    }
+   },
+   "componentType": "dropdown",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": 27,
+   "question": "Human Impact Grade"
+  },
+  "3": {
+   "answers": {
+    "1": {
+     "answer": "CLtoCL",
+     "color": "#ffff00"
+    },
+    "2": {
+     "answer": "OTtoCL",
+     "color": "#ff8000"
+    },
+    "3": {
+     "answer": "FLtoCL",
+     "color": "#008000"
+    },
+    "4": {
+     "answer": "GLtoCL",
+     "color": "#00ff00"
+    },
+    "5": {
+     "answer": "WLtoCL",
+     "color": "#1527F6"
+    },
+    "6": {
+     "answer": "SLtoCL",
+     "color": "#ff00ff"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    2
+   ],
+   "parentQuestionId": 1,
+   "question": "Land Use Change (CL)"
+  },
+  "30": {
+   "answers": {
+    "1": {
+     "answer": "2001",
+     "color": "#c0c0c0"
+    },
+    "10": {
+     "answer": "2010",
+     "color": "#c0c0c0"
+    },
+    "11": {
+     "answer": "2011",
+     "color": "#c0c0c0"
+    },
+    "12": {
+     "answer": "2012",
+     "color": "#c0c0c0"
+    },
+    "13": {
+     "answer": "2013",
+     "color": "#c0c0c0"
+    },
+    "14": {
+     "answer": "2014",
+     "color": "#c0c0c0"
+    },
+    "15": {
+     "answer": "2015",
+     "color": "#c0c0c0"
+    },
+    "16": {
+     "answer": "2016",
+     "color": "#c0c0c0"
+    },
+    "17": {
+     "answer": "2017",
+     "color": "#c0c0c0"
+    },
+    "18": {
+     "answer": "2018",
+     "color": "#c0c0c0"
+    },
+    "19": {
+     "answer": "2019",
+     "color": "#c0c0c0"
+    },
+    "2": {
+     "answer": "2002",
+     "color": "#c0c0c0"
+    },
+    "3": {
+     "answer": "2003",
+     "color": "#c0c0c0"
+    },
+    "4": {
+     "answer": "2004",
+     "color": "#c0c0c0"
+    },
+    "5": {
+     "answer": "2005",
+     "color": "#c0c0c0"
+    },
+    "6": {
+     "answer": "2006",
+     "color": "#c0c0c0"
+    },
+    "7": {
+     "answer": "2007",
+     "color": "#c0c0c0"
+    },
+    "8": {
+     "answer": "2008",
+     "color": "#c0c0c0"
+    },
+    "9": {
+     "answer": "2009",
+     "color": "#c0c0c0"
+    }
+   },
+   "componentType": "dropdown",
+   "dataType": "number",
+   "parentAnswerIds": [],
+   "parentQuestionId": 27,
+   "question": "Human Impact Year"
+  },
+  "31": {
+   "answers": {
+    "1": {
+     "answer": "Google Earth",
+     "color": "#ff0000"
+    },
+    "2": {
+     "answer": "Bing Maps",
+     "color": "#1527F6"
+    },
+    "3": {
+     "answer": "Planet Maps",
+     "color": "#008000"
+    },
+    "4": {
+     "answer": "Landsat (GEE)",
+     "color": "#ff00ff"
+    },
+    "5": {
+     "answer": "Sentinel (GEE)",
+     "color": "#ffff00"
+    }
+   },
+   "cardOrder": 31,
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [],
+   "parentQuestionId": -1,
+   "question": "Satellite Image"
+  },
+  "4": {
+   "answers": {
+    "1": {
+     "answer": "GLtoGL",
+     "color": "#00ff00"
+    },
+    "2": {
+     "answer": "OTtoGL",
+     "color": "#ff8040"
+    },
+    "3": {
+     "answer": "FLtoGL",
+     "color": "#008000"
+    },
+    "4": {
+     "answer": "CLtoGL",
+     "color": "#ffff00"
+    },
+    "5": {
+     "answer": "WLtoGL",
+     "color": "#1527F6"
+    },
+    "6": {
+     "answer": "SLtoGL",
+     "color": "#ff00ff"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    3
+   ],
+   "parentQuestionId": 1,
+   "question": "Land Use Change (GL)"
+  },
+  "5": {
+   "answers": {
+    "1": {
+     "answer": "WLtoWL",
+     "color": "#1527F6"
+    },
+    "2": {
+     "answer": "OTtoWL",
+     "color": "#ff8000"
+    },
+    "3": {
+     "answer": "FLtoWL",
+     "color": "#008000"
+    },
+    "4": {
+     "answer": "CLtoWL",
+     "color": "#ffff00"
+    },
+    "5": {
+     "answer": "GLtoWL",
+     "color": "#00ff00"
+    },
+    "6": {
+     "answer": "SLtoWL",
+     "color": "#ff00ff"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    4
+   ],
+   "parentQuestionId": 1,
+   "question": "Land Use Change (WL)"
+  },
+  "6": {
+   "answers": {
+    "1": {
+     "answer": "SLtoSL",
+     "color": "#ff00ff"
+    },
+    "2": {
+     "answer": "OTtoSL",
+     "color": "#ff8000"
+    },
+    "3": {
+     "answer": "FLtoSL",
+     "color": "#008000"
+    },
+    "4": {
+     "answer": "CLtoSL",
+     "color": "#ffff00"
+    },
+    "5": {
+     "answer": "GLtoSL",
+     "color": "#00ff00"
+    },
+    "6": {
+     "answer": "WLtoSL",
+     "color": "#1527F6"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    5
+   ],
+   "parentQuestionId": 1,
+   "question": "Land Use Change (SL)"
+  },
+  "7": {
+   "answers": {
+    "1": {
+     "answer": "OTtoOT",
+     "color": "#ff8000"
+    },
+    "2": {
+     "answer": "CLtoOT",
+     "color": "#ffff00"
+    },
+    "3": {
+     "answer": "FLtoOT",
+     "color": "#008000"
+    },
+    "4": {
+     "answer": "GLtoOT",
+     "color": "#00ff00"
+    },
+    "5": {
+     "answer": "WLtoOT",
+     "color": "#1527F6"
+    },
+    "6": {
+     "answer": "SLtoOT",
+     "color": "#ff00ff"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    6
+   ],
+   "parentQuestionId": 1,
+   "question": "Land Use Change (OT)"
+  },
+  "8": {
+   "answers": {
+    "1": {
+     "answer": "2001",
+     "color": "#c0c0c0"
+    },
+    "10": {
+     "answer": "2010",
+     "color": "#c0c0c0"
+    },
+    "11": {
+     "answer": "2011",
+     "color": "#c0c0c0"
+    },
+    "12": {
+     "answer": "2012",
+     "color": "#c0c0c0"
+    },
+    "13": {
+     "answer": "2013",
+     "color": "#c0c0c0"
+    },
+    "14": {
+     "answer": "2014",
+     "color": "#c0c0c0"
+    },
+    "15": {
+     "answer": "2015",
+     "color": "#c0c0c0"
+    },
+    "16": {
+     "answer": "2016",
+     "color": "#c0c0c0"
+    },
+    "17": {
+     "answer": "2017",
+     "color": "#c0c0c0"
+    },
+    "18": {
+     "answer": "2018",
+     "color": "#c0c0c0"
+    },
+    "19": {
+     "answer": "2019",
+     "color": "#c0c0c0"
+    },
+    "2": {
+     "answer": "2002",
+     "color": "#c0c0c0"
+    },
+    "3": {
+     "answer": "2003",
+     "color": "#c0c0c0"
+    },
+    "4": {
+     "answer": "2004",
+     "color": "#c0c0c0"
+    },
+    "5": {
+     "answer": "2005",
+     "color": "#c0c0c0"
+    },
+    "6": {
+     "answer": "2006",
+     "color": "#c0c0c0"
+    },
+    "7": {
+     "answer": "2007",
+     "color": "#c0c0c0"
+    },
+    "8": {
+     "answer": "2008",
+     "color": "#c0c0c0"
+    },
+    "9": {
+     "answer": "2009",
+     "color": "#c0c0c0"
+    }
+   },
+   "componentType": "dropdown",
+   "dataType": "number",
+   "parentAnswerIds": [],
+   "parentQuestionId": 1,
+   "question": "Land Use Change Year"
+  },
+  "9": {
+   "answers": {
+    "1": {
+     "answer": "Natural Forest",
+     "color": "#008000"
+    },
+    "2": {
+     "answer": "Plantation Forest",
+     "color": "#008080"
+    }
+   },
+   "componentType": "button",
+   "dataType": "text",
+   "parentAnswerIds": [
+    1
+   ],
+   "parentQuestionId": 1,
+   "question": "Land Use Subtype (FL)"
+  }
+ },
+ "surveyRules": [],
+ "type": "regular",
+ "userRole": null
+}

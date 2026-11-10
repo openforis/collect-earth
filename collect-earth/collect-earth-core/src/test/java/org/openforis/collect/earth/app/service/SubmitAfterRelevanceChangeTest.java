@@ -15,6 +15,7 @@ import java.util.Properties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.core.model.PlacemarkInputFieldInfo;
 import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
 import org.openforis.collect.manager.CodeListManager;
 import org.openforis.collect.manager.RecordManager;
@@ -110,6 +111,40 @@ class SubmitAfterRelevanceChangeTest {
 
 		assertFalse(result.isActivelySaved());
 		assertFalse(isActivelySaved(result.getCollectRecord()));
+	}
+
+	/**
+	 * An answer cleared because its question stopped being asked (Collect's RecordUpdater clears it, without counting it as
+	 * empty again) was taken for an unknown code once the question was asked again : "Invalid code" where the form should
+	 * say an answer is needed. Found in the real run of a survey imported from Collect Earth Online.
+	 */
+	@Test
+	void anAnswerClearedWhenItsQuestionWasHiddenIsMissingWhenTheQuestionComesBack() {
+		save("collect_code_land_use", "F");
+		save("collect_code_forest_dynamics", "degradation");
+		save("collect_code_land_use", "G");
+		PlacemarkLoadResult result = save("collect_code_land_use", "F");
+
+		PlacemarkInputFieldInfo info = result.getPlacemarkInfo("collect_code_forest_dynamics");
+		assertTrue(info.isVisible());
+		assertEquals(null, info.getValue(), "The answer was cleared when the question was hidden");
+		// As a question never answered reads, on another plot where it is asked
+		PlacemarkInputFieldInfo never = neverAnswered();
+		assertEquals(never.isInError(), info.isInError());
+		assertEquals(never.getErrorMessage(), info.getErrorMessage());
+		assertEquals(0, result.getCollectRecord().getErrors(), "No code error is counted");
+		// and the plot is not submitted until it has an answer, then it is
+		assertFalse(submit().isActivelySaved());
+		save("collect_code_forest_dynamics", "none");
+		assertTrue(submit().isActivelySaved());
+	}
+
+	/** The question on a plot where it is asked and was never answered */
+	private PlacemarkInputFieldInfo neverAnswered() {
+		Map<String, String> parameters = new HashMap<>();
+		parameters.put("collect_text_id", "106");
+		parameters.put("collect_code_land_use", "F");
+		return service.updatePlacemarkData(new String[] { "106" }, parameters, SESSION, true).getPlacemarkInfo("collect_code_forest_dynamics");
 	}
 
 	private PlacemarkLoadResult save(String parameter, String value) {

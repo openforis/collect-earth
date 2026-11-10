@@ -49,6 +49,7 @@ import {
 } from "../aiView";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatDate } from "../format";
 import { useT, type MessageKey } from "../i18n";
@@ -635,7 +636,7 @@ export function QualityAssistant({
           <Typography variant="h2" id="ai-title">
             {t("ai.title")}
           </Typography>
-          <Typography color="text.secondary">{t("ai.explain")}</Typography>
+          <Explain text={t("ai.explain.short")} more={t("ai.explain")} />
           {ai.error ? (
             <ErrorAlert error={ai.error} onRetry={ai.reload} />
           ) : !ai.data ? (

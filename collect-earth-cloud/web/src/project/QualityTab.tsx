@@ -25,6 +25,7 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type R
 import { ApiError, getQuality, saveQualityMargins, type AnswerOptions, type GuidanceNote, type QualityData, type Rate } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain, MoreInfo } from "../components/Explain";
 import { SectionNav } from "../components/SectionNav";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
@@ -75,12 +76,12 @@ const TRACK = "#dcebe0";
 /** Tables fit a phone: they scroll inside their own frame. */
 const tableFrame = { border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto" } as const;
 
-function Section({ title, explain, children }: { title: string; explain?: string; children: ReactNode }) {
+function Section({ title, explain, more, children }: { title: string; explain?: string; more?: string; children: ReactNode }) {
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section">
       <Stack spacing={2}>
         <Typography variant="h2">{title}</Typography>
-        {explain && <Typography color="text.secondary">{explain}</Typography>}
+        {explain && <Explain text={explain} more={more} />}
         {children}
       </Stack>
     </Paper>
@@ -122,7 +123,7 @@ function Counts({ data, stillWorking }: { data: QualityData; stillWorking: boole
   const t = useT();
   const { language } = useApp();
   return (
-    <Section title={t("quality.title")} explain={t("quality.explain")}>
+    <Section title={t("quality.title")} explain={t("quality.explain.short")} more={t("quality.explain")}>
       {data.stale && data.computedAt !== null && (
         <Alert severity="info" role="status">
           {t("quality.stale", { time: formatDate(data.computedAt, language) })}
@@ -135,7 +136,10 @@ function Counts({ data, stillWorking }: { data: QualityData; stillWorking: boole
         </Typography>
       )}
       {data.plotsChecked === 0 ? (
-        <Alert severity="info">{t("quality.none")}</Alert>
+        <Alert severity="info">
+          {t("quality.none.short")}
+          <MoreInfo text={t("quality.none")} />
+        </Alert>
       ) : (
         <Stack direction="row" spacing={4} useFlexGap sx={{ flexWrap: "wrap" }}>
           <Figure label={t("quality.plotsChecked")} value={formatNumber(data.plotsChecked, language)} />
@@ -181,9 +185,7 @@ function Margins({ projectId, data, onSaved }: { projectId: string; data: Qualit
       <Typography variant="h3" sx={{ mb: 0.5 }}>
         {t("quality.marginsTitle")}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {t("quality.marginsExplain")}
-      </Typography>
+      <Explain variant="body2" sx={{ mb: 2 }} text={t("quality.marginsExplain.short")} more={t("quality.marginsExplain")} />
       <Stack spacing={2}>
         {parsed.map(({ row, value }) => (
           <Stack key={row.key} direction={{ xs: "column", sm: "row" }} spacing={{ xs: 1, sm: 2 }} sx={{ alignItems: { sm: "center" } }}>
@@ -230,7 +232,7 @@ function Margins({ projectId, data, onSaved }: { projectId: string; data: Qualit
 function Questions({ projectId, data, onMargins }: { projectId: string; data: QualityData; onMargins: (m: Record<string, number>) => void }) {
   const t = useT();
   return (
-    <Section title={t("quality.questionsTitle")} explain={t("quality.questionsExplain")}>
+    <Section title={t("quality.questionsTitle")} explain={t("quality.questionsExplain.short")} more={t("quality.questionsExplain")}>
       {data.questions.length === 0 ? (
         <Alert severity="info">{t("quality.noQuestions")}</Alert>
       ) : (
@@ -292,7 +294,7 @@ function Confusions({ data, onWriteNote }: { data: QualityData; onWriteNote: (dr
     data.notes.find((n) => n.questionKey === key && n.firstValue === (first || null) && n.checkValue === (check || null));
 
   return (
-    <Section title={t("quality.confusionsTitle")} explain={t("quality.confusionsExplain")}>
+    <Section title={t("quality.confusionsTitle")} explain={t("quality.confusionsExplain")} more={t("quality.confusionsExplain.more")}>
       {keys.length === 0 ? (
         <Alert severity="info">{t("quality.noConfusions")}</Alert>
       ) : (
@@ -390,7 +392,7 @@ function People({ data }: { data: QualityData }) {
   const t = useT();
   const label = labelMap(data.questions);
   return (
-    <Section title={t("quality.peopleTitle")} explain={t("quality.peopleExplain")}>
+    <Section title={t("quality.peopleTitle")} explain={t("quality.peopleExplain.short")} more={t("quality.peopleExplain")}>
       {data.people.length === 0 ? (
         <Alert severity="info">{t("quality.noPeople")}</Alert>
       ) : (
@@ -576,7 +578,7 @@ function Weeks({ data }: { data: QualityData }) {
   const [view, setView] = useState<"chart" | "table">("chart");
   const weeks = [...data.weeks].filter((w) => w.compared > 0).sort((a, b) => (a.week < b.week ? -1 : 1));
   return (
-    <Section title={t("quality.weeksTitle")} explain={t("quality.weeksExplain")}>
+    <Section title={t("quality.weeksTitle")} explain={t("quality.weeksExplain.short")} more={t("quality.weeksExplain")}>
       {weeks.length === 0 ? (
         <Alert severity="info">{t("quality.noWeeks")}</Alert>
       ) : (
@@ -783,6 +785,11 @@ function TeamQualityTab({ projectId }: { projectId: string }) {
           {t("myQuality.link")}
         </Button>
       </Stack>
+      {data.excluded.length > 0 && (
+        <Alert severity="info">
+          {t("quality.excludedNote", { names: data.excluded.map((x) => (x.reason ? `${x.username} (${x.reason})` : x.username)).join(", ") })}
+        </Alert>
+      )}
       <Counts data={data} stillWorking={busy} />
       {error !== null && !busy && <ErrorAlert error={error} onRetry={reload} />}
       <ReviewQueue

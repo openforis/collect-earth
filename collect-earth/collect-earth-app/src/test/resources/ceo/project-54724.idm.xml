@@ -1,0 +1,880 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<survey lastId="205" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth">
+  <project>TFFF Indonesia Calibration &amp; Training Survey</project>
+  <uri>http://www.openforis.org/idm/ceo_54724</uri>
+  <description>Survey used for training and calibration
+
+Imported from Collect Earth Online, project 54724.</description>
+  <language>en</language>
+  <applicationOptions>
+    <options type="ui">
+      <n0:tabSet name="plot_tab_set" xmlns:n0="http://www.openforis.org/collect/3.0/ui">
+        <n0:tab name="survey_tab">
+          <n0:label>TFFF Indonesia Calibration &amp; Training Survey</n0:label>
+        </n0:tab>
+        <n0:tab name="plot_data_tab">
+          <n0:label>Plot data</n0:label>
+        </n0:tab>
+      </n0:tabSet>
+    </options>
+  </applicationOptions>
+  <codeLists>
+    <list id="3" name="forest_2020_0_5ha_10_cc">
+      <label type="item">Forest 2020 (&gt; 0.5ha, &gt;10% cc)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="1">
+          <code>yes</code>
+          <label>Yes</label>
+        </item>
+        <item id="2">
+          <code>no</code>
+          <label>No</label>
+        </item>
+      </items>
+    </list>
+    <list id="6" name="forest_patch_size">
+      <label type="item">Forest patch size</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="4">
+          <code>1ha</code>
+          <label>&lt;= 1ha</label>
+        </item>
+        <item id="5">
+          <code>1ha_b</code>
+          <label>&gt; 1ha</label>
+        </item>
+      </items>
+    </list>
+    <list id="11" name="forest_type">
+      <label type="item">Forest type</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="7">
+          <code>primary_forest</code>
+          <label>Primary forest</label>
+        </item>
+        <item id="8">
+          <code>secondary_forest</code>
+          <label>Secondary forest</label>
+        </item>
+        <item id="9">
+          <code>forest_plantation</code>
+          <label>Forest plantation</label>
+        </item>
+        <item id="10">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="17" name="canopy_cover">
+      <label type="item">Canopy cover (%)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="12">
+          <code>10_20</code>
+          <label>&gt; 10-20</label>
+        </item>
+        <item id="13">
+          <code>20_30</code>
+          <label>&gt; 20-30</label>
+        </item>
+        <item id="14">
+          <code>30_50</code>
+          <label>&gt; 30-50</label>
+        </item>
+        <item id="15">
+          <code>50</code>
+          <label>&gt; 50</label>
+        </item>
+        <item id="16">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="20" name="disturbance_btw_2021to2024">
+      <label type="item">Disturbance btw 2021-2024</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="18">
+          <code>yes</code>
+          <label>Yes</label>
+        </item>
+        <item id="19">
+          <code>no</code>
+          <label>No</label>
+        </item>
+      </items>
+    </list>
+    <list id="26" name="year_of_disturbance">
+      <label type="item">Year of disturbance</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="21">
+          <code>2021</code>
+          <label>2021</label>
+        </item>
+        <item id="22">
+          <code>2022</code>
+          <label>2022</label>
+        </item>
+        <item id="23">
+          <code>2023</code>
+          <label>2023</label>
+        </item>
+        <item id="24">
+          <code>2024</code>
+          <label>2024</label>
+        </item>
+        <item id="25">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="39" name="driver_of_disturbance">
+      <label type="item">Driver of disturbance</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="27">
+          <code>selective_logging</code>
+          <label>Selective logging</label>
+        </item>
+        <item id="28">
+          <code>artisanal_logging</code>
+          <label>Artisanal logging</label>
+        </item>
+        <item id="29">
+          <code>conventional_logging</code>
+          <label>Conventional logging</label>
+        </item>
+        <item id="30">
+          <code>cropland_or_agroforestry</code>
+          <label>Cropland or Agroforestry</label>
+        </item>
+        <item id="31">
+          <code>charcoal_burning_fuelwood</code>
+          <label>Charcoal burning/fuelwood</label>
+        </item>
+        <item id="32">
+          <code>grassland_unmanaged_land</code>
+          <label>Grassland (unmanaged land)</label>
+        </item>
+        <item id="33">
+          <code>settlement</code>
+          <label>Settlement</label>
+        </item>
+        <item id="34">
+          <code>mining</code>
+          <label>Mining</label>
+        </item>
+        <item id="35">
+          <code>natural_disturbance</code>
+          <label>Natural disturbance</label>
+        </item>
+        <item id="36">
+          <code>other</code>
+          <label>Other</label>
+        </item>
+        <item id="37">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+        <item id="38">
+          <code>fire_human_induced</code>
+          <label>Fire (human induced)</label>
+        </item>
+      </items>
+    </list>
+    <list id="44" name="patch_size_of_disturbance">
+      <label type="item">Patch size of disturbance</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="40">
+          <code>0_1ha</code>
+          <label>&lt;= 0.1ha</label>
+        </item>
+        <item id="41">
+          <code>0_1_0_5ha</code>
+          <label>&gt; 0.1 - 0.5ha</label>
+        </item>
+        <item id="42">
+          <code>0_5_1ha</code>
+          <label>&gt; 0.5 - 1ha</label>
+        </item>
+        <item id="43">
+          <code>1ha</code>
+          <label>&gt; 1ha</label>
+        </item>
+      </items>
+    </list>
+    <list id="48" name="canopy_cover_after_disturbance">
+      <label type="item">Canopy cover after disturbance</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="45">
+          <code>20</code>
+          <label>&lt;= 20%</label>
+        </item>
+        <item id="46">
+          <code>20_b</code>
+          <label>&gt; 20%</label>
+        </item>
+        <item id="47">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="55" name="canopy_cover_after_disturbance_b">
+      <label type="item">Canopy cover after disturbance</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="49">
+          <code>10</code>
+          <label>&lt;= 10%</label>
+        </item>
+        <item id="50">
+          <code>10_20</code>
+          <label>&gt; 10-20%</label>
+        </item>
+        <item id="51">
+          <code>20_30</code>
+          <label>&gt; 20-30%</label>
+        </item>
+        <item id="52">
+          <code>30_50</code>
+          <label>&gt; 30-50%</label>
+        </item>
+        <item id="53">
+          <code>50</code>
+          <label>&gt; 50%</label>
+        </item>
+        <item id="54">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="59" name="fire_associated_with_disturbance">
+      <label type="item">Fire associated with disturbance?</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="56">
+          <code>yes</code>
+          <label>Yes</label>
+        </item>
+        <item id="57">
+          <code>no</code>
+          <label>No</label>
+        </item>
+        <item id="58">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="62" name="q_2nd_disturbance">
+      <label type="item">2nd disturbance</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="60">
+          <code>yes</code>
+          <label>Yes</label>
+        </item>
+        <item id="61">
+          <code>no</code>
+          <label>No</label>
+        </item>
+      </items>
+    </list>
+    <list id="67" name="year_of_2nd_disturbance">
+      <label type="item">Year of 2nd disturbance</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="63">
+          <code>2022</code>
+          <label>2022</label>
+        </item>
+        <item id="64">
+          <code>2023</code>
+          <label>2023</label>
+        </item>
+        <item id="65">
+          <code>2024</code>
+          <label>2024</label>
+        </item>
+        <item id="66">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="80" name="driver_of_2nd_disturbance">
+      <label type="item">Driver of 2nd disturbance</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="68">
+          <code>selective_logging</code>
+          <label>Selective logging</label>
+        </item>
+        <item id="69">
+          <code>artisanal_logging</code>
+          <label>Artisanal logging</label>
+        </item>
+        <item id="70">
+          <code>conventional_logging</code>
+          <label>Conventional logging</label>
+        </item>
+        <item id="71">
+          <code>cropland_or_agroforestry</code>
+          <label>Cropland or Agroforestry</label>
+        </item>
+        <item id="72">
+          <code>charcoal_burning_fuelwood</code>
+          <label>Charcoal burning/fuelwood</label>
+        </item>
+        <item id="73">
+          <code>grassland_unmanaged_land</code>
+          <label>Grassland (unmanaged land)</label>
+        </item>
+        <item id="74">
+          <code>settlement</code>
+          <label>Settlement</label>
+        </item>
+        <item id="75">
+          <code>mining</code>
+          <label>Mining</label>
+        </item>
+        <item id="76">
+          <code>natural_disturbance</code>
+          <label>Natural disturbance</label>
+        </item>
+        <item id="77">
+          <code>other</code>
+          <label>Other</label>
+        </item>
+        <item id="78">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+        <item id="79">
+          <code>fire_human_induced</code>
+          <label>Fire (human induced)</label>
+        </item>
+      </items>
+    </list>
+    <list id="85" name="patch_size_of_2nd_disturbance">
+      <label type="item">Patch size of 2nd disturbance</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="81">
+          <code>0_1ha</code>
+          <label>&lt;= 0.1ha</label>
+        </item>
+        <item id="82">
+          <code>0_1_0_5ha</code>
+          <label>&gt; 0.1 - 0.5ha</label>
+        </item>
+        <item id="83">
+          <code>0_5_1ha</code>
+          <label>&gt; 0.5 - 1ha</label>
+        </item>
+        <item id="84">
+          <code>1ha</code>
+          <label>&gt; 1ha</label>
+        </item>
+      </items>
+    </list>
+    <list id="89" name="canopy_cover_after_2nd_disturbance">
+      <label type="item">Canopy cover after 2nd disturbance</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="86">
+          <code>20</code>
+          <label>&lt;= 20</label>
+        </item>
+        <item id="87">
+          <code>20_b</code>
+          <label>&gt; 20</label>
+        </item>
+        <item id="88">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="95" name="canopy_cover_after_2nd_disturbance_b">
+      <label type="item">Canopy cover after 2nd disturbance</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="90">
+          <code>10</code>
+          <label>&lt;= 10%</label>
+        </item>
+        <item id="91">
+          <code>10_20</code>
+          <label>&gt; 10 - 20%</label>
+        </item>
+        <item id="92">
+          <code>20_30</code>
+          <label>&gt; 20 - 30 %</label>
+        </item>
+        <item id="93">
+          <code>30_50</code>
+          <label>&gt; 30 - 50%</label>
+        </item>
+        <item id="94">
+          <code>50</code>
+          <label>&gt; 50 %</label>
+        </item>
+      </items>
+    </list>
+    <list id="99" name="fire_associated_with_2nd_disturbance2">
+      <label type="item">Fire associated with 2nd disturbance? (2)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="96">
+          <code>yes</code>
+          <label>Yes</label>
+        </item>
+        <item id="97">
+          <code>no</code>
+          <label>No</label>
+        </item>
+        <item id="98">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="102" name="forest_regeneration">
+      <label type="item">Forest regeneration</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="100">
+          <code>yes</code>
+          <label>Yes</label>
+        </item>
+        <item id="101">
+          <code>no</code>
+          <label>No</label>
+        </item>
+      </items>
+    </list>
+    <list id="105" name="patch_size_after_regeneration">
+      <label type="item">Patch size after regeneration</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="103">
+          <code>1ha</code>
+          <label>&lt;= 1ha</label>
+        </item>
+        <item id="104">
+          <code>1ha_b</code>
+          <label>&gt; 1ha</label>
+        </item>
+      </items>
+    </list>
+    <list id="110" name="forest_type_after_regeneration">
+      <label type="item">Forest type after regeneration</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="106">
+          <code>primary_forest</code>
+          <label>Primary forest</label>
+        </item>
+        <item id="107">
+          <code>secondary_forest</code>
+          <label>Secondary forest</label>
+        </item>
+        <item id="108">
+          <code>forest_plantation</code>
+          <label>Forest plantation</label>
+        </item>
+        <item id="109">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="116" name="canopy_cover_after_regeneration">
+      <label type="item">Canopy cover after regeneration</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="111">
+          <code>10_20</code>
+          <label>&gt; 10-20%</label>
+        </item>
+        <item id="112">
+          <code>20_30</code>
+          <label>&gt; 20-30%</label>
+        </item>
+        <item id="113">
+          <code>30_50</code>
+          <label>&gt; 30-50%</label>
+        </item>
+        <item id="114">
+          <code>50</code>
+          <label>&gt; 50%</label>
+        </item>
+        <item id="115">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="119" name="disturbance_after_regeneration">
+      <label type="item">Disturbance after regeneration</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="117">
+          <code>yes</code>
+          <label>Yes</label>
+        </item>
+        <item id="118">
+          <code>no</code>
+          <label>No</label>
+        </item>
+      </items>
+    </list>
+    <list id="125" name="year_of_disturbance_reg">
+      <label type="item">Year of disturbance (reg)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="120">
+          <code>2021</code>
+          <label>2021</label>
+        </item>
+        <item id="121">
+          <code>2022</code>
+          <label>2022</label>
+        </item>
+        <item id="122">
+          <code>2023</code>
+          <label>2023</label>
+        </item>
+        <item id="123">
+          <code>2024</code>
+          <label>2024</label>
+        </item>
+        <item id="124">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="138" name="driver_of_disturbance_reg">
+      <label type="item">Driver of disturbance (reg)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="126">
+          <code>selective_logging</code>
+          <label>Selective logging</label>
+        </item>
+        <item id="127">
+          <code>artisanal_logging</code>
+          <label>Artisanal logging</label>
+        </item>
+        <item id="128">
+          <code>conventional_logging</code>
+          <label>Conventional logging</label>
+        </item>
+        <item id="129">
+          <code>cropland_or_agroforestry</code>
+          <label>Cropland or Agroforestry</label>
+        </item>
+        <item id="130">
+          <code>charcoal_burning_fuelwood</code>
+          <label>Charcoal burning/fuelwood</label>
+        </item>
+        <item id="131">
+          <code>grassland_unmanaged_land</code>
+          <label>Grassland (unmanaged land)</label>
+        </item>
+        <item id="132">
+          <code>settlement</code>
+          <label>Settlement</label>
+        </item>
+        <item id="133">
+          <code>mining</code>
+          <label>Mining</label>
+        </item>
+        <item id="134">
+          <code>natural_disturbance</code>
+          <label>Natural disturbance</label>
+        </item>
+        <item id="135">
+          <code>other</code>
+          <label>Other</label>
+        </item>
+        <item id="136">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+        <item id="137">
+          <code>fire_human_induced</code>
+          <label>Fire (human induced)</label>
+        </item>
+      </items>
+    </list>
+    <list id="141" name="patch_size_of_disturbance_reg">
+      <label type="item">Patch size of disturbance (reg)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="139">
+          <code>0_1ha</code>
+          <label>&lt;= 0.1ha</label>
+        </item>
+        <item id="140">
+          <code>0_1ha_b</code>
+          <label>&gt; 0.1ha</label>
+        </item>
+      </items>
+    </list>
+    <list id="145" name="canopy_cover_after_disturbance_reg">
+      <label type="item">Canopy cover after disturbance (reg)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="142">
+          <code>20</code>
+          <label>&lt;= 20</label>
+        </item>
+        <item id="143">
+          <code>20_b</code>
+          <label>&gt; 20</label>
+        </item>
+        <item id="144">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="151" name="canopy_cover_after_disturbance_reg_b">
+      <label type="item">Canopy cover after disturbance (reg)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="146">
+          <code>10</code>
+          <label>&lt;= 10%</label>
+        </item>
+        <item id="147">
+          <code>10_20</code>
+          <label>&gt; 10-20%</label>
+        </item>
+        <item id="148">
+          <code>20_30</code>
+          <label>&gt; 20-30%</label>
+        </item>
+        <item id="149">
+          <code>30_50</code>
+          <label>&gt; 30 - 50%</label>
+        </item>
+        <item id="150">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="155" name="fire_associated_with_disturbance_reg">
+      <label type="item">Fire associated with disturbance? (reg)</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="152">
+          <code>yes</code>
+          <label>Yes</label>
+        </item>
+        <item id="153">
+          <code>no</code>
+          <label>No</label>
+        </item>
+        <item id="154">
+          <code>unknown</code>
+          <label>Unknown</label>
+        </item>
+      </items>
+    </list>
+    <list id="159" name="difficulty_of_interpretation">
+      <label type="item">Difficulty of Interpretation</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="156">
+          <code>hard</code>
+          <label>Hard</label>
+        </item>
+        <item id="157">
+          <code>medium</code>
+          <label>Medium</label>
+        </item>
+        <item id="158">
+          <code>easy</code>
+          <label>Easy</label>
+        </item>
+      </items>
+    </list>
+    <list id="164" name="most_useful_data_source">
+      <label type="item">Most useful data source</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="160">
+          <code>google_earth_kml_export</code>
+          <label>Google Earth (KML export)</label>
+        </item>
+        <item id="161">
+          <code>google_earth_online</code>
+          <label>Google Earth online</label>
+        </item>
+        <item id="162">
+          <code>annual_sentinel_2</code>
+          <label>Annual Sentinel-2</label>
+        </item>
+        <item id="163">
+          <code>annual_planet</code>
+          <label>Annual Planet</label>
+        </item>
+      </items>
+    </list>
+  </codeLists>
+  <spatialReferenceSystems>
+    <spatialReferenceSystem srid="EPSG:4326">
+      <label xml:lang="en">EPSG:4326</label>
+      <wkt><![CDATA[GEOGCS["WGS 84",
+      DATUM["World Geodetic System 1984",
+        SPHEROID["WGS 84", 6378137.0, 298.257223563, AUTHORITY["EPSG","7030"]],
+        AUTHORITY["EPSG","6326"]],
+      PRIMEM["Greenwich", 0.0, AUTHORITY["EPSG","8901"]],
+      UNIT["degree", 0.017453292519943295],
+      AXIS["Geodetic longitude", EAST],
+      AXIS["Geodetic latitude", NORTH],
+      AUTHORITY["EPSG","4326"]]]]></wkt>
+    </spatialReferenceSystem>
+  </spatialReferenceSystems>
+  <schema>
+    <entity id="174" name="plot" ui:tab="survey_tab" ui:tabSet="plot_tab_set">
+      <label type="instance">Plot</label>
+      <text id="165" name="id" required="true" ui:tab="plot_data_tab" key="true" type="short">
+        <label type="instance">Plot - ID</label>
+      </text>
+      <coordinate id="166" name="location" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Central point coordinates</label>
+      </coordinate>
+      <text id="167" name="operator" required="true" ui:tab="plot_data_tab" type="short">
+        <label type="instance">Plot - Operator</label>
+      </text>
+      <boolean id="168" name="actively_saved" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Actively saved by user</label>
+      </boolean>
+      <date id="169" name="actively_saved_on" relevant="false()" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Date of last saved</label>
+      </date>
+      <text id="170" name="plot_file" relevant="false()" ui:tab="plot_data_tab" type="short">
+        <label type="instance">Plot - CSV file that contains the plot</label>
+      </text>
+      <number id="171" name="elevation" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="integer">
+        <label type="instance">Plot - Elevation</label>
+      </number>
+      <number id="172" name="slope" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="real">
+        <label type="instance">Plot - Slope</label>
+      </number>
+      <number id="173" name="aspect" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="real">
+        <label type="instance">Plot - Aspect</label>
+      </number>
+      <code id="175" name="forest_2020_0_5ha_10_cc" required="true" ui:tab="survey_tab" list="forest_2020_0_5ha_10_cc">
+        <label type="instance">Forest 2020 (&gt; 0.5ha, &gt;10% cc)</label>
+      </code>
+      <code id="176" name="forest_patch_size" required="true" relevant="forest_2020_0_5ha_10_cc = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_patch_size">
+        <label type="instance">Forest patch size</label>
+      </code>
+      <code id="177" name="forest_type" required="true" relevant="forest_2020_0_5ha_10_cc = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_type">
+        <label type="instance">Forest type</label>
+      </code>
+      <code id="178" name="canopy_cover" required="true" relevant="forest_2020_0_5ha_10_cc = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover">
+        <label type="instance">Canopy cover (%)</label>
+      </code>
+      <code id="179" name="disturbance_btw_2021to2024" required="true" relevant="forest_2020_0_5ha_10_cc = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="disturbance_btw_2021to2024">
+        <label type="instance">Disturbance btw 2021-2024</label>
+      </code>
+      <code id="180" name="year_of_disturbance" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="year_of_disturbance">
+        <label type="instance">Year of disturbance</label>
+      </code>
+      <code id="181" name="driver_of_disturbance" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_disturbance">
+        <label type="instance">Driver of disturbance</label>
+      </code>
+      <code id="182" name="patch_size_of_disturbance" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="patch_size_of_disturbance">
+        <label type="instance">Patch size of disturbance</label>
+      </code>
+      <code id="183" name="canopy_cover_after_disturbance" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;) and patch_size_of_disturbance = &apos;0_1ha&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_disturbance">
+        <label type="instance">Canopy cover after disturbance</label>
+      </code>
+      <code id="184" name="canopy_cover_after_disturbance_b" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;) and (patch_size_of_disturbance = &apos;0_1_0_5ha&apos; or patch_size_of_disturbance = &apos;0_5_1ha&apos; or patch_size_of_disturbance = &apos;1ha&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_disturbance_b">
+        <label type="instance">Canopy cover after disturbance</label>
+      </code>
+      <code id="185" name="fire_associated_with_disturbance" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="fire_associated_with_disturbance">
+        <label type="instance">Fire associated with disturbance?</label>
+      </code>
+      <code id="186" name="q_2nd_disturbance" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="q_2nd_disturbance">
+        <label type="instance">2nd disturbance</label>
+      </code>
+      <code id="187" name="year_of_2nd_disturbance" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="year_of_2nd_disturbance">
+        <label type="instance">Year of 2nd disturbance</label>
+      </code>
+      <code id="188" name="driver_of_2nd_disturbance" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_2nd_disturbance">
+        <label type="instance">Driver of 2nd disturbance</label>
+      </code>
+      <code id="189" name="patch_size_of_2nd_disturbance" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="patch_size_of_2nd_disturbance">
+        <label type="instance">Patch size of 2nd disturbance</label>
+      </code>
+      <code id="190" name="canopy_cover_after_2nd_disturbance" required="true" relevant="(((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;) and patch_size_of_2nd_disturbance = &apos;0_1ha&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_2nd_disturbance">
+        <label type="instance">Canopy cover after 2nd disturbance</label>
+      </code>
+      <code id="191" name="canopy_cover_after_2nd_disturbance_b" required="true" relevant="(((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;) and (patch_size_of_2nd_disturbance = &apos;0_1_0_5ha&apos; or patch_size_of_2nd_disturbance = &apos;0_5_1ha&apos; or patch_size_of_2nd_disturbance = &apos;1ha&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_2nd_disturbance_b">
+        <label type="instance">Canopy cover after 2nd disturbance</label>
+      </code>
+      <code id="192" name="fire_associated_with_2nd_disturbance2" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;yes&apos;) and disturbance_btw_2021to2024 = &apos;yes&apos;) and q_2nd_disturbance = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="fire_associated_with_2nd_disturbance2">
+        <label type="instance">Fire associated with 2nd disturbance? (2)</label>
+      </code>
+      <code id="193" name="forest_regeneration" required="true" relevant="forest_2020_0_5ha_10_cc = &apos;no&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_regeneration">
+        <label type="instance">Forest regeneration</label>
+      </code>
+      <code id="194" name="patch_size_after_regeneration" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;no&apos;) and forest_regeneration = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="patch_size_after_regeneration">
+        <label type="instance">Patch size after regeneration</label>
+      </code>
+      <code id="195" name="forest_type_after_regeneration" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;no&apos;) and forest_regeneration = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="forest_type_after_regeneration">
+        <label type="instance">Forest type after regeneration</label>
+      </code>
+      <code id="196" name="canopy_cover_after_regeneration" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;no&apos;) and forest_regeneration = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_regeneration">
+        <label type="instance">Canopy cover after regeneration</label>
+      </code>
+      <code id="197" name="disturbance_after_regeneration" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;no&apos;) and forest_regeneration = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="disturbance_after_regeneration">
+        <label type="instance">Disturbance after regeneration</label>
+      </code>
+      <code id="198" name="year_of_disturbance_reg" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;no&apos;) and forest_regeneration = &apos;yes&apos;) and disturbance_after_regeneration = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="year_of_disturbance_reg">
+        <label type="instance">Year of disturbance (reg)</label>
+      </code>
+      <code id="199" name="driver_of_disturbance_reg" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;no&apos;) and forest_regeneration = &apos;yes&apos;) and disturbance_after_regeneration = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="driver_of_disturbance_reg">
+        <label type="instance">Driver of disturbance (reg)</label>
+      </code>
+      <code id="200" name="patch_size_of_disturbance_reg" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;no&apos;) and forest_regeneration = &apos;yes&apos;) and disturbance_after_regeneration = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="patch_size_of_disturbance_reg">
+        <label type="instance">Patch size of disturbance (reg)</label>
+      </code>
+      <code id="201" name="canopy_cover_after_disturbance_reg" required="true" relevant="(((forest_2020_0_5ha_10_cc = &apos;no&apos;) and forest_regeneration = &apos;yes&apos;) and disturbance_after_regeneration = &apos;yes&apos;) and patch_size_of_disturbance_reg = &apos;0_1ha&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_disturbance_reg">
+        <label type="instance">Canopy cover after disturbance (reg)</label>
+      </code>
+      <code id="202" name="canopy_cover_after_disturbance_reg_b" required="true" relevant="(((forest_2020_0_5ha_10_cc = &apos;no&apos;) and forest_regeneration = &apos;yes&apos;) and disturbance_after_regeneration = &apos;yes&apos;) and patch_size_of_disturbance_reg = &apos;0_1ha_b&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="canopy_cover_after_disturbance_reg_b">
+        <label type="instance">Canopy cover after disturbance (reg)</label>
+      </code>
+      <code id="203" name="fire_associated_with_disturbance_reg" required="true" relevant="((forest_2020_0_5ha_10_cc = &apos;no&apos;) and forest_regeneration = &apos;yes&apos;) and disturbance_after_regeneration = &apos;yes&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="fire_associated_with_disturbance_reg">
+        <label type="instance">Fire associated with disturbance? (reg)</label>
+      </code>
+      <code id="204" name="difficulty_of_interpretation" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos; or forest_2020_0_5ha_10_cc = &apos;no&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="difficulty_of_interpretation">
+        <label type="instance">Difficulty of Interpretation</label>
+      </code>
+      <code id="205" name="most_useful_data_source" required="true" relevant="(forest_2020_0_5ha_10_cc = &apos;yes&apos; or forest_2020_0_5ha_10_cc = &apos;no&apos;)" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="most_useful_data_source">
+        <label type="instance">Most useful data source</label>
+      </code>
+    </entity>
+  </schema>
+</survey>

@@ -4,13 +4,6 @@ import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.desktop.ServerController;
 
 public enum ExportType {
-    SAIKU( 
-    		ServerController.SAIKU_RDB_SUFFIX, 
-    		"Saiku", 
-    		"SaikuDataFolder", 
-    		EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB + ServerController.SAIKU_RDB_SUFFIX, 
-    		EarthConstants.POSTGRES_RDB_SCHEMA_SAIKU
-    	), 
     IPCC(  
     		ServerController.IPCC_RDB_SUFFIX, 
     		"Ipcc", 

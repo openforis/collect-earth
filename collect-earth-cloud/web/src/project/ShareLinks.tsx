@@ -12,6 +12,7 @@ import { createShareLink, listShareLinks, revokeShareLink, type NewShareLink, ty
 import { useApp } from "../appContext";
 import { CopyField } from "../components/CopyField";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatDate } from "../format";
 import { useT } from "../i18n";
@@ -137,10 +138,8 @@ export function ShareLinksCard({ projectId }: { projectId: string }) {
         <Typography variant="h2" id="share-links-title" ref={heading} tabIndex={-1} sx={{ outline: "none" }}>
           {t("shareLinks.title")}
         </Typography>
-        <Typography>{t("shareLinks.intro")}</Typography>
-        <Typography variant="body2" color="text.secondary">
-          {t("shareLinks.never")} {t("shareLinks.logs")}
-        </Typography>
+        <Explain color="text.primary" text={t("shareLinks.intro.short")} more={t("shareLinks.intro")} />
+        <Explain variant="body2" text={t("shareLinks.never.short")} more={`${t("shareLinks.never")} ${t("shareLinks.logs")}`} />
         <Stack component="form" direction={{ xs: "column", sm: "row" }} spacing={1} onSubmit={submit} noValidate sx={{ alignItems: { sm: "flex-start" } }}>
           <TextField
             label={t("shareLinks.label")}

@@ -10,6 +10,7 @@
 import type { AiCall, AiClient, AiRequest, AiResponse } from './client.js';
 import { ANSWER_CHECK_SYSTEM, TOPIC_CHECK_SYSTEM } from './prompts.js';
 import { ANSWER_SCHEMA, REPORT_SCHEMA } from './run.js';
+import { VIEWS_SCHEMA, type AnalysisStructure } from './analysisViews.js';
 
 export interface FakeClientOptions {
   /** Waited before each answer, so the panel's progress can be seen (0 in tests). */
@@ -66,6 +67,7 @@ function respond(req: AiRequest): { text: string | null; calls: AiCall[] } {
   if (req.system === ANSWER_CHECK_SYSTEM) return json({ on_topic: true });
   if (req.responseSchema === REPORT_SCHEMA) return json(report(req));
   if (req.responseSchema === ANSWER_SCHEMA) return json(answer(req));
+  if (req.responseSchema === VIEWS_SCHEMA) return json(views(req));
   // The tool loop: call the tools once, then say it is done.
   if (req.turns.some((t) => t.role === 'tool')) return { text: 'I have read what I need.', calls: [] };
   const finding = findingOf(req);
@@ -82,6 +84,21 @@ function respond(req: AiRequest): { text: string | null; calls: AiCall[] } {
       { id: 'fake-3', name: 'get_survey_health', args: {} },
     ],
   };
+}
+
+/** Views of the analysis page: the survey's first two code questions, counted and side by side. */
+function views(req: AiRequest): { views: unknown[] } {
+  const line = firstText(req).split('\n').find((l) => l.startsWith('{')) ?? '{}';
+  const structure = (JSON.parse(line) as { survey_structure?: AnalysisStructure }).survey_structure;
+  const codes = (structure?.columns ?? []).filter((c) => c.type === 'code' && c.source === 'answer');
+  const out: unknown[] = [];
+  if (codes[0]) {
+    out.push({ title: `${PREFIX}${codes[0].label}`, why: 'How many plots have each answer.', rows: [codes[0].id], columns: [], measures: ['plots'], chart: 'hbars', filters: [], order: 'largest' });
+  }
+  if (codes[0] && codes[1]) {
+    out.push({ title: `${PREFIX}${codes[0].label} by ${codes[1].label}`, why: 'The two questions side by side.', rows: [codes[0].id], columns: [codes[1].id], measures: ['plots'], chart: 'stacked', filters: [], order: 'name' });
+  }
+  return { views: out };
 }
 
 function firstText(req: AiRequest): string {

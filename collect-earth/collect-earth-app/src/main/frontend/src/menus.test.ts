@@ -11,8 +11,8 @@ describe("appMenus", () => {
 
   it("only enables what is built", () => {
     const enabled = appMenus({ plotsMap: true }).flatMap((m) => m.items).filter((i) => i.enabled).map((i) => i.id);
-    expect(enabled).toEqual(["importCep", "joinCloud", "cloudStatus", "language", "quit", "export", "importZip", "updateCsv",
-      "saiku", "saikuTool", "lulucf", "loadKml", "dataFolder", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "properties",
+    expect(enabled).toEqual(["importCep", "joinCloud", "cloudStatus", "language", "quit", "export", "import",
+      "analyse", "lulucf", "loadKml", "dataFolder", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "properties",
       "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
     // The survey guide only when the survey has one, as the Swing menu showed it
     expect(appMenus({ plotsMap: true, surveyGuide: true }).find((m) => m.id === "help")?.items[0].id).toBe("surveyGuide");
@@ -51,10 +51,14 @@ describe("appMenus", () => {
 });
 
 describe("my dashboard", () => {
-  it("is in the Tools menu when working alone, not in a cloud project, which has the cloud's", () => {
+  it("is in the Tools menu when working alone; in a cloud project, which has the cloud's, disabled with the reason", () => {
     const tools = (cloud: boolean) => appMenus({ plotsMap: true, cloud }).find((m) => m.id === "tools")?.items.map((i) => i.id);
-    expect(tools(false)).toContain("myDashboard");
-    expect(tools(true)).not.toContain("myDashboard");
+    const mine = (cloud: boolean) => appMenus({ plotsMap: true, cloud }).flatMap((m) => m.items).find((i) => i.id === "myDashboard");
+    expect(mine(false)).toEqual({ id: "myDashboard", label: "LocalDashboard.menu", enabled: true });
+    expect(mine(true)).toEqual({ id: "myDashboard", label: "LocalDashboard.menu", enabled: false, disabledReason: "LocalDashboard.cloudProject" });
+    // Analyse the data: first, for a local project and a cloud one (the cloud's page)
+    expect(tools(false)?.[0]).toBe("analyse");
+    expect(tools(true)?.[0]).toBe("analyse");
   });
 });
 
@@ -62,7 +66,7 @@ describe("client mode", () => {
   it("drops the entries that act on the data of this instance, as the Swing window disabled them", () => {
     const menus = appMenus({ plotsMap: false, client: true });
     expect(menus.map((m) => m.id)).toEqual(["project", "tools", "settings", "help"]);
-    expect(menus.find((m) => m.id === "tools")?.items.map((i) => i.id)).toEqual(["saiku", "saikuTool", "lulucf"]);
+    expect(menus.find((m) => m.id === "tools")?.items.map((i) => i.id)).toEqual(["lulucf"]);
   });
 });
 
@@ -88,8 +92,8 @@ describe("the drawer of the compact bar", () => {
 
   it("keeps the filtering of a client and of a cloud project", () => {
     expect(ids(drawerSections(appMenus({ plotsMap: false, client: true })))).toEqual(["project", "tools", "settings", "help"]);
-    const entries = drawerSections(appMenus({ plotsMap: true, cloud: true })).sections.flatMap((m) => m.items).map((i) => i.id);
-    expect(entries).not.toContain("myDashboard");
+    const entries = drawerSections(appMenus({ plotsMap: true, cloud: true })).sections.flatMap((m) => m.items);
+    expect(entries.find((i) => i.id === "myDashboard")).toMatchObject({ enabled: false, disabledReason: "LocalDashboard.cloudProject" });
   });
 
   it("shows Settings, a menu of one entry of the same name, as that entry alone", () => {

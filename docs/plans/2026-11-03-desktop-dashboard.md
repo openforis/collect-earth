@@ -79,7 +79,7 @@ to bring them to the desktop are:
   `org.nodejs:node:22.22.0:<type>:<classifier>` when missing and checks them at every build; `unpack-node` unpacks
   them into `target/installer/node_files`. `-Dnode.ensure.skip=true` skips the download and checks. CLAUDE.md, "The
   bundled Node", has the details and how to bump the version.
-- `src/main/resources/node.xml`, included by `CollectEarthWithSaiku.xml` and `CollectEarthUpdater.xml`: installs
+- `src/main/resources/node.xml`, included by `CollectEarth.xml` and `CollectEarthUpdater.xml`: installs
   `<installdir>/node/node` (`node.exe`) and `node/LICENSE`; on macOS both binaries are packed and the machine's is
   installed. The old `node/` is set aside and restored on a cancelled installation, as `java.xml` does with the JRE.
 - **Only `node` and `LICENSE` ship:** npm, npx, corepack and the headers are trimmed, since nothing runs npm on the
@@ -242,7 +242,7 @@ to bring them to the desktop are:
   - **Never shipped without it:** `check-dashboard` (`collect-earth-installer`, `assembly`, `initialize`, before
     `ensure-node`) fails the build, saying what to do, when `collect-earth-app/target/dashboard` lacks `server.mjs`,
     `qualityWorker.mjs` or `web/index.html`.
-  - **`dashboard.xml`**, included by `CollectEarthWithSaiku.xml` and `CollectEarthUpdater.xml` (every updater) and
+  - **`dashboard.xml`**, included by `CollectEarth.xml` and `CollectEarthUpdater.xml` (every updater) and
     added to the replacer's files: one folder for all platforms, `COLLECT_EARTH_MAIN_FOLDER/collect-earth-app/target/dashboard`
     into `${installdir}`. As `node.xml` does, the old folder becomes `dashboard.old` before the copy (the installation
     stops if that fails), comes back if the installation is cancelled (`installationAbortedActionList` of both

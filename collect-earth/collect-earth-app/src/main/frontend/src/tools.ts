@@ -4,7 +4,7 @@
  * button.
  */
 
-export interface AnalysisFlags { saikuGenerated: boolean; ipccGenerated: boolean; saikuToolAvailable: boolean; saikuFolderSet: boolean; survey: boolean }
+export interface AnalysisFlags { ipccGenerated: boolean; survey: boolean }
 
 export interface IpccOption { value: string; label: string }
 

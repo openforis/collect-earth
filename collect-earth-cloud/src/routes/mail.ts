@@ -7,6 +7,7 @@ import { confirmMail, MAX_BUDGET_MS, runDigests } from '../digest.js';
 import { errorSummary, type Mailer } from '../mail.js';
 import { mailSecret, readConfirmToken, readUnsubscribeToken, writeConfirmToken } from '../mailLinks.js';
 import { GoogleKeys, verifyGoogleIdToken, type KeySource } from '../oidc.js';
+import { verifyPassword } from '../password.js';
 import { requireSession } from '../plugins/projectAuth.js';
 import type { ProjectStateCache } from '../projectState.js';
 import type { QualityService } from '../qualityService.js';
@@ -45,6 +46,11 @@ export interface AccountMailHooks {
    * In the background: never awaited by the request, never throws (a failure is logged).
    */
   passwordChanged?: (request: FastifyRequest, userId: string, how: 'changed' | 'reset', language?: unknown) => void;
+  /**
+   * A reset link the server administrator asked for, mailed to the account's confirmed address: true when
+   * it went. The administrator is shown a link only for an account that cannot get one by mail.
+   */
+  mailResetLink?: (request: FastifyRequest, userId: string) => Promise<boolean>;
 }
 
 declare module 'fastify' {
@@ -130,9 +136,11 @@ class HourlyCap {
  * - `GET /v1/me/notifications`, `PUT /v1/me/notifications { coordinator?, collector?, language, timeZone? }`:
  *   the account's weekly mails, off unless turned on; turning one on needs a valid address. No timeZone:
  *   the stored one stays.
- * - `PUT /v1/me/email { email | null, language? }`: sets the account's email (a new one is not confirmed;
+ * - `PUT /v1/me/email { email | null, currentPassword, language? }`: sets the account's email (a new one is not confirmed;
  *   a mail with a link is sent to confirm it); `POST /v1/me/email/confirmation`: sends it again. At most
  *   3 an hour and 6 a day per account (stored), and CONFIRMATIONS_PER_INSTANCE_HOUR per instance.
+ *   A change asks for the account's password (401 invalid_credentials without it): the address is where
+ *   "Forgot your password?" sends its link, so a session alone, copied from a browser, must not move it.
  * - `POST /v1/email/confirm { token }` (no login): the link's page confirms the address.
  * - `POST /v1/unsubscribe/:token` (no login, RFC 8058 one-click; any body): turns that digest off;
  *   `GET` sends the browser to the dashboard's page, which asks before doing it.
@@ -245,6 +253,24 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
   };
   if (deps.accountMail) deps.accountMail.passwordChanged = passwordChanged;
 
+  const mailResetLink = async (request: FastifyRequest, userId: string): Promise<boolean> => {
+    if (!deps.mailer.delivers) return false;
+    const mail = await confirmedAddress(userId);
+    if (!mail) return false;
+    const token = await store.createPasswordReset(userId, Date.now() + SELF_RESET_TTL_MS);
+    const ctx = token === null ? null : await securityContext(userId, undefined, mail);
+    if (token === null || !ctx) return false;
+    try {
+      await deps.mailer.send(resetLinkMail(ctx, `${baseUrl}/reset/${token}`, mail.email));
+    } catch (err) {
+      request.log.warn({ err: errorSummary(err), userId }, 'admin reset: the reset mail could not be sent');
+      return false;
+    }
+    request.log.info({ action: 'account.reset.mailed', actorUserId: request.userId, userId }, 'platform admin had a reset link mailed');
+    return true;
+  };
+  if (deps.accountMail) deps.accountMail.mailResetLink = mailResetLink;
+
   /**
    * "Forgot your password?" (no login): `{ login, language? }`, a username or an email address. When
    * mail delivers and the account (or each enabled account whose confirmed address it is) has a
@@ -336,7 +362,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
 
   app.put('/v1/me/email', { preHandler: [requireSession(store), limiter.guard('email')] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = request.userId!;
-    const body = (request.body ?? {}) as { email?: unknown; language?: unknown };
+    const body = (request.body ?? {}) as { email?: unknown; language?: unknown; currentPassword?: unknown };
     let email: string | null;
     if (body.email === null || (typeof body.email === 'string' && body.email.trim() === '')) email = null;
     else if (typeof body.email === 'string') email = body.email.trim();
@@ -348,6 +374,11 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
     if (!before) return reply.code(401).send({ error: 'unauthorized' });
     const language = isLanguage(body.language) ? body.language : (before.language ?? 'en');
     if (before.email !== email) {
+      const user = await store.getUserById(userId);
+      const currentPassword = typeof body.currentPassword === 'string' ? body.currentPassword : '';
+      if (!user || !(await verifyPassword(currentPassword, user.passwordHash))) {
+        return reply.code(401).send({ error: 'invalid_credentials', reason: 'the current password is needed to change the email address' });
+      }
       await store.setEmail(userId, email);
       // A notice to the OLD address, when it was confirmed: the new one is shown only in part.
       const old = before.email;

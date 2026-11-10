@@ -73,7 +73,6 @@ public class EarthConstants {
 
 	public static final String PLOT_ID = "id"; //$NON-NLS-1$
 
-	public static final String POSTGRES_RDB_SCHEMA_SAIKU = "rdbcollectsaiku"; //$NON-NLS-1$
 	public static final String POSTGRES_RDB_SCHEMA_IPCC = "rdbcollectipcc"; //$NON-NLS-1$
 
 	public enum SAMPLE_SHAPE {
@@ -166,7 +165,6 @@ public class EarthConstants {
 
 	}
 
-	public static final String SAIKU_RDB_SUFFIX = "Saiku"; //$NON-NLS-1$
 
 	public static final String ROUND_ATTRIBUTE_NAME = "round"; //$NON-NLS-1$ // This is the attribute of the survey
 																// that stores the round (First assessment, REassssment

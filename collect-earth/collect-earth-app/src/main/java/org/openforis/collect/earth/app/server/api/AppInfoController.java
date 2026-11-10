@@ -63,22 +63,13 @@ public class AppInfoController {
 	}
 
 	/**
-	 * The name the title of the Swing main window shows (CollectEarthWindow.changeFrameTitle): in the UI language if the
-	 * survey has it in that language, else in its default one, else the survey's description. Null when there is no
-	 * survey. Package-private for the tests, which stub the supplier that calls it.
+	 * The name of the survey the pages show: see {@link EarthSurveyService#projectName(CollectSurvey, String)}.
+	 * Package-private for the tests, which stub the supplier that calls it.
 	 *
 	 * @param language the UI language, as a two-letter code
 	 */
 	static String projectName(CollectSurvey survey, String language) {
-		if (survey == null) {
-			return null;
-		}
-		if (StringUtils.isNotBlank(survey.getProjectName(language))) {
-			return survey.getProjectName(language);
-		} else if (StringUtils.isNotBlank(survey.getProjectName())) {
-			return survey.getProjectName();
-		}
-		return survey.getDescription(language);
+		return EarthSurveyService.projectName(survey, language);
 	}
 
 	@GetMapping("/api/app")
@@ -94,8 +85,9 @@ public class AppInfoController {
 		// Stage 5: the title, the Help menu and the About dialog, the cloud login
 		boolean cloud = properties.isCloudSyncEnabled();
 		app.put("cloud", cloud);
-		// In cloud mode the operator is the user logged in (CollectEarthWindow.promptCloudLogin): none means not logged in
-		app.put("cloudLoginNeeded", cloud && StringUtils.isBlank(operator));
+		// In cloud mode the operator is the user logged in (CollectEarthWindow.promptCloudLogin): none means not logged in.
+		// No token either: the server stopped taking it (CloudSyncService.signedOut), so the login is asked for again
+		app.put("cloudLoginNeeded", cloud && (StringUtils.isBlank(operator) || StringUtils.isBlank(properties.getCloudSyncToken())));
 		app.put("errorsShown", Boolean.TRUE.equals(properties.isExceptionShown()));
 		File guide = surveyGuide.get();
 		app.put("surveyGuide", guide != null && guide.exists() && guide.canRead());

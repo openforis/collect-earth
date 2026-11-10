@@ -5,7 +5,6 @@ import java.io.IOException;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
-import org.openforis.collect.earth.app.EarthConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,14 +37,6 @@ public abstract class GenerateDatabase {
 		return result;
 	}
 
-	protected String getSchemaName() {
-		if (getLocalPropertiesService().isUsingPostgreSqlDB()) {
-			return EarthConstants.POSTGRES_RDB_SCHEMA_SAIKU;
-		} else {
-			return null;
-		}
-	}
-
 	protected File getZippedProjectDB( ExportType type ) {
 
 		File dbFolder = new File(FolderFinder.getCollectEarthDataFolder() + File.separator + type.getDataFolder());
@@ -60,17 +51,17 @@ public abstract class GenerateDatabase {
 
 	public boolean isRdbAlreadyGenerated(ExportType type) {
 
-		boolean saikuDBAlreadyPresent = false;
+		boolean dbAlreadyPresent = false;
 		if (getLocalPropertiesService().isUsingSqliteDB()) {
 			File rdbFile = getZippedProjectDB( type );
-			saikuDBAlreadyPresent = rdbFile.exists();
+			dbAlreadyPresent = rdbFile.exists();
 		} else {
 			// Here we should check if the "rdbcollectearth" schema is created in the
 			// PostgreSQL database
-			saikuDBAlreadyPresent = true;
+			dbAlreadyPresent = true;
 		}
 
-		return saikuDBAlreadyPresent;
+		return dbAlreadyPresent;
 	}
 
 	protected boolean isRefreshDatabase() {
@@ -92,20 +83,20 @@ public abstract class GenerateDatabase {
 	}
 	
 	boolean restoreZippedProjectDB( ExportType type ) {
-		boolean restoredSaiku = false;
+		boolean restored = false;
 		if (getZippedProjectDB( type ).exists()) {
 			// Unzip file
 
-			try (ZipFile zippedProjectSaikuData = new ZipFile(getZippedProjectDB( type ))) {
-				zippedProjectSaikuData.extractAll(FolderFinder.getCollectEarthDataFolder());
-				zippedProjectSaikuData.close();
-				restoredSaiku = true;
+			try (ZipFile zippedProjectData = new ZipFile(getZippedProjectDB( type ))) {
+				zippedProjectData.extractAll(FolderFinder.getCollectEarthDataFolder());
+				zippedProjectData.close();
+				restored = true;
 			} catch (IOException e) {
-				logger.error("Problems unzipping the contents of the zipped Saiku DB to the local user folder ", e);
+				logger.error("Problems unzipping the contents of the zipped relational DB to the local user folder ", e);
 			}
 
 		}
-		return restoredSaiku;
+		return restored;
 	}
 	
 	public void setRefreshDatabase(boolean refreshDatabase) {

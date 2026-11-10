@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Quits Collect Earth, from the pages (POST /api/actions/quit) or the Swing window: the server first, for at most 5 s,
- * then the process. That is all the window did on closing; the browsers, Saiku and the SQLite backup are closed by
+ * then the process. That is all the window did on closing; the browsers and the SQLite backup are closed by
  * their own shutdown hooks and by the closing of the Spring context, which stopping the server does.
  * <p>
  * run() returns at once and the quitting goes on in a thread of its own, so the HTTP request that asked for it is

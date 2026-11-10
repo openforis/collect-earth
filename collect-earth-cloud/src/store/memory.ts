@@ -1,11 +1,13 @@
+import { renameOperatorInSummary, renameOperatorInXml } from '../anonymize.js';
 import { randomUUID } from 'node:crypto';
-import { generateShareToken, generateToken, hashToken } from '../auth.js';
+import { generateShareToken, generateToken, hashToken, SESSION_IDLE_MS, SESSION_TOUCH_MS } from '../auth.js';
 import { legacyRoundInfo } from '../cep.js';
 import { checksumOf, plotCountOf } from '../csv.js';
 import { fileKeyCount, unitOfRecord } from '../rounds.js';
 import {
   AI_INTERRUPTED,
   aiLimitReached,
+  personOverMonth,
   DEFAULT_PROGRESS_SETTINGS,
   DEFAULT_SETTINGS,
   totalStorageBytes,
@@ -43,8 +45,11 @@ import {
   type PlatformStats,
   type PlotAssignment,
   type ProgressSettings,
+  type SharedAnalysisView,
+  type TwoFactorState,
   type PublicQuality,
   type ProjectRow,
+  type ProjectStatus,
   type ProjectStorage,
   type QualityDecision,
   type QualitySettings,
@@ -58,6 +63,7 @@ import {
   type ReferenceChange,
   type ReferenceChangeResult,
   type ReferencePlot,
+  type ReferenceAnswer,
   type RoundInfo,
   type Role,
   type SampledCopy,
@@ -83,7 +89,10 @@ import {
   type TrainingSetInput,
   type UserPlots,
 } from './store.js';
+import type { UncertaintySettings } from '../uncertainty.js';
 
+/** The UTC month of a time, YYYY-MM (the AI token ledger's key). */
+const monthOf = (ms: number): string => new Date(ms).toISOString().slice(0, 7);
 const DAY_MS = 86_400_000;
 
 interface CsvFileEntry extends CsvFile {
@@ -107,6 +116,8 @@ interface ProjectEntry {
   holdingsGeneration: number;
   qualitySettings: QualitySettings | null;
   progressSettings: ProgressSettings | null;
+  analysisViews: SharedAnalysisView[];
+  uncertaintySettings: UncertaintySettings | null;
   /** The progress link's quality figure (projects.public_quality). */
   publicQuality: PublicQuality | null;
   aiEnabled: boolean;
@@ -125,6 +136,8 @@ interface ProjectEntry {
   sampling: (SamplingState & { active: boolean; lastMarkedAt: number | null }) | null;
   /** Reference plots (reference_plots), key = `${csvFileId} ${plotKey}`. */
   references: Map<string, StoredReference>;
+  /** Reference answers uploaded, by plot unit. */
+  referenceAnswers: Map<string, ReferenceAnswer>;
 }
 
 interface StoredReference {
@@ -193,10 +206,15 @@ export class InMemoryStore implements Store {
   private readonly sessions = new Map<string, string>(); // session token hash -> userId
   /** When each session was made (active accounts on the server owner's panel). */
   private readonly sessionCreatedAt = new Map<string, number>(); // session token hash -> epoch ms
+  private readonly sessionLastUsedAt = new Map<string, number>(); // session token hash -> epoch ms (SESSION_TOUCH_MS)
+  /** `${userId} YYYY-MM` -> AI tokens spent that month (UTC), deleted projects included (migration 034) */
+  private readonly aiTokenLedger = new Map<string, number>();
   /** When each account was made (sign-ups per week) and who disabled it. */
   private readonly userCreatedAt = new Map<string, number>();
   private readonly userDisabledBy = new Map<string, string>();
   private readonly memberships = new Map<string, Role>(); // `${projectId} ${userId}` -> role
+  /** `${projectId} ${userId}` -> left out of the results (Member.excluded). */
+  private readonly excludedMembers = new Map<string, { at: number; reason: string | null }>();
   private readonly invites = new Map<string, InviteEntry>(); // invite token hash -> entry
   private readonly resets = new Map<string, ResetEntry>(); // reset token hash -> entry
   /** Progress links (share_links): token hash -> link. */
@@ -341,6 +359,36 @@ export class InMemoryStore implements Store {
     return true;
   }
 
+  async anonymizeOperator(projectId: string, from: string, to: string, userId: string | null = null): Promise<number> {
+    const entry = this.requireProject(projectId);
+    let renamed = 0;
+    const renameRows = (rows: Map<string, RecordRow>) => {
+      for (const [id, r] of [...rows]) {
+        if (r.operator !== from) continue;
+        rows.delete(id);
+        rows.set(InMemoryStore.recordId(r.recordKey, to), { ...r, operator: to, xml: renameOperatorInXml(r.xml, from, to), summary: renameOperatorInSummary(r.summary, from, to) });
+        if (rows === entry.records) renamed++;
+      }
+    };
+    renameRows(entry.records);
+    const training = this.training.get(projectId);
+    if (training) renameRows(training.records);
+    entry.recordEvents = entry.recordEvents.map((e) => (e.operator === from ? { ...e, operator: to, summary: renameOperatorInSummary(e.summary, from, to) } : e));
+    for (const d of entry.decisions.values()) {
+      if (d.seen) d.seen = d.seen.map((s) => (s.operator === from ? { ...s, operator: to } : s));
+    }
+    if (userId) {
+      for (const a of entry.audit) {
+        if (a.details && a.details.userId === userId) {
+          const { userId: _gone, ...rest } = a.details;
+          a.details = rest;
+        }
+      }
+    }
+    entry.recordsGeneration++;
+    return renamed;
+  }
+
   async listTrainingRecords(projectId: string): Promise<RecordRow[]> {
     return [...(this.training.get(projectId)?.records.values() ?? [])].map((r) => ({ ...r, xml: null, summary: { ...r.summary } }));
   }
@@ -354,7 +402,7 @@ export class InMemoryStore implements Store {
   }
 
   /** `projectId`: the local mode's stable id (src/local.ts); otherwise a new one. */
-  async createProject(input: { name: string; projectId?: string }): Promise<CreateProjectResult> {
+  async createProject(input: { name: string; projectId?: string; status?: ProjectStatus }): Promise<CreateProjectResult> {
     const projectId = input.projectId ?? randomUUID();
     if (this.projects.has(projectId)) {
       throw new Error(`Project ${projectId} already exists`);
@@ -365,6 +413,7 @@ export class InMemoryStore implements Store {
       surveyUri: null,
       surveyName: null,
       idmlBase64: null,
+      status: input.status ?? 'active',
     };
     this.projects.set(projectId, {
       project,
@@ -380,6 +429,8 @@ export class InMemoryStore implements Store {
       holdingsGeneration: 0,
       qualitySettings: null,
       progressSettings: null,
+      analysisViews: [],
+      uncertaintySettings: null,
       publicQuality: null,
       aiEnabled: false,
       aiRuns: [],
@@ -391,6 +442,7 @@ export class InMemoryStore implements Store {
       attentionReads: new Map(),
       sampling: null,
       references: new Map(),
+      referenceAnswers: new Map(),
     });
 
     const adminToken = generateToken();
@@ -403,6 +455,14 @@ export class InMemoryStore implements Store {
 
   async getProject(projectId: string): Promise<ProjectRow | null> {
     return this.projects.get(projectId)?.project ?? null;
+  }
+
+  async getProjectStatus(projectId: string): Promise<ProjectStatus | null> {
+    return this.projects.get(projectId)?.project.status ?? null;
+  }
+
+  async setProjectStatus(projectId: string, status: ProjectStatus): Promise<void> {
+    this.requireProject(projectId).project.status = status;
   }
 
   async renameProject(projectId: string, name: string): Promise<void> {
@@ -535,11 +595,13 @@ export class InMemoryStore implements Store {
     if (!entry || !old || from === to) {
       return false;
     }
-    const current = entry.records.get(InMemoryStore.recordId(recordKey, to));
-    entry.records.delete(InMemoryStore.recordId(recordKey, from));
-    if (!current || old.modifiedOn > current.modifiedOn) {
-      entry.records.set(InMemoryStore.recordId(recordKey, to), { ...old, operator: to });
+    // The account has the record already: both are kept. Merging them deleted one, and a forged
+    // operator name made that someone else's record.
+    if (entry.records.has(InMemoryStore.recordId(recordKey, to))) {
+      return false;
     }
+    entry.records.delete(InMemoryStore.recordId(recordKey, from));
+    entry.records.set(InMemoryStore.recordId(recordKey, to), { ...old, operator: to });
     entry.recordsGeneration += 1;
     return true;
   }
@@ -653,8 +715,56 @@ export class InMemoryStore implements Store {
     return id ? this.users.get(id) ?? null : null;
   }
 
+  async isAccountUsername(username: string): Promise<boolean> {
+    const names = [username, username.toLowerCase()];
+    return names.some((n) => this.usersByName.has(n) || this.retiredUsernames.has(n));
+  }
+
   async getUserById(userId: string): Promise<User | null> {
     return this.users.get(userId) ?? null;
+  }
+
+  private readonly twoFactor = new Map<string, TwoFactorState>();
+
+  async getTwoFactor(userId: string): Promise<TwoFactorState | null> {
+    const s = this.twoFactor.get(userId);
+    return s ? { ...s, recoveryHashes: [...s.recoveryHashes] } : null;
+  }
+
+  private twoFactorOf(userId: string): TwoFactorState {
+    let s = this.twoFactor.get(userId);
+    if (!s) this.twoFactor.set(userId, (s = { secretEnc: null, pendingEnc: null, enabledAt: null, lastStep: null, recoveryHashes: [] }));
+    return s;
+  }
+
+  async setTwoFactorPending(userId: string, pendingEnc: string | null): Promise<void> {
+    this.twoFactorOf(userId).pendingEnc = pendingEnc;
+  }
+
+  async enableTwoFactor(userId: string, secretEnc: string, recoveryHashes: string[]): Promise<void> {
+    Object.assign(this.twoFactorOf(userId), { secretEnc, pendingEnc: null, enabledAt: Date.now(), lastStep: null, recoveryHashes: [...recoveryHashes] });
+  }
+
+  async disableTwoFactor(userId: string): Promise<void> {
+    this.twoFactor.delete(userId);
+  }
+
+  async setRecoveryHashes(userId: string, recoveryHashes: string[]): Promise<void> {
+    this.twoFactorOf(userId).recoveryHashes = [...recoveryHashes];
+  }
+
+  async claimTwoFactorStep(userId: string, step: number): Promise<boolean> {
+    const s = this.twoFactor.get(userId);
+    if (!s || (s.lastStep !== null && s.lastStep >= step)) return false;
+    s.lastStep = step;
+    return true;
+  }
+
+  async claimRecoveryCode(userId: string, hash: string): Promise<boolean> {
+    const s = this.twoFactor.get(userId);
+    if (!s || !s.recoveryHashes.includes(hash)) return false;
+    s.recoveryHashes = s.recoveryHashes.filter((h) => h !== hash);
+    return true;
   }
 
   async createSession(userId: string): Promise<string> {
@@ -664,15 +774,27 @@ export class InMemoryStore implements Store {
     return token;
   }
 
-  async resolveSession(token: string): Promise<{ userId: string } | null> {
-    const userId = this.sessions.get(hashToken(token));
+  async resolveSession(token: string, now = Date.now()): Promise<{ userId: string } | null> {
+    const hash = hashToken(token);
+    const userId = this.sessions.get(hash);
     // A disabled account's sessions are deleted; this also covers one made meanwhile.
-    return userId && !this.users.get(userId)?.disabledAt ? { userId } : null;
+    if (!userId || this.users.get(userId)?.disabledAt) return null;
+    const lastUsed = this.sessionLastUsedAt.get(hash) ?? this.sessionCreatedAt.get(hash) ?? now;
+    if (now - lastUsed > SESSION_IDLE_MS) {
+      // Unused for too long: gone
+      this.sessions.delete(hash);
+      this.sessionCreatedAt.delete(hash);
+      this.sessionLastUsedAt.delete(hash);
+      return null;
+    }
+    if (now - lastUsed >= SESSION_TOUCH_MS) this.sessionLastUsedAt.set(hash, now);
+    return { userId };
   }
 
   async deleteSession(token: string): Promise<void> {
     this.sessions.delete(hashToken(token));
     this.sessionCreatedAt.delete(hashToken(token));
+    this.sessionLastUsedAt.delete(hashToken(token));
   }
 
   async deleteUserSessions(userId: string): Promise<void> {
@@ -680,6 +802,7 @@ export class InMemoryStore implements Store {
       if (owner === userId) {
         this.sessions.delete(hash);
         this.sessionCreatedAt.delete(hash);
+        this.sessionLastUsedAt.delete(hash);
       }
     }
   }
@@ -690,6 +813,7 @@ export class InMemoryStore implements Store {
       if (owner === userId && hash !== keep) {
         this.sessions.delete(hash);
         this.sessionCreatedAt.delete(hash);
+        this.sessionLastUsedAt.delete(hash);
       }
     }
   }
@@ -1042,6 +1166,7 @@ export class InMemoryStore implements Store {
         coordinatedProjects: coordinated.get(u.id) ?? 0,
         disabledAt: u.disabledAt ?? null,
         disabledBy: u.disabledAt ? (this.users.get(this.userDisabledBy.get(u.id) ?? '')?.username ?? null) : null,
+        twoFactor: !!(this.twoFactor.get(u.id)?.enabledAt && this.twoFactor.get(u.id)?.secretEnc),
       }))
       .sort((a, b) => a.username.localeCompare(b.username));
   }
@@ -1088,7 +1213,7 @@ export class InMemoryStore implements Store {
       if (memberUserId === userId) {
         const project = this.projects.get(projectId)?.project;
         if (project) {
-          result.push({ projectId, projectName: project.name, role });
+          result.push({ projectId, projectName: project.name, role, status: project.status });
         }
       }
     }
@@ -1102,22 +1227,45 @@ export class InMemoryStore implements Store {
       if (memberProjectId === projectId) {
         const user = this.users.get(userId);
         if (user) {
-          result.push({ userId, username: user.username, role, disabled: !!user.disabledAt });
+          const excluded = this.excludedMembers.get(key);
+          result.push({ userId, username: user.username, role, disabled: !!user.disabledAt, ...(excluded ? { excluded: { ...excluded } } : {}) });
         }
       }
     }
     return result;
   }
 
-  async setMemberRole(projectId: string, userId: string, role: Role): Promise<void> {
+  async setMemberExcluded(projectId: string, userId: string, excluded: { at: number; reason: string | null } | null): Promise<boolean> {
     const id = InMemoryStore.memberId(projectId, userId);
+    if (!this.memberships.has(id)) return false;
+    if (excluded) this.excludedMembers.set(id, { ...excluded });
+    else this.excludedMembers.delete(id);
+    return true;
+  }
+
+  /** Whether taking userId's admin role away would leave the project with none (no await: atomic here). */
+  private lastAdmin(projectId: string, userId: string): boolean {
+    if (this.memberships.get(InMemoryStore.memberId(projectId, userId)) !== 'admin') return false;
+    let admins = 0;
+    for (const [key, role] of this.memberships) {
+      if (key.startsWith(`${projectId} `) && role === 'admin') admins += 1;
+    }
+    return admins <= 1;
+  }
+
+  async setMemberRole(projectId: string, userId: string, role: Role): Promise<'ok' | 'last_admin'> {
+    const id = InMemoryStore.memberId(projectId, userId);
+    if (role !== 'admin' && this.lastAdmin(projectId, userId)) return 'last_admin';
     if (this.memberships.has(id)) {
       this.memberships.set(id, role);
     }
+    return 'ok';
   }
 
-  async removeMember(projectId: string, userId: string): Promise<void> {
+  async removeMember(projectId: string, userId: string): Promise<'ok' | 'last_admin'> {
+    if (this.lastAdmin(projectId, userId)) return 'last_admin';
     this.memberships.delete(InMemoryStore.memberId(projectId, userId));
+    this.excludedMembers.delete(InMemoryStore.memberId(projectId, userId));
     const entry = this.projects.get(projectId);
     if (entry) {
       for (const a of entry.assignments) {
@@ -1128,6 +1276,7 @@ export class InMemoryStore implements Store {
       InMemoryStore.dropPlotAssignments(entry, userId);
       InMemoryStore.dropActivity(entry, userId);
     }
+    return 'ok';
   }
 
   /** The member's activity goes; their audit entries stay, with no actor. */
@@ -1560,6 +1709,17 @@ export class InMemoryStore implements Store {
     return added;
   }
 
+  async listReferenceAnswers(projectId: string): Promise<ReferenceAnswer[]> {
+    return [...(this.projects.get(projectId)?.referenceAnswers.values() ?? [])].map((r) => ({ ...r, answers: { ...r.answers } }));
+  }
+
+  async replaceReferenceAnswers(projectId: string, rows: readonly { plotKey: string; answers: Record<string, string> }[], at: number): Promise<void> {
+    const entry = this.requireProject(projectId);
+    entry.referenceAnswers = new Map(rows.map((r) => [r.plotKey, { plotKey: r.plotKey, answers: { ...r.answers }, uploadedAt: at }]));
+    // The quality figures' version follows the set, as Postgres's trigger (033).
+    entry.holdingsGeneration += 1;
+  }
+
   async listReferencePlots(projectId: string): Promise<ReferencePlot[]> {
     const entry = this.projects.get(projectId);
     const result: ReferencePlot[] = [];
@@ -1826,6 +1986,13 @@ export class InMemoryStore implements Store {
     if (limit) {
       return { ok: false, limit };
     }
+    // The person's month across projects, deleted ones included (ai_token_ledger, migration 034)
+    if (start.startedBy) {
+      const used = this.aiTokenLedger.get(`${start.startedBy} ${monthOf(w.monthStart)}`) ?? 0;
+      if (personOverMonth(used, await this.countCoordinatedProjects(start.startedBy), w)) {
+        return { ok: false, limit: 'monthly' };
+      }
+    }
     const run: AiRunRow = {
       id: randomUUID(),
       kind: start.kind,
@@ -1863,6 +2030,11 @@ export class InMemoryStore implements Store {
       return false;
     }
     Object.assign(run, structuredClone(end));
+    const tokens = run.inputTokens + run.outputTokens;
+    if (run.startedBy && tokens > 0) {
+      const key = `${run.startedBy} ${monthOf(run.startedAt)}`;
+      this.aiTokenLedger.set(key, (this.aiTokenLedger.get(key) ?? 0) + tokens);
+    }
     return true;
   }
 
@@ -2030,6 +2202,22 @@ export class InMemoryStore implements Store {
     this.requireProject(projectId).progressSettings = { ...settings };
   }
 
+  async getAnalysisViews(projectId: string): Promise<SharedAnalysisView[]> {
+    return structuredClone(this.projects.get(projectId)?.analysisViews ?? []);
+  }
+
+  async setAnalysisViews(projectId: string, views: SharedAnalysisView[]): Promise<void> {
+    this.requireProject(projectId).analysisViews = structuredClone(views);
+  }
+
+  async getUncertaintySettings(projectId: string): Promise<UncertaintySettings | null> {
+    return structuredClone(this.projects.get(projectId)?.uncertaintySettings ?? null);
+  }
+
+  async setUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<void> {
+    this.requireProject(projectId).uncertaintySettings = structuredClone(settings);
+  }
+
   async appendAudit(projectId: string, input: AuditInput): Promise<void> {
     const entry = this.requireProject(projectId);
     entry.audit.push({
@@ -2113,6 +2301,7 @@ export class InMemoryStore implements Store {
     this.usersByName.clear();
     this.sessions.clear();
     this.sessionCreatedAt.clear();
+    this.aiTokenLedger.clear();
     this.userCreatedAt.clear();
     this.userDisabledBy.clear();
     this.memberships.clear();

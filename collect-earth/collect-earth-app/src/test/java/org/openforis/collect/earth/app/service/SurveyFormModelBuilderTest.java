@@ -132,6 +132,56 @@ public class SurveyFormModelBuilderTest {
 	}
 
 	@Test
+	public void tableTotalsFollowTheSurveysSumCheck() {
+		Map<String, Object> table = null;
+		for (Map<String, Object> tab : tabs()) {
+			for (Map<String, Object> item : (List<Map<String, Object>>) tab.get("items")) {
+				if ("table".equals(item.get("kind"))) table = item;
+			}
+		}
+		assertNotNull(table, "land_cover table");
+		// coverage's check: sum(parent()/land_cover/percentage) >= 90, on the hidden percentage calculated from coverage
+		List<Map<String, Object>> totals = (List<Map<String, Object>>) table.get("totals");
+		assertNotNull(totals, "the table's total");
+		assertEquals(1, totals.size());
+		Map<String, Object> total = totals.get(0);
+		assertEquals(Boolean.TRUE, total.get("hidden"));
+		assertEquals(Boolean.TRUE, total.get("calculated"));
+		List<String> fields = (List<String>) total.get("fields");
+		List<Map<String, Object>> rows = (List<Map<String, Object>>) table.get("rows");
+		assertEquals(rows.size(), fields.size(), "one value per row");
+		assertTrue(fields.get(0).startsWith("collect_entity_land_cover[" + rows.get(0).get("code") + "]."), fields.get(0));
+		assertTrue(fields.get(0).endsWith("_percentage"), fields.get(0));
+		List<Map<String, Object>> rules = (List<Map<String, Object>>) total.get("rules");
+		assertEquals(1, rules.size());
+		assertEquals(">=", rules.get(0).get("op"));
+		assertEquals(90.0, rules.get(0).get("value"));
+		assertEquals("error", rules.get(0).get("flag"));
+	}
+
+	@Test
+	public void sumRulesReadThePlainForms() {
+		List<Map<String, Object>> both = SurveyFormModelBuilder.sumRules(
+				"sum(parent()/cover/pct) >= 90 and sum( cover/pct ) <= 100", "cover", "pct");
+		assertEquals(2, both.size());
+		assertEquals(">=", both.get(0).get("op"));
+		assertEquals(90.0, both.get(0).get("value"));
+		assertEquals("<=", both.get(1).get("op"));
+		assertEquals(100.0, both.get(1).get("value"));
+		// a number before the sum is turned round; == is =
+		Map<String, Object> flipped = SurveyFormModelBuilder.sumRules("100 > sum(cover/pct)", "cover", "pct").get(0);
+		assertEquals("<", flipped.get("op"));
+		assertEquals("=", SurveyFormModelBuilder.sumRules("sum(cover/pct) == 100", "cover", "pct").get(0).get("op"));
+		// another column, a filtered sum, an "or", a sum compared to an expression: nothing to show
+		assertTrue(SurveyFormModelBuilder.sumRules("sum(cover/other) = 100", "cover", "pct").isEmpty());
+		assertTrue(SurveyFormModelBuilder.sumRules("sum(cover[type='a']/pct) = 100", "cover", "pct").isEmpty());
+		assertTrue(SurveyFormModelBuilder.sumRules("sum(cover/pct) = 100 or skip = true()", "cover", "pct").isEmpty());
+		assertTrue(SurveyFormModelBuilder.sumRules("sum(cover/pct) >= 90.5x", "cover", "pct").isEmpty());
+		assertTrue(SurveyFormModelBuilder.sumRules("sum(cover/pct) = total", "cover", "pct").isEmpty());
+		assertTrue(SurveyFormModelBuilder.sumRules(null, "cover", "pct").isEmpty());
+	}
+
+	@Test
 	public void calculatedAndMultipleFlags() {
 		assertEquals(Boolean.TRUE, field("collect_code_disturbance_type").get("multiple"));
 		Map<String, Object> calculated = field("collect_code_calculated_elevation_range");

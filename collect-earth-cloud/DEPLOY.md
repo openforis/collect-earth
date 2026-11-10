@@ -31,6 +31,7 @@ managed Postgres (Option B).
 | `GA_API_SECRET` | with GA | *(secret)* | With `TELEMETRY`: the Measurement Protocol API secret of the Google Analytics property. Without it no usage event is sent (it cannot be in this public repository) |
 | `GA_MEASUREMENT_ID` | no | `G-XXXXXXX` | With `TELEMETRY` and `GA_API_SECRET`: the property. Default: the desktop app's (`G-8K943HZKJZ`) |
 | `TRUST_PROXY_HOPS` | no | `1` | Proxies in front of the server that add to `x-forwarded-for` (see below) |
+| `SESSION_IDLE_DAYS` | no | `90` | A sign-in (in Collect Earth or the dashboard) unused for this many days stops working; each use keeps it alive. A coordinator can also sign a person out everywhere (their page, *Sign out everywhere*), and anyone their other devices (*My account*) |
 | `MIGRATE_ON_BOOT` | optional | `true` | Apply pending migrations on startup (see below); `true` or `1` |
 | `PORT` | no | `8080` | Listen port (Cloud Run injects `8080`) |
 | `HOST` | no | `0.0.0.0` | Bind address |
@@ -308,6 +309,9 @@ production topology: use a managed, backed-up Postgres in production.
 
 ## Post-deploy checks & onboarding
 
+Before the first real project: agree on its data with its owner, on one page ([`DATA-AGREEMENT.md`](DATA-AGREEMENT.md):
+who owns it, the region, who sees and downloads what, how long it is kept), and do the restore drill ("Backups" below).
+
 ```bash
 BASE=https://ce-cloud.example.org
 
@@ -354,9 +358,8 @@ worked and exits non-zero otherwise. The server needs outbound HTTPS to the Sent
   Run instances freely within the database's `max_connections` (see above).
   Boot migrations are serialised by the advisory lock.
 - **Backups:** keep automated backups and PITR on the Postgres instance (the
-  script turns both on): record data and tombstones live only there. Restore from
-  the Cloud SQL console (*Backups* → *Restore*, or *Point-in-time recovery*, which
-  creates a clone to switch to).
+  script turns both on): record data and tombstones live only there. See
+  "Backups: the restore drill and monthly copies" below.
 - **Logs:** `gcloud run services logs read collect-earth-cloud --region <REGION> --limit 50`.
 - **Links in the logs (progress links, invitations, password resets, backup downloads):** these
   links carry their secret token in the address. The server's own log lines write the address
@@ -401,6 +404,20 @@ worked and exits non-zero otherwise. The server needs outbound HTTPS to the Sent
   but a database edit could): enable one again as the tables' owner, e.g.
   `psql "$MIGRATION_DATABASE_URL" -c "UPDATE users SET disabled_at = NULL, disabled_by = NULL WHERE username = 'owner'"`
   (the account then logs in as before).
+- **Reset links from the Server page:** for an account with a confirmed address (and mail set
+  up), the link is mailed to that address and not shown to the administrator, who could
+  otherwise sign in as a coordinator and see their projects. The administrator gets a link to
+  pass on only for an account no mail reaches. Each is written to the server log
+  (`account.reset.mailed` / `account.reset.issued`, with both account ids).
+- **Changing an account's email** asks for its password: the address is where "Forgot your
+  password?" sends its link, so a session alone, copied from a browser, cannot move it.
+- **Records under a legacy operator name** (before records went by the username) move to the
+  account that sends them again, unless the name is any account's username (a member's, a
+  former member's or a deleted account's) or the account has that record already: then both
+  rows are kept. Nothing is ever deleted by it.
+- **Project file (CEP) uploads** may unzip to 64 MB at most (413 `too_large`), and their
+  `project_definition.properties` to 256 KB: a larger upload took a 512 MiB instance past its
+  memory, for every project on it.
 - **Passwords:** hashed with scrypt (`node:crypto`, no native deps). For a
   hardened deployment swap `src/password.ts` for argon2id; only that module
   changes (the stored-hash string shape is private to it).
@@ -599,6 +616,30 @@ coordinator's guidance notes. People's names are replaced by "Person A",
 back. Coordinates, comments, other text answers, record keys and plot ids are never
 sent. The assistant only reads; it changes nothing.
 
+The analysis page's "Ask AI for more views" sends less: the survey's **structure**
+only (its questions, code lists and labels, and which questions are years or dates),
+never a plot, an answer, a figure or a person.
+
+**Where it is processed.** Vertex AI processes what is sent in the location the
+server asks for, and the project's Settings tab shows it to the coordinator:
+- with `AI_VERTEX_API_KEY`, the location is always `global`: Google may process a
+  request in any of its regions;
+- with `AI_VERTEX_PROJECT`, `AI_VERTEX_REGION` chooses it. `global` is the default;
+  `eu` or `us` keep the processing in those areas (the default model is available in
+  `global`, `us` and `eu`).
+
+Where a project's data must stay in a region (a country's rules, the data owner's
+agreement), set the server up with the service account (not a key) and
+`AI_VERTEX_REGION` to that area, or leave the assistant off.
+
+**Before allowing it on a server**, read Google's terms for Vertex AI and its
+[data governance page](https://cloud.google.com/vertex-ai/generative-ai/docs/data-governance)
+(how prompts and answers are kept and whether they are used, on the terms of the
+Google Cloud account the server uses), and note in each project's agreement that the
+assistant may be used. Coordinators confirm, when they switch it on in a project's
+Settings tab, that sending these data fits their project's agreements; the
+project's activity log keeps who switched it on and when.
+
 **Limits** (Server settings; each **per project**, so the server's total can be
 the limit times the number of projects):
 - AI reviews per project per day (default 5) and follow-ups and questions per
@@ -612,6 +653,78 @@ the limit times the number of projects):
 
 `0` allows none. The Server settings page also shows this month's use per project
 (project ids, runs, refusals and tokens; never names or content).
+
+## Backups: the restore drill and monthly copies
+
+**What there is.** `deploy.sh` gives the database a backup every night, kept 7 days, and point-in-time recovery for
+the last 7 days (any minute can be restored), and protects it against deletion. Collect Earth's records live only
+there, so these are the project's only copies apart from what coordinators download.
+
+**The restore drill: do it once before going live, then once a year.** A backup never restored is a hope. The drill
+restores into a *new* database server, so the real one is never touched:
+1. Note the figures to compare: in the dashboard, each project's records (Data tab) and plots. Or in
+   *Cloud SQL* → `ce-cloud-db` → *Cloud SQL Studio*: `SELECT count(*) FROM records;` and `SELECT count(*) FROM
+   projects;`.
+2. Restore yesterday into a copy (a few minutes; a second server is billed while it exists):
+   ```bash
+   gcloud sql instances clone ce-cloud-db ce-cloud-db-drill --project=<PROJECT> \
+     --point-in-time="$(date -u -d 'yesterday 12:00' +%Y-%m-%dT%H:%M:%SZ)"
+   ```
+3. In *Cloud SQL Studio* on `ce-cloud-db-drill`, run the same counts: they should match, less what arrived since.
+4. Delete the copy (a clone may keep the deletion protection; turn it off first):
+   ```bash
+   gcloud sql instances patch ce-cloud-db-drill --no-deletion-protection --project=<PROJECT>
+   gcloud sql instances delete ce-cloud-db-drill --project=<PROJECT>
+   ```
+5. Write it down: the date, who did it, the minutes it took and whether the counts matched. Keep that note with the
+   project's documents; it is what tells an auditor (or you, in a hurry) that restoring works.
+
+**Restoring for real** after a mistake: the same clone, at a minute just before the mistake, then point the server at
+it. Ask whoever manages the Google Cloud project, as it changes the server's database address; and first download
+what you need from each project's Data tab, as the restore replaces everything since that minute.
+
+**Monthly copies, kept a year.** Seven days is short when a mistake is noticed a month later.
+`deploy/gcp/monthly-backups.sh --project <PROJECT> --schedule` (in Cloud Shell) creates a private Cloud Storage
+bucket `<PROJECT>-ce-backups`, makes a first copy, and asks Cloud Scheduler for one on the 1st of every month; each
+copy is kept 12 months (`--keep-months`). A copy is restored into a new server with
+`gcloud sql import sql <NEW-INSTANCE> gs://<PROJECT>-ce-backups/ce-cloud-db-monthly.sql.gz --database=collect_earth_cloud`
+(choose the month with `gcloud storage ls --all-versions`). The script was written without access to Google Cloud:
+check its first run in the console, and include one monthly copy in the yearly drill.
+
+**Where the copies are:** in the same project and region as the database. A copy outside Google Cloud (a
+coordinator's Collect Earth backup from the Data tab, kept by the institution) protects against losing the Google
+Cloud account itself.
+
+## Alerts for the server's owner
+
+The server watches for signs that someone should look at it (`src/ownerAlerts.ts`):
+
+| Alert | Raised when | What to do |
+| --- | --- | --- |
+| Failed logins | 50 in an hour | Someone may be guessing passwords: look at the server panel; consider requiring two-step sign-in of coordinators (Server settings) |
+| Server errors | 20 answers of 500 or more in an hour | Something is broken: look at the server's log |
+| Records refused | 50 records from Collect Earth refused in an hour | Interpreters' work may not be arriving: look at the log |
+| Storage | A project uses 90 % of the storage limit (checked hourly; only with a limit set) | Raise the limit, or ask the project's coordinators to tidy up |
+
+Each alert is:
+- **a log line** with `jsonPayload.ownerAlert` set to its kind (`failed_logins`, `server_errors`, `sync_errors`,
+  `storage`);
+- **listed on the server panel** ("Alerts"), since that instance started;
+- **mailed to every server administrator whose email address is confirmed** (their account page), in their
+  language, when the server sends mail (`SMTP_URL`, "Weekly emails" below).
+
+The same alert is raised at most once every six hours (a project's storage once a day). Each Cloud Run instance
+counts its own, and a restart starts from zero, as the panel's counters do; the log-based alert below sees them all.
+
+**Two checks only Google Cloud can do** (in the console; a few minutes each):
+1. **The server is down.** *Monitoring* → *Uptime checks* → *Create uptime check*: protocol HTTPS, the server's host,
+   path `/health`, every 5 minutes; then create its alert policy with an email notification channel. Nothing inside
+   the server can tell you it is down.
+2. **Alerts from every instance.** *Logging* → *Logs Explorer*, query
+   `resource.type="cloud_run_revision" AND jsonPayload.ownerAlert:*`, then *Actions* → *Create log alert*, with the
+   same notification channel. This works without `SMTP_URL`.
+
+A billing budget alert (*AI assistant*, step 4) is the third one worth having.
 
 ## Weekly emails (optional)
 
@@ -861,7 +974,11 @@ caches to the 1 GiB column (`gcloud run services update collect-earth-cloud --re
   host of `MAP_TILE_URL`) and `style-src` must allow inline styles, which Leaflet and the
   dashboard's components set.
 - **AI limits are per project** and checked before a run starts, so the server's
-  monthly total can reach the limit times the number of projects, plus one run each.
+  monthly total can reach the limit times the number of projects, plus one run each. A
+  person's tokens are also counted by month across projects (`ai_token_ledger`, migration
+  034), deleted ones included, against the monthly limit times the projects they coordinate:
+  deleting a project and making another does not give a fresh allowance. The usage on the
+  Server page lists live projects only; the ledger keeps the deleted ones' share.
 - **Check the plot file before pressing Apply in Collect Earth's plot settings.** When the
   settings open (or on Refresh), Collect Earth downloads the first plot file of the list and
   also the one in use, at the same time, and shows whichever download ends last. Someone
@@ -921,7 +1038,7 @@ SA=ce-cloud-run@$P.iam.gserviceaccount.com
 
 # APIs (billing must be on: gcloud billing projects describe $P)
 gcloud services enable cloudbilling.googleapis.com run.googleapis.com \
-  sqladmin.googleapis.com secretmanager.googleapis.com artifactregistry.googleapis.com \
+  sqladmin.googleapis.com sql-component.googleapis.com secretmanager.googleapis.com artifactregistry.googleapis.com \
   cloudbuild.googleapis.com iam.googleapis.com cloudresourcemanager.googleapis.com --project=$P
 
 # Database (10 to 15 minutes)

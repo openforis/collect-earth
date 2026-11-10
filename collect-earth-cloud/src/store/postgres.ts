@@ -1,11 +1,13 @@
+import { OPERATOR_SUMMARY_KEY, operatorXmlPattern } from '../anonymize.js';
 import pg from 'pg';
 import { randomUUID } from 'node:crypto';
 import { isUuid } from '../accountRules.js';
-import { generateShareToken, generateToken, hashToken } from '../auth.js';
+import { generateShareToken, generateToken, hashToken, SESSION_IDLE_MS, SESSION_TOUCH_MS } from '../auth.js';
 import { PUBLIC_SCHEMA_FIX } from './migrate.js';
 import {
   AI_INTERRUPTED,
   aiLimitReached,
+  personOverMonth,
   DEFAULT_PROGRESS_SETTINGS,
   DEFAULT_SETTINGS,
   totalStorageBytes,
@@ -44,8 +46,11 @@ import {
   type PlatformStats,
   type PlotAssignment,
   type ProgressSettings,
+  type SharedAnalysisView,
+  type TwoFactorState,
   type PublicQuality,
   type ProjectRow,
+  type ProjectStatus,
   type ProjectStorage,
   type QualityDecision,
   type QualitySettings,
@@ -60,6 +65,7 @@ import {
   type ReferenceChange,
   type ReferenceChangeResult,
   type ReferencePlot,
+  type ReferenceAnswer,
   type RoundInfo,
   type SampledCopy,
   type SamplingDraw,
@@ -86,6 +92,7 @@ import {
   type TrainingSetInput,
   type UserPlots,
 } from './store.js';
+import type { UncertaintySettings } from '../uncertainty.js';
 import { unitOfRecord } from '../rounds.js';
 import { UsernameTakenError } from './memory.js';
 import { checksumOf, plotCountOf } from '../csv.js';
@@ -100,6 +107,8 @@ const PLOT_INSERT_CHUNK = 5000;
 const SHARE_LINKS_LOCK = "SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:share-links:' || $1))";
 /** The check sampling's lock per project (addSampledCopies, setDivision). */
 const SAMPLING_LOCK = "SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:sampling:' || $1))";
+/** Changes to a project's admins, one at a time (lastAdmin). */
+const PROJECT_ADMINS_LOCK = "SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:project-admins:' || $1))";
 /** The longest statement of a draw's transaction (its lock's wait included): 24,000 copies took about 1.5 s. */
 export const SAMPLING_STATEMENT_TIMEOUT_MS = 30_000;
 /** The longest pause between the statements of a draw's transaction before Postgres ends it. */
@@ -210,7 +219,7 @@ export class PostgresStore implements Store {
     }
   }
 
-  async createProject(input: { name: string }): Promise<CreateProjectResult> {
+  async createProject(input: { name: string; status?: ProjectStatus }): Promise<CreateProjectResult> {
     const projectId = randomUUID();
     const adminToken = generateToken();
     const projectToken = generateToken();
@@ -220,7 +229,7 @@ export class PostgresStore implements Store {
       await client.query('BEGIN');
       // The new project's own id, so its row passes the projects policy (RLS).
       await client.query('SELECT set_config($1, $2, true)', ['app.current_project', projectId]);
-      await client.query('INSERT INTO projects (id, name) VALUES ($1, $2)', [projectId, input.name]);
+      await client.query('INSERT INTO projects (id, name, status) VALUES ($1, $2, $3)', [projectId, input.name, input.status ?? 'active']);
       await client.query(
         'INSERT INTO project_tokens (token_hash, project_id, role) VALUES ($1, $2, $3), ($4, $2, $5)',
         [hashToken(adminToken), projectId, 'admin', hashToken(projectToken), 'operator'],
@@ -238,7 +247,7 @@ export class PostgresStore implements Store {
   async getProject(projectId: string): Promise<ProjectRow | null> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        'SELECT id, name, survey_uri, survey_name, idml_base64 FROM projects WHERE id = $1',
+        'SELECT id, name, survey_uri, survey_name, idml_base64, status FROM projects WHERE id = $1',
         [projectId],
       );
       if (res.rowCount === 0) {
@@ -251,7 +260,21 @@ export class PostgresStore implements Store {
         surveyUri: r.survey_uri,
         surveyName: r.survey_name,
         idmlBase64: r.idml_base64,
+        status: r.status,
       };
+    });
+  }
+
+  async getProjectStatus(projectId: string): Promise<ProjectStatus | null> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT status FROM projects WHERE id = $1', [projectId]);
+      return res.rowCount === 0 ? null : (res.rows[0].status as ProjectStatus);
+    });
+  }
+
+  async setProjectStatus(projectId: string, status: ProjectStatus): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('UPDATE projects SET status = $2 WHERE id = $1', [projectId, status]);
     });
   }
 
@@ -298,6 +321,7 @@ export class PostgresStore implements Store {
       await client.query('DELETE FROM guidance_notes WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM sampling_rules WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM reference_plots WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM reference_answers WHERE project_id = $1', [projectId]);
       for (const table of ['training_attempts', 'training_golden', 'training_members', 'training_sets', 'training_records']) {
         await client.query(`DELETE FROM ${table} WHERE project_id = $1`, [projectId]);
       }
@@ -420,13 +444,10 @@ export class PostgresStore implements Store {
       if (!old) {
         return false;
       }
-      const current = res.rows.find((r) => r.operator === to);
-      if (current && (old.modified_on as Date).getTime() <= (current.modified_on as Date).getTime()) {
-        await client.query('DELETE FROM records WHERE project_id = $1 AND record_key = $2 AND operator = $3', [projectId, recordKey, from]);
-        return true;
-      }
-      if (current) {
-        await client.query('DELETE FROM records WHERE project_id = $1 AND record_key = $2 AND operator = $3', [projectId, recordKey, to]);
+      // The account has the record already: both are kept. Merging them deleted one, and a forged
+      // operator name made that someone else's record.
+      if (res.rows.some((r) => r.operator === to)) {
+        return false;
       }
       await client.query('UPDATE records SET operator = $4 WHERE project_id = $1 AND record_key = $2 AND operator = $3', [projectId, recordKey, from, to]);
       return true;
@@ -704,6 +725,63 @@ export class PostgresStore implements Store {
     };
   }
 
+  async getTwoFactor(userId: string): Promise<TwoFactorState | null> {
+    const res = await this.pool.query('SELECT secret_enc, pending_enc, enabled_at, last_step, recovery_hashes FROM user_two_factor WHERE user_id = $1', [userId]);
+    if (res.rowCount === 0) return null;
+    const r = res.rows[0];
+    return {
+      secretEnc: r.secret_enc ?? null,
+      pendingEnc: r.pending_enc ?? null,
+      enabledAt: r.enabled_at ? (r.enabled_at as Date).getTime() : null,
+      lastStep: r.last_step === null || r.last_step === undefined ? null : Number(r.last_step),
+      recoveryHashes: (r.recovery_hashes as string[] | null) ?? [],
+    };
+  }
+
+  async setTwoFactorPending(userId: string, pendingEnc: string | null): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO user_two_factor (user_id, pending_enc) VALUES ($1, $2)
+       ON CONFLICT (user_id) DO UPDATE SET pending_enc = EXCLUDED.pending_enc`,
+      [userId, pendingEnc],
+    );
+  }
+
+  async enableTwoFactor(userId: string, secretEnc: string, recoveryHashes: string[]): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO user_two_factor (user_id, secret_enc, pending_enc, enabled_at, last_step, recovery_hashes) VALUES ($1, $2, NULL, now(), NULL, $3)
+       ON CONFLICT (user_id) DO UPDATE SET secret_enc = EXCLUDED.secret_enc, pending_enc = NULL, enabled_at = now(), last_step = NULL, recovery_hashes = EXCLUDED.recovery_hashes`,
+      [userId, secretEnc, recoveryHashes],
+    );
+  }
+
+  async disableTwoFactor(userId: string): Promise<void> {
+    await this.pool.query('DELETE FROM user_two_factor WHERE user_id = $1', [userId]);
+  }
+
+  async setRecoveryHashes(userId: string, recoveryHashes: string[]): Promise<void> {
+    await this.pool.query('UPDATE user_two_factor SET recovery_hashes = $2 WHERE user_id = $1', [userId, recoveryHashes]);
+  }
+
+  async claimTwoFactorStep(userId: string, step: number): Promise<boolean> {
+    // One statement: two logins with the same code at once cannot both pass
+    const res = await this.pool.query('UPDATE user_two_factor SET last_step = $2 WHERE user_id = $1 AND (last_step IS NULL OR last_step < $2)', [userId, step]);
+    return (res.rowCount ?? 0) > 0;
+  }
+
+  async claimRecoveryCode(userId: string, hash: string): Promise<boolean> {
+    const res = await this.pool.query('UPDATE user_two_factor SET recovery_hashes = array_remove(recovery_hashes, $2) WHERE user_id = $1 AND $2 = ANY(recovery_hashes)', [userId, hash]);
+    return (res.rowCount ?? 0) > 0;
+  }
+
+  async isAccountUsername(username: string): Promise<boolean> {
+    const res = await this.pool.query(
+      `SELECT 1 FROM users WHERE username = ANY($1::text[])
+       UNION ALL SELECT 1 FROM retired_usernames WHERE username = ANY($1::text[]) LIMIT 1`,
+      [[username, username.toLowerCase()]],
+    );
+    return (res.rowCount ?? 0) > 0;
+  }
+
   async getUserByUsername(username: string): Promise<User | null> {
     const res = await this.pool.query(
       'SELECT id, username, password_hash, email, is_platform_admin, terms_accepted_at, disabled_at FROM users WHERE username = $1',
@@ -726,14 +804,32 @@ export class PostgresStore implements Store {
     return token;
   }
 
-  async resolveSession(token: string): Promise<{ userId: string } | null> {
-    // A disabled account's sessions are deleted; the join also refuses one made meanwhile.
+  async resolveSession(token: string, now = Date.now()): Promise<{ userId: string } | null> {
+    const hash = hashToken(token);
+    const at = new Date(now);
+    // A disabled account's sessions are deleted; the join also refuses one made meanwhile. Unused for longer than
+    // SESSION_IDLE_MS: refused, and deleted below. A use is written down at most once per SESSION_TOUCH_MS.
     const res = await this.pool.query(
-      `SELECT s.user_id FROM sessions s JOIN users u ON u.id = s.user_id
-        WHERE s.token_hash = $1 AND (s.expires_at IS NULL OR s.expires_at > now()) AND u.disabled_at IS NULL`,
-      [hashToken(token)],
+      `WITH hit AS (
+         SELECT s.token_hash, s.user_id, COALESCE(s.last_used_at, s.created_at) AS used
+           FROM sessions s JOIN users u ON u.id = s.user_id
+          WHERE s.token_hash = $1 AND (s.expires_at IS NULL OR s.expires_at > $2) AND u.disabled_at IS NULL
+            AND COALESCE(s.last_used_at, s.created_at) >= $2::timestamptz - make_interval(secs => $3)
+       ), touched AS (
+         UPDATE sessions SET last_used_at = $2
+          WHERE token_hash IN (SELECT token_hash FROM hit WHERE used < $2::timestamptz - make_interval(secs => $4))
+       )
+       SELECT user_id FROM hit`,
+      [hash, at, SESSION_IDLE_MS / 1000, SESSION_TOUCH_MS / 1000],
     );
-    return res.rowCount === 0 ? null : { userId: res.rows[0].user_id };
+    if (res.rowCount === 0) {
+      await this.pool.query(
+        `DELETE FROM sessions WHERE token_hash = $1 AND COALESCE(last_used_at, created_at) < $2::timestamptz - make_interval(secs => $3)`,
+        [hash, at, SESSION_IDLE_MS / 1000],
+      );
+      return null;
+    }
+    return { userId: res.rows[0].user_id };
   }
 
   async deleteSession(token: string): Promise<void> {
@@ -1184,12 +1280,17 @@ export class PostgresStore implements Store {
         settings[r.key as 'maxProjectsPerUser' | 'maxProjectStorageMb'] = Number.isInteger(n) && n >= 0 ? n : 0;
       } else if (r.key === 'aiEnabled') {
         settings.aiEnabled = r.value === 'true';
+      } else if (r.key === 'twoFactorForCoordinators') {
+        settings.twoFactorForCoordinators = r.value === 'true';
       } else if (r.key === 'aiReportsPerDay' || r.key === 'aiFollowUpsPerDay' || r.key === 'aiMonthlyTokens') {
         const n = Number(r.value);
         const key = r.key as 'aiReportsPerDay' | 'aiFollowUpsPerDay' | 'aiMonthlyTokens';
         settings[key] = Number.isInteger(n) && n >= 0 ? n : DEFAULT_SETTINGS[key];
-      } else if (r.key === 'termsUrl' || r.key === 'contactEmail' || r.key === 'serverName') {
-        settings[r.key as 'termsUrl' | 'contactEmail' | 'serverName'] = r.value.length > 0 ? r.value : null;
+      } else if (r.key === 'termsUrl' || r.key === 'contactEmail' || r.key === 'serverName' || r.key === 'announcement') {
+        settings[r.key as 'termsUrl' | 'contactEmail' | 'serverName' | 'announcement'] = r.value.length > 0 ? r.value : null;
+      } else if (r.key === 'announcementUntil') {
+        const n = Number(r.value);
+        settings.announcementUntil = Number.isFinite(n) ? n : null;
       }
     }
     return settings;
@@ -1222,7 +1323,8 @@ export class PostgresStore implements Store {
     const res = await this.pool.query(
       `SELECT u.id, u.username, u.is_platform_admin, u.disabled_at, b.username AS disabled_by,
               COUNT(m.project_id)::int AS projects,
-              (COUNT(m.project_id) FILTER (WHERE m.role = 'admin'))::int AS coordinated
+              (COUNT(m.project_id) FILTER (WHERE m.role = 'admin'))::int AS coordinated,
+              EXISTS (SELECT 1 FROM user_two_factor t WHERE t.user_id = u.id AND t.enabled_at IS NOT NULL AND t.secret_enc IS NOT NULL) AS two_factor
          FROM users u LEFT JOIN project_members m ON m.user_id = u.id
               LEFT JOIN users b ON b.id = u.disabled_by
         GROUP BY u.id, u.username, u.is_platform_admin, u.disabled_at, b.username
@@ -1236,6 +1338,7 @@ export class PostgresStore implements Store {
       coordinatedProjects: r.coordinated,
       disabledAt: r.disabled_at === null ? null : (r.disabled_at as Date).getTime(),
       disabledBy: r.disabled_at === null ? null : ((r.disabled_by as string | null) ?? null),
+      twoFactor: r.two_factor === true,
     }));
   }
 
@@ -1296,9 +1399,9 @@ export class PostgresStore implements Store {
       const out: Membership[] = [];
       for (const m of members.rows) {
         await client.query('SELECT set_config($1, $2, true)', ['app.current_project', m.project_id]);
-        const p = await client.query('SELECT name FROM projects WHERE id = $1', [m.project_id]);
+        const p = await client.query('SELECT name, status FROM projects WHERE id = $1', [m.project_id]);
         if (p.rowCount !== 0) {
-          out.push({ projectId: m.project_id, projectName: p.rows[0].name, role: m.role });
+          out.push({ projectId: m.project_id, projectName: p.rows[0].name, role: m.role, status: p.rows[0].status });
         }
       }
       await client.query('COMMIT');
@@ -1313,24 +1416,57 @@ export class PostgresStore implements Store {
 
   async listMembers(projectId: string): Promise<Member[]> {
     const res = await this.pool.query(
-      `SELECT m.user_id, u.username, m.role, u.disabled_at IS NOT NULL AS disabled
+      `SELECT m.user_id, u.username, m.role, u.disabled_at IS NOT NULL AS disabled, m.excluded_at, m.excluded_reason
          FROM project_members m JOIN users u ON u.id = m.user_id
         WHERE m.project_id = $1
         ORDER BY u.username`,
       [projectId],
     );
-    return res.rows.map((r) => ({ userId: r.user_id, username: r.username, role: r.role, disabled: r.disabled === true }));
+    return res.rows.map((r) => ({
+      userId: r.user_id,
+      username: r.username,
+      role: r.role,
+      disabled: r.disabled === true,
+      ...(r.excluded_at ? { excluded: { at: new Date(r.excluded_at).getTime(), reason: r.excluded_reason ?? null } } : {}),
+    }));
   }
 
-  async setMemberRole(projectId: string, userId: string, role: Role): Promise<void> {
-    await this.pool.query(
-      'UPDATE project_members SET role = $3 WHERE project_id = $1 AND user_id = $2',
-      [projectId, userId, role],
+  async setMemberExcluded(projectId: string, userId: string, excluded: { at: number; reason: string | null } | null): Promise<boolean> {
+    const res = await this.pool.query(
+      'UPDATE project_members SET excluded_at = $3, excluded_reason = $4 WHERE project_id = $1 AND user_id = $2',
+      [projectId, userId, excluded ? new Date(excluded.at) : null, excluded?.reason ?? null],
     );
+    return (res.rowCount ?? 0) > 0;
   }
 
-  async removeMember(projectId: string, userId: string): Promise<void> {
-    await this.withProject(projectId, async (client) => {
+  /**
+   * Whether taking `userId`'s admin role away would leave the project with none, asked under
+   * PROJECT_ADMINS_LOCK: two admins demoting or removing each other at once are then taken one
+   * after the other, and the second is refused (it used to leave a project nobody could manage).
+   */
+  private async lastAdmin(client: pg.PoolClient, projectId: string, userId: string, keepsAdmin: boolean): Promise<boolean> {
+    await client.query(PROJECT_ADMINS_LOCK, [projectId]);
+    if (keepsAdmin) return false;
+    const res = await client.query(
+      `SELECT (SELECT role FROM project_members WHERE project_id = $1 AND user_id = $2) AS role,
+              (SELECT COUNT(*)::int FROM project_members WHERE project_id = $1 AND role = 'admin') AS admins`,
+      [projectId, userId],
+    );
+    const r = res.rows[0];
+    return r?.role === 'admin' && r.admins <= 1;
+  }
+
+  async setMemberRole(projectId: string, userId: string, role: Role): Promise<'ok' | 'last_admin'> {
+    return this.withProject(projectId, async (client) => {
+      if (await this.lastAdmin(client, projectId, userId, role === 'admin')) return 'last_admin';
+      await client.query('UPDATE project_members SET role = $3 WHERE project_id = $1 AND user_id = $2', [projectId, userId, role]);
+      return 'ok';
+    });
+  }
+
+  async removeMember(projectId: string, userId: string): Promise<'ok' | 'last_admin'> {
+    return this.withProject(projectId, async (client) => {
+      if (await this.lastAdmin(client, projectId, userId, false)) return 'last_admin';
       // A draw's copies land before or after the removal, never one for a person removed meanwhile.
       await client.query(SAMPLING_LOCK, [projectId]);
       await client.query('DELETE FROM assignments WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
@@ -1339,6 +1475,37 @@ export class PostgresStore implements Store {
       await client.query('DELETE FROM attention_reads WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
       await client.query('UPDATE audit_log SET actor_user_id = NULL WHERE project_id = $1 AND actor_user_id = $2', [projectId, userId]);
       await client.query('DELETE FROM project_members WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
+      return 'ok';
+    });
+  }
+
+  async anonymizeOperator(projectId: string, from: string, to: string, userId: string | null = null): Promise<number> {
+    const pattern = operatorXmlPattern(from);
+    // The summary's operator, only where it is this one; the XML's <operator><value>, nothing else in it
+    const summary = (column: string) => `CASE WHEN ${column} ->> '${OPERATOR_SUMMARY_KEY}' = $2 THEN jsonb_set(${column}, '{${OPERATOR_SUMMARY_KEY}}', to_jsonb($3::text)) ELSE ${column} END`;
+    return this.withProject(projectId, async (client) => {
+      const records = await client.query(
+        `UPDATE records SET operator = $3, summary = ${summary('summary')}, xml = CASE WHEN xml IS NULL THEN NULL ELSE regexp_replace(xml, $4, '\\1' || $3 || '\\2', 'g') END
+          WHERE project_id = $1 AND operator = $2`,
+        [projectId, from, to, pattern],
+      );
+      await client.query(
+        `UPDATE training_records SET operator = $3, summary = ${summary('summary')}, xml = CASE WHEN xml IS NULL THEN NULL ELSE regexp_replace(xml, $4, '\\1' || $3 || '\\2', 'g') END
+          WHERE project_id = $1 AND operator = $2`,
+        [projectId, from, to, pattern],
+      );
+      await client.query(`UPDATE record_events SET operator = $3, summary = CASE WHEN summary IS NULL THEN NULL ELSE ${summary('summary')} END WHERE project_id = $1 AND operator = $2`, [projectId, from, to]);
+      await client.query(
+        `UPDATE quality_decisions SET seen = (
+           SELECT jsonb_agg(CASE WHEN e ->> 'operator' = $2 THEN jsonb_set(e, '{operator}', to_jsonb($3::text)) ELSE e END ORDER BY n)
+             FROM jsonb_array_elements(seen) WITH ORDINALITY AS x(e, n))
+          WHERE project_id = $1 AND seen @> jsonb_build_array(jsonb_build_object('operator', $2::text))`,
+        [projectId, from, to],
+      );
+      if (userId) {
+        await client.query(`UPDATE audit_log SET details = details - 'userId' WHERE project_id = $1 AND details ->> 'userId' = $2`, [projectId, userId]);
+      }
+      return records.rowCount ?? 0;
     });
   }
 
@@ -2093,6 +2260,28 @@ export class PostgresStore implements Store {
     });
   }
 
+  async listReferenceAnswers(projectId: string): Promise<ReferenceAnswer[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT plot_key, answers, uploaded_at FROM reference_answers WHERE project_id = $1', [projectId]);
+      return res.rows.map((r) => ({ plotKey: r.plot_key as string, answers: r.answers as Record<string, string>, uploadedAt: (r.uploaded_at as Date).getTime() }));
+    });
+  }
+
+  async replaceReferenceAnswers(projectId: string, rows: readonly { plotKey: string; answers: Record<string, string> }[], at: number): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('DELETE FROM reference_answers WHERE project_id = $1', [projectId]);
+      // In slices: one statement per 5,000 plots (the version trigger runs once per statement).
+      for (let i = 0; i < rows.length; i += 5000) {
+        const slice = rows.slice(i, i + 5000);
+        await client.query(
+          `INSERT INTO reference_answers (project_id, plot_key, answers, uploaded_at)
+           SELECT $1, k, a, $4 FROM unnest($2::text[], $3::jsonb[]) AS t(k, a)`,
+          [projectId, slice.map((r) => r.plotKey), slice.map((r) => JSON.stringify(r.answers)), new Date(at)],
+        );
+      }
+    });
+  }
+
   async listReferencePlots(projectId: string): Promise<ReferencePlot[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
@@ -2478,6 +2667,17 @@ export class PostgresStore implements Store {
       if (limit) {
         return { ok: false, limit } as const;
       }
+      // The person's month across projects, deleted ones included (ai_token_ledger, migration 034)
+      if (start.startedBy) {
+        const mine = await client.query(
+          `SELECT COALESCE((SELECT tokens FROM ai_token_ledger WHERE user_id = $1 AND month = ($2::timestamptz AT TIME ZONE 'UTC')::date), 0)::bigint AS used,
+                  (SELECT count(*) FROM project_members WHERE user_id = $1 AND role = 'admin')::int AS coordinated`,
+          [start.startedBy, new Date(w.monthStart)],
+        );
+        if (personOverMonth(Number(mine.rows[0].used), mine.rows[0].coordinated, w)) {
+          return { ok: false, limit: 'monthly' } as const;
+        }
+      }
       const ins = await client.query(
         `WITH a AS (
            INSERT INTO ai_runs (project_id, kind, started_by, started_at, model, parent_run, finding_index, action, question, question_names)
@@ -2520,9 +2720,17 @@ export class PostgresStore implements Store {
     }
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        `UPDATE ai_runs SET status = $3, finished_at = $4, input_tokens = $5, output_tokens = $6, tool_calls = $7,
-                result = $8, error = $9, error_code = $10
-          WHERE project_id = $1 AND id = $2 AND status = 'running'`,
+        `WITH done AS (
+           UPDATE ai_runs SET status = $3, finished_at = $4, input_tokens = $5, output_tokens = $6, tool_calls = $7,
+                  result = $8, error = $9, error_code = $10
+            WHERE project_id = $1 AND id = $2 AND status = 'running'
+            RETURNING started_by, started_at, input_tokens + output_tokens AS tokens),
+         spent AS (
+           INSERT INTO ai_token_ledger (user_id, month, tokens)
+           SELECT started_by, date_trunc('month', started_at AT TIME ZONE 'UTC')::date, tokens
+             FROM done WHERE started_by IS NOT NULL AND tokens > 0
+           ON CONFLICT (user_id, month) DO UPDATE SET tokens = ai_token_ledger.tokens + EXCLUDED.tokens)
+         SELECT 1 FROM done`,
         [
           projectId,
           runId,
@@ -2745,6 +2953,33 @@ export class PostgresStore implements Store {
   async setProgressSettings(projectId: string, settings: ProgressSettings): Promise<void> {
     await this.withProject(projectId, async (client) => {
       await client.query('UPDATE projects SET progress_settings = $2 WHERE id = $1', [projectId, JSON.stringify(settings)]);
+    });
+  }
+
+  async getAnalysisViews(projectId: string): Promise<SharedAnalysisView[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT analysis_views FROM projects WHERE id = $1', [projectId]);
+      const stored = res.rows[0]?.analysis_views as SharedAnalysisView[] | null | undefined;
+      return Array.isArray(stored) ? stored : [];
+    });
+  }
+
+  async setAnalysisViews(projectId: string, views: SharedAnalysisView[]): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('UPDATE projects SET analysis_views = $2 WHERE id = $1', [projectId, JSON.stringify(views)]);
+    });
+  }
+
+  async getUncertaintySettings(projectId: string): Promise<UncertaintySettings | null> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT uncertainty_settings FROM projects WHERE id = $1', [projectId]);
+      return (res.rows[0]?.uncertainty_settings as UncertaintySettings | null | undefined) ?? null;
+    });
+  }
+
+  async setUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('UPDATE projects SET uncertainty_settings = $2 WHERE id = $1', [projectId, JSON.stringify(settings)]);
     });
   }
 

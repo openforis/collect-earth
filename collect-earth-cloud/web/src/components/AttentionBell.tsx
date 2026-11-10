@@ -16,6 +16,7 @@ import { attentionAction, attentionText } from "../progressView";
 import { navigate, pathFor } from "../router";
 import { onceVisibleAfter } from "../visibility";
 import { ErrorAlert } from "./ErrorAlert";
+import { MoreInfo } from "./Explain";
 
 /** The bell is asked again this long after each load, while the page is visible. */
 const BELL_REFRESH_MS = 120_000;
@@ -23,7 +24,7 @@ const BELL_REFRESH_MS = 120_000;
 function BellRow({ projectId, entry, onRead, onClose }: { projectId: string; entry: BellItem; onRead: (key: string) => void; onClose: () => void }) {
   const t = useT();
   const { language } = useApp();
-  const { title, text } = attentionText(t, entry.item, language);
+  const { title, text, more } = attentionText(t, entry.item, language);
   const action = attentionAction(t, entry.item.kind);
   return (
     <Box component="li" sx={{ py: 1.5, borderBottom: 1, borderColor: "divider" }}>
@@ -33,9 +34,10 @@ function BellRow({ projectId, entry, onRead, onClose }: { projectId: string; ent
         </Typography>
         {!entry.read && <Chip size="small" color="primary" label={t("bell.new")} />}
       </Stack>
-      {text.map((s) => (
+      {text.map((s, i) => (
         <Typography key={s} variant="body2" color="text.secondary">
           {s}
+          {more && i === text.length - 1 && <MoreInfo text={more} />}
         </Typography>
       ))}
       <Stack direction="row" spacing={1} sx={{ mt: 1 }}>

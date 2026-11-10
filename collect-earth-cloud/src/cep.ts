@@ -57,6 +57,8 @@ export class CepError extends Error {
 }
 
 const PROPERTIES_PATH = 'project_definition.properties';
+/** project_definition.properties is a few KB in a real project file; a larger one is refused. */
+const MAX_PROPERTIES_BYTES = 256 * 1024;
 /** Values in the properties file look like `${project_path}/placemark.idm.xml`. */
 const PROJECT_PATH_PREFIX = /^\$\{project_path\}[/\\]/;
 
@@ -89,7 +91,10 @@ export interface CepLimits {
 const MB = 1024 * 1024;
 export const DEFAULT_CEP_LIMITS: Required<CepLimits> = {
   maxEntries: 2000,
-  maxTotalBytes: 200 * MB,
+  // An upload is read up to three times (addRound, addNote, its plot file), each read holding every entry
+  // outside the heap: 200 MB took a 512 MiB Cloud Run instance past its memory in one or two uploads. 64 MB
+  // still holds a survey, its balloons and a plot file of a few hundred thousand plots.
+  maxTotalBytes: 64 * MB,
   maxRatio: 20,
   minAllowanceBytes: 20 * MB,
   maxSurveyBytes: 10 * MB,
@@ -141,12 +146,23 @@ export function readCep(zip: Uint8Array, limits: CepLimits = DEFAULT_CEP_LIMITS)
   return readCepWithin(asBuffer(zip), limits, allowedBytes(zip.length, limits));
 }
 
+/** The files of any zip, read within the project file's limits (an uploaded shapefile's, for one). Throws CepError. */
+export function readZip(zip: Uint8Array, limits: CepLimits = DEFAULT_CEP_LIMITS): Map<string, Uint8Array> {
+  return unzipEntries(asBuffer(zip), limits.maxEntries, allowedBytes(zip.length, limits));
+}
+
 const asBuffer = (bytes: Uint8Array): Buffer =>
   Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
 function readCepWithin(zip: Buffer, limits: CepLimits, allowed: number): CepFiles {
   const entries = unzipEntries(zip, limits.maxEntries, allowed);
   const propertiesBytes = entries.get(PROPERTIES_PATH);
+  if (propertiesBytes && propertiesBytes.length > MAX_PROPERTIES_BYTES) {
+    throw new CepError(
+      'too_large',
+      `The project file's ${PROPERTIES_PATH} is larger than ${sizeInWords(MAX_PROPERTIES_BYTES)}, more than the server accepts.`,
+    );
+  }
   const properties = propertiesBytes ? parseProperties(decodeUtf8(propertiesBytes)) : new Map<string, string>();
   const locate = ({ key, fallback }: { key: string; fallback: string }): string | null => {
     const named = properties.get(key);
@@ -370,15 +386,31 @@ function parseProperties(text: string): Map<string, string> {
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i].replace(/^[ \t\f]+/, '');
     if (line === '' || line.startsWith('#') || line.startsWith('!')) continue;
-    // An odd number of trailing backslashes joins the next line.
-    while (/(^|[^\\])(\\\\)*\\$/.test(line) && i + 1 < lines.length) {
-      line = line.slice(0, -1) + lines[++i].replace(/^[ \t\f]+/, '');
+    // An odd number of trailing backslashes joins the next line. Each physical line is looked at
+    // once, as Java's own reader does: rebuilding and testing the joined line at every step was
+    // quadratic, and a properties file of continuation lines held the server up for minutes.
+    let segment = line;
+    const parts: string[] = [];
+    while (endsWithOddBackslashes(segment) && i + 1 < lines.length) {
+      parts.push(segment.slice(0, -1));
+      segment = lines[++i].replace(/^[ \t\f]+/, '');
+    }
+    if (parts.length) {
+      parts.push(segment);
+      line = parts.join('');
     }
     const sep = /^((?:[^\\=: \t\f]|\\.)*)[ \t\f]*[=: \t\f]?[ \t\f]*([\s\S]*)$/.exec(line);
     if (!sep) continue;
     result.set(unescapeProperty(sep[1]), unescapeProperty(sep[2]));
   }
   return result;
+}
+
+/** Whether a line ends with an odd number of backslashes (a continuation), counted from its end. */
+function endsWithOddBackslashes(line: string): boolean {
+  let count = 0;
+  for (let i = line.length - 1; i >= 0 && line.charCodeAt(i) === 92; i--) count++;
+  return count % 2 === 1;
 }
 
 function unescapeProperty(value: string): string {
@@ -1237,6 +1269,20 @@ function noteShape(text: string): NoteShape {
     attrOf(note, 'collectearth:includeinheader')?.value === 'true' &&
     after === 0;
   return { root, survey, column, nested, note: note !== null, ours, anchor: anchor ?? lastKey, firstKey };
+}
+
+/**
+ * The names of the attributes a survey fills from a plot file's extra columns (those after the keys
+ * and the coordinates), in order: its root entity's attributes filled from the plot file that are
+ * not keys. Collect Earth reads them by position.
+ */
+export function plotFileExtraColumns(idmXml: string): string[] {
+  const root = scanXml(idmXml)
+    .find((e) => e.name === 'survey')
+    ?.children.find((e) => e.name === 'schema')
+    ?.children.find((e) => e.name === 'entity');
+  if (!root) throw new CepError('survey_unreadable', 'The survey cannot be read.');
+  return root.children.filter((c) => ATTRIBUTE_TAGS.has(c.name) && isPlotColumn(c) && !isKey(c)).map((c) => attrOf(c, 'name')?.value ?? '');
 }
 
 /** Adds the note attribute after the root's last attribute filled from the plot file (else its last key). */

@@ -222,19 +222,41 @@ describe('records:batch — gzip, LWW and tombstones', () => {
       expect(await rows()).toEqual([['7', 'juan', '<old/>', true]]);
     });
 
-    it('when the username has a row too, the newer is kept', async () => {
+    it('when the username has a row too, both are kept and the save goes to the username', async () => {
       const juan = await member('juan');
       await legacy('7', 'Juan Perez', 3000, '<legacy-newer/>');
       await legacy('7', 'juan', 2000, '<mine/>');
-      // An older save than the legacy row: the legacy row wins, the save is stale.
+      // Merging the two deleted one of them, which a forged operator name made someone else's record
       const res = await batchRequest(ctx.app, project.projectId, juan, [envelope({ recordKey: '7', operator: 'Juan Perez', modifiedOn: 2500, xml: '<late/>' })]);
-      expect((res.json() as BatchResponse).results[0].status).toBe('stale');
-      expect(await rows()).toEqual([['7', 'juan', '<legacy-newer/>', false]]);
+      expect((res.json() as BatchResponse).results[0].status).toBe('stored');
+      expect(await rows()).toEqual([
+        ['7', 'juan', '<late/>', false],
+        ['7', 'Juan Perez', '<legacy-newer/>', false],
+      ]);
+    });
 
-      await legacy('8', 'Juan Perez', 1000, '<legacy-older/>');
-      await legacy('8', 'juan', 2000, '<mine/>');
-      await batchRequest(ctx.app, project.projectId, juan, [envelope({ recordKey: '8', operator: 'Juan Perez', modifiedOn: 2500, xml: '<latest/>' })]);
-      expect((await rows()).filter((r) => r[0] === '8')).toEqual([['8', 'juan', '<latest/>', false]]);
+    it("never takes a former member's or a deleted account's record, nor deletes it", async () => {
+      const bob = await member('bob');
+      const mallory = await member('mallory');
+      await legacy('5', 'bob', 1000, '<bob/>');
+      // bob leaves the project: his records stay, under his username
+      const bobId = (await ctx.store.getUserByUsername('bob'))!.id;
+      await ctx.store.removeMember(project.projectId, bobId);
+      expect(bob).toBeTruthy();
+      await batchRequest(ctx.app, project.projectId, mallory, [envelope({ recordKey: '5', operator: 'bob', modifiedOn: 2000, xml: '<mallory/>' })]);
+      expect(await rows()).toEqual([
+        ['5', 'bob', '<bob/>', false],
+        ['5', 'mallory', '<mallory/>', false],
+      ]);
+      // her own copy far in the future first, then the name again: nothing of his is deleted
+      await batchRequest(ctx.app, project.projectId, mallory, [envelope({ recordKey: '5', operator: 'bob', modifiedOn: 9_000_000, xml: '<again/>' })]);
+      expect((await rows()).find((r) => r[1] === 'bob')).toEqual(['5', 'bob', '<bob/>', false]);
+      // nor once his account is gone (its username retired)
+      await member('carla');
+      await legacy('6', 'carla', 1000, '<carla/>');
+      await ctx.store.deleteUser((await ctx.store.getUserByUsername('carla'))!.id);
+      await batchRequest(ctx.app, project.projectId, mallory, [envelope({ recordKey: '6', operator: 'carla', modifiedOn: 2000, xml: '<m/>' })]);
+      expect((await rows()).filter((r) => r[0] === '6').map((r) => r[1])).toEqual(['carla', 'mallory']);
     });
 
     it("never takes another member's own record", async () => {

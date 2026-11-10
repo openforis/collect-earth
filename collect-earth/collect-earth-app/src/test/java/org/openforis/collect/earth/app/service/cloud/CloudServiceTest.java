@@ -21,10 +21,12 @@ import org.junit.jupiter.api.io.TempDir;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.cloud.CloudApiClient.CloudApiException;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.JoinPreview;
 import org.openforis.collect.earth.app.service.cloud.CloudService.InvalidCloudRequestException;
 import org.openforis.collect.earth.app.service.cloud.CloudService.JoinRequest;
 import org.openforis.collect.earth.app.service.cloud.CloudSyncQueueDao.QueueStatus;
+import org.openforis.collect.earth.app.view.Messages;
 
 public class CloudServiceTest {
 
@@ -60,7 +62,8 @@ public class CloudServiceTest {
 	public void joiningLogsInDownloadsLoadsAndSwitchesToCloudMode() throws Exception {
 		File cep = new File(folder, "kenya.cep");
 		java.nio.file.Files.write(cep.toPath(), new byte[] { 1 });
-		when(api.login("https://c.org", "maria", "pw")).thenReturn("session-token");
+		// Log in with the invitation: the account joins its project (a member of another project already)
+		when(api.login("https://c.org", "maria", "pw", null, "tok")).thenReturn("session-token");
 		when(api.downloadCep("https://c.org", "p1", "session-token")).thenReturn(cep);
 		JoinRequest request = new JoinRequest();
 		request.baseUrl = "https://c.org";
@@ -81,18 +84,47 @@ public class CloudServiceTest {
 
 	@Test
 	public void registeringUsesTheInvitation() throws Exception {
-		when(api.register("https://c.org", "maria", "pw", "tok")).thenReturn("t");
+		when(api.register("https://c.org", "maria", "password12", "tok")).thenReturn("t");
 		when(api.downloadCep("https://c.org", "p1", "t")).thenReturn(new File(folder, "none.cep"));
 		JoinRequest request = new JoinRequest();
 		request.baseUrl = "https://c.org";
 		request.inviteToken = "tok";
 		request.projectId = "p1";
 		request.username = "maria";
-		request.password = "pw";
+		request.password = "password12";
 		request.register = true;
 		service.join(request);
 		verify(api, never()).login(any(), any(), any());
 		verify(properties).saveCloudSyncToken("t");
+	}
+
+	@Test
+	public void aShortPasswordIsSaidPlainlyWhenRegistering() throws Exception {
+		JoinRequest request = new JoinRequest();
+		request.baseUrl = "https://c.org";
+		request.inviteToken = "tok";
+		request.projectId = "p1";
+		request.username = "maria";
+		request.password = "1234567";
+		request.register = true;
+		// Refused here, before the server is asked, in the user's language
+		InvalidCloudRequestException e = assertThrows(InvalidCloudRequestException.class, () -> service.join(request));
+		assertEquals("cloud.weakPassword", e.getCode());
+		assertEquals(Messages.getString("CloudLoginDialog.passwordTooShort"), e.getMessage());
+		verify(api, never()).register(any(), any(), any(), any());
+		// A login is not a new account: a short password there is the server's to judge
+		request.register = false;
+		when(api.login("https://c.org", "maria", "1234567", null, "tok")).thenThrow(new IOException("Invalid credentials"));
+		assertEquals("cloud.login", assertThrows(InvalidCloudRequestException.class, () -> service.join(request)).getCode());
+		// A server with a stricter rule: its weak_password said in the same plain words, not as HTTP 400 and JSON
+		request.register = true;
+		request.password = "eight-chars-but-refused";
+		when(api.register("https://c.org", "maria", "eight-chars-but-refused", "tok")).thenThrow(new CloudApiException(
+				"register failed with HTTP 400: {\"error\":\"weak_password\"}", 400, "weak_password"));
+		e = assertThrows(InvalidCloudRequestException.class, () -> service.join(request));
+		assertEquals("cloud.weakPassword", e.getCode());
+		assertEquals(Messages.getString("CloudLoginDialog.passwordTooShort"), e.getMessage());
+		verify(properties, never()).setCloudSyncEnabled(true);
 	}
 
 	@Test
@@ -121,6 +153,17 @@ public class CloudServiceTest {
 		assertEquals("maria", service.login(" maria ", "pw"));
 		verify(properties).saveCloudSyncToken("t2");
 		verify(properties).saveOperator("maria");
+	}
+
+	/** The Log in button of the settings: the server typed there, which is not saved yet; the token goes into its field */
+	@Test
+	public void theLoginOfTheSettingsAnswersTheTokenAndSavesNothing() throws Exception {
+		when(api.login("https://typed.org", "maria", "pw")).thenReturn("t3");
+		assertEquals("t3", service.token(" https://typed.org ", " maria ", "pw"));
+		verify(properties, never()).saveCloudSyncToken(any());
+		verify(properties, never()).saveOperator(any());
+		assertEquals("cloud.urlRequired", assertThrows(InvalidCloudRequestException.class, () -> service.token(" ", "maria", "pw")).getCode());
+		assertEquals("cloud.emptyFields", assertThrows(InvalidCloudRequestException.class, () -> service.token("https://typed.org", "maria", "")).getCode());
 	}
 
 	@Test
@@ -251,5 +294,37 @@ public class CloudServiceTest {
 		when(api.getMyAssignments()).thenThrow(new IOException("HTTP 401"));
 		InvalidCloudRequestException e = assertThrows(InvalidCloudRequestException.class, service::assignments);
 		assertEquals("cloud.assignments", e.getCode());
+	}
+
+	/** Two-step sign-in: the server asks for the code, the page sends it with the password, a wrong one is said as such */
+	@Test
+	public void twoStepSignInAsksForTheCodeThenSendsIt() throws Exception {
+		when(properties.getCloudSyncUrl()).thenReturn("https://c.org");
+		when(api.login("https://c.org", "cora", "pw")).thenThrow(new CloudApiClient.SecondStepException("required"));
+		assertEquals("cloud.secondStepRequired", assertThrows(InvalidCloudRequestException.class, () -> service.login("cora", "pw")).getCode());
+		when(api.login("https://c.org", "cora", "pw", "000000")).thenThrow(new CloudApiClient.SecondStepException("invalid"));
+		assertEquals("cloud.secondStepInvalid", assertThrows(InvalidCloudRequestException.class, () -> service.login("cora", "pw", "000000")).getCode());
+		when(api.login("https://c.org", "cora", "pw", "123456")).thenReturn("t4");
+		assertEquals("cora", service.login("cora", "pw", "123456"));
+		verify(properties).saveCloudSyncToken("t4");
+		// The join and the settings' Log in button take it too
+		when(api.login("https://typed.org", "cora", "pw", "K7QD-2MXP-9TVA")).thenReturn("t5");
+		assertEquals("t5", service.token("https://typed.org", "cora", "pw", "K7QD-2MXP-9TVA"));
+		when(api.login("https://c.org", "cora", "pw", "654321")).thenThrow(new CloudApiClient.SecondStepException("unreadable"));
+		JoinRequest request = new JoinRequest();
+		request.baseUrl = "https://c.org";
+		request.username = "cora";
+		request.password = "pw";
+		request.code = "654321";
+		assertEquals("cloud.secondStepUnreadable", assertThrows(InvalidCloudRequestException.class, () -> service.join(request)).getCode());
+	}
+
+	@Test
+	public void theServersAnswersAboutTheSecondStepAreRecognised() {
+		assertEquals("required", CloudApiClient.secondStepKind(401, "{\"error\":\"second_step_required\"}"));
+		assertEquals("invalid", CloudApiClient.secondStepKind(401, "{\"error\":\"invalid_second_step\"}"));
+		assertEquals("unreadable", CloudApiClient.secondStepKind(401, "{\"error\":\"second_step_unreadable\"}"));
+		assertNull(CloudApiClient.secondStepKind(401, "{\"error\":\"invalid_credentials\"}"));
+		assertNull(CloudApiClient.secondStepKind(403, "{\"error\":\"second_step_required\"}"));
 	}
 }

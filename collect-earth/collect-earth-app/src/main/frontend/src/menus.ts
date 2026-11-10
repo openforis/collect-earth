@@ -2,19 +2,23 @@
  * An entry of the app bar's menus. `label` is a key of Messages*.properties (serverTexts.ts). A "toggle" is an
  * entry with a check mark, whose state comes from the server once it is built.
  */
-export interface MenuItem { id: string; label: string; enabled: boolean; kind?: "toggle" }
+export interface MenuItem {
+  id: string; label: string; enabled: boolean; kind?: "toggle";
+  /** Why a built entry is disabled here (a key of Messages*.properties), shown on it instead of "Coming soon" */
+  disabledReason?: string;
+}
 export interface Menu { id: string; label: string; items: MenuItem[] }
 
 // The entries built so far: the others show, disabled, until their stage of docs/plans/2026-10-28-html-ui-design.md
-const BUILT = new Set(["quit", "properties", "export", "importZip", "updateCsv",
-  "saiku", "saikuTool", "lulucf", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots",
+const BUILT = new Set(["quit", "properties", "export", "import",
+  "analyse", "lulucf", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots",
   "importCep", "joinCloud", "cloudStatus", "language", "surveyGuide", "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
 
 /**
  * The entries the Swing window disabled when Collect Earth acts as a client of another instance (serverMenuItems):
  * they act on data this instance does not hold.
  */
-const SERVER_ONLY = new Set(["export", "importZip", "updateCsv", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots"]);
+const SERVER_ONLY = new Set(["analyse", "export", "import", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots"]);
 
 const item = (id: string, label: string): MenuItem => ({ id, label, enabled: BUILT.has(id) });
 const toggle = (id: string, label: string): MenuItem => ({ ...item(id, label), kind: "toggle" });
@@ -51,17 +55,21 @@ function allMenus(app: MenuContext): Menu[] {
     ] },
     { id: "data", label: "CollectEarthWindow.44", items: [
       item("export", "CollectEarthWindow.13"),
-      item("importZip", "CollectEarthWindow.46"),
-      item("updateCsv", "CollectEarthWindow.55"),
+      // One import, which asks what to import: a ZIP export of Collect Earth, or a CSV that updates attributes
+      item("import", "DataPage.import.menu"),
     ] },
     { id: "tools", label: "CollectEarthWindow.12", items: [
-      item("saiku", "CollectEarthWindow.14"),
-      item("saikuTool", "CollectEarthWindow.71"),
+      // The analysis page of the dashboard (docs/plans/2026-11-05-node-and-arena.md, stage 6a), which replaced Saiku: the
+      // local dashboard's, or the cloud's for a cloud project. The page downloads its stand-alone file too.
+      item("analyse", "CollectEarthMenu.analyse"),
       item("lulucf", "CollectEarthWindow.72"),
       item("loadKml", "CollectEarthWindow.54"),
       item("dataFolder", "CollectEarthWindow.67"),
-      // Your dashboard, on this computer (docs/plans/2026-11-03-desktop-dashboard.md); a cloud project has the cloud's
-      ...(app.cloud ? [] : [item("myDashboard", "LocalDashboard.menu")]),
+      // Your dashboard, on this computer (docs/plans/2026-11-03-desktop-dashboard.md); a cloud project has the cloud's,
+      // so there the entry is disabled and says why
+      app.cloud
+        ? { ...item("myDashboard", "LocalDashboard.menu"), enabled: false, disabledReason: "LocalDashboard.cloudProject" }
+        : item("myDashboard", "LocalDashboard.menu"),
       // The plots map is already the page when it is the viewer
       ...(app.plotsMap ? [] : [item("openPlotsMap", "CollectEarthMenu.openPlotsMap")]),
     ] },

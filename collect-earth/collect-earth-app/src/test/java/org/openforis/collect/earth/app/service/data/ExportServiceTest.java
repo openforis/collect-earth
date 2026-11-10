@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -161,15 +162,22 @@ public class ExportServiceTest {
 		return assertThrows(InvalidExportException.class, () -> service.export(request)).getCode();
 	}
 
-	/** A process whose call completes its status with this many records */
+	/**
+	 * A process whose call completes its status with this many records. Everything is stubbed here, before the run: the
+	 * call only marks the status done. ProcessJobs' watcher thread reads the status while the call runs, and stubbing a
+	 * mock from the call (as this did) while another thread calls it is not thread-safe in Mockito: now and then the
+	 * watcher's getTotal() was taken for the stubbing under way, "Integer cannot be returned by getTotal()".
+	 */
 	private static <P extends AbstractProcess<Void, DataExportStatus>> P completing(P process, long records) throws Exception {
 		DataExportStatus status = mock(DataExportStatus.class);
+		AtomicBoolean done = new AtomicBoolean(false);
 		when(status.getTotal()).thenReturn(records);
+		when(status.getProcessed()).thenAnswer(read -> done.get() ? records : 0L);
+		when(status.getProgressPercent()).thenAnswer(read -> done.get() ? 100 : 0);
+		when(status.isComplete()).thenAnswer(read -> done.get());
 		when(process.getStatus()).thenReturn(status);
 		when(process.call()).thenAnswer(call -> {
-			when(status.getProcessed()).thenReturn(records);
-			when(status.getProgressPercent()).thenReturn(100);
-			when(status.isComplete()).thenReturn(true);
+			done.set(true);
 			return null;
 		});
 		return process;

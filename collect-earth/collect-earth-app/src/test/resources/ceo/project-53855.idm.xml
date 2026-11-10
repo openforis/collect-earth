@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<survey lastId="53" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth">
+  <project>Nigeria</project>
+  <uri>http://www.openforis.org/idm/ceo_53855</uri>
+  <description>Proposed LC 2025 for GEF-project in Nigeria
+
+Imported from Collect Earth Online, project 53855.</description>
+  <language>en</language>
+  <applicationOptions>
+    <options type="ui">
+      <n0:tabSet name="plot_tab_set" xmlns:n0="http://www.openforis.org/collect/3.0/ui">
+        <n0:tab name="survey_tab">
+          <n0:label>Nigeria</n0:label>
+        </n0:tab>
+        <n0:tab name="plot_data_tab">
+          <n0:label>Plot data</n0:label>
+        </n0:tab>
+      </n0:tabSet>
+    </options>
+  </applicationOptions>
+  <codeLists>
+    <list id="13" name="land_cover2024">
+      <label type="item">Land cover 2024</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="1">
+          <code>closed_forest</code>
+          <label>Closed forest</label>
+        </item>
+        <item id="2">
+          <code>open_forest</code>
+          <label>Open forest</label>
+        </item>
+        <item id="3">
+          <code>shrubland</code>
+          <label>Shrubland</label>
+        </item>
+        <item id="4">
+          <code>savanna_woodland</code>
+          <label>Savanna woodland</label>
+        </item>
+        <item id="5">
+          <code>savanna_grassland</code>
+          <label>Savanna grassland</label>
+        </item>
+        <item id="6">
+          <code>mangroves</code>
+          <label>Mangroves</label>
+        </item>
+        <item id="7">
+          <code>freshwater_swamps</code>
+          <label>Freshwater swamps</label>
+        </item>
+        <item id="8">
+          <code>annual_crops</code>
+          <label>Annual crops</label>
+        </item>
+        <item id="9">
+          <code>permanent_crops</code>
+          <label>Permanent crops</label>
+        </item>
+        <item id="10">
+          <code>artificial_surfaces</code>
+          <label>Artificial surfaces</label>
+        </item>
+        <item id="11">
+          <code>bare_surfaces</code>
+          <label>Bare surfaces</label>
+        </item>
+        <item id="12">
+          <code>water</code>
+          <label>Water</label>
+        </item>
+      </items>
+    </list>
+    <list id="23" name="permanent_crops_type">
+      <label type="item">Permanent crops type</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="14">
+          <code>cocoa</code>
+          <label>Cocoa</label>
+        </item>
+        <item id="15">
+          <code>cashew</code>
+          <label>Cashew</label>
+        </item>
+        <item id="16">
+          <code>oil_palm</code>
+          <label>Oil palm</label>
+        </item>
+        <item id="17">
+          <code>sugarcane</code>
+          <label>Sugarcane</label>
+        </item>
+        <item id="18">
+          <code>citrus_fruits</code>
+          <label>Citrus fruits</label>
+        </item>
+        <item id="19">
+          <code>rubber</code>
+          <label>Rubber</label>
+        </item>
+        <item id="20">
+          <code>taro</code>
+          <label>Taro</label>
+        </item>
+        <item id="21">
+          <code>plantain</code>
+          <label>Plantain</label>
+        </item>
+        <item id="22">
+          <code>others</code>
+          <label>Others</label>
+        </item>
+      </items>
+    </list>
+    <list id="40" name="annual_crops_type">
+      <label type="item">Annual crops type</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="24">
+          <code>cassava</code>
+          <label>Cassava</label>
+        </item>
+        <item id="25">
+          <code>yam</code>
+          <label>Yam</label>
+        </item>
+        <item id="26">
+          <code>beans</code>
+          <label>Beans</label>
+        </item>
+        <item id="27">
+          <code>sesame</code>
+          <label>Sesame</label>
+        </item>
+        <item id="28">
+          <code>soybean</code>
+          <label>Soybean</label>
+        </item>
+        <item id="29">
+          <code>maize</code>
+          <label>Maize</label>
+        </item>
+        <item id="30">
+          <code>vegetables</code>
+          <label>Vegetables</label>
+        </item>
+        <item id="31">
+          <code>wheat</code>
+          <label>Wheat</label>
+        </item>
+        <item id="32">
+          <code>rice</code>
+          <label>Rice</label>
+        </item>
+        <item id="33">
+          <code>potatoes</code>
+          <label>Potatoes</label>
+        </item>
+        <item id="34">
+          <code>cotton</code>
+          <label>Cotton</label>
+        </item>
+        <item id="35">
+          <code>cowpea</code>
+          <label>Cowpea</label>
+        </item>
+        <item id="36">
+          <code>sorghum</code>
+          <label>Sorghum</label>
+        </item>
+        <item id="37">
+          <code>millet</code>
+          <label>Millet</label>
+        </item>
+        <item id="38">
+          <code>groundnuts</code>
+          <label>Groundnuts</label>
+        </item>
+        <item id="39">
+          <code>others</code>
+          <label>Others</label>
+        </item>
+      </items>
+    </list>
+  </codeLists>
+  <spatialReferenceSystems>
+    <spatialReferenceSystem srid="EPSG:4326">
+      <label xml:lang="en">EPSG:4326</label>
+      <wkt><![CDATA[GEOGCS["WGS 84",
+      DATUM["World Geodetic System 1984",
+        SPHEROID["WGS 84", 6378137.0, 298.257223563, AUTHORITY["EPSG","7030"]],
+        AUTHORITY["EPSG","6326"]],
+      PRIMEM["Greenwich", 0.0, AUTHORITY["EPSG","8901"]],
+      UNIT["degree", 0.017453292519943295],
+      AXIS["Geodetic longitude", EAST],
+      AXIS["Geodetic latitude", NORTH],
+      AUTHORITY["EPSG","4326"]]]]></wkt>
+    </spatialReferenceSystem>
+  </spatialReferenceSystems>
+  <schema>
+    <entity id="50" name="plot" ui:tab="survey_tab" ui:tabSet="plot_tab_set">
+      <label type="instance">Plot</label>
+      <text id="41" name="id" required="true" ui:tab="plot_data_tab" key="true" type="short">
+        <label type="instance">Plot - ID</label>
+      </text>
+      <coordinate id="42" name="location" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Central point coordinates</label>
+      </coordinate>
+      <text id="43" name="operator" required="true" ui:tab="plot_data_tab" type="short">
+        <label type="instance">Plot - Operator</label>
+      </text>
+      <boolean id="44" name="actively_saved" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Actively saved by user</label>
+      </boolean>
+      <date id="45" name="actively_saved_on" relevant="false()" ui:tab="plot_data_tab">
+        <label type="instance">Plot - Date of last saved</label>
+      </date>
+      <text id="46" name="plot_file" relevant="false()" ui:tab="plot_data_tab" type="short">
+        <label type="instance">Plot - CSV file that contains the plot</label>
+      </text>
+      <number id="47" name="elevation" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="integer">
+        <label type="instance">Plot - Elevation</label>
+      </number>
+      <number id="48" name="slope" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="real">
+        <label type="instance">Plot - Slope</label>
+      </number>
+      <number id="49" name="aspect" ui:tab="plot_data_tab" collectearth:fromcsv="true" type="real">
+        <label type="instance">Plot - Aspect</label>
+      </number>
+      <code id="51" name="land_cover2024" required="true" ui:tab="survey_tab" list="land_cover2024">
+        <label type="instance">Land cover 2024</label>
+      </code>
+      <code id="52" name="permanent_crops_type" required="true" relevant="land_cover2024 = &apos;permanent_crops&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="permanent_crops_type">
+        <label type="instance">Permanent crops type</label>
+      </code>
+      <code id="53" name="annual_crops_type" required="true" relevant="land_cover2024 = &apos;annual_crops&apos;" ui:hideWhenNotRelevant="true" ui:tab="survey_tab" list="annual_crops_type">
+        <label type="instance">Annual crops type</label>
+      </code>
+    </entity>
+  </schema>
+</survey>

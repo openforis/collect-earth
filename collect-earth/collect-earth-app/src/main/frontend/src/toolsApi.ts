@@ -7,10 +7,6 @@ export const analysisFlags = (signal?: AbortSignal) => apiGet<AnalysisFlags>("to
 
 const started = (p: Promise<{ id: string }>) => p.then((r) => r.id);
 
-export const startSaiku = (refresh: boolean) => started(apiPost("jobs/saiku", { refresh }));
-
-export const startSaikuTool = (refresh: boolean, path: string) => started(apiPost("jobs/saikuTool", { refresh, path }));
-
 export const startIpccPrepare = (refresh: boolean) => started(apiPost("jobs/ipccPrepare", { refresh }));
 
 export const startIpccOutputs = (answers: unknown) => started(apiPost("jobs/ipccOutputs", answers));

@@ -17,6 +17,7 @@ import Add from "@mui/icons-material/Add";
 import { useState } from "react";
 import { createGuidanceNote, deleteGuidanceNote, updateGuidanceNote, type AnswerOptions, type GuidanceNote, type GuidanceNoteInput, type QualityData } from "../api";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { useT } from "../i18n";
 import { answerText, labelMap, labelsOf, withQuestionLabels } from "../qualityView";
 
@@ -223,7 +224,7 @@ export function QualityNotes({
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section">
       <Stack spacing={2}>
         <Typography variant="h2">{t("quality.notesTitle")}</Typography>
-        <Typography color="text.secondary">{t("quality.notesExplain")}</Typography>
+        <Explain text={t("quality.notesExplain.short")} more={t("quality.notesExplain")} />
         {data.notes.length === 0 ? (
           <Alert severity="info">{t("quality.noNotes")}</Alert>
         ) : (

@@ -175,7 +175,7 @@ describe('the AI switch of a project', () => {
 
   it('is off, and cannot be switched on while the assistant is not available', async () => {
     await setUp(aiConfig({ AI_VERTEX_API_KEY: SECRET }));
-    expect((await project('GET')).json()).toEqual({ enabled: false, available: false });
+    expect((await project('GET')).json()).toEqual({ enabled: false, available: false, where: null });
     const refused = await project('PUT', { enabled: true });
     expect(refused.statusCode).toBe(409);
     expect(refused.json().error).toBe('ai_unavailable');
@@ -189,12 +189,13 @@ describe('the AI switch of a project', () => {
     const on = await project('PUT', { enabled: true });
     expect(on.statusCode, on.body).toBe(200);
     expect(on.json()).toEqual({ enabled: true, available: true });
-    expect((await project('GET')).json()).toEqual({ enabled: true, available: true });
+    // where the data is processed, for the coordinator's decision
+    expect((await project('GET')).json()).toMatchObject({ enabled: true, available: true, where: { provider: 'Google Gemini (Vertex AI)', region: 'global' } });
     expect(await ctx.store.isAiEnabled(pid)).toBe(true);
 
     // The owner switching it off for the server leaves the project's choice but makes it unavailable.
     await putSettings(ctx.app, owner.token, { aiEnabled: false });
-    expect((await project('GET')).json()).toEqual({ enabled: true, available: false });
+    expect((await project('GET')).json()).toEqual({ enabled: true, available: false, where: null });
 
     expect((await project('PUT', { enabled: false })).json()).toEqual({ enabled: false, available: false });
     expect(await ctx.store.isAiEnabled(pid)).toBe(false);
@@ -213,7 +214,7 @@ describe('the AI switch of a project', () => {
     expect(byToken.statusCode).toBe(403);
     expect(byToken.json()).toMatchObject({ error: 'user_session_required' });
     expect(await ctx.store.isAiEnabled(pid)).toBe(false);
-    expect((await project('GET', undefined, projectAdminToken)).json()).toEqual({ enabled: false, available: true });
+    expect((await project('GET', undefined, projectAdminToken)).json()).toMatchObject({ enabled: false, available: true, where: { region: 'global' } });
     expect((await project('GET', undefined, operatorToken)).statusCode).toBe(403);
     const other = await createProject(ctx.app, 'Other');
     expect((await project('PUT', { enabled: true }, adminToken, other.projectId)).statusCode).toBe(404);

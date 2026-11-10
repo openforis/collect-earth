@@ -7,6 +7,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
@@ -40,6 +42,7 @@ import org.openforis.idm.metamodel.TextAttributeDefinition;
 import org.openforis.idm.metamodel.TimeAttributeDefinition;
 import org.openforis.idm.metamodel.Unit;
 import org.openforis.idm.metamodel.VersionableSurveyObject;
+import org.openforis.idm.metamodel.validation.Check;
 
 /**
  * Describes the data entry form of a Collect Earth survey as JSON-ready maps and lists, so that the
@@ -274,7 +277,133 @@ public class SurveyFormModelBuilder {
 			rows.add(row);
 		}
 		table.put("rows", rows);
+		List<Map<String, Object>> totals = columnTotals(entityDef, enumerator, entityParameter);
+		if (!totals.isEmpty()) {
+			table.put("totals", totals);
+		}
 		items.add(table);
+	}
+
+	/**
+	 * The columns of a table that a check of the survey adds up, as in {@code sum(parent()/land_cover/percentage) >= 90}:
+	 * the form shows their total under the table while the rows are filled in, with what the check asks of it. A hidden
+	 * column counts too (a percentage calculated from a coverage class): its values come back from the server.
+	 */
+	private List<Map<String, Object>> columnTotals(EntityDefinition entityDef, CodeAttributeDefinition enumerator,
+			String entityParameter) {
+		List<Map<String, Object>> totals = new ArrayList<>();
+		for (NodeDefinition childDef : entityDef.getChildDefinitions()) {
+			if (!(childDef instanceof NumberAttributeDefinition) || !available(childDef)) {
+				continue;
+			}
+			List<Map<String, Object>> rules = new ArrayList<>();
+			for (Check<?> check : surveyChecks()) {
+				// a check that applies only under a condition, or a rule this cannot read, is left to the server
+				if (StringUtils.isBlank(check.getCondition())) {
+					for (Map<String, Object> rule : sumRules(check.getExpression(), entityDef.getName(), childDef.getName())) {
+						rule.put("flag", check.getFlag() == Check.Flag.WARN ? "warning" : "error");
+						if (!rules.contains(rule)) {
+							rules.add(rule);
+						}
+					}
+				}
+			}
+			if (rules.isEmpty()) {
+				continue;
+			}
+			Map<String, Object> total = new LinkedHashMap<>();
+			total.put("label", label(childDef));
+			if (!shownChild(childDef)) {
+				total.put("hidden", true);
+			}
+			if (((AttributeDefinition) childDef).isCalculated()) {
+				total.put("calculated", true);
+			}
+			Unit unit = ((NumberAttributeDefinition) childDef).getDefaultUnit();
+			if (unit != null) {
+				putIfNotBlank(total, "unit", StringUtils.defaultIfBlank(unit.getAbbreviation(language, defaultLanguage),
+						unit.getLabel(language, defaultLanguage)));
+			}
+			List<String> fields = new ArrayList<>();
+			for (CodeListItem item : rootItems(enumerator.getList())) {
+				fields.add(entityParameter + "[" + item.getCode() + "]." + childPrefix(childDef));
+			}
+			total.put("fields", fields);
+			total.put("rules", rules);
+			totals.add(total);
+		}
+		return totals;
+	}
+
+	private List<Check<?>> checks;
+
+	/** Every check of the survey's attributes */
+	private List<Check<?>> surveyChecks() {
+		if (checks == null) {
+			List<Check<?>> all = new ArrayList<>();
+			survey.getSchema().traverse(def -> {
+				if (def instanceof AttributeDefinition) {
+					all.addAll(((AttributeDefinition) def).getChecks());
+				}
+			});
+			checks = all;
+		}
+		return checks;
+	}
+
+	/** sum(...) of a path without filters (parent() allowed), its closing parenthesis included */
+	private static final Pattern SUM = Pattern.compile("sum\\s*\\(((?:[^()\\[\\]]|\\(\\))*)\\)");
+	private static final String OPERATOR = "(>=|<=|!=|==|=|>|<)";
+	private static final String NUMBER = "(-?\\d+(?:\\.\\d+)?)";
+	private static final Pattern AFTER = Pattern.compile("^\\s*" + OPERATOR + "\\s*" + NUMBER + "(?![\\w.])");
+	private static final Pattern BEFORE = Pattern.compile("(?<![\\w.])" + NUMBER + "\\s*" + OPERATOR + "\\s*$");
+	private static final Pattern EITHER = Pattern.compile("\\bor\\b|\\bnot\\s*\\(");
+
+	/**
+	 * What an expression asks of the sum of {@code entity/attribute}, as {op, value} pairs, op one of
+	 * {@code >= <= > < = !=}: {@code sum(parent()/land_cover/percentage) >= 90 and sum(...) <= 100} gives two. Only
+	 * the plain forms are read, a number on either side; an expression with "or" or "not(" gives none, since a broken
+	 * rule could then still be met.
+	 */
+	static List<Map<String, Object>> sumRules(String expression, String entity, String attribute) {
+		List<Map<String, Object>> rules = new ArrayList<>();
+		if (StringUtils.isBlank(expression) || EITHER.matcher(expression).find()) {
+			return rules;
+		}
+		String path = entity + "/" + attribute;
+		Matcher sum = SUM.matcher(expression);
+		while (sum.find()) {
+			String inner = sum.group(1).replaceAll("\\s+", "");
+			if (!inner.equals(path) && !inner.endsWith("/" + path)) {
+				continue;
+			}
+			Matcher after = AFTER.matcher(expression.substring(sum.end()));
+			Matcher before = BEFORE.matcher(expression.substring(0, sum.start()));
+			if (after.find()) {
+				rules.add(rule(after.group(1), after.group(2)));
+			} else if (before.find()) {
+				// 90 <= sum(...) is sum(...) >= 90
+				rules.add(rule(flip(before.group(2)), before.group(1)));
+			}
+		}
+		return rules;
+	}
+
+	private static Map<String, Object> rule(String op, String value) {
+		Map<String, Object> rule = new LinkedHashMap<>();
+		rule.put("op", "==".equals(op) ? "=" : op);
+		rule.put("value", Double.valueOf(value));
+		return rule;
+	}
+
+	private static String flip(String op) {
+		switch (op) {
+		case ">=": return "<=";
+		case "<=": return ">=";
+		case ">": return "<";
+		case "<": return ">";
+		default: return op;
+		}
 	}
 
 	/** A multiple entity the operator adds rows to; the field names hold $index, which the form replaces with 1, 2, ... */

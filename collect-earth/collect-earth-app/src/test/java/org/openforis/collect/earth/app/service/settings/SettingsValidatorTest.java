@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.File;
 import java.text.MessageFormat;
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -19,8 +18,7 @@ public class SettingsValidatorTest {
 
 	private static final LocalDate TODAY = LocalDate.of(2026, 10, 30);
 
-	private final SettingsValidator validator = new SettingsValidator(new SettingsModel(TODAY),
-			folder -> folder.getName().equals("saiku-server_2.6"), () -> TODAY);
+	private final SettingsValidator validator = new SettingsValidator(new SettingsModel(TODAY), () -> TODAY);
 
 	private static Map<String, String> values(String... keysAndValues) {
 		Map<String, String> values = new HashMap<>();
@@ -38,10 +36,10 @@ public class SettingsValidatorTest {
 
 	@Test
 	public void aPortIsBlankOrANumberOfAPort() {
-		assertNull(validator.validate(values("port", "")).getErrors().get("port"));
-		assertNull(validator.validate(values("port", "8028")).getErrors().get("port"));
-		assertEquals(Messages.getString("PropertyValidators.portRange"), validator.validate(values("port", "70000")).getErrors().get("port"));
-		assertEquals(Messages.getString("PropertyValidators.portRange"), validator.validate(values("port", "x")).getErrors().get("port"));
+		assertNull(validator.validate(values("db_driver", "POSTGRESQL", "db_port", "")).getErrors().get("db_port"));
+		assertNull(validator.validate(values("db_driver", "POSTGRESQL", "db_port", "5432")).getErrors().get("db_port"));
+		assertEquals(Messages.getString("PropertyValidators.portRange"),
+				validator.validate(values("db_driver", "POSTGRESQL", "db_port", "x")).getErrors().get("db_port"));
 		assertEquals(Messages.getString("PropertyValidators.portRange"),
 				validator.validate(values("db_driver", "POSTGRESQL", "db_port", "0")).getErrors().get("db_port"));
 	}
@@ -126,16 +124,11 @@ public class SettingsValidatorTest {
 	}
 
 	@Test
-	public void planetWithoutAKeyAndAFolderThatIsNotSaikusAreWarnings() {
-		Validation planet = validator.validate(values("open_planet_maps", "true", "planet_maps_key", " "));
+	public void planetWithoutAKeyIsSimplyOff() {
+		// The key is what switches Planet on: none is no problem
+		Validation planet = validator.validate(values("planet_maps_key", " "));
 		assertTrue(planet.isValid());
-		assertEquals(Messages.getString("OptionWizard.1055"), planet.getWarnings().get("planet_maps_key"));
-		assertTrue(validator.validate(values("open_planet_maps", "false", "planet_maps_key", "")).getWarnings().isEmpty());
-		Validation saiku = validator.validate(values("saiku_server_folder", File.separator + "tmp" + File.separator + "elsewhere"));
-		assertTrue(saiku.isValid());
-		assertEquals(Messages.getString("OptionWizard.27"), saiku.getWarnings().get("saiku_server_folder"));
-		assertTrue(validator.validate(values("saiku_server_folder", "saiku-server_2.6")).getWarnings().isEmpty());
-		assertTrue(validator.validate(values("saiku_server_folder", "")).getWarnings().isEmpty());
+		assertTrue(planet.getWarnings().isEmpty());
 	}
 
 	@Test

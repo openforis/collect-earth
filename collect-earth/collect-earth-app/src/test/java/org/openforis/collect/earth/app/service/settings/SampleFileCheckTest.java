@@ -57,6 +57,15 @@ public class SampleFileCheckTest {
 	}
 
 	@Test
+	public void theCoordinatesComeAfterAllTheKeyColumns() throws Exception {
+		// A survey keyed by the plot and the round: read at columns 2 and 3, every plot had the round as its latitude
+		File file = csv("rounds.csv", "id,round,YCoordinate,XCoordinate,elevation", "IBP1,1,42.48,1.42,2149", "IBP2,1,42.49,1.43,2123");
+		Map<String, Object> answer = new SampleFileCheck(f -> result, () -> EXPECTED, () -> 2).check(file.getAbsolutePath());
+		assertEquals(Arrays.asList("id", "round", "YCoordinate", "XCoordinate", "elevation"), answer.get("foundColumns"));
+		assertEquals(Arrays.asList(Arrays.asList(42.48, 1.42), Arrays.asList(42.49, 1.43)), answer.get("points"));
+	}
+
+	@Test
 	public void thePlotsTheirColumnsAndWhereTheyAre() throws Exception {
 		File file = csv("plots.csv", "id,YCoordinate,XCoordinate,elevation,slope,aspect", "1,41.5,2.1,100,0,0", "", "2,41.6,2.2,120,0,0",
 				"3,41.7,2.3,140,0,0");

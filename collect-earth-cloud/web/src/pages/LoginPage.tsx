@@ -11,10 +11,11 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useRef, useState } from "react";
-import { forgotPassword, login, signup } from "../api";
+import { ApiError, forgotPassword, login, signup } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { MoreInfo } from "../components/Explain";
 import { FormCard } from "../components/FormCard";
 import { PasswordField } from "../components/PasswordField";
 import { useT, type MessageKey } from "../i18n";
@@ -40,23 +41,38 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
   const [forgotOpen, setForgotOpen] = useState(false);
   const needsTerms = signingUp && info.termsUrl !== null;
   const usernameRef = useRef<HTMLInputElement>(null);
+  // Two-step sign-in: the server said this account needs a code after the password
+  const [needsCode, setNeedsCode] = useState(false);
+  const [code, setCode] = useState("");
+  const codeRef = useRef<HTMLInputElement>(null);
 
   const submit = async () => {
     setError(null);
     let found: MessageKey | null;
     if (signingUp) {
       found = usernameProblem(username) ?? passwordProblem(password, repeated) ?? (needsTerms && !acceptTerms ? "error.termsNotAccepted" : null);
-    } else found = !username.trim() || !password ? "error.fillBoth" : null;
+    } else found = !username.trim() || !password ? "error.fillBoth" : needsCode && !code.trim() ? "login.codeMissing" : null;
     setProblem(found);
     if (found) return;
     setBusy(true);
     try {
       const session = signingUp
         ? await signup(username.trim(), password, email.trim() || undefined, needsTerms && acceptTerms, language)
-        : await login(username.trim(), password);
+        : await login(username.trim(), password, needsCode ? code.trim() : undefined);
       await loggedIn(session);
     } catch (err) {
+      if (err instanceof ApiError && err.code === "second_step_required") {
+        // Not an error: the password was right, the code comes next
+        setNeedsCode(true);
+        window.setTimeout(() => codeRef.current?.focus(), 0);
+        return;
+      }
       setError(err);
+      if (needsCode) {
+        setCode("");
+        window.setTimeout(() => codeRef.current?.focus(), 0);
+        return;
+      }
       // The button pressed is disabled while busy and loses the focus: give it back to the form,
       // from the top (the error is announced as an alert).
       window.setTimeout(() => usernameRef.current?.focus(), 0);
@@ -94,6 +110,22 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
           required
           error={problem === "error.weakPassword" || (problem === "error.fillBoth" && !password)}
         />
+        {needsCode && !signingUp && (
+          <>
+            <Alert severity="info">{t("login.codeIntro")}</Alert>
+            <TextField
+              label={t("login.code")}
+              helperText={problem === "login.codeMissing" ? t(problem) : t("login.codeHelp")}
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              autoComplete="one-time-code"
+              inputRef={codeRef}
+              required
+              error={problem === "login.codeMissing"}
+              slotProps={{ htmlInput: { autoCapitalize: "characters", spellCheck: false, maxLength: 20 } }}
+            />
+          </>
+        )}
         {signingUp && (
           <>
             <PasswordField
@@ -197,7 +229,8 @@ function ForgotPassword({ initial }: { initial: string }) {
   if (!info.selfServiceReset) {
     return (
       <Alert severity="info" sx={{ mt: 1 }}>
-        {t("login.forgotText")}
+        {t("login.forgotText.short")}
+        <MoreInfo text={t("login.forgotText")} />
         <ContactLink />
       </Alert>
     );
@@ -228,7 +261,10 @@ function ForgotPassword({ initial }: { initial: string }) {
         </Alert>
       ) : (
         <>
-          <Typography variant="body2">{t("login.forgotIntro")}</Typography>
+          <Typography variant="body2">
+            {t("login.forgotIntro.short")}
+            <MoreInfo text={t("login.forgotIntro")} />
+          </Typography>
           <TextField
             label={t("login.forgotLogin")}
             value={login}
@@ -256,7 +292,8 @@ function ForgotPassword({ initial }: { initial: string }) {
         </>
       )}
       <Alert severity="info">
-        {t("login.forgotOther")}
+        {t("login.forgotOther.short")}
+        <MoreInfo text={t("login.forgotOther")} />
         <ContactLink />
       </Alert>
     </Stack>

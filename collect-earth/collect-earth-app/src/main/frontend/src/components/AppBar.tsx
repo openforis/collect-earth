@@ -24,7 +24,8 @@ import CloudDoneOutlinedIcon from "@mui/icons-material/CloudDoneOutlined";
 import LoginOutlinedIcon from "@mui/icons-material/LoginOutlined";
 import PersonIcon from "@mui/icons-material/Person";
 import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
-import logo from "../form/collect-earth-logo.png";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import logo from "@shared/collect-earth-logo.png";
 import { apiPut } from "../apiClient";
 import type { AppInfo } from "../appInfo";
 import { actionOf, comingSoon, errorText, operatorRequired, quitServer, type AppAction } from "../appBar";
@@ -38,16 +39,13 @@ import { AppDrawer, DRAWER_ID } from "./AppDrawer";
 import { serverText, type Texts } from "../serverTexts";
 import { formatText } from "../settings";
 import { ExportDialog } from "./data/ExportDialog";
-import { ImportZipDialog } from "./data/ImportZipDialog";
-import { UpdateCsvDialog } from "./data/UpdateCsvDialog";
+import { ImportDialog } from "./data/ImportDialog";
 import { runAction } from "../toolsApi";
 import { DeletePlotsDialog } from "./tools/DeletePlotsDialog";
 import { DivideCsvDialog } from "./tools/DivideCsvDialog";
 import { IpccDialog } from "./tools/IpccDialog";
 import { LoadKmlDialog } from "./tools/LoadKmlDialog";
 import { MissingPlotsDialog } from "./tools/MissingPlotsDialog";
-import { SaikuDialog } from "./tools/SaikuDialog";
-import { SaikuToolDialog } from "./tools/SaikuToolDialog";
 import { NoticeDialog } from "./notices/NoticeDialog";
 import { CloudLoginDialog } from "./project/CloudLoginDialog";
 import { CloudStatusDialog } from "./project/CloudStatusDialog";
@@ -90,7 +88,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const [quitOpen, setQuitOpen] = useState(false);
   const [closed, setClosed] = useState(false);
   // The dialog of a menu that is open
-  const [dialog, setDialog] = useState<Exclude<AppAction, "quit" | "settings" | "dataFolder" | "openPlotsMap" | "myDashboard" | "surveyGuide" | "manual" | "support" | "updates" | "showExceptions"> | null>(null);
+  const [dialog, setDialog] = useState<Exclude<AppAction, "quit" | "settings" | "analyse" | "dataFolder" | "openPlotsMap" | "myDashboard" | "surveyGuide" | "manual" | "support" | "updates" | "showExceptions"> | null>(null);
   // What a quick action (open the data folder, the manual...) answered when it could not be done
   const [actionError, setActionError] = useState<string | null>(null);
   const forced = operatorRequired({ ...info, operator });
@@ -121,8 +119,8 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const quick = (name: string) => () => runAction(name).catch((e) => setActionError(errorText(e, t("appBar.unreachable"))));
   const actions: Record<AppAction, () => void> = {
     quit: () => setQuitOpen(true), settings: onSettings,
-    export: () => setDialog("export"), importZip: () => setDialog("importZip"), updateCsv: () => setDialog("updateCsv"),
-    saiku: () => setDialog("saiku"), saikuTool: () => setDialog("saikuTool"), lulucf: () => setDialog("lulucf"), loadKml: () => setDialog("loadKml"),
+    export: () => setDialog("export"), import: () => setDialog("import"),
+    analyse: quick("openAnalysis"), lulucf: () => setDialog("lulucf"), loadKml: () => setDialog("loadKml"),
     dataFolder: quick("openDataFolder"), openPlotsMap: quick("openPlotsMap"), myDashboard: quick("openDashboard"),
     missingPlots: () => setDialog("missingPlots"), divideCsv: () => setDialog("divideCsv"), deletePlots: () => setDialog("deletePlots"),
     importCep: () => { setDropped(null); setDialog("importCep"); }, joinCloud: () => setDialog("joinCloud"), cloudStatus: () => setDialog("cloudStatus"), language: () => setDialog("language"),
@@ -143,6 +141,18 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   };
 
   const entry = (item: AppMenuItem): ReactNode => {
+    if (item.disabledReason) {
+      // Looks disabled but is not, so the tooltip gets the pointer; aria-disabled keeps it an item of the list that
+      // the keyboard and a screen reader find unavailable, and the tooltip describes it
+      return (
+        <Tooltip key={item.id} title={s(item.disabledReason)} placement="right" describeChild>
+          <MenuItem aria-disabled="true" onClick={(e) => e.preventDefault()} sx={{ opacity: 0.38, cursor: "default", "&:hover": { bgcolor: "transparent" } }}>
+            <ListItemIcon><MenuEntryIcon id={item.id} /></ListItemIcon>
+            <ListItemText primary={s(item.label)} />
+          </MenuItem>
+        </Tooltip>
+      );
+    }
     if (!comingSoon(item) && item.kind === "toggle") {
       return (
         <MenuItem key={item.id} onClick={() => run(item)} role="menuitemcheckbox" aria-checked={toggles[item.id] ?? false}>
@@ -203,6 +213,12 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
           </Button>
         ))}
         <Box sx={{ flex: 1 }} />
+        {/* The settings beside you, one click from the plot form, without going through the menus */}
+        <Tooltip title={t("appBar.settingsTip")}>
+          <IconButton size="small" aria-label={s("CollectEarthWindow.15")} onClick={onSettings} data-testid="settings-button">
+            <SettingsOutlinedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
         {/* You: in a cloud project the account signed in (its sync status on click), else the name you typed */}
         {info.cloud ? (
           info.cloudLoginNeeded ? (
@@ -222,14 +238,14 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
               label={operator || s("User.name")} sx={{ maxWidth: compact ? 140 : 240 }} data-testid="user-chip" />
           </Tooltip>
         )}
-        {/* Quit, always in sight: closing the window only asks whether to quit, and the icon by the clock is easy to miss */}
-        <Tooltip title={s("WindowClosed.quit")}>
+        {/* Quit, always in sight and red, so it is not taken for anything else: closing the window only asks whether to quit, and the icon by the clock is easy to miss */}
+        <Tooltip title={t("appBar.quitTip")}>
           {compact ? (
-            <IconButton edge="end" aria-label={s("WindowClosed.quit")} onClick={() => setQuitOpen(true)} data-testid="quit-button">
+            <IconButton edge="end" color="error" aria-label={s("WindowClosed.quit")} onClick={() => setQuitOpen(true)} data-testid="quit-button">
               <PowerSettingsNewIcon />
             </IconButton>
           ) : (
-            <Button color="inherit" size="small" startIcon={<PowerSettingsNewIcon />} onClick={() => setQuitOpen(true)}
+            <Button color="error" size="small" startIcon={<PowerSettingsNewIcon />} onClick={() => setQuitOpen(true)}
               sx={{ flexShrink: 0 }} data-testid="quit-button">
               {s("CollectEarthWindow.42")}
             </Button>
@@ -250,10 +266,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
         onQuit={() => setQuitOpen(true)} />
       <QuitDialog open={quitOpen} texts={texts} onKeepOpen={() => setQuitOpen(false)} onClosed={() => setClosed(true)} />
       <ExportDialog open={dialog === "export"} texts={texts} language={info.language} onClose={close} />
-      <ImportZipDialog open={dialog === "importZip"} texts={texts} language={info.language} onClose={close} />
-      <UpdateCsvDialog open={dialog === "updateCsv"} texts={texts} onClose={close} />
-      <SaikuDialog open={dialog === "saiku"} texts={texts} onClose={close} />
-      <SaikuToolDialog open={dialog === "saikuTool"} texts={texts} onClose={close} />
+      <ImportDialog open={dialog === "import"} texts={texts} language={info.language} onClose={close} />
       <IpccDialog open={dialog === "lulucf"} texts={texts} onClose={close} />
       <LoadKmlDialog open={dialog === "loadKml"} texts={texts} onClose={close} kml={dropped?.kind === "kml" ? dropped.path : null} />
       <MissingPlotsDialog open={dialog === "missingPlots"} texts={texts} onClose={close} />
@@ -276,7 +289,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
         </DialogActions>
       </Dialog>
       <CloudLoginDialog open={info.cloudLoginNeeded && cloudPrompt === "login"} texts={texts} onCancel={() => setCloudPrompt("done")}
-        onSubmit={(c) => cloudLogin(c.username, c.password).then((r) => { setSavedOperator(r.operator); setCloudPrompt("done"); reload(); })} />
+        onSubmit={(c) => cloudLogin(c.username, c.password, c.code).then((r) => { setSavedOperator(r.operator); setCloudPrompt("done"); reload(); })} />
       {/* A dropped plots file: use it as the project's plots file? */}
       <Dialog open={dropped?.kind === "plots" && dialog === null} maxWidth="sm" onClose={() => setDropped(null)} data-testid="drop-plots">
         <DialogTitle>{s("ProjectPage.drop.plotsTitle")}</DialogTitle>

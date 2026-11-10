@@ -1,12 +1,11 @@
 import type { SvgIconComponent } from "@mui/icons-material";
 import AddLocationAltOutlinedIcon from "@mui/icons-material/AddLocationAltOutlined";
-import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
+import PivotTableChartOutlinedIcon from "@mui/icons-material/PivotTableChartOutlined";
 import BugReportOutlinedIcon from "@mui/icons-material/BugReportOutlined";
 import CallSplitOutlinedIcon from "@mui/icons-material/CallSplitOutlined";
 import CloudSyncOutlinedIcon from "@mui/icons-material/CloudSyncOutlined";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 import DeleteSweepOutlinedIcon from "@mui/icons-material/DeleteSweepOutlined";
-import EditNoteOutlinedIcon from "@mui/icons-material/EditNoteOutlined";
 import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import FileOpenOutlinedIcon from "@mui/icons-material/FileOpenOutlined";
 import FileUploadOutlinedIcon from "@mui/icons-material/FileUploadOutlined";
@@ -21,7 +20,6 @@ import ManageSearchOutlinedIcon from "@mui/icons-material/ManageSearchOutlined";
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import MenuBookOutlinedIcon from "@mui/icons-material/MenuBookOutlined";
 import PowerSettingsNewOutlinedIcon from "@mui/icons-material/PowerSettingsNewOutlined";
-import QueryStatsOutlinedIcon from "@mui/icons-material/QueryStatsOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import SystemUpdateAltOutlinedIcon from "@mui/icons-material/SystemUpdateAltOutlined";
@@ -38,10 +36,8 @@ export const MENU_ICONS: Record<string, SvgIconComponent> = {
   language: TranslateOutlinedIcon,
   quit: PowerSettingsNewOutlinedIcon,
   export: FileDownloadOutlinedIcon,
-  importZip: FileUploadOutlinedIcon,
-  updateCsv: EditNoteOutlinedIcon,
-  saiku: BarChartOutlinedIcon,
-  saikuTool: QueryStatsOutlinedIcon,
+  import: FileUploadOutlinedIcon,
+  analyse: PivotTableChartOutlinedIcon,
   lulucf: ForestOutlinedIcon,
   loadKml: AddLocationAltOutlinedIcon,
   dataFolder: FolderOpenOutlinedIcon,

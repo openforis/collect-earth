@@ -40,6 +40,11 @@ export interface MapEngine {
   isAboveThreshold(): boolean;
   /** The container was resized: re-measure, keeping the same geographic center. */
   invalidateSize(): void;
+  /**
+   * Numbers the sample points of the plot being answered (empty: none), as the rows of the form's table per point;
+   * shown once they can be told apart. Optional: an engine without it shows no numbers.
+   */
+  setPointNumbers?(points: { at: LatLng; text: string }[]): void;
   /** Outline of the area shown in Google Earth Web (null hides it). */
   setFootprint(corners: LatLng[] | null): void;
   /** Where the map looks (null before it is ready). */

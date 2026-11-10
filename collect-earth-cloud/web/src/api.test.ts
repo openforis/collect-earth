@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  cepGridFiles,
+  mergeGridFiles,
   checkResetLink,
   forgotPassword,
   resetPassword,
@@ -80,6 +82,7 @@ import {
   setUserDisabled,
   listMembers,
   toPersonRow,
+  setMemberExcluded,
   getMyQuality,
   getTeamReport,
 } from "./api";
@@ -213,7 +216,8 @@ describe("transport", () => {
   it("sends the session as a bearer token", async () => {
     setToken("tok-1");
     fetchMock.mockResolvedValue(jsonResponse(200, { projects: [{ projectId: "p", projectName: "P", role: "admin" }] }));
-    expect(await listProjects()).toEqual([{ projectId: "p", projectName: "P", role: "admin" }]);
+    // A server without project statuses: every project is active.
+    expect(await listProjects()).toEqual([{ projectId: "p", projectName: "P", role: "admin", status: "active" }]);
     const init = fetchMock.mock.calls[0][1]!;
     expect((init.headers as Record<string, string>).authorization).toBe("Bearer tok-1");
   });
@@ -870,10 +874,12 @@ describe("the AI assistant and the reports", () => {
   };
 
   it("reads and sets the project's switch", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { enabled: false, available: true }));
-    expect(await getProjectAi("p1")).toEqual({ enabled: false, available: true });
+    const where = { provider: "Google Gemini (Vertex AI)", model: "gemini-x", region: "europe-west1" };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { enabled: false, available: true, where }));
+    expect(await getProjectAi("p1")).toEqual({ enabled: false, available: true, where });
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { enabled: true, available: true }));
-    expect(await setProjectAi("p1", true)).toEqual({ enabled: true, available: true });
+    // an older server says nothing of where
+    expect(await setProjectAi("p1", true)).toEqual({ enabled: true, available: true, where: null });
     expect(call(1)).toEqual({ url: "/v1/projects/p1/ai", method: "PUT", body: { enabled: true } });
     fetchMock.mockResolvedValueOnce(jsonResponse(403, { error: "user_session_required", reason: "Sign in" }));
     const err = await setProjectAi("p1", true).catch((e: unknown) => e);
@@ -992,6 +998,17 @@ describe("the AI assistant and the reports", () => {
     const members = await listMembers("p1");
     expect(members.map((m) => m.disabled)).toEqual([true, false]);
     expect(toPersonRow({ userId: "u1", username: "maria", status: { kind: "disabled" } }).status).toEqual({ kind: "disabled", days: null, level: null });
+  });
+
+  it("reads who is left out of the results, and leaves someone out or puts them back", async () => {
+    expect(toPersonRow({ userId: "u1", excluded: { at: 5, reason: "protocol" } }).excluded).toEqual({ at: 5, reason: "protocol" });
+    expect(toPersonRow({ userId: "u1" }).excluded).toBeNull();
+    expect(toQualityData({ excluded: [{ username: "ben", reason: null }] }).excluded).toEqual([{ username: "ben", reason: null }]);
+    expect(toQualityData({}).excluded).toEqual([]);
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+    await setMemberExcluded("p1", "u1", true, "  protocol ");
+    expect(call().url).toBe("/v1/projects/p1/members/u1/excluded");
+    expect(call()).toMatchObject({ method: "PUT", body: { excluded: true, reason: "protocol" } });
   });
 
   it("reads the server owner's panel, and disables and enables an account", async () => {
@@ -1284,12 +1301,15 @@ describe("weekly emails (Task 19)", () => {
     await setNotifications({ collector: true, language: "es", timeZone: null });
     expect(fetchMock.mock.calls[2][1]).toMatchObject({ body: JSON.stringify({ collector: true, language: "es" }) });
     fetchMock.mockResolvedValue(jsonResponse(200, body));
-    await setEmail("maria@example.org", "fr");
+    await setEmail("maria@example.org", "fr", "secret");
     expect(url(3)).toBe("/v1/me/email");
-    expect(fetchMock.mock.calls[3][1]).toMatchObject({ method: "PUT", body: JSON.stringify({ email: "maria@example.org", language: "fr" }) });
+    expect(fetchMock.mock.calls[3][1]).toMatchObject({ method: "PUT", body: JSON.stringify({ email: "maria@example.org", language: "fr", currentPassword: "secret" }) });
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ sent: true }), { status: 202 }));
     await sendEmailConfirmation("fr");
     expect(url(4)).toBe("/v1/me/email/confirmation");
+    // A wrong password is said as such, and does not end the session
+    fetchMock.mockResolvedValue(jsonResponse(401, { error: "invalid_credentials" }));
+    expect(errorMessageKey(await setEmail("x@example.org", "en", "wrong").catch((e: unknown) => e))).toBe("error.wrongPassword");
     for (const [code, key] of [
       ["invalid_email", "mail.invalidEmail"],
       ["no_email", "mail.noEmail"],
@@ -1299,7 +1319,7 @@ describe("weekly emails (Task 19)", () => {
       ["confirm_expired", "mail.confirmExpired"],
     ]) {
       fetchMock.mockResolvedValue(jsonResponse(409, { error: code }));
-      expect(errorMessageKey(await setEmail("x", "en").catch((e: unknown) => e))).toBe(key);
+      expect(errorMessageKey(await setEmail("x", "en", "pw").catch((e: unknown) => e))).toBe(key);
     }
   });
 
@@ -1317,5 +1337,45 @@ describe("weekly emails (Task 19)", () => {
     expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: "POST", body: JSON.stringify({ token: "tok" }), credentials: "omit" });
     fetchMock.mockResolvedValue(jsonResponse(410, { error: "confirm_expired" }));
     expect(errorMessageKey(await confirmEmail("tok").catch((e: unknown) => e))).toBe("mail.confirmExpired");
+  });
+});
+
+describe("cepGridFiles", () => {
+  it("returns the CSVs of the grid folder only, named without the folder", async () => {
+    const { zipSync, strToU8 } = await import("fflate");
+    const zip = zipSync({
+      "placemark.idm.xml": strToU8("<survey/>"),
+      "grid/a.csv": strToU8("id,lat,lon\n1,6.1,2.3\n"),
+      "grid/B.CSV": strToU8("id,lat,lon\n2,6.2,2.4\n"),
+      "grid/notes.txt": strToU8("x"),
+      "grid/old/c.csv": strToU8("id\n3\n"),
+    });
+    const files = await cepGridFiles(new Blob([zip]));
+    expect(files.map((f) => f.name).sort()).toEqual(["B.CSV", "a.csv"]);
+    expect(await files.find((f) => f.name === "a.csv")!.text()).toBe("id,lat,lon\n1,6.1,2.3\n");
+  });
+});
+
+describe("mergeGridFiles", () => {
+  const csv = (name: string, text: string) => new File([text], name, { type: "text/csv" });
+
+  it("joins files with the same columns, header once, and keeps the others apart", async () => {
+    const { merged, separate } = await mergeGridFiles(
+      [
+        csv("a.csv", '"id","lat","lon"\r\n1,6.1,2.3\r\n'),
+        csv("b.csv", "\uFEFFid,lat,lon\n2,6.2,2.4"), // unquoted, a BOM, no final newline
+        csv("c.csv", '"id","lat","lon"\n'), // header only
+        csv("d.csv", "id,y,x\n3,6.3,2.5\n"),
+      ],
+      "all.csv",
+    );
+    expect(merged?.name).toBe("all.csv");
+    expect(await merged!.text()).toBe('"id","lat","lon"\r\n1,6.1,2.3\r\n2,6.2,2.4\n');
+    expect(separate.map((f) => f.name)).toEqual(["d.csv"]);
+  });
+
+  it("merges nothing when no two files share their columns", async () => {
+    const files = [csv("a.csv", "id,lat\n1,2\n"), csv("b.csv", "id,lon\n1,2\n")];
+    expect(await mergeGridFiles(files, "all.csv")).toEqual({ merged: null, separate: files });
   });
 });

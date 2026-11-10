@@ -81,6 +81,36 @@ public class BidiTabDriverIT {
 		assertEquals("hidden", shown.evaluate("return document.visibilityState;"));
 	}
 
+	/** The pages of the sources, which the tabs of a new browser load (Google Earth Web's is cross-origin isolated) */
+	private static final java.util.Map<ImagerySource, String> REAL_PAGES = java.util.Map.of(
+			ImagerySource.GOOGLE_EARTH_WEB, "https://earth.google.com/web/",
+			ImagerySource.ESRI_WAYBACK, "https://livingatlas.arcgis.com/wayback/",
+			ImagerySource.PLANET, "https://example.com/",
+			ImagerySource.GEE_APP, "https://fao-earth-map.projects.earthengine.app/view/collect-earth-plot");
+
+	/**
+	 * A new browser as Collect Earth starts one with Google Earth Web in a window of its own: the tabs opened first,
+	 * blank, the later ones of the other window from the page of the one before (see {@link BidiTabDriver#createTab}),
+	 * then their pages loaded. Every tab must take its commands: in Firefox 153 the Earth Engine tab was found closed
+	 * when Collect Earth started, now and then.
+	 */
+	@Test
+	public void theTabsOfANewBrowserTakeTheirCommands() throws Exception {
+		imagery.separateWindowsWhen(() -> true);
+		for (int round = 1; round <= 5; round++) {
+			EnumSet<ImagerySource> sources = EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK,
+					ImagerySource.PLANET, ImagerySource.GEE_APP);
+			imagery.openTabs(sources);
+			for (ImagerySource source : sources) {
+				ImageryTab tab = imagery.tab(source);
+				// Whether it loaded in time is no matter here (Google Earth Web takes long): only that the tab is there
+				tab.load(REAL_PAGES.get(source), false, LOAD);
+				assertEquals(1L, tab.evaluate("return 1;"), source + " in round " + round);
+			}
+			started.get(started.size() - 1).quit();
+		}
+	}
+
 	@Test
 	public void theTabTheBrowserOpenedWithIsABidiContext() {
 		imagery.openTabs(EnumSet.of(ImagerySource.PLANET));

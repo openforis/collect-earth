@@ -1,5 +1,5 @@
 // Pure helpers of the "Reference plots" section (Task 14).
-import type { Rate, ReferenceFiguresView, ReferencePerson } from "./api";
+import type { ExternalReferenceView, Rate, ReferenceFiguresView, ReferencePerson } from "./api";
 import type { MessageKey, Translate } from "./i18n";
 import { formatRate, MIN_CHECKS } from "./qualityView";
 
@@ -71,5 +71,34 @@ export function weakestQuestions(person: ReferencePerson, max = 3): ReferencePer
       if (a.rate !== null && b.rate !== null && a.rate !== b.rate) return a.rate - b.rate;
       return b.compared - b.agreeing - (a.compared - a.agreeing) || a.key.localeCompare(b.key);
     })
+    .slice(0, max);
+}
+
+// --- reference answers from a file ----------------------------------------------------
+
+/** "67 % differ from the reference (20 of 30 answers)", or "Too few answers to judge (4 answers, 20 needed)". */
+export function disagreementText(t: Translate, rate: Rate, language: string): string {
+  if (rate.rate === null) return t(rate.compared === 1 ? "reference.ext.tooFewOne" : "reference.ext.tooFew", { count: rate.compared, min: MIN_CHECKS });
+  return t("reference.ext.differ", { pct: formatRate(1 - rate.rate, language), differing: rate.compared - rate.agreeing, count: rate.compared });
+}
+
+/** More than half of the answers differ from the reference (a rate to judge by only). */
+export function aboveHalf(rate: Rate): boolean {
+  return rate.rate !== null && 1 - rate.rate > 0.5;
+}
+
+/** Every question's answers together: the project's share (a rate from MIN_CHECKS answers). */
+export function overallRate(questions: readonly Rate[]): Rate {
+  const compared = questions.reduce((sum, q) => sum + q.compared, 0);
+  const agreeing = questions.reduce((sum, q) => sum + q.agreeing, 0);
+  return { compared, agreeing, rate: compared >= MIN_CHECKS ? agreeing / compared : null };
+}
+
+/** The plots with differing answers, the largest share differing first (then the most differing), at most `max`. */
+export function mostDiffering(byPlot: ExternalReferenceView["byPlot"], max = 50): ExternalReferenceView["byPlot"] {
+  const share = (p: ExternalReferenceView["byPlot"][number]) => (p.compared - p.agreeing) / p.compared;
+  return byPlot
+    .filter((p) => p.agreeing < p.compared)
+    .sort((a, b) => share(b) - share(a) || b.compared - b.agreeing - (a.compared - a.agreeing) || a.plot.localeCompare(b.plot, "en", { numeric: true }))
     .slice(0, max);
 }

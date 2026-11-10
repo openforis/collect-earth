@@ -160,8 +160,11 @@ export function attentionAction(t: Translate, kind: AttentionKind): { tab: Proje
 
 const DAY_MS = 86_400_000;
 
-/** A card's title and sentence(s). The storage card's sentence is the storage warning of the Setup tab. */
-export function attentionText(t: Translate, item: AttentionItem, language: string): { title: string; text: string[] } {
+/**
+ * A card's title and sentence(s), and for a long one its full text (`more`) for the "more about this" tip. The storage
+ * card's sentence is the storage warning of the Setup tab.
+ */
+export function attentionText(t: Translate, item: AttentionItem, language: string): { title: string; text: string[]; more?: string } {
   const count = formatNumber(item.count, language);
   const one = item.count === 1;
   switch (item.kind) {
@@ -184,7 +187,11 @@ export function attentionText(t: Translate, item: AttentionItem, language: strin
         text: [t(item.level === "over" ? "storage.over" : "storage.nearlyFull")],
       };
     case "oldProjectFile":
-      return { title: t("attention.oldFileTitle"), text: [t(one ? "attention.oldFileOne" : "attention.oldFile", { count })] };
+      return {
+        title: t("attention.oldFileTitle"),
+        text: [t(one ? "attention.oldFileOne.short" : "attention.oldFile.short", { count })],
+        more: t(one ? "attention.oldFileOne" : "attention.oldFile", { count }),
+      };
     case "oldCollectEarth": {
       const text: string[] = [];
       if (item.count > 0) text.push(t(one ? "attention.oldCeOne" : "attention.oldCe", { count }));

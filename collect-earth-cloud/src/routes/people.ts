@@ -164,7 +164,10 @@ export async function registerPeopleRoutes(
     const at = now();
     const served = await states.get(projectId, request.log);
     const input = await loadPeople(store, quality, served, request, at, { invites: true });
-    return reply.send({ ...peopleTable(input), asOf: asOf(served) });
+    const table = peopleTable(input);
+    // Who is left out of the results, as the members are now.
+    const excluded = new Map(served.members.filter((m) => m.excluded).map((m) => [m.userId, m.excluded]));
+    return reply.send({ ...table, people: table.people.map((p) => (excluded.has(p.userId) ? { ...p, excluded: excluded.get(p.userId) } : p)), asOf: asOf(served) });
   });
 
   app.get('/v1/projects/:pid/people/:userId', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -179,7 +182,8 @@ export async function registerPeopleRoutes(
     if (!detail) {
       return reply.code(404).send({ error: 'not_found', reason: 'no such person in this project' });
     }
-    return reply.send({ ...detail, asOf: asOf(served) });
+    const excluded = served.members.find((m) => m.userId === userId)?.excluded;
+    return reply.send({ ...detail, ...(excluded ? { person: { ...detail.person, excluded } } : {}), asOf: asOf(served) });
   });
 
   app.get('/v1/projects/:pid/my-work', member, async (request: FastifyRequest, reply: FastifyReply) => {

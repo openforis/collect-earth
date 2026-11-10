@@ -11,7 +11,7 @@ import type { ServerCounters } from '../serverCounters.js';
 import { buildOverview, statsWindow, type ServerOverview } from '../serverPanel.js';
 import { migrationFiles } from '../store/migrate.js';
 import { UsernameTakenError } from '../store/memory.js';
-import type { Store } from '../store/store.js';
+import { isStoredTime, type Store } from '../store/store.js';
 import { MAIL_LANGUAGES, type MailLanguage, type ProjectCreation, type ServerSettings } from '../types.js';
 import type { AccountMailHooks } from './mail.js';
 
@@ -297,6 +297,17 @@ export async function registerAdminRoutes(
         }
         patch.signupOpen = body.signupOpen;
       }
+      if (body.twoFactorForCoordinators !== undefined) {
+        if (typeof body.twoFactorForCoordinators !== 'boolean') {
+          return reply.code(400).send({ error: 'bad_request', reason: 'twoFactorForCoordinators must be true or false' });
+        }
+        // The administrator who turns it on must have it, or the server panel would lock them out at once
+        const own = body.twoFactorForCoordinators ? await store.getTwoFactor(request.userId!) : null;
+        if (body.twoFactorForCoordinators && !(own?.enabledAt && own.secretEnc)) {
+          return reply.code(409).send({ error: 'set_up_two_factor_first', reason: 'set up two-step sign-in on your own account first' });
+        }
+        patch.twoFactorForCoordinators = body.twoFactorForCoordinators;
+      }
       if (body.aiEnabled !== undefined) {
         if (typeof body.aiEnabled !== 'boolean') {
           return reply.code(400).send({ error: 'bad_request', reason: 'aiEnabled must be true or false' });
@@ -340,6 +351,20 @@ export async function registerAdminRoutes(
           }
           patch[key] = r.value;
         }
+      }
+      // The announcement banner: plain text (shown as text, never as HTML) and when it ends.
+      if (body.announcement !== undefined) {
+        const r = textSetting('announcement', body.announcement, (v) => v, 'a short message');
+        if (!r.ok) {
+          return reply.code(400).send({ error: 'bad_request', reason: r.reason });
+        }
+        patch.announcement = r.value;
+      }
+      if (body.announcementUntil !== undefined) {
+        if (body.announcementUntil !== null && !isStoredTime(body.announcementUntil)) {
+          return reply.code(400).send({ error: 'bad_request', reason: 'announcementUntil must be a time (epoch ms) or null' });
+        }
+        patch.announcementUntil = body.announcementUntil as number | null;
       }
       return reply.send({ ...(await store.updateSettings(patch)), aiConfigured: config.aiConfigured === true });
     },
@@ -465,7 +490,10 @@ export async function registerAdminRoutes(
   );
 
   // Issue a reset link. Platform admin only: a project admin resetting a user who
-  // also belongs to another project would reach across the tenant boundary.
+  // also belongs to another project would reach across the tenant boundary. An account
+  // with a confirmed address gets it by mail (202 { mailed }), never shown to the
+  // administrator, who could otherwise sign in as any coordinator and see their projects;
+  // only an account no mail can reach gets a link the administrator passes on (201).
   app.post(
     '/v1/admin/users/:uid/password-reset',
     { preHandler: requirePlatformAdmin(store) },
@@ -478,12 +506,16 @@ export async function registerAdminRoutes(
       if (user.disabledAt) {
         return reply.code(409).send({ error: 'account_disabled', reason: 'enable the account first' });
       }
+      if (await options.accountMail?.mailResetLink?.(request, user.id)) {
+        return reply.code(202).send({ mailed: true });
+      }
       const expiresAt = Date.now() + RESET_TTL_MS;
       // Null when the account was disabled meanwhile: the store checks it in the same statement.
       const token = await store.createPasswordReset(user.id, expiresAt);
       if (token === null) {
         return reply.code(409).send({ error: 'account_disabled', reason: 'enable the account first' });
       }
+      request.log.info({ action: 'account.reset.issued', actorUserId: request.userId, userId: user.id }, 'platform admin was given a reset link (no address to mail it to)');
       return reply.code(201).send({ resetUrl: `${publicBaseUrl(config, request)}/reset/${token}`, expiresAt });
     },
   );

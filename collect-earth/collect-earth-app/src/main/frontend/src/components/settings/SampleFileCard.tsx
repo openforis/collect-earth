@@ -10,6 +10,9 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { useEffect, useRef } from "react";
 import { formatText, type SampleFileCheck } from "../../settings";
 import { serverText } from "../../serverTexts";
 import { SettingField, type SettingFieldProps } from "./SettingField";
@@ -86,26 +89,25 @@ export function SampleFileCard({ check, checking, checkError, ...field }: Props)
   );
 }
 
-/** The plots as dots, latitude and longitude to scale (the longitudes squeezed by the cosine of the middle latitude). */
+/** The plots as dots on an OpenStreetMap map, framed on them. */
 function DotMap({ points, label }: { points: [number, number][]; label: string }) {
-  const lats = points.map((p) => p[0]);
-  const lons = points.map((p) => p[1]);
-  const minLat = Math.min(...lats), maxLat = Math.max(...lats), minLon = Math.min(...lons), maxLon = Math.max(...lons);
-  const cos = Math.cos(((minLat + maxLat) / 2) * (Math.PI / 180)) || 1;
-  const w = Math.max((maxLon - minLon) * cos, 1e-6), h = Math.max(maxLat - minLat, 1e-6);
-  const size = Math.max(w, h);
-  const pad = size * 0.05;
-  const r = size / 120;
+  const element = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!element.current) return;
+    const map = L.map(element.current, { preferCanvas: true, attributionControl: true });
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }).addTo(map);
+    const renderer = L.canvas({ padding: 0.5 });
+    // only points that are degrees: a file in another system would send the map to nowhere
+    const placed = points.filter(([lat, lon]) => Math.abs(lat) <= 90 && Math.abs(lon) <= 180);
+    for (const p of placed) L.circleMarker(p, { renderer, radius: 4, weight: 1, color: "#5d4a00", fillColor: "#fbc02d", fillOpacity: 0.9 }).addTo(map);
+    if (placed.length) map.fitBounds(L.latLngBounds(placed), { padding: [16, 16], maxZoom: 15 });
+    else map.setView([0, 0], 1);
+    return () => void map.remove();
+  }, [points]);
   return (
     <Box>
       <Typography variant="caption" color="text.secondary">{label}</Typography>
-      <Box component="svg" role="img" aria-label={label} data-testid="dot-map"
-        viewBox={`${-pad} ${-pad} ${w + 2 * pad} ${h + 2 * pad}`} preserveAspectRatio="xMidYMid meet"
-        sx={{ display: "block", width: "100%", maxWidth: 420, maxHeight: 300, bgcolor: "action.hover", borderRadius: 1 }}>
-        {points.map((p, i) => (
-          <circle key={i} cx={(p[1] - minLon) * cos} cy={maxLat - p[0]} r={r} fill="#fbc02d" stroke="#5d4a00" strokeWidth={r / 4} />
-        ))}
-      </Box>
+      <Box ref={element} role="img" aria-label={label} data-testid="dot-map" sx={{ width: "100%", maxWidth: 560, height: 320, borderRadius: 1, overflow: "hidden" }} />
     </Box>
   );
 }

@@ -42,7 +42,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 4. **Integration Components**
    - Google Earth integration via KML/KMZ files
    - Web browser integration for forms
-   - Saiku integration for data analysis
+   - The analysis of the data: the local dashboard's page (Tools > Analyse the data)
 
 ### Key Services
 
@@ -69,7 +69,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 3. Data analysis:
    - Data exported to various formats (CSV, KML, etc.)
-   - Integration with Saiku for data analysis
+   - The dashboard's analysis page: pivot table and charts, and a stand-alone HTML file of it
    - IPCC-specific processing for reporting
 
 ## Project Structure

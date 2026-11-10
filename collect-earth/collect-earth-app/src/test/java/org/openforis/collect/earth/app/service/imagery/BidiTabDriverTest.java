@@ -2,10 +2,13 @@ package org.openforis.collect.earth.app.service.imagery;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
@@ -74,5 +77,17 @@ public class BidiTabDriverTest {
 		PageScriptException thrown = assertThrows(PageScriptException.class, () -> BidiTabDriver.scriptValue("tab1", answer));
 		assertEquals("TypeError: x is null", thrown.getMessage());
 		assertFalse(thrown.isPageBusy());
+	}
+
+	/**
+	 * Firefox 153 tells of two tabs created for one click on a link: first one it never lists, then the tab. The tab is
+	 * the first said created that the browser lists.
+	 */
+	@Test
+	public void theTabOpenedFromAPageIsTheFirstCreatedThatTheBrowserLists() {
+		assertEquals("tab", BidiTabDriver.firstListed(Arrays.asList("phantom", "tab"),
+				new HashSet<>(Arrays.asList("gew", "wayback", "tab"))));
+		assertEquals("tab", BidiTabDriver.firstListed(Arrays.asList("tab"), new HashSet<>(Arrays.asList("gew", "tab"))));
+		assertNull(BidiTabDriver.firstListed(Arrays.asList("phantom"), new HashSet<>(Arrays.asList("gew"))));
 	}
 }

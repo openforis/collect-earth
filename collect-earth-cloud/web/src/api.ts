@@ -1,3 +1,4 @@
+import { unzipSync } from "fflate";
 import type { MessageKey } from "./i18n";
 import { getToken } from "./storage";
 
@@ -9,6 +10,9 @@ import { getToken } from "./storage";
 export type Role = "admin" | "reviewer" | "operator";
 export const ROLES: Role[] = ["operator", "reviewer", "admin"];
 export type ProjectCreation = "anyone" | "platform-admins";
+/** A project's lifecycle (the server's STATUS_MOVES): draft -> active -> closed (-> archived), closed -> active again. */
+export type ProjectStatus = "draft" | "active" | "closed" | "archived";
+export const STATUS_MOVES: Record<ProjectStatus, readonly ProjectStatus[]> = { draft: ["active"], active: ["closed"], closed: ["active", "archived"], archived: ["closed"] };
 
 export interface ServerInfo {
   needsSetup: boolean;
@@ -104,6 +108,13 @@ export interface Membership {
   projectId: string;
   projectName: string;
   role: Role;
+  status: ProjectStatus;
+}
+
+/** The server owner's message to everyone signed in; `until`: when it ends (epoch ms), null: until cleared. */
+export interface Announcement {
+  text: string;
+  until: number | null;
 }
 
 export interface Me {
@@ -111,12 +122,16 @@ export interface Me {
   username: string;
   memberships: Membership[];
   isPlatformAdmin: boolean;
+  announcement: Announcement | null;
+  /** Two-step sign-in: on for the account; required of it by the server (it coordinates or administers). */
+  twoFactor: { enabled: boolean; required: boolean };
 }
 
 export interface ProjectInfo {
   projectId: string;
   name: string;
   role: Role;
+  status: ProjectStatus;
 }
 
 export interface OperatorProgress {
@@ -169,6 +184,8 @@ export interface Member {
   role: Role;
   /** The server administrator disabled the account: it cannot log in or sync. */
   disabled?: boolean;
+  /** A coordinator left their records out of the results (figures and exports). */
+  excluded?: { at: number; reason: string | null };
 }
 
 export interface CsvFile {
@@ -180,6 +197,8 @@ export interface CsvFile {
   divided?: boolean;
   /** People holding at least one of its plots; 0 for a whole file. */
   dividedPeople?: number;
+  /** Given on upload of a file with a user column: how its plots were given out (the plots of unknown names were not). */
+  assignment?: { assigned: number; checks: number; notAssigned: number; unknown: string[] };
   /** Given on upload: what may be wrong with the file, which was still taken. */
   warnings?: {
     /** Ids the survey's number keys cannot take. */
@@ -236,7 +255,7 @@ export type DivisionOrder = "file" | "mixed" | "nearby";
 export type Distribution =
   | { mode: "whole" }
   | { mode: "manual"; order?: "nearby" }
-  | { mode: "even"; people: string[]; order: DivisionOrder; overlapPercent?: number; seed?: number }
+  | { mode: "even"; people: string[]; percents?: number[]; order: DivisionOrder; overlapPercent?: number; seed?: number }
   | {
       mode: "column";
       column: number;
@@ -379,6 +398,8 @@ export interface QualityData {
   computedAt: number | null;
   /** Older figures, given while newer ones are worked out. */
   stale: boolean;
+  /** People a coordinator left out of these figures, with why. */
+  excluded: { username: string; reason: string | null }[];
 }
 
 /** Where a plot is, from the plot files. */
@@ -430,6 +451,11 @@ export interface ServerSettings {
   aiMonthlyTokens: number;
   /** Read only: whether the server has its AI configuration (Vertex AI). */
   aiConfigured: boolean;
+  /** The banner every signed-in person sees (plain text), and when it ends (epoch ms; null: until cleared). */
+  announcement: string | null;
+  announcementUntil: number | null;
+  /** Coordinators and the server's administrators must use two-step sign-in. */
+  twoFactorForCoordinators: boolean;
 }
 
 export interface AdminUser {
@@ -443,6 +469,8 @@ export interface AdminUser {
   disabledAt: number | null;
   /** Who disabled it, or null. */
   disabledBy: string | null;
+  /** Two-step sign-in is on for the account. */
+  twoFactor: boolean;
 }
 
 export interface ProjectRef {
@@ -461,8 +489,10 @@ export interface AccountDeletion {
 }
 
 export interface ResetLink {
-  resetUrl: string;
+  /** null when the link was mailed to the account's confirmed address instead (mailed) */
+  resetUrl: string | null;
   expiresAt: number | null;
+  mailed: boolean;
 }
 
 /** added: the server added a hidden round key; own: the survey has one; none: no round. */
@@ -532,6 +562,11 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   reference_plot: "plot.referenceNoDecision",
   map_changed: "map.changed",
   wrong_password: "error.wrongPassword",
+  invalid_second_step: "error.invalidSecondStep",
+  invalid_code: "error.invalidSecondStep",
+  second_step_unreadable: "error.secondStepUnreadable",
+  two_factor_required: "error.twoFactorRequired",
+  set_up_two_factor_first: "error.setUpTwoFactorFirst",
   username_taken: "error.usernameTaken",
   signup_closed: "error.signupClosed",
   weak_password: "error.weakPassword",
@@ -551,6 +586,9 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   project_limit_reached: "error.projectLimitReached",
   storage_limit_reached: "error.storageLimitReached",
   confirm_mismatch: "error.confirmMismatch",
+  project_closed: "error.projectClosed",
+  project_draft: "error.projectDraft",
+  bad_transition: "error.badTransition",
   sole_coordinator: "error.soleCoordinator",
   last_platform_admin: "error.lastPlatformAdmin",
   last_enabled_admin: "error.lastEnabledAdmin",
@@ -591,6 +629,9 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   user_session_required: "ai.sessionRequired",
   ai_unavailable: "ai.unavailable",
   ai_not_enabled: "ai.notEnabled",
+  sigrid_unreachable: "sigrid.unreachable",
+  ceo_unreachable: "ceoImport.unreachable",
+  ceo_not_found: "ceoImport.notFound",
 };
 
 /** The sentence (message key) to show a person for any error thrown by this module. */
@@ -756,6 +797,11 @@ function asRole(value: unknown): Role {
   return value === "admin" || value === "reviewer" ? value : "operator";
 }
 
+/** A server without statuses (older) has active projects only. */
+export function asStatus(value: unknown): ProjectStatus {
+  return value === "draft" || value === "closed" || value === "archived" ? value : "active";
+}
+
 const p = (projectId: string) => `/v1/projects/${encodeURIComponent(projectId)}`;
 
 // --- server & account --------------------------------------------------------------
@@ -802,8 +848,9 @@ export function setup(setupCode: string, username: string, password: string): Pr
   return request<Session>("POST", "/v1/setup", { json: { setupCode, username, password }, noSessionEnd: true });
 }
 
-export function login(username: string, password: string): Promise<Session> {
-  return request<Session>("POST", "/v1/auth/login", { json: { username, password }, noSessionEnd: true });
+/** Logs in; with two-step sign-in, the server first answers second_step_required, then takes the code with the password. */
+export function login(username: string, password: string, code?: string): Promise<Session> {
+  return request<Session>("POST", "/v1/auth/login", { json: code ? { username, password, code } : { username, password }, noSessionEnd: true });
 }
 
 export function signup(username: string, password: string, email?: string, acceptTerms?: boolean, language?: string): Promise<Session> {
@@ -819,14 +866,87 @@ export async function logout(): Promise<void> {
   await send("POST", "/v1/auth/logout", { noSessionEnd: true });
 }
 
+/** Ends every other session of the account; this one stays. */
+export async function logoutOthers(): Promise<void> {
+  await send("POST", "/v1/auth/logout-others");
+}
+
 export async function getMe(): Promise<Me> {
   const me = await request<Partial<Me>>("GET", "/v1/me");
   return {
     userId: String(me?.userId ?? ""),
     username: String(me?.username ?? ""),
-    memberships: Array.isArray(me?.memberships) ? me.memberships.map((m) => ({ ...m, role: asRole(m.role) })) : [],
+    memberships: Array.isArray(me?.memberships) ? me.memberships.map((m) => ({ ...m, role: asRole(m.role), status: asStatus(m.status) })) : [],
     isPlatformAdmin: me?.isPlatformAdmin === true,
+    twoFactor: { enabled: me?.twoFactor?.enabled === true, required: me?.twoFactor?.required === true },
+    announcement: toAnnouncement((me as { announcement?: unknown } | undefined)?.announcement),
   };
+}
+
+function toAnnouncement(value: unknown): Announcement | null {
+  const a = value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+  if (!a || typeof a.text !== "string" || !a.text.trim()) return null;
+  return { text: a.text, until: typeof a.until === "number" && Number.isFinite(a.until) ? a.until : null };
+}
+
+// --- the owner's alerts (the server's src/ownerAlerts.ts) ---------------------------------------
+
+export type OwnerAlertKind = "failed_logins" | "server_errors" | "sync_errors" | "storage";
+
+export interface OwnerAlert {
+  kind: OwnerAlertKind;
+  at: number;
+  count: number;
+  projectId?: string;
+}
+
+/** The alerts this server instance raised since it started (newest first), and its thresholds. */
+export async function getOwnerAlerts(): Promise<{ alerts: OwnerAlert[]; thresholds: Record<string, number> }> {
+  const body = await request<{ alerts?: OwnerAlert[]; thresholds?: Record<string, number> }>("GET", "/v1/admin/alerts");
+  return { alerts: Array.isArray(body?.alerts) ? body.alerts : [], thresholds: body?.thresholds ?? {} };
+}
+
+// --- former members (the server's src/routes/formerMembers.ts) -----------------------------------
+
+export interface FormerMember {
+  /** Their name as on their records: a username, or former-member-N once anonymised. */
+  operator: string;
+  records: number;
+  anonymized: boolean;
+}
+
+export async function getFormerMembers(projectId: string): Promise<FormerMember[]> {
+  return (await request<{ formerMembers: FormerMember[] }>("GET", `${p(projectId)}/former-members`)).formerMembers;
+}
+
+/** Renames a former member on everything they collected; gives the pseudonym and how many records. Cannot be undone. */
+export async function anonymizeFormerMember(projectId: string, operator: string): Promise<{ operator: string; records: number }> {
+  return request<{ operator: string; records: number }>("POST", `${p(projectId)}/former-members/anonymize`, { json: { operator } });
+}
+
+// --- two-step sign-in (the server's src/routes/twoFactor.ts) ------------------------------------
+
+/** A new secret to put in an authenticator app: as text, and as the address its QR code holds. */
+export async function startTwoFactor(): Promise<{ secret: string; uri: string }> {
+  return request<{ secret: string; uri: string }>("POST", "/v1/me/two-factor/setup", { json: {} });
+}
+
+/** Turns two-step sign-in on with the app's first code; gives the recovery codes, shown once. */
+export async function enableTwoFactor(code: string): Promise<string[]> {
+  return (await request<{ recoveryCodes: string[] }>("POST", "/v1/me/two-factor/enable", { json: { code } })).recoveryCodes;
+}
+
+export async function disableTwoFactor(password: string): Promise<void> {
+  await send("POST", "/v1/me/two-factor/disable", { json: { password } });
+}
+
+export async function newRecoveryCodes(password: string): Promise<string[]> {
+  return (await request<{ recoveryCodes: string[] }>("POST", "/v1/me/two-factor/recovery-codes", { json: { password } })).recoveryCodes;
+}
+
+/** The server's administrator turns someone's two-step sign-in off (a lost phone): their sessions end. */
+export async function resetUserTwoFactor(userId: string): Promise<void> {
+  await send("POST", `/v1/admin/users/${encodeURIComponent(userId)}/two-factor/reset`, { json: {} });
 }
 
 /**
@@ -929,9 +1049,17 @@ export async function setNotifications(change: Partial<Record<DigestKind, boolea
   return toNotifications(await request("PUT", "/v1/me/notifications", { json: timeZone ? { ...rest, timeZone } : rest }));
 }
 
-/** Gives the account an email (null removes it); a new one gets a mail with a link to confirm it. */
-export async function setEmail(email: string | null, language: string): Promise<Notifications> {
-  return toNotifications(await request("PUT", "/v1/me/email", { json: { email, language } }));
+/**
+ * Gives the account an email (null removes it); a new one gets a mail with a link to confirm it. A change asks
+ * for the account's current password: a 401 is then a wrong password (wrong_password), not a session ended.
+ */
+export async function setEmail(email: string | null, language: string, currentPassword: string): Promise<Notifications> {
+  try {
+    return toNotifications(await request("PUT", "/v1/me/email", { json: { email, language, currentPassword }, noSessionEnd: true }));
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) throw new ApiError(401, "wrong_password", error.reason);
+    throw error;
+  }
 }
 
 export async function sendEmailConfirmation(language: string): Promise<void> {
@@ -979,16 +1107,87 @@ export async function forgotPassword(login: string, language: string): Promise<v
 
 export async function listProjects(): Promise<Membership[]> {
   const body = await request<{ projects?: Membership[] }>("GET", "/v1/projects");
-  return (body?.projects ?? []).map((m) => ({ ...m, role: asRole(m.role) }));
+  return (body?.projects ?? []).map((m) => ({ ...m, role: asRole(m.role), status: asStatus(m.status) }));
 }
 
 export function createProject(name: string): Promise<{ projectId: string; name: string }> {
   return request("POST", "/v1/projects", { json: { name } });
 }
 
+/** One line of a Collect Earth Online import's report (src/ceo/report.ts); its subject and message are the server's, in English. */
+export interface CeoReportEntry {
+  area: "project" | "question" | "rule" | "plots";
+  subject: string;
+  outcome: "imported" | "changed" | "skipped" | "info";
+  message: string;
+}
+
+export interface CeoImportPreview {
+  name: string;
+  ceoProjectId: number | null;
+  /** plots: null without CEO's plot list */
+  counts: { questions: number; questionsChanged: number; questionsSkipped: number; rules: number; rulesSkipped: number; plots: number | null };
+  /** the points of the questions' table when answered per sample point; null: once for the plot */
+  perPoint: number | null;
+  /** the points a plot could be answered per (a square grid of several); null: per plot only */
+  samplePoints: number | null;
+  /** null without CEO's sample data; the collectors by email, for the coordinator to map (the server keeps no email) */
+  answers: { plots: number; flagged: number; collectors: { email: string; plots: number }[] } | null;
+  report: CeoReportEntry[];
+}
+
+/** CEO's files, as saved: the project (required), its plot list, its sample data (CSV); null when not given. */
+export interface CeoFiles {
+  project: string;
+  plots: string | null;
+  answers: string | null;
+  /** the questions asked per sample point, a table with a row per point (Part E); per plot otherwise */
+  perPoint?: boolean;
+}
+
+const ceoBody = (files: CeoFiles) => ({
+  ceoProject: files.project,
+  ...(files.plots !== null ? { ceoPlots: files.plots } : {}),
+  ...(files.answers !== null ? { ceoAnswers: files.answers } : {}),
+  ...(files.perPoint ? { perPoint: true } : {}),
+});
+
+/** A CEO project and its plot list, as text, read by the server from Collect Earth Online by the project's number. */
+export function fetchCeoProject(ceoProjectId: string): Promise<{ project: string; plots: string }> {
+  return request("POST", "/v1/projects/from-ceo/fetch", { json: { ceoProjectId } });
+}
+
+/**
+ * What a project saved from Collect Earth Online (its get-project-by-id file, as text) would become, with its plots
+ * when CEO's plot list (get-project-plots) is given, and its answers with CEO's sample data; nothing is stored.
+ */
+export function previewCeoImport(files: CeoFiles): Promise<CeoImportPreview> {
+  return request("POST", "/v1/projects/from-ceo/preview", { json: ceoBody(files) });
+}
+
+/** A new project from a project saved from Collect Earth Online: its survey, rules and plots; the caller is its coordinator. */
+export function importCeoProject(
+  files: CeoFiles,
+  name: string,
+  /** CEO collector's email -> the username of their account here (the others get a pseudonym) */
+  collectors: Record<string, string>,
+): Promise<CeoImportPreview & { projectId: string; round: string; reportText: string; records: number; plotFile: { csvFileId: string; filename: string; plots: number } | null }> {
+  return request("POST", "/v1/projects/from-ceo", { json: { ...ceoBody(files), name, collectors } });
+}
+
 export async function getProject(projectId: string): Promise<ProjectInfo> {
-  const body = await request<{ projectId: string; name: string; role: string }>("GET", p(projectId));
-  return { projectId: body.projectId, name: body.name, role: asRole(body.role) };
+  const body = await request<{ projectId: string; name: string; role: string; status?: string }>("GET", p(projectId));
+  return { projectId: body.projectId, name: body.name, role: asRole(body.role), status: asStatus(body.status) };
+}
+
+/** A new project (a draft) from this one: its survey, plot files and settings; with `members`, its people and who does which plots. */
+export function copyProject(projectId: string, name: string, members: boolean): Promise<{ projectId: string; name: string }> {
+  return request("POST", `${p(projectId)}/copy`, { json: { name, members } });
+}
+
+export async function setProjectStatus(projectId: string, status: ProjectStatus): Promise<ProjectStatus> {
+  const body = await request<{ status?: string }>("PUT", `${p(projectId)}/status`, { json: { status } });
+  return asStatus(body?.status);
 }
 
 export async function renameProject(projectId: string, name: string): Promise<void> {
@@ -1144,6 +1343,17 @@ export async function setMemberRole(projectId: string, userId: string, role: Rol
   await send("PUT", `${p(projectId)}/members/${encodeURIComponent(userId)}`, { json: { role } });
 }
 
+/** Ends every session of a member (a lost laptop): they stay in the project and log in again. */
+export async function signOutMember(projectId: string, userId: string): Promise<void> {
+  await send("POST", `${p(projectId)}/members/${encodeURIComponent(userId)}/sign-out`);
+}
+
+/** Leaves a member's records out of the results (with an optional reason), or puts them back. */
+export async function setMemberExcluded(projectId: string, userId: string, excluded: boolean, reason = ""): Promise<void> {
+  const json = excluded && reason.trim() ? { excluded, reason: reason.trim() } : { excluded };
+  await send("PUT", `${p(projectId)}/members/${encodeURIComponent(userId)}/excluded`, { json });
+}
+
 export async function removeMember(projectId: string, userId: string): Promise<void> {
   await send("DELETE", `${p(projectId)}/members/${encodeURIComponent(userId)}`);
 }
@@ -1162,6 +1372,124 @@ export async function listCsvFiles(projectId: string): Promise<CsvFile[]> {
 export function uploadCsvFile(projectId: string, file: File, onProgress?: Progress, confirmReplace = false): Promise<CsvFile> {
   const query = confirmReplace ? "?confirm=replace" : "";
   return upload<CsvFile>("PUT", `${p(projectId)}/csv-files/${encodeURIComponent(file.name)}${query}`, file, "text/csv", onProgress);
+}
+
+/** The plot files a project file brings in its grid folder (grid/*.csv, sub-folders left out). */
+export async function cepGridFiles(cep: Blob): Promise<File[]> {
+  const isGrid = (name: string) => /^grid\/[^/]+\.csv$/i.test(name);
+  const entries = unzipSync(new Uint8Array(await cep.arrayBuffer()), { filter: (f) => isGrid(f.name) });
+  return Object.entries(entries).map(([name, data]) => new File([data], name.slice("grid/".length), { type: "text/csv" }));
+}
+
+/**
+ * Plot files joined into one named `name`: those with the header most of them share (compared without
+ * quotes, spaces or a BOM) become one file, its header once and every file's rows after it, byte for
+ * byte (the text encoding is kept). The others are returned to add as they are.
+ */
+export async function mergeGridFiles(files: File[], name: string): Promise<{ merged: File | null; separate: File[] }> {
+  const parts = await Promise.all(
+    files.map(async (file) => {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const end = bytes.indexOf(10);
+      const headerEnd = end === -1 ? bytes.length : end + 1;
+      // shortcut: a header whose names hold quoted commas compares as other columns, and its file is then added on its own.
+      const header = new TextDecoder("latin1").decode(bytes.subarray(0, headerEnd)).replace(/^(﻿|ï»¿)/, "").replace(/["\s]/g, "");
+      return { file, bytes, headerEnd, header };
+    }),
+  );
+  const counts = new Map<string, number>();
+  for (const p of parts) counts.set(p.header, (counts.get(p.header) ?? 0) + 1);
+  const common = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const same = parts.filter((p) => p.header === common);
+  const separate = parts.filter((p) => p.header !== common).map((p) => p.file);
+  if (same.length < 2) return { merged: null, separate: files };
+  const chunks: Uint8Array<ArrayBuffer>[] = [same[0].bytes.subarray(0, same[0].headerEnd)];
+  if (same[0].bytes[same[0].headerEnd - 1] !== 10) chunks.push(new Uint8Array([10]));
+  for (const p of same) {
+    const rows = p.bytes.subarray(p.headerEnd);
+    if (rows.length === 0) continue;
+    chunks.push(rows);
+    if (rows[rows.length - 1] !== 10) chunks.push(new Uint8Array([10]));
+  }
+  return { merged: new File(chunks, name, { type: "text/csv" }), separate };
+}
+
+/** How plot design lays out the plots over the area of interest. */
+export type PlotDesign =
+  | { method: "random"; count: number }
+  | { method: "grid"; spacingMeters: number; randomOffset: boolean }
+  | { method: "stratified"; field: string; allocation: "equal" | "proportional"; count: number };
+
+/** The area of interest as sent: a GeoJSON text, or a zipped shapefile in base64. */
+export type DesignArea = { geojson: string } | { shapefile: string };
+
+/** The area as the server read it. */
+export interface DesignFacts {
+  features: number;
+  fields: string[];
+  areaKm2: number;
+  /** Most plots a design may make. */
+  max: number;
+}
+
+/** How many plots a design makes, laid out with `seed`. */
+export interface DesignPlan extends DesignFacts {
+  plots: number;
+  tooMany: boolean;
+  strata: { value: string; areaKm2: number; plots: number }[] | null;
+  seed: number;
+}
+
+const designPath = (projectId: string) => `${p(projectId)}/plot-design`;
+
+export const readDesignArea = (projectId: string, area: DesignArea) => request<DesignFacts>("POST", designPath(projectId), { json: area });
+
+export const planPlotDesign = (projectId: string, area: DesignArea, design: PlotDesign, seed?: number) =>
+  request<DesignPlan>("POST", designPath(projectId), { json: { ...area, design, seed } });
+
+/** The plot file of a design (CSV text), to upload as any plot file. */
+export async function generatePlotDesign(projectId: string, area: DesignArea, design: PlotDesign, seed: number): Promise<string> {
+  const response = await send("POST", designPath(projectId), { json: { ...area, design, seed, generate: true } });
+  return response.text();
+}
+
+/** A SIGRID country package: its name, and its file name's stem (Cote_d_Ivoire). */
+export interface SigridCountry {
+  name: string;
+  file: string;
+}
+
+/** What a SIGRID choice is: the country, its provinces and districts (none: all of it), an area to clip to. */
+export type SigridChoice = {
+  country: string;
+  spacingKm?: number;
+  provinces: string[];
+  districts: { province: string; district: string }[];
+} & ({ geojson: string } | { shapefile: string } | object);
+
+/** A SIGRID country as the server read it: plots per spacing (as `spacings`) by province and district, and for the choice. */
+export interface SigridFacts {
+  country: string;
+  spacings: number[];
+  provinces: { name: string; plots: number[]; districts: { name: string; plots: number[] }[] }[];
+  /** The plots per spacing of the provinces and districts chosen, before any clip. */
+  selected: number[];
+  max: number;
+  /** With a spacing: the plots of the whole choice (clip too). */
+  plots?: number;
+  tooMany?: boolean;
+}
+
+const sigridPath = (projectId: string) => `${p(projectId)}/sigrid`;
+
+export const listSigridCountries = (projectId: string) => request<{ countries: SigridCountry[]; spacings: number[]; max: number }>("GET", `${sigridPath(projectId)}/countries`);
+
+export const planSigrid = (projectId: string, choice: SigridChoice) => request<SigridFacts>("POST", sigridPath(projectId), { json: choice });
+
+/** The plot file of a SIGRID choice (CSV text, its ids SIGRID's CE_ID), to upload as any plot file. */
+export async function generateSigrid(projectId: string, choice: SigridChoice): Promise<string> {
+  const response = await send("POST", sigridPath(projectId), { json: { ...choice, generate: true } });
+  return response.text();
 }
 
 /** What replacing a plot file would take out of the project (the "replace_needs_confirm" error's details). */
@@ -1214,8 +1542,11 @@ export function toDistribution(value: unknown): Distribution | null {
   switch (d.mode) {
     case "manual":
       return d.order === "nearby" ? { mode: "manual", order: "nearby" } : { mode: "manual" };
-    case "even":
-      return { mode: "even", people: strings(d.people), order, ...extra };
+    case "even": {
+      const people = strings(d.people);
+      const percents = Array.isArray(d.percents) && d.percents.length === people.length ? d.percents.map((p) => toCount(p)) : null;
+      return { mode: "even", people, ...(percents ? { percents } : {}), order, ...extra };
+    }
     case "column":
       return {
         mode: "column",
@@ -1407,6 +1738,7 @@ export function toQualityData(body: unknown): QualityData {
     options: toOptions(b.options),
     computedAt: toMillis(b.computedAt),
     stale: b.stale === true,
+    excluded: list(b.excluded).map((x) => ({ username: text(x.username), reason: typeof x.reason === "string" ? x.reason : null })),
   };
 }
 
@@ -1502,6 +1834,13 @@ const CAUSES: FindingCause[] = ["unclear_question", "overlapping_options", "pers
 export interface ProjectAi {
   enabled: boolean;
   available: boolean;
+  /** Who processes what is sent, and where (region "global": any of the provider's regions); null while unavailable. */
+  where: { provider: string; model: string; region: string } | null;
+}
+
+function toWhere(v: unknown): ProjectAi["where"] {
+  const w = v && typeof v === "object" ? (v as Record<string, unknown>) : null;
+  return w && typeof w.provider === "string" ? { provider: w.provider, model: String(w.model ?? ""), region: String(w.region ?? "") } : null;
 }
 
 /** A run as listed: who, when and what, never its result. */
@@ -1623,13 +1962,13 @@ export function toAiRun(body: unknown): AiRun {
 
 export async function getProjectAi(projectId: string): Promise<ProjectAi> {
   const body = obj(await request<unknown>("GET", `${p(projectId)}/ai`));
-  return { enabled: body.enabled === true, available: body.available === true };
+  return { enabled: body.enabled === true, available: body.available === true, where: toWhere(body.where) };
 }
 
 /** Switches the assistant on or off for a project (a person's session only: a project key gets 403 user_session_required). */
 export async function setProjectAi(projectId: string, enabled: boolean): Promise<ProjectAi> {
   const body = obj(await request<unknown>("PUT", `${p(projectId)}/ai`, { json: { enabled } }));
-  return { enabled: body.enabled === true, available: body.available === true };
+  return { enabled: body.enabled === true, available: body.available === true, where: toWhere(body.where) };
 }
 
 /**
@@ -1798,10 +2137,16 @@ export async function getTeamReport(projectId: string): Promise<TeamReport> {
 
 // --- data ------------------------------------------------------------------------------------
 
-/** The collected data as a CSV file (fetched with the session, then saved by the page). */
-export async function downloadExport(projectId: string): Promise<{ blob: Blob; filename: string }> {
-  const response = await send("GET", `${p(projectId)}/export.csv`);
-  return { blob: await response.blob(), filename: attachmentName(response, "collect-earth-data.csv") };
+/** The formats of the data download: a spreadsheet, or a map file with each plot's shape. */
+export const EXPORT_FORMATS = ["csv", "geojson", "kml", "shp.zip"] as const;
+export type ExportFormat = (typeof EXPORT_FORMATS)[number];
+
+/** The collected data as a CSV or map file (fetched with the session, then saved by the page); a CSV can leave out the plot locations. */
+/** `includeExcluded`: also the records of people left out of the results. */
+export async function downloadExport(projectId: string, format: ExportFormat = "csv", withoutPositions = false, includeExcluded = false): Promise<{ blob: Blob; filename: string }> {
+  const query = [format === "csv" && withoutPositions ? "coordinates=none" : "", includeExcluded ? "excluded=include" : ""].filter(Boolean).join("&");
+  const response = await send("GET", `${p(projectId)}/export.${format}${query ? `?${query}` : ""}`);
+  return { blob: await response.blob(), filename: attachmentName(response, `collect-earth-data.${format}`) };
 }
 
 /** The file name a download was sent with: the UTF-8 name (filename*) before the ASCII fallback the server sends first. */
@@ -1912,6 +2257,9 @@ export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
   aiFollowUpsPerDay: 30,
   aiMonthlyTokens: 2_000_000,
   aiConfigured: false,
+  announcement: null,
+  announcementUntil: null,
+  twoFactorForCoordinators: false,
 };
 
 /** Settings from a server answer, keeping `fallback` for anything missing (older servers). */
@@ -1932,6 +2280,9 @@ export function toServerSettings(body: unknown, fallback: ServerSettings = DEFAU
     aiFollowUpsPerDay: limit(b.aiFollowUpsPerDay, fallback.aiFollowUpsPerDay),
     aiMonthlyTokens: limit(b.aiMonthlyTokens, fallback.aiMonthlyTokens),
     aiConfigured: typeof b.aiConfigured === "boolean" ? b.aiConfigured : fallback.aiConfigured,
+    announcement: text("announcement", fallback.announcement),
+    announcementUntil: "announcementUntil" in b ? toMillis(b.announcementUntil) : fallback.announcementUntil,
+    twoFactorForCoordinators: typeof b.twoFactorForCoordinators === "boolean" ? b.twoFactorForCoordinators : fallback.twoFactorForCoordinators,
   };
 }
 
@@ -1954,6 +2305,7 @@ function toAdminUser(u: Record<string, unknown>): AdminUser {
     coordinatedProjects: toCount(u.coordinatedProjects),
     disabledAt: toMillis(u.disabledAt),
     disabledBy: typeof u.disabledBy === "string" ? u.disabledBy : null,
+    twoFactor: u.twoFactor === true,
   };
 }
 
@@ -2046,8 +2398,9 @@ export async function getServerOverview(): Promise<ServerOverview> {
 }
 
 export async function makeResetLink(userId: string): Promise<ResetLink> {
-  const body = await request<{ resetUrl?: string; expiresAt?: unknown }>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/password-reset`);
-  return { resetUrl: absoluteUrl(body?.resetUrl ?? null, "/"), expiresAt: toMillis(body?.expiresAt) };
+  const body = await request<{ resetUrl?: string; expiresAt?: unknown; mailed?: unknown }>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/password-reset`);
+  if (body?.mailed === true) return { resetUrl: null, expiresAt: null, mailed: true };
+  return { resetUrl: absoluteUrl(body?.resetUrl ?? null, "/"), expiresAt: toMillis(body?.expiresAt), mailed: false };
 }
 
 // --- progress (the Progress tab) -----------------------------------------------------
@@ -2354,6 +2707,8 @@ export interface PersonRow {
   /** Null when the quality figures are not at hand. */
   agreement: Rate | null;
   status: PersonStatus;
+  /** Left out of the results by a coordinator (their records are in no figure nor export); null otherwise. */
+  excluded?: { at: number; reason: string | null } | null;
 }
 
 export interface QualityAtHand {
@@ -2488,6 +2843,7 @@ export function toPersonRow(value: unknown): PersonRow {
     lastPlotsDownloadAt: toMillis(r.lastPlotsDownloadAt),
     lastSubmittedAt: toMillis(r.lastSubmittedAt),
     agreement: toRateOrNull(r.agreement),
+    excluded: r.excluded && typeof r.excluded === "object" ? { at: toCount(obj(r.excluded).at), reason: typeof obj(r.excluded).reason === "string" ? text(obj(r.excluded).reason) : null } : null,
     status: {
       kind,
       days: kind === "quiet" ? toNumberOrNull(status.days) : null,
@@ -2666,6 +3022,136 @@ export interface TimeSpentData {
 export async function getTimeSpent(projectId: string, person?: string): Promise<TimeSpentData> {
   const query = person === undefined ? "" : `?${new URLSearchParams({ person })}`;
   return request<TimeSpentData>("GET", `${p(projectId)}/time-spent${query}`);
+}
+
+// --- the analysis page (what replaces Saiku; the server's src/analysis.ts) -----------
+
+export type AnalysisColumnType = "code" | "boolean" | "integer" | "real" | "text" | "date" | "time";
+
+export interface AnalysisColumnModel {
+  name: string;
+  key: string;
+  labels: Record<string, string>;
+  type: AnalysisColumnType;
+  list: string | null;
+  calculated: boolean;
+  multiple: boolean;
+  fromPlotFile: boolean;
+  /** A key attribute of the survey (the plot's id, the assessment round). Absent from an older server. */
+  keyAttr?: boolean;
+  /** For a code: the column of the code it refines (a land use's subdivision), else null. */
+  parent?: string | null;
+  /** The yes/no column the question is asked after (the year of a change, after "Any change?"), else null. */
+  relevantIf?: string | null;
+}
+
+export interface AnalysisTableModel {
+  name: string;
+  labels: Record<string, string>;
+  keyColumn: string | null;
+  columns: AnalysisColumnModel[];
+}
+
+export interface AnalysisListItem {
+  code: string;
+  labels: Record<string, string>;
+  parent: string | null;
+  level: number;
+}
+
+export interface AnalysisModelData {
+  languages: string[];
+  tables: AnalysisTableModel[];
+  lists: Record<string, AnalysisListItem[]>;
+}
+
+export interface AnalysisTableData {
+  name: string;
+  /** Each column's name and DuckDB type, in the CSV's order. */
+  columns: [string, string][];
+  rows: number;
+  csv: string;
+}
+
+export interface AnalysisData {
+  model: AnalysisModelData;
+  /** "project": every record (coordinators, reviewers); "own": the person's own, without rounds (collectors). */
+  scope: "project" | "own";
+  /** Where the areas come from (the project file's region_areas.csv or areas_per_attribute.csv), or null: no areas. */
+  areas: { source: string; plots: number; unmatched: number } | null;
+  tables: AnalysisTableData[];
+}
+
+/** The survey's model and the rows of its tables, for the analysis page (any member). */
+export async function getAnalysis(projectId: string): Promise<AnalysisData> {
+  return request<AnalysisData>("GET", `${p(projectId)}/analysis`);
+}
+
+/** The analysis as one HTML file that opens with no server (fetched with the session, then saved by the page). */
+export async function downloadAnalysisStandalone(projectId: string, withoutPositions = false): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("GET", `${p(projectId)}/analysis/standalone${withoutPositions ? "?coordinates=none" : ""}`);
+  return { blob: await response.blob(), filename: attachmentName(response, "analysis.html") };
+}
+
+/** What the stand-alone file holds besides the page's data: its project, and when it was made. */
+export interface StandaloneAnalysisData extends AnalysisData {
+  project: { id: string; name: string };
+  /** ISO 8601. */
+  made: string;
+  /** The plots' locations were left out (?coordinates=none). */
+  withoutPositions?: boolean;
+}
+
+/** A view a coordinator shared with the team (the analysis page). */
+export interface SharedAnalysisView {
+  name: string;
+  table: string;
+  language: string;
+  config: Record<string, unknown>;
+  savedBy: string;
+  savedAt: number;
+}
+
+export async function getSharedAnalysisViews(projectId: string): Promise<SharedAnalysisView[]> {
+  return (await request<{ views: SharedAnalysisView[] }>("GET", `${p(projectId)}/analysis/views`)).views;
+}
+
+/** Shares a view with the team (coordinators), replacing one of the same name and table; gives them all. */
+export async function shareAnalysisView(projectId: string, view: { name: string; table: string; language: string; config: Record<string, unknown> }): Promise<SharedAnalysisView[]> {
+  return (await request<{ views: SharedAnalysisView[] }>("PUT", `${p(projectId)}/analysis/views`, { json: view })).views;
+}
+
+/** A filter of a view proposed by the AI assistant, on codes (the server's src/ai/analysisViews.ts). */
+export interface ProposedFilter {
+  column: string;
+  op: "is" | "isNot" | "yes" | "no" | "answered" | "notAnswered" | "atLeast" | "atMost";
+  codes?: string[];
+  value?: number | string;
+}
+
+/** A view of the analysis page proposed by the AI assistant from the survey's structure, by the cube's column ids. */
+export interface ProposedView {
+  title: string;
+  why: string;
+  rows: string[];
+  columns: string[];
+  measures: string[];
+  chart: "table" | "bars" | "hbars" | "stacked" | "lines" | "areas" | "heatmap" | "treemap" | "sunburst";
+  filters: ProposedFilter[];
+  order: "largest" | "smallest" | "name";
+}
+
+/**
+ * Views proposed by the AI assistant for a table of the analysis (coordinators of a project with the assistant on):
+ * the server sends the model the survey's structure only, never the data. Counted against the project's AI limits.
+ */
+export async function proposeAnalysisViews(projectId: string, table: string, language: string): Promise<ProposedView[]> {
+  const body = obj(await request<unknown>("POST", `${p(projectId)}/analysis/proposals`, { json: { table, language } }));
+  return Array.isArray(body.views) ? (body.views as ProposedView[]) : [];
+}
+
+export async function deleteSharedAnalysisView(projectId: string, name: string, table: string): Promise<SharedAnalysisView[]> {
+  return (await request<{ views: SharedAnalysisView[] }>("DELETE", `${p(projectId)}/analysis/views?${new URLSearchParams({ name, table })}`)).views;
 }
 
 /** The signed-in person's own page ("My work", any member). */
@@ -3128,6 +3614,29 @@ export interface ReferenceFiguresView {
   people: ReferencePerson[];
   computedAt: number | null;
   stale: boolean;
+  /** Against the reference answers uploaded from a file; null without them. Reviewers get no people nor plots. */
+  external: ExternalReferenceView | null;
+}
+
+/** Everyone's latest records of the plots of an uploaded reference set, compared with its answers. */
+export interface ExternalReferenceView {
+  plots: number;
+  assessed: number;
+  checks: number;
+  questions: (Rate & { key: string; label: string; kind: "choice" | "number" })[];
+  /** `answers`: every answer of theirs compared (its share differing is their disagreement). */
+  people: (ReferencePerson & { answers: Rate })[];
+  byPlot: { plot: string; records: number; compared: number; agreeing: number }[];
+}
+
+/** What an upload of reference answers took, and what did not match. */
+export interface ReferenceAnswersReport {
+  plots: number;
+  columns: { column: string; key: string }[];
+  unmatchedColumns: string[];
+  unmatchedValues: { column: string; value: string; count: number }[];
+  unknownPlots: string[];
+  unknownPlotCount: number;
 }
 
 export interface ReferencePlotRow {
@@ -3158,6 +3667,8 @@ export interface ReferenceView {
   assessors: { userId: string; username: string; role: Role }[];
   collectors: number;
   people: { userId: string; username: string; copies: number; checked: number }[];
+  /** The reference answers uploaded: how many plots, and when (coordinators). */
+  external: { count: number; uploadedAt: number | null };
 }
 
 export function toReferencePerson(value: unknown): ReferencePerson {
@@ -3184,8 +3695,10 @@ export function toReferenceView(body: unknown): ReferenceView {
           people: list(f.people).map(toReferencePerson),
           computedAt: toMillis(f.computedAt),
           stale: f.stale === true,
+          external: f.external && typeof f.external === "object" ? toExternalReference(f.external) : null,
         }
       : null,
+    external: { count: toCount(obj(b.external).count), uploadedAt: toMillis(obj(b.external).uploadedAt) },
     max: toCount(b.max) || 500,
     plots: list(b.plots).map((r) => ({
       csvFileId: text(r.csvFileId),
@@ -3205,6 +3718,36 @@ export function toReferenceView(body: unknown): ReferenceView {
     collectors: toCount(b.collectors),
     people: list(b.people).map((x) => ({ userId: text(x.userId), username: text(x.username), copies: toCount(x.copies), checked: toCount(x.checked) })),
   };
+}
+
+function toExternalReference(value: unknown): ExternalReferenceView {
+  const e = obj(value);
+  return {
+    plots: toCount(e.plots),
+    assessed: toCount(e.assessed),
+    checks: toCount(e.checks),
+    questions: list(e.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key), kind: q.kind === "number" ? "number" : "choice", ...toRate(q) })),
+    people: list(e.people).map((p) => ({ ...toReferencePerson(p), answers: toRate(p.answers) })),
+    byPlot: list(e.byPlot).map((p) => ({ plot: text(p.plot), records: toCount(p.records), compared: toCount(p.compared), agreeing: toCount(p.agreeing) })),
+  };
+}
+
+/** Uploads a reference set (a CSV, or a JSON array for a .json file); it replaces the one the project had. */
+export async function uploadReferenceAnswers(projectId: string, file: File): Promise<ReferenceAnswersReport> {
+  const json = file.name.toLowerCase().endsWith(".json");
+  const b = obj(await upload<unknown>("PUT", `${p(projectId)}/reference/answers`, file, json ? "application/json" : "text/csv"));
+  return {
+    plots: toCount(b.plots),
+    columns: list(b.columns).map((c) => ({ column: text(c.column), key: text(c.key) })),
+    unmatchedColumns: strings(b.unmatchedColumns),
+    unmatchedValues: list(b.unmatchedValues).map((v) => ({ column: text(v.column), value: text(v.value), count: toCount(v.count) })),
+    unknownPlots: strings(b.unknownPlots),
+    unknownPlotCount: toCount(b.unknownPlotCount),
+  };
+}
+
+export async function deleteReferenceAnswers(projectId: string): Promise<void> {
+  await send("DELETE", `${p(projectId)}/reference/answers`);
 }
 
 export async function getReference(projectId: string): Promise<ReferenceView> {
@@ -4338,4 +4881,77 @@ export interface TrainingFiguresSet {
 export async function getTrainingFigures(projectId: string): Promise<{ sets: TrainingFiguresSet[]; questions: TrainingQuestion[] }> {
   const res = await request<{ sets?: TrainingFiguresSet[]; questions?: TrainingQuestion[] }>("GET", `${p(projectId)}/training/figures`);
   return { sets: Array.isArray(res.sets) ? res.sets : [], questions: Array.isArray(res.questions) ? res.questions : [] };
+}
+
+/** The six IPCC land categories (the server's src/uncertainty.ts). */
+export const IPCC_CATEGORIES = ["forest", "cropland", "grassland", "wetland", "settlement", "other"] as const;
+export type IpccCategory = (typeof IPCC_CATEGORIES)[number];
+
+/** The uncertainty analysis's setup: the two land use questions, their years, each code's category (null: left out), the area. */
+export interface UncertaintySettings {
+  initial: string;
+  final: string;
+  initialYear: string;
+  finalYear: string;
+  codes: Record<string, Record<string, IpccCategory | null>>;
+  totalArea: number | null;
+}
+
+export interface UncertaintyQuestion {
+  name: string;
+  labels: Record<string, string>;
+  list: string;
+  parent: string | null;
+  fromPlotFile: boolean;
+  calculated: boolean;
+}
+
+export interface UncertaintySetup {
+  settings: UncertaintySettings | null;
+  languages: string[];
+  questions: UncertaintyQuestion[];
+  lists: Record<string, AnalysisListItem[]>;
+  areas: "region_areas.csv" | "areas_per_attribute.csv" | null;
+  canEdit: boolean;
+}
+
+export interface UncertaintyEstimate {
+  plots: number;
+  proportion: number;
+  area: number;
+  se: number;
+  ci: number;
+  uncertainty: number | null;
+}
+
+export type ForestRow = "forestStable" | "nonForestToForest" | "forestToNonForest" | "nonForestStable" | "initiallyForest" | "initiallyNonForest" | "currentlyForest" | "currentlyNonForest";
+
+/** The tables of the uncertainty analysis (the server's UncertaintyResult). */
+export interface UncertaintyData {
+  settings: UncertaintySettings;
+  areas: string | null;
+  estimator: "simple" | "stratified";
+  totalArea: number;
+  plots: number;
+  strata: { key: string; area: number; plots: number }[];
+  notEstimable: { key: string; area: number; plots: number }[];
+  skipped: { missing: number; unmapped: number; leftOut: number; noArea: number };
+  unmapped: { which: "initial" | "final"; code: string; plots: number }[];
+  categories: { category: IpccCategory; initial: UncertaintyEstimate; final: UncertaintyEstimate }[];
+  total: UncertaintyEstimate;
+  forest: { row: ForestRow; estimate: UncertaintyEstimate }[];
+  transitions: { from: IpccCategory; to: IpccCategory; estimate: UncertaintyEstimate }[];
+  matrix: { cells: number[][]; rowTotals: number[]; columnTotals: number[]; total: number; rowPercent: (number | null)[][] };
+}
+
+export async function getUncertaintySetup(projectId: string): Promise<UncertaintySetup> {
+  return request<UncertaintySetup>("GET", `${p(projectId)}/uncertainty/settings`);
+}
+
+export async function saveUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<UncertaintySettings> {
+  return (await request<{ settings: UncertaintySettings }>("PUT", `${p(projectId)}/uncertainty/settings`, { json: settings })).settings;
+}
+
+export async function getUncertainty(projectId: string): Promise<UncertaintyData> {
+  return request<UncertaintyData>("GET", `${p(projectId)}/uncertainty`);
 }

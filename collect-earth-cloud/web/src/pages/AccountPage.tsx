@@ -7,16 +7,18 @@ import Typography from "@mui/material/Typography";
 import DeleteForever from "@mui/icons-material/DeleteForever";
 import Logout from "@mui/icons-material/Logout";
 import { useState } from "react";
-import { ApiError, changePassword, deleteAccount, getAccountDeletion, type ProjectRef } from "../api";
+import { ApiError, changePassword, deleteAccount, getAccountDeletion, logoutOthers, type ProjectRef } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { Explain } from "../components/Explain";
 import { FormCard } from "../components/FormCard";
 import { Loading } from "../components/Loading";
 import { PasswordField } from "../components/PasswordField";
 import { useT, type MessageKey } from "../i18n";
 import { linkProps, pathFor, type ProjectTab } from "../router";
 import { MailCard } from "./MailCard";
+import { TwoFactorCard } from "../components/TwoFactorCard";
 import { useLoad } from "../useLoad";
 import { passwordProblem } from "../validation";
 
@@ -66,6 +68,7 @@ export function AccountPage() {
             </Button>
           </Stack>
         </Box>
+        <TwoFactorCard />
         <FormCard title={t("account.changeTitle")} onSubmit={submit} level={2}>
           <PasswordField
             label={t("account.current")}
@@ -106,6 +109,7 @@ export function AccountPage() {
             </Button>
           </Box>
         </FormCard>
+        <OtherDevicesCard />
         <MailCard />
         <DeleteAccountCard />
       </Stack>
@@ -128,6 +132,44 @@ function ProjectLinks({ projects, tab }: { projects: ProjectRef[]; tab: ProjectT
 }
 
 /** Deleting one's own account, with what it would do said first. */
+/** Signs out everywhere but here: a lost laptop, a computer shared. */
+function OtherDevicesCard() {
+  const t = useT();
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    if (busy) return;
+    setError(null);
+    setDone(false);
+    setBusy(true);
+    try {
+      await logoutOthers();
+      setDone(true);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <FormCard title={t("account.othersTitle")} onSubmit={submit} level={2}>
+      <Explain text={t("account.othersText.short")} more={t("account.othersText")} />
+      {done && (
+        <Alert severity="success" role="status">
+          {t("account.othersDone")}
+        </Alert>
+      )}
+      <ErrorAlert error={error} />
+      <Box>
+        <Button type="submit" variant="outlined" startIcon={<Logout />} disabled={busy}>
+          {t("account.othersSubmit")}
+        </Button>
+      </Box>
+    </FormCard>
+  );
+}
+
 function DeleteAccountCard() {
   const t = useT();
   const { logOut } = useApp();

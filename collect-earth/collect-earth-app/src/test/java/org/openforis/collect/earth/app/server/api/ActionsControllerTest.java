@@ -102,4 +102,14 @@ public class ActionsControllerTest {
 			System.clearProperty(ActionsController.LOG_SIGN_IN_URL_PROPERTY);
 		}
 	}
+
+	@Test
+	public void theAnalysisPageIsTheLocalDashboardsOrTheClouds() {
+		assertEquals("http://127.0.0.1:5000/local-sign-in/abc?to=analysis", ActionsController.analysisUrl(false, null, null, "http://127.0.0.1:5000/local-sign-in/abc"));
+		assertEquals("https://ce.example.org/projects/p%201/analysis", ActionsController.analysisUrl(true, "https://ce.example.org//", " p 1 ", "ignored"));
+		// not ready: the page is told why
+		assertEquals(null, ActionsController.analysisUrl(false, null, null, null));
+		assertEquals(null, ActionsController.analysisUrl(true, "https://ce.example.org", "", null));
+		assertEquals(null, ActionsController.analysisUrl(true, " ", "p1", null));
+	}
 }

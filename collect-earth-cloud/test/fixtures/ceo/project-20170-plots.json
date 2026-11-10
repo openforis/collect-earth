@@ -1,0 +1,1864 @@
+[
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.4837365,26.66312053]}",
+  "flagged": false,
+  "id": 138814414,
+  "plotId": 139027290,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.06610058,27.13177161]}",
+  "flagged": false,
+  "id": 138814419,
+  "plotId": 139027291,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.26714354,27.18863497]}",
+  "flagged": false,
+  "id": 138814420,
+  "plotId": 139027292,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.83335166,27.02505175]}",
+  "flagged": false,
+  "id": 138814421,
+  "plotId": 139027293,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.46043812,28.78026999]}",
+  "flagged": false,
+  "id": 138814430,
+  "plotId": 139027294,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[84.98417422,27.21235049]}",
+  "flagged": false,
+  "id": 138814449,
+  "plotId": 139027295,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.09970672,26.788705]}",
+  "flagged": false,
+  "id": 138814452,
+  "plotId": 139027296,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.09763144,27.20453515]}",
+  "flagged": false,
+  "id": 138814453,
+  "plotId": 139027297,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[86.40980058,26.81807991]}",
+  "flagged": false,
+  "id": 138814464,
+  "plotId": 139027298,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.74808324,28.16528334]}",
+  "flagged": false,
+  "id": 138814476,
+  "plotId": 139027299,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.0443522,27.68261854]}",
+  "flagged": false,
+  "id": 138814498,
+  "plotId": 139027300,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.81206159,26.98893948]}",
+  "flagged": false,
+  "id": 138814501,
+  "plotId": 139027301,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.52593902,27.64354183]}",
+  "flagged": false,
+  "id": 138814502,
+  "plotId": 139027302,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.74754425,28.14668822]}",
+  "flagged": false,
+  "id": 138814505,
+  "plotId": 139027303,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.42944624,28.73876782]}",
+  "flagged": false,
+  "id": 138814528,
+  "plotId": 139027304,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.67928144,27.55568659]}",
+  "flagged": false,
+  "id": 138814535,
+  "plotId": 139027305,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.49816736,28.73526439]}",
+  "flagged": false,
+  "id": 138814536,
+  "plotId": 139027306,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.62853578,27.07490825]}",
+  "flagged": false,
+  "id": 138814538,
+  "plotId": 139027307,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.05173668,26.66743244]}",
+  "flagged": false,
+  "id": 138814540,
+  "plotId": 139027308,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.33621483,27.35194869]}",
+  "flagged": false,
+  "id": 138814541,
+  "plotId": 139027309,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.78769895,28.06853479]}",
+  "flagged": false,
+  "id": 138814571,
+  "plotId": 139027310,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.89755833,28.52883154]}",
+  "flagged": false,
+  "id": 138814572,
+  "plotId": 139027311,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[82.73793686,27.66078948]}",
+  "flagged": false,
+  "id": 138814577,
+  "plotId": 139027312,
+  "status": "analyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.57159174,26.72752973]}",
+  "flagged": false,
+  "id": 138814578,
+  "plotId": 139027313,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.7302966,28.17121223]}",
+  "flagged": false,
+  "id": 138814579,
+  "plotId": 139027314,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.75007783,27.01157703]}",
+  "flagged": false,
+  "id": 138814588,
+  "plotId": 139027315,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.93340111,28.64390573]}",
+  "flagged": false,
+  "id": 138814594,
+  "plotId": 139027316,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.34950075,28.36120591]}",
+  "flagged": false,
+  "id": 138814597,
+  "plotId": 139027317,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.62268758,27.59233786]}",
+  "flagged": false,
+  "id": 138814607,
+  "plotId": 139027318,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.31473595,28.49837865]}",
+  "flagged": false,
+  "id": 138814608,
+  "plotId": 139027319,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[84.8561643,27.06844038]}",
+  "flagged": false,
+  "id": 138814609,
+  "plotId": 139027320,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.73693956,28.67543659]}",
+  "flagged": false,
+  "id": 138814628,
+  "plotId": 139027321,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[84.9057513,27.2069606]}",
+  "flagged": false,
+  "id": 138814629,
+  "plotId": 139027322,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.9260578,26.61191656]}",
+  "flagged": false,
+  "id": 138814663,
+  "plotId": 139027323,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.39279497,28.84279273]}",
+  "flagged": false,
+  "id": 138814671,
+  "plotId": 139027324,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.49262982,26.62215735]}",
+  "flagged": false,
+  "id": 138814681,
+  "plotId": 139027325,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.32112314,27.69070338]}",
+  "flagged": false,
+  "id": 138814682,
+  "plotId": 139027326,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.85679769,26.9382745]}",
+  "flagged": false,
+  "id": 138814703,
+  "plotId": 139027327,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[86.1349161,26.87979417]}",
+  "flagged": false,
+  "id": 138814761,
+  "plotId": 139027328,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.17389841,27.19106042]}",
+  "flagged": false,
+  "id": 138814810,
+  "plotId": 139027329,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[86.20660166,26.86524147]}",
+  "flagged": false,
+  "id": 138814834,
+  "plotId": 139027330,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.113154,28.4762801]}",
+  "flagged": false,
+  "id": 138814914,
+  "plotId": 139027331,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.15833469,29.01176584]}",
+  "flagged": false,
+  "id": 138814915,
+  "plotId": 139027332,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.9656735,26.92587775]}",
+  "flagged": false,
+  "id": 138814925,
+  "plotId": 139027333,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.58226339,27.64461981]}",
+  "flagged": false,
+  "id": 138814926,
+  "plotId": 139027334,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.27595618,26.67039688]}",
+  "flagged": false,
+  "id": 138814927,
+  "plotId": 139027335,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.28781394,26.68872251]}",
+  "flagged": false,
+  "id": 138814929,
+  "plotId": 139027336,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.13713902,28.48679039]}",
+  "flagged": false,
+  "id": 138814930,
+  "plotId": 139027337,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.18663162,28.87971349]}",
+  "flagged": false,
+  "id": 138814931,
+  "plotId": 139027338,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.764967,28.76895122]}",
+  "flagged": false,
+  "id": 138814932,
+  "plotId": 139027339,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[88.0062865,26.52433082]}",
+  "flagged": false,
+  "id": 138814935,
+  "plotId": 139027340,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.29832423,26.45156728]}",
+  "flagged": false,
+  "id": 138814939,
+  "plotId": 139027341,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[88.05210058,26.54831583]}",
+  "flagged": false,
+  "id": 138814942,
+  "plotId": 139027342,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.05467368,28.67840104]}",
+  "flagged": false,
+  "id": 138814955,
+  "plotId": 139027343,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.67792025,28.75655446]}",
+  "flagged": false,
+  "id": 138814957,
+  "plotId": 139027344,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.55946448,26.64775934]}",
+  "flagged": false,
+  "id": 138814959,
+  "plotId": 139027345,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.1985031,27.72196475]}",
+  "flagged": false,
+  "id": 138814967,
+  "plotId": 139027346,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.66106394,26.71836692]}",
+  "flagged": false,
+  "id": 138814969,
+  "plotId": 139027347,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.22822819,28.38492143]}",
+  "flagged": false,
+  "id": 138814972,
+  "plotId": 139027348,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.18501465,28.88025248]}",
+  "flagged": false,
+  "id": 138814973,
+  "plotId": 139027349,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.9963152,26.68306313]}",
+  "flagged": false,
+  "id": 138814975,
+  "plotId": 139027350,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.4039661,26.65099327]}",
+  "flagged": false,
+  "id": 138814976,
+  "plotId": 139027351,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.45909064,28.67732306]}",
+  "flagged": false,
+  "id": 138814985,
+  "plotId": 139027352,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[88.081206,26.67174435]}",
+  "flagged": false,
+  "id": 138814986,
+  "plotId": 139027353,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.47699914,26.49253045]}",
+  "flagged": false,
+  "id": 138814993,
+  "plotId": 139027354,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.6977152,26.69465139]}",
+  "flagged": false,
+  "id": 138815001,
+  "plotId": 139027355,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.47969408,26.61326403]}",
+  "flagged": false,
+  "id": 138815004,
+  "plotId": 139027356,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.05386519,28.49325826]}",
+  "flagged": false,
+  "id": 138815027,
+  "plotId": 139027357,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.99685419,26.6841411]}",
+  "flagged": false,
+  "id": 138815029,
+  "plotId": 139027358,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.1479188,28.655494]}",
+  "flagged": false,
+  "id": 138815034,
+  "plotId": 139027359,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.65540455,26.63024219]}",
+  "flagged": false,
+  "id": 138815041,
+  "plotId": 139027360,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.94511123,26.42192287]}",
+  "flagged": false,
+  "id": 138815043,
+  "plotId": 139027361,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[86.24325293,26.83317161]}",
+  "flagged": false,
+  "id": 138815049,
+  "plotId": 139027362,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.35060618,26.67848172]}",
+  "flagged": false,
+  "id": 138815057,
+  "plotId": 139027363,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.46972278,26.5547837]}",
+  "flagged": false,
+  "id": 138815059,
+  "plotId": 139027364,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[86.13141267,26.88760952]}",
+  "flagged": false,
+  "id": 138815060,
+  "plotId": 139027365,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.55260526,28.78539039]}",
+  "flagged": false,
+  "id": 138815063,
+  "plotId": 139027366,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.65393523,28.78619887]}",
+  "flagged": false,
+  "id": 138815064,
+  "plotId": 139027367,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.35472928,27.12799869]}",
+  "flagged": false,
+  "id": 138815069,
+  "plotId": 139027368,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.16166303,28.51778226]}",
+  "flagged": false,
+  "id": 138815070,
+  "plotId": 139027369,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.8421643,26.53430212]}",
+  "flagged": false,
+  "id": 138815075,
+  "plotId": 139027370,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.66471501,28.65926692]}",
+  "flagged": false,
+  "id": 138815076,
+  "plotId": 139027371,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.32042278,26.64883731]}",
+  "flagged": false,
+  "id": 138815078,
+  "plotId": 139027372,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.75266465,27.99577125]}",
+  "flagged": false,
+  "id": 138815079,
+  "plotId": 139027373,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.34683325,26.67228334]}",
+  "flagged": false,
+  "id": 138815086,
+  "plotId": 139027374,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.70534173,26.95147973]}",
+  "flagged": false,
+  "id": 138815094,
+  "plotId": 139027375,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.29185636,26.69626836]}",
+  "flagged": false,
+  "id": 138815100,
+  "plotId": 139027376,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.46217693,26.64668136]}",
+  "flagged": false,
+  "id": 138815105,
+  "plotId": 139027377,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.22688072,28.44367125]}",
+  "flagged": false,
+  "id": 138815111,
+  "plotId": 139027378,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.4234504,27.112368]}",
+  "flagged": false,
+  "id": 138815129,
+  "plotId": 139027379,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.18393667,28.88645085]}",
+  "flagged": false,
+  "id": 138815130,
+  "plotId": 139027380,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.6729217,26.60544869]}",
+  "flagged": false,
+  "id": 138815132,
+  "plotId": 139027381,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.5558392,28.78161746]}",
+  "flagged": false,
+  "id": 138815138,
+  "plotId": 139027382,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[88.04671069,26.69977179]}",
+  "flagged": false,
+  "id": 138815140,
+  "plotId": 139027383,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.48381718,27.00537865]}",
+  "flagged": false,
+  "id": 138815141,
+  "plotId": 139027384,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.26218451,28.3418023]}",
+  "flagged": false,
+  "id": 138815147,
+  "plotId": 139027385,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.47672964,26.49253045]}",
+  "flagged": false,
+  "id": 138815148,
+  "plotId": 139027386,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.15510075,28.8692032]}",
+  "flagged": false,
+  "id": 138815152,
+  "plotId": 139027387,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.69462891,28.59701367]}",
+  "flagged": false,
+  "id": 138815156,
+  "plotId": 139027388,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.08108415,28.44447974]}",
+  "flagged": false,
+  "id": 138815157,
+  "plotId": 139027389,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.45317548,27.63410952]}",
+  "flagged": false,
+  "id": 138815160,
+  "plotId": 139027390,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.5724809,26.9830106]}",
+  "flagged": false,
+  "id": 138815164,
+  "plotId": 139027391,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.76128848,28.03781241]}",
+  "flagged": false,
+  "id": 138815165,
+  "plotId": 139027392,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.12608974,28.5355689]}",
+  "flagged": false,
+  "id": 138815166,
+  "plotId": 139027393,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.70631158,28.18010555]}",
+  "flagged": false,
+  "id": 138815170,
+  "plotId": 139027394,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.80936664,26.99567684]}",
+  "flagged": false,
+  "id": 138815171,
+  "plotId": 139027395,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.31503289,26.80271872]}",
+  "flagged": false,
+  "id": 138815175,
+  "plotId": 139027396,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.35489064,28.42696259]}",
+  "flagged": false,
+  "id": 138815176,
+  "plotId": 139027397,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.53752729,27.62171277]}",
+  "flagged": false,
+  "id": 138815177,
+  "plotId": 139027398,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.72312838,26.9681884]}",
+  "flagged": false,
+  "id": 138815178,
+  "plotId": 139027399,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.82176339,26.99432937]}",
+  "flagged": false,
+  "id": 138815180,
+  "plotId": 139027400,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[88.04724968,26.63509309]}",
+  "flagged": false,
+  "id": 138815181,
+  "plotId": 139027401,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.56924697,26.89973677]}",
+  "flagged": false,
+  "id": 138815183,
+  "plotId": 139027402,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.76128848,28.0380819]}",
+  "flagged": false,
+  "id": 138815184,
+  "plotId": 139027403,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.12366429,28.50484652]}",
+  "flagged": false,
+  "id": 138815185,
+  "plotId": 139027404,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.40261863,26.74747233]}",
+  "flagged": false,
+  "id": 138815186,
+  "plotId": 139027405,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.65863849,26.59278244]}",
+  "flagged": false,
+  "id": 138815188,
+  "plotId": 139027406,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.52855329,27.08056764]}",
+  "flagged": false,
+  "id": 138815190,
+  "plotId": 139027407,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.36246394,26.73884851]}",
+  "flagged": false,
+  "id": 138815192,
+  "plotId": 139027408,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.85841466,26.98893948]}",
+  "flagged": false,
+  "id": 138815193,
+  "plotId": 139027409,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.30988505,28.32374616]}",
+  "flagged": false,
+  "id": 138815194,
+  "plotId": 139027410,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.13893108,28.87028118]}",
+  "flagged": false,
+  "id": 138815195,
+  "plotId": 139027411,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.95589101,26.53591908]}",
+  "flagged": false,
+  "id": 138815196,
+  "plotId": 139027412,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.19175201,28.90154255]}",
+  "flagged": false,
+  "id": 138815197,
+  "plotId": 139027413,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.66067259,28.82581457]}",
+  "flagged": false,
+  "id": 138815200,
+  "plotId": 139027414,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[88.14318975,26.67174435]}",
+  "flagged": false,
+  "id": 138815201,
+  "plotId": 139027415,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[88.00736448,26.54130897]}",
+  "flagged": false,
+  "id": 138815202,
+  "plotId": 139027416,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.36623686,26.66473749]}",
+  "flagged": false,
+  "id": 138815203,
+  "plotId": 139027417,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.35542963,28.21001945]}",
+  "flagged": false,
+  "id": 138815205,
+  "plotId": 139027418,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.12815129,28.90612396]}",
+  "flagged": false,
+  "id": 138815206,
+  "plotId": 139027419,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.90079227,28.71154887]}",
+  "flagged": false,
+  "id": 138815208,
+  "plotId": 139027420,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.57401719,26.73857901]}",
+  "flagged": false,
+  "id": 138815209,
+  "plotId": 139027421,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.19526917,27.63114508]}",
+  "flagged": false,
+  "id": 138815210,
+  "plotId": 139027422,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.56116213,26.96118154]}",
+  "flagged": false,
+  "id": 138815211,
+  "plotId": 139027423,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.65844968,27.03151962]}",
+  "flagged": false,
+  "id": 138815213,
+  "plotId": 139027424,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[82.84411772,27.73112757]}",
+  "flagged": false,
+  "id": 138815216,
+  "plotId": 139027425,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.65629372,26.98920897]}",
+  "flagged": false,
+  "id": 138815220,
+  "plotId": 139027426,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.26029804,28.42318966]}",
+  "flagged": false,
+  "id": 138815221,
+  "plotId": 139027427,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.34303288,28.26769129]}",
+  "flagged": false,
+  "id": 138815223,
+  "plotId": 139027428,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.35195365,26.76795392]}",
+  "flagged": false,
+  "id": 138815225,
+  "plotId": 139027429,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[86.1551282,26.7790032]}",
+  "flagged": false,
+  "id": 138815226,
+  "plotId": 139027430,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[82.87430112,27.61740085]}",
+  "flagged": false,
+  "id": 138815227,
+  "plotId": 139027431,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.89253234,28.00655103]}",
+  "flagged": false,
+  "id": 138815228,
+  "plotId": 139027432,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.6872856,27.00187522]}",
+  "flagged": false,
+  "id": 138815229,
+  "plotId": 139027433,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[88.00790347,26.57149237]}",
+  "flagged": false,
+  "id": 138815230,
+  "plotId": 139027434,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.61495292,28.23184851]}",
+  "flagged": false,
+  "id": 138815231,
+  "plotId": 139027435,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.33901791,26.68521908]}",
+  "flagged": false,
+  "id": 138815232,
+  "plotId": 139027436,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[82.780517,27.51822685]}",
+  "flagged": false,
+  "id": 138815234,
+  "plotId": 139027437,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.87663216,28.05613804]}",
+  "flagged": false,
+  "id": 138815235,
+  "plotId": 139027438,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.39226971,27.4955893]}",
+  "flagged": false,
+  "id": 138815236,
+  "plotId": 139027439,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[86.05649318,26.73345861]}",
+  "flagged": false,
+  "id": 138815237,
+  "plotId": 139027440,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.70945111,28.804794]}",
+  "flagged": false,
+  "id": 138815238,
+  "plotId": 139027441,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.57894877,26.98085464]}",
+  "flagged": false,
+  "id": 138815239,
+  "plotId": 139027442,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[82.79641718,27.70660356]}",
+  "flagged": false,
+  "id": 138815240,
+  "plotId": 139027443,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.12895978,28.88159995]}",
+  "flagged": false,
+  "id": 138815241,
+  "plotId": 139027444,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.63796809,27.04122143]}",
+  "flagged": false,
+  "id": 138815243,
+  "plotId": 139027445,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.15510075,29.08749382]}",
+  "flagged": false,
+  "id": 138815245,
+  "plotId": 139027446,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.55461358,26.65853912]}",
+  "flagged": false,
+  "id": 138815247,
+  "plotId": 139027447,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[86.9908309,26.7094736]}",
+  "flagged": false,
+  "id": 138815248,
+  "plotId": 139027448,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[86.90836556,26.55262775]}",
+  "flagged": false,
+  "id": 138815249,
+  "plotId": 139027449,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.6580995,26.59278244]}",
+  "flagged": false,
+  "id": 138815251,
+  "plotId": 139027450,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.23388757,28.40378605]}",
+  "flagged": false,
+  "id": 138815253,
+  "plotId": 139027451,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.35384011,26.73642305]}",
+  "flagged": false,
+  "id": 138815254,
+  "plotId": 139027452,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[84.76426664,27.20911656]}",
+  "flagged": false,
+  "id": 138815256,
+  "plotId": 139027453,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.33952945,28.35635501]}",
+  "flagged": false,
+  "id": 138815257,
+  "plotId": 139027454,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.82930924,26.95121024]}",
+  "flagged": false,
+  "id": 138815260,
+  "plotId": 139027455,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.62590779,28.75062558]}",
+  "flagged": false,
+  "id": 138815261,
+  "plotId": 139027456,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.81672368,27.42040031]}",
+  "flagged": false,
+  "id": 138815265,
+  "plotId": 139027457,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.96270906,26.93881349]}",
+  "flagged": false,
+  "id": 138815269,
+  "plotId": 139027458,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.35761304,26.69761583]}",
+  "flagged": false,
+  "id": 138815272,
+  "plotId": 139027459,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.68151808,28.14695771]}",
+  "flagged": false,
+  "id": 138815273,
+  "plotId": 139027460,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.15735111,28.53853335]}",
+  "flagged": false,
+  "id": 138815274,
+  "plotId": 139027461,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.58137422,26.97896818]}",
+  "flagged": false,
+  "id": 138815275,
+  "plotId": 139027462,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.93406195,26.41814995]}",
+  "flagged": false,
+  "id": 138815276,
+  "plotId": 139027463,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.49144372,27.52954562]}",
+  "flagged": false,
+  "id": 138815278,
+  "plotId": 139027464,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.35114517,26.73507558]}",
+  "flagged": false,
+  "id": 138815279,
+  "plotId": 139027465,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[84.89982242,27.07625573]}",
+  "flagged": false,
+  "id": 138815280,
+  "plotId": 139027466,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[82.94086628,27.62952811]}",
+  "flagged": false,
+  "id": 138815281,
+  "plotId": 139027467,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.53655744,26.72968569]}",
+  "flagged": false,
+  "id": 138815282,
+  "plotId": 139027468,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.79308884,27.97690663]}",
+  "flagged": false,
+  "id": 138815283,
+  "plotId": 139027469,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.23030346,27.71819183]}",
+  "flagged": false,
+  "id": 138815284,
+  "plotId": 139027470,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.99254228,26.3755698]}",
+  "flagged": false,
+  "id": 138815285,
+  "plotId": 139027471,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.64632242,26.97681222]}",
+  "flagged": false,
+  "id": 138815286,
+  "plotId": 139027472,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.13354118,28.88106096]}",
+  "flagged": false,
+  "id": 138815287,
+  "plotId": 139027473,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.13165472,28.91798172]}",
+  "flagged": false,
+  "id": 138815288,
+  "plotId": 139027474,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.23930491,26.43189417]}",
+  "flagged": false,
+  "id": 138815289,
+  "plotId": 139027475,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.36704535,26.73184165]}",
+  "flagged": false,
+  "id": 138815292,
+  "plotId": 139027476,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.55569156,26.67470879]}",
+  "flagged": false,
+  "id": 138815293,
+  "plotId": 139027477,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.39764588,28.88321692]}",
+  "flagged": false,
+  "id": 138815296,
+  "plotId": 139027478,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.78026123,26.8636245]}",
+  "flagged": false,
+  "id": 138815297,
+  "plotId": 139027479,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.38534353,28.24801818]}",
+  "flagged": false,
+  "id": 138815298,
+  "plotId": 139027480,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.34683325,26.67174435]}",
+  "flagged": false,
+  "id": 138815299,
+  "plotId": 139027481,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.69833487,26.94770681]}",
+  "flagged": false,
+  "id": 138815300,
+  "plotId": 139027482,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[86.92210979,26.55397522]}",
+  "flagged": false,
+  "id": 138815302,
+  "plotId": 139027483,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.05135906,27.59664977]}",
+  "flagged": false,
+  "id": 138815304,
+  "plotId": 139027484,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.1276123,28.90666295]}",
+  "flagged": false,
+  "id": 138815307,
+  "plotId": 139027485,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.15914317,29.08749382]}",
+  "flagged": false,
+  "id": 138815309,
+  "plotId": 139027486,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.66282855,28.65630248]}",
+  "flagged": false,
+  "id": 138815312,
+  "plotId": 139027487,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[86.47259282,26.76471999]}",
+  "flagged": false,
+  "id": 138815313,
+  "plotId": 139027488,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.64174101,26.98193262]}",
+  "flagged": false,
+  "id": 138815314,
+  "plotId": 139027489,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.17667404,27.73732594]}",
+  "flagged": false,
+  "id": 138815315,
+  "plotId": 139027490,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.12195292,28.90801042]}",
+  "flagged": false,
+  "id": 138815317,
+  "plotId": 139027491,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.18312819,28.94115826]}",
+  "flagged": false,
+  "id": 138815318,
+  "plotId": 139027492,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.12222241,28.90747143]}",
+  "flagged": false,
+  "id": 138815319,
+  "plotId": 139027493,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.67408036,26.96764941]}",
+  "flagged": false,
+  "id": 138815320,
+  "plotId": 139027494,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.46395527,27.49181638]}",
+  "flagged": false,
+  "id": 138815321,
+  "plotId": 139027495,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[88.04455473,26.51328154]}",
+  "flagged": false,
+  "id": 138815323,
+  "plotId": 139027496,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.56736051,26.87548226]}",
+  "flagged": false,
+  "id": 138815325,
+  "plotId": 139027497,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[86.99029192,26.69653786]}",
+  "flagged": false,
+  "id": 138815326,
+  "plotId": 139027498,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.56401844,28.31323587]}",
+  "flagged": false,
+  "id": 138815327,
+  "plotId": 139027499,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.67569733,26.99864129]}",
+  "flagged": false,
+  "id": 138815328,
+  "plotId": 139027500,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.9487623,28.67328064]}",
+  "flagged": false,
+  "id": 138815329,
+  "plotId": 139027501,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[88.01248488,26.55181926]}",
+  "flagged": false,
+  "id": 138815330,
+  "plotId": 139027502,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.40232169,28.2272671]}",
+  "flagged": false,
+  "id": 138815331,
+  "plotId": 139027503,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.5377161,26.96414598]}",
+  "flagged": false,
+  "id": 138815333,
+  "plotId": 139027504,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.35462115,28.2073245]}",
+  "flagged": false,
+  "id": 138815335,
+  "plotId": 139027505,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.63830454,28.78997179]}",
+  "flagged": false,
+  "id": 138815336,
+  "plotId": 139027506,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.17489571,26.80918659]}",
+  "flagged": false,
+  "id": 138815338,
+  "plotId": 139027507,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.22367423,26.73723154]}",
+  "flagged": false,
+  "id": 138815340,
+  "plotId": 139027508,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.07175996,27.11129002]}",
+  "flagged": false,
+  "id": 138815343,
+  "plotId": 139027509,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.82391935,26.96522396]}",
+  "flagged": false,
+  "id": 138815344,
+  "plotId": 139027510,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.5975439,26.98840049]}",
+  "flagged": false,
+  "id": 138815345,
+  "plotId": 139027511,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.75670707,28.0976402]}",
+  "flagged": false,
+  "id": 138815347,
+  "plotId": 139027512,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.33899046,28.35608551]}",
+  "flagged": false,
+  "id": 138815348,
+  "plotId": 139027513,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.28563054,28.31646981]}",
+  "flagged": false,
+  "id": 138815349,
+  "plotId": 139027514,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.68593812,27.00187522]}",
+  "flagged": false,
+  "id": 138815354,
+  "plotId": 139027515,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.15186682,29.08587685]}",
+  "flagged": false,
+  "id": 138815355,
+  "plotId": 139027516,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.17342638,28.89264923]}",
+  "flagged": false,
+  "id": 138815358,
+  "plotId": 139027517,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.81844878,26.47743876]}",
+  "flagged": false,
+  "id": 138815360,
+  "plotId": 139027518,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.12842079,28.90827992]}",
+  "flagged": false,
+  "id": 138815361,
+  "plotId": 139027519,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.1695865,27.09565934]}",
+  "flagged": false,
+  "id": 138815363,
+  "plotId": 139027520,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.21143884,27.68827793]}",
+  "flagged": false,
+  "id": 138815364,
+  "plotId": 139027521,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.05200618,26.64748984]}",
+  "flagged": false,
+  "id": 138815366,
+  "plotId": 139027522,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.10884209,28.48355645]}",
+  "flagged": false,
+  "id": 138815367,
+  "plotId": 139027523,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.50645473,26.95686962]}",
+  "flagged": false,
+  "id": 138815368,
+  "plotId": 139027524,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[86.92103181,26.54615988]}",
+  "flagged": false,
+  "id": 138815369,
+  "plotId": 139027525,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.82068542,26.99594634]}",
+  "flagged": false,
+  "id": 138815370,
+  "plotId": 139027526,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.32031465,27.485618]}",
+  "flagged": false,
+  "id": 138815372,
+  "plotId": 139027527,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[86.91402495,26.53430212]}",
+  "flagged": false,
+  "id": 138815373,
+  "plotId": 139027528,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.71234859,27.06655392]}",
+  "flagged": false,
+  "id": 138815375,
+  "plotId": 139027529,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.70480274,26.98408858]}",
+  "flagged": false,
+  "id": 138815376,
+  "plotId": 139027530,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.76347188,26.58227215]}",
+  "flagged": false,
+  "id": 138815380,
+  "plotId": 139027531,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[86.90351466,26.53888352]}",
+  "flagged": false,
+  "id": 138815382,
+  "plotId": 139027532,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.1575262,28.9538245]}",
+  "flagged": false,
+  "id": 138815383,
+  "plotId": 139027533,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.22759479,28.87135916]}",
+  "flagged": false,
+  "id": 138815384,
+  "plotId": 139027534,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[88.05829896,26.73884851]}",
+  "flagged": false,
+  "id": 138815385,
+  "plotId": 139027535,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.02936863,26.62107937]}",
+  "flagged": false,
+  "id": 138815386,
+  "plotId": 139027536,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.13488866,28.87189815]}",
+  "flagged": false,
+  "id": 138815387,
+  "plotId": 139027537,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[86.91025202,26.53376313]}",
+  "flagged": false,
+  "id": 138815388,
+  "plotId": 139027538,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.49897584,28.68810284]}",
+  "flagged": false,
+  "id": 138815389,
+  "plotId": 139027539,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.3422244,28.35878046]}",
+  "flagged": false,
+  "id": 138815390,
+  "plotId": 139027540,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[82.82767855,27.67076078]}",
+  "flagged": false,
+  "id": 138815391,
+  "plotId": 139027541,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[88.09468073,26.6544967]}",
+  "flagged": false,
+  "id": 138815393,
+  "plotId": 139027542,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[88.0162578,26.57337883]}",
+  "flagged": false,
+  "id": 138815395,
+  "plotId": 139027543,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.34710275,26.67228334]}",
+  "flagged": false,
+  "id": 138815397,
+  "plotId": 139027544,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[85.72285888,27.07544724]}",
+  "flagged": false,
+  "id": 138815398,
+  "plotId": 139027545,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.21143884,27.68935591]}",
+  "flagged": false,
+  "id": 138815399,
+  "plotId": 139027546,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.52036032,28.21567883]}",
+  "flagged": false,
+  "id": 138815400,
+  "plotId": 139027547,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.75913252,28.04993966]}",
+  "flagged": false,
+  "id": 138815403,
+  "plotId": 139027548,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[81.32012584,28.381418]}",
+  "flagged": false,
+  "id": 138815404,
+  "plotId": 139027549,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[88.05075311,26.47420482]}",
+  "flagged": false,
+  "id": 138815405,
+  "plotId": 139027550,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[88.09737567,26.60544869]}",
+  "flagged": false,
+  "id": 138815408,
+  "plotId": 139027551,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[83.61729769,27.61713136]}",
+  "flagged": false,
+  "id": 138815409,
+  "plotId": 139027552,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.19687241,28.90181205]}",
+  "flagged": false,
+  "id": 138815410,
+  "plotId": 139027553,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[87.65917748,26.59332143]}",
+  "flagged": false,
+  "id": 138815412,
+  "plotId": 139027554,
+  "status": "unanalyzed"
+ },
+ {
+  "center": "{\"type\":\"Point\",\"coordinates\":[80.89162945,28.51643479]}",
+  "flagged": false,
+  "id": 138815413,
+  "plotId": 139027555,
+  "status": "unanalyzed"
+ }
+]

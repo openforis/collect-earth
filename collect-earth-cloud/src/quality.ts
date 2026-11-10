@@ -62,6 +62,10 @@ export interface QualityInput {
    * difference and pair here, so they are not counted twice.
    */
   reference?: ReadonlyMap<string, string>;
+  /** Reference answers a coordinator uploaded, by plot unit (externalReferenceFigures). */
+  referenceAnswers?: ReadonlyMap<string, Readonly<Record<string, string>>>;
+  /** Usernames a coordinator left out of the results (Member.excluded): their records are left out of every figure. */
+  excluded?: readonly string[];
 }
 
 /**

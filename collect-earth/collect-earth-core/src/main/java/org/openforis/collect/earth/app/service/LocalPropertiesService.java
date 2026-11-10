@@ -78,10 +78,10 @@ public class LocalPropertiesService extends Observable {
 				"open_separate_browser_form"), OPEN_STREET_VIEW(
 				"open_street_view"), OPERATION_MODE(
 				"operation_mode"), OPERATOR_KEY(
-				"operator"), SAIKU_SERVER_FOLDER(
-				"saiku_server_folder"), SAMPLE_FILE(
+				"operator"), SAMPLE_FILE(
 				"csv"), SAMPLE_SHAPE(
-				"sample_shape"), SURVEY_NAME(
+				"sample_shape"), SAMPLE_POINT_NUMBERS(
+				"sample_point_numbers"), SURVEY_NAME(
 				"survey_name"), UI_LANGUAGE(
 				"ui_language"), LARGE_CENTRAL_PLOT_SIDE(
 				"large_central_plot_side"), DISTANCE_TO_BUFFERS(
@@ -110,7 +110,6 @@ public class LocalPropertiesService extends Observable {
 				@Deprecated
 				OPEN_IN_LEAFLET_MAP("open_in_leaflet_map"),
 				VIEWER_TYPE("viewer_type"),
-				GEW_TRIAL_PROMPT_DISABLED("gew_trial_prompt_disabled"),
 				/** Share of the height of Google Earth Web's view a plot fills (0.375 when not set), see GoogleEarthWebUrls */
 				GEW_PLOT_VIEW_SHARE("gew_plot_view_share"),
 				/**
@@ -375,16 +374,6 @@ public class LocalPropertiesService extends Observable {
 		return metadataFile.getParent();
 	}
 
-	public String getSaikuFolder() {
-		final String configuredSaikuFolder = convertToOSPath(getValue(EarthProperty.SAIKU_SERVER_FOLDER));
-		if (StringUtils.isBlank(configuredSaikuFolder)) {
-			return ""; //$NON-NLS-1$
-		} else {
-			final File saikuFolder = new File(configuredSaikuFolder);
-			return saikuFolder.getAbsolutePath();
-		}
-	}
-
 	public SAMPLE_SHAPE getSampleShape() {
 		final String value = getValue(EarthProperty.SAMPLE_SHAPE);
 		if (StringUtils.isBlank(value)) {
@@ -449,8 +438,88 @@ public class LocalPropertiesService extends Observable {
 		if (value == null) {
 			value = "";
 		}
-
+		if (isSecret(key.toString())) {
+			value = revealed(value);
+		}
 		return value;
+	}
+
+	/** The properties kept with the operating system's protection when there is one (see SecretProtector). */
+	private static final java.util.Set<String> SECRETS = Collections.singleton("cloud_sync_token");
+	private static volatile SecretProtector secretProtector;
+
+	/**
+	 * Registers the operating system's protection of the secrets (the cloud token). The ones already in the file in plain
+	 * text are protected once they are written again; {@link #protectSecrets()} does it at once.
+	 */
+	public static void setSecretProtector(SecretProtector protector) {
+		secretProtector = protector;
+	}
+
+	static boolean isSecret(String key) {
+		return SECRETS.contains(key);
+	}
+
+	/** The plain value of a secret as stored: protected by this computer, or plain text from before. */
+	private static String revealed(String stored) {
+		SecretProtector protector = secretProtector;
+		if (protector == null || stored.isEmpty() || !stored.startsWith(protector.prefix())) {
+			return stored;
+		}
+		String plain = protector.reveal(stored);
+		// Copied from another computer or user: no token, so the login is asked for again
+		return plain == null ? "" : plain;
+	}
+
+	/** A secret as it is written: protected when this computer can, else as it is. */
+	private static String stored(String key, String value) {
+		SecretProtector protector = secretProtector;
+		if (protector != null && (value == null || value.isEmpty()) && isSecret(key)) {
+			try {
+				protector.forget();
+			} catch (RuntimeException e) {
+				LoggerFactory.getLogger(LocalPropertiesService.class).warn("The token kept by the system could not be removed: {}", e.getMessage());
+			}
+			return value;
+		}
+		if (protector == null || value == null || value.isEmpty() || !isSecret(key)) {
+			return value;
+		}
+		try {
+			return protector.protect(value);
+		} catch (RuntimeException e) {
+			LoggerFactory.getLogger(LocalPropertiesService.class).warn("The token could not be protected, kept as it is: {}", e.getMessage());
+			return value;
+		}
+	}
+
+	/**
+	 * At start: writes the secrets kept in plain text with the protection registered, if any, and makes the file
+	 * private to its owner on Linux and macOS.
+	 */
+	public synchronized void protectSecrets() {
+		if (persisted) {
+			// A file written before this version, with the permissions the user's other files get
+			ownerOnly(new File(PROPERTIES_FILE_PATH).toPath());
+		}
+		SecretProtector protector = secretProtector;
+		if (protector == null) {
+			return;
+		}
+		boolean changed = false;
+		for (String key : SECRETS) {
+			String value = properties.getProperty(key);
+			if (value != null && !value.isEmpty() && !value.startsWith(protector.prefix())) {
+				String protectedValue = stored(key, value);
+				if (!protectedValue.equals(value)) {
+					properties.setProperty(key, protectedValue);
+					changed = true;
+				}
+			}
+		}
+		if (changed) {
+			storeProperties();
+		}
 	}
 
 	private void init() throws IOException {
@@ -527,6 +596,15 @@ public class LocalPropertiesService extends Observable {
 	}
 
 
+	/**
+	 * Whether the sample points of a plot are numbered on the plots map and in Google Earth Web: a project that asks its
+	 * questions per sample point (a table with a row per point, as the projects imported from Collect Earth Online
+	 * that answer per point) numbers them as its rows.
+	 */
+	public boolean isSamplePointNumbers() {
+		return isPropertyActivated(EarthProperty.SAMPLE_POINT_NUMBERS);
+	}
+
 	public boolean isGEEAppSupported() {
 		return isPropertyActivated(EarthProperty.OPEN_GEE_APP);
 	}
@@ -539,7 +617,10 @@ public class LocalPropertiesService extends Observable {
 		return isPropertyActivated(EarthProperty.OPEN_ESRI_WAYBACK);
 	}
 
-	/** Legacy mode: plots are handed to Google Earth Pro as KML (balloon forms, NetworkLink status icons). */
+	/**
+	 * Legacy mode: plots are handed to Google Earth Pro as KML (balloon forms, NetworkLink status icons). No longer
+	 * offered: EarthApp moves an installation still set to it to Google Earth Web at start-up.
+	 */
 	public static final String VIEWER_TYPE_GOOGLE_EARTH_PRO = "google_earth_pro";
 	/** Plots map window (Leaflet/Google Maps engine) with the plot list and web form; no Google Earth. */
 	public static final String VIEWER_TYPE_PLOTS_MAP = "plots_map";
@@ -569,23 +650,11 @@ public class LocalPropertiesService extends Observable {
 		if (legacyLeafletMap) {
 			return VIEWER_TYPE_PLOTS_MAP;
 		}
-		return VIEWER_TYPE_GOOGLE_EARTH_PRO;
+		return VIEWER_TYPE_GOOGLE_EARTH_WEB;
 	}
 
 	public void saveViewerType(String viewerType) {
 		setValue(EarthProperty.VIEWER_TYPE, viewerType);
-	}
-
-	/**
-	 * Whether the start-up dialog asking the user to try Google Earth Web instead of
-	 * Google Earth Pro has been switched off ("Don't ask me again").
-	 */
-	public boolean isGoogleEarthWebTrialPromptDisabled() {
-		return isPropertyActivated(EarthProperty.GEW_TRIAL_PROMPT_DISABLED);
-	}
-
-	public void setGoogleEarthWebTrialPromptDisabled(boolean disabled) {
-		setValue(EarthProperty.GEW_TRIAL_PROMPT_DISABLED, Boolean.toString(disabled));
 	}
 
 	/** Whether the plots map window replaces the KML handoff to Google Earth Pro. */
@@ -659,8 +728,9 @@ public class LocalPropertiesService extends Observable {
 		return isPropertyActivated(EarthProperty.EXCEPTION_SHOWN);
 	}
 
+	/** Planet is offered once its key is set (open_planet_maps is no longer read): without one it shows nothing. */
 	public boolean isPlanetMapsSupported() {
-		return isPropertyActivated(EarthProperty.OPEN_PLANET_MAPS);
+		return !getValue(EarthProperty.PLANET_MAPS_KEY).trim().isEmpty();
 	}
 
 
@@ -847,7 +917,7 @@ public class LocalPropertiesService extends Observable {
 	}
 
 	public void setValue(Object key, String value) {
-		properties.setProperty(key.toString(), value);
+		properties.setProperty(key.toString(), stored(key.toString(), value));
 		this.setChanged();
 		this.notifyObservers(key);
 		storeProperties();
@@ -859,7 +929,7 @@ public class LocalPropertiesService extends Observable {
 	 */
 	public void setValues(Map<String, String> values) {
 		for (Map.Entry<String, String> value : values.entrySet()) {
-			properties.setProperty(value.getKey(), value.getValue());
+			properties.setProperty(value.getKey(), stored(value.getKey(), value.getValue()));
 			this.setChanged();
 			this.notifyObservers(value.getKey());
 		}
@@ -886,6 +956,33 @@ public class LocalPropertiesService extends Observable {
 			properties.store(fw, null);
 		} catch (final IOException e) {
 			logger.error("The properties could not be saved", e);
+		}
+		ownerOnly(propertiesFile.toPath());
+	}
+
+	private static final java.util.Set<java.nio.file.attribute.PosixFilePermission> OWNER_ONLY =
+			java.nio.file.attribute.PosixFilePermissions.fromString("rw-------");
+
+	/**
+	 * On Linux and macOS, earth.properties readable and writable by its owner only (600): it holds the cloud token
+	 * and the database password, and the user's home may be readable by the other accounts of the computer. Windows
+	 * keeps a user's profile to them already (and the token is protected there, WindowsDpapiProtector).
+	 *
+	 * @return whether the permissions are owner-only now (false on a file system without POSIX permissions)
+	 */
+	static boolean ownerOnly(java.nio.file.Path file) {
+		try {
+			if (!java.nio.file.Files.exists(file)
+					|| !file.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+				return false;
+			}
+			if (!OWNER_ONLY.equals(java.nio.file.Files.getPosixFilePermissions(file))) {
+				java.nio.file.Files.setPosixFilePermissions(file, OWNER_ONLY);
+			}
+			return true;
+		} catch (IOException | RuntimeException e) {
+			LoggerFactory.getLogger(LocalPropertiesService.class).warn("The settings file could not be made private to its owner: {}", e.getMessage());
+			return false;
 		}
 	}
 

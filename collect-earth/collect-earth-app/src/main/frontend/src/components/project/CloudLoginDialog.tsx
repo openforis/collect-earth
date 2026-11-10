@@ -9,11 +9,16 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import { ApiError } from "../../apiClient";
 import { errorText } from "../../appBar";
 import { useT } from "../../i18n";
 import { serverText, type Texts } from "../../serverTexts";
 
-export interface Credentials { username: string; password: string; register: boolean }
+/** `code`: two-step sign-in's code, once the server asked for it (cloud.secondStepRequired) */
+export interface Credentials { username: string; password: string; register: boolean; code?: string }
+
+/** The shortest password a new account may have: the cloud server's rule (CloudService.MIN_PASSWORD_LENGTH) */
+export const MIN_PASSWORD_LENGTH = 8;
 
 interface Props {
   open: boolean;
@@ -35,16 +40,31 @@ export function CloudLoginDialog({ open, texts, intro, canRegister = false, onSu
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Two-step sign-in: the server said this account needs its authenticator app's code after the password
+  const [needsCode, setNeedsCode] = useState(false);
+  const [code, setCode] = useState("");
 
   useEffect(() => {
-    if (open) { setPassword(""); setError(null); setBusy(false); }
+    if (open) { setPassword(""); setError(null); setBusy(false); setNeedsCode(false); setCode(""); }
   }, [open]);
 
   const submit = (register: boolean) => {
     if (!username.trim() || !password) { setError(s("CloudLoginDialog.emptyFields")); return; }
+    if (needsCode && !register && !code.trim()) { setError(s("CloudLoginDialog.secondStepRequired")); return; }
+    // Said before the server is asked, in the user's language: it refuses the same
+    if (register && password.length < MIN_PASSWORD_LENGTH) { setError(s("CloudLoginDialog.passwordTooShort")); return; }
     setBusy(true);
     setError(null);
-    onSubmit({ username: username.trim(), password, register }).catch((e) => { setError(errorText(e, t("appBar.unreachable"))); setBusy(false); });
+    onSubmit({ username: username.trim(), password, register, ...(needsCode && !register ? { code: code.trim() } : {}) }).catch((e) => {
+      if (e instanceof ApiError && e.code === "cloud.secondStepRequired") {
+        // Not an error: the password was right, the code comes next
+        setNeedsCode(true);
+      } else {
+        setError(errorText(e, t("appBar.unreachable")));
+        if (needsCode) setCode("");
+      }
+      setBusy(false);
+    });
   };
   const onEnter = (e: FormEvent) => { e.preventDefault(); submit(false); };
 
@@ -57,7 +77,16 @@ export function CloudLoginDialog({ open, texts, intro, canRegister = false, onSu
             {intro && <DialogContentText sx={{ whiteSpace: "pre-line" }}>{intro}</DialogContentText>}
             {error && <Alert severity="error">{error}</Alert>}
             <TextField autoFocus label={s("CloudLoginDialog.usernameLabel")} value={username} onChange={(e) => setUsername(e.target.value)} size="small" autoComplete="username" />
-            <TextField label={s("CloudLoginDialog.passwordLabel")} type="password" value={password} onChange={(e) => setPassword(e.target.value)} size="small" autoComplete="current-password" />
+            {/* With an invitation the password may be a new account's: its rule said under it */}
+            <TextField label={s("CloudLoginDialog.passwordLabel")} type="password" value={password} onChange={(e) => setPassword(e.target.value)} size="small" autoComplete="current-password"
+              helperText={canRegister ? s("CloudLoginDialog.passwordHint") : undefined} />
+            {needsCode && (
+              <>
+                <Alert severity="info">{s("CloudLoginDialog.secondStepRequired")}</Alert>
+                <TextField autoFocus label={s("CloudLoginDialog.code")} helperText={s("CloudLoginDialog.codeHelp")} value={code} onChange={(e) => setCode(e.target.value)}
+                  size="small" autoComplete="one-time-code" slotProps={{ htmlInput: { maxLength: 20, spellCheck: false } }} data-testid="cloud-login-code" />
+              </>
+            )}
           </Stack>
         </DialogContent>
         <DialogActions>
