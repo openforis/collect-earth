@@ -92,6 +92,7 @@ import {
   type TrainingSetInput,
   type UserPlots,
 } from './store.js';
+import type { UncertaintySettings } from '../uncertainty.js';
 import { unitOfRecord } from '../rounds.js';
 import { UsernameTakenError } from './memory.js';
 import { checksumOf, plotCountOf } from '../csv.js';
@@ -2966,6 +2967,19 @@ export class PostgresStore implements Store {
   async setAnalysisViews(projectId: string, views: SharedAnalysisView[]): Promise<void> {
     await this.withProject(projectId, async (client) => {
       await client.query('UPDATE projects SET analysis_views = $2 WHERE id = $1', [projectId, JSON.stringify(views)]);
+    });
+  }
+
+  async getUncertaintySettings(projectId: string): Promise<UncertaintySettings | null> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT uncertainty_settings FROM projects WHERE id = $1', [projectId]);
+      return (res.rows[0]?.uncertainty_settings as UncertaintySettings | null | undefined) ?? null;
+    });
+  }
+
+  async setUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('UPDATE projects SET uncertainty_settings = $2 WHERE id = $1', [projectId, JSON.stringify(settings)]);
     });
   }
 

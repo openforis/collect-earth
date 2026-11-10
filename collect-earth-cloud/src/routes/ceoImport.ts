@@ -174,7 +174,10 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
       const done = survey.answers ? answeredPlots(survey.answers.plots) : new Set<string>();
       // with the columns of the plot file uploaded to CEO, read from its sample data
       const plotColumns = survey.answers?.plotColumns;
-      const withColumns = survey.plots.plots.map((p) => (plotColumns?.has(p.id) ? { ...p, extra: plotColumns.get(p.id) } : p));
+      const withColumns = survey.plots.plots.map((p) => {
+        const values = plotColumns?.get(p.id);
+        return values ? { ...p, columns: Object.fromEntries(Object.entries(values).map(([name, value]) => [name.toLowerCase(), value])) } : p;
+      });
       const toDo = withColumns.filter((p) => !done.has(p.id));
       const base = `ceo_${survey.project.id ?? 'project'}_plots`;
       if (toDo.length > 0) {

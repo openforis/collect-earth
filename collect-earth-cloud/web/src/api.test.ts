@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  cepGridFiles,
+  mergeGridFiles,
   checkResetLink,
   forgotPassword,
   resetPassword,
@@ -1335,5 +1337,45 @@ describe("weekly emails (Task 19)", () => {
     expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: "POST", body: JSON.stringify({ token: "tok" }), credentials: "omit" });
     fetchMock.mockResolvedValue(jsonResponse(410, { error: "confirm_expired" }));
     expect(errorMessageKey(await confirmEmail("tok").catch((e: unknown) => e))).toBe("mail.confirmExpired");
+  });
+});
+
+describe("cepGridFiles", () => {
+  it("returns the CSVs of the grid folder only, named without the folder", async () => {
+    const { zipSync, strToU8 } = await import("fflate");
+    const zip = zipSync({
+      "placemark.idm.xml": strToU8("<survey/>"),
+      "grid/a.csv": strToU8("id,lat,lon\n1,6.1,2.3\n"),
+      "grid/B.CSV": strToU8("id,lat,lon\n2,6.2,2.4\n"),
+      "grid/notes.txt": strToU8("x"),
+      "grid/old/c.csv": strToU8("id\n3\n"),
+    });
+    const files = await cepGridFiles(new Blob([zip]));
+    expect(files.map((f) => f.name).sort()).toEqual(["B.CSV", "a.csv"]);
+    expect(await files.find((f) => f.name === "a.csv")!.text()).toBe("id,lat,lon\n1,6.1,2.3\n");
+  });
+});
+
+describe("mergeGridFiles", () => {
+  const csv = (name: string, text: string) => new File([text], name, { type: "text/csv" });
+
+  it("joins files with the same columns, header once, and keeps the others apart", async () => {
+    const { merged, separate } = await mergeGridFiles(
+      [
+        csv("a.csv", '"id","lat","lon"\r\n1,6.1,2.3\r\n'),
+        csv("b.csv", "\uFEFFid,lat,lon\n2,6.2,2.4"), // unquoted, a BOM, no final newline
+        csv("c.csv", '"id","lat","lon"\n'), // header only
+        csv("d.csv", "id,y,x\n3,6.3,2.5\n"),
+      ],
+      "all.csv",
+    );
+    expect(merged?.name).toBe("all.csv");
+    expect(await merged!.text()).toBe('"id","lat","lon"\r\n1,6.1,2.3\r\n2,6.2,2.4\n');
+    expect(separate.map((f) => f.name)).toEqual(["d.csv"]);
+  });
+
+  it("merges nothing when no two files share their columns", async () => {
+    const files = [csv("a.csv", "id,lat\n1,2\n"), csv("b.csv", "id,lon\n1,2\n")];
+    expect(await mergeGridFiles(files, "all.csv")).toEqual({ merged: null, separate: files });
   });
 });

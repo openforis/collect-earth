@@ -67,6 +67,7 @@ import type {
   User,
   UserSummary,
 } from '../types.js';
+import type { UncertaintySettings } from '../uncertainty.js';
 
 export interface TrainingSetInput {
   kind: TrainingKind;
@@ -641,6 +642,9 @@ export interface Store {
   getAnalysisViews(projectId: string): Promise<SharedAnalysisView[]>;
   /** Replaces the shared analysis views. */
   setAnalysisViews(projectId: string, views: SharedAnalysisView[]): Promise<void>;
+  /** The uncertainty analysis's setup (src/uncertainty.ts); null when none was saved. */
+  getUncertaintySettings(projectId: string): Promise<UncertaintySettings | null>;
+  setUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<void>;
   /** Logs a coordinator action at the current time. */
   appendAudit(projectId: string, entry: AuditInput): Promise<void>;
   /** The project's audit log, newest first (at, then id). Throws InvalidCursorError as listRecordEvents. */

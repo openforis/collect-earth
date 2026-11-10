@@ -1038,7 +1038,7 @@ SA=ce-cloud-run@$P.iam.gserviceaccount.com
 
 # APIs (billing must be on: gcloud billing projects describe $P)
 gcloud services enable cloudbilling.googleapis.com run.googleapis.com \
-  sqladmin.googleapis.com secretmanager.googleapis.com artifactregistry.googleapis.com \
+  sqladmin.googleapis.com sql-component.googleapis.com secretmanager.googleapis.com artifactregistry.googleapis.com \
   cloudbuild.googleapis.com iam.googleapis.com cloudresourcemanager.googleapis.com --project=$P
 
 # Database (10 to 15 minutes)

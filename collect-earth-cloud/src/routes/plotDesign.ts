@@ -30,7 +30,7 @@ interface DesignBody {
  * The survey's extra plot-file columns, in order (null: no readable project file). The coordinator's
  * note the server added is left out: the server puts that column in the files it serves itself.
  */
-async function extraColumns(store: Store, projectId: string, info: RoundInfo | null, log: FastifyRequest['log']): Promise<string[] | null> {
+export async function extraColumns(store: Store, projectId: string, info: RoundInfo | null, log: FastifyRequest['log']): Promise<string[] | null> {
   const cep = await store.getCep(projectId);
   if (!cep) return null;
   try {
