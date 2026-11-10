@@ -2,7 +2,13 @@
  * An entry of the app bar's menus. `label` is a key of Messages*.properties (serverTexts.ts). A "toggle" is an
  * entry with a check mark, whose state comes from the server once it is built.
  */
-export interface MenuItem { id: string; label: string; enabled: boolean; kind?: "toggle" }
+export interface MenuItem {
+  id: string; label: string; enabled: boolean; kind?: "toggle";
+  /** Why a built entry is disabled here (a key of Messages*.properties), shown on it instead of "Coming soon" */
+  disabledReason?: string;
+  /** A line under an enabled entry (a key of Messages*.properties): what it works on here */
+  note?: string;
+}
 export interface Menu { id: string; label: string; items: MenuItem[] }
 
 // The entries built so far: the others show, disabled, until their stage of docs/plans/2026-10-28-html-ui-design.md
@@ -17,6 +23,13 @@ const BUILT = new Set(["quit", "properties", "export", "import",
 const SERVER_ONLY = new Set(["analyse", "export", "import", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots"]);
 
 const item = (id: string, label: string): MenuItem => ({ id, label, enabled: BUILT.has(id) });
+/** An entry shown disabled, saying why (`reason`), when `off`. */
+const unless = (off: boolean | undefined, entry: MenuItem, reason: string): MenuItem => (off ? { ...entry, enabled: false, disabledReason: reason } : entry);
+/**
+ * A cloud project's database holds only the records saved on this computer (the team's are on the server and are not
+ * downloaded): an entry that reads it says so there.
+ */
+const local = (cloud: boolean | undefined, entry: MenuItem): MenuItem => (cloud ? { ...entry, note: "CollectEarthMenu.thisComputerOnly" } : entry);
 const toggle = (id: string, label: string): MenuItem => ({ ...item(id, label), kind: "toggle" });
 
 export interface MenuContext {
@@ -45,29 +58,32 @@ function allMenus(app: MenuContext): Menu[] {
     { id: "project", label: "CollectEarthWindow.10", items: [
       item("importCep", "CollectEarthMenu.0"),
       item("joinCloud", "CollectEarthMenu.joinCloudProject"),
-      item("cloudStatus", "CloudSyncStatusDialog.menuItem"),
+      // Only a cloud project has a sync to show
+      unless(!app.cloud, item("cloudStatus", "CloudSyncStatusDialog.menuItem"), "CloudSyncStatusDialog.localProject"),
       item("language", "CollectEarthWindow.2"),
       item("quit", "CollectEarthWindow.11"),
     ] },
     { id: "data", label: "CollectEarthWindow.44", items: [
-      item("export", "CollectEarthWindow.13"),
-      // One import, which asks what to import: a ZIP export of Collect Earth, or a CSV that updates attributes
-      item("import", "DataPage.import.menu"),
+      local(app.cloud, item("export", "CollectEarthWindow.13")),
+      // One import, which asks what to import: a ZIP export of Collect Earth, or a CSV that updates attributes. Not in a
+      // cloud project: an import saves without the sync, so its records would never reach the server
+      unless(app.cloud, item("import", "DataPage.import.menu"), "DataPage.import.cloudProject"),
     ] },
     { id: "tools", label: "CollectEarthWindow.12", items: [
       // The analysis page of the dashboard (docs/plans/2026-11-05-node-and-arena.md, stage 6a), which replaced Saiku: the
       // local dashboard's, or the cloud's for a cloud project. The page downloads its stand-alone file too.
       item("analyse", "CollectEarthMenu.analyse"),
-      item("lulucf", "CollectEarthWindow.72"),
+      local(app.cloud, item("lulucf", "CollectEarthWindow.72")),
       item("loadKml", "CollectEarthWindow.54"),
       item("dataFolder", "CollectEarthWindow.67"),
-      // Your dashboard, on this computer (docs/plans/2026-11-03-desktop-dashboard.md); a cloud project has the cloud's
-      ...(app.cloud ? [] : [item("myDashboard", "LocalDashboard.menu")]),
+      // Your dashboard, on this computer (docs/plans/2026-11-03-desktop-dashboard.md); a cloud project has the cloud's,
+      // so there the entry is disabled and says why
+      unless(app.cloud, item("myDashboard", "LocalDashboard.menu"), "LocalDashboard.cloudProject"),
       // The plots map is already the page when it is the viewer
       ...(app.plotsMap ? [] : [item("openPlotsMap", "CollectEarthMenu.openPlotsMap")]),
     ] },
     { id: "utilities", label: "CollectEarthMenu.2", items: [
-      item("missingPlots", "CollectEarthWindow.18"),
+      local(app.cloud, item("missingPlots", "CollectEarthWindow.18")),
       item("divideCsv", "CollectEarthMenu.3"),
       item("deletePlots", "CollectEarthMenu.10"),
     ] },

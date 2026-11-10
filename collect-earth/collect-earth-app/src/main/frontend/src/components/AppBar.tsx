@@ -141,6 +141,18 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   };
 
   const entry = (item: AppMenuItem): ReactNode => {
+    if (item.disabledReason) {
+      // Looks disabled but is not, so the tooltip gets the pointer; aria-disabled keeps it an item of the list that
+      // the keyboard and a screen reader find unavailable, and the tooltip describes it
+      return (
+        <Tooltip key={item.id} title={s(item.disabledReason)} placement="right" describeChild>
+          <MenuItem aria-disabled="true" onClick={(e) => e.preventDefault()} sx={{ opacity: 0.38, cursor: "default", "&:hover": { bgcolor: "transparent" } }}>
+            <ListItemIcon><MenuEntryIcon id={item.id} /></ListItemIcon>
+            <ListItemText primary={s(item.label)} />
+          </MenuItem>
+        </Tooltip>
+      );
+    }
     if (!comingSoon(item) && item.kind === "toggle") {
       return (
         <MenuItem key={item.id} onClick={() => run(item)} role="menuitemcheckbox" aria-checked={toggles[item.id] ?? false}>
@@ -153,7 +165,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
       return (
         <MenuItem key={item.id} onClick={() => run(item)}>
           <ListItemIcon><MenuEntryIcon id={item.id} /></ListItemIcon>
-          <ListItemText primary={s(item.label)} />
+          <ListItemText primary={s(item.label)} secondary={item.note ? s(item.note) : undefined} />
         </MenuItem>
       );
     }

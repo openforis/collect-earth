@@ -3,7 +3,9 @@ package org.openforis.collect.earth.app.server.api;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BooleanSupplier;
 
+import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.data.ExportRequest;
 import org.openforis.collect.earth.app.service.data.ExportService;
 import org.openforis.collect.earth.app.service.data.ExportService.InvalidExportException;
@@ -50,12 +52,31 @@ public class DataController {
 	private final ExportService exports;
 	private final ImportService imports;
 	private final JobService jobs;
+	/** A cloud project, whose sync only sends what the form saves: imported records would never reach the server */
+	private final BooleanSupplier cloudProject;
 
 	@Autowired
-	public DataController(ExportService exports, ImportService imports, JobService jobs) {
+	public DataController(ExportService exports, ImportService imports, JobService jobs, LocalPropertiesService properties) {
+		this(exports, imports, jobs, properties::isCloudSyncEnabled);
+	}
+
+	/** For the tests: a project kept on this computer. */
+	DataController(ExportService exports, ImportService imports, JobService jobs) {
+		this(exports, imports, jobs, () -> false);
+	}
+
+	DataController(ExportService exports, ImportService imports, JobService jobs, BooleanSupplier cloudProject) {
 		this.exports = exports;
 		this.imports = imports;
 		this.jobs = jobs;
+		this.cloudProject = cloudProject;
+	}
+
+	/** The menu has the import disabled in a cloud project; a call made anyway is refused, so no record stays behind. */
+	private void notInACloudProject() {
+		if (cloudProject.getAsBoolean()) {
+			throw new ApiException(HttpStatus.CONFLICT, "import.cloudProject", Messages.getString("DataPage.import.cloudProject"));
+		}
 	}
 
 	@GetMapping("/api/data/export/options")
@@ -97,6 +118,7 @@ public class DataController {
 
 	@PostMapping("/api/jobs/import")
 	public Map<String, String> importPrepared(@RequestBody ImportRequest request) {
+		notInACloudProject();
 		try {
 			return start(IMPORT, imports.importPrepared(request.token, request.overwrite == null ? Collections.emptyList() : request.overwrite));
 		} catch (ExpiredImportException e) {
@@ -106,6 +128,7 @@ public class DataController {
 
 	@PostMapping("/api/jobs/updateCsv")
 	public Map<String, String> updateCsv(@RequestBody FilesRequest request) {
+		notInACloudProject();
 		return start(UPDATE_CSV, imports.updateFromCsv(files(request.files)));
 	}
 
