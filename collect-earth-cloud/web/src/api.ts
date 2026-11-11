@@ -1253,6 +1253,64 @@ export function copyProject(projectId: string, name: string, members: boolean): 
   return request("POST", `${p(projectId)}/copy`, { json: { name, members } });
 }
 
+/** What a repeat survey would bring (docs/plans/2026-11-11-repeat-survey.md); nothing is stored. */
+export interface RepeatPreview {
+  /** the plots with an earlier answer (a submitted first assessment, or the coordinator's final one) */
+  plots: number;
+  /** the proposed labels: this project's period, and the new one's */
+  earlierLabel: string;
+  label: string;
+  /** the periods before this one, when this project repeats another */
+  periods: { label: string; plots: number }[];
+  /** the questions the form's header can show, and the ones proposed */
+  questions: { key: string; label: string; kind: string }[];
+  headerQuestions: string[];
+  /** what a newer survey no longer asks, and answers it no longer offers */
+  report: { questionsLeftOut: { key: string; plots: number }[]; unknownAnswers: { key: string; code: string; plots: number }[] };
+}
+
+export function previewRepeat(projectId: string, projectFile: string | null): Promise<RepeatPreview> {
+  return request("POST", `${p(projectId)}/repeat/preview`, { json: projectFile ? { projectFile } : {} });
+}
+
+/** A new project (a draft) that collects this one's plots again, with this one's answers as an earlier period. */
+export function repeatSurvey(
+  projectId: string,
+  body: { name: string; label: string; earlierLabel: string; members: boolean; headerQuestions: string[]; projectFile: string | null },
+): Promise<{ projectId: string; name: string }> {
+  const { projectFile, ...rest } = body;
+  return request("POST", `${p(projectId)}/repeat`, { json: { ...rest, ...(projectFile ? { projectFile } : {}) } });
+}
+
+/** A repeat survey's periods and the questions its form's header shows (settings null: it repeats none). */
+export interface Periods {
+  settings: { label: string; earlier: { label: string; sourceProjectId: string; sourceName: string; plots: number; madeAt: number }[]; headerQuestions: string[] } | null;
+  periods: { label: string; plots: number }[];
+  questions: { key: string; label: string }[];
+  candidates?: { key: string; label: string; kind: string }[];
+}
+
+export function getPeriods(projectId: string): Promise<Periods> {
+  return request("GET", `${p(projectId)}/periods`);
+}
+
+export function setPeriodHeader(projectId: string, headerQuestions: string[]): Promise<{ headerQuestions: string[] }> {
+  return request("PUT", `${p(projectId)}/periods/header`, { json: { headerQuestions } });
+}
+
+/** One plot's answers in the earlier periods, oldest first (who collected them: for coordinators and reviewers). */
+export interface PlotPeriod {
+  label: string;
+  savedAt: number;
+  answers: Record<string, string>;
+  operator?: string;
+}
+
+/** One plot's answers in the earlier periods, with the questions' labels and the answers' names (from the survey). */
+export function getPlotPeriods(projectId: string, plot: string): Promise<{ periods: PlotPeriod[]; labels: Record<string, string>; options: AnswerOptions }> {
+  return request("GET", `${p(projectId)}/periods/plots/${encodeURIComponent(plot)}`);
+}
+
 export async function setProjectStatus(projectId: string, status: ProjectStatus): Promise<ProjectStatus> {
   const body = await request<{ status?: string }>("PUT", `${p(projectId)}/status`, { json: { status } });
   return asStatus(body?.status);

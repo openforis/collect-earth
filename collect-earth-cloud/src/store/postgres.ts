@@ -65,7 +65,9 @@ import {
   type ReferenceChange,
   type ReferenceChangeResult,
   type ReferencePlot,
+  type PeriodAnswer,
   type ReferenceAnswer,
+  type RepeatSettings,
   type RoundInfo,
   type SampledCopy,
   type SamplingDraw,
@@ -2261,6 +2263,54 @@ export class PostgresStore implements Store {
     });
   }
 
+  async replacePeriodAnswers(projectId: string, label: string, rows: readonly Omit<PeriodAnswer, 'label'>[]): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('DELETE FROM period_answers WHERE project_id = $1 AND label = $2', [projectId, label]);
+      // In slices: one statement per 5,000 plots
+      for (let i = 0; i < rows.length; i += 5000) {
+        const slice = rows.slice(i, i + 5000);
+        await client.query(
+          `INSERT INTO period_answers (project_id, label, plot_key, operator, answers, saved_at)
+           SELECT $1, $2, k, o, a, s FROM unnest($3::text[], $4::text[], $5::jsonb[], $6::timestamptz[]) AS t(k, o, a, s)`,
+          [projectId, label, slice.map((r) => r.plotKey), slice.map((r) => r.operator), slice.map((r) => JSON.stringify(r.answers)), slice.map((r) => new Date(r.savedAt))],
+        );
+      }
+    });
+  }
+
+  async listPeriodAnswers(projectId: string, label?: string): Promise<PeriodAnswer[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT label, plot_key, operator, answers, saved_at FROM period_answers WHERE project_id = $1${label === undefined ? '' : ' AND label = $2'}`,
+        label === undefined ? [projectId] : [projectId, label],
+      );
+      return res.rows.map(periodAnswerOf);
+    });
+  }
+
+  async getPlotPeriodAnswers(projectId: string, plotKey: string): Promise<PeriodAnswer[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        'SELECT label, plot_key, operator, answers, saved_at FROM period_answers WHERE project_id = $1 AND plot_key = $2 ORDER BY saved_at, label',
+        [projectId, plotKey],
+      );
+      return res.rows.map(periodAnswerOf);
+    });
+  }
+
+  async getRepeatSettings(projectId: string): Promise<RepeatSettings | null> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT repeat_settings FROM projects WHERE id = $1', [projectId]);
+      return (res.rows[0]?.repeat_settings as RepeatSettings | null | undefined) ?? null;
+    });
+  }
+
+  async setRepeatSettings(projectId: string, settings: RepeatSettings): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('UPDATE projects SET repeat_settings = $2 WHERE id = $1', [projectId, JSON.stringify(settings)]);
+    });
+  }
+
   async listReferenceAnswers(projectId: string): Promise<ReferenceAnswer[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query('SELECT plot_key, answers, uploaded_at FROM reference_answers WHERE project_id = $1', [projectId]);
@@ -3436,4 +3486,9 @@ function mapRecord(r: Record<string, unknown>): RecordRow {
  */
 async function lockUsername(client: pg.PoolClient, username: string): Promise<void> {
   await client.query("SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:username:' || $1))", [username]);
+}
+
+/** A row of period_answers */
+function periodAnswerOf(r: Record<string, unknown>): PeriodAnswer {
+  return { label: r.label as string, plotKey: r.plot_key as string, operator: r.operator as string, answers: r.answers as Record<string, string>, savedAt: (r.saved_at as Date).getTime() };
 }

@@ -272,6 +272,26 @@ export type StoredDistribution =
   | { mode: 'manual'; order?: 'nearby' };
 
 /** A plot's answers in the reference set a coordinator uploaded, by summary key. */
+/** One plot's answers in an earlier period of a repeat survey (migration 037). */
+export interface PeriodAnswer {
+  label: string;
+  plotKey: string;
+  operator: string;
+  /** Summary key -> answer, as the record's summary */
+  answers: Record<string, string>;
+  savedAt: number;
+}
+
+/** A repeat survey's settings (docs/plans/2026-11-11-repeat-survey.md). */
+export interface RepeatSettings {
+  /** This project's period ("2025") */
+  label: string;
+  /** The earlier periods, oldest first */
+  earlier: { label: string; sourceProjectId: string; sourceName: string; plots: number; madeAt: number }[];
+  /** The summary keys of the questions the form's header shows of the earlier period (the plot's main characteristics) */
+  headerQuestions: string[];
+}
+
 export interface ReferenceAnswer {
   plotKey: string;
   answers: Record<string, string>;

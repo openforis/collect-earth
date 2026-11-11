@@ -23,6 +23,7 @@ import { MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { FLAG_KIND_KEYS, flagText } from "../flagsView";
 import { formatDate } from "../format";
+import { EarlierPeriods } from "../project/RepeatSurvey";
 import { useT, type MessageKey } from "../i18n";
 import { plotPageParts } from "../localMode";
 import { answerRows, hasCheck, recordKindKey, recordStateKey } from "../plotView";
@@ -288,6 +289,9 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
           </Stack>
         )}
       </Section>
+
+      {/* A repeat survey: the plot's answers in the earlier periods (docs/plans/2026-11-11-repeat-survey.md) */}
+      {!local && <EarlierPeriods projectId={projectId} plot={plot} labels={data.labels} options={data.options} />}
 
       <Section title={t("plot.flagsHeading")}>
         {data.flags === null ? (

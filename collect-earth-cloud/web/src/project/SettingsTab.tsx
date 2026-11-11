@@ -38,6 +38,7 @@ import { progressDraftOf, readProgressDraft, type ProgressDraft, type ProgressPr
 import { linkProps, navigate, pathFor } from "../router";
 import { useLoad } from "../useLoad";
 import type { MessageKey } from "../i18n";
+import { RepeatCard } from "./RepeatSurvey";
 import { ShareLinksCard } from "./ShareLinks";
 
 function RenameCard({ projectId, name, onRenamed }: { projectId: string; name: string; onRenamed: (name: string) => void }) {
@@ -497,6 +498,8 @@ export function SettingsTab({
           <AiCard key={card} projectId={projectId} />
         ) : card === "copy" ? (
           <CopyCard key={card} projectId={projectId} name={name} />
+        ) : card === "repeat" ? (
+          <RepeatCard key={card} projectId={projectId} name={name} />
         ) : card === "status" ? (
           <StatusCard key={card} projectId={projectId} status={status} onStatus={onStatus} />
         ) : (

@@ -150,7 +150,7 @@ export function weeklyBlocks(localMode: boolean): readonly ("progress" | "people
 
 // --- Settings -----------------------------------------------------------------------
 
-export type SettingsCard = "rename" | "status" | "progress" | "shareLinks" | "ai" | "copy" | "delete";
+export type SettingsCard = "rename" | "status" | "progress" | "shareLinks" | "ai" | "copy" | "repeat" | "delete";
 
 /**
  * The Settings tab's cards. Alone: the progress settings (where the forecast's deadline and target
@@ -158,7 +158,7 @@ export type SettingsCard = "rename" | "status" | "progress" | "shareLinks" | "ai
  * are off in this mode.
  */
 export function settingsCards(localMode: boolean): readonly SettingsCard[] {
-  return localMode ? ["progress"] : ["rename", "status", "progress", "shareLinks", "ai", "copy", "delete"];
+  return localMode ? ["progress"] : ["rename", "status", "progress", "shareLinks", "ai", "copy", "repeat", "delete"];
 }
 
 // --- One plot's page ----------------------------------------------------------------

@@ -50,7 +50,9 @@ import type {
   ReferenceChange,
   ReferenceChangeResult,
   ReferencePlot,
+  PeriodAnswer,
   ReferenceAnswer,
+  RepeatSettings,
   TrainingAttempt,
   TrainingGolden,
   TrainingKind,
@@ -451,6 +453,14 @@ export interface Store {
    * order), in one transaction under the check sampling's lock (no draw nor division meanwhile).
    */
   changeReferencePlots(projectId: string, change: ReferenceChange): Promise<ReferenceChangeResult>;
+  /** A repeat survey's earlier answers (migration 037): one period's, written once (replacing any of that label). */
+  replacePeriodAnswers(projectId: string, label: string, rows: readonly Omit<PeriodAnswer, 'label'>[]): Promise<void>;
+  /** The earlier answers of a repeat survey: one period's, or all of them. */
+  listPeriodAnswers(projectId: string, label?: string): Promise<PeriodAnswer[]>;
+  /** One plot's earlier answers, in every period, oldest first. */
+  getPlotPeriodAnswers(projectId: string, plotKey: string): Promise<PeriodAnswer[]>;
+  getRepeatSettings(projectId: string): Promise<RepeatSettings | null>;
+  setRepeatSettings(projectId: string, settings: RepeatSettings): Promise<void>;
   /** The reference answers a coordinator uploaded (migration 033), by plot unit. */
   listReferenceAnswers(projectId: string): Promise<ReferenceAnswer[]>;
   /** Replaces the whole set of reference answers (none: deletes it); the quality figures' version changes. */

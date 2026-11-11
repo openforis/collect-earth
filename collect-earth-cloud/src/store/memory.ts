@@ -63,7 +63,9 @@ import {
   type ReferenceChange,
   type ReferenceChangeResult,
   type ReferencePlot,
+  type PeriodAnswer,
   type ReferenceAnswer,
+  type RepeatSettings,
   type RoundInfo,
   type Role,
   type SampledCopy,
@@ -140,6 +142,9 @@ interface ProjectEntry {
   references: Map<string, StoredReference>;
   /** Reference answers uploaded, by plot unit. */
   referenceAnswers: Map<string, ReferenceAnswer>;
+  /** A repeat survey's earlier answers, by label then plot (migration 037) */
+  periodAnswers: Map<string, Map<string, PeriodAnswer>>;
+  repeatSettings: RepeatSettings | null;
 }
 
 interface StoredReference {
@@ -446,6 +451,8 @@ export class InMemoryStore implements Store {
       sampling: null,
       references: new Map(),
       referenceAnswers: new Map(),
+      periodAnswers: new Map(),
+      repeatSettings: null,
     });
 
     const adminToken = generateToken();
@@ -1714,6 +1721,32 @@ export class InMemoryStore implements Store {
 
   async listReferenceAnswers(projectId: string): Promise<ReferenceAnswer[]> {
     return [...(this.projects.get(projectId)?.referenceAnswers.values() ?? [])].map((r) => ({ ...r, answers: { ...r.answers } }));
+  }
+
+  async replacePeriodAnswers(projectId: string, label: string, rows: readonly Omit<PeriodAnswer, 'label'>[]): Promise<void> {
+    const entry = this.requireProject(projectId);
+    entry.periodAnswers.set(label, new Map(rows.map((r) => [r.plotKey, { ...r, label, answers: { ...r.answers } }])));
+  }
+
+  async listPeriodAnswers(projectId: string, label?: string): Promise<PeriodAnswer[]> {
+    const periods = this.projects.get(projectId)?.periodAnswers;
+    if (!periods) return [];
+    const of = label === undefined ? [...periods.values()] : periods.has(label) ? [periods.get(label)!] : [];
+    return of.flatMap((byPlot) => [...byPlot.values()].map((r) => ({ ...r, answers: { ...r.answers } })));
+  }
+
+  async getPlotPeriodAnswers(projectId: string, plotKey: string): Promise<PeriodAnswer[]> {
+    const periods = this.projects.get(projectId)?.periodAnswers;
+    const found = [...(periods?.values() ?? [])].map((byPlot) => byPlot.get(plotKey)).filter((r): r is PeriodAnswer => r !== undefined);
+    return found.map((r) => ({ ...r, answers: { ...r.answers } })).sort((a, b) => a.savedAt - b.savedAt || a.label.localeCompare(b.label));
+  }
+
+  async getRepeatSettings(projectId: string): Promise<RepeatSettings | null> {
+    return structuredClone(this.projects.get(projectId)?.repeatSettings ?? null);
+  }
+
+  async setRepeatSettings(projectId: string, settings: RepeatSettings): Promise<void> {
+    this.requireProject(projectId).repeatSettings = structuredClone(settings);
   }
 
   async replaceReferenceAnswers(projectId: string, rows: readonly { plotKey: string; answers: Record<string, string> }[], at: number): Promise<void> {
