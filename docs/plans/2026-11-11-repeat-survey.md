@@ -1,7 +1,8 @@
 # Repeat survey: collecting a project's plots again, years later, with the earlier answers beside them
 
-Date: 11 November 2026. **Status: stages 1, 2 and 3 built on the working branch (`claude/awesome-bell-s34gb0`), kept out of
-`ce-2026-GEW` until the 2.0 release is out; the owner's decisions are below.**
+Date: 11 November 2026. **Status: stages 1 to 4 built on the working branch (`claude/awesome-bell-s34gb0`), with the Map
+tab's layer, the desktop's filter and the numbers copied on "Still the same"; kept out of `ce-2026-GEW` until the 2.0
+release is out. Not built yet: see "Open" at the end. The owner's decisions are below.**
 
 ## Goal
 
@@ -254,3 +255,14 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
   left alone; none from the previous plot), and a real run on the demo survey with two numbers the collector types added
   (its own percentages are all calculated): "Still the same" on plot 3 filled 12 and 32.5, marked Copied and saved, and
   left the 2020 comment out; "Changed since 2020" on plot 4 copied nothing.
+
+## Open (not built)
+
+From the design above, not built yet:
+
+- The dialog's choice of plots (section 1): the repeat survey always takes the earlier project's plot files whole; there
+  is no "only the plots collected in the earlier period".
+- The export with both periods (section 4): one row per plot with `2020.<key>` and `2025.<key>` columns for every
+  question, and a `period` field on the analysis page. Today the comparison's files cover one question at a time
+  (`change.csv`, `change-areas.csv`), and the project's own export has this period's records only.
+- Areas of several questions at once, and a finite population correction (stage 4's "Not done").
