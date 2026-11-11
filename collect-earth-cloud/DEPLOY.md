@@ -834,6 +834,9 @@ provider's details):
      --oidc-token-audience='https://<your address>/v1/internal/digest' \
      --headers='content-type=application/json' --message-body='{}' --attempt-deadline=900s
    ```
+   On Windows, `deploy/gcp/setup-weekly-emails.ps1` does the same in PowerShell, and is safe to run
+   again: `powershell -ExecutionPolicy Bypass -File .\setup-weekly-emails.ps1 -Project <PROJECT>
+   -Region <REGION> -Address https://<your address>` (`-RunNow` also runs the job once).
    The audience must be exactly the same text in both places. (The service stays public,
    `--allow-unauthenticated`, for the dashboard and Collect Earth; the server checks the
    token itself, reading Google's public keys from `www.googleapis.com/oauth2/v3/certs`,
