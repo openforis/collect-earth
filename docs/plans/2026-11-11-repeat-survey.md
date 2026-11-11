@@ -2,7 +2,7 @@
 
 Date: 11 November 2026. **Status: stages 1 to 4 built on the working branch (`claude/awesome-bell-s34gb0`), with the Map
 tab's layer, the desktop's filter and the numbers copied on "Still the same"; kept out of `ce-2026-GEW` until the 2.0
-release is out, and the export with both periods. Not built yet: see "Open" at the end. The owner's decisions are below.**
+release is out, the export with both periods and the choice of plots to repeat. Not built yet: see "Open" at the end. The owner's decisions are below.**
 
 ## Goal
 
@@ -260,8 +260,6 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
 
 From the design above, not built yet:
 
-- The dialog's choice of plots (section 1): the repeat survey always takes the earlier project's plot files whole; there
-  is no "only the plots collected in the earlier period".
 - Areas of several questions at once, and a finite population correction (stage 4's "Not done").
 - The earlier answers of multiple entities (the land cover's rows) on the analysis page.
 
@@ -285,3 +283,16 @@ From the design above, not built yet:
 - Checked: `test/repeatSurvey.test.ts` (the table, the columns, the routes), and in a browser: the file downloaded
   (plot 7 with 2020's answers only, plot 8 with 2025's only), and on the analysis page "Land Use 2025" by "Land Use 2025
   (2020)" gave the 2020 × 2025 table of the eight plots.
+
+## The choice of plots to repeat, as built (11 Nov 2026)
+
+- The dialog, **The plots to collect again**: all the plots of the plot files (the default, as before), or only those
+  collected in the earlier period, each with its count (`POST /repeat/preview` gives `filePlots` beside `plots`).
+- `POST /repeat { plots: 'collected' }`: `copyProject(..., keepPlot)` copies each plot file with only the rows of those
+  plots (`withRowsOnly` in `src/plots.ts`: the header and each row kept byte for byte), leaves out a file left with
+  none, and keeps the divisions' plots among them; the people keep their plot files. A row is matched by its plot id,
+  without the round when the survey has a round of its own (as the earlier records name their plots). 409
+  `nothing_collected` when no plot was. The answer says `plots` and `filePlots`; the log records `onlyCollected`.
+- Checked: `test/fileAssignment.test.ts` (`withRowsOnly`), `test/repeatSurvey.test.ts` (5 plots in the file, 2 collected:
+  all 5, or the 2 with the people's assignment), and in a browser (8 plots, 7 collected: the new project's plot file
+  has the 7, maria's assignment kept).

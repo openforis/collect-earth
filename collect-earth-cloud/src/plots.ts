@@ -457,3 +457,21 @@ export function withoutColumns(file: PlotFile, columns: readonly number[]): Buff
   });
   return Buffer.concat(parts);
 }
+
+/**
+ * The file with only the rows whose plot id `keep` takes (the header kept), every byte of a row kept as it was; null when
+ * no row is kept. Blank lines go, as in withoutColumns.
+ */
+export function withRowsOnly(file: PlotFile, keep: (plotId: string) => boolean): Buffer | null {
+  const rows = file.rows.filter((r) => keep(r.id));
+  if (rows.length === 0) return null;
+  const all = file.header ? [file.header, ...rows] : rows;
+  const lineEnding = Buffer.from(file.lineEnding, 'ascii');
+  const parts: Buffer[] = file.bom ? [BOM] : [];
+  all.forEach((row, i) => {
+    parts.push(file.data.subarray(row.start, row.next));
+    // the file's last line, without a line ending, now before another
+    if (row.next === row.end && i < all.length - 1) parts.push(lineEnding);
+  });
+  return Buffer.concat(parts);
+}

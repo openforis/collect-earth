@@ -8,12 +8,15 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormGroup from "@mui/material/FormGroup";
 import LinearProgress from "@mui/material/LinearProgress";
 import Link from "@mui/material/Link";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
+import Radio from "@mui/material/Radio";
+import RadioGroup from "@mui/material/RadioGroup";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -96,6 +99,7 @@ function RepeatDialog({ projectId, name, onClose }: { projectId: string; name: s
   const [named, setNamed] = useState(false);
   const [header, setHeader] = useState<string[]>([]);
   const [members, setMembers] = useState(true);
+  const [plots, setPlots] = useState<"all" | "collected">("all");
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<unknown>(null);
 
@@ -141,6 +145,7 @@ function RepeatDialog({ projectId, name, onClose }: { projectId: string; name: s
         earlierLabel: earlierLabel.trim(),
         members,
         headerQuestions: header,
+        plots,
         projectFile: projectFile?.base64 ?? null,
       });
       await refreshMe();
@@ -211,6 +216,17 @@ function RepeatDialog({ projectId, name, onClose }: { projectId: string; name: s
                 error={!newName.trim()}
                 slotProps={{ htmlInput: { maxLength: 200 } }}
               />
+              <FormControl>
+                <Typography variant="h3" component="h3" id="repeat-plots" sx={{ mb: 0.5 }}>{t("repeat.plotsTitle")}</Typography>
+                <RadioGroup aria-labelledby="repeat-plots" value={plots} onChange={(e) => setPlots(e.target.value as "all" | "collected")}>
+                  <FormControlLabel value="all" control={<Radio />} label={t("repeat.plotsAll", { count: String(preview.filePlots) })} />
+                  <FormControlLabel value="collected" control={<Radio />} disabled={preview.plots === 0}
+                    label={t("repeat.plotsCollected", { count: String(preview.plots), earlier: earlierLabel.trim() || "…" })} />
+                </RadioGroup>
+                <Typography variant="body2" color="text.secondary">
+                  {t(plots === "collected" ? "repeat.plotsCollectedHelp" : "repeat.plotsAllHelp", { earlier: earlierLabel.trim() || "…" })}
+                </Typography>
+              </FormControl>
               <Typography variant="h3" component="h3">
                 {t("repeat.headerTitle")}
               </Typography>

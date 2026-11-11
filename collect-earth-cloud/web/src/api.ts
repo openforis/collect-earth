@@ -1257,6 +1257,8 @@ export function copyProject(projectId: string, name: string, members: boolean): 
 export interface RepeatPreview {
   /** the plots with an earlier answer (a submitted first assessment, or the coordinator's final one) */
   plots: number;
+  /** the plots of the plot files: all of them can be collected again, or only those collected (`plots`) */
+  filePlots: number;
   /** the proposed labels: this project's period, and the new one's */
   earlierLabel: string;
   label: string;
@@ -1276,7 +1278,7 @@ export function previewRepeat(projectId: string, projectFile: string | null): Pr
 /** A new project (a draft) that collects this one's plots again, with this one's answers as an earlier period. */
 export function repeatSurvey(
   projectId: string,
-  body: { name: string; label: string; earlierLabel: string; members: boolean; headerQuestions: string[]; projectFile: string | null },
+  body: { name: string; label: string; earlierLabel: string; members: boolean; headerQuestions: string[]; plots: "all" | "collected"; projectFile: string | null },
 ): Promise<{ projectId: string; name: string }> {
   const { projectFile, ...rest } = body;
   return request("POST", `${p(projectId)}/repeat`, { json: { ...rest, ...(projectFile ? { projectFile } : {}) } });

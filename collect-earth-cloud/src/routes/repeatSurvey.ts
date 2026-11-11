@@ -5,8 +5,9 @@
 //
 // - POST /v1/projects/:pid/repeat/preview { projectFile? } (admin) -> what would come: the plots, the default labels,
 //   the questions the header can show and the default ones, and what does not match a newer survey. Nothing stored.
-// - POST /v1/projects/:pid/repeat { name, label, earlierLabel, members?, headerQuestions?, projectFile? } (admin, a
-//   person's session) -> 201 { projectId, name, status: 'draft', ... }: the new project, as a draft.
+// - POST /v1/projects/:pid/repeat { name, label, earlierLabel, members?, headerQuestions?, plots?, projectFile? } (admin,
+//   a person's session) -> 201 { projectId, name, status: 'draft', filePlots, ... }: the new project, as a draft; with
+//   plots 'collected', its plot files keep only the plots collected in the earlier period.
 // - GET /v1/projects/:pid/periods (member) -> { settings, periods: [{ label, plots }], questions }: null settings for
 //   a project that repeats none.
 // - PUT /v1/projects/:pid/periods/header { headerQuestions } (admin): the questions the header shows.
@@ -61,6 +62,8 @@ interface RepeatBody {
   earlierLabel?: unknown;
   members?: unknown;
   headerQuestions?: unknown;
+  /** the plots to collect again: 'all' of the plot files (the default), or only those 'collected' in the earlier period */
+  plots?: unknown;
   /** a newer project file (.cep), in base64 */
   projectFile?: unknown;
 }
@@ -132,12 +135,14 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
     if (newer === null) return reply;
     const outline = outlineOf(newer ?? (await store.getCep(projectId)));
     if (!outline) return reply.code(409).send({ error: 'no_project_file', reason: 'This project has no project file to repeat.' });
-    const earlier = await earlierOf(store, projectId, request.log);
+    const [earlier, files] = await Promise.all([earlierOf(store, projectId, request.log), store.listCsvFiles(projectId)]);
     const { report } = matchToSurvey(earlier, outline);
     const settings = await store.getRepeatSettings(projectId);
     const thisYear = String(new Date().getUTCFullYear());
     return reply.send({
       plots: earlier.length,
+      // the plots of the plot files, for the choice of all of them or only those collected
+      filePlots: files.reduce((n, f) => n + f.plotCount, 0),
       // This project's own period when it repeats another, else the year most of its plots were saved in
       earlierLabel: settings?.label ?? yearOf(earlier) ?? '',
       label: thisYear,
@@ -171,8 +176,22 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
     const refused = await creationRefusal(store, user);
     if (refused) return reply.code(403).send(refused);
 
+    if (body.plots !== undefined && body.plots !== 'all' && body.plots !== 'collected') {
+      return reply.code(400).send({ error: 'bad_request', reason: "plots must be 'all' or 'collected'" });
+    }
     const earlier = await earlierOf(store, sourceId, request.log);
-    const projectId = await copyProject(store, sourceId, { name, ownerId: user.id, members: body.members === true });
+    // Only the plots collected in the earlier period: the plot files' rows of those plots (a file's row names the plot
+    // with its round when the survey has a round of its own, as the earlier records' plots do not)
+    let keepPlot: ((plotId: string) => boolean) | undefined;
+    if (body.plots === 'collected') {
+      if (earlier.length === 0) return reply.code(409).send({ error: 'nothing_collected', reason: 'No plot was collected in this project: repeat all of them.' });
+      const collected = new Set(earlier.map((r) => r.plot));
+      const info = await store.getRoundInfo(sourceId);
+      const shape = keyShape(info);
+      const own = info?.state === 'own' && shape.roundIndex !== null;
+      keepPlot = (plotId) => collected.has(own ? splitKey(plotId, shape.count, shape.roundIndex).plot : plotId);
+    }
+    const projectId = await copyProject(store, sourceId, { name, ownerId: user.id, members: body.members === true, keepPlot });
     if (newer) {
       const accepted = await acceptCep(store, projectId, newer, request.log);
       if (!accepted.ok) {
@@ -208,14 +227,15 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
       await store.appendAudit(projectId, {
         actorUserId: user.id,
         action: 'project.imported',
-        details: { source: 'repeat', sourceProjectId: sourceId, label, earlierLabel, plots: matched.records.length, newerSurvey: newer !== undefined },
+        details: { source: 'repeat', sourceProjectId: sourceId, label, earlierLabel, plots: matched.records.length, newerSurvey: newer !== undefined, onlyCollected: body.plots === 'collected' },
       });
     } catch (err) {
       request.log.error({ err }, 'audit log write failed');
     }
     await audit(store, request, 'project.imported', { source: 'repeated', repeatProjectId: projectId, label });
     request.log.info({ sourceId, projectId, plots: matched.records.length }, 'survey repeated');
-    return reply.code(201).send({ projectId, name, status: 'draft', label, periods: reports, headerQuestions });
+    const filePlots = (await store.listCsvFiles(projectId)).reduce((n, f) => n + f.plotCount, 0);
+    return reply.code(201).send({ projectId, name, status: 'draft', label, periods: reports, headerQuestions, plots: body.plots === 'collected' ? 'collected' : 'all', filePlots });
   });
 
   app.get('/v1/projects/:pid/periods', member, async (request: FastifyRequest, reply: FastifyReply) => {

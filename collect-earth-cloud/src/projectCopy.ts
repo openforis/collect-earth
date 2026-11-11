@@ -1,3 +1,4 @@
+import { parsePlotFile, withRowsOnly } from './plots.js';
 import { fileKeyCount } from './rounds.js';
 import type { Store } from './store/store.js';
 
@@ -8,8 +9,14 @@ import type { Store } from './store/store.js';
  * records, decisions, notes, flags, checks drawn, reference plots or training sets, and the AI
  * assistant stays off (sending to it is each project's own choice). It
  * starts as a draft with `ownerId` as its coordinator. A copy that fails half way is deleted.
+ * With `keepPlot`, the plot files keep only the rows of the plots it takes (by the plot id as the file has it, its keys
+ * joined by ","), each row as it was; a file left with none is not copied, and the divisions keep those plots only.
  */
-export async function copyProject(store: Store, sourceId: string, input: { name: string; ownerId: string; members: boolean }): Promise<string> {
+export async function copyProject(
+  store: Store,
+  sourceId: string,
+  input: { name: string; ownerId: string; members: boolean; keepPlot?: (plotId: string) => boolean },
+): Promise<string> {
   const { projectId } = await store.createProject({ name: input.name, status: 'draft' });
   try {
     await store.addMembership(projectId, input.ownerId, 'admin');
@@ -23,12 +30,15 @@ export async function copyProject(store: Store, sourceId: string, input: { name:
     }
     const ids = new Map<string, string>();
     const files = await store.listCsvFiles(sourceId);
+    const keyCount = fileKeyCount(info);
     for (const file of files) {
       const full = await store.getCsvFile(sourceId, file.id);
-      if (full) ids.set(file.id, (await store.putCsvFile(projectId, file.filename, full.data)).id);
+      if (!full) continue;
+      const data = input.keepPlot ? withRowsOnly(parsePlotFile(full.data, keyCount), input.keepPlot) : full.data;
+      if (data) ids.set(file.id, (await store.putCsvFile(projectId, file.filename, data)).id);
     }
     // Plot files are counted with the survey's key columns, as their upload counted them.
-    if (info && files.length > 0) await store.recountPlots(projectId, fileKeyCount(info));
+    if (info && ids.size > 0) await store.recountPlots(projectId, keyCount);
     await store.setProgressSettings(projectId, await store.getProgressSettings(sourceId));
     await store.setQualitySettings(projectId, await store.getQualitySettings(sourceId));
 
@@ -43,7 +53,7 @@ export async function copyProject(store: Store, sourceId: string, input: { name:
       for (const file of files) {
         if (!file.distribution || !ids.has(file.id)) continue;
         const plots = (await store.listPlotAssignments(sourceId, file.id)).filter(
-          (a) => a.sampledAt === undefined && !(a.overlap && reference.has(`${file.id} ${a.plotKey}`)),
+          (a) => a.sampledAt === undefined && !(a.overlap && reference.has(`${file.id} ${a.plotKey}`)) && (!input.keepPlot || input.keepPlot(a.plotKey)),
         );
         await store.setDivision(projectId, ids.get(file.id)!, file.distribution, plots.map(({ plotKey, userId, overlap }) => ({ plotKey, userId, overlap })));
       }

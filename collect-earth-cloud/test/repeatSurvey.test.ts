@@ -496,6 +496,26 @@ describe('repeating a survey in the dashboard', () => {
     expect(rows.map((r) => [r[1], r[own], r[col]]).sort()).toEqual([['1', 'C', 'F'], ['3', 'S', '']]);
   });
 
+  it('repeats all the plots of the plot files, or only those collected in the earlier period', async () => {
+    // 5 plots in the file; maria submitted plots 1 and 2, plot 3 is a draft
+    expect((await call('POST', '/repeat/preview', owner.token, {})).json()).toMatchObject({ plots: 2, filePlots: 5 });
+    const all = await call('POST', '/repeat', owner.token, { name: 'All 2025', label: '2025', earlierLabel: '2020', members: true });
+    expect(all.json()).toMatchObject({ plots: 'all', filePlots: 5 });
+    const some = await call('POST', '/repeat', owner.token, { name: 'Some 2025', label: '2025', earlierLabel: '2020', members: true, plots: 'collected' });
+    expect(some.statusCode, some.body).toBe(201);
+    expect(some.json()).toMatchObject({ plots: 'collected', filePlots: 2 });
+    const projectId = some.json().projectId;
+    const files = (await call('GET', '/csv-files', owner.token, undefined, {}, projectId)).json().csvFiles;
+    expect(files).toHaveLength(1);
+    expect(files[0]).toMatchObject({ filename: 'plots.csv', plotCount: 2 });
+    const stored = await ctx.store.getCsvFile(projectId, files[0].id);
+    expect(stored!.data.toString().trim().split(/\r?\n/)).toEqual(['id,lat,lon', '1,0,0', '2,0,0']);
+    // the people keep their plot file
+    const assignments = (await call('GET', '/assignments', owner.token, undefined, {}, projectId)).json().assignments;
+    expect(assignments.map((a: { csvFileId: string }) => a.csvFileId)).toEqual([files[0].id, files[0].id]);
+    expect((await call('POST', '/repeat', owner.token, { name: 'x', label: '2025', earlierLabel: '2020', plots: 'some' })).statusCode).toBe(400);
+  });
+
   it('needs a name, two labels and a person to coordinate it', async () => {
     expect((await call('POST', '/repeat', owner.token, { label: '2025', earlierLabel: '2020' })).statusCode).toBe(400);
     expect((await call('POST', '/repeat', owner.token, { name: 'x', label: '2020', earlierLabel: '2020' })).statusCode).toBe(400);
