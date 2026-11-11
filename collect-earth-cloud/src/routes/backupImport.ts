@@ -11,20 +11,10 @@
 // - POST /v1/projects/from-backup { backup, plotFile?, plotFileName?, layout?, collectors?, name? } -> 201 { projectId, … }:
 //   who may make a project (projectCreation, maxProjectsPerUser) as for POST /v1/projects; the caller is its coordinator.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import {
-  BackupError,
-  backupSurvey,
-  layoutOf,
-  openBackup,
-  readBackupRecord,
-  readRecord,
-  suggestedLayout,
-  type BackupRecord,
-  type BackupSurvey,
-  type BackupZip,
-} from '../backupImport.js';
-import { CepError, readCep } from '../cep.js';
+import { BackupError, layoutOf, openBackup, recordReader, stepOf, suggestedLayout, type BackupRecord, type BackupSurvey, type BackupZip } from '../backupImport.js';
+import { CepError, ownRoundInfo, readCep, surveyInfo, type RoundInfo } from '../cep.js';
 import { ATTRIBUTE_AREAS_CSV } from '../analysis.js';
+import { backupReader } from '../collectImport.js';
 import { madeProjectFile } from '../ceo/projectFile.js';
 import type { PlotLayout } from '../ceo/plots.js';
 import { checkUploadFits } from '../limits.js';
@@ -56,19 +46,20 @@ const MAX_NAME = 200;
 /** Up to this many examples of a problem are named. */
 const EXAMPLES = 5;
 
-/** A backup's records, read: the ones that could not be, by their files. */
+/** A backup's records, read (what the preview and the plot files need, not their XML): the ones that could not be, by their files. */
 interface ReadBackup {
   zip: BackupZip;
   records: BackupRecord[];
   unreadable: string[];
 }
 
-function readAll(zip: BackupZip, survey: BackupSurvey = zip.survey): ReadBackup {
+function readAll(zip: BackupZip): ReadBackup {
+  const read = recordReader(zip.survey);
   const records: BackupRecord[] = [];
   const unreadable: string[] = [];
   for (const entry of zip.records) {
     try {
-      records.push(readBackupRecord(survey, entry));
+      records.push(read(entry));
     } catch (e) {
       if (!(e instanceof BackupError)) throw e;
       unreadable.push(entry.name);
@@ -101,8 +92,8 @@ function backupOf(body: ImportBody, reply: FastifyReply): ReadBackup | null {
 /** The original plot file the coordinator added, checked: its rows' plots, or a reason in words. */
 interface GivenPlotFile {
   data: Buffer;
-  /** each row's plot (its key without the round), by row */
-  rows: { plot: string; start: number; next: number }[];
+  /** each row's plot (its key without the round), and its fields, by row */
+  rows: { plot: string; fields: string[]; start: number; next: number }[];
   header: { start: number; next: number } | null;
 }
 
@@ -124,16 +115,20 @@ function givenPlotFile(raw: unknown, keys: PlotFileFormat['keys'] | null): Given
   const plotOf = (fields: string[]) => fields.slice(0, count).filter((_, i) => i !== keys?.roundIndex).join(',');
   return {
     data: file.data,
-    rows: file.rows.map((r) => ({ plot: plotOf(r.fields), start: r.start, next: r.next })),
+    rows: file.rows.map((r) => ({ plot: plotOf(r.fields), fields: r.fields, start: r.start, next: r.next })),
     header: file.header ? { start: file.header.start, next: file.header.next } : null,
   };
 }
 
 /** The round of a record (its round key's value), null when the survey has none. */
 const roundOf = (survey: BackupSurvey, r: BackupRecord): string | null => {
-  const i = survey.keys.findIndex((k) => k.name === 'round');
+  const i = survey.keys.indexOf('round');
   return i < 0 ? null : r.keyValues[i];
 };
+
+/** The round whose submitted record makes a plot done: the first of the survey's own round list; null (any round) without one. */
+const firstRoundOf = (info: RoundInfo | null): string | null =>
+  info?.state === 'own' ? (info.roundCodes.find((c) => c.code !== info.reassessmentCode)?.code ?? null) : null;
 
 /** What is made of a backup's plots: those done (a submitted record of the first round), with records, without place. */
 function plotsOf(read: ReadBackup, firstRound: string | null) {
@@ -169,9 +164,8 @@ function collectorsOf(records: readonly BackupRecord[]): { name: string; records
 }
 
 /** What the dashboard shows before anything is made. */
-function preview(read: ReadBackup, plotFile: GivenPlotFile | null) {
+function preview(read: ReadBackup, plotFile: GivenPlotFile | null, firstRound: string | null) {
   const survey = read.zip.survey;
-  const firstRound = survey.keys.some((k) => k.name === 'round') ? '1' : null;
   const { withRecords, done, noPlace } = plotsOf(read, firstRound);
   const inFile = plotFile ? new Set(plotFile.rows.map((r) => r.plot)) : null;
   const toDo = inFile ? [...inFile].filter((p) => !done.has(p)).length : [...withRecords.keys()].filter((p) => !done.has(p)).length;
@@ -213,25 +207,18 @@ function preview(read: ReadBackup, plotFile: GivenPlotFile | null) {
   };
 }
 
-/** A record's XML with the round the server added to its survey, after its last key element (Collect reads any order). */
-function withRound(xml: string, root: string, code: string): string {
-  const open = new RegExp(`<${root}(\\s[^>]*)?>`).exec(xml);
-  if (!open) return xml;
-  const at = open.index + open[0].length;
-  return `${xml.slice(0, at)}\n  <round>\n    <code>${code}</code>\n  </round>${xml.slice(at)}`;
-}
-
 export async function registerBackupImportRoutes(app: FastifyInstance, store: Store): Promise<void> {
   app.post('/v1/projects/from-backup/preview', { preHandler: requireSession(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const body = (request.body ?? {}) as ImportBody;
     const read = backupOf(body, reply);
     if (!read) return reply;
     // The survey's own keys, as the project would have them (a survey without round gets one: id only in the file)
-    const roundIndex = read.zip.survey.keys.findIndex((k) => k.name === 'round');
-    const keys = { count: read.zip.survey.keys.length, roundIndex: roundIndex < 0 ? null : roundIndex, roundCode: '1' };
+    const survey = read.zip.survey;
+    const roundIndex = survey.keys.indexOf('round');
+    const keys = { count: survey.keys.length, roundIndex: roundIndex < 0 ? null : roundIndex, roundCode: '1' };
     const plotFile = givenPlotFile(body.plotFile, keys);
     if (typeof plotFile === 'string') return reply.code(400).send({ error: 'plot_file_unreadable', reason: plotFile });
-    return reply.send(preview(read, plotFile));
+    return reply.send(preview(read, plotFile, firstRoundOf(ownRoundInfo(surveyInfo(survey.xml)))));
   });
 
   app.post('/v1/projects/from-backup', { preHandler: requireSession(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -299,16 +286,15 @@ export async function registerBackupImportRoutes(app: FastifyInstance, store: St
     // The survey as served (a round, a note added): the records are read against it
     const stored = readCep((await store.getCep(projectId)) as Buffer);
     const servedXml = new TextDecoder().decode(stored.entries.get(stored.surveyPath)!);
-    const served = backupSurvey(servedXml);
     const info = accepted.info;
-    const firstRound = info.state !== 'none' ? info.roundCodes.find((c) => c.code !== info.reassessmentCode)?.code ?? null : null;
+    const firstRound = firstRoundOf(info);
     const format = await plotFileFormat(store, projectId, request.log);
     const plotFile = givenPlotFile(body.plotFile, format?.keys ?? null);
     if (typeof plotFile === 'string') {
       await store.deleteProject(projectId);
       return reply.code(400).send({ error: 'plot_file_unreadable', reason: plotFile });
     }
-    const { withRecords, done } = plotsOf(read, info.state === 'own' ? firstRound : null);
+    const { withRecords, done } = plotsOf(read, firstRound);
 
     // The plot files: the plots with a submitted record, made from the records; the others, from the original file
     // (its rows as they are) or, without it, from the records
@@ -329,6 +315,15 @@ export async function registerBackupImportRoutes(app: FastifyInstance, store: St
     if (format) {
       const csv = (plots: (DesignedPlot & { id: string })[]) => Buffer.from(plotFileCsv(plots, format.keys, format.extra), 'utf8');
       const donePlots = [...withRecords.values()].filter((p) => done.has(p.id));
+      // A done plot its records do not place keeps its row of the original plot file: else it is in no plot file
+      const n = format.keys.count;
+      const placed = new Set(donePlots.map((p) => p.id));
+      for (const r of plotFile?.rows ?? []) {
+        if (!done.has(r.plot) || placed.has(r.plot)) continue;
+        placed.add(r.plot);
+        const columns = Object.fromEntries((format.extra ?? []).map((c, i) => [c.toLowerCase(), r.fields[n + 2 + i] ?? '']));
+        donePlots.push({ id: r.plot, lat: Number(r.fields[n]), lon: Number(r.fields[n + 1]), columns });
+      }
       if (donePlots.length > 0) {
         const kept = await storeFile(`${base}_plots_done.csv`, csv(donePlots));
         if (kept === 'over') return reply;
@@ -355,34 +350,37 @@ export async function registerBackupImportRoutes(app: FastifyInstance, store: St
       }
     }
 
-    // The records, as a sync stores them (last write wins, record events), each read against the served survey
+    // The records fit the project's storage, as an import into a project must (routes/collectImport.ts)
+    const over = await checkUploadFits(store, projectId, { kind: 'records' }, read.records.reduce((sum, r) => sum + r.bytes, 0));
+    if (over) {
+      await store.deleteProject(projectId);
+      return reply.code(413).send(over);
+    }
+
+    // The records, as a sync stores them (last write wins, record events), each read against the served survey (with
+    // the round, when the server added it) and stored one at a time
     for (const { userId } of operators.values()) {
       if (userId && !(await store.listMemberships(userId)).some((m) => m.projectId === projectId)) await store.addMembership(projectId, userId, 'operator');
     }
-    const addRound = info.state === 'added' && firstRound !== null;
+    const readServed = backupReader(servedXml, info);
     let records = 0;
     const receivedAt = Date.now();
-    for (const r of read.records) {
-      const xml = addRound ? withRound(r.xml, served.root, firstRound) : r.xml;
-      let again: BackupRecord;
-      try {
-        again = readRecord(served, r.path, xml);
-      } catch (e) {
-        if (!(e instanceof BackupError)) throw e;
-        continue;
-      }
-      const operator = operators.get(r.operator)!.username;
-      const recordKey = again.keyValues.join(',');
+    for (const entry of read.zip.records) {
+      const r = readServed({ name: entry.name, step: stepOf(entry.name), xml: new TextDecoder().decode(entry.read()) });
+      if ('problem' in r) continue;
+      const operator = operators.get(r.operator.trim())?.username;
+      if (operator === undefined) continue;
+      const recordKey = r.recordKey;
       const modifiedOn = r.modifiedOn ?? receivedAt;
       const envelope = {
         recordKey,
-        surveyUri: served.uri,
+        surveyUri: original.uri,
         operator,
         modifiedOn,
         activelySaved: r.activelySaved,
         step: r.step,
-        xml,
-        summary: again.summary,
+        xml: r.xml,
+        summary: r.summary,
         deleted: false,
         payloadVersion: 1,
         activeSeconds: null,
@@ -422,7 +420,7 @@ export async function registerBackupImportRoutes(app: FastifyInstance, store: St
       plotFilesMade: format !== null,
       collectors: [...operators].map(([typed, o]) => ({ name: typed, username: o.username, account: o.userId !== null })),
       // what the preview showed, for the report
-      backup: preview(read, plotFile),
+      backup: preview(read, plotFile, firstRound),
     });
   });
 }

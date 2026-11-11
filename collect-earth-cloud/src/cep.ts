@@ -844,7 +844,7 @@ export function addRound(
 }
 
 /** The info of a survey with a round key of its own, else null. */
-function ownRoundInfo(info: SurveyInfo): RoundInfo | null {
+export function ownRoundInfo(info: SurveyInfo): RoundInfo | null {
   const roundIndex = info.keys.findIndex((k) => k.name === 'round');
   if (roundIndex < 0) return null;
   const roundCodes = info.codeLists.get(info.keys[roundIndex].list ?? '') ?? [];

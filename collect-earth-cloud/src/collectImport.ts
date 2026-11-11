@@ -279,8 +279,8 @@ export function backupReader(servedSurveyXml: string, info: RoundInfo | null) {
   const keys = defs.filter((d) => d.key);
   const firstRound = info?.state === 'added' ? (info.roundCodes.find((c) => c.code !== info.reassessmentCode)?.code ?? null) : null;
 
-  /** The record of one file, or why it cannot be read. */
-  return (file: BackupFile): ImportedRecord | { problem: string } => {
+  /** The record of one file, or why it cannot be read; with its key values and its root's nodes with data, by name. */
+  return (file: BackupFile): (ImportedRecord & { keyValues: string[]; children: Map<string, XmlNode[]> }) | { problem: string } => {
     if (/<!DOCTYPE/i.test(file.xml) || XMLValidator.validate(file.xml) !== true) return { problem: `${file.name}: not valid XML` };
     let document: XmlNode[];
     try {
@@ -309,6 +309,8 @@ export function backupReader(servedSurveyXml: string, info: RoundInfo | null) {
     };
     return {
       recordKey: keyValues.join(','),
+      keyValues: keyValues as string[],
+      children,
       operator: summary.collect_text_operator ?? '',
       modifiedOn: time('modified') ?? time('created'),
       activelySaved: summary.collect_boolean_actively_saved === 'true',
