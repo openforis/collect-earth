@@ -70,7 +70,7 @@ function CloudProjects({ texts, onRestarting }: { texts: Texts | null; onRestart
   const openProject = (p: CloudProject) => {
     setOpening(p.projectId);
     setError(null);
-    openCloudProject(p.projectId).then((r) => { if (r.restart) onRestarting(); },
+    openCloudProject(p.projectId, p.server).then((r) => { if (r.restart) onRestarting(); },
       (e) => { setError(errorText(e, t("appBar.unreachable"))); setOpening(null); });
   };
 

@@ -33,8 +33,9 @@ export interface CloudProject {
 /** The cloud projects of the user signed in here; none when nobody is */
 export const cloudProjects = (signal?: AbortSignal) => apiGet<{ projects: CloudProject[] }>("cloud/projects", signal).then((r) => r.projects);
 
-/** Opens one of them, with the sign-in kept: Collect Earth restarts with it */
-export const openCloudProject = (projectId: string) => apiPost<{ restart: boolean }>("cloud/projects/open", { projectId });
+/** Opens one of them, with the sign-in kept: Collect Earth restarts with it. The server says which one when several are signed in. */
+export const openCloudProject = (projectId: string, server?: string | null) =>
+  apiPost<{ restart: boolean }>("cloud/projects/open", server ? { projectId, server } : { projectId });
 
 export const cloudStatus =(signal?: AbortSignal) => apiGet<CloudStatus>("cloud/status", signal);
 
