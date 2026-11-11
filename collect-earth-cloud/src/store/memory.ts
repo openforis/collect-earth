@@ -90,6 +90,7 @@ import {
   type UserPlots,
 } from './store.js';
 import type { UncertaintySettings } from '../uncertainty.js';
+import type { AreaSettings } from '../areas.js';
 import type { CeoShapesJob } from '../ceo/shapes.js';
 
 /** The UTC month of a time, YYYY-MM (the AI token ledger's key). */
@@ -119,6 +120,7 @@ interface ProjectEntry {
   progressSettings: ProgressSettings | null;
   analysisViews: SharedAnalysisView[];
   uncertaintySettings: UncertaintySettings | null;
+  areaSettings: AreaSettings | null;
   ceoShapes: CeoShapesJob | null;
   /** The progress link's quality figure (projects.public_quality). */
   publicQuality: PublicQuality | null;
@@ -433,6 +435,7 @@ export class InMemoryStore implements Store {
       progressSettings: null,
       analysisViews: [],
       uncertaintySettings: null,
+      areaSettings: null,
       ceoShapes: null,
       publicQuality: null,
       aiEnabled: false,
@@ -2219,6 +2222,14 @@ export class InMemoryStore implements Store {
 
   async setUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<void> {
     this.requireProject(projectId).uncertaintySettings = structuredClone(settings);
+  }
+
+  async getAreaSettings(projectId: string): Promise<AreaSettings | null> {
+    return structuredClone(this.projects.get(projectId)?.areaSettings ?? null);
+  }
+
+  async setAreaSettings(projectId: string, settings: AreaSettings | null): Promise<void> {
+    this.requireProject(projectId).areaSettings = structuredClone(settings);
   }
 
   async getCeoShapes(projectId: string): Promise<CeoShapesJob | null> {

@@ -229,7 +229,7 @@ describe('the uncertainty routes', () => {
     const res = await call('GET', '', people.rev);
     expect(res.statusCode, res.body).toBe(200);
     const body = res.json();
-    expect(body).toMatchObject({ estimator: 'simple', areas: null, plots: 3, totalArea: 900, skipped: { unmapped: 1 } });
+    expect(body).toMatchObject({ estimator: 'simple', areas: 'total', plots: 3, totalArea: 900, skipped: { unmapped: 1 } });
     expect(body.unmapped).toEqual([{ which: 'initial', code: 'W', plots: 1 }]);
     const forest = body.categories.find((c: { category: string }) => c.category === 'forest');
     // 2 of 3 plots: 600 ha, SE = 900·√((2/9)/2) = 300

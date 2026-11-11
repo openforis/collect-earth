@@ -36,6 +36,7 @@ import { registerPeopleRoutes } from './routes/people.js';
 import { registerTimeSpentRoutes } from './routes/timeSpent.js';
 import { registerAnalysisRoutes } from './routes/analysis.js';
 import { registerUncertaintyRoutes } from './routes/uncertainty.js';
+import { registerAreaRoutes } from './routes/areas.js';
 import { PlotPlaceReader } from './routes/plotPlaces.js';
 import { PlotIndexCache, registerPlotSearchRoutes } from './routes/plotSearch.js';
 import { registerPlotsGeoRoutes } from './routes/plotsGeo.js';
@@ -276,6 +277,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerTimeSpentRoutes(app, store, states);
   await registerAnalysisRoutes(app, store, states, webDir);
   await registerUncertaintyRoutes(app, store, states);
+  await registerAreaRoutes(app, store, states);
   await registerFormerMemberRoutes(app, store, states);
   await registerPlotsGeoRoutes(app, store, quality, states, places, config.mapBuildsKept ? { maxBuilds: config.mapBuildsKept } : {});
   await registerActivityRoutes(app, store, quality, states, places, now);

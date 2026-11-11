@@ -7,6 +7,7 @@
 //   areas_per_attribute.csv, as Collect Earth's RegionCalculationUtils works it out for Saiku.
 // The browser loads the tables into DuckDB and pivots them (web/src/analysis): the server never aggregates.
 import { attr, childrenOf, elements, parseSurvey, tagOf, textOf, type XmlNode } from './cep.js';
+import { strataFactors, strataOfFile, withWeights } from './areas.js';
 import { prefixOf, QUALIFIER_SEPARATOR } from './surveyOutline.js';
 
 /** A label per language: the survey's languages, "" for a label without xml:lang. */
@@ -392,15 +393,6 @@ export function analysisTables(
   return out;
 }
 
-/** The value of a plot's answer for matching an areas file: numbers and booleans as Collect's database compares them. */
-function comparable(v: string | undefined): string {
-  if (v === undefined) return '';
-  const t = v.trim();
-  if (t === 'true' || t === 'false') return t;
-  if (t !== '' && Number.isFinite(Number(t))) return String(Number(t));
-  return t;
-}
-
 /** A CSV's separator: comma, semicolon or tab, whichever splits its first line most. */
 export function csvSeparatorOf(text: string): string {
   const first = text.replace(/^﻿/, '').split(/\r\n?|\n/).find((l) => l.trim() !== '') ?? '';
@@ -452,8 +444,8 @@ export const REGION_AREAS_CSV = 'region_areas.csv';
 export const ATTRIBUTE_AREAS_CSV = 'areas_per_attribute.csv';
 
 export interface Factors {
-  /** Which file gave them. */
-  source: typeof REGION_AREAS_CSV | typeof ATTRIBUTE_AREAS_CSV;
+  /** Which file gave them, or the project's setting (areas.ts): its strata, or one total area. */
+  source: typeof REGION_AREAS_CSV | typeof ATTRIBUTE_AREAS_CSV | 'strata' | 'total';
   /** `stratum`: the areas file's line the plot stands in, for the uncertainty's strata. */
   byPlot: Map<string, { factor: number; weight: number; stratum: string }>;
   /** Lines of the file that matched no plot, or whose area could not be read. */
@@ -509,27 +501,14 @@ export function expansionFactors(
       for (const p of matching) byPlot.set(p, { factor: area / matching.length, weight: 1, stratum });
     });
   } else if (files.attributeAreas) {
-    source = ATTRIBUTE_AREAS_CSV;
-    const separator = csvSeparatorOf(files.attributeAreas);
-    const [header, ...lines] = parseCsv(files.attributeAreas);
-    if (!header || header.length < 2) return null;
-    const hasWeight = header[header.length - 1].toLowerCase() === 'weight';
-    const attributes = header.slice(0, hasWeight ? -2 : -1).map(keyOf);
-    valuesOf = (s) => attributes.map((k) => s[k] ?? '').join(' / ');
-    for (const line of lines) {
-      const area = areaOf(line[attributes.length], separator);
-      if (!Number.isFinite(area)) { unmatched++; continue; }
-      const values = line.slice(0, attributes.length).map(comparable);
-      const matching = [...plots].filter(([, s]) => attributes.every((k, i) => comparable(s[k]) === values[i])).map(([p]) => p);
-      if (matching.length === 0) { unmatched++; continue; }
-      const stratum = line.slice(0, attributes.length).join(' / ');
-      for (const p of matching) byPlot.set(p, { factor: area / matching.length, weight: 1, stratum });
-    }
+    const read = strataOfFile(files.attributeAreas);
+    if (!read) return null;
+    const keys = read.areas.columns.map(keyOf);
+    const values = new Map([...plots].map(([p, s]) => [p, keys.map((k) => s[k])] as const));
+    return strataFactors(read.areas, values, { source: ATTRIBUTE_AREAS_CSV, unknownColumns, unmatched: read.unreadable });
   }
   if (source === null) return null;
-  const positive = [...byPlot.values()].map((f) => f.factor).filter((f) => f > 0);
-  const min = positive.length > 0 ? Math.min(...positive) : 0;
-  for (const f of byPlot.values()) f.weight = min > 0 ? f.factor / min : 0;
+  withWeights(byPlot);
   const outside = new Map<string, number>();
   for (const [p, s] of plots) if (!byPlot.has(p)) outside.set(valuesOf(s), (outside.get(valuesOf(s)) ?? 0) + 1);
   const examples = [...outside].map(([stratum, n]) => ({ stratum, plots: n })).sort((a, b) => b.plots - a.plots || a.stratum.localeCompare(b.stratum)).slice(0, 5);
