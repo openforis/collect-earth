@@ -5024,7 +5024,7 @@ export interface UncertaintySetup {
   languages: string[];
   questions: UncertaintyQuestion[];
   lists: Record<string, AnalysisListItem[]>;
-  areas: "region_areas.csv" | "areas_per_attribute.csv" | null;
+  areas: "strata" | "total" | "region_areas.csv" | "areas_per_attribute.csv" | null;
   canEdit: boolean;
 }
 
@@ -5065,6 +5065,45 @@ export async function getUncertaintySetup(projectId: string): Promise<Uncertaint
 
 export async function saveUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<UncertaintySettings> {
   return (await request<{ settings: UncertaintySettings }>("PUT", `${p(projectId)}/uncertainty/settings`, { json: settings })).settings;
+}
+
+/** The strata and their areas, or one total area (the server's src/areas.ts AreaSettings). */
+export type AreaSettings = { mode: "strata"; columns: string[]; strata: { values: string[]; area: number }[] } | { mode: "total"; area: number };
+
+/** What the plots' areas come from, and the strata with their plots (src/routes/areas.ts). */
+export interface AreasData {
+  /** "strata" | "total": set on the dashboard; a file of the project file; "uncertainty": the Uncertainty page's total; null: none. */
+  source: "strata" | "total" | "areas_per_attribute.csv" | "region_areas.csv" | "uncertainty" | null;
+  settings: AreaSettings | null;
+  /** Lines of the project file's areas file whose area cannot be read. */
+  unreadable: number;
+  /** The columns that can make strata: the survey's questions filled from the plot file, then the plot files' columns. */
+  columns: string[];
+  /** Each stratum: its area (null: none yet), its plots in the plot files (null: a column only in the answers), assessed, ha per plot. */
+  strata: { values: string[]; area: number | null; plots: number | null; assessed: number; haPerPlot: number | null }[];
+  /** Plots of values not listed (a column of many values). */
+  more: number;
+  assessed: number;
+  withArea: number;
+  unknownColumns: string[];
+  noStratum: { plots: number; examples: { stratum: string; plots: number }[] };
+  canEdit: boolean;
+}
+
+/** The project's strata and areas; with `columns`, the strata those columns would make (nothing saved). */
+export const getAreas = (projectId: string, columns?: string[]) =>
+  request<AreasData>("GET", `${p(projectId)}/areas${columns ? `?columns=${encodeURIComponent(columns.join(","))}` : ""}`);
+
+/** Saves the strata and areas, or one total area; null: back to the project file's areas file. */
+export const saveAreas = (projectId: string, settings: AreaSettings | null) => request<{ settings: AreaSettings | null }>("PUT", `${p(projectId)}/areas`, { json: { settings } });
+
+/** Saves the strata of an areas_per_attribute.csv (Collect Earth's: the columns, then area). */
+export const uploadAreasFile = (projectId: string, file: string) => request<{ settings: AreaSettings }>("PUT", `${p(projectId)}/areas`, { json: { file } });
+
+/** The strata as areas_per_attribute.csv. */
+export async function downloadAreasFile(projectId: string): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("GET", `${p(projectId)}/areas/file`);
+  return { blob: await response.blob(), filename: attachmentName(response, "areas_per_attribute.csv") };
 }
 
 export async function getUncertainty(projectId: string): Promise<UncertaintyData> {

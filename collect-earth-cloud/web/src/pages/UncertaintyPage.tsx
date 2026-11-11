@@ -160,7 +160,7 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
         />
       ) : (
         <Typography variant="body2" sx={{ mb: 2 }}>
-          {t("uncertainty.areasFile", { file: setup.areas! })}
+          {setup.areas === "strata" || setup.areas === "total" ? t("uncertainty.areasSetting") : t("uncertainty.areasFile", { file: setup.areas! })}
         </Typography>
       )}
       {rows.length > 0 && (

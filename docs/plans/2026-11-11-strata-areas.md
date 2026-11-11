@@ -1,6 +1,6 @@
 # Strata and areas: the expansion factor of each plot
 
-Date: 11 November 2026. Branch `ce-2026-GEW`. Status: in progress.
+Date: 11 November 2026. Branch `ce-2026-GEW`. **Status: done (11 Nov 2026).**
 
 ## Why
 
@@ -62,3 +62,22 @@ submitted first assessment; `plot_weight` is the factor divided by the smallest 
 - Filled by itself when the server knows the areas and nothing is set: a stratified design on the dashboard (the
   `stratum` column, km² × 100), a design over an area (its total), the Uncertainty page's total area.
 - The Uncertainty page reads the same setting; its total-area field writes it.
+
+## What was built
+
+- Step 1: `src/analysis.ts` (`analysisTables` by record, `csvTextOf`, `areaOf`, `Factors.unknownColumns` and
+  `noStratum`), `src/uncertainty.ts` (`noData` per year, the matrix over the plots with a category both years).
+- Step 2: `src/areas.ts` (the setting, `strataOfFile`, `strataFactors`, `totalFactors`), `src/routes/areas.ts`,
+  `projectFactors` in `src/routes/analysis.ts` (setting, else the project file's files, else the Uncertainty page's
+  total), migration 037; the dashboard's card `web/src/project/StrataAreas.tsx` on the Plot files tab, with
+  `web/src/areasView.ts`. A stratified design fills the strata (its `stratum` column, km² × 100) and any other design
+  the total, when the project has no areas yet. Before any plot is assessed, the card shows the design's hectares per
+  plot (the area over the plots in the plot files) in grey, to check each stratum's sampling intensity.
+- Checked on the Benin backup (`benin_2026_pfc`, 18 classified forests): its areas file comes from the `.collect`
+  into the project file, the card lists the 18 strata with their plots and the design's 25 to 220 ha per plot.
+
+## Not done
+
+- SIGRID designs do not fill the areas: the provinces' and districts' areas are not in the server's data.
+- `region_areas.csv` is read as before (by region or plot file) and shown, not edited: saving strata replaces it.
+- The Postgres side of migration 037 is checked by the typecheck only (no smoke run).

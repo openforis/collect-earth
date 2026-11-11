@@ -19,7 +19,7 @@ import { districtOptions, firstSpacing, sigridFileName } from "../sigridView";
 type District = ReturnType<typeof districtOptions>[number];
 
 /** Plots from the SIGRID grid of a country: its provinces or districts, clipped to an area if given, at one spacing. */
-export function SigridDesign({ projectId, busy, onFile }: { projectId: string; busy: boolean; onFile: (file: File) => Promise<void> }) {
+export function SigridDesign({ projectId, busy, onFile }: { projectId: string; busy: boolean; onFile: (file: File) => Promise<boolean> }) {
   const t = useT();
   const { language } = useApp();
   const [countries, setCountries] = useState<SigridCountry[]>([]);
