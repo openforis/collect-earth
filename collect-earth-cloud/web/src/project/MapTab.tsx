@@ -18,18 +18,19 @@ import Typography from "@mui/material/Typography";
 import Refresh from "@mui/icons-material/Refresh";
 import type * as Leaflet from "leaflet";
 import { useEffect, useId, useMemo, useRef, useState, type MouseEvent } from "react";
-import { getMapPlots, MAP_STATUSES, type MapPlots, type MapStatus, type MapTiles } from "../api";
+import { getMapPlots, getPeriods, getRepeatChange, MAP_STATUSES, type MapPlots, type MapStatus, type MapTiles } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { AsOf } from "../components/PeopleCharts";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain, MoreInfo } from "../components/Explain";
 import { formatDate, formatNumber } from "../format";
 import { useT, type Translate } from "../i18n";
-import { attributionHtml, boundsOf, CLUSTER_FROM, escapeHtml, filesOffMap, LIST_PAGE, plotList, plotPopup, shownIndexes, STATUS_STYLE, statusDrawnKey, statusLabelKey, symbolSvg } from "../mapView";
+import { attributionHtml, boundsOf, CHANGE_KINDS, CHANGE_STYLE, changeCodes, changeCounts, CLUSTER_FROM, escapeHtml, filesOffMap, LIST_PAGE, plotList, plotPopup, shownByCodes, shownIndexes, STATUS_STYLE, statusDrawnKey, statusLabelKey, styleSvg, symbolSvg, type StatusStyle } from "../mapView";
 import { legendStatuses, localMapPlots } from "../localMode";
 import { navigate, pathFor } from "../router";
 import { EmptyState } from "../components/EmptyState";
 import { loadLeaflet, type LeafletModule } from "./leaflet";
+import { useLoad } from "../useLoad";
 
 /** Read by screen readers, not shown. */
 const HIDDEN = { position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" } as const;
@@ -79,10 +80,21 @@ function popupElement(t: Translate, map: MapPlots, index: number, projectId: str
 const PLACE_SLICE = 10_000;
 
 /** The map itself: OpenStreetMap (or the server's) tiles, a circle per plot on a canvas, grouped from CLUSTER_FROM plots. */
+/**
+ * Another colouring than the statuses (a repeat survey's change since the earlier period): each plot's code, the style of
+ * each code, and the codes shown.
+ */
+interface Paint {
+  codes: Uint8Array;
+  styles: readonly StatusStyle[];
+  shown: readonly boolean[];
+}
+
 function PlotMap({
   projectId,
   data,
   shown,
+  paint = null,
   tiles,
   label,
   onProgress,
@@ -90,6 +102,7 @@ function PlotMap({
   projectId: string;
   data: MapPlots;
   shown: ReadonlySet<MapStatus>;
+  paint?: Paint | null;
   tiles: MapTiles;
   label: string;
   /** The plots shown, whether grouped, and how many are placed so far (null once all are). */
@@ -139,16 +152,15 @@ function PlotMap({
     const current = leaflet.current;
     if (!ready || !current) return;
     const { L, map, renderer } = current;
-    const indexes = shownIndexes(data, shown);
-    // One options object per status, shared by its markers.
-    const options = MAP_STATUSES.map((status): Leaflet.CircleMarkerOptions => {
-      const s = STATUS_STYLE[status];
-      return { renderer, radius: s.radius, color: s.color, weight: s.weight, fillColor: s.color, fillOpacity: s.fillOpacity, dashArray: s.dashArray, opacity: 1 };
-    });
+    const indexes = paint ? shownByCodes(paint.codes, paint.shown) : shownIndexes(data, shown);
+    // One options object per status (or per code of the other colouring), shared by its markers.
+    const styles = paint ? paint.styles : MAP_STATUSES.map((status) => STATUS_STYLE[status]);
+    const options = styles.map((s): Leaflet.CircleMarkerOptions => ({ renderer, radius: s.radius, color: s.color, weight: s.weight, fillColor: s.color, fillOpacity: s.fillOpacity, dashArray: s.dashArray, opacity: 1 }));
+    const codeOf = paint ? paint.codes : data.status;
     const markers: PlotMarker[] = new Array(indexes.length);
     for (let k = 0; k < indexes.length; k++) {
       const i = indexes[k];
-      const marker = L.circleMarker([data.lat[i], data.lon[i]], options[data.status[i]]) as PlotMarker;
+      const marker = L.circleMarker([data.lat[i], data.lon[i]], options[codeOf[i]]) as PlotMarker;
       marker.plotIndex = i;
       markers[k] = marker;
     }
@@ -233,7 +245,7 @@ function PlotMap({
     };
     // onProgress is the parent's setter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, data, shown, projectId]);
+  }, [ready, data, shown, paint, projectId]);
 
   if (failed) return <ErrorAlert error={failed} />;
   return (
@@ -251,15 +263,15 @@ function PlotMap({
  * (the points on the map are reached only with a mouse or a finger). Hidden until asked for, then
  * LIST_PAGE plots at a time; it follows the map's filters and the statuses switched on.
  */
-function PlotList({ projectId, data, shown }: { projectId: string; data: MapPlots; shown: ReadonlySet<MapStatus> }) {
+function PlotList({ projectId, data, shown, only = null }: { projectId: string; data: MapPlots; shown: ReadonlySet<MapStatus>; only?: Uint32Array | null }) {
   const t = useT();
   const { language } = useApp();
   const local = useLocalMode();
   const listId = useId();
   const [open, setOpen] = useState(false);
   const [limit, setLimit] = useState(LIST_PAGE);
-  useEffect(() => setLimit(LIST_PAGE), [data, shown]);
-  const list = useMemo(() => (open ? plotList(data, shown, projectId, limit) : null), [open, data, shown, projectId, limit]);
+  useEffect(() => setLimit(LIST_PAGE), [data, shown, only]);
+  const list = useMemo(() => (open ? plotList(data, shown, projectId, limit, only) : null), [open, data, shown, projectId, limit, only]);
   const n = (value: number) => formatNumber(value, language);
   const go = (path: string) => (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
@@ -328,6 +340,58 @@ function PlotList({ projectId, data, shown }: { projectId: string; data: MapPlot
   );
 }
 
+/** The legend of a repeat survey's change since the earlier period, each kind shown or hidden. */
+function ChangeLegend({ tableId, counts, shown, earlier, question, onToggle }: {
+  tableId: string;
+  counts: Record<(typeof CHANGE_KINDS)[number], number>;
+  shown: readonly boolean[];
+  earlier: string;
+  question: string;
+  onToggle: (index: number) => void;
+}) {
+  const t = useT();
+  const { language } = useApp();
+  return (
+    <Paper variant="outlined" component="section" aria-labelledby={tableId} sx={{ p: { xs: 2, sm: 3 } }}>
+      <Typography variant="h2" id={tableId} gutterBottom>
+        {t("map.changeLegend", { earlier })}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        {t("map.changeLegendHelp", { earlier, question })}
+      </Typography>
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell padding="checkbox">{t("map.col.show")}</TableCell>
+              <TableCell>{t("map.col.change")}</TableCell>
+              <TableCell>{t("map.col.drawn")}</TableCell>
+              <TableCell align="right">{t("map.col.plots")}</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {CHANGE_KINDS.map((kind, i) => (
+              <TableRow key={kind}>
+                <TableCell padding="checkbox">
+                  <Checkbox checked={shown[i]} onChange={() => onToggle(i)} slotProps={{ input: { "aria-label": t("map.showStatus", { status: t(`map.change.${kind}`, { earlier }) }) } }} />
+                </TableCell>
+                <TableCell component="th" scope="row">
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Box component="span" sx={{ display: "inline-flex", verticalAlign: "middle" }} dangerouslySetInnerHTML={{ __html: styleSvg(CHANGE_STYLE[kind]) }} />
+                    {t(`map.change.${kind}`, { earlier })}
+                  </Box>
+                </TableCell>
+                <TableCell sx={{ color: "text.secondary" }}>{t(`map.changeDrawn.${kind}`)}</TableCell>
+                <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>{formatNumber(counts[kind], language)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Paper>
+  );
+}
+
 /**
  * The map of progress (coordinators and reviewers): every plot of the plot files at its latitude and
  * longitude, drawn by its status, with filters by plot file and (coordinators) by person. Everything
@@ -350,6 +414,16 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
   const [drawn, setDrawn] = useState<{ shown: number; clustered: boolean; placed: number | null } | null>(null);
   // The menus keep the whole lists of the first answer (an answer for one person lists everyone too).
   const [menus, setMenus] = useState<{ files: MapPlots["files"]; people: string[] | null } | null>(null);
+  // A repeat survey: the plots coloured by their change since the earlier period, for a question, instead of their status
+  const periods = useLoad(() => (local ? Promise.resolve(null) : getPeriods(projectId)), [projectId, local]);
+  const repeats = periods.data?.settings != null;
+  const [colourBy, setColourBy] = useState<"status" | "change">("status");
+  const [question, setQuestion] = useState<string | null>(null);
+  const [changeShown, setChangeShown] = useState<boolean[]>(() => CHANGE_KINDS.map(() => true));
+  const change = useLoad(() => (repeats && colourBy === "change" ? getRepeatChange(projectId, question, null) : Promise.resolve(null)), [projectId, repeats, colourBy, question, reload]);
+  const codes = useMemo(() => (data && change.data && colourBy === "change" ? changeCodes(data, change.data.rows) : null), [data, change.data, colourBy]);
+  const paint = useMemo<Paint | null>(() => (codes ? { codes, styles: CHANGE_KINDS.map((k) => CHANGE_STYLE[k]), shown: changeShown } : null), [codes, changeShown]);
+  const paintedIndexes = useMemo(() => (paint ? shownByCodes(paint.codes, paint.shown) : null), [paint]);
 
   useEffect(() => {
     let stopped = false;
@@ -433,6 +507,19 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
               ))}
             </TextField>
           )}
+          {repeats && (
+            <TextField select size="small" label={t("map.colourBy")} name="colourBy" value={colourBy} onChange={(e) => setColourBy(e.target.value as "status" | "change")} sx={{ width: { xs: 1, sm: 240 } }}>
+              <MenuItem value="status">{t("map.colourByStatus")}</MenuItem>
+              <MenuItem value="change">{t("map.colourByChange", { earlier: periods.data?.settings?.earlier.at(-1)?.label ?? "" })}</MenuItem>
+            </TextField>
+          )}
+          {repeats && colourBy === "change" && change.data && (
+            <TextField select size="small" label={t("change.question")} name="changeQuestion" value={change.data.question.key} onChange={(e) => setQuestion(e.target.value)} sx={{ width: { xs: 1, sm: 240 } }}>
+              {change.data.questions.map((q) => (
+                <MenuItem key={q.key} value={q.key}>{q.label}</MenuItem>
+              ))}
+            </TextField>
+          )}
           <Button startIcon={<Refresh />} onClick={() => setReload((r) => r + 1)}>
             {t("map.reload")}
           </Button>
@@ -491,7 +578,8 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
             {data.total === 0 && data.unsupportedSrs === null && <Alert severity="info" role="note">{t("map.noPlots")}</Alert>}
             {data.total > 0 && (
               <>
-                <PlotMap projectId={projectId} data={data} shown={shown} tiles={info.mapTiles} label={t("map.label")} onProgress={(count, clustered, placed) => setDrawn({ shown: count, clustered, placed })} />
+                {colourBy === "change" && <ErrorAlert error={change.error} onRetry={change.reload} />}
+                <PlotMap projectId={projectId} data={data} shown={shown} paint={paint} tiles={info.mapTiles} label={t("map.label")} onProgress={(count, clustered, placed) => setDrawn({ shown: count, clustered, placed })} />
                 {drawn && (
                   <>
                     {/* Said once when the placing starts and once when it ends; the numbers in between are not read out. */}
@@ -505,14 +593,24 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
                     )}
                   </>
                 )}
-                <PlotList projectId={projectId} data={data} shown={shown} />
+                <PlotList projectId={projectId} data={data} shown={shown} only={paintedIndexes} />
               </>
             )}
           </Stack>
         )}
       </Paper>
 
-      {data && (
+      {data && paint && change.data && (
+        <ChangeLegend
+          tableId={tableId}
+          counts={changeCounts(paint.codes)}
+          shown={changeShown}
+          earlier={change.data.period}
+          question={change.data.question.label}
+          onToggle={(k) => setChangeShown((was) => was.map((on, i) => (i === k ? !on : on)))}
+        />
+      )}
+      {data && !paint && (
         <Paper variant="outlined" component="section" aria-labelledby={tableId} sx={{ p: { xs: 2, sm: 3 } }}>
           <Typography variant="h2" id={tableId} gutterBottom>
             {t("map.legend")}

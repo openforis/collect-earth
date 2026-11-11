@@ -88,7 +88,7 @@ A **Change** page (Results), for the questions the coordinator picks (land use b
 - the **transition matrix** (2020 rows × 2025 columns), as plots and as area (the plot weight of the sampling design,
   as the IPCC uncertainty does), with the uncertainty of each cell;
 - the plots that changed, filterable, each linking to its plot page with both periods' answers side by side;
-- a map of the changes (the Map tab's layer "changed since 2020");
+- a map of the changes (the Map tab's layer "changed since 2020", built);
 - the export: one row per plot with `2020.<key>` and `2025.<key>` columns, and the analysis page with a `period` field.
 
 ### 5. More than two periods
@@ -113,7 +113,7 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
 2. The desktop: the `period_status` attribute added to a repeat survey's survey, the plot's earlier answers asked when
    it opens, the form's header with its three choices. **Built** (below).
 3. The comparison: the transition matrix, the changed plots and corrections, the comparison as a file. **Built**
-   (below); the map layer later.
+   (below), with the Map tab's layer (below).
 4. Areas and uncertainty of the changes.
 
 ## Stage 1, as built (11 Nov 2026)
@@ -184,5 +184,18 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
 - Checked: `test/repeatSurvey.test.ts` (the outcomes, the matrix, the mismatches, the routes and the file),
   `repeatSurveyView.test.ts`, and in a browser (a 2020 project of 8 plots repeated, 7 collected in 2025 with each kind of
   outcome: the counts, the matrix, the corrections, the plot to look at again, the file downloaded).
-- Left for later: the Map tab's layer of the plots changed since the earlier period; areas and their uncertainty
-  (with the plots' weights, as the IPCC uncertainty page has them).
+- Left for later: areas and their uncertainty (with the plots' weights, as the IPCC uncertainty page has them).
+
+## Map layer, as built (11 Nov 2026)
+
+- Map tab of a repeat survey (cloud projects only, not in local mode): **Colour the plots by** their status (as
+  before) or **their change since 2020**, with the question to compare (the header's first question by default). The
+  page joins the map's plots to `GET .../periods/change` by plot id in the browser; no server change.
+- Each plot is drawn as unchanged (blue dot), changed (large vermilion dot, thick outline), corrected (pink dashed
+  ring), new (green dot), not collected yet (grey ring) or not compared (small dotted grey ring: a plot on the map with
+  no row in the comparison). Okabe–Ito colours with a different shape or outline for each, so they read without colour.
+- The legend **Change since 2020** has a line per kind with its symbol, how it is drawn, its count and a box to hide its
+  plots; the plots' list under the map follows what is shown. Texts in en/es/fr/pt.
+- `web/src/mapView.ts`: `CHANGE_KINDS`, `CHANGE_STYLE`, `changeCodes`, `changeCounts`, `shownByCodes`, `styleSvg`.
+- Checked: `mapView.test.ts`, and in a browser on the 8-plot project of stage 3 (counts 4 unchanged, 1 changed,
+  1 corrected, 1 new, 1 not collected yet; the list holds only the changed plot when the others are hidden).
