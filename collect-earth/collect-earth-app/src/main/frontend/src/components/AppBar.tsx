@@ -19,7 +19,7 @@ import TextField from "@mui/material/TextField";
 import Toolbar from "@mui/material/Toolbar";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import MenuIcon from "@mui/icons-material/Menu";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
 import CloudDoneOutlinedIcon from "@mui/icons-material/CloudDoneOutlined";
 import LoginOutlinedIcon from "@mui/icons-material/LoginOutlined";
 import PersonIcon from "@mui/icons-material/Person";
@@ -203,7 +203,8 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
           <IconButton edge="start" aria-label={t("appBar.menu")} id="app-menu-button-all"
             aria-controls={open?.id === null ? DRAWER_ID : undefined} aria-expanded={open?.id === null}
             onClick={(e) => setOpen({ anchor: e.currentTarget, id: null })}>
-            <MenuIcon />
+            {/* The three dots of today's apps: clearer than the three lines, as people told */}
+            <MoreVertIcon />
           </IconButton>
         )}
         <Logo sx={{ height: 40, flexShrink: 0 }} />
