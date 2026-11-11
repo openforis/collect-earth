@@ -12,6 +12,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -138,6 +139,13 @@ public class EarthProjectsService {
 
 			applyPropertiesToCollectEarth( projectProperties, projectFolder );
 
+			CollectDBDriver driver = localPropertiesService.getCollectDBDriver();
+			CollectDBDriver after = driverAfterLoading(driver, localPropertiesService.getValue(EarthProperty.CLOUD_PROJECT_FOLDER),
+					localPropertiesService.getCloudProjectId(), projectFolder);
+			if (after != driver) {
+				localPropertiesService.saveCollectDBDriver(after);
+			}
+
 			addToProjectList(projectFolder);
 
 			setProjectDefinitionMD5(projectFolder);
@@ -149,6 +157,23 @@ public class EarthProjectsService {
 		return success;
 	}
 
+
+	/**
+	 * The database of a project just loaded. The cloud mode is the joined project's (cloud_project_folder): another
+	 * project opened after it uses this computer's database, or its records would be synced to the cloud project, and
+	 * opening the joined one again brings its sync back. PostgreSQL is left as it is.
+	 */
+	static CollectDBDriver driverAfterLoading(CollectDBDriver current, String cloudFolder, String cloudProjectId, File loaded) {
+		boolean cloudProject = StringUtils.isNotBlank(cloudFolder) && StringUtils.isNotBlank(cloudProjectId)
+				&& new File(cloudFolder).getAbsoluteFile().equals(loaded.getAbsoluteFile());
+		if (current == CollectDBDriver.CLOUD && !cloudProject) {
+			return CollectDBDriver.SQLITE;
+		}
+		if (current == CollectDBDriver.SQLITE && cloudProject) {
+			return CollectDBDriver.CLOUD;
+		}
+		return current;
+	}
 
 	private void setProjectDefinitionMD5(File projectFolder) throws IOException {
 		localPropertiesService.setValue( EarthProperty.ACTIVE_PROJECT_DEFINITION, CollectEarthUtils.getMd5FromFolder( projectFolder ) );
