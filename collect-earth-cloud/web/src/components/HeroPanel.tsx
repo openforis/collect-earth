@@ -2,11 +2,16 @@ import "@fontsource/poppins/500.css";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
-import hero from "../assets/login-hero.jpg";
+// © FAO/Guillermo Carlos, PERU 2026, peatland monitoring in the Peruvian Amazon (FAO Digital Media Hub, photo credit
+// required): its 1200 px preview, lightly softened and in WebP, ~110 KB
+import hero from "../assets/login-hero.webp";
 import icon from "../shared/collect-earth-icon.png";
 
-// The look of Collect Earth's website (the gh-pages branch, after openforis.org): satellite imagery edge to edge with a
+// The look of Collect Earth's website (the gh-pages branch, after openforis.org): an aerial photo edge to edge with a
 // blue band under it, the content in a white, see-through, rounded box, Poppins headings and green buttons.
+
+/** The credit the photo's terms ask for, shown on it */
+const PHOTO_CREDIT = "© FAO/Guillermo Carlos";
 
 /** The website's colours (its style.css) */
 export const WEBSITE = {
@@ -31,7 +36,7 @@ export const WEBSITE_BUTTON = {
 } as const;
 
 /**
- * The website's hero around a page of its own (the log-in page): the satellite image filling the page, the blue band
+ * The website's hero around a page of its own (the log-in page): an aerial photo of forest filling the page, the blue band
  * under it, and `children` in the white box, to the right on a wide screen as on the website, in the middle on a narrow
  * one, under the name of the product with its emblem.
  */
@@ -40,12 +45,13 @@ export function HeroPanel({ name, children }: { name: string; children: ReactNod
     <Box
       sx={{
         flex: 1,
+        position: "relative",
         display: "flex",
         alignItems: "center",
         justifyContent: { xs: "center", md: "flex-end" },
         px: { xs: 1.5, sm: 3, md: "6vw" },
         py: { xs: 3, sm: 6 },
-        background: `#23463a url(${hero}) 22% 45% / cover no-repeat`,
+        background: `#2f4a2a url(${hero}) center / cover no-repeat`,
         borderBottom: `8px solid ${WEBSITE.blue}`,
         "@media print": { background: "none", borderBottom: 0 },
       }}
@@ -68,6 +74,12 @@ export function HeroPanel({ name, children }: { name: string; children: ReactNod
         </Typography>
         {children}
       </Box>
+      <Typography
+        component="p"
+        sx={{ position: "absolute", left: 12, bottom: 6, m: 0, fontSize: "0.7rem", color: "rgba(255, 255, 255, 0.85)", textShadow: "0 1px 2px rgba(0, 0, 0, 0.6)" }}
+      >
+        {PHOTO_CREDIT}
+      </Typography>
     </Box>
   );
 }
