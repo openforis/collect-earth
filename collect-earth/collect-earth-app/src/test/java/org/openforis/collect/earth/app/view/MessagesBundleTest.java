@@ -5,6 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -49,6 +53,22 @@ class MessagesBundleTest {
 				}
 			}
 			assertTrue(missing.isEmpty(), BUNDLES[i] + " lacks " + missing);
+		}
+	}
+
+	// ResourceBundle reads a file as UTF-8 and only falls back to ISO-8859-1 when the whole file is not UTF-8, so one
+	// Latin-1 letter in a UTF-8 file (or the other way round) turns every accented letter of that language into garbage
+	@Test
+	void everyBundleIsUtf8() throws IOException {
+		for (String bundle : BUNDLES) {
+			try (InputStream in = open(bundle)) {
+				byte[] bytes = in.readAllBytes();
+				try {
+					StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes));
+				} catch (CharacterCodingException e) {
+					throw new AssertionError(bundle + ".properties is not UTF-8: write the letter as \\uXXXX or save the file as UTF-8", e);
+				}
+			}
 		}
 	}
 
