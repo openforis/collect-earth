@@ -143,7 +143,15 @@ public class CloudService {
 		// Log in with the invitation: someone who has an account (another project's) joins this one with it
 		String token = request.register ? authenticate(() -> api.register(request.baseUrl, username, request.password, request.inviteToken), request)
 				: authenticate(() -> login(request.baseUrl, username, request.password, request.code, request.inviteToken), request);
-		File cep = api.downloadCep(request.baseUrl, request.projectId, token);
+		useProject(request.baseUrl, request.projectId, token);
+		properties.saveOperator(username);
+		// The next start offers to send the records this computer already has (CloudRecordsSender)
+		properties.setValue(EarthProperty.CLOUD_OFFER_LOCAL_RECORDS, Boolean.TRUE.toString());
+	}
+
+	/** Downloads the project, loads it and switches to cloud mode for it: the caller restarts. */
+	private void useProject(String baseUrl, String projectId, String token) throws IOException {
+		File cep = api.downloadCep(baseUrl, projectId, token);
 		try {
 			projects.loadCompressedProjectFile(cep);
 		} finally {
@@ -151,15 +159,52 @@ public class CloudService {
 				cep.deleteOnExit();
 			}
 		}
-		properties.saveCloudSyncUrl(request.baseUrl);
-		properties.saveCloudProjectId(request.projectId);
+		properties.saveCloudSyncUrl(baseUrl);
+		properties.saveCloudProjectId(projectId);
 		properties.saveCloudSyncToken(token);
-		properties.saveOperator(username);
 		properties.setCloudSyncEnabled(true);
 		properties.saveCollectDBDriver(CollectDBDriver.CLOUD);
 		properties.setValue(EarthProperty.CLOUD_PROJECT_FOLDER, properties.getProjectFolder());
-		// The next start offers to send the records this computer already has (CloudRecordsSender)
-		properties.setValue(EarthProperty.CLOUD_OFFER_LOCAL_RECORDS, Boolean.TRUE.toString());
+	}
+
+	/**
+	 * The cloud projects of the user signed in on this computer (the token kept since the join), the one open marked;
+	 * none when nobody is signed in.
+	 */
+	public List<Map<String, Object>> myProjects() throws InvalidCloudRequestException {
+		String baseUrl = properties.getCloudSyncUrl();
+		String token = properties.getCloudSyncToken();
+		if (StringUtils.isBlank(baseUrl) || StringUtils.isBlank(token)) {
+			return Collections.emptyList();
+		}
+		List<JoinPreview> found;
+		try {
+			found = api.listProjects(baseUrl, token);
+		} catch (IOException e) {
+			logger.warn("The cloud projects could not be listed: {}", e.getMessage());
+			throw new InvalidCloudRequestException("cloud.projects", Messages.getString("CloudProjects.failed"));
+		}
+		List<Map<String, Object>> list = new ArrayList<>();
+		for (JoinPreview project : found) {
+			Map<String, Object> entry = new LinkedHashMap<>();
+			entry.put("projectId", project.getProjectId());
+			entry.put("projectName", project.getProjectName());
+			entry.put("role", project.getRole());
+			entry.put("active", properties.isCloudSyncEnabled() && project.getProjectId().equals(properties.getCloudProjectId()));
+			list.add(entry);
+		}
+		return list;
+	}
+
+	/** Opens one of {@link #myProjects()}, as a join does with no invitation or login: the caller restarts. */
+	public void open(String projectId) throws InvalidCloudRequestException, IOException {
+		String baseUrl = properties.getCloudSyncUrl();
+		String token = properties.getCloudSyncToken();
+		// An id, nothing else, as it goes into the address of the download
+		if (StringUtils.isBlank(baseUrl) || StringUtils.isBlank(token) || projectId == null || !projectId.matches("[A-Za-z0-9_-]+")) {
+			throw new InvalidCloudRequestException("cloud.projects", Messages.getString("CloudProjects.failed"));
+		}
+		useProject(baseUrl, projectId, token);
 	}
 
 	/** The login of the prompt at start: the token saved, the operator is the user. @return the operator */

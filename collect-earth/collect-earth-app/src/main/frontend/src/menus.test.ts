@@ -12,7 +12,7 @@ describe("appMenus", () => {
   it("only enables what is built", () => {
     const enabled = appMenus({ plotsMap: true }).flatMap((m) => m.items).filter((i) => i.enabled).map((i) => i.id);
     // Cloud sync status is a cloud project's (see "cloud and local projects")
-    expect(enabled).toEqual(["importCep", "joinCloud", "language", "quit", "export", "import",
+    expect(enabled).toEqual(["importCep", "projects", "joinCloud", "language", "quit", "export", "import",
       "analyse", "lulucf", "loadKml", "dataFolder", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "properties",
       "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
     // The survey guide only when the survey has one, as the Swing menu showed it
@@ -49,6 +49,15 @@ describe("appMenus", () => {
     const labels = [false, true].flatMap((cloud) =>
       appMenus({ plotsMap: false, cloud }).flatMap((m) => [m.label, ...m.items.flatMap((i) => [i.label, i.disabledReason, i.note].filter((k): k is string => !!k))]));
     expect(labels.filter((label) => !keys.has(label))).toEqual([]);
+  });
+});
+
+describe("switch project", () => {
+  it("is right under Import CEP file, in a local project and a cloud one", () => {
+    for (const cloud of [false, true]) {
+      const project = appMenus({ plotsMap: true, cloud }).find((m) => m.id === "project")!.items.map((i) => i.id);
+      expect(project.slice(0, 2)).toEqual(["importCep", "projects"]);
+    }
   });
 });
 

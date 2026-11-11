@@ -88,6 +88,43 @@ public class CloudServiceTest {
 	}
 
 	@Test
+	public void listsTheProjectsOfTheUserSignedInHereTheOpenOneMarked() throws Exception {
+		when(properties.getCloudSyncUrl()).thenReturn("https://c.org");
+		when(properties.getCloudSyncToken()).thenReturn("session-token");
+		when(properties.isCloudSyncEnabled()).thenReturn(true);
+		when(properties.getCloudProjectId()).thenReturn("p2");
+		when(api.listProjects("https://c.org", "session-token")).thenReturn(java.util.Arrays.asList(
+				new JoinPreview("p1", "Kenya 2025", "operator", true), new JoinPreview("p2", "Peru", "admin", true)));
+		java.util.List<Map<String, Object>> mine = service.myProjects();
+		assertEquals("Kenya 2025", mine.get(0).get("projectName"));
+		assertEquals(false, mine.get(0).get("active"));
+		assertEquals(true, mine.get(1).get("active"));
+	}
+
+	@Test
+	public void nobodySignedInHasNoCloudProjects() throws Exception {
+		assertEquals(0, service.myProjects().size());
+		verify(api, never()).listProjects(any(), any());
+	}
+
+	@Test
+	public void opensAProjectWithTheSignInKeptAndSwitchesToCloudMode() throws Exception {
+		File cep = new File(folder, "peru.cep");
+		java.nio.file.Files.write(cep.toPath(), new byte[] { 1 });
+		when(properties.getCloudSyncUrl()).thenReturn("https://c.org");
+		when(properties.getCloudSyncToken()).thenReturn("session-token");
+		when(properties.getProjectFolder()).thenReturn("C:/projects/peru");
+		when(api.downloadCep("https://c.org", "p2", "session-token")).thenReturn(cep);
+		service.open("p2");
+		verify(projects).loadCompressedProjectFile(cep);
+		verify(properties).saveCloudProjectId("p2");
+		verify(properties).saveCollectDBDriver(CollectDBDriver.CLOUD);
+		verify(properties).setValue(org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty.CLOUD_PROJECT_FOLDER, "C:/projects/peru");
+		// only an id goes into the download's address
+		assertEquals("cloud.projects", assertThrows(InvalidCloudRequestException.class, () -> service.open("../admin")).getCode());
+	}
+
+	@Test
 	public void registeringUsesTheInvitation() throws Exception {
 		when(api.register("https://c.org", "maria", "password12", "tok")).thenReturn("t");
 		when(api.downloadCep("https://c.org", "p1", "t")).thenReturn(new File(folder, "none.cep"));

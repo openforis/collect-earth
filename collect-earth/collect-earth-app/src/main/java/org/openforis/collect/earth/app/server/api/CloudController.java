@@ -64,6 +64,32 @@ public class CloudController {
 		return Collections.singletonMap("restart", true);
 	}
 
+	/** The cloud projects of the user signed in here (Project > Switch project) */
+	@GetMapping("/api/cloud/projects")
+	public Map<String, Object> projects() {
+		try {
+			return Collections.singletonMap("projects", cloud.myProjects());
+		} catch (InvalidCloudRequestException e) {
+			throw new ApiException(e.getCode(), e.getMessage());
+		}
+	}
+
+	public static class OpenRequest {
+		public String projectId;
+	}
+
+	/** One of them opened: the restart follows the answer, as after a join */
+	@PostMapping("/api/cloud/projects/open")
+	public Map<String, Object> open(@RequestBody OpenRequest request) throws IOException {
+		try {
+			cloud.open(request.projectId);
+		} catch (InvalidCloudRequestException e) {
+			throw new ApiException(e.getCode(), e.getMessage());
+		}
+		restart.run();
+		return Collections.singletonMap("restart", true);
+	}
+
 	@PostMapping("/api/cloud/login")
 	public Map<String, Object> login(@RequestBody LoginRequest request) {
 		try {

@@ -437,6 +437,18 @@ public class CloudApiClient {
 				textOrNull(response, "role"), response.has("valid") && response.get("valid").asBoolean());
 	}
 
+	/** The projects of the user the session token is of (GET /v1/projects, the dashboard's home page): id, name, role. */
+	public List<JoinPreview> listProjects(String baseUrl, String token) throws IOException {
+		HttpGet request = new HttpGet(normalize(baseUrl) + "/v1/projects");
+		prepareWith(request, token);
+		List<JoinPreview> projects = new ArrayList<>();
+		for (JsonNode project : executeForJson("listProjects", request).path("projects")) {
+			projects.add(new JoinPreview(textOrNull(project, "projectId"), textOrNull(project, "projectName"),
+					textOrNull(project, "role"), true));
+		}
+		return projects;
+	}
+
 	/**
 	 * Downloads the project's CEP zip to a temporary file, authenticated with the
 	 * given session token. The caller loads it via EarthProjectsService and deletes it.

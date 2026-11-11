@@ -50,6 +50,7 @@ import { NoticeDialog } from "./notices/NoticeDialog";
 import { CloudLoginDialog } from "./project/CloudLoginDialog";
 import { CloudStatusDialog } from "./project/CloudStatusDialog";
 import { ImportCepDialog } from "./project/ImportCepDialog";
+import { ProjectsDialog } from "./project/ProjectsDialog";
 import { JoinCloudDialog } from "./project/JoinCloudDialog";
 import { LanguageDialog } from "./project/LanguageDialog";
 import { SendToCloudDialog } from "./project/SendToCloudDialog";
@@ -126,7 +127,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
     dataFolder: quick("openDataFolder"), openPlotsMap: quick("openPlotsMap"), myDashboard: quick("openDashboard"),
     missingPlots: () => setDialog("missingPlots"), divideCsv: () => setDialog("divideCsv"), deletePlots: () => setDialog("deletePlots"),
     sendToCloud: () => setDialog("sendToCloud"),
-    importCep: () => { setDropped(null); setDialog("importCep"); }, joinCloud: () => setDialog("joinCloud"), cloudStatus: () => setDialog("cloudStatus"), language: () => setDialog("language"),
+    importCep: () => { setDropped(null); setDialog("importCep"); }, projects: () => setDialog("projects"), joinCloud: () => setDialog("joinCloud"), cloudStatus: () => setDialog("cloudStatus"), language: () => setDialog("language"),
     surveyGuide: quick("openSurveyGuide"), manual: quick("openManual"), support: quick("openSupport"), updates: quick("runUpdater"),
     log: () => setDialog("log"), disclaimer: () => setDialog("disclaimer"), about: () => setDialog("about"),
     showExceptions: () => {
@@ -280,6 +281,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
       <DivideCsvDialog open={dialog === "divideCsv"} texts={texts} onClose={close} />
       <DeletePlotsDialog open={dialog === "deletePlots"} texts={texts} onClose={close} />
       <ImportCepDialog open={dialog === "importCep"} texts={texts} onClose={close} path={dropped?.kind === "cep" ? dropped.path : null} />
+      <ProjectsDialog open={dialog === "projects"} texts={texts} onClose={close} onRestarting={() => setRestarting(true)} />
       <JoinCloudDialog open={dialog === "joinCloud"} texts={texts} onClose={close} />
       <SendToCloudDialog open={dialog === "sendToCloud"} texts={texts} operator={operator} onClose={close} />
       <CloudStatusDialog open={dialog === "cloudStatus"} texts={texts} language={info.language} onClose={close} />

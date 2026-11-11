@@ -23,7 +23,15 @@ export const cloudLogin = (username: string, password: string, code?: string) =>
 export const cloudToken = (url: string, username: string, password: string, code?: string) =>
   apiPost<{ token: string }>("cloud/token", code ? { url, username, password, code } : { url, username, password });
 
-export const cloudStatus = (signal?: AbortSignal) => apiGet<CloudStatus>("cloud/status", signal);
+export interface CloudProject { projectId: string; projectName: string; role: string; active: boolean }
+
+/** The cloud projects of the user signed in here; none when nobody is */
+export const cloudProjects = (signal?: AbortSignal) => apiGet<{ projects: CloudProject[] }>("cloud/projects", signal).then((r) => r.projects);
+
+/** Opens one of them, with the sign-in kept: Collect Earth restarts with it */
+export const openCloudProject = (projectId: string) => apiPost<{ restart: boolean }>("cloud/projects/open", { projectId });
+
+export const cloudStatus =(signal?: AbortSignal) => apiGet<CloudStatus>("cloud/status", signal);
 
 export const cloudSyncNow = () => apiPost<void>("cloud/syncNow");
 

@@ -14,7 +14,7 @@ export interface Menu { id: string; label: string; items: MenuItem[] }
 // The entries built so far: the others show, disabled, until their stage of docs/plans/2026-10-28-html-ui-design.md
 const BUILT = new Set(["quit", "properties", "export", "import",
   "analyse", "lulucf", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "sendToCloud",
-  "importCep", "joinCloud", "cloudStatus", "language", "surveyGuide", "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
+  "importCep", "projects", "joinCloud", "cloudStatus", "language", "surveyGuide", "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
 
 /**
  * The entries the Swing window disabled when Collect Earth acts as a client of another instance (serverMenuItems):
@@ -57,6 +57,8 @@ function allMenus(app: MenuContext): Menu[] {
   return [
     { id: "project", label: "CollectEarthWindow.10", items: [
       item("importCep", "CollectEarthMenu.0"),
+      // The projects loaded before, to go back to one (the Settings page has the same list)
+      item("projects", "CollectEarthMenu.switchProject"),
       item("joinCloud", "CollectEarthMenu.joinCloudProject"),
       // Only a cloud project has a sync to show
       unless(!app.cloud, item("cloudStatus", "CloudSyncStatusDialog.menuItem"), "CloudSyncStatusDialog.localProject"),

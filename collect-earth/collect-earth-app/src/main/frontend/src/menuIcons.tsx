@@ -23,6 +23,7 @@ import MenuBookOutlinedIcon from "@mui/icons-material/MenuBookOutlined";
 import PowerSettingsNewOutlinedIcon from "@mui/icons-material/PowerSettingsNewOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import SwapHorizOutlinedIcon from "@mui/icons-material/SwapHorizOutlined";
 import SystemUpdateAltOutlinedIcon from "@mui/icons-material/SystemUpdateAltOutlined";
 import TranslateOutlinedIcon from "@mui/icons-material/TranslateOutlined";
 
@@ -32,6 +33,7 @@ import TranslateOutlinedIcon from "@mui/icons-material/TranslateOutlined";
  */
 export const MENU_ICONS: Record<string, SvgIconComponent> = {
   importCep: FileOpenOutlinedIcon,
+  projects: SwapHorizOutlinedIcon,
   joinCloud: GroupAddOutlinedIcon,
   cloudStatus: CloudSyncOutlinedIcon,
   language: TranslateOutlinedIcon,
