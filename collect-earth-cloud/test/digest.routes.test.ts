@@ -415,6 +415,21 @@ describe('email digests (Task 19)', () => {
     expect((await digest()).json()).toMatchObject({ sent: 2 });
   });
 
+  it('a coordinator given plots is offered My week, and it tells their own plots of the project they coordinate', async () => {
+    const before = (await call('GET', '/assignments', owner.token)).json().assignments as { userId: string; csvFileId: string }[];
+    const mine = (await call('PUT', '/csv-files/mine.csv', owner.token, 'id,lat,lon\n9,0,0\n10,0,0\n', { 'content-type': 'text/csv' })).json().id;
+    await call('PUT', '/assignments', owner.token, { assignments: [...before.map(({ userId, csvFileId }) => ({ userId, csvFileId })), { userId: owner.userId, csvFileId: mine }] });
+    const monday = Date.parse(`${weekMonday(dueWeek(clock, 'UTC'))}T12:00:00Z`);
+    await batchRequest(ctx.app, pid, owner.token, [envelope({ recordKey: '9', operator: 'owner', modifiedOn: monday + DAY, activelySaved: true })]);
+    expect((await me('GET', '/notifications', owner.token)).json().roles).toEqual({ coordinator: true, collector: true });
+    await subscribe(owner, 'owner@example.org', { collector: true });
+    expect((await digest()).json()).toMatchObject({ sent: 1 });
+    const [m] = digests('owner@example.org');
+    expect(m.tag).toBe('digest.collector');
+    expect(m.text).toContain('Forest inventory');
+    expect(m.text).toContain(`https://ce.example.org/projects/${pid}/my-work`);
+  });
+
   it("a person's week with nothing done and nothing left to do sends no mail", async () => {
     // maria does her last plot (4) before the digest's week: that week she submitted 1, 2 and 7.
     const monday = Date.parse(`${weekMonday(dueWeek(clock, 'UTC'))}T12:00:00Z`);

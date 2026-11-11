@@ -356,7 +356,9 @@ async function buildDigest(
   at: { week: string; timeZone: string; serverName: string; baseUrl: string },
 ): Promise<MailMessage | null> {
   const memberships = (await deps.store.listMemberships(row.userId))
-    .filter((m) => (row.kind === 'coordinator' ? m.role === 'admin' : m.role !== 'admin'))
+    // My week: every project, those the person coordinates too (a coordinator given plots collects them);
+    // a project with nothing of theirs is left out below.
+    .filter((m) => row.kind === 'collector' || m.role === 'admin')
     .sort((a, b) => a.projectName.localeCompare(b.projectName) || (a.projectId < b.projectId ? -1 : 1));
   const ctx: DigestContext = {
     serverName: at.serverName,

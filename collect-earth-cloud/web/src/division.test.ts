@@ -110,6 +110,13 @@ describe("people", () => {
   it("only coordinators: everyone", () => {
     expect(collectors([members[0]]).map((m) => m.userId)).toEqual(["u0"]);
   });
+  it("a coordinator can take plots: offered with everyone (last), and alone in the project ticked and sent", () => {
+    expect(sortPeople(members).map((m) => m.userId)).toContain("u0");
+    const alone: DivisionForm = { ...initialForm(null, [], [members[0]]), mode: "even" };
+    expect(alone.people).toEqual(["u0"]);
+    expect(formProblem(alone, columns)).toBeNull();
+    expect(toRequest(alone, columns)).toMatchObject({ mode: "even", people: ["u0"] });
+  });
 });
 
 describe("initialForm", () => {

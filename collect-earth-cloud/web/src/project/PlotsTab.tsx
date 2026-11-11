@@ -80,6 +80,23 @@ function DividedChip({ projectId, fileId, count }: { projectId: string; fileId: 
   return <Chip icon={<CallSplit />} label={label} clickable component="a" color="primary" variant="outlined" {...linkProps(filePath(projectId, fileId))} />;
 }
 
+/** Only the coordinator in the project: plots can go to them alone; the way to invite people. */
+export function OnlyYou({ onGo }: { onGo: (tab: ProjectTab) => void }) {
+  const t = useT();
+  return (
+    <Alert
+      severity="info"
+      action={
+        <Button color="inherit" size="small" endIcon={<ArrowForward />} onClick={() => onGo("people")}>
+          {t("step.invite.action")}
+        </Button>
+      }
+    >
+      {t("plots.onlyYou")}
+    </Alert>
+  );
+}
+
 function AssignmentGrid({
   projectId,
   files,
@@ -112,19 +129,6 @@ function AssignmentGrid({
   const people = useMemo(() => sortPeople(members), [members]);
   const changed = useMemo(() => hasChanges(pairs, saved), [pairs, saved]);
 
-  if (members.length <= 1) {
-    return (
-      <EmptyState
-        title={t("plots.gridNeedsPeople")}
-        action={
-          <Button variant="contained" endIcon={<ArrowForward />} onClick={() => onGo("people")}>
-            {t("step.invite.action")}
-          </Button>
-        }
-      />
-    );
-  }
-
   const toggle = (key: string) => {
     setDone(false);
     setPairs((current) => {
@@ -151,6 +155,8 @@ function AssignmentGrid({
 
   return (
     <Stack spacing={2}>
+      {/* Alone in the project, a coordinator can still give plot files to themselves. */}
+      {members.length <= 1 && <OnlyYou onGo={onGo} />}
       <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 1, maxHeight: 520 }}>
         <Table size="small" stickyHeader>
           <TableHead>
