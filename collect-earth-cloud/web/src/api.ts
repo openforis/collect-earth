@@ -3181,8 +3181,17 @@ export interface AnalysisData {
   model: AnalysisModelData;
   /** "project": every record (coordinators, reviewers); "own": the person's own, without rounds (collectors). */
   scope: "project" | "own";
-  /** Where the areas come from (the project file's region_areas.csv or areas_per_attribute.csv), or null: no areas. */
-  areas: { source: string; plots: number; unmatched: number } | null;
+  /**
+   * Where the areas come from (the project file's region_areas.csv or areas_per_attribute.csv), or null: no areas.
+   * `unknownColumns`: the file's columns that are no question of the survey; `noStratum`: plots in no line of the file.
+   */
+  areas: {
+    source: string;
+    plots: number;
+    unmatched: number;
+    unknownColumns?: string[];
+    noStratum?: { plots: number; examples: { stratum: string; plots: number }[] };
+  } | null;
   tables: AnalysisTableData[];
 }
 
@@ -5039,7 +5048,9 @@ export interface UncertaintyData {
   plots: number;
   strata: { key: string; area: number; plots: number }[];
   notEstimable: { key: string; area: number; plots: number }[];
-  skipped: { missing: number; unmapped: number; leftOut: number; noArea: number };
+  skipped: { missing: number; unmapped: number; noArea: number };
+  /** The plots of a code left out (no data), each year: in their stratum's count, in no category. */
+  noData: { initial: UncertaintyEstimate; final: UncertaintyEstimate };
   unmapped: { which: "initial" | "final"; code: string; plots: number }[];
   categories: { category: IpccCategory; initial: UncertaintyEstimate; final: UncertaintyEstimate }[];
   total: UncertaintyEstimate;

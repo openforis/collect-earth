@@ -714,6 +714,18 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
         </Alert>
       )}
       {data.areas && data.areas.unmatched > 0 && <Alert severity="warning">{t("analysis.areasUnmatched", { file: data.areas.source, count: data.areas.unmatched })}</Alert>}
+      {data.areas && (data.areas.unknownColumns?.length ?? 0) > 0 && (
+        <Alert severity="warning">{t("analysis.areasUnknownColumns", { file: data.areas.source, columns: data.areas.unknownColumns!.join(", ") })}</Alert>
+      )}
+      {data.areas && (data.areas.noStratum?.plots ?? 0) > 0 && (
+        <Alert severity="warning">
+          {t("analysis.areasNoStratum", {
+            file: data.areas.source,
+            count: formatNumber(data.areas.noStratum!.plots, language),
+            examples: data.areas.noStratum!.examples.map((e) => `${e.stratum || "—"} (${formatNumber(e.plots, language)})`).join(", "),
+          })}
+        </Alert>
+      )}
       <ErrorAlert error={error} />
       {step !== "ready" && !error && (
         <Box role="status">

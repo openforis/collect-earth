@@ -259,7 +259,8 @@ function Summary({ d }: { d: UncertaintyData }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number, digits = 0) => new Intl.NumberFormat(language, { maximumFractionDigits: digits }).format(v);
-  const skipped = (["missing", "unmapped", "leftOut", "noArea"] as const).filter((k) => d.skipped[k] > 0);
+  const skipped = (["missing", "unmapped", "noArea"] as const).filter((k) => d.skipped[k] > 0);
+  const noData = Math.max(d.noData.initial.area, d.noData.final.area);
   const unmappedOf = (which: "initial" | "final") => d.unmapped.filter((u) => u.which === which);
   return (
     <Stack spacing={1}>
@@ -280,6 +281,11 @@ function Summary({ d }: { d: UncertaintyData }) {
               </div>
             ) : null,
           )}
+        </Alert>
+      )}
+      {noData > 0 && (
+        <Alert severity="info">
+          {t("uncertainty.noDataNote", { initial: n(d.noData.initial.area, 1), final: n(d.noData.final.area, 1), initialYear: d.settings.initialYear, finalYear: d.settings.finalYear })}
         </Alert>
       )}
       {d.notEstimable.length > 0 && (

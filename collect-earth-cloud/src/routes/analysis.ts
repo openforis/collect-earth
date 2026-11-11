@@ -5,7 +5,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { analysisModel, analysisTables, ATTRIBUTE_AREAS_CSV, expansionFactors, REGION_AREAS_CSV, type AnalysisModel, type AnalysisRecord } from '../analysis.js';
+import { analysisModel, analysisTables, ATTRIBUTE_AREAS_CSV, csvTextOf, expansionFactors, recordId, REGION_AREAS_CSV, type AnalysisModel, type AnalysisRecord, type Factors } from '../analysis.js';
 import { readCep } from '../cep.js';
 import { attachment } from '../download.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
@@ -50,7 +50,7 @@ export function modelOf(cep: Buffer): Parsed {
     const text = (path: string) => {
       // the file at the root of the project file, whatever its folder inside the zip
       const entry = [...files.entries].find(([name]) => name === path || name.endsWith(`/${path}`));
-      return entry ? new TextDecoder().decode(entry[1]) : undefined;
+      return entry ? csvTextOf(entry[1]) : undefined;
     };
     out = { model: analysisModel(new TextDecoder().decode(files.entries.get(files.surveyPath)!)), regionAreas: text(REGION_AREAS_CSV), attributeAreas: text(ATTRIBUTE_AREAS_CSV) };
   } catch {
@@ -154,13 +154,16 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
     }
 
     // The expansion factors are the plots', from their first assessments: over the whole project, whoever asks
-    const factors = factorsOf(parsed, firstAssessments(rows, resolve));
+    const firsts = firstAssessments(rows, resolve);
+    const factors = factorsOf(parsed, firsts);
 
-    const tables = analysisTables(parsed.model, records, factors?.byPlot ?? null, { hideRounds: !everyone });
+    const tables = analysisTables(parsed.model, records, factors ? factorsByRecord(factors, firsts) : null, { hideRounds: !everyone });
     return {
       model: parsed.model,
       scope: everyone ? 'project' : 'own',
-      areas: factors ? { source: factors.source, plots: factors.byPlot.size, unmatched: factors.unmatched } : null,
+      areas: factors
+        ? { source: factors.source, plots: factors.byPlot.size, unmatched: factors.unmatched, unknownColumns: factors.unknownColumns, noStratum: factors.noStratum }
+        : null,
       tables,
     };
   }
@@ -209,20 +212,36 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
  * The first assessment of each plot of the project, by plot unit: submitted, not deleted, not a check (training records
  * are kept apart, never listed). What the expansion factors and the uncertainty (routes/uncertainty.ts) are worked out from.
  */
-export function firstAssessments(rows: readonly RecordRow[], resolve: ReturnType<typeof recordResolver>): Map<string, Record<string, string>> {
-  const firsts = new Map<string, Record<string, string>>();
+export interface FirstAssessment {
+  recordKey: string;
+  operator: string;
+  summary: Record<string, string>;
+}
+export function firstAssessments(rows: readonly RecordRow[], resolve: ReturnType<typeof recordResolver>): Map<string, FirstAssessment> {
+  const firsts = new Map<string, FirstAssessment>();
   for (const r of rows) {
     if (r.deleted || !r.activelySaved) continue;
     const { unit, round } = resolve(r);
-    if (unit !== null && round.assessment === 'main' && !firsts.has(unit)) firsts.set(unit, r.summary);
+    if (unit !== null && round.assessment === 'main' && !firsts.has(unit)) firsts.set(unit, { recordKey: r.recordKey, operator: r.operator, summary: r.summary });
   }
   return firsts;
 }
 
 /** The expansion factors of the plots, from the project file's areas file; null without one. */
-export function factorsOf(parsed: NonNullable<Parsed>, firsts: ReadonlyMap<string, Record<string, string>>) {
+export function factorsOf(parsed: NonNullable<Parsed>, firsts: ReadonlyMap<string, FirstAssessment>): Factors | null {
   if (!parsed.regionAreas && !parsed.attributeAreas) return null;
-  return expansionFactors({ regionAreas: parsed.regionAreas, attributeAreas: parsed.attributeAreas }, firsts, parsed.model);
+  const summaries = new Map([...firsts].map(([unit, f]) => [unit, f.summary]));
+  return expansionFactors({ regionAreas: parsed.regionAreas, attributeAreas: parsed.attributeAreas }, summaries, parsed.model);
+}
+
+/** The factors by the record that counts for each plot (its first assessment): what analysisTables writes. */
+export function factorsByRecord(factors: Factors, firsts: ReadonlyMap<string, FirstAssessment>): Map<string, { factor: number; weight: number }> {
+  const out = new Map<string, { factor: number; weight: number }>();
+  for (const [unit, first] of firsts) {
+    const f = factors.byPlot.get(unit);
+    if (f) out.set(recordId(first.recordKey, first.operator), f);
+  }
+  return out;
 }
 
 /** The model with no column that says where a plot is (src/positions.ts). */

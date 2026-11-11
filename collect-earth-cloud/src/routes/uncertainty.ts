@@ -81,7 +81,7 @@ export async function registerUncertaintyRoutes(app: FastifyInstance, store: Sto
     if (factors) {
       for (const f of factors.byPlot.values()) if (f.factor > 0) strata.set(f.stratum, (strata.get(f.stratum) ?? 0) + f.factor);
     } else strata.set('', settings.totalArea!);
-    const plots = [...firsts].map(([unit, summary]) => {
+    const plots = [...firsts].map(([unit, { summary }]) => {
       const f = factors?.byPlot.get(unit);
       return { initial: cell(initial, summary[initial.key]), final: cell(final, summary[final.key]), stratum: factors ? (f && f.factor > 0 ? f.stratum : null) : '' };
     });

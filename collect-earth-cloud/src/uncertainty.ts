@@ -5,6 +5,8 @@
 // The estimator is the stratified one: per stratum h of area A_h with n_h plots, a share p_hi of them in class i,
 //   A_i = Σ_h A_h·p_hi,   Var(A_i) = Σ_h A_h²·p_hi(1−p_hi)/(n_h−1),   SE = √Var,   CI = 1.96·SE (95%).
 // With one stratum (every plot standing for the same area) it is the spreadsheet's: A_i = p_i·A, SE = A·√(p_i(1−p_i)/(n−1)).
+// A plot whose code is left out (no data: clouds, no imagery) stays in its stratum's n_h and stands for its share as "no
+// data", in no category: each year's categories and no data add up to the total (docs/plans/2026-11-11-strata-areas.md).
 
 export const IPCC_CATEGORIES = ['forest', 'cropland', 'grassland', 'wetland', 'settlement', 'other'] as const;
 export type IpccCategory = (typeof IPCC_CATEGORIES)[number];
@@ -23,6 +25,9 @@ export interface UncertaintySettings {
   /** The area in hectares when the project file has no areas file (every plot then stands for the same area). */
   totalArea: number | null;
 }
+
+/** A plot's two categories; null: its code is left out (no data). */
+type Pair = { from: IpccCategory | null; to: IpccCategory | null };
 
 export interface UncertaintyPlot {
   /** The codes answered ("" when not answered). */
@@ -56,14 +61,19 @@ export interface UncertaintyResult {
   /** Strata with fewer than 2 plots used: no variance (n_h − 1 = 0). With 1 plot its area counts, with none it does not. */
   notEstimable: { key: string; area: number; plots: number }[];
   /** Plots not used, by why. A plot unmapped in both years is counted once (initial first). */
-  skipped: { missing: number; unmapped: number; leftOut: number; noArea: number };
+  skipped: { missing: number; unmapped: number; noArea: number };
+  /** The plots of a code left out (no data), each year: in their stratum's count, in no category. */
+  noData: { initial: Estimate; final: Estimate };
   unmapped: { which: 'initial' | 'final'; code: string; plots: number }[];
   categories: { category: IpccCategory; initial: Estimate; final: Estimate }[];
   total: Estimate;
   forest: { row: ForestRow; estimate: Estimate }[];
   /** Every pair, initial category by final category, in IPCC_CATEGORIES order. */
   transitions: { from: IpccCategory; to: IpccCategory; estimate: Estimate }[];
-  /** Hectares: cells[from][to], with the row and column totals, and each row's share of its initial category (%). */
+  /**
+   * Hectares: cells[from][to], with the row and column totals, and each row's share of its initial category (%). Over
+   * the plots with a category both years: its total is the total area less the no data of either year.
+   */
   matrix: { cells: number[][]; rowTotals: number[]; columnTotals: number[]; total: number; rowPercent: (number | null)[][] };
 }
 
@@ -71,7 +81,7 @@ export interface UncertaintyResult {
 export function uncertainty(plots: readonly UncertaintyPlot[], strata: ReadonlyMap<string, number>, settings: Pick<UncertaintySettings, 'codes'> & { initialList: string; finalList: string }): UncertaintyResult {
   const initialMap = settings.codes[settings.initialList] ?? {};
   const finalMap = settings.codes[settings.finalList] ?? {};
-  const skipped = { missing: 0, unmapped: 0, leftOut: 0, noArea: 0 };
+  const skipped = { missing: 0, unmapped: 0, noArea: 0 };
   const unmappedCount = new Map<string, { which: 'initial' | 'final'; code: string; plots: number }>();
   const noteUnmapped = (which: 'initial' | 'final', code: string) => {
     const k = `${which}\u0000${code}`;
@@ -79,8 +89,8 @@ export function uncertainty(plots: readonly UncertaintyPlot[], strata: ReadonlyM
     u.plots++;
     unmappedCount.set(k, u);
   };
-  // The plots used, by stratum: their two categories
-  const used = new Map<string, { from: IpccCategory; to: IpccCategory }[]>();
+  // The plots used, by stratum: their two categories (null: left out, no data)
+  const used = new Map<string, Pair[]>();
   for (const p of plots) {
     if (p.initial === '' || p.final === '') { skipped.missing++; continue; }
     const from = initialMap[p.initial];
@@ -91,7 +101,6 @@ export function uncertainty(plots: readonly UncertaintyPlot[], strata: ReadonlyM
       skipped.unmapped++;
       continue;
     }
-    if (from === null || to === null) { skipped.leftOut++; continue; }
     if (p.stratum === null || !((strata.get(p.stratum) ?? 0) > 0)) { skipped.noArea++; continue; }
     let list = used.get(p.stratum);
     if (!list) used.set(p.stratum, (list = []));
@@ -103,7 +112,7 @@ export function uncertainty(plots: readonly UncertaintyPlot[], strata: ReadonlyM
   const totalArea = counted.reduce((sum, s) => sum + s.area, 0);
   const n = counted.reduce((sum, s) => sum + s.plots, 0);
 
-  const estimate = (pred: (t: { from: IpccCategory; to: IpccCategory }) => boolean): Estimate => {
+  const estimate = (pred: (t: Pair) => boolean): Estimate => {
     let plotsIn = 0;
     let area = 0;
     let variance = 0;
@@ -120,16 +129,18 @@ export function uncertainty(plots: readonly UncertaintyPlot[], strata: ReadonlyM
     return { plots: plotsIn, proportion: totalArea > 0 ? area / totalArea : 0, area, se, ci, uncertainty: area > 0 ? (ci / area) * 100 : null };
   };
 
-  const isForest = (c: IpccCategory) => c === 'forest';
-  const forestPred: Record<ForestRow, (t: { from: IpccCategory; to: IpccCategory }) => boolean> = {
-    forestStable: (t) => isForest(t.from) && isForest(t.to),
-    nonForestToForest: (t) => !isForest(t.from) && isForest(t.to),
-    forestToNonForest: (t) => isForest(t.from) && !isForest(t.to),
-    nonForestStable: (t) => !isForest(t.from) && !isForest(t.to),
-    initiallyForest: (t) => isForest(t.from),
-    initiallyNonForest: (t) => !isForest(t.from),
-    currentlyForest: (t) => isForest(t.to),
-    currentlyNonForest: (t) => !isForest(t.to),
+  // A year left out (no data) is neither forest nor non-forest
+  const forest = (c: IpccCategory | null) => c === 'forest';
+  const nonForest = (c: IpccCategory | null) => c !== null && c !== 'forest';
+  const forestPred: Record<ForestRow, (t: Pair) => boolean> = {
+    forestStable: (t) => forest(t.from) && forest(t.to),
+    nonForestToForest: (t) => nonForest(t.from) && forest(t.to),
+    forestToNonForest: (t) => forest(t.from) && nonForest(t.to),
+    nonForestStable: (t) => nonForest(t.from) && nonForest(t.to),
+    initiallyForest: (t) => forest(t.from),
+    initiallyNonForest: (t) => nonForest(t.from),
+    currentlyForest: (t) => forest(t.to),
+    currentlyNonForest: (t) => nonForest(t.to),
   };
   const transitions = IPCC_CATEGORIES.flatMap((from) => IPCC_CATEGORIES.map((to) => ({ from, to, estimate: estimate((t) => t.from === from && t.to === to) })));
   const cells = IPCC_CATEGORIES.map((_, i) => IPCC_CATEGORIES.map((_, j) => transitions[i * IPCC_CATEGORIES.length + j].estimate.area));
@@ -142,12 +153,13 @@ export function uncertainty(plots: readonly UncertaintyPlot[], strata: ReadonlyM
     strata: strataOut,
     notEstimable: strataOut.filter((s) => s.plots < 2),
     skipped,
+    noData: { initial: estimate((t) => t.from === null), final: estimate((t) => t.to === null) },
     unmapped: [...unmappedCount.values()].sort((a, b) => a.which.localeCompare(b.which) || b.plots - a.plots || a.code.localeCompare(b.code)),
     categories: IPCC_CATEGORIES.map((category) => ({ category, initial: estimate((t) => t.from === category), final: estimate((t) => t.to === category) })),
     total: estimate(() => true),
     forest: FOREST_ROWS.map((row) => ({ row, estimate: estimate(forestPred[row]) })),
     transitions,
-    matrix: { cells, rowTotals, columnTotals, total: totalArea, rowPercent: cells.map((row, i) => row.map((v) => (rowTotals[i] > 0 ? (v / rowTotals[i]) * 100 : null))) },
+    matrix: { cells, rowTotals, columnTotals, total: rowTotals.reduce((a, b) => a + b, 0), rowPercent: cells.map((row, i) => row.map((v) => (rowTotals[i] > 0 ? (v / rowTotals[i]) * 100 : null))) },
   };
 }
 

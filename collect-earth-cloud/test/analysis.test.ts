@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { analysisModel, analysisTables, expansionFactors, parseCsv, type AnalysisRecord } from '../src/analysis.js';
+import { analysisModel, analysisTables, areaOf, csvTextOf, expansionFactors, parseCsv, type AnalysisRecord } from '../src/analysis.js';
 import { STANDALONE_DATA, STANDALONE_FILE } from '../src/routes/analysis.js';
 import { readCep, zipCep } from '../src/cep.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
@@ -135,13 +135,13 @@ describe('expansion factors, as RegionCalculationUtils works them out', () => {
     ['4', { collect_text_region: 'south', collect_text_plot_file: 'b.csv', collect_code_land_use_category: 'noData' }],
   ]);
 
-  it('divides a region\'s area among its plots, noData plots standing for none', () => {
+  it('divides a region\'s area among its plots, noData plots keeping their share', () => {
     const f = expansionFactors({ regionAreas: 'region,plot_file,area\nnorth,a.csv,1000\nsouth,b.csv,300\nnowhere,c.csv,5\n' }, plots, model)!;
     expect(f.source).toBe('region_areas.csv');
-    expect(Object.fromEntries([...f.byPlot].map(([p, v]) => [p, v.factor]))).toEqual({ 1: 500, 2: 500, 3: 300, 4: 0 });
+    expect(Object.fromEntries([...f.byPlot].map(([p, v]) => [p, v.factor]))).toEqual({ 1: 500, 2: 500, 3: 150, 4: 150 });
     expect(f.byPlot.get('3')!.weight).toBe(1);
-    expect(f.byPlot.get('1')!.weight).toBeCloseTo(500 / 300);
-    expect(f.unmatched).toBe(2); // the header and the region with no plot
+    expect(f.byPlot.get('1')!.weight).toBeCloseTo(500 / 150);
+    expect(f.unmatched).toBe(1); // the region with no plot (a header is not a line)
   });
 
   it('or divides the area of each combination of answers among the plots that have it', () => {
@@ -150,6 +150,26 @@ describe('expansion factors, as RegionCalculationUtils works them out', () => {
     expect(f.byPlot.get('1')).toEqual({ factor: 800, weight: 8, stratum: 'F' });
     expect(f.byPlot.get('2')!.factor).toBe(100);
     expect(f.byPlot.has('4')).toBe(false);
+  });
+
+  it('reads a file from Excel: Windows-1252, semicolons and decimal commas', () => {
+    const accented = new Map([['1', { collect_text_region: 'Forêt Classée' }], ['2', { collect_text_region: 'Forêt Classée' }]]);
+    const bytes = new Uint8Array([...Buffer.from('region;area\nFor', 'latin1'), 0xea, ...Buffer.from('t Class', 'latin1'), 0xe9, ...Buffer.from('e;1.234,5\n', 'latin1')]);
+    const f = expansionFactors({ attributeAreas: csvTextOf(bytes) }, accented, model)!;
+    expect(f.byPlot.get('1')).toMatchObject({ factor: 617.25, stratum: 'Forêt Classée' });
+    expect(areaOf('68 872', ',')).toBe(68872);
+    expect(areaOf('68,872', ',')).toBe(68872);
+    expect(areaOf('68.5', ';')).toBe(68.5);
+    expect(areaOf('x', ';')).toBeNaN();
+  });
+
+  it('says which columns are not in the survey, and which plots are in no line', () => {
+    const f = expansionFactors({ attributeAreas: 'land_use_category,nope,area\nF,1,800\n' }, plots, model)!;
+    expect(f.unknownColumns).toEqual(['nope']);
+    expect(f.byPlot.size).toBe(0);
+    const g = expansionFactors({ attributeAreas: 'land_use_category,area\nF,800\nC,100\n' }, plots, model)!;
+    expect(g.unknownColumns).toEqual([]);
+    expect(g.noStratum).toEqual({ plots: 2, examples: [{ stratum: 'G', plots: 1 }, { stratum: 'noData', plots: 1 }] });
   });
 
   it('gives nothing without an areas file', () => {
@@ -220,7 +240,7 @@ describe('GET /analysis', () => {
       ['ana', '1', 'C', 300],
       ['bo', '1', 'G', 300],
     ]);
-    expect(body.areas).toEqual({ source: 'region_areas.csv', plots: 3, unmatched: 0 });
+    expect(body.areas).toEqual({ source: 'region_areas.csv', plots: 3, unmatched: 0, unknownColumns: [], noStratum: { plots: 0, examples: [] } });
 
     const reviewer = (await call('/analysis', people.rev)).json();
     expect(reviewer.tables[0].rows).toBe(3);
@@ -231,6 +251,17 @@ describe('GET /analysis', () => {
     expect(own.map((r) => [r._operator, r._round, r._assessment])).toEqual([['ana', '', ''], ['ana', '', '']]);
     // the areas are the plots', worked out over the whole project
     expect(own.map((r) => Number(r.expansion_factor))).toEqual([300, 300]);
+  });
+
+  it('puts the area only on the record that counts for its plot, so the areas add up whatever the filter', async () => {
+    await upload({ 'region_areas.csv': 'north,plots.csv,900\n' });
+    await send('ana', '1,1', { collect_text_id: '1', collect_text_region: 'north', collect_code_land_use_category: 'F' });
+    await send('ana', '2,1', { collect_text_id: '2', collect_text_region: 'north', collect_code_land_use_category: 'C' });
+    await send('bo', '1,1', { collect_text_id: '1', collect_text_region: 'north', collect_code_land_use_category: 'G' }); // plot 1 again
+    const rows = rowsOf((await call('/analysis', owner.token)).json().tables[0].csv);
+    // two plots share the 900 ha; plot 1's second record carries none
+    expect(rows.map((r) => [r._record, r._operator, r.expansion_factor])).toEqual([['1,1', 'ana', '450'], ['2,1', 'ana', '450'], ['1,1', 'bo', '']]);
+    expect(rows.reduce((sum, r) => sum + Number(r.expansion_factor || 0), 0)).toBe(900);
   });
 
   it('is refused to people outside the project', async () => {
