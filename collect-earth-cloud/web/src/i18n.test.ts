@@ -40,8 +40,9 @@ describe("translations", () => {
     es: ["Ajustes → «Proyecto»", "«Aplicar»"],
     fr: ["Paramètres → « Projet »", "« Appliquer »"],
     pt: ["Configurações → “Projeto”", "“Aplicar”"],
+    tr: ["Ayarlar → “Proje”", "“Uygula”"],
   } as const;
-  const refresh = { en: "Refresh assignments", es: "Actualizar asignaciones", fr: "Actualiser les attributions", pt: "Atualizar atribuições" } as const;
+  const refresh = { en: "Refresh assignments", es: "Actualizar asignaciones", fr: "Actualiser les attributions", pt: "Atualizar atribuições", tr: "Atamaları yenile" } as const;
   it.each(LANGUAGES)("%s names the desktop's real path to a new plot file", (language) => {
     const catalogue = CATALOGUES[language];
     for (const key of ["plots.assignSaved", "checks.explain", "person.sentBackFile", "divide.applied", "divide.moved", "reference.added", "reference.blind"] as const) {
@@ -59,7 +60,7 @@ describe("translations", () => {
 
   it.each(LANGUAGES)("%s: quiet means more than N days without a sync or a plot download", (language) => {
     const t = translator(language);
-    const more = { en: "more than", es: "más de", fr: "plus de", pt: "mais de" }[language];
+    const more = { en: "more than", es: "más de", fr: "plus de", pt: "mais de", tr: "fazla" }[language];
     for (const key of ["attention.quiet", "attention.quietOne", "attention.quietTitle", "progressSettings.quietDaysHelp"] as const) {
       expect(t(key, { count: 2, days: 3 }), `${language} ${key}`).toContain(more);
     }
@@ -68,13 +69,13 @@ describe("translations", () => {
 
   it.each(LANGUAGES)("%s: one day, one gap, one session are singular; the old project file's links are made on each person's page", (language) => {
     const t = translator(language);
-    const day = { en: "a day", es: "un día", fr: "un jour", pt: "um dia" }[language];
+    const day = { en: "a day", es: "un día", fr: "un jour", pt: "um dia", tr: "bir gün" }[language];
     for (const key of ["peopleTable.explainOneDay", "peopleTable.syncAmberOneDay", "person.syncAmberOneDay", "person.syncQuietSelfOneDay"] as const) {
       expect(t(key, { days: 1, zone: "UTC" }), `${language} ${key}`).toContain(day);
     }
     const median = t("person.speedMedian", { d: "1 min", gaps: t("person.gapsOne", { n: 1 }), sessions: t("person.sessionsOne", { n: 1 }) });
     expect(median, language).not.toMatch(/\{|1 (gaps|intervalos|intervalles|working sessions|sesiones|séances|sessões)/);
-    const people = { en: "People page", es: "página Personas", fr: "page Personnes", pt: "página Pessoas" }[language];
+    const people = { en: "People page", es: "página Personas", fr: "page Personnes", pt: "página Pessoas", tr: "Kişiler sayfası" }[language];
     for (const key of ["attention.oldFile", "attention.oldFileOne"] as const) expect(t(key, { count: 2 }), `${language} ${key}`).not.toContain(people);
   });
 
