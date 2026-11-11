@@ -11,7 +11,7 @@ import Typography from "@mui/material/Typography";
 import ChevronLeft from "@mui/icons-material/ChevronLeft";
 import Forest from "@mui/icons-material/Forest";
 import { lazy, Suspense, useEffect, useRef } from "react";
-import { ApiError, getProject, type ProjectStatus } from "../api";
+import { ApiError, getProject, type ProjectStatus, type Role } from "../api";
 import { useLocalMode } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
@@ -20,6 +20,7 @@ import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { PlotSearchBox } from "../components/PlotSearchBox";
 import { ProjectNav } from "../components/ProjectNav";
+import { RoleChip } from "../components/Roles";
 import { useT } from "../i18n";
 import { AttentionBell } from "../components/AttentionBell";
 import { FileTab } from "../project/FileTab";
@@ -67,20 +68,23 @@ const TAB_LABELS = {
 const REVIEWER_TABS = ["progress", "map", "quality", "training"] as const satisfies readonly ProjectTab[];
 
 /**
- * The project's name, under a link back to the projects (not in the local mode, which has one), with the plot search
- * beside it (coordinators and reviewers), and the bell (coordinators).
+ * The project's name, under a link back to the projects and the person's role (neither in the local mode, which has one
+ * project and no roles), with the plot search beside it (coordinators and reviewers), and the bell (coordinators).
  */
-function Header({ projectId, name, bell = false }: { projectId: string; name: string; bell?: boolean }) {
+function Header({ projectId, name, role, bell = false }: { projectId: string; name: string; role: Role; bell?: boolean }) {
   const t = useT();
   const local = useLocalMode();
   return (
     <Box sx={{ mb: 2, display: "flex", gap: 2, flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between" }}>
       <Box sx={{ minWidth: 0 }}>
         {!local && (
-          <Link {...linkProps("/")} variant="body2" color="text.secondary" underline="hover" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
-            <ChevronLeft fontSize="small" aria-hidden />
-            {t("nav.projects")}
-          </Link>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap", mb: 0.5 }}>
+            <Link {...linkProps("/")} variant="body2" color="text.secondary" underline="hover" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+              <ChevronLeft fontSize="small" aria-hidden />
+              {t("nav.projects")}
+            </Link>
+            <RoleChip role={role} />
+          </Box>
         )}
         <Typography
           variant="h1"
@@ -198,7 +202,7 @@ export function ProjectPage({
   if (info.role === "reviewer" && (REVIEWER_TABS as readonly ProjectTab[]).includes(tab)) {
     return (
       <AppShell>
-        <Header projectId={projectId} name={info.name} />
+        <Header projectId={projectId} name={info.name} role={info.role} />
         <StatusNote status={info.status} />
         <Box sx={{ mb: 3, display: "flex", gap: 1, flexWrap: "wrap" }}>
           <Button variant="outlined" {...linkProps(pathFor({ name: "myWork", projectId }))}>
@@ -218,9 +222,15 @@ export function ProjectPage({
         </Tabs>
         <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
           {tab === "progress" ? (
-            <ProgressTab projectId={projectId} onGo={go} />
+            <Stack spacing={2}>
+              <Explain text={t("roles.reviewerProgress")} />
+              <ProgressTab projectId={projectId} onGo={go} />
+            </Stack>
           ) : tab === "map" ? (
-            <MapTab projectId={projectId} coordinator={false} />
+            <Stack spacing={2}>
+              <Explain text={t("roles.reviewerMap")} />
+              <MapTab projectId={projectId} coordinator={false} />
+            </Stack>
           ) : tab === "training" ? (
             <TrainingFigures projectId={projectId} />
           ) : plot ? (
@@ -244,7 +254,7 @@ export function ProjectPage({
       <AppShell>
         <StatusNote status={info.status} />
         <Paper variant="outlined">
-          <EmptyState heading icon={<Forest color="primary" />} title={info.name}>
+          <EmptyState heading icon={<Forest color="primary" />} title={info.name} action={<RoleChip role={info.role} />}>
             <span style={{ display: "block", marginBottom: 12 }}>
               {t("member.text.short", { role: t(`role.${info.role}`) })}
               <MoreInfo text={t("member.text", { role: t(`role.${info.role}`) })} />
@@ -295,7 +305,7 @@ export function ProjectPage({
       <Box sx={{ display: "flex", gap: 4 }}>
         <ProjectNav projectId={projectId} tab={tab} tabs={projectTabs(local)} labels={TAB_LABELS} />
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Header projectId={projectId} name={info.name} bell={!local} />
+          <Header projectId={projectId} name={info.name} role={info.role} bell={!local} />
           <StatusNote status={info.status} />
           {!local && <CeoShapes projectId={projectId} />}
           <Tabs

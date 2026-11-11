@@ -50,6 +50,7 @@ import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
 import { CopyField } from "../components/CopyField";
 import { Loading } from "../components/Loading";
+import { RolesLink } from "../components/Roles";
 import { PersonTimeSpent } from "../components/TimeSpent";
 import { AsOf, CalendarHeatMap, ChartOrTable, ColumnChart, ValuesTable } from "../components/PeopleCharts";
 import { movedText } from "../division";
@@ -655,6 +656,9 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
               ))}
             </Select>
           </FormControl>
+          <Typography variant="body2">
+            <RolesLink role="admin" />
+          </Typography>
           <Button
             variant="outlined"
             startIcon={<InsertLink />}

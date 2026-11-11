@@ -27,6 +27,7 @@ import { useApp, useLocalMode } from "../appContext";
 import { getDismissedAnnouncement, storeDismissedAnnouncement } from "../storage";
 import { LANGUAGES, LANGUAGE_NAMES, useT, type Language } from "../i18n";
 import { linkProps, navigate } from "../router";
+import { ServerAdminChip } from "./Roles";
 
 export function LanguageMenu() {
   const t = useT();
@@ -74,10 +75,15 @@ function AccountMenu() {
         <AccountCircle />
       </IconButton>
       <Menu anchorEl={anchor} open={anchor !== null} onClose={() => setAnchor(null)}>
-        <MenuItem disabled sx={{ opacity: "1 !important" }}>
+        <MenuItem disabled sx={{ opacity: "1 !important", display: "block", whiteSpace: "normal", maxWidth: 300 }}>
           <Typography variant="body2" color="text.secondary">
             {t("account.loggedInAs", { name: me.username })}
           </Typography>
+          {me.isPlatformAdmin && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+              <strong>{t("server.adminBadge")}</strong> · {t("serverAdmin.short")}
+            </Typography>
+          )}
         </MenuItem>
         <Divider />
         <MenuItem onClick={() => go("/")}>
@@ -210,6 +216,8 @@ export function AppShell({ children, narrow, bare, wide, hero }: { children: Rea
               </Typography>
             </Button>
           )}
+          {/* on a phone the account menu says it instead */}
+          {!bare && <ServerAdminChip sx={{ display: { xs: "none", sm: "inline-flex" } }} />}
           <LanguageMenu />
           {!bare && !local && <AccountMenu />}
         </Toolbar>
