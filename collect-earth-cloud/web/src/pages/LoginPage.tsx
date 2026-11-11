@@ -17,6 +17,7 @@ import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { MoreInfo } from "../components/Explain";
 import { FormCard } from "../components/FormCard";
+import { HeroPanel, WEBSITE_BUTTON } from "../components/HeroPanel";
 import { PasswordField } from "../components/PasswordField";
 import { useT, type MessageKey } from "../i18n";
 import { linkProps } from "../router";
@@ -82,118 +83,121 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
   };
 
   return (
-    <AppShell narrow>
-      <FormCard
-        title={signingUp ? t("signup.title") : t("login.title")}
-        intro={signingUp ? t("signup.intro") : t("login.intro")}
-        onSubmit={submit}
-      >
-        {sessionEnded && !signingUp && <Alert severity="info">{t("error.sessionEnded")}</Alert>}
-        {mode === "signup" && !info.signupOpen && <Alert severity="info">{t("error.signupClosed")}</Alert>}
-        <TextField
-          label={t("common.username")}
-          helperText={problem === "error.badUsername" ? t(problem) : signingUp ? t("signup.usernameHelp") : undefined}
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          autoComplete="username"
-          inputRef={usernameRef}
-          autoFocus
-          required
-          error={problem === "error.badUsername" || (problem === "error.fillBoth" && !username.trim())}
-        />
-        <PasswordField
-          label={t("common.password")}
-          helperText={problem === "error.weakPassword" ? t(problem) : signingUp ? t("signup.passwordHelp") : undefined}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete={signingUp ? "new-password" : "current-password"}
-          required
-          error={problem === "error.weakPassword" || (problem === "error.fillBoth" && !password)}
-        />
-        {needsCode && !signingUp && (
-          <>
-            <Alert severity="info">{t("login.codeIntro")}</Alert>
-            <TextField
-              label={t("login.code")}
-              helperText={problem === "login.codeMissing" ? t(problem) : t("login.codeHelp")}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              autoComplete="one-time-code"
-              inputRef={codeRef}
-              required
-              error={problem === "login.codeMissing"}
-              slotProps={{ htmlInput: { autoCapitalize: "characters", spellCheck: false, maxLength: 20 } }}
-            />
-          </>
-        )}
-        {signingUp && (
-          <>
-            <PasswordField
-              label={t("common.repeatPassword")}
-              helperText={problem === "error.passwordsDiffer" ? t(problem) : undefined}
-              value={repeated}
-              onChange={(e) => setRepeated(e.target.value)}
-              autoComplete="new-password"
-              required
-              error={problem === "error.passwordsDiffer"}
-            />
-            <TextField
-              label={t("signup.email")}
-              helperText={t("signup.emailHelp")}
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-            />
-            {needsTerms && (
-              <FormControl error={problem === "error.termsNotAccepted"} required>
-                <FormControlLabel
-                  control={<Checkbox checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} required />}
-                  label={t("signup.acceptTerms")}
-                />
-                <FormHelperText sx={{ ml: 0 }}>
-                  <Link href={info.termsUrl!} target="_blank" rel="noopener noreferrer">
-                    {t("signup.readTerms")}
-                  </Link>
-                </FormHelperText>
-              </FormControl>
-            )}
-          </>
-        )}
-        {(problem === "error.fillBoth" || problem === "error.termsNotAccepted") && (
-          <Alert severity="warning" role="alert">
-            {t(problem)}
-          </Alert>
-        )}
-        <ErrorAlert error={error} />
-        <Button type="submit" variant="contained" size="large" disabled={busy}>
-          {signingUp ? t("signup.submit") : t("login.submit")}
-        </Button>
-        {signingUp ? (
-          <Typography>
-            {t("signup.haveAccount")} <Link {...linkProps("/login")}>{t("login.submit")}</Link>
-          </Typography>
-        ) : (
-          <>
-            {info.signupOpen && (
-              <Typography>
-                {t("login.noAccount")} <Link {...linkProps("/signup")}>{t("login.createAccount")}</Link>
-              </Typography>
-            )}
-            <div>
-              <Link component="button" type="button" variant="body2" onClick={() => setForgotOpen((open) => !open)} aria-expanded={forgotOpen}>
-                {t("login.forgotLink")}
-              </Link>
-              <Collapse in={forgotOpen}>
-                {forgotOpen && <ForgotPassword initial={username.trim()} />}
-              </Collapse>
-            </div>
-            <Typography variant="body2" color="text.secondary">
-              {t("login.collectorHint")}
+    <AppShell hero>
+      <HeroPanel name={info.serverName ?? t("app.title")}>
+        <FormCard
+          plain
+          title={signingUp ? t("signup.title") : t("login.title")}
+          intro={signingUp ? t("signup.intro") : t("login.intro")}
+          onSubmit={submit}
+        >
+          {sessionEnded && !signingUp && <Alert severity="info">{t("error.sessionEnded")}</Alert>}
+          {mode === "signup" && !info.signupOpen && <Alert severity="info">{t("error.signupClosed")}</Alert>}
+          <TextField
+            label={t("common.username")}
+            helperText={problem === "error.badUsername" ? t(problem) : signingUp ? t("signup.usernameHelp") : undefined}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+            inputRef={usernameRef}
+            autoFocus
+            required
+            error={problem === "error.badUsername" || (problem === "error.fillBoth" && !username.trim())}
+          />
+          <PasswordField
+            label={t("common.password")}
+            helperText={problem === "error.weakPassword" ? t(problem) : signingUp ? t("signup.passwordHelp") : undefined}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete={signingUp ? "new-password" : "current-password"}
+            required
+            error={problem === "error.weakPassword" || (problem === "error.fillBoth" && !password)}
+          />
+          {needsCode && !signingUp && (
+            <>
+              <Alert severity="info">{t("login.codeIntro")}</Alert>
+              <TextField
+                label={t("login.code")}
+                helperText={problem === "login.codeMissing" ? t(problem) : t("login.codeHelp")}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                autoComplete="one-time-code"
+                inputRef={codeRef}
+                required
+                error={problem === "login.codeMissing"}
+                slotProps={{ htmlInput: { autoCapitalize: "characters", spellCheck: false, maxLength: 20 } }}
+              />
+            </>
+          )}
+          {signingUp && (
+            <>
+              <PasswordField
+                label={t("common.repeatPassword")}
+                helperText={problem === "error.passwordsDiffer" ? t(problem) : undefined}
+                value={repeated}
+                onChange={(e) => setRepeated(e.target.value)}
+                autoComplete="new-password"
+                required
+                error={problem === "error.passwordsDiffer"}
+              />
+              <TextField
+                label={t("signup.email")}
+                helperText={t("signup.emailHelp")}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+              />
+              {needsTerms && (
+                <FormControl error={problem === "error.termsNotAccepted"} required>
+                  <FormControlLabel
+                    control={<Checkbox checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} required />}
+                    label={t("signup.acceptTerms")}
+                  />
+                  <FormHelperText sx={{ ml: 0 }}>
+                    <Link href={info.termsUrl!} target="_blank" rel="noopener noreferrer">
+                      {t("signup.readTerms")}
+                    </Link>
+                  </FormHelperText>
+                </FormControl>
+              )}
+            </>
+          )}
+          {(problem === "error.fillBoth" || problem === "error.termsNotAccepted") && (
+            <Alert severity="warning" role="alert">
+              {t(problem)}
+            </Alert>
+          )}
+          <ErrorAlert error={error} />
+          <Button type="submit" variant="contained" size="large" disabled={busy} sx={WEBSITE_BUTTON}>
+            {signingUp ? t("signup.submit") : t("login.submit")}
+          </Button>
+          {signingUp ? (
+            <Typography>
+              {t("signup.haveAccount")} <Link {...linkProps("/login")}>{t("login.submit")}</Link>
             </Typography>
-          </>
-        )}
-      </FormCard>
+          ) : (
+            <>
+              {info.signupOpen && (
+                <Typography>
+                  {t("login.noAccount")} <Link {...linkProps("/signup")}>{t("login.createAccount")}</Link>
+                </Typography>
+              )}
+              <div>
+                <Link component="button" type="button" variant="body2" onClick={() => setForgotOpen((open) => !open)} aria-expanded={forgotOpen}>
+                  {t("login.forgotLink")}
+                </Link>
+                <Collapse in={forgotOpen}>
+                  {forgotOpen && <ForgotPassword initial={username.trim()} />}
+                </Collapse>
+              </div>
+              <Typography variant="body2" color="text.secondary">
+                {t("login.collectorHint")}
+              </Typography>
+            </>
+          )}
+        </FormCard>
+      </HeroPanel>
     </AppShell>
   );
 }
