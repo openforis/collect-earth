@@ -99,4 +99,79 @@ class LocalPropertiesSecretTest {
 		assertEquals("rw-------", java.nio.file.attribute.PosixFilePermissions.toString(java.nio.file.Files.getPosixFilePermissions(file)));
 		assertEquals(false, LocalPropertiesService.ownerOnly(folder.resolve("missing.properties")));
 	}
+
+	/** A protector the system refuses (a locked keychain, no secret-tool): it fails, the token is still kept */
+	static final class RefusingProtector implements SecretProtector {
+		@Override
+		public String prefix() {
+			return "locked:";
+		}
+
+		@Override
+		public String protect(String plain) {
+			throw new IllegalStateException("the keychain is locked");
+		}
+
+		@Override
+		public String reveal(String stored) {
+			return null;
+		}
+
+		@Override
+		public void forget() {
+			throw new IllegalStateException("the keychain is locked");
+		}
+	}
+
+	@Test
+	void aTokenTheSystemCannotProtectIsKeptAsItIs() {
+		LocalPropertiesService.setSecretProtector(new RefusingProtector());
+		Properties file = new Properties();
+		LocalPropertiesService service = new LocalPropertiesService(file);
+		service.saveCloudSyncToken("secret-token");
+		assertEquals("secret-token", file.getProperty("cloud_sync_token"));
+		assertEquals("secret-token", service.getCloudSyncToken());
+		// at start, a plain token it cannot protect stays plain, and the file is not written again
+		service.protectSecrets();
+		assertEquals("secret-token", file.getProperty("cloud_sync_token"));
+		// signing out empties it, though the system cannot forget its copy
+		service.saveCloudSyncToken("");
+		assertEquals("", file.getProperty("cloud_sync_token"));
+	}
+
+	@Test
+	void signingOutForgetsTheSystemsCopyAndAProtectedTokenIsLeftAsItIs() {
+		FakeProtector protector = new FakeProtector();
+		LocalPropertiesService.setSecretProtector(protector);
+		Properties file = new Properties();
+		LocalPropertiesService service = new LocalPropertiesService(file);
+		service.saveCloudSyncToken("secret-token");
+		String written = file.getProperty("cloud_sync_token");
+		// already protected: protectSecrets leaves it
+		service.protectSecrets();
+		assertEquals(written, file.getProperty("cloud_sync_token"));
+		service.saveCloudSyncToken("");
+		assertEquals(1, protector.forgotten);
+		assertEquals("", service.getCloudSyncToken());
+	}
+
+	@Test
+	void theSettingsOfPlanetTheViewerAndThePointNumbers() {
+		Properties file = new Properties();
+		LocalPropertiesService service = new LocalPropertiesService(file);
+		// Planet: offered once its key is set
+		assertEquals(false, service.isPlanetMapsSupported());
+		service.setValue(EarthProperty.PLANET_MAPS_KEY, "  ");
+		assertEquals(false, service.isPlanetMapsSupported());
+		service.setValue(EarthProperty.PLANET_MAPS_KEY, "PLAK123");
+		assertEquals(true, service.isPlanetMapsSupported());
+		// the sample points numbered: a project that answers per point asks for it
+		assertEquals(false, service.isSamplePointNumbers());
+		service.setValue(EarthProperty.SAMPLE_POINT_NUMBERS, "true");
+		assertEquals(true, service.isSamplePointNumbers());
+		// no viewer chosen, nor an old flag: Google Earth Web
+		assertEquals(LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB, LocalPropertiesService.resolveViewerType(null, false, false));
+		assertEquals(LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB, LocalPropertiesService.resolveViewerType("", false, true));
+		assertEquals(LocalPropertiesService.VIEWER_TYPE_PLOTS_MAP, LocalPropertiesService.resolveViewerType("", true, false));
+	}
 }
