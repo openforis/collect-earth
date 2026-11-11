@@ -108,14 +108,21 @@ describe('the uncertainty, with what cannot be used', () => {
     ...plotsOf('FF', 'one'), // a stratum of one plot: its area counts, its variance cannot be worked out
     ...plotsOf('F_', 'empty'), // no final answer: the stratum has no plot used
     ...plotsOf('ZF FZ', 'a'), // Z: a code not mapped
-    ...plotsOf('XF', 'a'), // X: left out on purpose
+    ...plotsOf('XF', 'a'), // X: left out on purpose (no data): in stratum a's count, in no category
     ...plotsOf('GG', null), // no area (no data, or in no line of the areas file)
   ];
   const r = uncertainty(plots, new Map([['a', 900], ['one', 50], ['empty', 70]]), settings);
 
   it('counts the plots left out by why, and lists the unmapped codes', () => {
-    expect(r.plots).toBe(4);
-    expect(r.skipped).toEqual({ missing: 1, unmapped: 2, leftOut: 1, noArea: 1 });
+    expect(r.plots).toBe(5);
+    expect(r.skipped).toEqual({ missing: 1, unmapped: 2, noArea: 1 });
+    // the left-out plot keeps its share of stratum a (900 ha, 4 plots) as no data, the first year only
+    expect(r.noData.initial).toMatchObject({ plots: 1, area: 225 });
+    expect(r.noData.final.plots).toBe(0);
+    // each year, the categories and no data add up to the total
+    expect(r.categories.reduce((sum, c) => sum + c.initial.area, 0) + r.noData.initial.area).toBeCloseTo(r.total.area, 9);
+    // the matrix holds the plots with a category both years
+    expect(r.matrix.total).toBeCloseTo(r.totalArea - 225, 9);
     expect(r.unmapped).toEqual([{ which: 'final', code: 'Z', plots: 1 }, { which: 'initial', code: 'Z', plots: 1 }]);
   });
 
@@ -123,9 +130,10 @@ describe('the uncertainty, with what cannot be used', () => {
     expect(r.notEstimable).toEqual([{ key: 'one', area: 50, plots: 1 }, { key: 'empty', area: 70, plots: 0 }]);
     expect(r.totalArea).toBe(950); // the empty stratum's area cannot be divided among its plots
     const f = by(r, 'forest').initial;
-    expect(f.area).toBeCloseTo(900 * (2 / 3) + 50, 9);
-    // the variance is stratum a's alone: 900²·(2/9)/2
-    expect(f.se).toBeCloseTo(Math.sqrt((900 * 900 * (2 / 9)) / 2), 9);
+    // stratum a: FF FC CC and the left-out XF, 2 of 4 forest
+    expect(f.area).toBeCloseTo(900 * (2 / 4) + 50, 9);
+    // the variance is stratum a's alone: 900²·(1/4)/3
+    expect(f.se).toBeCloseTo(Math.sqrt((900 * 900 * (1 / 4)) / 3), 9);
     expect(Number.isFinite(by(r, 'cropland').final.uncertainty!)).toBe(true);
   });
 
@@ -221,7 +229,7 @@ describe('the uncertainty routes', () => {
     const res = await call('GET', '', people.rev);
     expect(res.statusCode, res.body).toBe(200);
     const body = res.json();
-    expect(body).toMatchObject({ estimator: 'simple', areas: null, plots: 3, totalArea: 900, skipped: { unmapped: 1 } });
+    expect(body).toMatchObject({ estimator: 'simple', areas: 'total', plots: 3, totalArea: 900, skipped: { unmapped: 1 } });
     expect(body.unmapped).toEqual([{ which: 'initial', code: 'W', plots: 1 }]);
     const forest = body.categories.find((c: { category: string }) => c.category === 'forest');
     // 2 of 3 plots: 600 ha, SE = 900·√((2/9)/2) = 300

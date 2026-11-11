@@ -49,7 +49,6 @@ import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
 import { CopyField } from "../components/CopyField";
-import { JOIN_MENU_ITEM } from "../components/JoinSteps";
 import { Loading } from "../components/Loading";
 import { PersonTimeSpent } from "../components/TimeSpent";
 import { AsOf, CalendarHeatMap, ChartOrTable, ColumnChart, ValuesTable } from "../components/PeopleCharts";
@@ -689,7 +688,7 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
             </Alert>
             {/* Not the join steps of a new person: they already have an account, and must log in with it. */}
             <CopyField value={invite.joinUrl} label={t("join.linkLabel")} />
-            <Typography sx={{ mt: 1 }}>{t("person.newLinkSteps", { menu: `${t("join.menuFile")} → ${JOIN_MENU_ITEM}` })}</Typography>
+            <Typography sx={{ mt: 1 }}>{t("person.newLinkSteps", { menu: `${t("join.menuFile")} → ${t("join.menuJoin")}` })}</Typography>
           </Box>
         )}
         {notice && (

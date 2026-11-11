@@ -439,10 +439,14 @@ export interface BackupZip {
   survey: BackupSurvey;
   /** the records' files, in the zip's order, each read when asked */
   records: ZipEntryReader[];
+  /** the area of each stratum (areas_per_attribute.csv), in Collect's own backup (.collect): its files/ce_area file; null without one */
+  areas: string | null;
 }
 
-/** A record's file: <step>/<n>.xml, as Collect writes them. */
-const RECORD_PATH = /^[123]\/[^/]+\.xml$/;
+/** A record's file: <step>/<n>.xml, as Collect Earth's export writes them, or data/<step>/<n>.xml in Collect's own backup (.collect, SurveyBackupJob). */
+const RECORD_PATH = /^(?:data\/)?[123]\/[^/]+\.xml$/;
+/** The survey's areas per attribute in a .collect (Collect's survey file type ce_area), whatever the file's name. */
+const AREAS_PATH = /^files\/ce_area\/[^/]+\.csv$/i;
 
 /** Opens a backup: its survey read, its records listed. Throws BackupError, or CepError for a survey it cannot read. */
 export function openBackup(zip: Buffer): BackupZip {
@@ -473,7 +477,9 @@ export function openBackup(zip: Buffer): BackupZip {
   const records = entries.filter((e) => RECORD_PATH.test(e.name));
   const tooLarge = records.find((e) => e.size > BACKUP_LIMITS.maxRecordBytes);
   if (tooLarge) throw new BackupError('too_large', `The backup's record ${tooLarge.name} is larger than the server reads.`);
-  return { survey, records };
+  const areasEntry = entries.find((e) => AREAS_PATH.test(e.name));
+  if (areasEntry && areasEntry.size > BACKUP_LIMITS.maxSurveyBytes) throw new BackupError('too_large', "The backup's areas file is larger than the server reads.");
+  return { survey, records, areas: areasEntry ? new TextDecoder().decode(areasEntry.read()) : null };
 }
 
 /** A record file of the backup, read. */

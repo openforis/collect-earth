@@ -93,6 +93,7 @@ import {
   type UserPlots,
 } from './store.js';
 import type { UncertaintySettings } from '../uncertainty.js';
+import type { AreaSettings } from '../areas.js';
 import type { CeoShapesJob } from '../ceo/shapes.js';
 import { unitOfRecord } from '../rounds.js';
 import { UsernameTakenError } from './memory.js';
@@ -2981,6 +2982,19 @@ export class PostgresStore implements Store {
   async setUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<void> {
     await this.withProject(projectId, async (client) => {
       await client.query('UPDATE projects SET uncertainty_settings = $2 WHERE id = $1', [projectId, JSON.stringify(settings)]);
+    });
+  }
+
+  async getAreaSettings(projectId: string): Promise<AreaSettings | null> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT area_settings FROM projects WHERE id = $1', [projectId]);
+      return (res.rows[0]?.area_settings as AreaSettings | null | undefined) ?? null;
+    });
+  }
+
+  async setAreaSettings(projectId: string, settings: AreaSettings | null): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('UPDATE projects SET area_settings = $2 WHERE id = $1', [projectId, settings === null ? null : JSON.stringify(settings)]);
     });
   }
 

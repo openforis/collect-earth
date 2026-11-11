@@ -101,6 +101,8 @@ export function uncertaintySheets(d: UncertaintyData, t: Translate): Sheet[] {
       rows: [
         ...[y0, y1].flatMap((year, i) => [
           ...d.categories.map((c) => [cat(c.category), year, ...values(i === 0 ? c.initial : c.final)]),
+          // the plots of a code left out keep their share: a line of their own when there are any
+          ...((i === 0 ? d.noData.initial : d.noData.final).plots > 0 ? [[t("uncertainty.noData"), year, ...values(i === 0 ? d.noData.initial : d.noData.final)]] : []),
           [t("uncertainty.total"), year, ...values(d.total)],
         ]),
       ],

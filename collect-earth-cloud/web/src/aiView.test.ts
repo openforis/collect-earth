@@ -62,7 +62,7 @@ describe("failure codes in words", () => {
   it("each code has its own sentence in every language", () => {
     const keys = codes.map(failureMessageKey);
     expect(new Set(keys).size).toBe(codes.length);
-    for (const language of ["en", "es", "fr", "pt"] as const) {
+    for (const language of ["en", "es", "fr", "pt", "tr"] as const) {
       for (const key of keys) expect(CATALOGUES[language][key], `${language} ${key}`).toBeTruthy();
     }
   });
@@ -105,8 +105,8 @@ describe("why a run did not start", () => {
       "The AI assistant is not allowed on this server. The server owner can change this in Server settings.",
     );
     // A limit of 0 is not about this month, in any language.
-    for (const lang of ["es", "fr", "pt"] as const) {
-      expect(translator(lang)("ai.limit.monthNone")).not.toMatch(/este mes|ce mois|neste mês|este mês/i);
+    for (const lang of ["es", "fr", "pt", "tr"] as const) {
+      expect(translator(lang)("ai.limit.monthNone")).not.toMatch(/este mes|ce mois|neste mês|este mês|bu ay/i);
     }
   });
 

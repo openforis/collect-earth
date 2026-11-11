@@ -834,6 +834,9 @@ provider's details):
      --oidc-token-audience='https://<your address>/v1/internal/digest' \
      --headers='content-type=application/json' --message-body='{}' --attempt-deadline=900s
    ```
+   On Windows, `deploy/gcp/setup-weekly-emails.ps1` does the same in PowerShell, and is safe to run
+   again: `powershell -ExecutionPolicy Bypass -File .\setup-weekly-emails.ps1 -Project <PROJECT>
+   -Region <REGION> -Address https://<your address>` (`-RunNow` also runs the job once).
    The audience must be exactly the same text in both places. (The service stays public,
    `--allow-unauthenticated`, for the dashboard and Collect Earth; the server checks the
    token itself, reading Google's public keys from `www.googleapis.com/oauth2/v3/certs`,
@@ -854,7 +857,11 @@ provider's details):
    sent (the mail server unreachable, a 4xx reply) is put back for the next call; one
    the mail server refuses for good (a 5xx reply: no such mailbox…) is not tried again
    that week, and after **3 such weeks in a row** the email is turned off and the
-   account page says why (turning it on again starts afresh). A second call on the same
+   account page says why (turning it on again starts afresh). A refusal for having sent too
+   much (Gmail's daily limit, `550 5.4.5`, about 500 mails a day for a Gmail account and
+   2,000 for Google Workspace; another provider's rate or quota limit) is not held against
+   anyone: the run stops there, answers `limited: true`, and the weeks not sent stay due for
+   the next call. A second call on the same
    instance while one runs gets 409.
 4. **Check it** once: in the console, *Cloud Scheduler* → the job → *Force run*, then
    the service's log has `digest: run ended` with the counts (with a shared secret,

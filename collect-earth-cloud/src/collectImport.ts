@@ -1,4 +1,4 @@
-// Importing a Collect Earth backup (the desktop's Data > Export data, format "XML (compressed)", the layout collectBackup.ts
+// Importing a Collect Earth backup (the desktop's Data Import/Export > Export data, format "XML (compressed)", the layout collectBackup.ts
 // writes the other way: idml.xml, then <step>/<n>.xml per record) into a project: each record becomes the envelope
 // Collect Earth's CloudRecordSerializer would have sent for it, its summary made from the XML against the project's
 // served survey as BalloonInputFieldsUtils.getValuesByHtmlParameters makes it from the record Collect loads
@@ -32,7 +32,7 @@ export function readBackup(zip: Buffer): { surveyXml: string; files: BackupFile[
     throw new BackupImportError(
       e.code === 'too_large'
         ? 'The file is larger than the server reads at once: export the records in smaller parts.'
-        : 'The file is not a zip file: in Collect Earth, use Data > Export data with the format "XML (compressed)".',
+        : 'The file is not a zip file: in Collect Earth, use Data Import/Export > Export data with the format "XML (compressed)".',
     );
   }
   const survey = entries.get('idml.xml');

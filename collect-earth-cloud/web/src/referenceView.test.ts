@@ -22,7 +22,7 @@ describe("the Reference plots section", () => {
     for (const code of ["whole_file", "unknown_plots", "not_a_plot", "in_other_file", "assessed_by_others", "too_many", "bad_assessor", "none_free"]) {
       const key = refusalKey(code);
       expect(key, code).not.toBeNull();
-      for (const language of ["en", "es", "fr", "pt"] as const) expect(CATALOGUES[language][key!], `${language} ${key}`).toBeTruthy();
+      for (const language of ["en", "es", "fr", "pt", "tr"] as const) expect(CATALOGUES[language][key!], `${language} ${key}`).toBeTruthy();
     }
     expect(refusalKey("other")).toBeNull();
   });

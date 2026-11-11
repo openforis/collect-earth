@@ -257,7 +257,7 @@ describe("what moving the unfinished plots did", () => {
     const all = movedText(t, { moved: 4, notMoved: 1, droppedChecks: 2 }, "ana", "maria", "en");
     expect(all).toContain("Kept with ana: 1 (plots that maria already assessed or checked");
     expect(all).toContain("Copies to compare dropped: 2");
-    for (const lang of ["es", "fr", "pt"]) expect(movedText(translator(lang), { moved: 1, notMoved: 1, droppedChecks: 1 }, "ana", "maria", lang), lang).not.toMatch(/divide\.|\{/);
+    for (const lang of ["es", "fr", "pt", "tr"]) expect(movedText(translator(lang), { moved: 1, notMoved: 1, droppedChecks: 1 }, "ana", "maria", lang), lang).not.toMatch(/divide\.|\{/);
     expect(t("divide.moveText", { from: "ana", to: "maria" })).not.toContain("every plot");
   });
 });

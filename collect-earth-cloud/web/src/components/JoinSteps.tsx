@@ -6,8 +6,6 @@ import { useT } from "../i18n";
 import { CopyField } from "./CopyField";
 
 export const COLLECT_EARTH_DOWNLOAD_URL = "https://www.openforis.org/tools/collect-earth.html";
-/** The menu item exactly as Collect Earth shows it (the desktop app does not translate it). */
-export const JOIN_MENU_ITEM = "Join cloud project...";
 
 /** The exact steps a collector follows in Collect Earth with an invitation link. */
 export function JoinSteps({ link }: { link: string }) {
@@ -25,7 +23,7 @@ export function JoinSteps({ link }: { link: string }) {
       </li>
       <li>
         <Typography>
-          {t("join.step3")} <strong>{t("join.menuFile")}</strong> → <strong>{JOIN_MENU_ITEM}</strong>
+          {t("join.step3")} <strong>{t("join.menuFile")}</strong> → <strong>{t("join.menuJoin")}</strong>
         </Typography>
       </li>
       <li>

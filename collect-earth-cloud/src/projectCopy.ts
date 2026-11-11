@@ -3,7 +3,7 @@ import type { Store } from './store/store.js';
 
 /**
  * A new project made from another (a template): the same survey, project file (served and as
- * uploaded, with what the server did about round), plot files, progress and quality settings;
+ * uploaded, with what the server did about round), plot files, progress and quality settings, strata and areas;
  * with `members`, also its people (same roles), whole-file assignments and divisions. Never its
  * records, decisions, notes, flags, checks drawn, reference plots or training sets, and the AI
  * assistant stays off (sending to it is each project's own choice). It
@@ -31,6 +31,8 @@ export async function copyProject(store: Store, sourceId: string, input: { name:
     if (info && files.length > 0) await store.recountPlots(projectId, fileKeyCount(info));
     await store.setProgressSettings(projectId, await store.getProgressSettings(sourceId));
     await store.setQualitySettings(projectId, await store.getQualitySettings(sourceId));
+    // the strata and their areas: the same plot files stand for the same land
+    await store.setAreaSettings(projectId, await store.getAreaSettings(sourceId));
 
     if (input.members) {
       for (const m of await store.listMembers(sourceId)) {
