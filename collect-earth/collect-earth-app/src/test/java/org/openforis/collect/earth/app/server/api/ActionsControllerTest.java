@@ -4,11 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,6 +19,8 @@ import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.cloud.CloudApiClient;
 import org.openforis.collect.earth.app.service.dashboard.LocalDashboardService;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -118,5 +123,78 @@ public class ActionsControllerTest {
 		assertEquals("https://ce.example.org/projects/p%201", ActionsController.cloudPageUrl("https://ce.example.org/", " p 1 ", ""));
 		assertEquals("https://ce.example.org/projects/p1/analysis", ActionsController.cloudPageUrl("https://ce.example.org", "p1", "analysis"));
 		assertEquals(null, ActionsController.cloudPageUrl("https://ce.example.org", " ", ""));
+	}
+
+	// Tools > My dashboard and Analyse the data, without a browser: what is told when they cannot open
+
+	private static LocalPropertiesService project(boolean cloud) {
+		LocalPropertiesService properties = mock(LocalPropertiesService.class);
+		when(properties.isCloudSyncEnabled()).thenReturn(cloud);
+		return properties;
+	}
+
+	private static CloudApiClient cloudAt(String baseUrl, String projectId) {
+		CloudApiClient cloud = mock(CloudApiClient.class);
+		when(cloud.cloudDestination()).thenReturn(new CloudApiClient.Destination(baseUrl, projectId, "token"));
+		return cloud;
+	}
+
+	@Test
+	public void aCloudProjectWithoutItsProjectHasNoAnalysisNorDashboardToOpen() {
+		LocalDashboardService dashboard = mock(LocalDashboardService.class);
+		CloudApiClient cloud = cloudAt("https://ce.example.org", " ");
+		ApiException analysis = assertThrows(ApiException.class, () -> ActionsController.openAnalysis(dashboard, project(true), cloud));
+		assertEquals("analysis.noCloudProject", analysis.getCode());
+		ApiException mine = assertThrows(ApiException.class, () -> ActionsController.openDashboard(dashboard, project(true), cloud));
+		assertEquals("analysis.noCloudProject", mine.getCode());
+		// the local dashboard is not asked for a cloud project
+		verify(dashboard, never()).getStateText();
+	}
+
+	@Test
+	public void theLocalAnalysisSaysWhyItCannotOpenYet() throws Exception {
+		LocalDashboardService dashboard = mock(LocalDashboardService.class);
+		when(dashboard.newSignInUrl()).thenReturn(null);
+		when(dashboard.getStateText()).thenReturn("Getting ready\u2026");
+		ApiException e = assertThrows(ApiException.class, () -> ActionsController.openAnalysis(dashboard, project(false), mock(CloudApiClient.class)));
+		assertEquals("dashboard.notReady", e.getCode());
+		assertEquals("Getting ready\u2026", e.getMessage());
+		// and My dashboard, local, the same
+		assertEquals("dashboard.notReady", assertThrows(ApiException.class, () -> ActionsController.openDashboard(dashboard, project(false), mock(CloudApiClient.class))).getCode());
+	}
+
+	@Test
+	public void aDashboardThatCannotGiveALinkIsAFault() throws Exception {
+		LocalDashboardService dashboard = mock(LocalDashboardService.class);
+		when(dashboard.newSignInUrl()).thenThrow(new IOException("connection refused"));
+		IllegalStateException analysis = assertThrows(IllegalStateException.class, () -> ActionsController.openAnalysis(dashboard, project(false), mock(CloudApiClient.class)));
+		assertTrue(analysis.getMessage().contains("connection refused"));
+		IllegalStateException mine = assertThrows(IllegalStateException.class, () -> ActionsController.openDashboard(dashboard));
+		assertTrue(mine.getMessage().contains("connection refused"));
+	}
+
+	@Test
+	public void aDeveloperCanHaveTheAnalysisLinkLoggedInsteadOfOpened() throws Exception {
+		LocalDashboardService dashboard = mock(LocalDashboardService.class);
+		when(dashboard.newSignInUrl()).thenReturn("http://127.0.0.1:1/local-sign-in/abc");
+		System.setProperty(ActionsController.LOG_SIGN_IN_URL_PROPERTY, "true");
+		try {
+			ActionsController.openAnalysis(dashboard, project(false), mock(CloudApiClient.class));
+			ActionsController.openDashboard(dashboard, project(false), mock(CloudApiClient.class));
+		} finally {
+			System.clearProperty(ActionsController.LOG_SIGN_IN_URL_PROPERTY);
+		}
+	}
+
+	@Test
+	public void theServersWiringHasEveryAction() throws Exception {
+		LocalDashboardService dashboard = mock(LocalDashboardService.class);
+		when(dashboard.newSignInUrl()).thenReturn(null);
+		when(dashboard.getStateText()).thenReturn("Not installed");
+		ActionsController controller = new ActionsController(null, null, null, null, null, dashboard, project(false), mock(CloudApiClient.class));
+		MockMvc wired = TemplateWiring.mockMvc(controller, new ApiExceptionHandler());
+		// the two of the dashboard, through the server's own wiring: told why they cannot open
+		wired.perform(post("/api/actions/openDashboard")).andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("dashboard.notReady"));
+		wired.perform(post("/api/actions/openAnalysis")).andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").value("Not installed"));
 	}
 }

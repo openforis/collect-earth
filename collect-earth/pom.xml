@@ -49,6 +49,10 @@
 		<!-- The tests' coverage, which JaCoCo writes at verify (below) and the SonarCloud analysis reads: without it
 		     every analysis had 0% coverage, and the quality gate (80% of new code) failed on every pull request -->
 		<sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+		<!-- Left out of the coverage count, not of the analysis: classes that drive the operating system or a browser
+		     (the keychains of Windows, macOS and Linux and the commands they run; Google Earth Web and the imagery
+		     browser through Selenium; the start-up of the application), which unit tests cannot run on a build server -->
+		<sonar.coverage.exclusions>**/desktop/WindowsDpapiProtector.java,**/desktop/MacKeychainProtector.java,**/desktop/LinuxKeyringProtector.java,**/desktop/SecretCommand.java,**/desktop/EarthApp.java,**/service/GoogleEarthWebService.java,**/service/imagery/BidiTabDriver.java,**/service/BrowserService.java,**/service/BrowserWindowIcon.java</sonar.coverage.exclusions>
 	</properties>
 
 	<!-- The id has to be the one the credentials are stored under in settings.xml, and it has to be the same one
