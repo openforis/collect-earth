@@ -185,14 +185,15 @@ public class ToolsServiceTest {
 		doThrow(new RuntimeException("locked")).when(records).delete(33);
 		when(properties.isCloudSyncEnabled()).thenReturn(true);
 		when(properties.getOperator()).thenReturn("alfonso");
+		when(properties.getCloudProjectId()).thenReturn("p1");
 		RecordingContext context = new RecordingContext();
 		Map<String, Object> result = (Map<String, Object>) service.deletePlots(file.getPath()).run(context);
 		assertEquals(1, result.get("deleted"));
 		assertEquals(1, result.get("notFound"));
 		assertEquals(1, result.get("failed"));
 		verify(records).delete(11);
-		verify(cloudQueue).enqueue(eq("1"), eq("http://survey/nfi"), eq("alfonso"), any(), eq(true));
-		verify(cloudQueue, never()).enqueue(eq("3"), anyString(), anyString(), any(), eq(true));
+		verify(cloudQueue).enqueue(eq("1"), eq("http://survey/nfi"), eq("p1"), eq("alfonso"), any(), eq(true));
+		verify(cloudQueue, never()).enqueue(eq("3"), anyString(), anyString(), anyString(), any(), eq(true));
 		// The step first, then a line per row
 		assertEquals(4, context.messages.size());
 		assertTrue(context.messages.get(2).contains("[2]"));

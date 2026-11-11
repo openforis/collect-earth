@@ -68,12 +68,24 @@ public class SettingsService {
 	public Map<String, String> current() {
 		Map<String, String> values = new LinkedHashMap<>();
 		for (Setting setting : getModel().settings()) {
-			values.put(setting.key(), properties.getValue(setting.getProperty()));
+			values.put(setting.key(), stored(setting.getProperty()));
 		}
 		for (Setting setting : getModel().settings()) {
 			values.put(setting.key(), shown(setting, values));
 		}
 		return values;
+	}
+
+	/** A setting as stored; the cloud ones are the open project's cloud project's (LocalPropertiesService.getCloudBinding) */
+	private String stored(EarthProperty property) {
+		if (property == EarthProperty.CLOUD_SYNC_URL) {
+			return properties.getCloudSyncUrl();
+		} else if (property == EarthProperty.CLOUD_PROJECT_ID) {
+			return properties.getCloudProjectId();
+		} else if (property == EarthProperty.CLOUD_SYNC_TOKEN) {
+			return properties.getCloudSyncToken();
+		}
+		return properties.getValue(property);
 	}
 
 	private String shown(Setting setting, Map<String, String> stored) {
@@ -144,7 +156,7 @@ public class SettingsService {
 			} else {
 				continue;
 			}
-			if (value.equals(properties.getValue(setting.getProperty()))) {
+			if (value.equals(stored(setting.getProperty()))) {
 				continue;
 			}
 			toWrite.put(key, value);
@@ -153,7 +165,22 @@ public class SettingsService {
 		if (toWrite.isEmpty()) {
 			return false;
 		}
-		properties.setValues(toWrite);
+		// The cloud fields are the open project's cloud project's, and the token its server's
+		String url = toWrite.remove(EarthProperty.CLOUD_SYNC_URL.toString());
+		String projectId = toWrite.remove(EarthProperty.CLOUD_PROJECT_ID.toString());
+		String token = toWrite.remove(EarthProperty.CLOUD_SYNC_TOKEN.toString());
+		if (!toWrite.isEmpty()) {
+			properties.setValues(toWrite);
+		}
+		if (url != null) {
+			properties.saveCloudSyncUrl(url);
+		}
+		if (projectId != null) {
+			properties.saveCloudProjectId(projectId);
+		}
+		if (token != null) {
+			properties.saveCloudSyncToken(token);
+		}
 		if (restartNeeded) {
 			restart.run();
 		} else {

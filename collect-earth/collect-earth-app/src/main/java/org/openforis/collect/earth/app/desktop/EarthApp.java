@@ -140,6 +140,12 @@ public class EarthApp {
 			} catch (RuntimeException e) {
 				logger.warn("The cloud token could not be protected", e);
 			}
+			// Once: the single cloud project of the versions before becomes the first of the cloud projects (by folder)
+			try {
+				getLocalProperties().migrateCloudSettings();
+			} catch (RuntimeException e) {
+				logger.error("The cloud project could not be moved to the cloud projects list", e);
+			}
 			// After Sentry, whose handler it wraps : a file chooser broken by the Windows shell falls back to plain folders
 			ShellFolderFallback.installUncaughtExceptionHandler();
 

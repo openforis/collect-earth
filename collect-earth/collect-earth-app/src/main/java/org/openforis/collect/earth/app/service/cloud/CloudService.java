@@ -2,6 +2,7 @@ package org.openforis.collect.earth.app.service.cloud;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -15,12 +16,14 @@ import org.openforis.collect.earth.app.logging.GAlogger;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.CloudBinding;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.AssignmentInfo;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.CloudApiException;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.JoinPreview;
 import org.openforis.collect.earth.app.service.cloud.CloudSyncQueueDao.QueueStatus;
 import org.openforis.collect.earth.app.view.Messages;
+import org.openforis.collect.model.CollectSurvey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -143,71 +146,132 @@ public class CloudService {
 		// Log in with the invitation: someone who has an account (another project's) joins this one with it
 		String token = request.register ? authenticate(() -> api.register(request.baseUrl, username, request.password, request.inviteToken), request)
 				: authenticate(() -> login(request.baseUrl, username, request.password, request.code, request.inviteToken), request);
-		useProject(request.baseUrl, request.projectId, token);
-		properties.saveOperator(username);
+		useProject(request.baseUrl, request.projectId, token, username);
 		// The next start offers to send the records this computer already has (CloudRecordsSender)
 		properties.setValue(EarthProperty.CLOUD_OFFER_LOCAL_RECORDS, Boolean.TRUE.toString());
 	}
 
-	/** Downloads the project, loads it and switches to cloud mode for it: the caller restarts. */
-	private void useProject(String baseUrl, String projectId, String token) throws IOException {
+	/**
+	 * Downloads the project and loads it, binds its folder to the cloud project (the other projects keep theirs), keeps
+	 * the server's sign-in, and switches to cloud mode for it: the caller restarts.
+	 */
+	private void useProject(String baseUrl, String projectId, String token, String username) throws InvalidCloudRequestException, IOException {
 		File cep = api.downloadCep(baseUrl, projectId, token);
 		try {
+			refuseToReplaceUnsent(projects.projectFolderFor(cep), projectId);
 			projects.loadCompressedProjectFile(cep);
 		} finally {
 			if (cep != null && !cep.delete()) {
 				cep.deleteOnExit();
 			}
 		}
-		properties.saveCloudSyncUrl(baseUrl);
-		properties.saveCloudProjectId(projectId);
-		properties.saveCloudSyncToken(token);
+		String server = LocalPropertiesService.normalizeServer(baseUrl);
+		CloudBinding binding = new CloudBinding(properties.getProjectFolder(), server, projectId, null, username);
+		describe(api, binding, token);
+		properties.saveCloudBinding(binding);
+		properties.saveCloudToken(server, username, token);
+		if (StringUtils.isNotBlank(username)) {
+			properties.saveOperator(username);
+		}
 		properties.setCloudSyncEnabled(true);
 		properties.saveCollectDBDriver(CollectDBDriver.CLOUD);
-		properties.setValue(EarthProperty.CLOUD_PROJECT_FOLDER, properties.getProjectFolder());
 	}
 
 	/**
-	 * The cloud projects of the user signed in on this computer (the token kept since the join), the one open marked;
-	 * none when nobody is signed in.
+	 * The cloud projects of the user on every server signed in to here (the tokens kept since the joins), each with its
+	 * server, the one open marked, and those already on this computer (a project folder bound to them). None when
+	 * nobody is signed in; refused only when no server could be asked.
 	 */
 	public List<Map<String, Object>> myProjects() throws InvalidCloudRequestException {
-		String baseUrl = properties.getCloudSyncUrl();
-		String token = properties.getCloudSyncToken();
-		if (StringUtils.isBlank(baseUrl) || StringUtils.isBlank(token)) {
-			return Collections.emptyList();
-		}
-		List<JoinPreview> found;
-		try {
-			found = api.listProjects(baseUrl, token);
-		} catch (IOException e) {
-			logger.warn("The cloud projects could not be listed: {}", e.getMessage());
-			throw new InvalidCloudRequestException("cloud.projects", Messages.getString("CloudProjects.failed"));
-		}
+		Map<String, String> accounts = properties.getCloudAccounts();
+		String openServer = properties.isCloudSyncEnabled() ? LocalPropertiesService.normalizeServer(properties.getCloudSyncUrl()) : null;
+		String openProject = properties.isCloudSyncEnabled() ? properties.getCloudProjectId() : null;
+		List<CloudBinding> bindings = properties.getCloudBindings();
 		List<Map<String, Object>> list = new ArrayList<>();
-		for (JoinPreview project : found) {
-			Map<String, Object> entry = new LinkedHashMap<>();
-			entry.put("projectId", project.getProjectId());
-			entry.put("projectName", project.getProjectName());
-			entry.put("role", project.getRole());
-			entry.put("active", properties.isCloudSyncEnabled() && project.getProjectId().equals(properties.getCloudProjectId()));
-			list.add(entry);
+		int failed = 0;
+		for (String server : accounts.keySet()) {
+			List<JoinPreview> found;
+			try {
+				found = api.listProjects(server, properties.getCloudToken(server));
+			} catch (IOException e) {
+				logger.warn("The cloud projects of {} could not be listed: {}", server, e.getMessage());
+				failed++;
+				continue;
+			}
+			for (JoinPreview project : found) {
+				Map<String, Object> entry = new LinkedHashMap<>();
+				entry.put("projectId", project.getProjectId());
+				entry.put("projectName", project.getProjectName());
+				entry.put("role", project.getRole());
+				entry.put("active", server.equals(openServer) && StringUtils.equals(project.getProjectId(), openProject));
+				entry.put("server", server);
+				entry.put("serverName", hostOf(server));
+				entry.put("onThisComputer", bindings.stream().anyMatch(b -> server.equals(b.server) && StringUtils.equals(project.getProjectId(), b.projectId)));
+				list.add(entry);
+			}
+		}
+		if (failed > 0 && failed == accounts.size()) {
+			throw new InvalidCloudRequestException("cloud.projects", Messages.getString("CloudProjects.failed"));
 		}
 		return list;
 	}
 
-	/** Opens one of {@link #myProjects()}, as a join does with no invitation or login: the caller restarts. */
-	public void open(String projectId) throws InvalidCloudRequestException, IOException {
-		String baseUrl = properties.getCloudSyncUrl();
-		String token = properties.getCloudSyncToken();
+	/**
+	 * Opens one of {@link #myProjects()} with the sign-in kept for its server (the first signed in to when none is
+	 * given), as a join does with no invitation or login: the caller restarts.
+	 */
+	public void open(String projectId, String server) throws InvalidCloudRequestException, IOException {
+		Map<String, String> accounts = properties.getCloudAccounts();
+		String url = StringUtils.isNotBlank(server) ? LocalPropertiesService.normalizeServer(server)
+				: accounts.isEmpty() ? null : accounts.keySet().iterator().next();
+		String token = url == null ? null : properties.getCloudToken(url);
 		// An id, nothing else, as it goes into the address of the download
-		if (StringUtils.isBlank(baseUrl) || StringUtils.isBlank(token) || projectId == null || !projectId.matches("[A-Za-z0-9_-]+")) {
+		if (StringUtils.isBlank(token) || projectId == null || !projectId.matches("[A-Za-z0-9_-]+")) {
 			throw new InvalidCloudRequestException("cloud.projects", Messages.getString("CloudProjects.failed"));
 		}
-		useProject(baseUrl, projectId, token);
+		useProject(url, projectId, token, accounts.get(url));
 	}
 
-	/** The login of the prompt at start: the token saved, the operator is the user. @return the operator */
+	/**
+	 * Joining unzips the project over the folder of its survey: when that folder is another cloud project's with records
+	 * not sent yet, it is refused, as they would be sent nowhere (the queue keeps them for their own cloud project).
+	 */
+	private void refuseToReplaceUnsent(File folder, String projectId) throws InvalidCloudRequestException {
+		CloudBinding bound = properties.getCloudBinding(folder);
+		if (bound == null || StringUtils.equals(bound.projectId, projectId)) {
+			return;
+		}
+		int unsent = sync.unsentCount(bound.projectId);
+		if (unsent > 0) {
+			String name = StringUtils.defaultIfBlank(bound.projectName, folder.getName());
+			throw new InvalidCloudRequestException("cloud.unsentRecords", MessageFormat.format(Messages.getString("CloudJoin.unsentRecords"), unsent, name));
+		}
+	}
+
+	/**
+	 * Asks the server for a binding's project name (the survey's is shown without it), the account's role in the project
+	 * and whether it is the server's administrator. @return false when the server could not be asked
+	 */
+	static boolean describe(CloudApiClient api, CloudBinding binding, String token) {
+		try {
+			JoinPreview project = api.getProject(new CloudApiClient.Destination(binding.server, binding.projectId, token));
+			if (project != null) {
+				binding.projectName = StringUtils.defaultIfBlank(project.getProjectName(), binding.projectName);
+				binding.role = StringUtils.trimToNull(project.getRole());
+			}
+		} catch (IOException | RuntimeException e) {
+			LoggerFactory.getLogger(CloudService.class).warn("Could not ask for the cloud project {}: {}", binding.projectId, e.getMessage());
+			return false;
+		}
+		try {
+			binding.serverAdmin = api.isServerAdmin(binding.server, token);
+		} catch (IOException | RuntimeException e) {
+			LoggerFactory.getLogger(CloudService.class).debug("Could not ask whether the account is the server's administrator: {}", e.getMessage());
+		}
+		return true;
+	}
+
+	/** The login of the prompt at start: the token of the server of the project open saved, the operator is the user. @return the operator */
 	public String login(String username, String password) throws InvalidCloudRequestException {
 		return login(username, password, null);
 	}
@@ -217,10 +281,101 @@ public class CloudService {
 		JoinRequest credentials = new JoinRequest();
 		credentials.username = username;
 		credentials.password = password;
-		String token = authenticate(() -> login(properties.getCloudSyncUrl(), username.trim(), password, code, null), credentials);
-		properties.saveCloudSyncToken(token);
+		String server = properties.getCloudSyncUrl();
+		String token = authenticate(() -> login(server, username.trim(), password, code, null), credentials);
+		// One account per server: every project on it is collected with it from now on
+		properties.saveCloudToken(server, username.trim(), token);
 		properties.saveOperator(username.trim());
 		return username.trim();
+	}
+
+	/**
+	 * The open project's cloud state, its sync's, and the servers signed in to (the contract of GET /api/cloud/state):
+	 * {@code project} (mode local or cloud, name, server, serverName, cloudProjectId, cloudProjectName, account,
+	 * signedIn, role, serverAdmin), {@code sync} (null in a local project; pending, failed, lastSyncedOn, lastError, online, needsSignIn) and
+	 * {@code accounts} (server, serverName, username).
+	 */
+	public Map<String, Object> state() {
+		boolean cloud = properties.isCloudSyncEnabled();
+		CloudBinding binding = cloud ? properties.getCloudBinding() : null;
+		String server = cloud ? StringUtils.trimToNull(LocalPropertiesService.normalizeServer(properties.getCloudSyncUrl())) : null;
+		boolean signedIn = cloud && StringUtils.isNotBlank(properties.getCloudSyncToken());
+		String name = surveyName();
+		Map<String, Object> project = new LinkedHashMap<>();
+		project.put("mode", cloud ? "cloud" : "local");
+		project.put("name", name);
+		project.put("server", server);
+		project.put("serverName", hostOf(server));
+		project.put("cloudProjectId", cloud ? StringUtils.trimToNull(properties.getCloudProjectId()) : null);
+		project.put("cloudProjectName", !cloud ? null : binding != null && StringUtils.isNotBlank(binding.projectName) ? binding.projectName : name);
+		project.put("account", !cloud ? null
+				: binding != null && StringUtils.isNotBlank(binding.username) ? binding.username : StringUtils.trimToNull(properties.getOperator()));
+		project.put("signedIn", signedIn);
+		// Collector or coordinator: the account's role in the cloud project, as the server last said (CloudSyncService)
+		project.put("role", binding == null ? null : binding.role);
+		project.put("serverAdmin", binding == null ? null : binding.serverAdmin);
+		Map<String, Object> syncState = null;
+		if (cloud) {
+			QueueStatus status = sync.getStatusSnapshot();
+			syncState = new LinkedHashMap<>();
+			syncState.put("pending", status.getPending());
+			syncState.put("failed", status.getFailed());
+			syncState.put("lastSyncedOn", status.getLastSyncedOn() == null ? null : status.getLastSyncedOn().toInstant().toString());
+			syncState.put("lastError", StringUtils.trimToNull(status.getLastError()));
+			syncState.put("online", sync.isOnline());
+			syncState.put("needsSignIn", !signedIn);
+		}
+		List<Map<String, Object>> accounts = new ArrayList<>();
+		properties.getCloudAccounts().forEach((url, username) -> {
+			Map<String, Object> account = new LinkedHashMap<>();
+			account.put("server", url);
+			account.put("serverName", hostOf(url));
+			account.put("username", username);
+			accounts.add(account);
+		});
+		Map<String, Object> answer = new LinkedHashMap<>();
+		answer.put("project", project);
+		answer.put("sync", syncState);
+		answer.put("accounts", accounts);
+		return answer;
+	}
+
+	/**
+	 * Signs out of a server: its token is forgotten (here and in the system's keyring), the sync of its projects pauses
+	 * while their records keep queueing, and the pages ask for the sign-in again. @return the new state
+	 */
+	public Map<String, Object> signOut(String server) throws InvalidCloudRequestException {
+		if (StringUtils.isBlank(server)) {
+			throw new InvalidCloudRequestException("cloud.urlRequired", Messages.getString("DatabaseServerPanel.cloudUrlRequired"));
+		}
+		properties.saveCloudToken(server, null, "");
+		return state();
+	}
+
+	/** Where a record of the open project is: local (a local project, or not queued), pending, sent or failed. */
+	public Map<String, Object> recordSync(String recordKey) {
+		String state = properties.isCloudSyncEnabled() && StringUtils.isNotBlank(recordKey) ? sync.recordState(recordKey.trim()) : "local";
+		return Collections.singletonMap("state", state);
+	}
+
+	/** A server's host name (its address when it has none) */
+	public static String hostOf(String server) {
+		if (server == null) {
+			return null;
+		}
+		try {
+			String host = java.net.URI.create(server).getHost();
+			return host == null ? server : host;
+		} catch (IllegalArgumentException e) {
+			return server;
+		}
+	}
+
+	/** The name of the survey open, as the pages show it (AppInfoController), else its survey_name */
+	private String surveyName() {
+		CollectSurvey survey = surveyService == null ? null : surveyService.getCollectSurvey();
+		String name = survey == null ? null : EarthSurveyService.projectName(survey, properties.getUiLanguage().getLocale().getLanguage());
+		return StringUtils.defaultIfBlank(name, StringUtils.trimToNull(properties.getValue(EarthProperty.SURVEY_NAME)));
 	}
 
 	/**

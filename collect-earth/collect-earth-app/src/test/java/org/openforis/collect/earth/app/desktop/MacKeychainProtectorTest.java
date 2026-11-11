@@ -60,6 +60,46 @@ public class MacKeychainProtectorTest {
 		assertEquals(reads, security.reads);
 	}
 
+	/** A keychain of items by account, as security keeps them */
+	static final class FakeKeychain implements SecretCommand.Runner {
+		final java.util.Map<String, String> items = new java.util.HashMap<>();
+
+		@Override
+		public SecretCommand.Result run(List<String> command, String input) {
+			if (command.get(1).equals("-i")) {
+				Matcher m = Pattern.compile("^add-generic-password -U -a \"([^\"]*)\" .* -w \"([^\"]*)\"\\n$").matcher(input);
+				if (m.matches()) items.put(m.group(1), m.group(2));
+				return new SecretCommand.Result(0, "");
+			}
+			String account = command.get(command.indexOf("-a") + 1);
+			if (command.get(1).equals("delete-generic-password")) {
+				items.remove(account);
+				return new SecretCommand.Result(0, "");
+			}
+			String item = items.get(account);
+			return item == null ? new SecretCommand.Result(MacKeychainProtector.NOT_FOUND, "") : new SecretCommand.Result(0, item + "\n");
+		}
+	}
+
+	@Test
+	public void eachServersTokenIsAnItemOfItsOwn() {
+		FakeKeychain keychain = new FakeKeychain();
+		MacKeychainProtector protector = new MacKeychainProtector(keychain);
+		assertEquals("keychain:cloud_sync_token https://a.org", protector.protect("cloud_sync_token https://a.org", "tok-a"));
+		assertEquals("keychain:cloud_sync_token https://b.org:8443/ce", protector.protect("cloud_sync_token https://b.org:8443/ce", "tok-b"));
+		protector.protect("before");
+		MacKeychainProtector restarted = new MacKeychainProtector(keychain);
+		assertEquals("tok-a", restarted.reveal("cloud_sync_token https://a.org", "keychain:cloud_sync_token https://a.org"));
+		assertEquals("tok-b", restarted.reveal("cloud_sync_token https://b.org:8443/ce", "keychain:cloud_sync_token https://b.org:8443/ce"));
+		assertEquals("before", restarted.reveal("keychain:cloud_sync_token"));
+		// Signing out of one server leaves the others
+		restarted.forget("cloud_sync_token https://a.org");
+		assertNull(restarted.reveal("cloud_sync_token https://a.org", "keychain:cloud_sync_token https://a.org"));
+		assertEquals("tok-b", new MacKeychainProtector(keychain).reveal("cloud_sync_token https://b.org:8443/ce", ""));
+		// An account security -i would read otherwise is never given to it
+		assertThrows(IllegalArgumentException.class, () -> protector.protect("cloud_sync_token https://x\" -s \"y", "tok"));
+	}
+
 	@Test
 	public void aFileFromElsewhereIsNoTokenAndSigningOutRemovesIt() {
 		FakeSecurity security = new FakeSecurity();

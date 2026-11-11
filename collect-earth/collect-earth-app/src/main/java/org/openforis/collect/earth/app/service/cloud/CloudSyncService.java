@@ -17,7 +17,9 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.CloudBinding;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.BatchResult;
+import org.openforis.collect.earth.app.service.cloud.CloudApiClient.CloudApiException;
 import org.openforis.collect.earth.app.service.cloud.CloudRecordSerializer.RecordEnvelope;
 import org.openforis.collect.earth.app.service.cloud.CloudSyncQueueDao.QueueItem;
 import org.openforis.collect.earth.app.service.cloud.CloudSyncQueueDao.QueueStatus;
@@ -35,11 +37,13 @@ import org.springframework.stereotype.Component;
 
 /**
  * Background coordinator that keeps the local Collect Earth database in sync with
- * a cloud project. When cloud sync is enabled it listens for locally saved records
+ * the cloud project of the project open. When it is a cloud project it listens for locally saved records
  * (enqueuing them for upload), drains the durable {@link CloudSyncQueueDao} on a
  * fixed schedule with exponential backoff, and periodically reconciles against the
  * local database to catch records that were saved while sync was off or the
- * listener missed. All work happens on a single daemon thread and never surfaces
+ * listener missed. Only the items of the project open (its survey and its cloud project) are sent, with its server's
+ * sign-in; the other projects' wait until they are opened. Signed out of the server, it sends nothing and the records
+ * keep queueing. All work happens on a single daemon thread and never surfaces
  * errors to the UI: an offline period simply retries later.
  *
  * @author Alfonso Sanchez-Paus Diaz
@@ -50,6 +54,8 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 	private static final int BATCH_SIZE = 50;
 	private static final long SYNC_INTERVAL_SECONDS = 30;
 	private static final long RECONCILE_INTERVAL_MINUTES = 10;
+	/** A record just saved is sent this long after, together with any saved meanwhile */
+	private static final long PUSH_DELAY_SECONDS = 3;
 	private static final long BASE_BACKOFF_MS = 30_000L;
 	private static final long MAX_BACKOFF_MS = 3_600_000L; // 1 hour
 
@@ -76,7 +82,12 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 
 	private final AtomicBoolean started = new AtomicBoolean(false);
 	private final ReentrantLock syncLock = new ReentrantLock();
+	private final AtomicBoolean pushScheduled = new AtomicBoolean(false);
 	private volatile boolean offlineLogged = false;
+	/** Whether the last attempt reached the server: null before the first one */
+	private volatile Boolean online = null;
+	/** The cloud project's name and the account's role were asked for (once a start: CloudService.describe) */
+	private volatile boolean projectRefreshed = false;
 	/** surveyUri whose definition has been successfully uploaded; null until the first success. */
 	private volatile String uploadedSurveyUri = null;
 	private ScheduledExecutorService executor;
@@ -91,8 +102,9 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 		}
 		earthSurveyService.addRecordSavedListener((recordKeyCsv, record) -> {
 			try {
-				queueDao.enqueue(recordKeyCsv, surveyUri(), localPropertiesService.getOperator(),
+				queueDao.enqueue(recordKeyCsv, surveyUri(), localPropertiesService.getCloudProjectId(), localPropertiesService.getOperator(),
 						record.getModifiedDate(), false);
+				pushSoon();
 			} catch (Exception e) {
 				// the listener contract forbids throwing: a missed enqueue is caught by reconcile()
 				logger.warn("Failed to enqueue record {} for cloud sync: {}", recordKeyCsv, e.getMessage());
@@ -114,18 +126,33 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 		logger.info("Cloud sync started for project {}", localPropertiesService.getCloudProjectId());
 	}
 
+	/** A sync in a few seconds, once for the records saved meanwhile: the form shows them sent soon after the save. */
+	private void pushSoon() {
+		ScheduledExecutorService local = executor;
+		if (local != null && !local.isShutdown() && pushScheduled.compareAndSet(false, true)) {
+			local.schedule(() -> {
+				pushScheduled.set(false);
+				syncCycle();
+			}, PUSH_DELAY_SECONDS, TimeUnit.SECONDS);
+		}
+	}
+
 	/** Uploads a bounded batch of due queue items. Safe to call concurrently: overlapping runs are skipped. */
 	void syncCycle() {
 		if (!syncLock.tryLock()) {
 			return; // another run (scheduled or manual) is already in progress
 		}
 		try {
+			if (earthSurveyService.getCollectSurvey() == null || StringUtils.isBlank(localPropertiesService.getCloudSyncToken())) {
+				return; // no survey loaded yet, or signed out of the server: the records wait in the queue
+			}
 			// The server needs the survey definition (idml) to decode records and build
 			// exports. Upload it once per survey, retried every cycle until it succeeds.
 			ensureSurveyUploaded();
+			refreshProject();
 
 			Date now = new Date();
-			List<QueueItem> due = queueDao.takeDue(BATCH_SIZE, now);
+			List<QueueItem> due = queueDao.takeDue(BATCH_SIZE, now, surveyUri(), localPropertiesService.getCloudProjectId());
 			if (due.isEmpty()) {
 				return;
 			}
@@ -139,8 +166,7 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 					// a record that cannot be loaded/serialized must not stall the rest
 					// of the queue: back it off individually and carry on
 					logger.warn("Could not prepare record {} for cloud sync: {}", item.getRecordKey(), e.getMessage());
-					queueDao.markFailed(item.getRecordKey(), item.getSurveyUri(), e.getMessage(),
-							nextAttempt(now, item.getAttempts()));
+					queueDao.markFailed(item, e.getMessage(), nextAttempt(now, item.getAttempts()));
 					continue;
 				}
 				if (envelope == null) {
@@ -165,10 +191,11 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 			return CloudRecordSerializer.tombstone(item.getRecordKey(), item.getSurveyUri(), item.getOperator(),
 					item.getLocalModifiedOn());
 		}
+		// The item is the loaded survey's (takeDue): a record that is not there was deleted
 		CollectRecord record = earthSurveyService.loadRecord(item.getRecordKey().split(","));
 		if (record == null) {
 			// record was deleted since it was enqueued: nothing left to upload
-			queueDao.markSynced(item.getRecordKey(), item.getSurveyUri(), new Date());
+			queueDao.markSynced(item, new Date());
 			return null;
 		}
 		return serializer.serialize(record, item.getRecordKey(), item.getSurveyUri());
@@ -179,6 +206,7 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 		try {
 			List<BatchResult> results = apiClient.uploadRecordsBatch(envelopes);
 			offlineLogged = false;
+			online = true;
 			Map<String, BatchResult> byKey = new HashMap<>();
 			for (BatchResult result : results) {
 				byKey.put(result.getRecordKey(), result);
@@ -187,13 +215,14 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 				BatchResult result = byKey.get(item.getRecordKey());
 				if (result == null) {
 					// server said nothing about this record: retry it next cycle with backoff
-					queueDao.markFailed(item.getRecordKey(), item.getSurveyUri(), "No result returned by server",
-							nextAttempt(now, item.getAttempts()));
+					queueDao.markFailed(item, "No result returned by server", nextAttempt(now, item.getAttempts()));
 					continue;
 				}
 				applyResult(item, result, now);
 			}
 		} catch (IOException e) {
+			// An HTTP answer is the server reached; anything else (no network, no such host, a timeout) is not
+			online = e instanceof CloudApiException;
 			if (isSignInRefused(e)) {
 				signedOut();
 			}
@@ -205,8 +234,7 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 				logger.debug("Cloud sync still offline: {}", e.getMessage());
 			}
 			for (QueueItem item : batched) {
-				queueDao.markFailed(item.getRecordKey(), item.getSurveyUri(), e.getMessage(),
-						nextAttempt(now, item.getAttempts()));
+				queueDao.markFailed(item, e.getMessage(), nextAttempt(now, item.getAttempts()));
 			}
 		}
 	}
@@ -214,12 +242,11 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 	private void applyResult(QueueItem item, BatchResult result, Date now) {
 		String status = result.getStatus() == null ? "" : result.getStatus();
 		if (STATUS_STORED.equalsIgnoreCase(status) || STATUS_STALE.equalsIgnoreCase(status)) {
-			queueDao.markSynced(item.getRecordKey(), item.getSurveyUri(), now);
+			queueDao.markSynced(item, now);
 		} else if (STATUS_CONFLICT.equalsIgnoreCase(status)) {
-			queueDao.markConflict(item.getRecordKey(), item.getSurveyUri(), result.getReason());
+			queueDao.markConflict(item, result.getReason());
 		} else {
-			queueDao.markFailed(item.getRecordKey(), item.getSurveyUri(), result.getReason(),
-					nextAttempt(now, item.getAttempts()));
+			queueDao.markFailed(item, result.getReason(), nextAttempt(now, item.getAttempts()));
 		}
 	}
 
@@ -230,9 +257,6 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 	 * (different URI) triggers a fresh upload.
 	 */
 	private void ensureSurveyUploaded() {
-		if (earthSurveyService.getCollectSurvey() == null) {
-			return; // survey not loaded yet
-		}
 		String surveyUri = surveyUri();
 		if (surveyUri.equals(uploadedSurveyUri)) {
 			return; // already uploaded for the current survey
@@ -266,6 +290,22 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 		}
 	}
 
+	/**
+	 * Once a start, as soon as the server answers: the cloud project's name (none for one moved from the single cloud
+	 * project of before), the account's role in it and whether it is the server's administrator, which a coordinator
+	 * may have changed since.
+	 */
+	private void refreshProject() {
+		CloudBinding binding = localPropertiesService.getCloudBinding();
+		if (projectRefreshed || binding == null) {
+			return;
+		}
+		if (CloudService.describe(apiClient, binding, localPropertiesService.getCloudSyncToken())) {
+			projectRefreshed = true;
+			localPropertiesService.saveCloudBinding(binding);
+		}
+	}
+
 	/** Scans the local database for records saved since the last watermark and enqueues any that were missed. */
 	void reconcile() {
 		try {
@@ -273,17 +313,18 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 				return; // survey not loaded yet
 			}
 			String surveyUri = surveyUri();
-			Date watermark = queueDao.getReconciliationWatermark(surveyUri);
+			String cloudProjectId = localPropertiesService.getCloudProjectId();
+			Date watermark = queueDao.getReconciliationWatermark(surveyUri, cloudProjectId);
 			if (watermark == null) {
 				watermark = new Date(0L);
 			}
 			List<CollectRecordSummary> summaries = earthSurveyService.getRecordSummariesSavedSince(watermark);
 			for (CollectRecordSummary summary : summaries) {
 				String recordKey = String.join(",", summary.getRootEntityKeyValues());
-				queueDao.enqueue(recordKey, surveyUri, localPropertiesService.getOperator(),
+				queueDao.enqueue(recordKey, surveyUri, cloudProjectId, localPropertiesService.getOperator(),
 						summary.getModifiedDate(), false);
 			}
-			queueDao.setReconciliationWatermark(surveyUri, new Date());
+			queueDao.setReconciliationWatermark(surveyUri, cloudProjectId, new Date());
 		} catch (Exception e) {
 			logger.debug("Cloud sync reconciliation skipped: {}", e.getMessage());
 		}
@@ -297,12 +338,44 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 		}
 	}
 
-	/** Current queue status, or an empty snapshot when cloud sync is not running. */
+	/** The queue status of the project open, or an empty snapshot when cloud sync is not running. */
 	public QueueStatus getStatusSnapshot() {
-		if (!started.get()) {
+		if (!started.get() || earthSurveyService.getCollectSurvey() == null) {
 			return new QueueStatus(0, 0, 0, null, null);
 		}
-		return queueDao.getStatus();
+		return queueDao.getStatus(surveyUri(), localPropertiesService.getCloudProjectId());
+	}
+
+	/** Whether the last attempt reached the server: null when there was none since the start. */
+	public Boolean isOnline() {
+		return online;
+	}
+
+	/** The records of a cloud project, of any survey, not sent yet. */
+	public int unsentCount(String cloudProjectId) {
+		return queueDao.countUnsent(cloudProjectId);
+	}
+
+	/**
+	 * Where a record of the project open is: "sent" (the server has it), "pending", "failed" (it is retried), or
+	 * "local" when it is not in the queue.
+	 */
+	public String recordState(String recordKey) {
+		if (earthSurveyService.getCollectSurvey() == null) {
+			return "local";
+		}
+		if (earthSurveyService.hasUnsavedChanges(recordKey)) {
+			return "pending"; // saved by the form, written (and queued) a moment later by the deferred save
+		}
+		String status = queueDao.getRecordStatus(recordKey, surveyUri(), localPropertiesService.getCloudProjectId());
+		if (CloudSyncQueueDao.STATUS_SYNCED.equals(status)) {
+			return "sent";
+		} else if (CloudSyncQueueDao.STATUS_PENDING.equals(status)) {
+			return "pending";
+		} else if (status != null) {
+			return "failed";
+		}
+		return "local";
 	}
 
 	/** Runs one final sync then stops the background thread. Safe to call even if sync never started. */

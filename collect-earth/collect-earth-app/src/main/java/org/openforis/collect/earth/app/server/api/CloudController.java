@@ -76,13 +76,15 @@ public class CloudController {
 
 	public static class OpenRequest {
 		public String projectId;
+		/** The server it is on; the first signed in to when not given */
+		public String server;
 	}
 
 	/** One of them opened: the restart follows the answer, as after a join */
 	@PostMapping("/api/cloud/projects/open")
 	public Map<String, Object> open(@RequestBody OpenRequest request) throws IOException {
 		try {
-			cloud.open(request.projectId);
+			cloud.open(request.projectId, request.server);
 		} catch (InvalidCloudRequestException e) {
 			throw new ApiException(e.getCode(), e.getMessage());
 		}
@@ -124,6 +126,32 @@ public class CloudController {
 	@GetMapping("/api/cloud/status")
 	public Map<String, Object> status() {
 		return cloud.status();
+	}
+
+	/** The open project's cloud state, its sync's and the servers signed in to (CloudService.state) */
+	@GetMapping("/api/cloud/state")
+	public Map<String, Object> state() {
+		return cloud.state();
+	}
+
+	public static class SignOutRequest {
+		public String server;
+	}
+
+	/** Signs out of a server: its projects' sync pauses until the sign-in. Answers the new state */
+	@PostMapping("/api/cloud/signOut")
+	public Map<String, Object> signOut(@RequestBody SignOutRequest request) {
+		try {
+			return cloud.signOut(request == null ? null : request.server);
+		} catch (InvalidCloudRequestException e) {
+			throw new ApiException(e.getCode(), e.getMessage());
+		}
+	}
+
+	/** Where a record of the open project is (local, pending, sent, failed), by its key as the form has it */
+	@GetMapping("/api/cloud/recordSync")
+	public Map<String, Object> recordSync(@RequestParam("key") String key) {
+		return cloud.recordSync(key);
 	}
 
 	@PostMapping("/api/cloud/syncNow")

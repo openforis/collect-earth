@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 /**
  * The cloud token kept in the Linux desktop's keyring (GNOME Keyring, KWallet: whatever answers the freedesktop Secret
  * Service), not in earth.properties, which only says {@code keyring:cloud_sync_token} (recommendation 1 of the data
- * review). The keyring is reached with {@code secret-tool} (package libsecret-tools), given the token on its standard
+ * review); one item per server, its account the property's name ({@code cloud_sync_token <server>}). The keyring is reached with {@code secret-tool} (package libsecret-tools), given the token on its standard
  * input. Used only when that command is installed and a keyring answers in the user's desktop session; otherwise, as
  * on a server with no desktop, the token stays in earth.properties, which only its owner can read
  * (LocalPropertiesService.ownerOnly). Read once, then kept in memory: the sync reads the token every 30 seconds.
@@ -25,13 +25,16 @@ public final class LinuxKeyringProtector implements SecretProtector {
 	private static final Logger logger = LoggerFactory.getLogger(LinuxKeyringProtector.class);
 	static final String PREFIX = "keyring:";
 	static final String LABEL = "Collect Earth cloud token";
-	/** The attributes the item is found by */
-	static final List<String> ATTRIBUTES = Arrays.asList("service", "collect-earth", "account", "cloud_sync_token");
+	/**
+	 * The account of the single token of the versions before; each server's is the property's name,
+	 * {@code cloud_sync_token <server>}
+	 */
+	static final String ACCOUNT = "cloud_sync_token";
 	private static final Pattern TOKEN = Pattern.compile("[A-Za-z0-9._~+/=-]{1,4096}");
 
 	private final SecretCommand.Runner runner;
 	private final String secretTool;
-	private volatile String cached;
+	private final java.util.Map<String, String> cached = new java.util.concurrent.ConcurrentHashMap<>();
 
 	LinuxKeyringProtector(SecretCommand.Runner runner, String secretTool) {
 		this.runner = runner;
@@ -61,7 +64,7 @@ public final class LinuxKeyringProtector implements SecretProtector {
 	 */
 	boolean answers() {
 		try {
-			SecretCommand.Result result = runner.run(command("lookup"), "");
+			SecretCommand.Result result = runner.run(command("lookup", ACCOUNT), "");
 			if (result.exit == 0 || (result.exit == 1 && result.error.trim().isEmpty())) {
 				return true;
 			}
@@ -81,19 +84,24 @@ public final class LinuxKeyringProtector implements SecretProtector {
 
 	@Override
 	public String protect(String plain) {
+		return protect(ACCOUNT, plain);
+	}
+
+	@Override
+	public String protect(String account, String plain) {
 		if (!TOKEN.matcher(plain).matches()) {
 			throw new IllegalArgumentException("not a token the keyring is given");
 		}
 		try {
-			List<String> store = command("store");
+			List<String> store = command("store", account);
 			store.add(2, "--label=" + LABEL);
 			SecretCommand.Result result = runner.run(store, plain);
-			cached = null;
-			if (result.exit != 0 || !plain.equals(read())) {
+			cached.remove(account);
+			if (result.exit != 0 || !plain.equals(read(account))) {
 				throw new IllegalStateException("the keyring did not keep the token: " + result.error.trim());
 			}
-			cached = plain;
-			return PREFIX + ATTRIBUTES.get(3);
+			cached.put(account, plain);
+			return PREFIX + account;
 		} catch (IOException e) {
 			throw new IllegalStateException("secret-tool could not be run: " + e.getMessage(), e);
 		}
@@ -101,17 +109,22 @@ public final class LinuxKeyringProtector implements SecretProtector {
 
 	@Override
 	public String reveal(String stored) {
-		String known = cached;
+		return reveal(ACCOUNT, stored);
+	}
+
+	@Override
+	public String reveal(String account, String stored) {
+		String known = cached.get(account);
 		if (known != null) {
 			return known;
 		}
 		try {
-			String token = read();
+			String token = read(account);
 			if (token == null) {
 				logger.info("The cloud token is not in this user's keyring (a settings file from elsewhere, or the keyring locked): the login is asked for again");
 				return null;
 			}
-			cached = token;
+			cached.put(account, token);
 			return token;
 		} catch (IOException e) {
 			logger.warn("The keyring could not be read: {}", e.getMessage());
@@ -121,16 +134,21 @@ public final class LinuxKeyringProtector implements SecretProtector {
 
 	@Override
 	public void forget() {
-		cached = null;
+		forget(ACCOUNT);
+	}
+
+	@Override
+	public void forget(String account) {
+		cached.remove(account);
 		try {
-			runner.run(command("clear"), "");
+			runner.run(command("clear", account), "");
 		} catch (IOException e) {
 			logger.debug("The token could not be removed from the keyring: {}", e.getMessage());
 		}
 	}
 
-	private String read() throws IOException {
-		SecretCommand.Result result = runner.run(command("lookup"), "");
+	private String read(String account) throws IOException {
+		SecretCommand.Result result = runner.run(command("lookup", account), "");
 		if (result.exit != 0) {
 			return null;
 		}
@@ -138,12 +156,12 @@ public final class LinuxKeyringProtector implements SecretProtector {
 		return token.isEmpty() ? null : token;
 	}
 
-	/** secret-tool, the action, then the item's attributes */
-	private List<String> command(String action) {
+	/** secret-tool, the action, then the item's attributes: the account is the property's name */
+	private List<String> command(String action, String account) {
 		List<String> command = new java.util.ArrayList<>();
 		command.add(secretTool);
 		command.add(action);
-		command.addAll(ATTRIBUTES);
+		command.addAll(Arrays.asList("service", "collect-earth", "account", account));
 		return command;
 	}
 

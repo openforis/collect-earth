@@ -192,6 +192,25 @@ public class CloudApiClient {
 		return url;
 	}
 
+	/**
+	 * The cloud project as its member sees it (GET /v1/projects/:id): its id, its name as the coordinator gave it, and
+	 * the role of the account in it (admin, reviewer, operator).
+	 */
+	public JoinPreview getProject(Destination destination) throws IOException {
+		HttpGet request = new HttpGet(destination.projectUrl(""));
+		prepareWith(request, destination.getToken());
+		JsonNode project = executeForJson("getProject", request);
+		return new JoinPreview(textOrNull(project, "projectId"), textOrNull(project, "name"), textOrNull(project, "role"), true);
+	}
+
+	/** Whether the account is the server's administrator (GET /v1/me, isPlatformAdmin); null when the server does not say. */
+	public Boolean isServerAdmin(String baseUrl, String token) throws IOException {
+		HttpGet request = new HttpGet(normalize(baseUrl) + "/v1/me");
+		prepareWith(request, token);
+		JsonNode admin = executeForJson("me", request).get("isPlatformAdmin");
+		return admin != null && admin.isBoolean() ? admin.asBoolean() : null;
+	}
+
 	/** True if the configured project is reachable and the token is accepted. */
 	public boolean ping() {
 		HttpGet request = new HttpGet(baseUrl() + "/v1/projects/" + projectId());

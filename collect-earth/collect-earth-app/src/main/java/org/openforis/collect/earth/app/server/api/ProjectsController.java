@@ -13,8 +13,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.CloudBinding;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.RestartService;
+import org.openforis.collect.earth.app.service.cloud.CloudService;
 import org.openforis.collect.earth.app.view.Messages;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,9 +68,24 @@ public class ProjectsController {
 			entry.put("name", project.getKey());
 			entry.put("folder", project.getValue().getAbsolutePath());
 			entry.put("active", isActive(project.getValue(), activeChecksum));
+			entry.put("cloud", cloudOf(project.getValue(), project.getKey()));
 			list.add(entry);
 		}
 		return Collections.singletonMap("projects", list);
+	}
+
+	/** The cloud project of a project folder (server, serverName, projectName), null for a local project */
+	private Map<String, Object> cloudOf(File folder, String surveyName) {
+		CloudBinding binding = properties.getCloudBinding(folder);
+		if (binding == null) {
+			return null;
+		}
+		Map<String, Object> cloud = new LinkedHashMap<>();
+		cloud.put("server", binding.server);
+		cloud.put("serverName", CloudService.hostOf(binding.server));
+		// A project bound before the names were kept has its survey_name until the sync asks for its name
+		cloud.put("projectName", StringUtils.defaultIfBlank(binding.projectName, surveyName));
+		return cloud;
 	}
 
 	private boolean isActive(File folder, String activeChecksum) {
