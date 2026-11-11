@@ -58,6 +58,38 @@ describe("translations", () => {
     for (const [key, text] of Object.entries(catalogue)) expect(text, `${language} ${key}`).not.toMatch(/plot settings|ajustes de parcelas|configuración de parcelas|réglages des parcelles|configurações de parcelas/);
   });
 
+  // The desktop's menus (collect-earth-app menus.ts) and their labels in Messages*.properties: File (CollectEarthWindow.10) →
+  // Join cloud project... (CollectEarthMenu.joinCloudProject), its "Log in" (CloudLoginDialog.loginButton); the top-level Data
+  // Import/Export menu (CollectEarthWindow.44) → Export data (CollectEarthWindow.13), Import data (DataPage.import.menu),
+  // Send this computer's records (CloudSend.menu).
+  const menus = {
+    en: ["File", "Join cloud project...", "“Log in”", "Data Import/Export", "Export data", "Import data (ZIP or CSV)", "Send this computer's records to the cloud project"],
+    es: ["Archivo", "Unirse a un proyecto en la nube...", "«Iniciar sesión»", "Importar/Exportar datos", "Exportar datos", "Importar datos (ZIP o CSV)", "Enviar los registros de este equipo al proyecto en la nube"],
+    fr: ["Fichier", "Rejoindre un projet cloud...", "« Se connecter »", "Importer/Exporter les données", "Exporter les données", "Importer des données (ZIP ou CSV)", "Envoyer les enregistrements de cet ordinateur au projet cloud"],
+    pt: ["Arquivo", "Entrar em um projeto na nuvem...", "“Entrar”", "Importar/Exportar", "Exportar dados", "Importar dados (ZIP ou CSV)", "Enviar os registros deste computador para o projeto na nuvem"],
+    tr: ["Dosya", "Bulut projesine katıl...", "“Oturum aç”", "Veri İçe/Dışa Aktarma", "Verileri dışa aktar", "Veri içe aktar (ZIP veya CSV)", "Bu bilgisayardaki kayıtları bulut projesine gönder"],
+  } as const;
+  it.each(LANGUAGES)("%s names the desktop's menus as the desktop shows them", (language) => {
+    const catalogue = CATALOGUES[language];
+    const [file, join, logIn, data, exportData, importData, send] = menus[language];
+    expect(catalogue["join.menuFile"]).toBe(file);
+    expect(catalogue["join.menuJoin"]).toBe(join);
+    for (const key of ["attention.oldFile", "attention.oldFileOne", "file.uploaded", "person.oldFile", "person.oldFileSelf", "person.newLinkHelp"] as const) {
+      expect(catalogue[key], `${language} ${key}`).toContain(`${file} → ${join}`);
+    }
+    for (const key of ["attention.oldFile", "file.uploaded", "person.oldFileSelf", "person.newLinkHelp", "person.newLinkReady", "person.newLinkSteps"] as const) {
+      expect(catalogue[key], `${language} ${key}`).toContain(logIn);
+    }
+    for (const key of ["backup.howTo", "backup.howTo.short"] as const) expect(catalogue[key], `${language} ${key}`).toContain(`${data} → ${importData}`);
+    expect(catalogue["import.explain"]).toContain(`${data} > ${exportData}`);
+    expect(catalogue["import.desktop"]).toContain(`${data} > ${send}`);
+    for (const [key, text] of Object.entries(catalogue)) {
+      // Data Import/Export is a menu of its own, not under Tools
+      expect(text, `${language} ${key}`).not.toMatch(/(Tools|Herramientas|Outils|Ferramentas|Araçlar) (→|>) (Data|Importar\/|Importer\/|Veri İçe)/);
+      if (language !== "en") expect(text, `${language} ${key}`).not.toMatch(/Join cloud project|Log in|Register\b/);
+    }
+  });
+
   it.each(LANGUAGES)("%s: quiet means more than N days without a sync or a plot download", (language) => {
     const t = translator(language);
     const more = { en: "more than", es: "más de", fr: "plus de", pt: "mais de", tr: "fazla" }[language];
