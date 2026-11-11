@@ -1107,7 +1107,7 @@ export const noteColumn = (info: { note?: NoteInfo } | null | undefined): number
   info?.note?.state === 'added' ? info.note.column : null;
 
 const NOTE_TEXTS: Record<'name', Record<Lang, string>> = {
-  name: { en: 'Note from the coordinator', es: 'Nota del coordinador', fr: 'Note du coordinateur', pt: 'Nota do coordenador', tr: 'Koordinatörün notu' },
+  name: { en: 'Note from the coordinator', es: 'Nota del coordinador', fr: 'Note du coordinateur', pt: 'Nota do coordenador', tr: 'Koordinatör notu' },
 };
 const NOTE_INPUT =
   '<input type="hidden" id="collect_text_coordinator_note" name="collect_text_coordinator_note" value="$[EXTRA_coordinator_note]" class="extra" />';

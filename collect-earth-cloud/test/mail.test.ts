@@ -249,7 +249,7 @@ describe('the digests\' words (Task 19)', () => {
       es: { subject: /resumen semanal, del 26 de octubre de 2026 al 1 de noviembre de 2026/, words: ['Parcelas hechas esta semana', 'más de 3 días', 'esperando su decisión'], number: '1234' },
       fr: { subject: /résumé de la semaine, du 26 octobre 2026 au 1 novembre 2026/, words: ['Parcelles faites cette semaine', 'plus de 3 jours', 'en attente de votre décision'], number: '1\u202f234' },
       pt: { subject: /resumo semanal, de 26 de outubro de 2026 a 1 de novembro de 2026/, words: ['Parcelas feitas esta semana', 'mais de 3 dias', 'esperando a sua decisão'], number: '1.234' },
-      tr: { subject: /haftalık özet, 26 Ekim 2026 – 1 Kasım 2026/, words: ['Bu hafta yapılan parseller', '3 günden uzun süredir', 'kararınızı bekleyen'], number: '1.234' },
+      tr: { subject: /haftalık özet, 26 Ekim 2026 – 1 Kasım 2026/, words: ['Bu hafta yapılan parseller', '3 günden fazla süredir sessiz', 'kararınızı bekleyen'], number: '1.234' },
     };
     for (const language of MAIL_LANGUAGES) {
       const mail = coordinatorMail(ctx(language), coordinator, 0, 'owner@example.org');
@@ -287,7 +287,7 @@ describe('the digests\' words (Task 19)', () => {
       es: ['Parcelas que envió esta semana: 12', 'Parcelas que envió en total: 40', 'Parcelas que le quedan por hacer: 10', 'To check again – …'],
       fr: ['Parcelles que vous avez envoyées cette semaine : 12', 'Parcelles qu’il vous reste à faire : 10', 'To check again – …'],
       pt: ['Parcelas que você enviou esta semana: 12', 'Parcelas que você enviou no total: 40', 'Parcelas que faltam para você fazer: 10', 'To check again – …'],
-      tr: ['Bu hafta gönderdiğiniz parseller: 12', 'Toplamda gönderdiğiniz parseller: 40', 'Yapmanız gereken parseller: 10', 'To check again – …'],
+      tr: ['Bu hafta gönderdiğiniz parseller: 12', 'Toplamda gönderdiğiniz parseller: 40', 'Yapmanız gereken kalan parseller: 10', 'To check again – …'],
     };
     for (const language of MAIL_LANGUAGES) {
       const mail = collectorMail(ctx(language), collector, 0, 'maria@example.org');
@@ -333,7 +333,7 @@ describe('the digests\' words (Task 19)', () => {
     es: 'esta dirección recibe los correos semanales que esa cuenta pida, sobre sus proyectos en Cloud',
     fr: 'cette adresse reçoive les courriels de la semaine que ce compte demande, sur ses projets sur Cloud',
     pt: 'este endereço recebe os e-mails semanais que essa conta pedir, sobre os seus projetos em Cloud',
-    tr: 'bu adresin o hesabın Cloud üzerindeki projeleriyle ilgili istediği haftalık e-postaları alması',
+    tr: 'bu adrese, o hesabın Cloud üzerindeki projeleriyle ilgili istediği haftalık e-postalar gönderilir',
   };
 
   it('the quiet people: at most 20 named, then how many more', () => {
