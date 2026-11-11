@@ -1072,6 +1072,112 @@ function addRoundToSurvey(text: string, info: SurveyInfo): { survey: string; lis
 }
 
 // ---------------------------------------------------------------------------------------
+// A repeat survey's period status (docs/plans/2026-11-11-repeat-survey.md, stage 2)
+
+export const PERIOD_STATUS_NAME = 'period_status';
+export const PERIOD_STATUS_KEY = `collect_code_${PERIOD_STATUS_NAME}`;
+/** What the collector says of a plot against its earlier period: still the same, changed since, interpreted wrongly then */
+export const PERIOD_STATUS_CODES = ['same', 'changed', 'corrected'] as const;
+const PERIOD_TEXTS: Record<'name' | (typeof PERIOD_STATUS_CODES)[number], Record<Lang, string>> = {
+  name: { en: 'Since the earlier period', es: 'Desde el periodo anterior', fr: 'Depuis la période antérieure', pt: 'Desde o período anterior' },
+  same: { en: 'Still the same', es: 'Sigue igual', fr: 'Toujours la même', pt: 'Continua igual' },
+  changed: { en: 'Changed since then', es: 'Ha cambiado desde entonces', fr: 'A changé depuis', pt: 'Mudou desde então' },
+  corrected: { en: 'Interpreted wrongly then', es: 'Se interpretó mal entonces', fr: 'Mal interprétée alors', pt: 'Foi mal interpretada na época' },
+};
+
+/**
+ * Serves a repeat survey's project file with the period status added to its survey: a code attribute `period_status`
+ * (same, changed, corrected, in a list of its own), after the plot's keys, on their step. The collectors' form asks it
+ * in the plot's header, against the earlier period's main characteristics; its answer is the record's, in its summary
+ * and the exports. A survey that has it already is served as it is (`added` false). Throws CepError for a file that
+ * cannot be read.
+ */
+export function addPeriodStatus(zip: Buffer, date: Date = new Date(), limits: CepLimits = DEFAULT_CEP_LIMITS): { cep: Buffer; added: boolean } {
+  const files = readCep(zip, limits);
+  const parsed = parseSurvey(decodeUtf8(files.entries.get(files.surveyPath)!));
+  const text = latin1(files.entries.get(files.surveyPath)!);
+  const unreadable = () => new CepError('survey_unreadable', 'The survey cannot be read.');
+  const survey = scanXml(text).find((e) => e.name === 'survey');
+  const schema = survey?.children.find((e) => e.name === 'schema');
+  const root = schema?.children.find((e) => e.name === 'entity');
+  if (!survey || !root) throw unreadable();
+  if (root.children.some((e) => attrOf(e, 'name')?.value === PERIOD_STATUS_NAME)) return { cep: zip, added: false };
+  const keys = root.children.filter((e) => ATTRIBUTE_TAGS.has(e.name) && isKey(e));
+  const anchor = keys[keys.length - 1] ?? root.children.find((e) => ATTRIBUTE_TAGS.has(e.name));
+  if (!anchor) throw unreadable();
+
+  const edits: Edit[] = [];
+  let maxId = 0;
+  const visit = (e: XmlElement) => {
+    const id = Number(attrOf(e, 'id')?.value);
+    if (Number.isInteger(id) && id > maxId) maxId = id;
+    e.children.forEach(visit);
+  };
+  visit(survey);
+  const lastIdAttr = attrOf(survey, 'lastId');
+  const declared = Number.parseInt(lastIdAttr?.value ?? '', 10);
+  const attributeId = Math.max(maxId, Number.isFinite(declared) ? declared : 0) + 1;
+  const listId = attributeId + 1;
+  const lastId = listId + PERIOD_STATUS_CODES.length;
+  const unit = indentUnit(indentAt(text, root.start), indentAt(text, anchor.start));
+  const labels = (texts: Record<Lang, string>, type: string) => labelElements(parsed.languages, texts, type);
+
+  // Its list, under a name the survey does not use
+  const listNames = new Set(
+    (survey.children.find((e) => e.name === 'codeLists')?.children ?? []).map((e) => attrOf(e, 'name')?.value).filter((n): n is string => n !== undefined),
+  );
+  let listName = PERIOD_STATUS_NAME;
+  for (let n = 2; listNames.has(listName); n++) listName = `${PERIOD_STATUS_NAME}_${n}`;
+  const listLines = (indent: string) => [
+    `${indent}<list id="${listId}" name="${listName}">`,
+    ...labels(PERIOD_TEXTS.name, ' type="item"').map((l) => indent + unit + l),
+    `${indent}${unit}<codingScheme scope="local" />`,
+    `${indent}${unit}<items>`,
+    ...PERIOD_STATUS_CODES.map((code, i) => `${indent}${unit}${unit}<item id="${listId + 1 + i}"><code>${code}</code>${labels(PERIOD_TEXTS[code], '').join('')}</item>`),
+    `${indent}${unit}</items>`,
+    `${indent}</list>`,
+  ];
+  const codeLists = survey.children.find((e) => e.name === 'codeLists');
+  if (codeLists && !codeLists.selfClosing) {
+    edits.push(insertLinesBefore(text, codeLists.closeStart, listLines(indentAt(text, codeLists.closeStart) + unit)));
+  } else {
+    const before = codeLists ?? survey.children.find((e) => ['units', 'spatialReferenceSystems', 'schema'].includes(e.name));
+    if (!before) throw unreadable();
+    const indent = indentAt(text, before.start);
+    const block = [`${indent}<codeLists>`, ...listLines(indent + unit), `${indent}</codeLists>`];
+    if (codeLists) edits.push({ at: codeLists.start, remove: codeLists.end - codeLists.start, insert: block.join(eolAt(text, codeLists.start)).slice(indent.length) });
+    else edits.push(insertLinesBefore(text, before.start, block));
+  }
+
+  // The attribute, after the keys, on their step
+  const tab = attrOf(keys[0] ?? anchor, 'ui:tab');
+  const indent = indentAt(text, anchor.start);
+  const attributeLines = [
+    `${indent}<code id="${attributeId}" name="${PERIOD_STATUS_NAME}"${tab ? ` ui:tab="${tab.value}"` : ''} list="${listName}">`,
+    ...labels(PERIOD_TEXTS.name, ' type="instance"').map((l) => indent + unit + l),
+    `${indent}</code>`,
+  ];
+  edits.push({ at: anchor.end, remove: 0, insert: linesAfter(text, anchor.end, attributeLines) });
+
+  let tagInsert = lastIdAttr ? '' : ` lastId="${lastId}"`;
+  if (lastIdAttr) edits.push({ at: lastIdAttr.at, remove: lastIdAttr.value.length, insert: String(lastId) });
+  for (const [prefix, uri] of NAMESPACES) {
+    if (!attrOf(survey, `xmlns:${prefix}`)) tagInsert += ` xmlns:${prefix}="${uri}"`;
+  }
+  if (tagInsert) edits.push({ at: survey.attrsEnd, remove: 0, insert: tagInsert });
+
+  const entries = new Map(files.entries);
+  entries.set(files.surveyPath, fromLatin1(applyEdits(text, edits)));
+  const cep = zipCep(entries, date);
+  // The served file must read back with the attribute and its three answers
+  const served = readCepWithin(cep, limits, allowedBytes(zip.length, limits) + 64 * 1024);
+  const back = parseSurvey(decodeUtf8(served.entries.get(served.surveyPath)!));
+  const attribute = childrenOf(back.root).find((n) => attr(n, 'name') === PERIOD_STATUS_NAME);
+  if (!attribute || attr(attribute, 'list') !== listName) throw new Error('addPeriodStatus produced a survey without its period status');
+  return { cep, added: true };
+}
+
+// ---------------------------------------------------------------------------------------
 // The coordinator's note (Task 16)
 
 /** The note's attribute; Collect Earth sends it in a record's summary as NOTE_SUMMARY_KEY. */

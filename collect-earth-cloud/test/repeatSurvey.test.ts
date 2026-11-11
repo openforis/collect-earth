@@ -128,6 +128,10 @@ describe('repeating a survey in the dashboard', () => {
 
     // the earlier answers, not records of the new project
     expect(await ctx.store.listRecords(projectId)).toHaveLength(0);
+    // the survey it serves asks the period status, which the source's does not
+    const served = strFromU8(unzipSync(new Uint8Array((await ctx.store.getCep(projectId))!))['placemark.idm.xml']);
+    expect(surveyOutline(served).get('collect_code_period_status')?.options?.map((o) => o.code)).toEqual(['same', 'changed', 'corrected']);
+    expect(strFromU8(unzipSync(new Uint8Array((await ctx.store.getCep(pid))!))['placemark.idm.xml'])).not.toContain('period_status');
     const earlier = await ctx.store.listPeriodAnswers(projectId, '2020');
     expect(earlier.map((r) => [r.plotKey, r.operator, r.answers[LAND_USE]]).sort()).toEqual([
       ['1', 'maria', 'F'],
@@ -151,6 +155,10 @@ describe('repeating a survey in the dashboard', () => {
     const forCollector = await call('GET', '/periods/plots/1', maria.token, undefined, {}, projectId);
     expect(forCollector.json().periods[0]).not.toHaveProperty('operator');
     expect((await call('GET', '/periods/plots/3', owner.token, undefined, {}, projectId)).json().periods).toEqual([]);
+    // as the desktop names the plot (with the round the server added), with what the form's header shows
+    const asDesktop = (await call('GET', '/periods/plots/1,1', maria.token, undefined, {}, projectId)).json();
+    expect(asDesktop.periods[0].answers[LAND_USE]).toBe('F');
+    expect(asDesktop).toMatchObject({ label: '2025', header: [LAND_USE] });
 
     // the header's questions, changed by the coordinator, only the survey's
     const header = await call('PUT', '/periods/header', owner.token, { headerQuestions: [FOREST, LAND_USE, 'nothing'] }, {}, projectId);
@@ -206,5 +214,45 @@ describe('repeating a survey in the dashboard', () => {
     expect((await call('POST', '/repeat', owner.token, { name: 'x', label: '2020', earlierLabel: '2020' })).statusCode).toBe(400);
     expect((await call('POST', '/repeat', owner.token, { name: 'x', label: '', earlierLabel: '2020' })).statusCode).toBe(400);
     expect((await call('POST', '/repeat', maria.token, { name: 'x', label: '2025', earlierLabel: '2020' })).statusCode).toBe(403);
+  });
+});
+
+describe('the period status a repeat survey asks', () => {
+  it('is added once to the survey, after the keys, with its list; a project file uploaded again keeps it', async () => {
+    const { addPeriodStatus, readCep } = await import('../src/cep.js');
+    const first = addPeriodStatus(idOnlyCep());
+    expect(first.added).toBe(true);
+    const files = readCep(first.cep);
+    const survey = strFromU8(files.entries.get(files.surveyPath)!);
+    const outline = surveyOutline(survey);
+    expect(outline.get('collect_code_period_status')).toMatchObject({ kind: 'choice', label: 'Since the earlier period' });
+    // after the plot's key
+    const attribute = survey.search(/<code id="\d+" name="period_status" ui:tab="[^"]+" list="period_status">/);
+    expect(attribute).toBeGreaterThan(survey.indexOf('<text id="2" name="id"'));
+    // every id once
+    const ids = [...survey.matchAll(/ id="(\d+)"/g)].map((m) => m[1]);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(Number(/lastId="(\d+)"/.exec(survey)![1])).toBeGreaterThanOrEqual(Math.max(...ids.map(Number)));
+    // a second time: nothing to add
+    const again = addPeriodStatus(first.cep);
+    expect(again.added).toBe(false);
+    expect(again.cep).toBe(first.cep);
+  });
+
+  it('comes back when the coordinator uploads a project file to a repeat survey', async () => {
+    const ctx = await makeContext();
+    try {
+      const owner = await setupPlatformAdmin(ctx.app);
+      const pid = (await ctx.app.inject({ method: 'POST', url: '/v1/projects', headers: bearer(owner.token), payload: { name: 'Land 2020' } })).json().projectId;
+      await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/cep`, headers: { ...bearer(owner.token), 'content-type': 'application/zip' }, payload: idOnlyCep() });
+      const made = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${pid}/repeat`, headers: bearer(owner.token), payload: { name: 'Land 2025', label: '2025', earlierLabel: '2020' } });
+      const projectId = made.json().projectId;
+      const upload = await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${projectId}/cep`, headers: { ...bearer(owner.token), 'content-type': 'application/zip' }, payload: idOnlyCep() });
+      expect(upload.statusCode, upload.body).toBe(200);
+      const served = strFromU8(unzipSync(new Uint8Array((await ctx.store.getCep(projectId))!))['placemark.idm.xml']);
+      expect(surveyOutline(served).has('collect_code_period_status')).toBe(true);
+    } finally {
+      await ctx.app.close();
+    }
   });
 });

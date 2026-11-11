@@ -1,7 +1,8 @@
 import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid, publicBaseUrl } from '../accountRules.js';
 import { audit, noteActivity } from '../activity.js';
-import { addNote, addRound, CepError, noteColumn, roundInfoOf, withBundledPlotFile, type NoteInfo, type NoteRefusal, type RefusalCode } from '../cep.js';
+import {
+  addPeriodStatus, addNote, addRound, CepError, noteColumn, roundInfoOf, withBundledPlotFile, type NoteInfo, type NoteRefusal, type RefusalCode } from '../cep.js';
 import type { Config } from '../config.js';
 import { checkUploadFits } from '../limits.js';
 import { servedBundledPlotFile } from './assignments.js';
@@ -517,6 +518,14 @@ export async function acceptCep(store: Store, projectId: string, cep: Buffer, lo
       original ??= cep;
     }
     info = { ...info, note: note.info };
+    // A repeat survey's period status (docs/plans/2026-11-11-repeat-survey.md): asked in the form's header
+    if (await store.getRepeatSettings(projectId)) {
+      const status = addPeriodStatus(served, date);
+      if (status.added) {
+        served = status.cep;
+        original ??= cep;
+      }
+    }
     // The plot file the project file brings (Collect Earth opens it until an assigned one is
     // chosen) gets the round and note columns as the served plot files have them (Task 22's real run).
     // One that does not read back as it should is served as it came (logged): Collect Earth then only

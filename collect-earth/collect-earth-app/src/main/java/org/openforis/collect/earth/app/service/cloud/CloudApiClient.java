@@ -534,6 +534,18 @@ public class CloudApiClient {
 		return executeForJson("getTrainingFeedback", request);
 	}
 
+	/**
+	 * A plot's answers in the earlier periods of a repeat survey (docs/plans/2026-11-11-repeat-survey.md), with the
+	 * questions' labels, their answers' names, and what the form's header shows: {@code {periods: [{label, savedAt,
+	 * answers}], labels, options, label, header}}; no periods for a project that repeats no survey.
+	 */
+	public JsonNode getPlotPeriods(String placemarkId) throws IOException {
+		HttpGet request = new HttpGet(baseUrl() + "/v1/projects/" + projectId() + "/periods/plots/"
+				+ java.net.URLEncoder.encode(placemarkId, java.nio.charset.StandardCharsets.UTF_8.name()).replace("+", "%20"));
+		prepare(request);
+		return executeForJson("getPlotPeriods", request);
+	}
+
 	/** Lists the CSV files assigned to the logged-in operator for the configured project. */
 	public List<AssignmentInfo> getMyAssignments() throws IOException {
 		HttpGet request = new HttpGet(baseUrl() + "/v1/projects/" + projectId() + "/my-assignment");

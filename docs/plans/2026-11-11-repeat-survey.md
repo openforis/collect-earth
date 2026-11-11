@@ -1,6 +1,6 @@
 # Repeat survey: collecting a project's plots again, years later, with the earlier answers beside them
 
-Date: 11 November 2026. **Status: stage 1 built on the working branch (`claude/awesome-bell-s34gb0`), kept out of
+Date: 11 November 2026. **Status: stages 1 and 2 built on the working branch (`claude/awesome-bell-s34gb0`), kept out of
 `ce-2026-GEW` until the 2.0 release is out; the owner's decisions are below.**
 
 ## Goal
@@ -65,9 +65,8 @@ brought to the cloud with the backup import (`2026-11-11-backup-import.md`), the
 
 ### 3. The collectors (desktop): the plot's header
 
-Decision 2. When the plot file of a repeat survey is downloaded, the earlier answers of its plots come with it (a small
-JSON beside it, `<plot file>.period.json`, summaries by plot), so the form works offline as it does today. The form
-then opens on a **header**: the plot's main characteristics as they were collected in the earlier period (the
+Decision 2. When a plot of a repeat survey opens, Collect Earth asks the cloud for its earlier answers (as it asks for a
+learning plot's feedback; collecting needs the internet anyway, for the imagery). The form then opens on a **header**: the plot's main characteristics as they were collected in the earlier period (the
 questions the coordinator chose, by default its land use and land cover), and three choices:
 
 - **Still the same**: the earlier answers of the form are filled in (marked *Copied* until looked at, as "Same as
@@ -112,8 +111,8 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
 
 1. The repeat survey from a cloud project: the earlier answers kept apart, the routes, the dialog, the plot page's
    periods. **Built** (below).
-2. The desktop: the `period_status` attribute added to a repeat survey's survey, the earlier answers with the plot file,
-   the form's header with its three choices.
+2. The desktop: the `period_status` attribute added to a repeat survey's survey, the plot's earlier answers asked when
+   it opens, the form's header with its three choices. **Built** (below).
 3. The comparison: the Change page (the transition matrix, changed plots and corrections, map layer), the export's
    period columns.
 4. Areas and uncertainty of the changes.
@@ -138,3 +137,30 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
 - Checked: `test/repeatSurvey.test.ts` (9), the isolation cases, `npm run smoke:pg:repeat` (the migration twice, RLS,
   a repeat of a repeat, deletion), and the flow in a browser (a project of 8 plots repeated, its settings and a plot's
   page).
+
+## Stage 2, as built (11 Nov 2026)
+
+- The cloud (`src/cep.ts`, `addPeriodStatus`): a repeat survey's served survey gets `period_status`, a code attribute
+  after the plot's keys, on their step, with its own list (`same`, `changed`, `corrected`, labelled in en/es/fr/pt),
+  ids above every id in use; once only. Added when the survey is repeated (`servePeriodStatus`) and to any project
+  file uploaded to a repeat survey later (`acceptCep`). `GET /periods/plots/:plot` takes the plot as the desktop names
+  it (`17,1`, with the round the server added) and tells what the header shows (`label`, `header`).
+- The desktop: `GET /earth/api/cloud/plot-periods?plot=` (`CloudService.plotPeriods`, kept ten minutes per plot; no
+  periods when the project is not on the cloud, repeats no survey, or the cloud cannot be reached, and the form is then
+  as for any project).
+- The form (`form/period.ts`, `PeriodHeader` in `FormApp.tsx`): the period status is taken out of the questions; on
+  the first step, a header with the plot's main characteristics as answered in the earlier period ("This plot in
+  2020: Land use: Cropland") and the three choices. **Still the same** copies the earlier answers into the questions
+  left empty, on every step, marked *Copied* (choices and yes/no only, as "Same as previous plot" copies them: never a
+  number, a text nor a key); **Changed since 2020** and **Wrongly interpreted in 2020** copy nothing. Submit is refused
+  until one is chosen, the header in red with what to do. Texts in en/es/fr/pt.
+- Found on the way, fixed in a commit of its own: the form asked a learning plot's training feedback at an address
+  Collect Earth does not serve (`/api/...` instead of `/earth/api/...`, without the `X-Collect-Earth` header), so the
+  feedback never showed.
+- Checked: the cloud's tests (`addPeriodStatus` once, after the keys, ids unique; again on an upload), `CloudServiceTest`
+  and `CloudControllerTest`, `form/period.test.ts`, and a real run: a 2020 project repeated as 2025, joined from the
+  desktop by its collector; the form of a plot opened on its 2020 header, Submit refused until answered, "Still the
+  same" and "Changed since 2020" saved as the record's `period_status`. The demo survey's "Invalid value" on its land
+  cover rows is its own (the 2020 project's form shows the same).
+- Left for later: the plots map's filter of the plots changed since the earlier period, and copying numbers on "Still
+  the same".

@@ -44,6 +44,7 @@ import {
   fieldsOfStep, firstToAnswer, indexedField, isTabVisible, isVisible, itemFields, neededByTab, openingTarget, parseCodes,
   stepAfterAnswer, stepsOf, summaryLines, tabsWithErrors,
 } from "./model";
+import { PERIOD_STATUSES, PERIOD_STATUS_FIELD, earlierToCopy, type PeriodStatus } from "./period";
 import type { FormState, FormStore, SaveState } from "./store";
 import { TypeAhead, afterRender, endOfMove } from "./typeAhead";
 
@@ -481,6 +482,43 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
     }));
   }, [store, t, copyNow, controlOf, focusOwn, announce]);
 
+  /** A repeat survey's "Still the same": the earlier answers into the questions left empty, on every step, marked Copied */
+  const sameAsEarlier = useCallback(() => {
+    const now = store.getState();
+    if (!now.period || !now.model) return;
+    const copyAll = (): string[] => {
+      const s = store.getState();
+      if (!s.model || !s.period) return [];
+      const byName = store.fieldsByName();
+      const done: string[] = [];
+      for (const [name, value] of earlierToCopy(s.model, s.infos, s.period.earlier.answers, (n) => store.value(n))) {
+        const field = byName[name];
+        if (field?.code) {
+          const items = availableItems(field, store.getState().infos, store.getState().pending, byName);
+          if (!parseCodes(value).every((c) => items.some((i) => i.code === c.code))) continue;
+        }
+        store.setValue(name, value);
+        done.push(name);
+      }
+      return done;
+    };
+    const all = new Set(copyAll());
+    const show = () => {
+      if (!all.size) return;
+      setCopied((c) => new Set([...c, ...all]));
+      announce(all.size === 1 ? t("entry.copiedAnnounceOne") : t("entry.copiedAnnounce", { count: all.size }));
+    };
+    show();
+    // The server's answer shows the questions the copies decide on: copied too, once
+    void within(store.whenSaved(), ADVANCE_WAIT).then(() => afterRender(() => {
+      if (store.getState().submitted) return;
+      const more = copyAll();
+      if (!more.length) return;
+      more.forEach((name) => all.add(name));
+      show();
+    }));
+  }, [store, t, announce]);
+
   // Alt+Left/Right change tab; P copies the answers of the plot before; "/", "N", "Esc" and Alt+1... go to the plots map,
   // whose keys they are (see panelKey)
   useEffect(() => {
@@ -574,6 +612,8 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
           {model.unsupported.length > 0 && state.tab === firstStep && (
             <Alert severity="warning" variant="outlined">{t("entry.unsupportedSome", { names: model.unsupported.map((u) => u.name).join(", ") })}</Alert>
           )}
+          {/* A repeat survey's plot: its main characteristics in the earlier period, and whether it is still the same */}
+          {state.period && state.tab === firstStep && <PeriodHeader store={store} state={state} onSame={sameAsEarlier} />}
           {info.length > 0 && state.tab === firstStep && <HeaderInfo items={info} store={store} />}
           {toCopy > 0 && (
             <Box sx={{ display: "flex", justifyContent: "flex-end", mb: -1 }}>
@@ -832,6 +872,62 @@ const HEADER_OPEN_KEY = "collectEarthFormPlotDataOpen";
  * Plot file data the survey puts in the balloon header (country, region, ...): a compact list of labels and values,
  * the first rows only until the user asks for all of them, which is remembered.
  */
+const PERIOD_TEXT: Record<PeriodStatus, MessageKey> = { same: "period.same", changed: "period.changed", corrected: "period.corrected" };
+const PERIOD_HINT: Record<PeriodStatus, MessageKey> = { same: "period.sameHint", changed: "period.changedHint", corrected: "period.correctedHint" };
+
+/**
+ * A repeat survey's plot header (docs/plans/2026-11-11-repeat-survey.md): the plot's main characteristics as collected
+ * in the earlier period, and the collector's answer: still the same (the earlier answers are copied, to be checked),
+ * changed since, or interpreted wrongly then. Submit asks for it first.
+ */
+function PeriodHeader({ store, state, onSame }: { store: FormStore; state: FormState; onSame: () => void }) {
+  const t = useT();
+  const period = state.period!;
+  const chosen = store.value(PERIOD_STATUS_FIELD) as PeriodStatus | "";
+  const earlier = period.earlier.label;
+  const choose = (status: PeriodStatus) => {
+    if (state.submitted && chosen === status) return;
+    store.setPeriodStatus(status);
+    if (status === "same") onSame();
+  };
+  return (
+    <Card variant="outlined" data-testid="entry-period" role="group" aria-labelledby="entry-period-title"
+      sx={{ borderColor: state.periodMissing ? "error.main" : "primary.light", borderWidth: state.periodMissing ? 2 : 1, flexShrink: 0 }}>
+      <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
+        <Typography id="entry-period-title" variant="subtitle2" sx={{ fontWeight: 600 }}>
+          {t("period.title", { earlier })}
+        </Typography>
+        {period.header.length > 0 ? (
+          <Box component="dl" sx={{ m: 0, mt: 0.5, display: "grid", gridTemplateColumns: "max-content 1fr", columnGap: 1.5, rowGap: 0.25 }}>
+            {period.header.map((h) => (
+              <Box key={h.key} sx={{ display: "contents" }}>
+                <Typography component="dt" variant="body2" color="text.secondary">{h.label}</Typography>
+                <Typography component="dd" variant="body2" sx={{ m: 0, fontWeight: 600, overflowWrap: "anywhere" }} data-testid="entry-period-answer">{h.answer}</Typography>
+              </Box>
+            ))}
+          </Box>
+        ) : (
+          <Typography variant="body2" color="text.secondary">{t("period.noHeader")}</Typography>
+        )}
+        <Typography variant="body2" sx={{ mt: 1 }}>{t("period.question", { earlier })}</Typography>
+        <Stack direction="row" sx={{ mt: 0.75, gap: 1, flexWrap: "wrap" }}>
+          {PERIOD_STATUSES.map((status) => (
+            <Tooltip key={status} title={t(PERIOD_HINT[status], { earlier })} describeChild>
+              <Button size="small" variant={chosen === status ? "contained" : "outlined"} aria-pressed={chosen === status}
+                onClick={() => choose(status)} data-testid={`entry-period-${status}`} sx={{ textTransform: "none" }}>
+                {t(PERIOD_TEXT[status], { earlier })}
+              </Button>
+            </Tooltip>
+          ))}
+        </Stack>
+        {state.periodMissing && !chosen && (
+          <Typography variant="body2" color="error" role="alert" sx={{ mt: 0.75 }} data-testid="entry-period-missing">{t("period.missing", { earlier })}</Typography>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function HeaderInfo({ items, store }: { items: InfoItem[]; store: FormStore }) {
   const t = useT();
   const [open, setOpen] = useState(() => {

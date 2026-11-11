@@ -111,6 +111,12 @@ public class CloudController {
 		return cloud.trainingFeedback(plot);
 	}
 
+	/** A plot's answers in the earlier periods of a repeat survey, for the header of its form */
+	@GetMapping("/api/cloud/plot-periods")
+	public Map<String, Object> plotPeriods(@RequestParam("plot") String plot) {
+		return cloud.plotPeriods(plot);
+	}
+
 	/** The plot files assigned to the operator, for the Project section of the settings in cloud mode */
 	@GetMapping("/api/cloud/assignments")
 	public Map<String, Object> assignments() {

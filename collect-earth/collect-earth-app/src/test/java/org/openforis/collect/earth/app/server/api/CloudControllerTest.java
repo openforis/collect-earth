@@ -97,6 +97,15 @@ public class CloudControllerTest {
 	}
 
 	@Test
+	public void aPlotsEarlierAnswersForTheFormsHeader() throws Exception {
+		Map<String, Object> periods = new LinkedHashMap<>();
+		periods.put("label", "2025");
+		periods.put("periods", java.util.Collections.emptyList());
+		when(cloud.plotPeriods("17,1")).thenReturn(periods);
+		mvc.perform(get("/api/cloud/plot-periods").param("plot", "17,1")).andExpect(status().isOk()).andExpect(jsonPath("$.label").value("2025"));
+	}
+
+	@Test
 	public void theStatusAndSyncNow() throws Exception {
 		Map<String, Object> status = new LinkedHashMap<>();
 		status.put("enabled", true);

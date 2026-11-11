@@ -15,7 +15,7 @@
 //   coordinators and reviewers only.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
-import { CepError, readCep } from '../cep.js';
+import { CepError, addPeriodStatus, readCep } from '../cep.js';
 import { finalAnswers, recordResolver } from '../quality.js';
 import { answerOptions } from '../qualityReports.js';
 import { loadPlotContext } from '../qualityService.js';
@@ -31,6 +31,7 @@ import {
 } from '../repeatSurvey.js';
 import { copyProject } from '../projectCopy.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
+import { keyShape, splitKey } from '../rounds.js';
 import type { Store } from '../store/store.js';
 import { surveyOutline, type Question } from '../surveyOutline.js';
 import type { RepeatSettings } from '../types.js';
@@ -92,6 +93,14 @@ function headerOf(raw: unknown, outline: ReadonlyMap<string, Question>): string[
   const candidates = new Set(headerCandidates(outline).map((q) => q.key));
   const asked = Array.isArray(raw) ? raw.filter((k): k is string => typeof k === 'string' && candidates.has(k)) : [];
   return asked.length > 0 ? [...new Set(asked)].slice(0, 12) : defaultHeaderQuestions(outline);
+}
+
+/** The served project file with the period status (addPeriodStatus), the original kept as the upload path keeps it. */
+export async function servePeriodStatus(store: Store, projectId: string): Promise<void> {
+  const [served, info, original] = await Promise.all([store.getCep(projectId), store.getRoundInfo(projectId), store.getOriginalCep(projectId)]);
+  if (!served || !info) return;
+  const status = addPeriodStatus(served);
+  if (status.added) await store.putCep(projectId, status.cep, info, original ?? served);
 }
 
 const questionList = (outline: ReadonlyMap<string, Question>) => headerCandidates(outline).map((q) => ({ key: q.key, label: q.label, kind: q.kind }));
@@ -176,6 +185,8 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
     reports.push({ label: earlierLabel, plots: matched.records.length, report: matched.report });
     const headerQuestions = headerOf(body.headerQuestions, outline);
     await store.setRepeatSettings(projectId, { label, earlier: periods, headerQuestions });
+    // The period status the collectors' form asks in the plot's header, added to the survey it serves
+    await servePeriodStatus(store, projectId);
 
     try {
       await store.appendAudit(projectId, {
@@ -222,7 +233,14 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
   app.get('/v1/projects/:pid/periods/plots/:plot', member, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
     const plot = (request.params as { plot: string }).plot;
-    const rows = await store.getPlotPeriodAnswers(projectId, plot);
+    // The plot as the desktop names it ("17,1", with the round of its key) or as the plot files do ("17")
+    let rows = await store.getPlotPeriodAnswers(projectId, plot);
+    if (rows.length === 0) {
+      const info = await store.getRoundInfo(projectId);
+      const { plot: bare } = splitKey(plot, keyShape(info).count, keyShape(info).roundIndex);
+      if (bare !== plot) rows = await store.getPlotPeriodAnswers(projectId, bare);
+    }
+    const settings = await store.getRepeatSettings(projectId);
     const role = request.membership!.role;
     const seesWho = role === 'admin' || role === 'reviewer';
     // The questions' labels and their answers' names, from the survey: the project may have no record of the plot yet
@@ -234,6 +252,9 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
       periods: rows.map((r) => ({ label: r.label, savedAt: r.savedAt, answers: r.answers, ...(seesWho ? { operator: r.operator } : {}) })),
       labels,
       options: outline ? answerOptions(outline, keys) : {},
+      // what the form's header shows: this period's label and the plot's main characteristics
+      label: settings?.label ?? null,
+      header: settings?.headerQuestions ?? [],
     });
   });
 }
