@@ -143,8 +143,8 @@ public class EarthApp {
 			// After Sentry, whose handler it wraps : a file chooser broken by the Windows shell falls back to plain folders
 			ShellFolderFallback.installUncaughtExceptionHandler();
 
-			// Change of font so that Lao and Thao glyphs are supported
-			CollectEarthUtils.setFontDependingOnLanguaue(getLocalProperties().getUiLanguage());
+			// One font for the Swing windows left, whatever the language
+			CollectEarthUtils.setDefaultUiFont();
 
 			// Something on the screen from the first moment until the main window opens: starting takes from a few
 			// seconds to a minute, and a restart (another project, a setting) has closed the old windows meanwhile. In the

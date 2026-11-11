@@ -16,11 +16,7 @@ class MessagesBundleTest {
 
 	private static final String FOLDER = "/org/openforis/collect/earth/app/view/";
 
-	// Messages_mn.properties is left out: its translations run into each other (16 keys are fragments of other
-	// lines, e.g. line 98 "</ HTML> OptionWizard.20 = ..."), so OptionWizard.20, .37 and .95 are lost in Mongolian.
-	// Repairing it needs a Mongolian speaker.
-	private static final String[] BUNDLES = { "Messages", "Messages_es", "Messages_fr", "Messages_hi", "Messages_lo",
-			"Messages_pt", "Messages_tr", "Messages_vi" };
+	private static final String[] BUNDLES = { "Messages", "Messages_es", "Messages_fr", "Messages_pt", "Messages_tr" };
 
 	/** Section.name keys */
 	private static final Pattern KEY = Pattern.compile("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_-]+)+");
@@ -38,6 +34,22 @@ class MessagesBundleTest {
 			}
 		}
 		assertTrue(notKeys.isEmpty(), "Keys that are the rest of a value broken by a line break : " + notKeys);
+	}
+
+	// Every language the interface offers is complete: a missing text shows in English in the middle of the page
+	@Test
+	void everyTranslationHasEveryEnglishText() throws IOException {
+		Properties english = load("Messages");
+		for (int i = 1; i < BUNDLES.length; i++) {
+			Properties translation = load(BUNDLES[i]);
+			List<String> missing = new ArrayList<>();
+			for (String key : english.stringPropertyNames()) {
+				if (!translation.containsKey(key)) {
+					missing.add(key);
+				}
+			}
+			assertTrue(missing.isEmpty(), BUNDLES[i] + " lacks " + missing);
+		}
 	}
 
 	// OptionWizard.1043-1045 were once given to the Planet texts as well, so the Swing settings showed the Planet API key

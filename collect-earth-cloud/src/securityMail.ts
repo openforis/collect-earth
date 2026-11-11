@@ -1,6 +1,6 @@
 // The account's security mails: the self-service password reset link ("Forgot your password?") and
 // the notices after a password change (on the account page or with any reset link) and after the
-// email address is changed or removed (to the OLD address). In the dashboard's four languages, as
+// email address is changed or removed (to the OLD address). In the dashboard's five languages, as
 // plain text and simple HTML (digestText.ts's renderers). Transactional: no unsubscribe link, no
 // tracking, and no link but the reset link itself or the dashboard's address.
 import { fill, oneLine, renderHtml, renderText, type MailLine } from './digestText.js';
@@ -93,7 +93,27 @@ const pt: Words = {
   why: 'Este é um aviso automático sobre a segurança da sua conta, enviado ao endereço confirmado da conta.',
 };
 
-export const SECURITY_WORDS: Record<MailLanguage, Words> = { en, es, fr, pt };
+const tr: Words = {
+  resetSubject: '{server}: parolanızı sıfırlayın',
+  resetIntro: 'Merhaba, birisi (umarız siz) {server} üzerindeki {name} hesabının parolasını sıfırlamak istedi.',
+  resetAction: 'Yeni bir parola seçin (bağlantı bir kez ve bir saat boyunca çalışır)',
+  resetAfter: 'Yeni parolayı seçmek, Collect Earth dahil hesabın tüm oturumlarını kapatır: yeni parolayla yeniden oturum açın.',
+  resetIgnore: 'Bu siz değilseniz hiçbir şey yapmayın: parola olduğu gibi kalır ve bağlantı bir saat içinde çalışmaz hâle gelir.',
+  passwordSubject: '{server}: parolanız değiştirildi',
+  passwordChanged: '{server} üzerindeki {name} hesabınızın parolası {when} tarihinde değiştirildi.',
+  passwordByUser: 'Parola hesap sayfasında değiştirildi; Collect Earth dahil hesabın diğer oturumları kapatıldı.',
+  passwordByReset: 'Parola bir parola sıfırlama bağlantısıyla değiştirildi; Collect Earth dahil hesabın tüm oturumları kapatıldı.',
+  passwordNotYou: 'Bu siz değilseniz, parolanızı başka biri biliyor olabilir: oturum açma sayfasındaki “Parolanızı mı unuttunuz?” ile hemen yeni bir parola seçin ve sunucunun yöneticisine haber verin.',
+  emailSubject: '{server}: hesabınızın e-posta adresi değiştirildi',
+  emailChanged: '{server} üzerindeki {name} hesabınızın e-posta adresi {when} tarihinde {masked} olarak değiştirildi. Bu adrese artık hesapla ilgili e-posta gönderilmez.',
+  emailRemoved: '{server} üzerindeki {name} hesabınızın e-posta adresi {when} tarihinde kaldırıldı. Bu adrese artık hesapla ilgili e-posta gönderilmez.',
+  emailNotYou: 'Bu siz değilseniz, hesabınızda başka biri oturum açmış olabilir: hesabı devre dışı bırakması ve size yeni bir parola sıfırlama bağlantısı vermesi için sunucunun yöneticisine hemen haber verin.',
+  contact: 'Yöneticiye {email} adresinden yazabilirsiniz.',
+  dashboard: '{server}',
+  why: 'Bu, hesabınızın güvenliğiyle ilgili otomatik bir bildirimdir ve hesabın onaylanmış adresine gönderilmiştir.',
+};
+
+export const SECURITY_WORDS: Record<MailLanguage, Words> = { en, es, fr, pt, tr };
 
 const wordsOf = (language: MailLanguage) => {
   const words = SECURITY_WORDS[language] ?? SECURITY_WORDS.en;

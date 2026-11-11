@@ -457,7 +457,7 @@ Database configuration stored in: `${collectEarth.userFolder}/earth.properties`
 ## Key Configuration Properties
 
 Managed by `LocalPropertiesService`:
-- `UI_LANGUAGE`: Application language (en, es, fr, pt, vi, hi, lo, mn, tr)
+- `UI_LANGUAGE`: Application language (en, es, fr, pt, tr; any other value falls back to en)
 - `SURVEY_NAME`: Current survey identifier
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`: PostgreSQL connection
 - `COLLECT_DB_DRIVER`: "postgresql" or "sqlite"
@@ -490,10 +490,10 @@ Managed by `LocalPropertiesService`:
 
 ## Localization
 
-The application supports 9 languages through resource bundles:
+The application supports 5 languages through resource bundles:
 - Location: `collect-earth-app/src/main/resources/org/openforis/collect/earth/app/view/Messages*.properties`
 - Access pattern: `Messages.getString("key")`
-- Supported languages: English (en), Spanish (es), French (fr), Portuguese (pt), Vietnamese (vi), Hindi (hi), Lao (lo), Mongolian (mn), Turkish (tr)
+- Supported languages: English (en), Spanish (es), French (fr), Portuguese (pt), Turkish (tr). Every bundle has every key of Messages.properties (MessagesBundleTest), and the plots map and form have their own catalogues in `src/main/frontend/src/i18n.ts`
 
 ## Common Development Patterns
 

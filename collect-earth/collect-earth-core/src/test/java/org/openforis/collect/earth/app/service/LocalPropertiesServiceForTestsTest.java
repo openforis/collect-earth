@@ -7,6 +7,7 @@ import java.io.File;
 import java.util.Properties;
 
 import org.junit.jupiter.api.Test;
+import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 
 /**
@@ -31,5 +32,17 @@ class LocalPropertiesServiceForTestsTest {
 		assertEquals(existed, userProperties.exists());
 		assertEquals(modified, userProperties.lastModified());
 		assertEquals(length, userProperties.length());
+	}
+
+	// Hindi, Lao, Mongolian, Vietnamese and Russian were dropped: a user who had chosen one starts in English
+	@Test
+	void aDroppedLanguageFallsBackToEnglish() {
+		LocalPropertiesService service = new LocalPropertiesService(new Properties());
+		for (String dropped : new String[] { "VI", "lo", "MN", "hi", "RU" }) {
+			service.setValue(EarthProperty.UI_LANGUAGE, dropped);
+			assertEquals(UI_LANGUAGE.EN, service.getUiLanguage(), dropped);
+		}
+		service.setValue(EarthProperty.UI_LANGUAGE, "tr");
+		assertEquals(UI_LANGUAGE.TR, service.getUiLanguage());
 	}
 }

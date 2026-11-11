@@ -118,9 +118,8 @@ public class EarthConstants {
 	public enum UI_LANGUAGE {
 		FR("Français", new Locale("fr", "FR")), EN("English", new Locale("en", "EN")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
 		ES("Español", new Locale("es", "ES")), PT("Português", new Locale("pt", "PT")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
-		VI("tiếng Việt", new Locale("vi", "VI")), LO("Lao", new Locale("lo", "LO")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-		MN("Монгол", new Locale("mn", "MN")), HI("हिंदी", new Locale("hi", "HI")),
-		RU("Pусский", new Locale("ru", "RU")), TR("Türkçe", new Locale("tr", "TR"));
+		// VI, LO, MN, HI and RU were dropped: a setting still naming one falls back to English (LocalPropertiesService.getUiLanguage)
+		TR("Türkçe", new Locale("tr", "TR"));
 
 		private Locale locale;
 		private String label;

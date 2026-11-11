@@ -137,7 +137,19 @@ const pt: AlertTexts = {
   storageText: 'O projeto {project} usa {count}% do limite de armazenamento. Aumente o limite nas configurações do servidor, ou peça aos coordenadores que apaguem o que já não precisam.',
   footer: 'Este e-mail vai para os administradores de {server}. O mesmo alerta é enviado no máximo uma vez a cada seis horas.',
 };
-const TEXTS: Record<MailLanguage, AlertTexts> = { en, es, fr, pt };
+const tr: AlertTexts = {
+  subject: '{server}: {what}',
+  failed_logins: 'çok sayıda başarısız oturum açma',
+  server_errors: 'çok sayıda sunucu hatası',
+  sync_errors: 'Collect Earth kayıtları reddedildi',
+  storage: 'bir proje depolama sınırına yaklaştı',
+  failed_loginsText: 'Son bir saatte {count} başarısız oturum açma oldu. Birisi parola tahmin ediyor olabilir: sunucu panelini inceleyin ve koordinatörler için iki adımlı oturum açmayı düşünün.',
+  server_errorsText: 'Sunucu son bir saatte {count} isteğe hatayla yanıt verdi. Neyin başarısız olduğunu görmek için sunucu günlüğüne bakın.',
+  sync_errorsText: 'Sunucu son bir saatte Collect Earth’ten gönderilen {count} kaydı reddetti: yorumcuların çalışmaları ulaşmıyor olabilir. Sunucu günlüğüne bakın.',
+  storageText: '{project} projesi depolama sınırının %{count} kadarını kullanıyor. Sunucu ayarlarından sınırı yükseltin ya da koordinatörlerinden artık gerekmeyenleri silmelerini isteyin.',
+  footer: 'Bu e-posta {server} yöneticilerine gönderilir. Aynı uyarı en fazla altı saatte bir gönderilir.',
+};
+const TEXTS: Record<MailLanguage, AlertTexts> = { en, es, fr, pt, tr };
 
 /** The mail of an alert, in a language. */
 export function alertMail(alert: OwnerAlert, language: MailLanguage, server: string, projectName: string | null): { subject: string; text: string; html: string } {
