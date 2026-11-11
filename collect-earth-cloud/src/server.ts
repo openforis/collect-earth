@@ -40,6 +40,7 @@ import { PlotPlaceReader } from './routes/plotPlaces.js';
 import { PlotIndexCache, registerPlotSearchRoutes } from './routes/plotSearch.js';
 import { registerPlotsGeoRoutes } from './routes/plotsGeo.js';
 import { registerProgressRoutes } from './routes/progress.js';
+import { registerBackupImportRoutes } from './routes/backupImport.js';
 import { registerCeoImportRoutes } from './routes/ceoImport.js';
 import { registerCeoShapesRoutes } from './routes/ceoShapes.js';
 import { registerProjectRoutes } from './routes/projects.js';
@@ -246,6 +247,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const places = new PlotPlaceReader(store);
   await registerProjectRoutes(app, store, config, places);
   await registerCeoImportRoutes(app, store);
+  await registerBackupImportRoutes(app, store);
   await registerCeoShapesRoutes(app, store);
   await registerCollectImportRoutes(app, store);
   await registerPlotDesignRoutes(app, store);

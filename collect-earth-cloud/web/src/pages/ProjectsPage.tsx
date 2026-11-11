@@ -18,11 +18,13 @@ import Typography from "@mui/material/Typography";
 import Add from "@mui/icons-material/Add";
 import FolderOpen from "@mui/icons-material/FolderOpen";
 import Public from "@mui/icons-material/Public";
+import Unarchive from "@mui/icons-material/Unarchive";
 import { useState, type FormEvent } from "react";
 import { createProject, listProjects } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
+import { BackupImportDialog } from "./BackupImportDialog";
 import { CeoImportDialog } from "./CeoImportDialog";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
@@ -97,6 +99,7 @@ export function ProjectsPage() {
   const projects = useLoad(listProjects, []);
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const archived = projects.data?.filter((p) => p.status === "archived").length ?? 0;
   const shown = projects.data?.filter((p) => showArchived || p.status !== "archived");
@@ -111,6 +114,10 @@ export function ProjectsPage() {
             {/* For organizations moving from Collect Earth Online: its survey and rules (docs/plans/2026-11-09-ceo-bridge.md) */}
             <Button variant="outlined" startIcon={<Public />} onClick={() => setImporting(true)}>
               {t("projects.fromCeo")}
+            </Button>
+            {/* A project collected in Collect Earth, from a backup of its data (docs/plans/2026-11-11-backup-import.md) */}
+            <Button variant="outlined" startIcon={<Unarchive />} onClick={() => setRestoring(true)}>
+              {t("projects.fromBackup")}
             </Button>
             <Button variant="contained" startIcon={<Add />} onClick={() => setCreating(true)}>
               {t("projects.new")}
@@ -171,6 +178,7 @@ export function ProjectsPage() {
       )}
       {creating && <NewProjectDialog open onClose={() => setCreating(false)} />}
       {importing && <CeoImportDialog onClose={() => setImporting(false)} />}
+      {restoring && <BackupImportDialog onClose={() => setRestoring(false)} />}
     </AppShell>
   );
 }

@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<survey lastId="1087" collectearth:plotarea="1.0" collectearth:samplepoints="25" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth">
+  <project xml:lang="es">Muestra de copia de seguridad</project>
+  <project>Backup sample</project>
+  <uri>http://www.openforis.org/idm/backup_sample</uri>
+  <language>en</language>
+  <language>es</language>
+  <codeLists>
+    <list id="905" name="round">
+      <label type="item">round</label>
+      <items>
+        <item id="1050">
+          <code>1</code>
+          <label>First assessment</label>
+        </item>
+        <item id="1051">
+          <code>2</code>
+          <label>Check</label>
+        </item>
+      </items>
+    </list>
+    <list id="908" name="land_use">
+      <label type="item">land_use</label>
+      <items>
+        <item id="1080">
+          <code>F</code>
+          <label>Forest</label>
+        </item>
+        <item id="1081">
+          <code>C</code>
+          <label>Cropland</label>
+        </item>
+        <item id="1082" qualifiable="true">
+          <code>other</code>
+          <label>Other</label>
+        </item>
+      </items>
+    </list>
+    <list id="907" name="species">
+      <label type="item">species</label>
+      <items>
+        <item id="1070">
+          <code>pine</code>
+          <label>Pine</label>
+        </item>
+        <item id="1071">
+          <code>oak</code>
+          <label>Oak</label>
+        </item>
+        <item id="1072">
+          <code>fir</code>
+          <label>Fir</label>
+        </item>
+      </items>
+    </list>
+    <list id="907" name="element">
+      <label type="item">element</label>
+      <items>
+        <item id="1070">
+          <code>trees</code>
+          <label>Trees</label>
+        </item>
+        <item id="1071">
+          <code>shrubs</code>
+          <label>Shrubs</label>
+        </item>
+        <item id="1072">
+          <code>grass</code>
+          <label>Grass</label>
+        </item>
+      </items>
+    </list>
+    <list id="1084" name="assessment_phases">
+      <label type="item">Assessment round</label>
+      <label type="item" xml:lang="es">Ronda de evaluaci&#243;n</label>
+      <codingScheme scope="local" />
+      <items>
+        <item id="1085"><code>1</code><label>First assessment</label><label xml:lang="es">Primera evaluaci&#243;n</label></item>
+        <item id="1086"><code>2</code><label>Re-assessment</label><label xml:lang="es">Reevaluaci&#243;n</label></item>
+      </items>
+    </list>
+  </codeLists>
+  <spatialReferenceSystems>
+    <spatialReferenceSystem srid="EPSG:4326">
+      <label xml:lang="en">EPSG:4326</label>
+      <wkt><![CDATA[GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.01745329251994328,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]]]></wkt>
+    </spatialReferenceSystem>
+  </spatialReferenceSystems>
+  <schema>
+    <entity id="1" name="plot">
+      <label type="instance">Plot</label>
+      <text id="2" name="id" key="true" required="true" type="short"><label type="instance">Plot - ID</label></text>
+      <code id="1083" name="round" required="true" key="true" list="assessment_phases" collect:measurement="true" collectearth:fromcsv="true" collectearth:hideinrecordlist="true">
+        <label type="instance">Assessment round</label>
+        <label type="instance" xml:lang="es">Ronda de evaluaci&#243;n</label>
+      </code>
+      <coordinate id="4" name="location"><label type="instance">Location</label></coordinate>
+      <text id="5" name="operator" type="short"><label type="instance">Operator</label></text>
+      <boolean id="6" name="actively_saved"><label type="instance">Actively saved</label></boolean>
+      <date id="7" name="actively_saved_on"><label type="instance">Saved on</label></date>
+      <text id="8" name="plot_file" type="short"><label type="instance">Plot file</label></text>
+      <number id="9" name="elevation" collectearth:fromcsv="true" type="integer"><label type="instance">Elevation</label></number>
+      <number id="10" name="slope" collectearth:fromcsv="true" type="real"><label type="instance">Slope</label></number>
+      <text id="11" name="region" collectearth:fromcsv="true" type="short"><label type="instance">Region</label></text>
+      <text id="1087" name="coordinator_note" type="memo" collectearth:fromcsv="true" collectearth:includeinheader="true">
+        <label type="instance">Note from the coordinator</label>
+        <label type="instance" xml:lang="es">Nota del coordinador</label>
+      </text>
+      <code id="12" name="land_use" list="land_use"><label type="instance">Land use</label></code>
+      <number id="13" name="canopy" type="real"><label type="instance">Canopy</label></number>
+      <time id="14" name="survey_time"><label type="instance">Time</label></time>
+      <range id="15" name="height" type="real"><label type="instance">Height</label></range>
+      <range id="16" name="years" type="integer"><label type="instance">Years</label></range>
+      <text id="17" name="notes" type="memo"><label type="instance">Notes</label></text>
+      <code id="18" name="species" multiple="true" list="species"><label type="instance">Species</label></code>
+      <date id="19" name="observed_on"><label type="instance">Observed on</label></date>
+      <coordinate id="20" name="landmark"><label type="instance">Landmark</label></coordinate>
+      <boolean id="21" name="disturbed"><label type="instance">Disturbed</label></boolean>
+      <entity id="30" name="trees" multiple="true" ui:layout="table">
+        <label type="instance">Trees</label>
+        <code id="31" name="tree_species" list="species"><label type="instance">Species</label></code>
+        <number id="32" name="dbh" type="real"><label type="instance">DBH</label></number>
+        <text id="33" name="tree_note" type="short"><label type="instance">Note</label></text>
+      </entity>
+      <entity id="40" name="cover" multiple="true" ui:layout="table" collect:enumerate="true">
+        <label type="instance">Cover</label>
+        <code id="41" name="element" key="true" list="element"><label type="instance">Element</label></code>
+        <number id="42" name="percent" type="integer"><label type="instance">Percent</label></number>
+      </entity>
+      <entity id="50" name="visit">
+        <label type="instance">Visit</label>
+        <date id="51" name="visit_date"><label type="instance">Date</label></date>
+        <text id="52" name="inspector" type="short"><label type="instance">Inspector</label></text>
+      </entity>
+    </entity>
+  </schema>
+</survey>

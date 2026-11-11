@@ -1175,6 +1175,74 @@ export function importCeoProject(
   return request("POST", "/v1/projects/from-ceo", { json: { ...ceoBody(files), name, collectors } });
 }
 
+/** A plot layout of a project file: the shape, its sample points and their spacing, in metres. */
+export interface PlotLayout {
+  shape: "SQUARE" | "CIRCLE";
+  points: number;
+  /** a square's spacing between points; a circle's radius */
+  distance: number;
+  /** a square's distance from the outer points to its edge */
+  boundary: number;
+  pointSide: number;
+}
+
+/** What a Collect Earth backup (its "Export data to XML (ZIP)") would become; nothing is stored. */
+export interface BackupImportPreview {
+  name: string;
+  surveyName: string;
+  records: { total: number; submitted: number; drafts: number; steps: { entry: number; cleansing: number; analysis: number }; unreadable: number; unreadableExamples: string[] };
+  /** the names typed in Collect Earth, with their records */
+  collectors: { name: string; records: number }[];
+  plots: {
+    withRecords: number;
+    done: number;
+    withoutPlace: number;
+    withoutPlaceExamples: string[];
+    /** null: no plot file given */
+    inFile: number | null;
+    toDo: number;
+    notInFile: number | null;
+  };
+  /** the layout the survey suggests (its plot area and points) */
+  layout: PlotLayout;
+  survey: { plotAreaHa: number | null; samplePoints: number | null; plotColumns: string[] };
+}
+
+/** A backup and the project's original plot file, as sent: the zip in base64, the plot file as text. */
+export interface BackupFiles {
+  backup: string;
+  plotFile: string | null;
+  plotFileName: string | null;
+}
+
+const backupBody = (files: BackupFiles) => ({
+  backup: files.backup,
+  ...(files.plotFile !== null ? { plotFile: files.plotFile, plotFileName: files.plotFileName ?? undefined } : {}),
+});
+
+/** A file's bytes in base64, read in pieces (String.fromCharCode takes a limited number of arguments). */
+export function base64Of(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+}
+
+/** What a Collect Earth backup would make, with its original plot file when given; nothing is stored. */
+export function previewBackupImport(files: BackupFiles): Promise<BackupImportPreview> {
+  return request("POST", "/v1/projects/from-backup/preview", { json: backupBody(files) });
+}
+
+/** A new project from a Collect Earth backup: its survey, plots and records; the caller is its coordinator. */
+export function importBackup(
+  files: BackupFiles,
+  name: string,
+  layout: PlotLayout,
+  /** a name typed in Collect Earth -> the username of their account here (the others keep the name) */
+  collectors: Record<string, string>,
+): Promise<{ projectId: string; name: string; records: number }> {
+  return request("POST", "/v1/projects/from-backup", { json: { ...backupBody(files), name, layout, collectors } });
+}
+
 export async function getProject(projectId: string): Promise<ProjectInfo> {
   const body = await request<{ projectId: string; name: string; role: string; status?: string }>("GET", p(projectId));
   return { projectId: body.projectId, name: body.name, role: asRole(body.role), status: asStatus(body.status) };

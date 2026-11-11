@@ -1,0 +1,53 @@
+<?xml version='1.0' standalone='yes' ?>
+<plot step="2" created="2025-09-24T13:09:19.124+02:00" modified="2025-10-01T17:45:00.000+00:00">
+  <round>
+    <code>1</code>
+  </round>
+  <id>
+    <value>P3</value>
+  </id>
+  <location />
+  <operator>
+    <value>Rosa Vidal</value>
+  </operator>
+  <actively_saved>
+    <value>true</value>
+  </actively_saved>
+  <actively_saved_on>
+    <year>2025</year>
+    <month>9</month>
+    <day>24</day>
+  </actively_saved_on>
+  <plot_file>
+    <value>grid/sample_plots.csv</value>
+  </plot_file>
+  <elevation>
+    <value>2428</value>
+  </elevation>
+  <slope>
+    <value>-0.5</value>
+  </slope>
+  <region>
+    <value></value>
+  </region>
+  <land_use>
+    <code>C</code>
+  </land_use>
+  <canopy>
+    <value>25000000.0</value>
+  </canopy>
+  <species>
+    <code>fir</code>
+  </species>
+  <disturbed>
+    <value>false</value>
+  </disturbed>
+  <cover>
+    <element>
+      <code>trees</code>
+    </element>
+    <percent>
+      <value>100</value>
+    </percent>
+  </cover>
+</plot>

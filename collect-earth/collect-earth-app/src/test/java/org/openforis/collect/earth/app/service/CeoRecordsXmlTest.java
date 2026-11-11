@@ -53,7 +53,22 @@ public class CeoRecordsXmlTest {
 
 	@Test
 	public void theImportedRecordsReadInCollectAsTheCloudSummarizedThem() throws Exception {
-		File[] projects = new File(resource("ceo/answers").toURI()).listFiles(File::isDirectory);
+		assertProjectsRead("ceo/answers");
+	}
+
+	/**
+	 * The records of a project the cloud made from a Collect Earth backup (collect-earth-cloud/src/backupImport.ts, plan
+	 * docs/plans/2026-11-11-backup-import.md): the backup's own records, the round added to them when the cloud added one
+	 * to the survey, and the summary the cloud made of each, which must be the one Collect Earth makes. Written by the
+	 * cloud's test (test/backupImport.test.ts) into src/test/resources/backup/<project>, from a made-up backup.
+	 */
+	@Test
+	public void theRecordsOfABackupReadInCollectAsTheCloudSummarizedThem() throws Exception {
+		assertProjectsRead("backup");
+	}
+
+	private static void assertProjectsRead(String path) throws Exception {
+		File[] projects = new File(resource(path).toURI()).listFiles(File::isDirectory);
 		assertTrue(projects != null && projects.length > 0, "no project to read");
 		Arrays.sort(projects);
 		List<String> problems = new ArrayList<>();

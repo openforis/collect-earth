@@ -1,0 +1,48 @@
+<?xml version='1.0' standalone='yes' ?>
+<plot step="1" created="2025-09-24T13:09:19.124+02:00" modified="2025-10-02T10:00:00.000+02:00">
+  <id>
+    <value>P1</value>
+  </id>
+  <round>
+    <code>2</code>
+  </round>
+  <location>
+    <x>1.42032362698269</x>
+    <y>42.4842216299026</y>
+    <srs>EPSG:4326</srs>
+  </location>
+  <operator>
+    <value>Marta P</value>
+  </operator>
+  <actively_saved>
+    <value>true</value>
+  </actively_saved>
+  <actively_saved_on>
+    <year>2025</year>
+    <month>9</month>
+    <day>24</day>
+  </actively_saved_on>
+  <plot_file>
+    <value>grid/sample_plots.csv</value>
+  </plot_file>
+  <elevation>
+    <value>2149</value>
+  </elevation>
+  <slope>
+    <value>11.0</value>
+  </slope>
+  <region>
+    <value>North</value>
+  </region>
+  <land_use>
+    <code>F</code>
+  </land_use>
+  <cover>
+    <element>
+      <code>shrubs</code>
+    </element>
+    <percent>
+      <value>45</value>
+    </percent>
+  </cover>
+</plot>

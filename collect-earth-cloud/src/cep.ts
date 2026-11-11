@@ -44,8 +44,6 @@ export interface SurveyInfo {
 
 export type CepErrorCode = 'not_a_zip' | 'too_large' | 'no_survey' | 'survey_unreadable';
 
-const unusable = (why: string) => `The project file is not a zip file Collect Earth can use: ${why}.`;
-
 export class CepError extends Error {
   constructor(
     public code: CepErrorCode,
@@ -241,8 +239,28 @@ interface CentralEntry {
  * fflate did.
  */
 function unzipEntries(zip: Buffer, maxEntries: number, allowed: number): Map<string, Uint8Array> {
-  const notAZip = () => new CepError('not_a_zip', 'The project file is not a zip file.');
-  const cannotUse = (why: string) => new CepError('not_a_zip', unusable(why));
+  const entries = new Map<string, Uint8Array>();
+  for (const e of zipEntryList(zip, maxEntries, allowed)) entries.set(e.name, e.read());
+  return entries;
+}
+
+/** One file of a zip, inflated (and checked) only when read. */
+export interface ZipEntryReader {
+  name: string;
+  /** its unzipped size, as the zip declares it (read() checks it) */
+  size: number;
+  /** its bytes; throws CepError when they are damaged */
+  read: () => Uint8Array;
+}
+
+/**
+ * The files of a zip, every claim of its central directory checked first (the count, the unzipped size in total, the
+ * bodies inside the zip), each inflated only when read: a zip of many files (a Collect Earth backup) is then read one
+ * file at a time. `what` names the zip in the messages ("The project file").
+ */
+export function zipEntryList(zip: Buffer, maxEntries: number, allowed: number, what = 'The project file'): ZipEntryReader[] {
+  const notAZip = () => new CepError('not_a_zip', `${what} is not a zip file.`);
+  const cannotUse = (why: string) => new CepError('not_a_zip', `${what} is not a zip file Collect Earth can use: ${why}.`);
 
   // The end of central directory record: 22 bytes, then a comment of up to 64 KiB.
   if (zip.length < 22) throw notAZip();
@@ -273,7 +291,7 @@ function unzipEntries(zip: Buffer, maxEntries: number, allowed: number): Map<str
   if (disk !== 0 || centralDisk !== 0 || countOnDisk !== count) throw cannotUse('it is split over several parts');
   if (centralAt + centralSize > end) throw notAZip();
   if (count > maxEntries) {
-    throw new CepError('too_large', `The project file has more than ${maxEntries.toLocaleString('en')} files.`);
+    throw new CepError('too_large', `${what} has more than ${maxEntries.toLocaleString('en')} files.`);
   }
 
   // The central directory: every claim, checked before anything is inflated.
@@ -314,7 +332,7 @@ function unzipEntries(zip: Buffer, maxEntries: number, allowed: number): Map<str
     if (total > allowed) {
       throw new CepError(
         'too_large',
-        `The project file unzips to more than ${sizeInWords(allowed)}, more than the server accepts.`,
+        `${what} unzips to more than ${sizeInWords(allowed)}, more than the server accepts.`,
       );
     }
     central.push({ name, nameBytes, method, crc, compressedSize, size, localAt });
@@ -353,27 +371,28 @@ function unzipEntries(zip: Buffer, maxEntries: number, allowed: number): Map<str
   if (packed > zip.length) throw notAZip();
 
   // Inflating, never past the declared size, then the length and the checksum.
-  const entries = new Map<string, Uint8Array>();
-  for (let i = 0; i < central.length; i++) {
-    const e = central[i];
-    const damaged = () => cannotUse(`a file inside it (${e.name}) is damaged`);
-    const body = zip.subarray(bodies[i], bodies[i] + e.compressedSize);
-    let data: Uint8Array;
-    if (e.method === 0) {
-      if (e.compressedSize !== e.size) throw damaged();
-      data = new Uint8Array(body);
-    } else {
-      try {
-        // maxOutputLength must be at least 1: an empty file must then inflate to nothing.
-        data = zlib.inflateRawSync(body, { maxOutputLength: Math.max(e.size, 1) });
-      } catch {
-        throw damaged();
+  return central.map((e, i) => ({
+    name: e.name,
+    size: e.size,
+    read: () => {
+      const damaged = () => cannotUse(`a file inside it (${e.name}) is damaged`);
+      const body = zip.subarray(bodies[i], bodies[i] + e.compressedSize);
+      let data: Uint8Array;
+      if (e.method === 0) {
+        if (e.compressedSize !== e.size) throw damaged();
+        data = new Uint8Array(body);
+      } else {
+        try {
+          // maxOutputLength must be at least 1: an empty file must then inflate to nothing.
+          data = zlib.inflateRawSync(body, { maxOutputLength: Math.max(e.size, 1) });
+        } catch {
+          throw damaged();
+        }
       }
-    }
-    if (data.length !== e.size || crc32(data) !== e.crc) throw damaged();
-    entries.set(e.name, data);
-  }
-  return entries;
+      if (data.length !== e.size || crc32(data) !== e.crc) throw damaged();
+      return data;
+    },
+  }));
 }
 
 /**

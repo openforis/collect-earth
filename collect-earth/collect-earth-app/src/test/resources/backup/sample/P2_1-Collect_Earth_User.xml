@@ -1,0 +1,59 @@
+<?xml version='1.0' standalone='yes' ?>
+<plot step="1" created="2025-09-24T13:09:19.124+02:00" modified="2025-09-25T08:00:00.000+02:00">
+  <id>
+    <value>P2</value>
+  </id>
+  <round>
+    <code>1</code>
+  </round>
+  <location>
+    <x>1.53</x>
+    <y>42.51</y>
+    <srs>EPSG:4326</srs>
+  </location>
+  <operator>
+    <value>Collect Earth User</value>
+  </operator>
+  <actively_saved>
+    <value>false</value>
+  </actively_saved>
+  <actively_saved_on>
+    <year>2025</year>
+    <month>9</month>
+    <day>24</day>
+  </actively_saved_on>
+  <plot_file>
+    <value>grid/sample_plots.csv</value>
+  </plot_file>
+  <elevation>
+    <value>1740</value>
+  </elevation>
+  <slope>
+    <value>27.5</value>
+  </slope>
+  <region>
+    <value>South</value>
+  </region>
+  <land_use>
+    <code>F</code>
+  </land_use>
+  <canopy />
+  <survey_time />
+  <height>
+    <from>3</from>
+  </height>
+  <notes />
+  <observed_on />
+  <landmark />
+  <trees>
+    <tree_species />
+    <dbh />
+    <tree_note />
+  </trees>
+  <cover>
+    <element>
+      <code>grass</code>
+    </element>
+    <percent />
+  </cover>
+</plot>
