@@ -84,7 +84,7 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
 
   return (
     <AppShell hero>
-      <HeroPanel name={info.serverName ?? t("app.title")}>
+      <HeroPanel>
         <FormCard
           plain
           title={signingUp ? t("signup.title") : t("login.title")}

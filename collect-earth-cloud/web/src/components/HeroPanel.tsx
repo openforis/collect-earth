@@ -2,6 +2,8 @@ import "@fontsource/poppins/500.css";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
+import { useApp } from "../appContext";
+import { useT } from "../i18n";
 // © FAO/Guillermo Carlos, PERU 2026, peatland monitoring in the Peruvian Amazon (FAO Digital Media Hub, photo credit
 // required): its 1200 px preview, lightly softened and in WebP, ~110 KB
 import hero from "../assets/login-hero.webp";
@@ -38,9 +40,12 @@ export const WEBSITE_BUTTON = {
 /**
  * The website's hero around a page of its own (the log-in page): an aerial photo of forest filling the page, the blue band
  * under it, and `children` in the white box, to the right on a wide screen as on the website, in the middle on a narrow
- * one, under the name of the product with its emblem.
+ * one, under the server's name with Collect Earth's emblem. `wide`: a box for more than a form (the invitation's steps).
  */
-export function HeroPanel({ name, children }: { name: string; children: ReactNode }) {
+export function HeroPanel({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
+  const t = useT();
+  const { info } = useApp();
+  const name = info.serverName ?? t("app.title");
   return (
     <Box
       sx={{
@@ -59,7 +64,7 @@ export function HeroPanel({ name, children }: { name: string; children: ReactNod
       <Box
         sx={{
           width: "100%",
-          maxWidth: 480,
+          maxWidth: wide ? 640 : 480,
           bgcolor: "rgba(255, 255, 255, 0.92)",
           backdropFilter: "blur(3px)",
           WebkitBackdropFilter: "blur(3px)",
