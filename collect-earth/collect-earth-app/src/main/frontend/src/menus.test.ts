@@ -95,7 +95,8 @@ describe("my dashboard", () => {
     const tools = (cloud: boolean) => appMenus({ plotsMap: true, cloud }).find((m) => m.id === "tools")?.items.map((i) => i.id);
     const mine = (cloud: boolean) => appMenus({ plotsMap: true, cloud }).flatMap((m) => m.items).find((i) => i.id === "myDashboard");
     expect(mine(false)).toEqual({ id: "myDashboard", label: "LocalDashboard.menu", enabled: true });
-    expect(mine(true)).toEqual({ id: "myDashboard", label: "LocalDashboard.menu", enabled: true });
+    // The cloud's is a website with a sign-in of its own: its label says so, and its note names the server
+    expect(mine(true)).toEqual({ id: "myDashboard", label: "LocalDashboard.cloudMenu", enabled: true, note: "LocalDashboard.cloudNote" });
     // Analyse the data: first, for a local project and a cloud one (the cloud's page)
     expect(tools(false)?.[0]).toBe("analyse");
     expect(tools(true)?.[0]).toBe("analyse");

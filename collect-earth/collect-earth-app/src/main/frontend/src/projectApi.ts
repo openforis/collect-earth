@@ -1,4 +1,5 @@
 import { apiGet, apiPost, apiPut } from "./apiClient";
+import type { CloudState, RecordSync } from "./cloud";
 import type { CloudStatus } from "./project";
 
 /** The calls of the Project and Help menus (ProjectsController, CloudController, FilesController, HelpController, AppInfoController). */
@@ -23,7 +24,11 @@ export const cloudLogin = (username: string, password: string, code?: string) =>
 export const cloudToken = (url: string, username: string, password: string, code?: string) =>
   apiPost<{ token: string }>("cloud/token", code ? { url, username, password, code } : { url, username, password });
 
-export interface CloudProject { projectId: string; projectName: string; role: string; active: boolean }
+/** `server`, `serverName`, `onThisComputer` (it is one of this computer's projects already): absent from an older Collect Earth */
+export interface CloudProject {
+  projectId: string; projectName: string; role: string; active: boolean;
+  server?: string | null; serverName?: string | null; onThisComputer?: boolean | null;
+}
 
 /** The cloud projects of the user signed in here; none when nobody is */
 export const cloudProjects = (signal?: AbortSignal) => apiGet<{ projects: CloudProject[] }>("cloud/projects", signal).then((r) => r.projects);
@@ -34,6 +39,16 @@ export const openCloudProject = (projectId: string) => apiPost<{ restart: boolea
 export const cloudStatus =(signal?: AbortSignal) => apiGet<CloudStatus>("cloud/status", signal);
 
 export const cloudSyncNow = () => apiPost<void>("cloud/syncNow");
+
+/** Where the open project keeps its data, its sending, and the accounts signed in (cloud.ts) */
+export const cloudState = (signal?: AbortSignal) => apiGet<CloudState>("cloud/state", signal);
+
+/** Forgets the account of this server; answers the state after it */
+export const cloudSignOut = (server: string) => apiPost<CloudState>("cloud/signOut", { server });
+
+/** Where the record of these keys (comma-separated, as the plot's id) is: on this computer only, waiting, sent, failed */
+export const recordSync = (key: string, signal?: AbortSignal) =>
+  apiGet<{ state: RecordSync }>("cloud/recordSync?key=" + encodeURIComponent(key), signal).then((r) => r.state);
 
 /** The records this computer has of the project (CloudSendController) */
 export const localRecordCount = (signal?: AbortSignal) => apiGet<{ count: number }>("cloud/localRecords", signal).then((r) => r.count);

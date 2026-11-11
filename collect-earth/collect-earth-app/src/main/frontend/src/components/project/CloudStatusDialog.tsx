@@ -11,15 +11,17 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableRow from "@mui/material/TableRow";
 import { errorText } from "../../appBar";
+import { type CloudState, serverOf } from "../../cloud";
 import { useT } from "../../i18n";
 import { CLOUD_STATUS_POLL_MILLIS, type CloudStatus } from "../../project";
 import { cloudStatus, cloudSyncNow } from "../../projectApi";
 import { serverText, type Texts } from "../../serverTexts";
 
-interface Props { open: boolean; texts: Texts | null; language: string; onClose: () => void }
+/** `cloud`: the project's state (cloud.ts), for the names of the cloud project and its server */
+interface Props { open: boolean; texts: Texts | null; language: string; cloud: CloudState | null; onClose: () => void }
 
 /** Cloud sync status (CloudSyncStatusDialog): the queue's counts, refreshed every few seconds while open; Sync now. */
-export function CloudStatusDialog({ open, texts, language, onClose }: Props) {
+export function CloudStatusDialog({ open, texts, language, cloud, onClose }: Props) {
   const t = useT();
   const s = (key: string) => serverText(texts, key);
   const [status, setStatus] = useState<CloudStatus | null>(null);
@@ -42,8 +44,14 @@ export function CloudStatusDialog({ open, texts, language, onClose }: Props) {
   const when = (millis: number | null | undefined) => (millis == null ? s("CloudSyncStatusDialog.never") : new Date(millis).toLocaleString(language));
   // The Swing labels end with a colon
   const label = (key: string) => s(key).replace(/:\s*$/, "");
+  // The cloud project by its name (its id after it) and its server, as /api/cloud/state tells them
+  const p = cloud?.project.mode === "cloud" ? cloud.project : null;
+  const withDetail = (main: string, detail: string | null | undefined) => (detail && detail !== main ? main + " (" + detail + ")" : main);
+  const name = p?.cloudProjectName ? withDetail(p.cloudProjectName, status?.project) : status?.project;
+  const server = p && serverOf(p) ? withDetail(serverOf(p), p.server) : null;
   const rows: [string, string][] = status ? [
-    [label("CloudSyncStatusDialog.projectLabel"), status.project ?? s("CloudSyncStatusDialog.none")],
+    [label("CloudSyncStatusDialog.projectLabel"), name ?? s("CloudSyncStatusDialog.none")],
+    ...(server ? [[t("cloud.status.server"), server] as [string, string]] : []),
     ...(status.enabled ? [
       [label("CloudSyncStatusDialog.pendingLabel"), String(status.pending ?? 0)],
       [label("CloudSyncStatusDialog.failedLabel"), String(status.failed ?? 0)],

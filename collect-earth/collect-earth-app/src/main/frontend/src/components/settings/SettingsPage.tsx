@@ -34,6 +34,7 @@ import {
 } from "../../settingsApi";
 import { serverText, type Texts } from "../../serverTexts";
 import { PlotPreview } from "./PlotPreview";
+import { CloudAccountsCard } from "./CloudAccountsCard";
 import { CloudAssignmentsCard } from "./CloudAssignmentsCard";
 import { ProjectsCard } from "./ProjectsCard";
 import { CloudLoginDialog } from "../project/CloudLoginDialog";
@@ -329,12 +330,19 @@ function SectionExtras({ section, values, data, texts, onChange, onRestarting, o
     );
   }
   if (section.id === "collaboration") {
+    // The cloud project's fields show only for a cloud project (SettingsModel.CLOUD_PROJECT), and their buttons with them;
+    // the accounts signed in, always
     return (
-      <Stack spacing={1.5}>
-        <CloudTokenLogin url={values.cloud_sync_url ?? ""} texts={texts} onToken={(token) => onChange("cloud_sync_token", token)} />
-        <ConnectionTestButton label={s("DatabaseServerPanel.cloudTestButton")} testing={s("SettingsPage.testing")} test={() => testCloud({
-          url: values.cloud_sync_url ?? "", projectId: values.cloud_project_id ?? "", token: values.cloud_sync_token ?? "",
-        })} />
+      <Stack spacing={2.5}>
+        {values.db_driver === "CLOUD" && (
+          <Stack spacing={1.5}>
+            <CloudTokenLogin url={values.cloud_sync_url ?? ""} texts={texts} onToken={(token) => onChange("cloud_sync_token", token)} />
+            <ConnectionTestButton label={s("DatabaseServerPanel.cloudTestButton")} testing={s("SettingsPage.testing")} test={() => testCloud({
+              url: values.cloud_sync_url ?? "", projectId: values.cloud_project_id ?? "", token: values.cloud_sync_token ?? "",
+            })} />
+          </Stack>
+        )}
+        <CloudAccountsCard />
       </Stack>
     );
   }

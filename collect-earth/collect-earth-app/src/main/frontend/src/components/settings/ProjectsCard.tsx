@@ -6,7 +6,10 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import CloudOutlinedIcon from "@mui/icons-material/CloudOutlined";
+import ComputerOutlinedIcon from "@mui/icons-material/ComputerOutlined";
 import { errorText } from "../../appBar";
+import { projectMark } from "../../cloud";
 import { useT } from "../../i18n";
 import type { Project } from "../../settings";
 import { chooseFile, listProjects, loadProject } from "../../settingsApi";
@@ -21,7 +24,10 @@ interface Props {
   onMessage: (message: string) => void;
 }
 
-/** The projects loaded before (GET /api/projects), the current one marked, each with Load, which restarts Collect Earth. */
+/**
+ * The projects loaded before (GET /api/projects), the current one marked, each with where it keeps its data (this
+ * computer or a cloud project) and Load, which restarts Collect Earth.
+ */
 export function ProjectsCard({ texts, onRestarting, onMessage }: Props) {
   const t = useT();
   const s = (key: string) => serverText(texts, key);
@@ -60,20 +66,27 @@ export function ProjectsCard({ texts, onRestarting, onMessage }: Props) {
       {error && <Alert severity="error">{error}</Alert>}
       {projects === null && !error && <LinearProgress />}
       {projects?.length === 0 && <Typography variant="body2" color="text.secondary">{s("SettingsPage.project.none")}</Typography>}
-      {projects?.map((p) => (
+      {projects?.map((p) => {
+        const mark = projectMark(p, t);
+        return (
         <Paper key={p.folder} variant="outlined" sx={{ p: 1.5, display: "flex", gap: 1.5, alignItems: "center", flexWrap: "wrap" }}>
           <Stack sx={{ flex: "1 1 200px", minWidth: 0 }}>
-            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.5 }}>
               <Typography variant="body1" sx={{ fontWeight: 600 }} noWrap title={p.name}>{p.name}</Typography>
               {p.active && <Chip label={s("SettingsPage.project.active")} color="success" size="small" />}
+              {/* Where it keeps its data: this computer, or a cloud project and its server */}
+              <Chip size="small" variant="outlined" label={mark.label} data-testid="project-mark" data-mark={mark.icon}
+                icon={mark.icon === "cloud" ? <CloudOutlinedIcon /> : <ComputerOutlinedIcon />} />
             </Stack>
+            {mark.detail && <Typography variant="body2" color="text.secondary" noWrap title={mark.detail}>{mark.detail}</Typography>}
             <Typography variant="caption" color="text.secondary" noWrap title={p.folder}>{p.folder}</Typography>
           </Stack>
           <Button variant={p.active ? "outlined" : "contained"} size="small" disabled={loading !== null} onClick={() => load(p)}>
             {loading === p.folder ? s("SettingsPage.project.loading") : s("OptionWizard.56")}
           </Button>
         </Paper>
-      ))}
+        );
+      })}
       <Button variant="outlined" size="small" sx={{ alignSelf: "flex-start" }} disabled={loading !== null} onClick={importFile}
         data-testid="project-import">
         {s("OptionWizard.41")}
