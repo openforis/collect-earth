@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { areasFileText, parseAreaSettings, strataFactors, strataOfFile, totalFactors } from '../src/areas.js';
 import { readCep, zipCep } from '../src/cep.js';
 import { parseCsv } from '../src/ceo/answers.js';
+import { firstAssessments } from '../src/routes/analysis.js';
+import type { RecordRow } from '../src/types.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 import { demoCep, FIXTURE_DATE } from './fixtures/cep.js';
 
@@ -24,6 +26,8 @@ describe('strata and areas', () => {
       { mode: 'other' },
       { mode: 'strata', columns: [], strata: [] },
       { mode: 'strata', columns: ['a', 'A'], strata: [] },
+      { mode: 'strata', columns: ['a'], strata: [] },
+      { mode: 'strata', columns: ['a'], strata: [{ values: ['x'], area: 0 }] },
       { mode: 'strata', columns: ['a'], strata: [{ values: ['x', 'y'], area: 1 }] },
       { mode: 'strata', columns: ['a'], strata: [{ values: ['x'], area: -1 }] },
       { mode: 'strata', columns: ['a'], strata: [{ values: ['1'], area: 1 }, { values: ['1.0'], area: 2 }] },
@@ -40,6 +44,15 @@ describe('strata and areas', () => {
     expect(f.unmatched).toBe(1);
     expect(f.noStratum).toEqual({ plots: 1, examples: [{ stratum: '', plots: 1 }] });
     expect([...totalFactors(900, ['1', '2', '3']).byPlot.values()].map((v) => v.factor)).toEqual([300, 300, 300]);
+  });
+
+  it("count a plot's first submitted assessment, whatever order the records come in", () => {
+    const row = (operator: string, firstSubmittedOn: number | null, modifiedOn: number) =>
+      ({ projectId: 'p', recordKey: '1', operator, modifiedOn, receivedAt: 0, activelySaved: true, step: 1, xml: null, summary: { forest: operator }, deleted: false, deletedOn: null, firstSubmittedOn }) as RecordRow;
+    const resolve = (() => ({ unit: '1', round: { round: 1, assessment: 'main' } })) as unknown as Parameters<typeof firstAssessments>[1];
+    const rows = [row('ana', 300, 900), row('ben', 100, 950), row('cy', 100, 960)];
+    for (const order of [rows, [...rows].reverse()]) expect(firstAssessments(order, resolve).get('1')?.operator).toBe('ben');
+    expect(firstAssessments([row('ana', null, 500), row('ben', null, 400)], resolve).get('1')?.operator).toBe('ben');
   });
 });
 

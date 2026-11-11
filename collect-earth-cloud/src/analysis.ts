@@ -3,11 +3,11 @@
 // - analysisModel: the tables (the plot and each of its multiple entities), their columns with labels in every language
 //   of the survey, and the code lists, from the survey (placemark.idm.xml);
 // - analysisTables: the rows of those tables, from the records' summaries (the flat answers Collect Earth sends);
-// - expansionFactors: the area each plot stands for, from the project file's region_areas.csv or
-//   areas_per_attribute.csv, as Collect Earth's RegionCalculationUtils works it out for Saiku.
+// - expansionFactors: the area each plot stands for, from the project file's region_areas.csv, as Collect Earth's
+//   RegionCalculationUtils works it out for Saiku (strata and areas_per_attribute.csv: src/areas.ts).
 // The browser loads the tables into DuckDB and pivots them (web/src/analysis): the server never aggregates.
 import { attr, childrenOf, elements, parseSurvey, tagOf, textOf, type XmlNode } from './cep.js';
-import { strataFactors, strataOfFile, withWeights } from './areas.js';
+import { withWeights } from './areas.js';
 import { prefixOf, QUALIFIER_SEPARATOR } from './surveyOutline.js';
 
 /** A label per language: the survey's languages, "" for a label without xml:lang. */
@@ -457,19 +457,14 @@ export interface Factors {
 }
 
 /**
- * The expansion factor of each plot (the area in hectares it stands for), as RegionCalculationUtils works it out: from
- * region_areas.csv (region, plot_file, area: the area divided among the plots whose `region` or `plot_file` answer is
- * the line's), else from areas_per_attribute.csv (a header of attribute names then `area` and optionally `weight`: the
- * area divided among the plots whose answers are the line's). Every plot keeps its share, whatever its answers: a plot
- * that could not be assessed (noData) stands for its share as its own class, so each stratum's plots add up to its area
+ * The expansion factor of each plot (the area in hectares it stands for) from region_areas.csv, as
+ * RegionCalculationUtils works it out: region, plot_file, area, the area divided among the plots whose `region` or
+ * `plot_file` answer is the line's. Every plot keeps its share, whatever its answers: a plot that could not be assessed
+ * (noData) stands for its share as its own class, so each region's plots add up to its area
  * (docs/plans/2026-11-11-strata-areas.md, decision 1). The weight is the factor divided by the smallest one above 0.
- * Only the plots' first assessments count; null without either file.
+ * Only the plots' first assessments count. (areas_per_attribute.csv: src/areas.ts strataFactors, as the dashboard's.)
  */
-export function expansionFactors(
-  files: { regionAreas?: string; attributeAreas?: string },
-  plots: ReadonlyMap<string, Record<string, string>>,
-  model: AnalysisModel,
-): Factors | null {
+export function expansionFactors(regionAreas: string, plots: ReadonlyMap<string, Record<string, string>>, model: AnalysisModel): Factors {
   const columnKey = (name: string) => model.tables[0].columns.find((c) => c.name === name)?.key ?? null;
   const unknownColumns: string[] = [];
   // A column not in the survey may still be in the plots' answers (a plot file's column Collect Earth sent as text)
@@ -480,37 +475,25 @@ export function expansionFactors(
   };
   const byPlot = new Map<string, { factor: number; weight: number; stratum: string }>();
   let unmatched = 0;
-  let source: Factors['source'] | null = null;
-  /** The stratum a plot would be in, as the file writes it: for the plots of no line. */
-  let valuesOf: (s: Record<string, string>) => string = () => '';
-  if (files.regionAreas) {
-    source = REGION_AREAS_CSV;
-    const separator = csvSeparatorOf(files.regionAreas);
-    const region = keyOf('region');
-    const plotFile = keyOf('plot_file');
-    valuesOf = (s) => [s[region] ?? '', s[plotFile] ?? ''].filter((x) => x !== '').join(' / ');
-    parseCsv(files.regionAreas).forEach((line, i) => {
-      const area = areaOf(line[2], separator);
-      if (line.length < 3 || !Number.isFinite(area)) {
-        if (i > 0) unmatched++; // a first line that is not a number is the header
-        return;
-      }
-      const matching = [...plots].filter(([, s]) => s[region] === line[0] || s[plotFile] === line[1]).map(([p]) => p);
-      if (matching.length === 0) { unmatched++; return; }
-      const stratum = [line[0], line[1]].filter((x) => x !== '').join(' / ');
-      for (const p of matching) byPlot.set(p, { factor: area / matching.length, weight: 1, stratum });
-    });
-  } else if (files.attributeAreas) {
-    const read = strataOfFile(files.attributeAreas);
-    if (!read) return null;
-    const keys = read.areas.columns.map(keyOf);
-    const values = new Map([...plots].map(([p, s]) => [p, keys.map((k) => s[k])] as const));
-    return strataFactors(read.areas, values, { source: ATTRIBUTE_AREAS_CSV, unknownColumns, unmatched: read.unreadable });
-  }
-  if (source === null) return null;
+  const separator = csvSeparatorOf(regionAreas);
+  const region = keyOf('region');
+  const plotFile = keyOf('plot_file');
+  /** The region a plot would be in, as the file writes it: for the plots of no line. */
+  const valuesOf = (s: Record<string, string>) => [s[region] ?? '', s[plotFile] ?? ''].filter((x) => x !== '').join(' / ');
+  parseCsv(regionAreas).forEach((line, i) => {
+    const area = areaOf(line[2], separator);
+    if (line.length < 3 || !Number.isFinite(area)) {
+      if (i > 0) unmatched++; // a first line that is not a number is the header
+      return;
+    }
+    const matching = [...plots].filter(([, s]) => s[region] === line[0] || s[plotFile] === line[1]).map(([p]) => p);
+    if (matching.length === 0) { unmatched++; return; }
+    const stratum = [line[0], line[1]].filter((x) => x !== '').join(' / ');
+    for (const p of matching) byPlot.set(p, { factor: area / matching.length, weight: 1, stratum });
+  });
   withWeights(byPlot);
   const outside = new Map<string, number>();
   for (const [p, s] of plots) if (!byPlot.has(p)) outside.set(valuesOf(s), (outside.get(valuesOf(s)) ?? 0) + 1);
   const examples = [...outside].map(([stratum, n]) => ({ stratum, plots: n })).sort((a, b) => b.plots - a.plots || a.stratum.localeCompare(b.stratum)).slice(0, 5);
-  return { source, byPlot, unmatched, unknownColumns, noStratum: { plots: plots.size - byPlot.size, examples } };
+  return { source: REGION_AREAS_CSV, byPlot, unmatched, unknownColumns, noStratum: { plots: plots.size - byPlot.size, examples } };
 }

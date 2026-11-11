@@ -27,6 +27,7 @@ import {
 } from "../api";
 import { labelIn } from "../analysisView";
 import { useApp } from "../appContext";
+import { shownArea, typedArea } from "../areasView";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
@@ -102,7 +103,7 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
   const [final, setFinal] = useState(named(s?.final ?? "land_use_category"));
   const [initialYear, setInitialYear] = useState(s?.initialYear ?? "");
   const [finalYear, setFinalYear] = useState(s?.finalYear ?? "");
-  const [totalArea, setTotalArea] = useState(s?.totalArea ? String(s.totalArea) : "");
+  const [totalArea, setTotalArea] = useState(s?.totalArea ? shownArea(s.totalArea, language) : "");
   // the person's choices, over the saved ones (the rows are worked out again when the questions change)
   const [chosen, setChosen] = useState<Record<string, CodeChoice>>({});
   const [saving, setSaving] = useState(false);
@@ -111,7 +112,7 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
     () => codeRows(setup.questions, setup.lists, [initial, final], s?.codes ?? {}, (i) => labelIn(i.labels, language, setup, i.code)).map((r) => ({ ...r, choice: chosen[`${r.list}\u0000${r.code}`] ?? r.choice })),
     [setup, initial, final, s, language, chosen],
   );
-  const area = Number(totalArea.replace(",", "."));
+  const area = typedArea(totalArea, language) ?? Number.NaN;
   const needsArea = setup.areas === null;
   const ready = initial !== "" && final !== "" && (!needsArea || (Number.isFinite(area) && area > 0));
   const save = async () => {

@@ -96,6 +96,8 @@ export function errorSummary(err: unknown): { code: string | null; responseCode:
 export function isSenderLimit(err: unknown): boolean {
   const e = (err ?? {}) as { response?: unknown; message?: unknown };
   const text = `${typeof e.response === 'string' ? e.response : ''} ${typeof e.message === 'string' ? e.message : ''}`;
+  // the person's mailbox or address (x.1.x address, x.2.2 or 552 mailbox full, over its quota): not this server's limit
+  if (/\b[45]\.1\.\d{1,3}\b|\b[45]\.2\.2\b|mailbox (is )?full|over quota/i.test(text) || errorSummary(err).responseCode === 552) return false;
   return /\b[45]\.4\.5\b|sending limit|limit exceeded|quota exceeded|rate limit|too many (messages|mails|recipients)/i.test(text);
 }
 

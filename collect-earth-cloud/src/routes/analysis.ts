@@ -134,7 +134,7 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
       return null;
     }
 
-    const [served, rows] = await Promise.all([states.get(projectId, request.log), store.listRecordSummaries(projectId)]);
+    const [served, rows] = await Promise.all([states.get(projectId, request.log), store.listRecordSummaries(projectId, { firstSubmissions: true })]);
     const { context } = served.state;
     const resolve = recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders });
     const everyone = role === 'admin' || role === 'reviewer';
@@ -222,20 +222,18 @@ export interface FirstAssessment {
   summary: Record<string, string>;
 }
 export function firstAssessments(rows: readonly RecordRow[], resolve: ReturnType<typeof recordResolver>): Map<string, FirstAssessment> {
-  const firsts = new Map<string, FirstAssessment>();
+  const firsts = new Map<string, FirstAssessment & { at: number }>();
   for (const r of rows) {
     if (r.deleted || !r.activelySaved) continue;
     const { unit, round } = resolve(r);
-    if (unit !== null && round.assessment === 'main' && !firsts.has(unit)) firsts.set(unit, { recordKey: r.recordKey, operator: r.operator, summary: r.summary });
+    if (unit === null || round.assessment !== 'main') continue;
+    // several main assessments of a plot: the first submitted, whatever order the store lists them in
+    const at = r.firstSubmittedOn ?? r.modifiedOn;
+    const had = firsts.get(unit);
+    if (had && (had.at < at || (had.at === at && recordId(had.recordKey, had.operator) <= recordId(r.recordKey, r.operator)))) continue;
+    firsts.set(unit, { recordKey: r.recordKey, operator: r.operator, summary: r.summary, at });
   }
   return firsts;
-}
-
-/** The expansion factors of the plots, from the project file's areas file; null without one. */
-export function factorsOf(parsed: NonNullable<Parsed>, firsts: ReadonlyMap<string, FirstAssessment>): Factors | null {
-  if (!parsed.regionAreas && !parsed.attributeAreas) return null;
-  const summaries = new Map([...firsts].map(([unit, f]) => [unit, f.summary]));
-  return expansionFactors({ regionAreas: parsed.regionAreas, attributeAreas: parsed.attributeAreas }, summaries, parsed.model);
 }
 
 /**
@@ -248,18 +246,19 @@ export async function projectFactors(
   parsed: NonNullable<Parsed>,
   firsts: ReadonlyMap<string, FirstAssessment>,
   info: RoundInfo | null,
+  files: PlotFiles = plotFilesOf(store, projectId),
 ): Promise<Factors | null> {
   const settings = await store.getAreaSettings(projectId);
   if (settings?.mode === 'total') return totalFactors(settings.area, firsts.keys());
   if (settings?.mode === 'strata') {
-    const { values, unknownColumns } = await strataValues(store, projectId, parsed.model, info, settings.columns, firsts);
+    const { values, unknownColumns } = await strataValues(files, parsed.model, info, settings.columns, firsts);
     return strataFactors(settings, values, { source: 'strata', unknownColumns });
   }
-  if (parsed.regionAreas) return factorsOf(parsed, firsts);
+  if (parsed.regionAreas) return expansionFactors(parsed.regionAreas, new Map([...firsts].map(([unit, f]) => [unit, f.summary])), parsed.model);
   // The project file's areas_per_attribute.csv: its columns read as the dashboard's strata are, plot files included
   const file = parsed.attributeAreas ? strataOfFile(parsed.attributeAreas) : null;
   if (file) {
-    const { values, unknownColumns } = await strataValues(store, projectId, parsed.model, info, file.areas.columns, firsts);
+    const { values, unknownColumns } = await strataValues(files, parsed.model, info, file.areas.columns, firsts);
     return strataFactors(file.areas, values, { source: ATTRIBUTE_AREAS_CSV, unknownColumns, unmatched: file.unreadable });
   }
   const total = (await store.getUncertaintySettings(projectId))?.totalArea;
@@ -281,15 +280,14 @@ export const questionOf = (model: AnalysisModel, name: string) =>
  * column from the plot's row in the plot files. `unknownColumns`: in neither.
  */
 export async function strataValues(
-  store: Store,
-  projectId: string,
+  plotFiles: PlotFiles,
   model: AnalysisModel,
   info: RoundInfo | null,
   columns: readonly string[],
   firsts: ReadonlyMap<string, FirstAssessment>,
 ): Promise<{ values: Map<string, (string | undefined)[]>; unknownColumns: string[] }> {
   const keys = columns.map((c) => questionOf(model, c)?.key ?? null);
-  const files = keys.some((k) => k === null) ? await plotFileValues(store, projectId, info, columns) : null;
+  const files = keys.some((k) => k === null) ? await plotFileValues(plotFiles, info, columns) : null;
   // A column no question of the survey: the plot file's, else what Collect Earth sent as text (an older project's way)
   const sent = columns.map((c) => `collect_text_${c}`);
   const valueOf = (unit: string, summary: Record<string, string>, i: number) =>
@@ -299,13 +297,23 @@ export async function strataValues(
   return { values, unknownColumns };
 }
 
+/** The project's plot files, fetched at most once however many times they are asked for (in one request). */
+export type PlotFiles = () => Promise<NonNullable<Awaited<ReturnType<Store['getCsvFile']>>>[]>;
+export function plotFilesOf(store: Store, projectId: string): PlotFiles {
+  let read: ReturnType<PlotFiles> | null = null;
+  return () =>
+    (read ??= store.listCsvFiles(projectId).then(async (metas) => {
+      const files = await Promise.all(metas.map((m) => store.getCsvFile(projectId, m.id)));
+      return files.filter((f) => f !== null);
+    }));
+}
+
 /**
  * The plots' values of some columns of the plot files (by header, any case), by plot unit (a plot in several files: its
  * first row). `found`: whether each column is in some file. `headers`: the files' other columns, for choosing.
  */
 export async function plotFileValues(
-  store: Store,
-  projectId: string,
+  plotFiles: PlotFiles,
   info: RoundInfo | null,
   columns: readonly string[],
 ): Promise<{ values: Map<string, (string | undefined)[]>; found: boolean[]; headers: string[] }> {
@@ -313,9 +321,7 @@ export async function plotFileValues(
   const values = new Map<string, (string | undefined)[]>();
   const found = columns.map(() => false);
   const headers = new Map<string, string>();
-  for (const meta of await store.listCsvFiles(projectId)) {
-    const file = await store.getCsvFile(projectId, meta.id);
-    if (!file) continue;
+  for (const file of await plotFiles()) {
     const parsedFile = plotFileOf(file, keyCount);
     const header = parsedFile.header?.fields ?? [];
     // the keys and the place (latitude, longitude) make no strata

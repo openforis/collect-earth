@@ -18,7 +18,7 @@ import Download from "@mui/icons-material/Download";
 import { useState } from "react";
 import { downloadAreasFile, getAreas, saveAreas, uploadAreasFile } from "../api";
 import { useApp } from "../appContext";
-import { areasOf, strataSettings, stratumKey, typedArea } from "../areasView";
+import { areasOf, shownArea, strataSettings, stratumKey, typedArea } from "../areasView";
 import { csvText } from "../backupImportView";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
@@ -62,9 +62,11 @@ export function StrataAreas({ projectId, version }: { projectId: string; version
 
   const shownMode = mode ?? (d.settings?.mode === "total" ? "total" : "strata");
   const columns = chosen ?? (d.settings?.mode === "strata" ? d.settings.columns : []);
-  const areas = areasOf(d.strata, typed);
+  const areas = areasOf(d.strata, typed, language);
   const wrong = areas.some((a) => a !== null && Number.isNaN(a));
-  const totalArea = typedArea(total ?? (d.settings?.mode === "total" ? String(d.settings.area) : ""));
+  const savedTotal = d.settings?.mode === "total" ? d.settings.area : null;
+  const totalArea = total === null ? savedTotal : typedArea(total, language);
+  const strataSetting = strataSettings(columns, d.strata, areas);
   const sum = areas.reduce<number>((s, a) => s + (a !== null && Number.isFinite(a) ? a : 0), 0);
   const withoutArea = d.strata.filter((s, i) => areas[i] === null && (s.assessed > 0 || (s.plots ?? 0) > 0)).length;
 
@@ -86,7 +88,7 @@ export function StrataAreas({ projectId, version }: { projectId: string; version
       setBusy(false);
     }
   };
-  const save = () => run(() => saveAreas(projectId, shownMode === "total" ? { mode: "total", area: totalArea! } : strataSettings(columns, d.strata, areas)));
+  const save = () => run(() => saveAreas(projectId, shownMode === "total" ? { mode: "total", area: totalArea! } : strataSetting));
   const upload = ([file]: File[]) => run(async () => uploadAreasFile(projectId, csvText(new Uint8Array(await file.arrayBuffer()))));
   const download = async () => {
     try {
@@ -96,7 +98,8 @@ export function StrataAreas({ projectId, version }: { projectId: string; version
       setError(err);
     }
   };
-  const canSave = d.canEdit && !busy && (shownMode === "total" ? totalArea !== null && totalArea > 0 : columns.length > 0 && !wrong);
+  // not while the strata of other columns load: the areas would go with the strata shown, of the columns before
+  const canSave = d.canEdit && !busy && !state.loading && !state.error && (shownMode === "total" ? totalArea !== null && totalArea > 0 : columns.length > 0 && !wrong && strataSetting.strata.some((s) => s.area > 0));
 
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="strata-areas">
@@ -116,7 +119,7 @@ export function StrataAreas({ projectId, version }: { projectId: string; version
         <TextField
           size="small"
           label={t("areas.totalLabel")}
-          value={total ?? (d.settings?.mode === "total" ? String(d.settings.area) : "")}
+          value={total ?? (savedTotal === null ? "" : shownArea(savedTotal, language))}
           onChange={(e) => setTotal(e.target.value)}
           error={totalArea !== null && Number.isNaN(totalArea)}
           helperText={t("areas.totalHelp", { plots: n(d.assessed) })}
@@ -165,7 +168,7 @@ export function StrataAreas({ projectId, version }: { projectId: string; version
                           <TextField
                             size="small"
                             variant="standard"
-                            value={typed[key] ?? (s.area === null ? "" : String(s.area))}
+                            value={typed[key] ?? (s.area === null ? "" : shownArea(s.area, language))}
                             onChange={(e) => setTyped((x) => ({ ...x, [key]: e.target.value }))}
                             error={area !== null && Number.isNaN(area)}
                             disabled={!d.canEdit}

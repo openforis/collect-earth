@@ -79,6 +79,8 @@ export function parseAreaSettings(raw: unknown): AreaSettings | string {
     seen.add(key);
     strata.push({ values, area: line.area });
   }
+  // strata of no area would take every plot's area away, replacing the project file's
+  if (!strata.some((s) => s.area > 0)) return 'Give at least one stratum an area above 0.';
   return { mode: 'strata', columns, strata };
 }
 

@@ -110,6 +110,10 @@ describe('the mail transport (Task 19)', () => {
     const mailbox = Object.assign(new Error('550 5.1.1 The email account that you tried to reach does not exist'), { responseCode: 550, response: '550 5.1.1 The email account that you tried to reach does not exist' });
     expect(isSenderLimit(mailbox)).toBe(false);
     expect(isPermanentFailure(mailbox)).toBe(true);
+    // one person's full mailbox is theirs, not this server's limit
+    for (const [code, response] of [[552, '552 5.2.2 Quota exceeded (mailbox full)'], [452, '452 4.2.2 The email account that you tried to reach is over quota'], [552, '552 Quota exceeded']] as const) {
+      expect(isSenderLimit(Object.assign(new Error(response), { responseCode: code, response })), response).toBe(false);
+    }
   });
 
   it('one address only, at most 254 characters', () => {

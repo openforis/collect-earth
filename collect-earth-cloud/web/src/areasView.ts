@@ -5,24 +5,54 @@ import type { AreaSettings, AreasData, DesignFacts, DesignPlan } from "./api";
 /** A stratum's key: its values. */
 export const stratumKey = (values: readonly string[]) => values.join("\u0000");
 
-/** An area as typed: a comma or a dot for the decimals, spaces for thousands; null when empty, NaN when not a number. */
-export function typedArea(text: string): number | null {
-  const t = text.replace(/[\s  ]/g, "");
+/** The decimal mark of a language: "." or ",". */
+function decimalMarkOf(language: string): string {
+  try {
+    return new Intl.NumberFormat(language).formatToParts(1.5).find((p) => p.type === "decimal")?.value ?? ".";
+  } catch {
+    return ".";
+  }
+}
+
+/**
+ * An area as typed; null when empty, NaN when not a number. With both a dot and a comma, the last one is the decimal
+ * mark; one mark used twice separates thousands; one mark once is the decimals, but before exactly three digits
+ * ("1,000", "1.000") it is what the person's language makes it.
+ */
+export function typedArea(text: string, language: string): number | null {
+  const t = text.replace(/\s/g, "");
   if (t === "") return null;
-  const n = Number(t.includes(",") && !t.includes(".") ? t.replace(",", ".") : t.replace(/,/g, ""));
+  const marks = t.replace(/[^.,]/g, "");
+  const decimal =
+    marks === "" ? null
+    : marks.includes(".") && marks.includes(",") ? marks[marks.length - 1]
+    : marks.length > 1 ? null
+    : !/[.,]\d{3}$/.test(t) || decimalMarkOf(language) === marks ? marks
+    : null;
+  const plain = decimal === null ? t.replace(/[.,]/g, "") : t.replace(decimal === "." ? /,/g : /\./g, "").replace(decimal, ".");
+  const n = /^\d*\.?\d*$/.test(plain) ? Number(plain) : Number.NaN;
   return Number.isFinite(n) && n >= 0 ? n : Number.NaN;
 }
 
+/** An area to show in a field: in the person's language, read back the same by typedArea. */
+export function shownArea(area: number, language: string): string {
+  try {
+    return new Intl.NumberFormat(language, { maximumFractionDigits: 6 }).format(area);
+  } catch {
+    return String(area);
+  }
+}
+
 /** Each stratum's area: the one typed (by key), else the saved one. */
-export function areasOf(strata: AreasData["strata"], typed: Readonly<Record<string, string>>): (number | null)[] {
+export function areasOf(strata: AreasData["strata"], typed: Readonly<Record<string, string>>, language: string): (number | null)[] {
   return strata.map((s) => {
     const text = typed[stratumKey(s.values)];
-    return text === undefined ? s.area : typedArea(text);
+    return text === undefined ? s.area : typedArea(text, language);
   });
 }
 
 /** The strata setting of the columns and the areas: the strata with an area (a stratum left empty stands for none). */
-export function strataSettings(columns: readonly string[], strata: AreasData["strata"], areas: readonly (number | null)[]): AreaSettings {
+export function strataSettings(columns: readonly string[], strata: AreasData["strata"], areas: readonly (number | null)[]): Extract<AreaSettings, { mode: "strata" }> {
   return {
     mode: "strata",
     columns: [...columns],

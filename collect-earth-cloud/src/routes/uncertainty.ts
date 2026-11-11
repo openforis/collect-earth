@@ -71,7 +71,7 @@ export async function registerUncertaintyRoutes(app: FastifyInstance, store: Sto
     const final = plotColumns.find((c) => c.name === settings.final && c.type === 'code');
     if (!initial?.list || !final?.list) return reply.code(409).send({ error: 'question_missing', message: 'A land use question of the setup is no longer in the survey: choose it again.' });
 
-    const [served, rows] = await Promise.all([states.get(projectId, request.log), store.listRecordSummaries(projectId)]);
+    const [served, rows] = await Promise.all([states.get(projectId, request.log), store.listRecordSummaries(projectId, { firstSubmissions: true })]);
     const { context } = served.state;
     const firsts = firstAssessments(rows, recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders }));
     const factors = await projectFactors(store, projectId, parsed, firsts, context.info);

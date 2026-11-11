@@ -7,7 +7,7 @@ import { isPlotUnit } from '../progress.js';
 import type { ProjectStateCache } from '../projectState.js';
 import { recordResolver } from '../quality.js';
 import type { Store } from '../store/store.js';
-import { firstAssessments, modelOf, plotFileValues, projectFactors, questionOf, strataValues, type Parsed } from './analysis.js';
+import { firstAssessments, modelOf, plotFilesOf, plotFileValues, projectFactors, questionOf, strataValues, type Parsed } from './analysis.js';
 
 /** The strata found in the plots and listed on the page, beyond those with an area (a column of many values). */
 const MAX_LISTED = 500;
@@ -44,10 +44,11 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
   app.get('/v1/projects/:pid/areas', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
     const parsed = await parsedOf(projectId);
-    const [shown, served, rows] = await Promise.all([shownOf(projectId, parsed), states.get(projectId, request.log), store.listRecordSummaries(projectId)]);
+    const [shown, served, rows] = await Promise.all([shownOf(projectId, parsed), states.get(projectId, request.log), store.listRecordSummaries(projectId, { firstSubmissions: true })]);
     const { context } = served.state;
     const firsts = firstAssessments(rows, recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders }));
-    const factors = await projectFactors(store, projectId, parsed, firsts, context.info);
+    const plotFiles = plotFilesOf(store, projectId);
+    const factors = await projectFactors(store, projectId, parsed, firsts, context.info, plotFiles);
     // ?columns=a,b: the strata other columns would make (choosing them), nothing saved
     const query = (request.query ?? {}) as { columns?: unknown };
     const asked = typeof query.columns === 'string' ? query.columns.split(',').map((c) => c.trim()).filter((c) => c !== '').slice(0, AREA_LIMITS.columns) : null;
@@ -55,7 +56,7 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
     const columns = asked ?? saved;
     const sameColumns = columns.length === saved.length && columns.every((c, i) => c.toLowerCase() === saved[i].toLowerCase());
     // The plots of the plot files by stratum (a column only in the answers: not counted), and the plots assessed
-    const files = await plotFileValues(store, projectId, context.info, columns);
+    const files = await plotFileValues(plotFiles, context.info, columns);
     const inFiles = columns.every((c, i) => files.found[i] || !questionOf(parsed.model, c)) ? columns.map((_, i) => files.found[i]) : null;
     const isPlot = isPlotUnit(context.info);
     const keyOf = (values: readonly (string | undefined)[]) => values.map(comparable).join('\u0000');
@@ -82,7 +83,7 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
           else more++;
         }
       }
-      const { values } = await strataValues(store, projectId, parsed.model, context.info, columns, firsts);
+      const { values } = await strataValues(plotFiles, parsed.model, context.info, columns, firsts);
       for (const v of values.values()) {
         const s = entry(v);
         if (s) s.assessed += 1;
