@@ -184,6 +184,8 @@ describe('cross-tenant isolation', () => {
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/periods` },
       { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/periods/header`, payload: { headerQuestions: [] } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/periods/plots/17` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/periods/change` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/periods/change.csv` },
       { method: 'POST' as const, url: `/v1/projects/${b.projectId}/reference/plots`, payload: { csvFileId: '00000000-0000-4000-8000-000000000000', assessorUserId: '00000000-0000-4000-8000-000000000000', plots: ['17'] } },
       { method: 'POST' as const, url: `/v1/projects/${b.projectId}/reference/remove`, payload: { all: true } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/activity` },

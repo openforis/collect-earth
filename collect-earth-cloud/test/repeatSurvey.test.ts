@@ -2,7 +2,7 @@
 // project collecting the plots of an earlier one again, with the earlier answers kept apart as a period.
 import { strFromU8, unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { defaultHeaderQuestions, earlierRecords, labelOf, matchToSurvey, yearOf, type SourceRecord } from '../src/repeatSurvey.js';
+import { compareRepeat, defaultHeaderQuestions, earlierRecords, labelOf, matchToSurvey, yearOf, type SourceRecord } from '../src/repeatSurvey.js';
 import { surveyOutline } from '../src/surveyOutline.js';
 import { cepWith, idOnlyCep } from './fixtures/cep.js';
 import { batchRequest, bearer, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
@@ -68,6 +68,51 @@ describe('the earlier period of a repeat survey', () => {
     expect(labelOf('')).toBeNull();
     expect(labelOf('x'.repeat(41))).toBeNull();
     expect(labelOf(2020)).toBeNull();
+  });
+});
+
+describe('comparing a repeat survey with its earlier period', () => {
+  const STATUS = 'collect_code_period_status';
+  const a = (land: string, status?: string) => ({ [LAND_USE]: land, ...(status ? { [STATUS]: status } : {}) });
+
+  it('tells each plot unchanged, changed, corrected, new or pending, and the transition matrix of real changes', () => {
+    const change = compareRepeat(
+      [
+        { plot: '1', answers: a('F') },
+        { plot: '2', answers: a('F') },
+        { plot: '3', answers: a('C') },
+        { plot: '4', answers: a('G') },
+        { plot: '10', answers: a('F::old') },
+      ],
+      [
+        { plot: '1', answers: a('F', 'same') },
+        { plot: '2', answers: a('C', 'changed') },
+        { plot: '3', answers: a('G', 'corrected') },
+        { plot: '5', answers: a('S') },
+        { plot: '10', answers: a('F', 'changed') },
+      ],
+      LAND_USE,
+      STATUS,
+    );
+    expect(change.rows.map((r) => [r.plot, r.earlier, r.now, r.outcome, r.mismatch])).toEqual([
+      ['1', 'F', 'F', 'unchanged', null],
+      ['2', 'F', 'C', 'changed', null],
+      ['3', 'C', 'G', 'corrected', null],
+      ['4', 'G', null, 'pending', null],
+      ['5', null, 'S', 'new', null],
+      // the qualifier is no answer of its own; said changed with the same answer: to look at again
+      ['10', 'F', 'F', 'unchanged', 'changedButSame'],
+    ]);
+    expect(change.counts).toEqual({ unchanged: 2, changed: 1, corrected: 1, new: 1, pending: 1, mismatches: 1 });
+    expect(change.matrix).toEqual(expect.arrayContaining([{ from: 'F', to: 'F', plots: 2 }, { from: 'F', to: 'C', plots: 1 }]));
+    expect(change.matrix).toHaveLength(2);
+    // corrections are kept out of the matrix, counted apart
+    expect(change.corrections).toEqual([{ from: 'C', to: 'G', plots: 1 }]);
+  });
+
+  it('flags a plot said to be the same whose answer differs', () => {
+    const change = compareRepeat([{ plot: '1', answers: a('F') }], [{ plot: '1', answers: a('C', 'same') }], LAND_USE, STATUS);
+    expect(change.rows[0]).toMatchObject({ outcome: 'changed', mismatch: 'sameButDiffers' });
   });
 });
 
@@ -207,6 +252,35 @@ describe('repeating a survey in the dashboard', () => {
     expect(res.statusCode, res.body).toBe(201);
     expect((await ctx.store.getPlotPeriodAnswers(res.json().projectId, '2'))[0].answers).not.toHaveProperty(FOREST);
     expect((await call('POST', '/repeat/preview', owner.token, { projectFile: Buffer.from('nope').toString('base64') })).json()).toMatchObject({ error: 'cep_unreadable' });
+  });
+
+  it('compares a question between the two periods: the counts, the matrix, the plots, and a file of them', async () => {
+    const made = await call('POST', '/repeat', owner.token, { name: 'Land 2025', label: '2025', earlierLabel: '2020', members: true });
+    const projectId = made.json().projectId;
+    expect((await call('PUT', '/status', owner.token, { status: 'active' }, {}, projectId)).statusCode).toBe(200);
+    const now = (plot: number, land: string, status: string) =>
+      envelope({ recordKey: `${plot},1`, operator: 'maria', modifiedOn: Date.UTC(2025, 5, plot), summary: { [LAND_USE]: land, collect_code_round: '1', collect_code_period_status: status } });
+    // 2020: plot 1 Forest, plot 2 Cropland (plot 3 a draft then)
+    expect((await batchRequest(ctx.app, projectId, maria.token, [now(1, 'F', 'same'), now(2, 'G', 'corrected'), now(3, 'S', 'changed')])).statusCode).toBe(200);
+    const res = await call('GET', '/periods/change', owner.token, undefined, {}, projectId);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toMatchObject({
+      period: '2020', label: '2025', periods: ['2020'], question: { key: LAND_USE },
+      counts: { unchanged: 1, changed: 0, corrected: 1, new: 1, pending: 0, mismatches: 0 },
+      matrix: [{ from: 'F', to: 'F', plots: 1 }],
+      corrections: [{ from: 'C', to: 'G', plots: 1 }],
+    });
+    expect(res.json().options.some((o: { code: string }) => o.code === 'F')).toBe(true);
+    expect(res.json().questions.map((q: { key: string }) => q.key)).toContain(LAND_USE);
+    const csv = await call('GET', '/periods/change.csv', owner.token, undefined, {}, projectId);
+    expect(csv.statusCode).toBe(200);
+    const lines = csv.body.replace(/^\uFEFF/, '').trim().split('\r\n');
+    expect(lines[0]).toBe(`plot,${LAND_USE} 2020,${LAND_USE} 2025,2020 label,2025 label,period_status,outcome,to_look_at`);
+    expect(lines.slice(1).map((l) => l.split(',')[0])).toEqual(['1', '2', '3']);
+    expect(lines[2]).toMatch(/^2,C,G,[^,]+,[^,]+,corrected,corrected,$/);
+    // collectors do not see it; a project that repeats no survey has none
+    expect((await call('GET', '/periods/change', maria.token, undefined, {}, projectId)).statusCode).toBe(403);
+    expect((await call('GET', '/periods/change', owner.token)).statusCode).toBe(404);
   });
 
   it('needs a name, two labels and a person to coordinate it', async () => {

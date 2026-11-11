@@ -1,6 +1,6 @@
 # Repeat survey: collecting a project's plots again, years later, with the earlier answers beside them
 
-Date: 11 November 2026. **Status: stages 1 and 2 built on the working branch (`claude/awesome-bell-s34gb0`), kept out of
+Date: 11 November 2026. **Status: stages 1, 2 and 3 built on the working branch (`claude/awesome-bell-s34gb0`), kept out of
 `ce-2026-GEW` until the 2.0 release is out; the owner's decisions are below.**
 
 ## Goal
@@ -104,8 +104,7 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
    3), instead of the earlier answers beside each question.
 3. **The survey: a newer version is allowed**, the earlier answers matched by question and answer code, with a report
    of what does not match.
-4. Still open: the comparison's areas and uncertainty from the start, or the matrix and plots first (proposed: matrix
-   and plots first).
+4. **The comparison: the transition matrix and the plots first**; areas and their uncertainty in a later stage.
 
 ## Stages
 
@@ -113,8 +112,8 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
    periods. **Built** (below).
 2. The desktop: the `period_status` attribute added to a repeat survey's survey, the plot's earlier answers asked when
    it opens, the form's header with its three choices. **Built** (below).
-3. The comparison: the Change page (the transition matrix, changed plots and corrections, map layer), the export's
-   period columns.
+3. The comparison: the transition matrix, the changed plots and corrections, the comparison as a file. **Built**
+   (below); the map layer later.
 4. Areas and uncertainty of the changes.
 
 ## Stage 1, as built (11 Nov 2026)
@@ -164,3 +163,26 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
   cover rows is its own (the 2020 project's form shows the same).
 - Left for later: the plots map's filter of the plots changed since the earlier period, and copying numbers on "Still
   the same".
+
+## Stage 3, as built (11 Nov 2026)
+
+- `src/repeatSurvey.ts`, `compareRepeat`: one question of every plot, the earlier period's answer against the record
+  taken now (as `earlierRecords` takes it), with the collector's header answer. Each plot is **unchanged**,
+  **changed**, **corrected** (another answer, the collector having said the earlier one was wrong: not a change),
+  **new** (no earlier answer) or **pending** (not collected yet); and to look at again when the header answer and the
+  answers disagree (said "still the same" with another answer, or "changed" with the same one). The transition matrix
+  counts the unchanged and changed plots by earlier answer and answer now; the corrections are counted apart. A choice
+  is compared by its code (its qualifier left out). `changeQuestions`: the plot's single choices answered in the
+  earlier period.
+- Routes (coordinators and reviewers): `GET /v1/projects/:pid/periods/change?question=&period=` (the counts, the matrix,
+  the corrections, every plot, the questions and the answers' names; the header's first question by default, the latest
+  earlier period by default) and `GET .../periods/change.csv` (a row per plot: each period's code and name, the header
+  answer, the outcome, what to look at), logged as `export.downloaded` (`kind: change`). Isolation cases.
+- Dashboard, Data tab of a repeat survey: **Change from 2020 to 2025**: the question (and the earlier period when there
+  are several), the counts, the matrix (the diagonal unchanged, the changes marked), the corrections, the plots changed,
+  corrected or to look at again (each to its page), and the file. Texts in en/es/fr/pt.
+- Checked: `test/repeatSurvey.test.ts` (the outcomes, the matrix, the mismatches, the routes and the file),
+  `repeatSurveyView.test.ts`, and in a browser (a 2020 project of 8 plots repeated, 7 collected in 2025 with each kind of
+  outcome: the counts, the matrix, the corrections, the plot to look at again, the file downloaded).
+- Left for later: the Map tab's layer of the plots changed since the earlier period; areas and their uncertainty
+  (with the plots' weights, as the IPCC uncertainty page has them).

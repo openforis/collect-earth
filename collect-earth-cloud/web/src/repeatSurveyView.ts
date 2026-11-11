@@ -34,3 +34,34 @@ export function repeatName(name: string, earlierLabel: string, label: string): s
   if (earlierLabel && trimmed.includes(earlierLabel)) return trimmed.split(earlierLabel).join(label).slice(0, 200);
   return `${trimmed} ${label}`.trim().slice(0, 200);
 }
+
+/** A transition matrix as a table: the codes in the question's order (then any other), each cell's plots, the totals. */
+export interface MatrixTable {
+  codes: { code: string; label: string }[];
+  /** plots by earlier code, then code now */
+  cell: (from: string, to: string) => number;
+  rowTotal: (from: string) => number;
+  colTotal: (to: string) => number;
+  total: number;
+}
+
+export function matrixTable(matrix: readonly { from: string; to: string; plots: number }[], options: readonly { code: string; label: string }[]): MatrixTable {
+  const used = new Set(matrix.flatMap((m) => [m.from, m.to]));
+  const codes = [
+    ...options.filter((o) => used.has(o.code)),
+    ...[...used].filter((c) => !options.some((o) => o.code === c)).sort().map((code) => ({ code, label: code })),
+  ];
+  const cells = new Map(matrix.map((m) => [`${m.from}\u0000${m.to}`, m.plots]));
+  const cell = (from: string, to: string) => cells.get(`${from}\u0000${to}`) ?? 0;
+  return {
+    codes,
+    cell,
+    rowTotal: (from) => matrix.filter((m) => m.from === from).reduce((n, m) => n + m.plots, 0),
+    colTotal: (to) => matrix.filter((m) => m.to === to).reduce((n, m) => n + m.plots, 0),
+    total: matrix.reduce((n, m) => n + m.plots, 0),
+  };
+}
+
+/** The plots to look at on the change card: the changes, the corrections and those whose header answer disagrees. */
+export const plotsToShow = <R extends { outcome: string; mismatch: string | null }>(rows: readonly R[], which: "changed" | "corrected" | "mismatch"): R[] =>
+  rows.filter((r) => (which === "mismatch" ? r.mismatch !== null : r.outcome === which));

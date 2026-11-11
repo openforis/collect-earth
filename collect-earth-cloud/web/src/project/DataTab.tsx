@@ -25,6 +25,7 @@ import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
 import { CollectBackup } from "./CollectBackup";
 import { CollectImport } from "./CollectImport";
+import { ChangeCard } from "./RepeatSurvey";
 
 const FORMAT_LABELS = { csv: "data.formatCsv", geojson: "data.formatGeojson", kml: "data.formatKml", "shp.zip": "data.formatShp" } as const;
 
@@ -99,6 +100,8 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
   return (
     <Stack spacing={3}>
       <Analysis projectId={projectId} />
+      {/* A repeat survey: how the land changed since the earlier period (docs/plans/2026-11-11-repeat-survey.md) */}
+      {!local && <ChangeCard projectId={projectId} />}
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack spacing={2}>
           <Typography variant="h2">{t("data.title")}</Typography>

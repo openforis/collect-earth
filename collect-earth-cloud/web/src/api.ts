@@ -1298,6 +1298,47 @@ export function setPeriodHeader(projectId: string, headerQuestions: string[]): P
   return request("PUT", `${p(projectId)}/periods/header`, { json: { headerQuestions } });
 }
 
+/** How a plot compares between an earlier period and this one, for one question (docs/plans/2026-11-11-repeat-survey.md). */
+export type ChangeOutcome = "unchanged" | "changed" | "corrected" | "new" | "pending";
+
+export interface ChangeRow {
+  plot: string;
+  earlier: string | null;
+  now: string | null;
+  status: "same" | "changed" | "corrected" | null;
+  outcome: ChangeOutcome;
+  mismatch: "sameButDiffers" | "changedButSame" | null;
+}
+
+/** One question compared between an earlier period and this one: its counts, its transition matrix, every plot. */
+export interface RepeatChange {
+  period: string;
+  label: string;
+  periods: string[];
+  question: { key: string; label: string };
+  questions: { key: string; label: string }[];
+  options: { code: string; label: string }[];
+  counts: Record<ChangeOutcome, number> & { mismatches: number };
+  matrix: { from: string; to: string; plots: number }[];
+  corrections: { from: string; to: string; plots: number }[];
+  rows: ChangeRow[];
+}
+
+const changeQuery = (question: string | null, period: string | null) =>
+  [question ? `question=${encodeURIComponent(question)}` : "", period ? `period=${encodeURIComponent(period)}` : ""].filter(Boolean).join("&");
+
+export function getRepeatChange(projectId: string, question: string | null, period: string | null): Promise<RepeatChange> {
+  const query = changeQuery(question, period);
+  return request("GET", `${p(projectId)}/periods/change${query ? `?${query}` : ""}`);
+}
+
+/** The comparison as a file: a row per plot, each period's answer, the collector's answer and the outcome. */
+export async function downloadRepeatChange(projectId: string, question: string | null, period: string | null): Promise<{ blob: Blob; filename: string }> {
+  const query = changeQuery(question, period);
+  const response = await send("GET", `${p(projectId)}/periods/change.csv${query ? `?${query}` : ""}`);
+  return { blob: await response.blob(), filename: attachmentName(response, "change.csv") };
+}
+
 /** One plot's answers in the earlier periods, oldest first (who collected them: for coordinators and reviewers). */
 export interface PlotPeriod {
   label: string;

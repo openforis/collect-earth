@@ -15,11 +15,15 @@
 //   coordinators and reviewers only.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
-import { CepError, addPeriodStatus, readCep } from '../cep.js';
+import { CepError, PERIOD_STATUS_KEY, addPeriodStatus, readCep } from '../cep.js';
+import { attachment } from '../download.js';
+import { csvField } from '../export.js';
 import { finalAnswers, recordResolver } from '../quality.js';
 import { answerOptions } from '../qualityReports.js';
 import { loadPlotContext } from '../qualityService.js';
 import {
+  changeQuestions,
+  compareRepeat,
   defaultHeaderQuestions,
   earlierRecords,
   headerCandidates,
@@ -108,6 +112,7 @@ const questionList = (outline: ReadonlyMap<string, Question>) => headerCandidate
 export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: Store): Promise<void> {
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
   const member = { preHandler: requireProjectMembership(store) };
+  const reviewer = { preHandler: requireProjectMembership(store, 'reviewer') };
 
   app.post('/v1/projects/:pid/repeat/preview', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
@@ -228,6 +233,72 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
     await store.setRepeatSettings(projectId, { ...settings, headerQuestions });
     await audit(store, request, 'settings.changed', { setting: 'repeatHeader', questions: headerQuestions.length });
     return reply.send({ headerQuestions });
+  });
+
+  /** The comparison of one question between an earlier period and this one (stage 3), or the answer refusing it */
+  const changeOf = async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
+    const settings = await store.getRepeatSettings(projectId);
+    if (!settings || settings.earlier.length === 0) {
+      void reply.code(404).send({ error: 'not_found', reason: 'This project repeats no survey.' });
+      return null;
+    }
+    const query = (request.query ?? {}) as { question?: unknown; period?: unknown };
+    const period = typeof query.period === 'string' && settings.earlier.some((p) => p.label === query.period) ? query.period : settings.earlier[settings.earlier.length - 1].label;
+    const outline = outlineOf(await store.getCep(projectId));
+    if (!outline) {
+      void reply.code(409).send({ error: 'no_project_file', reason: 'This project has no project file.' });
+      return null;
+    }
+    const [earlier, now] = await Promise.all([store.listPeriodAnswers(projectId, period), earlierOf(store, projectId, request.log)]);
+    const questions = changeQuestions(outline, earlier, PERIOD_STATUS_KEY);
+    const asked = typeof query.question === 'string' ? query.question : '';
+    const question = questions.find((q) => q.key === asked) ?? questions.find((q) => settings.headerQuestions.includes(q.key)) ?? questions[0];
+    if (!question) {
+      void reply.code(409).send({ error: 'no_question', reason: 'The earlier period answered no question this survey asks with one choice.' });
+      return null;
+    }
+    const change = compareRepeat(
+      earlier.map((r) => ({ plot: r.plotKey, answers: r.answers })),
+      now.map((r) => ({ plot: r.plot, answers: r.answers })),
+      question.key,
+      PERIOD_STATUS_KEY,
+    );
+    return { settings, period, question, questions, change, options: answerOptions(outline, [question.key])[question.key] ?? [] };
+  };
+
+  app.get('/v1/projects/:pid/periods/change', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
+    const found = await changeOf(request, reply);
+    if (!found) return reply;
+    const { settings, period, question, questions, change, options } = found;
+    return reply.send({
+      period,
+      label: settings.label,
+      periods: settings.earlier.map((p) => p.label),
+      question: { key: question.key, label: question.label },
+      questions: questions.map((q) => ({ key: q.key, label: q.label })),
+      options,
+      counts: change.counts,
+      matrix: change.matrix,
+      corrections: change.corrections,
+      rows: change.rows,
+    });
+  });
+
+  // The comparison as a file: one row per plot, the answer of each period, the collector's answer and the outcome
+  app.get('/v1/projects/:pid/periods/change.csv', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
+    const found = await changeOf(request, reply);
+    if (!found) return reply;
+    const { settings, period, question, change, options } = found;
+    const name = (code: string | null) => (code === null ? '' : options.find((o) => o.code === code)?.label ?? code);
+    const header = ['plot', `${question.key} ${period}`, `${question.key} ${settings.label}`, `${period} label`, `${settings.label} label`, 'period_status', 'outcome', 'to_look_at'];
+    const lines = change.rows.map((r) => [r.plot, r.earlier ?? '', r.now ?? '', name(r.earlier), name(r.now), r.status ?? '', r.outcome, r.mismatch ?? '']);
+    const project = await store.getProject(request.membership!.projectId);
+    await audit(store, request, 'export.downloaded', { kind: 'change', records: change.rows.length });
+    return reply
+      .header('content-type', 'text/csv; charset=utf-8')
+      .header('content-disposition', attachment(`${project?.name ?? 'project'}-change-${period}-${settings.label}.csv`, 'change.csv'))
+      .send(`\uFEFF${[header, ...lines].map((r) => r.map(csvField).join(',')).join('\r\n')}\r\n`);
   });
 
   app.get('/v1/projects/:pid/periods/plots/:plot', member, async (request: FastifyRequest, reply: FastifyReply) => {

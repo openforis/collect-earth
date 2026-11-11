@@ -158,3 +158,106 @@ export function yearOf(records: readonly { savedAt: number }[]): string | null {
   for (const entry of years) if (!best || entry[1] > best[1] || (entry[1] === best[1] && entry[0] > best[0])) best = entry;
   return best ? String(best[0]) : null;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// The comparison (stage 3): an earlier period's answers against this period's, for one question
+
+/** What the collector said of a plot against the earlier period (the survey's period_status) */
+export type PeriodStatusAnswer = 'same' | 'changed' | 'corrected';
+
+/** How a plot compares between the two periods, for the question compared. */
+export type ChangeOutcome =
+  /** the same answer in both periods */
+  | 'unchanged'
+  /** another answer: a change of the land */
+  | 'changed'
+  /** another answer, the collector having said the earlier one was wrong: a correction, not a change */
+  | 'corrected'
+  /** collected now, with no earlier answer */
+  | 'new'
+  /** an earlier answer, not collected yet (or not submitted) */
+  | 'pending';
+
+export interface ChangeRow {
+  plot: string;
+  earlier: string | null;
+  now: string | null;
+  /** the collector's answer to the header (period_status), null when none */
+  status: PeriodStatusAnswer | null;
+  outcome: ChangeOutcome;
+  /**
+   * The collector's answer and the answers disagree: said "still the same" with another answer now, or "changed" with
+   * the same answer (to look at again)
+   */
+  mismatch: 'sameButDiffers' | 'changedButSame' | null;
+}
+
+export interface Change {
+  rows: ChangeRow[];
+  /** plots by earlier answer and answer now, real changes and unchanged only (not the corrections), by code */
+  matrix: { from: string; to: string; plots: number }[];
+  /** the corrections, by earlier answer and the answer that corrects it */
+  corrections: { from: string; to: string; plots: number }[];
+  counts: Record<ChangeOutcome, number> & { mismatches: number };
+}
+
+/** A choice answer as compared: its code (the first, its qualifier left out); null when empty */
+const codeOf = (value: string | undefined): string | null => {
+  const code = (value ?? '').split(SUMMARY_VALUES_SEPARATOR)[0].split(QUALIFIER_SEPARATOR)[0].trim();
+  return code === '' ? null : code;
+};
+
+const STATUSES = new Set<PeriodStatusAnswer>(['same', 'changed', 'corrected']);
+
+/**
+ * One question (`key`) of every plot compared between an earlier period (`earlier`: its answers, period_answers) and
+ * this one (`now`: the record taken for each plot, as earlierRecords takes it), with the collectors' answers to the
+ * header (`statusKey`, the survey's period_status). A plot said to be wrongly interpreted then is a correction, kept
+ * out of the transition matrix of real changes and counted apart.
+ */
+export function compareRepeat(
+  earlier: readonly { plot: string; answers: Record<string, string> }[],
+  now: readonly { plot: string; answers: Record<string, string> }[],
+  key: string,
+  statusKey: string,
+): Change {
+  const before = new Map(earlier.map((r) => [r.plot, codeOf(r.answers[key])]));
+  const after = new Map(now.map((r) => [r.plot, r]));
+  const plots = [...new Set([...before.keys(), ...after.keys()])].sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+  const counts: Change['counts'] = { unchanged: 0, changed: 0, corrected: 0, new: 0, pending: 0, mismatches: 0 };
+  const matrix = new Map<string, number>();
+  const corrections = new Map<string, number>();
+  const bump = (m: Map<string, number>, from: string, to: string) => m.set(`${from}\u0000${to}`, (m.get(`${from}\u0000${to}`) ?? 0) + 1);
+  const rows: ChangeRow[] = [];
+  for (const plot of plots) {
+    const from = before.get(plot) ?? null;
+    const record = after.get(plot);
+    const to = record ? codeOf(record.answers[key]) : null;
+    const raw = record?.answers[statusKey];
+    const status = raw && STATUSES.has(raw as PeriodStatusAnswer) ? (raw as PeriodStatusAnswer) : null;
+    let outcome: ChangeOutcome;
+    if (to === null) outcome = 'pending';
+    else if (from === null) outcome = 'new';
+    else if (status === 'corrected' && from !== to) outcome = 'corrected';
+    else outcome = from === to ? 'unchanged' : 'changed';
+    const mismatch = from === null || to === null ? null : status === 'same' && from !== to ? 'sameButDiffers' : status === 'changed' && from === to ? 'changedButSame' : null;
+    counts[outcome] += 1;
+    if (mismatch) counts.mismatches += 1;
+    if (from !== null && to !== null) bump(outcome === 'corrected' ? corrections : matrix, from, to);
+    rows.push({ plot, earlier: from, now: to, status, outcome, mismatch });
+  }
+  const list = (m: Map<string, number>) =>
+    [...m].map(([id, n]) => {
+      const [from, to] = id.split('\u0000');
+      return { from, to, plots: n };
+    });
+  return { rows, matrix: list(matrix), corrections: list(corrections), counts };
+}
+
+/** The questions a change can be shown for: the plot's single choices, answered in the earlier period. */
+export function changeQuestions(outline: ReadonlyMap<string, Question>, earlier: readonly { answers: Record<string, string> }[], statusKey: string): Question[] {
+  const answered = new Set(earlier.flatMap((r) => Object.keys(r.answers).filter((k) => r.answers[k] !== '')));
+  return [...outline.values()].filter(
+    (q) => q.kind === 'choice' && !q.multiple && !q.excluded && !q.key.includes('.') && !q.key.includes('[') && q.key !== statusKey && answered.has(q.key),
+  );
+}
