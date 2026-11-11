@@ -47,6 +47,8 @@ public final class SettingsModel {
 			in(EarthProperty.BUFFER_SHAPE, BUFFER_SHAPE.SQUARE, BUFFER_SHAPE.CIRCLE, BUFFER_SHAPE.HEXAGON));
 	static final Condition POSTGRESQL = in(EarthProperty.DB_DRIVER, CollectDBDriver.POSTGRESQL);
 	static final Condition SQLITE_FILE = in(EarthProperty.DB_DRIVER, CollectDBDriver.SQLITE, CollectDBDriver.CLOUD);
+	/** A cloud project: a local one has no server, project or token to show */
+	static final Condition CLOUD_PROJECT = in(EarthProperty.DB_DRIVER, CollectDBDriver.CLOUD);
 	static final Condition GEE_APP = in(EarthProperty.OPEN_GEE_APP, "true");
 	/** Planet is offered once its key is set: without one it shows nothing */
 	static final Condition PLANET = notBlank(EarthProperty.PLANET_MAPS_KEY);
@@ -210,9 +212,12 @@ public final class SettingsModel {
 
 	private static Section collaboration() {
 		return new Section(COLLABORATION, "SettingsPage.section.collaboration", "SettingsPage.collaboration.hint",
-				Setting.text(EarthProperty.CLOUD_SYNC_URL, "DatabaseServerPanel.cloudUrlLabel").tooltip("DatabaseServerPanel.cloudUrlTooltip"),
-				Setting.text(EarthProperty.CLOUD_PROJECT_ID, "DatabaseServerPanel.cloudProjectLabel").tooltip("DatabaseServerPanel.cloudProjectTooltip"),
-				Setting.password(EarthProperty.CLOUD_SYNC_TOKEN, "DatabaseServerPanel.cloudTokenLabel").tooltip("DatabaseServerPanel.cloudTokenTooltip"));
+				Setting.text(EarthProperty.CLOUD_SYNC_URL, "DatabaseServerPanel.cloudUrlLabel").tooltip("DatabaseServerPanel.cloudUrlTooltip")
+						.visibleWhen(CLOUD_PROJECT),
+				Setting.text(EarthProperty.CLOUD_PROJECT_ID, "DatabaseServerPanel.cloudProjectLabel").tooltip("DatabaseServerPanel.cloudProjectTooltip")
+						.visibleWhen(CLOUD_PROJECT),
+				Setting.password(EarthProperty.CLOUD_SYNC_TOKEN, "DatabaseServerPanel.cloudTokenLabel").tooltip("DatabaseServerPanel.cloudTokenTooltip")
+						.visibleWhen(CLOUD_PROJECT));
 	}
 
 	/** The port and the form (web_form=balloon) are left to earth.properties: the page cannot fix a port in use, as it is served on it */

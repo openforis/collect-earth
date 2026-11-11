@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactElement, type ReactNode } from "react";
 import MuiAppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -21,10 +21,15 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MenuIcon from "@mui/icons-material/Menu";
 import CloudDoneOutlinedIcon from "@mui/icons-material/CloudDoneOutlined";
+import CloudOffOutlinedIcon from "@mui/icons-material/CloudOffOutlined";
+import CloudOutlinedIcon from "@mui/icons-material/CloudOutlined";
+import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
+import ComputerOutlinedIcon from "@mui/icons-material/ComputerOutlined";
 import LoginOutlinedIcon from "@mui/icons-material/LoginOutlined";
 import PersonIcon from "@mui/icons-material/Person";
 import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import SyncProblemOutlinedIcon from "@mui/icons-material/SyncProblemOutlined";
 import { Logo } from "./Logo";
 import { apiPut } from "../apiClient";
 import type { AppInfo } from "../appInfo";
@@ -33,7 +38,8 @@ import { droppedKind } from "../project";
 import { cloudLogin, setErrorsShown as setErrorsShown_, uploadFile } from "../projectApi";
 import { saveSettings } from "../settingsApi";
 import { useT } from "../i18n";
-import { appMenus, type MenuItem as AppMenuItem } from "../menus";
+import { CLOUD_DASHBOARD_NOTE, appMenus, type MenuItem as AppMenuItem } from "../menus";
+import { type ChipIcon, type ProjectChip, cloudProjectOf, fallbackState, projectChip, serverOf, useCloudState } from "../cloud";
 import { MenuEntryIcon } from "../menuIcons";
 import { AppDrawer, DRAWER_ID } from "./AppDrawer";
 import { serverText, type Texts } from "../serverTexts";
@@ -71,13 +77,23 @@ interface Props {
 }
 
 /**
- * The bar over the page: the menus of the Swing window (menus.ts), you (your name, or the cloud account) and Quit. It asks for your name
+ * The bar over the page: the project and where it keeps its data (the project chip: this computer, or the cloud project
+ * and its sending), the menus of the Swing window (menus.ts), you (your name, or the cloud account) and Quit. It asks for your name
  * when there is none, as the Swing window did at start-up, and once Collect Earth quits it covers the page, which can
  * do nothing more.
  */
 export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const t = useT();
-  const s = (key: string) => serverText(texts, key);
+  // Where the project keeps its data and how its sending goes; what /api/app knows until it is read
+  const [cloudNow, refreshCloud] = useCloudState(info.cloud);
+  const cloud = cloudNow ?? fallbackState(info.project, info.cloud);
+  const server = serverOf(cloud.project);
+  // The note of the cloud dashboard's entry names the server ({0}), in the wide menus and in the drawer; none while the
+  // server is not known
+  const barTexts = useMemo(() => (texts && info.cloud
+    ? { ...texts, [CLOUD_DASHBOARD_NOTE]: server ? formatText(texts[CLOUD_DASHBOARD_NOTE] ?? "", server) : "" }
+    : texts), [texts, info.cloud, server]);
+  const s = (key: string) => serverText(barTexts, key);
   const menus = useMemo(() => appMenus({ plotsMap: info.plotsMap, surveyGuide: info.surveyGuide, client: info.client, cloud: info.cloud }), [info.plotsMap, info.surveyGuide, info.client, info.cloud]);
   // The menu open and the button it hangs from; the id is null for the drawer of the compact bar
   const [open, setOpen] = useState<{ anchor: HTMLElement; id: string | null } | null>(null);
@@ -191,6 +207,10 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
     );
   };
 
+  const chip = projectChip(cloud, t, (iso) => new Date(iso).toLocaleString(info.language));
+  // The login names the server and the cloud project once they are known
+  const signInTo = cloud.project.mode === "cloud" && server ? t("cloud.signInTo", { server, project: cloudProjectOf(cloud.project) }) : null;
+
   if (closed) return <ClosedOverlay text={t("appBar.closed")} />;
   if (restarting) return <RestartingOverlay text={s("SettingsPage.restarting")} />;
 
@@ -212,6 +232,8 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
             {info.project}
           </Typography>
         )}
+        {/* Where the project keeps its data, always in sight: this computer, or the cloud project and its sending */}
+        {info.project && <ProjectChipView chip={chip} compact={compact} onStatus={() => setDialog("cloudStatus")} onSignIn={() => setCloudPrompt("login")} />}
         {!compact && menus.map((menu) => (
           <Button key={menu.id} color="inherit" size="small" sx={{ flexShrink: 0 }} aria-haspopup="menu"
             id={"app-menu-button-" + menu.id} aria-controls={open?.id === menu.id ? "app-menu" : undefined}
@@ -227,7 +249,8 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
             <SettingsOutlinedIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        {/* You: in a cloud project the account signed in (its sync status on click), else the name you typed */}
+        {/* You: in a cloud project the account signed in (its sync status on click; the project chip has the cloud's
+            state), else the name you typed */}
         {info.cloud ? (
           info.cloudLoginNeeded ? (
             <Tooltip title={s("User.signInTip")}>
@@ -235,9 +258,9 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
                 label={s("User.signIn")} data-testid="user-chip" />
             </Tooltip>
           ) : (
-            <Tooltip title={formatText(s("User.cloudTip"), operator ?? "")}>
-              <Chip icon={<CloudDoneOutlinedIcon />} size="small" variant="outlined" onClick={() => setDialog("cloudStatus")}
-                label={operator} sx={{ maxWidth: compact ? 140 : 240 }} data-testid="user-chip" />
+            <Tooltip title={formatText(s("User.cloudTip"), cloud.project.account ?? operator ?? "")}>
+              <Chip icon={<PersonIcon />} size="small" variant="outlined" onClick={() => setDialog("cloudStatus")}
+                label={cloud.project.account ?? operator} sx={{ maxWidth: compact ? 140 : 240 }} data-testid="user-chip" />
             </Tooltip>
           )
         ) : (
@@ -266,7 +289,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
         {wideMenu && menus.find((m) => m.id === wideMenu.id)?.items.map(entry)}
       </Menu>
       <AppDrawer open={open !== null && open.id === null} onClose={() => setOpen(null)} menus={menus} project={info.project}
-        texts={texts} toggles={toggles} onRun={run} />
+        texts={barTexts} toggles={toggles} onRun={run} />
 
       <OperatorDialog open={forced || operatorOpen} forced={forced} operator={operator} texts={texts}
         onCancel={() => setOperatorOpen(false)}
@@ -284,22 +307,24 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
       <ProjectsDialog open={dialog === "projects"} texts={texts} onClose={close} onRestarting={() => setRestarting(true)} />
       <JoinCloudDialog open={dialog === "joinCloud"} texts={texts} onClose={close} />
       <SendToCloudDialog open={dialog === "sendToCloud"} texts={texts} operator={operator} onClose={close} />
-      <CloudStatusDialog open={dialog === "cloudStatus"} texts={texts} language={info.language} onClose={close} />
+      <CloudStatusDialog open={dialog === "cloudStatus"} texts={texts} language={info.language} cloud={cloudNow}
+        onClose={() => { close(); refreshCloud(); }} />
       <LanguageDialog open={dialog === "language"} texts={texts} languages={info.languages} current={info.language} onClose={close} />
       <AboutDialog open={dialog === "about"} texts={texts} info={info} onClose={close} />
       <TextDialog open={dialog === "disclaimer"} texts={texts} name="disclaimer" onClose={close} />
       <TextDialog open={dialog === "log"} texts={texts} name="log" onClose={close} />
-      {/* Cloud mode with nobody logged in: the question, then the login; Cancel leaves it, as the Swing window did */}
+      {/* Cloud mode with nobody logged in: the question, then the login; Cancel leaves it, as the Swing window did. The
+          login is also the project chip's, when the server no longer takes the sign-in */}
       <Dialog open={info.cloudLoginNeeded && cloudPrompt === "ask"} maxWidth="xs" data-testid="cloud-prompt">
-        <DialogTitle>{s("CloudLoginDialog.title")}</DialogTitle>
+        <DialogTitle>{signInTo ?? s("CloudLoginDialog.title")}</DialogTitle>
         <DialogContent><DialogContentText>{s("CollectEarthWindow.cloudNotLoggedIn")}</DialogContentText></DialogContent>
         <DialogActions>
           <Button onClick={() => setCloudPrompt("done")}>{s("CloudLoginDialog.cancelButton")}</Button>
           <Button variant="contained" onClick={() => setCloudPrompt("login")} autoFocus>{s("CloudLoginDialog.loginButton")}</Button>
         </DialogActions>
       </Dialog>
-      <CloudLoginDialog open={info.cloudLoginNeeded && cloudPrompt === "login"} texts={texts} onCancel={() => setCloudPrompt("done")}
-        onSubmit={(c) => cloudLogin(c.username, c.password, c.code).then((r) => { setSavedOperator(r.operator); setCloudPrompt("done"); reload(); })} />
+      <CloudLoginDialog open={cloudPrompt === "login"} texts={texts} intro={signInTo} onCancel={() => setCloudPrompt("done")}
+        onSubmit={(c) => cloudLogin(c.username, c.password, c.code).then((r) => { setSavedOperator(r.operator); setCloudPrompt("done"); reload(); refreshCloud(); })} />
       {/* A dropped plots file: use it as the project's plots file? */}
       <Dialog open={dropped?.kind === "plots" && dialog === null} maxWidth="sm" onClose={() => setDropped(null)} data-testid="drop-plots">
         <DialogTitle>{s("ProjectPage.drop.plotsTitle")}</DialogTitle>
@@ -429,4 +454,27 @@ function useDroppedFiles(onFile: (file: File) => void) {
     window.addEventListener("drop", drop);
     return () => { window.removeEventListener("dragover", over); window.removeEventListener("drop", drop); };
   }, []);
+}
+
+const CHIP_ICONS: Record<ChipIcon, ReactElement> = {
+  computer: <ComputerOutlinedIcon />, cloud: <CloudOutlinedIcon />, sent: <CloudDoneOutlinedIcon />, waiting: <CloudUploadOutlinedIcon />,
+  offline: <CloudOffOutlinedIcon />, failed: <SyncProblemOutlinedIcon />, signIn: <LoginOutlinedIcon />,
+};
+
+/**
+ * The project chip (cloud.ts, projectChip): its icon and words, only the icon in the compact bar, the whole of it as its
+ * name and the tooltip as its description. A click shows the sync status, or the login when the server wants one.
+ */
+function ProjectChipView({ chip, compact, onStatus, onSignIn }: { chip: ProjectChip; compact: boolean; onStatus: () => void; onSignIn: () => void }) {
+  const onClick = chip.action === "status" ? onStatus : chip.action === "signIn" ? onSignIn : undefined;
+  return (
+    <Tooltip title={chip.tip} describeChild>
+      {/* A local project's chip does nothing, but takes the focus, for its tooltip to be read */}
+      <Chip icon={CHIP_ICONS[chip.icon]} size="small" variant="outlined" color={chip.color} onClick={onClick}
+        label={chip.status ? chip.label + " · " + chip.status : chip.label} aria-label={chip.name}
+        {...(onClick ? {} : { tabIndex: 0, role: "img" })} data-testid="project-chip" data-state={chip.icon}
+        sx={{ flexShrink: compact ? 0 : 1, minWidth: 0, maxWidth: 320,
+          ...(compact && { "& .MuiChip-label": { display: "none" }, "& .MuiChip-icon": { mx: "4px !important" } }) }} />
+    </Tooltip>
+  );
 }

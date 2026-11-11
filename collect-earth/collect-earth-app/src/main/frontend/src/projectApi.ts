@@ -1,4 +1,5 @@
 import { apiGet, apiPost, apiPut } from "./apiClient";
+import type { CloudState, RecordSync } from "./cloud";
 import type { CloudStatus } from "./project";
 
 /** The calls of the Project and Help menus (ProjectsController, CloudController, FilesController, HelpController, AppInfoController). */
@@ -34,6 +35,16 @@ export const openCloudProject = (projectId: string) => apiPost<{ restart: boolea
 export const cloudStatus =(signal?: AbortSignal) => apiGet<CloudStatus>("cloud/status", signal);
 
 export const cloudSyncNow = () => apiPost<void>("cloud/syncNow");
+
+/** Where the open project keeps its data, its sending, and the accounts signed in (cloud.ts) */
+export const cloudState = (signal?: AbortSignal) => apiGet<CloudState>("cloud/state", signal);
+
+/** Forgets the account of this server; answers the state after it */
+export const cloudSignOut = (server: string) => apiPost<CloudState>("cloud/signOut", { server });
+
+/** Where the record of these keys (comma-separated, as the plot's id) is: on this computer only, waiting, sent, failed */
+export const recordSync = (key: string, signal?: AbortSignal) =>
+  apiGet<{ state: RecordSync }>("cloud/recordSync?key=" + encodeURIComponent(key), signal).then((r) => r.state);
 
 /** The records this computer has of the project (CloudSendController) */
 export const localRecordCount = (signal?: AbortSignal) => apiGet<{ count: number }>("cloud/localRecords", signal).then((r) => r.count);

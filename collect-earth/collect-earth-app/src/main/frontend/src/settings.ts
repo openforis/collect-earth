@@ -69,7 +69,8 @@ export interface SampleFileCheck {
   problems: SampleFileProblem[];
 }
 
-export interface Project { name: string; folder: string; active: boolean }
+/** `cloud`: the cloud project it is connected to, null (or missing, from an older server) for a local one */
+export interface Project { name: string; folder: string; active: boolean; cloud?: { server: string; serverName: string; projectName: string } | null }
 
 const valueOf = (values: Values, key: string) => values[key] ?? "";
 
