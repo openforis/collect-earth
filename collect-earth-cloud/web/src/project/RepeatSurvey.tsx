@@ -22,10 +22,12 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useEffect, useState, type FormEvent } from "react";
 import {
   base64Of,
+  downloadPeriodsExport,
   downloadRepeatChange,
   getRepeatChange,
   getPeriods,
@@ -465,11 +467,13 @@ export function ChangeCard({ projectId }: { projectId: string }) {
   const table = data ? matrixTable(data.matrix, data.options) : null;
   const shown = data ? plotsToShow(data.rows, which) : [];
 
-  const download = async () => {
+  const download = async (which: "change" | "periods" = "change") => {
     setBusy(true);
     setError(null);
     try {
-      const { blob, filename } = await downloadRepeatChange(projectId, data?.question.key ?? question, data?.period ?? period);
+      const { blob, filename } = which === "periods"
+        ? await downloadPeriodsExport(projectId)
+        : await downloadRepeatChange(projectId, data?.question.key ?? question, data?.period ?? period);
       saveBlob(blob, filename);
     } catch (err) {
       setError(err);
@@ -565,6 +569,11 @@ export function ChangeCard({ projectId }: { projectId: string }) {
                 <MenuItem value="mismatch">{t("change.show.mismatch", { count: String(data.counts.mismatches) })}</MenuItem>
               </TextField>
               <Button variant="outlined" onClick={() => void download()} disabled={busy}>{t("change.download")}</Button>
+              {data.canEdit && (
+                <Tooltip describeChild title={t("change.downloadPeriodsHelp", { earlier: data.periods.join(", "), now: data.label })}>
+                  <Button variant="outlined" onClick={() => void download("periods")} disabled={busy}>{t("change.downloadPeriods")}</Button>
+                </Tooltip>
+              )}
             </Stack>
             <ErrorAlert error={error} />
             {shown.length === 0 ? (

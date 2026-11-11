@@ -13,6 +13,8 @@
 // - GET /v1/projects/:pid/periods/change?question=&period=&area= (reviewer) -> the comparison of one question
 //   (stage 3) with its areas and their uncertainty (stage 4, `areas`); GET .../periods/change.csv a row per plot,
 //   GET .../periods/change-areas.csv the areas.
+// - GET /v1/projects/:pid/periods/export.csv[?coordinates=none] (admin): every period side by side, one row per plot,
+//   each question's answer in each period next to each other (bothPeriodsTable).
 // - PUT /v1/projects/:pid/periods/area { totalArea } (admin): the total area in hectares, for a project file with no
 //   areas file (every plot then stands for the same area); null to clear it.
 // - GET /v1/projects/:pid/periods/plots/:plot (member) -> { periods: [{ label, savedAt, answers, operator? }], labels,
@@ -20,7 +22,7 @@
 //   coordinators and reviewers only.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
-import { CepError, PERIOD_STATUS_KEY, addPeriodStatus, readCep } from '../cep.js';
+import { CepError, NOTE_SUMMARY_KEY, PERIOD_STATUS_KEY, addPeriodStatus, readCep } from '../cep.js';
 import { attachment } from '../download.js';
 import { csvField } from '../export.js';
 import { finalAnswers, recordResolver } from '../quality.js';
@@ -28,6 +30,7 @@ import { answerOptions } from '../qualityReports.js';
 import { loadPlotContext } from '../qualityService.js';
 import {
   changeQuestions,
+  bothPeriodsTable,
   changeAreas,
   compareRepeat,
   defaultHeaderQuestions,
@@ -47,6 +50,7 @@ import { surveyOutline, type Question } from '../surveyOutline.js';
 import type { RepeatSettings } from '../types.js';
 import { acceptCep } from './platform.js';
 import { creationRefusal } from './projects.js';
+import { isPositionKey, withoutPositions } from '../positions.js';
 import { factorsOf, modelOf } from './analysis.js';
 
 interface RepeatBody {
@@ -346,6 +350,35 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
       .header('content-type', 'text/csv; charset=utf-8')
       .header('content-disposition', attachment(`${project?.name ?? 'project'}-change-areas-${question.key}-${period}-${settings.label}.csv`, 'change-areas.csv'))
       .send(`\uFEFF${[header, ...lines].map((r) => r.map(csvField).join(',')).join('\r\n')}\r\n`);
+  });
+
+  // Every period side by side: the earlier periods' answers and this one's (the record taken for each plot, as the
+  // comparison takes it), a row per plot, for the coordinator to work on both in a spreadsheet
+  app.get('/v1/projects/:pid/periods/export.csv', admin, async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
+    const settings = await store.getRepeatSettings(projectId);
+    if (!settings || settings.earlier.length === 0) return reply.code(404).send({ error: 'not_found', reason: 'This project repeats no survey.' });
+    const outline = outlineOf(await store.getCep(projectId));
+    if (!outline) return reply.code(409).send({ error: 'no_project_file', reason: 'This project has no project file.' });
+    const [earlier, now, project] = await Promise.all([
+      Promise.all(settings.earlier.map(async (p) => ({ label: p.label, rows: (await store.listPeriodAnswers(projectId, p.label)).map((r) => ({ plot: r.plotKey, operator: r.operator, savedAt: r.savedAt, answers: r.answers })) }))),
+      earlierOf(store, projectId, request.log),
+      store.getProject(projectId),
+    ]);
+    const noPositions = withoutPositions(request.query);
+    const table = bothPeriodsTable(
+      [...earlier, { label: settings.label, rows: now }],
+      outline,
+      PERIOD_STATUS_KEY,
+      // the coordinator's note is not an answer; the places, when asked for a file without them
+      (key) => key === NOTE_SUMMARY_KEY || (noPositions && isPositionKey(key)),
+    );
+    await audit(store, request, 'export.downloaded', { kind: 'periods', records: table.rows.length, ...(noPositions ? { coordinates: false } : {}) });
+    const labels = [...settings.earlier.map((p) => p.label), settings.label].join('-');
+    return reply
+      .header('content-type', 'text/csv; charset=utf-8')
+      .header('content-disposition', attachment(`${project?.name ?? 'project'}-periods-${labels}.csv`, 'periods.csv'))
+      .send(`\uFEFF${[table.columns, ...table.rows].map((r) => r.map(csvField).join(',')).join('\r\n')}\r\n`);
   });
 
   app.put('/v1/projects/:pid/periods/area', admin, async (request: FastifyRequest, reply: FastifyReply) => {

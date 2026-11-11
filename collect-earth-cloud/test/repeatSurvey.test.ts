@@ -2,8 +2,9 @@
 // project collecting the plots of an earlier one again, with the earlier answers kept apart as a period.
 import { strFromU8, unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { changeAreas, compareRepeat, defaultHeaderQuestions, earlierRecords, labelOf, matchToSurvey, yearOf, type SourceRecord } from '../src/repeatSurvey.js';
+import { bothPeriodsTable, changeAreas, compareRepeat, periodSummaryKey, withPeriodColumns, defaultHeaderQuestions, earlierRecords, labelOf, matchToSurvey, yearOf, type SourceRecord } from '../src/repeatSurvey.js';
 import { surveyOutline } from '../src/surveyOutline.js';
+import { analysisModel, parseCsv } from '../src/analysis.js';
 import { stratifiedTotal, uncertainty } from '../src/uncertainty.js';
 import { cepWith, idOnlyCep } from './fixtures/cep.js';
 import { batchRequest, bearer, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
@@ -181,6 +182,62 @@ describe('the areas of the changes and their uncertainty', () => {
     expect(ours.total).toBeCloseTo(forest.area, 10);
     expect(ours.se).toBeCloseTo(forest.se, 10);
     expect(ours.ci).toBeCloseTo(forest.ci, 10);
+  });
+});
+
+describe('both periods side by side', () => {
+  const STATUS = 'collect_code_period_status';
+  const outline = surveyOutline(demoSurvey());
+  const t = (y: number, d: number) => Date.UTC(y, 5, d);
+
+  it('a row per plot of any period, each question answered in each period next to each other, the rest once', () => {
+    const table = bothPeriodsTable(
+      [
+        { label: '2020', rows: [{ plot: '1', operator: 'ana', savedAt: t(2020, 1), answers: { [LAND_USE]: 'F', [FOREST]: '60' } }, { plot: '3', operator: 'ana', savedAt: t(2020, 2), answers: { [LAND_USE]: 'C' } }] },
+        {
+          label: '2025',
+          rows: [
+            { plot: '1', operator: 'maria', savedAt: t(2025, 3), answers: { [LAND_USE]: 'F', [FOREST]: '55', [STATUS]: 'same', collect_text_id: '1', collect_real_latitude: '42.5', collect_text_coordinator_note: 'x' } },
+            { plot: '2', operator: 'maria', savedAt: t(2025, 4), answers: { [LAND_USE]: 'G', [STATUS]: 'changed', collect_text_id: '2' } },
+          ],
+        },
+      ],
+      outline,
+      STATUS,
+      (k) => k === 'collect_text_coordinator_note',
+    );
+    expect(table.columns.slice(0, 6)).toEqual(['plot', '2020.operator', '2020.saved_on', '2025.operator', '2025.saved_on', 'period_status']);
+    // the questions in the survey's order, each period next to the other
+    const lu = table.columns.indexOf(`2020.${LAND_USE}`);
+    expect(table.columns[lu + 1]).toBe(`2025.${LAND_USE}`);
+    expect(table.columns).toContain(`2020.${FOREST}`);
+    expect(table.columns).toContain(`2025.${FOREST}`);
+    // the keys and the plot's place once, as this period has them; the coordinator's note left out
+    expect(table.columns).toContain('collect_text_id');
+    expect(table.columns).not.toContain('2020.collect_text_id');
+    expect(table.columns.some((c) => c.includes('coordinator_note'))).toBe(false);
+    const row = (plot: string) => Object.fromEntries(table.columns.map((c, i) => [c, table.rows.find((r) => r[0] === plot)![i]]));
+    expect(table.rows.map((r) => r[0])).toEqual(['1', '2', '3']);
+    expect(row('1')).toMatchObject({ '2020.operator': 'ana', '2020.saved_on': '2020-06-01', '2025.operator': 'maria', period_status: 'same', [`2020.${LAND_USE}`]: 'F', [`2025.${LAND_USE}`]: 'F', [`2020.${FOREST}`]: '60', [`2025.${FOREST}`]: '55' });
+    // new in 2025, and not collected yet in 2025
+    expect(row('2')).toMatchObject({ '2020.operator': '', [`2020.${LAND_USE}`]: '', [`2025.${LAND_USE}`]: 'G', period_status: 'changed' });
+    expect(row('3')).toMatchObject({ '2025.operator': '', [`2020.${LAND_USE}`]: 'C', [`2025.${LAND_USE}`]: '', period_status: '', collect_text_id: '' });
+  });
+
+  it("adds the earlier periods' answers to the analysis' plot table, after its own columns", () => {
+    const model = analysisModel(demoSurvey());
+    const own = model.tables[0].columns;
+    const lu = own.find((c) => c.key === LAND_USE)!;
+    const withEarlier = withPeriodColumns(model, [{ label: '2020', answered: new Set([LAND_USE, 'collect_text_id', 'collect_code_nowhere']) }]);
+    const added = withEarlier.tables[0].columns.slice(own.length);
+    // the key is no answer that changes: left out
+    expect(added).toEqual([{ ...lu, name: `${lu.name}_2020`, key: periodSummaryKey('2020', LAND_USE), labels: Object.fromEntries(Object.entries(lu.labels).map(([l, v]) => [l, `${v} (2020)`])), parent: null, relevantIf: null, period: '2020' }]);
+    expect(withEarlier.tables.slice(1)).toEqual(model.tables.slice(1));
+    // nothing answered then: the model as it was
+    expect(withPeriodColumns(model, [{ label: '2020', answered: new Set() }])).toBe(model);
+    // a name already taken is not taken twice
+    const twice = withPeriodColumns(withEarlier, [{ label: '2020', answered: new Set([LAND_USE]) }]);
+    expect(twice.tables[0].columns.at(-1)!.name).toBe(`${lu.name}_2020_period`);
   });
 });
 
@@ -402,6 +459,41 @@ describe('repeating a survey in the dashboard', () => {
     // plot 1 (North, 1000 ha) changed from Forest; plot 2 (South, 3000 ha) still Cropland
     expect(areas).toMatchObject({ source: 'region_areas.csv', areaKnown: true, estimator: 'stratified', totalArea: 4000, outcomes: { changed: { area: 1000 }, unchanged: { area: 3000 } } });
     expect(areas.notEstimable).toHaveLength(2);
+  });
+
+  it('exports every period side by side, and gives the analysis page the earlier answers', async () => {
+    const made = await call('POST', '/repeat', owner.token, { name: 'Land 2025', label: '2025', earlierLabel: '2020', members: true });
+    const projectId = made.json().projectId;
+    expect((await call('PUT', '/status', owner.token, { status: 'active' }, {}, projectId)).statusCode).toBe(200);
+    const now = (plot: number, land: string, status: string) =>
+      envelope({ recordKey: `${plot},1`, operator: 'maria', modifiedOn: Date.UTC(2025, 5, plot), summary: { [LAND_USE]: land, collect_code_round: '1', collect_code_period_status: status } });
+    // 2020: plot 1 Forest, plot 2 Cropland (plot 3 a draft then)
+    expect((await batchRequest(ctx.app, projectId, maria.token, [now(1, 'C', 'changed'), now(3, 'S', 'same')])).statusCode).toBe(200);
+
+    const csv = await call('GET', '/periods/export.csv', owner.token, undefined, {}, projectId);
+    expect(csv.statusCode, csv.body).toBe(200);
+    expect(csv.headers['content-disposition']).toContain('periods-2020-2025.csv');
+    const [header, ...lines] = csv.body.replace(/^\uFEFF/, '').trim().split('\r\n').map((l) => l.split(','));
+    const at = (line: string[], column: string) => line[header.indexOf(column)];
+    expect(header.slice(0, 6)).toEqual(['plot', '2020.operator', '2020.saved_on', '2025.operator', '2025.saved_on', 'period_status']);
+    expect(lines.map((l) => l[0])).toEqual(['1', '2', '3']);
+    expect([at(lines[0], `2020.${LAND_USE}`), at(lines[0], `2025.${LAND_USE}`), at(lines[0], 'period_status')]).toEqual(['F', 'C', 'changed']);
+    expect([at(lines[1], `2020.${LAND_USE}`), at(lines[1], `2025.${LAND_USE}`)]).toEqual(['C', '']);
+    expect([at(lines[2], `2020.${LAND_USE}`), at(lines[2], `2025.${LAND_USE}`), at(lines[2], '2025.operator')]).toEqual(['', 'S', 'maria']);
+    // coordinators only; a project that repeats no survey has none
+    expect((await call('GET', '/periods/export.csv', maria.token, undefined, {}, projectId)).statusCode).toBe(403);
+    expect((await call('GET', '/periods/export.csv', owner.token)).statusCode).toBe(404);
+
+    const analysis = (await call('GET', '/analysis', owner.token, undefined, {}, projectId)).json();
+    const plotTable = analysis.model.tables[0];
+    const earlier = plotTable.columns.find((c: { period?: string; key: string }) => c.period === '2020' && c.key.endsWith(LAND_USE));
+    expect(earlier).toBeTruthy();
+    const data = analysis.tables.find((t: { name: string }) => t.name === 'plot');
+    const [head, ...rows] = parseCsv(data.csv);
+    const col = head.indexOf(earlier.name);
+    const own = head.indexOf(plotTable.columns.find((c: { key: string; period?: string }) => c.key === LAND_USE && !c.period).name);
+    // each record next to its plot's 2020 answer: the transition can be pivoted
+    expect(rows.map((r) => [r[1], r[own], r[col]]).sort()).toEqual([['1', 'C', 'F'], ['3', 'S', '']]);
   });
 
   it('needs a name, two labels and a person to coordinate it', async () => {

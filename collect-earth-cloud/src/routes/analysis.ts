@@ -11,6 +11,7 @@ import { attachment } from '../download.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { ProjectStateCache } from '../projectState.js';
 import { recordResolver } from '../quality.js';
+import { periodSummaryKey, withPeriodColumns } from '../repeatSurvey.js';
 import type { Store } from '../store/store.js';
 import type { RecordRow, SharedAnalysisView } from '../types.js';
 
@@ -136,6 +137,19 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
     const everyone = role === 'admin' || role === 'reviewer';
     const username = everyone ? null : (served.members.find((m) => m.userId === request.userId)?.username ?? null);
 
+    // A repeat survey's earlier periods: their answers as columns of the plot table, by the plot as they are kept
+    const repeat = await store.getRepeatSettings(projectId);
+    const periods = repeat
+      ? await Promise.all(repeat.earlier.map(async (p) => ({ label: p.label, byPlot: new Map((await store.listPeriodAnswers(projectId, p.label)).map((a) => [a.plotKey, a.answers])) })))
+      : [];
+    const model = withPeriodColumns(parsed.model, periods.map((p) => ({ label: p.label, answered: new Set([...p.byPlot.values()].flatMap((a) => Object.keys(a).filter((k) => a[k] !== ''))) })));
+    const withEarlier = (summary: Record<string, string>, plot: string): Record<string, string> => {
+      if (model === parsed.model) return summary;
+      const out = { ...summary };
+      for (const p of periods) for (const [k, v] of Object.entries(p.byPlot.get(plot) ?? {})) out[periodSummaryKey(p.label, k)] = v;
+      return out;
+    };
+
     const records: AnalysisRecord[] = [];
     for (const r of rows) {
       if (r.deleted) continue;
@@ -149,16 +163,16 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
         assessment: round.assessment,
         submitted: r.activelySaved,
         modifiedOn: r.modifiedOn,
-        summary: r.summary,
+        summary: withEarlier(r.summary, round.plot),
       });
     }
 
     // The expansion factors are the plots', from their first assessments: over the whole project, whoever asks
     const factors = factorsOf(parsed, firstAssessments(rows, resolve));
 
-    const tables = analysisTables(parsed.model, records, factors?.byPlot ?? null, { hideRounds: !everyone });
+    const tables = analysisTables(model, records, factors?.byPlot ?? null, { hideRounds: !everyone });
     return {
-      model: parsed.model,
+      model,
       scope: everyone ? 'project' : 'own',
       areas: factors ? { source: factors.source, plots: factors.byPlot.size, unmatched: factors.unmatched } : null,
       tables,

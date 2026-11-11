@@ -1382,6 +1382,12 @@ export async function downloadRepeatChangeAreas(projectId: string, question: str
   return { blob: await response.blob(), filename: attachmentName(response, "change-areas.csv") };
 }
 
+/** Every period of a repeat survey side by side, one row per plot (coordinators): each question's answer in each period. */
+export async function downloadPeriodsExport(projectId: string): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("GET", `${p(projectId)}/periods/export.csv`);
+  return { blob: await response.blob(), filename: attachmentName(response, "periods.csv") };
+}
+
 /** The total area in hectares of a repeat survey whose project file has no areas file; null clears it. */
 export function setRepeatArea(projectId: string, totalArea: number | null): Promise<{ totalArea: number | null }> {
   return request("PUT", `${p(projectId)}/periods/area`, { json: { totalArea } });
@@ -3289,6 +3295,8 @@ export interface AnalysisColumnModel {
   parent?: string | null;
   /** The yes/no column the question is asked after (the year of a change, after "Any change?"), else null. */
   relevantIf?: string | null;
+  /** A repeat survey's earlier period the column holds the answers of ("2020"); absent for this period's columns */
+  period?: string;
 }
 
 export interface AnalysisTableModel {

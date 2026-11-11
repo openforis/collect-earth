@@ -37,6 +37,8 @@ export interface AnalysisColumn {
    * …"), else null: the analysis page counts such answers among the plots where it is yes (the year of a change…).
    */
   relevantIf: string | null;
+  /** A repeat survey's earlier period the column holds the answers of ("2020"), absent for this period's columns */
+  period?: string;
 }
 
 export interface AnalysisTable {

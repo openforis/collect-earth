@@ -2,7 +2,7 @@
 
 Date: 11 November 2026. **Status: stages 1 to 4 built on the working branch (`claude/awesome-bell-s34gb0`), with the Map
 tab's layer, the desktop's filter and the numbers copied on "Still the same"; kept out of `ce-2026-GEW` until the 2.0
-release is out. Not built yet: see "Open" at the end. The owner's decisions are below.**
+release is out, and the export with both periods. Not built yet: see "Open" at the end. The owner's decisions are below.**
 
 ## Goal
 
@@ -262,7 +262,26 @@ From the design above, not built yet:
 
 - The dialog's choice of plots (section 1): the repeat survey always takes the earlier project's plot files whole; there
   is no "only the plots collected in the earlier period".
-- The export with both periods (section 4): one row per plot with `2020.<key>` and `2025.<key>` columns for every
-  question, and a `period` field on the analysis page. Today the comparison's files cover one question at a time
-  (`change.csv`, `change-areas.csv`), and the project's own export has this period's records only.
 - Areas of several questions at once, and a finite population correction (stage 4's "Not done").
+- The earlier answers of multiple entities (the land cover's rows) on the analysis page.
+
+## The export with both periods, as built (11 Nov 2026)
+
+- `src/repeatSurvey.ts`, `bothPeriodsTable`: one row per plot of any period; each period's `<label>.operator` and
+  `<label>.saved_on`; this period's `period_status`; each question of the survey answered in some period, in the
+  survey's order, a column per period next to each other (`2020.collect_code_land_use_category`,
+  `2025.collect_code_land_use_category`); then this period's other columns once (the keys, the plot file's, the
+  places). This period is the record taken for each plot, as the comparison takes it. The coordinator's note left out.
+- `GET /v1/projects/:pid/periods/export.csv` (coordinators, as the project's export; `?coordinates=none` without the
+  places), logged as `export.downloaded` (`kind: periods`); isolation case. Dashboard: **Download every period (CSV)**
+  on the change card, for coordinators. Texts in en/es/fr/pt.
+- The analysis page, instead of a `period` field (which would count each plot once per period): the earlier periods'
+  answers as **columns of the plot table**, after its own (`withPeriodColumns`): each question of the plot answered then,
+  named `<name>_2020`, labelled "<label> (2020)", same type and list, with `period` in the model; each record gets its
+  plot's answers. So a pivot of "Land use" by "Land use (2020)" is the transition matrix of the raw answers (a
+  correction counts there as a transition: filter by "Since the earlier period" to leave them out). Not for the
+  questions of multiple entities (the land cover's rows), which are tables of their own. The stand-alone analysis file
+  has them too.
+- Checked: `test/repeatSurvey.test.ts` (the table, the columns, the routes), and in a browser: the file downloaded
+  (plot 7 with 2020's answers only, plot 8 with 2025's only), and on the analysis page "Land Use 2025" by "Land Use 2025
+  (2020)" gave the 2020 × 2025 table of the eight plots.

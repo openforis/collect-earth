@@ -3,6 +3,7 @@
 // record of each plot, matches its answers to the new project's survey (the same survey, or a newer version of it),
 // and picks the questions the form's header shows of the earlier period: the plot's main characteristics, against
 // which the collector says whether the plot is still the same, has changed, or was interpreted wrongly then.
+import type { AnalysisColumn, AnalysisModel } from './analysis.js';
 import type { RecordRound } from './rounds.js';
 import { QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR, type Question } from './surveyOutline.js';
 import { stratifiedTotal } from './uncertainty.js';
@@ -360,4 +361,101 @@ export function changeAreas(rows: readonly ChangeRow[], stratumOf: (plot: string
       net: estimate((r) => (r.now === code ? 1 : 0) - (then(r) === code ? 1 : 0)),
     })),
   };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Both periods side by side: the export (one row per plot) and the analysis page's columns of the earlier periods
+
+/** One period's records, as the export with both periods reads them: the earlier periods' answers, then this one's. */
+export interface PeriodRecords {
+  label: string;
+  rows: readonly { plot: string; operator: string; savedAt: number; answers: Record<string, string> }[];
+}
+
+const byPlot = (a: string, b: string) => a.localeCompare(b, 'en', { numeric: true });
+const plain = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+/**
+ * The periods side by side, one row per plot (every plot of any period): `plot`; each period's `<label>.operator` and
+ * `<label>.saved_on`; this period's `period_status`; then each question of the survey (`outline`, in its order) answered in
+ * some period, a column per period (`2020.<key>`, `2025.<key>`, next to each other); then this period's other columns
+ * once (the plot file's, the keys, the places, the bookkeeping), unless `leaveOut`. `periods`: oldest first, this one last.
+ */
+export function bothPeriodsTable(
+  periods: readonly PeriodRecords[],
+  outline: ReadonlyMap<string, Question>,
+  statusKey: string,
+  leaveOut: (key: string) => boolean = () => false,
+): { columns: string[]; rows: string[][] } {
+  const order = new Map<string, number>();
+  for (const q of outline.values()) if (!q.excluded && !order.has(shapeOf(q.key))) order.set(shapeOf(q.key), order.size);
+  const isQuestion = (key: string) => key !== statusKey && order.has(shapeOf(key));
+  const current = periods[periods.length - 1];
+  const byPeriod = periods.map((p) => new Map(p.rows.map((r) => [r.plot, r])));
+  const plots = [...new Set(periods.flatMap((p) => p.rows.map((r) => r.plot)))].sort(byPlot);
+  const questions = [...new Set(periods.flatMap((p) => p.rows.flatMap((r) => Object.keys(r.answers).filter((k) => isQuestion(k) && r.answers[k] !== ''))))]
+    .filter((k) => !leaveOut(k))
+    .sort((a, b) => order.get(shapeOf(a))! - order.get(shapeOf(b))! || plain(a, b));
+  const others = current
+    ? [...new Set(current.rows.flatMap((r) => Object.keys(r.answers)))].filter((k) => k !== statusKey && !isQuestion(k) && !leaveOut(k)).sort(plain)
+    : [];
+  const columns = [
+    'plot',
+    ...periods.flatMap((p) => [`${p.label}.operator`, `${p.label}.saved_on`]),
+    'period_status',
+    ...questions.flatMap((k) => periods.map((p) => `${p.label}.${k}`)),
+    ...others,
+  ];
+  const rows = plots.map((plot) => {
+    const records = byPeriod.map((m) => m.get(plot));
+    const now = records[records.length - 1];
+    return [
+      plot,
+      ...records.flatMap((r) => (r ? [r.operator, new Date(r.savedAt).toISOString().slice(0, 10)] : ['', ''])),
+      now?.answers[statusKey] ?? '',
+      ...questions.flatMap((k) => records.map((r) => r?.answers[k] ?? '')),
+      ...others.map((k) => now?.answers[k] ?? ''),
+    ];
+  });
+  return { columns, rows };
+}
+
+/** The summary key the analysis reads an earlier period's answer from (added to each record's summary). */
+export const periodSummaryKey = (label: string, key: string) => `period\u0000${label}\u0000${key}`;
+
+/**
+ * The analysis model with the earlier periods' answers as columns of the plot table, after its own: each question of
+ * the plot answered in a period, named `<name>_<label>` ("land_use_category_2020"), labelled "<label> (2020)", of the
+ * same type and list, with `period` set. Not the plot file's columns nor the keys, which do not change; not the
+ * questions of multiple entities (the land cover's rows), which are tables of their own. `answered`: the summary keys
+ * each period answered.
+ */
+export function withPeriodColumns(model: AnalysisModel, periods: readonly { label: string; answered: ReadonlySet<string> }[]): AnalysisModel {
+  const [plot, ...rest] = model.tables;
+  if (!plot || periods.length === 0) return model;
+  const names = new Set(plot.columns.map((c) => c.name));
+  const added: AnalysisColumn[] = [];
+  for (const { label, answered } of periods) {
+    const suffix = label.replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_+|_+$/g, '') || 'earlier';
+    const nameOf = new Map<string, string>();
+    const chosen = plot.columns.filter((c) => !c.keyAttr && !c.fromPlotFile && answered.has(c.key));
+    for (const c of chosen) {
+      let name = `${c.name}_${suffix}`;
+      while (names.has(name)) name = `${name}_period`;
+      names.add(name);
+      nameOf.set(c.name, name);
+    }
+    for (const c of chosen) {
+      added.push({
+        ...c,
+        name: nameOf.get(c.name)!,
+        key: periodSummaryKey(label, c.key),
+        labels: Object.fromEntries(Object.entries(c.labels).map(([lang, text]) => [lang, `${text} (${label})`])),
+        parent: c.parent !== null ? (nameOf.get(c.parent) ?? null) : null,
+        relevantIf: c.relevantIf !== null ? (nameOf.get(c.relevantIf) ?? null) : null,
+        period: label,
+      });
+    }
+  }
+  return added.length === 0 ? model : { ...model, tables: [{ ...plot, columns: [...plot.columns, ...added] }, ...rest] };
 }
