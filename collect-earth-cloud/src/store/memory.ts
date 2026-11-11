@@ -759,6 +759,19 @@ export class InMemoryStore implements Store {
     this.twoFactorOf(userId).recoveryHashes = [...recoveryHashes];
   }
 
+  async updateTwoFactorSecret(userId: string, secretEnc: string): Promise<void> {
+    const s = this.twoFactor.get(userId);
+    if (s?.enabledAt) s.secretEnc = secretEnc;
+  }
+
+  async sampleTwoFactorSecrets(limit: number): Promise<string[]> {
+    return [...this.twoFactor.values()]
+      .filter((s) => s.enabledAt && s.secretEnc)
+      .sort((a, b) => (b.enabledAt ?? 0) - (a.enabledAt ?? 0))
+      .slice(0, limit)
+      .map((s) => s.secretEnc as string);
+  }
+
   async claimTwoFactorStep(userId: string, step: number): Promise<boolean> {
     const s = this.twoFactor.get(userId);
     if (!s || (s.lastStep !== null && s.lastStep >= step)) return false;

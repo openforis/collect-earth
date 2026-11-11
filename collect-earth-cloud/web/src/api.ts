@@ -891,7 +891,7 @@ function toAnnouncement(value: unknown): Announcement | null {
 
 // --- the owner's alerts (the server's src/ownerAlerts.ts) ---------------------------------------
 
-export type OwnerAlertKind = "failed_logins" | "server_errors" | "sync_errors" | "storage";
+export type OwnerAlertKind = "failed_logins" | "server_errors" | "sync_errors" | "storage" | "two_factor_keys";
 
 export interface OwnerAlert {
   kind: OwnerAlertKind;

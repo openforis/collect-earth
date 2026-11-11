@@ -23,6 +23,7 @@ DB_APP_USER=ce_app                   # database role the server runs as (bound b
 SECRET_DB=ce-database-url            # Secret Manager: MIGRATION_DATABASE_URL (owner, ce)
 SECRET_DB_APP=ce-app-database-url    # Secret Manager: DATABASE_URL (the app role, ce_app)
 SECRET_SETUP=ce-setup-code           # Secret Manager: SETUP_CODE
+SECRET_2FA=ce-two-factor-key         # Secret Manager: TWO_FACTOR_KEY, created once, used at its version 1 for ever
 SA_NAME=ce-cloud-run                 # service account the server runs as
 REPO=ce                              # Artifact Registry repository
 IMAGE_NAME=collect-earth-cloud       # container image name
@@ -583,6 +584,17 @@ create_secrets() {
     gc_stdin "$code" secrets create "$SECRET_SETUP" --replication-policy=automatic --data-file=- --labels="$LABEL"
     ok "Setup code created."
   fi
+
+  # The key of two-step sign-in's secrets (src/twoFactor.ts). Never replaced: the server reads it at version 1 (see
+  # deploy_service), so even a new version added by hand changes nothing, and nobody is locked out of their account.
+  if secret_exists "$SECRET_2FA"; then
+    ok "The key of two-step sign-in is already stored; it is kept."
+  else
+    local key
+    if $DRY_RUN; then key="GENERATED-TWO-FACTOR-KEY"; else key="$(random_from 'A-Za-z0-9' 48)"; fi
+    gc_stdin "$key" secrets create "$SECRET_2FA" --replication-policy=automatic --data-file=- --labels="$LABEL"
+    ok "Key of two-step sign-in created."
+  fi
 }
 
 create_service_account() {
@@ -597,11 +609,11 @@ create_service_account() {
   gc_retry projects add-iam-policy-binding "$PROJECT" \
     --member="serviceAccount:$SA_EMAIL" --role=roles/cloudsql.client --condition=None --quiet >/dev/null
   local secret
-  for secret in "$SECRET_DB" "$SECRET_DB_APP" "$SECRET_SETUP"; do
+  for secret in "$SECRET_DB" "$SECRET_DB_APP" "$SECRET_SETUP" "$SECRET_2FA"; do
     gc_retry secrets add-iam-policy-binding "$secret" \
       --member="serviceAccount:$SA_EMAIL" --role=roles/secretmanager.secretAccessor --condition=None --quiet >/dev/null
   done
-  ok "It may connect to the database and read its three secrets, nothing else."
+  ok "It may connect to the database and read its four secrets, nothing else."
 
   # Cloud Build builds the server image with the project's default build account.
   # In projects created since 2024 that account may have no permissions at all.
@@ -665,7 +677,7 @@ deploy_service() {
     --platform=managed \
     --service-account="$SA_EMAIL" \
     --add-cloudsql-instances="$CONNECTION_NAME" \
-    --update-secrets="DATABASE_URL=$SECRET_DB_APP:latest,MIGRATION_DATABASE_URL=$SECRET_DB:latest,SETUP_CODE=$SECRET_SETUP:latest" \
+    --update-secrets="DATABASE_URL=$SECRET_DB_APP:latest,MIGRATION_DATABASE_URL=$SECRET_DB:latest,SETUP_CODE=$SECRET_SETUP:latest,TWO_FACTOR_KEY=$SECRET_2FA:1" \
     --update-env-vars="$env_vars" \
     --allow-unauthenticated \
     --port=8080 \

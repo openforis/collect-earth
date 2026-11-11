@@ -25,6 +25,7 @@ import { registerAiRoutes } from './routes/ai.js';
 import { registerAssignmentRoutes, setServedCacheMb } from './routes/assignments.js';
 import { setParsedCacheMb } from './plotFileCache.js';
 import { twoFactorKey } from './twoFactor.js';
+import { checkTwoFactorKeys } from './twoFactorCheck.js';
 import { registerTwoFactorRoutes } from './routes/twoFactor.js';
 import { registerFormerMemberRoutes } from './routes/formerMembers.js';
 import { OwnerAlerts, ownerNotifier, STORAGE_PERCENT, THRESHOLDS } from './ownerAlerts.js';
@@ -221,6 +222,18 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     reply.header('cache-control', 'no-store').send({ alerts: ownerAlerts.recent(), thresholds: { ...THRESHOLDS, storagePercent: STORAGE_PERCENT } }),
   );
   const twoFactorKeyBuf = twoFactorKey(config);
+  if (!local) {
+    // Two-step sign-in's secrets that no key reads any more (src/twoFactorCheck.ts): said now, not by the first person
+    // locked out. Off the start, which it must never hold up nor stop.
+    void checkTwoFactorKeys(store, twoFactorKeyBuf).then((check) => {
+      if (check.unreadable === 0) {
+        app.log.info({ checked: check.checked, key: twoFactorKeyBuf.current.id }, 'two-factor: every secret checked is readable');
+        return;
+      }
+      app.log.error({ ...check, keys: [twoFactorKeyBuf.current.id, ...twoFactorKeyBuf.older.map((k) => k.id)] }, 'two-factor: secrets that no key of this server reads');
+      ownerAlerts.twoFactorUnreadable(check.unreadable);
+    }, (err) => app.log.warn({ err }, 'two-factor: the check of the keys failed'));
+  }
   await registerAuthRoutes(app, store, limiter, loginFailures, counters, accountMail, twoFactorKeyBuf, accountFailures);
   await registerTwoFactorRoutes(app, store, twoFactorKeyBuf, limiter, async () => (await store.getSettings()).serverName ?? 'Collect Earth Cloud');
   const now = options.ai?.now ?? Date.now;
