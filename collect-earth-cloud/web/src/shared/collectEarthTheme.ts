@@ -31,9 +31,9 @@ export const collectEarthComponents = {
   MuiTooltip: { defaultProps: { arrow: true } },
 } as const;
 
-/** The app bar: light, with the Collect Earth logo on its white chip (the logo is drawn for a white background). */
+/** The app bar: light, with the Collect Earth logo. */
 export const collectEarthAppBar = {
   color: "default",
   elevation: 1,
-  logoSx: { height: 26, px: 0.5, py: "2px", bgcolor: "#fff", borderRadius: 1, flexShrink: 0 },
+  logoSx: { height: 40, flexShrink: 0 },
 } as const;

@@ -10,7 +10,7 @@ This module builds platform installers and updater metadata. Treat it as release
 - Main InstallBuilder definitions: `CollectEarth.xml`, `CollectEarthUpdater.xml`, and `CollectEarthMain.xml`
 - Bundled runtimes: `java.xml` (the Temurin JRE) and `node.xml` (Node.js, see "The bundled Node" in `../CLAUDE.md`), unpacked by the `assembly` profile into `target/installer/jre_files` and `node_files`; `dashboard.xml`, the local dashboard Node runs, from `../collect-earth-app/target/dashboard` (see "The bundled dashboard" in `../CLAUDE.md`)
 - Update metadata: `collectEarthUpdateJRE21.xml` (2.0 on), `collectEarthUpdateJRE11.xml`, `collectEarthUpdateMvn.xml`, and `update.ini`
-- Installer and launcher images: `*.ico`, `*.icns`, `*.png`, and `of-logo.svg`
+- Installer and launcher images: `*.ico`, `*.icns` and `*.png`, made from the master logos in `collect-earth/logos` (not shipped)
 
 ## Build
 

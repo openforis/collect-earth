@@ -35,7 +35,7 @@ import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import SendIcon from "@mui/icons-material/Send";
 import { type MessageKey, type Translate, useT } from "../i18n";
 import { escapeBlurs, isCopyKey, isTyping, mayAdvance, mayTakeFocus, panelKey, questionKey, submitOnKey } from "../shortcuts";
-import logo from "@shared/collect-earth-logo.png";
+import { Logo } from "../components/Logo";
 import { Answered, AnsweredByKey, Copied, FieldView, errorText } from "./fields";
 import {
   type Field, type FocusTarget, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type Step,
@@ -603,7 +603,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 1, py: 1, minHeight: 56,
         [NARROW]: { px: 0.75, py: 0.75, minHeight: 52 } }}>
         {/* the balloon's footer: the Collect Earth logo, then the step buttons */}
-        <Box component="img" src={logo} alt="Open Foris Collect Earth" sx={{ height: 34, mr: 0.5, px: 0.75, py: "2px", bgcolor: "#fff", borderRadius: 1, [NARROW]: { display: "none" } }} />
+        <Logo sx={{ height: 38, mr: 0.5, [NARROW]: { display: "none" } }} />
         <Box sx={{ width: 40, flex: "none" }}>
           {back >= 0 && (
             <Tooltip title={`${t("entry.back")} (Alt+←)`}>

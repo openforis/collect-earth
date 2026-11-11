@@ -14,7 +14,7 @@ import Typography from "@mui/material/Typography";
 import CloseIcon from "@mui/icons-material/Close";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import logo from "@shared/collect-earth-logo.png";
+import { Logo } from "./Logo";
 import { comingSoon } from "../appBar";
 import { useT } from "../i18n";
 import { drawerSections, nextEntry, type Menu, type MenuItem } from "../menus";
@@ -80,9 +80,7 @@ export function AppDrawer({ open, onClose, menus, project, texts, toggles, onRun
     <Drawer anchor="left" open={open} onClose={onClose}
       slotProps={{ paper: { id: DRAWER_ID, sx: { width: 300, maxWidth: "calc(100vw - 48px)" } } }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1, minHeight: 48 }}>
-        {/* The logo is drawn for a white background, also in the dark scheme */}
-        <Box component="img" src={logo} alt="Open Foris Collect Earth"
-          sx={{ height: 26, px: 0.5, py: "2px", bgcolor: "#fff", borderRadius: 1, flexShrink: 0 }} />
+        <Logo sx={{ height: 40, flexShrink: 0 }} />
         <Typography variant="subtitle2" noWrap title={project ?? undefined} sx={{ flex: 1, minWidth: 0, fontWeight: 600 }}>
           {project}
         </Typography>

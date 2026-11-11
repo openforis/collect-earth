@@ -25,7 +25,7 @@ import LoginOutlinedIcon from "@mui/icons-material/LoginOutlined";
 import PersonIcon from "@mui/icons-material/Person";
 import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
-import logo from "@shared/collect-earth-logo.png";
+import { Logo } from "./Logo";
 import { apiPut } from "../apiClient";
 import type { AppInfo } from "../appInfo";
 import { actionOf, comingSoon, errorText, operatorRequired, quitServer, type AppAction } from "../appBar";
@@ -205,9 +205,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
             <MenuIcon />
           </IconButton>
         )}
-        {/* The logo is drawn for a white background, also in the dark scheme */}
-        <Box component="img" src={logo} alt="Open Foris Collect Earth"
-          sx={{ height: 26, px: 0.5, py: "2px", bgcolor: "#fff", borderRadius: 1, flexShrink: 0 }} />
+        <Logo sx={{ height: 40, flexShrink: 0 }} />
         {!compact && info.project && (
           <Typography variant="subtitle1" noWrap title={info.project} sx={{ fontWeight: 600, minWidth: 0, flexShrink: 1, mr: 1 }}>
             {info.project}
@@ -404,7 +402,7 @@ function ClosedOverlay({ text }: { text: string }) {
       position: "fixed", inset: 0, zIndex: (theme) => theme.zIndex.modal + 1, bgcolor: "background.default",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, p: 3, textAlign: "center",
     }}>
-      <Box component="img" src={logo} alt="Open Foris Collect Earth" sx={{ height: 48, px: 1, py: 0.5, bgcolor: "#fff", borderRadius: 1 }} />
+      <Logo sx={{ height: 64 }} />
       <Typography variant="h6">{text}</Typography>
     </Box>
   );
