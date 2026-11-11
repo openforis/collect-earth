@@ -23,6 +23,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Add from "@mui/icons-material/Add";
 import ContentCopy from "@mui/icons-material/ContentCopy";
+import DesignServices from "@mui/icons-material/DesignServices";
 import Description from "@mui/icons-material/Description";
 import FolderOpen from "@mui/icons-material/FolderOpen";
 import Public from "@mui/icons-material/Public";
@@ -123,6 +124,19 @@ function StartDialog({ canCopy, onChoose, onClose }: { canCopy: boolean; onChoos
               <ListItemText primary={s.title} secondary={s.help} />
             </ListItemButton>
           ))}
+          {/* The survey designer in the dashboard: announced, not there yet */}
+          <ListItemButton disabled sx={{ borderRadius: 1, "&.Mui-disabled": { opacity: 0.75 } }} data-testid="start-designer">
+            <ListItemIcon sx={{ color: "text.secondary" }}><DesignServices /></ListItemIcon>
+            <ListItemText
+              primary={
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                  <span>{t("projects.fromDesigner")}</span>
+                  <Chip size="small" color="info" variant="outlined" label={t("projects.comingSoon")} />
+                </Stack>
+              }
+              secondary={t("projects.fromDesigner.help")}
+            />
+          </ListItemButton>
         </List>
       </DialogContent>
       <DialogActions>
