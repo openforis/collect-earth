@@ -5,6 +5,8 @@ import { ACTIVELY_SAVED, type Field, type FieldError, type FieldInfo, type FormM
   errorList, fieldsByName, isTabVisible, mergeInfos, saveBody, updateRequired } from "./model";
 
 const REQUEST_TIMEOUT = 20000;
+/** Collect Earth's JSON API (server.api, under /earth/api) answers only requests that say they are its pages' (ApiHeaderFilter) */
+const LOCAL_API_HEADERS = { Accept: "application/json", "X-Collect-Earth": "1" };
 /** Typing is saved once the operator pauses; a click right away (the balloon uses the same delays). */
 export const TYPING_DELAY = 1500;
 export const CLICK_DELAY = 100;
@@ -583,7 +585,7 @@ export class FormStore {
     this.set({ trainingLoading: true });
     let training: TrainingFeedback | null = null;
     try {
-      const r = await fetchWithTimeout(`${window.location.origin}/api/cloud/training-feedback?plot=${encodeURIComponent(id)}`, { headers: { Accept: "application/json" } }, 20000);
+      const r = await fetchWithTimeout(`${earthBase()}api/cloud/training-feedback?plot=${encodeURIComponent(id)}`, { headers: LOCAL_API_HEADERS }, 20000);
       if (r.ok) training = toTrainingFeedback(await r.json());
     } catch {
       training = null;
