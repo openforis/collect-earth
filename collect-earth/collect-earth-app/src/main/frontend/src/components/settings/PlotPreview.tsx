@@ -1,7 +1,7 @@
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { hexagonPoints, plotDrawing, scaleBarLength, type Outline } from "../../plotPreview";
+import { hexagonPoints, plotDrawing, scaleBarLength, type Outline } from "@shared/plotPreview";
 import { formatText, type PlotFigures, type Values } from "../../settings";
 import { serverText, type Texts } from "../../serverTexts";
 

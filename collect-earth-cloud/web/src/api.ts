@@ -1384,6 +1384,29 @@ export async function downloadRepeatChangeAreas(projectId: string, question: str
   return { blob: await response.blob(), filename: attachmentName(response, "change-areas.csv") };
 }
 
+/** The plot layout kept in the project file (project_definition.properties), as Collect Earth reads it */
+export interface PlotLayoutSettings {
+  sample_shape: string;
+  number_of_sampling_points_in_plot: string;
+  distance_between_sample_points: string;
+  distance_to_plot_boundaries: string;
+  inner_point_side: string;
+  large_central_plot_side: string;
+  distance_between_plots: string;
+  distance_to_buffers: string;
+  buffer_shape: string;
+}
+
+/** The plot layout, whether the plot files carry polygons (drawn instead), and whether this person may change it. */
+export function getPlotLayout(projectId: string): Promise<{ layout: PlotLayoutSettings; polygons: boolean; canEdit: boolean }> {
+  return request("GET", `${p(projectId)}/plot-layout`);
+}
+
+/** Saves the plot layout into the project file; changed false when it was already so (nothing written). */
+export function savePlotLayout(projectId: string, layout: PlotLayoutSettings): Promise<{ layout: PlotLayoutSettings; changed: boolean }> {
+  return request("PUT", `${p(projectId)}/plot-layout`, { json: { layout } });
+}
+
 /** Every period of a repeat survey side by side, one row per plot (coordinators): each question's answer in each period. */
 export async function downloadPeriodsExport(projectId: string): Promise<{ blob: Blob; filename: string }> {
   const response = await send("GET", `${p(projectId)}/periods/export.csv`);

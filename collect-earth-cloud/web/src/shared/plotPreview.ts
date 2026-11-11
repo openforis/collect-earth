@@ -1,9 +1,13 @@
-import type { Values } from "./settings";
+// Shared by the desktop's settings page (collect-earth-app/src/main/frontend, imported as @shared/plotPreview) and the
+// dashboard's plot layout (web/src/project/PlotLayout.tsx): imports nothing, as collectEarthTheme.ts.
+
+/** The plot settings by property name (project_definition.properties), as strings */
+export type Values = Record<string, string>;
 
 /**
  * What the preview of the plot settings draws, in metres from the centre of the plot, from the values alone: the
  * outline, the sample points, the central plot and the reference area, laid out as the KML generators lay them out.
- * The figures (areas, minimum distance) are not computed here: they come from the server with each validation.
+ * The figures (areas, distances of the reference area) are in plotFigures, as the desktop's PlotGeometry works them out.
  */
 
 export type Outline = { kind: "square"; half: number } | { kind: "circle"; r: number } | { kind: "hexagon"; r: number };
@@ -131,4 +135,55 @@ export function scaleBarLength(extent: number): number {
     if (step * power <= target) return step * power;
   }
   return power;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The figures of a plot, as PlotGeometry (collect-earth-app service/settings) works them out
+
+/** The reference area should be at least this many times the plot (PlotGeometry.MIN_REFERENCE_AREA_TO_PLOT_AREA_RATIO) */
+export const MIN_REFERENCE_TO_PLOT_RATIO = 10;
+const HEXAGON_AREA_FACTOR = (3 * Math.sqrt(3)) / 2;
+const COS_30 = Math.cos(Math.PI / 6);
+
+export interface PlotFigures {
+  /** square metres; null for a shape whose area is not known here (polygons from the file, clusters, NFMA) */
+  plotArea: number | null;
+  /** square metres; null without a reference area */
+  referenceArea: number | null;
+  /** the smallest distance at which the reference area still encloses the whole plot (null without one) */
+  minimumReferenceDistance: number | null;
+  /** the distance at which the reference area is ten times the plot, within the range (null without one) */
+  recommendedReferenceDistance: number | null;
+}
+
+/** The plot's area and its reference area's, and the distances the reference area should keep (PlotGeometry). */
+export function plotFigures(values: Values): PlotFigures {
+  const shape = (values.sample_shape ?? "SQUARE").trim().toUpperCase() || "SQUARE";
+  const square = SQUARE_SHAPES.has(shape);
+  const round = ROUND_SHAPES.has(shape);
+  if (!square && !round) return { plotArea: null, referenceArea: null, minimumReferenceDistance: null, recommendedReferenceDistance: null };
+  const points = int(values, "number_of_sampling_points_in_plot", 0, 0, 100);
+  const distance = int(values, "distance_between_sample_points", 10, 2, 1000);
+  const margin = int(values, "distance_to_plot_boundaries", 0, 0, 500);
+  const half = round ? distance : (points <= 1 ? 2 * margin : 2 * margin + (Math.sqrt(points) - 1) * distance) / 2;
+  const plotArea = shape === "CIRCLE" ? Math.PI * half * half : shape === "HEXAGON" ? HEXAGON_AREA_FACTOR * half * half : 4 * half * half;
+  const buffer = (values.buffer_shape ?? "").trim().toUpperCase();
+  // Blank: NONE without a distance, else SQUARE, as projects older than the setting have it (PlotGeometry.bufferShapeOf)
+  const bufferShape = buffer === "" ? ((values.distance_to_buffers ?? "").trim() === "" ? "NONE" : "SQUARE") : buffer;
+  if (bufferShape === "NONE") return { plotArea, referenceArea: null, minimumReferenceDistance: null, recommendedReferenceDistance: null };
+  const areaAt = (d: number) => (bufferShape === "CIRCLE" ? Math.PI * d * d : bufferShape === "HEXAGON" ? HEXAGON_AREA_FACTOR * d * d : 4 * d * d);
+  const referenceDistance = int({ distance_to_buffers: (values.distance_to_buffers ?? "").split(",")[0] }, "distance_to_buffers", 100, 1, 10000);
+  const outlineHalf = round ? half + CIRCLE_PLOT_MARGIN : half;
+  const minimum = bufferShape === "CIRCLE" ? (round ? outlineHalf : outlineHalf * Math.SQRT2)
+    : bufferShape === "HEXAGON" ? (round ? outlineHalf / COS_30 : (outlineHalf * (COS_30 + 0.5)) / COS_30)
+    : outlineHalf;
+  const minimumReferenceDistance = Math.max(1, Math.ceil(minimum) + 1);
+  const target = MIN_REFERENCE_TO_PLOT_RATIO * plotArea;
+  const recommended = bufferShape === "CIRCLE" ? Math.sqrt(target / Math.PI) : bufferShape === "HEXAGON" ? Math.sqrt(target / HEXAGON_AREA_FACTOR) : Math.sqrt(target) / 2;
+  return {
+    plotArea,
+    referenceArea: areaAt(referenceDistance),
+    minimumReferenceDistance,
+    recommendedReferenceDistance: Math.min(10000, Math.max(Math.ceil(recommended), minimumReferenceDistance)),
+  };
 }

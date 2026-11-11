@@ -17,7 +17,7 @@ import Download from "@mui/icons-material/Download";
 import InsertDriveFile from "@mui/icons-material/InsertDriveFile";
 import { useState } from "react";
 import { ApiError, cepGridFiles, downloadOriginalCep, getOverview, getRoundInfo, listCsvFiles, mergeGridFiles, setReassessmentCode, uploadCep, uploadCsvFile, type RoundInfo } from "../api";
-import { useApp } from "../appContext";
+import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain, MoreInfo } from "../components/Explain";
 import { FileDrop } from "../components/FileDrop";
@@ -27,6 +27,7 @@ import { CATALOGUES, useT, type MessageKey } from "../i18n";
 import { noteMessage, originalFileName, roundCodeLabel, roundMessage } from "../roundText";
 import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
+import { PlotLayoutCard } from "./PlotLayout";
 
 /** The Select's value for "None" (a code is never empty). */
 const NO_CODE = "";
@@ -175,6 +176,8 @@ function RoundStatus({ projectId, projectName, info, onChange }: { projectId: st
 export function FileTab({ projectId }: { projectId: string }) {
   const t = useT();
   const { language } = useApp();
+  // On the computer, Collect Earth's own settings page sets the plot layout
+  const local = useLocalMode();
   const overview = useLoad(() => getOverview(projectId), [projectId]);
   const round = useLoad(() => getRoundInfo(projectId), [projectId]);
   const [progress, setProgress] = useState<number | null>(null);
@@ -281,6 +284,8 @@ export function FileTab({ projectId }: { projectId: string }) {
       ) : round.data ? (
         <RoundStatus key={uploads} projectId={projectId} projectName={overview.data?.name ?? ""} info={round.data} onChange={round.setData} />
       ) : null}
+
+      {cep && !local && <PlotLayoutCard key={uploads} projectId={projectId} onSaved={overview.reload} />}
 
       <FileDrop
         label={t("file.drop")}

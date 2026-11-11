@@ -139,6 +139,19 @@ export function withBundledPlotFile(zip: Buffer, rewrite: (data: Buffer, path: s
   return zipCep(entries, date);
 }
 
+/**
+ * The project file with its project_definition.properties rewritten by `rewrite` (its text, "" when it has none), every
+ * entry stamped `date` (zipCep). Read and written as ISO-8859-1, as Java reads a properties file: the bytes of what
+ * `rewrite` leaves alone stay as they were. For a project file the server holds (it was read within the limits already).
+ */
+export function withProperties(zip: Buffer, rewrite: (text: string) => string, date: Date): Buffer {
+  const files = readCepWithin(zip, DEFAULT_CEP_LIMITS, DEFAULT_CEP_LIMITS.maxTotalBytes * 2);
+  const bytes = files.entries.get(PROPERTIES_PATH);
+  const entries = new Map(files.entries);
+  entries.set(PROPERTIES_PATH, Buffer.from(rewrite(bytes ? asBuffer(bytes).toString('latin1') : ''), 'latin1'));
+  return zipCep(entries, date);
+}
+
 /** Opens a CEP and finds its survey, balloons and KML template. */
 export function readCep(zip: Uint8Array, limits: CepLimits = DEFAULT_CEP_LIMITS): CepFiles {
   return readCepWithin(asBuffer(zip), limits, allowedBytes(zip.length, limits));
