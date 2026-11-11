@@ -67,6 +67,9 @@ describe("what each role can do", () => {
     for (const row of ROLE_MATRIX) expect(html).toContain(t(row.what).replace(/'/g, "&#x27;"));
     expect(html).toContain("Server administrator");
     expect(html).toContain("Not a role in a project");
+    expect(html).toContain("Yes, the plots they give themselves");
+    // checks and reference copies: collectors by default (src/sampling.ts checkersOf, src/reference.ts getsReferenceCopy)
+    expect(html).toContain("By default, quality checks go to collectors only, and only collectors get copies of reference plots.");
     expect(html).toContain('<title>Yes</title>');
     expect(html).toContain('<title>No</title>');
   });
@@ -74,7 +77,10 @@ describe("what each role can do", () => {
   it("follows what the server allows: coordinators everything, the project's set-up only theirs, everyone collects", () => {
     const cell = (what: string, role: Role) => ROLE_MATRIX.find((r) => r.what === what)!.cells[role];
     for (const row of ROLE_MATRIX) expect(row.cells.admin, row.what).not.toBe("no");
-    for (const role of ROLE_ORDER) expect(cell("roles.row.collect", role)).toBe("yes");
+    // Coordinators collect too, the plots they give themselves
+    expect(cell("roles.row.collect", "admin")).toBe("roles.cell.collectSelf");
+    expect(cell("roles.row.collect", "reviewer")).toBe("yes");
+    expect(cell("roles.row.collect", "operator")).toBe("yes");
     for (const what of ["roles.row.plots", "roles.row.projectFile", "roles.row.people", "roles.row.data", "roles.row.settings"]) {
       expect(cell(what, "reviewer"), what).toBe("no");
       expect(cell(what, "operator"), what).toBe("no");

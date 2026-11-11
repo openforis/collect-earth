@@ -46,7 +46,8 @@ export type RoleCell = "yes" | "no" | MessageKey;
  * plot named; collectors: their own records only).
  */
 export const ROLE_MATRIX: readonly { what: MessageKey; cells: Record<Role, RoleCell> }[] = [
-  { what: "roles.row.collect", cells: { admin: "yes", reviewer: "yes", operator: "yes" } },
+  // a coordinator collects the plots they give themselves (a whole plot file or a share of a divided one)
+  { what: "roles.row.collect", cells: { admin: "roles.cell.collectSelf", reviewer: "yes", operator: "yes" } },
   { what: "roles.row.progress", cells: { admin: "roles.cell.everyone", reviewer: "roles.cell.team", operator: "roles.cell.ownWork" } },
   { what: "roles.row.analysis", cells: { admin: "roles.cell.allPlots", reviewer: "roles.cell.allPlots", operator: "roles.cell.ownPlots" } },
   { what: "roles.row.areas", cells: { admin: "yes", reviewer: "roles.cell.lookOnly", operator: "no" } },
