@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ESRI Wayback shows the plot at the scale of Google Earth Web, down to the deepest zoom with imagery at the plot and one level past it at most, instead of zoom 19 at most, where the imagery of most plots was enlarged and blurred (and deeper than 19 where there is imagery). The zoom found is remembered for each plot, and a map the user has moved is never fitted again
 
 ### Fixed
+- Collect Earth Cloud: a mail server refusing because the server sent too much (Gmail's daily sending limit, "550 5.4.5") no longer counts as each person's address being refused: the weekly run stops there and the weeks not sent stay due, instead of being lost and, after three weeks, turning everyone's weekly email off
 - The dashboard's Setup checklist marks "Choose who collects each plot file" as done when a plot file is divided between people, not only when one is given whole to someone
 - Range attributes are saved: an integer range was taken for a whole number and refused, and a real range could not be saved at all
 - The text written for a qualifiable code item ("Other, specify") is saved and shown again; it used to be dropped

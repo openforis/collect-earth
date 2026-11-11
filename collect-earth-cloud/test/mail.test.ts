@@ -6,7 +6,7 @@ import { collectorHasNews, collectorMail, confirmMail, coordinatorHasNews, coord
 import { DIGEST_WORDS, escapeHtml, oneLine } from '../src/digestText.js';
 import { isEmailAddress } from '../src/accountRules.js';
 import { linkSecret } from '../src/backupLink.js';
-import { errorSummary, isMailFrom, isPermanentFailure, LogMailer, mailerFrom, mailFromHeader, parseSmtpUrl, SmtpMailer, transportOptions } from '../src/mail.js';
+import { errorSummary, isMailFrom, isPermanentFailure, isSenderLimit, LogMailer, mailerFrom, mailFromHeader, parseSmtpUrl, SmtpMailer, transportOptions } from '../src/mail.js';
 import { mailSecret, readConfirmToken, readUnsubscribeToken, writeConfirmToken, writeUnsubscribeToken, CONFIRM_TTL_MS } from '../src/mailLinks.js';
 import { MAIL_LANGUAGES, type MailLanguage } from '../src/types.js';
 
@@ -98,6 +98,18 @@ describe('the mail transport (Task 19)', () => {
     expect(isPermanentFailure(err)).toBe(true);
     expect(isPermanentFailure(Object.assign(new Error('x'), { responseCode: 451 }))).toBe(false);
     expect(isPermanentFailure(new Error('timeout'))).toBe(false);
+  });
+
+  it("tells Gmail's daily limit, and other sending limits, from a refused address", () => {
+    const gmail = Object.assign(new Error('Message failed: 550-5.4.5 Daily user sending limit exceeded.'), {
+      code: 'EMESSAGE', responseCode: 550, command: 'DATA', response: '550-5.4.5 Daily user sending limit exceeded. For more information on Gmail sending limits, go to',
+    });
+    expect(isSenderLimit(gmail)).toBe(true);
+    expect(isPermanentFailure(gmail)).toBe(false);
+    expect(isSenderLimit(Object.assign(new Error('x'), { responseCode: 421, response: '421 4.7.0 Try again later, closing connection. Rate limit exceeded' }))).toBe(true);
+    const mailbox = Object.assign(new Error('550 5.1.1 The email account that you tried to reach does not exist'), { responseCode: 550, response: '550 5.1.1 The email account that you tried to reach does not exist' });
+    expect(isSenderLimit(mailbox)).toBe(false);
+    expect(isPermanentFailure(mailbox)).toBe(true);
   });
 
   it('one address only, at most 254 characters', () => {
