@@ -31,7 +31,7 @@ export const OTHER_PHRASES: readonly string[] = [
   'desconocido', 'desconocida', 'no se', 'no se sabe', 'no sabe', 'indeterminado', 'indeterminada',
   'inconnu', 'inconnue', 'ne sait pas', 'ne sais pas', 'je ne sais pas', 'indetermine', 'indeterminee',
   'desconhecido', 'desconhecida', 'nao sei', 'nao sabe',
-  'bilinmiyor', 'bilinmeyen', 'bilmiyorum', 'belirsiz',
+  'bilinmiyor', 'bilinmeyen', 'bilmiyorum', 'belirsiz', 'emin degilim', 'belirlenemedi', 'belirlenemeyen', 'tespit edilemedi', 'tespit edilemeyen',
   // none of the above (a catch-all; "none" alone is an answer, see NONE_PHRASES)
   'none of the above', 'ninguno de los anteriores', 'ninguna de las anteriores', 'aucune de ces reponses', 'nenhuma das anteriores', 'nenhum dos anteriores',
   'yukaridakilerin hicbiri', 'yukarıdakilerin hicbiri',
@@ -39,7 +39,7 @@ export const OTHER_PHRASES: readonly string[] = [
   'no data', 'n/a', 'n.a', 'na', 'n/d', 'n.d', 'not applicable', 'sin datos', 'sin dato', 'sin informacion', 'no aplica',
   'pas de donnees', 'pas de donnee', 'aucune donnee', 'sans donnees', 'non applicable', 'sans objet',
   'sem dados', 'sem informacao', 'nao se aplica', 'nao aplicavel',
-  'veri yok', 'bilgi yok', 'uygulanamaz', 'gecerli degil',
+  'veri yok', 'bilgi yok', 'uygulanamaz', 'uygulanmaz', 'gecerli degil',
 ];
 
 /**

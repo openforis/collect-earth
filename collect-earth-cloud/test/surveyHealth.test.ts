@@ -123,6 +123,13 @@ describe('looksLikeOther: labels in 4 languages and codes, conservatively', () =
     ['X', 'Bilinmiyor'],
     ['X', 'Veri yok'],
     ['X', 'Geçerli değil'],
+    ['X', 'Emin değilim'],
+    ['X', 'EMİN DEĞİLİM'],
+    ['X', 'Belirlenemedi'],
+    ['X', 'Belirlenemeyen (açıklayınız)'],
+    ['X', 'Tespit edilemedi'],
+    ['X', 'Tespit edilemeyen'],
+    ['X', 'Uygulanmaz'],
     ['X', 'Yukarıdakilerin hiçbiri'],
     ['X', 'YUKARIDAKİLERİN HİÇBİRİ'],
   ])('%s labelled %s: yes', (code, label) => {

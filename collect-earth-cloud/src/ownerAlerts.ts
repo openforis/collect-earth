@@ -139,14 +139,14 @@ const pt: AlertTexts = {
 };
 const tr: AlertTexts = {
   subject: '{server}: {what}',
-  failed_logins: 'çok sayıda başarısız oturum açma',
+  failed_logins: 'çok sayıda başarısız oturum açma denemesi',
   server_errors: 'çok sayıda sunucu hatası',
   sync_errors: 'Collect Earth kayıtları reddedildi',
   storage: 'bir proje depolama sınırına yaklaştı',
-  failed_loginsText: 'Son bir saatte {count} başarısız oturum açma oldu. Birisi parola tahmin ediyor olabilir: sunucu panelini inceleyin ve koordinatörler için iki adımlı oturum açmayı düşünün.',
+  failed_loginsText: 'Son bir saatte {count} başarısız oturum açma denemesi oldu. Birisi parolaları tahmin etmeye çalışıyor olabilir: sunucu panelini inceleyin ve koordinatörler için iki adımlı oturum açmayı değerlendirin.',
   server_errorsText: 'Sunucu son bir saatte {count} isteğe hatayla yanıt verdi. Neyin başarısız olduğunu görmek için sunucu günlüğüne bakın.',
-  sync_errorsText: 'Sunucu son bir saatte Collect Earth’ten gönderilen {count} kaydı reddetti: yorumcuların çalışmaları ulaşmıyor olabilir. Sunucu günlüğüne bakın.',
-  storageText: '{project} projesi depolama sınırının %{count} kadarını kullanıyor. Sunucu ayarlarından sınırı yükseltin ya da koordinatörlerinden artık gerekmeyenleri silmelerini isteyin.',
+  sync_errorsText: 'Sunucu son bir saatte Collect Earth’ten gönderilen {count} kaydı reddetti: veri toplayıcıların çalışmaları sunucuya ulaşmıyor olabilir. Sunucu günlüğüne bakın.',
+  storageText: '{project} projesinin depolama kullanımı sınırın %{count} düzeyinde. Sunucu ayarlarından sınırı yükseltin ya da projenin koordinatörlerinden artık ihtiyaç duymadıkları verileri silmelerini isteyin.',
   footer: 'Bu e-posta {server} yöneticilerine gönderilir. Aynı uyarı en fazla altı saatte bir gönderilir.',
 };
 const TEXTS: Record<MailLanguage, AlertTexts> = { en, es, fr, pt, tr };

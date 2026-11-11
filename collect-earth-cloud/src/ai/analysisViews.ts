@@ -134,7 +134,7 @@ const COLLECTION: Record<AiLanguage, Record<'operator' | 'assessment' | 'main' |
   es: { operator: 'Recolector', assessment: 'Evaluación', main: 'Primera evaluación', check: 'Control de calidad', submitted: 'Enviada', savedOn: 'Guardada el', month: 'Mes guardada', week: 'Semana guardada' },
   fr: { operator: 'Collecteur', assessment: 'Évaluation', main: 'Première évaluation', check: 'Contrôle qualité', submitted: 'Envoyée', savedOn: 'Enregistrée le', month: 'Mois enregistré', week: 'Semaine enregistrée' },
   pt: { operator: 'Coletor', assessment: 'Avaliação', main: 'Primeira avaliação', check: 'Controle de qualidade', submitted: 'Enviada', savedOn: 'Salva em', month: 'Mês salva', week: 'Semana salva' },
-  tr: { operator: 'Toplayıcı', assessment: 'Değerlendirme', main: 'İlk değerlendirme', check: 'Kalite kontrolü', submitted: 'Gönderildi', savedOn: 'Kaydedilme tarihi', month: 'Kaydedildiği ay', week: 'Kaydedildiği hafta' },
+  tr: { operator: 'Veri toplayıcı', assessment: 'Değerlendirme', main: 'İlk değerlendirme', check: 'Kalite kontrolü', submitted: 'Gönderildi', savedOn: 'Kaydedilme tarihi', month: 'Kaydedildiği ay', week: 'Kaydedildiği hafta' },
 };
 
 // --- what the model is asked, and the shape of its answer ---------------------------------------------------------

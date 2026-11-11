@@ -746,7 +746,7 @@ describe('withQuestionLabels', () => {
 describe('the languages', () => {
   it('every dashboard language has its own refusal and its own "Answer in"', () => {
     expect(AI_LANGUAGES).toEqual(['en', 'es', 'fr', 'pt', 'tr']);
-    expect(systemInstruction('tr')).toContain('- Answer in Turkish.');
+    expect(systemInstruction('tr')).toContain('- Answer in formal Turkish (the "siz" form).');
     for (const lang of AI_LANGUAGES.filter((l) => l !== 'en')) {
       expect(OFF_TOPIC_MESSAGE[lang]?.trim(), lang).toBeTruthy();
       expect(OFF_TOPIC_MESSAGE[lang], lang).not.toBe(OFF_TOPIC_MESSAGE.en);
