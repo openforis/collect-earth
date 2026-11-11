@@ -4,8 +4,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.awt.Desktop;
 import java.awt.Font;
-import java.awt.FontFormatException;
-import java.awt.GraphicsEnvironment;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -28,7 +26,6 @@ import javax.swing.UIManager;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.SystemUtils;
-import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.service.settings.ConnectionTest;
 import org.openforis.collect.earth.app.view.Messages;
 import org.postgresql.Driver;
@@ -85,38 +82,9 @@ public class CollectEarthUtils {
 		}
 	}
 
-	public static void setFontDependingOnLanguaue(UI_LANGUAGE uiLanguage) {
-		if (uiLanguage == UI_LANGUAGE.LO) {
-			String ttfFileName = "Phetsarath_OT.ttf";
-			// create the font
-			setUiFont(ttfFileName);
-		} else if (uiLanguage == UI_LANGUAGE.MN) {
-			String ttfFileName = "arhangai.ttf";
-			// create the font
-			setUiFont(ttfFileName);
-		} else {
-			CollectEarthUtils.setUiFont(new javax.swing.plaf.FontUIResource("Arial Unicode MS", Font.PLAIN, 12));
-		}
-	}
-
-	public static void setUiFont(String ttfFileName) {
-		// Closed after use : one stream was leaked on every switch to a language that needs its own font
-		try ( InputStream fontStream = CollectEarthUtils.class.getResourceAsStream(ttfFileName) ) {
-			if (fontStream == null) {
-				// A missing font used to throw a NullPointerException, which is not caught below and ends the application
-				logger.error("The font {} is not present, the interface keeps the font it has", ttfFileName);
-				return;
-			}
-			// create the font to use. Specify the size!
-			Font laoFont = Font.createFont(Font.TRUETYPE_FONT, fontStream).deriveFont(12f);
-			GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-			// register the font
-			ge.registerFont(laoFont);
-			CollectEarthUtils.setUiFont(new javax.swing.plaf.FontUIResource(laoFont.getFontName(), Font.PLAIN, 12));
-		} catch (IOException | FontFormatException e) {
-			logger.error("error setting the font " + ttfFileName, e);
-		}
-
+	/** Arial Unicode MS for the few Swing windows left (splash, file dialog, start-up messages) */
+	public static void setDefaultUiFont() {
+		setUiFont(new javax.swing.plaf.FontUIResource("Arial Unicode MS", Font.PLAIN, 12));
 	}
 
 	private static void setUiFont(javax.swing.plaf.FontUIResource f) {
