@@ -46,6 +46,7 @@ import { useLoad } from "../useLoad";
 import { fromPairs, hasChanges, pairKey, toPairs } from "../assignmentGrid";
 import { sortPeople } from "../division";
 import { PlotDesign } from "./PlotDesign";
+import { StrataAreas } from "./StrataAreas";
 
 interface UploadState {
   name: string;
@@ -236,7 +237,8 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
       });
     });
 
-  const uploadFiles = async (files: File[]) => {
+  /** Uploads the files; whether any went in. */
+  const uploadFiles = async (files: File[]): Promise<boolean> => {
     setMessages([]);
     setError(null);
     const csv = files.filter((f) => f.name.toLowerCase().endsWith(".csv"));
@@ -298,6 +300,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
       setUpload(null);
       if (changed) state.reload();
     }
+    return changed;
   };
 
   return (
@@ -406,6 +409,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
               </TableBody>
             </Table>
           </Paper>
+          <StrataAreas projectId={projectId} version={state.data} />
           <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
             <Typography variant="h2" gutterBottom>
               {t("plots.gridTitle")}

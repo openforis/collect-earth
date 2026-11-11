@@ -145,6 +145,31 @@ describe('the areas routes', () => {
     }
   });
 
+  it('show the strata other columns would make, nothing saved', async () => {
+    await upload({ 'areas_per_attribute.csv': 'forest,area\nA,1000\n' });
+    await send('1,1');
+    // the same columns keep their areas
+    expect((await call('GET', '/areas?columns=FOREST', owner.token)).json().strata[0]).toMatchObject({ values: ['A'], area: 1000, plots: 2, assessed: 1 });
+    await call('PUT', '/areas', owner.token, { settings: { mode: 'strata', columns: ['nope'], strata: [{ values: ['A'], area: 5 }] } });
+    const preview = (await call('GET', '/areas?columns=forest', owner.token)).json();
+    expect(preview.strata.map((s: { values: string[]; area: number | null; plots: number }) => [s.values, s.area, s.plots])).toEqual([
+      [['A'], null, 2],
+      [['B'], null, 2],
+      [['C'], null, 1],
+    ]);
+    expect(await ctx.store.getAreaSettings(pid)).toMatchObject({ columns: ['nope'] }); // the preview saved nothing
+  });
+
+  it('work before the project file: the strata are the plot files\' columns', async () => {
+    await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/csv-files/plots.csv`, headers: { ...bearer(owner.token), 'content-type': 'text/csv' }, payload: 'id,lat,lon,stratum\n1,-10,20,Reserve\n2,-10,21,Farm\n' });
+    const empty = await call('GET', '/areas', owner.token);
+    expect(empty.statusCode, empty.body).toBe(200);
+    expect(empty.json()).toMatchObject({ source: null, settings: null, columns: ['stratum'] });
+    await call('PUT', '/areas', owner.token, { settings: { mode: 'strata', columns: ['stratum'], strata: [{ values: ['Reserve'], area: 500 }] } });
+    const body = (await call('GET', '/areas', owner.token)).json();
+    expect(body.strata.map((s: { values: string[]; area: number | null; plots: number }) => [s.values[0], s.area, s.plots])).toEqual([['Reserve', 500, 1], ['Farm', null, 1]]);
+  });
+
   it('say which columns match nothing', async () => {
     await upload();
     await send('1,1');

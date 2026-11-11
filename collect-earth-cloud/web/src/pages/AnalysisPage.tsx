@@ -700,6 +700,8 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
     </Stack>
   );
 
+  // the areas' source in words: a file of the project file, or the strata set on the Plot files tab
+  const areasName = data.areas?.source === "strata" || data.areas?.source === "total" ? t("analysis.areasSetting") : (data.areas?.source ?? "");
   return (
     <Stack spacing={2}>
       {data.scope === "own" ? (
@@ -713,14 +715,14 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
           <MoreInfo text={t("analysis.noAreas")} />
         </Alert>
       )}
-      {data.areas && data.areas.unmatched > 0 && <Alert severity="warning">{t("analysis.areasUnmatched", { file: data.areas.source, count: data.areas.unmatched })}</Alert>}
+      {data.areas && data.areas.unmatched > 0 && <Alert severity="warning">{t("analysis.areasUnmatched", { file: areasName, count: data.areas.unmatched })}</Alert>}
       {data.areas && (data.areas.unknownColumns?.length ?? 0) > 0 && (
-        <Alert severity="warning">{t("analysis.areasUnknownColumns", { file: data.areas.source, columns: data.areas.unknownColumns!.join(", ") })}</Alert>
+        <Alert severity="warning">{t("analysis.areasUnknownColumns", { file: areasName, columns: data.areas.unknownColumns!.join(", ") })}</Alert>
       )}
       {data.areas && (data.areas.noStratum?.plots ?? 0) > 0 && (
         <Alert severity="warning">
           {t("analysis.areasNoStratum", {
-            file: data.areas.source,
+            file: areasName,
             count: formatNumber(data.areas.noStratum!.plots, language),
             examples: data.areas.noStratum!.examples.map((e) => `${e.stratum || "—"} (${formatNumber(e.plots, language)})`).join(", "),
           })}

@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
-import { areasFileText, comparable, parseAreaSettings, strataOfFile, type AreaSettings } from '../areas.js';
+import { AREA_LIMITS, areasFileText, comparable, parseAreaSettings, strataOfFile, type AreaSettings } from '../areas.js';
 import { attachment } from '../download.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { isPlotUnit } from '../progress.js';
@@ -24,15 +24,10 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
   const reviewer = { preHandler: requireProjectMembership(store, 'reviewer') };
   const coordinator = { preHandler: requireProjectMembership(store, 'admin') };
 
-  const parsedOf = async (projectId: string, reply: FastifyReply): Promise<NonNullable<Parsed> | null> => {
+  /** The project file's survey and areas files; without a readable one, no questions: the strata are the plot files' columns. */
+  const parsedOf = async (projectId: string): Promise<NonNullable<Parsed>> => {
     const cep = await store.getCep(projectId);
-    if (!cep) {
-      reply.code(404).send({ error: 'no_project_file', message: 'Upload the project file first: the strata are read from its survey and the plot files.' });
-      return null;
-    }
-    const parsed = modelOf(cep);
-    if (!parsed) reply.code(409).send({ error: 'survey_unreadable', message: 'The survey of the project file cannot be read.' });
-    return parsed;
+    return (cep ? modelOf(cep) : null) ?? { model: { languages: [], tables: [{ name: 'plot', labels: {}, keyColumn: null, columns: [] }], lists: {} } };
   };
 
   /** The areas in use, as a setting: the dashboard's, else the project file's areas_per_attribute.csv, else the Uncertainty page's total. */
@@ -48,26 +43,31 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
 
   app.get('/v1/projects/:pid/areas', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
-    const parsed = await parsedOf(projectId, reply);
-    if (!parsed) return reply;
+    const parsed = await parsedOf(projectId);
     const [shown, served, rows] = await Promise.all([shownOf(projectId, parsed), states.get(projectId, request.log), store.listRecordSummaries(projectId)]);
     const { context } = served.state;
     const firsts = firstAssessments(rows, recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders }));
     const factors = await projectFactors(store, projectId, parsed, firsts, context.info);
-    const columns = shown.areas?.mode === 'strata' ? shown.areas.columns : [];
+    // ?columns=a,b: the strata other columns would make (choosing them), nothing saved
+    const query = (request.query ?? {}) as { columns?: unknown };
+    const asked = typeof query.columns === 'string' ? query.columns.split(',').map((c) => c.trim()).filter((c) => c !== '').slice(0, AREA_LIMITS.columns) : null;
+    const saved = shown.areas?.mode === 'strata' ? shown.areas.columns : [];
+    const columns = asked ?? saved;
+    const sameColumns = columns.length === saved.length && columns.every((c, i) => c.toLowerCase() === saved[i].toLowerCase());
     // The plots of the plot files by stratum (a column only in the answers: not counted), and the plots assessed
     const files = await plotFileValues(store, projectId, context.info, columns);
     const inFiles = columns.every((c, i) => files.found[i] || !questionOf(parsed.model, c)) ? columns.map((_, i) => files.found[i]) : null;
     const isPlot = isPlotUnit(context.info);
     const keyOf = (values: readonly (string | undefined)[]) => values.map(comparable).join('\u0000');
     const strata = new Map<string, { values: string[]; area: number | null; plots: number | null; assessed: number }>();
-    if (shown.areas?.mode === 'strata') for (const s of shown.areas.strata) strata.set(keyOf(s.values), { values: s.values, area: s.area, plots: inFiles?.every(Boolean) ? 0 : null, assessed: 0 });
+    const given = shown.areas?.mode === 'strata' && sameColumns ? shown.areas.strata : [];
+    for (const s of given) strata.set(keyOf(s.values), { values: s.values, area: s.area, plots: inFiles?.every(Boolean) ? 0 : null, assessed: 0 });
     let more = 0;
     const entry = (values: readonly (string | undefined)[]) => {
       const key = keyOf(values);
       let s = strata.get(key);
       if (!s) {
-        if (strata.size >= (shown.areas?.mode === 'strata' ? shown.areas.strata.length : 0) + MAX_LISTED) return null;
+        if (strata.size >= given.length + MAX_LISTED) return null;
         s = { values: values.map((v) => v ?? ''), area: null, plots: inFiles?.every(Boolean) ? 0 : null, assessed: 0 };
         strata.set(key, s);
       }
@@ -132,9 +132,7 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
 
   app.get('/v1/projects/:pid/areas/file', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
-    const parsed = await parsedOf(projectId, reply);
-    if (!parsed) return reply;
-    const { areas } = await shownOf(projectId, parsed);
+    const { areas } = await shownOf(projectId, await parsedOf(projectId));
     if (areas?.mode !== 'strata') return reply.code(404).send({ error: 'no_strata', message: 'The project has no strata with areas.' });
     return reply
       .header('cache-control', 'no-store')

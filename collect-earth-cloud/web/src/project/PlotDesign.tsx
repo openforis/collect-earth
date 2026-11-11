@@ -11,7 +11,8 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import { useEffect, useState } from "react";
-import { generatePlotDesign, planPlotDesign, readDesignArea, type DesignArea, type DesignFacts, type DesignPlan } from "../api";
+import { generatePlotDesign, getAreas, planPlotDesign, readDesignArea, saveAreas, type DesignArea, type DesignFacts, type DesignPlan } from "../api";
+import { designAreas } from "../areasView";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
@@ -27,7 +28,7 @@ const km2 = (n: number, language: string) => formatNumber(Math.round(n * 10) / 1
  * Plot design: an area of interest in, a plot file out. The plot file goes to `onFile`, the plot
  * tab's own upload (replacing a file of the same name is asked there, as for any upload).
  */
-export function PlotDesign({ projectId, busy, onFile }: { projectId: string; busy: boolean; onFile: (file: File) => Promise<void> }) {
+export function PlotDesign({ projectId, busy, onFile }: { projectId: string; busy: boolean; onFile: (file: File) => Promise<boolean> }) {
   const t = useT();
   const { language } = useApp();
   const [area, setArea] = useState<{ name: string; sent: DesignArea; facts: DesignFacts } | null>(null);
@@ -97,7 +98,10 @@ export function PlotDesign({ projectId, busy, onFile }: { projectId: string; bus
     try {
       const csv = await generatePlotDesign(projectId, area.sent, design, plan.seed);
       const name = filename.trim().toLowerCase().endsWith(".csv") ? filename.trim() : `${filename.trim() || "plots"}.csv`;
-      await onFile(new File([csv], name, { type: "text/csv" }));
+      const added = await onFile(new File([csv], name, { type: "text/csv" }));
+      // The areas the design knows (each stratum's, or the area's total), when the project has none yet: Strata and areas
+      // (a help, not part of the plot file: the file is made whatever happens to it)
+      if (added) await getAreas(projectId).then((a) => (a.source === null ? saveAreas(projectId, designAreas(plan, area.facts)) : null)).catch(() => null);
     } catch (err) {
       setError(err);
     } finally {
