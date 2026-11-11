@@ -8,13 +8,14 @@ import { IN_PANEL } from "./panel";
 import { IN_HOME } from "./home";
 import type { EngineConfig, MapEngine } from "./engines/MapEngine";
 import { byId, changedAfterSubmit, footprintCorners, type FormMessage, indexPlots, leftUnsubmitted, neighbour, nextUnfinished, normalizeStatus, plotLabel, plotParam, plotsGone, plotsNear, plotToRestore, surveyView,
-  pointNumbersOf, previousMessage, previousPlot, previousStands, type PreviousPlot, sameView, visibleIds, withoutPlotParam } from "./plots";
+  pointNumbersOf, periodAnswer, plotColor, type PeriodView, previousMessage, previousPlot, previousStands, type PreviousPlot, sameView, visibleIds,
+  withoutPlotParam } from "./plots";
 import type { MessageKey } from "./i18n";
 import { imageryForNumber, reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
 import { loadPrefs, savePrefs, type Prefs } from "./prefs";
 import { formWindow, isFormMessage } from "./shortcuts";
 import { ACTIVE_COLOR, STATUS_COLORS, type GewStatus, type GewView, type GroundView, type ImagerySource, type ImageryStatus,
-  type LatLng, type ListFilter, type MapConfig, type PlotFeature, type PlotStatus } from "./types";
+  type LatLng, type ListFilter, type MapConfig, type PeriodAnswer, type PeriodFilter, type PlotFeature, type PlotStatus } from "./types";
 
 const ZOOM_THRESHOLD = 14; // below: dot markers; above: polygons
 const PLOT_ZOOM = 17;
@@ -59,6 +60,12 @@ export interface UiState {
   formUrl: string | null;
   filter: ListFilter;
   query: string;
+  /** Whether the project is a repeat survey: its plots have a period status, which the list and the map can filter by */
+  repeat: boolean;
+  /** What the collector said of each plot against the earlier period, by id (a plot not answered has none) */
+  periods: Record<string, PeriodAnswer>;
+  /** The plots shown by that answer (a repeat survey's only); the others are grey on the map */
+  periodFilter: PeriodFilter;
   sidebarCollapsed: boolean;
   formWidth: number;
   banner: Banner | null;
@@ -120,7 +127,7 @@ export class MapController {
   constructor() {
     this.state = {
       order: [], labels: byId(), statuses: byId(), loaded: false, activeId: null, selected: 0, formUrl: null,
-      filter: this.prefs.filter ?? "all", query: "",
+      filter: this.prefs.filter ?? "all", query: "", repeat: false, periods: byId(), periodFilter: this.prefs.periodFilter ?? "all",
       sidebarCollapsed: !!this.prefs.sidebarCollapsed, formWidth: this.prefs.formWidth ?? 560,
       banner: null, viewerType: "", language: "en", baseLayers: [], baseLayer: "", gew: null,
       imagery: { sources: [], visible: null }, submitted: null, unsubmitted: null,
@@ -280,7 +287,16 @@ export class MapController {
   private addToEngine(id: string): void {
     const plot = this.plots[id];
     this.engine!.addPlot(id, plotLabel(this.state.labels, id), plot.rings, plot.center);
-    this.engine!.setPlotColor(id, id === this.state.activeId ? ACTIVE_COLOR : STATUS_COLORS[this.state.statuses[id] ?? "empty"]);
+    this.engine!.setPlotColor(id, this.colorOf(id));
+  }
+
+  /** The filter by the earlier period, for a repeat survey only: null for any other project, whatever was chosen */
+  periodView(): PeriodView | null {
+    return this.state.repeat ? { periods: this.state.periods, filter: this.state.periodFilter } : null;
+  }
+
+  private colorOf(id: string): string {
+    return plotColor(id, this.state.activeId, this.state.statuses, this.periodView());
   }
 
   private allCenters(): LatLng[] {
@@ -301,6 +317,8 @@ export class MapController {
       for (const [id, status] of Object.entries(data.statuses)) {
         if (id in this.plots) updates[id] = normalizeStatus(status);
       }
+      if (data.periods) this.applyPeriods(data.periods);
+      else if (this.state.repeat) this.notRepeat();
       this.applyStatuses(updates);
     } catch { /* transient - the next poll retries */ }
     window.setTimeout(() => this.pollStatuses(), POLL_MILLIS);
@@ -312,8 +330,31 @@ export class MapController {
     this.set({ statuses: Object.assign(byId<PlotStatus>(), this.state.statuses, updates) });
     for (const id of changed) {
       // the active plot keeps its cyan highlight
-      if (id !== this.state.activeId) this.engine?.setPlotColor(id, STATUS_COLORS[updates[id]]);
+      if (id !== this.state.activeId) this.engine?.setPlotColor(id, this.colorOf(id));
     }
+  }
+
+  /** Another project, which repeats no survey, was opened: nothing is filtered by the earlier period any longer. */
+  private notRepeat(): void {
+    this.set({ repeat: false, periods: byId() });
+    for (const id of this.state.order) if (id !== this.state.activeId) this.engine?.setPlotColor(id, this.colorOf(id));
+  }
+
+  /** A repeat survey's period statuses of the plots saved since the last poll ("" for a plot not answered). */
+  private applyPeriods(received: Record<string, string>): void {
+    const periods = Object.assign(byId<PeriodAnswer>(), this.state.periods);
+    const changed: string[] = [];
+    for (const [id, value] of Object.entries(received)) {
+      if (!(id in this.plots)) continue;
+      const answer = periodAnswer(value);
+      if ((periods[id] ?? null) === answer) continue;
+      if (answer === null) delete periods[id];
+      else periods[id] = answer;
+      changed.push(id);
+    }
+    if (this.state.repeat && !changed.length) return;
+    this.set({ repeat: true, periods });
+    for (const id of changed) if (id !== this.state.activeId) this.engine?.setPlotColor(id, this.colorOf(id));
   }
 
   // Same-origin messages from the web form in the iframe, and from its window only
@@ -356,7 +397,7 @@ export class MapController {
     // Render the form panel synchronously, then resize the map BEFORE moving it, so the
     // plot ends up centered in the remaining map area.
     flushSync(() => this.set({ activeId: id, selected: this.state.selected + 1, formUrl: formUrl(plot.feature, this.webForm, this.state.language) }));
-    if (previous && previous !== id) this.engine.setPlotColor(previous, STATUS_COLORS[this.state.statuses[previous]]);
+    if (previous && previous !== id) this.engine.setPlotColor(previous, this.colorOf(previous));
     this.engine.setPlotColor(id, ACTIVE_COLOR);
     if (this.pointNumbers) this.engine.setPointNumbers?.(pointNumbersOf(plot));
     if (wasClosed) this.engine.invalidateSize();
@@ -407,7 +448,7 @@ export class MapController {
   /** Previous/next plot among those currently shown in the list (all plots if none). */
   neighbourOf(id: string | null, step: 1 | -1): string | null {
     const { order, labels, statuses, filter, query } = this.state;
-    const visible = visibleIds(order, statuses, filter, query, labels);
+    const visible = visibleIds(order, statuses, filter, query, labels, this.periodView());
     return neighbour(visible.length ? visible : order, id, step);
   }
 
@@ -609,6 +650,12 @@ export class MapController {
 
   // ---------- list / layout ----------
   setFilter = (filter: ListFilter): void => { this.set({ filter }); this.savePref("filter", filter); };
+  /** The plots shown by what the collector said against the earlier period: the list, and the map, the others in grey */
+  setPeriodFilter = (periodFilter: PeriodFilter): void => {
+    this.set({ periodFilter });
+    this.savePref("periodFilter", periodFilter);
+    for (const id of this.state.order) if (id !== this.state.activeId) this.engine?.setPlotColor(id, this.colorOf(id));
+  };
   setQuery = (query: string): void => this.set({ query });
   setSidebarCollapsed = (collapsed: boolean): void => {
     this.set({ sidebarCollapsed: collapsed });

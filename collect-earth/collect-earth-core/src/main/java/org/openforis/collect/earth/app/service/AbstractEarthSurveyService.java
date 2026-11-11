@@ -8,6 +8,7 @@ import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_PARA
 import static org.openforis.collect.earth.app.EarthConstants.COLLECT_REASON_BLANK_NOT_SPECIFIED_MESSAGE;
 import static org.openforis.collect.earth.app.EarthConstants.OPERATOR_ATTRIBUTE_NAME;
 import static org.openforis.collect.earth.app.EarthConstants.OPERATOR_PARAMETER;
+import static org.openforis.collect.earth.app.EarthConstants.PERIOD_STATUS_ATTRIBUTE_NAME;
 import static org.openforis.collect.earth.app.EarthConstants.PLACEMARK_FOUND_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.ROOT_ENTITY_NAME;
 import static org.openforis.collect.earth.app.EarthConstants.SKIP_FILLED_PLOT_PARAMETER;
@@ -58,6 +59,7 @@ import org.openforis.collect.model.validation.CollectEarthValidator;
 import org.openforis.collect.model.validation.ValidationMessageBuilder;
 import org.openforis.collect.persistence.RecordPersistenceException;
 import org.openforis.idm.metamodel.AttributeDefinition;
+import org.openforis.idm.metamodel.CodeAttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.ModelVersion;
 import org.openforis.idm.metamodel.NodeDefinition;
@@ -67,6 +69,8 @@ import org.openforis.idm.metamodel.SurveyContext;
 import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.BooleanAttribute;
 import org.openforis.idm.model.BooleanValue;
+import org.openforis.idm.model.Code;
+import org.openforis.idm.model.CodeAttribute;
 import org.openforis.idm.model.DateAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.Node;
@@ -580,7 +584,41 @@ public abstract class AbstractEarthSurveyService {
 	 * its keys. The summary alone cannot tell it: whether it is submitted is a value of the record (actively_saved).
 	 */
 	public synchronized PlotStatus getPlotStatus(CollectRecordSummary summary) {
-		return getPlotStatus(recordManager.load(getCollectSurvey(), summary.getId(), Step.ENTRY, false));
+		return getPlotStatus(loadRecordOf(summary));
+	}
+
+	/** The record of a summary already loaded, loaded by its id (null when it is no longer there) */
+	public synchronized CollectRecord loadRecordOf(CollectRecordSummary summary) {
+		return recordManager.load(getCollectSurvey(), summary.getId(), Step.ENTRY, false);
+	}
+
+	/**
+	 * Whether the survey is a repeat survey's: its plot has the period status the cloud adds to it, which the collector
+	 * answers against the plot's earlier period (see {@link #getPeriodStatus(CollectRecord)}).
+	 */
+	public boolean hasPeriodStatus() {
+		CollectSurvey survey = getCollectSurvey();
+		if (survey == null) {
+			return false;
+		}
+		EntityDefinition plot = survey.getSchema().getRootEntityDefinition(ROOT_ENTITY_NAME);
+		return plot != null && plot.getChildDefinition(PERIOD_STATUS_ATTRIBUTE_NAME) instanceof CodeAttributeDefinition;
+	}
+
+	/**
+	 * What the collector said of the plot against its earlier period, in a repeat survey: its period status's code
+	 * ("same", "changed", "corrected"), or null when not answered, or when the survey has none.
+	 */
+	public static String getPeriodStatus(CollectRecord record) {
+		if (record == null) {
+			return null;
+		}
+		Node<?> node = record.findNodeByPath(ROOT_ENTITY_NAME + "/" + PERIOD_STATUS_ATTRIBUTE_NAME); //$NON-NLS-1$
+		if (!(node instanceof CodeAttribute)) {
+			return null;
+		}
+		Code code = ((CodeAttribute) node).getValue();
+		return code == null || code.getCode() == null || code.getCode().trim().isEmpty() ? null : code.getCode().trim();
 	}
 
 	public static PlotStatus getPlotStatus(CollectRecord record) {

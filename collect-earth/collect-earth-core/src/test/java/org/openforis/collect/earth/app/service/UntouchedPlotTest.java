@@ -107,6 +107,24 @@ class UntouchedPlotTest {
 	}
 
 	@Test
+	void thePeriodStatusOfARepeatSurveyIsReadFromTheRecord() {
+		// the plots map filters a repeat survey's plots by what the collector said against the earlier period
+		assertTrue(service.hasPeriodStatus());
+		open();
+		assertEquals(null, AbstractEarthSurveyService.getPeriodStatus(save("collect_code_land_use", "F").getCollectRecord()));
+		PlacemarkLoadResult result = save("collect_code_period_status", "changed");
+		assertEquals("changed", AbstractEarthSurveyService.getPeriodStatus(result.getCollectRecord()));
+		assertEquals(PlotStatus.IN_PROGRESS, AbstractEarthSurveyService.getPlotStatus(result.getCollectRecord()));
+		assertEquals(null, AbstractEarthSurveyService.getPeriodStatus((CollectRecord) null));
+	}
+
+	@Test
+	void noSurveyIsNoRepeatSurvey() {
+		assertFalse(new AbstractEarthSurveyService() {
+		}.hasPeriodStatus());
+	}
+
+	@Test
 	void theFirstAnswerStoresTheRecordOnceAndStartsThePlot() {
 		open();
 		PlacemarkLoadResult result = save("collect_code_land_use", "F");

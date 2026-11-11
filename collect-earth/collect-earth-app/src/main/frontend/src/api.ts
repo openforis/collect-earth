@@ -17,7 +17,8 @@ export async function fetchPlots(): Promise<{ features?: PlotFeature[]; warning?
   return r.json();
 }
 
-export async function fetchStatuses(since: number | null): Promise<{ now: number; statuses: Record<string, PlotStatus> }> {
+/** The plots' statuses saved since `since`, with a repeat survey's period status of each ("" when not answered). */
+export async function fetchStatuses(since: number | null): Promise<{ now: number; statuses: Record<string, PlotStatus>; periods?: Record<string, string> }> {
   const r = await fetch(earthBase() + "plotStatuses" + (since ? "?since=" + since : ""));
   return r.json();
 }

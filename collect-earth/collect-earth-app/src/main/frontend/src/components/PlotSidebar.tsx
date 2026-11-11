@@ -7,6 +7,7 @@ import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
 import LinearProgress from "@mui/material/LinearProgress";
 import ListItemButton from "@mui/material/ListItemButton";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -19,10 +20,10 @@ import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
 import SearchIcon from "@mui/icons-material/Search";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
 import type { MapController, UiState } from "../controller";
-import { countStatuses, matchesElsewhere, plotLabel, visibleIds } from "../plots";
+import { countPeriods, countStatuses, matchesElsewhere, plotLabel, visibleIds, type PeriodView } from "../plots";
 import { useT } from "../i18n";
 import { HANDS_FOCUS } from "../shortcuts";
-import type { ListFilter, PlotStatus } from "../types";
+import { FADED_COLOR, PERIOD_FILTERS, type ListFilter, type PeriodFilter, type PlotStatus } from "../types";
 import { Kbd, StatusDot } from "./common";
 import { useUiScale } from "../uiScale";
 
@@ -46,7 +47,11 @@ export function PlotSidebar({ controller, state, collapsed, onCollapsedChange, f
   const setCollapsed = onCollapsedChange ?? controller.setSidebarCollapsed;
   const canCollapse = collapsed === undefined || onCollapsedChange !== undefined;
   const counts = useMemo(() => countStatuses(order, statuses), [order, statuses]);
-  const visible = useMemo(() => visibleIds(order, statuses, filter, query, labels), [order, statuses, filter, query, labels]);
+  const { repeat, periods, periodFilter } = state;
+  // a repeat survey's filter by what the collector said against the earlier period (see MapController.periodView)
+  const period = useMemo<PeriodView | null>(() => (repeat ? { periods, filter: periodFilter } : null), [repeat, periods, periodFilter]);
+  const periodCounts = useMemo(() => countPeriods(order, periods), [order, periods]);
+  const visible = useMemo(() => visibleIds(order, statuses, filter, query, labels, period), [order, statuses, filter, query, labels, period]);
 
   // Debounced search: typing stays responsive with thousands of plots
   const [text, setText] = useState(query);
@@ -56,8 +61,8 @@ export function PlotSidebar({ controller, state, collapsed, onCollapsedChange, f
   }, [text, controller]);
   // the search cleared elsewhere (its chip in the form's header): the box too
   useEffect(() => { if (query === "") setText(""); }, [query]);
-  const elsewhere = useMemo(() => (visible.length ? null : matchesElsewhere(order, statuses, filter, query, labels)),
-    [visible, order, statuses, filter, query, labels]);
+  const elsewhere = useMemo(() => (visible.length ? null : matchesElsewhere(order, statuses, filter, query, labels, period)),
+    [visible, order, statuses, filter, query, labels, period]);
 
   if (sidebarCollapsed) {
     return (
@@ -120,6 +125,16 @@ export function PlotSidebar({ controller, state, collapsed, onCollapsedChange, f
           <ToggleButton value="saved" data-filter="saved">{t("filter.saved")}&nbsp;<Count n={counts.saved} /></ToggleButton>
         </ToggleButtonGroup>
 
+        {repeat && (
+          <TextField select size="small" label={t("periodFilter.label")} value={periodFilter}
+            onChange={(e) => controller.setPeriodFilter(e.target.value as PeriodFilter)}
+            slotProps={{ htmlInput: { "data-testid": "period-filter" } }}>
+            {PERIOD_FILTERS.map((f) => (
+              <MenuItem key={f} value={f} data-period={f}>{t(`periodFilter.${f}`)}&nbsp;<Count n={periodCounts[f]} /></MenuItem>
+            ))}
+          </TextField>
+        )}
+
         <Button variant="contained" disableElevation fullWidth startIcon={<SkipNextIcon />}
           endIcon={<Kbd>N</Kbd>} onClick={controller.goToNextUnfinished} disabled={!counts.total}
           data-testid="next-unfinished" {...{ [HANDS_FOCUS]: true }}>
@@ -153,6 +168,13 @@ export function PlotSidebar({ controller, state, collapsed, onCollapsedChange, f
             <Typography variant="caption" color="text.secondary">{t(`status.${s}`)}</Typography>
           </Stack>
         ))}
+        {repeat && periodFilter !== "all" && (
+          <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }} data-testid="period-faded">
+            <Box component="span" aria-hidden sx={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, display: "inline-block", bgcolor: FADED_COLOR,
+              boxShadow: "0 0 0 2px var(--mui-palette-background-paper), 0 0 0 3px rgba(0,0,0,.15)" }} />
+            <Typography variant="caption" color="text.secondary">{t("periodFilter.faded")}</Typography>
+          </Stack>
+        )}
       </Stack>
     </Paper>
   );

@@ -1,6 +1,11 @@
 export type LatLng = [number, number];
 export type PlotStatus = "empty" | "partial" | "saved";
 export type ListFilter = "all" | "pending" | "saved";
+/** What the collector said of a plot of a repeat survey against its earlier period (the survey's period_status) */
+export type PeriodAnswer = "same" | "changed" | "corrected";
+/** The plots of a repeat survey shown by that answer: all, those of one answer, or those not answered yet */
+export type PeriodFilter = "all" | PeriodAnswer | "none";
+export const PERIOD_FILTERS: PeriodFilter[] = ["all", "same", "changed", "corrected", "none"];
 
 export interface PlotFeature {
   type: "Feature";
@@ -59,5 +64,7 @@ export const STATUS_COLORS: Record<PlotStatus, string> = {
   partial: "#fdd835",
   saved: "#43a047",
 };
+/** A plot the filter by the earlier period leaves out, on the map: grey, the plots shown keep their status colours */
+export const FADED_COLOR = "#9e9e9e";
 /** The selected plot, in the yellow Collect Earth has always drawn plots in (as in Google Earth Web and Pro). */
 export const ACTIVE_COLOR = "#ffff00";

@@ -15,6 +15,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.IOUtils;
+import org.openforis.collect.earth.app.service.AbstractEarthSurveyService;
 import org.openforis.collect.earth.app.service.AbstractEarthSurveyService.PlotStatus;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
@@ -24,6 +25,7 @@ import org.openforis.collect.earth.app.service.PlotGeoJsonBuilder;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
+import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecordSummary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,7 +41,8 @@ import com.opencsv.CSVReader;
  * Serves the plots map and web form pages (classpath assets under /leafletmap, built from the React
  * project in src/main/frontend) and the two
  * JSON endpoints it consumes: /plotsGeoJson (all plot geometries+properties)
- * and /plotStatuses (incremental id->status map for the live coloring).
+ * and /plotStatuses (incremental id->status map for the live coloring, with a repeat survey's period status of each
+ * plot).
  */
 @Controller
 public class LeafletMapController {
@@ -264,6 +267,10 @@ public class LeafletMapController {
 			// Same overlap-window pattern as PlacemarkUpdateServlet.getTwoMinutesAgo().
 			long now = System.currentTimeMillis() - STATUS_CURSOR_OVERLAP_MILLIS;
 			Map<String, String> statuses = new LinkedHashMap<>();
+			// A repeat survey's: what the collector said of each plot against the earlier period ("" when not answered),
+			// for the list and the map to show only the plots said changed, for instance
+			boolean repeat = earthSurveyService.hasPeriodStatus();
+			Map<String, String> periods = new LinkedHashMap<>();
 			// Each status loads a whole record. A survey database holds records of many more plots than the
 			// plot file on the map ( 17,968 for 15 plots ): loading all of them took minutes, and the polls
 			// piled up until the browser had no connection left to load the page with
@@ -277,7 +284,12 @@ public class LeafletMapController {
 					try {
 						// a record with nothing answered (stored by opening the plot, before) is not started; loaded by the id of
 						// its summary, not looked for again by its keys
-						statuses.put(String.join(",", keys), statusName(earthSurveyService.getPlotStatus(summary)));
+						CollectRecord record = earthSurveyService.loadRecordOf(summary);
+						statuses.put(String.join(",", keys), statusName(AbstractEarthSurveyService.getPlotStatus(record)));
+						if (repeat) {
+							String period = AbstractEarthSurveyService.getPeriodStatus(record);
+							periods.put(String.join(",", keys), period == null ? "" : period);
+						}
 					} catch (Exception e) {
 						logger.debug("Could not read status for {}", keys);
 					}
@@ -286,6 +298,9 @@ public class LeafletMapController {
 			Map<String, Object> result = new LinkedHashMap<>();
 			result.put("now", now);
 			result.put("statuses", statuses);
+			if (repeat) {
+				result.put("periods", periods);
+			}
 			json.writeValue(response.getOutputStream(), result);
 		} catch (Exception e) {
 			logger.error("Error generating plot statuses", e);

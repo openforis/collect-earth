@@ -161,8 +161,7 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
   desktop by its collector; the form of a plot opened on its 2020 header, Submit refused until answered, "Still the
   same" and "Changed since 2020" saved as the record's `period_status`. The demo survey's "Invalid value" on its land
   cover rows is its own (the 2020 project's form shows the same).
-- Left for later: the plots map's filter of the plots changed since the earlier period, and copying numbers on "Still
-  the same".
+- Left for later: copying numbers on "Still the same". (The plots map's filter: built, below.)
 
 ## Stage 3, as built (11 Nov 2026)
 
@@ -225,3 +224,21 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
   shares first, then 12,000 ha saved: 2,000 ± 3,920 ha changed, Forest −2,000 ha, Cropland +2,000 ha, the file).
 - Not done: a finite population correction (as the uncertainty page has none), and areas of more than one question
   at a time.
+
+## The desktop's filter by the earlier period, as built (11 Nov 2026)
+
+- Collect Earth (`AbstractEarthSurveyService`): `hasPeriodStatus()` (the survey's plot has `period_status`: a repeat
+  survey's) and `getPeriodStatus(record)` (its code, null when not answered); `loadRecordOf(summary)` loads a record
+  once for both its status and its period status. `/earth/plotStatuses` sends `periods` (plot id → `same`, `changed`,
+  `corrected`, or "" when not answered) with the statuses, for a repeat survey only.
+- The plots map (`plots.ts`: `matchesPeriod`, `countPeriods`, `plotColor`; `MapController.setPeriodFilter`): on a
+  repeat survey, under the status chips, **Compared with the earlier period**: All plots, Still the same, Changed since
+  then, Wrongly interpreted then, Not answered yet, each with its count. The list shows the plots of the answer chosen
+  (with the status chips and the search), and the map keeps their colours and draws the others grey ("Left out by the
+  filter" in the legend); stepping to the previous or next plot follows the list. The choice is remembered, and ignored
+  on a project that repeats no survey. What the collector said on this computer only: the cloud's Map tab has
+  everyone's. Texts in en/es/fr/pt.
+- Checked: `UntouchedPlotTest` (the period status read from the record), `plots.test.ts`, the Java suites, and a real
+  run: the 2025 repeat survey joined from the desktop, three plots answered (same, changed, corrected) in their forms;
+  the filter counted 1/1/1/5, "Changed since then" listed plot 2 alone with the 7 others grey on the map, "Not answered
+  yet" the 5 others, and the choice was kept after a reload.

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { byId, changedAfterSubmit, countStatuses, footprintCorners, indexPlots, heightForZoom, labelOfFeature, leftUnsubmitted, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotParam, plotsNear,
   MAX_VIEW_HEIGHT, matchesElsewhere, plotLabel, plotToRestore, plotsGone, previousMessage, previousPlot, previousStands, sameView, surveyView,
-  withoutPlotParam, visibleIds, zoomForHeight } from "./plots";
-import type { PlotStatus } from "./types";
+  withoutPlotParam, visibleIds, zoomForHeight, countPeriods, matchesPeriod, periodAnswer, plotColor } from "./plots";
+import { ACTIVE_COLOR, FADED_COLOR, STATUS_COLORS, type PeriodAnswer, type PlotStatus } from "./types";
 
 const order = ["p1", "p2", "p3", "p4", "p10"];
 const statuses: Record<string, PlotStatus> = { p1: "saved", p2: "partial", p3: "saved", p4: "empty", p10: "saved" };
@@ -305,5 +305,43 @@ describe("surveyView", () => {
     const view = surveyView([[-40, -70], [60, 140]]);
     expect(view.heightMeters).toBe(MAX_VIEW_HEIGHT);
     expect(view.heightMeters).toBeLessThanOrEqual(2.0e7);
+  });
+});
+
+describe("a repeat survey's filter by the earlier period", () => {
+  const periods = Object.assign(byId<PeriodAnswer>(), { p1: "same", p2: "changed", p3: "corrected" } as const);
+
+  it("shows the plots of one answer, or those not answered yet, and the search and the status chip still apply", () => {
+    expect(visibleIds(order, statuses, "all", "", byId(), { periods, filter: "all" })).toEqual(order);
+    expect(visibleIds(order, statuses, "all", "", byId(), { periods, filter: "changed" })).toEqual(["p2"]);
+    expect(visibleIds(order, statuses, "all", "", byId(), { periods, filter: "none" })).toEqual(["p4", "p10"]);
+    expect(visibleIds(order, statuses, "saved", "", byId(), { periods, filter: "none" })).toEqual(["p10"]);
+    expect(visibleIds(order, statuses, "all", "1", byId(), { periods, filter: "same" })).toEqual(["p1"]);
+    // a project that repeats no survey is not filtered by it
+    expect(visibleIds(order, statuses, "all", "", byId(), null)).toEqual(order);
+    expect(matchesPeriod(undefined, "same")).toBe(false);
+    expect(matchesPeriod("corrected", "corrected")).toBe(true);
+  });
+
+  it("counts the plots of each answer", () => {
+    expect(countPeriods(order, periods)).toEqual({ all: 5, same: 1, changed: 1, corrected: 1, none: 2 });
+  });
+
+  it("reads the answers the server sends: anything else is not answered", () => {
+    expect(["same", "changed", "corrected", "", "other", null].map(periodAnswer)).toEqual(["same", "changed", "corrected", null, null, null]);
+  });
+
+  it("greys out on the map the plots the filter leaves out; the selected one stays yellow", () => {
+    const view = { periods, filter: "changed" as const };
+    expect(plotColor("p2", null, statuses, view)).toBe(STATUS_COLORS.partial);
+    expect(plotColor("p1", null, statuses, view)).toBe(FADED_COLOR);
+    expect(plotColor("p1", "p1", statuses, view)).toBe(ACTIVE_COLOR);
+    expect(plotColor("p1", null, statuses, { periods, filter: "all" })).toBe(STATUS_COLORS.saved);
+    expect(plotColor("p4", null, statuses, null)).toBe(STATUS_COLORS.empty);
+    expect(plotColor("unknown", null, statuses, null)).toBe(STATUS_COLORS.empty);
+  });
+
+  it("offers the plots of the other status chip the search finds, filtered by the earlier period too", () => {
+    expect(matchesElsewhere(order, statuses, "pending", "p", byId(), { periods, filter: "same" })).toEqual({ count: 1, filter: "saved" });
   });
 });
