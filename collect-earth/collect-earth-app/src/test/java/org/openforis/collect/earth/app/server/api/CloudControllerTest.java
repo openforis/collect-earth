@@ -71,6 +71,32 @@ public class CloudControllerTest {
 	}
 
 	@Test
+	public void theLoginWithTheSecondStepsCodeOrRefused() throws Exception {
+		when(cloud.login("maria", "pw", "123456")).thenReturn("maria");
+		mvc.perform(post("/api/cloud/login").contentType(MediaType.APPLICATION_JSON).content("{\"username\":\"maria\",\"password\":\"pw\",\"code\":\"123456\"}"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.operator").value("maria"));
+		when(cloud.login("maria", "wrong")).thenThrow(new InvalidCloudRequestException("cloud.login", "Invalid credentials"));
+		mvc.perform(post("/api/cloud/login").contentType(MediaType.APPLICATION_JSON).content("{\"username\":\"maria\",\"password\":\"wrong\"}"))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("cloud.login"));
+	}
+
+	@Test
+	public void theSettingsLogInGivesTheTokenOfTheServerTyped() throws Exception {
+		when(cloud.token("https://ce.example.org", "maria", "pw")).thenReturn("token-1");
+		mvc.perform(post("/api/cloud/token").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"url\":\"https://ce.example.org\",\"username\":\"maria\",\"password\":\"pw\",\"code\":\" \"}"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.token").value("token-1"));
+		when(cloud.token("https://ce.example.org", "maria", "pw", "123456")).thenReturn("token-2");
+		mvc.perform(post("/api/cloud/token").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"url\":\"https://ce.example.org\",\"username\":\"maria\",\"password\":\"pw\",\"code\":\"123456\"}"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.token").value("token-2"));
+		when(cloud.token("https://ce.example.org", "maria", "wrong")).thenThrow(new InvalidCloudRequestException("cloud.login", "Invalid credentials"));
+		mvc.perform(post("/api/cloud/token").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"url\":\"https://ce.example.org\",\"username\":\"maria\",\"password\":\"wrong\"}"))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").value("Invalid credentials"));
+	}
+
+	@Test
 	public void theStatusAndSyncNow() throws Exception {
 		Map<String, Object> status = new LinkedHashMap<>();
 		status.put("enabled", true);

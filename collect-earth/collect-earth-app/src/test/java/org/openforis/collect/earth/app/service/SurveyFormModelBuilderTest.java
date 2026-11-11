@@ -171,6 +171,15 @@ public class SurveyFormModelBuilderTest {
 		// a number before the sum is turned round; == is =
 		Map<String, Object> flipped = SurveyFormModelBuilder.sumRules("100 > sum(cover/pct)", "cover", "pct").get(0);
 		assertEquals("<", flipped.get("op"));
+		// every comparison turned round: 90 <= sum is sum >= 90...
+		assertEquals(">=", SurveyFormModelBuilder.sumRules("90 <= sum(cover/pct)", "cover", "pct").get(0).get("op"));
+		assertEquals("<=", SurveyFormModelBuilder.sumRules("100 >= sum(cover/pct)", "cover", "pct").get(0).get("op"));
+		assertEquals(">", SurveyFormModelBuilder.sumRules("0 < sum(cover/pct)", "cover", "pct").get(0).get("op"));
+		assertEquals("=", SurveyFormModelBuilder.sumRules("100 = sum(cover/pct)", "cover", "pct").get(0).get("op"));
+		// a long check is read without a stack overflow (the sum's pattern does not backtrack)
+		StringBuilder longPath = new StringBuilder("parent()");
+		for (int i = 0; i < 20000; i++) longPath.append("/x");
+		assertTrue(SurveyFormModelBuilder.sumRules("sum(" + longPath + "/pct) >= 90", "cover", "pct").isEmpty());
 		assertEquals("=", SurveyFormModelBuilder.sumRules("sum(cover/pct) == 100", "cover", "pct").get(0).get("op"));
 		// another column, a filtered sum, an "or", a sum compared to an expression: nothing to show
 		assertTrue(SurveyFormModelBuilder.sumRules("sum(cover/other) = 100", "cover", "pct").isEmpty());
