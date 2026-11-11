@@ -234,6 +234,25 @@ describe('a new project from a Collect Earth backup', () => {
     expect(text.split('\n').filter((l) => l !== '').map((l) => l.split(',')[0])).toEqual(['id', 'P2', 'P4', 'P5']);
   });
 
+  it("reads Collect's own backup (.collect): its records under data/, or none, with its grid as the plot file", async () => {
+    const collectLayout = Object.fromEntries(Object.entries(SAMPLE_RECORDS).map(([path, xml]) => [`data/${path}`, xml]));
+    const withData = await post('/preview', { backup: backup(sampleBackupZip(collectLayout)) });
+    expect(withData.statusCode, withData.body).toBe(200);
+    expect(withData.json().records.total).toBe(Object.keys(SAMPLE_RECORDS).length);
+
+    expect(withData.json().strata).toBeNull();
+
+    // a backup of the survey alone: no records, its plots all to give out, the strata's areas into the project file
+    const areas = 'region,area\nNorth,1000\nSouth,500\n';
+    const surveyOnly = sampleBackupZip({ 'info.properties': 'survey_name=backup_sample\n', 'files/ce_area/areas.csv': areas });
+    expect((await post('/preview', { backup: backup(surveyOnly) })).json().strata).toBe(2);
+    const res = await post('', { backup: backup(surveyOnly), plotFile: PLOT_FILE, plotFileName: 'ce_grid.csv' });
+    expect(res.statusCode, res.body).toBe(201);
+    expect(res.json()).toMatchObject({ records: 0, plotFile: { filename: 'ce_grid.csv', plots: 5 } });
+    const cep = readCep(Buffer.from((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${res.json().projectId}/cep`, headers: bearer(owner.token) })).rawPayload));
+    expect(new TextDecoder().decode(cep.entries.get('areas_per_attribute.csv'))).toBe(areas);
+  });
+
   it('adds the round to a survey without one, and to its records', async () => {
     const res = await post('', { backup: backup(sampleBackupZip(NO_ROUND_RECORDS, NO_ROUND_SURVEY)) });
     expect(res.statusCode, res.body).toBe(201);

@@ -30,3 +30,12 @@ export function layoutProblem(l: PlotLayout): MessageKey | null {
 
 /** A number of metres or hectares, at most two decimals, as people read them. */
 export const round2 = (n: number) => String(Math.round(n * 100) / 100);
+
+/** A CSV file's text: UTF-8, or Windows-1252 when it is not (older plot files), so accented strata keep their letters. */
+export function csvText(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder("windows-1252").decode(bytes);
+  }
+}

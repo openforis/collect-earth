@@ -24,6 +24,7 @@ import {
   type BackupZip,
 } from '../backupImport.js';
 import { CepError, readCep } from '../cep.js';
+import { ATTRIBUTE_AREAS_CSV } from '../analysis.js';
 import { madeProjectFile } from '../ceo/projectFile.js';
 import type { PlotLayout } from '../ceo/plots.js';
 import { checkUploadFits } from '../limits.js';
@@ -205,6 +206,8 @@ function preview(read: ReadBackup, plotFile: GivenPlotFile | null) {
       /** plots of the records not in the original plot file */
       notInFile: inFile ? [...withRecords.keys()].filter((p) => !inFile.has(p)).length : null,
     },
+    /** the strata with an area (lines of the backup's areas_per_attribute.csv), null without the file */
+    strata: read.zip.areas === null ? null : Math.max(0, read.zip.areas.split(/\r?\n/).filter((l) => l.trim() !== '').length - 1),
     layout: suggestedLayout(survey),
     survey: { plotAreaHa: survey.plotAreaHa, samplePoints: survey.samplePoints, plotColumns: survey.plotColumns },
   };
@@ -280,6 +283,8 @@ export async function registerBackupImportRoutes(app: FastifyInstance, store: St
         comment: 'Collect Earth project made from a backup of its data',
         columns: original.plotColumns,
         layout,
+        // the strata's areas, for the plots' expansion factors (analysis.ts), at the project file's root as Collect Earth's are
+        files: read.zip.areas !== null ? new Map([[ATTRIBUTE_AREAS_CSV, read.zip.areas]]) : undefined,
       },
       new Date(),
     );

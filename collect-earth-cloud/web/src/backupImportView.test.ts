@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { layoutProblem, layoutSize, megabytes, round2 } from "./backupImportView";
+import { csvText, layoutProblem, layoutSize, megabytes, round2 } from "./backupImportView";
 
 const square = { shape: "SQUARE" as const, points: 49, distance: 10.1, boundary: 5.05, pointSide: 2 };
 
@@ -23,5 +23,12 @@ describe("the plot layout of a backup's project", () => {
 
   it("writes sizes in megabytes", () => {
     expect(megabytes(23 * 1024 * 1024)).toBe("23.0");
+  });
+});
+
+describe("csvText", () => {
+  it("reads UTF-8, and a Windows-1252 file keeps its accented letters", () => {
+    expect(csvText(new TextEncoder().encode("class_forest,area\nForêt Classée,10\n"))).toBe("class_forest,area\nForêt Classée,10\n");
+    expect(csvText(new Uint8Array([0x46, 0x6f, 0x72, 0xea, 0x74]))).toBe("Forêt");
   });
 });

@@ -1203,6 +1203,8 @@ export interface BackupImportPreview {
     toDo: number;
     notInFile: number | null;
   };
+  /** the strata with an area in the backup's areas_per_attribute.csv (a .collect's), null without one */
+  strata: number | null;
   /** the layout the survey suggests (its plot area and points) */
   layout: PlotLayout;
   survey: { plotAreaHa: number | null; samplePoints: number | null; plotColumns: string[] };
@@ -1474,10 +1476,13 @@ export function uploadCsvFile(projectId: string, file: File, onProgress?: Progre
 }
 
 /** The plot files a project file brings in its grid folder (grid/*.csv, sub-folders left out). */
-export async function cepGridFiles(cep: Blob): Promise<File[]> {
-  const isGrid = (name: string) => /^grid\/[^/]+\.csv$/i.test(name);
-  const entries = unzipSync(new Uint8Array(await cep.arrayBuffer()), { filter: (f) => isGrid(f.name) });
-  return Object.entries(entries).map(([name, data]) => new File([data], name.slice("grid/".length), { type: "text/csv" }));
+export const cepGridFiles = (cep: Blob) => zipCsvFiles(cep, "grid/");
+
+/** The CSV files directly in a folder of a zip ("grid/" of a .cep, "files/ce_grid/" of Collect's .collect backup). */
+export async function zipCsvFiles(zip: Blob, folder: string): Promise<File[]> {
+  const isCsv = (name: string) => name.toLowerCase().startsWith(folder) && /^[^/]+\.csv$/i.test(name.slice(folder.length));
+  const entries = unzipSync(new Uint8Array(await zip.arrayBuffer()), { filter: (f) => isCsv(f.name) });
+  return Object.entries(entries).map(([name, data]) => new File([data], name.slice(folder.length), { type: "text/csv" }));
 }
 
 /**
