@@ -107,10 +107,20 @@ export const looksLikeRecoveryCode = (code: string) => /^[A-Za-z0-9]{4}-?[A-Za-z
 
 // --- the secret, encrypted -----------------------------------------------------------------------------------------
 
-/** The key the secrets are encrypted with: from LINK_SECRET, or from DATABASE_URL (as the links' keys are). */
-export function twoFactorKey(config: { linkSecret?: string; databaseUrl?: string }): Buffer {
-  const base = config.linkSecret ?? config.databaseUrl ?? 'collect-earth-cloud:memory-store';
-  return createHash('sha256').update(`collect-earth-cloud:two-factor:${base}`).digest();
+/** A key, with the one used before it (`older`), which the secrets saved then are still read with. */
+export type TwoFactorKey = Buffer & { older?: Buffer };
+
+const keyOf = (base: string) => createHash('sha256').update(`collect-earth-cloud:two-factor:${base}`).digest();
+
+/**
+ * The key the secrets are encrypted with: from LINK_SECRET, or from DATABASE_URL (as the links' keys are). With
+ * LINK_SECRET, DATABASE_URL's is kept as the older one: a server given LINK_SECRET later (for mail) would otherwise lock
+ * out everyone who turned two-step sign-in on before it.
+ */
+export function twoFactorKey(config: { linkSecret?: string; databaseUrl?: string }): TwoFactorKey {
+  const key: TwoFactorKey = keyOf(config.linkSecret ?? config.databaseUrl ?? 'collect-earth-cloud:memory-store');
+  if (config.linkSecret && config.databaseUrl) key.older = keyOf(config.databaseUrl);
+  return key;
 }
 
 export function encryptSecret(secret: string, key: Buffer): string {
@@ -120,15 +130,23 @@ export function encryptSecret(secret: string, key: Buffer): string {
   return ['v1', iv.toString('base64url'), cipher.getAuthTag().toString('base64url'), data.toString('base64url')].join('.');
 }
 
-/** The secret, or null when it cannot be read (the key changed: LINK_SECRET or the database address). */
-export function decryptSecret(stored: string, key: Buffer): string | null {
+/**
+ * The secret, read with the key or else its older one (see twoFactorKey); null when neither reads it (the key changed
+ * otherwise: another LINK_SECRET or database address).
+ * shortcut: a secret read with the older key is not saved again under the new one (the store has no call for that), so
+ * a later change of DATABASE_URL would make it unreadable; re-encrypt it on sign-in when the store gets such a call.
+ */
+export function decryptSecret(stored: string, key: TwoFactorKey): string | null {
   const [v, iv, tag, data] = stored.split('.');
   if (v !== 'v1' || !iv || !tag || !data) return null;
-  try {
-    const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
-    decipher.setAuthTag(Buffer.from(tag, 'base64url'));
-    return Buffer.concat([decipher.update(Buffer.from(data, 'base64url')), decipher.final()]).toString('utf8');
-  } catch {
-    return null;
+  for (const k of key.older ? [key, key.older] : [key]) {
+    try {
+      const decipher = createDecipheriv('aes-256-gcm', k, Buffer.from(iv, 'base64url'));
+      decipher.setAuthTag(Buffer.from(tag, 'base64url'));
+      return Buffer.concat([decipher.update(Buffer.from(data, 'base64url')), decipher.final()]).toString('utf8');
+    } catch {
+      // not this key
+    }
   }
+  return null;
 }

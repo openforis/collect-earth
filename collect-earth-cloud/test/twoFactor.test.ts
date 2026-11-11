@@ -45,6 +45,15 @@ describe('the codes', () => {
     expect(decryptSecret(stored, twoFactorKey({ linkSecret: 'two' }))).toBeNull();
   });
 
+  it('still read a secret saved before LINK_SECRET was set (with the key of DATABASE_URL), not one of another database', () => {
+    const before = encryptSecret('JBSWY3DPEHPK3PXP', twoFactorKey({ databaseUrl: 'postgres://db/ce' }));
+    const now = twoFactorKey({ linkSecret: 'mail', databaseUrl: 'postgres://db/ce' });
+    expect(decryptSecret(before, now)).toBe('JBSWY3DPEHPK3PXP');
+    // new secrets are saved with LINK_SECRET's key
+    expect(decryptSecret(encryptSecret('NEW', now), twoFactorKey({ linkSecret: 'mail' }))).toBe('NEW');
+    expect(decryptSecret(before, twoFactorKey({ linkSecret: 'mail', databaseUrl: 'postgres://other/ce' }))).toBeNull();
+  });
+
   it('give ten recovery codes, told apart from app codes, hashed whatever their case and dashes', () => {
     const codes = newRecoveryCodes();
     expect(codes).toHaveLength(10);
