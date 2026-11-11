@@ -3,12 +3,18 @@ import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
+import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Grid from "@mui/material/Grid";
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import MenuItem from "@mui/material/MenuItem";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -16,11 +22,13 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Add from "@mui/icons-material/Add";
+import ContentCopy from "@mui/icons-material/ContentCopy";
+import Description from "@mui/icons-material/Description";
 import FolderOpen from "@mui/icons-material/FolderOpen";
 import Public from "@mui/icons-material/Public";
 import Unarchive from "@mui/icons-material/Unarchive";
-import { useState, type FormEvent } from "react";
-import { createProject, listProjects } from "../api";
+import { useState, type FormEvent, type ReactNode } from "react";
+import { copyProject, createProject, listProjects, type Membership } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
@@ -51,8 +59,8 @@ function NewProjectDialog({ open, onClose }: { open: boolean; onClose: () => voi
     try {
       const created = await createProject(name.trim());
       await refreshMe();
-      // A new project starts on its getting-started checklist.
-      navigate(pathFor({ name: "project", projectId: created.projectId, tab: "setup" }));
+      // Started "from a project file": it opens where the .cep is dropped (which also adds its grid files and round).
+      navigate(pathFor({ name: "project", projectId: created.projectId, tab: "file" }));
     } catch (err) {
       setError(err);
     } finally {
@@ -63,7 +71,7 @@ function NewProjectDialog({ open, onClose }: { open: boolean; onClose: () => voi
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <form onSubmit={submit} noValidate>
-        <DialogTitle>{t("projects.newTitle")}</DialogTitle>
+        <DialogTitle>{t("projects.fromCep")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <TextField
@@ -93,36 +101,123 @@ function NewProjectDialog({ open, onClose }: { open: boolean; onClose: () => voi
   );
 }
 
+type Start = "cep" | "backup" | "ceo" | "copy";
+
+/** The New project button's question: how the new project starts. */
+function StartDialog({ canCopy, onChoose, onClose }: { canCopy: boolean; onChoose: (start: Start) => void; onClose: () => void }) {
+  const t = useT();
+  const starts: { start: Start; icon: ReactNode; title: string; help: string }[] = [
+    { start: "cep", icon: <Description />, title: t("projects.fromCep"), help: t("projects.fromCep.help") },
+    { start: "backup", icon: <Unarchive />, title: t("projects.fromBackup"), help: t("projects.fromBackup.help") },
+    { start: "ceo", icon: <Public />, title: t("projects.fromCeo"), help: t("projects.fromCeo.help") },
+    ...(canCopy ? [{ start: "copy" as const, icon: <ContentCopy />, title: t("projects.fromCopy"), help: t("projects.fromCopy.help") }] : []),
+  ];
+  return (
+    <Dialog open onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>{t("projects.startTitle")}</DialogTitle>
+      <DialogContent sx={{ px: 1 }}>
+        <List>
+          {starts.map((s) => (
+            <ListItemButton key={s.start} onClick={() => onChoose(s.start)} sx={{ borderRadius: 1 }}>
+              <ListItemIcon sx={{ color: "primary.main" }}>{s.icon}</ListItemIcon>
+              <ListItemText primary={s.title} secondary={s.help} />
+            </ListItemButton>
+          ))}
+        </List>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>{t("common.cancel")}</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+/** A new draft project from one the user coordinates: the same request as Settings › Copy this project. */
+function CopyDialog({ projects, onClose }: { projects: Membership[]; onClose: () => void }) {
+  const t = useT();
+  const { refreshMe } = useApp();
+  const [sourceId, setSourceId] = useState(projects[0].projectId);
+  const sourceName = projects.find((p) => p.projectId === sourceId)?.projectName ?? "";
+  // null until typed: the default name follows the project chosen.
+  const [name, setName] = useState<string | null>(null);
+  const value = name ?? t("copy.defaultName", { name: sourceName });
+  const [members, setMembers] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!value.trim()) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const copy = await copyProject(sourceId, value.trim(), members);
+      await refreshMe();
+      navigate(pathFor({ name: "project", projectId: copy.projectId, tab: "setup" }));
+    } catch (err) {
+      setError(err);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open onClose={onClose} fullWidth maxWidth="sm">
+      <form onSubmit={submit} noValidate>
+        <DialogTitle>{t("projects.fromCopy")}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Typography color="text.secondary">{t("projects.fromCopy.help")}</Typography>
+            <TextField select label={t("projects.copyFrom")} value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
+              {projects.map((p) => (
+                <MenuItem key={p.projectId} value={p.projectId}>
+                  {p.projectName}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label={t("copy.nameLabel")}
+              value={value}
+              onChange={(e) => setName(e.target.value)}
+              error={value.trim() === ""}
+              helperText={value.trim() === "" ? t("error.required") : undefined}
+              required
+              slotProps={{ htmlInput: { maxLength: 200 } }}
+            />
+            <FormControlLabel control={<Checkbox checked={members} onChange={(e) => setMembers(e.target.checked)} />} label={t("copy.members")} />
+            <ErrorAlert error={error} />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose}>{t("common.cancel")}</Button>
+          <Button type="submit" variant="contained" disabled={busy || value.trim() === ""}>
+            {t("copy.submit")}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
+  );
+}
+
 export function ProjectsPage() {
   const t = useT();
   const { me, info } = useApp();
   const projects = useLoad(listProjects, []);
-  const [creating, setCreating] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [restoring, setRestoring] = useState(false);
+  const [choosing, setChoosing] = useState(false);
+  const [start, setStart] = useState<Start | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const archived = projects.data?.filter((p) => p.status === "archived").length ?? 0;
   const shown = projects.data?.filter((p) => showArchived || p.status !== "archived");
   const canCreate = me?.isPlatformAdmin === true || info.projectCreation === "anyone";
+  const coordinated = projects.data?.filter((p) => p.role === "admin") ?? [];
 
   return (
     <AppShell>
       <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 3, gap: 2, flexWrap: "wrap" }}>
         <Typography variant="h1">{t("projects.title")}</Typography>
         {canCreate && (
-          <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
-            {/* For organizations moving from Collect Earth Online: its survey and rules (docs/plans/2026-11-09-ceo-bridge.md) */}
-            <Button variant="outlined" startIcon={<Public />} onClick={() => setImporting(true)}>
-              {t("projects.fromCeo")}
-            </Button>
-            {/* A project collected in Collect Earth, from a backup of its data (docs/plans/2026-11-11-backup-import.md) */}
-            <Button variant="outlined" startIcon={<Unarchive />} onClick={() => setRestoring(true)}>
-              {t("projects.fromBackup")}
-            </Button>
-            <Button variant="contained" startIcon={<Add />} onClick={() => setCreating(true)}>
-              {t("projects.new")}
-            </Button>
-          </Stack>
+          <Button variant="contained" startIcon={<Add />} onClick={() => setChoosing(true)}>
+            {t("projects.new")}
+          </Button>
         )}
       </Stack>
       {archived > 0 && (
@@ -176,9 +271,22 @@ export function ProjectsPage() {
           ))}
         </Grid>
       )}
-      {creating && <NewProjectDialog open onClose={() => setCreating(false)} />}
-      {importing && <CeoImportDialog onClose={() => setImporting(false)} />}
-      {restoring && <BackupImportDialog onClose={() => setRestoring(false)} />}
+      {choosing && (
+        <StartDialog
+          canCopy={coordinated.length > 0}
+          onClose={() => setChoosing(false)}
+          onChoose={(chosen) => {
+            setChoosing(false);
+            setStart(chosen);
+          }}
+        />
+      )}
+      {start === "cep" && <NewProjectDialog open onClose={() => setStart(null)} />}
+      {/* A project collected in Collect Earth, from a backup of its data (docs/plans/2026-11-11-backup-import.md) */}
+      {start === "backup" && <BackupImportDialog onClose={() => setStart(null)} />}
+      {/* For organizations moving from Collect Earth Online: its survey and rules (docs/plans/2026-11-09-ceo-bridge.md) */}
+      {start === "ceo" && <CeoImportDialog onClose={() => setStart(null)} />}
+      {start === "copy" && coordinated.length > 0 && <CopyDialog projects={coordinated} onClose={() => setStart(null)} />}
     </AppShell>
   );
 }

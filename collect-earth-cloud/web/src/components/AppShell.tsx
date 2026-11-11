@@ -21,6 +21,7 @@ import Translate from "@mui/icons-material/Translate";
 import { useState, type ReactNode } from "react";
 import { collectEarthAppBar } from "../shared/collectEarthTheme";
 import logo from "../shared/collect-earth-logo.png";
+import openForisLogo from "../shared/collect-earth-openforis-logo.png";
 import { announcementKey, shownAnnouncement } from "../announcement";
 import { useApp, useLocalMode } from "../appContext";
 import { getDismissedAnnouncement, storeDismissedAnnouncement } from "../storage";
@@ -135,16 +136,18 @@ function AnnouncementBanner() {
   );
 }
 
-/** Terms of use and the contact address, when the server administrator set them. */
+/** Collect Earth's Open Foris logo, then the terms of use and the contact address when the server administrator set them. */
 function Footer() {
   const t = useT();
   const { info } = useApp();
-  if (!info.termsUrl && !info.contactEmail) return null;
   return (
     <Box
       component="footer"
-      sx={{ mt: "auto", py: 2, px: 2, display: "flex", gap: 3, justifyContent: "center", flexWrap: "wrap", color: "text.secondary" }}
+      sx={{ mt: "auto", py: 2, px: 2, display: "flex", gap: 3, alignItems: "center", justifyContent: "center", flexWrap: "wrap", color: "text.secondary", borderTop: 1, borderColor: "divider" }}
     >
+      <Link href="https://www.openforis.org" target="_blank" rel="noopener noreferrer" sx={{ display: "flex" }}>
+        <Box component="img" src={openForisLogo} alt={t("footer.openForis")} sx={{ width: 200, height: "auto" }} />
+      </Link>
       {info.termsUrl && (
         <Link href={info.termsUrl} target="_blank" rel="noopener noreferrer" variant="body2" color="inherit">
           {t("footer.terms")}
