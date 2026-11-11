@@ -114,7 +114,7 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
    it opens, the form's header with its three choices. **Built** (below).
 3. The comparison: the transition matrix, the changed plots and corrections, the comparison as a file. **Built**
    (below), with the Map tab's layer (below).
-4. Areas and uncertainty of the changes.
+4. Areas and uncertainty of the changes. **Built** (below).
 
 ## Stage 1, as built (11 Nov 2026)
 
@@ -184,7 +184,6 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
 - Checked: `test/repeatSurvey.test.ts` (the outcomes, the matrix, the mismatches, the routes and the file),
   `repeatSurveyView.test.ts`, and in a browser (a 2020 project of 8 plots repeated, 7 collected in 2025 with each kind of
   outcome: the counts, the matrix, the corrections, the plot to look at again, the file downloaded).
-- Left for later: areas and their uncertainty (with the plots' weights, as the IPCC uncertainty page has them).
 
 ## Map layer, as built (11 Nov 2026)
 
@@ -199,3 +198,30 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
 - `web/src/mapView.ts`: `CHANGE_KINDS`, `CHANGE_STYLE`, `changeCodes`, `changeCounts`, `shownByCodes`, `styleSvg`.
 - Checked: `mapView.test.ts`, and in a browser on the 8-plot project of stage 3 (counts 4 unchanged, 1 changed,
   1 corrected, 1 new, 1 not collected yet; the list holds only the changed plot when the others are hidden).
+
+## Stage 4, as built (11 Nov 2026): areas and uncertainty
+
+- `src/uncertainty.ts`, `stratifiedTotal`: the stratified estimate of the total of a plot variable over the area,
+  Σ_h A_h·ȳ_h with Var = Σ_h A_h²·s_h²/n_h; for a plot in a class or not it is the uncertainty page's estimate (tested
+  against it), and it takes the net change (+1 gained, −1 lost) too.
+- `src/repeatSurvey.ts`, `changeAreas`: the plots compared (unchanged, changed or corrected) in their strata; the area,
+  share, SE, 95% CI and uncertainty (CI as a % of the area) of each outcome, each cell of the transition matrix, each
+  correction, and each answer in the earlier period, now, and its net change. The earlier period is taken **as now
+  known**: a corrected plot counts with the answer that corrects it, so the net change is a change of the land, not of
+  the interpretation. New and pending plots are left out (`skipped.notCompared`), as are plots in no stratum.
+- The strata: the project file's areas file (region_areas.csv or areas_per_attribute.csv, the expansion factors of the
+  analysis), each plot matched by this period's record, else its earlier answers; without one, a single stratum of the
+  **total area** the coordinator saves (`PUT /v1/projects/:pid/periods/area { totalArea }`, kept in `repeat_settings`
+  and carried to a repeat of the repeat; `?area=` tries one without saving); without either, shares of the whole
+  (`areaKnown: false`).
+- Routes: `GET .../periods/change` has `areas` and `canEdit`; `GET .../periods/change-areas.csv` (outcomes,
+  transitions, corrections, each answer's area in both periods and its net change: plots, area, share, SE, CI,
+  uncertainty), logged as `export.downloaded` (`kind: changeAreas`). Isolation cases.
+- Dashboard, under the change card: **Areas of the changes**: the total area (coordinators) or where the areas come
+  from, the outcomes, each answer in both periods with its net change, each change, every area with its ± 95% under it,
+  a warning for strata of fewer than 2 plots compared, and the file. Texts in en/es/fr/pt.
+- Checked: `test/repeatSurvey.test.ts` (worked by hand: 1 plot of 4 changed over 100 ha is 25 ± 49 ha; the strata; the
+  routes, the saved area, the file, the areas file), `repeatSurveyView.test.ts`, and in a browser (the 8-plot project:
+  shares first, then 12,000 ha saved: 2,000 ± 3,920 ha changed, Forest −2,000 ha, Cropland +2,000 ha, the file).
+- Not done: a finite population correction (as the uncertainty page has none), and areas of more than one question
+  at a time.

@@ -1322,6 +1322,42 @@ export interface RepeatChange {
   matrix: { from: string; to: string; plots: number }[];
   corrections: { from: string; to: string; plots: number }[];
   rows: ChangeRow[];
+  /** the areas of the changes, with their uncertainty (stage 4) */
+  areas: ChangeAreas;
+  /** a coordinator: may save the total area */
+  canEdit: boolean;
+}
+
+/** An area estimated from the plots: hectares, or shares of 1 when the area is not known. */
+export interface AreaEstimate {
+  plots: number;
+  area: number;
+  /** of the total area, 0–1 */
+  share: number;
+  se: number;
+  /** half the 95% confidence interval */
+  ci: number;
+  /** ci / |area| · 100, null when the area is 0 */
+  uncertainty: number | null;
+}
+
+export interface ChangeAreas {
+  /** the areas file of the project file the strata come from; null: none */
+  source: string | null;
+  /** false: no areas file and no total area, the areas are shares of the whole */
+  areaKnown: boolean;
+  /** the total area saved by the coordinator, null when none */
+  savedArea: number | null;
+  estimator: "simple" | "stratified";
+  totalArea: number;
+  plots: number;
+  strata: { key: string; area: number; plots: number }[];
+  notEstimable: { key: string; area: number; plots: number }[];
+  skipped: { notCompared: number; noArea: number };
+  outcomes: Record<"unchanged" | "changed" | "corrected", AreaEstimate>;
+  matrix: { from: string; to: string; estimate: AreaEstimate }[];
+  corrections: { from: string; to: string; estimate: AreaEstimate }[];
+  classes: { code: string; then: AreaEstimate; now: AreaEstimate; net: AreaEstimate }[];
 }
 
 const changeQuery = (question: string | null, period: string | null) =>
@@ -1337,6 +1373,18 @@ export async function downloadRepeatChange(projectId: string, question: string |
   const query = changeQuery(question, period);
   const response = await send("GET", `${p(projectId)}/periods/change.csv${query ? `?${query}` : ""}`);
   return { blob: await response.blob(), filename: attachmentName(response, "change.csv") };
+}
+
+/** The areas of the changes as a file: the outcomes, the transitions, the corrections and each answer's area. */
+export async function downloadRepeatChangeAreas(projectId: string, question: string | null, period: string | null): Promise<{ blob: Blob; filename: string }> {
+  const query = changeQuery(question, period);
+  const response = await send("GET", `${p(projectId)}/periods/change-areas.csv${query ? `?${query}` : ""}`);
+  return { blob: await response.blob(), filename: attachmentName(response, "change-areas.csv") };
+}
+
+/** The total area in hectares of a repeat survey whose project file has no areas file; null clears it. */
+export function setRepeatArea(projectId: string, totalArea: number | null): Promise<{ totalArea: number | null }> {
+  return request("PUT", `${p(projectId)}/periods/area`, { json: { totalArea } });
 }
 
 /** One plot's answers in the earlier periods, oldest first (who collected them: for coordinators and reviewers). */

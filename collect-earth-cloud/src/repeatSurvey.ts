@@ -5,6 +5,7 @@
 // which the collector says whether the plot is still the same, has changed, or was interpreted wrongly then.
 import type { RecordRound } from './rounds.js';
 import { QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR, type Question } from './surveyOutline.js';
+import { stratifiedTotal } from './uncertainty.js';
 
 /** A record of the earlier project, as it is read (listRecordSummaries). */
 export interface SourceRecord {
@@ -260,4 +261,103 @@ export function changeQuestions(outline: ReadonlyMap<string, Question>, earlier:
   return [...outline.values()].filter(
     (q) => q.kind === 'choice' && !q.multiple && !q.excluded && !q.key.includes('.') && !q.key.includes('[') && q.key !== statusKey && answered.has(q.key),
   );
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The areas of the changes (stage 4), with their uncertainty, as the IPCC uncertainty page has them (src/uncertainty.ts)
+
+/** An area estimated from the plots, in hectares (or in shares of 1 when the area is not known). */
+export interface AreaEstimate {
+  plots: number;
+  area: number;
+  /** of the total area, 0–1 */
+  share: number;
+  se: number;
+  /** half the 95% confidence interval: 1.96 · se */
+  ci: number;
+  /** ci / |area| · 100; null when the area is 0 */
+  uncertainty: number | null;
+}
+
+export interface ChangeAreas {
+  /** "simple": one stratum, every plot standing for the same area; "stratified": the areas file's strata */
+  estimator: 'simple' | 'stratified';
+  totalArea: number;
+  /** the plots compared and used */
+  plots: number;
+  strata: { key: string; area: number; plots: number }[];
+  /** strata with fewer than 2 plots used: no variance; with none their area is not counted */
+  notEstimable: { key: string; area: number; plots: number }[];
+  /** plots not used: not compared (new, or not collected yet), and in no stratum (no area) */
+  skipped: { notCompared: number; noArea: number };
+  outcomes: Record<'unchanged' | 'changed' | 'corrected', AreaEstimate>;
+  /** the area of each cell of the transition matrix (unchanged and changed plots) */
+  matrix: { from: string; to: string; estimate: AreaEstimate }[];
+  /** the area of the corrections, by earlier answer and the answer that corrects it */
+  corrections: { from: string; to: string; estimate: AreaEstimate }[];
+  /**
+   * Each answer's area in the earlier period (as now known: a corrected plot counts with the answer that corrects it,
+   * the earlier one having been wrong), now, and the net change between them (now − then), each with its uncertainty
+   */
+  classes: { code: string; then: AreaEstimate; now: AreaEstimate; net: AreaEstimate }[];
+}
+
+const COMPARED = new Set<ChangeOutcome>(['unchanged', 'changed', 'corrected']);
+
+/**
+ * The areas of a comparison (compareRepeat's rows): the plots compared (unchanged, changed or corrected), each in its
+ * stratum (`stratumOf`, null: in none), the strata's areas in hectares (`strata`; one of the total area when every plot
+ * stands for the same area). The stratified estimator of src/uncertainty.ts: each area the share of its stratum's plots
+ * times the stratum's area, summed over the strata, its variance from the plots' spread in each stratum.
+ */
+export function changeAreas(rows: readonly ChangeRow[], stratumOf: (plot: string) => string | null, strata: ReadonlyMap<string, number>): ChangeAreas {
+  const skipped = { notCompared: 0, noArea: 0 };
+  const used = new Map<string, ChangeRow[]>();
+  for (const r of rows) {
+    if (!COMPARED.has(r.outcome) || r.earlier === null || r.now === null) { skipped.notCompared++; continue; }
+    const stratum = stratumOf(r.plot);
+    if (stratum === null || !((strata.get(stratum) ?? 0) > 0)) { skipped.noArea++; continue; }
+    let list = used.get(stratum);
+    if (!list) used.set(stratum, (list = []));
+    list.push(r);
+  }
+  const strataOut = [...strata].filter(([, area]) => area > 0).map(([key, area]) => ({ key, area, plots: used.get(key)?.length ?? 0 }));
+  const counted = strataOut.filter((s) => s.plots > 0);
+  const totalArea = counted.reduce((sum, s) => sum + s.area, 0);
+  const estimate = (y: (r: ChangeRow) => number): AreaEstimate => {
+    const { total, se, ci } = stratifiedTotal(counted.map((s) => ({ area: s.area, values: used.get(s.key)!.map(y) })));
+    let plots = 0;
+    for (const s of counted) for (const r of used.get(s.key)!) if (y(r) !== 0) plots++;
+    return { plots, area: total, share: totalArea > 0 ? total / totalArea : 0, se, ci, uncertainty: total !== 0 ? (ci / Math.abs(total)) * 100 : null };
+  };
+  const all = counted.flatMap((s) => used.get(s.key)!);
+  const pairs = (which: (r: ChangeRow) => boolean) =>
+    [...new Set(all.filter(which).map((r) => `${r.earlier}\u0000${r.now}`))].sort().map((id) => {
+      const [from, to] = id.split('\u0000');
+      return { from, to, estimate: estimate((r) => (which(r) && r.earlier === from && r.now === to ? 1 : 0)) };
+    });
+  /** the answer the plot had in the earlier period, as now known */
+  const then = (r: ChangeRow) => (r.outcome === 'corrected' ? r.now : r.earlier);
+  const codes = [...new Set(all.flatMap((r) => [then(r)!, r.now!]))].sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+  return {
+    estimator: counted.length > 1 ? 'stratified' : 'simple',
+    totalArea,
+    plots: all.length,
+    strata: strataOut,
+    notEstimable: strataOut.filter((s) => s.plots < 2),
+    skipped,
+    outcomes: {
+      unchanged: estimate((r) => (r.outcome === 'unchanged' ? 1 : 0)),
+      changed: estimate((r) => (r.outcome === 'changed' ? 1 : 0)),
+      corrected: estimate((r) => (r.outcome === 'corrected' ? 1 : 0)),
+    },
+    matrix: pairs((r) => r.outcome !== 'corrected'),
+    corrections: pairs((r) => r.outcome === 'corrected'),
+    classes: codes.map((code) => ({
+      code,
+      then: estimate((r) => (then(r) === code ? 1 : 0)),
+      now: estimate((r) => (r.now === code ? 1 : 0)),
+      net: estimate((r) => (r.now === code ? 1 : 0) - (then(r) === code ? 1 : 0)),
+    })),
+  };
 }

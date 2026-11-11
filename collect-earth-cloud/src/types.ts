@@ -290,6 +290,8 @@ export interface RepeatSettings {
   earlier: { label: string; sourceProjectId: string; sourceName: string; plots: number; madeAt: number }[];
   /** The summary keys of the questions the form's header shows of the earlier period (the plot's main characteristics) */
   headerQuestions: string[];
+  /** The total area in hectares, for the areas of the changes when the project file has no areas file */
+  totalArea?: number;
 }
 
 export interface ReferenceAnswer {

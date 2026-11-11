@@ -1,6 +1,6 @@
 // The view logic of a repeat survey (docs/plans/2026-11-11-repeat-survey.md): the earlier periods' answers of one plot as
 // rows of a table, the plot's main characteristics (the form's header) first.
-import type { PlotPeriod } from "./api";
+import type { AreaEstimate, ChangeAreas, PlotPeriod } from "./api";
 
 export interface PeriodRow {
   key: string;
@@ -65,3 +65,46 @@ export function matrixTable(matrix: readonly { from: string; to: string; plots: 
 /** The plots to look at on the change card: the changes, the corrections and those whose header answer disagrees. */
 export const plotsToShow = <R extends { outcome: string; mismatch: string | null }>(rows: readonly R[], which: "changed" | "corrected" | "mismatch"): R[] =>
   rows.filter((r) => (which === "mismatch" ? r.mismatch !== null : r.outcome === which));
+
+/**
+ * An area as the change card shows it: hectares when the area is known, else a percentage of the whole; with its 95%
+ * confidence interval in the same unit, and the uncertainty (the interval as a percentage of the area).
+ */
+export interface AreaText {
+  value: string;
+  ci: string;
+  uncertainty: string;
+}
+
+export function areaText(e: AreaEstimate, areas: Pick<ChangeAreas, "areaKnown" | "totalArea">, language: string, signed = false): AreaText {
+  const { areaKnown, totalArea } = areas;
+  const digits = areaKnown ? (Math.abs(e.area) >= 100 || e.area === 0 ? 0 : 1) : 1;
+  const fmt = (v: number, sign = false) =>
+    new Intl.NumberFormat(language, { maximumFractionDigits: digits, minimumFractionDigits: 0, signDisplay: sign ? "exceptZero" : "auto" }).format(v);
+  const value = areaKnown ? e.area : e.share * 100;
+  const ci = areaKnown ? e.ci : totalArea > 0 ? (e.ci / totalArea) * 100 : 0;
+  return {
+    value: `${fmt(value, signed)}${areaKnown ? " ha" : " %"}`,
+    ci: `± ${fmt(ci)}${areaKnown ? " ha" : " %"}`,
+    uncertainty: e.uncertainty === null ? "—" : `${new Intl.NumberFormat(language, { maximumFractionDigits: 0 }).format(e.uncertainty)} %`,
+  };
+}
+
+/** The answers' areas in the question's order (then any other), with their names. */
+export function classRows(areas: Pick<ChangeAreas, "classes">, options: readonly { code: string; label: string }[]): (ChangeAreas["classes"][number] & { label: string })[] {
+  const order = new Map(options.map((o, i) => [o.code, i]));
+  return [...areas.classes]
+    .sort((a, b) => (order.get(a.code) ?? Infinity) - (order.get(b.code) ?? Infinity) || a.code.localeCompare(b.code))
+    .map((c) => ({ ...c, label: options.find((o) => o.code === c.code)?.label ?? c.code }));
+}
+
+/** The strata whose uncertainty is not counted: fewer than 2 plots compared, but some (with none, their area is left out). */
+export const thinStrata = (areas: Pick<ChangeAreas, "notEstimable">) => areas.notEstimable.filter((s) => s.plots > 0);
+
+/** The total area typed by a coordinator: a number of hectares above 0 (spaces, and a comma for the decimals, taken), else null. */
+export function parseArea(text: string): number | null {
+  const cleaned = text.trim().replace(/[\s\u00a0\u202f]/g, "");
+  if (!/^\d+([.,]\d+)?$/.test(cleaned)) return null;
+  const n = Number(cleaned.replace(",", "."));
+  return Number.isFinite(n) && n > 0 && n <= 1e12 ? n : null;
+}

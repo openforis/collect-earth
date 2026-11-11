@@ -10,6 +10,11 @@
 // - GET /v1/projects/:pid/periods (member) -> { settings, periods: [{ label, plots }], questions }: null settings for
 //   a project that repeats none.
 // - PUT /v1/projects/:pid/periods/header { headerQuestions } (admin): the questions the header shows.
+// - GET /v1/projects/:pid/periods/change?question=&period=&area= (reviewer) -> the comparison of one question
+//   (stage 3) with its areas and their uncertainty (stage 4, `areas`); GET .../periods/change.csv a row per plot,
+//   GET .../periods/change-areas.csv the areas.
+// - PUT /v1/projects/:pid/periods/area { totalArea } (admin): the total area in hectares, for a project file with no
+//   areas file (every plot then stands for the same area); null to clear it.
 // - GET /v1/projects/:pid/periods/plots/:plot (member) -> { periods: [{ label, savedAt, answers, operator? }], labels,
 //   options }: one plot's earlier answers, with the questions' labels and answers' names; who collected them is told to
 //   coordinators and reviewers only.
@@ -23,6 +28,7 @@ import { answerOptions } from '../qualityReports.js';
 import { loadPlotContext } from '../qualityService.js';
 import {
   changeQuestions,
+  changeAreas,
   compareRepeat,
   defaultHeaderQuestions,
   earlierRecords,
@@ -41,6 +47,7 @@ import { surveyOutline, type Question } from '../surveyOutline.js';
 import type { RepeatSettings } from '../types.js';
 import { acceptCep } from './platform.js';
 import { creationRefusal } from './projects.js';
+import { factorsOf, modelOf } from './analysis.js';
 
 interface RepeatBody {
   name?: unknown;
@@ -189,7 +196,7 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
     periods.push({ label: earlierLabel, sourceProjectId: sourceId, sourceName: source?.name ?? '', plots: matched.records.length, madeAt: now });
     reports.push({ label: earlierLabel, plots: matched.records.length, report: matched.report });
     const headerQuestions = headerOf(body.headerQuestions, outline);
-    await store.setRepeatSettings(projectId, { label, earlier: periods, headerQuestions });
+    await store.setRepeatSettings(projectId, { label, earlier: periods, headerQuestions, ...(sourceSettings?.totalArea ? { totalArea: sourceSettings.totalArea } : {}) });
     // The period status the collectors' form asks in the plot's header, added to the survey it serves
     await servePeriodStatus(store, projectId);
 
@@ -264,7 +271,34 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
       question.key,
       PERIOD_STATUS_KEY,
     );
-    return { settings, period, question, questions, change, options: answerOptions(outline, [question.key])[question.key] ?? [] };
+    return { settings, period, question, questions, change, earlier, now, options: answerOptions(outline, [question.key])[question.key] ?? [] };
+  };
+
+  /**
+   * The areas of a comparison: the strata of the project file's areas file (its plots' expansion factors, as the
+   * analysis has them), else one stratum of the total area (the query's `area`, else the one saved), else shares only
+   * (`areaKnown` false: every plot standing for the same share of an area not known).
+   */
+  const areasOf = async (request: FastifyRequest, found: NonNullable<Awaited<ReturnType<typeof changeOf>>>) => {
+    const projectId = request.membership!.projectId;
+    const cep = await store.getCep(projectId);
+    const parsed = cep ? modelOf(cep) : null;
+    // The plots' answers (this period's record, else the earlier period's), for the areas file's lines to match
+    const answers = new Map<string, Record<string, string>>(found.earlier.map((r) => [r.plotKey, r.answers]));
+    for (const r of found.now) answers.set(r.plot, r.answers);
+    const factors = parsed ? factorsOf(parsed, answers) : null;
+    const asked = Number((request.query as { area?: unknown } | undefined)?.area);
+    const totalArea = Number.isFinite(asked) && asked > 0 && asked <= 1e12 ? asked : (found.settings.totalArea ?? null);
+    const strata = new Map<string, number>();
+    if (factors) {
+      for (const f of factors.byPlot.values()) if (f.factor > 0) strata.set(f.stratum, (strata.get(f.stratum) ?? 0) + f.factor);
+    } else strata.set('', totalArea ?? 1);
+    const stratumOf = (plot: string) => {
+      if (!factors) return '';
+      const f = factors.byPlot.get(plot);
+      return f && f.factor > 0 ? f.stratum : null;
+    };
+    return { source: factors?.source ?? null, areaKnown: factors !== null || totalArea !== null, savedArea: found.settings.totalArea ?? null, ...changeAreas(found.change.rows, stratumOf, strata) };
   };
 
   app.get('/v1/projects/:pid/periods/change', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -282,7 +316,50 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
       matrix: change.matrix,
       corrections: change.corrections,
       rows: change.rows,
+      areas: await areasOf(request, found),
+      canEdit: request.membership!.role === 'admin',
     });
+  });
+
+  // The areas as a file: the outcomes, the transition matrix, the corrections and each answer's area, with the uncertainty
+  app.get('/v1/projects/:pid/periods/change-areas.csv', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
+    const found = await changeOf(request, reply);
+    if (!found) return reply;
+    const { settings, period, question, options } = found;
+    const areas = await areasOf(request, found);
+    const name = (code: string) => options.find((o) => o.code === code)?.label ?? code;
+    const unit = areas.areaKnown ? 'ha' : 'share';
+    const header = ['table', 'from', 'to', 'from label', 'to label', 'plots', `area_${unit}`, 'share_pct', `se_${unit}`, `ci95_${unit}`, 'uncertainty_pct'];
+    const round = (v: number) => String(Math.round(v * 1e6) / 1e6);
+    const line = (table: string, from: string, to: string, e: (typeof areas)['outcomes']['changed']) => [
+      table, from, to, from === '' ? '' : name(from), to === '' ? '' : name(to), String(e.plots), round(e.area), round(e.share * 100), round(e.se), round(e.ci), e.uncertainty === null ? '' : round(e.uncertainty),
+    ];
+    const lines = [
+      ...(['unchanged', 'changed', 'corrected'] as const).map((o) => line(`outcome ${o}`, '', '', areas.outcomes[o])),
+      ...areas.matrix.map((m) => line('transition', m.from, m.to, m.estimate)),
+      ...areas.corrections.map((m) => line('correction', m.from, m.to, m.estimate)),
+      ...areas.classes.flatMap((c) => [line(`area ${period}`, c.code, '', c.then), line(`area ${settings.label}`, '', c.code, c.now), line('net change', c.code, c.code, c.net)]),
+    ];
+    const project = await store.getProject(request.membership!.projectId);
+    await audit(store, request, 'export.downloaded', { kind: 'changeAreas', records: areas.plots });
+    return reply
+      .header('content-type', 'text/csv; charset=utf-8')
+      .header('content-disposition', attachment(`${project?.name ?? 'project'}-change-areas-${question.key}-${period}-${settings.label}.csv`, 'change-areas.csv'))
+      .send(`\uFEFF${[header, ...lines].map((r) => r.map(csvField).join(',')).join('\r\n')}\r\n`);
+  });
+
+  app.put('/v1/projects/:pid/periods/area', admin, async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
+    const settings = await store.getRepeatSettings(projectId);
+    if (!settings) return reply.code(404).send({ error: 'not_found', reason: 'This project repeats no survey.' });
+    const raw = ((request.body ?? {}) as { totalArea?: unknown }).totalArea;
+    if (raw !== null && (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0 || raw > 1e12)) {
+      return reply.code(400).send({ error: 'bad_request', reason: 'totalArea is a number of hectares above 0, or null' });
+    }
+    const { totalArea: _old, ...rest } = settings;
+    await store.setRepeatSettings(projectId, raw === null ? rest : { ...rest, totalArea: raw });
+    await audit(store, request, 'settings.changed', { setting: 'repeatArea' });
+    return reply.send({ totalArea: raw });
   });
 
   // The comparison as a file: one row per plot, the answer of each period, the collector's answer and the outcome

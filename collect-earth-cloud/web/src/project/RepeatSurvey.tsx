@@ -48,6 +48,7 @@ import { linkProps, navigate, pathFor } from "../router";
 import { saveBlob } from "../saveBlob";
 import { matrixTable, periodRows, plotsToShow, repeatName } from "../repeatSurveyView";
 import { useLoad } from "../useLoad";
+import { ChangeAreas } from "./ChangeAreas";
 
 /** The questions a header can show, ticked by key. */
 function QuestionPicker({
@@ -579,6 +580,7 @@ export function ChangeCard({ projectId }: { projectId: string }) {
                 ))}
               </Box>
             )}
+            <ChangeAreas key={`${data.question.key}\u0000${data.period}\u0000${data.areas.savedArea}`} projectId={projectId} data={data} onSaved={change.reload} />
           </>
         )}
       </Stack>

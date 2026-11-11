@@ -2,8 +2,9 @@
 // project collecting the plots of an earlier one again, with the earlier answers kept apart as a period.
 import { strFromU8, unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { compareRepeat, defaultHeaderQuestions, earlierRecords, labelOf, matchToSurvey, yearOf, type SourceRecord } from '../src/repeatSurvey.js';
+import { changeAreas, compareRepeat, defaultHeaderQuestions, earlierRecords, labelOf, matchToSurvey, yearOf, type SourceRecord } from '../src/repeatSurvey.js';
 import { surveyOutline } from '../src/surveyOutline.js';
+import { stratifiedTotal, uncertainty } from '../src/uncertainty.js';
 import { cepWith, idOnlyCep } from './fixtures/cep.js';
 import { batchRequest, bearer, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 
@@ -113,6 +114,73 @@ describe('comparing a repeat survey with its earlier period', () => {
   it('flags a plot said to be the same whose answer differs', () => {
     const change = compareRepeat([{ plot: '1', answers: a('F') }], [{ plot: '1', answers: a('C', 'same') }], LAND_USE, STATUS);
     expect(change.rows[0]).toMatchObject({ outcome: 'changed', mismatch: 'sameButDiffers' });
+  });
+});
+
+describe('the areas of the changes and their uncertainty', () => {
+  const STATUS = 'collect_code_period_status';
+  const a = (land: string, status?: string) => ({ [LAND_USE]: land, ...(status ? { [STATUS]: status } : {}) });
+  const rows = compareRepeat(
+    [
+      { plot: '1', answers: a('F') },
+      { plot: '2', answers: a('F') },
+      { plot: '3', answers: a('C') },
+      { plot: '4', answers: a('C') },
+      { plot: '5', answers: a('G') },
+    ],
+    [
+      { plot: '1', answers: a('F', 'same') },
+      { plot: '2', answers: a('C', 'changed') },
+      { plot: '3', answers: a('C', 'same') },
+      { plot: '4', answers: a('G', 'corrected') },
+      { plot: '6', answers: a('S') },
+    ],
+    LAND_USE,
+    STATUS,
+  ).rows;
+
+  it('works out each area as the IPCC uncertainty does: one stratum, the share of the plots times the area', () => {
+    const areas = changeAreas(rows, () => '', new Map([['', 100]]));
+    expect(areas).toMatchObject({ estimator: 'simple', totalArea: 100, plots: 4, skipped: { notCompared: 2, noArea: 0 } });
+    // 1 plot of 4 changed: 25 ha, SE = 100·√(0.25·0.75/3) = 25, 95% CI = 1.96·25
+    expect(areas.outcomes.changed).toMatchObject({ plots: 1, area: 25, share: 0.25, se: 25 });
+    expect(areas.outcomes.changed.ci).toBeCloseTo(49, 10);
+    expect(areas.outcomes.changed.uncertainty).toBeCloseTo(196, 10);
+    expect(areas.outcomes.unchanged.area).toBe(50);
+    expect(areas.matrix.map((m) => [m.from, m.to, m.estimate.area])).toEqual([['C', 'C', 25], ['F', 'C', 25], ['F', 'F', 25]]);
+    expect(areas.corrections.map((m) => [m.from, m.to, m.estimate.area])).toEqual([['C', 'G', 25]]);
+    // the earlier period as now known: the corrected plot was Grassland then too, so no change of Grassland
+    const cls = Object.fromEntries(areas.classes.map((c) => [c.code, c]));
+    expect([cls.F.then.area, cls.F.now.area, cls.F.net.area]).toEqual([50, 25, -25]);
+    expect([cls.C.then.area, cls.C.now.area, cls.C.net.area]).toEqual([25, 50, 25]);
+    expect([cls.G.then.area, cls.G.now.area, cls.G.net.area, cls.G.net.uncertainty]).toEqual([25, 25, 0, null]);
+    // the net loss of Forest: y = −1 on one plot of 4, s² = 0.25, SE = 100·√(0.25/4) = 25
+    expect(cls.F.net.se).toBeCloseTo(25, 10);
+    expect(cls.F.net.plots).toBe(1);
+  });
+
+  it('by strata: the plots in no stratum are left out, and a stratum of one plot has no variance', () => {
+    const stratum: Record<string, string | null> = { '1': 'A', '2': 'A', '3': 'B', '4': 'B', '6': 'A' };
+    const areas = changeAreas(rows, (p) => stratum[p] ?? null, new Map([['A', 1000], ['B', 3000], ['C', 500]]));
+    expect(areas).toMatchObject({ estimator: 'stratified', totalArea: 4000, plots: 4 });
+    // A: 1 of 2 plots changed (500 ha, var 1000²·0.25/1); B: none
+    expect(areas.outcomes.changed.area).toBe(500);
+    expect(areas.outcomes.changed.se).toBeCloseTo(500, 10);
+    expect(areas.notEstimable).toEqual([{ key: 'C', area: 500, plots: 0 }]);
+    expect(changeAreas(rows, (p) => (p === '1' ? 'A' : null), new Map([['A', 10]])).skipped).toEqual({ notCompared: 2, noArea: 3 });
+  });
+
+  it('the stratified total of a plot in a class or not is the uncertainty page\'s estimate', () => {
+    const plots = [
+      ...['F', 'F', 'C'].map((c) => ({ initial: c, final: c, stratum: 'A' })),
+      ...['F', 'C', 'C', 'C'].map((c) => ({ initial: c, final: c, stratum: 'B' })),
+    ];
+    const ipcc = uncertainty(plots, new Map([['A', 300], ['B', 800]]), { codes: { l: { F: 'forest', C: 'cropland' } }, initialList: 'l', finalList: 'l' });
+    const forest = ipcc.categories.find((c) => c.category === 'forest')!.final;
+    const ours = stratifiedTotal([{ area: 300, values: [1, 1, 0] }, { area: 800, values: [1, 0, 0, 0] }]);
+    expect(ours.total).toBeCloseTo(forest.area, 10);
+    expect(ours.se).toBeCloseTo(forest.se, 10);
+    expect(ours.ci).toBeCloseTo(forest.ci, 10);
   });
 });
 
@@ -281,6 +349,59 @@ describe('repeating a survey in the dashboard', () => {
     // collectors do not see it; a project that repeats no survey has none
     expect((await call('GET', '/periods/change', maria.token, undefined, {}, projectId)).statusCode).toBe(403);
     expect((await call('GET', '/periods/change', owner.token)).statusCode).toBe(404);
+  });
+
+  it('gives the areas of the changes: shares until the total area is known, then hectares, and a file of them', async () => {
+    const made = await call('POST', '/repeat', owner.token, { name: 'Land 2025', label: '2025', earlierLabel: '2020', members: true });
+    const projectId = made.json().projectId;
+    expect((await call('PUT', '/status', owner.token, { status: 'active' }, {}, projectId)).statusCode).toBe(200);
+    const now = (plot: number, land: string, status: string) =>
+      envelope({ recordKey: `${plot},1`, operator: 'maria', modifiedOn: Date.UTC(2025, 5, plot), summary: { [LAND_USE]: land, collect_code_round: '1', collect_code_period_status: status } });
+    // 2020: plot 1 Forest, plot 2 Cropland; 2025: plot 1 changed to Cropland, plot 2 the same
+    expect((await batchRequest(ctx.app, projectId, maria.token, [now(1, 'C', 'changed'), now(2, 'C', 'same')])).statusCode).toBe(200);
+    const shares = (await call('GET', '/periods/change', owner.token, undefined, {}, projectId)).json();
+    expect(shares.areas).toMatchObject({ areaKnown: false, source: null, savedArea: null, estimator: 'simple', totalArea: 1, plots: 2, outcomes: { changed: { plots: 1, share: 0.5 } } });
+    expect(shares.canEdit).toBe(true);
+
+    expect((await call('PUT', '/periods/area', maria.token, { totalArea: 5000 }, {}, projectId)).statusCode).toBe(403);
+    expect((await call('PUT', '/periods/area', owner.token, { totalArea: -1 }, {}, projectId)).statusCode).toBe(400);
+    expect((await call('PUT', '/periods/area', owner.token, { totalArea: 5000 }, {}, projectId)).statusCode).toBe(200);
+    const ha = (await call('GET', '/periods/change', owner.token, undefined, {}, projectId)).json().areas;
+    expect(ha).toMatchObject({ areaKnown: true, savedArea: 5000, totalArea: 5000, outcomes: { changed: { area: 2500 } } });
+    // Forest lost 2500 ha, Cropland gained them; SE = 5000·√(0.5/2) = 2500
+    const forest = ha.classes.find((c: { code: string }) => c.code === 'F');
+    expect(forest.net).toMatchObject({ area: -2500, se: 2500, plots: 1 });
+    // an area asked in the query is used without being saved
+    expect((await call('GET', '/periods/change?area=100', owner.token, undefined, {}, projectId)).json().areas.totalArea).toBe(100);
+
+    const csv = await call('GET', '/periods/change-areas.csv', owner.token, undefined, {}, projectId);
+    expect(csv.statusCode).toBe(200);
+    const lines = csv.body.replace(/^\uFEFF/, '').trim().split('\r\n');
+    expect(lines[0]).toBe('table,from,to,from label,to label,plots,area_ha,share_pct,se_ha,ci95_ha,uncertainty_pct');
+    expect(lines[2]).toBe('outcome changed,,,,,1,2500,50,2500,4900,196');
+    expect(lines.some((l) => /^net change,F,F,[^,]+,[^,]+,1,-2500,-50,2500,4900,196$/.test(l))).toBe(true);
+    expect((await call('GET', '/periods/change-areas.csv', maria.token, undefined, {}, projectId)).statusCode).toBe(403);
+
+    // cleared, it is shares again
+    expect((await call('PUT', '/periods/area', owner.token, { totalArea: null }, {}, projectId)).statusCode).toBe(200);
+    expect((await call('GET', '/periods/change', owner.token, undefined, {}, projectId)).json().areas.areaKnown).toBe(false);
+    expect((await call('PUT', '/periods/area', owner.token, { totalArea: 10 })).statusCode).toBe(404);
+  });
+
+  it("takes the strata of the project file's areas file", async () => {
+    const files = unzipSync(idOnlyCep());
+    const regional = cepWith([...Object.entries(files).map(([k, v]) => [k, Buffer.from(v)] as [string, Buffer]), ['region_areas.csv', 'region,plot_file,area\nNorth,,1000\nSouth,,3000\n']]);
+    expect((await call('PUT', '/cep', owner.token, regional, { 'content-type': 'application/zip' })).statusCode).toBe(200);
+    const made = await call('POST', '/repeat', owner.token, { name: 'Land 2025', label: '2025', earlierLabel: '2020', members: true });
+    const projectId = made.json().projectId;
+    expect((await call('PUT', '/status', owner.token, { status: 'active' }, {}, projectId)).statusCode).toBe(200);
+    const now = (plot: number, land: string, region: string) =>
+      envelope({ recordKey: `${plot},1`, operator: 'maria', modifiedOn: Date.UTC(2025, 5, plot), summary: { [LAND_USE]: land, collect_code_round: '1', collect_text_region: region, collect_code_period_status: 'same' } });
+    expect((await batchRequest(ctx.app, projectId, maria.token, [now(1, 'C', 'North'), now(2, 'C', 'South')])).statusCode).toBe(200);
+    const areas = (await call('GET', '/periods/change', owner.token, undefined, {}, projectId)).json().areas;
+    // plot 1 (North, 1000 ha) changed from Forest; plot 2 (South, 3000 ha) still Cropland
+    expect(areas).toMatchObject({ source: 'region_areas.csv', areaKnown: true, estimator: 'stratified', totalArea: 4000, outcomes: { changed: { area: 1000 }, unchanged: { area: 3000 } } });
+    expect(areas.notEstimable).toHaveLength(2);
   });
 
   it('needs a name, two labels and a person to coordinate it', async () => {

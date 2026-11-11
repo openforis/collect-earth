@@ -151,6 +151,26 @@ export function uncertainty(plots: readonly UncertaintyPlot[], strata: ReadonlyM
   };
 }
 
+/**
+ * The stratified estimate of the total of a plot variable y over the area (each stratum h of area A_h, its n_h plots'
+ * values y): T = Σ_h A_h·ȳ_h, Var(T) = Σ_h A_h²·s_h²/n_h, s_h² = Σ(y − ȳ_h)²/(n_h − 1). For y in {0, 1} (a plot in
+ * a class or not) it is the estimate of uncertainty() above: A_h²·p(1 − p)/(n_h − 1). A stratum of fewer than 2 plots
+ * adds its area but no variance; one of none adds nothing. y can be negative (a net change: +1 gained, −1 lost).
+ */
+export function stratifiedTotal(strata: readonly { area: number; values: readonly number[] }[]): { total: number; se: number; ci: number } {
+  let total = 0;
+  let variance = 0;
+  for (const { area, values } of strata) {
+    const n = values.length;
+    if (n === 0) continue;
+    const mean = values.reduce((a, b) => a + b, 0) / n;
+    total += area * mean;
+    if (n > 1) variance += (area * area * (values.reduce((sum, y) => sum + (y - mean) * (y - mean), 0) / (n - 1))) / n;
+  }
+  const se = Math.sqrt(variance);
+  return { total, se, ci: Z95 * se };
+}
+
 /** The settings sent by a coordinator, checked, or a message saying what is wrong. `codeColumns`: the plot table's code columns and their lists. */
 export function parseSettings(body: unknown, codeColumns: ReadonlyMap<string, string>, lists: Readonly<Record<string, readonly { code: string }[]>>): UncertaintySettings | string {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return 'The settings must be an object.';
