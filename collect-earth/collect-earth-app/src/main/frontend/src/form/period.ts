@@ -74,10 +74,11 @@ export function withoutPeriodStatus(model: FormModel): { model: FormModel; had: 
 }
 
 /**
- * "Still the same": the earlier answers to copy into the questions shown, on every step, left empty (choices and
- * yes or no only, as "Same as previous plot" copies them, never a key nor a text), by question.
+ * "Still the same": the earlier answers to copy into the questions shown, on every step, left empty, by question: the
+ * choices and yes or no, as "Same as previous plot" copies them, and the numbers too (a percentage of tree cover, a
+ * count), since it is the same plot and its land has not changed; never a key, a text, a date or a calculated value.
  */
 export function earlierToCopy(model: FormModel, infos: Record<string, FieldInfo>, earlier: Record<string, string>,
   value: (name: string) => string): [string, string][] {
-  return model.tabs.flatMap((tab) => answersToCopy(fieldsOfStep(tab, infos), model.keys, earlier, value));
+  return model.tabs.flatMap((tab) => answersToCopy(fieldsOfStep(tab, infos), model.keys, earlier, value, true));
 }

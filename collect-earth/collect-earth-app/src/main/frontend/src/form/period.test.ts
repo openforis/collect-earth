@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { FormModel } from "./model";
+import { answersToCopy, type Field, type FormModel } from "./model";
 import { PERIOD_STATUS_FIELD, answerText, earlierToCopy, toPlotPeriods, withoutPeriodStatus } from "./period";
 
 const LAND = "collect_code_land_use";
@@ -53,5 +53,32 @@ describe("a repeat survey's plot header", () => {
     const earlier = { [LAND]: "F::old note", collect_text_id: "17" };
     expect(earlierToCopy(without, {}, earlier, () => "")).toEqual([[LAND, "F"]]);
     expect(earlierToCopy(without, {}, earlier, (n) => (n === LAND ? "C" : ""))).toEqual([]);
+  });
+
+  it("\"Still the same\" copies the numbers too: the same plot's, its land unchanged; never a calculated one, a text or a date", () => {
+    const f = (name: string, type: Field["type"], extra: Partial<Field> = {}): Field => ({ kind: "field", name, type, label: name, ...extra } as Field);
+    const fields = [
+      f("collect_integer_canopy", "integer"),
+      f("collect_real_height", "real"),
+      f("collect_integer_trees", "integer"),
+      f("collect_integer_total", "integer", { calculated: true }),
+      f("collect_text_note", "text"),
+      f("collect_date_seen", "date"),
+      f("collect_real_bad", "real"),
+      f("collect_integer_id", "integer"),
+    ];
+    const model: FormModel = {
+      survey: "s", language: "en", keys: ["collect_integer_id"], csvFields: [], unsupported: [],
+      tabs: [{ id: "t1", label: "Plot", items: fields }],
+    };
+    const earlier = {
+      collect_integer_canopy: " 60 ", collect_real_height: "12.5", collect_integer_trees: "7", collect_integer_total: "67",
+      collect_text_note: "pines", collect_date_seen: "2020-06-01", collect_real_bad: "n/a", collect_integer_id: "17",
+    };
+    // the trees counted again now are kept
+    const value = (n: string) => (n === "collect_integer_trees" ? "9" : "");
+    expect(earlierToCopy(model, {}, earlier, value)).toEqual([["collect_integer_canopy", "60"], ["collect_real_height", "12.5"]]);
+    // "Same as previous plot" (another plot) never copies a number
+    expect(answersToCopy(fields, model.keys, earlier, value)).toEqual([]);
   });
 });

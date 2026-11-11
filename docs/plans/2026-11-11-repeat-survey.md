@@ -161,7 +161,7 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
   desktop by its collector; the form of a plot opened on its 2020 header, Submit refused until answered, "Still the
   same" and "Changed since 2020" saved as the record's `period_status`. The demo survey's "Invalid value" on its land
   cover rows is its own (the 2020 project's form shows the same).
-- Left for later: copying numbers on "Still the same". (The plots map's filter: built, below.)
+- Left for later, both built since (below): the plots map's filter, and copying numbers on "Still the same".
 
 ## Stage 3, as built (11 Nov 2026)
 
@@ -242,3 +242,15 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
   run: the 2025 repeat survey joined from the desktop, three plots answered (same, changed, corrected) in their forms;
   the filter counted 1/1/1/5, "Changed since then" listed plot 2 alone with the 7 others grey on the map, "Not answered
   yet" the 5 others, and the choice was kept after a reload.
+
+## "Still the same" copies the numbers too, as built (11 Nov 2026)
+
+- The form (`form/model.ts`, `answersToCopy(..., numbers)`; `form/period.ts`, `earlierToCopy`): "Still the same" now
+  copies the earlier integer and decimal answers as well (a canopy cover, a tree height, a count), into the questions
+  left empty, marked *Copied* like the choices: it is the same plot, and its land has not changed. Never a calculated
+  number, a key, a value that is not a number, a text or a date. "Same as previous plot" still copies no number, as a
+  number measured on one plot is not another plot's.
+- Checked: `form/period.test.ts` (numbers copied; calculated, text, date, key, a value not a number and one typed now
+  left alone; none from the previous plot), and a real run on the demo survey with two numbers the collector types added
+  (its own percentages are all calculated): "Still the same" on plot 3 filled 12 and 32.5, marked Copied and saved, and
+  left the 2020 comment out; "Changed since 2020" on plot 4 copied nothing.
