@@ -157,6 +157,7 @@ public class CloudService {
 		properties.saveOperator(username);
 		properties.setCloudSyncEnabled(true);
 		properties.saveCollectDBDriver(CollectDBDriver.CLOUD);
+		properties.setValue(EarthProperty.CLOUD_PROJECT_FOLDER, properties.getProjectFolder());
 		// The next start offers to send the records this computer already has (CloudRecordsSender)
 		properties.setValue(EarthProperty.CLOUD_OFFER_LOCAL_RECORDS, Boolean.TRUE.toString());
 	}
