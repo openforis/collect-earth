@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Designing the sample · Collect Earth</title>
+<meta name="description" content="How to make the plot file of a Collect Earth survey: SIGRID, the Collect Earth Grid Generator on Google Earth Engine, and the dashboard's plot design.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="433"></a>
+    <nav>
+      <a href="choose.html">Which set-up?</a>
+      <a href="sampling.html">Sampling</a>
+      <a href="interpreters.html">Interpreters</a>
+      <a href="coordinators.html">Coordinators</a>
+      <a href="own-server.html">Own server</a>
+      <a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
+  <h1>Designing the sample</h1>
+  <p class="lead">Before anyone assesses a plot, you decide where the plots are: the sampling design. Collect Earth reads it from a plot file, a CSV with one row per plot. This guide shows three ways to make one: SIGRID, the global systematic grid; the Collect Earth Grid Generator on Google Earth Engine; and the dashboard's own <span class="ui">Design the plots</span>.</p>
+
+  <div class="toc">
+    <strong>On this page</strong>
+    <ol>
+      <li><a href="#plot-file">What a plot file holds</a></li>
+      <li><a href="#which">Which design?</a></li>
+      <li><a href="#sigrid">SIGRID, the global systematic grid</a></li>
+      <li><a href="#gee">The Grid Generator on Google Earth Engine</a></li>
+      <li><a href="#dashboard">Design the plots on the dashboard</a></li>
+      <li><a href="#use">Using the plot file</a></li>
+    </ol>
+  </div>
+
+  <h2 id="plot-file">What a plot file holds</h2>
+  <p>Each row is one plot: its id, its latitude and longitude, then any extra columns the survey expects, for example:</p>
+  <pre style="overflow-x:auto;background:var(--soft);padding:14px;border-radius:8px;font-size:.85rem">id,YCoordinate,XCoordinate,elevation,slope,aspect,climate,soil,gez,country,province,district
+8344_20552,9.8123,2.6114,342,2,180,4,5,31,Benin,Borgou,Parakou</pre>
+  <p>Coordinates are in decimal degrees (WGS84). The extra columns are shown to the interpreter beside the plot and kept with the answers, so the results can be analysed by province, climate zone or elevation without any later GIS work. The survey designer decides which columns a survey expects.</p>
+
+  <h2 id="which">Which design?</h2>
+  <ul>
+    <li><strong>Systematic grid</strong>: plots at a fixed distance from each other. It covers the area evenly, is easy to explain and to repeat, and suits national land use and forest assessments. This is what most Collect Earth projects use.</li>
+    <li><strong>Random</strong>: a given number of plots at random places in the area. Useful for a quick estimate or a validation sample.</li>
+    <li><strong>Stratified random</strong>: plots at random within each stratum (a forest reserve, a land cover class, a province), with the same number in each or shared by area. It puts more effort where it matters, such as rare classes.</li>
+  </ul>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>SIGRID</th><th>Grid Generator (Earth Engine)</th><th>Design the plots (dashboard)</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Designs</strong></td><td>Systematic, 1 to 100 km apart</td><td>Systematic (from 100 m) or random</td><td>Random, systematic, stratified random</td></tr>
+        <tr><td><strong>Area</strong></td><td>A country, its provinces or districts, optionally clipped to your own area</td><td>A country, province or district, your own asset, a drawn polygon or pasted GeoJSON</td><td>Your own area file (GeoJSON or a zipped shapefile)</td></tr>
+        <tr><td><strong>Extra columns</strong></td><td>Province and district</td><td>Elevation, slope, aspect, soil, climate, ecological zone, mountain class, land productivity, administrative units, columns of your own layers</td><td>None (elevation, slope and aspect are 0)</td></tr>
+        <tr><td><strong>Plot ids</strong></td><td>Permanent, the same worldwide</td><td>Numbered for this grid</td><td>Numbered for this grid</td></tr>
+        <tr><td><strong>Needs</strong></td><td>Nothing (on the dashboard), or a download</td><td>A Google account with Earth Engine</td><td>A cloud project</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="sigrid">SIGRID, the global systematic grid</h2>
+  <p><a href="https://github.com/herrtunante/SIGRID">SIGRID</a> (Systematic Iterative GRID) is one grid for the whole world, with plots 1 km apart. Other grids made in degrees squeeze together towards the poles; in SIGRID the distance between plots stays about the same at any latitude, because each row works out how many degrees of longitude make 1,000 metres at its own latitude. Rows run from 85°N to 85°S.</p>
+  <h3>Grids nested inside each other</h3>
+  <p>Coarser grids are subsets of the 1 km grid: one plot in 4 belongs to the 2 km grid, one in 9 to the 3 km grid, one in 16 to the 4 km grid, and so on, at 1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 20, 25, 30, 50 and 100 km. Every plot keeps the same id in every grid: <code>2000_3300</code> is the plot in row 2,000 and column 3,300, counted in kilometres from the grid's origin at 85°N, 169°W.</p>
+  <p>That makes it <strong>iterative</strong>: start with a coarse grid (say 8 km) for a first national estimate, then intensify to 4 km, 2 km or 1 km where you need more precision. The plots already assessed keep their ids and stay part of the finer grid, so no work is lost, and assessments of later years land on exactly the same plots.</p>
+  <h3>Getting a SIGRID plot file</h3>
+  <ul>
+    <li><strong>On the dashboard</strong> (easiest): on the <span class="ui">Plot files</span> tab, under <span class="ui">Design the plots</span>, choose <span class="ui">From SIGRID</span>. Pick the <span class="ui">Country</span>, optionally some <span class="ui">Provinces</span> or <span class="ui">Districts</span>, optionally drop your own area to keep only the plots in it, and choose the <span class="ui">Distance between plots</span>: each option shows how many plots it makes. Press <span class="ui">Make the plot file</span>.</li>
+    <li><strong>Downloads</strong>: Open Foris publishes one package per country, with a 1 km file tagged with province and district names (UN boundaries) and one file per coarser spacing, and 10° by 10° tiles for any area. A KMZ in the repository lets you browse them in Google Earth.</li>
+    <li><strong>Generate it yourself</strong>: the <a href="https://github.com/herrtunante/SIGRID">SIGRID repository</a> holds the Java code (MIT licence) to rebuild any region or the whole world, into CSV files or a database.</li>
+  </ul>
+  <figure><img src="../img/screens/design-sigrid.png" alt="Making a plot file from SIGRID on the dashboard" loading="lazy"><figcaption>A SIGRID grid for a country, at the spacing you choose.</figcaption></figure>
+  <div class="note">SIGRID ids look like <code>8344_20552</code>, so the survey's plot id must be text, not a number. A 1 km grid of a whole country can hold millions of plots: choose the spacing that gives the number of plots your team can assess.</div>
+
+  <h2 id="gee">The Grid Generator on Google Earth Engine</h2>
+  <p>The <a href="https://collectearth.users.earthengine.app/view/collect-earth-grid-generator">Collect Earth Grid Generator</a> makes a systematic or random grid for any area and adds data from Google Earth Engine to every plot, ready for Collect Earth. There is a <a href="https://www.youtube.com/watch?v=Nad3gPLV9DU">video tutorial</a>.</p>
+  <figure><img src="../img/screens/gee.png" alt="The Collect Earth Grid Generator on Google Earth Engine" loading="lazy"><figcaption>The Grid Generator: choose the area, the grid and the data to add.</figcaption></figure>
+  <ol class="steps">
+    <li><strong>Select AOI</strong>, the area of interest: a country, then a province or district (GAUL 2015 administrative boundaries); or your own polygons uploaded to Earth Engine as an asset (it must be shared or public); or a polygon drawn on the map; or GeoJSON pasted as text (made with mapshaper.org, QGIS or ogr2ogr).</li>
+    <li><strong>The projection</strong> (EPSG code) the grid is laid out in. EPSG:4326 is recommended for large countries; for a small area a local projection keeps the distances exact (see <a href="https://epsg.io">epsg.io</a>).</li>
+    <li><strong>Generate systematic grid</strong>, with the distance between plots in metres (at least 100 m, more than 500 m recommended), and/or <strong>Generate random grid</strong>, with the number of plots.</li>
+    <li><strong>The data to add</strong> to each plot:
+      <ul>
+        <li><span class="ui">Add DEM (elevation, slope, aspect) data</span></li>
+        <li><span class="ui">Add IPCC (soil, climate, gez) data</span>: IPCC soil and climate classes and the FAO global ecological zone</li>
+        <li><span class="ui">Add Kapos Class (mountain areas)</span></li>
+        <li><span class="ui">Add Land Productivity Dynamic data</span></li>
+        <li><span class="ui">Add GAUL Administrative Units data (country/province/district)</span></li>
+        <li><span class="ui">Add columns from other shapefiles</span>: up to seven of your own layers loaded as Earth Engine assets, such as a forest map or management units</li>
+      </ul>
+    </li>
+    <li>Press <span class="ui">Generate grids</span>, then click the download link to get the CSV.</li>
+  </ol>
+  <p>The address in the browser changes with every choice: copy it to make the same grid again later, or to share the exact design with a colleague. If the download link times out, the grid is too large for the app: follow its link to run the same script in the Earth Engine Code Editor, which exports the file to your Google Drive. The app also links to a test project file (<code>.cep</code>) that reads its standard extra columns, and to the area of each province and district, handy for turning plot counts into hectares.</p>
+
+  <h2 id="dashboard">Design the plots on the dashboard</h2>
+  <p>In a cloud project, the <span class="ui">Plot files</span> tab can lay plots out over your own area without leaving the dashboard. Under <span class="ui">Design the plots</span>, choose <span class="ui">From an area</span> and drop a GeoJSON file, or a shapefile of polygons in a <code>.zip</code>, in latitude and longitude. Then choose <span class="ui">How to lay out the plots</span>:</p>
+  <ul>
+    <li><span class="ui">At random</span>: the <span class="ui">Number of plots</span>.</li>
+    <li><span class="ui">On a grid</span>: the <span class="ui">Distance between plots (metres)</span>, optionally starting the grid at a random place.</li>
+    <li><span class="ui">At random within strata</span>: the <span class="ui">Field with the strata</span> in your area file, and the plots per stratum: <span class="ui">The same number in each</span>, or <span class="ui">Shared by area</span>.</li>
+  </ul>
+  <p>The dashboard shows how many plots the design makes, and per stratum how many plots and how many km². <span class="ui">Create the plot file</span> adds it to the project as if you had uploaded it. Nothing is sent outside your server; elevation, slope and aspect are left at 0, so if your survey needs them, use the Grid Generator instead.</p>
+  <figure><img src="../img/screens/design-area.png" alt="Designing plots over an area on the dashboard" loading="lazy"><figcaption>Plots laid out over your own area, at random, on a grid or within strata.</figcaption></figure>
+
+  <h2 id="use">Using the plot file</h2>
+  <ul>
+    <li><strong>Cloud project</strong>: upload the CSV on the <span class="ui">Plot files</span> tab (files made on the dashboard are there already), then give it out: whole, divided evenly, or by a column such as the province. See <a href="coordinators.html#plots">Running a cloud project</a>.</li>
+    <li><strong>On one computer</strong>: in Collect Earth, <span class="ui">Settings › Project › Path to ced/csv file with plot data</span>. The settings show how many plots the file holds, its first rows and where the plots are.</li>
+    <li><strong>The plot's shape</strong> on the imagery (a square, a circle, a hexagon, clusters, and the sampling points inside it) is set in <span class="ui">Settings › Plot layout</span>. A plot file can also carry its own polygons in a WKT column, drawn as they are.</li>
+    <li><strong>Too many plots for one person</strong>: <span class="ui">Utilities › Divide large CSV plot files</span> in Collect Earth splits a file, at random or by a column; on the dashboard, <span class="ui">Divide plots</span> does it for you.</li>
+  </ul>
+
+  <div class="next">
+    <a href="choose.html">← Which set-up?</a>
+    <a href="interpreters.html">Collect Earth for interpreters →</a>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="433">
+    <div class="links">
+      <a href="https://www.openforis.org/">Open Foris</a>
+      <a href="https://www.openforis.org/support">Support forum</a>
+      <a href="https://github.com/openforis/collect-earth">Source code</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

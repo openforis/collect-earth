@@ -21,7 +21,7 @@ header.top .wrap { display: flex; align-items: center; justify-content: space-be
 header.top img { height: 40px; width: auto; display: block; }
 nav a { margin-left: 22px; color: var(--text); text-decoration: none; font-size: .95rem; }
 nav a:hover { color: var(--blue); }
-@media (max-width: 760px) { nav a:not(.btn) { display: none; } }
+@media (max-width: 1000px) { nav a:not(.btn) { display: none; } }
 
 .btn { display: inline-block; padding: 12px 22px; border-radius: 999px; font-weight: 600; text-decoration: none; border: 2px solid transparent; }
 .btn.primary { background: var(--blue); color: #fff; }
