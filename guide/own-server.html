@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your own server · Collect Earth</title>
+<meta name="description" content="Install a private Collect Earth Cloud server on Google Cloud or any Docker host.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="433"></a>
+    <nav>
+      <a href="choose.html">Which set-up?</a>
+      <a href="interpreters.html">Interpreters</a>
+      <a href="coordinators.html">Coordinators</a>
+      <a href="own-server.html">Own server</a>
+      <a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
+  <h1>Your own server</h1>
+  <p class="lead">A private server is your own copy of Collect Earth Cloud: the web dashboard, the sync service Collect Earth talks to, and a database with nightly backups. Coordinators and interpreters work exactly as on <a href="https://cloud.collectearth.org">cloud.collectearth.org</a>, and nobody else, including the Collect Earth team, can see the data.</p>
+
+  <h2>Two ways to install it</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>Google Cloud, guided</th><th>Any Docker host</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Skills needed</strong></td><td>None: a button and one command</td><td>A system administrator</td></tr>
+        <tr><td><strong>What you need</strong></td><td>A Google account and a billing account</td><td>A server with Docker, PostgreSQL with backups, and HTTPS in front</td></tr>
+        <tr><td><strong>Time</strong></td><td>About 20 minutes, mostly waiting</td><td>Depends on your infrastructure</td></tr>
+        <tr><td><strong>Cost</strong></td><td>About 10 to 15 US$ a month</td><td>Your own hosting costs</td></tr>
+        <tr><td><strong>Backups</strong></td><td>Every night, the last 7 kept, and recovery to any minute of the last 7 days</td><td>Yours to arrange</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>On Google Cloud</h2>
+  <ol class="steps">
+    <li>Open the <a href="https://github.com/openforis/collect-earth/blob/master/collect-earth-cloud/SELF-HOSTING.md">self-hosting guide</a> and press <span class="ui">Open in Cloud Shell</span>. Tick <span class="ui">Trust repo</span> and confirm.</li>
+    <li>Follow the panel on the right: pick or create a Google Cloud project, and check billing is on.</li>
+    <li>Run <code>bash deploy/gcp/deploy.sh</code>, choose the region nearest your team, and confirm.</li>
+    <li>Wait: the database takes 10 to 15 minutes, building the server 3 to 6 more.</li>
+    <li>Write down the dashboard address and the <strong>setup code</strong> it prints. <code>deploy.sh --show-setup-code</code> shows the code again.</li>
+  </ol>
+  <h3>What it costs</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>What</th><th>About, per month</th></tr></thead>
+      <tbody>
+        <tr><td>Database (Cloud SQL, smallest machine)</td><td>8 to 10 US$</td></tr>
+        <tr><td>Database disk and backups</td><td>2 to 3 US$</td></tr>
+        <tr><td>Server (Cloud Run): runs only while someone uses it</td><td>0 US$, a few cents when busy</td></tr>
+        <tr><td><strong>Total</strong></td><td><strong>About 10 to 15 US$</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Google changes its prices from time to time; the exact amount depends on the region and on use.</p>
+
+  <h2>On your own servers</h2>
+  <p>Build the image (<code>docker build -t collect-earth-cloud .</code> in <code>collect-earth-cloud</code>) and run it with PostgreSQL. <a href="https://github.com/openforis/collect-earth/blob/master/collect-earth-cloud/DEPLOY.md">DEPLOY.md</a> lists every setting; the main ones:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Setting</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td><code>STORE_BACKEND=postgres</code></td><td>Keep the data in PostgreSQL</td></tr>
+        <tr><td><code>MIGRATION_DATABASE_URL</code></td><td>The database owner, to create and update the tables</td></tr>
+        <tr><td><code>DATABASE_URL</code></td><td>A less powerful role the server runs as, so each project's data stays apart</td></tr>
+        <tr><td><code>SETUP_CODE</code></td><td>The one-time code for the first administrator</td></tr>
+        <tr><td><code>PUBLIC_BASE_URL</code></td><td>Your HTTPS address, used in invitation links</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The server speaks plain HTTP: put HTTPS in front of it (a load balancer, nginx or Caddy). Email settings are optional, for weekly summaries and "Forgot your password?".</p>
+
+  <h2>First steps on a new server</h2>
+  <ol class="steps">
+    <li><strong>Setup.</strong> Open the address, type the setup code, and choose the administrator's user name and password.</li>
+    <li><strong>Server settings</strong> (the <span class="ui">Server</span> page): leave <span class="ui">Anyone can create an account</span> off for a private server, so people only get accounts through invitations. Choose <span class="ui">Who can create projects</span>, and optionally limits, a server name, an announcement, terms of use and a contact email.</li>
+    <li><strong>Your first project:</strong> continue as in <a href="coordinators.html">Running a cloud project</a>. The administrator sees no project's data unless they are also a member.</li>
+    <li><strong>Forgotten passwords:</strong> <span class="ui">Server › Accounts › Make a reset link</span>, or, with email set up, people use <span class="ui">Forgot your password?</span> themselves.</li>
+  </ol>
+  <p>For interpreters nothing changes: the invitation link carries your server's address, so they never type it.</p>
+
+  <h2>Looking after it</h2>
+  <ul>
+    <li><strong>Updating:</strong> run the same <code>deploy.sh</code> command again. It switches to the new version in about 5 minutes; the data stays.</li>
+    <li><strong>Your own address:</strong> <code>deploy.sh --domain cloud.example.org</code>, then add the DNS record it prints.</li>
+    <li><strong>Restoring a backup</strong> replaces all current data: download each project's data first. Test a restore once before going live.</li>
+    <li><strong>Stopping all costs:</strong> delete the Google Cloud project.</li>
+  </ul>
+
+  <div class="next">
+    <a href="coordinators.html">← Running a cloud project</a>
+    <a href="../">Home →</a>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="433">
+    <div class="links">
+      <a href="https://www.openforis.org/">Open Foris</a>
+      <a href="https://www.openforis.org/support">Support forum</a>
+      <a href="https://github.com/openforis/collect-earth">Source code</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Collect Earth for interpreters · Collect Earth</title>
+<meta name="description" content="How to install Collect Earth, open a project, assess plots on satellite imagery and send them to a cloud project.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="433"></a>
+    <nav>
+      <a href="choose.html">Which set-up?</a>
+      <a href="interpreters.html">Interpreters</a>
+      <a href="coordinators.html">Coordinators</a>
+      <a href="own-server.html">Own server</a>
+      <a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
+  <h1>Collect Earth for interpreters</h1>
+  <p class="lead">Collect Earth shows each plot on a map beside high-resolution imagery, and a form with the survey's questions. You look, you answer, you submit, and the next plot opens. This guide covers the desktop program, whether you work alone or in a cloud project.</p>
+
+  <div class="toc">
+    <strong>On this page</strong>
+    <ol>
+      <li><a href="#install">Install and start</a></li>
+      <li><a href="#project">Open a project</a></li>
+      <li><a href="#window">The Collect Earth window</a></li>
+      <li><a href="#assess">Assess a plot</a></li>
+      <li><a href="#imagery">Imagery</a></li>
+      <li><a href="#cloud">Join a cloud project</a></li>
+      <li><a href="#settings">Settings</a></li>
+      <li><a href="#data">Export, import and backups</a></li>
+      <li><a href="#tools">Tools and utilities</a></li>
+      <li><a href="#problems">Common problems</a></li>
+    </ol>
+  </div>
+
+  <h2 id="install">Install and start</h2>
+  <ol class="steps">
+    <li><a href="https://www.openforis.org/tools/collect-earth.html">Download Collect Earth</a> for Windows, macOS or Linux and run the installer. It brings everything it needs, including its own Java.</li>
+    <li>Start Collect Earth. A small window shows each step while it opens; the first start can take up to a minute.</li>
+    <li>Collect Earth opens in a browser window, with the plots map. The first time, it loads a demo project so you can try it out.</li>
+    <li>Type your name when asked (6 to 49 characters). It is saved with every plot you assess, so your plots can be told apart from others'. Click your name in the top bar to change it later.</li>
+  </ol>
+  <p>Collect Earth keeps running in the system tray. Double-click its icon to open the window again; right-click it to quit.</p>
+
+  <h2 id="project">Open a project</h2>
+  <p>A project file (<code>.cep</code>) holds the survey, its form, the plots and the settings. Your coordinator gives it to you, or you make one with the Collect Earth survey designer. To open it, do one of these:</p>
+  <ul>
+    <li><span class="ui">File › Import CEP file</span>, choose the file and press <span class="ui">Import the project</span>.</li>
+    <li>Drag the <code>.cep</code> onto the Collect Earth window.</li>
+    <li>Double-click the <code>.cep</code> file.</li>
+  </ul>
+  <p>Collect Earth restarts with the project. Projects you opened before are listed in <span class="ui">Settings › Project › Previously loaded projects</span>, to switch back at any time.</p>
+  <p>In a cloud project you don't need the file: you join with an invitation link instead (see <a href="#cloud">Join a cloud project</a>).</p>
+
+  <h2 id="window">The Collect Earth window</h2>
+  <figure><img src="../img/screens/desktop-map.png" alt="The Collect Earth window with the plots map, the plot list and the form" loading="lazy"><figcaption>The plots map, the plot list and the form.</figcaption></figure>
+  <ul>
+    <li><strong>Top bar:</strong> the project name, the menus (<span class="ui">File</span>, <span class="ui">Data Import/Export</span>, <span class="ui">Tools</span>, <span class="ui">Utilities</span>, <span class="ui">Settings</span>, <span class="ui">Help</span>), the settings gear, your name, and <span class="ui">Quit</span>.</li>
+    <li><strong>Plot list:</strong> how many plots are done (<em>12 of 120 completed</em>), <span class="ui">Search plot id</span>, the <span class="ui">Show plots</span> filter (All, To do, Done) and <span class="ui">Next unfinished plot</span>.</li>
+    <li><strong>Map:</strong> every plot, coloured by its status. Zoom, <span class="ui">Show all plots</span>, <span class="ui">Center on the selected plot</span>, and <span class="ui">Map layers</span> (satellite, with labels, or streets).</li>
+  </ul>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Colour</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Red</td><td>Not started</td></tr>
+        <tr><td>Yellow</td><td>In progress: saved, not submitted</td></tr>
+        <tr><td>Green</td><td>Completed: submitted</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <figure><img src="../img/screens/desktop-menu.png" alt="The Tools menu open" loading="lazy"><figcaption>The menus at the top: here, Tools.</figcaption></figure>
+  <p>Keyboard shortcuts: <kbd>/</kbd> search a plot, <kbd>N</kbd> next unfinished plot, <kbd>P</kbd> same answers as the previous plot, <kbd>Esc</kbd> close the form, <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> imagery tabs.</p>
+
+  <h2 id="assess">Assess a plot</h2>
+  <ol class="steps">
+    <li>Click a plot on the map or in the list. Its form opens, and the imagery moves to it.</li>
+    <li>Look at the imagery and answer the questions. Long surveys are split into steps; the form moves to the next step by itself.</li>
+    <li>Every answer is saved at once. The form shows <span class="ui">All changes saved</span>.</li>
+    <li>Press <span class="ui">Submit</span> when the plot is complete. If answers are missing, the form lists them with links. Once submitted, the plot turns green and the next unfinished plot opens.</li>
+  </ol>
+  <figure class="narrow"><img src="../img/screens/desktop-form.png" alt="The survey form" loading="lazy"><figcaption>The form saves each answer as you go.</figcaption></figure>
+  <p>Many plots look alike? <span class="ui">Same as previous plot</span> (<kbd>P</kbd>) copies the answers of the last plot you submitted; check them, change what differs, and submit.</p>
+  <p>Changing a submitted plot un-submits it: it turns yellow until you press <span class="ui">Resubmit</span>.</p>
+
+  <h2 id="imagery">Imagery</h2>
+  <p>The buttons above the form open the plot in each source of imagery, side by side with Collect Earth: Google Earth Web, ESRI Wayback (older imagery), Planet monthly mosaics, an Earth Engine app with time series, Earth Map, Street View, and an extra map your project can set.</p>
+  <p>By default the plot viewer is <span class="ui">Plots map + Google Earth Web</span>: a Google Earth Web window follows the selected plot, with its outline drawn. Choose <span class="ui">Plots map window</span> in the settings to work with Collect Earth's own map only.</p>
+  <figure><img src="../img/screens/desktop-gew.png" alt="Google Earth Web showing a plot" loading="lazy"><figcaption>Google Earth Web follows the plot you select.</figcaption></figure>
+  <p>Planet imagery needs a Planet API key (in <span class="ui">Settings › Imagery and viewer</span>); with it, Collect Earth can also use the Tropical Forest Observatory monthly basemaps.</p>
+
+  <h2 id="cloud">Join a cloud project</h2>
+  <p>In a cloud project every plot you save is sent to the server by itself, and the coordinator follows the team's work on the web dashboard.</p>
+  <ol class="steps">
+    <li>Your coordinator sends you an invitation link. Copy it.</li>
+    <li>In Collect Earth, choose <span class="ui">File › Join cloud project...</span>, paste the <span class="ui">Invitation link</span> and press <span class="ui">Check the invitation</span>.</li>
+    <li>Check the project name and your role, and press <span class="ui">Continue</span>.</li>
+    <li>Log in, or <span class="ui">Register</span> a new account (a password of at least 8 characters).</li>
+    <li>Collect Earth downloads the project and restarts. The window title ends with <em>[Cloud project]</em>.</li>
+    <li>In <span class="ui">Settings › Project</span>, choose your <span class="ui">Assigned plot file</span>. <span class="ui">Refresh assignments</span> fetches files the coordinator gives you later.</li>
+  </ol>
+  <figure><img src="../img/screens/desktop-join-cloud.png" alt="The Join cloud project dialog" loading="lazy"><figcaption>Paste the invitation link; Collect Earth does the rest.</figcaption></figure>
+  <p>Then work as usual. Your saved plots are sent in the background within about 30 seconds. With no internet you keep working: the plots wait on your computer and are sent when the connection comes back. <span class="ui">File › Cloud sync status...</span> shows what is waiting, what failed and what was sent, with <span class="ui">Sync now</span>.</p>
+  <p>In a cloud project your name is your account name. Your own progress, quality figures and training feedback are on the dashboard's <span class="ui">My work</span> page (<span class="ui">Tools › My dashboard</span>).</p>
+  <div class="note">Plots you assessed before joining? <span class="ui">Data Import/Export › Send this computer's records to the cloud project</span> sends them too.</div>
+
+  <h2 id="settings">Settings</h2>
+  <p>The gear in the top bar opens the settings. Change what you need, then press <span class="ui">Apply</span>. Settings marked <em>Restart</em> restart Collect Earth.</p>
+  <figure><img src="../img/screens/desktop-settings.png" alt="The settings page" loading="lazy"><figcaption>Settings, with a search box at the top.</figcaption></figure>
+  <ul>
+    <li><span class="ui">Project</span>: the plot file (with a check of how many plots it holds, its first rows, and where they are on a map), and the projects you loaded before.</li>
+    <li><span class="ui">Plot layout</span>: the plot's shape (square, circle, hexagon, polygons from the plot file, NFI clusters…), the sampling points inside it and their size, with a preview.</li>
+    <li><span class="ui">Imagery and viewer</span>: the plot viewer, the window layout, the map imagery and the extra sources (Earth Engine dates, Planet key, extra map).</li>
+    <li><span class="ui">Data storage</span>: where the plots are saved. <em>SQLite</em> (one file on this computer, the default), <em>PostgreSQL</em> (a database several computers share on an office network), or <em>Cloud project</em>.</li>
+    <li><span class="ui">Advanced</span>: which browser Collect Earth uses.</li>
+  </ul>
+  <figure><img src="../img/screens/desktop-settings-storage.png" alt="The data storage settings" loading="lazy"><figcaption>Data storage: SQLite, PostgreSQL or a cloud project.</figcaption></figure>
+
+  <h2 id="data">Export, import and backups</h2>
+  <p><span class="ui">Data Import/Export › Export data</span> saves your plots as:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Format</th><th>Use it for</th></tr></thead>
+      <tbody>
+        <tr><td>CSV (Excel)</td><td>A spreadsheet or R. Tick <span class="ui">Include labels for code attributes</span> for readable answers.</td></tr>
+        <tr><td>XML (compressed)</td><td>Moving plots to another Collect Earth, or into a cloud project</td></tr>
+        <tr><td>Collect backup</td><td>Opening the data in Open Foris Collect</td></tr>
+        <tr><td>KML</td><td>Seeing plots and answers in Google Earth</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>You can export all records, only those changed since the last export, those changed since a date, or a filtered set.</p>
+  <figure><img src="../img/screens/desktop-export.png" alt="The export dialog" loading="lazy"><figcaption>Export to CSV, compressed XML, a Collect backup or KML.</figcaption></figure>
+  <p><span class="ui">Import data</span> brings in another Collect Earth's compressed XML export (it asks what to do with plots you already have), or changes to some answers from a CSV.</p>
+  <p>With SQLite, Collect Earth backs up its database each time it closes and keeps the last ten (<span class="ui">Settings › Data storage › Open backup folder</span>). Now and then, also export a compressed XML and keep it somewhere else.</p>
+
+  <h2 id="tools">Tools and utilities</h2>
+  <ul>
+    <li><span class="ui">Tools › Analyse the data</span>: tables and charts of your answers in the browser, also as a stand-alone file to share.</li>
+    <li><span class="ui">Tools › My dashboard</span>: progress, a map, the data, quality hints and activity for this computer's plots. In a cloud project it opens the project's dashboard.</li>
+    <li><span class="ui">Tools › Generate LULUCF package</span>: the data prepared for greenhouse gas reporting to the IPCC.</li>
+    <li><span class="ui">Tools › Load points from KML</span>: makes a plot file from points in a KML.</li>
+    <li><span class="ui">Utilities › Find missing plots in database</span>: compares a plot file with your database and lists plots not yet submitted.</li>
+    <li><span class="ui">Utilities › Divide large CSV plot files</span>: splits a plot file into several, at random or by the values of a column, to share out the work by hand.</li>
+  </ul>
+  <figure><img src="../img/screens/desktop-my-dashboard.png" alt="My dashboard" loading="lazy"><figcaption>My dashboard: your own progress, on your own computer.</figcaption></figure>
+
+  <h2 id="problems">Common problems</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>What you see</th><th>What to do</th></tr></thead>
+      <tbody>
+        <tr><td>A plot is yellow, not green</td><td>It was changed after it was submitted. Open it and press <span class="ui">Resubmit</span>.</td></tr>
+        <tr><td><em>Cloud sync status</em> shows plots waiting or failed</td><td>Nothing: they are sent again by themselves once the connection is back. <span class="ui">Sync now</span> tries at once.</td></tr>
+        <tr><td>"You are not logged in to the cloud project"</td><td>Log in again; nothing saved on your computer is lost.</td></tr>
+        <tr><td>No assigned plot file</td><td>Your coordinator hasn't given you plots yet. Ask them, then press <span class="ui">Refresh assignments</span>.</td></tr>
+        <tr><td>Collect Earth seems to stop after changing the project or a setting</td><td>It is restarting: wait, the small window shows each step until it opens again.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Something else? <span class="ui">Help › Technical Support</span> opens the Open Foris support forum, and <span class="ui">Help › Open Application Log File</span> shows what Collect Earth did.</p>
+
+  <div class="next">
+    <a href="choose.html">← Which set-up?</a>
+    <a href="coordinators.html">Running a cloud project →</a>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="433">
+    <div class="links">
+      <a href="https://www.openforis.org/">Open Foris</a>
+      <a href="https://www.openforis.org/support">Support forum</a>
+      <a href="https://github.com/openforis/collect-earth">Source code</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Running a cloud project · Collect Earth</title>
+<meta name="description" content="How a coordinator sets up and runs a Collect Earth Cloud project: the survey, the plots, the team, quality checks, training and the data.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="433"></a>
+    <nav>
+      <a href="choose.html">Which set-up?</a>
+      <a href="interpreters.html">Interpreters</a>
+      <a href="coordinators.html">Coordinators</a>
+      <a href="own-server.html">Own server</a>
+      <a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
+  <h1>Running a cloud project</h1>
+  <p class="lead">This guide takes a coordinator from nothing to a running project on Collect Earth Cloud: the survey on the server, the plots given out, the team invited and working, the quality checked and the data downloaded. The interpreters keep working in the Collect Earth desktop program; every plot they save reaches the dashboard by itself.</p>
+
+  <div class="toc">
+    <strong>On this page</strong>
+    <ol>
+      <li><a href="#roles">Who does what</a></li>
+      <li><a href="#account">Your account and a new project</a></li>
+      <li><a href="#file">The project file</a></li>
+      <li><a href="#plots">The plot files</a></li>
+      <li><a href="#people">Inviting people</a></li>
+      <li><a href="#give-out">Giving out the plots</a></li>
+      <li><a href="#follow">Following the work</a></li>
+      <li><a href="#quality">Checking the quality</a></li>
+      <li><a href="#training">Training the team</a></li>
+      <li><a href="#data">Getting the data out</a></li>
+      <li><a href="#settings">Project settings</a></li>
+      <li><a href="#ceo">Bringing in a Collect Earth Online project</a></li>
+    </ol>
+  </div>
+
+  <h2 id="roles">Who does what</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Role</th><th>What they do</th><th>What they see</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Coordinator</strong></td><td>Sets up the project, invites people, gives out plots, decides when answers differ, downloads the data</td><td>Everything: every tab, names, quality per person, time spent per plot</td></tr>
+        <tr><td><strong>Reviewer</strong></td><td>Helps check the quality</td><td>Progress, Map, Quality and Training</td></tr>
+        <tr><td><strong>Collector</strong></td><td>Assesses plots in Collect Earth</td><td>Their own work only: <span class="ui">My work</span> and <span class="ui">My quality</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>A project can have several coordinators.</p>
+
+  <h2 id="account">Your account and a new project</h2>
+  <ol class="steps">
+    <li>Open <a href="https://cloud.collectearth.org">cloud.collectearth.org</a> and choose <span class="ui">Create an account</span>, or <span class="ui">Log in</span> if you have one.</li>
+    <li>On <span class="ui">My projects</span>, press <span class="ui">New project</span>, type the <span class="ui">Project name</span> and press <span class="ui">Create the project</span>.</li>
+    <li>The project opens on <span class="ui">Setup</span>, with a <span class="ui">Getting started</span> checklist: upload the project file, add plot files, invite people, choose who collects each plot file, follow the progress.</li>
+  </ol>
+  <figure><img src="../img/screens/new-project.png" alt="The New project dialog" loading="lazy"><figcaption>A new project needs only a name.</figcaption></figure>
+  <figure><img src="../img/screens/my-projects.png" alt="The My projects page" loading="lazy"><figcaption>My projects: every project you belong to, with its progress.</figcaption></figure>
+  <figure><img src="../img/screens/project-checklist.png" alt="A new project's Getting started checklist" loading="lazy"><figcaption>A new project shows what to do next.</figcaption></figure>
+  <p>On a wide screen the tabs sit in a sidebar, grouped as <span class="ui">Monitor</span>, <span class="ui">Team and plots</span>, <span class="ui">Results</span> and <span class="ui">Project</span>.</p>
+
+  <h2 id="file">The project file</h2>
+  <p>The project file (<code>.cep</code>) holds the survey: the questions, the form and the project's settings. It is the same file Collect Earth opens on a computer. Make it with the Collect Earth survey designer.</p>
+  <ol class="steps">
+    <li>Open the <span class="ui">Project file</span> tab and drag the <code>.cep</code> onto it, or press <span class="ui">Choose the .cep file</span>.</li>
+    <li>If the file carries plot grids, choose <span class="ui">Merge into one plot file</span> or add them as separate files.</li>
+    <li>To change the survey later, press <span class="ui">Choose a new version</span>. Each interpreter's Collect Earth fetches the new version by itself.</li>
+  </ol>
+
+  <h2 id="plots">The plot files</h2>
+  <p>A plot file is a CSV with one row per plot: the plot id, the latitude and the longitude, then any extra columns the survey expects. On the <span class="ui">Plot files</span> tab, drag one or more CSV files in. They appear under <span class="ui">Files uploaded</span>.</p>
+  <p>No plot file yet? <span class="ui">Design the plots</span> makes one for you: draw plots <span class="ui">At random</span>, <span class="ui">On a grid</span> or <span class="ui">At random within strata</span> in an area, or take them from SIGRID by country, province or district, with the distance between plots you choose.</p>
+  <figure><img src="../img/screens/plot-files.png" alt="The Plot files tab" loading="lazy"><figcaption>Plot files, and who collects each one.</figcaption></figure>
+
+  <h2 id="people">Inviting people</h2>
+  <ol class="steps">
+    <li>On the <span class="ui">People</span> tab, under <span class="ui">Invite people</span>, choose how they join: <span class="ui">Collector</span>, <span class="ui">Reviewer</span> or <span class="ui">Coordinator</span>.</li>
+    <li>Choose <span class="ui">How many people can use it</span> and how long <span class="ui">The link works for</span>. One link for many people works well for a training room.</li>
+    <li>Press <span class="ui">Make the invitation link</span> and copy it. It is shown only once. Send it by email or chat.</li>
+  </ol>
+  <figure><img src="../img/screens/invite.png" alt="Making an invitation link" loading="lazy"><figcaption>One link can invite a whole team.</figcaption></figure>
+  <p>The person who opens the link sees how to join: install Collect Earth, join the project from its menu, paste the link, and choose a username and password. Collect Earth then downloads the project by itself. See <a href="interpreters.html#cloud">joining a cloud project</a> in the interpreters' guide.</p>
+  <p>Open links are listed under <span class="ui">Invitation links still open</span>; <span class="ui">Stop this link</span> closes one. Under <span class="ui">People in this project</span> you can change someone's role, remove them, or leave them out of the results.</p>
+
+  <h2 id="give-out">Giving out the plots</h2>
+  <p>Under <span class="ui">Who collects each file</span>, tick the people for each file and press <span class="ui">Save</span> to give a whole file to them. To share a file out, press <span class="ui">Divide plots</span>:</p>
+  <ul>
+    <li><span class="ui">Evenly between people</span>, or <span class="ui">By a column</span> such as a province or a stratum, giving each value to one person in turn, or each person a share in percent.</li>
+    <li><span class="ui">Which plots go together</span>: <span class="ui">In the order of the file</span>, <span class="ui">Mix them</span>, or <span class="ui">Keep plots that are close on the map together</span>.</li>
+    <li><span class="ui">Quality check</span>: also give some plots to a second person, to compare their answers. Neither knows which plots are shared.</li>
+  </ul>
+  <p>Press <span class="ui">Preview</span> to see the result, then <span class="ui">Apply</span>.</p>
+  <figure><img src="../img/screens/give-out.png" alt="Dividing a plot file between people" loading="lazy"><figcaption>Divide a file between people, with an overlap for blind quality checks.</figcaption></figure>
+  <p>When someone leaves or falls behind, <span class="ui">Move unfinished plots to…</span> hands their remaining plots to someone else and leaves what they did untouched.</p>
+
+  <h2 id="follow">Following the work</h2>
+  <p><span class="ui">Progress</span> shows how many plots are submitted, day by day, who <span class="ui">Needs attention</span>, and <span class="ui">When will it be done?</span> against your deadline.</p>
+  <figure><img src="../img/screens/progress.png" alt="The Progress tab" loading="lazy"><figcaption>Progress, with a forecast against the deadline.</figcaption></figure>
+  <p><span class="ui">People</span> shows how each person is doing: plots, speed, last sync and agreement, with a page per person. Only coordinators see the time spent on each plot; very quick plots are flagged.</p>
+  <figure><img src="../img/screens/people.png" alt="The People tab" loading="lazy"><figcaption>How each person is doing.</figcaption></figure>
+  <p><span class="ui">Map</span> shows every plot coloured by its status. Click a plot to open its page with every answer it received.</p>
+  <figure><img src="../img/screens/map.png" alt="The Map tab" loading="lazy"><figcaption>Every plot, coloured by status.</figcaption></figure>
+  <p><span class="ui">Activity</span> lists what happened (plots submitted, files changed, people joined), and gives a weekly summary and downloads.</p>
+
+  <h2 id="quality">Checking the quality</h2>
+  <p>The <span class="ui">Quality</span> tab compares the answers of plots that two people assessed blind.</p>
+  <ul>
+    <li><span class="ui">Automatic checks</span>: copy the first plots each person submits, or a share of all their plots, to chosen checkers as blind second assessments. Press <span class="ui">Draw now</span> to start at once.</li>
+    <li><span class="ui">Review queue</span>: for each plot where the answers differ, decide <span class="ui">First is right</span>, <span class="ui">Check is right</span> or <span class="ui">Both need another look</span>. <span class="ui">Decide many plots at once</span> speeds this up.</li>
+    <li><span class="ui">Reference plots</span>: plots an expert has assessed. Every collector also gets them blind, which measures each person's accuracy.</li>
+    <li><span class="ui">Agreement by question</span>, <span class="ui">Agreement by person</span>, <span class="ui">Mixed-up answers</span> and <span class="ui">Over time</span> show where the team disagrees.</li>
+    <li><span class="ui">Plots worth a look</span> lists plots done very fast, with the same answers as before, with required answers missing, or edited after a decision.</li>
+    <li><span class="ui">Guidance notes</span> share decisions with the team, so everyone answers the same way next time.</li>
+  </ul>
+  <figure><img src="../img/screens/quality.png" alt="The Quality tab" loading="lazy"><figcaption>Agreement between first assessments and checks.</figcaption></figure>
+  <p>Collectors don't need the dashboard to work, but they can follow their own progress, quality and training on <span class="ui">My work</span>.</p>
+  <figure><img src="../img/screens/my-work.png" alt="A collector's My work page" loading="lazy"><figcaption>What a collector sees: their own work only.</figcaption></figure>
+  <p>Reviewers can help: they see the review queue, plots worth a look and the answers per person, without the names of the people behind the time figures.</p>
+
+  <h2 id="training">Training the team</h2>
+  <p>On <span class="ui">Training</span>, press <span class="ui">Add a training set</span> and choose the kind:</p>
+  <ul>
+    <li><span class="ui">Calibration</span>: everyone assesses the same plots, to measure how much the team agrees before the real work starts.</li>
+    <li><span class="ui">Learning plots</span>: plots with a golden interpretation, so each person sees where they went wrong.</li>
+  </ul>
+  <p>Each set has its own page with the golden interpretation, how much people agree, scores, plot by plot results and a printable report. Training plots are kept apart: they never count in progress, quality figures or downloads.</p>
+  <figure><img src="../img/screens/training.png" alt="The Training tab" loading="lazy"><figcaption>Calibration and learning sets, kept apart from the real data.</figcaption></figure>
+
+  <h2 id="data">Getting the data out</h2>
+  <p>On the <span class="ui">Data</span> tab:</p>
+  <ul>
+    <li><span class="ui">Download the data</span>: a CSV of every answer, with the coordinator's final decision for each plot. Tick <span class="ui">Leave out where the plots are</span> to share it without coordinates.</li>
+    <li><span class="ui">Open the analysis</span>: tables and charts in the browser, a stand-alone file to share, and the <span class="ui">Uncertainty (IPCC)</span> of the land areas.</li>
+    <li><span class="ui">Collect Earth backup</span>: the whole project, to open in Collect or Collect Earth.</li>
+    <li><span class="ui">Import data from Collect Earth</span>: bring in plots assessed in a stand-alone Collect Earth (its compressed XML export), matching each person in the file to an account.</li>
+  </ul>
+  <figure><img src="../img/screens/data.png" alt="The Data tab" loading="lazy"><figcaption>Downloads, analysis and imports.</figcaption></figure>
+
+  <h2 id="settings">Project settings</h2>
+  <ul>
+    <li><span class="ui">Progress</span>: a deadline, a target in plots, and after how many quiet days a person is flagged.</li>
+    <li><span class="ui">Progress links for funders</span>: a read-only progress page you can share without an account.</li>
+    <li><span class="ui">AI assistant</span>: an optional helper for reviews, if the server allows it.</li>
+    <li><span class="ui">Project status</span>: close a finished project, archive it, or reopen it.</li>
+    <li><span class="ui">Copy this project</span>, with or without its people and assignments, to start a similar one.</li>
+  </ul>
+
+  <h2 id="ceo">Bringing in a Collect Earth Online project</h2>
+  <p>On <span class="ui">My projects</span>, choose <span class="ui">From Collect Earth Online</span> and paste the CEO project's address or number, then <span class="ui">Read from CEO</span>. The questions and plots of a public project come across directly; a CSV of answers already collected can be added too. Plot and sample shapes, such as FRA's hexagons, are copied in the background while you work.</p>
+  <figure><img src="../img/screens/ceo-import.png" alt="Importing a Collect Earth Online project" loading="lazy"><figcaption>A CEO project, read straight from its address.</figcaption></figure>
+
+  <div class="next">
+    <a href="interpreters.html">← Collect Earth for interpreters</a>
+    <a href="own-server.html">Your own server →</a>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="433">
+    <div class="links">
+      <a href="https://www.openforis.org/">Open Foris</a>
+      <a href="https://www.openforis.org/support">Support forum</a>
+      <a href="https://github.com/openforis/collect-earth">Source code</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

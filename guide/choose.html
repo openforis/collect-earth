@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Which set-up? · Collect Earth</title>
+<meta name="description" content="Four ways to organise data collection with Collect Earth, from one interpreter on a laptop to a team on a private server.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="433"></a>
+    <nav>
+      <a href="choose.html">Which set-up?</a>
+      <a href="interpreters.html">Interpreters</a>
+      <a href="coordinators.html">Coordinators</a>
+      <a href="own-server.html">Own server</a>
+      <a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
+  <h1>Which set-up?</h1>
+  <p class="lead">Collect Earth always saves each plot on the interpreter's own computer first. The four ways of working differ in how those plots are brought together, and how much a coordinator can see while the work goes on.</p>
+
+  <h2>How to choose</h2>
+  <ul>
+    <li><strong>Working alone?</strong> Set-up 1. You can move to a cloud project later.</li>
+    <li><strong>A team, and the internet works at least once a day?</strong> Set-up 3. Nothing to install beyond Collect Earth, and the coordinator gets progress, quality checks, training and the time spent per plot.</li>
+    <li><strong>A team that must keep its data on its own servers?</strong> Set-up 4. It works exactly like set-up 3, on a server you install and pay for.</li>
+    <li><strong>A team with no internet at all?</strong> Set-up 2, with regular exports from each computer. More manual work, fewer checks.</li>
+  </ul>
+  <p>Set-ups 3 and 4 still work offline: each interpreter keeps working, and the plots are sent when the connection comes back.</p>
+
+  <h2>The four set-ups side by side</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>1. One interpreter</th><th>2. Team, local</th><th>3. Collect Earth Cloud</th><th>4. Private server</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Typical use</strong></td><td>A study, a pilot, one expert</td><td>A small team in one office, no internet</td><td>Most team projects</td><td>Organisations that must keep data in-house</td></tr>
+        <tr><td><strong>Where plots are saved</strong></td><td>The computer's own database (SQLite)</td><td>Each computer's database, or one shared PostgreSQL</td><td>Each computer, sent to the cloud server</td><td>Each computer, sent to your server</td></tr>
+        <tr><td><strong>Plots reach the coordinator</strong></td><td>Already there</td><td>Export on each computer, import on the coordinator's</td><td>By themselves, within about 30 seconds</td><td>As in set-up 3</td></tr>
+        <tr><td><strong>Giving out plots</strong></td><td>Not needed</td><td>One plot file per person, by hand</td><td>On the dashboard: whole files or divided automatically</td><td>As in set-up 3</td></tr>
+        <tr><td><strong>Progress</strong></td><td>My dashboard</td><td>My dashboard on each computer</td><td>Web dashboard for the team</td><td>Web dashboard for the team</td></tr>
+        <tr><td><strong>Quality checks, training, time spent</strong></td><td>No</td><td>By hand</td><td>Built in</td><td>Built in</td></tr>
+        <tr><td><strong>Who runs the server</strong></td><td>Nobody</td><td>Nobody (or IT, for PostgreSQL)</td><td>The Collect Earth team</td><td>You</td></tr>
+        <tr><td><strong>Cost</strong></td><td>Free</td><td>Free</td><td>Free</td><td>About 10 to 15 US$ a month</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>1. One interpreter, on one computer</h2>
+  <p>Install Collect Earth, open the project file and assess the plots. Everything stays in the SQLite database on that computer; only the imagery needs the internet. <span class="ui">Tools › My dashboard</span> shows your progress. See <a href="interpreters.html">Collect Earth for interpreters</a>.</p>
+
+  <h2>2. A team, without a server</h2>
+  <p><strong>Each computer its own database.</strong> Give everyone the same project file and their own plot file (<span class="ui">Utilities › Divide large CSV plot files</span> splits one). Each interpreter exports regularly with <span class="ui">Export data › XML (compressed)</span>, choosing <em>Records modified since the last export</em>, and sends the file to the coordinator, who brings them together with <span class="ui">Import data</span>.</p>
+  <div class="note">Locally, a database keeps one version of each plot. To compare two people's answers on the same plot, keep the second export apart, or use a cloud project, which keeps both.</div>
+  <p><strong>One shared PostgreSQL database.</strong> On an office network, IT sets up PostgreSQL and every computer chooses <span class="ui">Settings › Data storage › PostgreSQL</span>. Everyone's saves go into one database, with no exports to carry. Never give the same plot to two people: the last save wins.</p>
+
+  <h2>3. Collect Earth Cloud</h2>
+  <p>The free server run by the Collect Earth team, at <a href="https://cloud.collectearth.org">cloud.collectearth.org</a>. The coordinator creates a project and invites the team with a link; interpreters join from Collect Earth, and their plots reach the dashboard by themselves. Two people's answers on the same plot are both kept and compared. See <a href="coordinators.html">Running a cloud project</a>.</p>
+
+  <h2>4. Your own server</h2>
+  <p>Your own copy of Collect Earth Cloud. Coordinators and interpreters work exactly as in set-up 3; only the address differs, and nobody else can see the data. See <a href="own-server.html">Your own server</a>.</p>
+
+  <h2>Moving from local work to a cloud project</h2>
+  <p>Upload the same project file to the server. Plots already assessed can come along: each interpreter joins the project and uses <span class="ui">Data Import/Export › Send this computer's records to the cloud project</span>, or the coordinator imports a compressed XML export on the dashboard's <span class="ui">Data</span> tab.</p>
+
+  <div class="next">
+    <a href="../">← Home</a>
+    <a href="interpreters.html">Collect Earth for interpreters →</a>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="433">
+    <div class="links">
+      <a href="https://www.openforis.org/">Open Foris</a>
+      <a href="https://www.openforis.org/support">Support forum</a>
+      <a href="https://github.com/openforis/collect-earth">Source code</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
