@@ -25,8 +25,10 @@ let trainingAsked: string[];
 
 /** opened: Collect Earth's answer to opening the plot, null when it has no record of it */
 function serve(opened: { activelySaved: boolean; infos: Record<string, FieldInfo> } | null) {
-  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
-    if (url.startsWith("http://localhost:8028/api/cloud/training-feedback")) {
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+    // Collect Earth's JSON API, which answers its pages only (the X-Collect-Earth header, ApiHeaderFilter)
+    if (url.startsWith("http://localhost:8028/earth/api/cloud/training-feedback")) {
+      if ((init?.headers as Record<string, string> | undefined)?.["X-Collect-Earth"] !== "1") return { ok: false, status: 403, json: async () => ({}) };
       trainingAsked.push(new URL(url).searchParams.get("plot") ?? "");
       return { ok: true, json: async () => trainingAnswer };
     }
