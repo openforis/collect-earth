@@ -351,8 +351,12 @@ public class SurveyFormModelBuilder {
 		return checks;
 	}
 
-	/** sum(...) of a path without filters (parent() allowed), its closing parenthesis included */
-	private static final Pattern SUM = Pattern.compile("sum\\s*\\(((?:[^()\\[\\]]|\\(\\))*)\\)");
+	/**
+	 * sum(...) of a path without filters (parent() allowed), its closing parenthesis included. Written without an
+	 * alternation under a repetition, and possessive, so that a long expression is matched without backtracking (a
+	 * repeated alternation recurses in Java's regex engine, and can overflow the stack)
+	 */
+	private static final Pattern SUM = Pattern.compile("sum\\s*\\(([^()\\[\\]]*+(?:\\(\\)[^()\\[\\]]*+)*+)\\)");
 	private static final String OPERATOR = "(>=|<=|!=|==|=|>|<)";
 	private static final String NUMBER = "(-?\\d+(?:\\.\\d+)?)";
 	private static final Pattern AFTER = Pattern.compile("^\\s*" + OPERATOR + "\\s*" + NUMBER + "(?![\\w.])");

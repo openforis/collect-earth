@@ -46,6 +46,9 @@
 		<sonar.language>java</sonar.language>
 		<sonar.organization>openforis</sonar.organization>
   		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
+		<!-- The tests' coverage, which JaCoCo writes at verify (below) and the SonarCloud analysis reads: without it
+		     every analysis had 0% coverage, and the quality gate (80% of new code) failed on every pull request -->
+		<sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
 	</properties>
 
 	<!-- The id has to be the one the credentials are stored under in settings.xml, and it has to be the same one
@@ -117,6 +120,27 @@
 				      </configuration>
 				    </execution>
 				  </executions>
+				</plugin>
+				<!-- Coverage of the unit tests for SonarCloud: the agent while Surefire runs, the XML report at verify -->
+				<plugin>
+					<groupId>org.jacoco</groupId>
+					<artifactId>jacoco-maven-plugin</artifactId>
+					<version>0.8.16</version>
+					<executions>
+						<execution>
+							<id>prepare-agent</id>
+							<goals>
+								<goal>prepare-agent</goal>
+							</goals>
+						</execution>
+						<execution>
+							<id>report</id>
+							<phase>verify</phase>
+							<goals>
+								<goal>report</goal>
+							</goals>
+						</execution>
+					</executions>
 				</plugin>
 		</plugins>
 		<pluginManagement>

@@ -448,14 +448,14 @@ public class LocalPropertiesService extends Observable {
 
 	/** The properties kept with the operating system's protection when there is one (see SecretProtector). */
 	private static final java.util.Set<String> SECRETS = Collections.singleton("cloud_sync_token");
-	private static volatile SecretProtector secretProtector;
+	private static final java.util.concurrent.atomic.AtomicReference<SecretProtector> SECRET_PROTECTOR = new java.util.concurrent.atomic.AtomicReference<>();
 
 	/**
 	 * Registers the operating system's protection of the secrets (the cloud token). The ones already in the file in plain
 	 * text are protected once they are written again; {@link #protectSecrets()} does it at once.
 	 */
 	public static void setSecretProtector(SecretProtector protector) {
-		secretProtector = protector;
+		SECRET_PROTECTOR.set(protector);
 	}
 
 	static boolean isSecret(String key) {
@@ -464,7 +464,7 @@ public class LocalPropertiesService extends Observable {
 
 	/** The plain value of a secret as stored: protected by this computer, or plain text from before. */
 	private static String revealed(String stored) {
-		SecretProtector protector = secretProtector;
+		SecretProtector protector = SECRET_PROTECTOR.get();
 		if (protector == null || stored.isEmpty() || !stored.startsWith(protector.prefix())) {
 			return stored;
 		}
@@ -475,7 +475,7 @@ public class LocalPropertiesService extends Observable {
 
 	/** A secret as it is written: protected when this computer can, else as it is. */
 	private static String stored(String key, String value) {
-		SecretProtector protector = secretProtector;
+		SecretProtector protector = SECRET_PROTECTOR.get();
 		if (protector != null && (value == null || value.isEmpty()) && isSecret(key)) {
 			try {
 				protector.forget();
@@ -504,7 +504,7 @@ public class LocalPropertiesService extends Observable {
 			// A file written before this version, with the permissions the user's other files get
 			ownerOnly(new File(PROPERTIES_FILE_PATH).toPath());
 		}
-		SecretProtector protector = secretProtector;
+		SecretProtector protector = SECRET_PROTECTOR.get();
 		if (protector == null) {
 			return;
 		}

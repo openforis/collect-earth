@@ -225,6 +225,10 @@ public class EarthApp {
 			// will be non-nulls
 			Thread.sleep(2000);
 
+		} catch (InterruptedException e) {
+			// Stopped while waiting: Collect Earth starts all the same (finally), and the interruption is kept
+			Thread.currentThread().interrupt();
+			logger.warn("Interrupted while waiting for the double-clicked CEP file in Mac OS X", e);
 		} catch (Exception e) {
 			logger.error("Error while defining the double-click behaviour on CEP files in Mac OS X", e);
 			
