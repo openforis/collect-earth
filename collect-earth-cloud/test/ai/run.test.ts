@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RoundInfo } from '../../src/cep.js';
 import { AiError, type AiCall, type AiClient, type AiRequest, type AiResponse } from '../../src/ai/client.js';
-import { ANSWER_CHECK_SYSTEM, OFF_TOPIC_MESSAGE, PROJECT_DATA_NOTE, TOPIC_CHECK_SYSTEM } from '../../src/ai/prompts.js';
+import { AI_LANGUAGES, ANSWER_CHECK_SYSTEM, OFF_TOPIC_MESSAGE, PROJECT_DATA_NOTE, systemInstruction, TOPIC_CHECK_SYSTEM } from '../../src/ai/prompts.js';
 import {
   ANSWER_SCHEMA,
   FAILURE_MESSAGES,
@@ -743,11 +743,23 @@ describe('withQuestionLabels', () => {
   });
 });
 
+describe('the languages', () => {
+  it('every dashboard language has its own refusal and its own "Answer in"', () => {
+    expect(AI_LANGUAGES).toEqual(['en', 'es', 'fr', 'pt', 'tr']);
+    expect(systemInstruction('tr')).toContain('- Answer in Turkish.');
+    for (const lang of AI_LANGUAGES.filter((l) => l !== 'en')) {
+      expect(OFF_TOPIC_MESSAGE[lang]?.trim(), lang).toBeTruthy();
+      expect(OFF_TOPIC_MESSAGE[lang], lang).not.toBe(OFF_TOPIC_MESSAGE.en);
+      expect(systemInstruction(lang), lang).not.toContain('Answer in English.');
+    }
+  });
+});
+
 describe('withRealNames', () => {
   it('maps back in one pass, also translated pseudonyms, and never writes a name into a draft note', () => {
     const stored = {
       result: {
-        text: 'Person A and Person B and Person AB and Persona B, Personne A, Pessoa B; Plot 1, Parcela 2, Parcelle 1, Plot 9',
+        text: "Person A and Person B and Person AB and Persona B, Personne A, Pessoa B, Kişi A'nın; Plot 1, Parcela 2, Parcelle 1, Parsel 2'de, Plot 9",
         plots: ['Plot 1', 'Parcela 2'],
         note: 'Person A, Plot 2',
         questions: ['Person A'],
@@ -756,7 +768,7 @@ describe('withRealNames', () => {
       plots: { 'Plot 1': 'p-one', 'Plot 2': 'p-two' },
     };
     expect(withRealNames(stored)).toEqual({
-      text: 'Person B and x and Person AB and x, Person B, x; p-one, p-two, p-one, Plot 9',
+      text: "Person B and x and Person AB and x, Person B, x, Person B'nın; p-one, p-two, p-one, p-two'de, Plot 9",
       plots: ['p-one', 'p-two'],
       note: 'Person A, p-two',
       questions: ['Person A'],

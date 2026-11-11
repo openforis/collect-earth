@@ -724,11 +724,11 @@ const NAMESPACES: Array<[string, string]> = [
   ['ui', 'http://www.openforis.org/collect/3.0/ui'],
 ];
 
-type Lang = 'en' | 'es' | 'fr' | 'pt';
+type Lang = 'en' | 'es' | 'fr' | 'pt' | 'tr';
 const ROUND_TEXTS: Record<'name' | 'first' | 'again', Record<Lang, string>> = {
-  name: { en: 'Assessment round', es: 'Ronda de evaluación', fr: 'Phase d’évaluation', pt: 'Fase de avaliação' },
-  first: { en: 'First assessment', es: 'Primera evaluación', fr: 'Première évaluation', pt: 'Primeira avaliação' },
-  again: { en: 'Re-assessment', es: 'Reevaluación', fr: 'Réévaluation', pt: 'Reavaliação' },
+  name: { en: 'Assessment round', es: 'Ronda de evaluación', fr: 'Phase d’évaluation', pt: 'Fase de avaliação', tr: 'Değerlendirme turu' },
+  first: { en: 'First assessment', es: 'Primera evaluación', fr: 'Première évaluation', pt: 'Primeira avaliação', tr: 'İlk değerlendirme' },
+  again: { en: 'Re-assessment', es: 'Reevaluación', fr: 'Réévaluation', pt: 'Reavaliação', tr: 'Yeniden değerlendirme' },
 };
 const isLang = (l: string): l is Lang => l in ROUND_TEXTS.name;
 
@@ -741,12 +741,12 @@ const unmarkedLang = (languages: readonly string[]): Lang => {
 /**
  * <label> elements for a text: unmarked in the survey's default language (English when it is not
  * one of ours), then marked in its other declared languages we have; a survey that declares no
- * languages gets English plus es/fr/pt.
+ * languages gets English plus es/fr/pt/tr.
  */
 function labelElements(languages: readonly string[], texts: Record<Lang, string>, type: string): string[] {
   const defaultLang = languages[0] ?? 'en';
   const unmarked = unmarkedLang(languages);
-  const marked = (languages.length > 0 ? languages : ['en', 'es', 'fr', 'pt']).filter(
+  const marked = (languages.length > 0 ? languages : ['en', 'es', 'fr', 'pt', 'tr']).filter(
     (l): l is Lang => isLang(l) && l !== defaultLang && l !== unmarked,
   );
   return [
@@ -1107,7 +1107,7 @@ export const noteColumn = (info: { note?: NoteInfo } | null | undefined): number
   info?.note?.state === 'added' ? info.note.column : null;
 
 const NOTE_TEXTS: Record<'name', Record<Lang, string>> = {
-  name: { en: 'Note from the coordinator', es: 'Nota del coordinador', fr: 'Note du coordinateur', pt: 'Nota do coordenador' },
+  name: { en: 'Note from the coordinator', es: 'Nota del coordinador', fr: 'Note du coordinateur', pt: 'Nota do coordenador', tr: 'Koordinatörün notu' },
 };
 const NOTE_INPUT =
   '<input type="hidden" id="collect_text_coordinator_note" name="collect_text_coordinator_note" value="$[EXTRA_coordinator_note]" class="extra" />';

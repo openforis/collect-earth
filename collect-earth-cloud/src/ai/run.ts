@@ -258,8 +258,8 @@ export const TOPIC_SCHEMA = {
 // ---------------------------------------------------------------------------
 // Pseudonyms in texts, also as the model may translate them
 
-const PERSON_WORDS = '(?:Personne|Persona|Pessoa|Person)';
-const PLOT_WORDS = '(?:Parcelle|Parcela|Plot)';
+const PERSON_WORDS = '(?:Personne|Persona|Pessoa|Person|Kişi)';
+const PLOT_WORDS = '(?:Parcelle|Parcela|Parsel|Plot)';
 const NOT_TOUCHING_BEFORE = '(?<![\\p{L}\\p{N}_])';
 const NOT_TOUCHING_AFTER = '(?![\\p{L}\\p{N}_])';
 const PERSON_IN_TEXT = new RegExp(`${NOT_TOUCHING_BEFORE}${PERSON_WORDS} ([A-Z]{1,4})${NOT_TOUCHING_AFTER}`, 'gu');

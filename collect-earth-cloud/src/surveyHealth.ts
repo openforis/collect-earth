@@ -16,7 +16,7 @@ import type { DecisionKind } from './types.js';
 
 /**
  * Whole labels (lower case, accents left out) of a catch-all answer: other, unknown, no
- * data, not applicable, none of the above, in en, es, fr and pt. Kept short on purpose: a
+ * data, not applicable, none of the above, in en, es, fr, pt and tr. Kept short on purpose: a
  * label matches only when it is one of these, or one of these followed by a bracket,
  * colon, slash, comma or dash ("Other (specify)", "Other—specify", "Unknown / not
  * visible"); a hyphen without spaces only before "specify" and its translations
@@ -25,31 +25,34 @@ import type { DecisionKind } from './types.js';
  */
 export const OTHER_PHRASES: readonly string[] = [
   // other
-  'other', 'others', 'otro', 'otra', 'otros', 'otras', 'autre', 'autres', 'outro', 'outra', 'outros', 'outras',
+  'other', 'others', 'otro', 'otra', 'otros', 'otras', 'autre', 'autres', 'outro', 'outra', 'outros', 'outras', 'diger', 'digerleri',
   // unknown, undetermined
   'unknown', 'not known', "don't know", 'do not know', 'not sure', 'undetermined', 'indeterminate',
   'desconocido', 'desconocida', 'no se', 'no se sabe', 'no sabe', 'indeterminado', 'indeterminada',
   'inconnu', 'inconnue', 'ne sait pas', 'ne sais pas', 'je ne sais pas', 'indetermine', 'indeterminee',
   'desconhecido', 'desconhecida', 'nao sei', 'nao sabe',
+  'bilinmiyor', 'bilinmeyen', 'bilmiyorum', 'belirsiz',
   // none of the above (a catch-all; "none" alone is an answer, see NONE_PHRASES)
   'none of the above', 'ninguno de los anteriores', 'ninguna de las anteriores', 'aucune de ces reponses', 'nenhuma das anteriores', 'nenhum dos anteriores',
+  'yukaridakilerin hicbiri', 'yukarıdakilerin hicbiri',
   // no data, not applicable
   'no data', 'n/a', 'n.a', 'na', 'n/d', 'n.d', 'not applicable', 'sin datos', 'sin dato', 'sin informacion', 'no aplica',
   'pas de donnees', 'pas de donnee', 'aucune donnee', 'sans donnees', 'non applicable', 'sans objet',
   'sem dados', 'sem informacao', 'nao se aplica', 'nao aplicavel',
+  'veri yok', 'bilgi yok', 'uygulanamaz', 'gecerli degil',
 ];
 
 /**
  * "None" alone (Decision 6): a real answer (no disturbance, no change...), never a
  * catch-all. Survey health shows its share for information, never as a reason.
  */
-export const NONE_PHRASES: readonly string[] = ['none', 'ninguno', 'ninguna', 'aucun', 'aucune', 'nenhum', 'nenhuma'];
+export const NONE_PHRASES: readonly string[] = ['none', 'ninguno', 'ninguna', 'aucun', 'aucune', 'nenhum', 'nenhuma', 'hicbiri', 'yok'];
 
 /** Codes that say so by themselves, for an option without a label of its own (besides the phrases). */
 export const OTHER_CODES: readonly string[] = ['oth', 'unk', 'nodata', 'no_data', 'nd', '99', '999', '9999'];
 
 /** What may follow a phrase at the start of a label. */
-const AFTER_PHRASE = /^(?:\s*[([:/,–—]|\s+-|-\s*(?:specify|especif|precis|please|por favor))/;
+const AFTER_PHRASE = /^(?:\s*[([:/,–—]|\s+-|-\s*(?:specify|especif|precis|please|por favor|belirt))/;
 
 /** Lower case, accents left out, one space between words, no full stop or asterisk at the end. */
 function normal(text: string): string {

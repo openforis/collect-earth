@@ -1,4 +1,4 @@
-// The digests' words (Task 19), in the dashboard's four languages, and the mail written from a digest:
+// The digests' words (Task 19), in the dashboard's five languages, and the mail written from a digest:
 // plain text and a simple HTML version of the same lines, every value escaped. Counts are written as
 // "label: n" so no sentence needs a plural form; dates in the person's language.
 import type { MailLanguage } from './types.js';
@@ -125,7 +125,37 @@ const pt: Words = {
   confirmIgnore: 'Se não foi você, não faça nada: nenhum outro e-mail é enviado a este endereço até que seja confirmado.',
 };
 
-export const DIGEST_WORDS: Record<MailLanguage, Words> = { en, es, fr, pt };
+const tr: Words = {
+  coordinatorSubject: '{server}: haftalık özet, {start} – {end}',
+  collectorSubject: '{server}: haftanız, {start} – {end}',
+  coordinatorIntro: 'Merhaba {name}, koordine ettiğiniz projelerde {start} – {end} haftası ({zone} saatiyle) aşağıdadır.',
+  collectorIntro: 'Merhaba {name}, {start} – {end} haftanız ({zone} saatiyle) aşağıdadır.',
+  project: 'Proje: {name}',
+  plotsWeek: 'Bu hafta yapılan parseller',
+  checksWeek: 'Bu hafta yapılan kalite kontrolleri',
+  plotsAll: 'Toplamda yapılan parseller',
+  ofPlots: '{done} / {plots}',
+  quiet: '{days} günden uzun süredir hareketsiz (eşitleme ya da parsel indirme yok) ve yapılacak parselleri olan kişiler',
+  quietNone: 'Yapılacak parseli olan hiç kimse {days} günden uzun süredir hareketsiz değil.',
+  waiting: 'Bir kontrolün ilk değerlendirmeden farklı olduğu, kararınızı bekleyen parseller',
+  weeklyLink: 'Haftalık özet',
+  mySubmitted: 'Bu hafta gönderdiğiniz parseller',
+  myAll: 'Toplamda gönderdiğiniz parseller',
+  myLeft: 'Yapmanız gereken parseller',
+  sentBack: 'Yeniden bakmanız için size geri gönderilen parseller (Collect Earth’te, “To check again – …” parsel dosyasında)',
+  myWorkLink: 'Çalışmanız',
+  why: 'Bu e-postayı, {server} hesap sayfanızda istediğiniz için alıyorsunuz.',
+  stop: 'Bu e-postaları durdurun (tek tıklama, oturum açmadan)',
+  account: 'Hesap sayfanız',
+  more: 've {n} kişi daha',
+  confirmSubject: '{server}: e-posta adresinizi onaylayın',
+  confirmIntro: 'Merhaba, birisi (umarız siz) haftalık e-postalarını almak için bu adresi {server} üzerindeki bir hesaba verdi.',
+  confirmWhat: 'Onaylamak, bu adresin o hesabın {server} üzerindeki projeleriyle ilgili istediği haftalık e-postaları alması demektir: haftada bir tane, her birinde durdurmak için bir bağlantıyla.',
+  confirmAction: 'Bu adresi onaylayın (bağlantı 3 gün boyunca çalışır)',
+  confirmIgnore: 'Bu siz değilseniz hiçbir şey yapmayın: adres onaylanana kadar bu adrese başka hiçbir e-posta gönderilmez.',
+};
+
+export const DIGEST_WORDS: Record<MailLanguage, Words> = { en, es, fr, pt, tr };
 export type WordKey = keyof Words;
 
 export function escapeHtml(text: string): string {

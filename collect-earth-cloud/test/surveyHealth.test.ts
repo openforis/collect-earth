@@ -117,6 +117,14 @@ describe('looksLikeOther: labels in 4 languages and codes, conservatively', () =
     ['X', 'Indeterminate'],
     ['X', 'Ninguna de las anteriores'],
     ['X', 'Nenhuma das anteriores'],
+    ['X', 'Diğer'],
+    ['X', 'DİĞER (belirtiniz)'],
+    ['X', 'Diğer-belirtiniz'],
+    ['X', 'Bilinmiyor'],
+    ['X', 'Veri yok'],
+    ['X', 'Geçerli değil'],
+    ['X', 'Yukarıdakilerin hiçbiri'],
+    ['X', 'YUKARIDAKİLERİN HİÇBİRİ'],
   ])('%s labelled %s: yes', (code, label) => {
     expect(looksLikeOther(code, [label])).toBe(true);
   });
@@ -128,6 +136,7 @@ describe('looksLikeOther: labels in 4 languages and codes, conservatively', () =
     ['X', 'Otros bosques'],
     ['X', 'Autres terres boisées'],
     ['X', 'Outras terras'],
+    ['X', 'Diğer ağaçlık alan'],
     ['X', 'No change'],
     ['X', 'No se observa cambio'],
     ['X', 'Nonetheless forest'],
@@ -155,7 +164,7 @@ describe('looksLikeOther: labels in 4 languages and codes, conservatively', () =
 });
 
 describe('"None" alone is an answer of its own (Decision 6)', () => {
-  it.each(['None', 'None (no disturbance)', 'Ninguno', 'Ninguna', 'Aucun', 'Aucune', 'Nenhum', 'Nenhuma'])('%s: none, not a catch-all', (label) => {
+  it.each(['None', 'None (no disturbance)', 'Ninguno', 'Ninguna', 'Aucun', 'Aucune', 'Nenhum', 'Nenhuma', 'Hiçbiri', 'Yok'])('%s: none, not a catch-all', (label) => {
     expect(answerKind('N', [label])).toBe('none');
     expect(looksLikeOther('N', [label])).toBe(false);
   });
