@@ -24,4 +24,22 @@ public interface SecretProtector {
 	/** The secret was emptied (signed out): a protector that keeps it elsewhere (the macOS Keychain) removes it there. */
 	default void forget() {
 	}
+
+	/**
+	 * {@link #protect(String)} for the property {@code key}: there is one token per cloud server
+	 * ({@code cloud_sync_token <server>}), and a protector that keeps them elsewhere keeps each apart.
+	 */
+	default String protect(String key, String plain) {
+		return protect(plain);
+	}
+
+	/** {@link #reveal(String)} of the property {@code key}. */
+	default String reveal(String key, String stored) {
+		return reveal(stored);
+	}
+
+	/** {@link #forget()} of the property {@code key}. */
+	default void forget(String key) {
+		forget();
+	}
 }
