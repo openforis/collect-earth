@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
 <title>Collect Earth for interpreters · Collect Earth</title>
 <meta name="description" content="How to install Collect Earth, open a project, assess plots on satellite imagery and send them to a cloud project.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
@@ -12,11 +17,12 @@
 <body>
 <header class="top">
   <div class="wrap">
-    <a href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="433"></a>
-    <nav>
+    <a class="brand" href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="434"></a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
+    <nav id="site-nav" aria-label="Main">
       <a href="choose.html">Which set-up?</a>
       <a href="sampling.html">Sampling</a>
-      <a href="interpreters.html">Interpreters</a>
+      <a href="interpreters.html" aria-current="page">Interpreters</a>
       <a href="coordinators.html">Coordinators</a>
       <a href="own-server.html">Own server</a>
       <a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a>
@@ -24,10 +30,15 @@
   </div>
 </header>
 
-<main class="doc">
-  <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
-  <h1>Collect Earth for interpreters</h1>
-  <p class="lead">Collect Earth shows each plot on a map beside high-resolution imagery, and a form with the survey's questions. You look, you answer, you submit, and the next plot opens. This guide covers the desktop program, whether you work alone or in a cloud project.</p>
+<main>
+<div class="page-title">
+  <div class="box">
+    <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
+    <h1>Collect Earth for interpreters</h1>
+    <p class="lead">Collect Earth shows each plot on a map beside high-resolution imagery, and a form with the survey's questions. You look, you answer, you submit, and the next plot opens. This guide covers the desktop program, whether you work alone or in a cloud project.</p>
+  </div>
+</div>
+<div class="doc">
 
   <div class="toc">
     <strong>On this page</strong>
@@ -47,15 +58,15 @@
 
   <h2 id="install">Install and start</h2>
   <ol class="steps">
-    <li><a href="https://www.openforis.org/tools/collect-earth.html">Download Collect Earth</a> for Windows, macOS or Linux and run the installer. It brings everything it needs, including its own Java.</li>
+    <li><a href="https://www.openforis.org/collect-earth/">Download Collect Earth</a> for Windows, macOS or Linux and run the installer. It brings its own Java. You also need Chrome, Edge or Firefox.</li>
     <li>Start Collect Earth. A small window shows each step while it opens; the first start can take up to a minute.</li>
-    <li>Collect Earth opens in a browser window, with the plots map. The first time, it loads a demo project so you can try it out.</li>
+    <li>Collect Earth opens in your browser, inside Google Earth Web (see <a href="#window">The Collect Earth window</a>). The first time, it loads a demo project so you can try it out, and Google may ask you to accept its cookies or to sign in in that window; Collect Earth remembers it afterwards.</li>
     <li>Type your name when asked (6 to 49 characters). It is saved with every plot you assess, so your plots can be told apart from others'. Click your name in the top bar to change it later.</li>
   </ol>
   <p>Collect Earth keeps running in the system tray. Double-click its icon to open the window again; right-click it to quit.</p>
 
   <h2 id="project">Open a project</h2>
-  <p>A project file (<code>.cep</code>) holds the survey, its form, the plots and the settings. Your coordinator gives it to you, or you make one with the Collect Earth survey designer. To open it, do one of these:</p>
+  <p>A project file (<code>.cep</code>) holds the survey, its form, the plots and the settings. Your coordinator gives it to you, or you make one with Open Foris Collect's Survey Designer. To open it, do one of these:</p>
   <ul>
     <li><span class="ui">File › Import CEP file</span>, choose the file and press <span class="ui">Import the project</span>.</li>
     <li>Drag the <code>.cep</code> onto the Collect Earth window.</li>
@@ -65,15 +76,17 @@
   <p>In a cloud project you don't need the file: you join with an invitation link instead (see <a href="#cloud">Join a cloud project</a>).</p>
 
   <h2 id="window">The Collect Earth window</h2>
-  <figure><img src="../img/screens/desktop-map.png" alt="The Collect Earth window with the plots map, the plot list and the form" loading="lazy"><figcaption>The plots map, the plot list and the form.</figcaption></figure>
+  <p>By default Collect Earth works inside Google Earth Web: a panel in the Google Earth Web page holds the plot list or the form of the selected plot, one at a time, and Google Earth Web flies to each plot you choose and draws its outline. The other imagery opens in a window of its own, on a second screen if you have one.</p>
+  <figure><img src="../img/screens/desktop-gew.png" alt="Collect Earth in a panel inside Google Earth Web" loading="lazy"><figcaption>Collect Earth inside Google Earth Web, the default.</figcaption></figure>
   <ul>
-    <li><strong>Top bar:</strong> the project name, the menus (<span class="ui">File</span>, <span class="ui">Data Import/Export</span>, <span class="ui">Tools</span>, <span class="ui">Utilities</span>, <span class="ui">Settings</span>, <span class="ui">Help</span>), the settings gear, your name, and <span class="ui">Quit</span>.</li>
+    <li><strong>Top bar:</strong> the project name, the menus (<span class="ui">File</span>, <span class="ui">Data Import/Export</span>, <span class="ui">Tools</span>, <span class="ui">Utilities</span>, <span class="ui">Settings</span>, <span class="ui">Help</span>), the settings gear, your name, and <span class="ui">Quit</span>. In the panel it is a compact bar.</li>
     <li><strong>Plot list:</strong> how many plots are done (<em>12 of 120 completed</em>), <span class="ui">Search plot id</span>, the <span class="ui">Show plots</span> filter (All, To do, Done) and <span class="ui">Next unfinished plot</span>.</li>
-    <li><strong>Map:</strong> every plot, coloured by its status. Zoom, <span class="ui">Show all plots</span>, <span class="ui">Center on the selected plot</span>, and <span class="ui">Map layers</span> (satellite, with labels, or streets).</li>
   </ul>
+  <p>Prefer Collect Earth's own map? Choose <span class="ui">Plots map window</span> as the <span class="ui">Plot viewer</span> in <span class="ui">Settings › Imagery and viewer</span>. Collect Earth then opens in a browser window of its own, with the plot list, the form and a map of every plot, coloured by its status: zoom, <span class="ui">Show all plots</span>, <span class="ui">Center on the selected plot</span>, and <span class="ui">Map layers</span> (satellite, with labels, or streets).</p>
+  <figure><img src="../img/screens/desktop-map.png" alt="The Collect Earth window with the plots map, the plot list and the form" loading="lazy"><figcaption>With Plots map window: the plots map, the plot list and the form.</figcaption></figure>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Colour</th><th>Status</th></tr></thead>
+      <thead><tr><th>Colour on the plots map</th><th>Status</th></tr></thead>
       <tbody>
         <tr><td>Red</td><td>Not started</td></tr>
         <tr><td>Yellow</td><td>In progress: saved, not submitted</td></tr>
@@ -82,24 +95,24 @@
     </table>
   </div>
   <figure><img src="../img/screens/desktop-menu.png" alt="The Tools menu open" loading="lazy"><figcaption>The menus at the top: here, Tools.</figcaption></figure>
-  <p>Keyboard shortcuts: <kbd>/</kbd> search a plot, <kbd>N</kbd> next unfinished plot, <kbd>P</kbd> same answers as the previous plot, <kbd>Esc</kbd> close the form, <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> imagery tabs.</p>
+  <p>Keyboard shortcuts: <kbd>/</kbd> search a plot, <kbd>N</kbd> next unfinished plot, <kbd>P</kbd> same answers as the previous plot, <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> imagery tabs. In the form: <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on a Mac) submits, <kbd>Alt</kbd>+<kbd>←</kbd>/<kbd>→</kbd> changes step, <kbd>↑</kbd>/<kbd>↓</kbd> moves between questions, <kbd>1</kbd>…<kbd>9</kbd> picks an answer of a choice question, and <kbd>Esc</kbd> leaves the box you are typing in; a second <kbd>Esc</kbd> closes the form.</p>
 
   <h2 id="assess">Assess a plot</h2>
   <ol class="steps">
-    <li>Click a plot on the map or in the list. Its form opens, and the imagery moves to it.</li>
+    <li>Click a plot in the list, or on the plots map. Its form opens, and the imagery moves to it.</li>
     <li>Look at the imagery and answer the questions. Long surveys are split into steps; the form moves to the next step by itself.</li>
     <li>Every answer is saved at once. The form shows <span class="ui">All changes saved</span>.</li>
     <li>Press <span class="ui">Submit</span> when the plot is complete. If answers are missing, the form lists them with links. Once submitted, the plot turns green and the next unfinished plot opens.</li>
   </ol>
   <figure class="narrow"><img src="../img/screens/desktop-form.png" alt="The survey form" loading="lazy"><figcaption>The form saves each answer as you go.</figcaption></figure>
-  <p>Many plots look alike? <span class="ui">Same as previous plot</span> (<kbd>P</kbd>) copies the answers of the last plot you submitted; check them, change what differs, and submit.</p>
+  <p>Many plots look alike? <span class="ui">Same as previous plot</span> (<kbd>P</kbd>) fills the empty choice and Yes/No answers of this step with those of the plot you submitted last. They are marked <span class="ui">Copied</span> until you look at them: check them, change what differs, and submit.</p>
+  <p>In a cloud project, a training plot shows how you did once you submit it: <em>Training plot: 3 of 4 answers right</em>, with the golden answer and the reason for each one you missed.</p>
   <p>Changing a submitted plot un-submits it: it turns yellow until you press <span class="ui">Resubmit</span>.</p>
 
   <h2 id="imagery">Imagery</h2>
-  <p>The buttons above the form open the plot in each source of imagery, side by side with Collect Earth: Google Earth Web, ESRI Wayback (older imagery), Planet monthly mosaics, an Earth Engine app with time series, Earth Map, Street View, and an extra map your project can set.</p>
-  <p>By default the plot viewer is <span class="ui">Plots map + Google Earth Web</span>: a Google Earth Web window follows the selected plot, with its outline drawn. Choose <span class="ui">Plots map window</span> in the settings to work with Collect Earth's own map only.</p>
-  <figure><img src="../img/screens/desktop-gew.png" alt="Google Earth Web showing a plot" loading="lazy"><figcaption>Google Earth Web follows the plot you select.</figcaption></figure>
-  <p>Planet imagery needs a Planet API key (in <span class="ui">Settings › Imagery and viewer</span>); with it, Collect Earth can also use the Tropical Forest Observatory monthly basemaps.</p>
+  <p>The buttons above the form open the plot in each source of imagery switched on in <span class="ui">Settings › Imagery and viewer</span>: Google Earth Web, an Earth Engine app with time series (on by default), ESRI Wayback (older imagery) and Earth Map (tick them to turn them on), Planet (with a key), and an extra map your project can set (with its address). With only one source there are no buttons.</p>
+  <p>By default the <span class="ui">Plot viewer</span> is <span class="ui">Plots map + Google Earth Web</span>, with the <span class="ui">Window layout</span> set to <span class="ui">Automatic</span>: the plots map inside Google Earth Web, and the other imagery on a second screen. Other layouts: <em>Side by side</em> (narrow form, imagery on the rest), <em>Separate screens</em> (one window per screen), <em>Imagery full screen</em> on the second screen, or <em>Plots map inside Google Earth Web</em>. <span class="ui">Arrange windows</span> puts them back in place, and opens again a window you closed.</p>
+  <p>Planet needs your own Planet API key (in <span class="ui">Settings › Imagery and viewer</span>). With it, Planet opens its daily imagery of each plot; tick <span class="ui">Use Tropical Forest Observatory (TFO) monthly basemaps</span> for the monthly mosaics.</p>
 
   <h2 id="cloud">Join a cloud project</h2>
   <p>In a cloud project every plot you save is sent to the server by itself, and the coordinator follows the team's work on the web dashboard.</p>
@@ -124,12 +137,13 @@
     <li><span class="ui">Plot layout</span>: the plot's shape (square, circle, hexagon, polygons from the plot file, NFI clusters…), the sampling points inside it and their size, with a preview.</li>
     <li><span class="ui">Imagery and viewer</span>: the plot viewer, the window layout, the map imagery and the extra sources (Earth Engine dates, Planet key, extra map).</li>
     <li><span class="ui">Data storage</span>: where the plots are saved. <em>SQLite</em> (one file on this computer, the default), <em>PostgreSQL</em> (a database several computers share on an office network), or <em>Cloud project</em>.</li>
+    <li><span class="ui">Collaboration</span>: the cloud server, the project and its access token, filled in for you when you join a cloud project.</li>
     <li><span class="ui">Advanced</span>: which browser Collect Earth uses.</li>
   </ul>
   <figure><img src="../img/screens/desktop-settings-storage.png" alt="The data storage settings" loading="lazy"><figcaption>Data storage: SQLite, PostgreSQL or a cloud project.</figcaption></figure>
 
   <h2 id="data">Export, import and backups</h2>
-  <p><span class="ui">Data Import/Export › Export data</span> saves your plots as:</p>
+  <p><span class="ui">Data Import/Export › Export data (CSV, XML, backup or KML)</span> saves your plots as:</p>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Format</th><th>Use it for</th></tr></thead>
@@ -143,7 +157,7 @@
   </div>
   <p>You can export all records, only those changed since the last export, those changed since a date, or a filtered set.</p>
   <figure><img src="../img/screens/desktop-export.png" alt="The export dialog" loading="lazy"><figcaption>Export to CSV, compressed XML, a Collect backup or KML.</figcaption></figure>
-  <p><span class="ui">Import data</span> brings in another Collect Earth's compressed XML export (it asks what to do with plots you already have), or changes to some answers from a CSV.</p>
+  <p><span class="ui">Import data (ZIP or CSV)</span> brings in another Collect Earth's compressed XML export (it asks what to do with plots you already have), or changes to some answers from a CSV.</p>
   <p>With SQLite, Collect Earth backs up its database each time it closes and keeps the last ten (<span class="ui">Settings › Data storage › Open backup folder</span>). Now and then, also export a compressed XML and keep it somewhere else.</p>
 
   <h2 id="tools">Tools and utilities</h2>
@@ -176,17 +190,36 @@
     <a href="sampling.html">← Designing the sample</a>
     <a href="coordinators.html">Running a cloud project →</a>
   </div>
+</div>
 </main>
 
 <footer>
   <div class="wrap">
-    <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="433">
+    <div>
+      <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="434">
+      <p>Collect Earth is part of Open Foris: free and open-source solutions for forest and land monitoring.</p>
+      <a class="btn dark" href="https://github.com/openforis/collect-earth">Source code on GitHub</a>
+    </div>
     <div class="links">
+      <h4>Guides</h4>
+      <a href="../guide/choose.html">Which set-up?</a>
+      <a href="../guide/sampling.html">Designing the sample</a>
+      <a href="../guide/interpreters.html">Collect Earth for interpreters</a>
+      <a href="../guide/coordinators.html">Running a cloud project</a>
+      <a href="../guide/own-server.html">Your own server</a>
+    </div>
+    <div class="links">
+      <h4>Open Foris</h4>
       <a href="https://www.openforis.org/">Open Foris</a>
-      <a href="https://www.openforis.org/support">Support forum</a>
-      <a href="https://github.com/openforis/collect-earth">Source code</a>
+      <a href="https://www.openforis.org/collect-earth/">Collect Earth on openforis.org</a>
+      <a href="https://openforis.support/">User forum</a>
+      <a href="https://www.openforis.org/support-and-resources/">Support and resources</a>
+      <a href="https://cloud.collectearth.org">Collect Earth Cloud</a>
     </div>
   </div>
 </footer>
+<script>
+(function(){var h=document.querySelector("header.top"),b=h&&h.querySelector(".menu-toggle");if(!b)return;function set(o){h.classList.toggle("open",o);b.setAttribute("aria-expanded",o)}b.addEventListener("click",function(){set(!h.classList.contains("open"))});h.querySelectorAll("nav a").forEach(function(a){a.addEventListener("click",function(){set(false)})});})();
+</script>
 </body>
 </html>

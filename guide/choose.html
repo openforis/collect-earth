@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
 <title>Which set-up? · Collect Earth</title>
 <meta name="description" content="Four ways to organise data collection with Collect Earth, from one interpreter on a laptop to a team on a private server.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
@@ -12,9 +17,10 @@
 <body>
 <header class="top">
   <div class="wrap">
-    <a href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="433"></a>
-    <nav>
-      <a href="choose.html">Which set-up?</a>
+    <a class="brand" href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="434"></a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
+    <nav id="site-nav" aria-label="Main">
+      <a href="choose.html" aria-current="page">Which set-up?</a>
       <a href="sampling.html">Sampling</a>
       <a href="interpreters.html">Interpreters</a>
       <a href="coordinators.html">Coordinators</a>
@@ -24,10 +30,15 @@
   </div>
 </header>
 
-<main class="doc">
-  <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
-  <h1>Which set-up?</h1>
-  <p class="lead">Collect Earth always saves each plot on the interpreter's own computer first. The four ways of working differ in how those plots are brought together, and how much a coordinator can see while the work goes on.</p>
+<main>
+<div class="page-title">
+  <div class="box">
+    <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
+    <h1>Which set-up?</h1>
+    <p class="lead">Unless the team shares one PostgreSQL database, Collect Earth saves each plot on the interpreter's own computer first. The four ways of working differ in how those plots are brought together, and how much a coordinator can see while the work goes on.</p>
+  </div>
+</div>
+<div class="doc">
 
   <h2>How to choose</h2>
   <ul>
@@ -48,8 +59,8 @@
         <tr><td><strong>Plots reach the coordinator</strong></td><td>Already there</td><td>Export on each computer, import on the coordinator's</td><td>By themselves, within about 30 seconds</td><td>As in set-up 3</td></tr>
         <tr><td><strong>Giving out plots</strong></td><td>Not needed</td><td>One plot file per person, by hand</td><td>On the dashboard: whole files or divided automatically</td><td>As in set-up 3</td></tr>
         <tr><td><strong>Progress</strong></td><td>My dashboard</td><td>My dashboard on each computer</td><td>Web dashboard for the team</td><td>Web dashboard for the team</td></tr>
-        <tr><td><strong>Quality checks, training, time spent</strong></td><td>No</td><td>By hand</td><td>Built in</td><td>Built in</td></tr>
-        <tr><td><strong>Who runs the server</strong></td><td>Nobody</td><td>Nobody (or IT, for PostgreSQL)</td><td>The Collect Earth team</td><td>You</td></tr>
+        <tr><td><strong>Quality checks, training, time spent</strong></td><td>Self-checks only (<span class="ui">My dashboard › Quality</span>)</td><td>By hand</td><td>Built in</td><td>Built in</td></tr>
+        <tr><td><strong>Who runs the server</strong></td><td>Nobody</td><td>Nobody (or IT, for PostgreSQL)</td><td>FAO</td><td>You</td></tr>
         <tr><td><strong>Cost</strong></td><td>Free</td><td>Free</td><td>Free</td><td>About 10 to 15 US$ a month</td></tr>
       </tbody>
     </table>
@@ -59,34 +70,53 @@
   <p>Install Collect Earth, open the project file and assess the plots. Everything stays in the SQLite database on that computer; only the imagery needs the internet. <span class="ui">Tools › My dashboard</span> shows your progress. See <a href="interpreters.html">Collect Earth for interpreters</a>.</p>
 
   <h2>2. A team, without a server</h2>
-  <p><strong>Each computer its own database.</strong> Give everyone the same project file and their own plot file (<span class="ui">Utilities › Divide large CSV plot files</span> splits one). Each interpreter exports regularly with <span class="ui">Export data › XML (compressed)</span>, choosing <em>Records modified since the last export</em>, and sends the file to the coordinator, who brings them together with <span class="ui">Import data</span>.</p>
+  <p><strong>Each computer its own database.</strong> Give everyone the same project file and their own plot file (<span class="ui">Utilities › Divide large CSV plot files</span> splits one). Each interpreter exports regularly with <span class="ui">Data Import/Export › Export data (CSV, XML, backup or KML)</span>, format <em>XML (compressed)</em>, choosing <em>Records modified since the last export</em>, and sends the file to the coordinator, who brings them together with <span class="ui">Data Import/Export › Import data (ZIP or CSV)</span>.</p>
   <div class="note">Locally, a database keeps one version of each plot. To compare two people's answers on the same plot, keep the second export apart, or use a cloud project, which keeps both.</div>
   <p><strong>One shared PostgreSQL database.</strong> On an office network, IT sets up PostgreSQL and every computer chooses <span class="ui">Settings › Data storage › PostgreSQL</span>. Everyone's saves go into one database, with no exports to carry. Never give the same plot to two people: the last save wins.</p>
 
   <h2>3. Collect Earth Cloud</h2>
-  <p>The free server run by the Collect Earth team, at <a href="https://cloud.collectearth.org">cloud.collectearth.org</a>. The coordinator creates a project and invites the team with a link; interpreters join from Collect Earth, and their plots reach the dashboard by themselves. Two people's answers on the same plot are both kept and compared. See <a href="coordinators.html">Running a cloud project</a>.</p>
+  <p>The free server run by FAO, at <a href="https://cloud.collectearth.org">cloud.collectearth.org</a>. Only its administrators create projects: the coordinator asks FAO for one, then invites the team with a link; interpreters join from Collect Earth, and their plots reach the dashboard by themselves. Two people's answers on the same plot are both kept and compared. See <a href="coordinators.html">Running a cloud project</a>.</p>
 
   <h2>4. Your own server</h2>
   <p>Your own copy of Collect Earth Cloud. Coordinators and interpreters work exactly as in set-up 3; only the address differs, and nobody else can see the data. See <a href="own-server.html">Your own server</a>.</p>
 
   <h2>Moving from local work to a cloud project</h2>
-  <p>Upload the same project file to the server. Plots already assessed can come along: each interpreter joins the project and uses <span class="ui">Data Import/Export › Send this computer's records to the cloud project</span>, or the coordinator imports a compressed XML export on the dashboard's <span class="ui">Data</span> tab.</p>
+  <p>The quickest way: export <em>XML (compressed)</em> and create the cloud project from it with <span class="ui">My projects › From a Collect Earth backup</span>, which brings the survey and the plots already assessed. Or upload the same project file to the server. Plots already assessed can then come along: each interpreter joins the project and uses <span class="ui">Data Import/Export › Send this computer's records to the cloud project</span>, or the coordinator imports a compressed XML export on the dashboard's <span class="ui">Data</span> tab.</p>
 
   <div class="next">
     <a href="../">← Home</a>
     <a href="sampling.html">Designing the sample →</a>
   </div>
+</div>
 </main>
 
 <footer>
   <div class="wrap">
-    <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="433">
+    <div>
+      <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="434">
+      <p>Collect Earth is part of Open Foris: free and open-source solutions for forest and land monitoring.</p>
+      <a class="btn dark" href="https://github.com/openforis/collect-earth">Source code on GitHub</a>
+    </div>
     <div class="links">
+      <h4>Guides</h4>
+      <a href="../guide/choose.html">Which set-up?</a>
+      <a href="../guide/sampling.html">Designing the sample</a>
+      <a href="../guide/interpreters.html">Collect Earth for interpreters</a>
+      <a href="../guide/coordinators.html">Running a cloud project</a>
+      <a href="../guide/own-server.html">Your own server</a>
+    </div>
+    <div class="links">
+      <h4>Open Foris</h4>
       <a href="https://www.openforis.org/">Open Foris</a>
-      <a href="https://www.openforis.org/support">Support forum</a>
-      <a href="https://github.com/openforis/collect-earth">Source code</a>
+      <a href="https://www.openforis.org/collect-earth/">Collect Earth on openforis.org</a>
+      <a href="https://openforis.support/">User forum</a>
+      <a href="https://www.openforis.org/support-and-resources/">Support and resources</a>
+      <a href="https://cloud.collectearth.org">Collect Earth Cloud</a>
     </div>
   </div>
 </footer>
+<script>
+(function(){var h=document.querySelector("header.top"),b=h&&h.querySelector(".menu-toggle");if(!b)return;function set(o){h.classList.toggle("open",o);b.setAttribute("aria-expanded",o)}b.addEventListener("click",function(){set(!h.classList.contains("open"))});h.querySelectorAll("nav a").forEach(function(a){a.addEventListener("click",function(){set(false)})});})();
+</script>
 </body>
 </html>

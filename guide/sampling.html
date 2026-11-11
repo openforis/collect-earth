@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
 <title>Designing the sample · Collect Earth</title>
 <meta name="description" content="How to make the plot file of a Collect Earth survey: SIGRID, the Collect Earth Grid Generator on Google Earth Engine, and the dashboard's plot design.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
@@ -12,10 +17,11 @@
 <body>
 <header class="top">
   <div class="wrap">
-    <a href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="433"></a>
-    <nav>
+    <a class="brand" href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="434"></a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
+    <nav id="site-nav" aria-label="Main">
       <a href="choose.html">Which set-up?</a>
-      <a href="sampling.html">Sampling</a>
+      <a href="sampling.html" aria-current="page">Sampling</a>
       <a href="interpreters.html">Interpreters</a>
       <a href="coordinators.html">Coordinators</a>
       <a href="own-server.html">Own server</a>
@@ -24,10 +30,15 @@
   </div>
 </header>
 
-<main class="doc">
-  <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
-  <h1>Designing the sample</h1>
-  <p class="lead">Before anyone assesses a plot, you decide where the plots are: the sampling design. Collect Earth reads it from a plot file, a CSV with one row per plot. This guide shows three ways to make one: SIGRID, the global systematic grid; the Collect Earth Grid Generator on Google Earth Engine; and the dashboard's own <span class="ui">Design the plots</span>.</p>
+<main>
+<div class="page-title">
+  <div class="box">
+    <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
+    <h1>Designing the sample</h1>
+    <p class="lead">Before anyone assesses a plot, you decide where the plots are: the sampling design. Collect Earth reads it from a plot file, a CSV with one row per plot. This guide shows three ways to make one: SIGRID, the global systematic grid; the Collect Earth Grid Generator on Google Earth Engine; and the dashboard's own <span class="ui">Design the plots</span>.</p>
+  </div>
+</div>
+<div class="doc">
 
   <div class="toc">
     <strong>On this page</strong>
@@ -45,7 +56,7 @@
   <p>Each row is one plot: its id, its latitude and longitude, then any extra columns the survey expects, for example:</p>
   <pre style="overflow-x:auto;background:var(--soft);padding:14px;border-radius:8px;font-size:.85rem">id,YCoordinate,XCoordinate,elevation,slope,aspect,climate,soil,gez,country,province,district
 8344_20552,9.8123,2.6114,342,2,180,4,5,31,Benin,Borgou,Parakou</pre>
-  <p>Coordinates are in decimal degrees (WGS84). The extra columns are shown to the interpreter beside the plot and kept with the answers, so the results can be analysed by province, climate zone or elevation without any later GIS work. The survey designer decides which columns a survey expects.</p>
+  <p>Coordinates are in decimal degrees (WGS84). The extra columns are shown to the interpreter beside the plot and kept with the answers, so the results can be analysed by province, climate zone or elevation without any later GIS work. The survey designer decides which columns a survey expects. Collect Earth reads the extra columns by position, so keep them in the order the survey expects.</p>
 
   <h2 id="which">Which design?</h2>
   <ul>
@@ -59,9 +70,9 @@
       <tbody>
         <tr><td><strong>Designs</strong></td><td>Systematic, 1 to 100 km apart</td><td>Systematic (from 100 m) or random</td><td>Random, systematic, stratified random</td></tr>
         <tr><td><strong>Area</strong></td><td>A country, its provinces or districts, optionally clipped to your own area</td><td>A country, province or district, your own asset, a drawn polygon or pasted GeoJSON</td><td>Your own area file (GeoJSON or a zipped shapefile)</td></tr>
-        <tr><td><strong>Extra columns</strong></td><td>Province and district</td><td>Elevation, slope, aspect, soil, climate, ecological zone, mountain class, land productivity, administrative units, columns of your own layers</td><td>None (elevation, slope and aspect are 0)</td></tr>
+        <tr><td><strong>Extra columns</strong></td><td>Province and district (when the survey has <code>adm1nm</code> and <code>adm2nm</code> columns); elevation, slope and aspect are 0</td><td>Elevation, slope, aspect, soil, climate, ecological zone, mountain class, land productivity, administrative units, columns of your own layers</td><td>None (elevation, slope and aspect are 0)</td></tr>
         <tr><td><strong>Plot ids</strong></td><td>Permanent, the same worldwide</td><td>Numbered for this grid</td><td>Numbered for this grid</td></tr>
-        <tr><td><strong>Needs</strong></td><td>Nothing (on the dashboard), or a download</td><td>A Google account with Earth Engine</td><td>A cloud project</td></tr>
+        <tr><td><strong>Needs</strong></td><td>A cloud project (on the dashboard), or nothing (download)</td><td>A Google account with Earth Engine</td><td>A cloud project</td></tr>
       </tbody>
     </table>
   </div>
@@ -73,12 +84,12 @@
   <p>That makes it <strong>iterative</strong>: start with a coarse grid (say 8 km) for a first national estimate, then intensify to 4 km, 2 km or 1 km where you need more precision. The plots already assessed keep their ids and stay part of the finer grid, so no work is lost, and assessments of later years land on exactly the same plots.</p>
   <h3>Getting a SIGRID plot file</h3>
   <ul>
-    <li><strong>On the dashboard</strong> (easiest): on the <span class="ui">Plot files</span> tab, under <span class="ui">Design the plots</span>, choose <span class="ui">From SIGRID</span>. Pick the <span class="ui">Country</span>, optionally some <span class="ui">Provinces</span> or <span class="ui">Districts</span>, optionally drop your own area to keep only the plots in it, and choose the <span class="ui">Distance between plots</span>: each option shows how many plots it makes. Press <span class="ui">Make the plot file</span>.</li>
+    <li><strong>On the dashboard</strong> (easiest, in a cloud project): on the <span class="ui">Plot files</span> tab, under <span class="ui">Design the plots</span>, choose <span class="ui">From SIGRID</span>. Pick the <span class="ui">Country</span>, optionally some <span class="ui">Provinces</span> or <span class="ui">Districts</span>, optionally drop your own area to keep only the plots in it, and choose the <span class="ui">Distance between plots</span>: each option shows how many plots it makes. Press <span class="ui">Make the plot file</span>.</li>
     <li><strong>Downloads</strong>: Open Foris publishes one package per country, with a 1 km file tagged with province and district names (UN boundaries) and one file per coarser spacing, and 10° by 10° tiles for any area. A KMZ in the repository lets you browse them in Google Earth.</li>
     <li><strong>Generate it yourself</strong>: the <a href="https://github.com/herrtunante/SIGRID">SIGRID repository</a> holds the Java code (MIT licence) to rebuild any region or the whole world, into CSV files or a database.</li>
   </ul>
   <figure><img src="../img/screens/design-sigrid.png" alt="Making a plot file from SIGRID on the dashboard" loading="lazy"><figcaption>A SIGRID grid for a country, at the spacing you choose.</figcaption></figure>
-  <div class="note">SIGRID ids look like <code>8344_20552</code>, so the survey's plot id must be text, not a number. A 1 km grid of a whole country can hold millions of plots: choose the spacing that gives the number of plots your team can assess.</div>
+  <div class="note">SIGRID ids look like <code>8344_20552</code>, so the survey's plot id must be text, not a number. A 1 km grid of a whole country can hold millions of plots: choose the spacing that gives the number of plots your team can assess. The dashboard makes at most 50,000 plots per file; for more, download the SIGRID package.</div>
 
   <h2 id="gee">The Grid Generator on Google Earth Engine</h2>
   <p>The <a href="https://collectearth.users.earthengine.app/view/collect-earth-grid-generator">Collect Earth Grid Generator</a> makes a systematic or random grid for any area and adds data from Google Earth Engine to every plot, ready for Collect Earth. There is a <a href="https://www.youtube.com/watch?v=Nad3gPLV9DU">video tutorial</a>.</p>
@@ -115,7 +126,7 @@
   <ul>
     <li><strong>Cloud project</strong>: upload the CSV on the <span class="ui">Plot files</span> tab (files made on the dashboard are there already), then give it out: whole, divided evenly, or by a column such as the province. See <a href="coordinators.html#plots">Running a cloud project</a>.</li>
     <li><strong>On one computer</strong>: in Collect Earth, <span class="ui">Settings › Project › Path to ced/csv file with plot data</span>. The settings show how many plots the file holds, its first rows and where the plots are.</li>
-    <li><strong>The plot's shape</strong> on the imagery (a square, a circle, a hexagon, clusters, and the sampling points inside it) is set in <span class="ui">Settings › Plot layout</span>. A plot file can also carry its own polygons in a WKT column, drawn as they are.</li>
+    <li><strong>The plot's shape</strong> on the imagery (a square, a circle, a hexagon, clusters, and the sampling points inside it) is set in <span class="ui">Settings › Plot layout</span>. A plot file can also carry its own polygons in a WKT, KML or GeoJSON column, drawn as they are.</li>
     <li><strong>Too many plots for one person</strong>: <span class="ui">Utilities › Divide large CSV plot files</span> in Collect Earth splits a file, at random or by a column; on the dashboard, <span class="ui">Divide plots</span> does it for you.</li>
   </ul>
 
@@ -123,17 +134,36 @@
     <a href="choose.html">← Which set-up?</a>
     <a href="interpreters.html">Collect Earth for interpreters →</a>
   </div>
+</div>
 </main>
 
 <footer>
   <div class="wrap">
-    <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="433">
+    <div>
+      <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="434">
+      <p>Collect Earth is part of Open Foris: free and open-source solutions for forest and land monitoring.</p>
+      <a class="btn dark" href="https://github.com/openforis/collect-earth">Source code on GitHub</a>
+    </div>
     <div class="links">
+      <h4>Guides</h4>
+      <a href="../guide/choose.html">Which set-up?</a>
+      <a href="../guide/sampling.html">Designing the sample</a>
+      <a href="../guide/interpreters.html">Collect Earth for interpreters</a>
+      <a href="../guide/coordinators.html">Running a cloud project</a>
+      <a href="../guide/own-server.html">Your own server</a>
+    </div>
+    <div class="links">
+      <h4>Open Foris</h4>
       <a href="https://www.openforis.org/">Open Foris</a>
-      <a href="https://www.openforis.org/support">Support forum</a>
-      <a href="https://github.com/openforis/collect-earth">Source code</a>
+      <a href="https://www.openforis.org/collect-earth/">Collect Earth on openforis.org</a>
+      <a href="https://openforis.support/">User forum</a>
+      <a href="https://www.openforis.org/support-and-resources/">Support and resources</a>
+      <a href="https://cloud.collectearth.org">Collect Earth Cloud</a>
     </div>
   </div>
 </footer>
+<script>
+(function(){var h=document.querySelector("header.top"),b=h&&h.querySelector(".menu-toggle");if(!b)return;function set(o){h.classList.toggle("open",o);b.setAttribute("aria-expanded",o)}b.addEventListener("click",function(){set(!h.classList.contains("open"))});h.querySelectorAll("nav a").forEach(function(a){a.addEventListener("click",function(){set(false)})});})();
+</script>
 </body>
 </html>

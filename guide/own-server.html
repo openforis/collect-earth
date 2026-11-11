@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
 <title>Your own server · Collect Earth</title>
 <meta name="description" content="Install a private Collect Earth Cloud server on Google Cloud or any Docker host.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
@@ -12,22 +17,28 @@
 <body>
 <header class="top">
   <div class="wrap">
-    <a href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="433"></a>
-    <nav>
+    <a class="brand" href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="434"></a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
+    <nav id="site-nav" aria-label="Main">
       <a href="choose.html">Which set-up?</a>
       <a href="sampling.html">Sampling</a>
       <a href="interpreters.html">Interpreters</a>
       <a href="coordinators.html">Coordinators</a>
-      <a href="own-server.html">Own server</a>
+      <a href="own-server.html" aria-current="page">Own server</a>
       <a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a>
     </nav>
   </div>
 </header>
 
-<main class="doc">
-  <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
-  <h1>Your own server</h1>
-  <p class="lead">A private server is your own copy of Collect Earth Cloud: the web dashboard, the sync service Collect Earth talks to, and a database with nightly backups. Coordinators and interpreters work exactly as on <a href="https://cloud.collectearth.org">cloud.collectearth.org</a>, and nobody else, including the Collect Earth team, can see the data.</p>
+<main>
+<div class="page-title">
+  <div class="box">
+    <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
+    <h1>Your own server</h1>
+    <p class="lead">A private server is your own copy of Collect Earth Cloud: the web dashboard, the sync service Collect Earth talks to, and a database with nightly backups. Coordinators and interpreters work exactly as on <a href="https://cloud.collectearth.org">cloud.collectearth.org</a>, and nobody else, including the Collect Earth team, can see the data.</p>
+  </div>
+</div>
+<div class="doc">
 
   <h2>Two ways to install it</h2>
   <div class="table-wrap">
@@ -35,7 +46,7 @@
       <thead><tr><th></th><th>Google Cloud, guided</th><th>Any Docker host</th></tr></thead>
       <tbody>
         <tr><td><strong>Skills needed</strong></td><td>None: a button and one command</td><td>A system administrator</td></tr>
-        <tr><td><strong>What you need</strong></td><td>A Google account and a billing account</td><td>A server with Docker, PostgreSQL with backups, and HTTPS in front</td></tr>
+        <tr><td><strong>What you need</strong></td><td>A Google account and a billing account</td><td>A server with Docker, PostgreSQL 16 or later with backups, and HTTPS in front</td></tr>
         <tr><td><strong>Time</strong></td><td>About 20 minutes, mostly waiting</td><td>Depends on your infrastructure</td></tr>
         <tr><td><strong>Cost</strong></td><td>About 10 to 15 US$ a month</td><td>Your own hosting costs</td></tr>
         <tr><td><strong>Backups</strong></td><td>Every night, the last 7 kept, and recovery to any minute of the last 7 days</td><td>Yours to arrange</td></tr>
@@ -73,13 +84,15 @@
       <tbody>
         <tr><td><code>STORE_BACKEND=postgres</code></td><td>Keep the data in PostgreSQL</td></tr>
         <tr><td><code>MIGRATION_DATABASE_URL</code></td><td>The database owner, to create and update the tables</td></tr>
+        <tr><td><code>MIGRATE_ON_BOOT=true</code></td><td>Create and update the tables when the server starts. Without it, run <code>npm run migrate</code> yourself before the first start</td></tr>
         <tr><td><code>DATABASE_URL</code></td><td>A less powerful role the server runs as, so each project's data stays apart</td></tr>
         <tr><td><code>SETUP_CODE</code></td><td>The one-time code for the first administrator</td></tr>
         <tr><td><code>PUBLIC_BASE_URL</code></td><td>Your HTTPS address, used in invitation links</td></tr>
       </tbody>
     </table>
   </div>
-  <p>The server speaks plain HTTP: put HTTPS in front of it (a load balancer, nginx or Caddy). Email settings are optional, for weekly summaries and "Forgot your password?".</p>
+  <p>The server speaks plain HTTP on port 8080: put HTTPS in front of it (a load balancer, nginx or Caddy). Behind two proxies, such as a load balancer in front of Caddy, set <code>TRUST_PROXY_HOPS=2</code>.</p>
+  <p>Email is optional, for weekly summaries, "Forgot your password?" and alerts to administrators. Once <code>SMTP_URL</code> is set, <code>MAIL_FROM</code>, <code>PUBLIC_BASE_URL</code> and <code>LINK_SECRET</code> (32 characters or more) are required too, or the server won't start.</p>
 
   <h2>First steps on a new server</h2>
   <ol class="steps">
@@ -87,6 +100,7 @@
     <li><strong>Server settings</strong> (the <span class="ui">Server</span> page): leave <span class="ui">Anyone can create an account</span> off for a private server, so people only get accounts through invitations. Choose <span class="ui">Who can create projects</span>, and optionally limits, a server name, an announcement, terms of use and a contact email.</li>
     <li><strong>Your first project:</strong> continue as in <a href="coordinators.html">Running a cloud project</a>. The administrator sees no project's data unless they are also a member.</li>
     <li><strong>Forgotten passwords:</strong> <span class="ui">Server › Accounts › Make a reset link</span>, or, with email set up, people use <span class="ui">Forgot your password?</span> themselves.</li>
+    <li><strong>Lost laptops:</strong> a coordinator presses <span class="ui">Sign out everywhere</span> on the person's page. A sign-in unused for 90 days ends by itself (<code>SESSION_IDLE_DAYS</code>).</li>
   </ol>
   <p>For interpreters nothing changes: the invitation link carries your server's address, so they never type it.</p>
 
@@ -102,17 +116,36 @@
     <a href="coordinators.html">← Running a cloud project</a>
     <a href="../">Home →</a>
   </div>
+</div>
 </main>
 
 <footer>
   <div class="wrap">
-    <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="433">
+    <div>
+      <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="434">
+      <p>Collect Earth is part of Open Foris: free and open-source solutions for forest and land monitoring.</p>
+      <a class="btn dark" href="https://github.com/openforis/collect-earth">Source code on GitHub</a>
+    </div>
     <div class="links">
+      <h4>Guides</h4>
+      <a href="../guide/choose.html">Which set-up?</a>
+      <a href="../guide/sampling.html">Designing the sample</a>
+      <a href="../guide/interpreters.html">Collect Earth for interpreters</a>
+      <a href="../guide/coordinators.html">Running a cloud project</a>
+      <a href="../guide/own-server.html">Your own server</a>
+    </div>
+    <div class="links">
+      <h4>Open Foris</h4>
       <a href="https://www.openforis.org/">Open Foris</a>
-      <a href="https://www.openforis.org/support">Support forum</a>
-      <a href="https://github.com/openforis/collect-earth">Source code</a>
+      <a href="https://www.openforis.org/collect-earth/">Collect Earth on openforis.org</a>
+      <a href="https://openforis.support/">User forum</a>
+      <a href="https://www.openforis.org/support-and-resources/">Support and resources</a>
+      <a href="https://cloud.collectearth.org">Collect Earth Cloud</a>
     </div>
   </div>
 </footer>
+<script>
+(function(){var h=document.querySelector("header.top"),b=h&&h.querySelector(".menu-toggle");if(!b)return;function set(o){h.classList.toggle("open",o);b.setAttribute("aria-expanded",o)}b.addEventListener("click",function(){set(!h.classList.contains("open"))});h.querySelectorAll("nav a").forEach(function(a){a.addEventListener("click",function(){set(false)})});})();
+</script>
 </body>
 </html>

@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
 <title>Collect Earth · Land monitoring with satellite imagery</title>
 <meta name="description" content="Collect Earth is a free, open-source tool from Open Foris for assessing land use and land cover change on satellite imagery, alone or as a team with the Collect Earth Cloud dashboard.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -18,8 +23,9 @@
 
 <header class="top">
   <div class="wrap">
-    <a href="#"><img src="img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="433"></a>
-    <nav>
+    <a class="brand" href="./"><img src="img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="434"></a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
+    <nav id="site-nav" aria-label="Main">
       <a href="#how">How it works</a>
       <a href="#setups">Ways to work</a>
       <a href="#cloud">Cloud</a>
@@ -32,22 +38,25 @@
 <main>
 <section class="hero">
   <div class="wrap">
-    <div>
-      <h1>See what is happening on the land, plot by plot</h1>
+    <div class="box">
+      <p class="eyebrow"><img src="img/emblem.png" alt="" width="40" height="40">Collect Earth</p>
+      <h1>Verifiable land use change data for forest and climate reporting</h1>
       <p>Collect Earth is a free, open-source tool for assessing land use and land cover on satellite imagery. Use it alone on your computer, or run a whole team with the Collect Earth Cloud dashboard.</p>
       <div class="actions">
-        <a class="btn green" href="https://www.openforis.org/tools/collect-earth.html">Download Collect Earth</a>
+        <a class="btn green" href="https://www.openforis.org/collect-earth/">Download Collect Earth</a>
         <a class="btn ghost" href="https://cloud.collectearth.org">Open the dashboard</a>
       </div>
+      <p class="meta">Windows, macOS and Linux · Free and open source</p>
     </div>
-    <img class="emblem" src="img/emblem.png" alt="" width="512" height="512">
   </div>
 </section>
 
 <section>
-  <div class="wrap">
+  <div class="wrap intro">
+    <img class="emblem" src="img/emblem.png" alt="" width="512" height="512" loading="lazy">
+    <div>
     <h2>What it is for</h2>
-    <p class="lead">Interpreters look at high and very high resolution imagery from Google Earth Web, ESRI Wayback, Planet and Google Earth Engine, and answer a survey for each plot. It is fast to learn, cheap to run, and adapts to your methodology.</p>
+    <p class="lead">Interpreters look at high and very high resolution imagery from Google Earth Web, ESRI Wayback, Earth Map, Google Earth Engine and Planet (with your own key), and answer a survey for each plot. It is fast to learn, cheap to run, and adapts to your methodology.</p>
     <ul class="ticks" style="margin-top:28px">
       <li>Multi-phase national forest inventories</li>
       <li>Land use, land-use change and forestry (LULUCF) assessments</li>
@@ -56,16 +65,17 @@
       <li>Validating existing maps</li>
       <li>Spatially explicit socio-economic data</li>
     </ul>
+    </div>
   </div>
 </section>
 
 <section class="soft" id="how">
   <div class="wrap">
     <h2>How it works</h2>
-    <p class="lead">Every set-up uses the same desktop program and the same project file. Each plot is always saved on the interpreter's own computer first.</p>
+    <p class="lead">Every set-up uses the same desktop program and the same project file. Unless the team shares one PostgreSQL database, each plot is saved on the interpreter's own computer first.</p>
     <div class="grid g3" style="margin-top:32px">
       <div class="card"><div class="num">1</div><h3>Open the project</h3><p>A <code>.cep</code> project file holds the survey, its form, the plots and the settings. The plots come from a <a href="guide/sampling.html">sampling design</a>, such as the global SIGRID grid. Open it in Collect Earth, or join a cloud project with an invitation link.</p></div>
-      <div class="card"><div class="num">2</div><h3>Assess each plot</h3><p>Look at the imagery around the plot and answer the questions. Every answer is saved at once; press Submit when the plot is done and the next one opens.</p></div>
+      <div class="card"><div class="num">2</div><h3>Assess each plot</h3><p>By default Collect Earth opens inside Google Earth Web, with the plot list and the form in a panel beside the imagery. Look at the plot and answer the questions. Every answer is saved at once; press Submit when the plot is done and the next one opens.</p></div>
       <div class="card"><div class="num">3</div><h3>Follow and use the results</h3><p>Follow progress on a dashboard, check quality, and export to CSV, Open Foris Collect, KML or a LULUCF reporting package.</p></div>
     </div>
     <figure class="shot"><img src="img/screens/desktop-map.png" alt="Collect Earth: the plots map, the plot list and the survey form" loading="lazy" width="1440" height="900"></figure>
@@ -79,7 +89,7 @@
     <div class="grid g4" style="margin-top:32px">
       <div class="card"><div class="num">1</div><h3>One interpreter, local</h3><p>A study, a pilot, one expert. Everything stays on your computer, with your own progress dashboard.</p></div>
       <div class="card"><div class="num">2</div><h3>A team, no internet</h3><p>Each computer exports its plots and the coordinator imports them, or the office shares one PostgreSQL database.</p></div>
-      <div class="card featured"><span class="tag">Most team projects</span><div class="num">3</div><h3>Collect Earth Cloud</h3><p>Plots are sent to the free central server every 30 seconds. The coordinator follows the work in a web dashboard.</p></div>
+      <div class="card featured"><span class="tag">Most team projects</span><div class="num">3</div><h3>Collect Earth Cloud</h3><p>Plots are sent every 30 seconds to the free server run by FAO. The coordinator follows the work in a web dashboard.</p></div>
       <div class="card"><div class="num">4</div><h3>Your own server</h3><p>The same as set-up 3, on a server you run. The data never leaves your organisation.</p></div>
     </div>
     <div class="table-wrap">
@@ -90,7 +100,7 @@
           <tr><th>Plots reach the coordinator</th><td>Already there</td><td>Export and import by hand</td><td>Automatically</td><td>Automatically</td></tr>
           <tr><th>Giving out plots</th><td>Not needed</td><td>One plot file per person, by hand</td><td>In the dashboard, whole files or divided automatically</td><td>As in set-up 3</td></tr>
           <tr><th>Progress dashboard</th><td>Your own</td><td>Each computer's own</td><td>Web dashboard for the team</td><td>Web dashboard for the team</td></tr>
-          <tr><th>Quality checks, training, time spent</th><td>Not available</td><td>By hand</td><td>Built in</td><td>Built in</td></tr>
+          <tr><th>Quality checks, training, time spent</th><td>Self-checks on My dashboard</td><td>By hand</td><td>Built in</td><td>Built in</td></tr>
           <tr><th>Cost</th><td>Free</td><td>Free</td><td>Free</td><td>About 10 to 15 US$ a month on Google Cloud</td></tr>
         </tbody>
       </table>
@@ -103,16 +113,18 @@
   <div class="wrap split">
     <div>
       <h2>Collect Earth Cloud</h2>
-      <p class="lead">A web dashboard for coordinators. Nobody installs a server: interpreters click an invitation link, choose <em>Join cloud project…</em> in Collect Earth, and every plot they save reaches the dashboard by itself.</p>
-      <p style="margin-top:24px"><a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a> <a class="btn ghost" href="guide/coordinators.html">Read the guide</a></p>
+      <p class="lead">A web dashboard for coordinators. Nobody installs a server: interpreters click an invitation link, choose <em>Join cloud project…</em> in Collect Earth, and every plot they save reaches the dashboard by itself. On cloud.collectearth.org the administrators create the projects: ask FAO for one.</p>
+      <div class="actions" style="margin-top:28px"><a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a> <a class="btn ghost" href="guide/coordinators.html">Read the guide</a></div>
     </div>
     <ul class="ticks" style="grid-template-columns:1fr">
       <li><strong>Progress</strong> per day and per person, with a forecast against your deadline</li>
       <li><strong>Plots given out</strong> as whole files, divided evenly, or by a column such as province</li>
       <li><strong>Blind quality checks</strong>: some plots go to a second person, and the dashboard measures agreement per question and per person</li>
-      <li><strong>Reference plots and training</strong>: calibration and learning sets with scores, kept apart from the real data</li>
+      <li><strong>Training</strong>: calibration and learning sets with scores, kept apart from the real data</li>
+      <li><strong>Reference plots</strong>: plots with known answers, given to every collector, that their work is measured against</li>
       <li><strong>Time spent on each plot</strong>, with very quick plots flagged for a second look</li>
-      <li><strong>Downloads</strong>: a CSV of every answer with the coordinator's decisions, and a Collect backup</li>
+      <li><strong>Downloads</strong>: every answer with the coordinator's decisions, as CSV, GeoJSON, KML or shapefile, and a Collect Earth backup</li>
+      <li><strong>Start from a Collect Earth backup</strong>: a new project with the survey and the plots already assessed on the desktop</li>
       <li><strong>Import from Collect Earth Online</strong>: bring in a CEO project's questions, plots and shapes</li>
     </ul>
   </div>
@@ -128,7 +140,7 @@
   <div class="wrap split">
     <div>
       <h2>Run your own server</h2>
-      <p class="lead">Organisations that must keep their data in-house can run their own copy of Collect Earth Cloud. Coordinators and interpreters work exactly as on the shared server; nobody else, including the Collect Earth team, can see the data.</p>
+      <p class="lead">Organisations that must keep their data in-house can run their own copy of Collect Earth Cloud. Coordinators and interpreters work exactly as on the shared server; nobody else, including FAO, can see the data.</p>
     </div>
     <div class="card">
       <h3>On Google Cloud, guided</h3>
@@ -161,7 +173,7 @@
     <h2>Start collecting</h2>
     <p>Collect Earth runs on Windows, macOS and Linux. It is free and open source under the MIT licence.</p>
     <div class="actions">
-      <a class="btn green" href="https://www.openforis.org/tools/collect-earth.html">Download Collect Earth</a>
+      <a class="btn green" href="https://www.openforis.org/collect-earth/">Download Collect Earth</a>
       <a class="btn ghost" href="https://cloud.collectearth.org">Open the dashboard</a>
     </div>
   </div>
@@ -170,14 +182,32 @@
 
 <footer>
   <div class="wrap">
-    <img src="img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="433">
+    <div>
+      <img src="img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="434">
+      <p>Collect Earth is part of Open Foris: free and open-source solutions for forest and land monitoring.</p>
+      <a class="btn dark" href="https://github.com/openforis/collect-earth">Source code on GitHub</a>
+    </div>
     <div class="links">
+      <h4>Guides</h4>
+      <a href="guide/choose.html">Which set-up?</a>
+      <a href="guide/sampling.html">Designing the sample</a>
+      <a href="guide/interpreters.html">Collect Earth for interpreters</a>
+      <a href="guide/coordinators.html">Running a cloud project</a>
+      <a href="guide/own-server.html">Your own server</a>
+    </div>
+    <div class="links">
+      <h4>Open Foris</h4>
       <a href="https://www.openforis.org/">Open Foris</a>
-      <a href="https://www.openforis.org/support">Support forum</a>
-      <a href="https://github.com/openforis/collect-earth">Source code</a>
+      <a href="https://www.openforis.org/collect-earth/">Collect Earth on openforis.org</a>
+      <a href="https://openforis.support/">User forum</a>
+      <a href="https://www.openforis.org/support-and-resources/">Support and resources</a>
+      <a href="https://cloud.collectearth.org">Collect Earth Cloud</a>
     </div>
   </div>
 </footer>
 
+<script>
+(function(){var h=document.querySelector("header.top"),b=h&&h.querySelector(".menu-toggle");if(!b)return;function set(o){h.classList.toggle("open",o);b.setAttribute("aria-expanded",o)}b.addEventListener("click",function(){set(!h.classList.contains("open"))});h.querySelectorAll("nav a").forEach(function(a){a.addEventListener("click",function(){set(false)})});})();
+</script>
 </body>
 </html>
