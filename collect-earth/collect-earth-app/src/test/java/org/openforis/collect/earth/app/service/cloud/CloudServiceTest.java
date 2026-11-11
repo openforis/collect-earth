@@ -65,6 +65,7 @@ public class CloudServiceTest {
 		// Log in with the invitation: the account joins its project (a member of another project already)
 		when(api.login("https://c.org", "maria", "pw", null, "tok")).thenReturn("session-token");
 		when(api.downloadCep("https://c.org", "p1", "session-token")).thenReturn(cep);
+		when(properties.getProjectFolder()).thenReturn("C:/projects/kenya");
 		JoinRequest request = new JoinRequest();
 		request.baseUrl = "https://c.org";
 		request.inviteToken = "tok";
@@ -80,6 +81,8 @@ public class CloudServiceTest {
 		verify(properties).saveOperator("maria");
 		verify(properties).setCloudSyncEnabled(true);
 		verify(properties).saveCollectDBDriver(CollectDBDriver.CLOUD);
+		// the cloud mode is this project's only (EarthProjectsService.driverAfterLoading)
+		verify(properties).setValue(org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty.CLOUD_PROJECT_FOLDER, "C:/projects/kenya");
 		// the next start offers to send the records this computer has (CloudRecordsSender)
 		verify(properties).setValue(org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty.CLOUD_OFFER_LOCAL_RECORDS, "true");
 	}
