@@ -227,6 +227,15 @@ const en = {
   "cloud.accounts.confirmTitle": "Sign out of {server}?",
   "cloud.accounts.confirm": "Plots of cloud projects on this server stay on this computer and are sent after you sign in again.",
   "cloud.projectName": "Cloud project “{project}”",
+  "cloud.role.admin": "Coordinator",
+  "cloud.role.reviewer": "Reviewer",
+  "cloud.role.operator": "Collector",
+  "cloud.role.admin.help": "You manage the project: files, people and data.",
+  "cloud.role.reviewer.help": "You assess plots and can see what others collected.",
+  "cloud.role.operator.help": "You assess the plots assigned to you.",
+  "cloud.role.change": "Your coordinator can change your role in the cloud dashboard.",
+  "cloud.serverAdmin": "server administrator",
+  "cloud.alreadyHere": "Already on this computer",
 };
 
 export type MessageKey = keyof typeof en;
@@ -455,6 +464,15 @@ const es: Catalogue = {
   "cloud.accounts.confirmTitle": "¿Cerrar la sesión en {server}?",
   "cloud.accounts.confirm": "Las parcelas de los proyectos en la nube de este servidor se quedan en este ordenador y se envían cuando vuelva a iniciar sesión.",
   "cloud.projectName": "Proyecto en la nube «{project}»",
+  "cloud.role.admin": "Coordinador",
+  "cloud.role.reviewer": "Revisor",
+  "cloud.role.operator": "Recolector",
+  "cloud.role.admin.help": "Gestiona el proyecto: archivos, personas y datos.",
+  "cloud.role.reviewer.help": "Evalúa parcelas y puede ver lo que recolectaron los demás.",
+  "cloud.role.operator.help": "Evalúa las parcelas que se le asignan.",
+  "cloud.role.change": "Su coordinador puede cambiar su rol en el panel de la nube.",
+  "cloud.serverAdmin": "administrador del servidor",
+  "cloud.alreadyHere": "Ya en este ordenador",
 };
 
 const fr: Catalogue = {
@@ -680,6 +698,15 @@ const fr: Catalogue = {
   "cloud.accounts.confirmTitle": "Se déconnecter de {server} ?",
   "cloud.accounts.confirm": "Les parcelles des projets cloud de ce serveur restent sur cet ordinateur et sont envoyées quand vous vous reconnectez.",
   "cloud.projectName": "Projet cloud « {project} »",
+  "cloud.role.admin": "Coordinateur",
+  "cloud.role.reviewer": "Réviseur",
+  "cloud.role.operator": "Collecteur",
+  "cloud.role.admin.help": "Vous gérez le projet : fichiers, personnes et données.",
+  "cloud.role.reviewer.help": "Vous évaluez des parcelles et pouvez voir ce que les autres ont collecté.",
+  "cloud.role.operator.help": "Vous évaluez les parcelles qui vous sont attribuées.",
+  "cloud.role.change": "Votre coordinateur peut changer votre rôle dans le tableau de bord cloud.",
+  "cloud.serverAdmin": "administrateur du serveur",
+  "cloud.alreadyHere": "Déjà sur cet ordinateur",
 };
 
 const pt: Catalogue = {
@@ -905,6 +932,15 @@ const pt: Catalogue = {
   "cloud.accounts.confirmTitle": "Terminar a sessão em {server}?",
   "cloud.accounts.confirm": "As parcelas dos projetos na nuvem deste servidor ficam neste computador e são enviadas quando voltar a iniciar sessão.",
   "cloud.projectName": "Projeto na nuvem «{project}»",
+  "cloud.role.admin": "Coordenador",
+  "cloud.role.reviewer": "Revisor",
+  "cloud.role.operator": "Coletor",
+  "cloud.role.admin.help": "Administra o projeto: arquivos, pessoas e dados.",
+  "cloud.role.reviewer.help": "Avalia parcelas e pode ver o que os outros coletaram.",
+  "cloud.role.operator.help": "Avalia as parcelas que lhe são atribuídas.",
+  "cloud.role.change": "O seu coordenador pode mudar o seu papel no painel da nuvem.",
+  "cloud.serverAdmin": "administrador do servidor",
+  "cloud.alreadyHere": "Já neste computador",
 };
 
 const tr: Catalogue = {
@@ -1130,6 +1166,15 @@ const tr: Catalogue = {
   "cloud.accounts.confirmTitle": "{server} sunucusundaki oturum kapatılsın mı?",
   "cloud.accounts.confirm": "Bu sunucudaki bulut projelerinin parselleri bu bilgisayarda kalır ve yeniden oturum açtığınızda gönderilir.",
   "cloud.projectName": "“{project}” bulut projesi",
+  "cloud.role.admin": "Koordinatör",
+  "cloud.role.reviewer": "Denetçi",
+  "cloud.role.operator": "Veri toplayıcı",
+  "cloud.role.admin.help": "Projeyi siz yönetirsiniz: dosyalar, kişiler ve veriler.",
+  "cloud.role.reviewer.help": "Parselleri değerlendirirsiniz ve başkalarının topladıklarını görebilirsiniz.",
+  "cloud.role.operator.help": "Size atanan parselleri değerlendirirsiniz.",
+  "cloud.role.change": "Koordinatörünüz bulut panosunda rolünüzü değiştirebilir.",
+  "cloud.serverAdmin": "sunucu yöneticisi",
+  "cloud.alreadyHere": "Zaten bu bilgisayarda",
 };
 
 export const CATALOGUES: Record<string, Catalogue> = { en, es, fr, pt, tr };

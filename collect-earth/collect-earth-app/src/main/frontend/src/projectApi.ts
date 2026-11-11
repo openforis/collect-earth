@@ -24,7 +24,11 @@ export const cloudLogin = (username: string, password: string, code?: string) =>
 export const cloudToken = (url: string, username: string, password: string, code?: string) =>
   apiPost<{ token: string }>("cloud/token", code ? { url, username, password, code } : { url, username, password });
 
-export interface CloudProject { projectId: string; projectName: string; role: string; active: boolean }
+/** `server`, `serverName`, `onThisComputer` (it is one of this computer's projects already): absent from an older Collect Earth */
+export interface CloudProject {
+  projectId: string; projectName: string; role: string; active: boolean;
+  server?: string | null; serverName?: string | null; onThisComputer?: boolean | null;
+}
 
 /** The cloud projects of the user signed in here; none when nobody is */
 export const cloudProjects = (signal?: AbortSignal) => apiGet<{ projects: CloudProject[] }>("cloud/projects", signal).then((r) => r.projects);

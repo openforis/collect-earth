@@ -19,6 +19,10 @@ export interface CloudProject {
   cloudProjectName: string | null;
   account: string | null;
   signedIn: boolean;
+  /** The account's role in the cloud project (admin, reviewer, operator); absent from an older Collect Earth */
+  role?: string | null;
+  /** The account administers the cloud server */
+  serverAdmin?: boolean | null;
 }
 export interface CloudSync {
   pending: number;
@@ -69,9 +73,11 @@ export function projectChip(state: CloudState, t: Translate, when: (iso: string)
   const label = server ? t("cloud.cloud", { server }) : t("cloud.cloudNoServer");
   const s = state.sync;
   const project = cloudProjectOf(p);
+  const role = roleOf(p.role, t);
+  const account = p.account && (role ? p.account + " (" + role.name + ")" : p.account);
   const tip = [
     !server ? t("cloud.cloudTipNoServer", { project })
-      : p.account ? t("cloud.cloudTip", { project, server, account: p.account }) : t("cloud.cloudTipNoAccount", { project, server }),
+      : account ? t("cloud.cloudTip", { project, server, account }) : t("cloud.cloudTipNoAccount", { project, server }),
     s?.lastSyncedOn ? t("cloud.lastSync", { when: when(s.lastSyncedOn) }) : "",
   ].filter(Boolean).join(" ");
   const chip = (icon: ChipIcon, status: string | null, color: ProjectChip["color"], action: ProjectChip["action"] = "status", spoken = status): ProjectChip =>
@@ -84,6 +90,43 @@ export function projectChip(state: CloudState, t: Translate, when: (iso: string)
   if (s.online === false) return chip("offline", s.pending > 0 ? t("cloud.offline", { count: s.pending }) : t("cloud.offlineNone"), "warning");
   if (s.pending > 0) return chip("waiting", t("cloud.waiting", { count: s.pending }), "warning");
   return chip("sent", null, "success", "status", t("cloud.allSent"));
+}
+
+// A Map, not an object: a role called "constructor" would find a property of every object
+const ROLES = new Map<string, [MessageKey, MessageKey]>([
+  ["admin", ["cloud.role.admin", "cloud.role.admin.help"]],
+  ["reviewer", ["cloud.role.reviewer", "cloud.role.reviewer.help"]],
+  ["operator", ["cloud.role.operator", "cloud.role.operator.help"]],
+]);
+
+/** A role in a cloud project, by the dashboard's name, and a line of what it does; null for none, or one not known */
+export function roleOf(role: string | null | undefined, t: Translate): { name: string; help: string } | null {
+  const keys = role ? ROLES.get(role) : undefined;
+  return keys ? { name: t(keys[0]), help: t(keys[1]) } : null;
+}
+
+/**
+ * The "you" chip of a cloud project: the account and its role (`short`: the account alone, for a narrow bar), the
+ * whole of it as its name; its tooltip `signedIn` (the sign-in and the click), then what the role does and who changes it.
+ */
+export function youChip(p: CloudProject, operator: string | null, signedIn: string, t: Translate):
+  { label: string; short: string; name: string; tip: string } {
+  const account = p.account ?? operator ?? "";
+  const role = roleOf(p.role, t);
+  const label = role ? account + " · " + role.name : account;
+  const what = [role?.name, p.serverAdmin ? t("cloud.serverAdmin") : null].filter(Boolean).join(" · ");
+  const tip = [signedIn, what && (role ? what + ": " + role.help : what), role ? t("cloud.role.change") : ""].filter(Boolean).join(" ");
+  return { label, short: account, name: label, tip };
+}
+
+/**
+ * The server to show for each cloud project of Switch project's list: each its own when they are on several servers;
+ * else none, the list saying it once (`list`). Null where the server is not told (an older Collect Earth).
+ */
+export function cloudProjectServers(projects: { server?: string | null; serverName?: string | null }[]): { list: string | null; each: (string | null)[] } {
+  const each = projects.map((p) => p.serverName || p.server || null);
+  const servers = new Set(projects.map((p) => p.server || p.serverName).filter(Boolean));
+  return servers.size > 1 ? { list: null, each } : { list: each.find((s) => s !== null) ?? null, each: each.map(() => null) };
 }
 
 /**

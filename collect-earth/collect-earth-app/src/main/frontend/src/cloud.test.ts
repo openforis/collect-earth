@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type CloudState, type CloudSync, fallbackState, projectChip, projectMark, saveView } from "./cloud";
+import { type CloudState, type CloudSync, cloudProjectServers, fallbackState, projectChip, projectMark, roleOf, saveView, youChip } from "./cloud";
 import { translator } from "./i18n";
 import { cloudSignOut, cloudState, recordSync } from "./projectApi";
 
@@ -63,6 +63,56 @@ describe("the project chip", () => {
     // Before /api/cloud/state answers: what /api/app knows
     expect(projectChip(fallbackState("Forest", true), t, when)).toMatchObject({ icon: "cloud", label: "Cloud project",
       tip: "Cloud project “Forest”. Plots are saved on this computer first, then sent." });
+  });
+});
+
+describe("your role in a cloud project", () => {
+  it("is named as the dashboard names it, in every language", () => {
+    const names = (language: string) => ["admin", "reviewer", "operator"].map((r) => roleOf(r, translator(language))?.name);
+    expect(names("en")).toEqual(["Coordinator", "Reviewer", "Collector"]);
+    expect(names("es")).toEqual(["Coordinador", "Revisor", "Recolector"]);
+    expect(names("fr")).toEqual(["Coordinateur", "Réviseur", "Collecteur"]);
+    expect(names("pt")).toEqual(["Coordenador", "Revisor", "Coletor"]);
+    expect(names("tr")).toEqual(["Koordinatör", "Denetçi", "Veri toplayıcı"]);
+    for (const none of [null, undefined, "", "owner", "constructor"]) expect(roleOf(none, t)).toBeNull();
+  });
+
+  it("follows the account in the you chip, the account alone when narrow, and says what it does", () => {
+    const you = youChip({ ...cloud({}).project, role: "operator" }, "op", "Signed in as ana.", t);
+    expect(you).toEqual({ label: "ana · Collector", short: "ana", name: "ana · Collector",
+      tip: "Signed in as ana. Collector: You assess the plots assigned to you. Your coordinator can change your role in the cloud dashboard." });
+    // A server administrator is told so in the tooltip only
+    const admin = youChip({ ...cloud({}).project, role: "admin", serverAdmin: true }, null, "Signed in as ana.", t);
+    expect(admin.label).toBe("ana · Coordinator");
+    expect(admin.tip).toBe("Signed in as ana. Coordinator · server administrator: You manage the project: files, people and data. "
+      + "Your coordinator can change your role in the cloud dashboard.");
+  });
+
+  it("leaves the you chip as it was when the role is not told", () => {
+    expect(youChip({ ...cloud({}).project, account: null }, "op", "Signed in.", t)).toEqual({ label: "op", short: "op", name: "op", tip: "Signed in." });
+    expect(youChip({ ...cloud({}).project, role: null, serverAdmin: null }, null, "Signed in.", t).label).toBe("ana");
+  });
+
+  it("is in the project chip's tooltip, and a local project has none", () => {
+    expect(projectChip(cloud({}, { role: "reviewer" }), t, when).tip)
+      .toBe("Cloud project “Forest 2026” on Example Cloud, as ana (Reviewer). Plots are saved on this computer first, then sent.");
+    expect(projectChip({ ...local(), project: { ...local().project, role: "admin" } }, t, when).tip).toBe("This project keeps its data on this computer.");
+  });
+});
+
+describe("the servers of the cloud projects to switch to", () => {
+  it("is said once for the list when they are all on one", () => {
+    const one = { server: "https://a.org", serverName: "A" };
+    expect(cloudProjectServers([one, one])).toEqual({ list: "A", each: [null, null] });
+  });
+
+  it("is said by each project when they are on several", () => {
+    expect(cloudProjectServers([{ server: "https://a.org", serverName: "A" }, { server: "https://b.org", serverName: "" }, {}]))
+      .toEqual({ list: null, each: ["A", "https://b.org", null] });
+  });
+
+  it("is not said when the server does not tell it", () => {
+    expect(cloudProjectServers([{}, { server: null, serverName: null }])).toEqual({ list: null, each: [null, null] });
   });
 });
 

@@ -53,7 +53,8 @@ cloud sync status (`GET /earth/api/cloud/status`, polled while open) and changes
 (`PUT /earth/api/app/language`, then the page reloads). In cloud mode with nobody logged in the app bar asks for the
 cloud login first (`POST /earth/api/cloud/login`). Next to the project's name the project chip says where it keeps its data,
 from `GET /earth/api/cloud/state` (`src/cloud.ts`, read every 15 s in a cloud project): on this computer, or the cloud
-project, its server and its sending (waiting, offline, failed, sign in again); the settings list the accounts signed in
+project, its server and its sending (waiting, offline, failed, sign in again), and the "you" chip your role there; the
+settings list the accounts signed in
 there, with Sign out (`POST /earth/api/cloud/signOut`), and the form says a plot is sent only once
 `GET /earth/api/cloud/recordSync` does. The Help menu (`src/components/help/`) opens the survey guide, the
 manual, the support site and the updater as actions, shows the disclaimer and the log (`GET /earth/api/help/text`),

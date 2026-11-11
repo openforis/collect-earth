@@ -39,7 +39,7 @@ import { cloudLogin, setErrorsShown as setErrorsShown_, uploadFile } from "../pr
 import { saveSettings } from "../settingsApi";
 import { useT } from "../i18n";
 import { CLOUD_DASHBOARD_NOTE, appMenus, type MenuItem as AppMenuItem } from "../menus";
-import { type ChipIcon, type ProjectChip, cloudProjectOf, fallbackState, projectChip, serverOf, useCloudState } from "../cloud";
+import { type ChipIcon, type ProjectChip, cloudProjectOf, fallbackState, projectChip, serverOf, useCloudState, youChip } from "../cloud";
 import { MenuEntryIcon } from "../menuIcons";
 import { AppDrawer, DRAWER_ID } from "./AppDrawer";
 import { serverText, type Texts } from "../serverTexts";
@@ -208,6 +208,8 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   };
 
   const chip = projectChip(cloud, t, (iso) => new Date(iso).toLocaleString(info.language));
+  // You in a cloud project: the account and its role (a local project has none)
+  const you = youChip(cloud.project, operator, formatText(s("User.cloudTip"), cloud.project.account ?? operator ?? ""), t);
   // The login names the server and the cloud project once they are known
   const signInTo = cloud.project.mode === "cloud" && server ? t("cloud.signInTo", { server, project: cloudProjectOf(cloud.project) }) : null;
 
@@ -258,9 +260,9 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
                 label={s("User.signIn")} data-testid="user-chip" />
             </Tooltip>
           ) : (
-            <Tooltip title={formatText(s("User.cloudTip"), cloud.project.account ?? operator ?? "")}>
+            <Tooltip title={you.tip} describeChild>
               <Chip icon={<PersonIcon />} size="small" variant="outlined" onClick={() => setDialog("cloudStatus")}
-                label={cloud.project.account ?? operator} sx={{ maxWidth: compact ? 140 : 240 }} data-testid="user-chip" />
+                label={compact ? you.short : you.label} aria-label={you.name} sx={{ maxWidth: compact ? 140 : 280 }} data-testid="user-chip" />
             </Tooltip>
           )
         ) : (
