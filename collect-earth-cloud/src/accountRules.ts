@@ -11,14 +11,14 @@ const USERNAME_RE = /^[A-Za-z0-9._@-]{3,64}$/;
 export const MIN_PASSWORD_LENGTH = 8;
 
 /** Returns the `{error, reason}` body for a rule violation, or null if both are fine. */
-export function checkCredentials(username: string | null, password: string): { error: string; reason: string } | null {
+export function checkCredentials(username: string | null, password: string, minPassword = MIN_PASSWORD_LENGTH): { error: string; reason: string } | null {
   if (username !== null && !isValidUsername(username)) {
     return {
       error: 'bad_username',
       reason: 'username must be 3-64 characters: letters, digits, dot, underscore, hyphen or @',
     };
   }
-  return checkPassword(password);
+  return checkPassword(password, minPassword);
 }
 
 /** Whether a username follows the rules of accounts made from the dashboard. */
@@ -26,9 +26,11 @@ export function isValidUsername(username: string): boolean {
   return USERNAME_RE.test(username);
 }
 
-export function checkPassword(password: string): { error: string; reason: string } | null {
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    return { error: 'weak_password', reason: `password must be at least ${MIN_PASSWORD_LENGTH} characters` };
+/** `min`: the server's minPasswordLength (never below MIN_PASSWORD_LENGTH). */
+export function checkPassword(password: string, min = MIN_PASSWORD_LENGTH): { error: string; reason: string } | null {
+  const least = Math.max(MIN_PASSWORD_LENGTH, min);
+  if (password.length < least) {
+    return { error: 'weak_password', reason: `password must be at least ${least} characters`, minLength: least } as { error: string; reason: string };
   }
   return null;
 }
@@ -109,4 +111,31 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
   const raw = Array.isArray(value) ? value[0] : value;
   const first = raw?.split(',')[0]?.trim();
   return first && first.length > 0 ? first : undefined;
+}
+
+/** Most email domains sign-up can be limited to. */
+export const MAX_SIGNUP_DOMAINS = 20;
+const DOMAIN_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+
+/**
+ * The email domains sign-up is limited to, as typed (commas, spaces or new lines between them, an "@" before one
+ * allowed): stored lower case, comma-separated, null for none. Else what is wrong.
+ */
+export function parseSignupDomains(value: unknown): { ok: true; value: string | null } | { ok: false; reason: string } {
+  if (value === null) return { ok: true, value: null };
+  const list = Array.isArray(value) ? value : typeof value === 'string' ? value.split(/[\s,;]+/) : null;
+  if (list === null || list.some((d) => typeof d !== 'string')) return { ok: false, reason: 'signupDomains must be a list of domains or null' };
+  const domains = [...new Set((list as string[]).map((d) => d.trim().toLowerCase().replace(/^@/, '')).filter((d) => d !== ''))];
+  if (domains.length === 0) return { ok: true, value: null };
+  if (domains.length > MAX_SIGNUP_DOMAINS) return { ok: false, reason: `at most ${MAX_SIGNUP_DOMAINS} domains` };
+  const bad = domains.find((d) => d.length > 253 || !DOMAIN_RE.test(d));
+  if (bad) return { ok: false, reason: `"${bad}" is not a domain (example.org)` };
+  return { ok: true, value: domains.join(',') };
+}
+
+/** Whether an address is of one of the domains (a stored signupDomains), its subdomains included; true for no domains. */
+export function emailInDomains(email: string, domains: string | null): boolean {
+  if (!domains) return true;
+  const host = email.slice(email.lastIndexOf('@') + 1).toLowerCase();
+  return domains.split(',').some((d) => host === d || host.endsWith(`.${d}`));
 }

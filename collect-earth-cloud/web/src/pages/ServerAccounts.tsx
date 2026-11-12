@@ -40,6 +40,9 @@ import MoreVert from "@mui/icons-material/MoreVert";
 import PersonAdd from "@mui/icons-material/PersonAdd";
 import PhonelinkErase from "@mui/icons-material/PhonelinkErase";
 import Search from "@mui/icons-material/Search";
+import Campaign from "@mui/icons-material/Campaign";
+import LockOpen from "@mui/icons-material/LockOpen";
+import LockClock from "@mui/icons-material/LockClock";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
   ACCOUNT_FILTERS,
@@ -54,6 +57,7 @@ import {
   setPlatformAdmin,
   setUserDisabled,
   signOutUser,
+  unlockUser,
   type AccountFilter,
   type AccountQuery,
   type AccountSort,
@@ -71,6 +75,7 @@ import { useT } from "../i18n";
 import { saveBlob } from "../saveBlob";
 import { accountsToMake, sinceText } from "../serverAccountsView";
 import { useLoad } from "../useLoad";
+import { MessageDialog } from "./ServerMessage";
 
 const PAGE_SIZE = 25;
 
@@ -220,6 +225,7 @@ export function AccountsSection({ onAccountChanged }: { onAccountChanged: () => 
   const [typed, setTyped] = useState("");
   const [link, setLink] = useState<{ user: AdminUser; reset: ResetLink } | null>(null);
   const [adding, setAdding] = useState(false);
+  const [writing, setWriting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [confirmError, setConfirmError] = useState<ReactNode | null>(null);
@@ -256,9 +262,14 @@ export function AccountsSection({ onAccountChanged }: { onAccountChanged: () => 
     }
   };
 
-  const act = (kind: Confirm["kind"] | "reset" | "enable" | "admin", user: AdminUser, on?: boolean) => {
+  const act = (kind: Confirm["kind"] | "reset" | "enable" | "admin" | "unlock", user: AdminUser, on?: boolean) => {
     setMenu(null);
-    if (kind === "reset") {
+    if (kind === "unlock") {
+      void run(async () => {
+        await unlockUser(user.userId);
+        return t("accounts.unlocked", { name: user.username });
+      });
+    } else if (kind === "reset") {
       void run(async () => {
         setLink({ user, reset: await makeResetLink(user.userId) });
         return "";
@@ -338,6 +349,7 @@ export function AccountsSection({ onAccountChanged }: { onAccountChanged: () => 
           <Typography variant="h2" id="server-accounts">{t("server.users")}</Typography>
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" startIcon={<Download />} onClick={() => void download()}>{t("accounts.csv")}</Button>
+            <Button variant="outlined" startIcon={<Campaign />} onClick={() => setWriting(true)}>{t("message.button")}</Button>
             <Button variant="contained" startIcon={<PersonAdd />} onClick={() => setAdding(true)}>{t("accounts.add")}</Button>
           </Stack>
         </Stack>
@@ -407,6 +419,7 @@ export function AccountsSection({ onAccountChanged }: { onAccountChanged: () => 
                         {own(user) && <Chip size="small" variant="outlined" label={t("accounts.you")} />}
                         {user.isPlatformAdmin && <Chip size="small" color="primary" label={t("server.adminBadge")} />}
                         {user.disabledAt !== null && <Chip size="small" color="warning" icon={<Block />} label={t("server.disabledBadge")} />}
+                        {user.lockedUntil !== null && <Chip size="small" color="error" variant="outlined" icon={<LockClock />} label={t("server.lockedBadge")} />}
                         {user.twoFactor && <Chip size="small" variant="outlined" label={t("server.twoFactorBadge")} />}
                       </Stack>
                     }
@@ -419,6 +432,12 @@ export function AccountsSection({ onAccountChanged }: { onAccountChanged: () => 
                         {user.createdAt !== null && t("accounts.created", { date: formatDay(user.createdAt, language) })}
                         {" · "}
                         {user.lastActiveAt === null ? t("accounts.neverActive") : t("accounts.lastActive", { when: sinceText(user.lastActiveAt, Date.now(), language) })}
+                        {user.lockedUntil !== null && (
+                          <>
+                            <br />
+                            {t("accounts.lockedUntil", { time: formatDate(user.lockedUntil, language) })}
+                          </>
+                        )}
                         {user.disabledAt !== null && (
                           <>
                             <br />
@@ -441,6 +460,8 @@ export function AccountsSection({ onAccountChanged }: { onAccountChanged: () => 
         )}
       </Stack>
 
+      <MessageDialog open={writing} onClose={() => setWriting(false)} />
+
       <Menu anchorEl={menu?.anchor} open={menu !== null} onClose={() => setMenu(null)}>
         {menu && [
           menu.user.disabledAt === null && (
@@ -456,6 +477,11 @@ export function AccountsSection({ onAccountChanged }: { onAccountChanged: () => 
           menu.user.twoFactor && !own(menu.user) && (
             <MenuItem key="twoFactor" onClick={() => act("twoFactor", menu.user)}>
               <ListItemIcon><PhonelinkErase fontSize="small" /></ListItemIcon>{t("server.twoFactorReset")}
+            </MenuItem>
+          ),
+          menu.user.lockedUntil !== null && (
+            <MenuItem key="unlock" onClick={() => act("unlock", menu.user)}>
+              <ListItemIcon><LockOpen fontSize="small" /></ListItemIcon>{t("accounts.unlock")}
             </MenuItem>
           ),
           !own(menu.user) && (

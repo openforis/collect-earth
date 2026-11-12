@@ -32,6 +32,7 @@ import {
   type DigestKind,
   type DigestState,
   type AdminProject,
+  type StoredOwnerAlert,
   type ClientUse,
   type ServerActivityEntry,
   type ServerActivityInput,
@@ -240,6 +241,10 @@ export class InMemoryStore implements Store {
   private readonly digests = new Map<string, { userId: string } & DigestState>();
   /** userId -> when confirmation mails were sent (email_confirmation_sends), the last day's. */
   private readonly confirmationSends = new Map<string, number[]>();
+  /** The owner alerts (owner_alerts, migration 042), oldest first. */
+  private readonly ownerAlerts: (Omit<StoredOwnerAlert, 'seenBy'> & { seenByUserId: string | null })[] = [];
+  /** users.failed_logins and users.locked_until (migration 042). */
+  private readonly loginFailures = new Map<string, { count: number; lockedUntil: number | null }>();
   /** The server activity log (server_activity, migration 041), oldest first. */
   private readonly serverActivity: ServerActivityEntry[] = [];
   private settings: ServerSettings = { ...DEFAULT_SETTINGS };
@@ -1229,6 +1234,57 @@ export class InMemoryStore implements Store {
     return { entries: kept.slice(q.offset, q.offset + q.limit), total: kept.length };
   }
 
+  async appendOwnerAlert(alert: { kind: string; at: number; count: number; projectId: string | null }): Promise<string> {
+    const id = String(this.ownerAlerts.length + 1);
+    this.ownerAlerts.push({ id, ...alert, seenAt: null, seenByUserId: null });
+    return id;
+  }
+
+  async listOwnerAlerts(q: { offset: number; limit: number }): Promise<{ alerts: StoredOwnerAlert[]; total: number; unseen: number }> {
+    const all = [...this.ownerAlerts].reverse();
+    return {
+      alerts: all.slice(q.offset, q.offset + q.limit).map(({ seenByUserId, ...a }) => ({ ...a, seenBy: seenByUserId ? (this.users.get(seenByUserId)?.username ?? null) : null })),
+      total: all.length,
+      unseen: all.filter((a) => a.seenAt === null).length,
+    };
+  }
+
+  async markOwnerAlertsSeen(ids: readonly string[] | null, userId: string, at: number): Promise<number> {
+    let n = 0;
+    for (const a of this.ownerAlerts) {
+      if (a.seenAt !== null || (ids !== null && !ids.includes(a.id))) continue;
+      a.seenAt = at;
+      a.seenByUserId = userId;
+      n += 1;
+    }
+    return n;
+  }
+
+  async noteLoginFailure(userId: string, at: number, max: number, lockMs: number): Promise<number | null> {
+    if (!this.users.has(userId)) return null;
+    const f = this.loginFailures.get(userId) ?? { count: 0, lockedUntil: null };
+    f.count += 1;
+    let locked: number | null = null;
+    if (max > 0 && f.count >= max) {
+      f.lockedUntil = at + lockMs;
+      f.count = 0;
+      locked = f.lockedUntil;
+    }
+    this.loginFailures.set(userId, f);
+    return locked;
+  }
+
+  async loginLockedUntil(userId: string, at: number): Promise<number | null> {
+    const until = this.loginFailures.get(userId)?.lockedUntil ?? null;
+    return until !== null && until > at ? until : null;
+  }
+
+  async clearLoginFailures(userId: string): Promise<boolean> {
+    const f = this.loginFailures.get(userId);
+    this.loginFailures.delete(userId);
+    return !!f && f.lockedUntil !== null && f.lockedUntil > Date.now();
+  }
+
   async listServerActivityActors(): Promise<string[]> {
     return [...new Set(this.serverActivity.map((e) => e.actor).filter((a): a is string => a !== null))].sort((a, b) => a.localeCompare(b));
   }
@@ -1299,6 +1355,7 @@ export class InMemoryStore implements Store {
         lastActiveAt: this.userLastActiveAt.get(u.id) ?? null,
         email: u.email,
         emailConfirmed: this.mailOf(u.id).emailConfirmedAt !== null,
+        lockedUntil: this.loginFailures.get(u.id)?.lockedUntil ?? null,
       }))
       .sort((a, b) => a.username.localeCompare(b.username));
   }

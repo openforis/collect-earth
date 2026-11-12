@@ -1,5 +1,5 @@
 // The view logic of the server administrators' page (pages/ServerPage.tsx): the health line at the top of each section.
-import type { OwnerAlert, ServerOverview } from "./api";
+import type { ServerOverview } from "./api";
 import type { ServerSection } from "./router";
 
 /** One thing that needs the administrator's attention, and the section where it is seen and fixed. */
@@ -9,24 +9,22 @@ export type HealthItem =
   | { kind: "mail"; section: ServerSection }
   | { kind: "versions"; count: number; section: ServerSection };
 
-const DAY_MS = 24 * 3600 * 1000;
-
 /**
- * What needs attention: the alerts raised in the last 24 hours, the database updates not applied, and mail not set up
+ * What needs attention: the alerts not marked seen, the database updates not applied, and mail not set up
  * (no password reset links, no weekly emails), and the accounts using an outdated Collect Earth. Nothing for a figure
  * not loaded yet.
  */
 export function serverHealth(input: {
-  alerts: readonly OwnerAlert[] | null;
+  /** Alerts kept and not marked seen (GET /v1/admin/alerts) */
+  unseenAlerts: number | null;
   overview: ServerOverview | null;
   mailReady: boolean | null;
   /** The accounts using an outdated Collect Earth (GET /v1/admin/versions) */
   outdatedAccounts?: number | null;
-  now: number;
+  now?: number;
 }): HealthItem[] {
   const items: HealthItem[] = [];
-  const recent = (input.alerts ?? []).filter((a) => input.now - a.at < DAY_MS).length;
-  if (recent > 0) items.push({ kind: "alerts", count: recent, section: "overview" });
+  if ((input.unseenAlerts ?? 0) > 0) items.push({ kind: "alerts", count: input.unseenAlerts!, section: "overview" });
   const missing = input.overview?.database.migrations?.missing.length ?? 0;
   if (missing > 0) items.push({ kind: "migrations", count: missing, section: "system" });
   if (input.mailReady === false) items.push({ kind: "mail", section: "system" });

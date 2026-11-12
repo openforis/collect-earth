@@ -28,6 +28,10 @@ export interface ServerInfo {
   aiAvailable: boolean;
   /** "Forgot your password?" mails a reset link to an account's confirmed address (the server sends email). */
   selfServiceReset: boolean;
+  /** The shortest password the server accepts (8 when it does not say). */
+  minPasswordLength?: number;
+  /** Open sign-up only with an address of these email domains; null: any. */
+  signupDomains?: string[] | null;
   /** The map of progress's base map (OpenStreetMap unless the server sets another). */
   mapTiles: MapTiles;
   /**
@@ -456,6 +460,21 @@ export interface ServerSettings {
   announcementUntil: number | null;
   /** Coordinators and the server's administrators must use two-step sign-in. */
   twoFactorForCoordinators: boolean;
+  /** The owner alerts' thresholds: per hour, and a project's storage in percent of its limit. */
+  alertFailedLogins: number;
+  alertServerErrors: number;
+  alertSyncErrors: number;
+  alertStoragePercent: number;
+  /** The alerts' Slack or Teams webhook: read back only as its service and host; set by alertWebhookUrl. */
+  alertWebhook: { kind: "slack" | "teams"; host: string } | null;
+  /** Write only: a new webhook address, or null to remove it. */
+  alertWebhookUrl?: string | null;
+  /** Open sign-up only with these email domains (comma-separated); null: any. */
+  signupDomains: string | null;
+  minPasswordLength: number;
+  /** Failed sign-ins in a row that lock an account (0: never), and for how long. */
+  loginLockFailures: number;
+  loginLockMinutes: number;
 }
 
 export interface AdminUser {
@@ -477,6 +496,8 @@ export interface AdminUser {
   /** Its email address, and whether the person confirmed it. */
   email: string | null;
   emailConfirmed: boolean;
+  /** Locked after failed sign-ins until then, or null */
+  lockedUntil: number | null;
 }
 
 export interface ProjectRef {
@@ -600,6 +621,11 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   last_enabled_admin: "error.lastEnabledAdmin",
   own_account: "error.ownAccount",
   account_disabled: "error.accountDisabled",
+  account_locked: "error.accountLocked",
+  email_domain_not_allowed: "error.emailDomainNotAllowed",
+  webhook_not_allowed: "error.webhookNotAllowed",
+  webhook_refused: "error.webhookRefused",
+  message_too_soon: "error.messageTooSoon",
   terms_not_accepted: "error.termsNotAccepted",
   // Project file uploads (PUT /cep) refused once data exists or plots are divided.
   round_removed: "error.roundRemoved",
@@ -825,6 +851,8 @@ export async function getServerInfo(): Promise<ServerInfo> {
       serverName: optionalText(info?.serverName),
       aiAvailable: info?.aiAvailable === true,
       selfServiceReset: info?.selfServiceReset === true,
+      minPasswordLength: typeof info?.minPasswordLength === "number" && info.minPasswordLength >= 8 ? info.minPasswordLength : 8,
+      signupDomains: Array.isArray(info?.signupDomains) ? (info.signupDomains as unknown[]).filter((d): d is string => typeof d === "string") : null,
       mapTiles: toMapTiles(info?.mapTiles),
       localMode: info?.localMode === true,
       telemetry: toTelemetry(info?.telemetry),
@@ -900,17 +928,47 @@ function toAnnouncement(value: unknown): Announcement | null {
 export type OwnerAlertKind = "failed_logins" | "server_errors" | "sync_errors" | "storage" | "two_factor_keys";
 
 export interface OwnerAlert {
+  id?: string;
   kind: OwnerAlertKind;
   at: number;
   count: number;
-  projectId?: string;
+  projectId?: string | null;
+  /** When it was marked seen and by whom; null: not seen */
+  seenAt?: number | null;
+  seenBy?: string | null;
 }
 
-/** The alerts this server instance raised since it started (newest first), and its thresholds. */
-export async function getOwnerAlerts(): Promise<{ alerts: OwnerAlert[]; thresholds: Record<string, number> }> {
-  const body = await request<{ alerts?: OwnerAlert[]; thresholds?: Record<string, number> }>("GET", "/v1/admin/alerts");
-  return { alerts: Array.isArray(body?.alerts) ? body.alerts : [], thresholds: body?.thresholds ?? {} };
+export interface OwnerAlertsPage {
+  alerts: OwnerAlert[];
+  total: number;
+  /** Alerts not marked seen, of all kept */
+  unseen: number;
+  page: number;
+  pages: number;
+  thresholds: Record<string, number>;
+  webhook: { kind: "slack" | "teams"; host: string } | null;
 }
+
+/** The alerts kept (newest first, in pages), how many are not seen, the thresholds and the webhook. */
+export async function getOwnerAlerts(page = 1): Promise<OwnerAlertsPage> {
+  const body = await request<Record<string, unknown>>("GET", `/v1/admin/alerts?page=${page}&pageSize=10`);
+  const alerts = Array.isArray(body?.alerts) ? (body.alerts as OwnerAlert[]) : [];
+  return {
+    alerts,
+    total: toCount(body?.total ?? alerts.length),
+    unseen: toCount(body?.unseen ?? alerts.filter((a) => !a.seenAt).length),
+    page: Math.max(1, toCount(body?.page ?? 1)),
+    pages: Math.max(1, toCount(body?.pages ?? 1)),
+    thresholds: (body?.thresholds as Record<string, number> | undefined) ?? {},
+    webhook: (body?.webhook as OwnerAlertsPage["webhook"] | undefined) ?? null,
+  };
+}
+
+/** Marks alerts seen (none given: every one not seen). */
+export const markAlertsSeen = (ids?: string[]) => request<{ marked: number }>("POST", "/v1/admin/alerts/seen", { json: ids ? { ids } : {} });
+
+/** A test post to a webhook (the address typed, or the one saved). */
+export const testAlertWebhook = (url?: string) => request<{ sent: true }>("POST", "/v1/admin/alerts/webhook-test", { json: url ? { url } : {} });
 
 // --- former members (the server's src/routes/formerMembers.ts) -----------------------------------
 
@@ -2444,6 +2502,15 @@ export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
   announcement: null,
   announcementUntil: null,
   twoFactorForCoordinators: false,
+  alertFailedLogins: 50,
+  alertServerErrors: 20,
+  alertSyncErrors: 50,
+  alertStoragePercent: 90,
+  alertWebhook: null,
+  signupDomains: null,
+  minPasswordLength: 8,
+  loginLockFailures: 0,
+  loginLockMinutes: 15,
 };
 
 /** Settings from a server answer, keeping `fallback` for anything missing (older servers). */
@@ -2467,6 +2534,19 @@ export function toServerSettings(body: unknown, fallback: ServerSettings = DEFAU
     announcement: text("announcement", fallback.announcement),
     announcementUntil: "announcementUntil" in b ? toMillis(b.announcementUntil) : fallback.announcementUntil,
     twoFactorForCoordinators: typeof b.twoFactorForCoordinators === "boolean" ? b.twoFactorForCoordinators : fallback.twoFactorForCoordinators,
+    alertFailedLogins: limit(b.alertFailedLogins, fallback.alertFailedLogins),
+    alertServerErrors: limit(b.alertServerErrors, fallback.alertServerErrors),
+    alertSyncErrors: limit(b.alertSyncErrors, fallback.alertSyncErrors),
+    alertStoragePercent: limit(b.alertStoragePercent, fallback.alertStoragePercent),
+    alertWebhook: "alertWebhook" in b
+      ? (b.alertWebhook && typeof b.alertWebhook === "object" && typeof (b.alertWebhook as { host?: unknown }).host === "string"
+        ? { kind: (b.alertWebhook as { kind?: unknown }).kind === "teams" ? "teams" : "slack", host: (b.alertWebhook as { host: string }).host }
+        : null)
+      : fallback.alertWebhook,
+    signupDomains: text("signupDomains", fallback.signupDomains),
+    minPasswordLength: limit(b.minPasswordLength, fallback.minPasswordLength),
+    loginLockFailures: limit(b.loginLockFailures, fallback.loginLockFailures),
+    loginLockMinutes: limit(b.loginLockMinutes, fallback.loginLockMinutes),
   };
 }
 
@@ -2494,11 +2574,12 @@ function toAdminUser(u: Record<string, unknown>): AdminUser {
     lastActiveAt: toMillis(u.lastActiveAt),
     email: typeof u.email === "string" && u.email !== "" ? u.email : null,
     emailConfirmed: u.emailConfirmed === true,
+    lockedUntil: toMillis(u.lockedUntil),
   };
 }
 
 /** The server page's accounts list: what is searched, the filter, the order and the page. */
-export const ACCOUNT_FILTERS = ["all", "admins", "disabled", "twoFactor", "noTwoFactor", "inactive", "noEmail"] as const;
+export const ACCOUNT_FILTERS = ["all", "admins", "disabled", "locked", "twoFactor", "noTwoFactor", "inactive", "noEmail"] as const;
 export type AccountFilter = (typeof ACCOUNT_FILTERS)[number];
 export const ACCOUNT_SORTS = ["name", "created", "lastActive", "projects"] as const;
 export type AccountSort = (typeof ACCOUNT_SORTS)[number];
@@ -5418,7 +5499,7 @@ export const setProjectArchived = (projectId: string, archived: boolean) =>
 export const handProjectTo = (projectId: string, username: string) =>
   request<{ projectId: string; userId: string; username: string; wasMember: boolean }>("POST", `/v1/admin/projects/${encodeURIComponent(projectId)}/coordinator`, { json: { username } });
 
-export const SERVER_ACTION_KINDS = ["settings", "account", "project", "mail"] as const;
+export const SERVER_ACTION_KINDS = ["settings", "account", "project", "mail", "message", "alerts"] as const;
 export type ServerActionKind = (typeof SERVER_ACTION_KINDS)[number];
 /** One thing a server administrator did. */
 export interface ServerActivityEntry {
@@ -5503,3 +5584,31 @@ export const getMailCheck = () => request<MailCheck>("GET", "/v1/admin/mail");
 
 /** Sends a test email to the administrator's own address. */
 export const sendTestMail = (language: string) => request<{ sent: true; to: string }>("POST", "/v1/admin/mail/test", { json: { language } });
+
+// --- The server page's safety and communication (stage D) ---
+
+/** Lifts the lock failed sign-ins set on an account. */
+export const unlockUser = (userId: string) => request<{ unlocked: boolean }>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/unlock`);
+
+export type MessageAudience = "coordinators" | "everyone";
+export interface ServerMessage {
+  audience: MessageAudience;
+  subject: string;
+  text: string;
+}
+export interface MessagePreview {
+  recipients: number;
+  subject: string;
+  text: string;
+  delivers: boolean;
+  /** When the next message may go (one an hour), or null: now */
+  nextAllowedAt: number | null;
+}
+
+/** How the message will read and how many it reaches. */
+export const previewServerMessage = (m: ServerMessage, language: string) =>
+  request<MessagePreview>("POST", "/v1/admin/messages/preview", { json: { ...m, language } });
+
+/** Sends it; `recipients`: the count shown (a different one now is refused with the new count). */
+export const sendServerMessage = (m: ServerMessage, recipients: number) =>
+  request<{ recipients: number }>("POST", "/v1/admin/messages", { json: { ...m, recipients } });

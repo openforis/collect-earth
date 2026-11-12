@@ -18,6 +18,9 @@ describe("the server activity log in words", () => {
     expect(activitySentence(t, entry("mail.test", { details: { sent: false, responseCode: 550 } }), "en")).toBe("owner sent a test email, refused by the mail server (550)");
     expect(activitySentence(t, entry("account.signed_out", { actor: null }), "en")).toBe("An administrator signed ana out everywhere");
     expect(activitySentence(t, entry("something.new"), "en")).toBe("owner: something.new");
+    expect(activitySentence(t, entry("message.sent", { target: null, details: { audience: "coordinators", recipients: 12, subject: "Maintenance" } }), "en")).toBe("owner sent the message “Maintenance” to 12 people");
+    expect(activitySentence(t, entry("alerts.seen", { target: null, details: { count: 3 } }), "en")).toBe("owner marked 3 alerts as seen");
+    expect(activitySentence(t, entry("account.unlocked"), "en")).toBe("owner unlocked ana");
   });
 
   it("names the settings changed by their labels", () => {

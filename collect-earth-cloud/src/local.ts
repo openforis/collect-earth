@@ -82,6 +82,11 @@ export const LOCAL_OFF_ROUTES: readonly string[] = [
   'GET /v1/admin/versions',
   'GET /v1/admin/mail',
   'POST /v1/admin/mail/test',
+  'POST /v1/admin/users/:uid/unlock',
+  'POST /v1/admin/alerts/seen',
+  'POST /v1/admin/alerts/webhook-test',
+  'POST /v1/admin/messages/preview',
+  'POST /v1/admin/messages',
   // One project, the desktop's.
   'POST /v1/projects',
   'POST /v1/projects/from-ceo/preview',

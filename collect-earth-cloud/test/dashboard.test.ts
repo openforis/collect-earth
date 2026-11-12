@@ -389,6 +389,16 @@ describe('password change and reset', () => {
       twoFactorForCoordinators: false,
       announcement: null,
       announcementUntil: null,
+      alertFailedLogins: 50,
+      alertServerErrors: 20,
+      alertSyncErrors: 50,
+      alertStoragePercent: 90,
+      // the webhook's address is never read back
+      alertWebhook: null,
+      signupDomains: null,
+      minPasswordLength: 8,
+      loginLockFailures: 0,
+      loginLockMinutes: 15,
       aiConfigured: false,
     });
 

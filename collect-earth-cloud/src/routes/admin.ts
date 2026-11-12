@@ -2,7 +2,9 @@ import { telemetry } from '../telemetry.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { aiAvailable } from '../ai/available.js';
 import { limitWindows } from '../ai/service.js';
-import { checkCredentials, checkPassword, isEmailAddress, isUuid, publicBaseUrl, setupCodesMatch } from '../accountRules.js';
+import { checkCredentials, checkPassword, emailInDomains, isEmailAddress, isUuid, parseSignupDomains, publicBaseUrl, setupCodesMatch } from '../accountRules.js';
+import { parseWebhookUrl } from '../alertWebhook.js';
+import { thresholdsOf } from '../ownerAlerts.js';
 import { OSM_TILES, type Config } from '../config.js';
 import { hashPassword } from '../password.js';
 import { requirePlatformAdmin } from '../plugins/projectAuth.js';
@@ -12,7 +14,7 @@ import { buildOverview, statsWindow, type ServerOverview } from '../serverPanel.
 import { migrationFiles } from '../store/migrate.js';
 import { UsernameTakenError } from '../store/memory.js';
 import { isStoredTime, type Store } from '../store/store.js';
-import { MAIL_LANGUAGES, type MailLanguage, type ProjectCreation, type ServerSettings } from '../types.js';
+import { MAIL_LANGUAGES, SETTING_BOUNDS, type MailLanguage, type ProjectCreation, type ServerSettings } from '../types.js';
 import type { AccountMailHooks } from './mail.js';
 import { accountDeletionPlan } from './auth.js';
 import { accountsCsv, parseAccountQuery, parseNewAccounts, queryAccounts } from '../accounts.js';
@@ -111,6 +113,13 @@ export interface AdminRouteOptions {
   selfServiceReset?: boolean;
 }
 
+/** The settings as an administrator reads them: the alerts' webhook only as whether one is set and its host. */
+export function shownSettings(settings: ServerSettings) {
+  const { alertWebhookUrl, ...rest } = settings;
+  const parsed = alertWebhookUrl ? parseWebhookUrl(alertWebhookUrl) : null;
+  return { ...rest, alertWebhook: parsed ? { kind: parsed.kind, host: parsed.host } : null };
+}
+
 /**
  * Server-level routes for the web dashboard: server info, first-run setup, open
  * sign-up, password reset, and the platform admin's settings/users pages. None of
@@ -157,6 +166,9 @@ export async function registerAdminRoutes(
       aiAvailable: aiAvailable(config, settings),
       // "Forgot your password?" mails a reset link (to an account's confirmed address): mail is set up.
       selfServiceReset: options.selfServiceReset === true,
+      // The sign-up and password rules, so the forms say them before sending
+      minPasswordLength: settings.minPasswordLength,
+      signupDomains: settings.signupDomains ? settings.signupDomains.split(',') : null,
       // The map of progress's base map (OpenStreetMap unless the server sets another).
       mapTiles: config.mapTiles ?? OSM_TILES,
       // The dashboard's error reports (Sentry), when the server sends them: its public DSN only.
@@ -209,13 +221,17 @@ export async function registerAdminRoutes(
     const username = typeof body.username === 'string' ? body.username.trim() : '';
     const password = typeof body.password === 'string' ? body.password : '';
     const email = typeof body.email === 'string' && body.email.trim().length > 0 ? body.email.trim() : null;
-    const rule = checkCredentials(username, password);
+    const rule = checkCredentials(username, password, settings.minPasswordLength);
     if (rule) {
       return reply.code(400).send(rule);
     }
     // The same rule as the account page (Task 19 review): one address, or none.
     if (email !== null && !isEmailAddress(email)) {
       return reply.code(400).send({ error: 'invalid_email', reason: 'that is not one email address' });
+    }
+    // Sign-up limited to some email domains: an address of one of them is needed (its confirmation link is mailed)
+    if (settings.signupDomains && (email === null || !emailInDomains(email, settings.signupDomains))) {
+      return reply.code(400).send({ error: 'email_domain_not_allowed', reason: 'sign up with an email address of an allowed domain', domains: settings.signupDomains.split(',') });
     }
     // When the server has terms of use, the person must accept them to sign up.
     if (settings.termsUrl && body.acceptTerms !== true) {
@@ -271,7 +287,7 @@ export async function registerAdminRoutes(
       return reply.code(400).send({ error: 'bad_request', reason: 'token and newPassword are required' });
     }
     // Check the password before consuming, so a too-short attempt does not burn the link.
-    const rule = checkPassword(newPassword);
+    const rule = checkPassword(newPassword, (await store.getSettings()).minPasswordLength);
     if (rule) {
       return reply.code(400).send(rule);
     }
@@ -281,6 +297,8 @@ export async function registerAdminRoutes(
     }
     await store.setPassword(userId, await hashPassword(newPassword));
     await store.deleteUserSessions(userId);
+    // The link proves the account is theirs: a lock from failed sign-ins goes
+    await store.clearLoginFailures(userId);
     options.accountMail?.passwordChanged?.(request, userId, 'reset', body.language);
     return reply.code(204).send();
   });
@@ -289,7 +307,7 @@ export async function registerAdminRoutes(
     '/v1/admin/settings',
     { preHandler: requirePlatformAdmin(store) },
     // aiConfigured: only whether the AI configuration is there (never the key or the Vertex settings).
-    async (_request: FastifyRequest, reply: FastifyReply) => reply.send({ ...(await store.getSettings()), aiConfigured: config.aiConfigured === true }),
+    async (_request: FastifyRequest, reply: FastifyReply) => reply.send({ ...shownSettings(await store.getSettings()), aiConfigured: config.aiConfigured === true }),
   );
 
   app.put(
@@ -359,6 +377,27 @@ export async function registerAdminRoutes(
           patch[key] = r.value;
         }
       }
+      for (const [key, [min, max]] of Object.entries(SETTING_BOUNDS) as [keyof typeof SETTING_BOUNDS, readonly [number, number]][]) {
+        if (body[key] === undefined) continue;
+        const v = body[key];
+        if (typeof v !== 'number' || !Number.isInteger(v) || v < min || v > max) {
+          return reply.code(400).send({ error: 'bad_request', reason: `${key} must be a whole number from ${min} to ${max}` });
+        }
+        patch[key] = v;
+      }
+      if (body.signupDomains !== undefined) {
+        const r = parseSignupDomains(body.signupDomains);
+        if (!r.ok) return reply.code(400).send({ error: 'bad_request', reason: r.reason });
+        patch.signupDomains = r.value;
+      }
+      // A Slack or Teams webhook for the alerts: only those services' addresses (src/alertWebhook.ts)
+      if (body.alertWebhookUrl !== undefined) {
+        const raw = typeof body.alertWebhookUrl === 'string' ? body.alertWebhookUrl.trim() : body.alertWebhookUrl;
+        if (raw !== null && raw !== '' && (typeof raw !== 'string' || !parseWebhookUrl(raw))) {
+          return reply.code(400).send({ error: 'webhook_not_allowed', reason: 'a Slack or Microsoft Teams incoming webhook address (https)' });
+        }
+        patch.alertWebhookUrl = raw === '' ? null : (raw as string | null);
+      }
       // The announcement banner: plain text (shown as text, never as HTML) and when it ends.
       if (body.announcement !== undefined) {
         const r = textSetting('announcement', body.announcement, (v) => v, 'a short message');
@@ -383,7 +422,8 @@ export async function registerAdminRoutes(
         changed[key] = typeof value === 'boolean' || typeof value === 'number' || value === null ? value : 'changed';
       }
       if (Object.keys(changed).length > 0) await logServerAction(store, request, { action: 'settings.changed', details: changed });
-      return reply.send({ ...after, aiConfigured: config.aiConfigured === true });
+      request.server.ownerAlerts?.setThresholds(thresholdsOf(after));
+      return reply.send({ ...shownSettings(after), aiConfigured: config.aiConfigured === true });
     },
   );
 
@@ -491,6 +531,20 @@ export async function registerAdminRoutes(
       await store.deleteUserSessions(uid);
       await logServerAction(store, request, { action: 'account.signed_out', targetUserId: uid, targetName: target.username });
       return reply.send({ signedOut: true });
+    },
+  );
+
+  // Lifts the lock failed sign-ins set (sign-up rules): the person signs in again at once.
+  app.post(
+    '/v1/admin/users/:uid/unlock',
+    { preHandler: requirePlatformAdmin(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const uid = (request.params as { uid: string }).uid;
+      const target = isUuid(uid) ? await store.getUserById(uid) : null;
+      if (!target) return reply.code(404).send({ error: 'not_found' });
+      const was = await store.clearLoginFailures(uid);
+      if (was) await logServerAction(store, request, { action: 'account.unlocked', targetUserId: uid, targetName: target.username });
+      return reply.send({ unlocked: was });
     },
   );
 

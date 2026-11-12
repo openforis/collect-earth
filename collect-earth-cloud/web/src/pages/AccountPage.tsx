@@ -24,7 +24,8 @@ import { passwordProblem } from "../validation";
 
 export function AccountPage() {
   const t = useT();
-  const { me, logOut, language } = useApp();
+  const { me, logOut, language, info } = useApp();
+  const minPassword = info.minPasswordLength ?? 8;
   const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [repeated, setRepeated] = useState("");
@@ -36,7 +37,7 @@ export function AccountPage() {
   const submit = async () => {
     setError(null);
     setDone(false);
-    const found = !current ? "error.noCurrentPassword" : passwordProblem(password, repeated);
+    const found = !current ? "error.noCurrentPassword" : passwordProblem(password, repeated, minPassword);
     setProblem(found);
     if (found) return;
     setBusy(true);
@@ -81,7 +82,7 @@ export function AccountPage() {
           />
           <PasswordField
             label={t("common.newPassword")}
-            helperText={problem === "error.weakPassword" ? t(problem) : t("signup.passwordHelp")}
+            helperText={problem === "error.weakPassword" ? t("error.weakPasswordMin", { min: minPassword }) : t("signup.passwordHelpMin", { min: minPassword })}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"

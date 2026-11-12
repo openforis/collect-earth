@@ -7,22 +7,17 @@ const overview = (missing: string[]) => ({ database: { migrations: { applied: 30
 
 describe("the server's health line", () => {
   it("is empty when all is well, and a figure not loaded yet says nothing", () => {
-    expect(serverHealth({ alerts: [], overview: overview([]), mailReady: true, now: NOW })).toEqual([]);
-    expect(serverHealth({ alerts: null, overview: null, mailReady: null, now: NOW })).toEqual([]);
+    expect(serverHealth({ unseenAlerts: 0, overview: overview([]), mailReady: true, now: NOW })).toEqual([]);
+    expect(serverHealth({ unseenAlerts: null, overview: null, mailReady: null, now: NOW })).toEqual([]);
   });
 
-  it("names the alerts of the last day, the database updates not applied and mail not set up, each with its section", () => {
-    const alerts = [
-      { kind: "failed_logins" as const, at: NOW - 3600_000, count: 50 },
-      { kind: "server_errors" as const, at: NOW - 23 * 3600_000, count: 20 },
-      { kind: "sync_errors" as const, at: NOW - 30 * 3600_000, count: 50 },
-    ];
-    expect(serverHealth({ alerts, overview: overview(["038_x.sql"]), mailReady: false, outdatedAccounts: 3, now: NOW })).toEqual([
+  it("names the alerts not seen, the database updates not applied and mail not set up, each with its section", () => {
+    expect(serverHealth({ unseenAlerts: 2, overview: overview(["038_x.sql"]), mailReady: false, outdatedAccounts: 3, now: NOW })).toEqual([
       { kind: "alerts", count: 2, section: "overview" },
       { kind: "migrations", count: 1, section: "system" },
       { kind: "mail", section: "system" },
       { kind: "versions", count: 3, section: "system" },
     ]);
-    expect(serverHealth({ alerts: [], overview: null, mailReady: true, outdatedAccounts: 0, now: NOW })).toEqual([]);
+    expect(serverHealth({ unseenAlerts: 0, overview: null, mailReady: true, outdatedAccounts: 0, now: NOW })).toEqual([]);
   });
 });

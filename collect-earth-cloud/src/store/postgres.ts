@@ -10,9 +10,11 @@ import {
   personOverMonth,
   DEFAULT_PROGRESS_SETTINGS,
   DEFAULT_SETTINGS,
+  SETTING_BOUNDS,
   totalStorageBytes,
   type AiRunEnd,
   type AdminProject,
+  type StoredOwnerAlert,
   type ClientUse,
   type ServerAction,
   type ServerActivityEntry,
@@ -1321,6 +1323,82 @@ export class PostgresStore implements Store {
     };
   }
 
+  async appendOwnerAlert(alert: { kind: string; at: number; count: number; projectId: string | null }): Promise<string> {
+    const res = await this.pool.query('INSERT INTO owner_alerts (at, kind, count, project_id) VALUES ($1, $2, $3, $4) RETURNING id', [
+      new Date(alert.at),
+      alert.kind,
+      Math.max(0, Math.round(alert.count)),
+      alert.projectId,
+    ]);
+    return String(res.rows[0].id);
+  }
+
+  async listOwnerAlerts(q: { offset: number; limit: number }): Promise<{ alerts: StoredOwnerAlert[]; total: number; unseen: number }> {
+    const counts = await this.pool.query('SELECT COUNT(*)::int AS total, (COUNT(*) FILTER (WHERE seen_at IS NULL))::int AS unseen FROM owner_alerts');
+    const rows = await this.pool.query(
+      `SELECT a.id, a.at, a.kind, a.count, a.project_id, a.seen_at, u.username AS seen_by
+         FROM owner_alerts a LEFT JOIN users u ON u.id = a.seen_by
+        ORDER BY a.at DESC, a.id DESC OFFSET $1 LIMIT $2`,
+      [q.offset, q.limit],
+    );
+    return {
+      total: counts.rows[0].total as number,
+      unseen: counts.rows[0].unseen as number,
+      alerts: rows.rows.map((r) => ({
+        id: String(r.id),
+        at: (r.at as Date).getTime(),
+        kind: r.kind as string,
+        count: Number(r.count),
+        projectId: (r.project_id as string | null) ?? null,
+        seenAt: r.seen_at ? (r.seen_at as Date).getTime() : null,
+        seenBy: (r.seen_by as string | null) ?? null,
+      })),
+    };
+  }
+
+  async markOwnerAlertsSeen(ids: readonly string[] | null, userId: string, at: number): Promise<number> {
+    const numeric = ids?.filter((id) => /^\d{1,18}$/.test(id)) ?? null;
+    if (numeric !== null && numeric.length === 0) return 0;
+    const res = await this.pool.query(
+      `UPDATE owner_alerts SET seen_at = $1, seen_by = $2 WHERE seen_at IS NULL AND ($3::bigint[] IS NULL OR id = ANY($3::bigint[]))`,
+      [new Date(at), userId, numeric],
+    );
+    return res.rowCount ?? 0;
+  }
+
+  async noteLoginFailure(userId: string, at: number, max: number, lockMs: number): Promise<number | null> {
+    if (!isUuid(userId)) return null;
+    // One statement: two failures at once never both miss the lock
+    const res = await this.pool.query(
+      `UPDATE users SET
+              failed_logins = CASE WHEN $2 > 0 AND failed_logins + 1 >= $2 THEN 0 ELSE failed_logins + 1 END,
+              locked_until = CASE WHEN $2 > 0 AND failed_logins + 1 >= $2 THEN $3 ELSE locked_until END
+        WHERE id = $1
+    RETURNING (CASE WHEN $2 > 0 AND locked_until = $3 THEN locked_until END) AS locked`,
+      [userId, max, new Date(at + lockMs)],
+    );
+    const locked = res.rows[0]?.locked as Date | null | undefined;
+    return locked ? locked.getTime() : null;
+  }
+
+  async loginLockedUntil(userId: string, at: number): Promise<number | null> {
+    if (!isUuid(userId)) return null;
+    const res = await this.pool.query('SELECT locked_until FROM users WHERE id = $1 AND locked_until > $2', [userId, new Date(at)]);
+    return res.rowCount ? (res.rows[0].locked_until as Date).getTime() : null;
+  }
+
+  async clearLoginFailures(userId: string): Promise<boolean> {
+    if (!isUuid(userId)) return false;
+    const res = await this.pool.query(
+      `UPDATE users u SET failed_logins = 0, locked_until = NULL
+         FROM (SELECT id, locked_until > now() AS was FROM users WHERE id = $1 FOR UPDATE) old
+        WHERE u.id = old.id AND (u.failed_logins > 0 OR u.locked_until IS NOT NULL)
+    RETURNING old.was`,
+      [userId],
+    );
+    return res.rows[0]?.was === true;
+  }
+
   async listServerActivityActors(): Promise<string[]> {
     const res = await this.pool.query('SELECT DISTINCT actor_name FROM server_activity WHERE actor_name IS NOT NULL ORDER BY actor_name');
     return res.rows.map((r) => r.actor_name as string);
@@ -1430,6 +1508,13 @@ export class PostgresStore implements Store {
       } else if (r.key === 'announcementUntil') {
         const n = Number(r.value);
         settings.announcementUntil = Number.isFinite(n) ? n : null;
+      } else if (r.key in SETTING_BOUNDS) {
+        const key = r.key as keyof typeof SETTING_BOUNDS;
+        const n = Number(r.value);
+        const [min, max] = SETTING_BOUNDS[key];
+        settings[key] = Number.isInteger(n) && n >= min && n <= max ? n : DEFAULT_SETTINGS[key];
+      } else if (r.key === 'alertWebhookUrl' || r.key === 'signupDomains') {
+        settings[r.key as 'alertWebhookUrl' | 'signupDomains'] = r.value.length > 0 ? r.value : null;
       }
     }
     return settings;
@@ -1461,13 +1546,13 @@ export class PostgresStore implements Store {
     // project_members is a global table (002); only a COUNT leaves this query.
     const res = await this.pool.query(
       `SELECT u.id, u.username, u.is_platform_admin, u.disabled_at, b.username AS disabled_by,
-              u.created_at, u.last_active_at, u.email, u.email_confirmed_at,
+              u.created_at, u.last_active_at, u.email, u.email_confirmed_at, u.locked_until,
               COUNT(m.project_id)::int AS projects,
               (COUNT(m.project_id) FILTER (WHERE m.role = 'admin'))::int AS coordinated,
               EXISTS (SELECT 1 FROM user_two_factor t WHERE t.user_id = u.id AND t.enabled_at IS NOT NULL AND t.secret_enc IS NOT NULL) AS two_factor
          FROM users u LEFT JOIN project_members m ON m.user_id = u.id
               LEFT JOIN users b ON b.id = u.disabled_by
-        GROUP BY u.id, u.username, u.is_platform_admin, u.disabled_at, b.username, u.created_at, u.last_active_at, u.email, u.email_confirmed_at
+        GROUP BY u.id, u.username, u.is_platform_admin, u.disabled_at, b.username, u.created_at, u.last_active_at, u.email, u.email_confirmed_at, u.locked_until
         ORDER BY u.username`,
     );
     return res.rows.map((r) => ({
@@ -1483,6 +1568,7 @@ export class PostgresStore implements Store {
       lastActiveAt: r.last_active_at === null ? null : (r.last_active_at as Date).getTime(),
       email: (r.email as string | null) ?? null,
       emailConfirmed: r.email_confirmed_at !== null,
+      lockedUntil: r.locked_until && (r.locked_until as Date).getTime() > Date.now() ? (r.locked_until as Date).getTime() : null,
     }));
   }
 

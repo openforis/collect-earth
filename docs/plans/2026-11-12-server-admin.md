@@ -1,6 +1,6 @@
 # The server administrator's page: sections, accounts, operations, safety
 
-Date: 12 November 2026. **Status: stages A, B and C built; D planned; built in stages on the working branch (`claude/awesome-bell-s34gb0`), merged
+Date: 12 November 2026. **Status: stages A, B, C and D built; built in stages on the working branch (`claude/awesome-bell-s34gb0`), merged
 into `ce-2026-GEW` when the owner says so.**
 
 ## Where it starts
@@ -166,3 +166,44 @@ admin-only cases, the page in en/es/fr/pt/tr, a run in a browser, this file's "a
   CSV, a deleted account's name, the versions, a stopped weekly mail); and in a browser (made-up data: the health line
   naming 2 accounts on an outdated Collect Earth, the project needing a coordinator, a wrong username refused, then handed
   to ana, a project archived, the versions, email not set up, the activity log filtered by kind and its CSV, phone width).
+
+## Stage D, as built (12 Nov 2026)
+
+- **Alerts kept** (migration `042_alerts_and_locks.sql`, `owner_alerts`; `ownerNotifier` writes each alert raised, then
+  mails it and posts it): `GET /v1/admin/alerts` in pages with how many are not seen, `POST /v1/admin/alerts/seen` one,
+  several or all; the health line names the alerts not seen (no longer those of the last 24 hours). **Thresholds** are
+  server settings (`alertFailedLogins`, `alertServerErrors`, `alertSyncErrors`, `alertStoragePercent`), read at start,
+  every five minutes and at once after a change on this instance. **Webhook** (`src/alertWebhook.ts`,
+  `alertWebhookUrl`): Slack or Microsoft Teams incoming webhooks only (`hooks.slack.com`, `*.webhook.office.com`,
+  `*.logic.azure.com`, `*.api.powerplatform.com`, https, no other port, no redirects, five seconds), so the setting
+  cannot make the server call its own network; Slack gets `text`, Teams `text` and an Adaptive Card; the alert in
+  English with a project by its id only (the channel is outside the server). Never read back: the settings say its
+  service and host (`alertWebhook`), the activity log "changed". "Send a test" posts to the address typed or saved.
+- **Message all coordinators, or everyone** (`POST /v1/admin/messages/preview`, `POST /v1/admin/messages`, in
+  `routes/mail.ts`; `adminMessageMail`): the administrator's subject and plain text (paragraphs), then who it went to and
+  the dashboard's address in each person's language; to the enabled accounts with a confirmed address (coordinators: of
+  at least one project); the preview says how many, and the send must carry that count (else it asks again); one an
+  hour, read from the activity log (`message.sent`, with the subject and count), so it holds across instances and
+  restarts; sent in the background.
+- **Sign-up and sign-in rules** (settings): `signupDomains` (open sign-up needs an address of one of them or their
+  subdomains; invitations and accounts made by an administrator are not limited), `minPasswordLength` (8 to 64, for
+  sign-up, a change, a reset and an invitation's account; said in `/v1/server-info` so the forms check it), and the
+  **lock** (`loginLockFailures`, 0 = off, for `loginLockMinutes`): `users.failed_logins` and `users.locked_until`
+  (migration 042), counted in one statement (failures at once never miss it), checked before the password (a guess during
+  the lock says nothing), on every instance. A right password clears the count; a reset link and an administrator
+  ("Unlock", `POST /v1/admin/users/:uid/unlock`) lift the lock. A locked sign-in answers 429 `account_locked` with
+  `retry-after`; the dashboard and Collect Earth (`CloudLoginDialog.accountLocked`, 5 languages) say so in words.
+- **Dashboard**: Overview's alerts card (new ones marked, "Mark as seen", "Mark all as seen", who saw each, pages,
+  where they are posted); Settings: "Sign-up and sign-in rules" and "Alerts" groups, each checked as typed
+  (`web/src/serverSafetyView.ts`); Accounts: the Locked badge and filter, "Unlock", "Send a message" (write, preview with
+  the count, send; `web/src/pages/ServerMessage.tsx`); the sign-up form names the domains and the shortest password.
+  Texts in en/es/fr/pt/tr.
+- Checked: `test/serverSafety.test.ts` (the webhook's hosts, the domains; the webhook never read back or logged, its
+  test; alerts at a threshold set, kept, posted, mailed, seen; sign-up by domain and the shortest password; the lock,
+  unlocked by an administrator and by a reset, off at 0; the message's recipients, languages, count check and hour),
+  `serverSafetyView.test.ts`, `serverOpsView.test.ts`, the server and web suites, `MessagesBundleTest`;
+  `npm run smoke:pg:safety` on PostgreSQL 16 (042 twice, RLS, the settings, three failures at once locking, unlock, the
+  count cleared, an alert kept and seen, a message sent then refused within the hour); and in a browser (a locked
+  sign-in, the sign-up form with its domain and length, the alert in the health line then seen, the locked filter and
+  Unlock, the message preview, the two settings groups with a bad value refused, the webhook's secret never on the
+  page, the activity log, phone width).

@@ -23,6 +23,8 @@ const en = {
   welcomeAfter: 'Then sign in with {name} and this password, on the dashboard and in Collect Earth. If you did not expect this account, ignore this email.',
   testSubject: '{server}: a test email',
   testBody: 'Hello {name}, this is the test email you asked for on the server page of {server}. It arrived, so the server sends mail.',
+  messageToCoordinators: 'The administrators of {server} sent this message to every coordinator of a project there.',
+  messageToEveryone: 'The administrators of {server} sent this message to everyone with an account there.',
   passwordSubject: '{server}: your password was changed',
   passwordChanged: 'The password of your {server} account {name} was changed on {when}.',
   passwordByUser: 'It was changed on the account page; the account’s other sessions, Collect Earth’s included, were signed out.',
@@ -51,6 +53,8 @@ const es: Words = {
   welcomeAfter: 'Después inicie sesión con {name} y esa contraseña, en el panel y en Collect Earth. Si no esperaba esta cuenta, ignore este correo.',
   testSubject: '{server}: un correo de prueba',
   testBody: 'Hola {name}, este es el correo de prueba que pidió en la página del servidor de {server}. Llegó, así que el servidor envía correos.',
+  messageToCoordinators: 'Los administradores de {server} enviaron este mensaje a todos los coordinadores de un proyecto allí.',
+  messageToEveryone: 'Los administradores de {server} enviaron este mensaje a todas las personas con una cuenta allí.',
   passwordSubject: '{server}: su contraseña se cambió',
   passwordChanged: 'La contraseña de su cuenta {name} de {server} se cambió el {when}.',
   passwordByUser: 'Se cambió en la página de la cuenta; las otras sesiones de la cuenta, también la de Collect Earth, se cerraron.',
@@ -77,6 +81,8 @@ const fr: Words = {
   welcomeAfter: 'Connectez-vous ensuite avec {name} et ce mot de passe, sur le tableau de bord et dans Collect Earth. Si vous n’attendiez pas ce compte, ignorez ce courriel.',
   testSubject: '{server} : un courriel de test',
   testBody: 'Bonjour {name}, voici le courriel de test demandé sur la page du serveur de {server}. Il est arrivé : le serveur envoie bien des courriels.',
+  messageToCoordinators: 'Les administrateurs de {server} ont envoyé ce message à tous les coordinateurs d’un projet sur ce serveur.',
+  messageToEveryone: 'Les administrateurs de {server} ont envoyé ce message à toutes les personnes ayant un compte sur ce serveur.',
   passwordSubject: '{server} : votre mot de passe a été changé',
   passwordChanged: 'Le mot de passe de votre compte {name} sur {server} a été changé le {when}.',
   passwordByUser: 'Il a été changé sur la page du compte ; les autres sessions du compte, celle de Collect Earth comprise, ont été déconnectées.',
@@ -103,6 +109,8 @@ const pt: Words = {
   welcomeAfter: 'Depois entre com {name} e essa senha, no painel e no Collect Earth. Se você não esperava esta conta, ignore este e-mail.',
   testSubject: '{server}: um e-mail de teste',
   testBody: 'Olá {name}, este é o e-mail de teste que você pediu na página do servidor de {server}. Ele chegou, então o servidor envia e-mails.',
+  messageToCoordinators: 'Os administradores de {server} enviaram esta mensagem a todos os coordenadores de um projeto lá.',
+  messageToEveryone: 'Os administradores de {server} enviaram esta mensagem a todas as pessoas com uma conta lá.',
   passwordSubject: '{server}: a sua senha foi alterada',
   passwordChanged: 'A senha da sua conta {name} em {server} foi alterada em {when}.',
   passwordByUser: 'Foi alterada na página da conta; as outras sessões da conta, inclusive a do Collect Earth, foram encerradas.',
@@ -129,6 +137,8 @@ const tr: Words = {
   welcomeAfter: 'Ardından panoda ve Collect Earth’te {name} ve bu parolayla oturum açın. Bu hesabı beklemiyorsanız bu e-postayı yok sayın.',
   testSubject: '{server}: bir deneme e-postası',
   testBody: 'Merhaba {name}, bu, {server} sunucu sayfasında istediğiniz deneme e-postasıdır. Ulaştığına göre sunucu e-posta gönderebiliyor.',
+  messageToCoordinators: 'Bu ileti, {server} yöneticileri tarafından oradaki tüm proje koordinatörlerine gönderildi.',
+  messageToEveryone: 'Bu ileti, {server} yöneticileri tarafından orada hesabı olan herkese gönderildi.',
   passwordSubject: '{server}: parolanız değiştirildi',
   passwordChanged: '{server} üzerindeki {name} hesabınızın parolası {when} tarihinde değiştirildi.',
   passwordByUser: 'Parola hesap sayfasında değiştirildi; Collect Earth dahil hesabın diğer oturumları kapatıldı.',
@@ -234,6 +244,25 @@ export function testMail(ctx: SecurityContext, to: string): MailMessage {
   const w = wordsOf(ctx.language);
   const p = params(ctx);
   return message(ctx, to, w('testSubject', p), [{ kind: 'para', text: w('testBody', p) }], 'server.test');
+}
+
+/** Who a server administrator's message goes to. */
+export type MessageAudience = 'coordinators' | 'everyone';
+
+/**
+ * A message from the server's administrators (the server page): their subject and text, as typed (paragraphs between blank
+ * lines, never HTML), then who it was sent to and the dashboard's address, in the recipient's language.
+ */
+export function adminMessageMail(ctx: SecurityContext, audience: MessageAudience, subject: string, body: string, to: string): MailMessage {
+  const w = wordsOf(ctx.language);
+  const p = params(ctx);
+  const lines: MailLine[] = [
+    ...body.split(/\n\s*\n/).map((t) => t.trim()).filter((t) => t !== '').map((text): MailLine => ({ kind: 'para', text })),
+    { kind: 'rule' },
+    { kind: 'para', text: w(audience === 'coordinators' ? 'messageToCoordinators' : 'messageToEveryone', p) },
+    { kind: 'link', label: w('dashboard', p), url: ctx.baseUrl },
+  ];
+  return message(ctx, to, `${oneLine(ctx.serverName)}: ${subject}`, lines, `server.message.${audience}`);
 }
 
 /** After a password change: on the account page ('changed') or with a reset link ('reset'). */

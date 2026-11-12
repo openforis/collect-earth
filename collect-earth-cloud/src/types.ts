@@ -134,7 +134,35 @@ export interface ServerSettings {
    * they set it up, their coordinator and administration pages are refused (two_factor_required).
    */
   twoFactorForCoordinators: boolean;
+  /** Owner alerts (src/ownerAlerts.ts): how many in one hour raise one, and a project's storage in percent of its limit. */
+  alertFailedLogins: number;
+  alertServerErrors: number;
+  alertSyncErrors: number;
+  alertStoragePercent: number;
+  /**
+   * A Slack or Microsoft Teams incoming webhook the alerts are posted to as well (src/alertWebhook.ts); null: none.
+   * A secret of sorts (whoever has it can post to the channel): never sent back, only whether one is set and its host.
+   */
+  alertWebhookUrl: string | null;
+  /** Open sign-up only with an email address of these domains (comma-separated, lower case); null: any address or none. */
+  signupDomains: string | null;
+  /** The shortest password accepted (sign-up, a change, a reset), from MIN_PASSWORD_LENGTH to 64. */
+  minPasswordLength: number;
+  /** An account is locked after this many failed sign-ins in a row (0: never), for loginLockMinutes. */
+  loginLockFailures: number;
+  loginLockMinutes: number;
 }
+
+/** The bounds of the settings above that are numbers (checked by PUT /v1/admin/settings). */
+export const SETTING_BOUNDS = {
+  alertFailedLogins: [1, 100_000],
+  alertServerErrors: [1, 100_000],
+  alertSyncErrors: [1, 100_000],
+  alertStoragePercent: [1, 100],
+  minPasswordLength: [8, 64],
+  loginLockFailures: [0, 1000],
+  loginLockMinutes: [1, 1440],
+} as const;
 
 /** An account's two-step sign-in, as stored (src/twoFactor.ts): the secrets encrypted, the recovery codes hashed. */
 export interface TwoFactorState {
@@ -160,6 +188,15 @@ export const DEFAULT_SETTINGS: ServerSettings = {
   announcement: null,
   announcementUntil: null,
   twoFactorForCoordinators: false,
+  alertFailedLogins: 50,
+  alertServerErrors: 20,
+  alertSyncErrors: 50,
+  alertStoragePercent: 90,
+  alertWebhookUrl: null,
+  signupDomains: null,
+  minPasswordLength: 8,
+  loginLockFailures: 0,
+  loginLockMinutes: 15,
 };
 
 /** One account in the platform admin's user list: a project COUNT only, never names (§4b). */
@@ -184,6 +221,21 @@ export interface UserSummary {
   /** Its email address, and whether the person confirmed it. */
   email: string | null;
   emailConfirmed: boolean;
+  /** Locked after failed sign-ins until then (epoch ms), or null. */
+  lockedUntil: number | null;
+}
+
+/** One alert raised for the server's administrators, as kept (owner_alerts, migration 042). */
+export interface StoredOwnerAlert {
+  id: string;
+  /** failed_logins, server_errors, sync_errors, storage, two_factor_keys (src/ownerAlerts.ts) */
+  kind: string;
+  at: number;
+  count: number;
+  projectId: string | null;
+  seenAt: number | null;
+  /** Who marked it seen (a username), or null. */
+  seenBy: string | null;
 }
 
 /** One project in the server administrator's directory: by id only, never its name (§4b). */
@@ -220,10 +272,13 @@ export const SERVER_ACTIONS = [
   'project.restored',
   'project.coordinator',
   'mail.test',
+  'message.sent',
+  'alerts.seen',
+  'account.unlocked',
 ] as const;
 export type ServerAction = (typeof SERVER_ACTIONS)[number];
 /** The kinds the log is filtered by: an action's first word ("accounts" counts as "account"). */
-export const SERVER_ACTION_KINDS = ['settings', 'account', 'project', 'mail'] as const;
+export const SERVER_ACTION_KINDS = ['settings', 'account', 'project', 'mail', 'message', 'alerts'] as const;
 export type ServerActionKind = (typeof SERVER_ACTION_KINDS)[number];
 export const serverActionKind = (a: ServerAction): ServerActionKind =>
   (a.startsWith('accounts.') ? 'account' : a.slice(0, a.indexOf('.'))) as ServerActionKind;

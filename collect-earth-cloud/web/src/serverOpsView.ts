@@ -22,6 +22,15 @@ export const SETTING_LABELS: Record<string, MessageKey> = {
   announcement: "server.announcementText",
   announcementUntil: "server.announcementUntil",
   twoFactorForCoordinators: "server.twoFactorRequired",
+  alertFailedLogins: "server.alertFailedLogins",
+  alertServerErrors: "server.alertServerErrors",
+  alertSyncErrors: "server.alertSyncErrors",
+  alertStoragePercent: "server.alertStoragePercent",
+  alertWebhookUrl: "server.alertWebhook",
+  signupDomains: "server.signupDomains",
+  minPasswordLength: "server.minPassword",
+  loginLockFailures: "server.lockFailures",
+  loginLockMinutes: "server.lockMinutes",
 };
 
 /** A project id's first part ("3f2a9c1b…"): the whole id is in the entry's details and the CSV. */
@@ -65,6 +74,11 @@ export function activitySentence(t: T, e: ServerActivityEntry, language: string)
       return d.sent === false
         ? t("serverLog.mail.testRefused", { ...p, code: String(d.responseCode ?? d.code ?? "?") })
         : t("serverLog.mail.test", p);
+    case "message.sent":
+      return t("serverLog.message.sent", { ...p, subject: String(d.subject ?? ""), count: formatNumber(typeof d.recipients === "number" ? d.recipients : 0, language) });
+    case "alerts.seen":
+      return d.count === 1 ? t("serverLog.alerts.seenOne", p) : t("serverLog.alerts.seen", { ...p, count: formatNumber(typeof d.count === "number" ? d.count : 0, language) });
+    case "account.unlocked":
     case "account.disabled":
     case "account.enabled":
     case "account.admin_granted":
