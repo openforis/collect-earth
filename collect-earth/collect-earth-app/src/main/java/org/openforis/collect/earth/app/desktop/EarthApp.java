@@ -53,6 +53,7 @@ import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.BeanCreationNotAllowedException;
 import org.springframework.web.context.WebApplicationContext;
 
 import com.opencsv.exceptions.CsvValidationException;
@@ -759,6 +760,9 @@ public class EarthApp {
 		Thread thread = new Thread(() -> {
 			try {
 				controller.getContext().getBean(AssignedPlotFileSetup.class).run();
+			} catch (BeanCreationNotAllowedException e) {
+				// Collect Earth closed or restarted before the setup ran: the next start does it (Sentry JAVA-COLLECT-EARTH-57C)
+				logger.info("No assigned plot file setup: Collect Earth is closing"); //$NON-NLS-1$
 			} catch (RuntimeException e) {
 				logger.error("Error setting up the assigned plot file", e); //$NON-NLS-1$
 			}
