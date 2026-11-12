@@ -615,7 +615,15 @@ public class CloudService {
 
 	/** {@code <project folder>/assignments}, a stable home for the downloaded files, as the Swing tab had it */
 	File assignmentsFolder() {
-		File idm = new File(properties.getImdFile()).getAbsoluteFile();
+		return assignmentsFolderOf(properties.getImdFile());
+	}
+
+	/**
+	 * The folder of the plot files assigned to the operator in the project whose survey is at {@code idmPath}: in a cloud
+	 * project the plots file can only be one of them (SettingsValidator).
+	 */
+	public static File assignmentsFolderOf(String idmPath) {
+		File idm = new File(StringUtils.defaultString(idmPath)).getAbsoluteFile();
 		return new File(idm.getParentFile(), "assignments");
 	}
 }

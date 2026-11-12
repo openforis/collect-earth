@@ -80,7 +80,8 @@ function allMenus(app: MenuContext): Menu[] {
       // local dashboard's, or the cloud's for a cloud project. The page downloads its stand-alone file too.
       item("analyse", "CollectEarthMenu.analyse"),
       local(app.cloud, item("lulucf", "CollectEarthWindow.72")),
-      item("loadKml", "CollectEarthWindow.54"),
+      // Not in a cloud project: its plots are the ones its coordinator assigned (the server refuses it too)
+      unless(app.cloud, item("loadKml", "CollectEarthWindow.54"), "ToolsPage.kml.cloudProject"),
       item("dataFolder", "CollectEarthWindow.67"),
       // Your dashboard: on this computer (docs/plans/2026-11-03-desktop-dashboard.md), or the cloud's page of a cloud
       // project, which also has what the utilities do there (the state of every plot, dividing the plot files). That one is

@@ -161,13 +161,38 @@ export function changeCount(changed: Values): number {
   return Object.keys(changed).length;
 }
 
-/** The defaults of the visible fields of a section, for Restore defaults. */
-export function defaultsOf(section: Section, values: Values): Values {
+/** The defaults of the visible fields of a section, for Restore defaults; the `locked` fields keep their values. */
+export function defaultsOf(section: Section, values: Values, locked: readonly string[] = []): Values {
   const defaults: Values = {};
   for (const field of section.fields) {
-    if (isVisible(field, values)) defaults[field.key] = field.default;
+    if (isVisible(field, values) && !locked.includes(field.key)) defaults[field.key] = field.default;
   }
   return defaults;
+}
+
+/** The key of the plots file (EarthProperty.SAMPLE_FILE) */
+export const PLOT_FILE = "csv";
+
+/**
+ * Whether the plots file can only be chosen in the list of the files assigned by the cloud server: in a cloud project
+ * the plots are the ones its coordinator assigned (SettingsValidator refuses any other file), so the field is read-only.
+ * Not once the page switches to another database, which leaves the cloud project.
+ */
+export function plotFileLocked(info: SettingsInfo | null | undefined, values: Values): boolean {
+  return !!info?.cloudMode && values.db_driver === "CLOUD";
+}
+
+/** The section of the plot design (SettingsModel.PLOT) */
+export const PLOT_SECTION = "plot";
+
+/**
+ * The fields of a section only shown, not changed, here: in a cloud project the plots file (chosen among the assigned
+ * ones) and the whole plot design, which its coordinator sets in the project file (SettingsService refuses a change).
+ */
+export function lockedFields(section: Section, info: SettingsInfo | null | undefined, values: Values): string[] {
+  if (!plotFileLocked(info, values)) return [];
+  if (section.id === PLOT_SECTION) return section.fields.map((f) => f.key);
+  return section.fields.filter((f) => f.key === PLOT_FILE).map((f) => f.key);
 }
 
 /** Whether the stored and current values of a field differ: the field is marked as changed. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { anchorLabel, cloudSendResultOf, droppedKind, formatPercent, looksLikeInvitation } from "./project";
+import { anchorLabel, cloudSendResultOf, droppedKind, droppedRefusal, formatPercent, looksLikeInvitation } from "./project";
 
 describe("the result of sending the records to the cloud project", () => {
   it("is read from the job's result, and is all zeros when there is none", () => {
@@ -19,6 +19,14 @@ describe("the dropped files", () => {
     expect(droppedKind("points.kmz")).toBe("kml");
     expect(droppedKind("notes.txt")).toBeNull();
     expect(droppedKind("README")).toBeNull();
+  });
+
+  it("cannot replace the plots of a cloud project, which are the ones its coordinator assigned", () => {
+    expect(droppedRefusal("plots", true)).toBe("SettingsPage.sampleFile.cloudAssigned");
+    expect(droppedRefusal("kml", true)).toBe("ToolsPage.kml.cloudProject");
+    expect(droppedRefusal("cep", true)).toBeNull();
+    for (const kind of ["plots", "kml", "cep"] as const) expect(droppedRefusal(kind, false)).toBeNull();
+    expect(droppedRefusal("plots", undefined)).toBeNull();
   });
 });
 
