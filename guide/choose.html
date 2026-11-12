@@ -140,7 +140,7 @@
   <ul class="ticks one">
     <li><strong>It is saved on your own computer first.</strong> Every answer is saved at once in a database on the interpreter's computer, before it goes anywhere else. Collect Earth backs that database up each time it closes and keeps the last ten. The one exception is a shared office database (set-up 2), where answers go straight into your own PostgreSQL.</li>
     <li><strong>You decide where it goes.</strong> Nothing is sent anywhere unless you join a cloud project, or export it and send the file yourself.</li>
-    <li><strong>It comes out in open formats.</strong> CSV, KML, compressed XML and Open Foris Collect backups from the desktop; CSV, GeoJSON, KML, shapefiles and Collect Earth backups from the dashboard. No lock-in.</li>
+    <li><strong>It comes out in open formats.</strong> CSV, KML, compressed XML and Open Foris Collect backups from the desktop; CSV, GeoJSON, KML, shapefiles, IPCC exports, and backups for Collect Earth or Open Foris Collect from the dashboard. No lock-in.</li>
     <li><strong>It belongs to the project.</strong> When someone deletes their account, the plots they sent stay in the project. When the coordinators delete a project, everything in it goes, for good: the project file, the plot files, the invitation links and every plot collected.</li>
     <li><strong>You can check all of this.</strong> Collect Earth and Collect Earth Cloud are open source under the MIT licence: anyone can read <a href="https://github.com/openforis/collect-earth">the code</a> and see what it does with the data.</li>
   </ul>
@@ -153,7 +153,7 @@
         <tr><td><strong>1. One interpreter</strong></td><td>A database on your computer, with the last ten backups</td><td>They don't, unless you export them</td><td>You</td></tr>
         <tr><td><strong>2. Small team, local database</strong></td><td>Each interpreter's computer; the administrator's once imported</td><td>As export files the interpreters make and send: email, USB, a shared drive</td><td>You</td></tr>
         <tr><td><strong>2. Team, office database</strong></td><td>One PostgreSQL database on your office network</td><td>Straight into the database at each save; nothing leaves the office</td><td>Your IT</td></tr>
-        <tr><td><strong>3. Collect Earth Cloud</strong></td><td>Each interpreter's computer, then your private project on cloud.collectearth.org</td><td>Sent by Collect Earth over HTTPS within about 30 seconds of each save</td><td>FAO, for free</td></tr>
+        <tr><td><strong>3. Collect Earth Cloud</strong></td><td>Each interpreter's computer, then your private project on cloud.collectearth.org</td><td>Sent by Collect Earth over HTTPS a few seconds after each save</td><td>FAO, for free</td></tr>
         <tr><td><strong>4. Your own server</strong></td><td>Each interpreter's computer, then your own server</td><td>As in set-up 3, to your server's address</td><td>You</td></tr>
       </tbody>
     </table>
@@ -193,7 +193,7 @@
         <tr><td><strong>Typical use</strong></td><td>A study, a pilot, one expert</td><td>A small team that wants it simple, with no server</td><td>Most team projects</td><td>Organisations that must keep data in-house</td></tr>
         <tr><td><strong>Where the data lives</strong></td><td>Your computer</td><td>Each computer, or your office's PostgreSQL</td><td>Each computer, and your private project on FAO's server</td><td>Each computer, and your own server</td></tr>
         <tr><td><strong>Who can see it</strong></td><td>You</td><td>Whoever you give the files or the database to</td><td>The people you invite, by role</td><td>The people you invite, by role</td></tr>
-        <tr><td><strong>Plots reach the coordinator</strong></td><td>Already there</td><td>The administrator imports each person's exports; or at once, through the shared database</td><td>By themselves, within about 30 seconds</td><td>As in set-up 3</td></tr>
+        <tr><td><strong>Plots reach the coordinator</strong></td><td>Already there</td><td>The administrator imports each person's exports; or at once, through the shared database</td><td>By themselves, within seconds</td><td>As in set-up 3</td></tr>
         <tr><td><strong>Giving out plots</strong></td><td>Not needed</td><td>One plot file per person, by hand</td><td>On the dashboard: whole files or divided automatically</td><td>As in set-up 3</td></tr>
         <tr><td><strong>Progress</strong></td><td>My dashboard</td><td>My dashboard on each computer</td><td>Web dashboard for the team</td><td>Web dashboard for the team</td></tr>
         <tr><td><strong>Quality checks, training, time spent</strong></td><td>Self-checks only (<span class="ui">My dashboard › Quality</span>)</td><td>By hand</td><td>Built in</td><td>Built in</td></tr>
@@ -264,7 +264,7 @@
   <p class="best"><strong>Best for:</strong> most team projects, from a handful of people to a national team.</p>
   <ol class="flow">
     <li><span>Interpreters</span>Collect Earth saves each plot on their computer first</li>
-    <li class="store"><span>Your private project</span>On cloud.collectearth.org, within about 30 seconds</li>
+    <li class="store"><span>Your private project</span>On cloud.collectearth.org, within seconds</li>
     <li><span>Coordinators</span>Web dashboard: progress, quality, downloads</li>
   </ol>
   <p><strong>Where your data is:</strong> on each interpreter's computer first, then in your project on cloud.collectearth.org, the free server run by FAO. Only the project's members see it, each according to their role (see <a href="#who-sees">Who sees what</a>), and the coordinators can download or delete it at any time.</p>
@@ -274,7 +274,7 @@
     <li><strong>Coordinator:</strong> on <span class="ui">People</span>, make invitation links (as Collector, Reviewer or Coordinator, limited in uses and time) and send them.</li>
     <li><strong>Coordinator:</strong> give out the plots: whole files, or <span class="ui">Divide plots</span> evenly or by a column such as province, with an overlap for blind quality checks.</li>
     <li><strong>Interpreters:</strong> install Collect Earth, choose <span class="ui">File › Join cloud project...</span>, paste the link, and choose their assigned plot file in <span class="ui">Settings › Project</span>. Collect Earth downloads the project by itself.</li>
-    <li><strong>Interpreters:</strong> assess the plots as usual. Each save reaches the server within about 30 seconds; if the connection drops for a moment, the plots wait on the computer and go as soon as it is back.</li>
+    <li><strong>Interpreters:</strong> assess the plots as usual. Each save reaches the server within a few seconds; if the connection drops for a moment, the plots wait on the computer and go as soon as it is back.</li>
     <li><strong>Coordinator:</strong> follow <span class="ui">Progress</span>, <span class="ui">People</span>, <span class="ui">Map</span> and <span class="ui">Activity</span>; check quality with blind checks, reference plots and the review queue; train the team with calibration and learning sets.</li>
     <li><strong>Coordinator:</strong> on <span class="ui">Data</span>, download every answer with the final decisions (CSV, GeoJSON, KML, shapefile), open the analysis with the IPCC uncertainty, or take a Collect Earth backup.</li>
     <li><strong>Coordinator:</strong> when the work is over, close or archive the project, or delete it with everything in it (<span class="ui">Settings</span>).</li>
@@ -302,7 +302,7 @@
   <h2 id="moving">Moving between set-ups</h2>
   <p>Nothing ties a project to the set-up it started in.</p>
   <ul>
-    <li><strong>From a computer to a cloud project</strong> (1 or 2 to 3 or 4). Export <em>XML (compressed)</em> and create the cloud project from it with <span class="ui">My projects › From a Collect Earth backup</span>: it brings the survey and the plots already assessed. Or upload the same project file, and let each interpreter send what they already did with <span class="ui">Data Import/Export › Send this computer's records to the cloud project</span>.</li>
+    <li><strong>From a computer to a cloud project</strong> (1 or 2 to 3 or 4). Export <em>XML (compressed)</em> and create the cloud project from it with <span class="ui">My projects › New project › From a Collect Earth backup</span>: it brings the survey and the plots already assessed. Or upload the same project file, and let each interpreter send what they already did with <span class="ui">Data Import/Export › Send this computer's records to the cloud project</span>.</li>
     <li><strong>From Collect Earth Cloud to your own server</strong> (3 to 4). On the <span class="ui">Data</span> tab take a Collect Earth backup, and start a new project from it on your server with <span class="ui">From a Collect Earth backup</span>. The backup holds the survey and the records: invite the team again and give out the remaining plots.</li>
     <li><strong>From the cloud back to a computer.</strong> Open the project in Collect Earth and import the same backup with <span class="ui">Data Import/Export › Import data (ZIP or CSV)</span>.</li>
   </ul>
