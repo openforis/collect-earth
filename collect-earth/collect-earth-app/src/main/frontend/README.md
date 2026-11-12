@@ -25,7 +25,8 @@ the Swing properties dialog. It draws itself from `GET /earth/api/settings` (`Se
 describes every setting, its type, when it is shown and its texts), validates what the user types through
 `POST /earth/api/settings/validate` while typing, and saves only the changes with `POST /earth/api/settings`,
 which restarts Collect Earth when a setting needs it. `src/settings.ts` holds the pure logic (the
-visibility conditions, the changes, the search), `src/plotPreview.ts` the drawing of the plot, and
+visibility conditions, the changes, the search), `@shared/plotPreview` the drawing of the plot (shared with the
+dashboard's Plot layout card), and
 `src/settingsApi.ts` the calls.
 
 The Data menu (`src/components/data/`) has the export dialog (one dialog for the formats and the records
@@ -86,7 +87,7 @@ npm run build      # rebuilds target/classes/leafletmap (reload Google Earth Web
 - `src/components/` - the virtualized plot list, the form panel and the app bar (`AppBar.tsx`)
 - `src/apiClient.ts`, `src/serverTexts.ts`, `src/appInfo.ts`, `src/menus.ts`, `src/appBar.ts` -
   the API client, the Swing texts, `/api/app`, the menus and their pure logic
-- `src/settings.ts`, `src/settingsApi.ts`, `src/plotPreview.ts`, `src/components/settings/` - the
+- `src/settings.ts`, `src/settingsApi.ts`, `@shared/plotPreview`, `src/components/settings/` - the
   settings page: its model, its calls, the plot preview and its components
 - `src/jobs.ts`, `src/dataApi.ts`, `src/exportDialog.ts`, `src/importDialog.ts`, `src/components/data/` -
   the jobs, the Data menu's calls and dialogs, and the job panel

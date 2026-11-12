@@ -1,8 +1,9 @@
 # Repeat survey: collecting a project's plots again, years later, with the earlier answers beside them
 
 Date: 11 November 2026. **Status: stages 1 to 4 built on the working branch (`claude/awesome-bell-s34gb0`), with the Map
-tab's layer, the desktop's filter and the numbers copied on "Still the same"; kept out of `ce-2026-GEW` until the 2.0
-release is out, the export with both periods and the choice of plots to repeat. Not built yet: see "Open" at the end. The owner's decisions are below.**
+tab's layer, the desktop's filter and the numbers copied on "Still the same", the export with both periods and the choice
+of plots to repeat; merged into `ce-2026-GEW` on 12 Nov 2026, for release 2.0 (the owner's choice, instead of waiting for
+the release to be out). Not built yet: see "Open" at the end. The owner's decisions are below.**
 
 ## Goal
 
