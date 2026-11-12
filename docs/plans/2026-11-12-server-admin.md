@@ -1,6 +1,6 @@
 # The server administrator's page: sections, accounts, operations, safety
 
-Date: 12 November 2026. **Status: planned; built in stages on the working branch (`claude/awesome-bell-s34gb0`), merged
+Date: 12 November 2026. **Status: stage A built; the others planned; built in stages on the working branch (`claude/awesome-bell-s34gb0`), merged
 into `ce-2026-GEW` when the owner says so.**
 
 ## Where it starts
@@ -67,3 +67,23 @@ All of them, in four stages.
 
 Each stage: both stores and a migration where needed (`migrations/NNN_*.sql`), routes with their tests and isolation or
 admin-only cases, the page in en/es/fr/pt/tr, a run in a browser, this file's "as built" notes.
+
+## Stage A, as built (12 Nov 2026)
+
+- **Sections** (`web/src/router.ts`: `{ name: "server", section }`, `SERVER_SECTIONS`): `/server` (Overview),
+  `/server/accounts`, `/server/projects`, `/server/settings`, `/server/system`; any other `/server/...` is not found. A
+  side menu on wide screens, scrollable tabs on narrow ones (`ServerNav`). Overview: the alerts and the figures; Accounts:
+  the accounts; Projects: the largest projects and the AI use; Settings: the groups below; System: the database, the
+  server's version, failed logins and refused requests, late check draws. The figures are loaded once for the page.
+- **Health line** (`web/src/serverView.ts`, `serverHealth`) at the top of every section: "All good", or what needs
+  attention with a link to its section: alerts of the last 24 hours (Overview), database updates not applied (System),
+  mail not set up (System, from the server's `selfServiceReset`). Stage C adds the outdated Collect Earth versions.
+- **Settings saved per group** (`web/src/pages/ServerSettings.tsx`): Access (sign-up, two-step sign-in, who creates
+  projects; the switches no longer save on their own), Limits, About this server, Announcement, AI assistant: each with
+  what it affects, its own Save and Discard, "Changes not saved" while edited, "Saved." after; saving one group keeps
+  what is changed in the others. Changes not saved (`web/src/unsavedChanges.ts`): the browser asks before closing or
+  reloading, and the app before moving elsewhere (`setLeaveGuard` in `router.navigate`): "Leave without saving?" names
+  the groups, Stay or Leave without saving.
+- Texts in en/es/fr/pt/tr. Checked: `serverView.test.ts`, `unsavedChanges.test.ts`, `router.test.ts`, and in a browser
+  (the five sections and their addresses, the health line naming mail not set up, two groups changed and one saved, the
+  other kept, the question before leaving, Stay and Leave, the tabs at phone width).

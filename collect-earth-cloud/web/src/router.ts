@@ -45,8 +45,13 @@ export type Route =
   /** An email confirmation link (no login): /confirm-email/<token>. */
   | { name: "confirmEmail"; token: string }
   | { name: "account" }
-  | { name: "server" }
+  /** The server administrators' page, by section (/server is the overview). */
+  | { name: "server"; section: ServerSection }
   | { name: "notFound"; path: string };
+
+/** The sections of the server administrators' page, in the menu's order. */
+export const SERVER_SECTIONS = ["overview", "accounts", "projects", "settings", "system"] as const;
+export type ServerSection = (typeof SERVER_SECTIONS)[number];
 
 function decode(segment: string): string | null {
   try {
@@ -75,8 +80,11 @@ export function matchRoute(pathname: string): Route {
       case "account":
         return { name: "account" };
       case "server":
-        return { name: "server" };
+        return { name: "server", section: "overview" };
     }
+  }
+  if (first === "server" && parts.length === 2 && (SERVER_SECTIONS as readonly string[]).includes(second) && second !== "overview") {
+    return { name: "server", section: second as ServerSection };
   }
   if (first === "join" && parts.length === 2) {
     const token = decode(second);
@@ -196,6 +204,8 @@ export function pathFor(route: Route): string {
       return `/unsubscribe/${encodeURIComponent(route.token)}`;
     case "confirmEmail":
       return `/confirm-email/${encodeURIComponent(route.token)}`;
+    case "server":
+      return route.section === "overview" ? "/server" : `/server/${route.section}`;
     case "notFound":
       return route.path;
     default:
@@ -228,8 +238,18 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
+/**
+ * A page that holds changes not saved yet asks before the app moves elsewhere: the guard answers false to stop this
+ * move (it then asks, and navigates itself once the person chooses to leave). One at a time; null removes it.
+ */
+let leaveGuard: ((path: string) => boolean) | null = null;
+export function setLeaveGuard(guard: ((path: string) => boolean) | null): void {
+  leaveGuard = guard;
+}
+
 export function navigate(path: string, options: { replace?: boolean } = {}): void {
   if (path === window.location.pathname) return;
+  if (leaveGuard && !leaveGuard(path)) return;
   if (options.replace) window.history.replaceState(null, "", path);
   else window.history.pushState(null, "", path);
   window.scrollTo?.(0, 0);

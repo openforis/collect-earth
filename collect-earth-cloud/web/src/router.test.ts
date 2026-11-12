@@ -11,7 +11,9 @@ describe("matchRoute", () => {
     ["/login", { name: "login" }],
     ["/signup", { name: "signup" }],
     ["/account", { name: "account" }],
-    ["/server", { name: "server" }],
+    ["/server", { name: "server", section: "overview" }],
+    ["/server/accounts", { name: "server", section: "accounts" }],
+    ["/server/system", { name: "server", section: "system" }],
     ["/projects/p-1", { name: "project", projectId: "p-1", tab: "progress" }],
     ["/projects/p-1/setup", { name: "project", projectId: "p-1", tab: "setup" }],
     // The old name of Setup, for bookmarks and links in notes.
@@ -45,7 +47,7 @@ describe("matchRoute", () => {
   });
 
   it("anything else is not found", () => {
-    for (const path of ["/projects/p/nope", "/projects/p/people/x/y", "/projects/p/my-work/x", "/projects/p/plots/f/x", "/projects/p/my-quality/x", "/projects/p/quality/other", "/projects/p/quality/team-report/x", "/projects/p/quality/plot", "/projects/p/quality/plot/1/x", "/projects/p/activity/week/45", "/projects/p/activity/week/2026-W45/x", "/projects/p/activity/other", "/join", "/join/a/b", "/whatever", "/reset/%E0%A4%A", "/p", "/p/a/b"]) {
+    for (const path of ["/projects/p/nope", "/projects/p/people/x/y", "/projects/p/my-work/x", "/projects/p/plots/f/x", "/projects/p/my-quality/x", "/projects/p/quality/other", "/projects/p/quality/team-report/x", "/projects/p/quality/plot", "/projects/p/quality/plot/1/x", "/projects/p/activity/week/45", "/projects/p/activity/week/2026-W45/x", "/projects/p/activity/other", "/join", "/join/a/b", "/whatever", "/reset/%E0%A4%A", "/p", "/p/a/b", "/server/overview", "/server/nope", "/server/accounts/x"]) {
       expect(matchRoute(path).name, path).toBe("notFound");
     }
   });
@@ -57,7 +59,8 @@ describe("matchRoute", () => {
       { name: "signup" },
       { name: "setup" },
       { name: "account" },
-      { name: "server" },
+      { name: "server", section: "overview" },
+      { name: "server", section: "settings" },
       { name: "join", token: "t/ok en" },
       { name: "reset", token: "r" },
       { name: "publicProgress", token: "t ok/x" },

@@ -85,7 +85,7 @@ function RoutedPage({ route }: { route: Route }) {
     case "account":
       return <AccountPage />;
     case "server":
-      return <ServerPage />;
+      return <ServerPage section={route.section} />;
     default:
       return <NotFoundPage />;
   }
