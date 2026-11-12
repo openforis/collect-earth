@@ -14,6 +14,12 @@ import { UsernameTakenError } from '../store/memory.js';
 import { isStoredTime, type Store } from '../store/store.js';
 import { MAIL_LANGUAGES, type MailLanguage, type ProjectCreation, type ServerSettings } from '../types.js';
 import type { AccountMailHooks } from './mail.js';
+import { accountDeletionPlan } from './auth.js';
+import { accountsCsv, parseAccountQuery, parseNewAccounts, queryAccounts } from '../accounts.js';
+import { generateToken } from '../auth.js';
+
+/** How long the link of an account a server administrator made works: a week, for its person to find it. */
+const WELCOME_TTL_MS = 7 * 24 * 3600 * 1000;
 
 interface SetupBody {
   setupCode?: string;
@@ -371,10 +377,143 @@ export async function registerAdminRoutes(
   );
 
   // Accounts with a project count only — no project names or ids (§4b).
+  // The accounts, searched, filtered, sorted and in pages (src/accounts.ts): ?q=&filter=&sort=&desc=&page=&pageSize=.
+  // No project names: how many projects each account is in only (§4b).
   app.get(
     '/v1/admin/users',
     { preHandler: requirePlatformAdmin(store) },
-    async (_request: FastifyRequest, reply: FastifyReply) => reply.send({ users: await store.listUsers() }),
+    async (request: FastifyRequest, reply: FastifyReply) =>
+      reply.header('cache-control', 'no-store').send(queryAccounts(await store.listUsers(), parseAccountQuery(request.query), Date.now())),
+  );
+
+  // The same accounts as a CSV, every page of them
+  app.get(
+    '/v1/admin/users.csv',
+    { preHandler: requirePlatformAdmin(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const query = { ...parseAccountQuery(request.query), page: 1, pageSize: Number.MAX_SAFE_INTEGER };
+      const { users } = queryAccounts(await store.listUsers(), query, Date.now());
+      request.log.info({ action: 'accounts.exported', actorUserId: request.userId, accounts: users.length }, 'platform admin downloaded the accounts');
+      return reply
+        .header('content-type', 'text/csv; charset=utf-8')
+        .header('content-disposition', 'attachment; filename="accounts.csv"')
+        .header('cache-control', 'no-store')
+        .send(accountsCsv(users));
+    },
+  );
+
+  // Accounts a server administrator makes, also when sign-up is closed: each gets a link to choose its password (seven
+  // days), mailed to the address given when the server sends mail (then not shown here), else given to pass on.
+  app.post(
+    '/v1/admin/users',
+    { preHandler: requirePlatformAdmin(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const accounts = parseNewAccounts(request.body);
+      if (!Array.isArray(accounts)) return reply.code(400).send({ error: 'bad_request', ...accounts });
+      const body = (request.body ?? {}) as { mail?: unknown; language?: unknown };
+      const results: {
+        username: string;
+        status: 'created' | 'taken';
+        userId?: string;
+        mailed?: boolean;
+        setPasswordUrl?: string;
+        expiresAt?: number;
+      }[] = [];
+      for (const a of accounts) {
+        if (await store.isAccountUsername(a.username)) {
+          results.push({ username: a.username, status: 'taken' });
+          continue;
+        }
+        let user;
+        try {
+          // A password nobody knows: the account is used once its person chose one with the link
+          user = await store.createUser({ username: a.username, passwordHash: await hashPassword(generateToken()), email: a.email });
+        } catch (err) {
+          if (err instanceof UsernameTakenError) {
+            results.push({ username: a.username, status: 'taken' });
+            continue;
+          }
+          throw err;
+        }
+        const expiresAt = Date.now() + WELCOME_TTL_MS;
+        const token = await store.createPasswordReset(user.id, expiresAt);
+        const url = `${publicBaseUrl(config, request)}/reset/${token}`;
+        const mailed = a.email !== null && body.mail !== false && (await options.accountMail?.mailWelcome?.(request, user.id, a.email, body.language, url)) === true;
+        results.push({ username: a.username, status: 'created', userId: user.id, mailed, expiresAt, ...(mailed ? {} : { setPasswordUrl: url }) });
+      }
+      kept = null;
+      request.log.info(
+        { action: 'accounts.created', actorUserId: request.userId, created: results.filter((r) => r.status === 'created').length, taken: results.filter((r) => r.status === 'taken').length },
+        'platform admin made accounts',
+      );
+      return reply.code(201).send({ results });
+    },
+  );
+
+  // Makes an account a server administrator, or takes the role back: not one's own (the page would close on them), never
+  // the last enabled one.
+  app.post(
+    '/v1/admin/users/:uid/platform-admin',
+    { preHandler: requirePlatformAdmin(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const uid = (request.params as { uid: string }).uid;
+      const on = ((request.body ?? {}) as { on?: unknown }).on;
+      if (!isUuid(uid)) return reply.code(404).send({ error: 'not_found' });
+      if (typeof on !== 'boolean') return reply.code(400).send({ error: 'bad_request', reason: 'on must be true or false' });
+      if (uid === request.userId) return reply.code(409).send({ error: 'own_account', reason: 'another administrator changes your own role' });
+      const result = await store.setPlatformAdmin(uid, on);
+      if (result === 'not_found') return reply.code(404).send({ error: 'not_found' });
+      if (result === 'last_platform_admin') return reply.code(409).send({ error: 'last_enabled_admin', reason: 'the server must keep one enabled platform admin' });
+      kept = null;
+      request.log.info({ action: on ? 'account.admin.granted' : 'account.admin.removed', actorUserId: request.userId, userId: uid }, 'platform admin changed a server administrator');
+      return reply.send({ user: (await store.listUsers()).find((u) => u.userId === uid) });
+    },
+  );
+
+  // Ends every session of an account, Collect Earth's included: it signs in again (a lost laptop, a shared password).
+  app.post(
+    '/v1/admin/users/:uid/sign-out',
+    { preHandler: requirePlatformAdmin(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const uid = (request.params as { uid: string }).uid;
+      if (!isUuid(uid) || !(await store.getUserById(uid))) return reply.code(404).send({ error: 'not_found' });
+      if (uid === request.userId) return reply.code(409).send({ error: 'own_account', reason: 'sign out of your own sessions from your account page' });
+      await store.deleteUserSessions(uid);
+      request.log.info({ action: 'account.signed_out', actorUserId: request.userId, userId: uid }, 'platform admin ended the sessions of an account');
+      return reply.send({ signedOut: true });
+    },
+  );
+
+  // Deletes an account, as its person could (DELETE /v1/me): its sessions, memberships and personal data go, the plots it
+  // collected stay in their projects under its name, the projects only it was in go with it. Refused for one's own
+  // account, the last administrator, and the only coordinator of a project others work in (its ids are told). The
+  // account's username is typed again to confirm.
+  app.delete(
+    '/v1/admin/users/:uid',
+    { preHandler: requirePlatformAdmin(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const uid = (request.params as { uid: string }).uid;
+      const user = isUuid(uid) ? await store.getUserById(uid) : null;
+      if (!user) return reply.code(404).send({ error: 'not_found' });
+      if (uid === request.userId) return reply.code(409).send({ error: 'own_account', reason: 'delete your own account from your account page' });
+      const confirm = ((request.body ?? {}) as { confirm?: unknown }).confirm;
+      if (confirm !== user.username) return reply.code(400).send({ error: 'confirm_username', reason: 'type the account\'s username to confirm' });
+      const plan = await accountDeletionPlan(store, user.id, user.isPlatformAdmin);
+      if (plan.lastPlatformAdmin) return reply.code(409).send({ error: 'last_enabled_admin', reason: 'the server must keep one enabled platform admin' });
+      if (plan.soleCoordinator.length > 0) {
+        return reply.code(409).send({ error: 'sole_coordinator', projectIds: plan.soleCoordinator.map((p) => p.projectId) });
+      }
+      if ((await store.deleteUser(user.id)) === 'last_platform_admin') {
+        return reply.code(409).send({ error: 'last_enabled_admin', reason: 'the server must keep one enabled platform admin' });
+      }
+      for (const p of plan.deletedWithAccount) await store.deleteProject(p.projectId);
+      kept = null;
+      request.log.info(
+        { action: 'account.deleted', actorUserId: request.userId, userId: uid, projectsDeleted: plan.deletedWithAccount.length },
+        'platform admin deleted an account',
+      );
+      return reply.send({ deleted: true, projectsDeleted: plan.deletedWithAccount.length });
+    },
   );
 
   // The AI assistant's use this calendar month (UTC), per project: counts and tokens by

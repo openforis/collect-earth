@@ -363,12 +363,13 @@ describe('password change and reset', () => {
     const created = await ctx.app.inject({ method: 'POST', url: '/v1/projects', headers: bearer(owner.token), payload: { name: 'P' } });
     expect(created.statusCode).toBe(201);
     const res = await ctx.app.inject({ method: 'GET', url: '/v1/admin/users', headers: bearer(owner.token) });
-    expect(res.json()).toEqual({
-      users: [
-        { userId: maria.userId, username: 'maria', isPlatformAdmin: false, projects: 0, coordinatedProjects: 0, disabledAt: null, disabledBy: null, twoFactor: false },
-        { userId: owner.userId, username: 'owner', isPlatformAdmin: true, projects: 1, coordinatedProjects: 1, disabledAt: null, disabledBy: null, twoFactor: false },
-      ],
-    });
+    // project counts only, never a project's name; the paging and the dates are tested in adminAccounts.test.ts
+    expect(res.json()).toMatchObject({ total: 2, page: 1, pages: 1 });
+    expect(res.json().users.map((u: Record<string, unknown>) => ({ userId: u.userId, username: u.username, isPlatformAdmin: u.isPlatformAdmin, projects: u.projects, coordinatedProjects: u.coordinatedProjects, disabledAt: u.disabledAt, disabledBy: u.disabledBy, twoFactor: u.twoFactor }))).toEqual([
+      { userId: maria.userId, username: 'maria', isPlatformAdmin: false, projects: 0, coordinatedProjects: 0, disabledAt: null, disabledBy: null, twoFactor: false },
+      { userId: owner.userId, username: 'owner', isPlatformAdmin: true, projects: 1, coordinatedProjects: 1, disabledAt: null, disabledBy: null, twoFactor: false },
+    ]);
+    expect(JSON.stringify(res.json())).not.toContain('"P"');
 
     const bad = await ctx.app.inject({ method: 'PUT', url: '/v1/admin/settings', headers: bearer(owner.token), payload: { projectCreation: 'everyone' } });
     expect(bad.statusCode).toBe(400);

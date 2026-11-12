@@ -17,6 +17,10 @@ const en = {
   resetAction: 'Choose a new password (the link works once, for one hour)',
   resetAfter: 'Choosing it signs the account out everywhere, Collect Earth included: sign in again with the new password.',
   resetIgnore: 'If it was not you, do nothing: the password stays as it is and the link stops working in an hour.',
+  welcomeSubject: '{server}: your new account {name}',
+  welcomeIntro: 'Hello, an administrator of {server} made the account {name} for you.',
+  welcomeAction: 'Choose your password (the link works once, for seven days)',
+  welcomeAfter: 'Then sign in with {name} and this password, on the dashboard and in Collect Earth. If you did not expect this account, ignore this email.',
   passwordSubject: '{server}: your password was changed',
   passwordChanged: 'The password of your {server} account {name} was changed on {when}.',
   passwordByUser: 'It was changed on the account page; the account’s other sessions, Collect Earth’s included, were signed out.',
@@ -39,6 +43,10 @@ const es: Words = {
   resetAction: 'Elegir una contraseña nueva (el enlace funciona una vez, durante una hora)',
   resetAfter: 'Al elegirla se cierran todas las sesiones de la cuenta, también la de Collect Earth: vuelva a iniciar sesión con la contraseña nueva.',
   resetIgnore: 'Si no fue usted, no haga nada: la contraseña sigue igual y el enlace deja de funcionar en una hora.',
+  welcomeSubject: '{server}: su nueva cuenta {name}',
+  welcomeIntro: 'Hola, un administrador de {server} creó la cuenta {name} para usted.',
+  welcomeAction: 'Elegir su contraseña (el enlace funciona una vez, durante siete días)',
+  welcomeAfter: 'Después inicie sesión con {name} y esa contraseña, en el panel y en Collect Earth. Si no esperaba esta cuenta, ignore este correo.',
   passwordSubject: '{server}: su contraseña se cambió',
   passwordChanged: 'La contraseña de su cuenta {name} de {server} se cambió el {when}.',
   passwordByUser: 'Se cambió en la página de la cuenta; las otras sesiones de la cuenta, también la de Collect Earth, se cerraron.',
@@ -59,6 +67,10 @@ const fr: Words = {
   resetAction: 'Choisir un nouveau mot de passe (le lien fonctionne une fois, pendant une heure)',
   resetAfter: 'Le choisir déconnecte le compte partout, Collect Earth compris : reconnectez-vous avec le nouveau mot de passe.',
   resetIgnore: 'Si ce n’était pas vous, ne faites rien : le mot de passe reste le même et le lien ne fonctionne plus dans une heure.',
+  welcomeSubject: '{server} : votre nouveau compte {name}',
+  welcomeIntro: 'Bonjour, un administrateur de {server} a créé le compte {name} pour vous.',
+  welcomeAction: 'Choisir votre mot de passe (le lien fonctionne une fois, pendant sept jours)',
+  welcomeAfter: 'Connectez-vous ensuite avec {name} et ce mot de passe, sur le tableau de bord et dans Collect Earth. Si vous n’attendiez pas ce compte, ignorez ce courriel.',
   passwordSubject: '{server} : votre mot de passe a été changé',
   passwordChanged: 'Le mot de passe de votre compte {name} sur {server} a été changé le {when}.',
   passwordByUser: 'Il a été changé sur la page du compte ; les autres sessions du compte, celle de Collect Earth comprise, ont été déconnectées.',
@@ -79,6 +91,10 @@ const pt: Words = {
   resetAction: 'Escolher uma senha nova (o link funciona uma vez, durante uma hora)',
   resetAfter: 'Ao escolhê-la, todas as sessões da conta são encerradas, inclusive a do Collect Earth: entre de novo com a senha nova.',
   resetIgnore: 'Se não foi você, não faça nada: a senha continua a mesma e o link deixa de funcionar em uma hora.',
+  welcomeSubject: '{server}: a sua nova conta {name}',
+  welcomeIntro: 'Olá, um administrador de {server} criou a conta {name} para você.',
+  welcomeAction: 'Escolher a sua senha (o link funciona uma vez, durante sete dias)',
+  welcomeAfter: 'Depois entre com {name} e essa senha, no painel e no Collect Earth. Se você não esperava esta conta, ignore este e-mail.',
   passwordSubject: '{server}: a sua senha foi alterada',
   passwordChanged: 'A senha da sua conta {name} em {server} foi alterada em {when}.',
   passwordByUser: 'Foi alterada na página da conta; as outras sessões da conta, inclusive a do Collect Earth, foram encerradas.',
@@ -99,6 +115,10 @@ const tr: Words = {
   resetAction: 'Yeni bir parola seçin (bağlantı yalnızca bir kez kullanılabilir ve bir saat geçerlidir)',
   resetAfter: 'Yeni parolayı seçmek, Collect Earth dahil hesabın tüm oturumlarını kapatır: yeni parolayla yeniden oturum açın.',
   resetIgnore: 'Bu isteği siz yapmadıysanız herhangi bir işlem yapmanıza gerek yok: parolanız olduğu gibi kalır ve bağlantı bir saat içinde geçersiz olur.',
+  welcomeSubject: '{server}: yeni hesabınız {name}',
+  welcomeIntro: 'Merhaba, {server} yöneticilerinden biri sizin için {name} hesabını oluşturdu.',
+  welcomeAction: 'Parolanızı seçin (bağlantı yalnızca bir kez kullanılabilir ve yedi gün geçerlidir)',
+  welcomeAfter: 'Ardından panoda ve Collect Earth’te {name} ve bu parolayla oturum açın. Bu hesabı beklemiyorsanız bu e-postayı yok sayın.',
   passwordSubject: '{server}: parolanız değiştirildi',
   passwordChanged: '{server} üzerindeki {name} hesabınızın parolası {when} tarihinde değiştirildi.',
   passwordByUser: 'Parola hesap sayfasında değiştirildi; Collect Earth dahil hesabın diğer oturumları kapatıldı.',
@@ -185,6 +205,18 @@ export function resetLinkMail(ctx: SecurityContext, resetUrl: string, to: string
     { kind: 'para', text: w('resetIgnore') },
   ];
   return message(ctx, to, w('resetSubject', p), lines, 'account.reset');
+}
+
+/** A new account made by a server administrator: the link to choose its password, to the address they gave. */
+export function welcomeMail(ctx: SecurityContext, setPasswordUrl: string, to: string): MailMessage {
+  const w = wordsOf(ctx.language);
+  const p = params(ctx);
+  const lines: MailLine[] = [
+    { kind: 'para', text: w('welcomeIntro', p) },
+    { kind: 'link', label: w('welcomeAction'), url: setPasswordUrl },
+    { kind: 'para', text: w('welcomeAfter', p) },
+  ];
+  return message(ctx, to, w('welcomeSubject', p), lines, 'account.welcome');
 }
 
 /** After a password change: on the account page ('changed') or with a reset link ('reset'). */

@@ -811,7 +811,11 @@ export class PostgresStore implements Store {
 
   async createSession(userId: string): Promise<string> {
     const token = generateToken();
-    await this.pool.query('INSERT INTO sessions (token_hash, user_id) VALUES ($1, $2)', [hashToken(token), userId]);
+    await this.pool.query(
+      `WITH s AS (INSERT INTO sessions (token_hash, user_id) VALUES ($1, $2))
+       UPDATE users SET last_active_at = now() WHERE id = $2`,
+      [hashToken(token), userId],
+    );
     return token;
   }
 
@@ -829,6 +833,10 @@ export class PostgresStore implements Store {
        ), touched AS (
          UPDATE sessions SET last_used_at = $2
           WHERE token_hash IN (SELECT token_hash FROM hit WHERE used < $2::timestamptz - make_interval(secs => $4))
+       ), active AS (
+         -- the account's last activity, written with the session's use (the server page's accounts)
+         UPDATE users SET last_active_at = $2
+          WHERE id IN (SELECT user_id FROM hit WHERE used < $2::timestamptz - make_interval(secs => $4))
        )
        SELECT user_id FROM hit`,
       [hash, at, SESSION_IDLE_MS / 1000, SESSION_TOUCH_MS / 1000],
@@ -1333,12 +1341,13 @@ export class PostgresStore implements Store {
     // project_members is a global table (002); only a COUNT leaves this query.
     const res = await this.pool.query(
       `SELECT u.id, u.username, u.is_platform_admin, u.disabled_at, b.username AS disabled_by,
+              u.created_at, u.last_active_at, u.email, u.email_confirmed_at,
               COUNT(m.project_id)::int AS projects,
               (COUNT(m.project_id) FILTER (WHERE m.role = 'admin'))::int AS coordinated,
               EXISTS (SELECT 1 FROM user_two_factor t WHERE t.user_id = u.id AND t.enabled_at IS NOT NULL AND t.secret_enc IS NOT NULL) AS two_factor
          FROM users u LEFT JOIN project_members m ON m.user_id = u.id
               LEFT JOIN users b ON b.id = u.disabled_by
-        GROUP BY u.id, u.username, u.is_platform_admin, u.disabled_at, b.username
+        GROUP BY u.id, u.username, u.is_platform_admin, u.disabled_at, b.username, u.created_at, u.last_active_at, u.email, u.email_confirmed_at
         ORDER BY u.username`,
     );
     return res.rows.map((r) => ({
@@ -1350,7 +1359,43 @@ export class PostgresStore implements Store {
       disabledAt: r.disabled_at === null ? null : (r.disabled_at as Date).getTime(),
       disabledBy: r.disabled_at === null ? null : ((r.disabled_by as string | null) ?? null),
       twoFactor: r.two_factor === true,
+      createdAt: (r.created_at as Date).getTime(),
+      lastActiveAt: r.last_active_at === null ? null : (r.last_active_at as Date).getTime(),
+      email: (r.email as string | null) ?? null,
+      emailConfirmed: r.email_confirmed_at !== null,
     }));
+  }
+
+  async setPlatformAdmin(userId: string, on: boolean): Promise<'ok' | 'last_platform_admin' | 'not_found'> {
+    if (!isUuid(userId)) {
+      return 'not_found';
+    }
+    const client = await this.connect();
+    try {
+      await client.query('BEGIN');
+      // The lock of disableUser: two administrators taking each other's role at once cannot leave none.
+      await client.query(PLATFORM_ADMINS_LOCK);
+      const res = await client.query('SELECT is_platform_admin, disabled_at FROM users WHERE id = $1 FOR UPDATE', [userId]);
+      if (res.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return 'not_found';
+      }
+      if (!on && res.rows[0].is_platform_admin && res.rows[0].disabled_at === null) {
+        const others = await client.query('SELECT COUNT(*)::int AS n FROM users WHERE is_platform_admin AND disabled_at IS NULL AND id <> $1', [userId]);
+        if (others.rows[0].n === 0) {
+          await client.query('ROLLBACK');
+          return 'last_platform_admin';
+        }
+      }
+      await client.query('UPDATE users SET is_platform_admin = $2 WHERE id = $1', [userId, on]);
+      await client.query('COMMIT');
+      return 'ok';
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   async createPasswordReset(userId: string, expiresAt: number): Promise<string | null> {

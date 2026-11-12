@@ -12,7 +12,8 @@ import { requireSession } from '../plugins/projectAuth.js';
 import type { ProjectStateCache } from '../projectState.js';
 import type { QualityService } from '../qualityService.js';
 import { RateLimiter, RATE_LIMITED } from '../rateLimit.js';
-import { emailChangedMail, longMoment, passwordChangedMail, resetLinkMail, SELF_RESET_TTL_MS, type SecurityContext } from '../securityMail.js';
+import { emailChangedMail, longMoment, passwordChangedMail, resetLinkMail,
+  welcomeMail, SELF_RESET_TTL_MS, type SecurityContext } from '../securityMail.js';
 import type { Store } from '../store/store.js';
 import { DIGEST_KINDS, MAIL_LANGUAGES, type AccountMail, type DigestKind, type MailLanguage } from '../types.js';
 
@@ -51,6 +52,11 @@ export interface AccountMailHooks {
    * it went. The administrator is shown a link only for an account that cannot get one by mail.
    */
   mailResetLink?: (request: FastifyRequest, userId: string) => Promise<boolean>;
+  /**
+   * A new account made by a server administrator: the link to choose its password, mailed to the address given (not
+   * confirmed yet: the account has nothing to protect until the link is used). True when it went.
+   */
+  mailWelcome?: (request: FastifyRequest, userId: string, email: string, language: unknown, setPasswordUrl: string) => Promise<boolean>;
 }
 
 declare module 'fastify' {
@@ -279,6 +285,21 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
     return true;
   };
   if (deps.accountMail) deps.accountMail.mailResetLink = mailResetLink;
+
+  const mailWelcome = async (request: FastifyRequest, userId: string, email: string, language: unknown, setPasswordUrl: string): Promise<boolean> => {
+    if (!deps.mailer.delivers) return false;
+    const ctx = await securityContext(userId, language, { email, emailConfirmedAt: null, language: null, timeZone: null, digests: [] });
+    if (!ctx) return false;
+    try {
+      await deps.mailer.send(welcomeMail(ctx, setPasswordUrl, email));
+    } catch (err) {
+      request.log.warn({ err: errorSummary(err), userId }, 'new account: the welcome mail could not be sent');
+      return false;
+    }
+    request.log.info({ action: 'account.welcome.mailed', actorUserId: request.userId, userId }, 'platform admin had a new account mailed its link');
+    return true;
+  };
+  if (deps.accountMail) deps.accountMail.mailWelcome = mailWelcome;
 
   /**
    * "Forgot your password?" (no login): `{ login, language? }`, a username or an email address. When

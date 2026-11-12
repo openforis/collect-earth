@@ -1,7 +1,6 @@
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
@@ -20,10 +19,8 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import Key from "@mui/icons-material/Key";
-import Block from "@mui/icons-material/Block";
 import CheckCircleOutline from "@mui/icons-material/CheckCircleOutlineOutlined";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "@mui/material/Link";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -39,20 +36,13 @@ import Tune from "@mui/icons-material/Tune";
 import {
   getAiUsage,
   getServerOverview,
-  listUsers,
-  makeResetLink,
-  resetUserTwoFactor,
   getOwnerAlerts,
   type OwnerAlert,
-  setUserDisabled,
-  type AdminUser,
   type AiUsageCounts,
-  type ResetLink,
   type ServerOverview,
 } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
-import { CopyField } from "../components/CopyField";
 import { ChartOrTable, ColumnChart, ValuesTable } from "../components/PeopleCharts";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
@@ -65,6 +55,7 @@ import { linkProps, navigate, pathFor, setLeaveGuard, SERVER_SECTIONS, type Serv
 import { serverHealth, type HealthItem } from "../serverView";
 import { clearUnsaved, useUnsavedGroups } from "../unsavedChanges";
 import { ServerSettingsSection } from "./ServerSettings";
+import { AccountsSection } from "./ServerAccounts";
 
 /** The assistant's use this month, by project id only (no names, questions or answers). */
 function AiUsageCard() {
@@ -472,248 +463,6 @@ function AlertsCard() {
   );
 }
 
-function UsersCard({ onAccountChanged }: { onAccountChanged: () => void }) {
-  const t = useT();
-  const { language, me } = useApp();
-  const users = useLoad(listUsers, []);
-  const [link, setLink] = useState<{ user: AdminUser; reset: ResetLink } | null>(null);
-  const [error, setError] = useState<unknown>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<AdminUser | null>(null);
-  const [done, setDone] = useState<string | null>(null);
-
-  // One change at a time: the buttons stay enabled (a disabled button loses the keyboard
-  // focus), and a second press while one is on its way does nothing.
-  const changing = useRef(false);
-  /** Puts the focus back on the row's Disable / Enable button once the list shows the change. */
-  const focusToggle = (userId: string) =>
-    window.setTimeout(() => document.getElementById(`account-toggle-${userId}`)?.focus(), 0);
-  /**
-   * The row whose button gets the focus once the confirmation dialog has closed. Focusing
-   * it while the dialog is still leaving does not hold (the page behind it is still hidden
-   * and the dialog's focus trap still active), so it waits for the dialog's exit transition.
-   */
-  const focusAfterDialog = useRef<string | null>(null);
-  const closeConfirm = (userId: string) => {
-    focusAfterDialog.current = userId;
-    setConfirm(null);
-  };
-
-  const setDisabled = async (user: AdminUser, disabled: boolean) => {
-    if (changing.current) return;
-    changing.current = true;
-    setError(null);
-    setDone(null);
-    setBusy(user.userId);
-    try {
-      const now = await setUserDisabled(user.userId, disabled);
-      users.setData((prev) => prev.map((u) => (u.userId === now.userId ? { ...u, ...now } : u)));
-      setDone(t(disabled ? "server.disabledNow" : "server.enabledNow", { name: user.username }));
-      onAccountChanged();
-    } catch (err) {
-      setError(err);
-    } finally {
-      changing.current = false;
-      setBusy(null);
-      // Disabling goes through the dialog: focus once it has closed. Enabling does not.
-      if (disabled) closeConfirm(user.userId);
-      else focusToggle(user.userId);
-    }
-  };
-
-  /** A lost phone: two-step sign-in off for the account, its sessions ended; it sets it up again after signing in. */
-  const resetTwoFactor = async (user: AdminUser) => {
-    if (!window.confirm(t("server.twoFactorResetConfirm", { name: user.username }))) return;
-    setError(null);
-    setDone(null);
-    setBusy(user.userId);
-    try {
-      await resetUserTwoFactor(user.userId);
-      users.setData((prev) => prev.map((u) => (u.userId === user.userId ? { ...u, twoFactor: false } : u)));
-      setDone(t("server.twoFactorResetDone", { name: user.username }));
-    } catch (err) {
-      setError(err);
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const makeLink = async (user: AdminUser) => {
-    setError(null);
-    setBusy(user.userId);
-    try {
-      setLink({ user, reset: await makeResetLink(user.userId) });
-    } catch (err) {
-      setError(err);
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-      <Typography variant="h2" gutterBottom>
-        {t("server.users")}
-      </Typography>
-      <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
-        {t("server.privacy")}
-      </Typography>
-      {users.loading && !users.data ? (
-        <Loading />
-      ) : users.error || !users.data ? (
-        <ErrorAlert error={users.error} onRetry={users.reload} />
-      ) : users.data.length === 0 ? (
-        <EmptyState title={t("server.noUsers")} />
-      ) : (
-        <List disablePadding>
-          {users.data.map((user) => (
-            <ListItem key={user.userId} divider sx={{ gap: 2, flexWrap: "wrap", px: 0 }}>
-              <ListItemText
-                primary={
-                  <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
-                    <span style={{ wordBreak: "break-word" }}>{user.username}</span>
-                    {user.isPlatformAdmin && <Chip size="small" color="primary" label={t("server.adminBadge")} />}
-                    {user.disabledAt !== null && <Chip size="small" color="warning" icon={<Block />} label={t("server.disabledBadge")} />}
-                    {user.twoFactor && <Chip size="small" variant="outlined" label={t("server.twoFactorBadge")} />}
-                  </Stack>
-                }
-                secondary={
-                  <>
-                    {t(user.projects === 1 ? "server.userProjectsOne" : "server.userProjects", { count: user.projects, coordinated: user.coordinatedProjects })}
-                    {user.disabledAt !== null && (
-                      <>
-                        <br />
-                        {user.disabledBy
-                          ? t("server.disabledBy", { date: formatDate(user.disabledAt, language), name: user.disabledBy })
-                          : t("server.disabledOn", { date: formatDate(user.disabledAt, language) })}
-                      </>
-                    )}
-                  </>
-                }
-                sx={{ flex: "1 1 200px" }}
-              />
-              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
-                {user.disabledAt === null && (
-                  <Button
-                    variant="outlined"
-                    startIcon={<Key />}
-                    onClick={() => void makeLink(user)}
-                    disabled={busy === user.userId}
-                    aria-label={t("server.makeResetLabel", { name: user.username })}
-                  >
-                    {t("server.makeReset")}
-                  </Button>
-                )}
-                {user.twoFactor && user.userId !== me?.userId && (
-                  <Button variant="outlined" onClick={() => void resetTwoFactor(user)} disabled={busy === user.userId} aria-label={t("server.twoFactorResetLabel", { name: user.username })}>
-                    {t("server.twoFactorReset")}
-                  </Button>
-                )}
-                {user.userId !== me?.userId &&
-                  (user.disabledAt === null ? (
-                    <Button
-                      id={`account-toggle-${user.userId}`}
-                      variant="outlined"
-                      color="warning"
-                      startIcon={<Block />}
-                      aria-label={t("server.disableLabel", { name: user.username })}
-                      onClick={(e) => {
-                        // Leave the button before the dialog hides the page from assistive
-                        // technology (aria-hidden on a focused element is blocked).
-                        e.currentTarget.blur();
-                        setConfirm(user);
-                      }}
-                    >
-                      {t("server.disable")}
-                    </Button>
-                  ) : (
-                    <Button
-                      id={`account-toggle-${user.userId}`}
-                      variant="outlined"
-                      startIcon={<CheckCircleOutline />}
-                      onClick={() => void setDisabled(user, false)}
-                      aria-busy={busy === user.userId}
-                      aria-label={t("server.enableLabel", { name: user.username })}
-                    >
-                      {t("server.enable")}
-                    </Button>
-                  ))}
-              </Stack>
-            </ListItem>
-          ))}
-        </List>
-      )}
-      {done && (
-        <Alert severity="success" role="status" sx={{ mt: 2 }}>
-          {done}
-        </Alert>
-      )}
-      <ErrorAlert error={error} />
-      <Dialog
-        open={confirm !== null}
-        onClose={() => {
-          if (confirm) closeConfirm(confirm.userId);
-        }}
-        disableRestoreFocus
-        slotProps={{
-          transition: {
-            onExited: () => {
-              const userId = focusAfterDialog.current;
-              focusAfterDialog.current = null;
-              if (userId) document.getElementById(`account-toggle-${userId}`)?.focus();
-            },
-          },
-        }}
-        fullWidth
-        maxWidth="sm"
-      >
-        {confirm && (
-          <>
-            <DialogTitle>{t("server.disableTitle", { name: confirm.username })}</DialogTitle>
-            <DialogContent>
-              <DialogContentText>{t("server.disableText", { name: confirm.username })}</DialogContentText>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => closeConfirm(confirm.userId)}>
-                {t("common.cancel")}
-              </Button>
-              <Button color="warning" variant="contained" onClick={() => void setDisabled(confirm, true)} aria-busy={busy === confirm.userId}>
-                {t("server.disableConfirm")}
-              </Button>
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
-      <Dialog open={link !== null} onClose={() => setLink(null)} fullWidth maxWidth="sm">
-        {link && (
-          <>
-            <DialogTitle>{t("server.resetTitle", { name: link.user.username })}</DialogTitle>
-            <DialogContent>
-              <Stack spacing={2} sx={{ pt: 1 }}>
-                {link.reset.mailed ? (
-                  <DialogContentText>{t("server.resetMailed", { name: link.user.username })}</DialogContentText>
-                ) : (
-                  <>
-                    <DialogContentText>
-                      {link.reset.expiresAt !== null
-                        ? t("server.resetText", { name: link.user.username, date: formatDate(link.reset.expiresAt, language) })
-                        : t("server.resetTextNoDate", { name: link.user.username })}
-                    </DialogContentText>
-                    <CopyField value={link.reset.resetUrl ?? ""} label={t("server.resetLink")} />
-                  </>
-                )}
-              </Stack>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setLink(null)}>{t("common.close")}</Button>
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
-    </Paper>
-  );
-}
-
 /** For the server administrator only: server settings and accounts. */
 const SECTION_ICON: Record<ServerSection, ReactNode> = {
   overview: <Insights />,
@@ -853,7 +602,7 @@ export function ServerPage({ section }: { section: ServerSection }) {
                 <OverviewFigures overview={overview} />
               </>
             )}
-            {section === "accounts" && <UsersCard onAccountChanged={() => setAccountChanges((n) => n + 1)} />}
+            {section === "accounts" && <AccountsSection onAccountChanged={() => setAccountChanges((n) => n + 1)} />}
             {section === "projects" && (
               <>
                 <LargestProjects overview={overview} />

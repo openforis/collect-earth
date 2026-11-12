@@ -177,6 +177,13 @@ export interface UserSummary {
   disabledBy: string | null;
   /** Two-step sign-in is on for the account. */
   twoFactor: boolean;
+  /** When the account was made (epoch ms). */
+  createdAt: number;
+  /** When it last signed in or used a session, the dashboard or Collect Earth (epoch ms), or null: never since this was kept. */
+  lastActiveAt: number | null;
+  /** Its email address, and whether the person confirmed it. */
+  email: string | null;
+  emailConfirmed: boolean;
 }
 
 /** A count for one UTC day (epoch ms of its midnight). */
