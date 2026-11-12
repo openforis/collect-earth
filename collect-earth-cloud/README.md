@@ -277,8 +277,9 @@ other `GET` that accepts HTML and is not under `/v1/` or `/health` returns its
 | --- | --- | --- | --- |
 | `GET`  | `/v1/projects/:pid/csv-files/:id/columns` | admin | `{plotCount, hasHeader, separator, columns: [{index, name, distinctCount, values: [{value, count}] \| null}]}` — `values` (by value, `""` last) only up to 200 distinct values, never for the id column |
 | `GET`  | `/v1/projects/:pid/csv-files/:id/distribution` | admin | `{distribution \| null, plotCount, unassigned, people: [{userId, username, plots, overlap, submitted}]}` (`plots` includes the `overlap` copies) |
-| `PUT`  | `/v1/projects/:pid/csv-files/:id/distribution` | admin | `{mode: 'whole'}` \| `{mode: 'even', people, percents?, order: 'file'\|'mixed', overlapPercent?, seed?}` (`percents`: one per person, 0-100, adding up to 100: each person's share of the plots, rounded by largest remainder, ties to the earlier person; without it equal shares) \| `{mode: 'column', column, groups: [{value, people}], order, overlapPercent?, seed?}`, optional `dryRun: true` → the GET shape (the `seed` used is in `distribution`); 400 `bad_request` `{reason}` |
-| `POST` | `/v1/projects/:pid/csv-files/:id/move-unfinished` | admin | `{fromUserId, toUserId}` → the GET shape + `moved`, `notMoved`, `droppedChecks`; plots `from` has done stay (a main plot when they did its main assessment, a copy when they did its check); a copy `to` holds becomes their main plot unless `to` already checked it (then it stays, `notMoved`); `from`'s copies of `to`'s main plots go (`droppedChecks`); a whole file is divided first (mode `manual`) |
+| `PUT`  | `/v1/projects/:pid/csv-files/:id/distribution` | admin | `{mode: 'whole'}` \| `{mode: 'even', people, percents?, order: 'file'\|'mixed', overlapPercent?, seed?}` (`percents`: one per person, 0-100, adding up to more than 0 and at most 100: each person's share of the plots, rounded by largest remainder, ties to the earlier person; under 100 the rest of the plots is given to nobody until the file is divided again; without it equal shares) \| `{mode: 'column', column, groups: [{value, people}], order, overlapPercent?, seed?}`, optional `dryRun: true` → the GET shape (the `seed` used is in `distribution`); 400 `bad_request` `{reason}` |
+| `POST` | `/v1/projects/:pid/csv-files/:id/move-unfinished` | admin | `{fromUserId, toUserId, count?, plots?}`: all of `from`'s plots still to assess, or `count` of them (1-20000, the last of their list; the People tab's "Move plots…"), or only the plot ids in `plots` (1-20000; the Map's "Select plots") → the GET shape + `moved`, `notMoved`, `droppedChecks`; plots `from` has done stay (a main plot when they did its main assessment, a copy when they did its check); a copy `to` holds becomes their main plot unless `to` already checked it (then it stays, `notMoved`); `from`'s copies of `to`'s main plots go (`droppedChecks`); a whole file is divided first (mode `manual`) |
+| `POST` | `/v1/projects/:pid/csv-files/:id/rebalance` | admin | `{people: [{userId, weight}], dryRun?}` (at least two members, once each, weights 0-1000, one above 0; the dashboard's "Share again what is left" sends equal weights, the percentages, or each person's pace): the plots still to assess of these people shared again in proportion to their weights, rounded by largest remainder, moved as `move-unfinished` moves them; what is submitted and the reference plots stay; a weight of 0 gives all of that person's away → the GET shape + `{left, target, moves: [{from, to, count}], saved, moved, notMoved}` (`left` and `target`: each person's plots to assess before and after); `dryRun: true` answers the plan with `saved: false` and saves nothing. 409 `whole_file` for a file given whole. Audited as `plots.rebalanced` `{csvFileId, people, moved}` |
 | `GET` | `/v1/projects/:pid/sampling` | admin | the automatic checks (Task 13): `{rule, active, intervalMinutes, due, nextAutomaticAt, lastDraw, pending, files, wholeFiles, checkers, members, noCheckers}` |
 | `PUT` | `/v1/projects/:pid/sampling` | admin | `{checkers: [userId] \| null, firstN: 1-1000 \| null, percent: 1-100 \| null, files?: {<divided file id>: {use: 'project' \| 'off' \| 'own', ...}}}` → the GET shape; the seed is kept; audited `settings.changed` `{setting: 'sampling'}`; draws nothing by itself |
 | `POST` | `/v1/projects/:pid/sampling/draw` | admin | "Draw now" → `{draw, view}`; 409 `no_rule` when no rule is on; audited `sampling.drawn` with its counts |
@@ -374,7 +375,7 @@ src/
   rateLimit.ts         in-memory per-IP limiter for the auth endpoints
   export.ts            records -> CSV
   plots.ts             plot file parser (as Collect Earth reads it) + one person's own file
-  division.ts          dividing a file's plots between people, move-unfinished
+  division.ts          dividing a file's plots between people, move-unfinished, rebalance
   limits.ts            per-project storage limit checks (projects-per-account is in routes/projects.ts)
   plugins/projectAuth  membership / session / platform-admin preHandlers (401 / 404 / 403)
   routes/projects.ts   provision, ping, survey upload, rename, overview, export
@@ -382,7 +383,8 @@ src/
   routes/admin.ts      server info, setup, signup, reset, /v1/admin/*
   routes/auth.ts       register, login, logout, /me, password change
   routes/assignments.ts plot CSVs and assignments
-  routes/division.ts   columns, distribution, move-unfinished
+  routes/division.ts   columns, distribution, move-unfinished, rebalance
+  routes/plotLayout.ts the project file's plot layout and imagery windows (plotLayout.ts, imagery.ts: their keys, rules and the rewrite of project_definition.properties)
   routes/records.ts    records:batch intake
   routes/quality.ts    quality figures, settings, decisions, notes, reports, overlap (plot places in plotPlaces.ts)
   routes/plotsGeo.ts   the map of progress (plotsGeo.ts: statuses and pages)
@@ -436,6 +438,10 @@ Known limitations (details in DEPLOY.md, "Known limitations"):
   the ids missing from what they see are the reference plots. Only plot ids that do not
   show an order would close this.
 - **Blind checks need the Collect Earth release after 1.23.19.**
+- **Two changes to the project file at the same moment:** saving the plot layout or the
+  imagery windows rewrites the whole project file from the copy read at the start of the
+  request, with no check that it is still the one stored. A save that crosses another one,
+  or a new version of the project file uploaded in the same second, can undo it.
 
 The decisions still open for the owner are listed in
 `docs/plans/2026-11-01-dashboard-improvements.md`, section "Owner decisions pending".
