@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type CloudState, type CloudSync, cloudProjectServers, fallbackState, projectChip, projectMark, roleOf, saveView, youChip } from "./cloud";
+import { type CloudState, type CloudSync, cloudProjectServers, fallbackState, joinPreviewText, projectChip, projectMark, roleOf, saveView, youChip } from "./cloud";
 import { translator } from "./i18n";
 import { cloudSignOut, cloudState, recordSync } from "./projectApi";
 
@@ -75,6 +75,14 @@ describe("your role in a cloud project", () => {
     expect(names("pt")).toEqual(["Coordenador", "Revisor", "Coletor"]);
     expect(names("tr")).toEqual(["Koordinatör", "Denetçi", "Veri toplayıcı"]);
     for (const none of [null, undefined, "", "owner", "constructor"]) expect(roleOf(none, t)).toBeNull();
+  });
+
+  it("is named in Join cloud project's question, not as the server sends it", () => {
+    const template = 'You are about to join the cloud project "%s" as %s.';
+    expect(joinPreviewText(template, { projectName: "Forest", role: "operator" }, t)).toBe('You are about to join the cloud project "Forest" as Collector.');
+    expect(joinPreviewText(template, { projectName: "Forest", role: "admin" }, translator("es"))).toBe('You are about to join the cloud project "Forest" as Coordinador.');
+    // A role this version does not know: as the server sends it
+    expect(joinPreviewText(template, { projectName: "Forest", role: "owner" }, t)).toBe('You are about to join the cloud project "Forest" as owner.');
   });
 
   it("follows the account in the you chip, the account alone when narrow, and says what it does", () => {
