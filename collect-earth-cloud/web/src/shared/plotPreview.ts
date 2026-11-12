@@ -1,4 +1,7 @@
-import type { Values } from "./settings";
+// Shared by the desktop's Settings page and the dashboard's Plot layout card (imports nothing: see collectEarthTheme.ts).
+
+/** The plot settings by property name (project_definition.properties). */
+type Values = Record<string, string>;
 
 /**
  * What the preview of the plot settings draws, in metres from the centre of the plot, from the values alone: the

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CIRCLE_PLOT_MARGIN, gridPoints, hexagonPoints, plotDrawing, scaleBarLength } from "./plotPreview";
+import { CIRCLE_PLOT_MARGIN, gridPoints, hexagonPoints, plotDrawing, scaleBarLength } from "@shared/plotPreview";
 
 describe("plot drawing", () => {
   it("draws a square plot as its grid of points inside the margin", () => {

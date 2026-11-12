@@ -17,6 +17,7 @@ import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { useT, type MessageKey } from "../i18n";
 import { useLoad } from "../useLoad";
+import { PlotShapePreview } from "./PlotShapePreview";
 import {
   BUFFER_SHAPES, isShown, layoutChanges, layoutErrors, NUMBER_FIELDS, numberLabel, POINT_COUNTS, SAMPLE_SHAPES, shownLayout, type PlotLayoutValues,
 } from "./plotLayoutView";
@@ -74,12 +75,19 @@ function LayoutForm({ projectId, stored, recordsExist, onSaved }: { projectId: s
 
   return (
     <Stack spacing={2}>
+      <Stack direction={{ xs: "column", md: "row" }} spacing={3} sx={{ alignItems: { md: "flex-start" } }}>
+      <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
       {choice("sample_shape", SAMPLE_SHAPES, (o) => t(`file.layout.shape.${o}` as MessageKey))}
       {isShown("number_of_sampling_points_in_plot", values) &&
         choice("number_of_sampling_points_in_plot", POINT_COUNTS, (o) => (o === "0" || o === "1" ? t(`file.layout.points.${o}` as MessageKey) : `${Math.sqrt(Number(o))}x${Math.sqrt(Number(o))}`))}
       {NUMBER_FIELDS.filter((f) => f.key !== "distance_to_buffers" && isShown(f.key, values)).map((f) => <NumberInput key={f.key} field={f.key} values={values} errors={errors} onChange={set} />)}
       {isShown("buffer_shape", values) && choice("buffer_shape", BUFFER_SHAPES, (o) => t(`file.layout.buffer.${o}` as MessageKey))}
       {isShown("distance_to_buffers", values) && <NumberInput field="distance_to_buffers" values={values} errors={errors} onChange={set} />}
+      </Stack>
+      <Box sx={{ width: { xs: "100%", md: 320 }, flexShrink: 0 }}>
+        <PlotShapePreview values={values} />
+      </Box>
+      </Stack>
       <ErrorAlert error={error} />
       {saved && <Alert severity="success" role="status">{t("file.layout.saved")}</Alert>}
       <Box>
