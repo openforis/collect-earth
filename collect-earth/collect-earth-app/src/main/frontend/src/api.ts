@@ -11,13 +11,14 @@ export async function fetchMapConfig(): Promise<MapConfig> {
   return (await r.json()) ?? {};
 }
 
-export async function fetchPlots(): Promise<{ features?: PlotFeature[]; warning?: string }> {
+/** `plots`: the plot file they are of (LeafletMapController.plotsVersion), which the statuses tell too */
+export async function fetchPlots(): Promise<{ features?: PlotFeature[]; warning?: string; plots?: string }> {
   const r = await fetch(earthBase() + "plotsGeoJson");
   if (!r.ok) throw new Error("plotsGeoJson HTTP " + r.status);
   return r.json();
 }
 
-export async function fetchStatuses(since: number | null): Promise<{ now: number; statuses: Record<string, PlotStatus> }> {
+export async function fetchStatuses(since: number | null): Promise<{ now: number; statuses: Record<string, PlotStatus>; plots?: string }> {
   const r = await fetch(earthBase() + "plotStatuses" + (since ? "?since=" + since : ""));
   return r.json();
 }

@@ -70,6 +70,9 @@ export class MapController {
   private lastStatusPoll: number | null = null;
   /** Whether the statuses are polled: started by the first load that succeeds, and only once. */
   private statusPolling = false;
+  /** The plot file of the plots loaded (see fetchPlots), and whether they are being loaded again */
+  private plotsVersion: string | undefined;
+  private loadingPlots = false;
   /** The plot open, when it was changed after it had been submitted: no longer submitted until it is again */
   private changedAfterSubmit: string | null = null;
   /** The answers of the plot submitted last in this session, for "Same as previous plot" in the form of the next ones */
@@ -120,11 +123,19 @@ export class MapController {
   }
 
   private async loadPlots(): Promise<void> {
+    this.loadingPlots = true;
     try {
       const fc = await fetchPlots();
-      // None (e.g. no survey loaded): the list says so; no retry, the page is loaded again with the next survey
+      if (fc.plots !== this.plotsVersion) {
+        // Another plot file: the statuses of its plots are asked for from the start, a poll under way left out
+        this.plotsVersion = fc.plots;
+        this.lastStatusPoll = null;
+      }
+      // None (e.g. no survey loaded): the list says so; the statuses tell when there is a plot file to load
       if (!fc.features || fc.features.length === 0) {
-        this.set({ loaded: true });
+        this.plots = byId();
+        this.set({ order: [], labels: byId(), statuses: byId(), loaded: true, ...(this.state.activeId !== null ? { activeId: null, formUrl: null } : {}) });
+        this.startStatusPolling();
         return;
       }
       // From this answer alone, and put in place at once: a load tried again after one that failed half-way (below)
@@ -142,14 +153,19 @@ export class MapController {
       // nothing to go back to
       if (this.changedAfterSubmit != null && !(this.changedAfterSubmit in plots)) this.changedAfterSubmit = null;
       this.set({ order, labels, statuses, loaded: true, ...(activeGone ? { activeId: null, formUrl: null } : {}) });
-      // Each poll schedules the next: a second start would poll twice as often, for good
-      if (!this.statusPolling) {
-        this.statusPolling = true;
-        this.pollStatuses();
-      }
+      this.startStatusPolling();
     } catch {
       window.setTimeout(() => this.loadPlots(), 5000);
+    } finally {
+      this.loadingPlots = false;
     }
+  }
+
+  /** Each poll schedules the next: a second start would poll twice as often, for good */
+  private startStatusPolling(): void {
+    if (this.statusPolling) return;
+    this.statusPolling = true;
+    this.pollStatuses();
   }
 
   private allCenters(): LatLng[] {
@@ -159,8 +175,14 @@ export class MapController {
   // ---------- statuses ----------
   /** The next poll starts once this one is answered: on a slow server, polls on a timer piled up. */
   private async pollStatuses(): Promise<void> {
+    const version = this.plotsVersion;
     try {
       const data = await fetchStatuses(this.lastStatusPoll);
+      // The plots were loaded again meanwhile: the answer is of the plot file before
+      if (version !== this.plotsVersion) throw new Error("stale");
+      // Another plot file (the settings applied, a plot file dropped, the cloud project's assigned file): the list
+      // loads it, as nothing reloads this page in Google Earth Web's panel
+      if (data.plots !== undefined && data.plots !== version && !this.loadingPlots) void this.loadPlots();
       this.lastStatusPoll = data.now;
       const updates = byId<PlotStatus>();
       for (const [id, status] of Object.entries(data.statuses)) {
