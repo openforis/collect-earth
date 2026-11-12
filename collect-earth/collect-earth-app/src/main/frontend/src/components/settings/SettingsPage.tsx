@@ -25,7 +25,7 @@ import { ApiError } from "../../apiClient";
 import { errorText } from "../../appBar";
 import { useT } from "../../i18n";
 import {
-  changeCount, changes, defaultsOf, formatText, isChanged, isVisible, proposeReferenceDistance, restartNeeded, sectionsMatching,
+  changeCount, changes, defaultsOf, formatText, isChanged, isVisible, lockedFields, PLOT_FILE, PLOT_SECTION, plotFileLocked, proposeReferenceDistance, restartNeeded, sectionsMatching,
   type Field, type SampleFileCheck, type Section, type Settings, type Validation, type Values,
 } from "../../settings";
 import {
@@ -57,7 +57,7 @@ interface Props {
    */
   width: number;
   onClose: () => void;
-  /** The settings were applied without a restart: the app bar reads /api/app again (the viewer may have changed) */
+  /** The settings were applied without a restart: the app bar reads /api/app again (the project may have changed) */
   onApplied: () => void;
 }
 
@@ -178,18 +178,23 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
   const discard = () => { setValues(stored); setRefused({}); validateSoon(stored); if (stored.csv !== values.csv) checkFileSoon(stored.csv ?? ""); };
   const close = () => { if (count > 0) setClosing(true); else onClose(); };
 
+  // In a cloud project the plots file is one of the assigned ones and the plot design is the coordinator's: only shown
+  const plotDesignLocked = plotFileLocked(data?.info, values);
+  const locked = new Set(sections.flatMap((sec) => lockedFields(sec, data?.info, values)));
   const renderField = (field: Field): ReactNode => {
     const props = {
       field, value: values[field.key] ?? "", values, texts, error: errors[field.key], warning: validation?.warnings[field.key],
       changed: isChanged(stored, values, field.key), onChange: (v: string) => change(field.key, v),
+      readOnly: locked.has(field.key),
     };
-    if (field.key === "csv") {
+    if (field.key === PLOT_FILE) {
       const card = <SampleFileCard key={field.key} {...props} check={fileCheck} checking={checkingFile} checkError={fileCheckError} />;
       // In cloud mode the server assigns the plot files: they are offered first, as the Swing Sample data tab did
       if (!data?.info.cloudMode) return card;
       return (
         <Stack key={field.key} spacing={1.5}>
-          <CloudAssignmentsCard texts={texts} onChosen={(path) => change("csv", path)} />
+          <CloudAssignmentsCard texts={texts} onChosen={(path) => change(PLOT_FILE, path)} />
+          {props.readOnly && <Typography variant="body2" color="text.secondary" data-testid="plot-file-assigned">{s("SettingsPage.sampleFile.cloudHint")}</Typography>}
           {card}
         </Stack>
       );
@@ -203,13 +208,18 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
       <Stack key={section.id} spacing={2.5} data-testid={"section-" + section.id}>
         <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between" }}>
           {withTitle ? <Typography variant="h6" component="h2">{s(section.label)}</Typography> : <Box />}
-          {!searching && (
-            <Button size="small" onClick={() => { for (const [k, v] of Object.entries(defaultsOf(section, values))) change(k, v); }}>
+          {!searching && !(plotDesignLocked && section.id === PLOT_SECTION) && (
+            <Button size="small" onClick={() => {
+              for (const [k, v] of Object.entries(defaultsOf(section, values, lockedFields(section, data?.info, values)))) change(k, v);
+            }}>
               {s("SettingsPage.restoreDefaults")}
             </Button>
           )}
         </Stack>
         {section.hint && !searching && <Typography variant="body2" color="text.secondary">{s(section.hint)}</Typography>}
+        {plotDesignLocked && section.id === PLOT_SECTION && (
+          <Alert severity="info" data-testid="plot-design-locked">{s("SettingsPage.plot.cloudLocked")}</Alert>
+        )}
         {section.id === "plot" && !searching ? (
           <Stack direction={wide ? "row" : "column"} spacing={3}>
             <Stack spacing={2.5} sx={{ flex: 1, minWidth: 0 }}>{visible.map(renderField)}</Stack>

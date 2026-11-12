@@ -71,6 +71,15 @@ public final class Validation {
 		warnings.putIfAbsent(key, message);
 	}
 
+	/** The error of a setting put in place of the one found, or taken away when null (SettingsService's cloud rules) */
+	void replaceError(String key, String message) {
+		if (message == null) {
+			errors.remove(key);
+		} else {
+			errors.put(key, message);
+		}
+	}
+
 	boolean hasError(String key) {
 		return errors.containsKey(key);
 	}

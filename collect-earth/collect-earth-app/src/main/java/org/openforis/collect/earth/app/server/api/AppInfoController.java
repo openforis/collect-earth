@@ -13,7 +13,6 @@ import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
-import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.openforis.collect.earth.app.service.WindowLayoutService;
 import org.openforis.collect.earth.app.view.Messages;
@@ -24,7 +23,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-/** What the app bar and the home page show (app.ts), and the operator they let the user change. */
+/** What the app bar shows (app.ts), and the operator it lets the user change. */
 @RestController
 public class AppInfoController {
 
@@ -80,8 +79,6 @@ public class AppInfoController {
 		String operator = properties.getOperator();
 		app.put("operator", operator);
 		app.put("language", properties.getUiLanguage().getLocale().getLanguage());
-		app.put("viewer", properties.getValue(EarthProperty.VIEWER_TYPE));
-		app.put("plotsMap", properties.isPlotsMapViewer());
 		app.put("version", version());
 		// Stage 5: the title, the Help menu and the About dialog, the cloud login
 		boolean cloud = properties.isCloudSyncEnabled();

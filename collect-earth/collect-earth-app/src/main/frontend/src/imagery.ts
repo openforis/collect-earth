@@ -1,27 +1,25 @@
 import type { ImagerySource, ImageryStatus } from "./types";
 
 /**
- * The source buttons: one per tab, none when there is nothing to switch between. In Google Earth Web's panel
- * ({@code inPanel}) none for Google Earth Web, which is the page around it, and one even for a single other source:
- * its button brings the window of the other sources forward.
+ * The source buttons of Google Earth Web's panel: one per tab but Google Earth Web's, which is the page around the
+ * panel; one even for a single other source, as its button brings the window of the other sources forward.
  */
-export function imageryChoices(status: ImageryStatus, inPanel = false): { source: ImagerySource; shown: boolean }[] {
-  const sources = inPanel ? status.sources.filter((source) => source !== "GOOGLE_EARTH_WEB") : status.sources;
-  if (sources.length < (inPanel ? 1 : 2)) return [];
-  return sources.map((source) => ({ source, shown: source === status.visible }));
+export function imageryChoices(status: ImageryStatus): { source: ImagerySource; shown: boolean }[] {
+  return status.sources.filter((source) => source !== "GOOGLE_EARTH_WEB")
+    .map((source) => ({ source, shown: source === status.visible }));
 }
 
 /**
- * The number of a source's key (Alt+1, Alt+2...): its place among the tabs, Google Earth Web first, so that a source has
- * the same number in the plots map and in Google Earth Web's panel, which has no button for Google Earth Web.
+ * The number of a source's key (Alt+1, Alt+2...): its place among the tabs, Google Earth Web first, though it has no
+ * button.
  */
 export function imageryNumberOf(status: ImageryStatus, source: ImagerySource): number {
   return status.sources.indexOf(source) + 1;
 }
 
 /** The source the key of number `n` shows (see imageryNumberOf), when it has a button; null otherwise */
-export function imageryForNumber(status: ImageryStatus, inPanel: boolean, n: number): ImagerySource | null {
-  return imageryChoices(status, inPanel).find((c) => imageryNumberOf(status, c.source) === n)?.source ?? null;
+export function imageryForNumber(status: ImageryStatus, n: number): ImagerySource | null {
+  return imageryChoices(status).find((c) => imageryNumberOf(status, c.source) === n)?.source ?? null;
 }
 
 /** The source the user picked, and until when it is shown pressed whatever the server says. */

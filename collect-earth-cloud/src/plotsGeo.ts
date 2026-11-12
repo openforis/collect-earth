@@ -41,6 +41,8 @@ export interface GeoFile {
   units: readonly string[];
   /** unit -> [lat, lon]; null when its places cannot be given (another coordinate system, or the file could not be read). */
   places: ReadonlyMap<string, readonly [number, number]> | null;
+  /** Its plots are divided between people (coordinators: the plots a selection on the map can move). */
+  divided?: boolean;
 }
 
 export interface GeoInput {
@@ -56,8 +58,10 @@ export interface GeoInput {
   resubmitted?: ReadonlySet<string> | null;
   /** The id the collector sees (visibleId); absent when it is always the unit. */
   nameOf?: ((unit: string) => string) | null;
-  /** Whether to say who holds each plot (coordinators only). */
+  /** Whether to say who holds each plot, which plot file it is in and which are reference plots (coordinators only). */
   people: boolean;
+  /** The reference plots (Task 14), which never move (coordinators). */
+  reference?: ReadonlySet<string> | null;
   /** Only this plot file's plots, placed by it. */
   file?: string | null;
   /** Only the plots this person holds or made the first assessment of. */
@@ -71,6 +75,8 @@ export interface GeoFileRow {
   plots: number;
   /** Of those, the ones with a place. */
   onMap: number;
+  /** Coordinators: whether its plots are divided between people (a whole file's plots do not move one by one). */
+  divided?: boolean;
 }
 
 export interface GeoMap {
@@ -83,6 +89,13 @@ export interface GeoMap {
   holder: number[];
   /** The id the collector sees of each plot; null when it is the plot id for every plot. */
   names: string[] | null;
+  /**
+   * Coordinators: the plot file each plot is in, as an index in `files`; -1 when several plot files
+   * list it (who holds it then depends on the file). Null for a reviewer.
+   */
+  file: number[] | null;
+  /** Coordinators: the reference plots on the map, as indexes in `plots`; null for a reviewer. */
+  reference: number[] | null;
   /** Everyone who holds a plot or made a first assessment (the person filter); null for a reviewer. */
   people: string[] | null;
   /** The different groups of people holding a plot, names sorted; null for a reviewer. */
@@ -149,6 +162,8 @@ export function plotsGeo(input: GeoInput): GeoMap {
     status: [],
     holder: [],
     names: input.nameOf ? [] : null,
+    file: input.people ? [] : null,
+    reference: input.people ? [] : null,
     people,
     holders: input.people ? [] : null,
     counts: GEO_STATUSES.map(() => 0),
@@ -169,6 +184,20 @@ export function plotsGeo(input: GeoInput): GeoMap {
     }
     return index;
   };
+
+  // Coordinators: the plot file of each plot (-1 when several list it), for a selection on the map.
+  let fileOf: Map<string, number> | null = null;
+  if (input.people) {
+    fileOf = new Map();
+    input.files.forEach((file, index) => {
+      for (const unit of file.units) {
+        const was = fileOf!.get(unit);
+        if (was === undefined) fileOf!.set(unit, index);
+        else if (was !== index) fileOf!.set(unit, -1);
+      }
+    });
+  }
+  const reference = input.people ? input.reference : null;
 
   // Each plot once: its place from the first file listed that gives it one (as PlotPlaceReader),
   // or from the file asked for.
@@ -200,8 +229,10 @@ export function plotsGeo(input: GeoInput): GeoMap {
       map.status.push(geoStatus(unit, progress, input.decisions, input.differing, input.resubmitted));
       map.holder.push(groupOf(unit));
       map.names?.push(input.nameOf!(unit));
+      if (fileOf) map.file!.push(fileOf.get(unit) ?? -1);
+      if (reference?.has(unit)) map.reference!.push(map.plots.length - 1);
     }
-    map.files.push({ id: file.id, filename: file.filename, plots, onMap });
+    map.files.push(input.people ? { id: file.id, filename: file.filename, plots, onMap, divided: file.divided === true } : { id: file.id, filename: file.filename, plots, onMap });
   }
   // Plots no file listed gives a place.
   for (const unit of new Set(pending)) {
@@ -219,6 +250,10 @@ export interface GeoPage {
   plots: string[];
   /** The id the collector sees of each point; null when it is the plot id. */
   names: string[] | null;
+  /** Coordinators: each point's plot file (index in `files`, -1 when several list it); null for a reviewer. */
+  file: number[] | null;
+  /** Coordinators: the reference plots of this page, by their index in the whole map (offset + i); null for a reviewer. */
+  reference: number[] | null;
   /** The offset of the next page; null on the last. */
   next: number | null;
 }
@@ -228,5 +263,12 @@ export function geoPage(map: GeoMap, offset: number, size = GEO_PAGE_SIZE): GeoP
   const end = Math.min(map.plots.length, offset + size);
   const points: [number, number, number, number][] = [];
   for (let i = offset; i < end; i++) points.push([map.lat[i], map.lon[i], map.status[i], map.holder[i]]);
-  return { points, plots: map.plots.slice(offset, end), names: map.names?.slice(offset, end) ?? null, next: end < map.plots.length ? end : null };
+  return {
+    points,
+    plots: map.plots.slice(offset, end),
+    names: map.names?.slice(offset, end) ?? null,
+    file: map.file?.slice(offset, end) ?? null,
+    reference: map.reference?.filter((i) => i >= offset && i < end) ?? null,
+    next: end < map.plots.length ? end : null,
+  };
 }

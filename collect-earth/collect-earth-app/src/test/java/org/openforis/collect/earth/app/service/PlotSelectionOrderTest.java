@@ -25,16 +25,11 @@ import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
  */
 public class PlotSelectionOrderTest {
 
-	/** Google Earth Web as the viewer, recording the plots it shows instead of showing them. */
+	/** Google Earth Web, recording the plots it shows instead of showing them. */
 	static class RecordingGoogleEarthWeb extends GoogleEarthWebService {
 		final List<String> shown = Collections.synchronizedList(new ArrayList<>());
 		volatile CountDownLatch inShow;
 		volatile CountDownLatch release;
-
-		@Override
-		boolean isTheViewer() {
-			return true;
-		}
 
 		@Override
 		void showSelected(SimplePlacemarkObject plot) {

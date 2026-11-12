@@ -41,13 +41,11 @@ public class ImageryErrorReporterTest {
 	public void theReportSaysWhichSourceAndBrowser() {
 		RecordingReporter reporter = new RecordingReporter();
 		reporter.setBrowser("firefox", "158.0");
-		reporter.setViewerType("google_earth_web");
 		reporter.report(ImagerySource.PLANET, "page_script", new PageScriptException("x"));
 		Map<String, String> tags = reporter.sent.get(0);
 		assertEquals("PLANET", tags.get("imagery.source"));
 		assertEquals("firefox", tags.get("browser"));
 		assertEquals("158.0", tags.get("browser.version"));
 		assertEquals("true", tags.get("bidi"));
-		assertEquals("google_earth_web", tags.get("viewer_type"));
 	}
 }

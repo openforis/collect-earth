@@ -2,7 +2,20 @@
  * The notices the server wants the pages to show (NoticeService): announcements, the offer of a new version, the
  * errors logged, the server's warnings. The pages poll them and show the first.
  */
-export interface NoticeOption { id: string; label: string }
+export interface NoticeOption {
+  id: string;
+  label: string;
+  /** A line under the label of a choice (a file's number of plots, say) */
+  detail?: string;
+  /** Listed in the notice to pick from (Notice.choice), not a button: sent as "true" */
+  choice?: string | boolean;
+}
+
+/** The options of a notice listed in it to pick from, and those that are its buttons */
+export function splitOptions(options: NoticeOption[]): { choices: NoticeOption[]; buttons: NoticeOption[] } {
+  const isChoice = (o: NoticeOption) => o.choice === true || o.choice === "true";
+  return { choices: options.filter(isChoice), buttons: options.filter((o) => !isChoice(o)) };
+}
 
 export interface Notice {
   id: string;

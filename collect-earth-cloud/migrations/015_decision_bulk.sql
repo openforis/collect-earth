@@ -9,7 +9,7 @@ DO $$
 DECLARE
   wanted TEXT[] := ARRAY[
     'invite.created', 'invite.revoked', 'member.removed', 'member.anonymized', 'member.signed_out', 'member.role', 'cep.replaced',
-    'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'decision.set',
+    'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'plots.rebalanced', 'decision.set',
     'decision.deleted', 'decision.bulk', 'settings.changed', 'export.downloaded', 'survey.replaced',
     'sampling.drawn', 'reference.changed', 'link.created', 'link.revoked', 'training.changed', 'training.synced',
     'member.excluded', 'project.imported'];
@@ -23,7 +23,7 @@ BEGIN
     ALTER TABLE audit_log DROP CONSTRAINT IF EXISTS audit_log_action_check;
     ALTER TABLE audit_log ADD CONSTRAINT audit_log_action_check CHECK (action IN (
       'invite.created', 'invite.revoked', 'member.removed', 'member.anonymized', 'member.signed_out', 'member.role', 'cep.replaced',
-      'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'decision.set',
+      'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'plots.rebalanced', 'decision.set',
       'decision.deleted', 'decision.bulk', 'settings.changed', 'export.downloaded', 'survey.replaced',
       'sampling.drawn', 'reference.changed', 'link.created', 'link.revoked', 'training.changed', 'training.synced',
       'member.excluded', 'project.imported'));

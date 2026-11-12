@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   changes, choiceLabel, defaultsOf, fieldLabel, holds, isVisible, matches, monthLabel, proposeReferenceDistance,
-  restartNeeded, sectionsMatching, type Field, type Section,
+  lockedFields, plotFileLocked, restartNeeded, sectionsMatching, type Field, type Section,
 } from "./settings";
 
 const field = (key: string, extra: Partial<Field> = {}): Field =>
@@ -91,6 +91,29 @@ describe("changes", () => {
     const section: Section = { id: "s", label: "Section.plot", hint: null, fields: [field("csv", { default: "" }), field("port", { default: "8028" }),
       field("db_host", { default: "localhost", visible: { key: "db_driver", in: ["POSTGRESQL"] } })] };
     expect(defaultsOf(section, { db_driver: "SQLITE" })).toEqual({ csv: "", port: "8028" });
+    // The plots file of a cloud project is kept: it is one of the files assigned
+    expect(defaultsOf(section, { db_driver: "SQLITE" }, ["csv"])).toEqual({ port: "8028" });
+  });
+});
+
+describe("the plots file of a cloud project", () => {
+  const info = (cloudMode: boolean) => ({ computerIp: "", backupFolder: "", cloudMode });
+  it("is only chosen among the assigned files while the project stays a cloud one", () => {
+    expect(plotFileLocked(info(true), { db_driver: "CLOUD" })).toBe(true);
+    // Switching to another database leaves the cloud project: the field can be changed again
+    expect(plotFileLocked(info(true), { db_driver: "SQLITE" })).toBe(false);
+    expect(plotFileLocked(info(false), { db_driver: "SQLITE" })).toBe(false);
+    expect(plotFileLocked(null, { db_driver: "CLOUD" })).toBe(false);
+  });
+  it("and the whole plot design are only shown in a cloud project", () => {
+    const project: Section = { id: "project", label: "P", hint: null, fields: [field("csv"), field("survey_version")] };
+    const plot: Section = { id: "plot", label: "Section.plot", hint: null, fields: [field("sample_shape"), field("large_central_plot_side")] };
+    const storage: Section = { id: "storage", label: "S", hint: null, fields: [field("db_driver")] };
+    expect(lockedFields(project, info(true), { db_driver: "CLOUD" })).toEqual(["csv"]);
+    expect(lockedFields(plot, info(true), { db_driver: "CLOUD" })).toEqual(["sample_shape", "large_central_plot_side"]);
+    expect(lockedFields(storage, info(true), { db_driver: "CLOUD" })).toEqual([]);
+    for (const section of [project, plot]) expect(lockedFields(section, info(false), { db_driver: "SQLITE" })).toEqual([]);
+    expect(lockedFields(plot, info(true), { db_driver: "SQLITE" })).toEqual([]);
   });
 });
 

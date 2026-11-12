@@ -232,11 +232,12 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
   survey's) and `getPeriodStatus(record)` (its code, null when not answered); `loadRecordOf(summary)` loads a record
   once for both its status and its period status. `/earth/plotStatuses` sends `periods` (plot id → `same`, `changed`,
   `corrected`, or "" when not answered) with the statuses, for a repeat survey only.
-- The plots map (`plots.ts`: `matchesPeriod`, `countPeriods`, `plotColor`; `MapController.setPeriodFilter`): on a
+- The plots map (`plots.ts`: `matchesPeriod`, `countPeriods`; `MapController.setPeriodFilter`): on a
   repeat survey, under the status chips, **Compared with the earlier period**: All plots, Still the same, Changed since
   then, Wrongly interpreted then, Not answered yet, each with its count. The list shows the plots of the answer chosen
-  (with the status chips and the search), and the map keeps their colours and draws the others grey ("Left out by the
-  filter" in the legend); stepping to the previous or next plot follows the list. The choice is remembered, and ignored
+  (with the status chips and the search); stepping to the previous or next plot follows the list. (Built when Collect
+  Earth had its own plots map, which also drew the plots left out in grey; since the release branch made Google Earth Web
+  the only way to collect, the filter is on the plot list of its panel, and `plotColor` is gone.) The choice is remembered, and ignored
   on a project that repeats no survey. What the collector said on this computer only: the cloud's Map tab has
   everyone's. Texts in en/es/fr/pt.
 - Checked: `UntouchedPlotTest` (the period status read from the record), `plots.test.ts`, the Java suites, and a real

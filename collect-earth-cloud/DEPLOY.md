@@ -516,6 +516,9 @@ data a server from master already holds:
   Collectors get that version when they join (people who joined before the upload
   must join again). The Project file page says so, and the file you uploaded can
   still be downloaded from there.
+- Collectors get the project file with its plot files emptied (only the column
+  names kept): they see no plot until Collect Earth opens a plot file assigned to
+  them. Coordinators and reviewers get it whole, plots included.
 - In a divided plot file, the plots a person gets as quality-check copies come with
   round 2, the others with round 1. Collect Earth saves them as separate records
   ("17,1" and "17,2"), so a check never overwrites the first assessment. Collectors

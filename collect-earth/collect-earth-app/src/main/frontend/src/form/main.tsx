@@ -13,7 +13,7 @@ import { FormApp } from "./FormApp";
 import { FormStore } from "./store";
 import { uiScaleStyles } from "../uiScale";
 
-// /earth/form?id=<placemark id>&lang=<UI language>: the plots map opens it next to the map
+// /earth/form?id=<placemark id>&lang=<UI language>: the plots map opens it in its panel, in Google Earth Web
 const params = new URLSearchParams(window.location.search);
 const language = params.get("lang") ?? "en";
 document.documentElement.lang = language;

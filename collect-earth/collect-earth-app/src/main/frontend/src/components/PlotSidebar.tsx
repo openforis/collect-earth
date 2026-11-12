@@ -16,36 +16,25 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MenuOpenIcon from "@mui/icons-material/MenuOpen";
-import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
 import SearchIcon from "@mui/icons-material/Search";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
 import type { MapController, UiState } from "../controller";
 import { countPeriods, countStatuses, matchesElsewhere, plotLabel, visibleIds, type PeriodView } from "../plots";
 import { useT } from "../i18n";
 import { HANDS_FOCUS } from "../shortcuts";
-import { FADED_COLOR, PERIOD_FILTERS, type ListFilter, type PeriodFilter, type PlotStatus } from "../types";
+import { PERIOD_FILTERS, type ListFilter, type PeriodFilter, type PlotStatus } from "../types";
 import { Kbd, StatusDot } from "./common";
 import { useUiScale } from "../uiScale";
 
-export const SIDEBAR_WIDTH = 300;
-export const RAIL_WIDTH = 56;
 const ROW_HEIGHT = 40;
 
 /**
- * The plot list, or a rail with a button to show it. {@code collapsed} / {@code onCollapsedChange} override the
- * remembered choice (with {@code collapsed} alone the list cannot be hidden) and {@code fill} makes the list take the
- * whole window (the one-pane layout of App).
+ * The plot list, over the whole panel (the one-pane layout of App). {@code onHide}: a button that hides it, back to the
+ * form of the plot open.
  */
-export function PlotSidebar({ controller, state, collapsed, onCollapsedChange, fill }: {
-  controller: MapController; state: UiState;
-  collapsed?: boolean; onCollapsedChange?: (collapsed: boolean) => void; fill?: boolean;
-}) {
+export function PlotSidebar({ controller, state, onHide }: { controller: MapController; state: UiState; onHide?: () => void }) {
   const t = useT();
-  const scale = useUiScale();
   const { order, labels, statuses, filter, query, activeId, loaded } = state;
-  const sidebarCollapsed = collapsed ?? state.sidebarCollapsed;
-  const setCollapsed = onCollapsedChange ?? controller.setSidebarCollapsed;
-  const canCollapse = collapsed === undefined || onCollapsedChange !== undefined;
   const counts = useMemo(() => countStatuses(order, statuses), [order, statuses]);
   const { repeat, periods, periodFilter } = state;
   // a repeat survey's filter by what the collector said against the earlier period (see MapController.periodView)
@@ -64,26 +53,16 @@ export function PlotSidebar({ controller, state, collapsed, onCollapsedChange, f
   const elsewhere = useMemo(() => (visible.length ? null : matchesElsewhere(order, statuses, filter, query, labels, period)),
     [visible, order, statuses, filter, query, labels, period]);
 
-  if (sidebarCollapsed) {
-    return (
-      <Paper square elevation={0} sx={{ width: RAIL_WIDTH * scale, flexShrink: 0, borderRight: 1, borderColor: "divider", pt: 1, textAlign: "center", zIndex: 1100 }}>
-        <Tooltip title={t("showList")} placement="right">
-          <IconButton onClick={() => setCollapsed(false)} aria-label={t("showList")} data-testid="show-list"><FormatListBulletedIcon /></IconButton>
-        </Tooltip>
-      </Paper>
-    );
-  }
-
   const pct = counts.total ? Math.round((counts.saved * 100) / counts.total) : 0;
   return (
     <Paper square elevation={0} component="aside" aria-label={t("plots")} sx={{
-      width: fill ? "auto" : SIDEBAR_WIDTH * scale, flex: fill ? 1 : undefined, flexShrink: 0, display: "flex", flexDirection: "column",
+      flex: 1, display: "flex", flexDirection: "column",
       borderRight: 1, borderColor: "divider", zIndex: 1100,
     }}>
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", px: 1, pt: 1.5, pb: 1 }}>
-        {canCollapse && (
+        {onHide && (
           <Tooltip title={t("hideList")}>
-            <IconButton onClick={() => setCollapsed(true)} aria-label={t("hideList")} data-testid="hide-list"><MenuOpenIcon /></IconButton>
+            <IconButton onClick={onHide} aria-label={t("hideList")} data-testid="hide-list"><MenuOpenIcon /></IconButton>
           </Tooltip>
         )}
         <Box sx={{ minWidth: 0 }}>
@@ -168,13 +147,6 @@ export function PlotSidebar({ controller, state, collapsed, onCollapsedChange, f
             <Typography variant="caption" color="text.secondary">{t(`status.${s}`)}</Typography>
           </Stack>
         ))}
-        {repeat && periodFilter !== "all" && (
-          <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }} data-testid="period-faded">
-            <Box component="span" aria-hidden sx={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, display: "inline-block", bgcolor: FADED_COLOR,
-              boxShadow: "0 0 0 2px var(--mui-palette-background-paper), 0 0 0 3px rgba(0,0,0,.15)" }} />
-            <Typography variant="caption" color="text.secondary">{t("periodFilter.faded")}</Typography>
-          </Stack>
-        )}
       </Stack>
     </Paper>
   );

@@ -370,7 +370,7 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
     return reply
       .header('content-type', 'text/csv; charset=utf-8')
       .header('content-disposition', attachment(`${project?.name ?? 'project'}-change-areas-${question.key}-${period}-${settings.label}.csv`, 'change-areas.csv'))
-      .send(`\uFEFF${[header, ...lines].map((r) => r.map(csvField).join(',')).join('\r\n')}\r\n`);
+      .send(`\uFEFF${[header, ...lines].map((r) => r.map((v) => csvField(v)).join(',')).join('\r\n')}\r\n`);
   });
 
   // Every period side by side: the earlier periods' answers and this one's (the record taken for each plot, as the
@@ -399,7 +399,7 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
     return reply
       .header('content-type', 'text/csv; charset=utf-8')
       .header('content-disposition', attachment(`${project?.name ?? 'project'}-periods-${labels}.csv`, 'periods.csv'))
-      .send(`\uFEFF${[table.columns, ...table.rows].map((r) => r.map(csvField).join(',')).join('\r\n')}\r\n`);
+      .send(`\uFEFF${[table.columns, ...table.rows].map((r) => r.map((v) => csvField(v)).join(',')).join('\r\n')}\r\n`);
   });
 
   app.put('/v1/projects/:pid/periods/area', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -429,7 +429,7 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
     return reply
       .header('content-type', 'text/csv; charset=utf-8')
       .header('content-disposition', attachment(`${project?.name ?? 'project'}-change-${period}-${settings.label}.csv`, 'change.csv'))
-      .send(`\uFEFF${[header, ...lines].map((r) => r.map(csvField).join(',')).join('\r\n')}\r\n`);
+      .send(`\uFEFF${[header, ...lines].map((r) => r.map((v) => csvField(v)).join(',')).join('\r\n')}\r\n`);
   });
 
   app.get('/v1/projects/:pid/periods/plots/:plot', member, async (request: FastifyRequest, reply: FastifyReply) => {

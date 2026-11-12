@@ -24,7 +24,7 @@ export default defineConfig(({ command }) => ({
     // build-manifest.json: the files of the build, which LeafletMapController lets the browser keep a year (HttpCaching);
     // not in .vite/, as a jar may leave out a folder whose name starts with a dot
     manifest: "build-manifest.json",
-    // React + MUI (+ Leaflet for the map) loaded from localhost: the two pages share a chunk
+    // React + MUI (+ Leaflet for the plot preview of the settings) loaded from localhost: the two pages share a chunk
     chunkSizeWarningLimit: 1000,
     rollupOptions: { input: { map: resolve(import.meta.dirname, "map.html"), form: resolve(import.meta.dirname, "form.html") } },
   },

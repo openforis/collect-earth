@@ -91,16 +91,17 @@ export function localMapPlots(map: MapPlots): MapPlots {
 
 // --- Data ---------------------------------------------------------------------------
 
-export type DataSection = "download" | "backup" | "import" | "qualityCheck";
+export type DataSection = "download" | "ipcc" | "backup" | "import" | "qualityCheck";
 
 /**
  * The Data tab's cards. Alone: the data download only. The Collect Earth backup is for opening a
- * cloud project's data in Collect Earth, whose own database already holds every record here; the
+ * cloud project's data in Collect Earth, whose own database already holds every record here (and its IPCC tool makes
+ * the IPCC exports); the
  * import of a Collect Earth export brings a standalone project's records to the cloud; the quality check's pointer
  * is about checks.
  */
 export function dataSections(localMode: boolean): readonly DataSection[] {
-  return localMode ? ["download"] : ["download", "backup", "import", "qualityCheck"];
+  return localMode ? ["download"] : ["download", "ipcc", "backup", "import", "qualityCheck"];
 }
 
 // --- Quality ------------------------------------------------------------------------

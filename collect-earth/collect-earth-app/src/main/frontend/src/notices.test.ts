@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { changesAppInfo, nextNotice, opensSendToCloud, type Notice } from "./notices";
+import { changesAppInfo, nextNotice, opensSendToCloud, type Notice, splitOptions } from "./notices";
 
 describe("the offer to send this computer's records after joining a cloud project", () => {
   const offer = { id: "1", kind: "cloudSendRecords", severity: "info", title: "", message: "", html: false, options: [] } as Notice;
@@ -11,6 +11,18 @@ describe("the offer to send this computer's records after joining a cloud projec
 });
 
 const notice = (id: string): Notice => ({ id, kind: "error", severity: "error", title: "t", message: "m", html: false, options: [{ id: "ok", label: "Ok" }] });
+
+describe("a notice's choices", () => {
+  it("are the options to pick from in it; the others are its buttons", () => {
+    const options = [
+      { id: "f1", label: "north.csv", detail: "120 plots", choice: "true" },
+      { id: "f2", label: "south.csv", detail: "80 plots", choice: true },
+      { id: "later", label: "Later" },
+    ];
+    expect(splitOptions(options)).toEqual({ choices: [options[0], options[1]], buttons: [options[2]] });
+    expect(splitOptions([{ id: "ok", label: "Ok" }])).toEqual({ choices: [], buttons: [{ id: "ok", label: "Ok" }] });
+  });
+});
 
 describe("the notices", () => {
   it("show the first one not answered", () => {

@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactElement, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactElement } from "react";
 import MuiAppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -10,10 +9,6 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
-import Menu from "@mui/material/Menu";
-import MenuItem from "@mui/material/MenuItem";
 import Snackbar from "@mui/material/Snackbar";
 import TextField from "@mui/material/TextField";
 import Toolbar from "@mui/material/Toolbar";
@@ -33,14 +28,13 @@ import SyncProblemOutlinedIcon from "@mui/icons-material/SyncProblemOutlined";
 import { Logo } from "./Logo";
 import { apiPut } from "../apiClient";
 import type { AppInfo } from "../appInfo";
-import { actionOf, comingSoon, errorText, operatorRequired, quitServer, type AppAction } from "../appBar";
-import { droppedKind } from "../project";
+import { actionOf, errorText, operatorRequired, quitServer, type AppAction } from "../appBar";
+import { droppedKind, droppedRefusal } from "../project";
 import { cloudLogin, setErrorsShown as setErrorsShown_, uploadFile } from "../projectApi";
 import { saveSettings } from "../settingsApi";
 import { useT } from "../i18n";
 import { CLOUD_DASHBOARD_NOTE, appMenus, type MenuItem as AppMenuItem } from "../menus";
 import { type ChipIcon, type ProjectChip, cloudProjectOf, fallbackState, projectChip, serverOf, useCloudState, youChip } from "../cloud";
-import { MenuEntryIcon } from "../menuIcons";
 import { AppDrawer, DRAWER_ID } from "./AppDrawer";
 import { serverText, type Texts } from "../serverTexts";
 import { formatText } from "../settings";
@@ -70,8 +64,6 @@ interface Props {
   texts: Texts | null;
   /** Reads /api/app again, after the operator changed. */
   reload: () => void;
-  /** A narrow window, or Google Earth Web's panel: the menus go under one button, and the project name goes. */
-  compact: boolean;
   /** Opens the settings page (the Settings menu). */
   onSettings: () => void;
 }
@@ -82,23 +74,20 @@ interface Props {
  * when there is none, as the Swing window did at start-up, and once Collect Earth quits it covers the page, which can
  * do nothing more.
  */
-export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
+export function AppBar({ info, texts, reload, onSettings }: Props) {
   const t = useT();
   // Where the project keeps its data and how its sending goes; what /api/app knows until it is read
   const [cloudNow, refreshCloud] = useCloudState(info.cloud);
   const cloud = cloudNow ?? fallbackState(info.project, info.cloud);
   const server = serverOf(cloud.project);
-  // The note of the cloud dashboard's entry names the server ({0}), in the wide menus and in the drawer; none while the
-  // server is not known
+  // The note of the cloud dashboard's entry names the server ({0}) in the drawer; none while the server is not known
   const barTexts = useMemo(() => (texts && info.cloud
     ? { ...texts, [CLOUD_DASHBOARD_NOTE]: server ? formatText(texts[CLOUD_DASHBOARD_NOTE] ?? "", server) : "" }
     : texts), [texts, info.cloud, server]);
   const s = (key: string) => serverText(barTexts, key);
-  const menus = useMemo(() => appMenus({ plotsMap: info.plotsMap, surveyGuide: info.surveyGuide, client: info.client, cloud: info.cloud }), [info.plotsMap, info.surveyGuide, info.client, info.cloud]);
-  // The menu open and the button it hangs from; the id is null for the drawer of the compact bar
-  const [open, setOpen] = useState<{ anchor: HTMLElement; id: string | null } | null>(null);
-  // The menu of the wide bar opened last: it keeps its entries and its button while it fades out
-  const [wideMenu, setWideMenu] = useState<{ anchor: HTMLElement; id: string } | null>(null);
+  const menus = useMemo(() => appMenus({ surveyGuide: info.surveyGuide, client: info.client, cloud: info.cloud }), [info.surveyGuide, info.client, info.cloud]);
+  // Whether the drawer of the menus is open
+  const [open, setOpen] = useState(false);
   const [operatorOpen, setOperatorOpen] = useState(false);
   // The operator just saved, shown (and no longer missing) at once, until /api/app is read again
   const [savedOperator, setSavedOperator] = useState<string | null>(null);
@@ -107,7 +96,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   const [quitOpen, setQuitOpen] = useState(false);
   const [closed, setClosed] = useState(false);
   // The dialog of a menu that is open
-  const [dialog, setDialog] = useState<Exclude<AppAction, "quit" | "settings" | "analyse" | "dataFolder" | "openPlotsMap" | "myDashboard" | "surveyGuide" | "manual" | "support" | "updates" | "showExceptions"> | null>(null);
+  const [dialog, setDialog] = useState<Exclude<AppAction, "quit" | "settings" | "analyse" | "dataFolder" | "myDashboard" | "surveyGuide" | "manual" | "support" | "updates" | "showExceptions"> | null>(null);
   // What a quick action (open the data folder, the manual...) answered when it could not be done
   const [actionError, setActionError] = useState<string | null>(null);
   const forced = operatorRequired({ ...info, operator });
@@ -123,6 +112,8 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   useDroppedFiles((file) => {
     const kind = droppedKind(file.name);
     if (!kind) { setActionError(s("ProjectPage.drop.unknown")); return; }
+    const refusal = droppedRefusal(kind, info.cloud);
+    if (refusal) { setActionError(s(refusal)); return; }
     uploadFile(file).then((r) => {
       setDropped({ kind, path: r.path });
       setDialog(kind === "cep" ? "importCep" : kind === "kml" ? "loadKml" : null);
@@ -140,7 +131,7 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
     quit: () => setQuitOpen(true), settings: onSettings,
     export: () => setDialog("export"), import: () => setDialog("import"),
     analyse: quick("openAnalysis"), lulucf: () => setDialog("lulucf"), loadKml: () => setDialog("loadKml"),
-    dataFolder: quick("openDataFolder"), openPlotsMap: quick("openPlotsMap"), myDashboard: quick("openDashboard"),
+    dataFolder: quick("openDataFolder"), myDashboard: quick("openDashboard"),
     missingPlots: () => setDialog("missingPlots"), divideCsv: () => setDialog("divideCsv"), deletePlots: () => setDialog("deletePlots"),
     sendToCloud: () => setDialog("sendToCloud"),
     importCep: () => { setDropped(null); setDialog("importCep"); }, projects: () => setDialog("projects"), joinCloud: () => setDialog("joinCloud"), cloudStatus: () => setDialog("cloudStatus"), language: () => setDialog("language"),
@@ -161,50 +152,9 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
   }, []);
   const toggles: Record<string, boolean> = { showExceptions: errorsShown };
   const run = (item: AppMenuItem) => {
-    setOpen(null);
+    setOpen(false);
     const action = actionOf(item);
     if (action) actions[action]();
-  };
-
-  const entry = (item: AppMenuItem): ReactNode => {
-    if (item.disabledReason) {
-      // Looks disabled but is not, so the tooltip gets the pointer; aria-disabled keeps it an item of the list that
-      // the keyboard and a screen reader find unavailable, and the tooltip describes it
-      return (
-        <Tooltip key={item.id} title={s(item.disabledReason)} placement="right" describeChild>
-          <MenuItem aria-disabled="true" onClick={(e) => e.preventDefault()} sx={{ opacity: 0.38, cursor: "default", "&:hover": { bgcolor: "transparent" } }}>
-            <ListItemIcon><MenuEntryIcon id={item.id} /></ListItemIcon>
-            <ListItemText primary={s(item.label)} />
-          </MenuItem>
-        </Tooltip>
-      );
-    }
-    if (!comingSoon(item) && item.kind === "toggle") {
-      return (
-        <MenuItem key={item.id} onClick={() => run(item)} role="menuitemcheckbox" aria-checked={toggles[item.id] ?? false}>
-          <ListItemIcon><Checkbox size="small" checked={toggles[item.id] ?? false} tabIndex={-1} disableRipple sx={{ p: 0 }} /></ListItemIcon>
-          <ListItemText primary={s(item.label)} />
-        </MenuItem>
-      );
-    }
-    if (!comingSoon(item)) {
-      return (
-        <MenuItem key={item.id} onClick={() => run(item)}>
-          <ListItemIcon><MenuEntryIcon id={item.id} /></ListItemIcon>
-          <ListItemText primary={s(item.label)} secondary={item.note ? s(item.note) : undefined} />
-        </MenuItem>
-      );
-    }
-    // "Coming soon" is written under the entry, not in a tooltip: a disabled entry gets no pointer events, and a
-    // tooltip would need a wrapper, which is no item of the list for the keyboard or a screen reader
-    return (
-      <MenuItem key={item.id} disabled>
-        <ListItemIcon>
-          {item.kind === "toggle" ? <Checkbox disabled size="small" sx={{ p: 0 }} /> : <MenuEntryIcon id={item.id} />}
-        </ListItemIcon>
-        <ListItemText primary={s(item.label)} secondary={t("appBar.comingSoon")} />
-      </MenuItem>
-    );
   };
 
   const chip = projectChip(cloud, t, (iso) => new Date(iso).toLocaleString(info.language));
@@ -220,31 +170,15 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
     <MuiAppBar position="static" color="default" elevation={1}>
       {/* No media query (the gutters of Toolbar have one): in Google Earth Web's panel the frame is the whole window while a
           dialog is open (panelDialogs.ts), and the bar behind it would move */}
-      <Toolbar variant="dense" disableGutters sx={{ gap: 1, px: compact ? 1 : 1.5 }}>
-        {compact && (
-          <IconButton edge="start" aria-label={t("appBar.menu")} id="app-menu-button-all"
-            aria-controls={open?.id === null ? DRAWER_ID : undefined} aria-expanded={open?.id === null}
-            onClick={(e) => setOpen({ anchor: e.currentTarget, id: null })}>
-            {/* The three dots of today's apps: clearer than the three lines, as people told */}
-            <MoreVertIcon />
-          </IconButton>
-        )}
+      <Toolbar variant="dense" disableGutters sx={{ gap: 1, px: 1 }}>
+        <IconButton edge="start" aria-label={t("appBar.menu")} id="app-menu-button-all"
+          aria-controls={open ? DRAWER_ID : undefined} aria-expanded={open} onClick={() => setOpen(true)}>
+          {/* The three dots of today's apps: clearer than the three lines, as people told */}
+          <MoreVertIcon />
+        </IconButton>
         <Logo sx={{ height: 40, flexShrink: 0 }} />
-        {!compact && info.project && (
-          <Typography variant="subtitle1" noWrap title={info.project} sx={{ fontWeight: 600, minWidth: 0, flexShrink: 1, mr: 1 }}>
-            {info.project}
-          </Typography>
-        )}
         {/* Where the project keeps its data, always in sight: this computer, or the cloud project and its sending */}
-        {info.project && <ProjectChipView chip={chip} compact={compact} onStatus={() => setDialog("cloudStatus")} onSignIn={() => setCloudPrompt("login")} />}
-        {!compact && menus.map((menu) => (
-          <Button key={menu.id} color="inherit" size="small" sx={{ flexShrink: 0 }} aria-haspopup="menu"
-            id={"app-menu-button-" + menu.id} aria-controls={open?.id === menu.id ? "app-menu" : undefined}
-            aria-expanded={open?.id === menu.id}
-            onClick={(e) => { setOpen({ anchor: e.currentTarget, id: menu.id }); setWideMenu({ anchor: e.currentTarget, id: menu.id }); }}>
-            {s(menu.label)}
-          </Button>
-        ))}
+        {info.project && <ProjectChipView chip={chip} onStatus={() => setDialog("cloudStatus")} onSignIn={() => setCloudPrompt("login")} />}
         <Box sx={{ flex: 1 }} />
         {/* The settings beside you, one click from the plot form, without going through the menus */}
         <Tooltip title={t("appBar.settingsTip")}>
@@ -263,35 +197,24 @@ export function AppBar({ info, texts, reload, compact, onSettings }: Props) {
           ) : (
             <Tooltip title={you.tip} describeChild>
               <Chip icon={<PersonIcon />} size="small" variant="outlined" onClick={() => setDialog("cloudStatus")}
-                label={compact ? you.short : you.label} aria-label={you.name} sx={{ maxWidth: compact ? 140 : 280 }} data-testid="user-chip" />
+                label={you.short} aria-label={you.name} sx={{ maxWidth: 140 }} data-testid="user-chip" />
             </Tooltip>
           )
         ) : (
           <Tooltip title={s("User.nameTip")}>
             <Chip icon={<PersonIcon />} size="small" variant="outlined" onClick={() => setOperatorOpen(true)}
-              label={operator || s("User.name")} sx={{ maxWidth: compact ? 140 : 240 }} data-testid="user-chip" />
+              label={operator || s("User.name")} sx={{ maxWidth: 140 }} data-testid="user-chip" />
           </Tooltip>
         )}
         {/* Quit, always in sight and red, so it is not taken for anything else: closing the window only asks whether to quit, and the icon by the clock is easy to miss */}
         <Tooltip title={t("appBar.quitTip")}>
-          {compact ? (
-            <IconButton edge="end" color="error" aria-label={s("WindowClosed.quit")} onClick={() => setQuitOpen(true)} data-testid="quit-button">
-              <PowerSettingsNewIcon />
-            </IconButton>
-          ) : (
-            <Button color="error" size="small" startIcon={<PowerSettingsNewIcon />} onClick={() => setQuitOpen(true)}
-              sx={{ flexShrink: 0 }} data-testid="quit-button">
-              {s("CollectEarthWindow.42")}
-            </Button>
-          )}
+          <IconButton edge="end" color="error" aria-label={s("WindowClosed.quit")} onClick={() => setQuitOpen(true)} data-testid="quit-button">
+            <PowerSettingsNewIcon />
+          </IconButton>
         </Tooltip>
       </Toolbar>
 
-      <Menu id="app-menu" anchorEl={wideMenu?.anchor} open={open !== null && open.id !== null && wideMenu !== null} onClose={() => setOpen(null)}
-        slotProps={{ list: { "aria-labelledby": "app-menu-button-" + wideMenu?.id } }}>
-        {wideMenu && menus.find((m) => m.id === wideMenu.id)?.items.map(entry)}
-      </Menu>
-      <AppDrawer open={open !== null && open.id === null} onClose={() => setOpen(null)} menus={menus} project={info.project}
+      <AppDrawer open={open} onClose={() => setOpen(false)} menus={menus} project={info.project}
         texts={barTexts} toggles={toggles} onRun={run} />
 
       <OperatorDialog open={forced || operatorOpen} forced={forced} operator={operator} texts={texts}
@@ -465,10 +388,10 @@ const CHIP_ICONS: Record<ChipIcon, ReactElement> = {
 };
 
 /**
- * The project chip (cloud.ts, projectChip): its icon and words, only the icon in the compact bar, the whole of it as its
- * name and the tooltip as its description. A click shows the sync status, or the login when the server wants one.
+ * The project chip (cloud.ts, projectChip): only its icon shows, the whole of it is its name and the tooltip its
+ * description. A click shows the sync status, or the login when the server wants one.
  */
-function ProjectChipView({ chip, compact, onStatus, onSignIn }: { chip: ProjectChip; compact: boolean; onStatus: () => void; onSignIn: () => void }) {
+function ProjectChipView({ chip, onStatus, onSignIn }: { chip: ProjectChip; onStatus: () => void; onSignIn: () => void }) {
   const onClick = chip.action === "status" ? onStatus : chip.action === "signIn" ? onSignIn : undefined;
   return (
     <Tooltip title={chip.tip} describeChild>
@@ -476,8 +399,7 @@ function ProjectChipView({ chip, compact, onStatus, onSignIn }: { chip: ProjectC
       <Chip icon={CHIP_ICONS[chip.icon]} size="small" variant="outlined" color={chip.color} onClick={onClick}
         label={chip.status ? chip.label + " · " + chip.status : chip.label} aria-label={chip.name}
         {...(onClick ? {} : { tabIndex: 0, role: "img" })} data-testid="project-chip" data-state={chip.icon}
-        sx={{ flexShrink: compact ? 0 : 1, minWidth: 0, maxWidth: 320,
-          ...(compact && { "& .MuiChip-label": { display: "none" }, "& .MuiChip-icon": { mx: "4px !important" } }) }} />
+        sx={{ flexShrink: 0, minWidth: 0, maxWidth: 320, "& .MuiChip-label": { display: "none" }, "& .MuiChip-icon": { mx: "4px !important" } }} />
     </Tooltip>
   );
 }

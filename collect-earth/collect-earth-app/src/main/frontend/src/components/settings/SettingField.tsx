@@ -21,7 +21,7 @@ import { serverText, type Texts } from "../../serverTexts";
 export interface SettingFieldProps {
   field: Field;
   value: string;
-  /** All the values, for the label and the description that depend on them */
+  /** All the values, for the label that depends on them */
   values: Values;
   texts: Texts | null;
   error?: string;
@@ -30,6 +30,8 @@ export interface SettingFieldProps {
   onChange: (value: string) => void;
   /** For the tests and the native dialog: how a file or folder is picked; the API's dialog by default */
   pickFile?: typeof chooseFile;
+  /** Shown, not changed here: a file or folder read-only without Browse, any other field disabled */
+  readOnly?: boolean;
 }
 
 /**
@@ -37,18 +39,16 @@ export interface SettingFieldProps {
  * a path with Browse, or a date. Under it the tooltip, or the error or the warning of the last validation in its
  * place; a setting only a new server reads carries a Restart chip, as applying it restarts Collect Earth.
  */
-export function SettingField({ field, value, values, texts, error, warning, changed, onChange, pickFile = chooseFile }: SettingFieldProps) {
+export function SettingField({ field, value, values, texts, error, warning, changed, onChange, pickFile = chooseFile, readOnly = false }: SettingFieldProps) {
   const s = (key: string) => serverText(texts, key);
   const [shown, setShown] = useState(false);
   const label = s(fieldLabel(field, values));
   const tooltip = field.tooltip ? s(field.tooltip) : "";
   const hint = field.type === "date" ? [tooltip, s("SettingsPage.date.hint")].filter(Boolean).join(". ") : tooltip;
-  const description = field.type === "choice" ? field.choices?.find((c) => c.value === value)?.description : undefined;
   const message = error ?? warning ?? hint;
   const helper = (
     <FormHelperText component="div" error={!!error} sx={{ mx: 0, color: !error && warning ? "warning.main" : undefined, whiteSpace: "pre-line" }}>
       {message}
-      {description && <Typography variant="caption" component="p" color="text.secondary" sx={{ mt: 0.5 }}>{s(description)}</Typography>}
     </FormHelperText>
   );
   const chip = field.restart ? <Chip label={s("SettingsPage.restartBadge")} size="small" variant="outlined" color="warning" /> : null;
@@ -62,7 +62,7 @@ export function SettingField({ field, value, values, texts, error, warning, chan
   );
   const id = "setting-" + field.key;
   const common = {
-    id, fullWidth: true, size: "small" as const, value, error: !!error,
+    id, fullWidth: true, size: "small" as const, value, error: !!error, disabled: readOnly,
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(e.target.value),
     slotProps: { input: { "aria-describedby": id + "-help" } },
   };
@@ -72,7 +72,7 @@ export function SettingField({ field, value, values, texts, error, warning, chan
     case "boolean":
       return (
         <FormControl component="fieldset" data-testid={"field-" + field.key} data-changed={changed || undefined}>
-          <FormControlLabel control={<Switch id={id} checked={value === "true"} onChange={(e) => onChange(e.target.checked ? "true" : "false")} />}
+          <FormControlLabel disabled={readOnly} control={<Switch id={id} checked={value === "true"} onChange={(e) => onChange(e.target.checked ? "true" : "false")} />}
             label={<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}><span style={{ fontWeight: changed ? 700 : 500 }}>{label}</span>{chip}</Stack>} />
           {helper}
         </FormControl>
@@ -101,6 +101,11 @@ export function SettingField({ field, value, values, texts, error, warning, chan
       break;
     case "file":
     case "folder":
+      if (readOnly) {
+        // Read-only rather than disabled: the path stays legible and can be copied
+        control = <TextField {...common} disabled={false} slotProps={{ input: { readOnly: true, "aria-describedby": id + "-help" } }} />;
+        break;
+      }
       control = (
         <Stack direction="row" spacing={1}>
           <TextField {...common} />

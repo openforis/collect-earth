@@ -4,12 +4,12 @@ import java.time.Duration;
 import java.util.function.LongSupplier;
 
 /**
- * When {@link PlotsMapKeeper} looks whether the plots map window is still open, and reopens it: the decision, without
- * the windows, so that it can be tested.
+ * When {@link PlotsMapKeeper} looks whether Google Earth Web's window, with the plots map in its panel, is still open,
+ * and reopens it: the decision, without the windows, so that it can be tested.
  * <p>
  * The plots map holds the data entry form: closed, it leaves the user no way to fill in a plot. A browser window cannot
- * refuse to close, so it is opened again - but only once it was opened at all (the classic viewer never opens it),
- * while it is the viewer, and not while Collect Earth closes its browsers. When the browser cannot start, a reopen
+ * refuse to close, so it is opened again - but only once it was opened at all, and not while Collect Earth closes its
+ * browsers. When the browser cannot start, a reopen
  * every check would start the whole search for a browser every two seconds and flood the log: after a failed reopen
  * the window is left alone for {@link #BACK_OFF}, and only the first failure in a row is worth a warning.
  */
@@ -36,7 +36,7 @@ final class PlotsMapReopening {
 		this.backOffNanos = backOff.toNanos();
 	}
 
-	/** The plots map window opened (the first time, or again): it is kept open from now on, and works again. */
+	/** Google Earth Web opened with the plots map (the first time, or again): it is kept open from now on, and works again. */
 	synchronized void opened() {
 		opened = true;
 		failed = false;
@@ -60,11 +60,10 @@ final class PlotsMapReopening {
 	/**
 	 * Whether to look at the window now (a call to its browser), and to reopen it if it is closed.
 	 *
-	 * @param plotsMapViewer whether the plot viewer is the plots map (with or without Google Earth Web)
-	 * @param closing        whether Collect Earth is closing its browsers
+	 * @param closing whether Collect Earth is closing its browsers
 	 */
-	synchronized boolean shouldCheck(boolean plotsMapViewer, boolean closing) {
-		return opened && plotsMapViewer && !closing && !(failed && clock.getAsLong() - failedAt < backOffNanos);
+	synchronized boolean shouldCheck(boolean closing) {
+		return opened && !closing && !(failed && clock.getAsLong() - failedAt < backOffNanos);
 	}
 
 	/**

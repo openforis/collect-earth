@@ -156,6 +156,8 @@ describe("local mode: Map", () => {
     holder: new Int32Array([0]),
     plots: ["17"],
     names: null,
+    file: null,
+    reference: null,
     counts: counts({ submitted: 1 }),
     notOnMap: 0,
     files: [],
@@ -186,7 +188,7 @@ describe("local mode: Map", () => {
 describe("local mode: Data", () => {
   it("has the data download only (no Collect Earth backup, no pointer to checks)", () => {
     expect(dataSections(true)).toEqual(["download"]);
-    expect(dataSections(false)).toEqual(["download", "backup", "import", "qualityCheck"]);
+    expect(dataSections(false)).toEqual(["download", "ipcc", "backup", "import", "qualityCheck"]);
     expect(t("data.explainLocal")).not.toMatch(/person/);
   });
 });

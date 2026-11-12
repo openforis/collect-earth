@@ -38,9 +38,11 @@ import Undo from "@mui/icons-material/Undo";
 import Download from "@mui/icons-material/Download";
 import WarningAmber from "@mui/icons-material/WarningAmber";
 import Link from "@mui/icons-material/Link";
+import SwapHoriz from "@mui/icons-material/SwapHoriz";
 import LinkOff from "@mui/icons-material/LinkOff";
 import { useState, type FormEvent } from "react";
 import { FormerMembers } from "../components/FormerMembers";
+import { MovePlotsDialog } from "../components/MovePlotsDialog";
 import {
   createInvite,
   getPeople,
@@ -69,7 +71,25 @@ import { Loading } from "../components/Loading";
 import { AsOf, ChartOrTable, ColumnChart, ValuesTable } from "../components/PeopleCharts";
 import { formatDate, formatDay, formatNumber } from "../format";
 import { useT, type MessageKey } from "../i18n";
-import { agoText, filterPeople, inviteRowText, invitesShown, perDayText, sortPeople, statusChip, statusSyncLevel, type SortKey, type StatusFilter } from "../peopleView";
+import {
+  agoText,
+  filterPeople,
+  checksLeftText,
+  finishWhen,
+  inviteRowText,
+  invitesShown,
+  lastToFinish,
+  perDayText,
+  sortPeople,
+  sortWorkload,
+  statusChip,
+  statusSyncLevel,
+  withoutPace,
+  workloadRows,
+  type SortKey,
+  type StatusFilter,
+  type WorkloadSortKey,
+} from "../peopleView";
 import { browserTimeZone, dayText, percentText } from "../progressView";
 import { formatRate } from "../qualityView";
 import { linkProps, pathFor } from "../router";
@@ -411,6 +431,170 @@ function WeekSection({ projectId, data }: { projectId: string; data: PeopleData 
   );
 }
 
+const WORKLOAD_COLUMNS: { key: WorkloadSortKey; label: MessageKey; align?: "right" }[] = [
+  { key: "username", label: "peopleTable.name" },
+  { key: "left", label: "peopleTable.title.workloadLeft", align: "right" },
+  { key: "done", label: "peopleTable.title.workloadDone" },
+  { key: "pace", label: "peopleTable.title.workloadPace", align: "right" },
+  { key: "finish", label: "peopleTable.title.workloadFinish" },
+];
+
+/**
+ * The workload board: for each collector, the plots still to assess, done, their pace of the last 7 days and the day
+ * they would finish at that pace (who would finish last first), and "Move plots…" to give some of theirs to someone.
+ */
+function WorkloadSection({ projectId, data, onMoved }: { projectId: string; data: PeopleData; onMoved: () => void }) {
+  const t = useT();
+  const { language } = useApp();
+  const n = (v: number) => formatNumber(v, language);
+  const [sort, setSort] = useState<{ key: WorkloadSortKey; direction: "asc" | "desc" }>({ key: "finish", direction: "desc" });
+  const [moving, setMoving] = useState<PersonRow | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const all = workloadRows(data.people, data.today);
+  const rows = sortWorkload(all, sort.key, sort.direction);
+  const last = lastToFinish(all);
+  const noPace = withoutPace(all);
+  const anyLeft = all.some((w) => w.left > 0);
+  // The bar: how long each takes, against the longest dated finish (no pace: full, as it never ends at this pace).
+  const longest = Math.max(1, ...all.map((w) => (w.left > 0 && w.daysLeft !== null ? w.daysLeft : 0)));
+  const onSort = (key: WorkloadSortKey) =>
+    setSort((s) => ({ key, direction: s.key === key ? (s.direction === "asc" ? "desc" : "asc") : key === "username" ? "asc" : "desc" }));
+  return (
+    <Paper variant="outlined" component="section" aria-labelledby="people-workload" sx={{ p: { xs: 2, sm: 3 } }}>
+      <Typography variant="h2" id="people-workload" gutterBottom>
+        {t("peopleTable.title.workload")}
+      </Typography>
+      <Explain sx={{ mb: 2 }} text={t("peopleTable.title.workloadShort")} more={t("peopleTable.title.workloadExplain")} />
+      <AsOf asOf={data.asOf} />
+      {all.length === 0 ? (
+        <Typography color="text.secondary">{t("peopleTable.title.workloadNobody")}</Typography>
+      ) : (
+        <>
+          <Stack spacing={1} sx={{ mb: 2 }}>
+            {!anyLeft && <Alert severity="success">{t("peopleTable.title.workloadAllDone")}</Alert>}
+            {last && (
+              <Typography>
+                {t("peopleTable.title.workloadSummary", { date: dayText(last.date, language), name: last.last.username })}
+              </Typography>
+            )}
+            {noPace > 0 && <Alert severity="warning">{t("peopleTable.title.workloadNoPace", { n: n(noPace) })}</Alert>}
+          </Stack>
+          <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 1 }}>
+            <Table size="small" sx={{ "& th, & td": { px: 1 } }}>
+              <TableHead>
+                <TableRow>
+                  {WORKLOAD_COLUMNS.map((c) => (
+                    <TableCell key={c.key} align={c.align} sortDirection={sort.key === c.key ? sort.direction : false} sx={{ verticalAlign: "bottom", lineHeight: 1.3 }}>
+                      <TableSortLabel active={sort.key === c.key} direction={sort.key === c.key ? sort.direction : "asc"} onClick={() => onSort(c.key)}>
+                        {t(c.label)}
+                      </TableSortLabel>
+                    </TableCell>
+                  ))}
+                  <TableCell sx={{ verticalAlign: "bottom" }}>{t("peopleTable.title.workloadActions")}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {rows.map((w) => {
+                  const row = data.people.find((p) => p.userId === w.userId) as PersonRow;
+                  const isLast = w.left > 0 && (w.daysLeft === null || (last !== null && last.last.userId === w.userId));
+                  const bar = w.left <= 0 ? 0 : w.daysLeft === null ? 100 : Math.max(2, (w.daysLeft / longest) * 100);
+                  const when = finishWhen(t, w, language);
+                  return (
+                    <TableRow key={w.userId} hover>
+                      <TableCell component="th" scope="row" sx={{ overflowWrap: "break-word", minWidth: 100 }}>
+                        <MuiLink {...linkProps(pathFor({ name: "person", projectId, userId: w.userId }))}>
+                          <Username name={w.username} />
+                        </MuiLink>
+                        {isLast && w.daysLeft !== null && (
+                          <Box>
+                            <Chip size="small" color="warning" label={t("peopleTable.title.workloadLast")} sx={{ mt: 0.5 }} />
+                          </Box>
+                        )}
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                        {n(w.left)}
+                        {w.checksLeft > 0 && (
+                          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
+                            {checksLeftText(t, w.checksLeft, language)}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 110 }}>
+                        <Typography variant="body2" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                          {w.assigned > 0 ? t("peopleTable.plotsOf", { done: n(w.done), assigned: n(w.assigned), percent: percentText(w.done, w.assigned, language) }) : "—"}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                        {w.pace === null ? <span title={t("peopleTable.title.workloadNoPaceTip")}>—</span> : perDayText(w.pace, language)}
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 130 }}>
+                        <Typography variant="body2" title={w.pace === null && w.left > 0 ? t("peopleTable.title.workloadNoPaceTip") : undefined}>
+                          {w.finish !== null ? (
+                            <>
+                              {dayText(w.finish, language)}
+                              <Box component="span" sx={{ color: "text.secondary" }}>
+                                {" "}
+                                · {when}
+                              </Box>
+                            </>
+                          ) : (
+                            when
+                          )}
+                        </Typography>
+                        {w.left > 0 && (
+                          <LinearProgress
+                            variant="determinate"
+                            value={bar}
+                            color={isLast ? "warning" : "primary"}
+                            sx={{ mt: 0.5 }}
+                            aria-label={`${w.username}: ${w.finish !== null ? dayText(w.finish, language) : when}`}
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {w.left > 0 && (
+                          <Button
+                            size="small"
+                            startIcon={<SwapHoriz />}
+                            onClick={() => (setNotice(null), setMoving(row))}
+                            aria-label={t("peopleTable.title.workloadMoveLabel", { name: w.username })}
+                            sx={{ whiteSpace: "nowrap" }}
+                          >
+                            {t("peopleTable.title.workloadMove")}
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </>
+      )}
+      {notice && (
+        <Alert severity="success" role="status" sx={{ mt: 2 }} onClose={() => setNotice(null)}>
+          {notice}
+        </Alert>
+      )}
+      {moving && (
+        <MovePlotsDialog
+          projectId={projectId}
+          from={moving}
+          people={data.people}
+          today={data.today}
+          onClose={() => setMoving(null)}
+          onMoved={(message) => {
+            setMoving(null);
+            setNotice(message);
+            onMoved();
+          }}
+        />
+      )}
+    </Paper>
+  );
+}
+
 const COLUMNS: { key: SortKey; label: MessageKey; align?: "right" }[] = [
   { key: "username", label: "peopleTable.name" },
   { key: "status", label: "peopleTable.status" },
@@ -641,6 +825,7 @@ export function PeopleTab({ projectId }: { projectId: string }) {
       ) : (
         <>
           <WeekSection projectId={projectId} data={people.data} />
+          <WorkloadSection projectId={projectId} data={people.data} onMoved={people.reload} />
           <PeopleTableSection projectId={projectId} data={people.data} />
           <TeamTimeSpent projectId={projectId} people={people.data.people} />
           <FormerMembers projectId={projectId} />

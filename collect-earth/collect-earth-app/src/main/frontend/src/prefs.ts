@@ -1,14 +1,11 @@
 import type { ListFilter, PeriodFilter } from "./types";
 
-// Per-viewer UI preferences. Best effort: storage can be unavailable (private mode,
+// UI preferences. Best effort: storage can be unavailable (private mode,
 // blocked site data), in which case the defaults are used.
 export interface Prefs {
   filter?: ListFilter;
   /** a repeat survey's filter by the earlier period (any other project ignores it) */
   periodFilter?: PeriodFilter;
-  sidebarCollapsed?: boolean;
-  formWidth?: number;
-  baseLayer?: string;
 }
 
 const KEY = "ce.plotsMap.prefs";

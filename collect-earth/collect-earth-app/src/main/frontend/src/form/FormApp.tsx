@@ -51,7 +51,7 @@ import { PERIOD_STATUSES, PERIOD_STATUS_FIELD, earlierToCopy, type PeriodStatus 
 import type { FormState, FormStore, SaveState } from "./store";
 import { TypeAhead, afterRender, endOfMove } from "./typeAhead";
 
-/** A narrow form, e.g. the plots map window narrowed next to Google Earth Web: every pixel goes to the questions. */
+/** A narrow form, e.g. in the panel of Google Earth Web: every pixel goes to the questions. */
 const NARROW = "@media (max-width: 480px)";
 /** What answers a question from the keyboard, inside its box ([data-field]) */
 const CONTROL = "input:not([disabled]), textarea, [role=radio], [role=checkbox], button";

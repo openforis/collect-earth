@@ -76,6 +76,7 @@ import { useT } from "../i18n";
 import { linkProps, pathFor, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 import { OnlyYou } from "./PlotsTab";
+import { RebalanceCard } from "./RebalanceCard";
 
 // One plot file's page: divide its plots between people, see who has how many, and
 // move someone's unfinished plots to another person.
@@ -687,6 +688,11 @@ export function PlotFilePage({ projectId, fileId, onGo }: { projectId: string; f
 
   const { file, members, current, columns } = state.data;
   const setCurrent = (next: DistributionState) => state.setData({ ...state.data!, current: next });
+  // After a move or a new share of what is left: the new holders, and the divide form starts again from them.
+  const moved = (next: DistributionState) => {
+    setCurrent(next);
+    setMoves((n) => n + 1);
+  };
 
   return (
     <Stack spacing={3}>
@@ -709,12 +715,13 @@ export function PlotFilePage({ projectId, fileId, onGo }: { projectId: string; f
         <Typography variant="h2" gutterBottom>
           {t("divide.currentTitle")}
         </Typography>
-        <CurrentDivision projectId={projectId} fileId={fileId} members={members} current={current}
-          onChanged={(next) => {
-            setCurrent(next);
-            setMoves((n) => n + 1);
-          }}
-        />
+        <CurrentDivision projectId={projectId} fileId={fileId} members={members} current={current} onChanged={moved} />
+      </Paper>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+        <Typography variant="h2" gutterBottom>
+          {t("divide.move.shareTitle")}
+        </Typography>
+        <RebalanceCard projectId={projectId} fileId={fileId} members={members} current={current} onApplied={moved} />
       </Paper>
     </Stack>
   );

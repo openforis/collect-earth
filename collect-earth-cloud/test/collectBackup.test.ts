@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs';
 import * as http from 'node:http';
 import { fileURLToPath } from 'node:url';
-import { strFromU8, unzipSync } from 'fflate';
+import { strFromU8, strToU8, unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readCep, zipCep } from '../src/cep.js';
 import { readBackupLink, writeBackupLink } from '../src/backupLink.js';
-import { backupEntries, planBackup, type PlanInput } from '../src/collectBackup.js';
+import { backupEntries, collectHead, planBackup, type PlanInput } from '../src/collectBackup.js';
+import { parsePlotFile } from '../src/plots.js';
 import type { RecordRound } from '../src/rounds.js';
 import { InMemoryStore } from '../src/store/memory.js';
 import type { RecordState } from '../src/types.js';
@@ -231,7 +232,7 @@ describe('backupEntries', () => {
     const names: string[] = [];
     const texts = new Map<string, string>();
     const plan = { rounds: '1' as const, records, drafts: 0, otherRounds: 0, measurements: 0, sameKey: 0, sameKeyExamples: [], noXml: 0 };
-    for await (const e of backupEntries(counting, projectId, Buffer.from('<survey/>'), plan, outcome)) {
+    for await (const e of backupEntries(counting, projectId, [{ name: 'idml.xml', data: Buffer.from('<survey/>') }], plan, outcome)) {
       names.push(e.name);
       texts.set(e.name, Buffer.from(e.data).toString('utf8'));
     }
@@ -244,9 +245,33 @@ describe('backupEntries', () => {
   });
 });
 
+describe("collectHead: what OpenForis Collect's backup holds before the records", () => {
+  it("info.properties as Collect's SurveyBackupInfo (Java's escapes, ISO-8859-1), the survey, then its files by type", () => {
+    const head = collectHead(
+      {
+        survey: Buffer.from('<survey/>'),
+        uri: 'http://www.openforis.org/idm/ñu=1',
+        name: 'ñu survey',
+        grids: [
+          { filename: 'north.csv', data: Buffer.from('n') },
+          { filename: 'south.txt', data: Buffer.from('s') },
+        ],
+        areas: Buffer.from('a'),
+      },
+      new Date(Date.UTC(2026, 10, 12, 9, 5, 7, 42)),
+    );
+    expect(head.map((e) => e.name)).toEqual(['info.properties', 'idml.xml', 'files/ce_grid/north.csv', 'files/ce_grid/south.txt.csv', 'files/ce_area/areas_per_attribute.csv']);
+    // As the reference .collect has it (survey_uri=http\://…, timestamp=2026-11-11T14\:47\:26.561+01\:00), the time in UTC
+    expect(Buffer.from(head[0].data).toString('latin1')).toBe(
+      'survey_uri=http\\://www.openforis.org/idm/\\u00f1u\\=1\nsurvey_name=\\u00f1u survey\ntimestamp=2026-11-12T09\\:05\\:07.042+00\\:00\ncollect_version=4.0.110\n',
+    );
+    expect(collectHead({ survey: Buffer.from(''), uri: 'u', name: 'n', grids: [], areas: null }, new Date(0)).map((e) => e.name)).toEqual(['info.properties', 'idml.xml']);
+  });
+});
+
 describe('backup links (signed, 60 s)', () => {
   const secret = Buffer.from('k'.repeat(32));
-  const claims = { projectId: 'p1', userId: 'u1', rounds: 'all' as const };
+  const claims = { projectId: 'p1', userId: 'u1', rounds: 'all' as const, format: 'collect' as const };
 
   it('reads back what it was made with until it expires; another secret, a changed byte or garbage is no link', () => {
     const { token, expiresAt } = writeBackupLink(claims, secret, 1_000_000);
@@ -388,6 +413,95 @@ describe('GET /exports/collect-backup', () => {
     expect((await call('GET', '/exports/collect-backup/summary', people.rita.token)).statusCode).toBe(403);
   });
 
+  it("OpenForis Collect's own backup (.collect-backup): Collect's layout, and a project made from it has the same plots and records", async () => {
+    // A project file with the areas per stratum, and a plot file with its columns (the server adds round and the note to both)
+    const areas = 'country,area\nCosta Rica,51100\nMexico,1964375\n';
+    const cep = unzipSync(idOnlyCep());
+    cep['areas_per_attribute.csv'] = strToU8(areas);
+    expect((await call('PUT', '/cep', owner.token, zipCep(new Map(Object.entries(cep)), FIXTURE_DATE), { 'content-type': 'application/zip' })).statusCode).toBe(200);
+    const plots = 'id,YCoordinate,XCoordinate,elevation\n1,8.472121,-83.579134,121\n2,26.149755,-108.116099,710\n3,-0.955399,17.306862,318\n4,10.500000,20.250000,5\n';
+    expect((await call('PUT', '/csv-files/plots.csv', owner.token, plots, { 'content-type': 'text/csv' })).statusCode).toBe(201);
+    // As Collect Earth saves them: the person's name, whether submitted, when; one checked in Collect (step 2), one check (round 2)
+    const xml = (id: string, round: string, operator: string, saved: boolean) =>
+      `<?xml version='1.0' standalone='yes' ?>\n<plot step="1" created="2026-11-02T08:00:00.000+00:00" modified="2026-11-02T09:00:00.000+00:00">\n  <id>\n    <value>${id}</value>\n  </id>\n  <round>\n    <code>${round}</code>\n  </round>\n  <operator>\n    <value>${operator}</value>\n  </operator>\n  <actively_saved>\n    <value>${saved}</value>\n  </actively_saved>\n</plot>\n`;
+    const records = [
+      { recordKey: '1,1', operator: 'maria', activelySaved: true, step: 1 },
+      { recordKey: '2,1', operator: 'maria', activelySaved: true, step: 2 },
+      { recordKey: '3,1', operator: 'jose', activelySaved: false, step: 1 },
+      { recordKey: '1,2', operator: 'jose', activelySaved: true, step: 1 },
+    ];
+    const sent = await batchRequest(
+      ctx.app,
+      pid,
+      projectToken,
+      records.map((r) => envelope({ ...r, modifiedOn: at, xml: xml(r.recordKey.split(',')[0], r.recordKey.split(',')[1], r.operator, r.activelySaved) })),
+    );
+    expect(sent.statusCode, sent.body).toBe(200);
+
+    expect((await backup('?format=collect-data')).statusCode).toBe(400);
+    const res = await backup('?rounds=all&format=collect');
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.headers['content-disposition']).toContain("filename*=UTF-8''Backup%20%C3%B1-all-rounds.collect-backup");
+    // Collect's SurveyBackupJob order: info.properties, idml.xml, the survey's files (files/<type>/<name>), then
+    // data/<step>/<id>.xml; one record per key in key order, each in its own step's folder as in the zip
+    expect(centralNames(res.rawPayload)).toEqual([
+      'info.properties',
+      'idml.xml',
+      'files/ce_grid/plots.csv',
+      'files/ce_area/areas_per_attribute.csv',
+      'data/1/1.xml',
+      'data/1/2.xml',
+      'data/2/3.xml',
+      'data/1/4.xml',
+    ]);
+    const back = unzipSync(res.rawPayload);
+    expect(strFromU8(back['info.properties'])).toMatch(
+      /^survey_uri=http\\:\/\/www\.openforis\.org\/idm\/collect_earth_initial_2025\nsurvey_name=collect_earth_initial_2025\ntimestamp=\d{4}-\d\d-\d\dT\d\d\\:\d\d\\:\d\d\.\d{3}\+00\\:00\ncollect_version=4\.0\.110\n$/,
+    );
+    const files = readCep((await call('GET', '/cep', owner.token)).rawPayload);
+    expect(Buffer.from(back['idml.xml']).equals(Buffer.from(files.entries.get(files.surveyPath)!))).toBe(true);
+    // The plot file as people get it, with the round the served survey has
+    expect(strFromU8(back['files/ce_grid/plots.csv'])).toMatch(/^id,round,YCoordinate,XCoordinate,elevation[^\n]*\n1,1,8\.472121,-83\.579134,121/);
+    expect(strFromU8(back['files/ce_area/areas_per_attribute.csv'])).toBe(areas);
+    expect(Buffer.from(back['data/2/3.xml']).equals(Buffer.from((await ctx.store.getRecord(pid, '2,1', 'maria'))!.xml!, 'utf8'))).toBe(true);
+    const log = await ctx.store.listAudit(pid, { limit: 5, action: 'export.downloaded' });
+    expect(log[0]).toMatchObject({ actorUserId: owner.userId, details: { kind: 'collect-backup', rows: 4, rounds: 'all', format: 'collect' } });
+
+    // The dashboard's "From a Collect Earth backup" reads it as any Collect backup, its grid as the plot file (BackupImportDialog)
+    const made = await ctx.app.inject({
+      method: 'POST',
+      url: '/v1/projects/from-backup',
+      headers: bearer(owner.token),
+      payload: { backup: Buffer.from(res.rawPayload).toString('base64'), plotFile: strFromU8(back['files/ce_grid/plots.csv']), plotFileName: 'plots.csv', collectors: { maria: 'maria', jose: 'jose' } },
+    });
+    expect(made.statusCode, made.body).toBe(201);
+    expect(made.json()).toMatchObject({ records: 4, doneFile: { plots: 2 }, plotFile: { filename: 'plots.csv', plots: 2 }, backup: { strata: 2 } });
+    const copy = made.json().projectId as string;
+
+    // The same records: keys, people, submitted or not, steps, times, XML byte for byte
+    const recordsOf = async (projectId: string) => {
+      const rows = await ctx.store.listRecords(projectId);
+      const xmls = await ctx.store.getRecordXml(projectId, rows);
+      return rows
+        .map((r) => ({ key: r.recordKey, operator: r.operator, submitted: r.activelySaved, step: r.step, modifiedOn: r.modifiedOn, xml: xmls.find((x) => x.recordKey === r.recordKey && x.operator === r.operator)!.xml }))
+        .sort((a, b) => (`${a.key}/${a.operator}` < `${b.key}/${b.operator}` ? -1 : 1));
+    };
+    expect(await recordsOf(copy)).toEqual(await recordsOf(pid));
+    // The same plots in the same places (the copy's files have the round column)
+    const places = async (projectId: string, keys: number) => {
+      const out: Record<string, string> = {};
+      for (const f of await ctx.store.listCsvFiles(projectId)) {
+        for (const r of parsePlotFile((await ctx.store.getCsvFile(projectId, f.id))!.data, keys).rows) out[r.fields[0]] = `${Number(r.fields[keys])} ${Number(r.fields[keys + 1])}`;
+      }
+      return out;
+    };
+    expect(Object.keys(await places(pid, 1)).sort()).toEqual(['1', '2', '3', '4']);
+    expect(await places(copy, 2)).toEqual(await places(pid, 1));
+    // The areas per stratum in the new project file
+    const copied = readCep((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${copy}/cep`, headers: bearer(owner.token) })).rawPayload);
+    expect(strFromU8(copied.entries.get('areas_per_attribute.csv')!)).toBe(areas);
+  });
+
   it('two records with one key: one is in the backup (the submitted, then the latest), the others counted', async () => {
     await call('PUT', '/cep', owner.token, idOnlyCep(), { 'content-type': 'application/zip' });
     await send('maria', 1, [1], { modifiedOn: at });
@@ -451,6 +565,13 @@ describe('GET /exports/collect-backup', () => {
     expect(log[0]).toMatchObject({ actorUserId: owner.userId, details: { kind: 'collect-backup', rows: 3, rounds: 'all' } });
     // Used once.
     expect((await ctx.app.inject({ method: 'GET', url })).statusCode).toBe(410);
+    // OpenForis Collect's backup by a link too; another file type is refused.
+    expect((await call('POST', '/exports/collect-backup/link', owner.token, { rounds: '1', format: 'x' })).statusCode).toBe(400);
+    const collectLink = (await call('POST', '/exports/collect-backup/link', owner.token, { rounds: '1', format: 'collect' })).json().url;
+    const viaLink = await ctx.app.inject({ method: 'GET', url: collectLink });
+    expect(viaLink.statusCode, viaLink.body).toBe(200);
+    expect(viaLink.headers['content-disposition']).toContain('.collect-backup');
+    expect(centralNames(viaLink.rawPayload)).toEqual(['info.properties', 'idml.xml', 'data/1/1.xml', 'data/1/2.xml']);
     // Tampered: another project's id or rounds in it is no link.
     const [body, sig] = url.split('/').pop()!.split('.');
     const forged = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(body, 'base64url').toString()), r: '1' })).toString('base64url');
@@ -515,8 +636,8 @@ describe('GET /exports/collect-backup', () => {
       await new Promise((r) => setTimeout(r, 20));
     }
     expect(log.map((e) => e.details)).toEqual([
-      { kind: 'collect-backup', rows: 60, rounds: '1', completed: false },
-      { kind: 'collect-backup', rows: 60, rounds: '1' },
+      { kind: 'collect-backup', rows: 60, rounds: '1', format: 'zip', completed: false },
+      { kind: 'collect-backup', rows: 60, rounds: '1', format: 'zip' },
     ]);
     expect((await backup()).statusCode).toBe(200);
   });

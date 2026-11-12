@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { MessageKey, Translate } from "./i18n";
 import type { SaveState } from "./form/store";
 import { APP_INFO_CHANGED } from "./notices";
+import { formatPercent } from "./project";
 import { cloudState, recordSync } from "./projectApi";
 import type { Project } from "./settings";
 
@@ -103,6 +104,11 @@ const ROLES = new Map<string, [MessageKey, MessageKey]>([
 export function roleOf(role: string | null | undefined, t: Translate): { name: string; help: string } | null {
   const keys = role ? ROLES.get(role) : undefined;
   return keys ? { name: t(keys[0]), help: t(keys[1]) } : null;
+}
+
+/** Join cloud project's question (CloudJoin.previewMessage): the project, and the role by its name; a role this version does not know as the server sends it */
+export function joinPreviewText(template: string, preview: { projectName: string; role: string }, t: Translate): string {
+  return formatPercent(template, preview.projectName, roleOf(preview.role, t)?.name ?? preview.role);
 }
 
 /**

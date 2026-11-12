@@ -32,6 +32,7 @@ import org.openforis.collect.earth.app.service.tools.IpccAnswers;
 import org.openforis.collect.earth.app.service.tools.ToolsService;
 import org.openforis.collect.earth.app.service.tools.ToolsService.DivideCsvRequest;
 import org.openforis.collect.earth.app.service.tools.ToolsService.InvalidToolRequestException;
+import org.openforis.collect.earth.app.view.Messages;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -123,6 +124,16 @@ public class ToolsControllerTest {
 		when(tools.loadKml(eq("/tmp/bad.kml"), anyString())).thenThrow(new InvalidToolRequestException("kml.invalid", "not a kml"));
 		mvc.perform(post("/api/tools/loadKml").contentType(MediaType.APPLICATION_JSON).content("{\"kml\":\"/tmp/bad.kml\",\"csv\":\"/tmp/plots.csv\"}"))
 				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("kml.invalid"));
+		assertFalse(restarted.get());
+	}
+
+	@Test
+	public void theKmlIsNotLoadedInACloudProject() throws Exception {
+		MockMvc cloud = TemplateWiring.mockMvc(new ToolsController(analysis, tools, jobs, () -> restarted.set(true), () -> true), new ApiExceptionHandler());
+		cloud.perform(post("/api/tools/loadKml").contentType(MediaType.APPLICATION_JSON).content("{\"kml\":\"/tmp/points.kml\",\"csv\":\"/tmp/plots.csv\"}"))
+				.andExpect(status().isConflict()).andExpect(jsonPath("$.error").value("kml.cloudProject"))
+				.andExpect(jsonPath("$.message").value(Messages.getString("ToolsPage.kml.cloudProject")));
+		verify(tools, never()).loadKml(anyString(), anyString());
 		assertFalse(restarted.get());
 	}
 

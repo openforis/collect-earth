@@ -1,23 +1,21 @@
 # Plots map web UI
 
-React + MUI + Vite app for the Collect Earth plots map (the page opened instead of
-Google Earth Pro when the plot viewer is "Plots map" or "Plots map + Google Earth Web").
+React + MUI + Vite app for the Collect Earth plots map: the plot list and the form, in a panel of the
+Google Earth Web page Collect Earth drives (`javascript_plots_map_panel.fmt`), Google Earth Web being the map.
 It is served by the embedded Jetty server at `http://localhost:8028/earth/map`
 (`LeafletMapController`) and talks to the same endpoints as before: `/mapConfig`,
-`/plotsGeoJson`, `/plotStatuses`, `/openAuxiliaryWindows`.
+`/plotsGeoJson`, `/plotStatuses`, `/openAuxiliaryWindows`, and `/googleEarthWeb/*` for the page around it.
 
 A second page, `form.html` (`/earth/form?id=<plot id>&lang=<language>`), is the data entry
-form shown next to the map. It is generated at runtime from the survey: `/surveyForm` describes
+form shown in the panel. It is generated at runtime from the survey: `/surveyForm` describes
 the tabs and fields (`SurveyFormModelBuilder`), `/surveyForm/plot` gives the plot file values,
 and the data goes through the balloon endpoints (`/placemark-info-expanded`,
 `/save-data-expanded`, `/create-entity`, `/delete-entity`). With `web_form=balloon` in
-`earth.properties` the map shows the CEP balloon (`/balloon`) instead. See
+`earth.properties` the panel shows the CEP balloon (`/balloon`) instead. See
 `docs/plans/2026-10-20-generated-web-form.md`.
 
-On the `feature/html-ui` branch this app replaces the Swing main window (see
-`docs/plans/2026-10-28-html-ui-design.md`). Collect Earth opens the map page with an app bar
-(menus, operator, Quit) on top; with the Google Earth Pro viewer it opens `map?home`, the same app
-with a home page instead of the map. The app bar talks to the JSON API under `/earth/api`
+This app replaces the Swing main window (see `docs/plans/2026-10-28-html-ui-design.md`): the panel has an
+app bar (menus, operator, Quit) on top. The app bar talks to the JSON API under `/earth/api`
 (`server.api` in the Java code): every call must send `X-Collect-Earth: 1`, which `apiClient.ts`
 does. Its texts are those of the Swing UI (`Messages*.properties`), read from `/earth/api/messages`
 (`serverTexts.ts`).
@@ -27,7 +25,7 @@ the Swing properties dialog. It draws itself from `GET /earth/api/settings` (`Se
 describes every setting, its type, when it is shown and its texts), validates what the user types through
 `POST /earth/api/settings/validate` while typing, and saves only the changes with `POST /earth/api/settings`,
 which restarts Collect Earth when a setting needs it. `src/settings.ts` holds the pure logic (the
-visibility conditions, the changes, the search), `@shared/plotPreview` (`collect-earth-cloud/web/src/shared/plotPreview.ts`, shared with the dashboard's plot layout) the drawing of the plot, and
+visibility conditions, the changes, the search), `src/plotPreview.ts` the drawing of the plot, and
 `src/settingsApi.ts` the calls.
 
 The Data menu (`src/components/data/`) has the export dialog (one dialog for the formats and the records
@@ -44,8 +42,8 @@ data, which downloads its stand-alone file too) and run the LULUCF package as jo
 (`POST /earth/api/tools/loadKml`) restarts Collect Earth under the restart overlay. The utilities are jobs too
 (`missingPlots`, `divideCsv`, `deletePlots`), with the checks of the Swing dialogs made by the server first
 (`GET /earth/api/tools/divideCsv/columns`, `POST /earth/api/settings/sampleFile`,
-`POST /earth/api/tools/deletePlots/check`). Open data folder and Open plots map are quick actions
-(`POST /earth/api/actions/openDataFolder`, `openPlotsMap`).
+`POST /earth/api/tools/deletePlots/check`). Open data folder is a quick action
+(`POST /earth/api/actions/openDataFolder`).
 
 The Project menu (`src/components/project/`) imports a CEP (`POST /earth/api/projects/import`, then the restart
 overlay), joins a cloud project in the steps of the Swing menu (`POST /earth/api/cloud/preview`, `join`), shows the
@@ -74,24 +72,21 @@ to `target/classes/leafletmap/` and ends up in the jar. Use `-Dskip.npm` to skip
 
 ```bash
 npm ci
-npm run dev        # http://localhost:5173/ - data endpoints proxied to a running Collect Earth on :8028
+npm run dev        # http://localhost:5173/ - the panel alone, data endpoints proxied to a running Collect Earth on :8028
 npm test           # unit tests (plot list logic, form protocol logic)
 npm run typecheck
-npm run build      # rebuilds target/classes/leafletmap (refresh the map window to see it)
+npm run build      # rebuilds target/classes/leafletmap (reload Google Earth Web's page to see it)
 ```
 
 ## Structure
 
-- `src/controller.ts` - owns plots, statuses, selection, polling and the map engine;
+- `src/controller.ts` - owns plots, statuses, selection and polling;
   React subscribes to it with `useSyncExternalStore`
-- `src/engines/` - `LeafletEngine` (ESRI imagery) and `GoogleEngine` (Maps JS API, needs
-  `GOOGLE_MAPS_API_KEY`) behind the `MapEngine` interface; a Google failure falls back to Leaflet
 - `src/plots.ts` - pure list logic (filter, next unfinished, neighbours, counts)
-- `src/components/` - sidebar with the virtualized plot list, map area, form panel, app bar
-  (`AppBar.tsx`) and home page (`HomePage.tsx`)
-- `src/apiClient.ts`, `src/serverTexts.ts`, `src/appInfo.ts`, `src/menus.ts`, `src/appBar.ts`,
-  `src/home.ts` - the API client, the Swing texts, `/api/app`, the menus and their pure logic
-- `src/settings.ts`, `src/settingsApi.ts`, `@shared/plotPreview`, `src/components/settings/` - the
+- `src/components/` - the virtualized plot list, the form panel and the app bar (`AppBar.tsx`)
+- `src/apiClient.ts`, `src/serverTexts.ts`, `src/appInfo.ts`, `src/menus.ts`, `src/appBar.ts` -
+  the API client, the Swing texts, `/api/app`, the menus and their pure logic
+- `src/settings.ts`, `src/settingsApi.ts`, `src/plotPreview.ts`, `src/components/settings/` - the
   settings page: its model, its calls, the plot preview and its components
 - `src/jobs.ts`, `src/dataApi.ts`, `src/exportDialog.ts`, `src/importDialog.ts`, `src/components/data/` -
   the jobs, the Data menu's calls and dialogs, and the job panel
@@ -103,5 +98,4 @@ npm run build      # rebuilds target/classes/leafletmap (refresh the map window 
   formats, response merges, hierarchical codes, errors), `store.ts` (server traffic, serialized
   autosave, submit), `FormApp.tsx` / `fields.tsx` (UI)
 
-No CDN: fonts (Roboto), icons and Leaflet are bundled. Map tiles come from ESRI /
-OpenStreetMap (or Google), as before.
+No CDN: fonts (Roboto), icons and Leaflet (the plot preview of the settings page) are bundled.

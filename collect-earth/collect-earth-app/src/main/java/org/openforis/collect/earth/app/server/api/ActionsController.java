@@ -9,7 +9,6 @@ import java.util.Map;
 
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.service.BackupSqlLiteService;
-import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
@@ -47,9 +46,9 @@ public class ActionsController {
 	private final Map<String, Runnable> actions;
 
 	@Autowired
-	public ActionsController(QuitService quit, BackupSqlLiteService backup, BrowserService browser, UpdateService updates,
+	public ActionsController(QuitService quit, BackupSqlLiteService backup, UpdateService updates,
 			EarthSurveyService surveys, LocalDashboardService dashboard, LocalPropertiesService properties, CloudApiClient cloud) {
-		this(actions(quit, backup, browser, updates, surveys, dashboard, properties, cloud));
+		this(actions(quit, backup, updates, surveys, dashboard, properties, cloud));
 	}
 
 	/** The pages of the dashboard a sign-in link can open directly (the dashboard checks the same list). */
@@ -169,7 +168,7 @@ public class ActionsController {
 		this.actions = actions;
 	}
 
-	private static Map<String, Runnable> actions(QuitService quit, BackupSqlLiteService backup, BrowserService browser, UpdateService updates,
+	private static Map<String, Runnable> actions(QuitService quit, BackupSqlLiteService backup, UpdateService updates,
 			EarthSurveyService surveys, LocalDashboardService dashboard, LocalPropertiesService properties, CloudApiClient cloud) {
 		Map<String, Runnable> actions = new LinkedHashMap<>();
 		actions.put("quit", quit);
@@ -217,8 +216,6 @@ public class ActionsController {
 				throw new UncheckedIOException(e);
 			}
 		});
-		// The Open plots map entry, with the Google Earth Pro viewer: a browser takes seconds, so on a thread as before
-		actions.put("openPlotsMap", () -> new Thread(browser::openLeafletMap, "Open Leaflet plots map").start());
 		// The Open backup folder button of the storage section of the settings
 		actions.put("openBackupFolder", () -> {
 			try {

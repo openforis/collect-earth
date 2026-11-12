@@ -77,9 +77,27 @@ describe('plotsGeo: the map of progress', () => {
     expect(map.counts).toEqual([3, 1, 1, 1, 1, 1, 0]);
     expect(map.notOnMap).toBe(1);
     expect(map.files).toEqual([
-      { id: 'f1', filename: 'north.csv', plots: 7, onMap: 6 },
-      { id: 'f2', filename: 'south.csv', plots: 2, onMap: 2 },
+      { id: 'f1', filename: 'north.csv', plots: 7, onMap: 6, divided: false },
+      { id: 'f2', filename: 'south.csv', plots: 2, onMap: 2, divided: false },
     ]);
+  });
+
+  it("gives coordinators each plot's plot file (-1 when several list it), whether files are divided, and the reference plots", () => {
+    const base = input();
+    const map = plotsGeo({ ...base, files: [base.files[0], { ...base.files[1], divided: true }], reference: new Set(['4', '8', 'elsewhere']) });
+    expect(map.plots).toEqual(['1', '2', '3', '4', '5', '6', '8']);
+    expect(map.file).toEqual([-1, 0, 0, 0, 0, 0, 1]);
+    expect(map.reference).toEqual([3, 6]);
+    expect(map.files.map((f) => f.divided)).toEqual([false, true]);
+    expect(geoPage(map, 2, 3)).toMatchObject({ plots: ['3', '4', '5'], file: [0, 0, 0], reference: [3] });
+    // Filtered to one file: the index stays the file's place in `files`.
+    expect(plotsGeo({ ...base, file: 'f2' }).file).toEqual([-1, 1]);
+    // A reviewer: none of it.
+    const reviewer = plotsGeo({ ...base, people: false, reference: new Set(['4']) });
+    expect(reviewer.file).toBeNull();
+    expect(reviewer.reference).toBeNull();
+    expect(reviewer.files.every((f) => !('divided' in f))).toBe(true);
+    expect(geoPage(reviewer, 0, 3)).toMatchObject({ file: null, reference: null });
   });
 
   it('filters by plot file (its own places) and by person (plots they hold or assessed first)', () => {
@@ -139,11 +157,13 @@ describe('plotsGeo: the map of progress', () => {
       ],
       plots: ['1', '2', '3'],
       names: null,
+      file: [-1, 0, 0],
+      reference: [],
       next: 3,
     });
     const last = geoPage(map, 6, 3);
-    expect(last).toEqual({ points: [[8.123457, 80.765432, S.notStarted, -1]], plots: ['8'], names: null, next: null });
-    expect(geoPage(map, 7, 3)).toEqual({ points: [], plots: [], names: null, next: null });
+    expect(last).toEqual({ points: [[8.123457, 80.765432, S.notStarted, -1]], plots: ['8'], names: null, file: [1], reference: [], next: null });
+    expect(geoPage(map, 7, 3)).toEqual({ points: [], plots: [], names: null, file: [], reference: [], next: null });
   });
 
   it('builds 100,000 plots quickly', () => {

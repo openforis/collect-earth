@@ -117,13 +117,24 @@ function sizeInWords(bytes: number): string {
  * project, until an assigned plot file is chosen.
  */
 export function bundledPlotPath(files: CepFiles): string | null {
-  const propertiesBytes = files.entries.get(PROPERTIES_PATH);
-  if (!propertiesBytes) return null;
+  const path = namedPlotPath(files.entries.get(PROPERTIES_PATH));
+  return path !== null && files.entries.has(path) && path.toLowerCase().endsWith('.csv') ? path : null;
+}
+
+/**
+ * The path in the zip of the plot file the properties (project_definition.properties' bytes) name
+ * with `csv`, whatever its extension (Collect Earth opens .csv and .ced), or null when they name none.
+ * Whether the zip holds it is the caller's to check.
+ */
+export function namedPlotPath(propertiesBytes: Uint8Array | undefined): string | null {
+  if (!propertiesBytes || propertiesBytes.length > MAX_PROPERTIES_BYTES) return null;
   const named = parseProperties(decodeUtf8(propertiesBytes)).get('csv');
   if (named === undefined) return null;
-  const path = named.replace(PROJECT_PATH_PREFIX, '').replace(/\\/g, '/');
-  return files.entries.has(path) && path.toLowerCase().endsWith('.csv') ? path : null;
+  return named.replace(PROJECT_PATH_PREFIX, '').replace(/\\/g, '/');
 }
+
+/** The name of the properties file in a project file. */
+export const CEP_PROPERTIES_PATH = PROPERTIES_PATH;
 
 /**
  * The served project file with its bundled plot file (bundledPlotPath) replaced by `rewrite`'s
@@ -225,11 +236,33 @@ const FLAG_UTF8 = 0x0800;
 interface CentralEntry {
   name: string;
   nameBytes: Buffer;
+  flags: number;
   method: number;
   crc: number;
   compressedSize: number;
   size: number;
+  dosTime: number;
+  dosDate: number;
   localAt: number;
+}
+
+/**
+ * One file of a zip as it is packed: what writeZip needs to write it again without unpacking it
+ * (its bytes come out the same, with its date).
+ */
+export interface PackedZipEntry {
+  nameBytes: Buffer;
+  /** only bit 11 (the name is UTF-8) is kept */
+  flags: number;
+  /** 0 stored, 8 deflate */
+  method: number;
+  crc: number;
+  /** unpacked size */
+  size: number;
+  dosTime: number;
+  dosDate: number;
+  /** the packed bytes */
+  body: Buffer;
 }
 
 /**
@@ -264,6 +297,8 @@ export interface ZipEntryReader {
   size: number;
   /** its bytes; throws CepError when they are damaged */
   read: () => Uint8Array;
+  /** the file as packed (not checked against its checksum: read() does that) */
+  packed: PackedZipEntry;
 }
 
 /**
@@ -348,7 +383,9 @@ export function zipEntryList(zip: Buffer, maxEntries: number, allowed: number, w
         `${what} unzips to more than ${sizeInWords(allowed)}, more than the server accepts.`,
       );
     }
-    central.push({ name, nameBytes, method, crc, compressedSize, size, localAt });
+    const dosTime = zip.readUInt16LE(at + 12);
+    const dosDate = zip.readUInt16LE(at + 14);
+    central.push({ name, nameBytes, flags, method, crc, compressedSize, size, dosTime, dosDate, localAt });
     at = next;
   }
   if (at !== centralEnd) throw notAZip();
@@ -387,6 +424,16 @@ export function zipEntryList(zip: Buffer, maxEntries: number, allowed: number, w
   return central.map((e, i) => ({
     name: e.name,
     size: e.size,
+    packed: {
+      nameBytes: e.nameBytes,
+      flags: e.flags & FLAG_UTF8,
+      method: e.method,
+      crc: e.crc,
+      size: e.size,
+      dosTime: e.dosTime,
+      dosDate: e.dosDate,
+      body: zip.subarray(bodies[i], bodies[i] + e.compressedSize),
+    },
     read: () => {
       const damaged = () => cannotUse(`a file inside it (${e.name}) is damaged`);
       const body = zip.subarray(bodies[i], bodies[i] + e.compressedSize);
@@ -625,36 +672,58 @@ export function surveyInfo(idmXml: string): SurveyInfo {
  * date: pass the upload time. The same entries and date always give the same bytes.
  */
 export function zipCep(entries: Map<string, Uint8Array>, date: Date): Buffer {
-  // 0xffff and 0xffffffff themselves mean "see the ZIP64 record", which this writer lacks.
-  const tooLarge = (what: string) =>
-    new Error(`zipCep: ${what} too large for a zip without ZIP64; the project file cannot be written`);
-  if (entries.size >= 0xffff) throw tooLarge('the number of files is');
   const { dosDate, dosTime } = toDosDateTime(date);
+  const packed: PackedZipEntry[] = [];
+  for (const [name, data] of entries) packed.push(packEntry(name, data, dosTime, dosDate));
+  return writeZip(packed);
+}
+
+/**
+ * One file packed as zipCep packs it: deflated with node:zlib, or stored when that is not
+ * smaller, dated `dosTime`/`dosDate`.
+ */
+export function packEntry(name: string, data: Uint8Array, dosTime: number, dosDate: number): PackedZipEntry {
+  if (data.length >= 0xffffffff) throw zipTooLarge(`the file ${name} is`);
+  const deflated = data.length > 0 ? zlib.deflateRawSync(data, { level: 6 }) : null;
+  const stored = !deflated || deflated.length >= data.length;
+  return {
+    nameBytes: Buffer.from(name, 'utf8'),
+    flags: /[^\x00-\x7f]/.test(name) ? 0x0800 : 0, // bit 11: the name is UTF-8
+    method: stored ? 0 : 8,
+    crc: crc32(data),
+    size: data.length,
+    dosTime,
+    dosDate,
+    body: stored ? Buffer.from(data.buffer, data.byteOffset, data.byteLength) : deflated!,
+  };
+}
+
+// 0xffff and 0xffffffff themselves mean "see the ZIP64 record", which this writer lacks.
+const zipTooLarge = (what: string) =>
+  new Error(`zipCep: ${what} too large for a zip without ZIP64; the project file cannot be written`);
+
+/** Writes packed files, in the given order, as a zip without ZIP64 (zipCep, or files copied from another zip). */
+export function writeZip(entries: PackedZipEntry[]): Buffer {
+  if (entries.length >= 0xffff) throw zipTooLarge('the number of files is');
   const locals: Buffer[] = [];
   const centrals: Buffer[] = [];
   let offset = 0;
-  for (const [name, data] of entries) {
-    const nameBytes = Buffer.from(name, 'utf8');
-    if (nameBytes.length >= 0xffff) throw tooLarge(`the name ${name.slice(0, 40)}... is`);
-    if (data.length >= 0xffffffff) throw tooLarge(`the file ${name} is`);
-    const deflated = data.length > 0 ? zlib.deflateRawSync(data, { level: 6 }) : null;
-    const stored = !deflated || deflated.length >= data.length;
-    const body = stored ? Buffer.from(data.buffer, data.byteOffset, data.byteLength) : deflated!;
-    if (offset >= 0xffffffff) throw tooLarge('the project file is');
-    const crc = crc32(data);
-    const flags = /[^\x00-\x7f]/.test(name) ? 0x0800 : 0; // bit 11: the name is UTF-8
-    const method = stored ? 0 : 8;
+  for (const e of entries) {
+    const { nameBytes, body } = e;
+    if (nameBytes.length >= 0xffff) throw zipTooLarge(`the name ${nameBytes.toString('utf8').slice(0, 40)}... is`);
+    if (e.size >= 0xffffffff || body.length >= 0xffffffff) throw zipTooLarge(`the file ${nameBytes.toString('utf8')} is`);
+    if (offset >= 0xffffffff) throw zipTooLarge('the project file is');
 
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(20, 4);
-    local.writeUInt16LE(flags, 6);
-    local.writeUInt16LE(method, 8);
-    local.writeUInt16LE(dosTime, 10);
-    local.writeUInt16LE(dosDate, 12);
-    local.writeUInt32LE(crc, 14);
+    local.writeUInt16LE(e.flags, 6);
+    local.writeUInt16LE(e.method, 8);
+    local.writeUInt16LE(e.dosTime, 10);
+    local.writeUInt16LE(e.dosDate, 12);
+    local.writeUInt32LE(e.crc, 14);
     local.writeUInt32LE(body.length, 18);
-    local.writeUInt32LE(data.length, 22);
+    local.writeUInt32LE(e.size, 22);
     local.writeUInt16LE(nameBytes.length, 26);
     local.writeUInt16LE(0, 28);
     locals.push(local, nameBytes, body);
@@ -663,27 +732,27 @@ export function zipCep(entries: Map<string, Uint8Array>, date: Date): Buffer {
     central.writeUInt32LE(0x02014b50, 0);
     central.writeUInt16LE(20, 4);
     central.writeUInt16LE(20, 6);
-    central.writeUInt16LE(flags, 8);
-    central.writeUInt16LE(method, 10);
-    central.writeUInt16LE(dosTime, 12);
-    central.writeUInt16LE(dosDate, 14);
-    central.writeUInt32LE(crc, 16);
+    central.writeUInt16LE(e.flags, 8);
+    central.writeUInt16LE(e.method, 10);
+    central.writeUInt16LE(e.dosTime, 12);
+    central.writeUInt16LE(e.dosDate, 14);
+    central.writeUInt32LE(e.crc, 16);
     central.writeUInt32LE(body.length, 20);
-    central.writeUInt32LE(data.length, 24);
+    central.writeUInt32LE(e.size, 24);
     central.writeUInt16LE(nameBytes.length, 28);
     // Extra field, comment, disk, internal attributes: 0. External: MS-DOS directory bit.
-    central.writeUInt32LE(name.endsWith('/') ? 0x10 : 0, 38);
+    central.writeUInt32LE(nameBytes[nameBytes.length - 1] === 0x2f ? 0x10 : 0, 38);
     central.writeUInt32LE(offset, 42);
     centrals.push(central, nameBytes);
 
     offset += 30 + nameBytes.length + body.length;
   }
   const centralSize = centrals.reduce((n, b) => n + b.length, 0);
-  if (offset >= 0xffffffff || centralSize >= 0xffffffff) throw tooLarge('the project file is');
+  if (offset >= 0xffffffff || centralSize >= 0xffffffff) throw zipTooLarge('the project file is');
   const end = Buffer.alloc(22);
   end.writeUInt32LE(0x06054b50, 0);
-  end.writeUInt16LE(entries.size, 8);
-  end.writeUInt16LE(entries.size, 10);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
   end.writeUInt32LE(centralSize, 12);
   end.writeUInt32LE(offset, 16);
   return Buffer.concat([...locals, ...centrals, end]);

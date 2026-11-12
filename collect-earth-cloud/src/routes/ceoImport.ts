@@ -15,6 +15,7 @@
 //   round, plotFile, doneFile, records, collectors, counts, answers, report }: who may make a project (projectCreation,
 //   maxProjectsPerUser) as for POST /v1/projects; the caller is its coordinator.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { CEO_PSEUDONYM_PREFIX } from '../anonymize.js';
 import { ceoRecords, submitted, type CeoPlotAnswers } from '../ceo/answers.js';
 import { ceoSurvey, CeoImportError, type CeoSurvey } from '../ceo/index.js';
 import { ceoProjectFile, reportText } from '../ceo/projectFile.js';
@@ -46,9 +47,6 @@ interface ImportBody {
   /** the new project's name; CEO's by default */
   name?: unknown;
 }
-
-/** The records of a collector given no account: ceo-collector-1, -2... */
-const PSEUDONYM_PREFIX = 'ceo-collector-';
 
 const MAX_NAME = 200;
 
@@ -212,7 +210,7 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
       for (const { email } of survey.answers.collectors) {
         if (operators.has(email)) continue;
         let pseudonym: string;
-        do pseudonym = `${PSEUDONYM_PREFIX}${++n}`;
+        do pseudonym = `${CEO_PSEUDONYM_PREFIX}${++n}`;
         while (await store.isAccountUsername(pseudonym));
         operators.set(email, { username: pseudonym, userId: null });
       }

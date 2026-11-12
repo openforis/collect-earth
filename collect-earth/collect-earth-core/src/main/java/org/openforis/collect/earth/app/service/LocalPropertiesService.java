@@ -106,13 +106,6 @@ public class LocalPropertiesService extends Observable {
 				GEEAPP_FROM_DATE("geeapp_date_from"),
 				GEEAPP_TO_DATE("geeapp_date_to"),
 				OPEN_ESRI_WAYBACK("open_esri_wayback"),
-				/** Legacy POC flag, superseded by {@link #VIEWER_TYPE}; only read to migrate old settings. */
-				@Deprecated
-				OPEN_GOOGLE_EARTH_WEB("open_google_earth_web"),
-				/** Legacy POC flag, superseded by {@link #VIEWER_TYPE}; only read to migrate old settings. */
-				@Deprecated
-				OPEN_IN_LEAFLET_MAP("open_in_leaflet_map"),
-				VIEWER_TYPE("viewer_type"),
 				/** Share of the height of Google Earth Web's view a plot fills (0.375 when not set), see GoogleEarthWebUrls */
 				GEW_PLOT_VIEW_SHARE("gew_plot_view_share"),
 				/**
@@ -122,8 +115,6 @@ public class LocalPropertiesService extends Observable {
 				 * sea level over higher ground shows nothing
 				 */
 				GEW_FLY_ANIMATION("gew_fly_animation"),
-				MAP_ENGINE("map_engine"),
-				WINDOW_LAYOUT("window_layout"),
 				WEB_FORM("web_form"),
 				DEFERRED_SAVE_DISABLED("deferred_save_disabled"),
 				CLOUD_SYNC_ENABLED("cloud_sync_enabled"),
@@ -630,103 +621,6 @@ public class LocalPropertiesService extends Observable {
 		return isPropertyActivated(EarthProperty.OPEN_ESRI_WAYBACK);
 	}
 
-	/**
-	 * Legacy mode: plots are handed to Google Earth Pro as KML (balloon forms, NetworkLink status icons). No longer
-	 * offered: EarthApp moves an installation still set to it to Google Earth Web at start-up.
-	 */
-	public static final String VIEWER_TYPE_GOOGLE_EARTH_PRO = "google_earth_pro";
-	/** Plots map window (Leaflet/Google Maps engine) with the plot list and web form; no Google Earth. */
-	public static final String VIEWER_TYPE_PLOTS_MAP = "plots_map";
-	/** Plots map window as the navigator plus a Google Earth Web window that flies to each plot. */
-	public static final String VIEWER_TYPE_GOOGLE_EARTH_WEB = "google_earth_web";
-
-	/**
-	 * The plot viewer mode. When {@code viewer_type} is not set (or holds an unknown
-	 * value) the mode is derived from the legacy POC flags so existing installations
-	 * keep their behaviour.
-	 */
-	@SuppressWarnings("deprecation")
-	public String getViewerType() {
-		return resolveViewerType(getValue(EarthProperty.VIEWER_TYPE),
-				isPropertyActivated(EarthProperty.OPEN_IN_LEAFLET_MAP),
-				isPropertyActivated(EarthProperty.OPEN_GOOGLE_EARTH_WEB));
-	}
-
-	public static String resolveViewerType(String viewerType, boolean legacyLeafletMap, boolean legacyGoogleEarthWeb) {
-		if (VIEWER_TYPE_GOOGLE_EARTH_PRO.equals(viewerType) || VIEWER_TYPE_PLOTS_MAP.equals(viewerType)
-				|| VIEWER_TYPE_GOOGLE_EARTH_WEB.equals(viewerType)) {
-			return viewerType;
-		}
-		if (legacyGoogleEarthWeb) {
-			return VIEWER_TYPE_GOOGLE_EARTH_WEB;
-		}
-		if (legacyLeafletMap) {
-			return VIEWER_TYPE_PLOTS_MAP;
-		}
-		return VIEWER_TYPE_GOOGLE_EARTH_WEB;
-	}
-
-	public void saveViewerType(String viewerType) {
-		setValue(EarthProperty.VIEWER_TYPE, viewerType);
-	}
-
-	/** Whether the plots map window replaces the KML handoff to Google Earth Pro. */
-	public boolean isPlotsMapViewer() {
-		return !VIEWER_TYPE_GOOGLE_EARTH_PRO.equals(getViewerType());
-	}
-
-	/** Whether a Google Earth Web window follows the plot selected in the plots map. */
-	public boolean isGoogleEarthWebViewer() {
-		return VIEWER_TYPE_GOOGLE_EARTH_WEB.equals(getViewerType());
-	}
-
-	/**
-	 * With Google Earth Web as the viewer, as {@link #WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH}; with the plots map alone, the
-	 * imagery on another screen when there is a large enough one, else side by side with the form.
-	 */
-	public static final String WINDOW_LAYOUT_AUTO = "auto";
-	/** The form and Google Earth Web side by side on one screen, even when there are several. */
-	public static final String WINDOW_LAYOUT_SIDE_BY_SIDE = "side_by_side";
-	/** The plots map on one screen and Google Earth Web on another, however small the other screen is. */
-	public static final String WINDOW_LAYOUT_SEPARATE_SCREENS = "separate_screens";
-	/** As separate screens, with Google Earth Web full screen (no title bar); side by side on a single screen. */
-	public static final String WINDOW_LAYOUT_IMAGERY_FULL_SCREEN = "imagery_full_screen";
-	/**
-	 * The plots map in a panel of the Google Earth Web window, which fills the largest screen; the other imagery in a
-	 * window of its own, on another screen when there is one.
-	 */
-	public static final String WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH = "plots_map_in_earth";
-
-	/** How the plots map and Google Earth Web windows are laid out on the screens. */
-	public String getWindowLayout() {
-		String layout = getValue(EarthProperty.WINDOW_LAYOUT);
-		return WINDOW_LAYOUT_SIDE_BY_SIDE.equals(layout) || WINDOW_LAYOUT_SEPARATE_SCREENS.equals(layout)
-				|| WINDOW_LAYOUT_IMAGERY_FULL_SCREEN.equals(layout) || WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH.equals(layout) ? layout
-						: WINDOW_LAYOUT_AUTO;
-	}
-
-	/**
-	 * Whether the plots map is a panel of the Google Earth Web window, instead of a window of its own: Google Earth Web
-	 * as the viewer, with that layout chosen or the automatic one.
-	 */
-	public boolean isPlotsMapInGoogleEarthWeb() {
-		String layout = getWindowLayout();
-		return isGoogleEarthWebViewer()
-				&& (WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH.equals(layout) || WINDOW_LAYOUT_AUTO.equals(layout));
-	}
-
-	public void saveWindowLayout(String windowLayout) {
-		setValue(EarthProperty.WINDOW_LAYOUT, windowLayout);
-	}
-
-	public static final String MAP_ENGINE_LEAFLET = "leaflet";
-	public static final String MAP_ENGINE_GOOGLE = "google_maps";
-
-	public String getMapEngine() {
-		String engine = getValue(EarthProperty.MAP_ENGINE);
-		return MAP_ENGINE_GOOGLE.equals(engine) ? MAP_ENGINE_GOOGLE : MAP_ENGINE_LEAFLET;
-	}
-
 	/** The plots map form generated at runtime from the survey (the default). */
 	public static final String WEB_FORM_GENERATED = "generated";
 	/** The balloon HTML of the CEP (balloon_web when the CEP has one), as in the first plots map versions. */
@@ -1082,11 +976,6 @@ public class LocalPropertiesService extends Observable {
 
 	public void saveCsvFileCehcksum(String checksum) {
 		setValue(EarthProperty.CSV_KEY_CHECKSUM, checksum);
-
-	}
-
-	public void saveGeneratedOn(String dateGenerated) {
-		setValue(EarthProperty.GENERATED_KEY, dateGenerated);
 
 	}
 

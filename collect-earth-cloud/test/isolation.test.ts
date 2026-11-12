@@ -105,6 +105,7 @@ describe('cross-tenant isolation', () => {
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/invites` },
       { method: 'DELETE' as const, url: `/v1/projects/${b.projectId}/invites/00000000-0000-0000-0000-000000000000` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/export.csv` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/export/choices` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/ceo-shapes` },
       { method: 'POST' as const, url: `/v1/projects/${b.projectId}/ceo-shapes/step` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/areas` },
@@ -137,6 +138,8 @@ describe('cross-tenant isolation', () => {
       { method: 'PUT' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/distribution`, payload: { mode: 'whole' } },
       { method: 'POST' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/move-unfinished`,
         payload: { fromUserId: nobody, toUserId: nobody } },
+      { method: 'POST' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/rebalance`,
+        payload: { people: [{ userId: nobody, weight: 1 }, { userId: nobody, weight: 1 }], dryRun: true } },
       { method: 'GET' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/content` },
       { method: 'GET' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/content?mine=1` },
     ]);
@@ -203,7 +206,12 @@ describe('cross-tenant isolation', () => {
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/exports/decisions` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/exports/collect-backup` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/exports/collect-backup?rounds=all` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/exports/collect-backup?format=collect` },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/exports/collect-backup/link`, payload: { rounds: '1', format: 'collect' } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/exports/collect-backup/summary` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/exports/ipcc` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/exports/ipcc/matrix` },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/exports/ipcc/ghgi`, payload: { country: 'ALG', region: 'province' } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/attention` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/share-links` },
       { method: 'POST' as const, url: `/v1/projects/${b.projectId}/share-links`, payload: { label: 'x' } },
@@ -359,5 +367,20 @@ describe('cross-tenant isolation', () => {
       payload: { surveyUri: 'x', idmlBase64: 'eA==' },
     });
     expect(res.statusCode).toBe(403);
+  });
+
+  it("A's collector token gets 404 on B's project file (served emptied to collectors, never across projects)", async () => {
+    await ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${b.projectId}/cep`,
+      headers: { authorization: `Bearer ${b.adminToken}`, 'content-type': 'application/zip' },
+      payload: Buffer.from('PK\x03\x04 pretend zip'),
+    });
+    const res = await ctx.app.inject({
+      method: 'GET',
+      url: `/v1/projects/${b.projectId}/cep`,
+      headers: { authorization: `Bearer ${a.projectToken}` },
+    });
+    expect(res.statusCode).toBe(404);
   });
 });

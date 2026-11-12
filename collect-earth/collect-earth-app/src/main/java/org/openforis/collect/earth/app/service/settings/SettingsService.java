@@ -11,6 +11,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.RestartService;
 import org.openforis.collect.earth.app.service.settings.Setting.Type;
+import org.openforis.collect.earth.app.view.Messages;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -61,7 +62,7 @@ public class SettingsService {
 
 	/**
 	 * The stored value of every setting, by key, as the dialog showed it: a number within its range (the spinners
-	 * replaced what was not), the viewer, layout, map engine, form and driver resolved to one of their choices (as
+	 * replaced what was not), the form and driver resolved to one of their choices (as
 	 * LocalPropertiesService resolves them), a switch as true or false, the reference area shape as the panel showed
 	 * it for the projects older than the setting, and the first of several reference distances.
 	 */
@@ -91,13 +92,7 @@ public class SettingsService {
 	private String shown(Setting setting, Map<String, String> stored) {
 		String value = Condition.valueOf(stored, setting.key());
 		EarthProperty property = setting.getProperty();
-		if (property == EarthProperty.VIEWER_TYPE) {
-			return properties.getViewerType();
-		} else if (property == EarthProperty.WINDOW_LAYOUT) {
-			return properties.getWindowLayout();
-		} else if (property == EarthProperty.MAP_ENGINE) {
-			return properties.getMapEngine();
-		} else if (property == EarthProperty.DB_DRIVER) {
+		if (property == EarthProperty.DB_DRIVER) {
 			CollectDBDriver driver = properties.getCollectDBDriver();
 			return (driver == null ? CollectDBDriver.SQLITE : driver).name();
 		} else if (property == EarthProperty.SAMPLE_SHAPE) {
@@ -124,7 +119,50 @@ public class SettingsService {
 
 	/** The rules over the stored values with these over them. */
 	public Validation validate(Map<String, String> given) {
-		return validator.validate(overlay(current(), given));
+		Map<String, String> current = current();
+		Map<String, String> merged = overlay(current, given);
+		Validation validation = validator.validate(merged);
+		refuseCoordinatorsSettings(current, given, merged, validation);
+		return validation;
+	}
+
+	/**
+	 * Whether the values are of the open cloud project's (another database in them leaves it, which is not held back).
+	 * Its plot design is the coordinator's, from the project file of the cloud project (written when it is joined or its
+	 * project file loaded again, not here).
+	 */
+	private boolean inCloudProject(Map<String, String> merged) {
+		return properties.isCloudSyncEnabled()
+				&& CollectDBDriver.CLOUD.name().equals(Condition.valueOf(merged, EarthProperty.DB_DRIVER.toString()).trim());
+	}
+
+	private boolean isCoordinators(Setting setting) {
+		for (Section section : getModel().sections()) {
+			if (SettingsModel.PLOT.equals(section.getId())) {
+				return section.getSettings().contains(setting);
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * In a cloud project the settings of the plot section (the shape and size of the plot, its reference area) are set by
+	 * its coordinator: a change to one is refused at it. Their rules are not run on the values kept, which are not the
+	 * collector's to correct.
+	 */
+	private void refuseCoordinatorsSettings(Map<String, String> current, Map<String, String> given, Map<String, String> merged, Validation validation) {
+		if (!inCloudProject(merged)) {
+			return;
+		}
+		for (Setting setting : getModel().settings()) {
+			if (!isCoordinators(setting)) {
+				continue;
+			}
+			String key = setting.key();
+			boolean changed = given != null && given.containsKey(key)
+					&& !StringUtils.trimToEmpty(given.get(key)).equals(StringUtils.trimToEmpty(current.get(key)));
+			validation.replaceError(key, changed ? Messages.getString("SettingsPage.plot.cloudLocked") : null);
+		}
 	}
 
 	/**
@@ -136,8 +174,11 @@ public class SettingsService {
 	 * @throws InvalidSettingsException when a rule is broken, with the errors by key; nothing is then saved
 	 */
 	public boolean save(Map<String, String> changes) throws InvalidSettingsException {
-		Map<String, String> merged = overlay(current(), changes);
+		Map<String, String> current = current();
+		Map<String, String> merged = overlay(current, changes);
 		Validation validation = validator.validate(merged);
+		refuseCoordinatorsSettings(current, changes, merged, validation);
+		boolean coordinatorsKept = inCloudProject(merged);
 		if (!validation.isValid()) {
 			throw new InvalidSettingsException(validation.getErrors());
 		}
@@ -145,6 +186,10 @@ public class SettingsService {
 		boolean restartNeeded = false;
 		for (Setting setting : getModel().settings()) {
 			String key = setting.key();
+			// Nothing of the coordinator's plot design is written in a cloud project, a blank of a hidden one neither
+			if (coordinatorsKept && isCoordinators(setting)) {
+				continue;
+			}
 			String value;
 			if (setting.isVisible(merged)) {
 				if (!changes.containsKey(key)) {

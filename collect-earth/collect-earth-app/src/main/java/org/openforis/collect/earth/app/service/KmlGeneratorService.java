@@ -46,7 +46,6 @@ import org.springframework.stereotype.Component;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvValidationException;
 
-import freemarker.template.TemplateException;
 
 @Component
 public class KmlGeneratorService {
@@ -66,8 +65,6 @@ public class KmlGeneratorService {
 
 	public static final String KML_RESULTING_TEMP_FILE = EarthConstants.GENERATED_FOLDER + File.separator + "plots.kml"; //$NON-NLS-1$
 	public static final String KMZ_FILE_PATH = EarthConstants.GENERATED_FOLDER + File.separator + "gePlugin.kmz"; //$NON-NLS-1$
-	public static final String KML_NETWORK_LINK_TEMPLATE = RESOURCES_FOLDER + File.separator + "loadApp.fmt"; //$NON-NLS-1$
-	public static final String KML_NETWORK_LINK_STARTER = EarthConstants.GENERATED_FOLDER + "/loadApp.kml"; //$NON-NLS-1$
 
 	public static final String FREEMARKER_KML_OUTPUT_TEMPLATE_BALLOON = RESOURCES_FOLDER + File.separator
 			+ "balloonForKMLExport.fmt";
@@ -147,6 +144,19 @@ public class KmlGeneratorService {
 		FileUtils.copyDirectory(sourceDir, targetDir);
 	}
 
+	/**
+	 * The plots file to use instead of one that is not there: the file of the same path in the Collect Earth data folder,
+	 * if it is there. Never in a cloud project, whose plots file is one its server assigned (SettingsValidator): another
+	 * file found there would show plots the operator was not assigned. @return null to keep the plots file as it is
+	 */
+	static File plotFileElsewhere(File csvFile, String prefixUserFolder, boolean cloudProject) {
+		if (cloudProject || csvFile.exists()) {
+			return null;
+		}
+		final File otherFile = new File(prefixUserFolder + csvFile.getPath());
+		return otherFile.exists() ? otherFile : null;
+	}
+
 	private void fixUserDirectory() {
 		final String csvFilePath = getLocalProperties().getCsvFile();
 		final String balloonPath = getLocalProperties().getBalloonFile();
@@ -165,11 +175,9 @@ public class KmlGeneratorService {
 
 			final String prefixUserFolder = FolderFinder.getCollectEarthDataFolder() + File.separator;
 
-			if (!csvFile.exists()) {
-				final File otherFile = new File(prefixUserFolder + getLocalProperties().getCsvFile());
-				if (otherFile.exists()) {
-					getLocalProperties().setValue(EarthProperty.SAMPLE_FILE, otherFile.getAbsolutePath());
-				}
+			final File otherCsv = plotFileElsewhere(csvFile, prefixUserFolder, getLocalProperties().isCloudSyncEnabled());
+			if (otherCsv != null) {
+				getLocalProperties().setValue(EarthProperty.SAMPLE_FILE, otherCsv.getAbsolutePath());
 			}
 
 			if (!balloon.exists()) {
@@ -492,25 +500,6 @@ public class KmlGeneratorService {
 		getLocalProperties().saveBalloonFileChecksum(CollectEarthUtils.getMd5FromFile(balloon));
 		getLocalProperties().saveCsvFileCehcksum(CollectEarthUtils.getMd5FromFile(csvFile));
 		getLocalProperties().saveTemplateFileChecksum(CollectEarthUtils.getMd5FromFile(template));
-	}
-
-	public void generateLoaderKmlFile() throws IOException, TemplateException {
-
-		getLocalProperties().saveGeneratedOn(System.currentTimeMillis() + ""); //$NON-NLS-1$
-
-		final Map<String, Object> data = new HashMap<>();
-		data.put("host", //$NON-NLS-1$
-				ServerController.getHostAddress(getLocalProperties().getHost(), getLocalProperties().getLocalPort()));
-		data.put("kmlGeneratedOn", getLocalProperties().getGeneratedOn()); //$NON-NLS-1$
-		data.put("surveyName", getLocalProperties().getValue(EarthProperty.SURVEY_NAME)); //$NON-NLS-1$
-		data.put("plotFileName", KmlGenerator.getCsvFileName(getLocalProperties().getValue(EarthProperty.SAMPLE_FILE))); //$NON-NLS-1$
-		// Placemark-status polling interval (seconds): keep the responsive 5s for the local
-		// SQLite database, but poll less often for PostgreSQL (typically remote) to reduce the
-		// number of round-trips to the database server.
-		data.put("refreshInterval", getLocalProperties().isUsingSqliteDB() ? "5" : "10"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-
-		FreemarkerTemplateUtils.applyTemplate(new File(KML_NETWORK_LINK_TEMPLATE), new File(KML_NETWORK_LINK_STARTER),
-				data);
 	}
 
 	private boolean isKmlUpToDate() throws IOException {

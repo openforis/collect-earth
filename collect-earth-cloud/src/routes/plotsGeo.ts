@@ -23,7 +23,10 @@ import { MAX_NAME } from './quality.js';
  * the plots per status (`counts`, those off the map included), `notOnMap`, the files (`plots`,
  * `onMap`), and for coordinators the people (`people`, the person filter) and the groups of
  * people holding a plot (`holders`, which `holder` indexes). Reviewers get neither (Decision 3:
- * they do not see who holds plots), and the person filter is refused to them.
+ * they do not see who holds plots), and the person filter is refused to them. Coordinators also
+ * get what a selection on the map needs to give plots to someone: `file` (each point's plot file,
+ * an index in `files`; -1 when several files list it), `reference` (the reference plots of the
+ * page, by their index in the whole map) and each file's `divided`.
  *
  * A map is built once (the request without `version`) and kept a short while under its
  * `version`; the next pages name it and are slices of that build, so every page of a map
@@ -232,6 +235,7 @@ export async function registerPlotsGeoRoutes(
       filename: meta.filename,
       units: unitsOf(meta.id),
       places: read?.get(meta.id) ?? null,
+      divided: Boolean(meta.distribution),
     }));
     const hidden = facts.hidden;
     const map = plotsGeo({
@@ -243,6 +247,7 @@ export async function registerPlotsGeoRoutes(
       resubmitted: figures ? new Set(resubmittedAfterRecheck(figures.flags, decisions).map((r) => r.plot)) : null,
       nameOf: hidden && hidden.some(Boolean) ? (unit) => visibleId(unit, hidden) : null,
       people: coordinator,
+      reference: coordinator ? new Set(state.context.reference.keys()) : null,
       file,
       person,
     });
@@ -274,6 +279,8 @@ export async function registerPlotsGeoRoutes(
       points: page.points,
       plots: page.plots,
       names: page.names,
+      // Coordinators: each point's plot file (index in `files`, -1 when several list it) and the reference plots.
+      ...(page.file ? { file: page.file, reference: page.reference } : {}),
       statuses: GEO_STATUSES,
       counts: map.counts,
       notOnMap: map.notOnMap,

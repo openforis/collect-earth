@@ -1,6 +1,5 @@
 package org.openforis.collect.earth.app.server.api;
 
-import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -34,7 +33,7 @@ public class MessagesControllerTest {
 		// Messages_es.properties is ISO-8859-1, with some texts written as such and others as Unicode escapes
 		mvc.perform(get("/api/messages").param("lang", "es"))
 				.andExpect(jsonPath("$.texts['CollectEarthWindow.23']").value("Necesita confirmación"))
-				.andExpect(jsonPath("$.texts['ExternalServicesPanel.viewerTypeTooltip']").value(startsWith("Dónde")));
+				.andExpect(jsonPath("$.texts['SettingsPage.section.imagery']").value("Imágenes"));
 	}
 
 	@Test

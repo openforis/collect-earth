@@ -20,7 +20,6 @@ import org.openforis.collect.earth.app.service.AbstractEarthSurveyService.PlotSt
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
-import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.PlotGeoJsonBuilder;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
@@ -153,7 +152,8 @@ public class LeafletMapController {
 		String body;
 		try {
 			String csvFile = localPropertiesService.getCsvFile();
-			if (csvFile == null || csvFile.trim().isEmpty() || !new File(csvFile).exists()) {
+			String version = plotsVersion(csvFile);
+			if (version.isEmpty()) {
 				// No survey plot file loaded yet: this is a valid, final state (not an error).
 				// Return an empty FeatureCollection with a warning so the page shows a banner
 				// instead of NPEing into a 500 and entering an endless retry loop.
@@ -161,6 +161,8 @@ public class LeafletMapController {
 			} else {
 				body = getOrBuildFeatureCollection(csvFile);
 			}
+			// The plot file these plots are of, which the statuses tell too (see plotStatuses)
+			body = "{\"plots\":" + json.writeValueAsString(version) + "," + body.substring(1);
 		} catch (Exception e) {
 			logger.error("Error generating plots GeoJSON", e);
 			response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -228,18 +230,25 @@ public class LeafletMapController {
 		return cachedPlotIds;
 	}
 
+	/**
+	 * The plot file the plots map shows, and its version: its path and when it was last changed, "" when there is none.
+	 * The plots map loads its plots again when the statuses tell another one (settings applied, a plot file dropped, the
+	 * cloud project's assigned file), as nothing reloads the panel of Google Earth Web.
+	 */
+	static String plotsVersion(String csvFile) {
+		if (csvFile == null || csvFile.trim().isEmpty()) {
+			return "";
+		}
+		File csv = new File(csvFile);
+		return csv.exists() ? csvFile + "@" + csv.lastModified() : "";
+	}
+
 	@GetMapping("/mapConfig")
 	public void mapConfig(HttpServletResponse response) throws IOException {
 		response.setHeader("Content-Type", "application/json; charset=UTF-8");
 		Map<String, Object> config = new LinkedHashMap<>();
-		config.put("engine", localPropertiesService.getMapEngine());
-		String apiKey = localPropertiesService.getValue(EarthProperty.GOOGLE_MAPS_API_KEY);
-		config.put("googleMapsApiKey", apiKey == null ? "" : apiKey);
-		config.put("viewerType", localPropertiesService.getViewerType());
 		config.put("language", localPropertiesService.getUiLanguage().getLocale().getLanguage());
 		config.put("webForm", localPropertiesService.getWebForm());
-		// The plot's sample points numbered as the rows of a questions' table per point
-		config.put("samplePointNumbers", localPropertiesService.isSamplePointNumbers());
 		json.writeValue(response.getOutputStream(), config);
 	}
 
@@ -275,7 +284,8 @@ public class LeafletMapController {
 			// plot file on the map ( 17,968 for 15 plots ): loading all of them took minutes, and the polls
 			// piled up until the browser had no connection left to load the page with
 			String csvFile = localPropertiesService.getCsvFile();
-			Set<String> plotIds = csvFile != null && new File(csvFile).exists() ? plotIdsOf(csvFile) : Collections.emptySet();
+			String version = plotsVersion(csvFile);
+			Set<String> plotIds = !version.isEmpty() ? plotIdsOf(csvFile) : Collections.emptySet();
 			List<CollectRecordSummary> summaries = plotIds.isEmpty() ? null : earthSurveyService.getRecordSummariesSavedSince(since);
 			if (summaries != null) {
 				for (CollectRecordSummary summary : summaries) {
@@ -298,6 +308,7 @@ public class LeafletMapController {
 			Map<String, Object> result = new LinkedHashMap<>();
 			result.put("now", now);
 			result.put("statuses", statuses);
+			result.put("plots", version);
 			if (repeat) {
 				result.put("periods", periods);
 			}

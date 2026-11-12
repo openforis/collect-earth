@@ -4,7 +4,9 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BooleanSupplier;
 
+import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.RestartService;
 import org.openforis.collect.earth.app.service.jobs.Job;
 import org.openforis.collect.earth.app.service.jobs.JobService;
@@ -49,17 +51,25 @@ public class ToolsController {
 	private final ToolsService tools;
 	private final JobService jobs;
 	private final Runnable restart;
+	/** A cloud project, whose plots are the ones its coordinator assigned: a KML's points cannot replace them */
+	private final BooleanSupplier cloudProject;
 
 	@Autowired
-	public ToolsController(AnalysisService analysis, ToolsService tools, JobService jobs, RestartService restart) {
-		this(analysis, tools, jobs, (Runnable) restart);
+	public ToolsController(AnalysisService analysis, ToolsService tools, JobService jobs, RestartService restart, LocalPropertiesService properties) {
+		this(analysis, tools, jobs, (Runnable) restart, properties::isCloudSyncEnabled);
 	}
 
+	/** For the tests: a project kept on this computer. */
 	ToolsController(AnalysisService analysis, ToolsService tools, JobService jobs, Runnable restart) {
+		this(analysis, tools, jobs, restart, () -> false);
+	}
+
+	ToolsController(AnalysisService analysis, ToolsService tools, JobService jobs, Runnable restart, BooleanSupplier cloudProject) {
 		this.analysis = analysis;
 		this.tools = tools;
 		this.jobs = jobs;
 		this.restart = restart;
+		this.cloudProject = cloudProject;
 	}
 
 	@GetMapping("/api/tools/analysis")
@@ -77,9 +87,15 @@ public class ToolsController {
 		return start("ipcc", () -> analysis.ipccOutputs(answers));
 	}
 
-	/** The KML's points as the plots file, then the restart (after the answer), as the Swing entry did. */
+	/**
+	 * The KML's points as the plots file, then the restart (after the answer), as the Swing entry did. Not in a cloud
+	 * project, where the menu has it disabled: its plots file is one its server assigned (SettingsValidator).
+	 */
 	@PostMapping("/api/tools/loadKml")
 	public Map<String, Object> loadKml(@RequestBody KmlRequest request) {
+		if (cloudProject.getAsBoolean()) {
+			throw new ApiException(HttpStatus.CONFLICT, "kml.cloudProject", Messages.getString("ToolsPage.kml.cloudProject"));
+		}
 		try {
 			Map<String, Object> answer = new LinkedHashMap<>(tools.loadKml(request.kml, request.csv));
 			restart.run();

@@ -10,7 +10,8 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import { errorText } from "../../appBar";
 import { useT } from "../../i18n";
-import { formatPercent, looksLikeInvitation } from "../../project";
+import { joinPreviewText } from "../../cloud";
+import { looksLikeInvitation } from "../../project";
 import { cloudJoin, cloudPreview, type CloudPreview } from "../../projectApi";
 import { serverText, type Texts } from "../../serverTexts";
 import { RestartingOverlay } from "../settings/RestartingOverlay";
@@ -53,7 +54,7 @@ export function JoinCloudDialog({ open, texts, onClose }: Props) {
   if (restarting) return <RestartingOverlay text={s("SettingsPage.restarting")} />;
   if (step === "login" && preview) {
     return <CloudLoginDialog open={open} texts={texts} canRegister onSubmit={join} onCancel={onClose}
-      intro={formatPercent(s("CloudJoin.previewMessage"), preview.projectName, preview.role).split("\n")[0]} />;
+      intro={joinPreviewText(s("CloudJoin.previewMessage"), preview, t).split("\n")[0]} />;
   }
 
   return (
@@ -68,7 +69,7 @@ export function JoinCloudDialog({ open, texts, onClose }: Props) {
           )}
           {step === "confirm" && preview && (
             <DialogContentText sx={{ whiteSpace: "pre-line" }} data-testid="join-preview">
-              {formatPercent(s("CloudJoin.previewMessage"), preview.projectName, preview.role)}
+              {joinPreviewText(s("CloudJoin.previewMessage"), preview, t)}
             </DialogContentText>
           )}
         </Stack>

@@ -1,0 +1,5376 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<list>
+  <Stratum>
+    <year>2000</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>333.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2000</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>mangrove</code>
+          <guid>84a4e47c-e260-4404-b4c9-9e55d78b40ec</guid>
+          <id>9</id>
+          <name>Mangrove forest</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>mangrove</code>
+          <guid>84a4e47c-e260-4404-b4c9-9e55d78b40ec</guid>
+          <id>9</id>
+          <name>Mangrove forest</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2000</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2000</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>garden</code>
+          <guid>76346edf-24fe-4824-a01e-66d74fcfa6e3</guid>
+          <id>4</id>
+          <name>Garden</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>city</code>
+          <guid>37c5b573-08fd-4a14-bf0d-36c678678819</guid>
+          <id>1</id>
+          <name>City</name>
+          <type>TREED</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>riparian</code>
+          <guid>7fc4c371-31b0-4572-bfc3-90851a249597</guid>
+          <id>8</id>
+          <name>Riparian forest</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.OtherlandSubdivision">
+          <category>O</category>
+          <code>barren_soil</code>
+          <guid>22fb875d-a21b-4cbc-bcd1-8a8d732287ce</guid>
+          <id>4</id>
+          <name>Barren soil</name>
+          <type>UNMANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.OtherlandSubdivision">
+          <category>O</category>
+          <code>barren_soil</code>
+          <guid>22fb875d-a21b-4cbc-bcd1-8a8d732287ce</guid>
+          <id>4</id>
+          <name>Barren soil</name>
+          <type>UNMANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2001</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>333.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2001</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>mangrove</code>
+          <guid>84a4e47c-e260-4404-b4c9-9e55d78b40ec</guid>
+          <id>9</id>
+          <name>Mangrove forest</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2001</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2001</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.OtherlandSubdivision">
+          <category>O</category>
+          <code>barren_soil</code>
+          <guid>22fb875d-a21b-4cbc-bcd1-8a8d732287ce</guid>
+          <id>4</id>
+          <name>Barren soil</name>
+          <type>UNMANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.OtherlandSubdivision">
+          <category>O</category>
+          <code>barren_soil</code>
+          <guid>22fb875d-a21b-4cbc-bcd1-8a8d732287ce</guid>
+          <id>4</id>
+          <name>Barren soil</name>
+          <type>UNMANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>city</code>
+          <guid>37c5b573-08fd-4a14-bf0d-36c678678819</guid>
+          <id>1</id>
+          <name>City</name>
+          <type>TREED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>city</code>
+          <guid>37c5b573-08fd-4a14-bf0d-36c678678819</guid>
+          <id>1</id>
+          <name>City</name>
+          <type>TREED</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2002</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>333.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2002</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2002</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2002</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.OtherlandSubdivision">
+          <category>O</category>
+          <code>barren_soil</code>
+          <guid>22fb875d-a21b-4cbc-bcd1-8a8d732287ce</guid>
+          <id>4</id>
+          <name>Barren soil</name>
+          <type>UNMANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.OtherlandSubdivision">
+          <category>O</category>
+          <code>barren_soil</code>
+          <guid>22fb875d-a21b-4cbc-bcd1-8a8d732287ce</guid>
+          <id>4</id>
+          <name>Barren soil</name>
+          <type>UNMANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>city</code>
+          <guid>37c5b573-08fd-4a14-bf0d-36c678678819</guid>
+          <id>1</id>
+          <name>City</name>
+          <type>TREED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2003</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>333.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2003</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2003</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2003</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.OtherlandSubdivision">
+          <category>O</category>
+          <code>barren_soil</code>
+          <guid>22fb875d-a21b-4cbc-bcd1-8a8d732287ce</guid>
+          <id>4</id>
+          <name>Barren soil</name>
+          <type>UNMANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2004</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2004</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2004</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2004</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2005</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2005</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2005</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2005</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2006</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2006</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2006</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2006</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2007</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2007</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2007</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2007</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2008</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2008</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2008</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2008</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2009</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2009</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2009</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2009</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_dec</code>
+          <guid>b0eb2062-2711-4415-a450-6d5e46611453</guid>
+          <id>1</id>
+          <name>Broadleaf deciduous</name>
+          <type>MANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2010</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2010</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2010</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2010</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2011</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2011</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2011</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2011</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2012</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2012</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2012</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2012</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2013</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2013</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2013</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2013</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2014</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2014</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2014</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2014</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2015</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2015</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2015</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2015</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2016</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2016</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2016</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2016</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2017</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland</code>
+          <guid>d49f1e42-8c22-4d6c-bdd9-012fe76baacf</guid>
+          <id>1</id>
+          <name>Grassland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>city</code>
+          <guid>37c5b573-08fd-4a14-bf0d-36c678678819</guid>
+          <id>1</id>
+          <name>City</name>
+          <type>TREED</type>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2017</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2017</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2017</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2018</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>city</code>
+          <guid>37c5b573-08fd-4a14-bf0d-36c678678819</guid>
+          <id>1</id>
+          <name>City</name>
+          <type>TREED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>city</code>
+          <guid>37c5b573-08fd-4a14-bf0d-36c678678819</guid>
+          <id>1</id>
+          <name>City</name>
+          <type>TREED</type>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2018</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2018</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2018</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2019</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>city</code>
+          <guid>37c5b573-08fd-4a14-bf0d-36c678678819</guid>
+          <id>1</id>
+          <name>City</name>
+          <type>TREED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>city</code>
+          <guid>37c5b573-08fd-4a14-bf0d-36c678678819</guid>
+          <id>1</id>
+          <name>City</name>
+          <type>TREED</type>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2019</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2019</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2019</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>grassland_trees</code>
+          <guid>e1e3de5f-ff6a-4b95-93bf-9db8ab8a248b</guid>
+          <id>2</id>
+          <name>Grassland with trees</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>village</code>
+          <guid>34a3b465-2ffd-4f2d-a133-b76673b191cd</guid>
+          <id>2</id>
+          <name>Village</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2020</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>city</code>
+          <guid>37c5b573-08fd-4a14-bf0d-36c678678819</guid>
+          <id>1</id>
+          <name>City</name>
+          <type>TREED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>city</code>
+          <guid>37c5b573-08fd-4a14-bf0d-36c678678819</guid>
+          <id>1</id>
+          <name>City</name>
+          <type>TREED</type>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2020</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2020</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2020</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>village</code>
+          <guid>34a3b465-2ffd-4f2d-a133-b76673b191cd</guid>
+          <id>2</id>
+          <name>Village</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>village</code>
+          <guid>34a3b465-2ffd-4f2d-a133-b76673b191cd</guid>
+          <id>2</id>
+          <name>Village</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2021</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>city</code>
+          <guid>37c5b573-08fd-4a14-bf0d-36c678678819</guid>
+          <id>1</id>
+          <name>City</name>
+          <type>TREED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>city</code>
+          <guid>37c5b573-08fd-4a14-bf0d-36c678678819</guid>
+          <id>1</id>
+          <name>City</name>
+          <type>TREED</type>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2021</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2021</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2021</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>village</code>
+          <guid>34a3b465-2ffd-4f2d-a133-b76673b191cd</guid>
+          <id>2</id>
+          <name>Village</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>village</code>
+          <guid>34a3b465-2ffd-4f2d-a133-b76673b191cd</guid>
+          <id>2</id>
+          <name>Village</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2022</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>33.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>city</code>
+          <guid>37c5b573-08fd-4a14-bf0d-36c678678819</guid>
+          <id>1</id>
+          <name>City</name>
+          <type>TREED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>city</code>
+          <guid>37c5b573-08fd-4a14-bf0d-36c678678819</guid>
+          <id>1</id>
+          <name>City</name>
+          <type>TREED</type>
+        </luNextYear>
+        <areaHa>300.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>SCf</gez>
+  </Stratum>
+  <Stratum>
+    <year>2022</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>12.25</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>rice</code>
+          <guid>1711773f-66ec-4b6a-853d-a537e77c487a</guid>
+          <id>5</id>
+          <name>Rice paddy</name>
+          <croplandType>ANNUAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>80.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTM</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2022</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.GrasslandSubdivision">
+          <category>G</category>
+          <code>shrubland</code>
+          <guid>adf005c2-1025-4cbf-8a4e-e2c89be2b6a5</guid>
+          <id>5</id>
+          <name>Shrubland</name>
+          <type>MANAGED</type>
+          <vegetationType>SV</vegetationType>
+        </luNextYear>
+        <areaHa>40.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>ORG</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+  <Stratum>
+    <year>2022</year>
+    <luData>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.CroplandSubdivision">
+          <category>C</category>
+          <code>annual_crops</code>
+          <guid>c4863ed4-102b-408e-985e-e402c78b8bbc</guid>
+          <id>1</id>
+          <name>Annual crops</name>
+          <croplandType>PERENNIAL</croplandType>
+          <perennialCropType>ALL</perennialCropType>
+        </luNextYear>
+        <areaHa>250.5</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.ForestSubdivision">
+          <category>F</category>
+          <code>broadleaf_ever</code>
+          <guid>23a709a9-961d-4ace-870c-e823447d35e4</guid>
+          <id>2</id>
+          <name>Broadleaf evergreen</name>
+          <type>UNMANAGED</type>
+          <forestType>OTHER_CONIF</forestType>
+        </luNextYear>
+        <areaHa>120.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>built_up</code>
+          <guid>0a3e1bd1-8e40-48eb-bac5-988143d97a4a</guid>
+          <id>5</id>
+          <name>Built up</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>25.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>village</code>
+          <guid>34a3b465-2ffd-4f2d-a133-b76673b191cd</guid>
+          <id>2</id>
+          <name>Village</name>
+          <type>OTHER</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.SettlementSubdivision">
+          <category>S</category>
+          <code>village</code>
+          <guid>34a3b465-2ffd-4f2d-a133-b76673b191cd</guid>
+          <id>2</id>
+          <name>Village</name>
+          <type>OTHER</type>
+        </luNextYear>
+        <areaHa>0.0</areaHa>
+      </LandUse>
+      <LandUse>
+        <lu class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </lu>
+        <luNextYear class="org.openforis.collect.earth.ipcc.model.WetlandSubdivision">
+          <category>W</category>
+          <code>swamp</code>
+          <guid>6fbbcab0-76d7-42a6-a6b8-d99e0cb367e6</guid>
+          <id>5</id>
+          <name>Swamp</name>
+          <type>MANAGED</type>
+        </luNextYear>
+        <areaHa>10.0</areaHa>
+      </LandUse>
+    </luData>
+    <climate>CTD</climate>
+    <soil>HAC</soil>
+    <gez>TAwb</gez>
+  </Stratum>
+</list>

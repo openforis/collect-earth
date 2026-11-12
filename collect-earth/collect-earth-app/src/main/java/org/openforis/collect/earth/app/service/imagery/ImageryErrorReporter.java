@@ -33,15 +33,10 @@ public class ImageryErrorReporter {
 	private final Set<String> reported = ConcurrentHashMap.newKeySet();
 	private volatile String browser = "unknown";
 	private volatile String browserVersion = "unknown";
-	private volatile String viewerType = "unknown";
 
 	public void setBrowser(String name, String version) {
 		browser = String.valueOf(name);
 		browserVersion = String.valueOf(version);
-	}
-
-	public void setViewerType(String viewerType) {
-		this.viewerType = String.valueOf(viewerType);
 	}
 
 	/** Something the imagery window did, for the context of a later report. */
@@ -84,7 +79,6 @@ public class ImageryErrorReporter {
 		tags.put("browser", browser);
 		tags.put("browser.version", browserVersion);
 		tags.put("bidi", "true");
-		tags.put("viewer_type", viewerType);
 		send(tags, error, level);
 		return true;
 	}

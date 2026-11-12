@@ -79,6 +79,7 @@ const EXPORT_KEYS: Record<string, MessageKey> = {
   decisions: "activity.export.decisions",
   differences: "activity.export.differences",
   "collect-backup": "activity.export.collectBackup",
+  ipcc: "ipcc.logged",
   analysis: "activity.export.analysis",
   training_scores: "activity.export.trainingScores",
   training_answers: "activity.export.trainingAnswers",
@@ -87,6 +88,7 @@ const EXPORT_KEYS: Record<string, MessageKey> = {
 /** What was downloaded: the stand-alone analysis file says whether without the plots' locations. */
 function exportKey(d: Record<string, unknown>): MessageKey {
   if (d.kind === "analysis" && d.coordinates === false) return "activity.export.analysisNoPositions";
+  if (d.kind === "collect-backup" && d.format === "collect") return "backup.collect.inLog";
   return EXPORT_KEYS[d.kind as string];
 }
 
@@ -173,6 +175,9 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
       return t(byCount(d.people, "activity.audit.dividedOne", "activity.audit.divided"), { actor, file: fileOf(t, page, d.csvFileId), count: num(d.people, language) });
     case "plots.moved":
       return t(d.moved === 1 ? "activity.audit.movedOne" : "activity.audit.moved", { actor, count: num(d.moved, language), file: fileOf(t, page, d.csvFileId), from: personOf(t, page, d.fromUserId), to: personOf(t, page, d.toUserId) });
+    case "plots.rebalanced":
+      // "Share again what is left" on a plot file's page: how many people shared the plots left, how many moved.
+      return t("activity.audit.moved.rebalanced", { actor, count: num(d.people, language), file: fileOf(t, page, d.csvFileId), moved: num(d.moved, language) });
     case "decision.set":
       return t("activity.audit.decided", { actor, plot, decision: t(DECISION_KEYS[d.decision === "first" || d.decision === "check" ? d.decision : "recheck"]) });
     case "decision.deleted":

@@ -52,6 +52,7 @@ import {
   deleteGuidanceNote,
   getPlotPlaces,
   moveUnfinished,
+  rebalance,
   saveDistribution,
   getOverview,
   getServerInfo,
@@ -85,6 +86,7 @@ import {
   setMemberExcluded,
   getMyQuality,
   getTeamReport,
+  downloadExport,
 } from "./api";
 import { CATALOGUES } from "./i18n";
 import { setToken } from "./storage";
@@ -461,6 +463,22 @@ describe("dividing plots", () => {
     expect(call(2).body).toEqual(even);
     expect(await moveUnfinished("p1", "f1", "u1", "u2")).toMatchObject({ moved: 5, notMoved: 1, droppedChecks: 2, plotCount: 3 });
     expect(call(3)).toEqual({ url: "/v1/projects/p1/csv-files/f1/move-unfinished", method: "POST", body: { fromUserId: "u1", toUserId: "u2" } });
+    await moveUnfinished("p1", "f1", "u1", "u2", { count: 10 });
+    expect(call(4).body).toEqual({ fromUserId: "u1", toUserId: "u2", count: 10 });
+    await moveUnfinished("p1", "f1", "u1", "u2", { plots: ["7", "8"] });
+    expect(call(5).body).toEqual({ fromUserId: "u1", toUserId: "u2", plots: ["7", "8"] });
+  });
+
+  it("previews and applies a rebalance", async () => {
+    const plan = { left: { u1: 9, u2: 1 }, target: { u1: 5, u2: 5 }, moves: [{ from: "u1", to: "u2", count: 4 }] };
+    fetchMock.mockImplementation(async () => jsonResponse(200, { ...plan, saved: false }));
+    const people = [{ userId: "u1", weight: 1 }, { userId: "u2", weight: 1 }];
+    expect(await rebalance("p1", "f1", people, true)).toMatchObject({ ...plan, saved: false, state: null });
+    expect(call(0)).toEqual({ url: "/v1/projects/p1/csv-files/f1/rebalance", method: "POST", body: { people, dryRun: true } });
+    fetchMock.mockImplementation(async () => jsonResponse(200, { ...state, ...plan, saved: true, moved: 4, notMoved: 0 }));
+    const applied = await rebalance("p1", "f1", people, false);
+    expect(applied).toMatchObject({ saved: true, moved: 4 });
+    expect(applied.state).toMatchObject({ plotCount: 3 });
   });
 });
 
@@ -697,13 +715,25 @@ describe("the quality figures", () => {
     expect(map.names).toBeNull();
     expect(map.counts).toEqual({ notStarted: 2, started: 0, submitted: 1, accepted: 0, recheck: 0, differs: 1, resubmitted: 0 });
     expect(map).toMatchObject({ total: 3, notOnMap: 1, people: ["ana"], holders: [["ana"]], figures: null, asOf: null, unsupportedSrs: null });
-    expect(map.files).toEqual([{ id: "f", filename: "a.csv", plots: 5, onMap: 3 }]);
+    expect(map.files).toEqual([{ id: "f", filename: "a.csv", plots: 5, onMap: 3, divided: false }]);
+    // Without `file` (an older server, or a reviewer): no plot file per plot, no reference plots.
+    expect(map.file).toBeNull();
+    expect(map.reference).toBeNull();
     // A reviewer's map names nobody; status codes are read by their names.
     const reviewer = addMapPage(null, { version: "x", offset: 0, total: 1, points: [[1, 2, 0, 0]], plots: ["9"], statuses: ["differs"], counts: [4], people: null, holders: null, unsupportedSrs: "EPSG:32633" });
     expect(reviewer).toMatchObject({ people: null, holders: null, unsupportedSrs: "EPSG:32633" });
     expect([...reviewer.status]).toEqual([5]);
     expect([...reviewer.holder]).toEqual([-1]);
     expect(reviewer.counts.differs).toBe(4);
+    // Coordinators: each plot's plot file (an index the answer does not have is -1) and the reference plots, page by page.
+    const first = addMapPage(null, {
+      version: "x", offset: 0, total: 3, points: [[1, 2, 0, 0], [1, 2, 0, 0]], plots: ["1", "2"], file: [0, 4], reference: [1, 2],
+      files: [{ id: "f", filename: "a.csv", plots: 3, onMap: 3, divided: true }],
+    });
+    const whole = addMapPage(first, { version: "x", offset: 2, points: [[1, 2, 0, 0]], plots: ["3"], file: [0], reference: [2, 0] });
+    expect([...whole.file!]).toEqual([0, -1, 0]);
+    expect([...whole.reference!]).toEqual([0, 1, 1]);
+    expect(whole.files[0].divided).toBe(true);
     // The ids the collector sees, when the server sends them.
     expect(addMapPage(null, { version: "x", offset: 0, total: 2, points: [[1, 2, 0, 0], [1, 2, 0, 0]], plots: ["1,2025", "2,2025"], names: ["1", 7] }).names).toEqual(["1", "2,2025"]);
   });
@@ -1098,6 +1128,25 @@ describe("the AI assistant and the reports", () => {
   });
 });
 
+describe("the data download", () => {
+  const query = (i = 0) => new URL(String(fetchMock.mock.calls[i][0]), "https://x").searchParams;
+
+  it("asks in the person's language, with the labels and the records chosen", async () => {
+    fetchMock.mockImplementation(async () => new Response("x", { status: 200, headers: { "content-disposition": "attachment; filename*=UTF-8''R%C3%ADo-data.csv" } }));
+    const { filename } = await downloadExport("p1", "csv", { language: "es", withoutPositions: true, includeExcluded: true, labels: true, records: { kind: "last" } });
+    expect(filename).toBe("Río-data.csv");
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/^\/v1\/projects\/p1\/export\.csv\?/);
+    expect(Object.fromEntries(query())).toEqual({ lang: "es", coordinates: "none", excluded: "include", labels: "include", since: "last" });
+    // a map file always has the plots' places; a date is sent as the time it starts
+    await downloadExport("p1", "kml", { language: "en", withoutPositions: true, records: { kind: "date", since: Date.UTC(2026, 10, 1) } });
+    expect(Object.fromEntries(query(1))).toEqual({ lang: "en", since: "2026-11-01T00:00:00.000Z" });
+    await downloadExport("p1", "geojson", { language: "tr", records: { kind: "answer", question: "collect_code_lu", value: "F&G" } });
+    expect(Object.fromEntries(query(2))).toEqual({ lang: "tr", question: "collect_code_lu", value: "F&G" });
+    await downloadExport("p1", "csv", { language: "fr", records: { kind: "all" } });
+    expect(Object.fromEntries(query(3))).toEqual({ lang: "fr" });
+  });
+});
+
 describe("the Collect Earth backup", () => {
   const url = (i = 0) => String(fetchMock.mock.calls[i][0]);
 
@@ -1122,18 +1171,18 @@ describe("the Collect Earth backup", () => {
 
   it("asks for a download link; refusals are told as such", async () => {
     fetchMock.mockResolvedValue(jsonResponse(200, { url: "/v1/collect-backup/abc.def", expiresAt: 60_000 }));
-    expect(await getBackupLink("p1", "all")).toEqual({ url: "/v1/collect-backup/abc.def", expiresAt: 60_000 });
+    expect(await getBackupLink("p1", "all", "collect")).toEqual({ url: "/v1/collect-backup/abc.def", expiresAt: 60_000 });
     expect(url()).toBe("/v1/projects/p1/exports/collect-backup/link");
-    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST", body: JSON.stringify({ rounds: "all" }) });
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST", body: JSON.stringify({ rounds: "all", format: "collect" }) });
     // Only a link of this server's backup is followed.
     fetchMock.mockResolvedValue(jsonResponse(200, { url: "https://elsewhere.example/x" }));
-    await expect(getBackupLink("p1", "1")).rejects.toBeInstanceOf(ApiError);
+    await expect(getBackupLink("p1", "1", "zip")).rejects.toBeInstanceOf(ApiError);
     fetchMock.mockResolvedValue(jsonResponse(409, { error: "no_round_key", reason: "no round" }));
-    expect(errorMessageKey(await getBackupLink("p1", "all").catch((e: unknown) => e))).toBe("backup.noRoundKey");
+    expect(errorMessageKey(await getBackupLink("p1", "all", "zip").catch((e: unknown) => e))).toBe("backup.noRoundKey");
     fetchMock.mockResolvedValue(jsonResponse(409, { error: "no_project_file" }));
-    expect(errorMessageKey(await getBackupLink("p1", "1").catch((e: unknown) => e))).toBe("backup.noProjectFile");
+    expect(errorMessageKey(await getBackupLink("p1", "1", "zip").catch((e: unknown) => e))).toBe("backup.noProjectFile");
     fetchMock.mockResolvedValue(jsonResponse(429, { error: "backup_busy" }));
-    expect(errorMessageKey(await getBackupLink("p1", "1").catch((e: unknown) => e))).toBe("backup.busy");
+    expect(errorMessageKey(await getBackupLink("p1", "1", "zip").catch((e: unknown) => e))).toBe("backup.busy");
   });
 });
 

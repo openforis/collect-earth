@@ -15,25 +15,19 @@ public class PlotsMapReopeningTest {
 
 	@Test
 	public void notBeforeTheMapWasOpened() {
-		assertFalse(reopening.shouldCheck(true, false));
+		assertFalse(reopening.shouldCheck(false));
 	}
 
 	@Test
 	public void onceOpenedItIsKeptOpen() {
 		reopening.opened();
-		assertTrue(reopening.shouldCheck(true, false));
-	}
-
-	@Test
-	public void notWithTheClassicViewer() {
-		reopening.opened();
-		assertFalse(reopening.shouldCheck(false, false));
+		assertTrue(reopening.shouldCheck(false));
 	}
 
 	@Test
 	public void notWhileCollectEarthCloses() {
 		reopening.opened();
-		assertFalse(reopening.shouldCheck(true, true));
+		assertFalse(reopening.shouldCheck(true));
 	}
 
 	@Test
@@ -41,9 +35,9 @@ public class PlotsMapReopeningTest {
 		reopening.opened();
 		reopening.failed();
 		now.addAndGet(29);
-		assertFalse(reopening.shouldCheck(true, false));
+		assertFalse(reopening.shouldCheck(false));
 		now.addAndGet(1);
-		assertTrue(reopening.shouldCheck(true, false));
+		assertTrue(reopening.shouldCheck(false));
 	}
 
 	@Test
@@ -80,6 +74,6 @@ public class PlotsMapReopeningTest {
 		reopening.opened();
 		reopening.failed();
 		reopening.opened(); // e.g. the user chose Arrange, and the browser started this time
-		assertTrue(reopening.shouldCheck(true, false));
+		assertTrue(reopening.shouldCheck(false));
 	}
 }

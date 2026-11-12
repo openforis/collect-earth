@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
   -- migration can drop and widen it.
   action         TEXT NOT NULL CONSTRAINT audit_log_action_check CHECK (action IN (
                    'invite.created', 'invite.revoked', 'member.removed', 'member.anonymized', 'member.signed_out', 'member.role', 'cep.replaced',
-                   'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'decision.set',
+                   'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'plots.rebalanced', 'decision.set',
                    'decision.deleted', 'settings.changed', 'export.downloaded', 'survey.replaced', 'sampling.drawn',
                    'reference.changed', 'link.created', 'link.revoked', 'training.changed', 'training.synced',
                    'member.excluded', 'project.imported')),

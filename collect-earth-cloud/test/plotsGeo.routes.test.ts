@@ -16,10 +16,12 @@ interface GeoBody {
   points: [number, number, number, number][];
   plots: string[];
   names: string[] | null;
+  file?: number[];
+  reference?: number[];
   statuses: string[];
   counts: number[];
   notOnMap: number;
-  files: { id: string; filename: string; plots: number; onMap: number }[];
+  files: { id: string; filename: string; plots: number; onMap: number; divided?: boolean }[];
   people: string[] | null;
   holders: string[][] | null;
   figures: { computedAt: number; stale: boolean } | null;
@@ -122,8 +124,8 @@ describe('map of progress: GET /map/plots', () => {
     expect(body.names).toBeNull();
     expect(body.notOnMap).toBe(1);
     expect(body.files).toEqual([
-      { id: plotsFile, filename: 'plots.csv', plots: 120, onMap: 119 },
-      { id: southFile, filename: 'south.csv', plots: 2, onMap: 2 },
+      { id: plotsFile, filename: 'plots.csv', plots: 120, onMap: 119, divided: false },
+      { id: southFile, filename: 'south.csv', plots: 2, onMap: 2, divided: true },
     ]);
     expect(body.people).toEqual(['ben', 'maria']);
     expect(body.holders).toEqual([['maria'], ['ben']]);
@@ -270,6 +272,38 @@ describe('map of progress: GET /map/plots', () => {
     reads = 0;
     expect((await geo('')).total).toBe(body.total);
     expect(reads).toBe(0);
+  });
+
+  it("gives coordinators each plot's plot file and the reference plots, for a selection on the map; reviewers neither", async () => {
+    let body = await geo('');
+    // Plot 1 is in both files (-1: who holds it depends on the file), plot 200 only in south.csv, the others only in plots.csv.
+    expect(body.file).toHaveLength(body.plots.length);
+    expect(body.file![body.plots.indexOf('1')]).toBe(-1);
+    expect(body.file![body.plots.indexOf('2')]).toBe(0);
+    expect(body.file![body.plots.indexOf('200')]).toBe(1);
+    expect(body.reference).toEqual([]);
+    // A reference plot (of a divided file, assessed by nobody yet).
+    const refFile = (await call('PUT', '/csv-files/ref.csv', owner.token, 'id,lat,lon\n300,9,9', { 'content-type': 'text/csv' })).json().id;
+    await ctx.store.setDivision(pid, refFile, { mode: 'manual' }, [{ plotKey: '300', userId: ben.userId, overlap: false }]);
+    const marked = await call('POST', '/reference/plots', owner.token, { csvFileId: refFile, assessorUserId: owner.userId, plots: ['300'] });
+    expect(marked.statusCode, marked.body).toBe(200);
+    body = await geo('');
+    expect(body.reference).toEqual([body.plots.indexOf('300')]);
+    expect(body.file![body.plots.indexOf('300')]).toBe(2);
+    // Over pages: each page its own part, by the index in the whole map.
+    const first = await geo('?size=61');
+    const second = await geo(`?size=61&offset=61&version=${first.version}`);
+    expect([...first.file!, ...second.file!]).toEqual(body.file);
+    expect(first.reference).toEqual([]);
+    expect(second.reference).toEqual(body.reference);
+    // The file filter keeps the plot's own file index (in `files`, which lists every file).
+    const south = await geo(`?file=${southFile}`);
+    expect(south.file).toEqual([-1, 1]);
+    // Reviewers: neither, nor whether a file is divided.
+    const reviewer = await geo('', rita.token);
+    expect(reviewer.file).toBeUndefined();
+    expect(reviewer.reference).toBeUndefined();
+    expect(reviewer.files.every((f) => f.divided === undefined)).toBe(true);
   });
 
   it('filters by plot file and by person; the version changes with the filters', async () => {

@@ -50,6 +50,22 @@ public class Notice {
 		return this;
 	}
 
+	/**
+	 * An option the page lists in the notice itself, one per line with `detail` under its label (a file to choose, say),
+	 * rather than as a button; the plain options stay the buttons.
+	 */
+	public Notice choice(String id, String label, String detail) {
+		Map<String, String> option = new LinkedHashMap<>();
+		option.put("id", id);
+		option.put("label", label);
+		if (detail != null) {
+			option.put("detail", detail);
+		}
+		option.put("choice", "true");
+		options.add(option);
+		return this;
+	}
+
 	public String getKind() {
 		return kind;
 	}

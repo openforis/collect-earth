@@ -64,13 +64,21 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("plots.moved", { csvFileId: "f1", fromUserId: "u3", toUserId: "u1", moved: 4 }), page, "en")).toBe(
       "ana moved 4 plots of north.csv from someone whose account was deleted to ana",
     );
+    expect(logSentence(t, audit("plots.rebalanced", { csvFileId: "f1", people: 3, moved: 1250 }), page, "en")).toBe(
+      "ana shared again the plots left of north.csv between 3 people (plots moved: 1,250)",
+    );
+    expect(logSentence(fr, audit("plots.rebalanced", { csvFileId: "f1", people: 2, moved: 0 }), page, "fr")).toBe(
+      "ana a repartagé les parcelles restantes de north.csv entre 2 personnes (parcelles passées : 0)",
+    );
     expect(logSentence(t, audit("decision.set", { plot: "17", decision: "check" }), page, "en")).toBe("ana decided plot 17: Check is right");
     expect(logSentence(t, audit("decision.bulk", { count: 12, decision: "first" }), page, "en")).toBe("ana decided 12 plots at once: First is right");
     expect(logSentence(t, audit("settings.changed", { setting: "ai", enabled: true }), page, "en")).toBe("ana turned the AI assistant on");
     expect(logSentence(t, audit("export.downloaded", { kind: "daily", rows: 3 }), page, "en")).toBe("ana downloaded the daily activity");
     expect(logSentence(t, audit("export.downloaded", { records: 50 }), page, "en")).toBe("ana downloaded the data (50 records)");
     expect(logSentence(t, audit("export.downloaded", { kind: "collect-backup", rows: 4, rounds: "all" }), page, "en")).toBe("ana downloaded the Collect Earth backup");
+    expect(logSentence(t, audit("export.downloaded", { kind: "ipcc", file: "matrix", plots: 3 }), page, "en")).toBe("ana downloaded an IPCC export");
     expect(logSentence(t, audit("export.downloaded", { kind: "collect-backup", rows: 4, rounds: "all", completed: false }), page, "en")).toBe("ana's download of the Collect Earth backup stopped before the end");
+    expect(logSentence(t, audit("export.downloaded", { kind: "collect-backup", rows: 4, rounds: "all", format: "collect" }), page, "en")).toBe("ana downloaded the OpenForis Collect backup");
     expect(logSentence(t, audit("cep.replaced", {}, null), page, "en")).toBe("Someone no longer in the project uploaded a new project file");
     expect(logSentence(t, audit("project.imported", { source: "ceo", ceoProjectId: 2616, questions: 29 }), page, "en")).toBe("ana made this project from Collect Earth Online project 2616");
     expect(logSentence(t, audit("project.imported", { source: "ceo", ceoProjectId: null }), page, "en")).toBe("ana made this project from a Collect Earth Online project");

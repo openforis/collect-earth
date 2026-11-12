@@ -26,6 +26,7 @@ import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.settings.SettingsService.InvalidSettingsException;
+import org.openforis.collect.earth.app.view.Messages;
 
 /** The settings read, checked and saved for the page, over a stood-in earth.properties. */
 public class SettingsServiceTest {
@@ -52,9 +53,6 @@ public class SettingsServiceTest {
 			String value = stored.get(call.getArgument(0).toString());
 			return value == null ? "" : value;
 		});
-		when(properties.getViewerType()).thenReturn("plots_map");
-		when(properties.getWindowLayout()).thenReturn("auto");
-		when(properties.getMapEngine()).thenReturn("leaflet");
 		when(properties.getCollectDBDriver()).thenReturn(CollectDBDriver.SQLITE);
 	}
 
@@ -84,8 +82,7 @@ public class SettingsServiceTest {
 		assertEquals("C:/plots.csv", current.get("csv"));
 		assertEquals("SQUARE", current.get("sample_shape"));
 		assertEquals("25", current.get("number_of_sampling_points_in_plot"));
-		// The viewer as resolved from the legacy flags, the driver as resolved
-		assertEquals("plots_map", current.get("viewer_type"));
+		// The driver as resolved
 		assertEquals("SQLITE", current.get("db_driver"));
 		// Projects older than the reference area setting: a distance means a square one
 		assertEquals("SQUARE", current.get("buffer_shape"));
@@ -193,5 +190,60 @@ public class SettingsServiceTest {
 		assertTrue(validation.getErrors().containsKey("distance_to_buffers"));
 		assertEquals(21, validation.getPlot().getMinReferenceDistance());
 		assertTrue(service.validate(Collections.emptyMap()).isValid());
+	}
+
+	/** The project open is a cloud one */
+	private void aCloudProject() {
+		stored.put("db_driver", "CLOUD");
+		when(properties.getCollectDBDriver()).thenReturn(CollectDBDriver.CLOUD);
+		when(properties.isCloudSyncEnabled()).thenReturn(true);
+		when(properties.getCloudSyncUrl()).thenReturn("https://cloud.example.org");
+		when(properties.getCloudProjectId()).thenReturn("p1");
+		when(properties.getCloudSyncToken()).thenReturn("token");
+	}
+
+	@Test
+	public void inACloudProjectThePlotDesignIsTheCoordinators() {
+		aCloudProject();
+		String locked = Messages.getString("SettingsPage.plot.cloudLocked");
+		Map<String, String> changes = new HashMap<>();
+		changes.put("number_of_sampling_points_in_plot", "4");
+		changes.put("sample_shape", "CIRCLE");
+		changes.put("use_browser", "chrome");
+		InvalidSettingsException refused = assertThrows(InvalidSettingsException.class, () -> service.save(changes));
+		assertEquals(locked, refused.getErrors().get("number_of_sampling_points_in_plot"));
+		assertEquals(locked, refused.getErrors().get("sample_shape"));
+		verify(properties, never()).setValues(anyMap());
+		assertEquals(locked, service.validate(changes).getErrors().get("sample_shape"));
+	}
+
+	@Test
+	public void inACloudProjectTheOtherSettingsAreStillSaved() throws Exception {
+		aCloudProject();
+		// The coordinator's design, kept: a hidden setting is not blanked either, nor are its rules the collector's
+		stored.put("large_central_plot_side", "30");
+		// A reference area too small for the plot, which the collector could not correct
+		stored.put("buffer_shape", "SQUARE");
+		stored.put("distance_to_buffers", "5");
+		// The page validates everything it holds, and saves what changed
+		Map<String, String> all = new HashMap<>(service.current());
+		all.put("use_browser", "chrome");
+		assertTrue(service.validate(all).isValid());
+		// The browser is read by a new server
+		assertTrue(service.save(Collections.singletonMap("use_browser", "chrome")));
+		ArgumentCaptor<Map<String, String>> written = ArgumentCaptor.forClass(Map.class);
+		verify(properties).setValues(written.capture());
+		assertEquals(Collections.singletonMap("use_browser", "chrome"), written.getValue());
+	}
+
+	@Test
+	public void leavingTheCloudProjectOrALocalOneChangesThePlotDesign() throws Exception {
+		Map<String, String> changes = new HashMap<>();
+		changes.put("number_of_sampling_points_in_plot", "4");
+		assertFalse(service.save(changes));
+		verify(properties).setValues(Collections.singletonMap("number_of_sampling_points_in_plot", "4"));
+		aCloudProject();
+		changes.put("db_driver", "SQLITE");
+		assertTrue(service.validate(changes).isValid());
 	}
 }

@@ -5,7 +5,7 @@ import { hexagonPoints, plotDrawing, scaleBarLength, type Outline } from "@share
 import { formatText, type PlotFigures, type Values } from "../../settings";
 import { serverText, type Texts } from "../../serverTexts";
 
-/** The plot colour of the map (types.ts ACTIVE_COLOR is the selected plot's; the plots themselves are drawn in this yellow) */
+/** The colour of the plot in the preview */
 const PLOT_COLOR = "#fbc02d";
 const REFERENCE_COLOR = "#8d9aa5";
 

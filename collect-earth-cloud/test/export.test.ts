@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { RoundInfo } from '../src/cep.js';
-import { exportRoundOf, recordsCsv } from '../src/export.js';
+import { analysisModel, recordId } from '../src/analysis.js';
+import { readCep, type RoundInfo } from '../src/cep.js';
+import { answerLabels, csvFormatOf, exportRoundOf, recordsCsv, recordsTable } from '../src/export.js';
 import type { RecordRow } from '../src/types.js';
-import { idOnlyCep } from './fixtures/cep.js';
-import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
+import { demoCep, idOnlyCep, realDemoCep } from './fixtures/cep.js';
+import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 
 function row(summary: Record<string, string>, recordKey = '1', operator = 'maria'): RecordRow {
   return {
@@ -106,6 +107,65 @@ describe('recordsCsv', () => {
   });
 });
 
+describe('recordsCsv in the person\'s language, with the labels and the weights', () => {
+  const roundOf = exportRoundOf(null, new Set(['1', '2']), noCopies);
+  const answers = { collect_real_slope: '-12.5', collect_integer_trees: '3', collect_coord_location: '-12.5,34.25', collect_code_lu: '1.1', collect_text_note: 'a;b', 'collect_entity_cover[1.5].real_canopy': '0.25', f: '=1' };
+
+  it('in English as always; in another language ; between cells and a decimal comma in the survey\'s numbers only', () => {
+    expect(recordsCsv([row(answers)], roundOf).split('\r\n')[1]).toBe(`1,1,1,main,,,maria,true,1970-01-01T00:00:00.000Z,1.1,"'-12.5,34.25",0.25,3,-12.5,a;b,'=1`);
+    const csv = recordsCsv([row(answers)], roundOf, undefined, undefined, undefined, { format: csvFormatOf('es') });
+    expect(csv.startsWith('﻿')).toBe(true);
+    expect(fixed(csv)).toEqual([
+      'record_key;plot;round;assessment;final;reference;operator;actively_saved;modified_on;collect_code_lu;collect_coord_location;collect_entity_cover[1.5].real_canopy;collect_integer_trees;collect_real_slope;collect_text_note;f',
+      // a code "1.1" and a text stay as they are; a place's two numbers are split by the separator, in one quoted cell
+      `1;1;1;main;;;maria;true;1970-01-01T00:00:00.000Z;1.1;"'-12,5;34,25";0,25;3;-12,5;"a;b";'=1`,
+    ]);
+  });
+
+  it('adds the label of each code answer after it, in the language asked when the survey has it, else its default one', () => {
+    const files = readCep(realDemoCep());
+    const model = analysisModel(new TextDecoder().decode(files.entries.get(files.surveyPath)!));
+    const records = [
+      row({ collect_text_id: '1', collect_code_land_use_category: 'F', collect_code_land_use_subdivision: 'broadleaf_dec::a qualifier===zz', 'collect_entity_land_cover[trees].code_coverage': '2' }, '1,1'),
+      row({ collect_text_id: '2' }, '2,1'),
+    ];
+    const table = (language: string) => recordsTable(records, roundOf, undefined, undefined, undefined, { labelsOf: answerLabels(model, language) });
+    const spanish = table('es');
+    expect(spanish.columns.slice(9)).toEqual([
+      'collect_code_land_use_category',
+      'collect_code_land_use_category_label',
+      'collect_code_land_use_subdivision',
+      'collect_code_land_use_subdivision_label',
+      'collect_entity_land_cover[trees].code_coverage',
+      'collect_entity_land_cover[trees].code_coverage_label',
+      'collect_text_id',
+    ]);
+    // several values: their labels joined as the codes are; a code not in the list stays the code; no answer, no label
+    expect(spanish.rows.map((r) => r.slice(9))).toEqual([
+      ['F', 'Bosque', 'broadleaf_dec::a qualifier===zz', 'Bosque de hoja ancha caducifolio===zz', '2', '1 puntos', '1'],
+      ['', '', '', '', '', '', '2'],
+    ]);
+    expect(table('tr').rows[0].slice(9, 11)).toEqual(['F', 'Forest']);
+  });
+
+  it('fills the weights only on the record that counts for its plot; a choice of records keeps every record\'s columns', () => {
+    const records = [row({ a: '1' }, '1', 'maria'), row({ c: 'x' }, '1', 'jose'), row({ b: '3' }, '2', 'maria')];
+    const weights = new Map([[recordId('1', 'maria'), { factor: 12.5, weight: 1 }], [recordId('2', 'maria'), { factor: 25, weight: 2 }]]);
+    const answersOf = (csv: string) => fixed(csv).map((l) => l.split(';').slice(9).join(';'));
+    expect(answersOf(recordsCsv(records, roundOf, undefined, undefined, undefined, { weights, format: csvFormatOf('fr') }))).toEqual([
+      'a;b;c;expansion_factor;plot_weight',
+      ';;x;;',
+      '1;;;12,5;1',
+      ';3;;25;2',
+    ]);
+    expect(answersOf(recordsCsv(records, roundOf, undefined, undefined, undefined, { weights, keep: (r) => r.operator === 'maria', format: csvFormatOf('fr') }))).toEqual([
+      'a;b;c;expansion_factor;plot_weight',
+      '1;;;12,5;1',
+      ';3;;25;2',
+    ]);
+  });
+});
+
 describe('GET export.csv', () => {
   let ctx: TestContext;
   let pid: string;
@@ -142,8 +202,8 @@ describe('GET export.csv', () => {
     return res.json().id as string;
   }
 
-  async function exported(): Promise<string[]> {
-    const res = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/export.csv`, headers: bearer(admin) });
+  async function exported(query = ''): Promise<string[]> {
+    const res = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/export.csv${query}`, headers: bearer(admin) });
     expect(res.statusCode).toBe(200);
     return res.rawPayload.subarray(3).toString('utf8').split('\r\n').filter((l) => l !== '');
   }
@@ -251,5 +311,137 @@ describe('GET export.csv', () => {
       '1,1,1,main,,,maria,true,1970-01-01T00:00:01.000Z,F,',
       '2,2,1,main,,,maria,true,1970-01-01T00:00:01.000Z,,cloudy',
     ]);
+  });
+
+  it('weighs the plots as the analysis does, on the record of each plot\'s first assessment only', async () => {
+    const maria = await join('maria');
+    const jose = await join('jose');
+    const divided = await uploadPlots('id,lat,lon\n1,0,0\n2,0,0\n3,0,0\n');
+    await ctx.store.setDivision(pid, divided, { mode: 'manual' }, [
+      { plotKey: '1', userId: maria.userId, overlap: false },
+      { plotKey: '1', userId: jose.userId, overlap: true },
+      { plotKey: '2', userId: jose.userId, overlap: false },
+      { plotKey: '3', userId: maria.userId, overlap: false },
+    ]);
+    await batchRequest(ctx.app, pid, maria.token, [envelope({ recordKey: '1', operator: 'maria', summary: {} }), envelope({ recordKey: '3', operator: 'maria', activelySaved: false, summary: {} })]);
+    await batchRequest(ctx.app, pid, jose.token, [envelope({ recordKey: '1', operator: 'jose', summary: {} }), envelope({ recordKey: '2', operator: 'jose', summary: {} })]);
+    // no areas: no weights
+    expect((await exported())[0]).not.toContain('plot_weight');
+    await ctx.store.setAreaSettings(pid, { mode: 'total', area: 300 });
+    // the check and the draft: blank, so a sum of the column counts each plot once
+    expect(await exported()).toEqual([
+      'record_key,plot,round,assessment,final,reference,operator,actively_saved,modified_on,expansion_factor,plot_weight',
+      '1,1,2,check,,,jose,true,1970-01-01T00:00:01.000Z,,',
+      '1,1,1,main,,,maria,true,1970-01-01T00:00:01.000Z,150,1',
+      '2,2,1,main,,,jose,true,1970-01-01T00:00:01.000Z,150,1',
+      '3,3,1,main,,,maria,false,1970-01-01T00:00:01.000Z,,',
+    ]);
+  });
+
+  it('is written in the person\'s language, keeps the records changed from a date, and refuses a wrong choice', async () => {
+    const maria = await join('maria');
+    await batchRequest(ctx.app, pid, maria.token, [
+      envelope({ recordKey: '1', operator: 'maria', modifiedOn: Date.UTC(2026, 10, 2), summary: { collect_real_area: '2.5' } }),
+      envelope({ recordKey: '2', operator: 'maria', modifiedOn: Date.UTC(2026, 9, 30), summary: { collect_real_area: '1' } }),
+    ]);
+    expect(await exported('?lang=pt&since=2026-11-01')).toEqual([
+      'record_key;plot;round;assessment;final;reference;operator;actively_saved;modified_on;collect_real_area',
+      '1;1;1;main;;;maria;true;2026-11-02T00:00:00.000Z;2,5',
+    ]);
+    for (const [query, reason] of [
+      ['?since=yesterday', /not a date/],
+      ['?since=2026-13-45', /not a date/],
+      // no project file: no question to keep the records by
+      ['?question=collect_code_land_use_category&value=F', /not a question of the survey/],
+    ] as const) {
+      const res = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/export.csv${query}`, headers: bearer(admin) });
+      expect(res.statusCode, query).toBe(400);
+      expect(res.json().reason).toMatch(reason);
+    }
+  });
+});
+
+describe('the data download\'s choices: the labels, the records changed since the last download or with an answer', () => {
+  let ctx: TestContext;
+  let pid: string;
+  let owner: { token: string; userId: string };
+  let ana: string;
+
+  const get = (path: string) => ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}${path}`, headers: bearer(owner.token) });
+  /** The lines of a download in Spanish (; between cells: the record keys "1,1" unquoted). */
+  const lines = async (path: string) => {
+    const res = await get(path);
+    expect(res.statusCode, res.body).toBe(200);
+    return res.rawPayload.subarray(3).toString('utf8').split('\r\n').filter((l) => l !== '');
+  };
+  const keysOf = (csv: string[]) => csv.slice(1).map((l) => l.split(';')[0]);
+
+  beforeEach(async () => {
+    ctx = await makeContext();
+    owner = await setupPlatformAdmin(ctx.app);
+    pid = (await createProject(ctx.app, 'Choices')).projectId;
+    await ctx.store.addMembership(pid, owner.userId, 'admin');
+    const invite = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${pid}/invites`, headers: bearer(owner.token), payload: { role: 'operator', maxUses: 1 } });
+    ana = (await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username: 'ana', password: 'password12', inviteToken: invite.json().inviteToken } })).json().token;
+    const cep = await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/cep`, headers: { ...bearer(owner.token), 'content-type': 'application/zip' }, payload: demoCep() });
+    expect(cep.statusCode, cep.body).toBe(200);
+    const sent = await batchRequest(ctx.app, pid, ana, [
+      envelope({ recordKey: '1,1', operator: 'ana', summary: { collect_code_land_use_category: 'F', collect_text_province: 'Sofala' } }),
+      envelope({ recordKey: '2,1', operator: 'ana', summary: { collect_code_land_use_category: 'C', collect_text_province: 'sofala' } }),
+      envelope({ recordKey: '3,1', operator: 'ana', summary: { collect_code_land_use_category: 'F::planted', collect_text_province: 'Tete' } }),
+    ]);
+    expect(sent.statusCode, sent.body).toBe(200);
+  });
+
+  afterEach(async () => {
+    await ctx.app.close();
+  });
+
+  it('offers the survey\'s plot questions with the code lists of the code ones', async () => {
+    const res = await get('/export/choices');
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.languages).toEqual(['en', 'fr', 'pt', 'es']);
+    expect(body.questions).toContainEqual(expect.objectContaining({ key: 'collect_code_land_use_category', name: 'land_use_category', list: 'land_uses' }));
+    expect(body.questions).toContainEqual(expect.objectContaining({ key: 'collect_text_province', list: null }));
+    expect(body.lists.land_uses[0]).toMatchObject({ code: 'F', labels: { es: 'Bosque' } });
+  });
+
+  it('adds the labels of the answers in the person\'s language, to the map files too', async () => {
+    const csv = await lines('/export.csv?lang=es&labels=include');
+    const header = csv[0].split(';');
+    const at = header.indexOf('collect_code_land_use_category');
+    expect(header[at + 1]).toBe('collect_code_land_use_category_label');
+    expect(csv.slice(1).map((l) => l.split(';')[at + 1])).toEqual(['Bosque', expect.any(String), 'Bosque']);
+    const geojson = (await get('/export.geojson?lang=fr&labels=include')).json();
+    expect(geojson.features[0].properties).toMatchObject({ collect_code_land_use_category: 'F', collect_code_land_use_category_label: 'Forêt' });
+    const [logged] = await ctx.store.listAudit(pid, { limit: 1, action: 'export.downloaded' });
+    expect(logged.details).toEqual({ records: 3, format: 'geojson', labels: true });
+  });
+
+  it('keeps the records with an answer: a code among its codes, any other answer exactly', async () => {
+    expect(keysOf(await lines('/export.csv?lang=es&question=collect_code_land_use_category&value=F'))).toEqual(['1,1', '3,1']);
+    expect(keysOf(await lines('/export.csv?lang=es&question=collect_text_province&value=Sofala'))).toEqual(['1,1']);
+    // the question is noted, never the answer
+    const [logged] = await ctx.store.listAudit(pid, { limit: 1, action: 'export.downloaded' });
+    expect(logged.details).toEqual({ records: 1, question: 'collect_text_province' });
+    const missing = await get('/export.csv?question=collect_text_province');
+    expect(missing.statusCode).toBe(400);
+  });
+
+  it('keeps the records changed since the person\'s last download of the data; before the first, every record', async () => {
+    const lastDownload = async () => (await get('/export/choices')).json().lastDownload;
+    expect(await lastDownload()).toBeNull();
+    expect(keysOf(await lines('/export.csv?lang=es&since=last'))).toEqual(['1,1', '2,1', '3,1']);
+    const [first] = await ctx.store.listAudit(pid, { limit: 1, action: 'export.downloaded' });
+    expect(first.details).toEqual({ records: 3, since: null, sinceLast: true });
+    // another download (the people table) is not a download of the data
+    expect((await get('/exports/people')).statusCode).toBe(200);
+    expect(await lastDownload()).toBe(first.at);
+    // saved offline before that download, sent after it: still new to the person
+    await batchRequest(ctx.app, pid, ana, [envelope({ recordKey: '2,1', operator: 'ana', modifiedOn: first.at - 60_000, summary: { collect_code_land_use_category: 'G' } })]);
+    expect(keysOf(await lines('/export.csv?lang=es&since=last'))).toEqual(['2,1']);
+    const [second] = await ctx.store.listAudit(pid, { limit: 1, action: 'export.downloaded' });
+    expect(second.details).toEqual({ records: 1, since: first.at, sinceLast: true });
   });
 });

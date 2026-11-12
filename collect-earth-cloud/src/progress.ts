@@ -15,7 +15,7 @@ import type { CepInfo, Member, MemberActivity, ProgressSettings } from './types.
 
 const DAY_MS = 86_400_000;
 /** The forecast's pace is the plots submitted in this many days, today included, a day. */
-export const PACE_DAYS = 14;
+export const PACE_DAYS = 7;
 /** Unsent work is old when the median time between saving and the server receiving it is over this. */
 export const OLD_UNSENT_MS = 2 * DAY_MS;
 /** A storage limit is near from this share on (as the dashboard's storage bar says). */

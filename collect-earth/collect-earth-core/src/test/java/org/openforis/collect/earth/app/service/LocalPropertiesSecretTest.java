@@ -169,9 +169,5 @@ class LocalPropertiesSecretTest {
 		assertEquals(false, service.isSamplePointNumbers());
 		service.setValue(EarthProperty.SAMPLE_POINT_NUMBERS, "true");
 		assertEquals(true, service.isSamplePointNumbers());
-		// no viewer chosen, nor an old flag: Google Earth Web
-		assertEquals(LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB, LocalPropertiesService.resolveViewerType(null, false, false));
-		assertEquals(LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB, LocalPropertiesService.resolveViewerType("", false, true));
-		assertEquals(LocalPropertiesService.VIEWER_TYPE_PLOTS_MAP, LocalPropertiesService.resolveViewerType("", true, false));
 	}
 }

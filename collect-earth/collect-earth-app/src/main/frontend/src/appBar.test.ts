@@ -5,18 +5,18 @@ import type { AppInfo } from "./appInfo";
 import { appMenus } from "./menus";
 
 const info = (operator: string | null, cloud = false): AppInfo =>
-  ({ project: "p", operator, language: "en", viewer: "plots_map", plotsMap: true, version: "2.0.0", cloud, cloudLoginNeeded: false, errorsShown: false, surveyGuide: false, manual: false, build: null, java: null, languages: [], client: false });
+  ({ project: "p", operator, language: "en", version: "2.0.0", cloud, cloudLoginNeeded: false, errorsShown: false, surveyGuide: false, manual: false, build: null, java: null, languages: [], client: false });
 
 describe("app bar", () => {
   it("shows every entry that does nothing yet as coming soon", () => {
-    const items = appMenus({ plotsMap: false, surveyGuide: true }).flatMap((m) => m.items);
+    const items = appMenus({ surveyGuide: true }).flatMap((m) => m.items);
     // Every entry of the Swing menu bar is built now: nothing is coming soon. One disabled with a reason (the cloud
     // sync status of a local project, sending records outside a cloud project) is not coming soon either: it says why instead
     expect(items.filter((i) => comingSoon(i) && !i.disabledReason).map((i) => i.id)).toEqual([]);
     expect(items.filter((i) => i.disabledReason).map((i) => i.id)).toEqual(["cloudStatus", "sendToCloud"]);
     expect(items.filter((i) => !comingSoon(i)).map((i) => i.id)).toEqual([
       "importCep", "projects", "joinCloud", "language", "quit", "export", "import",
-      "analyse", "lulucf", "loadKml", "dataFolder", "myDashboard", "openPlotsMap", "missingPlots", "divideCsv", "deletePlots", "properties",
+      "analyse", "lulucf", "loadKml", "dataFolder", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "properties",
       "surveyGuide", "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
     // An entry menus.ts does not enable, or this file has no action for, is not offered
     expect(comingSoon({ id: "fly", label: "x", enabled: true })).toBe(true);
