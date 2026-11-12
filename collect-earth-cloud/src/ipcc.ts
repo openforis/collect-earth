@@ -253,7 +253,13 @@ function transitions(survey: IpccSurvey, plots: readonly IpccPlot[], year: numbe
  */
 function matrixRows(year: number, ts: readonly Transition[]): XlsxCell[][] {
   const subdivisions = [...new Set(ts.flatMap((t) => [t.from, t.to]).filter((s): s is Subdivision => s !== null))].sort(bySubdivision);
-  const area = (from: Subdivision, to: Subdivision) => ts.reduce((sum, t) => (t.from === from && t.to === to ? sum + t.area : sum), 0);
+  const cells = new Map<Subdivision, Map<Subdivision, number>>();
+  for (const t of ts) {
+    if (!t.from || !t.to) continue;
+    const row = cells.get(t.from) ?? new Map<Subdivision, number>();
+    cells.set(t.from, row.set(t.to, (row.get(t.to) ?? 0) + t.area));
+  }
+  const area = (from: Subdivision, to: Subdivision) => cells.get(from)?.get(to) ?? 0;
   return [
     [`Transition ${year}/${year + 1}`, ...subdivisions.map(subdivisionText)],
     ...subdivisions.map((from) => [subdivisionText(from), ...subdivisions.map((to) => area(from, to))]),
@@ -599,12 +605,20 @@ export function ghgiXml(survey: IpccSurvey, plots: readonly IpccPlot[], options:
   };
 
   // The land units of a land class in a region (generateLandUnits): its plots by their land use changes, the largest first
+  // The plots by region and current land use, climate and soil, read once (regions times land classes is large)
+  const plotKey = (region: string | null, category: string, subdivision: string, climate: string, soil: string) => JSON.stringify([region, category, subdivision, climate, soil]);
+  const byLandUse = new Map<string, IpccPlot[]>();
+  for (const p of plots) {
+    const key = plotKey(options.regionOf(p), current(p), p.answers.subdivision, p.answers.climate, p.answers.soil);
+    const list = byLandUse.get(key);
+    if (list) list.push(p);
+    else byLandUse.set(key, [p]);
+  }
   const landUnits = (region: string | null, c: LandClass): Xml[] => {
     const groups = new Map<string, { a: IpccAnswers; area: number }>();
-    for (const p of plots) {
+    for (const p of byLandUse.get(plotKey(region, c.category, c.subdivision.code, c.climate.value, c.soil.value)) ?? []) {
       const a = p.answers;
-      if (options.regionOf(p) !== region || a.soil !== c.soil.value || a.climate !== c.climate.value || (c.ecozone && a.gez !== c.ecozone.value)) continue;
-      if (current(p) !== c.category || a.subdivision !== c.subdivision.code) continue;
+      if (c.ecozone && a.gez !== c.ecozone.value) continue;
       const key = [a.subcategory, a.changeYear, a.subdivision, a.subdivisionYear, a.initialSubdivision, a.secondSubdivision, a.secondConversion, a.secondYear].map(dbValue).join('\u0000');
       const group = groups.get(key) ?? { a, area: 0 };
       group.area += p.area ?? 0;

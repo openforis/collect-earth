@@ -78,7 +78,11 @@ export async function registerIpccRoutes(app: FastifyInstance, store: Store, sta
     return { cep, survey, regions, plots, areas: factors?.source ?? null };
   };
 
-  /** Sends a file made of the plots, noted in the activity; refused when there is nothing to make it of. */
+  /**
+   * Sends a file made of the plots, noted in the activity; refused when there is nothing to make it of.
+   * shortcut: made in memory on the request thread (50,000 plots in a few strata: 0.3 s a file; in hundreds of strata
+   * the stratified files take seconds and grow to hundreds of MB, as the desktop's); move to a worker if projects do.
+   */
   const send = async (request: FastifyRequest, reply: FastifyReply, loaded: NonNullable<Awaited<ReturnType<typeof load>>>, file: string, spec: { name: string; type: string }, make: () => string | Uint8Array) => {
     if (loaded.survey.missing.length > 0) return reply.code(409).send({ error: 'survey_not_ipcc', missing: loaded.survey.missing });
     if (loaded.plots.length === 0) return reply.code(409).send({ error: 'no_plots', message: 'No plot has a submitted first assessment yet.' });
