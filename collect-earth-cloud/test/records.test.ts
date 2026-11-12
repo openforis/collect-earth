@@ -259,6 +259,22 @@ describe('records:batch — gzip, LWW and tombstones', () => {
       expect((await rows()).filter((r) => r[0] === '6').map((r) => r[1])).toEqual(['carla', 'mallory']);
     });
 
+    it('never takes a record kept under a name the server made (an anonymised former member, a CEO collector), nor deletes it', async () => {
+      const mallory = await member('mallory');
+      await legacy('5', 'former-member-1', 1000, '<anonymised/>');
+      await legacy('6', 'ceo-collector-1', 1000, '<ceo/>');
+      await batchRequest(ctx.app, project.projectId, mallory, [
+        envelope({ recordKey: '5', operator: 'former-member-1', modifiedOn: 9_000_000, xml: null, deleted: true }),
+        envelope({ recordKey: '6', operator: 'ceo-collector-1', modifiedOn: 2000, xml: '<m/>' }),
+      ]);
+      expect(await rows()).toEqual([
+        ['5', 'former-member-1', '<anonymised/>', false],
+        ['5', 'mallory', null, true],
+        ['6', 'ceo-collector-1', '<ceo/>', false],
+        ['6', 'mallory', '<m/>', false],
+      ]);
+    });
+
     it("never takes another member's own record", async () => {
       await member('maria');
       const bob = await member('bob');
