@@ -20,6 +20,7 @@ import { ServerCounters } from './serverCounters.js';
 import type { Store } from './store/store.js';
 import { registerActivityRoutes } from './routes/activity.js';
 import { registerAdminRoutes } from './routes/admin.js';
+import { registerServerOpsRoutes } from './routes/serverOps.js';
 import { telemetry } from './telemetry.js';
 import { registerAiRoutes } from './routes/ai.js';
 import { registerAssignmentRoutes, setServedCacheMb } from './routes/assignments.js';
@@ -257,6 +258,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     // "Forgot your password?" mails its link only where mail really goes out.
     selfServiceReset: mailer.delivers && !config.localMode,
   });
+  await registerServerOpsRoutes(app, store, config, now);
   // Where plots are and what the project file says of them, shared by the map exports, the quality
   // routes, plot search, the map and order 'nearby' of a division (Task 15).
   const places = new PlotPlaceReader(store);

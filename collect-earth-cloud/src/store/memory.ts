@@ -31,6 +31,13 @@ import {
   type DecisionKind,
   type DigestKind,
   type DigestState,
+  type AdminProject,
+  type ClientUse,
+  type ServerActivityEntry,
+  type ServerActivityInput,
+  type ServerActivityQuery,
+  type StoppedDigest,
+  serverActionKind,
   type DueDigest,
   type AccountMail,
   type MailLanguage,
@@ -104,6 +111,8 @@ interface CsvFileEntry extends CsvFile {
 
 interface ProjectEntry {
   project: ProjectRow;
+  /** projects.created_at */
+  createdAt: number;
   records: Map<string, RecordRow>; // key = recordKey + ' ' + operator
   cep: Buffer | null;
   cepUpdatedAt: number | null;
@@ -231,6 +240,8 @@ export class InMemoryStore implements Store {
   private readonly digests = new Map<string, { userId: string } & DigestState>();
   /** userId -> when confirmation mails were sent (email_confirmation_sends), the last day's. */
   private readonly confirmationSends = new Map<string, number[]>();
+  /** The server activity log (server_activity, migration 041), oldest first. */
+  private readonly serverActivity: ServerActivityEntry[] = [];
   private settings: ServerSettings = { ...DEFAULT_SETTINGS };
   /** Ids of record events and audit entries: increasing, as Postgres's BIGSERIAL. */
   private nextEventId = 1;
@@ -423,6 +434,7 @@ export class InMemoryStore implements Store {
     };
     this.projects.set(projectId, {
       project,
+      createdAt: Date.now(),
       records: new Map(),
       cep: null,
       cepUpdatedAt: null,
@@ -1150,6 +1162,96 @@ export class InMemoryStore implements Store {
       projects: projects.sort((a, b) => (a.projectId < b.projectId ? -1 : a.projectId > b.projectId ? 1 : 0)),
       receivedByDay: byDay(received),
     };
+  }
+
+  async listAdminProjects(activeSince: number): Promise<AdminProject[]> {
+    const out: AdminProject[] = [];
+    for (const [projectId, entry] of this.projects) {
+      let last: number | null = null;
+      const later = (t: number | null) => {
+        if (t !== null && (last === null || t > last)) last = t;
+      };
+      for (const a of entry.memberActivity.values()) {
+        later(a.lastSeenAt);
+        later(a.lastSyncAt);
+      }
+      for (const e of entry.recordEvents) later(e.receivedAt);
+      let people = 0;
+      let coordinators = 0;
+      let activeCoordinators = 0;
+      for (const [key, role] of this.memberships) {
+        const [pid, userId] = key.split(' ');
+        if (pid !== projectId) continue;
+        people += 1;
+        const user = this.users.get(userId);
+        if (role !== 'admin' || !user || user.disabledAt) continue;
+        coordinators += 1;
+        if ((this.userLastActiveAt.get(userId) ?? -1) >= activeSince) activeCoordinators += 1;
+      }
+      out.push({
+        projectId,
+        status: entry.project.status,
+        createdAt: entry.createdAt,
+        lastActivityAt: last,
+        storageBytes: totalStorageBytes(await this.getProjectStorage(projectId)),
+        people,
+        coordinators,
+        activeCoordinators,
+      });
+    }
+    return out.sort((a, b) => (a.projectId < b.projectId ? -1 : a.projectId > b.projectId ? 1 : 0));
+  }
+
+  async appendServerActivity(entry: ServerActivityInput): Promise<void> {
+    this.serverActivity.push({
+      id: String(this.serverActivity.length + 1),
+      at: Date.now(),
+      actorUserId: entry.actorUserId,
+      actor: entry.actorUserId ? (this.users.get(entry.actorUserId)?.username ?? null) : null,
+      action: entry.action,
+      targetUserId: entry.targetUserId ?? null,
+      target: entry.targetName ?? null,
+      projectId: entry.projectId ?? null,
+      details: { ...(entry.details ?? {}) },
+    });
+  }
+
+  async listServerActivity(q: ServerActivityQuery): Promise<{ entries: ServerActivityEntry[]; total: number }> {
+    const kept = this.serverActivity
+      .filter((e) => (q.actor === null || e.actor === q.actor) && (q.kind === null || serverActionKind(e.action) === q.kind))
+      .reverse()
+      // An account deleted since: its id goes (ON DELETE SET NULL), its name stays.
+      .map((e) => ({
+        ...e,
+        actorUserId: e.actorUserId && this.users.has(e.actorUserId) ? e.actorUserId : null,
+        targetUserId: e.targetUserId && this.users.has(e.targetUserId) ? e.targetUserId : null,
+      }));
+    return { entries: kept.slice(q.offset, q.offset + q.limit), total: kept.length };
+  }
+
+  async listServerActivityActors(): Promise<string[]> {
+    return [...new Set(this.serverActivity.map((e) => e.actor).filter((a): a is string => a !== null))].sort((a, b) => a.localeCompare(b));
+  }
+
+  async listClientUses(since: number): Promise<ClientUse[]> {
+    const out: ClientUse[] = [];
+    for (const entry of this.projects.values()) {
+      for (const a of entry.memberActivity.values()) {
+        const at = a.lastSyncAt ?? a.lastSeenAt;
+        if (a.clientAgent && at !== null && at >= since) out.push({ userId: a.userId, agent: a.clientAgent, at });
+      }
+    }
+    return out;
+  }
+
+  async listStoppedDigests(): Promise<StoppedDigest[]> {
+    const out: StoppedDigest[] = [];
+    for (const d of this.digests.values()) {
+      const user = this.users.get(d.userId);
+      if (d.stoppedAt === null || !user) continue;
+      out.push({ userId: d.userId, username: user.username, email: user.email, kind: d.kind, failures: d.failures, stoppedAt: d.stoppedAt });
+    }
+    return out.sort((a, b) => b.stoppedAt - a.stoppedAt || a.username.localeCompare(b.username));
   }
 
   async databaseHealth(): Promise<DatabaseHealth> {

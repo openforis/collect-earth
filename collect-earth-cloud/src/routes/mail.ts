@@ -4,16 +4,17 @@ import { configuredBaseUrl, isEmailAddress } from '../accountRules.js';
 import type { Config } from '../config.js';
 import { isTimeZone } from '../days.js';
 import { confirmMail, MAX_BUDGET_MS, runDigests } from '../digest.js';
-import { errorSummary, type Mailer } from '../mail.js';
+import { errorSummary, isSenderLimit, type Mailer } from '../mail.js';
 import { mailSecret, readConfirmToken, readUnsubscribeToken, writeConfirmToken } from '../mailLinks.js';
 import { GoogleKeys, verifyGoogleIdToken, type KeySource } from '../oidc.js';
 import { verifyPassword } from '../password.js';
-import { requireSession } from '../plugins/projectAuth.js';
+import { requirePlatformAdmin, requireSession } from '../plugins/projectAuth.js';
+import { logServerAction } from '../serverActivity.js';
 import type { ProjectStateCache } from '../projectState.js';
 import type { QualityService } from '../qualityService.js';
 import { RateLimiter, RATE_LIMITED } from '../rateLimit.js';
 import { emailChangedMail, longMoment, passwordChangedMail, resetLinkMail,
-  welcomeMail, SELF_RESET_TTL_MS, type SecurityContext } from '../securityMail.js';
+  testMail, welcomeMail, SELF_RESET_TTL_MS, type SecurityContext } from '../securityMail.js';
 import type { Store } from '../store/store.js';
 import { DIGEST_KINDS, MAIL_LANGUAGES, type AccountMail, type DigestKind, type MailLanguage } from '../types.js';
 
@@ -35,6 +36,8 @@ export const RESET_MAILS_PER_INSTANCE_HOUR = 100;
 /** Accounts one address can name ("Forgot your password?" by email): each gets its own link. */
 const MAX_ACCOUNTS_PER_ADDRESS = 5;
 const HOUR_MS = 3_600_000;
+/** Test mails per instance and hour ("Send me a test email" on the server page). */
+export const TEST_MAILS_PER_HOUR = 10;
 
 /**
  * What other routes may ask of the mail routes: sign-up sends the confirmation link of the address
@@ -526,5 +529,58 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
     } finally {
       running = false;
     }
+  });
+
+  // --- The server page's mail check (stage C): server administrators only ---
+
+  const testCap = new HourlyCap(TEST_MAILS_PER_HOUR, deps.now);
+  /** The mail server's host and port from SMTP_URL, never its user or password. */
+  const smtpHost = (() => {
+    if (!config.smtpUrl) return null;
+    try {
+      const u = new URL(config.smtpUrl);
+      return { host: u.hostname, port: u.port === '' ? null : Number(u.port), secure: u.protocol === 'smtps:' };
+    } catch {
+      return null;
+    }
+  })();
+
+  // Whether the server sends mail (and from which address, through which server), the administrator's own address for
+  // the test, and the weekly mails stopped because the mail server kept refusing the address.
+  app.get('/v1/admin/mail', { preHandler: requirePlatformAdmin(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const own = await store.getAccountMail(request.userId!);
+    return reply.header('cache-control', 'no-store').send({
+      delivers: deps.mailer.delivers,
+      transport: deps.mailer.transport,
+      from: config.mailFrom ?? null,
+      server: smtpHost,
+      publicBaseUrl: configured,
+      digestJob: config.digestSecret !== undefined || config.digestOidc !== undefined,
+      ownAddress: own?.email ?? null,
+      ownAddressConfirmed: own?.emailConfirmedAt != null,
+      stopped: await store.listStoppedDigests(),
+    });
+  });
+
+  // "Send me a test email": to the administrator's own address (confirmed or not), in their language; the mail
+  // server's refusal told (its codes, never its reply's text).
+  app.post('/v1/admin/mail/test', { preHandler: requirePlatformAdmin(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!deps.mailer.delivers) return reply.code(409).send({ error: 'mail_not_set_up', reason: 'set SMTP_URL and MAIL_FROM to send mail' });
+    const own = await store.getAccountMail(request.userId!);
+    if (!own?.email) return reply.code(409).send({ error: 'no_address', reason: 'add an email address to your account first' });
+    if (!testCap.available()) return reply.code(429).send({ error: 'too_many_tests', reason: 'try again in an hour' });
+    testCap.take();
+    const language = ((request.body ?? {}) as { language?: unknown }).language;
+    const ctx = await securityContext(request.userId!, language, own);
+    if (!ctx) return reply.code(404).send({ error: 'not_found' });
+    try {
+      await deps.mailer.send(testMail(ctx, own.email));
+    } catch (err) {
+      const summary = errorSummary(err);
+      await logServerAction(store, request, { action: 'mail.test', details: { sent: false, code: summary.code, responseCode: summary.responseCode } });
+      return reply.code(502).send({ error: 'mail_refused', ...summary, senderLimit: isSenderLimit(err) });
+    }
+    await logServerAction(store, request, { action: 'mail.test', details: { sent: true } });
+    return reply.send({ sent: true, to: own.email });
   });
 }

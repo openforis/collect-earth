@@ -21,6 +21,8 @@ const en = {
   welcomeIntro: 'Hello, an administrator of {server} made the account {name} for you.',
   welcomeAction: 'Choose your password (the link works once, for seven days)',
   welcomeAfter: 'Then sign in with {name} and this password, on the dashboard and in Collect Earth. If you did not expect this account, ignore this email.',
+  testSubject: '{server}: a test email',
+  testBody: 'Hello {name}, this is the test email you asked for on the server page of {server}. It arrived, so the server sends mail.',
   passwordSubject: '{server}: your password was changed',
   passwordChanged: 'The password of your {server} account {name} was changed on {when}.',
   passwordByUser: 'It was changed on the account page; the account’s other sessions, Collect Earth’s included, were signed out.',
@@ -47,6 +49,8 @@ const es: Words = {
   welcomeIntro: 'Hola, un administrador de {server} creó la cuenta {name} para usted.',
   welcomeAction: 'Elegir su contraseña (el enlace funciona una vez, durante siete días)',
   welcomeAfter: 'Después inicie sesión con {name} y esa contraseña, en el panel y en Collect Earth. Si no esperaba esta cuenta, ignore este correo.',
+  testSubject: '{server}: un correo de prueba',
+  testBody: 'Hola {name}, este es el correo de prueba que pidió en la página del servidor de {server}. Llegó, así que el servidor envía correos.',
   passwordSubject: '{server}: su contraseña se cambió',
   passwordChanged: 'La contraseña de su cuenta {name} de {server} se cambió el {when}.',
   passwordByUser: 'Se cambió en la página de la cuenta; las otras sesiones de la cuenta, también la de Collect Earth, se cerraron.',
@@ -71,6 +75,8 @@ const fr: Words = {
   welcomeIntro: 'Bonjour, un administrateur de {server} a créé le compte {name} pour vous.',
   welcomeAction: 'Choisir votre mot de passe (le lien fonctionne une fois, pendant sept jours)',
   welcomeAfter: 'Connectez-vous ensuite avec {name} et ce mot de passe, sur le tableau de bord et dans Collect Earth. Si vous n’attendiez pas ce compte, ignorez ce courriel.',
+  testSubject: '{server} : un courriel de test',
+  testBody: 'Bonjour {name}, voici le courriel de test demandé sur la page du serveur de {server}. Il est arrivé : le serveur envoie bien des courriels.',
   passwordSubject: '{server} : votre mot de passe a été changé',
   passwordChanged: 'Le mot de passe de votre compte {name} sur {server} a été changé le {when}.',
   passwordByUser: 'Il a été changé sur la page du compte ; les autres sessions du compte, celle de Collect Earth comprise, ont été déconnectées.',
@@ -95,6 +101,8 @@ const pt: Words = {
   welcomeIntro: 'Olá, um administrador de {server} criou a conta {name} para você.',
   welcomeAction: 'Escolher a sua senha (o link funciona uma vez, durante sete dias)',
   welcomeAfter: 'Depois entre com {name} e essa senha, no painel e no Collect Earth. Se você não esperava esta conta, ignore este e-mail.',
+  testSubject: '{server}: um e-mail de teste',
+  testBody: 'Olá {name}, este é o e-mail de teste que você pediu na página do servidor de {server}. Ele chegou, então o servidor envia e-mails.',
   passwordSubject: '{server}: a sua senha foi alterada',
   passwordChanged: 'A senha da sua conta {name} em {server} foi alterada em {when}.',
   passwordByUser: 'Foi alterada na página da conta; as outras sessões da conta, inclusive a do Collect Earth, foram encerradas.',
@@ -119,6 +127,8 @@ const tr: Words = {
   welcomeIntro: 'Merhaba, {server} yöneticilerinden biri sizin için {name} hesabını oluşturdu.',
   welcomeAction: 'Parolanızı seçin (bağlantı yalnızca bir kez kullanılabilir ve yedi gün geçerlidir)',
   welcomeAfter: 'Ardından panoda ve Collect Earth’te {name} ve bu parolayla oturum açın. Bu hesabı beklemiyorsanız bu e-postayı yok sayın.',
+  testSubject: '{server}: bir deneme e-postası',
+  testBody: 'Merhaba {name}, bu, {server} sunucu sayfasında istediğiniz deneme e-postasıdır. Ulaştığına göre sunucu e-posta gönderebiliyor.',
   passwordSubject: '{server}: parolanız değiştirildi',
   passwordChanged: '{server} üzerindeki {name} hesabınızın parolası {when} tarihinde değiştirildi.',
   passwordByUser: 'Parola hesap sayfasında değiştirildi; Collect Earth dahil hesabın diğer oturumları kapatıldı.',
@@ -217,6 +227,13 @@ export function welcomeMail(ctx: SecurityContext, setPasswordUrl: string, to: st
     { kind: 'para', text: w('welcomeAfter', p) },
   ];
   return message(ctx, to, w('welcomeSubject', p), lines, 'account.welcome');
+}
+
+/** "Send me a test email" on the server page: to the administrator's own address. */
+export function testMail(ctx: SecurityContext, to: string): MailMessage {
+  const w = wordsOf(ctx.language);
+  const p = params(ctx);
+  return message(ctx, to, w('testSubject', p), [{ kind: 'para', text: w('testBody', p) }], 'server.test');
 }
 
 /** After a password change: on the account page ('changed') or with a reset link ('reset'). */

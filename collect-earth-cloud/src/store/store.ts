@@ -66,6 +66,12 @@ import type {
   StoredDistribution,
   User,
   UserSummary,
+  AdminProject,
+  ClientUse,
+  ServerActivityEntry,
+  ServerActivityInput,
+  ServerActivityQuery,
+  StoppedDigest,
 } from '../types.js';
 import type { UncertaintySettings } from '../uncertainty.js';
 import type { AreaSettings } from '../areas.js';
@@ -282,6 +288,21 @@ export interface Store {
    * own RLS setting; projects by id only (§4b).
    */
   platformStats(q: { activeSince: number; signupsFrom: number; receivedFrom: number }): Promise<PlatformStats>;
+  /**
+   * Every project for the server administrator's directory (by id: no names, §4b), each read under its own RLS
+   * setting; `activeSince` says which coordinators count as active.
+   */
+  listAdminProjects(activeSince: number): Promise<AdminProject[]>;
+  /** Keeps a server administrator's action in the server activity log (at the current time). */
+  appendServerActivity(entry: ServerActivityInput): Promise<void>;
+  /** The log, newest first, filtered, with how many entries match. */
+  listServerActivity(q: ServerActivityQuery): Promise<{ entries: ServerActivityEntry[]; total: number }>;
+  /** The actors' usernames in the log, in name order (its filter by person). */
+  listServerActivityActors(): Promise<string[]>;
+  /** The Collect Earth each account used in each project, synced or seen since `since`. */
+  listClientUses(since: number): Promise<ClientUse[]>;
+  /** The weekly mails stopped because the mail server refused the address, newest first. */
+  listStoppedDigests(): Promise<StoppedDigest[]>;
   /** The database's size, version and the migrations recorded as applied. */
   databaseHealth(): Promise<DatabaseHealth>;
   /**

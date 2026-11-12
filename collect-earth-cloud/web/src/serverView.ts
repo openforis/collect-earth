@@ -6,20 +6,30 @@ import type { ServerSection } from "./router";
 export type HealthItem =
   | { kind: "alerts"; count: number; section: ServerSection }
   | { kind: "migrations"; count: number; section: ServerSection }
-  | { kind: "mail"; section: ServerSection };
+  | { kind: "mail"; section: ServerSection }
+  | { kind: "versions"; count: number; section: ServerSection };
 
 const DAY_MS = 24 * 3600 * 1000;
 
 /**
  * What needs attention: the alerts raised in the last 24 hours, the database updates not applied, and mail not set up
- * (no password reset links, no weekly emails). Nothing for a figure not loaded yet.
+ * (no password reset links, no weekly emails), and the accounts using an outdated Collect Earth. Nothing for a figure
+ * not loaded yet.
  */
-export function serverHealth(input: { alerts: readonly OwnerAlert[] | null; overview: ServerOverview | null; mailReady: boolean | null; now: number }): HealthItem[] {
+export function serverHealth(input: {
+  alerts: readonly OwnerAlert[] | null;
+  overview: ServerOverview | null;
+  mailReady: boolean | null;
+  /** The accounts using an outdated Collect Earth (GET /v1/admin/versions) */
+  outdatedAccounts?: number | null;
+  now: number;
+}): HealthItem[] {
   const items: HealthItem[] = [];
   const recent = (input.alerts ?? []).filter((a) => input.now - a.at < DAY_MS).length;
   if (recent > 0) items.push({ kind: "alerts", count: recent, section: "overview" });
   const missing = input.overview?.database.migrations?.missing.length ?? 0;
   if (missing > 0) items.push({ kind: "migrations", count: missing, section: "system" });
   if (input.mailReady === false) items.push({ kind: "mail", section: "system" });
+  if ((input.outdatedAccounts ?? 0) > 0) items.push({ kind: "versions", count: input.outdatedAccounts!, section: "system" });
   return items;
 }

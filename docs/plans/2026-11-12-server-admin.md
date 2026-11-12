@@ -1,6 +1,6 @@
 # The server administrator's page: sections, accounts, operations, safety
 
-Date: 12 November 2026. **Status: stages A and B built; C and D planned; built in stages on the working branch (`claude/awesome-bell-s34gb0`), merged
+Date: 12 November 2026. **Status: stages A, B and C built; D planned; built in stages on the working branch (`claude/awesome-bell-s34gb0`), merged
 into `ce-2026-GEW` when the owner says so.**
 
 ## Where it starts
@@ -125,3 +125,44 @@ admin-only cases, the page in en/es/fr/pt/tr, a run in a browser, this file's "a
   administrators taking each other's role at once: one stays, signing out, deleting with a project); and in a browser
   (a mistake named by line, 30 accounts made with one name taken, the pages, the search, the filters, the CSV, an
   administrator made, signed out, an account deleted once its name was typed).
+
+## Stage C, as built (12 Nov 2026)
+
+- **Projects directory** (`src/serverOps.ts`, `GET /v1/admin/projects`, `listAdminProjects` in both stores, each project
+  read under its own RLS setting): every project by id with its status, creation, last activity (a member seen, a sync,
+  a record stored), space, people, coordinators whose account is enabled and those active in 90 days; searched by id,
+  filtered (all, needing a coordinator, a status) with each filter's count, ordered, in pages. **Needs a coordinator**:
+  not archived, and no enabled coordinator active in 90 days. **Archive** (any status) or **restore** (as closed, its
+  coordinator reopens it), and **hand to a coordinator** (an enabled account the administrator names by username: it joins
+  as coordinator, or a member becomes one; the reference copies follow): both written in the project's own log too
+  (`settings.changed` / `member.role` with `byServerAdmin`), so its people see a server administrator did it. Project
+  names never leave the server.
+- **Server activity log** (migration `041_server_activity.sql`, `src/serverActivity.ts` `logServerAction`, written by
+  every administrator route as well as the server log): settings changed (which ones; a switch or number with its new
+  value, a text only named), accounts made, disabled, enabled, made or unmade administrator, signed out, deleted, given a
+  reset link (or mailed one), two-step sign-in turned off, the account list downloaded, projects archived, restored or
+  handed over, test emails. The actor's and the account's usernames are kept as they were, so an entry still reads once
+  the account is deleted. `GET /v1/admin/activity` by person and kind, in pages, and as CSV. Never a password or a link.
+  Kept for good (a server makes a few entries a day).
+- **Collect Earth versions in use** (`GET /v1/admin/versions`): the Collect Earth each account used last in the last 30
+  days (the User-Agent `member_activity` keeps), by version, newest first; older than the latest (the optional
+  `COLLECT_EARTH_LATEST_VERSION`, else the newest in use) and the old releases that sent no version are outdated, and the
+  health line names how many accounts use one (System).
+- **Mail check and test email** (`GET /v1/admin/mail`, `POST /v1/admin/mail/test`, in `routes/mail.ts` beside the
+  mailer): whether the server sends mail, from which address, through which mail server (host and port, never its user
+  or password), whether the weekly job is set up; "Send me a test email" to the administrator's own address in their
+  language (`testMail`, en/es/fr/pt/tr; at most 10 an hour per instance), the mail server's refusal told by its codes;
+  the weekly emails stopped after the mail server refused the address three weeks in a row.
+- Local mode: the new routes, and stage B's, are in `LOCAL_OFF_ROUTES`.
+- **Dashboard**: Projects (`web/src/pages/ServerProjects.tsx`): the directory, which replaces the largest projects list
+  (sorted by space it says the same), above the AI use; System (`web/src/pages/ServerOperations.tsx`): the figures, the
+  versions, email, and the activity log (its sentences in `web/src/serverOpsView.ts`). Texts in en/es/fr/pt/tr.
+- Checked: `test/serverOps.test.ts` (the directory's query, needing a coordinator, the versions and their order, the CSV;
+  the routes: admin-only, no project names, archive and restore with the project's log, hand-over refused for an unknown
+  or disabled account and an existing coordinator, the log filtered and paged, a setting saved unchanged not kept, a
+  deleted account's name kept, the mail check without secrets, the test mail in French and refused with its codes),
+  `serverOpsView.test.ts`, `serverView.test.ts`, the server and web suites; `npm run smoke:pg:ops` on PostgreSQL 16 (041
+  twice, RLS, the directory across projects, archive, restore, hand-over and the project's log, the activity log and its
+  CSV, a deleted account's name, the versions, a stopped weekly mail); and in a browser (made-up data: the health line
+  naming 2 accounts on an outdated Collect Earth, the project needing a coordinator, a wrong username refused, then handed
+  to ana, a project archived, the versions, email not set up, the activity log filtered by kind and its CSV, phone width).

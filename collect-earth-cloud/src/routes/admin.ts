@@ -17,6 +17,7 @@ import type { AccountMailHooks } from './mail.js';
 import { accountDeletionPlan } from './auth.js';
 import { accountsCsv, parseAccountQuery, parseNewAccounts, queryAccounts } from '../accounts.js';
 import { generateToken } from '../auth.js';
+import { logServerAction } from '../serverActivity.js';
 
 /** How long the link of an account a server administrator made works: a week, for its person to find it. */
 const WELCOME_TTL_MS = 7 * 24 * 3600 * 1000;
@@ -372,7 +373,17 @@ export async function registerAdminRoutes(
         }
         patch.announcementUntil = body.announcementUntil as number | null;
       }
-      return reply.send({ ...(await store.updateSettings(patch)), aiConfigured: config.aiConfigured === true });
+      const before = await store.getSettings();
+      const after = await store.updateSettings(patch);
+      // Which settings changed: a switch or a number with its new value, a text only as changed
+      const changed: Record<string, string | number | boolean | null> = {};
+      for (const key of Object.keys(patch) as (keyof ServerSettings)[]) {
+        const value = after[key];
+        if (JSON.stringify(before[key]) === JSON.stringify(value)) continue;
+        changed[key] = typeof value === 'boolean' || typeof value === 'number' || value === null ? value : 'changed';
+      }
+      if (Object.keys(changed).length > 0) await logServerAction(store, request, { action: 'settings.changed', details: changed });
+      return reply.send({ ...after, aiConfigured: config.aiConfigured === true });
     },
   );
 
@@ -393,7 +404,7 @@ export async function registerAdminRoutes(
     async (request: FastifyRequest, reply: FastifyReply) => {
       const query = { ...parseAccountQuery(request.query), page: 1, pageSize: Number.MAX_SAFE_INTEGER };
       const { users } = queryAccounts(await store.listUsers(), query, Date.now());
-      request.log.info({ action: 'accounts.exported', actorUserId: request.userId, accounts: users.length }, 'platform admin downloaded the accounts');
+      await logServerAction(store, request, { action: 'accounts.exported', details: { accounts: users.length } });
       return reply
         .header('content-type', 'text/csv; charset=utf-8')
         .header('content-disposition', 'attachment; filename="accounts.csv"')
@@ -440,12 +451,9 @@ export async function registerAdminRoutes(
         const url = `${publicBaseUrl(config, request)}/reset/${token}`;
         const mailed = a.email !== null && body.mail !== false && (await options.accountMail?.mailWelcome?.(request, user.id, a.email, body.language, url)) === true;
         results.push({ username: a.username, status: 'created', userId: user.id, mailed, expiresAt, ...(mailed ? {} : { setPasswordUrl: url }) });
+        await logServerAction(store, request, { action: 'account.created', targetUserId: user.id, targetName: user.username, details: { mailed } });
       }
       kept = null;
-      request.log.info(
-        { action: 'accounts.created', actorUserId: request.userId, created: results.filter((r) => r.status === 'created').length, taken: results.filter((r) => r.status === 'taken').length },
-        'platform admin made accounts',
-      );
       return reply.code(201).send({ results });
     },
   );
@@ -465,8 +473,9 @@ export async function registerAdminRoutes(
       if (result === 'not_found') return reply.code(404).send({ error: 'not_found' });
       if (result === 'last_platform_admin') return reply.code(409).send({ error: 'last_enabled_admin', reason: 'the server must keep one enabled platform admin' });
       kept = null;
-      request.log.info({ action: on ? 'account.admin.granted' : 'account.admin.removed', actorUserId: request.userId, userId: uid }, 'platform admin changed a server administrator');
-      return reply.send({ user: (await store.listUsers()).find((u) => u.userId === uid) });
+      const user = (await store.listUsers()).find((u) => u.userId === uid);
+      await logServerAction(store, request, { action: on ? 'account.admin_granted' : 'account.admin_removed', targetUserId: uid, targetName: user?.username ?? null });
+      return reply.send({ user });
     },
   );
 
@@ -476,10 +485,11 @@ export async function registerAdminRoutes(
     { preHandler: requirePlatformAdmin(store) },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const uid = (request.params as { uid: string }).uid;
-      if (!isUuid(uid) || !(await store.getUserById(uid))) return reply.code(404).send({ error: 'not_found' });
+      const target = isUuid(uid) ? await store.getUserById(uid) : null;
+      if (!target) return reply.code(404).send({ error: 'not_found' });
       if (uid === request.userId) return reply.code(409).send({ error: 'own_account', reason: 'sign out of your own sessions from your account page' });
       await store.deleteUserSessions(uid);
-      request.log.info({ action: 'account.signed_out', actorUserId: request.userId, userId: uid }, 'platform admin ended the sessions of an account');
+      await logServerAction(store, request, { action: 'account.signed_out', targetUserId: uid, targetName: target.username });
       return reply.send({ signedOut: true });
     },
   );
@@ -508,10 +518,7 @@ export async function registerAdminRoutes(
       }
       for (const p of plan.deletedWithAccount) await store.deleteProject(p.projectId);
       kept = null;
-      request.log.info(
-        { action: 'account.deleted', actorUserId: request.userId, userId: uid, projectsDeleted: plan.deletedWithAccount.length },
-        'platform admin deleted an account',
-      );
+      await logServerAction(store, request, { action: 'account.deleted', targetName: user.username, details: { projectsDeleted: plan.deletedWithAccount.length } });
       return reply.send({ deleted: true, projectsDeleted: plan.deletedWithAccount.length });
     },
   );
@@ -607,9 +614,10 @@ export async function registerAdminRoutes(
         return reply.code(409).send({ error: 'last_enabled_admin', reason: 'the server must keep one enabled platform admin' });
       }
       kept = null;
-      request.log.info({ action: 'account.disabled', actorUserId: request.userId, userId: uid }, 'platform admin disabled an account');
+      const disabled = (await store.listUsers()).find((u) => u.userId === uid);
+      await logServerAction(store, request, { action: 'account.disabled', targetUserId: uid, targetName: disabled?.username ?? null });
       await syncProjectsOf(request, uid);
-      return reply.send({ user: (await store.listUsers()).find((u) => u.userId === uid) });
+      return reply.send({ user: disabled });
     },
   );
 
@@ -622,9 +630,10 @@ export async function registerAdminRoutes(
         return reply.code(404).send({ error: 'not_found' });
       }
       kept = null;
-      request.log.info({ action: 'account.enabled', actorUserId: request.userId, userId: uid }, 'platform admin enabled an account');
+      const enabled = (await store.listUsers()).find((u) => u.userId === uid);
+      await logServerAction(store, request, { action: 'account.enabled', targetUserId: uid, targetName: enabled?.username ?? null });
       await syncProjectsOf(request, uid);
-      return reply.send({ user: (await store.listUsers()).find((u) => u.userId === uid) });
+      return reply.send({ user: enabled });
     },
   );
 
@@ -646,6 +655,7 @@ export async function registerAdminRoutes(
         return reply.code(409).send({ error: 'account_disabled', reason: 'enable the account first' });
       }
       if (await options.accountMail?.mailResetLink?.(request, user.id)) {
+        await logServerAction(store, request, { action: 'account.reset_mailed', targetUserId: user.id, targetName: user.username });
         return reply.code(202).send({ mailed: true });
       }
       const expiresAt = Date.now() + RESET_TTL_MS;
@@ -654,7 +664,7 @@ export async function registerAdminRoutes(
       if (token === null) {
         return reply.code(409).send({ error: 'account_disabled', reason: 'enable the account first' });
       }
-      request.log.info({ action: 'account.reset.issued', actorUserId: request.userId, userId: user.id }, 'platform admin was given a reset link (no address to mail it to)');
+      await logServerAction(store, request, { action: 'account.reset_link', targetUserId: user.id, targetName: user.username });
       return reply.code(201).send({ resetUrl: `${publicBaseUrl(config, request)}/reset/${token}`, expiresAt });
     },
   );

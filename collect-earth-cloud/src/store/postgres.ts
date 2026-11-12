@@ -12,6 +12,13 @@ import {
   DEFAULT_SETTINGS,
   totalStorageBytes,
   type AiRunEnd,
+  type AdminProject,
+  type ClientUse,
+  type ServerAction,
+  type ServerActivityEntry,
+  type ServerActivityInput,
+  type ServerActivityQuery,
+  type StoppedDigest,
   type AiRunProgress,
   type AiRunRow,
   type AiRunStart,
@@ -1232,6 +1239,119 @@ export class PostgresStore implements Store {
       projects,
       receivedByDay: [...received].map(([day, count]) => ({ day, count })).sort((a, b) => a.day - b.day),
     };
+  }
+
+  async listAdminProjects(activeSince: number): Promise<AdminProject[]> {
+    // users is global (002): read once, joined in code; each project's rows under its own app.current_project.
+    const users = await this.pool.query('SELECT id, disabled_at, last_active_at FROM users');
+    const account = new Map<string, { disabled: boolean; lastActiveAt: number | null }>(
+      users.rows.map((r) => [r.id as string, { disabled: r.disabled_at !== null, lastActiveAt: r.last_active_at ? (r.last_active_at as Date).getTime() : null }]),
+    );
+    return this.eachProject(async (client, projectId) => {
+      const p = await client.query('SELECT status, created_at FROM projects WHERE id = $1', [projectId]);
+      const members = await client.query('SELECT user_id, role FROM project_members WHERE project_id = $1', [projectId]);
+      const last = await client.query(
+        `SELECT GREATEST(
+                  (SELECT MAX(GREATEST(last_seen_at, last_sync_at)) FROM member_activity WHERE project_id = $1),
+                  (SELECT MAX(received_at) FROM record_events WHERE project_id = $1)) AS at`,
+        [projectId],
+      );
+      let coordinators = 0;
+      let activeCoordinators = 0;
+      for (const m of members.rows) {
+        const a = account.get(m.user_id as string);
+        if (m.role !== 'admin' || !a || a.disabled) continue;
+        coordinators += 1;
+        if (a.lastActiveAt !== null && a.lastActiveAt >= activeSince) activeCoordinators += 1;
+      }
+      const at = (last.rows[0]?.at as Date | null) ?? null;
+      return {
+        projectId,
+        status: (p.rows[0]?.status ?? 'active') as AdminProject['status'],
+        createdAt: p.rows[0] ? (p.rows[0].created_at as Date).getTime() : 0,
+        lastActivityAt: at ? at.getTime() : null,
+        storageBytes: totalStorageBytes(await storageOf(client, projectId)),
+        people: members.rows.length,
+        coordinators,
+        activeCoordinators,
+      };
+    });
+  }
+
+  async appendServerActivity(entry: ServerActivityInput): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO server_activity (actor_user_id, actor_name, action, target_user_id, target_name, project_id, details)
+       VALUES ($1::uuid, (SELECT username FROM users WHERE id = $1::uuid), $2, $3, $4, $5, $6)`,
+      [entry.actorUserId, entry.action, entry.targetUserId ?? null, entry.targetName ?? null, entry.projectId ?? null, JSON.stringify(entry.details ?? {})],
+    );
+  }
+
+  async listServerActivity(q: ServerActivityQuery): Promise<{ entries: ServerActivityEntry[]; total: number }> {
+    const where: string[] = [];
+    const args: unknown[] = [];
+    if (q.actor !== null) {
+      args.push(q.actor);
+      where.push(`actor_name = $${args.length}`);
+    }
+    if (q.kind !== null) {
+      // 'account' takes 'accounts.*' too (the list downloaded)
+      args.push(q.kind === 'account' ? ['account', 'accounts'] : [q.kind]);
+      where.push(`split_part(action, '.', 1) = ANY($${args.length}::text[])`);
+    }
+    const filter = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
+    const total = await this.pool.query(`SELECT COUNT(*)::int AS n FROM server_activity ${filter}`, args);
+    const rows = await this.pool.query(
+      `SELECT id, at, actor_user_id, actor_name, action, target_user_id, target_name, project_id, details
+         FROM server_activity ${filter} ORDER BY at DESC, id DESC OFFSET $${args.length + 1} LIMIT $${args.length + 2}`,
+      [...args, q.offset, q.limit],
+    );
+    return {
+      total: total.rows[0].n as number,
+      entries: rows.rows.map((r) => ({
+        id: String(r.id),
+        at: (r.at as Date).getTime(),
+        actorUserId: (r.actor_user_id as string | null) ?? null,
+        actor: (r.actor_name as string | null) ?? null,
+        action: r.action as ServerAction,
+        targetUserId: (r.target_user_id as string | null) ?? null,
+        target: (r.target_name as string | null) ?? null,
+        projectId: (r.project_id as string | null) ?? null,
+        details: (r.details ?? {}) as ServerActivityEntry['details'],
+      })),
+    };
+  }
+
+  async listServerActivityActors(): Promise<string[]> {
+    const res = await this.pool.query('SELECT DISTINCT actor_name FROM server_activity WHERE actor_name IS NOT NULL ORDER BY actor_name');
+    return res.rows.map((r) => r.actor_name as string);
+  }
+
+  async listClientUses(since: number): Promise<ClientUse[]> {
+    const perProject = await this.eachProject(async (client, projectId) => {
+      const res = await client.query(
+        `SELECT user_id, client_agent, COALESCE(last_sync_at, last_seen_at) AS at FROM member_activity
+          WHERE project_id = $1 AND client_agent IS NOT NULL AND COALESCE(last_sync_at, last_seen_at) >= $2`,
+        [projectId, new Date(since)],
+      );
+      return res.rows.map((r) => ({ userId: r.user_id as string, agent: r.client_agent as string, at: (r.at as Date).getTime() }));
+    });
+    return perProject.flat();
+  }
+
+  async listStoppedDigests(): Promise<StoppedDigest[]> {
+    const res = await this.pool.query(
+      `SELECT d.user_id, u.username, u.email, d.kind, d.failures, d.stopped_at
+         FROM digest_subscriptions d JOIN users u ON u.id = d.user_id
+        WHERE d.stopped_at IS NOT NULL ORDER BY d.stopped_at DESC, u.username`,
+    );
+    return res.rows.map((r) => ({
+      userId: r.user_id as string,
+      username: r.username as string,
+      email: (r.email as string | null) ?? null,
+      kind: r.kind as StoppedDigest['kind'],
+      failures: Number(r.failures),
+      stoppedAt: (r.stopped_at as Date).getTime(),
+    }));
   }
 
   async databaseHealth(): Promise<DatabaseHealth> {

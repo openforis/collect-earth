@@ -5347,3 +5347,159 @@ export function getCeoShapes(projectId: string): Promise<CeoShapesProgress> {
 export function stepCeoShapes(projectId: string): Promise<CeoShapesProgress> {
   return request("POST", `${p(projectId)}/ceo-shapes/step`);
 }
+
+// --- The server page's projects and operations (stage C: routes/serverOps.ts, routes/mail.ts) ---
+
+/** One project in the directory, by id only (only its people know its name). */
+export interface AdminProject {
+  projectId: string;
+  status: ProjectStatus;
+  createdAt: number;
+  lastActivityAt: number | null;
+  storageBytes: number;
+  people: number;
+  /** Coordinators whose account is enabled, and of those the ones active in 90 days */
+  coordinators: number;
+  activeCoordinators: number;
+  /** Not archived, and no coordinator active in 90 days */
+  needsCoordinator: boolean;
+}
+export const PROJECT_FILTERS = ["all", "noCoordinator", "draft", "active", "closed", "archived"] as const;
+export type ProjectFilter = (typeof PROJECT_FILTERS)[number];
+export const PROJECT_SORTS = ["lastActivity", "created", "storage", "people"] as const;
+export type ProjectSort = (typeof PROJECT_SORTS)[number];
+export interface ProjectQuery {
+  q: string;
+  filter: ProjectFilter;
+  sort: ProjectSort;
+  desc: boolean;
+  page: number;
+  pageSize: number;
+}
+export interface ProjectPage {
+  projects: AdminProject[];
+  total: number;
+  page: number;
+  pages: number;
+  pageSize: number;
+  counts: Record<ProjectFilter, number>;
+}
+
+const STATUSES: readonly ProjectStatus[] = ["draft", "active", "closed", "archived"];
+
+export async function listAdminProjects(query: ProjectQuery): Promise<ProjectPage> {
+  const body = await request<Record<string, unknown>>("GET", `/v1/admin/projects?${accountQueryString(query as unknown as Partial<AccountQuery>)}`);
+  const counts = (body?.counts ?? {}) as Record<string, unknown>;
+  return {
+    projects: ((body?.projects as Record<string, unknown>[] | undefined) ?? []).map((p) => ({
+      projectId: String(p.projectId ?? ""),
+      status: STATUSES.includes(p.status as ProjectStatus) ? (p.status as ProjectStatus) : "active",
+      createdAt: toCount(p.createdAt),
+      lastActivityAt: toNumberOrNull(p.lastActivityAt),
+      storageBytes: toCount(p.storageBytes),
+      people: toCount(p.people),
+      coordinators: toCount(p.coordinators),
+      activeCoordinators: toCount(p.activeCoordinators),
+      needsCoordinator: p.needsCoordinator === true,
+    })),
+    total: toCount(body?.total),
+    page: Math.max(1, toCount(body?.page)),
+    pages: Math.max(1, toCount(body?.pages)),
+    pageSize: Math.max(1, toCount(body?.pageSize)),
+    counts: Object.fromEntries(PROJECT_FILTERS.map((f) => [f, toCount(counts[f])])) as Record<ProjectFilter, number>,
+  };
+}
+
+/** Archives a project, or restores an archived one as closed. */
+export const setProjectArchived = (projectId: string, archived: boolean) =>
+  request<{ projectId: string; status: ProjectStatus }>("POST", `/v1/admin/projects/${encodeURIComponent(projectId)}/archive`, { json: { archived } });
+
+/** Makes an account (by its username) a coordinator of the project. */
+export const handProjectTo = (projectId: string, username: string) =>
+  request<{ projectId: string; userId: string; username: string; wasMember: boolean }>("POST", `/v1/admin/projects/${encodeURIComponent(projectId)}/coordinator`, { json: { username } });
+
+export const SERVER_ACTION_KINDS = ["settings", "account", "project", "mail"] as const;
+export type ServerActionKind = (typeof SERVER_ACTION_KINDS)[number];
+/** One thing a server administrator did. */
+export interface ServerActivityEntry {
+  id: string;
+  at: number;
+  actor: string | null;
+  action: string;
+  target: string | null;
+  projectId: string | null;
+  details: Record<string, string | number | boolean | null>;
+}
+export interface ServerActivityPage {
+  entries: ServerActivityEntry[];
+  total: number;
+  page: number;
+  pages: number;
+  pageSize: number;
+  /** Who appears in the log, for its filter */
+  actors: string[];
+}
+export interface ServerActivityQuery {
+  actor: string;
+  kind: ServerActionKind | "";
+  page: number;
+  pageSize: number;
+}
+
+const serverActivityQueryString = (q: Partial<ServerActivityQuery>) =>
+  new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)])).toString();
+
+export async function getServerActivity(query: ServerActivityQuery): Promise<ServerActivityPage> {
+  const body = await request<Record<string, unknown>>("GET", `/v1/admin/activity?${serverActivityQueryString(query)}`);
+  return {
+    entries: ((body?.entries as Record<string, unknown>[] | undefined) ?? []).map((e) => ({
+      id: String(e.id ?? ""),
+      at: toCount(e.at),
+      actor: typeof e.actor === "string" ? e.actor : null,
+      action: String(e.action ?? ""),
+      target: typeof e.target === "string" ? e.target : null,
+      projectId: typeof e.projectId === "string" ? e.projectId : null,
+      details: e.details && typeof e.details === "object" ? (e.details as ServerActivityEntry["details"]) : {},
+    })),
+    total: toCount(body?.total),
+    page: Math.max(1, toCount(body?.page)),
+    pages: Math.max(1, toCount(body?.pages)),
+    pageSize: Math.max(1, toCount(body?.pageSize)),
+    actors: Array.isArray(body?.actors) ? (body.actors as unknown[]).filter((a): a is string => typeof a === "string") : [],
+  };
+}
+
+export async function downloadServerActivity(query: Pick<ServerActivityQuery, "actor" | "kind">): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("GET", `/v1/admin/activity.csv?${serverActivityQueryString(query)}`);
+  return { blob: await response.blob(), filename: attachmentName(response, "server-activity.csv") };
+}
+
+/** The Collect Earth versions the accounts used in the last `days` days. */
+export interface CollectEarthVersions {
+  days: number;
+  latest: string | null;
+  latestConfigured: boolean;
+  accounts: number;
+  outdatedAccounts: number;
+  versions: { version: string | null; kind: "version" | "old" | "unnamed"; accounts: number; outdated: boolean }[];
+}
+
+export const getCollectEarthVersions = () => request<CollectEarthVersions>("GET", "/v1/admin/versions");
+
+/** How the server sends mail, and the weekly mails stopped because the mail server refused the address. */
+export interface MailCheck {
+  delivers: boolean;
+  transport: "log" | "smtp" | "test";
+  from: string | null;
+  server: { host: string; port: number | null; secure: boolean } | null;
+  publicBaseUrl: string | null;
+  digestJob: boolean;
+  ownAddress: string | null;
+  ownAddressConfirmed: boolean;
+  stopped: { userId: string; username: string; email: string | null; kind: "coordinator" | "collector"; failures: number; stoppedAt: number }[];
+}
+
+export const getMailCheck = () => request<MailCheck>("GET", "/v1/admin/mail");
+
+/** Sends a test email to the administrator's own address. */
+export const sendTestMail = (language: string) => request<{ sent: true; to: string }>("POST", "/v1/admin/mail/test", { json: { language } });
