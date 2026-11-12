@@ -44,6 +44,7 @@ import {
 } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { CardFrame } from "../components/FoldingCard";
 import { Explain } from "../components/Explain";
 import { FileDrop } from "../components/FileDrop";
 import { useT } from "../i18n";
@@ -373,11 +374,8 @@ export function RepeatCard({ projectId, name }: { projectId: string; name: strin
   const periods = useLoad(() => getPeriods(projectId), [projectId]);
   const [open, setOpen] = useState(false);
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="settings-repeat">
+    <CardFrame title={t("repeat.cardTitle")} fold={t("repeat.intro.short")}>
       <Stack spacing={2}>
-        <Typography variant="h2" id="settings-repeat">
-          {t("repeat.cardTitle")}
-        </Typography>
         <Explain color="text.primary" text={t("repeat.intro.short")} more={t("repeat.intro")} />
         {periods.data?.settings && <PeriodsOfThisProject projectId={projectId} periods={periods.data} onSaved={periods.reload} />}
         <ErrorAlert error={periods.error} onRetry={periods.reload} />
@@ -388,7 +386,7 @@ export function RepeatCard({ projectId, name }: { projectId: string; name: strin
         </Box>
       </Stack>
       {open && <RepeatDialog projectId={projectId} name={name} onClose={() => setOpen(false)} />}
-    </Paper>
+    </CardFrame>
   );
 }
 

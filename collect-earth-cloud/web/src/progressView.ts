@@ -153,9 +153,10 @@ const GO: Record<ProjectTab, MessageKey> = {
   settings: "tab.settings",
 };
 
-export function attentionAction(t: Translate, kind: AttentionKind): { tab: ProjectTab; label: string } {
+export function attentionAction(t: Translate, kind: AttentionKind): { tab: ProjectTab; view?: string; label: string } {
   const tab = ATTENTION_TAB[kind];
-  return { tab, label: t(GO[tab]) };
+  // People's problems (quiet, late, old files) are in the table of how each person is doing
+  return { tab, ...(tab === "people" ? { view: "team" } : {}), label: t(GO[tab]) };
 }
 
 const DAY_MS = 86_400_000;

@@ -6,13 +6,13 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import MenuItem from "@mui/material/MenuItem";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useMemo, useState } from "react";
 import { getPlotLayout, setPlotLayout } from "../api";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { CardFrame } from "../components/FoldingCard";
 import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { useT, type MessageKey } from "../i18n";
@@ -28,12 +28,15 @@ export function PlotLayoutCard({ projectId }: { projectId: string }) {
   const loaded = useLoad(() => getPlotLayout(projectId), [projectId]);
   if (loaded.error) return <ErrorAlert error={loaded.error} onRetry={loaded.reload} />;
   if (!loaded.data) return <Loading />;
+  const shown = shownLayout(loaded.data.layout);
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-      <Typography variant="h2" gutterBottom>{t("file.layout.title")}</Typography>
+    <CardFrame
+      title={t("file.layout.title")}
+      fold={`${t(`file.layout.shape.${shown.sample_shape}` as MessageKey)} · ${t("fold.points", { count: shown.number_of_sampling_points_in_plot })}`}
+    >
       <Explain sx={{ mb: 2 }} text={t("file.layout.explain")} />
       <LayoutForm projectId={projectId} stored={loaded.data.layout} recordsExist={loaded.data.recordsExist} onSaved={loaded.reload} />
-    </Paper>
+    </CardFrame>
   );
 }
 

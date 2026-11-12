@@ -1,7 +1,6 @@
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -10,6 +9,7 @@ import { importCollectData, previewCollectImport, type CollectImportPreview, typ
 import { useApp } from "../appContext";
 import { collectImportQuery } from "../collectImportView";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { CardFrame } from "../components/FoldingCard";
 import { Explain } from "../components/Explain";
 import { FileDrop } from "../components/FileDrop";
 import { formatNumber } from "../format";
@@ -60,9 +60,8 @@ export function CollectImport({ projectId }: { projectId: string }) {
   };
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+    <CardFrame title={t("import.title")} fold={t("import.explain.short")}>
       <Stack spacing={2}>
-        <Typography variant="h2">{t("import.title")}</Typography>
         <Explain text={t("import.explain.short")} more={t("import.explain")} />
         <Typography variant="body2" color="text.secondary">
           {t("import.desktop")}
@@ -136,6 +135,6 @@ export function CollectImport({ projectId }: { projectId: string }) {
         )}
         <ErrorAlert error={error} />
       </Stack>
-    </Paper>
+    </CardFrame>
   );
 }

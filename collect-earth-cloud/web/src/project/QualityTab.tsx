@@ -53,7 +53,8 @@ import {
   type WeekPoint,
 } from "../qualityView";
 import { qualitySections } from "../localMode";
-import { linkProps, pathFor } from "../router";
+import { linkProps, navigate, pathFor, type ProjectView } from "../router";
+import { ViewTabs } from "../components/ViewTabs";
 import { useLoad } from "../useLoad";
 import { QualityAnswers } from "./QualityAnswers";
 import { QualityChecks } from "./QualityChecks";
@@ -687,8 +688,8 @@ function LocalQualityTab({ projectId }: { projectId: string }) {
 }
 
 /** The Quality tab; in the local mode, LocalQualityTab. */
-export function QualityTab({ projectId }: { projectId: string }) {
-  return useLocalMode() ? <LocalQualityTab projectId={projectId} /> : <TeamQualityTab projectId={projectId} />;
+export function QualityTab({ projectId, view = "review" }: { projectId: string; view?: ProjectView<"quality"> }) {
+  return useLocalMode() ? <LocalQualityTab projectId={projectId} /> : <TeamQualityTab projectId={projectId} view={view} />;
 }
 
 /**
@@ -696,7 +697,7 @@ export function QualityTab({ projectId }: { projectId: string }) {
  * assessments, by question, person and week; the mixed-up answers; each difference to
  * decide; guidance notes for collectors; and records that could not be compared.
  */
-function TeamQualityTab({ projectId }: { projectId: string }) {
+function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectView<"quality"> }) {
   const t = useT();
   // A load that started before a decision, a note or margins were saved here keeps those as saved.
   const quality = useLoad(() => getQuality(projectId), [projectId], { merge: keepLocalChanges });
@@ -773,58 +774,79 @@ function TeamQualityTab({ projectId }: { projectId: string }) {
   const update = (change: (prev: QualityData) => Partial<QualityData>) => setData((prev) => ({ ...prev, ...change(prev) }));
   const savedNote = (saved: GuidanceNote) => update((prev) => ({ notes: withNote(prev.notes, saved) }));
 
+  const onDecision = (plot: string, decision: Parameters<typeof withDecision>[2]) => update((prev) => ({ decisions: withDecision(prev.decisions, plot, decision) }));
+  const reports = (
+    <>
+      <Button variant="outlined" size="small" {...linkProps(pathFor({ name: "teamReport", projectId }))}>
+        {t("teamReport.link")}
+      </Button>
+      <Button variant="outlined" size="small" {...linkProps(pathFor({ name: "myQuality", projectId }))}>
+        {t("myQuality.link")}
+      </Button>
+    </>
+  );
+
   return (
-    // Headings land below the app bar and the sticky "On this page" row.
+    // Headings land below the app bar and the sticky "On this page" row (Figures).
     <Stack spacing={3} ref={sectionsRef} sx={{ "& h2": { scrollMarginTop: { xs: 72, sm: 150 } } }}>
-      <SectionNav root={sectionsRef} label={t("quality.onThisPage")} prefix="quality-section" />
-      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-        <Button variant="outlined" size="small" {...linkProps(pathFor({ name: "teamReport", projectId }))}>
-          {t("teamReport.link")}
-        </Button>
-        <Button variant="outlined" size="small" {...linkProps(pathFor({ name: "myQuality", projectId }))}>
-          {t("myQuality.link")}
-        </Button>
-      </Stack>
+      <ViewTabs projectId={projectId} tab="quality" current={view} label={t("quality.views")} extra={reports} />
       {data.excluded.length > 0 && (
         <Alert severity="info">
           {t("quality.excludedNote", { names: data.excluded.map((x) => (x.reason ? `${x.username} (${x.reason})` : x.username)).join(", ") })}
         </Alert>
       )}
-      <Counts data={data} stillWorking={busy} />
       {error !== null && !busy && <ErrorAlert error={error} onRetry={reload} />}
-      <ReviewQueue
-        projectId={projectId}
-        canBulk
-        onDecision={(plot, decision) => update((prev) => ({ decisions: withDecision(prev.decisions, plot, decision) }))}
-        onBulk={reload}
-      />
-      <QualityChecks projectId={projectId} />
-      <QualityReference projectId={projectId} canEdit />
-      {data.plotsChecked > 0 && (
+      {view === "review" && (
         <>
-          <Questions projectId={projectId} data={data} onMargins={(margins) => (update(() => ({ margins })), reload())} />
-          <Confusions data={data} onWriteNote={setNote} />
-          <People data={data} />
-          <Weeks data={data} />
-          <QualityDifferences
+          {/* the plots to decide, one at a time; then the checks that differ, and the plots worth a look */}
+          <ReviewQueue projectId={projectId} canBulk onDecision={onDecision} onBulk={reload} />
+          {data.plotsChecked > 0 && <QualityDifferences projectId={projectId} data={data} focus={focus} onDecision={onDecision} />}
+          <QualityFlags projectId={projectId} canEdit />
+        </>
+      )}
+      {view === "checks" && (
+        <>
+          <QualityChecks projectId={projectId} />
+          <QualityReference projectId={projectId} canEdit />
+        </>
+      )}
+      {view === "figures" && (
+        <>
+          <SectionNav root={sectionsRef} label={t("quality.onThisPage")} prefix="quality-section" />
+          <Counts data={data} stillWorking={busy} />
+          {data.plotsChecked > 0 && (
+            <>
+              <Questions projectId={projectId} data={data} onMargins={(margins) => (update(() => ({ margins })), reload())} />
+              <Confusions data={data} onWriteNote={setNote} />
+              <People data={data} />
+              <Weeks data={data} />
+            </>
+          )}
+          <QualityAnswers projectId={projectId} />
+          <QualitySurvey projectId={projectId} />
+          <Problems data={data} />
+        </>
+      )}
+      {view === "notes" && (
+        <>
+          <QualityNotes
             projectId={projectId}
             data={data}
-            focus={focus}
-            onDecision={(plot, decision) => update((prev) => ({ decisions: withDecision(prev.decisions, plot, decision) }))}
+            onEdit={setNote}
+            onDeleted={(id) => update((prev) => ({ notes: prev.notes.filter((n) => n.id !== id) }))}
+          />
+          <QualityAssistant
+            projectId={projectId}
+            data={data}
+            onWriteNote={setNote}
+            onShowPlot={(plot) => {
+              // the plot is shown among the differences, on Review
+              setFocus({ plot, at: Date.now() });
+              navigate(pathFor({ name: "project", projectId, tab: "quality", view: "review" }));
+            }}
           />
         </>
       )}
-      <QualityFlags projectId={projectId} canEdit />
-      <QualityAnswers projectId={projectId} />
-      <QualitySurvey projectId={projectId} />
-      <QualityNotes
-        projectId={projectId}
-        data={data}
-        onEdit={setNote}
-        onDeleted={(id) => update((prev) => ({ notes: prev.notes.filter((n) => n.id !== id) }))}
-      />
-      <Problems data={data} />
-      <QualityAssistant projectId={projectId} data={data} onWriteNote={setNote} onShowPlot={(plot) => setFocus({ plot, at: Date.now() })} />
       {note && (
         <NoteDialog projectId={projectId} data={data} draft={note} onClose={() => setNote(null)} onSaved={(saved) => (savedNote(saved), setNote(null))} />
       )}

@@ -151,7 +151,7 @@ function Quality({ projectId, data }: { projectId: string; data: WeeklyData }) {
         <Alert
           severity="info"
           action={
-            <Button className="no-print" {...linkProps(pathFor({ name: "project", projectId, tab: "quality" }))}>
+            <Button className="no-print" {...linkProps(pathFor({ name: "project", projectId, tab: "quality", view: "figures" }))}>
               {t("weekly.openQuality")}
             </Button>
           }
@@ -189,7 +189,7 @@ function Flags({ projectId, data }: { projectId: string; data: WeeklyData }) {
         <Alert
           severity="info"
           action={
-            <Button className="no-print" {...linkProps(pathFor({ name: "project", projectId, tab: "quality" }))}>
+            <Button className="no-print" {...linkProps(pathFor({ name: "project", projectId, tab: "quality", view: "figures" }))}>
               {t("weekly.openQuality")}
             </Button>
           }

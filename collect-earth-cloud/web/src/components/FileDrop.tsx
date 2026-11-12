@@ -1,9 +1,8 @@
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
-import CloudUpload from "@mui/icons-material/CloudUpload";
+import UploadFile from "@mui/icons-material/UploadFileOutlined";
 import { useRef, useState, type DragEvent } from "react";
-import { useT } from "../i18n";
 
 interface Props {
   /** "Drag the .cep file here" */
@@ -15,9 +14,11 @@ interface Props {
   onFiles: (files: File[]) => void;
 }
 
-/** A drop area plus a button, for people who do not drag and drop. */
+/**
+ * A slim drop strip with its button, for people who do not drag and drop: one line, the size of a text field, so it
+ * reads as one more way to give a file rather than as the page's main content. It lights up while a file is dragged over.
+ */
 export function FileDrop({ label, buttonLabel, accept, multiple, disabled, onFiles }: Props) {
-  const t = useT();
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
 
@@ -40,21 +41,25 @@ export function FileDrop({ label, buttonLabel, accept, multiple, disabled, onFil
       onDragLeave={() => setOver(false)}
       onDrop={onDrop}
       sx={{
-        border: "2px dashed",
+        display: "flex",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: 1.5,
+        border: "1px dashed",
         borderColor: over ? "primary.main" : "divider",
-        bgcolor: over ? "action.hover" : "background.paper",
-        borderRadius: 2,
-        p: { xs: 2, sm: 4 },
-        textAlign: "center",
+        bgcolor: over ? "action.hover" : "transparent",
+        borderRadius: 1,
+        px: 1.5,
+        py: 1,
+        opacity: disabled ? 0.6 : 1,
         transition: "border-color 120ms, background-color 120ms",
       }}
     >
-      <CloudUpload color={over ? "primary" : "action"} sx={{ fontSize: 44 }} aria-hidden />
-      <Typography sx={{ mt: 1 }}>{label}</Typography>
-      <Typography color="text.secondary" sx={{ my: 1 }}>
-        {t("common.or")}
+      <UploadFile fontSize="small" color={over ? "primary" : "action"} aria-hidden />
+      <Typography variant="body2" color="text.secondary" sx={{ flex: "1 1 200px", minWidth: 0 }}>
+        {label}
       </Typography>
-      <Button variant="outlined" disabled={disabled} onClick={() => input.current?.click()}>
+      <Button variant="outlined" size="small" disabled={disabled} onClick={() => input.current?.click()}>
         {buttonLabel}
       </Button>
       <input

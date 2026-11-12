@@ -3,6 +3,8 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Link from "@mui/material/Link";
 import ListSubheader from "@mui/material/ListSubheader";
+import ListItemText from "@mui/material/ListItemText";
+import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -10,14 +12,15 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Download from "@mui/icons-material/Download";
 import EventNote from "@mui/icons-material/EventNote";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import ExpandMore from "@mui/icons-material/ExpandMore";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, getActivity, type ActivityPage, type ExportKind, type LogItem, type LogKind } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { COORDINATOR_LOG_KINDS, dayAfterMs, dayStartMs, LOG_KIND_LABELS, logSentence, RECORD_LOG_KINDS } from "../activityView";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
-import { formatDate, formatNumber } from "../format";
+import { formatDate, formatDay, formatNumber } from "../format";
 import { useT } from "../i18n";
 import { activityDownloads, otherLogKinds } from "../localMode";
 import { linkProps, pathFor } from "../router";
@@ -44,6 +47,18 @@ interface Filters {
 
 const NO_FILTERS: Filters = { person: "", kind: "all", from: "", to: "" };
 
+const timeOf = (at: number, language: string) => {
+  try {
+    return new Intl.DateTimeFormat(language, { timeStyle: "short" }).format(at);
+  } catch {
+    return new Intl.DateTimeFormat("en", { timeStyle: "short" }).format(at);
+  }
+};
+/** The day a row is listed under, in the person's time zone. */
+const dayKey = (at: number) => new Date(at).toDateString();
+/** Rows shown at first, and added by each "Show more" before the next page is asked for. */
+const SHOWN_STEP = 20;
+
 /** One row of the log: when, and what happened, with a link to the plot's page. */
 function LogRow({ projectId, item, page }: { projectId: string; item: LogItem; page: ActivityPage }) {
   const t = useT();
@@ -53,8 +68,8 @@ function LogRow({ projectId, item, page }: { projectId: string; item: LogItem; p
   const plot = item.type === "record" ? item.plot : item.action.startsWith("decision.") && typeof item.details.plot === "string" ? item.details.plot : null;
   return (
     <Box component="li" sx={{ py: 1, borderBottom: 1, borderColor: "divider", display: "flex", gap: 2, flexWrap: { xs: "wrap", sm: "nowrap" } }}>
-      <Typography variant="body2" color="text.secondary" sx={{ minWidth: { sm: 170 }, flexShrink: 0 }}>
-        {formatDate(item.at, language)}
+      <Typography variant="body2" color="text.secondary" sx={{ minWidth: { sm: 80 }, flexShrink: 0, fontVariantNumeric: "tabular-nums" }} title={formatDate(item.at, language)}>
+        {timeOf(item.at, language)}
       </Typography>
       <Box sx={{ minWidth: 0, wordBreak: "break-word" }}>
         <Typography variant="body2" component="span">
@@ -85,6 +100,7 @@ function ActivityLog({ projectId }: { projectId: string }) {
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
   const [announce, setAnnounce] = useState("");
+  const [shown, setShown] = useState(SHOWN_STEP);
   const latest = useRef(0);
 
   const load = async (f: Filters, cursor: string | null) => {
@@ -114,6 +130,7 @@ function ActivityLog({ projectId }: { projectId: string }) {
   };
 
   useEffect(() => {
+    setShown(SHOWN_STEP);
     void load(filters, null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, filters]);
@@ -179,14 +196,32 @@ function ActivityLog({ projectId }: { projectId: string }) {
       {page !== null && page.items.length === 0 && !loading && <Typography>{t(filtered ? "activity.noneFiltered" : "activity.none")}</Typography>}
       {page !== null && page.items.length > 0 && (
         <Box component="ul" sx={{ m: 0, p: 0, listStyle: "none" }} aria-label={t("activity.logTitle")}>
-          {page.items.map((item) => (
-            <LogRow key={item.id} projectId={projectId} item={item} page={page} />
+          {page.items.slice(0, shown).map((item, i, list) => (
+            <Fragment key={item.id}>
+              {(i === 0 || dayKey(list[i - 1].at) !== dayKey(item.at)) && (
+                <Box component="li" aria-hidden sx={{ pt: i === 0 ? 0 : 2, pb: 0.5 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{formatDay(item.at, language)}</Typography>
+                </Box>
+              )}
+              <LogRow projectId={projectId} item={item} page={page} />
+            </Fragment>
           ))}
         </Box>
       )}
-      {page?.next && (
+      {page !== null && (shown < page.items.length || page.next) && (
         <Box sx={{ mt: 2 }}>
-          <Button variant="outlined" disabled={loading} onClick={() => void load(filters, page.next)}>
+          <Button
+            variant="outlined"
+            disabled={loading}
+            onClick={() => {
+              // what is loaded first, then the next page
+              if (shown < page.items.length) setShown(shown + SHOWN_STEP);
+              else {
+                setShown(shown + SHOWN_STEP);
+                void load(filters, page.next);
+              }
+            }}
+          >
             {t("activity.more")}
           </Button>
         </Box>
@@ -212,15 +247,18 @@ const DOWNLOADS: { kind: ExportKind; label: "activity.download.people" | "activi
   { kind: "differences", label: "activity.download.differences", help: "activity.download.differencesHelp" },
 ];
 
-function Downloads({ projectId }: { projectId: string }) {
+/** The weekly summary and the downloads, in one row above the log: the downloads in a menu, each with what it holds. */
+function Actions({ projectId }: { projectId: string }) {
   const t = useT();
   // The local mode (one person): the daily activity only (src/localMode.ts, activityDownloads).
   const local = useLocalMode();
   const kinds = activityDownloads(local);
   const download = useDownload(projectId);
+  const [menu, setMenu] = useState<HTMLElement | null>(null);
   const [busy, setBusy] = useState<ExportKind | null>(null);
   const [error, setError] = useState<{ kind: ExportKind; error: unknown } | null>(null);
   const run = async (kind: ExportKind) => {
+    setMenu(null);
     setBusy(kind);
     setError(null);
     try {
@@ -232,53 +270,47 @@ function Downloads({ projectId }: { projectId: string }) {
     }
   };
   return (
-    <Section title={t("activity.downloadsTitle")} id="activity-downloads">
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {t("activity.downloadsHelp")}
-      </Typography>
-      <Stack spacing={2}>
-        {DOWNLOADS.filter((d) => kinds.includes(d.kind)).map((d) => (
-          <Box key={d.kind}>
-            <Button variant="outlined" startIcon={<Download />} disabled={busy !== null} onClick={() => void run(d.kind)}>
-              {t(d.label)}
-            </Button>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              {t(local && d.kind === "daily" ? "activity.download.dailyHelpLocal" : d.help)}
-            </Typography>
-            {error?.kind === d.kind &&
-              (error.error instanceof ApiError && error.error.code === "no_figures" ? (
-                <Alert severity="info" sx={{ mt: 1 }} action={<Button {...linkProps(pathFor({ name: "project", projectId, tab: "quality" }))}>{t("activity.openQuality")}</Button>}>
-                  {t("activity.noFigures.short")}
-                  <MoreInfo text={t("activity.noFigures")} />
-                </Alert>
-              ) : (
-                <Box sx={{ mt: 1 }}>
-                  <ErrorAlert error={error.error} onRetry={() => void run(d.kind)} />
-                </Box>
-              ))}
-          </Box>
-        ))}
+    <Stack spacing={1.5}>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+        <Button variant="contained" startIcon={<EventNote />} {...linkProps(pathFor({ name: "weekly", projectId, week: null }))}>
+          {t("activity.weeklyOpen")}
+        </Button>
+        <Button variant="outlined" startIcon={<Download />} endIcon={<ExpandMore />} disabled={busy !== null} aria-haspopup="menu" onClick={(e) => setMenu(e.currentTarget)}>
+          {t("activity.downloadsTitle")}
+        </Button>
+        <Typography variant="body2" color="text.secondary" sx={{ flexBasis: { xs: "100%", md: "auto" } }}>
+          {t(local ? "activity.weeklyHelpLocal" : "activity.weeklyHelp")}
+        </Typography>
       </Stack>
-    </Section>
+      <Menu anchorEl={menu} open={menu !== null} onClose={() => setMenu(null)}>
+        {DOWNLOADS.filter((d) => kinds.includes(d.kind)).map((d) => (
+          <MenuItem key={d.kind} onClick={() => void run(d.kind)} sx={{ whiteSpace: "normal", maxWidth: 440, alignItems: "flex-start", py: 1 }}>
+            <ListItemText
+              primary={t(d.label)}
+              secondary={t(local && d.kind === "daily" ? "activity.download.dailyHelpLocal" : d.help)}
+            />
+          </MenuItem>
+        ))}
+      </Menu>
+      {error &&
+        (error.error instanceof ApiError && error.error.code === "no_figures" ? (
+          <Alert severity="info" action={<Button {...linkProps(pathFor({ name: "project", projectId, tab: "quality", view: "figures" }))}>{t("activity.openQuality")}</Button>}>
+            {t("activity.noFigures.short")}
+            <MoreInfo text={t("activity.noFigures")} />
+          </Alert>
+        ) : (
+          <ErrorAlert error={error.error} onRetry={() => void run(error.kind)} />
+        ))}
+    </Stack>
   );
 }
 
 /** The Activity tab (coordinators): the log, the weekly summary and the downloads. */
 export function ActivityTab({ projectId }: { projectId: string }) {
-  const t = useT();
-  const local = useLocalMode();
   return (
     <Stack spacing={3}>
-      <Section title={t("activity.weeklyTitle")} id="activity-weekly">
-        <Typography variant="body2" sx={{ mb: 2 }}>
-          {t(local ? "activity.weeklyHelpLocal" : "activity.weeklyHelp")}
-        </Typography>
-        <Button variant="contained" startIcon={<EventNote />} {...linkProps(pathFor({ name: "weekly", projectId, week: null }))}>
-          {t("activity.weeklyOpen")}
-        </Button>
-      </Section>
+      <Actions projectId={projectId} />
       <ActivityLog projectId={projectId} />
-      <Downloads projectId={projectId} />
     </Stack>
   );
 }

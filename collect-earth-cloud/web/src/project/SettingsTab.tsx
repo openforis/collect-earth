@@ -30,6 +30,7 @@ import {
 } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { CardFrame } from "../components/FoldingCard";
 import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { useT } from "../i18n";
@@ -249,11 +250,11 @@ function AiCard({ projectId }: { projectId: string }) {
   };
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="settings-ai">
+    <CardFrame
+      title={t("settings.aiTitle")}
+      fold={!ai.data ? "" : ai.data.enabled ? t("fold.aiOn") : ai.data.available ? t("fold.aiOff") : t("fold.aiUnavailable")}
+    >
       <Stack spacing={2}>
-        <Typography variant="h2" id="settings-ai">
-          {t("settings.aiTitle")}
-        </Typography>
         <Explain color="text.primary" text={t("settings.aiIntro.short")} more={t("settings.aiIntro")} />
         <Explain color="text.primary" text={t("settings.aiSent.short")} more={t("settings.aiSent")} />
         {ai.loading && !ai.data ? (
@@ -315,7 +316,7 @@ function AiCard({ projectId }: { projectId: string }) {
         )}
         <ErrorAlert error={error} />
       </Stack>
-    </Paper>
+    </CardFrame>
   );
 }
 
@@ -391,11 +392,8 @@ function CopyCard({ projectId, name }: { projectId: string; name: string }) {
   };
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="settings-copy">
+    <CardFrame title={t("copy.title")} fold={t("copy.intro.short")}>
       <Stack component="form" spacing={2} onSubmit={submit} noValidate>
-        <Typography variant="h2" id="settings-copy">
-          {t("copy.title")}
-        </Typography>
         <Explain color="text.primary" text={t("copy.intro.short")} more={t("copy.intro")} />
         <TextField
           label={t("copy.nameLabel")}
@@ -414,7 +412,7 @@ function CopyCard({ projectId, name }: { projectId: string; name: string }) {
           </Button>
         </Box>
       </Stack>
-    </Paper>
+    </CardFrame>
   );
 }
 
@@ -443,11 +441,8 @@ function DeleteCard({ projectId, name }: { projectId: string; name: string }) {
   };
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderColor: "error.main" }}>
+    <CardFrame title={t("settings.deleteTitle")} fold={t("fold.delete")} danger>
       <Stack component="form" spacing={2} onSubmit={submit} noValidate>
-        <Typography variant="h2" color="error">
-          {t("settings.deleteTitle")}
-        </Typography>
         <Typography>{t("settings.deleteText")}</Typography>
         <Alert severity="warning">
           {t("settings.deleteDataFirst")} <Link {...linkProps(pathFor({ name: "project", projectId, tab: "data" }))}>{t("settings.deleteGoData")}</Link>
@@ -466,7 +461,7 @@ function DeleteCard({ projectId, name }: { projectId: string; name: string }) {
           </Button>
         </Box>
       </Stack>
-    </Paper>
+    </CardFrame>
   );
 }
 

@@ -342,7 +342,7 @@ export function ForecastSection({ data, publicView, local }: { data: ProgressFig
   );
 }
 
-function AttentionCard({ item, onGo }: { item: AttentionItem; onGo: (tab: ProjectTab) => void }) {
+function AttentionCard({ item, onGo }: { item: AttentionItem; onGo: (tab: ProjectTab, view?: string) => void }) {
   const t = useT();
   const { language } = useApp();
   const { title, text, more: fullText } = attentionText(t, item, language);
@@ -387,7 +387,7 @@ function AttentionCard({ item, onGo }: { item: AttentionItem; onGo: (tab: Projec
         )}
       </Box>
       <Box sx={{ flexShrink: 0 }}>
-        <Button size="small" variant="outlined" endIcon={<ArrowForward />} onClick={() => onGo(action.tab)}>
+        <Button size="small" variant="outlined" endIcon={<ArrowForward />} onClick={() => onGo(action.tab, action.view)}>
           {action.label}
         </Button>
       </Box>
@@ -395,7 +395,7 @@ function AttentionCard({ item, onGo }: { item: AttentionItem; onGo: (tab: Projec
   );
 }
 
-function Attention({ items, onGo }: { items: AttentionItem[]; onGo: (tab: ProjectTab) => void }) {
+function Attention({ items, onGo }: { items: AttentionItem[]; onGo: (tab: ProjectTab, view?: string) => void }) {
   const t = useT();
   return (
     <Section title={t("progress.attentionTitle")} id="progress-attention">
@@ -420,7 +420,7 @@ function Attention({ items, onGo }: { items: AttentionItem[]; onGo: (tab: Projec
  * done, and (for coordinators) what needs attention. Reloaded every minute while the
  * page is visible.
  */
-export function ProgressTab({ projectId, onGo }: { projectId: string; onGo: (tab: ProjectTab) => void }) {
+export function ProgressTab({ projectId, onGo }: { projectId: string; onGo: (tab: ProjectTab, view?: string) => void }) {
   const t = useT();
   // The local mode (one person): no cards about other people, nor plots given to someone.
   const local = useLocalMode();

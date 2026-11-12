@@ -2,7 +2,6 @@ import Alert from "@mui/material/Alert";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -23,6 +22,7 @@ import { csvText } from "../backupImportView";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
 import { FileDrop } from "../components/FileDrop";
+import { FoldingCard } from "../components/FoldingCard";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
 import { useT, type MessageKey } from "../i18n";
@@ -102,10 +102,7 @@ export function StrataAreas({ projectId, version }: { projectId: string; version
   const canSave = d.canEdit && !busy && !state.loading && !state.error && (shownMode === "total" ? totalArea !== null && totalArea > 0 : columns.length > 0 && !wrong && strataSetting.strata.some((s) => s.area > 0));
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="strata-areas">
-      <Typography variant="h2" id="strata-areas" gutterBottom>
-        {t("areas.title")}
-      </Typography>
+    <FoldingCard title={t("areas.title")} summary={d.source ? t(SOURCE_KEYS[d.source]) : t("areas.source.none")}>
       <Explain sx={{ mb: 2 }} text={t("areas.explain.short")} more={t("areas.explain")} />
       <Typography sx={{ mb: 2 }}>{d.source ? t(SOURCE_KEYS[d.source]) : t("areas.source.none")}</Typography>
       {d.canEdit && (
@@ -237,6 +234,6 @@ export function StrataAreas({ projectId, version }: { projectId: string; version
           <FileDrop label={t("areas.drop")} buttonLabel={t("areas.choose")} accept=".csv,text/csv" disabled={busy} onFiles={(files) => void upload(files)} />
         </Box>
       )}
-    </Paper>
+    </FoldingCard>
   );
 }

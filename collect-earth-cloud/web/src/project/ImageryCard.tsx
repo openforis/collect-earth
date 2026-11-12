@@ -3,7 +3,6 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
@@ -11,6 +10,7 @@ import Typography from "@mui/material/Typography";
 import { useMemo, useState } from "react";
 import { getImagery, setImagery } from "../api";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { CardFrame } from "../components/FoldingCard";
 import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { useT, type MessageKey } from "../i18n";
@@ -23,12 +23,13 @@ export function ImageryCard({ projectId }: { projectId: string }) {
   const loaded = useLoad(() => getImagery(projectId), [projectId]);
   if (loaded.error) return <ErrorAlert error={loaded.error} onRetry={loaded.reload} />;
   if (!loaded.data) return <Loading />;
+  const shown = shownImagery(loaded.data.imagery);
+  const on = (["open_gee_app", "open_earth_map", "open_esri_wayback"] as const).filter((k) => shown[k] === "true").map((k) => t(`file.imagery.${k}` as MessageKey));
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-      <Typography variant="h2" gutterBottom>{t("file.imagery.title")}</Typography>
+    <CardFrame title={t("file.imagery.title")} fold={on.length > 0 ? on.join(" · ") : t("fold.noImagery")}>
       <Explain sx={{ mb: 2 }} text={t("file.imagery.explain")} />
       <ImageryForm projectId={projectId} stored={loaded.data.imagery} onSaved={loaded.reload} />
-    </Paper>
+    </CardFrame>
   );
 }
 

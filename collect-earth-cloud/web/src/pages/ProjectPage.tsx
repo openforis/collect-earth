@@ -28,7 +28,7 @@ import { OverviewTab } from "../project/OverviewTab";
 import { PlotsTab } from "../project/PlotsTab";
 import { SettingsTab } from "../project/SettingsTab";
 import { projectTabs } from "../localMode";
-import { linkProps, navigate, pathFor, type ProjectTab } from "../router";
+import { linkProps, navigate, pathFor, viewOf, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 
 // Each tab is loaded when first opened (the map and the charts are most of the code).
@@ -134,9 +134,12 @@ export function ProjectPage({
   personId,
   plot,
   trainingSetId,
+  view,
 }: {
   projectId: string;
   tab: ProjectTab;
+  /** A view of a tab split into views (router.ts, PROJECT_VIEWS) */
+  view?: string;
   fileId?: string;
   personId?: string;
   plot?: string;
@@ -195,7 +198,7 @@ export function ProjectPage({
   }
 
   const info = project.data;
-  const go = (next: ProjectTab) => navigate(pathFor({ name: "project", projectId, tab: next }));
+  const go = (next: ProjectTab, nextView?: string) => navigate(pathFor({ name: "project", projectId, tab: next, view: nextView }));
   // A reviewer follows the progress (without the cards that name people), the map (without who
   // holds each plot) and the answers per person (the Quality tab's Answers section); the other
   // tabs are the coordinators'.
@@ -281,11 +284,11 @@ export function ProjectPage({
     progress: <ProgressTab projectId={projectId} onGo={go} />,
     setup: <OverviewTab projectId={projectId} onGo={go} />,
     file: <FileTab projectId={projectId} />,
-    people: personId ? <PersonPage key={personId} projectId={projectId} userId={personId} onGo={go} /> : <PeopleTab projectId={projectId} />,
+    people: personId ? <PersonPage key={personId} projectId={projectId} userId={personId} onGo={go} /> : <PeopleTab projectId={projectId} view={viewOf("people", view)} />,
     plots: fileId ? <PlotFilePage key={fileId} projectId={projectId} fileId={fileId} onGo={go} /> : <PlotsTab projectId={projectId} onGo={go} />,
     map: <MapTab projectId={projectId} coordinator={!local} />,
-    data: <DataTab projectId={projectId} onGo={go} />,
-    quality: plot ? <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles={!local} /> : <QualityTab projectId={projectId} />,
+    data: <DataTab projectId={projectId} />,
+    quality: plot ? <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles={!local} /> : <QualityTab projectId={projectId} view={viewOf("quality", view)} />,
     training: <TrainingTab key={trainingSetId ?? "list"} projectId={projectId} setId={trainingSetId} />,
     activity: <ActivityTab projectId={projectId} />,
     settings: (

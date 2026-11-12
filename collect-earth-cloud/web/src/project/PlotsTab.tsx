@@ -2,6 +2,8 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import FormGroup from "@mui/material/FormGroup";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
@@ -20,7 +22,8 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import CallSplit from "@mui/icons-material/CallSplit";
-import { useEffect, useMemo, useState } from "react";
+import Edit from "@mui/icons-material/EditOutlined";
+import { useMemo, useState } from "react";
 import {
   listAssignments,
   listCsvFiles,
@@ -29,21 +32,20 @@ import {
   saveAssignments,
   uploadCsvFile,
   type ReplaceImpact,
-  type Assignment,
   type CsvFile,
   type Member,
 } from "../api";
 import { useApp } from "../appContext";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
-import { Explain, MoreInfo } from "../components/Explain";
+import { MoreInfo } from "../components/Explain";
 import { FileDrop } from "../components/FileDrop";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
 import { useT } from "../i18n";
 import { linkProps, pathFor, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
-import { fromPairs, hasChanges, pairKey, toPairs } from "../assignmentGrid";
+import { fromPairs, pairKey } from "../assignmentGrid";
 import { sortPeople } from "../division";
 import { PlotDesign } from "./PlotDesign";
 import { StrataAreas } from "./StrataAreas";
@@ -72,6 +74,8 @@ async function loadPlots(projectId: string) {
   return { files, members, assignments, divided: dividedOf(files) };
 }
 
+const VISUALLY_HIDDEN = { position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" } as const;
+
 const filePath = (projectId: string, fileId: string) => pathFor({ name: "plotFile", projectId, fileId });
 
 function DividedChip({ projectId, fileId, count }: { projectId: string; fileId: string; count: number }) {
@@ -97,126 +101,72 @@ export function OnlyYou({ onGo }: { onGo: (tab: ProjectTab) => void }) {
   );
 }
 
-function AssignmentGrid({
-  projectId,
-  files,
-  members,
-  assignments,
-  divided,
+/** Who collects one plot file: the people ticked get the whole file in Collect Earth. Saved at once. */
+function WhoCollectsDialog({
+  file,
+  people,
+  ticked,
+  onClose,
+  onSave,
   onGo,
 }: {
-  projectId: string;
-  files: CsvFile[];
-  members: Member[];
-  assignments: Assignment[];
-  divided: Divided;
+  file: CsvFile;
+  people: Member[];
+  ticked: ReadonlySet<string>;
+  onClose: () => void;
+  onSave: (userIds: Set<string>) => Promise<void>;
   onGo: (tab: ProjectTab) => void;
 }) {
   const t = useT();
-  // What the server holds: from the loaded assignments, then whatever was last saved.
-  const [saved, setSaved] = useState<Set<string>>(() => toPairs(assignments));
-  const [pairs, setPairs] = useState<Set<string>>(saved);
-  const [error, setError] = useState<unknown>(null);
-  const [done, setDone] = useState(false);
+  const [chosen, setChosen] = useState<Set<string>>(() => new Set(ticked));
   const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    const loaded = toPairs(assignments);
-    setSaved(loaded);
-    setPairs(loaded);
-  }, [assignments]);
-
-  // Coordinators normally do not collect: show collectors and reviewers first.
-  const people = useMemo(() => sortPeople(members), [members]);
-  const changed = useMemo(() => hasChanges(pairs, saved), [pairs, saved]);
-
-  const toggle = (key: string) => {
-    setDone(false);
-    setPairs((current) => {
-      const next = new Set(current);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
+  const [error, setError] = useState<unknown>(null);
+  const changed = chosen.size !== ticked.size || [...chosen].some((id) => !ticked.has(id));
   const save = async () => {
-    setError(null);
     setBusy(true);
+    setError(null);
     try {
-      // Divided files have their own page; the server ignores them here anyway.
-      await saveAssignments(projectId, fromPairs(pairs, files.filter((f) => !divided.has(f.id)), members));
-      setSaved(new Set(pairs));
-      setDone(true);
+      await onSave(chosen);
     } catch (err) {
       setError(err);
-    } finally {
       setBusy(false);
     }
   };
-
   return (
-    <Stack spacing={2}>
-      {/* Alone in the project, a coordinator can still give plot files to themselves. */}
-      {members.length <= 1 && <OnlyYou onGo={onGo} />}
-      <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 1, maxHeight: 520 }}>
-        <Table size="small" stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ minWidth: 140 }}>{t("plots.file")}</TableCell>
-              {people.map((person) => (
-                <TableCell key={person.userId} align="center" sx={{ minWidth: 90, wordBreak: "break-word" }}>
-                  {person.username}
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {files.map((file) => (
-              <TableRow key={file.id} hover>
-                <TableCell component="th" scope="row" sx={{ wordBreak: "break-word" }}>
-                  {file.filename}
-                </TableCell>
-                {divided.has(file.id) ? (
-                  <TableCell colSpan={people.length}>
-                    <DividedChip projectId={projectId} fileId={file.id} count={divided.get(file.id) ?? 0} />
-                  </TableCell>
-                ) : (
-                  people.map((person) => {
-                    const key = pairKey(file.id, person.userId);
-                    return (
-                      <TableCell key={person.userId} align="center" padding="checkbox">
-                        <Checkbox
-                          checked={pairs.has(key)}
-                          onChange={() => toggle(key)}
-                          slotProps={{ input: { "aria-label": t("plots.assignLabel", { file: file.filename, person: person.username }) } }}
-                        />
-                      </TableCell>
-                    );
-                  })
-                )}
-              </TableRow>
+    <Dialog open onClose={busy ? undefined : onClose} fullWidth maxWidth="xs" aria-labelledby="who-collects-title">
+      <DialogTitle id="who-collects-title" sx={{ wordBreak: "break-word" }}>{t("plots.whoTitle", { file: file.filename })}</DialogTitle>
+      <DialogContent>
+        <Stack spacing={1.5}>
+          <DialogContentText variant="body2">{t("plots.whoHelp")}</DialogContentText>
+          {people.length <= 1 && <OnlyYou onGo={(tab) => { onClose(); onGo(tab); }} />}
+          <FormGroup>
+            {people.map((person) => (
+              <FormControlLabel
+                key={person.userId}
+                control={
+                  <Checkbox
+                    checked={chosen.has(person.userId)}
+                    onChange={() => {
+                      const next = new Set(chosen);
+                      if (next.has(person.userId)) next.delete(person.userId);
+                      else next.add(person.userId);
+                      setChosen(next);
+                    }}
+                  />
+                }
+                label={person.username}
+                sx={{ wordBreak: "break-word" }}
+              />
             ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      {divided.size > 0 && (
-        <Typography variant="body2" color="text.secondary">
-          {t("plots.gridDividedHelp")}
-        </Typography>
-      )}
-      {changed && <Alert severity="warning">{t("plots.unsaved")}</Alert>}
-      {done && !changed && (
-        <Alert severity="success" role="status">
-          {t("plots.assignSaved.short")}
-          <MoreInfo text={t("plots.assignSaved")} />
-        </Alert>
-      )}
-      <ErrorAlert error={error} />
-      <Box>
-        <Button variant="contained" onClick={save} disabled={busy || !changed}>
-          {t("plots.saveAssign")}
-        </Button>
-      </Box>
-    </Stack>
+          </FormGroup>
+          <ErrorAlert error={error} />
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={busy}>{t("common.cancel")}</Button>
+        <Button variant="contained" onClick={() => void save()} disabled={busy || !changed}>{t("plots.saveAssign")}</Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
@@ -230,6 +180,8 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
   const [error, setError] = useState<unknown>(null);
 
   const [pendingReplace, setPendingReplace] = useState<PendingReplace | null>(null);
+  const [editing, setEditing] = useState<CsvFile | null>(null);
+  const [savedNote, setSavedNote] = useState(false);
 
   const askReplace = (name: string, impact: ReplaceImpact) =>
     new Promise<boolean>((resolve) => {
@@ -309,41 +261,143 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
     return changed;
   };
 
+  const data = state.data;
+  // Coordinators normally do not collect: collectors and reviewers first.
+  const people = useMemo(() => (data ? sortPeople(data.members) : []), [data]);
+  const holders = useMemo(() => {
+    const byFile = new Map<string, Set<string>>();
+    for (const a of data?.assignments ?? []) {
+      if (!byFile.has(a.csvFileId)) byFile.set(a.csvFileId, new Set());
+      byFile.get(a.csvFileId)!.add(a.userId);
+    }
+    return byFile;
+  }, [data]);
+  const nameOf = (userId: string) => data?.members.find((m) => m.userId === userId)?.username ?? "?";
+
+  /** Saves who collects one file, the other files' people as they are. */
+  const saveHolders = async (fileId: string, userIds: Set<string>) => {
+    if (!data) return;
+    const pairs = new Set<string>();
+    for (const a of data.assignments) if (a.csvFileId !== fileId) pairs.add(pairKey(a.csvFileId, a.userId));
+    for (const id of userIds) pairs.add(pairKey(fileId, id));
+    await saveAssignments(projectId, fromPairs(pairs, data.files.filter((f) => !data.divided.has(f.id)), data.members));
+    setEditing(null);
+    setSavedNote(true);
+    state.reload();
+  };
+
   return (
     <Stack spacing={3}>
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-        <Typography variant="h2" gutterBottom>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="plot-files-title">
+        <Typography variant="h2" id="plot-files-title" gutterBottom>
           {t("plots.title")}
         </Typography>
         <Typography color="text.secondary" sx={{ mb: 2 }}>
           {t("plots.explain")}
         </Typography>
-        <Stack spacing={2}>
+        <Stack spacing={1.5}>
           <FileDrop label={t("plots.drop")} buttonLabel={t("plots.choose")} accept=".csv,text/csv" multiple disabled={upload !== null} onFiles={uploadFiles} />
           <Typography variant="body2" color="text.secondary">
-            {t("plots.replaceHint")}
+            {t("plots.replaceHint")} {t("plots.userColumnHint.short")}
+            <MoreInfo text={t("plots.userColumnHint")} />
           </Typography>
-          <Explain variant="body2" text={t("plots.userColumnHint.short")} more={t("plots.userColumnHint")} />
           {upload && (
             <div role="status">
-              <Typography sx={{ mb: 1 }}>{t("plots.uploading", { name: upload.name, pct: Math.round(upload.progress * 100) })}</Typography>
+              <Typography variant="body2" sx={{ mb: 0.5 }}>{t("plots.uploading", { name: upload.name, pct: Math.round(upload.progress * 100) })}</Typography>
               <LinearProgress variant="determinate" value={upload.progress * 100} aria-hidden />
             </div>
           )}
-          {messages.map((m) => (
-            <Alert key={m} severity="success" role="status">
-              {m}
+          {messages.length > 0 && (
+            <Alert severity="success" role="status" onClose={() => setMessages([])}>
+              {messages.map((m) => <div key={m}>{m}</div>)}
             </Alert>
-          ))}
-          {warnings.map((w) => (
-            <Alert key={w} severity="warning" role="alert">
-              {w}
+          )}
+          {warnings.length > 0 && (
+            <Alert severity="warning" role="alert" onClose={() => setWarnings([])}>
+              {warnings.map((w) => <div key={w}>{w}</div>)}
             </Alert>
-          ))}
+          )}
           <ErrorAlert error={error} />
         </Stack>
+
+        <Box sx={{ mt: 3 }}>
+          {state.loading && !data ? (
+            <Loading />
+          ) : state.error || !data ? (
+            <ErrorAlert error={state.error} onRetry={state.reload} />
+          ) : data.files.length === 0 ? (
+            <EmptyState title={t("plots.none")} />
+          ) : (
+            <Stack spacing={1.5}>
+              {savedNote && (
+                <Alert severity="success" role="status" onClose={() => setSavedNote(false)}>
+                  {t("plots.assignSaved.short")}
+                  <MoreInfo text={t("plots.assignSaved")} />
+                </Alert>
+              )}
+              <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 1 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>{t("plots.file")}</TableCell>
+                      <TableCell align="right">{t("plots.count")}</TableCell>
+                      <TableCell>{t("plots.whoCollects")}</TableCell>
+                      <TableCell align="right"><Box component="span" sx={VISUALLY_HIDDEN}>{t("plots.divide")}</Box></TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {data.files.map((file) => {
+                      const divided = data.divided.has(file.id);
+                      const ids = [...(holders.get(file.id) ?? [])].sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+                      return (
+                        <TableRow key={file.id} hover>
+                          <TableCell component="th" scope="row" sx={{ wordBreak: "break-word", fontWeight: 500 }}>{file.filename}</TableCell>
+                          <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>{formatNumber(file.plotCount, language)}</TableCell>
+                          <TableCell>
+                            {divided ? (
+                              <DividedChip projectId={projectId} fileId={file.id} count={data.divided.get(file.id) ?? 0} />
+                            ) : (
+                              <Stack direction="row" sx={{ gap: 0.75, flexWrap: "wrap", alignItems: "center" }}>
+                                {ids.length === 0 ? (
+                                  <Typography variant="body2" color="text.secondary">{t("plots.nobody")}</Typography>
+                                ) : (
+                                  ids.map((id) => <Chip key={id} size="small" label={nameOf(id)} />)
+                                )}
+                                <Button size="small" startIcon={<Edit fontSize="small" />} onClick={() => setEditing(file)}
+                                  aria-label={t("plots.changeLabel", { file: file.filename })}>
+                                  {t("plots.change")}
+                                </Button>
+                              </Stack>
+                            )}
+                          </TableCell>
+                          <TableCell align="right">
+                            {!divided && (
+                              <Button size="small" startIcon={<CallSplit />} aria-label={t("plots.divideLabel", { file: file.filename })} sx={{ whiteSpace: "nowrap" }}
+                                {...linkProps(filePath(projectId, file.id))}>
+                                {t("plots.divide")}
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              {editing && (
+                <WhoCollectsDialog
+                  file={editing}
+                  people={people}
+                  ticked={holders.get(editing.id) ?? new Set()}
+                  onClose={() => setEditing(null)}
+                  onSave={(ids) => saveHolders(editing.id, ids)}
+                  onGo={onGo}
+                />
+              )}
+            </Stack>
+          )}
+        </Box>
       </Paper>
-      <PlotDesign projectId={projectId} busy={upload !== null} onFile={(file) => uploadFiles([file])} />
       <Dialog open={pendingReplace !== null} onClose={() => pendingReplace?.answer(false)}>
         {pendingReplace && (
           <>
@@ -372,69 +426,10 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
         )}
       </Dialog>
 
-      {state.loading && !state.data ? (
-        <Loading />
-      ) : state.error || !state.data ? (
-        <ErrorAlert error={state.error} onRetry={state.reload} />
-      ) : state.data.files.length === 0 ? (
-        <Paper variant="outlined">
-          <EmptyState title={t("plots.none")} />
-        </Paper>
-      ) : (
-        <>
-          <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-            <Typography variant="h2" gutterBottom>
-              {t("plots.listTitle")}
-            </Typography>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t("plots.file")}</TableCell>
-                  <TableCell align="right">{t("plots.count")}</TableCell>
-                  <TableCell align="right">{t("plots.divideHeader")}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {state.data.files.map((file) => (
-                  <TableRow key={file.id}>
-                    <TableCell sx={{ wordBreak: "break-word" }}>{file.filename}</TableCell>
-                    <TableCell align="right">{formatNumber(file.plotCount, language)}</TableCell>
-                    <TableCell align="right">
-                      <Button
-                        size="small"
-                        startIcon={<CallSplit />}
-                        aria-label={t("plots.divideLabel", { file: file.filename })}
-                        sx={{ whiteSpace: "nowrap" }}
-                        {...linkProps(filePath(projectId, file.id))}
-                      >
-                        {t("plots.divide")}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Paper>
-          <StrataAreas projectId={projectId} version={state.data} />
-          <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-            <Typography variant="h2" gutterBottom>
-              {t("plots.gridTitle")}
-            </Typography>
-            <Typography color="text.secondary" sx={{ mb: 2 }}>
-              {t("plots.gridHelp")}
-              <MoreInfo text={t("plots.gridHelp.more")} />
-            </Typography>
-            <AssignmentGrid
-              projectId={projectId}
-              files={state.data.files}
-              members={state.data.members}
-              assignments={state.data.assignments}
-              divided={state.data.divided}
-              onGo={onGo}
-            />
-          </Paper>
-        </>
-      )}
+      {/* Designing plots is what a project without plot files needs first: open and above then, folded below once there are some */}
+      {data && data.files.length === 0 && <PlotDesign key="open" projectId={projectId} busy={upload !== null} onFile={(file) => uploadFiles([file])} defaultOpen />}
+      {data && <StrataAreas projectId={projectId} version={data} />}
+      {data && data.files.length > 0 && <PlotDesign key="folded" projectId={projectId} busy={upload !== null} onFile={(file) => uploadFiles([file])} defaultOpen={false} />}
     </Stack>
   );
 }

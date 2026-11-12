@@ -8,7 +8,6 @@ import DialogTitle from "@mui/material/DialogTitle";
 import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormLabel from "@mui/material/FormLabel";
-import Paper from "@mui/material/Paper";
 import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
 import Stack from "@mui/material/Stack";
@@ -18,6 +17,7 @@ import { useState } from "react";
 import { getBackupLink, getBackupSummary, type BackupCounts, type BackupFormat, type BackupRounds, type BackupSummary } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { CardFrame } from "../components/FoldingCard";
 import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatBytes, formatNumber } from "../format";
@@ -36,9 +36,8 @@ export function CollectBackup({ projectId }: { projectId: string }) {
   const [open, setOpen] = useState(false);
   const [started, setStarted] = useState(false);
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+    <CardFrame title={t("backup.title")} fold={t("backup.explain.short")}>
       <Stack spacing={2}>
-        <Typography variant="h2">{t("backup.title")}</Typography>
         <Explain text={t("backup.explain.short")} more={t("backup.explain")} />
         <Box>
           <Button
@@ -68,7 +67,7 @@ export function CollectBackup({ projectId }: { projectId: string }) {
           }}
         />
       )}
-    </Paper>
+    </CardFrame>
   );
 }
 

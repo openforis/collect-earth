@@ -20,6 +20,8 @@ describe("matchRoute", () => {
     ["/projects/p-1/overview", { name: "project", projectId: "p-1", tab: "setup" }],
     ["/projects/p-1/people", { name: "project", projectId: "p-1", tab: "people" }],
     ["/projects/p-1/quality", { name: "project", projectId: "p-1", tab: "quality" }],
+    ["/projects/p-1/quality/checks", { name: "project", projectId: "p-1", tab: "quality", view: "checks" }],
+    ["/projects/p-1/people/team", { name: "project", projectId: "p-1", tab: "people", view: "team" }],
     ["/projects/p-1/map", { name: "project", projectId: "p-1", tab: "map" }],
     ["/projects/p-1/plots?x=1", { name: "project", projectId: "p-1", tab: "plots" }],
     ["/projects/p-1/plots/f-9", { name: "plotFile", projectId: "p-1", fileId: "f-9" }],
