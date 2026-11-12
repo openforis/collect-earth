@@ -471,6 +471,12 @@ export interface AdminUser {
   disabledBy: string | null;
   /** Two-step sign-in is on for the account. */
   twoFactor: boolean;
+  /** When the account was made, and when it last signed in or used a session (null: never since this was kept). */
+  createdAt: number | null;
+  lastActiveAt: number | null;
+  /** Its email address, and whether the person confirmed it. */
+  email: string | null;
+  emailConfirmed: boolean;
 }
 
 export interface ProjectRef {
@@ -2588,12 +2594,94 @@ function toAdminUser(u: Record<string, unknown>): AdminUser {
     disabledAt: toMillis(u.disabledAt),
     disabledBy: typeof u.disabledBy === "string" ? u.disabledBy : null,
     twoFactor: u.twoFactor === true,
+    createdAt: toMillis(u.createdAt),
+    lastActiveAt: toMillis(u.lastActiveAt),
+    email: typeof u.email === "string" && u.email !== "" ? u.email : null,
+    emailConfirmed: u.emailConfirmed === true,
   };
 }
 
-export async function listUsers(): Promise<AdminUser[]> {
-  const body = await request<{ users?: Record<string, unknown>[] }>("GET", "/v1/admin/users");
-  return (body?.users ?? []).map(toAdminUser);
+/** The server page's accounts list: what is searched, the filter, the order and the page. */
+export const ACCOUNT_FILTERS = ["all", "admins", "disabled", "twoFactor", "noTwoFactor", "inactive", "noEmail"] as const;
+export type AccountFilter = (typeof ACCOUNT_FILTERS)[number];
+export const ACCOUNT_SORTS = ["name", "created", "lastActive", "projects"] as const;
+export type AccountSort = (typeof ACCOUNT_SORTS)[number];
+export interface AccountQuery {
+  q: string;
+  filter: AccountFilter;
+  sort: AccountSort;
+  desc: boolean;
+  page: number;
+  pageSize: number;
+}
+export interface AccountPage {
+  users: AdminUser[];
+  total: number;
+  page: number;
+  pages: number;
+  pageSize: number;
+  /** The accounts of each filter, among those the search finds */
+  counts: Record<AccountFilter, number>;
+}
+
+const accountQueryString = (q: Partial<AccountQuery>) =>
+  new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)])).toString();
+
+export async function listUsers(query: Partial<AccountQuery> = {}): Promise<AccountPage> {
+  const body = await request<Record<string, unknown>>("GET", `/v1/admin/users?${accountQueryString(query)}`);
+  const counts = (body?.counts ?? {}) as Record<string, unknown>;
+  return {
+    users: ((body?.users as Record<string, unknown>[] | undefined) ?? []).map(toAdminUser),
+    total: toCount(body?.total),
+    page: Math.max(1, toCount(body?.page)),
+    pages: Math.max(1, toCount(body?.pages)),
+    pageSize: Math.max(1, toCount(body?.pageSize)),
+    counts: Object.fromEntries(ACCOUNT_FILTERS.map((f) => [f, toCount(counts[f])])) as Record<AccountFilter, number>,
+  };
+}
+
+/** The accounts the search and filter find, every page, as CSV. */
+export async function downloadUsersCsv(query: Partial<AccountQuery>): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("GET", `/v1/admin/users.csv?${accountQueryString({ q: query.q, filter: query.filter, sort: query.sort, desc: query.desc })}`);
+  return { blob: await response.blob(), filename: attachmentName(response, "accounts.csv") };
+}
+
+/** One account the administrator made: its link to choose its password, unless it was mailed. */
+export interface MadeAccount {
+  username: string;
+  status: "created" | "taken";
+  mailed: boolean;
+  setPasswordUrl: string | null;
+  expiresAt: number | null;
+}
+
+/** Makes accounts (also when sign-up is closed); `mail`: their links mailed to the addresses given, when the server sends mail. */
+export async function createAccounts(accounts: { username: string; email: string | null }[], mail: boolean, language: string): Promise<MadeAccount[]> {
+  const body = await request<{ results?: Record<string, unknown>[] }>("POST", "/v1/admin/users", { json: { accounts, mail, language } });
+  return (body?.results ?? []).map((r) => ({
+    username: String(r.username ?? ""),
+    status: r.status === "created" ? "created" : "taken",
+    mailed: r.mailed === true,
+    setPasswordUrl: typeof r.setPasswordUrl === "string" ? absoluteUrl(r.setPasswordUrl, "/") : null,
+    expiresAt: toMillis(r.expiresAt),
+  }));
+}
+
+/** Makes an account a server administrator, or takes the role back; the account as it is now. */
+export async function setPlatformAdmin(userId: string, on: boolean): Promise<AdminUser> {
+  const body = await request<{ user?: Record<string, unknown> }>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/platform-admin`, { json: { on } });
+  return toAdminUser(body?.user ?? {});
+}
+
+/** Ends every session of an account, Collect Earth's included. */
+export async function signOutUser(userId: string): Promise<void> {
+  await send("POST", `/v1/admin/users/${encodeURIComponent(userId)}/sign-out`, { json: {} });
+}
+
+/** Deletes an account, its username typed again to confirm; the projects only it was in go with it. */
+export async function deleteUserAccount(userId: string, confirm: string): Promise<{ projectsDeleted: number }> {
+  const body = await request<{ projectsDeleted?: unknown }>("DELETE", `/v1/admin/users/${encodeURIComponent(userId)}`, { json: { confirm } });
+  return { projectsDeleted: toCount(body?.projectsDeleted) };
 }
 
 /** Disables an account (it cannot log in; its sessions end) or enables it again; the account as it is now. */

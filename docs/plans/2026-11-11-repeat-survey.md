@@ -56,7 +56,7 @@ brought to the cloud with the backup import (`2026-11-11-backup-import.md`), the
 
 - A table of its own, `period_answers` (project, period label, plot, operator, answers, saved at), written once at
   creation, read-only after: **never counted** in Progress, People, Quality, the exports of the project's own data or
-  the records' sync, as training records are not. Migration `037_period_answers.sql`, both stores, RLS.
+  the records' sync, as training records are not. Migration `039_period_answers.sql`, both stores, RLS.
 - One earlier record per plot: the one the coordinator took when the plot was decided (a check's, when it was the
   check), else the latest submitted first assessment.
 - Routes (README): `POST /v1/projects/:pid/repeat/preview` and `/repeat`, `GET /periods`, `PUT /periods/header`,
@@ -119,7 +119,7 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
 
 ## Stage 1, as built (11 Nov 2026)
 
-- Migration `037_period_answers.sql`: `period_answers` (project, label, plot, operator, answers, saved at; RLS like the
+- Migration `039_period_answers.sql`: `period_answers` (project, label, plot, operator, answers, saved at; RLS like the
   records) and `projects.repeat_settings` (this period's label, the earlier periods, the header's questions). Both
   stores (`replacePeriodAnswers`, `listPeriodAnswers`, `getPlotPeriodAnswers`, `get/setRepeatSettings`).
 - `src/repeatSurvey.ts`: the earlier record of each plot (the coordinator's final one when the plot was decided, else

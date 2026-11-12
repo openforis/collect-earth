@@ -275,6 +275,11 @@ export interface Store {
   /** Enables a disabled account again (it logs in anew). */
   enableUser(userId: string): Promise<'ok' | 'not_found'>;
   /**
+   * Makes an account a server administrator, or not. Taking it from the last enabled one is refused, changing nothing
+   * (checked atomically, as disableUser); 'not_found' for an unknown id.
+   */
+  setPlatformAdmin(userId: string, on: boolean): Promise<'ok' | 'last_platform_admin' | 'not_found'>;
+  /**
    * The server owner's figures (Task 11): totals across projects, each project read under its
    * own RLS setting; projects by id only (§4b).
    */
@@ -288,7 +293,7 @@ export interface Store {
   createFirstPlatformAdmin(input: { username: string; passwordHash: string }): Promise<User | null>;
   getSettings(): Promise<ServerSettings>;
   updateSettings(patch: Partial<ServerSettings>): Promise<ServerSettings>;
-  /** All accounts with their project count (no project names: §4b). */
+  /** All accounts with their project count (no project names: §4b), when made and last active, and their address. */
   listUsers(): Promise<UserSummary[]>;
   /** Issues a single-use password-reset token and returns the plaintext token; null for a disabled (or unknown) account. */
   createPasswordReset(userId: string, expiresAt: number): Promise<string | null>;

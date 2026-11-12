@@ -51,7 +51,7 @@ interface AccountDeletionPlan {
   lastPlatformAdmin: boolean;
 }
 
-async function accountDeletionPlan(store: Store, userId: string, isPlatformAdmin: boolean): Promise<AccountDeletionPlan> {
+export async function accountDeletionPlan(store: Store, userId: string, isPlatformAdmin: boolean): Promise<AccountDeletionPlan> {
   const plan: AccountDeletionPlan = { soleCoordinator: [], deletedWithAccount: [], lastPlatformAdmin: false };
   for (const m of await store.listMemberships(userId)) {
     if (m.role !== 'admin') {

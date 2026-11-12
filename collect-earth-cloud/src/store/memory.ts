@@ -220,6 +220,8 @@ export class InMemoryStore implements Store {
   private readonly aiTokenLedger = new Map<string, number>();
   /** When each account was made (sign-ups per week) and who disabled it. */
   private readonly userCreatedAt = new Map<string, number>();
+  /** When each account last signed in or used a session (users.last_active_at, migration 040). */
+  private readonly userLastActiveAt = new Map<string, number>();
   private readonly userDisabledBy = new Map<string, string>();
   private readonly memberships = new Map<string, Role>(); // `${projectId} ${userId}` -> role
   /** `${projectId} ${userId}` -> left out of the results (Member.excluded). */
@@ -797,6 +799,7 @@ export class InMemoryStore implements Store {
     const token = generateToken();
     this.sessions.set(hashToken(token), userId);
     this.sessionCreatedAt.set(hashToken(token), Date.now());
+    this.userLastActiveAt.set(userId, Date.now());
     return token;
   }
 
@@ -813,7 +816,10 @@ export class InMemoryStore implements Store {
       this.sessionLastUsedAt.delete(hash);
       return null;
     }
-    if (now - lastUsed >= SESSION_TOUCH_MS) this.sessionLastUsedAt.set(hash, now);
+    if (now - lastUsed >= SESSION_TOUCH_MS) {
+      this.sessionLastUsedAt.set(hash, now);
+      this.userLastActiveAt.set(userId, now);
+    }
     return { userId };
   }
 
@@ -919,6 +925,7 @@ export class InMemoryStore implements Store {
     }
     this.users.delete(userId);
     this.userCreatedAt.delete(userId);
+    this.userLastActiveAt.delete(userId);
     this.userDisabledBy.delete(userId);
     return 'ok';
   }
@@ -1193,8 +1200,23 @@ export class InMemoryStore implements Store {
         disabledAt: u.disabledAt ?? null,
         disabledBy: u.disabledAt ? (this.users.get(this.userDisabledBy.get(u.id) ?? '')?.username ?? null) : null,
         twoFactor: !!(this.twoFactor.get(u.id)?.enabledAt && this.twoFactor.get(u.id)?.secretEnc),
+        createdAt: this.userCreatedAt.get(u.id) ?? 0,
+        lastActiveAt: this.userLastActiveAt.get(u.id) ?? null,
+        email: u.email,
+        emailConfirmed: this.mailOf(u.id).emailConfirmedAt !== null,
       }))
       .sort((a, b) => a.username.localeCompare(b.username));
+  }
+
+  async setPlatformAdmin(userId: string, on: boolean): Promise<'ok' | 'last_platform_admin' | 'not_found'> {
+    const user = this.users.get(userId);
+    if (!user) return 'not_found';
+    if (!on && user.isPlatformAdmin && !user.disabledAt) {
+      const others = [...this.users.values()].filter((u) => u.id !== userId && u.isPlatformAdmin && !u.disabledAt).length;
+      if (others === 0) return 'last_platform_admin';
+    }
+    user.isPlatformAdmin = on;
+    return 'ok';
   }
 
   async createPasswordReset(userId: string, expiresAt: number): Promise<string | null> {
@@ -2371,6 +2393,7 @@ export class InMemoryStore implements Store {
     this.sessionCreatedAt.clear();
     this.aiTokenLedger.clear();
     this.userCreatedAt.clear();
+    this.userLastActiveAt.clear();
     this.userDisabledBy.clear();
     this.memberships.clear();
     this.invites.clear();

@@ -1,6 +1,6 @@
 # The server administrator's page: sections, accounts, operations, safety
 
-Date: 12 November 2026. **Status: stage A built; the others planned; built in stages on the working branch (`claude/awesome-bell-s34gb0`), merged
+Date: 12 November 2026. **Status: stages A and B built; C and D planned; built in stages on the working branch (`claude/awesome-bell-s34gb0`), merged
 into `ce-2026-GEW` when the owner says so.**
 
 ## Where it starts
@@ -87,3 +87,41 @@ admin-only cases, the page in en/es/fr/pt/tr, a run in a browser, this file's "a
 - Texts in en/es/fr/pt/tr. Checked: `serverView.test.ts`, `unsavedChanges.test.ts`, `router.test.ts`, and in a browser
   (the five sections and their addresses, the health line naming mail not set up, two groups changed and one saved, the
   other kept, the question before leaving, Stay and Leave, the tabs at phone width).
+
+## Stage B, as built (12 Nov 2026)
+
+- **Accounts' dates and address**: `UserSummary` has `createdAt`, `lastActiveAt` (a sign-in or a session used: the
+  dashboard or Collect Earth, written with the session's use at most once per `SESSION_TOUCH_MS`; migration
+  `040_user_last_active.sql`, filled once from the sessions there are), `email` and `emailConfirmed`. (The repeat
+  survey's `037_period_answers.sql`, never deployed, is now `039_period_answers.sql`, after the release branch's 037 and
+  038.)
+- **The list** (`src/accounts.ts`, `GET /v1/admin/users?q=&filter=&sort=&desc=&page=&pageSize=`): searched by name or
+  address, filtered (all, administrators, disabled, with or without two-step sign-in, inactive for 90 days, without an
+  email), each filter's count, sorted by name, creation, last activity or projects, in pages of up to 200;
+  `GET /v1/admin/users.csv` the same, every page (no project names). Done in the route over `listUsers`: fine for tens
+  of thousands of accounts.
+- **Accounts made by an administrator** (`POST /v1/admin/users { accounts: [{ username, email? }], mail, language }`, up
+  to 100, also when sign-up is closed): each with a password nobody knows and a link to choose one, valid seven days;
+  mailed to the address given when the server sends mail (`welcomeMail`, en/es/fr/pt/tr, then not shown to the
+  administrator), else given to pass on. A taken name is reported, not made.
+- **Server administrators** (`POST /v1/admin/users/:uid/platform-admin { on }`, `setPlatformAdmin` in both stores, under
+  the lock `disableUser` takes): not one's own role, never the last enabled one.
+- **Sign out everywhere** (`POST /v1/admin/users/:uid/sign-out`): every session, Collect Earth's included; not one's own.
+- **Delete** (`DELETE /v1/admin/users/:uid { confirm: username }`): as the person could (`accountDeletionPlan`): refused
+  for one's own account, the last administrator, and the only coordinator of a project others work in (the project ids
+  told); the projects only it was in go with it; the plots it collected stay under its name.
+- Each change is written to the server log (`account.admin.granted`, `account.signed_out`, `account.deleted`,
+  `accounts.created`, `accounts.exported`); stage C's activity log will keep them.
+- **Dashboard** (`web/src/pages/ServerAccounts.tsx`, `web/src/serverAccountsView.ts`): the search (as typed), the
+  filters as chips with their counts, the order, "Accounts 1 to 25 of 32" and the pages; each account with its badges
+  (you, administrator, disabled, two-step sign-in), its address (or not confirmed), its projects count, when made and
+  last active ("3 hours ago"); its actions in a menu (reset link, make or remove administrator, turn off two-step
+  sign-in, sign out everywhere, disable or enable, delete), each confirmed in a dialog saying what it does, the delete
+  once the username is typed; "Add accounts" (one per line, "username, email", the mistakes named by line before
+  anything is sent, then each account's link or "mailed"); "Download as CSV". Texts in en/es/fr/pt/tr.
+- Checked: `test/adminAccounts.test.ts` (the list, the CSV, the accounts made and their links, a mail in Spanish, the
+  administrator role, signing out, deleting), `serverAccountsView.test.ts`, the server and web suites;
+  `npm run smoke:pg:accounts` on PostgreSQL 16 (040 twice and its backfill, the dates, the list and CSV, two
+  administrators taking each other's role at once: one stays, signing out, deleting with a project); and in a browser
+  (a mistake named by line, 30 accounts made with one name taken, the pages, the search, the filters, the CSV, an
+  administrator made, signed out, an account deleted once its name was typed).
