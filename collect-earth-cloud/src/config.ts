@@ -114,6 +114,11 @@ export interface Config {
    */
   smtpUrl?: string;
   mailFrom?: string;
+  /**
+   * COLLECT_EARTH_LATEST_VERSION: the Collect Earth release the server page counts as the latest (older ones are flagged
+   * outdated). Unset: the newest one the accounts use.
+   */
+  collectEarthLatestVersion?: string;
   /** DIGEST_SECRET: what the weekly job sends in `x-digest-secret` (POST /v1/internal/digest); unset: that way is off. */
   digestSecret?: string;
   /**
@@ -219,6 +224,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     ...aiConfigOf(env, storeBackend),
     mapTiles: mapTilesOf(env),
     ...mailConfigOf(env),
+    ...latestVersionOf(env),
     trustForwardedHost: env.TRUST_FORWARDED_HOST === 'true' || env.TRUST_FORWARDED_HOST === '1',
     webDir: webDirOf(env.WEB_DIR),
     telemetry: telemetryConfigOf(env),
@@ -279,6 +285,13 @@ function twoFactorKeyOf(env: NodeJS.ProcessEnv): string | undefined {
 export const MIN_LINK_SECRET_LENGTH = 32;
 
 /** SMTP_URL, MAIL_FROM, DIGEST_SECRET and DIGEST_OIDC_*, checked: a server never starts with mail half set up. */
+function latestVersionOf(env: NodeJS.ProcessEnv): Pick<Config, 'collectEarthLatestVersion'> {
+  const v = env.COLLECT_EARTH_LATEST_VERSION?.trim();
+  if (!v) return {};
+  if (!/^\d+(\.\d+){0,3}$/.test(v)) throw new Error('COLLECT_EARTH_LATEST_VERSION must be a version: 1.23.20');
+  return { collectEarthLatestVersion: v };
+}
+
 function mailConfigOf(env: NodeJS.ProcessEnv): Pick<Config, 'smtpUrl' | 'mailFrom' | 'digestSecret' | 'digestOidc'> {
   const smtpUrl = nonEmpty(env.SMTP_URL?.trim());
   const mailFrom = nonEmpty(env.MAIL_FROM?.trim());

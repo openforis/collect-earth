@@ -186,6 +186,100 @@ export interface UserSummary {
   emailConfirmed: boolean;
 }
 
+/** One project in the server administrator's directory: by id only, never its name (§4b). */
+export interface AdminProject {
+  projectId: string;
+  status: ProjectStatus;
+  createdAt: number;
+  /** The latest of a member seen, a sync and a record stored (epoch ms); null when none yet. */
+  lastActivityAt: number | null;
+  storageBytes: number;
+  /** Its people, any role. */
+  people: number;
+  /** Its coordinators whose account is enabled. */
+  coordinators: number;
+  /** Of those, the ones active since the `activeSince` asked (users.last_active_at). */
+  activeCoordinators: number;
+}
+
+/** What the server activity log keeps: server administrators' actions (migration 041). */
+export const SERVER_ACTIONS = [
+  'settings.changed',
+  'account.created',
+  'account.disabled',
+  'account.enabled',
+  'account.admin_granted',
+  'account.admin_removed',
+  'account.signed_out',
+  'account.deleted',
+  'account.reset_link',
+  'account.reset_mailed',
+  'account.two_factor_off',
+  'accounts.exported',
+  'project.archived',
+  'project.restored',
+  'project.coordinator',
+  'mail.test',
+] as const;
+export type ServerAction = (typeof SERVER_ACTIONS)[number];
+/** The kinds the log is filtered by: an action's first word ("accounts" counts as "account"). */
+export const SERVER_ACTION_KINDS = ['settings', 'account', 'project', 'mail'] as const;
+export type ServerActionKind = (typeof SERVER_ACTION_KINDS)[number];
+export const serverActionKind = (a: ServerAction): ServerActionKind =>
+  (a.startsWith('accounts.') ? 'account' : a.slice(0, a.indexOf('.'))) as ServerActionKind;
+
+export interface ServerActivityInput {
+  /** The server administrator; null for the server itself. */
+  actorUserId: string | null;
+  action: ServerAction;
+  /** The account acted on, and its username then (kept when the account is deleted). */
+  targetUserId?: string | null;
+  targetName?: string | null;
+  /** The project acted on, by id only. */
+  projectId?: string | null;
+  /** Ids, names of settings and counts: never a password, a link or a project's name. */
+  details?: AuditDetails;
+}
+
+export interface ServerActivityEntry {
+  id: string;
+  at: number;
+  actorUserId: string | null;
+  /** The actor's username when it acted (kept when the account is deleted). */
+  actor: string | null;
+  action: ServerAction;
+  targetUserId: string | null;
+  target: string | null;
+  projectId: string | null;
+  details: AuditDetails;
+}
+
+export interface ServerActivityQuery {
+  /** Only this actor's (by the username kept). */
+  actor: string | null;
+  kind: ServerActionKind | null;
+  offset: number;
+  limit: number;
+}
+
+/** The Collect Earth one account last used in one project (member_activity.client_agent). */
+export interface ClientUse {
+  userId: string;
+  agent: string;
+  /** Its last sync, else when it was last seen (epoch ms). */
+  at: number;
+}
+
+/** A weekly mail stopped after the mail server refused the address several weeks in a row. */
+export interface StoppedDigest {
+  userId: string;
+  username: string;
+  email: string | null;
+  kind: DigestKind;
+  failures: number;
+  stoppedAt: number;
+}
+
 /** A count for one UTC day (epoch ms of its midnight). */
 export interface DayCount {
   day: number;

@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { logServerAction } from '../serverActivity.js';
 import { verifyPassword } from '../password.js';
 import { requirePlatformAdmin, requireSession } from '../plugins/projectAuth.js';
 import type { RateLimiter } from '../rateLimit.js';
@@ -119,6 +120,7 @@ export async function registerTwoFactorRoutes(app: FastifyInstance, store: Store
     if (!user) return reply.code(404).send({ error: 'not_found' });
     await store.disableTwoFactor(uid);
     await store.deleteUserSessions(uid);
+    await logServerAction(store, request, { action: 'account.two_factor_off', targetUserId: uid, targetName: user.username });
     return reply.code(204).send();
   });
 }

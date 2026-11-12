@@ -17,10 +17,12 @@ describe("the server's health line", () => {
       { kind: "server_errors" as const, at: NOW - 23 * 3600_000, count: 20 },
       { kind: "sync_errors" as const, at: NOW - 30 * 3600_000, count: 50 },
     ];
-    expect(serverHealth({ alerts, overview: overview(["038_x.sql"]), mailReady: false, now: NOW })).toEqual([
+    expect(serverHealth({ alerts, overview: overview(["038_x.sql"]), mailReady: false, outdatedAccounts: 3, now: NOW })).toEqual([
       { kind: "alerts", count: 2, section: "overview" },
       { kind: "migrations", count: 1, section: "system" },
       { kind: "mail", section: "system" },
+      { kind: "versions", count: 3, section: "system" },
     ]);
+    expect(serverHealth({ alerts: [], overview: null, mailReady: true, outdatedAccounts: 0, now: NOW })).toEqual([]);
   });
 });

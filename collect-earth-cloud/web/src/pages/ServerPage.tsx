@@ -35,10 +35,12 @@ import People from "@mui/icons-material/People";
 import Tune from "@mui/icons-material/Tune";
 import {
   getAiUsage,
+  getCollectEarthVersions,
   getServerOverview,
   getOwnerAlerts,
   type OwnerAlert,
   type AiUsageCounts,
+  type CollectEarthVersions,
   type ServerOverview,
 } from "../api";
 import { useApp } from "../appContext";
@@ -56,6 +58,8 @@ import { serverHealth, type HealthItem } from "../serverView";
 import { clearUnsaved, useUnsavedGroups } from "../unsavedChanges";
 import { ServerSettingsSection } from "./ServerSettings";
 import { AccountsSection } from "./ServerAccounts";
+import { ActivityCard, MailCard, VersionsCard } from "./ServerOperations";
+import { ProjectsDirectory } from "./ServerProjects";
 
 /** The assistant's use this month, by project id only (no names, questions or answers). */
 function AiUsageCard() {
@@ -284,53 +288,6 @@ function OverviewFigures({ overview }: { overview: Overview }) {
   );
 }
 
-/** The Projects section's figures: the largest projects, by id. */
-function LargestProjects({ overview }: { overview: Overview }) {
-  const t = useT();
-  const { language } = useApp();
-  return (
-    <FiguresCard id="server-projects-figures" title={t("server.section.projects")} overview={overview}>
-      {(o) => (
-        <>
-          <section aria-labelledby="server-largest">
-            {subtitle("server-largest", t("server.largestTitle"))}
-            <Typography color="text.secondary" variant="body2" sx={{ mb: 1 }}>
-              {t("server.largestIntro")}
-            </Typography>
-            {o.projects.largest.length === 0 ? (
-              <Typography>{t("server.noProjects")}</Typography>
-            ) : (
-              <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto" }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>{t("server.aiProject")}</TableCell>
-                      <TableCell align="right">{t("server.sizeColumn")}</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {o.projects.largest.map((p) => (
-                      <TableRow key={p.projectId}>
-                        <TableCell component="th" scope="row" sx={{ fontFamily: "monospace", fontSize: "0.8rem", wordBreak: "break-all" }}>
-                          {p.projectId}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                          {formatBytes(p.storageBytes, language)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </section>
-
-        </>
-      )}
-    </FiguresCard>
-  );
-}
-
 /** The System section: the database, the server's version, failed logins and refused requests, late check draws. */
 function SystemFigures({ overview }: { overview: Overview }) {
   const t = useT();
@@ -500,15 +457,16 @@ function ServerNav({ section, wide }: { section: ServerSection; wide: boolean })
 }
 
 /** "All good", or what needs attention, each a link to the section where it is fixed (serverView.ts). */
-function HealthLine({ alerts, overview, mailReady }: { alerts: OwnerAlert[] | null; overview: ServerOverview | null; mailReady: boolean }) {
+function HealthLine({ alerts, overview, mailReady, outdatedAccounts }: { alerts: OwnerAlert[] | null; overview: ServerOverview | null; mailReady: boolean; outdatedAccounts: number | null }) {
   const t = useT();
   const { language } = useApp();
-  const items = serverHealth({ alerts, overview, mailReady, now: Date.now() });
+  const items = serverHealth({ alerts, overview, mailReady, outdatedAccounts, now: Date.now() });
   if (alerts === null || overview === null) return null;
   const n = (v: number) => formatNumber(v, language);
   const text = (item: HealthItem) =>
     item.kind === "alerts" ? t(item.count === 1 ? "server.health.alertsOne" : "server.health.alerts", { count: n(item.count) })
     : item.kind === "migrations" ? t("server.health.migrations", { count: n(item.count) })
+    : item.kind === "versions" ? t(item.count === 1 ? "server.health.versionsOne" : "server.health.versions", { count: n(item.count) })
     : t("server.health.mail");
   if (items.length === 0) {
     return <Alert severity="success" icon={<CheckCircleOutline />} data-testid="server-health">{t("server.health.ok")}</Alert>;
@@ -543,6 +501,8 @@ export function ServerPage({ section }: { section: ServerSection }) {
   const admin = me?.isPlatformAdmin === true;
   const overview = useLoad(() => (admin ? getServerOverview() : Promise.resolve(null as unknown as ServerOverview)), [accountChanges, admin]);
   const alerts = useLoad(() => (admin ? getOwnerAlerts() : Promise.resolve({ alerts: [], thresholds: {} })), [admin]);
+  // The Collect Earth versions in use: the System section's card and the health line
+  const versions = useLoad(() => (admin ? getCollectEarthVersions() : Promise.resolve(null as unknown as CollectEarthVersions)), [admin]);
   const unsaved = useUnsavedGroups();
   const [leaving, setLeaving] = useState<string | null>(null);
 
@@ -595,7 +555,8 @@ export function ServerPage({ section }: { section: ServerSection }) {
         <Stack direction={wide ? "row" : "column"} spacing={3} sx={{ alignItems: wide ? "flex-start" : "stretch" }}>
           <ServerNav section={section} wide={wide} />
           <Stack spacing={3} sx={{ flex: 1, minWidth: 0 }} component="main" aria-label={t(`server.section.${section}`)}>
-            <HealthLine alerts={alerts.data?.alerts ?? null} overview={overview.data ?? null} mailReady={info.selfServiceReset === true} />
+            <HealthLine alerts={alerts.data?.alerts ?? null} overview={overview.data ?? null} mailReady={info.selfServiceReset === true}
+              outdatedAccounts={versions.data?.outdatedAccounts ?? null} />
             {section === "overview" && (
               <>
                 <AlertsCard />
@@ -605,12 +566,19 @@ export function ServerPage({ section }: { section: ServerSection }) {
             {section === "accounts" && <AccountsSection onAccountChanged={() => setAccountChanges((n) => n + 1)} />}
             {section === "projects" && (
               <>
-                <LargestProjects overview={overview} />
+                <ProjectsDirectory />
                 <AiUsageCard />
               </>
             )}
             {section === "settings" && <ServerSettingsSection />}
-            {section === "system" && <SystemFigures overview={overview} />}
+            {section === "system" && (
+              <>
+                <SystemFigures overview={overview} />
+                <VersionsCard versions={versions} />
+                <MailCard />
+                <ActivityCard />
+              </>
+            )}
             {info.version && (
               <Typography variant="body2" color="text.secondary">
                 {t("server.version", { version: info.version })}
