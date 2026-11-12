@@ -104,6 +104,36 @@ export function minimumReferenceDistance(v: PlotLayoutValues): number {
   return Math.max(1, Math.ceil(minimum) + 1);
 }
 
+/** The size of the plot and of its reference area, as Collect Earth's settings show them (PlotGeometry): square metres. */
+export interface PlotFigures {
+  /** The side of a square plot, in metres */
+  side: number | null;
+  /** The radius of a round plot, in metres (drawn CIRCLE_PLOT_MARGIN metres wider, as Collect Earth draws it) */
+  radius: number | null;
+  area: number;
+  /** null without a reference area */
+  referenceArea: number | null;
+}
+
+const HEXAGON_AREA_FACTOR = (3 * Math.sqrt(3)) / 2;
+
+/** PlotGeometry.plotArea and referenceArea: null for the shapes read from the file and the NFI clusters. */
+export function plotFigures(v: PlotLayoutValues): PlotFigures | null {
+  const shape = v.sample_shape;
+  const round = ROUND.includes(shape);
+  if (!round && !SQUARE.includes(shape)) return null;
+  const points = Number(v.number_of_sampling_points_in_plot) || 0;
+  const distance = Math.max(2, Math.min(1000, whole(v.distance_between_sample_points) ?? 10));
+  const margin = Math.max(0, Math.min(500, whole(v.distance_to_plot_boundaries) ?? 0));
+  const reference = Math.max(1, Math.min(10000, whole(v.distance_to_buffers) ?? 100));
+  const side = round ? null : points <= 1 ? 2 * margin : 2 * margin + (Math.sqrt(points) - 1) * distance;
+  const radius = round ? distance : null;
+  const area = radius !== null ? (shape === "CIRCLE" ? Math.PI : HEXAGON_AREA_FACTOR) * radius * radius : (side as number) ** 2;
+  const buffer = v.buffer_shape;
+  const referenceArea = buffer === "CIRCLE" ? Math.PI * reference ** 2 : buffer === "HEXAGON" ? HEXAGON_AREA_FACTOR * reference ** 2 : buffer === "SQUARE" ? 4 * reference ** 2 : null;
+  return { side, radius, area, referenceArea };
+}
+
 export type FieldError = { key: "file.layout.range"; min: number; max: number } | { key: "file.layout.referenceMin"; min: number };
 
 /** The broken rules of the fields shown, by key. */
