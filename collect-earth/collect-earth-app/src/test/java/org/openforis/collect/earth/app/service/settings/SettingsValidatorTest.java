@@ -5,12 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.File;
+import java.nio.file.Path;
 import java.text.MessageFormat;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.openforis.collect.earth.app.view.Messages;
 
 /** The rules of the Swing dialog, run by the server on the values the page holds. */
@@ -153,5 +156,49 @@ public class SettingsValidatorTest {
 		values.put("distance_to_buffers", "0");
 		assertEquals(String.format(Messages.getString("PropertyValidators.valueRange"), 1, 10000),
 				validator.validate(values).getErrors().get("distance_to_buffers"));
+	}
+
+	/** A cloud project (or not) whose assigned plot files are in {@code folder}, with {@code inUse} as its plots file */
+	private static SettingsValidator cloud(File folder, String inUse) {
+		return new SettingsValidator(new SettingsModel(TODAY), () -> TODAY, () -> folder, () -> inUse);
+	}
+
+	private static String plotFileError(SettingsValidator validator, String driver, String csv) {
+		return validator.validate(values("db_driver", driver, "csv", csv)).getErrors().get("csv");
+	}
+
+	@Test
+	public void inACloudProjectThePlotFileIsOneOfTheAssignedFiles(@TempDir Path project) {
+		File folder = project.resolve("assignments").toFile();
+		String inUse = project.resolve("plots.csv").toString();
+		SettingsValidator validator = cloud(folder, inUse);
+		String refused = Messages.getString("SettingsPage.sampleFile.cloudAssigned");
+		// One of the files downloaded from the server (the Apply of the assignments list), wherever its slashes point
+		assertNull(plotFileError(validator, "CLOUD", new File(folder, "plots_jane.csv").getPath()));
+		assertNull(plotFileError(validator, "CLOUD", folder.getPath() + "/sub/../plots_john.csv"));
+		// The file in use, kept as it is (a project just joined has the one of its project file)
+		assertNull(plotFileError(validator, "CLOUD", inUse));
+		// Any other file, the folder itself, a way out of it, or none
+		assertEquals(refused, plotFileError(validator, "CLOUD", project.resolve("other.csv").toString()));
+		assertEquals(refused, plotFileError(validator, "CLOUD", folder.getPath()));
+		assertEquals(refused, plotFileError(validator, "CLOUD", folder.getPath() + "/../other.csv"));
+		assertEquals(refused, plotFileError(validator, "CLOUD", folder.getPath() + "\\..\\other.csv"));
+		assertEquals(refused, plotFileError(validator, "CLOUD", project.resolve("assignments_other").resolve("a.csv").toString()));
+		assertEquals(refused, plotFileError(validator, "CLOUD", ""));
+		assertFalse(validator.validate(values("db_driver", "CLOUD", "csv", "/elsewhere/plots.csv")).isValid());
+	}
+
+	@Test
+	public void leavingTheCloudProjectIsNotHeldBack(@TempDir Path project) {
+		SettingsValidator validator = cloud(project.resolve("assignments").toFile(), project.resolve("plots.csv").toString());
+		// Another database in the same change leaves the cloud project: any plots file then
+		assertNull(plotFileError(validator, "SQLITE", "/elsewhere/plots.csv"));
+	}
+
+	@Test
+	public void outsideACloudProjectAnyPlotFile() {
+		assertNull(plotFileError(validator, "SQLITE", "/elsewhere/plots.csv"));
+		assertNull(plotFileError(validator, "CLOUD", "/elsewhere/plots.csv"));
+		assertNull(plotFileError(cloud(null, "/a.csv"), "CLOUD", "/elsewhere/plots.csv"));
 	}
 }

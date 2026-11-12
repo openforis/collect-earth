@@ -144,6 +144,19 @@ public class KmlGeneratorService {
 		FileUtils.copyDirectory(sourceDir, targetDir);
 	}
 
+	/**
+	 * The plots file to use instead of one that is not there: the file of the same path in the Collect Earth data folder,
+	 * if it is there. Never in a cloud project, whose plots file is one its server assigned (SettingsValidator): another
+	 * file found there would show plots the operator was not assigned. @return null to keep the plots file as it is
+	 */
+	static File plotFileElsewhere(File csvFile, String prefixUserFolder, boolean cloudProject) {
+		if (cloudProject || csvFile.exists()) {
+			return null;
+		}
+		final File otherFile = new File(prefixUserFolder + csvFile.getPath());
+		return otherFile.exists() ? otherFile : null;
+	}
+
 	private void fixUserDirectory() {
 		final String csvFilePath = getLocalProperties().getCsvFile();
 		final String balloonPath = getLocalProperties().getBalloonFile();
@@ -162,11 +175,9 @@ public class KmlGeneratorService {
 
 			final String prefixUserFolder = FolderFinder.getCollectEarthDataFolder() + File.separator;
 
-			if (!csvFile.exists()) {
-				final File otherFile = new File(prefixUserFolder + getLocalProperties().getCsvFile());
-				if (otherFile.exists()) {
-					getLocalProperties().setValue(EarthProperty.SAMPLE_FILE, otherFile.getAbsolutePath());
-				}
+			final File otherCsv = plotFileElsewhere(csvFile, prefixUserFolder, getLocalProperties().isCloudSyncEnabled());
+			if (otherCsv != null) {
+				getLocalProperties().setValue(EarthProperty.SAMPLE_FILE, otherCsv.getAbsolutePath());
 			}
 
 			if (!balloon.exists()) {

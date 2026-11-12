@@ -14,6 +14,17 @@ export function droppedKind(name: string): DroppedKind | null {
   return null;
 }
 
+/**
+ * Why a dropped file cannot be used here (a key of Messages*.properties), or null: in a cloud project the plots are the
+ * ones its coordinator assigned, so a plots file or a KML dropped cannot replace them (the server refuses both too).
+ */
+export function droppedRefusal(kind: DroppedKind, cloud: boolean | undefined): string | null {
+  if (!cloud) return null;
+  if (kind === "plots") return "SettingsPage.sampleFile.cloudAssigned";
+  if (kind === "kml") return "ToolsPage.kml.cloudProject";
+  return null;
+}
+
 /** Whether the text looks like an invitation link (https://server/join/TOKEN), as the server will check it */
 export function looksLikeInvitation(url: string): boolean {
   const at = url.trim().indexOf("/join/");

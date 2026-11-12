@@ -29,7 +29,7 @@ import { Logo } from "./Logo";
 import { apiPut } from "../apiClient";
 import type { AppInfo } from "../appInfo";
 import { actionOf, errorText, operatorRequired, quitServer, type AppAction } from "../appBar";
-import { droppedKind } from "../project";
+import { droppedKind, droppedRefusal } from "../project";
 import { cloudLogin, setErrorsShown as setErrorsShown_, uploadFile } from "../projectApi";
 import { saveSettings } from "../settingsApi";
 import { useT } from "../i18n";
@@ -112,6 +112,8 @@ export function AppBar({ info, texts, reload, onSettings }: Props) {
   useDroppedFiles((file) => {
     const kind = droppedKind(file.name);
     if (!kind) { setActionError(s("ProjectPage.drop.unknown")); return; }
+    const refusal = droppedRefusal(kind, info.cloud);
+    if (refusal) { setActionError(s(refusal)); return; }
     uploadFile(file).then((r) => {
       setDropped({ kind, path: r.path });
       setDialog(kind === "cep" ? "importCep" : kind === "kml" ? "loadKml" : null);

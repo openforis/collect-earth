@@ -63,6 +63,11 @@ describe("cloud and local projects", () => {
     expect(entry(true, "import")).toMatchObject({ enabled: false, disabledReason: "DataPage.import.cloudProject" });
   });
 
+  it("disables the KML import in a cloud project, whose plots are the ones its coordinator assigned", () => {
+    expect(entry(false, "loadKml")).toEqual({ id: "loadKml", label: "CollectEarthWindow.54", enabled: true });
+    expect(entry(true, "loadKml")).toMatchObject({ enabled: false, disabledReason: "ToolsPage.kml.cloudProject" });
+  });
+
   it("disables the cloud sync status in a local project, which has no sync", () => {
     expect(entry(true, "cloudStatus")).toEqual({ id: "cloudStatus", label: "CloudSyncStatusDialog.menuItem", enabled: true });
     expect(entry(false, "cloudStatus")).toMatchObject({ enabled: false, disabledReason: "CloudSyncStatusDialog.localProject" });
