@@ -279,3 +279,13 @@ details.assumptions p { margin: 12px 0 0; }
 .cta-line { margin: 18px 0 22px; }
 footer .fineprint { margin: 18px 0 0; font-size: .8rem; color: #9A9A9A; max-width: 380px; }
 footer .fineprint a { color: #BABABA; text-decoration: underline; }
+
+/* Beta install page: one download card per system */
+.dl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 20px 0 18px; }
+.dl { background: var(--sand); border-radius: var(--radius); padding: 20px 20px 22px; display: flex; flex-direction: column; }
+.doc .dl h3 { margin: 0 0 .2em; font-size: 1.2rem; }
+.dl p { margin: 0 0 16px; font-size: .9rem; }
+.dl .btn { margin-top: auto; padding: 10px 16px; font-size: 15px; }
+.btn.pending { background: #E0DBD0; color: #555; cursor: default; }
+.dl-pending { background: #FFF8E1; border-left: 4px solid #C9A227; padding: 12px 18px; border-radius: 0 var(--radius) var(--radius) 0; }
+@media (max-width: 640px) { .dl-grid { grid-template-columns: 1fr; } }

@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
+<title>Try the Collect Earth 2 beta · Collect Earth</title>
+<meta name="description" content="Download and install the Collect Earth 2 beta on Windows, macOS or Linux, step by step: what is new, the first start, updates and how to send feedback.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="stylesheet" href="../style.css">
+<script src="../analytics.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="434"></a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
+    <nav id="site-nav" aria-label="Main">
+      <a href="choose.html">Which set-up?</a>
+      <a href="sampling.html">Sampling</a>
+      <a href="interpreters.html">Interpreters</a>
+      <a href="coordinators.html">Coordinators</a>
+      <a href="own-server.html">Own server</a>
+      <a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="page-title">
+  <div class="box">
+    <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
+    <h1>Try the Collect Earth 2 beta</h1>
+    <p class="lead">Collect Earth 2 works inside Google Earth Web, in your browser, instead of Google Earth Desktop. It is the version these guides describe, and it is ready to try. Install it, use it on your own plots and tell us what works and what doesn't.</p>
+  </div>
+</div>
+<div class="doc">
+
+  <div class="toc">
+    <strong>On this page</strong>
+    <ol>
+      <li><a href="#new">What is new</a></li>
+      <li><a href="#before">Before you install</a></li>
+      <li><a href="#download">Download</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#start">First start</a></li>
+      <li><a href="#later">Updates, going back and removing it</a></li>
+      <li><a href="#feedback">Tell us what you find</a></li>
+    </ol>
+  </div>
+
+  <h2 id="new">What is new</h2>
+  <ul class="ticks one">
+    <li><strong>Inside Google Earth Web.</strong> The plot list and the form are a panel in the Google Earth Web page, which flies to each plot and draws it on the imagery. Google Earth Desktop is no longer needed.</li>
+    <li><strong>A form made from your survey.</strong> Steps with Back, Next and Submit, filled from the keyboard as fast as you can answer. <span class="ui">Same as previous plot</span> (<kbd>P</kbd>) copies the choices of the last plot you submitted, marked to be checked.</li>
+    <li><strong>All the imagery in one place.</strong> ESRI Wayback, Planet, Earth Engine, Earth Map and Street View open in one browser window, a tab per source, and Collect Earth lays the windows out on one or two screens by itself.</li>
+    <li><strong>Cloud projects.</strong> Join a project on <a href="https://cloud.collectearth.org">Collect Earth Cloud</a> or on your own server, and every plot you save reaches the team's dashboard by itself (see <a href="choose.html">Which set-up?</a>).</li>
+    <li><strong>Its own Java 21.</strong> The installer brings everything Collect Earth needs, so there is nothing else to install apart from a browser.</li>
+  </ul>
+
+  <h2 id="before">Before you install</h2>
+  <ul>
+    <li>A 64-bit computer with Windows, macOS or Linux. Macs with an Intel or an Apple chip both work.</li>
+    <li>Chrome, Edge or Firefox.</li>
+    <li>An internet connection, all the time you work: the imagery comes from Google Earth Web and the other imagery services.</li>
+    <li>A download of about 250 MB. You don't need administrator rights.</li>
+  </ul>
+  <div class="note"><strong>It is a beta.</strong> Collect Earth 2 is still being tested. If Collect Earth 1 is on this computer, the beta installs in its place and opens your projects and data as they are. Before you install it, export your data (<span class="ui">Data Import/Export</span>, as compressed XML) and keep the file somewhere safe. For work with a deadline, you can stay on <a href="https://www.openforis.org/fileadmin/installer/download.html">Collect Earth 1</a> until Collect Earth 2 is final.</div>
+
+  <h2 id="download">Download</h2>
+  <!-- PENDING: remove this note once the three buttons below are linked. -->
+  <p class="dl-pending"><strong>Coming soon.</strong> The beta installers will be published on GitHub, and these buttons will then download them.</p>
+  <!-- To link a button, replace its <span class="btn pending"> with the <a> in the comment above it, putting the
+       release tag and version in the address. Keep data-download: it counts the download, by system, as the event
+       CE_Beta_Download in Google Analytics (analytics.js). -->
+  <div class="dl-grid">
+    <div class="dl">
+      <h3>Windows</h3>
+      <p>64-bit · <code>.exe</code> installer</p>
+      <!-- <a class="btn green" href="https://github.com/openforis/collect-earth/releases/download/TAG/collect-earth-installer-VERSION-windows.exe" data-download="windows">Download for Windows</a> -->
+      <span class="btn pending" aria-disabled="true">Coming soon</span>
+    </div>
+    <div class="dl">
+      <h3>macOS</h3>
+      <p>Intel or Apple chip · <code>.dmg</code></p>
+      <!-- <a class="btn green" href="https://github.com/openforis/collect-earth/releases/download/TAG/collect-earth-installer-VERSION-osx.dmg" data-download="macos">Download for macOS</a> -->
+      <span class="btn pending" aria-disabled="true">Coming soon</span>
+    </div>
+    <div class="dl">
+      <h3>Linux</h3>
+      <p>64-bit · <code>.run</code> installer</p>
+      <!-- <a class="btn green" href="https://github.com/openforis/collect-earth/releases/download/TAG/collect-earth-installer-VERSION-linux-x64.run" data-download="linux">Download for Linux</a> -->
+      <span class="btn pending" aria-disabled="true">Coming soon</span>
+    </div>
+  </div>
+  <p>Every version, with its release notes, is on <a href="https://github.com/openforis/collect-earth/releases">GitHub</a>.</p>
+  <details class="assumptions">
+    <summary>Check the download (optional)</summary>
+    <p>Each release has a file <code>SHA256SUMS</code> with the fingerprint of every installer, and <code>SHA256SUMS.asc</code>, its signature by Open Foris. Download <code>SHA256SUMS</code> next to the installer, open a terminal in that folder and compare the installer's fingerprint with its line in the file.</p>
+    <p><strong>Windows</strong>, in PowerShell:</p>
+<pre class="cmd"><code>Get-FileHash .\collect-earth-installer-*-windows.exe</code></pre>
+    <p><strong>macOS</strong>:</p>
+<pre class="cmd"><code>shasum -a 256 collect-earth-installer-*-osx.dmg</code></pre>
+    <p><strong>Linux</strong>, which compares them for you and shows <code>OK</code>:</p>
+<pre class="cmd"><code>sha256sum -c SHA256SUMS --ignore-missing</code></pre>
+    <p>With GPG, download <code>SHA256SUMS.asc</code> too: <code>gpg --verify SHA256SUMS.asc SHA256SUMS</code> checks that the list itself comes from Open Foris.</p>
+  </details>
+
+  <h2 id="install">Install</h2>
+
+  <h3 id="windows">Windows</h3>
+  <ol class="steps">
+    <li>Double-click the <code>.exe</code> you downloaded.</li>
+    <li>If Windows says it protected your PC, click <span class="ui">More info</span>, then <span class="ui">Run anyway</span>.</li>
+    <li>Choose your language, accept the licence and keep the folder it proposes, <code>C:\OpenForis\CollectEarth</code>.</li>
+    <li>When it finishes, start Collect Earth from the icon on your desktop or from the Start menu.</li>
+  </ol>
+
+  <h3 id="macos">macOS</h3>
+  <ol class="steps">
+    <li>Double-click the <code>.dmg</code> you downloaded, then the installer inside it.</li>
+    <li>If macOS says it cannot check the installer, click <span class="ui">Done</span> (or <span class="ui">OK</span>). Open <span class="ui">System Settings › Privacy &amp; Security</span>, scroll down to the message about the Collect Earth installer, click <span class="ui">Open Anyway</span> and confirm with your password.</li>
+    <li>Follow the steps. Collect Earth goes into <code>OpenForis/CollectEarth</code> in your home folder, with a Collect Earth icon on your desktop.</li>
+    <li>Start Collect Earth from that icon. On a Mac with an Apple chip, macOS may ask to install Rosetta the first time: click <span class="ui">Install</span>.</li>
+  </ol>
+
+  <h3 id="linux">Linux</h3>
+  <ol class="steps">
+    <li>Open a terminal in the folder you downloaded the installer to, make it executable and run it:
+<pre class="cmd"><code>chmod +x collect-earth-installer-*-linux-x64.run
+./collect-earth-installer-*-linux-x64.run</code></pre></li>
+    <li>Follow the steps. You don't need <code>sudo</code>: Collect Earth goes into <code>~/OpenForis/CollectEarth</code>, with a launcher on your desktop.</li>
+    <li>Start Collect Earth from that launcher (if your desktop asks, right-click it and choose <span class="ui">Allow Launching</span>), or run <code>~/OpenForis/CollectEarth/CollectEarth-launcher.run</code>.</li>
+  </ol>
+
+  <h2 id="start">First start</h2>
+  <ol class="steps">
+    <li>A small window shows each step while Collect Earth opens. The first start can take up to a minute.</li>
+    <li>Collect Earth opens in your browser, inside Google Earth Web, with a demo project to try out. Google may ask you to accept its cookies or to sign in in that window; Collect Earth remembers it afterwards.</li>
+    <li>Type your name when asked. It is saved with every plot you assess.</li>
+  </ol>
+  <p>Collect Earth keeps running in the system tray (the menu bar on a Mac). From here, the <a href="interpreters.html">guide for interpreters</a> takes over: opening your project, assessing plots and joining a cloud project. Coordinators, see <a href="coordinators.html">Running a cloud project</a>.</p>
+
+  <h2 id="later">Updates, going back and removing it</h2>
+  <p><strong>A new beta.</strong> Install it over the one you have, in the same way. Your projects, data and settings stay.</p>
+  <p><strong>Your data.</strong> Collect Earth keeps your projects and plots in a folder of their own, apart from the program. Removing the program leaves that folder on your computer until you delete it yourself.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>System</th><th>Your data folder</th></tr></thead>
+      <tbody>
+        <tr><td>Windows</td><td><code>%APPDATA%\CollectEarth</code></td></tr>
+        <tr><td>macOS</td><td><code>~/Library/Application Support/CollectEarth</code></td></tr>
+        <tr><td>Linux</td><td><code>~/CollectEarth</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><strong>Going back to Collect Earth 1.</strong> Install it again from the <a href="https://www.openforis.org/fileadmin/installer/download.html">Open Foris download page</a>. If it does not open your project as before, import the data you exported before installing the beta.</p>
+  <p><strong>Removing it.</strong> On Windows, open <span class="ui">Settings › Apps › Installed apps</span>, then <span class="ui">Collect Earth › Uninstall</span>, or choose <span class="ui">Uninstall Collect Earth</span> in the Start menu. On macOS and Linux, run the <code>uninstall</code> program in <code>OpenForis/CollectEarth</code> in your home folder.</p>
+
+  <h2 id="feedback">Tell us what you find</h2>
+  <p>This is what the beta is for: what works, what doesn't, and what you miss.</p>
+  <ul>
+    <li>Questions and ideas: the <a href="https://openforis.support/">Open Foris forum</a>, also under <span class="ui">Help › Technical Support</span> in Collect Earth.</li>
+    <li>Bugs: <a href="https://github.com/openforis/collect-earth/issues">GitHub issues</a>.</li>
+  </ul>
+  <p>With a problem, say which system you use and what you did, and attach the log (<span class="ui">Help › Open Application Log File</span>).</p>
+
+  <div class="next">
+    <a href="sampling.html">← Designing the sample</a>
+    <a href="interpreters.html">Collect Earth for interpreters →</a>
+  </div>
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="434">
+      <p>Collect Earth is part of Open Foris: free and open-source solutions for forest and land monitoring.</p>
+      <a class="btn dark" href="https://github.com/openforis/collect-earth">Source code on GitHub</a>
+      <p class="fineprint">This site counts visits with Google Analytics, as openforis.org does. <a href="https://www.fao.org/contact-us/data-protection-and-privacy/en">FAO data protection and privacy notice</a></p>
+    </div>
+    <div class="links">
+      <h4>Guides</h4>
+      <a href="../guide/choose.html">Which set-up?</a>
+      <a href="../guide/sampling.html">Designing the sample</a>
+      <a href="../guide/install.html">Try the Collect Earth 2 beta</a>
+      <a href="../guide/interpreters.html">Collect Earth for interpreters</a>
+      <a href="../guide/coordinators.html">Running a cloud project</a>
+      <a href="../guide/own-server.html">Your own server</a>
+    </div>
+    <div class="links">
+      <h4>Open Foris</h4>
+      <a href="https://www.openforis.org/">Open Foris</a>
+      <a href="https://www.openforis.org/collect-earth/">Collect Earth on openforis.org</a>
+      <a href="https://openforis.support/">User forum</a>
+      <a href="https://www.openforis.org/support-and-resources/">Support and resources</a>
+      <a href="https://cloud.collectearth.org">Collect Earth Cloud</a>
+    </div>
+  </div>
+</footer>
+<script>
+(function(){var h=document.querySelector("header.top"),b=h&&h.querySelector(".menu-toggle");if(!b)return;function set(o){h.classList.toggle("open",o);b.setAttribute("aria-expanded",o)}b.addEventListener("click",function(){set(!h.classList.contains("open"))});h.querySelectorAll("nav a").forEach(function(a){a.addEventListener("click",function(){set(false)})});})();
+</script>
+</body>
+</html>

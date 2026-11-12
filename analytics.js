@@ -23,6 +23,16 @@
   }
 
   EVENTS.forEach(function (t) { window.addEventListener(t, load, { passive: true }); });
+
+  // A download link marked data-download="windows|macos|linux" (guide/install.html) counts as the
+  // event CE_Beta_Download, with the system in the parameter os.
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest("a[data-download]");
+    if (!a) return;
+    load();
+    window.gtag("event", "CE_Beta_Download", { os: a.getAttribute("data-download"), transport_type: "beacon" });
+  });
+
   if (document.readyState === "complete") setTimeout(load, 3000);
   else window.addEventListener("load", function () { setTimeout(load, 3000); });
 })();
