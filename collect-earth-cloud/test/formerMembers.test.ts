@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { nextPseudonym, renameOperatorInSummary, renameOperatorInXml } from '../src/anonymize.js';
+import { isServerMadeName, nextPseudonym, renameOperatorInSummary, renameOperatorInXml } from '../src/anonymize.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 
 describe('renaming an operator', () => {
@@ -16,6 +16,7 @@ describe('renaming an operator', () => {
     expect(renameOperatorInSummary({ collect_text_operator: 'bo' }, 'ana', 'z')).toEqual({ collect_text_operator: 'bo' });
     expect(nextPseudonym(['ana', 'bo'])).toBe('former-member-1');
     expect(nextPseudonym(['former-member-1', 'former-member-7', 'former-member-x'])).toBe('former-member-8');
+    expect(['former-member-3', 'ceo-collector-12', 'ceo-collector-x', 'former-member-', 'juan'].map(isServerMadeName)).toEqual([true, true, false, false, false]);
   });
 });
 

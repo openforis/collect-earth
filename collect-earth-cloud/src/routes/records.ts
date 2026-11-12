@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Store } from '../store/store.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { audit, noteActivity } from '../activity.js';
+import { isServerMadeName } from '../anonymize.js';
 import { applyLww, recordEventOf } from '../lww.js';
 import type { SamplingService } from '../samplingService.js';
 import type { BatchItemResult, RecordEnvelope, RoundInfo } from '../types.js';
@@ -89,8 +90,9 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
             // next save moves that row to the username, so the record is not counted twice
             // and a deletion reaches it. The name is the client's word, so never a row kept
             // under any account's username, a member's, a former member's or a deleted
-            // account's, and never one the account has already (renameRecordOperator).
-            if (sent !== null && sent !== '' && !(await accountName(sent))) {
+            // account's, never a name the server made (former-member-N, ceo-collector-N),
+            // and never one the account has already (renameRecordOperator).
+            if (sent !== null && sent !== '' && !isServerMadeName(sent) && !(await accountName(sent))) {
               if (await store.renameRecordOperator(projectId, envelope.recordKey, sent, sessionUsername)) {
                 request.log.info({ projectId, recordKey: envelope.recordKey, from: sent, to: sessionUsername }, 'record moved from a legacy operator name to the username');
               }

@@ -10,7 +10,15 @@ export const PSEUDONYM_PREFIX = 'former-member-';
 /** The summary key Collect Earth puts the operator under (EarthConstants.OPERATOR_PARAMETER). */
 export const OPERATOR_SUMMARY_KEY = 'collect_text_operator';
 
-export const isPseudonym = (operator: string) => operator.startsWith(PSEUDONYM_PREFIX) && /^\d+$/.test(operator.slice(PSEUDONYM_PREFIX.length));
+/** The records of a CEO collector given no account at the import: ceo-collector-1, -2... (routes/ceoImport.ts) */
+export const CEO_PSEUDONYM_PREFIX = 'ceo-collector-';
+
+const hasNumberedPrefix = (name: string, prefix: string) => name.startsWith(prefix) && /^\d+$/.test(name.slice(prefix.length));
+
+export const isPseudonym = (operator: string) => hasNumberedPrefix(operator, PSEUDONYM_PREFIX);
+
+/** Whether a name is one the server made for records that belong to no account (a former member's, a CEO collector's). */
+export const isServerMadeName = (name: string) => isPseudonym(name) || hasNumberedPrefix(name, CEO_PSEUDONYM_PREFIX);
 
 /** The next free pseudonym of a project, given the operators its records have. */
 export function nextPseudonym(operators: Iterable<string>): string {
