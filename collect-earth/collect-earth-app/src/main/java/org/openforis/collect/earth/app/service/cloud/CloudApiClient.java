@@ -7,7 +7,9 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.annotation.PreDestroy;
 
@@ -563,6 +565,21 @@ public class CloudApiClient {
 				+ java.net.URLEncoder.encode(recordKey, java.nio.charset.StandardCharsets.UTF_8.name()));
 		prepare(request);
 		return executeForJson("getTrainingFeedback", request);
+	}
+
+	/**
+	 * The plot layout of the project file on the server (GET /plot-layout), as the coordinator set it on the dashboard:
+	 * the settings of Settings > Plot it has, by property name.
+	 */
+	public Map<String, String> getPlotLayout() throws IOException {
+		HttpGet request = new HttpGet(baseUrl() + "/v1/projects/" + projectId() + "/plot-layout");
+		prepare(request);
+		JsonNode layout = executeForJson("getPlotLayout", request).get("layout");
+		Map<String, String> result = new LinkedHashMap<>();
+		if (layout != null && layout.isObject()) {
+			layout.fields().forEachRemaining(field -> result.put(field.getKey(), field.getValue().asText()));
+		}
+		return result;
 	}
 
 	/** Lists the CSV files assigned to the logged-in operator for the configured project. */
