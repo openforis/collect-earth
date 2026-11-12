@@ -13,6 +13,7 @@
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="stylesheet" href="../style.css">
+<script src="../analytics.js" defer></script>
 </head>
 <body>
 <header class="top">
@@ -58,7 +59,7 @@
 
   <h2 id="install">Install and start</h2>
   <ol class="steps">
-    <li><a href="https://www.openforis.org/fileadmin/installer/download.html">Download Collect Earth</a> for Windows, macOS or Linux and run the installer. It brings its own Java. You also need Chrome, Edge or Firefox.</li>
+    <li><a href="https://www.openforis.org/fileadmin/installer/download.html">Download Collect Earth</a> for Windows, macOS or Linux and run the installer. It brings its own Java. You also need Chrome, Edge or Firefox, and an internet connection while you work: the imagery comes from Google Earth and the other imagery services.</li>
     <li>Start Collect Earth. A small window shows each step while it opens; the first start can take up to a minute.</li>
     <li>Collect Earth opens in your browser, inside Google Earth Web (see <a href="#window">The Collect Earth window</a>). The first time, it loads a demo project so you can try it out, and Google may ask you to accept its cookies or to sign in in that window; Collect Earth remembers it afterwards.</li>
     <li>Type your name when asked (6 to 49 characters). It is saved with every plot you assess, so your plots can be told apart from others'. Click your name in the top bar to change it later.</li>
@@ -125,7 +126,7 @@
     <li>In <span class="ui">Settings › Project</span>, choose your <span class="ui">Assigned plot file</span>. <span class="ui">Refresh assignments</span> fetches files the coordinator gives you later.</li>
   </ol>
   <figure><img src="../img/screens/desktop-join-cloud.png" alt="The Join cloud project dialog" loading="lazy"><figcaption>Paste the invitation link; Collect Earth does the rest.</figcaption></figure>
-  <p>Then work as usual. Your saved plots are sent in the background within about 30 seconds. With no internet you keep working: the plots wait on your computer and are sent when the connection comes back. <span class="ui">File › Cloud sync status...</span> shows what is waiting, what failed and what was sent, with <span class="ui">Sync now</span>.</p>
+  <p>Then work as usual. Your saved plots are sent in the background within about 30 seconds. If the connection drops for a moment, the plots wait on your computer and are sent when it comes back. <span class="ui">File › Cloud sync status...</span> shows what is waiting, what failed and what was sent, with <span class="ui">Sync now</span>.</p>
   <p>In a cloud project your name is your account name. Your own progress, quality figures and training feedback are on the dashboard's <span class="ui">My work</span> page (<span class="ui">Tools › My dashboard</span>).</p>
   <div class="note">Plots you assessed before joining? <span class="ui">Data Import/Export › Send this computer's records to the cloud project</span> sends them too.</div>
 
@@ -199,6 +200,7 @@
       <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="434">
       <p>Collect Earth is part of Open Foris: free and open-source solutions for forest and land monitoring.</p>
       <a class="btn dark" href="https://github.com/openforis/collect-earth">Source code on GitHub</a>
+      <p class="fineprint">This site counts visits with Google Analytics, as openforis.org does. <a href="https://www.fao.org/contact-us/data-protection-and-privacy/en">FAO data protection and privacy notice</a></p>
     </div>
     <div class="links">
       <h4>Guides</h4>

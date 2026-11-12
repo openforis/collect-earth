@@ -277,3 +277,5 @@ details.assumptions p { margin: 12px 0 0; }
 .doc pre.cmd { background: #1E2B26; color: #E4EEE8; border-radius: 8px; padding: 14px 18px; margin: 10px 0 14px; overflow-x: auto; font-size: .84rem; line-height: 1.55; }
 .doc pre.cmd code { background: none; color: inherit; padding: 0; font-size: 1em; }
 .cta-line { margin: 18px 0 22px; }
+footer .fineprint { margin: 18px 0 0; font-size: .8rem; color: #9A9A9A; max-width: 380px; }
+footer .fineprint a { color: #BABABA; text-decoration: underline; }

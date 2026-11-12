@@ -18,6 +18,7 @@
 <meta property="og:image" content="https://collectearth.org/img/emblem.png">
 <meta property="og:url" content="https://collectearth.org/">
 <link rel="stylesheet" href="style.css">
+<script src="analytics.js" defer></script>
 </head>
 <body>
 
@@ -78,7 +79,7 @@
       <div class="pillar">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/></svg>
         <h3>Saved on your own computer first</h3>
-        <p>Every answer is saved at once in a database on the interpreter's computer, and Collect Earth keeps the last ten backups. Work offline for weeks: nothing depends on a connection.</p>
+        <p>Every answer is saved at once in a database on the interpreter's computer, before it goes anywhere else, and Collect Earth keeps the last ten backups.</p>
       </div>
       <div class="pillar">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M12 6h6l2 2-2 2h-6M12 12H6l-2 2 2 2h6"/></svg>
@@ -126,7 +127,7 @@
 <section id="setups">
   <div class="wrap">
     <h2>Four ways to work</h2>
-    <p class="lead">The same desktop program and the same project file work in four set-ups. They differ in where the data lives, how the plots are brought together, and how much a coordinator can see while the work goes on. Answer two or three questions to find yours.</p>
+    <p class="lead">The same desktop program and the same project file work in four set-ups. All of them need an internet connection while interpreters work, because the imagery comes from Google Earth and the other imagery services. They differ in where the data lives, how the plots are brought together, and how much a coordinator can see while the work goes on. Answer two or three questions to find yours.</p>
 
     <div class="decide" data-decide data-start="who" aria-live="polite">
       <div class="decide-trail" data-trail hidden></div>
@@ -134,30 +135,32 @@
         <h3 tabindex="-1">Who will assess the plots?</h3>
         <div class="choices">
           <button type="button" class="choice" data-go="r1">Just me</button>
-          <button type="button" class="choice" data-go="net">A team</button>
+          <button type="button" class="choice" data-go="small">A small team</button>
+          <button type="button" class="choice" data-go="where">A larger team</button>
         </div>
       </div>
-      <div class="decide-step" data-step="net" hidden>
-        <h3 tabindex="-1">Can the team reach the internet, at least now and then?</h3>
-        <p class="hint">Collect Earth works offline and sends the plots when a connection comes back. Once a day is plenty.</p>
+      <div class="decide-step" data-step="small" hidden>
+        <h3 tabindex="-1">How should the team's work come together?</h3>
+        <p class="hint">For a few interpreters the simplest is often the local database: each person works in Collect Earth on their own computer, and one person, the administrator, brings everyone's plots together. No server and no accounts.</p>
         <div class="choices">
-          <button type="button" class="choice" data-go="own">Yes, at least now and then</button>
-          <button type="button" class="choice" data-go="office">No, never</button>
+          <button type="button" class="choice" data-go="r2a">One person brings it all together</button>
+          <button type="button" class="choice" data-go="where">On a web dashboard, as people work</button>
         </div>
       </div>
-      <div class="decide-step" data-step="own" hidden>
-        <h3 tabindex="-1">Must the data stay on your organisation's own servers?</h3>
-        <p class="hint">For example, because of national rules on where survey data may be kept.</p>
+      <div class="decide-step" data-step="where" hidden>
+        <h3 tabindex="-1">Where may the team's data be kept?</h3>
+        <p class="hint">For example, national rules may say where survey data can be kept.</p>
         <div class="choices">
-          <button type="button" class="choice" data-go="r3">No, FAO's free server is fine</button>
-          <button type="button" class="choice" data-go="r4">Yes, it must stay in-house</button>
+          <button type="button" class="choice" data-go="r3">On FAO's free Collect Earth Cloud</button>
+          <button type="button" class="choice" data-go="r4">On our organisation's own server</button>
+          <button type="button" class="choice" data-go="office">On our own computers, with no server</button>
         </div>
       </div>
       <div class="decide-step" data-step="office" hidden>
         <h3 tabindex="-1">Does everyone work in one office, on one network, with IT support?</h3>
         <div class="choices">
           <button type="button" class="choice" data-go="r2b">Yes, one office</button>
-          <button type="button" class="choice" data-go="r2a">No, people work apart</button>
+          <button type="button" class="choice" data-go="r2a">No: one person brings it all together</button>
         </div>
       </div>
       <div class="decide-step result" data-step="r1" hidden>
@@ -169,9 +172,9 @@
       </div>
       <div class="decide-step result" data-step="r2a" hidden>
         <p class="result-kicker">Your set-up</p>
-        <h3 tabindex="-1">2. A team without a server, with exports</h3>
-        <p>Each interpreter works on their own computer and regularly sends an export file to the coordinator, who brings them together. More handwork, fewer checks, no internet needed.</p>
-        <p class="where"><strong>Your data:</strong> on the team's computers, and in the export files you choose to send.</p>
+        <h3 tabindex="-1">2. A small team on the local database, with an administrator</h3>
+        <p>Each interpreter works in Collect Earth's own database on their computer. One person acts as the administrator: they give out the plot files, receive everyone's exports and bring them together into one database, where they follow progress, check the data and export the results. Simple and free: no server, no accounts, nothing to install beyond Collect Earth.</p>
+        <p class="where"><strong>Your data:</strong> on the team's computers, and the complete set with the administrator. It travels only as the export files you choose to send.</p>
         <div class="actions"><a class="btn green" href="guide/choose.html#setup-2">See the workflow</a><button type="button" class="btn ghost" data-go="start">Start again</button></div>
       </div>
       <div class="decide-step result" data-step="r2b" hidden>
@@ -198,14 +201,14 @@
     </div>
     <ul class="decide-static">
       <li><strong>Working alone?</strong> Set-up 1.</li>
-      <li><strong>A team with no internet at all?</strong> Set-up 2: exports from each computer, or one shared database in the office.</li>
-      <li><strong>A team, and the internet works at least now and then?</strong> Set-up 3, Collect Earth Cloud.</li>
-      <li><strong>A team that must keep its data on its own servers?</strong> Set-up 4, your own server.</li>
+      <li><strong>A small team?</strong> Set-up 2: each person works in Collect Earth's local database, and one administrator brings everyone's plots together. No server needed.</li>
+      <li><strong>A team that wants the web dashboard, and FAO's free server is fine?</strong> Set-up 3, Collect Earth Cloud.</li>
+      <li><strong>A team whose data must stay on its own server?</strong> Set-up 4, your own server.</li>
     </ul>
 
     <div class="grid g4" style="margin-top:40px">
       <div class="card"><div class="num">1</div><h3>One interpreter, local</h3><p>A study, a pilot, one expert. Everything stays in a database on your computer, with your own progress dashboard.</p><p class="where"><strong>Data lives:</strong> on your computer</p><a class="more" href="guide/choose.html#setup-1">→ The workflow</a></div>
-      <div class="card"><div class="num">2</div><h3>A team, no internet</h3><p>Each computer exports its plots and the coordinator imports them, or the office shares one PostgreSQL database.</p><p class="where"><strong>Data lives:</strong> on your team's computers, or your office database</p><a class="more" href="guide/choose.html#setup-2">→ The workflow</a></div>
+      <div class="card"><div class="num">2</div><h3>A small team, no server</h3><p>Each interpreter works in Collect Earth's local database, and one person, the administrator, brings everyone's plots together. Or the office shares one PostgreSQL database.</p><p class="where"><strong>Data lives:</strong> on your team's computers, or your office database</p><a class="more" href="guide/choose.html#setup-2">→ The workflow</a></div>
       <div class="card featured"><span class="tag">Most team projects</span><div class="num">3</div><h3>Collect Earth Cloud</h3><p>Plots are sent within about 30 seconds to the free server run by FAO. The coordinator follows the work in a web dashboard.</p><p class="where"><strong>Data lives:</strong> on each computer, and in your private project on FAO's server</p><a class="more" href="guide/choose.html#setup-3">→ The workflow</a></div>
       <div class="card"><div class="num">4</div><h3>Your own server</h3><p>The same as set-up 3, on a server you run. The data never leaves your organisation.</p><p class="where"><strong>Data lives:</strong> on your computers and your own server only</p><a class="more" href="guide/choose.html#setup-4">→ The workflow</a></div>
     </div>
@@ -216,8 +219,8 @@
           <tr><th>Where the data lives</th><td>Your computer</td><td>Each computer, or your office's PostgreSQL</td><td>Each computer, and your private project on FAO's server</td><td>Each computer, and your own server</td></tr>
           <tr><th>Who can see it</th><td>You</td><td>Whoever you give the files or database access to</td><td>The people you invite, by role</td><td>The people you invite, by role</td></tr>
           <tr><th>Who runs the server</th><td>Nobody</td><td>Nobody (or your IT, for PostgreSQL)</td><td>FAO, for free</td><td>You</td></tr>
-          <tr><th>Internet needed</th><td>Only for imagery</td><td>Only for imagery</td><td>Imagery, and now and then to sync</td><td>Imagery, and a connection to your server</td></tr>
-          <tr><th>Plots reach the coordinator</th><td>Already there</td><td>Export and import by hand</td><td>Automatically</td><td>Automatically</td></tr>
+          <tr><th>Internet connection</th><td>Always, for the imagery</td><td>Always, for the imagery</td><td>Always: the imagery, and sending plots to FAO's server</td><td>Always: the imagery, and sending plots to your server</td></tr>
+          <tr><th>Plots reach the coordinator</th><td>Already there</td><td>The administrator imports each person's exports</td><td>Automatically</td><td>Automatically</td></tr>
           <tr><th>Giving out plots</th><td>Not needed</td><td>One plot file per person, by hand</td><td>In the dashboard, whole files or divided automatically</td><td>As in set-up 3</td></tr>
           <tr><th>Progress dashboard</th><td>Your own</td><td>Each computer's own</td><td>Web dashboard for the team</td><td>Web dashboard for the team</td></tr>
           <tr><th>Quality checks, training, time spent</th><td>Self-checks on My dashboard</td><td>By hand</td><td>Built in</td><td>Built in</td></tr>
@@ -225,7 +228,7 @@
         </tbody>
       </table>
     </div>
-    <p style="margin-top:20px;color:var(--muted)">Set-ups 3 and 4 keep working offline: plots wait on the computer and are sent when the connection comes back. <a href="guide/choose.html">Every workflow, step by step →</a></p>
+    <p style="margin-top:20px;color:var(--muted)"><a href="guide/choose.html">Every workflow, step by step →</a></p>
   </div>
 </section>
 
@@ -280,7 +283,7 @@
     <h2>Guides</h2>
     <p class="lead">Step by step, with screenshots, for the current version of Collect Earth.</p>
     <div class="grid g3" style="margin-top:32px">
-      <a class="card" href="guide/choose.html"><h3>Which set-up?</h3><p>Alone or as a team, online or offline: pick the way of working that suits your project.</p></a>
+      <a class="card" href="guide/choose.html"><h3>Which set-up?</h3><p>Alone or as a team, on your own computers or on a server: pick the way of working that suits your project.</p></a>
       <a class="card" href="guide/sampling.html"><h3>Designing the sample</h3><p>Where the plots go: SIGRID, the Grid Generator on Google Earth Engine, or the dashboard's own design.</p></a>
       <a class="card" href="guide/interpreters.html"><h3>Collect Earth for interpreters</h3><p>Install, open a project, assess plots and send them, alone or in a cloud project.</p></a>
       <a class="card" href="guide/coordinators.html"><h3>Running a cloud project</h3><p>For coordinators: set up the project, invite the team, give out plots, check quality, download the data.</p></a>
@@ -307,6 +310,7 @@
       <img src="img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="434">
       <p>Collect Earth is part of Open Foris: free and open-source solutions for forest and land monitoring.</p>
       <a class="btn dark" href="https://github.com/openforis/collect-earth">Source code on GitHub</a>
+      <p class="fineprint">This site counts visits with Google Analytics, as openforis.org does. <a href="https://www.fao.org/contact-us/data-protection-and-privacy/en">FAO data protection and privacy notice</a></p>
     </div>
     <div class="links">
       <h4>Guides</h4>
