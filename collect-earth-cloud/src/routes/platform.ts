@@ -3,6 +3,7 @@ import { isUuid, publicBaseUrl } from '../accountRules.js';
 import { audit, noteActivity } from '../activity.js';
 import { addNote, addRound, CepError, noteColumn, roundInfoOf, withBundledPlotFile, type NoteInfo, type NoteRefusal, type RefusalCode } from '../cep.js';
 import type { Config } from '../config.js';
+import { cepForCollector } from '../collectorCep.js';
 import { checkUploadFits } from '../limits.js';
 import { servedBundledPlotFile } from './assignments.js';
 import { fileKeyCount } from '../rounds.js';
@@ -350,6 +351,10 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
   );
 
   // CEP download (any member) — the join flow fetches this to configure the client.
+  // Coordinators and reviewers get the served file whole; collectors (and project tokens of the
+  // operator role) get it with its plot files emptied to their header line (collectorCep.ts), so
+  // Collect Earth shows them no plot until it opens a plot file assigned to them. The two differ
+  // for one URL, so no shared cache may keep either (private, varying on the token).
   app.get(
     '/v1/projects/:pid/cep',
     { preHandler: requireProjectMembership(store) },
@@ -359,7 +364,18 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         return reply.code(404).send({ error: 'not_found' });
       }
       noteActivity(request, { cepDownload: true }, { desktop: true });
-      return reply.header('content-type', 'application/zip').send(cep);
+      const whole = config.localMode || request.membership!.role !== 'operator';
+      return reply
+        .header('content-type', 'application/zip')
+        .header('cache-control', 'private, no-cache')
+        .header('vary', 'Authorization')
+        .send(
+          whole
+            ? cep
+            : cepForCollector(cep, (err) =>
+                request.log.warn({ err, projectId: request.membership!.projectId }, 'cep: the project file cannot be read to empty its plot files; a collector gets it as it is'),
+              ),
+        );
     },
   );
 

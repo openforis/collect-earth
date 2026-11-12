@@ -34,7 +34,7 @@ describe("the project file's own plot file cannot be given the columns (Task 22 
     });
     expect(put.statusCode, put.body).toBe(200);
     expect(put.json().round.state).toBe('added');
-    const served = (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${project.projectId}/cep`, headers: bearer(project.projectToken) })).rawPayload;
+    const served = (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${project.projectId}/cep`, headers: bearer(project.adminToken) })).rawPayload;
     const path = 'grid/showcase_plots.csv';
     expect(Buffer.from(readCep(served).entries.get(path)!).equals(Buffer.from(readCep(upload).entries.get(path)!))).toBe(true);
   });

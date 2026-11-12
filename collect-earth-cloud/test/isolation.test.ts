@@ -355,4 +355,19 @@ describe('cross-tenant isolation', () => {
     });
     expect(res.statusCode).toBe(403);
   });
+
+  it("A's collector token gets 404 on B's project file (served emptied to collectors, never across projects)", async () => {
+    await ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${b.projectId}/cep`,
+      headers: { authorization: `Bearer ${b.adminToken}`, 'content-type': 'application/zip' },
+      payload: Buffer.from('PK\x03\x04 pretend zip'),
+    });
+    const res = await ctx.app.inject({
+      method: 'GET',
+      url: `/v1/projects/${b.projectId}/cep`,
+      headers: { authorization: `Bearer ${a.projectToken}` },
+    });
+    expect(res.statusCode).toBe(404);
+  });
 });

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { randomBytes } from 'node:crypto';
-import { readCep, surveyInfo, zipCep, type RoundInfo } from '../src/cep.js';
+import { DEFAULT_CEP_LIMITS, readCep, surveyInfo, zipCep, zipEntryList, type RoundInfo } from '../src/cep.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
 import { demoCep, FIXTURE_DATE, idOnlyCep, noNote } from './fixtures/cep.js';
 
@@ -56,7 +56,7 @@ describe('project file and round routes', () => {
     expect(round).toMatchObject({ state: 'added', refusal: null, keyCount: 2, roundIndex: 1, reassessmentCode: '2' });
     expect(put.json()).toMatchObject({ ok: true, bytes: upload.length });
 
-    const served = await get('/cep', bearer(project.projectToken));
+    const served = await get('/cep');
     expect(served.statusCode).toBe(200);
     expect(served.rawPayload.equals(upload)).toBe(false);
     expect(keysOf(served.rawPayload)).toEqual(['id', 'round']);
@@ -430,7 +430,7 @@ describe('project file and round routes', () => {
       const upload = idOnlyWithoutRound();
       expect(rowsOf(upload)[0].slice(0, 2)).toEqual(['id', 'YCoordinate']);
       expect((await putCep(upload)).statusCode).toBe(200);
-      const served = (await get('/cep', bearer(project.projectToken))).rawPayload;
+      const served = (await get('/cep')).rawPayload;
       const rows = rowsOf(served);
       const { keys, fromCsv } = expected(served);
       expect(keys).toEqual(['id', 'round']);
@@ -451,26 +451,116 @@ describe('project file and round routes', () => {
     it('is not given a second round or note: a file that names them already, the served file uploaded back', async () => {
       // The fixture's own plot file kept its round column: only the note is added.
       expect((await putCep(idOnlyCep())).statusCode).toBe(200);
-      const served = (await get('/cep', bearer(project.projectToken))).rawPayload;
+      const served = (await get('/cep')).rawPayload;
       const rows = rowsOf(served);
       expect(rows[0].filter((f) => f === 'round')).toHaveLength(1);
       expect(rows[0].at(-1)).toBe('coordinator_note');
       expect(rows[0].length).toBe(rowsOf(idOnlyCep())[0].length + 1);
       // The served file uploaded again: its plot file as it is.
       expect((await putCep(served)).statusCode).toBe(200);
-      expect(textOf((await get('/cep', bearer(project.projectToken))).rawPayload, CSV_PATH)).toBe(textOf(served, CSV_PATH));
+      expect(textOf((await get('/cep')).rawPayload, CSV_PATH)).toBe(textOf(served, CSV_PATH));
     });
 
     it('only the round when the note cannot be added; a survey with its own round gets the note column only', async () => {
       expect((await putCep(noNote(idOnlyWithoutRound()))).statusCode).toBe(200);
-      const rows = rowsOf((await get('/cep', bearer(project.projectToken))).rawPayload);
+      const rows = rowsOf((await get('/cep')).rawPayload);
       expect(rows[0].slice(0, 3)).toEqual(['id', 'round', 'YCoordinate']);
       expect(rows[0]).not.toContain('coordinator_note');
       expect(rows[1][1]).toBe('1');
       expect((await putCep(demoCep())).statusCode).toBe(200);
-      const demo = rowsOf((await get('/cep', bearer(project.projectToken))).rawPayload);
+      const demo = rowsOf((await get('/cep')).rawPayload);
       expect(demo[0].filter((f) => f === 'round')).toHaveLength(1);
       expect(demo[0].at(-1)).toBe('coordinator_note');
+    });
+  });
+
+  describe('what a collector downloads: the project file with its plot files emptied', () => {
+    const PLOT_FILES = ['grid/showcase_plots.csv', 'test_plots.ced'];
+    /** The demo file plus a CSV that is not a plot file (not at the top, not under grid/). */
+    const upload = () => {
+      const entries = new Map(readCep(demoCep()).entries);
+      entries.set('docs/species.csv', new TextEncoder().encode('code,label\n1,Oak\n2,Pine\n'));
+      return zipCep(entries, FIXTURE_DATE);
+    };
+    const packedOf = (cep: Buffer) => zipEntryList(cep, DEFAULT_CEP_LIMITS.maxEntries, DEFAULT_CEP_LIMITS.maxTotalBytes * 2);
+    const join = async (username: string, role: 'operator' | 'reviewer') => {
+      const invite = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${project.projectId}/invites`, headers: admin(), payload: { role, maxUses: 1 } });
+      expect(invite.statusCode, invite.body).toBe(201);
+      const res = await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username, password: 'password12', inviteToken: invite.json().inviteToken } });
+      expect(res.statusCode, res.body).toBe(201);
+      return bearer(res.json().token as string);
+    };
+
+    it('collectors get each plot file with only its header line and every other file as it is; coordinators and reviewers the whole file', async () => {
+      expect((await putCep(upload())).statusCode).toBe(200);
+      const whole = await get('/cep');
+      expect(whole.statusCode).toBe(200);
+      const served = whole.rawPayload;
+      expect(whole.headers['cache-control']).toBe('private, no-cache');
+      expect(whole.headers.vary).toBe('Authorization');
+      // The served file holds plots, and the coordinator gets it unchanged.
+      expect(packedOf(served).map((e) => e.name)).toEqual(expect.arrayContaining([...PLOT_FILES, 'docs/species.csv']));
+      expect((await get('/cep', await join('rita', 'reviewer'))).rawPayload.equals(served)).toBe(true);
+
+      for (const collector of [bearer(project.projectToken), await join('maria', 'operator')]) {
+        const res = await get('/cep', collector);
+        expect(res.statusCode).toBe(200);
+        expect(res.headers['content-type']).toContain('application/zip');
+        expect(res.headers.vary).toBe('Authorization');
+        const mine = res.rawPayload;
+        expect(mine.equals(served)).toBe(false);
+        const before = packedOf(served);
+        const after = packedOf(mine);
+        expect(after.map((e) => e.name)).toEqual(before.map((e) => e.name));
+        for (const [i, e] of after.entries()) {
+          const original = Buffer.from(before[i].read());
+          const now = Buffer.from(e.read());
+          if (PLOT_FILES.includes(e.name)) {
+            const text = original.toString('utf8');
+            const header = text.slice(0, text.search(/\n/) + 1);
+            expect(header).toMatch(/^id,round,/);
+            expect(now.toString('utf8')).toBe(header);
+            expect(original.length).toBeGreaterThan(now.length);
+            // Another date, so Collect Earth's cache of the plot file never takes one for the other.
+            expect([e.packed.dosDate, e.packed.dosTime]).not.toEqual([before[i].packed.dosDate, before[i].packed.dosTime]);
+          } else {
+            // Byte for byte as packed, with its date.
+            expect(now.equals(original), e.name).toBe(true);
+            expect(e.packed.body.equals(before[i].packed.body), e.name).toBe(true);
+            expect([e.packed.method, e.packed.crc, e.packed.dosDate, e.packed.dosTime]).toEqual([
+              before[i].packed.method,
+              before[i].packed.crc,
+              before[i].packed.dosDate,
+              before[i].packed.dosTime,
+            ]);
+          }
+        }
+        // readCep (as the server reads it) still finds the survey and the properties' plot file.
+        expect(keysOf(mine)).toEqual(keysOf(served));
+      }
+      // Built once per served file: the same bytes again.
+      const first = (await get('/cep', bearer(project.projectToken))).rawPayload;
+      expect((await get('/cep', bearer(project.projectToken))).rawPayload.equals(first)).toBe(true);
+      // The coordinator still gets the whole file after collectors downloaded theirs.
+      expect((await get('/cep')).rawPayload.equals(served)).toBe(true);
+
+      // A new upload: the collector's file follows it.
+      expect((await putCep(idOnlyCep())).statusCode).toBe(200);
+      const next = (await get('/cep', bearer(project.projectToken))).rawPayload;
+      expect(next.equals(first)).toBe(false);
+      expect(new TextDecoder().decode(readCep(next).entries.get('grid/showcase_plots.csv')!).trim().split(/\r?\n/)).toHaveLength(1);
+      expect(readCep(next).entries.has('docs/species.csv')).toBe(false);
+    });
+
+    it('a project file without plots, or one the server cannot read, reaches collectors as it is', async () => {
+      const entries = new Map(readCep(demoCep()).entries);
+      for (const path of PLOT_FILES) entries.set(path, new TextEncoder().encode(new TextDecoder().decode(entries.get(path)!).split('\n')[0] + '\n'));
+      expect((await putCep(zipCep(entries, FIXTURE_DATE))).statusCode).toBe(200);
+      expect((await get('/cep', bearer(project.projectToken))).rawPayload.equals((await get('/cep')).rawPayload)).toBe(true);
+
+      const notAZip = Buffer.from('PK\x03\x04 pretend zip');
+      expect((await putCep(notAZip)).statusCode).toBe(200);
+      expect((await get('/cep', bearer(project.projectToken))).rawPayload.equals(notAZip)).toBe(true);
     });
   });
 });
