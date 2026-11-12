@@ -43,6 +43,7 @@ import { registerUncertaintyRoutes } from './routes/uncertainty.js';
 import { registerAreaRoutes } from './routes/areas.js';
 import { registerIpccRoutes } from './routes/ipcc.js';
 import { PlotPlaceReader } from './routes/plotPlaces.js';
+import { registerPlotLayoutRoutes } from './routes/plotLayout.js';
 import { PlotIndexCache, registerPlotSearchRoutes } from './routes/plotSearch.js';
 import { registerPlotsGeoRoutes } from './routes/plotsGeo.js';
 import { registerProgressRoutes } from './routes/progress.js';
@@ -328,6 +329,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerSigridRoutes(app, store, places);
   await registerCollectBackupRoutes(app, store, config, limiter, now);
   await registerPlatformRoutes(app, store, config);
+  await registerPlotLayoutRoutes(app, store, places);
   const quality = new QualityService(store, new QualityWorker({ maxOldGenerationSizeMb: config.qualityWorkerMaxMb }), {
     minIntervalMs: config.qualityMinIntervalMs,
   });
