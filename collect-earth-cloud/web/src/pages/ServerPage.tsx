@@ -7,49 +7,49 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
-import FormControl from "@mui/material/FormControl";
-import FormControlLabel from "@mui/material/FormControlLabel";
-import FormHelperText from "@mui/material/FormHelperText";
-import FormLabel from "@mui/material/FormLabel";
 import Grid from "@mui/material/Grid";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import ListItemText from "@mui/material/ListItemText";
 import Paper from "@mui/material/Paper";
-import Radio from "@mui/material/Radio";
-import RadioGroup from "@mui/material/RadioGroup";
 import Stack from "@mui/material/Stack";
-import Switch from "@mui/material/Switch";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Key from "@mui/icons-material/Key";
 import Block from "@mui/icons-material/Block";
 import CheckCircleOutline from "@mui/icons-material/CheckCircleOutlineOutlined";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import Link from "@mui/material/Link";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import type { Theme } from "@mui/material/styles";
+import Dns from "@mui/icons-material/Dns";
+import FolderOpen from "@mui/icons-material/FolderOpen";
+import Insights from "@mui/icons-material/Insights";
+import People from "@mui/icons-material/People";
+import Tune from "@mui/icons-material/Tune";
 import {
   getAiUsage,
   getServerOverview,
-  getServerSettings,
   listUsers,
   makeResetLink,
   resetUserTwoFactor,
   getOwnerAlerts,
   type OwnerAlert,
-  saveServerSettings,
   setUserDisabled,
   type AdminUser,
   type AiUsageCounts,
-  type ProjectCreation,
   type ResetLink,
-  type ServerSettings,
+  type ServerOverview,
 } from "../api";
-import { AI_LIMIT_MAX, limitTexts, parseLimit } from "../aiView";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { CopyField } from "../components/CopyField";
@@ -60,228 +60,11 @@ import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatBytes, formatDate, formatNumber } from "../format";
 import { useT, type MessageKey } from "../i18n";
-import { draftOf, readDraft, type DraftProblems, type SettingsDraft } from "../settingsForm";
-import { fromLocalInput, toLocalInput } from "../announcement";
 import { useLoad } from "../useLoad";
-
-/** Limits for each account and the server's name, terms and contact: typed, then saved together. */
-function DetailsForm({ settings, onSave }: { settings: ServerSettings; onSave: (changes: Partial<ServerSettings>) => Promise<void> }) {
-  const t = useT();
-  const [draft, setDraft] = useState<SettingsDraft>(() => draftOf(settings));
-  const [problems, setProblems] = useState<DraftProblems>({});
-  const [busy, setBusy] = useState(false);
-
-  // The label above the field, not inside it: a long label (es, fr) wraps there instead of being cut with "…".
-  const field = (key: keyof SettingsDraft, label: MessageKey, help: MessageKey, extra: { type?: string; inputMode?: "numeric"; more?: MessageKey } = {}) => (
-    <Stack spacing={0.75}>
-      <FormLabel htmlFor={`server-setting-${key}`} sx={{ color: "text.primary" }}>
-        {t(label)}
-      </FormLabel>
-      {textField(key, help, extra)}
-    </Stack>
-  );
-  const textField = (key: keyof SettingsDraft, help: MessageKey, extra: { type?: string; inputMode?: "numeric"; more?: MessageKey }) => (
-    <TextField
-      id={`server-setting-${key}`}
-      value={draft[key]}
-      onChange={(e) => {
-        setDraft({ ...draft, [key]: e.target.value });
-        setProblems({ ...problems, [key]: undefined });
-      }}
-      error={problems[key] !== undefined}
-      helperText={problems[key] ? t(problems[key]!) : <>{t(help)}{extra.more && <MoreInfo text={t(extra.more)} />}</>}
-      type={extra.type}
-      slotProps={extra.inputMode ? { htmlInput: { inputMode: extra.inputMode } } : undefined}
-    />
-  );
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    const { changes, problems: found } = readDraft(draft);
-    setProblems(found);
-    if (Object.keys(found).length > 0) return;
-    setBusy(true);
-    try {
-      await onSave(changes);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Stack component="form" spacing={2} onSubmit={submit} noValidate>
-      <div>
-        <Typography variant="h3" component="h3" sx={{ fontSize: "1.1rem", fontWeight: 600 }}>
-          {t("server.limits")}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {t("server.limitsIntro")}
-        </Typography>
-      </div>
-      {field("maxProjectsPerUser", "server.maxProjects", "server.maxProjectsHelp", { inputMode: "numeric" })}
-      {field("maxProjectStorageMb", "server.maxStorage", "server.maxStorageHelp.short", { inputMode: "numeric", more: "server.maxStorageHelp" })}
-      <div>
-        <Typography variant="h3" component="h3" sx={{ fontSize: "1.1rem", fontWeight: 600 }}>
-          {t("server.about")}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {t("server.aboutIntro")}
-        </Typography>
-      </div>
-      {field("serverName", "server.serverName", "server.serverNameHelp")}
-      {field("termsUrl", "server.termsUrl", "server.termsUrlHelp", { type: "url" })}
-      {field("contactEmail", "server.contactEmail", "server.contactEmailHelp", { type: "email" })}
-      <div>
-        <Button type="submit" variant="contained" disabled={busy}>
-          {t("common.save")}
-        </Button>
-      </div>
-    </Stack>
-  );
-}
-
-/** The banner every signed-in person sees at the top of each page: a short plain message, until an optional end or until cleared. */
-function AnnouncementForm({ settings, onSave }: { settings: ServerSettings; onSave: (changes: Partial<ServerSettings>) => Promise<void> }) {
-  const t = useT();
-  const { refreshMe } = useApp();
-  const [text, setText] = useState(settings.announcement ?? "");
-  const [until, setUntil] = useState(toLocalInput(settings.announcementUntil));
-  const [busy, setBusy] = useState(false);
-  const end = fromLocalInput(until);
-  const past = end !== null && end <= Date.now();
-
-  const save = async (changes: Partial<ServerSettings>) => {
-    setBusy(true);
-    try {
-      await onSave(changes);
-      await refreshMe();
-    } finally {
-      setBusy(false);
-    }
-  };
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    void save({ announcement: text.trim() || null, announcementUntil: text.trim() ? end : null });
-  };
-  const clear = () => {
-    setText("");
-    setUntil("");
-    void save({ announcement: null, announcementUntil: null });
-  };
-
-  return (
-    <Stack component="form" spacing={2} onSubmit={submit} noValidate>
-      <div>
-        <Typography variant="h3" component="h3" sx={{ fontSize: "1.1rem", fontWeight: 600 }}>
-          {t("server.announcementTitle")}
-        </Typography>
-        <Explain variant="body2" text={t("server.announcementHelp.short")} more={t("server.announcementHelp")} />
-      </div>
-      <TextField label={t("server.announcementText")} value={text} onChange={(e) => setText(e.target.value)} multiline minRows={2} slotProps={{ htmlInput: { maxLength: 500 } }} />
-      <TextField
-        type="datetime-local"
-        label={t("server.announcementUntil")}
-        value={until}
-        onChange={(e) => setUntil(e.target.value)}
-        error={past}
-        helperText={t(past ? "server.announcementPast" : "server.announcementUntilHelp")}
-        slotProps={{ inputLabel: { shrink: true } }}
-      />
-      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-        <Button type="submit" variant="contained" disabled={busy || !text.trim()}>
-          {t("common.save")}
-        </Button>
-        <Button variant="outlined" disabled={busy || (!settings.announcement && !text)} onClick={clear}>
-          {t("server.announcementClear")}
-        </Button>
-      </Box>
-    </Stack>
-  );
-}
-
-type AiLimitKey = keyof typeof AI_LIMIT_MAX;
-const AI_LIMIT_FIELDS: { key: AiLimitKey; label: MessageKey; help: MessageKey; more?: MessageKey }[] = [
-  { key: "aiReportsPerDay", label: "server.aiReports", help: "server.aiReportsHelp" },
-  { key: "aiFollowUpsPerDay", label: "server.aiFollowUps", help: "server.aiFollowUpsHelp" },
-  { key: "aiMonthlyTokens", label: "server.aiTokens", help: "server.aiTokensHelp.short", more: "server.aiTokensHelp" },
-];
-
-/**
- * The AI assistant on this server: its switch (only once the server has its Vertex AI
- * settings) and its three limits, each counted per project.
- */
-function AiSettings({ settings, onSave }: { settings: ServerSettings; onSave: (changes: Partial<ServerSettings>) => Promise<void> }) {
-  const t = useT();
-  const { language } = useApp();
-  // What is typed and not saved yet; the other fields show the server's values, also
-  // after the settings are loaded again.
-  const [typed, setTyped] = useState<Partial<Record<AiLimitKey, string>>>({});
-  const texts = limitTexts(settings, typed);
-  const [busy, setBusy] = useState(false);
-  const values = Object.fromEntries(AI_LIMIT_FIELDS.map(({ key }) => [key, parseLimit(texts[key], AI_LIMIT_MAX[key])])) as Record<AiLimitKey, number | null>;
-  const invalid = AI_LIMIT_FIELDS.some(({ key }) => values[key] === null);
-  const changed = AI_LIMIT_FIELDS.some(({ key }) => values[key] !== null && values[key] !== settings[key]);
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (invalid || !changed) return;
-    setBusy(true);
-    try {
-      await onSave(Object.fromEntries(AI_LIMIT_FIELDS.map(({ key }) => [key, values[key]])) as Partial<ServerSettings>);
-      setTyped({});
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Stack component="form" spacing={2} onSubmit={submit} noValidate aria-labelledby="server-ai">
-      <div>
-        <Typography variant="h3" component="h3" id="server-ai" sx={{ fontSize: "1.1rem", fontWeight: 600 }}>
-          {t("server.aiTitle")}
-        </Typography>
-        <Explain variant="body2" text={t("server.aiIntro.short")} more={t("server.aiIntro")} />
-      </div>
-      <FormControl>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={settings.aiEnabled && settings.aiConfigured}
-              disabled={!settings.aiConfigured}
-              onChange={(e) => void onSave({ aiEnabled: e.target.checked })}
-            />
-          }
-          label={t("server.aiEnabled")}
-        />
-        <FormHelperText sx={{ ml: 0 }}>
-          {settings.aiConfigured ? t("server.aiEnabledHelp") : `${t("server.aiNotSetUp")} ${t("server.aiNotSetUpHelp")}`}
-        </FormHelperText>
-      </FormControl>
-      <Typography variant="body2" color="text.secondary">
-        {t("server.aiLimitsIntro")}
-      </Typography>
-      {AI_LIMIT_FIELDS.map(({ key, label, help, more }) => {
-        const max = formatNumber(AI_LIMIT_MAX[key], language);
-        return (
-          <TextField
-            key={key}
-            label={t(label)}
-            value={texts[key]}
-            onChange={(e) => setTyped({ ...typed, [key]: e.target.value })}
-            error={values[key] === null}
-            helperText={values[key] === null ? t("server.aiLimitInvalid", { max }) : <>{t(help, { max })}{more && <MoreInfo text={t(more, { max })} />}</>}
-            slotProps={{ htmlInput: { inputMode: "numeric" } }}
-          />
-        );
-      })}
-      <div>
-        <Button type="submit" variant="contained" disabled={busy || invalid || !changed}>
-          {t("common.save")}
-        </Button>
-      </div>
-    </Stack>
-  );
-}
+import { linkProps, navigate, pathFor, setLeaveGuard, SERVER_SECTIONS, type ServerSection } from "../router";
+import { serverHealth, type HealthItem } from "../serverView";
+import { clearUnsaved, useUnsavedGroups } from "../unsavedChanges";
+import { ServerSettingsSection } from "./ServerSettings";
 
 /** The assistant's use this month, by project id only (no names, questions or answers). */
 function AiUsageCard() {
@@ -388,26 +171,17 @@ function Stat({ label, value, help }: { label: string; value: string; help?: str
   );
 }
 
-/**
- * The server owner's panel (Task 11): totals only. Projects appear by id with their size;
- * no project names, no people's names, no answers (§4b).
- */
-function OverviewCard({ version }: { version: number }) {
+type Overview = ReturnType<typeof useLoad<ServerOverview>>;
+
+/** A card of the server's figures: its title, and its body once the figures are in. */
+function FiguresCard({ id, title, overview, children }: { id: string; title: string; overview: Overview; children: (o: ServerOverview) => ReactNode }) {
   const t = useT();
   const { language } = useApp();
-  // `version` changes after an account is disabled or enabled: the figures are loaded again.
-  const overview = useLoad(getServerOverview, [version]);
-  const n = (value: number) => formatNumber(value, language);
   const o = overview.data;
-  const subtitle = (id: string, text: string) => (
-    <Typography variant="h3" component="h3" id={id} sx={{ fontSize: "1.1rem", fontWeight: 600, mb: 1 }}>
-      {text}
-    </Typography>
-  );
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="server-overview">
-      <Typography variant="h2" gutterBottom id="server-overview">
-        {t("server.overviewTitle")}
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby={id}>
+      <Typography variant="h2" gutterBottom id={id}>
+        {title}
       </Typography>
       {overview.loading && !o ? (
         <Loading />
@@ -419,6 +193,31 @@ function OverviewCard({ version }: { version: number }) {
             {t("server.overviewIntro.short")} {t("server.asOf", { time: formatDate(o.asOf, language) })}
             <MoreInfo text={t("server.overviewIntro")} />
           </Typography>
+          {children(o)}
+        </Stack>
+      )}
+    </Paper>
+  );
+}
+
+const subtitle = (id: string, text: string) => (
+  <Typography variant="h3" component="h3" id={id} sx={{ fontSize: "1.1rem", fontWeight: 600, mb: 1 }}>
+    {text}
+  </Typography>
+);
+
+/**
+ * The server owner's panel (Task 11), by section: totals only. Projects appear by id with their size; no project
+ * names, no people's names, no answers (§4b). The figures are loaded once for the page (ServerPage).
+ */
+function OverviewFigures({ overview }: { overview: Overview }) {
+  const t = useT();
+  const { language } = useApp();
+  const n = (value: number) => formatNumber(value, language);
+  return (
+    <FiguresCard id="server-overview" title={t("server.overviewTitle")} overview={overview}>
+      {(o) => (
+        <>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <Stat label={t("server.statAccounts")} value={n(o.users.total)} help={t("server.statAccountsHelp", { disabled: n(o.users.disabled), admins: n(o.users.platformAdmins) })} />
@@ -488,6 +287,20 @@ function OverviewCard({ version }: { version: number }) {
             </Grid>
           </Grid>
 
+        </>
+      )}
+    </FiguresCard>
+  );
+}
+
+/** The Projects section's figures: the largest projects, by id. */
+function LargestProjects({ overview }: { overview: Overview }) {
+  const t = useT();
+  const { language } = useApp();
+  return (
+    <FiguresCard id="server-projects-figures" title={t("server.section.projects")} overview={overview}>
+      {(o) => (
+        <>
           <section aria-labelledby="server-largest">
             {subtitle("server-largest", t("server.largestTitle"))}
             <Typography color="text.secondary" variant="body2" sx={{ mb: 1 }}>
@@ -521,6 +334,21 @@ function OverviewCard({ version }: { version: number }) {
             )}
           </section>
 
+        </>
+      )}
+    </FiguresCard>
+  );
+}
+
+/** The System section: the database, the server's version, failed logins and refused requests, late check draws. */
+function SystemFigures({ overview }: { overview: Overview }) {
+  const t = useT();
+  const { language } = useApp();
+  const n = (value: number) => formatNumber(value, language);
+  return (
+    <FiguresCard id="server-system" title={t("server.section.system")} overview={overview}>
+      {(o) => (
+        <>
           <section aria-labelledby="server-database">
             {subtitle("server-database", t("server.databaseTitle"))}
             {o.database.backend === "memory" ? (
@@ -603,86 +431,9 @@ function OverviewCard({ version }: { version: number }) {
               <Explain variant="body2" sx={{ mb: 1 }} text={t("server.lateDrawsHelp.short")} more={t("server.lateDrawsHelp")} />
             )}
           </section>
-        </Stack>
+        </>
       )}
-    </Paper>
-  );
-}
-
-function SettingsCard() {
-  const t = useT();
-  const { refreshInfo } = useApp();
-  const settings = useLoad(getServerSettings, []);
-  const [error, setError] = useState<unknown>(null);
-  const [saved, setSaved] = useState(false);
-
-  const save = async (changes: Partial<ServerSettings>) => {
-    setError(null);
-    setSaved(false);
-    const before = settings.data;
-    if (!before) return;
-    settings.setData({ ...before, ...changes });
-    try {
-      settings.setData(await saveServerSettings(before, changes));
-      setSaved(true);
-      void refreshInfo();
-    } catch (err) {
-      settings.setData(before);
-      setError(err);
-    }
-  };
-
-  return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-      <Typography variant="h2" gutterBottom>
-        {t("server.settings")}
-      </Typography>
-      {settings.loading && !settings.data ? (
-        <Loading />
-      ) : settings.error || !settings.data ? (
-        <ErrorAlert error={settings.error} onRetry={settings.reload} />
-      ) : (
-        <Stack spacing={3}>
-          <FormControl>
-            <FormControlLabel
-              control={<Switch checked={settings.data.signupOpen} onChange={(e) => void save({ signupOpen: e.target.checked })} />}
-              label={t("server.signupOpen")}
-            />
-            <FormHelperText sx={{ ml: 0 }}>{t("server.signupHelp")}</FormHelperText>
-          </FormControl>
-          <FormControl>
-            <FormControlLabel
-              control={<Switch checked={settings.data.twoFactorForCoordinators} onChange={(e) => void save({ twoFactorForCoordinators: e.target.checked })} />}
-              label={t("server.twoFactorRequired")}
-            />
-            <FormHelperText sx={{ ml: 0 }}>
-              {t("server.twoFactorRequiredHelp.short")}
-              <MoreInfo text={t("server.twoFactorRequiredHelp")} />
-            </FormHelperText>
-          </FormControl>
-          <FormControl>
-            <FormLabel id="project-creation">{t("server.projectCreation")}</FormLabel>
-            <RadioGroup
-              aria-labelledby="project-creation"
-              value={settings.data.projectCreation}
-              onChange={(e) => void save({ projectCreation: e.target.value as ProjectCreation })}
-            >
-              <FormControlLabel value="platform-admins" control={<Radio />} label={t("server.creationAdmins")} />
-              <FormControlLabel value="anyone" control={<Radio />} label={t("server.creationAnyone")} />
-            </RadioGroup>
-          </FormControl>
-          <DetailsForm settings={settings.data} onSave={save} />
-          <AnnouncementForm settings={settings.data} onSave={save} />
-          <AiSettings settings={settings.data} onSave={save} />
-          {saved && (
-            <Alert severity="success" role="status">
-              {t("server.saved")}
-            </Alert>
-          )}
-          <ErrorAlert error={error} />
-        </Stack>
-      )}
-    </Paper>
+    </FiguresCard>
   );
 }
 
@@ -964,12 +715,109 @@ function UsersCard({ onAccountChanged }: { onAccountChanged: () => void }) {
 }
 
 /** For the server administrator only: server settings and accounts. */
-export function ServerPage() {
+const SECTION_ICON: Record<ServerSection, ReactNode> = {
+  overview: <Insights />,
+  accounts: <People />,
+  projects: <FolderOpen />,
+  settings: <Tune />,
+  system: <Dns />,
+};
+
+/** The sections' menu: a list beside the page on wide screens, tabs above it on narrow ones. */
+function ServerNav({ section, wide }: { section: ServerSection; wide: boolean }) {
+  const t = useT();
+  if (!wide) {
+    return (
+      <Tabs value={section} variant="scrollable" allowScrollButtonsMobile aria-label={t("server.nav.label")} sx={{ borderBottom: 1, borderColor: "divider" }}>
+        {SERVER_SECTIONS.map((s) => (
+          <Tab key={s} value={s} label={t(`server.section.${s}`)} {...linkProps(pathFor({ name: "server", section: s }))} />
+        ))}
+      </Tabs>
+    );
+  }
+  return (
+    <Box component="nav" aria-label={t("server.nav.label")} sx={{ width: 220, flexShrink: 0, position: "sticky", top: 80 }}>
+      <List disablePadding>
+        {SERVER_SECTIONS.map((s) => (
+          <ListItemButton key={s} selected={s === section} aria-current={s === section ? "page" : undefined}
+            sx={{ borderRadius: 1, mb: 0.5 }} {...linkProps(pathFor({ name: "server", section: s }))}>
+            <ListItemIcon sx={{ minWidth: 36, color: s === section ? "primary.main" : "text.secondary" }}>{SECTION_ICON[s]}</ListItemIcon>
+            <ListItemText primary={t(`server.section.${s}`)} />
+          </ListItemButton>
+        ))}
+      </List>
+    </Box>
+  );
+}
+
+/** "All good", or what needs attention, each a link to the section where it is fixed (serverView.ts). */
+function HealthLine({ alerts, overview, mailReady }: { alerts: OwnerAlert[] | null; overview: ServerOverview | null; mailReady: boolean }) {
+  const t = useT();
+  const { language } = useApp();
+  const items = serverHealth({ alerts, overview, mailReady, now: Date.now() });
+  if (alerts === null || overview === null) return null;
+  const n = (v: number) => formatNumber(v, language);
+  const text = (item: HealthItem) =>
+    item.kind === "alerts" ? t(item.count === 1 ? "server.health.alertsOne" : "server.health.alerts", { count: n(item.count) })
+    : item.kind === "migrations" ? t("server.health.migrations", { count: n(item.count) })
+    : t("server.health.mail");
+  if (items.length === 0) {
+    return <Alert severity="success" icon={<CheckCircleOutline />} data-testid="server-health">{t("server.health.ok")}</Alert>;
+  }
+  return (
+    <Alert severity="warning" data-testid="server-health">
+      <Typography sx={{ fontWeight: 600 }}>
+        {items.length === 1 ? t("server.health.attentionOne") : t("server.health.attention", { count: n(items.length) })}
+      </Typography>
+      <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+        {items.map((item) => (
+          <li key={item.kind}>
+            {text(item)}{" "}
+            <Link {...linkProps(pathFor({ name: "server", section: item.section }))}>{t("server.health.see", { section: t(`server.section.${item.section}`) })}</Link>
+          </li>
+        ))}
+      </Box>
+    </Alert>
+  );
+}
+
+/**
+ * The server administrators' page (only they see it), by section: Overview, Accounts, Projects, Settings, System, each
+ * with its own address. The health line tops every section; leaving with settings changed and not saved asks first.
+ */
+export function ServerPage({ section }: { section: ServerSection }) {
   const t = useT();
   const { me, info } = useApp();
+  const wide = useMediaQuery((theme: Theme) => theme.breakpoints.up("md"));
   // Counts the account changes, so the overview's figures (disabled accounts) follow them.
   const [accountChanges, setAccountChanges] = useState(0);
-  if (!me?.isPlatformAdmin) {
+  const admin = me?.isPlatformAdmin === true;
+  const overview = useLoad(() => (admin ? getServerOverview() : Promise.resolve(null as unknown as ServerOverview)), [accountChanges, admin]);
+  const alerts = useLoad(() => (admin ? getOwnerAlerts() : Promise.resolve({ alerts: [], thresholds: {} })), [admin]);
+  const unsaved = useUnsavedGroups();
+  const [leaving, setLeaving] = useState<string | null>(null);
+
+  // Settings changed and not saved: the browser asks before closing or reloading, the app before moving elsewhere
+  useEffect(() => {
+    if (unsaved.length === 0) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    setLeaveGuard((path) => {
+      setLeaving(path);
+      return false;
+    });
+    return () => {
+      window.removeEventListener("beforeunload", beforeUnload);
+      setLeaveGuard(null);
+    };
+  }, [unsaved.length]);
+  // The groups go when the page goes: nothing is left to warn about elsewhere
+  useEffect(() => () => clearUnsaved(), []);
+
+  if (!admin) {
     return (
       <AppShell>
         <Paper variant="outlined">
@@ -978,6 +826,14 @@ export function ServerPage() {
       </AppShell>
     );
   }
+  const leave = () => {
+    const path = leaving;
+    setLeaving(null);
+    clearUnsaved();
+    setLeaveGuard(null);
+    if (path) navigate(path);
+  };
+
   return (
     <AppShell>
       <Stack spacing={3}>
@@ -987,17 +843,43 @@ export function ServerPage() {
           </Typography>
           <Typography color="text.secondary">{t("server.intro")}</Typography>
         </div>
-        <AlertsCard />
-        <OverviewCard version={accountChanges} />
-        <SettingsCard />
-        <AiUsageCard />
-        <UsersCard onAccountChanged={() => setAccountChanges((n) => n + 1)} />
-        {info.version && (
-          <Typography variant="body2" color="text.secondary">
-            {t("server.version", { version: info.version })}
-          </Typography>
-        )}
+        <Stack direction={wide ? "row" : "column"} spacing={3} sx={{ alignItems: wide ? "flex-start" : "stretch" }}>
+          <ServerNav section={section} wide={wide} />
+          <Stack spacing={3} sx={{ flex: 1, minWidth: 0 }} component="main" aria-label={t(`server.section.${section}`)}>
+            <HealthLine alerts={alerts.data?.alerts ?? null} overview={overview.data ?? null} mailReady={info.selfServiceReset === true} />
+            {section === "overview" && (
+              <>
+                <AlertsCard />
+                <OverviewFigures overview={overview} />
+              </>
+            )}
+            {section === "accounts" && <UsersCard onAccountChanged={() => setAccountChanges((n) => n + 1)} />}
+            {section === "projects" && (
+              <>
+                <LargestProjects overview={overview} />
+                <AiUsageCard />
+              </>
+            )}
+            {section === "settings" && <ServerSettingsSection />}
+            {section === "system" && <SystemFigures overview={overview} />}
+            {info.version && (
+              <Typography variant="body2" color="text.secondary">
+                {t("server.version", { version: info.version })}
+              </Typography>
+            )}
+          </Stack>
+        </Stack>
       </Stack>
+      <Dialog open={leaving !== null} onClose={() => setLeaving(null)} aria-labelledby="server-leave-title">
+        <DialogTitle id="server-leave-title">{t("server.leaveTitle")}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{t("server.leaveText", { groups: unsaved.join(", ") })}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLeaving(null)} autoFocus>{t("server.leaveStay")}</Button>
+          <Button color="error" onClick={leave}>{t("server.leaveGo")}</Button>
+        </DialogActions>
+      </Dialog>
     </AppShell>
   );
 }
