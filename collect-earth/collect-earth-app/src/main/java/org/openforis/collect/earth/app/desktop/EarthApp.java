@@ -111,6 +111,9 @@ public class EarthApp {
 
 			// collectEarth.userFolder is set in the static block above, before the first logger of this class is created
 
+			// Before anything loads JNA (the protection of the cloud token below, the window icons)
+			JnaDispatchLibrary.useCopyIn(new File(FolderFinder.getCollectEarthDataFolder()));
+
 			// The system's look for the Swing that is left (the file chooser of the pages, the messages shown when there is
 			// no page): a native-looking file dialog on Windows and macOS
 			try {
