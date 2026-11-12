@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
 import { attachment } from '../download.js';
-import { ipccPlots, ipccSurvey, matrixSheets, perPlotCsv, strataMatrixSheets, type IpccPlot, type IpccSurvey } from '../ipcc.js';
+import { ipccPlots, ipccSurvey, landUnitsCsv, matrixSheets, perPlotCsv, strataMatrixSheets, type IpccPlot, type IpccSurvey } from '../ipcc.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { ProjectStateCache } from '../projectState.js';
 import { recordResolver } from '../quality.js';
@@ -17,6 +17,7 @@ const FILES: Record<string, { name: string; type: string; make: (survey: IpccSur
   matrix: { name: 'LU_Matrixes.xlsx', type: XLSX, make: (s, p) => xlsxOf(matrixSheets(s, p)) },
   'matrix-strata': { name: 'LU_Matrixes_stratified.xlsx', type: XLSX, make: (s, p) => xlsxOf(strataMatrixSheets(s, p)) },
   plots: { name: 'LU_Timeseries_per_plot.csv', type: CSV, make: perPlotCsv },
+  'land-units': { name: 'LU_Timeseries_grouped.csv', type: CSV, make: landUnitsCsv },
 };
 
 /**

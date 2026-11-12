@@ -4,7 +4,7 @@ import { strFromU8, unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { analysisModel } from '../src/analysis.js';
 import { readCep, readZip, zipCep } from '../src/cep.js';
-import { IPCC_END_YEAR, IPCC_START_YEAR, ipccPlots, ipccSurvey, matrixSheets, perPlotCsv, strataMatrixSheets, type IpccPlot } from '../src/ipcc.js';
+import { IPCC_END_YEAR, IPCC_START_YEAR, ipccPlots, ipccSurvey, landUnitsCsv, matrixSheets, perPlotCsv, strataMatrixSheets, type IpccPlot } from '../src/ipcc.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 import { demoCep, FIXTURE_DATE } from './fixtures/cep.js';
 
@@ -123,8 +123,9 @@ describe("the desktop's exporters on the same plots", () => {
     expect(strataMatrixSheets(survey, plots)).toEqual(JSON.parse(desktop('LU_Matrixes_stratified.json')));
   });
 
-  it('give the same land uses of each plot', () => {
+  it('give the same land uses of each plot and land units', () => {
     expect(perPlotCsv(survey, plots)).toBe(trimmedHeader(desktop('LU_Timeseries_per_plot.csv')));
+    expect(landUnitsCsv(survey, plots)).toBe(trimmedHeader(desktop('LU_Timeseries_grouped.csv')));
   });
 
 });
@@ -175,8 +176,9 @@ describe('the IPCC export routes', () => {
     const csv = await get('/plots');
     expect(csv.headers['content-type']).toBe('text/csv; charset=utf-8');
     expect(csv.body.split('\n').slice(1, 3).map((l) => l.slice(0, 25))).toEqual(['"9004","CTD","HAC","TAwb"', '"9001","CTD","HAC","TAwb"']);
+    expect((await get('/land-units')).body).toMatch(/^"land_unit_id",.*\n"LU_0001",.*"500\.0"\n"LU_0002",.*"500\.0"\n$/);
     const log = await ctx.store.listAudit(pid, { limit: 10, action: 'export.downloaded' });
-    expect(log.map((e) => e.details.file)).toEqual(['plots', 'matrix-strata', 'matrix']);
-    expect(log[0].details).toEqual({ kind: 'ipcc', file: 'plots', plots: 2 });
+    expect(log.map((e) => e.details.file)).toEqual(['land-units', 'plots', 'matrix-strata', 'matrix']);
+    expect(log[0].details).toEqual({ kind: 'ipcc', file: 'land-units', plots: 2 });
   });
 });

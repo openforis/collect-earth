@@ -334,3 +334,23 @@ export function perPlotCsv(survey: IpccSurvey, plots: readonly IpccPlot[]): stri
   const rows = [...plots].sort((a, b) => compare(b.id, a.id)).map((p) => [p.id, ...plotCells(survey, p), areaText(p.area)]);
   return csvOf([['id', ...STRATA_COLUMNS, ...YEAR_COLUMNS, 'area'], ...rows]);
 }
+
+/**
+ * LU_Timeseries_grouped.csv (IPCCDataExportLandUnitsCSV): the land units, the plots of the same strata and land uses in
+ * every year together, the largest first, numbered LU_0001 on.
+ */
+export function landUnitsCsv(survey: IpccSurvey, plots: readonly IpccPlot[]): string {
+  const units = new Map<string, { cells: string[]; area: number | null }>();
+  for (const p of plots) {
+    const cells = plotCells(survey, p);
+    const key = cells.join('\u0000');
+    let unit = units.get(key);
+    if (!unit) units.set(key, (unit = { cells, area: null }));
+    // SQL's sum: the plots without an area left out, null when none has one
+    if (p.area !== null) unit.area = (unit.area ?? 0) + p.area;
+  }
+  const rows = [...units.values()]
+    .sort((a, b) => (b.area ?? -1) - (a.area ?? -1))
+    .map((u, i) => [`LU_${String(i + 1).padStart(4, '0')}`, ...u.cells, areaText(u.area)]);
+  return csvOf([['land_unit_id', ...STRATA_COLUMNS, ...YEAR_COLUMNS, 'area'], ...rows]);
+}
