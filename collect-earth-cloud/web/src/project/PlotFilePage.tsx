@@ -355,8 +355,10 @@ function DivideForm({
                     slotProps={{ htmlInput: { min: 0, max: 100, inputMode: "numeric" } }}
                   />
                 ))}
-              <Typography variant="body2" color={percentTotal(form) === 100 ? "text.secondary" : "warning.main"} role="status">
+              <Typography variant="body2" color={percentTotal(form) > 0 && percentTotal(form) <= 100 ? "text.secondary" : "warning.main"} role="status">
                 {t("divide.percentsTotal", { total: formatNumber(percentTotal(form), language) })}
+                {/* Under 100: the rest waits, given to nobody, for the people who start later */}
+                {percentTotal(form) > 0 && percentTotal(form) < 100 && <> {t("divide.percentsRest", { rest: formatNumber(100 - percentTotal(form), language) })}</>}
               </Typography>
             </Stack>
           )}

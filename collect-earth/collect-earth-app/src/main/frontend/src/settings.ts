@@ -185,13 +185,19 @@ export function plotFileLocked(info: SettingsInfo | null | undefined, values: Va
 /** The section of the plot design (SettingsModel.PLOT) */
 export const PLOT_SECTION = "plot";
 
+/** The section of the imagery windows (SettingsModel.IMAGERY), and its one setting that stays each person's own */
+export const IMAGERY_SECTION = "imagery";
+const PLANET_KEY = "planet_maps_key";
+
 /**
  * The fields of a section only shown, not changed, here: in a cloud project the plots file (chosen among the assigned
- * ones) and the whole plot design, which its coordinator sets in the project file (SettingsService refuses a change).
+ * ones), the whole plot design and the imagery windows but the Planet key, which its coordinator sets in the project
+ * file (SettingsService refuses a change; SettingsModel.coordinatorsSection).
  */
 export function lockedFields(section: Section, info: SettingsInfo | null | undefined, values: Values): string[] {
   if (!plotFileLocked(info, values)) return [];
   if (section.id === PLOT_SECTION) return section.fields.map((f) => f.key);
+  if (section.id === IMAGERY_SECTION) return section.fields.filter((f) => f.key !== PLANET_KEY).map((f) => f.key);
   return section.fields.filter((f) => f.key === PLOT_FILE).map((f) => f.key);
 }
 

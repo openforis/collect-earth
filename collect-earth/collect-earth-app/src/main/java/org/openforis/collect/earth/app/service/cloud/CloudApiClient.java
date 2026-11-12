@@ -584,12 +584,24 @@ public class CloudApiClient {
 	 * the settings of Settings > Plot it has, by property name.
 	 */
 	public Map<String, String> getPlotLayout() throws IOException {
-		HttpGet request = new HttpGet(baseUrl() + "/v1/projects/" + projectId() + "/plot-layout");
+		return getProjectSettings("getPlotLayout", "plot-layout", "layout");
+	}
+
+	/**
+	 * The imagery windows of the project file on the server (GET /imagery), as the coordinator set them on the dashboard:
+	 * the settings of Settings > Imagery it has but the Planet key, by property name.
+	 */
+	public Map<String, String> getImagery() throws IOException {
+		return getProjectSettings("getImagery", "imagery", "imagery");
+	}
+
+	private Map<String, String> getProjectSettings(String what, String path, String field) throws IOException {
+		HttpGet request = new HttpGet(baseUrl() + "/v1/projects/" + projectId() + "/" + path);
 		prepare(request);
-		JsonNode layout = executeForJson("getPlotLayout", request).get("layout");
+		JsonNode values = executeForJson(what, request).get(field);
 		Map<String, String> result = new LinkedHashMap<>();
-		if (layout != null && layout.isObject()) {
-			layout.fields().forEachRemaining(field -> result.put(field.getKey(), field.getValue().asText()));
+		if (values != null && values.isObject()) {
+			values.fields().forEachRemaining(entry -> result.put(entry.getKey(), entry.getValue().asText()));
 		}
 		return result;
 	}

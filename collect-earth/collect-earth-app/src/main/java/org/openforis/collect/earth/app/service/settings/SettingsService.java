@@ -137,18 +137,13 @@ public class SettingsService {
 	}
 
 	private boolean isCoordinators(Setting setting) {
-		for (Section section : getModel().sections()) {
-			if (SettingsModel.PLOT.equals(section.getId())) {
-				return section.getSettings().contains(setting);
-			}
-		}
-		return false;
+		return getModel().coordinatorsSection(setting) != null;
 	}
 
 	/**
-	 * In a cloud project the settings of the plot section (the shape and size of the plot, its reference area) are set by
-	 * its coordinator: a change to one is refused at it. Their rules are not run on the values kept, which are not the
-	 * collector's to correct.
+	 * In a cloud project the settings of the plot section (the shape and size of the plot, its reference area) and of the
+	 * imagery section but the Planet key (the windows opened beside each plot) are set by its coordinator: a change to one
+	 * is refused at it. Their rules are not run on the values kept, which are not the collector's to correct.
 	 */
 	private void refuseCoordinatorsSettings(Map<String, String> current, Map<String, String> given, Map<String, String> merged, Validation validation) {
 		if (!inCloudProject(merged)) {
@@ -161,7 +156,7 @@ public class SettingsService {
 			String key = setting.key();
 			boolean changed = given != null && given.containsKey(key)
 					&& !StringUtils.trimToEmpty(given.get(key)).equals(StringUtils.trimToEmpty(current.get(key)));
-			validation.replaceError(key, changed ? Messages.getString("SettingsPage.plot.cloudLocked") : null);
+			validation.replaceError(key, changed ? Messages.getString("SettingsPage." + getModel().coordinatorsSection(setting) + ".cloudLocked") : null); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 	}
 
@@ -186,7 +181,7 @@ public class SettingsService {
 		boolean restartNeeded = false;
 		for (Setting setting : getModel().settings()) {
 			String key = setting.key();
-			// Nothing of the coordinator's plot design is written in a cloud project, a blank of a hidden one neither
+			// Nothing of the coordinator's plot design or imagery windows is written in a cloud project, a blank of a hidden one neither
 			if (coordinatorsKept && isCoordinators(setting)) {
 				continue;
 			}

@@ -76,6 +76,8 @@ describe('cross-tenant isolation', () => {
       { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/round`, payload: { reassessmentCode: null } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/plot-layout` },
       { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/plot-layout`, payload: { sample_shape: 'CIRCLE' } },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/imagery` },
+      { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/imagery`, payload: { open_earth_map: 'true' } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/members` },
       { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/members/someone`, payload: { role: 'operator' } },
       { method: 'DELETE' as const, url: `/v1/projects/${b.projectId}/members/someone` },

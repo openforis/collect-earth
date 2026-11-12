@@ -1604,6 +1604,16 @@ export function setPlotLayout(projectId: string, changes: Record<string, string>
   return request<{ layout: Record<string, string> }>("PUT", `${p(projectId)}/plot-layout`, { json: changes });
 }
 
+/** The imagery window keys the project file has (Collect Earth's Settings > Imagery, without the Planet key). */
+export function getImagery(projectId: string): Promise<{ imagery: Record<string, string> }> {
+  return request<{ imagery: Record<string, string> }>("GET", `${p(projectId)}/imagery`);
+}
+
+/** Writes the changed imagery window settings into the project file; answers them as they are now. */
+export function setImagery(projectId: string, changes: Record<string, string>): Promise<{ imagery: Record<string, string> }> {
+  return request<{ imagery: Record<string, string> }>("PUT", `${p(projectId)}/imagery`, { json: changes });
+}
+
 /** Which code of the survey's own round marks re-assessments (null: none). */
 export async function setReassessmentCode(projectId: string, reassessmentCode: string | null): Promise<RoundInfo | null> {
   return toRoundInfo(await request<unknown>("PUT", `${p(projectId)}/round`, { json: { reassessmentCode } }));

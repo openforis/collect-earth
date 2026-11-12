@@ -25,7 +25,7 @@ import { ApiError } from "../../apiClient";
 import { errorText } from "../../appBar";
 import { useT } from "../../i18n";
 import {
-  changeCount, changes, defaultsOf, formatText, isChanged, isVisible, lockedFields, PLOT_FILE, PLOT_SECTION, plotFileLocked, proposeReferenceDistance, restartNeeded, sectionsMatching,
+  changeCount, changes, defaultsOf, formatText, IMAGERY_SECTION, isChanged, isVisible, lockedFields, PLOT_FILE, PLOT_SECTION, plotFileLocked, proposeReferenceDistance, restartNeeded, sectionsMatching,
   type Field, type SampleFileCheck, type Section, type Settings, type Validation, type Values,
 } from "../../settings";
 import {
@@ -219,6 +219,9 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
         {section.hint && !searching && <Typography variant="body2" color="text.secondary">{s(section.hint)}</Typography>}
         {plotDesignLocked && section.id === PLOT_SECTION && (
           <Alert severity="info" data-testid="plot-design-locked">{s("SettingsPage.plot.cloudLocked")}</Alert>
+        )}
+        {plotDesignLocked && section.id === IMAGERY_SECTION && (
+          <Alert severity="info" data-testid="imagery-locked">{s("SettingsPage.imagery.cloudLocked")}</Alert>
         )}
         {section.id === "plot" && !searching ? (
           <Stack direction={wide ? "row" : "column"} spacing={3}>

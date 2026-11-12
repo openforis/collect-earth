@@ -134,7 +134,10 @@ function percent(form: DivisionForm): number | null {
   return text !== "" && Number.isInteger(n) && n >= MIN_OVERLAP_PERCENT && n <= MAX_OVERLAP_PERCENT ? n : null;
 }
 
-/** Each ticked person's percent, when every one is a whole number from 0 to 100 and they add up to 100; else null. */
+/**
+ * Each ticked person's percent, when every one is a whole number from 0 to 100 and they add up to more than 0 and at
+ * most 100 (under 100, the rest of the plots is given to nobody until the file is divided again); else null.
+ */
 function percentsOf(form: DivisionForm): number[] | null {
   const values = form.people.map((id) => {
     const text = (form.percents[id] ?? "").trim();
@@ -142,7 +145,8 @@ function percentsOf(form: DivisionForm): number[] | null {
     return text !== "" && Number.isInteger(n) && n >= 0 && n <= 100 ? n : null;
   });
   if (values.some((v) => v === null)) return null;
-  return percentTotal(form) === 100 ? (values as number[]) : null;
+  const total = percentTotal(form);
+  return total > 0 && total <= 100 ? (values as number[]) : null;
 }
 
 /** What the ticked people's percents add up to, the ones not typed as 0. */

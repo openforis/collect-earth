@@ -24,6 +24,7 @@ import { FileDrop } from "../components/FileDrop";
 import { Loading } from "../components/Loading";
 import { formatBytes, formatDate } from "../format";
 import { CATALOGUES, useT, type MessageKey } from "../i18n";
+import { ImageryCard } from "./ImageryCard";
 import { PlotLayoutCard } from "./PlotLayoutCard";
 import { noteMessage, originalFileName, roundCodeLabel, roundMessage } from "../roundText";
 import { saveBlob } from "../saveBlob";
@@ -285,6 +286,7 @@ export function FileTab({ projectId }: { projectId: string }) {
 
       {/* Read again after an upload: the new file brings its own layout. */}
       {cep && <PlotLayoutCard key={uploads} projectId={projectId} />}
+      {cep && <ImageryCard key={`imagery${uploads}`} projectId={projectId} />}
 
       <FileDrop
         label={t("file.drop")}

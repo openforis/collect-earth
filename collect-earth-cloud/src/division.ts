@@ -112,9 +112,11 @@ export function parseDivisionRequest(
       percents.length !== (b.people as unknown[]).length ||
       list.length !== percents.length ||
       !percents.every((p) => typeof p === 'number' && Number.isFinite(p) && p >= 0 && p <= 100) ||
-      Math.abs((percents as number[]).reduce((sum, p) => sum + p, 0) - 100) > 1e-6
+      // Up to 100: under it, the rest of the plots is given to nobody, to share later (people who join later)
+      (percents as number[]).reduce((sum, p) => sum + p, 0) > 100 + 1e-6 ||
+      (percents as number[]).reduce((sum, p) => sum + p, 0) <= 0
     ) {
-      return { reason: 'percents needs one percent from 0 to 100 for each person (no one twice), adding up to 100' };
+      return { reason: 'percents needs one percent from 0 to 100 for each person (no one twice), adding up to more than 0 and at most 100' };
     }
     return { mode: 'even', people: list, percents: percents as number[], ...extra };
   }
@@ -207,7 +209,8 @@ export function shareSizes(pinned: readonly number[], free: number): number[] {
 
 /**
  * Like shareSizes, by percent: person i ends up with percents[i] of all the plots (pinned and
- * free), rounded by largest remainder (ties to the earlier person). When someone already holds
+ * free), rounded by largest remainder (ties to the earlier person). Percents adding up to less
+ * than 100 leave the rest to nobody (rounded so that the shares add up to that part of the plots). When someone already holds
  * more than their share, the others give up the difference, the one most over their exact
  * share first (ties: the later person).
  */
@@ -215,7 +218,8 @@ export function percentSizes(pinned: readonly number[], free: number, percents: 
   const total = free + pinned.reduce((sum, p) => sum + p, 0);
   const ideal = percents.map((p) => (p * total) / 100);
   const target = ideal.map((x) => Math.floor(x + 1e-9));
-  let left = total - target.reduce((sum, t) => sum + t, 0);
+  const shared = Math.min(total, Math.round(ideal.reduce((sum, x) => sum + x, 0)));
+  let left = shared - target.reduce((sum, t) => sum + t, 0);
   const byFraction = ideal.map((_, i) => i).sort((a, b) => ideal[b] - target[b] - (ideal[a] - target[a]) || a - b);
   for (const i of byFraction) {
     if (left <= 0) break;
@@ -308,6 +312,10 @@ function deal(
     if (j < n) {
       lists[j].push(plot);
       extra[j] -= 1;
+      continue;
+    }
+    // Nobody has room left (percents adding up to less than 100): the plot is given to nobody
+    if (!extra.some((e) => e > 0)) {
       continue;
     }
     // Everyone with room checked it: the one who did not with the fewest plots.

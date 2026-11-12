@@ -29,13 +29,30 @@ describe('divide by percent', () => {
     expect(plots.filter((p) => p.userId === 'a').map((p) => p.plotKey)).toEqual(['1', '2', '3', '4', '5', '6', '7']);
     expect(plots.filter((p) => p.userId === 'b').map((p) => p.plotKey)).toEqual(['8', '9', '10']);
   });
+
+  it('leaves the rest to nobody when the percents add up to less than 100 (people who join later)', () => {
+    // 10% to the one person here now: 2 of 20 plots, the first of the list; 18 given to nobody
+    const one = divide({ mode: 'even', people: ['a'], percents: [10], order: 'file', overlapPercent: 0 }, ids(20), null, new Map());
+    expect(one.map((p) => [p.plotKey, p.userId])).toEqual([['1', 'a'], ['2', 'a']]);
+    // 30 + 20 of 10 plots: 3 and 2, the other 5 to nobody
+    const two = divide({ mode: 'even', people: ['a', 'b'], percents: [30, 20], order: 'file', overlapPercent: 0 }, ids(10), null, new Map());
+    expect(two.filter((p) => p.userId === 'a').map((p) => p.plotKey)).toEqual(['1', '2', '3']);
+    expect(two.filter((p) => p.userId === 'b').map((p) => p.plotKey)).toEqual(['4', '5']);
+    expect(percentSizes([0], 20, [10])).toEqual([2]);
+    // A plot already submitted counts in the share: 1 more to reach 10% of 20
+    expect(percentSizes([1], 19, [10])).toEqual([1]);
+  });
 });
 
 describe('parseDivisionRequest: percents', () => {
   const parse = (body: unknown) => parseDivisionRequest(body, new Set(['a', 'b']), 5, () => 7);
-  it('takes one percent per person adding up to 100', () => {
+  it('takes one percent per person adding up to more than 0 and at most 100', () => {
     expect(parse({ mode: 'even', people: ['a', 'b'], percents: [60, 40] })).toEqual({ mode: 'even', people: ['a', 'b'], percents: [60, 40], order: 'file', overlapPercent: 0 });
-    expect(parse({ mode: 'even', people: ['a', 'b'], percents: [60, 30] })).toHaveProperty('reason');
+    // Under 100: the rest is given to nobody
+    expect(parse({ mode: 'even', people: ['a', 'b'], percents: [60, 30] })).toEqual({ mode: 'even', people: ['a', 'b'], percents: [60, 30], order: 'file', overlapPercent: 0 });
+    expect(parse({ mode: 'even', people: ['a'], percents: [10] })).toEqual({ mode: 'even', people: ['a'], percents: [10], order: 'file', overlapPercent: 0 });
+    expect(parse({ mode: 'even', people: ['a', 'b'], percents: [60, 50] })).toHaveProperty('reason');
+    expect(parse({ mode: 'even', people: ['a', 'b'], percents: [0, 0] })).toHaveProperty('reason');
     expect(parse({ mode: 'even', people: ['a', 'b'], percents: [100] })).toHaveProperty('reason');
     expect(parse({ mode: 'even', people: ['a', 'b'], percents: [120, -20] })).toHaveProperty('reason');
     expect(parse({ mode: 'even', people: ['a', 'a'], percents: [50, 50] })).toHaveProperty('reason');

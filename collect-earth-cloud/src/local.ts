@@ -100,9 +100,11 @@ export const LOCAL_OFF_ROUTES: readonly string[] = [
   'DELETE /v1/projects/:pid',
   'PUT /v1/projects/:pid/status',
   'POST /v1/projects/:pid/copy',
-  // The plot layout: alone, the person changes it in Collect Earth's settings.
+  // The plot layout and the imagery windows: alone, the person changes them in Collect Earth's settings.
   'GET /v1/projects/:pid/plot-layout',
   'PUT /v1/projects/:pid/plot-layout',
+  'GET /v1/projects/:pid/imagery',
+  'PUT /v1/projects/:pid/imagery',
   // Invitations and members.
   'POST /v1/projects/:pid/invites',
   'GET /v1/projects/:pid/invites',

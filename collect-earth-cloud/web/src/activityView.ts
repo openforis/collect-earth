@@ -72,6 +72,7 @@ const SETTING_KEYS: Record<string, MessageKey> = {
   progress: "activity.setting.progress",
   sampling: "activity.setting.sampling",
   plotLayout: "activity.setting.plotLayout",
+  imagery: "activity.setting.imagery",
 };
 
 const EXPORT_KEYS: Record<string, MessageKey> = {

@@ -281,10 +281,15 @@ describe("evenly by percent", () => {
     expect(toRequest({ ...even, byPercent: false }, columns)).not.toHaveProperty("percents");
   });
 
-  it("needs whole numbers adding up to 100", () => {
-    expect(formProblem({ ...even, percents: { u1: "70", u2: "20" } }, columns)).toBe("divide.problemPercents");
+  it("needs whole numbers adding up to more than 0 and at most 100", () => {
+    // Under 100: the rest of the plots is given to nobody until the file is divided again
+    expect(formProblem({ ...even, percents: { u1: "10", u2: "0" } }, columns)).toBeNull();
+    expect(toRequest({ ...even, percents: { u1: "10", u2: "0" } }, columns)).toMatchObject({ percents: [10, 0] });
+    expect(formProblem({ ...even, percents: { u1: "70", u2: "40" } }, columns)).toBe("divide.problemPercents");
+    expect(formProblem({ ...even, percents: { u1: "0", u2: "0" } }, columns)).toBe("divide.problemPercents");
     expect(formProblem({ ...even, percents: { u1: "70.5", u2: "29.5" } }, columns)).toBe("divide.problemPercents");
     expect(formProblem({ ...even, percents: { u1: "100" } }, columns)).toBe("divide.problemPercents");
     expect(t("divide.percentsTotal", { total: "90" })).toContain("90");
+    expect(t("divide.percentsRest", { rest: "90" })).toContain("90");
   });
 });
