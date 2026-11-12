@@ -110,11 +110,16 @@ export function checkPlotLayout(body: unknown, current: PlotLayout): { changes: 
   return { changes };
 }
 
+/** A value as a .properties line holds it: backslashes doubled, a leading space kept, anything but printable ASCII as \uXXXX (so no line break gets in). */
+const escapeValue = (value: string): string =>
+  value.replace(/\\/g, '\\\\').replace(/^ /, '\\ ').replace(/[^\x20-\x7e]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+
 /**
- * project_definition.properties (its bytes) with `changes` written: a key's line keeps its key and
- * separator and gets the new value; a key it lacks is added at the end. Every other byte stays.
+ * project_definition.properties (its bytes) with `changes` written (the plot layout, the imagery windows): a
+ * key's line keeps its key and separator and gets the new value; a key it lacks is added at the end. Every
+ * other byte stays.
  */
-export function rewritePlotLayout(data: Buffer, changes: PlotLayout): Buffer {
+export function rewriteProperties(data: Buffer, changes: Readonly<Record<string, string | undefined>>): Buffer {
   // latin1: one character per byte, so the bytes not rewritten come back as they were whatever their encoding
   const text = data.toString('latin1');
   const newline = text.includes('\r\n') ? '\r\n' : '\n';
@@ -127,7 +132,7 @@ export function rewritePlotLayout(data: Buffer, changes: PlotLayout): Buffer {
     const body = line.slice(0, line.length - ending.length);
     const m = /^([ \t\f]*)((?:[^\\=: \t\f]|\\.)+)([ \t\f]*[=:]?[ \t\f]*)/.exec(body);
     const key = m && !m[2].startsWith('#') && !m[2].startsWith('!') ? m[2] : null;
-    if (key === null || !isKey(key) || changes[key] === undefined) {
+    if (key === null || !Object.hasOwn(changes, key) || changes[key] === undefined) {
       out.push(line);
       continue;
     }
@@ -135,14 +140,14 @@ export function rewritePlotLayout(data: Buffer, changes: PlotLayout): Buffer {
     let last = line;
     while (/(^|[^\\])(\\\\)*\\$/.test(last.replace(/\r?\n$/, '')) && i + 1 < lines.length) last = lines[++i];
     const lastEnding = /\r?\n$/.exec(last)?.[0] ?? '';
-    out.push(`${m![1]}${key}${m![3] || '='}${changes[key]}${lastEnding}`);
+    out.push(`${m![1]}${key}${m![3] || '='}${escapeValue(changes[key]!)}${lastEnding}`);
     written.add(key);
   }
   let result = out.join('');
-  for (const key of PLOT_LAYOUT_KEYS) {
-    if (changes[key] === undefined || written.has(key)) continue;
+  for (const [key, value] of Object.entries(changes)) {
+    if (value === undefined || written.has(key)) continue;
     if (result !== '' && !result.endsWith('\n')) result += newline;
-    result += `${key}=${changes[key]}${newline}`;
+    result += `${key}=${escapeValue(value)}${newline}`;
   }
   return Buffer.from(result, 'latin1');
 }

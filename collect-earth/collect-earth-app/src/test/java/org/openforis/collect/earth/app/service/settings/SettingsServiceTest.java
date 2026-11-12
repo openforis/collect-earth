@@ -237,6 +237,28 @@ public class SettingsServiceTest {
 	}
 
 	@Test
+	public void inACloudProjectTheImageryWindowsAreTheCoordinatorsButThePlanetKey() throws Exception {
+		aCloudProject();
+		String locked = Messages.getString("SettingsPage.imagery.cloudLocked");
+		Map<String, String> changes = new HashMap<>();
+		changes.put("open_earth_map", "true");
+		changes.put("extra_map_url", "https://example.org/?lat=LATITUDE&lon=LONGITUDE");
+		InvalidSettingsException refused = assertThrows(InvalidSettingsException.class, () -> service.save(changes));
+		assertEquals(locked, refused.getErrors().get("open_earth_map"));
+		assertEquals(locked, refused.getErrors().get("extra_map_url"));
+		verify(properties, never()).setValues(anyMap());
+		// The Planet key is the collector's own Planet account
+		assertFalse(service.save(Collections.singletonMap("planet_maps_key", "PLAK123")));
+		verify(properties).setValues(Collections.singletonMap("planet_maps_key", "PLAK123"));
+	}
+
+	@Test
+	public void inALocalProjectTheImageryWindowsAreSaved() throws Exception {
+		assertFalse(service.save(Collections.singletonMap("open_earth_map", "true")));
+		verify(properties).setValues(Collections.singletonMap("open_earth_map", "true"));
+	}
+
+	@Test
 	public void leavingTheCloudProjectOrALocalOneChangesThePlotDesign() throws Exception {
 		Map<String, String> changes = new HashMap<>();
 		changes.put("number_of_sampling_points_in_plot", "4");

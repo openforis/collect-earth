@@ -1,20 +1,20 @@
 import { strFromU8, unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { checkPlotLayout, minimumReferenceDistance, rewritePlotLayout } from '../src/plotLayout.js';
+import { checkPlotLayout, minimumReferenceDistance, rewriteProperties } from '../src/plotLayout.js';
 import { demoCep, idOnlyCep } from './fixtures/cep.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
 
 const propertiesOf = (zip: Buffer) => strFromU8(unzipSync(zip)['project_definition.properties']);
 
-describe('rewritePlotLayout', () => {
+describe('rewriteProperties', () => {
   it('changes only the values of the keys given, keeping every other byte and the line endings', () => {
     const text = '#comment\r\nsample_shape = SQUARE\r\nextra_map_url=http\\://x\\#PLOT_ID\r\nnumber_of_sampling_points_in_plot:25\r\nname=Ça va\r\n';
-    const out = rewritePlotLayout(Buffer.from(text, 'utf8'), { sample_shape: 'CIRCLE', number_of_sampling_points_in_plot: '9' });
+    const out = rewriteProperties(Buffer.from(text, 'utf8'), { sample_shape: 'CIRCLE', number_of_sampling_points_in_plot: '9' });
     expect(out.toString('utf8')).toBe('#comment\r\nsample_shape = CIRCLE\r\nextra_map_url=http\\://x\\#PLOT_ID\r\nnumber_of_sampling_points_in_plot:9\r\nname=Ça va\r\n');
   });
 
   it('adds a key the file lacks at the end, leaves comments alone and replaces a continued value whole', () => {
-    const out = rewritePlotLayout(Buffer.from('#sample_shape=SQUARE\ndistance_to_buffers=100,\\\n  200\na=b', 'utf8'), { sample_shape: 'HEXAGON', distance_to_buffers: '150' });
+    const out = rewriteProperties(Buffer.from('#sample_shape=SQUARE\ndistance_to_buffers=100,\\\n  200\na=b', 'utf8'), { sample_shape: 'HEXAGON', distance_to_buffers: '150' });
     expect(out.toString('utf8')).toBe('#sample_shape=SQUARE\ndistance_to_buffers=150\na=b\nsample_shape=HEXAGON\n');
   });
 });

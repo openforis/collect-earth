@@ -84,6 +84,32 @@ public final class SettingsModel {
 		return byKey.get(key);
 	}
 
+	/**
+	 * The section (PLOT or IMAGERY) of a setting a cloud project's coordinator sets in the project file, or null for the
+	 * collector's own: the plot design, and the imagery windows but the Planet key, which is each person's Planet account.
+	 */
+	public String coordinatorsSection(Setting setting) {
+		for (Section section : sections) {
+			boolean coordinators = PLOT.equals(section.getId())
+					|| IMAGERY.equals(section.getId()) && setting.getProperty() != EarthProperty.PLANET_MAPS_KEY;
+			if (coordinators && section.getSettings().contains(setting)) {
+				return section.getId();
+			}
+		}
+		return null;
+	}
+
+	/** The properties of the coordinator's settings of the section (PLOT or IMAGERY), see coordinatorsSection. */
+	public List<EarthProperty> coordinatorsProperties(String sectionId) {
+		List<EarthProperty> list = new ArrayList<>();
+		for (Setting setting : settings()) {
+			if (sectionId.equals(coordinatorsSection(setting))) {
+				list.add(setting.getProperty());
+			}
+		}
+		return list;
+	}
+
 	public List<Map<String, Object>> toJson() {
 		List<Map<String, Object>> json = new ArrayList<>();
 		for (Section section : sections) {
