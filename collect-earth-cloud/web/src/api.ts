@@ -2739,7 +2739,7 @@ export function toProgressData(body: unknown): ProgressData {
       targetFrom: f.targetFrom === "setting" ? "setting" : "assigned",
       remaining: toCount(f.remaining),
       pacePerDay: toNumberOrNull(f.pacePerDay) ?? 0,
-      paceDays: toCount(f.paceDays) || 14,
+      paceDays: toCount(f.paceDays) || 7,
       daysLeft: toNumberOrNull(f.daysLeft),
       endDate: toDate(f.endDate),
       deadline: toDate(f.deadline),
