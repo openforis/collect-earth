@@ -1119,18 +1119,18 @@ describe("the Collect Earth backup", () => {
 
   it("asks for a download link; refusals are told as such", async () => {
     fetchMock.mockResolvedValue(jsonResponse(200, { url: "/v1/collect-backup/abc.def", expiresAt: 60_000 }));
-    expect(await getBackupLink("p1", "all")).toEqual({ url: "/v1/collect-backup/abc.def", expiresAt: 60_000 });
+    expect(await getBackupLink("p1", "all", "collect")).toEqual({ url: "/v1/collect-backup/abc.def", expiresAt: 60_000 });
     expect(url()).toBe("/v1/projects/p1/exports/collect-backup/link");
-    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST", body: JSON.stringify({ rounds: "all" }) });
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST", body: JSON.stringify({ rounds: "all", format: "collect" }) });
     // Only a link of this server's backup is followed.
     fetchMock.mockResolvedValue(jsonResponse(200, { url: "https://elsewhere.example/x" }));
-    await expect(getBackupLink("p1", "1")).rejects.toBeInstanceOf(ApiError);
+    await expect(getBackupLink("p1", "1", "zip")).rejects.toBeInstanceOf(ApiError);
     fetchMock.mockResolvedValue(jsonResponse(409, { error: "no_round_key", reason: "no round" }));
-    expect(errorMessageKey(await getBackupLink("p1", "all").catch((e: unknown) => e))).toBe("backup.noRoundKey");
+    expect(errorMessageKey(await getBackupLink("p1", "all", "zip").catch((e: unknown) => e))).toBe("backup.noRoundKey");
     fetchMock.mockResolvedValue(jsonResponse(409, { error: "no_project_file" }));
-    expect(errorMessageKey(await getBackupLink("p1", "1").catch((e: unknown) => e))).toBe("backup.noProjectFile");
+    expect(errorMessageKey(await getBackupLink("p1", "1", "zip").catch((e: unknown) => e))).toBe("backup.noProjectFile");
     fetchMock.mockResolvedValue(jsonResponse(429, { error: "backup_busy" }));
-    expect(errorMessageKey(await getBackupLink("p1", "1").catch((e: unknown) => e))).toBe("backup.busy");
+    expect(errorMessageKey(await getBackupLink("p1", "1", "zip").catch((e: unknown) => e))).toBe("backup.busy");
   });
 });
 

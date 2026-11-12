@@ -87,6 +87,7 @@ const EXPORT_KEYS: Record<string, MessageKey> = {
 /** What was downloaded: the stand-alone analysis file says whether without the plots' locations. */
 function exportKey(d: Record<string, unknown>): MessageKey {
   if (d.kind === "analysis" && d.coordinates === false) return "activity.export.analysisNoPositions";
+  if (d.kind === "collect-backup" && d.format === "collect") return "backup.collect.inLog";
   return EXPORT_KEYS[d.kind as string];
 }
 
