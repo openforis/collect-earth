@@ -1,0 +1,1306 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ns2:IPCC2006Export xmlns:ns2="http://ipcc2006.air.sk/IPCC2006Export">
+    <Version>2.861</Version>
+    <inventoryYear>2000</inventoryYear>
+    <countryCode>ALG</countryCode>
+    <tiers/>
+    <ipccSubdivisions/>
+    <record>
+        <landTypes>
+            <countryCode>ALG</countryCode>
+            <climateRegions>
+                <climateRegion>
+                    <id>9</id>
+                    <guid>e2cf8d96-1c0f-4dcb-b731-58992ae6c3f1</guid>
+                    <domainId>3</domainId>
+                    <region>Temperate</region>
+                    <remark>CTM</remark>
+                </climateRegion>
+                <climateRegion>
+                    <id>10</id>
+                    <guid>3665a806-9e8b-426d-8b51-e08f8f38b650</guid>
+                    <domainId>3</domainId>
+                    <region>Temperate</region>
+                    <remark>CTD</remark>
+                </climateRegion>
+            </climateRegions>
+            <soilTypes>
+                <soilType>
+                    <id>7</id>
+                    <guid>b89d645f-df38-4823-ba03-261dc8a94d69</guid>
+                    <compositionId>2</compositionId>
+                    <fullName>ORG</fullName>
+                    <remark>ORG description</remark>
+                </soilType>
+                <soilType>
+                    <id>1</id>
+                    <guid>d1d27149-4b62-46b2-82da-875cfe9dca59</guid>
+                    <compositionId>1</compositionId>
+                    <fullName>HAC</fullName>
+                    <remark>HAC description</remark>
+                </soilType>
+            </soilTypes>
+            <forestLand>
+                <cltForestLand>
+                    <id>1000</id>
+                    <guid>df36a91a-d0c6-47cc-85b3-f9f970742f1b</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>broadleaf_ever_CTD_HAC_NO_DATA</customName>
+                    <managed>false</managed>
+                    <climateRegionId>10</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <ecoZoneId>0</ecoZoneId>
+                    <ecoZoneCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <plantation>false</plantation>
+                    <forestTypeId>4</forestTypeId>
+                    <forestTypeCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <continentTypeId>1</continentTypeId>
+                    <ageClassId>3</ageClassId>
+                    <growingStockLevelId>6</growingStockLevelId>
+                    <carbonFraction>0.0</carbonFraction>
+                    <ratio>0.0</ratio>
+                    <bcefRType>0</bcefRType>
+                    <bcefR>0.0</bcefR>
+                    <aboveGroundBiomass>0.0</aboveGroundBiomass>
+                    <aboveGroundBiomassGrowth>0.0</aboveGroundBiomassGrowth>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <abandoned>false</abandoned>
+                    <woodDensity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <growingStockInc xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefIType>0</bcefIType>
+                    <bef1 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefI>0.0</bcefI>
+                    <bcefSType>0</bcefSType>
+                    <bef2 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefS>0.0</bcefS>
+                    <ageClassRange xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <growingStockLevelValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltForestLand>
+                <cltForestLand>
+                    <id>1001</id>
+                    <guid>2383cab7-2794-4b12-88d0-5ea59935d997</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>broadleaf_ever_CTD_HAC_SCf</customName>
+                    <managed>false</managed>
+                    <climateRegionId>10</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <ecoZoneId>9</ecoZoneId>
+                    <ecoZoneCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <plantation>false</plantation>
+                    <forestTypeId>4</forestTypeId>
+                    <forestTypeCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <continentTypeId>1</continentTypeId>
+                    <ageClassId>3</ageClassId>
+                    <growingStockLevelId>6</growingStockLevelId>
+                    <carbonFraction>0.0</carbonFraction>
+                    <ratio>0.0</ratio>
+                    <bcefRType>0</bcefRType>
+                    <bcefR>0.0</bcefR>
+                    <aboveGroundBiomass>0.0</aboveGroundBiomass>
+                    <aboveGroundBiomassGrowth>0.0</aboveGroundBiomassGrowth>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <abandoned>false</abandoned>
+                    <woodDensity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <growingStockInc xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefIType>0</bcefIType>
+                    <bef1 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefI>0.0</bcefI>
+                    <bcefSType>0</bcefSType>
+                    <bef2 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefS>0.0</bcefS>
+                    <ageClassRange xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <growingStockLevelValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltForestLand>
+                <cltForestLand>
+                    <id>1002</id>
+                    <guid>29aa0eb7-f982-4bed-bd4e-6be6a3d576e6</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>broadleaf_dec_CTD_HAC_NO_DATA</customName>
+                    <managed>true</managed>
+                    <climateRegionId>10</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <ecoZoneId>0</ecoZoneId>
+                    <ecoZoneCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <plantation>false</plantation>
+                    <forestTypeId>4</forestTypeId>
+                    <forestTypeCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <continentTypeId>1</continentTypeId>
+                    <ageClassId>3</ageClassId>
+                    <growingStockLevelId>6</growingStockLevelId>
+                    <carbonFraction>0.0</carbonFraction>
+                    <ratio>0.0</ratio>
+                    <bcefRType>0</bcefRType>
+                    <bcefR>0.0</bcefR>
+                    <aboveGroundBiomass>0.0</aboveGroundBiomass>
+                    <aboveGroundBiomassGrowth>0.0</aboveGroundBiomassGrowth>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <abandoned>false</abandoned>
+                    <woodDensity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <growingStockInc xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefIType>0</bcefIType>
+                    <bef1 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefI>0.0</bcefI>
+                    <bcefSType>0</bcefSType>
+                    <bef2 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefS>0.0</bcefS>
+                    <ageClassRange xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <growingStockLevelValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltForestLand>
+                <cltForestLand>
+                    <id>1003</id>
+                    <guid>c1c21a8d-cb0f-4f4a-9dc4-1d1eab1a72e2</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>mangrove_CTM_HAC_NO_DATA</customName>
+                    <managed>true</managed>
+                    <climateRegionId>9</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <ecoZoneId>0</ecoZoneId>
+                    <ecoZoneCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <plantation>false</plantation>
+                    <forestTypeId>4</forestTypeId>
+                    <forestTypeCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <continentTypeId>1</continentTypeId>
+                    <ageClassId>3</ageClassId>
+                    <growingStockLevelId>6</growingStockLevelId>
+                    <carbonFraction>0.0</carbonFraction>
+                    <ratio>0.0</ratio>
+                    <bcefRType>0</bcefRType>
+                    <bcefR>0.0</bcefR>
+                    <aboveGroundBiomass>0.0</aboveGroundBiomass>
+                    <aboveGroundBiomassGrowth>0.0</aboveGroundBiomassGrowth>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <abandoned>false</abandoned>
+                    <woodDensity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <growingStockInc xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefIType>0</bcefIType>
+                    <bef1 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefI>0.0</bcefI>
+                    <bcefSType>0</bcefSType>
+                    <bef2 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefS>0.0</bcefS>
+                    <ageClassRange xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <growingStockLevelValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltForestLand>
+                <cltForestLand>
+                    <id>1004</id>
+                    <guid>d0910c63-56b5-45e7-a6f2-3df1e94a74d6</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>broadleaf_mix_CTD_NO_DATA_NO_DATA</customName>
+                    <managed>true</managed>
+                    <climateRegionId>10</climateRegionId>
+                    <soilTypeId>0</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <ecoZoneId>0</ecoZoneId>
+                    <ecoZoneCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <plantation>false</plantation>
+                    <forestTypeId>4</forestTypeId>
+                    <forestTypeCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <continentTypeId>1</continentTypeId>
+                    <ageClassId>3</ageClassId>
+                    <growingStockLevelId>6</growingStockLevelId>
+                    <carbonFraction>0.0</carbonFraction>
+                    <ratio>0.0</ratio>
+                    <bcefRType>0</bcefRType>
+                    <bcefR>0.0</bcefR>
+                    <aboveGroundBiomass>0.0</aboveGroundBiomass>
+                    <aboveGroundBiomassGrowth>0.0</aboveGroundBiomassGrowth>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <abandoned>false</abandoned>
+                    <woodDensity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <growingStockInc xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefIType>0</bcefIType>
+                    <bef1 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefI>0.0</bcefI>
+                    <bcefSType>0</bcefSType>
+                    <bef2 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefS>0.0</bcefS>
+                    <ageClassRange xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <growingStockLevelValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltForestLand>
+                <cltForestLand>
+                    <id>1005</id>
+                    <guid>bbe9bc1b-8590-4b0c-91ac-e9256af05ff7</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>broadleaf_dec_CTM_HAC_NO_DATA</customName>
+                    <managed>true</managed>
+                    <climateRegionId>9</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <ecoZoneId>0</ecoZoneId>
+                    <ecoZoneCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <plantation>false</plantation>
+                    <forestTypeId>4</forestTypeId>
+                    <forestTypeCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <continentTypeId>1</continentTypeId>
+                    <ageClassId>3</ageClassId>
+                    <growingStockLevelId>6</growingStockLevelId>
+                    <carbonFraction>0.0</carbonFraction>
+                    <ratio>0.0</ratio>
+                    <bcefRType>0</bcefRType>
+                    <bcefR>0.0</bcefR>
+                    <aboveGroundBiomass>0.0</aboveGroundBiomass>
+                    <aboveGroundBiomassGrowth>0.0</aboveGroundBiomassGrowth>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <abandoned>false</abandoned>
+                    <woodDensity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <growingStockInc xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefIType>0</bcefIType>
+                    <bef1 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefI>0.0</bcefI>
+                    <bcefSType>0</bcefSType>
+                    <bef2 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bcefS>0.0</bcefS>
+                    <ageClassRange xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <growingStockLevelValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltForestLand>
+            </forestLand>
+            <cropland>
+                <cltCropland>
+                    <id>2006</id>
+                    <guid>e932c150-3469-427d-ab3a-981d0c8c016c</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>annual_crops_CTD_HAC</customName>
+                    <climateRegionId>10</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <perennialCrops>true</perennialCrops>
+                    <croplandTypeId>1</croplandTypeId>
+                    <croplandTypeCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <riceEcosystem>false</riceEcosystem>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <harvestCycle>0.0</harvestCycle>
+                    <bWoody xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bWoodyAccumulationRate xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bWoodyUnitId>0</bWoodyUnitId>
+                    <bWoodyCFrac xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ratioBgbAgbWoody xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ageClassId>3</ageClassId>
+                    <bHerb xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bHerbUnitId>0</bHerbUnitId>
+                    <bHerbCFrac xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ageClassValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <agroforestry>false</agroforestry>
+                    <ratioBgbAgbHerb xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltCropland>
+                <cltCropland>
+                    <id>2007</id>
+                    <guid>3814b572-9437-49db-aad1-126d3c81b6ad</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>rice_CTM_HAC</customName>
+                    <climateRegionId>9</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <perennialCrops>false</perennialCrops>
+                    <croplandTypeCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <riceEcosystem>false</riceEcosystem>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <harvestCycle>0.0</harvestCycle>
+                    <bWoody xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bWoodyAccumulationRate xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bWoodyUnitId>0</bWoodyUnitId>
+                    <bWoodyCFrac xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ratioBgbAgbWoody xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ageClassId>3</ageClassId>
+                    <bHerb xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bHerbUnitId>0</bHerbUnitId>
+                    <bHerbCFrac xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ageClassValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <agroforestry>false</agroforestry>
+                    <ratioBgbAgbHerb xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltCropland>
+                <cltCropland>
+                    <id>2008</id>
+                    <guid>4d0f666a-6c9d-444e-9792-4a9ccc588c3d</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>rice_NO_DATA_HAC</customName>
+                    <climateRegionId>15</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <perennialCrops>false</perennialCrops>
+                    <croplandTypeCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <riceEcosystem>false</riceEcosystem>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <harvestCycle>0.0</harvestCycle>
+                    <bWoody xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bWoodyAccumulationRate xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bWoodyUnitId>0</bWoodyUnitId>
+                    <bWoodyCFrac xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ratioBgbAgbWoody xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ageClassId>3</ageClassId>
+                    <bHerb xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bHerbUnitId>0</bHerbUnitId>
+                    <bHerbCFrac xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ageClassValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <agroforestry>false</agroforestry>
+                    <ratioBgbAgbHerb xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltCropland>
+                <cltCropland>
+                    <id>2009</id>
+                    <guid>796d4269-c0fe-40c0-9dcf-6f3e6e23ea89</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>palm_CTD_NO_DATA</customName>
+                    <climateRegionId>10</climateRegionId>
+                    <soilTypeId>0</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <perennialCrops>false</perennialCrops>
+                    <croplandTypeCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <riceEcosystem>false</riceEcosystem>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <harvestCycle>0.0</harvestCycle>
+                    <bWoody xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bWoodyAccumulationRate xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bWoodyUnitId>0</bWoodyUnitId>
+                    <bWoodyCFrac xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ratioBgbAgbWoody xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ageClassId>3</ageClassId>
+                    <bHerb xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bHerbUnitId>0</bHerbUnitId>
+                    <bHerbCFrac xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ageClassValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <agroforestry>false</agroforestry>
+                    <ratioBgbAgbHerb xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltCropland>
+                <cltCropland>
+                    <id>2010</id>
+                    <guid>b3ae72e4-1bac-4f90-9436-e3e4fc700fb8</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>annual_crops_CTM_HAC</customName>
+                    <climateRegionId>9</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <perennialCrops>true</perennialCrops>
+                    <croplandTypeId>1</croplandTypeId>
+                    <croplandTypeCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <riceEcosystem>false</riceEcosystem>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <harvestCycle>0.0</harvestCycle>
+                    <bWoody xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bWoodyAccumulationRate xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bWoodyUnitId>0</bWoodyUnitId>
+                    <bWoodyCFrac xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ratioBgbAgbWoody xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ageClassId>3</ageClassId>
+                    <bHerb xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bHerbUnitId>0</bHerbUnitId>
+                    <bHerbCFrac xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ageClassValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <agroforestry>false</agroforestry>
+                    <ratioBgbAgbHerb xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltCropland>
+                <cltCropland>
+                    <id>2011</id>
+                    <guid>ae41ae94-9631-4635-9357-517516da9b5f</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>annual_crops_NO_DATA_HAC</customName>
+                    <climateRegionId>15</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <perennialCrops>true</perennialCrops>
+                    <croplandTypeId>1</croplandTypeId>
+                    <croplandTypeCustom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <riceEcosystem>false</riceEcosystem>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <harvestCycle>0.0</harvestCycle>
+                    <bWoody xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bWoodyAccumulationRate xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bWoodyUnitId>0</bWoodyUnitId>
+                    <bWoodyCFrac xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ratioBgbAgbWoody xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ageClassId>3</ageClassId>
+                    <bHerb xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <bHerbUnitId>0</bHerbUnitId>
+                    <bHerbCFrac xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ageClassValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <agroforestry>false</agroforestry>
+                    <ratioBgbAgbHerb xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltCropland>
+            </cropland>
+            <grassland>
+                <cltGrassland>
+                    <id>3012</id>
+                    <guid>da63213e-a2fe-456d-9ae5-128e5202ff6e</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>shrubland_CTD_ORG</customName>
+                    <managed>true</managed>
+                    <climateRegionId>10</climateRegionId>
+                    <soilTypeId>7</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>3</nutrientTypeId>
+                    <improvedGrassland>false</improvedGrassland>
+                    <vegetationTypeId>25</vegetationTypeId>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <biomassStockHerb>0.0</biomassStockHerb>
+                    <biomassStockWoody>0.0</biomassStockWoody>
+                    <carbonFractionHerb>0.0</carbonFractionHerb>
+                    <carbonFractionWoody>0.0</carbonFractionWoody>
+                    <ageClassId>3</ageClassId>
+                    <ratioBgbAgbHerb>0.5</ratioBgbAgbHerb>
+                    <ratioBgbAgbWoody xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <agbGrowth xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <abandoned>false</abandoned>
+                    <ageClassValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltGrassland>
+                <cltGrassland>
+                    <id>3013</id>
+                    <guid>e19ccc07-db4d-4d78-b80f-dc07245876fe</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>grassland_CTD_ORG</customName>
+                    <managed>true</managed>
+                    <climateRegionId>10</climateRegionId>
+                    <soilTypeId>7</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>3</nutrientTypeId>
+                    <improvedGrassland>false</improvedGrassland>
+                    <vegetationTypeId>25</vegetationTypeId>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <biomassStockHerb>0.0</biomassStockHerb>
+                    <biomassStockWoody>0.0</biomassStockWoody>
+                    <carbonFractionHerb>0.0</carbonFractionHerb>
+                    <carbonFractionWoody>0.0</carbonFractionWoody>
+                    <ageClassId>3</ageClassId>
+                    <ratioBgbAgbHerb>0.5</ratioBgbAgbHerb>
+                    <ratioBgbAgbWoody xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <agbGrowth xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <abandoned>false</abandoned>
+                    <ageClassValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltGrassland>
+                <cltGrassland>
+                    <id>3014</id>
+                    <guid>c9ee4bf8-6227-4ee8-a1a5-345bd4345e2c</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>grassland_CTD_HAC</customName>
+                    <managed>true</managed>
+                    <climateRegionId>10</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <improvedGrassland>false</improvedGrassland>
+                    <vegetationTypeId>25</vegetationTypeId>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <biomassStockHerb>0.0</biomassStockHerb>
+                    <biomassStockWoody>0.0</biomassStockWoody>
+                    <carbonFractionHerb>0.0</carbonFractionHerb>
+                    <carbonFractionWoody>0.0</carbonFractionWoody>
+                    <ageClassId>3</ageClassId>
+                    <ratioBgbAgbHerb>0.5</ratioBgbAgbHerb>
+                    <ratioBgbAgbWoody xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <agbGrowth xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <abandoned>false</abandoned>
+                    <ageClassValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltGrassland>
+                <cltGrassland>
+                    <id>3015</id>
+                    <guid>920fadc1-4890-4885-9fa6-427b982adec1</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>grassland_trees_CTD_HAC</customName>
+                    <managed>true</managed>
+                    <climateRegionId>10</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <improvedGrassland>false</improvedGrassland>
+                    <vegetationTypeId>25</vegetationTypeId>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <biomassStockHerb>0.0</biomassStockHerb>
+                    <biomassStockWoody>0.0</biomassStockWoody>
+                    <carbonFractionHerb>0.0</carbonFractionHerb>
+                    <carbonFractionWoody>0.0</carbonFractionWoody>
+                    <ageClassId>3</ageClassId>
+                    <ratioBgbAgbHerb>0.5</ratioBgbAgbHerb>
+                    <ratioBgbAgbWoody xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <agbGrowth xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <abandoned>false</abandoned>
+                    <ageClassValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltGrassland>
+            </grassland>
+            <wetland>
+                <cltWetland>
+                    <id>4019</id>
+                    <guid>89a77c4f-91be-4671-8cf6-aa6e1a1a6499</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>swamp_CTD_HAC</customName>
+                    <managed>true</managed>
+                    <climateRegionId>10</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <wetlandType>OW</wetlandType>
+                    <biomassStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <cfDryMatter xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <cfAirDryWeight xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <cfAirDryVolume xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <agbGrowth xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ratioBgbAgb xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <vegetationTypeId xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ageClassId>3</ageClassId>
+                    <ageClassValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                </cltWetland>
+            </wetland>
+            <settlement>
+                <cltSettlement>
+                    <id>5016</id>
+                    <guid>9f970e64-902c-4985-a22f-b9a1d18fc3cb</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>city_CTD_HAC</customName>
+                    <climateRegionId>10</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <settlementTypeId>9</settlementTypeId>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <biomassStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <carbonFraction xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ratioBgbAgb xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ageClassId>3</ageClassId>
+                    <agp xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <propCult xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfLandUseCult xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfManagCult xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfInputCult xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <propTurfgrass xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfLandUseTurfgrass xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfManagTurfgrass xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfInputTurfgrass xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <propPaved xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfLandUsePaved xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfManagPaved xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfInputPaved xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <numberOfClasses>1</numberOfClasses>
+                </cltSettlement>
+                <cltSettlement>
+                    <id>5017</id>
+                    <guid>e4578828-d511-4196-a476-3da29d875d8c</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>village_CTD_HAC</customName>
+                    <climateRegionId>10</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <settlementTypeId>10</settlementTypeId>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <biomassStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <carbonFraction xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ratioBgbAgb xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ageClassId>3</ageClassId>
+                    <agp xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <propCult xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfLandUseCult xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfManagCult xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfInputCult xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <propTurfgrass xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfLandUseTurfgrass xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfManagTurfgrass xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfInputTurfgrass xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <propPaved xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfLandUsePaved xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfManagPaved xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfInputPaved xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <numberOfClasses>1</numberOfClasses>
+                </cltSettlement>
+                <cltSettlement>
+                    <id>5018</id>
+                    <guid>ca7e60b7-9e92-4afd-9af9-9b8f2b961e65</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>built_up_CTD_HAC</customName>
+                    <climateRegionId>10</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <soilStatusId>1</soilStatusId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                    <settlementTypeId>10</settlementTypeId>
+                    <mfLandUse>0.0</mfLandUse>
+                    <mfTillage>0.0</mfTillage>
+                    <mfInput>0.0</mfInput>
+                    <biomassStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <carbonFraction xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ratioBgbAgb xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <ageClassId>3</ageClassId>
+                    <agp xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <propCult xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfLandUseCult xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfManagCult xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfInputCult xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <propTurfgrass xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfLandUseTurfgrass xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfManagTurfgrass xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfInputTurfgrass xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <propPaved xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfLandUsePaved xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfManagPaved xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <mfInputPaved xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <soilCarbonStock xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <numberOfClasses>1</numberOfClasses>
+                </cltSettlement>
+            </settlement>
+            <otherland>
+                <cltOtherland>
+                    <id>6020</id>
+                    <guid>ccc14832-01a9-433f-bc0f-9a5d9f4b2fce</guid>
+                    <countryCode>ALG</countryCode>
+                    <customName>barren_soil_CTD_HAC</customName>
+                    <managed>false</managed>
+                    <climateRegionId>10</climateRegionId>
+                    <soilTypeId>1</soilTypeId>
+                    <geoPlacementId>-1</geoPlacementId>
+                    <nutrientTypeId>-1</nutrientTypeId>
+                </cltOtherland>
+            </otherland>
+            <landRepresentation>
+                <lrtCountry>
+                    <countryCode>ALG</countryCode>
+                    <area>995.75</area>
+                    <regions>
+                        <lrtRegion>
+                            <guid>ee3d1786-762d-41aa-9d8c-daf1feaec52d</guid>
+                            <name>Unknown</name>
+                            <area>300.0</area>
+                            <approachId>2</approachId>
+                            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                            <landCategories>
+<lrtLandCategory>
+    <ltId>5</ltId>
+    <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+    <landSubcategories>
+        <lrtLandSubcategory>
+            <scatId>9</scatId>
+            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+            <landSubdivisions>
+                <lrtLandSubdivision>
+                    <cltId>5016</cltId>
+                    <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <landUnits>
+                        <lrtLandUnit>
+                            <guid>afd0f4c5-b4f0-4cff-890b-1aaa1c505cae</guid>
+                            <unitCode>GS-2018-city--1-grassland--1-</unitCode>
+                            <ltIdPrev>3</ltIdPrev>
+                            <cltIdPrev>3014</cltIdPrev>
+                            <transPeriod>20</transPeriod>
+                            <convYear>2018</convYear>
+                            <areas>
+<area year="2000" isSource="true">300.0</area>
+<area year="2001">300.0</area>
+<area year="2002">300.0</area>
+<area year="2003">300.0</area>
+<area year="2004">300.0</area>
+<area year="2005">300.0</area>
+<area year="2006">300.0</area>
+<area year="2007">300.0</area>
+<area year="2008">300.0</area>
+<area year="2009">300.0</area>
+<area year="2010">300.0</area>
+<area year="2011">300.0</area>
+<area year="2012">300.0</area>
+<area year="2013">300.0</area>
+<area year="2014">300.0</area>
+<area year="2015">300.0</area>
+<area year="2016">300.0</area>
+<area year="2017">300.0</area>
+<area year="2018">300.0</area>
+<area year="2019">300.0</area>
+<area year="2020">300.0</area>
+<area year="2021">300.0</area>
+<area year="2022">300.0</area>
+<area year="2023">300.0</area>
+                            </areas>
+                            <areasA1D/>
+                            <isMerged>false</isMerged>
+                            <pmBiomass>2</pmBiomass>
+                            <pmDomDeadwood>2</pmDomDeadwood>
+                            <pmDomLitter>2</pmDomLitter>
+                            <pmSomMineral>1</pmSomMineral>
+                            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                            <history/>
+                        </lrtLandUnit>
+                    </landUnits>
+                </lrtLandSubdivision>
+            </landSubdivisions>
+        </lrtLandSubcategory>
+    </landSubcategories>
+</lrtLandCategory>
+                            </landCategories>
+                        </lrtRegion>
+                        <lrtRegion>
+                            <guid>627b4476-3d2c-4e78-8d00-bbe4ccbd3b6b</guid>
+                            <name>Madrid</name>
+                            <area>502.75</area>
+                            <approachId>2</approachId>
+                            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                            <landCategories>
+<lrtLandCategory>
+    <ltId>2</ltId>
+    <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+    <landSubcategories>
+        <lrtLandSubcategory>
+            <scatId>4</scatId>
+            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+            <landSubdivisions>
+                <lrtLandSubdivision>
+                    <cltId>2006</cltId>
+                    <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <landUnits>
+                        <lrtLandUnit>
+                            <guid>f3b481d8-aa9d-41d2-b1f0-9e49bf2beb1f</guid>
+                            <unitCode>FC-2010-annual_crops--1-broadleaf_dec--1-</unitCode>
+                            <ltIdPrev>1</ltIdPrev>
+                            <cltIdPrev>1002</cltIdPrev>
+                            <transPeriod>20</transPeriod>
+                            <convYear>2010</convYear>
+                            <areas>
+<area year="2000" isSource="true">250.5</area>
+<area year="2001">250.5</area>
+<area year="2002">250.5</area>
+<area year="2003">250.5</area>
+<area year="2004">250.5</area>
+<area year="2005">250.5</area>
+<area year="2006">250.5</area>
+<area year="2007">250.5</area>
+<area year="2008">250.5</area>
+<area year="2009">250.5</area>
+<area year="2010">250.5</area>
+<area year="2011">250.5</area>
+<area year="2012">250.5</area>
+<area year="2013">250.5</area>
+<area year="2014">250.5</area>
+<area year="2015">250.5</area>
+<area year="2016">250.5</area>
+<area year="2017">250.5</area>
+<area year="2018">250.5</area>
+<area year="2019">250.5</area>
+<area year="2020">250.5</area>
+<area year="2021">250.5</area>
+<area year="2022">250.5</area>
+<area year="2023">250.5</area>
+                            </areas>
+                            <areasA1D/>
+                            <isMerged>false</isMerged>
+                            <pmBiomass>2</pmBiomass>
+                            <pmDomDeadwood>2</pmDomDeadwood>
+                            <pmDomLitter>2</pmDomLitter>
+                            <pmSomMineral>1</pmSomMineral>
+                            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                            <history/>
+                        </lrtLandUnit>
+                    </landUnits>
+                </lrtLandSubdivision>
+                <lrtLandSubdivision>
+                    <cltId>2010</cltId>
+                    <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <landUnits>
+                        <lrtLandUnit>
+                            <guid>5ae1a08a-67cd-41b9-967e-573fdd9d515e</guid>
+                            <unitCode>FC-2010-annual_crops--1-broadleaf_dec--1-</unitCode>
+                            <ltIdPrev>1</ltIdPrev>
+                            <cltIdPrev>1005</cltIdPrev>
+                            <transPeriod>20</transPeriod>
+                            <convYear>2010</convYear>
+                            <areas>
+<area year="2000" isSource="true">12.25</area>
+<area year="2001">12.25</area>
+<area year="2002">12.25</area>
+<area year="2003">12.25</area>
+<area year="2004">12.25</area>
+<area year="2005">12.25</area>
+<area year="2006">12.25</area>
+<area year="2007">12.25</area>
+<area year="2008">12.25</area>
+<area year="2009">12.25</area>
+<area year="2010">12.25</area>
+<area year="2011">12.25</area>
+<area year="2012">12.25</area>
+<area year="2013">12.25</area>
+<area year="2014">12.25</area>
+<area year="2015">12.25</area>
+<area year="2016">12.25</area>
+<area year="2017">12.25</area>
+<area year="2018">12.25</area>
+<area year="2019">12.25</area>
+<area year="2020">12.25</area>
+<area year="2021">12.25</area>
+<area year="2022">12.25</area>
+<area year="2023">12.25</area>
+                            </areas>
+                            <areasA1D/>
+                            <isMerged>false</isMerged>
+                            <pmBiomass>2</pmBiomass>
+                            <pmDomDeadwood>2</pmDomDeadwood>
+                            <pmDomLitter>2</pmDomLitter>
+                            <pmSomMineral>1</pmSomMineral>
+                            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                            <history/>
+                        </lrtLandUnit>
+                    </landUnits>
+                </lrtLandSubdivision>
+            </landSubdivisions>
+        </lrtLandSubcategory>
+    </landSubcategories>
+</lrtLandCategory>
+<lrtLandCategory>
+    <ltId>3</ltId>
+    <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+    <landSubcategories>
+        <lrtLandSubcategory>
+            <scatId>5</scatId>
+            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+            <landSubdivisions>
+                <lrtLandSubdivision>
+                    <cltId>3012</cltId>
+                    <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <landUnits>
+                        <lrtLandUnit>
+                            <guid>6ba4a54a-aca0-4baf-97f6-426cdf5f86e1</guid>
+                            <unitCode>GG--1-shrubland-2015-grassland-2015-</unitCode>
+                            <ltIdPrev>5</ltIdPrev>
+                            <cltIdPrev>3013</cltIdPrev>
+                            <transPeriod>20</transPeriod>
+                            <convYear>2015</convYear>
+                            <areas>
+<area year="2000" isSource="true">40.0</area>
+<area year="2001">40.0</area>
+<area year="2002">40.0</area>
+<area year="2003">40.0</area>
+<area year="2004">40.0</area>
+<area year="2005">40.0</area>
+<area year="2006">40.0</area>
+<area year="2007">40.0</area>
+<area year="2008">40.0</area>
+<area year="2009">40.0</area>
+<area year="2010">40.0</area>
+<area year="2011">40.0</area>
+<area year="2012">40.0</area>
+<area year="2013">40.0</area>
+<area year="2014">40.0</area>
+<area year="2015">40.0</area>
+<area year="2016">40.0</area>
+<area year="2017">40.0</area>
+<area year="2018">40.0</area>
+<area year="2019">40.0</area>
+<area year="2020">40.0</area>
+<area year="2021">40.0</area>
+<area year="2022">40.0</area>
+<area year="2023">40.0</area>
+                            </areas>
+                            <areasA1D/>
+                            <isMerged>false</isMerged>
+                            <pmBiomass>2</pmBiomass>
+                            <pmDomDeadwood>2</pmDomDeadwood>
+                            <pmDomLitter>2</pmDomLitter>
+                            <pmSomMineral>1</pmSomMineral>
+                            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                            <history/>
+                        </lrtLandUnit>
+                    </landUnits>
+                </lrtLandSubdivision>
+            </landSubdivisions>
+        </lrtLandSubcategory>
+    </landSubcategories>
+</lrtLandCategory>
+<lrtLandCategory>
+    <ltId>5</ltId>
+    <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+    <landSubcategories>
+        <lrtLandSubcategory>
+            <scatId>10</scatId>
+            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+            <landSubdivisions>
+                <lrtLandSubdivision>
+                    <cltId>5017</cltId>
+                    <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <landUnits>
+                        <lrtLandUnit>
+                            <guid>14e42fe3-5ed0-4bbb-aa6a-956b4b4757e5</guid>
+                            <unitCode>GS-2020-village--1-grassland_trees--1-</unitCode>
+                            <ltIdPrev>3</ltIdPrev>
+                            <cltIdPrev>3015</cltIdPrev>
+                            <transPeriod>20</transPeriod>
+                            <convYear>2020</convYear>
+                            <areas>
+<area year="2000" isSource="true">0.0</area>
+<area year="2001">0.0</area>
+<area year="2002">0.0</area>
+<area year="2003">0.0</area>
+<area year="2004">0.0</area>
+<area year="2005">0.0</area>
+<area year="2006">0.0</area>
+<area year="2007">0.0</area>
+<area year="2008">0.0</area>
+<area year="2009">0.0</area>
+<area year="2010">0.0</area>
+<area year="2011">0.0</area>
+<area year="2012">0.0</area>
+<area year="2013">0.0</area>
+<area year="2014">0.0</area>
+<area year="2015">0.0</area>
+<area year="2016">0.0</area>
+<area year="2017">0.0</area>
+<area year="2018">0.0</area>
+<area year="2019">0.0</area>
+<area year="2020">0.0</area>
+<area year="2021">0.0</area>
+<area year="2022">0.0</area>
+<area year="2023">0.0</area>
+                            </areas>
+                            <areasA1D/>
+                            <isMerged>false</isMerged>
+                            <pmBiomass>2</pmBiomass>
+                            <pmDomDeadwood>2</pmDomDeadwood>
+                            <pmDomLitter>2</pmDomLitter>
+                            <pmSomMineral>1</pmSomMineral>
+                            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                            <history/>
+                        </lrtLandUnit>
+                    </landUnits>
+                </lrtLandSubdivision>
+                <lrtLandSubdivision>
+                    <cltId>5018</cltId>
+                    <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <landUnits>
+                        <lrtLandUnit>
+                            <guid>e30c5dcf-93ef-4071-bc8d-0d55d4bc2c1f</guid>
+                            <unitCode>SS--1-built_up-2003-city-2003-</unitCode>
+                            <ltIdPrev>9</ltIdPrev>
+                            <cltIdPrev>5016</cltIdPrev>
+                            <transPeriod>20</transPeriod>
+                            <convYear>2003</convYear>
+                            <areas>
+<area year="2000" isSource="true">25.0</area>
+<area year="2001">25.0</area>
+<area year="2002">25.0</area>
+<area year="2003">25.0</area>
+<area year="2004">25.0</area>
+<area year="2005">25.0</area>
+<area year="2006">25.0</area>
+<area year="2007">25.0</area>
+<area year="2008">25.0</area>
+<area year="2009">25.0</area>
+<area year="2010">25.0</area>
+<area year="2011">25.0</area>
+<area year="2012">25.0</area>
+<area year="2013">25.0</area>
+<area year="2014">25.0</area>
+<area year="2015">25.0</area>
+<area year="2016">25.0</area>
+<area year="2017">25.0</area>
+<area year="2018">25.0</area>
+<area year="2019">25.0</area>
+<area year="2020">25.0</area>
+<area year="2021">25.0</area>
+<area year="2022">25.0</area>
+<area year="2023">25.0</area>
+                            </areas>
+                            <areasA1D/>
+                            <isMerged>false</isMerged>
+                            <pmBiomass>2</pmBiomass>
+                            <pmDomDeadwood>2</pmDomDeadwood>
+                            <pmDomLitter>2</pmDomLitter>
+                            <pmSomMineral>1</pmSomMineral>
+                            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                            <history/>
+                        </lrtLandUnit>
+                    </landUnits>
+                </lrtLandSubdivision>
+            </landSubdivisions>
+        </lrtLandSubcategory>
+    </landSubcategories>
+</lrtLandCategory>
+                            </landCategories>
+                        </lrtRegion>
+                        <lrtRegion>
+                            <guid>9c4330ac-2510-440a-9634-c89b3af77eeb</guid>
+                            <name>OBrien</name>
+                            <area>70.0</area>
+                            <approachId>2</approachId>
+                            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                            <landCategories/>
+                        </lrtRegion>
+                        <lrtRegion>
+                            <guid>e43ccbf4-7ae5-4bc9-9433-3918d97811ce</guid>
+                            <name>Toledo</name>
+                            <area>123.0</area>
+                            <approachId>2</approachId>
+                            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                            <landCategories>
+<lrtLandCategory>
+    <ltId>1</ltId>
+    <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+    <landSubcategories>
+        <lrtLandSubcategory>
+            <scatId>2</scatId>
+            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+            <landSubdivisions>
+                <lrtLandSubdivision>
+                    <cltId>1001</cltId>
+                    <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <landUnits>
+                        <lrtLandUnit>
+                            <guid>6663871d-e6d8-4eb7-9a3c-a72e3b336eab</guid>
+                            <unitCode>FF--1-broadleaf_ever--1--1--1-</unitCode>
+                            <ltIdPrev>-200</ltIdPrev>
+                            <cltIdPrev>-200</cltIdPrev>
+                            <transPeriod>20</transPeriod>
+                            <convYear>-2</convYear>
+                            <areas>
+<area year="2000" isSource="true">33.0</area>
+<area year="2001">33.0</area>
+<area year="2002">33.0</area>
+<area year="2003">33.0</area>
+<area year="2004">33.0</area>
+<area year="2005">33.0</area>
+<area year="2006">33.0</area>
+<area year="2007">33.0</area>
+<area year="2008">33.0</area>
+<area year="2009">33.0</area>
+<area year="2010">33.0</area>
+<area year="2011">33.0</area>
+<area year="2012">33.0</area>
+<area year="2013">33.0</area>
+<area year="2014">33.0</area>
+<area year="2015">33.0</area>
+<area year="2016">33.0</area>
+<area year="2017">33.0</area>
+<area year="2018">33.0</area>
+<area year="2019">33.0</area>
+<area year="2020">33.0</area>
+<area year="2021">33.0</area>
+<area year="2022">33.0</area>
+<area year="2023">33.0</area>
+                            </areas>
+                            <areasA1D/>
+                            <isMerged>false</isMerged>
+                            <pmBiomass>2</pmBiomass>
+                            <pmDomDeadwood>2</pmDomDeadwood>
+                            <pmDomLitter>2</pmDomLitter>
+                            <pmSomMineral>1</pmSomMineral>
+                            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                            <history/>
+                        </lrtLandUnit>
+                    </landUnits>
+                </lrtLandSubdivision>
+            </landSubdivisions>
+        </lrtLandSubcategory>
+    </landSubcategories>
+</lrtLandCategory>
+<lrtLandCategory>
+    <ltId>2</ltId>
+    <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+    <landSubcategories>
+        <lrtLandSubcategory>
+            <scatId>3</scatId>
+            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+            <landSubdivisions>
+                <lrtLandSubdivision>
+                    <cltId>2007</cltId>
+                    <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <landUnits>
+                        <lrtLandUnit>
+                            <guid>a95d07af-0d6a-4a02-b5d4-23c7b1add67a</guid>
+                            <unitCode>FC-2002-rice--1-mangrove--1-</unitCode>
+                            <ltIdPrev>1</ltIdPrev>
+                            <cltIdPrev>1003</cltIdPrev>
+                            <transPeriod>20</transPeriod>
+                            <convYear>2002</convYear>
+                            <areas>
+<area year="2000" isSource="true">80.0</area>
+<area year="2001">80.0</area>
+<area year="2002">80.0</area>
+<area year="2003">80.0</area>
+<area year="2004">80.0</area>
+<area year="2005">80.0</area>
+<area year="2006">80.0</area>
+<area year="2007">80.0</area>
+<area year="2008">80.0</area>
+<area year="2009">80.0</area>
+<area year="2010">80.0</area>
+<area year="2011">80.0</area>
+<area year="2012">80.0</area>
+<area year="2013">80.0</area>
+<area year="2014">80.0</area>
+<area year="2015">80.0</area>
+<area year="2016">80.0</area>
+<area year="2017">80.0</area>
+<area year="2018">80.0</area>
+<area year="2019">80.0</area>
+<area year="2020">80.0</area>
+<area year="2021">80.0</area>
+<area year="2022">80.0</area>
+<area year="2023">80.0</area>
+                            </areas>
+                            <areasA1D/>
+                            <isMerged>false</isMerged>
+                            <pmBiomass>2</pmBiomass>
+                            <pmDomDeadwood>2</pmDomDeadwood>
+                            <pmDomLitter>2</pmDomLitter>
+                            <pmSomMineral>1</pmSomMineral>
+                            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                            <history/>
+                        </lrtLandUnit>
+                    </landUnits>
+                </lrtLandSubdivision>
+            </landSubdivisions>
+        </lrtLandSubcategory>
+    </landSubcategories>
+</lrtLandCategory>
+<lrtLandCategory>
+    <ltId>4</ltId>
+    <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+    <landSubcategories>
+        <lrtLandSubcategory>
+            <scatId>7</scatId>
+            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+            <landSubdivisions>
+                <lrtLandSubdivision>
+                    <cltId>4019</cltId>
+                    <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                    <landUnits>
+                        <lrtLandUnit>
+                            <guid>5e9c5214-cb10-4028-a82f-40df727d47ab</guid>
+                            <unitCode>OW-2004-swamp--1-barren_soil--1-</unitCode>
+                            <ltIdPrev>6</ltIdPrev>
+                            <cltIdPrev>6020</cltIdPrev>
+                            <transPeriod>20</transPeriod>
+                            <convYear>2004</convYear>
+                            <areas>
+<area year="2000" isSource="true">10.0</area>
+<area year="2001">10.0</area>
+<area year="2002">10.0</area>
+<area year="2003">10.0</area>
+<area year="2004">10.0</area>
+<area year="2005">10.0</area>
+<area year="2006">10.0</area>
+<area year="2007">10.0</area>
+<area year="2008">10.0</area>
+<area year="2009">10.0</area>
+<area year="2010">10.0</area>
+<area year="2011">10.0</area>
+<area year="2012">10.0</area>
+<area year="2013">10.0</area>
+<area year="2014">10.0</area>
+<area year="2015">10.0</area>
+<area year="2016">10.0</area>
+<area year="2017">10.0</area>
+<area year="2018">10.0</area>
+<area year="2019">10.0</area>
+<area year="2020">10.0</area>
+<area year="2021">10.0</area>
+<area year="2022">10.0</area>
+<area year="2023">10.0</area>
+                            </areas>
+                            <areasA1D/>
+                            <isMerged>false</isMerged>
+                            <pmBiomass>2</pmBiomass>
+                            <pmDomDeadwood>2</pmDomDeadwood>
+                            <pmDomLitter>2</pmDomLitter>
+                            <pmSomMineral>1</pmSomMineral>
+                            <remark xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"/>
+                            <history/>
+                        </lrtLandUnit>
+                    </landUnits>
+                </lrtLandSubdivision>
+            </landSubdivisions>
+        </lrtLandSubcategory>
+    </landSubcategories>
+</lrtLandCategory>
+                            </landCategories>
+                        </lrtRegion>
+                    </regions>
+                </lrtCountry>
+            </landRepresentation>
+            <socRefTable>
+                <countryCode>ALG</countryCode>
+            </socRefTable>
+        </landTypes>
+    </record>
+    <signature>CollectEarth</signature>
+</ns2:IPCC2006Export>

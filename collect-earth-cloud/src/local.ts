@@ -141,6 +141,7 @@ export const LOCAL_OFF_ROUTES: readonly string[] = [
   // The IPCC exports: Collect Earth makes them itself.
   'GET /v1/projects/:pid/exports/ipcc',
   'GET /v1/projects/:pid/exports/ipcc/:file',
+  'POST /v1/projects/:pid/exports/ipcc/ghgi',
 ];
 
 const notFound: onRequestHookHandler = async (_request, reply) => {

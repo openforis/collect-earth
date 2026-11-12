@@ -12,7 +12,7 @@
    "code": "broadleaf_ever",
    "name": "Broadleaf evergreen",
    "id": 2,
-   "management": "MANAGED"
+   "management": "UNMANAGED"
   },
   {
    "category": "F",
@@ -96,7 +96,7 @@
    "code": "annual_crops",
    "name": "Annual crops",
    "id": 1,
-   "management": "ANNUAL"
+   "management": "PERENNIAL"
   },
   {
    "category": "C",
@@ -222,7 +222,7 @@
    "code": "swamp",
    "name": "Swamp",
    "id": 5,
-   "management": "UNMANAGED"
+   "management": "MANAGED"
   },
   {
    "category": "W",
@@ -264,7 +264,7 @@
    "code": "city",
    "name": "City",
    "id": 1,
-   "management": "OTHER"
+   "management": "TREED"
   },
   {
    "category": "S",
@@ -1819,6 +1819,124 @@
     }
    ],
    "province": "Madrid"
+  },
+  {
+   "id": "9011",
+   "area": 33,
+   "answers": {
+    "subcategory": "FF",
+    "subdivision": "broadleaf_ever",
+    "initialSubdivision": "",
+    "changeYear": "",
+    "subdivisionChanged": "false",
+    "subdivisionYear": "",
+    "secondChange": "",
+    "secondConversion": "",
+    "secondYear": "",
+    "secondSubdivision": "",
+    "climate": "4",
+    "soil": "6",
+    "gez": "21"
+   },
+   "years": [
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    }
+   ],
+   "province": "Toledo"
   }
  ]
 }

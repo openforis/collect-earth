@@ -7,6 +7,7 @@
 // The areas are the plots' expansion factors, the Analysis page's (routes/analysis.ts, projectFactors).
 import { randomUUID } from 'node:crypto';
 import { cell, type AnalysisColumn, type AnalysisModel } from './analysis.js';
+import { attr, childrenOf, elements, parseSurvey, textOf } from './cep.js';
 import type { XlsxCell, XlsxSheet } from './xlsx.js';
 
 /** IPCCGenerator's START_YEAR and END_YEAR: the same years as the desktop's files. */
@@ -31,9 +32,28 @@ const DEFAULT_MANAGEMENT: Record<IpccCategory, string> = { F: 'MANAGED', C: 'ANN
 /** What the management types print (their enums' toString), in the matrices' headers. */
 const MANAGEMENT_NAMES: Record<string, string> = { MANAGED: 'Managed', UNMANAGED: 'Unmanaged', ANNUAL: 'Annual', PERENNIAL: 'Perennial', TREED: 'Treed', OTHER: 'Other' };
 
-/** The strata labels the desktop knows (ClimateTypeEnum, SoilTypeEnum): plots of another climate or soil are in no stratum. */
-const CLIMATE_TYPES = ['TRW', 'TMM', 'TRD', 'TRMT', 'TRMTD', 'WTM', 'WTD', 'CTM', 'CTD', 'BOM', 'BOD', 'POM', 'POD', 'NO_DATA'];
-const SOIL_TYPES = ['HAC', 'LAC', 'VOL', 'SPO', 'SAN', 'WET', 'ORG', 'OtherAreas', 'NO_DATA'];
+/**
+ * The strata labels the desktop knows, with the IPCC software's ids: plots of another climate or soil are in no stratum.
+ * ClimateTypeEnum (id, climate domain), SoilTypeEnum (id, composition id), EcozoneTypeEnum (id).
+ */
+const CLIMATES: Record<string, [number, string]> = {
+  TRW: [1, 'TROPICAL'],
+  TMM: [2, 'TROPICAL'],
+  TRD: [4, 'TROPICAL'],
+  TRMT: [5, 'TROPICAL'],
+  TRMTD: [6, 'TROPICAL'],
+  WTM: [7, 'MEDITERRANEAN'],
+  WTD: [8, 'MEDITERRANEAN'],
+  CTM: [9, 'TEMPERATE'],
+  CTD: [10, 'TEMPERATE'],
+  BOM: [11, 'BOREAL'],
+  BOD: [12, 'BOREAL'],
+  POM: [13, 'POLAR'],
+  POD: [14, 'POLAR'],
+  NO_DATA: [15, 'NO_DATA'],
+};
+const SOILS: Record<string, [number, number]> = { HAC: [1, 1], LAC: [2, 1], VOL: [3, 1], SPO: [4, 1], SAN: [5, 1], WET: [6, 1], ORG: [7, 2], OtherAreas: [9, 3], NO_DATA: [0, 0] };
+const ECOZONES: Record<string, number> = { TAr: 2, TAwa: 4, TAWb: 5, TBSh: 6, TBWh: 7, TM: 8, SCf: 9, SCs: 10, SBSh: 11, SBWh: 12, SM: 13, TeDo: 14, TeDc: 17, TeBSk: 18, TeBWk: 19, TeM: 20, Ba: 21, Bb: 22, BM: 23, P: 24, NA: 25, NO_DATA: 0 };
 /** The label of a code the plot does not have (the database's default code row). */
 const NO_LABEL = 'N/A';
 
@@ -273,7 +293,7 @@ function strataOf(survey: IpccSurvey, plots: readonly IpccPlot[]): PlotStratum[]
   const strata = new Map<string, PlotStratum & { codes: [string, string, string] }>();
   for (const p of plots) {
     const { climate, soil, gez } = p.answers;
-    if (!CLIMATE_TYPES.includes(label('climate', climate)) || !SOIL_TYPES.includes(label('soil', soil))) continue;
+    if (!Object.hasOwn(CLIMATES, label('climate', climate)) || !Object.hasOwn(SOILS, label('soil', soil))) continue;
     const key = [gez, climate, soil].join('\u0000');
     let stratum = strata.get(key);
     if (!stratum) strata.set(key, (stratum = { climate: label('climate', climate), soil: label('soil', soil), gez: label('gez', gez), plots: [], codes: [gez, climate, soil] }));
@@ -391,4 +411,293 @@ export function timeSeriesXml(survey: IpccSurvey, plots: readonly IpccPlot[]): s
     }
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n${xml ? `<list>\n${xml}</list>` : '<list/>'}`;
+}
+
+// --- The file for the IPCC Inventory Software (IPCCDataExportTimeSeriesToTool) ------------------------------------------
+
+/** The descriptions of a list's items in the survey's first language, by code: the soil types' remarks in the file. */
+export function itemDescriptions(idmXml: string, list: string): Map<string, string> {
+  const { surveyChildren, languages } = parseSurvey(idmXml);
+  const out = new Map<string, string>();
+  const node = elements(surveyChildren, 'codeLists')
+    .flatMap((c) => elements(childrenOf(c), 'list'))
+    .find((l) => attr(l, 'name') === list);
+  for (const item of node ? elements(childrenOf(node), 'items').flatMap((i) => elements(childrenOf(i), 'item')) : []) {
+    const code = elements(childrenOf(item), 'code')[0];
+    const description = elements(childrenOf(item), 'description').find((d) => (attr(d, 'xml:lang') ?? languages[0]) === languages[0]);
+    if (code && description) out.set(textOf(code), textOf(description).trim());
+  }
+  return out;
+}
+
+const CATEGORY_IDS: Record<IpccCategory, number> = { F: 1, C: 2, G: 3, W: 4, S: 5, O: 6 };
+/** LandUseManagementEnum: each category's management types and their ids, in its order. */
+const SUBCATEGORY_IDS: Record<IpccCategory, [string, number][]> = {
+  F: [['MANAGED', 1], ['UNMANAGED', 2]],
+  C: [['ANNUAL', 3], ['PERENNIAL', 4]],
+  G: [['MANAGED', 5], ['UNMANAGED', 6]],
+  W: [['MANAGED', 7], ['UNMANAGED', 8]],
+  S: [['TREED', 9], ['OTHER', 10]],
+  O: [['MANAGED', 11], ['UNMANAGED', 12]],
+};
+/** ClimateDomainEnum: id and name; GrowingStockLevelEnum: the 21-40 (21-50) years level of each domain. */
+const DOMAINS: Record<string, [number, string]> = { TROPICAL: [1, 'Tropical'], MEDITERRANEAN: [2, 'Subtropical(Mediterranean)'], TEMPERATE: [3, 'Temperate'], BOREAL: [4, 'Boreal'], POLAR: [5, 'Polar'], NO_DATA: [0, 'NO_DATA'] };
+const GROWING_STOCK_LEVELS: Record<string, number> = { BOREAL: 2, TEMPERATE: 6, MEDITERRANEAN: 32, TROPICAL: 33 };
+
+/** A climate, soil or ecological zone of the plots (StratumObject); NO_DATA when the plot's is not one the software knows. */
+interface StratumRef {
+  value: string;
+  label: string;
+  guid: string;
+}
+/** A subdivision in one climate, soil (and, for forests, ecological zone): a land class of the file (LandUseSubdivisionStratified). */
+interface LandClass {
+  category: IpccCategory;
+  subdivision: Subdivision;
+  climate: StratumRef;
+  soil: StratumRef;
+  ecozone: StratumRef | null;
+  id: number;
+  guid: string;
+}
+
+/** A value of the database: "-1" for a code not answered. */
+const dbValue = (v: string) => v || '-1';
+/** What JDBC's getInt reads of a year code. */
+const yearInt = (v: string) => (v === '' ? -1 : Number.parseInt(v, 10) || 0);
+/** Commons Math's Precision.round(x, 2), half up. */
+const round2 = (x: number) => Number(`${Math.round(Number(`${x}e2`))}e-2`);
+
+type Xml = { name: string; attrs?: string; text?: string; children?: Xml[] };
+const el = (name: string, value: string | number | boolean | null | Xml[], attrs = ''): Xml =>
+  Array.isArray(value) ? { name, attrs, children: value } : value === null ? { name } : { name, attrs, text: typeof value === 'number' && !Number.isInteger(value) ? javaDouble(value) : String(value) };
+/** A double, as JAXB writes it ("0.0"). */
+const dbl = (name: string, value: number): Xml => ({ name, text: javaDouble(value) });
+const NIL = ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"';
+/** As JAXB's formatted output writes it: 4 spaces a level, starting again every 8 levels; a nil element (no text, no children) as xsi:nil. */
+function jaxb(node: Xml, depth: number): string {
+  const pad = ' '.repeat((depth % 8) * 4);
+  const text = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  if (node.children) {
+    if (node.children.length === 0) return `${pad}<${node.name}${node.attrs ?? ''}/>\n`;
+    return `${pad}<${node.name}${node.attrs ?? ''}>\n${node.children.map((c) => jaxb(c, depth + 1)).join('')}${pad}</${node.name}>\n`;
+  }
+  return node.text === undefined ? `${pad}<${node.name}${NIL}/>\n` : `${pad}<${node.name}${node.attrs ?? ''}>${text(node.text)}</${node.name}>\n`;
+}
+
+export interface GhgiOptions {
+  /** The country's code in the IPCC software (ipccCountries.ts). */
+  country: string;
+  /** The plot's region (the value of the question chosen), null for none. */
+  regionOf: (p: IpccPlot) => string | null;
+  /** The soil types' descriptions, by code (itemDescriptions). */
+  soilRemarks: ReadonlyMap<string, string>;
+}
+
+/**
+ * GHGi_tool_data.xml (IPCCDataExportTimeSeriesToTool): the file the IPCC Inventory Software imports, inventory year 2000.
+ * Its land classes are the subdivisions in each climate and soil (forests also by ecological zone) of the plots' current
+ * and previous land uses, with the subdivisions' management types (as chosen) and the defaults the desktop gives the
+ * rest; its land representation, by region, the land units: the plots of a land class with the same land use changes,
+ * and their area (the same for every year, as the desktop's).
+ */
+export function ghgiXml(survey: IpccSurvey, plots: readonly IpccPlot[], options: GhgiOptions): string {
+  const { country } = options;
+  const present = (s: Stratum, known: Record<string, unknown>) =>
+    [...survey.labels[s]].filter(([code, label]) => Object.hasOwn(known, label) && plots.some((p) => p.answers[s] === code)).map(([value, label]) => ({ value, label, guid: randomUUID() }));
+  // AbstractIPCCDataExport.getStrataClimate, getStrataSoil, getStrataEcozone, and their NODATA
+  const climates = present('climate', CLIMATES);
+  const soils = present('soil', SOILS);
+  const ecozones = present('gez', ECOZONES);
+  const noData = { climate: { value: 'NO_DATA', label: 'NO_DATA', guid: randomUUID() }, soil: { value: 'No_DATA', label: 'NO_DATA', guid: randomUUID() }, gez: { value: 'NO_DATA', label: 'NO_DATA', guid: randomUUID() } };
+  const refOf = (list: StratumRef[], code: string, none: StratumRef) => list.find((r) => r.value === code) ?? none;
+  const current = (p: IpccPlot) => p.answers.subcategory.slice(1, 2);
+  const previous = (p: IpccPlot) => p.answers.subcategory.slice(0, 1);
+
+  // The land classes (getClimateSoilLandUseCombination), category by category in the order the desktop makes them
+  const classes: LandClass[] = [];
+  for (const category of ['F', 'C', 'G', 'S', 'W', 'O'] as const) {
+    const base = classes.length;
+    const own: LandClass[] = [];
+    // the distinct rows of a query, in the plots' order; the second leaves out the land classes the first found
+    const add = (rows: { code: string; p: IpccPlot }[], idStart: number, dedupe: boolean) => {
+      const seen = new Set<string>();
+      for (const { code, p } of rows) {
+        const key = [code, p.answers.climate, p.answers.soil, category === 'F' ? p.answers.gez : ''].join('\u0000');
+        if (seen.has(key)) continue;
+        const rowNum = seen.size;
+        seen.add(key);
+        const subdivision = survey.subdivisions.find((s) => s.category === category && s.code === code);
+        if (!subdivision) continue; // the desktop stops the export
+        const c: LandClass = {
+          category,
+          subdivision,
+          climate: refOf(climates, p.answers.climate, noData.climate),
+          soil: refOf(soils, p.answers.soil, noData.soil),
+          ecozone: category === 'F' ? refOf(ecozones, p.answers.gez, noData.gez) : null,
+          id: CATEGORY_IDS[category] * 1000 + base + rowNum + idStart,
+          guid: randomUUID(),
+        };
+        if (dedupe && own.some((o) => o.subdivision === c.subdivision && o.climate === c.climate && o.soil === c.soil && o.ecozone === c.ecozone)) continue;
+        own.push(c);
+      }
+    };
+    add(plots.filter((p) => current(p) === category && p.answers.subdivision !== '').map((p) => ({ code: p.answers.subdivision, p })), 0, false);
+    add(plots.filter((p) => previous(p) === category && p.answers.initialSubdivision !== '').map((p) => ({ code: p.answers.initialSubdivision, p })), own.length, true);
+    classes.push(...own);
+  }
+
+  const common = (c: LandClass, custom: string): Xml[] => [el('id', c.id), el('guid', c.guid), el('countryCode', country), el('customName', custom)];
+  const nutrient = (c: LandClass) => el('nutrientTypeId', c.soil.label === 'ORG' ? 3 : -1);
+  const place = (c: LandClass, status = true) => [
+    el('climateRegionId', CLIMATES[c.climate.label][0]),
+    el('soilTypeId', SOILS[c.soil.label][0]),
+    ...(status ? [el('soilStatusId', 1)] : []),
+    el('geoPlacementId', -1),
+    nutrient(c),
+  ];
+  const mf = () => [dbl('mfLandUse', 0), dbl('mfTillage', 0), dbl('mfInput', 0)];
+  const nils = (...names: string[]) => names.map((n) => el(n, null));
+  const name = (c: LandClass) => `${c.subdivision.code}_${c.climate.label}_${c.soil.label}`;
+  const managed = (c: LandClass) => el('managed', c.subdivision.management === 'MANAGED');
+  const CLASS: Record<IpccCategory, [string, string, (c: LandClass) => Xml[]]> = {
+    F: ['forestLand', 'cltForestLand', (c) => {
+      const domain = CLIMATES[c.climate.label][1];
+      return [
+        ...common(c, `${name(c)}_${c.ecozone!.label}`), managed(c), ...place(c),
+        el('ecoZoneId', ECOZONES[c.ecozone!.label]), ...nils('ecoZoneCustom'), el('plantation', false), el('forestTypeId', 4), ...nils('forestTypeCustom'),
+        el('continentTypeId', 1), el('ageClassId', 3), ...(GROWING_STOCK_LEVELS[domain] ? [el('growingStockLevelId', GROWING_STOCK_LEVELS[domain])] : []),
+        dbl('carbonFraction', 0), dbl('ratio', 0), el('bcefRType', 0), dbl('bcefR', 0), dbl('aboveGroundBiomass', 0), dbl('aboveGroundBiomassGrowth', 0), ...mf(),
+        el('abandoned', false), ...nils('woodDensity', 'growingStockInc'), el('bcefIType', 0), ...nils('bef1'), dbl('bcefI', 0), el('bcefSType', 0), ...nils('bef2'),
+        dbl('bcefS', 0), ...nils('ageClassRange', 'growingStockLevelValue', 'soilCarbonStock'),
+      ];
+    }],
+    C: ['cropland', 'cltCropland', (c) => {
+      const perennial = c.subdivision.management === 'PERENNIAL';
+      return [
+        ...common(c, name(c)), ...place(c), el('perennialCrops', perennial), ...(perennial ? [el('croplandTypeId', 1)] : []), ...nils('croplandTypeCustom'),
+        el('riceEcosystem', false), ...mf(), dbl('harvestCycle', 0), ...nils('bWoody', 'bWoodyAccumulationRate'), el('bWoodyUnitId', 0), ...nils('bWoodyCFrac', 'ratioBgbAgbWoody'),
+        el('ageClassId', 3), ...nils('bHerb'), el('bHerbUnitId', 0), ...nils('bHerbCFrac', 'ageClassValue'), el('agroforestry', false), ...nils('ratioBgbAgbHerb', 'soilCarbonStock'),
+      ];
+    }],
+    G: ['grassland', 'cltGrassland', (c) => [
+      ...common(c, name(c)), managed(c), ...place(c), el('improvedGrassland', false), el('vegetationTypeId', 25), ...mf(),
+      dbl('biomassStockHerb', 0), dbl('biomassStockWoody', 0), dbl('carbonFractionHerb', 0), dbl('carbonFractionWoody', 0), el('ageClassId', 3), dbl('ratioBgbAgbHerb', 0.5),
+      ...nils('ratioBgbAgbWoody', 'agbGrowth'), el('abandoned', false), ...nils('ageClassValue', 'soilCarbonStock'),
+    ]],
+    W: ['wetland', 'cltWetland', (c) => [
+      ...common(c, name(c)), managed(c), ...place(c), el('wetlandType', 'OW'), ...nils('biomassStock', 'cfDryMatter', 'cfAirDryWeight', 'cfAirDryVolume', 'agbGrowth', 'ratioBgbAgb'),
+      ...mf(), ...nils('soilCarbonStock', 'vegetationTypeId'), el('ageClassId', 3), ...nils('ageClassValue'),
+    ]],
+    S: ['settlement', 'cltSettlement', (c) => [
+      ...common(c, name(c)), ...place(c), el('settlementTypeId', c.subdivision.management === 'TREED' ? 9 : 10), ...mf(), ...nils('biomassStock', 'carbonFraction', 'ratioBgbAgb'),
+      el('ageClassId', 3),
+      ...nils('agp', 'propCult', 'mfLandUseCult', 'mfManagCult', 'mfInputCult', 'propTurfgrass', 'mfLandUseTurfgrass', 'mfManagTurfgrass', 'mfInputTurfgrass', 'propPaved', 'mfLandUsePaved', 'mfManagPaved', 'mfInputPaved', 'soilCarbonStock'),
+      el('numberOfClasses', 1),
+    ]],
+    O: ['otherland', 'cltOtherland', (c) => [...common(c, name(c)), managed(c), ...place(c, false)]],
+  };
+
+  // The land units of a land class in a region (generateLandUnits): its plots by their land use changes, the largest first
+  const landUnits = (region: string | null, c: LandClass): Xml[] => {
+    const groups = new Map<string, { a: IpccAnswers; area: number }>();
+    for (const p of plots) {
+      const a = p.answers;
+      if (options.regionOf(p) !== region || a.soil !== c.soil.value || a.climate !== c.climate.value || (c.ecozone && a.gez !== c.ecozone.value)) continue;
+      if (current(p) !== c.category || a.subdivision !== c.subdivision.code) continue;
+      const key = [a.subcategory, a.changeYear, a.subdivision, a.subdivisionYear, a.initialSubdivision, a.secondSubdivision, a.secondConversion, a.secondYear].map(dbValue).join('\u0000');
+      const group = groups.get(key) ?? { a, area: 0 };
+      group.area += p.area ?? 0;
+      groups.set(key, group);
+    }
+    const units: Xml[] = [];
+    for (const { a, area } of [...groups].sort(([x], [y]) => compare(x, y)).map(([, g]) => g).sort((x, y) => y.area - x.area)) {
+      const subcategory = dbValue(a.subcategory);
+      const [from, to] = [subcategory.slice(0, 1), subcategory.slice(1, 2)] as [IpccCategory, IpccCategory];
+      const changeYear = yearInt(a.changeYear);
+      const subdivisionYear = yearInt(a.subdivisionYear);
+      const initial = dbValue(a.initialSubdivision);
+      // The land class of the initial land use (findStrataLandRepresentation): the desktop stops the export without one
+      const before = classes.find((x) => x.category === from && x.subdivision.code === initial && x.climate.value === c.climate.value && x.soil.value === c.soil.value && (!x.ecozone || !c.ecozone || x.ecozone.value === c.ecozone.value));
+      let prev: [number, number, number];
+      if (from !== to) {
+        if (!before) continue;
+        prev = [CATEGORY_IDS[from], before.id, changeYear];
+      } else if (subdivisionYear > -1) {
+        const was = survey.subdivisions.find((s) => s.category === from && s.code === initial);
+        const management = was && SUBCATEGORY_IDS[from].find(([m]) => m === was.management);
+        if (!management || !before) continue;
+        prev = [management[1], before.id, subdivisionYear];
+      } else {
+        prev = [-200, -200, -2];
+      }
+      const total = round2(area);
+      units.push(
+        el('lrtLandUnit', [
+          el('guid', randomUUID()),
+          el('unitCode', `${subcategory}-${changeYear}-${dbValue(a.subdivision)}-${subdivisionYear}-${initial}-${subdivisionYear}-`),
+          el('ltIdPrev', prev[0]),
+          el('cltIdPrev', prev[1]),
+          el('transPeriod', 20),
+          el('convYear', prev[2]),
+          el('areas', YEARS.map((year) => ({ name: 'area', attrs: ` year="${year}"${year === IPCC_START_YEAR ? ' isSource="true"' : ''}`, text: javaDouble(total) }))),
+          el('areasA1D', []),
+          el('isMerged', false),
+          el('pmBiomass', 2),
+          el('pmDomDeadwood', 2),
+          el('pmDomLitter', 2),
+          el('pmSomMineral', 1),
+          el('remark', null),
+          el('history', []),
+        ]),
+      );
+    }
+    return units;
+  };
+
+  // The regions (getLrtRegions): the plots by the value of the region's question, none first
+  const regions = new Map<string | null, number>();
+  for (const p of plots) {
+    const r = options.regionOf(p);
+    regions.set(r, (regions.get(r) ?? 0) + (p.area ?? 0));
+  }
+  const regionXml = [...regions].sort(([a], [b]) => (a === null ? -1 : b === null ? 1 : compare(a, b))).map(([region, area]) => {
+    const categories = IPCC_CATEGORIES.flatMap((category) => {
+      const subcategories = SUBCATEGORY_IDS[category].flatMap(([management, scatId]) => {
+        const subdivisions = classes
+          .filter((c) => c.category === category && c.subdivision.management === management)
+          .flatMap((c) => {
+            const units = landUnits(region, c);
+            return units.length > 0 ? [el('lrtLandSubdivision', [el('cltId', c.id), el('remark', null), el('landUnits', units)])] : [];
+          });
+        return subdivisions.length > 0 ? [el('lrtLandSubcategory', [el('scatId', scatId), el('remark', null), el('landSubdivisions', subdivisions)])] : [];
+      });
+      return subcategories.length > 0 ? [el('lrtLandCategory', [el('ltId', CATEGORY_IDS[category]), el('remark', null), el('landSubcategories', subcategories)])] : [];
+    });
+    return el('lrtRegion', [
+      el('guid', randomUUID()),
+      el('name', region === null ? 'Unknown' : region.replace(/'/g, '')),
+      dbl('area', round2(area)),
+      el('approachId', 2),
+      el('remark', null),
+      el('landCategories', categories),
+    ]);
+  });
+
+  const landTypes = el('landTypes', [
+    el('countryCode', country),
+    el('climateRegions', climates.map((c) => el('climateRegion', [el('id', CLIMATES[c.label][0]), el('guid', c.guid), el('domainId', DOMAINS[CLIMATES[c.label][1]][0]), el('region', DOMAINS[CLIMATES[c.label][1]][1]), el('remark', c.label)]))),
+    el('soilTypes', soils.map((s) => {
+      const remark = options.soilRemarks.get(s.value);
+      return el('soilType', [el('id', SOILS[s.label][0]), el('guid', s.guid), el('compositionId', SOILS[s.label][1]), el('fullName', s.label), ...(remark ? [el('remark', remark)] : [])]);
+    })),
+    ...(['F', 'C', 'G', 'W', 'S', 'O'] as const).map((category) => {
+      const [wrapper, tag, fields] = CLASS[category];
+      return el(wrapper, classes.filter((c) => c.category === category).map((c) => el(tag, fields(c))));
+    }),
+    el('landRepresentation', [el('lrtCountry', [el('countryCode', country), dbl('area', plots.reduce((sum, p) => sum + (p.area ?? 0), 0)), el('regions', regionXml)])]),
+    el('socRefTable', [el('countryCode', country)]),
+  ]);
+  const root = [el('Version', '2.861'), el('inventoryYear', IPCC_START_YEAR), el('countryCode', country), el('tiers', []), el('ipccSubdivisions', []), el('record', [landTypes]), el('signature', 'CollectEarth')];
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<ns2:IPCC2006Export xmlns:ns2="http://ipcc2006.air.sk/IPCC2006Export">\n${root.map((n) => jaxb(n, 1)).join('')}</ns2:IPCC2006Export>\n`;
 }

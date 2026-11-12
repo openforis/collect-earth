@@ -4,7 +4,7 @@ import { strFromU8, unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { analysisModel } from '../src/analysis.js';
 import { readCep, readZip, zipCep } from '../src/cep.js';
-import { IPCC_END_YEAR, IPCC_START_YEAR, ipccPlots, ipccSurvey, landUnitsCsv, matrixSheets, perPlotCsv, strataMatrixSheets, timeSeriesXml, type IpccPlot } from '../src/ipcc.js';
+import { ghgiXml, IPCC_END_YEAR, IPCC_START_YEAR, ipccPlots, ipccSurvey, landUnitsCsv, matrixSheets, perPlotCsv, strataMatrixSheets, timeSeriesXml, type IpccPlot, type Subdivision } from '../src/ipcc.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 import { demoCep, FIXTURE_DATE } from './fixtures/cep.js';
 
@@ -112,7 +112,9 @@ describe('the land use change matrices (IPCCDataExportMatrixExcel)', () => {
 describe("the desktop's exporters on the same plots", () => {
   // plots.json: plots of the scenarios above in several strata, with their areas, as src/ipcc.ts reads them; desktop/:
   // what the desktop's own exporters make of them (ipcc/IpccDesktopDump.java)
-  const input = JSON.parse(fixture('ipcc/plots.json').toString('utf8')) as { plots: (Omit<IpccPlot, 'summary'> & { province: string })[] };
+  const input = JSON.parse(fixture('ipcc/plots.json').toString('utf8')) as { subdivisions: Subdivision[]; plots: (Omit<IpccPlot, 'summary'> & { province: string })[] };
+  // the subdivisions with management types chosen as on the form, some not the defaults
+  const chosen = { ...survey, subdivisions: input.subdivisions };
   const plots: IpccPlot[] = input.plots.map(({ province, ...p }) => ({ ...p, summary: { collect_text_province: province } }));
   const desktop = (name: string) => fixture(`ipcc/desktop/${name}`).toString('utf8');
   /** The GUIDs (random at each export) numbered in the order they first appear. */
@@ -127,17 +129,24 @@ describe("the desktop's exporters on the same plots", () => {
   const trimmedHeader = (csv: string) => csv.replace(/^.*\n/, (line) => line.replace(/" /g, '"'));
 
   it('give the same matrices', () => {
-    expect(matrixSheets(survey, plots)).toEqual(JSON.parse(desktop('LU_Matrixes.json')));
-    expect(strataMatrixSheets(survey, plots)).toEqual(JSON.parse(desktop('LU_Matrixes_stratified.json')));
+    expect(matrixSheets(chosen, plots)).toEqual(JSON.parse(desktop('LU_Matrixes.json')));
+    expect(strataMatrixSheets(chosen, plots)).toEqual(JSON.parse(desktop('LU_Matrixes_stratified.json')));
   });
 
   it('give the same land uses of each plot and land units', () => {
-    expect(perPlotCsv(survey, plots)).toBe(trimmedHeader(desktop('LU_Timeseries_per_plot.csv')));
-    expect(landUnitsCsv(survey, plots)).toBe(trimmedHeader(desktop('LU_Timeseries_grouped.csv')));
+    expect(perPlotCsv(chosen, plots)).toBe(trimmedHeader(desktop('LU_Timeseries_per_plot.csv')));
+    expect(landUnitsCsv(chosen, plots)).toBe(trimmedHeader(desktop('LU_Timeseries_grouped.csv')));
   });
 
   it('give the same time series', () => {
-    expect(numbered(timeSeriesXml(survey, plots))).toBe(numbered(desktop('LU_Timeseries.xml')));
+    expect(numbered(timeSeriesXml(chosen, plots))).toBe(numbered(desktop('LU_Timeseries.xml')));
+  });
+
+  it('give the same file for the IPCC Inventory Software', () => {
+    // the harness's soil descriptions; the regions are the plots' provinces
+    const soilRemarks = new Map([...survey.labels.soil].map(([code, label]) => [code, `${label} description`]));
+    const xml = ghgiXml(chosen, plots, { country: 'ALG', regionOf: (p) => p.summary.collect_text_province || null, soilRemarks });
+    expect(numbered(xml)).toBe(numbered(desktop('GHGi_tool_data.xml')));
   });
 });
 
@@ -166,7 +175,7 @@ describe('the IPCC export routes', () => {
   it('are for coordinators, and say what the export is made of', async () => {
     expect((await get('', ana)).statusCode).toBe(403);
     expect((await get('/matrix', ana)).statusCode).toBe(403);
-    expect((await get('')).json()).toEqual({ missing: [], plots: 0, areas: null });
+    expect((await get('')).json()).toMatchObject({ missing: [], plots: 0, areas: null, region: 'province' });
     expect((await get('/matrix')).json().error).toBe('no_plots');
     expect((await get('/nothing')).statusCode).toBe(404);
   });
@@ -175,7 +184,7 @@ describe('the IPCC export routes', () => {
     const records = ['1/9001.xml', '1/9004.xml'].map((f) => envelope({ recordKey: `${scenarios[f].collect_text_id},1`, operator: 'ana', modifiedOn: Date.UTC(2026, 10, 1), summary: scenarios[f] }));
     expect((await batchRequest(ctx.app, pid, ana, records)).statusCode).toBe(200);
     await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/areas`, headers: bearer(owner.token), payload: { settings: { mode: 'total', area: 1000 } } });
-    expect((await get('')).json()).toEqual({ missing: [], plots: 2, areas: 'total' });
+    expect((await get('')).json()).toMatchObject({ missing: [], plots: 2, areas: 'total' });
     const res = await get('/matrix');
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-disposition']).toContain('LU_Matrixes.xlsx');
@@ -192,5 +201,26 @@ describe('the IPCC export routes', () => {
     const log = await ctx.store.listAudit(pid, { limit: 10, action: 'export.downloaded' });
     expect(log.map((e) => e.details.file)).toEqual(['timeseries', 'land-units', 'plots', 'matrix-strata', 'matrix']);
     expect(log[0].details).toEqual({ kind: 'ipcc', file: 'timeseries', plots: 2 });
+  });
+
+  it('give the file for the IPCC Inventory Software with the choices of the form', async () => {
+    const records = ['1/9001.xml', '1/9004.xml'].map((f) => envelope({ recordKey: `${scenarios[f].collect_text_id},1`, operator: 'ana', modifiedOn: Date.UTC(2026, 10, 1), summary: scenarios[f] }));
+    expect((await batchRequest(ctx.app, pid, ana, records)).statusCode).toBe(200);
+    const status = (await get('')).json();
+    expect(status.countries).toContainEqual(['ALG', 'Algeria']);
+    expect(status.regions).toContain('province');
+    expect(status.subdivisions).toContainEqual({ category: 'S', code: 'city', name: 'City', management: 'OTHER' });
+    const post = (payload: Record<string, unknown>, token = owner.token) => ctx.app.inject({ method: 'POST', url: `/v1/projects/${pid}/exports/ipcc/ghgi`, headers: bearer(token), payload });
+    expect((await post({ country: 'ALG', region: 'province' }, ana)).statusCode).toBe(403);
+    expect((await post({ country: 'XX', region: 'province' })).json().error).toBe('invalid_choice');
+    expect((await post({ country: 'ALG', region: 'nothing' })).json().error).toBe('invalid_choice');
+    const res = await post({ country: 'ALG', region: 'province', management: { 'S/city': 'TREED', 'C/annual_crops': 'NOPE' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-disposition']).toContain('GHGi_tool_data.xml');
+    // the settlement treed as chosen, the cropland annual (its default) for a choice it does not have
+    expect(res.body).toContain('<settlementTypeId>9</settlementTypeId>');
+    expect(res.body).toContain('<perennialCrops>false</perennialCrops>');
+    expect(res.body).toContain('<name>Madrid</name>');
+    expect((await ctx.store.listAudit(pid, { limit: 1, action: 'export.downloaded' }))[0].details).toEqual({ kind: 'ipcc', file: 'ghgi', plots: 2 });
   });
 });

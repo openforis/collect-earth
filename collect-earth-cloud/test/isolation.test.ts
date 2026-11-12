@@ -193,6 +193,7 @@ describe('cross-tenant isolation', () => {
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/exports/collect-backup/summary` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/exports/ipcc` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/exports/ipcc/matrix` },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/exports/ipcc/ghgi`, payload: { country: 'ALG', region: 'province' } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/attention` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/share-links` },
       { method: 'POST' as const, url: `/v1/projects/${b.projectId}/share-links`, payload: { label: 'x' } },
