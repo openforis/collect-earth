@@ -238,7 +238,7 @@ describe("toProgressData", () => {
     expect(d.attention![0].people[0]).toEqual({ username: "ana", lastSyncAt: 5, lastPlotsDownloadAt: null, medianDelayMs: null });
     expect(d.settings).toEqual({ deadline: "2026-12-31", targetPlots: null, quietDays: 3 });
     expect(toProgressData({ attention: null }).attention).toBeNull();
-    expect(toProgressData({}).forecast.paceDays).toBe(14);
+    expect(toProgressData({}).forecast.paceDays).toBe(7);
   });
 });
 

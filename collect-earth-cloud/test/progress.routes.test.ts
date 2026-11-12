@@ -71,10 +71,10 @@ describe('GET /progress and the progress settings', () => {
     expect((await call('GET', '/progress', maria.token)).statusCode).toBe(403);
   });
 
-  it('an unknown time zone falls back to UTC; days are kept between 14 and 366', async () => {
+  it('an unknown time zone falls back to UTC; days are kept between 7 and 366, at least the days of the pace', async () => {
     expect((await call('GET', '/progress?tz=Mars/Olympus', owner.token)).json().timeZone).toBe('UTC');
     expect((await call('GET', '/progress?tz=%2B05:30', owner.token)).json().timeZone).toBe('UTC');
-    expect((await call('GET', '/progress?days=3', owner.token)).json().daily).toHaveLength(14);
+    expect((await call('GET', '/progress?days=3', owner.token)).json().daily).toHaveLength(7);
     expect((await call('GET', '/progress?days=5000', owner.token)).json().daily).toHaveLength(366);
     expect((await call('GET', '/progress?days=abc', owner.token)).json().daily).toHaveLength(90);
   });

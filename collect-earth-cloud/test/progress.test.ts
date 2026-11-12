@@ -235,17 +235,17 @@ describe('forecast', () => {
   const totals = (over: Partial<ProgressTotals>): ProgressTotals => ({ plots: 1000, assigned: 800, notAssigned: 200, submitted: 100, started: 0, notStarted: 900, ...over });
   const pace = (perDay: number) => dailyOf(new Map([...Array(14)].map((_, i) => [addDays('2026-11-01', -i), perDay] as [string, number])), '2026-11-01', 30);
 
-  it('the pace of the last 14 days, the days left and the end date; the target is every assigned plot', () => {
+  it('the pace of the last 7 days, the days left and the end date; the target is every assigned plot', () => {
     const f = forecastOf(totals({}), pace(10), '2026-11-01', defaults, '2026-09-01');
-    expect(f).toMatchObject({ target: 800, targetFrom: 'assigned', remaining: 700, pacePerDay: 10, paceDays: 14, daysLeft: 70, endDate: '2027-01-10' });
+    expect(f).toMatchObject({ target: 800, targetFrom: 'assigned', remaining: 700, pacePerDay: 10, paceDays: 7, daysLeft: 70, endDate: '2027-01-10' });
     expect(f).toMatchObject({ deadline: null, daysToDeadline: null, daysOver: null, neededPerDay: null });
   });
 
-  it('a collection younger than 14 days: the pace over the days since its first plot', () => {
+  it('a collection younger than 7 days: the pace over the days since its first plot', () => {
     const daily = dailyOf(new Map([['2026-10-29', 6], ['2026-11-01', 2]]), '2026-11-01', 30);
     expect(forecastOf(totals({}), daily, '2026-11-01', defaults, '2026-10-29')).toMatchObject({ paceDays: 4, pacePerDay: 2 });
     expect(forecastOf(totals({}), daily, '2026-11-01', defaults, '2026-11-03')).toMatchObject({ paceDays: 1 });
-    expect(forecastOf(totals({}), pace(0), '2026-11-01', defaults, null)).toMatchObject({ paceDays: 14, pacePerDay: 0 });
+    expect(forecastOf(totals({}), pace(0), '2026-11-01', defaults, null)).toMatchObject({ paceDays: 7, pacePerDay: 0 });
   });
 
   it('with a deadline: days over and plots a day needed', () => {
