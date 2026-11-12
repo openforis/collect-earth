@@ -85,9 +85,6 @@ public class AssignedPlotFileSetupTest {
 		when(properties.getCloudProjectId()).thenReturn("p1");
 		when(properties.getCloudSyncToken()).thenReturn("session-token");
 		when(properties.getCloudBinding()).thenReturn(new CloudBinding(idm.getParent(), "https://c.org", "p1", "Kenya 2025", "maria"));
-		when(properties.getViewerType()).thenReturn("plots_map");
-		when(properties.getWindowLayout()).thenReturn("auto");
-		when(properties.getMapEngine()).thenReturn("leaflet");
 		when(properties.getCollectDBDriver()).thenReturn(CollectDBDriver.CLOUD);
 		// The settings as the page's Apply saves them, with the rule of a cloud project's plots file
 		SettingsValidator validator = new SettingsValidator(new SettingsModel(LocalDate.of(2026, 11, 12)), () -> LocalDate.of(2026, 11, 12),
@@ -148,17 +145,42 @@ public class AssignedPlotFileSetupTest {
 		verify(api, org.mockito.Mockito.times(1)).downloadAssignedCsv(any(), any());
 	}
 
+	@SuppressWarnings("unchecked")
+	private List<Map<String, String>> options(Map<String, Object> notice) {
+		return (List<Map<String, String>>) notice.get("options");
+	}
+
 	@Test
-	public void severalFilesAreLeftToTheCollectorToChoose() throws Exception {
+	public void severalFilesAreListedToChooseFromAndTheOneChosenIsTaken() throws Exception {
 		String before = stored.get("csv");
 		assigned(new AssignmentInfo("a1", "north.csv", "c1", "/d/a1", 120), new AssignmentInfo("a2", "south.csv", "c2", "/d/a2", 80));
 		assertEquals(Outcome.SEVERAL, setup.run());
 		assertEquals(before, stored.get("csv"));
 		assertEquals(0, reloads.get());
 		verify(api, never()).downloadAssignedCsv(any(), any());
-		assertEquals(java.text.MessageFormat.format(Messages.getString("CloudPlotFile.several"), 2), noticeMessage());
-		// The project opened again later: asked again, as the plots file is still not an assigned one
+		assertEquals(Messages.getString("CloudPlotFile.several"), noticeMessage());
+		// The files, each with its number of plots, to pick from; and Later, a button
+		Map<String, Object> notice = notices.pending().get(0);
+		List<Map<String, String>> options = options(notice);
+		assertEquals(3, options.size());
+		assertEquals("north.csv", options.get(0).get("label"));
+		assertEquals(java.text.MessageFormat.format(Messages.getString("CloudPlotFile.plots"), 120), options.get(0).get("detail"));
+		assertEquals("true", options.get(0).get("choice"));
+		assertEquals("south.csv", options.get(1).get("label"));
+		assertEquals(AssignedPlotFileSetup.LATER, options.get(2).get("id"));
+		assertEquals(null, options.get(2).get("choice"));
+		// Later: nothing taken; the project opened again later asks again, the plots file still not an assigned one
+		notices.answer((String) notice.get("id"), AssignedPlotFileSetup.LATER);
+		assertEquals(before, stored.get("csv"));
+		verify(api, never()).downloadAssignedCsv(any(), any());
 		assertEquals(Outcome.SEVERAL, setup.run());
+		// south.csv picked: taken as Apply does, and said
+		Map<String, Object> again = notices.pending().get(0);
+		notices.answer((String) again.get("id"), options(again).get(1).get("id"));
+		assertEquals(new File(assignments, "south.csv").getAbsolutePath(), stored.get("csv"));
+		assertEquals(1, reloads.get());
+		assertTrue(noticeMessage().contains("south.csv"));
+		assertEquals(Outcome.NOT_NEEDED, setup.run());
 	}
 
 	@Test
@@ -218,6 +240,12 @@ public class AssignedPlotFileSetupTest {
 		assertEquals(2, notices.pending().size());
 		assertEquals(java.text.MessageFormat.format(Messages.getString("CloudPlotFile.learningSet"), "Learning nov.csv"),
 				notices.pending().get(0).get("message"));
+		// Taken by the collector, from the notice: downloaded once, its new attempt started then
+		Map<String, Object> offer = notices.pending().get(0);
+		assertEquals("Learning nov.csv", options(offer).get(0).get("label"));
+		notices.answer((String) offer.get("id"), options(offer).get(0).get("id"));
+		verify(api, org.mockito.Mockito.times(1)).downloadAssignedCsv(any(), any());
+		assertEquals(new File(assignments, "Learning nov.csv").getAbsolutePath(), stored.get("csv"));
 	}
 
 	@Test

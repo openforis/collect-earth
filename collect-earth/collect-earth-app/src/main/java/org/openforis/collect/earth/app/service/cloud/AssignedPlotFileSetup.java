@@ -29,11 +29,12 @@ import org.springframework.stereotype.Component;
  * <ul>
  * <li>exactly one: it is downloaded and made the plots file as Apply of Settings > Project does (downloaded into the
  * assignments folder, then saved as the plots file through the settings, which reload the plots);</li>
- * <li>several: none is picked, a notice says to choose one in Settings > Project;</li>
+ * <li>several: none is picked, a notice lists them to choose one from, which is then taken as Apply does (or, later,
+ * in Settings > Project);</li>
  * <li>none: a notice says the coordinator has not given any yet;</li>
  * <li>a learning set's file in a new attempt (taking it deletes the earlier records of its plots): never taken by
- * itself, a notice says to choose it in Settings > Project, so that the deletion happens once, when the collector
- * chooses it;</li>
+ * itself, a notice offers it (and says what taking it does), so that the deletion happens once, when the collector
+ * takes it;</li>
  * <li>the server not answering, or the file not downloaded: a notice, and the plots file stays as it was.</li>
  * </ul>
  * Once the plots file is one of the assignments folder nothing is asked again. A coordinator ({@code admin}) is left
@@ -44,6 +45,8 @@ public class AssignedPlotFileSetup {
 
 	/** The notices' kind */
 	public static final String NOTICE = "cloudPlotFile"; //$NON-NLS-1$
+	/** The option of the notices that offer files to leave the choice for later (Settings > Project) */
+	static final String LATER = "later"; //$NON-NLS-1$
 
 	/** What was done */
 	public enum Outcome {
@@ -127,27 +130,61 @@ public class AssignedPlotFileSetup {
 			return Outcome.NONE;
 		}
 		if (files.size() > 1) {
-			post(Notice.INFO, MessageFormat.format(Messages.getString("CloudPlotFile.several"), files.size())); //$NON-NLS-1$
+			// Listed to choose from: the one chosen is taken as Apply does
+			offer(Messages.getString("CloudPlotFile.several"), files); //$NON-NLS-1$
 			return Outcome.SEVERAL;
 		}
 		AssignmentInfo only = files.get(0);
-		String name = StringUtils.defaultIfBlank(only.getFilename(), only.getCsvFileId());
 		if (only.getFreshSince() != null) {
-			post(Notice.INFO, MessageFormat.format(Messages.getString("CloudPlotFile.learningSet"), name)); //$NON-NLS-1$
+			// Offered, not taken: taking it starts the learning set afresh (its earlier records are deleted)
+			offer(MessageFormat.format(Messages.getString("CloudPlotFile.learningSet"), nameOf(only)), files); //$NON-NLS-1$
 			return Outcome.LEARNING_SET;
 		}
+		return apply(only) ? Outcome.APPLIED : Outcome.FAILED;
+	}
+
+	/** Downloads the file and makes it the plots file, saying so; @return whether it is the plots file now */
+	boolean apply(AssignmentInfo info) {
+		String name = nameOf(info);
 		File file;
 		try {
-			file = cloud.downloadAssignment(only);
+			file = cloud.downloadAssignment(info);
 			saver.save(file.getAbsolutePath());
 		} catch (Exception e) { // NOSONAR the download's and the settings' refusals alike
 			logger.warn("Could not make the assigned plot file {} the plots file: {}", name, e.getMessage()); //$NON-NLS-1$
 			post(Notice.WARNING, Messages.getString("CloudPlotFile.failed")); //$NON-NLS-1$
-			return Outcome.FAILED;
+			return false;
 		}
 		logger.info("The assigned plot file {} is the plots file now", file.getName()); //$NON-NLS-1$
-		post(Notice.INFO, MessageFormat.format(Messages.getString("CloudPlotFile.applied"), name, only.getPlotCount())); //$NON-NLS-1$
-		return Outcome.APPLIED;
+		post(Notice.INFO, MessageFormat.format(Messages.getString("CloudPlotFile.applied"), name, info.getPlotCount())); //$NON-NLS-1$
+		return true;
+	}
+
+	/**
+	 * A notice listing the files to choose from, each with its number of plots, and Later (Settings > Project); the one
+	 * chosen is taken as Apply does, on the thread that answers.
+	 */
+	private void offer(String message, List<AssignmentInfo> files) {
+		if (notices == null) {
+			return;
+		}
+		Notice notice = new Notice(NOTICE, Notice.INFO, Messages.getString("CloudPlotFile.title"), message); //$NON-NLS-1$
+		for (AssignmentInfo info : files) {
+			notice.choice(info.getCsvFileId(), nameOf(info), MessageFormat.format(Messages.getString("CloudPlotFile.plots"), info.getPlotCount())); //$NON-NLS-1$
+		}
+		notice.option(LATER, Messages.getString("CloudPlotFile.later")); //$NON-NLS-1$
+		notices.post(notice, chosen -> {
+			for (AssignmentInfo info : files) {
+				if (info.getCsvFileId() != null && info.getCsvFileId().equals(chosen)) {
+					apply(info);
+					return;
+				}
+			}
+		});
+	}
+
+	private static String nameOf(AssignmentInfo info) {
+		return StringUtils.defaultIfBlank(info.getFilename(), info.getCsvFileId());
 	}
 
 	private void post(String severity, String message) {
