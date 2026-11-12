@@ -2,6 +2,8 @@
 // with "Data Import/Export > Import data (ZIP or CSV)". The layout is the
 // one Collect's XMLDataImportProcess reads and Collect Earth's own export writes (see the plan's
 // spike): `idml.xml` (the survey), then one `<step>/<n>.xml` per record, nothing else.
+// Or the same records as OpenForis Collect's own backup (.collect-backup, Collect's SurveyBackupJob):
+// `info.properties`, `idml.xml`, the survey's files (`files/<type>/<name>`), then `data/<step>/<n>.xml`.
 import type { RecordRound } from './rounds.js';
 import type { Store } from './store/store.js';
 import type { RecordState } from './types.js';
@@ -10,6 +12,10 @@ import { zipStream, type ZipEntry } from './zipStream.js';
 /** Which records: the first assessments only, or every round. */
 export type BackupRounds = '1' | 'all';
 export const BACKUP_ROUNDS: readonly BackupRounds[] = ['1', 'all'];
+
+/** Which file: the zip Collect Earth imports, or OpenForis Collect's own backup (.collect-backup). */
+export type BackupFormat = 'zip' | 'collect';
+export const BACKUP_FORMATS: readonly BackupFormat[] = ['zip', 'collect'];
 
 /** About how many bytes of zip a record takes (17 KB of XML deflates to about 1.8 KB). */
 export const BYTES_PER_RECORD = 1800;
@@ -141,8 +147,9 @@ export interface BackupOutcome {
 }
 
 /**
- * The entries of the backup: the survey as `idml.xml`, then each record of the plan as
- * `<step>/<n>.xml` (its stored step; n from 1, in the plan's order), its XML exactly as stored, in
+ * The entries of the backup: `head` (the survey as `idml.xml`; collectHead's files for Collect's
+ * format), then each record of the plan as `<step>/<n>.xml` (`data/<step>/<n>.xml` for Collect's
+ * format; its stored step; n from 1, in the plan's order), its XML exactly as stored, in
  * UTF-8 (the way Collect reads it), read `BACKUP_PAGE` records at a time. A record deleted since the
  * plan (`outcome.deleted`) or gone or without XML now (`outcome.missing`) is left out and its number
  * is not reused.
@@ -150,11 +157,15 @@ export interface BackupOutcome {
 export async function* backupEntries(
   store: Store,
   projectId: string,
-  survey: Uint8Array,
+  head: readonly ZipEntry[],
   plan: Pick<BackupPlan, 'records'>,
   outcome: BackupOutcome = { written: 0, missing: 0, deleted: 0 },
+  format: BackupFormat = 'zip',
 ): AsyncGenerator<ZipEntry> {
-  yield { name: 'idml.xml', data: survey };
+  yield* head;
+  // One copy per record in its own step's folder, as the zip has it: Collect's restore fills the steps before it
+  // with that copy (RecordOperationGenerator.insertRecordDataUntilStep)
+  const folder = format === 'collect' ? 'data/' : '';
   for (let start = 0; start < plan.records.length; start += BACKUP_PAGE) {
     const page = plan.records.slice(start, start + BACKUP_PAGE);
     const found = await store.getRecordXml(projectId, page);
@@ -172,7 +183,7 @@ export async function* backupEntries(
         continue;
       }
       outcome.written += 1;
-      yield { name: `${stepOf(stored.step)}/${start + i + 1}.xml`, data: Buffer.from(xml, 'utf8') };
+      yield { name: `${folder}${stepOf(stored.step)}/${start + i + 1}.xml`, data: Buffer.from(xml, 'utf8') };
     }
   }
 }
@@ -181,12 +192,50 @@ export async function* backupEntries(
 export function collectBackupZip(
   store: Store,
   projectId: string,
-  survey: Uint8Array,
+  head: readonly ZipEntry[],
   plan: Pick<BackupPlan, 'records'>,
   date: Date,
   outcome?: BackupOutcome,
+  format?: BackupFormat,
 ): AsyncGenerator<Buffer> {
-  return zipStream(backupEntries(store, projectId, survey, plan, outcome), date);
+  return zipStream(backupEntries(store, projectId, head, plan, outcome, format), date);
+}
+
+/** The Collect that Collect Earth bundles, whose DataMarshaller wrote the records: Collect reads them as written by it. */
+const COLLECT_VERSION = '4.0.110';
+
+/** A value as Java's Properties.store writes it: Collect reads info.properties as ISO-8859-1, anything else as \uXXXX. */
+const javaProperty = (s: string): string =>
+  s
+    .replace(/[\\:=#!]/g, '\\$&')
+    .replace(/^ /, '\\ ')
+    .replace(/[^\x20-\x7e]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+
+/**
+ * What OpenForis Collect's own backup (SurveyBackupJob) holds before its records: `info.properties`
+ * (SurveyBackupInfo: the survey's address and name, when, by which Collect; the time as Collect's
+ * Dates.formatDateTime writes it), the survey as `idml.xml`, then the survey's files by type: each plot
+ * file as a grid (`files/ce_grid/`, the dashboard's import makes the plot files from them) and the areas
+ * per stratum (`files/ce_area/areas_per_attribute.csv`, Collect's fixed name for that type).
+ */
+export function collectHead(
+  o: { survey: Uint8Array; uri: string; name: string; grids: readonly { filename: string; data: Uint8Array }[]; areas: Uint8Array | null },
+  date: Date,
+): ZipEntry[] {
+  const info = [
+    `survey_uri=${javaProperty(o.uri)}`,
+    `survey_name=${javaProperty(o.name)}`,
+    `timestamp=${javaProperty(date.toISOString().replace('Z', '+00:00'))}`,
+    `collect_version=${COLLECT_VERSION}`,
+    '',
+  ].join('\n');
+  return [
+    { name: 'info.properties', data: Buffer.from(info, 'latin1') },
+    { name: 'idml.xml', data: o.survey },
+    // the import reads only files/ce_grid/*.csv
+    ...o.grids.map((g) => ({ name: `files/ce_grid/${/\.csv$/i.test(g.filename) ? g.filename : `${g.filename}.csv`}`, data: g.data })),
+    ...(o.areas ? [{ name: 'files/ce_area/areas_per_attribute.csv', data: o.areas }] : []),
+  ];
 }
 
 /** Plain code-point order: stable across locales and servers. */

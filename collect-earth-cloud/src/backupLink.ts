@@ -3,7 +3,7 @@
 // (GET /v1/collect-backup/<token>), streaming it to disk with its own progress, with no session
 // in the URL. The token is signed (HMAC-SHA256), lives 60 seconds, and is used once.
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import type { BackupRounds } from './collectBackup.js';
+import type { BackupFormat, BackupRounds } from './collectBackup.js';
 
 /** How long a link can be used. */
 export const LINK_TTL_MS = 60_000;
@@ -13,6 +13,7 @@ export interface BackupLinkClaims {
   /** The coordinator who asked for it; null for a project admin token (no person). */
   userId: string | null;
   rounds: BackupRounds;
+  format: BackupFormat;
 }
 
 export interface BackupLink extends BackupLinkClaims {
@@ -25,7 +26,7 @@ export interface BackupLink extends BackupLinkClaims {
 export function writeBackupLink(claims: BackupLinkClaims, secret: Buffer, now: number): { token: string; expiresAt: number } {
   const expiresAt = now + LINK_TTL_MS;
   const payload = Buffer.from(
-    JSON.stringify({ p: claims.projectId, u: claims.userId, r: claims.rounds, e: expiresAt, n: randomBytes(12).toString('base64url') }),
+    JSON.stringify({ p: claims.projectId, u: claims.userId, r: claims.rounds, f: claims.format, e: expiresAt, n: randomBytes(12).toString('base64url') }),
   ).toString('base64url');
   return { token: `${payload}.${sign(payload, secret)}`, expiresAt };
 }
@@ -44,12 +45,12 @@ export function readBackupLink(token: string, secret: Buffer, now: number): Back
   } catch {
     return null;
   }
-  const v = raw as { p?: unknown; u?: unknown; r?: unknown; e?: unknown; n?: unknown };
-  if (typeof v.p !== 'string' || (v.u !== null && typeof v.u !== 'string') || (v.r !== '1' && v.r !== 'all') || typeof v.e !== 'number' || typeof v.n !== 'string') {
+  const v = raw as { p?: unknown; u?: unknown; r?: unknown; f?: unknown; e?: unknown; n?: unknown };
+  if (typeof v.p !== 'string' || (v.u !== null && typeof v.u !== 'string') || (v.r !== '1' && v.r !== 'all') || (v.f !== 'zip' && v.f !== 'collect') || typeof v.e !== 'number' || typeof v.n !== 'string') {
     return null;
   }
   if (now >= v.e) return 'expired';
-  return { projectId: v.p, userId: v.u as string | null, rounds: v.r, expiresAt: v.e, nonce: v.n };
+  return { projectId: v.p, userId: v.u as string | null, rounds: v.r, format: v.f, expiresAt: v.e, nonce: v.n };
 }
 
 function sign(payload: string, secret: Buffer): string {
