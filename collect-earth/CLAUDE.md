@@ -154,6 +154,13 @@ The installers bundle an Eclipse Temurin JRE (`jre.version` in `collect-earth-in
 serves it: `utils/repack_jres.py` downloads it from Adoptium and installs it in the local repository, and the
 `assembly` profile runs it by itself when it is missing (Python on the PATH; `-Djre.ensure.skip=true` to leave it out).
 
+The launcher the installers create (`java_launcher_vm_parameters` in `java.xml`) starts the JVM with class-data sharing,
+as `dev-run` does: `-XX:+AutoCreateSharedArchive -XX:SharedArchiveFile=CollectEarth.jsa`, a file in the installation
+folder (the launcher's working folder), which the JVM makes again when the jar or the Java changes; `EarthApp.relaunch`
+passes the flags on to a restart. Where that folder is not writable (another user of the machine) the JVM says so on
+exit and starts without it. The updaters do not create the launcher again (`java_create_launcher` 0), so an installation
+gets the flags from an installer only.
+
 Each bundled Java has an update manifest of its own (`collectEarthUpdateJRE11.xml`, `collectEarthUpdateJRE21.xml`),
 and one release moves the installations from one to the next - 1.20.0 from Java 8 to 11, 2.0.0 from 11 to 21. That
 release is published to both manifests (`autoupdate.previous-manifest.upload`), and its updater carries the JRE
