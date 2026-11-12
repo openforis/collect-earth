@@ -112,7 +112,10 @@
 		<stringParameter name="java_launcher_destination" value="${installdir}" ask="0" />
 		<stringParameter name="java_launcher_binary_name" value="" ask="0" />
 		<stringParameter name="java_launcher_arguments" value="" ask="0" />
-		<stringParameter name="java_launcher_vm_parameters" value="-Duser.country=US -Duser.language=en" ask="0"/>
+		<!-- Class-data sharing: the JVM keeps the classes it loaded in CollectEarth.jsa, in the working folder (the
+		     installation's, which the installation asks to be writable), and maps them at the next starts. It makes the
+		     archive again when the jar or the Java changes. EarthApp.relaunch passes the flags on to a restart. -->
+		<stringParameter name="java_launcher_vm_parameters" value="-Duser.country=US -Duser.language=en -XX:+IgnoreUnrecognizedVMOptions -XX:+AutoCreateSharedArchive -XX:SharedArchiveFile=CollectEarth.jsa" ask="0"/>
 		<stringParameter name="java_launcher_jar" value="" ask="0" />
 		<stringParameter name="java_launcher_mainClass" value="" ask="0" />
 		<stringParameter name="java_launcher_classpath" value="" ask="0" />

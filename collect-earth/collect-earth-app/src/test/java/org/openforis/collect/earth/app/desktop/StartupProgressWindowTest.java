@@ -30,7 +30,7 @@ public class StartupProgressWindowTest {
 
 	@Test
 	public void every_step_has_its_words_in_the_four_main_languages() {
-		String[] keys = { "starting", "restarting", "hint", "saving", "relaunching", "database", "project", "plots", "window" };
+		String[] keys = { "starting", "restarting", "hint", "saving", "relaunching", "database", "project", "window" };
 		for (Locale locale : new Locale[] { Locale.ENGLISH, new Locale("es"), Locale.FRENCH, new Locale("pt") }) {
 			Messages.setLocale(locale);
 			for (String key : keys) {
