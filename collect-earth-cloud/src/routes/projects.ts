@@ -382,7 +382,7 @@ async function lastDataDownload(store: Store, projectId: string, userId: string 
 /**
  * The records a download keeps (the dashboard's "Records to download"), and what to note of the choice in the log; or
  * why the query is wrong. `?since=` an ISO date or time, or `last` (this person's last download of the data; none: every
- * record): the records changed (modifiedOn) since then. `?question=` a summary key of the survey's plot and `?value=`:
+ * record): the records received since then (receivedAt, server time); a date: the records saved (modifiedOn) from then. `?question=` a summary key of the survey's plot and `?value=`:
  * the records with that answer, exactly (a code question: one of its codes).
  */
 async function recordsChoice(store: Store, request: FastifyRequest, model: AnalysisModel): Promise<string | { keep?: (r: RecordRow) => boolean; details: AuditDetails }> {
@@ -397,7 +397,8 @@ async function recordsChoice(store: Store, request: FastifyRequest, model: Analy
     if (since !== null && !Number.isFinite(since)) return 'The date to download the records changed since is not a date (2026-11-01).';
     details.since = since;
     if (last) details.sinceLast = true;
-    if (since !== null) tests.push((r) => r.modifiedOn >= since);
+    // since the last download: what reached the server since (a plot saved offline before it and sent after is not missed)
+    if (since !== null) tests.push(last ? (r) => r.receivedAt >= since : (r) => r.modifiedOn >= since);
   }
   if (q.question !== undefined) {
     const question = model.tables[0].columns.find((c) => c.key === q.question);

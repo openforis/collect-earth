@@ -438,7 +438,8 @@ describe('the data download\'s choices: the labels, the records changed since th
     // another download (the people table) is not a download of the data
     expect((await get('/exports/people')).statusCode).toBe(200);
     expect(await lastDownload()).toBe(first.at);
-    await batchRequest(ctx.app, pid, ana, [envelope({ recordKey: '2,1', operator: 'ana', modifiedOn: first.at + 1000, summary: { collect_code_land_use_category: 'G' } })]);
+    // saved offline before that download, sent after it: still new to the person
+    await batchRequest(ctx.app, pid, ana, [envelope({ recordKey: '2,1', operator: 'ana', modifiedOn: first.at - 60_000, summary: { collect_code_land_use_category: 'G' } })]);
     expect(keysOf(await lines('/export.csv?lang=es&since=last'))).toEqual(['2,1']);
     const [second] = await ctx.store.listAudit(pid, { limit: 1, action: 'export.downloaded' });
     expect(second.details).toEqual({ records: 1, since: first.at, sinceLast: true });
