@@ -150,6 +150,18 @@ export function withBundledPlotFile(zip: Buffer, rewrite: (data: Buffer, path: s
   return zipCep(entries, date);
 }
 
+/**
+ * The stored project file with its project_definition.properties replaced by `rewrite`'s bytes (given
+ * the current ones, empty when it has none), every entry stamped `date` (zipCep). Only for zips the
+ * server stored already: they were read within the upload's limits.
+ */
+export function withProperties(zip: Buffer, rewrite: (data: Buffer) => Buffer, date: Date): Buffer {
+  const files = readCepWithin(zip, DEFAULT_CEP_LIMITS, DEFAULT_CEP_LIMITS.maxTotalBytes * 2);
+  const entries = new Map(files.entries);
+  entries.set(PROPERTIES_PATH, rewrite(asBuffer(files.entries.get(PROPERTIES_PATH) ?? new Uint8Array())));
+  return zipCep(entries, date);
+}
+
 /** Opens a CEP and finds its survey, balloons and KML template. */
 export function readCep(zip: Uint8Array, limits: CepLimits = DEFAULT_CEP_LIMITS): CepFiles {
   return readCepWithin(asBuffer(zip), limits, allowedBytes(zip.length, limits));

@@ -145,6 +145,8 @@ session tokens** (from login, access via `project_members`).
 | `GET`  | `/v1/projects/:pid/cep/original` | admin | The CEP as uploaded (404 when the served file is the upload) |
 | `GET`  | `/v1/projects/:pid/round` | admin | `{state: 'added' \| 'own' \| 'none', refusal, keyCount, roundIndex, roundCodes, reassessmentCode}`, or `null` before any upload |
 | `PUT`  | `/v1/projects/:pid/round` | admin | `{reassessmentCode: code \| null}`: which code of a survey's own round marks a re-assessment (400 unless `state` is `own` and the code is one of its codes) |
+| `GET`  | `/v1/projects/:pid/plot-layout` | member | `{layout, recordsExist}`: the plot layout keys (Settings > Plot: `sample_shape`, `number_of_sampling_points_in_plot`...) the served project file's `project_definition.properties` has; Collect Earth asks every few minutes during its sync and applies a change. 404 without a project file. Cloud only
+| `PUT`  | `/v1/projects/:pid/plot-layout` | admin | `{key: value}` of those keys (choices and ranges of Collect Earth's settings, a reference area that holds the plot; 400 otherwise): rewrites them in the served project file and the one as uploaded, every other byte kept, and answers `{layout}`. Audited as `settings.changed` `{setting: 'plotLayout'}`. Cloud only
 | `GET`  | `/v1/projects/:pid/members` | admin | List members |
 | `PUT`  | `/v1/projects/:pid/members/:uid` | admin | Change role (last-admin demotion refused) |
 | `DELETE` | `/v1/projects/:pid/members/:uid` | admin | Remove member (last-admin removal refused) |

@@ -74,6 +74,8 @@ describe('cross-tenant isolation', () => {
         headers: { ...auth, 'content-type': 'application/zip' } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/round` },
       { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/round`, payload: { reassessmentCode: null } },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/plot-layout` },
+      { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/plot-layout`, payload: { sample_shape: 'CIRCLE' } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/members` },
       { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/members/someone`, payload: { role: 'operator' } },
       { method: 'DELETE' as const, url: `/v1/projects/${b.projectId}/members/someone` },

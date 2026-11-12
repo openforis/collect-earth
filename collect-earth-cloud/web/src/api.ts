@@ -1434,6 +1434,21 @@ export async function getRoundInfo(projectId: string): Promise<RoundInfo | null>
   return toRoundInfo(await request<unknown>("GET", `${p(projectId)}/round`));
 }
 
+/** The plot layout keys the project file has (Collect Earth's Settings > Plot), and whether records exist. */
+export interface ProjectPlotLayout {
+  layout: Record<string, string>;
+  recordsExist: boolean;
+}
+
+export function getPlotLayout(projectId: string): Promise<ProjectPlotLayout> {
+  return request<ProjectPlotLayout>("GET", `${p(projectId)}/plot-layout`);
+}
+
+/** Writes the changed plot layout settings into the project file; answers the layout as it is now. */
+export function setPlotLayout(projectId: string, changes: Record<string, string>): Promise<{ layout: Record<string, string> }> {
+  return request<{ layout: Record<string, string> }>("PUT", `${p(projectId)}/plot-layout`, { json: changes });
+}
+
 /** Which code of the survey's own round marks re-assessments (null: none). */
 export async function setReassessmentCode(projectId: string, reassessmentCode: string | null): Promise<RoundInfo | null> {
   return toRoundInfo(await request<unknown>("PUT", `${p(projectId)}/round`, { json: { reassessmentCode } }));
