@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- Collect Earth Cloud: dividing a plot file by percentage may add up to less than 100%: the rest of the plots is given to nobody until the file is divided again (give 10% to the first person now, share the rest when the others start)
 - Collect Earth Cloud: more control for coordinators over the plots left to do
   - The People tab's "Who finishes when": each person's plots left, plots done, pace of the last 7 days and the day they would finish at it, who would finish last first, and a "Move plots…" on each row to give a number of their plots (or all) in a plot file to someone else
   - "Share again what is left" on a divided plot file's page: the plots not submitted yet shared again between the people ticked, equally, by percentage or by pace (so that everyone finishes around the same day), with a preview of each person's plots left before and after; someone unticked gives all theirs away

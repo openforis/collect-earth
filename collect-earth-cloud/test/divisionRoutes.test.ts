@@ -285,6 +285,19 @@ describe('dividing plots between people', () => {
     expect(bad.statusCode).toBe(400);
   });
 
+  it('by percent under 100: the rest is given to nobody until shared, and dividing again shares it', async () => {
+    const res = await divideFile({ mode: 'even', people: [maria.userId], percents: [10], order: 'file' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ unassigned: 9 });
+    expect(share(res.json(), 'maria')).toMatchObject({ plots: 1 });
+    // The others join: the file divided again between the three, maria's submitted plot staying hers
+    await batchRequest(ctx.app, pid, maria.token, [envelope({ recordKey: '1', operator: 'maria' })]);
+    const again = await divideFile({ mode: 'even', people: [maria.userId, jose.userId, ana.userId], order: 'file' });
+    expect(again.json()).toMatchObject({ unassigned: 0 });
+    expect(share(again.json(), 'maria')).toMatchObject({ submitted: 1 });
+    expect((await divideFile({ mode: 'even', people: [maria.userId, jose.userId], percents: [60, 50], order: 'file' })).statusCode).toBe(400);
+  });
+
   it('moves a number of unfinished plots, or only the plots given', async () => {
     await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'file' });
     await batchRequest(ctx.app, pid, maria.token, [envelope({ recordKey: '1', operator: 'maria' })]);
