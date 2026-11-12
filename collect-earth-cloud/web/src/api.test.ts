@@ -712,13 +712,25 @@ describe("the quality figures", () => {
     expect(map.names).toBeNull();
     expect(map.counts).toEqual({ notStarted: 2, started: 0, submitted: 1, accepted: 0, recheck: 0, differs: 1, resubmitted: 0 });
     expect(map).toMatchObject({ total: 3, notOnMap: 1, people: ["ana"], holders: [["ana"]], figures: null, asOf: null, unsupportedSrs: null });
-    expect(map.files).toEqual([{ id: "f", filename: "a.csv", plots: 5, onMap: 3 }]);
+    expect(map.files).toEqual([{ id: "f", filename: "a.csv", plots: 5, onMap: 3, divided: false }]);
+    // Without `file` (an older server, or a reviewer): no plot file per plot, no reference plots.
+    expect(map.file).toBeNull();
+    expect(map.reference).toBeNull();
     // A reviewer's map names nobody; status codes are read by their names.
     const reviewer = addMapPage(null, { version: "x", offset: 0, total: 1, points: [[1, 2, 0, 0]], plots: ["9"], statuses: ["differs"], counts: [4], people: null, holders: null, unsupportedSrs: "EPSG:32633" });
     expect(reviewer).toMatchObject({ people: null, holders: null, unsupportedSrs: "EPSG:32633" });
     expect([...reviewer.status]).toEqual([5]);
     expect([...reviewer.holder]).toEqual([-1]);
     expect(reviewer.counts.differs).toBe(4);
+    // Coordinators: each plot's plot file (an index the answer does not have is -1) and the reference plots, page by page.
+    const first = addMapPage(null, {
+      version: "x", offset: 0, total: 3, points: [[1, 2, 0, 0], [1, 2, 0, 0]], plots: ["1", "2"], file: [0, 4], reference: [1, 2],
+      files: [{ id: "f", filename: "a.csv", plots: 3, onMap: 3, divided: true }],
+    });
+    const whole = addMapPage(first, { version: "x", offset: 2, points: [[1, 2, 0, 0]], plots: ["3"], file: [0], reference: [2, 0] });
+    expect([...whole.file!]).toEqual([0, -1, 0]);
+    expect([...whole.reference!]).toEqual([0, 1, 1]);
+    expect(whole.files[0].divided).toBe(true);
     // The ids the collector sees, when the server sends them.
     expect(addMapPage(null, { version: "x", offset: 0, total: 2, points: [[1, 2, 0, 0], [1, 2, 0, 0]], plots: ["1,2025", "2,2025"], names: ["1", 7] }).names).toEqual(["1", "2,2025"]);
   });

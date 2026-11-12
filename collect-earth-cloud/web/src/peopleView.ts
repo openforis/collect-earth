@@ -284,3 +284,129 @@ export function removalText(t: Translate, removal: { plots: number; copies: numb
   if (removal.copies > 0) out.push(t(removal.copies === 1 ? "person.removeCopiesOne" : "person.removeCopies", { n: n(removal.copies) }));
   return out;
 }
+
+// --- the workload board -------------------------------------------------------------------
+
+/** The days the pace is taken over: the plots submitted in them, divided by them (days off count). */
+export const PACE_DAYS = 7;
+
+/** One person's line on the workload board: what is left, their recent pace and when they would finish. */
+export interface Workload {
+  userId: string;
+  username: string;
+  /** Plots still to assess, over all their plot files (copies to compare not counted). */
+  left: number;
+  /** Their plots done, of `assigned`. */
+  done: number;
+  assigned: number;
+  checksLeft: number;
+  /** Plots a day over the last PACE_DAYS days; null when they submitted nothing in them. */
+  pace: number | null;
+  /** Days from today to finish at that pace; 0 when nothing is left; null without a pace. */
+  daysLeft: number | null;
+  /** The day they would finish (YYYY-MM-DD); null without a pace or plots. */
+  finish: string | null;
+}
+
+/** The estimate for `left` plots at `pace` plots a day from `today`. */
+export function finishOf(left: number, pace: number | null, today: string): { daysLeft: number | null; finish: string | null } {
+  if (left <= 0) return { daysLeft: 0, finish: null };
+  if (pace === null || pace <= 0) return { daysLeft: null, finish: null };
+  const daysLeft = Math.ceil(left / pace);
+  return { daysLeft, finish: addDays(today, daysLeft) };
+}
+
+/** A person's workload line; `left` replaces what they have left (to show the result of a move). */
+export function workloadOf(row: PersonRow, today: string, left = row.plots.remaining): Workload {
+  const pace = row.submittedLast7 > 0 ? row.submittedLast7 / PACE_DAYS : null;
+  return {
+    userId: row.userId,
+    username: row.username,
+    left,
+    done: row.plots.assigned - row.plots.remaining,
+    assigned: row.plots.assigned,
+    checksLeft: row.checks?.remaining ?? 0,
+    pace,
+    ...finishOf(left, pace, today),
+  };
+}
+
+/** The board's people: those who hold plots, and the collectors who hold none yet (they can be given some). */
+export function workloadRows(rows: readonly PersonRow[], today: string): Workload[] {
+  return rows.filter((r) => r.plots.assigned > 0 || (r.role === "operator" && r.status.kind !== "disabled")).map((r) => workloadOf(r, today));
+}
+
+export type WorkloadSortKey = "username" | "left" | "done" | "pace" | "finish";
+
+/** How late someone finishes: nothing left first, then by days, then plots left without a pace (they would never finish). */
+function finishRank(w: Workload): number {
+  if (w.left <= 0) return -1;
+  return w.daysLeft ?? Number.POSITIVE_INFINITY;
+}
+
+/** The board sorted by a column; ties by plots left (most first), then by name. Without a pace, last ascending. */
+export function sortWorkload(rows: readonly Workload[], key: WorkloadSortKey, direction: "asc" | "desc"): Workload[] {
+  const sign = direction === "asc" ? 1 : -1;
+  const value = (w: Workload): string | number => {
+    switch (key) {
+      case "username":
+        return w.username.toLowerCase();
+      case "left":
+        return w.left;
+      case "done":
+        return w.assigned > 0 ? w.done / w.assigned : -1;
+      case "pace":
+        return w.pace ?? -1;
+      case "finish":
+        return finishRank(w);
+    }
+  };
+  return [...rows].sort((a, b) => {
+    const va = value(a);
+    const vb = value(b);
+    if (va !== vb) return (va < vb ? -1 : 1) * sign;
+    return b.left - a.left || a.username.localeCompare(b.username);
+  });
+}
+
+/** Who would finish last, and the day everyone would be done; null when someone with plots left has no pace, or nobody has any left. */
+export function lastToFinish(rows: readonly Workload[]): { last: Workload; date: string } | null {
+  const busy = rows.filter((w) => w.left > 0);
+  if (busy.length === 0 || busy.some((w) => w.finish === null)) return null;
+  const last = sortWorkload(busy, "finish", "desc")[0];
+  return { last, date: last.finish as string };
+}
+
+/** The people with plots left and no pace (nothing submitted in the last PACE_DAYS days). */
+export function withoutPace(rows: readonly Workload[]): number {
+  return rows.filter((w) => w.left > 0 && w.pace === null).length;
+}
+
+/** The finish cell: "today", "tomorrow", "in 12 days"; "Finished" with nothing left; "—" without a pace. */
+export function finishWhen(t: Translate, w: Pick<Workload, "left" | "daysLeft">, language: string): string {
+  if (w.left <= 0) return w.daysLeft === 0 ? t("peopleTable.title.workloadFinished") : "—";
+  if (w.daysLeft === null) return "—";
+  if (w.daysLeft <= 0) return t("peopleTable.title.workloadToday");
+  if (w.daysLeft === 1) return t("peopleTable.title.workloadTomorrow");
+  return t("peopleTable.title.workloadInDays", { n: formatNumber(w.daysLeft, language) });
+}
+
+/** In a sentence: "finishing about 3 Dec 2026", "nothing submitted in the last 7 days", "nothing left to assess". */
+export function finishPhrase(t: Translate, w: Pick<Workload, "left" | "finish">, dayText: (date: string) => string): string {
+  if (w.left <= 0) return t("divide.moveButton.finishDone");
+  if (w.finish === null) return t("divide.moveButton.finishNoPace");
+  return t("divide.moveButton.finishAbout", { date: dayText(w.finish) });
+}
+
+/** A plot file in the "Move plots" dialog: the plots the person still has to assess there (started or not). */
+export function fileLeft(file: { plots: { started: number; notStarted: number } }): number {
+  return file.plots.started + file.plots.notStarted;
+}
+
+/** The number typed in the "Move plots" dialog: a whole number from 1 to `max`, or null. */
+export function moveCount(text: string, max: number): number | null {
+  const trimmed = text.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const n = Number(trimmed);
+  return n >= 1 && n <= max ? n : null;
+}

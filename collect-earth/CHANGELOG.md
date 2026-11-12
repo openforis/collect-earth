@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- Collect Earth Cloud: more control for coordinators over the plots left to do
+  - The People tab's "Who finishes when": each person's plots left, plots done, pace of the last 7 days and the day they would finish at it, who would finish last first, and a "Move plots…" on each row to give a number of their plots (or all) in a plot file to someone else
+  - "Share again what is left" on a divided plot file's page: the plots not submitted yet shared again between the people ticked, equally, by percentage or by pace (so that everyone finishes around the same day), with a preview of each person's plots left before and after; someone unticked gives all theirs away
+  - On the map, "Select plots": a rectangle drawn on the map selects plots, the panel says who holds the ones still to assess and in which plot file, and gives them to one person
+  - Submitted work and reference plots never move; each change asks first, says what moved after, and is in the Activity tab
 - The data entry form goes on to the next step by itself once the step is done with: nothing on it in error and every choice on it answered (an optional text or number left empty does not hold it). When the step and those after it are done with and nothing is in error anywhere, a big Submit stands in the middle of the form, with the keyboard on it. Enter in a text or number box goes on too. The steps' tabs, Back and Next, and Alt+Left/Right still move between steps by hand
 - The data entry form moves on by itself: once a single-choice question (buttons, Yes/No or a list) is answered with the mouse, the next question still unanswered gets the keyboard and comes into view, so the next answer needs no scrolling (as it already did with the keys). The question being answered stands out on a white card with a blue bar, and Up and Down go to the question before or after (Left and Right still go from answer to answer)
 - Two new ways to view the plots instead of Google Earth Desktop, chosen with the "Plot viewer" setting (`viewer_type`) in the options or with the Classic / New (BETA) buttons of the main window:

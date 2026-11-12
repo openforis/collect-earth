@@ -72,7 +72,7 @@ describe("map of progress", () => {
   });
 
   it("lists the files with plots off the map", () => {
-    expect(filesOffMap(map())).toEqual([{ id: "b", filename: "b.csv", plots: 2, onMap: 0 }]);
+    expect(filesOffMap(map())).toEqual([{ id: "b", filename: "b.csv", plots: 2, onMap: 0, divided: false }]);
   });
 
   it("writes the attribution as the tile source asks, escaped", () => {

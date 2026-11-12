@@ -7,7 +7,13 @@ import {
   calendarWeeks,
   csvCell,
   durationText,
+  fileLeft,
   filterPeople,
+  finishOf,
+  finishPhrase,
+  finishWhen,
+  lastToFinish,
+  moveCount,
   heatLevel,
   inviteRowText,
   invitesShown,
@@ -16,6 +22,10 @@ import {
   sortPeople,
   statusChip,
   statusSyncLevel,
+  sortWorkload,
+  withoutPace,
+  workloadOf,
+  workloadRows,
 } from "./peopleView";
 
 const t = translator("en");
@@ -222,5 +232,69 @@ describe("reading the server's answers", () => {
       ],
     });
     expect(person.sync.collectEarth).toBeNull();
+  });
+});
+
+describe("the workload board", () => {
+  const today = "2026-11-12";
+  // pace = plots of the last 7 days / 7
+  const ana = row("ana", { plots: { assigned: 100, submitted: 30, started: 2, remaining: 70, done: 0.3 }, submittedLast7: 14 });
+  const ben = row("ben", { plots: { assigned: 100, submitted: 90, started: 0, remaining: 10, done: 0.9 }, submittedLast7: 7 });
+  const cy = row("cy", { plots: { assigned: 50, submitted: 0, started: 0, remaining: 50, done: 0 }, submittedLast7: 0 });
+  const dee = row("dee", { plots: { assigned: 20, submitted: 20, started: 0, remaining: 0, done: 1 }, submittedLast7: 3 });
+  const boss = row("boss", { role: "admin", plots: { assigned: 0, submitted: 0, started: 0, remaining: 0, done: null }, submittedLast7: 0 });
+  const newcomer = row("eve", { plots: { assigned: 0, submitted: 0, started: 0, remaining: 0, done: null }, submittedLast7: 0 });
+
+  it("left, done, the pace of the last 7 days and the day they would finish", () => {
+    const w = workloadOf(ana, today);
+    expect(w).toMatchObject({ left: 70, done: 30, assigned: 100, pace: 2, daysLeft: 35, finish: "2026-12-17" });
+    expect(workloadOf(ben, today)).toMatchObject({ pace: 1, daysLeft: 10, finish: "2026-11-22" });
+    expect(workloadOf(cy, today)).toMatchObject({ pace: null, daysLeft: null, finish: null });
+    expect(workloadOf(dee, today)).toMatchObject({ left: 0, daysLeft: 0, finish: null });
+    // after a move: what they would have left
+    expect(workloadOf(ana, today, 40)).toMatchObject({ left: 40, daysLeft: 20, finish: "2026-12-02" });
+    expect(finishOf(3, 2, today)).toEqual({ daysLeft: 2, finish: "2026-11-14" });
+  });
+
+  it("the board holds who has plots and the collectors without any; not the coordinator without plots", () => {
+    expect(workloadRows([ana, boss, newcomer], today).map((w) => w.username)).toEqual(["ana", "eve"]);
+  });
+
+  it("sorted by finish, the last to finish first: no pace, then the latest; finished people last", () => {
+    const rows = workloadRows([dee, ben, ana, cy], today);
+    expect(sortWorkload(rows, "finish", "desc").map((w) => w.username)).toEqual(["cy", "ana", "ben", "dee"]);
+    expect(sortWorkload(rows, "finish", "asc").map((w) => w.username)).toEqual(["dee", "ben", "ana", "cy"]);
+    expect(sortWorkload(rows, "left", "desc").map((w) => w.username)).toEqual(["ana", "cy", "ben", "dee"]);
+    expect(sortWorkload(rows, "pace", "desc").map((w) => w.username)).toEqual(["ana", "ben", "dee", "cy"]);
+  });
+
+  it("who finishes last, only when everyone with plots left has a pace", () => {
+    const paced = workloadRows([ana, ben, dee], today);
+    expect(lastToFinish(paced)).toMatchObject({ last: { username: "ana" }, date: "2026-12-17" });
+    const all = workloadRows([ana, ben, cy], today);
+    expect(lastToFinish(all)).toBeNull();
+    expect(withoutPace(all)).toBe(1);
+    expect(lastToFinish(workloadRows([dee], today))).toBeNull();
+  });
+
+  it("the finish in words", () => {
+    expect(finishWhen(t, { left: 5, daysLeft: 12 }, "en")).toBe("in 12 days");
+    expect(finishWhen(t, { left: 5, daysLeft: 1 }, "en")).toBe("tomorrow");
+    expect(finishWhen(t, { left: 5, daysLeft: null }, "en")).toBe("—");
+    expect(finishWhen(t, { left: 0, daysLeft: 0 }, "en")).toBe("Finished");
+    const day = (d: string) => `<${d}>`;
+    expect(finishPhrase(t, { left: 5, finish: "2026-12-01" }, day)).toBe("finishing about <2026-12-01>");
+    expect(finishPhrase(t, { left: 5, finish: null }, day)).toBe("nothing submitted in the last 7 days");
+    expect(finishPhrase(t, { left: 0, finish: null }, day)).toBe("nothing left to assess");
+  });
+
+  it("a file's plots left, and the number to move", () => {
+    expect(fileLeft({ plots: { started: 2, notStarted: 8 } })).toBe(10);
+    expect(moveCount(" 5 ", 10)).toBe(5);
+    expect(moveCount("10", 10)).toBe(10);
+    expect(moveCount("11", 10)).toBeNull();
+    expect(moveCount("0", 10)).toBeNull();
+    expect(moveCount("2.5", 10)).toBeNull();
+    expect(moveCount("", 10)).toBeNull();
   });
 });

@@ -156,6 +156,8 @@ describe("local mode: Map", () => {
     holder: new Int32Array([0]),
     plots: ["17"],
     names: null,
+    file: null,
+    reference: null,
     counts: counts({ submitted: 1 }),
     notOnMap: 0,
     files: [],

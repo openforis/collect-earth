@@ -15,9 +15,10 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import HighlightAlt from "@mui/icons-material/HighlightAlt";
 import Refresh from "@mui/icons-material/Refresh";
 import type * as Leaflet from "leaflet";
-import { useEffect, useId, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type MouseEvent, type MutableRefObject } from "react";
 import { getMapPlots, MAP_STATUSES, type MapPlots, type MapStatus, type MapTiles } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { AsOf } from "../components/PeopleCharts";
@@ -30,6 +31,8 @@ import { legendStatuses, localMapPlots } from "../localMode";
 import { navigate, pathFor } from "../router";
 import { EmptyState } from "../components/EmptyState";
 import { loadLeaflet, type LeafletModule } from "./leaflet";
+import { areaOf, MARK_AT_MOST, selectInAreas, summarizeSelection, type Area } from "../mapSelectView";
+import { MapSelection } from "./MapSelection";
 
 /** Read by screen readers, not shown. */
 const HIDDEN = { position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" } as const;
@@ -86,6 +89,12 @@ function PlotMap({
   tiles,
   label,
   onProgress,
+  fitKey,
+  selecting = false,
+  areas = [],
+  selected = null,
+  onArea,
+  viewRef,
 }: {
   projectId: string;
   data: MapPlots;
@@ -94,19 +103,35 @@ function PlotMap({
   label: string;
   /** The plots shown, whether grouped, and how many are placed so far (null once all are). */
   onProgress: (shown: number, clustered: boolean, placed: number | null) => void;
+  /** The map is fitted to the plots when this changes (new filters, "Load again"), not when they are read again after a giving. */
+  fitKey: string;
+  /** Coordinators: "Select plots" is on: a drag draws a rectangle instead of moving the map. */
+  selecting?: boolean;
+  /** The rectangles drawn, and the plots selected in them (marked one by one up to MARK_AT_MOST). */
+  areas?: readonly Area[];
+  selected?: Uint32Array | null;
+  /** A rectangle drawn; `add` when Ctrl (⌘) was held: it adds to the selection. */
+  onArea?: (area: Area, add: boolean) => void;
+  /** Set to what the map shows now (for "Select the plots in view"). */
+  viewRef?: MutableRefObject<(() => Area | null) | null>;
 }) {
   const t = useT();
   const { language } = useApp();
   const local = useLocalMode();
   const element = useRef<HTMLDivElement | null>(null);
-  const leaflet = useRef<{ L: LeafletModule; map: Leaflet.Map; renderer: Leaflet.Canvas } | null>(null);
+  const leaflet = useRef<{ L: LeafletModule; map: Leaflet.Map; renderer: Leaflet.Canvas; marks: Leaflet.Canvas } | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState<unknown>(null);
   // The latest translation and language for popups and cluster labels made later.
   const latest = useRef({ t, language, local });
   latest.current = { t, language, local };
   // The map is fitted to the plots when they are loaded, not when a status is hidden or shown.
-  const fitted = useRef<MapPlots | null>(null);
+  const fitted = useRef<string | null>(null);
+  // While selecting, a click on a plot opens no popup (it ends a drag).
+  const selectingNow = useRef(selecting);
+  selectingNow.current = selecting;
+  const latestOnArea = useRef(onArea);
+  latestOnArea.current = onArea;
 
   const { url, attribution, attributionUrl, maxZoom } = tiles;
   useEffect(() => {
@@ -121,7 +146,18 @@ function PlotMap({
         // OpenStreetMap's tile usage policy: its attribution shown, the browser's referrer sent, no tiles fetched ahead.
         L.tileLayer(url, { attribution: attributionHtml(source), maxZoom, referrerPolicy: "strict-origin-when-cross-origin", keepBuffer: 1 }).addTo(map);
         map.setView([0, 0], 2);
-        leaflet.current = { L, map, renderer };
+        // The selection (rectangles and rings round the selected plots) above the plots, letting clicks through.
+        const pane = map.createPane("selection");
+        pane.style.zIndex = "450";
+        pane.style.pointerEvents = "none";
+        const marks = L.canvas({ padding: 0.5, pane: "selection" });
+        leaflet.current = { L, map, renderer, marks };
+        if (viewRef) {
+          viewRef.current = () => {
+            const b = map.getBounds();
+            return { south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast() };
+          };
+        }
         setReady(true);
       },
       (error: unknown) => !gone && setFailed(error),
@@ -130,6 +166,7 @@ function PlotMap({
       gone = true;
       leaflet.current?.map.remove();
       leaflet.current = null;
+      if (viewRef) viewRef.current = null;
       fitted.current = null;
       setReady(false);
     };
@@ -165,8 +202,8 @@ function PlotMap({
       next += slice.length;
       group.addLayers(slice);
     };
-    if (fitted.current !== data) {
-      fitted.current = data;
+    if (fitted.current !== fitKey) {
+      fitted.current = fitKey;
       const bounds = boundsOf(data, shownIndexes(data, new Set(MAP_STATUSES)));
       if (bounds) map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15, animate: false });
       else map.setView([0, 0], 2);
@@ -215,7 +252,7 @@ function PlotMap({
     }
     layer.on("click", (event: Leaflet.LeafletMouseEvent & { propagatedFrom?: PlotMarker }) => {
       const marker = (event.propagatedFrom ?? (event as unknown as { layer?: PlotMarker }).layer) as PlotMarker | undefined;
-      if (!marker || typeof marker.plotIndex !== "number") return;
+      if (!marker || typeof marker.plotIndex !== "number" || selectingNow.current) return;
       L.popup({ maxWidth: 280 }).setLatLng(marker.getLatLng()).setContent(popupElement(latest.current.t, data, marker.plotIndex, projectId, latest.current.local)).openOn(map);
     });
     layer.addTo(map);
@@ -234,6 +271,91 @@ function PlotMap({
     // onProgress is the parent's setter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, data, shown, projectId]);
+
+  // "Select plots": a drag (mouse, pen or finger) draws a rectangle; the map no longer moves with it
+  // (arrow keys and + − still do). Leaflet's own pointer events, no other library.
+  useEffect(() => {
+    const current = leaflet.current;
+    const box = element.current;
+    if (!ready || !current || !box || !selecting) return;
+    const { L, map, marks } = current;
+    map.dragging.disable();
+    map.boxZoom.disable();
+    map.closePopup();
+    const cursor = box.style.cursor;
+    const touch = box.style.touchAction;
+    box.style.cursor = "crosshair";
+    box.style.touchAction = "none";
+    let drag: { id: number; from: Leaflet.LatLng; x: number; y: number; rect: Leaflet.Rectangle } | null = null;
+    const down = (e: PointerEvent) => {
+      if (drag || e.button !== 0 || (e.target instanceof Element && e.target.closest(".leaflet-control"))) return;
+      e.preventDefault();
+      const from = map.mouseEventToLatLng(e);
+      const rect = L.rectangle(L.latLngBounds(from, from), { renderer: marks, color: "#000", weight: 2, dashArray: "6 4", fillOpacity: 0.08, interactive: false }).addTo(map);
+      drag = { id: e.pointerId, from, x: e.clientX, y: e.clientY, rect };
+      try {
+        box.setPointerCapture(e.pointerId);
+      } catch {
+        // the drag still works while the pointer stays on the map
+      }
+    };
+    const move = (e: PointerEvent) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      drag.rect.setBounds(L.latLngBounds(drag.from, map.mouseEventToLatLng(e)));
+    };
+    const end = (e: PointerEvent, cancelled: boolean) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const { from, x, y, rect } = drag;
+      drag = null;
+      rect.remove();
+      // A click (barely moved) selects nothing.
+      if (cancelled || Math.hypot(e.clientX - x, e.clientY - y) < 5) return;
+      const to = map.mouseEventToLatLng(e);
+      latestOnArea.current?.(areaOf(from, to), e.ctrlKey || e.metaKey);
+    };
+    const up = (e: PointerEvent) => end(e, false);
+    const cancel = (e: PointerEvent) => end(e, true);
+    box.addEventListener("pointerdown", down);
+    box.addEventListener("pointermove", move);
+    box.addEventListener("pointerup", up);
+    box.addEventListener("pointercancel", cancel);
+    return () => {
+      box.removeEventListener("pointerdown", down);
+      box.removeEventListener("pointermove", move);
+      box.removeEventListener("pointerup", up);
+      box.removeEventListener("pointercancel", cancel);
+      drag?.rect.remove();
+      box.style.cursor = cursor;
+      box.style.touchAction = touch;
+      map.dragging.enable();
+      map.boxZoom.enable();
+    };
+  }, [ready, selecting]);
+
+  // The selection: its rectangles, and a ring round each selected plot (up to MARK_AT_MOST: above that,
+  // the rectangles show it; grouped plots keep their grey circles).
+  useEffect(() => {
+    const current = leaflet.current;
+    if (!ready || !current || areas.length === 0) return;
+    const { L, map, marks } = current;
+    const layers: Leaflet.Layer[] = areas.map((a) =>
+      L.rectangle(
+        [
+          [a.south, a.west],
+          [a.north, a.east],
+        ],
+        { renderer: marks, color: "#000", weight: 2, dashArray: "6 4", fillOpacity: 0.05, interactive: false },
+      ),
+    );
+    if (selected && selected.length <= MARK_AT_MOST) {
+      const ring: Leaflet.CircleMarkerOptions = { renderer: marks, radius: 10, color: "#000", weight: 3, fill: false, interactive: false };
+      for (const i of selected) layers.push(L.circleMarker([data.lat[i], data.lon[i]], ring));
+    }
+    const group = L.layerGroup(layers).addTo(map);
+    return () => {
+      group.remove();
+    };
+  }, [ready, areas, selected, data]);
 
   if (failed) return <ErrorAlert error={failed} />;
   return (
@@ -347,6 +469,12 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState<{ loaded: number; total: number } | null>({ loaded: 0, total: 0 });
   const [reload, setReload] = useState(0);
+  // Read again after plots were given from a selection: the map keeps its view.
+  const [refresh, setRefresh] = useState(0);
+  // Coordinators: "Select plots" on, and the rectangles drawn (kept when the map is read again).
+  const [selecting, setSelecting] = useState(false);
+  const [areas, setAreas] = useState<readonly Area[]>([]);
+  const viewRef = useRef<(() => Area | null) | null>(null);
   const [drawn, setDrawn] = useState<{ shown: number; clustered: boolean; placed: number | null } | null>(null);
   // The menus keep the whole lists of the first answer (an answer for one person lists everyone too).
   const [menus, setMenus] = useState<{ files: MapPlots["files"]; people: string[] | null } | null>(null);
@@ -373,7 +501,26 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
     return () => {
       stopped = true;
     };
-  }, [projectId, file, person, reload, local]);
+  }, [projectId, file, person, reload, refresh, local]);
+
+  // A selection needs each plot's plot file, which the server gives coordinators only.
+  const canSelect = coordinator && !local && data !== null && data.file !== null && data.total > 0;
+  const selected = useMemo(() => (canSelect && data && areas.length > 0 ? selectInAreas(data, shownIndexes(data, shown), areas) : null), [canSelect, data, shown, areas]);
+  const summary = useMemo(() => (data && selected ? summarizeSelection(data, selected) : null), [data, selected]);
+  // Esc leaves "Select plots" (unless a dialog or menu is open: Esc closes that first).
+  useEffect(() => {
+    if (!selecting) return;
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || document.querySelector('[role="dialog"], [role="menu"], [role="listbox"]')) return;
+      setSelecting(false);
+    };
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  }, [selecting]);
+  useEffect(() => {
+    if (!canSelect) setSelecting(false);
+  }, [canSelect]);
+  const addArea = (area: Area, add: boolean) => setAreas((was) => (add ? [...was, area] : [area]));
 
   const offMap = useMemo(() => (data ? filesOffMap(data) : []), [data]);
   // The filters and switches stay enabled while plots are read or placed (a disabled control loses
@@ -491,7 +638,42 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
             {data.total === 0 && data.unsupportedSrs === null && <Alert severity="info" role="note">{t("map.noPlots")}</Alert>}
             {data.total > 0 && (
               <>
-                <PlotMap projectId={projectId} data={data} shown={shown} tiles={info.mapTiles} label={t("map.label")} onProgress={(count, clustered, placed) => setDrawn({ shown: count, clustered, placed })} />
+                {canSelect && (
+                  <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
+                    <Button variant={selecting ? "contained" : "outlined"} startIcon={<HighlightAlt />} aria-pressed={selecting} onClick={() => setSelecting(!selecting)}>
+                      {t(selecting ? "map.heading.selectStop" : "map.heading.select")}
+                    </Button>
+                    {selecting && (
+                      <Button
+                        onClick={() => {
+                          const view = viewRef.current?.();
+                          if (view) addArea(view, false);
+                        }}
+                      >
+                        {t("map.heading.selectInView")}
+                      </Button>
+                    )}
+                    {areas.length > 0 && <Button onClick={() => setAreas([])}>{t("map.heading.selectClear")}</Button>}
+                    <Explain sx={{ flexBasis: "100%" }} text={t(selecting ? "map.heading.selectHelpShort" : "map.heading.selectIntro")} more={t("map.heading.selectHelp")} />
+                  </Box>
+                )}
+                <PlotMap
+                  projectId={projectId}
+                  data={data}
+                  shown={shown}
+                  tiles={info.mapTiles}
+                  label={t("map.label")}
+                  onProgress={(count, clustered, placed) => setDrawn({ shown: count, clustered, placed })}
+                  fitKey={`${file}\n${person}\n${reload}`}
+                  selecting={selecting}
+                  areas={canSelect ? areas : []}
+                  selected={selected}
+                  onArea={addArea}
+                  viewRef={viewRef}
+                />
+                {canSelect && summary && (
+                  <MapSelection projectId={projectId} summary={summary} onGiven={() => setRefresh((r) => r + 1)} />
+                )}
                 {drawn && (
                   <>
                     {/* Said once when the placing starts and once when it ends; the numbers in between are not read out. */}

@@ -4350,6 +4350,8 @@ export interface MapFile {
   /** Its plots, and how many of them have a latitude and longitude. */
   plots: number;
   onMap: number;
+  /** Coordinators: its plots are divided between people (a whole file's plots are not moved one by one); false for a reviewer. */
+  divided: boolean;
 }
 
 /** Every plot on the map, in typed arrays (a large project has 100,000 or more). */
@@ -4366,6 +4368,10 @@ export interface MapPlots {
   plots: string[];
   /** The id the collector sees of each plot (as plot search lists it); null when it is the plot id. */
   names: string[] | null;
+  /** Coordinators: each plot's plot file, an index in `files` (-1 when several list it); null for a reviewer. */
+  file: Int32Array | null;
+  /** Coordinators: 1 for a reference plot (it never moves); null for a reviewer. */
+  reference: Uint8Array | null;
   /** Plots per status, those off the map included. */
   counts: Record<MapStatus, number>;
   notOnMap: number;
@@ -4411,9 +4417,11 @@ export function addMapPage(map: MapPlots | null, body: unknown): MapPlots {
       holder: new Int32Array(total).fill(-1),
       plots: new Array<string>(total).fill(""),
       names: Array.isArray(b.names) ? new Array<string>(total).fill("") : null,
+      file: Array.isArray(b.file) ? new Int32Array(total).fill(-1) : null,
+      reference: Array.isArray(b.file) ? new Uint8Array(total) : null,
       counts,
       notOnMap: Number(b.notOnMap) || 0,
-      files: list(b.files).map((f) => ({ id: text(f.id), filename: text(f.filename), plots: Number(f.plots) || 0, onMap: Number(f.onMap) || 0 })),
+      files: list(b.files).map((f) => ({ id: text(f.id), filename: text(f.filename), plots: Number(f.plots) || 0, onMap: Number(f.onMap) || 0, divided: f.divided === true })),
       people: Array.isArray(b.people) ? onlyStrings(b.people) : null,
       holders: Array.isArray(b.holders) ? b.holders.map((h: unknown) => (Array.isArray(h) ? onlyStrings(h) : [])) : null,
       figures: figures ? { computedAt: toMillis(figures.computedAt), stale: figures.stale === true } : null,
@@ -4426,6 +4434,8 @@ export function addMapPage(map: MapPlots | null, body: unknown): MapPlots {
   const plots: unknown[] = Array.isArray(b.plots) ? b.plots : [];
   const visible: unknown[] | null = Array.isArray(b.names) ? b.names : null;
   const holders = map.holders?.length ?? 0;
+  const fileOf: unknown[] | null = Array.isArray(b.file) ? b.file : null;
+  const files = map.files.length;
   for (let i = 0; i < points.length && offset + i < map.total; i++) {
     const point = Array.isArray(points[i]) ? (points[i] as unknown[]) : [];
     const at = offset + i;
@@ -4436,6 +4446,17 @@ export function addMapPage(map: MapPlots | null, body: unknown): MapPlots {
     map.holder[at] = Number.isInteger(holder) && holder >= 0 && holder < holders ? holder : -1;
     map.plots[at] = typeof plots[i] === "string" ? (plots[i] as string) : "";
     if (map.names) map.names[at] = visible && typeof visible[i] === "string" ? (visible[i] as string) : map.plots[at];
+    if (map.file && fileOf) {
+      const f = Number(fileOf[i]);
+      map.file[at] = Number.isInteger(f) && f >= 0 && f < files ? f : -1;
+    }
+  }
+  // The reference plots of this page, by their index in the whole map.
+  if (map.reference && Array.isArray(b.reference)) {
+    for (const r of b.reference as unknown[]) {
+      const at = Number(r);
+      if (Number.isInteger(at) && at >= offset && at < Math.min(map.total, offset + points.length)) map.reference[at] = 1;
+    }
   }
   return map;
 }
