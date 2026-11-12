@@ -190,11 +190,11 @@
   <h2 id="first">First steps on your server</h2>
   <ol class="steps">
     <li><strong>Create the administrator.</strong> Open the dashboard address. The setup page asks for the setup code (capitals, spaces and dashes don't matter) and for the user name and password of the server administrator: you. The code works only once; afterwards you log in with that name and password. Lost the code before using it? <code>bash deploy/gcp/deploy.sh --show-setup-code</code> shows it again.</li>
-    <li><strong>Server settings.</strong> Open <span class="ui">Server</span>. Leave <span class="ui">Anyone can create an account</span> off, so people only get an account through an invitation to a project. Choose <span class="ui">Who can create projects</span>: only server administrators, or everyone who has an account. You can also give the server a name, a contact email shown on every page, and limits per account.</li>
+    <li><strong>Server settings.</strong> Open <span class="ui">Server › Settings</span>. Leave <span class="ui">Anyone can create an account</span> off, so people only get an account through an invitation to a project. Choose <span class="ui">Who can create projects</span>: only server administrators, or everyone who has an account. You can also give the server a name, a contact email shown on every page, limits per account, and <span class="ui">Sign-up and sign-in rules</span>. These cover the email domains allowed to sign up, the shortest password, locking an account after repeated failed logins, and requiring two-step sign-in of coordinators and administrators. Each group of settings has its own <span class="ui">Save</span>.</li>
     <li><strong>Your first project.</strong> <span class="ui">My projects › New project</span>, then follow the checklist: the project file, the plot files, invitations, who collects each file. From here on it works exactly as in <a href="coordinators.html">Running a cloud project</a>.</li>
     <li><strong>Invite the team.</strong> Each invitation link carries your server's address, so interpreters never type it: they choose <span class="ui">File › Join cloud project...</span> in Collect Earth and paste the link.</li>
   </ol>
-  <p>The server administrator sees no project's data unless they are also a member of the project: their <span class="ui">Server</span> page shows totals only, with projects by number.</p>
+  <p>The server administrator sees no project's data unless they are also a member of the project: their <span class="ui">Server</span> page lists projects by number, with figures only. They can archive a project, or hand it to a coordinator they name when its coordinator has left. That account then sees the project, and the project's people see in its <span class="ui">Activity</span> tab that a server administrator did it.</p>
 
   <h2 id="options">Optional: address, emails, AI, size</h2>
 
@@ -219,6 +219,16 @@
   <h2 id="care">Looking after it</h2>
   <h3>Updating</h3>
   <p>When there is a new version, press <a href="https://shell.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/openforis/collect-earth&amp;cloudshell_git_branch=master&amp;cloudshell_workspace=collect-earth-cloud&amp;cloudshell_tutorial=deploy/gcp/tutorial.md&amp;show=terminal">Open in Cloud Shell</a> again and run the same command, <code>bash deploy/gcp/deploy.sh</code>. It fetches the latest code, rebuilds the server and switches to it in about 5 minutes, without asking the questions again. The data stays: the database is never recreated, and people working at that moment don't notice.</p>
+
+  <h3>The Server page</h3>
+  <p>A line at the top of <span class="ui">Server</span> says whether anything needs your attention, with a link to where it is fixed. The page has five sections:</p>
+  <ul>
+    <li><span class="ui">Overview</span>: the figures, and the alerts (failed logins, server errors, refused records, a project running out of space). Alerts are mailed to the administrators, and sent to a Slack or Microsoft Teams webhook if you add one.</li>
+    <li><span class="ui">Accounts</span>: every account, to search and filter. From here you can add accounts (each gets a link to choose its password), make or remove administrators, unlock an account, reset a password or two-step sign-in, sign someone out everywhere, disable or delete an account, and send a message to all coordinators or everyone.</li>
+    <li><span class="ui">Projects</span>: every project by number, with its status, last activity, space and people. Projects without an active coordinator are flagged. Archive, restore or hand one to a coordinator.</li>
+    <li><span class="ui">Settings</span>: who can create accounts and projects, sign-up and sign-in rules, limits, the server's name, contact and announcement, the AI assistant, and when to raise alerts.</li>
+    <li><span class="ui">System</span>: the database, the Collect Earth versions people use (the outdated ones flagged), whether mail works, with a test email, and the server activity log: who changed what, kept for good.</li>
+  </ul>
 
   <h3>Backups and restoring</h3>
   <p>The database is backed up every night, the last 7 copies are kept, and it can be put back as it was at any minute of the last 7 days. To restore, open the <a href="https://console.cloud.google.com/sql/instances">Cloud SQL console</a>, the database <code>ce-cloud-db</code>, then <span class="ui">Backups</span> (<a href="https://cloud.google.com/sql/docs/postgres/backup-recovery/restoring">Google's guide</a>). Restoring replaces all current data, so download each project's data first. Try a restore once before the real work starts, so you know it works.</p>

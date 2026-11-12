@@ -91,6 +91,13 @@
     <li>If the file carries plot grids, choose <span class="ui">Merge into one plot file</span> or add them as separate files.</li>
     <li>To change the survey later, press <span class="ui">Choose a new version</span>. People who join from now on get the new version; people already in keep the old one. For each of them, open their page in <span class="ui">People</span> and press <span class="ui">Make a link for the new project file</span>; they paste it in Collect Earth with <span class="ui">File › Join cloud project...</span>.</li>
   </ol>
+  <h3 id="layout">Plot layout and imagery windows</h3>
+  <p>Under the project file, two cards set how every collector's Collect Earth shows the plots. They hold the same choices as Collect Earth's own settings, with the same rules.</p>
+  <ul>
+    <li><span class="ui">Plot layout</span>: the plot's shape, its sampling points, the distances and the reference area around it, with a drawing of the plot. Once data has been collected, saving asks first: the plots already collected keep their answers, but if you change the number of sampling points, the answers given per point may no longer line up with the points drawn.</li>
+    <li><span class="ui">Imagery windows</span>: the windows Collect Earth opens beside Google Earth Web on each plot. These are the Earth Engine app and its dates, Earth Map, ESRI Wayback, Planet's monthly mosaics and their months, and an extra map. The extra map's address should hold <code>LATITUDE</code> and <code>LONGITUDE</code>, <code>PLOT_ID</code> or <code>GEOJSON</code>, which Collect Earth replaces with each plot's values. Planet opens for the people who have entered their own Planet key in Collect Earth.</li>
+  </ul>
+  <p>Press <span class="ui">Save</span>. Within a few minutes each person's Collect Earth applies the change by itself and says what changed. You don't need to send new links, and the collectors cannot change these settings themselves. A new version of the project file brings its own plot layout and imagery windows.</p>
 
   <h2 id="plots">The plot files</h2>
   <p>A plot file is a CSV with one row per plot: the plot id, the latitude and the longitude, then any extra columns the survey expects. On the <span class="ui">Plot files</span> tab, drag one or more CSV files in. They appear under <span class="ui">Files uploaded</span>.</p>
@@ -111,12 +118,13 @@
   <h2 id="give-out">Giving out the plots</h2>
   <p>Under <span class="ui">Who collects each file</span>, tick the people for each file and press <span class="ui">Save</span> to give a whole file to them. You can tick yourself too: a coordinator collects the plots they give themselves. To share a file out, press <span class="ui">Divide plots</span>:</p>
   <ul>
-    <li><span class="ui">Evenly between people</span>, or <span class="ui">By a column</span> such as a province or a stratum, giving each value to one person in turn, or each person a share in percent.</li>
+    <li><span class="ui">Evenly between people</span>, about the same number each, or with <span class="ui">Give each person a share in percent</span>. The percentages can add up to less than 100: the rest of the plots goes to nobody for now. To share it when the others start, divide the file again.</li>
+    <li><span class="ui">By a column</span> such as a province or a stratum: choose who collects the plots of each value.</li>
     <li><span class="ui">Which plots go together</span>: <span class="ui">In the order of the file</span>, <span class="ui">Mix them</span>, or <span class="ui">Keep plots that are close on the map together</span>.</li>
     <li><span class="ui">Quality check</span>: also give some plots to a second person, to compare their answers. Neither knows which plots are shared.</li>
   </ul>
   <p>Press <span class="ui">Preview</span> to see the result, then <span class="ui">Apply</span>.</p>
-  <p>Collect Earth is not told about new plots. Collectors get their new list the next time they open <span class="ui">Settings › Project</span> in Collect Earth, or press <span class="ui">Refresh assignments</span> there, and then <span class="ui">Apply</span>. Tell them when you give out or move plots.</p>
+  <p>When someone joins, Collect Earth takes their assigned plot file by itself, or asks which one when they have several. Plots you give out or move later are not sent to Collect Earth. Collectors get their new list the next time they open <span class="ui">Settings › Project</span> in Collect Earth, or press <span class="ui">Refresh assignments</span> there, and then <span class="ui">Apply</span>. Tell them when you give out or move plots.</p>
   <figure><img src="../img/screens/give-out.png" alt="Dividing a plot file between people" loading="lazy"><figcaption>Divide a file between people, with an overlap for blind quality checks.</figcaption></figure>
   <p>When someone leaves or falls behind, move their plots; what they submitted always stays with them:</p>
   <ul>
