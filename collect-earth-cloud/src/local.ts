@@ -95,14 +95,14 @@ export const LOCAL_OFF_ROUTES: readonly string[] = [
   'POST /v1/projects/from-backup',
   'POST /v1/projects/:pid/repeat/preview',
   'POST /v1/projects/:pid/repeat',
-  // The plot layout: the desktop's own settings page sets it on this computer.
-  'GET /v1/projects/:pid/plot-layout',
-  'PUT /v1/projects/:pid/plot-layout',
   'GET /v1/projects/:pid/ceo-shapes',
   'POST /v1/projects/:pid/ceo-shapes/step',
   'DELETE /v1/projects/:pid',
   'PUT /v1/projects/:pid/status',
   'POST /v1/projects/:pid/copy',
+  // The plot layout: alone, the person changes it in Collect Earth's settings.
+  'GET /v1/projects/:pid/plot-layout',
+  'PUT /v1/projects/:pid/plot-layout',
   // Invitations and members.
   'POST /v1/projects/:pid/invites',
   'GET /v1/projects/:pid/invites',

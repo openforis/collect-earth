@@ -1,182 +1,148 @@
-// The plot layout of a project (how Collect Earth draws each plot: its shape, sample points, distances and the reference
-// area around it), as the desktop's settings page has it (collect-earth-app service/settings SettingsModel and
-// PlotGeometry): read from and written to the project file's project_definition.properties, which Collect Earth applies
-// when it opens the project. The dashboard's Project file tab edits it (routes/plotLayout.ts).
-import { cepProperties, readCep, withProperties } from './cep.js';
+// The plot layout of a project file: the settings of Collect Earth's Settings > Plot section, kept in
+// project_definition.properties (SettingsModel.plot() and PlotGeometry in the desktop). The coordinator
+// changes them on the dashboard; Collect Earth reads them back during its sync (CloudPlotLayout).
 
-export const SAMPLE_SHAPES = [
-  'SQUARE', 'SQUARE_WITH_LARGE_CENTRAL_PLOT', 'CIRCLE', 'HEXAGON', 'NFI_THREE_CIRCLES', 'NFI_FOUR_CIRCLES', 'SQUARE_CIRCLE',
-  'NFMA', 'NFMA_250', 'KML_POLYGON', 'WKT_POLYGON', 'GEOJSON_POLYGON',
+export const PLOT_LAYOUT_KEYS = [
+  'sample_shape',
+  'number_of_sampling_points_in_plot',
+  'distance_between_sample_points',
+  'distance_to_plot_boundaries',
+  'inner_point_side',
+  'large_central_plot_side',
+  'distance_between_plots',
+  'buffer_shape',
+  'distance_to_buffers',
 ] as const;
-export const BUFFER_SHAPES = ['NONE', 'SQUARE', 'CIRCLE', 'HEXAGON'] as const;
-/** None, the central one, or a square grid of 2 × 2 to 10 × 10 (SettingsModel) */
-export const POINT_COUNTS = [0, 1, 4, 9, 16, 25, 36, 49, 64, 81, 100] as const;
 
-/** The whole numbers of the layout, by property: their range and default (PlotGeometry) */
-export const LAYOUT_NUMBERS = {
-  distance_between_sample_points: { min: 2, max: 1000, fallback: 10 },
-  distance_to_plot_boundaries: { min: 0, max: 500, fallback: 0 },
-  inner_point_side: { min: 2, max: 100, fallback: 2 },
-  large_central_plot_side: { min: 2, max: 200, fallback: 20 },
-  distance_between_plots: { min: 2, max: 1000, fallback: 100 },
-  distance_to_buffers: { min: 1, max: 10000, fallback: 100 },
-} as const;
-type NumberKey = keyof typeof LAYOUT_NUMBERS;
+export type PlotLayoutKey = (typeof PLOT_LAYOUT_KEYS)[number];
+/** The keys the properties have, with their values as written. */
+export type PlotLayout = Partial<Record<PlotLayoutKey, string>>;
 
-export const LAYOUT_KEYS = ['sample_shape', 'number_of_sampling_points_in_plot', ...Object.keys(LAYOUT_NUMBERS), 'buffer_shape'] as const;
-export type LayoutValues = Record<(typeof LAYOUT_KEYS)[number], string>;
-
-const clamp = (text: string | undefined, { min, max, fallback }: { min: number; max: number; fallback: number }) => {
-  const n = Number.parseInt((text ?? '').trim(), 10);
-  return Math.max(min, Math.min(max, Number.isNaN(n) ? fallback : n));
+/** EarthConstants.SAMPLE_SHAPE */
+export const SAMPLE_SHAPES = [
+  'SQUARE', 'SQUARE_WITH_LARGE_CENTRAL_PLOT', 'CIRCLE', 'KML_POLYGON', 'WKT_POLYGON', 'GEOJSON_POLYGON', 'HEXAGON',
+  'NFMA', 'NFMA_250', 'SQUARE_CIRCLE', 'NFI_THREE_CIRCLES', 'NFI_FOUR_CIRCLES',
+];
+/** EarthConstants.BUFFER_SHAPE */
+export const BUFFER_SHAPES = ['NONE', 'SQUARE', 'CIRCLE', 'HEXAGON'];
+/** The choices of the Settings page: none, the central point, 2×2 to 10×10. */
+export const POINT_COUNTS = ['0', '1', ...Array.from({ length: 9 }, (_, i) => String((i + 2) ** 2))];
+/** PlotGeometry's MIN_ and MAX_ of each whole-number setting. */
+export const RANGES: Partial<Record<PlotLayoutKey, [number, number]>> = {
+  distance_between_sample_points: [2, 1000],
+  distance_to_plot_boundaries: [0, 500],
+  inner_point_side: [2, 100],
+  large_central_plot_side: [2, 200],
+  distance_between_plots: [2, 1000],
+  distance_to_buffers: [1, 10000],
 };
 
-/**
- * The layout as Collect Earth reads it from the properties: an unknown or blank shape is SQUARE; a missing number its
- * default, clamped to its range; a reference area shape left blank is NONE without a distance, else SQUARE (projects
- * older than the setting); the first of several distances to the reference area (a file edited by hand).
- */
-export function layoutOf(properties: ReadonlyMap<string, string>): LayoutValues {
-  const shape = (properties.get('sample_shape') ?? '').trim().toUpperCase();
-  const buffer = (properties.get('buffer_shape') ?? '').trim().toUpperCase();
-  const points = Number.parseInt((properties.get('number_of_sampling_points_in_plot') ?? '').trim(), 10);
-  const numbers = Object.fromEntries(
-    (Object.keys(LAYOUT_NUMBERS) as NumberKey[]).map((k) => [k, String(clamp(k === 'distance_to_buffers' ? properties.get(k)?.split(',')[0] : properties.get(k), LAYOUT_NUMBERS[k]))]),
-  ) as Record<NumberKey, string>;
-  return {
-    sample_shape: (SAMPLE_SHAPES as readonly string[]).includes(shape) ? shape : 'SQUARE',
-    number_of_sampling_points_in_plot: String(Number.isNaN(points) ? 25 : Math.max(0, Math.min(100, points))),
-    ...numbers,
-    buffer_shape: (BUFFER_SHAPES as readonly string[]).includes(buffer)
-      ? buffer
-      : buffer === '' && (properties.get('distance_to_buffers') ?? '').trim() === '' ? 'NONE' : 'SQUARE',
-  };
+const isKey = (key: string): key is PlotLayoutKey => (PLOT_LAYOUT_KEYS as readonly string[]).includes(key);
+
+/** The layout keys a project file's properties have. */
+export function plotLayoutOf(properties: ReadonlyMap<string, string>): PlotLayout {
+  const layout: PlotLayout = {};
+  for (const key of PLOT_LAYOUT_KEYS) {
+    const value = properties.get(key);
+    if (value !== undefined) layout[key] = value.trim();
+  }
+  return layout;
 }
 
-/** The layout of a project file (its properties), or null when it cannot be read. */
-export function layoutOfCep(cep: Buffer): LayoutValues | null {
-  try {
-    return layoutOf(cepProperties(readCep(cep)));
-  } catch {
-    return null;
-  }
+/** PlotGeometry.parseIntWithinRange */
+function intWithin(value: string | undefined, fallback: number, min: number, max: number): number {
+  const n = /^\s*-?\d+\s*$/.test(value ?? '') ? Number(value) : fallback;
+  return Math.max(min, Math.min(max, n));
 }
 
-/** The layout a coordinator sends, checked: every key, each within its options or range; else what is wrong. */
-export function parseLayout(body: unknown): LayoutValues | string {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) return 'The layout must be an object.';
-  const b = body as Record<string, unknown>;
-  const text = (k: string) => (typeof b[k] === 'string' ? (b[k] as string).trim() : typeof b[k] === 'number' ? String(b[k]) : '');
-  const shape = text('sample_shape').toUpperCase();
-  if (!(SAMPLE_SHAPES as readonly string[]).includes(shape)) return `sample_shape: one of ${SAMPLE_SHAPES.join(', ')}.`;
-  const buffer = text('buffer_shape').toUpperCase();
-  if (!(BUFFER_SHAPES as readonly string[]).includes(buffer)) return `buffer_shape: one of ${BUFFER_SHAPES.join(', ')}.`;
-  const points = text('number_of_sampling_points_in_plot');
-  if (!(POINT_COUNTS as readonly number[]).map(String).includes(points)) return `number_of_sampling_points_in_plot: one of ${POINT_COUNTS.join(', ')}.`;
-  const numbers: Partial<Record<NumberKey, string>> = {};
-  for (const key of Object.keys(LAYOUT_NUMBERS) as NumberKey[]) {
-    const { min, max } = LAYOUT_NUMBERS[key];
-    const value = text(key);
-    if (!/^\d+$/.test(value) || Number(value) < min || Number(value) > max) return `${key}: a whole number of metres from ${min} to ${max}.`;
-    numbers[key] = String(Number(value));
-  }
-  return { sample_shape: shape, number_of_sampling_points_in_plot: points, ...(numbers as Record<NumberKey, string>), buffer_shape: buffer };
+/** PlotGeometry.minimumReferenceDistance: the smallest distance at which the reference area holds the plot's outline. */
+export function minimumReferenceDistance(layout: PlotLayout): number {
+  const shape = (layout.sample_shape ?? '').toUpperCase() || 'SQUARE';
+  const round = shape === 'CIRCLE' || shape === 'HEXAGON';
+  const points = intWithin(layout.number_of_sampling_points_in_plot, 0, 0, 100);
+  const distance = intWithin(layout.distance_between_sample_points, 10, 2, 1000);
+  const margin = intWithin(layout.distance_to_plot_boundaries, 0, 0, 500);
+  const side = points <= 1 ? 2 * margin : 2 * margin + (Math.sqrt(points) - 1) * distance;
+  const h = round ? distance + 5 : side / 2;
+  const cos30 = Math.cos(Math.PI / 6);
+  const buffer = (layout.buffer_shape ?? '').toUpperCase();
+  const minimum = buffer === 'CIRCLE' ? (round ? h : h * Math.SQRT2) : buffer === 'HEXAGON' ? (round ? h / cos30 : (h * (cos30 + 0.5)) / cos30) : h;
+  return Math.max(1, Math.ceil(minimum) + 1);
+}
+
+/** Whether the reference area is drawn and its distance checked (SettingsModel.REFERENCE_AREA). */
+export function hasReferenceArea(layout: PlotLayout): boolean {
+  const shape = (layout.sample_shape ?? '').toUpperCase() || 'SQUARE';
+  const buffer = (layout.buffer_shape ?? '').toUpperCase();
+  return ['SQUARE', 'SQUARE_WITH_LARGE_CENTRAL_PLOT', 'CIRCLE', 'HEXAGON'].includes(shape) && ['SQUARE', 'CIRCLE', 'HEXAGON'].includes(buffer);
 }
 
 /**
- * A properties file's text with these values set: each key's line replaced where it is (a later line of the same key,
- * which Java would read instead, dropped), the keys it lacks added at the end; every other line as it was. The values
- * are plain words and numbers, written as they are.
+ * The changes asked for, or why they are refused: an object of layout keys to strings, each a choice of
+ * its setting or a whole number within its range (blank allowed, as Collect Earth leaves a hidden one), and
+ * a reference area that still holds the plot once applied over `current`.
  */
-export function setProperties(text: string, values: Readonly<Record<string, string>>): string {
-  const ending = /\r\n/.test(text) ? '\r\n' : /\r/.test(text) && !/\n/.test(text) ? '\r' : '\n';
-  const lines = text === '' ? [] : text.split(/\r\n|\r|\n/);
-  const trailing = lines.length > 0 && lines[lines.length - 1] === '';
-  if (trailing) lines.pop();
-  const done = new Set<string>();
+export function checkPlotLayout(body: unknown, current: PlotLayout): { changes: PlotLayout } | { reason: string } {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return { reason: 'expected an object of plot layout settings' };
+  const changes: PlotLayout = {};
+  for (const [key, raw] of Object.entries(body)) {
+    if (!isKey(key)) return { reason: `${key} is not a plot layout setting` };
+    if (typeof raw !== 'string') return { reason: `${key} must be text` };
+    const value = raw.trim();
+    const range = RANGES[key];
+    if (key === 'sample_shape' && !SAMPLE_SHAPES.includes(value)) return { reason: `sample_shape must be one of ${SAMPLE_SHAPES.join(', ')}` };
+    if (key === 'buffer_shape' && !BUFFER_SHAPES.includes(value)) return { reason: `buffer_shape must be one of ${BUFFER_SHAPES.join(', ')}` };
+    if (key === 'number_of_sampling_points_in_plot' && !POINT_COUNTS.includes(value)) {
+      return { reason: `number_of_sampling_points_in_plot must be one of ${POINT_COUNTS.join(', ')}` };
+    }
+    if (range && value !== '' && !(/^\d+$/.test(value) && Number(value) >= range[0] && Number(value) <= range[1])) {
+      return { reason: `${key} must be a whole number between ${range[0]} and ${range[1]}` };
+    }
+    changes[key] = value;
+  }
+  const merged = { ...current, ...changes };
+  if (hasReferenceArea(merged)) {
+    // A file edited by hand may hold several distances: Collect Earth's settings check the first
+    const distance = Number((merged.distance_to_buffers ?? '100').split(',')[0].trim() || '100');
+    const minimum = minimumReferenceDistance(merged);
+    if (!(distance >= minimum)) return { reason: `distance_to_buffers must be at least ${minimum} so that the reference area holds the plot` };
+  }
+  return { changes };
+}
+
+/**
+ * project_definition.properties (its bytes) with `changes` written: a key's line keeps its key and
+ * separator and gets the new value; a key it lacks is added at the end. Every other byte stays.
+ */
+export function rewritePlotLayout(data: Buffer, changes: PlotLayout): Buffer {
+  // latin1: one character per byte, so the bytes not rewritten come back as they were whatever their encoding
+  const text = data.toString('latin1');
+  const newline = text.includes('\r\n') ? '\r\n' : '\n';
+  const lines = text.split(/(?<=\n)/);
+  const written = new Set<string>();
   const out: string[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const trimmed = line.replace(/^[ \t\f]+/, '');
-    // A logical line goes on while a line ends with an odd number of backslashes
-    let last = i;
-    while (/(^|[^\\])(\\\\)*\\$/.test(lines[last]) && last + 1 < lines.length && !(trimmed === '' || trimmed.startsWith('#') || trimmed.startsWith('!'))) last++;
-    const key = trimmed === '' || trimmed.startsWith('#') || trimmed.startsWith('!') ? null : /^((?:[^\\=: \t\f]|\\.)*)/.exec(trimmed)![1];
-    if (key !== null && Object.prototype.hasOwnProperty.call(values, key)) {
-      if (!done.has(key)) out.push(`${key}=${values[key]}`);
-      done.add(key);
-    } else {
-      for (let j = i; j <= last; j++) out.push(lines[j]);
+    const ending = /\r?\n$/.exec(line)?.[0] ?? '';
+    const body = line.slice(0, line.length - ending.length);
+    const m = /^([ \t\f]*)((?:[^\\=: \t\f]|\\.)+)([ \t\f]*[=:]?[ \t\f]*)/.exec(body);
+    const key = m && !m[2].startsWith('#') && !m[2].startsWith('!') ? m[2] : null;
+    if (key === null || !isKey(key) || changes[key] === undefined) {
+      out.push(line);
+      continue;
     }
-    i = last;
+    // A value continued on the next lines (an odd number of trailing backslashes) is replaced whole
+    let last = line;
+    while (/(^|[^\\])(\\\\)*\\$/.test(last.replace(/\r?\n$/, '')) && i + 1 < lines.length) last = lines[++i];
+    const lastEnding = /\r?\n$/.exec(last)?.[0] ?? '';
+    out.push(`${m![1]}${key}${m![3] || '='}${changes[key]}${lastEnding}`);
+    written.add(key);
   }
-  for (const [key, value] of Object.entries(values)) if (!done.has(key)) out.push(`${key}=${value}`);
-  return out.join(ending) + (out.length > 0 ? ending : '');
-}
-
-const SQUARE_PLOT = new Set(['SQUARE', 'SQUARE_WITH_LARGE_CENTRAL_PLOT']);
-const ROUND_PLOT = new Set(['CIRCLE', 'HEXAGON']);
-const NFI_CLUSTER = new Set(['NFI_THREE_CIRCLES', 'NFI_FOUR_CIRCLES']);
-type LayoutKey = (typeof LAYOUT_KEYS)[number];
-
-/** Whether a setting is shown for this layout (SettingsModel's visibleWhen), and so whether it is written. */
-export function isShown(key: LayoutKey, layout: LayoutValues): boolean {
-  const shape = layout.sample_shape;
-  const points = Number(layout.number_of_sampling_points_in_plot);
-  const square = SQUARE_PLOT.has(shape);
-  const round = ROUND_PLOT.has(shape);
-  const nfi = NFI_CLUSTER.has(shape);
-  switch (key) {
-    case 'sample_shape':
-      return true;
-    case 'number_of_sampling_points_in_plot':
-    case 'buffer_shape':
-      return square || round;
-    case 'distance_between_sample_points':
-      return round || (square && points >= 2) || nfi;
-    case 'distance_to_plot_boundaries':
-      return square;
-    case 'inner_point_side':
-      return ((square || round) && points >= 1) || nfi;
-    case 'large_central_plot_side':
-      return shape === 'SQUARE_WITH_LARGE_CENTRAL_PLOT';
-    case 'distance_between_plots':
-      return nfi;
-    case 'distance_to_buffers':
-      return (square || round) && layout.buffer_shape !== 'NONE';
-    default:
-      return false;
+  let result = out.join('');
+  for (const key of PLOT_LAYOUT_KEYS) {
+    if (changes[key] === undefined || written.has(key)) continue;
+    if (result !== '' && !result.endsWith('\n')) result += newline;
+    result += `${key}=${changes[key]}${newline}`;
   }
-}
-
-/**
- * Written blank when not shown, as the desktop's settings page saves them (blankWhenHidden): Collect Earth sizes a
- * square of one point by the distance between points whenever it has one, and draws a central plot in any square plot
- * that has a side for it.
- */
-const BLANK_WHEN_HIDDEN = new Set<LayoutKey>(['distance_between_sample_points', 'large_central_plot_side']);
-
-/**
- * What saving this layout writes into the properties, as the desktop's settings page saves its plot section: the
- * settings shown whose value changed (as Collect Earth reads them: a missing one is its default), the hidden ones of
- * BLANK_WHEN_HIDDEN made blank, the other hidden ones left as they are. Empty: nothing to write.
- */
-export function layoutChanges(properties: ReadonlyMap<string, string>, layout: LayoutValues): Record<string, string> {
-  const before = layoutOf(properties);
-  const out: Record<string, string> = {};
-  for (const key of LAYOUT_KEYS) {
-    if (isShown(key, layout)) {
-      if (layout[key] === before[key]) continue;
-      // Several distances to the reference area (a file edited by hand): the first is the one set, the others kept
-      out[key] = key === 'distance_to_buffers' ? [layout[key], ...(properties.get(key)?.split(',').slice(1) ?? [])].join(',') : layout[key];
-    } else if (BLANK_WHEN_HIDDEN.has(key) && (properties.get(key) ?? '').trim() !== '') {
-      out[key] = '';
-    }
-  }
-  return out;
-}
-
-/** The project file with these properties set (layoutChanges), stamped `date`. */
-export function withLayout(cep: Buffer, changes: Readonly<Record<string, string>>, date: Date): Buffer {
-  return withProperties(cep, (text) => setProperties(text, changes), date);
+  return Buffer.from(result, 'latin1');
 }

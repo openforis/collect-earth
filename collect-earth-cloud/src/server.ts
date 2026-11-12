@@ -325,13 +325,13 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerCeoImportRoutes(app, store);
   await registerBackupImportRoutes(app, store);
   await registerRepeatSurveyRoutes(app, store);
-  await registerPlotLayoutRoutes(app, store);
   await registerCeoShapesRoutes(app, store);
   await registerCollectImportRoutes(app, store);
   await registerPlotDesignRoutes(app, store);
   await registerSigridRoutes(app, store, places);
   await registerCollectBackupRoutes(app, store, config, limiter, now);
   await registerPlatformRoutes(app, store, config);
+  await registerPlotLayoutRoutes(app, store, places);
   const quality = new QualityService(store, new QualityWorker({ maxOldGenerationSizeMb: config.qualityWorkerMaxMb }), {
     minIntervalMs: config.qualityMinIntervalMs,
   });

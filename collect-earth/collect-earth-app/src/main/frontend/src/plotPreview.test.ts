@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CIRCLE_PLOT_MARGIN, gridPoints, hexagonPoints, plotDrawing, plotFigures, scaleBarLength } from "./plotPreview";
+import { CIRCLE_PLOT_MARGIN, gridPoints, hexagonPoints, plotDrawing, scaleBarLength } from "@shared/plotPreview";
 
 describe("plot drawing", () => {
   it("draws a square plot as its grid of points inside the margin", () => {
@@ -77,31 +77,5 @@ describe("helpers", () => {
     expect(scaleBarLength(100)).toBe(50);
     expect(scaleBarLength(12)).toBe(5);
     expect(scaleBarLength(1.5)).toBe(1);
-  });
-});
-
-describe("plot figures, as the desktop's PlotGeometry", () => {
-  it("works out a square plot's area and its reference area's distances", () => {
-    // 5 x 5 points 10 m apart with 5 m of margin: a 50 m square, 2500 m2
-    const f = plotFigures({ sample_shape: "SQUARE", number_of_sampling_points_in_plot: "25", distance_between_sample_points: "10",
-      distance_to_plot_boundaries: "5", buffer_shape: "SQUARE", distance_to_buffers: "50" });
-    expect(f.plotArea).toBe(2500);
-    expect(f.referenceArea).toBe(10000);
-    expect(f.minimumReferenceDistance).toBe(26);
-    // ten times the plot: a square of 158.1 m, half 79.06
-    expect(f.recommendedReferenceDistance).toBe(80);
-  });
-
-  it("works out a round plot's, and has none for the shapes read from the file or clusters", () => {
-    const c = plotFigures({ sample_shape: "CIRCLE", distance_between_sample_points: "20", buffer_shape: "CIRCLE", distance_to_buffers: "100,200" });
-    expect(c.plotArea).toBeCloseTo(Math.PI * 400);
-    expect(c.referenceArea).toBeCloseTo(Math.PI * 10000);
-    // the circle is drawn 5 m beyond its radius
-    expect(c.minimumReferenceDistance).toBe(26);
-    expect(plotFigures({ sample_shape: "CIRCLE", distance_between_sample_points: "20", buffer_shape: "NONE" }).referenceArea).toBeNull();
-    // a project older than the setting: a distance without a shape is a square
-    expect(plotFigures({ sample_shape: "SQUARE", number_of_sampling_points_in_plot: "1", distance_to_plot_boundaries: "10", distance_to_buffers: "30" }).referenceArea).toBe(3600);
-    expect(plotFigures({ sample_shape: "WKT_POLYGON" })).toEqual({ plotArea: null, referenceArea: null, minimumReferenceDistance: null, recommendedReferenceDistance: null });
-    expect(plotFigures({ sample_shape: "NFI_THREE_CIRCLES" }).plotArea).toBeNull();
   });
 });

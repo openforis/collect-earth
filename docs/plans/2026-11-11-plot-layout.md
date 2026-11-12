@@ -1,6 +1,6 @@
 # Plot layout in the cloud dashboard
 
-Date: 11 November 2026. **Status: built on the working branch (`claude/awesome-bell-s34gb0`).**
+Date: 11 November 2026. **Status: superseded. Built on the working branch, then not merged: the release branch (`ce-2026-GEW`) got its own plot layout card on 12 Nov 2026 (`collect-earth-cloud/src/plotLayout.ts`, `web/src/project/PlotLayoutCard.tsx`, and Collect Earth applying the coordinator's layout, `CloudPlotLayout.java`), which was kept when the working branch was merged into it. This file records the design that was not kept.**
 
 ## Goal
 

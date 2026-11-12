@@ -1450,29 +1450,6 @@ export async function downloadRepeatChangeAreas(projectId: string, question: str
   return { blob: await response.blob(), filename: attachmentName(response, "change-areas.csv") };
 }
 
-/** The plot layout kept in the project file (project_definition.properties), as Collect Earth reads it */
-export interface PlotLayoutSettings {
-  sample_shape: string;
-  number_of_sampling_points_in_plot: string;
-  distance_between_sample_points: string;
-  distance_to_plot_boundaries: string;
-  inner_point_side: string;
-  large_central_plot_side: string;
-  distance_between_plots: string;
-  distance_to_buffers: string;
-  buffer_shape: string;
-}
-
-/** The plot layout, whether the plot files carry polygons (drawn instead), and whether this person may change it. */
-export function getPlotLayout(projectId: string): Promise<{ layout: PlotLayoutSettings; polygons: boolean; canEdit: boolean }> {
-  return request("GET", `${p(projectId)}/plot-layout`);
-}
-
-/** Saves the plot layout into the project file; changed false when it was already so (nothing written). */
-export function savePlotLayout(projectId: string, layout: PlotLayoutSettings): Promise<{ layout: PlotLayoutSettings; changed: boolean }> {
-  return request("PUT", `${p(projectId)}/plot-layout`, { json: { layout } });
-}
-
 /** Every period of a repeat survey side by side, one row per plot (coordinators): each question's answer in each period. */
 export async function downloadPeriodsExport(projectId: string): Promise<{ blob: Blob; filename: string }> {
   const response = await send("GET", `${p(projectId)}/periods/export.csv`);
@@ -1610,6 +1587,21 @@ export function importCollectData(projectId: string, file: Blob, query: string, 
 /** What the server did about round in the current project file; null before any upload. */
 export async function getRoundInfo(projectId: string): Promise<RoundInfo | null> {
   return toRoundInfo(await request<unknown>("GET", `${p(projectId)}/round`));
+}
+
+/** The plot layout keys the project file has (Collect Earth's Settings > Plot), and whether records exist. */
+export interface ProjectPlotLayout {
+  layout: Record<string, string>;
+  recordsExist: boolean;
+}
+
+export function getPlotLayout(projectId: string): Promise<ProjectPlotLayout> {
+  return request<ProjectPlotLayout>("GET", `${p(projectId)}/plot-layout`);
+}
+
+/** Writes the changed plot layout settings into the project file; answers the layout as it is now. */
+export function setPlotLayout(projectId: string, changes: Record<string, string>): Promise<{ layout: Record<string, string> }> {
+  return request<{ layout: Record<string, string> }>("PUT", `${p(projectId)}/plot-layout`, { json: changes });
 }
 
 /** Which code of the survey's own round marks re-assessments (null: none). */
