@@ -285,6 +285,58 @@ describe('dividing plots between people', () => {
     expect(bad.statusCode).toBe(400);
   });
 
+  it('moves a number of unfinished plots, or only the plots given', async () => {
+    await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'file' });
+    await batchRequest(ctx.app, pid, maria.token, [envelope({ recordKey: '1', operator: 'maria' })]);
+    const move = (payload: Record<string, unknown>) =>
+      ctx.app.inject({ method: 'POST', url: `/v1/projects/${pid}/csv-files/${fileId}/move-unfinished`, headers: bearer(admin), payload });
+    // 2 of maria's 4 left go: the last of her list
+    const byCount = await move({ fromUserId: maria.userId, toUserId: ana.userId, count: 2 });
+    expect(byCount.statusCode).toBe(200);
+    expect(byCount.json()).toMatchObject({ moved: 2 });
+    expect(share(byCount.json(), 'maria')).toMatchObject({ plots: 3, submitted: 1 });
+    expect(share(byCount.json(), 'ana')).toMatchObject({ plots: 2 });
+    const anaPlots = (await ctx.store.listPlotAssignments(pid, fileId)).filter((a) => a.userId === ana.userId).map((a) => a.plotKey);
+    expect(anaPlots).toEqual(['4', '5']);
+    // One plot of jose's, picked (on the map)
+    const byList = await move({ fromUserId: jose.userId, toUserId: ana.userId, plots: ['7'] });
+    expect(byList.json()).toMatchObject({ moved: 1 });
+    expect(share(byList.json(), 'ana')).toMatchObject({ plots: 3 });
+    expect((await move({ fromUserId: maria.userId, toUserId: ana.userId, count: 0 })).statusCode).toBe(400);
+    expect((await move({ fromUserId: maria.userId, toUserId: ana.userId, plots: [] })).statusCode).toBe(400);
+  });
+
+  it('rebalances what is left by weights: a preview saves nothing, submitted plots stay', async () => {
+    await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'file' });
+    await batchRequest(ctx.app, pid, maria.token, [envelope({ recordKey: '1', operator: 'maria' })]);
+    const rebalance = (payload: Record<string, unknown>) =>
+      ctx.app.inject({ method: 'POST', url: `/v1/projects/${pid}/csv-files/${fileId}/rebalance`, headers: bearer(admin), payload });
+    const people = [
+      { userId: maria.userId, weight: 1 },
+      { userId: jose.userId, weight: 1 },
+      { userId: ana.userId, weight: 1 },
+    ];
+    const before = await ctx.store.listPlotAssignments(pid, fileId);
+    const preview = await rebalance({ people, dryRun: true });
+    expect(preview.statusCode).toBe(200);
+    expect(preview.json()).toMatchObject({
+      saved: false,
+      left: { [maria.userId]: 4, [jose.userId]: 5, [ana.userId]: 0 },
+      target: { [maria.userId]: 3, [jose.userId]: 3, [ana.userId]: 3 },
+    });
+    expect(await ctx.store.listPlotAssignments(pid, fileId)).toEqual(before);
+    const applied = await rebalance({ people });
+    expect(applied.json()).toMatchObject({ saved: true, moved: 3, distribution: { mode: 'manual' } });
+    expect(share(applied.json(), 'maria')).toMatchObject({ plots: 4, submitted: 1 });
+    expect(share(applied.json(), 'jose')).toMatchObject({ plots: 3 });
+    expect(share(applied.json(), 'ana')).toMatchObject({ plots: 3 });
+    // Refused: one person, no weight above 0, a weight out of range, someone not in the project
+    expect((await rebalance({ people: [people[0]] })).statusCode).toBe(400);
+    expect((await rebalance({ people: people.map((p) => ({ ...p, weight: 0 })) })).statusCode).toBe(400);
+    expect((await rebalance({ people: [people[0], { userId: jose.userId, weight: -1 }] })).statusCode).toBe(400);
+    expect((await rebalance({ people: [people[0], { userId: '00000000-0000-0000-0000-000000000000', weight: 1 }] })).statusCode).toBe(400);
+  });
+
   it('moving to someone holding a copy makes it theirs, unless they already checked it', async () => {
     // 50%: maria holds 1-5 and copies of 6, 7 and 9; jose holds 6-10 and copies of 1, 2 and 4.
     await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'file', overlapPercent: 50 });

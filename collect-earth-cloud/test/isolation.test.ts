@@ -138,6 +138,8 @@ describe('cross-tenant isolation', () => {
       { method: 'PUT' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/distribution`, payload: { mode: 'whole' } },
       { method: 'POST' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/move-unfinished`,
         payload: { fromUserId: nobody, toUserId: nobody } },
+      { method: 'POST' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/rebalance`,
+        payload: { people: [{ userId: nobody, weight: 1 }, { userId: nobody, weight: 1 }], dryRun: true } },
       { method: 'GET' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/content` },
       { method: 'GET' as const, url: `/v1/projects/${pid}/csv-files/${fileB}/content?mine=1` },
     ]);

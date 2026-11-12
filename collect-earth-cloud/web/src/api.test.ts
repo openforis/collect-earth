@@ -52,6 +52,7 @@ import {
   deleteGuidanceNote,
   getPlotPlaces,
   moveUnfinished,
+  rebalance,
   saveDistribution,
   getOverview,
   getServerInfo,
@@ -459,6 +460,22 @@ describe("dividing plots", () => {
     expect(call(2).body).toEqual(even);
     expect(await moveUnfinished("p1", "f1", "u1", "u2")).toMatchObject({ moved: 5, notMoved: 1, droppedChecks: 2, plotCount: 3 });
     expect(call(3)).toEqual({ url: "/v1/projects/p1/csv-files/f1/move-unfinished", method: "POST", body: { fromUserId: "u1", toUserId: "u2" } });
+    await moveUnfinished("p1", "f1", "u1", "u2", { count: 10 });
+    expect(call(4).body).toEqual({ fromUserId: "u1", toUserId: "u2", count: 10 });
+    await moveUnfinished("p1", "f1", "u1", "u2", { plots: ["7", "8"] });
+    expect(call(5).body).toEqual({ fromUserId: "u1", toUserId: "u2", plots: ["7", "8"] });
+  });
+
+  it("previews and applies a rebalance", async () => {
+    const plan = { left: { u1: 9, u2: 1 }, target: { u1: 5, u2: 5 }, moves: [{ from: "u1", to: "u2", count: 4 }] };
+    fetchMock.mockImplementation(async () => jsonResponse(200, { ...plan, saved: false }));
+    const people = [{ userId: "u1", weight: 1 }, { userId: "u2", weight: 1 }];
+    expect(await rebalance("p1", "f1", people, true)).toMatchObject({ ...plan, saved: false, state: null });
+    expect(call(0)).toEqual({ url: "/v1/projects/p1/csv-files/f1/rebalance", method: "POST", body: { people, dryRun: true } });
+    fetchMock.mockImplementation(async () => jsonResponse(200, { ...state, ...plan, saved: true, moved: 4, notMoved: 0 }));
+    const applied = await rebalance("p1", "f1", people, false);
+    expect(applied).toMatchObject({ saved: true, moved: 4 });
+    expect(applied.state).toMatchObject({ plotCount: 3 });
   });
 });
 

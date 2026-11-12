@@ -832,6 +832,7 @@ export const AUDIT_ACTIONS = [
   'assignments.set',
   'division.applied',
   'plots.moved',
+  'plots.rebalanced',
   'decision.set',
   'decision.deleted',
   'decision.bulk',

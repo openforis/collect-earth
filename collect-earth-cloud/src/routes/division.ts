@@ -8,9 +8,11 @@ import {
   keptBy,
   moveUnfinished,
   parseDivisionRequest,
+  rebalancePlan,
   submittedByPlot,
   summarize,
   type DistributionSummary,
+  type RebalanceShare,
 } from '../division.js';
 import { nearbyAvailability, nearbyRanksOf, servedNearby, type NearbyAvailability } from '../nearby.js';
 import { columnValues, plotColumns } from '../plotColumns.js';
@@ -84,6 +86,9 @@ function nearbyRefusal(availability: NearbyAvailability): string {
 }
 
 type Loaded = NonNullable<Awaited<ReturnType<typeof loadFile>>>;
+
+/** The most plots one move takes by count or by list (a selection on the map). */
+const MAX_MOVE = 20000;
 
 /** The reference plots of one file (Task 14). */
 async function referenceOf(store: Store, projectId: string, csvFileId: string): Promise<Set<string>> {
@@ -231,26 +236,9 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store,
     return reply.send(summarize(parsed, plotFile.plotIds, plots, submitted, usernames, reference));
   });
 
-  // Body: {fromUserId, toUserId}. Gives the plots `from` has not submitted to `to`.
-  app.post('/v1/projects/:pid/csv-files/:id/move-unfinished', admin, async (request: FastifyRequest, reply: FastifyReply) => {
-    const projectId = request.membership!.projectId;
-    const loaded = await loadFile(store, projectId, csvFileId(request), request.log);
-    if (!loaded) {
-      return reply.code(404).send({ error: 'not_found' });
-    }
-    const { file, plotFile, usernames, submitted, kept: keptWith, plotOf } = loaded;
-    const body = (request.body ?? {}) as { fromUserId?: unknown; toUserId?: unknown };
-    const from = typeof body.fromUserId === 'string' ? body.fromUserId : '';
-    const to = typeof body.toUserId === 'string' ? body.toUserId : '';
-    if (!isUuid(from)) {
-      return reply.code(400).send({ error: 'bad_request', reason: 'fromUserId is required' });
-    }
-    if (!usernames.has(to)) {
-      return reply.code(400).send({ error: 'bad_request', reason: 'toUserId must be a member of the project' });
-    }
-    if (from === to) {
-      return reply.code(400).send({ error: 'bad_request', reason: 'fromUserId and toUserId are the same person' });
-    }
+  /** The holdings a move or a rebalance may change: a whole file divided as it is first, reference plots apart (they never move). */
+  async function movableHoldings(projectId: string, loaded: Loaded) {
+    const { file, plotFile } = loaded;
     let holdings: PlotAssignment[];
     if (file.distribution) {
       holdings = await store.listPlotAssignments(projectId, file.id);
@@ -263,15 +251,55 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store,
     holdings = holdings.filter((a) => inFile.has(a.plotKey));
     // Reference plots (Task 14) never move: their assessor keeps them, every collector their copy.
     const reference = file.distribution ? await referenceOf(store, projectId, file.id) : new Set<string>();
-    const kept = holdings.filter((a) => reference.has(a.plotKey));
-    holdings = holdings.filter((a) => !reference.has(a.plotKey));
+    return { holdings: holdings.filter((a) => !reference.has(a.plotKey)), kept: holdings.filter((a) => reference.has(a.plotKey)), reference };
+  }
+
+  /** What a division is stored as after a move: by hand, a 'nearby' order kept (Task 15). */
+  const manualOf = (distribution: StoredDistribution | null | undefined): StoredDistribution =>
+    servedNearby(distribution) ? { mode: 'manual', order: 'nearby' } : { mode: 'manual' };
+
+  // Body: {fromUserId, toUserId, count?, plots?}. Gives the plots `from` has not submitted to `to`: all
+  // of them, or `count` of the plots they have to assess (the last of their list), or only `plots`.
+  app.post('/v1/projects/:pid/csv-files/:id/move-unfinished', admin, async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
+    const loaded = await loadFile(store, projectId, csvFileId(request), request.log);
+    if (!loaded) {
+      return reply.code(404).send({ error: 'not_found' });
+    }
+    const { file, plotFile, usernames, submitted, kept: keptWith, plotOf } = loaded;
+    const body = (request.body ?? {}) as { fromUserId?: unknown; toUserId?: unknown; count?: unknown; plots?: unknown };
+    const from = typeof body.fromUserId === 'string' ? body.fromUserId : '';
+    const to = typeof body.toUserId === 'string' ? body.toUserId : '';
+    if (!isUuid(from)) {
+      return reply.code(400).send({ error: 'bad_request', reason: 'fromUserId is required' });
+    }
+    if (!usernames.has(to)) {
+      return reply.code(400).send({ error: 'bad_request', reason: 'toUserId must be a member of the project' });
+    }
+    if (from === to) {
+      return reply.code(400).send({ error: 'bad_request', reason: 'fromUserId and toUserId are the same person' });
+    }
+    const which: { count?: number; plots?: Set<string> } = {};
+    if (body.count !== undefined) {
+      if (typeof body.count !== 'number' || !Number.isInteger(body.count) || body.count < 1 || body.count > MAX_MOVE) {
+        return reply.code(400).send({ error: 'bad_request', reason: `count must be a whole number from 1 to ${MAX_MOVE}` });
+      }
+      which.count = body.count;
+    }
+    if (body.plots !== undefined) {
+      if (!Array.isArray(body.plots) || body.plots.length === 0 || body.plots.length > MAX_MOVE || !body.plots.every((p) => typeof p === 'string')) {
+        return reply.code(400).send({ error: 'bad_request', reason: `plots must be a list of 1 to ${MAX_MOVE} plot ids` });
+      }
+      which.plots = new Set(body.plots as string[]);
+    }
+    const { holdings, kept } = await movableHoldings(projectId, loaded);
     if (!holdings.some((a) => a.userId === from)) {
       return reply.send({ ...(await currentSummary(store, projectId, loaded)), moved: 0, notMoved: 0, droppedChecks: 0 });
     }
-    const result = moveUnfinished(holdings, from, to, keptWith, plotOf);
+    const result = moveUnfinished(holdings, from, to, keptWith, plotOf, which);
     result.plots.push(...kept);
-    // A move after a 'nearby' division keeps the rows of the served files in that order (Task 15).
-    const distribution: StoredDistribution = servedNearby(file.distribution) ? { mode: 'manual', order: 'nearby' } : { mode: 'manual' };
+    const distribution = manualOf(file.distribution);
+    const reference = new Set(kept.map((a) => a.plotKey));
     await store.setDivision(projectId, file.id, distribution, result.plots);
     await audit(store, request, 'plots.moved', { csvFileId: file.id, fromUserId: from, toUserId: to, moved: result.moved });
     return reply.send({
@@ -282,6 +310,62 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store,
       // dropped.
       notMoved: result.notMoved,
       droppedChecks: result.droppedChecks,
+    });
+  });
+
+  // Body: {people: [{userId, weight}], dryRun?}. Shares again the plots still to assess of these people,
+  // by their weights (see rebalancePlan); what is submitted stays. dryRun: the plan, nothing saved.
+  app.post('/v1/projects/:pid/csv-files/:id/rebalance', admin, async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
+    const loaded = await loadFile(store, projectId, csvFileId(request), request.log);
+    if (!loaded) {
+      return reply.code(404).send({ error: 'not_found' });
+    }
+    const { file, plotFile, usernames, submitted, kept: keptWith, plotOf } = loaded;
+    if (!file.distribution) {
+      // Everyone holds every plot of a whole file: there is nothing to share out
+      return reply.code(409).send({ error: 'whole_file' });
+    }
+    const body = (request.body ?? {}) as { people?: unknown; dryRun?: unknown };
+    const people = Array.isArray(body.people) ? body.people : [];
+    const shares: RebalanceShare[] = [];
+    for (const p of people) {
+      const { userId, weight } = (p ?? {}) as { userId?: unknown; weight?: unknown };
+      if (typeof userId !== 'string' || !usernames.has(userId) || shares.some((x) => x.userId === userId)) {
+        return reply.code(400).send({ error: 'bad_request', reason: 'people: each a member of the project, once' });
+      }
+      if (typeof weight !== 'number' || !Number.isFinite(weight) || weight < 0 || weight > 1000) {
+        return reply.code(400).send({ error: 'bad_request', reason: 'weight must be a number from 0 to 1000' });
+      }
+      shares.push({ userId, weight });
+    }
+    if (shares.length < 2 || !shares.some((x) => x.weight > 0)) {
+      return reply.code(400).send({ error: 'bad_request', reason: 'people: at least two, one of them with a weight above 0' });
+    }
+    const { holdings, kept } = await movableHoldings(projectId, loaded);
+    const plan = rebalancePlan(holdings, keptWith, shares);
+    if (body.dryRun === true) {
+      return reply.send({ ...plan, saved: false });
+    }
+    let plots = holdings;
+    let moved = 0;
+    let notMoved = 0;
+    for (const m of plan.moves) {
+      const result = moveUnfinished(plots, m.from, m.to, keptWith, plotOf, { count: m.count });
+      plots = result.plots;
+      moved += result.moved;
+      notMoved += result.notMoved;
+    }
+    const distribution = manualOf(file.distribution);
+    const all = [...plots, ...kept];
+    await store.setDivision(projectId, file.id, distribution, all);
+    await audit(store, request, 'plots.rebalanced', { csvFileId: file.id, people: shares.length, moved });
+    return reply.send({
+      ...summarize(distribution, plotFile.plotIds, all, submitted, usernames, new Set(kept.map((a) => a.plotKey))),
+      ...plan,
+      saved: true,
+      moved,
+      notMoved,
     });
   });
 }
