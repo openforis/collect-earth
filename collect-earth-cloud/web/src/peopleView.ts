@@ -391,6 +391,11 @@ export function finishWhen(t: Translate, w: Pick<Workload, "left" | "daysLeft">,
   return t("peopleTable.title.workloadInDays", { n: formatNumber(w.daysLeft, language) });
 }
 
+/** Under the plots left: "and 3 copies to compare", "and 1 copy to compare". */
+export function checksLeftText(t: Translate, checksLeft: number, language: string): string {
+  return t(checksLeft === 1 ? "peopleTable.title.workloadChecksOne" : "peopleTable.title.workloadChecks", { n: formatNumber(checksLeft, language) });
+}
+
 /** In a sentence: "finishing about 3 Dec 2026", "nothing submitted in the last 7 days", "nothing left to assess". */
 export function finishPhrase(t: Translate, w: Pick<Workload, "left" | "finish">, dayText: (date: string) => string): string {
   if (w.left <= 0) return t("divide.moveButton.finishDone");

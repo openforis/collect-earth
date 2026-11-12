@@ -5,6 +5,7 @@ import {
   agoText,
   bucketLabel,
   calendarWeeks,
+  checksLeftText,
   csvCell,
   durationText,
   fileLeft,
@@ -282,6 +283,9 @@ describe("the workload board", () => {
     expect(finishWhen(t, { left: 5, daysLeft: 1 }, "en")).toBe("tomorrow");
     expect(finishWhen(t, { left: 5, daysLeft: null }, "en")).toBe("—");
     expect(finishWhen(t, { left: 0, daysLeft: 0 }, "en")).toBe("Finished");
+    expect(checksLeftText(t, 3, "en")).toBe("and 3 copies to compare");
+    expect(checksLeftText(t, 1, "en")).toBe("and 1 copy to compare");
+    expect(checksLeftText(translator("es"), 1, "es")).toBe("y 1 copia para comparar");
     const day = (d: string) => `<${d}>`;
     expect(finishPhrase(t, { left: 5, finish: "2026-12-01" }, day)).toBe("finishing about <2026-12-01>");
     expect(finishPhrase(t, { left: 5, finish: null }, day)).toBe("nothing submitted in the last 7 days");

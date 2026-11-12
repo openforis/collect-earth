@@ -74,6 +74,7 @@ import { useT, type MessageKey } from "../i18n";
 import {
   agoText,
   filterPeople,
+  checksLeftText,
   finishWhen,
   inviteRowText,
   invitesShown,
@@ -514,7 +515,7 @@ function WorkloadSection({ projectId, data, onMoved }: { projectId: string; data
                         {n(w.left)}
                         {w.checksLeft > 0 && (
                           <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
-                            {t("peopleTable.title.workloadChecks", { n: n(w.checksLeft) })}
+                            {checksLeftText(t, w.checksLeft, language)}
                           </Typography>
                         )}
                       </TableCell>
