@@ -74,6 +74,8 @@ export interface IpccSurvey {
   columns: Record<Question, AnalysisColumn>;
   /** The survey's own ipcc_<year>_category and _subdivision questions, by year. */
   own: Map<number, [AnalysisColumn, AnalysisColumn]>;
+  /** The plot's id question (the desktop's files name plots by it). */
+  id: AnalysisColumn | undefined;
   subdivisions: Subdivision[];
   /** The labels of the strata's codes, in their lists' order. */
   labels: Record<Stratum, Map<string, string>>;
@@ -112,7 +114,7 @@ export function ipccSurvey(model: AnalysisModel): IpccSurvey {
     if (columns[s] && !list) missing.push(columns[s].list ?? s);
     labels[s] = new Map((list ?? []).map((i) => [i.code, i.labels[language] ?? '']));
   }
-  return { missing, columns, own, subdivisions, labels };
+  return { missing, columns, own, subdivisions, labels, id: columnOf('id') };
 }
 
 /** One plot, as the exports read it: its first assessment's answers and its land uses year by year. */
@@ -126,6 +128,7 @@ export interface IpccPlot {
   summary: Record<string, string>;
 }
 
+/** The plots of their first assessments: `id` is the plot's unit, when the survey has no id question. */
 export function ipccPlots(survey: IpccSurvey, firsts: Iterable<{ id: string; summary: Record<string, string>; area: number | null }>): IpccPlot[] {
   const out: IpccPlot[] = [];
   for (const { id, summary, area } of firsts) {
@@ -136,7 +139,7 @@ export function ipccPlots(survey: IpccSurvey, firsts: Iterable<{ id: string; sum
       const own = survey.own.get(year);
       return own ? { category: cell(own[0], summary[own[0].key]), subdivision: cell(own[1], summary[own[1].key]) } : landUseIn(answers, year);
     });
-    out.push({ id, area, answers, years, summary });
+    out.push({ id: (survey.id && cell(survey.id, summary[survey.id.key])) || id, area, answers, years, summary });
   }
   return out;
 }
@@ -213,12 +216,13 @@ function transitions(survey: IpccSurvey, plots: readonly IpccPlot[], year: numbe
   const groups = new Map<string, Transition>();
   for (const p of plots) {
     const [from, to] = [p.years[i], p.years[i + 1]];
-    const key = [from.category, to.category, from.subdivision, to.subdivision].join('\u0000');
+    // in the order of the database's GROUP BY (SQLite's): its codes, "-1" for none
+    const key = [from.category, to.category, from.subdivision, to.subdivision].map((c) => c || '-1').join('\u0000');
     let group = groups.get(key);
     if (!group) groups.set(key, (group = { from: find(from), to: find(to), area: 0 }));
     group.area += p.area ?? 0;
   }
-  return [...groups.values()];
+  return [...groups].sort(([a], [b]) => compare(a, b)).map(([, group]) => group);
 }
 
 /**
@@ -244,6 +248,9 @@ export function matrixSheets(survey: IpccSurvey, plots: readonly IpccPlot[]): Xl
   return transitionYears.map((year) => ({ title: sheetTitle(year), rows: matrixRows(year, transitions(survey, plots, year)) }));
 }
 
+/** The label of a stratum's code. */
+const labelOf = (survey: IpccSurvey, s: Stratum, code: string) => survey.labels[s].get(code) ?? NO_LABEL;
+
 /** A stratum: the plots of one ecological zone, climate and soil. */
 interface PlotStratum {
   climate: string;
@@ -257,7 +264,7 @@ interface PlotStratum {
  * getStrataClimate, getStrataSoil): only the climates and soils the IPCC software knows (ClimateTypeEnum, SoilTypeEnum).
  */
 function strataOf(survey: IpccSurvey, plots: readonly IpccPlot[]): PlotStratum[] {
-  const label = (s: Stratum, code: string) => survey.labels[s].get(code) ?? NO_LABEL;
+  const label = (s: Stratum, code: string) => labelOf(survey, s, code);
   const rank = (s: Stratum, code: string) => {
     const i = [...survey.labels[s].keys()].indexOf(code);
     return i < 0 ? Number.MAX_SAFE_INTEGER : i;
@@ -299,4 +306,31 @@ export function strataMatrixSheets(survey: IpccSurvey, plots: readonly IpccPlot[
       [],
     ]),
   }));
+}
+
+/** What Java's Double.toString writes: "0.0", "12.5", "1.2E7". */
+function javaDouble(n: number): string {
+  const abs = Math.abs(n);
+  if (n === 0 || (abs >= 1e-3 && abs < 1e7)) return Number.isInteger(n) ? n.toFixed(1) : String(n);
+  const [mantissa, exponent] = n.toExponential().split('e');
+  return `${mantissa.includes('.') ? mantissa : `${mantissa}.0`}E${Number(exponent)}`;
+}
+/** An area as the database answers it (a sum of the plots', SQLite's text of a REAL): null without. */
+const areaText = (area: number | null) => (area === null ? null : javaDouble(area));
+/** A CSV as opencsv's CSVWriter writes it (AbstractIPCCDataExportCSV): every value quoted, null empty, "\n" after each line. */
+const csvOf = (rows: readonly (readonly (string | null)[])[]) => rows.map((r) => `${r.map((v) => (v === null ? '' : `"${v.replace(/"/g, '""')}"`)).join(',')}\n`).join('');
+const YEAR_COLUMNS = YEARS.flatMap((y) => [`ipcc_${y}_category`, `ipcc_${y}_subdivision`]);
+const STRATA_COLUMNS = ['climate_zones_label', 'soil_types_label', 'ecological_zones_label'];
+/** The labels of a plot's climate, soil and ecological zone, then its category and subdivision codes of each year ("-1" for none, as the database's). */
+const plotCells = (survey: IpccSurvey, p: IpccPlot) => [
+  labelOf(survey, 'climate', p.answers.climate),
+  labelOf(survey, 'soil', p.answers.soil),
+  labelOf(survey, 'gez', p.answers.gez),
+  ...p.years.flatMap((y) => [y.category || '-1', y.subdivision || '-1']),
+];
+
+/** LU_Timeseries_per_plot.csv (IPCCDataExportPerPlotCSV): each plot's strata and land uses year by year, and its area. */
+export function perPlotCsv(survey: IpccSurvey, plots: readonly IpccPlot[]): string {
+  const rows = [...plots].sort((a, b) => compare(b.id, a.id)).map((p) => [p.id, ...plotCells(survey, p), areaText(p.area)]);
+  return csvOf([['id', ...STRATA_COLUMNS, ...YEAR_COLUMNS, 'area'], ...rows]);
 }

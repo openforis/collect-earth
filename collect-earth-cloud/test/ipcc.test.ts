@@ -4,7 +4,7 @@ import { strFromU8, unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { analysisModel } from '../src/analysis.js';
 import { readCep, readZip, zipCep } from '../src/cep.js';
-import { IPCC_END_YEAR, IPCC_START_YEAR, ipccPlots, ipccSurvey, matrixSheets, strataMatrixSheets, type IpccPlot } from '../src/ipcc.js';
+import { IPCC_END_YEAR, IPCC_START_YEAR, ipccPlots, ipccSurvey, matrixSheets, perPlotCsv, strataMatrixSheets, type IpccPlot } from '../src/ipcc.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 import { demoCep, FIXTURE_DATE } from './fixtures/cep.js';
 
@@ -19,7 +19,7 @@ const YEARS = Array.from({ length: IPCC_END_YEAR - IPCC_START_YEAR + 1 }, (_, i)
 
 /** The plots of some summaries, the land uses worked out by the rules (not read from the survey's own questions). */
 const plotsOf = (summaries: Summaries, areas: Record<string, number> = {}) =>
-  ipccPlots({ ...survey, own: new Map() }, Object.entries(summaries).map(([id, summary]) => ({ id, summary, area: areas[id] ?? null })));
+  ipccPlots({ ...survey, own: new Map(), id: undefined }, Object.entries(summaries).map(([id, summary]) => ({ id, summary, area: areas[id] ?? null })));
 const byId = (plots: IpccPlot[], id: string) => plots.find((p) => p.id === id)!;
 
 describe("a plot's land use in each year", () => {
@@ -109,6 +109,26 @@ describe('the land use change matrices (IPCCDataExportMatrixExcel)', () => {
   });
 });
 
+describe("the desktop's exporters on the same plots", () => {
+  // plots.json: plots of the scenarios above in several strata, with their areas, as src/ipcc.ts reads them; desktop/:
+  // what the desktop's own exporters make of them (ipcc/IpccDesktopDump.java)
+  const input = JSON.parse(fixture('ipcc/plots.json').toString('utf8')) as { plots: (Omit<IpccPlot, 'summary'> & { province: string })[] };
+  const plots: IpccPlot[] = input.plots.map(({ province, ...p }) => ({ ...p, summary: { collect_text_province: province } }));
+  const desktop = (name: string) => fixture(`ipcc/desktop/${name}`).toString('utf8');
+  /** The desktop's header has a space before most names (how its SQL was split): left out by the cloud. */
+  const trimmedHeader = (csv: string) => csv.replace(/^.*\n/, (line) => line.replace(/" /g, '"'));
+
+  it('give the same matrices', () => {
+    expect(matrixSheets(survey, plots)).toEqual(JSON.parse(desktop('LU_Matrixes.json')));
+    expect(strataMatrixSheets(survey, plots)).toEqual(JSON.parse(desktop('LU_Matrixes_stratified.json')));
+  });
+
+  it('give the same land uses of each plot', () => {
+    expect(perPlotCsv(survey, plots)).toBe(trimmedHeader(desktop('LU_Timeseries_per_plot.csv')));
+  });
+
+});
+
 describe('the IPCC export routes', () => {
   let ctx: TestContext;
   let pid: string;
@@ -152,7 +172,11 @@ describe('the IPCC export routes', () => {
     // 2004 to 2005: 9004 went from broadleaf evergreen forest to grassland, 500 ha
     expect(strFromU8(files['xl/worksheets/sheet5.xml'])).toMatch(/Broadleaf evergreen<\/t><\/is><\/c><c r="B3"><v>0<\/v><\/c><c r="C3"><v>0<\/v><\/c><c r="D3"><v>500<\/v>/);
     expect((await get('/matrix-strata')).statusCode).toBe(200);
+    const csv = await get('/plots');
+    expect(csv.headers['content-type']).toBe('text/csv; charset=utf-8');
+    expect(csv.body.split('\n').slice(1, 3).map((l) => l.slice(0, 25))).toEqual(['"9004","CTD","HAC","TAwb"', '"9001","CTD","HAC","TAwb"']);
     const log = await ctx.store.listAudit(pid, { limit: 10, action: 'export.downloaded' });
-    expect(log.map((e) => e.details)).toEqual(expect.arrayContaining([{ kind: 'ipcc', file: 'matrix', plots: 2 }, { kind: 'ipcc', file: 'matrix-strata', plots: 2 }]));
+    expect(log.map((e) => e.details.file)).toEqual(['plots', 'matrix-strata', 'matrix']);
+    expect(log[0].details).toEqual({ kind: 'ipcc', file: 'plots', plots: 2 });
   });
 });

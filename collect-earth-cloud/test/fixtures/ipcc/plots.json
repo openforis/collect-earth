@@ -1,0 +1,1824 @@
+{
+ "subdivisions": [
+  {
+   "category": "F",
+   "code": "broadleaf_dec",
+   "name": "Broadleaf deciduous",
+   "id": 1,
+   "management": "MANAGED"
+  },
+  {
+   "category": "F",
+   "code": "broadleaf_ever",
+   "name": "Broadleaf evergreen",
+   "id": 2,
+   "management": "MANAGED"
+  },
+  {
+   "category": "F",
+   "code": "broadleaf_mix",
+   "name": "Broadleaf mixed",
+   "id": 3,
+   "management": "MANAGED"
+  },
+  {
+   "category": "F",
+   "code": "coniferous_dec",
+   "name": "Coniferous deciduous",
+   "id": 4,
+   "management": "MANAGED"
+  },
+  {
+   "category": "F",
+   "code": "coniferous_ever",
+   "name": "Coniferous evergreen",
+   "id": 5,
+   "management": "MANAGED"
+  },
+  {
+   "category": "F",
+   "code": "coniferous_mix",
+   "name": "Coniferous mixed",
+   "id": 6,
+   "management": "MANAGED"
+  },
+  {
+   "category": "F",
+   "code": "mixed_forest",
+   "name": "Mixed forest (brod-con)",
+   "id": 7,
+   "management": "MANAGED"
+  },
+  {
+   "category": "F",
+   "code": "riparian",
+   "name": "Riparian forest",
+   "id": 8,
+   "management": "MANAGED"
+  },
+  {
+   "category": "F",
+   "code": "mangrove",
+   "name": "Mangrove forest",
+   "id": 9,
+   "management": "MANAGED"
+  },
+  {
+   "category": "F",
+   "code": "coniferous_plant",
+   "name": "Coniferous plantation",
+   "id": 10,
+   "management": "MANAGED"
+  },
+  {
+   "category": "F",
+   "code": "acacia_plant",
+   "name": "Acacia plantation",
+   "id": 11,
+   "management": "MANAGED"
+  },
+  {
+   "category": "F",
+   "code": "eucalyptus_plant",
+   "name": "Eucalyptus plantation",
+   "id": 12,
+   "management": "MANAGED"
+  },
+  {
+   "category": "F",
+   "code": "other_plant",
+   "name": "Other plantation",
+   "id": 13,
+   "management": "MANAGED"
+  },
+  {
+   "category": "C",
+   "code": "annual_crops",
+   "name": "Annual crops",
+   "id": 1,
+   "management": "ANNUAL"
+  },
+  {
+   "category": "C",
+   "code": "perennial_crops",
+   "name": "Perennial crops",
+   "id": 2,
+   "management": "ANNUAL"
+  },
+  {
+   "category": "C",
+   "code": "shifting_agriculture",
+   "name": "Shifting Agriculture",
+   "id": 3,
+   "management": "ANNUAL"
+  },
+  {
+   "category": "C",
+   "code": "garden",
+   "name": "Garden",
+   "id": 4,
+   "management": "ANNUAL"
+  },
+  {
+   "category": "C",
+   "code": "rice",
+   "name": "Rice paddy",
+   "id": 5,
+   "management": "ANNUAL"
+  },
+  {
+   "category": "C",
+   "code": "palm",
+   "name": "Palm Oil",
+   "id": 6,
+   "management": "ANNUAL"
+  },
+  {
+   "category": "C",
+   "code": "greenhouse",
+   "name": "Greenhouse",
+   "id": 7,
+   "management": "ANNUAL"
+  },
+  {
+   "category": "G",
+   "code": "grassland",
+   "name": "Grassland",
+   "id": 1,
+   "management": "MANAGED"
+  },
+  {
+   "category": "G",
+   "code": "grassland_trees",
+   "name": "Grassland with trees",
+   "id": 2,
+   "management": "MANAGED"
+  },
+  {
+   "category": "G",
+   "code": "grassland_shrubs",
+   "name": "Grassland with shrubs",
+   "id": 3,
+   "management": "MANAGED"
+  },
+  {
+   "category": "G",
+   "code": "grassland_trees_shrubs",
+   "name": "Grassland with trees and shrubs",
+   "id": 4,
+   "management": "MANAGED"
+  },
+  {
+   "category": "G",
+   "code": "shrubland",
+   "name": "Shrubland",
+   "id": 5,
+   "management": "MANAGED"
+  },
+  {
+   "category": "G",
+   "code": "shrubland_trees",
+   "name": "Shrubland with trees",
+   "id": 6,
+   "management": "MANAGED"
+  },
+  {
+   "category": "G",
+   "code": "lichens_mosses",
+   "name": "Lichens and mosses",
+   "id": 7,
+   "management": "MANAGED"
+  },
+  {
+   "category": "W",
+   "code": "permanent_lake",
+   "name": "Permanent lake",
+   "id": 1,
+   "management": "UNMANAGED"
+  },
+  {
+   "category": "W",
+   "code": "seasonal_lake",
+   "name": "Seasonal lake",
+   "id": 2,
+   "management": "UNMANAGED"
+  },
+  {
+   "category": "W",
+   "code": "permanent_river",
+   "name": "Permanent River",
+   "id": 3,
+   "management": "UNMANAGED"
+  },
+  {
+   "category": "W",
+   "code": "seasonal_river",
+   "name": "Seasonal river",
+   "id": 4,
+   "management": "UNMANAGED"
+  },
+  {
+   "category": "W",
+   "code": "swamp",
+   "name": "Swamp",
+   "id": 5,
+   "management": "UNMANAGED"
+  },
+  {
+   "category": "W",
+   "code": "lagoon",
+   "name": "Lagoon",
+   "id": 6,
+   "management": "UNMANAGED"
+  },
+  {
+   "category": "W",
+   "code": "peatland",
+   "name": "Peatland",
+   "id": 7,
+   "management": "UNMANAGED"
+  },
+  {
+   "category": "W",
+   "code": "salt_extraction",
+   "name": "Salt extraction",
+   "id": 8,
+   "management": "UNMANAGED"
+  },
+  {
+   "category": "W",
+   "code": "other_wetlands",
+   "name": "Other",
+   "id": 9,
+   "management": "UNMANAGED"
+  },
+  {
+   "category": "W",
+   "code": "art_water_body",
+   "name": "Artificial Water Bodies",
+   "id": 10,
+   "management": "UNMANAGED"
+  },
+  {
+   "category": "S",
+   "code": "city",
+   "name": "City",
+   "id": 1,
+   "management": "OTHER"
+  },
+  {
+   "category": "S",
+   "code": "village",
+   "name": "Village",
+   "id": 2,
+   "management": "OTHER"
+  },
+  {
+   "category": "S",
+   "code": "mining",
+   "name": "Mining",
+   "id": 3,
+   "management": "OTHER"
+  },
+  {
+   "category": "S",
+   "code": "infrastructure",
+   "name": "Infrastructure",
+   "id": 4,
+   "management": "OTHER"
+  },
+  {
+   "category": "S",
+   "code": "built_up",
+   "name": "Built up",
+   "id": 5,
+   "management": "OTHER"
+  },
+  {
+   "category": "S",
+   "code": "urban_park",
+   "name": "Urban park",
+   "id": 6,
+   "management": "OTHER"
+  },
+  {
+   "category": "O",
+   "code": "rock_stone",
+   "name": "Rocks / Stone",
+   "id": 1,
+   "management": "UNMANAGED"
+  },
+  {
+   "category": "O",
+   "code": "sand_dunes",
+   "name": "Sand / Dunes",
+   "id": 2,
+   "management": "UNMANAGED"
+  },
+  {
+   "category": "O",
+   "code": "snow",
+   "name": "Permanent Snow / Glaciers / Ice",
+   "id": 3,
+   "management": "UNMANAGED"
+  },
+  {
+   "category": "O",
+   "code": "barren_soil",
+   "name": "Barren soil",
+   "id": 4,
+   "management": "UNMANAGED"
+  },
+  {
+   "category": "O",
+   "code": "other_otherland",
+   "name": "Other",
+   "id": 5,
+   "management": "UNMANAGED"
+  }
+ ],
+ "labels": {
+  "climate": [
+   [
+    "1",
+    "WTM"
+   ],
+   [
+    "2",
+    "WTD"
+   ],
+   [
+    "3",
+    "CTM"
+   ],
+   [
+    "4",
+    "CTD"
+   ],
+   [
+    "5",
+    "POM"
+   ],
+   [
+    "6",
+    "POD"
+   ],
+   [
+    "7",
+    "BOM"
+   ],
+   [
+    "8",
+    "BOD"
+   ],
+   [
+    "9",
+    "TRMT"
+   ],
+   [
+    "10",
+    "TRW"
+   ],
+   [
+    "11",
+    "TMM"
+   ],
+   [
+    "12",
+    "TRD"
+   ],
+   [
+    "0",
+    "NO INFO"
+   ]
+  ],
+  "soil": [
+   [
+    "1",
+    "ORG"
+   ],
+   [
+    "2",
+    "SAN"
+   ],
+   [
+    "3",
+    "WET"
+   ],
+   [
+    "4",
+    "VOL"
+   ],
+   [
+    "5",
+    "SPO"
+   ],
+   [
+    "6",
+    "HAC"
+   ],
+   [
+    "7",
+    "LAC"
+   ],
+   [
+    "8",
+    "OtherAreas"
+   ],
+   [
+    "0",
+    "No Data"
+   ]
+  ],
+  "gez": [
+   [
+    "41",
+    "Ba"
+   ],
+   [
+    "43",
+    "BM"
+   ],
+   [
+    "42",
+    "Bb"
+   ],
+   [
+    "50",
+    "P"
+   ],
+   [
+    "24",
+    "SBWh"
+   ],
+   [
+    "22",
+    "SCs"
+   ],
+   [
+    "21",
+    "SCf"
+   ],
+   [
+    "25",
+    "SM"
+   ],
+   [
+    "23",
+    "SBSh"
+   ],
+   [
+    "32",
+    "TeDc"
+   ],
+   [
+    "34",
+    "TeBWk"
+   ],
+   [
+    "35",
+    "TeM"
+   ],
+   [
+    "31",
+    "TeDo"
+   ],
+   [
+    "33",
+    "TeBSk"
+   ],
+   [
+    "15",
+    "TBWh"
+   ],
+   [
+    "13",
+    "TAwb"
+   ],
+   [
+    "12",
+    "TAwa"
+   ],
+   [
+    "16",
+    "TM"
+   ],
+   [
+    "11",
+    "TAr"
+   ],
+   [
+    "14",
+    "TBSh"
+   ],
+   [
+    "90",
+    "Water"
+   ],
+   [
+    "0",
+    "No data"
+   ]
+  ]
+ },
+ "plots": [
+  {
+   "id": "101",
+   "area": 120,
+   "answers": {
+    "subcategory": "FF",
+    "subdivision": "broadleaf_ever",
+    "initialSubdivision": "",
+    "changeYear": "",
+    "subdivisionChanged": "false",
+    "subdivisionYear": "",
+    "secondChange": "",
+    "secondConversion": "",
+    "secondYear": "",
+    "secondSubdivision": "",
+    "climate": "4",
+    "soil": "6",
+    "gez": "13"
+   },
+   "years": [
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    }
+   ],
+   "province": "Madrid"
+  },
+  {
+   "id": "9001",
+   "area": 250.5,
+   "answers": {
+    "subcategory": "FC",
+    "subdivision": "annual_crops",
+    "initialSubdivision": "broadleaf_dec",
+    "changeYear": "2010",
+    "subdivisionChanged": "",
+    "subdivisionYear": "",
+    "secondChange": "",
+    "secondConversion": "",
+    "secondYear": "",
+    "secondSubdivision": "",
+    "climate": "4",
+    "soil": "6",
+    "gez": "13"
+   },
+   "years": [
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    }
+   ],
+   "province": "Madrid"
+  },
+  {
+   "id": "9002",
+   "area": 80,
+   "answers": {
+    "subcategory": "FC",
+    "subdivision": "rice",
+    "initialSubdivision": "mangrove",
+    "changeYear": "2002",
+    "subdivisionChanged": "",
+    "subdivisionYear": "",
+    "secondChange": "",
+    "secondConversion": "",
+    "secondYear": "",
+    "secondSubdivision": "",
+    "climate": "3",
+    "soil": "6",
+    "gez": "13"
+   },
+   "years": [
+    {
+     "category": "F",
+     "subdivision": "mangrove"
+    },
+    {
+     "category": "F",
+     "subdivision": "mangrove"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    }
+   ],
+   "province": "Toledo"
+  },
+  {
+   "id": "9003",
+   "area": 40,
+   "answers": {
+    "subcategory": "GG",
+    "subdivision": "shrubland",
+    "initialSubdivision": "grassland",
+    "changeYear": "",
+    "subdivisionChanged": "true",
+    "subdivisionYear": "2015",
+    "secondChange": "",
+    "secondConversion": "",
+    "secondYear": "",
+    "secondSubdivision": "",
+    "climate": "4",
+    "soil": "1",
+    "gez": "13"
+   },
+   "years": [
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "shrubland"
+    },
+    {
+     "category": "G",
+     "subdivision": "shrubland"
+    },
+    {
+     "category": "G",
+     "subdivision": "shrubland"
+    },
+    {
+     "category": "G",
+     "subdivision": "shrubland"
+    },
+    {
+     "category": "G",
+     "subdivision": "shrubland"
+    },
+    {
+     "category": "G",
+     "subdivision": "shrubland"
+    },
+    {
+     "category": "G",
+     "subdivision": "shrubland"
+    },
+    {
+     "category": "G",
+     "subdivision": "shrubland"
+    },
+    {
+     "category": "G",
+     "subdivision": "shrubland"
+    }
+   ],
+   "province": "Madrid"
+  },
+  {
+   "id": "9004",
+   "area": 300,
+   "answers": {
+    "subcategory": "GS",
+    "subdivision": "city",
+    "initialSubdivision": "grassland",
+    "changeYear": "2018",
+    "subdivisionChanged": "",
+    "subdivisionYear": "",
+    "secondChange": "true",
+    "secondConversion": "F",
+    "secondYear": "2005",
+    "secondSubdivision": "broadleaf_ever",
+    "climate": "4",
+    "soil": "6",
+    "gez": "21"
+   },
+   "years": [
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_ever"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland"
+    },
+    {
+     "category": "S",
+     "subdivision": "city"
+    },
+    {
+     "category": "S",
+     "subdivision": "city"
+    },
+    {
+     "category": "S",
+     "subdivision": "city"
+    },
+    {
+     "category": "S",
+     "subdivision": "city"
+    },
+    {
+     "category": "S",
+     "subdivision": "city"
+    },
+    {
+     "category": "S",
+     "subdivision": "city"
+    }
+   ],
+   "province": ""
+  },
+  {
+   "id": "9005",
+   "area": 55,
+   "answers": {
+    "subcategory": "CC",
+    "subdivision": "rice",
+    "initialSubdivision": "annual_crops",
+    "changeYear": "",
+    "subdivisionChanged": "true",
+    "subdivisionYear": "2016",
+    "secondChange": "true",
+    "secondConversion": "F",
+    "secondYear": "2008",
+    "secondSubdivision": "coniferous_ever",
+    "climate": "",
+    "soil": "6",
+    "gez": "13"
+   },
+   "years": [
+    {
+     "category": "F",
+     "subdivision": "coniferous_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "coniferous_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "coniferous_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "coniferous_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "coniferous_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "coniferous_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "coniferous_ever"
+    },
+    {
+     "category": "F",
+     "subdivision": "coniferous_ever"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    },
+    {
+     "category": "C",
+     "subdivision": "rice"
+    }
+   ],
+   "province": "Madrid"
+  },
+  {
+   "id": "9006",
+   "area": 70,
+   "answers": {
+    "subcategory": "FC",
+    "subdivision": "palm",
+    "initialSubdivision": "broadleaf_mix",
+    "changeYear": "2012",
+    "subdivisionChanged": "true",
+    "subdivisionYear": "2018",
+    "secondChange": "",
+    "secondConversion": "",
+    "secondYear": "",
+    "secondSubdivision": "",
+    "climate": "4",
+    "soil": "0",
+    "gez": "13"
+   },
+   "years": [
+    {
+     "category": "F",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "C",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "C",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "C",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "C",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "C",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "C",
+     "subdivision": "broadleaf_mix"
+    },
+    {
+     "category": "C",
+     "subdivision": "palm"
+    },
+    {
+     "category": "C",
+     "subdivision": "palm"
+    },
+    {
+     "category": "C",
+     "subdivision": "palm"
+    },
+    {
+     "category": "C",
+     "subdivision": "palm"
+    },
+    {
+     "category": "C",
+     "subdivision": "palm"
+    },
+    {
+     "category": "C",
+     "subdivision": "palm"
+    }
+   ],
+   "province": "O'Brien"
+  },
+  {
+   "id": "9007",
+   "area": null,
+   "answers": {
+    "subcategory": "GS",
+    "subdivision": "village",
+    "initialSubdivision": "grassland_trees",
+    "changeYear": "2020",
+    "subdivisionChanged": "",
+    "subdivisionYear": "",
+    "secondChange": "true",
+    "secondConversion": "F",
+    "secondYear": "2001",
+    "secondSubdivision": "riparian",
+    "climate": "4",
+    "soil": "6",
+    "gez": "13"
+   },
+   "years": [
+    {
+     "category": "F",
+     "subdivision": "riparian"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "G",
+     "subdivision": "grassland_trees"
+    },
+    {
+     "category": "S",
+     "subdivision": "village"
+    },
+    {
+     "category": "S",
+     "subdivision": "village"
+    },
+    {
+     "category": "S",
+     "subdivision": "village"
+    },
+    {
+     "category": "S",
+     "subdivision": "village"
+    }
+   ],
+   "province": "Madrid"
+  },
+  {
+   "id": "9008",
+   "area": 10,
+   "answers": {
+    "subcategory": "OW",
+    "subdivision": "swamp",
+    "initialSubdivision": "barren_soil",
+    "changeYear": "2004",
+    "subdivisionChanged": "false",
+    "subdivisionYear": "",
+    "secondChange": "false",
+    "secondConversion": "",
+    "secondYear": "",
+    "secondSubdivision": "",
+    "climate": "4",
+    "soil": "6",
+    "gez": "13"
+   },
+   "years": [
+    {
+     "category": "O",
+     "subdivision": "barren_soil"
+    },
+    {
+     "category": "O",
+     "subdivision": "barren_soil"
+    },
+    {
+     "category": "O",
+     "subdivision": "barren_soil"
+    },
+    {
+     "category": "O",
+     "subdivision": "barren_soil"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    },
+    {
+     "category": "W",
+     "subdivision": "swamp"
+    }
+   ],
+   "province": "Toledo"
+  },
+  {
+   "id": "9009",
+   "area": 25,
+   "answers": {
+    "subcategory": "SS",
+    "subdivision": "built_up",
+    "initialSubdivision": "city",
+    "changeYear": "",
+    "subdivisionChanged": "true",
+    "subdivisionYear": "2003",
+    "secondChange": "true",
+    "secondConversion": "C",
+    "secondYear": "2001",
+    "secondSubdivision": "garden",
+    "climate": "4",
+    "soil": "6",
+    "gez": "13"
+   },
+   "years": [
+    {
+     "category": "C",
+     "subdivision": "garden"
+    },
+    {
+     "category": "S",
+     "subdivision": "city"
+    },
+    {
+     "category": "S",
+     "subdivision": "city"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    },
+    {
+     "category": "S",
+     "subdivision": "built_up"
+    }
+   ],
+   "province": "Madrid"
+  },
+  {
+   "id": "9010",
+   "area": 12.25,
+   "answers": {
+    "subcategory": "FC",
+    "subdivision": "annual_crops",
+    "initialSubdivision": "broadleaf_dec",
+    "changeYear": "2010",
+    "subdivisionChanged": "",
+    "subdivisionYear": "",
+    "secondChange": "",
+    "secondConversion": "",
+    "secondYear": "",
+    "secondSubdivision": "",
+    "climate": "3",
+    "soil": "6",
+    "gez": "13"
+   },
+   "years": [
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "F",
+     "subdivision": "broadleaf_dec"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    },
+    {
+     "category": "C",
+     "subdivision": "annual_crops"
+    }
+   ],
+   "province": "Madrid"
+  }
+ ]
+}
