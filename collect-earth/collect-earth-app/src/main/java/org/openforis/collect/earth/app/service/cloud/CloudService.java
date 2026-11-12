@@ -532,17 +532,30 @@ public class CloudService {
 	public File downloadAssignment(String id) throws InvalidCloudRequestException {
 		for (AssignmentInfo info : fetchAssignments()) {
 			if (info.getCsvFileId() != null && info.getCsvFileId().equals(id)) {
-				try {
-					File file = api.downloadAssignedCsv(info, assignmentsFolder());
-					startAfresh(info, file);
-					return file;
-				} catch (IOException | RuntimeException e) {
-					logger.warn("Could not download the assigned CSV {}: {}", info.getFilename(), e.getMessage());
-					throw new InvalidCloudRequestException("cloud.download", Messages.getString("SampleDataPanel.downloadError"));
-				}
+				return downloadAssignment(info);
 			}
 		}
 		throw new InvalidCloudRequestException("cloud.noAssignment", Messages.getString("SampleDataPanel.downloadError"));
+	}
+
+	/**
+	 * {@link #downloadAssignment(String)} of an assignment already listed: a learning set's file in a new attempt starts
+	 * it afresh (see {@link #startAfresh}).
+	 */
+	File downloadAssignment(AssignmentInfo info) throws InvalidCloudRequestException {
+		try {
+			File file = api.downloadAssignedCsv(info, assignmentsFolder());
+			startAfresh(info, file);
+			return file;
+		} catch (IOException | RuntimeException e) {
+			logger.warn("Could not download the assigned CSV {}: {}", info.getFilename(), e.getMessage());
+			throw new InvalidCloudRequestException("cloud.download", Messages.getString("SampleDataPanel.downloadError"));
+		}
+	}
+
+	/** The plot files the cloud server assigns to the operator in the open cloud project, as it lists them. */
+	List<AssignmentInfo> assignedPlotFiles() throws InvalidCloudRequestException {
+		return fetchAssignments();
 	}
 
 	/**

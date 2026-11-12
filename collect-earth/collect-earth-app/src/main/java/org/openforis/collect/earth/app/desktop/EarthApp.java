@@ -45,6 +45,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.SecretProtector;
 import org.openforis.collect.earth.app.service.ShellFolderFallback;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
+import org.openforis.collect.earth.app.service.cloud.AssignedPlotFileSetup;
 import org.openforis.collect.earth.app.service.notices.Notice;
 import org.openforis.collect.earth.app.service.notices.NoticeService;
 import org.openforis.collect.earth.app.service.WindowLayoutService;
@@ -752,12 +753,35 @@ public class EarthApp {
 					earthApp.simulateClickKmz(true);
 					// The announcements and the update offer are StartupNotices' now, a bean of the context
 					closeSplash();
+					// In a cloud project, the plot file assigned to the collector once the start's plots are loaded
+					setUpAssignedPlotFile();
 				} catch (final Exception e) {
 					StartupProgressWindow.close();
 					logger.error("Error generating KML file", e); //$NON-NLS-1$
 				}
 			}
 		};
+	}
+
+	/**
+	 * The first start in a cloud project after a join, or after it was opened again, has the project file's plots file:
+	 * the plot file assigned to the collector replaces it, or a notice says what to do (AssignedPlotFileSetup). On a
+	 * thread of its own, so the window does not wait for the server.
+	 */
+	private static void setUpAssignedPlotFile() {
+		final ServerController controller = serverController;
+		if (controller == null || controller.getContext() == null) {
+			return;
+		}
+		Thread thread = new Thread(() -> {
+			try {
+				controller.getContext().getBean(AssignedPlotFileSetup.class).run();
+			} catch (RuntimeException e) {
+				logger.error("Error setting up the assigned plot file", e); //$NON-NLS-1$
+			}
+		}, "Assigned plot file"); //$NON-NLS-1$
+		thread.setDaemon(true);
+		thread.start();
 	}
 
 	/**

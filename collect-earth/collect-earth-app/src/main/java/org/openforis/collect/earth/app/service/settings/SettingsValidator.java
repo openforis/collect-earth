@@ -160,7 +160,7 @@ public class SettingsValidator {
 	}
 
 	/** A file under the folder, as Collect Earth will read the path (LocalPropertiesService.getCsvFile turns its slashes) */
-	static boolean isInside(String path, File folder) {
+	public static boolean isInside(String path, File folder) {
 		if (path.isEmpty()) {
 			return false;
 		}
