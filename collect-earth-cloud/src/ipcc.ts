@@ -5,6 +5,7 @@
 //   writes into the survey as calculated questions (or read from the survey's own, when it has them);
 // - the files made of them, each as its desktop class makes it (named on each function).
 // The areas are the plots' expansion factors, the Analysis page's (routes/analysis.ts, projectFactors).
+import { randomUUID } from 'node:crypto';
 import { cell, type AnalysisColumn, type AnalysisModel } from './analysis.js';
 import type { XlsxCell, XlsxSheet } from './xlsx.js';
 
@@ -353,4 +354,41 @@ export function landUnitsCsv(survey: IpccSurvey, plots: readonly IpccPlot[]): st
     .sort((a, b) => (b.area ?? -1) - (a.area ?? -1))
     .map((u, i) => [`LU_${String(i + 1).padStart(4, '0')}`, ...u.cells, areaText(u.area)]);
   return csvOf([['land_unit_id', ...STRATA_COLUMNS, ...YEAR_COLUMNS, 'area'], ...rows]);
+}
+
+const xmlText = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+const MODEL_CLASSES: Record<IpccCategory, string> = { F: 'Forest', C: 'Cropland', G: 'Grassland', W: 'Wetland', S: 'Settlement', O: 'Otherland' };
+/** A subdivision's fields as XStream writes them (the parent class's first), with IPCCLandUses' forest, crop and vegetation types. */
+function subdivisionXml(tag: string, s: Subdivision, guid: string, indent: string): string {
+  const fields: [string, string][] = [['category', s.category], ['code', s.code], ['guid', guid], ['id', String(s.id)]];
+  if (s.name) fields.push(['name', s.name]);
+  if (s.category === 'C') fields.push(['croplandType', s.management], ['perennialCropType', 'ALL']);
+  else fields.push(['type', s.management]);
+  if (s.category === 'F') fields.push(['forestType', 'OTHER_CONIF']);
+  if (s.category === 'G') fields.push(['vegetationType', 'SV']);
+  const body = fields.map(([k, v]) => `${indent}  <${k}>${xmlText(v)}</${k}>\n`).join('');
+  return `${indent}<${tag} class="org.openforis.collect.earth.ipcc.model.${MODEL_CLASSES[s.category]}Subdivision">\n${body}${indent}</${tag}>\n`;
+}
+
+/**
+ * LU_Timeseries.xml (IPCCDataExportTimeSeriesXML): for each year and the next, and each ecological zone, climate and
+ * soil, the land uses the plots went from and to with their area, as XStream writes the list of StratumPerYearData.
+ */
+export function timeSeriesXml(survey: IpccSurvey, plots: readonly IpccPlot[]): string {
+  const guids = new Map(survey.subdivisions.map((s) => [s, randomUUID()]));
+  const strata = strataOf(survey, plots);
+  let xml = '';
+  for (const year of transitionYears) {
+    for (const s of strata) {
+      xml += `  <Stratum>\n    <year>${year}</year>\n    <luData>\n`;
+      for (const t of transitions(survey, s.plots, year)) {
+        xml += '      <LandUse>\n';
+        if (t.from) xml += subdivisionXml('lu', t.from, guids.get(t.from)!, '        ');
+        if (t.to) xml += subdivisionXml('luNextYear', t.to, guids.get(t.to)!, '        ');
+        xml += `        <areaHa>${javaDouble(t.area)}</areaHa>\n      </LandUse>\n`;
+      }
+      xml += `    </luData>\n    <climate>${xmlText(s.climate)}</climate>\n    <soil>${xmlText(s.soil)}</soil>\n    <gez>${xmlText(s.gez)}</gez>\n  </Stratum>\n`;
+    }
+  }
+  return `<?xml version="1.0" encoding="UTF-8"?>\n${xml ? `<list>\n${xml}</list>` : '<list/>'}`;
 }

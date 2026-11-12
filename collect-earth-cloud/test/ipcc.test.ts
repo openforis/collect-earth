@@ -4,7 +4,7 @@ import { strFromU8, unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { analysisModel } from '../src/analysis.js';
 import { readCep, readZip, zipCep } from '../src/cep.js';
-import { IPCC_END_YEAR, IPCC_START_YEAR, ipccPlots, ipccSurvey, landUnitsCsv, matrixSheets, perPlotCsv, strataMatrixSheets, type IpccPlot } from '../src/ipcc.js';
+import { IPCC_END_YEAR, IPCC_START_YEAR, ipccPlots, ipccSurvey, landUnitsCsv, matrixSheets, perPlotCsv, strataMatrixSheets, timeSeriesXml, type IpccPlot } from '../src/ipcc.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 import { demoCep, FIXTURE_DATE } from './fixtures/cep.js';
 
@@ -115,6 +115,14 @@ describe("the desktop's exporters on the same plots", () => {
   const input = JSON.parse(fixture('ipcc/plots.json').toString('utf8')) as { plots: (Omit<IpccPlot, 'summary'> & { province: string })[] };
   const plots: IpccPlot[] = input.plots.map(({ province, ...p }) => ({ ...p, summary: { collect_text_province: province } }));
   const desktop = (name: string) => fixture(`ipcc/desktop/${name}`).toString('utf8');
+  /** The GUIDs (random at each export) numbered in the order they first appear. */
+  const numbered = (xml: string) => {
+    const seen = new Map<string, number>();
+    return xml.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, (g) => {
+      if (!seen.has(g)) seen.set(g, seen.size);
+      return `guid-${seen.get(g)}`;
+    });
+  };
   /** The desktop's header has a space before most names (how its SQL was split): left out by the cloud. */
   const trimmedHeader = (csv: string) => csv.replace(/^.*\n/, (line) => line.replace(/" /g, '"'));
 
@@ -128,6 +136,9 @@ describe("the desktop's exporters on the same plots", () => {
     expect(landUnitsCsv(survey, plots)).toBe(trimmedHeader(desktop('LU_Timeseries_grouped.csv')));
   });
 
+  it('give the same time series', () => {
+    expect(numbered(timeSeriesXml(survey, plots))).toBe(numbered(desktop('LU_Timeseries.xml')));
+  });
 });
 
 describe('the IPCC export routes', () => {
@@ -177,8 +188,9 @@ describe('the IPCC export routes', () => {
     expect(csv.headers['content-type']).toBe('text/csv; charset=utf-8');
     expect(csv.body.split('\n').slice(1, 3).map((l) => l.slice(0, 25))).toEqual(['"9004","CTD","HAC","TAwb"', '"9001","CTD","HAC","TAwb"']);
     expect((await get('/land-units')).body).toMatch(/^"land_unit_id",.*\n"LU_0001",.*"500\.0"\n"LU_0002",.*"500\.0"\n$/);
+    expect((await get('/timeseries')).body).toContain('<areaHa>500.0</areaHa>');
     const log = await ctx.store.listAudit(pid, { limit: 10, action: 'export.downloaded' });
-    expect(log.map((e) => e.details.file)).toEqual(['land-units', 'plots', 'matrix-strata', 'matrix']);
-    expect(log[0].details).toEqual({ kind: 'ipcc', file: 'land-units', plots: 2 });
+    expect(log.map((e) => e.details.file)).toEqual(['timeseries', 'land-units', 'plots', 'matrix-strata', 'matrix']);
+    expect(log[0].details).toEqual({ kind: 'ipcc', file: 'timeseries', plots: 2 });
   });
 });
