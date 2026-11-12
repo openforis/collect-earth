@@ -433,6 +433,10 @@ public class CloudService {
 			if ("weak_password".equals(e.getErrorCode())) {
 				throw new InvalidCloudRequestException("cloud.weakPassword", Messages.getString("CloudLoginDialog.passwordTooShort"));
 			}
+			// Locked by the server after too many wrong passwords (its sign-in rules)
+			if ("account_locked".equals(e.getErrorCode())) {
+				throw new InvalidCloudRequestException("cloud.accountLocked", Messages.getString("CloudLoginDialog.accountLocked"));
+			}
 			throw new InvalidCloudRequestException("cloud.login", StringUtils.defaultIfBlank(e.getMessage(), Messages.getString("CloudLoginDialog.failed")));
 		} catch (IOException | RuntimeException e) {
 			logger.warn("The cloud login failed: {}", e.getMessage());

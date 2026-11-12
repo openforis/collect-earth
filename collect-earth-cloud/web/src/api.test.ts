@@ -282,6 +282,9 @@ describe("normalising responses", () => {
       serverName: null,
       aiAvailable: false,
       selfServiceReset: false,
+      // an older server says neither: the defaults
+      minPasswordLength: 8,
+      signupDomains: null,
       mapTiles: OSM_TILES,
       localMode: false,
       telemetry: null,

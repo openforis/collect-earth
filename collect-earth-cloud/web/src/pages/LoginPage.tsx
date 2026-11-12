@@ -22,6 +22,7 @@ import { PasswordField } from "../components/PasswordField";
 import { useT, type MessageKey } from "../i18n";
 import { linkProps } from "../router";
 import { passwordProblem, usernameProblem } from "../validation";
+import { emailInDomains } from "../serverSafetyView";
 
 /**
  * Log in, or create an account when the server allows sign-up. Shown in place of any
@@ -30,6 +31,8 @@ import { passwordProblem, usernameProblem } from "../validation";
 export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; sessionEnded?: boolean }) {
   const t = useT();
   const { info, loggedIn, language } = useApp();
+  const minPassword = info.minPasswordLength ?? 8;
+  const domains = info.signupDomains ?? null;
   const signingUp = mode === "signup" && info.signupOpen;
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -51,7 +54,9 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
     setError(null);
     let found: MessageKey | null;
     if (signingUp) {
-      found = usernameProblem(username) ?? passwordProblem(password, repeated) ?? (needsTerms && !acceptTerms ? "error.termsNotAccepted" : null);
+      found = usernameProblem(username) ?? passwordProblem(password, repeated, minPassword)
+        ?? (domains && domains.length > 0 && (!email.trim() || !emailInDomains(email, domains)) ? "error.emailDomainNotAllowed" : null)
+        ?? (needsTerms && !acceptTerms ? "error.termsNotAccepted" : null);
     } else found = !username.trim() || !password ? "error.fillBoth" : needsCode && !code.trim() ? "login.codeMissing" : null;
     setProblem(found);
     if (found) return;
@@ -106,7 +111,7 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
           />
           <PasswordField
             label={t("common.password")}
-            helperText={problem === "error.weakPassword" ? t(problem) : signingUp ? t("signup.passwordHelp") : undefined}
+            helperText={problem === "error.weakPassword" ? t("error.weakPasswordMin", { min: minPassword }) : signingUp ? t("signup.passwordHelpMin", { min: minPassword }) : undefined}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete={signingUp ? "new-password" : "current-password"}
@@ -141,8 +146,10 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
                 error={problem === "error.passwordsDiffer"}
               />
               <TextField
-                label={t("signup.email")}
-                helperText={t("signup.emailHelp")}
+                label={domains && domains.length > 0 ? t("signup.emailRequired") : t("signup.email")}
+                helperText={problem === "error.emailDomainNotAllowed" ? t(problem) : domains && domains.length > 0 ? t("signup.domainsHelp", { domains: domains.join(", ") }) : t("signup.emailHelp")}
+                error={problem === "error.emailDomainNotAllowed"}
+                required={!!domains && domains.length > 0}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

@@ -69,6 +69,7 @@ import type {
   User,
   UserSummary,
   AdminProject,
+  StoredOwnerAlert,
   ClientUse,
   ServerActivityEntry,
   ServerActivityInput,
@@ -305,6 +306,21 @@ export interface Store {
   listClientUses(since: number): Promise<ClientUse[]>;
   /** The weekly mails stopped because the mail server refused the address, newest first. */
   listStoppedDigests(): Promise<StoppedDigest[]>;
+  /** Keeps an alert raised for the server's administrators; its id. */
+  appendOwnerAlert(alert: { kind: string; at: number; count: number; projectId: string | null }): Promise<string>;
+  /** The alerts kept, newest first, with how many there are and how many are not seen. */
+  listOwnerAlerts(q: { offset: number; limit: number }): Promise<{ alerts: StoredOwnerAlert[]; total: number; unseen: number }>;
+  /** Marks these alerts (null: every one not seen) seen by `userId` at `at`; how many were marked. */
+  markOwnerAlertsSeen(ids: readonly string[] | null, userId: string, at: number): Promise<number>;
+  /**
+   * A failed sign-in of the account: counted; at `max` in a row (max > 0) the account is locked until `at + lockMs` and
+   * the count starts again. Returns the lock's end when this failure set it, else null.
+   */
+  noteLoginFailure(userId: string, at: number, max: number, lockMs: number): Promise<number | null>;
+  /** When the account's lock ends, if it is locked at `at`; else null. */
+  loginLockedUntil(userId: string, at: number): Promise<number | null>;
+  /** The failed sign-ins forgotten and any lock lifted (a right password, a reset link, an administrator). Whether it was locked. */
+  clearLoginFailures(userId: string): Promise<boolean>;
   /** The database's size, version and the migrations recorded as applied. */
   databaseHealth(): Promise<DatabaseHealth>;
   /**

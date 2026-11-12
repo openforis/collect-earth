@@ -115,7 +115,7 @@ export async function registerAuthRoutes(
     // The password rule of the dashboard's accounts applies to an invitation's too (security review,
     // 2026-11): collectors' accounts reach their project's records and plot files. Collect Earth
     // shows the reason when it refuses.
-    const weak = checkPassword(password);
+    const weak = checkPassword(password, (await store.getSettings()).minPasswordLength);
     if (weak) {
       return reply.code(400).send(weak);
     }
@@ -179,10 +179,28 @@ export async function registerAuthRoutes(
     }
     const user = await store.getUserByUsername(username);
     if (!user) await unknownUser(password);
-    if (!user || !(await verifyPassword(password, user.passwordHash))) {
+    // The server's lock after failed sign-ins in a row (Server settings, sign-up rules): kept in the database, so it
+    // holds on every instance, and said before the password is checked (a guess during the lock tells nothing)
+    const lock = user ? (await store.getSettings()) : null;
+    const lockMax = lock?.loginLockFailures ?? 0;
+    if (user && lockMax > 0) {
+      const until = await store.loginLockedUntil(user.id, Date.now());
+      if (until !== null) {
+        const retryAfter = Math.max(1, Math.ceil((until - Date.now()) / 1000));
+        return reply.code(429).header('retry-after', String(retryAfter)).send({ error: 'account_locked', reason: 'too many failed sign-ins: try again later, or reset the password', retryAfter });
+      }
+    }
+    const failed = async () => {
       loginFailures.hit(failureKey);
       accountFailures?.hit(accountKey);
       counters?.count('failedLogin');
+      if (user && lockMax > 0) {
+        const lockedUntil = await store.noteLoginFailure(user.id, Date.now(), lockMax, (lock?.loginLockMinutes ?? 15) * 60_000);
+        if (lockedUntil !== null) request.log.warn({ action: 'account.locked', userId: user.id, lockedUntil }, 'account locked after failed sign-ins');
+      }
+    };
+    if (!user || !(await verifyPassword(password, user.passwordHash))) {
+      await failed();
       return reply.code(401).send({ error: 'invalid_credentials' });
     }
     // Said only to someone who knows the password: a wrong one answers as above.
@@ -196,9 +214,7 @@ export async function registerAuthRoutes(
       if (!code.trim()) return reply.code(401).send({ error: 'second_step_required' });
       const check = await checkSecondStep(store, twoFactorKeyBuf, user.id, code);
       if (check !== 'ok') {
-        loginFailures.hit(failureKey);
-        accountFailures?.hit(accountKey);
-        counters?.count('failedLogin');
+        await failed();
         return reply.code(401).send({ error: check === 'unreadable' ? 'second_step_unreadable' : 'invalid_second_step' });
       }
     }
@@ -219,6 +235,7 @@ export async function registerAuthRoutes(
       }
       joined = { projectId: invite.projectId, projectName: invite.projectName, role: member ? member.role : invite.role };
     }
+    await store.clearLoginFailures(user.id);
     const token = await store.createSession(user.id);
     return reply.send({ token, userId: user.id, username: user.username, ...(joined ?? {}) });
   });
@@ -336,7 +353,7 @@ export async function registerAuthRoutes(
       if (!user || !(await verifyPassword(currentPassword, user.passwordHash))) {
         return reply.code(401).send({ error: 'invalid_credentials' });
       }
-      const rule = checkPassword(newPassword);
+      const rule = checkPassword(newPassword, (await store.getSettings()).minPasswordLength);
       if (rule) {
         return reply.code(400).send(rule);
       }

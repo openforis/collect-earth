@@ -10,8 +10,9 @@ export function usernameProblem(username: string): MessageKey | null {
   return USERNAME_PATTERN.test(username.trim()) ? null : "error.badUsername";
 }
 
-export function passwordProblem(password: string, repeated?: string): MessageKey | null {
-  if (password.length < MIN_PASSWORD_LENGTH) return "error.weakPassword";
+/** `min`: the server's shortest password (its server-info), at least MIN_PASSWORD_LENGTH. */
+export function passwordProblem(password: string, repeated?: string, min = MIN_PASSWORD_LENGTH): MessageKey | null {
+  if (password.length < Math.max(MIN_PASSWORD_LENGTH, min)) return "error.weakPassword";
   if (repeated !== undefined && repeated !== password) return "error.passwordsDiffer";
   return null;
 }

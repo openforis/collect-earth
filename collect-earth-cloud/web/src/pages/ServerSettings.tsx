@@ -14,7 +14,8 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useState, type FormEvent, type ReactNode } from "react";
-import { getServerSettings, saveServerSettings, type ProjectCreation, type ServerSettings } from "../api";
+import { getServerSettings, saveServerSettings, testAlertWebhook, type ProjectCreation, type ServerSettings } from "../api";
+import { isWebhookUrl, signupDomainsOf, wholeIn } from "../serverSafetyView";
 import { AI_LIMIT_MAX, parseLimit as parseAiLimit } from "../aiView";
 import { fromLocalInput, toLocalInput } from "../announcement";
 import { useApp } from "../appContext";
@@ -264,6 +265,132 @@ function AiGroup({ settings, onSave }: { settings: ServerSettings; onSave: Save 
   );
 }
 
+type NumberKey = "alertFailedLogins" | "alertServerErrors" | "alertSyncErrors" | "alertStoragePercent" | "minPasswordLength" | "loginLockFailures" | "loginLockMinutes";
+/** The bounds the server checks (SETTING_BOUNDS in its src/types.ts). */
+const BOUNDS: Record<NumberKey, [number, number]> = {
+  alertFailedLogins: [1, 100_000],
+  alertServerErrors: [1, 100_000],
+  alertSyncErrors: [1, 100_000],
+  alertStoragePercent: [1, 100],
+  minPasswordLength: [8, 64],
+  loginLockFailures: [0, 1000],
+  loginLockMinutes: [1, 1440],
+};
+
+/** Number fields of a group: as typed, read in their bounds, said wrong under the field. */
+function useNumbers(settings: ServerSettings, keys: NumberKey[]) {
+  const initial = Object.fromEntries(keys.map((k) => [k, String(settings[k])])) as Record<NumberKey, string>;
+  const [edited, setEdited] = useState<Record<NumberKey, string> | null>(null);
+  const draft = edited ?? initial;
+  const values = Object.fromEntries(keys.map((k) => [k, wholeIn(draft[k], ...BOUNDS[k])])) as Record<NumberKey, number | null>;
+  return {
+    draft,
+    values,
+    unsaved: keys.some((k) => draft[k].trim() !== initial[k]),
+    invalid: keys.some((k) => values[k] === null),
+    set: (k: NumberKey, v: string) => setEdited({ ...draft, [k]: v }),
+    reset: () => setEdited(null),
+  };
+}
+
+function NumberField({ k, label, help, numbers }: { k: NumberKey; label: string; help: string; numbers: ReturnType<typeof useNumbers> }) {
+  const t = useT();
+  const { language } = useApp();
+  const bad = numbers.values[k] === null;
+  return (
+    <TextField label={label} value={numbers.draft[k]} onChange={(e) => numbers.set(k, e.target.value)} error={bad}
+      helperText={bad ? t("server.numberRange", { min: formatNumber(BOUNDS[k][0], language), max: formatNumber(BOUNDS[k][1], language) }) : help}
+      slotProps={{ htmlInput: { inputMode: "numeric" } }} />
+  );
+}
+
+/** When alerts are raised, and the chat webhook they also go to (its address never shown back, only its service). */
+function AlertsGroup({ settings, onSave }: { settings: ServerSettings; onSave: Save }) {
+  const t = useT();
+  const keys: NumberKey[] = ["alertFailedLogins", "alertServerErrors", "alertSyncErrors", "alertStoragePercent"];
+  const numbers = useNumbers(settings, keys);
+  const [webhook, setWebhook] = useState("");
+  const [removing, setRemoving] = useState(false);
+  const [test, setTest] = useState<{ ok: boolean; error?: unknown } | null>(null);
+  const badWebhook = webhook.trim() !== "" && !isWebhookUrl(webhook);
+  const unsaved = numbers.unsaved || webhook.trim() !== "" || removing;
+  const help = t("server.alertThresholdHelp");
+  const tryWebhook = async () => {
+    setTest(null);
+    try {
+      await testAlertWebhook(webhook.trim() || undefined);
+      setTest({ ok: true });
+    } catch (err) {
+      setTest({ ok: false, error: err });
+    }
+  };
+  return (
+    <SettingsGroup id="alerts" title={t("server.group.alerts")} intro={t("server.alertsGroupIntro")} affects={t("server.affects.alerts")}
+      unsaved={unsaved} invalid={numbers.invalid || badWebhook}
+      onSave={async () => {
+        await onSave({
+          ...(Object.fromEntries(keys.map((k) => [k, numbers.values[k]])) as Partial<ServerSettings>),
+          ...(webhook.trim() !== "" ? { alertWebhookUrl: webhook.trim() } : removing ? { alertWebhookUrl: null } : {}),
+        });
+        numbers.reset();
+        setWebhook("");
+        setRemoving(false);
+      }}
+      onDiscard={() => { numbers.reset(); setWebhook(""); setRemoving(false); setTest(null); }}>
+      <NumberField k="alertFailedLogins" label={t("server.alertFailedLogins")} help={help} numbers={numbers} />
+      <NumberField k="alertServerErrors" label={t("server.alertServerErrors")} help={help} numbers={numbers} />
+      <NumberField k="alertSyncErrors" label={t("server.alertSyncErrors")} help={help} numbers={numbers} />
+      <NumberField k="alertStoragePercent" label={t("server.alertStoragePercent")} help={help} numbers={numbers} />
+      {settings.alertWebhook && !removing && (
+        <Alert severity="info" action={<Button color="inherit" size="small" onClick={() => setRemoving(true)}>{t("server.alertWebhookRemove")}</Button>}>
+          {t("server.alertWebhookSet", { kind: settings.alertWebhook.kind === "slack" ? "Slack" : "Microsoft Teams", host: settings.alertWebhook.host })}
+        </Alert>
+      )}
+      <TextField label={t("server.alertWebhook")} value={webhook} onChange={(e) => { setWebhook(e.target.value); setTest(null); }} type="url"
+        error={badWebhook} helperText={badWebhook ? t("server.alertWebhookInvalid") : t("server.alertWebhookHelp")}
+        placeholder="https://hooks.slack.com/services/…" slotProps={{ htmlInput: { autoComplete: "off", spellCheck: false } }} />
+      {(webhook.trim() !== "" || (settings.alertWebhook && !removing)) && (
+        <Box>
+          <Button variant="outlined" disabled={badWebhook} onClick={() => void tryWebhook()}>{t("server.alertWebhookTest")}</Button>
+        </Box>
+      )}
+      {test?.ok && <Alert severity="success" role="status">{t("server.alertWebhookTested")}</Alert>}
+      {test && !test.ok && <ErrorAlert error={test.error} />}
+    </SettingsGroup>
+  );
+}
+
+/** Who may sign up (email domains), the shortest password, and the lock after wrong passwords. */
+function SignupRulesGroup({ settings, onSave }: { settings: ServerSettings; onSave: Save }) {
+  const t = useT();
+  const keys: NumberKey[] = ["minPasswordLength", "loginLockFailures", "loginLockMinutes"];
+  const numbers = useNumbers(settings, keys);
+  const initialDomains = (settings.signupDomains ?? "").split(",").filter(Boolean).join(", ");
+  const [domains, setDomains] = useState<string | null>(null);
+  const typed = domains ?? initialDomains;
+  const parsed = signupDomainsOf(typed);
+  const unsaved = numbers.unsaved || typed.trim() !== initialDomains;
+  return (
+    <SettingsGroup id="signup-rules" title={t("server.group.signupRules")} intro={t("server.signupRulesIntro")} affects={t("server.affects.signupRules")}
+      unsaved={unsaved} invalid={numbers.invalid || parsed === undefined}
+      onSave={async () => {
+        await onSave({ ...(Object.fromEntries(keys.map((k) => [k, numbers.values[k]])) as Partial<ServerSettings>), signupDomains: parsed ?? null });
+        numbers.reset();
+        setDomains(null);
+      }}
+      onDiscard={() => { numbers.reset(); setDomains(null); }}>
+      <TextField label={t("server.signupDomains")} value={typed} onChange={(e) => setDomains(e.target.value)} placeholder="fao.org, example.org"
+        error={parsed === undefined} helperText={parsed === undefined ? t("server.signupDomainsInvalid") : t("server.signupDomainsHelp")}
+        slotProps={{ htmlInput: { autoComplete: "off", spellCheck: false } }} />
+      <NumberField k="minPasswordLength" label={t("server.minPassword")} help={t("server.minPasswordHelp")} numbers={numbers} />
+      <NumberField k="loginLockFailures" label={t("server.lockFailures")} help={t("server.lockFailuresHelp")} numbers={numbers} />
+      {numbers.values.loginLockFailures !== 0 && (
+        <NumberField k="loginLockMinutes" label={t("server.lockMinutes")} help={t("server.lockMinutesHelp")} numbers={numbers} />
+      )}
+    </SettingsGroup>
+  );
+}
+
 /**
  * The Settings section of the server page: the groups of settings, each saved on its own; saving one keeps what is
  * changed and not saved in the others.
@@ -283,6 +410,7 @@ export function ServerSettingsSection() {
   return (
     <Stack spacing={3}>
       <AccessGroup settings={current} onSave={save} />
+      <SignupRulesGroup settings={current} onSave={save} />
       <DraftFields settings={current} onSave={save} group="limits" title={t("server.limits")} intro={t("server.limitsIntro")} affects={t("server.affects.limits")}
         keys={["maxProjectsPerUser", "maxProjectStorageMb"]}
         fields={[
@@ -298,6 +426,7 @@ export function ServerSettingsSection() {
         ]} />
       <AnnouncementGroup settings={current} onSave={save} />
       <AiGroup settings={current} onSave={save} />
+      <AlertsGroup settings={current} onSave={save} />
     </Stack>
   );
 }

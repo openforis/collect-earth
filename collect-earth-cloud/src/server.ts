@@ -29,7 +29,9 @@ import { twoFactorKey } from './twoFactor.js';
 import { checkTwoFactorKeys } from './twoFactorCheck.js';
 import { registerTwoFactorRoutes } from './routes/twoFactor.js';
 import { registerFormerMemberRoutes } from './routes/formerMembers.js';
-import { OwnerAlerts, ownerNotifier, STORAGE_PERCENT, THRESHOLDS } from './ownerAlerts.js';
+import { alertForChannel, OwnerAlerts, ownerNotifier, thresholdsOf } from './ownerAlerts.js';
+import { parseWebhookUrl, postWebhook, type Fetch } from './alertWebhook.js';
+import { logServerAction } from './serverActivity.js';
 import { requirePlatformAdmin } from './plugins/projectAuth.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerPlatformRoutes } from './routes/platform.js';
@@ -79,6 +81,8 @@ export interface BuildServerOptions {
   ai?: { client?: AiClient | null; now?: () => number; runs?: Partial<AiRunServiceOptions> };
   /** For tests: the mail transport (mail.ts's TestMailer) instead of SMTP or the log. */
   mailer?: Mailer;
+  /** For tests: how the alerts' webhook is posted to (src/alertWebhook.ts); fetch by default. */
+  webhookFetch?: Fetch;
   /** For tests: a lower cap on confirmation mails per instance and hour. */
   mailLimits?: { perInstanceHour?: number };
   /** For tests: Google's keys for the weekly job's OIDC token. */
@@ -199,9 +203,19 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   // Alerts for the server's owner (src/ownerAlerts.ts): failed logins, server errors, records refused, storage. Not in
   // the local mode (one person, on their own computer: nobody else to tell).
   const ownerAlerts = new OwnerAlerts({
-    notify: local ? undefined : ownerNotifier(store, mailer, app.log, async () => (await store.getSettings()).serverName ?? 'Collect Earth Cloud'),
+    notify: local ? undefined : ownerNotifier(store, mailer, app.log, async () => (await store.getSettings()).serverName ?? 'Collect Earth Cloud', options.webhookFetch),
   });
   app.decorate('ownerAlerts', ownerAlerts);
+  // The thresholds are server settings: read at start and every five minutes (another instance may change them; this
+  // one's settings route sets them at once)
+  const readThresholds = () =>
+    store.getSettings().then((s) => ownerAlerts.setThresholds(thresholdsOf(s)), (err) => app.log.warn({ err }, 'owner alerts: the thresholds could not be read'));
+  if (!local) {
+    void readThresholds();
+    const thresholdTimer = setInterval(() => void readThresholds(), 5 * 60_000);
+    thresholdTimer.unref();
+    app.addHook('onClose', async () => clearInterval(thresholdTimer));
+  }
   counters.onCount = (kind) => {
     if (kind === 'failedLogin') ownerAlerts.note('failedLogin');
   };
@@ -221,9 +235,52 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     storageCheck.unref();
     app.addHook('onClose', async () => clearInterval(storageCheck));
   }
-  app.get('/v1/admin/alerts', { preHandler: requirePlatformAdmin(store) }, async (_request, reply) =>
-    reply.header('cache-control', 'no-store').send({ alerts: ownerAlerts.recent(), thresholds: { ...THRESHOLDS, storagePercent: STORAGE_PERCENT } }),
-  );
+  // The alerts kept (owner_alerts), newest first, in pages: ?page=&pageSize=; with how many are not seen, the thresholds
+  // in force and whether a webhook is set (its host only).
+  app.get('/v1/admin/alerts', { preHandler: requirePlatformAdmin(store) }, async (request, reply) => {
+    const q = (request.query ?? {}) as Record<string, unknown>;
+    const num = (v: unknown, fallback: number, max: number) => (typeof v === 'string' && /^\d+$/.test(v) ? Math.max(1, Math.min(max, Number(v))) : fallback);
+    const pageSize = num(q.pageSize, 20, 100);
+    let page = num(q.page, 1, 1_000_000);
+    let kept = await store.listOwnerAlerts({ offset: (page - 1) * pageSize, limit: pageSize });
+    const pages = Math.max(1, Math.ceil(kept.total / pageSize));
+    if (page > pages) {
+      page = pages;
+      kept = await store.listOwnerAlerts({ offset: (page - 1) * pageSize, limit: pageSize });
+    }
+    const settings = await store.getSettings();
+    const webhook = settings.alertWebhookUrl ? parseWebhookUrl(settings.alertWebhookUrl) : null;
+    return reply.header('cache-control', 'no-store').send({
+      ...kept,
+      page,
+      pages,
+      pageSize,
+      thresholds: thresholdsOf(settings),
+      webhook: webhook ? { kind: webhook.kind, host: webhook.host } : null,
+    });
+  });
+  // Marks alerts seen ({ids}), or every one not seen yet (no ids): the health line stops naming them.
+  app.post('/v1/admin/alerts/seen', { preHandler: requirePlatformAdmin(store) }, async (request, reply) => {
+    const ids = ((request.body ?? {}) as { ids?: unknown }).ids;
+    if (ids !== undefined && (!Array.isArray(ids) || ids.length > 500 || ids.some((id) => typeof id !== 'string'))) {
+      return reply.code(400).send({ error: 'bad_request', reason: 'ids must be a list of alert ids' });
+    }
+    const marked = await store.markOwnerAlertsSeen((ids as string[] | undefined) ?? null, request.userId!, Date.now());
+    if (marked > 0) await logServerAction(store, request, { action: 'alerts.seen', details: { count: marked } });
+    return reply.send({ marked });
+  });
+  // A test message to the webhook given ({url}, before it is saved) or the one set: whether the channel got it.
+  app.post('/v1/admin/alerts/webhook-test', { preHandler: requirePlatformAdmin(store) }, async (request, reply) => {
+    const given = ((request.body ?? {}) as { url?: unknown }).url;
+    const url = typeof given === 'string' && given.trim() !== '' ? given.trim() : (await store.getSettings()).alertWebhookUrl;
+    if (!url) return reply.code(409).send({ error: 'no_webhook', reason: 'give a webhook address first' });
+    if (!parseWebhookUrl(url)) return reply.code(400).send({ error: 'webhook_not_allowed', reason: 'a Slack or Microsoft Teams incoming webhook address (https)' });
+    const server = (await store.getSettings()).serverName ?? 'Collect Earth Cloud';
+    const { title } = alertForChannel({ kind: 'server_errors', count: 0 }, 'en', server);
+    const posted = await postWebhook(url, title.replace(/:.*$/, ': a test of the alerts'), 'This is a test: the server\'s alerts will be posted here.', options.webhookFetch);
+    if (!posted.sent) return reply.code(502).send({ error: 'webhook_refused', status: posted.status });
+    return reply.send({ sent: true });
+  });
   const twoFactorKeyBuf = twoFactorKey(config);
   if (!local) {
     // Two-step sign-in's secrets that no key reads any more (src/twoFactorCheck.ts): said now, not by the first person

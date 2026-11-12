@@ -11,7 +11,7 @@ const NOW = Date.UTC(2026, 10, 12);
 const DAY = 24 * 3600 * 1000;
 const user = (username: string, extra: Partial<UserSummary> = {}): UserSummary => ({
   userId: username, username, isPlatformAdmin: false, projects: 0, coordinatedProjects: 0, disabledAt: null, disabledBy: null, twoFactor: false,
-  createdAt: NOW - 200 * DAY, lastActiveAt: NOW - DAY, email: null, emailConfirmed: false, ...extra,
+  createdAt: NOW - 200 * DAY, lastActiveAt: NOW - DAY, email: null, emailConfirmed: false, lockedUntil: null, ...extra,
 });
 
 describe('the accounts list', () => {
@@ -39,7 +39,7 @@ describe('the accounts list', () => {
     // never active since kept: its creation counts; dan for over 90 days
     expect(q({ filter: 'inactive' }).users.map((u) => u.username)).toEqual(['carla', 'dan']);
     expect(q({ filter: 'noEmail' }).users.map((u) => u.username)).toEqual(['Ben', 'carla']);
-    expect(q({}).counts).toEqual({ all: 4, admins: 1, disabled: 1, twoFactor: 1, noTwoFactor: 3, inactive: 2, noEmail: 2 });
+    expect(q({}).counts).toEqual({ all: 4, admins: 1, disabled: 1, locked: 0, twoFactor: 1, noTwoFactor: 3, inactive: 2, noEmail: 2 });
     expect(q({ sort: 'projects', desc: true }).users.map((u) => u.username)).toEqual(['ana', 'Ben', 'carla', 'dan']);
     expect(q({ sort: 'lastActive', desc: true }).users.map((u) => u.username)).toEqual(['Ben', 'ana', 'dan', 'carla']);
     expect(q({ sort: 'created' }).users.map((u) => u.username)).toEqual(['dan', 'Ben', 'carla', 'ana']);

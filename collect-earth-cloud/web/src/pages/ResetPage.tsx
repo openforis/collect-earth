@@ -15,7 +15,8 @@ import { passwordProblem } from "../validation";
 /** Public page a password reset link opens. */
 export function ResetPage({ token }: { token: string }) {
   const t = useT();
-  const { me, refreshMe, language } = useApp();
+  const { me, refreshMe, language, info } = useApp();
+  const minPassword = info.minPasswordLength ?? 8;
   const [password, setPassword] = useState("");
   const [repeated, setRepeated] = useState("");
   const [problem, setProblem] = useState<MessageKey | null>(null);
@@ -41,7 +42,7 @@ export function ResetPage({ token }: { token: string }) {
 
   const submit = async () => {
     setError(null);
-    const found = passwordProblem(password, repeated);
+    const found = passwordProblem(password, repeated, minPassword);
     setProblem(found);
     if (found) return;
     setBusy(true);
@@ -82,7 +83,7 @@ export function ResetPage({ token }: { token: string }) {
             <>
               <PasswordField
                 label={t("common.newPassword")}
-                helperText={problem === "error.weakPassword" ? t(problem) : t("signup.passwordHelp")}
+                helperText={problem === "error.weakPassword" ? t("error.weakPasswordMin", { min: minPassword }) : t("signup.passwordHelpMin", { min: minPassword })}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"

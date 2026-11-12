@@ -6,9 +6,12 @@
 //  - a project near its storage limit (Server settings): its uploads will soon be refused.
 // When one passes its threshold: a log line made to be alerted on (`ownerAlert`, for Google Cloud's log-based alerts),
 // the server panel's list, and a mail to every server administrator with a confirmed address (when the server sends
-// mail). The same alert is raised at most once every six hours (a project's storage once a day), so a long problem is
-// not a flood. Counted per server instance, in memory, as the panel's counters are: a restart starts again.
+// mail), and a post to the server's Slack or Teams webhook when one is set (src/alertWebhook.ts). Each alert is kept
+// (owner_alerts, migration 042): the server page shows their history and which were seen. The thresholds are server
+// settings (alert*). The same alert is raised at most once every six hours (a project's storage once a day), so a long
+// problem is not a flood. Counted per server instance, in memory, as the panel's counters are: a restart starts again.
 import type { FastifyBaseLogger } from 'fastify';
+import { postWebhook, type Fetch } from './alertWebhook.js';
 import { fill, renderHtml, renderText, type MailLine } from './digestText.js';
 import type { Mailer } from './mail.js';
 import type { Store } from './store/store.js';
@@ -27,10 +30,18 @@ export interface OwnerAlert {
   projectId?: string;
 }
 
-/** How many in one hour raise an alert. */
+/** How many in one hour raise an alert, by default (the server settings alertFailedLogins...). */
 export const THRESHOLDS: Record<AlertSignal, number> = { failedLogin: 50, serverError: 20, syncError: 50 };
-/** A project's storage alert, in percent of its limit. */
+/** A project's storage alert, in percent of its limit, by default (alertStoragePercent). */
 export const STORAGE_PERCENT = 90;
+
+/** The thresholds in force: the signals' per hour and a project's storage in percent. */
+export type AlertThresholds = Record<AlertSignal, number> & { storagePercent: number };
+
+/** The thresholds the server settings say. */
+export function thresholdsOf(settings: { alertFailedLogins: number; alertServerErrors: number; alertSyncErrors: number; alertStoragePercent: number }): AlertThresholds {
+  return { failedLogin: settings.alertFailedLogins, serverError: settings.alertServerErrors, syncError: settings.alertSyncErrors, storagePercent: settings.alertStoragePercent };
+}
 const KIND_OF: Record<AlertSignal, AlertKind> = { failedLogin: 'failed_logins', serverError: 'server_errors', syncError: 'sync_errors' };
 const HOUR_MS = 3_600_000;
 const COOLDOWN_MS = 6 * HOUR_MS;
@@ -42,8 +53,18 @@ export class OwnerAlerts {
   private readonly times: Record<AlertSignal, number[]> = { failedLogin: [], serverError: [], syncError: [] };
   private readonly lastRaised = new Map<string, number>();
   private readonly raised: OwnerAlert[] = [];
+  private thresholds: AlertThresholds = { ...THRESHOLDS, storagePercent: STORAGE_PERCENT };
 
   constructor(private readonly options: { now?: () => number; notify?: (alert: OwnerAlert) => Promise<void> | void } = {}) {}
+
+  /** The thresholds from the server settings (read at start, after a change, and every few minutes). */
+  setThresholds(t: AlertThresholds): void {
+    this.thresholds = { ...t };
+  }
+
+  currentThresholds(): AlertThresholds {
+    return { ...this.thresholds };
+  }
 
   private now() {
     return (this.options.now ?? Date.now)();
@@ -57,8 +78,9 @@ export class OwnerAlerts {
     for (let i = 0; i < n; i++) list.push(now);
     while (list.length && list[0] <= now - HOUR_MS) list.shift();
     // never more than the threshold kept: the count that matters is "at least that many"
-    if (list.length > THRESHOLDS[signal]) list.splice(0, list.length - THRESHOLDS[signal]);
-    if (list.length >= THRESHOLDS[signal]) this.raise({ kind: KIND_OF[signal], at: now, count: list.length }, KIND_OF[signal], COOLDOWN_MS);
+    const threshold = this.thresholds[signal];
+    if (list.length > threshold) list.splice(0, list.length - threshold);
+    if (list.length >= threshold) this.raise({ kind: KIND_OF[signal], at: now, count: list.length }, KIND_OF[signal], COOLDOWN_MS);
   }
 
   /** Each project's storage against the server's limit (0: no limit, nothing to check). */
@@ -67,7 +89,7 @@ export class OwnerAlerts {
     const limit = limitMb * 1024 * 1024;
     for (const p of projects) {
       const percent = Math.floor((p.storageBytes / limit) * 100);
-      if (percent >= STORAGE_PERCENT) this.raise({ kind: 'storage', at: this.now(), count: percent, projectId: p.projectId }, `storage ${p.projectId}`, STORAGE_COOLDOWN_MS);
+      if (percent >= this.thresholds.storagePercent) this.raise({ kind: 'storage', at: this.now(), count: percent, projectId: p.projectId }, `storage ${p.projectId}`, STORAGE_COOLDOWN_MS);
     }
   }
 
@@ -181,13 +203,37 @@ export function alertMail(alert: OwnerAlert, language: MailLanguage, server: str
   return { subject: fill(t.subject, { server, what: t[alert.kind] }), text: renderText(lines, language), html: renderHtml(lines, language) };
 }
 
+/** An alert in words for a chat channel (the webhook): a project by its id only, never its name. */
+export function alertForChannel(alert: Pick<OwnerAlert, 'kind' | 'count' | 'projectId'>, language: MailLanguage, server: string): { title: string; text: string } {
+  const t = TEXTS[language] ?? en;
+  return {
+    title: fill(t.subject, { server, what: t[alert.kind] }),
+    text: fill(t[`${alert.kind}Text` as keyof AlertTexts], { count: String(alert.count), project: alert.projectId ?? '' }),
+  };
+}
+
 /**
- * What an alert does: a log line to be alerted on (always), and a mail to every enabled server administrator whose
- * address is confirmed, in their language.
+ * What an alert does: a log line to be alerted on (always), kept for the server page (owner_alerts), a mail to every
+ * enabled server administrator whose address is confirmed, in their language, and a post to the webhook when one is set.
  */
-export function ownerNotifier(store: Store, mailer: Mailer, log: FastifyBaseLogger, serverName: () => Promise<string>) {
+export function ownerNotifier(store: Store, mailer: Mailer, log: FastifyBaseLogger, serverName: () => Promise<string>, fetchImpl?: Fetch) {
   return async (alert: OwnerAlert) => {
     log.error({ ownerAlert: alert.kind, count: alert.count, projectId: alert.projectId }, `owner alert: ${alert.kind}`);
+    try {
+      await store.appendOwnerAlert({ kind: alert.kind, at: alert.at, count: alert.count, projectId: alert.projectId ?? null });
+    } catch (err) {
+      log.warn({ err }, 'owner alert: could not be kept');
+    }
+    try {
+      const { alertWebhookUrl } = await store.getSettings();
+      if (alertWebhookUrl) {
+        const { title, text } = alertForChannel(alert, 'en', await serverName());
+        const posted = await postWebhook(alertWebhookUrl, title, text, fetchImpl);
+        if (!posted.sent) log.warn({ status: posted.status }, 'owner alert: the webhook refused it');
+      }
+    } catch (err) {
+      log.warn({ err }, 'owner alert: the webhook could not be reached');
+    }
     try {
       const server = await serverName();
       const project = alert.projectId ? ((await store.getProject(alert.projectId).catch(() => null))?.name ?? null) : null;

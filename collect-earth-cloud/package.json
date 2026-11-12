@@ -30,7 +30,8 @@
     "smoke:pg:security": "tsx scripts/pg-smoke-security-review.mts",
     "smoke:pg:ceo": "tsx scripts/pg-smoke-ceo-import.mts",
     "telemetry:check": "tsx scripts/telemetry-check.mts",
-    "smoke:pg:ops": "tsx scripts/pg-smoke-ops.mts"
+    "smoke:pg:ops": "tsx scripts/pg-smoke-ops.mts",
+    "smoke:pg:safety": "tsx scripts/pg-smoke-safety.mts"
   },
   "dependencies": {
     "@fastify/static": "7.0.4",

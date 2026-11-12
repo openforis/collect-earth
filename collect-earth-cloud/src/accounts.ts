@@ -6,7 +6,7 @@ import type { UserSummary } from './types.js';
 /** An account not active for this many days counts as inactive. */
 export const INACTIVE_DAYS = 90;
 const DAY_MS = 24 * 3600 * 1000;
-export const ACCOUNT_FILTERS = ['all', 'admins', 'disabled', 'twoFactor', 'noTwoFactor', 'inactive', 'noEmail'] as const;
+export const ACCOUNT_FILTERS = ['all', 'admins', 'disabled', 'locked', 'twoFactor', 'noTwoFactor', 'inactive', 'noEmail'] as const;
 export type AccountFilter = (typeof ACCOUNT_FILTERS)[number];
 export const ACCOUNT_SORTS = ['name', 'created', 'lastActive', 'projects'] as const;
 export type AccountSort = (typeof ACCOUNT_SORTS)[number];
@@ -52,6 +52,8 @@ export function isOfFilter(u: UserSummary, filter: AccountFilter, now: number): 
       return u.isPlatformAdmin;
     case 'disabled':
       return u.disabledAt !== null;
+    case 'locked':
+      return u.lockedUntil !== null && u.lockedUntil > now;
     case 'twoFactor':
       return u.twoFactor;
     case 'noTwoFactor':

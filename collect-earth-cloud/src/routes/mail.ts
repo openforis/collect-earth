@@ -14,7 +14,7 @@ import type { ProjectStateCache } from '../projectState.js';
 import type { QualityService } from '../qualityService.js';
 import { RateLimiter, RATE_LIMITED } from '../rateLimit.js';
 import { emailChangedMail, longMoment, passwordChangedMail, resetLinkMail,
-  testMail, welcomeMail, SELF_RESET_TTL_MS, type SecurityContext } from '../securityMail.js';
+  adminMessageMail, testMail, welcomeMail, SELF_RESET_TTL_MS, type MessageAudience, type SecurityContext } from '../securityMail.js';
 import type { Store } from '../store/store.js';
 import { DIGEST_KINDS, MAIL_LANGUAGES, type AccountMail, type DigestKind, type MailLanguage } from '../types.js';
 
@@ -38,6 +38,10 @@ const MAX_ACCOUNTS_PER_ADDRESS = 5;
 const HOUR_MS = 3_600_000;
 /** Test mails per instance and hour ("Send me a test email" on the server page). */
 export const TEST_MAILS_PER_HOUR = 10;
+/** A message to everyone (or every coordinator): at most one in this long, whoever sends it (the activity log says when). */
+export const MESSAGE_INTERVAL_MS = HOUR_MS;
+export const MAX_MESSAGE_SUBJECT = 150;
+export const MAX_MESSAGE_TEXT = 5000;
 
 /**
  * What other routes may ask of the mail routes: sign-up sends the confirmation link of the address
@@ -582,5 +586,75 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
     }
     await logServerAction(store, request, { action: 'mail.test', details: { sent: true } });
     return reply.send({ sent: true, to: own.email });
+  });
+
+  // --- A message from the server's administrators to every coordinator, or everyone (stage D) ---
+
+  /** The accounts a message reaches: enabled, with a confirmed address; coordinators: of at least one project. */
+  const recipientsOf = async (audience: MessageAudience) =>
+    (await store.listUsers()).filter((u) => u.disabledAt === null && u.email && u.emailConfirmed && (audience === 'everyone' || u.coordinatedProjects > 0));
+  const readMessage = (body: unknown): { audience: MessageAudience; subject: string; text: string } | { reason: string } => {
+    const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+    if (b.audience !== 'coordinators' && b.audience !== 'everyone') return { reason: 'audience must be "coordinators" or "everyone"' };
+    const subject = typeof b.subject === 'string' ? b.subject.replace(/\s+/g, ' ').trim() : '';
+    const text = typeof b.text === 'string' ? b.text.replace(/\r\n?/g, '\n').trim() : '';
+    if (subject === '' || subject.length > MAX_MESSAGE_SUBJECT) return { reason: `subject must be 1 to ${MAX_MESSAGE_SUBJECT} characters` };
+    if (text === '' || text.length > MAX_MESSAGE_TEXT) return { reason: `text must be 1 to ${MAX_MESSAGE_TEXT} characters` };
+    return { audience: b.audience, subject, text };
+  };
+  /** When the last message went, from the activity log (so the hour holds across instances and restarts). */
+  const lastMessageAt = async () => (await store.listServerActivity({ actor: null, kind: 'message', offset: 0, limit: 1 })).entries[0]?.at ?? null;
+
+  // What the message will look like (in the administrator's language) and how many it reaches; whether it can go now.
+  app.post('/v1/admin/messages/preview', { preHandler: requirePlatformAdmin(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const m = readMessage(request.body);
+    if ('reason' in m) return reply.code(400).send({ error: 'bad_request', reason: m.reason });
+    const language = ((request.body ?? {}) as { language?: unknown }).language;
+    const ctx = await securityContext(request.userId!, language, (await store.getAccountMail(request.userId!)) ?? { email: null, emailConfirmedAt: null, language: null, timeZone: null, digests: [] });
+    if (!ctx) return reply.code(404).send({ error: 'not_found' });
+    const mail = adminMessageMail(ctx, m.audience, m.subject, m.text, 'preview@example.org');
+    const last = await lastMessageAt();
+    return reply.send({
+      recipients: (await recipientsOf(m.audience)).length,
+      subject: mail.subject,
+      text: mail.text,
+      delivers: deps.mailer.delivers,
+      nextAllowedAt: last !== null && deps.now() - last < MESSAGE_INTERVAL_MS ? last + MESSAGE_INTERVAL_MS : null,
+    });
+  });
+
+  // Sends it: each person gets it in their language (the closing lines), in the background. `recipients` is the count the
+  // administrator was shown: a different one now (an account changed) asks again. At most one an hour.
+  app.post('/v1/admin/messages', { preHandler: requirePlatformAdmin(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!deps.mailer.delivers) return reply.code(409).send({ error: 'mail_not_set_up', reason: 'set SMTP_URL and MAIL_FROM to send mail' });
+    const m = readMessage(request.body);
+    if ('reason' in m) return reply.code(400).send({ error: 'bad_request', reason: m.reason });
+    const last = await lastMessageAt();
+    if (last !== null && deps.now() - last < MESSAGE_INTERVAL_MS) {
+      return reply.code(429).send({ error: 'message_too_soon', reason: 'one message an hour', nextAllowedAt: last + MESSAGE_INTERVAL_MS });
+    }
+    const recipients = await recipientsOf(m.audience);
+    const shown = ((request.body ?? {}) as { recipients?: unknown }).recipients;
+    if (shown !== recipients.length) return reply.code(409).send({ error: 'recipients_changed', recipients: recipients.length });
+    if (recipients.length === 0) return reply.code(409).send({ error: 'no_recipients' });
+    await logServerAction(store, request, { action: 'message.sent', details: { audience: m.audience, recipients: recipients.length, subject: m.subject.slice(0, 100) } });
+    work.run(request, `server.message.${m.audience}`, async () => {
+      let sent = 0;
+      let failed = 0;
+      for (const r of recipients) {
+        try {
+          const mail = await store.getAccountMail(r.userId);
+          const ctx = mail && (await securityContext(r.userId, undefined, mail));
+          if (!mail?.email || !mail.emailConfirmedAt || !ctx) continue;
+          await deps.mailer.send(adminMessageMail(ctx, m.audience, m.subject, m.text, mail.email));
+          sent += 1;
+        } catch (err) {
+          failed += 1;
+          request.log.warn({ err: errorSummary(err), userId: r.userId }, 'server message: one could not be sent');
+        }
+      }
+      request.log.info({ action: 'message.delivered', audience: m.audience, sent, failed }, 'server message: sent');
+    });
+    return reply.code(202).send({ recipients: recipients.length });
   });
 }

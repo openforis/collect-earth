@@ -29,6 +29,9 @@ import Tabs from "@mui/material/Tabs";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import type { Theme } from "@mui/material/styles";
 import Dns from "@mui/icons-material/Dns";
+import DoneAll from "@mui/icons-material/DoneAll";
+import Chip from "@mui/material/Chip";
+import Pagination from "@mui/material/Pagination";
 import FolderOpen from "@mui/icons-material/FolderOpen";
 import Insights from "@mui/icons-material/Insights";
 import People from "@mui/icons-material/People";
@@ -38,6 +41,8 @@ import {
   getCollectEarthVersions,
   getServerOverview,
   getOwnerAlerts,
+  markAlertsSeen,
+  type OwnerAlertsPage,
   type OwnerAlert,
   type AiUsageCounts,
   type CollectEarthVersions,
@@ -386,35 +391,73 @@ function SystemFigures({ overview }: { overview: Overview }) {
 }
 
 /**
- * The owner's alerts (the server's src/ownerAlerts.ts): what this server raised since it started, the thresholds, and
- * how they reach the owner. Nothing to see while all is well, but the card says what is watched.
+ * The owner's alerts (the server's src/ownerAlerts.ts): those kept, newest first, in pages; the ones not seen marked, one
+ * by one or all at once; the thresholds in force and whether they also go to a chat webhook (both set in Settings).
  */
-function AlertsCard() {
+function AlertsCard({ onSeen }: { onSeen: () => void }) {
   const t = useT();
   const { language } = useApp();
-  const alerts = useLoad(getOwnerAlerts, []);
-  const text = (a: OwnerAlert) =>
-    a.kind === "storage" ? t("server.alert.storage", { count: a.count, project: a.projectId ?? "" }) : t(`server.alert.${a.kind}`, { count: a.count });
+  const [page, setPage] = useState(1);
+  const alerts = useLoad(() => getOwnerAlerts(page), [page]);
+  const [error, setError] = useState<unknown>(null);
+  const a = alerts.data;
+  const n = (v: number) => formatNumber(v, language);
+  const text = (x: OwnerAlert) =>
+    x.kind === "storage" ? t("server.alert.storage", { count: x.count, project: x.projectId ?? "" }) : t(`server.alert.${x.kind}`, { count: x.count });
+  const seen = async (ids?: string[]) => {
+    setError(null);
+    try {
+      await markAlertsSeen(ids);
+      alerts.reload();
+      onSeen();
+    } catch (err) {
+      setError(err);
+    }
+  };
+  const th = a?.thresholds ?? {};
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="server-alerts">
-      <Typography variant="h2" id="server-alerts" gutterBottom>
-        {t("server.alertsTitle")}
-      </Typography>
-      <Explain variant="body2" sx={{ mb: 2 }} text={t("server.alertsExplain.short")} more={t("server.alertsExplain")} />
-      {alerts.loading && !alerts.data ? (
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ justifyContent: "space-between", alignItems: { sm: "center" }, mb: 1 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+          <Typography variant="h2" id="server-alerts">{t("server.alertsTitle")}</Typography>
+          {a && a.unseen > 0 && <Chip size="small" color="warning" label={t("server.alertsUnseen", { count: n(a.unseen) })} />}
+        </Stack>
+        {a && a.unseen > 0 && <Button variant="outlined" startIcon={<DoneAll />} onClick={() => void seen()}>{t("server.alertsMarkAll")}</Button>}
+      </Stack>
+      <Explain variant="body2" sx={{ mb: 1 }} text={t("server.alertsExplain.short")}
+        more={t("server.alertsExplain", { failedLogins: n(th.failedLogin ?? 50), serverErrors: n(th.serverError ?? 20), syncErrors: n(th.syncError ?? 50), storage: n(th.storagePercent ?? 90) })} />
+      {a?.webhook && <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{t("server.alertsWebhook", { kind: a.webhook.kind === "slack" ? "Slack" : "Microsoft Teams", host: a.webhook.host })}</Typography>}
+      <ErrorAlert error={error} />
+      {alerts.loading && !a ? (
         <Loading />
-      ) : alerts.error || !alerts.data ? (
+      ) : alerts.error || !a ? (
         <ErrorAlert error={alerts.error} onRetry={alerts.reload} />
-      ) : alerts.data.alerts.length === 0 ? (
+      ) : a.alerts.length === 0 ? (
         <Alert severity="success">{t("server.alertsNone")}</Alert>
       ) : (
-        <List disablePadding>
-          {alerts.data.alerts.map((a) => (
-            <ListItem key={`${a.kind}-${a.at}-${a.projectId ?? ""}`} divider sx={{ px: 0 }}>
-              <ListItemText primary={text(a)} secondary={new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" }).format(a.at)} />
-            </ListItem>
-          ))}
-        </List>
+        <>
+          <List disablePadding sx={{ opacity: alerts.loading ? 0.6 : 1 }}>
+            {a.alerts.map((x) => (
+              <ListItem key={x.id ?? `${x.kind}-${x.at}-${x.projectId ?? ""}`} divider sx={{ px: 0, gap: 1 }}
+                secondaryAction={!x.seenAt && x.id ? <Button size="small" onClick={() => void seen([x.id!])}>{t("server.alertMarkSeen")}</Button> : undefined}>
+                <ListItemText
+                  sx={{ pr: !x.seenAt ? 14 : 0 }}
+                  primary={
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                      {!x.seenAt && <Chip size="small" color="warning" label={t("server.alertNew")} />}
+                      <span style={{ fontWeight: x.seenAt ? 400 : 600 }}>{text(x)}</span>
+                    </Stack>
+                  }
+                  secondary={`${new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" }).format(x.at)}${x.seenBy ? ` · ${t("server.alertSeenBy", { name: x.seenBy })}` : ""}`}
+                />
+              </ListItem>
+            ))}
+          </List>
+          {a.pages > 1 && (
+            <Pagination count={a.pages} page={a.page} onChange={(_, p) => setPage(p)} sx={{ display: "flex", justifyContent: "center", mt: 1 }}
+              getItemAriaLabel={(type, p) => (type === "page" ? t("accounts.page", { page: String(p) }) : t(`accounts.pageNav.${type}`))} />
+          )}
+        </>
       )}
     </Paper>
   );
@@ -457,14 +500,14 @@ function ServerNav({ section, wide }: { section: ServerSection; wide: boolean })
 }
 
 /** "All good", or what needs attention, each a link to the section where it is fixed (serverView.ts). */
-function HealthLine({ alerts, overview, mailReady, outdatedAccounts }: { alerts: OwnerAlert[] | null; overview: ServerOverview | null; mailReady: boolean; outdatedAccounts: number | null }) {
+function HealthLine({ unseenAlerts, overview, mailReady, outdatedAccounts }: { unseenAlerts: number | null; overview: ServerOverview | null; mailReady: boolean; outdatedAccounts: number | null }) {
   const t = useT();
   const { language } = useApp();
-  const items = serverHealth({ alerts, overview, mailReady, outdatedAccounts, now: Date.now() });
-  if (alerts === null || overview === null) return null;
+  const items = serverHealth({ unseenAlerts, overview, mailReady, outdatedAccounts });
+  if (unseenAlerts === null || overview === null) return null;
   const n = (v: number) => formatNumber(v, language);
   const text = (item: HealthItem) =>
-    item.kind === "alerts" ? t(item.count === 1 ? "server.health.alertsOne" : "server.health.alerts", { count: n(item.count) })
+    item.kind === "alerts" ? t(item.count === 1 ? "server.health.unseenAlertsOne" : "server.health.unseenAlerts", { count: n(item.count) })
     : item.kind === "migrations" ? t("server.health.migrations", { count: n(item.count) })
     : item.kind === "versions" ? t(item.count === 1 ? "server.health.versionsOne" : "server.health.versions", { count: n(item.count) })
     : t("server.health.mail");
@@ -500,7 +543,7 @@ export function ServerPage({ section }: { section: ServerSection }) {
   const [accountChanges, setAccountChanges] = useState(0);
   const admin = me?.isPlatformAdmin === true;
   const overview = useLoad(() => (admin ? getServerOverview() : Promise.resolve(null as unknown as ServerOverview)), [accountChanges, admin]);
-  const alerts = useLoad(() => (admin ? getOwnerAlerts() : Promise.resolve({ alerts: [], thresholds: {} })), [admin]);
+  const alerts = useLoad(() => (admin ? getOwnerAlerts() : Promise.resolve(null as unknown as OwnerAlertsPage)), [admin]);
   // The Collect Earth versions in use: the System section's card and the health line
   const versions = useLoad(() => (admin ? getCollectEarthVersions() : Promise.resolve(null as unknown as CollectEarthVersions)), [admin]);
   const unsaved = useUnsavedGroups();
@@ -555,11 +598,11 @@ export function ServerPage({ section }: { section: ServerSection }) {
         <Stack direction={wide ? "row" : "column"} spacing={3} sx={{ alignItems: wide ? "flex-start" : "stretch" }}>
           <ServerNav section={section} wide={wide} />
           <Stack spacing={3} sx={{ flex: 1, minWidth: 0 }} component="main" aria-label={t(`server.section.${section}`)}>
-            <HealthLine alerts={alerts.data?.alerts ?? null} overview={overview.data ?? null} mailReady={info.selfServiceReset === true}
+            <HealthLine unseenAlerts={alerts.data?.unseen ?? null} overview={overview.data ?? null} mailReady={info.selfServiceReset === true}
               outdatedAccounts={versions.data?.outdatedAccounts ?? null} />
             {section === "overview" && (
               <>
-                <AlertsCard />
+                <AlertsCard onSeen={alerts.reload} />
                 <OverviewFigures overview={overview} />
               </>
             )}
