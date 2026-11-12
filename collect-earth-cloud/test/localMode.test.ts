@@ -198,6 +198,8 @@ describe('LOCAL_MODE server', () => {
       `/csv-files/${fileId}/content`,
       '/cep',
       '/export.csv',
+      '/export.csv?since=last&lang=es&labels=include',
+      '/export/choices',
       '/exports/people',
       '/exports/daily',
       '/exports/collect-backup/summary',

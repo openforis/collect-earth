@@ -6,15 +6,19 @@ import { bearerToken } from '../auth.js';
 import type { Config } from '../config.js';
 import { attachment } from '../download.js';
 import { NOTE_SUMMARY_KEY, noteColumn, zipCep } from '../cep.js';
-import { exportRoundOf, recordsCsv, recordsTable } from '../export.js';
+import type { AnalysisModel } from '../analysis.js';
+import { answerLabels, csvFormatOf, exportRoundOf, recordsCsv, recordsTable, type ExportOptions } from '../export.js';
 import { storageSummary } from '../limits.js';
 import { geojsonOf, kmlOf, rowGeometries, shapefileOf } from '../mapExport.js';
 import { finalAnswers, recordResolver } from '../quality.js';
 import { loadPlotContext } from '../qualityService.js';
 import type { Store } from '../store/store.js';
-import { PROJECT_STATUSES, STATUS_MOVES, type ProjectStatus, type RecordRow, type User } from '../types.js';
+import { QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR } from '../surveyOutline.js';
+import { PROJECT_STATUSES, STATUS_MOVES, type AuditDetails, type EventCursor, type ProjectStatus, type RecordRow, type User } from '../types.js';
 import { copyProject } from '../projectCopy.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
+import { factorsByRecord, firstAssessments, projectFactors } from './analysis.js';
+import { surveyOf } from './areas.js';
 import { PlotPlaceReader } from './plotPlaces.js';
 
 interface SurveyBody {
@@ -283,14 +287,18 @@ export async function registerProjectRoutes(
       // The plots of every plot file, read as the division reads them, so a record gets
       // the same plot and round here as in the division and the plot files served; and
       // the coordinator's decisions, by plot unit as the quality figures pair records.
-      const [all, context, decisions, members] = await Promise.all([
-        store.listRecordSummaries(projectId),
+      const [all, context, decisions, members, parsed] = await Promise.all([
+        store.listRecordSummaries(projectId, { firstSubmissions: true }),
         loadPlotContext(store, projectId, request.log),
         store.listQualityDecisions(projectId),
         store.listMembers(projectId),
+        surveyOf(store, projectId),
       ]);
+      const query = (request.query ?? {}) as { excluded?: unknown; lang?: unknown; labels?: unknown };
+      const choice = await recordsChoice(store, request, parsed.model);
+      if (typeof choice === 'string') return reply.code(400).send({ error: 'bad_request', reason: choice });
       // The records of people left out of the results are not in it, unless ?excluded=include.
-      const excluded = (request.query as { excluded?: string } | undefined)?.excluded === 'include' ? new Set<string>() : new Set(members.filter((m) => m.excluded).map((m) => m.username));
+      const excluded = query.excluded === 'include' ? new Set<string>() : new Set(members.filter((m) => m.excluded).map((m) => m.username));
       const records = excluded.size > 0 ? all.filter((r) => !excluded.has(r.operator)) : all;
       const { info, units, copyHolders, reference } = context;
       // Reference plots (Task 14) are never decided: their round 2 measures the collectors
@@ -305,7 +313,19 @@ export async function registerProjectRoutes(
         return reply.code(400).send({ error: 'bad_request', reason: 'a map file always has the plot locations' });
       }
       if (noPositions) for (const r of records) for (const k of Object.keys(r.summary)) if (isPositionKey(k)) leaveOut.add(k);
-      const args = [records, exportRoundOf(info, units, copyHolders), finalOf, (r: RecordRow) => reference.size > 0 && reference.has(resolve(r).group), leaveOut] as const;
+      // The plots' expansion factors and weights, as the analysis has them: over every first assessment of the project
+      const firsts = firstAssessments(all, resolve);
+      const factors = await projectFactors(store, projectId, parsed, firsts, info);
+      // The person's language (?lang=): the CSV's separators, and the labels of the answers when asked (?labels=include)
+      const language = typeof query.lang === 'string' ? query.lang : 'en';
+      const labels = query.labels === 'include';
+      const options: ExportOptions = {
+        keep: choice.keep,
+        labelsOf: labels ? answerLabels(parsed.model, language) : undefined,
+        weights: factors ? factorsByRecord(factors, firsts) : undefined,
+        format: csvFormatOf(language),
+      };
+      const args = [records, exportRoundOf(info, units, copyHolders), finalOf, (r: RecordRow) => reference.size > 0 && reference.has(resolve(r).group), leaveOut, options] as const;
       let body: string | Buffer;
       if (format === 'csv') {
         body = recordsCsv(...args);
@@ -319,11 +339,77 @@ export async function registerProjectRoutes(
           : format === 'kml' ? kmlOf(table, geometries, project.name)
           : zipCep(shapefileOf(table, geometries, 'plots', new Date()), new Date());
       }
-      await audit(store, request, 'export.downloaded', { records: records.length, ...(format === 'csv' ? {} : { format }), ...(noPositions ? { coordinates: false } : {}) });
+      const count = choice.keep ? records.filter(choice.keep).length : records.length;
+      await audit(store, request, 'export.downloaded', { records: count, ...(format === 'csv' ? {} : { format }), ...(noPositions ? { coordinates: false } : {}), ...(labels ? { labels: true } : {}), ...choice.details });
       return reply
         .header('content-type', type)
         .header('content-disposition', attachment(`${project.name}-${file}`, `export-${file}`))
         .send(body);
     },
   );
+
+  // What the data download's "Records to download" offers (admin): when this person last downloaded the data, and the
+  // survey's plot questions, with the code lists of the code ones, to keep the records with an answer.
+  app.get(
+    '/v1/projects/:pid/export/choices',
+    { preHandler: requireProjectMembership(store, 'admin') },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const projectId = request.membership!.projectId;
+      const [{ model }, lastDownload] = await Promise.all([surveyOf(store, projectId), lastDataDownload(store, projectId, request.membership!.userId)]);
+      const questions = model.tables[0].columns.map((c) => ({ key: c.key, name: c.name, labels: c.labels, list: c.type === 'code' && c.list && model.lists[c.list] ? c.list : null }));
+      const lists = Object.fromEntries(questions.flatMap((q) => (q.list ? [[q.list, model.lists[q.list]]] : [])));
+      return reply.header('cache-control', 'no-store').send({ lastDownload, languages: model.languages, questions, lists });
+    },
+  );
+}
+
+/**
+ * When this person last downloaded the data (an `export.downloaded` without a kind: the activity files, the backups and
+ * the analysis file have one), or null: never, or no person (a project token).
+ */
+async function lastDataDownload(store: Store, projectId: string, userId: string | undefined): Promise<number | null> {
+  if (!userId) return null;
+  const limit = 100;
+  for (let before: EventCursor | undefined; ; ) {
+    const page = await store.listAudit(projectId, { limit, actor: userId, action: 'export.downloaded', before });
+    const found = page.find((e) => e.details.kind === undefined);
+    if (found) return found.at;
+    if (page.length < limit) return null;
+    before = { at: page[limit - 1].at, id: page[limit - 1].id };
+  }
+}
+
+/**
+ * The records a download keeps (the dashboard's "Records to download"), and what to note of the choice in the log; or
+ * why the query is wrong. `?since=` an ISO date or time, or `last` (this person's last download of the data; none: every
+ * record): the records changed (modifiedOn) since then. `?question=` a summary key of the survey's plot and `?value=`:
+ * the records with that answer, exactly (a code question: one of its codes).
+ */
+async function recordsChoice(store: Store, request: FastifyRequest, model: AnalysisModel): Promise<string | { keep?: (r: RecordRow) => boolean; details: AuditDetails }> {
+  const q = (request.query ?? {}) as { since?: unknown; question?: unknown; value?: unknown };
+  const tests: ((r: RecordRow) => boolean)[] = [];
+  const details: AuditDetails = {};
+  if (q.since !== undefined) {
+    const last = q.since === 'last';
+    const since = last
+      ? await lastDataDownload(store, request.membership!.projectId, request.membership!.userId)
+      : typeof q.since === 'string' && /^\d{4}-\d{2}-\d{2}/.test(q.since) ? Date.parse(q.since) : Number.NaN;
+    if (since !== null && !Number.isFinite(since)) return 'The date to download the records changed since is not a date (2026-11-01).';
+    details.since = since;
+    if (last) details.sinceLast = true;
+    if (since !== null) tests.push((r) => r.modifiedOn >= since);
+  }
+  if (q.question !== undefined) {
+    const question = model.tables[0].columns.find((c) => c.key === q.question);
+    if (!question) return 'The question to keep the records by is not a question of the survey.';
+    const value = q.value;
+    if (typeof value !== 'string' || value === '') return 'Give the answer to keep the records by.';
+    const { key } = question;
+    tests.push(question.type === 'code'
+      ? (r) => (r.summary[key] ?? '').split(SUMMARY_VALUES_SEPARATOR).some((v) => v.split(QUALIFIER_SEPARATOR)[0] === value)
+      : (r) => r.summary[key] === value);
+    // the question only: the log holds ids and counts, never answers
+    details.question = key;
+  }
+  return { keep: tests.length > 0 ? (r) => tests.every((test) => test(r)) : undefined, details };
 }

@@ -491,7 +491,7 @@ export async function registerTrainingRoutes(
     const what = (request.query as { what?: string } | undefined)?.what === 'answers' ? 'answers' : 'scores';
     const loaded = await loadSet(store, projectId, setIdOf(request), deps.outline, request.log);
     if (!loaded) return reply.code(404).send({ error: 'not_found' });
-    const csv = `\uFEFF${exportRows(loaded, what).map((r) => r.map(csvField).join(',')).join('\r\n')}\r\n`;
+    const csv = `\uFEFF${exportRows(loaded, what).map((r) => r.map((v) => csvField(v)).join(',')).join('\r\n')}\r\n`;
     const name = `${loaded.set.name.replace(/[^\p{L}\p{N}_-]+/gu, '_').slice(0, 60) || 'training'}-${what}-${new Date(now()).toISOString().slice(0, 10)}.csv`;
     await audit(store, request, 'export.downloaded', { kind: `training_${what}`, completed: true });
     return reply.header('content-type', 'text/csv; charset=utf-8').header('content-disposition', attachment(name)).send(csv);
