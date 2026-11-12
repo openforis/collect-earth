@@ -1733,16 +1733,53 @@ export async function saveDistribution(projectId: string, csvFileId: string, dis
   return toDistributionState(await request<unknown>("PUT", `${f(projectId, csvFileId)}/distribution`, { json }));
 }
 
-/** Gives every plot `fromUserId` has not submitted to `toUserId`. */
+/**
+ * Gives the plots `fromUserId` has not submitted to `toUserId`: all of them, or (`which`) `count` of the plots
+ * they have to assess (the last of their list), or only `plots` (picked on the map).
+ */
 export async function moveUnfinished(
   projectId: string,
   csvFileId: string,
   fromUserId: string,
   toUserId: string,
+  which: { count?: number; plots?: string[] } = {},
 ): Promise<DistributionState & { moved: number; notMoved: number; droppedChecks: number }> {
-  const body = await request<Record<string, unknown>>("POST", `${f(projectId, csvFileId)}/move-unfinished`, { json: { fromUserId, toUserId } });
+  const body = await request<Record<string, unknown>>("POST", `${f(projectId, csvFileId)}/move-unfinished`, { json: { fromUserId, toUserId, ...which } });
   // notMoved: kept with `from` (`to` assessed or checked them); droppedChecks: copies to compare of plots `to` collects.
   return { ...toDistributionState(body), moved: toCount(body?.moved), notMoved: toCount(body?.notMoved), droppedChecks: toCount(body?.droppedChecks) };
+}
+
+/** A rebalance's plan: each person's plots still to assess before (`left`) and after (`target`), and the moves. */
+export interface RebalancePlan {
+  left: Record<string, number>;
+  target: Record<string, number>;
+  moves: { from: string; to: string; count: number }[];
+}
+
+/**
+ * Shares again the plots still to assess of `people` by their weights (1 and 1: equally; 0: gives all away); what is
+ * submitted stays. `dryRun`: the plan only, nothing saved. A file given whole has nothing to share (ApiError 409).
+ */
+export async function rebalance(
+  projectId: string,
+  csvFileId: string,
+  people: { userId: string; weight: number }[],
+  dryRun: boolean,
+): Promise<RebalancePlan & { saved: boolean; moved: number; notMoved: number; state: DistributionState | null }> {
+  const body = await request<Record<string, unknown>>("POST", `${f(projectId, csvFileId)}/rebalance`, { json: { people, dryRun } });
+  const counts = (v: unknown): Record<string, number> =>
+    Object.fromEntries(Object.entries(obj(v)).map(([k, n]) => [k, toCount(n)]));
+  const moves = list(body?.moves).map((m) => ({ from: text(m.from), to: text(m.to), count: toCount(m.count) }));
+  const saved = body?.saved === true;
+  return {
+    left: counts(body?.left),
+    target: counts(body?.target),
+    moves,
+    saved,
+    moved: toCount(body?.moved),
+    notMoved: toCount(body?.notMoved),
+    state: saved ? toDistributionState(body) : null,
+  };
 }
 
 // --- quality ---------------------------------------------------------------------------------

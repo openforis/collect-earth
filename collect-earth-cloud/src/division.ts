@@ -512,6 +512,10 @@ export function divide(
  * - otherwise `to` already holds it the same way, and `from` simply loses it.
  * `moved` counts the plots `from` gave up, apart from the dropped checks. What is done
  * (holdingDone) never moves: a copy whose main assessment `from` did stays theirs.
+ *
+ * `which` narrows what moves (all of it when left out): `plots`, only those plots (main or
+ * copy, a selection on the map); `count`, only that many of `from`'s plots to assess (main,
+ * not copies), the last ones of their list, so that `from` goes on with the ones next in line.
  */
 export function moveUnfinished(
   holdings: readonly PlotAssignment[],
@@ -519,8 +523,21 @@ export function moveUnfinished(
   to: string,
   submittedBy: SubmittedBy,
   plotOf: (unit: string) => string = (unit) => unit,
+  which: { plots?: ReadonlySet<string>; count?: number } = {},
 ): { plots: PlotAssignment[]; moved: number; notMoved: number; droppedChecks: number } {
   const copiesOf = holdings.map((a) => ({ ...a }));
+  // The rows of `from` that may move: all not done, else those of `which`
+  const movable = new Set<number>();
+  copiesOf.forEach((a, i) => {
+    if (a.userId !== from || holdingDone(submittedBy, a)) return;
+    if (which.plots && !which.plots.has(a.plotKey)) return;
+    if (which.count !== undefined && a.overlap) return;
+    movable.add(i);
+  });
+  if (which.count !== undefined) {
+    const keep = [...movable].slice(0, Math.max(0, movable.size - Math.max(0, Math.floor(which.count))));
+    for (const i of keep) movable.delete(i);
+  }
   const toRows = new Map(copiesOf.filter((a) => a.userId === to).map((a) => [a.plotKey, a]));
   // The plots `to` holds copies of: through which units.
   const toCopyUnits = new Map<string, Set<string>>();
@@ -542,8 +559,8 @@ export function moveUnfinished(
   let moved = 0;
   let notMoved = 0;
   let droppedChecks = 0;
-  for (const a of copiesOf) {
-    if (a.userId !== from || holdingDone(submittedBy, a)) {
+  for (const [i, a] of copiesOf.entries()) {
+    if (!movable.has(i)) {
       plots.push(a);
       continue;
     }
@@ -582,6 +599,71 @@ export function moveUnfinished(
     }
   }
   return { plots, moved, notMoved, droppedChecks };
+}
+
+/** One person's part of a rebalance: who, and how much of what is left they should end with. */
+export interface RebalanceShare {
+  userId: string;
+  /** Relative: 1 and 1 share equally, 2 and 1 two thirds and one third, 0 gives everything away. */
+  weight: number;
+}
+
+/** A move of a rebalance: `count` plots to assess from `from` to `to`. */
+export interface RebalanceMove {
+  from: string;
+  to: string;
+  count: number;
+}
+
+/**
+ * What a rebalance moves: the plots still to assess (main, not done, not copies) of the people of
+ * `shares`, shared again by their weights (largest remainder, so the shares add up). Each person
+ * over their share gives the rest to those under it, in the order of `shares`. Moves only plots
+ * left: what is submitted stays with whoever did it. `left` is each person's count before.
+ */
+export function rebalancePlan(
+  holdings: readonly PlotAssignment[],
+  submittedBy: SubmittedBy,
+  shares: readonly RebalanceShare[],
+): { left: Record<string, number>; target: Record<string, number>; moves: RebalanceMove[] } {
+  const left: Record<string, number> = {};
+  for (const s of shares) left[s.userId] = 0;
+  for (const a of holdings) {
+    if (a.overlap || !(a.userId in left) || holdingDone(submittedBy, a)) continue;
+    left[a.userId] += 1;
+  }
+  const total = Object.values(left).reduce((x, y) => x + y, 0);
+  const weights = shares.map((s) => Math.max(0, Number.isFinite(s.weight) ? s.weight : 0));
+  const sum = weights.reduce((x, y) => x + y, 0);
+  const target: Record<string, number> = {};
+  if (sum <= 0) {
+    for (const s of shares) target[s.userId] = left[s.userId];
+    return { left, target, moves: [] };
+  }
+  const exact = weights.map((w) => (total * w) / sum);
+  const floors = exact.map(Math.floor);
+  let rest = total - floors.reduce((x, y) => x + y, 0);
+  const byRemainder = exact.map((e, i) => ({ i, r: e - floors[i] })).sort((a, b) => b.r - a.r || a.i - b.i);
+  for (const { i } of byRemainder) {
+    if (rest <= 0) break;
+    floors[i] += 1;
+    rest -= 1;
+  }
+  shares.forEach((s, i) => (target[s.userId] = floors[i]));
+  const givers = shares.map((s) => ({ id: s.userId, n: left[s.userId] - target[s.userId] })).filter((g) => g.n > 0);
+  const takers = shares.map((s) => ({ id: s.userId, n: target[s.userId] - left[s.userId] })).filter((g) => g.n > 0);
+  const moves: RebalanceMove[] = [];
+  for (const g of givers) {
+    for (const k of takers) {
+      if (g.n === 0) break;
+      if (k.n === 0) continue;
+      const count = Math.min(g.n, k.n);
+      moves.push({ from: g.id, to: k.id, count });
+      g.n -= count;
+      k.n -= count;
+    }
+  }
+  return { left, target, moves };
 }
 
 /** A submitted record: saved with "Submit" in Collect Earth, not deleted. */

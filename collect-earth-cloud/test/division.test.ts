@@ -14,6 +14,7 @@ import {
   summarize,
   type SubmittedBy,
   type Submitters,
+  rebalancePlan,
 } from '../src/division.js';
 import { nearbyOrder, nearbyRanks } from '../src/nearby.js';
 import type { RoundInfo } from '../src/cep.js';
@@ -727,5 +728,74 @@ describe('keptBy: a check begun stays with its copy when checks have no key of t
     const withRound = [row('1,1', 'ana', true), row('1,2', 'ben', false)];
     const submitted = submittedByPlot(withRound, plots, users, added, copyHolders);
     expect(keptBy(submitted, withRound, plots, users, added, copyHolders)).toBe(submitted);
+  });
+});
+
+describe('moveUnfinished, a part of the plots', () => {
+  const none: SubmittedBy = new Map();
+  const list = (user: string, keys: string[]): PlotAssignment[] => keys.map((plotKey) => ({ plotKey, userId: user, overlap: false }));
+
+  it('moves `count` plots to assess, the last of the list, never copies nor what is done', () => {
+    const holdings = [...list('a', ['1', '2', '3', '4', '5']), { plotKey: '9', userId: 'a', overlap: true }];
+    const result = moveUnfinished(holdings, 'a', 'b', mainBy([['5', ['a']]]), undefined, { count: 2 });
+    // 5 is done (stays), 9 is a copy (stays): 3 and 4, the last two to assess, go
+    expect(result.moved).toBe(2);
+    expect(result.plots.filter((p) => p.userId === 'b').map((p) => p.plotKey)).toEqual(['3', '4']);
+    expect(result.plots.filter((p) => p.userId === 'a').map((p) => p.plotKey)).toEqual(['1', '2', '5', '9']);
+  });
+
+  it('moves no more than there is, and nothing for a count of 0', () => {
+    expect(moveUnfinished(list('a', ['1', '2']), 'a', 'b', none, undefined, { count: 10 }).moved).toBe(2);
+    expect(moveUnfinished(list('a', ['1', '2']), 'a', 'b', none, undefined, { count: 0 }).moved).toBe(0);
+  });
+
+  it('moves only the plots given (a selection on the map), copies of them too', () => {
+    const holdings = [...list('a', ['1', '2', '3']), { plotKey: '7', userId: 'a', overlap: true }];
+    const result = moveUnfinished(holdings, 'a', 'b', none, undefined, { plots: new Set(['2', '7', '42']) });
+    expect(result.moved).toBe(2);
+    expect(result.plots.filter((p) => p.userId === 'b')).toEqual([
+      { plotKey: '2', userId: 'b', overlap: false },
+      { plotKey: '7', userId: 'b', overlap: true },
+    ]);
+  });
+});
+
+describe('rebalancePlan', () => {
+  const list = (user: string, n: number, from = 0): PlotAssignment[] =>
+    Array.from({ length: n }, (_, i) => ({ plotKey: `${user}${from + i}`, userId: user, overlap: false }));
+
+  it('shares what is left equally: who has more gives to who has less', () => {
+    const plan = rebalancePlan([...list('a', 10), ...list('b', 2), ...list('c', 0)], new Map(), [
+      { userId: 'a', weight: 1 },
+      { userId: 'b', weight: 1 },
+      { userId: 'c', weight: 1 },
+    ]);
+    expect(plan.left).toEqual({ a: 10, b: 2, c: 0 });
+    expect(plan.target).toEqual({ a: 4, b: 4, c: 4 });
+    expect(plan.moves).toEqual([
+      { from: 'a', to: 'b', count: 2 },
+      { from: 'a', to: 'c', count: 4 },
+    ]);
+  });
+
+  it('counts only plots to assess: not done, not copies; weights share them, 0 gives all away', () => {
+    const holdings = [...list('a', 6), { plotKey: 'x', userId: 'b', overlap: true }, ...list('b', 3)];
+    const done = mainBy([['a0', ['a']], ['a1', ['a']]]);
+    const plan = rebalancePlan(holdings, done, [
+      { userId: 'a', weight: 0 },
+      { userId: 'b', weight: 2 },
+      { userId: 'c', weight: 1 },
+    ]);
+    // a: 4 left (2 done), b: 3 (the copy not counted): 7 shared 0, 2/3, 1/3
+    expect(plan.left).toEqual({ a: 4, b: 3, c: 0 });
+    expect(plan.target).toEqual({ a: 0, b: 5, c: 2 });
+    expect(plan.moves).toEqual([
+      { from: 'a', to: 'b', count: 2 },
+      { from: 'a', to: 'c', count: 2 },
+    ]);
+  });
+
+  it('moves nothing when the weights are all 0', () => {
+    expect(rebalancePlan(list('a', 3), new Map(), [{ userId: 'a', weight: 0 }, { userId: 'b', weight: 0 }]).moves).toEqual([]);
   });
 });
