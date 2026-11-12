@@ -11897,7 +11897,7 @@ const tr: Catalogue = {
   "projects.fromCopy.help": "Koordinatörü olduğunuz bir projeyle aynı anket, parsel dosyaları ve ayarlar; verileri olmadan.",
   "projects.fromDesigner": "Anketi burada tasarlayın",
   "projects.comingSoon": "Yakında",
-  "projects.fromDesigner.help": "Anketi soruları, cevapları ve kurallarıyla en baştan panoda oluşturun; Collect'in anket tasarımcısında hazırlanmış bir proje dosyası gerekmez.",
+  "projects.fromDesigner.help": "Anketi soruları, yanıtları ve kurallarıyla en baştan panoda oluşturun; Collect'in anket tasarımcısında hazırlanmış bir proje dosyası gerekmez.",
   "projects.copyFrom": "Kopyalanacak proje",
   "backupImport.title": "Bir Collect Earth yedeğinden yeni proje",
   "backupImport.intro": "Bir Collect Earth projesini verilerinin yedeğinden bu sunucuya getirin: anketi ve zaten toplanmış parseller.",
