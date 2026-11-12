@@ -357,7 +357,7 @@ export function QualitySection({ data, self, projectId }: { data: PersonData; se
             {self ? (
               <Link {...linkProps(pathFor({ name: "myQuality", projectId }))}>{t("myQuality.link")}</Link>
             ) : (
-              <Link {...linkProps(pathFor({ name: "project", projectId, tab: "quality" }))}>{t("person.openQuality")}</Link>
+              <Link {...linkProps(pathFor({ name: "project", projectId, tab: "quality", view: "figures" }))}>{t("person.openQuality")}</Link>
             )}
           </Typography>
         ) : (

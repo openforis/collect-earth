@@ -1,3 +1,4 @@
+import PersonAdd from "@mui/icons-material/PersonAddAlt";
 import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
 import Grid from "@mui/material/Grid";
@@ -40,6 +41,7 @@ import WarningAmber from "@mui/icons-material/WarningAmber";
 import Link from "@mui/icons-material/Link";
 import SwapHoriz from "@mui/icons-material/SwapHoriz";
 import LinkOff from "@mui/icons-material/LinkOff";
+import { ViewTabs } from "../components/ViewTabs";
 import { useState, type FormEvent } from "react";
 import { FormerMembers } from "../components/FormerMembers";
 import { MovePlotsDialog } from "../components/MovePlotsDialog";
@@ -92,7 +94,7 @@ import {
 } from "../peopleView";
 import { browserTimeZone, dayText, percentText } from "../progressView";
 import { formatRate } from "../qualityView";
-import { linkProps, pathFor } from "../router";
+import { linkProps, pathFor, type ProjectView } from "../router";
 import { useDownload } from "./useDownload";
 import { useLoad } from "../useLoad";
 import { TeamTimeSpent } from "../components/TimeSpent";
@@ -679,7 +681,7 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
       {!data.quality.available && (
         <Alert severity="info" sx={{ mb: 2 }}>
           {t("peopleTable.agreementNotYet")}{" "}
-          <MuiLink {...linkProps(pathFor({ name: "project", projectId, tab: "quality" }))}>{t("person.openQuality")}</MuiLink>
+          <MuiLink {...linkProps(pathFor({ name: "project", projectId, tab: "quality", view: "figures" }))}>{t("person.openQuality")}</MuiLink>
         </Alert>
       )}
       <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 1 }}>
@@ -796,12 +798,13 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
   );
 }
 
-export function PeopleTab({ projectId }: { projectId: string }) {
+export function PeopleTab({ projectId, view = "members" }: { projectId: string; view?: ProjectView<"people"> }) {
   const t = useT();
   const invites = useLoad(() => listInvites(projectId), [projectId]);
   const members = useLoad(() => listMembers(projectId), [projectId]);
   const timeZone = browserTimeZone();
   const people = useLoad(() => getPeople(projectId, timeZone), [projectId, timeZone]);
+  const [inviting, setInviting] = useState(false);
   const [created, setCreated] = useState<NewInvite | null>(null);
   const [revokeError, setRevokeError] = useState<unknown>(null);
 
@@ -815,91 +818,107 @@ export function PeopleTab({ projectId }: { projectId: string }) {
       setRevokeError(err);
     }
   };
+  const closeInvite = () => {
+    setInviting(false);
+    setCreated(null);
+  };
+  const openLinks = invites.data ?? [];
 
   return (
     <Stack spacing={3}>
-      {people.loading && !people.data ? (
-        <Loading />
-      ) : !people.data ? (
-        <ErrorAlert error={people.error} onRetry={people.reload} />
-      ) : (
+      <ViewTabs projectId={projectId} tab="people" current={view} label={t("people.views")} />
+      {view === "team" &&
+        (people.loading && !people.data ? (
+          <Loading />
+        ) : !people.data ? (
+          <ErrorAlert error={people.error} onRetry={people.reload} />
+        ) : (
+          <>
+            <WeekSection projectId={projectId} data={people.data} />
+            <WorkloadSection projectId={projectId} data={people.data} onMoved={people.reload} />
+            <PeopleTableSection projectId={projectId} data={people.data} />
+            <TeamTimeSpent projectId={projectId} people={people.data.people} />
+          </>
+        ))}
+      {view === "members" && (
         <>
-          <WeekSection projectId={projectId} data={people.data} />
-          <WorkloadSection projectId={projectId} data={people.data} onMoved={people.reload} />
-          <PeopleTableSection projectId={projectId} data={people.data} />
-          <TeamTimeSpent projectId={projectId} people={people.data.people} />
+          <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+            <Stack direction="row" spacing={2} useFlexGap sx={{ alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", mb: 1 }}>
+              <Typography variant="h2">{t("people.list")}</Typography>
+              <Stack direction="row" spacing={2} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                <Typography variant="body2">
+                  <RolesLink role="admin" />
+                </Typography>
+                <Button variant="contained" startIcon={<PersonAdd />} onClick={() => setInviting(true)}>
+                  {t("people.inviteTitle")}
+                </Button>
+              </Stack>
+            </Stack>
+            {members.loading && !members.data ? (
+              <Loading />
+            ) : members.error ? (
+              <ErrorAlert error={members.error} onRetry={members.reload} />
+            ) : (
+              <MemberList
+                projectId={projectId}
+                members={members.data ?? []}
+                onChanged={() => {
+                  members.reload();
+                  people.reload();
+                }}
+              />
+            )}
+          </Paper>
+
+          {/* The open links only when there are some: none is said on the invitation dialog */}
+          {(invites.error || openLinks.length > 0) && (
+            <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+              <Typography variant="h2" gutterBottom>
+                {t("people.openInvites")}
+              </Typography>
+              {invites.error ? <ErrorAlert error={invites.error} onRetry={invites.reload} /> : <InviteList invites={openLinks} onRevoke={revoke} />}
+              {revokeError !== null && (
+                <Box sx={{ mt: 2 }}>
+                  <ErrorAlert error={revokeError} />
+                </Box>
+              )}
+            </Paper>
+          )}
           <FormerMembers projectId={projectId} />
         </>
       )}
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-        <Typography variant="h2" gutterBottom>
-          {t("people.inviteTitle")}
-        </Typography>
-        <Typography color="text.secondary" sx={{ mb: 2 }}>
-          {t("people.inviteIntro")}
-        </Typography>
-        <InviteForm
-          projectId={projectId}
-          onCreated={(invite) => {
-            setCreated(invite);
-            invites.reload();
-            people.reload();
-          }}
-        />
-        {created && (
-          <Box sx={{ mt: 3 }}>
-            <Divider sx={{ mb: 3 }} />
-            <Alert severity="success" role="status" sx={{ mb: 2 }}>
-              <strong>{t("people.linkReady")}</strong> {t("people.linkOnce")}
-            </Alert>
-            <Typography variant="h3" gutterBottom>
-              {t("people.stepsTitle")}
-            </Typography>
-            <JoinSteps link={created.joinUrl} />
-          </Box>
-        )}
-      </Paper>
 
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-        <Typography variant="h2" gutterBottom>
-          {t("people.openInvites")}
-        </Typography>
-        {invites.loading && !invites.data ? (
-          <Loading />
-        ) : invites.error ? (
-          <ErrorAlert error={invites.error} onRetry={invites.reload} />
-        ) : (
-          <InviteList invites={invites.data ?? []} onRevoke={revoke} />
-        )}
-        {revokeError !== null && (
-          <Box sx={{ mt: 2 }}>
-            <ErrorAlert error={revokeError} />
-          </Box>
-        )}
-      </Paper>
-
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-        <Stack direction="row" spacing={2} useFlexGap sx={{ alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", mb: 1 }}>
-          <Typography variant="h2">{t("people.list")}</Typography>
-          <Typography variant="body2">
-            <RolesLink role="admin" />
+      <Dialog open={inviting} onClose={closeInvite} fullWidth maxWidth="md" aria-labelledby="invite-title">
+        <DialogTitle id="invite-title">{t("people.inviteTitle")}</DialogTitle>
+        <DialogContent>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>
+            {t("people.inviteIntro")}
           </Typography>
-        </Stack>
-        {members.loading && !members.data ? (
-          <Loading />
-        ) : members.error ? (
-          <ErrorAlert error={members.error} onRetry={members.reload} />
-        ) : (
-          <MemberList
+          <InviteForm
             projectId={projectId}
-            members={members.data ?? []}
-            onChanged={() => {
-              members.reload();
+            onCreated={(invite) => {
+              setCreated(invite);
+              invites.reload();
               people.reload();
             }}
           />
-        )}
-      </Paper>
+          {created && (
+            <Box sx={{ mt: 3 }}>
+              <Divider sx={{ mb: 3 }} />
+              <Alert severity="success" role="status" sx={{ mb: 2 }}>
+                <strong>{t("people.linkReady")}</strong> {t("people.linkOnce")}
+              </Alert>
+              <Typography variant="h3" gutterBottom>
+                {t("people.stepsTitle")}
+              </Typography>
+              <JoinSteps link={created.joinUrl} />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeInvite}>{t("common.close")}</Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }

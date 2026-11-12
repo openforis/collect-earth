@@ -247,7 +247,7 @@ function Downloads({ projectId }: { projectId: string }) {
             </Typography>
             {error?.kind === d.kind &&
               (error.error instanceof ApiError && error.error.code === "no_figures" ? (
-                <Alert severity="info" sx={{ mt: 1 }} action={<Button {...linkProps(pathFor({ name: "project", projectId, tab: "quality" }))}>{t("activity.openQuality")}</Button>}>
+                <Alert severity="info" sx={{ mt: 1 }} action={<Button {...linkProps(pathFor({ name: "project", projectId, tab: "quality", view: "figures" }))}>{t("activity.openQuality")}</Button>}>
                   {t("activity.noFigures.short")}
                   <MoreInfo text={t("activity.noFigures")} />
                 </Alert>

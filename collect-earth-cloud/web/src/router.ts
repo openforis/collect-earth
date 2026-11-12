@@ -8,12 +8,29 @@ import { useSyncExternalStore, type MouseEvent } from "react";
 export const PROJECT_TABS = ["progress", "setup", "file", "people", "plots", "map", "data", "quality", "training", "activity", "settings"] as const;
 export type ProjectTab = (typeof PROJECT_TABS)[number];
 
+/**
+ * The tabs split into views, each with its own address (/projects/<id>/quality/checks); the first is the tab's own
+ * address. A tab not listed has one page.
+ */
+export const PROJECT_VIEWS = {
+  quality: ["review", "checks", "figures", "notes"],
+  people: ["members", "team"],
+} as const satisfies Partial<Record<ProjectTab, readonly string[]>>;
+export type ViewTab = keyof typeof PROJECT_VIEWS;
+export type ProjectView<T extends ViewTab = ViewTab> = (typeof PROJECT_VIEWS)[T][number];
+
+/** A tab's view from an address part: the first view when none or not one of them. */
+export function viewOf<T extends ViewTab>(tab: T, view: string | undefined): ProjectView<T> {
+  const views = PROJECT_VIEWS[tab] as readonly string[];
+  return (view && views.includes(view) ? view : views[0]) as ProjectView<T>;
+}
+
 export type Route =
   | { name: "home" }
   | { name: "setup" }
   | { name: "login" }
   | { name: "signup" }
-  | { name: "project"; projectId: string; tab: ProjectTab }
+  | { name: "project"; projectId: string; tab: ProjectTab; view?: string }
   /** One plot file of a project, where its plots are divided between people (under the Plot files tab). */
   | { name: "plotFile"; projectId: string; fileId: string }
   /** One training set's page (coordinators), under the Training tab. */
@@ -122,6 +139,11 @@ export function matchRoute(pathname: string): Route {
     const projectId = decode(second);
     if (projectId) return { name: "uncertainty", projectId };
   }
+  // A view of a tab split into views (before /people/<id>, a person's page: their ids are never a view's name)
+  if (first === "projects" && parts.length === 4 && third in PROJECT_VIEWS && (PROJECT_VIEWS[third as ViewTab] as readonly string[]).includes(fourth)) {
+    const projectId = decode(second);
+    if (projectId) return { name: "project", projectId, tab: third as ProjectTab, view: fourth };
+  }
   if (first === "projects" && parts.length === 4 && third === "people") {
     const projectId = decode(second);
     const userId = decode(fourth);
@@ -171,7 +193,9 @@ export function pathFor(route: Route): string {
     case "home":
       return "/";
     case "project":
-      return `/projects/${encodeURIComponent(route.projectId)}${route.tab === "progress" ? "" : `/${route.tab}`}`;
+      return `/projects/${encodeURIComponent(route.projectId)}${route.tab === "progress" ? "" : `/${route.tab}`}${
+        route.view && route.tab in PROJECT_VIEWS && route.view !== PROJECT_VIEWS[route.tab as ViewTab][0] ? `/${route.view}` : ""
+      }`;
     case "plotFile":
       return `/projects/${encodeURIComponent(route.projectId)}/plots/${encodeURIComponent(route.fileId)}`;
     case "trainingSet":
