@@ -22,20 +22,15 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 /**
- * Keeps the plots map window open while Collect Earth runs: the window holds the data entry form, and closed it leaves
- * the user no way to fill in a plot, nor to know how to get it back (only a Tools menu item of the main window did). A
- * browser window cannot refuse to close, so it is opened again soon after, and laid out again where it was. When and
- * when not is decided by {@link PlotsMapReopening}.
+ * Keeps Google Earth Web's window open while Collect Earth runs: the plots map in its panel holds the data entry form,
+ * and closed it leaves the user no way to fill in a plot, nor to know how to get it back. A browser window cannot refuse
+ * to close, so it is opened again soon after, and laid out again where it was. When and when not is decided by
+ * {@link PlotsMapReopening}.
  * <p>
  * Watched from the moment the plots map first opens ({@link BrowserService#onLeafletMapOpened}), every
- * {@link #CHECK_PERIOD_SECONDS} seconds, with a {@code getWindowHandles()} to its browser (see
- * {@link WindowLayoutService#plotsMapWindow()}): a cheap call, which does not touch the page. Reopened only once two
- * checks in a row found it closed, as reopening a window that is in fact there reloads the form in it. "Arrange"
- * reopens it too, at once.
- * <p>
- * With the plots map inside Google Earth Web ({@link BrowserService#plotsMapInGoogleEarthWeb()}), the form is in Google
- * Earth Web's window, which is kept open the same way: watched from what Google Earth Web knows of its tab, and opened
- * again through {@link BrowserService#reopenLeafletMap}, which opens it in place of the plots map window.
+ * {@link #CHECK_PERIOD_SECONDS} seconds, from what Google Earth Web knows of its tab, and opened again through
+ * {@link BrowserService#reopenLeafletMap}. Reopened only once two checks in a row found it closed, as reopening a window
+ * that is in fact there reloads the form in it. "Arrange" reopens it too, at once.
  * <p>
  * Before reopening it, the user is asked whether they meant to quit ({@link ClosedWindowQuestion}): closing the main
  * window is how one quits most programs, and Collect Earth used to bring it back without a word, which left the icon in
@@ -56,12 +51,6 @@ public class PlotsMapKeeper {
 
 	@Autowired
 	private WindowLayoutService windowLayoutService;
-
-	@Autowired
-	private LocalPropertiesService localPropertiesService;
-
-	@Autowired
-	private PlotImageryService plotImageryService;
 
 	@Autowired
 	private GoogleEarthWebService googleEarthWebService;
@@ -108,13 +97,10 @@ public class PlotsMapKeeper {
 
 	private void check() {
 		try {
-			if (!reopening.shouldCheck(localPropertiesService.isPlotsMapViewer(), browserService.isClosing())) {
+			if (!reopening.shouldCheck(browserService.isClosing())) {
 				return;
 			}
-			// With the plots map inside Google Earth Web, the window that holds the form is Google Earth Web's
-			boolean inGoogleEarthWeb = browserService.plotsMapInGoogleEarthWeb();
-			if (inGoogleEarthWeb ? !googleEarthWebService.isClosed()
-					: windowLayoutService.plotsMapWindow() != WindowLayoutService.WindowState.CLOSED) {
+			if (!googleEarthWebService.isClosed()) {
 				reopening.foundOpen();
 				return;
 			}
@@ -132,20 +118,18 @@ public class PlotsMapKeeper {
 			}
 			// The answer took a while: the window may be back meanwhile (the tray icon, Arrange), and reopening it then
 			// would load the form again
-			if (inGoogleEarthWeb ? !googleEarthWebService.isClosed()
-					: windowLayoutService.plotsMapWindow() != WindowLayoutService.WindowState.CLOSED) {
+			if (!googleEarthWebService.isClosed()) {
 				reopening.foundOpen();
 				return;
 			}
-			logger.info("The {} window was closed, opening it again: it holds the form",
-					inGoogleEarthWeb ? "Google Earth Web" : "plots map");
+			logger.info("The Google Earth Web window was closed, opening it again: it holds the form");
 			boolean open;
 			try {
-				// On the plot that was open: the form comes back where the user was
-				open = browserService.reopenLeafletMap(plotImageryService.getSelectedPlotId());
-			} catch (BrowserNotFoundException | RuntimeException e) {
+				// On the plot shown last
+				open = browserService.reopenLeafletMap();
+			} catch (RuntimeException e) {
 				if (reopening.failed()) {
-					logger.warn("The plots map window could not be opened again, trying again in {} s: {}",
+					logger.warn("The Google Earth Web window could not be opened again, trying again in {} s: {}",
 							PlotsMapReopening.BACK_OFF.getSeconds(), e.getMessage());
 				}
 				return;
@@ -153,7 +137,7 @@ public class PlotsMapKeeper {
 			if (!open) {
 				// Collect Earth started closing meanwhile, or the browser could not be driven (logged where it failed)
 				if (!browserService.isClosing() && reopening.failed()) {
-					logger.warn("The plots map window could not be opened again, trying again in {} s",
+					logger.warn("The Google Earth Web window could not be opened again, trying again in {} s",
 							PlotsMapReopening.BACK_OFF.getSeconds());
 				}
 				return;
@@ -161,7 +145,7 @@ public class PlotsMapKeeper {
 			windowLayoutService.arrange();
 		} catch (RuntimeException e) {
 			// A scheduled task that throws is never run again: the window would stay closed for good
-			logger.warn("Could not check whether the plots map window is open", e);
+			logger.warn("Could not check whether the Google Earth Web window is open", e);
 		}
 	}
 

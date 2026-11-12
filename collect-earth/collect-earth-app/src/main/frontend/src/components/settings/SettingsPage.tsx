@@ -57,7 +57,7 @@ interface Props {
    */
   width: number;
   onClose: () => void;
-  /** The settings were applied without a restart: the app bar reads /api/app again (the viewer may have changed) */
+  /** The settings were applied without a restart: the app bar reads /api/app again (the project may have changed) */
   onApplied: () => void;
 }
 

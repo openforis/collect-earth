@@ -6,39 +6,33 @@ import { MENU_ICONS } from "./menuIcons";
 
 describe("appMenus", () => {
   it("keeps the order of the Swing menu bar", () => {
-    expect(appMenus({ plotsMap: true }).map((m) => m.id)).toEqual(["project", "data", "tools", "utilities", "settings", "help"]);
+    expect(appMenus({}).map((m) => m.id)).toEqual(["project", "data", "tools", "utilities", "settings", "help"]);
   });
 
   it("only enables what is built", () => {
-    const enabled = appMenus({ plotsMap: true }).flatMap((m) => m.items).filter((i) => i.enabled).map((i) => i.id);
+    const enabled = appMenus({}).flatMap((m) => m.items).filter((i) => i.enabled).map((i) => i.id);
     // Cloud sync status is a cloud project's (see "cloud and local projects")
     expect(enabled).toEqual(["importCep", "projects", "joinCloud", "language", "quit", "export", "import",
       "analyse", "lulucf", "loadKml", "dataFolder", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "properties",
       "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
     // The survey guide only when the survey has one, as the Swing menu showed it
-    expect(appMenus({ plotsMap: true, surveyGuide: true }).find((m) => m.id === "help")?.items[0].id).toBe("surveyGuide");
-  });
-
-  it("offers to open the plots map only with the Google Earth Pro viewer", () => {
-    const ids = (plotsMap: boolean) => appMenus({ plotsMap }).flatMap((m) => m.items).map((i) => i.id);
-    expect(ids(false)).toContain("openPlotsMap");
-    expect(ids(true)).not.toContain("openPlotsMap");
+    expect(appMenus({ surveyGuide: true }).find((m) => m.id === "help")?.items[0].id).toBe("surveyGuide");
   });
 
   it("has Show exception errors in Help, as a toggle, disabled until it is built", () => {
-    const help = appMenus({ plotsMap: true }).find((m) => m.id === "help")!;
-    const toggles = appMenus({ plotsMap: true }).flatMap((m) => m.items).filter((i) => i.kind === "toggle");
+    const help = appMenus({}).find((m) => m.id === "help")!;
+    const toggles = appMenus({}).flatMap((m) => m.items).filter((i) => i.kind === "toggle");
     expect(toggles.map((i) => i.id)).toEqual(["showExceptions"]);
     expect(help.items).toContainEqual({ id: "showExceptions", label: "CollectEarthMenu.9", enabled: true, kind: "toggle" });
   });
 
   it("opens the properties from the Settings menu", () => {
-    const settings = appMenus({ plotsMap: true }).find((m) => m.id === "settings")!;
+    const settings = appMenus({}).find((m) => m.id === "settings")!;
     expect(settings.items.map((i) => i.id)).toEqual(["properties"]);
   });
 
   it("has no entry twice", () => {
-    const ids = appMenus({ plotsMap: false }).flatMap((m) => [m.id, ...m.items.map((i) => "item." + i.id)]);
+    const ids = appMenus({}).flatMap((m) => [m.id, ...m.items.map((i) => "item." + i.id)]);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
@@ -47,7 +41,7 @@ describe("appMenus", () => {
     const file = resolve(import.meta.dirname, "../../resources/org/openforis/collect/earth/app/view/Messages.properties");
     const keys = new Set([...readFileSync(file, "latin1").matchAll(/^([^#!\s=:][^\s=:]*)\s*[=:]/gm)].map((m) => m[1]));
     const labels = [false, true].flatMap((cloud) =>
-      appMenus({ plotsMap: false, cloud }).flatMap((m) => [m.label, ...m.items.flatMap((i) => [i.label, i.disabledReason, i.note].filter((k): k is string => !!k))]));
+      appMenus({ cloud }).flatMap((m) => [m.label, ...m.items.flatMap((i) => [i.label, i.disabledReason, i.note].filter((k): k is string => !!k))]));
     expect(labels.filter((label) => !keys.has(label))).toEqual([]);
   });
 });
@@ -55,14 +49,14 @@ describe("appMenus", () => {
 describe("switch project", () => {
   it("is right under Import CEP file, in a local project and a cloud one", () => {
     for (const cloud of [false, true]) {
-      const project = appMenus({ plotsMap: true, cloud }).find((m) => m.id === "project")!.items.map((i) => i.id);
+      const project = appMenus({ cloud }).find((m) => m.id === "project")!.items.map((i) => i.id);
       expect(project.slice(0, 2)).toEqual(["importCep", "projects"]);
     }
   });
 });
 
 describe("cloud and local projects", () => {
-  const entry = (cloud: boolean, id: string) => appMenus({ plotsMap: true, cloud }).flatMap((m) => m.items).find((i) => i.id === id);
+  const entry = (cloud: boolean, id: string) => appMenus({ cloud }).flatMap((m) => m.items).find((i) => i.id === id);
 
   it("disables the import in a cloud project, whose sync would never send the imported records", () => {
     expect(entry(false, "import")).toEqual({ id: "import", label: "DataPage.import.menu", enabled: true });
@@ -92,8 +86,8 @@ describe("cloud and local projects", () => {
 
 describe("my dashboard", () => {
   it("is in the Tools menu, enabled: this computer's dashboard, or the cloud's page of a cloud project", () => {
-    const tools = (cloud: boolean) => appMenus({ plotsMap: true, cloud }).find((m) => m.id === "tools")?.items.map((i) => i.id);
-    const mine = (cloud: boolean) => appMenus({ plotsMap: true, cloud }).flatMap((m) => m.items).find((i) => i.id === "myDashboard");
+    const tools = (cloud: boolean) => appMenus({ cloud }).find((m) => m.id === "tools")?.items.map((i) => i.id);
+    const mine = (cloud: boolean) => appMenus({ cloud }).flatMap((m) => m.items).find((i) => i.id === "myDashboard");
     expect(mine(false)).toEqual({ id: "myDashboard", label: "LocalDashboard.menu", enabled: true });
     // The cloud's is a website with a sign-in of its own: its label says so, and its note names the server
     expect(mine(true)).toEqual({ id: "myDashboard", label: "LocalDashboard.cloudMenu", enabled: true, note: "LocalDashboard.cloudNote" });
@@ -105,17 +99,17 @@ describe("my dashboard", () => {
 
 describe("send this computer's records to the cloud project", () => {
   it("is in the Data menu, enabled only in a cloud project", () => {
-    const send = (cloud: boolean) => appMenus({ plotsMap: true, cloud }).find((m) => m.id === "data")?.items.find((i) => i.id === "sendToCloud");
+    const send = (cloud: boolean) => appMenus({ cloud }).find((m) => m.id === "data")?.items.find((i) => i.id === "sendToCloud");
     expect(send(true)).toEqual({ id: "sendToCloud", label: "CloudSend.menu", enabled: true });
     expect(send(false)).toEqual({ id: "sendToCloud", label: "CloudSend.menu", enabled: false, disabledReason: "CloudSend.notCloud" });
     // A client of another Collect Earth holds no records
-    expect(appMenus({ plotsMap: true, cloud: true, client: true }).flatMap((m) => m.items).map((i) => i.id)).not.toContain("sendToCloud");
+    expect(appMenus({ cloud: true, client: true }).flatMap((m) => m.items).map((i) => i.id)).not.toContain("sendToCloud");
   });
 });
 
 describe("client mode", () => {
   it("drops the entries that act on the data of this instance, as the Swing window disabled them", () => {
-    const menus = appMenus({ plotsMap: false, client: true });
+    const menus = appMenus({ client: true });
     expect(menus.map((m) => m.id)).toEqual(["project", "tools", "settings", "help"]);
     expect(menus.find((m) => m.id === "tools")?.items.map((i) => i.id)).toEqual(["lulucf"]);
   });
@@ -125,7 +119,7 @@ describe("the drawer of the compact bar", () => {
   const ids = (menus: ReturnType<typeof drawerSections>) => menus.sections.map((m) => m.id);
 
   it("shows the everyday menus first, the rare ones folded, and Quit last, out of its menu", () => {
-    const drawer = drawerSections(appMenus({ plotsMap: true }));
+    const drawer = drawerSections(appMenus({}));
     expect(ids(drawer)).toEqual(["project", "data", "tools", "settings", "utilities", "help"]);
     expect(drawer.sections.filter((m) => m.folds).map((m) => m.id)).toEqual(["utilities", "help"]);
     expect(drawer.quit?.id).toBe("quit");
@@ -133,7 +127,7 @@ describe("the drawer of the compact bar", () => {
   });
 
   it("has every entry of the menus, as appMenus made it, and no other", () => {
-    for (const context of [{ plotsMap: false, surveyGuide: true }, { plotsMap: true, cloud: true }, { plotsMap: true, client: true }]) {
+    for (const context of [{ surveyGuide: true }, { cloud: true }, { client: true }]) {
       const menus = appMenus(context);
       const drawer = drawerSections(menus);
       const entries = [...drawer.sections.flatMap((m) => m.items), ...(drawer.quit ? [drawer.quit] : [])];
@@ -142,13 +136,13 @@ describe("the drawer of the compact bar", () => {
   });
 
   it("keeps the filtering of a client and of a cloud project", () => {
-    expect(ids(drawerSections(appMenus({ plotsMap: false, client: true })))).toEqual(["project", "tools", "settings", "help"]);
-    const entries = drawerSections(appMenus({ plotsMap: true, cloud: true })).sections.flatMap((m) => m.items);
+    expect(ids(drawerSections(appMenus({ client: true })))).toEqual(["project", "tools", "settings", "help"]);
+    const entries = drawerSections(appMenus({ cloud: true })).sections.flatMap((m) => m.items);
     expect(entries.find((i) => i.id === "divideCsv")).toMatchObject({ enabled: false, disabledReason: "CollectEarthMenu.divideCsvCloud" });
   });
 
   it("shows Settings, a menu of one entry of the same name, as that entry alone", () => {
-    const sections = drawerSections(appMenus({ plotsMap: true })).sections;
+    const sections = drawerSections(appMenus({})).sections;
     expect(sections.filter((m) => !m.heading).map((m) => m.id)).toEqual(["settings"]);
   });
 
@@ -159,7 +153,7 @@ describe("the drawer of the compact bar", () => {
   });
 
   it("gives every entry an icon", () => {
-    const entries = appMenus({ plotsMap: false, surveyGuide: true }).flatMap((m) => m.items).map((i) => i.id);
+    const entries = appMenus({ surveyGuide: true }).flatMap((m) => m.items).map((i) => i.id);
     expect(entries.filter((id) => !(id in MENU_ICONS))).toEqual([]);
     // and none for an entry there is not
     expect(Object.keys(MENU_ICONS).filter((id) => !entries.includes(id))).toEqual([]);

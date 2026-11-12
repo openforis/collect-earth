@@ -24,6 +24,7 @@ import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 /**
@@ -33,7 +34,10 @@ import org.springframework.stereotype.Component;
  * {@link WindowLayoutService#arrangeAndBringForward()}). It was the servlet that the plots map calls; it is here so
  * that the window layout can call it too without depending on a controller.
  */
+// Not lazy: the application context creates its beans lazily (applicationContext.fmt), and the plots map opens through
+// this one (see openGoogleEarthWebForThePlotsMap) before anything else may have asked for it
 @Component
+@Lazy(false)
 public class PlotImageryService {
 
 	private final Logger logger = LoggerFactory.getLogger(PlotImageryService.class);
@@ -65,12 +69,6 @@ public class PlotImageryService {
 	private SimplePlacemarkObject requested;
 	/** The plot shown last, its sample points and outline filled in, with its selection; null before the first plot. */
 	private volatile Shown lastShown;
-	/**
-	 * The plot selected last in the plots map, which tells every selection (/openAuxiliaryWindows): a plots map the user
-	 * closed comes back on it. Kept apart from {@link #lastShown}, which is set on another thread, after the plot is
-	 * filled in, and not when the plot equals the one before.
-	 */
-	private volatile String selectedPlotId;
 	/** Where Google Earth Web was opened before any plot was selected; see {@link #openOverview}. */
 	private final AtomicReference<SimplePlacemarkObject> lastOverview = new AtomicReference<>();
 	/**
@@ -223,25 +221,10 @@ public class PlotImageryService {
 		kmlGenerator.fillExternalLine(placemark);
 	}
 
-	/** The plots map selected this plot (null or blank: an id is not known, the one before is kept). */
-	public void plotSelected(String plotId) {
-		if (plotId != null && !plotId.trim().isEmpty()) {
-			selectedPlotId = plotId;
-		}
-	}
-
-	/** The plot selected last in the plots map, or null before the first. */
-	public String getSelectedPlotId() {
-		return selectedPlotId;
-	}
-
-	/**
-	 * With the plots map inside Google Earth Web, Google Earth Web opens where the plots map window would (see
-	 * {@link BrowserService#plotsMapInGoogleEarthWeb()}).
-	 */
+	/** Opening the plots map opens Google Earth Web, with the plots map in its panel (see {@link BrowserService#openLeafletMap()}). */
 	@PostConstruct
 	void openGoogleEarthWebForThePlotsMap() {
-		browserService.showPlotsMapInGoogleEarthWebWith(plotId -> openForThePlotsMap());
+		browserService.showPlotsMapInGoogleEarthWebWith(this::openForThePlotsMap);
 	}
 
 	/** A source whose tab is shown loads the plot it was left (see {@link #loadInOtherSources}). */
@@ -256,19 +239,15 @@ public class PlotImageryService {
 
 	/**
 	 * Opens Google Earth Web for its panel to show the plots map: on the plot shown last, with the other sources, or
-	 * before any plot over the survey area, else from afar (the panel then moves it over the survey area, see panel.ts).
-	 * Returns at once; true unless there is no Google Earth Web to open.
+	 * before any plot over the survey area, else from afar (the panel then moves it over the survey area). Returns at
+	 * once.
 	 */
-	boolean openForThePlotsMap() {
-		if (!googleEarthWebService.isTheViewer()) {
-			return false;
-		}
+	void openForThePlotsMap() {
 		if (reopenImagery()) {
-			return true;
+			return;
 		}
 		SimplePlacemarkObject overview = lastOverview.get();
 		openOverview(overview != null ? overview : new SimplePlacemarkObject(new String[] { "0", "0" }));
-		return true;
 	}
 
 	/**
@@ -317,7 +296,7 @@ public class PlotImageryService {
 			return true;
 		}
 		SimplePlacemarkObject overview = lastOverview.get();
-		if (overview != null && browserService.enabledImagerySources().contains(ImagerySource.GOOGLE_EARTH_WEB)) {
+		if (overview != null) {
 			executor.submit(() -> googleEarthWebService.openOverview(overview));
 			return true;
 		}

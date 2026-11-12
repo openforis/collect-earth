@@ -19,7 +19,6 @@ import org.openforis.collect.earth.app.service.AbstractEarthSurveyService.PlotSt
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
-import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.PlotGeoJsonBuilder;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
@@ -229,14 +228,8 @@ public class LeafletMapController {
 	public void mapConfig(HttpServletResponse response) throws IOException {
 		response.setHeader("Content-Type", "application/json; charset=UTF-8");
 		Map<String, Object> config = new LinkedHashMap<>();
-		config.put("engine", localPropertiesService.getMapEngine());
-		String apiKey = localPropertiesService.getValue(EarthProperty.GOOGLE_MAPS_API_KEY);
-		config.put("googleMapsApiKey", apiKey == null ? "" : apiKey);
-		config.put("viewerType", localPropertiesService.getViewerType());
 		config.put("language", localPropertiesService.getUiLanguage().getLocale().getLanguage());
 		config.put("webForm", localPropertiesService.getWebForm());
-		// The plot's sample points numbered as the rows of a questions' table per point
-		config.put("samplePointNumbers", localPropertiesService.isSamplePointNumbers());
 		json.writeValue(response.getOutputStream(), config);
 	}
 

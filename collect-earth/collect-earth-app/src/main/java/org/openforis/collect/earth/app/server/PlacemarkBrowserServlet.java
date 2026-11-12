@@ -126,7 +126,6 @@ public class PlacemarkBrowserServlet {
 				placemarkObject.setPlacemarkId(plotId);
 				placemarkObject.setVisiblePlacemarkId(visiblePlacemarkId(plotId));
 			}
-			plotImageryService.plotSelected(plotId);
 			OpenBrowserThread browserThread = new OpenBrowserThread("Open auxiliary windows " + latLongCoordinates, placemarkObject);
 			browserThread.start();
 			response.setStatus(HttpServletResponse.SC_OK);
@@ -149,46 +148,13 @@ public class PlacemarkBrowserServlet {
 		}
 	}
 
-	// ---------- Google Earth Web (plot viewer "Plots map + Google Earth Web") ----------
+	// ---------- Google Earth Web ----------
 
 	/** What the Google Earth Web window is doing, shown in the plots map. */
 	@GetMapping(path = "/googleEarthWeb/status")
 	public void googleEarthWebStatus(HttpServletResponse response) throws IOException {
 		response.setHeader("Content-Type", "application/json; charset=UTF-8");
 		new ObjectMapper().writeValue(response.getOutputStream(), googleEarthWebService.getStatus());
-	}
-
-	/**
-	 * Shows the plot in Google Earth Web even if it is the plot opened last (unlike
-	 * /openAuxiliaryWindows): used to reopen a closed window or re-sync it.
-	 */
-	@GetMapping(path = "/googleEarthWeb/show")
-	public void showInGoogleEarthWeb(HttpServletResponse response,
-			@RequestParam("latLongCoordinates") String latLongCoordinates,
-			@RequestParam("plotId") String plotId) {
-		try {
-			// This request's generator: the field is replaced by every request, each on a thread of its own
-			KmlGenerator generator = kmlGeneratorService.getKmlGenerator();
-			kmlGenerator = generator;
-			SimplePlacemarkObject placemarkObject = new SimplePlacemarkObject(latLongCoordinates.split(","));
-			placemarkObject.setPlacemarkId(plotId);
-			placemarkObject.setVisiblePlacemarkId(visiblePlacemarkId(plotId));
-			// Numbered like a plot selection, so that it never shows over a plot selected after it, nor under one before
-			plotImageryService.showInGoogleEarthWeb(placemarkObject, generator);
-			response.setStatus(HttpServletResponse.SC_OK);
-		} catch (Exception e) {
-			logger.error("Error showing the plot in Google Earth Web", e);
-			response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-		}
-	}
-
-	/** Opens Google Earth Web over the survey area before a plot is selected (no-op if open). */
-	@GetMapping(path = "/googleEarthWeb/open")
-	public void openGoogleEarthWeb(HttpServletResponse response,
-			@RequestParam("latLongCoordinates") String latLongCoordinates) {
-		SimplePlacemarkObject center = new SimplePlacemarkObject(latLongCoordinates.split(","));
-		plotImageryService.openOverview(center);
-		response.setStatus(HttpServletResponse.SC_OK);
 	}
 
 	/**
@@ -270,23 +236,6 @@ public class PlacemarkBrowserServlet {
 			return;
 		}
 		executor.submit(() -> googleEarthWebService.moveCamera(latitude, longitude, heightMeters));
-		response.setStatus(HttpServletResponse.SC_OK);
-	}
-
-	/**
-	 * Lays out the plots map and imagery windows again (the layout chosen in the options), opening again those the user
-	 * closed.
-	 */
-	@GetMapping(path = "/googleEarthWeb/arrange")
-	public void arrangeGoogleEarthWebWindows(HttpServletResponse response) {
-		executor.submit(windowLayoutService::arrangeAndBringForward);
-		response.setStatus(HttpServletResponse.SC_OK);
-	}
-
-	/** The plots map window was resized or moved: side by side, the imagery window takes the room left beside it. */
-	@GetMapping(path = "/googleEarthWeb/followForm")
-	public void followFormWindow(HttpServletResponse response) {
-		executor.submit(windowLayoutService::followFormWindow);
 		response.setStatus(HttpServletResponse.SC_OK);
 	}
 

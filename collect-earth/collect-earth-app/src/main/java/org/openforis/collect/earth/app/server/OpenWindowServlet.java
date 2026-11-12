@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 /**
  * Opens the window of the running Collect Earth when it is started again (EarthApp.openWindowInRunningCollectEarth):
- * what the tray icon's Open does, for the desktops that have no tray, where a closed home page could not be opened
+ * what the tray icon's Open does, for the desktops that have no tray, where a closed window could not be opened
  * again otherwise, and for everyone who starts Collect Earth from its shortcut to get its window back.
  */
 @Controller

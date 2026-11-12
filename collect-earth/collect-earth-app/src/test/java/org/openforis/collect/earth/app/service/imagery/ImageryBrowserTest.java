@@ -595,7 +595,6 @@ public class ImageryBrowserTest {
 		assertEquals(ImageryWindow.MAIN, imagery.windowOf(ImagerySource.GOOGLE_EARTH_WEB));
 		assertEquals(ImageryWindow.OTHERS, imagery.windowOf(ImagerySource.PLANET));
 		assertTrue(imagery.hasOthersWindow());
-		assertTrue(imagery.windowsAsWanted());
 	}
 
 	@Test
@@ -654,18 +653,6 @@ public class ImageryBrowserTest {
 		assertTrue(browser.calls.contains("window tab2"), browser.calls.toString());
 		await(opened);
 		assertTrue(imagery.hasOthersWindow());
-	}
-
-	@Test
-	public void theWindowsAreAsWantedOnlyAsTheBrowserStarted() {
-		boolean[] wanted = { false };
-		imagery.separateWindowsWhen(() -> wanted[0]);
-		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.PLANET));
-		assertTrue(imagery.windowsAsWanted());
-		wanted[0] = true;
-		assertFalse(imagery.windowsAsWanted());
-		imagery.close();
-		assertTrue(imagery.windowsAsWanted()); // no browser
 	}
 
 	@Test

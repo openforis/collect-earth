@@ -7,8 +7,6 @@ export interface AppInfo {
   project: string | null;
   operator: string | null;
   language: string;
-  viewer: string;
-  plotsMap: boolean;
   version: string | null;
   /** Cloud sync is on: the operator is the user logged in, and the title says so */
   cloud: boolean;

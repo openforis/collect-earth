@@ -82,9 +82,6 @@ public class SettingsModelTest {
 					if (choice.getLabel() != null) {
 						assertText(choice.getLabel());
 					}
-					if (choice.getDescription() != null) {
-						assertText(choice.getDescription());
-					}
 				}
 			}
 		}
@@ -136,20 +133,22 @@ public class SettingsModelTest {
 
 	@Test
 	public void theOtherSectionsFollowTheirSwitches() {
-		List<String> sqlite = visibleKeys(values("db_driver", "SQLITE", "viewer_type", "google_earth_web"));
+		List<String> sqlite = visibleKeys(values("db_driver", "SQLITE"));
 		assertTrue(sqlite.contains("automatic_backup"));
 		assertFalse(sqlite.contains("db_host"));
-		// Google Earth Pro is no longer a viewer, so its balloon setting is gone and the plots map ones always show
+		// Google Earth Pro is no longer a viewer, so its balloon setting is gone; Google Earth Web is the only viewer and
+		// lays its windows out by itself, so neither the viewer, the window layout nor the map engine is a setting
 		assertFalse(sqlite.contains("open_separate_browser_form"));
-		assertTrue(sqlite.containsAll(Arrays.asList("map_engine", "window_layout", "planet_maps_key")));
+		assertFalse(sqlite.contains("viewer_type") || sqlite.contains("window_layout") || sqlite.contains("map_engine"));
+		assertTrue(sqlite.contains("planet_maps_key"));
 		// Left to earth.properties: the port, the form, and the Planet switch (the key is the switch)
 		assertFalse(sqlite.contains("port") || sqlite.contains("web_form") || sqlite.contains("open_planet_maps"));
 		assertFalse(sqlite.contains("planet_maps_use_tfo"));
-		List<String> postgres = visibleKeys(values("db_driver", "POSTGRESQL", "viewer_type", "plots_map", "open_gee_app", "true",
+		List<String> postgres = visibleKeys(values("db_driver", "POSTGRESQL", "open_gee_app", "true",
 				"planet_maps_key", "PLAK123", "planet_maps_use_tfo", "true"));
 		assertFalse(postgres.contains("automatic_backup"));
 		assertTrue(postgres.containsAll(Arrays.asList("db_host", "db_port", "db_name", "db_username", "db_password")));
-		assertTrue(postgres.containsAll(Arrays.asList("map_engine", "window_layout", "geeapp_date_from", "geeapp_date_to",
+		assertTrue(postgres.containsAll(Arrays.asList("geeapp_date_from", "geeapp_date_to",
 				"planet_maps_key", "planet_maps_use_tfo", "planet_tfo_date_from", "planet_tfo_date_to")));
 		assertFalse(postgres.contains("open_separate_browser_form"));
 		List<String> cloud = visibleKeys(values("db_driver", "CLOUD", "open_gee_app", "false", "planet_maps_key", "PLAK123"));
@@ -228,15 +227,6 @@ public class SettingsModelTest {
 		assertEquals(2, labels.size());
 		assertEquals("OptionWizard.132", labels.get(0).get("label"));
 		assertEquals(SettingsModel.ROUND_PLOT.toJson(), labels.get(0).get("when"));
-		Map<String, Object> viewer = model.setting("viewer_type").toJson();
-		List<Map<String, Object>> choices = (List<Map<String, Object>>) viewer.get("choices");
-		// Google Earth Pro is no longer offered: the plots map and Google Earth Web only
-		assertEquals(2, choices.size());
-		assertEquals("plots_map", choices.get(0).get("value"));
-		assertEquals("ExternalServicesPanel.viewerType.plots_map", choices.get(0).get("label"));
-		assertEquals("ExternalServicesPanel.viewerHelp.plots_map", choices.get(0).get("description"));
-		assertEquals("google_earth_web", choices.get(1).get("value"));
-		assertFalse(viewer.containsKey("visible"));
 		Map<String, Object> points = model.setting("number_of_sampling_points_in_plot").toJson();
 		List<Map<String, Object>> options = (List<Map<String, Object>>) points.get("choices");
 		assertEquals("4", options.get(2).get("value"));

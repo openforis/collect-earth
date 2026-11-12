@@ -26,7 +26,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 1. **Desktop Application**
    - Entry point: `org.openforis.collect.earth.app.desktop.EarthApp`
-   - Main window: the web pages of `src/main/frontend` (the plots map, or the home page with the Google Earth Pro viewer), opened in the browser Collect Earth drives; a tray icon (`desktop.AppShell`) opens them again or quits
+   - Main window: the web pages of `src/main/frontend` (the plots map, in a panel of the Google Earth Web window), opened in the browser Collect Earth drives; a tray icon (`desktop.AppShell`) opens them again or quits
    - The pages call the JSON API of `org.openforis.collect.earth.app.server.api`; see `docs/plans/2026-10-28-html-ui-design.md`
 
 2. **Embedded Web Server** (Jetty)

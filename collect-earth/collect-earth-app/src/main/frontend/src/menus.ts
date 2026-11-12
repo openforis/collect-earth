@@ -13,14 +13,14 @@ export interface Menu { id: string; label: string; items: MenuItem[] }
 
 // The entries built so far: the others show, disabled, until their stage of docs/plans/2026-10-28-html-ui-design.md
 const BUILT = new Set(["quit", "properties", "export", "import",
-  "analyse", "lulucf", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "sendToCloud",
+  "analyse", "lulucf", "loadKml", "dataFolder", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "sendToCloud",
   "importCep", "projects", "joinCloud", "cloudStatus", "language", "surveyGuide", "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
 
 /**
  * The entries the Swing window disabled when Collect Earth acts as a client of another instance (serverMenuItems):
  * they act on data this instance does not hold.
  */
-const SERVER_ONLY = new Set(["analyse", "export", "import", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "sendToCloud"]);
+const SERVER_ONLY = new Set(["analyse", "export", "import", "loadKml", "dataFolder", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "sendToCloud"]);
 
 const item = (id: string, label: string): MenuItem => ({ id, label, enabled: BUILT.has(id) });
 /** An entry shown disabled, saying why (`reason`), when `off`. */
@@ -35,7 +35,6 @@ const toggle = (id: string, label: string): MenuItem => ({ ...item(id, label), k
 export const CLOUD_DASHBOARD_NOTE = "LocalDashboard.cloudNote";
 
 export interface MenuContext {
-  plotsMap: boolean;
   /** The survey has a guide: the Swing menu showed the entry only then */
   surveyGuide?: boolean;
   /** A client of another Collect Earth: the entries that act on the data go */
@@ -86,8 +85,6 @@ function allMenus(app: MenuContext): Menu[] {
       // project, which also has what the utilities do there (the state of every plot, dividing the plot files). That one is
       // a website with a sign-in of its own, which its label and its note (the server's name filled in by AppBar) say
       app.cloud ? { ...item("myDashboard", "LocalDashboard.cloudMenu"), note: CLOUD_DASHBOARD_NOTE } : item("myDashboard", "LocalDashboard.menu"),
-      // The plots map is already the page when it is the viewer
-      ...(app.plotsMap ? [] : [item("openPlotsMap", "CollectEarthMenu.openPlotsMap")]),
     ] },
     { id: "utilities", label: "CollectEarthMenu.2", items: [
       // In a cloud project the dashboard does these for the whole team: here they would see only this computer's records,

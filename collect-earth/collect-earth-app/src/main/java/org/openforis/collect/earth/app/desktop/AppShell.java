@@ -11,7 +11,6 @@ import java.net.URL;
 
 import org.openforis.collect.earth.app.logging.NoticeAppender;
 import org.openforis.collect.earth.app.service.notices.NoticeService;
-import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.QuitService;
 import org.openforis.collect.earth.app.service.WindowLayoutService;
@@ -26,7 +25,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * What is left of the Swing main window (CollectEarthWindow): the pages of the app are the main window now, the plots
- * map or, with the Google Earth Pro viewer, the home page ({@link BrowserService#openHomePage()}). A browser window
+ * map in its panel of Google Earth Web's window. A browser window
  * can be closed, and then nothing on the screen says that Collect Earth still runs, so an icon in the system tray
  * opens it again or quits it.
  * <p>
@@ -49,9 +48,6 @@ public class AppShell implements InitializingBean, DisposableBean {
 	private LocalPropertiesService localPropertiesService;
 
 	@Autowired
-	private BrowserService browserService;
-
-	@Autowired
 	private WindowLayoutService windowLayoutService;
 
 	@Autowired
@@ -68,10 +64,9 @@ public class AppShell implements InitializingBean, DisposableBean {
 	}
 
 	/** For the tests. */
-	AppShell(LocalPropertiesService localPropertiesService, BrowserService browserService,
-			WindowLayoutService windowLayoutService, QuitService quitService) {
+	AppShell(LocalPropertiesService localPropertiesService, WindowLayoutService windowLayoutService,
+			QuitService quitService) {
 		this.localPropertiesService = localPropertiesService;
-		this.browserService = browserService;
 		this.windowLayoutService = windowLayoutService;
 		this.quitService = quitService;
 	}
@@ -146,21 +141,12 @@ public class AppShell implements InitializingBean, DisposableBean {
 	}
 
 	/**
-	 * What "Open Collect Earth" does, as the viewer is now (it can change without a new context). With the plots map as
-	 * the viewer, the plots map window: opened if it never was; otherwise put back and brought in front of the others,
-	 * opened again first if the user closed it, as "Arrange" does. Not loaded again when it is open, as opening the plots
-	 * map would: it holds the form, which would lose what the user typed in it. With the Google Earth Pro viewer, the
-	 * home page, which holds no form.
+	 * What "Open Collect Earth" does: Google Earth Web, with the plots map in its panel, put back and brought in front of
+	 * the others, opened first if it never was or the user closed it, as "Arrange" does. Not loaded again when it is open:
+	 * its panel holds the form, which would lose what the user typed in it.
 	 */
 	void open() {
-		if (!localPropertiesService.isPlotsMapViewer()) {
-			browserService.openHomePage();
-		} else if (browserService.getLeafletMapDriver() == null) {
-			browserService.openLeafletMap();
-			windowLayoutService.arrange();
-		} else {
-			windowLayoutService.arrangeAndBringForward();
-		}
+		windowLayoutService.arrangeAndBringForward();
 	}
 
 	@Override
