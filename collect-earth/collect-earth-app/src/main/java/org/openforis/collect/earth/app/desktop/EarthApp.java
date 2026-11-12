@@ -726,21 +726,36 @@ public class EarthApp {
 
 			if (!initializationEvent.equals(ServerInitializationEvent.SERVER_STOPPED_EVENT)) {
 				try {
-					StartupProgressWindow.step(Messages.getString("StartupWindow.plots")); //$NON-NLS-1$
-					earthApp.generateKml();
 					StartupProgressWindow.step(Messages.getString("StartupWindow.window")); //$NON-NLS-1$
-					// The main window opens on a thread of its own, which closes the progress window (inServerContext)
+					// The main window opens on a thread of its own, which closes the progress window (inServerContext).
+					// It does not wait for the KMZ, which is made meanwhile: its plots map reads the plot file
+					// (LeafletMapController.plotsGeoJson), the KMZ is for Google Earth Pro
 					earthApp.openLeafletMap();
 					// The announcements and the update offer are StartupNotices' now, a bean of the context
 					closeSplash();
-					// In a cloud project, the plot file assigned to the collector once the start's plots are loaded
-					setUpAssignedPlotFile();
+					generateKmlAtStart();
 				} catch (final Exception e) {
 					StartupProgressWindow.close();
-					logger.error("Error generating KML file", e); //$NON-NLS-1$
+					logger.error("Error opening the main window", e); //$NON-NLS-1$
 				}
 			}
 		};
+	}
+
+	/**
+	 * The KMZ of the plots, on a thread of its own while the main window opens, then, in a cloud project, the plot file
+	 * assigned to the collector. A failure is logged and shown as a notice (generateKml).
+	 */
+	private static void generateKmlAtStart() {
+		final EarthApp app = earthApp;
+		new Thread(() -> {
+			// The lock of loadKmlInGoogleEarth: a reload asked meanwhile (settings applied, the assigned plot file) waits
+			// for this one instead of writing the same files at the same time
+			synchronized (EarthApp.class) {
+				app.generateKml();
+			}
+			setUpAssignedPlotFile();
+		}, "Generate the KMZ").start(); //$NON-NLS-1$
 	}
 
 	/**
