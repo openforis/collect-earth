@@ -85,6 +85,7 @@ import {
   setMemberExcluded,
   getMyQuality,
   getTeamReport,
+  downloadExport,
 } from "./api";
 import { CATALOGUES } from "./i18n";
 import { setToken } from "./storage";
@@ -1092,6 +1093,25 @@ describe("the AI assistant and the reports", () => {
     expect(team.questions[1]).toEqual({ key: "q2", label: "q2", kind: "number", compared: 3, agreeing: 3, rate: null, margin: 5 });
     expect(team).toMatchObject({ plotsChecked: 40, plotsDiffering: 6, stale: true, computedAt: 5000 });
     expect(team.notes).toHaveLength(1);
+  });
+});
+
+describe("the data download", () => {
+  const query = (i = 0) => new URL(String(fetchMock.mock.calls[i][0]), "https://x").searchParams;
+
+  it("asks in the person's language, with the labels and the records chosen", async () => {
+    fetchMock.mockImplementation(async () => new Response("x", { status: 200, headers: { "content-disposition": "attachment; filename*=UTF-8''R%C3%ADo-data.csv" } }));
+    const { filename } = await downloadExport("p1", "csv", { language: "es", withoutPositions: true, includeExcluded: true, labels: true, records: { kind: "last" } });
+    expect(filename).toBe("Río-data.csv");
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/^\/v1\/projects\/p1\/export\.csv\?/);
+    expect(Object.fromEntries(query())).toEqual({ lang: "es", coordinates: "none", excluded: "include", labels: "include", since: "last" });
+    // a map file always has the plots' places; a date is sent as the time it starts
+    await downloadExport("p1", "kml", { language: "en", withoutPositions: true, records: { kind: "date", since: Date.UTC(2026, 10, 1) } });
+    expect(Object.fromEntries(query(1))).toEqual({ lang: "en", since: "2026-11-01T00:00:00.000Z" });
+    await downloadExport("p1", "geojson", { language: "tr", records: { kind: "answer", question: "collect_code_lu", value: "F&G" } });
+    expect(Object.fromEntries(query(2))).toEqual({ lang: "tr", question: "collect_code_lu", value: "F&G" });
+    await downloadExport("p1", "csv", { language: "fr", records: { kind: "all" } });
+    expect(Object.fromEntries(query(3))).toEqual({ lang: "fr" });
   });
 });
 

@@ -2245,13 +2245,47 @@ export async function getTeamReport(projectId: string): Promise<TeamReport> {
 export const EXPORT_FORMATS = ["csv", "geojson", "kml", "shp.zip"] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
-/** The collected data as a CSV or map file (fetched with the session, then saved by the page); a CSV can leave out the plot locations. */
-/** `includeExcluded`: also the records of people left out of the results. */
-export async function downloadExport(projectId: string, format: ExportFormat = "csv", withoutPositions = false, includeExcluded = false): Promise<{ blob: Blob; filename: string }> {
-  const query = [format === "csv" && withoutPositions ? "coordinates=none" : "", includeExcluded ? "excluded=include" : ""].filter(Boolean).join("&");
-  const response = await send("GET", `${p(projectId)}/export.${format}${query ? `?${query}` : ""}`);
+/** Which records a data download keeps: all, those changed since your last download or since a time (ms), or those with an answer. */
+export type ExportRecords = { kind: "all" } | { kind: "last" } | { kind: "date"; since: number } | { kind: "answer"; question: string; value: string };
+
+export interface ExportOptions {
+  /** The person's language: the CSV's separators, and the labels' language. */
+  language: string;
+  /** A CSV only: without the plot locations. */
+  withoutPositions?: boolean;
+  /** Also the records of people left out of the results. */
+  includeExcluded?: boolean;
+  /** Each code answer's label after it. */
+  labels?: boolean;
+  records?: ExportRecords;
+}
+
+/** The collected data as a CSV or map file (fetched with the session, then saved by the page). */
+export async function downloadExport(projectId: string, format: ExportFormat, options: ExportOptions): Promise<{ blob: Blob; filename: string }> {
+  const query = new URLSearchParams({ lang: options.language });
+  if (format === "csv" && options.withoutPositions) query.set("coordinates", "none");
+  if (options.includeExcluded) query.set("excluded", "include");
+  if (options.labels) query.set("labels", "include");
+  const records = options.records;
+  if (records?.kind === "last") query.set("since", "last");
+  if (records?.kind === "date") query.set("since", new Date(records.since).toISOString());
+  if (records?.kind === "answer") {
+    query.set("question", records.question);
+    query.set("value", records.value);
+  }
+  const response = await send("GET", `${p(projectId)}/export.${format}?${query}`);
   return { blob: await response.blob(), filename: attachmentName(response, `collect-earth-data.${format}`) };
 }
+
+/** What "Records to download" offers: when you last downloaded the data (ms, or null), and the survey's plot questions with the code lists of the code ones. */
+export interface ExportChoices {
+  lastDownload: number | null;
+  languages: string[];
+  questions: { key: string; name: string; labels: Record<string, string>; list: string | null }[];
+  lists: Record<string, AnalysisListItem[]>;
+}
+
+export const getExportChoices = (projectId: string) => request<ExportChoices>("GET", `${p(projectId)}/export/choices`);
 
 /** The file name a download was sent with: the UTF-8 name (filename*) before the ASCII fallback the server sends first. */
 function attachmentName(response: Response, fallback: string): string {

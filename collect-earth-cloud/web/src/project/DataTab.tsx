@@ -12,12 +12,14 @@ import ArrowForward from "@mui/icons-material/ArrowForward";
 import Download from "@mui/icons-material/Download";
 import PivotTableChart from "@mui/icons-material/PivotTableChart";
 import { useState } from "react";
-import { downloadExport, EXPORT_FORMATS, getOverview, listMembers, type ExportFormat } from "../api";
+import { dayStartMs } from "../activityView";
+import { labelIn } from "../analysisView";
+import { downloadExport, EXPORT_FORMATS, getExportChoices, getOverview, listMembers, type ExportFormat, type ExportRecords } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
-import { formatNumber } from "../format";
+import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
 import { dataSections } from "../localMode";
 import { linkProps, pathFor, type ProjectTab } from "../router";
@@ -27,6 +29,8 @@ import { CollectBackup } from "./CollectBackup";
 import { CollectImport } from "./CollectImport";
 
 const FORMAT_LABELS = { csv: "data.formatCsv", geojson: "data.formatGeojson", kml: "data.formatKml", "shp.zip": "data.formatShp" } as const;
+const RECORDS_LABELS = { all: "data.records.all", last: "data.records.last", date: "data.records.date", answer: "data.records.answer" } as const;
+type RecordsChoice = keyof typeof RECORDS_LABELS;
 
 /** The pivot table and charts over the collected data (what replaces Saiku), on a page of its own. */
 function Analysis({ projectId }: { projectId: string }) {
@@ -79,21 +83,36 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
   // People left out of the results: their records are not in the download unless asked for.
   const excluded = useLoad(() => (local ? Promise.resolve([]) : listMembers(projectId).then((ms) => ms.filter((m) => m.excluded))), [projectId, local]);
   const [includeExcluded, setIncludeExcluded] = useState(false);
+  const [labels, setLabels] = useState(false);
+  // Records to download: your last download and the survey's questions come from the server.
+  const choices = useLoad(() => getExportChoices(projectId), [projectId]);
+  const [which, setWhich] = useState<RecordsChoice>("all");
+  const [from, setFrom] = useState("");
+  const [questionKey, setQuestionKey] = useState("");
+  const [value, setValue] = useState("");
+  const question = choices.data?.questions.find((q) => q.key === questionKey);
+  const chosen: ExportRecords | null =
+    which === "date" ? (from ? { kind: "date", since: dayStartMs(from) } : null)
+    : which === "answer" ? (question && value.trim() ? { kind: "answer", question: question.key, value: value.trim() } : null)
+    : { kind: which };
 
   const download = async () => {
+    if (!chosen) return;
     setBusy(true);
     setError(null);
     setDone(false);
     try {
-      const { blob, filename } = await downloadExport(projectId, format, noPositions, includeExcluded);
+      const { blob, filename } = await downloadExport(projectId, format, { language, withoutPositions: noPositions, includeExcluded, labels, records: chosen });
       saveBlob(blob, filename);
       setDone(true);
+      choices.reload();
     } catch (err) {
       setError(err);
     } finally {
       setBusy(false);
     }
   };
+  const lastDownload = choices.data?.lastDownload ?? null;
 
   const records = overview.data?.records;
   return (
@@ -123,6 +142,57 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
               label={t("data.includeExcluded", { names: (excluded.data ?? []).map((m) => m.username).join(", ") })}
             />
           )}
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: { sm: "center" }, flexWrap: "wrap" }} useFlexGap>
+            <TextField select size="small" label={t("data.records")} value={which} onChange={(e) => setWhich(e.target.value as RecordsChoice)} sx={{ minWidth: 240 }}>
+              {(Object.keys(RECORDS_LABELS) as RecordsChoice[]).map((c) => (
+                // the last download and the questions are known once the choices are read; no survey, no question
+                <MenuItem key={c} value={c} disabled={(c === "last" && !choices.data) || (c === "answer" && !choices.data?.questions.length)}>
+                  {c === "last" && lastDownload === null ? t("data.records.lastNone") : t(RECORDS_LABELS[c], { date: formatDate(lastDownload, language) })}
+                </MenuItem>
+              ))}
+            </TextField>
+            {which === "date" && (
+              <TextField type="date" size="small" label={t("data.records.from")} value={from} onChange={(e) => setFrom(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+            )}
+            {which === "answer" && choices.data && (
+              <>
+                <TextField
+                  select
+                  size="small"
+                  label={t("data.records.question")}
+                  value={questionKey}
+                  onChange={(e) => {
+                    setQuestionKey(e.target.value);
+                    setValue("");
+                  }}
+                  sx={{ minWidth: 240 }}
+                >
+                  {choices.data.questions.map((q) => (
+                    <MenuItem key={q.key} value={q.key}>
+                      {labelIn(q.labels, language, choices.data!, q.name)}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                {question?.list ? (
+                  <TextField select size="small" label={t("data.records.value")} value={value} onChange={(e) => setValue(e.target.value)} sx={{ minWidth: 200 }}>
+                    {(choices.data.lists[question.list] ?? []).map((i) => (
+                      <MenuItem key={i.code} value={i.code}>
+                        {labelIn(i.labels, language, choices.data!, i.code)}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                ) : (
+                  question && <TextField size="small" label={t("data.records.value")} value={value} onChange={(e) => setValue(e.target.value)} />
+                )}
+              </>
+            )}
+          </Stack>
+          <Box>
+            <FormControlLabel control={<Checkbox checked={labels} onChange={(e) => setLabels(e.target.checked)} />} label={t("data.labels")} />
+            <Typography variant="body2" color="text.secondary">
+              {t("data.labelsHelp")}
+            </Typography>
+          </Box>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: { sm: "center" } }}>
             <TextField select size="small" label={t("data.format")} value={format} onChange={(e) => setFormat(e.target.value as ExportFormat)} sx={{ minWidth: 240 }}>
               {EXPORT_FORMATS.map((f) => (
@@ -132,7 +202,7 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
               ))}
             </TextField>
             <Box>
-              <Button variant="contained" size="large" startIcon={<Download />} onClick={download} disabled={busy}>
+              <Button variant="contained" size="large" startIcon={<Download />} onClick={download} disabled={busy || !chosen}>
                 {busy ? t("data.downloading") : t("data.download")}
               </Button>
             </Box>
