@@ -2302,6 +2302,9 @@ function attachmentName(response: Response, fallback: string): string {
 /** Which records a Collect Earth backup holds: the first assessments (round 1), or every round. */
 export type BackupRounds = "1" | "all";
 
+/** Which file: the zip Collect Earth imports, or OpenForis Collect's own backup (.collect-backup). */
+export type BackupFormat = "zip" | "collect";
+
 /** What a Collect Earth backup would hold with one choice. */
 export interface BackupCounts {
   /** Records in the backup (one per plot and round). */
@@ -2371,11 +2374,11 @@ export async function getBackupSummary(projectId: string): Promise<BackupSummary
 
 /**
  * A link to the Collect Earth backup (a zip of the survey and the records, for "Import new data
- * from ZIP"): used once within a minute, by the browser itself, which saves the file to disk as it
- * comes and shows its progress (the page holds none of it).
+ * from ZIP", or OpenForis Collect's own backup): used once within a minute, by the browser itself,
+ * which saves the file to disk as it comes and shows its progress (the page holds none of it).
  */
-export async function getBackupLink(projectId: string, rounds: BackupRounds): Promise<{ url: string; expiresAt: number }> {
-  const body = await request<{ url?: unknown; expiresAt?: unknown }>("POST", `${p(projectId)}/exports/collect-backup/link`, { json: { rounds } });
+export async function getBackupLink(projectId: string, rounds: BackupRounds, format: BackupFormat): Promise<{ url: string; expiresAt: number }> {
+  const body = await request<{ url?: unknown; expiresAt?: unknown }>("POST", `${p(projectId)}/exports/collect-backup/link`, { json: { rounds, format } });
   if (typeof body?.url !== "string" || !body.url.startsWith("/v1/collect-backup/")) throw new ApiError(500, "http_500");
   return { url: body.url, expiresAt: toMillis(body.expiresAt) ?? 0 };
 }

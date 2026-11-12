@@ -15,7 +15,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Download from "@mui/icons-material/Download";
 import { useState } from "react";
-import { getBackupLink, getBackupSummary, type BackupCounts, type BackupRounds, type BackupSummary } from "../api";
+import { getBackupLink, getBackupSummary, type BackupCounts, type BackupFormat, type BackupRounds, type BackupSummary } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain, MoreInfo } from "../components/Explain";
@@ -27,8 +27,9 @@ import { useLoad } from "../useLoad";
 
 /**
  * The Collect Earth backup on the Data tab (Task 17): the survey and the records in a zip that
- * Collect Earth imports, the first assessments or every round. The dialog says what the file will
- * hold; the browser then downloads it by itself from a one-use link, with its own progress.
+ * Collect Earth imports, or in OpenForis Collect's own backup (.collect-backup), the first assessments
+ * or every round. The dialog says what the file will hold; the browser then downloads it by itself
+ * from a one-use link, with its own progress.
  */
 export function CollectBackup({ projectId }: { projectId: string }) {
   const t = useT();
@@ -75,6 +76,7 @@ function BackupDialog({ projectId, onClose, onStarted }: { projectId: string; on
   const t = useT();
   const summary = useLoad(() => getBackupSummary(projectId), [projectId]);
   const [rounds, setRounds] = useState<BackupRounds>("1");
+  const [format, setFormat] = useState<BackupFormat>("zip");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const s = summary.data;
@@ -85,7 +87,7 @@ function BackupDialog({ projectId, onClose, onStarted }: { projectId: string; on
     setBusy(true);
     setError(null);
     try {
-      const { url } = await getBackupLink(projectId, rounds);
+      const { url } = await getBackupLink(projectId, rounds, format);
       downloadUrl(url);
       onStarted();
     } catch (err) {
@@ -104,7 +106,7 @@ function BackupDialog({ projectId, onClose, onStarted }: { projectId: string; on
         ) : summary.error ? (
           <ErrorAlert error={summary.error} onRetry={summary.reload} />
         ) : s ? (
-          <BackupChoice summary={s} counts={counts!} rounds={rounds} onRounds={setRounds} busy={busy} />
+          <BackupChoice summary={s} counts={counts!} rounds={rounds} onRounds={setRounds} format={format} onFormat={setFormat} busy={busy} />
         ) : null}
         <ErrorAlert error={error} />
       </DialogContent>
@@ -118,17 +120,26 @@ function BackupDialog({ projectId, onClose, onStarted }: { projectId: string; on
   );
 }
 
+const FORMATS = [
+  { value: "zip", label: "backup.format.zip", help: "backup.format.zipHelp" },
+  { value: "collect", label: "backup.format.collect", help: "backup.format.collectHelp" },
+] as const;
+
 function BackupChoice({
   summary,
   counts,
   rounds,
   onRounds,
+  format,
+  onFormat,
   busy,
 }: {
   summary: BackupSummary;
   counts: BackupCounts;
   rounds: BackupRounds;
   onRounds: (rounds: BackupRounds) => void;
+  format: BackupFormat;
+  onFormat: (format: BackupFormat) => void;
   busy: boolean;
 }) {
   const t = useT();
@@ -137,6 +148,27 @@ function BackupChoice({
   if (!summary.projectFile) return <Alert severity="info">{t("backup.noProjectFile")}</Alert>;
   return (
     <Stack spacing={2}>
+      <FormControl disabled={busy}>
+        <FormLabel id="backup-format">{t("backup.format")}</FormLabel>
+        <RadioGroup aria-labelledby="backup-format" value={format} onChange={(e) => onFormat(e.target.value as BackupFormat)}>
+          {FORMATS.map((f) => (
+            <FormControlLabel
+              key={f.value}
+              value={f.value}
+              control={<Radio slotProps={{ input: { "aria-describedby": `backup-${f.value}-help` } }} />}
+              label={
+                <Box>
+                  <Typography>{t(f.label)}</Typography>
+                  <Typography variant="body2" color="text.secondary" id={`backup-${f.value}-help`}>
+                    {t(f.help)}
+                  </Typography>
+                </Box>
+              }
+              sx={{ alignItems: "flex-start", mb: 1, "& .MuiRadio-root": { pt: 0.5 } }}
+            />
+          ))}
+        </RadioGroup>
+      </FormControl>
       <FormControl disabled={busy}>
         <FormLabel id="backup-rounds">{t("backup.which")}</FormLabel>
         <RadioGroup aria-labelledby="backup-rounds" value={rounds} onChange={(e) => onRounds(e.target.value as BackupRounds)}>
@@ -184,7 +216,7 @@ function BackupChoice({
           <li>
             {t("backup.records", { count: n(counts.records) })} {t("backup.size", { size: formatBytes(counts.estimatedBytes, language) })}
           </li>
-          {counts.drafts > 0 && <li>{t("backup.drafts", { count: n(counts.drafts) })}</li>}
+          {counts.drafts > 0 && <li>{t(format === "collect" ? "backup.drafts.collect" : "backup.drafts", { count: n(counts.drafts) })}</li>}
           {rounds === "1" && counts.otherRounds > 0 && <li>{t("backup.otherRounds", { count: n(counts.otherRounds) })}</li>}
           {counts.measurements > 0 && (
             <li>
@@ -202,7 +234,11 @@ function BackupChoice({
           {summary.note && <li>{t("backup.note")}</li>}
         </Box>
       )}
-      <Explain variant="body2" text={t("backup.howTo.short")} more={`${t("backup.howTo")}\n\n${t("backup.clientMode")}`} />
+      {format === "collect" ? (
+        <Explain variant="body2" text={t("backup.howTo.collect.short")} more={t("backup.howTo.collect")} />
+      ) : (
+        <Explain variant="body2" text={t("backup.howTo.short")} more={`${t("backup.howTo")}\n\n${t("backup.clientMode")}`} />
+      )}
     </Stack>
   );
 }

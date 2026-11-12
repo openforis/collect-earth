@@ -1,9 +1,24 @@
 import { Readable } from 'node:stream';
 import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
+import { ATTRIBUTE_AREAS_CSV } from '../analysis.js';
+import { backupSurvey } from '../backupImport.js';
 import { readBackupLink, UsedLinks, writeBackupLink, linkSecret } from '../backupLink.js';
-import { noteColumn, readCep, type RoundInfo } from '../cep.js';
-import { BACKUP_ROUNDS, BYTES_PER_RECORD, SURVEY_BYTES, collectBackupZip, planBackup, type BackupOutcome, type BackupPlan, type BackupRounds, type PlanInput } from '../collectBackup.js';
+import { cepProperties, noteColumn, readCep, type CepFiles, type RoundInfo } from '../cep.js';
+import {
+  BACKUP_FORMATS,
+  BACKUP_ROUNDS,
+  BYTES_PER_RECORD,
+  SURVEY_BYTES,
+  collectBackupZip,
+  collectHead,
+  planBackup,
+  type BackupFormat,
+  type BackupOutcome,
+  type BackupPlan,
+  type BackupRounds,
+  type PlanInput,
+} from '../collectBackup.js';
 import type { Config } from '../config.js';
 import { attachment } from '../download.js';
 import { holderHas } from '../holders.js';
@@ -13,22 +28,25 @@ import { loadPlotContext } from '../qualityService.js';
 import type { RateLimiter } from '../rateLimit.js';
 import { keyShape } from '../rounds.js';
 import type { Store } from '../store/store.js';
+import { wholeFile } from './assignments.js';
 
 const BUSY = { error: 'backup_busy', reason: 'another Collect Earth backup is being prepared on this server: try again in a few minutes' };
 
 /**
  * The Collect Earth backup (Task 17), coordinators only:
  * - `GET /v1/projects/:pid/exports/collect-backup/summary`: what the file would hold with each choice;
- * - `POST /v1/projects/:pid/exports/collect-backup/link { rounds }`: a download link, signed, for 60 s
+ * - `POST /v1/projects/:pid/exports/collect-backup/link { rounds, format? }`: a download link, signed, for 60 s
  *   and one use (backupLink.ts), so the browser downloads the file by itself;
  * - `GET /v1/collect-backup/:token`: the file, by that link (no session: the link is the permission,
  *   checked again against the coordinator's role);
- * - `GET /v1/projects/:pid/exports/collect-backup?rounds=1|all`: the file, with the session.
+ * - `GET /v1/projects/:pid/exports/collect-backup?rounds=1|all&format=zip|collect`: the file, with the session.
+ * `format` is `zip` (Collect Earth's import, the default) or `collect` (OpenForis Collect's own backup,
+ * .collect-backup, with the plot files and the areas per stratum; collectBackup.ts).
  * One backup is written at a time on an instance (memory: 100,000 records keep the heap under
  * 384 MB, two at once would not); another gets 429 `backup_busy`. The link and the downloads go
  * through the rate limiter's `admin` bucket. A download is audited (`export.downloaded { kind:
  * 'collect-backup', rows, rounds }`) when it starts, and again with `completed: false` when the
- * client goes away before the end.
+ * client goes away before the end (`format` noted too).
  */
 export async function registerCollectBackupRoutes(
   app: FastifyInstance,
@@ -64,14 +82,21 @@ export async function registerCollectBackupRoutes(
 
   app.post('/v1/projects/:pid/exports/collect-backup/link', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
-    const rounds = (request.body as { rounds?: unknown } | null)?.rounds;
+    const body = request.body as { rounds?: unknown; format?: unknown } | null;
+    const rounds = body?.rounds;
+    const format = body?.format ?? 'zip';
     if (!BACKUP_ROUNDS.includes(rounds as BackupRounds)) {
       return reply.code(400).send({ error: 'bad_request', reason: 'rounds is 1 or all' });
     }
+    if (!BACKUP_FORMATS.includes(format as BackupFormat)) return reply.code(400).send(BAD_FORMAT);
     const refusal = await refusalOf(store, projectId, rounds as BackupRounds);
     if (refusal) return reply.code(409).send(refusal);
     if (busy) return reply.code(429).send(BUSY);
-    const { token, expiresAt } = writeBackupLink({ projectId, userId: request.membership!.userId ?? null, rounds: rounds as BackupRounds }, secret, now());
+    const { token, expiresAt } = writeBackupLink(
+      { projectId, userId: request.membership!.userId ?? null, rounds: rounds as BackupRounds, format: format as BackupFormat },
+      secret,
+      now(),
+    );
     return reply.send({ url: `/v1/collect-backup/${token}`, expiresAt });
   });
 
@@ -91,19 +116,20 @@ export async function registerCollectBackupRoutes(
     if (busy) return reply.code(429).send(BUSY);
     if (!used.use(link, at)) return reply.code(410).send({ error: 'link_used', reason: 'the download link was used already: ask for the backup again' });
     request.membership = { projectId: link.projectId, role: 'admin', ...(link.userId ? { userId: link.userId } : {}) };
-    return send(request, reply, link.projectId, link.rounds);
+    return send(request, reply, link.projectId, link.rounds, link.format);
   });
 
   app.get('/v1/projects/:pid/exports/collect-backup', admin, async (request: FastifyRequest, reply: FastifyReply) => {
-    const rounds = ((request.query as { rounds?: string }).rounds ?? '1') as BackupRounds;
+    const { rounds = '1', format = 'zip' } = request.query as { rounds?: BackupRounds; format?: BackupFormat };
     if (!BACKUP_ROUNDS.includes(rounds)) {
       return reply.code(400).send({ error: 'bad_request', reason: 'rounds is 1 or all' });
     }
-    return send(request, reply, request.membership!.projectId, rounds);
+    if (!BACKUP_FORMATS.includes(format)) return reply.code(400).send(BAD_FORMAT);
+    return send(request, reply, request.membership!.projectId, rounds, format);
   });
 
   /** Writes the backup to the response, one at a time on this instance. */
-  async function send(request: FastifyRequest, reply: FastifyReply, projectId: string, rounds: BackupRounds) {
+  async function send(request: FastifyRequest, reply: FastifyReply, projectId: string, rounds: BackupRounds, format: BackupFormat) {
     if (busy) return reply.code(429).send(BUSY);
     busy = true;
     let handedOver = false;
@@ -116,12 +142,16 @@ export async function registerCollectBackupRoutes(
       // The survey as served (with the round and the coordinator's note the server added): the one
       // Collect Earth has loaded, which the import finds by its URI.
       const files = readCep(cep);
-      const survey = files.entries.get(files.surveyPath)!;
+      const date = new Date(now());
+      const head =
+        format === 'collect'
+          ? await collectHeadOf(store, projectId, files, facts.info, date)
+          : [{ name: 'idml.xml', data: files.entries.get(files.surveyPath)! }];
       const plan = planBackup(facts.input, rounds);
-      const details = { kind: 'collect-backup', rows: plan.records.length, rounds };
+      const details = { kind: 'collect-backup', rows: plan.records.length, rounds, format };
       await audit(store, request, 'export.downloaded', details);
       const outcome: BackupOutcome = { written: 0, missing: 0, deleted: 0 };
-      const stream = Readable.from(collectBackupZip(store, projectId, survey, plan, new Date(now()), outcome));
+      const stream = Readable.from(collectBackupZip(store, projectId, head, plan, date, outcome, format));
       let released = false;
       const release = () => {
         if (released) return;
@@ -141,9 +171,15 @@ export async function registerCollectBackupRoutes(
         }
       });
       handedOver = true;
+      const allRounds = rounds === 'all' ? '-all-rounds' : '';
       return reply
-        .header('content-type', 'application/zip')
-        .header('content-disposition', attachment(`${project.name}-collect-earth-backup${rounds === 'all' ? '-all-rounds' : ''}.zip`, 'collect-earth-backup.zip'))
+        .header('content-type', format === 'collect' ? 'application/octet-stream' : 'application/zip')
+        .header(
+          'content-disposition',
+          format === 'collect'
+            ? attachment(`${project.name}${allRounds}.collect-backup`, 'backup.collect-backup')
+            : attachment(`${project.name}-collect-earth-backup${allRounds}.zip`, 'collect-earth-backup.zip'),
+        )
         .send(stream);
     } finally {
       if (!handedOver) busy = false;
@@ -151,10 +187,28 @@ export async function registerCollectBackupRoutes(
   }
 }
 
+const BAD_FORMAT = { error: 'bad_request', reason: 'format is zip or collect' };
 const NO_PROJECT_FILE = { error: 'no_project_file', reason: 'the backup carries the survey of the project file: upload a project file first' };
 // Without round in the key a plot's first assessment and its check have one key, and Collect Earth
 // keeps one record per key: only the first assessments can go.
 const NO_ROUND_KEY = { error: 'no_round_key', reason: 'the survey has no round key: only the first assessments can be in the backup' };
+
+/**
+ * The files of OpenForis Collect's backup before its records: the survey as served, under the name
+ * Collect Earth gives it (the project file's survey_name), and each plot file whole, as people get it
+ * (with the round and note columns the served survey has).
+ */
+async function collectHeadOf(store: Store, projectId: string, files: CepFiles, info: RoundInfo | null, date: Date) {
+  const survey = files.entries.get(files.surveyPath)!;
+  const read = backupSurvey(new TextDecoder().decode(survey));
+  const grids: { filename: string; data: Uint8Array }[] = [];
+  for (const meta of await store.listCsvFiles(projectId)) {
+    const file = await store.getCsvFile(projectId, meta.id);
+    if (file) grids.push({ filename: file.filename, data: wholeFile(file, info).data });
+  }
+  const name = cepProperties(files).get('survey_name') || read.surveyName;
+  return collectHead({ survey, uri: read.uri, name, grids, areas: files.entries.get(ATTRIBUTE_AREAS_CSV) ?? null }, date);
+}
 
 /** Why a backup cannot be made now (before a link is given), or null. */
 async function refusalOf(store: Store, projectId: string, rounds: BackupRounds) {

@@ -73,7 +73,7 @@ export function BackupImportDialog({ onClose }: { onClose: () => void }) {
     }
     return working(async () => {
       const backup = base64Of(new Uint8Array(await file.arrayBuffer()));
-      // Collect's own backup (.collect) holds the survey's grids: they are the plot file, joined as a project file's are
+      // Collect's own backup (.collect, .collect-backup) holds the survey's grids: they are the plot file, joined as a project file's are
       const grids = await zipCsvFiles(file, "files/ce_grid/");
       const { merged, separate } = grids.length > 0 ? await mergeGridFiles(grids, file.name.replace(/\.[^.]*$/, "") + "_plots.csv") : { merged: null, separate: [] };
       const grid = merged ?? (separate.length === 1 ? separate[0] : null);
@@ -150,7 +150,7 @@ export function BackupImportDialog({ onClose }: { onClose: () => void }) {
               <Typography variant="body2" color="text.secondary">
                 {t("backupImport.how")}
               </Typography>
-              <FileDrop label={t("backupImport.drop")} buttonLabel={t("backupImport.choose")} accept=".zip,.collect,application/zip" disabled={busy} onFiles={readBackup} />
+              <FileDrop label={t("backupImport.drop")} buttonLabel={t("backupImport.choose")} accept=".zip,.collect,.collect-backup,application/zip" disabled={busy} onFiles={readBackup} />
               {tooLarge !== null && <Alert severity="error">{t("backupImport.tooLarge", { size: megabytes(tooLarge), max: megabytes(MAX_BACKUP_BYTES) })}</Alert>}
               {busy && <LinearProgress aria-label={t("backupImport.reading")} />}
             </Stack>
