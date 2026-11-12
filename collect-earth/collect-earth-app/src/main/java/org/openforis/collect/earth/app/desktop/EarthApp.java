@@ -486,7 +486,13 @@ public class EarthApp {
 			// The pages close with this process: until the new one opens its window, this one says what goes on
 			StartupProgressWindow.show(Messages.getString("StartupWindow.restarting")); //$NON-NLS-1$
 			StartupProgressWindow.step(Messages.getString("StartupWindow.saving")); //$NON-NLS-1$
-			serverController.stopServer();
+			try {
+				serverController.stopServer();
+			} catch (final Exception e) {
+				// Jetty throws a TimeoutException when a request is still open after its stop timeout, having stopped
+				// everything all the same: relaunch anyway, or the restart ends with no Collect Earth at all
+				logger.warn("The server did not stop cleanly, relaunching all the same", e); //$NON-NLS-1$
+			}
 			StartupProgressWindow.step(Messages.getString("StartupWindow.relaunching")); //$NON-NLS-1$
 			relaunch();
 

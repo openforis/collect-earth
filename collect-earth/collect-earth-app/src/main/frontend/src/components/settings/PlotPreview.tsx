@@ -25,6 +25,8 @@ export function PlotPreview({ values, plot, texts }: { values: Values; plot: Plo
   const e = drawing.extent || 1;
   const bar = scaleBarLength(e);
   const stroke = e / 150;
+  // The room under the drawing for the scale bar, clear of the plot
+  const below = e * 0.22;
   const shape = (outline: Outline, props: Record<string, unknown>) => {
     if (outline.kind === "square") return <rect x={-outline.half} y={-outline.half} width={2 * outline.half} height={2 * outline.half} {...props} />;
     if (outline.kind === "circle") return <circle cx={0} cy={0} r={outline.r} {...props} />;
@@ -34,7 +36,7 @@ export function PlotPreview({ values, plot, texts }: { values: Values; plot: Plo
   return (
     <Stack spacing={1} data-testid="plot-preview">
       <Typography variant="subtitle2">{s("SettingsPage.preview.title")}</Typography>
-      <Box component="svg" viewBox={`${-e} ${-e} ${2 * e} ${2 * e}`} sx={{ width: "100%", maxWidth: 360, aspectRatio: "1", display: "block" }}
+      <Box component="svg" viewBox={`${-e} ${-e} ${2 * e} ${2 * e + below}`} sx={{ width: "100%", maxWidth: 360, aspectRatio: `${2 * e} / ${2 * e + below}`, display: "block" }}
         role="img" aria-label={s("SettingsPage.preview.title")}>
         {/* North up: the generators' y grows northwards, SVG's downwards */}
         <g transform="scale(1,-1)">
@@ -51,12 +53,12 @@ export function PlotPreview({ values, plot, texts }: { values: Values; plot: Plo
             <rect key={i} x={p.x - p.side / 2} y={p.y - p.side / 2} width={p.side} height={p.side} fill={PLOT_COLOR} stroke="#5d4a00" strokeWidth={stroke / 2} />
           ))}
         </g>
-        {/* The scale bar, bottom left, in the page's text colour */}
+        {/* The scale bar under the drawing, from its left edge, in the page's text colour */}
         <g fill="currentColor" stroke="currentColor">
-          <line x1={-e * 0.92} y1={e * 0.9} x2={-e * 0.92 + bar} y2={e * 0.9} strokeWidth={stroke * 1.5} />
-          <line x1={-e * 0.92} y1={e * 0.87} x2={-e * 0.92} y2={e * 0.93} strokeWidth={stroke} />
-          <line x1={-e * 0.92 + bar} y1={e * 0.87} x2={-e * 0.92 + bar} y2={e * 0.93} strokeWidth={stroke} />
-          <text x={-e * 0.92 + bar / 2} y={e * 0.84} fontSize={e * 0.08} textAnchor="middle" stroke="none">{bar} m</text>
+          <line x1={-e} y1={e + below * 0.7} x2={-e + bar} y2={e + below * 0.7} strokeWidth={stroke * 1.5} />
+          <line x1={-e} y1={e + below * 0.55} x2={-e} y2={e + below * 0.85} strokeWidth={stroke} />
+          <line x1={-e + bar} y1={e + below * 0.55} x2={-e + bar} y2={e + below * 0.85} strokeWidth={stroke} />
+          <text x={-e + bar + e * 0.04} y={e + below * 0.7} dominantBaseline="middle" fontSize={e * 0.08} stroke="none">{bar} m</text>
         </g>
       </Box>
       {plot && (

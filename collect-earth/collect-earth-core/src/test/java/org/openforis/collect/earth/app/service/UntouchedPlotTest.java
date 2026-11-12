@@ -119,6 +119,14 @@ class UntouchedPlotTest {
 	}
 
 	@Test
+	void aSurveyWithoutThePeriodStatusIsNoRepeatSurvey() {
+		// most surveys: Collect's lookup of a missing child throws, which failed every poll of the plot statuses
+		EntityDefinition plot = service.getCollectSurvey().getSchema().getRootEntityDefinition("plot");
+		plot.removeChildDefinition(plot.getChildDefinition("period_status"));
+		assertFalse(service.hasPeriodStatus());
+	}
+
+	@Test
 	void noSurveyIsNoRepeatSurvey() {
 		assertFalse(new AbstractEarthSurveyService() {
 		}.hasPeriodStatus());

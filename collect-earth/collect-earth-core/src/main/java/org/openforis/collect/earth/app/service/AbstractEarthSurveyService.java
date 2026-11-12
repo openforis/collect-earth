@@ -611,7 +611,9 @@ public abstract class AbstractEarthSurveyService {
 			return false;
 		}
 		EntityDefinition plot = survey.getSchema().getRootEntityDefinition(ROOT_ENTITY_NAME);
-		return plot != null && plot.getChildDefinition(PERIOD_STATUS_ATTRIBUTE_NAME) instanceof CodeAttributeDefinition;
+		// containsChildDefinition first: getChildDefinition throws for a child the survey has not
+		return plot != null && plot.containsChildDefinition(PERIOD_STATUS_ATTRIBUTE_NAME)
+				&& plot.getChildDefinition(PERIOD_STATUS_ATTRIBUTE_NAME) instanceof CodeAttributeDefinition;
 	}
 
 	/**
