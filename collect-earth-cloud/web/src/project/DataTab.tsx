@@ -8,7 +8,6 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import ArrowForward from "@mui/icons-material/ArrowForward";
 import Download from "@mui/icons-material/Download";
 import PivotTableChart from "@mui/icons-material/PivotTableChart";
 import { useState } from "react";
@@ -22,7 +21,7 @@ import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
 import { dataSections } from "../localMode";
-import { linkProps, pathFor, type ProjectTab } from "../router";
+import { linkProps, pathFor } from "../router";
 import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
 import { CollectBackup } from "./CollectBackup";
@@ -52,25 +51,7 @@ function Analysis({ projectId }: { projectId: string }) {
   );
 }
 
-/** The comparison of first assessments and checks moved to the Quality tab: a pointer to it. */
-function QualityCheck({ onGo }: { onGo: (tab: ProjectTab) => void }) {
-  const t = useT();
-  return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-      <Stack spacing={2}>
-        <Typography variant="h2">{t("data.checkTitle")}</Typography>
-        <Typography color="text.secondary">{t("data.checkMoved")}</Typography>
-        <Box>
-          <Button variant="outlined" endIcon={<ArrowForward />} onClick={() => onGo("quality")}>
-            {t("data.checkOpen")}
-          </Button>
-        </Box>
-      </Stack>
-    </Paper>
-  );
-}
-
-export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: ProjectTab) => void }) {
+export function DataTab({ projectId }: { projectId: string }) {
   const t = useT();
   const { language } = useApp();
   // The local mode (one person): the data download only (src/localMode.ts, dataSections).
@@ -232,7 +213,6 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
       {sections.includes("ipcc") && <IpccExports projectId={projectId} />}
       {sections.includes("backup") && <CollectBackup projectId={projectId} />}
       {sections.includes("import") && <CollectImport projectId={projectId} />}
-      {sections.includes("qualityCheck") && <QualityCheck onGo={onGo} />}
     </Stack>
   );
 }

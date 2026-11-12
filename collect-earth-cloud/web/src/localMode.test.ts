@@ -188,7 +188,7 @@ describe("local mode: Map", () => {
 describe("local mode: Data", () => {
   it("has the data download only (no Collect Earth backup, no pointer to checks)", () => {
     expect(dataSections(true)).toEqual(["download"]);
-    expect(dataSections(false)).toEqual(["download", "ipcc", "backup", "import", "qualityCheck"]);
+    expect(dataSections(false)).toEqual(["download", "ipcc", "backup", "import"]);
     expect(t("data.explainLocal")).not.toMatch(/person/);
   });
 });

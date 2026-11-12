@@ -287,7 +287,7 @@ export function ProjectPage({
     people: personId ? <PersonPage key={personId} projectId={projectId} userId={personId} onGo={go} /> : <PeopleTab projectId={projectId} view={viewOf("people", view)} />,
     plots: fileId ? <PlotFilePage key={fileId} projectId={projectId} fileId={fileId} onGo={go} /> : <PlotsTab projectId={projectId} onGo={go} />,
     map: <MapTab projectId={projectId} coordinator={!local} />,
-    data: <DataTab projectId={projectId} onGo={go} />,
+    data: <DataTab projectId={projectId} />,
     quality: plot ? <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles={!local} /> : <QualityTab projectId={projectId} view={viewOf("quality", view)} />,
     training: <TrainingTab key={trainingSetId ?? "list"} projectId={projectId} setId={trainingSetId} />,
     activity: <ActivityTab projectId={projectId} />,

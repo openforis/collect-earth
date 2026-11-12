@@ -6,7 +6,6 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import MenuItem from "@mui/material/MenuItem";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -19,6 +18,7 @@ import Download from "@mui/icons-material/Download";
 import { useState } from "react";
 import { downloadIpccFile, downloadIpccGhgi, getIpccExports, IPCC_FILES, IPCC_MANAGEMENT, type IpccExports as IpccStatus } from "../api";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { CardFrame } from "../components/FoldingCard";
 import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { useT } from "../i18n";
@@ -57,9 +57,8 @@ export function IpccExports({ projectId }: { projectId: string }) {
   };
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+    <CardFrame title={t("ipcc.title")} fold={t("ipcc.explain.short")}>
       <Stack spacing={2}>
-        <Typography variant="h2">{t("ipcc.title")}</Typography>
         <Explain text={t("ipcc.explain.short")} more={t("ipcc.explain")} />
         {status.loading && !s ? (
           <Loading />
@@ -98,7 +97,7 @@ export function IpccExports({ projectId }: { projectId: string }) {
           onDownload={(choices) => void save("ghgi", () => downloadIpccGhgi(projectId, choices)).then((done) => done && setForm(false))}
         />
       )}
-    </Paper>
+    </CardFrame>
   );
 }
 

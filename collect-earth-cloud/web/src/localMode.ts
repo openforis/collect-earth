@@ -91,7 +91,7 @@ export function localMapPlots(map: MapPlots): MapPlots {
 
 // --- Data ---------------------------------------------------------------------------
 
-export type DataSection = "download" | "ipcc" | "backup" | "import" | "qualityCheck";
+export type DataSection = "download" | "ipcc" | "backup" | "import";
 
 /**
  * The Data tab's cards. Alone: the data download only. The Collect Earth backup is for opening a
@@ -101,7 +101,7 @@ export type DataSection = "download" | "ipcc" | "backup" | "import" | "qualityCh
  * is about checks.
  */
 export function dataSections(localMode: boolean): readonly DataSection[] {
-  return localMode ? ["download"] : ["download", "ipcc", "backup", "import", "qualityCheck"];
+  return localMode ? ["download"] : ["download", "ipcc", "backup", "import"];
 }
 
 // --- Quality ------------------------------------------------------------------------

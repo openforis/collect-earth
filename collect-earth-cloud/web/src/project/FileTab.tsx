@@ -19,6 +19,7 @@ import { useState } from "react";
 import { ApiError, cepGridFiles, downloadOriginalCep, getOverview, getRoundInfo, listCsvFiles, mergeGridFiles, setReassessmentCode, uploadCep, uploadCsvFile, type RoundInfo } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { CardFrame } from "../components/FoldingCard";
 import { Explain, MoreInfo } from "../components/Explain";
 import { FileDrop } from "../components/FileDrop";
 import { Loading } from "../components/Loading";
@@ -138,9 +139,9 @@ function RoundStatus({ projectId, projectName, info, onChange }: { projectId: st
   };
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+    // Folded while nothing is asked of the coordinator; open when there is something to read or choose
+    <CardFrame title={t("file.round.title")} fold={message.severity === "success" && (!note || note.severity === "success") && !message.choose ? t("fold.roundOk") : undefined}>
       <Stack spacing={2}>
-        <Typography variant="h2">{t("file.round.title")}</Typography>
         <Alert severity={message.severity}>
           {message.keys.map((key, i) => (
             <RoundSentence key={key} messageKey={key} first={i === 0} />
@@ -170,7 +171,7 @@ function RoundStatus({ projectId, projectName, info, onChange }: { projectId: st
           <ReassessmentChoice projectId={projectId} info={info} onSaved={onChange} />
         )}
       </Stack>
-    </Paper>
+    </CardFrame>
   );
 }
 
@@ -276,6 +277,30 @@ export function FileTab({ projectId }: { projectId: string }) {
         ) : (
           <Alert severity="info">{t("file.none")}</Alert>
         )}
+        <Stack spacing={1.5} sx={{ mt: 2 }}>
+          <FileDrop
+            label={t("file.drop")}
+            buttonLabel={cep ? t("file.chooseNew") : t("file.choose")}
+            accept=".cep"
+            disabled={progress !== null}
+            onFiles={upload}
+          />
+          {progress !== null && (
+            <div>
+              <Typography sx={{ mb: 1 }} role="status">
+                {t("file.uploading", { pct: Math.round(progress * 100) })}
+              </Typography>
+              <LinearProgress variant="determinate" value={progress * 100} aria-label={t("file.uploading", { pct: Math.round(progress * 100) })} />
+            </div>
+          )}
+          {wrongType && <Alert severity="warning" role="alert">{t("file.wrongType")}</Alert>}
+          {uploaded && (
+            <Alert severity="success" role="status">
+              {t("file.uploaded.short")}
+              <MoreInfo text={t("file.uploaded")} />
+            </Alert>
+          )}
+        </Stack>
       </Paper>
 
       {round.error ? (
@@ -288,28 +313,6 @@ export function FileTab({ projectId }: { projectId: string }) {
       {cep && <PlotLayoutCard key={uploads} projectId={projectId} />}
       {cep && <ImageryCard key={`imagery${uploads}`} projectId={projectId} />}
 
-      <FileDrop
-        label={t("file.drop")}
-        buttonLabel={cep ? t("file.chooseNew") : t("file.choose")}
-        accept=".cep"
-        disabled={progress !== null}
-        onFiles={upload}
-      />
-      {progress !== null && (
-        <div>
-          <Typography sx={{ mb: 1 }} role="status">
-            {t("file.uploading", { pct: Math.round(progress * 100) })}
-          </Typography>
-          <LinearProgress variant="determinate" value={progress * 100} aria-label={t("file.uploading", { pct: Math.round(progress * 100) })} />
-        </div>
-      )}
-      {wrongType && <Alert severity="warning" role="alert">{t("file.wrongType")}</Alert>}
-      {uploaded && (
-        <Alert severity="success" role="status">
-          {t("file.uploaded.short")}
-          <MoreInfo text={t("file.uploaded")} />
-        </Alert>
-      )}
       {/* No close on Escape or outside clicks: the grid files wait for one of the two answers. */}
       <Dialog open={pendingGrid !== null} aria-labelledby="grid-choice" maxWidth="sm" fullWidth>
         <DialogContent>
