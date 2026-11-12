@@ -197,3 +197,83 @@ figure.shot figcaption { font-size: .9rem; color: var(--muted); margin-top: 10px
 .gallery figure.shot { margin-top: 28px; }
 
 :focus-visible { outline: 3px solid var(--of-blue); outline-offset: 2px; border-radius: 4px; }
+
+/* ---------- Your data, under your control (home) ---------- */
+.data-band { background: #23463a; color: #DCE6E0; }
+.data-band h2 { color: #fff; }
+.data-band .lead { color: #DCE6E0; }
+.pillars { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 40px; }
+.pillar { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 26px 26px 24px; }
+.pillar .icon { width: 44px; height: 44px; padding: 10px; border-radius: 50%; background: var(--of-blue); stroke: #fff; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 14px; display: block; }
+.pillar h3 { color: #fff; font-size: 1.15rem; margin-bottom: .4em; }
+.pillar p { margin: 0; font-size: .95rem; color: #D2DED7; }
+.band-link { margin: 32px 0 0; }
+.data-band a { color: #BFE0F7; font-weight: 500; }
+.data-band a:hover { color: #fff; }
+
+/* ---------- Find your set-up ---------- */
+.decide { display: none; background: var(--sand); border-radius: 12px; padding: 30px 32px; margin-top: 32px; max-width: 860px; }
+.decide.ready { display: block; }
+.decide.ready + .decide-static { display: none; }
+.decide-static { margin: 24px 0 0; padding-left: 1.2em; }
+.decide-step h3 { font-size: 1.3rem; margin-bottom: .5em; outline: none; }
+.decide .hint { margin: -4px 0 16px; font-size: .92rem; color: var(--muted); }
+.choices { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+.choice { font: 500 15px/1.3 var(--font); color: var(--heading); background: #fff; border: 1.5px solid #CFC8BA; border-radius: 8px; padding: 13px 20px; cursor: pointer; transition: border-color .15s, color .15s, box-shadow .15s; }
+.choice:hover { border-color: var(--of-blue); color: var(--of-link); box-shadow: 0 4px 10px rgba(0,0,0,.06); }
+.decide-trail { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.decide-trail .chip { font-size: .8rem; font-weight: 500; color: #476825; background: #E3ECD8; border-radius: 999px; padding: 3px 12px; }
+.decide .result { background: #fff; border-radius: 10px; border-left: 6px solid var(--of-green); padding: 24px 26px; }
+.decide .result h3 { font-size: 1.45rem; margin: 0 0 .4em; }
+.decide .result p { margin: 0 0 .8em; }
+.result-kicker { font-size: .78rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--of-green); margin: 0 0 4px !important; }
+.decide .result .actions { margin-top: 18px; }
+.decide .result .btn.ghost { font-size: 15px; }
+.where { font-size: .92rem; }
+.where strong { color: var(--heading); font-weight: 500; }
+.card .where { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,.08); color: #555; font-size: .88rem; }
+.card .more { display: inline-block; margin-top: 12px; font-weight: 500; font-size: .93rem; }
+.doc .decide { margin: 18px 0 8px; }
+.doc .decide-static { margin-top: 12px; }
+
+/* ---------- Workflow pages ---------- */
+.best { background: #F6F4EF; border-radius: var(--radius); padding: 12px 18px; }
+ul.ticks.one { grid-template-columns: 1fr; gap: 14px; margin: 18px 0 8px; }
+ol.flow { list-style: none; display: flex; align-items: stretch; gap: 0; padding: 0; margin: 22px 0 24px; }
+ol.flow li { flex: 1; background: #fff; border: 1.5px solid #D9D3C7; border-radius: 10px; padding: 14px 16px; font-size: .9rem; line-height: 1.45; position: relative; }
+ol.flow li span { display: block; font-weight: 600; color: var(--heading); font-size: .82rem; letter-spacing: .03em; text-transform: uppercase; margin-bottom: 4px; }
+ol.flow li.store { border-color: var(--of-blue); background: #F1F7FC; }
+ol.flow li + li { margin-left: 34px; }
+ol.flow li + li::before { content: "→"; position: absolute; left: -28px; top: 50%; transform: translateY(-50%); color: var(--of-blue); font-size: 1.3rem; font-weight: 600; }
+@media (max-width: 640px) {
+  ol.flow { flex-direction: column; }
+  ol.flow li + li { margin: 30px 0 0; }
+  ol.flow li + li::before { content: "↓"; left: 50%; top: -26px; transform: translateX(-50%); }
+}
+#setups .g4 .card { display: flex; flex-direction: column; }
+#setups .g4 .card .where { margin-top: auto; }
+#setups .g4 .card > p:not(.where) { margin-bottom: 14px; }
+
+/* ---------- Costs and commands (own-server guide) ---------- */
+.cost-box { display: flex; align-items: center; gap: 28px; background: #23463a; color: #DCE6E0; border-radius: 12px; padding: 24px 28px; margin: 24px 0 8px; }
+.cost-box p { margin: 0; font-size: .95rem; }
+.cost-box code { background: rgba(255,255,255,.12); color: #fff; }
+.cost-figure { flex: none; color: #fff; font-size: 2.6rem; font-weight: 600; line-height: 1; text-align: center; }
+.cost-figure span, .cost-figure small { display: block; font-size: .8rem; font-weight: 400; color: #BFD3C8; letter-spacing: .04em; }
+.cost-figure span { margin-bottom: 6px; text-transform: uppercase; }
+.cost-figure small { margin-top: 6px; }
+@media (max-width: 640px) { .cost-box { flex-direction: column; align-items: flex-start; } .cost-figure { text-align: left; } }
+table.costs.num td:last-child, table.costs.num th:last-child { white-space: nowrap; }
+table.costs code { white-space: nowrap; }
+table.costs.regions td:first-child { min-width: 210px; }
+table.costs tbody td:not(:first-child) { font-variant-numeric: tabular-nums; }
+table.costs tr.total td { background: var(--sand) !important; color: var(--heading); }
+.th-note { font-size: .78rem; font-weight: 400; color: #5a5a5a; }
+.th-note code { font-size: .95em; }
+.doc p.small { font-size: .88rem; color: var(--muted); margin-top: 10px; }
+details.assumptions { background: #F6F4EF; border-radius: var(--radius); padding: 14px 20px; margin: 24px 0; font-size: .92rem; }
+details.assumptions summary { cursor: pointer; font-weight: 500; color: var(--heading); }
+details.assumptions p { margin: 12px 0 0; }
+.doc pre.cmd { background: #1E2B26; color: #E4EEE8; border-radius: 8px; padding: 14px 18px; margin: 10px 0 14px; overflow-x: auto; font-size: .84rem; line-height: 1.55; }
+.doc pre.cmd code { background: none; color: inherit; padding: 0; font-size: 1em; }
+.cta-line { margin: 18px 0 22px; }

@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
 <title>Your own server · Collect Earth</title>
-<meta name="description" content="Install a private Collect Earth Cloud server on Google Cloud or any Docker host.">
+<meta name="description" content="Install your own Collect Earth Cloud on Google Cloud or any Docker host, step by step, with monthly cost estimates by region and size.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="stylesheet" href="../style.css">
@@ -35,82 +35,255 @@
   <div class="box">
     <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
     <h1>Your own server</h1>
-    <p class="lead">A private server is your own copy of Collect Earth Cloud: the web dashboard, the sync service Collect Earth talks to, and a database with nightly backups. Coordinators and interpreters work exactly as on <a href="https://cloud.collectearth.org">cloud.collectearth.org</a>, and nobody else, including the Collect Earth team, can see the data.</p>
+    <p class="lead">Run your own copy of Collect Earth Cloud, so the data never leaves your organisation. On Google Cloud it takes one button, one command and about 20 minutes, and a typical project costs about 10 US$ a month.</p>
   </div>
 </div>
 <div class="doc">
 
-  <h2>Two ways to install it</h2>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th></th><th>Google Cloud, guided</th><th>Any Docker host</th></tr></thead>
-      <tbody>
-        <tr><td><strong>Skills needed</strong></td><td>None: a button and one command</td><td>A system administrator</td></tr>
-        <tr><td><strong>What you need</strong></td><td>A Google account and a billing account</td><td>A server with Docker, PostgreSQL 16 or later with backups, and HTTPS in front</td></tr>
-        <tr><td><strong>Time</strong></td><td>About 20 minutes, mostly waiting</td><td>Depends on your infrastructure</td></tr>
-        <tr><td><strong>Cost</strong></td><td>About 10 to 15 US$ a month</td><td>Your own hosting costs</td></tr>
-        <tr><td><strong>Backups</strong></td><td>Every night, the last 7 kept, and recovery to any minute of the last 7 days</td><td>Yours to arrange</td></tr>
-      </tbody>
-    </table>
+  <div class="toc">
+    <strong>On this page</strong>
+    <ol>
+      <li><a href="#why">Is it for you?</a></li>
+      <li><a href="#costs">What it costs</a></li>
+      <li><a href="#before">Before you start</a></li>
+      <li><a href="#install">Install it on Google Cloud</a></li>
+      <li><a href="#first">First steps on your server</a></li>
+      <li><a href="#options">Optional: address, emails, AI, size</a></li>
+      <li><a href="#care">Looking after it</a></li>
+      <li><a href="#move">Moving a project to your server</a></li>
+      <li><a href="#docker">On any other host, with Docker</a></li>
+      <li><a href="#remove">Removing it</a></li>
+    </ol>
   </div>
 
-  <h2>On Google Cloud</h2>
-  <ol class="steps">
-    <li>Open the <a href="https://github.com/openforis/collect-earth/blob/master/collect-earth-cloud/SELF-HOSTING.md">self-hosting guide</a> and press <span class="ui">Open in Cloud Shell</span>. Tick <span class="ui">Trust repo</span> and confirm.</li>
-    <li>Follow the panel on the right: pick or create a Google Cloud project, and check billing is on.</li>
-    <li>Run <code>bash deploy/gcp/deploy.sh</code>, choose the region nearest your team, and confirm.</li>
-    <li>Wait: the database takes 10 to 15 minutes, building the server 3 to 6 more.</li>
-    <li>Write down the dashboard address and the <strong>setup code</strong> it prints. <code>deploy.sh --show-setup-code</code> shows the code again.</li>
-  </ol>
-  <h3>What it costs</h3>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>What</th><th>About, per month</th></tr></thead>
-      <tbody>
-        <tr><td>Database (Cloud SQL, smallest machine)</td><td>8 to 10 US$</td></tr>
-        <tr><td>Database disk and backups</td><td>2 to 3 US$</td></tr>
-        <tr><td>Server (Cloud Run): runs only while someone uses it</td><td>0 US$, a few cents when busy</td></tr>
-        <tr><td><strong>Total</strong></td><td><strong>About 10 to 15 US$</strong></td></tr>
-      </tbody>
-    </table>
-  </div>
-  <p>Google changes its prices from time to time; the exact amount depends on the region and on use.</p>
-
-  <h2>On your own servers</h2>
-  <p>Build the image (<code>docker build -t collect-earth-cloud .</code> in <code>collect-earth-cloud</code>) and run it with PostgreSQL. <a href="https://github.com/openforis/collect-earth/blob/master/collect-earth-cloud/DEPLOY.md">DEPLOY.md</a> lists every setting; the main ones:</p>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Setting</th><th>What it is</th></tr></thead>
-      <tbody>
-        <tr><td><code>STORE_BACKEND=postgres</code></td><td>Keep the data in PostgreSQL</td></tr>
-        <tr><td><code>MIGRATION_DATABASE_URL</code></td><td>The database owner, to create and update the tables</td></tr>
-        <tr><td><code>MIGRATE_ON_BOOT=true</code></td><td>Create and update the tables when the server starts. Without it, run <code>npm run migrate</code> yourself before the first start</td></tr>
-        <tr><td><code>DATABASE_URL</code></td><td>A less powerful role the server runs as, so each project's data stays apart</td></tr>
-        <tr><td><code>SETUP_CODE</code></td><td>The one-time code for the first administrator</td></tr>
-        <tr><td><code>PUBLIC_BASE_URL</code></td><td>Your HTTPS address, used in invitation links</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <p>The server speaks plain HTTP on port 8080: put HTTPS in front of it (a load balancer, nginx or Caddy). Behind two proxies, such as a load balancer in front of Caddy, set <code>TRUST_PROXY_HOPS=2</code>.</p>
-  <p>Email is optional, for weekly summaries, "Forgot your password?" and alerts to administrators. Once <code>SMTP_URL</code> is set, <code>MAIL_FROM</code>, <code>PUBLIC_BASE_URL</code> and <code>LINK_SECRET</code> (32 characters or more) are required too, or the server won't start.</p>
-
-  <h2>First steps on a new server</h2>
-  <ol class="steps">
-    <li><strong>Setup.</strong> Open the address, type the setup code, and choose the administrator's user name and password.</li>
-    <li><strong>Server settings</strong> (the <span class="ui">Server</span> page): leave <span class="ui">Anyone can create an account</span> off for a private server, so people only get accounts through invitations. Choose <span class="ui">Who can create projects</span>, and optionally limits, a server name, an announcement, terms of use and a contact email.</li>
-    <li><strong>Your first project:</strong> continue as in <a href="coordinators.html">Running a cloud project</a>. The administrator sees no project's data unless they are also a member.</li>
-    <li><strong>Forgotten passwords:</strong> <span class="ui">Server › Accounts › Make a reset link</span>, or, with email set up, people use <span class="ui">Forgot your password?</span> themselves.</li>
-    <li><strong>Lost laptops:</strong> a coordinator presses <span class="ui">Sign out everywhere</span> on the person's page. A sign-in unused for 90 days ends by itself (<code>SESSION_IDLE_DAYS</code>).</li>
-  </ol>
-  <p>For interpreters nothing changes: the invitation link carries your server's address, so they never type it.</p>
-
-  <h2>Looking after it</h2>
-  <ul>
-    <li><strong>Updating:</strong> run the same <code>deploy.sh</code> command again. It switches to the new version in about 5 minutes; the data stays.</li>
-    <li><strong>Your own address:</strong> <code>deploy.sh --domain cloud.example.org</code>, then add the DNS record it prints.</li>
-    <li><strong>Restoring a backup</strong> replaces all current data: download each project's data first. Test a restore once before going live.</li>
-    <li><strong>Stopping all costs:</strong> delete the Google Cloud project.</li>
+  <h2 id="why">Is it for you?</h2>
+  <p>A private server is the same Collect Earth Cloud that FAO runs at <a href="https://cloud.collectearth.org">cloud.collectearth.org</a>: the web dashboard, the sync service Collect Earth talks to, and a database with nightly backups. Coordinators and interpreters work exactly as on the shared server. The difference is where it runs and who controls it.</p>
+  <ul class="ticks one">
+    <li><strong>The data stays with you.</strong> Everything runs in your organisation's own Google Cloud project, or on your own hardware. Nobody else, including FAO and the Collect Earth team, can see it, and the server sends no usage data anywhere unless you switch it on.</li>
+    <li><strong>You decide the rules:</strong> who gets an account, who may create projects, how much each project may hold, and which projects exist at all.</li>
+    <li><strong>No programming needed.</strong> On Google Cloud a guided panel and one command do the work. You need someone comfortable with a web console and copying a command, and a payment card on a Google Cloud billing account.</li>
   </ul>
+  <p>If your data may be kept on FAO's server, the free <a href="choose.html#setup-3">Collect Earth Cloud</a> needs no installation at all. You can also start there and move later (see <a href="#move">Moving a project to your server</a>).</p>
+
+  <h2 id="costs">What it costs</h2>
+  <p>You pay Google for what the server uses, every month, on your billing account. Almost all of it is the database, which runs day and night; the server itself runs only while someone uses it, and usually stays within Google's monthly free allowance.</p>
+
+  <div class="cost-box">
+    <div class="cost-figure"><span>about</span>10 US$<small>a month</small></div>
+    <p>One project with up to 10 interpreters, on the smallest database, in Belgium (<code>europe-west1</code>), which is what the install script sets up by default. Iowa, South Carolina and Johannesburg cost the same.</p>
+  </div>
+
+  <h3>Where the 10 US$ go</h3>
+  <div class="table-wrap">
+    <table class="costs num">
+      <thead><tr><th>What</th><th>What it is</th><th>US$ a month</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Database machine</strong></td><td>Cloud SQL <code>db-f1-micro</code> (shared CPU, 0.6 GB of memory), running all the time</td><td>7.67</td></tr>
+        <tr><td><strong>Database disk</strong></td><td>10 GB SSD, which grows by itself if needed</td><td>1.70</td></tr>
+        <tr><td><strong>Backups</strong></td><td>7 nightly copies, about 2 GB in all for a project this size</td><td>0.16</td></tr>
+        <tr><td><strong>Server</strong></td><td>Cloud Run, running only while someone uses it: about 2.70 US$ of use, inside the free allowance</td><td>0.00</td></tr>
+        <tr><td><strong>Data sent to users</strong></td><td>Pages, plot files and downloads, about 2 GB</td><td>0.24</td></tr>
+        <tr><td><strong>Building and storing versions, secrets</strong></td><td>Cloud Build, Artifact Registry and Secret Manager, nearly all within their free allowances</td><td>0.05</td></tr>
+        <tr class="total"><td><strong>Total</strong></td><td></td><td><strong>about 10</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>By region and size</h3>
+  <p>The database machine is the choice that matters most: the default <code>db-f1-micro</code> suits one or a few projects; a busier server needs a bigger one, chosen when the database is created (<a href="#size">see below</a>). Prices also differ between regions.</p>
+  <div class="table-wrap">
+    <table class="costs regions">
+      <thead><tr><th>Region</th><th>Small<br><span class="th-note">1 project, ~10 interpreters, <code>db-f1-micro</code></span></th><th>National team<br><span class="th-note">~40 interpreters, <code>db-g1-small</code></span></th><th>Many projects<br><span class="th-note">~150 interpreters, 1 dedicated vCPU</span></th></tr></thead>
+      <tbody>
+        <tr><td><strong>Belgium, Iowa, South Carolina</strong><br><code>europe-west1</code>, <code>us-central1</code>, <code>us-east1</code></td><td>10</td><td>32</td><td>79</td></tr>
+        <tr><td><strong>Johannesburg</strong> <code>africa-south1</code></td><td>10</td><td>33</td><td>80</td></tr>
+        <tr><td><strong>Mexico</strong> <code>northamerica-south1</code> *</td><td>11</td><td>35</td><td>84</td></tr>
+        <tr><td><strong>Mumbai</strong> <code>asia-south1</code></td><td>12</td><td>38</td><td>91</td></tr>
+        <tr><td><strong>Jakarta</strong> <code>asia-southeast2</code> *</td><td>13</td><td>45</td><td>108</td></tr>
+        <tr><td><strong>Singapore</strong> <code>asia-southeast1</code></td><td>14</td><td>47</td><td>111</td></tr>
+        <tr><td><strong>São Paulo</strong> <code>southamerica-east1</code></td><td>15</td><td>51</td><td>120</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small">US$ a month. The install script offers the regions without an asterisk; the others, and any region with Cloud Run and Cloud SQL, work with <code>--region</code>. Choose the region nearest to the people who will use the server: the cheapest regions are usually close enough for a team on another continent.</p>
+
+  <h3>Optional extras</h3>
+  <div class="table-wrap">
+    <table class="costs">
+      <thead><tr><th>Option</th><th>What it adds, US$ a month</th></tr></thead>
+      <tbody>
+        <tr><td><strong>High availability</strong>: a standby database in a second zone (not set up by the script)</td><td>Doubles the database and its disk: about +9 for a small server, +29 for a national team</td></tr>
+        <tr><td><strong>An always-on server</strong> (instance-based billing), so quality figures and AI reviews go on with the page closed</td><td>About 0 to 2 at light use, up to about 45 with one instance always up</td></tr>
+        <tr><td><strong>AI assistant</strong> on the Quality tab (Gemini 3.8 Flash on Vertex AI), off by default</td><td>At the default limit of 2 million tokens per project: about 2 per project until 31 December 2026, about 4 from 1 January 2027. Less when used less</td></tr>
+        <tr><td><strong>Weekly emails</strong> and "Forgot your password?"</td><td>Cloud Scheduler is free for the first 3 jobs of a billing account (this needs one), plus your mail provider</td></tr>
+        <tr><td><strong>Your own address</strong>, like <code>cloud.example.org</code></td><td>Free on Google's side; you pay only for the domain name</td></tr>
+        <tr><td><strong>More disk</strong></td><td>0.17 per GB of SSD in Belgium. The disk grows by itself and never shrinks</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>What is free</h3>
+  <ul>
+    <li><strong>Cloud Run</strong>, each month: 180,000 vCPU-seconds, 360,000 GiB-seconds and 2 million requests. These allowances belong to the billing account, so other projects on the same account share them.</li>
+    <li><strong>Cloud Build</strong>: 2,500 build-minutes a month (an install or update takes 3 to 6). <strong>Secret Manager</strong>: 6 secret versions and 10,000 reads (the server uses 3). <strong>Artifact Registry</strong>: 0.5 GB. <strong>Cloud Scheduler</strong>: 3 jobs.</li>
+    <li><strong>New Google Cloud customers</strong> get a 300 US$ credit to spend over 90 days, which covers the first months.</li>
+  </ul>
+
+  <h3>Keeping the bill low</h3>
+  <ul>
+    <li>Start with the smallest database and move up only if pages become slow. You can change it later (see <a href="#size">A bigger database</a>).</li>
+    <li>Keep the server's default request-based billing: a quiet server then costs almost nothing beyond the database.</li>
+    <li>Set a <a href="https://cloud.google.com/billing/docs/how-to/budgets">budget alert</a> on the billing account, a few dollars above what you expect. It sends an email; it doesn't stop anything.</li>
+    <li>For a server that runs for years on a dedicated database, a one-year committed use discount lowers the database machine by 25 % (for example 49 to 37 US$ a month). It does not apply to the shared-CPU machines.</li>
+    <li>When the work is over, download the data and delete the project (see <a href="#remove">Removing it</a>).</li>
+  </ul>
+
+  <details class="assumptions">
+    <summary>How these figures were worked out</summary>
+    <p>Google's on-demand list prices of 11 November 2026, in US dollars before tax, with 730 hours a month: Cloud SQL Enterprise edition (shared-core machines per hour, dedicated machines per vCPU and per GB of memory, SSD and backups per GB), Cloud Run request-based billing (Tier 1 regions 0.000024 US$ per vCPU-second and 0.0000025 per GiB-second; Tier 2, such as Singapore, Jakarta and São Paulo, 0.0000336 and 0.0000035; 0.40 per million requests), internet data transfer at 0.12 US$ per GB (0.15 to Africa, 0.19 to South America and Indonesia), and the free allowances above.</p>
+    <p>Use: interpreters at work 5 to 6 hours a day, 22 days a month. Collect Earth sends saved plots every 30 seconds and checks in every 10 minutes, about 70 requests an hour each, counted at 0.2 seconds of server time per request with no overlap (on the safe side); each coordinator adds 1,200 dashboard requests and 30 minutes of computing a working day. Small: 10 interpreters, 2 coordinators, 10 GB of disk, 2 GB of backups, 2 GB sent. National team: 40 interpreters, 4 coordinators, <code>db-g1-small</code>, 1 GiB of server memory, 20 GB of disk, 8 GB of backups, 10 GB sent. Many projects: 150 interpreters, 10 coordinators, <code>db-custom-1-3840</code> (1 vCPU, 3.75 GB), 50 GB of disk, 30 GB of backups, 40 GB sent.</p>
+    <p>Your bill depends on your own use: after the first month, open <a href="https://console.cloud.google.com/billing">Billing</a> › <span class="ui">Reports</span> to see it. Google changes its prices from time to time; the current ones are on <a href="https://cloud.google.com/sql/pricing">Cloud SQL pricing</a>, <a href="https://cloud.google.com/run/pricing">Cloud Run pricing</a> and the <a href="https://cloud.google.com/products/calculator">pricing calculator</a>.</p>
+  </details>
+
+  <h2 id="before">Before you start</h2>
+  <ol class="steps">
+    <li><strong>A Google account.</strong> Any Gmail or Google Workspace account. If your organisation uses Google Workspace, use your work account, so that the server belongs to the organisation and not to a person.</li>
+    <li><strong>Google Cloud.</strong> Open <a href="https://console.cloud.google.com">console.cloud.google.com</a> with that account and accept the terms the first time.</li>
+    <li><strong>A billing account</strong>: how Google charges you, with a payment card. Create one at <a href="https://console.cloud.google.com/billing">console.cloud.google.com/billing</a>, or ask whoever manages Google Cloud in your organisation to link theirs to your project.</li>
+    <li><strong>A new project, just for this server</strong>, so its cost is easy to see and everything can be deleted at once. The install panel helps you create it. You need the <em>Owner</em> role on it.</li>
+    <li><strong>Choose the region</strong>, the place where the server will run: the one nearest to the people who will use it, keeping the <a href="#costs">price differences</a> in mind. It cannot be changed afterwards without moving the data.</li>
+  </ol>
+  <div class="note">In large organisations, Google Cloud policies sometimes block public web services or new service accounts. If the script stops with a message about an organisation policy, ask your Google Cloud administrator to exempt the project; the message says which policy it is.</div>
+
+  <h2 id="install">Install it on Google Cloud</h2>
+  <p>Press the button. It opens <strong>Cloud Shell</strong>, a terminal in your browser provided by Google for free and already signed in with your account, with the Collect Earth code and a step-by-step panel on the right.</p>
+  <p class="cta-line"><a class="btn green" href="https://shell.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/openforis/collect-earth&amp;cloudshell_git_branch=master&amp;cloudshell_workspace=collect-earth-cloud&amp;cloudshell_tutorial=deploy/gcp/tutorial.md&amp;show=terminal">Open in Cloud Shell</a></p>
+  <ol class="steps">
+    <li><strong>Trust the repository.</strong> Cloud Shell asks whether you trust it: tick <span class="ui">Trust repo</span> and press <span class="ui">Confirm</span>. Without this the terminal has no access to your Google account and the installation cannot work.</li>
+    <li><strong>Pick the project</strong> in the panel on the right (or create one there), and check that billing is on. The panel shows a command that tells the terminal which project to use: copy it and press Enter.</li>
+    <li><strong>Authorize.</strong> When the first command runs, Google may ask you to let the terminal act with your account: press <span class="ui">Authorize</span>.</li>
+    <li><strong>Run the installation:</strong>
+<pre class="cmd"><code>bash deploy/gcp/deploy.sh</code></pre></li>
+    <li><strong>Choose the region</strong> from the list (Belgium, Iowa, South Carolina, São Paulo, Johannesburg, Mumbai or Singapore), or press Enter for Belgium. Any other region works with <code>--region</code>, for example <code>bash deploy/gcp/deploy.sh --region asia-southeast2</code>. The script then shows what it will do and asks <span class="ui">Continue?</span>: press Enter.</li>
+    <li><strong>Wait.</strong> It works through 8 steps and prints each one: billing, Google services, the database (10 to 15 minutes), the passwords and setup code, the server's own account, the place for server versions, building the server (3 to 6 minutes) and starting it. Keep the tab open; you can do something else meanwhile.</li>
+    <li><strong>Write down</strong> the two things it prints at the end: the <strong>dashboard address</strong>, like <code>https://collect-earth-cloud-123456789.europe-west1.run.app</code>, and the <strong>setup code</strong>, like <code>K7QX-M3TB-WN</code>.</li>
+  </ol>
+  <div class="note">If a step fails, the script stops, says in plain words what went wrong and what to do, and leaves the rest as it was. Fix the cause (often billing is off, or your account is not <em>Owner</em> of the project) and run the same command again: it carries on where it stopped and never recreates or wipes anything.</div>
+
+  <h3>What it creates</h3>
+  <p>Everything is in your project, with names starting with <code>ce</code>:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>What</th><th>Settings</th></tr></thead>
+      <tbody>
+        <tr><td><strong>The database</strong> (Cloud SQL, <code>ce-cloud-db</code>)</td><td>PostgreSQL 16, <code>db-f1-micro</code>, 10 GB SSD growing by itself, a backup every night at 02:00 UTC keeping 7, recovery to any minute of the last 7 days, protection against deletion</td></tr>
+        <tr><td><strong>The server</strong> (Cloud Run, <code>collect-earth-cloud</code>)</td><td>1 vCPU and 512 MiB per instance, 0 to 4 instances as needed, running only while it is used</td></tr>
+        <tr><td><strong>Passwords and the setup code</strong> (Secret Manager)</td><td>Generated by the script and never shown, except the setup code. The server runs as a database role bound by row-level security, so each request reaches only its own project's data</td></tr>
+        <tr><td><strong>The server's own account</strong> (<code>ce-cloud-run</code>)</td><td>Allowed only to connect to the database and to read its three secrets</td></tr>
+        <tr><td><strong>Server versions</strong> (Artifact Registry, <code>ce</code>)</td><td>The 5 newest builds are kept, older ones deleted after 30 days</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Every command is listed in <a href="https://github.com/openforis/collect-earth/blob/master/collect-earth-cloud/DEPLOY.md">DEPLOY.md</a>. To see them without changing anything, run <code>bash deploy/gcp/deploy.sh --dry-run</code>.</p>
+
+  <h2 id="first">First steps on your server</h2>
+  <ol class="steps">
+    <li><strong>Create the administrator.</strong> Open the dashboard address. The setup page asks for the setup code (capitals, spaces and dashes don't matter) and for the user name and password of the server administrator: you. The code works only once; afterwards you log in with that name and password. Lost the code before using it? <code>bash deploy/gcp/deploy.sh --show-setup-code</code> shows it again.</li>
+    <li><strong>Server settings.</strong> Open <span class="ui">Server</span>. Leave <span class="ui">Anyone can create an account</span> off, so people only get an account through an invitation to a project. Choose <span class="ui">Who can create projects</span>: only server administrators, or everyone who has an account. You can also give the server a name, a contact email shown on every page, and limits per account.</li>
+    <li><strong>Your first project.</strong> <span class="ui">My projects › New project</span>, then follow the checklist: the project file, the plot files, invitations, who collects each file. From here on it works exactly as in <a href="coordinators.html">Running a cloud project</a>.</li>
+    <li><strong>Invite the team.</strong> Each invitation link carries your server's address, so interpreters never type it: they choose <span class="ui">File › Join cloud project...</span> in Collect Earth and paste the link.</li>
+  </ol>
+  <p>The server administrator sees no project's data unless they are also a member of the project: their <span class="ui">Server</span> page shows totals only, with projects by number.</p>
+
+  <h2 id="options">Optional: address, emails, AI, size</h2>
+
+  <h3>Your own address</h3>
+  <p>Google's address works and is secure. For an address of your organisation, such as <code>https://cloud.example.org</code>, prove once that you own the domain with <code>gcloud domains verify example.org</code>, then run:</p>
+<pre class="cmd"><code>bash deploy/gcp/deploy.sh --domain cloud.example.org</code></pre>
+  <p>The script prints the DNS records to add where the domain was bought. This works in Belgium, Iowa, South Carolina and Singapore among others; in other regions, such as Johannesburg, Mumbai or São Paulo, the script says so, and a load balancer or another proxy is needed in front (DEPLOY.md, "Your own address").</p>
+
+  <h3>Emails</h3>
+  <p>Without email the server works fully; you make password reset links yourself (<span class="ui">Server › Accounts › Make a reset link</span>). With a mail provider that sends for your domain, people can use <span class="ui">Forgot your password?</span> and ask for a weekly summary. You give the server the provider's details (<code>SMTP_URL</code>), a sender address, the server's address and a signing secret; the commands are in DEPLOY.md, "Weekly emails (optional)".</p>
+
+  <h3>The AI assistant</h3>
+  <p>Off unless you set it up. It needs the Vertex AI service turned on in your project, then <span class="ui">Allow the AI assistant on this server</span> in the server settings, and each coordinator who wants it turns it on in their project. It sends Google's Gemini the choice and number answers, the questions and the quality figures, never coordinates, plot ids, comments or names. Limits per project (by default 5 reviews a day and 2 million tokens a month) keep the cost small. Steps: DEPLOY.md, "AI assistant (optional)".</p>
+
+  <h3 id="size">A bigger database, more memory</h3>
+  <ul>
+    <li><strong>For a new server</strong>, choose the machine when you install: <code>bash deploy/gcp/deploy.sh --db-tier db-g1-small</code> (1.7 GB of memory) or <code>--db-tier db-custom-1-3840</code> (1 dedicated vCPU, 3.75 GB).</li>
+    <li><strong>For an existing server</strong>: <code>gcloud sql instances patch ce-cloud-db --tier=db-g1-small</code>. The database restarts, which takes a few minutes; Collect Earth keeps the plots and sends them afterwards.</li>
+    <li><strong>Large projects</strong> (above about 30,000 plots) need more memory for the server too: <code>MEMORY=1Gi bash deploy/gcp/deploy.sh</code>, with the settings listed in DEPLOY.md, "Memory".</li>
+  </ul>
+
+  <h2 id="care">Looking after it</h2>
+  <h3>Updating</h3>
+  <p>When there is a new version, press <a href="https://shell.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/openforis/collect-earth&amp;cloudshell_git_branch=master&amp;cloudshell_workspace=collect-earth-cloud&amp;cloudshell_tutorial=deploy/gcp/tutorial.md&amp;show=terminal">Open in Cloud Shell</a> again and run the same command, <code>bash deploy/gcp/deploy.sh</code>. It fetches the latest code, rebuilds the server and switches to it in about 5 minutes, without asking the questions again. The data stays: the database is never recreated, and people working at that moment don't notice.</p>
+
+  <h3>Backups and restoring</h3>
+  <p>The database is backed up every night, the last 7 copies are kept, and it can be put back as it was at any minute of the last 7 days. To restore, open the <a href="https://console.cloud.google.com/sql/instances">Cloud SQL console</a>, the database <code>ce-cloud-db</code>, then <span class="ui">Backups</span> (<a href="https://cloud.google.com/sql/docs/postgres/backup-recovery/restoring">Google's guide</a>). Restoring replaces all current data, so download each project's data first. Try a restore once before the real work starts, so you know it works.</p>
+  <p>For a copy outside Google Cloud, download each project's data from its <span class="ui">Data</span> tab now and then: a spreadsheet, or a Collect Earth backup that can start the project again anywhere.</p>
+
+  <h3>Security checklist</h3>
+  <ul>
+    <li>Keep <span class="ui">Anyone can create an account</span> off for a private server.</li>
+    <li>Give the <em>Owner</em> role on the Google Cloud project to as few people as possible.</li>
+    <li><strong>Mind who can read the logs.</strong> Google's request log records full addresses, including invitation, progress and password-reset links. Give log access only to people who may see the projects, or exclude those addresses from the log (DEPLOY.md, "Operational notes").</li>
+    <li>Keep the database's deletion protection on, and the budget alert set.</li>
+    <li>Update when a new version comes out.</li>
+  </ul>
+
+  <h3>When something goes wrong</h3>
+  <p>The server's own log shows what it did (use your region):</p>
+<pre class="cmd"><code>gcloud run services logs read collect-earth-cloud --region europe-west1 --limit 50</code></pre>
+  <p>Ask in the <a href="https://openforis.support/">Open Foris user forum</a> or the <a href="https://github.com/openforis/collect-earth/issues">Collect Earth issues</a>, with the messages from the terminal and the dashboard address.</p>
+
+  <h2 id="move">Moving a project to your server</h2>
+  <p>A project that started on cloud.collectearth.org, or on a computer, moves with its survey and its plots:</p>
+  <ol class="steps">
+    <li>On the old project's <span class="ui">Data</span> tab, take a <span class="ui">Collect Earth backup</span>. From a computer, export <em>XML (compressed)</em> instead.</li>
+    <li>On your server, <span class="ui">My projects › From a Collect Earth backup</span>. The survey and the plots already assessed come in; those plots go into a plot file of their own, ending in <code>_done.csv</code>, to leave out when you give out plots.</li>
+    <li>Add the plot files for the remaining work, invite the team again, and give out the plots. Interpreters join the new project with its link, as the first time.</li>
+    <li>When everything is there, delete the old project (its <span class="ui">Settings</span> tab).</li>
+  </ol>
+
+  <h2 id="docker">On any other host, with Docker</h2>
+  <p>Collect Earth Cloud is one container and a PostgreSQL database, so it also runs on your own servers or any other cloud. This route is for a system administrator.</p>
+  <h3>What you need</h3>
+  <ul>
+    <li>A machine with Docker, reachable from the internet.</li>
+    <li><strong>PostgreSQL 16 or later, with backups</strong>: a managed database or your own, with a database <code>collect_earth_cloud</code> and an owner role (here <code>ce</code>). The server creates the less powerful role it runs as (here <code>ce_app</code>) itself, the first time it starts.</li>
+    <li><strong>HTTPS in front</strong>: the server speaks plain HTTP on port 8080, so put a load balancer or a reverse proxy, such as Caddy or nginx, in front of it.</li>
+  </ul>
+  <h3>Install</h3>
+  <ol class="steps">
+    <li>Build the image:
+<pre class="cmd"><code>git clone https://github.com/openforis/collect-earth
+cd collect-earth/collect-earth-cloud
+docker build -t collect-earth-cloud .</code></pre></li>
+    <li>Run the server. Choose a setup code, such as <code>K7QX-M3TB-WN</code>, or leave <code>SETUP_CODE</code> out and read the one the server prints in its log (<code>docker logs ce-cloud</code>):
+<pre class="cmd"><code>docker run -d --name ce-cloud --restart unless-stopped -p 127.0.0.1:8080:8080 \
+  -e STORE_BACKEND=postgres \
+  -e MIGRATION_DATABASE_URL='postgres://ce:OWNER_PASSWORD@db-host:5432/collect_earth_cloud' \
+  -e DATABASE_URL='postgres://ce_app:APP_PASSWORD@db-host:5432/collect_earth_cloud' \
+  -e MIGRATE_ON_BOOT=true \
+  -e SETUP_CODE='YOUR-SETUP-CODE' \
+  -e PUBLIC_BASE_URL='https://cloud.example.org' \
+  collect-earth-cloud</code></pre></li>
+    <li>Put HTTPS in front. With Caddy, which gets the certificate by itself, the whole configuration is:
+<pre class="cmd"><code>cloud.example.org {
+    reverse_proxy 127.0.0.1:8080
+}</code></pre>
+      Behind two proxies, such as a load balancer in front of Caddy, add <code>-e TRUST_PROXY_HOPS=2</code>.</li>
+    <li>Check it: <code>https://cloud.example.org/health</code> answers, and <code>/v1/server-info</code> says <code>needsSetup</code> until you have created the administrator. Then continue with <a href="#first">First steps on your server</a>.</li>
+  </ol>
+  <p>To update: fetch the code again (<code>git pull</code>), build the image, and replace the container with the same <code>docker run</code>; the database is updated when the server starts. Every setting, including email and the AI assistant, is in <a href="https://github.com/openforis/collect-earth/blob/master/collect-earth-cloud/DEPLOY.md">DEPLOY.md</a>. The <code>docker-compose.yml</code> in the folder is a database for trying things out only, not for real work.</p>
+
+  <h2 id="remove">Removing it</h2>
+  <p>To stop all costs on Google Cloud, delete the project. This deletes the server and the database <strong>with all the data collected</strong>, so download each project's data first.</p>
+  <ol class="steps">
+    <li>Open <a href="https://console.cloud.google.com/cloud-resource-manager">Manage resources</a>, select the project, press <span class="ui">Delete</span> and type its ID. Or, in Cloud Shell: <code>gcloud projects delete YOUR-PROJECT-ID</code>.</li>
+    <li>Billing stops at once. Google keeps the project for 30 days in case you change your mind, then removes it for good.</li>
+  </ol>
 
   <div class="next">
     <a href="coordinators.html">← Running a cloud project</a>
