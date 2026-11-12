@@ -80,7 +80,7 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 	@Autowired(required = false)
 	private NoticeService notices;
 	@Autowired(required = false)
-	private CloudPlotLayout plotLayout;
+	private CloudCoordinatorSettings coordinatorSettings;
 
 	private final AtomicBoolean started = new AtomicBoolean(false);
 	private final ReentrantLock syncLock = new ReentrantLock();
@@ -152,8 +152,8 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 			// exports. Upload it once per survey, retried every cycle until it succeeds.
 			ensureSurveyUploaded();
 			refreshProject();
-			if (plotLayout != null) {
-				plotLayout.checkIfDue(System.currentTimeMillis()); // the coordinator may have changed it on the dashboard
+			if (coordinatorSettings != null) {
+				coordinatorSettings.checkIfDue(System.currentTimeMillis()); // the coordinator may have changed them on the dashboard
 			}
 
 			Date now = new Date();

@@ -115,6 +115,11 @@ describe("the plots file of a cloud project", () => {
     for (const section of [project, plot]) expect(lockedFields(section, info(false), { db_driver: "SQLITE" })).toEqual([]);
     expect(lockedFields(plot, info(true), { db_driver: "SQLITE" })).toEqual([]);
   });
+  it("and the imagery windows but the Planet key, each person's own", () => {
+    const imagery: Section = { id: "imagery", label: "I", hint: null, fields: [field("open_gee_app"), field("planet_maps_key"), field("extra_map_url")] };
+    expect(lockedFields(imagery, info(true), { db_driver: "CLOUD" })).toEqual(["open_gee_app", "extra_map_url"]);
+    expect(lockedFields(imagery, info(false), { db_driver: "SQLITE" })).toEqual([]);
+  });
 });
 
 describe("search", () => {
