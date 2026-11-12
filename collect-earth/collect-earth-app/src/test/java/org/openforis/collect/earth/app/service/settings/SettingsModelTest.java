@@ -157,6 +157,10 @@ public class SettingsModelTest {
 		assertFalse(cloud.contains("geeapp_date_from"));
 		assertFalse(cloud.contains("planet_tfo_date_from"));
 		assertTrue(cloud.containsAll(Arrays.asList("cloud_sync_url", "cloud_project_id", "cloud_sync_token")));
+		// A local project has no cloud server, project or token to show
+		for (List<String> local : Arrays.asList(sqlite, postgres)) {
+			assertFalse(local.contains("cloud_sync_url") || local.contains("cloud_project_id") || local.contains("cloud_sync_token"));
+		}
 	}
 
 	@Test

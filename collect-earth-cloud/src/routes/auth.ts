@@ -1,4 +1,4 @@
-import { twoFactorKey } from '../twoFactor.js';
+import { twoFactorKey, type TwoFactorKeys } from '../twoFactor.js';
 import { checkSecondStep, twoFactorEnabled } from './twoFactor.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { bearerToken } from '../auth.js';
@@ -91,7 +91,7 @@ export async function registerAuthRoutes(
   /** Filled in by the mail routes (registered later): the notice mailed after a password change. */
   accountMail?: AccountMailHooks,
   /** The key two-step sign-in's secrets are encrypted with (src/twoFactor.ts). */
-  twoFactorKeyBuf: Buffer = twoFactorKey({}),
+  twoFactorKeyBuf: TwoFactorKeys = twoFactorKey({}),
   /** Wrong passwords for one account from every address together (server.ts, ACCOUNT_LOGIN_FAILURES). */
   accountFailures?: RateLimiter,
 ): Promise<void> {

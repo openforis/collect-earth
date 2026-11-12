@@ -322,7 +322,7 @@ public class ToolsService {
 		}
 		try {
 			CollectSurvey survey = surveys.getCollectSurvey();
-			cloudQueue.enqueue(String.join(",", row), survey == null ? null : survey.getUri(), properties.getOperator(), new Date(), true);
+			cloudQueue.enqueue(String.join(",", row), survey == null ? null : survey.getUri(), properties.getCloudProjectId(), properties.getOperator(), new Date(), true);
 		} catch (Exception e) {
 			logger.warn("Could not enqueue deletion tombstone for {}: {}", Arrays.toString(row), e.getMessage());
 		}

@@ -1,4 +1,4 @@
-// Importing a Collect Earth backup (the desktop's Data > Export data, format "XML (compressed)", the layout collectBackup.ts
+// Importing a Collect Earth backup (the desktop's Data Import/Export > Export data, format "XML (compressed)", the layout collectBackup.ts
 // writes the other way: idml.xml, then <step>/<n>.xml per record) into a project: each record becomes the envelope
 // Collect Earth's CloudRecordSerializer would have sent for it, its summary made from the XML against the project's
 // served survey as BalloonInputFieldsUtils.getValuesByHtmlParameters makes it from the record Collect loads
@@ -32,7 +32,7 @@ export function readBackup(zip: Buffer): { surveyXml: string; files: BackupFile[
     throw new BackupImportError(
       e.code === 'too_large'
         ? 'The file is larger than the server reads at once: export the records in smaller parts.'
-        : 'The file is not a zip file: in Collect Earth, use Data > Export data with the format "XML (compressed)".',
+        : 'The file is not a zip file: in Collect Earth, use Data Import/Export > Export data with the format "XML (compressed)".',
     );
   }
   const survey = entries.get('idml.xml');
@@ -279,8 +279,8 @@ export function backupReader(servedSurveyXml: string, info: RoundInfo | null) {
   const keys = defs.filter((d) => d.key);
   const firstRound = info?.state === 'added' ? (info.roundCodes.find((c) => c.code !== info.reassessmentCode)?.code ?? null) : null;
 
-  /** The record of one file, or why it cannot be read. */
-  return (file: BackupFile): ImportedRecord | { problem: string } => {
+  /** The record of one file, or why it cannot be read; with its key values and its root's nodes with data, by name. */
+  return (file: BackupFile): (ImportedRecord & { keyValues: string[]; children: Map<string, XmlNode[]> }) | { problem: string } => {
     if (/<!DOCTYPE/i.test(file.xml) || XMLValidator.validate(file.xml) !== true) return { problem: `${file.name}: not valid XML` };
     let document: XmlNode[];
     try {
@@ -309,6 +309,8 @@ export function backupReader(servedSurveyXml: string, info: RoundInfo | null) {
     };
     return {
       recordKey: keyValues.join(','),
+      keyValues: keyValues as string[],
+      children,
       operator: summary.collect_text_operator ?? '',
       modifiedOn: time('modified') ?? time('created'),
       activelySaved: summary.collect_boolean_actively_saved === 'true',

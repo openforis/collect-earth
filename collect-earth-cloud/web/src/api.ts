@@ -891,7 +891,7 @@ function toAnnouncement(value: unknown): Announcement | null {
 
 // --- the owner's alerts (the server's src/ownerAlerts.ts) ---------------------------------------
 
-export type OwnerAlertKind = "failed_logins" | "server_errors" | "sync_errors" | "storage";
+export type OwnerAlertKind = "failed_logins" | "server_errors" | "sync_errors" | "storage" | "two_factor_keys";
 
 export interface OwnerAlert {
   kind: OwnerAlertKind;
@@ -1203,6 +1203,8 @@ export interface BackupImportPreview {
     toDo: number;
     notInFile: number | null;
   };
+  /** the strata with an area in the backup's areas_per_attribute.csv (a .collect's), null without one */
+  strata: number | null;
   /** the layout the survey suggests (its plot area and points) */
   layout: PlotLayout;
   survey: { plotAreaHa: number | null; samplePoints: number | null; plotColumns: string[] };
@@ -1652,10 +1654,13 @@ export function uploadCsvFile(projectId: string, file: File, onProgress?: Progre
 }
 
 /** The plot files a project file brings in its grid folder (grid/*.csv, sub-folders left out). */
-export async function cepGridFiles(cep: Blob): Promise<File[]> {
-  const isGrid = (name: string) => /^grid\/[^/]+\.csv$/i.test(name);
-  const entries = unzipSync(new Uint8Array(await cep.arrayBuffer()), { filter: (f) => isGrid(f.name) });
-  return Object.entries(entries).map(([name, data]) => new File([data], name.slice("grid/".length), { type: "text/csv" }));
+export const cepGridFiles = (cep: Blob) => zipCsvFiles(cep, "grid/");
+
+/** The CSV files directly in a folder of a zip ("grid/" of a .cep, "files/ce_grid/" of Collect's .collect backup). */
+export async function zipCsvFiles(zip: Blob, folder: string): Promise<File[]> {
+  const isCsv = (name: string) => name.toLowerCase().startsWith(folder) && /^[^/]+\.csv$/i.test(name.slice(folder.length));
+  const entries = unzipSync(new Uint8Array(await zip.arrayBuffer()), { filter: (f) => isCsv(f.name) });
+  return Object.entries(entries).map(([name, data]) => new File([data], name.slice(folder.length), { type: "text/csv" }));
 }
 
 /**
@@ -3356,8 +3361,17 @@ export interface AnalysisData {
   model: AnalysisModelData;
   /** "project": every record (coordinators, reviewers); "own": the person's own, without rounds (collectors). */
   scope: "project" | "own";
-  /** Where the areas come from (the project file's region_areas.csv or areas_per_attribute.csv), or null: no areas. */
-  areas: { source: string; plots: number; unmatched: number } | null;
+  /**
+   * Where the areas come from (the project file's region_areas.csv or areas_per_attribute.csv), or null: no areas.
+   * `unknownColumns`: the file's columns that are no question of the survey; `noStratum`: plots in no line of the file.
+   */
+  areas: {
+    source: string;
+    plots: number;
+    unmatched: number;
+    unknownColumns?: string[];
+    noStratum?: { plots: number; examples: { stratum: string; plots: number }[] };
+  } | null;
   tables: AnalysisTableData[];
 }
 
@@ -5190,7 +5204,7 @@ export interface UncertaintySetup {
   languages: string[];
   questions: UncertaintyQuestion[];
   lists: Record<string, AnalysisListItem[]>;
-  areas: "region_areas.csv" | "areas_per_attribute.csv" | null;
+  areas: "strata" | "total" | "region_areas.csv" | "areas_per_attribute.csv" | null;
   canEdit: boolean;
 }
 
@@ -5214,7 +5228,9 @@ export interface UncertaintyData {
   plots: number;
   strata: { key: string; area: number; plots: number }[];
   notEstimable: { key: string; area: number; plots: number }[];
-  skipped: { missing: number; unmapped: number; leftOut: number; noArea: number };
+  skipped: { missing: number; unmapped: number; noArea: number };
+  /** The plots of a code left out (no data), each year: in their stratum's count, in no category. */
+  noData: { initial: UncertaintyEstimate; final: UncertaintyEstimate };
   unmapped: { which: "initial" | "final"; code: string; plots: number }[];
   categories: { category: IpccCategory; initial: UncertaintyEstimate; final: UncertaintyEstimate }[];
   total: UncertaintyEstimate;
@@ -5229,6 +5245,45 @@ export async function getUncertaintySetup(projectId: string): Promise<Uncertaint
 
 export async function saveUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<UncertaintySettings> {
   return (await request<{ settings: UncertaintySettings }>("PUT", `${p(projectId)}/uncertainty/settings`, { json: settings })).settings;
+}
+
+/** The strata and their areas, or one total area (the server's src/areas.ts AreaSettings). */
+export type AreaSettings = { mode: "strata"; columns: string[]; strata: { values: string[]; area: number }[] } | { mode: "total"; area: number };
+
+/** What the plots' areas come from, and the strata with their plots (src/routes/areas.ts). */
+export interface AreasData {
+  /** "strata" | "total": set on the dashboard; a file of the project file; "uncertainty": the Uncertainty page's total; null: none. */
+  source: "strata" | "total" | "areas_per_attribute.csv" | "region_areas.csv" | "uncertainty" | null;
+  settings: AreaSettings | null;
+  /** Lines of the project file's areas file whose area cannot be read. */
+  unreadable: number;
+  /** The columns that can make strata: the survey's questions filled from the plot file, then the plot files' columns. */
+  columns: string[];
+  /** Each stratum: its area (null: none yet), its plots in the plot files (null: a column only in the answers), assessed, ha per plot. */
+  strata: { values: string[]; area: number | null; plots: number | null; assessed: number; haPerPlot: number | null }[];
+  /** Plots of values not listed (a column of many values). */
+  more: number;
+  assessed: number;
+  withArea: number;
+  unknownColumns: string[];
+  noStratum: { plots: number; examples: { stratum: string; plots: number }[] };
+  canEdit: boolean;
+}
+
+/** The project's strata and areas; with `columns`, the strata those columns would make (nothing saved). */
+export const getAreas = (projectId: string, columns?: string[]) =>
+  request<AreasData>("GET", `${p(projectId)}/areas${columns ? `?columns=${encodeURIComponent(columns.join(","))}` : ""}`);
+
+/** Saves the strata and areas, or one total area; null: back to the project file's areas file. */
+export const saveAreas = (projectId: string, settings: AreaSettings | null) => request<{ settings: AreaSettings | null }>("PUT", `${p(projectId)}/areas`, { json: { settings } });
+
+/** Saves the strata of an areas_per_attribute.csv (Collect Earth's: the columns, then area). */
+export const uploadAreasFile = (projectId: string, file: string) => request<{ settings: AreaSettings }>("PUT", `${p(projectId)}/areas`, { json: { file } });
+
+/** The strata as areas_per_attribute.csv. */
+export async function downloadAreasFile(projectId: string): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("GET", `${p(projectId)}/areas/file`);
+  return { blob: await response.blob(), filename: attachmentName(response, "areas_per_attribute.csv") };
 }
 
 export async function getUncertainty(projectId: string): Promise<UncertaintyData> {

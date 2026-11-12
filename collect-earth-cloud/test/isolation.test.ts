@@ -107,6 +107,9 @@ describe('cross-tenant isolation', () => {
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/export.csv` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/ceo-shapes` },
       { method: 'POST' as const, url: `/v1/projects/${b.projectId}/ceo-shapes/step` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/areas` },
+      { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/areas`, payload: { settings: { mode: 'total', area: 1 } } },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/areas/file` },
       { method: 'DELETE' as const, url: `/v1/projects/${b.projectId}`, payload: { confirmName: 'Project B' } },
     ];
     for (const c of cases) {
@@ -114,6 +117,7 @@ describe('cross-tenant isolation', () => {
       expect(res.statusCode, `${c.method} ${c.url}`).toBe(404);
     }
     expect((await ctx.store.getProject(b.projectId))?.name).toBe('Project B');
+    expect(await ctx.store.getAreaSettings(b.projectId)).toBeNull();
   });
 
   // Same gate for dividing plots: aimed at B, or at B's file through A's path.

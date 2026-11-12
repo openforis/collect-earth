@@ -42,7 +42,8 @@ const data: UncertaintyData = {
   plots: 10,
   strata: [{ key: "", area: 1000, plots: 10 }],
   notEstimable: [],
-  skipped: { missing: 0, unmapped: 0, leftOut: 0, noArea: 0 },
+  skipped: { missing: 0, unmapped: 0, noArea: 0 },
+  noData: { initial: zero, final: zero },
   unmapped: [],
   categories: ["forest", "cropland", "grassland", "wetland", "settlement", "other"].map((category, i) => ({
     category: category as "forest",
@@ -76,6 +77,13 @@ describe("the tables as sheets", () => {
     expect(sheets[3].rows[6]).toEqual(["Total", 500, 500, 0, 0, 0, 0, 1000]);
     expect(sheets[4].rows[0][7]).toBe(100);
     expect(sheets[4].rows[2][7]).toBeNull();
+  });
+
+  it("have a No data line in a year when plots of a code left out keep their area", () => {
+    const withNoData = uncertaintySheets({ ...data, noData: { initial: est(1, 100, 30), final: zero } }, t)[0];
+    expect(withNoData.rows).toHaveLength(15);
+    expect(withNoData.rows[6].slice(0, 5)).toEqual(["No data", "2000", 1, 0.1, 100]);
+    expect(withNoData.rows[7][0]).toBe("Total");
   });
 
   it("download as an .xlsx with the numbers as numbers", () => {

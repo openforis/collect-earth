@@ -2,8 +2,8 @@
 // the password. Standard time-based codes (RFC 6238: HMAC-SHA1, 30 s, 6 digits), so any such app works, with the
 // device's clock allowed one step either way. Each step is used once (the store keeps the last), so a code seen over a
 // shoulder cannot be played again. Ten recovery codes, single-use, for a lost phone; they are kept hashed. The secret
-// is kept encrypted (AES-256-GCM) with a key from LINK_SECRET, or else from DATABASE_URL as the server's other links
-// are: a copy of the database alone does not give anyone the codes.
+// is kept encrypted (AES-256-GCM) with a key of its own, TWO_FACTOR_KEY, which nothing else changes: a copy of the
+// database alone does not give anyone the codes, and no change of mail or database locks anyone out (see twoFactorKey).
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 export const TOTP_PERIOD_S = 30;
@@ -107,23 +107,42 @@ export const looksLikeRecoveryCode = (code: string) => /^[A-Za-z0-9]{4}-?[A-Za-z
 
 // --- the secret, encrypted -----------------------------------------------------------------------------------------
 
-/** The key the secrets are encrypted with: from LINK_SECRET, or from DATABASE_URL (as the links' keys are). */
-export function twoFactorKey(config: { linkSecret?: string; databaseUrl?: string }): Buffer {
-  const base = config.linkSecret ?? config.databaseUrl ?? 'collect-earth-cloud:memory-store';
-  return createHash('sha256').update(`collect-earth-cloud:two-factor:${base}`).digest();
+/** A key of the secrets, named by `id`, which is written next to each secret it encrypts and tells nothing of it. */
+export interface NamedKey { id: string; key: Buffer }
+
+/** The key new secrets are encrypted with, and the older ones the secrets saved before are still read with. */
+export interface TwoFactorKeys { current: NamedKey; older: NamedKey[] }
+
+const named = (base: string): NamedKey => {
+  const key = createHash('sha256').update(`collect-earth-cloud:two-factor:${base}`).digest();
+  return { id: createHash('sha256').update(key).digest('hex').slice(0, 12), key };
+};
+
+/**
+ * The keys of the secrets. TWO_FACTOR_KEY, which only this uses, is the key: set once (deploy.sh keeps it in Secret
+ * Manager, pinned to its first version) and never changed. A change of mail (LINK_SECRET) or of the database address
+ * does not touch it. The keys used before it (from LINK_SECRET, else DATABASE_URL, else the memory store's) are kept as
+ * older ones: the secrets saved under them are still read, and saved again under the key at the person's next sign-in
+ * (checkSecondStep). Without TWO_FACTOR_KEY, the first of those is the key, as it was.
+ */
+export function twoFactorKey(config: { twoFactorKey?: string; linkSecret?: string; databaseUrl?: string }): TwoFactorKeys {
+  const before = [config.linkSecret, config.databaseUrl].filter((b): b is string => !!b);
+  const keys = [config.twoFactorKey, ...(before.length > 0 ? before : ['collect-earth-cloud:memory-store'])]
+    .filter((b): b is string => !!b)
+    .map(named)
+    .filter((k, i, all) => all.findIndex((o) => o.id === k.id) === i);
+  return { current: keys[0], older: keys.slice(1) };
 }
 
-export function encryptSecret(secret: string, key: Buffer): string {
+/** Encrypted with the current key, whose id goes with it: "v2.<key id>.<iv>.<tag>.<data>". */
+export function encryptSecret(secret: string, keys: TwoFactorKeys): string {
   const iv = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const cipher = createCipheriv('aes-256-gcm', keys.current.key, iv);
   const data = Buffer.concat([cipher.update(secret, 'utf8'), cipher.final()]);
-  return ['v1', iv.toString('base64url'), cipher.getAuthTag().toString('base64url'), data.toString('base64url')].join('.');
+  return ['v2', keys.current.id, iv.toString('base64url'), cipher.getAuthTag().toString('base64url'), data.toString('base64url')].join('.');
 }
 
-/** The secret, or null when it cannot be read (the key changed: LINK_SECRET or the database address). */
-export function decryptSecret(stored: string, key: Buffer): string | null {
-  const [v, iv, tag, data] = stored.split('.');
-  if (v !== 'v1' || !iv || !tag || !data) return null;
+function decryptWith(key: Buffer, iv: string, tag: string, data: string): string | null {
   try {
     const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
     decipher.setAuthTag(Buffer.from(tag, 'base64url'));
@@ -131,4 +150,33 @@ export function decryptSecret(stored: string, key: Buffer): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * The secret, and whether it should be saved again (`stale`: under an older key, or in the format before the keys were
+ * named). A "v2" secret is read with the key it names; a "v1" one, saved before, with each key in turn. Null when no key
+ * of this server reads it: its key was lost (`missingKey` then says which, for the log and the owner's alert).
+ */
+export function readSecret(stored: string, keys: TwoFactorKeys): { secret: string; stale: boolean } | { secret: null; missingKey: string } {
+  const all = [keys.current, ...keys.older];
+  const parts = stored.split('.');
+  if (parts[0] === 'v2' && parts.length === 5) {
+    const [, id, iv, tag, data] = parts;
+    const key = all.find((k) => k.id === id);
+    const secret = key ? decryptWith(key.key, iv, tag, data) : null;
+    return secret === null ? { secret: null, missingKey: id } : { secret, stale: key !== keys.current };
+  }
+  if (parts[0] === 'v1' && parts.length === 4) {
+    const [, iv, tag, data] = parts;
+    for (const k of all) {
+      const secret = decryptWith(k.key, iv, tag, data);
+      if (secret !== null) return { secret, stale: true };
+    }
+  }
+  return { secret: null, missingKey: 'unknown (saved before the keys were named)' };
+}
+
+/** The secret, or null when no key of this server reads it (see readSecret). */
+export function decryptSecret(stored: string, keys: TwoFactorKeys): string | null {
+  return readSecret(stored, keys).secret;
 }

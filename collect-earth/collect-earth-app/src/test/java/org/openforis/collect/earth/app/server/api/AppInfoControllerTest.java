@@ -140,6 +140,17 @@ public class AppInfoControllerTest {
 	}
 
 	@Test
+	public void anotherLanguageStartsTheImageryBrowserAgainInIt() throws Exception {
+		org.openforis.collect.earth.app.service.WindowLayoutService layout = mock(org.openforis.collect.earth.app.service.WindowLayoutService.class);
+		controller.setWindowLayout(layout);
+		// the same language: Google Earth Web speaks it already
+		mvc.perform(put("/api/app/language").contentType(MediaType.APPLICATION_JSON).content("{\"language\":\"en\"}")).andExpect(status().isOk());
+		mvc.perform(put("/api/app/language").contentType(MediaType.APPLICATION_JSON).content("{\"language\":\"es\"}")).andExpect(status().isOk());
+		verify(layout, org.mockito.Mockito.timeout(2000).times(1)).restartImageryBrowser();
+		Messages.setLocale(UI_LANGUAGE.EN.getLocale());
+	}
+
+	@Test
 	public void noOperatorIsRefused() throws Exception {
 		mvc.perform(put("/api/app/operator").contentType(MediaType.APPLICATION_JSON).content("{}"))
 				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("operator.length"));

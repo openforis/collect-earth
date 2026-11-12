@@ -911,8 +911,8 @@ export type DigestKind = 'coordinator' | 'collector';
 export const DIGEST_KINDS: readonly DigestKind[] = ['coordinator', 'collector'];
 
 /** The languages the dashboard and the mails are written in. */
-export type MailLanguage = 'en' | 'es' | 'fr' | 'pt';
-export const MAIL_LANGUAGES: readonly MailLanguage[] = ['en', 'es', 'fr', 'pt'];
+export type MailLanguage = 'en' | 'es' | 'fr' | 'pt' | 'tr';
+export const MAIL_LANGUAGES: readonly MailLanguage[] = ['en', 'es', 'fr', 'pt', 'tr'];
 
 /** An account's mail settings. */
 export interface AccountMail {

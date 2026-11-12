@@ -6,6 +6,7 @@ import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { FormCard } from "../components/FormCard";
+import { HeroPanel, WEBSITE_BUTTON } from "../components/HeroPanel";
 import { PasswordField } from "../components/PasswordField";
 import { useT, type MessageKey } from "../i18n";
 import { linkProps } from "../router";
@@ -58,52 +59,54 @@ export function ResetPage({ token }: { token: string }) {
   };
 
   return (
-    <AppShell narrow>
-      <FormCard title={t("reset.title")} intro={done || !usable ? undefined : t("reset.intro")} onSubmit={submit}>
-        {!done && !usable ? (
-          <>
-            <Alert severity="error">{t("error.linkUsedOrExpired")}</Alert>
-            <Button variant="contained" size="large" {...linkProps("/login")}>
-              {t("reset.goLogin")}
-            </Button>
-          </>
-        ) : done ? (
-          <>
-            <Alert severity="success" role="status">
-              {t("reset.done")}
-            </Alert>
-            <Button variant="contained" size="large" {...linkProps("/login")}>
-              {t("reset.goLogin")}
-            </Button>
-          </>
-        ) : (
-          <>
-            <PasswordField
-              label={t("common.newPassword")}
-              helperText={problem === "error.weakPassword" ? t(problem) : t("signup.passwordHelp")}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
-              autoFocus
-              required
-              error={problem === "error.weakPassword"}
-            />
-            <PasswordField
-              label={t("common.repeatPassword")}
-              helperText={problem === "error.passwordsDiffer" ? t(problem) : undefined}
-              value={repeated}
-              onChange={(e) => setRepeated(e.target.value)}
-              autoComplete="new-password"
-              required
-              error={problem === "error.passwordsDiffer"}
-            />
-            <ErrorAlert error={error} />
-            <Button type="submit" variant="contained" size="large" disabled={busy}>
-              {t("reset.submit")}
-            </Button>
-          </>
-        )}
-      </FormCard>
+    <AppShell hero>
+      <HeroPanel>
+        <FormCard plain title={t("reset.title")} intro={done || !usable ? undefined : t("reset.intro")} onSubmit={submit}>
+          {!done && !usable ? (
+            <>
+              <Alert severity="error">{t("error.linkUsedOrExpired")}</Alert>
+              <Button variant="contained" size="large" sx={WEBSITE_BUTTON} {...linkProps("/login")}>
+                {t("reset.goLogin")}
+              </Button>
+            </>
+          ) : done ? (
+            <>
+              <Alert severity="success" role="status">
+                {t("reset.done")}
+              </Alert>
+              <Button variant="contained" size="large" sx={WEBSITE_BUTTON} {...linkProps("/login")}>
+                {t("reset.goLogin")}
+              </Button>
+            </>
+          ) : (
+            <>
+              <PasswordField
+                label={t("common.newPassword")}
+                helperText={problem === "error.weakPassword" ? t(problem) : t("signup.passwordHelp")}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                autoFocus
+                required
+                error={problem === "error.weakPassword"}
+              />
+              <PasswordField
+                label={t("common.repeatPassword")}
+                helperText={problem === "error.passwordsDiffer" ? t(problem) : undefined}
+                value={repeated}
+                onChange={(e) => setRepeated(e.target.value)}
+                autoComplete="new-password"
+                required
+                error={problem === "error.passwordsDiffer"}
+              />
+              <ErrorAlert error={error} />
+              <Button type="submit" variant="contained" size="large" sx={WEBSITE_BUTTON} disabled={busy}>
+                {t("reset.submit")}
+              </Button>
+            </>
+          )}
+        </FormCard>
+      </HeroPanel>
     </AppShell>
   );
 }

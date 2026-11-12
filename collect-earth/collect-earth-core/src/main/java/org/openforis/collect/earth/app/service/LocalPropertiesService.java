@@ -5,9 +5,12 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Observable;
 import java.util.Properties;
@@ -126,6 +129,8 @@ public class LocalPropertiesService extends Observable {
 				CLOUD_SYNC_ENABLED("cloud_sync_enabled"),
 				CLOUD_SYNC_URL("cloud_sync_url"),
 				CLOUD_PROJECT_ID("cloud_project_id"),
+				// The folder of the project joined: the cloud mode is that project's, not of any other opened after it
+				CLOUD_PROJECT_FOLDER("cloud_project_folder"),
 				CLOUD_SYNC_TOKEN("cloud_sync_token"),
 				/** "true" from joining a cloud project to the next start, which offers to send this computer's records there */
 				CLOUD_OFFER_LOCAL_RECORDS("cloud_offer_local_records"),;
@@ -168,7 +173,7 @@ public class LocalPropertiesService extends Observable {
 	/**
 	 * With the properties given, for the tests : earth.properties of the user is neither read nor written
 	 */
-	LocalPropertiesService(Properties properties) {
+	public LocalPropertiesService(Properties properties) {
 		this.properties = properties;
 		persisted = false;
 	}
@@ -441,13 +446,16 @@ public class LocalPropertiesService extends Observable {
 			value = "";
 		}
 		if (isSecret(key.toString())) {
-			value = revealed(value);
+			value = revealed(key.toString(), value);
 		}
 		return value;
 	}
 
-	/** The properties kept with the operating system's protection when there is one (see SecretProtector). */
-	private static final java.util.Set<String> SECRETS = Collections.singleton("cloud_sync_token");
+	/**
+	 * The properties kept with the operating system's protection when there is one (see SecretProtector): the cloud
+	 * token of before (one for all), and one per server ({@code cloud_sync_token <server>}).
+	 */
+	private static final String CLOUD_TOKEN = "cloud_sync_token";
 	private static final java.util.concurrent.atomic.AtomicReference<SecretProtector> SECRET_PROTECTOR = new java.util.concurrent.atomic.AtomicReference<>();
 
 	/**
@@ -459,16 +467,16 @@ public class LocalPropertiesService extends Observable {
 	}
 
 	static boolean isSecret(String key) {
-		return SECRETS.contains(key);
+		return CLOUD_TOKEN.equals(key) || key.startsWith(CLOUD_TOKEN + " ");
 	}
 
 	/** The plain value of a secret as stored: protected by this computer, or plain text from before. */
-	private static String revealed(String stored) {
+	private static String revealed(String key, String stored) {
 		SecretProtector protector = SECRET_PROTECTOR.get();
 		if (protector == null || stored.isEmpty() || !stored.startsWith(protector.prefix())) {
 			return stored;
 		}
-		String plain = protector.reveal(stored);
+		String plain = protector.reveal(key, stored);
 		// Copied from another computer or user: no token, so the login is asked for again
 		return plain == null ? "" : plain;
 	}
@@ -478,7 +486,7 @@ public class LocalPropertiesService extends Observable {
 		SecretProtector protector = SECRET_PROTECTOR.get();
 		if (protector != null && (value == null || value.isEmpty()) && isSecret(key)) {
 			try {
-				protector.forget();
+				protector.forget(key);
 			} catch (RuntimeException e) {
 				LoggerFactory.getLogger(LocalPropertiesService.class).warn("The token kept by the system could not be removed: {}", e.getMessage());
 			}
@@ -488,7 +496,7 @@ public class LocalPropertiesService extends Observable {
 			return value;
 		}
 		try {
-			return protector.protect(value);
+			return protector.protect(key, value);
 		} catch (RuntimeException e) {
 			LoggerFactory.getLogger(LocalPropertiesService.class).warn("The token could not be protected, kept as it is: {}", e.getMessage());
 			return value;
@@ -509,7 +517,10 @@ public class LocalPropertiesService extends Observable {
 			return;
 		}
 		boolean changed = false;
-		for (String key : SECRETS) {
+		for (String key : properties.stringPropertyNames()) {
+			if (!isSecret(key)) {
+				continue;
+			}
 			String value = properties.getProperty(key);
 			if (value != null && !value.isEmpty() && !value.startsWith(protector.prefix())) {
 				String protectedValue = stored(key, value);
@@ -782,33 +793,253 @@ public class LocalPropertiesService extends Observable {
 		return getCollectDBDriver().equals(CollectDBDriver.CLOUD);
 	}
 
-	/** Base URL of the Collect Earth cloud service, e.g. https://ce-cloud.example.org */
+	/**
+	 * A project folder bound to a cloud project: the server, the project there, its name, and the account it was joined
+	 * with. Kept in earth.properties ({@link #CLOUD_PROJECTS}), not in the folder: joining unzips the project over its
+	 * folder, and a folder copied to another computer is a local project there.
+	 */
+	public static class CloudBinding {
+		public String folder;
+		public String server;
+		public String projectId;
+		public String projectName;
+		public String username;
+		/** The account's role in the cloud project (admin, reviewer, operator), null when not known */
+		public String role;
+		/** Whether the account is the server's administrator, null when the server did not say */
+		public Boolean serverAdmin;
+
+		public CloudBinding() {
+		}
+
+		public CloudBinding(String folder, String server, String projectId, String projectName, String username) {
+			this.folder = folder;
+			this.server = server;
+			this.projectId = projectId;
+			this.projectName = projectName;
+			this.username = username;
+		}
+	}
+
+	/** What {@link #CLOUD_PROJECTS} holds: the bindings, and the account signed in on each server (server to username). */
+	private static class CloudSettings {
+		List<CloudBinding> projects = new ArrayList<>();
+		Map<String, String> accounts = new LinkedHashMap<>();
+	}
+
+	/** The cloud projects and accounts, as JSON; absent until the single cloud project of before was moved there. */
+	static final String CLOUD_PROJECTS = "cloud_projects";
+	private static final com.google.gson.Gson GSON = new com.google.gson.Gson();
+
+	/** A server's address as it is compared and kept: trimmed, without the slashes at the end. */
+	public static String normalizeServer(String url) {
+		String trimmed = StringUtils.trimToEmpty(url);
+		while (trimmed.endsWith("/")) {
+			trimmed = trimmed.substring(0, trimmed.length() - 1);
+		}
+		return trimmed;
+	}
+
+	private static String tokenKey(String server) {
+		return CLOUD_TOKEN + " " + normalizeServer(server);
+	}
+
+	private synchronized CloudSettings cloudSettings() {
+		String json = properties.getProperty(CLOUD_PROJECTS);
+		CloudSettings settings = null;
+		try {
+			settings = StringUtils.isBlank(json) ? null : GSON.fromJson(json, CloudSettings.class);
+		} catch (RuntimeException e) {
+			logger.error("The cloud projects of earth.properties cannot be read: {}", e.getMessage());
+		}
+		if (settings == null) {
+			settings = new CloudSettings();
+		}
+		if (settings.projects == null) {
+			settings.projects = new ArrayList<>();
+		}
+		if (settings.accounts == null) {
+			settings.accounts = new LinkedHashMap<>();
+		}
+		return settings;
+	}
+
+	private synchronized void saveCloudSettings(CloudSettings settings) {
+		properties.setProperty(CLOUD_PROJECTS, GSON.toJson(settings));
+		storeProperties();
+	}
+
+	/** The cloud projects of this computer, by folder. */
+	public List<CloudBinding> getCloudBindings() {
+		return cloudSettings().projects;
+	}
+
+	/** The cloud project of a project folder, or null for a local project. */
+	public CloudBinding getCloudBinding(File folder) {
+		if (folder == null) {
+			return null;
+		}
+		for (CloudBinding binding : getCloudBindings()) {
+			if (StringUtils.isNotBlank(binding.folder) && new File(binding.folder).getAbsoluteFile().equals(folder.getAbsoluteFile())) {
+				return binding;
+			}
+		}
+		return null;
+	}
+
+	/** The cloud project of the project open, or null when it is a local one. */
+	public CloudBinding getCloudBinding() {
+		String folder = StringUtils.isBlank(getValue(EarthProperty.METADATA_FILE)) ? null : getProjectFolder();
+		return folder == null ? null : getCloudBinding(new File(folder));
+	}
+
+	/**
+	 * Binds a folder to a cloud project. It replaces the folder's binding, and the one of the same cloud project (joined
+	 * again with a new link); the other projects keep theirs.
+	 */
+	public synchronized void saveCloudBinding(CloudBinding binding) {
+		binding.server = normalizeServer(binding.server);
+		CloudSettings settings = cloudSettings();
+		File folder = new File(binding.folder).getAbsoluteFile();
+		settings.projects.removeIf(other -> (StringUtils.isNotBlank(binding.projectId) && binding.projectId.equals(other.projectId))
+				|| (other.folder != null && new File(other.folder).getAbsoluteFile().equals(folder)));
+		binding.folder = folder.getPath();
+		settings.projects.add(binding);
+		saveCloudSettings(settings);
+	}
+
+	/** The token of a server's sign-in, or blank when nobody is signed in there; the one token of before as a fallback. */
+	public String getCloudToken(String server) {
+		String url = normalizeServer(server);
+		if (url.isEmpty()) {
+			return getValue(EarthProperty.CLOUD_SYNC_TOKEN);
+		}
+		String key = tokenKey(url);
+		String token = revealed(key, properties.getProperty(key, ""));
+		if (StringUtils.isBlank(token) && url.equals(normalizeServer(getValue(EarthProperty.CLOUD_SYNC_URL)))) {
+			token = getValue(EarthProperty.CLOUD_SYNC_TOKEN);
+		}
+		return token;
+	}
+
+	/**
+	 * Signs in to a server ({@code token} given) or out of it (blank): one account per server, used by every project on
+	 * it. Signing in as someone names them the account of those projects; {@code username} null keeps the account's.
+	 */
+	public synchronized void saveCloudToken(String server, String username, String token) {
+		String url = normalizeServer(server);
+		if (url.isEmpty()) {
+			setValue(EarthProperty.CLOUD_SYNC_TOKEN, token);
+			return;
+		}
+		CloudSettings settings = cloudSettings();
+		String key = tokenKey(url);
+		if (StringUtils.isBlank(token)) {
+			settings.accounts.remove(url);
+			stored(key, ""); // the system's copy goes (the macOS Keychain, the Linux keyring)
+			properties.remove(key);
+			if (url.equals(normalizeServer(getValue(EarthProperty.CLOUD_SYNC_URL)))) {
+				// The token of before is the fallback of this server: it goes too
+				properties.setProperty(CLOUD_TOKEN, stored(CLOUD_TOKEN, ""));
+			}
+		} else {
+			String account = username != null ? username : settings.accounts.getOrDefault(url, getOperator());
+			settings.accounts.put(url, account);
+			if (username != null) {
+				for (CloudBinding binding : settings.projects) {
+					if (url.equals(binding.server)) {
+						binding.username = username;
+					}
+				}
+			}
+			properties.setProperty(key, stored(key, token));
+		}
+		saveCloudSettings(settings);
+	}
+
+	/** The servers signed in to, with the username of each. */
+	public Map<String, String> getCloudAccounts() {
+		Map<String, String> accounts = new LinkedHashMap<>();
+		cloudSettings().accounts.forEach((server, username) -> {
+			if (StringUtils.isNotBlank(getCloudToken(server))) {
+				accounts.put(server, username);
+			}
+		});
+		return accounts;
+	}
+
+	/**
+	 * Once, at start: the single cloud project of before (cloud_sync_url, cloud_project_id, cloud_project_folder, or the
+	 * project open in cloud mode) becomes the binding of its folder, and its token the token of its server. The old keys
+	 * are left as they were: the token stays the fallback of its server ({@link #getCloudToken}).
+	 */
+	public synchronized void migrateCloudSettings() {
+		if (properties.containsKey(CLOUD_PROJECTS)) {
+			return;
+		}
+		CloudSettings settings = new CloudSettings();
+		String url = normalizeServer(getValue(EarthProperty.CLOUD_SYNC_URL));
+		String projectId = StringUtils.trimToEmpty(getValue(EarthProperty.CLOUD_PROJECT_ID));
+		String folder = getValue(EarthProperty.CLOUD_PROJECT_FOLDER);
+		if (StringUtils.isBlank(folder) && getCollectDBDriver() == CollectDBDriver.CLOUD && StringUtils.isNotBlank(getValue(EarthProperty.METADATA_FILE))) {
+			folder = getProjectFolder();
+		}
+		String token = getValue(EarthProperty.CLOUD_SYNC_TOKEN);
+		if (!url.isEmpty() && !projectId.isEmpty() && StringUtils.isNotBlank(folder)) {
+			// The project's name is asked of the server by the sync (CloudSyncService), the survey's shown until then
+			settings.projects.add(new CloudBinding(new File(folder).getAbsolutePath(), url, projectId, null, getOperator()));
+			if (StringUtils.isNotBlank(token)) {
+				settings.accounts.put(url, getOperator());
+				properties.setProperty(tokenKey(url), stored(tokenKey(url), token));
+			}
+		}
+		saveCloudSettings(settings);
+	}
+
+	/** The server of the project open: its cloud project's, else the setting of before. */
 	public String getCloudSyncUrl() {
-		return getValue(EarthProperty.CLOUD_SYNC_URL);
+		CloudBinding binding = getCloudBinding();
+		return binding != null ? binding.server : getValue(EarthProperty.CLOUD_SYNC_URL);
 	}
 
 	public String getCloudProjectId() {
-		return getValue(EarthProperty.CLOUD_PROJECT_ID);
+		CloudBinding binding = getCloudBinding();
+		return binding != null ? binding.projectId : getValue(EarthProperty.CLOUD_PROJECT_ID);
 	}
 
+	/** The token of the server of the project open. */
 	public String getCloudSyncToken() {
-		return getValue(EarthProperty.CLOUD_SYNC_TOKEN);
+		return getCloudToken(getCloudSyncUrl());
 	}
 
 	public void setCloudSyncEnabled(boolean enabled) {
 		setValue(EarthProperty.CLOUD_SYNC_ENABLED, Boolean.toString(enabled));
 	}
 
-	public void saveCloudSyncUrl(String url) {
-		setValue(EarthProperty.CLOUD_SYNC_URL, url);
+	/** The settings page's server: the cloud project's of the project open, else the setting of before. */
+	public synchronized void saveCloudSyncUrl(String url) {
+		CloudBinding binding = getCloudBinding();
+		if (binding == null) {
+			setValue(EarthProperty.CLOUD_SYNC_URL, url);
+		} else {
+			binding.server = url;
+			saveCloudBinding(binding);
+		}
 	}
 
-	public void saveCloudProjectId(String projectId) {
-		setValue(EarthProperty.CLOUD_PROJECT_ID, projectId);
+	public synchronized void saveCloudProjectId(String projectId) {
+		CloudBinding binding = getCloudBinding();
+		if (binding == null) {
+			setValue(EarthProperty.CLOUD_PROJECT_ID, projectId);
+		} else {
+			binding.projectId = projectId;
+			saveCloudBinding(binding);
+		}
 	}
 
+	/** The token of the server of the project open: blank signs out of it. */
 	public void saveCloudSyncToken(String token) {
-		setValue(EarthProperty.CLOUD_SYNC_TOKEN, token);
+		saveCloudToken(getCloudSyncUrl(), null, token);
 	}
 
 	public void saveCollectDBDriver(CollectDBDriver driver) {

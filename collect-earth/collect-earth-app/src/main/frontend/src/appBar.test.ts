@@ -15,7 +15,7 @@ describe("app bar", () => {
     expect(items.filter((i) => comingSoon(i) && !i.disabledReason).map((i) => i.id)).toEqual([]);
     expect(items.filter((i) => i.disabledReason).map((i) => i.id)).toEqual(["cloudStatus", "sendToCloud"]);
     expect(items.filter((i) => !comingSoon(i)).map((i) => i.id)).toEqual([
-      "importCep", "joinCloud", "language", "quit", "export", "import",
+      "importCep", "projects", "joinCloud", "language", "quit", "export", "import",
       "analyse", "lulucf", "loadKml", "dataFolder", "myDashboard", "openPlotsMap", "missingPlots", "divideCsv", "deletePlots", "properties",
       "surveyGuide", "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
     // An entry menus.ts does not enable, or this file has no action for, is not offered

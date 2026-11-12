@@ -46,6 +46,7 @@ import { useLoad } from "../useLoad";
 import { fromPairs, hasChanges, pairKey, toPairs } from "../assignmentGrid";
 import { sortPeople } from "../division";
 import { PlotDesign } from "./PlotDesign";
+import { StrataAreas } from "./StrataAreas";
 
 interface UploadState {
   name: string;
@@ -77,6 +78,23 @@ function DividedChip({ projectId, fileId, count }: { projectId: string; fileId: 
   const t = useT();
   const label = count === 0 ? t("plots.dividedNone") : count === 1 ? t("plots.dividedOne") : t("plots.dividedChip", { count });
   return <Chip icon={<CallSplit />} label={label} clickable component="a" color="primary" variant="outlined" {...linkProps(filePath(projectId, fileId))} />;
+}
+
+/** Only the coordinator in the project: plots can go to them alone; the way to invite people. */
+export function OnlyYou({ onGo }: { onGo: (tab: ProjectTab) => void }) {
+  const t = useT();
+  return (
+    <Alert
+      severity="info"
+      action={
+        <Button color="inherit" size="small" endIcon={<ArrowForward />} onClick={() => onGo("people")}>
+          {t("step.invite.action")}
+        </Button>
+      }
+    >
+      {t("plots.onlyYou")}
+    </Alert>
+  );
 }
 
 function AssignmentGrid({
@@ -111,19 +129,6 @@ function AssignmentGrid({
   const people = useMemo(() => sortPeople(members), [members]);
   const changed = useMemo(() => hasChanges(pairs, saved), [pairs, saved]);
 
-  if (members.length <= 1) {
-    return (
-      <EmptyState
-        title={t("plots.gridNeedsPeople")}
-        action={
-          <Button variant="contained" endIcon={<ArrowForward />} onClick={() => onGo("people")}>
-            {t("step.invite.action")}
-          </Button>
-        }
-      />
-    );
-  }
-
   const toggle = (key: string) => {
     setDone(false);
     setPairs((current) => {
@@ -150,6 +155,8 @@ function AssignmentGrid({
 
   return (
     <Stack spacing={2}>
+      {/* Alone in the project, a coordinator can still give plot files to themselves. */}
+      {members.length <= 1 && <OnlyYou onGo={onGo} />}
       <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 1, maxHeight: 520 }}>
         <Table size="small" stickyHeader>
           <TableHead>
@@ -236,7 +243,8 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
       });
     });
 
-  const uploadFiles = async (files: File[]) => {
+  /** Uploads the files; whether any went in. */
+  const uploadFiles = async (files: File[]): Promise<boolean> => {
     setMessages([]);
     setError(null);
     const csv = files.filter((f) => f.name.toLowerCase().endsWith(".csv"));
@@ -298,6 +306,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
       setUpload(null);
       if (changed) state.reload();
     }
+    return changed;
   };
 
   return (
@@ -406,6 +415,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
               </TableBody>
             </Table>
           </Paper>
+          <StrataAreas projectId={projectId} version={state.data} />
           <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
             <Typography variant="h2" gutterBottom>
               {t("plots.gridTitle")}

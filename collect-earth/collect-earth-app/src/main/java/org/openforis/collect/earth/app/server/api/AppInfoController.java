@@ -15,6 +15,7 @@ import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
+import org.openforis.collect.earth.app.service.WindowLayoutService;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.model.CollectSurvey;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -128,8 +129,25 @@ public class AppInfoController {
 		} catch (IllegalArgumentException e) {
 			throw new ApiException("language.unknown", Messages.getString("AppInfoController.languageUnknown"));
 		}
+		boolean changed = language != properties.getUiLanguage();
 		properties.setUiLanguage(language);
 		Messages.setLocale(language.getLocale());
+		if (changed) {
+			// Google Earth Web speaks the language its browser was started in (BrowserService.acceptLanguages): started
+			// again, off this request, as the page reloads meanwhile
+			Thread restart = new Thread(restartImagery, "Imagery browser in the new language");
+			restart.setDaemon(true);
+			restart.start();
+		}
+	}
+
+	/** Starts the imagery browser again, in the new language; nothing in the tests */
+	private Runnable restartImagery = () -> {
+	};
+
+	@Autowired(required = false)
+	void setWindowLayout(WindowLayoutService layout) {
+		restartImagery = layout::restartImageryBrowser;
 	}
 
 	/**

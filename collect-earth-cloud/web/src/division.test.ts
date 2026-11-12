@@ -110,6 +110,13 @@ describe("people", () => {
   it("only coordinators: everyone", () => {
     expect(collectors([members[0]]).map((m) => m.userId)).toEqual(["u0"]);
   });
+  it("a coordinator can take plots: offered with everyone (last), and alone in the project ticked and sent", () => {
+    expect(sortPeople(members).map((m) => m.userId)).toContain("u0");
+    const alone: DivisionForm = { ...initialForm(null, [], [members[0]]), mode: "even" };
+    expect(alone.people).toEqual(["u0"]);
+    expect(formProblem(alone, columns)).toBeNull();
+    expect(toRequest(alone, columns)).toMatchObject({ mode: "even", people: ["u0"] });
+  });
 });
 
 describe("initialForm", () => {
@@ -257,7 +264,7 @@ describe("what moving the unfinished plots did", () => {
     const all = movedText(t, { moved: 4, notMoved: 1, droppedChecks: 2 }, "ana", "maria", "en");
     expect(all).toContain("Kept with ana: 1 (plots that maria already assessed or checked");
     expect(all).toContain("Copies to compare dropped: 2");
-    for (const lang of ["es", "fr", "pt"]) expect(movedText(translator(lang), { moved: 1, notMoved: 1, droppedChecks: 1 }, "ana", "maria", lang), lang).not.toMatch(/divide\.|\{/);
+    for (const lang of ["es", "fr", "pt", "tr"]) expect(movedText(translator(lang), { moved: 1, notMoved: 1, droppedChecks: 1 }, "ana", "maria", lang), lang).not.toMatch(/divide\.|\{/);
     expect(t("divide.moveText", { from: "ana", to: "maria" })).not.toContain("every plot");
   });
 });

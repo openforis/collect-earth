@@ -286,6 +286,22 @@ describe('email digests (Task 19)', () => {
     expect((await me('GET', '/notifications', owner.token)).json().digests.coordinator).toMatchObject({ lastMailedWeek: dueWeek(clock, 'UTC') });
   });
 
+  it("the mail server's sending limit (Gmail's daily one) stops the run and keeps the week, never counted as a refused address", async () => {
+    await subscribe(owner, 'owner@example.org', { coordinator: true });
+    mailer.fail = () => true;
+    mailer.failWith = { responseCode: 550, code: 'EMESSAGE', command: 'DATA', response: '550-5.4.5 Daily user sending limit exceeded.' };
+    // Three weeks of a server over its limit: each run stops and says so; the week stays due, the digest stays on.
+    for (let i = 0; i < 3; i++) {
+      expect((await digest()).json(), String(i)).toMatchObject({ failed: 1, limited: true, more: true, sent: 0 });
+      expect((await digest()).json(), String(i)).toMatchObject({ failed: 1, limited: true });
+      clock += 7 * DAY;
+    }
+    expect((await me('GET', '/notifications', owner.token)).json().digests.coordinator).toMatchObject({ on: true, stopped: false });
+    // The limit gone: the week due goes.
+    mailer.fail = null;
+    expect((await digest()).json()).toMatchObject({ sent: 1, limited: false });
+  });
+
   it('the card says when a mail last went, not when a week was passed over; the zone is kept when none is sent', async () => {
     await subscribe(maria, 'maria@example.org', { collector: true }, 'en', 'Europe/Paris');
     // maria leaves: her week has nothing to tell.
@@ -397,6 +413,21 @@ describe('email digests (Task 19)', () => {
     // The next week, again.
     clock += 7 * DAY;
     expect((await digest()).json()).toMatchObject({ sent: 2 });
+  });
+
+  it('a coordinator given plots is offered My week, and it tells their own plots of the project they coordinate', async () => {
+    const before = (await call('GET', '/assignments', owner.token)).json().assignments as { userId: string; csvFileId: string }[];
+    const mine = (await call('PUT', '/csv-files/mine.csv', owner.token, 'id,lat,lon\n9,0,0\n10,0,0\n', { 'content-type': 'text/csv' })).json().id;
+    await call('PUT', '/assignments', owner.token, { assignments: [...before.map(({ userId, csvFileId }) => ({ userId, csvFileId })), { userId: owner.userId, csvFileId: mine }] });
+    const monday = Date.parse(`${weekMonday(dueWeek(clock, 'UTC'))}T12:00:00Z`);
+    await batchRequest(ctx.app, pid, owner.token, [envelope({ recordKey: '9', operator: 'owner', modifiedOn: monday + DAY, activelySaved: true })]);
+    expect((await me('GET', '/notifications', owner.token)).json().roles).toEqual({ coordinator: true, collector: true });
+    await subscribe(owner, 'owner@example.org', { collector: true });
+    expect((await digest()).json()).toMatchObject({ sent: 1 });
+    const [m] = digests('owner@example.org');
+    expect(m.tag).toBe('digest.collector');
+    expect(m.text).toContain('Forest inventory');
+    expect(m.text).toContain(`https://ce.example.org/projects/${pid}/my-work`);
   });
 
   it("a person's week with nothing done and nothing left to do sends no mail", async () => {

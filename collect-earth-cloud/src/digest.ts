@@ -14,7 +14,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import { addDays, isTimeZone, localDate } from './days.js';
 import { fill, longDate, number, oneLine, renderHtml, renderText, DIGEST_WORDS, type MailLine, type WordKey } from './digestText.js';
 import { isEmailAddress } from './accountRules.js';
-import { errorSummary, isPermanentFailure, type Mailer, type MailMessage } from './mail.js';
+import { errorSummary, isPermanentFailure, isSenderLimit, type Mailer, type MailMessage } from './mail.js';
 import { writeUnsubscribeToken } from './mailLinks.js';
 import { personDetail } from './people.js';
 import { PACE_DAYS, progressReport, type AttentionItem } from './progress.js';
@@ -242,6 +242,11 @@ export interface DigestRunResult {
   failed: number;
   /** True when the time or the number of mails ran out before the end: call again. */
   more: boolean;
+  /**
+   * True when the mail server said this server sent too much (Gmail's daily limit, see isSenderLimit): the run stopped
+   * there, and the weeks not sent stay due for the next run, nobody's counted as refused.
+   */
+  limited: boolean;
   ms: number;
 }
 
@@ -253,7 +258,7 @@ export async function runDigests(deps: DigestDeps, options: { baseUrl: string; b
   const utcWeek = dueWeek(started, 'UTC');
   // Anyone's due week is the UTC one or the one before (zones west of UTC end their week later):
   // subscriptions already done for the UTC one are not read at all.
-  const result: DigestRunResult = { transport: deps.mailer.transport, week: utcWeek, sent: 0, empty: 0, skipped: 0, done: 0, failed: 0, more: false, ms: 0 };
+  const result: DigestRunResult = { transport: deps.mailer.transport, week: utcWeek, sent: 0, empty: 0, skipped: 0, done: 0, failed: 0, more: false, limited: false, ms: 0 };
   const settings = await deps.store.getSettings();
   const serverName = settings.serverName ?? 'Collect Earth Cloud';
   const attentionOf = attentionReader(deps.store, deps.quality);
@@ -311,6 +316,14 @@ export async function runDigests(deps: DigestDeps, options: { baseUrl: string; b
       } catch (err) {
         result.failed += 1;
         const summary = errorSummary(err);
+        if (isSenderLimit(err)) {
+          // Over the mail server's sending limit: every other mail would be refused too. The week stays due.
+          await release();
+          result.limited = true;
+          result.more = true;
+          deps.log.warn({ err: summary, userId: row.userId, kind: row.kind, week }, 'digest: the mail server says this server sent too much; the run stops, the weeks not sent stay due');
+          break outer;
+        }
         if (deps.mailer.delivers && isPermanentFailure(err)) {
           // Refused for good (no such mailbox…): the week is not tried again; after a few in a row, off.
           const stopped = await deps.store.noteDigestFailure(row.userId, row.kind, deps.now(), MAX_DIGEST_FAILURES);
@@ -343,7 +356,9 @@ async function buildDigest(
   at: { week: string; timeZone: string; serverName: string; baseUrl: string },
 ): Promise<MailMessage | null> {
   const memberships = (await deps.store.listMemberships(row.userId))
-    .filter((m) => (row.kind === 'coordinator' ? m.role === 'admin' : m.role !== 'admin'))
+    // My week: every project, those the person coordinates too (a coordinator given plots collects them);
+    // a project with nothing of theirs is left out below.
+    .filter((m) => row.kind === 'collector' || m.role === 'admin')
     .sort((a, b) => a.projectName.localeCompare(b.projectName) || (a.projectId < b.projectId ? -1 : 1));
   const ctx: DigestContext = {
     serverName: at.serverName,

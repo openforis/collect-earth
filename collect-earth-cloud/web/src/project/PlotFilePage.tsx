@@ -75,6 +75,7 @@ import { formatNumber } from "../format";
 import { useT } from "../i18n";
 import { linkProps, pathFor, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
+import { OnlyYou } from "./PlotsTab";
 
 // One plot file's page: divide its plots between people, see who has how many, and
 // move someone's unfinished plots to another person.
@@ -697,18 +698,12 @@ export function PlotFilePage({ projectId, fileId, onGo }: { projectId: string; f
         <Typography color="text.secondary" sx={{ mb: 3 }}>
           {t("divide.intro")}
         </Typography>
-        {members.length <= 1 ? (
-          <EmptyState
-            title={t("plots.gridNeedsPeople")}
-            action={
-              <Button variant="contained" endIcon={<ArrowForward />} onClick={() => onGo("people")}>
-                {t("step.invite.action")}
-              </Button>
-            }
-          />
-        ) : (
-          <DivideForm projectId={projectId} fileId={fileId} members={members} columns={columns} current={current} onApplied={setCurrent} key={moves} />
+        {members.length <= 1 && (
+          <Box sx={{ mb: 3 }}>
+            <OnlyYou onGo={onGo} />
+          </Box>
         )}
+        <DivideForm projectId={projectId} fileId={fileId} members={members} columns={columns} current={current} onApplied={setCurrent} key={moves} />
       </Paper>
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Typography variant="h2" gutterBottom>

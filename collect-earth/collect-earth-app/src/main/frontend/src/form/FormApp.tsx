@@ -1,4 +1,4 @@
-import { type Ref, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { type ReactElement, type Ref, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -28,12 +28,15 @@ import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import CloudDoneOutlinedIcon from "@mui/icons-material/CloudDoneOutlined";
 import CloudOffOutlinedIcon from "@mui/icons-material/CloudOffOutlined";
+import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
 import ContentCopyIcon from "@mui/icons-material/ContentCopyOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import SendIcon from "@mui/icons-material/Send";
-import { type MessageKey, type Translate, useT } from "../i18n";
+import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
+import { type SaveIcon, type SaveView, saveView, useRecordSync } from "../cloud";
+import { type MessageKey, useT } from "../i18n";
 import { escapeBlurs, isCopyKey, isTyping, mayAdvance, mayTakeFocus, panelKey, questionKey, submitOnKey } from "../shortcuts";
 import { Logo } from "../components/Logo";
 import { Answered, AnsweredByKey, Copied, FieldView, errorText } from "./fields";
@@ -105,6 +108,9 @@ export function FormApp({ store }: { store: FormStore }) {
 function ReadyForm({ store, state, model }: { store: FormStore; state: FormState; model: FormModel }) {
   const t = useT();
   const content = useRef<HTMLDivElement>(null);
+  // What the footer says of the save: on this computer, and in a cloud project whether the plot was sent (cloud.ts)
+  const { cloud, sync } = useRecordSync(state.placemarkId, state.saveState);
+  const saveShown = saveView(state.saveState, state.retrying, cloud, sync);
   const errorTabs = tabsWithErrors(model, state.infos);
   const left = neededByTab(errorList(model, state.infos), (n) => store.value(n));
   const tab = model.tabs[state.tab] ?? model.tabs[0];
@@ -636,7 +642,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
         </Stack>
       </Box>
 
-      <LiveRegion state={state} announced={announced} />
+      <LiveRegion state={state} view={saveShown} announced={announced} />
 
       {/* Back and Next only where there is a step to go to; Submit takes Next's place on the last step, and goes next
           to it on the others once nothing is left to answer on any */}
@@ -654,7 +660,7 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
         </Box>
         {/* a query of its width: too narrow for the words (Submit and Next both shown in a narrow panel), only the icon */}
         <Box sx={{ flex: 1, minWidth: 0, display: "flex", justifyContent: "center", containerType: "inline-size" }}>
-          <SaveStatus state={state.saveState} retrying={state.retrying} />
+          <SaveStatus state={state.saveState} view={saveShown} />
         </Box>
         <Stack direction="row" spacing={1} sx={{ flex: "none", justifyContent: "flex-end", alignItems: "center" }}>
           {(next < 0 || ready) && !finished && <SubmitButton store={store} state={state} />}
@@ -790,31 +796,26 @@ const BANNER_SX = { mx: 1, mt: 1, alignItems: "center", [NARROW]: { mx: 0.5, mt:
 /** Next and Submit: the one button of the footer that moves the work on, big enough to hit without looking */
 const STEP_BUTTON_SX = { minWidth: 128, height: 40 } as const;
 
-const SAVE_LABEL: Record<SaveState, MessageKey> = {
-  idle: "entry.save.idle", unsaved: "entry.save.unsaved", saving: "entry.save.saving", saved: "entry.save.saved", error: "entry.save.error",
+/** The icon of the save state: a tick for a save on this computer, the cloud's tick only once the record is sent */
+const SAVE_ICONS: Record<SaveIcon, ReactElement> = {
+  saving: <CircularProgress size={12} sx={{ ml: "6px !important" }} />, edit: <EditOutlinedIcon />, saved: <CheckIcon />,
+  waiting: <CloudUploadOutlinedIcon />, sent: <CloudDoneOutlinedIcon />, notSent: <WarningAmberOutlinedIcon />, error: <ErrorOutlineIcon />,
 };
 
-/** The label of the save state, as the footer shows it and a screen reader hears it */
-function saveLabel(t: Translate, state: SaveState, retrying: boolean): string {
-  // a failed save that is tried again by itself says so; the reason of the server is in the banner above the questions
-  return state === "error" && retrying ? t("entry.save.retrying") : t(SAVE_LABEL[state]);
-}
-
 /**
- * The save state: an icon and its words, only the icon when the room left between the step buttons is too narrow for
- * the words (a container query on its box, in rem, so it follows the scale of the UI), with the words in its tooltip.
+ * The save state (cloud.ts, saveView): an icon and its words, only the icon when the room left between the step buttons
+ * is too narrow for the words (a container query on its box, in rem, so it follows the scale of the UI), with the words
+ * in its tooltip.
  */
-function SaveStatus({ state, retrying }: { state: SaveState; retrying: boolean }) {
+function SaveStatus({ state, view }: { state: SaveState; view: SaveView }) {
   const t = useT();
-  const label = saveLabel(t, state, retrying);
-  const icon = state === "saving" ? <CircularProgress size={12} sx={{ ml: "6px !important" }} />
-    : state === "saved" ? <CloudDoneOutlinedIcon /> : state === "error" ? <CloudOffOutlinedIcon /> : <EditOutlinedIcon />;
+  const label = t(view.key);
   // about the width of the words at the chip's size, with its icon and padding
   const wide = `${(label.length * 0.45 + 2.75).toFixed(2)}rem`;
   return (
     <Tooltip title={label}>
-      <Chip size="small" variant="outlined" icon={icon} label={label} aria-label={label} data-testid="entry-save-state" data-state={state}
-        color={state === "error" ? "error" : state === "saved" ? "success" : "default"}
+      <Chip size="small" variant="outlined" icon={SAVE_ICONS[view.icon]} label={label} aria-label={label} data-testid="entry-save-state"
+        data-state={state} data-sync={view.icon} color={view.color}
         sx={{ maxWidth: "100%", border: 0, [`@container (max-width: ${wide})`]: {
           "& .MuiChip-label": { display: "none" }, "& .MuiChip-icon": { mx: "4px !important" } } }} />
     </Tooltip>
@@ -826,10 +827,11 @@ function SaveStatus({ state, retrying }: { state: SaveState; retrying: boolean }
  * errors a Submit found, and what the form says itself (`announced`: the focus moved where it was not expected, the
  * answers copied). Saving and changes not saved yet are left out, which every answer would say twice.
  */
-function LiveRegion({ state, announced }: { state: FormState; announced: Announcement | null }) {
+function LiveRegion({ state, view, announced }: { state: FormState; view: SaveView; announced: Announcement | null }) {
   const t = useT();
   const [text, setText] = useState("");
-  const save = state.saveState === "saved" || state.saveState === "error" ? saveLabel(t, state.saveState, state.retrying) : "";
+  // the sending of a saved plot too: waiting, then sent or not
+  const save = state.saveState === "saved" || state.saveState === "error" ? t(view.key) : "";
   const saveText = [save, state.saveState === "error" ? state.saveError ?? "" : ""].filter(Boolean).join(". ");
   // the save of a change only, not the state the plot opens in
   const changed = useRef(false);

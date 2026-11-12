@@ -12,7 +12,7 @@ describe("appMenus", () => {
   it("only enables what is built", () => {
     const enabled = appMenus({ plotsMap: true }).flatMap((m) => m.items).filter((i) => i.enabled).map((i) => i.id);
     // Cloud sync status is a cloud project's (see "cloud and local projects")
-    expect(enabled).toEqual(["importCep", "joinCloud", "language", "quit", "export", "import",
+    expect(enabled).toEqual(["importCep", "projects", "joinCloud", "language", "quit", "export", "import",
       "analyse", "lulucf", "loadKml", "dataFolder", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "properties",
       "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
     // The survey guide only when the survey has one, as the Swing menu showed it
@@ -52,6 +52,15 @@ describe("appMenus", () => {
   });
 });
 
+describe("switch project", () => {
+  it("is right under Import CEP file, in a local project and a cloud one", () => {
+    for (const cloud of [false, true]) {
+      const project = appMenus({ plotsMap: true, cloud }).find((m) => m.id === "project")!.items.map((i) => i.id);
+      expect(project.slice(0, 2)).toEqual(["importCep", "projects"]);
+    }
+  });
+});
+
 describe("cloud and local projects", () => {
   const entry = (cloud: boolean, id: string) => appMenus({ plotsMap: true, cloud }).flatMap((m) => m.items).find((i) => i.id === id);
 
@@ -86,7 +95,8 @@ describe("my dashboard", () => {
     const tools = (cloud: boolean) => appMenus({ plotsMap: true, cloud }).find((m) => m.id === "tools")?.items.map((i) => i.id);
     const mine = (cloud: boolean) => appMenus({ plotsMap: true, cloud }).flatMap((m) => m.items).find((i) => i.id === "myDashboard");
     expect(mine(false)).toEqual({ id: "myDashboard", label: "LocalDashboard.menu", enabled: true });
-    expect(mine(true)).toEqual({ id: "myDashboard", label: "LocalDashboard.menu", enabled: true });
+    // The cloud's is a website with a sign-in of its own: its label says so, and its note names the server
+    expect(mine(true)).toEqual({ id: "myDashboard", label: "LocalDashboard.cloudMenu", enabled: true, note: "LocalDashboard.cloudNote" });
     // Analyse the data: first, for a local project and a cloud one (the cloud's page)
     expect(tools(false)?.[0]).toBe("analyse");
     expect(tools(true)?.[0]).toBe("analyse");

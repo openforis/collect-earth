@@ -18,7 +18,7 @@ export interface FakeClientOptions {
 }
 
 /** What the fake understands as a free question about data quality. */
-const ON_TOPIC = /quality|agree|differ|check|plot|question|answer|collector|person|note|survey|mistake|error|confus|mix|calidad|parcela|qualit|parcelle|qualidade/i;
+const ON_TOPIC = /quality|agree|differ|check|plot|question|answer|collector|person|note|survey|mistake|error|confus|mix|calidad|parcela|qualit|parcelle|qualidade|kalite|parsel|anket/i;
 /** ...unless it also asks for something else. */
 const OFF_TOPIC = /poem|recipe|code|essay|translat|weather|joke|ignore|story|song/i;
 

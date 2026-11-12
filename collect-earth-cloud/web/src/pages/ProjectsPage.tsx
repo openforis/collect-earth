@@ -37,6 +37,7 @@ import { BackupImportDialog } from "./BackupImportDialog";
 import { CeoImportDialog } from "./CeoImportDialog";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
+import { RoleBadge, RolesLink } from "../components/Roles";
 import { useT } from "../i18n";
 import { linkProps, navigate, pathFor } from "../router";
 import { useLoad } from "../useLoad";
@@ -264,7 +265,7 @@ export function ProjectsPage() {
                       {p.projectName}
                     </Typography>
                     <Stack direction="row" spacing={1}>
-                      <Chip size="small" label={t(`role.${p.role}`)} color={p.role === "admin" ? "primary" : "default"} />
+                      <RoleBadge role={p.role} />
                       {p.status !== "active" && <Chip size="small" variant="outlined" label={t(`project.status.${p.status}`)} />}
                     </Stack>
                   </CardContent>
@@ -283,6 +284,11 @@ export function ProjectsPage() {
               </Card>
             </Grid>
           ))}
+          <Grid size={12}>
+            <Typography variant="body2">
+              <RolesLink />
+            </Typography>
+          </Grid>
         </Grid>
       )}
       {choosing && (

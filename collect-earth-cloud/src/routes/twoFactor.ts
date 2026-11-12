@@ -12,23 +12,30 @@ import {
   newRecoveryCodes,
   newSecret,
   otpauthUri,
+  readSecret,
+  type TwoFactorKeys,
 } from '../twoFactor.js';
 
 /**
  * Checks the second step of a sign-in: an authenticator app's code (each used once) or one of the account's recovery
- * codes (each used once). 'ok' signs in; 'invalid' is a wrong code; 'unreadable' means the secret cannot be decrypted
- * any more (the server's key changed): only a recovery code, or the administrator's reset, gets the person in.
+ * codes (each used once). 'ok' signs in; 'invalid' is a wrong code; 'unreadable' means no key of the server reads the
+ * secret (its key was lost, see twoFactorKey): only a recovery code, or the administrator's reset, gets the person in.
+ * A secret read with an older key is saved again under the current one, so that the older keys can go one day.
  */
-export async function checkSecondStep(store: Store, key: Buffer, userId: string, code: string, now = Date.now()): Promise<'ok' | 'invalid' | 'unreadable'> {
+export async function checkSecondStep(store: Store, keys: TwoFactorKeys, userId: string, code: string, now = Date.now()): Promise<'ok' | 'invalid' | 'unreadable'> {
   const state = await store.getTwoFactor(userId);
   if (!state?.enabledAt || !state.secretEnc) return 'ok';
   const typed = code.trim();
   if (looksLikeRecoveryCode(typed)) {
     return (await store.claimRecoveryCode(userId, hashRecoveryCode(typed))) ? 'ok' : 'invalid';
   }
-  const secret = decryptSecret(state.secretEnc, key);
-  if (!secret) return 'unreadable';
-  const step = matchStep(secret, typed, now);
+  const read = readSecret(state.secretEnc, keys);
+  if (read.secret === null) {
+    console.error(`two-factor: the secret of user ${userId} cannot be read, its key ${read.missingKey} is not one of this server's (TWO_FACTOR_KEY)`);
+    return 'unreadable';
+  }
+  if (read.stale) await store.updateTwoFactorSecret(userId, encryptSecret(read.secret, keys));
+  const step = matchStep(read.secret, typed, now);
   if (step === null) return 'invalid';
   return (await store.claimTwoFactorStep(userId, step)) ? 'ok' : 'invalid';
 }
@@ -47,7 +54,7 @@ export async function twoFactorEnabled(store: Store, userId: string): Promise<bo
  *  - POST /v1/me/two-factor/recovery-codes {password}: ten new codes, the old ones stop working;
  *  - POST /v1/admin/users/:uid/two-factor/reset: off for someone who lost their phone and their codes.
  */
-export async function registerTwoFactorRoutes(app: FastifyInstance, store: Store, key: Buffer, limiter: RateLimiter, issuerOf: () => Promise<string>): Promise<void> {
+export async function registerTwoFactorRoutes(app: FastifyInstance, store: Store, key: TwoFactorKeys, limiter: RateLimiter, issuerOf: () => Promise<string>): Promise<void> {
   const session = { preHandler: requireSession(store) };
 
   app.post('/v1/me/two-factor/setup', session, async (request: FastifyRequest, reply: FastifyReply) => {

@@ -117,6 +117,40 @@ public class CloudControllerTest {
 	}
 
 	@Test
+	public void theStateSigningOutAndTheSyncOfARecord() throws Exception {
+		Map<String, Object> project = new LinkedHashMap<>();
+		project.put("mode", "cloud");
+		project.put("serverName", "c.org");
+		Map<String, Object> state = new LinkedHashMap<>();
+		state.put("project", project);
+		state.put("sync", null);
+		state.put("accounts", java.util.Collections.emptyList());
+		when(cloud.state()).thenReturn(state);
+		mvc.perform(get("/api/cloud/state")).andExpect(status().isOk()).andExpect(jsonPath("$.project.mode").value("cloud"))
+				.andExpect(jsonPath("$.project.serverName").value("c.org")).andExpect(jsonPath("$.accounts").isArray());
+		when(cloud.signOut("https://c.org")).thenReturn(state);
+		mvc.perform(post("/api/cloud/signOut").contentType(MediaType.APPLICATION_JSON).content("{\"server\":\"https://c.org\"}"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.project.mode").value("cloud"));
+		verify(cloud).signOut("https://c.org");
+		when(cloud.signOut(null)).thenThrow(new InvalidCloudRequestException("cloud.urlRequired", "Type the server"));
+		mvc.perform(post("/api/cloud/signOut").contentType(MediaType.APPLICATION_JSON).content("{}"))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("cloud.urlRequired"));
+		when(cloud.recordSync("101,2")).thenReturn(java.util.Collections.singletonMap("state", "pending"));
+		mvc.perform(get("/api/cloud/recordSync").param("key", "101,2")).andExpect(status().isOk()).andExpect(jsonPath("$.state").value("pending"));
+	}
+
+	@Test
+	public void aCloudProjectIsOpenedOnTheServerGivenOrTheFirstSignedInTo() throws Exception {
+		mvc.perform(post("/api/cloud/projects/open").contentType(MediaType.APPLICATION_JSON).content("{\"projectId\":\"p2\"}"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.restart").value(true));
+		verify(cloud).open("p2", null);
+		mvc.perform(post("/api/cloud/projects/open").contentType(MediaType.APPLICATION_JSON).content("{\"projectId\":\"p9\",\"server\":\"https://d.org\"}"))
+				.andExpect(status().isOk());
+		verify(cloud).open("p9", "https://d.org");
+		assertTrue(restarted.get());
+	}
+
+	@Test
 	public void theAssignmentsAreListedAndDownloaded() throws Exception {
 		Map<String, Object> north = new LinkedHashMap<>();
 		north.put("id", "a1");

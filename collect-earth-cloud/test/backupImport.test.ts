@@ -3,8 +3,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { BackupError, javaDoubleText, openBackup, readBackupRecord, suggestedLayout, layoutOf } from '../src/backupImport.js';
+import { BackupError, openBackup, recordReader, suggestedLayout, layoutOf } from '../src/backupImport.js';
 import { parseCsv } from '../src/ceo/answers.js';
+import { backupReader } from '../src/collectImport.js';
 import { cepProperties, readCep, zipCep } from '../src/cep.js';
 import { SAMPLE_RECORDS, SAMPLE_SURVEY, sampleBackupZip } from './backupSampleData.js';
 import { bearer, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
@@ -34,14 +35,14 @@ describe('reading a Collect Earth backup', () => {
   it('reads the survey: its keys, its plot area and points, the columns of its plot file', () => {
     const { survey, records } = openBackup(sampleBackupZip());
     expect(survey).toMatchObject({ root: 'plot', title: 'Backup sample', surveyName: 'backup_sample', plotAreaHa: 1, samplePoints: 25 });
-    expect(survey.keys.map((k) => k.name)).toEqual(['id', 'round']);
+    expect(survey.keys).toEqual(['id', 'round']);
     expect(survey.plotColumns).toEqual(['elevation', 'slope', 'region']);
     expect(records.map((r) => r.name)).toEqual(['1/101.xml', '1/102.xml', '2/103.xml', '1/104.xml']);
   });
 
   it('reads each record: its key, plot, place, collector, step, time and plot file columns', () => {
     const { survey, records } = openBackup(sampleBackupZip());
-    const [first, second, third] = records.map((e) => readBackupRecord(survey, e));
+    const [first, second, third] = records.map(recordReader(survey));
     expect(first).toMatchObject({
       keyValues: ['P1', '1'], plotId: 'P1', location: { lat: 42.4842216299026, lon: 1.42032362698269 }, operator: 'Marta', activelySaved: true, step: 1,
       modifiedOn: Date.parse('2025-09-24T13:09:26.160+02:00'), columns: { elevation: '2149', slope: '11.0', region: 'North' },
@@ -50,9 +51,13 @@ describe('reading a Collect Earth backup', () => {
     expect(third).toMatchObject({ plotId: 'P3', location: null, step: 2, columns: { elevation: '2428', slope: '-0.5' } });
   });
 
-  it("summarizes a record as Collect Earth does (checked against Collect's own in CeoRecordsXmlTest)", () => {
-    const { survey, records } = openBackup(sampleBackupZip());
-    const [first, second] = records.map((e) => readBackupRecord(survey, e).summary);
+  it('summarizes a record as the import into a project does (collectImport.ts, checked against Collect Earth in CeoRecordsXmlTest)', () => {
+    const read = backupReader(SAMPLE_SURVEY, null);
+    const [first, second] = ['1/101.xml', '1/102.xml'].map((name) => {
+      const r = read({ name, step: 1, xml: SAMPLE_RECORDS[name] });
+      if ('problem' in r) throw new Error(r.problem);
+      return r.summary;
+    });
     expect(first).toMatchObject({
       collect_code_land_use: 'other::orchard & vines',
       collect_real_canopy: '1.0E-4',
@@ -66,17 +71,18 @@ describe('reading a Collect Earth backup', () => {
       'collect_entity_cover[grass].integer_percent': '10',
       'collect_entity_visit.text_inspector': 'R. Ortega',
     });
-    // empty: '' at the root, left out in a row; a coordinate is "null,null"; the cover rows the record lacks have their key
-    expect(second).toMatchObject({ collect_real_canopy: '', collect_coord_landmark: 'null,null', 'collect_entity_cover[trees].code_element': 'trees' });
-    expect(second).not.toHaveProperty('collect_code_species');
+    // empty: '' at the root (a multiple attribute too, as Collect Earth's own summaries in
+    // test/fixtures/collect-import/types have it), left out in a row; a coordinate is "null,null"; the cover rows the
+    // record lacks have their key
+    expect(second).toMatchObject({ collect_real_canopy: '', collect_code_species: '', collect_coord_landmark: 'null,null', 'collect_entity_cover[trees].code_element': 'trees' });
     expect(second).not.toHaveProperty('collect_entity_trees[1].code_tree_species');
     expect(second).not.toHaveProperty('collect_entity_cover[grass].integer_percent');
   });
 
-  it("writes reals as Java's Double.toString", () => {
-    expect([0, 27, 0.5, 11.25, 0.001, 0.0001, 1e7, 12345678.9, -0.5, 9999999.5].map(javaDoubleText)).toEqual([
-      '0.0', '27.0', '0.5', '11.25', '0.001', '1.0E-4', '1.0E7', '1.23456789E7', '-0.5', '9999999.5',
-    ]);
+  it("reads Collect's areas per stratum (files/ce_area) in UTF-8, or else in Windows-1252", () => {
+    const zip = (areas: Uint8Array) => zipCep(new Map([['idml.xml', new Uint8Array(Buffer.from(SAMPLE_SURVEY))], ['files/ce_area/areas.csv', areas]]), new Date());
+    expect(openBackup(zip(new Uint8Array(Buffer.from('region,area\nRegi\xe3o,1000\n', 'latin1')))).areas).toBe('region,area\nRegião,1000\n');
+    expect(openBackup(zip(new Uint8Array(Buffer.from('region,area\nRegião,1000\n', 'utf8')))).areas).toBe('region,area\nRegião,1000\n');
   });
 
   it('refuses what is not a backup, saying what it is', () => {
@@ -232,6 +238,62 @@ describe('a new project from a Collect Earth backup', () => {
     const toDo = (await plotFiles(projectId)).find((f) => f.filename === 'Grid_2024.csv')!;
     const text = await fileText(projectId, toDo.id);
     expect(text.split('\n').filter((l) => l !== '').map((l) => l.split(',')[0])).toEqual(['id', 'P2', 'P4', 'P5']);
+    // P3's submitted record has no location: its row of the plot file places it in the done file
+    expect(res.json().doneFile).toMatchObject({ plots: 2 });
+    const done = (await plotFiles(projectId)).find((f) => f.filename.endsWith('_done.csv'))!;
+    expect(await fileText(projectId, done.id)).toContain('P3,1,42.530000,1.550000,2428,-0.5,');
+  });
+
+  it("counts the plots done by the survey's first round, whatever its code, in the preview as in the project made", async () => {
+    const survey = SAMPLE_SURVEY.replace('<code>1</code>\n          <label>First assessment</label>', '<code>A</code>\n          <label>First assessment</label>');
+    const records = Object.fromEntries(Object.entries(SAMPLE_RECORDS).map(([p, x]) => [p, x.replace('<round>\n    <code>1</code>', '<round>\n    <code>A</code>')]));
+    const zip = backup(sampleBackupZip(records, survey));
+    // P1 is done by a submitted record of round A: P2 is to give out
+    expect((await post('/preview', { backup: zip })).json().plots).toMatchObject({ withRecords: 2, done: 1, toDo: 1 });
+    const res = await post('', { backup: zip });
+    expect(res.statusCode, res.body).toBe(201);
+    expect(res.json()).toMatchObject({ round: 'own', doneFile: { plots: 1 }, plotFile: { plots: 1 } });
+  });
+
+  it("keeps one copy of a record Collect wrote once per step (1/, 2/): the last step's, its step read from the folder", async () => {
+    // Collect's own backup (.collect) writes data/<step>/<id>.xml; these records say no step of their own
+    const p1 = SAMPLE_RECORDS['1/101.xml'].replace(/ step="\d"/, '');
+    const draft = p1.replace('<actively_saved>\n    <value>true</value>', '<actively_saved>\n    <value>false</value>');
+    const zip = backup(sampleBackupZip({ 'data/1/101.xml': draft, 'data/2/101.xml': p1 }));
+    expect((await post('/preview', { backup: zip })).json().records).toMatchObject({ total: 1, submitted: 1, steps: { entry: 0, cleansing: 1, analysis: 0 } });
+    const res = await post('', { backup: zip });
+    expect(res.statusCode, res.body).toBe(201);
+    expect((await ctx.store.listRecords(res.json().projectId)).map((r) => [r.recordKey, r.step, r.activelySaved])).toEqual([['P1,1', 2, true]]);
+  });
+
+  it("refuses records that do not fit the project's storage, keeping nothing", async () => {
+    await ctx.app.inject({ method: 'PUT', url: '/v1/admin/settings', headers: bearer(owner.token), payload: { maxProjectStorageMb: 1 } });
+    const long = SAMPLE_RECORDS['1/101.xml'].replace('Burnt in 2019, regrowing', 'x'.repeat(1024 * 1024));
+    const res = await post('', { backup: backup(sampleBackupZip({ ...SAMPLE_RECORDS, '1/101.xml': long })) });
+    expect(res.statusCode, res.body).toBe(413);
+    expect(res.json()).toMatchObject({ error: 'storage_limit_reached', limitBytes: 1024 * 1024 });
+    expect(await ctx.store.listMemberships(owner.userId)).toEqual([]);
+    // the same backup without the long notes fits
+    expect((await post('', { backup: backup() })).statusCode).toBe(201);
+  });
+
+  it("reads Collect's own backup (.collect): its records under data/, or none, with its grid as the plot file", async () => {
+    const collectLayout = Object.fromEntries(Object.entries(SAMPLE_RECORDS).map(([path, xml]) => [`data/${path}`, xml]));
+    const withData = await post('/preview', { backup: backup(sampleBackupZip(collectLayout)) });
+    expect(withData.statusCode, withData.body).toBe(200);
+    expect(withData.json().records.total).toBe(Object.keys(SAMPLE_RECORDS).length);
+
+    expect(withData.json().strata).toBeNull();
+
+    // a backup of the survey alone: no records, its plots all to give out, the strata's areas into the project file
+    const areas = 'region,area\nNorth,1000\nSouth,500\n';
+    const surveyOnly = sampleBackupZip({ 'info.properties': 'survey_name=backup_sample\n', 'files/ce_area/areas.csv': areas });
+    expect((await post('/preview', { backup: backup(surveyOnly) })).json().strata).toBe(2);
+    const res = await post('', { backup: backup(surveyOnly), plotFile: PLOT_FILE, plotFileName: 'ce_grid.csv' });
+    expect(res.statusCode, res.body).toBe(201);
+    expect(res.json()).toMatchObject({ records: 0, plotFile: { filename: 'ce_grid.csv', plots: 5 } });
+    const cep = readCep(Buffer.from((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${res.json().projectId}/cep`, headers: bearer(owner.token) })).rawPayload));
+    expect(new TextDecoder().decode(cep.entries.get('areas_per_attribute.csv'))).toBe(areas);
   });
 
   it('adds the round to a survey without one, and to its records', async () => {

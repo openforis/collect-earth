@@ -212,6 +212,15 @@ public abstract class AbstractEarthSurveyService {
 		return localPropertiesService.isDeferredSaveEnabled();
 	}
 
+	/**
+	 * Whether a plot's record (its key values joined by commas, the placemark id) has changes not written to the
+	 * database yet: the deferred save writes them a moment later, and only then is the record queued for the cloud.
+	 */
+	public synchronized boolean hasUnsavedChanges(String recordKeyCsv) {
+		WorkingRecord wr = workingRecords.get(recordKeyCsv);
+		return wr != null && wr.dirty;
+	}
+
 	private static String cacheKey(String[] keyAttributes) {
 		return String.join(",", keyAttributes);
 	}

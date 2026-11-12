@@ -53,7 +53,7 @@ export function ChangeAreas({ projectId, data, onSaved }: { projectId: string; d
   const name = (code: string) => data.options.find((o) => o.code === code)?.label ?? code;
   const classes = classRows(areas, data.options);
   const thin = thinStrata(areas);
-  const unit = areas.areaKnown ? t("areas.unitHa") : t("areas.unitShare");
+  const unit = areas.areaKnown ? t("changeAreas.unitHa") : t("changeAreas.unitShare");
   const ha = (v: number) => new Intl.NumberFormat(language, { maximumFractionDigits: 0 }).format(v);
 
   const save = async (value: number | null) => {
@@ -98,35 +98,39 @@ export function ChangeAreas({ projectId, data, onSaved }: { projectId: string; d
 
   return (
     <Stack spacing={2} component="section" aria-labelledby="change-areas">
-      <Typography variant="h3" id="change-areas">{t("areas.title")}</Typography>
-      <Explain color="text.primary" text={t("areas.intro.short")} more={t("areas.intro", { earlier: data.period })} />
+      <Typography variant="h3" id="change-areas">{t("changeAreas.title")}</Typography>
+      <Explain color="text.primary" text={t("changeAreas.intro.short")} more={t("changeAreas.intro", { earlier: data.period })} />
 
       {areas.source ? (
         <Typography variant="body2" color="text.secondary">
-          {t("areas.fromFile", { file: areas.source, strata: String(areas.strata.length), area: ha(areas.totalArea) })}
+          {areas.source === "strata"
+            ? t("changeAreas.fromStrata", { strata: String(areas.strata.length), area: ha(areas.totalArea) })
+            : areas.source === "total"
+              ? t("changeAreas.fromTotal", { area: ha(areas.totalArea) })
+              : t("changeAreas.fromFile", { file: areas.source, strata: String(areas.strata.length), area: ha(areas.totalArea) })}
         </Typography>
       ) : (
         <Box component="form" onSubmit={submit} noValidate>
-          {!areas.areaKnown && <Alert severity="info" sx={{ mb: 1.5 }}>{t("areas.sharesOnly")}</Alert>}
+          {!areas.areaKnown && <Alert severity="info" sx={{ mb: 1.5 }}>{t("changeAreas.sharesOnly")}</Alert>}
           {data.canEdit ? (
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ alignItems: { sm: "flex-start" } }}>
               <TextField
                 size="small"
-                label={t("areas.totalArea")}
+                label={t("changeAreas.totalArea")}
                 value={typed}
                 onChange={(e) => setTyped(e.target.value)}
                 inputMode="decimal"
                 error={typed.trim() !== "" && typedArea === null}
-                helperText={typed.trim() !== "" && typedArea === null ? t("areas.totalAreaInvalid") : t("areas.totalAreaHelp")}
+                helperText={typed.trim() !== "" && typedArea === null ? t("changeAreas.totalAreaInvalid") : t("changeAreas.totalAreaHelp")}
                 sx={{ width: { xs: 1, sm: 260 } }}
               />
-              <Button type="submit" variant="contained" disabled={saving || typedArea === null || typedArea === areas.savedArea}>{t("areas.save")}</Button>
+              <Button type="submit" variant="contained" disabled={saving || typedArea === null || typedArea === areas.savedArea}>{t("changeAreas.save")}</Button>
               {areas.savedArea !== null && (
-                <Button onClick={() => { setTyped(""); void save(null); }} disabled={saving}>{t("areas.clear")}</Button>
+                <Button onClick={() => { setTyped(""); void save(null); }} disabled={saving}>{t("changeAreas.clear")}</Button>
               )}
             </Stack>
           ) : areas.areaKnown ? (
-            <Typography variant="body2" color="text.secondary">{t("areas.totalAreaIs", { area: ha(areas.totalArea) })}</Typography>
+            <Typography variant="body2" color="text.secondary">{t("changeAreas.totalAreaIs", { area: ha(areas.totalArea) })}</Typography>
           ) : null}
         </Box>
       )}
@@ -136,16 +140,16 @@ export function ChangeAreas({ projectId, data, onSaved }: { projectId: string; d
         <Typography color="text.secondary">{t("change.none")}</Typography>
       ) : (
         <>
-          {areas.source !== null && thin.length > 0 && <Alert severity="warning">{t("areas.thinStrata", { count: String(thin.length) })}</Alert>}
-          {areas.skipped.noArea > 0 && <Alert severity="info">{t("areas.noArea", { count: String(areas.skipped.noArea) })}</Alert>}
+          {areas.source !== null && thin.length > 0 && <Alert severity="warning">{t("changeAreas.thinStrata", { count: String(thin.length) })}</Alert>}
+          {areas.skipped.noArea > 0 && <Alert severity="info">{t("changeAreas.noArea", { count: String(areas.skipped.noArea) })}</Alert>}
 
           <TableContainer sx={tableSx}>
-            <Table size="small" aria-label={t("areas.outcomes")} sx={cellSx}>
-              {head(t("areas.col.outcome"), t("areas.col.plots"), t("areas.col.area", { unit }), t("areas.col.uncertainty"))}
+            <Table size="small" aria-label={t("changeAreas.outcomes")} sx={cellSx}>
+              {head(t("changeAreas.col.outcome"), t("changeAreas.col.plots"), t("changeAreas.col.area", { unit }), t("changeAreas.col.uncertainty"))}
               <TableBody>
                 {(["unchanged", "changed", "corrected"] as const).map((o) => (
                   <TableRow key={o}>
-                    <TableCell component="th" scope="row">{t(`areas.outcome.${o}`, { earlier: data.period })}</TableCell>
+                    <TableCell component="th" scope="row">{t(`changeAreas.outcome.${o}`, { earlier: data.period })}</TableCell>
                     <TableCell align="right">{areas.outcomes[o].plots}</TableCell>
                     <AreaCell e={areas.outcomes[o]} data={data} />
                     <TableCell align="right">{uncertaintyOf(areas.outcomes[o])}</TableCell>
@@ -156,8 +160,8 @@ export function ChangeAreas({ projectId, data, onSaved }: { projectId: string; d
           </TableContainer>
 
           <TableContainer sx={tableSx}>
-            <Table size="small" aria-label={t("areas.classes", { earlier: data.period, now: data.label })} sx={cellSx}>
-              {head(data.question.label, t("areas.col.then", { earlier: data.period }), t("areas.col.now", { now: data.label }), t("areas.col.net"), t("areas.col.uncertainty"))}
+            <Table size="small" aria-label={t("changeAreas.classes", { earlier: data.period, now: data.label })} sx={cellSx}>
+              {head(data.question.label, t("changeAreas.col.then", { earlier: data.period }), t("changeAreas.col.now", { now: data.label }), t("changeAreas.col.net"), t("changeAreas.col.uncertainty"))}
               <TableBody>
                 {classes.map((c) => (
                   <TableRow key={c.code}>
@@ -172,20 +176,20 @@ export function ChangeAreas({ projectId, data, onSaved }: { projectId: string; d
             </Table>
           </TableContainer>
           {areas.outcomes.corrected.plots > 0 && (
-            <Typography variant="body2" color="text.secondary">{t("areas.thenNote", { earlier: data.period })}</Typography>
+            <Typography variant="body2" color="text.secondary">{t("changeAreas.thenNote", { earlier: data.period })}</Typography>
           )}
 
           {areas.matrix.length > 0 && (
             <TableContainer sx={tableSx}>
-              <Table size="small" aria-label={t("areas.matrix", { earlier: data.period, now: data.label })} sx={cellSx}>
-                {head(t("areas.col.transition", { earlier: data.period, now: data.label }), t("areas.col.plots"), t("areas.col.area", { unit }), t("areas.col.uncertainty"))}
+              <Table size="small" aria-label={t("changeAreas.matrix", { earlier: data.period, now: data.label })} sx={cellSx}>
+                {head(t("changeAreas.col.transition", { earlier: data.period, now: data.label }), t("changeAreas.col.plots"), t("changeAreas.col.area", { unit }), t("changeAreas.col.uncertainty"))}
                 <TableBody>
                   {[...areas.matrix]
                     .sort((a, b) => Number(a.from === a.to) - Number(b.from === b.to) || b.estimate.area - a.estimate.area)
                     .map((m) => (
                       <TableRow key={`${m.from}\u0000${m.to}`} sx={{ bgcolor: (theme) => (m.from !== m.to ? alpha(theme.palette.warning.main, 0.08) : undefined) }}>
                         <TableCell component="th" scope="row">
-                          {m.from === m.to ? t("areas.stable", { answer: name(m.from) }) : `${name(m.from)} → ${name(m.to)}`}
+                          {m.from === m.to ? t("changeAreas.stable", { answer: name(m.from) }) : `${name(m.from)} → ${name(m.to)}`}
                         </TableCell>
                         <TableCell align="right">{m.estimate.plots}</TableCell>
                         <AreaCell e={m.estimate} data={data} />
@@ -195,7 +199,7 @@ export function ChangeAreas({ projectId, data, onSaved }: { projectId: string; d
                   {areas.corrections.map((m) => (
                     <TableRow key={`c${m.from}\u0000${m.to}`}>
                       <TableCell component="th" scope="row" sx={{ color: "text.secondary" }}>
-                        {t("areas.correction", { from: name(m.from), to: name(m.to), earlier: data.period })}
+                        {t("changeAreas.correction", { from: name(m.from), to: name(m.to), earlier: data.period })}
                       </TableCell>
                       <TableCell align="right">{m.estimate.plots}</TableCell>
                       <AreaCell e={m.estimate} data={data} />
@@ -207,10 +211,10 @@ export function ChangeAreas({ projectId, data, onSaved }: { projectId: string; d
             </TableContainer>
           )}
           <Typography variant="body2" color="text.secondary">
-            {t(areas.estimator === "stratified" ? "areas.howStratified" : "areas.howSimple", { plots: String(areas.plots), strata: String(areas.strata.filter((s) => s.plots > 0).length) })}
+            {t(areas.estimator === "stratified" ? "changeAreas.howStratified" : "changeAreas.howSimple", { plots: String(areas.plots), strata: String(areas.strata.filter((s) => s.plots > 0).length) })}
           </Typography>
           <Box>
-            <Button variant="outlined" onClick={() => void download()} disabled={busy}>{t("areas.download")}</Button>
+            <Button variant="outlined" onClick={() => void download()} disabled={busy}>{t("changeAreas.download")}</Button>
           </Box>
         </>
       )}

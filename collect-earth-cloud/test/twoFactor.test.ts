@@ -10,9 +10,15 @@ import {
   matchStep,
   newRecoveryCodes,
   otpauthUri,
+  readSecret,
   stepOf,
   twoFactorKey,
 } from '../src/twoFactor.js';
+import { createCipheriv, createHash, randomBytes } from 'node:crypto';
+import { checkSecondStep } from '../src/routes/twoFactor.js';
+import { InMemoryStore } from '../src/store/memory.js';
+import { checkTwoFactorKeys } from '../src/twoFactorCheck.js';
+import { OwnerAlerts } from '../src/ownerAlerts.js';
 import { bearer, createProject, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 
 describe('the codes', () => {
@@ -43,6 +49,39 @@ describe('the codes', () => {
     expect(stored).not.toContain('JBSWY3DPEHPK3PXP');
     expect(decryptSecret(stored, key)).toBe('JBSWY3DPEHPK3PXP');
     expect(decryptSecret(stored, twoFactorKey({ linkSecret: 'two' }))).toBeNull();
+  });
+
+  it('still read a secret saved before LINK_SECRET was set (with the key of DATABASE_URL), not one of another database', () => {
+    const before = encryptSecret('JBSWY3DPEHPK3PXP', twoFactorKey({ databaseUrl: 'postgres://db/ce' }));
+    const now = twoFactorKey({ linkSecret: 'mail', databaseUrl: 'postgres://db/ce' });
+    expect(decryptSecret(before, now)).toBe('JBSWY3DPEHPK3PXP');
+    // new secrets are saved with LINK_SECRET's key
+    expect(decryptSecret(encryptSecret('NEW', now), twoFactorKey({ linkSecret: 'mail' }))).toBe('NEW');
+    expect(decryptSecret(before, twoFactorKey({ linkSecret: 'mail', databaseUrl: 'postgres://other/ce' }))).toBeNull();
+  });
+
+  it('use TWO_FACTOR_KEY when set, and keep reading what the keys before it saved, saying it is stale', () => {
+    const config = { twoFactorKey: 'k'.repeat(40), linkSecret: 'mail', databaseUrl: 'postgres://db/ce' };
+    const keys = twoFactorKey(config);
+    expect(keys.older).toHaveLength(2);
+    // a secret of today's server (v1, under LINK_SECRET's key), and one of the server before mail (DATABASE_URL's)
+    const v1 = (base: string) => {
+      const key = createHash('sha256').update(`collect-earth-cloud:two-factor:${base}`).digest();
+      const iv = randomBytes(12);
+      const c = createCipheriv('aes-256-gcm', key, iv);
+      const data = Buffer.concat([c.update('OLDSECRET', 'utf8'), c.final()]);
+      return ['v1', iv.toString('base64url'), c.getAuthTag().toString('base64url'), data.toString('base64url')].join('.');
+    };
+    expect(readSecret(v1('mail'), keys)).toEqual({ secret: 'OLDSECRET', stale: true });
+    expect(readSecret(v1('postgres://db/ce'), keys)).toEqual({ secret: 'OLDSECRET', stale: true });
+    // saved again: under the key, named, and not stale any more
+    const again = encryptSecret('OLDSECRET', keys);
+    expect(again.startsWith(`v2.${keys.current.id}.`)).toBe(true);
+    expect(readSecret(again, keys)).toEqual({ secret: 'OLDSECRET', stale: false });
+    // LINK_SECRET changed afterwards: TWO_FACTOR_KEY still reads it
+    expect(readSecret(again, twoFactorKey({ ...config, linkSecret: 'another' }))).toEqual({ secret: 'OLDSECRET', stale: false });
+    // TWO_FACTOR_KEY lost: the key missing is named
+    expect(readSecret(again, twoFactorKey({ linkSecret: 'mail', databaseUrl: 'postgres://db/ce' }))).toEqual({ secret: null, missingKey: keys.current.id });
   });
 
   it('give ten recovery codes, told apart from app codes, hashed whatever their case and dashes', () => {
@@ -164,5 +203,38 @@ describe('signing in with two steps', () => {
     expect((await post(`/v1/admin/users/${ana.userId}/two-factor/reset`, owner.token)).statusCode).toBe(204);
     expect((await ctx.app.inject({ method: 'GET', url: '/v1/me', headers: bearer(ana.token) })).statusCode).toBe(401);
     expect((await login({ username: 'ana', password: 'password12' })).statusCode).toBe(200);
+  });
+});
+
+describe('the keys of two-step sign-in, kept and checked', () => {
+  const secret = base32Encode(Buffer.from('12345678901234567890'));
+  const before = twoFactorKey({ linkSecret: 'mail', databaseUrl: 'postgres://db/ce' });
+  const keys = twoFactorKey({ twoFactorKey: 'k'.repeat(40), linkSecret: 'mail', databaseUrl: 'postgres://db/ce' });
+
+  it('save a secret read with an older key again under the key, at the sign-in', async () => {
+    const store = new InMemoryStore();
+    const user = await store.createUser({ username: 'ana', passwordHash: 'x', email: null });
+    await store.enableTwoFactor(user.id, encryptSecret(secret, before), []);
+    const now = 1_700_000_000_000;
+    expect(await checkSecondStep(store, keys, user.id, codeAt(secret, stepOf(now)), now)).toBe('ok');
+    const saved = (await store.getTwoFactor(user.id))!.secretEnc!;
+    expect(saved.startsWith(`v2.${keys.current.id}.`)).toBe(true);
+    // and the next code still works, now read with the key itself
+    expect(await checkSecondStep(store, keys, user.id, codeAt(secret, stepOf(now) + 1), now + 30_000)).toBe('ok');
+  });
+
+  it('count at start the secrets no key reads, name their key, and alert the owner', async () => {
+    const store = new InMemoryStore();
+    for (const [name, key] of [['ana', keys], ['bo', before], ['cy', twoFactorKey({ twoFactorKey: 'lost'.repeat(10) })]] as const) {
+      const user = await store.createUser({ username: name, passwordHash: 'x', email: null });
+      await store.enableTwoFactor(user.id, encryptSecret(secret, key), []);
+    }
+    const lost = twoFactorKey({ twoFactorKey: 'lost'.repeat(10) }).current.id;
+    expect(await checkTwoFactorKeys(store, keys)).toEqual({ checked: 3, unreadable: 1, missingKeys: [lost] });
+    const told: string[] = [];
+    const alerts = new OwnerAlerts({ notify: (a) => void told.push(`${a.kind} ${a.count}`) });
+    alerts.twoFactorUnreadable(0);
+    alerts.twoFactorUnreadable(1);
+    expect(told).toEqual(['two_factor_keys 1']);
   });
 });

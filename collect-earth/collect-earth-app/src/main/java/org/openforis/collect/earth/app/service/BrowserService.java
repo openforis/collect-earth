@@ -26,6 +26,7 @@ import java.util.function.Function;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.imagery.BidiCommandException;
@@ -640,6 +641,19 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 				: imageryChromiumProfile(new File(FolderFinder.getCollectEarthDataFolder()), browser, this::isChromeInstalled);
 	}
 
+	/**
+	 * The languages the imagery window asks the sites for: Collect Earth's, then English. Google Earth Web shows itself in
+	 * the browser's language, so it speaks the language of the Collect Earth messages next to it.
+	 */
+	private String acceptLanguages() {
+		return acceptLanguages(localPropertiesService.getUiLanguage());
+	}
+
+	static String acceptLanguages(UI_LANGUAGE language) {
+		String code = (language == null ? UI_LANGUAGE.EN : language).getLocale().getLanguage();
+		return "en".equals(code) ? "en" : code + ",en";
+	}
+
 	/** One browser for the imagery window, with BiDi, using {@code profile}, or a temporary profile when null. */
 	private RemoteWebDriver startImageryDriver(String browser, File profile) {
 		if (EarthConstants.FIREFOX_BROWSER.equals(browser)) {
@@ -656,16 +670,21 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		if (profile != null) {
 			arguments.add("--user-data-dir=" + profile.getAbsolutePath());
 		}
+		String languages = acceptLanguages();
+		arguments.add("--lang=" + languages.split(",")[0]);
+		Map<String, Object> prefs = Collections.singletonMap("intl.accept_languages", languages);
 		// A normal window, not an --app one, which has no tabs
 		if (EarthConstants.EDGE_BROWSER.equals(browser)) {
 			EdgeOptions options = new EdgeOptions();
 			options.enableBiDi();
+			options.setExperimentalOption("prefs", prefs);
 			options.addArguments(arguments);
 			findDriver(WebDriverManager.edgedriver());
 			return new EdgeDriver(options, BidiTabDriver.clientConfig());
 		}
 		ChromeOptions options = new ChromeOptions();
 		options.enableBiDi();
+		options.setExperimentalOption("prefs", prefs);
 		options.addArguments(arguments);
 		findDriver(WebDriverManager.chromedriver());
 		return new ChromeDriver(options, BidiTabDriver.clientConfig());
@@ -692,7 +711,8 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		File chrome = new File(folder, "chrome");
 		Files.createDirectories(chrome.toPath());
 		Files.write(new File(chrome, "userChrome.css").toPath(), IMAGERY_FIREFOX_CSS.getBytes(StandardCharsets.UTF_8));
-		Files.write(new File(folder, "user.js").toPath(), IMAGERY_FIREFOX_USER_JS.getBytes(StandardCharsets.UTF_8));
+		Files.write(new File(folder, "user.js").toPath(), (IMAGERY_FIREFOX_USER_JS
+				+ "user_pref(\"intl.accept_languages\", \"" + acceptLanguages() + "\");\n").getBytes(StandardCharsets.UTF_8));
 		return folder;
 	}
 

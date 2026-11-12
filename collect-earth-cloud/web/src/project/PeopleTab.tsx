@@ -64,6 +64,7 @@ import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
 import { Username } from "../components/Username";
 import { JoinSteps } from "../components/JoinSteps";
+import { RolesLink } from "../components/Roles";
 import { Loading } from "../components/Loading";
 import { AsOf, ChartOrTable, ColumnChart, ValuesTable } from "../components/PeopleCharts";
 import { formatDate, formatDay, formatNumber } from "../format";
@@ -117,7 +118,9 @@ function InviteForm({ projectId, onCreated }: { projectId: string; onCreated: (i
               </MenuItem>
             ))}
           </Select>
-          <FormHelperText>{t(`role.${role}.help`)}</FormHelperText>
+          <FormHelperText>
+            {t(`role.${role}.help`)} <RolesLink role="admin" />
+          </FormHelperText>
         </FormControl>
         <TextField
           label={t("people.maxUses")}
@@ -691,9 +694,12 @@ export function PeopleTab({ projectId }: { projectId: string }) {
       </Paper>
 
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-        <Typography variant="h2" gutterBottom>
-          {t("people.list")}
-        </Typography>
+        <Stack direction="row" spacing={2} useFlexGap sx={{ alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", mb: 1 }}>
+          <Typography variant="h2">{t("people.list")}</Typography>
+          <Typography variant="body2">
+            <RolesLink role="admin" />
+          </Typography>
+        </Stack>
         {members.loading && !members.data ? (
           <Loading />
         ) : members.error ? (

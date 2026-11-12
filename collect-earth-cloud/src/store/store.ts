@@ -70,6 +70,7 @@ import type {
   UserSummary,
 } from '../types.js';
 import type { UncertaintySettings } from '../uncertainty.js';
+import type { AreaSettings } from '../areas.js';
 import type { CeoShapesJob } from '../ceo/shapes.js';
 
 export interface TrainingSetInput {
@@ -195,6 +196,10 @@ export interface Store {
   enableTwoFactor(userId: string, secretEnc: string, recoveryHashes: string[]): Promise<void>;
   /** Turns it off: the secret and the recovery codes are deleted. */
   disableTwoFactor(userId: string): Promise<void>;
+  /** The same secret saved again, encrypted otherwise (under the current key): nothing else of the account changes. */
+  updateTwoFactorSecret(userId: string, secretEnc: string): Promise<void>;
+  /** Up to `limit` secrets of accounts with two-step sign-in on, the latest first, for the check at start (src/twoFactorCheck.ts). */
+  sampleTwoFactorSecrets(limit: number): Promise<string[]>;
   setRecoveryHashes(userId: string, recoveryHashes: string[]): Promise<void>;
   /** Marks a time step used; false when it (or a later one) was used already: a code works once. */
   claimTwoFactorStep(userId: string, step: number): Promise<boolean>;
@@ -656,6 +661,9 @@ export interface Store {
   /** The uncertainty analysis's setup (src/uncertainty.ts); null when none was saved. */
   getUncertaintySettings(projectId: string): Promise<UncertaintySettings | null>;
   setUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<void>;
+  /** The strata and their areas, or one total area (src/areas.ts); null: the project file's areas file is read. */
+  getAreaSettings(projectId: string): Promise<AreaSettings | null>;
+  setAreaSettings(projectId: string, settings: AreaSettings | null): Promise<void>;
   /** The copy of a CEO project's shapes (src/ceo/shapes.ts); null when there is none. */
   getCeoShapes(projectId: string): Promise<CeoShapesJob | null>;
   setCeoShapes(projectId: string, job: CeoShapesJob): Promise<void>;

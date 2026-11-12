@@ -312,6 +312,26 @@ public class WindowLayoutService {
 		plotImageryService.reopenImagery();
 	}
 
+	/**
+	 * Starts the imagery browser again, on the plot shown, when it is open: a setting it takes at its start changed (the
+	 * language, which Google Earth Web shows itself in). The plots map goes with it when it is in Google Earth Web's
+	 * window. Not open, the next start takes the setting anyway.
+	 */
+	public void restartImageryBrowser() {
+		if (imageryBrowser.classicDriver() == null || browserService.isClosing()) {
+			return;
+		}
+		boolean plotsMapInside = browserService.plotsMapInGoogleEarthWeb();
+		logger.info("Starting the imagery browser again for a setting it takes at its start");
+		imageryBrowser.close();
+		if (plotsMapInside) {
+			browserService.openLeafletMap(plotImageryService.getSelectedPlotId());
+		} else {
+			plotImageryService.reopenImagery();
+		}
+		arrange(false);
+	}
+
 	private void reopenClosedWindows() {
 		// Only a window that was open once: before that, there is nothing to open again
 		if (browserService.getLeafletMapDriver() != null && closedTwice(this::plotsMapWindow)) {

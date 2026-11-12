@@ -13,9 +13,9 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useState, type FormEvent } from "react";
-import { base64Of, importBackup, previewBackupImport, type BackupFiles, type BackupImportPreview, type PlotLayout } from "../api";
+import { base64Of, importBackup, mergeGridFiles, previewBackupImport, zipCsvFiles, type BackupFiles, type BackupImportPreview, type PlotLayout } from "../api";
 import { useApp } from "../appContext";
-import { layoutProblem, layoutSize, MAX_BACKUP_BYTES, megabytes, round2 } from "../backupImportView";
+import { csvText, layoutProblem, layoutSize, MAX_BACKUP_BYTES, megabytes, round2 } from "../backupImportView";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { FileDrop } from "../components/FileDrop";
 import { useT } from "../i18n";
@@ -39,6 +39,8 @@ export function BackupImportDialog({ onClose }: { onClose: () => void }) {
   const [tooLarge, setTooLarge] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  /** grids of a .collect not in the plot file (another header, or unreadable), for the Plot files tab later */
+  const [gridsLeftOut, setGridsLeftOut] = useState(0);
 
   const working = async (work: () => Promise<void>) => {
     setError(null);
@@ -69,10 +71,26 @@ export function BackupImportDialog({ onClose }: { onClose: () => void }) {
       setTooLarge(file.size);
       return;
     }
-    return working(async () => show({ backup: base64Of(new Uint8Array(await file.arrayBuffer())), plotFile: null, plotFileName: null }));
+    return working(async () => {
+      const backup = base64Of(new Uint8Array(await file.arrayBuffer()));
+      // Collect's own backup (.collect) holds the survey's grids: they are the plot file, joined as a project file's are
+      const grids = await zipCsvFiles(file, "files/ce_grid/");
+      const { merged, separate } = grids.length > 0 ? await mergeGridFiles(grids, file.name.replace(/\.[^.]*$/, "") + "_plots.csv") : { merged: null, separate: [] };
+      const grid = merged ?? (separate.length === 1 ? separate[0] : null);
+      setGridsLeftOut(merged ? separate.length : grid ? 0 : grids.length);
+      if (!grid) return show({ backup, plotFile: null, plotFileName: null });
+      try {
+        await show({ backup, plotFile: csvText(new Uint8Array(await grid.arrayBuffer())), plotFileName: grid.name });
+      } catch (err) {
+        // the grids cannot be used (not in latitude and longitude, say): the backup without them, and why
+        setGridsLeftOut(grids.length);
+        await show({ backup, plotFile: null, plotFileName: null });
+        setError(err);
+      }
+    });
   };
 
-  const readPlotFile = ([file]: File[]) => working(async () => show({ ...files!, plotFile: await file.text(), plotFileName: file.name }));
+  const readPlotFile = ([file]: File[]) => working(async () => show({ ...files!, plotFile: csvText(new Uint8Array(await file.arrayBuffer())), plotFileName: file.name }));
 
   const create = async (event: FormEvent) => {
     event.preventDefault();
@@ -101,6 +119,7 @@ export function BackupImportDialog({ onClose }: { onClose: () => void }) {
     setLayout(null);
     setAccounts({});
     setError(null);
+    setGridsLeftOut(0);
   };
 
   const plots = preview?.plots;
@@ -131,7 +150,7 @@ export function BackupImportDialog({ onClose }: { onClose: () => void }) {
               <Typography variant="body2" color="text.secondary">
                 {t("backupImport.how")}
               </Typography>
-              <FileDrop label={t("backupImport.drop")} buttonLabel={t("backupImport.choose")} accept=".zip,application/zip" disabled={busy} onFiles={readBackup} />
+              <FileDrop label={t("backupImport.drop")} buttonLabel={t("backupImport.choose")} accept=".zip,.collect,application/zip" disabled={busy} onFiles={readBackup} />
               {tooLarge !== null && <Alert severity="error">{t("backupImport.tooLarge", { size: megabytes(tooLarge), max: megabytes(MAX_BACKUP_BYTES) })}</Alert>}
               {busy && <LinearProgress aria-label={t("backupImport.reading")} />}
             </Stack>
@@ -163,6 +182,7 @@ export function BackupImportDialog({ onClose }: { onClose: () => void }) {
               {preview.records.unreadable > 0 && (
                 <Alert severity="warning">{t("backupImport.unreadable", { count: String(preview.records.unreadable), examples: preview.records.unreadableExamples.join(", ") })}</Alert>
               )}
+              {preview.strata !== null && <Alert severity="info">{t("backupImport.strata", { count: String(preview.strata) })}</Alert>}
               {plots.withoutPlace > 0 && (
                 <Alert severity="warning">{t("backupImport.withoutPlace", { count: String(plots.withoutPlace), examples: plots.withoutPlaceExamples.join(", ") })}</Alert>
               )}
@@ -193,6 +213,8 @@ export function BackupImportDialog({ onClose }: { onClose: () => void }) {
                   )}
                 </Stack>
               )}
+
+              {gridsLeftOut > 0 && <Alert severity="info">{t("backupImport.gridsLeftOut", { count: String(gridsLeftOut) })}</Alert>}
 
               <Typography variant="h3" component="h3">
                 {t("backupImport.layout")}

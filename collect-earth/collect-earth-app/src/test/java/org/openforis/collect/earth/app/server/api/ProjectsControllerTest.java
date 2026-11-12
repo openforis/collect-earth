@@ -80,6 +80,20 @@ public class ProjectsControllerTest {
 	}
 
 	@Test
+	public void aCloudProjectSaysItsServerAndName() throws Exception {
+		when(properties.getCloudBinding(kenya)).thenReturn(new LocalPropertiesService.CloudBinding(kenya.getPath(), "https://cloud.example.org:8443", "p1", "Kenya (cloud)", "maria"));
+		when(properties.getCloudBinding(sierraLeone)).thenReturn(new LocalPropertiesService.CloudBinding(sierraLeone.getPath(), "https://c.org", "p2", null, "maria"));
+		mvc.perform(get("/api/projects")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.projects[0].cloud.server").value("https://cloud.example.org:8443"))
+				.andExpect(jsonPath("$.projects[0].cloud.serverName").value("cloud.example.org"))
+				.andExpect(jsonPath("$.projects[0].cloud.projectName").value("Kenya (cloud)"))
+				// bound before the names were kept: the survey's until the sync asks the server
+				.andExpect(jsonPath("$.projects[1].cloud.projectName").value("Sierra Leone 2026"));
+		when(properties.getCloudBinding(kenya)).thenReturn(null);
+		mvc.perform(get("/api/projects")).andExpect(jsonPath("$.projects[0].cloud").value(org.hamcrest.Matchers.nullValue()));
+	}
+
+	@Test
 	public void withNoActiveProjectNoneIsMarked() throws Exception {
 		when(properties.getValue(EarthProperty.ACTIVE_PROJECT_DEFINITION)).thenReturn("");
 		mvc.perform(get("/api/projects")).andExpect(status().isOk())

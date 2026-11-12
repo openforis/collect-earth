@@ -14,7 +14,7 @@ export interface Menu { id: string; label: string; items: MenuItem[] }
 // The entries built so far: the others show, disabled, until their stage of docs/plans/2026-10-28-html-ui-design.md
 const BUILT = new Set(["quit", "properties", "export", "import",
   "analyse", "lulucf", "loadKml", "dataFolder", "openPlotsMap", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "sendToCloud",
-  "importCep", "joinCloud", "cloudStatus", "language", "surveyGuide", "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
+  "importCep", "projects", "joinCloud", "cloudStatus", "language", "surveyGuide", "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
 
 /**
  * The entries the Swing window disabled when Collect Earth acts as a client of another instance (serverMenuItems):
@@ -31,6 +31,8 @@ const unless = (off: boolean | undefined, entry: MenuItem, reason: string): Menu
  */
 const local = (cloud: boolean | undefined, entry: MenuItem): MenuItem => (cloud ? { ...entry, note: "CollectEarthMenu.thisComputerOnly" } : entry);
 const toggle = (id: string, label: string): MenuItem => ({ ...item(id, label), kind: "toggle" });
+/** The note of the cloud dashboard's entry: its {0} is the server's name */
+export const CLOUD_DASHBOARD_NOTE = "LocalDashboard.cloudNote";
 
 export interface MenuContext {
   plotsMap: boolean;
@@ -57,6 +59,8 @@ function allMenus(app: MenuContext): Menu[] {
   return [
     { id: "project", label: "CollectEarthWindow.10", items: [
       item("importCep", "CollectEarthMenu.0"),
+      // The projects loaded before, to go back to one (the Settings page has the same list)
+      item("projects", "CollectEarthMenu.switchProject"),
       item("joinCloud", "CollectEarthMenu.joinCloudProject"),
       // Only a cloud project has a sync to show
       unless(!app.cloud, item("cloudStatus", "CloudSyncStatusDialog.menuItem"), "CloudSyncStatusDialog.localProject"),
@@ -79,8 +83,9 @@ function allMenus(app: MenuContext): Menu[] {
       item("loadKml", "CollectEarthWindow.54"),
       item("dataFolder", "CollectEarthWindow.67"),
       // Your dashboard: on this computer (docs/plans/2026-11-03-desktop-dashboard.md), or the cloud's page of a cloud
-      // project, which also has what the utilities do there (the state of every plot, dividing the plot files)
-      item("myDashboard", "LocalDashboard.menu"),
+      // project, which also has what the utilities do there (the state of every plot, dividing the plot files). That one is
+      // a website with a sign-in of its own, which its label and its note (the server's name filled in by AppBar) say
+      app.cloud ? { ...item("myDashboard", "LocalDashboard.cloudMenu"), note: CLOUD_DASHBOARD_NOTE } : item("myDashboard", "LocalDashboard.menu"),
       // The plots map is already the page when it is the viewer
       ...(app.plotsMap ? [] : [item("openPlotsMap", "CollectEarthMenu.openPlotsMap")]),
     ] },

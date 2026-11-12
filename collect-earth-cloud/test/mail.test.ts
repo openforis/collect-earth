@@ -6,7 +6,7 @@ import { collectorHasNews, collectorMail, confirmMail, coordinatorHasNews, coord
 import { DIGEST_WORDS, escapeHtml, oneLine } from '../src/digestText.js';
 import { isEmailAddress } from '../src/accountRules.js';
 import { linkSecret } from '../src/backupLink.js';
-import { errorSummary, isMailFrom, isPermanentFailure, LogMailer, mailerFrom, mailFromHeader, parseSmtpUrl, SmtpMailer, transportOptions } from '../src/mail.js';
+import { errorSummary, isMailFrom, isPermanentFailure, isSenderLimit, LogMailer, mailerFrom, mailFromHeader, parseSmtpUrl, SmtpMailer, transportOptions } from '../src/mail.js';
 import { mailSecret, readConfirmToken, readUnsubscribeToken, writeConfirmToken, writeUnsubscribeToken, CONFIRM_TTL_MS } from '../src/mailLinks.js';
 import { MAIL_LANGUAGES, type MailLanguage } from '../src/types.js';
 
@@ -98,6 +98,22 @@ describe('the mail transport (Task 19)', () => {
     expect(isPermanentFailure(err)).toBe(true);
     expect(isPermanentFailure(Object.assign(new Error('x'), { responseCode: 451 }))).toBe(false);
     expect(isPermanentFailure(new Error('timeout'))).toBe(false);
+  });
+
+  it("tells Gmail's daily limit, and other sending limits, from a refused address", () => {
+    const gmail = Object.assign(new Error('Message failed: 550-5.4.5 Daily user sending limit exceeded.'), {
+      code: 'EMESSAGE', responseCode: 550, command: 'DATA', response: '550-5.4.5 Daily user sending limit exceeded. For more information on Gmail sending limits, go to',
+    });
+    expect(isSenderLimit(gmail)).toBe(true);
+    expect(isPermanentFailure(gmail)).toBe(false);
+    expect(isSenderLimit(Object.assign(new Error('x'), { responseCode: 421, response: '421 4.7.0 Try again later, closing connection. Rate limit exceeded' }))).toBe(true);
+    const mailbox = Object.assign(new Error('550 5.1.1 The email account that you tried to reach does not exist'), { responseCode: 550, response: '550 5.1.1 The email account that you tried to reach does not exist' });
+    expect(isSenderLimit(mailbox)).toBe(false);
+    expect(isPermanentFailure(mailbox)).toBe(true);
+    // one person's full mailbox is theirs, not this server's limit
+    for (const [code, response] of [[552, '552 5.2.2 Quota exceeded (mailbox full)'], [452, '452 4.2.2 The email account that you tried to reach is over quota'], [552, '552 Quota exceeded']] as const) {
+      expect(isSenderLimit(Object.assign(new Error(response), { responseCode: code, response })), response).toBe(false);
+    }
   });
 
   it('one address only, at most 254 characters', () => {
@@ -231,12 +247,13 @@ describe('the digests\' words (Task 19)', () => {
     }
   });
 
-  it('the coordinators\' mail in 4 languages: the week, each project, the quiet people, the waiting differences, the links, escaped', () => {
+  it('the coordinators\' mail in 5 languages: the week, each project, the quiet people, the waiting differences, the links, escaped', () => {
     const expected: Record<MailLanguage, { subject: RegExp; words: string[]; number: string }> = {
       en: { subject: /weekly summary, October 26, 2026 to November 1, 2026/, words: ['Plots done this week', 'Quiet for more than 3 days', 'waiting for your decision'], number: '1,234' },
       es: { subject: /resumen semanal, del 26 de octubre de 2026 al 1 de noviembre de 2026/, words: ['Parcelas hechas esta semana', 'más de 3 días', 'esperando su decisión'], number: '1234' },
       fr: { subject: /résumé de la semaine, du 26 octobre 2026 au 1 novembre 2026/, words: ['Parcelles faites cette semaine', 'plus de 3 jours', 'en attente de votre décision'], number: '1\u202f234' },
       pt: { subject: /resumo semanal, de 26 de outubro de 2026 a 1 de novembro de 2026/, words: ['Parcelas feitas esta semana', 'mais de 3 dias', 'esperando a sua decisão'], number: '1.234' },
+      tr: { subject: /haftalık özet, 26 Ekim 2026 – 1 Kasım 2026/, words: ['Bu hafta yapılan parseller', '3 günden fazla süredir sessiz', 'kararınızı bekleyen'], number: '1.234' },
     };
     for (const language of MAIL_LANGUAGES) {
       const mail = coordinatorMail(ctx(language), coordinator, 0, 'owner@example.org');
@@ -268,12 +285,13 @@ describe('the digests\' words (Task 19)', () => {
     expect(wetlands).toContain('Nobody with plots left to do has been quiet for more than 4 days.');
   });
 
-  it("a collector's mail in 4 languages: their own numbers, the plots sent back, their link; nobody else's name", () => {
+  it("a collector's mail in 5 languages: their own numbers, the plots sent back, their link; nobody else's name", () => {
     const words: Record<MailLanguage, string[]> = {
       en: ['Plots you submitted this week: 12', 'Plots you submitted in all: 40', 'Plots you have left to do: 10', 'To check again – …'],
       es: ['Parcelas que envió esta semana: 12', 'Parcelas que envió en total: 40', 'Parcelas que le quedan por hacer: 10', 'To check again – …'],
       fr: ['Parcelles que vous avez envoyées cette semaine : 12', 'Parcelles qu’il vous reste à faire : 10', 'To check again – …'],
       pt: ['Parcelas que você enviou esta semana: 12', 'Parcelas que você enviou no total: 40', 'Parcelas que faltam para você fazer: 10', 'To check again – …'],
+      tr: ['Bu hafta gönderdiğiniz parseller: 12', 'Toplamda gönderdiğiniz parseller: 40', 'Yapmanız gereken kalan parseller: 10', 'To check again – …'],
     };
     for (const language of MAIL_LANGUAGES) {
       const mail = collectorMail(ctx(language), collector, 0, 'maria@example.org');
@@ -290,16 +308,18 @@ describe('the digests\' words (Task 19)', () => {
     es: 'una cuenta en Cloud',
     fr: 'un compte sur Cloud',
     pt: 'uma conta em Cloud',
+    tr: 'Cloud üzerindeki bir hesaba',
   };
   const other: Record<MailLanguage, string> = {
     en: 'no other email goes to this address',
     es: 'no se envía ningún otro correo a esta dirección',
     fr: 'aucun autre courriel n’est envoyé à cette adresse',
     pt: 'nenhum outro e-mail é enviado a este endereço',
+    tr: 'bu adrese başka hiçbir e-posta gönderilmez',
   };
 
-  it('the confirmation mail in 4 languages', () => {
-    const subjects: Record<MailLanguage, string> = { en: 'confirm your email address', es: 'confirme su dirección de correo', fr: 'confirmez votre adresse e-mail', pt: 'confirme o seu endereço de e-mail' };
+  it('the confirmation mail in 5 languages', () => {
+    const subjects: Record<MailLanguage, string> = { en: 'confirm your email address', es: 'confirme su dirección de correo', fr: 'confirmez votre adresse e-mail', pt: 'confirme o seu endereço de e-mail', tr: 'e-posta adresinizi onaylayın' };
     for (const language of MAIL_LANGUAGES) {
       const mail = confirmMail({ serverName: 'Cloud', language, confirmUrl: 'https://ce.example.org/confirm-email/T' }, 'someone@example.org');
       expect(mail.subject).toBe(`Cloud: ${subjects[language]}`.replace('Cloud: ', language === 'fr' ? 'Cloud : ' : 'Cloud: '));
@@ -317,11 +337,12 @@ describe('the digests\' words (Task 19)', () => {
     es: 'esta dirección recibe los correos semanales que esa cuenta pida, sobre sus proyectos en Cloud',
     fr: 'cette adresse reçoive les courriels de la semaine que ce compte demande, sur ses projets sur Cloud',
     pt: 'este endereço recebe os e-mails semanais que essa conta pedir, sobre os seus projetos em Cloud',
+    tr: 'bu adrese, o hesabın Cloud üzerindeki projeleriyle ilgili istediği haftalık e-postalar gönderilir',
   };
 
   it('the quiet people: at most 20 named, then how many more', () => {
     const people = Array.from({ length: 23 }, (_, i) => `person${String(i).padStart(2, '0')}`);
-    const more: Record<MailLanguage, string> = { en: 'and 3 more', es: 'y 3 más', fr: 'et 3 de plus', pt: 'e mais 3' };
+    const more: Record<MailLanguage, string> = { en: 'and 3 more', es: 'y 3 más', fr: 'et 3 de plus', pt: 'e mais 3', tr: 've 3 kişi daha' };
     for (const language of MAIL_LANGUAGES) {
       const mail = coordinatorMail(ctx(language), [{ ...coordinator[0], quiet: { days: 3, people } }], 0, 'o@example.org');
       expect(mail.text).toContain('person19');

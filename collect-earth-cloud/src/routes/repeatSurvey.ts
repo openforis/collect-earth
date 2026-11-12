@@ -52,7 +52,7 @@ import type { RepeatSettings } from '../types.js';
 import { acceptCep } from './platform.js';
 import { creationRefusal } from './projects.js';
 import { isPositionKey, withoutPositions } from '../positions.js';
-import { factorsOf, modelOf } from './analysis.js';
+import { modelOf, projectFactors, type FirstAssessment } from './analysis.js';
 
 interface RepeatBody {
   name?: unknown;
@@ -299,18 +299,19 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
   };
 
   /**
-   * The areas of a comparison: the strata of the project file's areas file (its plots' expansion factors, as the
-   * analysis has them), else one stratum of the total area (the query's `area`, else the one saved), else shares only
+   * The areas of a comparison: the project's areas (projectFactors: the strata or total area set on the dashboard, else
+   * the project file's areas file), else one stratum of the total area (the query's `area`, else the one saved), else shares only
    * (`areaKnown` false: every plot standing for the same share of an area not known).
    */
   const areasOf = async (request: FastifyRequest, found: NonNullable<Awaited<ReturnType<typeof changeOf>>>) => {
     const projectId = request.membership!.projectId;
     const cep = await store.getCep(projectId);
     const parsed = cep ? modelOf(cep) : null;
-    // The plots' answers (this period's record, else the earlier period's), for the areas file's lines to match
-    const answers = new Map<string, Record<string, string>>(found.earlier.map((r) => [r.plotKey, r.answers]));
-    for (const r of found.now) answers.set(r.plot, r.answers);
-    const factors = parsed ? factorsOf(parsed, answers) : null;
+    // Each plot as the areas read it (this period's record, else the earlier period's answers): the project's strata or
+    // total area set on the dashboard, else the project file's areas file, as the Uncertainty page has them
+    const plots = new Map<string, FirstAssessment>(found.earlier.map((r) => [r.plotKey, { recordKey: r.plotKey, operator: r.operator, summary: r.answers }]));
+    for (const r of found.now) plots.set(r.plot, { recordKey: r.plot, operator: r.operator, summary: r.answers });
+    const factors = parsed ? await projectFactors(store, projectId, parsed, plots, await store.getRoundInfo(projectId)) : null;
     const asked = Number((request.query as { area?: unknown } | undefined)?.area);
     const totalArea = Number.isFinite(asked) && asked > 0 && asked <= 1e12 ? asked : (found.settings.totalArea ?? null);
     const strata = new Map<string, number>();

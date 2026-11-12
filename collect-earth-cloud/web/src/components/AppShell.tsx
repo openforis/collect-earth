@@ -27,6 +27,7 @@ import { useApp, useLocalMode } from "../appContext";
 import { getDismissedAnnouncement, storeDismissedAnnouncement } from "../storage";
 import { LANGUAGES, LANGUAGE_NAMES, useT, type Language } from "../i18n";
 import { linkProps, navigate } from "../router";
+import { ServerAdminChip } from "./Roles";
 
 export function LanguageMenu() {
   const t = useT();
@@ -74,10 +75,15 @@ function AccountMenu() {
         <AccountCircle />
       </IconButton>
       <Menu anchorEl={anchor} open={anchor !== null} onClose={() => setAnchor(null)}>
-        <MenuItem disabled sx={{ opacity: "1 !important" }}>
+        <MenuItem disabled sx={{ opacity: "1 !important", display: "block", whiteSpace: "normal", maxWidth: 300 }}>
           <Typography variant="body2" color="text.secondary">
             {t("account.loggedInAs", { name: me.username })}
           </Typography>
+          {me.isPlatformAdmin && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+              <strong>{t("server.adminBadge")}</strong> · {t("serverAdmin.short")}
+            </Typography>
+          )}
         </MenuItem>
         <Divider />
         <MenuItem onClick={() => go("/")}>
@@ -180,8 +186,11 @@ const PRINT_STYLES = {
  * The app bar (name, language, account), the page column and the footer. `bare`: a public page
  * (the progress link) shows the server's name only, not as a link, and no account menu.
  */
-/** `wide`: a page of tabs and tables (a project), which uses more of a large screen. */
-export function AppShell({ children, narrow, bare, wide }: { children: ReactNode; narrow?: boolean; bare?: boolean; wide?: boolean }) {
+/**
+ * `wide`: a page of tabs and tables (a project), which uses more of a large screen. `hero`: a page drawn edge to edge
+ * (the log-in page, see HeroPanel), with no column around it.
+ */
+export function AppShell({ children, narrow, bare, wide, hero }: { children: ReactNode; narrow?: boolean; bare?: boolean; wide?: boolean; hero?: boolean }) {
   const t = useT();
   const { info } = useApp();
   // The local mode (one person, on their own computer): one account and one project, so no
@@ -207,14 +216,22 @@ export function AppShell({ children, narrow, bare, wide }: { children: ReactNode
               </Typography>
             </Button>
           )}
+          {/* on a phone the account menu says it instead */}
+          {!bare && <ServerAdminChip sx={{ display: { xs: "none", sm: "inline-flex" } }} />}
           <LanguageMenu />
           {!bare && !local && <AccountMenu />}
         </Toolbar>
       </AppBar>
       {!bare && <AnnouncementBanner />}
-      <Container component="main" maxWidth={narrow ? "sm" : wide ? "xl" : "md"} sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
-        {children}
-      </Container>
+      {hero ? (
+        <Box component="main" sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+          {children}
+        </Box>
+      ) : (
+        <Container component="main" maxWidth={narrow ? "sm" : wide ? "xl" : "md"} sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+          {children}
+        </Container>
+      )}
       <Footer />
     </Box>
   );

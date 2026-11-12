@@ -66,7 +66,7 @@ export class TestMailer implements Mailer {
   readonly delivers = true;
   readonly sent: MailMessage[] = [];
   fail: ((message: MailMessage) => boolean) | null = null;
-  failWith: { code?: string; responseCode?: number; command?: string } = {};
+  failWith: { code?: string; responseCode?: number; command?: string; response?: string } = {};
 
   async send(message: MailMessage): Promise<void> {
     if (this.fail?.(message)) throw Object.assign(new Error(`the test mail server refused ${message.to}`), this.failWith);
@@ -87,10 +87,27 @@ export function errorSummary(err: unknown): { code: string | null; responseCode:
   };
 }
 
-/** A refusal for good (an SMTP 5xx reply: no such mailbox, refused): trying again the same week does not help. */
+/**
+ * The mail server refusing because this server sent too much, not because of the address: Gmail's daily limit
+ * ("550 5.4.5 Daily user sending limit exceeded"), or a rate or quota limit of another provider. Every mail is refused
+ * the same way until the limit resets, so nothing is wrong with the person the mail was for. Read from the server's
+ * reply, which is never logged.
+ */
+export function isSenderLimit(err: unknown): boolean {
+  const e = (err ?? {}) as { response?: unknown; message?: unknown };
+  const text = `${typeof e.response === 'string' ? e.response : ''} ${typeof e.message === 'string' ? e.message : ''}`;
+  // the person's mailbox or address (x.1.x address, x.2.2 or 552 mailbox full, over its quota): not this server's limit
+  if (/\b[45]\.1\.\d{1,3}\b|\b[45]\.2\.2\b|mailbox (is )?full|over quota/i.test(text) || errorSummary(err).responseCode === 552) return false;
+  return /\b[45]\.4\.5\b|sending limit|limit exceeded|quota exceeded|rate limit|too many (messages|mails|recipients)/i.test(text);
+}
+
+/**
+ * A refusal for good (an SMTP 5xx reply: no such mailbox, refused): trying again the same week does not help. Not a
+ * refusal for having sent too much (isSenderLimit), which says nothing of the address, even with a 5xx code.
+ */
 export function isPermanentFailure(err: unknown): boolean {
   const code = errorSummary(err).responseCode;
-  return code !== null && code >= 500 && code < 600;
+  return code !== null && code >= 500 && code < 600 && !isSenderLimit(err);
 }
 
 export interface SmtpSettings {

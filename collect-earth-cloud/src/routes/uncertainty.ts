@@ -5,7 +5,7 @@ import type { ProjectStateCache } from '../projectState.js';
 import { recordResolver } from '../quality.js';
 import type { Store } from '../store/store.js';
 import { parseSettings, uncertainty } from '../uncertainty.js';
-import { factorsOf, firstAssessments, modelOf, type Parsed } from './analysis.js';
+import { areasSource, firstAssessments, modelOf, projectFactors, type Parsed } from './analysis.js';
 
 /**
  * The uncertainty analysis (src/uncertainty.ts), for coordinators and reviewers (it is over every plot of the project):
@@ -44,7 +44,8 @@ export async function registerUncertaintyRoutes(app: FastifyInstance, store: Sto
       languages: parsed.model.languages,
       questions,
       lists,
-      areas: parsed.regionAreas ? 'region_areas.csv' : parsed.attributeAreas ? 'areas_per_attribute.csv' : null,
+      // the strata or total set on the dashboard, else the project file's areas file (the page's own total area: null)
+      areas: await areasSource(store, projectId, parsed),
       canEdit: request.membership!.role === 'admin',
     });
   });
@@ -70,22 +71,20 @@ export async function registerUncertaintyRoutes(app: FastifyInstance, store: Sto
     const final = plotColumns.find((c) => c.name === settings.final && c.type === 'code');
     if (!initial?.list || !final?.list) return reply.code(409).send({ error: 'question_missing', message: 'A land use question of the setup is no longer in the survey: choose it again.' });
 
-    const [served, rows] = await Promise.all([states.get(projectId, request.log), store.listRecordSummaries(projectId)]);
+    const [served, rows] = await Promise.all([states.get(projectId, request.log), store.listRecordSummaries(projectId, { firstSubmissions: true })]);
     const { context } = served.state;
     const firsts = firstAssessments(rows, recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders }));
-    const factors = factorsOf(parsed, firsts);
-    if (!factors && !settings.totalArea) return reply.code(409).send({ error: 'needs_total_area', message: 'The project file has no areas file: enter the total area in hectares.' });
+    const factors = await projectFactors(store, projectId, parsed, firsts, context.info);
+    if (!factors) return reply.code(409).send({ error: 'needs_total_area', message: 'The project has no areas: enter the total area in hectares, or the strata and their areas on the Plot files tab.' });
 
-    // The strata: the areas file's lines (their area: the factors of their plots), else one of the total area
+    // The strata: their areas are the factors of their plots (one stratum of the total area when there is one)
     const strata = new Map<string, number>();
-    if (factors) {
-      for (const f of factors.byPlot.values()) if (f.factor > 0) strata.set(f.stratum, (strata.get(f.stratum) ?? 0) + f.factor);
-    } else strata.set('', settings.totalArea!);
-    const plots = [...firsts].map(([unit, summary]) => {
-      const f = factors?.byPlot.get(unit);
-      return { initial: cell(initial, summary[initial.key]), final: cell(final, summary[final.key]), stratum: factors ? (f && f.factor > 0 ? f.stratum : null) : '' };
+    for (const f of factors.byPlot.values()) if (f.factor > 0) strata.set(f.stratum, (strata.get(f.stratum) ?? 0) + f.factor);
+    const plots = [...firsts].map(([unit, { summary }]) => {
+      const f = factors.byPlot.get(unit);
+      return { initial: cell(initial, summary[initial.key]), final: cell(final, summary[final.key]), stratum: f && f.factor > 0 ? f.stratum : null };
     });
     const result = uncertainty(plots, strata, { codes: settings.codes, initialList: initial.list, finalList: final.list });
-    return reply.header('cache-control', 'no-store').send({ settings, areas: factors?.source ?? null, ...result });
+    return reply.header('cache-control', 'no-store').send({ settings, areas: factors.source, ...result });
   });
 }

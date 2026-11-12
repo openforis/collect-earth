@@ -172,6 +172,15 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
 
   const view = async (userId: string, mail: AccountMail) => {
     const memberships = await store.listMemberships(userId);
+    // A collector somewhere, or a coordinator given plots in a project of theirs (My week tells them their own).
+    const collects = await Promise.all(
+      memberships.map(
+        async (m) =>
+          m.role !== 'admin' ||
+          (await store.listAssignmentsForUser(m.projectId, userId)).length > 0 ||
+          (await store.listPlotHoldings(m.projectId, userId)).length > 0,
+      ),
+    );
     const digests = Object.fromEntries(
       DIGEST_KINDS.map((kind) => {
         const d = mail.digests.find((x) => x.kind === kind);
@@ -197,7 +206,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
       timeZone: mail.timeZone,
       // False: this server has no SMTP set up, so no mail reaches anyone (the choices are kept).
       sends: deps.mailer.delivers,
-      roles: { coordinator: memberships.some((m) => m.role === 'admin'), collector: memberships.some((m) => m.role !== 'admin') },
+      roles: { coordinator: memberships.some((m) => m.role === 'admin'), collector: collects.includes(true) },
       digests,
     };
   };

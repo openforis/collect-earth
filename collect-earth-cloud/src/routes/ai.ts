@@ -11,7 +11,7 @@ import type { Config } from '../config.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { AiRunRow, AiRunSummary } from '../types.js';
-import { modelOf } from './analysis.js';
+import { areasSource, modelOf } from './analysis.js';
 
 /** Runs listed by default, and at most. */
 export const DEFAULT_LISTED_RUNS = 50;
@@ -200,7 +200,8 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     if (!parsed) {
       return reply.code(409).send({ error: 'survey_unreadable', reason: 'The survey of the project file cannot be read.' });
     }
-    const structure = analysisStructure(parsed.model, table, language as string, !!(parsed.regionAreas || parsed.attributeAreas));
+    const hasAreas = (await areasSource(store, projectId, parsed)) !== null || !!(await store.getUncertaintySettings(projectId))?.totalArea;
+    const structure = analysisStructure(parsed.model, table, language as string, hasAreas);
     if (!structure) {
       return reply.code(400).send(bad('the survey has no such table'));
     }

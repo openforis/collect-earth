@@ -13,7 +13,8 @@ describe("translations", () => {
   });
   it("fills placeholders and falls back to English for other languages", () => {
     expect(translator("es")("progress", { saved: 3, total: 10, pct: 30 })).toBe("3 de 10 completadas (30%)");
-    expect(translator("lo")("plots")).toBe("Plots");
+    expect(translator("de")("plots")).toBe("Plots");
+    expect(translator("tr")("form.title", { id: "A-1" })).toBe("Parsel A-1");
     expect(translator("fr")("form.title", { id: "A-1" })).toBe("Parcelle A-1");
   });
 });

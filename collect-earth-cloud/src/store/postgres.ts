@@ -95,6 +95,7 @@ import {
   type UserPlots,
 } from './store.js';
 import type { UncertaintySettings } from '../uncertainty.js';
+import type { AreaSettings } from '../areas.js';
 import type { CeoShapesJob } from '../ceo/shapes.js';
 import { unitOfRecord } from '../rounds.js';
 import { UsernameTakenError } from './memory.js';
@@ -763,6 +764,15 @@ export class PostgresStore implements Store {
 
   async setRecoveryHashes(userId: string, recoveryHashes: string[]): Promise<void> {
     await this.pool.query('UPDATE user_two_factor SET recovery_hashes = $2 WHERE user_id = $1', [userId, recoveryHashes]);
+  }
+
+  async updateTwoFactorSecret(userId: string, secretEnc: string): Promise<void> {
+    await this.pool.query('UPDATE user_two_factor SET secret_enc = $2 WHERE user_id = $1 AND enabled_at IS NOT NULL', [userId, secretEnc]);
+  }
+
+  async sampleTwoFactorSecrets(limit: number): Promise<string[]> {
+    const res = await this.pool.query('SELECT secret_enc FROM user_two_factor WHERE enabled_at IS NOT NULL AND secret_enc IS NOT NULL ORDER BY enabled_at DESC LIMIT $1', [limit]);
+    return res.rows.map((r) => r.secret_enc as string);
   }
 
   async claimTwoFactorStep(userId: string, step: number): Promise<boolean> {
@@ -3031,6 +3041,19 @@ export class PostgresStore implements Store {
   async setUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<void> {
     await this.withProject(projectId, async (client) => {
       await client.query('UPDATE projects SET uncertainty_settings = $2 WHERE id = $1', [projectId, JSON.stringify(settings)]);
+    });
+  }
+
+  async getAreaSettings(projectId: string): Promise<AreaSettings | null> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT area_settings FROM projects WHERE id = $1', [projectId]);
+      return (res.rows[0]?.area_settings as AreaSettings | null | undefined) ?? null;
+    });
+  }
+
+  async setAreaSettings(projectId: string, settings: AreaSettings | null): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('UPDATE projects SET area_settings = $2 WHERE id = $1', [projectId, settings === null ? null : JSON.stringify(settings)]);
     });
   }
 

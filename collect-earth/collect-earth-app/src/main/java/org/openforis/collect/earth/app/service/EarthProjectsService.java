@@ -12,6 +12,8 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.CollectEarthUtils;
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.CloudBinding;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -138,6 +140,17 @@ public class EarthProjectsService {
 
 			applyPropertiesToCollectEarth( projectProperties, projectFolder );
 
+			CollectDBDriver driver = localPropertiesService.getCollectDBDriver();
+			CloudBinding cloudProject = localPropertiesService.getCloudBinding(projectFolder);
+			CollectDBDriver after = driverAfterLoading(driver, cloudProject != null);
+			if (after != driver) {
+				localPropertiesService.saveCollectDBDriver(after);
+			}
+			// In a cloud project the operator is the account it is collected with
+			if (cloudProject != null && StringUtils.isNotBlank(cloudProject.username)) {
+				localPropertiesService.saveOperator(cloudProject.username);
+			}
+
 			addToProjectList(projectFolder);
 
 			setProjectDefinitionMD5(projectFolder);
@@ -149,6 +162,24 @@ public class EarthProjectsService {
 		return success;
 	}
 
+
+	/**
+	 * The database of a project just loaded: the cloud mode for a folder bound to a cloud project
+	 * (LocalPropertiesService.getCloudBinding), this computer's database for any other, so that each project, local or
+	 * cloud, keeps its mode whatever is opened in between. PostgreSQL is left as it is.
+	 * <p>
+	 * A .cep imported into a bound folder (one with the same survey_name) keeps the binding: it is the same survey, and
+	 * its unsent records still go to its cloud project. The import never makes it local.
+	 */
+	static CollectDBDriver driverAfterLoading(CollectDBDriver current, boolean cloudProject) {
+		if (current == CollectDBDriver.CLOUD && !cloudProject) {
+			return CollectDBDriver.SQLITE;
+		}
+		if (current == CollectDBDriver.SQLITE && cloudProject) {
+			return CollectDBDriver.CLOUD;
+		}
+		return current;
+	}
 
 	private void setProjectDefinitionMD5(File projectFolder) throws IOException {
 		localPropertiesService.setValue( EarthProperty.ACTIVE_PROJECT_DEFINITION, CollectEarthUtils.getMd5FromFolder( projectFolder ) );
@@ -256,17 +287,26 @@ public class EarthProjectsService {
 
 
 	private File unzipContentsOnProjectFolder(File projectZipFile) throws IOException {
-		String projectFolderName = "" ;
+		return unzipContents(projectZipFile, projectFolderName(projectZipFile));
+	}
+
+	private String projectFolderName(File projectZipFile) throws IOException {
 		// There was an error in the first versions of Collect Earth that limited the folder names to 20 characters
 		// Newer version support up to 255 but we need to take in consideration backwards compatibility!
 		if ( oldFormatFolderExists( projectZipFile ) ){
 			// If there was already a project with the older format of the name then use that!
-			projectFolderName = getProjectFolderName( projectZipFile , OLD_MAX_FOLDER_LENGTH );
-		}else{
-			projectFolderName = getProjectFolderName( projectZipFile , NEW_MAX_FOLDER_LENGTH );
+			return getProjectFolderName( projectZipFile , OLD_MAX_FOLDER_LENGTH );
 		}
+		return getProjectFolderName( projectZipFile , NEW_MAX_FOLDER_LENGTH );
+	}
 
-		return unzipContents(projectZipFile, projectFolderName);
+	/** The folder a project file is unzipped into (its survey_name under the projects folder), before it is. */
+	public File projectFolderFor(File projectZipFile) throws IOException {
+		String name = projectFolderName(projectZipFile);
+		if( StringUtils.isBlank( name ) ){
+			throw new IOException("The project file " + projectZipFile.getAbsolutePath() + " does not define a survey_name"); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		return new File( new File( getProjectsFolder() ).getCanonicalFile(), name ).getCanonicalFile();
 	}
 
 

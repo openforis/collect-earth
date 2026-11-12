@@ -27,6 +27,7 @@ import {
 } from "../api";
 import { labelIn } from "../analysisView";
 import { useApp } from "../appContext";
+import { shownArea, typedArea } from "../areasView";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
@@ -102,7 +103,7 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
   const [final, setFinal] = useState(named(s?.final ?? "land_use_category"));
   const [initialYear, setInitialYear] = useState(s?.initialYear ?? "");
   const [finalYear, setFinalYear] = useState(s?.finalYear ?? "");
-  const [totalArea, setTotalArea] = useState(s?.totalArea ? String(s.totalArea) : "");
+  const [totalArea, setTotalArea] = useState(s?.totalArea ? shownArea(s.totalArea, language) : "");
   // the person's choices, over the saved ones (the rows are worked out again when the questions change)
   const [chosen, setChosen] = useState<Record<string, CodeChoice>>({});
   const [saving, setSaving] = useState(false);
@@ -111,7 +112,7 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
     () => codeRows(setup.questions, setup.lists, [initial, final], s?.codes ?? {}, (i) => labelIn(i.labels, language, setup, i.code)).map((r) => ({ ...r, choice: chosen[`${r.list}\u0000${r.code}`] ?? r.choice })),
     [setup, initial, final, s, language, chosen],
   );
-  const area = Number(totalArea.replace(",", "."));
+  const area = typedArea(totalArea, language) ?? Number.NaN;
   const needsArea = setup.areas === null;
   const ready = initial !== "" && final !== "" && (!needsArea || (Number.isFinite(area) && area > 0));
   const save = async () => {
@@ -160,7 +161,7 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
         />
       ) : (
         <Typography variant="body2" sx={{ mb: 2 }}>
-          {t("uncertainty.areasFile", { file: setup.areas! })}
+          {setup.areas === "strata" || setup.areas === "total" ? t("uncertainty.areasSetting") : t("uncertainty.areasFile", { file: setup.areas! })}
         </Typography>
       )}
       {rows.length > 0 && (
@@ -259,7 +260,8 @@ function Summary({ d }: { d: UncertaintyData }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number, digits = 0) => new Intl.NumberFormat(language, { maximumFractionDigits: digits }).format(v);
-  const skipped = (["missing", "unmapped", "leftOut", "noArea"] as const).filter((k) => d.skipped[k] > 0);
+  const skipped = (["missing", "unmapped", "noArea"] as const).filter((k) => d.skipped[k] > 0);
+  const noData = Math.max(d.noData.initial.area, d.noData.final.area);
   const unmappedOf = (which: "initial" | "final") => d.unmapped.filter((u) => u.which === which);
   return (
     <Stack spacing={1}>
@@ -280,6 +282,11 @@ function Summary({ d }: { d: UncertaintyData }) {
               </div>
             ) : null,
           )}
+        </Alert>
+      )}
+      {noData > 0 && (
+        <Alert severity="info">
+          {t("uncertainty.noDataNote", { initial: n(d.noData.initial.area, 1), final: n(d.noData.final.area, 1), initialYear: d.settings.initialYear, finalYear: d.settings.finalYear })}
         </Alert>
       )}
       {d.notEstimable.length > 0 && (

@@ -14,7 +14,7 @@ import type { Mailer } from './mail.js';
 import type { Store } from './store/store.js';
 import type { MailLanguage } from './types.js';
 
-export type AlertKind = 'failed_logins' | 'server_errors' | 'sync_errors' | 'storage';
+export type AlertKind = 'failed_logins' | 'server_errors' | 'sync_errors' | 'storage' | 'two_factor_keys';
 export type AlertSignal = 'failedLogin' | 'serverError' | 'syncError';
 
 export interface OwnerAlert {
@@ -71,6 +71,14 @@ export class OwnerAlerts {
     }
   }
 
+  /**
+   * Two-step sign-in's secrets that no key of the server reads (src/twoFactorCheck.ts, at start): the people who have
+   * them cannot sign in but with a recovery code. Raised at each start where it is so, as it will not mend by itself.
+   */
+  twoFactorUnreadable(count: number): void {
+    if (count > 0) this.raise({ kind: 'two_factor_keys', at: this.now(), count }, 'two_factor_keys', 0);
+  }
+
   private raise(alert: OwnerAlert, key: string, cooldown: number): void {
     const last = this.lastRaised.get(key);
     if (last !== undefined && alert.at - last < cooldown) return;
@@ -98,6 +106,8 @@ const en = {
   server_errorsText: 'The server answered {count} requests with an error in the last hour. Look at the server log for what failed.',
   sync_errorsText: 'The server refused {count} records sent by Collect Earth in the last hour: interpreters\' work may not be arriving. Look at the server log.',
   storageText: 'The project {project} uses {count}% of its storage limit. Raise the limit in the server settings, or ask its coordinators to remove what they no longer need.',
+  two_factor_keys: 'two-step sign-in cannot be checked',
+  two_factor_keysText: 'The server cannot read the two-step sign-in of {count} accounts it checked when it started: those people can only sign in with a recovery code. Its key changed: put back the TWO_FACTOR_KEY it had (the server log names the keys missing), or turn their two-step sign-in off in the server panel.',
   footer: 'This mail goes to the administrators of {server}. The same alert is sent at most once every six hours.',
 };
 type AlertTexts = typeof en;
@@ -111,6 +121,8 @@ const es: AlertTexts = {
   server_errorsText: 'El servidor respondió con un error a {count} solicitudes en la última hora. Mire el registro del servidor para ver qué falló.',
   sync_errorsText: 'El servidor rechazó {count} registros enviados por Collect Earth en la última hora: el trabajo de los intérpretes podría no estar llegando. Mire el registro del servidor.',
   storageText: 'El proyecto {project} usa el {count} % de su límite de almacenamiento. Suba el límite en la configuración del servidor, o pida a sus coordinadores que borren lo que ya no necesitan.',
+  two_factor_keys: 'no se puede comprobar la verificación en dos pasos',
+  two_factor_keysText: 'El servidor no puede leer la verificación en dos pasos de {count} cuentas que comprobó al arrancar: esas personas solo pueden entrar con un código de recuperación. Su clave cambió: vuelva a poner la TWO_FACTOR_KEY que tenía (el registro del servidor indica las claves que faltan), o desactive su verificación en dos pasos en el panel del servidor.',
   footer: 'Este correo va a los administradores de {server}. La misma alerta se envía como mucho una vez cada seis horas.',
 };
 const fr: AlertTexts = {
@@ -123,6 +135,8 @@ const fr: AlertTexts = {
   server_errorsText: 'Le serveur a répondu par une erreur à {count} requêtes dans la dernière heure. Regardez le journal du serveur pour voir ce qui a échoué.',
   sync_errorsText: 'Le serveur a refusé {count} enregistrements envoyés par Collect Earth dans la dernière heure : le travail des interprètes n\'arrive peut-être pas. Regardez le journal du serveur.',
   storageText: 'Le projet {project} utilise {count} % de sa limite de stockage. Augmentez la limite dans les réglages du serveur, ou demandez à ses coordinateurs de supprimer ce dont ils n\'ont plus besoin.',
+  two_factor_keys: 'la validation en deux étapes ne peut pas être vérifiée',
+  two_factor_keysText: 'Le serveur ne peut pas lire la validation en deux étapes de {count} comptes vérifiés à son démarrage : ces personnes ne peuvent se connecter qu\'avec un code de récupération. Sa clé a changé : remettez la TWO_FACTOR_KEY qu\'il avait (le journal du serveur nomme les clés manquantes), ou désactivez leur validation en deux étapes dans le panneau du serveur.',
   footer: 'Ce message va aux administrateurs de {server}. La même alerte est envoyée au plus une fois toutes les six heures.',
 };
 const pt: AlertTexts = {
@@ -135,9 +149,25 @@ const pt: AlertTexts = {
   server_errorsText: 'O servidor respondeu com erro a {count} pedidos na última hora. Veja o log do servidor para saber o que falhou.',
   sync_errorsText: 'O servidor recusou {count} registros enviados pelo Collect Earth na última hora: o trabalho dos intérpretes pode não estar chegando. Veja o log do servidor.',
   storageText: 'O projeto {project} usa {count}% do limite de armazenamento. Aumente o limite nas configurações do servidor, ou peça aos coordenadores que apaguem o que já não precisam.',
+  two_factor_keys: 'a verificação em duas etapas não pode ser conferida',
+  two_factor_keysText: 'O servidor não consegue ler a verificação em duas etapas de {count} contas que conferiu ao iniciar: essas pessoas só conseguem entrar com um código de recuperação. A chave mudou: recoloque a TWO_FACTOR_KEY que ele tinha (o log do servidor indica as chaves que faltam), ou desative a verificação em duas etapas delas no painel do servidor.',
   footer: 'Este e-mail vai para os administradores de {server}. O mesmo alerta é enviado no máximo uma vez a cada seis horas.',
 };
-const TEXTS: Record<MailLanguage, AlertTexts> = { en, es, fr, pt };
+const tr: AlertTexts = {
+  subject: '{server}: {what}',
+  failed_logins: 'çok sayıda başarısız oturum açma denemesi',
+  server_errors: 'çok sayıda sunucu hatası',
+  sync_errors: 'Collect Earth kayıtları reddedildi',
+  storage: 'bir proje depolama sınırına yaklaştı',
+  failed_loginsText: 'Son bir saatte {count} başarısız oturum açma denemesi oldu. Birisi parolaları tahmin etmeye çalışıyor olabilir: sunucu panelini inceleyin ve koordinatörler için iki adımlı oturum açmayı değerlendirin.',
+  server_errorsText: 'Sunucu son bir saatte {count} isteğe hatayla yanıt verdi. Neyin başarısız olduğunu görmek için sunucu günlüğüne bakın.',
+  sync_errorsText: 'Sunucu son bir saatte Collect Earth’ten gönderilen {count} kaydı reddetti: veri toplayıcıların çalışmaları sunucuya ulaşmıyor olabilir. Sunucu günlüğüne bakın.',
+  storageText: '{project} projesinin depolama kullanımı sınırın %{count} düzeyinde. Sunucu ayarlarından sınırı yükseltin ya da projenin koordinatörlerinden artık ihtiyaç duymadıkları verileri silmelerini isteyin.',
+  two_factor_keys: 'iki adımlı oturum açma doğrulanamıyor',
+  two_factor_keysText: 'Sunucu, başlarken denetlediği {count} hesabın iki adımlı oturum açma bilgisini okuyamıyor: bu kişiler yalnızca bir kurtarma koduyla oturum açabilir. Anahtar değişti: sunucunun önceki TWO_FACTOR_KEY değerini geri koyun (eksik anahtarlar sunucu günlüğünde yazar) ya da bu kişilerin iki adımlı oturum açmasını sunucu panelinden kapatın.',
+  footer: 'Bu e-posta {server} yöneticilerine gönderilir. Aynı uyarı en fazla altı saatte bir gönderilir.',
+};
+const TEXTS: Record<MailLanguage, AlertTexts> = { en, es, fr, pt, tr };
 
 /** The mail of an alert, in a language. */
 export function alertMail(alert: OwnerAlert, language: MailLanguage, server: string, projectName: string | null): { subject: string; text: string; html: string } {

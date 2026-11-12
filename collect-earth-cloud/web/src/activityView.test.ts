@@ -105,7 +105,7 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("settings.changed", { setting: "name", name: "Bolivia 2027" }), page, "en")).toBe("ana renamed the project “Bolivia 2027”");
     expect(logSentence(t, audit("settings.changed", { setting: "name" }), page, "en")).toBe("ana renamed the project");
     expect(logSentence(t, audit("settings.changed", { setting: "name", name: "Bolivia 2027" }), page, "en", { local: true })).toBe("You renamed the project “Bolivia 2027”");
-    for (const lang of ["es", "fr", "pt"]) {
+    for (const lang of ["es", "fr", "pt", "tr"]) {
       expect(logSentence(translator(lang), audit("settings.changed", { setting: "name", name: "X" }), page, lang), lang).toContain("X");
       expect(logSentence(translator(lang), audit("sampling.drawn", { drawn: 1 }), page, lang), lang).not.toMatch(/parcel(a|le)s/);
     }
@@ -130,7 +130,7 @@ describe("the log's sentences", () => {
   });
 
   it("every language has every sentence (no key shown as is)", () => {
-    for (const lang of ["es", "fr", "pt"]) {
+    for (const lang of ["es", "fr", "pt", "tr"]) {
       const tr = translator(lang);
       for (const item of [record("submitted", "check"), audit("plots.moved", { csvFileId: "f1", fromUserId: "u2", toUserId: "u1", moved: 4 }), audit("settings.changed", { setting: "progress" }), audit("settings.changed", { setting: "sampling" }), audit("sampling.drawn", { automatic: true, drawn: 2 }), audit("sampling.drawn", { drawn: 2 }), audit("reference.changed", { csvFileId: "f1", added: 2 }), audit("reference.changed", { removed: 2 })]) {
         const s = logSentence(tr, item, page, lang);

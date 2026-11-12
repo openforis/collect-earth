@@ -112,7 +112,9 @@ async function prepare(store: Store, request: FastifyRequest, reply: FastifyRepl
     const seen = byOperator.get(r.operator) ?? { username, records: 0 };
     seen.records++;
     byOperator.set(r.operator, seen);
-    records.push({ ...r, operator: username });
+    // its parsed nodes are not kept: every record is held until stored
+    const { children: _children, keyValues: _keyValues, ...record } = r;
+    records.push({ ...record, operator: username });
   }
   const existing = new Map<string, number>();
   for (const s of await store.listRecordStates(projectId)) existing.set(id(s.recordKey, s.operator), s.modifiedOn);

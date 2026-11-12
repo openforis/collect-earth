@@ -49,6 +49,8 @@ describe('copying a project (a template)', () => {
   });
 
   it('makes a draft with the survey, plot files and settings, without the people or any work', async () => {
+    const areas = { mode: 'strata' as const, columns: ['province'], strata: [{ values: ['La Paz'], area: 1000 }] };
+    await ctx.store.setAreaSettings(src, areas);
     const res = await copy({ name: 'Bolivia 2027' });
     expect(res.statusCode, res.body).toBe(201);
     const { projectId, name, status } = res.json();
@@ -64,6 +66,7 @@ describe('copying a project (a template)', () => {
       ['whole.csv', 4, null],
     ]);
     expect((await call('GET', projectId, '/progress/settings')).json()).toEqual({ deadline: '2099-01-31', targetPlots: 4, quietDays: 5 });
+    expect(await ctx.store.getAreaSettings(projectId)).toEqual(areas);
 
     expect((await ctx.store.listMembers(projectId)).map((m) => [m.username, m.role])).toEqual([['owner', 'admin']]);
     expect(await ctx.store.listAssignments(projectId)).toEqual([]);

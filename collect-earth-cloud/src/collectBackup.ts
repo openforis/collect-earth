@@ -1,5 +1,5 @@
 // The Collect Earth backup (Task 17): the project's records as a zip that Collect Earth imports
-// with "Tools > Data Import/Export > Import new data from ZIP (compressed XML)". The layout is the
+// with "Data Import/Export > Import data (ZIP or CSV)". The layout is the
 // one Collect's XMLDataImportProcess reads and Collect Earth's own export writes (see the plan's
 // spike): `idml.xml` (the survey), then one `<step>/<n>.xml` per record, nothing else.
 import type { RecordRound } from './rounds.js';
