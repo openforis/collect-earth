@@ -49,6 +49,6 @@
     "@types/pg": "^8.11.6",
     "esbuild": "0.28.1",
     "typescript": "^5.5.4",
-    "vitest": "^2.0.5"
+    "vitest": "^5.1.0"
   }
 }
