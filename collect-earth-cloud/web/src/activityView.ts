@@ -79,6 +79,7 @@ const EXPORT_KEYS: Record<string, MessageKey> = {
   decisions: "activity.export.decisions",
   differences: "activity.export.differences",
   "collect-backup": "activity.export.collectBackup",
+  ipcc: "ipcc.logged",
   analysis: "activity.export.analysis",
   training_scores: "activity.export.trainingScores",
   training_answers: "activity.export.trainingAnswers",

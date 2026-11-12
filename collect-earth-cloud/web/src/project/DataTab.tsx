@@ -27,6 +27,7 @@ import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
 import { CollectBackup } from "./CollectBackup";
 import { CollectImport } from "./CollectImport";
+import { IpccExports } from "./IpccExports";
 
 const FORMAT_LABELS = { csv: "data.formatCsv", geojson: "data.formatGeojson", kml: "data.formatKml", "shp.zip": "data.formatShp" } as const;
 const RECORDS_LABELS = { all: "data.records.all", last: "data.records.last", date: "data.records.date", answer: "data.records.answer" } as const;
@@ -225,6 +226,7 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
           <ErrorAlert error={error} />
         </Stack>
       </Paper>
+      {sections.includes("ipcc") && <IpccExports projectId={projectId} />}
       {sections.includes("backup") && <CollectBackup projectId={projectId} />}
       {sections.includes("import") && <CollectImport projectId={projectId} />}
       {sections.includes("qualityCheck") && <QualityCheck onGo={onGo} />}

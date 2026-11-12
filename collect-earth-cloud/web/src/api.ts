@@ -5180,6 +5180,47 @@ export async function downloadAreasFile(projectId: string): Promise<{ blob: Blob
   return { blob: await response.blob(), filename: attachmentName(response, "areas_per_attribute.csv") };
 }
 
+/** Collect Earth's IPCC exports (src/routes/ipcc.ts): what the survey lacks, the plots, and what the form offers. */
+export interface IpccExports {
+  /** Questions or lists the survey lacks for them: none when they can be made. */
+  missing: string[];
+  /** Plots with a submitted first assessment. */
+  plots: number;
+  /** Where the plots' areas come from, null when the project has none. */
+  areas: string | null;
+  /** The IPCC Inventory Software's countries: code and name. */
+  countries: [string, string][];
+  /** The questions that can hold the region, and the one to choose first. */
+  regions: string[];
+  region: string | null;
+  /** The land use subdivisions and their default management type. */
+  subdivisions: { category: string; code: string; name: string; management: string }[];
+}
+export type IpccFile = "matrix" | "matrix-strata" | "plots" | "land-units" | "timeseries";
+export const IPCC_FILES: readonly IpccFile[] = ["matrix", "matrix-strata", "plots", "land-units", "timeseries"];
+/** The management types of each IPCC category (the server's MANAGEMENT_TYPES). */
+export const IPCC_MANAGEMENT: Record<string, readonly string[]> = {
+  F: ["MANAGED", "UNMANAGED"],
+  C: ["ANNUAL", "PERENNIAL"],
+  G: ["MANAGED", "UNMANAGED"],
+  W: ["MANAGED", "UNMANAGED"],
+  S: ["TREED", "OTHER"],
+  O: ["MANAGED", "UNMANAGED"],
+};
+
+export const getIpccExports = (projectId: string) => request<IpccExports>("GET", `${p(projectId)}/exports/ipcc`);
+
+export async function downloadIpccFile(projectId: string, file: IpccFile): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("GET", `${p(projectId)}/exports/ipcc/${file}`);
+  return { blob: await response.blob(), filename: attachmentName(response, `${file}.txt`) };
+}
+
+/** The file for the IPCC Inventory Software; `management` by "<category>/<code>". */
+export async function downloadIpccGhgi(projectId: string, choices: { country: string; region: string; management: Record<string, string> }): Promise<{ blob: Blob; filename: string }> {
+  const response = await send("POST", `${p(projectId)}/exports/ipcc/ghgi`, { json: choices });
+  return { blob: await response.blob(), filename: attachmentName(response, "GHGi_tool_data.xml") };
+}
+
 export async function getUncertainty(projectId: string): Promise<UncertaintyData> {
   return request<UncertaintyData>("GET", `${p(projectId)}/uncertainty`);
 }

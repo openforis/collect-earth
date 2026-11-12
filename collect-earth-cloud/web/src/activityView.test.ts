@@ -70,6 +70,7 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("export.downloaded", { kind: "daily", rows: 3 }), page, "en")).toBe("ana downloaded the daily activity");
     expect(logSentence(t, audit("export.downloaded", { records: 50 }), page, "en")).toBe("ana downloaded the data (50 records)");
     expect(logSentence(t, audit("export.downloaded", { kind: "collect-backup", rows: 4, rounds: "all" }), page, "en")).toBe("ana downloaded the Collect Earth backup");
+    expect(logSentence(t, audit("export.downloaded", { kind: "ipcc", file: "matrix", plots: 3 }), page, "en")).toBe("ana downloaded an IPCC export");
     expect(logSentence(t, audit("export.downloaded", { kind: "collect-backup", rows: 4, rounds: "all", completed: false }), page, "en")).toBe("ana's download of the Collect Earth backup stopped before the end");
     expect(logSentence(t, audit("export.downloaded", { kind: "collect-backup", rows: 4, rounds: "all", format: "collect" }), page, "en")).toBe("ana downloaded the OpenForis Collect backup");
     expect(logSentence(t, audit("cep.replaced", {}, null), page, "en")).toBe("Someone no longer in the project uploaded a new project file");
